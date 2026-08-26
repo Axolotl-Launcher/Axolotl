@@ -14,16 +14,24 @@ pub(crate) mod migration;
 // Global event state
 // Stores the Tauri app handle and other event-related state variables
 static EVENT_STATE: OnceCell<Arc<EventState>> = OnceCell::const_new();
+
+#[cfg(all(feature = "tauri", feature = "cef"))]
+pub type TauriRuntime = tauri::Cef;
+#[cfg(all(feature = "tauri", not(feature = "cef")))]
+pub type TauriRuntime = tauri::Wry;
+
 pub struct EventState {
     /// Tauri app
     #[cfg(feature = "tauri")]
-    pub app: tauri::AppHandle,
+    pub app: tauri::AppHandle<TauriRuntime>,
     pub loading_bars: DashMap<Uuid, LoadingBar>,
 }
 
 impl EventState {
     #[cfg(feature = "tauri")]
-    pub async fn init(app: tauri::AppHandle) -> crate::Result<Arc<Self>> {
+    pub async fn init(
+        app: tauri::AppHandle<TauriRuntime>,
+    ) -> crate::Result<Arc<Self>> {
         EVENT_STATE
             .get_or_try_init(|| async {
                 Ok(Arc::new(Self {
@@ -63,8 +71,8 @@ impl EventState {
     }
 
     #[cfg(feature = "tauri")]
-    pub async fn get_main_window() -> crate::Result<Option<tauri::WebviewWindow>>
-    {
+    pub async fn get_main_window()
+    -> crate::Result<Option<tauri::WebviewWindow<TauriRuntime>>> {
         use tauri::Manager;
         let value = Self::get()?;
         Ok(value.app.get_webview_window("main"))

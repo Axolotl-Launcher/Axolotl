@@ -53,6 +53,13 @@ mod updater_impl;
 #[cfg(not(feature = "updater"))]
 mod updater_impl_noop;
 
+#[cfg(feature = "cef")]
+pub(crate) type AppRuntime = tauri::Cef;
+#[cfg(not(feature = "cef"))]
+pub(crate) type AppRuntime = tauri::Wry;
+type AppHandle = tauri::AppHandle<AppRuntime>;
+type Window = tauri::Window<AppRuntime>;
+
 const BLOCKBENCH_SKIN_RESOURCE_DIR: &str = "resources/blockbench-skin";
 
 static PROCESS_STARTED: OnceLock<Instant> = OnceLock::new();
@@ -244,7 +251,7 @@ fn is_skin_editor_referer(
 #[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 async fn initialize_state(
-    app: tauri::AppHandle,
+    app: AppHandle,
     frontend_timing: Option<FrontendStartupTiming>,
 ) -> api::Result<()> {
     startup_phase("initialize_received");
@@ -497,7 +504,7 @@ async fn set_discord_activity(activity: String) -> api::Result<()> {
 // Should be call once Vue has mounted the app
 #[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
-fn show_window(app: tauri::AppHandle) {
+fn show_window(app: AppHandle) {
     let win = app.get_window("main").unwrap();
     if let Err(e) = window_frame::present_main_window(&win, true) {
         DialogBuilder::message()
@@ -527,7 +534,7 @@ fn frontend_ready() {
 #[tauri::command]
 async fn set_transparent_window_frame(
     enabled: bool,
-    window: tauri::Window,
+    window: Window,
 ) -> Result<window_frame::FrameResult, String> {
     window_frame::apply_frame(enabled, &window).await
 }
@@ -553,7 +560,7 @@ pub use updater_impl_noop::*;
 // Toggles decorations
 #[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
-async fn toggle_decorations(b: bool, window: tauri::Window) -> api::Result<()> {
+async fn toggle_decorations(b: bool, window: Window) -> api::Result<()> {
     window.set_decorations(b).map_err(|e| {
         theseus::Error::from(theseus::ErrorKind::OtherError(format!(
             "Failed to toggle decorations: {e}"
@@ -751,7 +758,7 @@ fn is_elevated() -> bool {
 
 #[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
-fn allow_symlink_target(app: tauri::AppHandle, path: String) {
+fn allow_symlink_target(app: AppHandle, path: String) {
     use tauri_plugin_fs::FsExt;
     let _ = app.fs_scope().allow_directory(&path, true);
 }
@@ -813,6 +820,7 @@ fn raise_file_descriptor_limit() {
 
 // if Tauri app is called with arguments, then those arguments will be treated as commands
 // ie: deep links or filepaths for .mrpacks
+#[cfg_attr(feature = "cef", tauri::cef_entry_point)]
 fn main() {
     let _ = PROCESS_STARTED.set(Instant::now());
     #[cfg(windows)]
@@ -868,7 +876,7 @@ fn main() {
     appimage::prefer_host_tools();
 
     // Workaround: NVIDIA's proprietary EGL driver crashes WebKitGTK's DMA-BUF renderer
-    #[cfg(target_os = "linux")]
+    #[cfg(all(target_os = "linux", not(feature = "cef")))]
     if env::var_os("__NV_DISABLE_EXPLICIT_SYNC").is_none()
         && std::path::Path::new("/proc/driver/nvidia/version").exists()
     {
@@ -923,7 +931,7 @@ fn main() {
 
     tracing::info!("Initialized tracing subscriber. Loading Axolotl Launcher!");
 
-    let mut builder = tauri::Builder::default()
+    let mut builder = tauri::Builder::<AppRuntime>::default()
         .register_uri_scheme_protocol(
             "axolotl-skin",
             move |context, request| {

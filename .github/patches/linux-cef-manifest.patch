@@ -1,0 +1,34 @@
+diff --git a/Cargo.toml b/Cargo.toml
+index b36960284..742528ad8 100644
+--- a/Cargo.toml
++++ b/Cargo.toml
+@@ -110,6 +110,6 @@ symlink-rs = "1"
+ sysinfo = { version = "0.37.2", default-features = false }
+ tar = "0.4.44"
+-tauri = "2.8.5"
++tauri = { version = "2.8.5", default-features = false }
+ tauri-build = "2.4.1"
+ tauri-plugin-deep-link = "2.4.3"
+ tauri-plugin-dialog = "2.4.0"
+diff --git a/apps/app/Cargo.toml b/apps/app/Cargo.toml
+index ca6dd30ca..975bb0dda 100644
+--- a/apps/app/Cargo.toml
++++ b/apps/app/Cargo.toml
+@@ -79,7 +79,7 @@ features = ["Win32_Graphics_Dwm", "Win32_System_Com", "Win32_UI_Shell"]
+ # by default Tauri runs in production mode
+ # when `tauri dev` runs it is executed with `cargo run --no-default-features` if `devPath` is an URL
+ default = ["custom-protocol"]
+-cef = ["theseus/cef"]
++cef = ["tauri/cef", "theseus/cef"]
+ # this feature is used for production builds where `devPath` points to the filesystem
+ # DO NOT remove this
+ custom-protocol = ["tauri/custom-protocol"]
+diff --git a/packages/app-lib/Cargo.toml b/packages/app-lib/Cargo.toml
+index be8b46bdb..b5a3c6809 100644
+--- a/packages/app-lib/Cargo.toml
++++ b/packages/app-lib/Cargo.toml
+@@ -169,3 +169,3 @@ winreg = { workspace = true }
+ [features]
+-cef = []
++cef = ["tauri/cef"]
+ cli = ["dep:indicatif"]

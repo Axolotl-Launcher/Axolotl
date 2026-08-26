@@ -1,0 +1,176 @@
+name: Linux CEF experimental build
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - experiment/linux-cef-runtime
+  pull_request:
+    branches:
+      - experiment/linux-cef-runtime
+
+permissions:
+  contents: read
+
+concurrency:
+  group: linux-cef-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build Linux x64 CEF Deb
+    runs-on: ubuntu-24.04
+    env:
+      SQLX_OFFLINE: true
+      TAURI_CEF_REV: 5bb1c8cdca82dafb9fb92fe8494a8b37b10db143
+      CEF_VERSION: 151.1.0+151.3.12
+    steps:
+      - name: Check out source
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          submodules: recursive
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@008330803749db0355799c700092d9a85fd074e9 # v6.0.9
+
+      - name: Set up Node.js
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Set up Rust 1.95.0
+        uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8
+        with:
+          toolchain: 1.95.0
+
+      - name: Install Linux CEF build dependencies
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          sudo apt-get -o Acquire::ForceIPv4=true update
+          sudo apt-get -o Acquire::ForceIPv4=true install -y \
+            build-essential \
+            cmake \
+            libayatana-appindicator3-dev \
+            libgtk-3-dev \
+            librsvg2-dev \
+            ninja-build \
+            patchelf \
+            pkg-config \
+            xdg-utils
+
+      - name: Install JavaScript dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Blockbench skin editor dependencies
+        run: npm ci
+        working-directory: third-party/blockbench
+
+      - name: Replace Gradle mirror
+        uses: ./.github/actions/replace-gradle-mirror
+
+      - name: Build frontend
+        run: pnpm --filter @modrinth/app-frontend build
+
+      - name: Prepare isolated CEF toolchain
+        shell: bash
+        run: |
+          cargo_home="${RUNNER_TEMP}/cargo-cef-home"
+          cef_path="${RUNNER_TEMP}/tauri-cef"
+          mkdir -p "$cargo_home" "$cef_path"
+          cp .cargo/config-cef-linux.toml "$cargo_home/config.toml"
+          echo "CARGO_HOME=$cargo_home" >> "$GITHUB_ENV"
+          echo "$cargo_home/bin" >> "$GITHUB_PATH"
+          echo "CEF_PATH=$cef_path" >> "$GITHUB_ENV"
+
+      - name: Install matching Tauri CEF CLI
+        run: |
+          cargo install tauri-cli \
+            --git https://github.com/tauri-apps/tauri \
+            --rev "$TAURI_CEF_REV" \
+            --locked
+
+      - name: Activate locked Linux CEF dependency graph
+        run: |
+          git apply --check .github/patches/linux-cef-manifest.patch
+          git apply .github/patches/linux-cef-manifest.patch
+          cp Cargo.cef-linux.lock Cargo.lock
+          cargo metadata \
+            --locked \
+            --format-version 1 \
+            --filter-platform x86_64-unknown-linux-gnu \
+            --no-default-features \
+            --features cef,custom-protocol,updater \
+            > /dev/null
+
+          tree_file="${RUNNER_TEMP}/linux-cef-tree.txt"
+          cargo tree \
+            --locked \
+            --package theseus_gui \
+            --target x86_64-unknown-linux-gnu \
+            --no-default-features \
+            --features cef,custom-protocol,updater \
+            --edges normal,build \
+            > "$tree_file"
+          grep -F 'tauri-runtime-cef' "$tree_file"
+          grep -F "cef v$CEF_VERSION" "$tree_file"
+          if grep -Eq 'tauri-runtime-wry|webkit2gtk' "$tree_file"; then
+            echo 'Linux CEF graph unexpectedly contains Wry or WebKitGTK'
+            grep -E 'tauri-runtime-wry|webkit2gtk' "$tree_file"
+            exit 1
+          fi
+
+      - name: Build Linux CEF Deb
+        working-directory: apps/app
+        run: |
+          cargo tauri build \
+            --bundles deb \
+            --no-default-features \
+            --features cef,custom-protocol,updater \
+            --config tauri-release.conf.json \
+            --config '{"bundle":{"createUpdaterArtifacts":false}}'
+
+      - name: Verify CEF Deb contents
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -d '' debs < <(find target/release/bundle/deb -type f -name '*.deb' -print0)
+          if (( ${#debs[@]} == 0 )); then
+            echo 'No Deb package was produced'
+            exit 1
+          fi
+
+          for deb in "${debs[@]}"; do
+            echo "Checking $deb"
+            contents="$(dpkg-deb --contents "$deb")"
+            for required in libcef.so resources.pak locales/en-US.pak chrome-sandbox; do
+              if ! grep -Fq "$required" <<< "$contents"; then
+                echo "$deb is missing CEF runtime file: $required"
+                exit 1
+              fi
+            done
+
+            sandbox_mode="$(awk '/chrome-sandbox$/ { print $1 }' <<< "$contents")"
+            if [[ "$sandbox_mode" != -rws* ]]; then
+              echo "$deb has an unsafe chrome-sandbox mode: ${sandbox_mode:-missing}"
+              exit 1
+            fi
+
+            depends="$(dpkg-deb --field "$deb" Depends)"
+            if grep -qi webkit <<< "$depends"; then
+              echo "$deb unexpectedly depends on WebKitGTK: $depends"
+              exit 1
+            fi
+            echo "Deb dependencies: $depends"
+          done
+
+          find target/release/bundle -maxdepth 4 -type f -printf '%p (%s bytes)\n'
+
+      - name: Upload Linux CEF Deb
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: axolotl-linux-cef-${{ github.sha }}
+          path: target/release/bundle/deb/**/*.deb
+          if-no-files-found: error
+          retention-days: 14

@@ -1,3 +1,23 @@
 {
-  "mainBinaryName": "Axolotl Launcher"
+  "mainBinaryName": "Axolotl Launcher",
+  "app": {
+    "windows": [
+      {
+        "titleBarStyle": "Overlay",
+        "hiddenTitle": true,
+        "fullscreen": false,
+        "height": 800,
+        "resizable": true,
+        "title": "Axolotl Launcher",
+        "label": "main",
+        "width": 1280,
+        "minHeight": 700,
+        "minWidth": 1100,
+        "visible": false,
+        "zoomHotkeysEnabled": false,
+        "decorations": false,
+        "transparent": false
+      }
+    ]
+  }
 }

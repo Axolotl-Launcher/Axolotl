@@ -73,7 +73,19 @@ jobs:
       - name: Build frontend
         run: pnpm --filter @modrinth/app-frontend build
 
-      - name: Prepare isolated CEF toolchain
+      - name: Install matching Tauri CEF CLI
+        shell: bash
+        working-directory: ${{ runner.temp }}
+        run: |
+          cli_root="${RUNNER_TEMP}/tauri-cef-cli"
+          cargo install tauri-cli \
+            --git https://github.com/tauri-apps/tauri \
+            --rev "$TAURI_CEF_REV" \
+            --locked \
+            --root "$cli_root"
+          echo "$cli_root/bin" >> "$GITHUB_PATH"
+
+      - name: Prepare isolated CEF build toolchain
         shell: bash
         run: |
           cargo_home="${RUNNER_TEMP}/cargo-cef-home"
@@ -81,15 +93,7 @@ jobs:
           mkdir -p "$cargo_home" "$cef_path"
           cp .cargo/config-cef-linux.toml "$cargo_home/config.toml"
           echo "CARGO_HOME=$cargo_home" >> "$GITHUB_ENV"
-          echo "$cargo_home/bin" >> "$GITHUB_PATH"
           echo "CEF_PATH=$cef_path" >> "$GITHUB_ENV"
-
-      - name: Install matching Tauri CEF CLI
-        run: |
-          cargo install tauri-cli \
-            --git https://github.com/tauri-apps/tauri \
-            --rev "$TAURI_CEF_REV" \
-            --locked
 
       - name: Activate locked Linux CEF dependency graph
         run: |

@@ -7260,12 +7260,13 @@ dependencies = [
 [[package]]
 name = "tauri-plugin"
 version = "2.6.3"
-source = "git+https://github.com/tauri-apps/tauri?rev=5bb1c8cdca82dafb9fb92fe8494a8b37b10db143#5bb1c8cdca82dafb9fb92fe8494a8b37b10db143"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "74be5dd4bed9afbd145e5716b5fa2ec28cbc29c34ffa61c258c9273d896c8020"
 dependencies = [
  "anyhow",
  "glob",
  "plist",
- "schemars 1.2.1",
+ "schemars 0.8.22",
  "serde",
  "serde_json",
  "tauri-utils",

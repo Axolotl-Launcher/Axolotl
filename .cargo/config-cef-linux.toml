@@ -9,7 +9,8 @@ tauri = { git = "https://github.com/tauri-apps/tauri", rev = "5bb1c8cdca82dafb9f
 tauri-build = { git = "https://github.com/tauri-apps/tauri", rev = "5bb1c8cdca82dafb9fb92fe8494a8b37b10db143" }
 tauri-codegen = { git = "https://github.com/tauri-apps/tauri", rev = "5bb1c8cdca82dafb9fb92fe8494a8b37b10db143" }
 tauri-macros = { git = "https://github.com/tauri-apps/tauri", rev = "5bb1c8cdca82dafb9fb92fe8494a8b37b10db143" }
-tauri-plugin = { git = "https://github.com/tauri-apps/tauri", rev = "5bb1c8cdca82dafb9fb92fe8494a8b37b10db143" }
+# Keep the crates.io tauri-plugin build helper: the stable plugins use its
+# schemars 0.8 API, while the CEF branch helper has moved to schemars 1.
 tauri-runtime = { git = "https://github.com/tauri-apps/tauri", rev = "5bb1c8cdca82dafb9fb92fe8494a8b37b10db143" }
 tauri-runtime-wry = { git = "https://github.com/tauri-apps/tauri", rev = "5bb1c8cdca82dafb9fb92fe8494a8b37b10db143" }
 tauri-utils = { git = "https://github.com/tauri-apps/tauri", rev = "5bb1c8cdca82dafb9fb92fe8494a8b37b10db143" }

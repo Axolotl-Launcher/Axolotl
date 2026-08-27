@@ -840,6 +840,12 @@ fn main() {
     // SAFETY: Called at the start of main() before any threads or tokio runtime are spawned
     let _portable = unsafe { portable::init_portable_mode() };
 
+    #[cfg(all(target_os = "linux", feature = "cef"))]
+    if let Err(error) = gtk::init() {
+        eprintln!("Failed to initialize GTK for the Linux CEF runtime: {error}");
+        return;
+    }
+
     // macOS limits the per-process file descriptor count to 256 by default,
     // which the launcher's download concurrency exhausts during installs.
     #[cfg(target_os = "macos")]

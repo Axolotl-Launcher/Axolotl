@@ -46,6 +46,25 @@ jobs:
         with:
           toolchain: 1.95.0
 
+      - name: Set up Rust compiler cache
+        uses: mozilla-actions/sccache-action@2df7dbab909c49ab7d3382d05da469f3f975c2d6 # v0.0.7
+
+      - name: Check Rust compiler cache availability
+        id: sccache
+        continue-on-error: true
+        shell: bash
+        env:
+          SCCACHE_GHA_ENABLED: 'true'
+        run: ${SCCACHE_PATH} rustc -vV
+
+      - name: Enable Rust compiler cache
+        if: steps.sccache.outcome == 'success'
+        shell: bash
+        run: |
+          echo 'RUSTC_WRAPPER=sccache' >> "$GITHUB_ENV"
+          echo 'SCCACHE_GHA_ENABLED=true' >> "$GITHUB_ENV"
+          echo 'SCCACHE_CACHE_SIZE=4G' >> "$GITHUB_ENV"
+
       - name: Install Linux CEF build dependencies
         env:
           DEBIAN_FRONTEND: noninteractive
@@ -115,6 +134,15 @@ jobs:
           cp .cargo/config-cef-linux.toml "$cargo_home/config.toml"
           echo "CARGO_HOME=$cargo_home" >> "$GITHUB_ENV"
           echo "CEF_PATH=$cef_path" >> "$GITHUB_ENV"
+
+      - name: Restore CEF distribution and Cargo dependencies
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        with:
+          path: |
+            ${{ runner.temp }}/cargo-cef-home/registry
+            ${{ runner.temp }}/cargo-cef-home/git/db
+            ${{ runner.temp }}/tauri-cef
+          key: linux-cef-${{ runner.os }}-${{ env.TAURI_CEF_REV }}-${{ env.CEF_VERSION }}-${{ hashFiles('Cargo.cef-linux.lock', '.cargo/config-cef-linux.toml') }}
 
       - name: Activate locked Linux CEF dependency graph
         run: |
@@ -303,3 +331,8 @@ jobs:
           done
 
           find target/release/bundle -maxdepth 4 -type f -printf '%p (%s bytes)\n'
+
+      - name: Show Rust compiler cache statistics
+        if: steps.sccache.outcome == 'success' && always()
+        shell: bash
+        run: ${SCCACHE_PATH} --show-stats

@@ -288,10 +288,12 @@ jobs:
 
             sandbox_path="$(find "$appdir" -type f -name chrome-sandbox -print -quit)"
             sandbox_mode="$(stat -c '%A' "$sandbox_path")"
-            if [[ "$sandbox_mode" != -rws* ]]; then
-              echo "$appimage has an unsafe chrome-sandbox mode: ${sandbox_mode:-missing}"
+            if [[ ! -x "$sandbox_path" ]]; then
+              echo "$appimage has a non-executable chrome-sandbox: ${sandbox_mode:-missing}"
               exit 1
             fi
+            echo "$appimage chrome-sandbox mode: $sandbox_mode"
+            echo 'AppImages cannot rely on a root-owned setuid helper; no sandbox-disabling CEF flags are configured.'
             if find "$appdir" -iname '*webkit*' -print -quit | grep -q .; then
               echo "$appimage unexpectedly contains WebKitGTK files"
               find "$appdir" -iname '*webkit*' -print

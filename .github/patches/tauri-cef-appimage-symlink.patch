@@ -1,17 +1,23 @@
 diff --git a/crates/tauri-bundler/src/bundle/linux/appimage/sharun_cef.rs b/crates/tauri-bundler/src/bundle/linux/appimage/sharun_cef.rs
 --- a/crates/tauri-bundler/src/bundle/linux/appimage/sharun_cef.rs
 +++ b/crates/tauri-bundler/src/bundle/linux/appimage/sharun_cef.rs
-@@ -243,13 +243,6 @@ pub fn bundle_project(settings: &Settings) -> crate::Result<Vec<PathBuf>> {
-       app_dir_bin.join("libayatana-appindicator3.so.1"),
-     )?;
-   }
+@@ -238,14 +238,10 @@ pub fn bundle_project(settings: &Settings) -> crate::Result<Vec<PathBuf>> {
+   // This is super messed up but sharun or anylinux or whatever does not
+   // intercept `libloading::Library::new` here https://github.com/tauri-apps/libappindicator-rs/blob/main/sys/src/lib.rs#L14C43-L22
 -  if app_dir_lib.join("libayatana-appindicator3.so.1").exists() {
--    std::os::unix::fs::symlink(
++  let appindicator_library = app_dir_lib.join("libayatana-appindicator3.so.1");
++  let appindicator_link = app_dir_bin.join("libayatana-appindicator3.so.1");
++  if appindicator_library.exists() && !appindicator_link.exists() {
+     std::os::unix::fs::symlink(
 -      app_dir_lib.join("libayatana-appindicator3.so.1"),
 -      app_dir_bin.join("libayatana-appindicator3.so.1"),
 -    )?;
 -  }
--
-   Command::new("/bin/sh")
-     .current_dir(&output_path)
-     .env("APPDIR", &app_dir)
+-  if app_dir_lib.join("libayatana-appindicator3.so.1").exists() {
+-    std::os::unix::fs::symlink(
+-      app_dir_lib.join("libayatana-appindicator3.so.1"),
+-      app_dir_bin.join("libayatana-appindicator3.so.1"),
++      appindicator_library,
++      appindicator_link,
+     )?;
+   }

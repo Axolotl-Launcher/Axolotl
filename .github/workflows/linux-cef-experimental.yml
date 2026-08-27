@@ -23,6 +23,7 @@ jobs:
     env:
       SQLX_OFFLINE: true
       TAURI_CEF_REV: 5bb1c8cdca82dafb9fb92fe8494a8b37b10db143
+      TAURI_CEF_PLUGINS_REV: 1423992771e0b57582ca3b06a6adc46ec26aa784
       CEF_VERSION: 151.1.0+151.3.12
     steps:
       - name: Check out source
@@ -119,12 +120,11 @@ jobs:
             > "$tree_file"
           grep -F 'tauri-runtime-cef' "$tree_file"
           grep -F "cef v$CEF_VERSION" "$tree_file"
-          grep -F 'tauri-plugin v2.6.3' "$tree_file"
-          grep -F 'schemars v0.8.22' "$tree_file"
-          if grep -Fq 'tauri-plugin v2.6.3 (https://github.com/tauri-apps/tauri' "$tree_file"; then
-            echo 'Plugin build scripts unexpectedly use the schemars 1 CEF branch helper'
-            exit 1
-          fi
+          grep -F "tauri-plugin v2.6.3 (https://github.com/tauri-apps/tauri?rev=$TAURI_CEF_REV" "$tree_file"
+          grep -F "tauri-plugin-fs v2.5.1 (https://github.com/tauri-apps/plugins-workspace?rev=$TAURI_CEF_PLUGINS_REV" "$tree_file"
+          grep -F "tauri-plugin-http v2.5.9 (https://github.com/tauri-apps/plugins-workspace?rev=$TAURI_CEF_PLUGINS_REV" "$tree_file"
+          grep -F "tauri-plugin-opener v2.5.4 (https://github.com/tauri-apps/plugins-workspace?rev=$TAURI_CEF_PLUGINS_REV" "$tree_file"
+          grep -F 'schemars v1.2.1' "$tree_file"
           if grep -Eq 'tauri-runtime-wry|webkit2gtk' "$tree_file"; then
             echo 'Linux CEF graph unexpectedly contains Wry or WebKitGTK'
             grep -E 'tauri-runtime-wry|webkit2gtk' "$tree_file"

@@ -9,8 +9,12 @@ tauri = { git = "https://github.com/tauri-apps/tauri", rev = "5bb1c8cdca82dafb9f
 tauri-build = { git = "https://github.com/tauri-apps/tauri", rev = "5bb1c8cdca82dafb9fb92fe8494a8b37b10db143" }
 tauri-codegen = { git = "https://github.com/tauri-apps/tauri", rev = "5bb1c8cdca82dafb9fb92fe8494a8b37b10db143" }
 tauri-macros = { git = "https://github.com/tauri-apps/tauri", rev = "5bb1c8cdca82dafb9fb92fe8494a8b37b10db143" }
-# Keep the crates.io tauri-plugin build helper: the stable plugins use its
-# schemars 0.8 API, while the CEF branch helper has moved to schemars 1.
+tauri-plugin = { git = "https://github.com/tauri-apps/tauri", rev = "5bb1c8cdca82dafb9fb92fe8494a8b37b10db143" }
 tauri-runtime = { git = "https://github.com/tauri-apps/tauri", rev = "5bb1c8cdca82dafb9fb92fe8494a8b37b10db143" }
 tauri-runtime-wry = { git = "https://github.com/tauri-apps/tauri", rev = "5bb1c8cdca82dafb9fb92fe8494a8b37b10db143" }
 tauri-utils = { git = "https://github.com/tauri-apps/tauri", rev = "5bb1c8cdca82dafb9fb92fe8494a8b37b10db143" }
+# These plugins pass a global scope schema to the build helper. Pin their CEF
+# migration so the plugin and helper agree on the schemars 1 API.
+tauri-plugin-fs = { git = "https://github.com/tauri-apps/plugins-workspace", rev = "1423992771e0b57582ca3b06a6adc46ec26aa784" }
+tauri-plugin-http = { git = "https://github.com/tauri-apps/plugins-workspace", rev = "1423992771e0b57582ca3b06a6adc46ec26aa784" }
+tauri-plugin-opener = { git = "https://github.com/tauri-apps/plugins-workspace", rev = "1423992771e0b57582ca3b06a6adc46ec26aa784" }

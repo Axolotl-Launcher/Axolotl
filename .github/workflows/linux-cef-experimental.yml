@@ -281,19 +281,20 @@ jobs:
               cd "$extract_dir"
               "$appimage_path" --appimage-extract > /dev/null
             )
-            contents="$(find "$extract_dir/squashfs-root" -printf '%M %p\n')"
+            appdir="$(realpath "$extract_dir/squashfs-root")"
+            contents="$(find "$appdir" -printf '%M %p\n')"
             printf '%s\n' "$contents"
             check_cef_files "$appimage" "$contents"
 
-            sandbox_path="$(find "$extract_dir/squashfs-root" -type f -name chrome-sandbox -print -quit)"
+            sandbox_path="$(find "$appdir" -type f -name chrome-sandbox -print -quit)"
             sandbox_mode="$(stat -c '%A' "$sandbox_path")"
             if [[ "$sandbox_mode" != -rws* ]]; then
               echo "$appimage has an unsafe chrome-sandbox mode: ${sandbox_mode:-missing}"
               exit 1
             fi
-            if find "$extract_dir/squashfs-root" -iname '*webkit*' -print -quit | grep -q .; then
+            if find "$appdir" -iname '*webkit*' -print -quit | grep -q .; then
               echo "$appimage unexpectedly contains WebKitGTK files"
-              find "$extract_dir/squashfs-root" -iname '*webkit*' -print
+              find "$appdir" -iname '*webkit*' -print
               exit 1
             fi
             rm -rf "$extract_dir"

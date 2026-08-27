@@ -29,6 +29,7 @@ jobs:
       - name: Check out source
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
+          fetch-depth: 0
           submodules: recursive
 
       - name: Set up pnpm
@@ -71,6 +72,16 @@ jobs:
       - name: Replace Gradle mirror
         uses: ./.github/actions/replace-gradle-mirror
 
+      - name: Set build version from the latest release tag
+        shell: bash
+        run: |
+          set -euo pipefail
+          version_tag="$(git describe --tags --abbrev=0 --match 'v[0-9]*' "$GITHUB_SHA")"
+          node scripts/axolotl/set-version.mjs "$version_tag"
+          version="${version_tag#v}"
+          echo "CEF_BUILD_TAG=$version_tag" >> "$GITHUB_ENV"
+          echo "CEF_BUILD_VERSION=$version" >> "$GITHUB_ENV"
+
       - name: Build frontend
         run: pnpm --filter @modrinth/app-frontend build
 
@@ -101,6 +112,14 @@ jobs:
           git apply --check .github/patches/linux-cef-manifest.patch
           git apply .github/patches/linux-cef-manifest.patch
           cp Cargo.cef-linux.lock Cargo.lock
+          # set-version updates only workspace package versions. Let Cargo
+          # synchronize those local entries before enforcing the locked graph.
+          cargo metadata \
+            --format-version 1 \
+            --filter-platform x86_64-unknown-linux-gnu \
+            --no-default-features \
+            --features cef,custom-protocol,updater \
+            > /dev/null
           cargo metadata \
             --locked \
             --format-version 1 \
@@ -145,7 +164,7 @@ jobs:
       - name: Upload Linux CEF Deb
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: axolotl-linux-cef-${{ github.sha }}
+          name: axolotl-linux-cef-${{ env.CEF_BUILD_TAG }}-${{ github.sha }}
           path: target/release/bundle/deb/**/*.deb
           if-no-files-found: error
           retention-days: 14
@@ -164,6 +183,11 @@ jobs:
             echo "Checking $deb"
             contents="$(dpkg-deb --contents "$deb")"
             printf '%s\n' "$contents"
+            package_version="$(dpkg-deb --field "$deb" Version)"
+            if [[ "$package_version" != "$CEF_BUILD_VERSION" ]]; then
+              echo "$deb has version $package_version; expected $CEF_BUILD_VERSION from $CEF_BUILD_TAG"
+              exit 1
+            fi
             for required in libcef.so resources.pak locales/en-US.pak chrome-sandbox; do
               if ! grep -Fq "$required" <<< "$contents"; then
                 echo "$deb is missing CEF runtime file: $required"

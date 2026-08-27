@@ -18,7 +18,7 @@ concurrency:
 
 jobs:
   build:
-    name: Build Linux x64 CEF Deb
+    name: Build Linux x64 CEF packages
     runs-on: ubuntu-24.04
     env:
       SQLX_OFFLINE: true
@@ -60,6 +60,7 @@ jobs:
             ninja-build \
             patchelf \
             pkg-config \
+            rpm \
             xdg-utils
 
       - name: Install JavaScript dependencies
@@ -150,29 +151,44 @@ jobs:
             exit 1
           fi
 
-      - name: Build Linux CEF Deb
+      - name: Build Linux CEF packages
         working-directory: apps/app
         run: |
           cargo tauri build \
-            --bundles deb \
+            --bundles deb,rpm,appimage \
             --features cef,custom-protocol,updater \
             --config tauri-release.conf.json \
             --config '{"bundle":{"createUpdaterArtifacts":false}}' \
             -- \
             --no-default-features
 
-      - name: Upload Linux CEF Deb
+      - name: Upload Linux CEF packages
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: axolotl-linux-cef-${{ env.CEF_BUILD_TAG }}-${{ github.sha }}
-          path: target/release/bundle/deb/**/*.deb
+          path: |
+            target/release/bundle/deb/**/*.deb
+            target/release/bundle/rpm/**/*.rpm
+            target/release/bundle/appimage/**/*.AppImage
           if-no-files-found: error
           retention-days: 14
 
-      - name: Verify CEF Deb contents
+      - name: Verify CEF Linux package contents
         shell: bash
         run: |
           set -euo pipefail
+
+          check_cef_files() {
+            local package="$1"
+            local contents="$2"
+            for required in libcef.so resources.pak locales/en-US.pak chrome-sandbox; do
+              if ! grep -Fq "$required" <<< "$contents"; then
+                echo "$package is missing CEF runtime file: $required"
+                return 1
+              fi
+            done
+          }
+
           mapfile -d '' debs < <(find target/release/bundle/deb -type f -name '*.deb' -print0)
           if (( ${#debs[@]} == 0 )); then
             echo 'No Deb package was produced'
@@ -188,12 +204,7 @@ jobs:
               echo "$deb has version $package_version; expected $CEF_BUILD_VERSION from $CEF_BUILD_TAG"
               exit 1
             fi
-            for required in libcef.so resources.pak locales/en-US.pak chrome-sandbox; do
-              if ! grep -Fq "$required" <<< "$contents"; then
-                echo "$deb is missing CEF runtime file: $required"
-                exit 1
-              fi
-            done
+            check_cef_files "$deb" "$contents"
 
             sandbox_mode="$(awk '/chrome-sandbox$/ { print $1 }' <<< "$contents")"
             if [[ "$sandbox_mode" != -rws* ]]; then
@@ -207,6 +218,76 @@ jobs:
               exit 1
             fi
             echo "Deb dependencies: $depends"
+          done
+
+          mapfile -d '' rpms < <(find target/release/bundle/rpm -type f -name '*.rpm' -print0)
+          if (( ${#rpms[@]} == 0 )); then
+            echo 'No RPM package was produced'
+            exit 1
+          fi
+
+          for rpm_package in "${rpms[@]}"; do
+            echo "Checking $rpm_package"
+            contents="$(rpm -qplv "$rpm_package")"
+            printf '%s\n' "$contents"
+            package_version="$(rpm -qp --qf '%{VERSION}' "$rpm_package")"
+            if [[ "$package_version" != "$CEF_BUILD_VERSION" ]]; then
+              echo "$rpm_package has version $package_version; expected $CEF_BUILD_VERSION from $CEF_BUILD_TAG"
+              exit 1
+            fi
+            check_cef_files "$rpm_package" "$contents"
+
+            sandbox_mode="$(awk '/chrome-sandbox$/ { print $1 }' <<< "$contents")"
+            if [[ "$sandbox_mode" != -rws* ]]; then
+              echo "$rpm_package has an unsafe chrome-sandbox mode: ${sandbox_mode:-missing}"
+              exit 1
+            fi
+
+            requires="$(rpm -qpR "$rpm_package")"
+            if grep -qi webkit <<< "$requires"; then
+              echo "$rpm_package unexpectedly depends on WebKitGTK: $requires"
+              exit 1
+            fi
+            echo "RPM dependencies:"
+            printf '%s\n' "$requires"
+          done
+
+          mapfile -d '' appimages < <(find target/release/bundle/appimage -type f -name '*.AppImage' -print0)
+          if (( ${#appimages[@]} == 0 )); then
+            echo 'No AppImage package was produced'
+            exit 1
+          fi
+
+          for appimage in "${appimages[@]}"; do
+            echo "Checking $appimage"
+            if [[ "$(basename "$appimage")" != *"_${CEF_BUILD_VERSION}_"* ]]; then
+              echo "$appimage filename does not contain version $CEF_BUILD_VERSION from $CEF_BUILD_TAG"
+              exit 1
+            fi
+
+            appimage_path="$(realpath "$appimage")"
+            extract_dir="$(mktemp -d)"
+            chmod +x "$appimage_path"
+            (
+              cd "$extract_dir"
+              "$appimage_path" --appimage-extract > /dev/null
+            )
+            contents="$(find "$extract_dir/squashfs-root" -printf '%M %p\n')"
+            printf '%s\n' "$contents"
+            check_cef_files "$appimage" "$contents"
+
+            sandbox_path="$(find "$extract_dir/squashfs-root" -type f -name chrome-sandbox -print -quit)"
+            sandbox_mode="$(stat -c '%A' "$sandbox_path")"
+            if [[ "$sandbox_mode" != -rws* ]]; then
+              echo "$appimage has an unsafe chrome-sandbox mode: ${sandbox_mode:-missing}"
+              exit 1
+            fi
+            if find "$extract_dir/squashfs-root" -iname '*webkit*' -print -quit | grep -q .; then
+              echo "$appimage unexpectedly contains WebKitGTK files"
+              find "$extract_dir/squashfs-root" -iname '*webkit*' -print
+              exit 1
+            fi
+            rm -rf "$extract_dir"
           done
 
           find target/release/bundle -maxdepth 4 -type f -printf '%p (%s bytes)\n'

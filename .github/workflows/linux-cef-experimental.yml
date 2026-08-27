@@ -90,10 +90,18 @@ jobs:
         shell: bash
         working-directory: ${{ runner.temp }}
         run: |
+          set -euo pipefail
+          cli_src="${RUNNER_TEMP}/tauri-cef-cli-src"
           cli_root="${RUNNER_TEMP}/tauri-cef-cli"
-          cargo install tauri-cli \
-            --git https://github.com/tauri-apps/tauri \
-            --rev "$TAURI_CEF_REV" \
+          git clone https://github.com/tauri-apps/tauri "$cli_src"
+          git -C "$cli_src" checkout --detach "$TAURI_CEF_REV"
+          test "$(git -C "$cli_src" rev-parse HEAD)" = "$TAURI_CEF_REV"
+          git -C "$cli_src" apply --check \
+            "$GITHUB_WORKSPACE/.github/patches/tauri-cef-appimage-symlink.patch"
+          git -C "$cli_src" apply \
+            "$GITHUB_WORKSPACE/.github/patches/tauri-cef-appimage-symlink.patch"
+          cargo install \
+            --path "$cli_src/crates/tauri-cli" \
             --locked \
             --root "$cli_root"
           echo "$cli_root/bin" >> "$GITHUB_PATH"
@@ -163,6 +171,7 @@ jobs:
             --no-default-features
 
       - name: Upload Linux CEF packages
+        if: ${{ always() }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: axolotl-linux-cef-${{ env.CEF_BUILD_TAG }}-${{ github.sha }}

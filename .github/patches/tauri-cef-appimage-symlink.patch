@@ -1,0 +1,17 @@
+diff --git a/crates/tauri-bundler/src/bundle/linux/appimage/sharun_cef.rs b/crates/tauri-bundler/src/bundle/linux/appimage/sharun_cef.rs
+--- a/crates/tauri-bundler/src/bundle/linux/appimage/sharun_cef.rs
++++ b/crates/tauri-bundler/src/bundle/linux/appimage/sharun_cef.rs
+@@ -243,13 +243,6 @@ pub fn bundle_project(settings: &Settings) -> crate::Result<Vec<PathBuf>> {
+       app_dir_bin.join("libayatana-appindicator3.so.1"),
+     )?;
+   }
+-  if app_dir_lib.join("libayatana-appindicator3.so.1").exists() {
+-    std::os::unix::fs::symlink(
+-      app_dir_lib.join("libayatana-appindicator3.so.1"),
+-      app_dir_bin.join("libayatana-appindicator3.so.1"),
+-    )?;
+-  }
+-
+   Command::new("/bin/sh")
+     .current_dir(&output_path)
+     .env("APPDIR", &app_dir)

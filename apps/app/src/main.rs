@@ -842,7 +842,9 @@ fn main() {
 
     #[cfg(all(target_os = "linux", feature = "cef"))]
     if let Err(error) = gtk::init() {
-        eprintln!("Failed to initialize GTK for the Linux CEF runtime: {error}");
+        eprintln!(
+            "Failed to initialize GTK for the Linux CEF runtime: {error}"
+        );
         return;
     }
 
@@ -967,6 +969,15 @@ fn main() {
                 )
             },
         );
+
+    // VMware's SVGA3D driver is blocklisted by Chromium for WebGL2. Keep the
+    // GPU process and CEF sandbox enabled, but allow Chromium to try the
+    // driver so virtual-machine users can create a WebGL context.
+    #[cfg(all(target_os = "linux", feature = "cef"))]
+    {
+        builder = builder
+            .command_line_args([("--ignore-gpu-blocklist", None::<String>)]);
+    }
 
     #[cfg(feature = "updater")]
     {

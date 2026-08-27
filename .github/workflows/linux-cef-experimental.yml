@@ -130,10 +130,11 @@ jobs:
         run: |
           cargo tauri build \
             --bundles deb \
-            --no-default-features \
-            --features cef,custom-protocol,updater \
             --config tauri-release.conf.json \
-            --config '{"bundle":{"createUpdaterArtifacts":false}}'
+            --config '{"bundle":{"createUpdaterArtifacts":false}}' \
+            -- \
+            --no-default-features \
+            --features cef,custom-protocol,updater
 
       - name: Verify CEF Deb contents
         shell: bash

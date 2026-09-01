@@ -479,7 +479,7 @@ fn write_update_channel_state(
 #[tracing::instrument(skip_all, level = "info")]
 #[tauri::command]
 async fn backup_app_db_for_update(
-    app: tauri::AppHandle,
+    app: AppHandle,
     version: String,
 ) -> api::Result<()> {
     theseus::backup_current_app_db_for_update(

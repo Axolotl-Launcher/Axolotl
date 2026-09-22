@@ -4,7 +4,7 @@ use std::{
     sync::Mutex,
 };
 use tauri::{
-    AppHandle, Emitter, Listener, Manager, WebviewUrl, WebviewWindowBuilder,
+    Emitter, Listener, Manager, WebviewUrl, WebviewWindowBuilder,
     menu::{
         CheckMenuItem, IsMenuItem, Menu, MenuItem, PredefinedMenuItem, Submenu,
     },

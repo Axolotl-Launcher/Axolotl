@@ -12,8 +12,12 @@ diff --git a/Cargo.toml b/Cargo.toml
 diff --git a/apps/app/Cargo.toml b/apps/app/Cargo.toml
 --- a/apps/app/Cargo.toml
 +++ b/apps/app/Cargo.toml
-@@ -71,2 +71,3 @@ tauri-build = { workspace = true, features = ["codegen"] }
+@@ -71,6 +71,7 @@ tauri-build = { workspace = true, features = ["codegen"] }
  [target.'cfg(target_os = "linux")'.dependencies]
+ ashpd = { version = "0.13.13", default-features = false, features = [
+   "async-io",
+   "settings",
+ ] }
 +gtk = { version = "0.18.2", optional = true }
  tauri-plugin-updater = { workspace = true, optional = true }
 @@ -79,7 +80,7 @@ features = ["Win32_Graphics_Dwm", "Win32_System_Com", "Win32_UI_Shell"]

@@ -21,6 +21,7 @@ import {
     removeHomeWidget,
     replaceHomeDashboardWidgets,
     resizeHomeWidget,
+    setHomeAlmanacOptions,
     setHomeDashboardLayout,
     setHomeGreetingOptions,
     setHomeGreetingOverride,
@@ -325,6 +326,140 @@ test('normalizes and updates recently played item limits', () => {
         [4, 8, 4],
     )
     assert.equal(setHomeRecentLimit(normalized, 'legacy', 6).widgets[0].options?.recentLimit, 6)
+})
+
+test('normalizes and updates almanac options', () => {
+    const normalized = normalizeHomeDashboard({
+        version: 1,
+        widgets: [
+            { id: 'legacy', kind: 'almanac', size: '2x2' },
+            {
+                id: 'valid',
+                kind: 'almanac',
+                size: '2x2',
+                options: {
+                    almanacShowHours: false,
+                    almanacShowActivities: true,
+                    almanacTagLimit: 9,
+                    almanacTermStyle: 'plain',
+                },
+            },
+            {
+                id: 'invalid',
+                kind: 'almanac',
+                size: '2x2',
+                options: {
+                    almanacShowHours: 'yes',
+                    almanacShowActivities: 'yes',
+                    almanacTagLimit: 42,
+                    almanacTermStyle: 'fancy',
+                },
+            },
+        ],
+    })!
+
+    assert.deepEqual(
+        normalized.widgets.map((widget) => widget.options?.almanacTagLimit),
+        [6, 9, 6],
+    )
+    assert.deepEqual(
+        normalized.widgets.map((widget) => widget.options?.almanacShowHours),
+        [true, false, true],
+    )
+    assert.deepEqual(
+        normalized.widgets.map((widget) => widget.options?.almanacTermStyle),
+        ['traditional', 'plain', 'traditional'],
+    )
+    assert.deepEqual(
+        normalized.widgets.map((widget) => widget.options?.almanacShowActivities),
+        [false, true, false],
+    )
+    assert.equal(
+        setHomeAlmanacOptions(normalized, 'legacy', false, 3, 'traditional', true).widgets[0]
+            .options?.almanacTagLimit,
+        3,
+    )
+    assert.equal(
+        setHomeAlmanacOptions(normalized, 'legacy', false, 3, 'traditional', true).widgets[0]
+            .options?.almanacTermStyle,
+        'traditional',
+    )
+    assert.equal(
+        setHomeAlmanacOptions(normalized, 'legacy', false, 3, 'traditional', true).widgets[0]
+            .options?.almanacShowActivities,
+        true,
+    )
+    // The setter clamps out-of-range values instead of storing them.
+    assert.equal(
+        setHomeAlmanacOptions(
+            normalized,
+            'legacy',
+            true,
+            42 as never,
+            'fancy' as never,
+            'yes' as never,
+        ).widgets[0].options?.almanacTagLimit,
+        6,
+    )
+    assert.equal(
+        setHomeAlmanacOptions(
+            normalized,
+            'legacy',
+            true,
+            42 as never,
+            'fancy' as never,
+            'yes' as never,
+        ).widgets[0].options?.almanacTermStyle,
+        'traditional',
+    )
+    assert.equal(
+        setHomeAlmanacOptions(
+            normalized,
+            'legacy',
+            true,
+            42 as never,
+            'fancy' as never,
+            'yes' as never,
+        ).widgets[0].options?.almanacShowActivities,
+        false,
+    )
+})
+
+test('defaults the almanac term style and rejects unknown styles', () => {
+    const normalized = normalizeHomeDashboard({
+        version: 1,
+        widgets: [
+            { id: 'legacy', kind: 'almanac', size: '2x2' },
+            {
+                id: 'valid',
+                kind: 'almanac',
+                size: '2x2',
+                options: { almanacTermStyle: 'traditional' },
+            },
+            {
+                id: 'invalid',
+                kind: 'almanac',
+                size: '2x2',
+                options: { almanacTermStyle: 'klingon' },
+            },
+        ],
+    })!
+
+    assert.deepEqual(
+        normalized.widgets.map((widget) => widget.options?.almanacTermStyle),
+        ['traditional', 'traditional', 'traditional'],
+    )
+    assert.equal(
+        setHomeAlmanacOptions(normalized, 'legacy', true, 6, 'plain', false).widgets[0].options
+            ?.almanacTermStyle,
+        'plain',
+    )
+    // The setter clamps an unknown style back to the default.
+    assert.equal(
+        setHomeAlmanacOptions(normalized, 'legacy', true, 6, 'klingon' as never, false).widgets[0]
+            .options?.almanacTermStyle,
+        'traditional',
+    )
 })
 
 test('accepts and resizes the recent widget to 3-column layouts', () => {

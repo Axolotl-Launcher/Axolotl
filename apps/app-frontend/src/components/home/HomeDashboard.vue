@@ -2,6 +2,7 @@
 import {
     ChevronDownIcon,
     ChevronUpIcon,
+    ClockIcon,
     ExpandIcon,
     GripVerticalIcon,
     ListIcon,
@@ -29,11 +30,19 @@ import {
     getHomeGridColumnCount,
     getHomeWidgetDimensions,
     getHomeWidgetSpan,
+    HOME_ALMANAC_DEFAULT_SHOW_ACTIVITIES,
+    HOME_ALMANAC_DEFAULT_SHOW_HOURS,
+    HOME_ALMANAC_DEFAULT_TAG_LIMIT,
+    HOME_ALMANAC_DEFAULT_TERM_STYLE,
+    HOME_ALMANAC_TAG_LIMIT_OPTIONS,
+    HOME_ALMANAC_TERM_STYLES,
     HOME_RECENT_DEFAULT_LIMIT,
     HOME_RECENT_LIMIT_OPTIONS,
     HOME_WIDGET_GRID_GAP,
     HOME_WIDGET_GRID_ROW_HEIGHT,
     HOME_WIDGET_SIZE_OPTIONS,
+    type HomeAlmanacTagLimit,
+    type HomeAlmanacTermStyle,
     type HomeDashboardConfig,
     type HomeGreetingFont,
     type HomeGreetingMode,
@@ -46,12 +55,14 @@ import {
     removeHomeWidget,
     replaceHomeDashboardWidgets,
     resizeHomeWidget,
+    setHomeAlmanacOptions,
     setHomeDashboardLayout,
     setHomeGreetingOptions,
     setHomeRecentLimit,
     setHomeWidgetPosition,
 } from '@/components/home/home-dashboard'
 import { provideHomeDashboardRuntime } from '@/components/home/home-dashboard-runtime'
+import HomeAlmanac from '@/components/home/HomeAlmanac.vue'
 import HomeCalendar from '@/components/home/HomeCalendar.vue'
 import HomeGreeting from '@/components/home/HomeGreeting.vue'
 import HomeGreetingSettingsModal from '@/components/home/HomeGreetingSettingsModal.vue'
@@ -175,6 +186,38 @@ const messages = defineMessages({
     greetingSettings: {
         id: 'app.home.greeting.settings.title',
         defaultMessage: 'Customize greeting',
+    },
+    almanacShowActivities: {
+        id: 'app.home.widgets.almanac-show-activities',
+        defaultMessage: 'Show the do and avoid lists',
+    },
+    almanacHideActivities: {
+        id: 'app.home.widgets.almanac-hide-activities',
+        defaultMessage: 'Hide the do and avoid lists',
+    },
+    almanacShowHours: {
+        id: 'app.home.widgets.almanac-show-hours',
+        defaultMessage: 'Show hourly fortune',
+    },
+    almanacHideHours: {
+        id: 'app.home.widgets.almanac-hide-hours',
+        defaultMessage: 'Hide hourly fortune',
+    },
+    almanacTagLimit: {
+        id: 'app.home.widgets.almanac-tag-limit',
+        defaultMessage: 'Show {count} activities per list',
+    },
+    almanacTermBoth: {
+        id: 'app.home.widgets.almanac-term-both',
+        defaultMessage: 'Terms: plain (traditional)',
+    },
+    almanacTermPlain: {
+        id: 'app.home.widgets.almanac-term-plain',
+        defaultMessage: 'Terms: plain only',
+    },
+    almanacTermTraditional: {
+        id: 'app.home.widgets.almanac-term-traditional',
+        defaultMessage: 'Terms: traditional only',
     },
 })
 
@@ -435,6 +478,83 @@ function setRecentLimit(id: string, limit: (typeof HOME_RECENT_LIMIT_OPTIONS)[nu
     emit('change', setHomeRecentLimit(props.config, id, limit))
 }
 
+function almanacOptions(id: string) {
+    const widget = props.config.widgets.find((entry) => entry.id === id)
+    return {
+        showHours: widget?.options?.almanacShowHours ?? HOME_ALMANAC_DEFAULT_SHOW_HOURS,
+        showActivities:
+            widget?.options?.almanacShowActivities ?? HOME_ALMANAC_DEFAULT_SHOW_ACTIVITIES,
+        tagLimit: widget?.options?.almanacTagLimit ?? HOME_ALMANAC_DEFAULT_TAG_LIMIT,
+        termStyle: widget?.options?.almanacTermStyle ?? HOME_ALMANAC_DEFAULT_TERM_STYLE,
+    }
+}
+
+function setAlmanacShowHours(id: string, almanacShowHours: boolean) {
+    const current = almanacOptions(id)
+    emit(
+        'change',
+        setHomeAlmanacOptions(
+            props.config,
+            id,
+            almanacShowHours,
+            current.tagLimit,
+            current.termStyle,
+            current.showActivities,
+        ),
+    )
+}
+
+function setAlmanacShowActivities(id: string, almanacShowActivities: boolean) {
+    const current = almanacOptions(id)
+    emit(
+        'change',
+        setHomeAlmanacOptions(
+            props.config,
+            id,
+            current.showHours,
+            current.tagLimit,
+            current.termStyle,
+            almanacShowActivities,
+        ),
+    )
+}
+
+function setAlmanacTagLimit(id: string, almanacTagLimit: HomeAlmanacTagLimit) {
+    const current = almanacOptions(id)
+    emit(
+        'change',
+        setHomeAlmanacOptions(
+            props.config,
+            id,
+            current.showHours,
+            almanacTagLimit,
+            current.termStyle,
+            current.showActivities,
+        ),
+    )
+}
+
+function setAlmanacTermStyle(id: string, almanacTermStyle: HomeAlmanacTermStyle) {
+    const current = almanacOptions(id)
+    emit(
+        'change',
+        setHomeAlmanacOptions(
+            props.config,
+            id,
+            current.showHours,
+            current.tagLimit,
+            almanacTermStyle,
+            current.showActivities,
+        ),
+    )
+}
+
+function almanacTermStyleLabel(style: HomeAlmanacTermStyle) {
+    if (style === 'plain') return formatMessage(messages.almanacTermPlain)
+    if (style === 'traditional') return formatMessage(messages.almanacTermTraditional)
+    return formatMessage(messages.almanacTermBoth)
+}
+
 function openGreetingSettings(widget: HomeWidgetPlacement) {
     greetingSettings.value?.show(widget)
 }
@@ -455,6 +575,11 @@ function moveWidget(index: number, direction: -1 | 1) {
 
 function widgetOptions(widget: HomeWidgetPlacement, index: number) {
     const sizeOptions = HOME_WIDGET_SIZE_OPTIONS[widget.kind]
+    // Tag limit and wording only affect the do/avoid rows, so their menu
+    // entries stay out of the way while those rows are hidden.
+    const almanacActivitiesOn =
+        widget.kind === 'almanac' &&
+        (widget.options?.almanacShowActivities ?? HOME_ALMANAC_DEFAULT_SHOW_ACTIVITIES)
     return [
         ...(widget.kind === 'greeting'
             ? [
@@ -475,6 +600,59 @@ function widgetOptions(widget: HomeWidgetPlacement, index: number) {
                           (widget.options?.recentLimit ?? HOME_RECENT_DEFAULT_LIMIT) === limit,
                       action: () => setRecentLimit(widget.id, limit),
                   })),
+                  { divider: true },
+              ]
+            : []),
+        ...(widget.kind === 'almanac'
+            ? [
+                  {
+                      id: 'almanac-activities-show',
+                      icon: ListIcon,
+                      disabled: almanacActivitiesOn,
+                      action: () => setAlmanacShowActivities(widget.id, true),
+                  },
+                  {
+                      id: 'almanac-activities-hide',
+                      icon: ListIcon,
+                      disabled: !almanacActivitiesOn,
+                      action: () => setAlmanacShowActivities(widget.id, false),
+                  },
+                  {
+                      id: 'almanac-hours-show',
+                      icon: ClockIcon,
+                      disabled:
+                          (widget.options?.almanacShowHours ?? HOME_ALMANAC_DEFAULT_SHOW_HOURS) ===
+                          true,
+                      action: () => setAlmanacShowHours(widget.id, true),
+                  },
+                  {
+                      id: 'almanac-hours-hide',
+                      icon: ClockIcon,
+                      disabled:
+                          (widget.options?.almanacShowHours ?? HOME_ALMANAC_DEFAULT_SHOW_HOURS) ===
+                          false,
+                      action: () => setAlmanacShowHours(widget.id, false),
+                  },
+                  ...(almanacActivitiesOn
+                      ? HOME_ALMANAC_TAG_LIMIT_OPTIONS.map((limit) => ({
+                            id: `almanac-tag-limit-${limit}`,
+                            icon: ListIcon,
+                            disabled:
+                                (widget.options?.almanacTagLimit ??
+                                    HOME_ALMANAC_DEFAULT_TAG_LIMIT) === limit,
+                            action: () => setAlmanacTagLimit(widget.id, limit),
+                        }))
+                      : []),
+                  ...(almanacActivitiesOn
+                      ? HOME_ALMANAC_TERM_STYLES.map((style) => ({
+                            id: `almanac-term-style-${style}`,
+                            icon: PencilIcon,
+                            disabled:
+                                (widget.options?.almanacTermStyle ??
+                                    HOME_ALMANAC_DEFAULT_TERM_STYLE) === style,
+                            action: () => setAlmanacTermStyle(widget.id, style),
+                        }))
+                      : []),
                   { divider: true },
               ]
             : []),
@@ -621,6 +799,39 @@ defineExpose({ openWidgetPicker, setLayout })
                                         <ListIcon />
                                         {{ formatMessage(messages.recentItems, { count: limit }) }}
                                     </template>
+                                    <template #almanac-activities-show>
+                                        <ListIcon />
+                                        {{ formatMessage(messages.almanacShowActivities) }}
+                                    </template>
+                                    <template #almanac-activities-hide>
+                                        <ListIcon />
+                                        {{ formatMessage(messages.almanacHideActivities) }}
+                                    </template>
+                                    <template #almanac-hours-show>
+                                        <ClockIcon /> {{ formatMessage(messages.almanacShowHours) }}
+                                    </template>
+                                    <template #almanac-hours-hide>
+                                        <ClockIcon /> {{ formatMessage(messages.almanacHideHours) }}
+                                    </template>
+                                    <template
+                                        v-for="limit in HOME_ALMANAC_TAG_LIMIT_OPTIONS"
+                                        #[`almanac-tag-limit-${limit}`]
+                                        :key="`almanac-tag-limit-${limit}`"
+                                    >
+                                        <ListIcon />
+                                        {{
+                                            formatMessage(messages.almanacTagLimit, {
+                                                count: limit,
+                                            })
+                                        }}
+                                    </template>
+                                    <template
+                                        v-for="style in HOME_ALMANAC_TERM_STYLES"
+                                        #[`almanac-term-style-${style}`]
+                                        :key="`almanac-term-style-${style}`"
+                                    >
+                                        <PencilIcon /> {{ almanacTermStyleLabel(style) }}
+                                    </template>
                                     <template
                                         v-for="size in HOME_WIDGET_SIZE_OPTIONS[widget.kind]"
                                         #[`size-${size}`]
@@ -664,6 +875,26 @@ defineExpose({ openWidgetPicker, setLayout })
                                 v-else-if="widget.kind === 'calendar'"
                                 :instances="instances"
                                 :dashboard-size="effectiveSize(widget)"
+                            />
+                            <HomeAlmanac
+                                v-else-if="widget.kind === 'almanac'"
+                                :dashboard-size="effectiveSize(widget)"
+                                :show-hours="
+                                    widget.options?.almanacShowHours ??
+                                    HOME_ALMANAC_DEFAULT_SHOW_HOURS
+                                "
+                                :show-activities="
+                                    widget.options?.almanacShowActivities ??
+                                    HOME_ALMANAC_DEFAULT_SHOW_ACTIVITIES
+                                "
+                                :tag-limit="
+                                    widget.options?.almanacTagLimit ??
+                                    HOME_ALMANAC_DEFAULT_TAG_LIMIT
+                                "
+                                :term-style="
+                                    widget.options?.almanacTermStyle ??
+                                    HOME_ALMANAC_DEFAULT_TERM_STYLE
+                                "
                             />
                             <HomePinnedInstances
                                 v-else-if="widget.kind === 'pinned-instances'"

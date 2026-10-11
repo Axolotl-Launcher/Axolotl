@@ -42,6 +42,7 @@
     "fflate": "^0.8.3",
     "fuse.js": "^6.6.2",
     "intl-messageformat": "^10.7.18",
+    "lunar-typescript": "^1.8.6",
     "monaco-editor": "^0.56.0",
     "ofetch": "^1.5.1",
     "overlayscrollbars": "^2.16.0",

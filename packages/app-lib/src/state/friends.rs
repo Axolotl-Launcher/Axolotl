@@ -191,9 +191,10 @@ impl FriendsSocket {
                                             ServerToClientMessage::FriendSocketStoppedListening { .. } => {}, // TODO
 
                                             ServerToClientMessage::SocketConnected { to_socket, new_socket } => {
-                                                if let Some(connected_to) = sockets.get(&to_socket)
-                                                    && let InternalTunnelSocket::Listening(local_addr) = *connected_to.value().clone()
-                                                        && let Ok(new_stream) = TcpStream::connect(local_addr).await {
+                                                let connected_to = sockets.get(&to_socket).map(|entry| Arc::clone(entry.value()));
+                                                if let Some(connected_to) = connected_to
+                                                    && let InternalTunnelSocket::Listening(local_addr) = connected_to.as_ref()
+                                                        && let Ok(new_stream) = TcpStream::connect(*local_addr).await {
                                                             let (read, write) = new_stream.into_split();
                                                             sockets.insert(new_socket, Arc::new(InternalTunnelSocket::Connected(Mutex::new(write))));
                                                             Self::socket_read_loop(write_handle.clone(), read, new_socket);
@@ -205,8 +206,9 @@ impl FriendsSocket {
                                                 sockets.remove_if(&socket, |_, x| matches!(*x.clone(), InternalTunnelSocket::Connected(_)));
                                             },
                                             ServerToClientMessage::SocketData { socket, data } => {
-                                                if let Some(mut socket) = sockets.get_mut(&socket)
-                                                    && let InternalTunnelSocket::Connected(ref stream) = *socket.value_mut().clone() {
+                                                let connected = sockets.get(&socket).map(|entry| Arc::clone(entry.value()));
+                                                if let Some(connected) = connected
+                                                    && let InternalTunnelSocket::Connected(stream) = connected.as_ref() {
                                                         let _ = stream.lock().await.write_all(&data).await;
                                                     }
                                             },

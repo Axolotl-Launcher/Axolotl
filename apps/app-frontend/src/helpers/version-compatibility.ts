@@ -3,6 +3,11 @@ export interface VersionRange {
     major: number
     minor: number
     patch?: number
+    /**
+     * For `wildcard` ranges, whether the minor component is pinned: `1.20.x`
+     * pins it, while `1.x` leaves it free. Unset for every other range type.
+     */
+    minorPinned?: boolean
     upperMajor?: number
     upperMinor?: number
     upperPatch?: number
@@ -89,6 +94,7 @@ export function parseVersionRange(rangeStr: string): VersionRange | null {
                 type: 'wildcard',
                 major: parseInt(match[1], 10),
                 minor: parseInt(match[2], 10),
+                minorPinned: true,
             }
         }
         const minorWildcard = trimmed.match(/^(\d+)\.x$/i)
@@ -97,6 +103,7 @@ export function parseVersionRange(rangeStr: string): VersionRange | null {
                 type: 'wildcard',
                 major: parseInt(minorWildcard[1], 10),
                 minor: 0,
+                minorPinned: false,
             }
         }
     }
@@ -182,7 +189,7 @@ export function isVersionInRange(instanceVersion: string, modRange: string): boo
         }
         case 'wildcard': {
             if (instanceParsed.major !== range.major) return false
-            if (range.patch !== undefined) {
+            if (range.minorPinned) {
                 return instanceParsed.minor === range.minor
             }
             return true

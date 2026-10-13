@@ -1,5 +1,12 @@
 import type { ContentItem } from '@modrinth/ui'
 
+import {
+    compareContentIdentities,
+    type ContentIdentity,
+    contentIdentityFromInput,
+    type ContentIdentityProvider,
+} from '../../../helpers/content-identity.ts'
+
 export type DependencyDirection = 'requires' | 'requiredBy'
 
 export const dependencyGraphMetrics = {
@@ -269,6 +276,91 @@ function findNodesForReference(
     return nodesByItemKey.get(`project:${reference.projectId}`) ?? []
 }
 
+type ContentIdentityReference = {
+    identity: ContentIdentity
+    keys: string[]
+    node: DependencyGraphNode
+    projectId: string
+    provider: ContentIdentityProvider
+}
+
+/**
+ * Collects every provider identity an installed item can be referenced by, so the
+ * graph can link the same project published on both providers to both of its nodes.
+ */
+function contentIdentityReferences(
+    item: ContentItem,
+    node: DependencyGraphNode,
+): ContentIdentityReference[] {
+    const references = new Map<string, { provider: ContentIdentityProvider; projectId: string }>()
+    const originProvider = item.origin_provider
+    const originProjectId = item.project?.id
+    if ((originProvider === 'modrinth' || originProvider === 'curseforge') && originProjectId) {
+        references.set(`${originProvider}:${originProjectId}`, {
+            provider: originProvider,
+            projectId: normalizeProjectId(originProvider, originProjectId),
+        })
+    }
+    for (const providerRef of item.provider_refs) {
+        const projectId = normalizeProjectId(providerRef.provider, String(providerRef.project_id))
+        references.set(`${providerRef.provider}:${projectId}`, {
+            provider: providerRef.provider,
+            projectId,
+        })
+    }
+
+    const keys = [...itemReferenceKeys(item)]
+    return [...references.values()].map((reference) => ({
+        identity: contentIdentityFromInput({
+            provider: reference.provider,
+            projectId: reference.projectId,
+            contentType: item.project_type ?? 'mod',
+            slug: item.project?.slug ?? null,
+            title: item.project?.title ?? null,
+            fileName: item.file_name ?? null,
+        }),
+        keys,
+        node,
+        projectId: reference.projectId,
+        provider: reference.provider,
+    }))
+}
+
+/**
+ * Registers the reference keys of each matching provider identity on its counterpart
+ * node, so a dependency reference to either provider resolves to every known copy of
+ * the same project. Identities are grouped by normalized slug and compared with the
+ * shared cross-provider helper; only exact or high-confidence matches are bridged,
+ * never display-name-only ones.
+ */
+function bridgeContentIdentityReferences(
+    references: ContentIdentityReference[],
+    nodesByItemKey: Map<string, DependencyGraphNode[]>,
+): void {
+    const referencesBySlug = new Map<string, ContentIdentityReference[]>()
+    for (const reference of references) {
+        const slug = reference.identity.normalizedSlug
+        if (!slug) continue
+        const bucket = referencesBySlug.get(slug) ?? []
+        bucket.push(reference)
+        referencesBySlug.set(slug, bucket)
+    }
+
+    for (const bucket of referencesBySlug.values()) {
+        for (let index = 0; index < bucket.length; index += 1) {
+            for (let candidate = index + 1; candidate < bucket.length; candidate += 1) {
+                const left = bucket[index]!
+                const right = bucket[candidate]!
+                if (left.node.id === right.node.id) continue
+                const match = compareContentIdentities(left.identity, right.identity)
+                if (!match || match.confidence === 'possible') continue
+                for (const key of right.keys) addNodeForReference(nodesByItemKey, key, left.node)
+                for (const key of left.keys) addNodeForReference(nodesByItemKey, key, right.node)
+            }
+        }
+    }
+}
+
 function markCycles(
     nodes: DependencyGraphNode[],
     edgesBySource: Map<string, DependencyGraphEdge[]>,
@@ -297,13 +389,17 @@ function markCycles(
 export function buildDependencyGraph(items: ContentItem[]): DependencyGraph {
     const nodesByItemKey = new Map<string, DependencyGraphNode[]>()
     const nodes = new Map<string, DependencyGraphNode>()
+    const identityReferences: ContentIdentityReference[] = []
 
     for (const item of items) {
         const id = nodeIdForItem(item)
         const node = nodeFromItem(item, id)
         nodes.set(id, node)
         for (const key of itemReferenceKeys(item)) addNodeForReference(nodesByItemKey, key, node)
+        identityReferences.push(...contentIdentityReferences(item, node))
     }
+
+    bridgeContentIdentityReferences(identityReferences, nodesByItemKey)
 
     const edges = new Map<string, DependencyGraphEdge>()
     const addEdge = (source: DependencyGraphNode, target: DependencyGraphNode) => {

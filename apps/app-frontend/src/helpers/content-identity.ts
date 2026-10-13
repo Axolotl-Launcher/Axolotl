@@ -1,5 +1,3 @@
-import { invoke } from '@tauri-apps/api/core'
-
 export type ContentIdentityProvider = 'modrinth' | 'curseforge'
 export type ContentIdentitySource = 'curated_mapping' | 'sha1' | 'heuristic'
 export type ContentIdentityConfidence = 'exact' | 'high' | 'possible'
@@ -145,6 +143,11 @@ function identityFileName(input: ContentIdentityInput) {
     return input.fileName ? normalizeText(input.fileName) : ''
 }
 
+/**
+ * Resolves cross-provider identities through the content-search plugin. The Tauri
+ * runtime is imported lazily so the pure helpers in this module stay usable outside
+ * the Tauri webview, including browser-only unit tests.
+ */
 export async function resolveContentIdentities(
     inputs: ContentIdentityInput[],
 ): Promise<ContentIdentity[]> {
@@ -164,13 +167,18 @@ export async function resolveContentIdentities(
     ]
     let lookup: ContentIdentityLookup = { modrinth: {}, curseforge: {} }
     if (modrinthSlugs.length || curseforgeSlugs.length) {
-        lookup = await invoke<ContentIdentityLookup>(
-            'plugin:content-search|lookup_content_identities',
-            {
-                modrinthSlugs,
-                curseforgeSlugs,
-            },
-        ).catch(() => lookup)
+        try {
+            const { invoke } = await import('@tauri-apps/api/core')
+            lookup = await invoke<ContentIdentityLookup>(
+                'plugin:content-search|lookup_content_identities',
+                {
+                    modrinthSlugs,
+                    curseforgeSlugs,
+                },
+            )
+        } catch {
+            lookup = { modrinth: {}, curseforge: {} }
+        }
     }
 
     return inputs.map((input) => {

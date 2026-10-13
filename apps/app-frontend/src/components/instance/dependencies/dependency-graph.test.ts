@@ -15,7 +15,7 @@ import {
     layoutDependencyGraph,
 } from './dependency-graph.ts'
 
-type Ref = { provider: 'modrinth'; projectId: string; releaseId: string }
+type Ref = { provider: 'modrinth' | 'curseforge'; projectId: string; releaseId: string }
 
 type ItemOptions = {
     title?: string
@@ -360,4 +360,105 @@ test('keeps directional depths and lays out a 500-node graph within the performa
     assert.equal(layout.edges.length, 1494)
     assert.ok(elapsed < 1000, `static graph preparation took ${elapsed.toFixed(1)}ms`)
     assert.ok(layout.edges.every((edge) => edge.source && edge.target))
+})
+
+type CurseForgeItemOptions = ItemOptions & { slug?: string }
+
+function curseForgeItem(
+    projectId: number,
+    fileId: number,
+    options: CurseForgeItemOptions = {},
+): ContentItem {
+    return {
+        id: `curseforge:${projectId}`,
+        file_name: `${options.slug ?? projectId}.jar`,
+        file_path: options.filePath ?? `mods/${projectId}.jar`,
+        size: 1,
+        enabled: true,
+        project_type: 'mod',
+        project: {
+            id: `curseforge:${projectId}`,
+            slug: options.slug ?? String(projectId),
+            title: options.title ?? String(projectId),
+            icon_url: null,
+        },
+        version: {
+            id: String(fileId),
+            version_number: String(fileId),
+            file_name: `${projectId}.jar`,
+        },
+        update: null,
+        origin_provider: 'curseforge',
+        provider_refs: [{ provider: 'curseforge', project_id: projectId, file_id: fileId }],
+        instanceEntryId: options.entryId,
+        dependency: {
+            autoDependency: options.autoDependency ?? false,
+            requires: options.requires ?? [],
+            requiredBy: options.requiredBy ?? [],
+            orphaned: false,
+        },
+    } as ContentItem
+}
+
+function curseForgeRef(projectId: number, releaseId = '1'): Ref {
+    return { provider: 'curseforge', projectId: String(projectId), releaseId }
+}
+
+test('links every provider copy of a project to a Modrinth dependency reference', () => {
+    const graph = buildDependencyGraph([
+        item('parent', '1', { requires: [ref('shared-mod')] }),
+        item('shared-mod', '1'),
+        curseForgeItem(4242, 9001, { slug: 'shared-mod' }),
+    ])
+
+    const copies = graph.nodes.filter(
+        (node) => node.projectId === 'shared-mod' || node.projectId === 'curseforge:4242',
+    )
+    assert.equal(copies.length, 2)
+    assert.deepEqual(
+        graph.edges.map((edge) => edge.target).sort(),
+        copies.map((node) => node.id).sort(),
+    )
+    assert.equal(graph.unresolvedIds.size, 0)
+})
+
+test('links every provider copy of a project to a CurseForge dependency reference', () => {
+    const graph = buildDependencyGraph([
+        item('parent', '1', { requires: [curseForgeRef(4242)] }),
+        item('shared-mod', '1'),
+        curseForgeItem(4242, 9001, { slug: 'shared-mod' }),
+    ])
+
+    const modrinthCopy = graph.nodeById.get(nodeId('shared-mod'))
+    const curseForgeCopy = graph.nodeById.get('item:curseforge:4242:9001')
+    assert.ok(modrinthCopy)
+    assert.ok(curseForgeCopy)
+    assert.deepEqual(
+        graph.edges.map((edge) => edge.target).sort(),
+        [modrinthCopy.id, curseForgeCopy.id].sort(),
+    )
+})
+
+test('does not link different projects that only share a display name', () => {
+    const graph = buildDependencyGraph([
+        item('parent', '1', { requires: [ref('alpha')] }),
+        item('alpha', '1', { title: 'Shared Display Name' }),
+        curseForgeItem(77, 700, { slug: 'gamma-mod', title: 'Shared Display Name' }),
+    ])
+
+    assert.equal(graph.edges.length, 1)
+    assert.equal(graph.edges[0]?.target, nodeId('alpha'))
+    assert.ok(graph.rootIds.includes('item:curseforge:77:700'))
+})
+
+test('keeps unrelated cross-provider projects in separate components', () => {
+    const graph = buildDependencyGraph([
+        item('alpha', '1', { requires: [ref('beta')] }),
+        item('beta', '1'),
+        curseForgeItem(88, 800, { slug: 'gamma' }),
+    ])
+
+    assert.equal(graph.edges.length, 1)
+    assert.equal(graph.nodes.length, 3)
+    assert.equal(graph.unresolvedIds.size, 0)
 })

@@ -329,33 +329,44 @@ function contentIdentityReferences(
 /**
  * Registers the reference keys of each matching provider identity on its counterpart
  * node, so a dependency reference to either provider resolves to every known copy of
- * the same project. Identities are grouped by normalized slug and compared with the
- * shared cross-provider helper; only exact or high-confidence matches are bridged,
- * never display-name-only ones.
+ * the same project. Copies are grouped by normalized slug and provider before the
+ * shared cross-provider helper compares them, so same-provider copies are never
+ * compared and only exact or high-confidence matches are bridged, never
+ * display-name-only ones.
  */
 function bridgeContentIdentityReferences(
     references: ContentIdentityReference[],
     nodesByItemKey: Map<string, DependencyGraphNode[]>,
 ): void {
-    const referencesBySlug = new Map<string, ContentIdentityReference[]>()
+    const referencesBySlug = new Map<string, Map<string, ContentIdentityReference[]>>()
     for (const reference of references) {
         const slug = reference.identity.normalizedSlug
         if (!slug) continue
-        const bucket = referencesBySlug.get(slug) ?? []
+        const byProvider =
+            referencesBySlug.get(slug) ?? new Map<string, ContentIdentityReference[]>()
+        const bucket = byProvider.get(reference.provider) ?? []
         bucket.push(reference)
-        referencesBySlug.set(slug, bucket)
+        byProvider.set(reference.provider, bucket)
+        referencesBySlug.set(slug, byProvider)
     }
 
-    for (const bucket of referencesBySlug.values()) {
-        for (let index = 0; index < bucket.length; index += 1) {
-            for (let candidate = index + 1; candidate < bucket.length; candidate += 1) {
-                const left = bucket[index]!
-                const right = bucket[candidate]!
-                if (left.node.id === right.node.id) continue
-                const match = compareContentIdentities(left.identity, right.identity)
-                if (!match || match.confidence === 'possible') continue
-                for (const key of right.keys) addNodeForReference(nodesByItemKey, key, left.node)
-                for (const key of left.keys) addNodeForReference(nodesByItemKey, key, right.node)
+    for (const byProvider of referencesBySlug.values()) {
+        const providers = [...byProvider.values()]
+        for (let index = 0; index < providers.length; index += 1) {
+            for (let candidate = index + 1; candidate < providers.length; candidate += 1) {
+                for (const left of providers[index]!) {
+                    for (const right of providers[candidate]!) {
+                        if (left.node.id === right.node.id) continue
+                        const match = compareContentIdentities(left.identity, right.identity)
+                        if (!match || match.confidence === 'possible') continue
+                        for (const key of right.keys) {
+                            addNodeForReference(nodesByItemKey, key, left.node)
+                        }
+                        for (const key of left.keys) {
+                            addNodeForReference(nodesByItemKey, key, right.node)
+                        }
+                    }
+                }
             }
         }
     }

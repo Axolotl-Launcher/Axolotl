@@ -28,8 +28,19 @@ const HTML_ESCAPE_MAP: Record<string, string> = {
 
 const RE_HTML_ESCAPE = /[&<>"']/g
 
-const RE_MARK_OPEN = /&lt;mark&gt;/gi
-const RE_MARK_CLOSE = /&lt;\/mark&gt;/gi
+const RE_REGEXP_META = /[.*+?^${}()|[\]\\]/g
+
+/**
+ * 与 HTML_ESCAPE_MAP 对应的可见字符还原表（仅用于搜索匹配，不用于渲染）
+ */
+const HTML_ENTITY_DECODE: ReadonlyArray<readonly [string, string]> = [
+    ['&amp;', '&'],
+    ['&lt;', '<'],
+    ['&gt;', '>'],
+    ['&quot;', '"'],
+    ['&#039;', "'"],
+    ['&#39;', "'"],
+]
 
 /**
  * Minecraft § 颜色码 → 样式类（与 LogShare CSS 的 .format-* 对应）
@@ -521,9 +532,6 @@ function formatLine(text: string, mode: LogHighlightMode): string {
 
     let out = escapeHtml(text)
 
-    // 恢复搜索高亮（搜索层注入的 <mark> 已转义）
-    out = out.replace(RE_MARK_OPEN, '<mark>').replace(RE_MARK_CLOSE, '</mark>')
-
     // Minecraft § 颜色码
     out = out.replace(RE_COLOR_CODE, (_match, code) => {
         const cls = COLOR_STYLE_MAP[code.toLowerCase() as keyof typeof COLOR_STYLE_MAP]
@@ -635,6 +643,119 @@ export function highlightLine(text: string, mode: LogHighlightMode = 'full'): st
         return colorizeByLevel(mapLevel(getLevel(text)), text)
     }
     return formatLine(text, mode)
+}
+
+/**
+ * 搜索高亮：在已渲染的 HTML 上按「可见文本」回写 `<mark>`
+ *
+ * 必须在行内格式化之后执行：搜索层若先把 `<mark>` 注入原始文本，所有以边界锚定的
+ * 行内规则都会失效（判定针对未转义文本，替换作用于已转义文本）。这里只匹配可见
+ * 文本（跳过标签、解码实体），因此也不会把标记写进标签或属性里。
+ *
+ * @param html 已格式化（或已转义）的行 HTML
+ * @param searchQuery 搜索框内容，空白分隔的多个词按“或”处理
+ */
+export function markSearchMatches(html: string, searchQuery: string): string {
+    const terms = parseSearchTerms(searchQuery)
+    if (terms.length === 0 || html.length > LONG_LINE_HARD_LIMIT) return html
+
+    const visible = collectVisibleText(html)
+    const pattern = new RegExp(terms.map(escapeRegExp).join('|'), 'gi')
+
+    let out = ''
+    let cursor = 0
+    let match: RegExpExecArray | null
+    while ((match = pattern.exec(visible.text)) !== null) {
+        if (match[0].length === 0) {
+            pattern.lastIndex += 1
+            continue
+        }
+
+        const from = match.index
+        const to = from + match[0].length
+
+        let marked = '<mark>'
+        for (let i = from; i < to; i++) {
+            if (i > from && visible.ends[i - 1] !== visible.starts[i]) {
+                marked += '</mark><mark>'
+            }
+            marked += html.slice(visible.starts[i], visible.ends[i])
+        }
+        marked += '</mark>'
+
+        out += html.slice(cursor, visible.starts[from]) + marked
+        cursor = visible.ends[to - 1]
+    }
+
+    return cursor === 0 ? html : out + html.slice(cursor)
+}
+
+interface VisibleText {
+    text: string
+    starts: number[]
+    ends: number[]
+}
+
+/**
+ * 摊平 HTML 得到可见文本，并记录每个可见字符在原串中的区间
+ */
+function collectVisibleText(html: string): VisibleText {
+    let text = ''
+    const starts: number[] = []
+    const ends: number[] = []
+
+    let index = 0
+    while (index < html.length) {
+        if (html[index] === '<') {
+            const end = html.indexOf('>', index)
+            if (end !== -1) {
+                index = end + 1
+                continue
+            }
+        }
+
+        const entity = matchHtmlEntity(html, index)
+        if (entity !== null) {
+            text += entity.decoded
+            starts.push(index)
+            ends.push(index + entity.length)
+            index += entity.length
+            continue
+        }
+
+        text += html[index]
+        starts.push(index)
+        ends.push(index + 1)
+        index += 1
+    }
+
+    return { text, starts, ends }
+}
+
+interface HtmlEntity {
+    decoded: string
+    length: number
+}
+
+function matchHtmlEntity(html: string, index: number): HtmlEntity | null {
+    for (const [encoded, decoded] of HTML_ENTITY_DECODE) {
+        if (html.startsWith(encoded, index)) return { decoded, length: encoded.length }
+    }
+    return null
+}
+
+function parseSearchTerms(searchQuery: string): string[] {
+    const terms = searchQuery
+        .trim()
+        .toLowerCase()
+        .split(/\s+/)
+        .filter((term) => term.length > 0)
+
+    return [...new Set(terms)].sort((a, b) => b.length - a.length)
+}
+
+function escapeRegExp(text: string): string {
+    return text.replace(RE_REGEXP_META, '\\$&')
 }
 
 /**

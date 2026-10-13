@@ -24,7 +24,6 @@ use reqwest::header::HeaderValue;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::net::SocketAddr;
-use std::ops::Deref;
 use std::sync::Arc;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
@@ -403,14 +402,16 @@ impl FriendsSocket {
         Ok(())
     }
 
+    /// Clones the freshly inserted socket out of the shard guard before the
+    /// `SocketListen` handshake, so the guard is never held across an await.
     #[tracing::instrument(skip(self))]
     pub async fn open_port(&self, port: u16) -> crate::Result<TunnelSocket> {
         let socket_id = Uuid::new_v4();
-        let socket = self.tunnel_sockets.entry(socket_id).insert(Arc::new(
-            InternalTunnelSocket::Listening(SocketAddr::new(
+        let socket = Arc::clone(&self.tunnel_sockets.entry(socket_id).insert(
+            Arc::new(InternalTunnelSocket::Listening(SocketAddr::new(
                 "127.0.0.1".parse().unwrap(),
                 port,
-            )),
+            ))),
         ));
         Self::send_message(
             &self.write,
@@ -427,13 +428,13 @@ impl FriendsSocket {
     fn create_tunnel_socket(
         &self,
         socket_id: Uuid,
-        socket: impl Deref<Target = Arc<InternalTunnelSocket>>,
+        socket: Arc<InternalTunnelSocket>,
     ) -> crate::Result<TunnelSocket> {
         Ok(TunnelSocket {
             socket_id,
             write: self.write.clone(),
             sockets: self.tunnel_sockets.clone(),
-            internal: socket.clone(),
+            internal: socket,
         })
     }
 

@@ -76,7 +76,7 @@ import Button from '#ui/components/base/buttons/Button.vue'
 import EmptyState from '#ui/components/base/EmptyState.vue'
 import { useVIntl } from '#ui/composables/i18n'
 
-import { highlightLine } from '../composables/log-highlight'
+import { highlightLine, markSearchMatches } from '../composables/log-highlight'
 import { consoleMessages } from '../messages'
 import type { LogLine } from '../types'
 
@@ -225,21 +225,7 @@ function entryClass(line: LogLine): string {
 }
 
 function renderLine(item: ViewportLine): string {
-    let text = item.line.text
-    if (props.searchQuery) {
-        const terms = props.searchQuery
-            .trim()
-            .toLowerCase()
-            .split(/\s+/)
-            .filter((t) => t.length > 0)
-        if (terms.length > 0) {
-            for (const term of [...terms].sort((a, b) => b.length - a.length)) {
-                const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-                text = text.replace(new RegExp(`(${escaped})`, 'gi'), '<mark>$1</mark>')
-            }
-        }
-    }
-    return highlightLine(text)
+    return markSearchMatches(highlightLine(item.line.text), props.searchQuery)
 }
 
 function handleScroll() {

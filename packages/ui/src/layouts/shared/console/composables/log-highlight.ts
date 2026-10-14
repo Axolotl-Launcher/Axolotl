@@ -386,8 +386,9 @@ function applyStackHighlights(out: string, text: string): string {
     }
 
     if (RE_PYTHON_FILE.test(text)) {
+        // out was already HTML-escaped by formatLine, so quotes appear as &quot; here
         out = out.replace(
-            /^(\s*File\s+)("[^"]*")(\s*,\s*line\s+)(\d+)/i,
+            /^(\s*File\s+)(&quot;.*?&quot;)(\s*,\s*line\s+)(\d+)/i,
             '<span class="level-stack-frame">$1</span><span class="level-stack-location">$2$3</span><span class="level-stack-class">$4</span>',
         )
     }

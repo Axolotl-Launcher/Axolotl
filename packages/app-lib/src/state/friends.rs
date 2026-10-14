@@ -24,7 +24,6 @@ use reqwest::header::HeaderValue;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::net::SocketAddr;
-use std::ops::Deref;
 use std::sync::Arc;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
@@ -191,9 +190,10 @@ impl FriendsSocket {
                                             ServerToClientMessage::FriendSocketStoppedListening { .. } => {}, // TODO
 
                                             ServerToClientMessage::SocketConnected { to_socket, new_socket } => {
-                                                if let Some(connected_to) = sockets.get(&to_socket)
-                                                    && let InternalTunnelSocket::Listening(local_addr) = *connected_to.value().clone()
-                                                        && let Ok(new_stream) = TcpStream::connect(local_addr).await {
+                                                let connected_to = sockets.get(&to_socket).map(|entry| Arc::clone(entry.value()));
+                                                if let Some(connected_to) = connected_to
+                                                    && let InternalTunnelSocket::Listening(local_addr) = connected_to.as_ref()
+                                                        && let Ok(new_stream) = TcpStream::connect(*local_addr).await {
                                                             let (read, write) = new_stream.into_split();
                                                             sockets.insert(new_socket, Arc::new(InternalTunnelSocket::Connected(Mutex::new(write))));
                                                             Self::socket_read_loop(write_handle.clone(), read, new_socket);
@@ -205,8 +205,9 @@ impl FriendsSocket {
                                                 sockets.remove_if(&socket, |_, x| matches!(*x.clone(), InternalTunnelSocket::Connected(_)));
                                             },
                                             ServerToClientMessage::SocketData { socket, data } => {
-                                                if let Some(mut socket) = sockets.get_mut(&socket)
-                                                    && let InternalTunnelSocket::Connected(ref stream) = *socket.value_mut().clone() {
+                                                let connected = sockets.get(&socket).map(|entry| Arc::clone(entry.value()));
+                                                if let Some(connected) = connected
+                                                    && let InternalTunnelSocket::Connected(stream) = connected.as_ref() {
                                                         let _ = stream.lock().await.write_all(&data).await;
                                                     }
                                             },
@@ -401,14 +402,16 @@ impl FriendsSocket {
         Ok(())
     }
 
+    /// Clones the freshly inserted socket out of the shard guard before the
+    /// `SocketListen` handshake, so the guard is never held across an await.
     #[tracing::instrument(skip(self))]
     pub async fn open_port(&self, port: u16) -> crate::Result<TunnelSocket> {
         let socket_id = Uuid::new_v4();
-        let socket = self.tunnel_sockets.entry(socket_id).insert(Arc::new(
-            InternalTunnelSocket::Listening(SocketAddr::new(
+        let socket = Arc::clone(&self.tunnel_sockets.entry(socket_id).insert(
+            Arc::new(InternalTunnelSocket::Listening(SocketAddr::new(
                 "127.0.0.1".parse().unwrap(),
                 port,
-            )),
+            ))),
         ));
         Self::send_message(
             &self.write,
@@ -425,13 +428,13 @@ impl FriendsSocket {
     fn create_tunnel_socket(
         &self,
         socket_id: Uuid,
-        socket: impl Deref<Target = Arc<InternalTunnelSocket>>,
+        socket: Arc<InternalTunnelSocket>,
     ) -> crate::Result<TunnelSocket> {
         Ok(TunnelSocket {
             socket_id,
             write: self.write.clone(),
             sockets: self.tunnel_sockets.clone(),
-            internal: socket.clone(),
+            internal: socket,
         })
     }
 

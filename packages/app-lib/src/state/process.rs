@@ -33,6 +33,8 @@ const MAX_PERSISTED_LOG_LINE_BYTES: usize = 256 * 1024;
 const LOG_TRUNCATION_MARKER: &str = " … [log output truncated by Axolotl] … ";
 const PROCESS_INITIALIZATION_TIMEOUT: std::time::Duration =
     std::time::Duration::from_secs(15);
+const PROCESS_WAIT_POLL_INTERVAL: std::time::Duration =
+    std::time::Duration::from_millis(50);
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 struct CrashReportSnapshot {
@@ -508,23 +510,34 @@ impl ProcessManager {
         }
     }
 
+    /// Waits until the tracked process exits or is no longer tracked. The
+    /// synchronous `try_wait` helper is polled so the DashMap shard guard is
+    /// only ever held for synchronous work and never across an await point.
     pub async fn wait_for(&self, id: Uuid) -> crate::Result<()> {
-        if let Some(mut process) = self.processes.get_mut(&id) {
-            process.child.wait().await?;
+        loop {
+            match self.try_wait(id)? {
+                Some(None) => {
+                    tokio::time::sleep(PROCESS_WAIT_POLL_INTERVAL).await;
+                }
+                Some(Some(_)) | None => return Ok(()),
+            }
         }
-        Ok(())
     }
 
+    /// Signals the tracked process to terminate without holding the DashMap
+    /// shard guard across an await point. `start_kill` is synchronous, so
+    /// `manually_killed` is still set before the process is signalled and the
+    /// sequential manager keeps reporting the exit as manually killed.
     pub async fn kill(&self, id: Uuid) -> crate::Result<()> {
         if let Some(mut process) = self.processes.get_mut(&id) {
             process.manually_killed = true;
-            if let Err(error) = process.child.kill().await {
+            if let Err(error) = process.child.start_kill() {
                 process.manually_killed = false;
                 return Err(error.into());
             }
         }
 
-        Ok(())
+        self.wait_for(id).await
     }
 
     fn remove(&self, id: Uuid) -> Option<Process> {
@@ -1400,5 +1413,142 @@ mod post_upgrade_tests {
         assert!(!crash_reports_changed(&before, &unchanged));
         assert!(crash_reports_changed(&before, &added));
         assert!(crash_reports_changed(&before, &modified));
+    }
+}
+
+#[cfg(test)]
+mod process_lock_tests {
+    use super::*;
+    use crate::util::rpc::RpcServerBuilder;
+    use std::sync::Arc;
+    use std::time::Duration;
+
+    fn spawn_sleeping_child(seconds: u32) -> Child {
+        let mut command = if cfg!(windows) {
+            let mut command = Command::new("cmd");
+            command
+                .arg("/C")
+                .arg("ping")
+                .arg("-n")
+                .arg(seconds.to_string())
+                .arg("127.0.0.1");
+            command
+        } else {
+            let mut command = Command::new("sh");
+            command.arg("-c").arg(format!("sleep {seconds}"));
+            command
+        };
+
+        command
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .kill_on_drop(true)
+            .spawn()
+            .expect("failed to spawn sleeping child process")
+    }
+
+    async fn insert_sleeping_process(manager: &ProcessManager, id: Uuid) {
+        let rpc_server = RpcServerBuilder::new()
+            .launch()
+            .await
+            .expect("failed to launch test RPC server");
+        let child = spawn_sleeping_child(10);
+
+        manager.processes.insert(
+            id,
+            Process {
+                metadata: ProcessMetadata {
+                    uuid: id,
+                    pid: child.id().unwrap_or_default(),
+                    maximize_window: false,
+                    window_title: None,
+                    instance_id: "test-instance".to_string(),
+                    instance_path: "test-instance".to_string(),
+                    instance_name: "Test instance".to_string(),
+                    start_time: Utc::now(),
+                },
+                child,
+                manually_killed: false,
+                output_tasks: Vec::new(),
+                rpc_server,
+                _main_class_keep_alive: TempDir::new()
+                    .expect("failed to create temp dir"),
+            },
+        );
+    }
+
+    #[tokio::test]
+    async fn waiting_for_an_untracked_process_returns_immediately() {
+        let manager = ProcessManager::new();
+        let id = Uuid::new_v4();
+
+        assert!(manager.try_wait(id).expect("try_wait failed").is_none());
+
+        manager.wait_for(id).await.expect("wait_for failed");
+        manager.kill(id).await.expect("kill failed");
+    }
+
+    /// Runs a synchronous process lookup on a plain OS thread. A shard guard
+    /// that is held across an await point cannot stall the test runtime, so a
+    /// regression fails fast through `recv_timeout` instead of hanging the
+    /// runtime thread that would have to poll the timeout future.
+    fn read_off_runtime<F, T>(
+        read: F,
+    ) -> Result<T, std::sync::mpsc::RecvTimeoutError>
+    where
+        F: FnOnce() -> T + Send + 'static,
+        T: Send + 'static,
+    {
+        let (sender, receiver) = std::sync::mpsc::channel();
+
+        std::thread::spawn(move || {
+            let _ = sender.send(read());
+        });
+
+        receiver.recv_timeout(Duration::from_secs(3))
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn pending_wait_for_does_not_block_manager_reads() {
+        let manager = Arc::new(ProcessManager::new());
+        let id = Uuid::new_v4();
+        insert_sleeping_process(&manager, id).await;
+
+        let waiter = {
+            let manager = Arc::clone(&manager);
+            tokio::spawn(async move { manager.wait_for(id).await })
+        };
+
+        tokio::time::sleep(Duration::from_millis(200)).await;
+
+        let observed = read_off_runtime({
+            let manager = Arc::clone(&manager);
+            move || manager.try_wait(id)
+        })
+        .expect("try_wait was blocked while wait_for was pending")
+        .expect("try_wait failed");
+        assert!(observed.is_some(), "process should still be tracked");
+        assert!(
+            observed.unwrap().is_none(),
+            "the sleeping child should still be running"
+        );
+
+        let metadata = read_off_runtime({
+            let manager = Arc::clone(&manager);
+            move || manager.get(id)
+        })
+        .expect("get was blocked while wait_for was pending");
+        assert!(metadata.is_some(), "process metadata should be available");
+
+        manager.kill(id).await.expect("kill failed");
+        assert!(
+            manager.was_manually_killed(id),
+            "kill must flag the process as manually killed"
+        );
+
+        waiter
+            .await
+            .expect("wait_for task panicked")
+            .expect("wait_for failed");
     }
 }

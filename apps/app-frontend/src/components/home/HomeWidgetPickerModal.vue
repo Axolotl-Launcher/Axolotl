@@ -18,6 +18,10 @@ import { computed, nextTick, ref } from 'vue'
 
 import type { HomeWidgetKind, HomeWidgetPlacement } from '@/components/home/home-dashboard'
 import {
+    HOME_ALMANAC_DEFAULT_SHOW_ACTIVITIES,
+    HOME_ALMANAC_DEFAULT_SHOW_HOURS,
+    HOME_ALMANAC_DEFAULT_TAG_LIMIT,
+    HOME_ALMANAC_DEFAULT_TERM_STYLE,
     HOME_GREETING_DEFAULT_MODE,
     HOME_RECENT_DEFAULT_LIMIT,
     HOME_WIDGET_DEFAULT_SIZE,
@@ -74,6 +78,12 @@ const messages = defineMessages({
     calendarDescription: {
         id: 'app.home.widgets.calendar-description',
         defaultMessage: 'See the month and your play activity at a glance.',
+    },
+    almanac: { id: 'app.home.widgets.almanac', defaultMessage: 'Almanac' },
+    almanacDescription: {
+        id: 'app.home.widgets.almanac-description',
+        defaultMessage:
+            'Traditional Chinese calendar: auspicious and inauspicious activities for the day.',
     },
     pinnedInstances: {
         id: 'app.home.widgets.pinned-instances',
@@ -144,6 +154,12 @@ const catalogSections = computed(() => [
                 kind: 'calendar' as const,
                 label: formatMessage(messages.calendar),
                 description: formatMessage(messages.calendarDescription),
+                icon: CalendarIcon,
+            },
+            {
+                kind: 'almanac' as const,
+                label: formatMessage(messages.almanac),
+                description: formatMessage(messages.almanacDescription),
                 icon: CalendarIcon,
             },
         ],
@@ -246,6 +262,16 @@ function chooseKind(kind: HomeWidgetKind) {
             kind,
             size: HOME_WIDGET_DEFAULT_SIZE[kind],
             ...(kind === 'recent' ? { options: { recentLimit: HOME_RECENT_DEFAULT_LIMIT } } : {}),
+            ...(kind === 'almanac'
+                ? {
+                      options: {
+                          almanacShowHours: HOME_ALMANAC_DEFAULT_SHOW_HOURS,
+                          almanacShowActivities: HOME_ALMANAC_DEFAULT_SHOW_ACTIVITIES,
+                          almanacTagLimit: HOME_ALMANAC_DEFAULT_TAG_LIMIT,
+                          almanacTermStyle: HOME_ALMANAC_DEFAULT_TERM_STYLE,
+                      },
+                  }
+                : {}),
             ...(kind === 'greeting'
                 ? { options: { greetingMode: HOME_GREETING_DEFAULT_MODE } }
                 : {}),

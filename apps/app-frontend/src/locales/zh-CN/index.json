@@ -2156,6 +2156,462 @@
   "app.headless-demo.tooltip-trigger": {
     "message": "悬停提示"
   },
+  "app.home.almanac.cai": {
+    "message": "财神"
+  },
+  "app.home.almanac.chongsha": {
+    "message": "冲煞"
+  },
+  "app.home.almanac.close": {
+    "message": "关闭"
+  },
+  "app.home.almanac.data-note": {
+    "message": "数据由本地计算（lunar-typescript, MIT），完全离线。"
+  },
+  "app.home.almanac.fu": {
+    "message": "福神"
+  },
+  "app.home.almanac.hour-name": {
+    "message": "{zhi}时"
+  },
+  "app.home.almanac.hour-yi": {
+    "message": "宜：{items}"
+  },
+  "app.home.almanac.hours": {
+    "message": "时辰吉凶"
+  },
+  "app.home.almanac.ji": {
+    "message": "忌"
+  },
+  "app.home.almanac.jishen": {
+    "message": "吉神宜趋"
+  },
+  "app.home.almanac.list-separator": {
+    "message": "、"
+  },
+  "app.home.almanac.lucky": {
+    "message": "吉"
+  },
+  "app.home.almanac.more": {
+    "message": "更多"
+  },
+  "app.home.almanac.nayin": {
+    "message": "纳音"
+  },
+  "app.home.almanac.next-day": {
+    "message": "后一天"
+  },
+  "app.home.almanac.no-activity": {
+    "message": "无"
+  },
+  "app.home.almanac.pengzu": {
+    "message": "彭祖百忌"
+  },
+  "app.home.almanac.positions": {
+    "message": "诸神方位"
+  },
+  "app.home.almanac.previous-day": {
+    "message": "前一天"
+  },
+  "app.home.almanac.sha": {
+    "message": "煞"
+  },
+  "app.home.almanac.source-note": {
+      "message": "宜忌依据本地通书表计算，与部分黄历网站存在流派差异"
+  },
+  "app.home.almanac.taishen": {
+    "message": "胎神"
+  },
+  "app.home.almanac.term-both": {
+      "message": "{plain}（{term}）"
+  },
+  "app.home.almanac.term.marriage": {
+      "message": "结婚"
+  },
+  "app.home.almanac.term.seek-wealth": {
+      "message": "求财"
+  },
+  "app.home.almanac.term.engagement": {
+      "message": "订婚"
+  },
+  "app.home.almanac.term.burial": {
+      "message": "安葬"
+  },
+  "app.home.almanac.term.open-business": {
+      "message": "开业"
+  },
+  "app.home.almanac.term.pray-blessing": {
+      "message": "祈福"
+  },
+  "app.home.almanac.term.pray-child": {
+      "message": "求子"
+  },
+  "app.home.almanac.term.travel": {
+      "message": "出行"
+  },
+  "app.home.almanac.term.move-in": {
+      "message": "搬入新居"
+  },
+  "app.home.almanac.term.set-bed": {
+      "message": "安床"
+  },
+  "app.home.almanac.term.trade": {
+      "message": "交易"
+  },
+  "app.home.almanac.term.renovate": {
+      "message": "装修"
+  },
+  "app.home.almanac.term.move-house": {
+      "message": "搬家"
+  },
+  "app.home.almanac.term.meet-superior": {
+      "message": "见贵人"
+  },
+  "app.home.almanac.term.worship": {
+      "message": "祭祀"
+  },
+  "app.home.almanac.term.take-office": {
+      "message": "上任"
+  },
+  "app.home.almanac.term.thank-gods": {
+      "message": "还愿酬神"
+  },
+  "app.home.almanac.term.build-stove": {
+      "message": "修灶"
+  },
+  "app.home.almanac.term.build-house": {
+      "message": "盖房"
+  },
+  "app.home.almanac.term.none": {
+      "message": "无"
+  },
+  "app.home.almanac.term.adopt": {
+      "message": "收养"
+  },
+  "app.home.almanac.term.taoist-ritual": {
+      "message": "做法事"
+  },
+  "app.home.almanac.term.open-warehouse": {
+      "message": "开仓"
+  },
+  "app.home.almanac.term.break-ground": {
+      "message": "动土"
+  },
+  "app.home.almanac.term.dig-ground": {
+      "message": "破土"
+  },
+  "app.home.almanac.term.consecrate": {
+      "message": "开光"
+  },
+  "app.home.almanac.term.plant": {
+      "message": "种植"
+  },
+  "app.home.almanac.term.move-hearth": {
+      "message": "移火"
+  },
+  "app.home.almanac.term.cleanse": {
+      "message": "清扫化解"
+  },
+  "app.home.almanac.term.encoffin": {
+      "message": "入殓"
+  },
+  "app.home.almanac.term.betrothal-gift": {
+      "message": "提亲送礼"
+  },
+  "app.home.almanac.term.raise-beam": {
+      "message": "上梁"
+  },
+  "app.home.almanac.term.sign-contract": {
+      "message": "签约"
+  },
+  "app.home.almanac.term.minor-matters-only": {
+      "message": "只宜小事"
+  },
+  "app.home.almanac.term.take-livestock": {
+      "message": "收养牲畜"
+  },
+  "app.home.almanac.term.dismantle": {
+      "message": "拆除"
+  },
+  "app.home.almanac.term.fell-trees": {
+      "message": "伐木"
+  },
+  "app.home.almanac.term.install-door": {
+      "message": "安门"
+  },
+  "app.home.almanac.term.form-alliance": {
+      "message": "结盟"
+  },
+  "app.home.almanac.term.dig-well": {
+      "message": "打井"
+  },
+  "app.home.almanac.term.reopen-grave": {
+      "message": "迁骨重葬"
+  },
+  "app.home.almanac.term.meet-friends": {
+      "message": "会亲友"
+  },
+  "app.home.almanac.term.move-coffin": {
+      "message": "移柩"
+  },
+  "app.home.almanac.term.mourning-dress": {
+      "message": "成服戴孝"
+  },
+  "app.home.almanac.term.ridge-roof": {
+      "message": "合脊盖瓦"
+  },
+  "app.home.almanac.term.end-mourning": {
+      "message": "除服脱孝"
+  },
+  "app.home.almanac.term.take-wealth": {
+      "message": "进财"
+  },
+  "app.home.almanac.term.build-temple": {
+      "message": "建庙"
+  },
+  "app.home.almanac.term.lay-foundation": {
+      "message": "打地基"
+  },
+  "app.home.almanac.term.bathe": {
+      "message": "沐浴"
+  },
+  "app.home.almanac.term.haircut": {
+      "message": "理发"
+  },
+  "app.home.almanac.term.coming-of-age": {
+      "message": "成人礼"
+  },
+  "app.home.almanac.term.raise-livestock": {
+      "message": "养殖"
+  },
+  "app.home.almanac.term.hold-funeral": {
+      "message": "办丧事"
+  },
+  "app.home.almanac.term.thank-earth": {
+      "message": "谢土还愿"
+  },
+  "app.home.almanac.term.hang-plaque": {
+      "message": "挂匾"
+  },
+  "app.home.almanac.term.make-beam": {
+      "message": "做房梁"
+  },
+  "app.home.almanac.term.treat-illness": {
+      "message": "看病"
+  },
+  "app.home.almanac.term.repair-grave": {
+      "message": "修坟"
+  },
+  "app.home.almanac.term.build-pen": {
+      "message": "建畜栏"
+  },
+  "app.home.almanac.term.dig-pond": {
+      "message": "挖池塘"
+  },
+  "app.home.almanac.term.erect-pillar": {
+      "message": "立柱"
+  },
+  "app.home.almanac.term.sweep-house": {
+      "message": "打扫房屋"
+  },
+  "app.home.almanac.term.buy-property": {
+      "message": "置办产业"
+  },
+  "app.home.almanac.term.erect-stele": {
+      "message": "立碑"
+  },
+  "app.home.almanac.term.plug-holes": {
+      "message": "堵洞穴"
+  },
+  "app.home.almanac.term.demolish-wall": {
+      "message": "拆墙"
+  },
+  "app.home.almanac.term.make-clothes": {
+      "message": "做衣服"
+  },
+  "app.home.almanac.term.make-net": {
+      "message": "织网"
+  },
+  "app.home.almanac.term.demolish-house": {
+      "message": "拆房"
+  },
+  "app.home.almanac.term.install-machine": {
+      "message": "装机器"
+  },
+  "app.home.almanac.term.set-incense": {
+      "message": "安香炉"
+  },
+  "app.home.almanac.term.hunt": {
+      "message": "打猎"
+  },
+  "app.home.almanac.term.nothing-advisable": {
+      "message": "诸事不宜"
+  },
+  "app.home.almanac.term.catch": {
+      "message": "捕捉"
+  },
+  "app.home.almanac.term.pave-road": {
+      "message": "修路铺路"
+  },
+  "app.home.almanac.term.build-bridge": {
+      "message": "建桥"
+  },
+  "app.home.almanac.term.weave": {
+      "message": "织布"
+  },
+  "app.home.almanac.term.patch-wall": {
+      "message": "补墙"
+  },
+  "app.home.almanac.term.build-boat": {
+      "message": "造船"
+  },
+  "app.home.almanac.term.sculpt-paint": {
+      "message": "雕塑绘画"
+  },
+  "app.home.almanac.term.visit-sick": {
+      "message": "探病"
+  },
+  "app.home.almanac.term.litigation": {
+      "message": "打官司"
+  },
+  "app.home.almanac.term.repair-wall": {
+      "message": "修整墙面"
+  },
+  "app.home.almanac.term.set-plinth": {
+      "message": "定磉安基"
+  },
+  "app.home.almanac.term.ship-goods": {
+      "message": "出货求财"
+  },
+  "app.home.almanac.term.build-cart": {
+      "message": "造车具"
+  },
+  "app.home.almanac.term.seek-doctor": {
+      "message": "求医问药"
+  },
+  "app.home.almanac.term.make-coffin": {
+      "message": "制作寿材"
+  },
+  "app.home.almanac.term.build-grave": {
+      "message": "建生坟"
+  },
+  "app.home.almanac.term.start-school": {
+      "message": "入学"
+  },
+  "app.home.almanac.term.release-water": {
+      "message": "放水"
+  },
+  "app.home.almanac.term.train-cattle": {
+      "message": "驯牛马"
+  },
+  "app.home.almanac.term.sew-bedding": {
+      "message": "缝帐"
+  },
+  "app.home.almanac.term.dig-canal": {
+      "message": "挖水渠"
+  },
+  "app.home.almanac.term.erect-scaffold": {
+      "message": "搭架子"
+  },
+  "app.home.almanac.term.build-toilet": {
+      "message": "建厕所"
+  },
+  "app.home.almanac.term.trim-nails": {
+      "message": "修剪指甲"
+  },
+  "app.home.almanac.term.build-granary": {
+      "message": "建仓库"
+  },
+  "app.home.almanac.term.fish": {
+      "message": "捕鱼"
+  },
+  "app.home.almanac.term.acupuncture": {
+      "message": "针灸"
+  },
+  "app.home.almanac.term.install-mill": {
+      "message": "安磨盘"
+  },
+  "app.home.almanac.term.build-dike": {
+      "message": "筑堤"
+  },
+  "app.home.almanac.term.drill-post": {
+      "message": "开柱眼"
+  },
+  "app.home.almanac.term.salvation-rite": {
+      "message": "普渡法会"
+  },
+  "app.home.almanac.term.kill-ants": {
+      "message": "灭蚁"
+  },
+  "app.home.almanac.term.carve": {
+      "message": "雕刻"
+  },
+  "app.home.almanac.term.ask-name": {
+      "message": "问名"
+  },
+  "app.home.almanac.term.harvest-honey": {
+      "message": "割蜜取蜜"
+  },
+  "app.home.almanac.term.learn-craft": {
+      "message": "学手艺"
+  },
+  "app.home.almanac.term.live-apart": {
+      "message": "分居"
+  },
+  "app.home.almanac.term.take-son-in-law": {
+      "message": "招女婿"
+  },
+  "app.home.almanac.term.return-nest": {
+      "message": "归巢"
+  },
+  "app.home.almanac.term.visit-parents": {
+      "message": "回娘家"
+  },
+  "app.home.almanac.term.repair-door": {
+      "message": "修门"
+  },
+  "app.home.almanac.term.boating": {
+      "message": "乘船"
+  },
+  "app.home.almanac.term.hire": {
+      "message": "雇佣"
+  },
+  "app.home.almanac.title": {
+    "message": "黄历"
+  },
+  "app.home.almanac.today": {
+    "message": "今天"
+  },
+  "app.home.almanac.unlucky": {
+    "message": "凶"
+  },
+  "app.home.almanac.view-detail": {
+    "message": "查看完整黄历"
+  },
+  "app.home.almanac.xi": {
+    "message": "喜神"
+  },
+  "app.home.almanac.xiongsha": {
+    "message": "凶煞宜忌"
+  },
+  "app.home.almanac.xiu": {
+    "message": "星宿"
+  },
+  "app.home.almanac.yang-gui": {
+    "message": "阳贵神"
+  },
+  "app.home.almanac.yi": {
+    "message": "宜"
+  },
+  "app.home.almanac.yin-gui": {
+    "message": "阴贵神"
+  },
+  "app.home.almanac.zhishen": {
+    "message": "值神"
+  },
+  "app.home.almanac.zhixing": {
+    "message": "建除十二神"
+  },
   "app.home.breadcrumb": {
     "message": "主页"
   },
@@ -2506,6 +2962,36 @@
   },
   "app.home.shortcut.server.players-online": {
     "message": "{count} 人在线"
+  },
+  "app.home.widgets.almanac": {
+    "message": "黄历"
+  },
+  "app.home.widgets.almanac-description": {
+    "message": "传统黄历：查看当日宜忌、冲煞、值神与时辰吉凶。"
+  },
+  "app.home.widgets.almanac-hide-hours": {
+    "message": "隐藏时辰吉凶"
+  },
+  "app.home.widgets.almanac-show-activities": {
+    "message": "显示宜忌"
+  },
+  "app.home.widgets.almanac-hide-activities": {
+    "message": "隐藏宜忌"
+  },
+  "app.home.widgets.almanac-show-hours": {
+    "message": "显示时辰吉凶"
+  },
+  "app.home.widgets.almanac-tag-limit": {
+    "message": "每列显示 {count} 项宜忌"
+  },
+  "app.home.widgets.almanac-term-both": {
+      "message": "术语：口语（传统）"
+  },
+  "app.home.widgets.almanac-term-plain": {
+      "message": "术语：只显示口语"
+  },
+  "app.home.widgets.almanac-term-traditional": {
+      "message": "术语：传统写法"
   },
   "app.home.widgets.size": {
     "message": "尺寸 {size}"

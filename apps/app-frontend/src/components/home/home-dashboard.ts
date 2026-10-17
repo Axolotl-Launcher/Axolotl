@@ -6,6 +6,24 @@ export const HOME_WIDGET_GRID_GAP = 16
 export const HOME_WIDGET_GRID_ROW_HEIGHT = 160
 export const HOME_RECENT_LIMIT_OPTIONS = [2, 4, 6, 8] as const
 export const HOME_RECENT_DEFAULT_LIMIT = 4
+export const HOME_ALMANAC_TAG_LIMIT_OPTIONS = [3, 6, 9] as const
+/**
+ * The wide card lists six activities per side by default. Narrow cards cap the
+ * list at three regardless, because a single row has to hold them.
+ */
+export const HOME_ALMANAC_DEFAULT_TAG_LIMIT = 6
+export const HOME_ALMANAC_DEFAULT_SHOW_HOURS = true
+/**
+ * The daily activity lists come from a different almanac lineage than the
+ * mainstream calendars, so they stay hidden until the user asks for them.
+ */
+export const HOME_ALMANAC_DEFAULT_SHOW_ACTIVITIES = false
+export const HOME_ALMANAC_TERM_STYLES = ['both', 'plain', 'traditional'] as const
+/**
+ * Traditional wording is the default so the card reads like a regular almanac;
+ * the plainer wordings stay opt-in from the widget menu.
+ */
+export const HOME_ALMANAC_DEFAULT_TERM_STYLE = 'traditional'
 export const HOME_GREETING_MODES = ['greeting', 'text-and-greeting', 'text'] as const
 export const HOME_GREETING_DEFAULT_MODE = 'greeting'
 export const HOME_GREETING_FONTS = ['sans', 'minecraft', 'mono', 'serif'] as const
@@ -26,12 +44,15 @@ export const HOME_GREETING_GLOBAL_KEY = 'global'
 export type HomeWidgetSize = (typeof HOME_WIDGET_SIZES)[number]
 export type HomeWidgetLayout = (typeof HOME_WIDGET_LAYOUTS)[number]
 export type HomeRecentLimit = (typeof HOME_RECENT_LIMIT_OPTIONS)[number]
+export type HomeAlmanacTagLimit = (typeof HOME_ALMANAC_TAG_LIMIT_OPTIONS)[number]
+export type HomeAlmanacTermStyle = (typeof HOME_ALMANAC_TERM_STYLES)[number]
 export type HomeGreetingMode = (typeof HOME_GREETING_MODES)[number]
 export type HomeGreetingFont = (typeof HOME_GREETING_FONTS)[number]
 export type HomeWidgetKind =
     | 'greeting'
     | 'recent'
     | 'calendar'
+    | 'almanac'
     | 'pinned-instances'
     | 'pinned-worlds'
     | 'pinned-servers'
@@ -58,6 +79,10 @@ export type HomeGreetingOverride = {
 
 export type HomeWidgetOptions = {
     recentLimit?: HomeRecentLimit
+    almanacShowHours?: boolean
+    almanacShowActivities?: boolean
+    almanacTagLimit?: HomeAlmanacTagLimit
+    almanacTermStyle?: HomeAlmanacTermStyle
     greetingMode?: HomeGreetingMode
     greetingText?: string
     greetingFont?: HomeGreetingFont
@@ -101,6 +126,7 @@ export const HOME_WIDGET_SIZE_OPTIONS: Record<HomeWidgetKind, readonly HomeWidge
     greeting: ['2x1'],
     recent: ['2x1', '2x2', '3x1', '3x2'],
     calendar: ['1x2'],
+    almanac: ['1x2', '2x1', '2x2'],
     'pinned-instances': HOME_WIDGET_STANDARD_SIZES,
     'pinned-worlds': HOME_WIDGET_STANDARD_SIZES,
     'pinned-servers': HOME_WIDGET_STANDARD_SIZES,
@@ -113,6 +139,7 @@ export const HOME_WIDGET_DEFAULT_SIZE: Record<HomeWidgetKind, HomeWidgetSize> = 
     greeting: '2x1',
     recent: '2x2',
     calendar: '1x2',
+    almanac: '2x2',
     'pinned-instances': '2x2',
     'pinned-worlds': '1x2',
     'pinned-servers': '1x2',
@@ -145,6 +172,16 @@ function createPlacement(
         kind,
         size,
         ...(kind === 'recent' ? { options: { recentLimit: HOME_RECENT_DEFAULT_LIMIT } } : {}),
+        ...(kind === 'almanac'
+            ? {
+                  options: {
+                      almanacShowHours: HOME_ALMANAC_DEFAULT_SHOW_HOURS,
+                      almanacShowActivities: HOME_ALMANAC_DEFAULT_SHOW_ACTIVITIES,
+                      almanacTagLimit: HOME_ALMANAC_DEFAULT_TAG_LIMIT,
+                      almanacTermStyle: HOME_ALMANAC_DEFAULT_TERM_STYLE,
+                  },
+              }
+            : {}),
         ...(kind === 'greeting'
             ? {
                   options: {
@@ -236,6 +273,28 @@ function normalizeOptions(kind: HomeWidgetKind, value: unknown): HomeWidgetOptio
             greetingFontSize,
             ...(greetingOverrides ? { greetingOverrides } : {}),
         }
+    }
+
+    if (kind === 'almanac') {
+        const almanacShowHours =
+            isRecord(value) && typeof value.almanacShowHours === 'boolean'
+                ? value.almanacShowHours
+                : HOME_ALMANAC_DEFAULT_SHOW_HOURS
+        const almanacTagLimit =
+            isRecord(value) &&
+            HOME_ALMANAC_TAG_LIMIT_OPTIONS.includes(value.almanacTagLimit as HomeAlmanacTagLimit)
+                ? (value.almanacTagLimit as HomeAlmanacTagLimit)
+                : HOME_ALMANAC_DEFAULT_TAG_LIMIT
+        const almanacTermStyle =
+            isRecord(value) &&
+            HOME_ALMANAC_TERM_STYLES.includes(value.almanacTermStyle as HomeAlmanacTermStyle)
+                ? (value.almanacTermStyle as HomeAlmanacTermStyle)
+                : HOME_ALMANAC_DEFAULT_TERM_STYLE
+        const almanacShowActivities =
+            isRecord(value) && typeof value.almanacShowActivities === 'boolean'
+                ? value.almanacShowActivities
+                : HOME_ALMANAC_DEFAULT_SHOW_ACTIVITIES
+        return { almanacShowHours, almanacShowActivities, almanacTagLimit, almanacTermStyle }
     }
 
     return undefined
@@ -399,6 +458,43 @@ export function setHomeRecentLimit(
         config.widgets.map((widget) =>
             widget.id === id && widget.kind === 'recent'
                 ? { ...widget, options: { ...widget.options, recentLimit } }
+                : widget,
+        ),
+    )
+}
+
+export function setHomeAlmanacOptions(
+    config: HomeDashboardConfig,
+    id: string,
+    almanacShowHours: boolean,
+    almanacTagLimit: HomeAlmanacTagLimit,
+    almanacTermStyle: HomeAlmanacTermStyle,
+    almanacShowActivities: boolean,
+): HomeDashboardConfig {
+    const normalizedTagLimit = HOME_ALMANAC_TAG_LIMIT_OPTIONS.includes(
+        almanacTagLimit as HomeAlmanacTagLimit,
+    )
+        ? almanacTagLimit
+        : HOME_ALMANAC_DEFAULT_TAG_LIMIT
+    const normalizedTermStyle = HOME_ALMANAC_TERM_STYLES.includes(
+        almanacTermStyle as HomeAlmanacTermStyle,
+    )
+        ? almanacTermStyle
+        : HOME_ALMANAC_DEFAULT_TERM_STYLE
+    return replaceHomeDashboardWidgets(
+        config,
+        config.widgets.map((widget) =>
+            widget.id === id && widget.kind === 'almanac'
+                ? {
+                      ...widget,
+                      options: {
+                          ...widget.options,
+                          almanacShowHours: almanacShowHours === true,
+                          almanacShowActivities: almanacShowActivities === true,
+                          almanacTagLimit: normalizedTagLimit,
+                          almanacTermStyle: normalizedTermStyle,
+                      },
+                  }
                 : widget,
         ),
     )

@@ -2402,6 +2402,462 @@
   "app.headless-demo.tooltip-trigger": {
     "message": "Hover tooltip"
   },
+  "app.home.almanac.cai": {
+    "message": "Wealth god"
+  },
+  "app.home.almanac.chongsha": {
+    "message": "Clash"
+  },
+  "app.home.almanac.close": {
+    "message": "Close"
+  },
+  "app.home.almanac.data-note": {
+    "message": "Computed locally with lunar-typescript (MIT); works offline."
+  },
+  "app.home.almanac.fu": {
+    "message": "Fortune god"
+  },
+  "app.home.almanac.hour-name": {
+    "message": "{zhi} hour"
+  },
+  "app.home.almanac.hour-yi": {
+    "message": "Do: {items}"
+  },
+  "app.home.almanac.hours": {
+    "message": "Hourly fortune"
+  },
+  "app.home.almanac.ji": {
+    "message": "Avoid"
+  },
+  "app.home.almanac.jishen": {
+    "message": "Auspicious deities"
+  },
+  "app.home.almanac.list-separator": {
+    "message": ", "
+  },
+  "app.home.almanac.lucky": {
+    "message": "Auspicious"
+  },
+  "app.home.almanac.more": {
+    "message": "More"
+  },
+  "app.home.almanac.nayin": {
+    "message": "Element"
+  },
+  "app.home.almanac.next-day": {
+    "message": "Next day"
+  },
+  "app.home.almanac.no-activity": {
+    "message": "None"
+  },
+  "app.home.almanac.pengzu": {
+    "message": "Peng Zu taboos"
+  },
+  "app.home.almanac.positions": {
+    "message": "Deity directions"
+  },
+  "app.home.almanac.previous-day": {
+    "message": "Previous day"
+  },
+  "app.home.almanac.sha": {
+    "message": "Sha"
+  },
+  "app.home.almanac.source-note": {
+      "message": "Auspicious and inauspicious activities follow a local almanac table and may differ from other almanac sources."
+  },
+  "app.home.almanac.taishen": {
+    "message": "Fetal god"
+  },
+  "app.home.almanac.term-both": {
+      "message": "{plain} ({term})"
+  },
+  "app.home.almanac.term.marriage": {
+      "message": "Marriage"
+  },
+  "app.home.almanac.term.seek-wealth": {
+      "message": "Seeking wealth"
+  },
+  "app.home.almanac.term.engagement": {
+      "message": "Engagement"
+  },
+  "app.home.almanac.term.burial": {
+      "message": "Burial"
+  },
+  "app.home.almanac.term.open-business": {
+      "message": "Opening a business"
+  },
+  "app.home.almanac.term.pray-blessing": {
+      "message": "Praying for blessings"
+  },
+  "app.home.almanac.term.pray-child": {
+      "message": "Praying for a child"
+  },
+  "app.home.almanac.term.travel": {
+      "message": "Travel"
+  },
+  "app.home.almanac.term.move-in": {
+      "message": "Moving into a new home"
+  },
+  "app.home.almanac.term.set-bed": {
+      "message": "Setting up a bed"
+  },
+  "app.home.almanac.term.trade": {
+      "message": "Trading"
+  },
+  "app.home.almanac.term.renovate": {
+      "message": "Renovation"
+  },
+  "app.home.almanac.term.move-house": {
+      "message": "Moving house"
+  },
+  "app.home.almanac.term.meet-superior": {
+      "message": "Meeting superiors"
+  },
+  "app.home.almanac.term.worship": {
+      "message": "Worship"
+  },
+  "app.home.almanac.term.take-office": {
+      "message": "Taking office"
+  },
+  "app.home.almanac.term.thank-gods": {
+      "message": "Thanking the gods"
+  },
+  "app.home.almanac.term.build-stove": {
+      "message": "Building a stove"
+  },
+  "app.home.almanac.term.build-house": {
+      "message": "Building a house"
+  },
+  "app.home.almanac.term.none": {
+      "message": "None"
+  },
+  "app.home.almanac.term.adopt": {
+      "message": "Adoption"
+  },
+  "app.home.almanac.term.taoist-ritual": {
+      "message": "Taoist ritual"
+  },
+  "app.home.almanac.term.open-warehouse": {
+      "message": "Opening a warehouse"
+  },
+  "app.home.almanac.term.break-ground": {
+      "message": "Breaking ground"
+  },
+  "app.home.almanac.term.dig-ground": {
+      "message": "Digging the ground"
+  },
+  "app.home.almanac.term.consecrate": {
+      "message": "Consecration"
+  },
+  "app.home.almanac.term.plant": {
+      "message": "Planting"
+  },
+  "app.home.almanac.term.move-hearth": {
+      "message": "Moving the hearth fire"
+  },
+  "app.home.almanac.term.cleanse": {
+      "message": "Cleansing"
+  },
+  "app.home.almanac.term.encoffin": {
+      "message": "Encoffining"
+  },
+  "app.home.almanac.term.betrothal-gift": {
+      "message": "Betrothal gifts"
+  },
+  "app.home.almanac.term.raise-beam": {
+      "message": "Raising the roof beam"
+  },
+  "app.home.almanac.term.sign-contract": {
+      "message": "Signing contracts"
+  },
+  "app.home.almanac.term.minor-matters-only": {
+      "message": "Minor matters only"
+  },
+  "app.home.almanac.term.take-livestock": {
+      "message": "Taking in livestock"
+  },
+  "app.home.almanac.term.dismantle": {
+      "message": "Dismantling"
+  },
+  "app.home.almanac.term.fell-trees": {
+      "message": "Felling trees"
+  },
+  "app.home.almanac.term.install-door": {
+      "message": "Installing doors"
+  },
+  "app.home.almanac.term.form-alliance": {
+      "message": "Forming alliances"
+  },
+  "app.home.almanac.term.dig-well": {
+      "message": "Digging a well"
+  },
+  "app.home.almanac.term.reopen-grave": {
+      "message": "Reopening a grave"
+  },
+  "app.home.almanac.term.meet-friends": {
+      "message": "Meeting friends"
+  },
+  "app.home.almanac.term.move-coffin": {
+      "message": "Moving the coffin"
+  },
+  "app.home.almanac.term.mourning-dress": {
+      "message": "Putting on mourning"
+  },
+  "app.home.almanac.term.ridge-roof": {
+      "message": "Finishing the roof ridge"
+  },
+  "app.home.almanac.term.end-mourning": {
+      "message": "Ending mourning"
+  },
+  "app.home.almanac.term.take-wealth": {
+      "message": "Taking in wealth"
+  },
+  "app.home.almanac.term.build-temple": {
+      "message": "Building a temple"
+  },
+  "app.home.almanac.term.lay-foundation": {
+      "message": "Laying foundations"
+  },
+  "app.home.almanac.term.bathe": {
+      "message": "Bathing"
+  },
+  "app.home.almanac.term.haircut": {
+      "message": "Haircut"
+  },
+  "app.home.almanac.term.coming-of-age": {
+      "message": "Coming-of-age ceremony"
+  },
+  "app.home.almanac.term.raise-livestock": {
+      "message": "Raising livestock"
+  },
+  "app.home.almanac.term.hold-funeral": {
+      "message": "Holding a funeral"
+  },
+  "app.home.almanac.term.thank-earth": {
+      "message": "Thanking the earth god"
+  },
+  "app.home.almanac.term.hang-plaque": {
+      "message": "Hanging a plaque"
+  },
+  "app.home.almanac.term.make-beam": {
+      "message": "Making roof beams"
+  },
+  "app.home.almanac.term.treat-illness": {
+      "message": "Seeking treatment"
+  },
+  "app.home.almanac.term.repair-grave": {
+      "message": "Repairing a grave"
+  },
+  "app.home.almanac.term.build-pen": {
+      "message": "Building animal pens"
+  },
+  "app.home.almanac.term.dig-pond": {
+      "message": "Digging a pond"
+  },
+  "app.home.almanac.term.erect-pillar": {
+      "message": "Erecting pillars"
+  },
+  "app.home.almanac.term.sweep-house": {
+      "message": "Sweeping the house"
+  },
+  "app.home.almanac.term.buy-property": {
+      "message": "Buying property"
+  },
+  "app.home.almanac.term.erect-stele": {
+      "message": "Erecting a tombstone"
+  },
+  "app.home.almanac.term.plug-holes": {
+      "message": "Plugging holes"
+  },
+  "app.home.almanac.term.demolish-wall": {
+      "message": "Demolishing walls"
+  },
+  "app.home.almanac.term.make-clothes": {
+      "message": "Making clothes"
+  },
+  "app.home.almanac.term.make-net": {
+      "message": "Making nets"
+  },
+  "app.home.almanac.term.demolish-house": {
+      "message": "Demolishing a house"
+  },
+  "app.home.almanac.term.install-machine": {
+      "message": "Installing machinery"
+  },
+  "app.home.almanac.term.set-incense": {
+      "message": "Setting up an incense burner"
+  },
+  "app.home.almanac.term.hunt": {
+      "message": "Hunting"
+  },
+  "app.home.almanac.term.nothing-advisable": {
+      "message": "Nothing advisable"
+  },
+  "app.home.almanac.term.catch": {
+      "message": "Catching"
+  },
+  "app.home.almanac.term.pave-road": {
+      "message": "Paving roads"
+  },
+  "app.home.almanac.term.build-bridge": {
+      "message": "Building bridges"
+  },
+  "app.home.almanac.term.weave": {
+      "message": "Weaving"
+  },
+  "app.home.almanac.term.patch-wall": {
+      "message": "Patching walls"
+  },
+  "app.home.almanac.term.build-boat": {
+      "message": "Building boats"
+  },
+  "app.home.almanac.term.sculpt-paint": {
+      "message": "Sculpting and painting"
+  },
+  "app.home.almanac.term.visit-sick": {
+      "message": "Visiting the sick"
+  },
+  "app.home.almanac.term.litigation": {
+      "message": "Litigation"
+  },
+  "app.home.almanac.term.repair-wall": {
+      "message": "Repairing walls"
+  },
+  "app.home.almanac.term.set-plinth": {
+      "message": "Setting plinths"
+  },
+  "app.home.almanac.term.ship-goods": {
+      "message": "Shipping goods"
+  },
+  "app.home.almanac.term.build-cart": {
+      "message": "Making carts"
+  },
+  "app.home.almanac.term.seek-doctor": {
+      "message": "Seeking medical help"
+  },
+  "app.home.almanac.term.make-coffin": {
+      "message": "Preparing a coffin"
+  },
+  "app.home.almanac.term.build-grave": {
+      "message": "Building a grave"
+  },
+  "app.home.almanac.term.start-school": {
+      "message": "Starting school"
+  },
+  "app.home.almanac.term.release-water": {
+      "message": "Releasing water"
+  },
+  "app.home.almanac.term.train-cattle": {
+      "message": "Training cattle and horses"
+  },
+  "app.home.almanac.term.sew-bedding": {
+      "message": "Making bed curtains"
+  },
+  "app.home.almanac.term.dig-canal": {
+      "message": "Digging canals"
+  },
+  "app.home.almanac.term.erect-scaffold": {
+      "message": "Erecting scaffolding"
+  },
+  "app.home.almanac.term.build-toilet": {
+      "message": "Building a toilet"
+  },
+  "app.home.almanac.term.trim-nails": {
+      "message": "Trimming nails"
+  },
+  "app.home.almanac.term.build-granary": {
+      "message": "Building a granary"
+  },
+  "app.home.almanac.term.fish": {
+      "message": "Fishing"
+  },
+  "app.home.almanac.term.acupuncture": {
+      "message": "Acupuncture"
+  },
+  "app.home.almanac.term.install-mill": {
+      "message": "Installing a mill"
+  },
+  "app.home.almanac.term.build-dike": {
+      "message": "Building dikes"
+  },
+  "app.home.almanac.term.drill-post": {
+      "message": "Drilling post holes"
+  },
+  "app.home.almanac.term.salvation-rite": {
+      "message": "Salvation ceremony"
+  },
+  "app.home.almanac.term.kill-ants": {
+      "message": "Exterminating ants"
+  },
+  "app.home.almanac.term.carve": {
+      "message": "Carving"
+  },
+  "app.home.almanac.term.ask-name": {
+      "message": "Asking the name"
+  },
+  "app.home.almanac.term.harvest-honey": {
+      "message": "Harvesting honey"
+  },
+  "app.home.almanac.term.learn-craft": {
+      "message": "Learning a craft"
+  },
+  "app.home.almanac.term.live-apart": {
+      "message": "Living apart"
+  },
+  "app.home.almanac.term.take-son-in-law": {
+      "message": "Taking a son-in-law"
+  },
+  "app.home.almanac.term.return-nest": {
+      "message": "Returning to the nest"
+  },
+  "app.home.almanac.term.visit-parents": {
+      "message": "Visiting one's parents"
+  },
+  "app.home.almanac.term.repair-door": {
+      "message": "Repairing doors"
+  },
+  "app.home.almanac.term.boating": {
+      "message": "Boating"
+  },
+  "app.home.almanac.term.hire": {
+      "message": "Hiring"
+  },
+  "app.home.almanac.title": {
+    "message": "Almanac"
+  },
+  "app.home.almanac.today": {
+    "message": "Today"
+  },
+  "app.home.almanac.unlucky": {
+    "message": "Inauspicious"
+  },
+  "app.home.almanac.view-detail": {
+    "message": "View full almanac"
+  },
+  "app.home.almanac.xi": {
+    "message": "Joy god"
+  },
+  "app.home.almanac.xiongsha": {
+    "message": "Inauspicious influences"
+  },
+  "app.home.almanac.xiu": {
+    "message": "Mansion"
+  },
+  "app.home.almanac.yang-gui": {
+    "message": "Yang noble"
+  },
+  "app.home.almanac.yi": {
+    "message": "Do"
+  },
+  "app.home.almanac.yin-gui": {
+    "message": "Yin noble"
+  },
+  "app.home.almanac.zhishen": {
+    "message": "Day officer"
+  },
+  "app.home.almanac.zhixing": {
+    "message": "Twelve officers"
+  },
   "app.home.breadcrumb": {
     "message": "Home"
   },
@@ -2758,6 +3214,36 @@
   },
   "app.home.widgets.add-title": {
     "message": "Add widget"
+  },
+  "app.home.widgets.almanac": {
+    "message": "Almanac"
+  },
+  "app.home.widgets.almanac-description": {
+    "message": "Traditional Chinese calendar: auspicious and inauspicious activities for the day."
+  },
+  "app.home.widgets.almanac-hide-hours": {
+    "message": "Hide hourly fortune"
+  },
+  "app.home.widgets.almanac-show-activities": {
+    "message": "Show the do and avoid lists"
+  },
+  "app.home.widgets.almanac-hide-activities": {
+    "message": "Hide the do and avoid lists"
+  },
+  "app.home.widgets.almanac-show-hours": {
+    "message": "Show hourly fortune"
+  },
+  "app.home.widgets.almanac-tag-limit": {
+    "message": "Show {count} activities per list"
+  },
+  "app.home.widgets.almanac-term-both": {
+      "message": "Terms: plain (traditional)"
+  },
+  "app.home.widgets.almanac-term-plain": {
+      "message": "Terms: plain only"
+  },
+  "app.home.widgets.almanac-term-traditional": {
+      "message": "Terms: traditional only"
   },
   "app.home.widgets.back": {
     "message": "Back"

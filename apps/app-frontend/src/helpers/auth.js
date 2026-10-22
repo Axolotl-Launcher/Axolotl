@@ -27,8 +27,8 @@ export async function check_reachable() {
  * Check the Mojang services mirrored by the Fallen proxy, returning their
  * individual reachability states.
  */
-export async function check_mojang_services() {
-    return await invoke('plugin:auth|check_mojang_services')
+export async function check_mojang_services(useMirror = false) {
+    return await invoke('plugin:auth|check_mojang_services', { useMirror })
 }
 
 /**

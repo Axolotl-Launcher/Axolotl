@@ -33,6 +33,12 @@ const emit = defineEmits<{
 
 const { formatMessage } = useVIntl()
 const messages = defineMessages({
+    stopCommand: { id: 'app.servers.settings.stop-command', defaultMessage: 'Stop command' },
+    stopCommandHint: {
+        id: 'app.servers.settings.stop-command-hint',
+        defaultMessage:
+            'Defaults to stop. Enter ^C to send Ctrl+C. Saved changes apply immediately.',
+    },
     general: { id: 'app.servers.settings.general', defaultMessage: 'General' },
     name: { id: 'app.servers.settings.name', defaultMessage: 'Server name' },
     icon: { id: 'app.servers.settings.icon', defaultMessage: 'Icon' },
@@ -96,6 +102,7 @@ const javaSelection = ref<{ path: string; version: string }>({
 const memoryMb = ref(props.server.memoryMb ?? 2048)
 const jvmArgsText = ref((props.server.jvmArgs ?? []).join(' '))
 const preLaunchHookText = ref(props.server.preLaunchHook ?? '')
+const stopCommand = ref(props.server.stopCommand ?? 'stop')
 const pinnedToHome = ref(Boolean(props.server.homePinnedAt))
 const isSaving = ref(false)
 const deleteModal = useTemplateRef<ComponentExposed<typeof ConfirmModal>>('deleteModal')
@@ -106,7 +113,7 @@ const requiredJava = computed(() => requiredJavaMajorVersion(props.server.gameVe
 // Same busy boundary as the files panel: a running server holds its
 // configuration in memory and may overwrite external edits, and
 // manifest changes only take effect after a restart anyway.
-const isRunning = computed(() => props.server.running)
+const isRunning = computed(() => props.server.running || props.server.starting)
 
 const baseline = ref({
     name: props.server.name,
@@ -116,6 +123,7 @@ const baseline = ref({
     memoryMb: props.server.memoryMb ?? 2048,
     jvmArgs: (props.server.jvmArgs ?? []).join(' '),
     preLaunchHook: props.server.preLaunchHook ?? '',
+    stopCommand: props.server.stopCommand ?? 'stop',
     homePinned: Boolean(props.server.homePinnedAt),
 })
 
@@ -153,12 +161,33 @@ const generalDirty = computed(
         pinnedToHome.value !== baseline.value.homePinned,
 )
 
-const isDirty = computed(() => generalDirty.value || (editor.value?.isDirty ?? false))
+const isDirty = computed(
+    () =>
+        generalDirty.value ||
+        stopCommand.value !== baseline.value.stopCommand ||
+        (editor.value?.isDirty ?? false),
+)
+const saveDisabled = computed(
+    () =>
+        isSaving.value ||
+        (isRunning.value && (generalDirty.value || (editor.value?.isDirty ?? false))),
+)
 
 async function save() {
+    if (saveDisabled.value) return
     isSaving.value = true
     try {
         const jvmArgs = jvmArgsText.value.trim().split(/\s+/).filter(Boolean)
+        const trimmedStop = stopCommand.value.trim() || 'stop'
+        const stopCommandValue = trimmedStop.toLowerCase() === '^c' ? '^C' : trimmedStop
+        if (isRunning.value) {
+            await serversApi.updateSettings(props.server.id, { stopCommand: stopCommandValue })
+            stopCommand.value = stopCommandValue
+            baseline.value.stopCommand = stopCommandValue
+            await refresh()
+            addNotification({ type: 'success', title: formatMessage(messages.saved) })
+            return
+        }
         const parsedMemory = Number(memoryMb.value)
         const memoryMbValue =
             Number.isFinite(parsedMemory) && parsedMemory > 0
@@ -170,6 +199,7 @@ async function save() {
             memoryMb: memoryMbValue,
             jvmArgs,
             preLaunchHook: preLaunchHookText.value,
+            stopCommand: stopCommandValue,
             homePinned: pinnedToHome.value,
         })
         if (iconPath.value !== baseline.value.iconPath) {
@@ -181,6 +211,7 @@ async function save() {
         memoryMb.value = memoryMbValue
         jvmArgsText.value = jvmArgs.join(' ')
         preLaunchHookText.value = preLaunchHookText.value.trim()
+        stopCommand.value = stopCommandValue
         baseline.value = {
             name: name.value,
             iconPath: iconPath.value,
@@ -189,6 +220,7 @@ async function save() {
             memoryMb: memoryMbValue,
             jvmArgs: jvmArgsText.value,
             preLaunchHook: preLaunchHookText.value,
+            stopCommand: stopCommandValue,
             homePinned: pinnedToHome.value,
         }
         await refresh()
@@ -207,6 +239,7 @@ function cancel() {
     memoryMb.value = baseline.value.memoryMb
     jvmArgsText.value = baseline.value.jvmArgs
     preLaunchHookText.value = baseline.value.preLaunchHook
+    stopCommand.value = baseline.value.stopCommand
     pinnedToHome.value = baseline.value.homePinned
     editor.value?.cancel()
 }
@@ -337,6 +370,25 @@ async function confirmDelete() {
                             formatMessage(messages.preLaunchHookHint)
                         }}</span>
                     </label>
+                    <label
+                        class="flex min-w-0 flex-col gap-2 sm:col-span-2 xl:col-span-4"
+                        for="server-settings-stop-command"
+                    >
+                        <span class="font-semibold text-[var(--color-text-primary)]">{{
+                            formatMessage(messages.stopCommand)
+                        }}</span>
+                        <StyledInput
+                            id="server-settings-stop-command"
+                            v-model="stopCommand"
+                            :disabled="isSaving"
+                            placeholder="stop"
+                            :spellcheck="false"
+                            autocomplete="off"
+                        />
+                        <span class="text-xs text-[var(--color-text-tertiary)]">{{
+                            formatMessage(messages.stopCommandHint)
+                        }}</span>
+                    </label>
                     <div
                         class="flex min-w-0 items-center justify-between gap-3 rounded-xl border border-solid border-surface-5 bg-surface-4 p-3 sm:col-span-2 xl:col-span-4"
                     >
@@ -374,7 +426,7 @@ async function confirmDelete() {
                     <Button
                         type="outlined"
                         color="red"
-                        :disabled="server.running"
+                        :disabled="server.running || server.starting"
                         @click="deleteModal?.show()"
                         ><TrashIcon />
                         {{ formatMessage(messages.deleteTitle) }}
@@ -399,11 +451,7 @@ async function confirmDelete() {
                         ><XIcon />
                         {{ formatMessage(messages.cancel) }}
                     </Button>
-                    <Button
-                        type="colored"
-                        color="brand"
-                        :disabled="isSaving || isRunning"
-                        @click="save"
+                    <Button type="colored" color="brand" :disabled="saveDisabled" @click="save"
                         ><SpinnerIcon v-if="isSaving" class="animate-spin" />
                         <SaveIcon v-else />
                         {{ formatMessage(messages.save) }}

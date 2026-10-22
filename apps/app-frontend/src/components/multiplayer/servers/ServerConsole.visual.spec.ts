@@ -1,5 +1,6 @@
 import { flushPromises, mount } from '@vue/test-utils'
 import { afterEach, expect, it, vi } from 'vitest'
+import type { Slots } from 'vue'
 
 import type { ServerView } from '@/composables/useServers'
 import type { ServerLogDelta } from '@/helpers/servers'
@@ -13,15 +14,21 @@ const emptyDelta = (): ServerLogDelta => ({
 })
 const backend = vi.hoisted(() => ({
     hydrate: vi.fn<() => Promise<ServerLogDelta>>(),
-    unsubscribe: vi.fn(),
     append: vi.fn<(text: string) => Promise<void>>(async () => {}),
     clear: vi.fn(),
 }))
 backend.hydrate.mockImplementation(async () => emptyDelta())
-vi.mock('@/composables/useServers', () => ({
-    subscribeServerConsoleOutput: () => backend.unsubscribe,
-    useServers: () => ({ sendCommand: vi.fn() }),
-}))
+vi.mock('./ServerTerminal.vue', async () => {
+    const { h } = await import('vue')
+    return {
+        default: {
+            setup:
+                (_: unknown, { slots }: { slots: Slots }) =>
+                () =>
+                    h('div', slots.default?.()),
+        },
+    }
+})
 vi.mock('@/helpers/servers', () => ({ servers: { getLogDelta: backend.hydrate } }))
 vi.mock('@modrinth/ui', async () => {
     const { shallowRef } = await import('vue')
@@ -32,7 +39,6 @@ vi.mock('@modrinth/ui', async () => {
                 return () => null
             },
         },
-        JLineCommandInput: { render: () => null },
         createConsoleState: () => ({
             output: shallowRef([]),
             clear: backend.clear,
@@ -51,7 +57,6 @@ afterEach(() => {
     wrapper = undefined
     vi.useRealTimers()
     backend.hydrate.mockReset().mockImplementation(async () => emptyDelta())
-    backend.unsubscribe.mockClear()
     backend.append.mockClear()
     backend.clear.mockClear()
 })
@@ -71,7 +76,6 @@ it('does not start background polling when initial hydration completes after unm
     await flushPromises()
     await vi.advanceTimersByTimeAsync(3000)
     expect(backend.hydrate).toHaveBeenCalledOnce()
-    expect(backend.unsubscribe).toHaveBeenCalledOnce()
 })
 
 it('waits for a slow reconciliation and never schedules another one after unmount', async () => {
@@ -108,6 +112,26 @@ it('resumes reconciliation when a stopped server starts again', async () => {
     expect(backend.hydrate).toHaveBeenCalledTimes(3)
     await vi.advanceTimersByTimeAsync(1000)
     expect(backend.hydrate).toHaveBeenCalledTimes(4)
+})
+
+it('keeps download preparation logs live before the Java process starts', async () => {
+    vi.useFakeTimers()
+    wrapper = mount(ServerConsole, {
+        props: { server: { ...server, running: false, starting: true } },
+    })
+    await flushPromises()
+    backend.hydrate.mockResolvedValueOnce({
+        cursor: { epoch: 1, sequence: 1 },
+        reset: false,
+        lines: ['Downloading Minecraft server: 12.0 / 56.0 MiB'],
+    })
+    await vi.advanceTimersByTimeAsync(1000)
+    expect(backend.append).toHaveBeenCalledWith('Downloading Minecraft server: 12.0 / 56.0 MiB')
+    await wrapper.setProps({ server: { ...server, running: false, starting: false } })
+    await flushPromises()
+    const calls = backend.hydrate.mock.calls.length
+    await vi.advanceTimersByTimeAsync(3000)
+    expect(backend.hydrate).toHaveBeenCalledTimes(calls)
 })
 
 it('continues after a full rolling buffer and only appends the cursor delta', async () => {

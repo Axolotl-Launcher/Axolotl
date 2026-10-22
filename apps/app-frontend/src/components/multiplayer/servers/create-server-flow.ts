@@ -151,6 +151,7 @@ export function createCreateServerFlowContext(
     const createdServer = ref<ServerManifestData | null>(null)
     const showEulaModal = ref(false)
     const saveServerProperties = ref<(() => Promise<boolean>) | null>(null)
+    let loaderRequest = 0
 
     const needsLoaderVersion = computed(
         () => SERVER_TYPES[serverType.value]?.needsLoaderVersion ?? false,
@@ -185,20 +186,41 @@ export function createCreateServerFlowContext(
     }
 
     async function loadLoaderVersions() {
+        const request = ++loaderRequest
+        const type = serverType.value
+        const gameVersion = selectedGameVersion.value
         selectedLoaderVersion.value = ''
         loaderVersions.value = []
-        if (serverType.value !== 'fabric' || !selectedGameVersion.value) return
+        versionsError.value = null
+        if (!SERVER_TYPES[type].needsLoaderVersion || !gameVersion) {
+            isVersionsLoading.value = false
+            return
+        }
+        isVersionsLoading.value = true
         try {
-            const manifest = (await get_loader_versions('fabric', selectedGameVersion.value)) as {
+            const manifest = (await get_loader_versions(
+                type === 'neoforge' ? 'neo' : type,
+                gameVersion,
+            )) as {
                 gameVersions: Array<{ id: string; loaders: LoaderVersionOption[] }>
             }
-            const entry = manifest.gameVersions.find(
-                (game) => game.id === selectedGameVersion.value,
+            if (
+                request !== loaderRequest ||
+                type !== serverType.value ||
+                gameVersion !== selectedGameVersion.value
             )
+                return
+            const entry = manifest.gameVersions.find((game) => game.id === gameVersion)
             loaderVersions.value = entry?.loaders ?? []
-            selectedLoaderVersion.value = loaderVersions.value[0]?.id ?? ''
-        } catch {
+            selectedLoaderVersion.value =
+                (loaderVersions.value.find((loader) => loader.stable) ?? loaderVersions.value[0])
+                    ?.id ?? ''
+        } catch (error) {
+            if (request !== loaderRequest) return
             loaderVersions.value = []
+            versionsError.value = toErrorMessage(error)
+        } finally {
+            if (request === loaderRequest) isVersionsLoading.value = false
         }
     }
 
@@ -264,8 +286,7 @@ export function createCreateServerFlowContext(
                 name: name.value,
                 serverType: serverType.value,
                 gameVersion: selectedGameVersion.value,
-                loaderVersion:
-                    serverType.value === 'fabric' ? selectedLoaderVersion.value : undefined,
+                loaderVersion: needsLoaderVersion.value ? selectedLoaderVersion.value : undefined,
                 javaPath: selectedJava.value.path || undefined,
                 memoryMb: memoryMb.value,
             })
@@ -274,8 +295,8 @@ export function createCreateServerFlowContext(
             // [SERVER-INSTALL] The shared orchestrator owns the sidebar download
             // job, progress/log event forwarding, and cancellation. Each server
             // type supplies a `ServerInstallStrategy` that knows how to obtain its
-            // launcher files; vanilla/Fabric/Paper download a jar, Forge runs its
-            // installer. This is the single reuse point for every server type.
+            // launcher files; vanilla/Fabric/Paper download a jar, while Forge
+            // and NeoForge run an installer.
             const strategy = getServerInstallStrategy(serverType.value)
             await runServerInstall({
                 serverId: manifest.id,
@@ -343,6 +364,7 @@ export function createCreateServerFlowContext(
     }
 
     function reset() {
+        loaderRequest++
         serverType.value = 'vanilla'
         selectedGameVersion.value = ''
         selectedLoaderVersion.value = ''

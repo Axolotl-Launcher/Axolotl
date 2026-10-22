@@ -12,10 +12,8 @@ export interface MojangServiceStatus {
     reachable: boolean
 }
 
-const REQUIRED_SERVICES = ['account', 'session', 'services', 'profiles']
-
 export function officialMojangServicesReachable(statuses: MojangServiceStatus[]): boolean {
-    return REQUIRED_SERVICES.every((service) =>
+    return ['session', 'services'].every((service) =>
         statuses.some((status) => status.service === service && status.reachable),
     )
 }
@@ -23,6 +21,7 @@ export function officialMojangServicesReachable(statuses: MojangServiceStatus[])
 interface Dependencies {
     configuration: () => Promise<MojangAuthConfiguration>
     probeOfficial: () => Promise<MojangServiceStatus[]>
+    probeMirror: () => Promise<MojangServiceStatus[]>
     applySource: (source: MojangAuthSource, useMirror: boolean) => Promise<boolean>
     probeSelected: () => Promise<void>
     enabled: () => boolean
@@ -47,9 +46,18 @@ export function createMojangAuthMonitor(deps: Dependencies) {
         configurationKey = configuration.key
         const automatic =
             configuration.source === 'auto' || configuration.source === 'official_preferred'
-        const useMirror = automatic
-            ? !officialMojangServicesReachable(await deps.probeOfficial())
-            : configuration.source === 'mirror_preferred'
+        let useMirror = configuration.source === 'mirror_preferred'
+        if (automatic) {
+            const official = await deps.probeOfficial()
+            if (!isCurrent()) return null
+            // A failed auxiliary endpoint must not replace working core
+            // authentication services. Probe a fallback before applying it to authentication.
+            if (!officialMojangServicesReachable(official)) {
+                const mirror = await deps.probeMirror()
+                if (!isCurrent()) return null
+                useMirror = officialMojangServicesReachable(mirror)
+            }
+        }
         if (!isCurrent()) return null
 
         // Recheck after the slow network request, before applying its decision.

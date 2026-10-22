@@ -202,7 +202,7 @@ export function provideHomeDashboardRuntime(handleError: ErrorHandler): HomeDash
         })
         .catch(handleError)
     void serverEventListener((_serverId, payload) => {
-        if (['started', 'stopped', 'eula_required'].includes(payload.event))
+        if (['starting', 'stopping', 'started', 'stopped', 'eula_required'].includes(payload.event))
             void refreshPinnedLocalServers()
     })
         .then((unlisten) => {

@@ -1,5 +1,5 @@
 use crate::ErrorKind;
-use crate::util::fetch::INSECURE_REQWEST_CLIENT;
+use crate::util::fetch::authentication_client;
 use crate::util::mojang::{mojang_service_url, should_use_mojang_mirror};
 use base64::Engine;
 use base64::prelude::BASE64_URL_SAFE_NO_PAD;
@@ -157,7 +157,7 @@ pub async fn device_login_begin() -> crate::Result<MinecraftDeviceLoginFlow> {
     query.insert("scope", REQUESTED_SCOPE);
 
     let res = auth_retry(|| {
-        INSECURE_REQWEST_CLIENT
+        authentication_client()
             .post("https://login.microsoftonline.com/consumers/oauth2/v2.0/devicecode")
             .header("Accept", "application/json")
             .form(&query)
@@ -198,7 +198,7 @@ pub async fn device_login_poll(
     query.insert("grant_type", "urn:ietf:params:oauth:grant-type:device_code");
 
     let res = auth_retry(|| {
-        INSECURE_REQWEST_CLIENT
+        authentication_client()
             .post(MICROSOFT_TOKEN_URL)
             .header("Accept", "application/json")
             .form(&query)
@@ -1433,7 +1433,7 @@ async fn oauth_token(
     query.insert("scope", REQUESTED_SCOPE);
 
     let res = auth_retry(|| {
-        INSECURE_REQWEST_CLIENT
+        authentication_client()
             .post(MICROSOFT_TOKEN_URL)
             .header("Accept", "application/json")
             .form(&query)
@@ -1480,7 +1480,7 @@ async fn oauth_refresh(
     query.insert("scope", REQUESTED_SCOPE);
 
     let res = auth_retry(|| {
-        INSECURE_REQWEST_CLIENT
+        authentication_client()
             .post(MICROSOFT_TOKEN_URL)
             .header("Accept", "application/json")
             .form(&query)
@@ -1567,7 +1567,7 @@ async fn send_xbox_json_request<T: DeserializeOwned>(
     step: MinecraftAuthStep,
 ) -> Result<RequestWithDate<T>, MinecraftAuthenticationError> {
     let res = auth_retry(|| {
-        INSECURE_REQWEST_CLIENT
+        authentication_client()
             .post(url)
             .header("Content-Type", "application/json")
             .header("Accept", "application/json")
@@ -1620,7 +1620,7 @@ async fn minecraft_token(
         should_use_mojang_mirror(),
     );
     let res = auth_retry(|| {
-        INSECURE_REQWEST_CLIENT
+        authentication_client()
             .post(url.as_ref())
             .header("Accept", "application/json")
             .header("User-Agent", MINECRAFT_SERVICES_USER_AGENT)
@@ -1853,7 +1853,7 @@ async fn minecraft_profile(
         should_use_mojang_mirror(),
     );
     let res = auth_retry(|| {
-        INSECURE_REQWEST_CLIENT
+        authentication_client()
             .get(url.as_ref())
             .header("Accept", "application/json")
             .header("User-Agent", MINECRAFT_SERVICES_USER_AGENT)
@@ -1917,7 +1917,7 @@ async fn minecraft_entitlements(
     );
     let url = mojang_service_url(&request_url, should_use_mojang_mirror());
     let res = auth_retry(|| {
-        INSECURE_REQWEST_CLIENT
+        authentication_client()
             .get(url.as_ref())
             .header("Accept", "application/json")
             .header("User-Agent", MINECRAFT_SERVICES_USER_AGENT)
@@ -1956,6 +1956,80 @@ async fn minecraft_entitlements(
         Ok(entitlements)
     } else {
         Err(MinecraftAuthenticationError::NoMinecraftEntitlement)
+    }
+}
+
+#[cfg(test)]
+mod transport_tests {
+    use super::*;
+    use crate::util::download::proxy_context::with_snapshot;
+    use crate::util::fetch::DownloadClients;
+    use crate::util::proxy::{ProxyConfig, ProxyMode};
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
+    #[tokio::test]
+    async fn xbox_auth_uses_the_configured_proxy_and_direct_modes() {
+        for mode in [ProxyMode::Custom, ProxyMode::None] {
+            let listener =
+                tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+            let address = listener.local_addr().unwrap();
+            let server = tokio::spawn(async move {
+                let (mut stream, _) = listener.accept().await.unwrap();
+                let mut bytes = Vec::new();
+                loop {
+                    let mut buffer = [0; 1024];
+                    let read = stream.read(&mut buffer).await.unwrap();
+                    assert!(read > 0);
+                    bytes.extend_from_slice(&buffer[..read]);
+                    if bytes.windows(4).any(|w| w == b"\r\n\r\n") {
+                        break;
+                    }
+                }
+                stream.write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 11\r\nConnection: close\r\n\r\n{\"ok\":true}").await.unwrap();
+                String::from_utf8(bytes).unwrap()
+            });
+            let clients = DownloadClients::build(
+                &ProxyConfig {
+                    mode,
+                    // In direct mode this deliberately unusable proxy must be ignored.
+                    url: if mode == ProxyMode::Custom {
+                        format!("http://{address}")
+                    } else {
+                        "http://127.0.0.1:1".into()
+                    },
+                    ..Default::default()
+                },
+                false,
+                false,
+            )
+            .unwrap();
+            let url = if mode == ProxyMode::Custom {
+                "http://auth.invalid/xbox".into()
+            } else {
+                format!("http://{address}/xbox")
+            };
+            let response = tokio::time::timeout(
+                std::time::Duration::from_secs(3),
+                with_snapshot(
+                    clients,
+                    send_xbox_json_request::<serde_json::Value>(
+                        &url,
+                        json!({"token":"test"}),
+                        MinecraftAuthStep::XstsAuthorize,
+                    ),
+                ),
+            )
+            .await
+            .unwrap()
+            .unwrap();
+            assert_eq!(response.value, json!({"ok":true}));
+            let request = server.await.unwrap();
+            assert!(request.starts_with(if mode == ProxyMode::Custom {
+                "POST http://auth.invalid/xbox "
+            } else {
+                "POST /xbox "
+            }));
+        }
     }
 }
 

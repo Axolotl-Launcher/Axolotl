@@ -303,16 +303,16 @@ async fn run_credentials(
             "https://sessionserver.mojang.com/session/minecraft/join",
             state.mojang_auth_use_mirror(),
         );
-        let join_result = fetch::INSECURE_REQWEST_CLIENT
-			.post(join_url.as_ref())
-			.json(&json!({
-				"accessToken": &credentials.access_token,
-				"selectedProfile": credentials.offline_profile.id.simple().to_string(),
-				"serverId": &server_id,
-			}))
-			.timeout(Duration::from_secs(5))
-			.send()
-			.await;
+        let join_result = fetch::authentication_client()
+            .post(join_url.as_ref())
+            .json(&json!({
+                "accessToken": &credentials.access_token,
+                "selectedProfile": credentials.offline_profile.id.simple().to_string(),
+                "serverId": &server_id,
+            }))
+            .timeout(Duration::from_secs(5))
+            .send()
+            .await;
 
         match join_result {
             Ok(resp) if resp.status().is_success() => {

@@ -4,3 +4,4 @@
 [submodule "third-party/blockbench"]
     path = third-party/blockbench
     url = https://github.com/Axolotl-Launcher/blockbench-skin-standalone.git
+    branch = master

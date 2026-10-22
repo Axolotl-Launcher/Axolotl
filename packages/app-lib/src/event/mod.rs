@@ -390,6 +390,8 @@ pub enum ServerPayloadType {
         #[serde(skip_serializing_if = "Option::is_none")]
         total: Option<u64>,
     },
+    Starting,
+    Stopping,
     Started,
     Stopped {
         crashed: bool,

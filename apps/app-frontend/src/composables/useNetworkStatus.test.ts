@@ -3,31 +3,16 @@ import test from 'node:test'
 
 import { createNetworkStatus } from './useNetworkStatus.ts'
 
-test('network probe failures recover when a later probe succeeds', () => {
-    const status = createNetworkStatus()
-
-    status.setNetworkReachable(false)
-    assert.equal(status.offline.value, true)
-
-    status.setNetworkReachable(true)
-    assert.equal(status.offline.value, false)
+test('starts online unless the browser reports being offline', () => {
+    assert.equal(createNetworkStatus().offline.value, false)
+    assert.equal(createNetworkStatus(true).offline.value, true)
 })
 
-test('browser online clears a temporary probe failure', () => {
+test('browser connectivity changes update global offline mode', () => {
     const status = createNetworkStatus()
-    status.setNetworkReachable(false)
     status.setBrowserOffline(true)
     assert.equal(status.offline.value, true)
-
     status.markBrowserOnline()
     assert.equal(status.browserOffline.value, false)
     assert.equal(status.offline.value, false)
-})
-
-test('browser offline remains authoritative over a successful probe', () => {
-    const status = createNetworkStatus()
-    status.setNetworkReachable(true)
-    status.setBrowserOffline(true)
-
-    assert.equal(status.offline.value, true)
 })

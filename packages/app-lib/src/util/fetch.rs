@@ -1133,7 +1133,6 @@ pub(crate) fn file_reqwest_client_builder() -> reqwest::ClientBuilder {
         .http2_keep_alive_interval(Some(FILE_H2_KEEPALIVE))
 }
 
-/// Fallback to direct connection on error.
 pub fn build_proxied_client(
     proxy: &crate::util::proxy::ProxyConfig,
 ) -> reqwest::Client {
@@ -1142,6 +1141,21 @@ pub fn build_proxied_client(
         .expect(FETCH_PROXY_CONFIGURATION_SHOULD_BE_VALID)
         .build()
         .expect(FETCH_PROXIED_CLIENT_CONFIGURATION_SHOULD_BE_VALID)
+}
+
+/// Authentication and reachability probes share the current proxy, DNS and TLS
+/// settings. The fallback is only for callers before application initialization.
+pub(crate) fn authentication_client() -> reqwest::Client {
+    if let Some(clients) = super::download::proxy_context::explicit_clients() {
+        return clients.metadata;
+    }
+    if let Some(state) = crate::State::get_if_initialized() {
+        return state.configured_http_client();
+    }
+    static SYSTEM_CLIENT: LazyLock<reqwest::Client> = LazyLock::new(|| {
+        build_proxied_client(&crate::util::proxy::ProxyConfig::default())
+    });
+    SYSTEM_CLIENT.clone()
 }
 
 pub async fn configured_client() -> crate::Result<reqwest::Client> {
@@ -1153,6 +1167,7 @@ pub async fn configured_client() -> crate::Result<reqwest::Client> {
 
 #[derive(Clone)]
 pub(crate) struct DownloadClients {
+    pub(crate) system_proxy_fingerprint: String,
     pub(crate) metadata: reqwest::Client,
     pub(crate) system: reqwest::Client,
     pub(crate) direct: reqwest::Client,
@@ -1170,11 +1185,24 @@ pub(crate) struct DownloadClients {
 }
 
 impl DownloadClients {
+    pub(crate) fn refresh_system_proxy(&self) -> crate::Result<Option<Self>> {
+        if self.proxy.mode != crate::util::proxy::ProxyMode::System
+            || self.system_proxy_fingerprint
+                == crate::util::proxy::system_proxy_fingerprint()
+        {
+            return Ok(None);
+        }
+        Self::build(&self.proxy, self.ignore_ssl_errors, self.doh_enabled)
+            .map(Some)
+    }
+
     pub(crate) fn build(
         proxy: &crate::util::proxy::ProxyConfig,
         ignore_ssl_errors: bool,
         doh_enabled: bool,
     ) -> crate::Result<Self> {
+        let system_proxy_fingerprint =
+            crate::util::proxy::system_proxy_fingerprint();
         let system_dns = Arc::new(DownloadDnsResolver::with_doh_and_proxy(
             doh_enabled,
             Some(proxy),
@@ -1221,6 +1249,7 @@ impl DownloadClients {
             builder.build().map_err(crate::Error::from)
         };
         Ok(Self {
+            system_proxy_fingerprint,
             endpoints:
                 super::download::endpoint_selection::EndpointSelector::new(
                     super::download::proxy_context::fingerprint_with_doh(
@@ -1270,6 +1299,8 @@ impl DownloadClients {
             return clients;
         }
         Self {
+            system_proxy_fingerprint:
+                crate::util::proxy::system_proxy_fingerprint(),
             metadata: system.clone(),
             system: system.clone(),
             direct: direct.clone(),

@@ -4,6 +4,7 @@ import {
     FORGE_MAVEN_URL,
     forgePromotionsSlimUrl,
     latestStablePaperBuild,
+    neoForgeInstaller,
     type PaperBuildsResponse,
     paperBuildsUrl,
     quiltInstallerVersionsUrl,
@@ -144,6 +145,9 @@ export async function resolveServerLauncher(
                 filename,
                 sha1: undefined,
             }
+        }
+        case 'neoforge': {
+            return loaderVersion ? neoForgeInstaller(gameVersion, loaderVersion) : null
         }
         default:
             return null

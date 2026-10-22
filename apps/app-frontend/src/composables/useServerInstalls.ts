@@ -172,12 +172,15 @@ export async function resumeModpackInstall(
     if (!primaryFile?.url) {
         throw new Error('Modpack has no downloadable file')
     }
-    const jar = await resolveServerLauncher(
-        server.serverType,
-        server.gameVersion,
-        server.loaderVersion,
-    )
-    if (!jar) {
+    const jar =
+        server.serverType === 'neoforge'
+            ? null
+            : await resolveServerLauncher(
+                  server.serverType,
+                  server.gameVersion,
+                  server.loaderVersion,
+              )
+    if (!jar && server.serverType !== 'neoforge') {
         throw new Error(
             `No server launcher available for ${server.serverType} on ${server.gameVersion}`,
         )
@@ -187,9 +190,9 @@ export async function resumeModpackInstall(
         {
             mrpackUrl: primaryFile.url,
             mrpackSha1: primaryFile.hashes?.sha1,
-            jarUrl: jar.url,
-            jarFilename: jar.filename,
-            jarSha1: jar.sha1,
+            jarUrl: jar?.url,
+            jarFilename: jar?.filename,
+            jarSha1: jar?.sha1,
             modpackProjectId: modpack.projectId,
             modpackVersionId: modpack.versionId,
             modpackTitle: modpack.title,

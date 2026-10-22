@@ -14,7 +14,7 @@ use crate::{
         MINECRAFT_SERVICES_USER_AGENT, MinecraftProfile, PROFILE_CACHE,
         ProfileCacheEntry,
     },
-    util::fetch::INSECURE_REQWEST_CLIENT,
+    util::fetch::authentication_client,
     util::mojang::{mojang_service_url, should_use_mojang_mirror},
 };
 
@@ -31,7 +31,7 @@ impl MinecraftCapeOperation {
             should_use_mojang_mirror(),
         );
         update_profile_cache_from_response(
-            INSECURE_REQWEST_CLIENT
+            authentication_client()
                 .put(url.as_ref())
                 .header("Content-Type", "application/json; charset=utf-8")
                 .header("Accept", "application/json")
@@ -55,7 +55,7 @@ impl MinecraftCapeOperation {
             should_use_mojang_mirror(),
         );
         update_profile_cache_from_response(
-            INSECURE_REQWEST_CLIENT
+            authentication_client()
                 .delete(url.as_ref())
                 .header("Accept", "application/json")
                 .header("User-Agent", MINECRAFT_SERVICES_USER_AGENT)
@@ -110,7 +110,7 @@ impl MinecraftSkinOperation {
             should_use_mojang_mirror(),
         );
         let profile = update_profile_cache_from_response(
-            INSECURE_REQWEST_CLIENT
+            authentication_client()
                 .post(url.as_ref())
                 .header("Accept", "application/json")
                 .header("User-Agent", MINECRAFT_SERVICES_USER_AGENT)
@@ -131,7 +131,7 @@ impl MinecraftSkinOperation {
             should_use_mojang_mirror(),
         );
         update_profile_cache_from_response(
-            INSECURE_REQWEST_CLIENT
+            authentication_client()
                 .delete(url.as_ref())
                 .header("Accept", "application/json")
                 .header("User-Agent", MINECRAFT_SERVICES_USER_AGENT)

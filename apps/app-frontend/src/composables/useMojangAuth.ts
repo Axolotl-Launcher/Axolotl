@@ -5,6 +5,8 @@ import { computed, onScopeDispose, readonly, type Ref, shallowRef, watch } from 
 import {
     applyMojangAuthSource,
     getMojangAuthConfiguration,
+    getNetworkScope,
+    probeMirrorMojangServices,
     probeOfficialMojangServices,
     probeSelectedMojangSource,
 } from '@/helpers/mojang-auth'
@@ -22,17 +24,17 @@ export function useMojangAuthStatus() {
 /** Owned once by App, enabled only after the local application shell is ready. */
 export function setupMojangAuthMonitor(ready: Ref<boolean>) {
     const queryClient = useQueryClient()
-    const { browserOffline, setNetworkReachable } = useNetworkStatus()
+    const { browserOffline } = useNetworkStatus()
     const enabled = computed(() => ready.value && !browserOffline.value)
     const monitor = createMojangAuthMonitor({
         configuration: getMojangAuthConfiguration,
         probeOfficial: probeOfficialMojangServices,
+        probeMirror: probeMirrorMojangServices,
         applySource: applyMojangAuthSource,
         probeSelected: probeSelectedMojangSource,
         enabled: () => enabled.value,
         publish(value) {
             reachable.value = value
-            setNetworkReachable(value)
         },
     })
     const query = useQuery({
@@ -46,6 +48,20 @@ export function setupMojangAuthMonitor(ready: Ref<boolean>) {
         refetchOnWindowFocus: false,
         refetchOnReconnect: false,
         networkMode: 'always',
+    })
+    const network = useQuery({
+        queryKey: ['mojang', 'network', 'scope'],
+        queryFn: getNetworkScope,
+        enabled: ready,
+        refetchInterval: 5_000,
+        retry: false,
+        networkMode: 'always',
+        refetchIntervalInBackground: true,
+    })
+    watch(network.data, (scope, previous) => {
+        if (previous === undefined || scope === previous || !enabled.value) return
+        monitor.invalidate()
+        void query.refetch({ cancelRefetch: false })
     })
     watch(browserOffline, () => monitor.invalidate(), { flush: 'sync' })
     watch(query.error, (error) => {

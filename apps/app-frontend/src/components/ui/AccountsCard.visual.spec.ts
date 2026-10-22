@@ -109,7 +109,7 @@ const cleanup: (() => void)[] = []
 beforeEach(() => {
     vi.resetAllMocks()
     useNetworkStatus().setBrowserOffline(false)
-    useNetworkStatus().setNetworkReachable(true)
+    useNetworkStatus().markBrowserOnline()
     backend.defaultUser.mockResolvedValue('microsoft:saved-id')
     backend.skins.mockResolvedValue([])
 })

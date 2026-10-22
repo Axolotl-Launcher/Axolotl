@@ -48,7 +48,9 @@ pub use util::network_diagnostics::{
     test_network_connection,
 };
 pub use util::platform::is_process_elevated;
-pub use util::proxy::{ProxyConfig, ProxyMode, ProxyTestResult};
+pub use util::proxy::{
+    ProxyConfig, ProxyMode, ProxyTestResult, test_proxy_connection,
+};
 pub use util::symlink::SymlinkCapability;
 
 pub fn launcher_user_agent() -> String {

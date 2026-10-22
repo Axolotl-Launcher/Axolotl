@@ -41,21 +41,18 @@ beforeEach(() => {
     backend.news.mockReset()
     backend.news.mockResolvedValue([article])
     queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
-    network.setBrowserOffline(false)
-    network.setNetworkReachable(false)
+    network.setBrowserOffline(true)
 })
 afterEach(() => {
     wrapper?.unmount()
     wrapper = undefined
     queryClient.clear()
-    network.setBrowserOffline(false)
-    network.setNetworkReachable(true)
+    network.markBrowserOnline()
 })
 
-it.each(['browser', 'native'] as const)(
+it.each(['event', 'refresh'] as const)(
     'loads news in place when %s connectivity recovers, without fetching while offline',
     async (source) => {
-        if (source === 'browser') network.setBrowserOffline(true)
         let finish!: (items: MinecraftNewsItem[]) => void
         backend.news.mockReturnValue(
             new Promise((resolve) => {
@@ -67,8 +64,8 @@ it.each(['browser', 'native'] as const)(
         expect(backend.news).not.toHaveBeenCalled()
         expect(view.find('section').exists()).toBe(false)
 
-        if (source === 'browser') window.dispatchEvent(new Event('online'))
-        else network.setNetworkReachable(true)
+        if (source === 'event') window.dispatchEvent(new Event('online'))
+        else network.markBrowserOnline()
         await flushPromises()
         expect(backend.news).toHaveBeenCalledExactlyOnceWith(12)
         expect(view.find('section').exists()).toBe(true)
@@ -81,30 +78,30 @@ it.each(['browser', 'native'] as const)(
 )
 
 it('retries a failed initial request after reconnecting without remounting the component', async () => {
-    network.setNetworkReachable(true)
+    network.markBrowserOnline()
     backend.news.mockRejectedValueOnce(new Error('offline request failed'))
     const view = mountNews()
     await flushPromises()
     expect(backend.news).toHaveBeenCalledOnce()
     expect(view.find('section').exists()).toBe(false)
 
-    network.setNetworkReachable(false)
+    network.setBrowserOffline(true)
     await flushPromises()
-    network.setNetworkReachable(true)
+    network.markBrowserOnline()
     await flushPromises()
     expect(backend.news).toHaveBeenCalledTimes(2)
     expect(view.text()).toContain('Minecraft & updates')
 })
 
 it('reuses fresh cached news across reconnects and page remounts', async () => {
-    network.setNetworkReachable(true)
+    network.markBrowserOnline()
     const view = mountNews()
     await flushPromises()
     expect(backend.news).toHaveBeenCalledOnce()
-    network.setNetworkReachable(false)
+    network.setBrowserOffline(true)
     await flushPromises()
     expect(view.find('section').exists()).toBe(false)
-    network.setNetworkReachable(true)
+    network.markBrowserOnline()
     await flushPromises()
     expect(view.text()).toContain('Minecraft & updates')
     view.unmount()
@@ -117,7 +114,7 @@ it('reuses fresh cached news across reconnects and page remounts', async () => {
 it('does not request news on reconnect after leaving the page', async () => {
     mountNews().unmount()
     wrapper = undefined
-    network.setNetworkReachable(true)
+    network.markBrowserOnline()
     await flushPromises()
     expect(backend.news).not.toHaveBeenCalled()
 })

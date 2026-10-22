@@ -14666,6 +14666,54 @@
   "app.settings.resources.concurrency.manual": {
     "message": "Manual"
   },
+  "app.settings.resources.curseforge-api-key": {
+    "message": "CurseForge API key"
+  },
+  "app.settings.resources.curseforge-api-key-description": {
+    "message": "Used for CurseForge search, project pages, and installations. A key entered here replaces the one the launcher provides."
+  },
+  "app.settings.resources.curseforge-api-key-field": {
+    "message": "API key"
+  },
+  "app.settings.resources.curseforge-api-key-placeholder": {
+    "message": "Leave empty to drop the key entered here"
+  },
+  "app.settings.resources.curseforge-api-key-save": {
+    "message": "Save key"
+  },
+  "app.settings.resources.curseforge-api-key-saving": {
+    "message": "Saving…"
+  },
+  "app.settings.resources.curseforge-api-key-status-launcher": {
+    "message": "No key is set here, so the launcher key is used."
+  },
+  "app.settings.resources.curseforge-api-key-status-missing": {
+    "message": "No key is available. CurseForge content cannot be searched or installed until one is set here."
+  },
+  "app.settings.resources.curseforge-api-key-status-override": {
+    "message": "Using the key entered here. The launcher key is not used."
+  },
+  "app.settings.resources.curseforge-api-key-status-unauthorized": {
+    "message": "CurseForge rejected this key. Check it or enter another one."
+  },
+  "app.settings.resources.curseforge-api-key-unsaved": {
+    "message": "Unsaved changes"
+  },
+  "app.settings.resources.curseforge-api-key-verified": {
+    "message": "CurseForge accepted the key."
+  },
+  "app.settings.resources.curseforge-api-key-verify": {
+    "message": "Check key"
+  },
+  "app.settings.resources.curseforge-api-key-verify-failed": {
+    "message": "CurseForge did not accept the key."
+  },
+  "app.settings.resources.curseforge-api-key-verify-unavailable": {
+    "message": "Could not check the key. Try again later."
+  },
+  "app.settings.resources.curseforge-api-key-verifying": {
+    "message": "Checking…"
+  },
   "app.settings.resources.curseforge-mirror": {
     "message": "CurseForge"
   },

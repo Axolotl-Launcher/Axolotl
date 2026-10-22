@@ -17,7 +17,7 @@ use crate::state::{
     DependencyResolutionTarget, DependencySelectionReason, DownloadSourceMode,
     EditInstance, InstanceInstallStage, InstanceLink, ModLoader,
     ModrinthProjectId, ModrinthVersionId, ProjectType, ReleaseChannel,
-    Settings,
+    Settings, curseforge_api_key_override_if_ready, curseforge_settings,
 };
 use crate::util::download::constants::CURSEFORGE_OVERRIDE_EXTRACTION_CONCURRENCY as OVERRIDE_EXTRACTION_CONCURRENCY;
 use crate::util::download::constants::MODPACK_DATABASE_BATCH_SIZE;
@@ -86,6 +86,9 @@ const MAX_DEPENDENCY_DEPTH: usize = 32;
 const DEPENDENCY_PLAN_TTL: Duration = Duration::from_secs(10 * 60);
 
 static UNAUTHORIZED: AtomicBool = AtomicBool::new(false);
+/// Bumped whenever the effective key is replaced. A response that arrives after
+/// that can only describe the previous key, so it must not change the flag.
+static API_KEY_GENERATION: AtomicU64 = AtomicU64::new(0);
 static CATEGORY_CACHE: LazyLock<RwLock<Option<Vec<CurseForgeCategory>>>> =
     LazyLock::new(|| RwLock::new(None));
 static MANUAL_IMPORT_SCAN_LOCK: LazyLock<tokio::sync::Mutex<()>> =
@@ -189,10 +192,23 @@ pub enum CurseForgeCapabilityStatus {
     Unauthorized,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum CurseForgeApiKeySource {
+    /// Set by the user in the launcher.
+    Override,
+    /// Injected when the launcher was built, or exported as
+    /// `AXOLOTL_CURSEFORGE_API_KEY` before starting it.
+    Launcher,
+    /// No key is available at all.
+    Missing,
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct CurseForgeCapability {
     pub status: CurseForgeCapabilityStatus,
     pub configured: bool,
+    pub key_source: CurseForgeApiKeySource,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -1105,7 +1121,8 @@ pub struct CurseForgeFingerprintResult {
 }
 
 pub fn capability() -> CurseForgeCapability {
-    let configured = api_key().is_some();
+    let (key, key_source) = api_key_with_source();
+    let configured = key.is_some();
     let status = if !configured {
         CurseForgeCapabilityStatus::MissingKey
     } else if UNAUTHORIZED.load(Ordering::Relaxed) {
@@ -1114,10 +1131,49 @@ pub fn capability() -> CurseForgeCapability {
         CurseForgeCapabilityStatus::Ready
     };
 
-    CurseForgeCapability { status, configured }
+    CurseForgeCapability {
+        status,
+        configured,
+        key_source,
+    }
+}
+
+/// Stores the API key the user entered in the launcher. `None` removes the
+/// override so the key the launcher was started or built with applies again,
+/// when there is one.
+pub async fn set_api_key_override(
+    api_key: Option<String>,
+) -> crate::Result<CurseForgeCapability> {
+    let state = State::get().await?;
+    state.update_curseforge_api_key(api_key).await?;
+    // Invalidate responses still in flight for the previous key before clearing
+    // the flag, so they cannot report an outdated status for the new one.
+    API_KEY_GENERATION.fetch_add(1, Ordering::Relaxed);
+    UNAUTHORIZED.store(false, Ordering::Relaxed);
+    Ok(capability())
+}
+
+fn api_key_generation() -> u64 {
+    API_KEY_GENERATION.load(Ordering::Relaxed)
+}
+
+/// Applies the authorization outcome of a response only while it still belongs
+/// to the current key, so a late response cannot speak for a replaced one.
+fn record_key_response(generation: u64, unauthorized: bool) {
+    if generation != api_key_generation() {
+        return;
+    }
+    UNAUTHORIZED.store(unauthorized, Ordering::Relaxed);
+}
+
+/// The API key the user entered in the launcher, if any, for redisplaying it.
+pub async fn api_key_override() -> crate::Result<Option<String>> {
+    let state = State::get().await?;
+    Ok(state.curseforge_api_key_override())
 }
 
 pub async fn validate_credentials() -> crate::Result<CurseForgeCapability> {
+    let generation = api_key_generation();
     let _: CurseForgeResponse<Vec<CurseForgeProject>> = request_json(
         Method::GET,
         "/v1/mods/search",
@@ -1130,7 +1186,7 @@ pub async fn validate_credentials() -> crate::Result<CurseForgeCapability> {
         MirrorPolicy::OfficialOnly,
     )
     .await?;
-    UNAUTHORIZED.store(false, Ordering::Relaxed);
+    record_key_response(generation, false);
     Ok(capability())
 }
 
@@ -9995,11 +10051,33 @@ impl From<CurseForgeProject> for UnifiedSearchHit {
 }
 
 pub(crate) fn api_key() -> Option<String> {
-    std::env::var("AXOLOTL_CURSEFORGE_API_KEY")
+    api_key_with_source().0
+}
+
+/// A key set in the launcher wins over `AXOLOTL_CURSEFORGE_API_KEY`, which in
+/// turn wins over the one this build was given. Either of the launcher sources
+/// can be absent: builds without `CURSEFORGE_API_KEY` stay valid, they just
+/// cannot reach the official API until a key is provided.
+fn api_key_with_source() -> (Option<String>, CurseForgeApiKeySource) {
+    let launcher_key = std::env::var("AXOLOTL_CURSEFORGE_API_KEY")
         .ok()
-        .or_else(|| option_env!("CURSEFORGE_API_KEY").map(str::to_string))
-        .map(|key| key.trim().to_string())
-        .filter(|key| !key.is_empty())
+        .or_else(|| option_env!("CURSEFORGE_API_KEY").map(str::to_string));
+
+    resolve_api_key(curseforge_api_key_override_if_ready(), launcher_key)
+}
+
+fn resolve_api_key(
+    override_key: Option<String>,
+    launcher_key: Option<String>,
+) -> (Option<String>, CurseForgeApiKeySource) {
+    if let Some(key) = curseforge_settings::normalize(override_key) {
+        return (Some(key), CurseForgeApiKeySource::Override);
+    }
+
+    match curseforge_settings::normalize(launcher_key) {
+        Some(key) => (Some(key), CurseForgeApiKeySource::Launcher),
+        None => (None, CurseForgeApiKeySource::Missing),
+    }
 }
 
 fn api_base_url() -> String {
@@ -10105,6 +10183,7 @@ async fn request_json<T: DeserializeOwned>(
     mirror_policy: MirrorPolicy,
 ) -> crate::Result<T> {
     let key = api_key();
+    let key_generation = api_key_generation();
     let state = State::get().await?;
     let source_mode = if method != Method::GET
         || mirror_policy == MirrorPolicy::OfficialOnly
@@ -10191,7 +10270,7 @@ async fn request_json<T: DeserializeOwned>(
         if status.is_success() {
             match serde_json::from_slice(&bytes) {
                 Ok(value) => {
-                    UNAUTHORIZED.store(false, Ordering::Relaxed);
+                    record_key_response(key_generation, false);
                     return Ok(value);
                 }
                 Err(error)
@@ -10212,7 +10291,7 @@ async fn request_json<T: DeserializeOwned>(
         }
 
         if status == StatusCode::UNAUTHORIZED {
-            UNAUTHORIZED.store(true, Ordering::Relaxed);
+            record_key_response(key_generation, true);
         }
 
         let message = response_error_message(status, &bytes);
@@ -13695,5 +13774,57 @@ mod tests {
         assert!(validate_world_archive_name("WORLD.ZIP").is_ok());
         assert!(validate_world_archive_name("world.rar").is_err());
         assert!(validate_world_archive_name("../world.zip").is_err());
+    }
+
+    #[test]
+    fn a_key_set_in_the_launcher_wins_over_the_launcher_key() {
+        assert_eq!(
+            resolve_api_key(Some("override".into()), Some("launcher".into())),
+            (
+                Some("override".to_string()),
+                CurseForgeApiKeySource::Override
+            ),
+        );
+    }
+
+    #[test]
+    fn a_blank_override_falls_back_to_the_launcher_key() {
+        assert_eq!(
+            resolve_api_key(Some("   ".into()), Some("launcher".into())),
+            (
+                Some("launcher".to_string()),
+                CurseForgeApiKeySource::Launcher
+            ),
+        );
+        assert_eq!(
+            resolve_api_key(None, Some("launcher".into())),
+            (
+                Some("launcher".to_string()),
+                CurseForgeApiKeySource::Launcher
+            ),
+        );
+    }
+
+    #[test]
+    fn keys_are_trimmed_before_they_are_used() {
+        assert_eq!(
+            resolve_api_key(Some(" override\n".into()), None),
+            (
+                Some("override".to_string()),
+                CurseForgeApiKeySource::Override
+            ),
+        );
+    }
+
+    #[test]
+    fn a_build_without_any_key_reports_no_key() {
+        assert_eq!(
+            resolve_api_key(None, None),
+            (None, CurseForgeApiKeySource::Missing),
+        );
+        assert_eq!(
+            resolve_api_key(Some(" ".into()), Some("\t".into())),
+            (None, CurseForgeApiKeySource::Missing),
+        );
     }
 }

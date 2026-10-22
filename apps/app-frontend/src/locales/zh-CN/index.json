@@ -12824,6 +12824,54 @@
   "app.settings.resources.concurrency.manual": {
     "message": "手动"
   },
+  "app.settings.resources.curseforge-api-key": {
+    "message": "CurseForge API 密钥"
+  },
+  "app.settings.resources.curseforge-api-key-description": {
+    "message": "用于 CurseForge 搜索、项目页面与安装。在此填写的密钥会替代启动器提供的密钥。"
+  },
+  "app.settings.resources.curseforge-api-key-field": {
+    "message": "API 密钥"
+  },
+  "app.settings.resources.curseforge-api-key-placeholder": {
+    "message": "留空并保存即取消此处填写的密钥"
+  },
+  "app.settings.resources.curseforge-api-key-save": {
+    "message": "保存密钥"
+  },
+  "app.settings.resources.curseforge-api-key-saving": {
+    "message": "正在保存…"
+  },
+  "app.settings.resources.curseforge-api-key-status-launcher": {
+    "message": "此处未填写密钥，正在使用启动器提供的密钥。"
+  },
+  "app.settings.resources.curseforge-api-key-status-missing": {
+    "message": "当前没有可用密钥。在填写之前无法搜索或安装 CurseForge 内容。"
+  },
+  "app.settings.resources.curseforge-api-key-status-override": {
+    "message": "正在使用此处填写的密钥，不使用启动器提供的密钥。"
+  },
+  "app.settings.resources.curseforge-api-key-status-unauthorized": {
+    "message": "CurseForge 已拒绝该密钥，请检查或换一个。"
+  },
+  "app.settings.resources.curseforge-api-key-unsaved": {
+    "message": "有未保存的更改"
+  },
+  "app.settings.resources.curseforge-api-key-verified": {
+    "message": "CurseForge 已接受该密钥。"
+  },
+  "app.settings.resources.curseforge-api-key-verify": {
+    "message": "检查密钥"
+  },
+  "app.settings.resources.curseforge-api-key-verify-failed": {
+    "message": "CurseForge 未接受该密钥。"
+  },
+  "app.settings.resources.curseforge-api-key-verify-unavailable": {
+    "message": "无法完成密钥检查，请稍后再试。"
+  },
+  "app.settings.resources.curseforge-api-key-verifying": {
+    "message": "正在检查…"
+  },
   "app.settings.resources.curseforge-mirror": {
     "message": "CurseForge 服务"
   },

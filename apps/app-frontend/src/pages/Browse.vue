@@ -188,6 +188,7 @@ const [initialCurseForgeCapability, initialPlanetMinecraftAvailable] = await Pro
     getCurseForgeCapability().catch(() => ({
         status: 'missing_key' as const,
         configured: false,
+        key_source: 'missing' as const,
     })),
     planetMinecraftConnectorAvailable().catch(() => false),
 ])

@@ -75,6 +75,7 @@ import { type RouteLocationNormalizedLoaded, RouterView, useRoute, useRouter } f
 
 import { getAnnouncementByVersion } from '@/announcements/catalog'
 import InstanceExportModal from '@/components/lab/recipe-generator/InstanceExportModal.vue'
+import ImportServerModal from '@/components/multiplayer/servers/ImportServerModal.vue'
 import AccountsCard from '@/components/ui/AccountsCard.vue'
 import UpdateAnnouncementModal from '@/components/ui/announcement/UpdateAnnouncementModal.vue'
 import AppActionBar from '@/components/ui/AppActionBar.vue'
@@ -2117,6 +2118,7 @@ const {
     incompatWarningKey,
 
     // Modal refs
+    serverImportModal,
     confirmDropModal,
     genericInstallModal,
     launcherImportModal,
@@ -3378,6 +3380,8 @@ provideAppUpdateDownloadProgress(appUpdateDownload)
             >
         </div>
     </div>
+
+    <ImportServerModal ref="serverImportModal" />
 
     <!-- Drop type confirmation modal -->
     <ConfirmDropTypeModal

@@ -19123,5 +19123,62 @@
   },
   "app.lab.command-generator.arg.waypoint.value.desc": {
     "message": "颜色或样式"
+  },
+  "app.servers.import.title": {
+    "defaultMessage": "导入服务端"
+  },
+  "app.servers.import.version": {
+    "defaultMessage": "Minecraft {gameVersion} · {serverType}"
+  },
+  "app.servers.import.loader": {
+    "defaultMessage": "加载器 {version}"
+  },
+  "app.servers.import.files-present": {
+    "defaultMessage": "服务端文件已存在。导入后不会自动启动。"
+  },
+  "app.servers.import.install-needed": {
+    "defaultMessage": "需要安装服务端依赖。导入后不会自动启动。"
+  },
+  "app.servers.import.submit": {
+    "defaultMessage": "导入"
+  },
+  "app.servers.import.install-submit": {
+    "defaultMessage": "导入并安装"
+  },
+  "app.servers.import.working": {
+    "defaultMessage": "正在导入服务端…"
+  },
+  "app.servers.import.inspecting": {
+    "defaultMessage": "正在检查服务端文件…"
+  },
+  "app.servers.import.not-found": {
+    "defaultMessage": "未找到受支持的服务端。请选择包含服务端启动器及相关文件的文件夹或 ZIP。"
+  },
+  "app.servers.import.missing-version": {
+    "defaultMessage": "无法确定服务端版本。请补齐原始启动器或安装器后重试。"
+  },
+  "app.servers.import.conflicting-versions": {
+    "defaultMessage": "此包包含互相冲突的服务端版本。请保留一个版本所需的文件后重试。"
+  },
+  "app.servers.import.multiple-launchers": {
+    "defaultMessage": "此包包含多个服务端启动器。请保留要使用的启动器后重试。"
+  },
+  "app.servers.import.client-server-conflict": {
+    "defaultMessage": "此文件夹同时包含客户端实例和服务端文件。请选择独立的服务端文件夹。"
+  },
+  "app.servers.import.unsupported-type": {
+    "defaultMessage": "暂不支持导入此类型的服务端。"
+  },
+  "app.servers.import.java-required": {
+    "defaultMessage": "请选择与此 Minecraft 版本兼容的 Java。"
+  },
+  "app.servers.import.failed": {
+    "defaultMessage": "安装未完成，已保留导入的文件。请打开服务端查看错误并重试安装。"
+  },
+  "app.servers.import.view-server": {
+    "defaultMessage": "查看服务端"
+  },
+  "app.servers.import.batch-limit": {
+    "defaultMessage": "请逐个导入服务端。单独拖入此服务端以进行配置。"
   }
 }

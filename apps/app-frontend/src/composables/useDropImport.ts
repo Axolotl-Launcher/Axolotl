@@ -174,6 +174,7 @@ export function useDropImport(options: DropImportOptions) {
     const { isInInstance, instanceId } = useInstanceContext()
 
     // ── Modal refs (to be bound externally) ──────────────────────────────
+    const serverImportModal = ref<{ show: (path: string) => Promise<void> } | null>(null)
     const confirmDropModal = ref<{ show: () => void; hide: () => void } | null>(null)
     const genericInstallModal = ref<{
         show: (options: {
@@ -273,6 +274,11 @@ export function useDropImport(options: DropImportOptions) {
 
     // ── Messages ─────────────────────────────────────────────────────────
     const messages = defineMessages({
+        serverBatch: {
+            id: 'app.servers.import.batch-limit',
+            defaultMessage:
+                'Import servers one at a time. Drop this server on its own to configure it.',
+        },
         unknownCompatibility: {
             id: 'app.drop.compatibility.unknown',
             defaultMessage: 'Unknown',
@@ -562,16 +568,6 @@ export function useDropImport(options: DropImportOptions) {
         if (onSettingsPage.value && isSettingsImagePath(path)) {
             return { item_type: 'unknown' as const, file_path: path, reason: 'skipped' }
         }
-        const folderName = path.split(/[\\/]/).filter(Boolean).at(-1)
-        if (folderName?.toLowerCase() === '.minecraft') {
-            dropDebug('classifyDropPath: routing .minecraft folder as GameDir', { path })
-            return {
-                item_type: 'launcher',
-                launcher_type: 'Generic',
-                base_path: path,
-                innerBase: undefined,
-            }
-        }
         return classifyDroppedItem(path)
     }
 
@@ -695,6 +691,11 @@ export function useDropImport(options: DropImportOptions) {
     }
 
     async function handleConfirmDropConfirm(type: string, innerBase?: string) {
+        if (type === 'server' && batchGroupMode) {
+            addNotification({ title: formatMessage(messages.serverBatch), type: 'warning' })
+            await cancelBatch('server-requires-individual-import')
+            return
+        }
         if (batchGroupMode) {
             batchGroupMode = false
             confirmDropModal.value?.hide()
@@ -778,6 +779,12 @@ export function useDropImport(options: DropImportOptions) {
             isLauncherImport,
             item_type: classification?.item_type,
         })
+
+        if (type === 'server') {
+            clearDropProcessingNotification()
+            await serverImportModal.value?.show(filePath)
+            return
+        }
 
         if (type === 'dot_minecraft') {
             await routeToGamedirFlow([dropFilePath.value ?? ''])
@@ -1738,6 +1745,12 @@ export function useDropImport(options: DropImportOptions) {
             'resolved=',
             resolved.item_type,
         )
+        if (resolved.item_type === 'server') {
+            item.scanState = 'skipped'
+            item.reason = formatMessage(messages.serverBatch)
+            addNotification({ title: formatMessage(messages.serverBatch), type: 'warning' })
+            return
+        }
         if (resolved.item_type === 'unknown') {
             item.scanState = 'skipped'
             item.reason = resolved.reason ?? 'unknown'
@@ -2638,6 +2651,7 @@ export function useDropImport(options: DropImportOptions) {
         incompatWarningKey,
 
         // Modal refs (to be bound in template)
+        serverImportModal,
         confirmDropModal,
         genericInstallModal,
         launcherImportModal,

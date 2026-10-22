@@ -43,6 +43,8 @@ pub(super) fn resolve_jar_name(manifest: &ServerManifest) -> String {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct ServerManifest {
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub external_import: bool,
     pub id: String,
     pub name: String,
     pub server_type: String,
@@ -78,6 +80,41 @@ pub struct ServerManifest {
     pub last_exit_crashed: bool,
 }
 
+impl ServerManifest {
+    pub(super) fn new(
+        id: String,
+        name: &str,
+        server_type: &str,
+        game_version: &str,
+        loader_version: Option<String>,
+        java_path: Option<String>,
+        memory_mb: Option<u32>,
+    ) -> Self {
+        Self {
+            external_import: false,
+            id,
+            name: name.to_string(),
+            server_type: server_type.to_string(),
+            game_version: game_version.to_string(),
+            loader_version,
+            jar_name: type_default_jar_name(server_type),
+            java_path,
+            memory_mb,
+            icon_path: None,
+            modpack: None,
+            install_state: None,
+            install_error: None,
+            jvm_args: Vec::new(),
+            pre_launch_hook: None,
+            home_pinned_at: None,
+            linked_world: None,
+            created_at: Utc::now(),
+            last_started_at: None,
+            last_exit_crashed: false,
+        }
+    }
+}
+
 /// Links a managed server to a saved multiplayer entry (an instance's server
 /// list entry) whose address points back at this machine. When set, launching
 /// that entry from the home pinned-servers widget first starts this server and
@@ -89,7 +126,7 @@ pub struct LinkedWorld {
     pub address: String,
 }
 
-/// Tracks whether a modpack server has finished materializing. `Incomplete`
+/// Tracks whether a managed server has finished materializing. `Incomplete`
 /// is written when an install starts (and left behind if the app exits
 /// mid-download); `Failed` records an install error so the UI can offer a
 /// retry. Both clear once the install succeeds.
@@ -259,6 +296,7 @@ mod tests {
     #[test]
     fn server_manifest_round_trips() {
         let manifest = ServerManifest {
+            external_import: false,
             id: "test-12345678".to_string(),
             name: "Test".to_string(),
             server_type: "vanilla".to_string(),
@@ -288,6 +326,7 @@ mod tests {
     #[test]
     fn resolves_jar_name_from_type_then_manifest() {
         let mut manifest = ServerManifest {
+            external_import: false,
             id: "test-12345678".to_string(),
             name: "Test".to_string(),
             server_type: "fabric".to_string(),

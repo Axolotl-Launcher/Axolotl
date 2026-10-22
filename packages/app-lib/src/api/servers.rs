@@ -2,7 +2,11 @@
 //! Each server lives in its own directory under the launcher's `servers` folder
 //! and is described by an `axolotl-server.json` manifest.
 
+mod detect;
 mod files;
+mod import;
+pub use detect::{ServerImportPreview, inspect_server_import};
+pub use import::{import_external_server, retry_external_server};
 mod forge;
 mod lifecycle;
 mod link;

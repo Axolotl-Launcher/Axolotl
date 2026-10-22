@@ -53,47 +53,37 @@ pub(crate) fn archive_manifest<R: std::io::Read + std::io::Seek>(
 ///
 /// Handles continuation lines (lines starting with a space) and
 /// case-insensitive attribute names per the JAR specification.
-fn parse_manifest(content: &str) -> JarManifest {
-    let mut manifest = JarManifest::default();
-
-    // First pass: normalize continuation lines.
-    // Lines starting with a space or tab are continuations of the previous line.
+/// Reads a case-insensitive manifest attribute, unfolding JAR continuation lines.
+pub(crate) fn manifest_attribute(content: &str, key: &str) -> Option<String> {
     let mut lines: Vec<String> = Vec::new();
     for line in content.lines() {
-        if line.is_empty() {
-            continue;
-        }
-        if line.starts_with(' ') || line.starts_with('\t') {
-            // Continuation line — append to the last line with a single space separator.
-            if let Some(last) = lines.last_mut() {
-                last.push(' ');
-                last.push_str(line.trim());
+        if let Some(rest) = line.strip_prefix(' ') {
+            if let Some(previous) = lines.last_mut() {
+                previous.push_str(rest);
             }
         } else {
             lines.push(line.to_string());
         }
     }
+    lines.iter().find_map(|line| {
+        let (name, value) = line.split_once(':')?;
+        name.eq_ignore_ascii_case(key)
+            .then(|| value.trim().to_string())
+    })
+}
 
-    for line in &lines {
-        if let Some((key, value)) = line.split_once(':') {
-            let key = key.trim();
-            let value = value.trim();
-
-            // Case-insensitive matching per JAR spec.
-            match key.to_ascii_lowercase().as_str() {
-                "main-class" => manifest.main_class = Some(value.to_string()),
-                "implementation-title" => {
-                    manifest.implementation_title = Some(value.to_string());
-                }
-                "implementation-version" => {
-                    manifest.implementation_version = Some(value.to_string());
-                }
-                _ => {}
-            }
-        }
+fn parse_manifest(content: &str) -> JarManifest {
+    JarManifest {
+        main_class: manifest_attribute(content, "Main-Class"),
+        implementation_title: manifest_attribute(
+            content,
+            "Implementation-Title",
+        ),
+        implementation_version: manifest_attribute(
+            content,
+            "Implementation-Version",
+        ),
     }
-
-    manifest
 }
 
 #[cfg(test)]
@@ -164,7 +154,7 @@ mod tests {
 
     #[test]
     fn test_continuation_lines() {
-        let content = "Manifest-Version: 1.0\nImplementation-Title: Hello\n World\nMain-Class: Test\n";
+        let content = "Manifest-Version: 1.0\nImplementation-Title: Hello \n World\nMain-Class: Test\n";
         let (path, _dir) = create_test_jar(Some(content));
 
         let manifest = read_jar_manifest(&path).expect("should read manifest");
@@ -218,5 +208,16 @@ mod tests {
         assert_eq!(manifest.main_class, None);
         assert_eq!(manifest.implementation_title, None);
         assert_eq!(manifest.implementation_version, None);
+    }
+    #[test]
+    fn folded_classpath_keeps_path_segments_together() {
+        assert_eq!(
+            manifest_attribute(
+                "Class-Path: libraries/net/minecraftforge/\n forge.jar\n",
+                "class-path"
+            )
+            .as_deref(),
+            Some("libraries/net/minecraftforge/forge.jar")
+        );
     }
 }

@@ -5,7 +5,12 @@ import type { ComponentExposed } from 'vue-component-type-helpers'
 
 import type EulaModal from '@/components/multiplayer/servers/EulaModal.vue'
 import { resumeModpackInstall } from '@/composables/useServerInstalls'
-import { type ServerView, setServerExitReasonHandler, useServers } from '@/composables/useServers'
+import {
+    refresh,
+    type ServerView,
+    setServerExitReasonHandler,
+    useServers,
+} from '@/composables/useServers'
 import { serverEventListener, servers as serversApi } from '@/helpers/servers'
 import { injectDownloadManager } from '@/providers/download-manager'
 
@@ -148,7 +153,13 @@ export function useServerLifecycle() {
         try {
             // [SERVER-DOWNLOAD-BRIDGE] Pass the download manager captured
             // during setup so the synthetic job appears in sidebar.
-            await resumeModpackInstall(server, downloadManager)
+            if (server.externalImport) {
+                const result = await serversApi.retryExternal(server.id)
+                await refresh()
+                if (result.installError) throw new Error(result.installError)
+            } else {
+                await resumeModpackInstall(server, downloadManager)
+            }
         } catch (error) {
             handleError(error)
         }

@@ -1118,6 +1118,9 @@ fn main() {
                 "servers",
                 InlinedPlugin::new()
                     .commands(&[
+                        "servers_inspect_import",
+                        "servers_import_external",
+                        "servers_retry_external",
                         "servers_list",
                         "servers_get",
                         "servers_create",

@@ -4828,5 +4828,11 @@
   },
   "version.uploaded-by": {
     "message": "上传者"
+  },
+  "drop.confirm.as-server": {
+    "defaultMessage": "服务端"
+  },
+  "drop.confirm.as-server-desc": {
+    "defaultMessage": "导入外部 Minecraft 服务端"
   }
 }

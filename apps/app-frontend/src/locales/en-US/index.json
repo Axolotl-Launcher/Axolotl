@@ -19099,5 +19099,62 @@
   },
   "app.lab.command-generator.arg.waypoint.value.desc": {
     "message": "Color or style"
+  },
+  "app.servers.import.batch-limit": {
+    "message": "Import servers one at a time. Drop this server on its own to configure it."
+  },
+  "app.servers.import.client-server-conflict": {
+    "message": "This folder contains both client instance and server files. Choose a separate server folder."
+  },
+  "app.servers.import.conflicting-versions": {
+    "message": "This package contains conflicting server versions. Keep the files for one server version and try again."
+  },
+  "app.servers.import.failed": {
+    "message": "Installation did not finish. Your imported files were kept. Open the server to review the error and retry installation."
+  },
+  "app.servers.import.files-present": {
+    "message": "Server files are present. The server will stay stopped after import."
+  },
+  "app.servers.import.inspecting": {
+    "message": "Checking server files…"
+  },
+  "app.servers.import.install-needed": {
+    "message": "Server dependencies need to be installed. The server will stay stopped after import."
+  },
+  "app.servers.import.install-submit": {
+    "message": "Import and install"
+  },
+  "app.servers.import.java-required": {
+    "message": "Select a Java installation compatible with this Minecraft version."
+  },
+  "app.servers.import.loader": {
+    "message": "Loader {version}"
+  },
+  "app.servers.import.missing-version": {
+    "message": "The server version could not be determined. Include its original launcher or installer and try again."
+  },
+  "app.servers.import.multiple-launchers": {
+    "message": "This package has multiple server launchers. Keep the launcher you want to use and try again."
+  },
+  "app.servers.import.not-found": {
+    "message": "No supported server was found. Choose a folder or ZIP containing the server launcher and its files."
+  },
+  "app.servers.import.submit": {
+    "message": "Import"
+  },
+  "app.servers.import.title": {
+    "message": "Import server"
+  },
+  "app.servers.import.unsupported-type": {
+    "message": "This server type cannot be imported yet."
+  },
+  "app.servers.import.version": {
+    "message": "Minecraft {gameVersion} · {serverType}"
+  },
+  "app.servers.import.view-server": {
+    "message": "View server"
+  },
+  "app.servers.import.working": {
+    "message": "Importing server…"
   }
 }

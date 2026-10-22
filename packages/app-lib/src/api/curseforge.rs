@@ -169,16 +169,6 @@ static CLIENT: LazyLock<reqwest::Client> = LazyLock::new(|| {
         .expect("CurseForge client configuration should be valid")
 });
 
-static PROXY_CLIENT: LazyLock<reqwest::Client> = LazyLock::new(|| {
-    reqwest::Client::builder()
-        .connect_timeout(Duration::from_secs(15))
-        .read_timeout(Duration::from_secs(30))
-        .redirect(reqwest::redirect::Policy::none())
-        .user_agent(crate::launcher_user_agent())
-        .build()
-        .expect("CurseForge proxy client configuration should be valid")
-});
-
 #[cfg(debug_assertions)]
 static LOCAL_CLIENT: LazyLock<reqwest::Client> = LazyLock::new(|| {
     reqwest::Client::builder()
@@ -10024,18 +10014,19 @@ fn api_base_url() -> String {
 }
 
 fn request_client(
+    state: &State,
     _url: &str,
     use_system_proxy: bool,
-) -> &'static reqwest::Client {
+) -> reqwest::Client {
     #[cfg(debug_assertions)]
     if _url.starts_with("http://127.0.0.1:") {
-        return &LOCAL_CLIENT;
+        return LOCAL_CLIENT.clone();
     }
 
     if use_system_proxy {
-        &PROXY_CLIENT
+        state.download_clients().system
     } else {
-        &CLIENT
+        CLIENT.clone()
     }
 }
 
@@ -10136,10 +10127,11 @@ async fn request_json<T: DeserializeOwned>(
             "Attempting CurseForge API request"
         );
         let permit = state.api_semaphore.0.acquire().await?;
-        let mut request = request_client(&route.url, route.use_system_proxy)
-            .request(method.clone(), &route.url)
-            .header("accept", "application/json")
-            .query(&query);
+        let mut request =
+            request_client(&state, &route.url, route.use_system_proxy)
+                .request(method.clone(), &route.url)
+                .header("accept", "application/json")
+                .query(&query);
         if route.use_api_key {
             let Some(key) = key.as_ref() else {
                 drop(permit);

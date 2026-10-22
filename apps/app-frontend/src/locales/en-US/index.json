@@ -12161,17 +12161,47 @@
   "app.servers.action.stop": {
     "message": "Stop"
   },
+  "app.servers.action.stopping": {
+    "message": "Stopping..."
+  },
   "app.servers.card.port": {
     "message": "Port {port}"
   },
   "app.servers.card.type": {
     "message": "{type} · {version}"
   },
-  "app.servers.console.forge-command-placeholder": {
-    "message": "Send a command - Tab completion supported"
+  "app.servers.console.logs": {
+    "message": "Logs"
   },
   "app.servers.console.not-running": {
     "message": "The server is not running"
+  },
+  "app.servers.console.terminal": {
+    "message": "Terminal"
+  },
+  "app.servers.card.manage": {
+    "message": "Manage {name}"
+  },
+  "app.servers.management.heading": {
+    "message": "Your servers"
+  },
+  "app.servers.management.search": {
+    "message": "Search by name, loader or version"
+  },
+  "app.servers.management.no-matches": {
+    "message": "No matching servers"
+  },
+  "app.servers.management.clear-search": {
+    "message": "Clear search"
+  },
+  "app.servers.action.terminate": {
+    "message": "Terminate"
+  },
+  "app.servers.settings.stop-command": {
+    "message": "Stop command"
+  },
+  "app.servers.settings.stop-command-hint": {
+    "message": "Defaults to stop. Enter ^C to send Ctrl+C. Saved changes apply immediately."
   },
   "app.servers.count": {
     "message": "{count, plural, =0 {No servers yet} one {# server} other {# servers}}"
@@ -12635,8 +12665,8 @@
   "app.servers.status.crashed": {
     "message": "Crashed"
   },
-  "app.servers.status.created": {
-    "message": "Not set up"
+  "app.servers.status.not-running": {
+    "message": "Not running"
   },
   "app.servers.status.download-failed": {
     "message": "Download failed"
@@ -12664,6 +12694,9 @@
   },
   "app.servers.type.forge": {
     "message": "Forge"
+  },
+  "app.servers.type.neoforge": {
+    "message": "NeoForge"
   },
   "app.servers.type.paper": {
     "message": "Paper"
@@ -12709,6 +12742,12 @@
   },
   "app.servers.wizard.java-too-old": {
     "message": "Java {selected} cannot run this game version; Java {required} or newer is required."
+  },
+  "app.servers.wizard.loading-versions": {
+    "message": "Loading versions…"
+  },
+  "app.servers.wizard.no-loader-versions": {
+    "message": "No loader versions are available for this game version."
   },
   "app.servers.wizard.loader-version": {
     "message": "Loader version"

@@ -3,6 +3,55 @@ use serde::{Deserialize, Serialize};
 
 use crate::Result;
 
+#[cfg(any(windows, test))]
+mod windows;
+
+mod connectivity;
+pub use connectivity::test_proxy_connection;
+
+/// Identity only: never persist or log proxy addresses or credentials.
+pub(crate) fn system_proxy_fingerprint() -> String {
+    use sha2::{Digest, Sha256};
+    let mut digest = Sha256::new();
+    for name in [
+        "HTTP_PROXY",
+        "http_proxy",
+        "HTTPS_PROXY",
+        "https_proxy",
+        "ALL_PROXY",
+        "all_proxy",
+        "NO_PROXY",
+        "no_proxy",
+        "REQUEST_METHOD",
+    ] {
+        let value = std::env::var_os(name).unwrap_or_default();
+        let value = value.to_string_lossy();
+        digest.update((value.len() as u64).to_le_bytes());
+        digest.update(value.as_bytes());
+    }
+    #[cfg(windows)]
+    {
+        use winreg::{RegKey, enums::HKEY_CURRENT_USER};
+        if let Ok(settings) = RegKey::predef(HKEY_CURRENT_USER).open_subkey(
+            "Software\\Microsoft\\Windows\\CurrentVersion\\Internet Settings",
+        ) {
+            digest.update(
+                settings
+                    .get_value::<u32, _>("ProxyEnable")
+                    .unwrap_or(0)
+                    .to_le_bytes(),
+            );
+            for name in ["ProxyServer", "ProxyOverride", "AutoConfigURL"] {
+                let value =
+                    settings.get_value::<String, _>(name).unwrap_or_default();
+                digest.update((value.len() as u64).to_le_bytes());
+                digest.update(value.as_bytes());
+            }
+        }
+    }
+    format!("{:x}", digest.finalize())
+}
+
 #[derive(
     Clone, Copy, Debug, Default, Eq, PartialEq, Serialize, Deserialize,
 )]
@@ -133,7 +182,12 @@ impl ProxyConfig {
     pub fn apply(&self, builder: ClientBuilder) -> Result<ClientBuilder> {
         match self.mode {
             ProxyMode::None => Ok(builder.no_proxy()),
-            ProxyMode::System => Ok(builder),
+            ProxyMode::System => {
+                #[cfg(windows)]
+                return windows::apply(builder);
+                #[cfg(not(windows))]
+                Ok(builder)
+            }
             ProxyMode::Custom => {
                 let url = self.custom_url_trimmed().ok_or_else(|| {
                     crate::ErrorKind::InputError(

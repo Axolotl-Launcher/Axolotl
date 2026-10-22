@@ -10,7 +10,9 @@ import { useNetworkStatus } from './useNetworkStatus'
 
 const backend = vi.hoisted(() => ({
     configuration: vi.fn(),
+    scope: vi.fn(),
     official: vi.fn(),
+    mirror: vi.fn(),
     apply: vi.fn(),
     selected: vi.fn(),
     listen: vi.fn(),
@@ -18,7 +20,9 @@ const backend = vi.hoisted(() => ({
 }))
 vi.mock('@/helpers/mojang-auth', () => ({
     getMojangAuthConfiguration: backend.configuration,
+    getNetworkScope: backend.scope,
     probeOfficialMojangServices: backend.official,
+    probeMirrorMojangServices: backend.mirror,
     applyMojangAuthSource: backend.apply,
     probeSelectedMojangSource: backend.selected,
 }))
@@ -30,8 +34,10 @@ const mounted: ReturnType<typeof mount>[] = []
 const clients: QueryClient[] = []
 beforeEach(() => {
     vi.useFakeTimers()
+    backend.scope.mockReset().mockResolvedValue('network-1')
     backend.configuration.mockReset().mockResolvedValue({ source: 'auto', key: 'auto' })
     backend.official.mockReset().mockResolvedValue(healthy())
+    backend.mirror.mockReset().mockResolvedValue(healthy())
     backend.apply.mockReset().mockResolvedValue(true)
     backend.selected.mockReset().mockResolvedValue(undefined)
     backend.dispose.mockReset()
@@ -96,7 +102,8 @@ it('uses one retry scheduler and restores connectivity without reopening a page'
     app(ref(true))
     await flushPromises()
     expect(backend.apply).toHaveBeenNthCalledWith(1, 'auto', true)
-    expect(useNetworkStatus().offline.value).toBe(true)
+    expect(useMojangAuthStatus().reachable.value).toBe(false)
+    expect(useNetworkStatus().offline.value).toBe(false)
     await vi.advanceTimersByTimeAsync(14_999)
     expect(backend.official).toHaveBeenCalledOnce()
     await vi.advanceTimersByTimeAsync(1)
@@ -109,6 +116,19 @@ it('uses one retry scheduler and restores connectivity without reopening a page'
     await vi.advanceTimersByTimeAsync(1)
     await flushPromises()
     expect(backend.official).toHaveBeenCalledTimes(3)
+})
+
+it('an unreachable authentication service does not disable unrelated network features', async () => {
+    backend.configuration.mockResolvedValue({ source: 'official_only', key: 'official_only' })
+    backend.selected.mockRejectedValue(new Error('Mojang unavailable'))
+    app(ref(true))
+    await flushPromises()
+    expect(useMojangAuthStatus().reachable.value).toBe(false)
+    expect(useNetworkStatus().browserOffline.value).toBe(false)
+    expect(useNetworkStatus().offline.value).toBe(false)
+    useNetworkStatus().setBrowserOffline(true)
+    await flushPromises()
+    expect(useNetworkStatus().offline.value).toBe(true)
 })
 
 it('pauses while browser-offline, checks on reconnect, and ignores unrelated settings events', async () => {
@@ -167,4 +187,18 @@ it('manual account recovery uses the same worker even while a periodic probe is 
     await flushPromises()
     expect(backend.selected).toHaveBeenCalledOnce()
     expect(useMojangAuthStatus().reachable.value).toBe(true)
+})
+
+it('checks again when the system proxy changes without a settings event', async () => {
+    app(ref(true))
+    await flushPromises()
+    expect(backend.official).toHaveBeenCalledOnce()
+    backend.scope.mockResolvedValue('network-2')
+    backend.configuration.mockResolvedValue({ source: 'auto', key: 'auto-network-2' })
+    await vi.advanceTimersByTimeAsync(5_000)
+    await flushPromises()
+    expect(backend.official).toHaveBeenCalledTimes(2)
+    await vi.advanceTimersByTimeAsync(5_000)
+    await flushPromises()
+    expect(backend.official).toHaveBeenCalledTimes(2)
 })

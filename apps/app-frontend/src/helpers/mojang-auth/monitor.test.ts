@@ -30,6 +30,7 @@ function fixture(source: MojangAuthConfiguration['source'] = 'auto') {
             probes++
             return healthy()
         },
+        probeMirror: async () => healthy(),
         applySource: async (source: string, mirror: boolean) => {
             applied.push([source, mirror])
             return true
@@ -54,13 +55,22 @@ function fixture(source: MojangAuthConfiguration['source'] = 'auto') {
     }
 }
 
-test('requires all current Mojang services, ignores the retired auth endpoint', () => {
+test('requires core authentication services without depending on auxiliary hosts', () => {
     assert.equal(officialMojangServicesReachable(healthy()), true)
     assert.equal(
         officialMojangServicesReachable([...healthy(), { service: 'auth', reachable: false }]),
         true,
     )
-    assert.equal(officialMojangServicesReachable(healthy().slice(1)), false)
+    assert.equal(
+        officialMojangServicesReachable(healthy().filter((s) => s.service !== 'session')),
+        false,
+    )
+    assert.equal(
+        officialMojangServicesReachable(
+            healthy().filter((s) => ['session', 'services'].includes(s.service)),
+        ),
+        true,
+    )
     assert.equal(officialMojangServicesReachable([]), false)
 })
 
@@ -226,4 +236,67 @@ test('offline during a selected-source probe suppresses its result and reconnect
     f.deps.probeSelected = async () => {}
     await f.monitor.run()
     assert.deepEqual(f.published, [true])
+})
+
+test('never selects an unreachable mirror and recovers to official later', async () => {
+    const f = fixture()
+    f.deps.probeOfficial = async () => []
+    f.deps.probeMirror = async () => []
+    f.deps.probeSelected = async () => {
+        throw new Error('unreachable')
+    }
+    assert.equal(await f.monitor.run(), false)
+    assert.deepEqual(f.applied, [['auto', false]])
+    f.deps.probeOfficial = async () => healthy()
+    f.deps.probeSelected = async () => {}
+    assert.equal(await f.monitor.run(), true)
+    assert.deepEqual(f.applied.at(-1), ['auto', false])
+})
+
+test('does not probe a mirror when core official services work', async () => {
+    const f = fixture()
+    f.deps.probeOfficial = async () =>
+        healthy().filter((s) => ['session', 'services'].includes(s.service))
+    f.deps.probeMirror = async () => {
+        throw new Error('must not probe')
+    }
+    assert.equal(await f.monitor.run(), true)
+    assert.deepEqual(f.applied, [['auto', false]])
+})
+
+test('a network change during a mirror probe discards the old decision', async () => {
+    const f = fixture()
+    const response = deferred<ReturnType<typeof healthy>>()
+    const started = deferred<void>()
+    f.deps.probeOfficial = async () => []
+    f.deps.probeMirror = () => {
+        started.resolve()
+        return response.promise
+    }
+    const pending = f.monitor.run()
+    await started.promise
+    f.configure({ source: 'official_only', key: 'new-network' })
+    f.monitor.invalidate()
+    response.resolve(healthy())
+    await pending
+    assert.deepEqual(f.applied, [['official_only', false]])
+})
+
+test('uses a healthy mirror when Minecraft Services fails despite a working session', async () => {
+    const f = fixture()
+    f.deps.probeOfficial = async () =>
+        healthy().map((s) => ({
+            ...s,
+            reachable: s.service !== 'services',
+        }))
+    assert.equal(await f.monitor.run(), true)
+    assert.deepEqual(f.applied, [['auto', true]])
+})
+
+test('a mirror with only a working session is not a usable authentication fallback', async () => {
+    const f = fixture()
+    f.deps.probeOfficial = async () => []
+    f.deps.probeMirror = async () => [{ service: 'session', reachable: true }]
+    await f.monitor.run()
+    assert.deepEqual(f.applied, [['auto', false]])
 })

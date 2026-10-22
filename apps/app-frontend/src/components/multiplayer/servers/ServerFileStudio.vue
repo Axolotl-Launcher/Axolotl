@@ -36,7 +36,7 @@ onMounted(async () => {
 </script>
 
 <template>
-    <FileStudio v-if="server && !server.running" :server="server" />
+    <FileStudio v-if="server && !server.running && !server.starting" :server="server" />
     <div v-else-if="server" class="flex size-full items-center justify-center p-6">
         <Admonition type="warning" :header="formatMessage(messages.runningTitle)">
             {{ formatMessage(messages.runningDescription) }}

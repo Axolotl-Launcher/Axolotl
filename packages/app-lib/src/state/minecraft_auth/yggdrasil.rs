@@ -3,7 +3,7 @@ use super::{
     MinecraftProfile, MinecraftSkin, MinecraftSkinVariant,
 };
 use crate::ErrorKind;
-use crate::util::fetch::INSECURE_REQWEST_CLIENT;
+use crate::util::fetch::authentication_client;
 use base64::Engine;
 use base64::prelude::{BASE64_STANDARD, BASE64_STANDARD_NO_PAD};
 use chrono::{Duration, Utc};
@@ -344,7 +344,7 @@ pub async fn refresh_yggdrasil_credentials(
         .as_error()
     })?;
     let validate_url = endpoint(&account.api_root, "validate")?;
-    let response = INSECURE_REQWEST_CLIENT
+    let response = authentication_client()
         .post(validate_url)
         .json(&json!({
             "accessToken": credentials.access_token,
@@ -409,7 +409,7 @@ pub async fn fetch_yggdrasil_profile(
         profile_id.simple()
     ))?;
     url.query_pairs_mut().append_pair("unsigned", "false");
-    let response = INSECURE_REQWEST_CLIENT.get(url).send().await?;
+    let response = authentication_client().get(url).send().await?;
     if response.status() == reqwest::StatusCode::NO_CONTENT {
         return Ok(None);
     }
@@ -489,7 +489,7 @@ pub async fn fetch_yggdrasil_metadata(
     api_root: &str,
 ) -> crate::Result<YggdrasilMetadata> {
     let api_root = normalize_api_root(api_root)?;
-    let response = INSECURE_REQWEST_CLIENT.get(&api_root).send().await?;
+    let response = authentication_client().get(&api_root).send().await?;
     if !response.status().is_success() {
         return Err(response_error(response).await);
     }
@@ -573,7 +573,7 @@ async fn post_json<T: for<'de> Deserialize<'de>>(
     action: &str,
     body: serde_json::Value,
 ) -> crate::Result<T> {
-    let response = INSECURE_REQWEST_CLIENT
+    let response = authentication_client()
         .post(endpoint(api_root, action)?)
         .header(reqwest::header::ACCEPT_LANGUAGE, "zh-CN")
         .json(&body)

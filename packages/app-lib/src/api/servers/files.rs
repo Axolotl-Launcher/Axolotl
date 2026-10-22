@@ -2,19 +2,25 @@
 
 use std::path::{Path, PathBuf};
 
-use futures::StreamExt;
-use sha1_smol::Sha1;
+use std::future::Future;
+use std::pin::Pin;
 
+use tokio_util::sync::CancellationToken;
+
+use crate::State;
+use crate::util::fetch::{
+    ContentValidation, DownloadRequest, FetchProgressFn, Integrity,
+    ResourceClass, download_to_path,
+};
+
+use crate::Result;
 use crate::event::ServerPayloadType;
 use crate::event::emit::emit_server;
 use crate::util::io::{self, IOError};
-use crate::{ErrorKind, Result};
 
 use super::manifest::server_path;
 
 pub(super) use crate::util::io::safe_relative_join;
-
-const DOWNLOAD_PROGRESS_STEP: u64 = 512 * 1024;
 
 pub async fn read_file(server_id: &str, file: &str) -> Result<String> {
     let path = resolve_server_file(server_id, file).await?;
@@ -54,69 +60,99 @@ pub(super) async fn download_to_dir(
     rel_path: &str,
     expected_sha1: Option<String>,
 ) -> Result<()> {
-    let destination = safe_relative_join(dir, rel_path)?;
-    let partial = destination.with_extension("part");
+    let state = State::get().await?;
+    let integrity = Integrity {
+        sha1: expected_sha1,
+        content: if rel_path.ends_with(".jar") {
+            ContentValidation::Jar
+        } else {
+            ContentValidation::None
+        },
+        ..Integrity::default()
+    };
+    let request = DownloadRequest::new(url, ResourceClass::Loader)
+        .with_integrity(integrity);
+    download_server_file(server_id, &state, dir, rel_path, request, None, None)
+        .await
+}
 
+pub(super) async fn download_server_file(
+    server_id: &str,
+    state: &State,
+    dir: &Path,
+    rel_path: &str,
+    mut request: DownloadRequest,
+    cancellation: Option<&CancellationToken>,
+    console_label: Option<&str>,
+) -> Result<()> {
+    let destination = safe_relative_join(dir, rel_path)?;
     if let Some(parent) = destination.parent() {
         io::create_dir_all(parent).await?;
     }
-
-    let client = reqwest::Client::builder()
-        .user_agent(crate::launcher_user_agent())
-        .build()
-        .map_err(|e| ErrorKind::NetworkError(e.to_string()))?;
-    let response = client
-        .get(url)
-        .send()
+    request.cancellation = cancellation.cloned();
+    let label = console_label.map(str::to_string);
+    let mut last_progress = std::time::Instant::now()
+        .checked_sub(std::time::Duration::from_secs(1))
+        .unwrap();
+    let mut progress: Box<FetchProgressFn<'_>> = Box::new(
+        move |downloaded,
+              total|
+              -> Pin<Box<dyn Future<Output = Result<()>> + Send + '_>> {
+            let log = if last_progress.elapsed()
+                >= std::time::Duration::from_secs(1)
+            {
+                last_progress = std::time::Instant::now();
+                label.as_ref().map(|label| {
+                    if total > 0 {
+                        format!(
+                            "Downloading {label}: {:.1} / {:.1} MiB",
+                            downloaded as f64 / 1048576.0,
+                            total as f64 / 1048576.0
+                        )
+                    } else {
+                        format!(
+                            "Downloading {label}: {:.1} MiB",
+                            downloaded as f64 / 1048576.0
+                        )
+                    }
+                })
+            } else {
+                None
+            };
+            Box::pin(async move {
+                emit_server(
+                    server_id,
+                    ServerPayloadType::DownloadProgress {
+                        downloaded,
+                        total: (total > 0).then_some(total),
+                    },
+                )
+                .await
+                .ok();
+                if let Some(line) = log {
+                    super::lifecycle::log_server_step(server_id, &line).await;
+                }
+                Ok(())
+            })
+        },
+    );
+    download_to_path(
+        request,
+        &destination,
+        &state.download_semaphore,
+        &state.pool,
+        Some(progress.as_mut()),
+    )
+    .await?;
+    let size = tokio::fs::metadata(&destination)
         .await
-        .and_then(|r| r.error_for_status())?;
-    let total = response.content_length();
-    let mut stream = response.bytes_stream();
-
-    let mut file = tokio::fs::File::create(&partial)
-        .await
-        .map_err(|e| IOError::with_path(e, &partial))?;
-    let mut hasher = Sha1::new();
-    let mut downloaded: u64 = 0;
-    let mut last_reported: u64 = 0;
-    while let Some(chunk) = stream.next().await {
-        let chunk = chunk?;
-        tokio::io::AsyncWriteExt::write_all(&mut file, &chunk)
-            .await
-            .map_err(|e| IOError::with_path(e, &partial))?;
-        hasher.update(&chunk);
-        downloaded += chunk.len() as u64;
-        if downloaded - last_reported >= DOWNLOAD_PROGRESS_STEP {
-            last_reported = downloaded;
-            emit_server(
-                server_id,
-                ServerPayloadType::DownloadProgress { downloaded, total },
-            )
-            .await
-            .ok();
-        }
-    }
-    drop(file);
-
-    if let Some(expected) = expected_sha1.as_deref() {
-        let actual = hasher.digest().to_string();
-        if !actual.eq_ignore_ascii_case(expected) {
-            let _ = tokio::fs::remove_file(&partial).await;
-            return Err(ErrorKind::NetworkError(format!(
-                "Download checksum mismatch for {rel_path}: expected {expected}, got {actual}"
-            ))
-            .as_error());
-        }
-    }
-
-    tokio::fs::rename(&partial, &destination)
-        .await
-        .map_err(|e| IOError::with_path(e, &destination))?;
+        .map_err(|e| IOError::with_path(e, &destination))?
+        .len();
     emit_server(
         server_id,
         ServerPayloadType::DownloadProgress {
-            downloaded,
-            total: Some(downloaded.max(total.unwrap_or(0))),
+            downloaded: size,
+            total: Some(size),
         },
     )
     .await

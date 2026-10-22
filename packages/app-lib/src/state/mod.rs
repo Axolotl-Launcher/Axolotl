@@ -782,13 +782,34 @@ impl State {
         Ok(())
     }
 
+    pub fn network_scope(&self) -> String {
+        self.download_clients().scope
+    }
+
     pub(crate) fn configured_http_client(&self) -> reqwest::Client {
-        self.configured_http_client.read().metadata.clone()
+        self.download_clients().metadata
     }
 
     pub(crate) fn download_clients(
         &self,
     ) -> crate::util::fetch::DownloadClients {
+        // Try the existing settings-update lock: a concurrent settings writer
+        // owns replacement, while active requests keep their original snapshot.
+        if let Ok(_update) = self.configured_http_client_update.try_lock() {
+            let current = self.configured_http_client.read().clone();
+            match current.refresh_system_proxy() {
+                Ok(Some(rebuilt)) => {
+                    *self.configured_http_client.write() = rebuilt;
+                    tracing::info!(
+                        "Rebuilt network clients after system proxy configuration changed"
+                    );
+                }
+                Ok(None) => {}
+                Err(_) => tracing::warn!(
+                    "Could not rebuild network clients after system proxy configuration changed"
+                ),
+            }
+        }
         self.configured_http_client.read().clone()
     }
 

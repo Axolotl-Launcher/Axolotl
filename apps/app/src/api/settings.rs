@@ -166,40 +166,5 @@ pub async fn proxy_set(
 
 #[tauri::command]
 pub async fn proxy_test(config: ProxyConfig) -> Result<ProxyTestResult> {
-    if let Err(e) = config.validate() {
-        return Ok(ProxyTestResult {
-            success: false,
-            latency_ms: None,
-            message: e.to_string(),
-        });
-    }
-    let client = theseus::build_proxied_client(&config);
-    let started = std::time::Instant::now();
-    match client
-        .get("http://connect.rom.miui.com/generate_204")
-        .send()
-        .await
-    {
-        Ok(response) if response.status().is_success() => {
-            let latency_ms = started.elapsed().as_millis() as u64;
-            Ok(ProxyTestResult {
-                success: true,
-                latency_ms: Some(latency_ms),
-                message: format!("Connection successful ({latency_ms} ms)"),
-            })
-        }
-        Ok(response) => {
-            let latency_ms = started.elapsed().as_millis() as u64;
-            Ok(ProxyTestResult {
-                success: false,
-                latency_ms: Some(latency_ms),
-                message: format!("HTTP {}", response.status()),
-            })
-        }
-        Err(e) => Ok(ProxyTestResult {
-            success: false,
-            latency_ms: None,
-            message: format!("{e}"),
-        }),
-    }
+    Ok(theseus::test_proxy_connection(&config).await?)
 }

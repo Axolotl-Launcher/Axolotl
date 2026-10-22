@@ -15,6 +15,7 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
         .invoke_handler(tauri::generate_handler![
             check_reachable,
             check_mojang_services,
+            network_scope,
             set_mojang_auth_use_mirror,
             mojang_auth_use_mirror,
             login,
@@ -47,9 +48,18 @@ pub async fn check_reachable() -> Result<()> {
 
 /// Checks all Mojang services that the Fallen proxy mirrors.
 #[tauri::command]
-pub async fn check_mojang_services()
--> Result<Vec<minecraft_auth::MojangServiceStatus>> {
-    Ok(minecraft_auth::check_mojang_services().await)
+pub async fn check_mojang_services(
+    use_mirror: Option<bool>,
+) -> Result<Vec<minecraft_auth::MojangServiceStatus>> {
+    Ok(
+        minecraft_auth::check_mojang_services_for(use_mirror.unwrap_or(false))
+            .await,
+    )
+}
+
+#[tauri::command]
+pub async fn network_scope() -> Result<String> {
+    Ok(State::get().await?.network_scope())
 }
 
 /// Stores whether the launcher should route Mojang service requests through

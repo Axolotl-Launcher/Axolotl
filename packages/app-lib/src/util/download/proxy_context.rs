@@ -59,6 +59,10 @@ pub(crate) fn fingerprint_with_doh(
         digest.update((value.len() as u64).to_le_bytes());
         digest.update(value.as_bytes());
     }
+    if config.mode == crate::util::proxy::ProxyMode::System {
+        digest
+            .update(crate::util::proxy::system_proxy_fingerprint().as_bytes());
+    }
     digest.update([u8::from(ignore_ssl_errors)]);
     digest.update([u8::from(doh_enabled)]);
     format!("{:x}", digest.finalize())
@@ -155,6 +159,29 @@ mod tests {
             );
         }
         assert_ne!(keys[0], keys[1]);
+    }
+
+    #[test]
+    fn system_proxy_refresh_replaces_pools_but_preserves_active_snapshots() {
+        let mut original = crate::util::fetch::DownloadClients::build(
+            &ProxyConfig::default(),
+            false,
+            false,
+        )
+        .unwrap();
+        assert!(original.refresh_system_proxy().unwrap().is_none());
+        original.system_proxy_fingerprint = "previous-system-proxy".into();
+        let active = original.clone();
+        let refreshed = original.refresh_system_proxy().unwrap().unwrap();
+        assert!(!Arc::ptr_eq(&original.system_dns, &refreshed.system_dns));
+        assert!(!Arc::ptr_eq(&original.endpoints, &refreshed.endpoints));
+        assert!(Arc::ptr_eq(&original.system_dns, &active.system_dns));
+        assert_eq!(active.system_proxy_fingerprint, "previous-system-proxy");
+        assert!(refreshed.refresh_system_proxy().unwrap().is_none());
+        for mode in [ProxyMode::None, ProxyMode::Custom] {
+            original.proxy.mode = mode;
+            assert!(original.refresh_system_proxy().unwrap().is_none());
+        }
     }
 
     #[test]

@@ -3,14 +3,11 @@ import { injectNotificationManager } from '@modrinth/ui'
 import { computed, ref } from 'vue'
 
 import {
-    base64ToBytes,
     serverEventListener,
     type ServerExitReason,
     type ServerInfoData,
     servers,
 } from '@/helpers/servers'
-
-import { ServerConsoleBuffer } from './server-console-buffer'
 
 /** Reacts to a classified server self-exit, e.g. opening the EULA dialog. */
 type ServerExitReasonHandler = (serverId: string, reason: ServerExitReason) => void
@@ -34,10 +31,9 @@ const isRefreshing = ref(false)
 const hasLoaded = ref(false)
 const loadError = ref<unknown>(null)
 let refreshPromise: Promise<void> | null = null
+let refreshRequested = false
 let listenerPromise: Promise<() => void> | null = null
-const consoleOutputListeners = new Map<string, Set<(data: Uint8Array) => void>>()
-const consoleOutputBuffers = new Map<string, ServerConsoleBuffer>()
-const CONSOLE_OUTPUT_CAPACITY = 64 * 1024
+const consoleOutputListeners = new Map<string, Set<() => void>>()
 
 export interface ServerView extends ServerInfoData {
     status: ServerStatus
@@ -47,7 +43,7 @@ export function serverStatus(server: ServerInfoData): ServerStatus {
     return computeServerStatus({
         manifest: { id: server.id },
         isRunning: server.running,
-        isStarting: false,
+        isStarting: server.starting ?? false,
         lastExitWasCrash: server.lastExitCrashed,
         eulaAccepted: server.eulaAccepted,
         eulaFileExists: server.eulaExists,
@@ -58,19 +54,18 @@ async function ensureListener() {
     if (!listenerPromise) {
         listenerPromise = serverEventListener((serverId, payload) => {
             if (payload.event === 'console_output') {
-                const data = base64ToBytes(payload.data)
-                const buffer =
-                    consoleOutputBuffers.get(serverId) ??
-                    new ServerConsoleBuffer(CONSOLE_OUTPUT_CAPACITY)
-                buffer.push(data)
-                consoleOutputBuffers.set(serverId, buffer)
                 for (const listener of consoleOutputListeners.get(serverId) ?? []) {
-                    listener(data)
+                    listener()
                 }
-            } else if (payload.event === 'started') {
+            } else if (
+                payload.event === 'starting' ||
+                payload.event === 'stopping' ||
+                payload.event === 'started'
+            ) {
+                refreshRequested = true
                 void refresh().catch(() => {})
             } else if (payload.event === 'stopped') {
-                consoleOutputBuffers.delete(serverId)
+                refreshRequested = true
                 void refresh().catch(() => {})
                 if (payload.reason) exitReasonHandler?.(serverId, payload.reason)
             }
@@ -82,15 +77,11 @@ async function ensureListener() {
     return listenerPromise
 }
 
-export function subscribeServerConsoleOutput(
-    serverId: string,
-    listener: (data: Uint8Array) => void,
-): () => void {
+export function subscribeServerConsoleOutput(serverId: string, listener: () => void): () => void {
     const listeners = consoleOutputListeners.get(serverId) ?? new Set()
     listeners.add(listener)
     consoleOutputListeners.set(serverId, listeners)
-    for (const data of consoleOutputBuffers.get(serverId)?.values() ?? []) listener(data)
-    void ensureListener()
+    void ensureListener().catch(() => {})
     return () => {
         listeners.delete(listener)
         if (listeners.size === 0) consoleOutputListeners.delete(serverId)
@@ -104,7 +95,10 @@ export function refresh(): Promise<void> {
     refreshPromise = (async () => {
         try {
             await ensureListener()
-            serverList.value = await servers.list()
+            do {
+                refreshRequested = false
+                serverList.value = await servers.list()
+            } while (refreshRequested)
             hasLoaded.value = true
         } catch (error) {
             loadError.value = error
@@ -146,11 +140,15 @@ export function useServers() {
     }
 
     async function stopServer(serverId: string) {
-        return run(() => servers.stop(serverId))
+        const ok = await run(() => servers.stop(serverId))
+        if (ok) await refreshList()
+        return ok
     }
 
     async function killServer(serverId: string) {
-        return run(() => servers.kill(serverId))
+        const ok = await run(() => servers.kill(serverId))
+        if (ok) await refreshList()
+        return ok
     }
 
     async function deleteServer(serverId: string) {
@@ -159,10 +157,6 @@ export function useServers() {
             await refresh()
         }
         return ok
-    }
-
-    async function sendCommand(serverId: string, command: string) {
-        return run(() => servers.sendCommand(serverId, command))
     }
 
     return {
@@ -176,6 +170,5 @@ export function useServers() {
         stopServer,
         killServer,
         deleteServer,
-        sendCommand,
     }
 }

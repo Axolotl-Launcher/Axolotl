@@ -243,6 +243,9 @@ fn build_seed_map_engine() {
                     // Tauri watches the bundled DLL. Keep identical builds
                     // byte-for-byte stable so syncing it preserves its mtime.
                     "-Wl,--no-insert-timestamp",
+                    // MinGW's automatic base depends on the output path, which
+                    // differs between Cargo configurations. ASLR stays enabled.
+                    "-Wl,--image-base,0x180000000",
                     "-Ivendor/cubiomes",
                 ])
                 .arg("-include")
@@ -323,6 +326,7 @@ fn main() {
                     .commands(&[
                         "check_reachable",
                         "check_mojang_services",
+                        "network_scope",
                         "set_mojang_auth_use_mirror",
                         "mojang_auth_use_mirror",
                         "login",
@@ -1130,9 +1134,9 @@ fn main() {
                         "servers_write_file",
                         "servers_download_file",
                         "servers_install_forge",
+                        "servers_install_neoforge",
                         "servers_install_modpack",
                         "servers_start",
-                        "servers_send_command",
                         "servers_send_console_input",
                         "servers_resize_console",
                         "servers_stop",
@@ -1141,6 +1145,7 @@ fn main() {
                         "servers_port_process",
                         "servers_get_log_buffer",
                         "servers_get_log_delta",
+                        "servers_get_console_delta",
                         "servers_clear_log",
                     ])
                     .default_permission(

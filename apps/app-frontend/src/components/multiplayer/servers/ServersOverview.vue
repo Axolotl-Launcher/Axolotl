@@ -1,12 +1,5 @@
 <script setup lang="ts">
-import {
-    CollectionIcon,
-    GridIcon,
-    PlusIcon,
-    RefreshCwIcon,
-    ServerIcon,
-    SpinnerIcon,
-} from '@modrinth/assets'
+import { CollectionIcon, GridIcon, PlusIcon, RefreshCwIcon, SearchIcon } from '@modrinth/assets'
 import {
     Admonition,
     Button,
@@ -14,6 +7,7 @@ import {
     defineMessages,
     EmptyState,
     PopoutMenu,
+    StyledInput,
     useVIntl,
 } from '@modrinth/ui'
 import { computed, onMounted, ref, useTemplateRef } from 'vue'
@@ -38,6 +32,13 @@ const { eulaModal, eulaText, tryStartServer, acceptEula, declineEula, resumeInst
 const createModal = useTemplateRef<ComponentExposed<typeof CreateServerModal>>('createModal')
 
 const messages = defineMessages({
+    heading: { id: 'app.servers.management.heading', defaultMessage: 'Your servers' },
+    search: {
+        id: 'app.servers.management.search',
+        defaultMessage: 'Search by name, loader or version',
+    },
+    noMatches: { id: 'app.servers.management.no-matches', defaultMessage: 'No matching servers' },
+    clearSearch: { id: 'app.servers.management.clear-search', defaultMessage: 'Clear search' },
     loadFailed: { id: 'app.servers.load-failed', defaultMessage: 'Failed to load servers' },
     create: { id: 'app.servers.create.title', defaultMessage: 'Create server' },
     refresh: { id: 'app.servers.refresh', defaultMessage: 'Refresh' },
@@ -57,6 +58,16 @@ const messages = defineMessages({
     view: { id: 'app.library.view', defaultMessage: 'View' },
     standardView: { id: 'app.library.view.standard', defaultMessage: 'Standard grid' },
     cardsView: { id: 'app.library.view.cards', defaultMessage: 'Library cards' },
+})
+
+const searchQuery = ref('')
+const filteredServers = computed(() => {
+    const query = searchQuery.value.trim().toLocaleLowerCase()
+    return servers.value.filter((server) =>
+        `${server.name} ${server.serverType} ${server.gameVersion}`
+            .toLocaleLowerCase()
+            .includes(query),
+    )
 })
 
 const displayMode = ref(getLastLibraryDisplayMode())
@@ -85,7 +96,7 @@ function setDisplayMode(mode: 'standard' | 'cards') {
 }
 
 async function toggleRunning(server: ServerView) {
-    if (server.status === 'running') {
+    if (server.running || server.starting) {
         await stopServer(server.id)
     } else {
         await tryStartServer(server)
@@ -95,23 +106,26 @@ async function toggleRunning(server: ServerView) {
 
 <template>
     <div data-onboarding-id="servers-overview" class="flex min-h-0 w-full flex-1 flex-col gap-4">
-        <div class="flex items-center justify-between gap-3">
-            <span class="flex items-center gap-2 text-sm text-[var(--color-text-tertiary)]">
-                <SpinnerIcon v-if="isRefreshing" class="size-4 animate-spin" />
-                <ServerIcon v-else class="size-4" />
-                {{
-                    isRefreshing
-                        ? formatMessage(messages.loading)
-                        : loadError && !hasLoaded
-                          ? formatMessage(messages.loadFailed)
-                          : hasLoaded
-                            ? formatMessage(messages.count, { count: servers.length })
-                            : formatMessage(messages.loading)
-                }}
-            </span>
+        <div class="flex flex-wrap items-start justify-between gap-4">
+            <div class="flex min-w-0 flex-col gap-1">
+                <h2 class="m-0 text-xl font-semibold text-[var(--color-text-primary)]">
+                    {{ formatMessage(messages.heading) }}
+                </h2>
+                <span class="text-sm text-[var(--color-text-tertiary)]" role="status">{{
+                    loadError && !hasLoaded
+                        ? formatMessage(messages.loadFailed)
+                        : hasLoaded
+                          ? formatMessage(messages.count, { count: servers.length })
+                          : formatMessage(messages.loading)
+                }}</span>
+            </div>
             <div class="flex gap-2">
-                <PopoutMenu :tooltip="formatMessage(messages.view)" placement="bottom-end">
-                    <Button circular icon-only :aria-label="formatMessage(messages.view)"
+                <PopoutMenu
+                    v-if="servers.length"
+                    :tooltip="formatMessage(messages.view)"
+                    placement="bottom-end"
+                >
+                    <Button type="quiet" circular icon-only :label="formatMessage(messages.view)"
                         ><component :is="currentDisplayMode?.icon" />
                     </Button>
                     <template #menu>
@@ -130,7 +144,7 @@ async function toggleRunning(server: ServerView) {
                         </div>
                     </template>
                 </PopoutMenu>
-                <Button type="outlined" :disabled="isRefreshing" @click="refresh()"
+                <Button type="quiet" :disabled="isRefreshing" @click="refresh()"
                     ><RefreshCwIcon :class="{ 'animate-spin': isRefreshing }" />
                     {{ formatMessage(messages.refresh) }}
                 </Button>
@@ -145,6 +159,16 @@ async function toggleRunning(server: ServerView) {
             </div>
         </div>
 
+        <StyledInput
+            v-if="servers.length"
+            v-model="searchQuery"
+            :icon="SearchIcon"
+            :placeholder="formatMessage(messages.search)"
+            :aria-label="formatMessage(messages.search)"
+            wrapper-class="w-full max-w-lg"
+            clearable
+        />
+
         <Admonition
             v-if="loadError && hasLoaded"
             type="warning"
@@ -154,8 +178,28 @@ async function toggleRunning(server: ServerView) {
                 formatMessage(commonMessages.retryButton)
             }}</Button>
         </Admonition>
+        <div
+            v-if="!hasLoaded && !loadError"
+            aria-hidden="true"
+            class="grid w-full grid-cols-[repeat(auto-fill,minmax(min(100%,19rem),1fr))] gap-4"
+        >
+            <div
+                v-for="index in 3"
+                :key="index"
+                class="rounded-xl border border-solid border-surface-4 bg-surface-2 p-4"
+            >
+                <div class="flex items-start gap-3 motion-safe:animate-pulse">
+                    <div class="size-10 shrink-0 rounded-lg bg-surface-4" />
+                    <div class="flex flex-1 flex-col gap-3 py-1">
+                        <div class="h-4 w-3/4 rounded bg-surface-4" />
+                        <div class="h-3 w-1/2 rounded bg-surface-4" />
+                    </div>
+                </div>
+                <div class="mt-6 h-7 w-1/3 rounded bg-surface-4 motion-safe:animate-pulse" />
+            </div>
+        </div>
         <EmptyState
-            v-if="loadError && !hasLoaded"
+            v-else-if="loadError && !hasLoaded"
             type="error"
             :heading="formatMessage(messages.loadFailed)"
         >
@@ -171,21 +215,30 @@ async function toggleRunning(server: ServerView) {
             :heading="formatMessage(messages.emptyHeading)"
             :description="formatMessage(messages.emptyDescription)"
         >
-            <Button type="colored" color="brand" size="xl" @click="createModal?.show()"
-                ><ServerIcon />
-                {{ formatMessage(messages.create) }}
-            </Button>
         </EmptyState>
 
+        <EmptyState
+            v-else-if="servers.length && !filteredServers.length"
+            type="empty"
+            :heading="formatMessage(messages.noMatches)"
+        >
+            <template #actions
+                ><Button type="outlined" @click="searchQuery = ''">{{
+                    formatMessage(messages.clearSearch)
+                }}</Button></template
+            >
+        </EmptyState>
         <div
             v-else
-            class="grid grid-cols-[repeat(auto-fill,minmax(16rem,1fr))] w-full max-w-[72rem] gap-3"
-            :class="{
-                'grid-cols-[repeat(auto-fill,minmax(13rem,1fr))] gap-4': displayMode === 'cards',
-            }"
+            class="grid w-full auto-rows-fr gap-4"
+            :class="
+                displayMode === 'cards'
+                    ? 'grid-cols-[repeat(auto-fill,minmax(min(100%,14rem),1fr))]'
+                    : 'grid-cols-[repeat(auto-fill,minmax(min(100%,19rem),1fr))]'
+            "
         >
             <ServerCard
-                v-for="entry in servers"
+                v-for="entry in filteredServers"
                 :key="entry.id"
                 :server="entry"
                 :variant="displayMode === 'cards' ? 'library' : 'standard'"
@@ -199,5 +252,3 @@ async function toggleRunning(server: ServerView) {
         <EulaModal ref="eulaModal" :text="eulaText" @continue="acceptEula" @decline="declineEula" />
     </div>
 </template>
-
-<style lang="scss" scoped></style>

@@ -5,7 +5,14 @@ import {
     type ServerTypeDefinition,
     type ServerTypeId,
 } from '@modrinth/server'
-import { Combobox, type ComboboxOption, defineMessages, Toggle, useVIntl } from '@modrinth/ui'
+import {
+    Button,
+    Combobox,
+    type ComboboxOption,
+    defineMessages,
+    Toggle,
+    useVIntl,
+} from '@modrinth/ui'
 import { computed } from 'vue'
 
 import { injectCreateServerFlow } from '../create-server-flow'
@@ -19,6 +26,12 @@ const messages = defineMessages({
     gameVersion: { id: 'app.servers.wizard.game-version', defaultMessage: 'Game version' },
     loaderVersion: { id: 'app.servers.wizard.loader-version', defaultMessage: 'Loader version' },
     showSnapshots: { id: 'app.servers.wizard.show-snapshots', defaultMessage: 'Show snapshots' },
+    loading: { id: 'app.servers.wizard.loading-versions', defaultMessage: 'Loading versions…' },
+    noLoaders: {
+        id: 'app.servers.wizard.no-loader-versions',
+        defaultMessage: 'No loader versions are available for this game version.',
+    },
+    retry: { id: 'app.servers.wizard.retry', defaultMessage: 'Retry' },
 })
 
 const typeLabels = defineMessages({
@@ -26,10 +39,10 @@ const typeLabels = defineMessages({
     fabric: { id: 'app.servers.type.fabric', defaultMessage: 'Fabric' },
     paper: { id: 'app.servers.type.paper', defaultMessage: 'Paper' },
     forge: { id: 'app.servers.type.forge', defaultMessage: 'Forge' },
+    neoforge: { id: 'app.servers.type.neoforge', defaultMessage: 'NeoForge' },
 })
 
-/** Display order for the wizard's type picker; Forge sits right after Fabric. */
-const SERVER_TYPE_ORDER: ServerTypeId[] = ['vanilla', 'fabric', 'forge', 'paper']
+const SERVER_TYPE_ORDER: ServerTypeId[] = ['vanilla', 'fabric', 'forge', 'neoforge', 'paper']
 
 function serverTypeLabel(type: ServerTypeDefinition): string {
     const message = typeLabels[type.id as keyof typeof typeLabels]
@@ -159,6 +172,32 @@ const monogramStyles = computed<Record<string, string>>(() =>
                 :placeholder="formatMessage(messages.loaderVersion)"
                 @update:model-value="(value) => (ctx.selectedLoaderVersion.value = value)"
             />
+            <p
+                v-if="ctx.isVersionsLoading.value"
+                role="status"
+                class="m-0 text-sm text-[var(--color-text-tertiary)]"
+            >
+                {{ formatMessage(messages.loading) }}
+            </p>
+            <p
+                v-else-if="!ctx.versionsError.value && !ctx.loaderVersions.value.length"
+                role="status"
+                class="m-0 text-sm text-[var(--color-text-tertiary)]"
+            >
+                {{ formatMessage(messages.noLoaders) }}
+            </p>
+        </div>
+        <div
+            v-if="ctx.versionsError.value"
+            role="alert"
+            class="flex items-center justify-between gap-3"
+        >
+            <p class="m-0 text-sm text-[var(--color-text-tertiary)]">
+                {{ ctx.versionsError.value }}
+            </p>
+            <Button type="transparent" size="sm" @click="ctx.loadVersions()">{{
+                formatMessage(messages.retry)
+            }}</Button>
         </div>
     </div>
 </template>

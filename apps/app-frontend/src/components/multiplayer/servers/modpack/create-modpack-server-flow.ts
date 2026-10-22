@@ -1,6 +1,6 @@
 import type { Labrinth } from '@modrinth/api-client'
 import { RefreshCwIcon } from '@modrinth/assets'
-import { type ServerTypeId, setEulaAccepted } from '@modrinth/server'
+import { requiredJavaMajorVersion, type ServerTypeId, setEulaAccepted } from '@modrinth/server'
 import {
     createContext,
     defineMessages,
@@ -56,8 +56,14 @@ const MODPACK_SERVER_TYPES: Record<string, { type: ServerTypeId; label: string }
     forge: { type: 'forge', label: 'Forge' },
 }
 
-/** Loaders whose server launcher the app can download and boot directly. */
-const SUPPORTED_MODPACK_LOADERS: ServerTypeId[] = ['vanilla', 'fabric', 'quilt', 'forge']
+/** Loaders the app can install and boot as modpack servers. */
+const SUPPORTED_MODPACK_LOADERS: ServerTypeId[] = [
+    'vanilla',
+    'fabric',
+    'quilt',
+    'forge',
+    'neoforge',
+]
 
 export function resolveModpackLoader(loaders: string[]): { type: ServerTypeId; label: string } {
     for (const loader of loaders) {
@@ -205,7 +211,7 @@ export function createModpackServerFlowContext(
 
     async function loadDefaultJava() {
         if (selectedJava.value.path !== '') return
-        const major = javaMajorFromVersion(selectedGameVersion.value || '1.21') ?? 21
+        const major = requiredJavaMajorVersion(selectedGameVersion.value || '1.21')
         try {
             const defaults = (await get_java_default_versions()) as Array<{
                 parsed_version: number
@@ -258,7 +264,7 @@ export function createModpackServerFlowContext(
             await loadLoaderVersions()
             if (isStale()) return
 
-            const requiredJava = javaMajorFromVersion(selectedGameVersion.value) ?? 21
+            const requiredJava = requiredJavaMajorVersion(selectedGameVersion.value)
             const selectedMajor = javaMajorFromVersion(selectedJava.value.version)
             if (
                 selectedJava.value.path !== '' &&
@@ -331,12 +337,15 @@ export function createModpackServerFlowContext(
                 }
             })
             try {
-                const jar = await resolveServerLauncher(
-                    serverType.value,
-                    selectedGameVersion.value,
-                    selectedLoaderVersion.value,
-                )
-                if (!jar) {
+                const jar =
+                    serverType.value === 'neoforge'
+                        ? null
+                        : await resolveServerLauncher(
+                              serverType.value,
+                              selectedGameVersion.value,
+                              selectedLoaderVersion.value,
+                          )
+                if (!jar && serverType.value !== 'neoforge') {
                     throw new Error(
                         `No server launcher available for ${loaderLabel.value} on ${selectedGameVersion.value}`,
                     )
@@ -359,9 +368,9 @@ export function createModpackServerFlowContext(
                     {
                         mrpackUrl: primaryFile.url,
                         mrpackSha1: primaryFile.hashes?.sha1,
-                        jarUrl: jar.url,
-                        jarFilename: jar.filename,
-                        jarSha1: jar.sha1,
+                        jarUrl: jar?.url,
+                        jarFilename: jar?.filename,
+                        jarSha1: jar?.sha1,
                         modpackProjectId: project.value.id,
                         modpackVersionId: version.value.id,
                         modpackTitle: `${modpackTitle.value} ${modpackVersionNumber.value}`.trim(),

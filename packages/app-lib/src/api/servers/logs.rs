@@ -82,24 +82,6 @@ pub async fn clear_log(server_id: &str) -> Result<()> {
     Ok(())
 }
 
-pub(super) async fn stream_server_output(
-    server_id: String,
-    reader: impl tokio::io::AsyncRead + Unpin,
-) {
-    let mut buf_reader = BufReader::new(reader);
-    let mut jna_hint_emitted = false;
-    while let Ok(Some(line)) =
-        read_bounded_server_log_line(&mut buf_reader).await
-    {
-        process_server_output_line(
-            &server_id,
-            line.trim_end_matches(['\r', '\n']),
-            &mut jna_hint_emitted,
-        )
-        .await;
-    }
-}
-
 pub(super) async fn stream_server_pty_output(
     server_id: String,
     mut reader: Box<dyn std::io::Read + Send>,
@@ -121,15 +103,18 @@ pub(super) async fn stream_server_pty_output(
 
     let mut pending_line = Vec::new();
     let mut jna_hint_emitted = false;
+    let mut handshake = super::console::ConsoleHandshake::new(cfg!(windows));
     while let Some(bytes) = receiver.recv().await {
-        emit_server(
-            &server_id,
-            ServerPayloadType::ConsoleOutput {
-                data: base64::engine::general_purpose::STANDARD.encode(&bytes),
-            },
-        )
-        .await
-        .ok();
+        let (bytes, reply) = handshake.consume(&bytes);
+        if reply {
+            super::lifecycle::send_console_input(
+                &server_id,
+                &base64::engine::general_purpose::STANDARD.encode(b"\x1b[1;1R"),
+            )
+            .await
+            .ok();
+        }
+        super::console::publish_console_output(&server_id, &bytes).await;
 
         for line in take_complete_pty_lines(&mut pending_line, &bytes) {
             let text = String::from_utf8_lossy(&line);
@@ -181,6 +166,7 @@ async fn process_server_output_line(
     jna_hint_emitted: &mut bool,
 ) {
     let cleaned = strip_ansi(raw_line);
+    super::lifecycle::observe_server_output(server_id, &cleaned);
     if cleaned.is_empty()
         || is_timestamped_log_line(&cleaned)
         || cleaned.starts_with("> ")
@@ -248,6 +234,7 @@ pub(super) async fn tail_server_log_file(server_id: String, dir: PathBuf) {
             Ok(Some(line)) => {
                 let trimmed = line.trim_end_matches(['\r', '\n']);
                 let cleaned = strip_ansi(trimmed);
+                super::lifecycle::observe_server_output(&server_id, &cleaned);
                 let already_present =
                     crate::state::log_buffer_contains(&server_id, &cleaned);
                 if !cleaned.is_empty() && !already_present {

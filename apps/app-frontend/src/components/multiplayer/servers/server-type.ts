@@ -17,6 +17,6 @@ export const SERVER_TYPE_META: Record<ServerTypeId, ServerTypeMeta> = {
     fabric: { colorVar: PLATFORM_ID('fabric'), monogram: 'F', icon: typeIcon('Fabric.png') },
     paper: { colorVar: PLATFORM_ID('paper'), monogram: 'P', icon: typeIcon('Paper.svg') },
     forge: { colorVar: PLATFORM_ID('forge'), monogram: 'Fo', icon: typeIcon('Forge.jpeg') },
-    neoforge: { colorVar: PLATFORM_ID('neoforge'), monogram: 'N' },
+    neoforge: { colorVar: PLATFORM_ID('neoforge'), monogram: 'N', icon: typeIcon('NeoForge.png') },
     quilt: { colorVar: PLATFORM_ID('quilt'), monogram: 'Q' },
 }

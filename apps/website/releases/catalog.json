@@ -2,6 +2,125 @@
   "updated_at": "2026-10-21T01:58:29.184Z",
   "announcements": [
     {
+      "id": "launcher-1.10.0-beta.5",
+      "version": "1.10.0-beta.5",
+      "publishedAt": "2026-10-22",
+      "title": {
+        "en-US": "Axolotl Launcher 1.10.0-beta.5",
+        "zh-CN": "Axolotl Launcher 1.10.0-beta.5"
+      },
+      "changes": {
+        "added": [
+          {
+            "en-US": "Added Command Generator in Lab with version-specific commands, argument editors, item selection, NBT editing, and presets.",
+            "zh-CN": "实验室新增命令生成器，支持按游戏版本选择命令、编辑参数、选择物品、编辑 NBT 和使用预设。"
+          },
+          {
+            "en-US": "Added Minecraft 26.x command generation and support for item component syntax introduced in Minecraft 1.20.5.",
+            "zh-CN": "新增 Minecraft 26.x 命令生成，以及 Minecraft 1.20.5 起的物品组件语法支持。"
+          },
+          {
+            "en-US": "Added NeoForge server creation, installation, and management.",
+            "zh-CN": "新增 NeoForge 服务器创建、安装和管理。"
+          },
+          {
+            "en-US": "Added an interactive server terminal with search, output export, and fullscreen controls.",
+            "zh-CN": "新增交互式服务器终端，支持搜索、导出输出和全屏显示。"
+          },
+          {
+            "en-US": "Added configurable server stop commands, including Ctrl+C, with changes taking effect immediately.",
+            "zh-CN": "新增可配置的服务器停止命令，支持 Ctrl+C，保存后立即生效。"
+          },
+          {
+            "en-US": "Added explicit options to install selected content without dependency checks or skip unwritable files.",
+            "zh-CN": "新增明确的强制安装选项，支持不检查依赖而仅安装所选内容，或跳过无法写入的文件。"
+          }
+        ],
+        "changed": [
+          {
+            "en-US": "Improved download throughput and slow-connection recovery with adaptive endpoint selection and coordinated connection limits.",
+            "zh-CN": "通过自适应下载节点选择和协调连接数量，改善下载吞吐与慢连接恢复。"
+          },
+          {
+            "en-US": "Improved server cards, status indicators, and startup controls.",
+            "zh-CN": "改进服务器卡片、状态标记和启动控制。"
+          },
+          {
+            "en-US": "Improved server creation with clearer loader-version loading states, empty results, and retry actions.",
+            "zh-CN": "改进服务器创建流程，明确显示加载器版本加载状态、空结果和重试操作。"
+          },
+          {
+            "en-US": "Improved download file rows to keep source labels, file details, and manual download actions aligned.",
+            "zh-CN": "改进下载文件列表，使来源标签、文件详情和手动下载操作保持对齐。"
+          },
+          {
+            "en-US": "Updated the built-in CodeFlow endpoint to codeflow.sh and refreshed its model list.",
+            "zh-CN": "将内置 CodeFlow 服务地址更新为 codeflow.sh，并刷新模型列表。"
+          }
+        ],
+        "fixed": [
+          {
+            "en-US": "Fixed system proxy changes not being applied consistently to downloads and authentication requests.",
+            "zh-CN": "修复系统代理变更未一致应用于下载和认证请求的问题。"
+          },
+          {
+            "en-US": "Fixed connectivity checks incorrectly treating individual authentication-service failures as a complete network outage.",
+            "zh-CN": "修复连通性检查将个别认证服务失败误判为整体网络不可用的问题。"
+          },
+          {
+            "en-US": "Fixed proxy tests reporting success without validating the required authentication services.",
+            "zh-CN": "修复代理测试未验证必需认证服务便报告成功的问题。"
+          },
+          {
+            "en-US": "Fixed modpack archive progress becoming inconsistent and download progress regressing during file processing.",
+            "zh-CN": "修复整合包归档下载进度不同步，以及文件处理阶段下载进度回退的问题。"
+          },
+          {
+            "en-US": "Fixed linked-instance worlds missing from Home lists or being ordered by unrelated timestamps.",
+            "zh-CN": "修复关联实例的世界未出现在主页列表，或按无关时间排序的问题。"
+          },
+          {
+            "en-US": "Fixed server console input, startup state transitions, and process cleanup across server types.",
+            "zh-CN": "修复不同服务器类型的控制台输入、启动状态切换和进程清理问题。"
+          },
+          {
+            "en-US": "Fixed modpack content membership repair and related installation configuration handling.",
+            "zh-CN": "修复整合包内容归属修复及相关安装配置处理问题。"
+          },
+          {
+            "en-US": "Fixed loader metadata rejecting additional LWJGL platform names.",
+            "zh-CN": "修复加载器元数据无法识别部分 LWJGL 平台名称的问题。"
+          },
+          {
+            "en-US": "Fixed command argument ordering, version-specific syntax, and missing NBT presets.",
+            "zh-CN": "修复命令参数顺序、版本专用语法和 NBT 预设缺失的问题。"
+          },
+          {
+            "en-US": "Fixed content operations failing for some installed modpacks and repeatedly asking to refresh.",
+            "zh-CN": "修复部分已安装整合包的内容操作失败、反复提示刷新重试的问题。"
+          },
+          {
+            "en-US": "Fixed unavailable DNS-over-HTTPS services blocking requests by falling back to system DNS.",
+            "zh-CN": "修复 DNS-over-HTTPS 服务不可用时请求失败的问题，现会回退到系统 DNS。"
+          },
+          {
+            "en-US": "Fixed HTTP/2 downloads rejecting valid CDN certificates when the system certificate store lacked a public root.",
+            "zh-CN": "修复系统缺少公共根证书时，HTTP/2 下载错误拒绝 CDN 有效证书的问题。"
+          },
+          {
+            "en-US": "Fixed Modrinth project pages missing newly published versions until the cache was manually cleared.",
+            "zh-CN": "修复 Modrinth 项目页需要手动清除缓存才能显示新发布版本的问题。"
+          }
+        ],
+        "security": [
+          {
+            "en-US": "Updated TLS certificate validation to address the eMudhra certificate authority vulnerability.",
+            "zh-CN": "更新 TLS 证书校验依赖，修复与 eMudhra 证书颁发机构相关的安全漏洞。"
+          }
+        ]
+      }
+    },
+    {
       "id": "launcher-1.10.0-beta.4",
       "version": "1.10.0-beta.4",
       "publishedAt": "2026-10-20",

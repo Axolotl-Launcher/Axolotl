@@ -91,6 +91,7 @@ pub async fn create(
         install_error: None,
         jvm_args: Vec::new(),
         pre_launch_hook: None,
+        stop_command: super::manifest::default_stop_command(),
         home_pinned_at: None,
         linked_world: None,
         created_at: Utc::now(),
@@ -190,6 +191,7 @@ pub async fn update_settings(
     jvm_args: Option<Vec<String>>,
     pre_launch_hook: Option<String>,
     home_pinned: Option<bool>,
+    stop_command: Option<String>,
 ) -> Result<ServerManifest> {
     let path = server_path(server_id).await?;
     let mut manifest = read_manifest(&path).await?;
@@ -227,7 +229,12 @@ pub async fn update_settings(
     if let Some(home_pinned) = home_pinned {
         manifest.home_pinned_at = home_pinned.then(Utc::now);
     }
+    if let Some(command) = stop_command {
+        manifest.stop_command =
+            super::manifest::normalize_stop_command(&command)?;
+    }
     write_manifest(&path, &manifest).await?;
+    super::lifecycle::update_stop_command(server_id, &manifest.stop_command);
     Ok(manifest)
 }
 
@@ -239,6 +246,7 @@ pub async fn delete(server_id: &str) -> Result<()> {
         .as_error());
     }
     let path = server_path(server_id).await?;
+    super::console::remove_console(server_id);
     remove_log_buffer(server_id);
     tokio::fs::remove_dir_all(&path)
         .await

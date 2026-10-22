@@ -80,7 +80,7 @@
     "intl-messageformat": "^10.7.18",
     "jszip": "^3.10.1",
     "lru-cache": "^11.5.2",
-    "markdown-it": "^13.0.2",
+    "markdown-it": "^14.3.3",
     "motion-v": "^2.4.2",
     "overlayscrollbars": "^2.16.0",
     "postprocessing": "^6.39.4",

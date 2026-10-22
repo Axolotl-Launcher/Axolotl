@@ -1,17 +1,21 @@
 - [Internationalization (i18n)](#internationalization-i18n)
-	- [Translatable Strings](#translatable-strings)
-	- [Message Definitions](#message-definitions)
-	- [Rendering Messages](#rendering-messages)
-	- [ICU Message Format](#icu-message-format)
-	- [Writing Translation-Friendly Strings](#writing-translation-friendly-strings)
-	- [Rich-Text Messages](#rich-text-messages)
-	- [Vue/ICU Delimiter Collisions](#vueicu-delimiter-collisions)
-	- [Imports](#imports)
-	- [Reference Examples](#reference-examples)
+  - [Translatable Strings](#translatable-strings)
+  - [Message Definitions](#message-definitions)
+  - [Rendering Messages](#rendering-messages)
+  - [ICU Message Format](#icu-message-format)
+  - [Writing Translation-Friendly Strings](#writing-translation-friendly-strings)
+  - [Rich-Text Messages](#rich-text-messages)
+  - [Vue/ICU Delimiter Collisions](#vueicu-delimiter-collisions)
+  - [Imports](#imports)
+  - [Reference Examples](#reference-examples)
 
 # Internationalization (i18n)
 
-All user-visible strings in Vue SFCs must use the localization system from `@modrinth/ui`. No hard-coded English strings should appear in templates or script — everything comes from `formatMessage` or `<IntlFormatted>`.
+User-visible copy in shared UI and the desktop frontend must use the localization system from `@modrinth/ui`. This includes Vue templates/scripts and TypeScript or JavaScript modules that supply labels, notifications, status text or message descriptors. Follow visible copy to its source rather than filtering by component extension.
+
+The website has its own locale integration; inspect its current message sources and rendering API before migrating copy. Launcher release announcements use the bilingual catalog described in [announcement instructions](../../apps/app-frontend/src/announcements/AGENTS.md), and must not be rewritten into general locale files. An i18n review does not authorize editing that catalog.
+
+A review stays read-only. For an implementation request, preserve logic, layout, reactivity and bindings, and avoid unrelated locale extraction or pruning.
 
 ## Translatable Strings
 
@@ -21,12 +25,12 @@ Dynamic expressions (`{{ user.name }}`) and HTML tags are not translatable strin
 
 ## Message Definitions
 
-Messages are defined with `defineMessage` or `defineMessages` from `@modrinth/ui` in `<script setup>`. Each message has a unique `id` and a `defaultMessage` containing the English string:
+Messages are defined with `defineMessage` or `defineMessages` from `@modrinth/ui` in `<script setup>` or a domain-owned message module. Each message has a unique `id` and a `defaultMessage` containing the English string:
 
 ```ts
 const messages = defineMessages({
-	welcomeTitle: { id: 'auth.welcome.title', defaultMessage: 'Welcome' },
-	welcomeDescription: { id: 'auth.welcome.description', defaultMessage: "You're now part of the community…" },
+  welcomeTitle: { id: 'auth.welcome.title', defaultMessage: 'Welcome' },
+  welcomeDescription: { id: 'auth.welcome.description', defaultMessage: "You're now part of the community…" },
 })
 ```
 
@@ -112,7 +116,7 @@ For simple emphasis (`'Welcome to <strong>Axolotl</strong>!'`):
 
 ```vue
 <template #strong="{ children }">
-	<strong><component :is="() => children" /></strong>
+  <strong><component :is="() => children" /></strong>
 </template>
 ```
 
@@ -120,7 +124,7 @@ For complex child handling, use `normalizeChildren` from `@modrinth/ui`:
 
 ```vue
 <template #bold="{ children }">
-	<strong><component :is="() => normalizeChildren(children)" /></strong>
+  <strong><component :is="() => normalizeChildren(children)" /></strong>
 </template>
 ```
 

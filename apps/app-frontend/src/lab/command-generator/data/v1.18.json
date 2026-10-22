@@ -1,0 +1,82 @@
+{
+  "version": "1.18",
+  "base": "1.17",
+  "generatedAt": "2026-10-15",
+  "added": [
+    {
+      "id": "placefeature",
+      "name": "placefeature",
+      "descriptionKey": "app.lab.command-generator.cmd.placefeature.desc",
+      "category": "world",
+      "permissionLevel": 2,
+      "arguments": [
+        {
+          "name": "id",
+          "displayNameKey": "app.lab.command-generator.arg.placefeature.id.display",
+          "type": "string",
+          "required": true,
+          "descriptionKey": "app.lab.command-generator.arg.placefeature.id.desc",
+          "placeholder": "minecraft:oak",
+          "presets": [
+            {
+              "labelKey": "app.lab.command-generator.preset.feature.oak",
+              "value": "minecraft:oak"
+            },
+            {
+              "labelKey": "app.lab.command-generator.preset.feature.spruce",
+              "value": "minecraft:spruce"
+            },
+            {
+              "labelKey": "app.lab.command-generator.preset.feature.birch",
+              "value": "minecraft:birch"
+            },
+            {
+              "labelKey": "app.lab.command-generator.preset.feature.grass",
+              "value": "minecraft:grass"
+            },
+            {
+              "labelKey": "app.lab.command-generator.preset.feature.flower",
+              "value": "minecraft:flower"
+            }
+          ]
+        },
+        {
+          "name": "pos",
+          "displayNameKey": "app.lab.command-generator.arg.placefeature.pos.display",
+          "type": "coordinates",
+          "required": false,
+          "descriptionKey": "app.lab.command-generator.arg.placefeature.pos.desc",
+          "presets": [
+            {
+              "labelKey": "app.lab.command-generator.preset.coord.current",
+              "value": "~ ~ ~"
+            },
+            {
+              "labelKey": "app.lab.command-generator.preset.coord.world-center",
+              "value": "0 64 0"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "jfr",
+      "name": "jfr",
+      "descriptionKey": "app.lab.command-generator.cmd.jfr.desc",
+      "category": "misc",
+      "permissionLevel": 4,
+      "arguments": [
+        {
+          "name": "action",
+          "displayNameKey": "app.lab.command-generator.arg.jfr.action.display",
+          "type": "enum",
+          "required": true,
+          "descriptionKey": "app.lab.command-generator.arg.jfr.action.desc",
+          "enumValues": ["start", "stop"]
+        }
+      ]
+    }
+  ],
+  "removed": [],
+  "patched": {}
+}

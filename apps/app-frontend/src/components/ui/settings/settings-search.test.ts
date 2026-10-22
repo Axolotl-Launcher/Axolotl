@@ -32,7 +32,12 @@ const settingsComponentFiles = {
     ],
     'content-downloads': ['./AppearanceSettings.vue', './ResourceManagementSettings.vue'],
     'network-multiplayer': ['./ResourceManagementSettings.vue', './MultiplayerSettings.vue'],
-    'storage-backups': ['./ResourceManagementSettings.vue', './StorageSettings.vue'],
+    'network-connection': ['./NetworkConnectionSettings.vue'],
+    'storage-backups': [
+        './ResourceManagementSettings.vue',
+        './StorageBackupSettings.vue',
+        './StorageSettings.vue',
+    ],
     'privacy-data': ['./PrivacySettings.vue'],
     'instance-sync': ['./instances/index.vue'],
     updates: ['./UpdateSettings.vue'],
@@ -183,7 +188,12 @@ test('settings navigation groups preserve the intended Axolotl information archi
         'network-multiplayer',
     ])
     assert.deepEqual(categoriesForGroup('data-privacy'), ['storage-backups', 'privacy-data'])
-    assert.deepEqual(categoriesForGroup('support'), ['updates', 'about', 'logs'])
+    assert.deepEqual(categoriesForGroup('support'), [
+        'updates',
+        'about',
+        'network-connection',
+        'logs',
+    ])
     assert.deepEqual(categoriesForGroup('developer'), [])
     assert.deepEqual(categoriesForGroup('developer', true), ['feature-flags'])
 })
@@ -235,4 +245,11 @@ test('every settings search result resolves to a category and a scroll target', 
             `${entry.id}: no anchor for ${targetId} in ${entry.categoryId}`,
         )
     }
+})
+
+test('storage analysis search targets its inline section', () => {
+    const entry = settingsSearchEntries.find((entry) => entry.id === 'storage-overview')!
+    assert.equal(entry.categoryId, 'storage-backups')
+    assert.equal('page' in entry, false)
+    assert.equal(getSettingsSearchTargetId(entry), 'settings-target-storage-overview')
 })

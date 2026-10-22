@@ -15,7 +15,9 @@ pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
             cancel_directory_change,
             proxy_get,
             proxy_set,
-            proxy_test
+            proxy_test,
+            network_test,
+            network_test_cancel
         ])
         .build()
 }
@@ -25,6 +27,42 @@ pub(crate) fn log_level_for_channel(channel: &str, log_level: &str) -> String {
         "debug".to_string()
     } else {
         log_level.to_string()
+    }
+}
+
+static NETWORK_TEST_SLOTS: tokio::sync::Semaphore =
+    tokio::sync::Semaphore::const_new(2);
+
+#[tauri::command]
+pub async fn network_test(
+    request_id: uuid::Uuid,
+    target: theseus::NetworkTestTarget,
+    mode: theseus::NetworkTestMode,
+) -> Result<Option<theseus::NetworkTestResult>> {
+    let cancellation = super::search_cancellation::SearchCancellation::register(
+        format!("network-test:{request_id}"),
+    );
+    tokio::select! {
+        biased;
+        _ = cancellation.cancelled() => Ok(None),
+        result = async {
+            let _permit = NETWORK_TEST_SLOTS.acquire().await.map_err(|_| {
+                std::io::Error::other("Network diagnostics are unavailable")
+            })?;
+            Ok(Some(theseus::test_network_connection(target, mode).await?))
+        } => result,
+    }
+}
+
+#[tauri::command]
+pub fn network_test_cancel(request_id: uuid::Uuid) {
+    if let Some(pending) = super::search_cancellation::cancel(&format!(
+        "network-test:{request_id}"
+    )) {
+        tauri::async_runtime::spawn(async move {
+            tokio::time::sleep(std::time::Duration::from_secs(30)).await;
+            pending.expire();
+        });
     }
 }
 
@@ -115,10 +153,14 @@ pub async fn proxy_get() -> Result<ProxyConfig> {
 }
 
 #[tauri::command]
-pub async fn proxy_set(config: ProxyConfig) -> Result<()> {
+pub async fn proxy_set(
+    app: tauri::AppHandle<impl Runtime>,
+    config: ProxyConfig,
+) -> Result<()> {
     let state = State::get().await?;
     config.validate()?;
     state.update_proxy_config(&config).await?;
+    let _ = app.emit("settings", ());
     Ok(())
 }
 

@@ -1,5 +1,11 @@
 ; https://nsis.sourceforge.io/ShellExecWait
-!define AXL_INSTALLER_UI_PATH "${__FILEDIR__}\..\..\..\target\release\axolotl-installer-ui.exe"
+!ifndef AXL_INSTALLER_UI_PATH
+  !if /FileExists "$%AXOLOTL_INSTALLER_UI_PATH%"
+    !define AXL_INSTALLER_UI_PATH "$%AXOLOTL_INSTALLER_UI_PATH%"
+  !else
+    !define AXL_INSTALLER_UI_PATH "${__FILEDIR__}\..\..\..\target\release\axolotl-installer-ui.exe"
+  !endif
+!endif
 
 !macro AxlCheckReparseRemoved PATH
     System::Call 'kernel32::GetFileAttributes(t "${PATH}") i.r5'

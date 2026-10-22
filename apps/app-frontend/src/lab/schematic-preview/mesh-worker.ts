@@ -1,11 +1,11 @@
 import * as deepslate from 'deepslate'
 
 import type { SchematicBlockState } from './backend'
+import { createBlockGeometry } from './block-geometry'
 import { isSchematicAir } from './editing'
 import {
     applySeamlessSchematicGlassUvs,
     getSchematicMeshOcclusionFaces,
-    getSchematicSpecialBlockMesh,
     isSchematicOccluding,
     isSchematicTranslucent,
     SCHEMATIC_DIRECTIONS,
@@ -70,9 +70,7 @@ type MeshBuffers = {
 
 let activeEpoch = 0
 let palette: SchematicBlockState[] = []
-let blockDefinitions: Record<string, deepslate.BlockDefinition> = {}
-let blockModels: Record<string, deepslate.BlockModel> = {}
-let defaultBlockProperties: Record<string, Record<string, string>> = {}
+let geometry: ReturnType<typeof createBlockGeometry>
 let textureUvs: Record<string, [number, number, number, number]> = {}
 let missingTextureUv: [number, number, number, number] = [0, 0, 1, 1]
 let seamlessGlass = true
@@ -85,35 +83,8 @@ const atlasProvider: deepslate.TextureAtlasProvider = {
     getTextureUV: (id) => textureUvs[id.toString()] ?? missingTextureUv,
 }
 
-const modelProvider = {
-    getBlockModel(id: deepslate.Identifier) {
-        return blockModels[id.toString()] ?? null
-    },
-}
-
-function resolvedBlockProperties(state: SchematicBlockState) {
-    return {
-        ...(defaultBlockProperties[state.name] ?? {}),
-        ...state.properties,
-    }
-}
-
 function createSchematicBlockMesh(state: SchematicBlockState, cull: deepslate.Cull) {
-    const properties = resolvedBlockProperties(state)
-    const mesh = getSchematicSpecialBlockMesh({ ...state, properties }, atlasProvider, cull)
-    const definition = blockDefinitions[state.name]
-    if (definition) {
-        mesh.merge(
-            definition.getMesh(
-                deepslate.Identifier.parse(state.name),
-                properties,
-                atlasProvider,
-                modelProvider,
-                cull,
-            ),
-        )
-    }
-    return mesh
+    return geometry.mesh(state, cull)
 }
 
 function emptyBuffers(): MeshBuffers {
@@ -260,35 +231,10 @@ function appendFallbackCube(
 function initialize(message: WorkerInitMessage) {
     activeEpoch = message.epoch
     palette = message.palette
-    defaultBlockProperties = message.resources.defaultBlockProperties
     textureUvs = message.resources.textureUvs
     missingTextureUv = message.resources.missingTextureUv
     seamlessGlass = message.seamlessGlass
-    const warnings: string[] = []
-    blockDefinitions = {}
-    for (const [id, value] of Object.entries(message.resources.blockDefinitions)) {
-        try {
-            blockDefinitions[id] = deepslate.BlockDefinition.fromJson(value)
-        } catch {
-            warnings.push(`Skipped invalid blockstate ${id}`)
-        }
-    }
-    blockModels = {}
-    for (const [id, value] of Object.entries(message.resources.blockModels)) {
-        try {
-            blockModels[id] = deepslate.BlockModel.fromJson(value)
-        } catch {
-            warnings.push(`Skipped invalid block model ${id}`)
-        }
-    }
-    for (const [id, model] of Object.entries(blockModels)) {
-        try {
-            model.flatten(modelProvider)
-        } catch {
-            Reflect.deleteProperty(blockModels, id)
-            warnings.push(`Skipped unresolved block model ${id}`)
-        }
-    }
+    geometry = createBlockGeometry(message.resources, atlasProvider)
     paletteOcclusionFaces = palette.map((state, paletteIndex) => {
         if (!isSchematicOccluding(paletteIndex, palette)) return {}
         try {
@@ -302,7 +248,7 @@ function initialize(message: WorkerInitMessage) {
     workerScope.postMessage({
         type: 'ready',
         epoch: activeEpoch,
-        warnings,
+        warnings: geometry.warnings,
     } satisfies SchematicMeshWorkerResponse)
 }
 

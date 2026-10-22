@@ -1,18 +1,21 @@
 <template>
     <Card>
-        <TranslatedProjectDescription
-            :description="project.body"
-            :active="translationActive"
-            :translations="translations"
-            :mode="translationMode"
-            :style="translationStyle"
-        />
+        <ResourceDescription source="modrinth" :project-id="project.id">
+            <TranslatedProjectDescription
+                :description="project.body"
+                :active="translationActive"
+                :translations="translations"
+                :mode="translationMode"
+                :style="translationStyle"
+            />
+        </ResourceDescription>
     </Card>
 </template>
 
 <script setup>
 import { Card } from '@modrinth/ui'
 
+import ResourceDescription from '@/components/ui/ResourceDescription.vue'
 import TranslatedProjectDescription from '@/components/ui/TranslatedProjectDescription.vue'
 
 defineProps({

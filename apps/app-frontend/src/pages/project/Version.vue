@@ -14,6 +14,14 @@
             :members="members"
             :dependency-link-creator="createDependencyLink"
         >
+            <template #changelog>
+                <ResourceReleaseChangelog
+                    :release="{
+                        project: { source: 'modrinth', projectId: project.id },
+                        releaseId: version.id,
+                    }"
+                />
+            </template>
             <template #headerActions>
                 <Button
                     type="colored"
@@ -63,7 +71,17 @@
                 </OverflowMenu>
             </template>
             <template #supplementaryResourceActions="{ file }">
-                <ButtonLink :href="file.url" :download="file.filename" target="_blank">
+                <ButtonLink
+                    v-tooltip="
+                        !resolveDownloadUrl(file.url)
+                            ? formatMessage(retiredDownloadMessage)
+                            : undefined
+                    "
+                    :href="resolveDownloadUrl(file.url)"
+                    :disabled="!resolveDownloadUrl(file.url)"
+                    :download="file.filename"
+                    target="_blank"
+                >
                     <DownloadIcon aria-hidden="true" />
                     {{ formatMessage(messages.downloadInBrowser) }}
                 </ButtonLink>
@@ -88,18 +106,23 @@ import {
     commonMessages,
     defineMessages,
     type DependencyContext,
+    injectNotificationManager,
     OverflowMenu,
     useVIntl,
     VersionPage,
 } from '@modrinth/ui'
-import { ref, watch } from 'vue'
+import { onScopeDispose, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 
 import { SwapIcon } from '@/assets/icons'
+import ResourceReleaseChangelog from '@/components/ui/ResourceReleaseChangelog.vue'
 import { get_project_many, get_version_many } from '@/helpers/cache.js'
+import { resolveDownloadUrl } from '@/helpers/download-url'
+import { retiredDownloadMessage } from '@/helpers/download-url-messages'
 import { useBreadcrumbs } from '@/store/breadcrumbs'
 
 const { formatMessage } = useVIntl()
+const { handleError } = injectNotificationManager()
 
 const messages = defineMessages({
     allVersions: {
@@ -164,12 +187,21 @@ function createDependencyLink(context: DependencyContext): string | undefined {
     return undefined
 }
 
+let enrichmentRequest = 0
+onScopeDispose(() => {
+    enrichmentRequest++
+})
+
 async function refreshEnrichment() {
-    if (!version.value) return
+    const request = ++enrichmentRequest
+    const current = version.value
+    enrichment.value = undefined
+    enrichmentLoading.value = false
+    if (!current) return
 
     const projectIds = new Set<string>()
     const versionIds = new Set<string>()
-    for (const dependency of version.value.dependencies ?? []) {
+    for (const dependency of current.dependencies ?? []) {
         if (dependency.project_id) {
             projectIds.add(dependency.project_id)
         }
@@ -186,23 +218,27 @@ async function refreshEnrichment() {
     enrichmentLoading.value = true
     try {
         const versionResults = versionIds.size > 0 ? await get_version_many([...versionIds]) : []
+        if (request !== enrichmentRequest) return
         for (const dependencyVersion of versionResults ?? []) {
             if (dependencyVersion.project_id) {
                 projectIds.add(dependencyVersion.project_id)
             }
         }
         const projectResults = projectIds.size > 0 ? await get_project_many([...projectIds]) : []
+        if (request !== enrichmentRequest) return
         enrichment.value = {
             projects: projectResults ?? [],
             versions: versionResults ?? [],
         }
+    } catch (error) {
+        if (request === enrichmentRequest) handleError(error as Error)
     } finally {
-        enrichmentLoading.value = false
+        if (request === enrichmentRequest) enrichmentLoading.value = false
     }
 }
 
 watch(
-    () => props.versions,
+    () => [props.versions, route.params.version],
     async () => {
         if (route.params.version) {
             version.value = props.versions.find((v) => v.id === route.params.version)

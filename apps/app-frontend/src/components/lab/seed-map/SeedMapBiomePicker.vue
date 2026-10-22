@@ -25,6 +25,8 @@ const props = defineProps<{
     dimension: SeedMapDimension
     enabled: boolean
     highlightedBiomes: number[]
+    availableBiomeIds?: number[]
+    availableDimensions?: SeedMapDimension[]
     /** Container used for the popover while the map is in browser fullscreen. */
     container?: HTMLElement | string | boolean
 }>()
@@ -105,20 +107,37 @@ const dimensionMessages: Record<SeedMapDimension, (typeof messages)[keyof typeof
     end: messages.end,
 }
 
-const currentBiomeIds = computed(() =>
-    SEED_MAP_BIOMES.filter((biome) => biome.dimensions.includes(props.dimension)).map(
-        (biome) => biome.id,
+const availableBiomes = computed(() =>
+    SEED_MAP_BIOMES.filter(
+        (biome) =>
+            (!props.availableBiomeIds || props.availableBiomeIds.includes(biome.id)) &&
+            (!props.availableDimensions ||
+                biome.dimensions.some((dimension) =>
+                    props.availableDimensions?.includes(dimension),
+                )),
     ),
 )
-const allBiomeIds = SEED_MAP_BIOMES.map((biome) => biome.id)
+const currentBiomeIds = computed(() =>
+    availableBiomes.value
+        .filter((biome) => biome.dimensions.includes(props.dimension))
+        .map((biome) => biome.id),
+)
+const allBiomeIds = computed(() => availableBiomes.value.map((biome) => biome.id))
 const activeBiomes = computed(() =>
     props.highlightedBiomes.filter((biome) => currentBiomeIds.value.includes(biome)),
 )
-const groups = seedMapBiomeGroups()
+const groups = computed(() =>
+    seedMapBiomeGroups()
+        .map((group) => ({
+            ...group,
+            biomes: group.biomes.filter((biome) => allBiomeIds.value.includes(biome.id)),
+        }))
+        .filter((group) => group.biomes.length > 0),
+)
 const visibleGroups = computed(() => {
     const query = search.value.trim().toLocaleLowerCase()
-    if (!query) return groups
-    return groups
+    if (!query) return groups.value
+    return groups.value
         .map((group) => ({
             ...group,
             biomes: group.biomes.filter((biome) => {
@@ -177,13 +196,18 @@ function clearBiomes() {
 }
 
 function selectAllBiomes() {
-    emit('update:highlightedBiomes', [...allBiomeIds])
+    emit('update:highlightedBiomes', [
+        ...new Set([...props.highlightedBiomes, ...allBiomeIds.value]),
+    ])
     emit('update:enabled', true)
 }
 
 function invertBiomes() {
     const selected = new Set(props.highlightedBiomes)
-    const next = allBiomeIds.filter((biome) => !selected.has(biome))
+    const next = [
+        ...props.highlightedBiomes.filter((biome) => !allBiomeIds.value.includes(biome)),
+        ...allBiomeIds.value.filter((biome) => !selected.has(biome)),
+    ]
     emit('update:highlightedBiomes', next)
     emit('update:enabled', next.length > 0)
 }

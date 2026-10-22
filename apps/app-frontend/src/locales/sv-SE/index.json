@@ -176,26 +176,14 @@
   "app.content-install.no-compatible-versions": {
     "message": "Ingen tillgänglig version matchar {compatibilityLabel}. Välj en version att installera ändå. Beroenden kommer inte installeras automatiskt."
   },
-  "app.export-modal.description-placeholder": {
-    "message": "Ange modpaketets beskrivning..."
-  },
   "app.export-modal.export-button": {
     "message": "Exportera"
-  },
-  "app.export-modal.header": {
-    "message": "Exportera modpaket"
   },
   "app.export-modal.modpack-name-label": {
     "message": "Modpaketets namn"
   },
-  "app.export-modal.modpack-name-placeholder": {
-    "message": "Modpaketets namn"
-  },
   "app.export-modal.version-number-label": {
     "message": "Versionsnummer"
-  },
-  "app.export-modal.version-number-placeholder": {
-    "message": "1.0.0"
   },
   "app.install.phase.downloading_content": {
     "message": "Laddar ner innehåll"

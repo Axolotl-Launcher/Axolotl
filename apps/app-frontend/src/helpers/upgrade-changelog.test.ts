@@ -9,6 +9,18 @@ import {
     upgradeExternalChangelogUrl,
 } from './upgrade-changelog.ts'
 
+test('changelog translations evict least-recently-used entries and reject oversized bodies', () => {
+    for (let index = 0; index < 200; index++) {
+        setUpgradeChangelogTranslation(`budget-${index}`, `body-${index}`)
+    }
+    assert.equal(getUpgradeChangelogTranslation('budget-0'), 'body-0')
+    setUpgradeChangelogTranslation('budget-new', 'new')
+    assert.equal(getUpgradeChangelogTranslation('budget-1'), undefined)
+    assert.equal(getUpgradeChangelogTranslation('budget-0'), 'body-0')
+    setUpgradeChangelogTranslation('oversized', 'x'.repeat(3 * 1024 * 1024))
+    assert.equal(getUpgradeChangelogTranslation('oversized'), undefined)
+})
+
 test('external changelog links only allow HTTP protocols', () => {
     assert.equal(
         upgradeExternalChangelogUrl('https://example.com/path'),

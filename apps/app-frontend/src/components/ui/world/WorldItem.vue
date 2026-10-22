@@ -353,7 +353,7 @@ const messages = defineMessages({
                             <HeadlessTooltip
                                 :disabled="!hasPlayersTooltip"
                                 :delay-ms="200"
-                                content-class="tooltip-popper"
+                                content-class="tooltip-surface"
                                 arrow-class="tooltip-arrow"
                             >
                                 <span :class="{ 'cursor-help': hasPlayersTooltip }">
@@ -515,28 +515,33 @@ const messages = defineMessages({
                     :options="[
                         {
                             id: 'play-instance',
+                            section: 'primary',
                             shown: !!instanceId,
                             disabled: playingInstance,
                             action: () => emit('play-instance'),
                         },
                         {
                             id: 'open-instance',
+                            section: 'navigate',
                             shown: !!instanceId,
                             action: () =>
                                 router.push(`/instance/${encodeURIComponent(instanceId)}`),
                         },
                         {
                             id: 'refresh',
+                            section: 'manage',
                             shown: world.type === 'server',
                             action: () => emit('refresh'),
                         },
                         {
                             id: 'copy-address',
+                            section: 'navigate',
                             shown: world.type === 'server',
                             action: () => copyToClipboard((world as ServerWorld).address),
                         },
                         {
                             id: 'edit',
+                            section: 'manage',
                             action: () => emit('edit'),
                             shown: !instanceId,
                             disabled: locked || managed,
@@ -548,6 +553,7 @@ const messages = defineMessages({
                         },
                         {
                             id: 'open-folder',
+                            section: 'navigate',
                             shown: world.type === 'singleplayer',
                             action: () =>
                                 world.type === 'singleplayer' ? emit('open-folder', world) : {},
@@ -557,12 +563,14 @@ const messages = defineMessages({
                             shown: !!instanceId,
                         },
                         {
+                            section: 'pin',
                             id: pinnedToHome ? 'unpin-home' : 'pin-home',
                             shown: !!homePinTarget,
                             action: updateHomePin,
                         },
                         {
                             id: 'create-shortcut',
+                            section: 'navigate',
                             shown: !!shortcutInstanceId,
                             action: () => createShortcut(),
                         },
@@ -572,6 +580,7 @@ const messages = defineMessages({
                         },
                         {
                             id: 'delete',
+                            section: 'danger',
                             color: 'red',
                             hoverFilled: true,
                             action: () => emit('delete'),

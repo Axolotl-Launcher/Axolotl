@@ -1,5 +1,6 @@
 import { execFileSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
+import { isExcludedRelease } from './release-policy.mjs'
 
 const migrationsDirectory = 'packages/app-lib/migrations'
 const repository = process.env.GITHUB_REPOSITORY ?? 'Mystic-Stars/Axolotl'
@@ -131,24 +132,29 @@ function compareVersions(left, right) {
 }
 
 function publishedReleases() {
-	const args = [
-		'release',
-		'list',
-		'--limit',
-		'1000',
-		'--json',
-		'tagName,isDraft,publishedAt',
-		'--repo',
-		repository,
-	]
-	const releases = JSON.parse(execFileSync('gh', args, { encoding: 'utf8' }))
-	const bootstrapVersion = parseVersion(canonicalBootstrap.tag)
+    const args = [
+        'release',
+        'list',
+        '--limit',
+        '1000',
+        '--json',
+        'tagName,isDraft,publishedAt',
+        '--repo',
+        repository,
+    ]
+    const releases = JSON.parse(execFileSync('gh', args, { encoding: 'utf8' }))
+    for (const release of releases) {
+        if (isExcludedRelease(release.tagName)) {
+            console.warn(`Migration guard notice: ignoring temporary test release ${release.tagName}`)
+        }
+    }
+    const bootstrapVersion = parseVersion(canonicalBootstrap.tag)
 
-	return releases
-		.filter((release) => !release.isDraft)
-		.map((release) => ({ ...release, version: parseVersion(release.tagName) }))
-		.filter((release) => release.version && compareVersions(release.version, bootstrapVersion) >= 0)
-		.sort((left, right) => Date.parse(left.publishedAt) - Date.parse(right.publishedAt))
+    return releases
+        .filter((release) => !release.isDraft && !isExcludedRelease(release.tagName))
+        .map((release) => ({ ...release, version: parseVersion(release.tagName) }))
+        .filter((release) => release.version && compareVersions(release.version, bootstrapVersion) >= 0)
+        .sort((left, right) => Date.parse(left.publishedAt) - Date.parse(right.publishedAt))
 }
 
 function auditPublishedReleases(currentRef) {

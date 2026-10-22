@@ -130,6 +130,7 @@ import { computed, nextTick, onUnmounted, ref } from 'vue'
 import Button from '#ui/components/base/buttons/Button.vue'
 import ButtonLink from '#ui/components/base/buttons/ButtonLink.vue'
 
+import { useBodyScrollLock } from '../../composables/body-scroll-lock'
 import { defineMessages, useVIntl } from '../../composables/i18n'
 import { Avatar } from '../base'
 import ServerOnlinePlayers from '../project/server/ServerOnlinePlayers.vue'
@@ -178,6 +179,7 @@ export interface ServerProject {
 }
 
 const open = ref(false)
+const { lock: lockBodyScroll, unlock: unlockBodyScroll } = useBodyScrollLock()
 const visible = ref(false)
 const countdown = ref(3)
 const countdownProgress = ref(1)
@@ -243,7 +245,7 @@ async function show(options: ShowOpenInAppOptions) {
 
     window.open(appLink.value, '_self')
     open.value = true
-    document.body.style.overflow = 'hidden'
+    lockBodyScroll()
     window.addEventListener('keydown', handleKeyDown)
     setTimeout(() => {
         visible.value = true
@@ -253,7 +255,7 @@ async function show(options: ShowOpenInAppOptions) {
 
 function hide() {
     visible.value = false
-    document.body.style.overflow = ''
+    unlockBodyScroll()
     window.removeEventListener('keydown', handleKeyDown)
     stopCountdown()
     setTimeout(() => {

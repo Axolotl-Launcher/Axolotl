@@ -3,6 +3,7 @@ import './meta'
 import { createPinia, getActivePinia, setActivePinia } from 'pinia'
 import { createRouter, createWebHistory } from 'vue-router'
 
+import { discard_instance_upgrade_plan } from '@/helpers/instance-upgrade'
 import {
     clearUpgradeFlow,
     hasBrowseReturnSnapshot,
@@ -51,6 +52,8 @@ export default createRouter({
                 !to.path.startsWith('/project/') &&
                 !to.fullPath.startsWith(parkedUpgrade.returnFullPath)
             ) {
+                if (parkedUpgrade.plan?.id)
+                    void discard_instance_upgrade_plan(parkedUpgrade.plan.id).catch(console.error)
                 clearUpgradeFlow()
             }
             if (to.path.startsWith('/browse/')) {

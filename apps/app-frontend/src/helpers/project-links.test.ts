@@ -1,7 +1,30 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { createProjectBrowseLocation, getExternalLinkUrl } from './project-links.ts'
+import {
+    createProjectBrowseLocation,
+    createProjectDetailsQuery,
+    getExternalLinkUrl,
+} from './project-links.ts'
+
+test('project navigation keeps instance context and browse return location without version filter collisions', () => {
+    const query = {
+        g: 'categories:neoforge',
+        l: '100',
+        c: 'search',
+        page: '8',
+        i: 'instance',
+        from: 'worlds',
+    }
+    const browsePath = '/browse/mod?g=categories:neoforge&page=8'
+    assert.deepEqual(createProjectDetailsQuery(query, browsePath), {
+        i: 'instance',
+        from: 'worlds',
+        b: browsePath,
+    })
+    assert.equal(query.g, 'categories:neoforge')
+    assert.equal(query.page, '8')
+})
 
 test('project sidebar loader links target the app browse route and loader filter', () => {
     assert.deepEqual(createProjectBrowseLocation('mod', 'loader', 'forge'), {

@@ -60,7 +60,24 @@ vi.mock('@/helpers/servers', () => ({ servers: {} }))
 vi.mock('./servers/EulaModal.vue', () => ({ default: { render: () => null } }))
 vi.mock('./servers/ServerConsole.vue', () => ({ default: { render: () => null } }))
 vi.mock('./servers/ServerFilesPanel.vue', () => ({ default: { render: () => null } }))
-vi.mock('./servers/ServerSettingsPanel.vue', () => ({ default: { render: () => null } }))
+vi.mock('./servers/ServerSettingsPanel.vue', async () => {
+    const { defineComponent, ref, h } = await import('vue')
+    return {
+        default: defineComponent({
+            setup: () => {
+                const name = ref('Saved name')
+                return () =>
+                    h('input', {
+                        'data-server-draft': '',
+                        value: name.value,
+                        onInput: (event: Event) => {
+                            name.value = (event.target as HTMLInputElement).value
+                        },
+                    })
+            },
+        }),
+    }
+})
 vi.mock('./servers/ServerIcon.vue', () => ({ default: { render: () => null } }))
 
 vi.mock('@modrinth/ui', async () => {
@@ -85,6 +102,18 @@ vi.mock('@modrinth/ui', async () => {
                 'TagItem',
             ].map((name) => [name, container]),
         ),
+        NavTabs: defineComponent({
+            props: ['links'],
+            setup:
+                (props, { emit }) =>
+                () =>
+                    h(
+                        'nav',
+                        props.links.map((link: { label: string }, index: number) =>
+                            h('button', { onClick: () => emit('tab-click', index) }, link.label),
+                        ),
+                    ),
+        }),
         Button: defineComponent({
             props: ['disabled'],
             setup:
@@ -302,4 +331,21 @@ it('server sharing starts before navigation and preserves its port when the deta
     await vi.waitFor(() => expect(wrapper.find('#hongshi-local-port').exists()).toBe(true))
     expect((wrapper.get('#hongshi-local-port').element as HTMLInputElement).value).toBe('25577')
     confirm.mockRestore()
+})
+
+it('preserves a settings draft when visiting console and files, including a direct settings entry', async () => {
+    fixture.query = { tab: 'settings' }
+    const wrapper = mount(ServerDetail, {
+        attachTo: document.body,
+        global: { directives: { tooltip: () => {} } },
+    })
+    wrappers.push(wrapper)
+    await flushPromises()
+    await wrapper.get('[data-server-draft]').setValue('Unsaved name')
+    await wrapper.get('nav').findAll('button')[0].trigger('click')
+    expect(wrapper.get('[data-server-draft]').isVisible()).toBe(false)
+    await wrapper.get('nav').findAll('button')[1].trigger('click')
+    await wrapper.get('nav').findAll('button')[2].trigger('click')
+    expect(wrapper.get<HTMLInputElement>('[data-server-draft]').element.value).toBe('Unsaved name')
+    expect(wrapper.get('[data-server-draft]').isVisible()).toBe(true)
 })

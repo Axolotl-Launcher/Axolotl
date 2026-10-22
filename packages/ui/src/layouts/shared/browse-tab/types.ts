@@ -15,12 +15,23 @@ export interface BrowseSearchResponse {
         installed?: boolean
         installing?: boolean
         provider: 'modrinth' | 'curseforge' | 'mcarchive' | 'planet_minecraft'
+        providers?: ('modrinth' | 'curseforge' | 'mcarchive' | 'planet_minecraft')[]
         provider_project_id?: string
         author_url?: string
+        resource_dates?: {
+            createdAt?: string | null
+            projectPublishedAt?: string | null
+            updatedAt?: string | null
+            firstPublishedAt?: string | null
+            latestPublishedAt?: string | null
+        }
     })[]
     serverHits: Labrinth.Search.v3.ResultSearchProject[]
     total_hits: number
+    has_more?: boolean
+    total_precision?: 'exact' | 'estimate' | 'unknown'
     per_page: number
+    page?: number
 }
 
 export interface BrowseSelectedProject {

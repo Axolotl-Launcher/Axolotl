@@ -1,5 +1,10 @@
 <template>
-    <div ref="containerRef" data-combobox class="relative inline-block w-full">
+    <div
+        ref="containerRef"
+        data-combobox
+        class="relative inline-block min-w-0 max-w-full"
+        :class="width === 'full' ? 'w-full' : width === 'content' ? 'w-fit' : undefined"
+    >
         <!-- Searchable mode: input trigger -->
         <div v-if="searchable" class="relative w-full rounded-xl bg-surface-4">
             <!--
@@ -123,7 +128,7 @@
                 <div
                     v-if="shouldRenderDropdown"
                     ref="dropdownRef"
-                    class="fixed z-[9999] flex flex-col overflow-hidden rounded-[14px] bg-surface-4 border border-solid border-surface-5"
+                    class="fixed z-[9999] flex flex-col overflow-y-auto overscroll-contain rounded-[14px] bg-surface-4 border border-solid border-surface-5"
                     :class="[
                         props.dropdownClass,
                         openDirection === 'up'
@@ -139,14 +144,14 @@
                     <div
                         v-if="filteredOptions.length > 0"
                         ref="optionsScrollbarRef"
-                        class="combobox-options-scrollbar bg-surface-4"
+                        class="combobox-options-scrollbar min-h-0 shrink-0 bg-surface-4"
                         data-overlayscrollbars-initialize
                         @mousedown.prevent.stop
                     >
                         <div
                             ref="optionsContainerRef"
                             class="overflow-y-auto"
-                            :style="{ maxHeight: `${maxHeight}px` }"
+                            :style="{ maxHeight: `${listMaxHeight}px` }"
                             data-overlayscrollbars-viewport
                         >
                             <div ref="optionsListRef" class="flex flex-col">
@@ -256,17 +261,9 @@ import 'overlayscrollbars/overlayscrollbars.css'
 import { ChevronLeftIcon, SearchIcon } from '@modrinth/assets'
 import { onClickOutside } from '@vueuse/core'
 import { OverlayScrollbars, type PartialOptions } from 'overlayscrollbars'
-import {
-    type Component,
-    computed,
-    nextTick,
-    onMounted,
-    onUnmounted,
-    ref,
-    useSlots,
-    watch,
-} from 'vue'
+import { type Component, computed, nextTick, onUnmounted, ref, useSlots, watch } from 'vue'
 
+import { useDropdownPosition } from '../../composables/dropdown-position'
 import StyledInput from './StyledInput.vue'
 
 export interface ComboboxOption<T> {
@@ -284,15 +281,6 @@ export interface ComboboxOption<T> {
 }
 
 type OverlayScrollbarsInstance = NonNullable<ReturnType<typeof OverlayScrollbars>>
-type ViewportRect = {
-    width: number
-    height: number
-    offsetTop: number
-    offsetLeft: number
-}
-
-const DROPDOWN_VIEWPORT_MARGIN = 8
-const DROPDOWN_GAP = 8
 const DEFAULT_MAX_HEIGHT = 300
 const OPTIONS_OVERLAY_SCROLLBARS_OPTIONS = Object.freeze<PartialOptions>({
     overflow: {
@@ -319,6 +307,8 @@ function isDivider<T>(opt: ComboboxOption<T> | { type: 'divider' }): opt is { ty
 const props = withDefaults(
     defineProps<{
         modelValue?: T
+        /** Full fills a form region; content fits a toolbar label; custom leaves width to layout classes. */
+        width?: 'full' | 'content' | 'custom'
         options: (ComboboxOption<T> | { type: 'divider' })[]
         placeholder?: string
         disabled?: boolean
@@ -359,6 +349,7 @@ const props = withDefaults(
         searchInputAttrs?: Record<string, string | number | boolean | undefined>
     }>(),
     {
+        width: 'full',
         placeholder: 'Select an option',
         disabled: false,
         searchable: false,
@@ -402,7 +393,6 @@ const optionsScrollbarRef = ref<HTMLElement>()
 const optionsContainerRef = ref<HTMLElement>()
 const optionsListRef = ref<HTMLElement>()
 const optionRefs = ref<(HTMLElement | null)[]>([])
-const rafId = ref<number | null>(null)
 const optionsOverlayScrollbars = ref<OverlayScrollbarsInstance | null>(null)
 
 const effectiveTriggerEl = computed(() => {
@@ -411,20 +401,24 @@ const effectiveTriggerEl = computed(() => {
     }
     return triggerRef.value
 })
+const { dropdownStyle, openDirection, listMaxHeight, updateDropdownPosition } = useDropdownPosition(
+    effectiveTriggerEl,
+    dropdownRef,
+    optionsScrollbarRef,
+    isOpen,
+    () => ({
+        forceDirection: props.forceDirection,
+        dropdownWidth: props.dropdownWidth,
+        dropdownMinWidth: props.dropdownMinWidth,
+        maxHeight: props.maxHeight,
+    }),
+)
+
 const outsideClickIgnoreTargets = computed(() => [
     triggerRef,
     containerRef,
     ...props.outsideClickIgnore,
 ])
-
-const dropdownStyle = ref({
-    top: '0px',
-    left: '0px',
-    width: '0px',
-    minWidth: '0px',
-})
-
-const openDirection = ref<'down' | 'up'>('down')
 
 const selectedOption = computed<ComboboxOption<T> | undefined>(() => {
     return props.options.find(
@@ -533,115 +527,6 @@ function setInitialFocus() {
     }
 }
 
-function determineOpenDirection(
-    triggerRect: DOMRect,
-    dropdownRect: DOMRect,
-    viewport: ViewportRect,
-): 'up' | 'down' {
-    if (props.forceDirection) {
-        return props.forceDirection
-    }
-
-    const triggerTop = triggerRect.top + viewport.offsetTop
-    const triggerBottom = triggerRect.bottom + viewport.offsetTop
-    const viewportTop = viewport.offsetTop
-    const viewportBottom = viewport.offsetTop + viewport.height
-    const hasSpaceBelow =
-        triggerBottom + dropdownRect.height + DROPDOWN_GAP + DROPDOWN_VIEWPORT_MARGIN <=
-        viewportBottom
-    const hasSpaceAbove =
-        triggerTop - dropdownRect.height - DROPDOWN_GAP - DROPDOWN_VIEWPORT_MARGIN > viewportTop
-
-    return !hasSpaceBelow && hasSpaceAbove ? 'up' : 'down'
-}
-
-function calculateVerticalPosition(
-    triggerRect: DOMRect,
-    dropdownRect: DOMRect,
-    direction: 'up' | 'down',
-    viewport: ViewportRect,
-): number {
-    const top =
-        direction === 'up'
-            ? triggerRect.top - dropdownRect.height - DROPDOWN_GAP
-            : triggerRect.bottom + DROPDOWN_GAP
-
-    return top + viewport.offsetTop
-}
-
-function calculateHorizontalPosition(
-    triggerRect: DOMRect,
-    dropdownRect: DOMRect,
-    viewport: ViewportRect,
-): number {
-    const minLeft = viewport.offsetLeft + DROPDOWN_VIEWPORT_MARGIN
-    const maxRight = viewport.offsetLeft + viewport.width - DROPDOWN_VIEWPORT_MARGIN
-    let left = triggerRect.left + viewport.offsetLeft
-
-    if (left + dropdownRect.width > maxRight) {
-        left = Math.max(minLeft, maxRight - dropdownRect.width)
-    }
-
-    return left
-}
-
-function getViewportRect(): ViewportRect {
-    const visualViewport = window.visualViewport
-
-    return {
-        width: visualViewport?.width ?? window.innerWidth,
-        height: visualViewport?.height ?? window.innerHeight,
-        offsetTop: visualViewport?.offsetTop ?? 0,
-        offsetLeft: visualViewport?.offsetLeft ?? 0,
-    }
-}
-
-function resolveDropdownWidth(triggerWidth: number): string {
-    if (props.dropdownWidth === undefined) return `${triggerWidth}px`
-    if (typeof props.dropdownWidth === 'number') return `${props.dropdownWidth}px`
-    return props.dropdownWidth
-}
-
-function resolveCssSize(size: string | number | undefined): string | undefined {
-    if (size === undefined) return undefined
-    if (typeof size === 'number') return `${size}px`
-    return size
-}
-
-async function updateDropdownPosition() {
-    if (!effectiveTriggerEl.value || !dropdownRef.value) return
-
-    await nextTick()
-
-    const triggerRect = effectiveTriggerEl.value.getBoundingClientRect()
-    const width = resolveDropdownWidth(triggerRect.width)
-    const minWidth = resolveCssSize(props.dropdownMinWidth) ?? '0px'
-
-    dropdownStyle.value = {
-        ...dropdownStyle.value,
-        width,
-        minWidth,
-    }
-
-    await nextTick()
-
-    const dropdownRect = dropdownRef.value.getBoundingClientRect()
-    const viewport = getViewportRect()
-
-    const direction = determineOpenDirection(triggerRect, dropdownRect, viewport)
-    const top = calculateVerticalPosition(triggerRect, dropdownRect, direction, viewport)
-    const left = calculateHorizontalPosition(triggerRect, dropdownRect, viewport)
-
-    dropdownStyle.value = {
-        top: `${top}px`,
-        left: `${left}px`,
-        width,
-        minWidth,
-    }
-
-    openDirection.value = direction
-}
-
 async function initializeOptionsOverlayScrollbars() {
     await nextTick()
 
@@ -697,15 +582,14 @@ async function openDropdown() {
     await nextTick()
     await updateDropdownPosition()
     await initializeOptionsOverlayScrollbars()
+    if (!isOpen.value || !dropdownRef.value) return
 
     setInitialFocus()
-    startPositionTracking()
 }
 
 function closeDropdown() {
     if (!isOpen.value) return
 
-    stopPositionTracking()
     destroyOptionsOverlayScrollbars()
     isOpen.value = false
     userHasTyped.value = false
@@ -821,9 +705,12 @@ function handleTriggerKeydown(event: KeyboardEvent) {
 }
 
 function handleDropdownKeydown(event: KeyboardEvent) {
+    if (event.defaultPrevented) return
     switch (event.key) {
         case 'Escape':
             event.preventDefault()
+            event.stopPropagation()
+            if (props.searchable) searchTriggerRef.value?.focus()
             closeDropdown()
             break
         case 'ArrowDown':
@@ -856,8 +743,9 @@ function handleDropdownKeydown(event: KeyboardEvent) {
 }
 
 function handleSearchKeydown(event: KeyboardEvent) {
-    if (event.key === 'Escape') {
+    if (event.key === 'Escape' && isOpen.value) {
         event.preventDefault()
+        event.stopPropagation()
         closeDropdown()
     } else if (event.key === 'ArrowDown') {
         event.preventDefault()
@@ -934,44 +822,6 @@ function handleSearchClick() {
     }
 }
 
-function handleWindowResize() {
-    if (isOpen.value) {
-        scheduleDropdownPositionUpdate()
-    }
-}
-
-function scheduleDropdownPositionUpdate() {
-    if (rafId.value !== null) return
-
-    rafId.value = requestAnimationFrame(() => {
-        rafId.value = null
-        updateDropdownPosition()
-    })
-}
-
-function handleViewportChange() {
-    if (isOpen.value) {
-        scheduleDropdownPositionUpdate()
-    }
-}
-
-function startPositionTracking() {
-    window.addEventListener('scroll', handleViewportChange, true)
-    window.visualViewport?.addEventListener('scroll', handleViewportChange)
-    window.visualViewport?.addEventListener('resize', handleViewportChange)
-}
-
-function stopPositionTracking() {
-    window.removeEventListener('scroll', handleViewportChange, true)
-    window.visualViewport?.removeEventListener('scroll', handleViewportChange)
-    window.visualViewport?.removeEventListener('resize', handleViewportChange)
-
-    if (rafId.value !== null) {
-        cancelAnimationFrame(rafId.value)
-        rafId.value = null
-    }
-}
-
 onClickOutside(
     dropdownRef,
     () => {
@@ -980,13 +830,7 @@ onClickOutside(
     { ignore: outsideClickIgnoreTargets },
 )
 
-onMounted(() => {
-    window.addEventListener('resize', handleWindowResize)
-})
-
 onUnmounted(() => {
-    window.removeEventListener('resize', handleWindowResize)
-    stopPositionTracking()
     destroyOptionsOverlayScrollbars()
 })
 

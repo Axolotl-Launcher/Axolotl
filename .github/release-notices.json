@@ -1,0 +1,10 @@
+{
+  "$schema": "./release-notices.schema.json",
+  "notices": {
+    "v1.10.0-beta.4": {
+      "type": "important",
+      "zh-CN": "【关于近期启动器有关问题的说明】\n目前美西螈启动器可以下载游戏文件，且暂无禁用此类功能的计划。\nAxolotl Launcher（简称 AXL）是开源项目 Modrinth 代码库的修改版本。Modrinth 是 Rinth,Inc. 的商标。\nAxolotl Launcher 与 Rinth,Inc. 无关联，亦未获得其认可。",
+      "en-US": "【Statement on recent questions about the launcher】\nAxolotl Launcher currently supports downloading game files, and there are no plans to disable this functionality at this time.\nAxolotl Launcher (AXL) is a modified version of the open-source Modrinth codebase. Modrinth is a trademark of Rinth, Inc.\nAxolotl Launcher is not affiliated with or endorsed by Rinth, Inc."
+    }
+  }
+}

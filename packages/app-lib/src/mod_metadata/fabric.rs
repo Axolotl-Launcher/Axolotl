@@ -71,7 +71,11 @@ pub(crate) fn fabric_dep_value(
     obj.get(key).and_then(|v| match v {
         serde_json::Value::String(s) => Some(s.clone()),
         serde_json::Value::Array(arr) => {
-            arr.first().and_then(|v| v.as_str().map(String::from))
+            let versions = arr
+                .iter()
+                .map(|value| value.as_str())
+                .collect::<Option<Vec<_>>>()?;
+            (!versions.is_empty()).then(|| versions.join(" || "))
         }
         _ => None,
     })
@@ -124,7 +128,7 @@ fn push_dependency(
 }
 
 /// Extract required dependencies from a Fabric-style `depends` map
-/// (`"id": "range"` or `"id": ["alternative", "alternative: range"]`).
+/// (`"id": "range"` or `"id": ["range alternative", "range alternative"]`).
 pub(crate) fn fabric_dependencies(
     depends: &Option<serde_json::Value>,
 ) -> Vec<super::LocalModDependency> {
@@ -138,12 +142,17 @@ pub(crate) fn fabric_dependencies(
                 push_dependency(&mut out, id.clone(), Some(range.clone()));
             }
             serde_json::Value::Array(alternatives) => {
-                for alternative in alternatives {
-                    let Some(text) = alternative.as_str() else {
-                        continue;
-                    };
-                    let (mod_id, version_range) = split_dependency_id(text);
-                    push_dependency(&mut out, mod_id, version_range);
+                if let Some(versions) = alternatives
+                    .iter()
+                    .map(|value| value.as_str())
+                    .collect::<Option<Vec<_>>>()
+                    && !versions.is_empty()
+                {
+                    push_dependency(
+                        &mut out,
+                        id.clone(),
+                        Some(versions.join(" || ")),
+                    );
                 }
             }
             _ => {}
@@ -209,29 +218,28 @@ mod tests {
     use super::*;
 
     #[test]
-    fn fabric_dependencies_flatten_alternatives_and_skip_environment() {
+    fn fabric_dependencies_keep_project_ids_and_version_alternatives() {
         let depends = serde_json::json!({
             "sodium": ">=0.4.10",
             "fabricloader": ">=0.15.0",
-            "minecraft": "~1.20.1",
-            "physics": ["physx", "physx-fabric: >=1.2"]
+            "minecraft": ["~1.20.1", "~1.21.1"],
+            "physics": [">=1.2", "~2.0"]
         });
-        let deps = fabric_dependencies(&Some(depends));
+        let deps = fabric_dependencies(&Some(depends.clone()));
         let mut ids = deps
             .iter()
             .map(|dep| dep.mod_id.as_str())
             .collect::<Vec<_>>();
         ids.sort_unstable();
-        assert_eq!(ids, ["physx", "physx-fabric", "sodium"]);
+        assert_eq!(ids, ["physics", "sodium"]);
         let sodium = deps.iter().find(|dep| dep.mod_id == "sodium").unwrap();
         assert_eq!(sodium.version_range.as_deref(), Some(">=0.4.10"));
-        let physx = deps.iter().find(|dep| dep.mod_id == "physx").unwrap();
-        assert_eq!(physx.version_range, None);
-        let physx_fabric = deps
-            .iter()
-            .find(|dep| dep.mod_id == "physx-fabric")
-            .unwrap();
-        assert_eq!(physx_fabric.version_range.as_deref(), Some(">=1.2"));
+        let physics = deps.iter().find(|dep| dep.mod_id == "physics").unwrap();
+        assert_eq!(physics.version_range.as_deref(), Some(">=1.2 || ~2.0"));
+        assert_eq!(
+            fabric_dep_value(&Some(depends), "minecraft").as_deref(),
+            Some("~1.20.1 || ~1.21.1")
+        );
     }
 
     #[test]

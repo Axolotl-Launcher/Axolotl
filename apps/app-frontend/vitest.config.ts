@@ -3,6 +3,7 @@ import { playwright } from '@vitest/browser-playwright'
 import { resolve } from 'path'
 import { fileURLToPath } from 'url'
 import { defineConfig } from 'vite'
+import { nodePolyfills } from 'vite-plugin-node-polyfills'
 import svgLoader from 'vite-svg-loader'
 
 /**
@@ -41,6 +42,20 @@ export default defineConfig({
         ],
     },
     plugins: [
+        nodePolyfills({
+            include: [
+                'crypto',
+                'path',
+                'util',
+                'stream',
+                'buffer',
+                'events',
+                'string_decoder',
+                'assert',
+                'vm',
+            ],
+            globals: { Buffer: true, process: true, global: true },
+        }),
         vue(),
         svgLoader({
             svgoConfig: {
@@ -62,7 +77,17 @@ export default defineConfig({
     ],
     optimizeDeps: {
         // UI mock factories load this dependency after Vite's initial scan.
-        include: ['@modrinth/ui > qrcode.vue'],
+        include: [
+            'deepslate/nbt',
+            'deepslate/util',
+            'deepagents/browser',
+            'langchain',
+            '@modrinth/ui > qrcode.vue',
+            '@tauri-apps/api/app',
+            '@tauri-apps/api/path',
+            '@tauri-apps/plugin-http',
+            'vue-i18n',
+        ],
     },
     test: {
         include: ['src/**/*.visual.spec.ts'],

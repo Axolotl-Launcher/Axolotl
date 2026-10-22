@@ -1,6 +1,6 @@
 import type { SeedMapDimension } from './biomes.ts'
 
-export type SeedMapDisplayMode = 'structures' | 'ores'
+export type SeedMapDisplayMode = 'structures' | 'ores' | 'underground'
 
 export type SeedMapOreKind =
     | 'diamond'
@@ -13,6 +13,21 @@ export type SeedMapOreKind =
     | 'lapis'
     | 'coal'
     | 'netherite'
+    | 'emerald'
+    | 'quartz'
+    | 'nether_gold'
+    | 'andesite'
+    | 'diorite'
+    | 'granite'
+    | 'dirt'
+    | 'gravel'
+    | 'infested'
+    | 'deepslate'
+    | 'tuff'
+    | 'clay'
+    | 'blackstone'
+    | 'magma'
+    | 'soul_sand'
 
 export type SeedMapOreDefinition = {
     kind: SeedMapOreKind
@@ -30,10 +45,9 @@ export type SeedMapOreHit = {
     x: number
     y: number
     z: number
-    verified: boolean
     yMin: number
     yMax: number
-    precision: number
+    status: 'terrain_unverified'
 }
 
 export type SeedMapOreChunk = {
@@ -48,8 +62,7 @@ export const SEED_MAP_ORE_CACHE_LIMIT = 6_000
 export const SEED_MAP_ORE_CACHE_TARGET = 5_400
 
 /**
- * Ore prediction replays the vanilla 1.18+ population RNG natively, so the
- * offered kinds match the scattered-ore features of those versions. The
+ * Ore candidates use the bundled engine's versioned configurations. The
  * `bandRows` value reflects each distribution's Y span and scales the scan
  * budget so wide bands do not overwhelm a single pass.
  */
@@ -153,6 +166,141 @@ export const SEED_MAP_ORES: readonly SeedMapOreDefinition[] = [
         image: `${ORE_ASSET_ROOT}/ancient-debris.png`,
         texture: `${ORE_ASSET_ROOT}/ore-flat/ancient_debris_side.png`,
     },
+    {
+        kind: 'emerald',
+        dimension: 'overworld',
+        yMin: -64,
+        yMax: 319,
+        bandRows: 384,
+        image: 'minecraft:emerald_ore',
+        texture: 'minecraft:emerald_ore',
+    },
+    {
+        kind: 'quartz',
+        dimension: 'nether',
+        yMin: 0,
+        yMax: 127,
+        bandRows: 128,
+        image: 'minecraft:nether_quartz_ore',
+        texture: 'minecraft:nether_quartz_ore',
+    },
+    {
+        kind: 'nether_gold',
+        dimension: 'nether',
+        yMin: 0,
+        yMax: 127,
+        bandRows: 128,
+        image: 'minecraft:nether_gold_ore',
+        texture: 'minecraft:nether_gold_ore',
+    },
+    {
+        kind: 'andesite',
+        dimension: 'overworld',
+        yMin: -64,
+        yMax: 319,
+        bandRows: 384,
+        image: 'minecraft:andesite',
+        texture: 'minecraft:andesite',
+    },
+    {
+        kind: 'diorite',
+        dimension: 'overworld',
+        yMin: -64,
+        yMax: 319,
+        bandRows: 384,
+        image: 'minecraft:diorite',
+        texture: 'minecraft:diorite',
+    },
+    {
+        kind: 'granite',
+        dimension: 'overworld',
+        yMin: -64,
+        yMax: 319,
+        bandRows: 384,
+        image: 'minecraft:granite',
+        texture: 'minecraft:granite',
+    },
+    {
+        kind: 'dirt',
+        dimension: 'overworld',
+        yMin: -64,
+        yMax: 319,
+        bandRows: 384,
+        image: 'minecraft:dirt',
+        texture: 'minecraft:dirt',
+    },
+    {
+        kind: 'gravel',
+        dimension: 'overworld',
+        yMin: -64,
+        yMax: 319,
+        bandRows: 384,
+        image: 'minecraft:gravel',
+        texture: 'minecraft:gravel',
+    },
+    {
+        kind: 'infested',
+        dimension: 'overworld',
+        yMin: -64,
+        yMax: 319,
+        bandRows: 384,
+        image: 'minecraft:infested_stone',
+        texture: 'minecraft:infested_stone',
+    },
+    {
+        kind: 'deepslate',
+        dimension: 'overworld',
+        yMin: -64,
+        yMax: 319,
+        bandRows: 384,
+        image: 'minecraft:deepslate',
+        texture: 'minecraft:deepslate',
+    },
+    {
+        kind: 'tuff',
+        dimension: 'overworld',
+        yMin: -64,
+        yMax: 319,
+        bandRows: 384,
+        image: 'minecraft:tuff',
+        texture: 'minecraft:tuff',
+    },
+    {
+        kind: 'clay',
+        dimension: 'overworld',
+        yMin: -64,
+        yMax: 319,
+        bandRows: 384,
+        image: 'minecraft:clay',
+        texture: 'minecraft:clay',
+    },
+    {
+        kind: 'blackstone',
+        dimension: 'nether',
+        yMin: 0,
+        yMax: 127,
+        bandRows: 128,
+        image: 'minecraft:blackstone',
+        texture: 'minecraft:blackstone',
+    },
+    {
+        kind: 'magma',
+        dimension: 'nether',
+        yMin: 0,
+        yMax: 127,
+        bandRows: 128,
+        image: 'minecraft:magma_block',
+        texture: 'minecraft:magma_block',
+    },
+    {
+        kind: 'soul_sand',
+        dimension: 'nether',
+        yMin: 0,
+        yMax: 127,
+        bandRows: 128,
+        image: 'minecraft:soul_sand',
+        texture: 'minecraft:soul_sand',
+    },
 ]
 
 const ORE_BY_KIND = new Map(SEED_MAP_ORES.map((ore) => [ore.kind, ore]))
@@ -194,9 +342,6 @@ export function preferSeedMapOreHit(
     candidate: SeedMapOreHit,
 ): SeedMapOreHit {
     if (!current) return candidate
-    if (candidate.verified !== current.verified) return candidate.verified ? candidate : current
-    if (candidate.precision !== current.precision)
-        return candidate.precision > current.precision ? candidate : current
     const currentRange = current.yMax - current.yMin
     const candidateRange = candidate.yMax - candidate.yMin
     return candidateRange < currentRange ? candidate : current

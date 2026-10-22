@@ -1294,82 +1294,6 @@ impl CachedEntry {
 }
 
 #[cfg(test)]
-mod curseforge_project_cache_tests {
-    use super::{CacheBehaviour, CacheValue, CachedEntry};
-    use crate::api::curseforge::CurseForgeProject;
-    use crate::state::CurseForgeProjectId;
-    use crate::util::fetch::FetchSemaphore;
-    use sqlx::sqlite::SqlitePoolOptions;
-    use tokio::sync::Semaphore;
-
-    #[tokio::test]
-    async fn expired_curseforge_metadata_remains_available_offline() {
-        let pool = SqlitePoolOptions::new()
-            .max_connections(1)
-            .connect("sqlite::memory:")
-            .await
-            .unwrap();
-        sqlx::query(
-            "CREATE TABLE cache (
-                id TEXT NOT NULL,
-                data_type TEXT NOT NULL,
-                alias TEXT NULL,
-                data JSONB NULL,
-                expires INTEGER NOT NULL,
-                UNIQUE (data_type, alias),
-                PRIMARY KEY (id, data_type)
-            )",
-        )
-        .execute(&pool)
-        .await
-        .unwrap();
-        let project =
-            serde_json::from_value::<CurseForgeProject>(serde_json::json!({
-                "id": 42,
-                "gameId": 432,
-                "name": "Cached project",
-                "slug": "cached-project",
-                "links": {},
-                "summary": "Cached metadata",
-                "status": 4,
-                "downloadCount": 0,
-                "isFeatured": false,
-                "primaryCategoryId": 6,
-                "categories": [],
-                "classId": 6,
-                "authors": [],
-                "logo": null,
-                "screenshots": [],
-                "mainFileId": 0,
-                "latestFiles": [],
-                "latestFilesIndexes": [],
-                "dateCreated": "2026-01-01T00:00:00Z",
-                "dateModified": "2026-01-01T00:00:00Z",
-                "dateReleased": "2026-01-01T00:00:00Z",
-                "allowModDistribution": true,
-                "gamePopularityRank": 1,
-                "isAvailable": true
-            }))
-            .unwrap();
-        let mut entry = CacheValue::CurseForgeProject(project).get_entry();
-        entry.expires = 0;
-        CachedEntry::upsert_many(&[entry], &pool).await.unwrap();
-
-        let cached = CachedEntry::get_curseforge_project(
-            &CurseForgeProjectId::new(42).unwrap(),
-            Some(CacheBehaviour::CacheOnly),
-            &pool,
-            &FetchSemaphore(Semaphore::new(1)),
-        )
-        .await
-        .unwrap()
-        .unwrap();
-
-        assert_eq!(cached.name, "Cached project");
-    }
-}
-
-#[cfg(test)]
 mod cache_upsert_tests {
     use super::{CacheValue, CacheValueType, CachedEntry};
     use sqlx::{SqlitePool, sqlite::SqlitePoolOptions};
@@ -1773,25 +1697,6 @@ mod fetched_cache_persistence_tests {
     }
 
     #[tokio::test]
-    async fn foreground_fetch_returns_values_when_cache_write_fails() {
-        let pool = create_pool(true).await;
-        make_pool_read_only(&pool).await;
-
-        let values = CachedEntry::get_many(
-            CacheValueType::CurseForgeProject,
-            &["not-a-numeric-project-id"],
-            Some(CacheBehaviour::Bypass),
-            &pool,
-            &FetchSemaphore(Semaphore::new(1)),
-        )
-        .await
-        .unwrap();
-
-        assert_eq!(values.len(), 1);
-        assert_eq!(values[0].id, "not-a-numeric-project-id");
-    }
-
-    #[tokio::test]
     async fn background_cache_write_failure_is_nonfatal() {
         let pool = create_pool(true).await;
         make_pool_read_only(&pool).await;
@@ -1827,7 +1732,7 @@ mod fetched_cache_persistence_tests {
         let pool = create_pool(false).await;
 
         let result = CachedEntry::get_many(
-            CacheValueType::CurseForgeProject,
+            CacheValueType::ReportTypes,
             &["missing"],
             Some(CacheBehaviour::CacheOnly),
             &pool,
@@ -2004,6 +1909,22 @@ impl CachedEntry {
     ) -> crate::Result<Vec<Self>> {
         if keys.is_empty() {
             return Ok(Vec::new());
+        }
+
+        if crate::resources::protocol::owns(type_) {
+            let state = crate::State::get().await?;
+            let service = state
+                .resources()
+                .await
+                .map_err(crate::resources::protocol::error)?;
+            return crate::resources::protocol::many(
+                service,
+                type_,
+                keys,
+                cache_behaviour,
+                &tokio_util::sync::CancellationToken::new(),
+            )
+            .await;
         }
 
         let cache_behaviour = cache_behaviour.unwrap_or_default();
@@ -2391,76 +2312,22 @@ impl CachedEntry {
         }
 
         Ok(match type_ {
-            CacheValueType::Project => {
-                fetch_original_values!(
-                    Project,
-                    env!("MODRINTH_API_URL"),
-                    "projects",
-                    Some("/v2/projects"),
-                    CacheValue::Project
+            CacheValueType::Project
+            | CacheValueType::ProjectV3
+            | CacheValueType::CurseForgeProject
+            | CacheValueType::Version
+            | CacheValueType::VersionV3
+            | CacheValueType::File
+            | CacheValueType::ProjectVersions
+            | CacheValueType::SearchResults
+            | CacheValueType::SearchResultsV3
+            | CacheValueType::FileUpdate => {
+                return Err(crate::ErrorKind::InputError(
+                    "resource queries must use ResourceService".into(),
                 )
+                .into());
             }
-            CacheValueType::ProjectV3 => {
-                fetch_original_values!(
-                    ProjectV3,
-                    env!("MODRINTH_API_URL_V3"),
-                    "projects",
-                    Some("/v3/projects"),
-                    CacheValue::ProjectV3
-                )
-            }
-            CacheValueType::CurseForgeProject => {
-                let project_ids = keys
-                    .iter()
-                    .filter_map(|key| key.to_string().parse::<u32>().ok())
-                    .collect::<Vec<_>>();
-                let mut projects =
-                    crate::api::curseforge::get_projects_uncached(project_ids)
-                        .await?
-                        .into_iter()
-                        .map(|project| (project.id, project))
-                        .collect::<HashMap<_, _>>();
 
-                keys.into_iter()
-                    .map(|key| {
-                        let key = key.to_string();
-                        match key
-                            .parse::<u32>()
-                            .ok()
-                            .and_then(|id| projects.remove(&id))
-                        {
-                            Some(project) => (
-                                CacheValue::CurseForgeProject(project)
-                                    .get_entry(),
-                                true,
-                            ),
-                            None => (
-                                CacheValueType::CurseForgeProject
-                                    .get_empty_entry(key),
-                                true,
-                            ),
-                        }
-                    })
-                    .collect()
-            }
-            CacheValueType::Version => {
-                fetch_original_values!(
-                    Version,
-                    env!("MODRINTH_API_URL"),
-                    "versions",
-                    Some("/v2/versions"),
-                    CacheValue::Version
-                )
-            }
-            CacheValueType::VersionV3 => {
-                fetch_original_values!(
-                    VersionV3,
-                    env!("MODRINTH_API_URL_V3"),
-                    "versions",
-                    Some("/v3/versions"),
-                    CacheValue::VersionV3
-                )
-            }
             CacheValueType::User => {
                 fetch_original_values!(
                     User,
@@ -2566,60 +2433,7 @@ impl CachedEntry {
 
                 values
             }
-            CacheValueType::File => {
-                let mut versions = fetch_json::<HashMap<String, Version>>(
-                    Method::POST,
-                    concat!(env!("MODRINTH_API_URL"), "version_files"),
-                    None,
-                    Some(serde_json::json!({
-                        "algorithm": "sha1",
-                        "hashes": &keys,
-                    })),
-                    Some("/v2/version_files"),
-                    fetch_semaphore,
-                    pool,
-                )
-                .await?;
 
-                let mut vals = Vec::new();
-
-                for key in keys {
-                    let hash = key.to_string();
-
-                    if let Some(version) = versions.remove(&hash) {
-                        let version_id = version.id.clone();
-                        let project_id = version.project_id.clone();
-                        vals.push((
-                            CacheValue::Version(version).get_entry(),
-                            false,
-                        ));
-
-                        vals.push((
-                            CacheValue::File(ModrinthHashMatch {
-                                hash,
-                                version_id,
-                                project_id,
-                            })
-                            .get_entry(),
-                            true,
-                        ))
-                    } else {
-                        vals.push((
-                            Self {
-                                id: hash,
-                                alias: None,
-                                type_: CacheValueType::File,
-                                data: None,
-                                expires: Utc::now().timestamp()
-                                    + CacheValueType::File.expiry(),
-                            },
-                            true,
-                        ))
-                    };
-                }
-
-                vals
-            }
             CacheValueType::LoaderManifest => {
                 let fetch_urls = keys
                     .iter()
@@ -2893,337 +2707,11 @@ impl CachedEntry {
 
                 results
             }
-            CacheValueType::FileUpdate => {
-                let mut vals = Vec::new();
 
-                // TODO: switch to update individual once back-end route exists
-                let mut filtered_keys: Vec<(
-                    (String, String, String),
-                    Vec<String>,
-                )> = Vec::new();
-                keys.iter().for_each(|x| {
-                    let string = x.key().to_string();
-                    let key = string.splitn(4, '-').collect::<Vec<_>>();
-
-                    let parsed_key = if key.len() == 4
-                        && matches!(
-                            key[2],
-                            "release" | "beta" | "alpha" | "all"
-                        ) {
-                        Some((key[0], key[1], key[2], key[3]))
-                    } else {
-                        let key = string.splitn(3, '-').collect::<Vec<_>>();
-                        if key.len() == 3 {
-                            Some((
-                                key[0],
-                                key[1],
-                                ReleaseChannel::Alpha.key(),
-                                key[2],
-                            ))
-                        } else {
-                            None
-                        }
-                    };
-
-                    if let Some((
-                        hash,
-                        loaders_key,
-                        channel_policy_key,
-                        game_version,
-                    )) = parsed_key
-                    {
-                        if let Some(values) =
-                            filtered_keys.iter_mut().find(|x| {
-                                x.0.0 == loaders_key
-                                    && x.0.1 == channel_policy_key
-                                    && x.0.2 == game_version
-                            })
-                        {
-                            values.1.push(hash.to_string());
-                        } else {
-                            filtered_keys.push((
-                                (
-                                    loaders_key.to_string(),
-                                    channel_policy_key.to_string(),
-                                    game_version.to_string(),
-                                ),
-                                vec![hash.to_string()],
-                            ))
-                        }
-                    } else {
-                        vals.push((
-                            CacheValueType::FileUpdate.get_empty_entry(string),
-                            true,
-                        ))
-                    }
-                });
-
-                let variations =
-                    futures::future::try_join_all(filtered_keys.iter().map(
-                        |((loaders_key, channel_policy_key, game_version), hashes)| async move {
-                            let channel_policy =
-                                ReleaseChannel::from_key(channel_policy_key);
-                            let mut remaining_hashes = hashes.clone();
-                            let mut found_versions = HashMap::new();
-
-                            for version_types in
-                                channel_policy.version_type_fallbacks()
-                            {
-                                if remaining_hashes.is_empty() {
-                                    break;
-                                }
-
-                                let variation = fetch_json::<
-                                    HashMap<String, Vec<Version>>,
-                                >(
-                                    Method::POST,
-                                    concat!(
-                                        env!("MODRINTH_API_URL"),
-                                        "version_files/update_many"
-                                    ),
-                                    None,
-                                    Some(serde_json::json!({
-                                        "algorithm": "sha1",
-                                        "hashes": remaining_hashes.clone(),
-                                        "loaders": loaders_key.split('+').collect::<Vec<_>>(),
-                                        "game_versions": [game_version],
-                                        "version_types": version_types
-                                    })),
-                                    Some("/v2/version_files/update_many"),
-                                    fetch_semaphore,
-                                    pool,
-                                )
-                                .await?;
-
-                                for (hash, versions) in variation {
-                                    found_versions.insert(hash, versions);
-                                }
-
-                                remaining_hashes = hashes
-                                    .iter()
-                                    .filter(|hash| {
-                                        !found_versions
-                                            .contains_key(hash.as_str())
-                                    })
-                                    .cloned()
-                                    .collect();
-                            }
-
-                            Ok::<HashMap<String, Vec<Version>>, crate::Error>(
-                                found_versions,
-                            )
-                        },
-                    ))
-                    .await?;
-
-                for (index, mut variation) in variations.into_iter().enumerate()
-                {
-                    let (
-                        (loaders_key, channel_policy_key, game_version),
-                        hashes,
-                    ) = &filtered_keys[index];
-                    for hash in hashes {
-                        let versions = variation.remove(hash);
-
-                        if let Some(versions) = versions {
-                            let mut emitted_update = false;
-
-                            for version in versions {
-                                let version_id = version.id.clone();
-                                let installed_file_present =
-                                    version.files.iter().any(|file| {
-                                        file.hashes.get("sha1").is_some_and(
-                                            |sha1| sha1 == hash.as_str(),
-                                        )
-                                    });
-
-                                vals.push((
-                                    CacheValue::Version(version).get_entry(),
-                                    false,
-                                ));
-
-                                if installed_file_present {
-                                    continue;
-                                }
-
-                                emitted_update = true;
-                                vals.push((
-                                    CacheValue::FileUpdate(CachedFileUpdate {
-                                        hash: hash.clone(),
-                                        game_version: game_version.clone(),
-                                        loaders: loaders_key
-                                            .split('+')
-                                            .map(|x| x.to_string())
-                                            .collect(),
-                                        channel_policy: channel_policy_key
-                                            .to_string(),
-                                        update_version_id: version_id,
-                                    })
-                                    .get_entry(),
-                                    true,
-                                ));
-                            }
-
-                            if !emitted_update {
-                                vals.push((
-                                    CacheValueType::FileUpdate
-                                        .get_empty_entry(format!(
-                                            "{hash}-{loaders_key}-{channel_policy_key}-{game_version}"
-                                        )),
-                                    true,
-                                ));
-                            }
-                        } else {
-                            vals.push((
-                                CacheValueType::FileUpdate.get_empty_entry(
-                                    format!(
-                                        "{hash}-{loaders_key}-{channel_policy_key}-{game_version}"
-                                    ),
-                                ),
-                                true,
-                            ))
-                        };
-                    }
-                }
-
-                vals
-            }
-            CacheValueType::SearchResults => {
-                let fetch_urls = keys
-                    .iter()
-                    .map(|x| {
-                        (
-                            x.key().to_string(),
-                            format!(
-                                "{}search{}",
-                                env!("MODRINTH_API_URL"),
-                                x.key()
-                            ),
-                        )
-                    })
-                    .collect::<Vec<_>>();
-
-                futures::future::try_join_all(fetch_urls.iter().map(
-                    |(_, url)| {
-                        fetch_json(
-                            Method::GET,
-                            url,
-                            None,
-                            None,
-                            Some("/v2/search"),
-                            fetch_semaphore,
-                            pool,
-                        )
-                    },
-                ))
-                .await?
-                .into_iter()
-                .enumerate()
-                .map(|(index, result)| {
-                    (
-                        CacheValue::SearchResults(SearchResults {
-                            search: fetch_urls[index].0.to_string(),
-                            result,
-                        })
-                        .get_entry(),
-                        true,
-                    )
-                })
-                .collect()
-            }
             CacheValueType::ModpackFiles => {
                 // ModpackFiles are only stored locally during modpack installation,
                 // not fetched from an external API
                 vec![]
-            }
-            CacheValueType::ProjectVersions => {
-                let mut values = vec![];
-
-                for key in keys {
-                    let project_id = key.to_string();
-                    let url = format!(
-                        "{}project/{}/version?include_changelog=false",
-                        env!("MODRINTH_API_URL"),
-                        project_id
-                    );
-
-                    match fetch_json::<Vec<Version>>(
-                        Method::GET,
-                        &url,
-                        None,
-                        None,
-                        Some("/v2/project/:id/version"),
-                        fetch_semaphore,
-                        pool,
-                    )
-                    .await
-                    {
-                        Ok(versions) => {
-                            values.push((
-                                CacheValue::ProjectVersions(
-                                    CachedProjectVersions {
-                                        project_id,
-                                        versions,
-                                    },
-                                )
-                                .get_entry(),
-                                true,
-                            ));
-                        }
-                        Err(e) => {
-                            tracing::warn!(
-                                "Failed to fetch versions for project {}: {:?}",
-                                project_id,
-                                e
-                            );
-                        }
-                    }
-                }
-
-                values
-            }
-            CacheValueType::SearchResultsV3 => {
-                let fetch_urls = keys
-                    .iter()
-                    .map(|x| {
-                        (
-                            x.key().to_string(),
-                            format!(
-                                "{}search{}",
-                                env!("MODRINTH_API_URL_V3"),
-                                x.key()
-                            ),
-                        )
-                    })
-                    .collect::<Vec<_>>();
-
-                futures::future::try_join_all(fetch_urls.iter().map(
-                    |(_, url)| {
-                        fetch_json(
-                            Method::GET,
-                            url,
-                            None,
-                            None,
-                            Some("/v3/search"),
-                            fetch_semaphore,
-                            pool,
-                        )
-                    },
-                ))
-                .await?
-                .into_iter()
-                .enumerate()
-                .map(|(index, result)| {
-                    (
-                        CacheValue::SearchResultsV3(SearchResultsV3 {
-                            search: fetch_urls[index].0.to_string(),
-                            result,
-                        })
-                        .get_entry(),
-                        true,
-                    )
-                })
-                .collect()
             }
         })
     }
@@ -3406,16 +2894,27 @@ impl CachedEntry {
         Ok(())
     }
 
-    /// Store modpack file hashes in cache
     pub async fn cache_modpack_files(
         version_id: &str,
         file_hashes: Vec<String>,
         project_ids: Vec<String>,
-        pool: &SqlitePool,
+        _pool: &SqlitePool,
     ) -> crate::Result<()> {
-        let entry =
-            Self::modpack_files_entry(version_id, file_hashes, project_ids);
-        Self::upsert_many(&[entry], pool).await
+        let state = crate::State::get().await?;
+        let service = state
+            .resources()
+            .await
+            .map_err(crate::resources::protocol::error)?;
+        crate::resources::packs::save_index(
+            service.cache(),
+            &CachedModpackFiles {
+                version_id: version_id.into(),
+                file_hashes,
+                project_ids,
+            },
+        )
+        .await
+        .map_err(crate::resources::protocol::error)
     }
 
     pub(crate) async fn cache_modpack_files_best_effort(
@@ -3424,62 +2923,50 @@ impl CachedEntry {
         project_ids: Vec<String>,
         pool: &SqlitePool,
     ) {
-        let entry =
-            Self::modpack_files_entry(version_id, file_hashes, project_ids);
-        Self::persist_fetched_cache_best_effort(
-            CacheValueType::ModpackFiles,
-            &[entry],
-            pool,
-            CacheRefreshSource::Foreground,
-        )
-        .await;
-    }
-
-    fn modpack_files_entry(
-        version_id: &str,
-        file_hashes: Vec<String>,
-        project_ids: Vec<String>,
-    ) -> CachedEntry {
-        let data = CachedModpackFiles {
-            version_id: version_id.to_string(),
+        if let Err(error) = Self::cache_modpack_files(
+            version_id,
             file_hashes,
             project_ids,
-        };
-
-        CachedEntry {
-            id: version_id.to_string(),
-            alias: None,
-            expires: Utc::now().timestamp()
-                + CacheValueType::ModpackFiles.expiry(),
-            type_: CacheValueType::ModpackFiles,
-            data: Some(CacheValue::ModpackFiles(data)),
+            pool,
+        )
+        .await
+        {
+            tracing::warn!(%error, "Pack index cache write failed");
         }
     }
 
-    /// Get modpack file hashes from cache
     pub async fn get_modpack_files(
         version_id: &str,
         pool: &SqlitePool,
-        fetch_semaphore: &FetchSemaphore,
+        _fetch_semaphore: &FetchSemaphore,
     ) -> crate::Result<Option<CachedModpackFiles>> {
-        let entry = Self::get(
-            CacheValueType::ModpackFiles,
-            version_id,
-            None,
-            pool,
-            fetch_semaphore,
-        )
-        .await?;
-
-        if let Some(CachedEntry {
-            data: Some(CacheValue::ModpackFiles(files)),
-            ..
-        }) = entry
+        let state = crate::State::get().await?;
+        let service = state
+            .resources()
+            .await
+            .map_err(crate::resources::protocol::error)?;
+        if let Some(index) =
+            crate::resources::packs::index(service.cache(), version_id).await
         {
-            return Ok(Some(files));
+            return Ok(Some(index));
         }
-
-        Ok(None)
+        if service.cache().generation().await > 0 {
+            return Ok(None);
+        }
+        let data: Option<String> = sqlx::query_scalar("SELECT data FROM cache WHERE id = ? AND data_type = 'modpack_files' AND length(CAST(data AS BLOB)) <= 1048576").bind(version_id).fetch_optional(pool).await?;
+        let index = data
+            .and_then(|data| {
+                serde_json::from_str::<CachedModpackFiles>(&data).ok()
+            })
+            .filter(|index| {
+                index.version_id == version_id
+                    && crate::resources::packs::valid_index(index)
+            });
+        if let Some(index) = &index {
+            let _ = crate::resources::packs::save_index(service.cache(), index)
+                .await;
+        }
+        Ok(index)
     }
 
     /// Get versions for a project (without changelogs for fast loading)
@@ -3578,8 +3065,8 @@ pub async fn cache_file_hash_metadata(
 #[cfg(test)]
 mod game_version_cache_tests {
     use super::{
-        CacheBehaviour, CacheValue, CacheValueType, CachedEntry,
-        CachedProjectVersions, GameVersion,
+        CacheBehaviour, CacheValue, CachedEntry, CachedProjectVersions,
+        GameVersion,
     };
     use crate::util::fetch::FetchSemaphore;
     use sqlx::sqlite::SqlitePoolOptions;
@@ -3637,39 +3124,6 @@ mod game_version_cache_tests {
         .execute(pool)
         .await
         .unwrap();
-    }
-
-    #[tokio::test]
-    async fn corrupt_curseforge_project_cache_is_typed_for_repair() {
-        let pool = SqlitePoolOptions::new()
-            .max_connections(1)
-            .connect("sqlite::memory:")
-            .await
-            .unwrap();
-        create_cache_table(&pool).await;
-        let semaphore = FetchSemaphore(Semaphore::new(1));
-        sqlx::query(
-            "INSERT INTO cache (id, data_type, alias, data, expires)
-             VALUES ('123', 'curseforge_project', NULL, '{\"invalid\":true}', 4102444800)",
-        )
-        .execute(&pool)
-        .await
-        .unwrap();
-
-        let error = CachedEntry::get_many(
-            CacheValueType::CurseForgeProject,
-            &["123"],
-            Some(CacheBehaviour::CacheOnly),
-            &pool,
-            &semaphore,
-        )
-        .await
-        .unwrap_err();
-        assert!(matches!(
-            error.raw.as_ref(),
-            crate::ErrorKind::CacheReadError { cache_type, .. }
-                if cache_type == "curseforge_project"
-        ));
     }
 
     #[tokio::test]

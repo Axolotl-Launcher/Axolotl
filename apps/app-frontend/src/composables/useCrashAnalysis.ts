@@ -70,6 +70,7 @@ interface CrashAnalysisState {
     analysis: Ref<CrashAnalysisResult | null>
     loading: Ref<boolean>
     error: Ref<unknown>
+    generation: number
     pending?: Promise<CrashAnalysisResult | null>
 }
 
@@ -79,6 +80,7 @@ function getState(instanceId: string): CrashAnalysisState {
     let state = states.get(instanceId)
     if (!state) {
         state = {
+            generation: 0,
             analysis: ref(null),
             loading: ref(false),
             error: ref(null),
@@ -93,18 +95,22 @@ export async function refreshCrashAnalysis(
 ): Promise<CrashAnalysisResult | null> {
     const state = getState(instanceId)
     if (state.pending) return state.pending
+    const generation = state.generation
     state.loading.value = true
     state.error.value = null
     state.pending = analyze_crash(instanceId)
         .then((analysis: CrashAnalysisResult) => {
+            if (generation !== state.generation) return null
             state.analysis.value = analysis
             return analysis
         })
         .catch((error) => {
+            if (generation !== state.generation) return null
             state.error.value = error
             throw error
         })
         .finally(() => {
+            if (generation !== state.generation) return
             state.loading.value = false
             state.pending = undefined
         })
@@ -113,6 +119,9 @@ export async function refreshCrashAnalysis(
 
 export function clearCrashAnalysis(instanceId: string): void {
     const state = getState(instanceId)
+    state.generation += 1
+    state.pending = undefined
+    state.loading.value = false
     state.analysis.value = null
     state.error.value = null
 }

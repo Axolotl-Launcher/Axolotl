@@ -1,4 +1,7 @@
 {
+  "content.page-layout.dependency-disable-failed": {
+    "defaultMessage": "无法禁用依赖这些内容的项目。请重试以完成删除。"
+  },
   "action.no-permission": {
     "defaultMessage": "你没有权限。"
   },
@@ -935,26 +938,8 @@
   "content.metadata-filter.select-all": {
     "defaultMessage": "全选"
   },
-  "content.metadata-filter.source": {
-    "defaultMessage": "来源"
-  },
   "content.metadata-filter.source.curseforge": {
     "defaultMessage": "CurseForge"
-  },
-  "content.metadata-filter.source.imported-modpack": {
-    "defaultMessage": "导入整合包"
-  },
-  "content.metadata-filter.source.local": {
-    "defaultMessage": "本地"
-  },
-  "content.metadata-filter.source.modrinth-modpack": {
-    "defaultMessage": "Modrinth 整合包"
-  },
-  "content.metadata-filter.source.server-project": {
-    "defaultMessage": "服务器项目"
-  },
-  "content.metadata-filter.source.shared-instance": {
-    "defaultMessage": "共享实例"
   },
   "content.metadata-filter.toggle": {
     "defaultMessage": "筛选"
@@ -3215,6 +3200,9 @@
   "project.versions.table.version": {
     "defaultMessage": "版本"
   },
+  "project.versions.no-matching-versions": {
+    "defaultMessage": "没有符合所选筛选条件的版本。"
+  },
   "project.versions.version.withheld": {
     "defaultMessage": "保留"
   },
@@ -4753,5 +4741,92 @@
   },
   "image-viewer.previous": {
     "message": "上一张图片"
+  },
+  "files.layout.no-matches": {
+    "defaultMessage": "此视图中没有匹配的文件"
+  },
+  "files.select-view": {
+    "defaultMessage": "选择此视图中的全部文件"
+  },
+  "browse.sort.first-release": {
+    "defaultMessage": "首次发布时间"
+  },
+  "browse.sort.latest-release": {
+    "defaultMessage": "最近发布时间"
+  },
+  "browse.sort.project-created": {
+    "defaultMessage": "项目创建时间"
+  },
+  "browse.sort.project-modified": {
+    "defaultMessage": "项目修改时间"
+  },
+  "content.metadata-filter.installed-source": {
+    "defaultMessage": "安装来源平台"
+  },
+  "content.metadata-filter.ownership": {
+    "defaultMessage": "内容归属"
+  },
+  "content.metadata-filter.ownership.local-discovered": {
+    "defaultMessage": "本地发现"
+  },
+  "content.metadata-filter.ownership.pack-managed": {
+    "defaultMessage": "整合包管理"
+  },
+  "content.metadata-filter.ownership.user-added": {
+    "defaultMessage": "用户添加"
+  },
+  "content.metadata-filter.source.mcarchive": {
+    "defaultMessage": "MCArchive"
+  },
+  "content.metadata-filter.source.modrinth": {
+    "defaultMessage": "Modrinth"
+  },
+  "content.metadata-filter.source.planet-minecraft": {
+    "defaultMessage": "Planet Minecraft"
+  },
+  "project-card.date.created.tooltip": {
+    "defaultMessage": "项目创建于 {date}"
+  },
+  "project-card.date.project-modified.tooltip": {
+    "defaultMessage": "项目修改于 {date}"
+  },
+  "project-card.date.release-updated.tooltip": {
+    "defaultMessage": "最近发布于 {date}"
+  },
+  "browse.sort.project-published": {
+    "defaultMessage": "项目首次公开时间"
+  },
+  "project-card.date.project-published.tooltip": {
+    "defaultMessage": "项目首次公开于 {date}"
+  },
+  "project-card.date.first-release.tooltip": {
+    "defaultMessage": "首次发布于 {date}"
+  },
+  "content.page-layout.duplicate-status": {
+    "defaultMessage": "{visible} 项匹配 · 全部副本：{updates} 项可更新 · {disabled} 项已禁用 · {missing} 项缺失 · {installing} 项处理中"
+  },
+  "content.page-layout.update-duplicate-group": {
+    "defaultMessage": "预览全部 {count, number} 个副本的更新"
+  },
+  "browse.search.failed": {
+    "message": "无法完成搜索，请检查网络或筛选条件后重试。"
+  },
+  "content.actions.update-all": {
+    "message": "全部更新"
+  },
+  "content.confirm-deletion.failed": {
+    "message": "无法删除所选内容，请重试。"
+  },
+  "content.dependency-warning.delete-failed": {
+    "message": "无法删除所选内容及其依赖，请重试。"
+  },
+  "content.page-layout.scroll-to-top": {
+    "message": "回到顶部"
+  },
+  "modal.confirm-action.failed": {
+    "message": "无法完成此操作，请重试。"
+  },
+  "version.uploaded-by": {
+    "message": "上传者"
   }
 }

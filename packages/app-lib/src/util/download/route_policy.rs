@@ -1,18 +1,20 @@
 //! Pure route classification helpers used by the download coordinator.
 
+use crate::util::download::constants::{
+    HTTPS_SCHEME, MODRINTH_API_HOST, ROUTE_POLICY_FABRICMC,
+    ROUTE_POLICY_LAUNCHERMETA_MOJANG_COM, ROUTE_POLICY_MAVEN_FABRICMC_NET,
+    ROUTE_POLICY_MAVEN_MINECRAFTFORGE_NET, ROUTE_POLICY_MAVEN_NEOFORGED_NET,
+    ROUTE_POLICY_MINECRAFTFORGE, ROUTE_POLICY_NEOFORGED,
+    ROUTE_POLICY_PISTON_META_MOJANG_COM, ROUTE_POLICY_VERSION_MANIFEST,
+};
 use crate::util::fetch::ResourceClass;
 use url::Url;
 
 pub(crate) fn is_official_modrinth_download_url(url: &str) -> bool {
     Url::parse(url).is_ok_and(|url| {
-        matches!(
-            url.host_str(),
-            Some(
-                "api.modrinth.com"
-                    | "cdn.modrinth.com"
-                    | "cdn-alt.modrinth.com"
-            )
-        )
+        super::modrinth_cdn::is_current_url(&url)
+            || (url.scheme() == HTTPS_SCHEME
+                && url.host_str() == Some(MODRINTH_API_HOST))
     })
 }
 
@@ -20,8 +22,11 @@ pub(crate) fn is_official_version_manifest_url(url: &str) -> bool {
     Url::parse(url).is_ok_and(|url| {
         matches!(
             url.host_str(),
-            Some("piston-meta.mojang.com" | "launchermeta.mojang.com")
-        ) && url.path().contains("version_manifest")
+            Some(
+                ROUTE_POLICY_PISTON_META_MOJANG_COM
+                    | ROUTE_POLICY_LAUNCHERMETA_MOJANG_COM
+            )
+        ) && url.path().contains(ROUTE_POLICY_VERSION_MANIFEST)
     })
 }
 
@@ -43,15 +48,19 @@ pub(crate) fn uses_mirror_first_loader_routes(
     if matches!(
         url.host_str(),
         Some(
-            "maven.minecraftforge.net"
-                | "maven.fabricmc.net"
-                | "maven.neoforged.net"
+            ROUTE_POLICY_MAVEN_MINECRAFTFORGE_NET
+                | ROUTE_POLICY_MAVEN_FABRICMC_NET
+                | ROUTE_POLICY_MAVEN_NEOFORGED_NET
         )
     ) {
         return true;
     }
     let path = url.path().to_ascii_lowercase();
-    ["minecraftforge", "fabricmc", "neoforged"]
-        .iter()
-        .any(|loader| path.contains(loader))
+    [
+        ROUTE_POLICY_MINECRAFTFORGE,
+        ROUTE_POLICY_FABRICMC,
+        ROUTE_POLICY_NEOFORGED,
+    ]
+    .iter()
+    .any(|loader| path.contains(loader))
 }

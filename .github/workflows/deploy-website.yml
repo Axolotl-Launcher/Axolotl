@@ -1,0 +1,75 @@
+name: Deploy website to Netlify
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: Build and deploy website
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    concurrency:
+      group: website-production
+      cancel-in-progress: false
+    steps:
+      - name: Check Netlify deployment credentials
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
+        run: |
+          if [[ -z "$NETLIFY_AUTH_TOKEN" || -z "$NETLIFY_SITE_ID" ]]; then
+            echo '::error::Configure NETLIFY_AUTH_TOKEN and NETLIFY_SITE_ID repository secrets. See apps/website/README.md.'
+            exit 1
+          fi
+      - name: Check out current production source
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: main
+          persist-credentials: false
+      - uses: pnpm/action-setup@008330803749db0355799c700092d9a85fd074e9 # v6.0.9
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - name: Install website dependencies
+        run: pnpm install --frozen-lockfile --filter @axolotl/website...
+      - name: Generate static website on GitHub
+        run: pnpm --filter @axolotl/website build
+      - name: Verify prerendered website
+        run: |
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict'
+          import fs from 'node:fs'
+          assert(fs.existsSync('apps/website/.output/public/index.html'), 'Missing website homepage')
+          const catalog = JSON.parse(fs.readFileSync('apps/website/releases/catalog.json', 'utf8'))
+          assert(catalog.announcements.length > 0, 'Empty release catalog')
+          const html = fs.readFileSync('apps/website/.output/public/changelog/index.html', 'utf8')
+          for (const entry of catalog.announcements) {
+            assert(html.includes(entry.version), `Release ${entry.version} was not prerendered`)
+          }
+          NODE
+      - name: Save static website artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: website-static-manual
+          path: apps/website/.output/public/
+          retention-days: 7
+          if-no-files-found: error
+      - name: Deploy prebuilt website and functions to Netlify
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
+        run: |
+          pnpm --package=netlify-cli@27.13.0 dlx netlify deploy \
+            --prod \
+            --no-build \
+            --filter @axolotl/website \
+            --dir "$PWD/apps/website/.output/public" \
+            --functions "$PWD/netlify/functions" \
+            --site "$NETLIFY_SITE_ID" \
+            --message "Manual website deploy (GitHub Actions ${GITHUB_RUN_ID})" \
+            --timeout 600

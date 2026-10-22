@@ -5,16 +5,17 @@ import WindowsIcon from '@modrinth/assets/external/windows.svg?component'
 import ArrowDownIcon from '@modrinth/assets/icons/arrow-down.svg?component'
 import BoxesIcon from '@modrinth/assets/icons/boxes.svg?component'
 import DownloadIcon from '@modrinth/assets/icons/download.svg?component'
+import FlaskConicalIcon from '@modrinth/assets/icons/flask-conical.svg?component'
 import GaugeIcon from '@modrinth/assets/icons/gauge.svg?component'
 import GitGraphIcon from '@modrinth/assets/icons/git-graph.svg?component'
 import IssuesIcon from '@modrinth/assets/icons/issues.svg?component'
 import SearchIcon from '@modrinth/assets/icons/search.svg?component'
 import TrashIcon from '@modrinth/assets/icons/trash.svg?component'
-import { Combobox, type ComboboxOption } from '@modrinth/ui'
 import Accordion from '@modrinth/ui/src/components/base/Accordion.vue'
 import Avatar from '@modrinth/ui/src/components/base/Avatar.vue'
 import Button from '@modrinth/ui/src/components/base/buttons/Button.vue'
 import Checkbox from '@modrinth/ui/src/components/base/Checkbox.vue'
+import Combobox, { type ComboboxOption } from '@modrinth/ui/src/components/base/Combobox.vue'
 import IntlFormatted from '@modrinth/ui/src/components/base/IntlFormatted.vue'
 import { defineMessages, useVIntl } from '@modrinth/ui/src/composables/i18n.ts'
 
@@ -26,6 +27,12 @@ import MultiplayerIcon from '~/components/landing/MultiplayerIcon.vue'
 import OfflineModeIcon from '~/components/landing/OfflineModeIcon.vue'
 import ProjectsShowcase from '~/components/landing/ProjectsShowcase.vue'
 import WindowsLogo from '~/components/landing/WindowsLogo.vue'
+import {
+    getDownloadAvailability,
+    getReleasePage,
+    type ReleaseChannel,
+    resolveLauncherDownloads,
+} from '~/utils/launcher-downloads'
 
 interface UpdateServerDownloadMetadata {
     version: string
@@ -33,7 +40,6 @@ interface UpdateServerDownloadMetadata {
 }
 
 type OSType = 'Mac' | 'Windows' | 'Linux' | null
-type ReleaseChannel = 'release' | 'beta'
 
 const downloadWindows = ref<HTMLAnchorElement | null>(null)
 const downloadMac = ref<HTMLAnchorElement | null>(null)
@@ -60,46 +66,28 @@ const resetHeroGlow = () => {
 
 const { resolvedSource } = useDownloadSource()
 const UPDATE_SERVER_BASE_URL = 'https://update.axlmc.org'
-const GITHUB_RELEASE_BASE_URL = 'https://github.com/Mystic-Stars/Axolotl/releases/download'
 const releaseChannel = ref<ReleaseChannel>('release')
 const releaseApi = computed(
     () => `${UPDATE_SERVER_BASE_URL}/api/downloads/latest?channel=${releaseChannel.value}`,
 )
 
-const windowsLink = ref<string | null>(null)
-
-const linuxLinks = reactive({
-    appImage: null as string | null,
-    deb: null as string | null,
-    rpm: null as string | null,
-})
-
-const macLinks = reactive({
-    universal: null as string | null,
-})
-
-const resetDownloadLinks = () => {
-    windowsLink.value = null
-    macLinks.universal = null
-    linuxLinks.appImage = null
-    linuxLinks.deb = null
-    linuxLinks.rpm = null
-}
-
 // 使用 Update Server 的下载目录作为默认发布数据源；GitHub 保留为手动备用源。
-const { data: launcherRelease, status: launcherReleaseStatus } =
-    await useFetch<UpdateServerDownloadMetadata>(releaseApi, {
-        // Download metadata is intentionally fetched in the browser. This keeps
-        // static generation independent from the update service's availability and
-        // lets every deployed page resolve the current release after loading.
-        server: false,
-        transform(data: UpdateServerDownloadMetadata) {
-            return {
-                tag_name: `v${data.version}`,
-                assets: data.downloads.map((download) => download.filename),
-            }
-        },
-    })
+const {
+    data: launcherRelease,
+    status: launcherReleaseStatus,
+    refresh: refreshLauncherRelease,
+} = await useFetch<UpdateServerDownloadMetadata>(releaseApi, {
+    // Download metadata is intentionally fetched in the browser. This keeps
+    // static generation independent from the update service's availability and
+    // lets every deployed page resolve the current release after loading.
+    server: false,
+    transform(data: UpdateServerDownloadMetadata) {
+        return {
+            tag_name: `v${data.version}`,
+            assets: data.downloads.map((download) => download.filename),
+        }
+    },
+})
 
 // 下载链接的三种状态：获取中 / 就绪 / 失败。失败时主 CTA 降级为跳转下载区，
 // 下载区显示错误提示与 GitHub Releases 手动下载入口，避免点击死链接。
@@ -109,10 +97,43 @@ const downloadState = computed<'loading' | 'ready' | 'error'>(() => {
     return 'loading'
 })
 
+const downloadLinks = computed(() =>
+    resolveLauncherDownloads(
+        launcherReleaseStatus.value === 'success' ? launcherRelease.value : null,
+        resolvedSource.value,
+    ),
+)
+const windowsLink = computed(() => downloadLinks.value.windows)
+const macLinks = computed(() => ({ universal: downloadLinks.value.mac }))
+const linuxLinks = computed(() => ({
+    appImage: downloadLinks.value.appImage,
+    deb: downloadLinks.value.deb,
+    rpm: downloadLinks.value.rpm,
+}))
+const releasePage = computed(() =>
+    getReleasePage(
+        releaseChannel.value,
+        launcherReleaseStatus.value === 'success' ? launcherRelease.value : null,
+    ),
+)
 const linkUnavailableLabel = computed(() =>
-    downloadState.value === 'error'
-        ? formatMessage(messages.downloadLinksFailed)
-        : formatMessage(messages.fetchingDownloadLinks),
+    formatMessage(
+        downloadState.value === 'error'
+            ? messages.downloadLinksFailed
+            : downloadState.value === 'ready'
+              ? messages.packageUnavailable
+              : messages.fetchingDownloadLinks,
+    ),
+)
+const heroDownloadState = computed(() =>
+    getDownloadAvailability(
+        launcherReleaseStatus.value,
+        os.value === 'Windows'
+            ? windowsLink.value
+            : os.value === 'Mac'
+              ? macLinks.value.universal
+              : linuxLinks.value.appImage,
+    ),
 )
 
 const latestVersion = computed(() => {
@@ -212,58 +233,18 @@ const removeMod = (index: number) => {
     checkedMods.value.splice(index, 1)
 }
 
-const downloadLauncher = computed(() => {
-    // 获取中：按钮禁用，不做任何事
-    if (downloadState.value === 'loading') return () => {}
-    // 获取失败：降级为跳转下载区（那里有错误提示和手动下载入口）
-    if (downloadState.value === 'error') return scrollToSection
-    if (os.value === 'Windows') {
-        return () => {
-            downloadWindows.value?.click()
-        }
-    } else if (os.value === 'Mac') {
-        return () => {
-            downloadMac.value?.click()
-        }
-    } else {
-        return () => {
-            scrollToSection()
-        }
-    }
-})
-
 const handleDownload = () => {
-    downloadLauncher.value()
+    if (heroDownloadState.value === 'loading') return
+    if (heroDownloadState.value !== 'ready' || os.value === 'Linux') {
+        scrollToSection()
+    } else if (os.value === 'Windows') {
+        downloadWindows.value?.click()
+    } else if (os.value === 'Mac') {
+        downloadMac.value?.click()
+    } else {
+        scrollToSection()
+    }
 }
-
-watch(
-    [launcherRelease, resolvedSource, launcherReleaseStatus],
-    ([release, source, status]) => {
-        resetDownloadLinks()
-        if (status !== 'success' || !release) return
-
-        const findAsset = (patterns: RegExp[]) => {
-            const assetName = release?.assets.find((name) =>
-                patterns.some((pattern) => pattern.test(name)),
-            )
-            if (!assetName) return null
-
-            if (source === 'update-server') {
-                const version = release.tag_name.replace(/^v/, '')
-                return `${UPDATE_SERVER_BASE_URL}/dist/${encodeURIComponent(version)}/${encodeURIComponent(assetName)}`
-            }
-
-            return `${GITHUB_RELEASE_BASE_URL}/${encodeURIComponent(release.tag_name)}/${encodeURIComponent(assetName)}`
-        }
-
-        windowsLink.value = findAsset([/x64-setup\.exe$/i, /\.exe$/i])
-        macLinks.universal = findAsset([/universal\.dmg$/i, /\.dmg$/i])
-        linuxLinks.appImage = findAsset([/(amd64|x86_64)\.AppImage$/i])
-        linuxLinks.deb = findAsset([/_amd64\.deb$/i, /(amd64|x86_64).*\.deb$/i])
-        linuxLinks.rpm = findAsset([/(x86_64|amd64).*\.rpm$/i])
-    },
-    { immediate: true },
-)
 
 const scrollToSection = () => {
     nextTick(() => {
@@ -279,6 +260,93 @@ const scrollToSection = () => {
 const { formatMessage, locale } = useVIntl()
 
 const messages = defineMessages({
+    packageUnavailable: {
+        id: 'axolotl-marketing.download.package-unavailable',
+        defaultMessage: 'No package is available for this version.',
+    },
+    viewDownloads: {
+        id: 'axolotl-marketing.download.view-options',
+        defaultMessage: 'View download options',
+    },
+    retryDownloads: { id: 'axolotl-marketing.download.retry', defaultMessage: 'Retry' },
+    recentEyebrow: {
+        id: 'axolotl-marketing.recent.eyebrow',
+        defaultMessage: 'Made for everyday play',
+    },
+    recentTitle: {
+        id: 'axolotl-marketing.recent.title',
+        defaultMessage: 'Make room for the way you play',
+    },
+    recentDescription: {
+        id: 'axolotl-marketing.recent.description',
+        defaultMessage:
+            'Find something new to play, spend less time downloading, and keep a backup to return to. Axolotl helps with the work around your Minecraft worlds.',
+    },
+    recentResourcesTitle: {
+        id: 'axolotl-marketing.recent.resources.title',
+        defaultMessage: 'Find your next favorite mod',
+    },
+    recentResourcesDescription: {
+        id: 'axolotl-marketing.recent.resources.description',
+        defaultMessage:
+            'Browse Modrinth, CurseForge, and other content sources in one place. See what a mod needs before installing, choose the version you want, and export a modpack when you are ready to share.',
+    },
+    recentDownloadsTitle: {
+        id: 'axolotl-marketing.recent.downloads.title',
+        defaultMessage: 'Spend less time on downloads',
+    },
+    recentDownloadsDescription: {
+        id: 'axolotl-marketing.recent.downloads.description',
+        defaultMessage:
+            'Faster downloads, alternative sources, and DoH support help you get ready to play with less waiting. Check task progress from the top bar and revisit completed downloads in your history.',
+    },
+    recentBackupsTitle: {
+        id: 'axolotl-marketing.recent.backups.title',
+        defaultMessage: 'Keep a backup to return to',
+    },
+    recentBackupsDescription: {
+        id: 'axolotl-marketing.recent.backups.description',
+        defaultMessage:
+            'Back up an instance before changing its mods or settings. When you need to restore it, preview which files will change first.',
+    },
+    recentStorageTitle: {
+        id: 'axolotl-marketing.recent.storage.title',
+        defaultMessage: 'Know what takes up space',
+    },
+    recentStorageDescription: {
+        id: 'axolotl-marketing.recent.storage.description',
+        defaultMessage:
+            'See how much space your games, backups, and caches use. Remove download caches and unused resource information while keeping installed games, saves, and backups.',
+    },
+    recentLabTitle: {
+        id: 'axolotl-marketing.recent.lab.title',
+        defaultMessage: 'Useful tools, right inside the launcher',
+    },
+    recentLabDescription: {
+        id: 'axolotl-marketing.recent.lab.description',
+        defaultMessage:
+            'Edit skins, create gradient text, explore Java Edition seeds, and preview schematics without leaving Axolotl.',
+    },
+    recentDownloadsScreenshotAlt: {
+        id: 'axolotl-marketing.recent.downloads.alt',
+        defaultMessage:
+            'Axolotl Launcher showing an active download, task progress, and the download status panel.',
+    },
+    recentBackupsScreenshotAlt: {
+        id: 'axolotl-marketing.recent.backups.alt',
+        defaultMessage:
+            'Axolotl Launcher instance backup settings showing a saved snapshot and restore action.',
+    },
+    recentStorageScreenshotAlt: {
+        id: 'axolotl-marketing.recent.storage.alt',
+        defaultMessage:
+            'Axolotl Launcher storage analysis showing disk usage by instances, caches, shared files, and backups.',
+    },
+    recentLabScreenshotAlt: {
+        id: 'axolotl-marketing.recent.lab.alt',
+        defaultMessage:
+            'Axolotl Launcher Lab showing the skin editor, gradient text generator, seed map, and schematic workshop.',
+    },
     openSourceBadge: {
         id: 'axolotl-marketing.hero.open-source',
         defaultMessage: 'Tauri v2 - Rust - Vue 3',
@@ -306,7 +374,7 @@ const messages = defineMessages({
     description: {
         id: 'app-marketing.hero.description',
         defaultMessage:
-            'Axolotl Launcher is a free, open-source, ad-free, cross-platform Minecraft Java Edition launcher for searching, installing, and updating mods, modpacks, resource packs, and shaders from Modrinth and CurseForge, with Axolotl Labs built in.',
+            'Axolotl Launcher is a free, open-source, ad-free Minecraft Java Edition launcher for Windows, macOS, and Linux. Find mods and modpacks from Modrinth and CurseForge, bring your existing game folders, and keep downloads, updates, and backups in one place.',
     },
     heroScreenshotAlt: {
         id: 'axolotl-marketing.hero.screenshot-alt',
@@ -314,7 +382,7 @@ const messages = defineMessages({
     },
     builtOnModrinth: {
         id: 'axolotl-marketing.highlights.eyebrow',
-        defaultMessage: 'One launcher, two sources',
+        defaultMessage: 'Everything for your next world',
     },
     highlightsTitle: {
         id: 'axolotl-marketing.highlights.title',
@@ -327,7 +395,7 @@ const messages = defineMessages({
     highlightsDescription: {
         id: 'axolotl-marketing.highlights.description',
         defaultMessage:
-            'Search Modrinth and CurseForge, then inspect projects, choose versions, install content, resolve dependencies, and keep it updated from the launcher.',
+            'Find a mod, choose a modpack, or return to a familiar world. Discover content from Modrinth and CurseForge, then let Axolotl handle installation, dependencies, and updates.',
     },
     adFree: {
         id: 'axolotl-marketing.highlights.ad-free.title',
@@ -346,6 +414,33 @@ const messages = defineMessages({
         id: 'axolotl-marketing.highlights.localized.description',
         defaultMessage:
             'Install and manage modpacks alongside individual projects. Some CurseForge files have distribution limits and may require a manual download.',
+    },
+    dohSupport: {
+        id: 'axolotl-marketing.improvements.doh.title',
+        defaultMessage: 'Another way to connect',
+    },
+    dohSupportDescription: {
+        id: 'axolotl-marketing.improvements.doh.description',
+        defaultMessage:
+            'DoH is enabled by default to resolve download domains for faster, smoother downloads. You can turn it off in resource settings to use your system DNS instead.',
+    },
+    mirrorSupport: {
+        id: 'axolotl-marketing.improvements.mirrors.title',
+        defaultMessage: 'Choose the best download route',
+    },
+    mirrorSupportDescription: {
+        id: 'axolotl-marketing.improvements.mirrors.description',
+        defaultMessage:
+            'If downloads are unreliable, switch between available mirrors and official sources for game resources and mods.',
+    },
+    minecraftSupport: {
+        id: 'axolotl-marketing.improvements.minecraft.title',
+        defaultMessage: 'Your games, right where they are',
+    },
+    minecraftSupportDescription: {
+        id: 'axolotl-marketing.improvements.minecraft.description',
+        defaultMessage:
+            'Add your existing .minecraft folders and manage their game versions in Axolotl. Keep multiple game folders without copying everything into a new location.',
     },
     offlineAccounts: {
         id: 'axolotl-marketing.showcase.offline.title',
@@ -475,21 +570,21 @@ const messages = defineMessages({
     },
     performant: {
         id: 'app-marketing.features.performance.title',
-        defaultMessage: 'Performant',
+        defaultMessage: 'Less time waiting to play',
     },
     performantDescription: {
         id: 'app-marketing.features.performance.description',
         defaultMessage:
-            'Axolotl stays out of your way with a responsive interface and a lightweight desktop core.',
+            'Download game files and modpacks more efficiently, with a lightweight launcher that stays responsive while you get ready to play.',
     },
     profileImporting: {
         id: 'app-marketing.features.importing.title',
-        defaultMessage: 'Profile importing',
+        defaultMessage: 'Bring your games along',
     },
     profileImportingDescription: {
         id: 'app-marketing.features.importing.description',
         defaultMessage:
-            'Import your existing profiles from PCL2, HMCL, or any launcher you like with one click, and keep playing without rebuilding everything by hand.',
+            'Bring instances from supported launchers into Axolotl and keep playing. When you want a new Minecraft version, review mod compatibility and choose to upgrade the current instance or a copy.',
     },
     offlineMode: {
         id: 'app-marketing.features.offline.title',
@@ -498,7 +593,7 @@ const messages = defineMessages({
     offlineModeDescription: {
         id: 'app-marketing.features.offline.description',
         defaultMessage:
-            'Chinese search and project translation, drag-and-drop import, Java management, offline mode, and skin management are ready when you need them.',
+            'Localized content search and project translations, drag-and-drop import, Java management, offline mode, and skin management are ready when you need them.',
     },
     followProjects: {
         id: 'app-marketing.features.follow.title',
@@ -506,7 +601,8 @@ const messages = defineMessages({
     },
     followProjectsDescription: {
         id: 'app-marketing.features.follow.description',
-        defaultMessage: 'Terracotta-powered multiplayer networking, jump in with a single click.',
+        defaultMessage:
+            'Powered by Terracotta and RedStone Online, launcher-integrated multiplayer is only one click away.',
     },
     downloadOptions: {
         id: 'app-marketing.download.options-title',
@@ -573,13 +669,12 @@ const messages = defineMessages({
     },
     seoTitle: {
         id: 'axolotl-site.seo.title',
-        defaultMessage:
-            'Axolotl Launcher - Free Open-Source Modrinth plus Curseforge Minecraft Launcher',
+        defaultMessage: 'Axolotl Launcher - Free, Open-Source Minecraft Java Launcher',
     },
     seoDescription: {
         id: 'axolotl-site.seo.description',
         defaultMessage:
-            'Download Axolotl Launcher, a free, open-source Tauri v2 Minecraft launcher for Windows, macOS, and Linux with Modrinth and CurseForge content management, themes, accounts, and more.',
+            'Download Axolotl Launcher for Windows, macOS, and Linux. Manage Minecraft mods and modpacks, choose alternative download sources, reuse existing game folders, and back up instances.',
     },
     socialImageAlt: {
         id: 'axolotl-site.seo.social-image-alt',
@@ -595,7 +690,8 @@ const messages = defineMessages({
     },
     faqDescription: {
         id: 'axolotl-site.faq.description',
-        defaultMessage: 'Learn about supported platforms, accounts, content, and downloads.',
+        defaultMessage:
+            'Answers about installing, moving your games, downloading content, and keeping backups.',
     },
     faqPlatformsQuestion: {
         id: 'axolotl-site.faq.platforms.question',
@@ -622,39 +718,89 @@ const messages = defineMessages({
     faqAccountsAnswer: {
         id: 'axolotl-site.faq.accounts.answer',
         defaultMessage:
-            'Yes. Axolotl supports Microsoft Minecraft accounts, local offline accounts, and third-party Yggdrasil authentication, including LittleSkin presets and custom servers.',
+            'Yes. Axolotl supports Microsoft Minecraft accounts, local offline accounts subject to launcher eligibility rules, and third-party Yggdrasil authentication, including LittleSkin presets and custom servers.',
     },
     faqContentQuestion: {
         id: 'axolotl-site.faq.content.question',
-        defaultMessage: 'Where does Axolotl get mods and other Minecraft content?',
+        defaultMessage: 'Where can I find mods and modpacks in Axolotl?',
     },
     faqContentAnswer: {
         id: 'axolotl-site.faq.content.answer',
         defaultMessage:
-            'Axolotl helps you search, inspect, choose versions for, install, update, and manage content from Modrinth and CurseForge. Files with CurseForge distribution restrictions may require a manual download.',
+            'Axolotl brings Modrinth and CurseForge mods, modpacks, resource packs, and shaders into the launcher. You can also browse content from MCArchive and Planet Minecraft. Available content and installation methods vary by source. Before installing, review required mods; afterward, manage updates and versions in the launcher. Some files may require manual download because of distribution restrictions.',
     },
-    faqDownloadQuestion: {
-        id: 'axolotl-site.faq.download.question',
-        defaultMessage: 'Where should I download Axolotl Launcher?',
+    faqNetworkQuestion: {
+        id: 'axolotl-site.faq.network.question',
+        defaultMessage: 'Can I use alternative download sources and DoH?',
     },
-    faqDownloadAnswer: {
-        id: 'axolotl-site.faq.download.answer',
+    faqNetworkAnswer: {
+        id: 'axolotl-site.faq.network.answer',
         defaultMessage:
-            'Use the download section on this official website. Automatic mode uses the Update Server, with GitHub available as a backup source.',
+            'Yes. For supported Minecraft resources and Modrinth or CurseForge downloads, resource settings let you choose automatic, mirror-preferred, or official sources. Available mirrors depend on your region. DNS over HTTPS (DoH) provides encrypted DNS resolution for download domains. These settings affect game resources; the download-source setting on this website selects the Axolotl installer source.',
+    },
+    faqMigrationQuestion: {
+        id: 'axolotl-site.faq.migration.question',
+        defaultMessage: 'Can I keep my existing .minecraft folder?',
+    },
+    faqMigrationAnswer: {
+        id: 'axolotl-site.faq.migration.answer',
+        defaultMessage:
+            'Yes. Axolotl can directly link an existing .minecraft folder, so you can keep your game files without downloading them again or changing your settings.',
+    },
+    faqBackupsQuestion: {
+        id: 'axolotl-site.faq.backups.question',
+        defaultMessage: 'How do instance backups work?',
+    },
+    faqBackupsAnswer: {
+        id: 'axolotl-site.faq.backups.answer',
+        defaultMessage:
+            'Yes. For supported local instances, Axolotl creates deduplicated snapshots with optional file and folder exclusions. Backup tasks run in the background, and a restore preview shows which files will change before you confirm. Directly linked instances and instances using external game directories do not currently support snapshot backups.',
+    },
+    faqStorageQuestion: {
+        id: 'axolotl-site.faq.storage.question',
+        defaultMessage: 'What can I clear without deleting my games?',
+    },
+    faqStorageAnswer: {
+        id: 'axolotl-site.faq.storage.answer',
+        defaultMessage:
+            'Storage analysis shows the space used by instances, backups, shared resources, caches, and external game directories. Review the cleanup choices to remove downloaded caches and unused metadata. Cache cleanup keeps installed games, saves, backups, and files required for offline use or recovery; some cleared resources may need downloading again.',
     },
     appScreenshotAlt: {
         id: 'app-marketing.hero.app-screenshot-alt',
         defaultMessage: `Axolotl Launcher instance content preview.`,
     },
+    structuredFeatureDownloads: {
+        id: 'axolotl-site.structured-data.feature.downloads',
+        defaultMessage:
+            'Concurrent downloads, alternative download sources, and DNS over HTTPS (DoH)',
+    },
+    structuredFeatureMigration: {
+        id: 'axolotl-site.structured-data.feature.migration',
+        defaultMessage:
+            'Supported launcher imports, direct .minecraft folder linking, and instance version upgrades',
+    },
+    structuredFeatureBackups: {
+        id: 'axolotl-site.structured-data.feature.backups',
+        defaultMessage: 'Snapshot backups with restore previews for supported local instances',
+    },
+    structuredFeatureStorage: {
+        id: 'axolotl-site.structured-data.feature.storage',
+        defaultMessage:
+            'Disk usage analysis and cache cleanup that preserves installed games, saves, and backups',
+    },
+    structuredFeatureExport: {
+        id: 'axolotl-site.structured-data.feature.export',
+        defaultMessage: 'Export modpacks as Modrinth MRPACK, CurseForge ZIP, or generic ZIP',
+    },
     structuredFeatureContentSources: {
         id: 'axolotl-site.structured-data.feature.content-sources',
         defaultMessage:
-            'Search, install, and update mods, modpacks, resource packs, and shaders from Modrinth and CurseForge',
+            'Discover Minecraft content from Modrinth, CurseForge, MCArchive, and Planet Minecraft; available content varies by source',
     },
     structuredFeatureLab: {
         id: 'axolotl-site.structured-data.feature.lab',
         defaultMessage:
-            'Axolotl Labs with gradient text generator, Java Edition seed map, and 3D schematic workshop',
+            'Axolotl Labs with gradient text generator, Java Edition seed map, 3D schematic workshop, recipe generator, and mod translation tools',
     },
     structuredFeatureInstances: {
         id: 'axolotl-site.structured-data.feature.instances',
@@ -662,7 +808,8 @@ const messages = defineMessages({
     },
     structuredFeatureAccounts: {
         id: 'axolotl-site.structured-data.feature.accounts',
-        defaultMessage: 'Microsoft, offline, LittleSkin, and custom Yggdrasil account support',
+        defaultMessage:
+            'Microsoft, eligible offline accounts, LittleSkin, and custom Yggdrasil account support',
     },
     faqLabQuestion: {
         id: 'axolotl-site.faq.lab.question',
@@ -671,7 +818,7 @@ const messages = defineMessages({
     faqLabAnswer: {
         id: 'axolotl-site.faq.lab.answer',
         defaultMessage:
-            'Axolotl Labs is a collection of built-in launcher tools, including a gradient text generator, Java Edition seed map, and 3D schematic workshop.',
+            'Axolotl Labs includes a gradient text generator, Java Edition seed map, 3D schematic workshop, recipe generator, and Minecraft mod translation tools.',
     },
     faqProjectDisclaimerQuestion: {
         id: 'axolotl-site.faq.project-disclaimer.question',
@@ -685,7 +832,7 @@ const messages = defineMessages({
     seoKeywords: {
         id: 'axolotl-site.seo.keywords',
         defaultMessage:
-            'Axolotl Launcher, Minecraft Launcher, Modrinth, CurseForge, Minecraft Java Edition, Axolotl Labs',
+            'Axolotl Launcher, Minecraft Launcher, Modrinth, CurseForge, MCArchive, Planet Minecraft, Minecraft Java Edition, DoH, alternative download sources, instance backup, storage analysis, .minecraft, Axolotl Labs',
     },
 })
 
@@ -712,6 +859,22 @@ const description = computed(() => formatMessage(messages.seoDescription))
 const socialImageAlt = computed(() => formatMessage(messages.socialImageAlt))
 const faqItems = computed(() => [
     {
+        question: formatMessage(messages.faqStorageQuestion),
+        answer: formatMessage(messages.faqStorageAnswer),
+    },
+    {
+        question: formatMessage(messages.faqBackupsQuestion),
+        answer: formatMessage(messages.faqBackupsAnswer),
+    },
+    {
+        question: formatMessage(messages.faqMigrationQuestion),
+        answer: formatMessage(messages.faqMigrationAnswer),
+    },
+    {
+        question: formatMessage(messages.faqNetworkQuestion),
+        answer: formatMessage(messages.faqNetworkAnswer),
+    },
+    {
         question: formatMessage(messages.faqPlatformsQuestion),
         answer: formatMessage(messages.faqPlatformsAnswer),
     },
@@ -726,10 +889,6 @@ const faqItems = computed(() => [
     {
         question: formatMessage(messages.faqContentQuestion),
         answer: formatMessage(messages.faqContentAnswer),
-    },
-    {
-        question: formatMessage(messages.faqDownloadQuestion),
-        answer: formatMessage(messages.faqDownloadAnswer),
     },
     {
         question: formatMessage(messages.faqLabQuestion),
@@ -787,9 +946,14 @@ const structuredData = computed(() => ({
             inLanguage: ['zh-CN', 'en-US'],
             featureList: [
                 formatMessage(messages.structuredFeatureContentSources),
-                formatMessage(messages.structuredFeatureLab),
+                formatMessage(messages.structuredFeatureDownloads),
+                formatMessage(messages.structuredFeatureMigration),
+                formatMessage(messages.structuredFeatureBackups),
+                formatMessage(messages.structuredFeatureStorage),
+                formatMessage(messages.structuredFeatureExport),
                 formatMessage(messages.structuredFeatureInstances),
                 formatMessage(messages.structuredFeatureAccounts),
+                formatMessage(messages.structuredFeatureLab),
             ],
         },
         {
@@ -882,15 +1046,17 @@ useHead(() => ({
                         color="brand"
                         size="xl"
                         class="hero-download-button"
-                        :disabled="downloadState === 'loading'"
+                        :disabled="heroDownloadState === 'loading'"
                         @click="handleDownload"
                         ><LinuxIcon v-if="os === 'Linux'" />
                         <WindowsIcon v-else-if="os === 'Windows'" />
                         <AppleIcon v-else-if="os === 'Mac'" />
                         {{
-                            downloadState === 'loading'
+                            heroDownloadState === 'loading'
                                 ? formatMessage(messages.fetchingDownloadLinks)
-                                : formatMessage(messages.downloadAxolotlButton)
+                                : heroDownloadState === 'ready'
+                                  ? formatMessage(messages.downloadAxolotlButton)
+                                  : formatMessage(messages.viewDownloads)
                         }}
                     </Button>
                     <Button type="outlined" size="xl" @click="scrollToSection"
@@ -955,6 +1121,32 @@ useHead(() => ({
                     <p>{{ formatMessage(messages.performantDescription) }}</p>
                 </article>
                 <article
+                    class="feature gradient-border promise-card col-span-2 min-h-[12.5rem] p-6"
+                    data-number="04"
+                >
+                    <div class="promise-meta"><SearchIcon aria-hidden="true" /><span>04</span></div>
+                    <h3>{{ formatMessage(messages.dohSupport) }}</h3>
+                    <p>{{ formatMessage(messages.dohSupportDescription) }}</p>
+                </article>
+                <article
+                    class="feature gradient-border promise-card col-span-2 min-h-[12.5rem] p-6"
+                    data-number="05"
+                >
+                    <div class="promise-meta">
+                        <DownloadIcon aria-hidden="true" /><span>05</span>
+                    </div>
+                    <h3>{{ formatMessage(messages.mirrorSupport) }}</h3>
+                    <p>{{ formatMessage(messages.mirrorSupportDescription) }}</p>
+                </article>
+                <article
+                    class="feature gradient-border promise-card col-span-2 min-h-[12.5rem] p-6"
+                    data-number="06"
+                >
+                    <div class="promise-meta"><BoxesIcon aria-hidden="true" /><span>06</span></div>
+                    <h3>{{ formatMessage(messages.minecraftSupport) }}</h3>
+                    <p>{{ formatMessage(messages.minecraftSupportDescription) }}</p>
+                </article>
+                <article
                     class="feature gradient-border showcase-card showcase-card-wide col-span-3 flex min-w-0 flex-col overflow-hidden p-0"
                 >
                     <div class="showcase-copy px-7 pb-6 pt-7">
@@ -985,8 +1177,8 @@ useHead(() => ({
                         class="block h-auto w-full"
                         src="/showcase/theme-accent.png"
                         :alt="formatMessage(messages.themesScreenshotAlt)"
-                        width="3104"
-                        height="1814"
+                        width="1280"
+                        height="743"
                         decoding="async"
                         loading="lazy"
                     />
@@ -1002,10 +1194,10 @@ useHead(() => ({
                     </div>
                     <img
                         class="block h-auto w-full"
-                        src="/showcase/axolotl-lab.png"
+                        src="/showcase/recent-lab.png"
                         :alt="formatMessage(messages.translationScreenshotAlt)"
                         width="3104"
-                        height="1814"
+                        height="1802"
                         decoding="async"
                         loading="lazy"
                     />
@@ -1094,6 +1286,100 @@ useHead(() => ({
                         {{ formatMessage(messages.followProjectsDescription) }}
                     </div>
                 </div>
+            </div>
+        </section>
+        <section
+            id="recent-improvements"
+            class="axolotl-highlights"
+            aria-labelledby="recent-improvements-title"
+        >
+            <div class="highlights-intro">
+                <span class="text-xs font-extrabold uppercase tracking-[0.1em] text-brand">{{
+                    formatMessage(messages.recentEyebrow)
+                }}</span>
+                <h2 id="recent-improvements-title">{{ formatMessage(messages.recentTitle) }}</h2>
+                <p>{{ formatMessage(messages.recentDescription) }}</p>
+            </div>
+            <div class="modrinth-feature-grid recent-feature-list">
+                <article
+                    class="feature gradient-border recent-feature-card recent-feature-card--text-only"
+                >
+                    <div class="recent-feature-copy">
+                        <div class="recent-feature-icon"><BoxesIcon aria-hidden="true" /></div>
+                        <h3>{{ formatMessage(messages.recentResourcesTitle) }}</h3>
+                        <p>{{ formatMessage(messages.recentResourcesDescription) }}</p>
+                    </div>
+                </article>
+                <article class="feature gradient-border recent-feature-card">
+                    <div class="recent-feature-copy">
+                        <div class="recent-feature-icon"><DownloadIcon aria-hidden="true" /></div>
+                        <h3>{{ formatMessage(messages.recentDownloadsTitle) }}</h3>
+                        <p>{{ formatMessage(messages.recentDownloadsDescription) }}</p>
+                    </div>
+                    <img
+                        class="recent-feature-media"
+                        src="/showcase/recent-downloads.png"
+                        :alt="formatMessage(messages.recentDownloadsScreenshotAlt)"
+                        width="1280"
+                        height="743"
+                        decoding="async"
+                        loading="lazy"
+                    />
+                </article>
+                <article
+                    class="feature gradient-border recent-feature-card recent-feature-card--reverse"
+                >
+                    <div class="recent-feature-copy">
+                        <div class="recent-feature-icon"><GitGraphIcon aria-hidden="true" /></div>
+                        <h3>{{ formatMessage(messages.recentBackupsTitle) }}</h3>
+                        <p>{{ formatMessage(messages.recentBackupsDescription) }}</p>
+                    </div>
+                    <img
+                        class="recent-feature-media"
+                        src="/showcase/recent-backups.png"
+                        :alt="formatMessage(messages.recentBackupsScreenshotAlt)"
+                        width="1280"
+                        height="743"
+                        decoding="async"
+                        loading="lazy"
+                    />
+                </article>
+                <article class="feature gradient-border recent-feature-card">
+                    <div class="recent-feature-copy">
+                        <div class="recent-feature-icon"><GaugeIcon aria-hidden="true" /></div>
+                        <h3>{{ formatMessage(messages.recentStorageTitle) }}</h3>
+                        <p>{{ formatMessage(messages.recentStorageDescription) }}</p>
+                    </div>
+                    <img
+                        class="recent-feature-media"
+                        src="/showcase/recent-storage.png"
+                        :alt="formatMessage(messages.recentStorageScreenshotAlt)"
+                        width="1280"
+                        height="743"
+                        decoding="async"
+                        loading="lazy"
+                    />
+                </article>
+                <article
+                    class="feature gradient-border recent-feature-card recent-feature-card--reverse"
+                >
+                    <div class="recent-feature-copy">
+                        <div class="recent-feature-icon">
+                            <FlaskConicalIcon aria-hidden="true" />
+                        </div>
+                        <h3>{{ formatMessage(messages.recentLabTitle) }}</h3>
+                        <p>{{ formatMessage(messages.recentLabDescription) }}</p>
+                    </div>
+                    <img
+                        class="recent-feature-media"
+                        src="/showcase/recent-lab.png"
+                        :alt="formatMessage(messages.recentLabScreenshotAlt)"
+                        width="3104"
+                        height="1802"
+                        decoding="async"
+                        loading="lazy"
+                    />
+                </article>
             </div>
         </section>
         <section id="faq" class="faq-section" aria-labelledby="faq-title">
@@ -1261,14 +1547,26 @@ useHead(() => ({
                     </div>
                 </div>
             </div>
-            <div v-if="downloadState === 'error'" class="download-error-banner" role="alert">
-                <span>{{ formatMessage(messages.downloadLinksFailed) }}</span>
+            <div
+                v-if="
+                    downloadState === 'error' ||
+                    (downloadState === 'ready' &&
+                        Object.values(downloadLinks).some((link) => !link))
+                "
+                class="download-error-banner"
+                role="status"
+            >
+                <span v-if="downloadState === 'error'">{{
+                    formatMessage(messages.downloadLinksFailed)
+                }}</span>
+                <Button
+                    v-if="downloadState === 'error'"
+                    type="outlined"
+                    @click="refreshLauncherRelease()"
+                    >{{ formatMessage(messages.retryDownloads) }}</Button
+                >
                 <span class="download-error-links">
-                    <a
-                        href="https://github.com/Mystic-Stars/Axolotl/releases/latest"
-                        target="_blank"
-                        rel="noopener"
-                    >
+                    <a :href="releasePage" target="_blank" rel="noopener">
                         {{ formatMessage(messages.manualDownloadFallback) }}
                     </a>
                 </span>
@@ -1296,7 +1594,7 @@ useHead(() => ({
                     <template #issues-link="{ children }">
                         <a
                             class="underline hover:brightness-[--hover-brightness]"
-                            href="https://github.com/Mystic-Stars/Axolotl/releases/latest"
+                            :href="releasePage"
                             target="_blank"
                             rel="noopener"
                         >
@@ -1626,6 +1924,92 @@ useHead(() => ({
         font-weight: 800;
         line-height: 1;
     }
+}
+
+.recent-feature-list {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1.25rem;
+}
+
+.recent-feature-card {
+    display: grid;
+    grid-template-columns: minmax(16rem, 0.8fr) minmax(0, 1.2fr);
+    min-width: 0;
+    padding: 0 !important;
+    align-items: stretch;
+
+    &--reverse {
+        grid-template-columns: minmax(0, 1.2fr) minmax(16rem, 0.8fr);
+
+        .recent-feature-copy {
+            order: 2;
+        }
+
+        .recent-feature-media {
+            order: 1;
+        }
+    }
+
+    &--text-only {
+        grid-template-columns: minmax(0, 1fr);
+
+        .recent-feature-copy {
+            max-width: 52rem;
+            margin: 0 auto;
+            text-align: center;
+        }
+
+        .recent-feature-icon {
+            align-self: center;
+        }
+    }
+}
+
+.recent-feature-copy {
+    display: flex;
+    min-width: 0;
+    padding: clamp(1.75rem, 4vw, 3.25rem);
+    flex-direction: column;
+    justify-content: center;
+
+    h3 {
+        margin: 1rem 0 0.75rem;
+        color: var(--color-contrast);
+        font-size: clamp(1.3rem, 2.5vw, 1.75rem);
+        letter-spacing: -0.03em;
+        line-height: 1.15;
+    }
+
+    p {
+        margin: 0;
+        color: var(--color-secondary);
+        font-size: 0.95rem;
+        line-height: 1.7;
+    }
+}
+
+.recent-feature-icon {
+    display: grid;
+    width: 2.5rem;
+    height: 2.5rem;
+    place-items: center;
+    border: 1px solid color-mix(in srgb, var(--color-brand) 35%, transparent);
+    border-radius: 0.8rem;
+    color: var(--color-brand);
+    background: color-mix(in srgb, var(--color-brand) 10%, transparent);
+
+    svg {
+        width: 1.25rem;
+        height: 1.25rem;
+    }
+}
+
+.recent-feature-media {
+    display: block;
+    width: 100%;
+    height: 100%;
+    min-height: 16rem;
+    object-fit: cover;
 }
 
 .showcase-card-wide {
@@ -2166,6 +2550,21 @@ useHead(() => ({
 
     .showcase-copy {
         padding: 1.35rem 1.25rem 1.15rem;
+    }
+
+    .recent-feature-card,
+    .recent-feature-card--reverse {
+        grid-template-columns: minmax(0, 1fr);
+
+        .recent-feature-copy {
+            order: 1;
+        }
+
+        .recent-feature-media {
+            order: 2;
+            min-height: 0;
+            aspect-ratio: 1280 / 743;
+        }
     }
 
     .main-header {

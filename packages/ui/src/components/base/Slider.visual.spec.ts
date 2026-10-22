@@ -1,7 +1,9 @@
-import { flushPromises, mount } from '@vue/test-utils'
+import type { mount } from '@vue/test-utils'
+import { flushPromises } from '@vue/test-utils'
 import { afterEach, expect, it } from 'vitest'
 import { defineComponent, h, ref } from 'vue'
 
+import { mountThemed } from '../../test/visual-harness'
 import Slider from './Slider.vue'
 
 const mounted: ReturnType<typeof mount>[] = []
@@ -19,7 +21,11 @@ it.each([
 ])(
     'commits $input as $expected in [$min, $max]',
     async ({ min, max, initial, input, expected }) => {
-        const wrapper = mount(Slider, { props: { modelValue: initial, min, max, step: 1 } })
+        const wrapper = await mountThemed(
+            Slider,
+            { modelValue: initial, min, max, step: 1 },
+            'dark',
+        )
         mounted.push(wrapper)
         await wrapper.get('input[type="number"]').setValue(input)
         await flushPromises()
@@ -34,7 +40,11 @@ it.each([
 )
 
 it('retains the current value when the number input contains an incomplete number', async () => {
-    const wrapper = mount(Slider, { props: { modelValue: 12, min: -64, max: 320, step: 1 } })
+    const wrapper = await mountThemed(
+        Slider,
+        { modelValue: 12, min: -64, max: 320, step: 1 },
+        'dark',
+    )
     mounted.push(wrapper)
     const input = wrapper.get<HTMLInputElement>('input[type="number"]')
     input.element.value = ''
@@ -61,9 +71,11 @@ it.each([
 ])(
     'respects step rules without discarding valid numeric precision: %j',
     async ({ forceStep, step, input, expected }) => {
-        const wrapper = mount(Slider, {
-            props: { modelValue: 10, min: -64, max: 8192, step, forceStep },
-        })
+        const wrapper = await mountThemed(
+            Slider,
+            { modelValue: 10, min: -64, max: 8192, step, forceStep },
+            'dark',
+        )
         mounted.push(wrapper)
         await wrapper.get('input[type="number"]').setValue(input)
         expect(wrapper.emitted('update:modelValue')).toEqual([[expected]])
@@ -71,9 +83,11 @@ it.each([
 )
 
 it('snaps range input once and retains zero when crossing the origin', async () => {
-    const wrapper = mount(Slider, {
-        props: { modelValue: -40, min: -64, max: 320, step: 1, snapPoints: [0, 64], snapRange: 5 },
-    })
+    const wrapper = await mountThemed(
+        Slider,
+        { modelValue: -40, min: -64, max: 320, step: 1, snapPoints: [0, 64], snapRange: 5 },
+        'dark',
+    )
     mounted.push(wrapper)
     await wrapper.get('input[type="range"]').setValue('2')
     expect(wrapper.emitted('update:modelValue')).toEqual([[0]])
@@ -92,12 +106,12 @@ it('persists zero through a controlled model and restores it after reopening', a
                 'onUpdate:modelValue': (next: number) => (value.value = next),
             }),
     })
-    const wrapper = mount(component)
+    const wrapper = await mountThemed(component, {}, 'dark')
     mounted.push(wrapper)
     await wrapper.get('input[type="number"]').setValue('0')
     expect(value.value).toBe(0)
     wrapper.unmount()
-    const reopened = mount(component)
+    const reopened = await mountThemed(component, {}, 'dark')
     mounted.push(reopened)
     expect(reopened.get<HTMLInputElement>('input[type="number"]').element.value).toBe('0')
     expect(reopened.get<HTMLInputElement>('input[type="range"]').element.valueAsNumber).toBe(0)

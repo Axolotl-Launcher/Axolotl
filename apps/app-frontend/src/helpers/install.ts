@@ -52,6 +52,7 @@ export interface InstallPostInstallEdit {
 }
 
 export type InstallPhaseId =
+    | 'exporting'
     | 'preparing_instance'
     | 'resolving_pack'
     | 'downloading_pack_file'
@@ -147,6 +148,7 @@ export interface InstallJobSnapshot {
         | 'change_content'
         | 'upgrade_unmanaged_instance'
         | 'download_java'
+        | 'export_resource'
     status: InstallJobStatus
     execution_mode: 'normal' | 'recovery_validation'
     provider: 'modrinth' | 'curse_forge' | 'minecraft' | 'java' | 'application' | 'local'

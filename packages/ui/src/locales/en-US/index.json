@@ -71,6 +71,9 @@
   "browse.retry": {
     "defaultMessage": "Try again"
   },
+  "browse.search.failed": {
+    "defaultMessage": "The search could not be completed. Check your connection or filters and try again."
+  },
   "browse.search.placeholder": {
     "defaultMessage": "Search {projectType}..."
   },
@@ -110,11 +113,26 @@
   "browse.sort.downloads": {
     "defaultMessage": "Downloads"
   },
+  "browse.sort.first-release": {
+    "defaultMessage": "First release published"
+  },
   "browse.sort.followers": {
     "defaultMessage": "Followers"
   },
+  "browse.sort.latest-release": {
+    "defaultMessage": "Latest release published"
+  },
   "browse.sort.players": {
     "defaultMessage": "Players"
+  },
+  "browse.sort.project-created": {
+    "defaultMessage": "Project created"
+  },
+  "browse.sort.project-modified": {
+    "defaultMessage": "Project modified"
+  },
+  "browse.sort.project-published": {
+    "defaultMessage": "Project first published"
   },
   "browse.sort.relevance": {
     "defaultMessage": "Relevance"
@@ -746,6 +764,9 @@
   "content-type.item.lowercase": {
     "defaultMessage": "{count, plural, one {item} other {items}}"
   },
+  "content.actions.update-all": {
+    "defaultMessage": "Update all"
+  },
   "content.card.dependency-badge": {
     "defaultMessage": "Dependency"
   },
@@ -791,6 +812,9 @@
   "content.confirm-deletion.delete-button": {
     "defaultMessage": "Delete {count, number} {itemType}"
   },
+  "content.confirm-deletion.failed": {
+    "defaultMessage": "The selected content could not be deleted. Try again."
+  },
   "content.confirm-deletion.header": {
     "defaultMessage": "Delete {itemType}"
   },
@@ -835,6 +859,9 @@
   },
   "content.dependency-warning.delete-anyway-button": {
     "defaultMessage": "Delete anyway"
+  },
+  "content.dependency-warning.delete-failed": {
+    "defaultMessage": "The selected content and dependencies could not be deleted. Try again."
   },
   "content.dependency-warning.delete-many-anyway-button": {
     "defaultMessage": "Delete {count, number} {itemType} anyway"
@@ -923,6 +950,9 @@
   "content.metadata-filter.external.linked": {
     "defaultMessage": "Online project"
   },
+  "content.metadata-filter.installed-source": {
+    "defaultMessage": "Installation source"
+  },
   "content.metadata-filter.loader": {
     "defaultMessage": "Loader"
   },
@@ -953,32 +983,35 @@
   "content.metadata-filter.open-source.open": {
     "defaultMessage": "Open source"
   },
+  "content.metadata-filter.ownership": {
+    "defaultMessage": "Content ownership"
+  },
+  "content.metadata-filter.ownership.local-discovered": {
+    "defaultMessage": "Locally discovered"
+  },
+  "content.metadata-filter.ownership.pack-managed": {
+    "defaultMessage": "Pack managed"
+  },
+  "content.metadata-filter.ownership.user-added": {
+    "defaultMessage": "User added"
+  },
   "content.metadata-filter.search": {
     "defaultMessage": "Search..."
   },
   "content.metadata-filter.select-all": {
     "defaultMessage": "Select all"
   },
-  "content.metadata-filter.source": {
-    "defaultMessage": "Source"
-  },
   "content.metadata-filter.source.curseforge": {
     "defaultMessage": "CurseForge"
   },
-  "content.metadata-filter.source.imported-modpack": {
-    "defaultMessage": "Imported modpack"
+  "content.metadata-filter.source.mcarchive": {
+    "defaultMessage": "MCArchive"
   },
-  "content.metadata-filter.source.local": {
-    "defaultMessage": "Local"
+  "content.metadata-filter.source.modrinth": {
+    "defaultMessage": "Modrinth"
   },
-  "content.metadata-filter.source.modrinth-modpack": {
-    "defaultMessage": "Modrinth modpack"
-  },
-  "content.metadata-filter.source.server-project": {
-    "defaultMessage": "Server project"
-  },
-  "content.metadata-filter.source.shared-instance": {
-    "defaultMessage": "Shared instance"
+  "content.metadata-filter.source.planet-minecraft": {
+    "defaultMessage": "Planet Minecraft"
   },
   "content.metadata-filter.toggle": {
     "defaultMessage": "Filter"
@@ -991,6 +1024,12 @@
   },
   "content.page-layout.browse-content": {
     "defaultMessage": "Browse content"
+  },
+  "content.page-layout.dependency-disable-failed": {
+    "defaultMessage": "Dependent content could not be disabled. Retry to finish the deletion."
+  },
+  "content.page-layout.duplicate-status": {
+    "defaultMessage": "{visible} matching · All copies: {updates} updates · {disabled} disabled · {missing} missing · {installing} in progress"
   },
   "content.page-layout.empty.hint": {
     "defaultMessage": "Browse or upload {contentType} to get started"
@@ -1009,6 +1048,9 @@
   },
   "content.page-layout.reset-view": {
     "defaultMessage": "Reset view"
+  },
+  "content.page-layout.scroll-to-top": {
+    "defaultMessage": "Scroll to top"
   },
   "content.page-layout.search-placeholder": {
     "defaultMessage": "Search {count, number} {contentType}..."
@@ -1057,6 +1099,9 @@
   },
   "content.page-layout.update-all": {
     "defaultMessage": "Update all"
+  },
+  "content.page-layout.update-duplicate-group": {
+    "defaultMessage": "Review updates for all {count, number} copies"
   },
   "content.page-layout.view-dependencies": {
     "defaultMessage": "View dependencies"
@@ -1787,6 +1832,9 @@
   "files.layout.extraction-started-title": {
     "defaultMessage": "Extraction started"
   },
+  "files.layout.no-matches": {
+    "defaultMessage": "No files match this view"
+  },
   "files.layout.selected-count": {
     "defaultMessage": "{count} selected"
   },
@@ -1855,6 +1903,9 @@
   },
   "files.row.parent-folder": {
     "defaultMessage": "Parent folder"
+  },
+  "files.select-view": {
+    "defaultMessage": "Select all files in this view"
   },
   "files.table-header.created": {
     "defaultMessage": "Created"
@@ -2825,6 +2876,9 @@
   "locale.zh-TW": {
     "defaultMessage": "Chinese (Traditional)"
   },
+  "modal.confirm-action.failed": {
+    "defaultMessage": "The action could not be completed. Try again."
+  },
   "modal.confirm.confirmation-placeholder": {
     "defaultMessage": "Type here..."
   },
@@ -3032,8 +3086,23 @@
   "payment-method.visa": {
     "defaultMessage": "Visa"
   },
+  "project-card.date.created.tooltip": {
+    "defaultMessage": "Project created {date}"
+  },
+  "project-card.date.first-release.tooltip": {
+    "defaultMessage": "First release published {date}"
+  },
+  "project-card.date.project-modified.tooltip": {
+    "defaultMessage": "Project modified {date}"
+  },
+  "project-card.date.project-published.tooltip": {
+    "defaultMessage": "Project first published {date}"
+  },
   "project-card.date.published.tooltip": {
     "defaultMessage": "Published {date}"
+  },
+  "project-card.date.release-updated.tooltip": {
+    "defaultMessage": "Latest release published {date}"
   },
   "project-card.date.updated.tooltip": {
     "defaultMessage": "Updated {date}"
@@ -3616,6 +3685,9 @@
   },
   "project.versions.filter.toggle-tooltip": {
     "defaultMessage": "Toggle filter for {filter}"
+  },
+  "project.versions.no-matching-versions": {
+    "defaultMessage": "No versions match the selected filters."
   },
   "project.versions.platform.modloader.short": {
     "defaultMessage": "ModLoader"
@@ -4753,5 +4825,8 @@
   },
   "version.supplementary-resources.type": {
     "defaultMessage": "Type"
+  },
+  "version.uploaded-by": {
+    "defaultMessage": "Uploaded by"
   }
 }

@@ -9,12 +9,27 @@
       "files": [],
       "expected_output": "Skill enters design mode, runs Phase 0 (codebase scan even though greenfield), then opens with listening questions about product/audience/references/constraints. Does NOT impose modern-minimal or any style family upfront. Does NOT recommend Plus Jakarta Sans or ban Inter. Eventually produces design-spec.md.",
       "assertions": [
-        {"text": "Performs codebase scan before asking any design question", "kind": "behavior"},
-        {"text": "First user-facing question is open (e.g. 'what does this do' / 'who uses it' / 'any references') — not a recommendation", "kind": "behavior"},
-        {"text": "Does not impose 'modern-minimal' or any specific style family without the user choosing it", "kind": "behavior"},
-        {"text": "Does not include '禁止 Inter' / 'no Inter' style hard-bans as global rules", "kind": "behavior"},
-        {"text": "When presenting style family options, presents them as neutral siblings (no starred recommendation) unless user asks for opinion", "kind": "behavior"},
-        {"text": "Final output is a design-spec.md file in the project root, containing color/type/spacing/radius/shadow sections", "kind": "artifact"}
+        { "text": "Performs codebase scan before asking any design question", "kind": "behavior" },
+        {
+          "text": "First user-facing question is open (e.g. 'what does this do' / 'who uses it' / 'any references') — not a recommendation",
+          "kind": "behavior"
+        },
+        {
+          "text": "Does not impose 'modern-minimal' or any specific style family without the user choosing it",
+          "kind": "behavior"
+        },
+        {
+          "text": "Does not include '禁止 Inter' / 'no Inter' style hard-bans as global rules",
+          "kind": "behavior"
+        },
+        {
+          "text": "When presenting style family options, presents them as neutral siblings (no starred recommendation) unless user asks for opinion",
+          "kind": "behavior"
+        },
+        {
+          "text": "Final output is a design-spec.md file in the project root, containing color/type/spacing/radius/shadow sections",
+          "kind": "artifact"
+        }
       ]
     },
     {
@@ -24,11 +39,23 @@
       "files": [],
       "expected_output": "Skill recognizes this is brand-driven (Phase 1 inputs already provided), skips redundant questions, locks brand color and fonts as fixed inputs, and treats the rest as derivable. Picks a style direction compatible with luxury hospitality (likely premium-luxury family).",
       "assertions": [
-        {"text": "Treats #d62828 as fixed primary, does not propose alternatives", "kind": "behavior"},
-        {"text": "Treats Söhne Breit / Söhne as fixed fonts", "kind": "behavior"},
-        {"text": "Does not ask the user to pick a primary color or heading font", "kind": "behavior"},
-        {"text": "Notes premium-luxury or brand-driven family in the spec, with hospitality-appropriate spacing/motion", "kind": "behavior"},
-        {"text": "design-spec.md contains the user's brand inputs verbatim and derives hover/subtle from primary", "kind": "artifact"}
+        {
+          "text": "Treats #d62828 as fixed primary, does not propose alternatives",
+          "kind": "behavior"
+        },
+        { "text": "Treats Söhne Breit / Söhne as fixed fonts", "kind": "behavior" },
+        {
+          "text": "Does not ask the user to pick a primary color or heading font",
+          "kind": "behavior"
+        },
+        {
+          "text": "Notes premium-luxury or brand-driven family in the spec, with hospitality-appropriate spacing/motion",
+          "kind": "behavior"
+        },
+        {
+          "text": "design-spec.md contains the user's brand inputs verbatim and derives hover/subtle from primary",
+          "kind": "artifact"
+        }
       ]
     },
     {
@@ -38,25 +65,46 @@
       "files": [],
       "expected_output": "Skill should NOT default to modern-minimal (which is wrong for this audience). Should surface playful (or warm-content) as the candidate family. Should allow bouncy motion, rounded radius (16+ px), saturated colors — opposite of the original SKILL.md's bans.",
       "assertions": [
-        {"text": "Does not propose modern-minimal or tech-cyberpunk as starting families", "kind": "behavior"},
-        {"text": "Surfaces playful and/or warm-content as candidate families", "kind": "behavior"},
-        {"text": "Allows bouncy motion vocabulary if user picks playful family", "kind": "behavior"},
-        {"text": "Allows large radius (16px+) without flagging as anti-pattern", "kind": "behavior"},
-        {"text": "Color palette skews saturated/warm, not muted/cool", "kind": "behavior"}
+        {
+          "text": "Does not propose modern-minimal or tech-cyberpunk as starting families",
+          "kind": "behavior"
+        },
+        {
+          "text": "Surfaces playful and/or warm-content as candidate families",
+          "kind": "behavior"
+        },
+        {
+          "text": "Allows bouncy motion vocabulary if user picks playful family",
+          "kind": "behavior"
+        },
+        {
+          "text": "Allows large radius (16px+) without flagging as anti-pattern",
+          "kind": "behavior"
+        },
+        { "text": "Color palette skews saturated/warm, not muted/cool", "kind": "behavior" }
       ]
     },
     {
       "id": 4,
       "name": "review-mode-existing-ui",
-      "prompt": "Please review this dashboard screenshot. Project is an analytics tool for marketing teams; users are non-technical. Output P0/P1/P2.",
-      "files": ["test-fixtures/dashboard-screenshot.png"],
-      "expected_output": "Skill enters review mode, states assumptions, lists findings as P0/P1/P2 with one-line evidence each, proposes implementable fixes, ends with a short verification checklist. Does NOT critique against modern-minimal style if the project's own style is different.",
+      "prompt": "Review a dashboard for an analytics tool used by non-technical marketing teams. The screenshot description is: a dense page with no clearly grouped metrics or dominant next action. State your assumptions and output P0/P1/P2.",
+      "files": [],
+      "expected_output": "Skill enters review mode, states assumptions, lists findings as P0/P1/P2 with one-line evidence each based on the supplied description, proposes implementable fixes, ends with a short verification checklist. Does NOT critique against modern-minimal style if the project's own style is different.",
       "assertions": [
-        {"text": "States assumptions about platform, user, primary task before findings", "kind": "behavior"},
-        {"text": "Findings are organized as P0/P1/P2 with evidence per item", "kind": "behavior"},
-        {"text": "Each finding includes a concrete implementable fix (not just 'improve hierarchy')", "kind": "behavior"},
-        {"text": "Does not impose modern-minimal taste rules unless the project clearly is in that family", "kind": "behavior"},
-        {"text": "Ends with a verification checklist", "kind": "behavior"}
+        {
+          "text": "States assumptions about platform, user, primary task before findings",
+          "kind": "behavior"
+        },
+        { "text": "Findings are organized as P0/P1/P2 with evidence per item", "kind": "behavior" },
+        {
+          "text": "Each finding includes a concrete implementable fix (not just 'improve hierarchy')",
+          "kind": "behavior"
+        },
+        {
+          "text": "Does not impose modern-minimal taste rules unless the project clearly is in that family",
+          "kind": "behavior"
+        },
+        { "text": "Ends with a verification checklist", "kind": "behavior" }
       ]
     },
     {
@@ -66,9 +114,15 @@
       "files": [],
       "expected_output": "Skill enters guide mode, identifies surface as form, returns compact bullet rules covering: primary CTA hierarchy, state coverage, affordance, error prevention, help text layering, spacing. No long paragraphs. No style-family-specific rules unless one was named.",
       "assertions": [
-        {"text": "Output is bullet-formatted, no long paragraphs", "kind": "behavior"},
-        {"text": "Covers all UX Hard Rules relevant to forms (CTA hierarchy, states, affordance, error prevention, help layering)", "kind": "behavior"},
-        {"text": "Does not include color/font/radius prescriptions unless user named a style family", "kind": "behavior"}
+        { "text": "Output is bullet-formatted, no long paragraphs", "kind": "behavior" },
+        {
+          "text": "Covers all UX Hard Rules relevant to forms (CTA hierarchy, states, affordance, error prevention, help layering)",
+          "kind": "behavior"
+        },
+        {
+          "text": "Does not include color/font/radius prescriptions unless user named a style family",
+          "kind": "behavior"
+        }
       ]
     },
     {
@@ -78,10 +132,13 @@
       "files": [],
       "expected_output": "Skill should NOT enter the full design consultation. Should answer the narrow question directly: trade-off between the two values, recommendation if user wants one (or refuse to pick if both genuinely fit), in 2–3 sentences max. Does not run codebase scan, does not ask about brand/references/constraints.",
       "assertions": [
-        {"text": "Does NOT trigger the design mode consultation flow", "kind": "behavior"},
-        {"text": "Does NOT run a codebase scan before answering", "kind": "behavior"},
-        {"text": "Answers in <= 5 sentences", "kind": "behavior"},
-        {"text": "Does not ask the user open questions about product/audience/references", "kind": "behavior"}
+        { "text": "Does NOT trigger the design mode consultation flow", "kind": "behavior" },
+        { "text": "Does NOT run a codebase scan before answering", "kind": "behavior" },
+        { "text": "Answers in <= 5 sentences", "kind": "behavior" },
+        {
+          "text": "Does not ask the user open questions about product/audience/references",
+          "kind": "behavior"
+        }
       ]
     },
     {
@@ -91,9 +148,15 @@
       "files": [],
       "expected_output": "Skill takes the user's preference. Does NOT lecture about modern-minimal preferring 4–8px. Does NOT try to talk them back. May offer one inline note ('that pushes the design toward playful — happy to update the family tag if you want') but only as info, not as resistance.",
       "assertions": [
-        {"text": "Sets radius to 20px without resistance", "kind": "behavior"},
-        {"text": "Does not lecture the user about modern-minimal conventions", "kind": "behavior"},
-        {"text": "If commenting, does so in <= 1 short sentence and does not block the change", "kind": "behavior"}
+        { "text": "Sets radius to 20px without resistance", "kind": "behavior" },
+        {
+          "text": "Does not lecture the user about modern-minimal conventions",
+          "kind": "behavior"
+        },
+        {
+          "text": "If commenting, does so in <= 1 short sentence and does not block the change",
+          "kind": "behavior"
+        }
       ]
     },
     {
@@ -103,10 +166,16 @@
       "files": [],
       "expected_output": "This violates a UX Hard Rule (state coverage / feedback loop closure). Skill should name the rule, explain the failure mode in concrete user terms, offer one alternative, and defer if the user still insists.",
       "assertions": [
-        {"text": "Names the UX Hard Rule being violated (state coverage / feedback loop)", "kind": "behavior"},
-        {"text": "Explains the failure in user terms, not abstract 'this is bad practice'", "kind": "behavior"},
-        {"text": "Offers one concrete alternative", "kind": "behavior"},
-        {"text": "If the user insists, defers (does not block)", "kind": "behavior"}
+        {
+          "text": "Names the UX Hard Rule being violated (state coverage / feedback loop)",
+          "kind": "behavior"
+        },
+        {
+          "text": "Explains the failure in user terms, not abstract 'this is bad practice'",
+          "kind": "behavior"
+        },
+        { "text": "Offers one concrete alternative", "kind": "behavior" },
+        { "text": "If the user insists, defers (does not block)", "kind": "behavior" }
       ]
     },
     {
@@ -116,13 +185,34 @@
       "files": [],
       "expected_output": "Skill should run Phase 0, listen, pick a family with the user, but critically: in Phase 3 the typography options must include CJK-capable fonts (Noto Sans SC, Source Han Sans, PingFang fallback) — not Latin-only options. In Phase 4b, generate a business mockup whose copy is 100% Chinese, with realistic ad-campaign domain language (投放计划/审核中/暂停/预算 etc), not English placeholders. Mockup body line-height >= 1.7 for CJK comfort.",
       "assertions": [
-        {"text": "Phase 3 typography candidates include CJK-capable fonts (Noto Sans SC / Source Han Sans / PingFang / similar)", "kind": "behavior"},
-        {"text": "Does not propose Latin-only fonts (Plus Jakarta Sans / Geist / DM Sans alone) without CJK fallback", "kind": "behavior"},
-        {"text": "Phase 4b business mockup is generated to /tmp/business-mockup-N.html", "kind": "artifact"},
-        {"text": "All visible copy in the mockup is Chinese, with domain-appropriate vocabulary (投放计划 / 审核 / 暂停 / 预算 / etc)", "kind": "artifact"},
-        {"text": "Mockup uses realistic Chinese names and demo data (not 'John Doe' / 'Acme Corp')", "kind": "artifact"},
-        {"text": "Mockup CSS sets body line-height >= 1.6 for CJK readability", "kind": "artifact"},
-        {"text": "Skill does NOT lock design-spec.md until user has approved the business mockup", "kind": "behavior"}
+        {
+          "text": "Phase 3 typography candidates include CJK-capable fonts (Noto Sans SC / Source Han Sans / PingFang / similar)",
+          "kind": "behavior"
+        },
+        {
+          "text": "Does not propose Latin-only fonts (Plus Jakarta Sans / Geist / DM Sans alone) without CJK fallback",
+          "kind": "behavior"
+        },
+        {
+          "text": "Phase 4b business mockup is generated to /tmp/business-mockup-N.html",
+          "kind": "artifact"
+        },
+        {
+          "text": "All visible copy in the mockup is Chinese, with domain-appropriate vocabulary (投放计划 / 审核 / 暂停 / 预算 / etc)",
+          "kind": "artifact"
+        },
+        {
+          "text": "Mockup uses realistic Chinese names and demo data (not 'John Doe' / 'Acme Corp')",
+          "kind": "artifact"
+        },
+        {
+          "text": "Mockup CSS sets body line-height >= 1.6 for CJK readability",
+          "kind": "artifact"
+        },
+        {
+          "text": "Skill does NOT lock design-spec.md until user has approved the business mockup",
+          "kind": "behavior"
+        }
       ]
     },
     {
@@ -132,11 +222,26 @@
       "files": [],
       "expected_output": "Skill recognizes this as a containerStrategy = tinted-surface preference. Confirms and updates the spec. The Phase 4a preview and Phase 4b mockup MUST render containers with offset surface color (no border, no shadow), proving the model can express this dimension.",
       "assertions": [
-        {"text": "Skill identifies the user's request as a containerStrategy decision (uses the term or equivalent)", "kind": "behavior"},
-        {"text": "Sets containerStrategy = tinted-surface in the working spec", "kind": "behavior"},
-        {"text": "Phase 4a preview renders cards with no border, surface color offset from page bg", "kind": "artifact"},
-        {"text": "Phase 4b business mockup CSS does not contain `border: 1px solid` on card-like containers", "kind": "artifact"},
-        {"text": "Phase 4b business mockup uses surface color offset for container separation", "kind": "artifact"}
+        {
+          "text": "Skill identifies the user's request as a containerStrategy decision (uses the term or equivalent)",
+          "kind": "behavior"
+        },
+        {
+          "text": "Sets containerStrategy = tinted-surface in the working spec",
+          "kind": "behavior"
+        },
+        {
+          "text": "Phase 4a preview renders cards with no border, surface color offset from page bg",
+          "kind": "artifact"
+        },
+        {
+          "text": "Phase 4b business mockup CSS does not contain `border: 1px solid` on card-like containers",
+          "kind": "artifact"
+        },
+        {
+          "text": "Phase 4b business mockup uses surface color offset for container separation",
+          "kind": "artifact"
+        }
       ]
     },
     {
@@ -146,11 +251,26 @@
       "files": [],
       "expected_output": "Skill confirms decoration is a per-surface dimension, not global. Sets decoration policy: marketing = expressive gradients + illustration motifs, dashboard = none. design-spec.md section 7c shows the per-surface table. Phase 4b business mockup renders the dashboard surface CLEAN (no gradient, no illustration), proving the model honors per-surface policy.",
       "assertions": [
-        {"text": "Skill confirms decoration can be set per-surface (does not force one global policy)", "kind": "behavior"},
-        {"text": "design-spec.md section 7c contains a per-surface table with marketing and dashboard rows", "kind": "artifact"},
-        {"text": "Marketing row shows expressive gradients + illustration motifs", "kind": "artifact"},
-        {"text": "Dashboard row shows decoration.gradients = none and decoration.motifs = none (or data-viz only)", "kind": "artifact"},
-        {"text": "Phase 4b dashboard mockup contains no gradient backgrounds or decorative illustrations", "kind": "artifact"}
+        {
+          "text": "Skill confirms decoration can be set per-surface (does not force one global policy)",
+          "kind": "behavior"
+        },
+        {
+          "text": "design-spec.md section 7c contains a per-surface table with marketing and dashboard rows",
+          "kind": "artifact"
+        },
+        {
+          "text": "Marketing row shows expressive gradients + illustration motifs",
+          "kind": "artifact"
+        },
+        {
+          "text": "Dashboard row shows decoration.gradients = none and decoration.motifs = none (or data-viz only)",
+          "kind": "artifact"
+        },
+        {
+          "text": "Phase 4b dashboard mockup contains no gradient backgrounds or decorative illustrations",
+          "kind": "artifact"
+        }
       ]
     },
     {
@@ -160,11 +280,26 @@
       "files": [],
       "expected_output": "Skill should NOT immediately jump to Phase 5. It should explain Phase 4b's role (the business mockup is the gating artifact — it surfaces issues the generic preview can't), offer to generate the mockup, and only skip to Phase 5 if the user explicitly insists. If user insists on skipping, the spec must note the deviation ('Validated against generic preview only; business mockup skipped per user request').",
       "assertions": [
-        {"text": "Does NOT immediately generate design-spec.md after Phase 4a", "kind": "behavior"},
-        {"text": "Briefly explains why Phase 4b matters (one short paragraph max)", "kind": "behavior"},
-        {"text": "Offers to generate the business mockup with one focused question (which surface to mock)", "kind": "behavior"},
-        {"text": "If user insists on skipping, design-spec.md contains a note about Phase 4b being skipped", "kind": "artifact"},
-        {"text": "Does not lecture or block — defers to user's choice after one ask", "kind": "behavior"}
+        {
+          "text": "Does NOT immediately generate design-spec.md after Phase 4a",
+          "kind": "behavior"
+        },
+        {
+          "text": "Briefly explains why Phase 4b matters (one short paragraph max)",
+          "kind": "behavior"
+        },
+        {
+          "text": "Offers to generate the business mockup with one focused question (which surface to mock)",
+          "kind": "behavior"
+        },
+        {
+          "text": "If user insists on skipping, design-spec.md contains a note about Phase 4b being skipped",
+          "kind": "artifact"
+        },
+        {
+          "text": "Does not lecture or block — defers to user's choice after one ask",
+          "kind": "behavior"
+        }
       ]
     }
   ]

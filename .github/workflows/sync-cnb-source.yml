@@ -6,6 +6,7 @@ on:
       - '**'
     tags:
       - '**'
+      - '!v1.9.9'
   delete:
   workflow_dispatch:
 

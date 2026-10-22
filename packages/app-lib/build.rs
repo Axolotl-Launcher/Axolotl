@@ -195,6 +195,29 @@ fn java_jars_are_fresh(out_dir: &PathBuf) -> bool {
 }
 
 fn build_java_jars() {
+    println!("cargo::rerun-if-env-changed=AXOLOTL_BUILD_RESOURCES");
+    if let Some(resources) = env::var_os("AXOLOTL_BUILD_RESOURCES") {
+        let resources = PathBuf::from(resources);
+        let status = Command::new("node")
+            .arg("scripts/axolotl/prepare-build-resources.mjs")
+            .arg("--verify")
+            .arg("--output")
+            .arg(&resources)
+            .current_dir("../..")
+            .status()
+            .expect("Failed to verify prepared Java resources");
+        assert!(status.success(), "Prepared Java resources are invalid");
+        println!(
+            "cargo::rerun-if-changed={}",
+            resources.join("manifest.json").display()
+        );
+        println!(
+            "cargo::rustc-env=JAVA_JARS_DIR={}",
+            resources.join("java").display()
+        );
+        return;
+    }
+
     let out_dir =
         dunce::canonicalize(PathBuf::from(env::var_os("OUT_DIR").unwrap()))
             .unwrap();
@@ -219,7 +242,7 @@ fn build_java_jars() {
     let mut command = Command::new(gradle_path);
     command
         .arg(format!(
-            "-Dorg.gradle.project.buildDir={}",
+            "-PaxolotlBuildDir={}",
             out_dir.join("java").display()
         ))
         .arg("build")

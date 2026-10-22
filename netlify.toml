@@ -1,20 +1,13 @@
-# Netlify 配置：仅包含站点自身需要的重写规则。
-# Build command / Publish directory / Functions directory 在 Netlify UI 中配置：
-#   Build command:     pnpm --filter @axolotl/website... run build
-#   Publish directory: apps/website/dist
-#   Functions dir:     netlify/functions
+# 网站由 GitHub Actions 构建，通过 netlify deploy --no-build 上传静态产物和 Functions。
+# 请在 Netlify 后台设置 Stopped builds，避免 Git 推送触发重复构建。
+# 首次部署配置见 apps/website/README.md。
 #
-# /api/* 由 Netlify Functions 实时转发 CNB 数据（客户端直连 CNB 会被
+# 以下 /api/* 由 Netlify Functions 实时转发 CNB 数据（客户端直连 CNB 会被
 # CORS 拦截，见 netlify/functions/releases-*.mjs）。
 
 [[redirects]]
 from = "/api/releases/latest"
 to = "/.netlify/functions/releases-latest"
-status = 200
-
-[[redirects]]
-from = "/api/releases/catalog"
-to = "/.netlify/functions/releases-catalog"
 status = 200
 
 [[redirects]]

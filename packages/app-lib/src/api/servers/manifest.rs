@@ -139,7 +139,7 @@ pub(super) async fn server_path(server_id: &str) -> Result<PathBuf> {
         .as_error());
     }
     let state = State::get().await?;
-    let path = state.directories.server_dir(server_id);
+    let path = state.directories.server_dir(server_id)?;
     if !path.is_dir() {
         return Err(ErrorKind::InputError(format!(
             "Unknown server: {server_id}"

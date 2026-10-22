@@ -26,6 +26,9 @@ type SceneOptions = {
     onWalkSpeedChange: (speed: number) => void
     onNativeWalkLock?: () => Promise<boolean>
     onNativeWalkUnlock?: () => Promise<void>
+    requireWalkLock?: boolean
+    doubleSided?: boolean
+    releaseContextOnDispose?: boolean
 }
 
 type Projection = 'perspective' | 'orthographic'
@@ -81,6 +84,7 @@ export class SchematicPreviewScene {
     private measurementStart?: SchematicSceneSelection
     private measurementEnd?: SchematicSceneSelection
     private renderFrame?: number
+    private controlFrame?: number
     private walkFrame?: number
     private bounds?: THREE.Box3
     private layerRange?: [number, number]
@@ -106,6 +110,10 @@ export class SchematicPreviewScene {
     private readonly walkEuler = new THREE.Euler(0, 0, 0, 'YXZ')
     private nativeWalkLockPending = false
     private nativeWalkLocked = false
+    private readonly requireWalkLock: boolean
+    private readonly releaseContextOnDispose: boolean
+    private readonly onContextLost: SceneOptions['onContextLost']
+    private readonly onContextRestored: SceneOptions['onContextRestored']
 
     constructor(options: SceneOptions) {
         this.canvas = options.canvas
@@ -116,6 +124,14 @@ export class SchematicPreviewScene {
         this.onWalkSpeedChange = options.onWalkSpeedChange
         this.onNativeWalkLock = options.onNativeWalkLock
         this.onNativeWalkUnlock = options.onNativeWalkUnlock
+        this.requireWalkLock = options.requireWalkLock ?? false
+        this.releaseContextOnDispose = options.releaseContextOnDispose ?? false
+        this.onContextLost = options.onContextLost
+        this.onContextRestored = options.onContextRestored
+        if (options.doubleSided) {
+            this.opaqueMaterial.side = THREE.DoubleSide
+            this.translucentMaterial.side = THREE.DoubleSide
+        }
         this.renderer = new THREE.WebGLRenderer({
             canvas: options.canvas,
             antialias: true,
@@ -169,14 +185,8 @@ export class SchematicPreviewScene {
         window.addEventListener('keydown', this.handleWalkKeyDown)
         window.addEventListener('keyup', this.handleWalkKeyUp)
         window.addEventListener('blur', this.handleWalkBlur)
-        this.canvas.addEventListener('webglcontextlost', (event) => {
-            event.preventDefault()
-            options.onContextLost()
-        })
-        this.canvas.addEventListener('webglcontextrestored', () => {
-            options.onContextRestored()
-            this.requestRender()
-        })
+        this.canvas.addEventListener('webglcontextlost', this.handleContextLost)
+        this.canvas.addEventListener('webglcontextrestored', this.handleContextRestored)
         this.resize()
         this.onWalkSpeedChange(this.walkSpeed)
     }
@@ -221,6 +231,8 @@ export class SchematicPreviewScene {
         const oldTranslucent = this.translucentMaterial
         this.opaqueMaterial = this.createMaterial(false, texture)
         this.translucentMaterial = this.createMaterial(true, texture)
+        this.opaqueMaterial.side = oldOpaque.side
+        this.translucentMaterial.side = oldTranslucent.side
         for (const chunk of this.chunks.values()) {
             for (const child of chunk.children) {
                 if (!(child instanceof THREE.Mesh)) continue
@@ -286,6 +298,49 @@ export class SchematicPreviewScene {
             if (child.userData.regionId === regionId) child.visible = visible && this.boundsVisible
         }
         this.requestRender()
+    }
+
+    removeChunk(regionId: string, position: [number, number, number]) {
+        const key = `${regionId}:${position.join(':')}`
+        const chunk = this.chunks.get(key)
+        if (!chunk) return
+        chunk.parent?.remove(chunk)
+        this.disposeObject(chunk)
+        this.chunks.delete(key)
+        this.requestRender()
+    }
+
+    setChunkOffset(
+        regionId: string,
+        position: [number, number, number],
+        offset: [number, number, number],
+    ) {
+        this.chunks.get(`${regionId}:${position.join(':')}`)?.position.set(...offset)
+        this.requestRender()
+    }
+
+    crosshairBlock(): [number, number, number] | undefined {
+        this.scene.updateMatrixWorld(true)
+        this.raycaster.setFromCamera(new THREE.Vector2(0, 0), this.activeCamera)
+        const candidates: THREE.Object3D[] = []
+        for (const group of this.regions.values())
+            if (group.visible) candidates.push(...group.children)
+        const hit = this.raycaster
+            .intersectObjects(candidates, true)
+            .find(
+                (hit) =>
+                    hit.object instanceof THREE.Mesh &&
+                    hit.object.visible &&
+                    hit.faceIndex !== undefined &&
+                    hit.distance <= 256,
+            )
+        if (!hit || !(hit.object instanceof THREE.Mesh)) return
+        const attribute = hit.object.geometry.getAttribute('blockPosition')
+        if (!attribute) return
+        const point = new THREE.Vector3()
+            .fromBufferAttribute(attribute, (hit.faceIndex ?? 0) * 3)
+            .applyMatrix4(hit.object.matrixWorld)
+        return [Math.round(point.x), Math.round(point.y), Math.round(point.z)]
     }
 
     setLayerRange(range?: [number, number]) {
@@ -368,6 +423,18 @@ export class SchematicPreviewScene {
             this.startWalkLoop()
         }
         this.onViewModeChange(mode)
+        this.requestRender()
+    }
+
+    getCameraPosition(): [number, number, number] {
+        return this.activeCamera.position.toArray()
+    }
+
+    setCameraPosition(position: [number, number, number]) {
+        const direction = this.activeCamera.getWorldDirection(new THREE.Vector3())
+        this.activeCamera.position.set(...position)
+        this.controls.target.copy(this.activeCamera.position).addScaledVector(direction, 8)
+        this.controls.update()
         this.requestRender()
     }
 
@@ -611,11 +678,15 @@ export class SchematicPreviewScene {
     }
 
     dispose() {
+        if (this.disposed) return
         this.disposed = true
         if (this.renderFrame !== undefined) cancelAnimationFrame(this.renderFrame)
+        if (this.controlFrame !== undefined) cancelAnimationFrame(this.controlFrame)
         this.resizeObserver.disconnect()
         this.canvas.removeEventListener('pointerdown', this.handlePointerDown)
         this.canvas.removeEventListener('pointerup', this.handlePointerUp)
+        this.canvas.removeEventListener('webglcontextlost', this.handleContextLost)
+        this.canvas.removeEventListener('webglcontextrestored', this.handleContextRestored)
         this.canvas.ownerDocument.removeEventListener('click', this.handleWalkClick)
         this.canvas.ownerDocument.removeEventListener('mousemove', this.handleWalkMouseMove)
         this.canvas.ownerDocument.removeEventListener(
@@ -634,6 +705,9 @@ export class SchematicPreviewScene {
         this.walkControls.dispose()
         if (this.walkFrame !== undefined) cancelAnimationFrame(this.walkFrame)
         for (const chunk of this.chunks.values()) this.disposeObject(chunk)
+        this.chunks.clear()
+        this.regions.clear()
+        this.pressedKeys.clear()
         if (this.grid) {
             this.scene.remove(this.grid)
             for (const helper of this.grid.children) this.disposeHelper(helper)
@@ -648,7 +722,9 @@ export class SchematicPreviewScene {
         this.measurement.clear()
         this.opaqueMaterial.dispose()
         this.translucentMaterial.dispose()
+        this.scene.clear()
         this.renderer.dispose()
+        if (this.releaseContextOnDispose) this.renderer.forceContextLoss()
     }
 
     private createMaterial(translucent: boolean, texture?: THREE.CanvasTexture) {
@@ -867,6 +943,7 @@ export class SchematicPreviewScene {
             void this.releaseNativeWalkLock()
             return
         }
+        if (this.requireWalkLock && !this.walkControls.isLocked && !this.nativeWalkLocked) return
         if (
             ['KeyW', 'KeyA', 'KeyS', 'KeyD', 'Space', 'ShiftLeft', 'ShiftRight'].includes(
                 event.code,
@@ -886,7 +963,8 @@ export class SchematicPreviewScene {
         void this.releaseNativeWalkLock()
     }
 
-    private readonly handleWalkClick = () => {
+    private readonly handleWalkClick = (event: MouseEvent) => {
+        if (this.requireWalkLock && event.target !== this.canvas) return
         if (this.viewMode === 'walk') this.requestWalkLock()
     }
 
@@ -927,6 +1005,7 @@ export class SchematicPreviewScene {
     }
 
     private readonly handleWalkUnlock = () => {
+        this.pressedKeys.clear()
         if (!this.nativeWalkLocked) this.onWalkLockChange(false)
     }
 
@@ -1009,7 +1088,10 @@ export class SchematicPreviewScene {
                 this.perspectiveCamera.fov = targetFov
                 this.perspectiveCamera.updateProjectionMatrix()
             }
-            if (this.viewMode === 'walk') {
+            if (
+                this.viewMode === 'walk' &&
+                (!this.requireWalkLock || this.walkControls.isLocked || this.nativeWalkLocked)
+            ) {
                 const forward =
                     Number(this.pressedKeys.has('KeyW')) - Number(this.pressedKeys.has('KeyS'))
                 const right =
@@ -1045,13 +1127,26 @@ export class SchematicPreviewScene {
         this.walkFrame = requestAnimationFrame(update)
     }
 
+    private readonly handleContextLost = (event: Event) => {
+        event.preventDefault()
+        if (!this.disposed) this.onContextLost()
+    }
+
+    private readonly handleContextRestored = () => {
+        if (this.disposed) return
+        this.onContextRestored()
+        this.requestRender()
+    }
+
     private startControlLoop() {
+        if (this.controlFrame !== undefined) return
         const update = () => {
+            this.controlFrame = undefined
             if (this.disposed || !this.controls.update()) return
             this.render()
-            requestAnimationFrame(update)
+            this.controlFrame = requestAnimationFrame(update)
         }
-        requestAnimationFrame(update)
+        this.controlFrame = requestAnimationFrame(update)
     }
 
     private requestRender() {
@@ -1069,7 +1164,13 @@ export class SchematicPreviewScene {
 
     private disposeObject(object: THREE.Object3D) {
         object.traverse((child) => {
-            if (child instanceof THREE.Mesh) child.geometry.dispose()
+            if (child instanceof THREE.Mesh) {
+                child.geometry.dispose()
+                for (const name of Object.keys(child.geometry.attributes))
+                    child.geometry.deleteAttribute(name)
+                child.geometry.setIndex(null)
+                delete child.userData.basePositions
+            }
         })
     }
 

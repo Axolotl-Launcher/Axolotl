@@ -35,6 +35,7 @@ import {
     type ContentSortMode,
     type ContentViewState,
     getPinnedContentViewPreferences,
+    hasContentUpdate,
     isDisabledContentItem,
     isEnabledContentItem,
     isPresentContentItem,
@@ -47,6 +48,13 @@ import {
     useContentPipeline,
     useContentSelection,
 } from './composables'
+import { deletePendingItems, disablePendingItems } from './composables/content-deletion'
+import {
+    duplicateContentGroups,
+    duplicateContentRows,
+    duplicateUpdateAnchor,
+    visibleDuplicateGroups,
+} from './composables/content-duplicates'
 import { injectContentManager } from './providers/content-manager'
 import type { ContentCardTableItem, ContentItem, ContentWorldGroupMeta } from './types'
 
@@ -67,13 +75,32 @@ const emit = defineEmits<{
 
 function handleVisibleTableItems(visibleTableItems: ContentCardTableItem[]) {
     const visibleContentItems = visibleTableItems
-        .map((item) => findContentItem(item.id))
+        .flatMap((item) =>
+            item.isGroupHeader && item.groupKind === 'duplicate'
+                ? (item.groupChildIds ?? [])
+                : [item.id],
+        )
+        .map((id) => findContentItem(id))
         .filter((item): item is ContentItem => item !== undefined)
 
     emit('visibleItems', visibleContentItems)
 }
 
 const messages = defineMessages({
+    dependencyDisableFailed: {
+        id: 'content.page-layout.dependency-disable-failed',
+        defaultMessage: 'Dependent content could not be disabled. Retry to finish the deletion.',
+    },
+    scrollToTop: { id: 'content.page-layout.scroll-to-top', defaultMessage: 'Scroll to top' },
+    updateDuplicateGroup: {
+        id: 'content.page-layout.update-duplicate-group',
+        defaultMessage: 'Review updates for all {count, number} copies',
+    },
+    duplicateStatus: {
+        id: 'content.page-layout.duplicate-status',
+        defaultMessage:
+            '{visible} matching · All copies: {updates} updates · {disabled} disabled · {missing} missing · {installing} in progress',
+    },
     failedToLoad: {
         id: 'content.page-layout.failed-to-load',
         defaultMessage: 'Failed to load content',
@@ -304,6 +331,7 @@ const { selectedIds, selectedItems, clearSelection, removeFromSelection } = useC
         return [...modpackItemsNoUpdate.value, ...ctx.items.value]
     }),
     getItemId,
+    computed(() => [...filteredItems.value, ...filteredModpackItems.value]),
 )
 
 const {
@@ -521,7 +549,8 @@ function mapToTableItem(item: ContentItem, group?: string): ContentCardTableItem
             : (base.toggleDisabledTooltip ?? null),
         installing: item.installing === true,
         pendingManualDownload: item.pendingManualDownload === true,
-        hasUpdate: !group && item.update != null && item.instanceCapabilities?.canUpdate !== false,
+        hasUpdate:
+            !group && hasContentUpdate(item) && item.instanceCapabilities?.canUpdate !== false,
         rollbackFileName: item.rollback?.file_name,
         hideSwitchVersion: base.hideSwitchVersion ?? !base.versionLink,
         overflowOptions: buildItemOverflowOptions(item),
@@ -550,9 +579,26 @@ function datapackTreePath(item: ContentItem): string {
     return path
 }
 
+const allDuplicates = computed(() =>
+    duplicateContentGroups([...ctx.items.value, ...(ctx.modpackItems?.value ?? [])], getItemId),
+)
+const duplicates = computed(() =>
+    visibleDuplicateGroups(
+        allDuplicates.value,
+        [...filteredItems.value, ...filteredModpackItems.value],
+        getItemId,
+    ),
+)
+const duplicateIds = computed(
+    () => new Set([...duplicates.value.values()].flatMap((children) => children.map(getItemId))),
+)
+const nonDuplicateItems = computed(() =>
+    filteredItems.value.filter((item) => !duplicateIds.value.has(getItemId(item))),
+)
+
 const { folderRows: schematicFolderRows, regularItems: schematicGroupRegularItems } =
     useContentFolderGroups({
-        filteredItems,
+        filteredItems: nonDuplicateItems,
         modpackChildIdSet,
         searchQuery,
         expandedGroups,
@@ -611,7 +657,9 @@ const folderRows = computed<ContentCardTableItem[]>(() =>
 const tableItems = computed<ContentCardTableItem[]>(() => {
     const items: ContentCardTableItem[] = []
 
-    const modpackItems = filteredModpackItems.value
+    const modpackItems = filteredModpackItems.value.filter(
+        (item) => !duplicateIds.value.has(getItemId(item)),
+    )
     const modpack = ctx.modpack.value
 
     if (modpack && modpack.project && modpackItems.length > 0) {
@@ -667,6 +715,23 @@ const tableItems = computed<ContentCardTableItem[]>(() => {
         items.push(...groupItems)
     }
 
+    items.push(
+        ...duplicateContentRows({
+            groups: allDuplicates.value,
+            visibleGroups: duplicates.value,
+            expanded: expandedGroups.value,
+            getId: getItemId,
+            mapItem: mapToTableItem,
+            summary: (status, visible) =>
+                formatMessage(messages.duplicateStatus, { ...status, visible }),
+            updateLabel: (count) => formatMessage(messages.updateDuplicateGroup, { count }),
+            canUpdate: !!ctx.updateDuplicateGroup,
+            isBusy: (children) =>
+                ctx.isBusy.value ||
+                children.some((item) => isChanging(getItemId(item)) || item.installing === true),
+        }),
+    )
+
     items.push(...folderRows.value)
     for (const item of schematicGroupRegularItems.value) {
         items.push(mapToTableItem(item))
@@ -678,7 +743,7 @@ const tableItems = computed<ContentCardTableItem[]>(() => {
 watch(tableItems, restoreContentViewScroll, { flush: 'post', immediate: true })
 
 const hasOutdatedProjects = computed(() => {
-    const outdated = ctx.items.value.filter((p) => p.update != null)
+    const outdated = ctx.items.value.filter((p) => hasContentUpdate(p))
     const modpackHasUpdate =
         ctx.bulkUpdateIncludesModpack !== false && (ctx.modpack.value?.hasUpdate ?? false)
     return outdated.length > 0 || modpackHasUpdate
@@ -755,7 +820,9 @@ async function promptDeleteItems(items: ContentItem[], event?: MouseEvent) {
 
 async function showDeletionConfirmation(event?: MouseEvent) {
     if ((event?.shiftKey || skipNonEssentialWarnings.value) && !ctx.isBusy.value) {
-        confirmDelete()
+        void confirmDelete().catch((error) => {
+            ctx.error.value = error instanceof Error ? error : new Error(String(error))
+        })
     } else {
         await nextTick()
         confirmDeletionModal.value?.show()
@@ -781,18 +848,21 @@ async function confirmDependencyWarningDelete(disableDependentsAfterDeleting: bo
         pendingDependencyWarningDisableTargets.value = []
     }
 
+    await confirmDelete()
     pendingDependencyWarningItems.value = []
     pendingDependencyWarningDependents.value = []
-    await confirmDelete()
 }
 
 async function disablePendingDependencyWarningDependents() {
     const items = pendingDependencyWarningDisableTargets.value.filter((item) => item.enabled)
-    pendingDependencyWarningDisableTargets.value = []
     if (items.length === 0) return
 
     if (ctx.bulkDisableItems) {
-        await ctx.bulkDisableItems(items)
+        await disablePendingItems(
+            pendingDependencyWarningDisableTargets,
+            () => ctx.bulkDisableItems!(items),
+            () => new Error(formatMessage(messages.dependencyDisableFailed)),
+        )
         return
     }
 
@@ -801,6 +871,10 @@ async function disablePendingDependencyWarningDependents() {
         markChanging(id)
         try {
             await ctx.toggleEnabled(item)
+            pendingDependencyWarningDisableTargets.value =
+                pendingDependencyWarningDisableTargets.value.filter(
+                    (target) => getItemId(target) !== id,
+                )
         } finally {
             unmarkChanging(id)
         }
@@ -810,48 +884,11 @@ async function disablePendingDependencyWarningDependents() {
 async function confirmDelete() {
     if (ctx.isBusy.value) return
     const itemsToDelete = [...pendingDeletionItems.value]
-    pendingDeletionItems.value = []
-    if (itemsToDelete.length === 0) return
-
-    if (ctx.bulkDeleteItems && itemsToDelete.length > 1) {
-        await runBulkWithWaiting(
-            'delete',
-            itemsToDelete.length,
-            async () => {
-                await ctx.bulkDeleteItems!(itemsToDelete)
-            },
-            () => {
-                clearSelection()
-            },
-        )
-        await disablePendingDependencyWarningDependents()
-        return
-    }
-
-    if (itemsToDelete.length === 1) {
-        const item = itemsToDelete[0]
-        const id = getItemId(item)
-        markChanging(id)
-        try {
-            await ctx.deleteItem(item)
-            removeFromSelection(id)
-            await disablePendingDependencyWarningDependents()
-        } finally {
-            unmarkChanging(id)
-        }
-        return
-    }
-
-    await runBulk(
-        'delete',
-        itemsToDelete,
-        async (item) => {
-            await ctx.deleteItem(item)
-            removeFromSelection(getItemId(item))
-        },
-        { onComplete: clearSelection },
+    await runBulkWithWaiting('delete', itemsToDelete.length, () =>
+        deletePendingItems(pendingDeletionItems, ctx.deleteItem, getItemId, removeFromSelection),
     )
     await disablePendingDependencyWarningDependents()
+    clearSelection()
 }
 
 async function handleToggleEnabledById(id: string, _value: boolean) {
@@ -861,6 +898,8 @@ async function handleToggleEnabledById(id: string, _value: boolean) {
     markChanging(id)
     try {
         await ctx.toggleEnabled(item)
+    } catch (error) {
+        ctx.error.value = error instanceof Error ? error : new Error(String(error))
     } finally {
         unmarkChanging(id)
     }
@@ -880,56 +919,81 @@ async function handleRollbackById(id: string) {
 
 async function bulkEnable() {
     if (ctx.isBusy.value) return
-    const items = selectedItems.value.filter(
-        (item) => canToggleContentItem(item) && isDisabledContentItem(item),
-    )
-    if (items.length === 0) return
-    if (ctx.bulkEnableItems) {
-        await runBulkWithWaiting(
-            'enable',
-            items.length,
-            async () => {
-                await ctx.bulkEnableItems!(items)
-            },
-            clearSelection,
+    try {
+        const items = selectedItems.value.filter(
+            (item) => canToggleContentItem(item) && isDisabledContentItem(item),
         )
-        return
+        if (items.length === 0) return
+        if (ctx.bulkEnableItems) {
+            await runBulkWithWaiting(
+                'enable',
+                items.length,
+                async () => {
+                    return await ctx.bulkEnableItems!(items)
+                },
+                clearSelection,
+            )
+            return
+        }
+        await runBulk('enable', items, (item) => ctx.toggleEnabled(item), {
+            onComplete: clearSelection,
+        })
+    } catch (error) {
+        ctx.error.value = error instanceof Error ? error : new Error(String(error))
     }
-    await runBulk('enable', items, (item) => ctx.toggleEnabled(item), {
-        onComplete: clearSelection,
-    })
 }
 
 async function bulkDisable() {
     if (ctx.isBusy.value) return
-    const items = selectedItems.value.filter(
-        (item) => canToggleContentItem(item) && isEnabledContentItem(item),
-    )
-    if (items.length === 0) return
-    if (ctx.bulkDisableItems) {
-        await runBulkWithWaiting(
-            'disable',
-            items.length,
-            async () => {
-                await ctx.bulkDisableItems!(items)
-            },
-            clearSelection,
+    try {
+        const items = selectedItems.value.filter(
+            (item) => canToggleContentItem(item) && isEnabledContentItem(item),
         )
-        return
+        if (items.length === 0) return
+        if (ctx.bulkDisableItems) {
+            await runBulkWithWaiting(
+                'disable',
+                items.length,
+                async () => {
+                    return await ctx.bulkDisableItems!(items)
+                },
+                clearSelection,
+            )
+            return
+        }
+        await runBulk('disable', items, (item) => ctx.toggleEnabled(item), {
+            onComplete: clearSelection,
+        })
+    } catch (error) {
+        ctx.error.value = error instanceof Error ? error : new Error(String(error))
     }
-    await runBulk('disable', items, (item) => ctx.toggleEnabled(item), {
-        onComplete: clearSelection,
-    })
 }
 
-function handleUpdateById(id: string) {
-    if (id === '__modpack_group__') {
-        ctx.updateModpack?.()
-        return
-    }
-    const item = findContentItem(id)
-    if (item) {
-        void ctx.updateItem?.(item)
+async function handleUpdateById(id: string) {
+    if (ctx.isBusy.value || isChanging(id)) return
+    markChanging(id)
+    try {
+        if (id === '__modpack_group__') {
+            ctx.updateModpack?.()
+            return
+        }
+        const duplicate = tableItems.value.find(
+            (row) => row.id === id && row.isGroupHeader && row.groupKind === 'duplicate',
+        )
+        if (duplicate) {
+            if (duplicate.disabled) return
+            const anchor = findContentItem(duplicateUpdateAnchor(tableItems.value, id) ?? '')
+            if (anchor) await ctx.updateDuplicateGroup?.(anchor)
+            return
+        }
+        const item = findContentItem(id)
+        if (item) {
+            await ctx.updateItem?.(item)
+        }
+    } catch (error) {
+        ctx.error.value = error instanceof Error ? error : new Error(String(error))
+    } finally {
+        unmarkChanging(id)
     }
 }
 
@@ -951,7 +1015,7 @@ const hasBulkUpdateSupport = computed(
 
 function promptUpdateAll(event?: MouseEvent) {
     if (!hasBulkUpdateSupport.value) return
-    const items = ctx.items.value.filter((item) => item.update != null)
+    const items = ctx.items.value.filter((item) => hasContentUpdate(item))
     const modpackHasUpdate =
         ctx.bulkUpdateIncludesModpack !== false && (ctx.modpack.value?.hasUpdate ?? false)
     if (items.length === 0 && !modpackHasUpdate) return
@@ -966,7 +1030,7 @@ function promptUpdateAll(event?: MouseEvent) {
 
 function promptUpdateSelected(event?: MouseEvent) {
     if (!hasBulkUpdateSupport.value) return
-    const items = selectedItems.value.filter((item) => item.update != null)
+    const items = selectedItems.value.filter((item) => hasContentUpdate(item))
     if (items.length === 0) return
     pendingBulkUpdateItems.value = items
     pendingBulkUpdateAll.value = false
@@ -1008,7 +1072,7 @@ async function confirmBulkUpdate() {
                 'update',
                 items.length,
                 async () => {
-                    await ctx.bulkUpdateItems(items)
+                    return await ctx.bulkUpdateItems(items)
                 },
                 () => {
                     clearSelection()
@@ -1020,6 +1084,8 @@ async function confirmBulkUpdate() {
             await runBulk('update', items, ctx.bulkUpdateItem, { onComplete: clearSelection })
         }
     } finally {
+        bulkItemCount.value = 0
+        bulkStatusMessage.value = null
         pendingBulkUpdateItems.value = []
         pendingBulkUpdateAll.value = false
     }
@@ -1062,7 +1128,9 @@ const confirmUnlinkModal = ref<InstanceType<typeof ConfirmUnlinkModal>>()
                     @browse="ctx.browse"
                     @refresh="handleRefresh"
                     @view-dependencies="ctx.viewDependencies?.()"
-                />
+                >
+                    <template #actions><slot name="toolbar-actions" /></template>
+                </ContentToolbar>
 
                 <ContentTypeFilter
                     v-model:selected="selectedTypeFilter"
@@ -1181,7 +1249,9 @@ const confirmUnlinkModal = ref<InstanceType<typeof ConfirmUnlinkModal>>()
                 :disable-add-content-tooltip="ctx.disableAddContentTooltip"
                 @browse="ctx.browse"
                 @refresh="handleRefresh"
-            />
+            >
+                <template #actions><slot name="toolbar-actions" /></template>
+            </ContentEmptyState>
         </template>
 
         <ContentSelectionBar
@@ -1204,7 +1274,7 @@ const confirmUnlinkModal = ref<InstanceType<typeof ConfirmUnlinkModal>>()
         >
             <template #actions>
                 <Button
-                    v-if="hasBulkUpdateSupport && selectedItems.some((m) => m.update != null)"
+                    v-if="hasBulkUpdateSupport && selectedItems.some((m) => hasContentUpdate(m))"
                     v-tooltip="formatMessage(commonMessages.updateButton)"
                     type="quiet"
                     color="green"
@@ -1287,7 +1357,7 @@ const confirmUnlinkModal = ref<InstanceType<typeof ConfirmUnlinkModal>>()
             :action-disabled="ctx.isBusy.value"
             :action-disabled-tooltip="ctx.busyMessage?.value ?? undefined"
             :symlink-target="ctx.symlinkTarget?.value"
-            @delete="confirmDelete"
+            :action="confirmDelete"
         />
         <ContentDependencyWarningModal
             ref="contentDependencyWarningModal"
@@ -1301,7 +1371,7 @@ const confirmUnlinkModal = ref<InstanceType<typeof ConfirmUnlinkModal>>()
             :action-disabled="ctx.isBusy.value"
             :action-disabled-tooltip="ctx.busyMessage?.value ?? undefined"
             :symlink-target="ctx.symlinkTarget?.value"
-            @delete="confirmDependencyWarningDelete"
+            :action="confirmDependencyWarningDelete"
         />
         <ConfirmBulkUpdateModal
             v-if="hasBulkUpdateSupport"
@@ -1329,7 +1399,7 @@ const confirmUnlinkModal = ref<InstanceType<typeof ConfirmUnlinkModal>>()
             :backup-tip="ctx.modpack.value?.project.title"
             :action-disabled="ctx.isBusy.value"
             :action-disabled-tooltip="ctx.busyMessage?.value ?? undefined"
-            @unlink="ctx.unlinkModpack!()"
+            :action="ctx.unlinkModpack"
         />
 
         <slot name="modals" />
@@ -1338,7 +1408,7 @@ const confirmUnlinkModal = ref<InstanceType<typeof ConfirmUnlinkModal>>()
             <button
                 v-if="showScrollToTop"
                 class="scroll-to-top-btn"
-                aria-label="Scroll to top"
+                :aria-label="formatMessage(messages.scrollToTop)"
                 @click="scrollToTop"
             >
                 <ChevronUpIcon class="size-5" />

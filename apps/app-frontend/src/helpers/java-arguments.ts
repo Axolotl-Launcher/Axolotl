@@ -12,17 +12,3 @@ export const FALLEN_AUTH_PROXY_JAVA_ARGS = [
 export const FALLEN_AUTH_PROXY_JAVA_ARGS_STRING = FALLEN_AUTH_PROXY_JAVA_ARGS.join(' ')
 
 export const AUTO_GC_PRESET_ARG = '@axolotl:gc:auto'
-
-const FALLEN_AUTH_PROXY_ARG_SET = new Set(FALLEN_AUTH_PROXY_JAVA_ARGS)
-
-export function removeFallenAuthProxyArgs(args: string[]): string[] {
-    return args.filter((arg) => !FALLEN_AUTH_PROXY_ARG_SET.has(arg))
-}
-
-export function ensureFallenAuthProxyArgs(args: string[]): string[] {
-    return [...FALLEN_AUTH_PROXY_JAVA_ARGS, ...removeFallenAuthProxyArgs(args)]
-}
-
-export function hasFallenAuthProxyArgs(args: string[]): boolean {
-    return FALLEN_AUTH_PROXY_JAVA_ARGS.every((arg) => args.includes(arg))
-}

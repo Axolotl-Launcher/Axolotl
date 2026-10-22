@@ -8,10 +8,9 @@ import {
     IconButton,
     Slider,
     StyledInput,
-    truncatedTooltip,
     useVIntl,
 } from '@modrinth/ui'
-import { computed, ref } from 'vue'
+import { computed } from 'vue'
 import { type RouteLocationRaw, RouterLink } from 'vue-router'
 
 import type {
@@ -63,7 +62,6 @@ const emit = defineEmits<{
 }>()
 
 const { formatMessage } = useVIntl()
-const settingLabelRef = ref<HTMLElement | null>(null)
 
 const messages = defineMessages({
     on: {
@@ -245,8 +243,7 @@ function updateValue(value: string | number | boolean | undefined) {
         <div class="min-w-0 pr-2">
             <div class="flex items-center gap-2">
                 <h3
-                    ref="settingLabelRef"
-                    v-tooltip="truncatedTooltip(settingLabelRef, settingLabel)"
+                    v-tooltip="{ content: settingLabel, onlyWhenTruncated: true }"
                     class="m-0 truncate text-lg font-semibold text-[var(--color-text-primary)]"
                 >
                     {{ settingLabel }}

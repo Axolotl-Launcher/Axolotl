@@ -105,6 +105,17 @@ pub async fn get_content_snapshot(
     crate::state::get_content_snapshot(instance_id, false, &state).await
 }
 
+pub async fn get_content_snapshot_for_display(
+    instance_id: &str,
+) -> crate::Result<InstanceContentSnapshot> {
+    let state = State::get().await?;
+    crate::state::instances::commands::get_local_content_snapshot(
+        instance_id,
+        &state,
+    )
+    .await
+}
+
 #[tracing::instrument]
 pub async fn refresh_content(
     instance_id: &str,
@@ -120,6 +131,12 @@ pub async fn plan_content_updates(
     scope: ContentUpdateScope,
     target: Option<&str>,
 ) -> crate::Result<ContentUpdatePlan> {
+    if scope != ContentUpdateScope::Pack {
+        return Err(crate::ErrorKind::InputError(
+            "Content updates require a reviewed resource operation plan".into(),
+        )
+        .into());
+    }
     plan_content_updates_with_refresh(instance_id, scope, target, true).await
 }
 
@@ -672,6 +689,10 @@ mod tests {
         file_id: Option<&str>,
     ) -> InstanceContentSnapshotItem {
         InstanceContentSnapshotItem {
+            artifact_ref: None,
+            compatibility: None,
+            resource_id: None,
+            pack_resource_id: None,
             file_id: file_id.map(str::to_string),
             entry_id: entry_id.map(str::to_string),
             member_id: member_id.map(str::to_string),

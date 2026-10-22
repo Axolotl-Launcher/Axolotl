@@ -1,4 +1,3 @@
 /api/releases/latest  /.netlify/functions/releases-latest  200
-/api/releases/catalog  /.netlify/functions/releases-catalog  200
 /api/releases/miawa  /.netlify/functions/releases-miawa  200
 /api/downloads/prepare  /.netlify/functions/downloads-prepare  200

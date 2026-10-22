@@ -182,6 +182,16 @@ export function configureSchematicTexture(texture: CanvasTexture) {
 
 export function minecraftVersionFromDataVersion(dataVersion?: number) {
     if (dataVersion === undefined) return undefined
+    if (dataVersion === 5023) return '26.3'
+    if (dataVersion === 4903) return '26.2'
+    if (dataVersion === 4786) return '26.1'
+    if (dataVersion > 4786) return undefined
+    if (dataVersion >= 4671) return '1.21.11'
+    if (dataVersion >= 4554) return '1.21.9'
+    if (dataVersion >= 4437) return '1.21.6'
+    if (dataVersion >= 4325) return '1.21.5'
+    if (dataVersion >= 4189) return '1.21.4'
+    if (dataVersion >= 4082) return '1.21.3'
     if (dataVersion >= 3953) return '1.21'
     if (dataVersion >= 3463) return '1.20'
     if (dataVersion >= 3105) return '1.19'

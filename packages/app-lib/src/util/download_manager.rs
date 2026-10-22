@@ -1,11 +1,14 @@
+use crate::util::download::constants::DOWNLOAD_INITIAL_SPEED_FLOOR as INITIAL_SPEED_FLOOR;
+use crate::util::download::constants::DOWNLOAD_SPEED_SAMPLE_HISTORY as SAMPLE_HISTORY;
+use crate::util::download::constants::DOWNLOAD_SPEED_SAMPLE_INTERVAL_MS as SAMPLE_INTERVAL_MS;
+use crate::util::download::constants::{
+    DOWNLOAD_PERCENT_BASE, DOWNLOAD_SPEED_FLOOR_PERCENT,
+    DOWNLOAD_SPEED_MIN_SAMPLES, DOWNLOAD_SPEED_RECENT_SAMPLES,
+};
 use parking_lot::Mutex;
 use std::collections::VecDeque;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Instant;
-
-const INITIAL_SPEED_FLOOR: u64 = 256 * 1024;
-const SAMPLE_INTERVAL_MS: u128 = 100;
-const SAMPLE_HISTORY: usize = 30;
 
 #[derive(Clone, Copy, Debug, Default)]
 pub struct SpeedSnapshot {
@@ -82,16 +85,20 @@ impl DownloadSpeedTracker {
             }
             state.current_speed = weighted_total / weight_total.max(1);
 
-            if state.history.len() >= 5 {
-                let recent_count = state.history.len().min(10);
+            if state.history.len() >= DOWNLOAD_SPEED_MIN_SAMPLES {
+                let recent_count =
+                    state.history.len().min(DOWNLOAD_SPEED_RECENT_SAMPLES);
                 let recent_average =
                     state.history.iter().take(recent_count).sum::<u64>()
                         / recent_count as u64;
-                let next_floor = recent_average.saturating_mul(85) / 100;
+                let next_floor = recent_average
+                    .saturating_mul(DOWNLOAD_SPEED_FLOOR_PERCENT)
+                    / DOWNLOAD_PERCENT_BASE;
                 state.speed_floor = state.speed_floor.max(next_floor);
             }
         }
-        let recent_count = state.history.len().min(10);
+        let recent_count =
+            state.history.len().min(DOWNLOAD_SPEED_RECENT_SAMPLES);
         let recent_average = if recent_count == 0 {
             0
         } else {

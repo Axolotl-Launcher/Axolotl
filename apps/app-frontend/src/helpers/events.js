@@ -154,10 +154,6 @@ export async function notification_listener(callback) {
     return await listen('notification', (event) => callback(event.payload))
 }
 
-export async function logshare_ai_listener(callback) {
-    return await listen('logshare_ai', (event) => callback(event.payload))
-}
-
 /// Payload for the 'log' event
 /*
     LogPayload {

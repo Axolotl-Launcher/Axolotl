@@ -1,5 +1,11 @@
 <template>
-    <NewModal ref="modal" :header="formatMessage(messages.header)" fade="danger" max-width="560px">
+    <NewModal
+        ref="modal"
+        :header="formatMessage(messages.header)"
+        fade="danger"
+        max-width="560px"
+        :disable-close="busy"
+    >
         <div class="flex flex-col gap-6">
             <SymlinkWarningAdmonition :symlink-target="symlinkTarget" />
             <Admonition type="critical" :header="formatMessage(messages.admonitionHeader)">
@@ -179,8 +185,13 @@
         </div>
 
         <template #actions>
+            <p v-if="error" class="m-0 text-red">{{ error }}</p>
             <div class="flex justify-end gap-2">
-                <Button type="outlined" class="!border !border-surface-5" @click="hide"
+                <Button
+                    type="outlined"
+                    :disabled="busy"
+                    class="!border !border-surface-5"
+                    @click="hide"
                     ><XIcon aria-hidden="true" />
                     {{ formatMessage(commonMessages.cancelButton) }}
                 </Button>
@@ -188,7 +199,8 @@
                     v-tooltip="props.actionDisabled ? props.actionDisabledTooltip : undefined"
                     type="colored"
                     color="red"
-                    :disabled="props.actionDisabled"
+                    :disabled="props.actionDisabled || busy"
+                    :loading="busy"
                     @click="confirm"
                     ><TrashIcon aria-hidden="true" />
                     {{ deleteButtonLabel }}
@@ -232,6 +244,7 @@ const props = withDefaults(
         actionDisabled?: boolean
         actionDisabledTooltip?: string
         symlinkTarget?: string
+        action?: (disableDependents: boolean) => Promise<void>
     }>(),
     {
         items: () => [],
@@ -249,8 +262,14 @@ const emit = defineEmits<{
 }>()
 
 const { formatMessage } = useVIntl()
+const busy = ref(false)
+const error = ref<string | null>(null)
 
 const messages = defineMessages({
+    failed: {
+        id: 'content.dependency-warning.delete-failed',
+        defaultMessage: 'The selected content and dependencies could not be deleted. Try again.',
+    },
     header: {
         id: 'content.dependency-warning.header',
         defaultMessage: 'Dependency warning',
@@ -350,6 +369,7 @@ const deleteButtonLabel = computed(() => {
 })
 
 async function show() {
+    error.value = null
     await nextTick()
     visibleItems.value = props.items
     visibleDependents.value = props.dependents
@@ -365,10 +385,22 @@ function hide() {
     modal.value?.hide()
 }
 
-function confirm() {
-    if (props.actionDisabled) return
-    modal.value?.hide()
-    emit('delete', disableDependentsAfterDeleting.value)
+async function confirm() {
+    if (props.actionDisabled || busy.value) return
+    busy.value = true
+    error.value = null
+    try {
+        if (props.action) await props.action(disableDependentsAfterDeleting.value)
+        else emit('delete', disableDependentsAfterDeleting.value)
+        busy.value = false
+        await nextTick()
+        await modal.value?.hide()
+    } catch (failure) {
+        console.error('Dependency deletion failed', failure)
+        error.value = formatMessage(messages.failed)
+    } finally {
+        busy.value = false
+    }
 }
 
 defineExpose({

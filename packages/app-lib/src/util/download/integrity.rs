@@ -2,6 +2,10 @@
 
 use super::super::io::IOError;
 use crate::ErrorKind;
+use crate::util::download::constants::{
+    DOWNLOAD_BUFFER_BYTES, INTEGRITY_HASH_FOR_DOWNLOAD, INTEGRITY_INCORRECT,
+    INTEGRITY_MD5, INTEGRITY_SHA1, INTEGRITY_SHA256, INTEGRITY_SHA512,
+};
 use crate::util::fetch::{
     ComputedIntegrity, ContentValidation, Integrity, IntegrityHashers,
     acquire_native_validation_permit,
@@ -21,7 +25,7 @@ pub(crate) async fn compute_file_integrity(
         .map_err(|error| IOError::with_path(error, path))?;
     let mut hashers = IntegrityHashers::new_integrity_hashers(integrity);
     let mut size = 0;
-    let mut buffer = vec![0_u8; 256 * 1024];
+    let mut buffer = vec![0_u8; DOWNLOAD_BUFFER_BYTES];
     loop {
         let read = file
             .read(&mut buffer)
@@ -59,10 +63,18 @@ pub(crate) fn verify_computed_integrity(
     }
 
     let checks = [
-        ("sha1", expected.sha1.as_ref(), actual.sha1.as_ref()),
-        ("sha512", expected.sha512.as_ref(), actual.sha512.as_ref()),
-        ("sha256", expected.sha256.as_ref(), actual.sha256.as_ref()),
-        ("md5", expected.md5.as_ref(), actual.md5.as_ref()),
+        (INTEGRITY_SHA1, expected.sha1.as_ref(), actual.sha1.as_ref()),
+        (
+            INTEGRITY_SHA512,
+            expected.sha512.as_ref(),
+            actual.sha512.as_ref(),
+        ),
+        (
+            INTEGRITY_SHA256,
+            expected.sha256.as_ref(),
+            actual.sha256.as_ref(),
+        ),
+        (INTEGRITY_MD5, expected.md5.as_ref(), actual.md5.as_ref()),
     ];
     for (algorithm, expected, actual) in checks {
         if let Some(expected) = expected
@@ -83,8 +95,8 @@ pub(crate) fn is_integrity_error(error: &crate::Error) -> bool {
     match error.raw.as_ref() {
         ErrorKind::HashError(..) => true,
         ErrorKind::OtherError(message) => {
-            message.starts_with("Incorrect ")
-                && message.contains(" hash for download")
+            message.starts_with(INTEGRITY_INCORRECT)
+                && message.contains(INTEGRITY_HASH_FOR_DOWNLOAD)
         }
         _ => false,
     }

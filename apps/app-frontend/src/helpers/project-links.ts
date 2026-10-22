@@ -2,6 +2,18 @@ import type { LocationQuery, LocationQueryRaw } from 'vue-router'
 
 export type ProjectBrowseFilter = 'category' | 'loader'
 
+export function createProjectDetailsQuery(
+    query: LocationQuery,
+    browsePath: string,
+): LocationQueryRaw {
+    const details = { ...query, b: browsePath }
+    delete details.g
+    delete details.l
+    delete details.c
+    delete details.page
+    return details
+}
+
 export function createProjectBrowseLocation(
     projectType: string,
     filter: ProjectBrowseFilter,

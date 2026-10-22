@@ -2,6 +2,17 @@ import type { ServerTypeId } from '@modrinth/server'
 import { invoke } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
 
+export interface ServerLogCursor {
+    epoch: number
+    sequence: number
+}
+
+export interface ServerLogDelta {
+    cursor: ServerLogCursor
+    reset: boolean
+    lines: string[]
+}
+
 export interface ModpackInfoData {
     projectId: string
     versionId: string
@@ -142,6 +153,8 @@ export const servers = {
         invoke<PortProcessInfoData | null>(command('servers_port_process'), { port }),
     getLogBuffer: (serverId: string) =>
         invoke<string[]>(command('servers_get_log_buffer'), { serverId }),
+    getLogDelta: (serverId: string, cursor?: ServerLogCursor) =>
+        invoke<ServerLogDelta>(command('servers_get_log_delta'), { serverId, cursor }),
     clearLog: (serverId: string) => invoke<void>(command('servers_clear_log'), { serverId }),
 }
 

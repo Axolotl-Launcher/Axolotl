@@ -28,9 +28,6 @@ const HTML_ESCAPE_MAP: Record<string, string> = {
 
 const RE_HTML_ESCAPE = /[&<>"']/g
 
-const RE_MARK_OPEN = /&lt;mark&gt;/gi
-const RE_MARK_CLOSE = /&lt;\/mark&gt;/gi
-
 /**
  * Minecraft § 颜色码 → 样式类（与 LogShare CSS 的 .format-* 对应）
  * k（混淆）在 LogShare CSS 中未定义样式，这里同样忽略
@@ -387,7 +384,7 @@ function applyStackHighlights(out: string, text: string): string {
 
     if (RE_PYTHON_FILE.test(text)) {
         out = out.replace(
-            /^(\s*File\s+)("[^"]*")(\s*,\s*line\s+)(\d+)/i,
+            /^(\s*File\s+)(&quot;.*?&quot;)(\s*,\s*line\s+)(\d+)/i,
             '<span class="level-stack-frame">$1</span><span class="level-stack-location">$2$3</span><span class="level-stack-class">$4</span>',
         )
     }
@@ -521,9 +518,6 @@ function formatLine(text: string, mode: LogHighlightMode): string {
 
     let out = escapeHtml(text)
 
-    // 恢复搜索高亮（搜索层注入的 <mark> 已转义）
-    out = out.replace(RE_MARK_OPEN, '<mark>').replace(RE_MARK_CLOSE, '</mark>')
-
     // Minecraft § 颜色码
     out = out.replace(RE_COLOR_CODE, (_match, code) => {
         const cls = COLOR_STYLE_MAP[code.toLowerCase() as keyof typeof COLOR_STYLE_MAP]
@@ -635,6 +629,64 @@ export function highlightLine(text: string, mode: LogHighlightMode = 'full'): st
         return colorizeByLevel(mapLevel(getLevel(text)), text)
     }
     return formatLine(text, mode)
+}
+
+/** Marks visible text in highlightLine's output without changing its tags or entities. */
+export function markSearchMatches(html: string, searchQuery: string): string {
+    const terms = [...new Set(searchQuery.trim().split(/\s+/).filter(Boolean))]
+    if (terms.length === 0) return html
+    const pattern = terms
+        .sort((a, b) => b.length - a.length)
+        .map((term) => term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+        .join('|')
+    const entities: Record<string, string> = {
+        '&amp;': '&',
+        '&lt;': '<',
+        '&gt;': '>',
+        '&quot;': '"',
+        '&#039;': "'",
+    }
+    const tokens = [...html.matchAll(/<[^>]*>|[^<]+/g)].map(([value]) => ({
+        html: value,
+        text: value.startsWith('<')
+            ? ''
+            : value.replace(/&(?:amp|lt|gt|quot|#039);/g, (entity) => entities[entity]!),
+    }))
+    const text = tokens.map((token) => token.text).join('')
+    const matches = [...text.matchAll(new RegExp(pattern, 'gi'))].map((match) => ({
+        start: match.index,
+        end: match.index + match[0].length,
+    }))
+    if (matches.length === 0) return html
+
+    let offset = 0
+    let matchIndex = 0
+    return tokens
+        .map((token) => {
+            if (!token.text) return token.html
+            const start = offset
+            const end = (offset += token.text.length)
+            let position = start
+            let out = ''
+            while (matchIndex < matches.length) {
+                const match = matches[matchIndex]!
+                if (match.start >= end) break
+                const from = Math.max(position, match.start)
+                const to = Math.min(end, match.end)
+                out +=
+                    escapeHtml(token.text.slice(position - start, from - start)) +
+                    '<mark>' +
+                    escapeHtml(token.text.slice(from - start, to - start)) +
+                    '</mark>'
+                position = to
+                if (match.end > end) break
+                matchIndex++
+            }
+            return position === start
+                ? token.html
+                : out + escapeHtml(token.text.slice(position - start))
+        })
+        .join('')
 }
 
 /**

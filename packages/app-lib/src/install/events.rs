@@ -6,6 +6,11 @@ use super::model::{
     InstanceUpgradeResult, MissingModpackContentState,
 };
 use super::store;
+use crate::util::download::constants::CONTENT_CHECKPOINT_FILE_COUNT;
+use crate::util::download::constants::CONTENT_CHECKPOINT_INTERVAL;
+use crate::util::download::constants::LIVE_PROGRESS_EMIT_INTERVAL;
+use crate::util::download::constants::LIVE_PROGRESS_MAX_WAIT;
+use crate::util::download::constants::LIVE_PROGRESS_MIN_BYTES;
 use chrono::Utc;
 use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, LazyLock, Weak};
@@ -15,11 +20,6 @@ use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
 
 // Keep per-file progress responsive without emitting every network chunk.
-const LIVE_PROGRESS_EMIT_INTERVAL: Duration = Duration::from_millis(100);
-const LIVE_PROGRESS_MAX_WAIT: Duration = Duration::from_secs(1);
-const LIVE_PROGRESS_MIN_BYTES: u64 = 64 * 1024;
-const CONTENT_CHECKPOINT_FILE_COUNT: usize = 25;
-const CONTENT_CHECKPOINT_INTERVAL: Duration = Duration::from_secs(2);
 
 static REPORTER_STATES: LazyLock<
     dashmap::DashMap<Uuid, Weak<Mutex<InstallProgressReporterState>>>,
@@ -39,6 +39,13 @@ pub struct InstallProgressReporter {
     /// cannot overwrite the job-level aggregate, while download events and
     /// request progress continue to use the shared state.
     phase_updates_enabled: bool,
+    pipeline: Option<Arc<InstallPipelineState>>,
+}
+
+#[derive(Debug)]
+struct InstallPipelineState {
+    cancellation: CancellationToken,
+    failure: std::sync::Mutex<Option<crate::Error>>,
 }
 
 #[derive(Debug)]
@@ -99,6 +106,9 @@ impl InstallProgressReporter {
     }
 
     pub(crate) fn cancellation_token(&self) -> CancellationToken {
+        if let Some(pipeline) = &self.pipeline {
+            return pipeline.cancellation.clone();
+        }
         crate::State::get_if_initialized()
             .and_then(|state| {
                 state
@@ -107,6 +117,37 @@ impl InstallProgressReporter {
                     .map(|entry| entry.value().clone())
             })
             .unwrap_or_default()
+    }
+
+    /// A failed worker stops its peers without marking the user's job canceled.
+    pub(crate) fn with_pipeline_cancellation(mut self) -> Self {
+        self.pipeline = Some(Arc::new(InstallPipelineState {
+            cancellation: self.cancellation_token().child_token(),
+            failure: std::sync::Mutex::new(None),
+        }));
+        self
+    }
+
+    pub(crate) fn fail_pipeline(&self, error: &crate::Error) {
+        if let Some(pipeline) = &self.pipeline {
+            let mut first =
+                pipeline.failure.lock().expect("pipeline failure lock");
+            if first.is_none() {
+                *first =
+                    Some(crate::Error::from_shared_kind(error.raw.clone()));
+            }
+            pipeline.cancellation.cancel();
+        }
+    }
+
+    pub(crate) fn pipeline_failure(&self) -> Option<crate::Error> {
+        self.pipeline.as_ref().and_then(|pipeline| {
+            pipeline
+                .failure
+                .lock()
+                .expect("pipeline failure lock")
+                .take()
+        })
     }
 
     pub(crate) fn job_id(&self) -> Uuid {
@@ -188,6 +229,7 @@ impl InstallProgressReporter {
             state: shared_state,
             parallel_output: false,
             phase_updates_enabled: true,
+            pipeline: None,
         }
     }
 
@@ -400,6 +442,36 @@ impl InstallProgressReporter {
         Ok(snapshot)
     }
 
+    pub(crate) async fn checkpoint_export(
+        &self,
+        plan: crate::resources::ResourceExportPlan,
+        resolution: Option<
+            crate::resources::export::job::ExportResolutionCheckpoint,
+        >,
+    ) -> crate::Result<()> {
+        let app_state = crate::State::get().await?;
+        let mut state = self.state.lock().await;
+        self.sync_latest(&mut state, &app_state).await?;
+        let super::model::InstallRequest::ExportResource {
+            output_path, ..
+        } = &state.job.request
+        else {
+            return Err(crate::ErrorKind::InputError(
+                "not an export task".into(),
+            )
+            .into());
+        };
+        state.job.request = super::model::InstallRequest::ExportResource {
+            plan,
+            output_path: output_path.clone(),
+            resolution: resolution.map(Box::new),
+        };
+        let record =
+            store::update_state(self.job_id, &state.job, &app_state).await?;
+        state.mark_persisted(record.snapshot());
+        emit_install_job(&record.snapshot()).await
+    }
+
     pub async fn current_state(&self) -> crate::Result<InstallJobState> {
         let app_state = crate::State::get().await?;
         let mut state = self.state.lock().await;
@@ -468,6 +540,10 @@ impl InstallProgressReporter {
         }
         if refresh_missing_reason {
             refresh_missing_pause_reason(&mut state.job);
+            let record =
+                store::update_state(self.job_id, &state.job, &app_state)
+                    .await?;
+            state.mark_persisted(record.snapshot());
         }
         let Some(snapshot) = runtime_snapshot(&state) else {
             return Err(crate::ErrorKind::OtherError(
@@ -641,13 +717,34 @@ impl InstallProgressReporter {
         active.status = DownloadItemStatus::Downloading;
 
         let threshold = LIVE_PROGRESS_MIN_BYTES.max(bytes_total / 200);
-        if since_last_emit < LIVE_PROGRESS_EMIT_INTERVAL
+        let should_emit = !(since_last_emit < LIVE_PROGRESS_EMIT_INTERVAL
             || (bytes.saturating_sub(active.last_reported_bytes) < threshold
-                && since_last_emit < LIVE_PROGRESS_MAX_WAIT)
+                && since_last_emit < LIVE_PROGRESS_MAX_WAIT));
+        if should_emit {
+            active.last_reported_bytes = bytes;
+        }
+        // Native H2 reports through install tracking rather than the caller's
+        // legacy progress callback. Keep archive snapshots current as well.
+        if !self.parallel_output
+            && self.phase_updates_enabled
+            && state.job.progress.phase == InstallPhaseId::DownloadingPackFile
         {
+            let previous = state
+                .job
+                .progress
+                .progress
+                .as_ref()
+                .filter(|progress| progress.total == bytes_total)
+                .map_or(0, |progress| progress.current);
+            state.job.progress.progress = Some(InstallProgress {
+                current: bytes.max(previous).min(bytes_total),
+                total: bytes_total,
+                secondary: None,
+            });
+        }
+        if !should_emit {
             return Ok(());
         }
-        active.last_reported_bytes = bytes;
         state.last_live_emit_at.insert(path.clone(), Instant::now());
         let (speed_bytes_per_second, eta_seconds) =
             live_download_metrics(&state.job);
@@ -1171,6 +1268,66 @@ mod tests {
     };
     use crate::state::{InstanceLink, ModLoader};
 
+    fn pipeline_reporter() -> InstallProgressReporter {
+        InstallProgressReporter::new(
+            Uuid::new_v4(),
+            InstallJobState::new(InstallRequest::DownloadJava {
+                vendor: "test".into(),
+                version: 21,
+            }),
+        )
+    }
+
+    #[test]
+    fn pipeline_failure_cancels_peers_without_canceling_the_job_and_preserves_the_first_error()
+     {
+        let mut parent = pipeline_reporter();
+        let token = CancellationToken::new();
+        parent.pipeline = Some(Arc::new(InstallPipelineState {
+            cancellation: token.clone(),
+            failure: std::sync::Mutex::new(None),
+        }));
+        let worker = parent.clone().with_pipeline_cancellation();
+        let peer = worker.clone();
+        worker.fail_pipeline(
+            &crate::ErrorKind::InputError("original failure".into()).into(),
+        );
+        peer.fail_pipeline(
+            &crate::ErrorKind::OtherError("peer canceled".into()).into(),
+        );
+        assert!(peer.cancellation_token().is_cancelled());
+        assert!(!token.is_cancelled());
+        assert!(parent.pipeline_failure().is_none());
+        assert!(
+            worker
+                .pipeline_failure()
+                .unwrap()
+                .to_string()
+                .contains("original failure")
+        );
+    }
+
+    #[test]
+    fn user_cancellation_reaches_all_child_pipelines_and_retries_get_a_fresh_token()
+     {
+        let mut parent = pipeline_reporter();
+        let token = CancellationToken::new();
+        parent.pipeline = Some(Arc::new(InstallPipelineState {
+            cancellation: token.clone(),
+            failure: std::sync::Mutex::new(None),
+        }));
+        let first = parent.clone().with_pipeline_cancellation();
+        first.fail_pipeline(
+            &crate::ErrorKind::OtherError("worker failed".into()).into(),
+        );
+        let retry = parent.with_pipeline_cancellation();
+        assert!(!retry.cancellation_token().is_cancelled());
+        assert!(retry.pipeline_failure().is_none());
+        token.cancel();
+        assert!(retry.cancellation_token().is_cancelled());
+        assert!(first.cancellation_token().is_cancelled());
+    }
+
     #[cfg(not(feature = "tauri"))]
     fn minecraft_details() -> InstallPhaseDetails {
         InstallPhaseDetails::Minecraft {
@@ -1519,6 +1676,75 @@ mod tests {
         );
         app_state.install_job_cancellations.remove(&job_id);
         InstallProgressReporter::reset_job(job_id);
+    }
+
+    #[cfg(not(feature = "tauri"))]
+    #[tokio::test]
+    async fn archive_tracking_updates_phase_bytes_even_when_live_events_are_throttled()
+     {
+        for (phase, parallel, phase_updates, expected) in [
+            (InstallPhaseId::DownloadingPackFile, false, true, 25),
+            (InstallPhaseId::DownloadingPackFile, true, true, 0),
+            (InstallPhaseId::DownloadingPackFile, false, false, 0),
+            (InstallPhaseId::DownloadingContent, false, true, 0),
+            (InstallPhaseId::ReadingPackManifest, false, true, 0),
+        ] {
+            let mut reporter = pipeline_reporter();
+            reporter.parallel_output = parallel;
+            reporter.phase_updates_enabled = phase_updates;
+            {
+                let mut state = reporter.state.lock().await;
+                state.initialized_from_store = true;
+                state.job.progress.phase = phase;
+                state.job.progress.progress = Some(InstallProgress {
+                    current: 0,
+                    total: 100,
+                    secondary: None,
+                });
+                state
+                    .last_live_emit_at
+                    .insert("pack".into(), Instant::now());
+                state.job.active_downloads.insert(
+                    "pack".into(),
+                    ActiveDownloadState {
+                        name: "pack.mrpack".into(),
+                        url: String::new(),
+                        source: "official".into(),
+                        bytes_downloaded: 0,
+                        bytes_total: Some(100),
+                        attempt: 1,
+                        max_attempts: 3,
+                        status: DownloadItemStatus::Downloading,
+                        last_reported_bytes: 0,
+                        last_progress_at: Utc::now(),
+                        speed_bytes_per_second: None,
+                        speed_sample_started_at: Utc::now(),
+                        speed_sample_started_bytes: 0,
+                    },
+                );
+            }
+            reporter
+                .record_download_progress("pack", 25, 100)
+                .await
+                .unwrap();
+            let state = reporter.state.lock().await;
+            assert_eq!(
+                state.job.progress.progress.as_ref().unwrap().current,
+                expected
+            );
+            assert_eq!(state.job.active_downloads["pack"].bytes_downloaded, 25);
+            assert_eq!(
+                state.job.active_downloads["pack"].last_reported_bytes,
+                0
+            );
+            if expected > 0 {
+                assert_eq!(
+                    state.job.download_summary().bytes_downloaded,
+                    expected
+                );
+                assert_eq!(state.job.download_summary().bytes_total, Some(100));
+            }
+        }
     }
 
     #[cfg(not(feature = "tauri"))]

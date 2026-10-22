@@ -2229,12 +2229,12 @@ async fn run_gc(repository: &Path, pool: &SqlitePool) -> crate::Result<()> {
     Ok(())
 }
 
-pub async fn maintain_repository() -> crate::Result<()> {
+/// Completes interrupted restores before instances can be launched or edited.
+pub async fn recover_repository() -> crate::Result<()> {
     let state = State::get().await?;
     let _repository_guard = REPOSITORY_LOCK.lock().await;
-    cleanup_pending_repository_paths(&state).await?;
     recover_interrupted_restores(&state).await?;
-    let Some((repository, pool)) = open_repository(&state, false).await? else {
+    let Some((_, pool)) = open_repository(&state, false).await? else {
         return Ok(());
     };
     let now = Utc::now().timestamp_millis();
@@ -2248,6 +2248,19 @@ pub async fn maintain_repository() -> crate::Result<()> {
     .bind(now)
     .execute(&pool)
     .await?;
+    pool.close().await;
+    Ok(())
+}
+
+/// Storage housekeeping is serialized with backup operations but does not gate startup.
+pub async fn maintain_repository() -> crate::Result<()> {
+    let state = State::get().await?;
+    let _repository_guard = REPOSITORY_LOCK.lock().await;
+    cleanup_pending_repository_paths(&state).await?;
+    cleanup_committed_restores(&state.directories.instances_dir()).await?;
+    let Some((repository, pool)) = open_repository(&state, false).await? else {
+        return Ok(());
+    };
     run_gc(&repository, &pool).await?;
 
     let pending: Vec<String> = sqlx::query_scalar(
@@ -2349,7 +2362,6 @@ async fn recover_interrupted_restores(state: &State) -> crate::Result<()> {
             .await
             .is_ok()
         {
-            io::remove_dir_all(&operation_root).await?;
             continue;
         }
         let journal_bytes = match tokio::fs::read(
@@ -2390,6 +2402,33 @@ async fn recover_interrupted_restores(state: &State) -> crate::Result<()> {
         } else {
             recover_restore_operation(&root, &operation_root, &journal.roots)
                 .await?;
+        }
+    }
+    Ok(())
+}
+
+async fn cleanup_committed_restores(instances: &Path) -> crate::Result<()> {
+    let mut entries = match tokio::fs::read_dir(instances).await {
+        Ok(entries) => entries,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+            return Ok(());
+        }
+        Err(error) => return Err(error.into()),
+    };
+    while let Some(entry) = entries.next_entry().await? {
+        if !entry
+            .file_name()
+            .to_string_lossy()
+            .starts_with(RESTORE_PREFIX)
+            || !entry.file_type().await?.is_dir()
+        {
+            continue;
+        }
+        if tokio::fs::symlink_metadata(entry.path().join(RESTORE_COMMITTED))
+            .await
+            .is_ok()
+        {
+            io::remove_dir_all(entry.path()).await?;
         }
     }
     Ok(())
@@ -4065,6 +4104,32 @@ async fn validate_repository_at(root: &Path) -> crate::Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[tokio::test]
+    async fn committed_restore_housekeeping_leaves_unfinished_restores_and_instances_untouched()
+     {
+        let directory = tempfile::tempdir().unwrap();
+        let committed =
+            directory.path().join(format!("{RESTORE_PREFIX}complete"));
+        let pending = directory.path().join(format!("{RESTORE_PREFIX}pending"));
+        let instance = directory.path().join("normal-instance");
+        for root in [&committed, &pending, &instance] {
+            tokio::fs::create_dir_all(root).await.unwrap();
+            tokio::fs::write(root.join("data"), b"preserved")
+                .await
+                .unwrap();
+        }
+        tokio::fs::write(committed.join(RESTORE_COMMITTED), b"")
+            .await
+            .unwrap();
+        tokio::fs::write(instance.join(RESTORE_COMMITTED), b"")
+            .await
+            .unwrap();
+        cleanup_committed_restores(directory.path()).await.unwrap();
+        assert!(!committed.exists());
+        assert!(pending.join("data").exists());
+        assert!(instance.join("data").exists());
+    }
 
     fn restore_directory(path: &str) -> RestoreEntry {
         RestoreEntry {

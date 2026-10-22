@@ -1,6 +1,10 @@
 //! Route health state, authority memory, and probe bookkeeping.
 
 use super::route_policy;
+use crate::util::download::constants::{
+    DIAGNOSTICS_OTHER, ROUTE_HEALTH_CURSEFORGE, ROUTE_HEALTH_LOADER,
+    ROUTE_HEALTH_MINECRAFT, ROUTE_HEALTH_MODRINTH,
+};
 use crate::util::fetch::{DownloadRoute, ProxyPolicy, ResourceClass};
 use parking_lot::Mutex;
 use std::collections::HashMap;
@@ -20,11 +24,11 @@ pub(crate) enum ResourceFamily {
 impl ResourceFamily {
     pub(crate) const fn as_str(self) -> &'static str {
         match self {
-            Self::Minecraft => "minecraft",
-            Self::Loader => "loader",
-            Self::Modrinth => "modrinth",
-            Self::CurseForge => "curseforge",
-            Self::Other => "other",
+            Self::Minecraft => ROUTE_HEALTH_MINECRAFT,
+            Self::Loader => ROUTE_HEALTH_LOADER,
+            Self::Modrinth => ROUTE_HEALTH_MODRINTH,
+            Self::CurseForge => ROUTE_HEALTH_CURSEFORGE,
+            Self::Other => DIAGNOSTICS_OTHER,
         }
     }
 }
@@ -211,7 +215,7 @@ pub(crate) fn forget_effective_route_authority(
     }
 }
 
-const EWMA_ALPHA: f64 = 0.25;
+use super::constants::ROUTE_HEALTH_EWMA_ALPHA as EWMA_ALPHA;
 
 /// Updates a metric using the same weighted moving average for every route.
 pub(crate) fn update_ewma(current: &mut Option<f64>, sample: f64) {

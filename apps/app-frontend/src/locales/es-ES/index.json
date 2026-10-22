@@ -158,26 +158,14 @@
   "app.content-install.no-compatible-versions": {
     "message": "No hay versiones disponibles que coincidan con {compatibilityLabel}. Selecciona una versión para instalarla de todas formas. Las dependencias no se instalarán automáticamente."
   },
-  "app.export-modal.description-placeholder": {
-    "message": "Escribe la descripción del modpack..."
-  },
   "app.export-modal.export-button": {
     "message": "Exportar"
-  },
-  "app.export-modal.header": {
-    "message": "Exportar modpack"
   },
   "app.export-modal.modpack-name-label": {
     "message": "Nombre del modpack"
   },
-  "app.export-modal.modpack-name-placeholder": {
-    "message": "Nombre del modpack"
-  },
   "app.export-modal.version-number-label": {
     "message": "Número de versión"
-  },
-  "app.export-modal.version-number-placeholder": {
-    "message": "1.0.0"
   },
   "app.instance.confirm-delete.admonition-body": {
     "message": "Todos los datos de su instancia se eliminarán permanentemente, incluidos sus mundos, configuraciones y todo el contenido instalado."

@@ -26,7 +26,7 @@ macro_rules! impl_cache_methods {
                 {
                     let state = crate::State::get().await?;
                     let entries =
-                        CachedEntry::[<get_ $variant:snake _many>](ids, None, &state.pool, &state.api_semaphore).await?;
+                        CachedEntry::[<get_ $variant:snake _many>](ids, cache_behaviour, &state.pool, &state.api_semaphore).await?;
 
                     Ok(entries)
                 }
@@ -153,6 +153,19 @@ pub async fn purge_cache_types(
     cache_types: &[CacheValueType],
 ) -> crate::Result<()> {
     let state = crate::State::get().await?;
+    if cache_types.iter().any(|kind| {
+        crate::resources::protocol::owns(*kind)
+            || *kind == CacheValueType::ModpackFiles
+    }) {
+        state
+            .resources()
+            .await
+            .map_err(crate::resources::protocol::error)?
+            .cache()
+            .clear()
+            .await
+            .map_err(crate::resources::protocol::error)?;
+    }
     CachedEntry::purge_cache_types(cache_types, &state.pool).await?;
 
     Ok(())

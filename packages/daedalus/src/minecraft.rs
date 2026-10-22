@@ -175,6 +175,12 @@ pub enum Os {
     LinuxArm64,
     /// Linux ARM 32
     LinuxArm32,
+    /// Linux PowerPC 64 little-endian
+    LinuxPpc64le,
+    /// FreeBSD
+    Freebsd,
+    /// Matches every operating system in a rule, subject to its architecture restriction
+    Universal,
     /// The OS is unknown
     Unknown,
 }
@@ -186,6 +192,7 @@ impl Os {
             "windows" => Self::Windows,
             "macos" => Self::Osx,
             "linux" => Self::Linux,
+            "freebsd" => Self::Freebsd,
             _ => Self::Unknown,
         }
     }
@@ -203,6 +210,8 @@ impl Os {
                 Os::LinuxArm64
             } else if java_arch == "arm" {
                 Os::LinuxArm32
+            } else if matches!(java_arch, "ppc64le" | "powerpc64le") {
+                Os::LinuxPpc64le
             } else {
                 Os::Linux
             }
@@ -212,6 +221,8 @@ impl Os {
             } else {
                 Os::Osx
             }
+        } else if std::env::consts::OS == "freebsd" {
+            Os::Freebsd
         } else {
             Os::Unknown
         }
@@ -223,6 +234,7 @@ impl Os {
             Os::OsxArm64 => Os::Osx,
             Os::LinuxArm32 => Os::Linux,
             Os::LinuxArm64 => Os::Linux,
+            Os::LinuxPpc64le => Os::Linux,
             Os::WindowsArm64 => Os::Windows,
             _ => self.clone(),
         }
@@ -360,6 +372,66 @@ mod tests {
     use super::*;
     use serde_json::json;
 
+    #[test]
+    fn universal_os_arguments_preserve_rules_and_values() {
+        for value in [json!("-Xss1M"), json!(["-Xss1M"])] {
+            let input = json!({
+                "rules": [{
+                    "action": "allow",
+                    "os": {"name": "universal", "arch": "x86"}
+                }],
+                "value": value
+            });
+            let argument: Argument =
+                serde_json::from_value(input.clone()).unwrap();
+            let Argument::Ruled { rules, .. } = &argument else {
+                panic!("expected a conditional argument");
+            };
+            let os = rules[0].os.as_ref().unwrap();
+            assert_eq!(os.name, Some(Os::Universal));
+            assert_eq!(os.arch.as_deref(), Some("x86"));
+            assert_eq!(serde_json::to_value(&argument).unwrap(), input);
+        }
+    }
+
+    #[test]
+    fn unrecognized_os_names_remain_invalid() {
+        assert!(
+            serde_json::from_value::<OsRule>(json!({
+                "name": "unrecognized-os"
+            }))
+            .is_err()
+        );
+    }
+
+    #[test]
+    fn freebsd_os_rules_round_trip_without_becoming_linux_or_universal() {
+        let input = json!({"name": "freebsd", "arch": "x86_64"});
+        let rule: OsRule = serde_json::from_value(input.clone()).unwrap();
+        assert_eq!(rule.name, Some(Os::Freebsd));
+        assert_eq!(Os::Freebsd.get_os(), Os::Freebsd);
+        assert_eq!(serde_json::to_value(rule).unwrap(), input);
+    }
+
+    #[test]
+    fn linux_ppc64le_rules_round_trip_and_keep_their_base_platform() {
+        let input = json!({"name": "linux-ppc64le"});
+        let rule: OsRule = serde_json::from_value(input.clone()).unwrap();
+        assert_eq!(rule.name, Some(Os::LinuxPpc64le));
+        assert_eq!(Os::LinuxPpc64le.get_os(), Os::Linux);
+        assert_eq!(serde_json::to_value(rule).unwrap(), input);
+        let library = native_library(json!({
+            "linux": "natives-linux",
+            "linux-ppc64le": "natives-linux-ppc64le"
+        }));
+        assert_eq!(
+            library
+                .natives_os_key_and_classifiers_for_os(Os::LinuxPpc64le)
+                .map(|(key, _)| key),
+            Some("natives-linux-ppc64le")
+        );
+    }
+
     fn native_library(natives: serde_json::Value) -> Library {
         serde_json::from_value(json!({
             "downloads": {
@@ -423,6 +495,7 @@ mod tests {
         for (os, expected) in [
             (Os::LinuxArm32, "natives-linux"),
             (Os::LinuxArm64, "natives-linux"),
+            (Os::LinuxPpc64le, "natives-linux"),
             (Os::OsxArm64, "natives-osx"),
             (Os::WindowsArm64, "natives-windows"),
         ] {
@@ -431,6 +504,32 @@ mod tests {
                     .natives_os_key_and_classifiers_for_os(os)
                     .map(|(key, _)| key),
                 Some(expected),
+            );
+        }
+    }
+
+    #[test]
+    fn freebsd_native_mapping_does_not_select_natives_for_other_platforms() {
+        let library = native_library(json!({"freebsd": "natives-freebsd"}));
+        assert_eq!(
+            library
+                .natives_os_key_and_classifiers_for_os(Os::Freebsd)
+                .map(|(key, _)| key),
+            Some("natives-freebsd")
+        );
+        for os in [
+            Os::Windows,
+            Os::WindowsArm64,
+            Os::Osx,
+            Os::OsxArm64,
+            Os::Linux,
+            Os::LinuxArm32,
+            Os::LinuxArm64,
+            Os::LinuxPpc64le,
+            Os::Unknown,
+        ] {
+            assert!(
+                library.natives_os_key_and_classifiers_for_os(os).is_none()
             );
         }
     }

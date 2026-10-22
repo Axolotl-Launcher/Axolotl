@@ -1282,7 +1282,7 @@ function submitJoin() {
                             }}</span>
                             <Combobox
                                 v-model="selectedInstanceId"
-                                class="!w-full"
+                                width="full"
                                 :options="
                                     detectedPortOptions.map((value) => ({
                                         value,
@@ -1299,7 +1299,7 @@ function submitJoin() {
                             }}</span>
                             <Combobox
                                 v-model="selectedNodeName"
-                                class="!w-full"
+                                width="full"
                                 :options="
                                     nodeOptions.map((value) => ({
                                         value,

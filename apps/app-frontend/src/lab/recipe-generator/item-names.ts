@@ -1,4 +1,4 @@
-import itemNameIndexData from './assets/vanilla/item-name-index.json'
+import itemNameIndexData from './assets/vanilla/item-name-index.json' with { type: 'json' }
 
 type RecipeItemNameIndex = {
     en_us: Record<string, string>
@@ -25,4 +25,32 @@ export function resolveRecipeItemName(id: string, locale: string, readable: stri
     const key = translationKey(id)
     if (!key) return readable
     return itemNameIndex[preferred][key] ?? itemNameIndex.en_us[key] ?? readable
+}
+
+export function resolveRecipePotionName(id: string, locale: string): string {
+    const key = `item.minecraft.potion.effect.${id.replace('minecraft:', '')}`
+    const preferred = locale.toLowerCase().startsWith('zh') ? 'zh_cn' : 'en_us'
+    return itemNameIndex[preferred][key] ?? itemNameIndex.en_us[key] ?? id
+}
+
+/** Names from the same pinned vanilla language files as the shared item atlas. */
+export function resolveMinecraftAttributeName(
+    category: 'enchantment' | 'effect',
+    id: string,
+    locale: string,
+): string | undefined {
+    const normalized = id.includes(':') ? id : `minecraft:${id}`
+    if (!/^minecraft:[a-z0-9_]+$/.test(normalized)) return undefined
+    const path = normalized.slice('minecraft:'.length)
+    const enchantmentAliases: Record<string, string> = {
+        curse_of_binding: 'binding_curse',
+        curse_of_vanishing: 'vanishing_curse',
+    }
+    const key = `${category}.minecraft.${category === 'enchantment' ? (enchantmentAliases[path] ?? path) : path}`
+    const preferred = locale.toLowerCase().startsWith('zh') ? 'zh_cn' : 'en_us'
+    return itemNameIndex[preferred][key] ?? itemNameIndex.en_us[key]
+}
+
+export function minecraftEnchantmentLevel(level: number): string {
+    return itemNameIndex.en_us[`enchantment.level.${level}`] ?? String(level)
 }

@@ -20,7 +20,7 @@ pub use self::lifecycle::{
 pub use self::link::{
     DEFAULT_READY_TIMEOUT_MS, is_local_address, wait_until_ready,
 };
-pub use self::logs::{clear_log, get_log_buffer};
+pub use self::logs::{clear_log, get_log_buffer, get_log_delta};
 pub use self::manage::{
     create, delete, get, list, set_icon, set_linked_world, update_settings,
 };
@@ -29,3 +29,4 @@ pub use self::manifest::{
 };
 pub use self::modpack::install_modpack;
 pub use self::ports::{PortProcessInfo, kill_port_process, port_process};
+pub use crate::state::{LogCursor, LogDelta};

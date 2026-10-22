@@ -25,14 +25,14 @@ description: 用于实现、修改、重构或评审产品前端。当前任务�
 3. 简单局部改动默认只读取一个主要规则；只有任务还需要另一个独立判断时，才读取第二个规则。
 4. 不因关键词出现、文件内链接或“保险起见”继续读取规则。一个任务看似命中多行时，先选择真正负责当前决定的那一行。
 
-| 当前任务 | 主要规则 | 仅在这些情况补充 |
-| --- | --- | --- |
-| 模块边界、组件、Hook、函数、类型、CSS 或共享实现 | [组件与代码组织](references/component-contract.md) | 需要新增检查时读 [自动化](references/automation-contract.md) |
-| 新增或改变文案、动作含义、图标、点击反馈或视觉强调 | [信息与动作](references/information-and-action-contract.md) | 涉及对象身份、图片或选择器时读 [资源识别](references/resource-recognition-contract.md) |
-| 列表、卡片、详情、表格或批量操作 | [集合与详情](references/collection-and-detail-contract.md) | 涉及资源身份时读 [资源识别](references/resource-recognition-contract.md)；涉及编辑时读 [交互与编辑](references/interaction-and-editing-contract.md) |
-| 表单、选择、编辑或多步工作流 | [交互与编辑](references/interaction-and-editing-contract.md) | 涉及保存范围和流程连续性时读 [数据与操作范围](references/scope-and-state-integrity-contract.md) |
-| 查询、请求、保存、数据范围或异步状态 | [数据与操作范围](references/scope-and-state-integrity-contract.md)、[状态与加载](references/state-and-loading-contract.md) | 涉及共享数据源或 Hook 时读 [组件与代码组织](references/component-contract.md) |
-| 改变页面尺寸、分栏、滚动、弹窗结构或响应式行为 | [视口与弹窗](references/viewport-and-dialog-contract.md) | 涉及下拉、菜单、提示等依附触发器的浮层时读 [弹层](references/overlay-contract.md) |
+| 当前任务                                           | 主要规则                                                                                                                   | 仅在这些情况补充                                                                                                                                    |
+| -------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 模块边界、组件、Hook、函数、类型、CSS 或共享实现   | [组件与代码组织](references/component-contract.md)                                                                         | 需要新增检查时读 [自动化](references/automation-contract.md)                                                                                        |
+| 新增或改变文案、动作含义、图标、点击反馈或视觉强调 | [信息与动作](references/information-and-action-contract.md)                                                                | 涉及对象身份、图片或选择器时读 [资源识别](references/resource-recognition-contract.md)                                                              |
+| 列表、卡片、详情、表格或批量操作                   | [集合与详情](references/collection-and-detail-contract.md)                                                                 | 涉及资源身份时读 [资源识别](references/resource-recognition-contract.md)；涉及编辑时读 [交互与编辑](references/interaction-and-editing-contract.md) |
+| 表单、选择、编辑或多步工作流                       | [交互与编辑](references/interaction-and-editing-contract.md)                                                               | 涉及保存范围和流程连续性时读 [数据与操作范围](references/scope-and-state-integrity-contract.md)                                                     |
+| 查询、请求、保存、数据范围或异步状态               | [数据与操作范围](references/scope-and-state-integrity-contract.md)、[状态与加载](references/state-and-loading-contract.md) | 涉及共享数据源或 Hook 时读 [组件与代码组织](references/component-contract.md)                                                                       |
+| 改变页面尺寸、分栏、滚动、弹窗结构或响应式行为     | [视口与弹窗](references/viewport-and-dialog-contract.md)                                                                   | 涉及下拉、菜单、提示等依附触发器的浮层时读 [弹层](references/overlay-contract.md)                                                                   |
 
 以下情况不触发额外读取：
 

@@ -59,7 +59,7 @@ function countFor(slot: RecipeSlot) {
 }
 
 function canEditCount(slot: RecipeSlot) {
-    return slot === 'crafting.result' || slot === 'stonecutter.result'
+    return slot === 'crafting.result' || slot === 'stonecutter.result' || slot === 'brewing.result'
 }
 
 function updateSlot(slot: RecipeSlot, value: SlotValue | undefined) {

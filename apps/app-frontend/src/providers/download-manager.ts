@@ -5,6 +5,7 @@ import { setCurseForgeManualDownloads } from '@/helpers/curseforge-manual'
 import {
     isRegressiveActiveJobSnapshot,
     mergeRefreshedDownloadJobs,
+    reconcileAcceptedDownloadJob,
 } from '@/helpers/download-job-refresh'
 import { download_request_listener, install_job_listener, loading_listener } from '@/helpers/events'
 import {
@@ -36,6 +37,7 @@ export const downloadBarTypes = new Set([
 ])
 
 export interface DownloadManager {
+    initializationState: Ref<'loading' | 'ready' | 'error'>
     jobs: Ref<InstallJobSnapshot[]>
     pendingContentChanges: Ref<PendingContentChange[]>
     legacyDownloads: Ref<LoadingBar[]>
@@ -96,9 +98,11 @@ export interface QueueContentChangeRequest {
 
 export function createDownloadManager(handleError: (error: unknown) => void): DownloadManager {
     const jobs = ref<InstallJobSnapshot[]>([])
+    const initializationState = ref<'loading' | 'ready' | 'error'>('loading')
     const pendingContentChanges = ref<PendingContentChange[]>([])
     const legacyDownloads = ref<LoadingBar[]>([])
     let started = false
+    let startPromise: Promise<void> | undefined
     let disposed = false
     let unlistenJobs: (() => void) | null = null
     let unlistenRequests: (() => void) | null = null
@@ -143,6 +147,7 @@ export function createDownloadManager(handleError: (error: unknown) => void): Do
     }
 
     function setJob(job: InstallJobSnapshot, force = false) {
+        if (disposed) return
         if (initializing && !force) {
             pendingInitialUpdates.push({ kind: 'job', job })
             return
@@ -211,6 +216,7 @@ export function createDownloadManager(handleError: (error: unknown) => void): Do
     }
 
     function updateRequest(update: DownloadRequestUpdate) {
+        if (disposed) return
         if (initializing) {
             pendingInitialUpdates.push({ kind: 'request', update })
             return
@@ -276,6 +282,15 @@ export function createDownloadManager(handleError: (error: unknown) => void): Do
             total == null ? downloaded : Math.min(downloaded, total),
         )
         job.summary = { ...job.summary, bytes_downloaded: current, bytes_total: total }
+        if (job.phase === 'downloading_pack_file') {
+            const packTotal = job.progress?.total || itemTotal
+            if (packTotal > 0) {
+                job.progress = {
+                    current: Math.min(Math.max(job.progress?.current ?? 0, downloaded), packTotal),
+                    total: packTotal,
+                }
+            }
+        }
         if (job.phase === 'downloading_content' && job.progress?.secondary) {
             job.progress = {
                 ...job.progress,
@@ -349,12 +364,13 @@ export function createDownloadManager(handleError: (error: unknown) => void): Do
         else job.items[itemIndex] = item
     }
 
-    async function refresh() {
+    async function refresh(failOnError = false) {
         // A list request can race with realtime install/download events. Record
         // the local revision at dispatch so its older response cannot roll a job
         // back to the state it had before those events arrived.
         const revisionsAtDispatch = new Map(jobRevisions)
         const page = await download_job_list({ limit: 250 }).catch((error) => {
+            if (failOnError) throw error
             handleError(error)
             return null
         })
@@ -382,11 +398,13 @@ export function createDownloadManager(handleError: (error: unknown) => void): Do
         }
     }
 
-    async function refreshLegacyDownloads() {
+    async function refreshLegacyDownloads(failOnError = false) {
         const bars = await progress_bars_list().catch((error) => {
+            if (failOnError) throw error
             handleError(error)
             return {}
         })
+        if (disposed) return
         legacyDownloads.value = Object.values(bars)
             .filter((bar) => downloadBarTypes.has(bar.bar_type?.type ?? ''))
             .map((bar) => ({
@@ -407,21 +425,69 @@ export function createDownloadManager(handleError: (error: unknown) => void): Do
         }, 300)
     }
 
-    async function start() {
-        if (started || disposed) return
+    function stopSubscriptions() {
+        unlistenRequests?.()
+        unlistenJobs?.()
+        unlistenLoading?.()
+        unlistenRequests = unlistenJobs = unlistenLoading = null
+    }
+
+    function start(): Promise<void> {
+        if (startPromise) return startPromise
+        if (started || disposed) return Promise.resolve()
         started = true
         initializing = true
-        unlistenRequests = await download_request_listener((update: DownloadRequestUpdate) =>
-            updateRequest(update),
-        )
-        unlistenJobs = await install_job_listener((job: InstallJobSnapshot) => setJob(job))
-        unlistenLoading = await loading_listener(() => scheduleLegacyRefresh())
-        await Promise.all([refresh(), refreshLegacyDownloads()])
-        initializing = false
-        for (const update of pendingInitialUpdates.splice(0)) {
-            if (update.kind === 'job') setJob(update.job)
-            else updateRequest(update.update)
-        }
+        initializationState.value = 'loading'
+        startPromise = (async () => {
+            const subscriptions = await Promise.allSettled([
+                download_request_listener((update: DownloadRequestUpdate) =>
+                    updateRequest(update),
+                ).then((unlisten) => {
+                    if (disposed) unlisten()
+                    else unlistenRequests = unlisten
+                }),
+                install_job_listener((job: InstallJobSnapshot) => setJob(job)).then((unlisten) => {
+                    if (disposed) unlisten()
+                    else unlistenJobs = unlisten
+                }),
+                loading_listener(() => {
+                    if (!disposed) scheduleLegacyRefresh()
+                }).then((unlisten) => {
+                    if (disposed) unlisten()
+                    else unlistenLoading = unlisten
+                }),
+            ])
+            const failure = subscriptions.find((result) => result.status === 'rejected')
+            if (failure) {
+                stopSubscriptions()
+                throw failure.reason
+            }
+            if (disposed) return
+            // All subscriptions must be active before snapshots are dispatched.
+            // Events received in the meantime are replayed after both snapshots.
+            const snapshots = await Promise.allSettled([
+                refresh(true),
+                refreshLegacyDownloads(true),
+            ])
+            const snapshotFailure = snapshots.find((result) => result.status === 'rejected')
+            if (snapshotFailure) throw snapshotFailure.reason
+            if (!disposed) initializationState.value = 'ready'
+        })()
+            .catch((error) => {
+                stopSubscriptions()
+                started = false
+                if (!disposed) initializationState.value = 'error'
+                throw error
+            })
+            .finally(() => {
+                initializing = false
+                for (const update of pendingInitialUpdates.splice(0)) {
+                    if (update.kind === 'job') setJob(update.job)
+                    else updateRequest(update.update)
+                }
+                startPromise = undefined
+            })
+        return startPromise
     }
 
     async function cancel(jobId: string) {
@@ -442,23 +508,27 @@ export function createDownloadManager(handleError: (error: unknown) => void): Do
             jobs.value = jobs.value.filter((job) => job.job_id !== jobId)
             return
         }
+        const revision = jobRevisions.get(jobId) ?? 0
         const job = await download_job_cancel(jobId)
-        await reconcileJob(job)
+        await reconcileJob(job, revision)
     }
 
     async function retry(jobId: string) {
+        const revision = jobRevisions.get(jobId) ?? 0
         const job = await download_job_retry(jobId)
-        await reconcileJob(job)
+        await reconcileJob(job, revision)
     }
 
     async function resume(jobId: string) {
+        const revision = jobRevisions.get(jobId) ?? 0
         const job = await download_job_resume(jobId)
-        await reconcileJob(job)
+        await reconcileJob(job, revision)
     }
 
     async function skipMissingContent(jobId: string) {
+        const revision = jobRevisions.get(jobId) ?? 0
         const job = await install_job_skip_missing_content(jobId)
-        await reconcileJob(job)
+        await reconcileJob(job, revision)
     }
 
     /**
@@ -467,13 +537,17 @@ export function createDownloadManager(handleError: (error: unknown) => void): Do
      * the UI never shows a stale queued/running spinner, and drop the row
      * entirely when the job no longer exists.
      */
-    async function reconcileJob(job: InstallJobSnapshot) {
-        const freshest = await download_job_get(job.job_id).catch(() => null)
-        if (freshest) {
-            setJob(freshest)
-        } else {
-            jobs.value = jobs.value.filter((candidate) => candidate.job_id !== job.job_id)
-        }
+    async function reconcileJob(job: InstallJobSnapshot, revision: number) {
+        await reconcileAcceptedDownloadJob(
+            job,
+            download_job_get,
+            setJob,
+            (id) => {
+                jobs.value = jobs.value.filter((candidate) => candidate.job_id !== id)
+            },
+            handleError,
+            { atDispatch: revision, current: () => jobRevisions.get(job.job_id) ?? 0 },
+        )
     }
 
     async function remove(jobId: string) {
@@ -521,6 +595,7 @@ export function createDownloadManager(handleError: (error: unknown) => void): Do
     }
 
     return {
+        initializationState,
         jobs,
         pendingContentChanges,
         legacyDownloads,
@@ -560,9 +635,7 @@ export function createDownloadManager(handleError: (error: unknown) => void): Do
                 legacyRefreshTimer = null
             }
             pendingRequestUpdates.length = 0
-            unlistenJobs?.()
-            unlistenRequests?.()
-            unlistenLoading?.()
+            stopSubscriptions()
         },
     }
 }

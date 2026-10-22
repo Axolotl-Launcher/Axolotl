@@ -1,15 +1,15 @@
 {
-	"build": {
-		"beforeBuildCommand": "pnpm turbo run build --filter=@modrinth/app-frontend && cargo build --release --package axolotl-installer-ui"
-	},
-	"bundle": {
-		"windows": {
-			"nsis": {
-				"template": "./nsis/installer.nsi",
-				"installerIcon": "./icons/icon.ico",
-				"sidebarImage": "./nsis/assets/sidebar.bmp",
-				"headerImage": "./nsis/assets/header.bmp"
-			}
-		}
-	}
+  "build": {
+    "beforeBuildCommand": "pnpm turbo run build --filter=@modrinth/app-frontend && node ../../scripts/axolotl/build-desktop.mjs --installer-only"
+  },
+  "bundle": {
+    "windows": {
+      "nsis": {
+        "template": "./nsis/installer.nsi",
+        "installerIcon": "./icons/icon.ico",
+        "sidebarImage": "./nsis/assets/sidebar.bmp",
+        "headerImage": "./nsis/assets/header.bmp"
+      }
+    }
+  }
 }

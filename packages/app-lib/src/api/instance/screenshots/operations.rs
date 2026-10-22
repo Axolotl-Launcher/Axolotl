@@ -1,5 +1,5 @@
 use chrono::{DateTime, Utc};
-use futures::stream::{self, StreamExt, TryStreamExt};
+use futures::stream::{self, StreamExt};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::io::Cursor;
@@ -44,6 +44,12 @@ pub struct InstanceScreenshot {
     pub path: PathBuf,
 }
 
+#[derive(Debug, Default)]
+pub struct ScreenshotScanResult {
+    pub screenshots: Vec<InstanceScreenshot>,
+    pub skipped_instances: Vec<String>,
+}
+
 #[derive(Clone, Copy, Debug, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ScreenshotEditSaveMode {
@@ -71,6 +77,11 @@ pub async fn list_synced_screenshots() -> crate::Result<Vec<InstanceScreenshot>>
 }
 
 pub async fn list_all_screenshots() -> crate::Result<Vec<InstanceScreenshot>> {
+    Ok(list_all_screenshots_with_warnings().await?.screenshots)
+}
+
+pub async fn list_all_screenshots_with_warnings()
+-> crate::Result<ScreenshotScanResult> {
     let state = State::get().await?;
     let sources = instance_rows::list_screenshot_sources(&state.pool).await?;
     list_source_screenshot_sets(&state, sources).await
@@ -79,20 +90,45 @@ pub async fn list_all_screenshots() -> crate::Result<Vec<InstanceScreenshot>> {
 async fn list_source_screenshot_sets(
     state: &State,
     sources: Vec<InstanceScreenshotSource>,
-) -> crate::Result<Vec<InstanceScreenshot>> {
-    let mut screenshots =
-        stream::iter(sources.into_iter().map(|source| async move {
-            list_source_screenshots(state, source).await
-        }))
-        .buffer_unordered(SCREENSHOT_SCAN_CONCURRENCY)
-        .try_collect::<Vec<Vec<InstanceScreenshot>>>()
-        .await?
-        .into_iter()
-        .flatten()
-        .collect::<Vec<_>>();
+) -> crate::Result<ScreenshotScanResult> {
+    let results = stream::iter(sources.into_iter().map(|source| async move {
+        let instance_id = source.id.clone();
+        (instance_id, list_source_screenshots(state, source).await)
+    }))
+    .buffer_unordered(SCREENSHOT_SCAN_CONCURRENCY)
+    .collect::<Vec<_>>()
+    .await;
 
-    sort_screenshots(&mut screenshots);
-    Ok(screenshots)
+    collect_screenshot_scan_results(results)
+}
+
+fn collect_screenshot_scan_results(
+    results: Vec<(String, crate::Result<Vec<InstanceScreenshot>>)>,
+) -> crate::Result<ScreenshotScanResult> {
+    let mut scan = ScreenshotScanResult::default();
+    for (instance_id, result) in results {
+        match result {
+            Ok(items) => scan.screenshots.extend(items),
+            Err(error)
+                if matches!(
+                    error.raw.as_ref(),
+                    crate::ErrorKind::IOError(_)
+                        | crate::ErrorKind::StdIOError(_)
+                        | crate::ErrorKind::FSError(_)
+                ) =>
+            {
+                scan.skipped_instances.push(instance_id);
+            }
+            Err(error) => return Err(error),
+        }
+    }
+    scan.skipped_instances.sort();
+    if !scan.skipped_instances.is_empty() {
+        tracing::warn!(skipped_instances = ?scan.skipped_instances, "Screenshot scan completed; inaccessible instance folders were skipped");
+    }
+
+    sort_screenshots(&mut scan.screenshots);
+    Ok(scan)
 }
 
 async fn lock_instance_screenshots<'a>(
@@ -648,4 +684,67 @@ fn unique_archive_folder(
     }
 
     unreachable!()
+}
+
+#[cfg(test)]
+mod screenshot_scan_tests {
+    use super::*;
+
+    fn screenshot(name: &str) -> InstanceScreenshot {
+        InstanceScreenshot {
+            id: name.into(),
+            instance_id: "healthy".into(),
+            instance_name: "Healthy".into(),
+            file_name: name.into(),
+            created_at: Utc::now(),
+            modified_at: 0,
+            group_id: None,
+            path: PathBuf::new(),
+        }
+    }
+
+    #[test]
+    fn skips_filesystem_failures_and_retains_other_instance_screenshots() {
+        let scan = collect_screenshot_scan_results(vec![
+            (
+                "missing".into(),
+                Err(IOError::with_path(
+                    std::io::Error::from(std::io::ErrorKind::NotFound),
+                    "missing-instance",
+                )
+                .into()),
+            ),
+            ("healthy".into(), Ok(vec![screenshot("image.png")])),
+            (
+                "denied".into(),
+                Err(std::io::Error::from(std::io::ErrorKind::PermissionDenied)
+                    .into()),
+            ),
+        ])
+        .unwrap();
+        assert_eq!(scan.screenshots.len(), 1);
+        assert_eq!(scan.screenshots[0].file_name, "image.png");
+        assert_eq!(scan.skipped_instances, vec!["denied", "missing"]);
+    }
+
+    #[test]
+    fn an_all_inaccessible_scan_is_a_successful_empty_result() {
+        let scan = collect_screenshot_scan_results(vec![(
+            "missing".into(),
+            Err(std::io::Error::from(std::io::ErrorKind::NotFound).into()),
+        )])
+        .unwrap();
+        assert!(scan.screenshots.is_empty());
+        assert_eq!(scan.skipped_instances, vec!["missing"]);
+    }
+
+    #[test]
+    fn database_failures_are_not_hidden_as_inaccessible_folders() {
+        let error = collect_screenshot_scan_results(vec![(
+            "broken".into(),
+            Err(crate::ErrorKind::Sqlx(sqlx::Error::RowNotFound).into()),
+        )])
+        .unwrap_err();
+        assert!(matches!(error.raw.as_ref(), crate::ErrorKind::Sqlx(_)));
+    }
 }

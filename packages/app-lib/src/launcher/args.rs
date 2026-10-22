@@ -695,6 +695,47 @@ mod tests {
     use crate::launcher::quick_play_version::QuickPlaySingleplayerVersion;
     use serde_json::json;
 
+    #[test]
+    fn universal_os_arguments_still_require_the_declared_architecture() {
+        let arguments: Vec<Argument> = serde_json::from_value(serde_json::json!([
+            "-Dalways=true",
+            {
+                "rules": [{"action": "allow", "os": {"name": "universal"}}],
+                "value": "-Duniversal=true"
+            },
+            {
+                "rules": [{"action": "allow", "os": {"name": "universal", "arch": "x86"}}],
+                "value": ["-Xss1M"]
+            }
+        ]))
+        .unwrap();
+
+        for (architecture, uses_x86_argument) in [
+            ("x86", true),
+            ("i386", true),
+            ("i686", true),
+            ("x86_64", false),
+            ("amd64", false),
+            ("aarch64", false),
+            ("arm64", false),
+        ] {
+            let mut parsed = Vec::new();
+            parse_arguments(
+                &arguments,
+                &mut parsed,
+                |argument| Ok(argument.to_string()),
+                architecture,
+                &QuickPlayType::None,
+            )
+            .unwrap();
+            let mut expected = vec!["-Dalways=true", "-Duniversal=true"];
+            if uses_x86_argument {
+                expected.push("-Xss1M");
+            }
+            assert_eq!(parsed, expected, "Java architecture: {architecture}");
+        }
+    }
+
     #[tokio::test]
     async fn mixed_legacy_and_modern_game_arguments_are_both_preserved() {
         let directory = tempfile::tempdir().unwrap();

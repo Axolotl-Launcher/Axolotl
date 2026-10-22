@@ -8,6 +8,7 @@
         :confirm-label="formatMessage(props.server ? messages.header : messages.unlinkButton)"
         :confirm-disabled="props.actionDisabled"
         :confirm-disabled-tooltip="props.actionDisabledTooltip"
+        :confirm-action="props.action"
         @confirm="emit('unlink')"
     >
         <template #warning>
@@ -30,6 +31,7 @@ const props = defineProps<{
     server?: boolean
     actionDisabled?: boolean
     actionDisabledTooltip?: string
+    action?: () => void | Promise<void>
 }>()
 
 const { formatMessage } = useVIntl()

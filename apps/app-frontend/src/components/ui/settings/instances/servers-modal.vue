@@ -317,7 +317,7 @@ defineExpose({ show })
                     :placeholder="
                         formatMessage(messages.searchServers, { count: syncedServers.length })
                     "
-                    size="medium"
+                    size="standard"
                     :aria-label="
                         formatMessage(messages.searchServers, { count: syncedServers.length })
                     "

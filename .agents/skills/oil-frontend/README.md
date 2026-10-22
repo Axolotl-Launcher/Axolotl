@@ -1,14 +1,4 @@
-<p align="center">
-  <img src="./assets/readme/hero.png" width="100%" alt="oil-frontend：从用户任务出发，修改产品前端真正出错的位置">
-</p>
-
-<p align="center">
-  一套约束 AI 产品前端实现的 Agent Skill。
-</p>
-
-<p align="center">
-  <code>任务与对象</code> · <code>状态与范围</code> · <code>界面与空间</code> · <code>组件与代码</code>
-</p>
+# oil-frontend
 
 ## 为什么需要这个 Skill
 
@@ -71,4 +61,4 @@ Agent 会先检查数据流、父布局、共享组件和全部使用位置，�
 
 ## License
 
-[MIT](LICENSE)
+[上游 MIT 许可证](https://github.com/oil-oil/oil-frontend/blob/main/LICENSE)

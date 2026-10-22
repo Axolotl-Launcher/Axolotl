@@ -19,9 +19,45 @@ use std::path::{Path, PathBuf};
 use uuid::Uuid;
 
 pub async fn recover_interrupted_jobs(state: &State) -> crate::Result<()> {
+    crate::state::instances::commands::recover_legacy_rollbacks(state).await?;
     let jobs = store::list_interrupted_candidates(state).await?;
 
     for mut job in jobs {
+        if crate::resources::plans::frozen_request_completed(
+            &job.state.request,
+            &state.pool,
+        )
+        .await?
+        {
+            if let Err(error) = apply_cleanup(&mut job.state, state).await {
+                tracing::warn!(job_id = %job.id, %error, "Committed resource task staging cleanup deferred");
+            }
+            job.state.progress.phase = InstallPhaseId::Finalizing;
+            job.state.progress.progress = None;
+            job.state.progress.details = InstallPhaseDetails::Empty;
+            job.state.progress.parallel = None;
+            job.state.error = None;
+            job.state.rollback_error = None;
+            job.state.context = None;
+            job.state.pause_reason = None;
+            job.state.missing_content = None;
+            job.state.rollback = None;
+            job.state.record_event(InstallJobEventKind::JobSucceeded {
+                instance_id: Some(job.instance_id.clone().ok_or_else(
+                    || {
+                        crate::ErrorKind::InputError(
+                            "committed resource job has no instance".into(),
+                        )
+                    },
+                )?),
+            });
+            if let Some(record) =
+                store::complete_running_job(job.id, &job.state, state).await?
+            {
+                emit_install_job(&record.snapshot()).await?;
+                continue;
+            }
+        }
         if job.state.display.is_none() {
             job.state.display = display_from_request(&job.state);
         }
@@ -180,6 +216,7 @@ fn display_from_request(state: &InstallJobState) -> Option<InstallJobDisplay> {
             title: display_title.clone(),
             icon: display_icon.clone(),
         }),
+        InstallRequest::ExportResource { plan, .. } => Some(InstallJobDisplay { title: plan.package_info.name.clone(), icon: None }),
         InstallRequest::DownloadJava { vendor, version } => Some(InstallJobDisplay {
             title: format!("Java {version} ({vendor})"),
             icon: None,
@@ -191,6 +228,29 @@ pub async fn apply_cleanup(
     job_state: &mut InstallJobState,
     state: &State,
 ) -> crate::Result<()> {
+    if let InstallRequest::ExportResource {
+        plan, output_path, ..
+    } = &job_state.request
+    {
+        crate::resources::export::writer::cleanup_partial(plan, output_path)
+            .await
+            .map_err(|e| crate::ErrorKind::InputError(e.to_string()))?;
+    }
+    if let InstallRequest::InstallContentBatch { items, .. } =
+        &job_state.request
+    {
+        for item in items {
+            if let super::model::InstallContentBatchItem::FrozenResource {
+                plan,
+            } = item
+            {
+                Box::pin(crate::resources::plans::recover_frozen_plan(
+                    plan, state,
+                ))
+                .await?;
+            }
+        }
+    }
     match job_state.cleanup.clone() {
         InstallCleanup::DeleteNewInstance { instance_id } => {
             if let Some(instance_id) = instance_id
@@ -1044,6 +1104,10 @@ mod tests {
         let state = State::init_for_test(root.to_string_lossy().to_string())
             .await
             .unwrap();
+        let instance_count_before = crate::state::list_instances(&state.pool)
+            .await
+            .unwrap()
+            .len();
         let old_link = InstanceLink::ImportedModpack {
             project_id: Some("old-project".to_string()),
             version_id: Some("old-version".to_string()),
@@ -1397,7 +1461,7 @@ mod tests {
                 .await
                 .unwrap()
                 .len(),
-            1
+            instance_count_before + 1
         );
 
         let new_instance = crate::api::instance::create(
@@ -1533,11 +1597,14 @@ mod tests {
         missing_instance_job.cleanup = InstallCleanup::DeleteNewInstance {
             instance_id: Some("missing-instance".to_string()),
         };
+        apply_cleanup(&mut missing_instance_job, &state)
+            .await
+            .unwrap();
         assert!(
-            apply_cleanup(&mut missing_instance_job, &state)
+            crate::state::get_instance("missing-instance", &state.pool)
                 .await
-                .is_err(),
-            "new-instance cleanup must report deletion failures"
+                .unwrap()
+                .is_none()
         );
     }
 }

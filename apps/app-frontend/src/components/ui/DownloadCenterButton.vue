@@ -9,11 +9,12 @@
             <button
                 type="button"
                 :aria-label="formatMessage(messages.downloads)"
+                :title="activeJobs[0]?.display?.title ?? formatMessage(messages.downloads)"
                 :class="[
-                    'inline-flex h-9 min-w-0 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl border border-solid border-transparent px-2.5 text-base font-semibold leading-5 text-[var(--color-text-primary)] transition-colors',
+                    'inline-flex h-9 min-w-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl border border-solid border-transparent px-2.5 text-base font-semibold leading-5 text-[var(--color-text-primary)] transition-colors',
                     activeJobs.length || hasLegacyDownload
                         ? 'bg-surface-4 hover:bg-surface-5'
-                        : 'w-9 !rounded-full bg-transparent hover:bg-surface-4',
+                        : 'w-9 shrink-0 !rounded-full bg-transparent hover:bg-surface-4',
                 ]"
                 :style="triggerStyle"
             >
@@ -25,7 +26,8 @@
                     </span>
                     <span
                         v-if="firstJobSpeed"
-                        class="shrink-0 text-xs text-[var(--color-text-tertiary)]"
+                        class="min-w-0 truncate text-xs text-[var(--color-text-tertiary)]"
+                        :title="`${formatBytes(firstJobSpeed)}/s`"
                     >
                         {{ formatBytes(firstJobSpeed) }}/s
                     </span>
@@ -53,7 +55,21 @@
                     </span>
                 </div>
                 <div
-                    v-if="activeJobs.length"
+                    v-if="downloadManager.initializationState.value === 'loading'"
+                    class="flex flex-col gap-2 p-2"
+                    aria-hidden="true"
+                >
+                    <div class="h-4 w-3/4 animate-pulse rounded bg-surface-4" />
+                    <div class="h-2 w-full animate-pulse rounded bg-surface-4" />
+                </div>
+                <Button
+                    v-else-if="downloadManager.initializationState.value === 'error'"
+                    @click="retryInitialization"
+                >
+                    {{ formatMessage(commonMessages.retryButton) }}
+                </Button>
+                <div
+                    v-else-if="activeJobs.length"
                     class="flex max-h-[24rem] flex-col gap-1 overflow-auto"
                 >
                     <div
@@ -70,9 +86,21 @@
                                 {{ job.display?.title ?? phaseLabel(job.phase) }}
                             </button>
                             <button
-                                v-tooltip="formatMessage(messages.cancel)"
+                                v-tooltip="
+                                    formatMessage(
+                                        job.kind === 'export_resource'
+                                            ? exportMessages.cancelExport
+                                            : messages.cancel,
+                                    )
+                                "
                                 :disabled="cancelingJobs.has(job.job_id)"
-                                :aria-label="formatMessage(messages.cancel)"
+                                :aria-label="
+                                    formatMessage(
+                                        job.kind === 'export_resource'
+                                            ? exportMessages.cancelExport
+                                            : messages.cancel,
+                                    )
+                                "
                                 class="flex size-6 shrink-0 items-center justify-center rounded-full text-[var(--color-text-tertiary)] hover:bg-surface-5 hover:text-[var(--color-text-primary)]"
                                 @click="void cancel(job.job_id)"
                             >
@@ -85,12 +113,15 @@
                             <span class="truncate">{{ phaseLabel(job.phase) }}</span>
                             <span class="shrink-0">{{ progressLabel(job) }}</span>
                         </div>
-                        <div class="mt-2 h-1.5 overflow-hidden rounded-full bg-surface-5">
-                            <div
-                                class="h-full rounded-full bg-green transition-[width] duration-300"
-                                :style="{ width: `${progressPercent(job)}%` }"
-                            />
-                        </div>
+                        <ProgressBar
+                            class="mt-2"
+                            full-width
+                            color="green"
+                            :progress="progressPercent(job) ?? 0"
+                            :max="100"
+                            :waiting="progressPercent(job) === null"
+                            :aria-label="job.display?.title ?? phaseLabel(job.phase)"
+                        />
                     </div>
                 </div>
                 <div
@@ -124,20 +155,25 @@
 <script setup lang="ts">
 import { DownloadIcon, LoaderCircleIcon, XIcon } from '@modrinth/assets'
 import {
+    Button,
+    commonMessages,
     defineMessages,
     injectNotificationManager,
     PopoutMenu,
+    ProgressBar,
     useFormatBytes,
     useVIntl,
 } from '@modrinth/ui'
 import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 
+import { exportMessages } from '@/components/ui/export/messages'
 import { useDownloadTelemetry } from '@/composables/useDownloadTelemetry'
 import type { InstallJobSnapshot, InstallPhaseId } from '@/helpers/install'
 import {
     effectiveInstallProgress,
     hasDeterminateInstallProgress,
+    installProgressFraction,
     installProgressTextSource,
 } from '@/helpers/install-progress'
 import { injectDownloadManager } from '@/providers/download-manager'
@@ -147,6 +183,9 @@ const formatBytes = useFormatBytes()
 const router = useRouter()
 const downloadManager = injectDownloadManager()
 const { handleError } = injectNotificationManager()
+function retryInitialization() {
+    void downloadManager.start().catch(handleError)
+}
 const cancelingJobs = ref(new Set<string>())
 const open = ref(false)
 
@@ -197,6 +236,7 @@ const messages = defineMessages({
 
 const phaseDescriptors: Partial<Record<InstallPhaseId, (typeof messages)[keyof typeof messages]>> =
     {
+        exporting: exportMessages.writing,
         preparing_instance: messages.preparingInstance,
         resolving_pack: messages.resolvingPack,
         downloading_pack_file: messages.downloadingPack,
@@ -224,6 +264,7 @@ const totalSpeedLabel = computed(() => {
 const triggerStyle = computed(() => {
     if (!activeJobs.value.length) return undefined
     const percent = progressPercent(activeJobs.value[0])
+    if (percent === null) return undefined
     return {
         backgroundImage: `linear-gradient(90deg, var(--color-brand-highlight) ${percent}%, var(--surface-4) ${percent}%)`,
     }
@@ -234,24 +275,23 @@ function phaseLabel(phase: InstallPhaseId) {
 }
 
 function progressPercent(job: InstallJobSnapshot) {
-    const progress = effectiveInstallProgress(job)
-    if (hasDeterminateInstallProgress(progress)) {
-        return Math.min(100, Math.max(0, (progress.current / progress.total) * 100))
-    }
-    const total = job.summary.bytes_total
-    if (total && total > 0) return Math.min(100, (job.summary.bytes_downloaded / total) * 100)
-    return 8
+    if (job.status === 'queued') return null
+    const fraction = installProgressFraction(job)
+    return fraction === null ? null : fraction * 100
 }
 
 function progressLabel(job: InstallJobSnapshot) {
+    const source = installProgressTextSource(job)
+    if (source.type === 'bytes')
+        return `${formatBytes(source.current)} / ${formatBytes(source.total)}`
+    if (source.type === 'items')
+        return `${Math.min(source.current, source.total)} / ${source.total}`
+    if (source.type === 'required_files')
+        return `${job.summary.files_completed} / ${job.summary.files_total ?? '—'}`
     const progress = effectiveInstallProgress(job)
-    if (hasDeterminateInstallProgress(progress)) {
-        const source = installProgressTextSource(job)
-        return source.type === 'bytes'
-            ? `${formatBytes(progress.current)} / ${formatBytes(progress.total)}`
-            : `${Math.min(progress.current, progress.total)} / ${progress.total}`
-    }
-    return `${job.summary.files_completed} / ${job.summary.files_total ?? '—'}`
+    if (hasDeterminateInstallProgress(progress))
+        return `${Math.min(progress.current, progress.total)} / ${progress.total}`
+    return ''
 }
 
 function openDetails(jobId?: string) {

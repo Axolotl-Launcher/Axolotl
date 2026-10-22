@@ -1,25 +1,56 @@
 # Axolotl Launcher
 
-Axolotl Launcher is a free, open-source, ad-free, cross-platform Minecraft Java Edition launcher which supports Windows, macOS, and Linux.
+> Axolotl Launcher 是一款免费、开源、无广告的 Minecraft Java 版启动器，支持 Windows、macOS 和 Linux。它将游戏内容的发现、安装、更新与实例管理放在同一个客户端中，方便新玩家开始游戏，也方便已有玩家继续使用熟悉的配置。
 
-It supports searching, installing, and updating mods, modpacks, resource packs, and shaders from both Modrinth and CurseForge.
+Axolotl Launcher is a free, open-source, ad-free Minecraft Java Edition launcher for Windows, macOS, and Linux. It brings content discovery, installation, updates, and instance management into one desktop app.
 
-Axolotl Launcher also provides instance management, Microsoft and offline/Yggdrasil accounts, Java management, skin customization, and Axolotl Labs.
+## 查找和安装 Minecraft 内容
 
-Axolotl Labs includes:
-- Gradient text generator
-- Minecraft Java Edition seed map
-- 3D schematic workshop
-- Recipe generator
-- AI Powered Minecraft mod translation tool
+在启动器内查找 Modrinth 与 CurseForge 的模组、整合包、资源包和光影，也可浏览 MCArchive、Planet Minecraft 的内容。安装前查看所需的其他模组，安装后管理更新、切换版本和查看操作历史。内容类型与安装方式依来源而定，部分受分发限制的文件可能需要手动下载。
 
-Axolotl Launcher is a fork of Modrinth App.
+想分享自己的配置时，可将实例导出为 Modrinth MRPACK、CurseForge ZIP 或通用 ZIP 整合包。
 
-Official website:
-https://axlmc.org/
+## 下载与国内网络支持
 
-Source code:
-https://github.com/Mystic-Stars/Axolotl
+Axolotl 支持并发与分段下载，减少准备游戏的等待。支持的资源可使用 BMCLAPI、MCIM 等国内镜像，也可按需选择官方源。DoH（DNS over HTTPS）通过加密 DNS 服务解析下载域名；可在启动器的资源设置中开启。下载任务的进度和历史记录可在启动器中查看。
 
-Changelog:
-https://axlmc.org/changelog
+游戏资源的镜像设置与官网安装包来源是两项独立设置。官网下载区域默认使用 Update Server，GitHub 可作为备选来源。实际下载表现取决于网络环境及来源可用性。
+
+## 从其他启动器迁移
+
+支持从 PCL2、HMCL 等启动器导入已有实例，或直接关联一个或多个 .minecraft 文件夹，沿用现有游戏文件。实例升级前可以检查模组兼容性，再选择原地升级或复制后升级。新版本可能需要补充下载，模组是否兼容取决于具体版本。
+
+## 为游戏留一份备份
+
+支持的本地实例可创建快照备份，按需排除文件或文件夹，并通过去重减少重复存储。备份任务在后台执行，恢复前会预览文件变化。直接关联其他启动器或使用外部游戏目录的实例，暂不支持快照备份。
+
+## 查看磁盘占用和清理缓存
+
+存储分析显示实例、备份、共享资源、缓存及外部游戏目录的空间占用。用户可查看清理范围，移除下载缓存或不再使用的元数据。缓存清理保留已安装游戏、存档、备份，以及离线使用和恢复所需的文件。清理后，部分资源可能需要重新下载。
+
+## 账户、外观与内置工具
+
+- 账户：Microsoft Minecraft 账户、符合启动器使用条件的本地离线账户，以及 LittleSkin 和自定义 Yggdrasil 认证。
+- 外观：浅色、深色、OLED 和系统主题，支持强调色、背景、透明效果和字体设置。
+- Axolotl 实验室：渐变文字生成器、Java 版种子地图、3D 投影工坊、配方生成器和 Minecraft 模组翻译工具。
+- 日常管理：游戏实例、模组、存档、截图、日志、Java 运行环境，以及内置联机工具。
+
+## English overview
+
+Find mods, modpacks, resource packs, and shaders from Modrinth and CurseForge, with additional content browsing through MCArchive and Planet Minecraft. Axolotl offers dependency previews, version management, operation history, and modpack export in MRPACK, CurseForge ZIP, or generic ZIP format. Availability varies by content source, and restricted files may require manual download.
+
+Concurrent and segmented downloads, regional mirrors or official sources, and optional DNS over HTTPS (DoH) provide download options for different connections. Import instances from supported launchers, link existing .minecraft folders, and review mod compatibility before an in-place or copy-based upgrade.
+
+Supported local instances can use deduplicated snapshot backups with file exclusions and restore previews. Directly linked instances and instances with external game directories currently cannot use snapshot backups. Storage analysis and cache cleanup help manage disk space while keeping installed games, saves, backups, and files needed for offline use or recovery.
+
+## 项目信息与官方入口 / Official information
+
+Axolotl Launcher 基于 Modrinth App 开发，以 GPL-3.0 发布，是独立的非官方下游项目，与 Axolotl Client 不是同一项目，也不是 Mojang、Microsoft 或 Modrinth 的官方产品。
+
+文档核对日期：2026-10-16。具体功能以安装版本及发布通道为准；部分功能可能需要测试版。各已发布版本的变更请查阅官方更新日志。
+
+- [官方网站与下载 / Website and downloads](https://axlmc.org/)
+- [已发布版本的更新日志 / Published release notes](https://axlmc.org/changelog)
+- [源代码 / Source code](https://github.com/Mystic-Stars/Axolotl)
+- [隐私政策 / Privacy policy](https://axlmc.org/privacy)
+- [服务条款 / Terms](https://axlmc.org/terms)

@@ -820,43 +820,11 @@ fn assemble_archive(
     Ok(())
 }
 
-#[cfg(not(target_os = "windows"))]
 fn atomically_replace_file(
     temporary: &Path,
     destination: &Path,
 ) -> std::io::Result<()> {
-    std::fs::rename(temporary, destination)
-}
-
-#[cfg(target_os = "windows")]
-fn atomically_replace_file(
-    temporary: &Path,
-    destination: &Path,
-) -> std::io::Result<()> {
-    use std::os::windows::ffi::OsStrExt;
-    use windows::Win32::Storage::FileSystem::{
-        MOVEFILE_REPLACE_EXISTING, MOVEFILE_WRITE_THROUGH, MoveFileExW,
-    };
-    use windows::core::PCWSTR;
-
-    let temporary = temporary
-        .as_os_str()
-        .encode_wide()
-        .chain(std::iter::once(0))
-        .collect::<Vec<_>>();
-    let destination = destination
-        .as_os_str()
-        .encode_wide()
-        .chain(std::iter::once(0))
-        .collect::<Vec<_>>();
-    unsafe {
-        MoveFileExW(
-            PCWSTR(temporary.as_ptr()),
-            PCWSTR(destination.as_ptr()),
-            MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH,
-        )
-        .map_err(|error| std::io::Error::other(error.to_string()))
-    }
+    io::atomically_replace_file(temporary, destination)
 }
 
 async fn update_component_assembly_state(

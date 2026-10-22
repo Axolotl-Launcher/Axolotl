@@ -18,6 +18,8 @@ import {
     defineMessages,
     injectNotificationManager,
     NewModal,
+    type OverflowMenuOption,
+    PointMenu,
     StyledInput,
     useVIntl,
 } from '@modrinth/ui'
@@ -36,7 +38,7 @@ import {
     writeTextFile,
 } from '@tauri-apps/plugin-fs'
 import { NbtFile, NbtTag } from 'deepslate/nbt'
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, onScopeDispose, ref, watch } from 'vue'
 import { onBeforeRouteLeave, useRouter } from 'vue-router'
 
 import NbtEditor from '@/components/instance/studio/NbtEditor.vue'
@@ -46,6 +48,8 @@ import {
     type StudioDocument,
     useStudioDocuments,
 } from '@/components/instance/studio/useStudioDocuments'
+import { type StudioTreeNode, useStudioTree } from '@/components/instance/studio/useStudioTree'
+import { useStudioWatcher } from '@/components/instance/studio/useStudioWatcher'
 import type { ServerView } from '@/composables/useServers'
 import { get_full_path } from '@/helpers/instance'
 import {
@@ -59,17 +63,6 @@ import {
 } from '@/helpers/studio'
 import type { GameInstance } from '@/helpers/types'
 import { highlightInFolder, openPath } from '@/helpers/utils'
-
-interface StudioTreeNode {
-    name: string
-    path: string
-    type: 'directory' | 'file'
-    depth: number
-    expanded: boolean
-    loaded: boolean
-    loading: boolean
-    children: StudioTreeNode[]
-}
 
 const props = defineProps<{
     instance?: GameInstance
@@ -160,12 +153,10 @@ const { formatMessage } = useVIntl()
 const { addNotification } = injectNotificationManager()
 const router = useRouter()
 const instanceRoot = ref('')
-const rootNodes = ref<StudioTreeNode[]>([])
-const treeLoading = ref(true)
 const fileLoading = ref(false)
 const treeScrollElement = ref<HTMLElement | null>(null)
 const contextMenu = ref<{ node: StudioTreeNode; x: number; y: number } | null>(null)
-const contextMenuElement = ref<HTMLElement | null>(null)
+const contextMenuElement = ref<InstanceType<typeof PointMenu>>()
 const fileClipboard = ref<{ mode: 'copy' | 'cut'; node: StudioTreeNode } | null>(null)
 const createModal = ref<InstanceType<typeof NewModal> | null>(null)
 const createParentPath = ref('')
@@ -175,13 +166,6 @@ const studioEditor = ref<InstanceType<typeof StudioEditor> | InstanceType<typeof
     null,
 )
 const nbtFiles = new Map<string, NbtFile>()
-let watcherRegistrationId: string | null = null
-let watcherInstanceId: string | null = null
-let unlistenStudioFiles: (() => void) | null = null
-let unwatchWorkspaceFiles: (() => void) | null = null
-let watcherGeneration = 0
-let changedPaths = new Set<string>()
-let changeTimer: ReturnType<typeof setTimeout> | null = null
 
 const {
     documents,
@@ -219,6 +203,30 @@ const {
         })
     },
 )
+
+const {
+    treeLoading,
+    visibleNodes,
+    listDirectory,
+    loadRoot,
+    refreshTree: refreshDirectoryTree,
+    toggleDirectory,
+    reset: resetTree,
+} = useStudioTree(
+    async (path) => readDir(await resolvePath(path)),
+    (error) =>
+        addNotification({
+            title: formatMessage(messages.loadDirectoryFailed),
+            text: error instanceof Error ? error.message : String(error),
+            type: 'error',
+        }),
+)
+async function refreshTree() {
+    const scrollTop = treeScrollElement.value?.scrollTop ?? 0
+    await refreshDirectoryTree()
+    await nextTick()
+    if (treeScrollElement.value) treeScrollElement.value.scrollTop = scrollTop
+}
 
 async function saveActiveFile() {
     const focusedElement = document.activeElement
@@ -270,14 +278,6 @@ async function writeBinary(path: string, bytes: Uint8Array): Promise<void> {
     return writeFile(await resolvePath(path), bytes)
 }
 
-function workspaceRelativePath(path: string): string | null {
-    const root = instanceRoot.value.replaceAll('\\', '/').replace(/\/+$/, '')
-    const normalized = path.replaceAll('\\', '/')
-    if (!root || normalized === root) return null
-    if (normalized.startsWith(`${root}/`)) return normalized.slice(root.length + 1)
-    return /^(?:[A-Za-z]:)?\//.test(normalized) ? null : normalized
-}
-
 function exitStudio() {
     if (props.server) {
         void router.push({
@@ -306,26 +306,57 @@ function contextDestination(node: StudioTreeNode): string {
     return node.type === 'directory' ? node.path : node.path.split('/').slice(0, -1).join('/')
 }
 
-async function showContextMenu(event: MouseEvent, node: StudioTreeNode) {
+function showContextMenu(event: MouseEvent, node: StudioTreeNode) {
     contextMenu.value = { node, x: event.clientX, y: event.clientY }
-    await nextTick()
-    if (!contextMenu.value || !contextMenuElement.value) return
-
-    const padding = 10
-    const rect = contextMenuElement.value.getBoundingClientRect()
-    contextMenu.value.x = Math.min(contextMenu.value.x, window.innerWidth - rect.width - padding)
-    if (rect.bottom > window.innerHeight - padding) {
-        contextMenu.value.y = Math.max(padding, event.clientY - rect.height)
-    }
+    contextMenuElement.value?.show(event)
 }
-
 function hideContextMenu() {
+    contextMenuElement.value?.close()
     contextMenu.value = null
 }
-
-function handleContextMenuKeydown(event: KeyboardEvent) {
-    if (event.key === 'Escape') hideContextMenu()
-}
+const contextActions = computed<OverflowMenuOption[]>(() => [
+    {
+        id: 'copy',
+        label: formatMessage(messages.copy),
+        icon: CopyIcon,
+        action: () => copyToClipboard('copy'),
+    },
+    {
+        id: 'cut',
+        label: formatMessage(messages.cut),
+        icon: CopyIcon,
+        action: () => copyToClipboard('cut'),
+    },
+    {
+        id: 'paste',
+        label: formatMessage(messages.paste),
+        icon: CopyIcon,
+        shown: !!fileClipboard.value,
+        action: pasteClipboard,
+    },
+    { divider: true },
+    {
+        id: 'new-file',
+        label: formatMessage(messages.newFile),
+        icon: FilePlusIcon,
+        action: () => showCreateModal('file'),
+    },
+    {
+        id: 'new-folder',
+        label: formatMessage(messages.newFolder),
+        icon: FolderOpenIcon,
+        action: () => showCreateModal('directory'),
+    },
+    { divider: true },
+    {
+        id: 'open-folder',
+        label: formatMessage(messages.openPath),
+        icon: FolderOpenIcon,
+        action: revealContextMenuItem,
+    },
+    { divider: true },
+    { id: 'delete', label: deleteLabel.value, icon: TrashIcon, color: 'red', action: deleteItem },
+])
 
 function copyToClipboard(mode: 'copy' | 'cut') {
     if (!contextMenu.value) return
@@ -346,7 +377,8 @@ async function copyItem(source: StudioTreeNode, destination: string): Promise<vo
 
 async function pasteClipboard() {
     if (!contextMenu.value || !fileClipboard.value) return
-    const destinationParent = contextDestination(contextMenu.value.node)
+    const menuTarget = contextMenu.value
+    const destinationParent = contextDestination(menuTarget.node)
     const { mode, node } = fileClipboard.value
     const destination = joinPath(destinationParent, node.name)
     if (node.path === destination || destination.startsWith(`${node.path}/`)) return
@@ -358,7 +390,7 @@ async function pasteClipboard() {
             fileClipboard.value = null
         }
         await refreshTree()
-        hideContextMenu()
+        if (contextMenu.value === menuTarget) hideContextMenu()
     } catch (error) {
         addNotification({
             title: formatMessage(messages.operationFailed),
@@ -370,7 +402,8 @@ async function pasteClipboard() {
 
 async function deleteItem() {
     if (!contextMenu.value) return
-    const path = contextMenu.value.node.path
+    const menuTarget = contextMenu.value
+    const path = menuTarget.node.path
     const instanceId = props.instance?.id
     const root = instanceRoot.value
     const version = pathVersion(path)
@@ -388,7 +421,7 @@ async function deleteItem() {
             if (nbtPath === path || nbtPath.startsWith(`${path}/`)) nbtFiles.delete(nbtPath)
         }
         await refreshTree()
-        hideContextMenu()
+        if (contextMenu.value === menuTarget) hideContextMenu()
     } catch (error) {
         addNotification({
             title: formatMessage(messages.operationFailed),
@@ -446,88 +479,6 @@ function updateVisibleBreadcrumbs() {
     visibleBreadcrumbSegments.value = segments.length > 1 ? ['...', segments.at(-1)!] : segments
 }
 
-async function listDirectory(path: string, depth: number): Promise<StudioTreeNode[]> {
-    const entries = await readDir(await resolvePath(path))
-    return entries
-        .map((entry) => ({
-            name: entry.name,
-            path: path ? `${path}/${entry.name}` : entry.name,
-            type: entry.isDirectory ? ('directory' as const) : ('file' as const),
-            depth,
-            expanded: false,
-            loaded: false,
-            loading: false,
-            children: [],
-        }))
-        .sort((a, b) => {
-            if (a.type !== b.type) return a.type === 'directory' ? -1 : 1
-            return a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' })
-        })
-}
-
-function collectDirectoryState(
-    nodes: StudioTreeNode[],
-    state = new Map<string, Pick<StudioTreeNode, 'expanded' | 'loaded'>>(),
-) {
-    for (const node of nodes) {
-        if (node.type !== 'directory') continue
-        state.set(node.path, { expanded: node.expanded, loaded: node.loaded })
-        collectDirectoryState(node.children, state)
-    }
-    return state
-}
-
-async function restoreLoadedDirectories(
-    nodes: StudioTreeNode[],
-    state: Map<string, Pick<StudioTreeNode, 'expanded' | 'loaded'>>,
-) {
-    await Promise.all(
-        nodes.map(async (node) => {
-            if (node.type !== 'directory') return
-            const previous = state.get(node.path)
-            if (!previous?.loaded) return
-            node.children = await listDirectory(node.path, node.depth + 1)
-            node.loaded = true
-            node.expanded = previous.expanded
-            await restoreLoadedDirectories(node.children, state)
-        }),
-    )
-}
-
-async function refreshTree() {
-    const directoryState = collectDirectoryState(rootNodes.value)
-    const nextRoot = await listDirectory('', 0)
-    await restoreLoadedDirectories(nextRoot, directoryState)
-    const scrollTop = treeScrollElement.value?.scrollTop ?? 0
-    rootNodes.value = nextRoot
-    await nextTick()
-    if (treeScrollElement.value) treeScrollElement.value.scrollTop = scrollTop
-}
-
-function flattenTree(nodes: StudioTreeNode[]): StudioTreeNode[] {
-    return nodes.flatMap((node) => [
-        node,
-        ...(node.type === 'directory' && node.expanded ? flattenTree(node.children) : []),
-    ])
-}
-
-const visibleNodes = computed(() => flattenTree(rootNodes.value))
-
-async function loadRoot() {
-    treeLoading.value = true
-    try {
-        rootNodes.value = await listDirectory('', 0)
-    } catch (error) {
-        addNotification({
-            title: formatMessage(messages.loadDirectoryFailed),
-            text: error instanceof Error ? error.message : String(error),
-            type: 'error',
-        })
-    } finally {
-        treeLoading.value = false
-    }
-}
-
 async function reloadCleanDocument(document: StudioDocument) {
     const version = pathVersion(document.path)
     if (
@@ -560,9 +511,9 @@ async function reloadCleanDocument(document: StudioDocument) {
     }
 }
 
-async function processFileChanges() {
-    const paths = changedPaths
-    changedPaths = new Set<string>()
+async function processFileChanges(changedPaths: string[]) {
+    const paths = new Set(changedPaths)
+    const openDocuments = [...documents.value]
     try {
         await refreshTree()
     } catch (error) {
@@ -574,90 +525,27 @@ async function processFileChanges() {
     }
 
     await Promise.all(
-        documents.value
+        openDocuments
             .filter((document) => paths.has(document.path))
             .map((document) => reloadCleanDocument(document)),
     )
 }
 
-function scheduleFileChanges(paths: string[]) {
-    for (const path of paths) changedPaths.add(path)
-    if (changeTimer) clearTimeout(changeTimer)
-    changeTimer = setTimeout(() => {
-        changeTimer = null
-        void processFileChanges()
-    }, 150)
-}
-
-async function stopStudioWatcher() {
-    unwatchWorkspaceFiles?.()
-    unwatchWorkspaceFiles = null
-    const instanceId = watcherInstanceId
-    const registrationId = watcherRegistrationId
-    watcherInstanceId = null
-    watcherRegistrationId = null
-    if (instanceId && registrationId) {
-        await unregisterStudioWatcher(instanceId, registrationId).catch(() => undefined)
-    }
-}
-
-async function startStudioWatcher() {
-    const generation = ++watcherGeneration
-    await stopStudioWatcher()
-    if (props.server) {
-        try {
-            unwatchWorkspaceFiles = await watchFiles(
-                instanceRoot.value,
-                (event) => {
-                    const paths = event.paths
-                        .map(workspaceRelativePath)
-                        .filter((path): path is string => path !== null)
-                    if (paths.length > 0) scheduleFileChanges(paths)
-                },
-                { recursive: true, delayMs: 150 },
-            )
-        } catch (error) {
-            console.warn('Failed to start server Studio file watcher', error)
-            return
-        }
-        if (generation !== watcherGeneration) {
-            unwatchWorkspaceFiles?.()
-            unwatchWorkspaceFiles = null
-        }
-        return
-    }
-    if (!props.instance) return
-    const instanceId = props.instance.id
-    const registrationId = await registerStudioWatcher(instanceId)
-    if (generation !== watcherGeneration) {
-        await unregisterStudioWatcher(instanceId, registrationId).catch(() => undefined)
-        return
-    }
-    watcherInstanceId = instanceId
-    watcherRegistrationId = registrationId
-}
-
-async function toggleDirectory(node: StudioTreeNode) {
-    if (node.loading) return
-    if (node.loaded) {
-        node.expanded = !node.expanded
-        return
-    }
-
-    node.loading = true
-    try {
-        node.children = await listDirectory(node.path, node.depth + 1)
-        node.loaded = true
-        node.expanded = true
-    } catch (error) {
-        addNotification({
-            title: formatMessage(messages.loadDirectoryFailed),
-            text: error instanceof Error ? error.message : String(error),
-            type: 'error',
-        })
-    } finally {
-        node.loading = false
-    }
+const studioWatcher = useStudioWatcher(
+    {
+        listen: listenStudioFilesChanged,
+        register: registerStudioWatcher,
+        unregister: unregisterStudioWatcher,
+        watch: (path, handler) =>
+            watchFiles(path, (event) => handler(event.paths), { recursive: true, delayMs: 150 }),
+    },
+    processFileChanges,
+    (error) => console.warn('Failed to watch Studio files', error),
+)
+function startStudioWatcher() {
+    if (props.server) return studioWatcher.start({ kind: 'workspace', path: instanceRoot.value })
+    if (props.instance) return studioWatcher.start({ kind: 'instance', id: props.instance.id })
+    return studioWatcher.stop()
 }
 
 watch(activePath, async (path) => {
@@ -684,14 +572,10 @@ watch(
 onMounted(() => {
     breadcrumbObserver = new ResizeObserver(updateVisibleBreadcrumbs)
     if (breadcrumbOuter.value) breadcrumbObserver.observe(breadcrumbOuter.value)
-    document.addEventListener('mousedown', hideContextMenu)
-    document.addEventListener('keydown', handleContextMenuKeydown)
 })
 
 onBeforeUnmount(() => {
     breadcrumbObserver?.disconnect()
-    document.removeEventListener('mousedown', hideContextMenu)
-    document.removeEventListener('keydown', handleContextMenuKeydown)
 })
 
 async function openFile(node: StudioTreeNode) {
@@ -810,38 +694,35 @@ async function revealInSystem(path: string) {
 
 async function revealContextMenuItem() {
     if (!contextMenu.value) return
-    await revealInSystem(contextMenu.value.node.path)
-    hideContextMenu()
+    const menuTarget = contextMenu.value
+    await revealInSystem(menuTarget.node.path)
+    if (contextMenu.value === menuTarget) hideContextMenu()
 }
 
+let initializationGeneration = 0
+onScopeDispose(() => initializationGeneration++)
 async function initialize() {
-    instanceRoot.value =
-        props.server?.path ?? (props.instance ? await get_full_path(props.instance.id) : '')
+    const generation = ++initializationGeneration
+    const serverPath = props.server?.path
+    const instanceId = props.instance?.id
+    await studioWatcher.stop()
+    if (generation !== initializationGeneration) return false
+    resetTree()
+    const root = serverPath ?? (instanceId ? await get_full_path(instanceId) : '')
+    if (generation !== initializationGeneration) return false
+    instanceRoot.value = root
     resetDocuments()
     nbtFiles.clear()
     await loadRoot()
+    return generation === initializationGeneration
 }
 
-await initialize()
-
-if (props.instance) {
-    unlistenStudioFiles = await listenStudioFilesChanged((event) => {
-        if (
-            event.instanceId !== watcherInstanceId ||
-            event.registrationId !== watcherRegistrationId
-        ) {
-            return
-        }
-        scheduleFileChanges(event.paths)
-    })
-}
-await startStudioWatcher()
+if (await initialize()) await startStudioWatcher()
 
 watch(
     () => props.instance?.id ?? props.server?.id,
     async () => {
-        await initialize()
-        await startStudioWatcher()
+        if (await initialize()) await startStudioWatcher()
     },
 )
 
@@ -852,12 +733,7 @@ function handleBeforeUnload(event: BeforeUnloadEvent) {
 
 window.addEventListener('beforeunload', handleBeforeUnload)
 onBeforeUnmount(() => {
-    watcherGeneration++
     window.removeEventListener('beforeunload', handleBeforeUnload)
-    unlistenStudioFiles?.()
-    unlistenStudioFiles = null
-    if (changeTimer) clearTimeout(changeTimer)
-    void stopStudioWatcher()
 })
 
 onBeforeRouteLeave(() => {
@@ -939,8 +815,7 @@ onBeforeRouteLeave(() => {
                 </div>
                 <div
                     ref="treeScrollElement"
-                    class="min-h-0 flex-1 pb-3"
-                    :class="contextMenu ? 'overflow-y-hidden' : 'overflow-y-auto'"
+                    class="min-h-0 flex-1 overflow-y-auto pb-3"
                     role="tree"
                 >
                     <div
@@ -1111,77 +986,11 @@ onBeforeRouteLeave(() => {
                     </div>
                 </div>
             </div>
-            <Teleport to="#teleports">
-                <div
-                    v-if="contextMenu"
-                    ref="contextMenuElement"
-                    class="fixed z-[9999] flex min-w-48 flex-col gap-1 rounded-xl border border-solid border-surface-5 bg-surface-3 p-1.5 shadow-lg"
-                    :style="{ left: `${contextMenu.x}px`, top: `${contextMenu.y}px` }"
-                    role="menu"
-                    @mousedown.stop
-                >
-                    <Button
-                        type="quiet"
-                        size="2xs"
-                        class="w-full !justify-start"
-                        role="menuitem"
-                        @click="copyToClipboard('copy')"
-                        ><CopyIcon class="size-4" /> {{ formatMessage(messages.copy) }}
-                    </Button>
-                    <Button
-                        type="quiet"
-                        size="2xs"
-                        class="w-full !justify-start"
-                        role="menuitem"
-                        @click="copyToClipboard('cut')"
-                        ><CopyIcon class="size-4" /> {{ formatMessage(messages.cut) }}
-                    </Button>
-                    <Button
-                        v-if="fileClipboard"
-                        type="quiet"
-                        size="2xs"
-                        class="w-full !justify-start"
-                        role="menuitem"
-                        @click="pasteClipboard"
-                        ><CopyIcon class="size-4" /> {{ formatMessage(messages.paste) }}
-                    </Button>
-                    <div class="my-1 h-px bg-surface-5" />
-                    <Button
-                        type="quiet"
-                        size="2xs"
-                        class="w-full !justify-start"
-                        role="menuitem"
-                        @click="showCreateModal('file')"
-                        ><FilePlusIcon class="size-4" /> {{ formatMessage(messages.newFile) }}
-                    </Button>
-                    <Button
-                        type="quiet"
-                        size="2xs"
-                        class="w-full !justify-start"
-                        role="menuitem"
-                        @click="showCreateModal('directory')"
-                        ><FolderOpenIcon class="size-4" /> {{ formatMessage(messages.newFolder) }}
-                    </Button>
-                    <div class="my-1 h-px bg-surface-5" />
-                    <Button
-                        type="quiet"
-                        size="2xs"
-                        class="w-full !justify-start"
-                        role="menuitem"
-                        @click="revealContextMenuItem"
-                        ><FolderOpenIcon class="size-4" /> {{ formatMessage(messages.openPath) }}
-                    </Button>
-                    <Button
-                        type="quiet"
-                        color="red"
-                        size="2xs"
-                        class="w-full !justify-start"
-                        role="menuitem"
-                        @click="deleteItem"
-                        ><TrashIcon class="size-4" /> {{ deleteLabel }}
-                    </Button>
-                </div>
-            </Teleport>
+            <PointMenu
+                ref="contextMenuElement"
+                :options="contextActions"
+                @close="contextMenu = null"
+            />
         </section>
     </div>
 </template>

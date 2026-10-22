@@ -1,5 +1,8 @@
 import { invoke } from '@tauri-apps/api/core'
 
+import { resourceProjectProtocol } from './resources'
+import { sourceProjectUrl } from './source-project-links'
+
 export type McArchiveGameVersion = {
     id: number
     name: string
@@ -79,6 +82,36 @@ export async function searchMcArchiveMods(query: string, gameVersion?: string | 
     )
 }
 
-export function getMcArchiveModBySlug(slug: string) {
-    return invoke<McArchiveMod>('plugin:mcarchive|mcarchive_get_mod_by_slug', { slug })
+export async function getMcArchiveModBySlug(
+    slug: string,
+    signal?: AbortSignal,
+): Promise<McArchiveMod> {
+    const value = await resourceProjectProtocol<
+        McArchiveMod & {
+            mod_versions: Array<McArchiveModVersion & { game_versions: McArchiveGameVersion[] }>
+        }
+    >('mcarchive', slug, signal)
+    return {
+        ...value,
+        pageUrl: value.pageUrl ?? sourceProjectUrl('mcarchive', value.slug || slug),
+        modVersions: (value.mod_versions ?? value.modVersions ?? []).map((version) => ({
+            ...version,
+            gameVersions: version.game_versions ?? version.gameVersions,
+            files: version.files.map((file) => {
+                const raw = file as McArchiveFile & {
+                    archive_url?: string
+                    direct_url?: string
+                    redirect_url?: string
+                    page_url?: string
+                }
+                return {
+                    ...file,
+                    archiveUrl: raw.archive_url ?? file.archiveUrl,
+                    directUrl: raw.direct_url ?? file.directUrl,
+                    redirectUrl: raw.redirect_url ?? file.redirectUrl,
+                    pageUrl: raw.page_url ?? file.pageUrl,
+                }
+            }),
+        })),
+    }
 }

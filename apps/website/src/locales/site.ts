@@ -1,16 +1,72 @@
 export const SUPPORTED_SITE_LOCALES = ['en-US', 'zh-CN'] as const
 
 export const siteLocaleMessages: Record<string, Record<string, string>> = {
-	'zh-CN': {
+    'zh-CN': {
+        'axolotl-marketing.download.package-unavailable': '此版本暂无对应安装包。',
+        'axolotl-marketing.download.view-options': '查看下载选项',
+        'axolotl-marketing.download.retry': '重试',
+		'axolotl-site.structured-data.feature.export': '支持 Modrinth MRPACK、CurseForge ZIP 与通用 ZIP 整合包导出',
+		'axolotl-site.structured-data.feature.storage': '磁盘占用分析与缓存清理，保留已安装游戏、存档和备份',
+		'axolotl-site.structured-data.feature.backups': '为支持的本地实例创建快照备份，恢复前预览文件变化',
+		'axolotl-site.structured-data.feature.migration': 'PCL2、HMCL 实例导入，直接关联 .minecraft 目录，以及实例版本升级',
+		'axolotl-site.structured-data.feature.downloads': '并发下载、国内镜像与 DoH（DNS over HTTPS）支持',
+		'axolotl-site.structured-data.feature.accounts': '支持 Microsoft、符合使用条件的离线账户、LittleSkin 与自定义 Yggdrasil 认证',
+		'axolotl-site.structured-data.feature.instances': '实例、世界、截图、日志、Java 与整合包管理',
+		'axolotl-site.structured-data.feature.lab': 'Axolotl 实验室：渐变文字生成器、Java 版种子地图、3D 投影工坊、配方生成器与模组翻译工具',
+		'axolotl-site.structured-data.feature.content-sources': '支持 Modrinth、CurseForge、MCArchive 和 Planet Minecraft 内容搜索，各来源提供的内容类型有所不同',
+		'axolotl-site.faq.storage.question': '启动器占用越来越大，可以清理哪些内容？',
+		'axolotl-site.faq.storage.answer':
+			'存储分析会显示实例、备份、共享资源、缓存及外部游戏目录的占用。你可以查看清理范围，移除下载缓存和不再使用的元数据。缓存清理会保留已安装游戏、存档、备份，以及离线使用或恢复所需的文件；清理后的部分资源可能需要重新下载。',
+		'axolotl-site.faq.backups.question': '担心改模组后出问题，可以先备份游戏吗？',
+		'axolotl-site.faq.backups.answer':
+			'可以。Axolotl 为支持的本地实例提供快照备份，并对重复内容去重以减少重复存储。你可以排除指定文件或文件夹，在后台完成备份，恢复前预览文件变化。直接关联其他启动器或使用外部游戏目录的实例，暂不支持快照备份。',
+		'axolotl-marketing.recent.eyebrow': '从准备游戏，到安心游玩',
+		'axolotl-marketing.recent.title': '每次打开，都更省心',
+		'axolotl-marketing.recent.description':
+			'找喜欢的内容，少等一会儿下载，为游戏留一份备份，再腾出一些磁盘空间。围绕 Minecraft 的这些日常小事，交给启动器一起打理。',
+		'axolotl-marketing.recent.storage.title': '空间用在哪，清理有方向',
+		'axolotl-marketing.recent.storage.description':
+			'游戏、备份、缓存各占了多少空间，一目了然。清理下载缓存和不再使用的资源信息，保留已安装游戏、存档与备份，让磁盘更从容。',
+		'axolotl-marketing.recent.backups.title': '留一份备份，多一份安心',
+		'axolotl-marketing.recent.backups.description':
+			'调整模组或配置前，可以为游戏实例留个备份。需要恢复时，哪些文件会发生变化也能预览。',
+		'axolotl-marketing.recent.downloads.title': '下载少等待，进度看得见',
+		'axolotl-marketing.recent.downloads.description':
+			'下载再提速，配合国内镜像与 DoH 支持，让准备游戏更顺畅。随时从顶部栏查看任务进度，下载过什么，也有历史记录可查。',
+		'axolotl-marketing.recent.resources.title': '喜欢的模组，一处找齐',
+		'axolotl-marketing.recent.resources.description':
+			'在一个地方浏览 Modrinth、CurseForge 等来源的游戏内容。安装前看清需要搭配哪些模组，按需更新或切换版本；想和朋友分享时，也能导出整合包。',
+		'axolotl-marketing.recent.lab.title': '实用工具，启动器里直接用',
+		'axolotl-marketing.recent.lab.description':
+			'编辑皮肤、生成渐变文字、查看 Java 版种子地图，或预览和编辑投影，无需离开 Axolotl。',
+		'axolotl-marketing.recent.downloads.alt': 'Axolotl Launcher 正在显示下载任务、实时进度和顶部下载状态面板。',
+		'axolotl-marketing.recent.backups.alt': 'Axolotl Launcher 的实例备份设置，显示已有快照和恢复操作。',
+		'axolotl-marketing.recent.storage.alt': 'Axolotl Launcher 的存储分析，显示实例、缓存、共享文件和备份的磁盘占用。',
+		'axolotl-marketing.recent.lab.alt': 'Axolotl Launcher 实验室，包含皮肤编辑器、渐变文字生成器、种子地图和投影工坊。',
+		'axolotl-site.faq.migration.question': '从 PCL2、HMCL 换过来，需要重新下载游戏吗？',
+		'axolotl-site.faq.migration.answer':
+			'Axolotl现在支持直接关联使用国内启动器普遍使用的 .minecraft 文件夹，沿用游戏文件，不需要重新下载或调整设置。',
+		'axolotl-site.faq.network.question': '下载慢或连接不畅时，可以使用国内镜像和 DoH 吗？',
+		'axolotl-site.faq.network.answer':
+			'可以。在启动器的资源设置中，可为支持的 Minecraft 资源及 Modrinth、CurseForge 下载选择 BMCLAPI、MCIM、Tianpao等国内镜像，按需使用自动选择、镜像优先或官方源。DoH（DNS over HTTPS）用于通过加密 DNS 解析下载域名。这些设置影响游戏资源下载；官网的下载源设置则用于选择 Axolotl 安装包来源。',
+		'axolotl-marketing.improvements.minecraft.title': '已有的游戏，接着玩',
+		'axolotl-marketing.improvements.minecraft.description':
+			'添加现有的 .minecraft 文件夹，就能在 Axolotl 中管理其中的游戏版本。多个游戏目录也能一起管理，省去重新复制文件的麻烦。',
+		'axolotl-marketing.improvements.mirrors.title': '国内下载，也有合适的来源',
+		'axolotl-marketing.improvements.mirrors.description':
+			'下载不畅时，可为游戏资源和模组下载选择国内镜像。',
+		'axolotl-marketing.improvements.doh.title': '为下载多一份连接选择',
+		'axolotl-marketing.improvements.doh.description':
+			'默认开启 DoH 解析下载域名，使下载更快更顺畅。（你也可以在资源设置中关闭 DoH，使用系统 DNS）',
 		'axolotl-site.seo.title':
-			'Axolotl Launcher - 支持 Modrinth 与 CurseForge 的开源 Minecraft 启动器',
+			'Axolotl Launcher - 免费开源的 Minecraft Java 版启动器',
 		'axolotl-site.seo.description':
-			'下载 Axolotl Launcher：适用于 Windows、macOS 和 Linux 的免费开源 Tauri v2 Minecraft（我的世界）启动器，支持 Modrinth 与 CurseForge 内容管理、主题、账户及更多功能。',
+			'下载 Axolotl Launcher，免费开源、无广告的 Minecraft Java 版启动器，支持 Windows、macOS 和 Linux。集中管理模组与整合包，支持国内镜像下载、PCL2/HMCL 实例迁移、.minecraft 目录、实例备份及存储清理。',
 		'axolotl-site.seo.social-image-alt':
 			'Axolotl Launcher 正在展示一个 Minecraft 实例及其已安装内容。',
 		'axolotl-site.faq.eyebrow': '常见问题',
 		'axolotl-site.faq.title': '关于 Axolotl Launcher，你需要了解的一切',
-		'axolotl-site.faq.description': '了解支持平台、账户类型、内容来源与官方下载方式。',
+		'axolotl-site.faq.description': '了解如何安装启动器、迁移已有游戏、下载内容和备份实例。',
 		'axolotl-site.faq.platforms.question': 'Axolotl Launcher 支持哪些操作系统？',
 		'axolotl-site.faq.platforms.answer':
 			'Axolotl Launcher 支持 Windows 10/11 x64、搭载 Intel 或 Apple 芯片的 macOS，以及通过 AppImage、DEB 和 RPM 软件包安装的 Linux x64。',
@@ -19,23 +75,20 @@ export const siteLocaleMessages: Record<string, Record<string, string>> = {
 			'是。Axolotl Launcher 是基于 GPL-3.0 发布的自由软件，源代码和版本历史均在 GitHub 上公开。',
 		'axolotl-site.faq.accounts.question': '可以使用 Microsoft 正版账户和离线账户吗？',
 		'axolotl-site.faq.accounts.answer':
-			'可以。Axolotl 支持 Microsoft Minecraft 正版账户、本地离线账户与第三方 Yggdrasil 认证，包括 LittleSkin 预设和自定义服务器。',
-		'axolotl-site.faq.content.question': 'Axolotl 从哪里获取模组和其他 Minecraft 内容？',
+			'可以。Axolotl 支持 Microsoft Minecraft 正版账户、符合启动器使用条件的本地离线账户与第三方 Yggdrasil 认证，包括 LittleSkin 预设和自定义服务器。',
+		'axolotl-site.faq.content.question': '可以在 Axolotl 中下载哪些模组和整合包？',
 		'axolotl-site.faq.content.answer':
-			'Axolotl 可以搜索、查看、选择版本、安装、更新和管理来自 Modrinth 与 CurseForge 的内容。受 CurseForge 分发限制的文件可能需要手动下载。',
-		'axolotl-site.faq.download.question': '应该从哪里下载 Axolotl Launcher？',
-		'axolotl-site.faq.download.answer':
-			'请使用本官方网站的下载区域。自动模式使用 Update Server，GitHub 作为备用来源；你也可以在网站设置中手动更换下载源。',
+			'Axolotl 集成 Modrinth 与 CurseForge，方便你查找和安装模组、整合包、资源包与光影，也支持浏览 MCArchive、Planet Minecraft 的内容。各来源提供的内容和安装方式有所不同。安装前可以查看所需依赖，安装后管理更新和版本；部分受分发限制的文件可能需要手动下载。',
 		'axolotl-marketing.hero.download': 'Axolotl Launcher',
 		'axolotl-marketing.hero.download-for-os': '适用于 {os} 的 Axolotl Launcher',
 		'app-marketing.hero.description':
-			'Axolotl Launcher 是一款免费、开源、无广告的跨平台 Minecraft Java 版启动器，可在同一个客户端中搜索、安装和更新来自 Modrinth 与 CurseForge 的模组、整合包、资源包和光影，并内置 Axolotl 实验室。',
+			'Axolotl Launcher 是一款免费、开源、无广告的跨平台 Minecraft Java 版启动器。发现并安装 Modrinth 与 CurseForge 的模组和整合包，沿用已有游戏目录，在一个地方完成下载、更新与备份，轻松开始下一次冒险。',
 		'axolotl-marketing.hero.screenshot-alt': 'Axolotl Launcher 主界面。',
-		'axolotl-marketing.highlights.eyebrow': '一个启动器，两个来源',
+		'axolotl-marketing.highlights.eyebrow': '为你的下一个世界准备好',
 		'axolotl-marketing.highlights.title': '管理 Minecraft 内容',
 		'axolotl-marketing.highlights.title-second': '不再绕路',
 		'axolotl-marketing.highlights.description':
-			'搜索 Modrinth 与 CurseForge，查看项目详情、选择版本并安装内容，由启动器处理依赖和更新。',
+			'找一个模组，装一套整合包，或回到熟悉的世界。来自 Modrinth 与 CurseForge 的内容集中呈现，安装、依赖和更新都能在启动器中完成。',
 		'axolotl-marketing.highlights.ad-free.title': '免费、开源且独立',
 		'axolotl-marketing.highlights.ad-free.description':
 			'基于 GPL-3.0 发布，免费使用且无广告。Axolotl 不是 Modrinth 官方客户端。',
@@ -73,21 +126,21 @@ export const siteLocaleMessages: Record<string, Record<string, string>> = {
 		'app-marketing.features.mod-management.title': '高效实例管理',
 		'app-marketing.features.mod-management.description':
 			'创建、导入和批量管理实例；集中管理模组、资源包、光影、文件、世界、截图和日志，以及更新、启动设置与整合包导出。',
-		'app-marketing.features.performance.title': '高性能',
+		'app-marketing.features.performance.title': '少些等待，更快开玩',
 		'app-marketing.features.performance.description':
-			'Axolotl 以灵敏的界面与轻量的桌面核心保持安静、高效，不打扰你的游戏。',
+			'下载游戏文件和整合包更高效，准备游戏时也能顺畅操作。配合轻量的桌面核心，把更多时间留给游玩。',
 		'app-marketing.features.website.title': '从发现到安装',
 		'app-marketing.features.website.description':
-			'从 Modrinth 或 CurseForge 发现内容后，通过项目详情和版本选择直接安装到实例中，并在原处处理依赖和更新。',
-		'app-marketing.features.importing.title': '导入配置',
+			'找到喜欢的内容，选好版本，直接装进游戏。',
+		'app-marketing.features.importing.title': '换个启动器，不用从头开始',
 		'app-marketing.features.importing.description':
-			'从 PCL2, HMCL 或任意你喜欢的启动器一键导入现有配置，无需手动重建即可继续游玩。',
+			'从 PCL2、HMCL 等启动器导入现有实例，继续熟悉的游玩配置。想体验新版本时，先查看模组兼容性，再选择直接升级或复制一份后升级。',
 		'app-marketing.features.offline.title': '每个世界都用得上的能力',
 		'app-marketing.features.offline.description':
 			'中文搜索和项目翻译、拖拽导入、Java 管理、离线模式与皮肤管理，随时为你准备好。',
 		'app-marketing.features.follow.title': '联机能力',
 		'app-marketing.features.follow.description':
-			'由陶瓦联机强力驱动，一键体验启动器联机功能，方便快捷。',
+			'由陶瓦联机、红石联机驱动，一键体验启动器联机功能，方便快捷。',
 		'app-marketing.download.options-title': '下载选项',
 		'axolotl-marketing.download.title': '下载 Axolotl Launcher',
 		'app-marketing.download.description': '桌面应用支持多个平台，请选择适合你的版本。',
@@ -152,11 +205,6 @@ export const siteLocaleMessages: Record<string, Record<string, string>> = {
 		'axolotl-site.changelog.eyebrow': '版本历史',
 		'axolotl-site.changelog.title': '更新日志',
 		'axolotl-site.changelog.description': '查看每个已公开发布版本的功能改进、变更与修复。',
-		'axolotl-site.changelog.loading': '正在核对已发布版本…',
-		'axolotl-site.changelog.error.title': '暂时无法加载更新日志',
-		'axolotl-site.changelog.error.description':
-			'未能获取更新日志。可能是网络连接不畅，或数据源暂时不可达。',
-		'axolotl-site.changelog.retry': '重试',
 		'axolotl-site.changelog.empty': '尚无已公开发布的更新日志。',
 		'axolotl-site.changelog.no-release-notes': '该版本未提供更新说明。',
 		'axolotl-site.changelog.category.added': '新增',
@@ -212,9 +260,9 @@ export const siteLocaleMessages: Record<string, Record<string, string>> = {
 		'axolotl-settings.done': '完成',
 		'axolotl-site.faq.lab.question': '什么是 Axolotl 实验室？',
 		'axolotl-site.faq.lab.answer':
-			'Axolotl 实验室是一个内置的网页工具集合，提供渐变文字生成器、Java 版种子地图、3D 投影工坊、配方生成器、Minecraft 模组翻译工具等功能。内容持续更新中。',
+			'Axolotl 实验室是启动器内置的工具集合，提供渐变文字生成器、Java 版种子地图、3D 投影工坊、配方生成器与 Minecraft 模组翻译工具。',
 		'axolotl-site.seo.keywords':
-			'Axolotl Launcher, 美西螈启动器, Minecraft 启动器, Modrinth, CurseForge, Minecraft Java 版, 模组, 整合包, 资源包, 光影, Axolotl 实验室, Axolotl Launcher 下载, Axolotl Launcher 安装, Axolotl Launcher 中文, Axolotl Launcher 开源, Axolotl Launcher 免费, Axolotl Launcher 跨平台, Axolotl Launcher Windows, Axolotl Launcher macOS, Axolotl Launcher Linux',
+			'Axolotl Launcher, 美西螈启动器, Minecraft 启动器, Modrinth, CurseForge, Minecraft Java 版, 模组, 整合包, 资源包, 光影, Axolotl 实验室, Axolotl Launcher 下载, Axolotl Launcher 安装, Axolotl Launcher 中文, Axolotl Launcher 开源, Axolotl Launcher 免费, Axolotl Launcher 跨平台, Axolotl Launcher Windows, Axolotl Launcher macOS, Axolotl Launcher Linux, MCArchive, Planet Minecraft, DoH, BMCLAPI, MCIM, 实例快照备份, 存储分析, 缓存清理, .minecraft',
 		'axolotl-site.faq.project-disclaimer.question':
 			'Axolotl Launcher 和 Axolotl Client 是同一个项目吗？',
 		'axolotl-site.faq.project-disclaimer.answer':

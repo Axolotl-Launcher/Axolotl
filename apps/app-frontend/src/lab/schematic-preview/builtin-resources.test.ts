@@ -36,7 +36,7 @@ test('built-in assets render stained glass and sugar cane across supported versi
         { name: 'minecraft:white_stained_glass', properties: {} },
         { name: 'minecraft:sugar_cane', properties: {} },
     ]
-    for (const version of ['1.21', '26.2']) {
+    for (const version of ['1.21', '26.2', '26.3']) {
         const resources = builtin.loadBuiltinBlockResources(version, palette)
         assert.equal(resources.defaultBlockProperties['minecraft:sugar_cane']?.age, '0')
         const models = Object.fromEntries(
@@ -77,8 +77,8 @@ test('built-in assets expose the complete renderer resource set', () => {
     assert.ok(textureUvs['minecraft:block/white_stained_glass'])
     assert.ok(textureUvs['minecraft:block/sugar_cane'])
     assert.deepEqual(builtin.builtinTextureRegion('minecraft:block/white_stained_glass'), {
-        x: 80,
-        y: 1952,
+        x: 1568,
+        y: 1968,
         width: 16,
         height: 16,
     })
@@ -86,7 +86,7 @@ test('built-in assets expose the complete renderer resource set', () => {
 
 test('all built-in block resources remain compatible with Deepslate', () => {
     const palette = builtin.listBuiltinBlockStates()
-    const resources = builtin.loadBuiltinBlockResources('26.3-snapshot-6', palette)
+    const resources = builtin.loadBuiltinBlockResources('26.3', palette)
     const definitions = Object.fromEntries(
         Object.entries(resources.blockDefinitions).map(([id, definition]) => [
             id,
@@ -144,7 +144,7 @@ test('partial redstone models do not hide every face of adjacent blocks', () => 
                 : state
         }),
     ]
-    const resources = builtin.loadBuiltinBlockResources('26.3-snapshot-6', palette)
+    const resources = builtin.loadBuiltinBlockResources('26.3', palette)
     const definitions = Object.fromEntries(
         Object.entries(resources.blockDefinitions).map(([id, definition]) => [
             id,

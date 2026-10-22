@@ -11,6 +11,7 @@
                         :model-value="allVisibleSelected"
                         :indeterminate="someVisibleSelected && !allVisibleSelected"
                         :disabled="visibleSelectableEntries.length === 0"
+                        :description="formatMessage(messages.selectView)"
                         @update:model-value="toggleAllVisible"
                     />
                     <button
@@ -115,84 +116,103 @@
                     <span class="size-4 shrink-0" aria-hidden="true" />
                 </div>
             </div>
-            <div
-                v-if="entries.length === 0"
-                class="flex items-center gap-2 bg-surface-2 px-3 py-2 text-sm text-[var(--color-text-tertiary)]"
-            >
-                <FileIcon class="size-4 shrink-0" />
-                <span>{{ formatMessage(messages.emptyFolderTitle) }}</span>
-            </div>
-            <div
-                v-for="(entry, i) in entries"
-                :key="`${entry.type}:${entry.path}`"
-                role="button"
-                tabindex="0"
-                class="group flex w-full min-w-0 select-none items-center gap-2 border-0 border-t border-solid border-surface-4 px-3 py-2 text-left first:border-t-0 focus:!outline-none"
-                :class="[
-                    getRowBackgroundClass(i + (isHomePath ? 0 : 1)),
-                    entry.disabled && entry.type === 'file'
-                        ? 'cursor-not-allowed opacity-50'
-                        : 'cursor-pointer hover:bg-surface-2.5',
-                ]"
-                @click="selectEntry(entry)"
-                @keydown="(event) => event.key === 'Enter' && selectEntry(entry)"
-            >
-                <Checkbox
-                    class="shrink-0"
-                    :model-value="entry.checked"
-                    :indeterminate="entry.indeterminate"
-                    :disabled="entry.disabled"
-                    :description="entry.name"
-                    @click.stop
-                    @update:model-value="toggleEntry(entry, $event)"
-                />
-                <div
-                    class="flex size-4 shrink-0 items-center justify-center text-[var(--color-text-tertiary)]"
-                >
-                    <component
-                        :is="entry.icon"
-                        class="size-4 group-hover:text-[var(--color-text-primary)] group-focus:text-[var(--color-text-primary)]"
-                    />
-                </div>
-                <span
-                    :ref="(element) => setEntryNameRef(entry.path, element)"
-                    v-tooltip="truncatedTooltip(entryNameRefs[entry.path], entry.name)"
-                    class="min-w-0 flex-1 truncate text-sm font-medium text-[var(--color-text-default)] group-hover:text-[var(--color-text-primary)] group-focus:text-[var(--color-text-primary)]"
-                >
-                    {{ entry.name }}
-                </span>
-                <div class="ml-2 flex shrink-0 items-center gap-4">
-                    <span
-                        class="hidden w-[92px] truncate text-left text-sm text-[var(--color-text-tertiary)] sm:block"
-                    >
-                        {{ formatSize(entry) }}
-                    </span>
-                    <span
-                        class="hidden w-[132px] truncate text-left text-sm text-[var(--color-text-tertiary)] sm:block"
-                    >
-                        {{ formatModified(entry) }}
-                    </span>
-                    <ChevronRightIcon
-                        class="size-4 shrink-0 text-[var(--color-text-tertiary)] group-hover:text-[var(--color-text-primary)] group-focus:text-[var(--color-text-primary)]"
-                        :class="{ invisible: entry.type !== 'directory' }"
+            <div class="max-h-[40vh] overflow-y-auto">
+                <div ref="listContainer">
+                    <div
+                        v-if="topSpacerHeight > 0"
+                        :style="{ height: `${topSpacerHeight}px` }"
                         aria-hidden="true"
                     />
-                </div>
-            </div>
-            <div
-                v-for="row in fillerRowCount"
-                :key="`filler:${row}`"
-                class="flex w-full min-w-0 select-none items-center gap-2 border-0 border-t border-solid border-surface-4 px-3 py-2 text-left"
-                :class="getRowBackgroundClass(visibleRowCount + row - 1)"
-                aria-hidden="true"
-            >
-                <span class="size-5 shrink-0" />
-                <span class="size-4 shrink-0" />
-                <span class="min-w-0 flex-1 truncate text-sm font-medium opacity-0">.</span>
-                <div class="ml-2 flex shrink-0 items-center gap-4">
-                    <span class="hidden w-[92px] text-left text-sm sm:block" />
-                    <span class="hidden w-[132px] text-left text-sm sm:block" />
-                    <span class="size-4 shrink-0" />
+                    <div
+                        v-if="entries.length === 0"
+                        class="flex items-center gap-2 bg-surface-2 px-3 py-2 text-sm text-[var(--color-text-tertiary)]"
+                    >
+                        <FileIcon class="size-4 shrink-0" />
+                        <span>{{
+                            formatMessage(
+                                searching || selectedOnly
+                                    ? messages.noMatches
+                                    : messages.emptyFolderTitle,
+                            )
+                        }}</span>
+                    </div>
+                    <div
+                        v-for="(entry, i) in visibleItems"
+                        :key="`${entry.type}:${entry.path}`"
+                        role="button"
+                        tabindex="0"
+                        class="group box-border flex h-10 w-full min-w-0 select-none items-center gap-2 border-0 border-t border-solid border-surface-4 px-3 py-2 text-left first:border-t-0 focus:!outline-none"
+                        :class="[
+                            getRowBackgroundClass(visibleRange.start + i + (isHomePath ? 0 : 1)),
+                            entry.disabled && entry.type === 'file'
+                                ? 'cursor-not-allowed opacity-50'
+                                : 'cursor-pointer hover:bg-surface-2.5',
+                        ]"
+                        @click="selectEntry(entry)"
+                        @keydown="(event) => event.key === 'Enter' && selectEntry(entry)"
+                    >
+                        <Checkbox
+                            class="shrink-0"
+                            :model-value="entry.checked"
+                            :indeterminate="entry.indeterminate"
+                            :disabled="entry.disabled"
+                            :description="entry.name"
+                            @click.stop
+                            @update:model-value="toggleEntry(entry, $event)"
+                        />
+                        <div
+                            class="flex size-4 shrink-0 items-center justify-center text-[var(--color-text-tertiary)]"
+                        >
+                            <component
+                                :is="entry.icon"
+                                class="size-4 group-hover:text-[var(--color-text-primary)] group-focus:text-[var(--color-text-primary)]"
+                            />
+                        </div>
+                        <span
+                            v-tooltip="{ content: entry.name, onlyWhenTruncated: true }"
+                            class="min-w-0 flex-1 truncate text-sm font-medium text-[var(--color-text-default)] group-hover:text-[var(--color-text-primary)] group-focus:text-[var(--color-text-primary)]"
+                        >
+                            {{ entry.name }}
+                        </span>
+                        <div class="ml-2 flex shrink-0 items-center gap-4">
+                            <span
+                                class="hidden w-[92px] truncate text-left text-sm text-[var(--color-text-tertiary)] sm:block"
+                            >
+                                {{ formatSize(entry) }}
+                            </span>
+                            <span
+                                class="hidden w-[132px] truncate text-left text-sm text-[var(--color-text-tertiary)] sm:block"
+                            >
+                                {{ formatModified(entry) }}
+                            </span>
+                            <ChevronRightIcon
+                                class="size-4 shrink-0 text-[var(--color-text-tertiary)] group-hover:text-[var(--color-text-primary)] group-focus:text-[var(--color-text-primary)]"
+                                :class="{ invisible: entry.type !== 'directory' }"
+                                aria-hidden="true"
+                            />
+                        </div>
+                    </div>
+                    <div
+                        v-if="bottomSpacerHeight > 0"
+                        :style="{ height: `${bottomSpacerHeight}px` }"
+                        aria-hidden="true"
+                    />
+                    <div
+                        v-for="row in fillerRowCount"
+                        :key="`filler:${row}`"
+                        class="flex w-full min-w-0 select-none items-center gap-2 border-0 border-t border-solid border-surface-4 px-3 py-2 text-left"
+                        :class="getRowBackgroundClass(visibleRowCount + row - 1)"
+                        aria-hidden="true"
+                    >
+                        <span class="size-5 shrink-0" />
+                        <span class="size-4 shrink-0" />
+                        <span class="min-w-0 flex-1 truncate text-sm font-medium opacity-0">.</span>
+                        <div class="ml-2 flex shrink-0 items-center gap-4">
+                            <span class="hidden w-[92px] text-left text-sm sm:block" />
+                            <span class="hidden w-[132px] text-left text-sm sm:block" />
+                            <span class="size-4 shrink-0" />
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -207,18 +227,19 @@ import {
     FileIcon,
     UndoIcon,
 } from '@modrinth/assets'
-import { type Component, type ComponentPublicInstance, computed, ref, watch } from 'vue'
+import { type Component, computed, nextTick, ref, watch } from 'vue'
 
 import { useFormatBytes } from '../../composables/format-bytes'
 import { useFormatDateTime } from '../../composables/format-date-time'
 import { defineMessages, useVIntl } from '../../composables/i18n'
+import { findScrollableAncestor, useVirtualScroll } from '../../composables/virtual-scroll'
 import { getDirectoryIcon, getFileIcon } from '../../utils/auto-icons'
-import { truncatedTooltip } from '../../utils/truncate'
 import Checkbox from './Checkbox.vue'
 
 const { formatMessage } = useVIntl()
 
 const messages = defineMessages({
+    selectView: { id: 'files.select-view', defaultMessage: 'Select all files in this view' },
     name: {
         id: 'files.table-header.name',
         defaultMessage: 'Name',
@@ -243,6 +264,7 @@ const messages = defineMessages({
         id: 'files.layout.empty-folder-title',
         defaultMessage: 'This folder is empty',
     },
+    noMatches: { id: 'files.layout.no-matches', defaultMessage: 'No files match this view' },
 })
 
 export type FileTreeSelectItem = {
@@ -252,6 +274,7 @@ export type FileTreeSelectItem = {
     size?: number
     modified?: number
     count?: number
+    name?: string
 }
 
 type NormalizedFileTreeSelectItem = FileTreeSelectItem & {
@@ -288,24 +311,43 @@ const props = withDefaults(
     defineProps<{
         items: FileTreeSelectItem[]
         modelValue: string[]
+        currentPath?: string
+        searchQuery?: string
+        selectedOnly?: boolean
     }>(),
     {
         items: () => [],
         modelValue: () => [],
+        currentPath: '',
+        searchQuery: '',
+        selectedOnly: false,
     },
 )
 
 const emit = defineEmits<{
     (e: 'update:modelValue', value: string[]): void
-    (e: 'navigate', path: string): void
+    (e: 'navigate' | 'update:currentPath', path: string): void
 }>()
 
-const currentPath = ref('')
+const localPath = ref(props.currentPath)
+watch(
+    () => props.currentPath,
+    (value) => {
+        localPath.value = value
+    },
+)
+const activePath = computed({
+    get: () => localPath.value,
+    set: (value) => {
+        localPath.value = value
+        emit('update:currentPath', value)
+    },
+})
+const searching = computed(() => props.searchQuery.trim().length > 0)
 const sortField = ref<FileTreeSelectSortField>('name')
 const sortDesc = ref(false)
-const entryNameRefs = ref<Record<string, HTMLElement | null>>({})
-const isHomePath = computed(() => currentPath.value === '')
-const parentPath = computed(() => currentPath.value.split('/').slice(0, -1).join('/'))
+const isHomePath = computed(() => searching.value || activePath.value === '')
+const parentPath = computed(() => activePath.value.split('/').slice(0, -1).join('/'))
 const initialMinimumRowCount = ref(0)
 
 const normalizedItems = computed(() => {
@@ -316,7 +358,7 @@ const normalizedItems = computed(() => {
         items.set(normalizedPath, {
             ...item,
             path: item.path,
-            name: getName(normalizedPath),
+            name: item.name ?? getName(normalizedPath),
             normalizedPath,
         })
     }
@@ -324,6 +366,23 @@ const normalizedItems = computed(() => {
 })
 
 const selectedPaths = computed(() => new Set(props.modelValue.map((path) => normalizePath(path))))
+const folderIndex = computed(() => {
+    const descendants = new Map<string, NormalizedFileTreeSelectItem[]>()
+    const children = new Map<string, Set<string>>()
+    for (const item of normalizedItems.value) {
+        const segments = item.normalizedPath.split('/')
+        for (let depth = 1; depth < segments.length; depth++) {
+            const path = segments.slice(0, depth).join('/')
+            const entries = descendants.get(path) ?? []
+            entries.push(item)
+            descendants.set(path, entries)
+            const names = children.get(path) ?? new Set<string>()
+            names.add(segments[depth])
+            children.set(path, names)
+        }
+    }
+    return { descendants, children }
+})
 
 const folderPaths = computed(() => {
     const paths = new Set<string>()
@@ -342,9 +401,26 @@ const folderPaths = computed(() => {
 const entries = computed<FileTreeSelectEntry[]>(() => {
     const directories = new Map<string, FileTreeSelectEntry>()
     const files: FileTreeSelectEntry[] = []
-    const currentSegments = currentPath.value ? currentPath.value.split('/') : []
+    const currentSegments = activePath.value ? activePath.value.split('/') : []
 
     for (const item of normalizedItems.value) {
+        if (searching.value) {
+            if (
+                item.type === 'directory' ||
+                !item.normalizedPath
+                    .toLocaleLowerCase()
+                    .includes(props.searchQuery.trim().toLocaleLowerCase())
+            )
+                continue
+            if (props.selectedOnly && !selectedPaths.value.has(item.normalizedPath)) continue
+            files.push({ ...buildFileEntry(item), name: item.normalizedPath })
+            continue
+        }
+        if (
+            props.selectedOnly &&
+            (item.type === 'directory' || !selectedPaths.value.has(item.normalizedPath))
+        )
+            continue
         const segments = item.normalizedPath.split('/')
         if (!isInCurrentPath(segments, currentSegments)) continue
 
@@ -371,6 +447,28 @@ const entries = computed<FileTreeSelectEntry[]>(() => {
 })
 
 const visibleSelectableEntries = computed(() => entries.value.filter((entry) => !entry.disabled))
+const virtualized = computed(() => entries.value.length > 100)
+const {
+    listContainer,
+    visibleItems,
+    visibleRange,
+    totalHeight,
+    visibleTop: topSpacerHeight,
+    syncScrollState,
+} = useVirtualScroll(entries, { itemHeight: 40, enabled: virtualized })
+const bottomSpacerHeight = computed(() =>
+    virtualized.value
+        ? Math.max(0, totalHeight.value - topSpacerHeight.value - visibleItems.value.length * 40)
+        : 0,
+)
+watch(
+    [activePath, () => props.searchQuery, () => props.selectedOnly, sortField, sortDesc],
+    async () => {
+        await nextTick()
+        findScrollableAncestor(listContainer.value).scrollTo({ top: 0 })
+        syncScrollState()
+    },
+)
 
 const visibleSelectablePaths = computed(() => {
     const paths = new Set<string>()
@@ -397,14 +495,14 @@ const visibleRowCount = computed(
 )
 
 const fillerRowCount = computed(() =>
-    Math.max(0, initialMinimumRowCount.value - visibleRowCount.value),
+    Math.max(0, Math.min(10, initialMinimumRowCount.value) - visibleRowCount.value),
 )
 
 watch(
     normalizedItems,
     () => {
-        if (currentPath.value && !folderPaths.value.has(currentPath.value)) {
-            currentPath.value = ''
+        if (activePath.value && !folderPaths.value.has(activePath.value)) {
+            activePath.value = ''
         }
     },
     { immediate: true },
@@ -484,22 +582,11 @@ function getModifiedSortValue(entry: FileTreeSelectEntry) {
 }
 
 function getFolderDescendants(path: string) {
-    return normalizedItems.value.filter((item) => item.normalizedPath.startsWith(`${path}/`))
+    return folderIndex.value.descendants.get(path) ?? []
 }
 
 function getFolderChildCount(path: string) {
-    const children = new Set<string>()
-    const prefix = `${path}/`
-    for (const item of normalizedItems.value) {
-        if (!item.normalizedPath.startsWith(prefix)) continue
-
-        const relativePath = item.normalizedPath.slice(prefix.length)
-        const [childName] = relativePath.split('/')
-        if (childName) {
-            children.add(childName)
-        }
-    }
-    return children.size
+    return folderIndex.value.children.get(path)?.size ?? 0
 }
 
 function getLatestModified(items: NormalizedFileTreeSelectItem[]) {
@@ -508,7 +595,7 @@ function getLatestModified(items: NormalizedFileTreeSelectItem[]) {
         .filter((value): value is number => typeof value === 'number' && Number.isFinite(value))
 
     if (modified.length === 0) return undefined
-    return Math.max(...modified)
+    return modified.reduce((latest, value) => Math.max(latest, value), 0)
 }
 
 function buildDirectoryEntry(
@@ -516,20 +603,24 @@ function buildDirectoryEntry(
     name: string,
     item?: NormalizedFileTreeSelectItem,
 ): FileTreeSelectEntry {
-    const descendants = getFolderDescendants(path).filter((item) => !item.disabled)
+    const descendants = getFolderDescendants(path).filter(
+        (item) =>
+            !item.disabled &&
+            item.type !== 'directory' &&
+            (!props.selectedOnly || selectedPaths.value.has(item.normalizedPath)),
+    )
     const selectedCount = descendants.filter((item) =>
         selectedPaths.value.has(item.normalizedPath),
     ).length
-    const selected = selectedPaths.value.has(path)
 
     return {
         path,
         name,
         type: 'directory',
         icon: getDirectoryIcon(name),
-        checked: selected || (descendants.length > 0 && selectedCount === descendants.length),
-        indeterminate: !selected && selectedCount > 0 && selectedCount < descendants.length,
-        disabled: item?.disabled ?? descendants.length === 0,
+        checked: descendants.length > 0 && selectedCount === descendants.length,
+        indeterminate: selectedCount > 0 && selectedCount < descendants.length,
+        disabled: !!item?.disabled || descendants.length === 0,
         modified: item?.modified ?? getLatestModified(descendants),
         count: item?.count ?? getFolderChildCount(path),
         item,
@@ -552,16 +643,8 @@ function buildFileEntry(item: NormalizedFileTreeSelectItem): FileTreeSelectEntry
 }
 
 function navigateTo(path: string) {
-    currentPath.value = path
+    activePath.value = path
     emit('navigate', path)
-}
-
-function setEntryNameRef(path: string, element: Element | ComponentPublicInstance | null) {
-    if (element instanceof HTMLElement) {
-        entryNameRefs.value[path] = element
-    } else {
-        entryNameRefs.value[path] = null
-    }
 }
 
 function selectEntry(entry: FileTreeSelectEntry) {
@@ -591,11 +674,14 @@ function toggleEntry(entry: FileTreeSelectEntry, selected: boolean) {
 
 function getEntrySelectablePaths(entry: FileTreeSelectEntry) {
     if (entry.type === 'directory') {
-        return entry.item?.type === 'directory'
-            ? [entry.path]
-            : getFolderDescendants(entry.path)
-                  .filter((item) => !item.disabled)
-                  .map((item) => item.normalizedPath)
+        return getFolderDescendants(entry.path)
+            .filter(
+                (item) =>
+                    !item.disabled &&
+                    item.type !== 'directory' &&
+                    (!props.selectedOnly || selectedPaths.value.has(item.normalizedPath)),
+            )
+            .map((item) => item.normalizedPath)
     }
 
     return [entry.path]

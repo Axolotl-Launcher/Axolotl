@@ -15,14 +15,16 @@ export interface GroupCheckboxState {
 
 export function useGroupSelection(options: UseGroupSelectionOptions) {
     const { items, selectedIds } = options
+    const selectionIds = (item: ContentCardTableItem) =>
+        item.isGroupHeader ? (item.groupChildIds ?? []) : [item.id]
+    const allIds = computed(() => [...new Set(items.value.flatMap(selectionIds))])
 
     const allSelected = computed(() => {
-        if (items.value.length === 0) return false
-        return items.value.every((item) => selectedIds.value.includes(item.id))
+        return allIds.value.length > 0 && allIds.value.every((id) => selectedIds.value.includes(id))
     })
 
     const someSelected = computed(() => {
-        return items.value.some((item) => selectedIds.value.includes(item.id)) && !allSelected.value
+        return allIds.value.some((id) => selectedIds.value.includes(id)) && !allSelected.value
     })
 
     function getGroupCheckboxState(item: ContentCardTableItem): GroupCheckboxState {
@@ -52,16 +54,7 @@ export function useGroupSelection(options: UseGroupSelectionOptions) {
         if (allSelected.value || someSelected.value) {
             selectedIds.value = []
         } else {
-            const ids = new Set<string>()
-            for (const item of items.value) {
-                ids.add(item.id)
-                if (item.isGroupHeader && item.groupChildIds) {
-                    for (const childId of item.groupChildIds) {
-                        ids.add(childId)
-                    }
-                }
-            }
-            selectedIds.value = [...ids]
+            selectedIds.value = allIds.value
         }
     }
 
@@ -81,11 +74,11 @@ export function useGroupSelection(options: UseGroupSelectionOptions) {
         ) {
             const start = Math.min(lastSelectedIndex.value, index)
             const end = Math.max(lastSelectedIndex.value, index)
-            const rangeIds = items.value.slice(start, end + 1).map((item) => item.id)
+            const rangeIds = items.value.slice(start, end + 1).flatMap(selectionIds)
             const merged = new Set([...selectedIds.value, ...rangeIds])
             selectedIds.value = [...merged]
         } else if (selected) {
-            if (!selectedIds.value.includes(itemId)) {
+            if (!item?.isGroupHeader && !selectedIds.value.includes(itemId)) {
                 selectedIds.value = [...selectedIds.value, itemId]
             }
         } else {

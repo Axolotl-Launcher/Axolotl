@@ -6,8 +6,10 @@ use std::{
 use quartz_nbt::{NbtCompound, NbtTag};
 use serde::{Deserialize, Serialize};
 
+pub mod details;
 pub mod ores;
-pub mod rng;
+mod template_resources;
+pub mod underground;
 
 #[repr(C)]
 #[derive(Clone, Copy)]
@@ -19,73 +21,8 @@ struct BridgeFeature {
     end_ship: i8,
 }
 
-unsafe extern "C" {
-    fn axolotl_seed_map_java_version(version: i32) -> i32;
-    fn axolotl_seed_map_render(
-        seed: u64,
-        minecraft_version: i32,
-        generator_flags: i32,
-        dimension: i32,
-        x: i32,
-        z: i32,
-        scale: i32,
-        width: i32,
-        height: i32,
-        elevation: i32,
-        terrain: i32,
-        contours: i32,
-        highlight_mask: *const u8,
-        rgb: *mut u8,
-        rgb_len: usize,
-    ) -> i32;
-    fn axolotl_seed_map_find_features(
-        seed: u64,
-        minecraft_version: i32,
-        generator_flags: i32,
-        dimension: i32,
-        min_x: i32,
-        min_z: i32,
-        max_x: i32,
-        max_z: i32,
-        feature_mask: u32,
-        out: *mut BridgeFeature,
-        out_len: usize,
-    ) -> usize;
-    fn axolotl_seed_map_get_spawn(
-        seed: u64,
-        minecraft_version: i32,
-        generator_flags: i32,
-        x: *mut i32,
-        z: *mut i32,
-    ) -> i32;
-    fn axolotl_seed_map_biome_at(
-        seed: u64,
-        minecraft_version: i32,
-        generator_flags: i32,
-        dimension: i32,
-        x: i32,
-        y: i32,
-        z: i32,
-    ) -> i32;
-    fn axolotl_seed_map_surface_heights(
-        seed: u64,
-        minecraft_version: i32,
-        generator_flags: i32,
-        x: i32,
-        z: i32,
-        width: i32,
-        height: i32,
-        out: *mut f32,
-    ) -> i32;
-    fn axolotl_seed_map_scan_vein(
-        seed: u64,
-        chunk_x: i32,
-        chunk_z: i32,
-        vein_kind: i32,
-        out_xyz: *mut i32,
-        out_cap: usize,
-    ) -> usize;
-}
+mod bridge;
+use bridge::*;
 
 pub const FEATURE_VILLAGE: u32 = 1 << 0;
 pub const FEATURE_OUTPOST: u32 = 1 << 1;
@@ -111,6 +48,8 @@ pub const FEATURE_FORTRESS: u32 = 1 << 20;
 pub const FEATURE_BASTION: u32 = 1 << 21;
 pub const FEATURE_END_CITY: u32 = 1 << 22;
 pub const FEATURE_END_GATEWAY: u32 = 1 << 23;
+pub const FEATURE_ABANDONED_CAMP: u32 = 1 << 24;
+pub const FEATURE_NETHER_FOSSIL: u32 = 1 << 25;
 pub const ALL_FEATURES: u32 = FEATURE_VILLAGE
     | FEATURE_OUTPOST
     | FEATURE_SHIPWRECK
@@ -134,7 +73,9 @@ pub const ALL_FEATURES: u32 = FEATURE_VILLAGE
     | FEATURE_FORTRESS
     | FEATURE_BASTION
     | FEATURE_END_CITY
-    | FEATURE_END_GATEWAY;
+    | FEATURE_END_GATEWAY
+    | FEATURE_ABANDONED_CAMP
+    | FEATURE_NETHER_FOSSIL;
 
 #[derive(Clone, Copy, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -177,37 +118,62 @@ impl Dimension {
  * own engine versions.
  */
 const JAVA_VERSIONS: &[(&str, i32)] = &[
+    ("26.3", 260300),
     ("26.2", 260200),
     ("26.1.2", 260102),
     ("26.1", 260100),
+    ("1.21.11", 12111),
     ("1.21.9", 12109),
     ("1.21.6", 12106),
     ("1.21.5", 12105),
     ("1.21.4", 12104),
     ("1.21.3", 12103),
     ("1.21.1", 12101),
+    ("1.20.6", 12006),
     ("1.20", 12000),
     ("1.19.4", 11904),
     ("1.19.2", 11902),
+    ("1.18.2", 11802),
     ("1.18", 11800),
+    ("1.17.1", 11701),
     ("1.17", 11700),
+    ("1.16.5", 11605),
+    ("1.16.1", 11601),
     ("1.16", 11600),
+    ("1.15.2", 11502),
     ("1.15", 11500),
+    ("1.14.4", 11404),
     ("1.14", 11400),
+    ("1.13.2", 11302),
     ("1.13", 11300),
+    ("1.12.2", 11202),
     ("1.12", 11200),
+    ("1.11.2", 11102),
     ("1.11", 11100),
+    ("1.10.2", 11002),
     ("1.10", 11000),
+    ("1.9.4", 10904),
     ("1.9", 10900),
+    ("1.8.9", 10809),
     ("1.8", 10800),
+    ("1.7.10", 10710),
     ("1.7", 10700),
+    ("1.6.4", 10604),
     ("1.6", 10600),
+    ("1.5.2", 10502),
     ("1.5", 10500),
+    ("1.4.7", 10407),
     ("1.4", 10400),
+    ("1.3.2", 10302),
     ("1.3", 10300),
+    ("1.2.5", 10205),
     ("1.2", 10200),
+    ("1.1.0", 10100),
     ("1.1", 10100),
+    ("1.0.0", 10000),
     ("1.0", 10000),
+    ("b1.8", -10800),
+    ("b1.7", -10700),
 ];
 
 const LARGE_BIOMES_MIN_CODE: i32 = 10300;
@@ -273,6 +239,12 @@ pub struct VersionProfile {
     pub available: bool,
     pub dimensions: Vec<Dimension>,
     pub ores: bool,
+    pub ore_kinds: Vec<ores::OreKind>,
+    pub feature_masks: [u32; 3],
+    pub underground_masks: [u8; 3],
+    pub underground_y_ranges: [[i32; 2]; 3],
+    pub biomes: Vec<i32>,
+    pub engine_revision: &'static str,
     pub note: Option<String>,
 }
 
@@ -281,10 +253,14 @@ pub struct VersionProfile {
 pub struct LevelDatInfo {
     pub seed: String,
     pub version: Option<String>,
+    pub data_version: Option<i32>,
 }
 
 pub fn version_profiles() -> Vec<VersionProfile> {
     let mut profiles = Vec::new();
+    let availability = bridge::ensure_available();
+    let available = availability.is_ok();
+    let note = availability.err().map(|error| error.to_string());
     for edition in [Edition::Java, Edition::JavaLargeBiomes] {
         for &(version, code) in JAVA_VERSIONS {
             if matches!(edition, Edition::JavaLargeBiomes)
@@ -299,13 +275,48 @@ pub fn version_profiles() -> Vec<VersionProfile> {
             if code >= END_BIOMES_MIN_CODE {
                 dimensions.push(Dimension::End);
             }
+            let mc = if available {
+                unsafe { axolotl_seed_map_java_version(code) }
+            } else {
+                0
+            };
+            let capability = |kind, value| {
+                if available {
+                    unsafe { axolotl_seed_map_capability(mc, kind, value) }
+                } else {
+                    0
+                }
+            };
             profiles.push(VersionProfile {
                 edition,
                 version: version.to_owned(),
-                available: true,
+                available,
                 dimensions,
-                ores: ores::supports_ores(code, Dimension::Overworld),
-                note: None,
+                ores: available
+                    && ores::supports_ores(code, Dimension::Overworld),
+                ore_kinds: ores::ALL_ORE_KINDS
+                    .iter()
+                    .copied()
+                    .filter(|kind| capability(2, *kind as i32) != 0)
+                    .collect(),
+                feature_masks: [
+                    capability(1, 0) as u32,
+                    capability(1, -1) as u32,
+                    capability(1, 1) as u32,
+                ],
+                underground_y_ranges: [
+                    if code >= 11800 { [-64, 319] } else { [0, 255] },
+                    [0, 127],
+                    [0, 127],
+                ],
+                underground_masks: [
+                    capability(3, 0) as u8,
+                    capability(3, -1) as u8,
+                    capability(3, 1) as u8,
+                ],
+                biomes: (0..256).filter(|id| capability(0, *id) != 0).collect(),
+                engine_revision: "a49d5bc5b709e6e28b5a74daddb3efb382fba7bb",
+                note: note.clone(),
             });
         }
     }
@@ -473,6 +484,7 @@ pub fn spawn(
 }
 
 pub(crate) fn resolve_java_version(version: &str) -> io::Result<(i32, i32)> {
+    bridge::ensure_available()?;
     let code = JAVA_VERSIONS
         .iter()
         .find(|(name, _)| *name == version)
@@ -514,6 +526,7 @@ pub fn read_level_dat(path: String) -> io::Result<LevelDatInfo> {
     Ok(LevelDatInfo {
         seed: seed.to_string(),
         version,
+        data_version: data.get::<_, i32>("DataVersion").ok(),
     })
 }
 
@@ -682,30 +695,27 @@ fn feature_name(feature: u32) -> Option<&'static str> {
         FEATURE_BASTION => Some("bastion"),
         FEATURE_END_CITY => Some("end-city"),
         FEATURE_END_GATEWAY => Some("end-gateway"),
+        FEATURE_ABANDONED_CAMP => Some("abandoned-camp"),
+        FEATURE_NETHER_FOSSIL => Some("nether-fossil"),
         _ => None,
     }
 }
 
 fn normalize_level_dat_version(version: &str) -> Option<String> {
-    if JAVA_VERSIONS.iter().any(|(name, _)| *name == version) {
-        return Some(version.to_owned());
-    }
-    let mut parts = version.split('.');
-    let major = parts.next()?;
-    let minor = parts.next()?;
-    let prefix = format!("{major}.{minor}");
-    JAVA_VERSIONS
-        .iter()
-        .map(|(name, _)| *name)
-        .find(|supported| {
-            *supported == prefix || supported.starts_with(&format!("{prefix}."))
-        })
-        .map(str::to_owned)
+    let version = version.trim();
+    (!version.is_empty()).then(|| version.to_owned())
 }
 
 fn version_from_data_version(data_version: i32) -> Option<String> {
     let version = match data_version {
-        4_325.. => "1.21.5",
+        5_023 => "26.3",
+        4_903 => "26.2",
+        4_786 => "26.1",
+        4_671 => "1.21.11",
+        4_554 => "1.21.9",
+        4_437 => "1.21.6",
+        4_325 => "1.21.5",
+        4_326.. => return None,
         4_189.. => "1.21.4",
         4_082.. => "1.21.3",
         3_953.. => "1.21.1",
@@ -735,6 +745,59 @@ mod tests {
     fn text_seeds_use_minecrafts_java_hash() {
         assert_eq!(parse_seed("hello"), 99_162_322);
         assert_eq!(parse_seed("-42"), (-42_i64) as u64);
+    }
+
+    #[test]
+    fn modern_versions_select_distinct_generation_rules() {
+        let version = |name| resolve_java_version(name).unwrap().0;
+        assert_ne!(version("26.2"), version("26.3"));
+        assert_ne!(version("1.21.4"), version("1.21.5"));
+        assert_eq!(version("1.20"), version("1.20.6"));
+        assert_eq!(
+            biome_at(
+                "-3829811542736183482".into(),
+                Edition::Java,
+                "26.3".into(),
+                Dimension::Overworld,
+                68148,
+                77,
+                80990
+            )
+            .unwrap(),
+            188
+        );
+        assert_eq!(
+            biome_at(
+                "856461443495910397".into(),
+                Edition::Java,
+                "26.2".into(),
+                Dimension::End,
+                -371136,
+                64,
+                -64
+            )
+            .unwrap(),
+            43
+        );
+        assert_eq!(
+            biome_at(
+                "856461443495910397".into(),
+                Edition::Java,
+                "26.3".into(),
+                Dimension::End,
+                -371136,
+                64,
+                -64
+            )
+            .unwrap(),
+            42
+        );
+        assert_eq!(
+            normalize_level_dat_version("26.3-snapshot-6"),
+            Some("26.3-snapshot-6".into())
+        );
+        assert_eq!(version_from_data_version(5023), Some("26.3".into()));
+        assert_eq!(version_from_data_version(5005), None);
     }
 
     #[test]
@@ -803,6 +866,68 @@ mod tests {
         })
         .expect("fixture query should succeed");
         assert!(!strongholds.is_empty());
+    }
+
+    #[test]
+    fn nether_fossils_require_terrain_and_use_block_positions() {
+        for version in ["1.16.5", "1.18.2", "26.3"] {
+            let query = FeatureQuery {
+                seed: "10292992".into(),
+                edition: Edition::Java,
+                version: version.into(),
+                dimension: Dimension::Nether,
+                min_x: -512,
+                min_z: -512,
+                max_x: 511,
+                max_z: 511,
+                feature_mask: Some(FEATURE_NETHER_FOSSIL),
+            };
+            let fossils = find_features(query.clone()).unwrap();
+            assert_eq!(
+                fossils.len(),
+                158,
+                "{version}: terrain-filtered fixture"
+            );
+            assert!(fossils.iter().all(|f| f.kind == "nether-fossil"));
+            assert!(fossils.iter().any(|f| f.x.rem_euclid(16) != 0));
+            assert!(fossils.iter().any(|f| f.z.rem_euclid(16) != 0));
+            let first = &fossils[0];
+            let bounded = find_features(FeatureQuery {
+                min_x: first.x,
+                min_z: first.z,
+                max_x: first.x,
+                max_z: first.z,
+                ..query
+            })
+            .unwrap();
+            assert_eq!(bounded.len(), 1);
+            assert_eq!((bounded[0].x, bounded[0].z), (first.x, first.z));
+        }
+    }
+
+    #[test]
+    fn end_island_layer_is_not_exposed_or_returned() {
+        let removed_mask = 1 << 26;
+        assert_eq!(ALL_FEATURES & removed_mask, 0);
+        assert!(feature_name(removed_mask).is_none());
+        for profile in version_profiles() {
+            assert_eq!(profile.feature_masks[2] & removed_mask, 0);
+        }
+        assert!(
+            find_features(FeatureQuery {
+                seed: "12345".into(),
+                edition: Edition::Java,
+                version: "26.3".into(),
+                dimension: Dimension::End,
+                min_x: 1024,
+                min_z: 1024,
+                max_x: 4096,
+                max_z: 4096,
+                feature_mask: Some(removed_mask),
+            })
+            .unwrap()
+            .is_empty()
+        );
     }
 
     #[test]
@@ -960,10 +1085,38 @@ mod tests {
         let void_pixels = first
             .chunks_exact(4)
             .filter(|pixel| {
-                pixel[0] == 0x0D && pixel[1] == 0x0D && pixel[2] == 0x16
+                pixel[0] == 0x4B && pixel[1] == 0x4B && pixel[2] == 0xAB
             })
             .count();
         assert!(void_pixels > 0, "outer end tiles should contain void");
+    }
+
+    #[test]
+    fn end_void_remains_purple_at_detailed_scales() {
+        for scale in [1, 4] {
+            let pixels = render_tile(TileRequest {
+                seed: "10292992".to_owned(),
+                edition: Edition::Java,
+                version: "26.3".to_owned(),
+                dimension: Dimension::End,
+                x: 768,
+                z: 0,
+                scale,
+                width: 32,
+                height: 32,
+                elevation: Some(62),
+                terrain: true,
+                contours: false,
+                highlight_biomes: None,
+            })
+            .expect("end void tile should render");
+            assert!(
+                pixels
+                    .chunks_exact(4)
+                    .all(|pixel| pixel == [0x4B, 0x4B, 0xAB, 255]),
+                "the gap between the central and outer islands should stay purple at scale {scale}"
+            );
+        }
     }
 
     #[test]
@@ -1120,18 +1273,18 @@ mod tests {
     }
 
     #[test]
-    fn level_dat_versions_are_reduced_to_supported_profiles() {
+    fn level_dat_versions_preserve_actual_game_version() {
         assert_eq!(
             normalize_level_dat_version("1.21.3"),
             Some("1.21.3".to_owned())
         );
         assert_eq!(
             normalize_level_dat_version("1.20.4"),
-            Some("1.20".to_owned())
+            Some("1.20.4".to_owned())
         );
         assert_eq!(
             normalize_level_dat_version("1.17.1"),
-            Some("1.17".to_owned())
+            Some("1.17.1".to_owned())
         );
         assert_eq!(version_from_data_version(3_700), Some("1.20".to_owned()));
         assert_eq!(version_from_data_version(100), None);

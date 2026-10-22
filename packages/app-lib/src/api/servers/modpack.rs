@@ -33,7 +33,7 @@ use crate::util::fetch::{
 use crate::util::io::IOError;
 use crate::{ErrorKind, Result};
 
-use super::files::download_to_dir;
+use super::files::{download_to_dir, safe_relative_join};
 use super::manifest::{
     InstallState, ModpackInfo, read_manifest, server_path, write_manifest,
 };
@@ -92,8 +92,50 @@ struct MrpackFile {
     env: Option<MrpackEnv>,
     #[serde(default)]
     downloads: Vec<String>,
-    #[serde(default)]
+    #[serde(default, rename = "fileSize")]
     file_size: Option<u64>,
+}
+
+impl MrpackFile {
+    fn integrity(&self) -> Result<Integrity> {
+        let sha1 = self.hashes.get("sha1").cloned();
+        let sha512 = self.hashes.get("sha512").cloned();
+        if sha1.is_none() && sha512.is_none() {
+            return Err(ErrorKind::InputError(format!(
+                "Modpack file {} is missing a SHA-1 or SHA-512 checksum",
+                self.path
+            ))
+            .as_error());
+        }
+        for (hash, length) in [(&sha1, 40), (&sha512, 128)] {
+            if let Some(hash) = hash
+                && (hash.len() != length
+                    || !hash.bytes().all(|byte| byte.is_ascii_hexdigit()))
+            {
+                return Err(ErrorKind::InputError(format!(
+                    "Modpack file {} has an invalid checksum",
+                    self.path
+                ))
+                .as_error());
+            }
+        }
+        Ok(Integrity {
+            sha1,
+            sha512,
+            size: self.file_size,
+            ..Integrity::default()
+        })
+    }
+}
+
+/// Validate the entire index before starting concurrent downloads, including
+/// entries excluded from server installation but fetched for metadata.
+fn validate_index(index: &MrpackIndex, dir: &Path) -> Result<()> {
+    for file in &index.files {
+        safe_relative_join(dir, &file.path)?;
+        file.integrity()?;
+    }
+    Ok(())
 }
 
 #[derive(Deserialize, Clone)]
@@ -272,7 +314,7 @@ async fn run_modpack_install(
         &state,
         mrpack_url,
         &dir.join(MRPACK_FILENAME),
-        mrpack_sha1.map(str::to_string),
+        mrpack_sha1.map(Integrity::sha1).unwrap_or_default(),
         ResourceClass::Modpack,
         AggregateProgress::new(0),
     )
@@ -282,6 +324,7 @@ async fn run_modpack_install(
     let manifest_entry = find_manifest_entry(&archive_path).await?;
     let base_folder = base_folder(&manifest_entry);
     let index = parse_index(&archive_path, &manifest_entry).await?;
+    validate_index(&index, dir)?;
 
     let (installable_files, excluded_files): (
         Vec<&MrpackFile>,
@@ -310,19 +353,19 @@ async fn run_modpack_install(
     )
     .await?;
 
-    let files: Vec<(String, String, Option<String>, u64)> = installable_files
+    let files: Vec<(String, String, Integrity, u64)> = installable_files
         .iter()
         .filter_map(|file| {
             file.downloads.first().map(|url| {
-                (
+                Ok((
                     file.path.clone(),
                     url.clone(),
-                    file.hashes.get("sha1").cloned(),
+                    file.integrity()?,
                     file.file_size.unwrap_or(0),
-                )
+                ))
             })
         })
-        .collect();
+        .collect::<Result<_>>()?;
 
     let progress = AggregateProgress::new(total_bytes);
     let state_ref = state.clone();
@@ -336,14 +379,14 @@ async fn run_modpack_install(
         0.0,
         num_files,
         None,
-        move |(path, url, sha1, size)| {
+        move |(path, url, integrity, size)| {
             let server_id = server_id_ref.clone();
             let dir = dir_ref.clone();
             let state = state_ref.clone();
             let progress = progress.clone();
             async move {
                 log(&server_id, &format!("Downloading {path}")).await?;
-                let destination = dir.join(&path);
+                let destination = safe_relative_join(&dir, &path)?;
                 if let Some(parent) = destination.parent() {
                     crate::util::io::create_dir_all(parent).await?;
                 }
@@ -352,7 +395,7 @@ async fn run_modpack_install(
                     &state,
                     &url,
                     &destination,
-                    sha1,
+                    integrity,
                     ResourceClass::Modpack,
                     progress.clone(),
                 )
@@ -434,6 +477,9 @@ async fn run_modpack_install(
 
 /// Fetches the modpack icon into the server directory and returns its path.
 async fn download_icon(dir: &Path, icon_url: &str) -> Result<PathBuf> {
+    let normalized =
+        crate::util::download::retired_sources::normalize(icon_url)?;
+    let icon_url = normalized.as_ref();
     let extension = icon_url
         .split(['?', '#'])
         .next()
@@ -446,17 +492,18 @@ async fn download_icon(dir: &Path, icon_url: &str) -> Result<PathBuf> {
             )
         })
         .unwrap_or_else(|| "png".to_string());
-    let destination = dir.join(format!("icon.{extension}"));
+    let destination = safe_relative_join(dir, &format!("icon.{extension}"))?;
 
     let client = reqwest::Client::builder()
+        .redirect(reqwest::redirect::Policy::none())
         .user_agent(crate::launcher_user_agent())
         .build()
         .map_err(|e| ErrorKind::NetworkError(e.to_string()))?;
-    let response = client
-        .get(icon_url)
-        .send()
-        .await
-        .and_then(|r| r.error_for_status())?;
+    let response = crate::util::download::native_request::send_cdn_request(
+        client.get(icon_url),
+    )
+    .await?
+    .error_for_status()?;
     let bytes = response
         .bytes()
         .await
@@ -476,15 +523,13 @@ async fn download_with_engine(
     state: &State,
     url: &str,
     destination: &Path,
-    sha1: Option<String>,
+    integrity: Integrity,
     resource: ResourceClass,
     progress: AggregateProgress,
 ) -> Result<()> {
-    let mut request = DownloadRequest::new(url, resource);
-    if let Some(sha1) = &sha1 {
-        request = request.with_integrity(Integrity::sha1(sha1.clone()));
-    }
-    request = request.with_segmented_download(true);
+    let request = DownloadRequest::new(url, resource)
+        .with_integrity(integrity)
+        .with_segmented_download(true);
 
     let server_id = server_id.to_string();
     let progress = progress.clone();
@@ -579,7 +624,7 @@ async fn fetch_excluded_mod_ids(
     state: &State,
     excluded_files: &[&MrpackFile],
 ) -> Result<HashSet<String>> {
-    let candidates: Vec<(String, String, Option<String>)> = excluded_files
+    let candidates: Vec<(String, String, Integrity)> = excluded_files
         .iter()
         .filter_map(|file| {
             let path = file.path.replace('\\', "/");
@@ -589,14 +634,14 @@ async fn fetch_excluded_mod_ids(
                 return None;
             }
             file.downloads.first().map(|url| {
-                (
+                Ok((
                     path.rsplit('/').next().unwrap_or(&path).to_string(),
                     url.clone(),
-                    file.hashes.get("sha1").cloned(),
-                )
+                    file.integrity()?,
+                ))
             })
         })
-        .collect();
+        .collect::<Result<_>>()?;
     if candidates.is_empty() {
         return Ok(HashSet::new());
     }
@@ -611,9 +656,10 @@ async fn fetch_excluded_mod_ids(
         ErrorKind::FSError(format!("Failed to create temporary directory: {e}"))
     })?;
     let mut unavailable = HashSet::new();
-    for (filename, url, sha1) in candidates {
-        let destination = temp_dir.path().join(&filename);
-        match download_metadata_jar(state, &url, &destination, sha1).await {
+    for (filename, url, integrity) in candidates {
+        let destination = safe_relative_join(temp_dir.path(), &filename)?;
+        match download_metadata_jar(state, &url, &destination, integrity).await
+        {
             Ok(()) => match read_mod_metadata(&destination) {
                 Some(metadata) => {
                     unavailable
@@ -647,12 +693,10 @@ async fn download_metadata_jar(
     state: &State,
     url: &str,
     destination: &Path,
-    sha1: Option<String>,
+    integrity: Integrity,
 ) -> Result<()> {
-    let mut request = DownloadRequest::new(url, ResourceClass::Modpack);
-    if let Some(sha1) = &sha1 {
-        request = request.with_integrity(Integrity::sha1(sha1.clone()));
-    }
+    let request = DownloadRequest::new(url, ResourceClass::Modpack)
+        .with_integrity(integrity);
     download_to_path(
         request,
         destination,
@@ -907,6 +951,122 @@ async fn log(server_id: &str, line: &str) -> Result<()> {
 mod tests {
     use super::*;
     use std::io::Write;
+
+    fn index_file(path: &str) -> serde_json::Value {
+        serde_json::json!({
+            "path": path,
+            "hashes": { "sha1": "0".repeat(40) },
+            "downloads": ["https://example.com/mod.jar"],
+            "fileSize": 10
+        })
+    }
+
+    #[tokio::test]
+    async fn malicious_index_paths_fail_before_materializing_files() {
+        let temp = tempfile::tempdir().unwrap();
+        let server = temp.path().join("server");
+        std::fs::create_dir(&server).unwrap();
+        let outside = temp.path().join("outside.txt");
+        std::fs::write(&outside, "unchanged").unwrap();
+        let archive = temp.path().join("pack.mrpack");
+        for path in [
+            "../outside.txt",
+            "mods/../../outside.txt",
+            r"..\outside.txt",
+            r"mods/..\../outside.txt",
+            "/tmp/outside.txt",
+            "C:/outside.txt",
+            r"C:\outside.txt",
+            "C:outside.txt",
+            r"\\server\share\outside.txt",
+            r"\outside.txt",
+            r"\\?\C:\outside.txt",
+            "mods//mod.jar",
+            "mods/./mod.jar",
+            "mods/.. /outside.txt",
+            "mods/mod.jar:payload",
+            "NUL/outside.txt",
+            "mods/CON.jar",
+            "",
+        ] {
+            for environment in ["required", "unsupported"] {
+                let mut malicious = index_file(path);
+                // Filtered entries must also fail before any downloads.
+                malicious["env"] = serde_json::json!({"server": environment});
+                let contents = serde_json::json!({
+                    "files": [index_file("mods/valid.jar"), malicious]
+                })
+                .to_string();
+                create_jar(&archive, &[(MRPACK_MANIFEST_ENTRY, &contents)]);
+                let index =
+                    parse_index(&archive, MRPACK_MANIFEST_ENTRY).await.unwrap();
+                assert!(validate_index(&index, &server).is_err(), "{path:?}");
+                assert_eq!(
+                    std::fs::read_to_string(&outside).unwrap(),
+                    "unchanged"
+                );
+                assert_eq!(std::fs::read_dir(&server).unwrap().count(), 0);
+            }
+        }
+    }
+
+    #[test]
+    fn index_requires_valid_supported_checksums() {
+        for hashes in [
+            serde_json::json!({}),
+            serde_json::json!({"md5": "0".repeat(32)}),
+            serde_json::json!({"sha1": ""}),
+            serde_json::json!({"sha1": "0".repeat(39)}),
+            serde_json::json!({"sha512": "g".repeat(128)}),
+            serde_json::json!({"sha1": "invalid", "sha512": "0".repeat(128)}),
+        ] {
+            let mut file = index_file("mods/mod.jar");
+            file["hashes"] = hashes;
+            let index: MrpackIndex =
+                serde_json::from_value(serde_json::json!({"files": [file]}))
+                    .unwrap();
+            assert!(validate_index(&index, Path::new("server")).is_err());
+        }
+        let mut file = index_file("mods/mod.jar");
+        file.as_object_mut().unwrap().remove("hashes");
+        let index: MrpackIndex =
+            serde_json::from_value(serde_json::json!({"files": [file]}))
+                .unwrap();
+        assert!(validate_index(&index, Path::new("server")).is_err());
+    }
+
+    #[tokio::test]
+    async fn index_checksums_verify_file_contents() {
+        use crate::util::download::integrity::verify_file;
+        use sha2::{Digest, Sha512};
+
+        let temp = tempfile::tempdir().unwrap();
+        let target = temp.path().join("mod.jar");
+        let contents = b"verified mod";
+        std::fs::write(&target, contents).unwrap();
+        for hashes in [
+            serde_json::json!({"sha1": sha1_smol::Sha1::from(contents).digest().to_string()}),
+            serde_json::json!({"sha512": format!("{:x}", Sha512::digest(contents))}),
+            serde_json::json!({
+                "sha1": sha1_smol::Sha1::from(contents).digest().to_string(),
+                "sha512": format!("{:x}", Sha512::digest(contents))
+            }),
+        ] {
+            let mut file = index_file("mods/mod.jar");
+            file["hashes"] = hashes;
+            file["fileSize"] = serde_json::json!(contents.len());
+            let index: MrpackIndex =
+                serde_json::from_value(serde_json::json!({"files": [file]}))
+                    .unwrap();
+            validate_index(&index, temp.path()).unwrap();
+            let integrity = index.files[0].integrity().unwrap();
+            assert_eq!(integrity.size, Some(contents.len() as u64));
+            verify_file(&target, &integrity).await.unwrap();
+            std::fs::write(&target, b"tampered mod").unwrap();
+            assert!(verify_file(&target, &integrity).await.is_err());
+            std::fs::write(&target, contents).unwrap();
+        }
+    }
 
     #[test]
     fn server_only_files_are_installable() {

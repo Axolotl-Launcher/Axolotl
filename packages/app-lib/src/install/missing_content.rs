@@ -6,6 +6,8 @@ use super::model::{
 };
 use super::{runner, store};
 use crate::State;
+use crate::util::download::constants::DOWNLOAD_SCAN_CACHE_TTL;
+use crate::util::download::constants::DOWNLOAD_STABILITY_WINDOW;
 use crate::util::fetch::{
     ContentValidation, DownloadRequest, Integrity, ResourceClass,
     download_to_path, verify_file,
@@ -18,11 +20,10 @@ use std::collections::{HashMap, HashSet};
 use std::future::Future;
 use std::path::{Path, PathBuf};
 use std::sync::LazyLock;
-use std::time::{Duration, Instant, SystemTime};
+#[cfg(test)]
+use std::time::Duration;
+use std::time::{Instant, SystemTime};
 use uuid::Uuid;
-
-const DOWNLOAD_STABILITY_WINDOW: Duration = Duration::from_secs(2);
-const DOWNLOAD_SCAN_CACHE_TTL: Duration = Duration::from_secs(30 * 60);
 
 static DOWNLOAD_SCAN_CACHE: LazyLock<Mutex<DownloadsScanCache>> =
     LazyLock::new(|| Mutex::new(DownloadsScanCache::default()));
@@ -903,9 +904,16 @@ pub(crate) fn browser_download_urls(downloads: &[String]) -> Vec<String> {
             {
                 return None;
             }
-            Some(url.to_string())
+            crate::util::download::retired_sources::normalize(download)
+                .ok()
+                .map(|url| url.into_owned())
         })
-        .collect()
+        .fold(Vec::new(), |mut urls, url| {
+            if !urls.contains(&url) {
+                urls.push(url);
+            }
+            urls
+        })
 }
 
 fn missing_content_view(
@@ -933,7 +941,7 @@ fn missing_content_view(
                 expected_size: file.expected_size,
                 status: item.status,
                 last_error: item.error.clone(),
-                browser_urls: file.browser_urls.clone(),
+                browser_urls: browser_download_urls(&file.browser_urls),
                 attempt: item.attempt,
                 max_attempts: item.max_attempts,
             })
@@ -1284,6 +1292,37 @@ mod tests {
     }
 
     #[test]
+    fn browser_urls_migrate_saved_retired_links_and_deduplicate_them() {
+        let suffix = "/data/%e9%87%91/file+name%2B.jar?download=1#file";
+        let urls = browser_download_urls(&[
+            format!("https://cdn-alt.modrinth.com{suffix}"),
+            format!("https://cdn.modrinth.com{suffix}"),
+            "https://cdn-alt.modrinth.com/file.jar?token=secret".into(),
+        ]);
+        assert_eq!(urls, vec![format!("https://cdn.modrinth.com{suffix}")]);
+    }
+
+    #[test]
+    fn tianpao_browser_urls_restore_known_paths_and_filter_unknown_paths() {
+        let urls = browser_download_urls(&[
+            "https://mod.tianpao.top/data/file.jar".into(),
+            "https://cdn.modrinth.com/data/file.jar".into(),
+            "https://mod.tianpao.top/files/1/2/file.jar".into(),
+            "https://mod.tianpao.top/media/attachments/icon.png".into(),
+            "https://mod.tianpao.top/unknown".into(),
+            "https://mod.tianpao.top/data/file.jar?token=secret".into(),
+        ]);
+        assert_eq!(
+            urls,
+            vec![
+                "https://cdn.modrinth.com/data/file.jar",
+                "https://edge.forgecdn.net/files/1/2/file.jar",
+                "https://media.forgecdn.net/attachments/icon.png"
+            ]
+        );
+    }
+
+    #[test]
     fn last_recovered_file_is_the_auto_resume_trigger() {
         let file = MissingModpackFileState {
             item_id: "mods/only.bin".to_string(),
@@ -1293,7 +1332,9 @@ mod tests {
             sha1: Some(Sha1::from(b"required").hexdigest()),
             sha512: None,
             download_urls: vec!["https://cdn.example/only.bin".to_string()],
-            browser_urls: vec!["https://cdn.example/only.bin".to_string()],
+            browser_urls: vec![
+                "https://cdn-alt.modrinth.com/data/only.bin".to_string(),
+            ],
             validate_as_jar: false,
         };
         let mut job_state =
@@ -1316,6 +1357,13 @@ mod tests {
             version_id: None,
         });
         assert!(!all_missing_content_resolved(&job_state).unwrap());
+        let restored: InstallJobState =
+            serde_json::from_str(&serde_json::to_string(&job_state).unwrap())
+                .unwrap();
+        assert_eq!(
+            missing_content_view(&restored).unwrap().files[0].browser_urls,
+            vec!["https://cdn.modrinth.com/data/only.bin"]
+        );
 
         job_state.record_event(InstallJobEventKind::ContentFileRecovered {
             path: file.item_id,

@@ -5,7 +5,7 @@ import {
     list_all_screenshots,
     list_screenshot_groups,
     list_screenshots,
-    list_synced_screenshots,
+    list_synced_screenshots_with_warnings,
 } from '@/helpers/instance'
 
 export const instanceKeys = {
@@ -31,7 +31,10 @@ export const screenshotKeys = {
 export function instanceScreenshotsQueryOptions(instanceId: string) {
     return queryOptions({
         queryKey: screenshotKeys.instance(instanceId),
-        queryFn: () => list_screenshots(instanceId),
+        queryFn: async () => ({
+            screenshots: await list_screenshots(instanceId),
+            skipped_instances: [] as string[],
+        }),
     })
 }
 
@@ -45,7 +48,7 @@ export function allScreenshotsQueryOptions() {
 export function syncedScreenshotsQueryOptions() {
     return queryOptions({
         queryKey: screenshotKeys.synced(),
-        queryFn: list_synced_screenshots,
+        queryFn: list_synced_screenshots_with_warnings,
     })
 }
 

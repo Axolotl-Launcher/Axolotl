@@ -57,10 +57,10 @@ pub async fn check_mojang_services()
 #[tauri::command]
 pub async fn set_mojang_auth_use_mirror(
     use_mirror: bool,
-    automatic: bool,
-) -> Result<()> {
+    expected_source: theseus::settings::DownloadSourceMode,
+) -> Result<bool> {
     Ok(
-        minecraft_auth::set_mojang_auth_use_mirror(use_mirror, automatic)
+        minecraft_auth::set_mojang_auth_use_mirror(use_mirror, expected_source)
             .await?,
     )
 }
@@ -571,8 +571,13 @@ pub async fn set_default_user(user: String) -> Result<()> {
 #[tauri::command]
 pub async fn get_users(
     offline_mode: bool,
+    cached_only: Option<bool>,
 ) -> Result<Vec<minecraft_auth::MinecraftUser>> {
-    Ok(minecraft_auth::users(offline_mode).await?)
+    Ok(minecraft_auth::users_with_cache(
+        offline_mode,
+        cached_only.unwrap_or(false),
+    )
+    .await?)
 }
 
 #[tauri::command]

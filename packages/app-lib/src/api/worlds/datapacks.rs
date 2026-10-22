@@ -32,12 +32,8 @@ pub struct WorldDatapack {
     pub file_name: String,
     pub display_name: String,
     pub kind: DatapackKind,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub pack_format: Option<i32>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub supported_formats: Option<Vec<i32>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub description: Option<serde_json::Value>,
+    #[serde(flatten)]
+    pub metadata: PackMetadata,
     #[serde(
         skip_serializing_if = "Option::is_none",
         with = "either::serde_untagged_optional"
@@ -57,12 +53,24 @@ pub struct WorldWithDatapacks {
     pub datapacks: Vec<WorldDatapack>,
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+pub struct PackMetadata {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub pack_format: Option<i32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub supported_formats: Option<serde_json::Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub min_format: Option<[u32; 2]>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub max_format: Option<[u32; 2]>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub description: Option<serde_json::Value>,
+}
+
 struct CachedZipDatapackMeta {
     len: u64,
     modified: Option<SystemTime>,
-    pack_format: Option<i32>,
-    supported_formats: Option<Vec<i32>>,
-    description: Option<serde_json::Value>,
+    metadata: PackMetadata,
     icon: Option<Vec<u8>>,
 }
 
@@ -310,8 +318,7 @@ async fn read_folder_datapack(
         .to_string_lossy()
         .to_string();
 
-    let (pack_format, supported_formats, description) =
-        read_folder_pack_meta(&dir).await;
+    let metadata = read_folder_pack_meta(&dir).await;
 
     let icon = if dir.join("pack.png").exists() {
         Some(Either::Left(dir.join("pack.png")))
@@ -329,9 +336,7 @@ async fn read_folder_datapack(
         file_name: name.clone(),
         display_name: name.clone(),
         kind: DatapackKind::Folder,
-        pack_format,
-        supported_formats,
-        description,
+        metadata,
         icon,
         enabled: match_datapack_state(&name, &enabled, &disabled),
         size,
@@ -356,7 +361,7 @@ async fn read_zip_datapack(
         .to_string();
 
     let zip_path = path.clone();
-    let (pack_format, supported_formats, description, icon_bytes) =
+    let (metadata, icon_bytes) =
         tokio::task::spawn_blocking(move || read_zip_pack_meta(&zip_path))
             .await
             .map_err(|error| {
@@ -391,9 +396,7 @@ async fn read_zip_datapack(
         file_name,
         display_name: stem.clone(),
         kind: DatapackKind::Zip,
-        pack_format,
-        supported_formats,
-        description,
+        metadata,
         icon: icon.map(Either::Right),
         enabled: match_datapack_state(&stem, &enabled, &disabled),
         size,
@@ -401,53 +404,87 @@ async fn read_zip_datapack(
     })
 }
 
-async fn read_folder_pack_meta(
-    dir: &Path,
-) -> (Option<i32>, Option<Vec<i32>>, Option<serde_json::Value>) {
+async fn read_folder_pack_meta(dir: &Path) -> PackMetadata {
     let Ok(bytes) = io::read(dir.join("pack.mcmeta")).await else {
-        return (None, None, None);
+        return PackMetadata::default();
     };
     parse_pack_mcmeta(&bytes)
 }
 
-fn parse_pack_mcmeta(
-    bytes: &[u8],
-) -> (Option<i32>, Option<Vec<i32>>, Option<serde_json::Value>) {
+fn parse_pack_mcmeta(bytes: &[u8]) -> PackMetadata {
     let Ok(value) = serde_json::from_slice::<serde_json::Value>(bytes) else {
-        return (None, None, None);
+        return PackMetadata::default();
     };
     let Some(pack) = value.get("pack") else {
-        return (None, None, None);
+        return PackMetadata::default();
     };
     let pack_format = pack
         .get("pack_format")
         .and_then(serde_json::Value::as_i64)
-        .map(|format| format as i32);
-    let supported_formats = pack
-        .get("supported_formats")
-        .and_then(parse_supported_formats);
-    let description = pack.get("description").cloned();
-    (pack_format, supported_formats, description)
+        .and_then(|format| i32::try_from(format).ok())
+        .filter(|format| *format >= 0);
+    let supported_formats = pack.get("supported_formats").cloned();
+    let legacy_range = supported_formats
+        .as_ref()
+        .and_then(|formats| {
+            if let Some(range) = formats.as_object() {
+                Some((
+                    parse_format(range.get("min_inclusive")?)?,
+                    parse_format(range.get("max_inclusive")?)?,
+                ))
+            } else if let Some(range) = formats.as_array() {
+                Some((
+                    parse_format(range.first()?)?,
+                    parse_format(range.last()?)?,
+                ))
+            } else {
+                let format = parse_format(formats)?;
+                Some((format, format))
+            }
+        })
+        .or_else(|| {
+            pack_format.map(|format| ([format as u32, 0], [format as u32, 0]))
+        });
+    PackMetadata {
+        pack_format,
+        supported_formats,
+        min_format: pack
+            .get("min_format")
+            .and_then(parse_format)
+            .or(legacy_range.map(|range| range.0)),
+        max_format: pack
+            .get("max_format")
+            .and_then(parse_max_format)
+            .or(legacy_range.map(|range| range.1)),
+        description: pack.get("description").cloned(),
+    }
 }
 
-fn parse_supported_formats(value: &serde_json::Value) -> Option<Vec<i32>> {
-    value.as_array().map(|formats| {
-        formats
-            .iter()
-            .filter_map(serde_json::Value::as_i64)
-            .map(|format| format as i32)
-            .collect()
-    })
+fn parse_format(value: &serde_json::Value) -> Option<[u32; 2]> {
+    let number =
+        |value: &serde_json::Value| u32::try_from(value.as_u64()?).ok();
+    if let Some(values) = value.as_array() {
+        match values.as_slice() {
+            [major] => Some([number(major)?, 0]),
+            [major, minor] => Some([number(major)?, number(minor)?]),
+            _ => None,
+        }
+    } else {
+        Some([number(value)?, 0])
+    }
+}
+
+fn parse_max_format(value: &serde_json::Value) -> Option<[u32; 2]> {
+    let mut format = parse_format(value)?;
+    if !value.is_array() || value.as_array()?.len() == 1 {
+        format[1] = i32::MAX as u32;
+    }
+    Some(format)
 }
 
 fn read_zip_pack_meta(
     path: &Path,
-) -> std::io::Result<(
-    Option<i32>,
-    Option<Vec<i32>>,
-    Option<serde_json::Value>,
-    Option<Vec<u8>>,
-)> {
+) -> std::io::Result<(PackMetadata, Option<Vec<u8>>)> {
     let metadata = std::fs::metadata(path)?;
     let signature = (metadata.len(), metadata.modified().ok());
     let cache_key = path.to_path_buf();
@@ -458,12 +495,7 @@ fn read_zip_pack_meta(
             && cached.len == signature.0
             && cached.modified == signature.1
         {
-            return Ok((
-                cached.pack_format,
-                cached.supported_formats.clone(),
-                cached.description.clone(),
-                cached.icon.clone(),
-            ));
+            return Ok((cached.metadata.clone(), cached.icon.clone()));
         }
     }
 
@@ -478,10 +510,8 @@ fn read_zip_pack_meta(
         CachedZipDatapackMeta {
             len: signature.0,
             modified: signature.1,
-            pack_format: parsed.0,
-            supported_formats: parsed.1.clone(),
-            description: parsed.2.clone(),
-            icon: parsed.3.clone(),
+            metadata: parsed.0.clone(),
+            icon: parsed.1.clone(),
         },
     );
 
@@ -490,23 +520,17 @@ fn read_zip_pack_meta(
 
 fn read_zip_pack_meta_uncached(
     path: &Path,
-) -> std::io::Result<(
-    Option<i32>,
-    Option<Vec<i32>>,
-    Option<serde_json::Value>,
-    Option<Vec<u8>>,
-)> {
+) -> std::io::Result<(PackMetadata, Option<Vec<u8>>)> {
     let file = std::fs::File::open(path)?;
     let mut archive = zip::ZipArchive::new(file)?;
 
-    let (pack_format, supported_formats, description) =
-        read_zip_entry(&mut archive, "pack.mcmeta")?
-            .as_deref()
-            .map(parse_pack_mcmeta)
-            .unwrap_or((None, None, None));
+    let metadata = read_zip_entry(&mut archive, "pack.mcmeta")?
+        .as_deref()
+        .map(parse_pack_mcmeta)
+        .unwrap_or_default();
     let icon = read_zip_entry(&mut archive, "pack.png")?;
 
-    Ok((pack_format, supported_formats, description, icon))
+    Ok((metadata, icon))
 }
 
 fn read_zip_entry(
@@ -573,4 +597,88 @@ async fn folder_size(dir: &Path) -> std::io::Result<u64> {
 fn is_zip_path(path: &Path) -> bool {
     path.extension()
         .is_some_and(|extension| extension.eq_ignore_ascii_case("zip"))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+    use std::io::Write;
+
+    #[test]
+    fn reads_modern_and_legacy_format_ranges() {
+        for (pack, min, max) in [
+            (
+                json!({"min_format": [121, 0], "max_format": [121, 0]}),
+                [121, 0],
+                [121, 0],
+            ),
+            (json!({"pack_format": 48}), [48, 0], [48, 0]),
+            (
+                json!({"min_format": [107, 1], "max_format": 107}),
+                [107, 1],
+                [107, i32::MAX as u32],
+            ),
+            (
+                json!({"min_format": 121, "max_format": [121]}),
+                [121, 0],
+                [121, i32::MAX as u32],
+            ),
+            (json!({"supported_formats": 48}), [48, 0], [48, 0]),
+            (json!({"supported_formats": [48, 61]}), [48, 0], [61, 0]),
+            (
+                json!({"supported_formats": {"min_inclusive": 48, "max_inclusive": 61}}),
+                [48, 0],
+                [61, 0],
+            ),
+            (
+                json!({"min_format": 107, "max_format": [121, 1]}),
+                [107, 0],
+                [121, 1],
+            ),
+        ] {
+            let metadata = parse_pack_mcmeta(
+                &serde_json::to_vec(&json!({"pack": pack})).unwrap(),
+            );
+            assert_eq!(metadata.min_format, Some(min));
+            assert_eq!(metadata.max_format, Some(max));
+        }
+        for invalid in [
+            json!(-1),
+            json!([121, -1]),
+            json!([121, 0, 1]),
+            json!(4294967296_u64),
+        ] {
+            assert_eq!(parse_format(&invalid), None);
+        }
+    }
+
+    #[tokio::test]
+    async fn folder_zip_and_refreshed_cache_preserve_minor_versions() {
+        let dir = tempfile::tempdir().unwrap();
+        let zip_path = dir.path().join("test.zip");
+        for minor in [0, 12] {
+            let bytes = serde_json::to_vec(&json!({"pack": {
+                "min_format": [121, minor], "max_format": [121, minor], "description": "test"
+            }})).unwrap();
+            std::fs::write(dir.path().join("pack.mcmeta"), &bytes).unwrap();
+            let mut zip =
+                zip::ZipWriter::new(std::fs::File::create(&zip_path).unwrap());
+            zip.start_file(
+                "pack.mcmeta",
+                zip::write::SimpleFileOptions::default(),
+            )
+            .unwrap();
+            zip.write_all(&bytes).unwrap();
+            zip.finish().unwrap();
+            let folder = read_folder_pack_meta(dir.path()).await;
+            let (cached, _) = read_zip_pack_meta(&zip_path).unwrap();
+            assert_eq!(folder.min_format, Some([121, minor]));
+            assert_eq!(cached.min_format, folder.min_format);
+            assert_eq!(
+                read_zip_pack_meta(&zip_path).unwrap().0.max_format,
+                folder.max_format
+            );
+        }
+    }
 }

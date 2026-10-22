@@ -1,5 +1,5 @@
 import { tooltipDirective } from '@modrinth/ui/directives/tooltip.ts'
-import { expect, it } from 'vitest'
+import { afterEach, expect, it, vi } from 'vitest'
 import { createApp, defineComponent, h, nextTick, ref, withDirectives } from 'vue'
 
 import { applyTheme, assertTokensLoaded, waitFor } from './visual-harness'
@@ -21,9 +21,10 @@ const TRIGGER_STYLE = 'position:absolute;top:200px;left:200px;width:80px;height:
 function mountTrigger(
     value: ReturnType<typeof ref<unknown>>,
     modifiers: Record<string, boolean> = {},
+    parent: HTMLElement = document.body,
 ): { trigger: HTMLElement; unmount: () => void } {
     const host = document.createElement('div')
-    document.body.appendChild(host)
+    parent.appendChild(host)
 
     const app = createApp(
         defineComponent({
@@ -36,16 +37,207 @@ function mountTrigger(
     )
     app.mount(host)
 
+    let disposed = false
+    const unmount = () => {
+        if (disposed) return
+        disposed = true
+        app.unmount()
+        host.remove()
+    }
+    cleanup.push(unmount)
     return {
         trigger: host.querySelector('button') as HTMLElement,
-        unmount: () => {
-            app.unmount()
-            host.remove()
-        },
+        unmount,
     }
 }
 
 const popper = () => document.querySelector('.tooltip-popper') as HTMLElement | null
+
+const cleanup: (() => void)[] = []
+afterEach(() => {
+    cleanup
+        .splice(0)
+        .reverse()
+        .forEach((fn) => fn())
+    vi.restoreAllMocks()
+})
+
+function mountGroup() {
+    const group = document.createElement('div')
+    group.dataset.tooltipGroup = 'toolbar'
+    document.body.append(group)
+    cleanup.push(() => group.remove())
+    const items = ['First', 'Second', 'Third'].map((label, index) => {
+        const item = mountTrigger(ref(label), {}, group)
+        item.trigger.style.left = `${100 + index * 180}px`
+        cleanup.push(item.unmount)
+        return item
+    })
+    return { group, items }
+}
+
+const enter = (trigger: HTMLElement) => trigger.dispatchEvent(new MouseEvent('mouseenter'))
+const leave = (trigger: HTMLElement) => trigger.dispatchEvent(new MouseEvent('mouseleave'))
+
+it('does not let an older pending hover replace a newer focused target in the group', async () => {
+    const { items } = mountGroup()
+    enter(items[0].trigger)
+    items[1].trigger.focus()
+    await waitFor(() => popper()?.parentElement?.dataset.state === 'open')
+    const surface = popper()!
+    await new Promise((resolve) => setTimeout(resolve, 300))
+    expect(surface.textContent).toBe('Second')
+    expect(items[0].trigger.hasAttribute('aria-describedby')).toBe(false)
+    expect(items[1].trigger.getAttribute('aria-describedby')).toBe(surface.id)
+})
+
+it('preserves the first hover delay while truncation observers and values refresh', async () => {
+    const value = ref<unknown>({ content: 'A long filename', onlyWhenTruncated: true })
+    const { trigger } = mountTrigger(value)
+    trigger.style.cssText += ';width:20px;overflow:hidden;white-space:nowrap'
+    enter(trigger)
+    trigger.style.width = '24px'
+    value.value = { content: 'Another long filename', onlyWhenTruncated: true }
+    await nextTick()
+    await new Promise((resolve) => setTimeout(resolve, 80))
+    expect(popper()).toBeNull()
+    await waitFor(() => popper()?.textContent === 'Another long filename')
+})
+
+it('delays first hover, then moves the same surface immediately to the latest grouped trigger', async () => {
+    applyTheme('dark')
+    const { items } = mountGroup()
+    const [a, b, c] = items.map((item) => item.trigger)
+    enter(a)
+    await new Promise((resolve) => setTimeout(resolve, 80))
+    expect(popper()).toBeNull()
+    await waitFor(() => popper()?.parentElement?.dataset.state === 'open')
+    const surface = popper()!
+    const positioner = surface.parentElement!
+    await waitFor(() => getComputedStyle(surface).opacity === '1')
+    const from = positioner.getBoundingClientRect().left
+    leave(a)
+    enter(b)
+    expect(popper()).toBe(surface)
+    expect(surface.textContent).toBe('Second')
+    await waitFor(() => positioner.getBoundingClientRect().left > from + 1)
+    expect(positioner.getBoundingClientRect().left).toBeLessThan(b.getBoundingClientRect().left)
+    leave(b)
+    enter(c)
+    leave(c)
+    enter(a)
+    expect(surface.textContent).toBe('First')
+    await waitFor(() => Math.abs(positioner.getBoundingClientRect().left - from) < 1)
+    expect(document.querySelectorAll('[role="tooltip"]')).toHaveLength(1)
+    leave(a)
+    await waitFor(() => positioner.dataset.state === 'closed')
+    expect(positioner.isConnected).toBe(true)
+    await waitFor(() => !positioner.isConnected)
+})
+
+it('transfers descriptions on keyboard focus without deleting existing descriptions', async () => {
+    const { items } = mountGroup()
+    const [a, b] = items.map((item) => item.trigger)
+    a.setAttribute('aria-describedby', 'existing-help')
+    a.focus()
+    await waitFor(() => !!popper())
+    const surface = popper()!
+    expect(a.getAttribute('aria-describedby')).toBe(`existing-help ${surface.id}`)
+    b.focus()
+    expect(popper()).toBe(surface)
+    expect(surface.textContent).toBe('Second')
+    expect(a.getAttribute('aria-describedby')).toBe('existing-help')
+    expect(b.getAttribute('aria-describedby')).toBe(surface.id)
+    b.blur()
+    await waitFor(() => !popper())
+    expect(b.hasAttribute('aria-describedby')).toBe(false)
+})
+
+it('keeps nested toolbar, page and dialog groups isolated', async () => {
+    const { group, items } = mountGroup()
+    const page = items[0].trigger
+    page.focus()
+    await waitFor(() => !!popper())
+    const pageSurface = popper()!
+    for (const boundary of ['toolbar', 'dialog']) {
+        const container = document.createElement('div')
+        if (boundary === 'toolbar') container.dataset.tooltipGroup = 'toolbar'
+        else container.setAttribute('role', 'dialog')
+        group.append(container)
+        const item = mountTrigger(ref(boundary), {}, container)
+        cleanup.push(item.unmount)
+        enter(item.trigger)
+        expect(document.querySelectorAll('[role="tooltip"]')).toHaveLength(1)
+        await waitFor(() => document.querySelectorAll('[role="tooltip"]').length === 2)
+        expect(pageSurface.textContent).toBe('First')
+        item.unmount()
+    }
+})
+
+it('remeasures multiline content and flips the arrow when the grouped target reaches an edge', async () => {
+    applyTheme('dark')
+    const { group, items } = mountGroup()
+    const value = ref('A long description '.repeat(40))
+    const item = mountTrigger(value, {}, group)
+    cleanup.push(item.unmount)
+    item.trigger.style.cssText =
+        'position:fixed;left:calc(100vw - 40px);top:0;width:32px;height:32px'
+    items[0].trigger.focus()
+    await waitFor(() => popper()?.parentElement?.dataset.state === 'open')
+    const surface = popper()!
+    item.trigger.focus()
+    await waitFor(
+        () =>
+            surface.querySelector<HTMLElement>('.tooltip-popper-arrow')?.dataset.side === 'bottom',
+    )
+    await waitFor(() => surface.parentElement!.getBoundingClientRect().top >= 32)
+    const box = surface.getBoundingClientRect()
+    expect(box.height).toBeGreaterThan(50)
+    expect(box.right).toBeLessThanOrEqual(innerWidth - 7)
+    expect(box.left).toBeGreaterThanOrEqual(7)
+    value.value = 'Short'
+    await nextTick()
+    await waitFor(() => surface.getBoundingClientRect().height < 50)
+    expect(surface.textContent).toBe('Short')
+})
+
+it('cancels exit on reentry and clears pending show and exit tasks on unmount', async () => {
+    const { items } = mountGroup()
+    const [a, b, c] = items.map((item) => item.trigger)
+    a.focus()
+    await waitFor(() => popper()?.parentElement?.dataset.state === 'open')
+    const surface = popper()!
+    a.blur()
+    await waitFor(() => surface.parentElement!.dataset.state === 'closed')
+    enter(b)
+    expect(popper()).toBe(surface)
+    expect(surface.textContent).toBe('Second')
+    items[0].unmount()
+    expect(popper()).toBe(surface)
+    items[1].unmount()
+    expect(popper()).toBeNull()
+    enter(c)
+    items[2].unmount()
+    await new Promise((resolve) => setTimeout(resolve, 300))
+    expect(document.querySelector('.tooltip-positioner')).toBeNull()
+})
+
+it('removes a closed tooltip immediately when reduced motion is requested', async () => {
+    const original = window.matchMedia.bind(window)
+    vi.spyOn(window, 'matchMedia').mockImplementation((query) => {
+        const result = original(query)
+        if (query.includes('prefers-reduced-motion'))
+            Object.defineProperty(result, 'matches', { value: true })
+        return result
+    })
+    const { items } = mountGroup()
+    items[0].trigger.focus()
+    await waitFor(() => popper()?.parentElement?.dataset.state === 'open')
+    const positioner = popper()!.parentElement!
+    items[0].trigger.blur()
+    await waitFor(() => positioner.dataset.state === 'closed')
+    expect(positioner.isConnected).toBe(false)
+})
 
 it('loads the token layer', () => {
     assertTokensLoaded()
@@ -77,7 +269,7 @@ it('renders the popper with working position and stacking', async () => {
     await waitFor(() => !!popper(), { label: 'the tooltip to appear' })
 
     const el = popper() as HTMLElement
-    const style = getComputedStyle(el)
+    const style = getComputedStyle(el.parentElement!)
     expect(style.position, 'out of flow, or the transform is relative to the page').toBe('fixed')
     expect(Number(style.zIndex), 'above the app chrome').toBeGreaterThanOrEqual(1000)
     expect(el.textContent).toContain('Hello')
@@ -113,7 +305,7 @@ it('positions the popper adjacent to its trigger', async () => {
     trigger.dispatchEvent(new MouseEvent('mouseenter'))
     await waitFor(() => !!popper(), { label: 'the tooltip' })
     // The transform is applied asynchronously after the position is computed.
-    await waitFor(() => (popper() as HTMLElement).style.transform !== '', {
+    await waitFor(() => (popper() as HTMLElement).parentElement!.style.transform !== '', {
         label: 'positioning to settle',
     })
 
@@ -139,7 +331,7 @@ it('honours a placement modifier', async () => {
 
     trigger.dispatchEvent(new MouseEvent('mouseenter'))
     await waitFor(() => !!popper(), { label: 'the tooltip' })
-    await waitFor(() => (popper() as HTMLElement).style.transform !== '', {
+    await waitFor(() => (popper() as HTMLElement).parentElement!.style.transform !== '', {
         label: 'positioning to settle',
     })
 

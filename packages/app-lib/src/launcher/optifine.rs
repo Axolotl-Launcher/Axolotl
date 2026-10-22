@@ -16,7 +16,6 @@ use daedalus::minecraft::{
 use daedalus::modded::{LoaderVersion, PartialVersionInfo};
 use reqwest::Method;
 use serde::Deserialize;
-use tokio::process::Command;
 use tokio_util::sync::CancellationToken;
 
 use crate::State;
@@ -24,7 +23,7 @@ use crate::util::fetch::{
     self, ContentValidation, DownloadRequest, Integrity, ResourceClass,
     download_to_path, fetch_json,
 };
-use crate::util::io;
+use crate::util::{io, java_environment};
 
 const BMCLAPI_OPTIFINE_BASE: &str = "https://bmclapi2.bangbang93.com/optifine";
 pub const OPTIFINE_LOADER_PREFIX: &str = "OptiFine_";
@@ -489,7 +488,7 @@ pub(crate) async fn install_optifine_libraries(
         cancellation,
         |output_path| async move {
             if info.needs_patching {
-                let mut command = Command::new(java_path);
+                let mut command = java_environment::tokio_command(java_path);
                 command
                     .kill_on_drop(true)
                     .arg("-cp")
@@ -553,7 +552,7 @@ pub async fn install_optifine_as_mod(
         &cancellation,
         |output_path| async move {
             if info.needs_patching {
-                let mut command = Command::new(java_path);
+                let mut command = java_environment::tokio_command(java_path);
                 command
                     .arg("-cp")
                     .arg(&installer)

@@ -26,13 +26,14 @@ const selectedLevel = ref<'all' | 'debug' | 'info'>('all')
 const includeSystemInfo = ref(true)
 const includeInstanceLogs = ref(false)
 const includeCrashAnalysis = ref(false)
+const includeNetworkConnections = ref(false)
 
 const messages = defineMessages({
     title: { id: 'app.settings.logs.export.modal.title', defaultMessage: 'Export logs' },
     description: {
         id: 'app.settings.logs.export.modal.description',
         defaultMessage:
-            'Choose how much detail to include. Exported logs have access tokens, Minecraft tokens, and IP addresses replaced with placeholders.',
+            'Choose how much detail to include. Credentials are replaced with placeholders. IP addresses are hidden in logs and preserved in network connection reports.',
     },
     rangeLabel: { id: 'app.settings.logs.export.modal.range', defaultMessage: 'Time range' },
     rangeLast30Minutes: {
@@ -70,6 +71,19 @@ const messages = defineMessages({
         id: 'app.settings.logs.export.modal.crash-analysis',
         defaultMessage: 'Crash analysis (when a crash is detected)',
     },
+    networkConnections: {
+        id: 'app.settings.logs.export.modal.network-connections',
+        defaultMessage: 'Network connections',
+    },
+    networkConnectionsHint: {
+        id: 'app.settings.logs.export.modal.network-connections-hint',
+        defaultMessage:
+            'Run fresh tests for all services using launcher network settings when exporting, including a short download sample.',
+    },
+    exporting: {
+        id: 'app.settings.logs.export.modal.exporting',
+        defaultMessage: 'Exporting…',
+    },
     cancel: { id: 'app.settings.logs.export.modal.cancel', defaultMessage: 'Cancel' },
     confirm: { id: 'app.settings.logs.export.modal.confirm', defaultMessage: 'Export' },
     exportedTitle: {
@@ -95,6 +109,7 @@ const levelOptions = computed(() => [
 ])
 
 async function exportLogs() {
+    if (exporting.value) return
     exporting.value = true
     try {
         const path = await exportLauncherLogs({
@@ -103,6 +118,7 @@ async function exportLogs() {
             includeSystemInfo: includeSystemInfo.value,
             includeInstanceLogs: includeInstanceLogs.value,
             includeCrashAnalysis: includeCrashAnalysis.value,
+            includeNetworkConnections: includeNetworkConnections.value,
         })
 
         if (path) {
@@ -129,7 +145,9 @@ async function exportLogs() {
 
 defineExpose({
     show: () => modal.value?.show(),
-    hide: () => modal.value?.hide(),
+    hide: () => {
+        if (!exporting.value) modal.value?.hide()
+    },
 })
 </script>
 
@@ -137,8 +155,8 @@ defineExpose({
     <NewModal
         ref="modal"
         :header="formatMessage(messages.title)"
-        :closable="true"
-        :close-on-click-outside="true"
+        :closable="!exporting"
+        :close-on-click-outside="!exporting"
         width="40rem"
         scrollable
     >
@@ -152,6 +170,7 @@ defineExpose({
                 <Combobox
                     id="log-export-range"
                     v-model="selectedRange"
+                    :disabled="exporting"
                     :name="formatMessage(messages.rangeLabel)"
                     :options="rangeOptions"
                 />
@@ -164,6 +183,7 @@ defineExpose({
                 <Combobox
                     id="log-export-level"
                     v-model="selectedLevel"
+                    :disabled="exporting"
                     :name="formatMessage(messages.levelLabel)"
                     :options="levelOptions"
                 />
@@ -173,15 +193,29 @@ defineExpose({
                 <span class="font-semibold text-[var(--color-text-primary)]">{{
                     formatMessage(messages.extrasLabel)
                 }}</span>
-                <Checkbox v-model="includeSystemInfo" :label="formatMessage(messages.systemInfo)" />
+                <Checkbox
+                    v-model="includeSystemInfo"
+                    :disabled="exporting"
+                    :label="formatMessage(messages.systemInfo)"
+                />
                 <Checkbox
                     v-model="includeInstanceLogs"
+                    :disabled="exporting"
                     :label="formatMessage(messages.instanceLogs)"
                 />
                 <Checkbox
                     v-model="includeCrashAnalysis"
+                    :disabled="exporting"
                     :label="formatMessage(messages.crashAnalysis)"
                 />
+                <Checkbox
+                    v-model="includeNetworkConnections"
+                    :disabled="exporting"
+                    :label="formatMessage(messages.networkConnections)"
+                />
+                <p class="m-0 text-sm text-[var(--color-text-tertiary)]">
+                    {{ formatMessage(messages.networkConnectionsHint) }}
+                </p>
             </div>
         </div>
 
@@ -191,9 +225,9 @@ defineExpose({
                     ><XIcon />
                     {{ formatMessage(messages.cancel) }}
                 </Button>
-                <Button type="colored" color="brand" :disabled="exporting" @click="exportLogs"
+                <Button type="colored" color="brand" :loading="exporting" @click="exportLogs"
                     ><DownloadIcon />
-                    {{ formatMessage(messages.confirm) }}
+                    {{ formatMessage(exporting ? messages.exporting : messages.confirm) }}
                 </Button>
             </div>
         </template>

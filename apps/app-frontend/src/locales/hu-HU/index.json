@@ -161,26 +161,14 @@
   "app.content-install.no-compatible-versions": {
     "message": "Nincs a(z) {compatibilityLabel} verziónak megfelelő elérhető verzió. Válassz ki egy verziót, ha mégis telepíteni szeretnéd. A függőségek nem települnek automatikusan."
   },
-  "app.export-modal.description-placeholder": {
-    "message": "Írd be a modcsomag leírását..."
-  },
   "app.export-modal.export-button": {
     "message": "Exportálás"
-  },
-  "app.export-modal.header": {
-    "message": "Modcsomag exportálása"
   },
   "app.export-modal.modpack-name-label": {
     "message": "A modcsomag neve"
   },
-  "app.export-modal.modpack-name-placeholder": {
-    "message": "A modcsomag neve"
-  },
   "app.export-modal.version-number-label": {
     "message": "Verziószám"
-  },
-  "app.export-modal.version-number-placeholder": {
-    "message": "1.0.0"
   },
   "app.install.phase.resolving_loader": {
     "message": ""

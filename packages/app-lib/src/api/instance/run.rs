@@ -211,6 +211,9 @@ async fn run_credentials(
                     &context.instance,
                 )?;
             let mut command = Command::new(command);
+            crate::util::java_environment::configure_child_environment(
+                command.as_std_mut(),
+            );
             command.args(cmd).current_dir(&full_path).kill_on_drop(true);
             let result = command
                 .spawn()

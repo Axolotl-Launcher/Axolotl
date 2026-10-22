@@ -111,6 +111,7 @@ watch(
     <section class="flex w-full flex-col">
         <div
             v-if="!hideHeader"
+            data-screenshot-group-header
             class="group/header flex h-10 w-full items-center gap-2 border-0 border-b border-solid border-b-surface-5"
         >
             <div

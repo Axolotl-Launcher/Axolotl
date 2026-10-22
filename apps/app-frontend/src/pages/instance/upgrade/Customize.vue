@@ -215,7 +215,8 @@
                             {{ formatMessage(messages.choice) }}
                         </label>
                         <Combobox
-                            class="!w-full max-w-full min-w-0"
+                            width="full"
+                            class="max-w-full min-w-0"
                             :model-value="draftChoice(item.contentId)"
                             :options="
                                 constraintOptions(item).map((value) => ({

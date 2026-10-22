@@ -37,8 +37,8 @@ export function useBulkOperation() {
                     await new Promise((resolve) => setTimeout(resolve, delayMs))
                 }
             }
-        } finally {
             options?.onComplete?.()
+        } finally {
             resetState()
         }
     }
@@ -46,7 +46,7 @@ export function useBulkOperation() {
     async function runBulkWithWaiting(
         operation: BulkOperationType,
         total: number,
-        fn: () => Promise<void>,
+        fn: () => Promise<void | boolean>,
         onComplete?: () => void,
     ) {
         isBulkOperating.value = true
@@ -55,9 +55,9 @@ export function useBulkOperation() {
         bulkProgress.value = 0
         bulkWaiting.value = true
         try {
-            await fn()
+            const result = await fn()
+            if (result !== false) onComplete?.()
         } finally {
-            onComplete?.()
             resetState()
         }
     }

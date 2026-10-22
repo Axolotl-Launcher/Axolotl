@@ -37,6 +37,10 @@ Fo = "Fo"
 nd = "nd"
 # Vietnamese place name used in the native language label.
 Nam = "Nam"
+# Actually it is PNGs
+PN = "PN"
+# ID for stronghold-straight
+SHS = "SHS"
 
 [default.extend-identifiers]
 # Minecraft locale identifiers containing the ISO 3166-1 code for Bosnia and

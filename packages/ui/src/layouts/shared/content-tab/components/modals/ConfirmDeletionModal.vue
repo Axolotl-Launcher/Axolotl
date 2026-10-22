@@ -8,17 +8,19 @@
         "
         fade="warning"
         max-width="500px"
+        :disable-close="busy"
     >
         <div class="flex flex-col gap-6">
             <SymlinkWarningAdmonition :symlink-target="symlinkTarget" />
             <Admonition type="warning" :header="formatMessage(messages.admonitionHeader)">
                 {{ formatMessage(messages.admonitionBody) }}
             </Admonition>
+            <p v-if="error" class="m-0 text-red">{{ error }}</p>
         </div>
 
         <template #actions>
             <div class="flex gap-2 justify-end">
-                <Button type="outlined" @click="modal?.hide()"
+                <Button type="outlined" :disabled="busy" @click="modal?.hide()"
                     ><XIcon />
                     {{ formatMessage(commonMessages.cancelButton) }}
                 </Button>
@@ -26,7 +28,8 @@
                     v-tooltip="props.actionDisabled ? props.actionDisabledTooltip : undefined"
                     type="colored"
                     color="orange"
-                    :disabled="props.actionDisabled"
+                    :disabled="props.actionDisabled || busy"
+                    :loading="busy"
                     @click="confirm"
                     ><TrashIcon />
                     {{
@@ -60,6 +63,10 @@ import SymlinkWarningAdmonition from './SymlinkWarningAdmonition.vue'
 const { formatMessage } = useVIntl()
 
 const messages = defineMessages({
+    failed: {
+        id: 'content.confirm-deletion.failed',
+        defaultMessage: 'The selected content could not be deleted. Try again.',
+    },
     header: {
         id: 'content.confirm-deletion.header',
         defaultMessage: 'Delete {itemType}',
@@ -88,6 +95,7 @@ const props = withDefaults(
         actionDisabled?: boolean
         actionDisabledTooltip?: string
         symlinkTarget?: string
+        action?: () => Promise<void>
     }>(),
     {
         variant: 'instance',
@@ -105,18 +113,33 @@ const emit = defineEmits<{
 const modal = ref<InstanceType<typeof NewModal>>()
 const visibleCount = ref(props.count)
 const visibleItemType = ref(props.itemType)
+const busy = ref(false)
+const error = ref<string | null>(null)
 
 async function show() {
+    error.value = null
     await nextTick()
     visibleCount.value = props.count
     visibleItemType.value = props.itemType
     modal.value?.show()
 }
 
-function confirm() {
-    if (props.actionDisabled) return
-    modal.value?.hide()
-    emit('delete')
+async function confirm() {
+    if (props.actionDisabled || busy.value) return
+    busy.value = true
+    error.value = null
+    try {
+        if (props.action) await props.action()
+        else emit('delete')
+        busy.value = false
+        await nextTick()
+        await modal.value?.hide()
+    } catch (failure) {
+        console.error('Content deletion failed', failure)
+        error.value = formatMessage(messages.failed)
+    } finally {
+        busy.value = false
+    }
 }
 
 defineExpose({

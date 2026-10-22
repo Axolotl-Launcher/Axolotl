@@ -6,8 +6,9 @@ import {
     useFormatDateTime,
     useVIntl,
 } from '@modrinth/ui'
+import { useQuery } from '@tanstack/vue-query'
 import { openUrl } from '@tauri-apps/plugin-opener'
-import { computed, ref } from 'vue'
+import { computed } from 'vue'
 
 import { useNetworkStatus } from '@/composables/useNetworkStatus'
 import { get_minecraft_news, type MinecraftNewsItem } from '@/helpers/mc_news'
@@ -25,23 +26,27 @@ const messages = defineMessages({
 const NEWS_COUNT = 12
 const NEWS_SKELETON_COUNT = 4
 
-const newsItems = ref<MinecraftNewsItem[]>([])
-const loading = ref(true)
 const htmlDecoder = document.createElement('textarea')
-
-get_minecraft_news(NEWS_COUNT)
-    .then((items) => {
-        newsItems.value = items.map((item) => ({
-            ...item,
-            title: decodeHtmlEntities(item.title),
-        }))
-    })
-    .catch(() => {
-        newsItems.value = []
-    })
-    .finally(() => {
-        loading.value = false
-    })
+const newsQuery = useQuery({
+    queryKey: ['home', 'minecraft-news', NEWS_COUNT],
+    queryFn: () => get_minecraft_news(NEWS_COUNT),
+    enabled: computed(() => !offline.value),
+    staleTime: 30 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
+    retry: false,
+    // The unified network state also covers native reachability checks.
+    // Re-enabling this query owns reconnect fetches, avoiding a second scheduler.
+    networkMode: 'always',
+    refetchOnReconnect: false,
+    refetchOnWindowFocus: false,
+})
+const newsItems = computed(() =>
+    (newsQuery.data.value ?? []).map((item) => ({
+        ...item,
+        title: decodeHtmlEntities(item.title),
+    })),
+)
+const loading = computed(() => newsQuery.isPending.value)
 
 const visible = computed(() => !offline.value && (loading.value || newsItems.value.length > 0))
 

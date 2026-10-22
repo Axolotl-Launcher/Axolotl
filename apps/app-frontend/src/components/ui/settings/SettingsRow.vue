@@ -3,10 +3,12 @@ withDefaults(
     defineProps<{
         compact?: boolean
         stacked?: boolean
+        inlineControl?: boolean
     }>(),
     {
         compact: false,
         stacked: false,
+        inlineControl: false,
     },
 )
 </script>
@@ -14,7 +16,11 @@ withDefaults(
 <template>
     <div
         class="settings-row"
-        :class="{ 'settings-row-compact': compact, 'settings-row-stacked': stacked }"
+        :class="{
+            'settings-row-compact': compact,
+            'settings-row-stacked': stacked,
+            'settings-row-inline-control': inlineControl,
+        }"
     >
         <div class="flex min-w-0 flex-col gap-1">
             <div
@@ -86,6 +92,16 @@ withDefaults(
     .settings-row-control {
         justify-content: flex-start;
         width: 100%;
+    }
+
+    .settings-row-inline-control {
+        grid-template-columns: minmax(0, 1fr) auto;
+    }
+
+    .settings-row-inline-control .settings-row-control {
+        padding-top: 0.25rem;
+        justify-content: flex-end;
+        width: auto;
     }
 }
 </style>

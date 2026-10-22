@@ -30,8 +30,9 @@ import {
     buildDependencyGraph,
     type DependencyDirection,
     type DependencyGraph,
-    dependencyGraphMetrics,
     type DependencyGraphNode,
+    dependencyGraphNodeBounds,
+    dependencyGraphNodeGeometry,
     getDependencyTreeRows,
     getRelatedNodeIds,
     layoutDependencyGraph,
@@ -179,6 +180,7 @@ let fitFrame: number | undefined
 let edgeFrame: number | undefined
 
 const graph = computed<DependencyGraph>(() => buildDependencyGraph(items.value))
+const graphGeometry = computed(() => dependencyGraphNodeGeometry(zoom.value < 0.34))
 const typeOptions = computed(() => [
     'all',
     ...new Set(graph.value.nodes.map((node) => node.projectType)),
@@ -282,7 +284,7 @@ const graphNodeIds = computed(() => {
 })
 
 const graphLayout = computed(() =>
-    layoutDependencyGraph(graph.value, graphNodeIds.value, nodeOffsets.value),
+    layoutDependencyGraph(graph.value, graphNodeIds.value, nodeOffsets.value, graphGeometry.value),
 )
 
 const focusedGraphNodeIds = computed(() =>
@@ -305,9 +307,9 @@ const visibleGraphNodes = computed(() => {
     return graphLayout.value.nodes.filter(
         (node) =>
             related.has(node.id) ||
-            (node.x + dependencyGraphMetrics.nodeWidth >= left &&
+            (node.x + graphGeometry.value.nodeWidth >= left &&
                 node.x <= right &&
-                node.y + dependencyGraphMetrics.nodeHeight >= top &&
+                node.y + graphGeometry.value.nodeHeight >= top &&
                 node.y <= bottom),
     )
 })
@@ -410,6 +412,7 @@ function drawGraphEdges() {
     const mutedColor = styles.getPropertyValue('--surface-5').trim() || '#697384'
     const orangeColor = styles.getPropertyValue('--color-orange').trim() || '#f2a65a'
     const positions = new Map(graphLayout.value.nodes.map((node) => [node.id, node]))
+    const geometry = graphGeometry.value
     for (const edge of graphLayout.value.edges) {
         const source = positions.get(edge.source)
         const target = positions.get(edge.target)
@@ -423,10 +426,12 @@ function drawGraphEdges() {
         context.strokeStyle = color
         context.fillStyle = color
         context.lineWidth = active ? 2 : 1
-        const startX = source.x + dependencyGraphMetrics.nodeWidth
-        const startY = source.y + dependencyGraphMetrics.nodeHeight / 2
-        const endX = target.x
-        const endY = target.y + dependencyGraphMetrics.nodeHeight / 2
+        const sourceBounds = dependencyGraphNodeBounds(source, geometry)
+        const targetBounds = dependencyGraphNodeBounds(target, geometry)
+        const startX = sourceBounds.right
+        const startY = sourceBounds.centerY
+        const endX = targetBounds.left
+        const endY = targetBounds.centerY
         const curve = Math.max(48, Math.abs(endX - startX) * 0.36)
         context.beginPath()
         context.moveTo(startX, startY)
@@ -482,10 +487,12 @@ function constrainedPan(nextPan: Point, nextZoom = zoom.value): Point {
 function graphContentBounds(visibleIds = focusedGraphNodeIds.value) {
     const nodes = graphLayout.value.nodes.filter((node) => visibleIds.has(node.id))
     if (!nodes.length) return undefined
-    const minX = Math.min(...nodes.map((node) => node.x))
-    const minY = Math.min(...nodes.map((node) => node.y))
-    const maxX = Math.max(...nodes.map((node) => node.x + dependencyGraphMetrics.nodeWidth))
-    const maxY = Math.max(...nodes.map((node) => node.y + dependencyGraphMetrics.nodeHeight))
+    const geometry = graphGeometry.value
+    const bounds = nodes.map((node) => dependencyGraphNodeBounds(node, geometry))
+    const minX = Math.min(...bounds.map((node) => node.left))
+    const minY = Math.min(...bounds.map((node) => node.top))
+    const maxX = Math.max(...bounds.map((node) => node.right))
+    const maxY = Math.max(...bounds.map((node) => node.bottom))
     return { minX, minY, width: maxX - minX, height: maxY - minY }
 }
 
@@ -539,11 +546,36 @@ function zoomTo(nextZoom: number, anchor?: Point) {
     const clampedZoom = clamp(nextZoom, minZoom, maxZoom)
     if (!viewport || clampedZoom === zoom.value) return
     const focalPoint = anchor ?? { x: viewport.clientWidth / 2, y: viewport.clientHeight / 2 }
+    const previousBounds =
+        zoom.value < 0.34 !== clampedZoom < 0.34 ? graphContentBounds() : undefined
+    const previousZoom = zoom.value
+    const previousPan = pan.value
     const graphPoint = {
         x: (focalPoint.x - pan.value.x) / zoom.value,
         y: (focalPoint.y - pan.value.y) / zoom.value,
     }
     zoom.value = clampedZoom
+    if (previousBounds) {
+        const nextBounds = graphContentBounds()
+        if (!nextBounds) return
+        const previousCenter = {
+            x: previousBounds.minX + previousBounds.width / 2,
+            y: previousBounds.minY + previousBounds.height / 2,
+        }
+        const nextCenter = {
+            x: nextBounds.minX + nextBounds.width / 2,
+            y: nextBounds.minY + nextBounds.height / 2,
+        }
+        pan.value = constrainedPan(
+            {
+                x: previousPan.x + previousCenter.x * previousZoom - nextCenter.x * clampedZoom,
+                y: previousPan.y + previousCenter.y * previousZoom - nextCenter.y * clampedZoom,
+            },
+            clampedZoom,
+        )
+        applyCanvasTransform()
+        return
+    }
     if (clampedZoom === minZoom) {
         const bounds = graphContentBounds()
         if (!bounds) return
@@ -841,21 +873,24 @@ defineExpose({ show, hide, setItems })
             >
                 <Combobox
                     v-model="typeFilter"
-                    class="!w-44"
+                    width="custom"
+                    class="w-44"
                     :options="
                         typeOptions.map((value) => ({ value, label: typeFilterLabel(value) }))
                     "
                 />
                 <Combobox
                     v-model="sourceFilter"
-                    class="!w-44"
+                    width="custom"
+                    class="w-44"
                     :options="
                         sourceOptions.map((value) => ({ value, label: sourceFilterLabel(value) }))
                     "
                 />
                 <Combobox
                     v-model="statusFilter"
-                    class="!w-44"
+                    width="custom"
+                    class="w-44"
                     :options="
                         statusOptions.map((value) => ({ value, label: statusFilterLabel(value) }))
                     "
@@ -1117,7 +1152,7 @@ defineExpose({ show, hide, setItems })
                                         v-for="node in visibleGraphNodes"
                                         :key="node.id"
                                         data-dependency-node
-                                        class="dependency-graph-node absolute flex h-[76px] w-[228px] cursor-grab select-none items-center gap-3 rounded-2xl border-2 px-3 shadow-lg transition-[box-shadow,opacity,transform] active:cursor-grabbing"
+                                        class="dependency-graph-node absolute flex cursor-grab select-none items-center gap-3 rounded-2xl border-2 px-3 shadow-lg transition-[box-shadow,opacity,transform] active:cursor-grabbing"
                                         :class="[
                                             nodeStatusClass(node),
                                             selectedNodeId && selectedNodeId !== node.id
@@ -1128,7 +1163,12 @@ defineExpose({ show, hide, setItems })
                                                 ? 'z-10 scale-[1.03] shadow-xl'
                                                 : '',
                                         ]"
-                                        :style="{ left: `${node.x}px`, top: `${node.y}px` }"
+                                        :style="{
+                                            left: `${node.x}px`,
+                                            top: `${node.y}px`,
+                                            width: `${graphGeometry.nodeWidth}px`,
+                                            height: `${graphGeometry.nodeHeight}px`,
+                                        }"
                                         @pointerdown="(event) => startNodeDrag(event, node.id)"
                                         @click.stop="selectNode(node.id)"
                                     >
@@ -1331,8 +1371,6 @@ defineExpose({ show, hide, setItems })
 .dependency-graph-node-compact {
     gap: 0;
     justify-content: center;
-    width: 48px;
-    height: 48px;
     padding: 4px;
     border-radius: 999px;
 }

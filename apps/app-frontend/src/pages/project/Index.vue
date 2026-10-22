@@ -5,6 +5,21 @@
         </Teleport>
         <ProjectPageSkeleton />
     </template>
+    <EmptyState
+        v-else-if="loadFailed"
+        type="error"
+        class="p-6"
+        :heading="formatMessage(messages.loadFailed)"
+    >
+        <template #actions>
+            <Button type="colored" color="brand" @click="loadProjectPage">
+                {{ formatMessage(commonMessages.retryButton) }}
+            </Button>
+            <Button type="outlined" @click="router.push(projectBrowseBackUrl)">
+                {{ formatMessage(commonMessages.backButton) }}
+            </Button>
+        </template>
+    </EmptyState>
     <div v-else-if="data">
         <UpgradeProjectReturnBar />
         <Teleport to="#sidebar-teleport-target">
@@ -50,6 +65,7 @@
             />
             <ProjectSidebarDetails
                 :project="data"
+                :resource-dates="data.resourceDates"
                 :has-versions="versions.length > 0"
                 :link-target="`_blank`"
                 :hide-license="isServerProject"
@@ -246,12 +262,12 @@
 						</Transition>
 						-->
                         <OverflowMenu
-                            :tooltip="`More options`"
+                            :tooltip="formatMessage(commonMessages.moreOptionsButton)"
                             :options="[
                                 {
                                     id: 'follow',
                                     disabled: true,
-                                    tooltip: 'Coming soon',
+                                    tooltip: formatMessage(messages.comingSoon),
                                     action: () => {},
                                 },
                                 ...(favoriteSupported
@@ -319,7 +335,9 @@
                                     )
                                 }}
                             </template>
-                            <template #report> <ReportIcon /> Report </template>
+                            <template #report>
+                                <ReportIcon /> {{ formatMessage(commonMessages.reportButton) }}
+                            </template>
                         </OverflowMenu>
                     </template>
                 </ProjectHeader>
@@ -333,6 +351,11 @@
                             label: formatMessage(commonProjectSettingsMessages.versions),
                             href: versionsHref,
                             subpages: ['version'],
+                            shown: projectV3?.minecraft_server == null,
+                        },
+                        {
+                            label: formatMessage(commonMessages.changelogLabel),
+                            href: projectChangelogHref,
                             shown: projectV3?.minecraft_server == null,
                         },
                         {
@@ -359,7 +382,7 @@
                     :start-server="(version) => openModpackServerFlow(version)"
                 />
             </template>
-            <template v-else> Project data couldn't not be loaded. </template>
+            <template v-else> {{ formatMessage(messages.loadFailed) }} </template>
         </div>
         <SelectedProjectsFloatingBar
             v-if="projectInstallContext"
@@ -446,6 +469,7 @@ import {
     commonProjectSettingsMessages,
     CreationFlowModal,
     defineMessages,
+    EmptyState,
     formatDependencyProjectFilterOption,
     formatProjectTypeSentence,
     getLatestMatchingInstallVersion,
@@ -495,6 +519,8 @@ import {
 } from '@/helpers/cache.js'
 import { isFavoriteContentType } from '@/helpers/content-favorites'
 import { resolveMcmodUrl } from '@/helpers/content-search'
+import { resolveDownloadUrl } from '@/helpers/download-url'
+import { retiredDownloadMessage } from '@/helpers/download-url-messages'
 import { process_listener } from '@/helpers/events'
 import {
     get as getInstance,
@@ -545,6 +571,11 @@ const contentFavorites = useContentFavorites()
 void contentFavorites.load().catch(handleError)
 
 const messages = defineMessages({
+    comingSoon: { id: 'app.project.coming-soon', defaultMessage: 'Coming soon' },
+    loadFailed: {
+        id: 'app.project.load-failed',
+        defaultMessage: 'The project could not be loaded. Try again.',
+    },
     backToBrowse: {
         id: 'app.project.install-context.back-to-browse',
         defaultMessage: 'Back to discover',
@@ -656,6 +687,7 @@ const messages = defineMessages({
 const { installingServerProjects, playServerProject, showAddServerToInstanceModal } =
     injectServerInstall()
 const loading = ref(true)
+const loadFailed = ref(false)
 const installing = ref(false)
 const browseInstanceSelector = ref()
 const data = shallowRef(null)
@@ -722,6 +754,7 @@ async function toggleFavorite() {
             provider: 'modrinth',
             project_id: data.value.id,
             content_type: data.value.project_type,
+            slug: data.value.slug,
         })
         .catch(handleError)
 }
@@ -808,6 +841,9 @@ const projectDescriptionHref = computed(() => buildProjectHref(`/project/${route
 const versionsHref = computed(() =>
     buildProjectHref(`/project/${route.params.id}/versions`, instanceFilters.value),
 )
+const projectChangelogHref = computed(() =>
+    buildProjectHref(`/project/${route.params.id}/changelog`),
+)
 const projectGalleryHref = computed(() => buildProjectHref(`/project/${route.params.id}/gallery`))
 
 const instanceContentBackUrl = computed(() => {
@@ -845,8 +881,9 @@ const cartProjectSelected = computed(
 )
 
 async function syncContentSelectionTarget() {
-    if (!fromBrowse.value) return
+    if (!fromBrowse.value && !route.query.i) return
     await contentSelection.refreshInstances(instance.value?.id ?? null)
+    await contentSelection.refreshInstalledIdentities()
 }
 
 const projectInstallContext = computed(() => {
@@ -943,7 +980,12 @@ const installButtonValidating = computed(
         !serverInstallContent.isInstallingQueuedServerInstalls.value,
 )
 const installButtonInstalled = computed(() =>
-    serverProjectInstallContext.value ? serverProjectInstalled.value : installed.value,
+    serverProjectInstallContext.value
+        ? serverProjectInstalled.value
+        : installed.value ||
+          (!!data.value &&
+              (!route.query.i || cartTarget.value?.id === route.query.i) &&
+              contentSelection.isInstalledIdentity('modrinth', data.value.id, data.value.slug)),
 )
 const installButtonDisabled = computed(
     () => installButtonInstalled.value || installButtonLoading.value,
@@ -1050,37 +1092,46 @@ function handleAddServerToInstance() {
 
 async function fetchProjectData() {
     const requestedProjectId = String(route.params.id)
+    const requestedInstanceId = route.query.i
+    const requestVersion = projectLoadVersion
+    const isCurrent = () =>
+        requestVersion === projectLoadVersion &&
+        String(route.params.id) === requestedProjectId &&
+        route.query.i === requestedInstanceId
     translationRequestVersion++
     translationActive.value = false
     translationLoading.value = false
     translations.value = {}
     const [project, projectV3Result] = await Promise.all([
-        get_project(requestedProjectId, 'must_revalidate').catch(handleError),
-        get_project_v3(requestedProjectId, 'must_revalidate').catch(handleError),
+        get_project(requestedProjectId, 'revalidate'),
+        get_project_v3(requestedProjectId, 'revalidate').catch(handleError),
     ])
-    if (String(route.params.id) !== requestedProjectId) return
+    if (!isCurrent()) return
     projectV3.value = projectV3Result
 
     if (!project) {
-        handleError('Error loading project')
-        return
+        throw new Error('Project not found')
     }
 
     data.value = project
     mcmodUrl.value = null
     void resolveMcmodUrl(project.slug, 'modrinth').then((url) => {
-        if (String(route.params.id) === requestedProjectId) mcmodUrl.value = url
+        if (isCurrent()) mcmodUrl.value = url
     })
     const relatedData = await Promise.all([
         get_version_many(project.versions, 'must_revalidate').catch(handleError),
         get_team(project.team).catch(handleError),
         get_categories().catch(handleError),
-        route.query.i ? getInstance(route.query.i).catch(handleError) : Promise.resolve(),
-        route.query.i ? getInstanceProjects(route.query.i).catch(handleError) : Promise.resolve(),
+        requestedInstanceId
+            ? getInstance(requestedInstanceId).catch(handleError)
+            : Promise.resolve(),
+        requestedInstanceId
+            ? getInstanceProjects(requestedInstanceId).catch(handleError)
+            : Promise.resolve(),
     ])
-    if (String(route.params.id) !== requestedProjectId) return
+    if (!isCurrent()) return
     ;[versions.value, members.value, categories.value, instance.value, instanceProjects.value] =
-        relatedData
+        relatedData.map((value, index) => (index < 3 ? (value ?? []) : value))
 
     versions.value = versions.value.sort(
         (a, b) => dayjs(b.date_published) - dayjs(a.date_published),
@@ -1094,15 +1145,14 @@ async function fetchProjectData() {
                     String(reference.project_id) === data.value.id,
             ),
         )
-        if (installedFile?.origin_provider === 'modrinth') {
+        if (installedFile) {
             installed.value = true
             installedVersion.value = installedFile.modrinth?.version_id ?? null
         }
     }
-
     if (project.organization) {
         const projectOrganization = await get_organization(project.organization).catch(handleError)
-        if (String(route.params.id) !== requestedProjectId) return
+        if (!isCurrent()) return
         organization.value = projectOrganization
     }
 
@@ -1266,7 +1316,11 @@ function fetchDeferredServerData(project) {
                                           )
                                     : undefined,
                             onclickDownload: primaryFile?.url
-                                ? () => openUrl(primaryFile.url)
+                                ? () => {
+                                      const url = resolveDownloadUrl(primaryFile.url)
+                                      if (url) return openUrl(url)
+                                      handleError(new Error(formatMessage(retiredDownloadMessage)))
+                                  }
                                 : undefined,
                             showCustomModpackTooltip: modpackProject.id === project.id,
                         }
@@ -1287,6 +1341,7 @@ let projectLoadVersion = 0
 async function loadProjectPage() {
     const loadVersion = ++projectLoadVersion
     loading.value = true
+    loadFailed.value = false
     data.value = null
     projectV3.value = null
     versions.value = []
@@ -1303,6 +1358,10 @@ async function loadProjectPage() {
         await fetchProjectData()
         if (loadVersion !== projectLoadVersion) return
         await syncContentSelectionTarget()
+    } catch (error) {
+        if (loadVersion !== projectLoadVersion) return
+        if (data.value) handleError(error)
+        else loadFailed.value = true
     } finally {
         if (loadVersion === projectLoadVersion) loading.value = false
     }
@@ -1327,14 +1386,11 @@ onUnmounted(() => {
     unlistenProcesses?.()
 })
 
-watch(
-    () => route.params.id,
-    () => {
-        if (route.params.id && route.path.startsWith('/project')) {
-            void loadProjectPage()
-        }
-    },
-)
+watch([() => route.params.id, () => route.query.i], () => {
+    if (route.params.id && route.path.startsWith('/project')) {
+        void loadProjectPage()
+    }
+})
 
 async function install(version) {
     if (serverProjectInstallContext.value && data.value) {

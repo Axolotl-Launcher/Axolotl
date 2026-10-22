@@ -7,7 +7,15 @@ import {
     ServerIcon,
     SpinnerIcon,
 } from '@modrinth/assets'
-import { Button, defineMessages, EmptyState, PopoutMenu, useVIntl } from '@modrinth/ui'
+import {
+    Admonition,
+    Button,
+    commonMessages,
+    defineMessages,
+    EmptyState,
+    PopoutMenu,
+    useVIntl,
+} from '@modrinth/ui'
 import { computed, onMounted, ref, useTemplateRef } from 'vue'
 import type { ComponentExposed } from 'vue-component-type-helpers'
 import { useRouter } from 'vue-router'
@@ -24,12 +32,13 @@ import {
 
 const router = useRouter()
 const { formatMessage } = useVIntl()
-const { servers, isRefreshing, refresh, stopServer } = useServers()
+const { servers, isRefreshing, hasLoaded, loadError, refresh, stopServer } = useServers()
 const { eulaModal, eulaText, tryStartServer, acceptEula, declineEula, resumeInstall } =
     useServerLifecycle()
 const createModal = useTemplateRef<ComponentExposed<typeof CreateServerModal>>('createModal')
 
 const messages = defineMessages({
+    loadFailed: { id: 'app.servers.load-failed', defaultMessage: 'Failed to load servers' },
     create: { id: 'app.servers.create.title', defaultMessage: 'Create server' },
     refresh: { id: 'app.servers.refresh', defaultMessage: 'Refresh' },
     emptyHeading: {
@@ -93,7 +102,11 @@ async function toggleRunning(server: ServerView) {
                 {{
                     isRefreshing
                         ? formatMessage(messages.loading)
-                        : formatMessage(messages.count, { count: servers.length })
+                        : loadError && !hasLoaded
+                          ? formatMessage(messages.loadFailed)
+                          : hasLoaded
+                            ? formatMessage(messages.count, { count: servers.length })
+                            : formatMessage(messages.loading)
                 }}
             </span>
             <div class="flex gap-2">
@@ -132,8 +145,28 @@ async function toggleRunning(server: ServerView) {
             </div>
         </div>
 
+        <Admonition
+            v-if="loadError && hasLoaded"
+            type="warning"
+            :header="formatMessage(messages.loadFailed)"
+        >
+            <Button type="outlined" :loading="isRefreshing" @click="refresh()">{{
+                formatMessage(commonMessages.retryButton)
+            }}</Button>
+        </Admonition>
         <EmptyState
-            v-if="servers.length === 0 && !isRefreshing"
+            v-if="loadError && !hasLoaded"
+            type="error"
+            :heading="formatMessage(messages.loadFailed)"
+        >
+            <template #actions>
+                <Button type="outlined" :loading="isRefreshing" @click="refresh()">{{
+                    formatMessage(commonMessages.retryButton)
+                }}</Button>
+            </template>
+        </EmptyState>
+        <EmptyState
+            v-else-if="hasLoaded && servers.length === 0 && !isRefreshing"
             type="empty"
             :heading="formatMessage(messages.emptyHeading)"
             :description="formatMessage(messages.emptyDescription)"

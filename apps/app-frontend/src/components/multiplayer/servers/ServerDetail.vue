@@ -253,6 +253,10 @@ watch([server, isLoaded], ([value, loaded]) => {
 })
 
 const tabIndex = ref(route.query.tab === 'files' ? 1 : route.query.tab === 'settings' ? 2 : 0)
+const settingsVisited = ref(tabIndex.value === 2)
+watch(tabIndex, (index) => {
+    if (index === 2) settingsVisited.value = true
+})
 const tabLinks = computed(() => [
     { label: formatMessage(messages.console), href: 'console', icon: TerminalSquareIcon },
     { label: formatMessage(messages.files), href: 'files', icon: FolderOpenIcon },
@@ -513,12 +517,14 @@ async function shareOnline() {
                 <ServerFilesPanel :server="server" />
             </div>
             <div
-                v-else
+                v-if="settingsVisited"
+                v-show="tabIndex === 2"
                 role="tabpanel"
                 aria-labelledby="nav-tab-settings"
                 class="min-h-0 flex-1 overflow-y-auto pr-1"
             >
                 <ServerSettingsPanel
+                    :key="server.id"
                     :server="server"
                     @deleted="router.push('/multiplayer/servers')"
                 />

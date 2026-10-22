@@ -25,7 +25,8 @@
             />
             <Combobox
                 v-model="provider"
-                class="!w-44"
+                width="custom"
+                class="w-44"
                 :options="
                     providerOptions.map((value) => ({ value, label: providerFilterLabel(value) }))
                 "
@@ -33,7 +34,8 @@
             <Combobox
                 v-if="tab === 'history'"
                 v-model="historyStatus"
-                class="!w-44"
+                width="custom"
+                class="w-44"
                 :options="
                     historyStatusOptions.map((value) => ({
                         value,
@@ -52,7 +54,29 @@
         </div>
 
         <div
-            v-if="visibleJobs.length || (tab === 'active' && legacyDownloads.length)"
+            v-if="manager.initializationState.value === 'loading'"
+            class="flex flex-col gap-3"
+            aria-hidden="true"
+        >
+            <Card v-for="index in 2" :key="index" class="!p-4">
+                <div class="flex items-center gap-3">
+                    <div class="size-12 shrink-0 animate-pulse rounded-xl bg-surface-4" />
+                    <div class="flex flex-1 flex-col gap-2">
+                        <div class="h-4 w-1/2 animate-pulse rounded bg-surface-4" />
+                        <div class="h-3 w-1/3 animate-pulse rounded bg-surface-4" />
+                    </div>
+                </div>
+                <div class="mt-4 h-2 w-full animate-pulse rounded bg-surface-4" />
+            </Card>
+        </div>
+        <Button
+            v-else-if="manager.initializationState.value === 'error'"
+            @click="manager.start().catch(handleError)"
+        >
+            {{ formatMessage(commonMessages.retryButton) }}
+        </Button>
+        <div
+            v-else-if="visibleJobs.length || (tab === 'active' && legacyDownloads.length)"
             role="tabpanel"
             :aria-labelledby="'nav-tab-' + tab"
             class="flex flex-col gap-3"
@@ -145,11 +169,11 @@
                             <span>{{ jobPhaseLabel(job) }}</span>
                             <BulletDivider />
                             <span>{{ formatDate(job.finished ?? job.modified) }}</span>
-                            <template v-if="job.instance_id">
+                            <template v-if="targetInstanceName(job)">
                                 <BulletDivider />
                                 <span>{{
                                     formatMessage(messages.instanceTarget, {
-                                        instance: job.instance_id,
+                                        instance: targetInstanceName(job),
                                     })
                                 }}</span>
                             </template>
@@ -165,33 +189,6 @@
                                 <BulletDivider v-if="index > 0" />
                                 <span>{{ metric }}</span>
                             </template>
-                        </div>
-                        <div v-if="activeRequestItems(job).length" class="mt-2 flex flex-col gap-1">
-                            <div
-                                v-for="item in activeRequestItems(job).slice(0, 3)"
-                                :key="`${item.id}-${item.request_url}`"
-                                class="flex min-w-0 items-center gap-2 text-xs text-[var(--color-text-tertiary)]"
-                            >
-                                <GlobeIcon class="size-3.5 shrink-0" />
-                                <span v-if="item.source" class="shrink-0">
-                                    {{ downloadSourceLabel(item.source) }}
-                                </span>
-                                <code
-                                    v-tooltip="item.request_url"
-                                    class="min-w-0 flex-1 truncate"
-                                    >{{ item.request_url }}</code
-                                >
-                            </div>
-                            <div
-                                v-if="activeRequestItems(job).length > 3"
-                                class="text-xs text-[var(--color-text-tertiary)]"
-                            >
-                                {{
-                                    formatMessage(messages.moreActiveRequests, {
-                                        count: activeRequestItems(job).length - 3,
-                                    })
-                                }}
-                            </div>
                         </div>
                     </div>
                     <div class="flex flex-wrap items-center gap-2">
@@ -261,7 +258,12 @@
                             ><ExternalIcon />{{ formatMessage(messages.openInstance) }}
                         </Button>
                         <Button
-                            v-if="job.items.length > 0 || job.error || job.rollback_error"
+                            v-if="
+                                job.items.length > 0 ||
+                                job.error ||
+                                job.rollback_error ||
+                                job.instance_id
+                            "
                             type="quiet"
                             size="2xs"
                             @click="toggleExpanded(job.job_id)"
@@ -356,6 +358,20 @@
                     v-if="expanded.has(job.job_id)"
                     class="border-0 border-t border-solid border-divider p-4"
                 >
+                    <dl
+                        class="m-0 mb-4 grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-2 text-sm"
+                    >
+                        <dt class="text-[var(--color-text-tertiary)]">
+                            {{ formatMessage(messages.jobId) }}
+                        </dt>
+                        <dd class="m-0 break-all font-mono">{{ job.job_id }}</dd>
+                        <template v-if="job.instance_id">
+                            <dt class="text-[var(--color-text-tertiary)]">
+                                {{ formatMessage(messages.instanceId) }}
+                            </dt>
+                            <dd class="m-0 break-all font-mono">{{ job.instance_id }}</dd>
+                        </template>
+                    </dl>
                     <Admonition
                         v-if="job.rollback_error || job.error"
                         class="mb-4"
@@ -391,43 +407,37 @@
                         class="max-h-80 overflow-y-auto"
                     >
                         <template #cell-name="{ row }">
-                            <div class="min-w-0 py-2">
-                                <div class="truncate font-medium text-[var(--color-text-primary)]">
-                                    {{ row.name }}
-                                </div>
-                                <div
-                                    v-if="row.project_id && row.version_id"
-                                    class="truncate text-xs text-[var(--color-text-tertiary)]"
-                                >
-                                    {{
-                                        formatMessage(messages.projectFile, {
-                                            projectId: row.project_id,
-                                            fileId: row.version_id,
-                                        })
-                                    }}
-                                </div>
-                                <div v-if="row.error" class="truncate text-xs text-red">
-                                    {{ itemError(row) }}
-                                </div>
-                                <div
-                                    v-if="row.request_url"
-                                    class="flex min-w-0 items-center gap-1.5 text-xs text-[var(--color-text-tertiary)]"
-                                >
-                                    <GlobeIcon class="size-3 shrink-0" />
-                                    <span v-if="row.source" class="shrink-0">
+                            <div class="flex min-w-0 items-center gap-2 py-0.5">
+                                <div class="flex min-w-0 flex-1 items-center gap-2">
+                                    <span
+                                        class="min-w-0 flex-1 truncate font-medium text-[var(--color-text-primary)]"
+                                        >{{ row.name }}</span
+                                    >
+                                    <Button
+                                        type="quiet"
+                                        size="2xs"
+                                        circular
+                                        icon-only
+                                        :label="
+                                            formatMessage(messages.openFileDetails, {
+                                                name: row.name,
+                                            })
+                                        "
+                                        @click.stop="showFileDetails(job, row)"
+                                        ><InfoIcon
+                                    /></Button>
+                                    <span
+                                        v-if="row.source"
+                                        class="max-w-24 shrink-0 truncate text-xs text-[var(--color-text-tertiary)]"
+                                    >
                                         {{ downloadSourceLabel(row.source) }}
                                     </span>
-                                    <code
-                                        v-tooltip="row.request_url"
-                                        class="min-w-0 flex-1 truncate"
-                                        >{{ row.request_url }}</code
-                                    >
                                 </div>
                                 <Button
                                     v-if="row.manual_url"
                                     type="quiet"
                                     size="2xs"
-                                    class="!px-0"
+                                    class="shrink-0"
                                     @click.stop="openManualDownload(row)"
                                     ><ExternalIcon />{{ formatMessage(messages.manualDownload) }}
                                 </Button>
@@ -477,6 +487,38 @@
         :proceed-label="formatMessage(messages.clearHistory)"
         @proceed="clearHistory"
     />
+    <NewModal
+        ref="fileDetailsModal"
+        :header="formatMessage(messages.fileDetails)"
+        max-width="42rem"
+        scrollable
+    >
+        <div v-if="selectedFile" class="flex min-w-0 flex-col gap-4">
+            <h3
+                class="m-0 break-words text-lg font-semibold text-[var(--color-text-primary)] [overflow-wrap:anywhere]"
+            >
+                {{ selectedFile.name }}
+            </h3>
+            <Admonition
+                v-if="selectedFile.error"
+                type="critical"
+                :header="formatMessage(messages.errorDetails)"
+            >
+                <p class="m-0 whitespace-pre-wrap break-words [overflow-wrap:anywhere]">
+                    {{ itemError(selectedFile) }}
+                </p>
+            </Admonition>
+            <dl class="m-0 grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-2 text-sm">
+                <template v-for="field in selectedFileFields" :key="field.label">
+                    <dt class="text-[var(--color-text-tertiary)]">{{ field.label }}</dt>
+                    <dd class="m-0 break-all font-mono">{{ field.value }}</dd>
+                </template>
+            </dl>
+            <Button type="outlined" class="self-start" @click="copyFileDetails"
+                ><ClipboardCopyIcon />{{ formatMessage(messages.copyFileDetails) }}</Button
+            >
+        </div>
+    </NewModal>
     <MissingModpackContentModal ref="missingContentModal" />
 </template>
 
@@ -490,7 +532,7 @@ import {
     CurseForgeIcon,
     DownloadIcon,
     ExternalIcon,
-    GlobeIcon,
+    InfoIcon,
     ModrinthIcon,
     PlusIcon,
     RefreshCwIcon,
@@ -506,12 +548,14 @@ import {
     Button,
     Card,
     Combobox,
+    commonMessages,
     ConfirmModal,
     defineMessages,
     EmptyState,
     injectNotificationManager,
     type MessageDescriptor,
     NavTabs,
+    NewModal,
     ProgressBar,
     StyledInput,
     Table,
@@ -520,15 +564,20 @@ import {
     useFormatBytes,
     useVIntl,
 } from '@modrinth/ui'
+import { useQuery, useQueryClient } from '@tanstack/vue-query'
 import { convertFileSrc } from '@tauri-apps/api/core'
 import { openUrl } from '@tauri-apps/plugin-opener'
 import { computed, nextTick, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
+import { exportMessages } from '@/components/ui/export/messages'
 import MissingModpackContentModal from '@/components/ui/modal/MissingModpackContentModal.vue'
+import { useAppEvent } from '@/composables/use-app-event'
 import { useDownloadTelemetry } from '@/composables/useDownloadTelemetry'
 import { listPendingCurseForgeManualDownloads } from '@/helpers/curseforge'
 import type { CurseForgeManualDownloadItem } from '@/helpers/curseforge-manual'
+import { resolveDownloadUrl } from '@/helpers/download-url'
+import { retiredDownloadMessage } from '@/helpers/download-url-messages'
 import {
     download_job_support_details,
     type InstallJobSnapshot,
@@ -543,6 +592,7 @@ import {
     installProgressTextSource,
 } from '@/helpers/install-progress'
 import type { LoadingBar } from '@/helpers/state'
+import { instanceKeys, instanceListQueryOptions } from '@/pages/instance/query-options'
 import { injectContentInstall } from '@/providers/content-install'
 import { injectDownloadManager } from '@/providers/download-manager'
 
@@ -557,6 +607,61 @@ import { isSuccessfulUpgradeJob, upgradeResultLocation } from './instance/upgrad
 type DownloadItem = InstallJobSnapshot['items'][number]
 
 const manager = injectDownloadManager()
+const queryClient = useQueryClient()
+const instancesQuery = useQuery(instanceListQueryOptions())
+const instanceNames = computed(
+    () =>
+        new Map((instancesQuery.data.value ?? []).map((instance) => [instance.id, instance.name])),
+)
+useAppEvent('instance', () => {
+    void queryClient.invalidateQueries({ queryKey: instanceKeys.list() })
+})
+const fileDetailsModal = ref<InstanceType<typeof NewModal>>()
+const selectedFileKey = ref<{ jobId: string; itemId: string } | null>(null)
+const selectedFile = computed(() => {
+    const selected = selectedFileKey.value
+    return selected
+        ? manager.jobs.value
+              .find((job) => job.job_id === selected.jobId)
+              ?.items.find((item) => item.id === selected.itemId)
+        : undefined
+})
+const selectedFileFields = computed(() => {
+    const item = selectedFile.value
+    if (!item) return []
+    return [
+        { label: formatMessage(messages.projectId), value: item.project_id },
+        { label: formatMessage(messages.versionId), value: item.version_id },
+        { label: formatMessage(messages.requestUrl), value: item.request_url },
+    ].filter((field) => !!field.value)
+})
+function showFileDetails(job: InstallJobSnapshot, item: DownloadItem) {
+    selectedFileKey.value = { jobId: job.job_id, itemId: item.id }
+    fileDetailsModal.value?.show()
+}
+async function copyFileDetails() {
+    const item = selectedFile.value
+    if (!item) return
+    try {
+        await navigator.clipboard.writeText(
+            [
+                item.name,
+                itemError(item),
+                ...selectedFileFields.value.map((field) => `${field.label}: ${field.value}`),
+            ]
+                .filter(Boolean)
+                .join('\n'),
+        )
+    } catch (error) {
+        handleError(error)
+    }
+}
+function targetInstanceName(job: InstallJobSnapshot) {
+    return (
+        (job.instance_id ? instanceNames.value.get(job.instance_id) : null) ??
+        (job.details.type === 'instance' ? job.details.name : null)
+    )
+}
 const displayedTelemetry = useDownloadTelemetry(manager.activeJobs)
 const { showCurseForgeManualDownloads } = injectContentInstall()
 const route = useRoute()
@@ -583,6 +688,17 @@ watch(
 )
 
 const messages = defineMessages({
+    fileDetails: { id: 'app.downloads.file-details', defaultMessage: 'File details' },
+    openFileDetails: {
+        id: 'app.downloads.open-file-details',
+        defaultMessage: 'View details for {name}',
+    },
+    copyFileDetails: { id: 'app.downloads.copy-file-details', defaultMessage: 'Copy file details' },
+    jobId: { id: 'app.downloads.job-id', defaultMessage: 'Task ID' },
+    instanceId: { id: 'app.downloads.instance-id', defaultMessage: 'Instance ID' },
+    projectId: { id: 'app.downloads.project-id', defaultMessage: 'Project ID' },
+    versionId: { id: 'app.downloads.version-id', defaultMessage: 'Version ID' },
+    requestUrl: { id: 'app.downloads.request-url', defaultMessage: 'Request URL' },
     newDownload: { id: 'app.downloads.new-download', defaultMessage: 'New download' },
     inProgress: { id: 'app.downloads.in-progress', defaultMessage: 'In progress' },
     history: { id: 'app.downloads.history', defaultMessage: 'History' },
@@ -685,10 +801,6 @@ const messages = defineMessages({
         id: 'app.downloads.manual-download-required',
         defaultMessage: 'CurseForge requires this file to be downloaded manually.',
     },
-    projectFile: {
-        id: 'app.downloads.manual-download-project-file',
-        defaultMessage: 'Project {projectId} · File {fileId}',
-    },
     downloadSource: { id: 'app.downloads.download-source', defaultMessage: 'Source: {source}' },
     verifyingDownloadedFiles: {
         id: 'app.downloads.phase.verifying-downloaded-files',
@@ -722,10 +834,6 @@ const messages = defineMessages({
     downloadFallbacks: {
         id: 'app.downloads.download-fallbacks',
         defaultMessage: '{count} fallbacks',
-    },
-    moreActiveRequests: {
-        id: 'app.downloads.more-active-requests',
-        defaultMessage: '+{count} active requests',
     },
     unknownPhase: { id: 'app.downloads.phase.unknown', defaultMessage: 'Working' },
 })
@@ -762,6 +870,7 @@ const statusMessages = defineMessages({
 })
 
 const phaseMessages = defineMessages({
+    exporting: { id: 'app.downloads.phase.exporting', defaultMessage: 'Exporting selected files' },
     preparing_instance: {
         id: 'app.downloads.phase.preparing-instance',
         defaultMessage: 'Preparing instance',
@@ -870,6 +979,7 @@ const visibleJobs = computed(() => {
         return (
             !normalized ||
             jobTitle(job).toLowerCase().includes(normalized) ||
+            targetInstanceName(job)?.toLowerCase().includes(normalized) ||
             job.job_id.includes(normalized)
         )
     })
@@ -879,7 +989,7 @@ function jobTitle(job: InstallJobSnapshot) {
         job.display?.title ||
         (job.details.type === 'instance' ? job.details.name : null) ||
         (job.details.type === 'modpack' ? job.details.title : null) ||
-        job.job_id
+        jobTypeLabel(job)
     )
 }
 
@@ -913,6 +1023,7 @@ function providerIcon(value: InstallJobSnapshot['provider']) {
 }
 
 function jobTypeLabel(job: InstallJobSnapshot) {
+    if (job.kind === 'export_resource') return formatMessage(exportMessages.export)
     if (job.kind === 'change_content') {
         return formatMessage(
             job.content_change?.intent.type === 'update_all_user_added'
@@ -1107,26 +1218,6 @@ function progressText(job: InstallJobSnapshot) {
         }
         return formatMessage(messages.verifyingDownloadedFiles)
     }
-    const finalStage = job.items.find(
-        (item) =>
-            item.status === 'waiting_for_resource' ||
-            item.status === 'worker_started' ||
-            item.status === 'connecting' ||
-            item.status === 'writing' ||
-            item.status === 'verifying' ||
-            item.status === 'metadata' ||
-            item.status === 'waiting_for_database' ||
-            item.status === 'finalizing',
-    )
-    if (finalStage) return statusLabel(finalStage.status)
-    const progress = effectiveInstallProgress(job)
-    if (
-        job.status === 'running' &&
-        hasDeterminateInstallProgress(progress) &&
-        progress.current >= progress.total &&
-        activeRequestItems(job).length === 0
-    )
-        return statusLabel('verifying')
     if (textSource.type === 'bytes')
         return `${formatBytes(textSource.current)} / ${formatBytes(textSource.total)}`
     if (textSource.type === 'items') return `${textSource.current} / ${textSource.total}`
@@ -1274,7 +1365,10 @@ function itemError(item: DownloadItem) {
 }
 
 async function openManualDownload(item: DownloadItem) {
-    if (item.manual_url) await openUrl(item.manual_url)
+    if (!item.manual_url) return
+    const url = resolveDownloadUrl(item.manual_url)
+    if (url) await openUrl(url)
+    else handleError(new Error(formatMessage(retiredDownloadMessage)))
 }
 
 function legacyPercent(bar: LoadingBar) {

@@ -51,6 +51,7 @@ export interface ContentCardTableItem {
     disabled?: boolean
     disabledTooltip?: string | null
     postUpgradeWarningTooltip?: string | null
+    compatibilityWarningTooltip?: string | null
     toggleDisabled?: boolean
     toggleDisabledTooltip?: string | null
     installing?: boolean
@@ -62,8 +63,13 @@ export interface ContentCardTableItem {
     pendingManualDownload?: boolean
     /** Number of installed copies of this online project, when more than one is present. */
     duplicateCount?: number
+    localPath?: string
+    installationSource?: string
+    groupStatus?: string
+    updateLabel?: string
     instanceFileId?: string
     instanceEntryId?: string
+    instanceResourceId?: string
     instanceMemberId?: string
     instanceOwnershipKind?: 'pack_managed' | 'user_added' | 'local_discovered'
     instanceMaterializationState?: 'present' | 'pending_manual' | 'missing' | 'removed'
@@ -102,7 +108,7 @@ export interface ContentCardTableItem {
     groupSwitchVersion?: () => void
     groupChildIds?: string[]
     isGroupChild?: boolean
-    groupKind?: 'folder' | 'world'
+    groupKind?: 'folder' | 'world' | 'duplicate'
     groupMeta?: ContentWorldGroupMeta
     downloads?: number | null
     followers?: number | null
@@ -130,6 +136,7 @@ export interface ContentItem extends Omit<
     size?: number
     project_type: string
     /** Provider-qualified update returned by the launcher backend. */
+    resourceUpdate?: { project: { source: string; projectId: string }; releaseId: string } | null
     update:
         | {
               provider: 'modrinth'
@@ -144,7 +151,14 @@ export interface ContentItem extends Omit<
               target_file_id: number
           }
         | null
-    origin_provider: 'modrinth' | 'curseforge' | null
+    origin_provider: 'modrinth' | 'curseforge' | 'mcarchive' | 'planet_minecraft' | null
+    /** Actual installed artifact source; recognition counterparts do not change it. */
+    installedSource?: string | null
+    compatibility?: {
+        gameVersion: 'compatible' | 'incompatible' | 'unknown'
+        loader: 'compatible' | 'incompatible' | 'unknown'
+        reasons: string[]
+    } | null
     date_added?: string
     environment?: string
     /** Local content source kind (local / curseforge / modrinth_modpack / server_project / imported_modpack / shared_instance). */

@@ -49,6 +49,10 @@ allow('tailwind-internal', [
 // Values applied through a Vue `:style` binding, `style="--x: …"`, or
 // `element.style.setProperty('--x', …)` at runtime, so no stylesheet declares them.
 allow('runtime-set', [
+    [
+        'reka-dropdown-menu-content-available-height',
+        'reka-ui src/DropdownMenu/DropdownMenuContent.vue :style maps it to --reka-popper-available-height, measured and set by src/Popper/PopperContent.vue',
+    ],
 	[
 		'_project-color',
 		'packages/ui/src/components/project/card/ProjectCard.vue :style `--_project-color`',

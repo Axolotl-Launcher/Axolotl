@@ -3,8 +3,8 @@ import type { ContentInstallInstance, ContentInstallProjectInfo, ContentItem } f
 import { createContext } from '@modrinth/ui'
 import type { Ref } from 'vue'
 
-import type ContentInstallPreviewModal from '@/components/ui/ContentInstallPreviewModal.vue'
 import type { ModpackInstallModalData } from '@/components/ui/modal/ModpackInstallModal.vue'
+import type ResourceOperationPreviewModal from '@/components/ui/ResourceOperationPreviewModal.vue'
 import type { CurseForgeManualDownloadImport } from '@/helpers/curseforge'
 import type { CurseForgeManualDownloadItem } from '@/helpers/curseforge-manual'
 
@@ -59,10 +59,10 @@ export interface ContentInstallContext {
     }) => Promise<void>
     handleNavigate: (instance: ContentInstallInstance) => void
     handleCancel: () => void
-    setContentInstallModal: (ref: ModalRef) => void
-    setContentInstallPreviewModal: (
-        ref: InstanceType<typeof ContentInstallPreviewModal> | null,
+    setResourceInstallPreview: (
+        modal: InstanceType<typeof ResourceOperationPreviewModal> | null,
     ) => void
+    setContentInstallModal: (ref: ModalRef) => void
     setModpackInstallModal: (ref: ModpackInstallModalRef) => void
     handleModpackInstall: (versionId: string, name: string) => Promise<void>
     handleModpackInstallCancel: () => void

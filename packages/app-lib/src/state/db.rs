@@ -580,7 +580,7 @@ fn sidecar_path(path: &Path, suffix: &str) -> PathBuf {
 }
 
 async fn connect_app_db(db_path: &Path) -> crate::Result<Pool<Sqlite>> {
-    super::db_backup::restore_corrupt_app_db_if_needed(db_path).await?;
+    super::db_backup::prepare_app_db(db_path).await?;
     super::db_backup::maybe_backup_existing_app_db(db_path).await?;
     open_migrated_app_db(db_path).await
 }
@@ -1721,6 +1721,53 @@ async fn stale_data_cleanup(pool: &Pool<Sqlite>) -> crate::Result<()> {
 mod tests {
     use super::*;
     use std::collections::HashSet;
+
+    #[tokio::test]
+    async fn version_backup_precedes_migration_validation_and_survives_an_upgrade_failure()
+     {
+        let directory = tempfile::tempdir().unwrap();
+        let database = directory.path().join("release").join("app.db");
+        tokio::fs::create_dir_all(database.parent().unwrap())
+            .await
+            .unwrap();
+        let pool = connect_app_db(&database).await.unwrap();
+        sqlx::query("UPDATE app_metadata SET value = 'previous-software-version' WHERE key = 'app_version'")
+            .execute(&pool).await.unwrap();
+        // An unknown applied migration must still fail; it must not suppress the version backup.
+        sqlx::query("INSERT INTO _sqlx_migrations(version, description, success, checksum, execution_time) VALUES (99999999999999, 'unavailable-build', TRUE, X'00', 1)")
+            .execute(&pool).await.unwrap();
+        pool.close().await;
+        assert!(connect_app_db(&database).await.is_err());
+        let backup_dir = directory
+            .path()
+            .join("Backups")
+            .join("app-db")
+            .join("release");
+        let mut entries = tokio::fs::read_dir(backup_dir).await.unwrap();
+        let snapshot = entries.next_entry().await.unwrap().unwrap().path();
+        assert_eq!(
+            snapshot.extension().and_then(|value| value.to_str()),
+            Some("db")
+        );
+        let backup = open_app_db_pool(&snapshot).await.unwrap();
+        let version: String = sqlx::query_scalar(
+            "SELECT value FROM app_metadata WHERE key = 'app_version'",
+        )
+        .fetch_one(&backup)
+        .await
+        .unwrap();
+        assert_eq!(version, "previous-software-version");
+        backup.close().await;
+        let source = open_app_db_pool(&database).await.unwrap();
+        let version: String = sqlx::query_scalar(
+            "SELECT value FROM app_metadata WHERE key = 'app_version'",
+        )
+        .fetch_one(&source)
+        .await
+        .unwrap();
+        assert_eq!(version, "previous-software-version");
+        source.close().await;
+    }
 
     const TERRACOTTA_PUBLIC_NODES_MIGRATION_VERSION: i64 = 20260812120000;
     const INSTANCE_LOADER_COMPONENTS_MIGRATION_VERSION: i64 = 20260819120000;
@@ -4590,7 +4637,7 @@ mod tests {
         assert_eq!(
             translation,
             (
-                "microsoft".to_string(),
+                "google".to_string(),
                 String::new(),
                 String::new(),
                 String::new(),
@@ -4699,7 +4746,7 @@ mod tests {
         assert_eq!(
             translation,
             (
-                "microsoft".to_string(),
+                "google".to_string(),
                 String::new(),
                 String::new(),
                 "https://api.openai.com/v1".to_string(),

@@ -261,8 +261,7 @@ onUnmounted(() => unlisten())
                     @click="(e) => play(e, 'InstanceCard')"
                     @mousehover="checkProcess"
                 >
-                    <!-- Translate for optical centering -->
-                    <PlayIcon class="translate-x-[1px]" />
+                    <PlayIcon />
                 </Button>
             </div>
             <div
@@ -364,7 +363,7 @@ onUnmounted(() => unlisten())
                         }"
                         @click="(e) => play(e, 'InstanceCard')"
                         @mousehover="checkProcess"
-                        ><PlayIcon class="translate-x-[1px]" />
+                        ><PlayIcon />
                     </Button>
                 </div>
             </div>
@@ -455,7 +454,7 @@ onUnmounted(() => unlisten())
                         :class="`transition-all scale-75 origin-bottom card-shadow ${disabled ? 'opacity-0 scale-75' : 'opacity-0 group-hover:scale-100 group-hover:opacity-100 group-focus-within:scale-100 group-focus-within:opacity-100'}`"
                         @click="(e) => play(e, 'InstanceCard')"
                         @mousehover="checkProcess"
-                        ><PlayIcon class="translate-x-[2px]" />
+                        ><PlayIcon />
                     </Button>
                 </div>
             </div>

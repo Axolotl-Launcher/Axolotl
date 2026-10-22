@@ -18,8 +18,10 @@ export type JavaVersionId =
     | '1.21.11'
     | '26.1'
     | '26.2'
+    | '26.3'
 
 export type RecipeType =
+    | 'brewing'
     | 'crafting'
     | 'smelting'
     | 'blasting'
@@ -51,6 +53,9 @@ export type RecipeSlot =
     | 'smithing.base'
     | 'smithing.addition'
     | 'smithing.result'
+    | 'brewing.input'
+    | 'brewing.reagent'
+    | 'brewing.result'
 
 export type SlotValue =
     | { kind: 'item'; id: string; count?: number }
@@ -77,6 +82,15 @@ export type CustomTag = {
     values: TagValue[]
 }
 
+export type BrewingState = {
+    inputPotion: string
+    reagentPotion: string
+    outputPotion: string
+    inputPredicate: string
+    reagentPredicate: string
+    outputComponents: string
+}
+
 export type RecipeState = {
     id: string
     recipeType: RecipeType
@@ -91,6 +105,7 @@ export type RecipeState = {
         keepWhitespace: boolean
         twoByTwo: boolean
     }
+    brewing?: BrewingState
     cooking: {
         time: number | null
         experience: number
@@ -108,7 +123,7 @@ export type RecipeSlotContext = {
 }
 
 export type RecipeGeneratorStore = {
-    version: 1
+    version: 2
     selectedVersion: JavaVersionId
     recipes: RecipeState[]
     selectedRecipeId: string

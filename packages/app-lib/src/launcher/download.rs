@@ -7,6 +7,16 @@ use crate::install::{
 };
 use crate::instance::QuickPlayType;
 use crate::launcher::parse_rules;
+use crate::util::download::constants::DERIVED_VERSION_CACHE_FORMAT;
+use crate::util::download::constants::FABRIC_MAVEN;
+use crate::util::download::constants::FORGE_MAVEN;
+use crate::util::download::constants::LAUNCHER_META_MAVEN;
+pub(crate) use crate::util::download::constants::LIBRARIES_MAVEN;
+use crate::util::download::constants::MAVEN_CENTRAL;
+use crate::util::download::constants::MINECRAFT_DOWNLOAD_PROGRESS_MIN_BYTES;
+use crate::util::download::constants::NEOFORGE_MAVEN;
+use crate::util::download::constants::QUILT_MAVEN;
+use crate::util::download::constants::SPONGE_MAVEN;
 use crate::{
     event::{
         LoadingBarId,
@@ -40,8 +50,6 @@ use std::{
     },
 };
 use url::Url;
-
-const MINECRAFT_DOWNLOAD_PROGRESS_MIN_BYTES: u64 = 256 * 1024;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct LocalRuntimeSource {
@@ -476,8 +484,9 @@ async fn download_minecraft_file_with_candidates(
 }
 
 pub(crate) fn minecraft_library_mirrors(url: &str) -> Vec<String> {
-    const MACHINA_LWJGL_RELEASE: &str = "https://github.com/MinecraftMachina/lwjgl/releases/download/2.9.4-20150209-mmachina.2/";
-    const MOJANG_LWJGL_PATH: &str = "https://libraries.minecraft.net/org/lwjgl/lwjgl/lwjgl-platform/2.9.4-nightly-20150209/";
+    use crate::util::download::constants::MACHINA_LWJGL_RELEASE;
+
+    use crate::util::download::constants::MOJANG_LWJGL_PATH;
 
     let mut mirrors = vec![url.to_string()];
     if let Some(file_name) = url.strip_prefix(MACHINA_LWJGL_RELEASE) {
@@ -485,15 +494,6 @@ pub(crate) fn minecraft_library_mirrors(url: &str) -> Vec<String> {
     }
     mirrors
 }
-
-const LAUNCHER_META_MAVEN: &str = "https://launcher-meta.modrinth.com/maven";
-pub(crate) const LIBRARIES_MAVEN: &str = "https://libraries.minecraft.net";
-const FABRIC_MAVEN: &str = "https://maven.fabricmc.net";
-const FORGE_MAVEN: &str = "https://maven.minecraftforge.net";
-const NEOFORGE_MAVEN: &str = "https://maven.neoforged.net/releases";
-const QUILT_MAVEN: &str = "https://maven.quiltmc.org/repository/release";
-const SPONGE_MAVEN: &str = "https://repo.spongepowered.org/maven";
-const MAVEN_CENTRAL: &str = "https://repo.maven.apache.org/maven2";
 
 pub(crate) fn legacy_library_download_urls(
     repository: Option<&str>,
@@ -926,9 +926,9 @@ fn missing_asset_bytes(
             );
             let should_fetch_object =
                 force || !asset_file_is_usable(&object_path, asset.size as u64);
-            let should_fetch_legacy = (with_legacy
-                && !asset_file_is_usable(&legacy_path, asset.size as u64))
-                || force;
+            let should_fetch_legacy = with_legacy
+                && (force
+                    || !asset_file_is_usable(&legacy_path, asset.size as u64));
 
             (should_fetch_object || should_fetch_legacy)
                 .then_some(asset.size as u64)
@@ -1335,7 +1335,6 @@ async fn write_version_info(path: &Path, data: Vec<u8>) -> crate::Result<()> {
 }
 
 /// Bumped when derived loader metadata must be rebuilt from the base profile.
-const DERIVED_VERSION_CACHE_FORMAT: &str = "5";
 
 fn normalize_version_timestamps(
     version: &GameVersion,
@@ -1522,6 +1521,61 @@ pub fn ensure_local_log_config(
     Ok(())
 }
 
+/// Reports whether an existing client JAR may be reused. `Ok(None)` means the
+/// version metadata carries no hash, so only its presence could be confirmed.
+async fn client_jar_is_intact(
+    path: &Path,
+    expected_sha1: Option<&str>,
+) -> crate::Result<Option<bool>> {
+    let Some(expected_sha1) = expected_sha1 else {
+        return Ok(None);
+    };
+    if expected_sha1.is_empty() {
+        return Ok(None);
+    }
+    let (_, actual_sha1) = sha1_file_async(path).await?;
+    Ok(Some(actual_sha1.eq_ignore_ascii_case(expected_sha1)))
+}
+
+/// Moves a client JAR that failed verification next to itself instead of
+/// deleting it, so the broken file stays available for diagnosis. The moved
+/// file cannot block the replacement download because the downloader commits
+/// atomically.
+async fn move_corrupt_client(path: &Path) -> Option<PathBuf> {
+    static CORRUPT_SEQUENCE: AtomicU64 = AtomicU64::new(0);
+    let file_name = path.file_name()?.to_string_lossy().to_string();
+    let directory = path
+        .parent()
+        .unwrap_or_else(|| Path::new("."))
+        .join(".corrupt");
+    if let Err(error) = io::create_dir_all(&directory).await {
+        tracing::warn!(
+            directory = %directory.display(),
+            error = %error,
+            "Could not create the corrupt-client directory"
+        );
+        return None;
+    }
+    let stamp = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|elapsed| elapsed.as_millis())
+        .unwrap_or_default();
+    let sequence = CORRUPT_SEQUENCE.fetch_add(1, Ordering::Relaxed);
+    let quarantine =
+        directory.join(format!("{file_name}.{stamp:x}-{sequence}.corrupt"));
+    match tokio::fs::rename(path, &quarantine).await {
+        Ok(()) => Some(quarantine),
+        Err(error) => {
+            tracing::warn!(
+                path = %path.display(),
+                error = %error,
+                "Could not move the corrupt client JAR aside"
+            );
+            None
+        }
+    }
+}
+
 #[tracing::instrument(skip_all)]
 
 pub async fn download_client(
@@ -1548,6 +1602,52 @@ pub async fn download_client(
         .directories
         .version_dir(version)
         .join(format!("{version}.jar"));
+
+    // A client JAR that exists is not proof that it is complete: an
+    // interrupted transfer can leave a file of the right length with the wrong
+    // contents, and the client is what the game starts from. Verify the
+    // metadata hash before reusing it.
+    if !force && path.exists() {
+        let reusable = match client_jar_is_intact(
+            &path,
+            Some(&client_download.sha1),
+        )
+        .await
+        {
+            Ok(Some(true)) => true,
+            Ok(Some(false)) => {
+                let quarantine = move_corrupt_client(&path).await;
+                tracing::warn!(
+                    path = %path.display(),
+                    quarantined_to = ?quarantine,
+                    "Cached client JAR failed its SHA-1 check; downloading a replacement"
+                );
+                false
+            }
+            Ok(None) => {
+                tracing::warn!(
+                    path = %path.display(),
+                    "Client JAR has no checksum metadata; reusing the cached file without strong validation"
+                );
+                true
+            }
+            Err(error) => {
+                tracing::warn!(
+                    path = %path.display(),
+                    error = %error,
+                    "Could not verify the cached client JAR; downloading a replacement"
+                );
+                false
+            }
+        };
+        if reusable {
+            tracing::debug!("Reusing verified client for version {version}");
+            if let Some(loading_bar) = loading_bar {
+                emit_loading(loading_bar, 9.0, None)?;
+            }
+            return Ok(());
+        }
+    }
 
     if !path.exists() || force {
         let context = InstallErrorContext::new("download Minecraft client")
@@ -1819,9 +1919,12 @@ pub async fn download_assets(
             .join(name.replace('/', &String::from(std::path::MAIN_SEPARATOR)));
         let should_fetch_object =
             force || !asset_file_is_usable(&resource_path, asset.size as u64);
-        let should_fetch_legacy = (with_legacy
-            && !asset_file_is_usable(&legacy_resource_path, asset.size as u64))
-            || force;
+        let should_fetch_legacy = with_legacy
+            && (force
+                || !asset_file_is_usable(
+                    &legacy_resource_path,
+                    asset.size as u64,
+                ));
 
         if should_fetch_object {
             let local_candidate = !force
@@ -2022,9 +2125,9 @@ pub async fn download_assets(
                         .legacy_resource_paths
                         .iter()
                         .filter(|path| {
-                            force
-                                || (with_legacy
-                                    && !asset_file_is_usable(path, item.size))
+                            with_legacy
+                                && (force
+                                    || !asset_file_is_usable(path, item.size))
                         })
                         .collect::<Vec<_>>();
                     let should_fetch_legacy = !legacy_resource_paths.is_empty();
@@ -2669,6 +2772,65 @@ pub async fn download_log_config(
 mod tests {
     use super::*;
     use crate::launcher::natives::prepare_native_libraries as prepare_test_natives;
+
+    async fn client_sha1(bytes: &[u8]) -> String {
+        sha1_async(bytes.to_vec().into()).await.expect("hash")
+    }
+
+    #[tokio::test]
+    async fn an_existing_client_jar_with_the_wrong_contents_is_rejected() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("1.20.1.jar");
+        let good = b"a complete client jar".as_slice();
+        let truncated = b"a complete client".as_slice();
+        tokio::fs::write(&path, truncated).await.unwrap();
+
+        assert_eq!(
+            client_jar_is_intact(&path, Some(&client_sha1(good).await))
+                .await
+                .unwrap(),
+            Some(false),
+            "a wrong-content cache entry must not be reused"
+        );
+        assert_eq!(
+            client_jar_is_intact(&path, Some(&client_sha1(truncated).await))
+                .await
+                .unwrap(),
+            Some(true),
+            "an intact cache entry is reusable"
+        );
+    }
+
+    #[tokio::test]
+    async fn a_client_jar_without_metadata_hash_is_not_strongly_verified() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("1.20.1.jar");
+        tokio::fs::write(&path, b"client").await.unwrap();
+
+        assert_eq!(client_jar_is_intact(&path, None).await.unwrap(), None);
+        assert_eq!(
+            client_jar_is_intact(&path, Some("")).await.unwrap(),
+            None,
+            "an empty hash must not be reported as a verified file"
+        );
+    }
+
+    #[tokio::test]
+    async fn a_corrupt_client_jar_is_moved_aside_instead_of_deleted() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("1.20.1.jar");
+        tokio::fs::write(&path, b"broken").await.unwrap();
+
+        let quarantine =
+            move_corrupt_client(&path).await.expect("quarantine file");
+
+        assert!(!path.exists(), "the broken file leaves its original path");
+        assert_eq!(tokio::fs::read(&quarantine).await.unwrap(), b"broken");
+        assert!(
+            quarantine.starts_with(directory.path().join(".corrupt")),
+            "the file stays beside its version directory"
+        );
+    }
 
     fn urls(values: &[&str]) -> Option<Vec<String>> {
         Some(values.iter().map(|value| (*value).to_string()).collect())

@@ -50,7 +50,7 @@ const messages = defineMessages({
         <div class="flex flex-wrap items-center gap-2">
             <Combobox
                 v-model="sort"
-                class="w-max"
+                width="content"
                 :options="sortOptions"
                 :show-icon-in-selected="false"
                 dropdown-min-width="160px"
@@ -67,7 +67,7 @@ const messages = defineMessages({
             </Combobox>
             <Combobox
                 v-model="group"
-                class="w-max"
+                width="content"
                 :options="groupOptions"
                 :show-icon-in-selected="false"
                 dropdown-min-width="160px"

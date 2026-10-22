@@ -17,11 +17,11 @@
 
 未指定模式时进入 `design`。其他模式需要显式触发。
 
-| 模式 | 用途 | 默认？ |
-|---|---|---|
-| `design` | 通过对话定制项目专属的 design spec，最终在项目根目录生成 `design-spec.md` | 默认 |
-| `guide` | 给定页面类型，输出"该做 / 不该做"规则 | 显式触发 |
-| `review` | 评审现有界面，输出 `P0 / P1 / P2` 修复清单 | 显式触发 |
+| 模式     | 用途                                                                      | 默认？   |
+| -------- | ------------------------------------------------------------------------- | -------- |
+| `design` | 通过对话定制项目专属的 design spec，最终在项目根目录生成 `design-spec.md` | 默认     |
+| `guide`  | 给定页面类型，输出"该做 / 不该做"规则                                     | 显式触发 |
+| `review` | 评审现有界面，输出 `P0 / P1 / P2` 修复清单                                | 显式触发 |
 
 **Skill 不会被轻量问题触发**——"这两个蓝色哪个好看"这种问题它会直接答，不会启动整套对话流程。
 
@@ -37,16 +37,16 @@
 
 ### Style Lens（8 个风格家族，项目自选）
 
-| Family | 一句话 | 参考 |
-|---|---|---|
-| `modern-minimal` | 留白 + 排版 + 克制色彩 + 锐利网格 | Linear, Vercel, Notion |
-| `editorial` | 长文友好、衬线标题、宽松版心 | Medium, Substack, NYT |
-| `brutal` | 原始、等宽、硬阴影、刻意粗糙 | 独立 maker 站点、Vercel brutal templates |
-| `playful` | 大圆角、饱和色、弹性动效、插画 | Duolingo, MailChimp, Notion 早期 |
-| `premium-luxury` | 优雅衬线、留白即价值、缓慢动效 | Aesop, Hermès, Apple Music |
-| `tech-cyberpunk` | 暗色优先、霓虹强调、等宽密集 | GitHub dark, Vercel docs, Cursor |
-| `warm-content` | 暖色中性、舒适阅读、柔软表面 | Are.na, Notion light, Craft |
-| `brand-driven` | 所有 token 来自现有品牌资产 | 项目自身的 brand book |
+| Family           | 一句话                            | 参考                                     |
+| ---------------- | --------------------------------- | ---------------------------------------- |
+| `modern-minimal` | 留白 + 排版 + 克制色彩 + 锐利网格 | Linear, Vercel, Notion                   |
+| `editorial`      | 长文友好、衬线标题、宽松版心      | Medium, Substack, NYT                    |
+| `brutal`         | 原始、等宽、硬阴影、刻意粗糙      | 独立 maker 站点、Vercel brutal templates |
+| `playful`        | 大圆角、饱和色、弹性动效、插画    | Duolingo, MailChimp, Notion 早期         |
+| `premium-luxury` | 优雅衬线、留白即价值、缓慢动效    | Aesop, Hermès, Apple Music               |
+| `tech-cyberpunk` | 暗色优先、霓虹强调、等宽密集      | GitHub dark, Vercel docs, Cursor         |
+| `warm-content`   | 暖色中性、舒适阅读、柔软表面      | Are.na, Notion light, Craft              |
+| `brand-driven`   | 所有 token 来自现有品牌资产       | 项目自身的 brand book                    |
 
 每个家族都有自己的字体推荐 / 色彩倾向 / 圆角范围 / 动效语汇 / 反 AI 缺陷。**这些规则是家族内部的，不会跨家族适用**——`modern-minimal` 不喜欢 Inter，`tech-cyberpunk` 拥抱 Geist Mono，`playful` 允许 bounce。Skill 不会用一个家族的规则去批评另一个家族的项目。
 
@@ -68,7 +68,7 @@ Phase 5  Output design-spec.md
 
 **硬性前置**：进入 `design` 之后，Skill 会先静默扫一遍代码（Tailwind / theme / CSS 变量 / UI 框架 / 关键 UI 文件），形成对现有 design tokens 一致性的事实判断（不是好坏判决），再以一段总结开口。**不会在没看代码的情况下问任何问题**。
 
-完整流程见 `skills/oiloil-ui-ux-guide/references/design-interview.md`。
+完整流程见 [设计访谈流程](references/design-interview.md)。
 
 ## 可视化预览模板
 
@@ -82,8 +82,8 @@ Phase 5  Output design-spec.md
 ## 跨工具支持（Codex / Claude Code / Cursor / Windsurf）
 
 - `AGENTS.md` 作为跨工具共享指令入口
-- `CLAUDE.md`、`.cursor/rules/*.mdc` 桥接到 `AGENTS.md`
-- `skills/oiloil-ui-ux-guide/SKILL.md` 是 Skill 行为的真实定义
+- 仓库采用 `.agents/skills/` 发现 Skills；各工具的实际支持以其加载规则为准。
+- `SKILL.md` 是 Skill 行为的真实定义
 
 ## 安装
 
@@ -141,47 +141,20 @@ git clone https://github.com/oil-oil/ui-ux-guide ~/.codex/skills/oiloil-ui-ux-gu
 要求：纯要点，不要长段落。
 ```
 
-## 仓库结构
+## 当前仓库结构
 
-```
-.
-├── AGENTS.md                                       # 跨工具共享指令
-├── CLAUDE.md                                       # Claude Code 入口
-├── .cursor/rules/oiloil-ui-ux-guide.mdc            # Cursor 桥接
-├── agents/openai.yaml                              # Codex Skill 元信息
-├── index.html                                      # Skill 介绍页
-└── skills/oiloil-ui-ux-guide/
-    ├── SKILL.md                                    # 主规则
-    ├── evals/evals.json                            # 测试用例 (8 个)
-    └── references/
-        ├── design-interview.md                     # design 模式完整流程
-        ├── design-preview-template.html            # 浏览器预览模板
-        ├── design-spec-template.md                 # design-spec.md 输出模板
-        ├── system-principles.md                    # 系统级原则
-        ├── interaction-psychology.md               # HCI 定律 / 认知偏差
-        ├── design-psych.md                         # 设计心理学诊断词汇
-        ├── icons.md                                # 图标规则
-        ├── review-template.md                      # 评审输出模板
-        ├── checklists.md                           # 各面型清单
-        └── style-families/                         # 8 个风格家族
-            ├── index.md
-            ├── modern-minimal.md
-            ├── editorial.md
-            ├── brutal.md
-            ├── playful.md
-            ├── premium-luxury.md
-            ├── tech-cyberpunk.md
-            ├── warm-content.md
-            └── brand-driven.md
-```
+此 Skill 位于 `.agents/skills/oiloil-ui-ux-guide/`：
+
+- [SKILL.md](SKILL.md)：触发范围和各模式规则。
+- [evals/evals.json](evals/evals.json)：12 个自包含行为评估案例；校验 JSON 与引用不代表已经运行模型评估。
+- `references/`：模式流程、模板、检查清单和风格家族。
 
 ## 参考文档
 
 - skills CLI（跨 Agent 分发）：<https://github.com/vercel-labs/skills>
-- Claude Code 记忆机制（`CLAUDE.md`）：<https://docs.anthropic.com/en/docs/claude-code/memory>
 - Cursor 规则与 `AGENTS.md`：<https://docs.cursor.com/context/rules-for-ai>
 - Windsurf `AGENTS.md` 支持：<https://docs.windsurf.com/windsurf/cascade/memories>
 
 ## 许可证
 
-Apache License 2.0，详见 `LICENSE.txt`。
+上游项目声明 Apache License 2.0；许可证信息见 [上游仓库](https://github.com/oil-oil/ui-ux-guide)。

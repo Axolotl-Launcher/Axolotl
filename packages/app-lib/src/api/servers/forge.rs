@@ -7,14 +7,14 @@
 //! down the loader, its libraries, and the `@args` launch files. The regular
 //! `servers.start` flow then boots that output (see `lifecycle::forge_launch_args`).
 
-use tokio::process::Command;
+use crate::util::java_environment;
 
 use crate::event::ServerPayloadType;
 use crate::event::emit::emit_server;
 use crate::util::io::IOError;
 use crate::{ErrorKind, Result};
 
-use super::files::download_to_dir;
+use super::files::{download_to_dir, safe_relative_join};
 use super::manifest::{
     InstallState, read_manifest, server_path, write_manifest,
 };
@@ -41,6 +41,7 @@ pub async fn install_forge(
     drop(manifest);
 
     let installer_name = format!("forge-{mc_version}-{build}-installer.jar");
+    let installer_path = safe_relative_join(&dir, &installer_name)?;
     let installer_url =
         format!("{FORGE_MAVEN}/{mc_version}-{build}/{installer_name}");
 
@@ -52,11 +53,10 @@ pub async fn install_forge(
     download_to_dir(server_id, &dir, &installer_url, &installer_name, None)
         .await?;
 
-    let installer_path = dir.join(&installer_name);
     let java = java_path.clone().unwrap_or_else(|| "java".to_string());
 
     log(server_id, "Running Forge installer (this may take a while)").await?;
-    let output = Command::new(&java)
+    let output = java_environment::tokio_command(&java)
         .arg("-jar")
         .arg(&installer_path)
         .arg("--installServer")

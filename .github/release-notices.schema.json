@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Optional GitHub Release notices",
+  "description": "Supplemental notices keyed by the exact release tag. Commit before creating the tag. Ordinary release changes remain in the launcher announcement catalog.",
+  "type": "object",
+  "required": ["notices"],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": { "type": "string", "minLength": 1 },
+    "notices": {
+      "type": "object",
+      "propertyNames": {
+        "pattern": "^v[0-9]+\\.[0-9]+\\.[0-9]+(?:-[0-9A-Za-z.-]+)?(?:\\+[0-9A-Za-z.-]+)?$"
+      },
+      "additionalProperties": {
+        "type": "object",
+        "required": ["type", "zh-CN", "en-US"],
+        "additionalProperties": false,
+        "properties": {
+          "type": { "enum": ["note", "tip", "important", "warning", "caution"] },
+          "zh-CN": {
+            "type": "string",
+            "pattern": "\\S",
+            "description": "Simplified Chinese notice. Markdown and multiline text are supported."
+          },
+          "en-US": {
+            "type": "string",
+            "pattern": "\\S",
+            "description": "English notice. Markdown and multiline text are supported."
+          }
+        }
+      }
+    }
+  }
+}

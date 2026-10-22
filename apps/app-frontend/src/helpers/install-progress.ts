@@ -129,6 +129,7 @@ export function installProgressTextSource(
 
     const isContentDownload = snapshot.phase === 'downloading_content'
     const isByteDownload =
+        snapshot.phase === 'exporting' ||
         snapshot.phase === 'downloading_pack_file' ||
         snapshot.phase === 'downloading_minecraft' ||
         (snapshot.phase === 'preparing_java' &&

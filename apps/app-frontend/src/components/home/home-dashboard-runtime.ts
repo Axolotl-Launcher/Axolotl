@@ -18,6 +18,8 @@ import {
     type WorldWithInstance,
 } from '@/helpers/worlds'
 
+import { createHomeRefresh, homeWorldsChanged } from './home-refresh'
+
 type ErrorHandler = (error: unknown) => void
 
 export type HomeDashboardRuntime = {
@@ -64,13 +66,18 @@ export function provideHomeDashboardRuntime(handleError: ErrorHandler): HomeDash
     const unlisteners: Array<() => void> = []
     let disposed = false
 
-    async function refreshRunningInstances() {
-        try {
-            runningInstanceIds.value = (await get_all()).map((process) => process.instance_id)
-        } catch (error) {
-            handleError(error)
-        }
-    }
+    const refreshRunningInstances = createHomeRefresh(
+        async () => {
+            try {
+                const processes = await get_all()
+                if (!disposed)
+                    runningInstanceIds.value = processes.map((process) => process.instance_id)
+            } catch (error) {
+                handleError(error)
+            }
+        },
+        () => disposed,
+    )
 
     async function ensureProtocolVersion(instanceId: string) {
         if (Object.hasOwn(protocolVersions, instanceId)) return protocolVersions[instanceId]
@@ -113,42 +120,48 @@ export function provideHomeDashboardRuntime(handleError: ErrorHandler): HomeDash
         }
     }
 
-    async function refreshFavorites() {
-        try {
-            favoriteWorlds.value = await get_favorite_worlds()
-            warmServerData(favoriteWorlds.value)
-        } catch (error) {
-            handleError(error)
-            favoriteWorlds.value = []
-        }
-    }
+    const refreshFavorites = createHomeRefresh(
+        async () => {
+            try {
+                const worlds = await get_favorite_worlds()
+                if (disposed) return
+                favoriteWorlds.value = worlds
+                warmServerData(favoriteWorlds.value)
+            } catch (error) {
+                handleError(error)
+            }
+        },
+        () => disposed,
+    )
 
-    async function refreshRecentWorlds() {
-        try {
-            recentWorlds.value = await get_recent_worlds(8, ['normal', 'favorite'])
-            warmServerData(recentWorlds.value)
-        } catch (error) {
-            handleError(error)
-            recentWorlds.value = []
-        }
-    }
+    const refreshRecentWorlds = createHomeRefresh(
+        async () => {
+            try {
+                const worlds = await get_recent_worlds(8, ['normal', 'favorite'])
+                if (disposed) return
+                recentWorlds.value = worlds
+                warmServerData(recentWorlds.value)
+            } catch (error) {
+                handleError(error)
+            }
+        },
+        () => disposed,
+    )
 
-    let pinnedLocalServersGeneration = 0
-
-    async function refreshPinnedLocalServers() {
-        const generation = ++pinnedLocalServersGeneration
-        try {
-            const all = await serversApi.list()
-            if (generation !== pinnedLocalServersGeneration) return
-            localServers.value = all
-            pinnedLocalServers.value = all.filter((server) => Boolean(server.homePinnedAt))
-        } catch (error) {
-            if (generation !== pinnedLocalServersGeneration) return
-            handleError(error)
-            localServers.value = []
-            pinnedLocalServers.value = []
-        }
-    }
+    const refreshPinnedLocalServers = createHomeRefresh(
+        async () => {
+            try {
+                const all = await serversApi.list()
+                if (disposed) return
+                localServers.value = all
+                pinnedLocalServers.value = all.filter((server) => Boolean(server.homePinnedAt))
+            } catch (error) {
+                if (disposed) return
+                handleError(error)
+            }
+        },
+        () => disposed,
+    )
 
     async function getInstanceWorlds(instanceId: string, force = false) {
         if (!force && loadedWorlds.has(instanceId)) return worldsByInstance[instanceId] ?? []
@@ -180,19 +193,25 @@ export function provideHomeDashboardRuntime(handleError: ErrorHandler): HomeDash
     void refreshFavorites()
     void refreshRecentWorlds()
 
-    void process_listener(refreshRunningInstances)
+    void process_listener((event: { event: string }) => {
+        if (event.event === 'launched' || event.event === 'finished') void refreshRunningInstances()
+    })
         .then((unlisten) => {
             if (disposed) unlisten()
             else unlisteners.push(unlisten)
         })
         .catch(handleError)
-    void serverEventListener(() => refreshPinnedLocalServers())
+    void serverEventListener((_serverId, payload) => {
+        if (['started', 'stopped', 'eula_required'].includes(payload.event))
+            void refreshPinnedLocalServers()
+    })
         .then((unlisten) => {
             if (disposed) unlisten()
             else unlisteners.push(unlisten)
         })
         .catch(handleError)
-    void instance_listener(async (event: { instance_id?: string }) => {
+    void instance_listener(async (event: { instance_id?: string; event: string }) => {
+        if (disposed || !homeWorldsChanged(event.event)) return
         if (event.instance_id) {
             loadedWorlds.delete(event.instance_id)
             Reflect.deleteProperty(worldsByInstance, event.instance_id)

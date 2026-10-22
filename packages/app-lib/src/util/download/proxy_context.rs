@@ -11,9 +11,14 @@ tokio::task_local! {
 }
 
 pub(crate) fn clients() -> Option<crate::util::fetch::DownloadClients> {
-    CLIENTS.try_with(Clone::clone).ok().or_else(|| {
+    explicit_clients().or_else(|| {
         crate::State::get_if_initialized().map(|state| state.download_clients())
     })
+}
+
+pub(crate) fn explicit_clients() -> Option<crate::util::fetch::DownloadClients>
+{
+    CLIENTS.try_with(Clone::clone).ok()
 }
 
 pub(crate) async fn with_clients<F: std::future::Future>(

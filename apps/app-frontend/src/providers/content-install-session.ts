@@ -28,6 +28,11 @@ export function createInstallSession() {
         settleCurrentCallback(...args)
     }
 
+    function cancelCurrentSession() {
+        settleCurrentCallback()
+        currentSessionId += 1
+    }
+
     /** Current session counter (used to detect whether a request opened a modal). */
     function currentId() {
         return currentSessionId
@@ -45,6 +50,7 @@ export function createInstallSession() {
         beginInstallSession,
         settleCurrentCallback,
         settleInstallSession,
+        cancelCurrentSession,
         currentId,
         setCallback,
         getCallback,

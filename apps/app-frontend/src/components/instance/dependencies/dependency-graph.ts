@@ -14,6 +14,46 @@ export const dependencyGraphMetrics = {
     rowGap: 30,
 } as const
 
+export type DependencyGraphNodeGeometry = Pick<
+    typeof dependencyGraphMetrics,
+    'nodeWidth' | 'nodeHeight'
+>
+
+export type DependencyGraphNodeBounds = DependencyGraphNodeGeometry & {
+    left: number
+    top: number
+    right: number
+    bottom: number
+    centerX: number
+    centerY: number
+}
+
+export function dependencyGraphNodeGeometry(compact: boolean): DependencyGraphNodeGeometry {
+    return compact
+        ? { nodeWidth: 48, nodeHeight: 48 }
+        : {
+              nodeWidth: dependencyGraphMetrics.nodeWidth,
+              nodeHeight: dependencyGraphMetrics.nodeHeight,
+          }
+}
+
+export function dependencyGraphNodeBounds(
+    node: Pick<DependencyGraphNode, 'x' | 'y'>,
+    geometry: DependencyGraphNodeGeometry,
+): DependencyGraphNodeBounds {
+    const centerX = node.x + geometry.nodeWidth / 2
+    const centerY = node.y + geometry.nodeHeight / 2
+    return {
+        ...geometry,
+        left: centerX - geometry.nodeWidth / 2,
+        top: centerY - geometry.nodeHeight / 2,
+        right: centerX + geometry.nodeWidth / 2,
+        bottom: centerY + geometry.nodeHeight / 2,
+        centerX,
+        centerY,
+    }
+}
+
 export type DependencyGraphNode = {
     id: string
     title: string
@@ -521,11 +561,12 @@ export function getDependencyNodeDepths(
 function edgeGeometry(
     source: NodePosition,
     target: NodePosition,
+    geometry: DependencyGraphNodeGeometry,
 ): Pick<DependencyGraphLayoutEdge, 'connector'> {
-    const x = source.x + dependencyGraphMetrics.nodeWidth + dependencyGraphMetrics.edgeClearance
-    const y = source.y + dependencyGraphMetrics.nodeHeight / 2
+    const x = source.x + geometry.nodeWidth + dependencyGraphMetrics.edgeClearance
+    const y = source.y + geometry.nodeHeight / 2
     const endX = target.x - dependencyGraphMetrics.edgeClearance
-    const endY = target.y + dependencyGraphMetrics.nodeHeight / 2
+    const endY = target.y + geometry.nodeHeight / 2
     const dx = endX - x
     const dy = endY - y
 
@@ -543,6 +584,7 @@ function layoutComponent(
     graph: DependencyGraph,
     nodeIds: string[],
     nodeOffsets: ReadonlyMap<string, NodePosition>,
+    geometry: DependencyGraphNodeGeometry,
 ): ComponentLayout {
     const visibleIds = new Set(nodeIds)
     const nodesToLayout = graph.nodes.filter((node) => visibleIds.has(node.id))
@@ -584,9 +626,11 @@ function layoutComponent(
     const normalizedPositions = new Map<string, NodePosition>()
     for (const [id, position] of positions) {
         const offset = nodeOffsets.get(id) ?? { x: 0, y: 0 }
+        const centerX = position.x + dependencyGraphMetrics.nodeWidth / 2 + offset.x
+        const centerY = position.y + dependencyGraphMetrics.nodeHeight / 2 + offset.y
         normalizedPositions.set(id, {
-            x: position.x - minX + offset.x,
-            y: position.y - minY + offset.y,
+            x: centerX - geometry.nodeWidth / 2 - minX,
+            y: centerY - geometry.nodeHeight / 2 - minY,
         })
     }
 
@@ -598,6 +642,7 @@ function layoutComponent(
             ...edgeGeometry(
                 normalizedPositions.get(edge.source)!,
                 normalizedPositions.get(edge.target)!,
+                geometry,
             ),
         }))
 
@@ -605,13 +650,17 @@ function layoutComponent(
         edges,
         height: Math.max(
             dependencyGraphMetrics.nodeHeight,
-            ...nodes.map((node) => node.y + dependencyGraphMetrics.nodeHeight),
+            ...nodes.map(
+                (node) => node.y + geometry.nodeHeight / 2 + dependencyGraphMetrics.nodeHeight / 2,
+            ),
         ),
         nodeIds,
         nodes,
         width: Math.max(
             dependencyGraphMetrics.nodeWidth,
-            ...nodes.map((node) => node.x + dependencyGraphMetrics.nodeWidth),
+            ...nodes.map(
+                (node) => node.x + geometry.nodeWidth / 2 + dependencyGraphMetrics.nodeWidth / 2,
+            ),
         ),
     }
 }
@@ -620,6 +669,7 @@ export function layoutDependencyGraph(
     graph: DependencyGraph,
     visibleIds: ReadonlySet<string> = new Set(graph.nodes.map((node) => node.id)),
     nodeOffsets: ReadonlyMap<string, NodePosition> = new Map(),
+    geometry: DependencyGraphNodeGeometry = dependencyGraphNodeGeometry(false),
 ): DependencyGraphLayout {
     const relationshipIds = new Set(
         graph.edges
@@ -639,7 +689,7 @@ export function layoutDependencyGraph(
 
     const layouts = components.map((component) => ({
         component,
-        layout: layoutComponent(graph, component.nodeIds, nodeOffsets),
+        layout: layoutComponent(graph, component.nodeIds, nodeOffsets, geometry),
     }))
     const rowWidth = Math.max(
         dependencyGraphMetrics.minWidth - dependencyGraphMetrics.canvasPadding * 2,
@@ -680,6 +730,7 @@ export function layoutDependencyGraph(
                     ...edgeGeometry(
                         { x: source.x + cursorX, y: source.y + cursorY },
                         { x: target.x + cursorX, y: target.y + cursorY },
+                        geometry,
                     ),
                 }
             }),

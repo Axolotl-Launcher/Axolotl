@@ -334,6 +334,14 @@ pub(super) async fn prepare_initial_instance(
                 })?;
             set_display(job_state, display_title, display_icon);
         }
+        InstallRequest::ExportResource { plan, .. } => {
+            crate::state::get_instance(&plan.instance_id, &state.pool)
+                .await?
+                .ok_or_else(|| {
+                    ErrorKind::InputError("Unknown export instance".into())
+                })?;
+            set_display(job_state, plan.package_info.name, None);
+        }
         InstallRequest::DownloadJava { vendor, version } => {
             set_display(job_state, format!("Java {version} ({vendor})"), None);
         }

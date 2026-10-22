@@ -3,10 +3,10 @@
 
   nixConfig = {
     extra-substituters = [
-      "https://axolotl-launcher-git.cachix.org"
+      "https://axlmc.cachix.org"
     ];
     extra-trusted-public-keys = [
-      "axolotl-launcher-git.cachix.org-1:6OBznZ1/jC7SRgugQ2PNGcy4VFyF0tDeWBMs2BPRt5Q="
+      "axlmc.cachix.org-1:dmsRJqFQqLMfvRveerHV3DxDCW1wq1N+TX1+dryYWZU="
     ];
   };
 

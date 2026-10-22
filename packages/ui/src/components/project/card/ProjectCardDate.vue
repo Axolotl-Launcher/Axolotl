@@ -15,12 +15,54 @@ const formatDateTime = useFormatDateTime({
 
 const props = defineProps<{
     date: Date
-    type: 'updated' | 'published'
+    type:
+        | 'updated'
+        | 'published'
+        | 'created'
+        | 'projectModified'
+        | 'releaseUpdated'
+        | 'projectPublished'
+        | 'firstRelease'
 }>()
 
 const formattedDate = computed(() => formatDateTime(props.date))
 
 const types = {
+    projectPublished: {
+        icon: CalendarIcon,
+        tooltip: defineMessage({
+            id: 'project-card.date.project-published.tooltip',
+            defaultMessage: 'Project first published {date}',
+        }),
+    },
+    firstRelease: {
+        icon: CalendarIcon,
+        tooltip: defineMessage({
+            id: 'project-card.date.first-release.tooltip',
+            defaultMessage: 'First release published {date}',
+        }),
+    },
+    created: {
+        icon: CalendarIcon,
+        tooltip: defineMessage({
+            id: 'project-card.date.created.tooltip',
+            defaultMessage: 'Project created {date}',
+        }),
+    },
+    projectModified: {
+        icon: HistoryIcon,
+        tooltip: defineMessage({
+            id: 'project-card.date.project-modified.tooltip',
+            defaultMessage: 'Project modified {date}',
+        }),
+    },
+    releaseUpdated: {
+        icon: HistoryIcon,
+        tooltip: defineMessage({
+            id: 'project-card.date.release-updated.tooltip',
+            defaultMessage: 'Latest release published {date}',
+        }),
+    },
     updated: {
         icon: HistoryIcon,
         tooltip: defineMessage({

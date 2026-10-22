@@ -34,6 +34,11 @@
             />
             <ProjectSidebarDetails
                 :project="data"
+                :resource-dates="{
+                    createdAt: project?.dateCreated,
+                    updatedAt: project?.dateModified,
+                    latestPublishedAt: project?.dateReleased,
+                }"
                 :has-versions="versions.length > 0"
                 hide-license
                 link-target="_blank"
@@ -188,6 +193,10 @@
                         href: projectVersionsHref,
                     },
                     {
+                        label: formatMessage(commonMessages.changelogLabel),
+                        href: projectChangelogHref,
+                    },
+                    {
                         label: formatMessage(messages.gallery),
                         href: projectGalleryHref,
                         shown: data.gallery.length > 0,
@@ -195,8 +204,9 @@
                 ]"
             />
 
+            <Changelog v-if="activeTab === 'changelog'" :project="data" source="curseforge" />
             <Gallery
-                v-if="activeTab === 'gallery'"
+                v-else-if="activeTab === 'gallery'"
                 :project="data"
                 :translation-active="translationActive"
                 :translations="translations"
@@ -237,16 +247,18 @@
                 </template>
             </ProjectPageVersions>
             <Card v-else>
-                <TranslatedProjectDescription
-                    v-if="data.body"
-                    :description="data.body"
-                    :active="translationActive"
-                    :translations="translations"
-                    :mode="translationMode"
-                    :style="translationStyle"
-                    format="html"
-                />
-                <p v-else class="m-0">{{ data.description }}</p>
+                <ResourceDescription source="curseforge" :project-id="String(data.id)">
+                    <TranslatedProjectDescription
+                        v-if="data.body"
+                        :description="data.body"
+                        :active="translationActive"
+                        :translations="translations"
+                        :mode="translationMode"
+                        :style="translationStyle"
+                        format="html"
+                    />
+                    <p v-else class="m-0">{{ data.description }}</p>
+                </ResourceDescription>
             </Card>
         </div>
     </div>
@@ -296,6 +308,7 @@ import { computed, ref, shallowRef, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import BrowseInstanceSelector from '@/components/browse/BrowseInstanceSelector.vue'
+import ResourceDescription from '@/components/ui/ResourceDescription.vue'
 import TranslatedProjectDescription from '@/components/ui/TranslatedProjectDescription.vue'
 import { useContentFavorites } from '@/composables/useContentFavorites'
 import { isFavoriteContentType } from '@/helpers/content-favorites'
@@ -324,11 +337,12 @@ import {
 } from '@/helpers/translation'
 import i18n from '@/i18n.config'
 import { injectContentInstall } from '@/providers/content-install'
+import { curseForgeLoaderType } from '@/providers/content-install-compat'
 import { injectContentSelection, makeContentSelectionKey } from '@/providers/content-selection'
-import { curseForgeLoaderType } from '@/providers/content-selection-types'
 import { useBreadcrumbs } from '@/store/breadcrumbs'
 import { useTheming } from '@/store/state.js'
 
+import Changelog from './Changelog.vue'
 import Gallery from './Gallery.vue'
 import UpgradeProjectReturnBar from './UpgradeProjectReturnBar.vue'
 
@@ -494,6 +508,7 @@ function toggleFavorite() {
             provider: 'curseforge',
             project_id: favoriteProjectId.value,
             content_type: projectType.value,
+            slug: project.value?.slug,
         })
         .catch(handleError)
 }
@@ -707,6 +722,7 @@ const versions = computed(() =>
 )
 
 const activeTab = computed(() => {
+    if (route.path.endsWith('/changelog')) return 'changelog'
     if (route.path.endsWith('/versions')) return 'versions'
     if (route.path.endsWith('/gallery')) return 'gallery'
     return 'description'
@@ -730,6 +746,9 @@ const projectDescriptionHref = computed(() =>
 )
 const projectVersionsHref = computed(() =>
     buildProjectHref(`/project/curseforge/${route.params.id}/versions`),
+)
+const projectChangelogHref = computed(() =>
+    buildProjectHref(`/project/curseforge/${route.params.id}/changelog`),
 )
 const projectGalleryHref = computed(() =>
     buildProjectHref(`/project/curseforge/${route.params.id}/gallery`),
@@ -858,59 +877,65 @@ async function installSelected(fileId: string | null) {
             return
         }
         const target = contentSelection.targetInstance.value
+        const selectedProject = project.value
+        const selectedKey = cartProjectKey.value
+        const selectedType = projectType.value
+        const requestVersion = projectRequestVersion
         const expectedLoader = { forge: 1, fabric: 4, quilt: 5, neoforge: 6 }[target.loader]
         let resolvedFileId: string | number | null = fileId
-        if (!resolvedFileId && !usesTargetGameVersion(projectType.value)) {
+        if (!resolvedFileId && !usesTargetGameVersion(selectedType)) {
             resolvedFileId = files.value.find((file) => file.isAvailable)?.id ?? null
         } else if (!resolvedFileId) {
             resolvedFileId =
-                project.value.latestFilesIndexes.find(
+                selectedProject.latestFilesIndexes.find(
                     (index) =>
                         index.gameVersion === target.game_version &&
-                        (projectType.value !== 'mod' ||
+                        (selectedType !== 'mod' ||
                             !expectedLoader ||
                             index.modLoader === expectedLoader),
                 )?.fileId ??
                 files.value.find(
                     (file) =>
                         file.gameVersions.includes(target.game_version) &&
-                        (projectType.value !== 'mod' ||
-                            getFilePlatforms(file).includes(target.loader)),
+                        (selectedType !== 'mod' || getFilePlatforms(file).includes(target.loader)),
                 )?.id ??
                 null
             if (!resolvedFileId) {
-                const compatibleFiles = await getCurseForgeFilesPage(project.value.id, {
+                const compatibleFiles = await getCurseForgeFilesPage(selectedProject.id, {
                     gameVersion: target.game_version,
                     modLoaderType:
-                        projectType.value === 'mod'
-                            ? curseForgeLoaderType(target.loader)
-                            : undefined,
+                        selectedType === 'mod' ? curseForgeLoaderType(target.loader) : undefined,
                     index: 0,
                     pageSize: 50,
                 })
                 resolvedFileId = compatibleFiles.files.find((file) => file.isAvailable)?.id ?? null
             }
         }
+        if (
+            requestVersion !== projectRequestVersion ||
+            project.value?.id !== selectedProject.id ||
+            contentSelection.targetInstance.value?.id !== target.id
+        )
+            return
         if (!resolvedFileId) {
             handleError(new Error(formatMessage(messages.noCompatibleVersion)))
             return
         }
         await contentSelection.add({
-            key: cartProjectKey.value,
+            key: selectedKey,
             provider: 'curseforge',
-            projectId: project.value.id.toString(),
-            providerProjectId: project.value.id.toString(),
+            projectId: selectedProject.id.toString(),
+            providerProjectId: selectedProject.id.toString(),
             versionId: resolvedFileId.toString(),
-            contentType: projectType.value as
-                'mod' | 'resourcepack' | 'datapack' | 'shader' | 'world',
-            title: project.value.name,
+            contentType: selectedType as 'mod' | 'resourcepack' | 'datapack' | 'shader' | 'world',
+            title: selectedProject.name,
             iconUrl: getCurseForgeImageUrl(
-                project.value.logo?.url ?? project.value.logo?.thumbnailUrl,
+                selectedProject.logo?.url ?? selectedProject.logo?.thumbnailUrl,
             ),
-            slug: project.value.slug,
+            slug: selectedProject.slug,
             preferences: {
-                gameVersions: usesTargetGameVersion(projectType.value) ? [target.game_version] : [],
-                loaders: projectType.value === 'mod' ? [target.loader] : [],
+                gameVersions: usesTargetGameVersion(selectedType) ? [target.game_version] : [],
+                loaders: selectedType === 'mod' ? [target.loader] : [],
             },
         })
         return

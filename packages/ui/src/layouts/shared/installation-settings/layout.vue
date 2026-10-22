@@ -339,14 +339,14 @@ function handleReinstall() {
     debug('handleReinstall: invoked ctx.reinstallModpack')
 }
 
-function handleUnlink() {
+async function handleUnlink() {
     debug('handleUnlink: start', { snapshot: stateSnapshot(), refs: modalRefsSnapshot() })
     if (ctx.isBusy.value) {
         debug('handleUnlink: ignored busy')
         return
     }
     form.cancelEditing()
-    ctx.unlinkModpack()
+    await ctx.unlinkModpack()
     debug('handleUnlink: invoked ctx.unlinkModpack')
 }
 
@@ -1152,7 +1152,7 @@ const messages = defineMessages({
                 ref="unlinkModal"
                 :server="ctx.isServer"
                 :backup-tip="ctx.modpack.value?.title"
-                @unlink="handleUnlink"
+                :action="handleUnlink"
             />
 
             <IncompatibleContentModal

@@ -3,8 +3,7 @@ use crate::api::{Result, TheseusSerializableError};
 use theseus::curseforge::{
     CurseForgeCapability, CurseForgeCategory, CurseForgeFile,
     CurseForgeFilesRequest, CurseForgeFilesResponse,
-    CurseForgeFingerprintResult, CurseForgeInstallRequest,
-    CurseForgeInstallResult, CurseForgeManualDownload,
+    CurseForgeFingerprintResult, CurseForgeManualDownload,
     CurseForgeManualDownloadImport, CurseForgeManualDownloadScanResult,
     CurseForgeModpackInstallRequest, CurseForgeModpackInstallResult,
     CurseForgeProject, CurseForgeRecognitionResult, CurseForgeSearchRequest,
@@ -29,10 +28,6 @@ pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
             curseforge_get_download_url,
             curseforge_get_categories,
             curseforge_match_fingerprints,
-            curseforge_install_file,
-            curseforge_preview_install_file,
-            curseforge_update_installed_file,
-            curseforge_switch_installed_file_version,
             curseforge_recognize_instance_files,
             curseforge_import_manual_downloads,
             curseforge_list_pending_manual_downloads,
@@ -155,49 +150,6 @@ pub async fn curseforge_match_fingerprints(
     fingerprints: Vec<u64>,
 ) -> Result<CurseForgeFingerprintResult> {
     Ok(theseus::curseforge::match_fingerprints(fingerprints).await?)
-}
-
-#[tauri::command]
-pub async fn curseforge_install_file(
-    request: CurseForgeInstallRequest,
-) -> Result<CurseForgeInstallResult> {
-    Ok(theseus::curseforge::install_file(request).await?)
-}
-
-#[tauri::command]
-pub async fn curseforge_preview_install_file(
-    request: CurseForgeInstallRequest,
-) -> Result<theseus::curseforge::CurseForgeInstallPreview> {
-    Ok(theseus::curseforge::preview_install_file(request).await?)
-}
-
-#[tauri::command]
-pub async fn curseforge_update_installed_file(
-    instance_id: String,
-    relative_path: String,
-) -> Result<CurseForgeInstallResult> {
-    Ok(
-        theseus::curseforge::update_installed_file(
-            &instance_id,
-            &relative_path,
-        )
-        .await?,
-    )
-}
-
-#[tauri::command]
-pub async fn curseforge_switch_installed_file_version(
-    instance_id: String,
-    relative_path: String,
-    file_id: u32,
-) -> Result<CurseForgeInstallResult> {
-    Ok(theseus::curseforge::switch_installed_file_version(
-        &instance_id,
-        &relative_path,
-        file_id,
-        None,
-    )
-    .await?)
 }
 
 #[tauri::command]

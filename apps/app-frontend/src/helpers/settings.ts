@@ -144,6 +144,8 @@ export type AppSettings = DohSettings & {
     modrinth_source: DownloadSourceMode
     curseforge_source: DownloadSourceMode
     bypass_curseforge_download_restrictions: boolean
+    resource_chinese_filenames: boolean
+    resource_preserve_filenames: boolean
     ignore_ssl_errors: boolean
     mojang_auth_source: DownloadSourceMode
 
@@ -263,6 +265,8 @@ function normalizeDownloadSettings(settings: AppSettings & LegacyMirrorSettings)
             ? 'auto'
             : legacySource(settings.use_curseforge_mirror)
     settings.bypass_curseforge_download_restrictions ??= true
+    settings.resource_chinese_filenames ??= true
+    settings.resource_preserve_filenames ??= true
     settings.ignore_ssl_errors ??= false
     settings.mojang_auth_source ??= 'auto'
     settings.terracotta_public_nodes ??= ['wss://center.node.1tmc.top']

@@ -1,204 +1,76 @@
 # Axolotl Launcher Monorepo
 
-This repository contains the Axolotl Launcher desktop application and its official website. Read the applicable project instructions before editing either surface.
+Axolotl contains a Vue 3 / Nuxt 3 website, a Vue 3 desktop frontend, and a Rust / Tauri shell. Turborepo (`turbo.jsonc`) and pnpm workspaces (`pnpm-workspace.yaml`) coordinate the packages. Frontend styling uses Tailwind CSS v3. Use spaces, never tabs.
 
-## Architecture
+## Instruction Routing
 
-- **Monorepo tooling:** [Turborepo](https://turbo.build/) (`turbo.jsonc`) + [pnpm workspaces](https://pnpm.io/workspaces) (`pnpm-workspace.yaml`)
-- **Frontend:** Vue 3 / Nuxt 3, Tailwind CSS v3
-- **Desktop:** Rust / Tauri
-- **Indentation:** Use SPACES everywhere, never tabs
+Read the applicable instruction files before editing, even when your session starts at the repository root. Root rules apply everywhere; more specific files refine rules for their subtree. For a change spanning packages, read each affected package's instructions. Links are relative to the file containing them.
 
-### Apps (`apps/`)
+| Changed area                                                    | Read                                                           |
+| --------------------------------------------------------------- | -------------------------------------------------------------- |
+| Desktop frontend, routes, providers, settings                   | [apps/app-frontend/AGENTS.md](apps/app-frontend/AGENTS.md)     |
+| Desktop shell, native IPC commands/callers, build and packaging | [apps/app/AGENTS.md](apps/app/AGENTS.md)                       |
+| Website                                                         | [apps/website/AGENTS.md](apps/website/AGENTS.md)               |
+| Shared UI, layouts and DI contracts                             | [packages/ui/AGENTS.md](packages/ui/AGENTS.md)                 |
+| API client                                                      | [packages/api-client/AGENTS.md](packages/api-client/AGENTS.md) |
+| Desktop runtime, persistence, migrations or downgrade tooling   | [packages/app-lib/AGENTS.md](packages/app-lib/AGENTS.md)       |
+| Any frontend implementation                                     | [Frontend development](standards/frontend/DEVELOPMENT.md)      |
+| Agent instructions, Skills or their validation                  | [.agents/AGENTS.md](.agents/AGENTS.md)                         |
 
-| App            | Description                          |
-| -------------- | ------------------------------------ |
-| `app-frontend` | Desktop application frontend (Vue 3) |
-| `app`          | Desktop application shell (Tauri)    |
-| `website`      | Official Axolotl website (Nuxt 3)    |
+## Repository Map
 
-### Packages (`packages/`)
+- `apps/app-frontend`: desktop Vue frontend; `apps/app`: Tauri shell; `apps/website`: official website.
+- `packages/ui`, `assets`, `utils`: shared components, theme assets and utilities.
+- `packages/api-client`: public content-service API client; `packages/app-lib`: desktop runtime library.
+- `packages/content-management`: provider-neutral resource and installation models.
+- `packages/daedalus`, `ariadne`, `async-minecraft-ping`: Minecraft metadata, social/tunnel protocols and server ping.
+- `packages/path-util`, `tooling-config`: shared paths and tooling.
 
-| Package                       | Description                              |
-| ----------------------------- | ---------------------------------------- |
-| `ui`, `assets`, `utils`       | Shared Vue components, assets, utilities |
-| `api-client`                  | Public content-service API client        |
-| `app-lib`                     | Shared desktop application library       |
-| `daedalus`                    | Minecraft metadata protocol              |
-| `ariadne`                     | Social and tunnel protocol types         |
-| `async-minecraft-ping`        | Minecraft server ping client             |
-| `modrinth-content-management` | Content installation model               |
-| `path-util`, `tooling-config` | Shared path and tooling configuration    |
+Read [CONTRIBUTING.md](CONTRIBUTING.md) for environment setup and application data isolation before launching the desktop app. Run `pnpm website:dev` or `pnpm app:dev` from the root; prepare `packages/app-lib/.env` from its template for desktop development.
 
-## Pre-PR Commands
+## Verification and Commits
 
-Run these from the **root** folder before opening a pull request - do not run these after each prompt the user gives you, only run when asked, ask the user a question if they want to run it if the user indicates that they are about to create a pull request.
+- Every commit created by an Agent must use [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/): `<type>[optional scope][!]: <description>`. This applies to ordinary commits, amended messages, merge commits, squash commits and reverts; replace Git's default message when necessary. Do not rewrite existing history just to normalize messages.
+- Use a lowercase type matching the change: `feat`, `fix`, `docs`, `refactor`, `perf`, `test`, `build`, `ci`, `chore`, `style` or `revert`. Use a concise scope when useful (for example `app`, `website`, `ui` or `agents`), and describe the actual change. Mark breaking changes with `!` or a `BREAKING CHANGE:` footer; explain their impact in the body.
+- When `[skip ci]` is required by the path rules below, append it to the description without replacing the conventional prefix, for example `docs(agents): clarify repository instructions [skip ci]`. Inspect the final message before creating the commit. These message rules do not authorize a commit or history rewrite by themselves.
+- Use existing package scripts and relevant tests during development; see [frontend validation and formatting](standards/frontend/DEVELOPMENT.md). Rust formatting check: `cargo fmt --all --check`; writing formatter: `cargo fmt --all`.
+- Before a frontend commit, run the affected package's `fix` script as described in the frontend standard. Inspect the diff, preserve user changes, and stage corrected files without unrelated formatting changes.
+- Run full pre-PR workflows only when explicitly requested. If the user indicates they are about to create a PR without requesting checks, ask whether to run them. Do not repeat them after each prompt.
+- Pre-PR commands: website `pnpm prepr:website`; app frontend `pnpm prepr:frontend:app`; frontend libraries `pnpm prepr:frontend:lib`; all packages `pnpm prepr`.
+- `prepr` can write formatting and extracted/pruned locale files. It is not a universal read-only lint/test/build gate. The task graph in `turbo.jsonc` and each package's scripts determine coverage; run relevant lint, tests and build separately.
+- Before pushing, inspect changed paths. Include `[skip ci]` only for commits that do not affect the desktop app (`apps/app/`, `apps/app-frontend/`) or its build, packaging, runtime or app-specific dependencies. Never use it for desktop-affecting commits.
 
-- **Website:** `pnpm prepr:website`
-- **App frontend:** `pnpm prepr:frontend:app`
-- **Frontend libs:** `pnpm prepr:frontend:lib`
-- **All frontend:** `pnpm prepr`
+## Global Safeguards
 
-The website and app `prepr` commands
+- Do not write or append release announcements or an update log unless explicitly requested. Use the exact user-supplied version; never infer it from local metadata or query a remote to choose it. Launcher notes belong only in `apps/app-frontend/src/announcements/catalog.ts`.
+- Applied database migrations are immutable, including locally applied migrations. Follow the app-lib instructions for new forward migrations and downgrade mappings; do not rewrite migration checksums.
+- Local desktop builds can change the installed application's database. Use the data isolation procedure in the contribution guide before starting development processes.
+- Do not create unrelated scripts, SQL files or documentation. Remove files created only for temporary verification after checks complete.
+- Avoid heading comments such as `=== Helper methods ===`. Use doc comments where helpful; add inline comments only when necessary to explain non-obvious behavior.
+- Preserve exact source whitespace when editing; do not copy tool line numbers or display markers into source.
 
-## Dev Commands
+## Shared Rust Build Resources
 
-- **Website:** `pnpm website:dev`
-- **App:** `pnpm app:dev` (copy `.env` template in `packages/app-lib/` first)
+- Reuse the workspace's configured Cargo target directory and existing build profiles. Before running Cargo, respect any existing `CARGO_TARGET_DIR` or `build.target-dir` configuration; do not change it to avoid contention.
+- Distinguish an actual Cargo lock wait from compiler warnings. `Blocking waiting for file lock on artifact directory` is an explicit contention signal. When a command remains blocked on that lock, stop launching competing builds, report the blocked command, and ask the user to notify you when their operation is finished. The user may be running `pnpm app:dev`; do not claim to know the lock owner without evidence. Resume the blocked check after the user confirms the resource is available; independent source/documentation work may continue.
+- `warning: error finalizing incremental compilation session directory ...: Access is denied` (including `拒绝访问` for a path under `target/debug/incremental/`) is not evidence of an artifact lock or user activity. Let the command finish and judge success by its exit status and final build/test result. A successful command with this warning is a successful check with a warning; do not stop for user confirmation, repeat the build merely to remove the warning, or change the target directory.
+- For other access-denied or locked-file diagnostics, inspect the failing operation and command result before classifying them. A nonzero exit status requires investigation of the actual failure; neither an access-denied message nor an incremental warning alone establishes that the user is occupying the target directory. Apply the wait-for-user rule only with evidence of actual contention.
+- Do not create an alternate target directory, set `CARGO_TARGET_DIR`, pass `--target-dir`, change Cargo configuration, switch drives/workspaces, or use a temporary checkout to bypass the conflict. A directory outside `target/` is not an acceptable fallback. Alternate build storage requires explicit user authorization for that purpose; ordinary permission to implement or test a feature is insufficient.
+- Do not kill the user's app, dev server, Cargo or compiler processes, remove lock files, run `cargo clean`, or delete build caches to release the resource. You may stop only your own task's redundant waiting invocation without terminating the process holding the lock.
+- Existing repository packaging workflows may use their declared output directories when that workflow is requested. Do not repurpose those directories or launch a packaging workflow as a workaround for a development build lock.
 
-## Style Commands
+## Tool Output
 
-- `cargo fmt --all (--check)`: Format all Rust files (dry-run with `--check`)
-- `pnpm --filter @modrinth/[app-frontend/ui] [check/fix]`: Use ESLint to check all the app frontend or shared UI files (dry-run with `check`, write with `fix`)
+Use `rg` for searches. Read command output without piping it through `head`, `tail`, `less` or `more`. Prefer command-specific limits, such as `git log -n 10`. If output is truncated, narrow the command and read the remaining relevant output.
 
-## Codex Development Workflow
+## Technical Standards
 
-### Frontend Formatting Before Commits
+Read only the standards relevant to the task:
 
-- Before committing frontend changes, run the affected package's existing `fix` script from the repository root. It runs ESLint with `--fix` followed by Prettier with `--write`, fixing import sorting, Vue attribute order, and formatting together.
-- For app frontend changes, run `pnpm --filter @modrinth/app-frontend fix`. For shared UI changes, run `pnpm --filter @modrinth/ui fix`. Run both when both packages are affected; use the corresponding package's `fix` script for other frontend packages.
-- Running Prettier alone is insufficient: import sorting and Vue attribute order are ESLint rules.
-- Inspect `git diff` after automatic fixes. Include relevant fixes in the commit, preserve existing user changes, and avoid staging unrelated formatting changes.
-- Resolve any remaining errors before committing. If files were already staged, stage the corrected files again so the commit includes the fixes.
-- This commit-time formatting step is authorized whenever a frontend commit is requested or already authorized. It does not require running the full `prepr` workflow after every prompt.
-- Before a pull request, follow the existing **Pre-PR Commands** rules and run the appropriate `prepr` command, such as `pnpm prepr:frontend:app`, for the full workflow including internationalization extraction.
-
-### Local App Verification
-
-- Automated visual and interaction tests that run in CI are allowed, and may be run locally while developing them. Do not replace the user's own acceptance check: the user still verifies visual and interaction changes themselves.
-
-### Website Verification
-
-- Do not use browser automation tools to perform excessive testing of website frontend changes (interaction flows, theme toggling, responsive checks, screenshots) unless the user explicitly requests it. The user verifies visual and interaction changes themselves.
-
-### Remote Commits
-
-- Before pushing a remote commit, inspect its changed paths. If it does not change the desktop app (`apps/app/`, `apps/app-frontend/`) or its app-specific dependencies, prevent unnecessary GitHub Actions usage by including `[skip ci]` in the commit message.
-- Never use `[skip ci]` for commits that affect the desktop app or its build, packaging, or runtime dependencies.
-
-### Desktop Onboarding Maintenance
-
-When adding or materially changing a desktop app page, route, navigation entry, large user-facing component, core workflow, settings section, or content-management feature under `apps/app-frontend`, assess the Axolotl onboarding experience.
-
-- Update the onboarding when the feature is relevant to a new user's first-use journey or changes an existing guided workflow.
-- Define tours and localized message descriptors in `apps/app-frontend/src/components/ui/onboarding/onboardingConfig.ts`. Keep `OnboardingOverlay` presentational and put reusable runtime behavior in `useOnboardingTour`; do not add step-ID-specific branches to either file.
-- Add one stable, semantic `data-onboarding-id` to the component that owns each guided target, then reference that ID through `targetId` in the step configuration. Remove targets when their steps are removed.
-- Choose the interaction deliberately: `navigate` must use the real control and wait for its route, `activate` must execute the control's original behavior, and `inspect` must explain a region while any non-onboarding click advances without activating the underlying UI.
-- Express workflow branches with `branchByTarget` and `nextByCreationPath` in the step configuration instead of hard-coded conditionals. Missing optional targets must time out and skip rather than trap the tour or show placeholder copy.
-- Do not add a navigation step for the page that first-run or replay mode already opens. Establish prerequisite route or modal state before starting the tour, then begin with useful page content.
-- Keep the step definition, target, interaction, expected route, branch behavior, and English and Simplified Chinese FormatJS copy synchronized with the feature.
-- For a major feature that should not appear in the first-run tour, add an appropriate contextual/replayable tour or document why onboarding is not needed.
-- Verify first-run and replay modes, target-missing behavior, narrow windows, and guided modals after changing any target. Guided modals must reserve space for the bottom dialogue instead of rendering beneath it.
-- Add future mascot assets only through `OnboardingMascotStage`; do not scatter mascot asset references across onboarding steps.
-
-### Desktop Update Announcement Maintenance
-
-Launcher release announcements are bundled with `apps/app-frontend` and shown after a completed app update and in Settings > Updates.
-
-- Add ordinary release announcements only to `apps/app-frontend/src/announcements/catalog.ts`; adding an entry must not require changes to `App.vue`, the updater, or the announcement components.
-- Do not edit the announcement catalog unless the user explicitly asks for an update log.
-- Ask the user for the exact launcher version before writing the announcement unless they already provided it. Use that version exactly; do not query the remote or infer a version from local metadata to choose one automatically.
-- A catalog entry remains editable until its matching release tag has been published to `origin`. Before changing an existing entry, query both `refs/tags/v<version>` and `refs/tags/<version>` with `git ls-remote --tags --refs origin`; when either exists, the release is published and the entry must not change.
-- Give every release an ID in the form `launcher-<version>`, use the exact launcher version and ISO `YYYY-MM-DD` publication date, and place the newest release first. An unpublished entry may be amended to include its release changes. Once its release tag is published, never reuse its ID, edit the entry, or change its meaning.
-- Use only the Keep a Changelog categories `added`, `changed`, `deprecated`, `removed`, `fixed`, and `security`. Omit empty categories.
-- Provide both `en-US` and `zh-CN` text for the title and every change. Other locales intentionally fall back to English; do not copy announcement bodies into every locale JSON file.
-- Keep entries concise and user-facing. Describe observable features, behavior changes, removals, fixes, and security impact rather than implementation details.
-- `pending_update_toast_for_version` is the persisted trigger for the post-update announcement. Do not add separate per-release startup checks or clear it before the announcement closes.
-- Preserve startup dialog priority: initialization errors, first-run onboarding, post-update announcement, then community announcement. A replayed onboarding tour must not consume a pending post-update announcement.
-- If the announcement schema, categories, fallback behavior, or dialog priority changes, update the catalog types, both announcement display surfaces, and this section together.
-- Keep launcher release notes exclusively in the catalog. Do not create or maintain a separate `UPDATE_LOG.md` file.
-- The GitHub release workflow generates its release body from the matching catalog entry with `scripts/axolotl/create-release-notes.mjs`; a release tag without a catalog entry must fail preflight.
-- Local development builds expose a preview button in Settings > Updates. Use it to test the real announcement modal without changing onboarding or pending-update state; do not add per-version preview branches.
-
-## Update Logging Instructions
-
-- Do not write or append an update log unless the user explicitly requests one.
-- Do not query a remote release, infer a version from repository metadata, or choose a version automatically. Use the version supplied by the user.
-- Follow the project's canonical update-log location and format. Launcher release notes belong in `apps/app-frontend/src/announcements/catalog.ts`; do not create or maintain a separate `UPDATE_LOG.md` file for them.
-
-## Database Migration Safety
-
-- Treat every migration as immutable as soon as it has been applied to any database, including a local development database. Never edit, rename, reorder, or delete an applied migration.
-- Before changing an existing migration, query the active development database's `_sqlx_migrations` table for its version. If a successful row exists, stop and create a new migration with a higher version instead.
-- Fix migration mistakes only with a new forward migration. Do not make an old migration appear compatible by directly changing `_sqlx_migrations` checksums.
-- A historical checksum may be reconciled in application code only when the checksum is explicitly allowlisted, the existing schema is validated structurally, and a tested forward migration brings that schema to the canonical state. Unknown checksums must still fail.
-- SQLite table renames do not free global index names. Rebuild migrations must drop or rename legacy indexes before creating replacement indexes.
-- Migration tests must cover both a fresh database and an upgrade database containing the exact previous tables, indexes, foreign keys, representative data, malformed provider data, and missing optional data.
-- After a migration test, run `PRAGMA foreign_key_check`, verify that legacy tables and indexes are gone, and verify that provider-qualified data did not change provider identity.
-- Migrations must not access the network. Cache data used during migration is untrusted and must be validated or ignored without blocking the upgrade.
-- Every new launcher migration under `packages/app-lib/migrations/` must update `REVERTIBLE_SCHEMA` in `scripts/axolotl/downgrade-app-db.mjs` in the same change. Use the migration's 14-digit timestamp prefix as the key; the downgrade tests reject mappings that do not correspond to an existing migration.
-- Record every column and table added by the migration in that mapping so removing the migration record cannot leave schema that makes a later re-upgrade fail with duplicate objects. List tables in reverse creation/dependency order so dependent tables are dropped before their parents. A migration that only changes data and leaves no schema to remove must still be registered with an empty object (`{}`).
-- If a migration adds durable schema that `REVERTIBLE_SCHEMA` cannot currently describe, extend the downgrade script and its tests in the same change. Do not use `--allow-unmapped` as an implementation or CI workaround.
-- After adding or changing a launcher migration or its downgrade mapping, run `node scripts/axolotl/downgrade-app-db.test.mjs`; this is part of the CI guardrails. Add or update downgrade test coverage when introducing a new mapping shape or rollback behavior.
-- Do not start a migration-watching development process while migration files are still being edited. Finish the migration and its upgrade tests first, then start the app once to apply it.
-
-## Code Guidelines
-
-### Temporary Test Files
-
-- Delete test files created only for task-local verification after the tests complete. Do not leave temporary test files in the worktree unless the user explicitly asks to keep them.
-
-### Comments
-
-- DO NOT use "heading" comments like: `=== Helper methods ===`.
-- Use doc comments, but avoid inline comments unless ABSOLUTELY necessary for clarity. Code should aim to be self documenting!
-
-### Frontend Styling: Prefer Tailwind Utilities
-
-- Express UI styling with Tailwind utility classes directly on elements. Never add a custom CSS class that only aliases one or a few declarations a utility can express verbatim. BAD: `.foo { margin-top: 0.5rem }` plus `class="foo"`. GOOD: `class="mt-2"`.
-- Use the shared tokens and nothing else: the Tailwind preset lives at `packages/tooling-config/tailwind/tailwind-preset.ts`, theme variables in `packages/assets/styles/variables.scss`. Standard mappings: `--gap-xs/sm/md/lg/xl` → `gap-1/2/3/4/6`, `var(--color-text-primary)` → `text-[var(--color-text-primary)]`, `var(--color-text-tertiary)` → `text-[var(--color-text-tertiary)]`, `var(--surface-N)` → `bg-surface-N` / `border-surface-N`, `var(--color-divider)` → `border-divider`, `var(--radius-*)` → `rounded-[var(--radius-*)]`. Never reference CSS variables that are not defined in the shared theme (e.g. `--color-text-secondary` is undefined in the desktop app) — an undefined variable silently disables the declaration.
-- Custom classes are acceptable only where utilities cannot express the styling:
-  - Anchors for `:deep`/child-element/pseudo-element selectors and `[data-size]`-style compound state rules that must keep working;
-  - Animated states (`@keyframes`, transitions), `::before`/`::after` with `content`, scrollbar pseudo-elements;
-  - Platform-conditional rules (`.mac`/`.windows`), non-standard-breakpoint media queries, and third-party/rendered content (markdown, terminals, canvas, editors);
-  - Genuinely reusable visual variants composed with `@apply` (prefer `@apply` over hand-written declarations when composing utilities into a component class).
-- In scoped `<style>` blocks, a rule whose declarations each map 1:1 to utilities is a violation: put the utilities on the element and delete the rule. Do not define utility-alias classes even when scoped — they get duplicated across components and drift.
-- Do not copy a style block from one component into another; extract a shared component, an `@apply`-based class, or use utilities inline.
-
-## Bash Guidelines
-
-### Output handling
-
-- DO NOT pipe output through `head`, `tail`, `less`, or `more`
-- NEVER use `| head -n X` or `| tail -n X` to truncate output
-- IMPORTANT: Run commands directly without pipes when possible
-- IMPORTANT: If you need to limit output, use command-specific flags (e.g. `git log -n 10` instead of `git log | head -10`)
-- ALWAYS read the full output — never pipe through filters
-
-### General
-
-- Do not create new non-source code files (e.g. Bash scripts, SQL scripts) unless explicitly prompted to
-- For Frontend, use the existing package `fix` scripts for commit-time automatic fixes as described above. For lint checks, only use the `prepr` commands; do not use ad hoc lint, `typecheck`, or `tsc` commands.
-- Types in `@modrinth/utils` are considered highly outdated, if a component needs them, check if you can switch said component to use types from `packages/api-client`
-- When provided problems, do not say "I didn't introduce these problems" (shifting the blame/effort) - just fix them.
-
-## Edit Tool - Whitespace Handling (CLAUDE ONLY)
-
-The Read tool uses `→` to mark where line numbers end and file content begins.
-
-**Rule:** Copy the EXACT whitespace that appears after the `→` marker.
-
-- Whatever appears between `→` and the code text is what's actually in the file
-- That whitespace must be used EXACTLY in Edit tool's old_string
-- Don't count arrows, don't interpret - just copy what's after the `→`
-
-**Example:**
-14→ private byte tag;
-For Edit, use: `		private byte tag;` (copy everything after →, including the two tabs)
-
-**If Edit fails:** Stop and explain the problem. Do not attempt sed/awk/bash workarounds.
-
-**IMPORTANT**: Trust the Read tool output. Copy what's after `→` into Edit immediately. DO NOT verify with sed/od/grep first - that's wasting time and the instructions already tell you to stop if Edit fails, not to pre-verify.
-
-## Standards
-
-Standards available at the @standards/ folder. Read the relevant standard before working on related code:
-
-- @standards/frontend/SURFACE_SYSTEM.md — UI elevation/separator tokens; consult on any UI work using surfaces or strokes
-- @standards/frontend/MODALS.md — regular and multistage modal APIs; consult before building or changing any modal
-- @standards/frontend/ADDING_API_MODULES.md — adding a new module to packages/api-client
-- @standards/frontend/DEPENDENCY_INJECTION.md — the provide/inject DI layer for platform abstraction and page-level context
-- @standards/frontend/INTERNATIONALIZATION.md — translatable strings, ICU message format, and i18n conventions
-- @standards/frontend/FIGMA_MCP_USAGE.md — translating Figma designs into Vue components via the Figma MCP server
-- @standards/maintaining/CHANGELOG.md — changelog entry style; consult when writing or reviewing changelog entries
-
+- [Surface system](standards/frontend/SURFACE_SYSTEM.md): UI elevation, separators and strokes.
+- [Modals](standards/frontend/MODALS.md): regular and multistage modal APIs.
+- [API modules](standards/frontend/ADDING_API_MODULES.md): endpoint types, module registration and exports.
+- [Dependency injection](standards/frontend/DEPENDENCY_INJECTION.md): platform capabilities and page contexts.
+- [Internationalization](standards/frontend/INTERNATIONALIZATION.md): visible strings, ICU and rich text.
+- [Figma](standards/frontend/FIGMA_MCP_USAGE.md): adapting designs to existing components and tokens.
+- [Changelog style](standards/maintaining/CHANGELOG.md): requested release-note writing or review.

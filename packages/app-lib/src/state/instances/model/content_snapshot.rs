@@ -22,6 +22,14 @@ pub struct ContentItemCapabilities {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct InstanceContentSnapshotItem {
+    #[serde(default)]
+    pub artifact_ref: Option<crate::resources::SourceArtifactRef>,
+    #[serde(default)]
+    pub resource_id: Option<crate::resources::ResourceId>,
+    #[serde(default)]
+    pub pack_resource_id: Option<crate::resources::ResourceId>,
+    #[serde(default)]
+    pub compatibility: Option<crate::resources::CompatibilityAssessment>,
     pub file_id: Option<String>,
     pub entry_id: Option<String>,
     pub member_id: Option<String>,
@@ -42,6 +50,8 @@ pub struct InstanceContentSnapshotItem {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct InstanceContentPack {
+    #[serde(default)]
+    pub resource_id: Option<crate::resources::ResourceId>,
     pub name: String,
     pub icon_path: Option<String>,
     pub provider: Option<ContentProvider>,

@@ -4,6 +4,109 @@ import { defineComponent, h, ref } from 'vue'
 import Combobox, { type ComboboxOption } from '../components/base/Combobox.vue'
 import { mountThemed, waitFor } from './visual-harness'
 
+it('emits the current searchable query after the input model updates', async () => {
+    const teleports = installTeleportTarget()
+    const wrapper = await mountThemed(
+        Combobox,
+        {
+            searchable: true,
+            syncWithSelection: false,
+            minSearchLengthToOpen: 2,
+            options: [{ value: 'alpha', label: 'Alpha' }],
+        },
+        'dark',
+    )
+    try {
+        await wrapper.get('input').setValue('a')
+        expect(wrapper.emitted('searchInput')?.[0]).toEqual(['a'])
+        expect(document.querySelector('[role="listbox"]')).toBeNull()
+        await wrapper.get('input').setValue('al')
+        expect(wrapper.emitted('searchInput')?.[1]).toEqual(['al'])
+        await waitFor(() => !!document.querySelector('[role="listbox"]'))
+    } finally {
+        wrapper.unmount()
+        teleports.remove()
+    }
+})
+
+for (const searchable of [false, true]) {
+    it(`fills a form region and respects externally sized ${searchable ? 'searchable' : 'standard'} controls`, async () => {
+        const teleports = installTeleportTarget()
+        const host = document.createElement('div')
+        host.style.width = '360px'
+        document.body.append(host)
+        const wrapper = await mountThemed(
+            Combobox,
+            {
+                options: [{ value: 'all', label: 'All tools' }],
+                modelValue: 'all',
+                searchable,
+            },
+            'dark',
+            { attachTo: host },
+        )
+        try {
+            expect(wrapper.element.getBoundingClientRect().width).toBe(360)
+            await wrapper.setProps({ width: 'custom', class: 'w-48' })
+            expect(wrapper.element.getBoundingClientRect().width).toBe(192)
+            host.style.width = '140px'
+            expect(wrapper.element.getBoundingClientRect().width).toBe(140)
+            const trigger = wrapper.get(searchable ? 'input' : '[aria-haspopup="listbox"]').element
+            expect(trigger.getBoundingClientRect().width).toBeLessThanOrEqual(140)
+        } finally {
+            wrapper.unmount()
+            host.remove()
+            teleports.remove()
+        }
+    })
+}
+
+it('fits toolbar content and shrinks long labels without squeezing adjacent actions', async () => {
+    const teleports = installTeleportTarget()
+    const host = document.createElement('div')
+    host.style.cssText = 'width:360px;display:flex;gap:8px'
+    document.body.append(host)
+    const action = document.createElement('button')
+    action.textContent = 'Action'
+    action.style.cssText = 'width:48px;flex-shrink:0'
+    const wrapper = await mountThemed(
+        Combobox,
+        {
+            width: 'content',
+            modelValue: 'name',
+            options: [
+                { value: 'name', label: 'Name' },
+                { value: 'long', label: 'An unusually long translated sorting option'.repeat(4) },
+            ],
+        },
+        'dark',
+        { attachTo: host },
+    )
+    wrapper.element.parentElement!.style.display = 'contents'
+    host.append(action)
+    try {
+        const shortWidth = wrapper.element.getBoundingClientRect().width
+        expect(shortWidth).toBeGreaterThan(40)
+        expect(shortWidth).toBeLessThan(300)
+        await wrapper.setProps({ modelValue: 'long' })
+        host.style.width = '220px'
+        expect(wrapper.element.getBoundingClientRect().width).toBeLessThanOrEqual(164)
+        expect(action.getBoundingClientRect().width).toBe(48)
+        expect(host.scrollWidth).toBe(220)
+        activate(wrapper.get('[aria-haspopup="listbox"]').element as HTMLElement)
+        await waitFor(() => !!document.querySelector('[role="listbox"]'))
+        const dropdown = document.querySelector('[role="listbox"]') as HTMLElement
+        expect(dropdown.getBoundingClientRect().width).toBeCloseTo(
+            wrapper.element.getBoundingClientRect().width,
+            0,
+        )
+    } finally {
+        wrapper.unmount()
+        host.remove()
+        teleports.remove()
+    }
+})
+
 function installTeleportTarget() {
     const teleports = document.createElement('div')
     teleports.id = 'teleports'
@@ -114,6 +217,9 @@ it('keeps disabled listboxes closed and does not emit a selection', async () => 
 
 it('honors an explicit upward direction for floating dropdowns', async () => {
     const teleports = installTeleportTarget()
+    const host = document.createElement('div')
+    host.style.cssText = 'position:fixed; top:200px; left:16px; width:180px'
+    document.body.append(host)
     const wrapper = await mountThemed(
         Combobox,
         {
@@ -122,7 +228,7 @@ it('honors an explicit upward direction for floating dropdowns', async () => {
             forceDirection: 'up',
         },
         'dark',
-        { attachTo: document.body },
+        { attachTo: host },
     )
 
     const trigger = wrapper.get('[aria-haspopup="listbox"]')
@@ -137,6 +243,7 @@ it('honors an explicit upward direction for floating dropdowns', async () => {
     )
 
     wrapper.unmount()
+    host.remove()
     teleports.remove()
 })
 

@@ -8,8 +8,9 @@ use tokio::sync::{
     AcquireError, OwnedSemaphorePermit, Semaphore, SemaphorePermit,
 };
 
-const MAX_H2_STREAMS_PER_AUTHORITY: usize = 256;
-const MAX_ASSET_H2_STREAMS_PER_AUTHORITY: usize = 24;
+use super::constants::{
+    MAX_ASSET_H2_STREAMS_PER_AUTHORITY, MAX_H2_STREAMS_PER_AUTHORITY,
+};
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 struct AuthorityKey {

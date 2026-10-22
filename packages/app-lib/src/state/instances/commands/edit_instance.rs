@@ -136,6 +136,7 @@ pub(crate) async fn edit_instance(
     patch: EditInstance,
     pool: &SqlitePool,
 ) -> crate::Result<Instance> {
+    let _metadata_usage = crate::storage::usage::lease().await?;
     let mut instance = instance_rows::get_instance_by_id(instance_id, pool)
         .await?
         .ok_or_else(|| {
@@ -212,6 +213,19 @@ pub(crate) async fn edit_instance(
                 .map(|content_set| content_set.id.as_str())
                 .or(instance.applied_content_set_id.as_deref());
             if let Some(content_set_id) = content_set_id {
+                let belongs: i64 = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM instance_content_sets WHERE id = ? AND instance_id = ?)").bind(content_set_id).bind(&instance.id).fetch_one(&mut *tx).await?;
+                if belongs == 0 {
+                    return Err(crate::ErrorKind::InputError(
+                        "Applied content set does not belong to this instance"
+                            .into(),
+                    )
+                    .into());
+                }
+                let busy: i64 = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM install_jobs WHERE instance_id = ? AND status IN ('queued', 'running', 'canceling', 'waiting_for_user'))").bind(&instance.id).fetch_one(&mut *tx).await?;
+                if busy != 0 {
+                    return Err(crate::ErrorKind::InputError("Wait for the active instance task before unlinking the pack".into()).into());
+                }
+                sqlx::query("INSERT INTO resource_pack_unlinks(instance_id, content_set_id, unlinked_at) VALUES (?, ?, ?) ON CONFLICT(instance_id) DO UPDATE SET content_set_id = excluded.content_set_id, unlinked_at = excluded.unlinked_at").bind(&instance.id).bind(content_set_id).bind(now.timestamp()).execute(&mut *tx).await?;
                 sqlx::query(
                     "UPDATE instance_content_sets SET source_kind = 'local', modified = ? WHERE id = ?",
                 )
@@ -230,7 +244,19 @@ pub(crate) async fn edit_instance(
                     .bind(content_set_id)
                     .execute(&mut *tx)
                     .await?;
+                content_rows::bump_content_set_revision_in_transaction(
+                    content_set_id,
+                    &mut tx,
+                )
+                .await?;
             }
+        } else {
+            sqlx::query(
+                "DELETE FROM resource_pack_unlinks WHERE instance_id = ?",
+            )
+            .bind(&instance.id)
+            .execute(&mut *tx)
+            .await?;
         }
     }
 
@@ -279,6 +305,28 @@ pub(crate) async fn restore_instance_metadata(
     .await?;
     instance_rows::upsert_instance_launch_overrides(&launch_overrides, &mut tx)
         .await?;
+    tx.commit().await?;
+    Ok(())
+}
+
+pub(crate) async fn repair_recorded_pack_unlink(
+    instance_id: &str,
+    pool: &SqlitePool,
+) -> crate::Result<()> {
+    let mut tx = pool.begin().await?;
+    let set: Option<String> = sqlx::query_scalar("SELECT marker.content_set_id FROM resource_pack_unlinks marker JOIN instances instance ON instance.id = marker.instance_id LEFT JOIN instance_links link ON link.instance_id = instance.id WHERE marker.instance_id = ? AND instance.applied_content_set_id = marker.content_set_id AND COALESCE(link.link_kind, 'unmanaged') = 'unmanaged' AND (EXISTS(SELECT 1 FROM instance_pack_members WHERE content_set_id = marker.content_set_id) OR EXISTS(SELECT 1 FROM instance_content_entries WHERE content_set_id = marker.content_set_id AND ownership_kind = 'pack_managed'))").bind(instance_id).fetch_optional(&mut *tx).await?;
+    if let Some(set) = set {
+        sqlx::query("UPDATE instance_content_entries SET ownership_kind = 'user_added', source_kind = 'local' WHERE content_set_id = ? AND ownership_kind = 'pack_managed'").bind(&set).execute(&mut *tx).await?;
+        sqlx::query(
+            "DELETE FROM instance_pack_members WHERE content_set_id = ?",
+        )
+        .bind(&set)
+        .execute(&mut *tx)
+        .await?;
+        sqlx::query("UPDATE instance_content_sets SET source_kind = 'local' WHERE id = ?").bind(&set).execute(&mut *tx).await?;
+        content_rows::bump_content_set_revision_in_transaction(&set, &mut tx)
+            .await?;
+    }
     tx.commit().await?;
     Ok(())
 }

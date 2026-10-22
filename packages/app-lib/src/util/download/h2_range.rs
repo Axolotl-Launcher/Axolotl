@@ -3,6 +3,12 @@
 use super::h2_download::{H2DownloadFailure, H2DownloadOutcome};
 use super::h2_pool::SharedH2Connection;
 use super::range_journal::{Checkpoint, RangeJournal};
+use crate::util::download::constants::{
+    DIAGNOSTICS_RANGE, DOWNLOAD_SCHEDULER_INTERVAL, H2_DOWNLOAD_INVALID_JAR,
+    H2_RANGE_INCORRECT_SIZE, H2_RANGE_INVALID_RANGE_RESUME_URL,
+    H2_RANGE_MAX_WORKERS, H2_RANGE_RETRY_ATTEMPTS, H2_RANGE_RETRY_DELAY_MS,
+    IDENTITY_ENCODING, RANGE_CHECKPOINT_BYTES, RESOURCE_WAIT_TIMEOUT,
+};
 use crate::util::fetch::{
     self, DownloadRequest, DownloadResult, DownloadRoute,
 };
@@ -55,11 +61,48 @@ trait RangeTransport: Sync {
         start: u64,
         end: u64,
         attempt: usize,
-    ) -> Result<
-        (BoxStream<'_, Result<Bytes, H2DownloadFailure>>, bool),
-        H2DownloadFailure,
-    >;
-    fn failed(&self, _h2: bool) {}
+    ) -> Result<RangeResponse<'_>, H2DownloadFailure>;
+    fn failed(&self, _identity: &RangeIdentity, _failure: H2DownloadFailure) {}
+    fn on_slow(
+        &self,
+        _identity: &RangeIdentity,
+        _speed: u64,
+        _remaining: u64,
+        _region: std::ops::Range<u64>,
+        _pressure: super::local_resources::Pressure,
+    ) -> bool {
+        false
+    }
+}
+
+struct RangeIdentity {
+    h2: bool,
+    peer: Option<std::net::SocketAddr>,
+    connection: Option<Arc<SharedH2Connection>>,
+    aggregate_window: Option<Mutex<super::h2_receive::ConnectionRateWindow>>,
+}
+
+struct RangeResponse<'a> {
+    body: BoxStream<'a, Result<Bytes, H2DownloadFailure>>,
+    identity: RangeIdentity,
+}
+
+impl<'a> RangeResponse<'a> {
+    #[cfg(test)]
+    fn fixture(
+        body: BoxStream<'a, Result<Bytes, H2DownloadFailure>>,
+        h2: bool,
+    ) -> Self {
+        Self {
+            body,
+            identity: RangeIdentity {
+                h2,
+                peer: None,
+                connection: None,
+                aggregate_window: None,
+            },
+        }
+    }
 }
 
 struct NativeRangeTransport<'a> {
@@ -70,6 +113,7 @@ struct NativeRangeTransport<'a> {
     semaphore: Option<&'a fetch::FetchSemaphore>,
     fallback_budget: fetch::FetchSemaphore,
     used_http1: std::sync::atomic::AtomicBool,
+    protocol_failed: std::sync::atomic::AtomicBool,
 }
 
 #[async_trait]
@@ -79,11 +123,9 @@ impl RangeTransport for NativeRangeTransport<'_> {
         start: u64,
         end: u64,
         attempt: usize,
-    ) -> Result<
-        (BoxStream<'_, Result<Bytes, H2DownloadFailure>>, bool),
-        H2DownloadFailure,
-    > {
-        if attempt < 2
+    ) -> Result<RangeResponse<'_>, H2DownloadFailure> {
+        let _ = attempt;
+        if !self.protocol_failed.load(Ordering::Relaxed)
             && fetch::url_authority(&self.route.url).is_some_and(|authority| {
                 super::native_reputation::transport_enabled(
                     &authority,
@@ -95,7 +137,7 @@ impl RangeTransport for NativeRangeTransport<'_> {
                 super::h2_pool::shared_batch_connection(self.route, true).await
         {
             let permit = tokio::time::timeout(
-                Duration::from_secs(45),
+                RESOURCE_WAIT_TIMEOUT,
                 super::h2_stream_budget::acquire_download(
                     self.route,
                     self.semaphore,
@@ -108,8 +150,10 @@ impl RangeTransport for NativeRangeTransport<'_> {
             let permit = (permit, connection.track_stream());
             let mut headers =
                 super::h2_download::request_headers(self.request, self.route);
-            headers
-                .insert(ACCEPT_ENCODING, HeaderValue::from_static("identity"));
+            headers.insert(
+                ACCEPT_ENCODING,
+                HeaderValue::from_static(IDENTITY_ENCODING),
+            );
             headers.insert(
                 RANGE,
                 HeaderValue::from_str(&format!("bytes={start}-{end}"))
@@ -123,11 +167,20 @@ impl RangeTransport for NativeRangeTransport<'_> {
             .await;
             let (response, body) = match opened {
                 Ok(opened) => opened,
-                Err(_) => {
-                    self.failed(true);
-                    return Err(H2DownloadFailure::Protocol);
+                Err(error) => {
+                    let failure =
+                        super::h2_download::classify_download_error(&error);
+                    if failure == H2DownloadFailure::Protocol {
+                        self.protocol_failed.store(true, Ordering::Relaxed);
+                    }
+                    return Err(failure);
                 }
             };
+            super::native_breaker::record_response_status_failure(
+                self.route,
+                response.status().as_u16(),
+                fetch::retry_after_headers(response.headers()),
+            );
             if response.status() != StatusCode::PARTIAL_CONTENT
                 || !content_range_matches(
                     response.headers(),
@@ -135,7 +188,6 @@ impl RangeTransport for NativeRangeTransport<'_> {
                     self.total_size,
                 )
             {
-                self.failed(true);
                 return Err(range_response_failure(response.status().as_u16()));
             }
             let connection_for_metrics = connection.clone();
@@ -143,8 +195,11 @@ impl RangeTransport for NativeRangeTransport<'_> {
                 (Some(body), permit, connection_for_metrics),
                 |(body, permit, connection_for_metrics)| async move {
                     let mut body = body?;
-                    match super::h2_receive::receive_chunk(&mut body, "range")
-                        .await
+                    match super::h2_receive::receive_chunk(
+                        &mut body,
+                        DIAGNOSTICS_RANGE,
+                    )
+                    .await
                     {
                         Ok(Some(chunk)) => {
                             connection_for_metrics.record_bytes(chunk.len());
@@ -165,19 +220,34 @@ impl RangeTransport for NativeRangeTransport<'_> {
                             ))
                         }
                         Ok(None) => None,
-                        Err(_) => Some((
-                            Err(H2DownloadFailure::Protocol),
+                        Err(error) => Some((
+                            Err(super::h2_download::classify_download_error(
+                                &error,
+                            )),
                             (None, permit, connection_for_metrics),
                         )),
                     }
                 },
             );
-            return Ok((Box::pin(stream), true));
+            return Ok(RangeResponse {
+                body: Box::pin(stream),
+                identity: RangeIdentity {
+                    h2: true,
+                    peer: connection.remote_addr,
+                    aggregate_window: Some(Mutex::new(
+                        super::h2_receive::ConnectionRateWindow::new(
+                            connection.bytes_transferred_for_scheduler(),
+                            std::time::Instant::now(),
+                        ),
+                    )),
+                    connection: Some(connection),
+                },
+            });
         }
         self.used_http1.store(true, Ordering::Relaxed);
         let semaphore = self.semaphore.unwrap_or(&self.fallback_budget);
         let permit = tokio::time::timeout(
-            Duration::from_secs(45),
+            RESOURCE_WAIT_TIMEOUT,
             fetch::acquire_native_connection(self.route, semaphore),
         )
         .await
@@ -189,6 +259,7 @@ impl RangeTransport for NativeRangeTransport<'_> {
         );
         clients.system = clients.http1_system.clone();
         clients.direct = clients.http1_direct.clone();
+        clients.force_http1 = true;
         let (response, _) =
             super::native_request::send_path_request_with_clients(
                 self.route,
@@ -201,8 +272,15 @@ impl RangeTransport for NativeRangeTransport<'_> {
                 None,
             )
             .await
-            .map_err(|_| H2DownloadFailure::Connect)?;
+            .map_err(|error| {
+                super::h2_download::classify_download_error(&error)
+            })?;
         let expected = format!("bytes {start}-{end}/{}", self.total_size);
+        super::native_breaker::record_response_status_failure(
+            self.route,
+            response.status().as_u16(),
+            fetch::retry_after(&response),
+        );
         if response.status() != reqwest::StatusCode::PARTIAL_CONTENT
             || response
                 .headers()
@@ -212,32 +290,117 @@ impl RangeTransport for NativeRangeTransport<'_> {
         {
             return Err(range_response_failure(response.status().as_u16()));
         }
+        let peer = response.remote_addr();
+        let feedback = response
+            .extensions()
+            .get::<super::endpoint_selection::metrics::EndpointTransferGuard>()
+            .cloned();
         let stream = futures::stream::unfold(
-            (Some(response), permit),
-            |(response, permit)| async move {
+            (Some(response), permit, feedback),
+            |(response, permit, feedback)| async move {
                 let mut response = response?;
                 match response.chunk().await {
                     Ok(Some(chunk)) => {
-                        Some((Ok(chunk), (Some(response), permit)))
+                        if let Some(feedback) = &feedback {
+                            feedback.record(
+                                chunk.len(),
+                                super::local_resources::network_pressure(),
+                            );
+                        }
+                        Some((Ok(chunk), (Some(response), permit, feedback)))
                     }
                     Ok(None) => None,
-                    Err(_) => {
-                        Some((Err(H2DownloadFailure::Protocol), (None, permit)))
-                    }
+                    Err(error) => Some((
+                        Err(super::h2_download::classify_download_error(
+                            &error.into(),
+                        )),
+                        (None, permit, feedback),
+                    )),
                 }
             },
         );
-        Ok((Box::pin(stream), false))
+        Ok(RangeResponse {
+            body: Box::pin(stream),
+            identity: RangeIdentity {
+                h2: false,
+                peer,
+                connection: None,
+                aggregate_window: None,
+            },
+        })
     }
 
-    fn failed(&self, h2: bool) {
-        if h2 && let Some(authority) = fetch::url_authority(&self.route.url) {
+    fn failed(&self, identity: &RangeIdentity, failure: H2DownloadFailure) {
+        if identity.h2
+            && failure == H2DownloadFailure::Protocol
+            && let Some(authority) = fetch::url_authority(&self.route.url)
+        {
+            self.protocol_failed.store(true, Ordering::Relaxed);
             super::native_reputation::record_transport_failure(
                 &authority,
                 self.route.proxy,
                 super::native_reputation::NativeTransport::H2MultiRange,
             );
         }
+    }
+
+    fn on_slow(
+        &self,
+        identity: &RangeIdentity,
+        speed: u64,
+        remaining: u64,
+        region: std::ops::Range<u64>,
+        pressure: super::local_resources::Pressure,
+    ) -> bool {
+        let Some(clients) = super::proxy_context::clients() else {
+            return false;
+        };
+        let protocol = if identity.h2 {
+            super::endpoint_selection::Protocol::H2
+        } else {
+            super::endpoint_selection::Protocol::Http1
+        };
+        let aggregate = identity
+            .connection
+            .as_ref()
+            .zip(identity.aggregate_window.as_ref())
+            .and_then(|(connection, window)| {
+                window.lock().observe(
+                    connection.bytes_transferred_for_scheduler(),
+                    std::time::Instant::now(),
+                )
+            });
+        let Some(speed) = super::h2_receive::endpoint_speed(
+            speed,
+            identity
+                .connection
+                .as_ref()
+                .map_or(1, |connection| connection.active_streams()),
+            aggregate,
+        ) else {
+            return false;
+        };
+        clients.endpoints.on_slow_region(
+            self.request,
+            self.route,
+            &clients,
+            protocol,
+            identity.peer.map(|a| a.ip()),
+            region,
+            Some(speed),
+            pressure,
+        );
+        clients
+            .endpoints
+            .recovery_lease(
+                self.request,
+                self.route,
+                protocol,
+                identity.peer,
+                speed,
+                remaining,
+            )
+            .is_some()
     }
 }
 
@@ -260,6 +423,7 @@ pub(crate) async fn download(
         semaphore,
         fallback_budget: fetch::FetchSemaphore(tokio::sync::Semaphore::new(8)),
         used_http1: Default::default(),
+        protocol_failed: Default::default(),
     };
     let started = std::time::Instant::now();
     let outcome = run_download(
@@ -326,7 +490,9 @@ pub(crate) async fn resume_http1(
         .min(super::local_resources::range_limit(part).await.max(1));
     let transport = NativeRangeTransport {
         uri: route.url.parse().map_err(|_| {
-            crate::ErrorKind::InputError("invalid range resume URL".into())
+            crate::ErrorKind::InputError(
+                H2_RANGE_INVALID_RANGE_RESUME_URL.into(),
+            )
         })?,
         request,
         route,
@@ -334,6 +500,7 @@ pub(crate) async fn resume_http1(
         semaphore: Some(semaphore),
         fallback_budget: fetch::FetchSemaphore(tokio::sync::Semaphore::new(8)),
         used_http1: Default::default(),
+        protocol_failed: Default::default(),
     };
     Ok(Some(
         run_download(
@@ -447,7 +614,7 @@ async fn run_download(
     let downloaded =
         AtomicU64::new(ranges.iter().map(|range| range.written).sum());
     let reported = Mutex::new(super::h2_receive::H2ProgressGate::new(size));
-    let workers = concurrency.clamp(1, 8);
+    let workers = concurrency.clamp(1, H2_RANGE_MAX_WORKERS);
     let mut tasks = futures::stream::iter(ranges.into_iter().enumerate())
         .map(|(index, range)| {
             recover_range(
@@ -506,7 +673,7 @@ async fn run_download(
     if let Err(error) = result {
         let invalid = fetch::is_integrity_error(&error)
             || matches!(error.raw.as_ref(), crate::ErrorKind::JSONError(_))
-            || matches!(error.raw.as_ref(), crate::ErrorKind::OtherError(message) if message.starts_with("Invalid JAR") || message.starts_with("Incorrect size"));
+            || matches!(error.raw.as_ref(), crate::ErrorKind::OtherError(message) if message.starts_with(H2_DOWNLOAD_INVALID_JAR) || message.starts_with(H2_RANGE_INCORRECT_SIZE));
         if invalid && discard(part).await.is_err() {
             return H2DownloadOutcome::Fallback {
                 failure: H2DownloadFailure::Io,
@@ -571,8 +738,8 @@ async fn recover_range(
     let activity = super::h2_receive::H2TransferActivity::begin();
     let mut last_checkpoint = offset;
     let mut last_failure = H2DownloadFailure::Protocol;
-    for attempt in 0..4 {
-        let (mut body, h2) =
+    for attempt in 0..H2_RANGE_RETRY_ATTEMPTS {
+        let RangeResponse { mut body, identity } =
             match transport.open(offset, range.end - 1, attempt).await {
                 Ok(body) => body,
                 Err(error) => {
@@ -588,7 +755,38 @@ async fn recover_range(
                 }
             };
         let mut failure = None;
-        while let Some(chunk) = body.next().await {
+        let mut slow =
+            super::native_slow::NativeSlowPolicy::for_http2(offset, None);
+        let mut timer = tokio::time::interval(DOWNLOAD_SCHEDULER_INTERVAL);
+        let mut last_slow_speed = None;
+        timer.tick().await;
+        loop {
+            let chunk = tokio::select! {
+                chunk = body.next() => chunk,
+                _ = async { if let Some(token) = &request.cancellation { token.cancelled().await } else { std::future::pending().await } } => {
+                    failure = Some(H2DownloadFailure::Slow); break;
+                }
+                _ = timer.tick() => {
+                    if let Some((connection, window)) = identity.connection.as_ref().zip(identity.aggregate_window.as_ref()) {
+                        window.lock().observe(connection.bytes_transferred_for_scheduler(), std::time::Instant::now());
+                    }
+                    let pressure = super::local_resources::pressure(part);
+                    match slow.observe_with_pressure(offset, range.end - offset, pressure) {
+                        super::native_slow::SlowDecision::Probe { bytes_per_second } => {
+                            last_slow_speed = Some(bytes_per_second);
+                        }
+                        super::native_slow::SlowDecision::Idle { .. } => { failure = Some(H2DownloadFailure::Slow); break; }
+                        _ => {}
+                    }
+                    if let Some(speed) = last_slow_speed
+                        && !pressure.blocks_expansion()
+                        && transport.on_slow(&identity, speed, range.end - offset, offset..range.end, pressure) {
+                        failure = Some(H2DownloadFailure::EndpointChanged); break;
+                    }
+                    continue;
+                }
+            };
+            let Some(chunk) = chunk else { break };
             let chunk = match chunk {
                 Ok(chunk) => chunk,
                 Err(error) => {
@@ -596,6 +794,7 @@ async fn recover_range(
                     break;
                 }
             };
+            request.transfer_counters.received(chunk.len() as u64);
             if chunk.len() as u64 > range.end - offset {
                 failure = Some(H2DownloadFailure::Protocol);
                 break;
@@ -620,17 +819,23 @@ async fn recover_range(
                 )
                 .await;
             }
-            if offset - last_checkpoint >= 4 * 1024 * 1024 {
+            if offset - last_checkpoint >= RANGE_CHECKPOINT_BYTES {
                 writer.flush().await.map_err(|_| H2DownloadFailure::Io)?;
                 journal
                     .checkpoint(index, offset - range.start, &hash)
                     .await
                     .map_err(|_| H2DownloadFailure::Io)?;
+                request
+                    .transfer_counters
+                    .commit(range.start + range.written, offset);
                 last_checkpoint = offset;
             }
         }
         drop(body);
         writer.flush().await.map_err(|_| H2DownloadFailure::Io)?;
+        request
+            .transfer_counters
+            .commit(range.start + range.written, offset);
         journal
             .checkpoint(index, offset - range.start, &hash)
             .await
@@ -638,16 +843,18 @@ async fn recover_range(
         if offset == range.end {
             return Ok(());
         }
-        transport.failed(h2);
         last_failure = failure.unwrap_or(H2DownloadFailure::Protocol);
+        transport.failed(&identity, last_failure);
         tracing::debug!(
             range_start = range.start,
             resume_offset = offset,
             attempt = attempt + 1,
             "Retrying only unfinished range bytes"
         );
-        tokio::time::sleep(Duration::from_millis(100 * (attempt as u64 + 1)))
-            .await;
+        tokio::time::sleep(Duration::from_millis(
+            H2_RANGE_RETRY_DELAY_MS * (attempt as u64 + 1),
+        ))
+        .await;
     }
     Err(last_failure)
 }
@@ -692,6 +899,120 @@ mod tests {
     use http::{Response, StatusCode};
     use sha1_smol::Sha1;
 
+    struct SlowRangeTransport {
+        bytes: Arc<Vec<u8>>,
+        calls: Mutex<Vec<u64>>,
+        old_body_live: Arc<std::sync::atomic::AtomicBool>,
+    }
+
+    struct SlowBodyGuard(Arc<std::sync::atomic::AtomicBool>);
+    impl Drop for SlowBodyGuard {
+        fn drop(&mut self) {
+            self.0.store(false, Ordering::Release);
+        }
+    }
+
+    #[async_trait]
+    impl RangeTransport for SlowRangeTransport {
+        async fn open(
+            &self,
+            start: u64,
+            end: u64,
+            attempt: usize,
+        ) -> Result<RangeResponse<'_>, H2DownloadFailure> {
+            assert!(
+                !self.old_body_live.load(Ordering::Acquire),
+                "old range body must close before recovery opens"
+            );
+            self.calls.lock().push(start);
+            if attempt == 0 {
+                self.old_body_live.store(true, Ordering::Release);
+                let bytes = self.bytes.clone();
+                let guard = SlowBodyGuard(self.old_body_live.clone());
+                let body = futures::stream::unfold(
+                    (start as usize, guard),
+                    move |(offset, guard)| {
+                        let bytes = bytes.clone();
+                        async move {
+                            tokio::time::sleep(Duration::from_millis(25)).await;
+                            let next = (offset + 1024).min(end as usize + 1);
+                            if next == offset {
+                                return None;
+                            }
+                            Some((
+                                Ok(Bytes::copy_from_slice(
+                                    &bytes[offset..next],
+                                )),
+                                (next, guard),
+                            ))
+                        }
+                    },
+                );
+                Ok(RangeResponse::fixture(Box::pin(body), true))
+            } else {
+                Ok(RangeResponse::fixture(
+                    Box::pin(futures::stream::iter([Ok(
+                        Bytes::copy_from_slice(
+                            &self.bytes[start as usize..=end as usize],
+                        ),
+                    )])),
+                    true,
+                ))
+            }
+        }
+
+        fn on_slow(
+            &self,
+            _identity: &RangeIdentity,
+            _speed: u64,
+            _remaining: u64,
+            _region: std::ops::Range<u64>,
+            _pressure: super::super::local_resources::Pressure,
+        ) -> bool {
+            true
+        }
+    }
+
+    #[tokio::test]
+    async fn continuously_slow_range_recovers_only_unfinished_bytes_and_hash_matches()
+     {
+        let bytes = Arc::new(vec![42; 1024 * 1024]);
+        let (request, route) = memory_request(&bytes);
+        let transport = SlowRangeTransport {
+            bytes: bytes.clone(),
+            calls: Mutex::new(Vec::new()),
+            old_body_live: Arc::new(std::sync::atomic::AtomicBool::new(false)),
+        };
+        let directory = tempfile::tempdir().unwrap();
+        let destination = directory.path().join("final.bin");
+        let part = directory.path().join("final.part");
+        let result = tokio::time::timeout(
+            Duration::from_secs(3),
+            super::super::native_slow::with_test_timing(
+                Duration::from_millis(75),
+                Duration::from_millis(150),
+                run_download(
+                    &transport,
+                    &request,
+                    &route,
+                    &destination,
+                    &part,
+                    bytes.len() as u64,
+                    1,
+                    None,
+                ),
+            ),
+        )
+        .await
+        .unwrap();
+        assert!(matches!(result, H2DownloadOutcome::Completed(_)));
+        assert_eq!(tokio::fs::read(destination).await.unwrap(), *bytes);
+        let calls = transport.calls.lock();
+        assert_eq!(calls.len(), 2);
+        assert_eq!(calls[0], 0);
+        assert!(calls[1] > 0 && calls[1] < bytes.len() as u64);
+    }
+
     struct UnsupportedRangeTransport;
     #[async_trait]
     impl RangeTransport for UnsupportedRangeTransport {
@@ -700,10 +1021,7 @@ mod tests {
             _start: u64,
             _end: u64,
             _attempt: usize,
-        ) -> Result<
-            (BoxStream<'_, Result<Bytes, H2DownloadFailure>>, bool),
-            H2DownloadFailure,
-        > {
+        ) -> Result<RangeResponse<'_>, H2DownloadFailure> {
             Err(range_response_failure(200))
         }
     }
@@ -798,13 +1116,10 @@ mod tests {
             _start: u64,
             _end: u64,
             _attempt: usize,
-        ) -> Result<
-            (BoxStream<'_, Result<Bytes, H2DownloadFailure>>, bool),
-            H2DownloadFailure,
-        > {
+        ) -> Result<RangeResponse<'_>, H2DownloadFailure> {
             let permit = self.budget.clone().acquire_owned().await.unwrap();
             let cancellation = self.cancellation.clone();
-            Ok((
+            Ok(RangeResponse::fixture(
                 Box::pin(futures::stream::unfold(permit, move |permit| {
                     let cancellation = cancellation.clone();
                     async move {
@@ -902,14 +1217,11 @@ mod tests {
             start: u64,
             end: u64,
             attempt: usize,
-        ) -> Result<
-            (BoxStream<'_, Result<Bytes, H2DownloadFailure>>, bool),
-            H2DownloadFailure,
-        > {
+        ) -> Result<RangeResponse<'_>, H2DownloadFailure> {
             self.calls.lock().push((start, attempt));
             if start >= self.data.len() as u64 / 2 && self.fail_tail {
                 if self.recover_on_http1 && attempt >= 2 {
-                    return Ok((
+                    return Ok(RangeResponse::fixture(
                         Box::pin(futures::stream::iter([Ok(
                             Bytes::copy_from_slice(
                                 &self.data[start as usize..=end as usize],
@@ -919,7 +1231,7 @@ mod tests {
                     ));
                 }
                 if attempt == 0 {
-                    return Ok((
+                    return Ok(RangeResponse::fixture(
                         Box::pin(futures::stream::iter([
                             Ok(Bytes::copy_from_slice(
                                 &self.data[start as usize..start as usize + 3],
@@ -931,7 +1243,7 @@ mod tests {
                 }
                 return Err(H2DownloadFailure::Protocol);
             }
-            Ok((
+            Ok(RangeResponse::fixture(
                 Box::pin(futures::stream::iter([Ok(Bytes::copy_from_slice(
                     &self.data[start as usize..=end as usize],
                 ))])),
@@ -1163,7 +1475,6 @@ mod tests {
             builder.handshake::<_, Bytes>(client_io).await.unwrap();
         driver.set_target_window_size(64 * 1024 * 1024);
         let client_driver = tokio::spawn(driver);
-        let connection = Arc::new(SharedH2Connection::for_test(sender));
         let directory = tempfile::tempdir().unwrap();
         let destination = directory.path().join("pack.mrpack");
         let part_path = directory.path().join("pack.mrpack.part");
@@ -1183,6 +1494,8 @@ mod tests {
             supports_range: true,
             proxy: fetch::ProxyPolicy::Direct,
         };
+        let connection =
+            SharedH2Connection::cache_for_test(&route, sender).await;
         let uri = route.url.parse().unwrap();
 
         let result = download(
@@ -1238,13 +1551,12 @@ mod tests {
 
         let (sender, driver) = h2::client::handshake(client_io).await.unwrap();
         let client_driver = tokio::spawn(driver);
-        let connection = Arc::new(SharedH2Connection::for_test(sender));
         let directory = tempfile::tempdir().unwrap();
         let destination = directory.path().join("pack.zip");
         let part_path = directory.path().join("pack.zip.part");
         let cancellation = tokio_util::sync::CancellationToken::new();
         let mut request = DownloadRequest::new(
-            "https://h2-range.test/pack.zip",
+            "https://h2-range-cancel.test/pack.zip",
             fetch::ResourceClass::CurseForge,
         )
         .with_integrity(fetch::Integrity::default().with_size(2 * 1024 * 1024));
@@ -1257,6 +1569,8 @@ mod tests {
             supports_range: true,
             proxy: fetch::ProxyPolicy::Direct,
         };
+        let connection =
+            SharedH2Connection::cache_for_test(&route, sender).await;
         let uri = route.url.parse().unwrap();
         let part_for_task = part_path.clone();
         let destination_for_task = destination.clone();

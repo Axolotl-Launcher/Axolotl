@@ -152,8 +152,8 @@ onBeforeUnmount(() => {
 
 const emit = defineEmits<{
     (e: 'activate', screenshot: InstanceScreenshot, event: MouseEvent | KeyboardEvent): void
-    (e: 'toggle-selection' | 'copy' | 'edit', screenshot: InstanceScreenshot): void
-    (e: 'more', screenshot: InstanceScreenshot, event: MouseEvent): void
+    (e: 'copy' | 'edit', screenshot: InstanceScreenshot): void
+    (e: 'toggle-selection' | 'more', screenshot: InstanceScreenshot, event: MouseEvent): void
 }>()
 
 useDroppable({
@@ -224,7 +224,7 @@ function getSelectionKey(screenshot: InstanceScreenshot) {
                         :highlighted="highlightedScreenshotId === screenshot.id"
                         :copied="copiedScreenshotIds.has(screenshot.id)"
                         @activate="(event) => emit('activate', screenshot, event)"
-                        @toggle-selection="emit('toggle-selection', screenshot)"
+                        @toggle-selection="(event) => emit('toggle-selection', screenshot, event)"
                         @copy="emit('copy', screenshot)"
                         @edit="emit('edit', screenshot)"
                         @more="(event) => emit('more', screenshot, event)"

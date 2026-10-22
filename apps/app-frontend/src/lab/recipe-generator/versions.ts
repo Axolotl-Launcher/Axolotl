@@ -28,6 +28,7 @@ const metadata: Record<JavaVersionId, Omit<JavaVersionMeta, 'id' | 'hasVanillaTa
     '1.21.11': { packFormat: [94, 1], recipeDir: 'recipe', tagDir: 'tags/item' },
     '26.1': { packFormat: [101, 1], recipeDir: 'recipe', tagDir: 'tags/item' },
     '26.2': { packFormat: [107, 1], recipeDir: 'recipe', tagDir: 'tags/item' },
+    '26.3': { packFormat: [121, 0], recipeDir: 'recipe', tagDir: 'tags/item' },
 }
 
 const tagVersions = new Set([
@@ -48,10 +49,12 @@ const tagVersions = new Set([
     '1.21.11',
     '26.1',
     '26.2',
+    '26.3',
 ])
 
 export const JAVA_VERSIONS: readonly JavaVersionMeta[] = (
     [
+        '26.3',
         '26.2',
         '26.1',
         '1.21.11',
@@ -78,7 +81,7 @@ export const JAVA_VERSIONS: readonly JavaVersionMeta[] = (
     hasVanillaTags: tagVersions.has(id),
 }))
 
-export const LATEST_JAVA_VERSION: JavaVersionId = '26.2'
+export const LATEST_JAVA_VERSION: JavaVersionId = '26.3'
 
 const byId = new Map<JavaVersionId, JavaVersionMeta>(
     JAVA_VERSIONS.map((version) => [version.id, version]),
@@ -110,6 +113,7 @@ export function isVersionAtLeast(version: JavaVersionId, minimum: string): boole
 
 const recipeTypeAvailability: Record<RecipeType, { minVersion: string; maxVersion?: string }> = {
     crafting: { minVersion: '1.12' },
+    brewing: { minVersion: '26.3' },
     smelting: { minVersion: '1.13' },
     blasting: { minVersion: '1.14' },
     smoking: { minVersion: '1.14' },
@@ -122,6 +126,7 @@ const recipeTypeAvailability: Record<RecipeType, { minVersion: string; maxVersio
 
 export const ALL_RECIPE_TYPES: readonly RecipeType[] = [
     'crafting',
+    'brewing',
     'smelting',
     'blasting',
     'smoking',
@@ -228,6 +233,7 @@ export const DEFAULT_COOKING_TIME: Record<
 
 export const RESULT_SLOTS_BY_TYPE: Record<RecipeType, readonly RecipeSlot[] | undefined> = {
     crafting: ['crafting.result'],
+    brewing: ['brewing.result'],
     smelting: ['cooking.result'],
     blasting: ['cooking.result'],
     smoking: ['cooking.result'],
@@ -239,6 +245,7 @@ export const RESULT_SLOTS_BY_TYPE: Record<RecipeType, readonly RecipeSlot[] | un
 }
 
 export const SLOT_KEYS_BY_TYPE: Record<RecipeType, readonly RecipeSlot[]> = {
+    brewing: ['brewing.input', 'brewing.reagent'],
     crafting: [
         'crafting.1',
         'crafting.2',
@@ -258,4 +265,28 @@ export const SLOT_KEYS_BY_TYPE: Record<RecipeType, readonly RecipeSlot[]> = {
     smithing: ['smithing.template', 'smithing.base', 'smithing.addition'],
     smithing_trim: ['smithing.template', 'smithing.base', 'smithing.addition'],
     smithing_transform: ['smithing.template', 'smithing.base', 'smithing.addition'],
+}
+
+export function defaultCookingTime(
+    type: keyof typeof DEFAULT_COOKING_TIME,
+    version: JavaVersionId,
+): number {
+    return (type === 'blasting' || type === 'smoking') && isVersionAtLeast(version, '26.3')
+        ? 200
+        : DEFAULT_COOKING_TIME[type]
+}
+
+/** Recipe time is divided by two for these appliances starting in 26.3. */
+export function convertCookingTime(
+    time: number | null,
+    type: RecipeType,
+    from: JavaVersionId,
+    to: JavaVersionId,
+): number | null {
+    if (time === null || (type !== 'blasting' && type !== 'smoking')) return time
+    const fromMultiplier = isVersionAtLeast(from, '26.3') ? 2 : 1
+    const toMultiplier = isVersionAtLeast(to, '26.3') ? 2 : 1
+    return fromMultiplier === toMultiplier
+        ? time
+        : Math.max(1, Math.ceil(time / fromMultiplier) * toMultiplier)
 }

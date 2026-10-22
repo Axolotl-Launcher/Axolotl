@@ -42,7 +42,18 @@
                     }}
                 </div>
             </div>
-            <div v-if="project.approved" v-tooltip="formatDateTime(project.approved)">
+            <template v-if="resourceDates">
+                <ProjectCardDate
+                    v-for="date in declaredDates"
+                    :key="date.type"
+                    :type="date.type"
+                    :date="date.date"
+                />
+            </template>
+            <div
+                v-if="!resourceDates && project.approved"
+                v-tooltip="formatDateTime(project.approved)"
+            >
                 <CalendarIcon aria-hidden="true" />
                 <div>
                     {{
@@ -52,7 +63,10 @@
                     }}
                 </div>
             </div>
-            <div v-else v-tooltip="formatDateTime(project.published)">
+            <div
+                v-else-if="!resourceDates && project.published"
+                v-tooltip="formatDateTime(project.published)"
+            >
                 <CalendarIcon aria-hidden="true" />
                 <div>
                     {{
@@ -75,7 +89,10 @@
                     }}
                 </div>
             </div>
-            <div v-if="hasVersions && project.updated" v-tooltip="formatDateTime(project.updated)">
+            <div
+                v-if="!resourceDates && hasVersions && project.updated"
+                v-tooltip="formatDateTime(project.updated)"
+            >
                 <VersionIcon aria-hidden="true" />
                 <div>
                     {{
@@ -105,6 +122,7 @@ import { useFormatDateTime, useRelativeTime } from '../../composables'
 import { defineMessages, useVIntl } from '../../composables/i18n'
 import { commonMessages } from '../../utils/common-messages'
 import { IntlFormatted } from '../base'
+import ProjectCardDate from './card/ProjectCardDate.vue'
 import SidebarSection from './SidebarSection.vue'
 
 const { formatMessage } = useVIntl()
@@ -120,7 +138,28 @@ const props = defineProps<{
     hasVersions: boolean
     hideLicense?: boolean
     showFollowers?: boolean
+    resourceDates?: {
+        createdAt?: string | null
+        projectPublishedAt?: string | null
+        updatedAt?: string | null
+        firstPublishedAt?: string | null
+        latestPublishedAt?: string | null
+    }
 }>()
+
+const declaredDates = computed(() => {
+    const values = [
+        { type: 'created' as const, value: props.resourceDates?.createdAt },
+        { type: 'projectPublished' as const, value: props.resourceDates?.projectPublishedAt },
+        { type: 'firstRelease' as const, value: props.resourceDates?.firstPublishedAt },
+        { type: 'projectModified' as const, value: props.resourceDates?.updatedAt },
+        { type: 'releaseUpdated' as const, value: props.resourceDates?.latestPublishedAt },
+    ]
+    return values.flatMap(({ type, value }) => {
+        const date = value ? new Date(value) : null
+        return date && !Number.isNaN(date.valueOf()) ? [{ type, date }] : []
+    })
+})
 
 const createdDate = computed(() =>
     props.project.published ? formatRelativeTime(props.project.published) : 'unknown',

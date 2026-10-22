@@ -85,7 +85,11 @@ const portalTarget = computed(() =>
                     @pointerup.stop
                     @click.stop
                 >
-                    <ArmorTrimPanel v-model="model" />
+                    <div
+                        class="w-[min(19rem,calc(100vw-3rem))] max-h-[min(39rem,calc(100vh-8rem))] overflow-y-auto max-[520px]:max-h-[calc(100vh-6rem)]"
+                    >
+                        <ArmorTrimPanel v-model="model" />
+                    </div>
                     <PopoverArrow class="menu-arrow" :width="14" :height="7" />
                 </PopoverContent>
             </PopoverPortal>

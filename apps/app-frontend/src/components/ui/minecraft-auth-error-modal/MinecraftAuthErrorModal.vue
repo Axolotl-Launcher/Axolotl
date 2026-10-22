@@ -213,25 +213,6 @@ async function copyToClipboard(text: string) {
                 </template>
             </div>
 
-            <!-- Action buttons -->
-            <div class="flex items-center gap-2">
-                <ButtonLink
-                    :href="AxolotlBrandConfig.supportUrl"
-                    class="!w-full"
-                    @click="modal?.hide()"
-                >
-                    <MessagesSquareIcon /> {{ formatMessage(messages.contactSupport) }}
-                </ButtonLink>
-                <Button
-                    type="colored"
-                    color="brand"
-                    :disabled="loadingSignIn"
-                    class="!w-full"
-                    @click="signInAgain"
-                    ><LogInIcon /> {{ formatMessage(messages.signInAgain) }}
-                </Button>
-            </div>
-
             <div class="flex flex-col gap-2">
                 <div class="w-full h-[1px] bg-surface-5"></div>
 
@@ -277,5 +258,15 @@ async function copyToClipboard(text: string) {
                 </div>
             </div>
         </div>
+        <template #actions>
+            <div class="flex flex-wrap items-center justify-end gap-2">
+                <ButtonLink :href="AxolotlBrandConfig.supportUrl" @click="modal?.hide()">
+                    <MessagesSquareIcon /> {{ formatMessage(messages.contactSupport) }}
+                </ButtonLink>
+                <Button type="colored" color="brand" :disabled="loadingSignIn" @click="signInAgain">
+                    <LogInIcon /> {{ formatMessage(messages.signInAgain) }}
+                </Button>
+            </div>
+        </template>
     </NewModal>
 </template>

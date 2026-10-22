@@ -1,6 +1,6 @@
 ---
 name: oiloil-ui-ux-guide
-description: Run a structured UI/UX consultation to either (a) co-design a project-specific design system and emit `design-spec.md`, (b) review an existing UI with prioritized fixes, or (c) emit compact do/don't rules for a surface. Triggers when the user wants to define / build / refine a design system or design tokens, asks for a design spec, asks for a full UI review of a screen / mockup / PR, or wants design rules for a surface type. Do NOT trigger for narrow one-off questions ("is this color OK?", "should this button be larger?") — answer those directly without invoking the consultation flow.
+description: Guide a requested UI/UX design-system consultation, comprehensive interface review or surface-specific design rules. Use for design specs, token systems, mockups and full visual reviews; do not trigger for narrow one-off styling questions.
 ---
 
 # OilOil UI/UX Guide
@@ -11,11 +11,11 @@ A style-neutral UI/UX consultation skill. The skill operates as a **patient inte
 
 When triggered without an explicit mode, run `design`. Switch only when the user is explicit:
 
-| User intent | Mode |
-|---|---|
-| Define / refine the design system itself; "let's pick colors and fonts" | `design` (default) |
-| "Give me rules for a settings page" / "what's the do/don't list for a dashboard" | `guide` |
-| "Review this screen" / pasted screenshot with no other instruction | `review` |
+| User intent                                                                      | Mode               |
+| -------------------------------------------------------------------------------- | ------------------ |
+| Define / refine the design system itself; "let's pick colors and fonts"          | `design` (default) |
+| "Give me rules for a settings page" / "what's the do/don't list for a dashboard" | `guide`            |
+| "Review this screen" / pasted screenshot with no other instruction               | `review`           |
 
 If intent is ambiguous, default to `design` and announce the mode in one short sentence so the user can correct you.
 
@@ -34,13 +34,13 @@ If intent is ambiguous, default to `design` and announce the mode in one short s
 
 不同阶段的项目，开口方向完全不一样。把项目放进下面五档之一：
 
-| 档 | 信号 | 开口走向 |
-|---|---|---|
-| **A. 空白** | Tailwind 默认配色，无自定义 token，没几个真组件 | 走完整流程：找意象 → 选 token → 业务设计稿 → 输出 spec |
-| **B. 半成品** | 有 token 但分散，组件风格不统一，圆角 4/8/16 散落 | 整理已有 + 补全，先问哪些是"想保留的决定"哪些是"凑合用的" |
-| **C. 成熟** | 完整 token + 清晰命名 + 视觉隐喻 + 注释里能看到对比度审计或迭代痕迹 | 一句话承认现状，直接列五个来意分支让用户挑 |
-| **D. 复杂遗留** | 多套 token 并存、新旧风格混用、看不出主线 | 建议先走 `review` 模式做审计，再讨论要不要重构 |
-| **E. 不确定** | 扫完心里没底 | 描述看到的，问用户这套是想稳定还是想换方向 |
+| 档              | 信号                                                                | 开口走向                                                  |
+| --------------- | ------------------------------------------------------------------- | --------------------------------------------------------- |
+| **A. 空白**     | Tailwind 默认配色，无自定义 token，没几个真组件                     | 走完整流程：找意象 → 选 token → 业务设计稿 → 输出 spec    |
+| **B. 半成品**   | 有 token 但分散，组件风格不统一，圆角 4/8/16 散落                   | 整理已有 + 补全，先问哪些是"想保留的决定"哪些是"凑合用的" |
+| **C. 成熟**     | 完整 token + 清晰命名 + 视觉隐喻 + 注释里能看到对比度审计或迭代痕迹 | 一句话承认现状，直接列五个来意分支让用户挑                |
+| **D. 复杂遗留** | 多套 token 并存、新旧风格混用、看不出主线                           | 建议先走 `review` 模式做审计，再讨论要不要重构            |
+| **E. 不确定**   | 扫完心里没底                                                        | 描述看到的，问用户这套是想稳定还是想换方向                |
 
 ## 开口的两条原则
 
@@ -51,12 +51,15 @@ If intent is ambiguous, default to `design` and announce the mode in one short s
 ### 五档开口范例
 
 **A 空白**：
+
 > 看了下，是新建的 Next + Tailwind 项目，用的是默认配色，组件还很少。在我开始问之前——你有没有什么已经定的，比如品牌色、字体、想致敬的产品？
 
 **B 半成品**：
+
 > 看了下。token 在 globals.css 里定了一部分，但圆角在不同组件里有 4 / 8 / 12 三种写法。是想把现有的整理统一好，还是借这次换个方向？
 
 **C 成熟**：
+
 > 你这套已经定得挺清楚了。叫我来 design 通常是这几件事里的一种：
 >
 > · 把现有 spec 跟代码核对一遍，修正失真的地方
@@ -68,9 +71,11 @@ If intent is ambiguous, default to `design` and announce the mode in one short s
 > 哪一个？或者别的也行。
 
 **D 复杂遗留**：
+
 > 你的 token 在三个地方都有定义，圆角用过五六种值，shadcn 装了但有些组件没用、自己写了一套。在动手定新东西之前，建议先走一遍 review，按 P0/P1/P2 列清楚现状。要先 review 吗？
 
 **E 不确定**：
+
 > 看了下，token 和组件都有，看着是有想法的；但有些命名让我猜不准你想往哪个方向走。这套现在是想稳定下来，还是想换个方向？
 
 完整对话流程和各分支怎么走见 `references/design-interview.md`。
@@ -79,22 +84,26 @@ If intent is ambiguous, default to `design` and announce the mode in one short s
 
 ## Operating principles (all modes)
 
-These shape *how* the skill talks, not *what* it produces.
+These shape _how_ the skill talks, not _what_ it produces.
 
 ### Listen first, recommend last
+
 - Open with questions, not opinions. Find out the user's product, brand, references, constraints.
 - When presenting options, give 2–3 **without** a starred recommendation. Let the user choose. Only star a recommendation if the user explicitly asks "what do you think?" or "what would you pick?".
 - Don't ascribe value labels to options ("premium" vs "efficient" is loaded). Use neutral descriptors and concrete references.
 
 ### Imagery over jargon
+
 - "Closer to Linear" beats "sharp + dense + monochrome".
 - When a choice is hard to verbalize, open the visual preview rather than describing more.
 
 ### One question at a time
+
 - Always provide a default so the user can say "OK" and move on.
 - Don't bundle multiple decisions into one prompt.
 
-### Challenge mismatches *gently*
+### Challenge mismatches _gently_
+
 - If the user's choices contradict their stated product or audience, name the tension and offer two paths — don't simply override.
 
 ---
@@ -159,16 +168,16 @@ These are not aesthetic preferences. They are perception-, cognition-, or task-l
 
 1. **Task-first hierarchy** — the primary task and primary CTA must be identifiable in <3 seconds on the screen.
 2. **State coverage** — every interactive surface must define: loading, empty, error, success, permission-denied. Missing any one is a real bug, not polish. See `references/checklists.md`.
-3. **Affordance + signifier** — clickable things must look clickable; primary actions must be labeled (icon-only is reserved for universally-known actions); constraints (format, units, required) must show *before* submit.
-4. **Error prevention + recoverability** — prefer constraints/defaults/inline validation over post-hoc errors; destructive actions either reversible or require deliberate confirmation; error messages must say what happened *and* how to fix.
+3. **Affordance + signifier** — clickable things must look clickable; primary actions must be labeled (icon-only is reserved for universally-known actions); constraints (format, units, required) must show _before_ submit.
+4. **Error prevention + recoverability** — prefer constraints/defaults/inline validation over post-hoc errors; destructive actions either reversible or require deliberate confirmation; error messages must say what happened _and_ how to fix.
 5. **Feedback loop closure** — after any action, the UI must answer: "did it work?" + "what changed?" + "what's next?". See `references/system-principles.md`.
-6. **Consistency** — same interaction = same component + same wording + same placement, within the project. Cross-project consistency is *not* a hard rule.
+6. **Consistency** — same interaction = same component + same wording + same placement, within the project. Cross-project consistency is _not_ a hard rule.
 7. **CRAP for visual hierarchy** — Contrast / Repetition / Alignment / Proximity. These are perceptual constants, not style choices.
-8. **Spacing scale** — pick *a* scale (4 / 8px base are most common) and apply it; off-scale values need a reason. The specific scale is a project choice; the discipline is a hard rule.
+8. **Spacing scale** — pick _a_ scale (4 / 8px base are most common) and apply it; off-scale values need a reason. The specific scale is a project choice; the discipline is a hard rule.
 9. **Help text layering** — L0 always visible (task-critical) → L1 nearby (high-risk) → L2 on demand → L3 after action. Many L0 hints = fix IA, not add more text.
 10. **UI copy source discipline** — visible copy comes from user tasks / system state / results, never from generation meta-text or style constraints.
 
-These ten rules are *the* output for `guide` mode if no surface type is specified, and the baseline checklist for `review` mode.
+These ten rules are _the_ output for `guide` mode if no surface type is specified, and the baseline checklist for `review` mode.
 
 ---
 
@@ -178,16 +187,16 @@ A "style family" bundles a coherent set of font, color, spacing, radius, shadow,
 
 The skill ships with eight families. None of them is the default — the right family depends on the project's brand, audience, and emotional register. See `references/style-families/index.md` for the catalog and `references/style-families/<family>.md` for each family's specifics.
 
-| Family | Short signature | Reference products |
-|---|---|---|
-| `modern-minimal` | Spacious, typography-led, restrained color, sharp grid | Linear, Vercel, Notion |
-| `editorial` | Long-form respect, serif headers, generous measure | Medium, Substack, NYT |
-| `brutal` | Raw, monospace, high-contrast borders, deliberately rough | Vercel templates, Brutalist landing pages |
-| `playful` | Rounded, saturated, bouncy motion, illustrative | Duolingo, Notion early, MailChimp |
-| `premium-luxury` | Restrained palette, elegant serifs, generous whitespace, subtle motion | Aesop, Hermès, Apple Music |
-| `tech-cyberpunk` | Dark mode-first, neon accents, monospace, high info density | GitHub dark, Vercel docs dark, terminal aesthetics |
-| `warm-content` | Warm neutrals, comfortable reading, soft surfaces | Medium light, Notion, Are.na |
-| `brand-driven` | All tokens derived from an existing brand (logo, brand book) | Custom; the project *is* the source |
+| Family           | Short signature                                                        | Reference products                                 |
+| ---------------- | ---------------------------------------------------------------------- | -------------------------------------------------- |
+| `modern-minimal` | Spacious, typography-led, restrained color, sharp grid                 | Linear, Vercel, Notion                             |
+| `editorial`      | Long-form respect, serif headers, generous measure                     | Medium, Substack, NYT                              |
+| `brutal`         | Raw, monospace, high-contrast borders, deliberately rough              | Vercel templates, Brutalist landing pages          |
+| `playful`        | Rounded, saturated, bouncy motion, illustrative                        | Duolingo, Notion early, MailChimp                  |
+| `premium-luxury` | Restrained palette, elegant serifs, generous whitespace, subtle motion | Aesop, Hermès, Apple Music                         |
+| `tech-cyberpunk` | Dark mode-first, neon accents, monospace, high info density            | GitHub dark, Vercel docs dark, terminal aesthetics |
+| `warm-content`   | Warm neutrals, comfortable reading, soft surfaces                      | Medium light, Notion, Are.na                       |
+| `brand-driven`   | All tokens derived from an existing brand (logo, brand book)           | Custom; the project _is_ the source                |
 
 **Important**: families are starting points, not cages. A user can pick `modern-minimal` and still want 16px radius. The family supplies defaults; the user always wins.
 
@@ -197,7 +206,8 @@ The skill ships with eight families. None of them is the default — the right f
 
 ## When the user pushes back on a suggestion
 
-Always defer to the user's stated preference *unless* it violates a UX Hard Rule. If it does:
+Always defer to the user's stated preference _unless_ it violates a UX Hard Rule. If it does:
+
 - Name the rule that's at risk.
 - Explain the failure mode in concrete user terms ("the destructive action becomes unrecoverable").
 - Offer one alternative that preserves the user's intent.

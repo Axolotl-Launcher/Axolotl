@@ -7,8 +7,8 @@ use crate::event::{
 #[cfg(feature = "tauri")]
 use crate::event::{
     InstanceGroupsChangedPayload, InstancePayload, JavaDiscoveryPayload,
-    JavaDownloadConfirmationPayload, LoadingPayload, LogShareAiEventPayload,
-    ProcessPayload, ServerPayload, WarningPayload,
+    JavaDownloadConfirmationPayload, LoadingPayload, ProcessPayload,
+    ServerPayload, WarningPayload,
 };
 use futures::prelude::*;
 use serde_json::Value;
@@ -463,30 +463,6 @@ pub async fn emit_notification(payload: Value) -> crate::Result<()> {
             .map_err(EventError::from)?;
     }
 
-    Ok(())
-}
-
-#[allow(unused_variables)]
-pub async fn emit_logshare_ai_event(
-    instance_id: &str,
-    event_type: &str,
-    data: Value,
-) -> crate::Result<()> {
-    #[cfg(feature = "tauri")]
-    {
-        let event_state = crate::EventState::get()?;
-        event_state
-            .app
-            .emit(
-                "logshare_ai",
-                LogShareAiEventPayload {
-                    instance_id: instance_id.to_string(),
-                    event_type: event_type.to_string(),
-                    data,
-                },
-            )
-            .map_err(EventError::from)?;
-    }
     Ok(())
 }
 

@@ -6,7 +6,12 @@ import type { GameInstance } from '@/helpers/types'
 
 import GridDisplay from './GridDisplay.vue'
 
-const backend = vi.hoisted(() => ({ remove: vi.fn(), instances: [] as string[] }))
+const backend = vi.hoisted(() => ({
+    remove: vi.fn(),
+    instances: [] as string[],
+    processes: vi.fn(async () => []),
+    processListener: vi.fn(async () => () => {}),
+}))
 vi.mock('@/helpers/instance', () => ({
     remove: backend.remove,
     kill: vi.fn(),
@@ -14,7 +19,14 @@ vi.mock('@/helpers/instance', () => ({
     set_pinned: vi.fn(),
 }))
 vi.mock('@/helpers/instance-backup', () => ({ getBackupDeleteSummary: async () => null }))
-vi.mock('@/helpers/events', () => ({ instance_groups_listener: vi.fn() }))
+vi.mock('@/helpers/events', () => ({
+    instance_groups_listener: async () => () => {},
+    process_listener: backend.processListener,
+}))
+vi.mock('@/helpers/process', () => ({
+    get_all: backend.processes,
+    get_by_instance_id: async () => [],
+}))
 vi.mock('@/helpers/instance-groups', () => ({
     list_groups: async () => [{ id: 'a', name: 'Group A' }],
     create_group: vi.fn(),
@@ -28,6 +40,7 @@ vi.mock('@/helpers/install', () => ({ install_duplicate_instance: vi.fn() }))
 vi.mock('@/helpers/analytics', () => ({ trackEvent: vi.fn() }))
 vi.mock('@/helpers/utils.js', () => ({ showInstanceInFolder: vi.fn() }))
 vi.mock('@/components/ui/modal/InstanceGroupModal.vue', () => ({ default: { render: () => null } }))
+vi.mock('@/components/ui/InstanceIcon.vue', () => ({ default: { render: () => null } }))
 vi.mock('@/components/ui/ContextMenu.vue', () => ({ default: { render: () => null } }))
 vi.mock('@dnd-kit/vue', async () => {
     const { defineComponent, h } = await import('vue')
@@ -44,28 +57,43 @@ vi.mock('@/components/ui/library/InstanceGroup.vue', async () => {
     const { defineComponent, h } = await import('vue')
     return {
         default: defineComponent({
-            props: ['instances', 'sectionKey', 'isCollapsed', 'selectedInstanceIds'],
+            props: [
+                'instances',
+                'sectionKey',
+                'isCollapsed',
+                'selectedInstanceIds',
+                'runningInstanceIds',
+            ],
             setup:
                 (props, { emit }) =>
                 () =>
-                    h('section', [
-                        h(
-                            'button',
-                            { onClick: () => emit('toggle-collapse', props.sectionKey) },
-                            'Collapse',
-                        ),
-                        ...(props.isCollapsed
-                            ? []
-                            : props.instances.map((instance: Pick<GameInstance, 'id' | 'name'>) =>
-                                  h('input', {
-                                      type: 'checkbox',
-                                      'aria-label': instance.name,
-                                      checked: props.selectedInstanceIds.has(instance.id),
-                                      onClick: (event: MouseEvent) =>
-                                          emit('handle-checkbox-click', instance.id, event),
-                                  }),
-                              )),
-                    ]),
+                    h(
+                        'section',
+                        {
+                            'data-running-supplied': String(
+                                props.runningInstanceIds instanceof Set,
+                            ),
+                        },
+                        [
+                            h(
+                                'button',
+                                { onClick: () => emit('toggle-collapse', props.sectionKey) },
+                                'Collapse',
+                            ),
+                            ...(props.isCollapsed
+                                ? []
+                                : props.instances.map(
+                                      (instance: Pick<GameInstance, 'id' | 'name'>) =>
+                                          h('input', {
+                                              type: 'checkbox',
+                                              'aria-label': instance.name,
+                                              checked: props.selectedInstanceIds.has(instance.id),
+                                              onClick: (event: MouseEvent) =>
+                                                  emit('handle-checkbox-click', instance.id, event),
+                                          }),
+                                  )),
+                        ],
+                    ),
         }),
     }
 })
@@ -105,6 +133,46 @@ vi.mock('@modrinth/ui', async () => {
                             emit('update:modelValue', (event.target as HTMLInputElement).value),
                     }),
         }),
+        ConfirmActionModal: defineComponent({
+            props: ['confirmAction', 'confirmLabel'],
+            setup: (props, { slots, expose }) => {
+                const visible = ref(false)
+                const busy = ref(false)
+                const error = ref(false)
+                expose({
+                    show: () => {
+                        visible.value = true
+                        error.value = false
+                    },
+                })
+                return () =>
+                    visible.value
+                        ? h('dialog', { open: true }, [
+                              slots.default?.(),
+                              error.value ? h('p', 'Deletion failed') : null,
+                              h(
+                                  'button',
+                                  {
+                                      disabled: busy.value,
+                                      onClick: async () => {
+                                          if (busy.value) return
+                                          busy.value = true
+                                          try {
+                                              await props.confirmAction()
+                                              visible.value = false
+                                          } catch {
+                                              error.value = true
+                                          } finally {
+                                              busy.value = false
+                                          }
+                                      },
+                                  },
+                                  props.confirmLabel,
+                              ),
+                          ])
+                        : null
+            },
+        }),
         NewModal: defineComponent({
             setup: (_, { slots, expose }) => {
                 const visible = ref(false)
@@ -138,6 +206,38 @@ const mounted: ReturnType<typeof mount>[] = []
 afterEach(() => {
     mounted.splice(0).forEach((wrapper) => wrapper.unmount())
     localStorage.clear()
+    backend.processes.mockReset().mockResolvedValue([])
+    backend.processListener.mockReset().mockResolvedValue(() => {})
+})
+
+it('does not register a process listener after unmount during the initial read', async () => {
+    let finish!: (value: []) => void
+    backend.processes.mockReturnValueOnce(
+        new Promise((resolve) => {
+            finish = resolve
+        }),
+    )
+    const wrapper = mount(GridDisplay, { props: { instances: [] } })
+    wrapper.unmount()
+    finish([])
+    await flushPromises()
+    expect(backend.processListener).not.toHaveBeenCalled()
+})
+
+it('immediately releases a process listener that registers after unmount', async () => {
+    let finish!: (value: () => void) => void
+    backend.processListener.mockReturnValueOnce(
+        new Promise((resolve) => {
+            finish = resolve
+        }),
+    )
+    const wrapper = mount(GridDisplay, { props: { instances: [] } })
+    await flushPromises()
+    wrapper.unmount()
+    const dispose = vi.fn()
+    finish(dispose)
+    await flushPromises()
+    expect(dispose).toHaveBeenCalledOnce()
 })
 
 async function library() {
@@ -219,4 +319,21 @@ it('lists every batch target and preserves a failed deletion for retry', async (
     expect(backend.instances).toEqual(['beta'])
     expect(wrapper.get<HTMLInputElement>('input[aria-label="Alpha"]').element.checked).toBe(false)
     expect(wrapper.get<HTMLInputElement>('input[aria-label="Beta"]').element.checked).toBe(true)
+    expect(wrapper.get('dialog').text()).toContain('Deletion failed')
+    expect(wrapper.get('dialog').text()).not.toContain('Alpha')
+    backend.remove.mockImplementation(async (id: string) => {
+        backend.instances = backend.instances.filter((existing) => existing !== id)
+    })
+    await button(wrapper, 'Delete instance').trigger('click')
+    await flushPromises()
+    expect(backend.instances).toEqual([])
+    expect(wrapper.find('dialog').exists()).toBe(false)
+    expect(backend.remove.mock.calls.filter(([id]) => id === 'alpha')).toHaveLength(1)
+})
+
+it('supplies the shared running-process set to every instance group', async () => {
+    const wrapper = await library()
+    const groups = wrapper.findAll('[data-running-supplied]')
+    expect(groups.length).toBeGreaterThan(0)
+    for (const group of groups) expect(group.attributes('data-running-supplied')).toBe('true')
 })

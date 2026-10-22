@@ -19,8 +19,18 @@ import {
     Toggle,
     useVIntl,
 } from '@modrinth/ui'
-import { computed, onBeforeUnmount, reactive, ref, shallowRef, useTemplateRef, watch } from 'vue'
+import {
+    computed,
+    inject,
+    onBeforeUnmount,
+    reactive,
+    ref,
+    shallowRef,
+    useTemplateRef,
+    watch,
+} from 'vue'
 
+import BrewingRecipeOptions from '@/components/lab/recipe-generator/BrewingRecipeOptions.vue'
 import InstanceExportModal from '@/components/lab/recipe-generator/InstanceExportModal.vue'
 import ItemPalette, { type PaletteEntry } from '@/components/lab/recipe-generator/ItemPalette.vue'
 import RecipeGeneratorCopyrightModal from '@/components/lab/recipe-generator/RecipeGeneratorCopyrightModal.vue'
@@ -28,6 +38,8 @@ import RecipeItemIcon from '@/components/lab/recipe-generator/RecipeItemIcon.vue
 import RecipeSlotGrid from '@/components/lab/recipe-generator/RecipeSlotGrid.vue'
 import TagPalette from '@/components/lab/recipe-generator/TagPalette.vue'
 import { useResultCountWheel } from '@/composables/lab/useResultCountWheel'
+import { createRequestGeneration } from '@/helpers/request-generation'
+import potionItems from '@/lab/recipe-generator/assets/vanilla/potion-items.json'
 import { drawCountOnCanvas } from '@/lab/recipe-generator/count-display'
 import {
     createDatapackDescription,
@@ -44,6 +56,12 @@ import { exportDatapackToWorld } from '@/lab/recipe-generator/instance-export'
 import { resolveRecipeItemName } from '@/lab/recipe-generator/item-names'
 import { categoryMessages, recipeTypeMessages } from '@/lab/recipe-generator/messages'
 import { getCurrentRecipeName } from '@/lab/recipe-generator/naming'
+import {
+    createDefaultRecipeState,
+    loadRecipeProject,
+    RECIPE_PROJECT_STORAGE_KEY,
+    switchRecipeProjectVersion,
+} from '@/lab/recipe-generator/project'
 import { CRAFTING_GRID_SLOTS, generateJavaRecipe } from '@/lab/recipe-generator/recipe-engine'
 import {
     getRecipeLayout,
@@ -61,7 +79,6 @@ import type {
     CustomItem,
     CustomTag,
     JavaVersionId,
-    RecipeGeneratorStore,
     RecipeSlot,
     RecipeSlotContext,
     RecipeState,
@@ -70,12 +87,11 @@ import type {
 } from '@/lab/recipe-generator/types'
 import { type RecipeIssueCode, validateRecipe } from '@/lab/recipe-generator/validation'
 import {
-    coerceRecipeTypeForVersion,
     DEFAULT_COOKING_TIME,
+    defaultCookingTime,
     getRecipeCategoryOptions,
     getSupportedRecipeTypes,
     JAVA_VERSIONS,
-    LATEST_JAVA_VERSION,
     supportsCustomTags,
     supportsRecipeCategory,
     supportsShowNotification,
@@ -86,56 +102,28 @@ import {
 const { addNotification, handleError } = injectNotificationManager()
 const { formatMessage, locale } = useVIntl()
 
-function createDefaultRecipeState(type: RecipeState['recipeType'] = 'crafting'): RecipeState {
-    return {
-        id: crypto.randomUUID(),
-        recipeType: type,
-        group: '',
-        category: '',
-        showNotification: true,
-        nameMode: 'auto',
-        name: '',
-        slots: {},
-        crafting: {
-            shapeless: false,
-            keepWhitespace: false,
-            twoByTwo: false,
-        },
-        cooking: {
-            time: null,
-            experience: 0,
-        },
-        smithing: {
-            trimPattern: '',
-        },
-    }
-}
+const store = reactive(loadRecipeProject())
+const replayOnboarding = inject<(mode: 'brewing') => Promise<void>>('replayOnboarding')
+let projectSaveTimer: ReturnType<typeof setTimeout> | undefined
+watch(
+    store,
+    () => {
+        if (projectSaveTimer) clearTimeout(projectSaveTimer)
+        projectSaveTimer = setTimeout(() => {
+            try {
+                localStorage.setItem(RECIPE_PROJECT_STORAGE_KEY, JSON.stringify(store))
+            } catch (error) {
+                handleError(error)
+            }
+        }, 350)
+    },
+    { deep: true },
+)
 
-function createDefaultRecipeGeneratorStore(): RecipeGeneratorStore {
-    const recipe = createDefaultRecipeState()
-    return {
-        version: 1,
-        selectedVersion: LATEST_JAVA_VERSION,
-        recipes: [recipe],
-        selectedRecipeId: recipe.id,
-        customItems: [],
-        customTags: [],
-    }
-}
-
-function ensureRecipeTypeForVersion(recipes: RecipeState[], version: JavaVersionId): RecipeState[] {
-    const supported = new Set(getSupportedRecipeTypes(version))
-    return recipes.map((recipe) =>
-        supported.has(recipe.recipeType)
-            ? recipe
-            : { ...recipe, recipeType: coerceRecipeTypeForVersion(recipe.recipeType, version) },
-    )
-}
-
-const store = reactive(createDefaultRecipeGeneratorStore())
 const resources = shallowRef<LoadedVersionResources | null>(null)
 const loadingResources = ref(false)
 const resourceError = ref('')
+const resourceRequests = createRequestGeneration()
 const rightTab = ref<'items' | 'tags'>('items')
 const pendingDatapack = ref<{ files: PackFile[]; fileName: string } | null>(null)
 const customItemDraft = reactive({ uid: '', id: '', name: '', texture: '' })
@@ -146,6 +134,15 @@ const instanceExportModal =
     useTemplateRef<InstanceType<typeof InstanceExportModal>>('instanceExportModal')
 
 const messages = defineMessages({
+    issueInvalidCount: {
+        id: 'app.lab.recipe-generator.issue.invalid-result-count',
+        defaultMessage: 'Output count must be an integer from 1 to 99.',
+    },
+    brewingCount: { id: 'app.lab.recipe-generator.brewing.count', defaultMessage: 'Output count' },
+    issueInvalidBrewingJson: {
+        id: 'app.lab.recipe-generator.issue.invalid-brewing-json',
+        defaultMessage: 'Brewing predicates and components must contain valid JSON objects.',
+    },
     title: { id: 'app.lab.recipe-generator.title', defaultMessage: 'Recipe generator' },
     version: { id: 'app.lab.recipe-generator.version', defaultMessage: 'Version' },
     versionLabel: {
@@ -405,6 +402,8 @@ const issueMessages: Record<RecipeIssueCode, MessageDescriptor> = {
     'missing-custom-tag': messages.issueMissingCustomTag,
     'invalid-identifier': messages.issueInvalidIdentifier,
     'tags-not-supported': messages.issueTagsNotSupported,
+    'invalid-brewing-json': messages.issueInvalidBrewingJson,
+    'invalid-result-count': messages.issueInvalidCount,
 }
 
 const currentRecipe = computed(
@@ -506,6 +505,8 @@ const autoPlaceSlots = computed<RecipeSlot[]>(() => {
         case 'smoking':
         case 'campfire_cooking':
             return ['cooking.ingredient']
+        case 'brewing':
+            return ['brewing.input', 'brewing.reagent']
         case 'stonecutter':
             return ['stonecutter.ingredient']
         case 'smithing':
@@ -595,6 +596,8 @@ const resultCountSlot = computed<RecipeSlot | null>(() => {
     switch (currentRecipe.value?.recipeType) {
         case 'crafting':
             return 'crafting.result'
+        case 'brewing':
+            return 'brewing.result'
         case 'stonecutter':
             return 'stonecutter.result'
         default:
@@ -603,6 +606,7 @@ const resultCountSlot = computed<RecipeSlot | null>(() => {
 })
 const { hint: resultWheelHintRef, onWheel: onResultSlotWheel } = useResultCountWheel({
     getSlot: () => resultCountSlot.value,
+    getMaximum: () => (currentRecipe.value?.recipeType === 'brewing' ? 99 : 64),
     getValue: () => {
         const slot = resultCountSlot.value
         return slot ? currentRecipe.value?.slots[slot] : undefined
@@ -675,17 +679,19 @@ watch(
 onBeforeUnmount(() => {
     layoutStageObserver?.disconnect()
     recipeEditorObserver?.disconnect()
+    if (projectSaveTimer) clearTimeout(projectSaveTimer)
+    try {
+        localStorage.setItem(RECIPE_PROJECT_STORAGE_KEY, JSON.stringify(store))
+    } catch (error) {
+        handleError(error)
+    }
 })
 
 watch(
     () => store.selectedVersion,
     (version, previous) => {
         if (previous === version) return
-        const nextRecipes = ensureRecipeTypeForVersion(store.recipes, version)
-        store.recipes = nextRecipes
-        if (!nextRecipes.some((recipe) => recipe.id === store.selectedRecipeId)) {
-            store.selectedRecipeId = nextRecipes[0]?.id ?? ''
-        }
+        if (previous) switchRecipeProjectVersion(store, version, previous)
         loadResources(version)
     },
     { immediate: true },
@@ -704,15 +710,28 @@ watch(
 )
 
 async function loadResources(version: JavaVersionId) {
+    const request = resourceRequests.begin(version)
     loadingResources.value = true
     resourceError.value = ''
     try {
-        resources.value = await loadVersionResources(version)
+        const result = await loadVersionResources(version)
+        if (
+            !resourceRequests.isCurrent(request, store.selectedVersion) ||
+            version !== store.selectedVersion
+        )
+            return
+        resources.value = result
     } catch (error) {
+        if (
+            !resourceRequests.isCurrent(request, store.selectedVersion) ||
+            version !== store.selectedVersion
+        )
+            return
         resources.value = null
         resourceError.value = error instanceof Error ? error.message : String(error)
     } finally {
-        loadingResources.value = false
+        if (resourceRequests.isCurrent(request, store.selectedVersion))
+            loadingResources.value = false
     }
 }
 
@@ -830,7 +849,21 @@ function scaledSlotIconSize(box: RecipeLayoutSlotBox) {
 function slotDisplayFor(slot: RecipeSlot): SlotDisplay | null {
     const recipe = currentRecipe.value
     const ctx = slotContext.value
-    return recipe && ctx ? getSlotDisplay(recipe.slots[slot], ctx) : null
+    const display = recipe && ctx ? getSlotDisplay(recipe.slots[slot], ctx) : null
+    const value = recipe?.slots[slot]
+    const potion =
+        slot === 'brewing.input'
+            ? recipe?.brewing?.inputPotion
+            : slot === 'brewing.reagent'
+              ? recipe?.brewing?.reagentPotion
+              : slot === 'brewing.result'
+                ? recipe?.brewing?.outputPotion
+                : undefined
+    const variant =
+        value?.kind === 'item' && potion
+            ? potionItems.find((item) => item.id === value.id && item.potion === potion)
+            : undefined
+    return display && variant ? { ...display, texture: variant.texture } : display
 }
 
 function isSlotValue(value: unknown): value is SlotValue {
@@ -943,8 +976,10 @@ function toggleDefaultTime(value: boolean) {
     if (!recipe) return
     if (value) recipe.cooking.time = null
     else if (recipe.recipeType in DEFAULT_COOKING_TIME) {
-        recipe.cooking.time =
-            DEFAULT_COOKING_TIME[recipe.recipeType as keyof typeof DEFAULT_COOKING_TIME]
+        recipe.cooking.time = defaultCookingTime(
+            recipe.recipeType as keyof typeof DEFAULT_COOKING_TIME,
+            store.selectedVersion,
+        )
     }
 }
 
@@ -1227,17 +1262,13 @@ function buildDatapackFiles(): PackFile[] | null {
 async function installDatapackToWorld(target: { instanceId: string; worldPath: string }) {
     const pending = pendingDatapack.value
     if (!pending) return
-    try {
-        await exportDatapackToWorld(
-            target.instanceId,
-            target.worldPath,
-            pending.files,
-            pending.fileName,
-        )
-        addNotification({ type: 'success', title: formatMessage(messages.exportDatapackDone) })
-    } catch (error) {
-        handleError(error)
-    }
+    await exportDatapackToWorld(
+        target.instanceId,
+        target.worldPath,
+        pending.files,
+        pending.fileName,
+    )
+    addNotification({ type: 'success', title: formatMessage(messages.exportDatapackDone) })
 }
 
 function sidebarTitle(recipe: RecipeState): string {
@@ -1253,6 +1284,8 @@ function issueLabel(code: RecipeIssueCode) {
 
 function slotEditorSlots(type: RecipeType): RecipeSlot[] {
     switch (type) {
+        case 'brewing':
+            return ['brewing.input', 'brewing.reagent', 'brewing.result']
         case 'crafting':
             return [...CRAFTING_GRID_SLOTS, 'crafting.result']
         case 'smelting':
@@ -1382,7 +1415,7 @@ function slotEditorSlots(type: RecipeType): RecipeSlot[] {
                                         label: recipeTypeLabel(value),
                                     }))
                                 "
-                                class="w-full"
+                                width="full"
                                 @update:model-value="setRecipeType(String($event) as RecipeType)"
                             />
                         </div>
@@ -1408,7 +1441,7 @@ function slotEditorSlots(type: RecipeType): RecipeSlot[] {
                                         label: categoryLabel(value),
                                     }))
                                 "
-                                class="w-full"
+                                width="full"
                             />
                         </div>
                         <div class="recipe-field">
@@ -1423,7 +1456,7 @@ function slotEditorSlots(type: RecipeType): RecipeSlot[] {
                                         label: nameModeLabel(value),
                                     }))
                                 "
-                                class="w-full"
+                                width="full"
                             />
                         </div>
                         <div v-if="currentRecipe.nameMode === 'manual'" class="recipe-field">
@@ -1474,7 +1507,9 @@ function slotEditorSlots(type: RecipeType): RecipeSlot[] {
                             }}</span>
                             <StyledInput
                                 :model-value="String(currentRecipe.cooking.experience)"
-                                :input-attrs="{ type: 'number', min: 0, step: 0.05 }"
+                                type="number"
+                                :min="0"
+                                :step="0.05"
                                 size="small"
                                 @update:model-value="
                                     currentRecipe.cooking.experience = Math.max(
@@ -1492,14 +1527,16 @@ function slotEditorSlots(type: RecipeType): RecipeSlot[] {
                                 :model-value="
                                     currentRecipe.cooking.time === null
                                         ? String(
-                                              DEFAULT_COOKING_TIME[
-                                                  currentRecipe.recipeType as keyof typeof DEFAULT_COOKING_TIME
-                                              ],
+                                              defaultCookingTime(
+                                                  currentRecipe.recipeType as keyof typeof DEFAULT_COOKING_TIME,
+                                                  store.selectedVersion,
+                                              ),
                                           )
                                         : String(currentRecipe.cooking.time)
                                 "
                                 :disabled="cookingTimeIsDefault"
-                                :input-attrs="{ type: 'number', min: 1 }"
+                                type="number"
+                                :min="1"
                                 size="small"
                                 @update:model-value="
                                     currentRecipe.cooking.time = Math.max(
@@ -1516,6 +1553,35 @@ function slotEditorSlots(type: RecipeType): RecipeSlot[] {
                         />
                     </div>
 
+                    <label
+                        v-if="currentRecipe.recipeType === 'brewing'"
+                        class="flex items-center justify-between gap-3 text-sm"
+                        ><span>{{ formatMessage(messages.brewingCount) }}</span
+                        ><StyledInput
+                            :model-value="
+                                String(
+                                    currentRecipe.slots['brewing.result'] &&
+                                        'count' in currentRecipe.slots['brewing.result']!
+                                        ? (currentRecipe.slots['brewing.result']!.count ?? 1)
+                                        : 1,
+                                )
+                            "
+                            type="number"
+                            :min="1"
+                            :max="99"
+                            :disabled="!currentRecipe.slots['brewing.result']"
+                            @update:model-value="
+                                setSlotCount(
+                                    'brewing.result',
+                                    Math.max(1, Math.min(99, Math.floor(Number($event) || 1))),
+                                )
+                            "
+                    /></label>
+                    <BrewingRecipeOptions
+                        v-if="currentRecipe.recipeType === 'brewing' && currentRecipe.brewing"
+                        v-model="currentRecipe.brewing"
+                        @guide="replayOnboarding?.('brewing')"
+                    />
                     <label v-if="showNotificationOption" class="recipe-toggle-row">
                         <span>{{ formatMessage(messages.showNotification) }}</span>
                         <Toggle v-model="currentRecipe.showNotification" small />
@@ -1830,7 +1896,7 @@ function slotEditorSlots(type: RecipeType): RecipeSlot[] {
         <RecipeGeneratorCopyrightModal ref="copyrightModal" />
         <InstanceExportModal
             ref="instanceExportModal"
-            @select="installDatapackToWorld"
+            :on-install="installDatapackToWorld"
             @save-as="saveAs"
         />
     </main>

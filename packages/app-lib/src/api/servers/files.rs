@@ -12,6 +12,8 @@ use crate::{ErrorKind, Result};
 
 use super::manifest::server_path;
 
+pub(super) use crate::util::io::safe_relative_join;
+
 const DOWNLOAD_PROGRESS_STEP: u64 = 512 * 1024;
 
 pub async fn read_file(server_id: &str, file: &str) -> Result<String> {
@@ -124,44 +126,7 @@ pub(super) async fn download_to_dir(
 
 async fn resolve_server_file(server_id: &str, file: &str) -> Result<PathBuf> {
     let dir = server_path(server_id).await?;
-    safe_join(&dir, file)
-}
-
-fn safe_join(dir: &Path, file: &str) -> Result<PathBuf> {
-    if file.is_empty()
-        || file.contains('\\')
-        || file.starts_with('/')
-        || file
-            .split('/')
-            .any(|segment| segment == ".." || segment.is_empty())
-    {
-        return Err(ErrorKind::InputError(format!(
-            "Invalid file name: {file}"
-        ))
-        .as_error());
-    }
-    Ok(dir.join(file))
-}
-
-/// Joins a relative path that may contain `/` separators but never escapes the
-/// server directory (no `..`, empty segments, or absolute/Windows roots).
-pub(super) fn safe_relative_join(dir: &Path, rel: &str) -> Result<PathBuf> {
-    let is_windows_drive_root =
-        rel.as_bytes().get(1).is_some_and(|byte| *byte == b':')
-            && rel.as_bytes().first().is_some_and(u8::is_ascii_alphabetic);
-    if rel.is_empty()
-        || Path::new(rel).is_absolute()
-        || is_windows_drive_root
-        || rel.starts_with('/')
-        || rel.starts_with('\\')
-        || rel.split(['/', '\\']).any(|segment| {
-            segment.is_empty() || segment == ".." || segment == "."
-        })
-    {
-        return Err(ErrorKind::InputError(format!("Invalid file path: {rel}"))
-            .as_error());
-    }
-    Ok(dir.join(rel))
+    safe_relative_join(&dir, file)
 }
 
 #[cfg(test)]
@@ -169,13 +134,34 @@ mod tests {
     use super::*;
 
     #[test]
-    fn safe_join_rejects_traversal() {
+    fn safe_relative_join_rejects_unsafe_paths() {
         let dir = Path::new("/tmp/servers/a");
-        assert!(safe_join(dir, "server.properties").is_ok());
-        assert!(safe_join(dir, "../secret").is_err());
-        assert!(safe_join(dir, "/etc/passwd").is_err());
-        assert!(safe_join(dir, "a//b").is_err());
-        assert!(safe_join(dir, "").is_err());
+        for path in [
+            "../secret",
+            "mods/../../secret",
+            r"..\secret",
+            r"mods/..\../secret",
+            "/etc/passwd",
+            "C:/windows/system32",
+            r"C:\windows\system32",
+            "C:secret",
+            r"\\server\share\secret",
+            r"\secret",
+            r"\\?\C:\secret",
+            "a//b",
+            "a/./b",
+            ".",
+            "",
+            "mods/.. /secret",
+            "mods/secret.",
+            "mods/secret ",
+            "mods/mod.jar:payload",
+            "NUL/secret",
+            "mods/CON.jar",
+            "mods/mod\0.jar",
+        ] {
+            assert!(safe_relative_join(dir, path).is_err(), "{path:?}");
+        }
     }
 
     #[test]

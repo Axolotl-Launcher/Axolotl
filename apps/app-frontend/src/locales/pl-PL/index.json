@@ -176,26 +176,14 @@
   "app.content-install.no-compatible-versions": {
     "message": "Nie znaleziono żadnych wersji pasujących do {compatibilityLabel}. Wybierz wersję, by zainstalować ją mimo tego. Zależności nie zostaną zainstalowane automatycznie."
   },
-  "app.export-modal.description-placeholder": {
-    "message": "Wprowadź opis paczki modów..."
-  },
   "app.export-modal.export-button": {
     "message": "Eksportuj"
-  },
-  "app.export-modal.header": {
-    "message": "Eksportuj paczkę modów"
   },
   "app.export-modal.modpack-name-label": {
     "message": "Nazwa paczki modów"
   },
-  "app.export-modal.modpack-name-placeholder": {
-    "message": "Nazwa paczki modów"
-  },
   "app.export-modal.version-number-label": {
     "message": "Numer wersji"
-  },
-  "app.export-modal.version-number-placeholder": {
-    "message": "1.0.0"
   },
   "app.install.phase.downloading_content": {
     "message": "Pobieranie zawartości"

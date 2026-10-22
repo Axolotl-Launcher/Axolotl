@@ -57,6 +57,11 @@
         table-layout="auto"
         @row-click="openVersionRow"
     >
+        <template #empty-state>
+            <p class="m-0 p-4 text-[var(--color-text-tertiary)]">
+                {{ formatMessage(messages.noMatchingVersions) }}
+            </p>
+        </template>
         <template #cell-channel="{ row: version }">
             <div class="flex items-center justify-center">
                 <VersionChannelIndicator
@@ -272,6 +277,9 @@
         v-if="versions.length > 0"
         class="flex flex-col gap-4 rounded-2xl bg-surface-3 p-5 sm:hidden"
     >
+        <p v-if="!filteredVersions.length" class="m-0 text-[var(--color-text-tertiary)]">
+            {{ formatMessage(messages.noMatchingVersions) }}
+        </p>
         <template v-for="(version, index) in currentVersions" :key="version.id ?? index">
             <div
                 class="h-px w-[calc(100%+2.5rem)] bg-surface-5 -ml-5"
@@ -511,7 +519,7 @@ import {
     VersionFilterControl,
 } from '@modrinth/ui'
 import { formatVersionsForDisplay, type GameVersionTag, type Version } from '@modrinth/utils'
-import { computed, type Ref, ref } from 'vue'
+import { computed, type Ref, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import { useRelativeTime } from '../../composables'
@@ -756,6 +764,18 @@ if (route.query.page) {
     currentPage.value = Number(route.query.page) || 1
 }
 
+watch(
+    [() => route.query.page, () => filteredVersions.value.length],
+    ([page]) => {
+        const requestedPage = Number(page) || 1
+        currentPage.value = Math.min(
+            Math.max(1, Math.floor(requestedPage)),
+            Math.max(1, Math.ceil(filteredVersions.value.length / pageSize.value)),
+        )
+    },
+    { immediate: true },
+)
+
 function switchPage(page: number) {
     currentPage.value = page
 
@@ -795,6 +815,10 @@ function updateQuery(newQueries: Record<string, string | string[] | undefined | 
 }
 
 const messages = defineMessages({
+    noMatchingVersions: {
+        id: 'project.versions.no-matching-versions',
+        defaultMessage: 'No versions match the selected filters.',
+    },
     withheld: {
         id: 'project.versions.version.withheld',
         defaultMessage: 'Withheld',

@@ -1,15 +1,22 @@
 //! Per-authority physical connection admission; transfer weights use the shared download semaphore.
 
+use crate::util::download::constants::{
+    NATIVE_BUDGET_AUTHORITY_BATCH_CONTAINS_ENOUGH_PERMITS,
+    NATIVE_BUDGET_GLOBAL_BATCH_CONTAINS_ENOUGH_PERMITS,
+    NATIVE_BUDGET_REGULAR_BATCH_CONTAINS_ENOUGH_PERMITS,
+};
 use crate::util::fetch::{DownloadRoute, ProxyPolicy};
 use parking_lot::Mutex;
 use std::collections::HashMap;
 use std::sync::{Arc, LazyLock};
 use tokio::sync::{OwnedSemaphorePermit, Semaphore, TryAcquireError};
 
-const MAX_CONNECTIONS_PER_AUTHORITY: usize = 32;
-const MAX_PHYSICAL_CONNECTIONS: usize = 256;
-static PHYSICAL_CONNECTIONS: LazyLock<Arc<Semaphore>> =
-    LazyLock::new(|| Arc::new(Semaphore::new(MAX_PHYSICAL_CONNECTIONS)));
+use super::constants::{
+    MAX_CONNECTIONS_PER_AUTHORITY, MAX_PHYSICAL_DOWNLOAD_CONNECTIONS,
+};
+static PHYSICAL_CONNECTIONS: LazyLock<Arc<Semaphore>> = LazyLock::new(|| {
+    Arc::new(Semaphore::new(MAX_PHYSICAL_DOWNLOAD_CONNECTIONS))
+});
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 struct AuthorityKey {
@@ -20,10 +27,45 @@ struct AuthorityKey {
 static AUTHORITY_BUDGETS: LazyLock<
     Mutex<HashMap<AuthorityKey, Arc<Semaphore>>>,
 > = LazyLock::new(|| Mutex::new(HashMap::new()));
+static REGULAR_BUDGETS: LazyLock<Mutex<HashMap<AuthorityKey, Arc<Semaphore>>>> =
+    LazyLock::new(|| Mutex::new(HashMap::new()));
 
 pub(crate) struct NativeBudgetPermit {
+    _regular: Option<OwnedSemaphorePermit>,
     _authority: Option<OwnedSemaphorePermit>,
     _global: OwnedSemaphorePermit,
+}
+
+fn regular_budget(route: &DownloadRoute) -> Option<Arc<Semaphore>> {
+    let clients = super::proxy_context::clients()?;
+    if clients.endpoints.mode()
+        != super::endpoint_selection::SelectionMode::Auto
+        || !super::endpoint_selection::EndpointSelector::eligible_network(
+            &clients,
+            route.proxy,
+        )
+        || !url::Url::parse(&route.url)
+            .is_ok_and(|url| super::modrinth_cdn::is_current_url(&url))
+    {
+        return None;
+    }
+    let authority = crate::util::fetch::url_authority(&route.url)?;
+    let key = AuthorityKey {
+        authority: super::proxy_context::authority_key(&authority, route.proxy),
+        proxy: route.proxy,
+    };
+    let mut budgets = REGULAR_BUDGETS.lock();
+    if budgets.len() >= 256 {
+        budgets.retain(|_, budget| Arc::strong_count(budget) > 1);
+    }
+    Some(
+        budgets
+            .entry(key)
+            .or_insert_with(|| {
+                Arc::new(Semaphore::new(MAX_CONNECTIONS_PER_AUTHORITY - 1))
+            })
+            .clone(),
+    )
 }
 
 fn budget(route: &DownloadRoute) -> Option<Arc<Semaphore>> {
@@ -56,6 +98,21 @@ async fn acquire_with_global(
     route: &DownloadRoute,
     global: &Arc<Semaphore>,
 ) -> Result<NativeBudgetPermit, tokio::sync::AcquireError> {
+    let regular = match regular_budget(route) {
+        Some(budget) => {
+            if budget.available_permits() == 0 {
+                super::h2_pool::evict_idle_connections(Some(
+                    &super::proxy_context::authority_key(
+                        &crate::util::fetch::url_authority(&route.url).unwrap(),
+                        route.proxy,
+                    ),
+                ))
+                .await;
+            }
+            Some(budget.acquire_owned().await?)
+        }
+        None => None,
+    };
     let authority = match budget(route) {
         Some(budget) => {
             if budget.available_permits() == 0 {
@@ -76,6 +133,7 @@ async fn acquire_with_global(
     }
     let global = global.clone().acquire_owned().await?;
     Ok(NativeBudgetPermit {
+        _regular: regular,
         _authority: authority,
         _global: global,
     })
@@ -85,7 +143,27 @@ pub(crate) async fn acquire_many(
     route: &DownloadRoute,
     count: usize,
 ) -> Result<Vec<NativeBudgetPermit>, tokio::sync::AcquireError> {
-    let count = count.min(MAX_CONNECTIONS_PER_AUTHORITY);
+    let regular_budget = regular_budget(route);
+    let count = count.min(if regular_budget.is_some() {
+        MAX_CONNECTIONS_PER_AUTHORITY - 1
+    } else {
+        MAX_CONNECTIONS_PER_AUTHORITY
+    });
+    let mut regular = match regular_budget {
+        Some(budget) => {
+            if budget.available_permits() < count {
+                super::h2_pool::evict_idle_connections(Some(
+                    &super::proxy_context::authority_key(
+                        &crate::util::fetch::url_authority(&route.url).unwrap(),
+                        route.proxy,
+                    ),
+                ))
+                .await;
+            }
+            Some(budget.acquire_many_owned(count as u32).await?)
+        }
+        None => None,
+    };
     let mut authority = match budget(route) {
         Some(budget) => {
             if budget.available_permits() < count {
@@ -116,13 +194,18 @@ pub(crate) async fn acquire_many(
         .await?;
     Ok((0..count.min(MAX_CONNECTIONS_PER_AUTHORITY))
         .map(|_| NativeBudgetPermit {
-            _global: global
-                .split(1)
-                .expect("global batch contains enough permits"),
-            _authority: authority.as_mut().map(|permit| {
+            _regular: regular.as_mut().map(|permit| {
                 permit
                     .split(1)
-                    .expect("authority batch contains enough permits")
+                    .expect(NATIVE_BUDGET_REGULAR_BATCH_CONTAINS_ENOUGH_PERMITS)
+            }),
+            _global: global
+                .split(1)
+                .expect(NATIVE_BUDGET_GLOBAL_BATCH_CONTAINS_ENOUGH_PERMITS),
+            _authority: authority.as_mut().map(|permit| {
+                permit.split(1).expect(
+                    NATIVE_BUDGET_AUTHORITY_BATCH_CONTAINS_ENOUGH_PERMITS,
+                )
             }),
         })
         .collect())
@@ -131,7 +214,19 @@ pub(crate) async fn acquire_many(
 pub(crate) fn try_acquire(
     route: &DownloadRoute,
 ) -> Result<NativeBudgetPermit, TryAcquireError> {
+    let regular = regular_budget(route)
+        .map(|budget| budget.try_acquire_owned())
+        .transpose()?;
+    let mut permit = try_acquire_recovery(route)?;
+    permit._regular = regular;
+    Ok(permit)
+}
+
+pub(crate) fn try_acquire_recovery(
+    route: &DownloadRoute,
+) -> Result<NativeBudgetPermit, TryAcquireError> {
     Ok(NativeBudgetPermit {
+        _regular: None,
         _global: PHYSICAL_CONNECTIONS.clone().try_acquire_owned()?,
         _authority: match budget(route) {
             Some(budget) => Some(budget.try_acquire_owned()?),

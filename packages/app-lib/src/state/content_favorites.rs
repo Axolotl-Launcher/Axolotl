@@ -66,6 +66,8 @@ impl ContentFavoriteType {
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct ContentFavorite {
+    #[serde(default)]
+    pub resource_id: Option<String>,
     pub provider: ContentFavoriteProvider,
     pub project_id: String,
     pub content_type: ContentFavoriteType,
@@ -95,6 +97,7 @@ fn from_row(row: sqlx::sqlite::SqliteRow) -> crate::Result<ContentFavorite> {
     let provider: String = row.try_get("provider")?;
     let content_type: String = row.try_get("content_type")?;
     Ok(ContentFavorite {
+        resource_id: row.try_get("resource_id")?,
         provider: ContentFavoriteProvider::parse(&provider)?,
         project_id: row.try_get("project_id")?,
         content_type: ContentFavoriteType::parse(&content_type)?,
@@ -107,7 +110,9 @@ pub async fn list(
 ) -> crate::Result<Vec<ContentFavorite>> {
     let rows = sqlx::query(
         "
-		SELECT provider, project_id, content_type, saved_at
+        SELECT provider, project_id, content_type, saved_at,
+            (SELECT resource_id FROM resource_source_projects
+                WHERE source = content_favorites.provider AND project_id = content_favorites.project_id) AS resource_id
 		FROM content_favorites
 		ORDER BY saved_at DESC, provider ASC, project_id ASC
 		",
@@ -143,7 +148,9 @@ pub async fn add(
 
     let row = sqlx::query(
         "
-		SELECT provider, project_id, content_type, saved_at
+        SELECT provider, project_id, content_type, saved_at,
+            (SELECT resource_id FROM resource_source_projects
+                WHERE source = content_favorites.provider AND project_id = content_favorites.project_id) AS resource_id
 		FROM content_favorites
 		WHERE provider = ? AND project_id = ?
 		",

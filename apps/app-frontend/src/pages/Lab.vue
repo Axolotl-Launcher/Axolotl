@@ -13,6 +13,7 @@ import {
 import { computed, ref, watch } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
 
+import commandGeneratorToolCover from '@/assets/lab/command-generator-tool-cover.png'
 import gradientTextToolCover from '@/assets/lab/gradient-text-tool-cover.png'
 import modTranslationCover from '@/assets/lab/mod-translation-cover.png'
 import recipeGeneratorToolCover from '@/assets/lab/recipe-generator-tool-cover.png'
@@ -44,6 +45,7 @@ const toolCoverImages: Record<string, string> = {
     'seed-map': seedMapToolCover,
     'mod-translation': modTranslationCover,
     'skin-editor': skinEditorToolCover,
+    'command-generator': commandGeneratorToolCover,
 }
 
 const messages = defineMessages({
@@ -115,6 +117,14 @@ const messages = defineMessages({
         id: 'app.lab.skin-editor.description',
         defaultMessage: 'Create and edit Minecraft player skins locally.',
     },
+    commandGeneratorTitle: {
+        id: 'app.lab.command-generator.title',
+        defaultMessage: 'Command generator',
+    },
+    commandGeneratorDescription: {
+        id: 'app.lab.command-generator.description',
+        defaultMessage: 'Generate Minecraft Java Edition commands with visual NBT editing.',
+    },
 })
 
 const categoryOptions: LabCategoryFilter[] = ['all', 'creation', 'maintenance', 'world']
@@ -173,6 +183,7 @@ function toolTitle(toolId: string, fallback: string) {
     if (toolId === 'seed-map') return formatMessage(messages.seedMapTitle)
     if (toolId === 'schematic-preview') return formatMessage(messages.schematicPreviewTitle)
     if (toolId === 'mod-translation') return formatMessage(messages.modTranslationTitle)
+    if (toolId === 'command-generator') return formatMessage(messages.commandGeneratorTitle)
     return fallback
 }
 
@@ -183,6 +194,7 @@ function toolDescription(toolId: string, fallback: string) {
     if (toolId === 'seed-map') return formatMessage(messages.seedMapDescription)
     if (toolId === 'schematic-preview') return formatMessage(messages.schematicPreviewDescription)
     if (toolId === 'mod-translation') return formatMessage(messages.modTranslationDescription)
+    if (toolId === 'command-generator') return formatMessage(messages.commandGeneratorDescription)
     return fallback
 }
 
@@ -240,6 +252,7 @@ function favoriteFilterLabel(value: LabFavoriteFilter) {
             <Combobox
                 v-model="category"
                 :options="categoryOptions.map((value) => ({ value, label: categoryLabel(value) }))"
+                width="custom"
                 class="w-48 max-[576px]:w-full"
             />
             <Combobox
@@ -250,6 +263,7 @@ function favoriteFilterLabel(value: LabFavoriteFilter) {
                         label: favoriteFilterLabel(value),
                     }))
                 "
+                width="custom"
                 class="w-48 max-[576px]:w-full"
             />
         </div>

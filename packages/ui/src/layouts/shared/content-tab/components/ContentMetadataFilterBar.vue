@@ -183,7 +183,7 @@ function filterButtonLabel(): string {
                     <TooltipContent
                         side="bottom"
                         :side-offset="6"
-                        class="tooltip-popper filter-metadata-tooltip"
+                        class="tooltip-surface filter-metadata-tooltip"
                     >
                         <div class="flex flex-col items-center gap-1">
                             <span class="whitespace-nowrap text-xs font-semibold">

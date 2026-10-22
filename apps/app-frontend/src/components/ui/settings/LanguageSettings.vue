@@ -18,6 +18,7 @@ import { get, update } from '@/helpers/settings.ts'
 import i18n, {
     getSystemResolvedLocale,
     isFollowingSystemLocale,
+    setAppLocale,
     setFollowSystemLocale,
 } from '@/i18n.config'
 
@@ -101,14 +102,14 @@ async function persistLocale(follow: boolean, concreteLocale: string) {
     try {
         setFollowSystemLocale(follow)
         followSystem.value = follow
-        i18n.global.locale.value = concreteLocale
+        await setAppLocale(concreteLocale)
         settings.value.locale = concreteLocale
         await update({ locale: concreteLocale })
         saveStatus.value = 'saved'
     } catch {
         setFollowSystemLocale(previousFollow)
         followSystem.value = previousFollow
-        i18n.global.locale.value = previousActiveLocale
+        await setAppLocale(previousActiveLocale)
         settings.value.locale = previousStoredLocale
         retryLocale.value = follow ? 'system' : concreteLocale
         saveStatus.value = 'error'

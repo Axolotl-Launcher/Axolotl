@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { CalendarIcon, HistoryIcon } from '@modrinth/assets'
 import Accordion from '@modrinth/ui/src/components/base/Accordion.vue'
-import Button from '@modrinth/ui/src/components/base/buttons/Button.vue'
 import TagItem from '@modrinth/ui/src/components/base/TagItem.vue'
 import { defineMessages, useVIntl } from '@modrinth/ui/src/composables/i18n.ts'
+
+import releaseCatalog from '../../releases/catalog.json'
 
 type AnnouncementLocale = 'en-US' | 'zh-CN'
 type AnnouncementChangeType = 'added' | 'changed' | 'deprecated' | 'removed' | 'fixed' | 'security'
@@ -19,16 +20,6 @@ type LauncherAnnouncement = {
     externalUrl?: string
 }
 
-type AnnouncementCatalog = {
-    updated_at: string
-    announcements: LauncherAnnouncement[]
-}
-
-// 每次用户访问时从客户端实时拉取。数据来自 app 前端的公告 catalog
-// （apps/app-frontend/src/announcements/catalog.ts），由发布 CI 导出并经
-// Release metadata is served by the website endpoint and does not require a
-// direct browser request to the GitHub API.
-const CATALOG_URL = '/api/releases/catalog'
 const CHANGE_TYPES: readonly AnnouncementChangeType[] = [
     'added',
     'changed',
@@ -55,20 +46,6 @@ const messages = defineMessages({
         id: 'axolotl-site.changelog.description',
         defaultMessage: 'Browse features, changes, and fixes in every public release.',
     },
-    loading: {
-        id: 'axolotl-site.changelog.loading',
-        defaultMessage: 'Checking published releases…',
-    },
-    errorTitle: {
-        id: 'axolotl-site.changelog.error.title',
-        defaultMessage: 'Changelog is temporarily unavailable',
-    },
-    errorDescription: {
-        id: 'axolotl-site.changelog.error.description',
-        defaultMessage:
-            'We could not fetch the release history. Your network may be unavailable, or the data source is temporarily unreachable.',
-    },
-    retry: { id: 'axolotl-site.changelog.retry', defaultMessage: 'Retry' },
     empty: {
         id: 'axolotl-site.changelog.empty',
         defaultMessage: 'No public release notes are available yet.',
@@ -105,21 +82,9 @@ function getAnnouncementChangeTypes(announcement: LauncherAnnouncement): Announc
     return CHANGE_TYPES.filter((type) => announcement.changes?.[type]?.length)
 }
 
-const {
-    data: announcements,
-    error,
-    status,
-    refresh,
-} = await useAsyncData(
-    'axolotl-release-catalog',
-    async () => {
-        const catalog = await $fetch<AnnouncementCatalog>(CATALOG_URL, { timeout: 8000 })
-        return catalog.announcements
-    },
-    { server: false },
-)
-
-const isLoading = computed(() => status.value === 'idle' || status.value === 'pending')
+// The release catalog is bundled at build time so the complete changelog is
+// present in the prerendered HTML for visitors and search engines.
+const announcements = releaseCatalog.announcements as LauncherAnnouncement[]
 const seoTitle = computed(() => formatMessage(messages.seoTitle))
 const seoDescription = computed(() => formatMessage(messages.seoDescription))
 
@@ -146,31 +111,8 @@ useHead({
             <p>{{ formatMessage(messages.description) }}</p>
         </header>
 
-        <div
-            v-if="isLoading"
-            class="status-panel m-0 flex items-center justify-center gap-3 rounded-lg border border-surface-5 bg-surface-4 p-8 text-center text-[var(--color-secondary)]"
-            role="status"
-        >
-            <div class="loading-indicator" aria-hidden="true" />
-            {{ formatMessage(messages.loading) }}
-        </div>
-
-        <div
-            v-else-if="error"
-            class="status-panel error-panel m-0 flex items-center justify-center justify-between gap-3 rounded-lg border border-surface-5 bg-surface-4 p-8 text-left text-center text-[var(--color-secondary)]"
-            role="alert"
-        >
-            <div>
-                <h2>{{ formatMessage(messages.errorTitle) }}</h2>
-                <p>{{ formatMessage(messages.errorDescription) }}</p>
-            </div>
-            <Button type="outlined" color="brand" @click="refresh()">{{
-                formatMessage(messages.retry)
-            }}</Button>
-        </div>
-
         <p
-            v-else-if="!announcements?.length"
+            v-if="!announcements.length"
             class="status-panel m-0 flex items-center justify-center gap-3 rounded-lg border border-surface-5 bg-surface-4 p-8 text-center text-[var(--color-secondary)]"
         >
             {{ formatMessage(messages.empty) }}
@@ -331,37 +273,6 @@ useHead({
     }
 }
 
-.error-panel {
-    h2,
-    p {
-        margin: 0;
-    }
-
-    h2 {
-        color: var(--color-contrast);
-        font-size: 1rem;
-    }
-
-    p {
-        margin-top: 0.25rem;
-    }
-}
-
-.loading-indicator {
-    width: 1rem;
-    height: 1rem;
-    border: 2px solid var(--surface-5);
-    border-top-color: var(--color-brand);
-    border-radius: 50%;
-    animation: spin 700ms linear infinite;
-}
-
-@keyframes spin {
-    to {
-        transform: rotate(1turn);
-    }
-}
-
 @media (max-width: 600px) {
     .changelog-page {
         padding: 2.5rem 0 3rem;
@@ -372,7 +283,6 @@ useHead({
     }
 
     .announcement-heading,
-    .error-panel,
     .change-group {
         align-items: flex-start;
         flex-direction: column;

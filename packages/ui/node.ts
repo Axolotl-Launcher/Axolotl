@@ -30,3 +30,4 @@ export {
     armorMaterialsForSlot,
     createDefaultArmorPreviewConfig,
 } from './src/composables/skin-rendering/armor-preview-types.ts'
+export { confirmedContentGroupKey } from './src/layouts/shared/content-tab/composables/content-duplicates.ts'

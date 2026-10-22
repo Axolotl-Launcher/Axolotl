@@ -3,7 +3,12 @@
 // Ordinary eye throws only: no divine, boat, blind or all-advancements modes.
 
 export type Eye = { x: number; z: number; angle: number; sigma: number }
-export type Input = { id?: string; version: 'pre119' | 'post119'; advanced: boolean; eyes: Eye[] }
+export type StrongholdInput = {
+    id?: string
+    version: 'pre119' | 'post119'
+    advanced: boolean
+    eyes: Eye[]
+}
 export type Chunk = { x: number; z: number; weight: number }
 type Ring = {
     ring: number
@@ -313,7 +318,7 @@ function closestCondition(c: Chunk, eye: Eye, offset: number) {
     return probability
 }
 
-export function calculateRaw(input: Input) {
+export function calculateRaw(input: StrongholdInput) {
     if (!input.eyes.length) return { chunks: [] as Chunk[], success: false, best: null }
     const first = input.eyes[0],
         offset = input.version === 'pre119' ? 8 : 0
@@ -358,7 +363,7 @@ export function calculateRaw(input: Input) {
     return { chunks, best, success }
 }
 
-export function calculate(input: Input, includeDistribution = false) {
+export function calculate(input: StrongholdInput, includeDistribution = false) {
     if (!['pre119', 'post119'].includes(input.version) || typeof input.advanced !== 'boolean')
         throw new Error('Invalid settings')
     if (input.eyes.length > 100) throw new Error('Too many measurements')

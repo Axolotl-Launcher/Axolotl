@@ -3,7 +3,7 @@ import { ClipboardCopyIcon, CompassIcon, PlusIcon, TrashIcon } from '@modrinth/a
 import { Button, Combobox, StyledInput, useVIntl } from '@modrinth/ui'
 import { computed, onBeforeUnmount, ref, shallowRef, watch } from 'vue'
 
-import type { Chunk, Input } from '@/lab/stronghold/core'
+import type { Chunk, StrongholdInput } from '@/lab/stronghold/core'
 import {
     appendMeasurements,
     type Measurement,
@@ -16,7 +16,7 @@ import StrongholdPlot from '@/lab/stronghold/StrongholdPlot.vue'
 
 const { formatMessage } = useVIntl()
 const observations = ref<Measurement[]>([])
-const version = ref<Input['version']>('post119')
+const version = ref<StrongholdInput['version']>('post119')
 const sigma = ref<string | number>('5')
 const radius = ref<string | number>('10000')
 const topK = ref<string | number>('10')

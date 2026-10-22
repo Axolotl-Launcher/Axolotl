@@ -15541,5 +15541,41 @@
   },
   "app.resources.error.incomplete-versions": {
     "message": "内容来源未能返回全部版本，请打开项目的“版本”标签页选择文件。"
+  },
+  "app.skins.player.input": {
+    "message": "玩家名或 UUID"
+  },
+  "app.skins.player.unavailable": {
+    "message": "无法加载皮肤，请检查网络连接后重试。"
+  },
+  "app.skins.player.title": {
+    "message": "查找玩家皮肤"
+  },
+  "app.skins.player.imported": {
+    "message": "已加入皮肤库"
+  },
+  "app.skins.player.download": {
+    "message": "下载 PNG"
+  },
+  "app.skins.player.rate-limited": {
+    "message": "请求过于频繁，请稍后重试。"
+  },
+  "app.skins.player.import": {
+    "message": "加入皮肤库"
+  },
+  "app.skins.player.invalid-input": {
+    "message": "请输入有效的 Java 版玩家名或 UUID。"
+  },
+  "app.skins.player.no-custom-skin": {
+    "message": "该玩家没有设置自定义皮肤。"
+  },
+  "app.skins.player.search": {
+    "message": "查询"
+  },
+  "app.skins.player.save-failed": {
+    "message": "无法保存皮肤，请重试。"
+  },
+  "app.skins.player.not-found": {
+    "message": "未找到玩家，请检查玩家名或 UUID。"
   }
 }

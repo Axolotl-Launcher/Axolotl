@@ -1559,6 +1559,15 @@
   "app.downloads.action-needed": {
     "message": "需要操作"
   },
+  "app.downloads.confirm-optional-selection": {
+    "message": "安装所选文件"
+  },
+  "app.downloads.optional-content": {
+    "message": "此整合包将 {count, plural, other {# 个文件}} 标记为可选。取消勾选不想安装的文件。"
+  },
+  "app.downloads.optional-content-header": {
+    "message": "选择可选文件"
+  },
   "app.downloads.all-sources": {
     "message": "所有来源"
   },

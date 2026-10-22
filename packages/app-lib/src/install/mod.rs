@@ -15,8 +15,10 @@ pub use import_plan::{
 };
 pub use missing_content::{
     MissingModpackContentView, MissingModpackFileView, MissingModpackScanError,
+    OptionalModpackContentView, OptionalModpackFileView,
     MissingModpackScanResult, import_missing_modpack_file,
-    list_missing_modpack_files, retry_missing_modpack_file,
+    list_missing_modpack_files, list_optional_modpack_files,
+    retry_missing_modpack_file,
     scan_missing_modpack_files,
 };
 pub use model::{
@@ -44,8 +46,9 @@ pub use runner::{
     install_content_batch, install_curseforge_world, install_existing_instance,
     install_pack_to_existing_instance, job_support_details, list_jobs,
     queue_content_change, repair_cache_and_retry_job, resume_job, retry_job,
-    retry_job_as_new, skip_missing_content_and_resume_job,
-    update_managed_curseforge_modpack, upgrade_unmanaged_instance,
+    retry_job_as_new, select_optional_content_and_resume_job,
+    skip_missing_content_and_resume_job, update_managed_curseforge_modpack,
+    upgrade_unmanaged_instance,
 };
 
 /// Replaces credentials and IP addresses in text the user may share publicly

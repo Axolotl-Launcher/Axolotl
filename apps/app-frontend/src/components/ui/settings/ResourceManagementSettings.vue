@@ -14,7 +14,13 @@ import { invoke } from '@tauri-apps/api/core'
 import { open } from '@tauri-apps/plugin-dialog'
 import { computed, ref, watch } from 'vue'
 
-import { configureCurseForgeManualDownloadWatcher } from '@/helpers/curseforge'
+import {
+    configureCurseForgeManualDownloadWatcher,
+    getCurseForgeApiKeyOverride,
+    getCurseForgeCapability,
+    setCurseForgeApiKeyOverride,
+    validateCurseForgeCredentials,
+} from '@/helpers/curseforge'
 import { syncConfiguredDirectLinks } from '@/helpers/direct-link-sync'
 import {
     getMissingContentScannerSettings,
@@ -128,19 +134,109 @@ async function testProxy() {
             proxyTestResult.value = result.message || formatMessage(messages.proxyTestFailed)
         }
     } catch (error) {
-        const message =
-            error instanceof Error
-                ? error.message
-                : typeof error === 'object' && error !== null && 'message' in error
-                  ? String(error.message)
-                  : typeof error === 'string'
-                    ? error
-                    : JSON.stringify(error)
-        proxyTestResult.value = message
+        proxyTestResult.value = errorMessage(error, formatMessage(messages.proxyTestFailed))
     } finally {
         proxyTesting.value = false
     }
 }
+
+function errorMessage(error, fallback) {
+    if (error instanceof Error) return error.message
+    if (typeof error === 'string') return error
+    if (typeof error === 'object' && error !== null && 'message' in error) {
+        return String(error.message)
+    }
+    return fallback
+}
+
+// CurseForge API key
+/** @type {import('vue').Ref<import('@/helpers/curseforge').CurseForgeCapability | null>} */
+const curseforgeCapability = ref(null)
+const curseforgeApiKeyInput = ref('')
+const curseforgeApiKeySaved = ref('')
+const curseforgeApiKeySaving = ref(false)
+const curseforgeApiKeyVerifying = ref(false)
+/** @type {import('vue').Ref<string>} */
+const curseforgeApiKeyResult = ref('')
+
+if (props.scope === 'content-downloads') {
+    try {
+        const [capability, override] = await Promise.all([
+            getCurseForgeCapability(),
+            getCurseForgeApiKeyOverride(),
+        ])
+        curseforgeCapability.value = capability
+        curseforgeApiKeyInput.value = override ?? ''
+        curseforgeApiKeySaved.value = override ?? ''
+    } catch (error) {
+        console.error('Failed to load the CurseForge API key', error)
+    }
+}
+
+const curseforgeApiKeyDirty = computed(
+    () => curseforgeApiKeyInput.value.trim() !== curseforgeApiKeySaved.value,
+)
+
+const curseforgeApiKeyStatus = computed(() => {
+    if (curseforgeCapability.value?.status === 'unauthorized') {
+        return formatMessage(messages.curseforgeApiKeyStatusUnauthorized)
+    }
+    switch (curseforgeCapability.value?.key_source) {
+        case 'override':
+            return formatMessage(messages.curseforgeApiKeyStatusOverride)
+        case 'launcher':
+            return formatMessage(messages.curseforgeApiKeyStatusLauncher)
+        default:
+            return formatMessage(messages.curseforgeApiKeyStatusMissing)
+    }
+})
+
+async function writeCurseForgeApiKey(apiKey) {
+    const submittedInput = curseforgeApiKeyInput.value
+    curseforgeApiKeySaving.value = true
+    curseforgeApiKeyResult.value = ''
+    try {
+        curseforgeCapability.value = await setCurseForgeApiKeyOverride(apiKey)
+        curseforgeApiKeySaved.value = apiKey ?? ''
+        // Keep edits made while the request was running instead of replacing
+        // them with the key that was just stored.
+        if (curseforgeApiKeyInput.value === submittedInput) {
+            curseforgeApiKeyInput.value = apiKey ?? ''
+        }
+    } catch (error) {
+        handleError(error)
+    } finally {
+        curseforgeApiKeySaving.value = false
+    }
+}
+
+function saveCurseForgeApiKey() {
+    return writeCurseForgeApiKey(curseforgeApiKeyInput.value.trim() || null)
+}
+
+async function verifyCurseForgeApiKey() {
+    curseforgeApiKeyVerifying.value = true
+    curseforgeApiKeyResult.value = ''
+    try {
+        curseforgeCapability.value = await validateCurseForgeCredentials()
+        curseforgeApiKeyResult.value = formatMessage(messages.curseforgeApiKeyVerified)
+    } catch (error) {
+        console.error('CurseForge key check failed', error)
+        const capability = await getCurseForgeCapability().catch(() => curseforgeCapability.value)
+        curseforgeCapability.value = capability
+        curseforgeApiKeyResult.value = formatMessage(
+            capability?.status === 'unauthorized'
+                ? messages.curseforgeApiKeyVerifyFailed
+                : messages.curseforgeApiKeyVerifyUnavailable,
+        )
+    } finally {
+        curseforgeApiKeyVerifying.value = false
+    }
+}
+
+watch(curseforgeApiKeyInput, () => {
+    curseforgeApiKeyResult.value = ''
+})
 
 const messages = defineMessages({
     chineseNames: {
@@ -306,6 +402,72 @@ const messages = defineMessages({
         id: 'app.settings.resources.curseforge-restriction-bypass-description',
         defaultMessage:
             'When CurseForge does not provide a download address, derive its CDN address and try downloading the file automatically. Disable this to use the manual download workflow.',
+    },
+    curseforgeApiKey: {
+        id: 'app.settings.resources.curseforge-api-key',
+        defaultMessage: 'CurseForge API key',
+    },
+    curseforgeApiKeyDescription: {
+        id: 'app.settings.resources.curseforge-api-key-description',
+        defaultMessage:
+            'Used for CurseForge search, project pages, and installations. A key entered here replaces the one the launcher provides.',
+    },
+    curseforgeApiKeyField: {
+        id: 'app.settings.resources.curseforge-api-key-field',
+        defaultMessage: 'API key',
+    },
+    curseforgeApiKeyPlaceholder: {
+        id: 'app.settings.resources.curseforge-api-key-placeholder',
+        defaultMessage: 'Leave empty to drop the key entered here',
+    },
+    curseforgeApiKeyStatusOverride: {
+        id: 'app.settings.resources.curseforge-api-key-status-override',
+        defaultMessage: 'Using the key entered here. The launcher key is not used.',
+    },
+    curseforgeApiKeyStatusLauncher: {
+        id: 'app.settings.resources.curseforge-api-key-status-launcher',
+        defaultMessage: 'No key is set here, so the launcher key is used.',
+    },
+    curseforgeApiKeyStatusMissing: {
+        id: 'app.settings.resources.curseforge-api-key-status-missing',
+        defaultMessage:
+            'No key is available. CurseForge content cannot be searched or installed until one is set here.',
+    },
+    curseforgeApiKeyStatusUnauthorized: {
+        id: 'app.settings.resources.curseforge-api-key-status-unauthorized',
+        defaultMessage: 'CurseForge rejected this key. Check it or enter another one.',
+    },
+    curseforgeApiKeySave: {
+        id: 'app.settings.resources.curseforge-api-key-save',
+        defaultMessage: 'Save key',
+    },
+    curseforgeApiKeySaving: {
+        id: 'app.settings.resources.curseforge-api-key-saving',
+        defaultMessage: 'Saving…',
+    },
+    curseforgeApiKeyUnsaved: {
+        id: 'app.settings.resources.curseforge-api-key-unsaved',
+        defaultMessage: 'Unsaved changes',
+    },
+    curseforgeApiKeyVerify: {
+        id: 'app.settings.resources.curseforge-api-key-verify',
+        defaultMessage: 'Check key',
+    },
+    curseforgeApiKeyVerifying: {
+        id: 'app.settings.resources.curseforge-api-key-verifying',
+        defaultMessage: 'Checking…',
+    },
+    curseforgeApiKeyVerified: {
+        id: 'app.settings.resources.curseforge-api-key-verified',
+        defaultMessage: 'CurseForge accepted the key.',
+    },
+    curseforgeApiKeyVerifyFailed: {
+        id: 'app.settings.resources.curseforge-api-key-verify-failed',
+        defaultMessage: 'CurseForge did not accept the key.',
+    },
+    curseforgeApiKeyVerifyUnavailable: {
+        id: 'app.settings.resources.curseforge-api-key-verify-unavailable',
+        defaultMessage: 'Could not check the key. Try again later.',
     },
     mojangAuthService: {
         id: 'app.settings.resources.mojang-auth-service',
@@ -973,6 +1135,83 @@ function validateMinecraftDirectory(_value) {
                         id="curseforge-restriction-bypass"
                         v-model="settings.bypass_curseforge_download_restrictions"
                     />
+                </template>
+            </SettingsRow>
+        </SettingsSection>
+
+        <SettingsSection v-if="props.scope === 'content-downloads'">
+            <template #header>
+                <h2
+                    id="settings-target-resources-curseforge-api-key"
+                    tabindex="-1"
+                    class="m-0 text-lg font-semibold text-[var(--color-text-primary)]"
+                >
+                    {{ formatMessage(messages.curseforgeApiKey) }}
+                </h2>
+                <p class="m-0 mt-1 text-sm leading-relaxed text-[var(--color-text-tertiary)]">
+                    {{ formatMessage(messages.curseforgeApiKeyDescription) }}
+                </p>
+            </template>
+            <SettingsRow stacked>
+                <template #label>{{ formatMessage(messages.curseforgeApiKeyField) }}</template>
+                <template #description>{{ curseforgeApiKeyStatus }}</template>
+                <template #control>
+                    <div class="flex w-full flex-col gap-2">
+                        <div class="flex w-full flex-wrap items-center gap-3">
+                            <StyledInput
+                                id="curseforge-api-key"
+                                v-model="curseforgeApiKeyInput"
+                                type="password"
+                                :placeholder="formatMessage(messages.curseforgeApiKeyPlaceholder)"
+                                wrapper-class="min-w-0 flex-1"
+                            />
+                            <button
+                                class="btn min-w-max"
+                                :disabled="
+                                    curseforgeApiKeySaving ||
+                                    curseforgeApiKeyVerifying ||
+                                    !curseforgeApiKeyDirty
+                                "
+                                @click="saveCurseForgeApiKey"
+                            >
+                                {{
+                                    formatMessage(
+                                        curseforgeApiKeySaving
+                                            ? messages.curseforgeApiKeySaving
+                                            : messages.curseforgeApiKeySave,
+                                    )
+                                }}
+                            </button>
+                            <button
+                                class="btn min-w-max"
+                                :disabled="
+                                    curseforgeApiKeyVerifying ||
+                                    curseforgeApiKeySaving ||
+                                    curseforgeApiKeyDirty ||
+                                    !curseforgeCapability?.configured
+                                "
+                                @click="verifyCurseForgeApiKey"
+                            >
+                                {{
+                                    formatMessage(
+                                        curseforgeApiKeyVerifying
+                                            ? messages.curseforgeApiKeyVerifying
+                                            : messages.curseforgeApiKeyVerify,
+                                    )
+                                }}
+                            </button>
+                        </div>
+                        <span
+                            v-if="curseforgeApiKeyDirty"
+                            class="text-sm text-[var(--color-text-tertiary)]"
+                            >{{ formatMessage(messages.curseforgeApiKeyUnsaved) }}</span
+                        >
+                        <span
+                            v-else-if="curseforgeApiKeyResult"
+                            class="text-sm text-[var(--color-text-tertiary)]"
+                            >{{ curseforgeApiKeyResult }}</span
+                        >
+                    </div>
                 </template>
             </SettingsRow>
         </SettingsSection>

@@ -471,6 +471,8 @@ fn main() {
                 InlinedPlugin::new()
                     .commands(&[
                         "curseforge_capability",
+                        "curseforge_api_key_override",
+                        "curseforge_set_api_key",
                         "curseforge_validate_credentials",
                         "curseforge_search_projects",
                         "curseforge_get_project",

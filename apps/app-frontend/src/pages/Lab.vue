@@ -14,12 +14,14 @@ import { computed, ref, watch } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
 
 import commandGeneratorToolCover from '@/assets/lab/command-generator-tool-cover.png'
+import StrongholdEyeIcon from '@/assets/lab/eye-of-ender.svg?component'
 import gradientTextToolCover from '@/assets/lab/gradient-text-tool-cover.png'
 import modTranslationCover from '@/assets/lab/mod-translation-cover.png'
 import recipeGeneratorToolCover from '@/assets/lab/recipe-generator-tool-cover.png'
 import schematicPreviewToolCover from '@/assets/lab/schematic-preview-cover.png'
 import seedMapToolCover from '@/assets/lab/seed-map-tool-cover.png'
 import skinEditorToolCover from '@/assets/lab/skin-editor-tool-cover.png'
+import strongholdToolCover from '@/assets/lab/stronghold-tool-cover.png'
 import {
     getLabCategoryFilter,
     getLabFavoriteFilter,
@@ -31,6 +33,7 @@ import {
     setLabFavoriteToolIds,
 } from '@/helpers/lab-preferences'
 import { labTools } from '@/lab/registry'
+import { strongholdMessages } from '@/lab/stronghold/messages'
 
 const { formatMessage } = useVIntl()
 const router = useRouter()
@@ -39,6 +42,7 @@ const category = ref<LabCategoryFilter>(getLabCategoryFilter())
 const favoriteFilter = ref<LabFavoriteFilter>(getLabFavoriteFilter())
 const favoriteToolIds = ref<string[]>(getLabFavoriteToolIds())
 const toolCoverImages: Record<string, string> = {
+    stronghold: strongholdToolCover,
     'gradient-text': gradientTextToolCover,
     'recipe-generator': recipeGeneratorToolCover,
     'schematic-preview': schematicPreviewToolCover,
@@ -177,6 +181,7 @@ const emptyHeading = computed(() => {
 })
 
 function toolTitle(toolId: string, fallback: string) {
+    if (toolId === 'stronghold') return formatMessage(strongholdMessages.title)
     if (toolId === 'skin-editor') return formatMessage(messages.skinEditorTitle)
     if (toolId === 'gradient-text') return formatMessage(messages.gradientTextTitle)
     if (toolId === 'recipe-generator') return formatMessage(messages.recipeGeneratorTitle)
@@ -188,6 +193,7 @@ function toolTitle(toolId: string, fallback: string) {
 }
 
 function toolDescription(toolId: string, fallback: string) {
+    if (toolId === 'stronghold') return formatMessage(strongholdMessages.description)
     if (toolId === 'skin-editor') return formatMessage(messages.skinEditorDescription)
     if (toolId === 'gradient-text') return formatMessage(messages.gradientTextDescription)
     if (toolId === 'recipe-generator') return formatMessage(messages.recipeGeneratorDescription)
@@ -321,6 +327,11 @@ function favoriteFilterLabel(value: LabFavoriteFilter) {
                         >
                             <component :is="tool.icon" class="size-8" />
                         </div>
+                        <StrongholdEyeIcon
+                            v-if="tool.id === 'stronghold'"
+                            aria-hidden="true"
+                            class="pointer-events-none absolute left-1/2 top-1/2 size-16 -translate-x-1/2 -translate-y-1/2 text-white"
+                        />
                     </div>
                 </RouterLink>
 

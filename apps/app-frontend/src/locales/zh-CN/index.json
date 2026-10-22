@@ -19210,5 +19210,191 @@
   },
   "app.lab.command-generator.arg.waypoint.value.desc": {
     "message": "颜色或样式"
+  },
+  "app.lab.stronghold.add": {
+    "message": "添加观测"
+  },
+  "app.lab.stronghold.advanced": {
+    "message": "测量设置"
+  },
+  "app.lab.stronghold.calculating": {
+    "message": "正在计算候选位置…"
+  },
+  "app.lab.stronghold.candidates": {
+    "message": "候选位置"
+  },
+  "app.lab.stronghold.chunk": {
+    "message": "区块"
+  },
+  "app.lab.stronghold.clear": {
+    "message": "清空记录"
+  },
+  "app.lab.stronghold.closest": {
+    "message": "考虑最近要塞的位置分布"
+  },
+  "app.lab.stronghold.compute-error": {
+    "message": "计算失败，请修改观测后重试。"
+  },
+  "app.lab.stronghold.copied": {
+    "message": "已复制"
+  },
+  "app.lab.stronghold.copy": {
+    "message": "复制 X/Z"
+  },
+  "app.lab.stronghold.copy-error": {
+    "message": "复制失败，请选中坐标手动复制。"
+  },
+  "app.lab.stronghold.description": {
+    "message": "使用末影之眼的观测数据，定位 Java 版要塞。"
+  },
+  "app.lab.stronghold.distance": {
+    "message": "距最后一次观测约 {distance, number} 格"
+  },
+  "app.lab.stronghold.error.dimension": {
+    "message": "请在主世界进行这次测量。"
+  },
+  "app.lab.stronghold.error.duplicate": {
+    "message": "这条观测已经添加过了。"
+  },
+  "app.lab.stronghold.error.format": {
+    "message": "请粘贴完整的 F3+C 指令，或手动填写 X、Z 和水平角。"
+  },
+  "app.lab.stronghold.error.limit": {
+    "message": "最多添加 100 条观测，请先删除部分记录。"
+  },
+  "app.lab.stronghold.error.range": {
+    "message": "请输入有效数值，X 和 Z 应位于世界边界内。"
+  },
+  "app.lab.stronghold.error.sigma": {
+    "message": "半角须大于 0 且不超过 90°，搜索半径须在 1000 至 26000 格之间。"
+  },
+  "app.lab.stronghold.input": {
+    "message": "添加观测"
+  },
+  "app.lab.stronghold.location-help": {
+    "message": "坐标指向要塞起始楼梯所在区块。到达附近后，请继续用末影之眼确认位置。"
+  },
+  "app.lab.stronghold.manual": {
+    "message": "手动录入"
+  },
+  "app.lab.stronghold.nether": {
+    "message": "下界赶路参考"
+  },
+  "app.lab.stronghold.no-measurements": {
+    "message": "还没有观测记录"
+  },
+  "app.lab.stronghold.no-result": {
+    "message": "当前范围内没有得到支持的区块"
+  },
+  "app.lab.stronghold.no-result-help": {
+    "message": "请检查观测方向、增大扇形半角或搜索半径。"
+  },
+  "app.lab.stronghold.observations": {
+    "message": "观测记录（{count}）"
+  },
+  "app.lab.stronghold.one-eye": {
+    "message": "目前只有一次观测。换一个位置再次投眼，可以缩小搜索范围。"
+  },
+  "app.lab.stronghold.overworld": {
+    "message": "主世界"
+  },
+  "app.lab.stronghold.paste": {
+    "message": "粘贴 F3+C"
+  },
+  "app.lab.stronghold.paste-help": {
+    "message": "在主世界中瞄准投出的末影之眼，按 F3+C，然后将复制的指令粘贴到这里。每行一条指令。"
+  },
+  "app.lab.stronghold.placeholder": {
+    "message": "粘贴完整的 /execute 指令"
+  },
+  "app.lab.stronghold.post119": {
+    "message": "Java 1.19 及以上"
+  },
+  "app.lab.stronghold.pre119": {
+    "message": "Java 1.9 至 1.18.2"
+  },
+  "app.lab.stronghold.precision": {
+    "message": "扇形半角（°）"
+  },
+  "app.lab.stronghold.precision-help": {
+    "message": "只有经过精细校准的观测才适合使用更小的数值。"
+  },
+  "app.lab.stronghold.probability": {
+    "message": "支持分数"
+  },
+  "app.lab.stronghold.remove": {
+    "message": "删除第 {index} 条观测"
+  },
+  "app.lab.stronghold.results": {
+    "message": "候选区块"
+  },
+  "app.lab.stronghold.title": {
+    "message": "要塞定位器"
+  },
+  "app.lab.stronghold.version": {
+    "message": "Minecraft 版本"
+  },
+  "app.lab.stronghold.waiting": {
+    "message": "从一次末影之眼观测开始"
+  },
+  "app.lab.stronghold.waiting-help": {
+    "message": "添加观测，在地图上查看得到支持的区块。"
+  },
+  "app.lab.stronghold.yaw": {
+    "message": "水平角（°）"
+  },
+  "app.lab.stronghold.plot.generation": {
+    "message": "可生成范围 · 不代表已有要塞"
+  },
+  "app.lab.stronghold.plot.generation-fit": {
+    "message": "显示生成范围"
+  },
+  "app.lab.stronghold.plot.generation-chunk": {
+    "message": "区块 {x}, {z} · 可以生成要塞，当前未列为观测候选"
+  },
+  "app.lab.stronghold.plot.outside": {
+    "message": "区块 {x}, {z} · 不在本次候选范围内"
+  },
+  "app.lab.stronghold.plot.title": {
+    "message": "观测地图"
+  },
+  "app.lab.stronghold.plot.help": {
+    "message": "拖动平移，滚轮缩放，点击选中区块。方向键移动，+/− 缩放，Home 适应视图。"
+  },
+  "app.lab.stronghold.plot.zoom-in": {
+    "message": "放大"
+  },
+  "app.lab.stronghold.plot.zoom-out": {
+    "message": "缩小"
+  },
+  "app.lab.stronghold.plot.fit": {
+    "message": "显示观测与候选"
+  },
+  "app.lab.stronghold.plot.heat": {
+    "message": "支持分数 · 越亮支持越强"
+  },
+  "app.lab.stronghold.plot.best": {
+    "message": "最高概率候选"
+  },
+  "app.lab.stronghold.plot.hover": {
+    "message": "悬停查看区块，点击选中并获取坐标。"
+  },
+  "app.lab.stronghold.plot.chunk": {
+    "message": "区块 {x}, {z} · 支持分数 {probability}"
+  },
+  "app.lab.stronghold.plot.accessible": {
+    "message": "主世界 X/Z 地图，含 {count} 条观测射线和 {candidates} 个预测候选区块"
+  },
+  "app.lab.stronghold.search-radius": {
+    "message": "搜索半径（距世界原点，格）"
+  },
+  "app.lab.stronghold.supporters": {
+    "message": "支持观测"
+  },
+  "app.lab.stronghold.selected": {
+    "message": "选中区块"
+  },
+  "app.lab.stronghold.copy-teleport": {
+    "message": "复制传送命令"
   }
 }

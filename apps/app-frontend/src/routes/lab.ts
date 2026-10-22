@@ -26,6 +26,15 @@ export const labRoutes: RouteRecordRaw[] = [
         },
     },
     {
+        path: '/lab/stronghold',
+        name: 'StrongholdLocator',
+        component: () => import('@/pages/LabStronghold.vue'),
+        meta: {
+            breadcrumb: [{ name: 'Lab', link: '/lab' }, { name: 'Stronghold locator' }],
+            discordActivity: 'Locating a stronghold...',
+        },
+    },
+    {
         path: '/lab/gradient-text',
         name: 'GradientTextGenerator',
         component: () => import('@/pages/LabGradientText.vue'),

@@ -19311,7 +19311,7 @@
     "message": "Java 1.19 及以上"
   },
   "app.lab.stronghold.pre119": {
-    "message": "Java 1.9–1.18.2"
+    "message": "Java 1.9 至 1.18.2"
   },
   "app.lab.stronghold.precision": {
     "message": "扇形半角（°）"

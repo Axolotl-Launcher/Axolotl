@@ -164,10 +164,10 @@ function startMajor(
     }
     if (orthogonal(-ox, -oz, ux, uz) > 0 && orthogonal(-ox, -oz, vx, vz) < 0) {
         const magnitude = Math.sqrt(ox * ox + oz * oz)
-        const ix = (ox / magnitude) * maxChunk,
-            iz = (oz / magnitude) * maxChunk
-        const m1 = om + project(ix - ox, iz - oz, ux, uz)
-        const m2 = om + project(ix - ox, iz - oz, vx, vz)
+        const intersectionX = (ox / magnitude) * maxChunk,
+            intersectionZ = (oz / magnitude) * maxChunk
+        const m1 = om + project(intersectionX - ox, intersectionZ - oz, ux, uz)
+        const m2 = om + project(intersectionX - ox, intersectionZ - oz, vx, vz)
         return positive !== m1 > m2 ? m1 : m2
     }
     const u = intersection(ux, uz),

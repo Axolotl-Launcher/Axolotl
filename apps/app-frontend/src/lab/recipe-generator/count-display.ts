@@ -9,10 +9,10 @@ export function isResultValue(value: SlotValue | undefined): value is ResultCoun
     return value.kind === 'item' || value.kind === 'custom_item'
 }
 
-export function nextResultCount(current: number, deltaY: number) {
+export function nextResultCount(current: number, deltaY: number, maximum = RESULT_COUNT_MAX) {
     if (deltaY === 0) return current
     const next = current + (deltaY < 0 ? 1 : -1)
-    return Math.min(RESULT_COUNT_MAX, Math.max(1, next))
+    return Math.min(maximum, Math.max(1, next))
 }
 
 export function countFontSize(iconSize: number) {

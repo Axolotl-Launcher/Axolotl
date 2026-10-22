@@ -19,6 +19,7 @@ pub mod install;
 mod launcher;
 mod logger;
 pub mod mod_metadata;
+pub mod resources;
 pub mod state;
 pub mod storage;
 pub mod telemetry;
@@ -27,7 +28,7 @@ pub use api::*;
 pub use error::*;
 pub use event::{
     EventState, LoadingBar, LoadingBarType, emit::emit_loading,
-    emit::emit_logshare_ai_event, emit::init_loading,
+    emit::init_loading,
 };
 pub use logger::{
     DEFAULT_LOG_LEVEL, filter_log_contents, set_log_level, start_logger,
@@ -42,6 +43,10 @@ pub use state::{DirectoryInfo, State};
 pub use storage::*;
 pub use util::fetch::{DownloadReason, build_proxied_client};
 pub use util::file_lock::{LockingProcess, get_locking_processes};
+pub use util::network_diagnostics::{
+    NetworkTestMode, NetworkTestResult, NetworkTestTarget,
+    test_network_connection,
+};
 pub use util::platform::is_process_elevated;
 pub use util::proxy::{ProxyConfig, ProxyMode, ProxyTestResult};
 pub use util::symlink::SymlinkCapability;

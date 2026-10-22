@@ -7,6 +7,7 @@ use crate::state::remove_log_buffer;
 use crate::util::io::{self, IOError};
 use crate::{ErrorKind, Result, State};
 
+use super::files::safe_relative_join;
 use super::lifecycle::is_running;
 use super::manifest::{
     LinkedWorld, ServerInfo, ServerManifest, build_server_info, read_manifest,
@@ -72,7 +73,7 @@ pub async fn create(
     let state = State::get().await?;
     let id = Uuid::new_v4().to_string();
     let dir_name = format!("{}-{}", sanitize_folder_name(name), &id[..8]);
-    let dir = state.directories.servers_dir().join(&dir_name);
+    let dir = safe_relative_join(&state.directories.servers_dir(), &dir_name)?;
     io::create_dir_all(&dir).await?;
 
     let manifest = ServerManifest {

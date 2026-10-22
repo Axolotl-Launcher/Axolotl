@@ -459,6 +459,7 @@ import {
 } from '@/helpers/instance'
 import { getDisplayInstanceIcon } from '@/helpers/instance-icons'
 import { get_by_instance_id } from '@/helpers/process'
+import { createRequestGeneration } from '@/helpers/request-generation'
 import type { GameInstance } from '@/helpers/types'
 import { createInstanceShortcut, showInstanceInFolder } from '@/helpers/utils.js'
 import { refreshWorlds, type ServerStatus } from '@/helpers/worlds'
@@ -596,38 +597,72 @@ function resetServerStatus() {
     loadingServerPing.value = false
 }
 
+let instanceGeneration = 0
+let instancePageClosed = false
+const instanceReads = createRequestGeneration()
+const processReads = createRequestGeneration()
 async function fetchInstance() {
-    isServerInstance.value = false
-    linkedProjectV3.value = undefined
-    resetServerStatus()
+    const generation = ++instanceGeneration
+    const requestedId = props.id
+    const read = instanceReads.begin(requestedId)
+    const isCurrent = () =>
+        !instancePageClosed && instanceGeneration === generation && props.id === requestedId
+    if (activeInstanceId.value !== requestedId) {
+        isServerInstance.value = false
+        linkedProjectV3.value = undefined
+        resetServerStatus()
+    }
 
-    const nextInstance = await get(props.id).catch(handleError)
+    const nextInstance = await get(requestedId).catch((error) => {
+        if (isCurrent() && instanceReads.isCurrent(read, props.id)) {
+            if (String(error).includes('not managed')) void router.push({ path: '/' })
+            else handleError(error)
+        }
+    })
+    if (!isCurrent() || !instanceReads.isCurrent(read, props.id)) return
+    if (!nextInstance) return
+    const linkChanged =
+        instance.value?.id !== nextInstance?.id ||
+        instance.value?.link?.type !== nextInstance?.link?.type ||
+        instance.value?.link?.project_id !== nextInstance?.link?.project_id
+    if (linkChanged) {
+        linkedProjectV3.value = undefined
+        resetServerStatus()
+    }
     instance.value = nextInstance ?? undefined
     activeInstanceId.value = nextInstance?.id
-    let nextLinkedProjectV3: Labrinth.Projects.v3.Project | undefined
-    let nextIsServerInstance = false
+    isServerInstance.value =
+        nextInstance?.link?.type === 'server_project_modpack' ||
+        linkedProjectV3.value?.minecraft_server != null
 
     if (nextInstance?.symlink_target) {
-        await allow_symlink_target(nextInstance.symlink_target).catch(() => {})
+        void allow_symlink_target(nextInstance.symlink_target).catch(() => {})
     }
 
-    if (!offline.value && nextInstance?.link && nextInstance.link.project_id) {
-        try {
-            nextLinkedProjectV3 = await get_project_v3(
-                nextInstance.link.project_id,
-                'must_revalidate',
-            )
-
-            if (nextLinkedProjectV3?.minecraft_server != null) {
-                nextIsServerInstance = true
-            }
-        } catch (error) {
-            handleError(error as Error)
-        }
+    if (
+        !offline.value &&
+        !linkedProjectV3.value &&
+        nextInstance?.link?.project_id &&
+        ['modrinth_modpack', 'server_project_modpack'].includes(nextInstance.link.type)
+    ) {
+        void get_project_v3(nextInstance.link.project_id, 'stale_while_revalidate')
+            .then((project) => {
+                if (!isCurrent()) return
+                if (
+                    instance.value?.link?.type !== nextInstance.link?.type ||
+                    instance.value?.link?.project_id !== nextInstance.link?.project_id
+                )
+                    return
+                linkedProjectV3.value = project
+                isServerInstance.value =
+                    nextInstance.link?.type === 'server_project_modpack' ||
+                    project?.minecraft_server != null
+                fetchDeferredData(nextInstance.id)
+            })
+            .catch((error) => {
+                if (isCurrent()) console.warn('Linked project metadata unavailable', error)
+            })
     }
-
-    linkedProjectV3.value = nextLinkedProjectV3
-    isServerInstance.value = nextIsServerInstance
 
     fetchDeferredData(nextInstance?.id)
 
@@ -676,7 +711,23 @@ function fetchDeferredData(instanceId?: string) {
 }
 
 async function updatePlayState() {
-    const runningProcesses = await get_by_instance_id(props.id).catch(handleError)
+    const requestedId = props.id
+    const request = processReads.begin(requestedId)
+    const generation = instanceGeneration
+    const runningProcesses = await get_by_instance_id(requestedId).catch((error) => {
+        if (
+            !instancePageClosed &&
+            processReads.isCurrent(request, props.id) &&
+            instanceGeneration === generation
+        )
+            handleError(error)
+    })
+    if (
+        instancePageClosed ||
+        !processReads.isCurrent(request, props.id) ||
+        instanceGeneration !== generation
+    )
+        return
 
     playing.value = Array.isArray(runningProcesses) && runningProcesses.length > 0
 }
@@ -880,11 +931,11 @@ const openUpgrade = async () => {
 
 const handleRightClick = (event: MouseEvent) => {
     const baseOptions = [
-        { name: 'add_content' },
+        { name: 'add_content', section: 'manage', shown: !instance.value.link },
         { type: 'divider' },
-        { name: 'edit' },
-        { name: 'open_folder' },
-        { name: 'copy_path' },
+        { name: 'edit', section: 'manage' },
+        { name: 'open_folder', section: 'navigate' },
+        { name: 'copy_path', section: 'navigate' },
     ]
 
     options.value?.showMenu(
@@ -894,6 +945,7 @@ const handleRightClick = (event: MouseEvent) => {
             ? [
                   {
                       name: 'stop',
+                      section: 'primary',
                       color: 'danger',
                   },
                   ...baseOptions,
@@ -901,6 +953,7 @@ const handleRightClick = (event: MouseEvent) => {
             : [
                   {
                       name: 'play',
+                      section: 'primary',
                       color: 'primary',
                   },
                   ...baseOptions,
@@ -947,23 +1000,15 @@ const unlistenInstances = await instance_listener(
             }
             return
         }
-        instance.value = await get(props.id).catch((err) => {
-            if (String(err).includes('not managed')) {
-                router.push({ path: '/' })
-                return undefined
-            }
-            return handleError(err)
-        })
-        if (!instance.value?.link?.project_id) {
-            linkedProjectV3.value = undefined
-            isServerInstance.value = false
-        }
-        void queryClient.invalidateQueries({ queryKey: postUpgradeNoticeQueryKey(props.id) })
+        const requestedId = props.id
+        await fetchInstance()
+        void queryClient.invalidateQueries({ queryKey: postUpgradeNoticeQueryKey(requestedId) })
     },
 )
 
 const unlistenProcesses = await process_listener((e: { event: string; instance_id: string }) => {
     if (e.event === 'finished' && e.instance_id === props.id) {
+        processReads.invalidate()
         playing.value = false
         void queryClient.invalidateQueries({ queryKey: postUpgradeNoticeQueryKey(props.id) })
     }
@@ -994,6 +1039,10 @@ const timePlayedHumanized = computed(() => {
 })
 
 onUnmounted(() => {
+    instanceReads.invalidate()
+    processReads.invalidate()
+    instancePageClosed = true
+    instanceGeneration++
     clearInterval(launchElapsedTimer)
     unlistenProcesses()
     unlistenInstances()

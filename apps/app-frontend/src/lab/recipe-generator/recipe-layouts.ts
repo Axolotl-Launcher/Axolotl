@@ -1,3 +1,4 @@
+import brewingImage from '@/components/lab/recipe-generator/bg/brewing.svg?url'
 import stonecutterImage from '@/components/lab/recipe-generator/bg/切石机.png?url'
 import craftingImage from '@/components/lab/recipe-generator/bg/合成.png?url'
 import smeltingImage from '@/components/lab/recipe-generator/bg/熔炼.png?url'
@@ -25,6 +26,17 @@ export type RecipeLayout = {
 }
 
 export const RECIPE_LAYOUTS: readonly RecipeLayout[] = [
+    {
+        recipeType: 'brewing',
+        image: brewingImage,
+        imageWidth: RECIPE_IMAGE_WIDTH,
+        imageHeight: RECIPE_IMAGE_HEIGHT,
+        slots: {
+            'brewing.input': { x1: 102, y1: 116, x2: 166, y2: 180 },
+            'brewing.reagent': { x1: 286, y1: 116, x2: 350, y2: 180 },
+            'brewing.result': { x1: 514, y1: 104, x2: 602, y2: 192 },
+        },
+    },
     {
         recipeType: 'campfire_cooking',
         image: campfireImage,

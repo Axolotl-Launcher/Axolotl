@@ -1,6 +1,7 @@
 import { defineMessages } from '@modrinth/ui'
 
 export const recipeTypeMessages = defineMessages({
+    brewing: { id: 'app.lab.recipe-generator.type.brewing', defaultMessage: 'Brewing' },
     crafting: { id: 'app.lab.recipe-generator.type.crafting', defaultMessage: 'Crafting' },
     smelting: { id: 'app.lab.recipe-generator.type.smelting', defaultMessage: 'Smelting' },
     blasting: { id: 'app.lab.recipe-generator.type.blasting', defaultMessage: 'Blasting' },

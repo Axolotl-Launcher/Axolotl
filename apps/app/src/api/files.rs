@@ -3,15 +3,28 @@ use async_zip::base::read::seek::ZipFileReader;
 use image::ImageEncoder;
 use notify::{RecommendedWatcher, RecursiveMode, Watcher};
 use serde::Serialize;
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 use std::io::Cursor;
 use std::path::PathBuf;
-use std::sync::Mutex;
+use std::sync::{LazyLock, Mutex};
+use std::time::SystemTime;
 use tauri::{Emitter, Runtime};
 use tauri_plugin_dialog::DialogExt;
 use theseus::instance::get_full_path;
 
 const STUDIO_FILES_CHANGED_EVENT: &str = "studio-files-changed";
+
+#[derive(PartialEq)]
+struct LocalIconCacheKey {
+    source: PathBuf,
+    size: u64,
+    modified: SystemTime,
+    max_dimension: u32,
+}
+
+static LOCAL_ICON_CACHE: LazyLock<
+    Mutex<VecDeque<(LocalIconCacheKey, String)>>,
+> = LazyLock::new(|| Mutex::new(VecDeque::new()));
 
 fn safe_extract_relative_path(name: &str) -> Option<std::path::PathBuf> {
     let path = std::path::Path::new(name);
@@ -390,8 +403,32 @@ pub(crate) async fn local_instance_icon_path(
 
     for file_name in LOCAL_ICON_NAMES {
         let source = base.join(file_name);
-        if !source.is_file() {
+        let Ok(metadata) = tokio::fs::metadata(&source).await else {
             continue;
+        };
+        if !metadata.is_file() {
+            continue;
+        }
+        let cache_key =
+            metadata.modified().ok().map(|modified| LocalIconCacheKey {
+                source: source.clone(),
+                size: metadata.len(),
+                modified,
+                max_dimension,
+            });
+        let cached = cache_key.as_ref().and_then(|key| {
+            let mut cache = LOCAL_ICON_CACHE.lock().ok()?;
+            let index =
+                cache.iter().position(|(cached_key, _)| cached_key == key)?;
+            let entry = cache.remove(index)?;
+            let path = entry.1.clone();
+            cache.push_back(entry);
+            Some(path)
+        });
+        if let Some(path) = cached {
+            if tokio::fs::try_exists(&path).await.unwrap_or(false) {
+                return Ok(Some(path));
+            }
         }
 
         let candidate: Result<Option<String>> = async {
@@ -463,6 +500,18 @@ pub(crate) async fn local_instance_icon_path(
         .await;
 
         if let Ok(Some(path)) = candidate {
+            if let Some(key) = cache_key {
+                if let Ok(mut cache) = LOCAL_ICON_CACHE.lock() {
+                    cache.retain(|(existing, _)| {
+                        existing.source != key.source
+                            || existing.max_dimension != key.max_dimension
+                    });
+                    cache.push_back((key, path.clone()));
+                    while cache.len() > 256 {
+                        cache.pop_front();
+                    }
+                }
+            }
             return Ok(Some(path));
         }
     }

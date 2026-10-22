@@ -4,6 +4,7 @@ on:
   push:
     tags:
       - 'v*'
+      - '!v1.9.9'
 
 permissions:
   contents: write
@@ -29,28 +30,27 @@ jobs:
         uses: pnpm/action-setup@008330803749db0355799c700092d9a85fd074e9 # v6.0.9
 
       - name: Set up Node.js
-        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
         with:
           node-version-file: .nvmrc
           cache: pnpm
 
-      - name: Set up Rust
-        uses: dtolnay/rust-toolchain@4be7066ada62dd38de10e7b70166bc74ed198c30 # stable
+      - name: Install pinned formatting toolchain
+        run: rustup component add rustfmt
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
-
-      - name: Install Blockbench skin editor dependencies
-        run: npm ci
-        working-directory: third-party/blockbench
 
       - name: Run release guardrails
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          node --test scripts/axolotl/release-policy.test.mjs
+          node --test scripts/axolotl/set-version.test.mjs
           node scripts/axolotl/check-migrations.mjs --release
           node scripts/axolotl/brand-guard.mjs
           node scripts/axolotl/i18n-check.mjs
+          node --test scripts/axolotl/create-release-notes.test.mjs
           cargo fmt --all --check
 
       - name: Prepare draft release
@@ -79,198 +79,174 @@ jobs:
           fi
           gh release create "${GITHUB_REF_NAME}" "${release_args[@]}"
 
+      - name: Prepare shared build resources
+        env:
+          AXOLOTL_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          node scripts/axolotl/sync-contributors.mjs
+          node scripts/axolotl/prepare-build-resources.mjs
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: desktop-resources
+          path: target/build-resources/
+          overwrite: true
+          retention-days: 7
+          if-no-files-found: error
+
   build:
     name: Build (${{ matrix.name }})
     needs: preflight
     strategy:
       fail-fast: true
-      max-parallel: 4
       matrix:
         include:
           - name: Linux x64
             runner: ubuntu-24.04
-            args: --config tauri-release.conf.json --config tauri-updater.conf.json
+            platform: linux
           - name: Linux arm64
             runner: ubuntu-24.04-arm
-            args: --config tauri-release.conf.json --config tauri-updater.conf.json
+            platform: linux
           - name: Windows x64
             runner: windows-2025
-            args: --config tauri-release.conf.json --config tauri-modern.conf.json --config tauri-updater.conf.json
-          - name: macOS universal
-            runner: macos-15
-            args: --target universal-apple-darwin --config tauri-release.conf.json --config tauri-updater.conf.json
+            platform: windows
     runs-on: ${{ matrix.runner }}
     env:
       SQLX_OFFLINE: true
-      # Cargo.toml keeps release LTO off for local/CI builds. Published
-      # binaries force fat LTO here. PR CI (axolotl-ci.yml) also sets this
-      # to false explicitly for Windows packaging.
       CARGO_PROFILE_RELEASE_LTO: 'true'
     steps:
-      - name: Check out source
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
-          fetch-depth: 0
           submodules: recursive
-
-      - name: Set up pnpm
-        uses: pnpm/action-setup@008330803749db0355799c700092d9a85fd074e9 # v6.0.9
-
-      - name: Set up Node.js
-        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+      - uses: ./.github/actions/setup-desktop-build
         with:
-          node-version-file: .nvmrc
-          cache: pnpm
-
-      - name: Set up Rust
-        uses: dtolnay/rust-toolchain@4be7066ada62dd38de10e7b70166bc74ed198c30 # stable
-
-      # Restores a warm dependency cache. Release uses fat LTO while PR CI
-      # builds with LTO off, so this job keeps its own shared-key suffix and
-      # only restores: writing here would strand entries no later release
-      # could read (tags cannot share caches with each other).
-      - name: Cache Rust dependencies
-        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
-        with:
-          shared-key: axolotl-rust-deps-release
-          save-if: false
-
-      - name: Require full LTO for published binaries
+          profile: release
+      - name: Reserve Linux ARM64 swap for full LTO
+        if: matrix.runner == 'ubuntu-24.04-arm'
         shell: bash
         run: |
-          if [ "${CARGO_PROFILE_RELEASE_LTO}" != "true" ]; then
-            echo "CARGO_PROFILE_RELEASE_LTO must be 'true' for release builds, got '${CARGO_PROFILE_RELEASE_LTO:-}'" >&2
+          available=$(df --output=avail -B1 "$RUNNER_TEMP" | awk 'NR == 2 { print $1 }')
+          required=$((14 * 1024 * 1024 * 1024))
+          if [ "$available" -lt "$required" ]; then
+            echo 'Insufficient disk space for ARM64 release swap' >&2
             exit 1
           fi
-          echo "Release LTO enabled"
-
-      - name: Add macOS universal targets
-        if: runner.os == 'macOS'
-        run: rustup target add aarch64-apple-darwin x86_64-apple-darwin
-
-      - name: Install Linux dependencies
-        if: runner.os == 'Linux'
-        run: sudo apt-get -o Acquire::ForceIPv4=true update && sudo apt-get -o Acquire::ForceIPv4=true install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf xdg-utils
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Install Blockbench skin editor dependencies
-        run: npm ci
-        working-directory: third-party/blockbench
-
-      - uses: ./.github/actions/replace-gradle-mirror
-
+          swap_file="$RUNNER_TEMP/axolotl-release.swap"
+          sudo fallocate -l 12G "$swap_file"
+          sudo chmod 600 "$swap_file"
+          sudo mkswap "$swap_file"
+          sudo swapon "$swap_file"
       - name: Set release version
         run: node scripts/axolotl/set-version.mjs "${{ github.ref_name }}"
-
-      - name: Build and upload release assets
-        uses: tauri-apps/tauri-action@1ddc7b49b13c3038297360482fcb3e058764d7c9 # v0.6.2
+      - name: Compile application once with full LTO
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CURSEFORGE_API_KEY: ${{ secrets.CURSEFORGE_API_KEY }}
+        run: node scripts/axolotl/build-desktop.mjs --profile release
+      - name: Compile Windows installer UI
+        if: runner.os == 'Windows'
+        run: node scripts/axolotl/build-desktop.mjs --profile release --installer-only
+      - name: Package release assets
+        env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-          TAURI_BUNDLER_DMG_IGNORE_CI: ${{ runner.os == 'macOS' && 'true' || '' }}
-        with:
-          projectPath: apps/app
-          tauriScript: pnpm tauri
-          args: ${{ matrix.args }}
-          tagName: ${{ github.ref_name }}
-          releaseName: Axolotl Launcher ${{ github.ref_name }}
-          releaseDraft: true
-          prerelease: ${{ contains(github.ref_name, '-') }}
-          generateReleaseNotes: false
-          includeUpdaterJson: false
-          updaterJsonPreferNsis: true
-          retryAttempts: 2
-
-      - name: Publish Windows distribution variants
-        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          if [ "$RUNNER_OS" = Windows ]; then
+            node scripts/axolotl/package-windows.mjs --profile release --output target/release-assets/upload
+          else
+            pnpm --filter @modrinth/app tauri bundle --ci --config tauri-release.conf.json --config tauri-updater.conf.json
+            node scripts/axolotl/stage-release-assets.mjs --input target/release/bundle --output target/release-assets/upload --platform linux
+          fi
+      - name: Upload release assets
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: node scripts/axolotl/upload-release-assets.mjs "$GITHUB_REF_NAME" target/release-assets/upload
+
+  macos-build:
+    name: Compile macOS (${{ matrix.target }})
+    needs: preflight
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - runner: macos-15
+            target: aarch64-apple-darwin
+          - runner: macos-15-intel
+            target: x86_64-apple-darwin
+    runs-on: ${{ matrix.runner }}
+    env:
+      SQLX_OFFLINE: true
+      CARGO_PROFILE_RELEASE_LTO: 'true'
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          submodules: recursive
+      - uses: ./.github/actions/setup-desktop-build
+        with:
+          profile: release
+          target: ${{ matrix.target }}
+      - run: node scripts/axolotl/set-version.mjs "${{ github.ref_name }}"
+      - name: Compile native macOS binary with full LTO
+        env:
           CURSEFORGE_API_KEY: ${{ secrets.CURSEFORGE_API_KEY }}
+        run: node scripts/axolotl/build-desktop.mjs --profile release --target "${{ matrix.target }}"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: macos-${{ matrix.target }}
+          overwrite: true
+          path: |
+            target/${{ matrix.target }}/release/Axolotl Launcher
+            target/${{ matrix.target }}/release/axolotl-build.json
+          retention-days: 7
+          if-no-files-found: error
+
+  macos-universal:
+    name: Package macOS universal
+    needs: [preflight, macos-build]
+    runs-on: macos-15
+    env:
+      SQLX_OFFLINE: true
+      CARGO_PROFILE_RELEASE_LTO: 'true'
+      TAURI_BUNDLER_DMG_IGNORE_CI: 'true'
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          submodules: recursive
+      - uses: ./.github/actions/setup-desktop-build
+        with:
+          profile: release
+          package-only: 'true'
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: macos-aarch64-apple-darwin
+          path: target/macos-input/aarch64-apple-darwin
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: macos-x86_64-apple-darwin
+          path: target/macos-input/x86_64-apple-darwin
+      - run: node scripts/axolotl/set-version.mjs "${{ github.ref_name }}"
+      - name: Merge architectures and package signed updater
+        env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-        shell: pwsh
         run: |
-          $version = "${{ github.ref_name }}" -replace '^v', ''
-          $appName = "Axolotl Launcher"
-          $outDir = "target/release/bundle/nsis"
-          $buildDir = "target/portable-build"
-          $publishDir = Join-Path $env:RUNNER_TEMP "windows-assets"
-
-          New-Item -ItemType Directory -Force -Path $publishDir | Out-Null
-
-          $modernInstallers = @(Get-ChildItem $outDir -Filter '*-setup.exe' -File)
-          if ($modernInstallers.Count -ne 1) {
-            throw "Expected one modern installer, found $($modernInstallers.Count)"
-          }
-
-          $modernName = "Axolotl_Launcher_${version}_x64_modern-setup.exe"
-          $modernPath = Join-Path $publishDir $modernName
-          Copy-Item -Force $modernInstallers[0].FullName $modernPath
-          gh release upload "${{ github.ref_name }}" $modernPath --clobber
-
-          $modernSignature = "$($modernInstallers[0].FullName).sig"
-          if (Test-Path $modernSignature) {
-            $modernSignaturePath = "$modernPath.sig"
-            Copy-Item -Force $modernSignature $modernSignaturePath
-            gh release upload "${{ github.ref_name }}" $modernSignaturePath --clobber
-            gh release delete-asset "${{ github.ref_name }}" "$($modernInstallers[0].Name).sig" --yes
-          }
-          gh release delete-asset "${{ github.ref_name }}" $modernInstallers[0].Name --yes
-
-          pnpm --filter @modrinth/app tauri build --config tauri-release.conf.json --config tauri-native.conf.json
-
-          $nativeInstallers = @(Get-ChildItem $outDir -Filter '*-setup.exe' -File)
-          if ($nativeInstallers.Count -ne 1) {
-            throw "Expected one native NSIS installer, found $($nativeInstallers.Count)"
-          }
-
-          $nativeName = "Axolotl_Launcher_${version}_x64_nsis-setup.exe"
-          $nativePath = Join-Path $publishDir $nativeName
-          Copy-Item -Force $nativeInstallers[0].FullName $nativePath
-          gh release upload "${{ github.ref_name }}" $nativePath --clobber
-
-          $nativeSignature = "$($nativeInstallers[0].FullName).sig"
-          if (Test-Path $nativeSignature) {
-            $nativeSignaturePath = "$nativePath.sig"
-            Copy-Item -Force $nativeSignature $nativeSignaturePath
-            gh release upload "${{ github.ref_name }}" $nativeSignaturePath --clobber
-          }
-
-          # Reuse the binary already built by tauri-action
-          $appExe = "target/release/${appName}.exe"
-          if (Test-Path $appExe) {
-            New-Item -ItemType Directory -Force -Path "$buildDir\Axolotl" | Out-Null
-            Copy-Item -Force $appExe "$buildDir\Axolotl\"
-
-            # Create empty .Axolotl folder to trigger portable mode
-            New-Item -ItemType Directory -Force -Path "$buildDir\Axolotl\.Axolotl" | Out-Null
-
-            # Create portable zip (for manual download)
-            $zipName = "Axolotl_Launcher_${version}_x64_portable.zip"
-            $zipPath = Join-Path $publishDir $zipName
-            Compress-Archive -Path "$buildDir\Axolotl" -DestinationPath $zipPath -Force
-            Write-Output "Created portable zip: $zipPath"
-
-            # Upload portable zip (for manual download only)
-            gh release upload "${{ github.ref_name }}" "$zipPath" --clobber
-          } else {
-            throw "Binary not found at $appExe"
-          }
+          node scripts/axolotl/package-macos-universal.mjs
+          node scripts/axolotl/stage-release-assets.mjs --input target/universal-apple-darwin/release/bundle --output target/release-assets/upload --platform macos
+      - name: Upload macOS release assets
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node scripts/axolotl/upload-release-assets.mjs "$GITHUB_REF_NAME" target/release-assets/upload
 
   verify-and-publish:
     name: Verify and publish
-    needs: build
+    needs: [build, macos-universal]
     runs-on: ubuntu-24.04
     steps:
       - name: Check out source
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           fetch-depth: 0
-          ref: main
+          ref: ${{ github.sha }}
 
       - name: Download updater signatures
         env:
@@ -336,6 +312,28 @@ jobs:
             release-check/update-server-catalog.json
           node scripts/axolotl/create-update-server-catalog.test.mjs
 
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: published-release-metadata
+          path: release-check/
+          overwrite: true
+          retention-days: 7
+          if-no-files-found: error
+
+  notify-update-server:
+    needs: verify-and-publish
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: ${{ github.sha }}
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version-file: .nvmrc
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: published-release-metadata
+          path: release-check
       - name: Notify Update Server to publish release assets
         env:
           UPDATE_SERVER_URL: ${{ secrets.UPDATE_SERVER_URL }}
@@ -347,27 +345,118 @@ jobs:
             release-check/release.json \
             "${GITHUB_REF_NAME}"
 
-      - name: Publish website download metadata
-        if: ${{ !contains(github.ref_name, '-') }}
+  publish-website:
+    name: Build and deploy website to Netlify
+    needs: verify-and-publish
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    concurrency:
+      group: website-production
+      cancel-in-progress: false
+    steps:
+      - name: Check Netlify deployment credentials
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
         run: |
-          node scripts/axolotl/create-website-release-metadata.mjs \
-            release-check/release.json \
-            apps/website/releases/latest.json
-          node scripts/axolotl/create-website-release-catalog.mjs \
-            apps/website/releases/catalog.json
-
-          git config user.name "Axolotl Release Bot"
-          git config user.email "release@axolotl.local"
-          git add apps/website/releases/latest.json apps/website/releases/catalog.json
-          if git diff --cached --quiet; then
-            echo "Website metadata is unchanged"
-          else
-            git commit -m "chore(website): update download metadata to ${GITHUB_REF_NAME} [skip ci]"
-            git push origin main
+          if [[ -z "$NETLIFY_AUTH_TOKEN" || -z "$NETLIFY_SITE_ID" ]]; then
+            echo '::error::Configure NETLIFY_AUTH_TOKEN and NETLIFY_SITE_ID repository secrets. See apps/website/README.md.'
+            exit 1
+          fi
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: ${{ github.sha }}
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version-file: .nvmrc
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: published-release-metadata
+          path: release-check
+      - name: Check out website publication branch
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: main
+          path: website-publish
+      - uses: pnpm/action-setup@008330803749db0355799c700092d9a85fd074e9 # v6.0.9
+      - name: Generate website release data from the release tag
+        run: |
+          if [[ "${GITHUB_REF_NAME}" != *-* ]]; then
+            node scripts/axolotl/create-website-release-metadata.mjs \
+              release-check/release.json \
+              website-publish/apps/website/releases/latest.json
           fi
 
+          node scripts/axolotl/create-website-release-catalog.mjs \
+            website-publish/apps/website/releases/catalog.json
+
+      - name: Install website dependencies
+        working-directory: website-publish
+        run: pnpm install --frozen-lockfile --filter @axolotl/website...
+      - name: Generate static website on GitHub
+        working-directory: website-publish
+        run: pnpm --filter @axolotl/website build
+      - name: Verify prerendered release notes
+        working-directory: website-publish
+        run: |
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict'
+          import fs from 'node:fs'
+          const version = process.env.GITHUB_REF_NAME.replace(/^v/, '')
+          const catalog = JSON.parse(fs.readFileSync('apps/website/releases/catalog.json', 'utf8'))
+          assert(catalog.announcements.some((entry) => entry.version === version), `Missing catalog entry: ${version}`)
+          const html = fs.readFileSync('apps/website/.output/public/changelog/index.html', 'utf8')
+          assert(html.includes(version), `Release ${version} was not prerendered`)
+          assert(fs.existsSync('apps/website/.output/public/index.html'), 'Missing website homepage')
+          NODE
+      - name: Save static website artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: website-static-${{ github.ref_name }}
+          path: website-publish/apps/website/.output/public/
+          retention-days: 7
+          if-no-files-found: error
+      - name: Sync generated release data to main
+        run: |
+          git -C website-publish config user.name "Axolotl Release Bot"
+          git -C website-publish config user.email "release@axolotl.local"
+          git -C website-publish add apps/website/releases/latest.json apps/website/releases/catalog.json
+          if git -C website-publish diff --cached --quiet; then
+            echo "Website release data is unchanged"
+          else
+            git -C website-publish commit -m "chore(website): update release data for ${GITHUB_REF_NAME} [skip ci]"
+            git -C website-publish push origin main
+          fi
+      - name: Deploy prebuilt website and functions to Netlify
+        working-directory: website-publish
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
+        run: |
+          pnpm --package=netlify-cli@27.13.0 dlx netlify deploy \
+            --prod \
+            --no-build \
+            --filter @axolotl/website \
+            --dir "$PWD/apps/website/.output/public" \
+            --functions "$PWD/netlify/functions" \
+            --site "$NETLIFY_SITE_ID" \
+            --message "Launcher ${GITHUB_REF_NAME} (GitHub Actions ${GITHUB_RUN_ID})" \
+            --timeout 600
+
+  mirror-cnb:
+    needs: verify-and-publish
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: ${{ github.sha }}
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version-file: .nvmrc
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: published-release-metadata
+          path: release-check
       - name: Mirror published release to CNB
         env:
           CNB_REPO_URL_HTTPS: ${{ secrets.CNB_REPO_URL_HTTPS }}

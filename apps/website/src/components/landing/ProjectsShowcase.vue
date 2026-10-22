@@ -158,7 +158,7 @@ const messages = defineMessages({
     description: {
         id: 'app-marketing.features.website.description',
         defaultMessage:
-            'Use project details and version selection to move from Modrinth or CurseForge discovery to an installed instance, with dependencies and updates handled in place.',
+            'Find something you want to play, choose a version, and install it directly into your game.',
     },
 })
 </script>

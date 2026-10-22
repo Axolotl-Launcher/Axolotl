@@ -110,5 +110,6 @@ const emit = defineEmits<{
                 {{ formatMessage(commonMessages.refreshButton) }}
             </Button>
         </div>
+        <slot name="actions" />
     </div>
 </template>

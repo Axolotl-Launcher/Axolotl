@@ -1,6 +1,6 @@
 import { type Ref, shallowRef, triggerRef } from 'vue'
 
-import { detectLogLevel } from '../layouts/shared/console/composables/log-level'
+import { detectLogLevel } from '../layouts/shared/console/composables/log-level.ts'
 import type { Log4jEvent, LogLevel, LogLine } from '../layouts/shared/console/types'
 
 const ARCHIVE_CAPACITY = 20_000
@@ -130,11 +130,14 @@ export function createConsoleState(): ConsoleState {
             outputTextLength += text.length
         }
 
-        while (output.value.length > ARCHIVE_CAPACITY || outputTextLength > ARCHIVE_TEXT_CAPACITY) {
-            const removed = output.value.shift()
-            if (!removed) break
-            outputTextLength -= removed.text.length
+        let removeCount = 0
+        while (
+            output.value.length - removeCount > ARCHIVE_CAPACITY ||
+            outputTextLength > ARCHIVE_TEXT_CAPACITY
+        ) {
+            outputTextLength -= output.value[removeCount++].text.length
         }
+        if (removeCount) output.value.splice(0, removeCount)
     }
 
     function flushBuffer() {
@@ -151,14 +154,13 @@ export function createConsoleState(): ConsoleState {
     function addLines(lines: LogLine[]) {
         if (lines.length === 0) return
 
-        if (output.value.length === 0 && lines.length >= INITIAL_BATCH_SIZE) {
-            lineBuffer = lines
-            flushBuffer()
-            return
-        }
-
         for (const line of lines) {
             lineBuffer.push(line)
+        }
+        if (lineBuffer.length >= INITIAL_BATCH_SIZE) {
+            if (batchTimer) clearTimeout(batchTimer)
+            flushBuffer()
+            return
         }
         if (!batchTimer) {
             batchTimer = setTimeout(flushBuffer, BATCH_TIMEOUT_MS)
@@ -169,15 +171,46 @@ export function createConsoleState(): ConsoleState {
         addLines(formatLog4jLines(event))
     }
 
-    // 历史日志/缓冲大文本一次进入数据（保持行序），渲染由高亮管线分帧消化，
-    // 避免分块写入把实时事件插到历史行之间造成顺序错乱
     function addLegacyLog(message: string): Promise<void> {
-        const lines = message
-            .split(/[\r\n]+/)
-            .filter(Boolean)
-            .map(textToLogLine)
+        // Select the bounded tail before allocating per-line objects. Keep the
+        // commit synchronous so live events cannot interleave with the history.
+        const lines: LogLine[] = []
+        let textLength = 0
+        let end = message.length
+        while (end > 0 && lines.length < ARCHIVE_CAPACITY) {
+            while (end > 0 && (message[end - 1] === '\n' || message[end - 1] === '\r')) end--
+            if (!end) break
+            let start = end
+            while (start > 0 && message[start - 1] !== '\n' && message[start - 1] !== '\r') start--
+            const line = textToLogLine(message.slice(start, end))
+            if (textLength + line.text.length > ARCHIVE_TEXT_CAPACITY) break
+            lines.push(line)
+            textLength += line.text.length
+            end = start
+        }
+        lines.reverse()
 
         let parentLevel: LogLevel | null = null
+        if (end > 0 && lines.length && !ENTRY_START_RE.test(lines[0].text)) {
+            // A retained stack trace can begin after its timestamped parent.
+            // Locate that one entry without allocating the discarded prefix.
+            let previousEnd = end
+            while (previousEnd > 0) {
+                while (
+                    previousEnd > 0 &&
+                    (message[previousEnd - 1] === '\n' || message[previousEnd - 1] === '\r')
+                )
+                    previousEnd--
+                let start = previousEnd
+                while (start > 0 && message[start - 1] !== '\n' && message[start - 1] !== '\r')
+                    start--
+                if (ENTRY_START_RE.test(message.slice(start, start + 10))) {
+                    parentLevel = textToLogLine(message.slice(start, previousEnd)).level
+                    break
+                }
+                previousEnd = start
+            }
+        }
         for (const line of lines) {
             if (ENTRY_START_RE.test(line.text)) {
                 parentLevel = line.level

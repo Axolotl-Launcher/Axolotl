@@ -1,6 +1,6 @@
 [submodule "apps/app/vendor/cubiomes"]
-	path = apps/app/vendor/cubiomes
-	url = https://github.com/Cubitect/cubiomes.git
+    path = apps/app/vendor/cubiomes
+    url = https://github.com/xpple/cubiomes.git
 [submodule "third-party/blockbench"]
-	path = third-party/blockbench
-	url = https://github.com/Axolotl-Launcher/blockbench-skin-standalone.git
+    path = third-party/blockbench
+    url = https://github.com/Axolotl-Launcher/blockbench-skin-standalone.git

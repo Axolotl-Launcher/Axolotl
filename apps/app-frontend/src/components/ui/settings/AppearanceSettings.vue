@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import {
-    CheckIcon,
     ChevronDownIcon,
     ImageIcon,
     LayoutTemplateIcon,
@@ -59,6 +58,7 @@ import {
     parseCustomAccentColor,
 } from '@/store/theme.ts'
 
+import AccentColorOption from './AccentColorOption.vue'
 import SettingsRow from './SettingsRow.vue'
 import SettingsSection from './SettingsSection.vue'
 
@@ -952,124 +952,61 @@ watch(
                 </p>
             </template>
             <div class="flex flex-col gap-4 p-4 @container">
-                <!-- flex-wrap + per-chip basis: long i18n labels reflow instead of colliding -->
                 <div
                     class="flex flex-wrap gap-2"
                     role="radiogroup"
                     :aria-label="formatMessage(messages.accentColorTitle)"
                 >
-                    <button
+                    <AccentColorOption
                         v-for="accentColor in accentColorOptions"
                         :key="accentColor.value"
-                        v-tooltip="formatMessage(accentColor.label)"
-                        type="button"
-                        role="radio"
-                        :aria-label="formatMessage(accentColor.label)"
-                        :aria-checked="settings.accent_color === accentColor.value"
-                        class="relative flex min-w-0 flex-1 basis-[5.75rem] items-center justify-center gap-2 overflow-hidden rounded-lg border border-solid px-2 py-2.5 @xl:pe-5 @4xl:ps-3 font-semibold transition-all active:scale-[0.97]"
-                        :class="
-                            settings.accent_color === accentColor.value
-                                ? 'border-brand bg-brand-highlight text-brand'
-                                : 'border-surface-4 bg-surface-3 text-[var(--color-text-tertiary)] hover:border-surface-5 hover:text-[var(--color-text-primary)]'
-                        "
+                        :label="formatMessage(accentColor.label)"
+                        :selected="settings.accent_color === accentColor.value"
+                        :background="accentColor.color"
+                        class="basis-[5.75rem]"
                         @click="
                             () => {
                                 themeStore.setAccentColor(accentColor.value)
                                 settings.accent_color = accentColor.value
                             }
                         "
-                    >
-                        <span
-                            class="size-4 shrink-0 rounded-full ring-2 ring-white/20"
-                            :style="{ backgroundColor: accentColor.color }"
-                        />
-                        <span class="min-w-0 truncate">{{ formatMessage(accentColor.label) }}</span>
-                        <CheckIcon
-                            v-if="settings.accent_color === accentColor.value"
-                            class="absolute end-2 top-1/2 size-3.5 shrink-0 -translate-y-1/2"
-                        />
-                    </button>
-                    <button
-                        v-tooltip="formatMessage(messages.accentColorSystem)"
-                        type="button"
-                        role="radio"
-                        :disabled="themeStore.systemAccentSupported !== true"
-                        :aria-checked="isSystemAccent"
-                        :aria-label="
+                    />
+                    <AccentColorOption
+                        :label="formatMessage(messages.accentColorSystem)"
+                        :accessible-label="
                             formatMessage(
                                 themeStore.systemAccentSupported === false
                                     ? messages.accentColorSystemUnsupportedLabel
                                     : messages.accentColorSystem,
                             )
                         "
-                        class="relative flex min-w-0 flex-1 basis-[8.25rem] items-center justify-center gap-2 overflow-hidden rounded-lg border border-solid px-2 py-2.5 @xl:pe-5 @4xl:ps-3 font-semibold transition-all enabled:active:scale-[0.97]"
-                        :class="
-                            themeStore.systemAccentSupported !== true
-                                ? 'cursor-not-allowed border-surface-4 bg-surface-2 text-[var(--color-text-tertiary)] opacity-60'
-                                : isSystemAccent
-                                  ? 'border-brand bg-brand-highlight text-brand'
-                                  : 'border-surface-4 bg-surface-3 text-[var(--color-text-tertiary)] hover:border-surface-5 hover:text-[var(--color-text-primary)]'
+                        :description="
+                            themeStore.systemAccentSupported === false
+                                ? formatMessage(messages.accentColorSystemUnsupported)
+                                : undefined
                         "
+                        :disabled="themeStore.systemAccentSupported !== true"
+                        :selected="isSystemAccent"
+                        :background="themeStore.systemAccentColor ?? 'var(--color-pink)'"
+                        class="basis-[8.25rem]"
                         @click="
                             () => {
                                 themeStore.setAccentColor('system')
                                 settings.accent_color = 'system'
                             }
                         "
-                    >
-                        <span
-                            class="size-4 shrink-0 rounded-full ring-2 ring-white/20"
-                            :style="{
-                                backgroundColor:
-                                    themeStore.systemAccentColor ?? 'var(--color-pink)',
-                            }"
-                        />
-                        <span class="min-w-0 flex-col text-start leading-tight">
-                            <span class="truncate">{{
-                                formatMessage(messages.accentColorSystem)
-                            }}</span>
-                            <span
-                                v-if="themeStore.systemAccentSupported === false"
-                                class="truncate text-xs font-normal"
-                            >
-                                {{ formatMessage(messages.accentColorSystemUnsupported) }}
-                            </span>
-                        </span>
-                        <CheckIcon
-                            v-if="isSystemAccent"
-                            class="absolute end-2 top-1/2 size-3.5 shrink-0 -translate-y-1/2"
-                        />
-                    </button>
-                    <button
-                        v-tooltip="formatMessage(messages.accentColorCustom)"
-                        type="button"
-                        role="radio"
-                        :aria-label="formatMessage(messages.accentColorCustom)"
-                        :aria-checked="isCustomAccent"
-                        class="relative flex min-w-0 flex-1 basis-[6.75rem] items-center justify-center gap-2 overflow-hidden rounded-lg border border-solid px-2 py-2.5 @xl:pe-5 @4xl:ps-3 font-semibold transition-all active:scale-[0.97]"
-                        :class="
+                    />
+                    <AccentColorOption
+                        :label="formatMessage(messages.accentColorCustom)"
+                        :selected="isCustomAccent"
+                        :background="
                             isCustomAccent
-                                ? 'border-brand bg-brand-highlight text-brand'
-                                : 'border-surface-4 bg-surface-3 text-[var(--color-text-tertiary)] hover:border-surface-5 hover:text-[var(--color-text-primary)]'
+                                ? customAccentHex
+                                : 'conic-gradient(#ef4444, #f59e0b, #22c55e, #06b6d4, #6366f1, #ec4899, #ef4444)'
                         "
+                        class="basis-[6.75rem]"
                         @click="applyCustomAccent(customAccentHex)"
-                    >
-                        <span
-                            class="size-4 shrink-0 rounded-full ring-2 ring-white/20"
-                            :style="{
-                                background: isCustomAccent
-                                    ? customAccentHex
-                                    : 'conic-gradient(#ef4444, #f59e0b, #22c55e, #06b6d4, #6366f1, #ec4899, #ef4444)',
-                            }"
-                        />
-                        <span class="min-w-0 truncate">{{
-                            formatMessage(messages.accentColorCustom)
-                        }}</span>
-                        <CheckIcon
-                            v-if="isCustomAccent"
-                            class="absolute end-2 top-1/2 size-3.5 shrink-0 -translate-y-1/2"
-                        />
-                    </button>
+                    />
                 </div>
 
                 <div

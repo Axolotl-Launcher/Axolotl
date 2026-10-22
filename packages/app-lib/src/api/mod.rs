@@ -72,7 +72,7 @@ pub mod data {
         WindowSize,
     };
     pub use ariadne::users::UserStatus;
-    pub use modrinth_content_management::{
+    pub use content_management::{
         ContentType, ResolutionPreferences, ResolveContentPlan,
         ResolveContentRequest,
     };

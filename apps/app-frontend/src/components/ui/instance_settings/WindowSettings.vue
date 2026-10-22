@@ -8,61 +8,66 @@ import {
     useVIntl,
 } from '@modrinth/ui'
 import { platform } from '@tauri-apps/plugin-os'
-import { computed, type Ref, ref, watch } from 'vue'
+import { type Ref, ref, watch } from 'vue'
 
 import { edit } from '@/helpers/instance'
 import { get } from '@/helpers/settings.ts'
 import { injectInstanceSettings } from '@/providers/instance-settings'
 
-import type { AppSettings } from '../../../helpers/types'
+import type { AppSettings, GameInstance } from '../../../helpers/types'
 
 const { handleError } = injectNotificationManager()
 const { formatMessage } = useVIntl()
 
 const { instance } = injectInstanceSettings()
+const initialInstance = instance.value
 const supportsMaximizeWindow = (await platform()) === 'windows'
 
 const globalSettings = (await get().catch(handleError)) as AppSettings
 
 const overrideWindowSettings = ref(
-    !!instance.value.game_resolution ||
-        !!instance.value.force_fullscreen ||
-        !!instance.value.maximize_window,
+    initialInstance.game_resolution != null ||
+        initialInstance.force_fullscreen != null ||
+        initialInstance.maximize_window != null,
 )
-const resolution: Ref<[number, number]> = ref(
-    instance.value.game_resolution ?? (globalSettings.game_resolution.slice() as [number, number]),
-)
+const resolution: Ref<[number, number]> = ref([
+    ...(initialInstance.game_resolution ?? globalSettings.game_resolution),
+] as [number, number])
 const fullscreenSetting: Ref<boolean> = ref(
-    instance.value.force_fullscreen ?? globalSettings.force_fullscreen,
+    initialInstance.force_fullscreen ?? globalSettings.force_fullscreen,
 )
-const maximizeWindowSetting = ref(instance.value.maximize_window ?? globalSettings.maximize_window)
-const windowTitle = ref(instance.value.window_title ?? '')
-
-const editInstanceObject = computed(() => {
-    const title = windowTitle.value.trim() ? windowTitle.value.trim() : null
-    if (!overrideWindowSettings.value) {
-        return {
-            force_fullscreen: null,
-            maximize_window: null,
-            game_resolution: null,
-            // The title is independent of the window-size override checkbox.
-            window_title: title,
-        }
-    }
-    return {
-        force_fullscreen: fullscreenSetting.value,
-        maximize_window: maximizeWindowSetting.value,
-        game_resolution: fullscreenSetting.value ? null : resolution.value,
-        window_title: title,
-    }
-})
+const maximizeWindowSetting = ref(initialInstance.maximize_window ?? globalSettings.maximize_window)
+const windowTitle = ref(initialInstance.window_title ?? '')
+let saveQueue = Promise.resolve()
 
 watch(
-    [overrideWindowSettings, resolution, fullscreenSetting, maximizeWindowSetting, windowTitle],
-    async () => {
-        await edit(instance.value.id, editInstanceObject.value)
+    [
+        overrideWindowSettings,
+        () => resolution.value[0],
+        () => resolution.value[1],
+        fullscreenSetting,
+        maximizeWindowSetting,
+        windowTitle,
+    ],
+    (
+        [override, width, height, fullscreen, maximize, title],
+        [oldOverride, oldWidth, oldHeight, oldFullscreen, oldMaximize, oldTitle],
+    ) => {
+        const patch: Partial<GameInstance> = {}
+        if (override !== oldOverride) {
+            patch.force_fullscreen = override ? fullscreen : null
+            patch.maximize_window = override ? maximize : null
+            patch.game_resolution = override ? [width, height] : null
+        } else if (override) {
+            if (fullscreen !== oldFullscreen) patch.force_fullscreen = fullscreen
+            if (maximize !== oldMaximize) patch.maximize_window = maximize
+            if (width !== oldWidth || height !== oldHeight) patch.game_resolution = [width, height]
+        }
+        if (title !== oldTitle) patch.window_title = title.trim() || null
+        if (Object.keys(patch).length) {
+            saveQueue = saveQueue.then(() => edit(initialInstance.id, patch)).catch(handleError)
+        }
     },
-    { deep: true },
 )
 
 const messages = defineMessages({

@@ -155,26 +155,14 @@
   "app.content-install.no-compatible-versions": {
     "message": "Жодна доступна версія не сумісна з {compatibilityLabel}. Виберіть версію, щоб усе одно її встановити. Залежності не встановлюватимуться автоматично."
   },
-  "app.export-modal.description-placeholder": {
-    "message": "Уведіть опис збірки…"
-  },
   "app.export-modal.export-button": {
     "message": "Експортувати"
-  },
-  "app.export-modal.header": {
-    "message": "Експортувати збірку"
   },
   "app.export-modal.modpack-name-label": {
     "message": "Назва збірки"
   },
-  "app.export-modal.modpack-name-placeholder": {
-    "message": "Назва збірки"
-  },
   "app.export-modal.version-number-label": {
     "message": "Номер версії"
-  },
-  "app.export-modal.version-number-placeholder": {
-    "message": "1.0.0"
   },
   "app.instance.confirm-delete.admonition-body": {
     "message": "Усі дані вашого профілю будуть видалені назавжди, включно з вашими світами, налаштуваннями та всім установленим умістом."

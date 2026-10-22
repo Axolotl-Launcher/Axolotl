@@ -176,26 +176,14 @@
   "app.content-install.no-compatible-versions": {
     "message": "Yhtään versiota ei ole saatavilla yhteensopivuudella {compatibilityLabel}. Valitse asennettava versio siitä huolimatta. Riippuvuuksia ei asenneta automaattisesti."
   },
-  "app.export-modal.description-placeholder": {
-    "message": "Lisää modipaketin kuvaus..."
-  },
   "app.export-modal.export-button": {
     "message": "Vie"
-  },
-  "app.export-modal.header": {
-    "message": "Vie modipaketti"
   },
   "app.export-modal.modpack-name-label": {
     "message": "Modipaketin nimi"
   },
-  "app.export-modal.modpack-name-placeholder": {
-    "message": "Modipaketin nimi"
-  },
   "app.export-modal.version-number-label": {
     "message": "Versio numero"
-  },
-  "app.export-modal.version-number-placeholder": {
-    "message": "1.0.0"
   },
   "app.install.phase.downloading_content": {
     "message": "Ladataan sisältöä"

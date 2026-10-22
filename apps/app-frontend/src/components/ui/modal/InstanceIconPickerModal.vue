@@ -29,10 +29,11 @@
                     <h2 class="m-0 text-base font-semibold text-[var(--color-text-primary)]">
                         {{ formatMessage(messages.background) }}
                     </h2>
-                    <div class="flex flex-wrap gap-2">
+                    <div data-tooltip-group="icon-backgrounds" class="flex flex-wrap gap-2">
                         <button
                             v-for="iconBackground in backgrounds"
                             :key="iconBackground.id"
+                            v-tooltip="formatMessage(iconBackground.name)"
                             type="button"
                             class="h-10 w-10 cursor-pointer rounded-xl border-2 border-solid transition-transform hover:scale-105 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand disabled:cursor-wait disabled:opacity-60"
                             :class="
@@ -57,12 +58,16 @@
                     <h2 class="m-0 text-base font-semibold text-[var(--color-text-primary)]">
                         {{ formatMessage(group.name) }}
                     </h2>
-                    <div class="grid grid-cols-4 gap-2 sm:grid-cols-6">
+                    <div
+                        data-tooltip-group="instance-icons"
+                        class="grid grid-cols-4 gap-2 sm:grid-cols-6"
+                    >
                         <button
                             v-for="icon in group.icons"
                             :key="icon.id"
+                            v-tooltip="formatMessage(icon.name)"
                             type="button"
-                            class="group flex min-w-0 cursor-pointer flex-col items-center gap-1.5 rounded-xl border border-solid bg-surface-2 p-2 text-[var(--color-text-tertiary)] transition-colors hover:border-brand hover:bg-brand-highlight hover:text-[var(--color-text-primary)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand disabled:cursor-wait disabled:opacity-60"
+                            class="flex min-w-0 cursor-pointer items-center rounded-xl border border-solid bg-surface-2 p-2 text-[var(--color-text-tertiary)] transition-colors hover:border-brand hover:bg-brand-highlight hover:text-[var(--color-text-primary)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand disabled:cursor-wait disabled:opacity-60"
                             :class="
                                 icon.id === selectedIconId
                                     ? 'border-brand bg-brand-highlight text-[var(--color-text-primary)]'
@@ -78,9 +83,6 @@
                                 alt=""
                                 class="aspect-square w-full object-contain"
                             />
-                            <span class="w-full truncate text-center text-xs font-semibold">
-                                {{ formatMessage(icon.name) }}
-                            </span>
                         </button>
                     </div>
                 </section>

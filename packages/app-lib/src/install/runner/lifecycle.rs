@@ -1,5 +1,16 @@
 use super::*;
 
+struct CancellationRegistration<'a> {
+    registrations:
+        &'a dashmap::DashMap<Uuid, tokio_util::sync::CancellationToken>,
+    id: Uuid,
+}
+impl Drop for CancellationRegistration<'_> {
+    fn drop(&mut self) {
+        self.registrations.remove(&self.id);
+    }
+}
+
 pub(super) fn spawn_job(job_id: Uuid) {
     tokio::spawn(async move {
         if let Err(error) = run_job(job_id).await {
@@ -69,6 +80,7 @@ pub(super) fn begin_waiting_for_user(
 }
 
 async fn run_job(job_id: Uuid) -> crate::Result<()> {
+    let _metadata_usage = crate::storage::usage::lease().await?;
     let state = State::get().await?;
     let mut job = store::get_required(job_id, &state).await?;
 
@@ -100,6 +112,10 @@ async fn run_job(job_id: Uuid) -> crate::Result<()> {
     state
         .install_job_cancellations
         .insert(job_id, cancellation.clone());
+    let _registration = CancellationRegistration {
+        registrations: &state.install_job_cancellations,
+        id: job_id,
+    };
     emit_install_job(&record.snapshot()).await?;
     if store::get_required(job_id, &state).await?.status
         == InstallJobStatus::Canceling
@@ -114,7 +130,18 @@ async fn run_job(job_id: Uuid) -> crate::Result<()> {
     }
 
     let result =
-        if matches!(job_state.request, InstallRequest::ChangeContent { .. }) {
+        if matches!(job_state.request, InstallRequest::ExportResource { .. }) {
+            let result =
+                request::run_request(job_id, &mut job_state, &state).await;
+            if result.is_err() && cancellation.is_cancelled() {
+                RunResult::Canceled
+            } else {
+                RunResult::Completed(result)
+            }
+        } else if matches!(
+            job_state.request,
+            InstallRequest::ChangeContent { .. }
+        ) {
             RunResult::Completed(
                 request::run_request(job_id, &mut job_state, &state).await,
             )
@@ -129,6 +156,38 @@ async fn run_job(job_id: Uuid) -> crate::Result<()> {
                 None => RunResult::Canceled,
             }
         };
+    let committed = crate::resources::plans::frozen_request_completed(
+        &job_state.request,
+        &state.pool,
+    )
+    .await;
+    let resource_committed = match committed {
+        Ok(value) => value,
+        Err(error) => {
+            job_state.error = Some(InstallErrorView::from_error(
+                "database_error",
+                job_state.progress.phase,
+                &error,
+                None,
+            ));
+            let record = store::update_status(
+                job_id,
+                InstallJobStatus::Interrupted,
+                &job_state,
+                &state,
+            )
+            .await?;
+            emit_install_job(&record.snapshot()).await?;
+            return Err(error);
+        }
+    };
+    let result = if resource_committed {
+        RunResult::Completed(Ok(InstallExecutionOutcome::Completed(
+            current_instance_id(&job_state),
+        )))
+    } else {
+        result
+    };
     state.install_job_cancellations.remove(&job_id);
     let execution_state = job_state;
     let reporter_state = live_reporter.current_state().await?;
@@ -142,7 +201,13 @@ async fn run_job(job_id: Uuid) -> crate::Result<()> {
             if let Some(instance_id) = instance_id.as_ref() {
                 set_instance_id(&mut job_state, instance_id.clone());
             }
-            if cancellation.is_cancelled() {
+            if cancellation.is_cancelled()
+                && !resource_committed
+                && !matches!(
+                    job_state.request,
+                    InstallRequest::ExportResource { .. }
+                )
+            {
                 finish_canceled_job(job_id, &mut job_state, &state).await?;
                 return Ok(());
             }
@@ -196,6 +261,14 @@ async fn run_job(job_id: Uuid) -> crate::Result<()> {
                     error = %error,
                     "Install job succeeded, but its final instance event could not be emitted"
                 );
+            }
+            if resource_committed
+                && let Some(instance_id) = instance_id.as_ref()
+                && let Err(error) =
+                    crate::api::instance::emit_content_changed(instance_id)
+                        .await
+            {
+                tracing::warn!(%error, instance_id, "Could not emit committed resource content change");
             }
             if let Err(error) =
                 recovery::discard_content_rollback(&mut job_state, &state).await
@@ -341,4 +414,31 @@ async fn finish_canceled_job(
     )
     .await?;
     emit_install_job(&record.snapshot()).await
+}
+
+#[cfg(test)]
+mod registration_tests {
+    use super::*;
+    #[tokio::test]
+    async fn task_abort_always_unregisters_the_cancel_token() {
+        let registrations = std::sync::Arc::new(dashmap::DashMap::new());
+        let id = Uuid::new_v4();
+        let active = registrations.clone();
+        let started = std::sync::Arc::new(tokio::sync::Notify::new());
+        let signal = started.clone();
+        let task = tokio::spawn(async move {
+            active.insert(id, tokio_util::sync::CancellationToken::new());
+            let _registration = CancellationRegistration {
+                registrations: &active,
+                id,
+            };
+            signal.notify_one();
+            std::future::pending::<()>().await;
+        });
+        started.notified().await;
+        assert!(registrations.contains_key(&id));
+        task.abort();
+        assert!(task.await.unwrap_err().is_cancelled());
+        assert!(!registrations.contains_key(&id));
+    }
 }

@@ -1,5 +1,14 @@
 <template>
-    <NewModal ref="modal" no-padding scrollable actions-divider max-width="560px" width="560px">
+    <NewModal
+        ref="modal"
+        no-padding
+        scrollable
+        actions-divider
+        max-width="560px"
+        width="560px"
+        :disable-close="creatingGroup"
+        :on-hide="onHide"
+    >
         <template #title>
             <span class="text-2xl font-semibold text-[var(--color-text-primary)]">
                 {{
@@ -21,6 +30,7 @@
                     v-model="newGroupName"
                     :placeholder="formatMessage(messages.groupNamePlaceholder)"
                     :maxlength="32"
+                    :disabled="loadingInstances || creatingGroup"
                     @click="groupNameInput?.select()"
                 />
             </div>
@@ -35,11 +45,25 @@
                     :icon="SearchIcon"
                     :placeholder="formatMessage(messages.searchInstance)"
                     class="w-full"
+                    :disabled="loadingInstances || creatingGroup"
                 />
             </div>
 
             <div
-                v-if="newGroupInstances.length === 0"
+                v-if="loadingInstances"
+                class="px-6 text-[var(--color-text-tertiary)]"
+                role="status"
+            >
+                {{ formatMessage(messages.loadingInstances) }}
+            </div>
+            <Admonition v-else-if="loadError" type="critical" class="mx-6">
+                {{ formatMessage(messages.loadFailed) }}
+                <Button @click="loadInstances(initialInstanceIds)">{{
+                    formatMessage(messages.retry)
+                }}</Button>
+            </Admonition>
+            <div
+                v-else-if="newGroupInstances.length === 0"
                 class="flex items-center justify-center py-12 text-[var(--color-text-tertiary)]"
             >
                 {{ formatMessage(messages.noInstancesFound) }}
@@ -72,6 +96,7 @@
                     </div>
                     <Button
                         :type="selectedNewGroupInstanceIds.has(instance.id) ? 'outlined' : 'base'"
+                        :disabled="creatingGroup"
                         @click="toggleNewGroupInstance(instance.id)"
                     >
                         <CheckIcon v-if="selectedNewGroupInstanceIds.has(instance.id)" />
@@ -86,23 +111,24 @@
                 </div>
             </div>
         </div>
+        <Admonition v-if="submitError" type="critical" class="mx-6 my-3" role="alert">
+            {{ formatMessage(submitError) }}
+        </Admonition>
 
         <template #actions>
             <div class="flex items-center justify-end gap-2">
-                <Button type="outlined" @click="modal?.hide()">
+                <Button type="outlined" :disabled="creatingGroup" @click="modal?.hide()">
                     <XIcon />
                     {{ formatMessage(messages.cancel) }}
                 </Button>
                 <Button
                     type="colored"
                     color="brand"
-                    :disabled="
-                        creatingGroup || (existingGroupName ? !canSaveGroups : !canCreateGroup)
-                    "
-                    @click="existingGroupName ? handleSaveGroups() : handleCreateGroup()"
+                    :disabled="!canSubmit"
+                    :loading="creatingGroup"
+                    @click="submitGroups"
                 >
-                    <SpinnerIcon v-if="creatingGroup" class="animate-spin" />
-                    <CheckIcon v-else-if="existingGroupName" />
+                    <CheckIcon v-if="existingGroupName" />
                     <PlusIcon v-else />
                     {{
                         formatMessage(
@@ -116,8 +142,9 @@
 </template>
 
 <script setup lang="ts">
-import { CheckIcon, PlusIcon, SearchIcon, SpinnerIcon, XIcon } from '@modrinth/assets'
+import { CheckIcon, PlusIcon, SearchIcon, XIcon } from '@modrinth/assets'
 import {
+    Admonition,
     Button,
     defineMessages,
     injectNotificationManager,
@@ -126,12 +153,18 @@ import {
     TagItem,
     useVIntl,
 } from '@modrinth/ui'
-import { computed, ref } from 'vue'
+import { computed, nextTick, ref } from 'vue'
 
 import InstanceIcon from '@/components/ui/InstanceIcon.vue'
 import { FAVORITES_GROUP_ID } from '@/composables/useInstanceGroups'
 import { list } from '@/helpers/instance'
-import { create_group, list_groups, update_group_memberships } from '@/helpers/instance-groups'
+import {
+    create_group,
+    type InstanceGroupDefinition,
+    list_groups,
+    rename_group,
+    update_group_memberships,
+} from '@/helpers/instance-groups'
 import type { GameInstance } from '@/helpers/types'
 
 const { formatMessage } = useVIntl()
@@ -196,6 +229,24 @@ const messages = defineMessages({
         id: 'app.instances.batch-edit-groups.save-changes',
         defaultMessage: 'Save',
     },
+    loadingInstances: {
+        id: 'app.instances.batch-edit-groups.loading',
+        defaultMessage: 'Loading instances…',
+    },
+    loadFailed: {
+        id: 'app.instances.batch-edit-groups.load-failed',
+        defaultMessage: 'Could not load instances. Try again.',
+    },
+    retry: { id: 'app.instances.batch-edit-groups.retry', defaultMessage: 'Retry' },
+    saveFailed: {
+        id: 'app.instances.batch-edit-groups.save-failed',
+        defaultMessage: 'Could not save the group. Your changes are kept; try again.',
+    },
+    membershipFailed: {
+        id: 'app.instances.batch-edit-groups.membership-failed',
+        defaultMessage:
+            'The group was created, but its instances could not be saved. Retry to finish saving your changes.',
+    },
 })
 
 const modal = ref<InstanceType<typeof NewModal>>()
@@ -203,6 +254,13 @@ const groupNameInput = ref<InstanceType<typeof StyledInput>>()
 const newGroupName = ref('')
 const newGroupSearch = ref('')
 const creatingGroup = ref(false)
+const submitted = ref(false)
+const loadingInstances = ref(false)
+const loadError = ref(false)
+const submitError = ref<typeof messages.saveFailed | typeof messages.membershipFailed | null>(null)
+const createdGroup = ref<InstanceGroupDefinition | null>(null)
+let loadGeneration = 0
+let initialInstanceIds: string[] = []
 const allInstances = ref<GameInstance[]>([])
 const groupNameMap = ref(new Map<string, string>())
 const selectedNewGroupInstanceIds = ref(new Set<string>())
@@ -220,6 +278,15 @@ const canSaveGroups = computed(() => {
     })
 })
 
+const canSubmit = computed(
+    () =>
+        !loadingInstances.value &&
+        !loadError.value &&
+        !creatingGroup.value &&
+        !submitted.value &&
+        (props.existingGroupName ? canSaveGroups.value : canCreateGroup.value),
+)
+
 const newGroupInstances = computed(() => {
     const search = newGroupSearch.value.toLowerCase()
     return allInstances.value.filter((instance) => {
@@ -236,9 +303,31 @@ function getGroupName(groupId: string) {
 }
 
 function show(ids?: string[]) {
+    if (creatingGroup.value) return
     newGroupSearch.value = ''
-    creatingGroup.value = false
-    Promise.all([list(), list_groups()]).then(([instances, groups]) => {
+    newGroupName.value = ''
+    submitted.value = false
+    submitError.value = null
+    createdGroup.value = null
+    allInstances.value = []
+    selectedNewGroupInstanceIds.value = new Set()
+    initialInstanceIds = [...(ids ?? props.instanceIds)]
+    void loadInstances(initialInstanceIds)
+    modal.value?.show()
+}
+
+function onHide() {
+    loadGeneration++
+    loadingInstances.value = false
+}
+
+async function loadInstances(ids: string[]) {
+    const generation = ++loadGeneration
+    loadingInstances.value = true
+    loadError.value = false
+    try {
+        const [instances, groups] = await Promise.all([list(), list_groups()])
+        if (generation !== loadGeneration) return
         allInstances.value = instances as GameInstance[]
         const map = new Map<string, string>()
         for (const g of groups) {
@@ -266,11 +355,17 @@ function show(ids?: string[]) {
         } else {
             selectedNewGroupInstanceIds.value = new Set(ids ?? props.instanceIds)
         }
-    })
-    modal.value?.show()
+    } catch (error) {
+        if (generation !== loadGeneration) return
+        loadError.value = true
+        handleError(error)
+    } finally {
+        if (generation === loadGeneration) loadingInstances.value = false
+    }
 }
 
 function toggleNewGroupInstance(instanceId: string) {
+    if (creatingGroup.value || loadingInstances.value || loadError.value) return
     const next = new Set(selectedNewGroupInstanceIds.value)
     if (next.has(instanceId)) {
         next.delete(instanceId)
@@ -280,69 +375,44 @@ function toggleNewGroupInstance(instanceId: string) {
     selectedNewGroupInstanceIds.value = next
 }
 
-async function handleCreateGroup() {
+async function submitGroups() {
+    if (!canSubmit.value) return
     const name = newGroupName.value.trim()
-    if (creatingGroup.value || !name || selectedNewGroupInstanceIds.value.size === 0) return
-
+    const selectedIds = new Set(selectedNewGroupInstanceIds.value)
     creatingGroup.value = true
-
-    const group = await create_group(name).catch(() => null)
-    if (!group) {
-        creatingGroup.value = false
-        return
-    }
-
-    if (selectedNewGroupInstanceIds.value.size > 0) {
-        const updates = [...selectedNewGroupInstanceIds.value].map((instanceId) => ({
-            instance_id: instanceId,
-            add_group_ids: [group.id],
-            remove_group_ids: [],
-        }))
-        try {
-            await update_group_memberships(updates)
-        } catch (error) {
-            handleError(error)
-            creatingGroup.value = false
-            return
-        }
-    }
-
-    creatingGroup.value = false
-    modal.value?.hide()
-    emit('applied')
-}
-
-async function handleSaveGroups() {
-    if (creatingGroup.value || !props.existingGroupName || !props.existingGroupId) return
-
-    creatingGroup.value = true
-    const groupId = props.existingGroupId
-
-    const changedInstances = allInstances.value.filter((instance) => {
-        const isSelected = selectedNewGroupInstanceIds.value.has(instance.id)
-        const hasGroup = (instance.groups || []).includes(groupId || '')
-        return isSelected !== hasGroup
-    })
-
-    const updates = changedInstances.map((instance) => {
-        const isSelected = selectedNewGroupInstanceIds.value.has(instance.id)
-        return {
-            instance_id: instance.id,
-            add_group_ids: isSelected ? [groupId!] : [],
-            remove_group_ids: isSelected ? [] : [groupId!],
-        }
-    })
+    submitError.value = null
     try {
-        await update_group_memberships(updates)
-    } catch (error) {
-        handleError(error)
+        let groupId = props.existingGroupId
+        if (!props.existingGroupName) {
+            if (!createdGroup.value) createdGroup.value = await create_group(name)
+            else if (createdGroup.value.name !== name) {
+                createdGroup.value = await rename_group(createdGroup.value.id, name)
+            }
+            groupId = createdGroup.value.id
+        }
+        if (!groupId) return
+        const updates = allInstances.value
+            .filter(
+                (instance) =>
+                    selectedIds.has(instance.id) !== (instance.groups || []).includes(groupId),
+            )
+            .map((instance) => ({
+                instance_id: instance.id,
+                add_group_ids: selectedIds.has(instance.id) ? [groupId] : [],
+                remove_group_ids: selectedIds.has(instance.id) ? [] : [groupId],
+            }))
+        if (updates.length) await update_group_memberships(updates)
+        submitted.value = true
         creatingGroup.value = false
-        return
+        await nextTick()
+        modal.value?.hide()
+        emit('applied')
+    } catch (error) {
+        submitError.value = createdGroup.value ? messages.membershipFailed : messages.saveFailed
+        handleError(error)
+    } finally {
+        creatingGroup.value = false
     }
-
-    creatingGroup.value = false
-    modal.value?.hide()
-    emit('applied')
 }
 
 defineExpose({ show })

@@ -31,9 +31,15 @@ const emit = defineEmits<{
     saveAs: []
 }>()
 
-withDefaults(defineProps<{ showSaveAs?: boolean }>(), {
-    showSaveAs: true,
-})
+const props = withDefaults(
+    defineProps<{
+        showSaveAs?: boolean
+        onInstall?: (target: RecipeWorldInstallTarget) => Promise<void>
+    }>(),
+    {
+        showSaveAs: true,
+    },
+)
 
 const { formatMessage, locale } = useVIntl()
 const formatRelativeTime = useRelativeTime()
@@ -45,6 +51,7 @@ const loading = ref(false)
 const error = ref('')
 const worldError = ref('')
 const installingWorldPath = ref<string | null>(null)
+const installError = ref('')
 
 const messages = defineMessages({
     title: {
@@ -95,6 +102,7 @@ async function show(instanceId?: string) {
     error.value = ''
     worldError.value = ''
     installingWorldPath.value = null
+    installError.value = ''
     loading.value = true
     modal.value?.show()
     try {
@@ -148,9 +156,17 @@ async function installWorld(world: SingleplayerWorld) {
     const instance = selectedInstance.value
     if (!instance || installingWorldPath.value) return
     installingWorldPath.value = world.path
-    emit('select', { instanceId: instance.id, worldPath: world.path })
-    modal.value?.hide()
-    installingWorldPath.value = null
+    installError.value = ''
+    try {
+        const target = { instanceId: instance.id, worldPath: world.path }
+        if (props.onInstall) await props.onInstall(target)
+        else emit('select', target)
+        modal.value?.hide()
+    } catch (caught) {
+        installError.value = caught instanceof Error ? caught.message : String(caught)
+    } finally {
+        installingWorldPath.value = null
+    }
 }
 
 function saveAs() {
@@ -170,6 +186,7 @@ defineExpose({ show })
         scrollable
         max-content-height="min(38rem, 76vh)"
         actions-divider
+        :disable-close="installingWorldPath !== null"
     >
         <div class="flex min-h-[18rem] min-w-0 flex-col gap-4">
             <template v-if="!selectedInstance">
@@ -245,7 +262,7 @@ defineExpose({ show })
                     <SpinnerIcon class="size-6 animate-spin" />
                 </div>
                 <p
-                    v-else-if="worldError"
+                    v-if="worldError"
                     class="m-0 flex flex-1 items-center justify-center text-center text-brand-red"
                 >
                     {{ worldError }}
@@ -304,6 +321,9 @@ defineExpose({ show })
                         </button>
                     </li>
                 </ul>
+                <p v-if="installError" class="m-0 text-sm text-brand-red" role="alert">
+                    {{ installError }}
+                </p>
             </template>
         </div>
 

@@ -3,9 +3,8 @@ use async_zip::tokio::write::ZipFileWriter;
 use std::path::PathBuf;
 use theseus::logs::LogType;
 use theseus::logs::{
-    self, CensoredString, CrashAnalysis, CrashAnalysisAiExplanation,
-    CrashAnalysisAiSettings, LatestLogCursor, LogShareSettings,
-    LogShareUploadResponse, Logs, SharedLog,
+    self, CensoredString, CrashAnalysis, CrashAnalysisAiSettings,
+    LatestLogCursor, LogShareSettings, LogShareUploadResponse, Logs, SharedLog,
 };
 
 /*
@@ -33,7 +32,11 @@ pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
             logs_analyze_crash,
             logs_get_crash_analysis_ai_settings,
             logs_update_crash_analysis_ai_settings,
-            logs_explain_crash_with_ai,
+            logs_logagent_prepare,
+            logs_logagent_model_turn,
+            logs_logagent_tool,
+            logs_logagent_cloud,
+            logs_logagent_cancel,
             logs_undo_added_mod,
             logs_export_crash_context,
             logs_get_log_share_settings,
@@ -41,8 +44,6 @@ pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
             logs_logshare_upload_crash,
             logs_logshare_get_insights,
             logs_logshare_analyse_crash_direct,
-            logs_logshare_ai_analyze_stored,
-            logs_logshare_ai_analyze_direct,
             logs_logshare_delete,
             logs_list_shared_logs,
             logs_record_shared_log,
@@ -154,10 +155,49 @@ pub async fn logs_update_crash_analysis_ai_settings(
 }
 
 #[tauri::command]
-pub async fn logs_explain_crash_with_ai(
+pub async fn logs_logagent_prepare(
     instance_id: &str,
-) -> Result<CrashAnalysisAiExplanation> {
-    Ok(logs::explain_crash_with_ai(instance_id).await?)
+    run_id: String,
+    source: String,
+) -> Result<logs::logagent::PreparedSession> {
+    Ok(logs::logagent::prepare(instance_id, run_id, source).await?)
+}
+
+#[tauri::command]
+pub async fn logs_logagent_model_turn(
+    run_id: &str,
+    turn: theseus::ai::chat::ChatTurn,
+    on_event: tauri::ipc::Channel<logs::logagent::AnalysisEvent>,
+) -> Result<theseus::ai::chat::ChatMessage> {
+    Ok(logs::logagent::model_turn(run_id, turn, |event| {
+        let _ = on_event.send(event);
+    })
+    .await?)
+}
+
+#[tauri::command]
+pub async fn logs_logagent_tool(
+    run_id: &str,
+    request: logs::logagent::ToolRequest,
+) -> Result<serde_json::Value> {
+    Ok(logs::logagent::tool(run_id, request)?)
+}
+
+#[tauri::command]
+pub async fn logs_logagent_cloud(
+    run_id: &str,
+    ticket: Option<LogShareUploadResponse>,
+    on_event: tauri::ipc::Channel<logs::logagent::AnalysisEvent>,
+) -> Result<logs::logagent::CloudResult> {
+    Ok(logs::logagent::cloud(run_id, ticket, |event| {
+        let _ = on_event.send(event);
+    })
+    .await?)
+}
+
+#[tauri::command]
+pub async fn logs_logagent_cancel(run_id: &str) -> Result<()> {
+    Ok(logs::logagent::cancel(run_id)?)
 }
 
 #[tauri::command]
@@ -227,21 +267,6 @@ pub async fn logs_logshare_analyse_crash_direct(
     instance_id: &str,
 ) -> Result<serde_json::Value> {
     Ok(logs::analyse_crash_direct(instance_id).await?)
-}
-
-#[tauri::command]
-pub async fn logs_logshare_ai_analyze_stored(
-    instance_id: &str,
-    id: &str,
-) -> Result<String> {
-    Ok(logs::ai_analyze_stored(instance_id, id).await?)
-}
-
-#[tauri::command]
-pub async fn logs_logshare_ai_analyze_direct(
-    instance_id: &str,
-) -> Result<String> {
-    Ok(logs::ai_analyze_direct(instance_id).await?)
 }
 
 #[tauri::command]

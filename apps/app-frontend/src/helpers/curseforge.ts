@@ -1,6 +1,16 @@
 import { invoke } from '@tauri-apps/api/core'
 
 import type { InstallJobSnapshot } from './install'
+import {
+    resourceCachePolicy,
+    resourceChangelog,
+    resourceDescription,
+    resourceProjectDocuments,
+    resourceProjectProtocol,
+    resourceReleaseDocuments,
+    resourceReleases,
+    sourceResource,
+} from './resources.ts'
 
 export type ContentProvider = 'modrinth' | 'curseforge'
 
@@ -142,22 +152,6 @@ export interface CurseForgeFilesResponse {
     }
 }
 
-export interface CurseForgeInstallRequest {
-    instanceId: string
-    projectId: number
-    fileId: number
-    projectType: string
-    ownershipKind?: 'pack_managed' | 'user_added'
-    manualOperationKind?: 'pack_install' | 'pack_update' | 'content_install' | 'content_update'
-    gameVersion?: string
-    modLoaderType?: number
-    worldName?: string
-    installDependencies?: boolean
-    excludedDependencyProjectIds?: number[]
-    forceDependencyProjectIds?: number[]
-    dependencyPlanId?: string
-}
-
 export interface CurseForgeWorldInstallRequest {
     instanceId: string
     projectId: number
@@ -198,49 +192,6 @@ export interface CurseForgeInstallResult {
         fileId: number | null
         reason: string
     }>
-}
-
-export interface CurseForgeInstallPreview {
-    planId: string
-    primary: {
-        projectId: number
-        fileId: number
-        title: string
-        versionNumber: string
-        fileName: string
-        size: number
-        requiredByProjectIds: number[]
-        iconUrl?: string | null
-    }
-    dependencies: Array<{
-        projectId: number
-        fileId: number
-        title: string
-        versionNumber: string
-        fileName: string
-        size: number
-        requiredByProjectIds: number[]
-        iconUrl?: string | null
-        versionMismatch?: boolean
-        selectionReason?: 'native_strict_match' | 'sha1_verified_modrinth_fallback'
-        required?: boolean
-    }>
-    modrinthFallbacks?: Array<{
-        projectId: string
-        versionId: string
-        title: string
-        versionNumber: string
-        parentProjectId: number
-        iconUrl?: string | null
-        required?: boolean
-    }>
-    skipped: Array<{
-        projectId: number
-        fileId: number | null
-        reason: string
-    }>
-    optionalDependencies: number[]
-    incompatibleDependencies: number[]
 }
 
 export interface CurseForgeManualDownloadImport {
@@ -328,48 +279,133 @@ export function searchCurseForgeProjects(request: CurseForgeSearchRequest, reque
 }
 
 export function getCurseForgeProject(projectId: number) {
-    return invoke<CurseForgeProject>('plugin:curseforge|curseforge_get_project', { projectId })
+    return resourceProjectProtocol<CurseForgeProject>('curseforge', String(projectId))
 }
 
 export function getCurseForgeProjects(projectIds: number[], cacheBehaviour?: CacheBehaviour) {
-    return invoke<CurseForgeProject[]>('plugin:curseforge|curseforge_get_projects', {
-        projectIds,
-        cacheBehaviour,
-    })
+    return resourceProjectDocuments<CurseForgeProject>(
+        'curseforge',
+        projectIds.map(String),
+        undefined,
+        resourceCachePolicy(cacheBehaviour),
+    ).then((documents) =>
+        documents.map((document) => {
+            if (!document.protocol) throw new Error('Source presentation is unavailable')
+            return document.protocol
+        }),
+    )
 }
 
 export function getCurseForgeChangelog(projectId: number, fileId: number) {
-    return invoke<string>('plugin:curseforge|curseforge_get_changelog', {
-        projectId,
-        fileId,
-    })
+    return resourceChangelog({
+        project: { source: 'curseforge', projectId: String(projectId) },
+        releaseId: String(fileId),
+    }).then((text) => text.body)
 }
 
 export function getCurseForgeDescription(projectId: number) {
-    return invoke<string>('plugin:curseforge|curseforge_get_description', {
-        projectId,
-    })
+    return resourceDescription(sourceResource('curseforge', String(projectId)), 'curseforge').then(
+        (text) => text.body,
+    )
 }
 
-export function getCurseForgeFiles(projectId: number, request: CurseForgeFilesRequest) {
-    return invoke<CurseForgeFilesResponse>('plugin:curseforge|curseforge_get_files', {
-        projectId,
-        request,
-    })
+export async function getCurseForgeFiles(projectId: number, request: CurseForgeFilesRequest) {
+    const files: CurseForgeFile[] = []
+    let pagination: CurseForgeFilesResponse['pagination'] = {
+        index: request.index ?? 0,
+        pageSize: 50,
+        resultCount: 0,
+        totalCount: 0,
+    }
+    for await (const page of curseForgeFilePages(projectId, request, true)) {
+        files.push(...page.files)
+        pagination = page.pagination
+    }
+    return {
+        files,
+        pagination: { ...pagination, index: request.index ?? 0, resultCount: files.length },
+    }
 }
 
-export function getCurseForgeFilesPage(projectId: number, request: CurseForgeFilesRequest) {
-    return invoke<CurseForgeFilesResponse>('plugin:curseforge|curseforge_get_files_page', {
-        projectId,
-        request,
-    })
+export async function getCurseForgeFilesPage(
+    projectId: number,
+    request: CurseForgeFilesRequest,
+): Promise<CurseForgeFilesResponse> {
+    for await (const page of curseForgeFilePages(projectId, request)) return page
+    return {
+        files: [],
+        pagination: { index: request.index ?? 0, pageSize: 50, resultCount: 0, totalCount: 0 },
+    }
 }
 
-export function getCurseForgeFile(projectId: number, fileId: number) {
-    return invoke<CurseForgeFile>('plugin:curseforge|curseforge_get_file', {
-        projectId,
-        fileId,
-    })
+async function* curseForgeFilePages(
+    projectId: number,
+    request: CurseForgeFilesRequest,
+    requireComplete = false,
+): AsyncGenerator<CurseForgeFilesResponse> {
+    const loaders: Record<number, string> = { 1: 'forge', 4: 'fabric', 5: 'quilt', 6: 'neoforge' }
+    const target = {
+        gameVersions: request.gameVersion ? [request.gameVersion] : [],
+        loaders: request.modLoaderType ? [loaders[request.modLoaderType]] : [],
+        channels: [],
+    }
+    const requestedIndex = Math.max(0, request.index ?? 0)
+    let cursor: string | null = null
+    let index = 0
+    const seen = new Set<string>()
+    do {
+        const page = await resourceReleases(
+            sourceResource('curseforge', String(projectId)),
+            target,
+            cursor,
+        )
+        if (requireComplete && page.exhaustedSources.length > 0) {
+            throw new Error(
+                'Source release window is incomplete; choose a specific game version or file',
+            )
+        }
+        const nextIndex = index + page.entries.length
+        const hasMore = page.hasMore && page.exhaustedSources.length === 0
+        if (hasMore && (!page.cursor || seen.has(page.cursor))) {
+            throw new Error('Source returned an invalid release cursor')
+        }
+        if (nextIndex > requestedIndex || !hasMore) {
+            const entries = page.entries.slice(Math.max(0, requestedIndex - index))
+            const documents = await resourceReleaseDocuments<CurseForgeFile>(
+                'curseforge',
+                entries.map((release) => release.reference.releaseId),
+                String(projectId),
+            )
+            const files = documents.map((document) => {
+                if (!document.protocol) throw new Error('Source presentation is unavailable')
+                return document.protocol
+            })
+            yield {
+                files,
+                pagination: {
+                    index: Math.max(index, requestedIndex),
+                    pageSize: 50,
+                    resultCount: files.length,
+                    totalCount: !hasMore ? nextIndex : (page.total.value ?? nextIndex + 1),
+                },
+            }
+        }
+        index = nextIndex
+        cursor = hasMore ? page.cursor : null
+        if (cursor) seen.add(cursor)
+    } while (cursor)
+}
+
+export async function getCurseForgeFile(projectId: number, fileId: number) {
+    const document = (
+        await resourceReleaseDocuments<CurseForgeFile>(
+            'curseforge',
+            [String(fileId)],
+            String(projectId),
+        )
+    )[0]
+    if (!document?.protocol) throw new Error('Source presentation is unavailable')
+    return document.protocol
 }
 
 export function getCurseForgeDownloadUrl(projectId: number, fileId: number) {
@@ -383,27 +419,6 @@ export function getCurseForgeCategories(classId?: number) {
     return invoke<CurseForgeCategory[]>('plugin:curseforge|curseforge_get_categories', { classId })
 }
 
-export function installCurseForgeFile(request: CurseForgeInstallRequest) {
-    return invoke<CurseForgeInstallResult>('plugin:curseforge|curseforge_install_file', { request })
-}
-
-export function previewCurseForgeFile(request: CurseForgeInstallRequest) {
-    return invoke<CurseForgeInstallPreview>('plugin:curseforge|curseforge_preview_install_file', {
-        request,
-    })
-}
-
-export function queueCurseForgeFile(
-    request: CurseForgeInstallRequest,
-    display: { title: string; iconUrl?: string | null },
-) {
-    return invoke<InstallJobSnapshot>('plugin:instance|instance_queue_curseforge_content', {
-        request,
-        displayTitle: display.title,
-        displayIcon: display.iconUrl ?? null,
-    })
-}
-
 export function queueCurseForgeWorld(
     request: CurseForgeWorldInstallRequest,
     display: { title: string; iconUrl?: string | null },
@@ -413,28 +428,6 @@ export function queueCurseForgeWorld(
         displayTitle: display.title,
         displayIcon: display.iconUrl ?? null,
     })
-}
-
-export function updateCurseForgeFile(instanceId: string, relativePath: string) {
-    return invoke<CurseForgeInstallResult>('plugin:curseforge|curseforge_update_installed_file', {
-        instanceId,
-        relativePath,
-    })
-}
-
-export function switchCurseForgeFileVersion(
-    instanceId: string,
-    relativePath: string,
-    fileId: number,
-) {
-    return invoke<CurseForgeInstallResult>(
-        'plugin:curseforge|curseforge_switch_installed_file_version',
-        {
-            instanceId,
-            relativePath,
-            fileId,
-        },
-    )
 }
 
 export function recognizeCurseForgeFiles(instanceId: string) {

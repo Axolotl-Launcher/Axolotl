@@ -5,9 +5,7 @@
 module.exports = {
     semi: false,
     singleQuote: true,
-    // The repository indents source with tabs (.editorconfig + CLAUDE.md), and
-    // the vast majority of tracked JSON is tab-indented too. Prettier defaults
-    // to spaces, which made `prettier --check` fail on those files.
+    // Match the repository's space-indented source and tracked JSON.
     useTabs: false,
     plugins: ['prettier-plugin-toml', 'prettier-plugin-sql-cst', '@prettier/plugin-xml'],
     overrides: [

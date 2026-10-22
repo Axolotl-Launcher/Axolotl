@@ -1,4 +1,16 @@
 //! Theseus state management system
+use crate::util::download::constants::MAX_CONCURRENT_INSTALL_JOBS;
+use crate::util::download::constants::{
+    AUTO_DOWNLOAD_CONCURRENCY_INITIAL, AUTO_DOWNLOAD_CONCURRENCY_MAX,
+    AUTO_DOWNLOAD_CONCURRENCY_MIN, AUTO_DOWNLOAD_CONCURRENCY_STEP,
+    AUTO_DOWNLOAD_EXPANSION_ERROR_RATE, AUTO_DOWNLOAD_PRESSURE_ERROR_RATE,
+    AUTO_DOWNLOAD_PRESSURE_WINDOWS, AUTO_DOWNLOAD_PROBE_COOLDOWN,
+    AUTO_DOWNLOAD_SAMPLE_INTERVAL, AUTO_DOWNLOAD_TRIAL_WINDOWS,
+    AUTO_DOWNLOAD_UTILIZATION_WINDOWS, DOWNLOAD_CONCURRENCY_HARD_MAX,
+};
+use crate::util::download::constants::{
+    AUTO_DOWNLOAD_MIN_GAIN_PERCENT, AUTO_DOWNLOAD_PERCENT_BASE,
+};
 use crate::util::fetch::{FetchSemaphore, IoSemaphore};
 use dashmap::DashMap;
 use parking_lot::{Mutex, RwLock};
@@ -64,6 +76,7 @@ mod cache;
 pub use self::cache::*;
 
 pub mod content_favorites;
+pub mod resources;
 pub use self::content_favorites::*;
 
 mod friends;
@@ -88,17 +101,6 @@ pub mod server_join_log;
 // Global state
 // RwLock on state only has concurrent reads, except for config dir change which takes control of the State
 static LAUNCHER_STATE: OnceCell<Arc<State>> = OnceCell::const_new();
-const MAX_CONCURRENT_INSTALL_JOBS: usize = 1;
-const AUTO_DOWNLOAD_CONCURRENCY_INITIAL: usize = 64;
-const AUTO_DOWNLOAD_CONCURRENCY_MIN: usize = 16;
-const AUTO_DOWNLOAD_CONCURRENCY_MAX: usize = 128;
-const AUTO_DOWNLOAD_CONCURRENCY_STEP: usize = 8;
-/// Number of consecutive pressured sample windows required before the global
-/// download concurrency backs off. Host-level throttling reacts immediately.
-const AUTO_DOWNLOAD_PRESSURE_WINDOWS: usize = 2;
-const AUTO_DOWNLOAD_SAMPLE_INTERVAL: Duration = Duration::from_secs(3);
-const AUTO_DOWNLOAD_PROBE_COOLDOWN: Duration = Duration::from_secs(30);
-
 /// Pauses maintenance loops that only serve the launcher UI while the main
 /// window is destroyed in lightweight mode.
 pub(crate) struct MaintenanceGate {
@@ -200,6 +202,7 @@ pub struct State {
     pub(crate) instance_locks: Arc<InstanceLockManager>,
 
     pub(crate) pool: SqlitePool,
+    resource_service: OnceCell<Arc<crate::resources::ResourceService>>,
 
     // Cloning reqwest::Client retains its underlying connection pool.
     configured_http_client: RwLock<crate::util::fetch::DownloadClients>,
@@ -212,6 +215,65 @@ pub struct State {
 }
 
 impl State {
+    pub async fn maintain_database_backups(&self) -> crate::Result<()> {
+        db_backup::maintain_app_db_backups(
+            self.pool.connect_options().get_filename(),
+        )
+        .await
+    }
+
+    /// Stops further database writes before recording a clean-shutdown fingerprint.
+    pub async fn finish_database_session(&self) -> crate::Result<()> {
+        let database = self.pool.connect_options().get_filename().to_path_buf();
+        tokio::time::timeout(Duration::from_secs(3), self.pool.close()).await.map_err(|_| {
+            crate::ErrorKind::OtherError("Database connections did not close before shutdown; next startup will run a full integrity check".into())
+        })?;
+        db_backup::mark_clean_shutdown(&database).await
+    }
+
+    pub async fn resources(
+        &self,
+    ) -> crate::resources::ResourceResult<&Arc<crate::resources::ResourceService>>
+    {
+        self.resource_service
+            .get_or_try_init(|| async {
+                let path: String = sqlx::query_scalar(
+                    "SELECT file FROM pragma_database_list WHERE name = 'main'",
+                )
+                .fetch_one(&self.pool)
+                .await
+                .map_err(|error| {
+                    crate::resources::ResourceError::Cache(error.to_string())
+                })?;
+                let channel = std::path::Path::new(&path)
+                    .parent()
+                    .and_then(|parent| parent.file_name())
+                    .and_then(|name| name.to_str())
+                    .filter(|name| matches!(*name, "release" | "beta"))
+                    .unwrap_or_else(|| db::default_update_channel());
+                let path = self
+                    .directories
+                    .resource_cache_db(channel)
+                    .map_err(|_| {
+                        crate::resources::ResourceError::InvalidRequest(
+                            "invalid cache channel".into(),
+                        )
+                    })?;
+                let cache = Arc::new(
+                    crate::resources::cache::ResourceCache::open(path).await,
+                );
+                if let Err(error) = cache.import_legacy(&self.pool).await {
+                    tracing::warn!(error = %error, "Legacy resource cache import incomplete");
+                }
+                crate::resources::ResourceService::with_store(
+                    cache,
+                    crate::resources::providers::default_providers(),
+                    resources::ResourceStore::new(self.pool.clone()),
+                )
+            })
+            .await
+    }
+
     pub(crate) async fn lock_instance_screenshots(
         &self,
         instance_id: &str,
@@ -476,6 +538,13 @@ async fn shrink_semaphore(
 }
 
 impl AutoConcurrencyController {
+    fn discard_contaminated_sample(&mut self, current: usize) -> usize {
+        self.high_utilization_windows = 0;
+        self.probe
+            .take()
+            .map_or(current, |probe| probe.previous_target)
+    }
+
     fn next_target(
         &mut self,
         now: Instant,
@@ -491,7 +560,8 @@ impl AutoConcurrencyController {
         // A single throttled window is handled by the per-host limiter; the
         // global concurrency only backs off when pressure persists across
         // several samples, and then in small steps instead of a big cut.
-        let pressured = sample.throttles > 0 || error_rate >= 0.05;
+        let pressured = sample.throttles > 0
+            || error_rate >= AUTO_DOWNLOAD_PRESSURE_ERROR_RATE;
         if pressured {
             self.high_utilization_windows = 0;
             self.probe = None;
@@ -512,11 +582,13 @@ impl AutoConcurrencyController {
         if let Some(probe) = &mut self.probe {
             probe.windows += 1;
             probe.throughput = probe.throughput.saturating_add(sample.bytes);
-            if probe.windows >= 2 {
+            if probe.windows >= AUTO_DOWNLOAD_TRIAL_WINDOWS {
                 let average = probe.throughput / probe.windows as u64;
                 let productive = probe.baseline_throughput > 0
-                    && average.saturating_mul(100)
-                        >= probe.baseline_throughput.saturating_mul(105);
+                    && average.saturating_mul(AUTO_DOWNLOAD_PERCENT_BASE)
+                        >= probe
+                            .baseline_throughput
+                            .saturating_mul(AUTO_DOWNLOAD_MIN_GAIN_PERCENT);
                 let previous = probe.previous_target;
                 self.probe = None;
                 if !productive {
@@ -529,7 +601,7 @@ impl AutoConcurrencyController {
         }
 
         if self.cooldown_until.is_some_and(|until| until > now)
-            || error_rate >= 0.02
+            || error_rate >= AUTO_DOWNLOAD_EXPANSION_ERROR_RATE
             || sample.throttles > 0
         {
             self.high_utilization_windows = 0;
@@ -543,7 +615,9 @@ impl AutoConcurrencyController {
         } else {
             self.high_utilization_windows = 0;
         }
-        if self.high_utilization_windows < 2 || current >= ceiling {
+        if self.high_utilization_windows < AUTO_DOWNLOAD_UTILIZATION_WINDOWS
+            || current >= ceiling
+        {
             return current;
         }
 
@@ -726,7 +800,9 @@ impl State {
             settings.doh_enabled,
         )?;
         crate::state::proxy_settings::set(&self.pool, config).await?;
-        *self.configured_http_client.write() = client;
+        let mut current = self.configured_http_client.write();
+        current.endpoints.close();
+        *current = client;
         Ok(())
     }
 
@@ -750,7 +826,9 @@ impl State {
             settings.ignore_ssl_errors,
             settings.doh_enabled,
         )?;
-        *self.configured_http_client.write() = client;
+        let mut current = self.configured_http_client.write();
+        current.endpoints.close();
+        *current = client;
         Ok(())
     }
 
@@ -845,6 +923,11 @@ impl State {
             .set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
         interval.tick().await;
         let mut controller = AutoConcurrencyController::default();
+        let mut trial_lease = None;
+        let mut trial_revision =
+            crate::util::download::endpoint_selection::tuning::TRIALS
+                .snapshot(Instant::now())
+                .0;
         loop {
             interval.tick().await;
             if self.maintenance_gate.is_paused() && self.download_work_is_idle()
@@ -852,8 +935,11 @@ impl State {
                 self.maintenance_gate.wait_until_resumed().await;
             }
             crate::util::download::local_resources::sample_cpu().await;
+            crate::util::download::h2_pool::observe_adaptive_connections()
+                .await;
             if !self.auto_concurrent_downloads.load(Ordering::Acquire) {
                 controller = AutoConcurrencyController::default();
+                trial_lease = None;
                 self.download_sample_bytes.swap(0, Ordering::AcqRel);
                 self.download_sample_requests.swap(0, Ordering::AcqRel);
                 self.download_sample_errors.swap(0, Ordering::AcqRel);
@@ -879,12 +965,42 @@ impl State {
                     AUTO_DOWNLOAD_CONCURRENCY_MIN,
                     AUTO_DOWNLOAD_CONCURRENCY_MAX,
                 );
-            let target = controller.next_target(
+            use crate::util::download::endpoint_selection::tuning::{
+                TRIALS, TrialKind,
+            };
+            let now = Instant::now();
+            let (revision, owner) = TRIALS.snapshot(now);
+            if trial_lease.as_ref().is_some_and(|lease: &crate::util::download::endpoint_selection::tuning::TrialLease| !lease.valid(now))
+                || owner.is_some_and(|owner| owner != TrialKind::Files)
+                || (trial_lease.is_none() && revision != trial_revision)
+            {
+                trial_lease = None;
+                let previous = controller.discard_contaminated_sample(current);
+                if previous != current { self.resize_download_concurrency(previous); }
+                trial_revision = TRIALS.snapshot(now).0;
+                continue;
+            }
+            let mut target = controller.next_target(
                 Instant::now(),
                 current,
                 ceiling,
                 sample,
             );
+            if target > current && trial_lease.is_none() {
+                trial_lease = TRIALS.acquire(
+                    TrialKind::Files,
+                    now,
+                    Duration::from_secs(15),
+                );
+                if trial_lease.is_none() {
+                    controller.probe = None;
+                    target = current;
+                }
+            }
+            if controller.probe.is_none() {
+                trial_lease = None;
+            }
+            trial_revision = TRIALS.snapshot(now).0;
             if target != current {
                 tracing::info!(
                     current,
@@ -907,7 +1023,7 @@ impl State {
     }
 
     fn resize_download_concurrency(self: &Arc<Self>, target: usize) {
-        let target = target.clamp(1, 256);
+        let target = target.clamp(1, DOWNLOAD_CONCURRENCY_HARD_MAX);
         self.download_concurrency_target
             .store(target, Ordering::Release);
 
@@ -1111,6 +1227,7 @@ impl State {
             restart_after_pending_update: AtomicBool::new(false),
             instance_locks: Arc::new(InstanceLockManager::default()),
             pool,
+            resource_service: OnceCell::new(),
             configured_http_client: RwLock::new(configured_http_client),
             configured_http_client_update: AsyncMutex::new(()),
             file_watcher,
@@ -1228,6 +1345,7 @@ pub(crate) async fn test_state(
         restart_after_pending_update: AtomicBool::new(false),
         instance_locks: Arc::new(InstanceLockManager::default()),
         pool,
+        resource_service: OnceCell::new(),
         configured_http_client: RwLock::new(configured_http_client),
         configured_http_client_update: AsyncMutex::new(()),
         file_watcher,
@@ -1298,6 +1416,17 @@ mod auto_concurrency_tests {
             errors: 0,
             throttles: 0,
         }
+    }
+
+    #[test]
+    fn contaminated_trial_restores_previous_target_and_requires_new_baseline() {
+        let now = Instant::now();
+        let mut controller = AutoConcurrencyController::default();
+        controller.next_target(now, 64, 128, healthy(64, 100));
+        assert_eq!(controller.next_target(now, 64, 128, healthy(64, 100)), 72);
+        assert_eq!(controller.discard_contaminated_sample(72), 64);
+        assert!(controller.probe.is_none());
+        assert_eq!(controller.next_target(now, 64, 128, healthy(64, 100)), 64);
     }
 
     #[test]

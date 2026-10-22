@@ -15,6 +15,8 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useImageThumbnail } from '@/composables/use-image-thumbnail'
 import type { InstanceScreenshot } from '@/helpers/instance'
 
+import { isSelectionModifier } from './screenshot-selection'
+
 const props = defineProps<{
     screenshot: InstanceScreenshot
     selectionKey: string
@@ -29,8 +31,8 @@ const props = defineProps<{
 
 const emit = defineEmits<{
     (e: 'activate', event: MouseEvent | KeyboardEvent): void
-    (e: 'copy' | 'edit' | 'toggle-selection'): void
-    (e: 'more', event: MouseEvent): void
+    (e: 'copy' | 'edit'): void
+    (e: 'toggle-selection' | 'more', event: MouseEvent): void
 }>()
 
 const card = ref<HTMLElement>()
@@ -61,7 +63,9 @@ const messages = defineMessages({
 
 const sensors = [
     PointerSensor.configure({
-        preventActivation: () => false,
+        preventActivation: (event) =>
+            isSelectionModifier(event) ||
+            (event.target instanceof Element && !!event.target.closest('button, input, a')),
     }),
     KeyboardSensor,
 ]
@@ -204,7 +208,7 @@ watch(thumbnail, (url, previousUrl) => {
                 })
             "
             :aria-pressed="selected"
-            @click.stop="emit('toggle-selection')"
+            @click.stop="emit('toggle-selection', $event)"
         >
             <span
                 class="relative flex size-6 items-center justify-center rounded-full opacity-0 transition-opacity duration-200 ease-out group-hover:opacity-100 group-focus-within:opacity-100 group-hover/selection:brightness-125"

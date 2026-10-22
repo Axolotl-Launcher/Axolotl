@@ -2,8 +2,13 @@ import { execFileSync } from 'node:child_process'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
+import { isExcludedRelease, selectLatestStableRelease } from './release-policy.mjs'
 
 const [command, tag, outputDirectory] = process.argv.slice(2)
+if (isExcludedRelease(tag)) {
+    console.log(`Skipping temporary test release ${tag}`)
+    process.exit(0)
+}
 const apiEndpoint = (process.env.CNB_API_ENDPOINT || 'https://api.cnb.cool').replace(/\/$/, '')
 const repo = process.env.CNB_REPO_SLUG || 'axlmc/Axolotl'
 const token = process.env.CNB_TOKEN
@@ -172,7 +177,17 @@ async function getGithubRelease() {
 }
 
 async function getLatestGithubRelease() {
-	return await loadGithubRelease(`${githubApiBaseUrl}/releases/latest`)
+    const latest = await loadGithubRelease(`${githubApiBaseUrl}/releases/latest`)
+    if (!isExcludedRelease(latest.tag_name)) return latest
+
+    for (let page = 1; ; page++) {
+        const releases = await loadGithubRelease(`${githubApiBaseUrl}/releases?per_page=100&page=${page}`)
+        const release = selectLatestStableRelease(releases)
+        if (release) return release
+        if (releases.length < 100) {
+            throw new Error('No eligible stable GitHub release was found')
+        }
+    }
 }
 
 async function mirrorGithubAsset(release, asset) {

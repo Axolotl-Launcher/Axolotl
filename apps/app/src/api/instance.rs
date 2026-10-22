@@ -2,27 +2,23 @@ use crate::api::Result;
 use crate::api::files::local_instance_icon_path;
 use chrono::NaiveDate;
 use dashmap::DashMap;
-use path_util::SafeRelativeUtf8UnixPathBuf;
+use futures::{StreamExt, TryStreamExt};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use tauri::{AppHandle, Manager, Runtime};
 use tauri_plugin_fs::FsExt;
 use tauri_plugin_opener::OpenerExt;
-use theseus::DownloadReason;
 use theseus::data::{
     AppliedContentSetPatch, ContentItem, Dependency,
     EditInstance as CoreEditInstance, InstanceInstallCandidate,
     InstanceInstallTarget, InstanceLaunchOverridesPatch,
     InstanceLink as CoreInstanceLink, InstanceMetadata, LinkedModpackInfo,
 };
+use theseus::instance::InstallContentBatchRequest;
 use theseus::instance::InstanceGroup;
 use theseus::instance::InstanceGroupMembershipChange;
 use theseus::instance::InstanceGroupMembershipUpdate;
 use theseus::instance::QuickPlayType;
-use theseus::instance::{
-    InstallContentBatchRequest, InstallProjectWithDependenciesRequest,
-};
 use theseus::pack::import::ImportLauncherType;
 use theseus::prelude::*;
 use theseus::server_address::ServerAddress;
@@ -66,6 +62,7 @@ pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
             instance_apply_content_update_plan,
             instance_plan_upgrade,
             instance_get_upgrade_plan,
+            instance_discard_upgrade_plan,
             instance_update_upgrade_resolution,
             instance_update_upgrade_resolutions,
             instance_reset_upgrade_resolution,
@@ -88,24 +85,11 @@ pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
             instance_preview_core_jar,
             instance_install_mcarchive_modloader,
             instance_import_mcarchive_modloader,
-            instance_install_mcarchive_content,
-            instance_import_mcarchive_content,
-            instance_install_planet_minecraft_content,
-            instance_import_planet_minecraft_content,
             instance_get_full_path,
             instance_get_mod_full_path,
             instance_check_installed,
-            instance_update_all,
-            instance_update_project,
-            instance_add_project_from_version,
-            instance_install_project_with_dependencies,
-            instance_preview_project_with_dependencies,
-            instance_preview_project_with_dependencies_for_target,
-            instance_queue_project_with_dependencies,
             instance_queue_content_batch,
-            instance_queue_curseforge_content,
             instance_queue_curseforge_world,
-            instance_switch_project_version_with_dependencies,
             instance_add_project_from_path,
             instance_import_world_save,
             instance_install_datapack_to_world,
@@ -125,8 +109,6 @@ pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
             instance_edit,
             instance_cache_icon,
             instance_edit_icon,
-            instance_export_mrpack,
-            instance_get_pack_export_candidates,
             instance_list_screenshots,
             instance_list_all_screenshots,
             instance_list_synced_screenshots,
@@ -987,20 +969,21 @@ pub async fn instance_get_many(
     instance_ids: Vec<String>,
 ) -> Result<Vec<Instance>> {
     let ids = instance_ids.iter().map(|x| &**x).collect::<Vec<&str>>();
-    let mut instances = Vec::with_capacity(ids.len());
-    for metadata in theseus::instance::get_many(&ids).await? {
-        instances.push(instance_from_metadata(metadata).await?);
-    }
-    Ok(instances)
+    instances_from_metadata(theseus::instance::get_many(&ids).await?).await
 }
 
 #[tauri::command]
 pub async fn instance_list() -> Result<Vec<Instance>> {
-    let mut instances = Vec::new();
-    for metadata in theseus::instance::list().await? {
-        instances.push(instance_from_metadata(metadata).await?);
-    }
-    Ok(instances)
+    instances_from_metadata(theseus::instance::list().await?).await
+}
+
+async fn instances_from_metadata(
+    metadata: Vec<InstanceMetadata>,
+) -> Result<Vec<Instance>> {
+    futures::stream::iter(metadata.into_iter().map(instance_from_metadata))
+        .buffered(4)
+        .try_collect()
+        .await
 }
 
 #[tauri::command]
@@ -1111,7 +1094,14 @@ pub async fn instance_get_content_items_by_paths(
 #[tauri::command]
 pub async fn instance_get_content_snapshot(
     instance_id: &str,
+    defer_enrichment: Option<bool>,
 ) -> Result<theseus::data::InstanceContentSnapshot> {
+    if defer_enrichment.unwrap_or(false) {
+        return Ok(theseus::instance::get_content_snapshot_for_display(
+            instance_id,
+        )
+        .await?);
+    }
     Ok(theseus::instance::get_content_snapshot(instance_id).await?)
 }
 
@@ -1155,6 +1145,12 @@ pub async fn instance_plan_upgrade(
         target_environment,
     )
     .await?)
+}
+
+#[tauri::command]
+pub async fn instance_discard_upgrade_plan(plan_id: &str) -> Result<()> {
+    theseus::instance::discard_instance_upgrade_plan(plan_id);
+    Ok(())
 }
 
 #[tauri::command]
@@ -1379,20 +1375,24 @@ pub async fn instance_list_screenshots<R: tauri::Runtime>(
 #[tauri::command]
 pub async fn instance_list_all_screenshots<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
-) -> Result<Vec<InstanceScreenshot>> {
-    serialize_screenshots(
-        &app,
-        theseus::instance::list_all_screenshots().await?,
-    )
+) -> Result<ScreenshotScanResult> {
+    let result =
+        theseus::instance::list_all_screenshots_with_warnings().await?;
+    Ok(ScreenshotScanResult {
+        screenshots: serialize_screenshots(&app, result.screenshots)?,
+        skipped_instances: result.skipped_instances,
+    })
+}
+#[derive(serde::Serialize)]
+pub struct ScreenshotScanResult {
+    screenshots: Vec<InstanceScreenshot>,
+    skipped_instances: Vec<String>,
 }
 #[tauri::command]
 pub async fn instance_list_synced_screenshots<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
-) -> Result<Vec<InstanceScreenshot>> {
-    serialize_screenshots(
-        &app,
-        theseus::instance::list_synced_screenshots().await?,
-    )
+) -> Result<ScreenshotScanResult> {
+    instance_list_all_screenshots(app).await
 }
 #[tauri::command]
 pub async fn instance_save_edited_screenshot<R: tauri::Runtime>(
@@ -1601,57 +1601,6 @@ pub async fn instance_import_mcarchive_modloader(
 }
 
 #[tauri::command]
-pub async fn instance_install_mcarchive_content(
-    instance_id: &str,
-    request: theseus::instance::McArchiveContentInstallRequest,
-) -> Result<theseus::instance::McArchiveContentInstallResult> {
-    Ok(
-        theseus::instance::install_mcarchive_content(instance_id, request)
-            .await?,
-    )
-}
-
-#[tauri::command]
-pub async fn instance_import_mcarchive_content(
-    instance_id: &str,
-    request: theseus::instance::McArchiveContentInstallRequest,
-    source_path: PathBuf,
-) -> Result<theseus::instance::McArchiveContentInstallResult> {
-    Ok(theseus::instance::import_mcarchive_content(
-        instance_id,
-        request,
-        source_path,
-    )
-    .await?)
-}
-
-#[tauri::command]
-pub async fn instance_install_planet_minecraft_content(
-    instance_id: &str,
-    request: theseus::instance::PlanetMinecraftContentInstallRequest,
-) -> Result<theseus::instance::PlanetMinecraftContentInstallResult> {
-    Ok(theseus::instance::install_planet_minecraft_content(
-        instance_id,
-        request,
-    )
-    .await?)
-}
-
-#[tauri::command]
-pub async fn instance_import_planet_minecraft_content(
-    instance_id: &str,
-    request: theseus::instance::PlanetMinecraftContentInstallRequest,
-    source_path: PathBuf,
-) -> Result<theseus::instance::PlanetMinecraftContentInstallResult> {
-    Ok(theseus::instance::import_planet_minecraft_content(
-        instance_id,
-        request,
-        source_path,
-    )
-    .await?)
-}
-
-#[tauri::command]
 pub async fn instance_check_installed(
     instance_id: &str,
     project_id: &str,
@@ -1684,114 +1633,10 @@ pub async fn instance_check_installed(
 }
 
 #[tauri::command]
-pub async fn instance_update_all(
-    instance_id: &str,
-) -> Result<HashMap<String, String>> {
-    Ok(theseus::instance::update_all_projects(instance_id).await?)
-}
-
-#[tauri::command]
-pub async fn instance_update_project(
-    instance_id: &str,
-    project_path: &str,
-) -> Result<String> {
-    Ok(
-        theseus::instance::update_project(instance_id, project_path, None)
-            .await?,
-    )
-}
-
-#[tauri::command]
-pub async fn instance_add_project_from_version(
-    instance_id: &str,
-    version_id: &str,
-    reason: DownloadReason,
-    dependent_on_version_id: Option<String>,
-) -> Result<String> {
-    Ok(theseus::instance::add_project_from_version(
-        instance_id,
-        version_id,
-        reason,
-        dependent_on_version_id,
-    )
-    .await?)
-}
-
-#[tauri::command]
-pub async fn instance_install_project_with_dependencies(
-    instance_id: &str,
-    request: InstallProjectWithDependenciesRequest,
-) -> Result<ResolveContentPlan> {
-    Ok(theseus::instance::install_project_with_dependencies(
-        instance_id,
-        request,
-    )
-    .await?)
-}
-
-#[tauri::command]
-pub async fn instance_preview_project_with_dependencies(
-    instance_id: &str,
-    request: InstallProjectWithDependenciesRequest,
-) -> Result<ResolveContentPlan> {
-    Ok(theseus::instance::preview_project_with_dependencies(
-        instance_id,
-        request,
-    )
-    .await?)
-}
-
-#[tauri::command]
-pub async fn instance_preview_project_with_dependencies_for_target(
-    request: InstallProjectWithDependenciesRequest,
-    game_version: String,
-    loader: ModLoader,
-) -> Result<ResolveContentPlan> {
-    Ok(
-        theseus::instance::preview_project_with_dependencies_for_target(
-            request,
-            game_version,
-            loader,
-        )
-        .await?,
-    )
-}
-
-#[tauri::command]
-pub async fn instance_queue_project_with_dependencies(
-    instance_id: &str,
-    request: InstallProjectWithDependenciesRequest,
-    display_title: String,
-    display_icon: Option<String>,
-) -> Result<theseus::install::InstallJobSnapshot> {
-    Ok(theseus::instance::queue_project_with_dependencies(
-        instance_id,
-        request,
-        display_title,
-        display_icon,
-    )
-    .await?)
-}
-
-#[tauri::command]
 pub async fn instance_queue_content_batch(
     request: InstallContentBatchRequest,
 ) -> Result<theseus::install::InstallJobSnapshot> {
     Ok(theseus::instance::queue_content_batch(request).await?)
-}
-
-#[tauri::command]
-pub async fn instance_queue_curseforge_content(
-    request: theseus::curseforge::CurseForgeInstallRequest,
-    display_title: String,
-    display_icon: Option<String>,
-) -> Result<theseus::install::InstallJobSnapshot> {
-    Ok(theseus::instance::queue_curseforge_content(
-        request,
-        display_title,
-        display_icon,
-    )
-    .await?)
 }
 
 #[tauri::command]
@@ -1804,20 +1649,6 @@ pub async fn instance_queue_curseforge_world(
         request,
         display_title,
         display_icon,
-    )
-    .await?)
-}
-
-#[tauri::command]
-pub async fn instance_switch_project_version_with_dependencies(
-    instance_id: &str,
-    project_path: &str,
-    version_id: &str,
-) -> Result<String> {
-    Ok(theseus::instance::switch_project_version_with_dependencies(
-        instance_id,
-        project_path,
-        version_id,
     )
     .await?)
 }
@@ -1996,34 +1827,6 @@ pub async fn instance_repair_managed_modrinth(
     instance_id: &str,
 ) -> Result<theseus::install::InstallJobSnapshot> {
     Ok(theseus::instance::repair_managed_modrinth(instance_id).await?)
-}
-
-#[tauri::command]
-pub async fn instance_export_mrpack(
-    instance_id: &str,
-    export_location: PathBuf,
-    included_overrides: Vec<String>,
-    version_id: Option<String>,
-    description: Option<String>,
-    name: Option<String>,
-) -> Result<()> {
-    theseus::instance::export_mrpack(
-        instance_id,
-        export_location,
-        included_overrides,
-        version_id,
-        description,
-        name,
-    )
-    .await?;
-    Ok(())
-}
-
-#[tauri::command]
-pub async fn instance_get_pack_export_candidates(
-    instance_id: &str,
-) -> Result<Vec<SafeRelativeUtf8UnixPathBuf>> {
-    Ok(theseus::instance::get_pack_export_candidates(instance_id).await?)
 }
 
 #[tauri::command]

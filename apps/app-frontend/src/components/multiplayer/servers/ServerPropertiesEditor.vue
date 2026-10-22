@@ -726,7 +726,7 @@ defineExpose({ save, cancel, isDirty })
                                             label: value,
                                         }))
                                     "
-                                    class="!w-full"
+                                    width="full"
                                     @update:model-value="setFieldValue(item.key, $event)"
                                 />
 

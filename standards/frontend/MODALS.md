@@ -317,6 +317,10 @@ defineExpose({ show: () => modal.value?.show() })
 </template>
 ```
 
+## Header Content
+
+`MultiStageModal` accepts a `header-extra` slot below the title or breadcrumbs, inside the fixed modal header. Use it for workflow status that must remain visible across stages. The caller owns its data and presentation; stage content remains in the scrollable body.
+
 ## Modal API
 
 `MultiStageModal` exposes via ref:

@@ -139,7 +139,7 @@ const setupTooltip = computed(() => {
                     icon-only
                     class="scale-75 opacity-0 transition-all group-hover:scale-100 group-hover:opacity-100 group-focus-within:scale-100 group-focus-within:opacity-100"
                     @click="emit('start-stop')"
-                    ><PlayIcon class="translate-x-[1px]" />
+                    ><PlayIcon />
                 </Button>
                 <Button
                     v-else
@@ -232,7 +232,7 @@ const setupTooltip = computed(() => {
                     icon-only
                     class="origin-bottom scale-75 opacity-0 transition-all group-hover:scale-100 group-hover:opacity-100 group-focus-within:scale-100 group-focus-within:opacity-100"
                     @click="emit('start-stop')"
-                    ><PlayIcon class="translate-x-[1px]" />
+                    ><PlayIcon />
                 </Button>
                 <Button
                     v-else

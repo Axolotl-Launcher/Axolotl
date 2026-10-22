@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { Labrinth } from '@modrinth/api-client'
-import { ArrowUpDownIcon, EyeIcon, SearchIcon, SpinnerIcon } from '@modrinth/assets'
+import { ArrowUpDownIcon, EyeIcon, SearchIcon } from '@modrinth/assets'
 import { computed, ref, toValue } from 'vue'
 
 import Button from '#ui/components/base/buttons/Button.vue'
@@ -21,6 +21,7 @@ import { commonMessages, formatProjectTypeSentence } from '#ui/utils/common-mess
 import type { SortType } from '#ui/utils/search'
 
 import SelectedProjectsFloatingBar from './components/SelectedProjectsFloatingBar.vue'
+import { projectCardDates } from './composables/project-dates'
 import BrowseInstallHeader from './header.vue'
 import { injectBrowseManager } from './providers/browse-manager'
 
@@ -85,7 +86,21 @@ const messages = defineMessages({
     sortDownloads: { id: 'browse.sort.downloads', defaultMessage: 'Downloads' },
     sortFollowers: { id: 'browse.sort.followers', defaultMessage: 'Followers' },
     sortDatePublished: { id: 'browse.sort.date-published', defaultMessage: 'Date published' },
+    sortProjectPublished: {
+        id: 'browse.sort.project-published',
+        defaultMessage: 'Project first published',
+    },
     sortDateUpdated: { id: 'browse.sort.date-updated', defaultMessage: 'Date updated' },
+    sortCreated: { id: 'browse.sort.project-created', defaultMessage: 'Project created' },
+    sortModified: { id: 'browse.sort.project-modified', defaultMessage: 'Project modified' },
+    sortFirstRelease: {
+        id: 'browse.sort.first-release',
+        defaultMessage: 'First release published',
+    },
+    sortLatestRelease: {
+        id: 'browse.sort.latest-release',
+        defaultMessage: 'Latest release published',
+    },
     sortVerifiedPlays: { id: 'browse.sort.verified-plays', defaultMessage: 'Verified plays' },
     sortPlayers: { id: 'browse.sort.players', defaultMessage: 'Players' },
 })
@@ -95,8 +110,11 @@ function formatSortType(sortType: SortType): string {
         relevance: messages.sortRelevance,
         downloads: messages.sortDownloads,
         follows: messages.sortFollowers,
-        newest: messages.sortDatePublished,
-        updated: messages.sortDateUpdated,
+        newest: ctx.variant === 'app' ? messages.sortProjectPublished : messages.sortDatePublished,
+        created: messages.sortCreated,
+        updated: ctx.variant === 'app' ? messages.sortModified : messages.sortDateUpdated,
+        firstPublished: messages.sortFirstRelease,
+        latestPublished: messages.sortLatestRelease,
         'minecraft_java_server.verified_plays_2w': messages.sortVerifiedPlays,
         'minecraft_java_server.ping.data.players_online': messages.sortPlayers,
         date_created: messages.sortDatePublished,
@@ -146,32 +164,32 @@ const skeletonCount = computed(() => {
 <template>
     <div
         ref="stickyChromeRef"
-        class="browse-toolbar-chrome sticky top-0 z-20 flex flex-col gap-3 border-b border-solid border-surface-5 bg-surface-1"
+        class="browse-toolbar-chrome sticky top-0 z-20 flex flex-col gap-3 border-b border-solid border-surface-5"
         :class="[
             isChromeStuck && ctx.variant !== 'web'
                 ? 'border-t shadow-[0_8px_16px_-12px_rgba(0,0,0,0.35)]'
                 : '',
             ctx.variant === 'web'
-                ? 'mb-3 rounded-xl p-3'
-                : '-mx-6 -mt-6 rounded-tl-[--radius-xl] rounded-tr-[--radius-xl] border-0',
+                ? 'mb-3 rounded-xl bg-surface-1 p-3'
+                : '-mx-6 -mt-6 border-0 bg-[color-mix(in_srgb,var(--surface-1-opaque,var(--surface-1))_20%,transparent)] backdrop-blur-xl',
         ]"
     >
         <div v-if="showInstallHeader" class="p-3 pb-0">
             <BrowseInstallHeader />
         </div>
         <div class="flex flex-col gap-3" :class="ctx.variant === 'web' ? '' : 'p-3'">
-            <div class="flex min-w-0 items-center gap-2">
+            <div class="flex min-w-0 flex-wrap items-center gap-2">
                 <NavTabs
                     v-if="ctx.showProjectTypeTabs.value"
                     :links="ctx.selectableProjectTypes.value"
-                    class="min-w-0"
+                    class="min-w-0 max-w-full"
                 />
                 <div class="ml-auto shrink-0">
                     <slot name="nav-tabs-actions" />
                 </div>
             </div>
 
-            <div class="flex items-center gap-2">
+            <div class="flex min-w-0 flex-wrap items-center gap-2">
                 <StyledInput
                     v-model="ctx.query.value"
                     :icon="SearchIcon"
@@ -187,7 +205,7 @@ const skeletonCount = computed(() => {
                         })
                     "
                     clearable
-                    wrapper-class="flex-1"
+                    wrapper-class="min-w-0 flex-[1_1_16rem]"
                     :input-class="ctx.variant === 'web' ? '!h-12' : 'h-12'"
                     @clear="ctx.clearSearch()"
                 />
@@ -201,7 +219,7 @@ const skeletonCount = computed(() => {
                         content: formatMessage(commonMessages.sortByLabel),
                         triggers: ['hover'],
                     }"
-                    class="!w-auto"
+                    width="content"
                     :options="sortTypeOptions"
                     trigger-class="!min-h-10"
                 >
@@ -218,7 +236,7 @@ const skeletonCount = computed(() => {
                 <Combobox
                     v-model="ctx.maxResults.value"
                     v-tooltip="{ content: formatMessage(messages.viewPrefix), triggers: ['hover'] }"
-                    class="!w-auto"
+                    width="content"
                     :options="maxResultsOptions"
                     trigger-class="!min-h-10"
                 >
@@ -306,14 +324,16 @@ const skeletonCount = computed(() => {
 
     <slot name="above-results" />
 
-    <div class="search relative">
+    <div
+        v-if="ctx.searchError?.value"
+        role="alert"
+        class="mb-3 flex items-center gap-3 rounded-lg border border-solid border-surface-4 bg-surface-2 p-3"
+    >
+        <span>{{ ctx.searchError.value }}</span>
+        <Button @click="ctx.refreshSearch()">{{ formatMessage(messages.retryLabel) }}</Button>
+    </div>
+    <div class="search relative" :aria-busy="ctx.loading.value">
         <section v-if="ctx.loading.value" class="py-1" aria-busy="true" aria-live="polite">
-            <div
-                class="flex items-center justify-center gap-2 pb-3 text-sm font-medium text-[var(--color-text-tertiary)]"
-            >
-                <SpinnerIcon class="size-4 animate-spin" />
-                {{ formatMessage(messages.loadingLabel) }}
-            </div>
             <ProjectCardList :layout="ctx.effectiveLayout.value">
                 <ProjectCardSkeleton
                     v-for="index in skeletonCount"
@@ -334,9 +354,10 @@ const skeletonCount = computed(() => {
         </section>
         <section
             v-else-if="
-                ctx.isServerType.value
+                !ctx.searchError?.value &&
+                (ctx.isServerType.value
                     ? ctx.serverHits.value.length === 0
-                    : ctx.projectHits.value.length === 0
+                    : ctx.projectHits.value.length === 0)
             "
             class="py-8"
         >
@@ -453,13 +474,7 @@ const skeletonCount = computed(() => {
                                             : `https://modrinth.com/organization/${result.organization_id}`
                                       : undefined,
                         }"
-                        :date-updated="result.date_modified"
-                        :date-published="result.date_created"
-                        :displayed-date="
-                            ctx.effectiveCurrentSortType.value.name === 'newest'
-                                ? 'published'
-                                : 'updated'
-                        "
+                        v-bind="projectCardDates(result, ctx.effectiveCurrentSortType.value.name)"
                         :downloads="result.downloads"
                         :summary="result.description"
                         :tags="result.display_categories"
@@ -469,6 +484,7 @@ const skeletonCount = computed(() => {
                         :banner="result.featured_gallery ?? undefined"
                         :color="result.color ?? undefined"
                         :provider="result.provider"
+                        :providers="result.providers"
                         :environment="
                             ['mod', 'modpack'].includes(ctx.projectType.value)
                                 ? {

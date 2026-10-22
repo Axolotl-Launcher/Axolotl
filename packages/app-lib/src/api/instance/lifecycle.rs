@@ -104,6 +104,12 @@ pub async fn edit(
 ) -> crate::Result<InstanceMetadata> {
     let state = State::get().await?;
     super::ensure_backup_eligible_edit(instance_id, &patch).await?;
+    let _content_lock =
+        if matches!(patch.link, Some(crate::state::InstanceLink::Unmanaged)) {
+            Some(state.lock_instance_content_exclusive(instance_id).await)
+        } else {
+            None
+        };
     crate::state::edit_instance(instance_id, patch, &state.pool).await?;
 
     let instance = crate::state::get_instance(instance_id, &state.pool)

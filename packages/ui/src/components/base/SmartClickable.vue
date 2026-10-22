@@ -1,12 +1,12 @@
 <template>
     <div
-        class="smart-clickable grid"
+        class="smart-clickable grid min-w-0 grid-cols-1"
         :class="{ 'smart-clickable--has-clickable': !!$slots.clickable }"
     >
         <slot name="clickable" />
         <div
             v-bind="$attrs"
-            class="smart-clickable__contents"
+            class="smart-clickable__contents min-w-0"
             :class="{
                 'pointer-events-none': !!$slots.clickable,
             }"

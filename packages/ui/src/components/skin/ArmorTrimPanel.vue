@@ -3,6 +3,12 @@ import { computed, ref } from 'vue'
 
 import { defineMessages, useVIntl } from '#ui/composables/i18n'
 import {
+    getArmorItemIcon,
+    getArmorSlotIcon,
+    getTrimMaterialIcon,
+    getTrimPatternIcon,
+} from '#ui/composables/skin-rendering/armor-preview-assets'
+import {
     ARMOR_SLOTS,
     ARMOR_TRIM_MATERIALS,
     ARMOR_TRIM_PATTERNS,
@@ -12,13 +18,7 @@ import {
     type ArmorSlot,
     type ArmorTrimMaterial,
     type ArmorTrimPattern,
-} from '#ui/composables/skin-rendering'
-import {
-    getArmorItemIcon,
-    getArmorSlotIcon,
-    getTrimMaterialIcon,
-    getTrimPatternIcon,
-} from '#ui/composables/skin-rendering/armor-preview-assets'
+} from '#ui/composables/skin-rendering/armor-preview-types'
 
 const messages = defineMessages({
     armorPiece: { id: 'skin.preview.armor.piece', defaultMessage: 'Armor piece' },
@@ -133,10 +133,10 @@ function setTrimMaterial(trimMaterial: ArmorTrimMaterial): void {
 </script>
 
 <template>
-    <div class="armor-preview-panel">
+    <div class="box-border min-w-0 w-full">
         <section class="armor-preview-section">
             <h3>{{ formatMessage(messages.armorPiece) }}</h3>
-            <div class="armor-preview-options armor-preview-options--four">
+            <div data-tooltip-group="armor-slots" class="flex flex-wrap gap-1.5">
                 <button
                     v-for="slot in ARMOR_SLOTS"
                     :key="slot"
@@ -161,7 +161,7 @@ function setTrimMaterial(trimMaterial: ArmorTrimMaterial): void {
 
         <section class="armor-preview-section">
             <h3>{{ formatMessage(messages.armorMaterial) }}</h3>
-            <div class="armor-preview-options">
+            <div data-tooltip-group="armor-materials" class="flex flex-wrap gap-1.5">
                 <button
                     v-tooltip="
                         formatMessage(messages.removePiece, { slot: slotLabel(selectedSlot) })
@@ -195,7 +195,7 @@ function setTrimMaterial(trimMaterial: ArmorTrimMaterial): void {
 
         <section v-if="selectedPiece.material" class="armor-preview-section">
             <h3>{{ formatMessage(messages.trimPattern) }}</h3>
-            <div class="armor-preview-options">
+            <div data-tooltip-group="armor-trim-patterns" class="flex flex-wrap gap-1.5">
                 <button
                     v-tooltip="formatMessage(messages.removeTrim)"
                     class="armor-preview-option"
@@ -228,7 +228,7 @@ function setTrimMaterial(trimMaterial: ArmorTrimMaterial): void {
             class="armor-preview-section"
         >
             <h3>{{ formatMessage(messages.trimMaterial) }}</h3>
-            <div class="armor-preview-options">
+            <div data-tooltip-group="armor-trim-materials" class="flex flex-wrap gap-1.5">
                 <button
                     v-for="material in ARMOR_TRIM_MATERIALS"
                     :key="material"
@@ -250,6 +250,8 @@ function setTrimMaterial(trimMaterial: ArmorTrimMaterial): void {
 
 <style scoped lang="scss">
 .armor-preview-option {
+    @apply shrink-0;
+
     box-sizing: border-box;
     height: 2.5rem;
     width: 2.5rem;
@@ -301,13 +303,6 @@ function setTrimMaterial(trimMaterial: ArmorTrimMaterial): void {
     filter: drop-shadow(0 2px 2px rgb(0 0 0 / 35%));
 }
 
-.armor-preview-panel {
-    box-sizing: border-box;
-    width: min(19rem, calc(100vw - 2rem));
-    max-height: min(39rem, calc(100vh - 8rem));
-    overflow-y: auto;
-}
-
 .armor-preview-section + .armor-preview-section {
     padding-top: 0.75rem;
     margin-top: 0.75rem;
@@ -320,21 +315,5 @@ function setTrimMaterial(trimMaterial: ArmorTrimMaterial): void {
     font-weight: 600;
     line-height: 1rem;
     color: var(--color-text-tertiary);
-}
-
-.armor-preview-options {
-    display: grid;
-    grid-template-columns: repeat(6, 2.5rem);
-    gap: 0.375rem;
-}
-
-.armor-preview-options--four {
-    grid-template-columns: repeat(4, 2.5rem);
-}
-
-@media (max-width: 520px) {
-    .armor-preview-panel {
-        max-height: calc(100vh - 6rem);
-    }
 }
 </style>

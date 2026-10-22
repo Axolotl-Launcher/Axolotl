@@ -1,15 +1,9 @@
 <script setup lang="ts">
-import {
-    Checkbox,
-    defineMessages,
-    injectNotificationManager,
-    Slider,
-    StyledInput,
-    useVIntl,
-} from '@modrinth/ui'
+import { Checkbox, defineMessages, injectNotificationManager, Slider, useVIntl } from '@modrinth/ui'
 import { platform } from '@tauri-apps/plugin-os'
 import { computed, readonly, ref, watch } from 'vue'
 
+import EnvironmentVariablesInput from '@/components/ui/EnvironmentVariablesInput.vue'
 import JavaArgumentsInput from '@/components/ui/JavaArgumentsInput.vue'
 import JavaSelector from '@/components/ui/JavaSelector.vue'
 import MemoryAllocationDisplay from '@/components/ui/MemoryAllocationDisplay.vue'
@@ -20,7 +14,7 @@ import { edit, get_content_snapshot, get_optimal_jre_key } from '@/helpers/insta
 import { get } from '@/helpers/settings'
 import { injectInstanceSettings } from '@/providers/instance-settings'
 
-import type { AppSettings } from '../../../helpers/types'
+import type { AppSettings, GameInstance } from '../../../helpers/types'
 
 const { handleError } = injectNotificationManager()
 const { formatMessage } = useVIntl()
@@ -84,6 +78,7 @@ const messages = defineMessages({
 })
 
 const { instance } = injectInstanceSettings()
+const instanceId = instance.value.id
 const supportsMemoryOptimization = (await platform()) === 'windows'
 
 const globalSettings = (await get().catch(handleError)) as unknown as AppSettings
@@ -114,12 +109,8 @@ const javaArgs = ref(
     (instance.value.extra_launch_args ?? globalSettings?.extra_launch_args ?? []).join(' '),
 )
 
-const overrideEnvVars = ref((instance.value.custom_env_vars?.length ?? 0) > 0)
-const envVars = ref(
-    (instance.value.custom_env_vars ?? globalSettings?.custom_env_vars ?? [])
-        .map((x: string[]) => x.join('='))
-        .join(' '),
-)
+const overrideEnvVars = ref(instance.value.custom_env_vars != null)
+const envVars = ref(instance.value.custom_env_vars ?? globalSettings?.custom_env_vars ?? [])
 
 const defaultMemory = { maximum: 2048, automatic: true, optimize_before_launch: false }
 const overrideMemorySettings = ref(!!instance.value.memory)
@@ -167,29 +158,27 @@ const editInstanceObject = computed(() => ({
     extra_launch_args: overrideJavaArgs.value
         ? javaArgs.value.trim().split(/\s+/).filter(Boolean)
         : null,
-    custom_env_vars: overrideEnvVars.value
-        ? envVars.value
-              .trim()
-              .split(/\s+/)
-              .filter(Boolean)
-              .map((x: string) => x.split('=').filter(Boolean))
-        : null,
     memory: overrideMemorySettings.value ? memory.value : null,
 }))
 
+let saveQueue = Promise.resolve()
+function saveInstancePatch(patch: Partial<GameInstance>) {
+    const snapshot = JSON.parse(JSON.stringify(patch)) as Partial<GameInstance>
+    saveQueue = saveQueue.then(() => edit(instanceId, snapshot)).catch(handleError)
+}
+
 watch(
-    [
-        overrideJavaInstall,
-        overrideJava,
-        overrideJavaArgs,
-        javaArgs,
-        overrideEnvVars,
-        envVars,
-        overrideMemorySettings,
-        memory,
-    ],
-    async () => {
-        await edit(instance.value.id, editInstanceObject.value).catch(handleError)
+    [overrideEnvVars, envVars],
+    () => {
+        saveInstancePatch({ custom_env_vars: overrideEnvVars.value ? envVars.value : null })
+    },
+    { deep: true },
+)
+
+watch(
+    [overrideJavaInstall, overrideJava, overrideJavaArgs, javaArgs, overrideMemorySettings, memory],
+    () => {
+        saveInstancePatch(editInstanceObject.value)
     },
     { deep: true },
 )
@@ -277,13 +266,12 @@ watch(
             :label="formatMessage(messages.customEnvironmentVariables)"
             class="mb-2"
         />
-        <StyledInput
+        <EnvironmentVariablesInput
             id="env-vars"
             v-model="envVars"
             autocomplete="off"
             :disabled="!overrideEnvVars"
             :placeholder="formatMessage(messages.enterEnvironmentVariables)"
-            wrapper-class="w-full"
         />
     </div>
 </template>

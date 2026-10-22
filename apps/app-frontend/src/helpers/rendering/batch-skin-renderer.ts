@@ -16,6 +16,43 @@ export interface RawRenderResult {
 export const skinBlobUrlMap = reactive(new Map<string, RenderResult>())
 export const headBlobUrlMap = reactive(new Map<string, string>())
 const headRenderPromises = new Map<string, Promise<string>>()
+const retainedHeads = new Map<symbol, Set<string>>()
+let activeSkinKeys = new Set<string>()
+let activeHeadKeys = new Set<string>()
+
+export function retainPlayerHeadTextures(textureKeys: readonly string[]): () => void {
+    const owner = Symbol()
+    retainedHeads.set(owner, new Set(textureKeys.map(getHeadRenderKey)))
+    return () => {
+        retainedHeads.delete(owner)
+        queueMicrotask(pruneSkinPreviewMemory)
+    }
+}
+
+export function pruneSkinPreviewMemory() {
+    for (const [key, preview] of skinBlobUrlMap) {
+        if (activeSkinKeys.has(key)) continue
+        skinBlobUrlMap.delete(key)
+        URL.revokeObjectURL(preview.forwards)
+    }
+    const headKeys = new Set([
+        ...activeHeadKeys,
+        ...[...retainedHeads.values()].flatMap((keys) => [...keys]),
+    ])
+    for (const [key, url] of headBlobUrlMap) {
+        if (headKeys.has(key)) continue
+        headBlobUrlMap.delete(key)
+        URL.revokeObjectURL(url)
+    }
+}
+
+export function setActiveSkinPreviews(skins: Skin[]) {
+    activeSkinKeys = new Set(
+        skins.map((skin) => `${skin.texture_key}+${skin.variant}+${skin.cape_id ?? 'no-cape'}`),
+    )
+    activeHeadKeys = new Set(skins.map((skin) => getHeadRenderKey(skin.texture_key)))
+    pruneSkinPreviewMemory()
+}
 
 const DEBUG_MODE = false
 const HEAD_RENDER_VERSION = 8
@@ -25,8 +62,12 @@ export function getHeadRenderKey(textureKey: string): string {
 }
 
 export async function cleanupUnusedPreviews(skins: Skin[]): Promise<void> {
+    setActiveSkinPreviews(skins)
     const validKeys = new Set<string>()
     const validHeadKeys = new Set<string>()
+    for (const keys of retainedHeads.values()) {
+        for (const key of keys) validHeadKeys.add(key)
+    }
 
     for (const skin of skins) {
         const key = `${skin.texture_key}+${skin.variant}+${skin.cape_id ?? 'no-cape'}`
@@ -133,6 +174,7 @@ export async function generateHeadRender(skin: Skin): Promise<string> {
         if (headRenderPromises.get(headKey) === renderPromise) {
             headRenderPromises.delete(headKey)
         }
+        queueMicrotask(pruneSkinPreviewMemory)
     }
 }
 

@@ -20,6 +20,9 @@ import viteConfig from './vite.config'
 export default mergeConfig(
     viteConfig,
     defineConfig({
+        optimizeDeps: {
+            include: ['qrcode.vue'],
+        },
         test: {
             include: ['src/**/*.visual.spec.ts'],
             browser: {

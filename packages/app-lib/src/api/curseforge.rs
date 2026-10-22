@@ -19,15 +19,26 @@ use crate::state::{
     ModrinthProjectId, ModrinthVersionId, ProjectType, ReleaseChannel,
     Settings,
 };
+use crate::util::download::constants::CURSEFORGE_OVERRIDE_EXTRACTION_CONCURRENCY as OVERRIDE_EXTRACTION_CONCURRENCY;
+use crate::util::download::constants::MODPACK_DATABASE_BATCH_SIZE;
+use crate::util::download::constants::MODPACK_DATABASE_FLUSH_INTERVAL;
+use crate::util::download::constants::MODPACK_DATABASE_QUEUE_CAPACITY;
+use crate::util::download::constants::MODPACK_FILE_INSTALL_ATTEMPTS;
+use crate::util::download::constants::MODPACK_METADATA_CONCURRENCY;
+use crate::util::download::constants::MODPACK_VERIFICATION_CONCURRENCY;
+use crate::util::download::constants::MODPACK_VERIFICATION_QUEUE_CAPACITY;
+use crate::util::download::constants::{
+    CURSEFORGE_H2_RANGE_THRESHOLD, CURSEFORGE_REQUESTED_H2_RANGES,
+};
 use crate::util::fetch::{
     ContentValidation, DownloadRequest, DownloadRouteSource, FetchProgressFn,
     Integrity, ProxyPolicy, ResourceClass, download_to_path,
     resolve_download_routes_for, sha1_file_async, sha1_file_cancellable,
 };
 use crate::{ErrorKind, State};
+use content_management::{DependencyPolicy, DependencyType};
 use dashmap::DashMap;
 use futures::{StreamExt, stream};
-use modrinth_content_management::{DependencyPolicy, DependencyType};
 use reqwest::{Method, StatusCode};
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
@@ -61,13 +72,7 @@ use curseforge_mapping::{
 const API_BASE_URL: &str = "https://api.curseforge.com";
 const MINECRAFT_GAME_ID: u32 = 432;
 const MAX_PAGE_SIZE: u32 = 50;
-const MODPACK_FILE_INSTALL_ATTEMPTS: usize = 3;
-const MODPACK_METADATA_CONCURRENCY: usize = 4;
-const MODPACK_VERIFICATION_CONCURRENCY: usize = 4;
-const MODPACK_DATABASE_BATCH_SIZE: usize = 25;
-const MODPACK_DATABASE_FLUSH_INTERVAL: Duration = Duration::from_millis(500);
-const MODPACK_VERIFICATION_QUEUE_CAPACITY: usize = 128;
-const MODPACK_DATABASE_QUEUE_CAPACITY: usize = 128;
+
 const DEPENDENCY_RELATION_EMBEDDED: u32 = 1;
 const DEPENDENCY_RELATION_OPTIONAL: u32 = 2;
 pub(crate) const DEPENDENCY_RELATION_REQUIRED: u32 = 3;
@@ -79,7 +84,6 @@ pub(crate) const QUILTED_FABRIC_API_CURSEFORGE_PROJECT_ID: u32 = 634179;
 const CURSEFORGE_LOADER_QUILT: u32 = 5;
 const MAX_DEPENDENCY_DEPTH: usize = 32;
 const DEPENDENCY_PLAN_TTL: Duration = Duration::from_secs(10 * 60);
-const OVERRIDE_EXTRACTION_CONCURRENCY: usize = 4;
 
 static UNAUTHORIZED: AtomicBool = AtomicBool::new(false);
 static CATEGORY_CACHE: LazyLock<RwLock<Option<Vec<CurseForgeCategory>>>> =
@@ -1026,6 +1030,11 @@ pub(crate) async fn get_modpack_expected_members_with_reporter(
                 member.project_id
             ))
         })?;
+        // Saves have their own importer and must not become file-level pack
+        // members: pack updates must never replace a player's existing world.
+        if project.class_id == Some(17) {
+            continue;
+        }
         let project_type =
             managed_project_type(project_type_for_class(project.class_id))?;
         validate_file_name(&file.file_name)?;
@@ -1241,31 +1250,6 @@ pub async fn get_projects_with_cache_behaviour(
     .await
 }
 
-pub(crate) async fn get_projects_uncached(
-    project_ids: Vec<u32>,
-) -> crate::Result<Vec<CurseForgeProject>> {
-    if project_ids.is_empty() {
-        return Ok(Vec::new());
-    }
-    let mut projects = Vec::new();
-    for project_ids in project_ids.chunks(MAX_PAGE_SIZE as usize) {
-        let response: CurseForgeResponse<Vec<CurseForgeProject>> =
-            request_json(
-                Method::POST,
-                "/v1/mods",
-                Vec::new(),
-                Some(json!({
-                    "modIds": project_ids,
-                    "filterPcOnly": true
-                })),
-                MirrorPolicy::MirrorFirst,
-            )
-            .await?;
-        projects.extend(response.data);
-    }
-    Ok(projects)
-}
-
 pub async fn get_description(project_id: u32) -> crate::Result<String> {
     let response: CurseForgeResponse<String> = request_json(
         Method::GET,
@@ -1364,29 +1348,71 @@ pub async fn get_file(
     project_id: u32,
     file_id: u32,
 ) -> crate::Result<CurseForgeFile> {
-    let response: CurseForgeResponse<CurseForgeFile> = request_json(
-        Method::GET,
-        &format!("/v1/mods/{project_id}/files/{file_id}"),
-        Vec::new(),
-        None,
-        MirrorPolicy::MirrorFirst,
+    let state = State::get().await?;
+    crate::resources::legacy_catalog::exact(
+        crate::resources::SourceId::curseforge(),
+        Some(project_id.to_string()),
+        file_id.to_string(),
+        &state,
     )
-    .await?;
-    Ok(response.data)
+    .await?
+    .ok_or_else(|| {
+        ErrorKind::InputError("CurseForge file not found".into()).into()
+    })
 }
 
 pub async fn get_files_many(
     file_ids: Vec<u32>,
 ) -> crate::Result<Vec<CurseForgeFile>> {
-    let response: CurseForgeResponse<Vec<CurseForgeFile>> = request_json(
-        Method::POST,
-        "/v1/mods/files",
-        Vec::new(),
-        Some(json!({ "fileIds": file_ids })),
-        MirrorPolicy::MirrorFirst,
-    )
-    .await?;
-    Ok(response.data)
+    use crate::resources::{
+        SourceId, SourceReleaseId,
+        providers::{ProviderQuery, ProviderValue},
+    };
+    let state = State::get().await?;
+    let service = state
+        .resources()
+        .await
+        .map_err(crate::resources::protocol::error)?;
+    let queries = file_ids
+        .into_iter()
+        .map(|id| {
+            Ok(ProviderQuery::Release {
+                project_id: None,
+                release_id: SourceReleaseId::new(id.to_string())
+                    .map_err(crate::resources::protocol::error)?,
+                slug: None,
+            })
+        })
+        .collect::<crate::Result<Vec<_>>>()?;
+    let values = service
+        .presentation_many(
+            &SourceId::curseforge(),
+            queries,
+            &tokio_util::sync::CancellationToken::new(),
+        )
+        .await;
+    let mut files = Vec::new();
+    for value in values {
+        match value.map_err(crate::resources::protocol::error)?.value {
+            ProviderValue::Release(document) => {
+                files.push(serde_json::from_value(
+                    document.protocol.ok_or_else(|| {
+                        ErrorKind::InputError(
+                            "CurseForge file projection missing".into(),
+                        )
+                    })?,
+                )?)
+            }
+            ProviderValue::NotFound => {}
+            _ => {
+                return Err(ErrorKind::InputError(
+                    "unexpected CurseForge file response".into(),
+                )
+                .into());
+            }
+        }
+    }
+    Ok(files)
 }
 
 pub async fn get_changelog(
@@ -1491,6 +1517,17 @@ pub async fn match_fingerprints(
     Ok(response.data)
 }
 
+/// Resource adapters share routing and credential handling without consulting
+/// the legacy main-database resource cache.
+pub(crate) async fn resource_request(
+    method: Method,
+    path: &str,
+    query: Vec<(String, String)>,
+    body: Option<Value>,
+) -> crate::Result<Value> {
+    request_json(method, path, query, body, MirrorPolicy::MirrorFirst).await
+}
+
 pub async fn install_file(
     request: CurseForgeInstallRequest,
 ) -> crate::Result<CurseForgeInstallResult> {
@@ -1543,25 +1580,48 @@ pub async fn install_world_with_reporter(
     }
     validate_world_archive_name(&file.file_name)?;
 
-    let download_url = resolve_curseforge_download_url(
-        request.project_id,
-        request.file_id,
+    install_world_file(
+        &request.instance_id,
         &project,
         &file,
+        Some(&reporter),
+        crate::state::instances::ContentOwnershipKind::UserAdded,
+        crate::state::instances::ManualDownloadOperationKind::ContentInstall,
     )
-    .await?;
+    .await
+}
+
+async fn install_world_file(
+    instance_id: &str,
+    project: &CurseForgeProject,
+    file: &CurseForgeFile,
+    reporter: Option<&InstallProgressReporter>,
+    ownership: crate::state::instances::ContentOwnershipKind,
+    operation: crate::state::instances::ManualDownloadOperationKind,
+) -> crate::Result<CurseForgeWorldInstallResult> {
+    validate_world_archive_name(&file.file_name)?;
+    if project.class_id != Some(17) || file.mod_id != project.id {
+        return Err(ErrorKind::InputError(
+            "World file does not belong to the selected world project".into(),
+        )
+        .into());
+    }
+    let state = State::get().await?;
+    let download_url =
+        resolve_curseforge_download_url(project.id, file.id, project, file)
+            .await?;
     let Some(download_url) = download_url else {
         let manual_download = manual_download_from_file(
-			request.project_id,
-			request.file_id,
-			&file,
-			&project,
-			"world",
-			"saves".to_string(),
-			crate::state::instances::ContentOwnershipKind::UserAdded,
-			crate::state::instances::ManualDownloadOperationKind::ContentInstall,
-		);
-        persist_manual_download(&request.instance_id, &manual_download).await?;
+            project.id,
+            file.id,
+            file,
+            project,
+            "world",
+            "saves".to_string(),
+            ownership,
+            operation,
+        );
+        persist_manual_download(instance_id, &manual_download).await?;
         return Ok(CurseForgeWorldInstallResult {
             manual_download: Some(manual_download),
             ..Default::default()
@@ -1570,22 +1630,22 @@ pub async fn install_world_with_reporter(
 
     let staging_directory = tempfile::tempdir()?;
     let staging_path = staging_directory.path().join(&file.file_name);
-    let tracking_path =
-        format!("worlds/{}/{}", request.project_id, request.file_id);
+    let tracking_path = format!("worlds/{}/{}", project.id, file.id);
     download_curseforge_path(
         &download_url,
-        &file,
+        file,
         &staging_path,
         curseforge_content_validation(&file.file_name),
         None,
-        Some((&reporter, &tracking_path)),
+        reporter.map(|reporter| (reporter, tracking_path.as_str())),
         None,
         true,
     )
     .await?;
+    let _critical = crate::install::critical_section::enter();
     let world_name = crate::state::instances::commands::import_world_save(
         &state,
-        &request.instance_id,
+        instance_id,
         &staging_path,
         None,
     )
@@ -1631,7 +1691,7 @@ struct CurseForgeDependencyEdgeCandidate {
 struct ModrinthFallbackPlan {
     parent_project_id: u32,
     parent_file_id: u32,
-    plan: modrinth_content_management::ResolveContentPlan,
+    plan: content_management::ResolveContentPlan,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -2534,7 +2594,7 @@ async fn install_fixed_modrinth_content(
     }
     crate::state::instances::commands::install_resolved_dependency(
         &request.instance_id,
-        &modrinth_content_management::ResolvedContent {
+        &content_management::ResolvedContent {
             project_id: project_id.to_string(),
             version_id: version_id.to_string(),
             dependent_on_version_id: None,
@@ -3537,6 +3597,8 @@ pub async fn install_modpack_with_reporter(
     request: CurseForgeModpackInstallRequest,
     reporter: Option<InstallProgressReporter>,
 ) -> crate::Result<CurseForgeModpackInstallResult> {
+    let reporter =
+        reporter.map(InstallProgressReporter::with_pipeline_cancellation);
     let pack_file = get_file(request.project_id, request.file_id).await?;
     let project = get_project(request.project_id).await?;
     let icon_url = project
@@ -3708,7 +3770,7 @@ pub async fn install_modpack_with_reporter(
         .collect::<HashSet<_>>(),
     );
     let prefer_localized_names =
-        Settings::get(&state.pool).await?.locale == "zh-CN";
+        Settings::get(&state.pool).await?.resource_chinese_filenames;
     let content_total_bytes = selected_files
         .iter()
         .map(|file| {
@@ -3855,16 +3917,15 @@ pub async fn install_modpack_with_reporter(
                         ))
                     })?;
                 let project_type = project_type_for_class(project.class_id);
-                let managed_type = managed_project_type(project_type)?;
+                let folder = modpack_target_folder(project_type)?;
                 let meta = file_meta.get(&manifest_file.file_id).ok_or_else(|| {
                     ErrorKind::OtherError(format!(
                         "CurseForge file metadata is missing for {}",
                         manifest_file.file_id
                     ))
                 })?;
-                let folder = content_target_folder(managed_type, None)?;
                 let original_relative_path = format!("{folder}/{}", meta.file_name);
-                let localized_candidate = (managed_type != ProjectType::Mod)
+                let localized_candidate = (project_type != "mod" && project_type != "world")
                     .then(|| {
                         chinese_file_title_for_curseforge_slug(&project.slug)
                             .and_then(|title| {
@@ -3986,6 +4047,11 @@ pub async fn install_modpack_with_reporter(
                     .await?;
                     return Ok(());
                 };
+                if project_type == "world" {
+                    report_modpack_progress(loading_bar.as_deref(), reporter.as_ref(), pack_details.clone(), &files_done, &bytes_done, &active_downloads, total_files as u64, content_total_bytes, meta.file_length, InstallJobEventKind::ContentFileCompleted {
+                        path: item_result.installed[0].relative_path.clone(), bytes: meta.file_length,
+                    }).await?;
+                }
                 {
                     let mut content = content.lock().expect("content mutex");
                     merge_install_result(&mut content, item_result);
@@ -3996,7 +4062,10 @@ pub async fn install_modpack_with_reporter(
     )
     .await;
 
-    if download_result.is_err() {
+    if let Err(error) = &download_result {
+        if let Some(reporter) = &reporter {
+            reporter.fail_pipeline(error);
+        }
         cancellation.cancel();
     }
 
@@ -4008,6 +4077,12 @@ pub async fn install_modpack_with_reporter(
     let database_result = database_worker.await.map_err(|e| {
         ErrorKind::OtherError(format!("database worker failed: {e}"))
     })?;
+    if let Some(error) = reporter
+        .as_ref()
+        .and_then(InstallProgressReporter::pipeline_failure)
+    {
+        return Err(error);
+    }
     verification_result?;
     database_result?;
     download_result?;
@@ -4392,6 +4467,17 @@ async fn retry_modpack_file_install(
             expected_file_name: Some(expected_file_name.to_string()),
         };
         let result = match preloaded.as_ref() {
+            Some((project, file)) if project_type == "world" => {
+                install_modpack_world_file(
+                    instance_id,
+                    project,
+                    file,
+                    download_metrics
+                        .and_then(|metrics| metrics.reporter.as_ref()),
+                    manual_operation_kind,
+                )
+                .await
+            }
             Some((project, file)) => {
                 install_preloaded_modpack_file(
                     &install_request,
@@ -4686,6 +4772,7 @@ pub(crate) async fn install_local_manifest_files(
     pack_details: InstallPhaseDetails,
     reporter: &InstallProgressReporter,
 ) -> crate::Result<CurseForgeInstallResult> {
+    let reporter = &reporter.clone().with_pipeline_cancellation();
     let state = State::get().await?;
     let content_set = crate::state::instances::adapters::sqlite::content_rows::get_applied_content_set(
 		instance_id,
@@ -4745,7 +4832,7 @@ pub(crate) async fn install_local_manifest_files(
         .collect::<HashSet<_>>(),
     );
     let prefer_localized_names =
-        Settings::get(&state.pool).await?.locale == "zh-CN";
+        Settings::get(&state.pool).await?.resource_chinese_filenames;
     let content_total_bytes = selected_files
         .iter()
         .map(|file| {
@@ -4857,16 +4944,15 @@ pub(crate) async fn install_local_manifest_files(
                         ))
                     })?;
                 let project_type = project_type_for_class(project.class_id);
-                let managed_type = managed_project_type(project_type)?;
+                let folder = modpack_target_folder(project_type)?;
                 let meta = file_meta.get(&manifest_file.file_id).ok_or_else(|| {
                     ErrorKind::OtherError(format!(
                         "CurseForge file metadata is missing for {}",
                         manifest_file.file_id
                     ))
                 })?;
-                let folder = content_target_folder(managed_type, None)?;
                 let original_relative_path = format!("{folder}/{}", meta.file_name);
-                let localized_candidate = (managed_type != ProjectType::Mod)
+                let localized_candidate = (project_type != "mod" && project_type != "world")
                     .then(|| {
                         chinese_file_title_for_curseforge_slug(&project.slug)
                             .and_then(|title| {
@@ -4984,6 +5070,11 @@ pub(crate) async fn install_local_manifest_files(
                     .await?;
                     return Ok(());
                 };
+                if project_type == "world" {
+                    report_modpack_progress(None, Some(&reporter), pack_details.clone(), &files_done, &bytes_done, &active_downloads, total_files as u64, content_total_bytes, meta.file_length, InstallJobEventKind::ContentFileCompleted {
+                        path: item_result.installed[0].relative_path.clone(), bytes: meta.file_length,
+                    }).await?;
+                }
                 {
                     let mut content = content.lock().expect("content mutex");
                     merge_install_result(&mut content, item_result);
@@ -4994,7 +5085,8 @@ pub(crate) async fn install_local_manifest_files(
     )
     .await;
 
-    if download_result.is_err() {
+    if let Err(error) = &download_result {
+        reporter.fail_pipeline(error);
         cancellation.cancel();
     }
 
@@ -5010,6 +5102,9 @@ pub(crate) async fn install_local_manifest_files(
             "local CurseForge database worker failed: {error}"
         ))
     })?;
+    if let Some(error) = reporter.pipeline_failure() {
+        return Err(error);
+    }
     verification_result?;
     database_result?;
     download_result?;
@@ -5484,11 +5579,17 @@ async fn rollback_curseforge_update(
 async fn cache_instance_icon_from_url(
     icon_url: &str,
 ) -> crate::Result<std::path::PathBuf> {
+    let normalized =
+        crate::util::download::retired_sources::normalize(icon_url)?;
+    let icon_url = normalized.as_ref();
     let state = State::get().await?;
     // CurseForge avatar/CDN assets are frequently broken via local system
     // proxies, so always download icons with a direct client.
     let permit = state.fetch_semaphore.0.acquire().await?;
-    let response = CLIENT.get(icon_url).send().await?;
+    let response = crate::util::download::native_request::send_cdn_request(
+        crate::util::fetch::DIRECT_REQWEST_CLIENT.get(icon_url),
+    )
+    .await?;
     drop(permit);
     if !response.status().is_success() {
         return Err(ErrorKind::OtherError(format!(
@@ -5906,99 +6007,6 @@ fn merge_install_result(
     target
         .incompatible_dependencies
         .append(&mut source.incompatible_dependencies);
-}
-
-pub async fn update_installed_file(
-    instance_id: &str,
-    relative_path: &str,
-) -> crate::Result<CurseForgeInstallResult> {
-    use sqlx::Row;
-
-    let state = State::get().await?;
-    let row = sqlx::query(
-		"SELECT ref.provider_project_id, ref.provider_release_id, entry.project_type,
-				entry.ownership_kind,
-				content_set.game_version, content_set.loader,
-				instance.update_channel
-         FROM instance_files file
-         INNER JOIN instance_content_entries entry ON entry.file_id = file.id
-         INNER JOIN instance_content_provider_refs ref
-            ON ref.content_entry_id = entry.id AND ref.provider = 'curseforge'
-         INNER JOIN instance_content_sets content_set
-            ON content_set.id = entry.content_set_id
-         INNER JOIN instances instance ON instance.id = file.instance_id
-         WHERE file.instance_id = ? AND file.relative_path = ?
-         ORDER BY entry.modified_at DESC
-         LIMIT 1",
-    )
-    .bind(instance_id)
-    .bind(relative_path)
-    .fetch_optional(&state.pool)
-    .await?
-    .ok_or_else(|| {
-        ErrorKind::InputError(
-            "The selected file is not linked to CurseForge".to_string(),
-        )
-    })?;
-    let project_id = row
-        .try_get::<String, _>("provider_project_id")?
-        .parse::<u32>()
-        .map_err(|_| {
-            ErrorKind::InputError(
-                "Stored CurseForge project ID is invalid".to_string(),
-            )
-        })?;
-    let current_file_id = row
-        .try_get::<Option<String>, _>("provider_release_id")?
-        .and_then(|value| value.parse::<u32>().ok());
-    let project_type = row.try_get::<String, _>("project_type")?;
-    let ownership_kind =
-        crate::state::instances::ContentOwnershipKind::from_str(
-            &row.try_get::<String, _>("ownership_kind")?,
-        )?;
-    let game_version = row.try_get::<String, _>("game_version")?;
-    let loader = row.try_get::<String, _>("loader")?;
-    let update_channel = row
-        .try_get::<Option<String>, _>("update_channel")?
-        .as_deref()
-        .map(ReleaseChannel::from_key)
-        .unwrap_or(ReleaseChannel::Release);
-    let mod_loader_type = match loader.as_str() {
-        "forge" => Some(1),
-        "fabric" => Some(4),
-        "quilt" => Some(5),
-        "neoforge" => Some(6),
-        _ => None,
-    };
-    let latest = select_latest_compatible_file(
-        project_id,
-        Some(game_version.clone()),
-        mod_loader_type,
-        Some(update_channel),
-    )
-    .await?
-    .ok_or_else(|| {
-        ErrorKind::InputError(
-            "No compatible CurseForge update was found".to_string(),
-        )
-    })?;
-    if current_file_id == Some(latest.id) {
-        return Ok(CurseForgeInstallResult::default());
-    }
-
-    install_selected_file(
-        instance_id,
-        relative_path,
-        project_id,
-        current_file_id,
-        latest.id,
-        project_type,
-        ownership_kind,
-        game_version,
-        mod_loader_type,
-        None,
-    )
-    .await
 }
 
 pub async fn switch_installed_file_version(
@@ -7934,7 +7942,7 @@ async fn resolve_modrinth_fallback_plan(
     item_type: ProjectType,
     request: &CurseForgeInstallRequest,
     state: &State,
-) -> crate::Result<Option<modrinth_content_management::ResolveContentPlan>> {
+) -> crate::Result<Option<content_management::ResolveContentPlan>> {
     let Some(sha1) = file
         .hashes
         .iter()
@@ -8020,7 +8028,7 @@ fn mod_loader_from_curseforge_type(mod_loader_type: u32) -> Option<ModLoader> {
 }
 
 async fn preview_modrinth_fallbacks(
-    plan: &modrinth_content_management::ResolveContentPlan,
+    plan: &content_management::ResolveContentPlan,
     parent_project_id: u32,
     state: &State,
 ) -> crate::Result<Vec<CurseForgeModrinthFallbackPreview>> {
@@ -8061,7 +8069,7 @@ async fn preview_modrinth_fallbacks(
 
 async fn append_modrinth_fallback_plan(
     resolution_plan: &mut DependencyResolutionPlan,
-    fallback_plan: &modrinth_content_management::ResolveContentPlan,
+    fallback_plan: &content_management::ResolveContentPlan,
     curseforge_parent: &ContentProviderRef,
     state: &State,
 ) -> crate::Result<()> {
@@ -8283,6 +8291,69 @@ fn file_matches_dependency_target(
     });
 
     game_version_matches && mod_loader_matches
+}
+
+fn modpack_target_folder(project_type: &str) -> crate::Result<String> {
+    if project_type == "world" {
+        Ok("saves".into())
+    } else {
+        content_target_folder(managed_project_type(project_type)?, None)
+    }
+}
+
+async fn install_modpack_world_file(
+    instance_id: &str,
+    project: &CurseForgeProject,
+    file: &CurseForgeFile,
+    reporter: Option<&InstallProgressReporter>,
+    operation: crate::state::instances::ManualDownloadOperationKind,
+) -> crate::Result<CurseForgeInstallResult> {
+    validate_world_archive_name(&file.file_name)?;
+    if project.class_id != Some(17) || file.mod_id != project.id {
+        return Err(ErrorKind::InputError(
+            "World file does not belong to the selected world project".into(),
+        )
+        .into());
+    }
+    let world_name = Path::new(&file.file_name)
+        .file_stem()
+        .unwrap()
+        .to_string_lossy();
+    let path = format!("saves/{world_name}");
+    let target = crate::api::instance::get_full_path(instance_id)
+        .await?
+        .join(&path);
+    let world = if target.join("level.dat").is_file() {
+        // Resuming a pack or changing its version must preserve the player's save.
+        CurseForgeWorldInstallResult {
+            world_name: Some(world_name.into_owned()),
+            manual_download: None,
+        }
+    } else {
+        install_world_file(
+            instance_id,
+            project,
+            file,
+            reporter,
+            crate::state::instances::ContentOwnershipKind::UserAdded,
+            operation,
+        )
+        .await?
+    };
+    Ok(CurseForgeInstallResult {
+        installed: world
+            .world_name
+            .map(|name| CurseForgeInstalledFile {
+                project_id: project.id,
+                file_id: file.id,
+                relative_path: format!("saves/{name}"),
+                dependency: false,
+            })
+            .into_iter()
+            .collect(),
+        manual_downloads: world.manual_download.into_iter().collect(),
+        ..Default::default()
+    })
 }
 
 fn managed_project_type(value: &str) -> crate::Result<ProjectType> {
@@ -8748,8 +8819,8 @@ fn curseforge_integrity(
 }
 
 const fn curseforge_modpack_h2_range_concurrency(size: u64) -> Option<usize> {
-    if size >= 64 * 1024 * 1024 {
-        Some(4)
+    if size >= CURSEFORGE_H2_RANGE_THRESHOLD {
+        Some(CURSEFORGE_REQUESTED_H2_RANGES)
     } else {
         None
     }
@@ -9145,15 +9216,25 @@ fn spawn_curseforge_verification_worker(
     tokio::spawn(async move {
         let cancellation = context.cancellation.clone();
         let worker_database_tx = database_tx.clone();
+        let worker_reporter = context.reporter.clone();
         let result = crate::install::try_for_each_concurrent_draining(
             stream::poll_fn(move |cx| receiver.poll_recv(cx)),
             Some(MODPACK_VERIFICATION_CONCURRENCY),
             cancellation.clone(),
             move |task| {
-                verify_and_record_curseforge_modpack_file(
-                    task,
-                    worker_database_tx.clone(),
-                )
+                let reporter = worker_reporter.clone();
+                let database_tx = worker_database_tx.clone();
+                async move {
+                    let result = verify_and_record_curseforge_modpack_file(
+                        task,
+                        database_tx,
+                    )
+                    .await;
+                    if let (Some(reporter), Err(error)) = (&reporter, &result) {
+                        reporter.fail_pipeline(error);
+                    }
+                    result
+                }
             },
         )
         .await;
@@ -9161,6 +9242,9 @@ fn spawn_curseforge_verification_worker(
             // Stop network transfers and peers at the first verifier/SQLite
             // failure. This prevents a closed queue from turning every
             // remaining file into an independent retry/error storm.
+            if let (Some(reporter), Err(error)) = (&context.reporter, &result) {
+                reporter.fail_pipeline(error);
+            }
             cancellation.cancel();
         }
         result
@@ -9303,6 +9387,9 @@ fn spawn_curseforge_database_worker(
         }
         .await;
         if result.is_err() {
+            if let (Some(reporter), Err(error)) = (&context.reporter, &result) {
+                reporter.fail_pipeline(error);
+            }
             while let Ok(task) = receiver.try_recv() {
                 restore_curseforge_materialization(
                     &task.instance_id,
@@ -9559,7 +9646,8 @@ async fn fingerprint_and_sha1_file(
     } else {
         acquire.await?
     };
-    const BUFFER_SIZE: usize = 256 * 1024;
+
+    use crate::util::download::constants::CURSEFORGE_VERIFY_BUFFER_SIZE as BUFFER_SIZE;
     let mut file = tokio::fs::File::open(path).await?;
     let mut buffer = vec![0_u8; BUFFER_SIZE];
     let mut sha1 = sha1_smol::Sha1::new();
@@ -9778,14 +9866,14 @@ fn is_curseforge_fingerprint_whitespace(byte: u8) -> bool {
     matches!(byte, 9 | 10 | 13 | 32)
 }
 
-struct CurseForgeFingerprintHasher {
+pub(crate) struct CurseForgeFingerprintHasher {
     hash: u32,
     tail: [u8; 4],
     tail_len: usize,
 }
 
 impl CurseForgeFingerprintHasher {
-    fn new(normalized_size: u32) -> Self {
+    pub(crate) fn new(normalized_size: u32) -> Self {
         Self {
             hash: 1 ^ normalized_size,
             tail: [0; 4],
@@ -9793,7 +9881,7 @@ impl CurseForgeFingerprintHasher {
         }
     }
 
-    fn update(&mut self, bytes: &[u8]) {
+    pub(crate) fn update(&mut self, bytes: &[u8]) {
         for &byte in bytes {
             if is_curseforge_fingerprint_whitespace(byte) {
                 continue;
@@ -9817,7 +9905,7 @@ impl CurseForgeFingerprintHasher {
         self.hash ^= value;
     }
 
-    fn finish(mut self) -> u32 {
+    pub(crate) fn finish(mut self) -> u32 {
         const M: u32 = 0x5bd1e995;
         match self.tail[..self.tail_len] {
             [a, b, c] => {
@@ -9916,7 +10004,7 @@ impl From<CurseForgeProject> for UnifiedSearchHit {
     }
 }
 
-fn api_key() -> Option<String> {
+pub(crate) fn api_key() -> Option<String> {
     std::env::var("AXOLOTL_CURSEFORGE_API_KEY")
         .ok()
         .or_else(|| option_env!("CURSEFORGE_API_KEY").map(str::to_string))
@@ -10008,7 +10096,6 @@ fn request_routes_with_mode(
         source: match route.source {
             DownloadRouteSource::Bmclapi
             | DownloadRouteSource::Mcim
-            | DownloadRouteSource::Tianpao
             | DownloadRouteSource::Aliyun => RequestRouteSource::Mirror,
             DownloadRouteSource::Official | DownloadRouteSource::Alternate => {
                 RequestRouteSource::Official
@@ -10245,6 +10332,132 @@ fn murmur2(data: &[u8], seed: u32) -> u32 {
 mod tests {
     use super::*;
     use std::io::Write;
+
+    #[test]
+    fn modpack_manifest_worlds_use_the_save_importer_instead_of_the_mod_file_installer()
+     {
+        assert_eq!(project_type_for_class(Some(17)), "world");
+        assert_eq!(modpack_target_folder("world").unwrap(), "saves");
+        assert_eq!(modpack_target_folder("mod").unwrap(), "mods");
+        assert_eq!(
+            modpack_target_folder("resourcepack").unwrap(),
+            "resourcepacks"
+        );
+        assert!(modpack_target_folder("modpack").is_err());
+        assert!(managed_project_type("world").is_err());
+    }
+
+    #[cfg(not(feature = "tauri"))]
+    #[tokio::test]
+    async fn modpack_manifest_imports_world_archives_and_preserves_existing_saves_on_retry()
+     {
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+        let (state, instance_id) =
+            create_stage6_instance("manifest world").await;
+        let mut archive = zip::ZipWriter::new(std::io::Cursor::new(Vec::new()));
+        archive
+            .start_file(
+                "Wrapped world/level.dat",
+                zip::write::SimpleFileOptions::default(),
+            )
+            .unwrap();
+        archive.write_all(b"world level data").unwrap();
+        archive
+            .start_file(
+                "Wrapped world/region/r.0.0.mca",
+                zip::write::SimpleFileOptions::default(),
+            )
+            .unwrap();
+        archive.write_all(b"region bytes").unwrap();
+        let bytes = archive.finish().unwrap().into_inner();
+        let server =
+            tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let url = format!("http://{}/world.zip", server.local_addr().unwrap());
+        let response_bytes = bytes.clone();
+        let server_task = tokio::spawn(async move {
+            loop {
+                let (mut stream, _) = server.accept().await.unwrap();
+                let bytes = response_bytes.clone();
+                tokio::spawn(async move {
+                    let mut request = [0; 8192];
+                    let n = stream.read(&mut request).await.unwrap();
+                    let head = String::from_utf8_lossy(&request[..n])
+                        .starts_with("HEAD ");
+                    stream.write_all(format!("HTTP/1.1 200 OK\r\nContent-Length: {}\r\nContent-Type: application/zip\r\nConnection: close\r\n\r\n", bytes.len()).as_bytes()).await.unwrap();
+                    if !head {
+                        stream.write_all(&bytes).await.unwrap();
+                    }
+                });
+            }
+        });
+        let project: CurseForgeProject = serde_json::from_value(json!({
+            "id": 1733396, "gameId": 432, "name": "Pack world", "slug": "pack-world", "summary": "World bundled in a pack",
+            "status": 4, "downloadCount": 0, "isFeatured": false, "primaryCategoryId": 0,
+            "classId": 17, "mainFileId": 9206584, "dateCreated": "", "dateModified": "", "dateReleased": "", "isAvailable": true,
+        })).unwrap();
+        let mut file = stage8_curseforge_file(
+            project.id,
+            9206584,
+            "Pack world.zip",
+            bytes.len() as u64,
+            vec![CurseForgeFileHash {
+                algo: 1,
+                value: sha1_smol::Sha1::from(&bytes).hexdigest(),
+            }],
+            0,
+        );
+        file.download_url = Some(url);
+        let manifest_file = CurseForgeManifestFile {
+            project_id: project.id,
+            file_id: file.id,
+            required: true,
+        };
+        let installed = tokio::time::timeout(Duration::from_secs(10), retry_modpack_file_install(
+            &instance_id, &manifest_file, "world", "1.21.1", Some(6),
+            crate::state::instances::ManualDownloadOperationKind::PackInstall,
+            None, &file.file_name, CancellationToken::new(), None, None, Some((project.clone(), file.clone())),
+        )).await.unwrap();
+        server_task.abort();
+        let result = installed.0.unwrap_or_else(|| panic!("{}", installed.2));
+        assert_eq!(result.installed[0].relative_path, "saves/Pack world");
+        let root = crate::api::instance::get_full_path(&instance_id)
+            .await
+            .unwrap();
+        assert_eq!(
+            std::fs::read(root.join("saves/Pack world/level.dat")).unwrap(),
+            b"world level data"
+        );
+        assert_eq!(
+            std::fs::read(root.join("saves/Pack world/region/r.0.0.mca"))
+                .unwrap(),
+            b"region bytes"
+        );
+        std::fs::write(
+            root.join("saves/Pack world/level.dat"),
+            b"player progress",
+        )
+        .unwrap();
+        install_modpack_world_file(
+            &instance_id,
+            &project,
+            &file,
+            None,
+            crate::state::instances::ManualDownloadOperationKind::PackUpdate,
+        )
+        .await
+        .unwrap();
+        assert_eq!(
+            std::fs::read(root.join("saves/Pack world/level.dat")).unwrap(),
+            b"player progress"
+        );
+        assert!(
+            crate::state::get_instance(&instance_id, &state.pool)
+                .await
+                .unwrap()
+                .is_some()
+        );
+        crate::api::instance::remove(&instance_id).await.unwrap();
+    }
 
     #[test]
     fn content_updates_only_resolve_required_dependencies() {

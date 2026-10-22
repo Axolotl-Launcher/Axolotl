@@ -1,0 +1,2 @@
+# Native engine outputs are rebuilt by build.rs from the watched C sources.
+/resources/seed-map/

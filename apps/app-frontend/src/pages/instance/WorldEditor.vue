@@ -242,7 +242,8 @@
                                 <Combobox
                                     v-if="rule.widget === 'boolean'"
                                     v-model="form.rules[rule.key]"
-                                    class="!w-36"
+                                    width="custom"
+                                    class="w-36"
                                     :options="
                                         BOOLEAN_OPTIONS.map((value) => ({
                                             value,

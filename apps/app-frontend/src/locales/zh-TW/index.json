@@ -1,4 +1,7 @@
 {
+  "app.resources.operation.dependency-analysis-failed": {
+    "message": "依賴分析失敗，可能會導致實例運作不正常"
+  },
   "app.account.signed-in-as": {
     "message": "登入身分："
   },
@@ -968,53 +971,20 @@
   "app.content-selection.conflict-unavailable": {
     "message": "無法確認該內容是否與另一個來源重複。"
   },
-  "app.content-selection.dependency-conflict": {
-    "message": "{dependency} 在當前選擇中解析出了衝突版本。"
-  },
   "app.content-selection.duplicate-content": {
     "message": "{project} 已從另一個來源安裝或選中。"
   },
   "app.content-selection.preview-failed": {
     "message": "部分所選內容無法準備安裝。請移除後重試。"
   },
-  "app.content-selection.queue-failed": {
-    "message": "部分內容未能加入安裝佇列，仍保留在已選列表中。"
-  },
   "app.content-selection.target-changed": {
     "message": "所選內容屬於另一個例項。請切換回該例項或先清空選擇。"
-  },
-  "app.content-selection.unknown-dependency": {
-    "message": "前置 {id}"
-  },
-  "app.content-selection.unknown-reason": {
-    "message": "無法解析"
   },
   "app.content.add-from-file": {
     "message": "從檔案新增"
   },
   "app.content.install-content": {
     "message": "安裝內容"
-  },
-  "app.crash-analysis.ai.action": {
-    "message": "使用 AI 解釋"
-  },
-  "app.crash-analysis.ai.analyzing": {
-    "message": "正在解釋崩潰……"
-  },
-  "app.crash-analysis.ai.close": {
-    "message": "關閉"
-  },
-  "app.crash-analysis.ai.copied": {
-    "message": "AI 解釋已複製到剪貼簿"
-  },
-  "app.crash-analysis.ai.copy": {
-    "message": "複製解釋"
-  },
-  "app.crash-analysis.ai.disclaimer": {
-    "message": "經過脫敏和裁剪的崩潰內容會直接傳送給此啟動器中設定的 AI Provider。AI 輸出可能不準確。"
-  },
-  "app.crash-analysis.ai.error": {
-    "message": "AI 解釋失敗：{message}"
   },
   "app.crash-analysis.ai.settings.enabled": {
     "message": "啟用 AI 解釋"
@@ -1030,9 +1000,6 @@
   },
   "app.crash-analysis.ai.settings.provider": {
     "message": "AI Provider"
-  },
-  "app.crash-analysis.ai.title": {
-    "message": "AI 崩潰解釋"
   },
   "app.curseforge.automatic-downloads-failed.notification-body": {
     "message": "重試後仍有 {failed, number} 個文件下載失敗（{list}）。可在“下載”中查看已記錄的錯誤。"
@@ -1348,9 +1315,6 @@
   },
   "app.downloads.missing-required-content": {
     "message": "已完成 {completed} / {total} 個必要檔案，還有 {missing} 個檔案需要補全。"
-  },
-  "app.downloads.more-active-requests": {
-    "message": "另有 {count} 個進行中的請求"
   },
   "app.downloads.new-download": {
     "message": "新建下載"
@@ -1805,9 +1769,6 @@
   "app.error.try-sign-in-again": {
     "message": "再次嘗試登入"
   },
-  "app.export-modal.description-placeholder": {
-    "message": "輸入模組包描述……"
-  },
   "app.export-modal.export-button": {
     "message": "匯出"
   },
@@ -1817,20 +1778,11 @@
   "app.export-modal.export-complete-description": {
     "message": "{name} 已成功匯出。"
   },
-  "app.export-modal.header": {
-    "message": "匯出模組包"
-  },
   "app.export-modal.modpack-name-label": {
-    "message": "模組包名稱"
-  },
-  "app.export-modal.modpack-name-placeholder": {
     "message": "模組包名稱"
   },
   "app.export-modal.version-number-label": {
     "message": "版本號碼"
-  },
-  "app.export-modal.version-number-placeholder": {
-    "message": "1.0.0"
   },
   "app.gc-notice.fallback": {
     "message": "Java 不接受 {preferred}，已改用 {chosen}。"
@@ -4428,7 +4380,7 @@
     "message": "非官方工具"
   },
   "app.lab.seed-map.copyright.engine-body": {
-    "message": "群系、地形、出生點與結構數據由 cubiomes 和 Axolotl 原生集成在本地生成。cubiomes 版權所有 (c) 2020 Cubitect，並依據 MIT 許可證提供。"
+    "message": "群系、地形、出生點與結構數據由 xpple/cubiomes 和 Axolotl 原生集成在本地生成。該引擎基於 Cubitect/cubiomes，版權所有 (c) 2020 Cubitect，並依據 MIT 許可證提供。"
   },
   "app.lab.seed-map.copyright.engine-heading": {
     "message": "本地地圖引擎"
@@ -4676,23 +4628,14 @@
   "app.lab.seed-map.ore-layers": {
     "message": "礦物圖層"
   },
-  "app.lab.seed-map.ore-likely": {
-    "message": "可能存在"
-  },
   "app.lab.seed-map.ore-max-y": {
     "message": "最高 Y"
   },
   "app.lab.seed-map.ore-min-y": {
     "message": "最低 Y"
   },
-  "app.lab.seed-map.ore-precision": {
-    "message": "精度 {precision}%"
-  },
   "app.lab.seed-map.ore-scan-failed": {
     "message": "礦物掃描失敗，請刷新地圖後重試。"
-  },
-  "app.lab.seed-map.ore-verified": {
-    "message": "已驗證"
   },
   "app.lab.seed-map.ore-y-range": {
     "message": "Y 範圍"
@@ -6788,9 +6731,6 @@
   "app.settings.resources.app-cache": {
     "message": "應用程式快取"
   },
-  "app.settings.resources.app-cache-description": {
-    "message": "Axolotl Launcher 會快取資料以加快載入速度。清除快取會強制應用程式重新載入資料，並可能暫時降低速度。"
-  },
   "app.settings.resources.app-directory": {
     "message": "應用程式目錄"
   },
@@ -6967,15 +6907,6 @@
   },
   "app.settings.resources.proxy-username-placeholder": {
     "message": "使用者名稱（可選）"
-  },
-  "app.settings.resources.purge-cache": {
-    "message": "清除快取"
-  },
-  "app.settings.resources.purge-confirm-description": {
-    "message": "繼續後將清除全部快取，這可能導致應用程式暫時變慢。"
-  },
-  "app.settings.resources.purge-confirm-title": {
-    "message": "確定要清除快取嗎？"
   },
   "app.settings.resources.reset-import-directory": {
     "message": "使用系統 Downloads 資料夾"

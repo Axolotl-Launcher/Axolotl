@@ -7,8 +7,7 @@ import { resolveTooltipContent } from './tooltip-value.ts'
  * The suppression contract, pinned.
  *
  * Callers suppress a tooltip by passing something falsy -- a ternary that
- * yields `undefined`, or the shared `truncatedTooltip()` helper returning
- * `null` when the text fits. About thirty call sites rely on that meaning "no
+ * yields `undefined` when a value is unavailable. About thirty call sites rely on that meaning "no
  * tooltip", so an empty string must not become an empty bubble.
  */
 

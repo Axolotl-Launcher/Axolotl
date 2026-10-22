@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 use std::sync::{Arc, LazyLock};
 
-use dashmap::DashMap;
 use tokio::sync::Mutex;
 
 use crate::state::instances::adapters::sqlite::content_rows;
@@ -26,8 +25,31 @@ struct StoredUpgradePlanState {
 
 type StoredUpgradePlan = Arc<Mutex<StoredUpgradePlanState>>;
 
-static INSTANCE_UPGRADE_PLANS: LazyLock<DashMap<String, StoredUpgradePlan>> =
-    LazyLock::new(DashMap::new);
+static INSTANCE_UPGRADE_PLANS: LazyLock<
+    super::upgrade_plan_registry::PlanRegistry<Mutex<StoredUpgradePlanState>>,
+> = LazyLock::new(|| {
+    super::upgrade_plan_registry::PlanRegistry::new(
+        16,
+        std::time::Duration::from_secs(60 * 60),
+    )
+});
+static PLAN_CLEANUP_STARTED: std::sync::atomic::AtomicBool =
+    std::sync::atomic::AtomicBool::new(false);
+
+pub fn discard_instance_upgrade_plan(plan_id: &str) {
+    INSTANCE_UPGRADE_PLANS.remove(plan_id);
+}
+
+fn start_plan_cleanup() {
+    if !PLAN_CLEANUP_STARTED.swap(true, std::sync::atomic::Ordering::Relaxed) {
+        tokio::spawn(async {
+            loop {
+                tokio::time::sleep(std::time::Duration::from_secs(60)).await;
+                INSTANCE_UPGRADE_PLANS.prune();
+            }
+        });
+    }
+}
 
 #[tracing::instrument]
 pub async fn plan_instance_upgrade(
@@ -52,6 +74,7 @@ pub async fn plan_instance_upgrade(
         )
         .await;
     validation.validate(&plan, &state).await?;
+    start_plan_cleanup();
     INSTANCE_UPGRADE_PLANS.insert(
         plan.id.clone(),
         Arc::new(Mutex::new(StoredUpgradePlanState {
@@ -59,7 +82,7 @@ pub async fn plan_instance_upgrade(
             validation,
             execution_started: false,
         })),
-    );
+    )?;
     Ok(plan)
 }
 
@@ -541,6 +564,8 @@ pub async fn execute_instance_upgrade(
     .await;
     if result.is_err() {
         stored.execution_started = false;
+    } else {
+        INSTANCE_UPGRADE_PLANS.remove(plan_id);
     }
     result
 }
@@ -630,15 +655,12 @@ async fn ensure_upgrade_target_writable(
 }
 
 fn stored_plan_handle(plan_id: &str) -> crate::Result<StoredUpgradePlan> {
-    INSTANCE_UPGRADE_PLANS
-        .get(plan_id)
-        .map(|entry| Arc::clone(entry.value()))
-        .ok_or_else(|| {
-            crate::ErrorKind::InputError(
-                "The instance upgrade plan has expired".to_string(),
-            )
-            .into()
-        })
+    INSTANCE_UPGRADE_PLANS.get(plan_id).ok_or_else(|| {
+        crate::ErrorKind::InputError(
+            "The instance upgrade plan has expired".to_string(),
+        )
+        .into()
+    })
 }
 
 async fn ensure_current_revision(

@@ -23,26 +23,14 @@
   "app.browse.discover-servers": {
     "message": "Otkrij servere"
   },
-  "app.export-modal.description-placeholder": {
-    "message": "Ukucaj opis modpacka..."
-  },
   "app.export-modal.export-button": {
     "message": "Izvoz"
-  },
-  "app.export-modal.header": {
-    "message": "Izvezi modpack"
   },
   "app.export-modal.modpack-name-label": {
     "message": "Ime Modpacka"
   },
-  "app.export-modal.modpack-name-placeholder": {
-    "message": "Ime modpacka"
-  },
   "app.export-modal.version-number-label": {
     "message": "Broj verzije"
-  },
-  "app.export-modal.version-number-placeholder": {
-    "message": "1.0.0"
   },
   "app.instance.confirm-delete.admonition-body": {
     "message": "Svi podaci za tvoju instancu će biti trajno izbrisani, uključujući tvoje svetove, konfiguracije, i sav instaliran sadržaj."

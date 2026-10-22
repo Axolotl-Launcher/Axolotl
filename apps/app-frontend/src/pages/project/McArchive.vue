@@ -3,34 +3,45 @@ import { DownloadIcon, ExternalIcon, FileArchiveIcon, SpinnerIcon } from '@modri
 import { Button, Card, defineMessages, injectNotificationManager, useVIntl } from '@modrinth/ui'
 import { open } from '@tauri-apps/plugin-dialog'
 import { openUrl } from '@tauri-apps/plugin-opener'
-import { computed, ref, watch } from 'vue'
+import { computed, onScopeDispose, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 
 import BrowseInstanceSelector from '@/components/browse/BrowseInstanceSelector.vue'
 import InstanceIcon from '@/components/ui/InstanceIcon.vue'
-import {
-    import_mcarchive_content,
-    install_mcarchive_content,
-    type McArchiveContentInstallRequest,
-} from '@/helpers/instance'
+import ResourceDescription from '@/components/ui/ResourceDescription.vue'
+import ResourceOperationPreviewModal from '@/components/ui/ResourceOperationPreviewModal.vue'
 import {
     getMcArchiveModBySlug,
     type McArchiveFile,
     type McArchiveModVersion,
 } from '@/helpers/mcarchive'
 import { injectContentSelection } from '@/providers/content-selection'
+import { injectDownloadManager } from '@/providers/download-manager'
 import { useBreadcrumbs } from '@/store/breadcrumbs'
+
+type McArchiveContentInstallRequest = {
+    projectId: string
+    projectSlug: string
+    versionId: string
+    fileId: string
+    projectType: string
+}
 
 const route = useRoute()
 const { formatMessage } = useVIntl()
-const { addNotification, handleError } = injectNotificationManager()
+const { handleError } = injectNotificationManager()
 const contentSelection = injectContentSelection()
 const breadcrumbs = useBreadcrumbs()
+const preview = ref<InstanceType<typeof ResourceOperationPreviewModal>>()
+const downloads = injectDownloadManager()
 const instanceSelector = ref<InstanceType<typeof BrowseInstanceSelector>>()
 const project = ref<Awaited<ReturnType<typeof getMcArchiveModBySlug>> | null>(null)
 const loading = ref(false)
 const busyFileId = ref<string | null>(null)
+let projectRequest: AbortController | null = null
+let operationGeneration = 0
 const manualDownload = ref<{
+    instanceId: string
     request: McArchiveContentInstallRequest
     fileName: string
     pageUrl: string | null
@@ -38,6 +49,10 @@ const manualDownload = ref<{
 } | null>(null)
 
 const messages = defineMessages({
+    unavailable: {
+        id: 'app.project.mcarchive.unavailable',
+        defaultMessage: 'This MCArchive project is unavailable. Reopen the project and try again.',
+    },
     loading: {
         id: 'app.project.mcarchive.loading',
         defaultMessage: 'Loading MCArchive project…',
@@ -91,6 +106,11 @@ const messages = defineMessages({
         id: 'app.project.mcarchive.no-files',
         defaultMessage: 'No files are available for this release.',
     },
+    unverifiable: {
+        id: 'app.resources.manual.unverifiable',
+        defaultMessage:
+            'This source provides no file hash. Its artifact cannot be verified; download it from the source page and use the local import workflow.',
+    },
     sha256: {
         id: 'app.project.mcarchive.sha256',
         defaultMessage: 'SHA-256',
@@ -99,8 +119,22 @@ const messages = defineMessages({
 
 const selectedInstance = computed(() => contentSelection.targetInstance.value)
 
+watch(
+    () => selectedInstance.value?.id,
+    () => {
+        operationGeneration++
+        void preview.value?.cancel()
+        manualDownload.value = null
+        busyFileId.value = null
+    },
+)
+onScopeDispose(() => {
+    projectRequest?.abort()
+    operationGeneration++
+})
+
 function createRequest(version: McArchiveModVersion, file: McArchiveFile) {
-    if (!project.value) throw new Error('MCArchive project is unavailable')
+    if (!project.value) throw new Error(formatMessage(messages.unavailable))
     return {
         projectId: project.value.uuid,
         projectSlug: project.value.slug,
@@ -108,6 +142,40 @@ function createRequest(version: McArchiveModVersion, file: McArchiveFile) {
         fileId: file.uuid,
         projectType: 'mod',
     } satisfies McArchiveContentInstallRequest
+}
+
+async function reviewInstall(
+    instanceId: string,
+    request: McArchiveContentInstallRequest,
+    filePath?: string,
+) {
+    const key = 'selected-file'
+    const source = 'mcarchive' as const
+    const release = {
+        project: { source, projectId: request.projectId },
+        releaseId: request.versionId,
+    }
+    const job = await preview.value?.showInstall({
+        instanceId,
+        instanceName:
+            contentSelection.instances.value.find((instance) => instance.id === instanceId)?.name ??
+            selectedInstance.value?.name ??
+            '',
+        selections: [
+            {
+                id: key,
+                resource: { kind: 'source', project: release.project },
+                release: { kind: 'artifact', reference: { release, artifactId: request.fileId } },
+                resourceType: 'mod',
+                scope: { kind: 'instance' },
+            },
+        ],
+        installDependencies: false,
+        importFiles: filePath ? { [key]: filePath } : undefined,
+        locators: { [key]: request.projectSlug },
+    })
+    if (job) downloads.trackJob(job)
+    return !!job
 }
 
 async function install(version: McArchiveModVersion, file: McArchiveFile) {
@@ -118,63 +186,55 @@ async function install(version: McArchiveModVersion, file: McArchiveFile) {
         instanceSelector.value?.show()
         return
     }
+    if (busyFileId.value) return
+    const instanceId = selectedInstance.value.id
+    const generation = ++operationGeneration
     busyFileId.value = file.uuid
     try {
         const request = createRequest(version, file)
-        const result = await install_mcarchive_content(selectedInstance.value.id, request)
-        if (result.state === 'manual_download') {
+        if (!file.sha256 || !(file.archiveUrl || file.directUrl)) {
             manualDownload.value = {
+                instanceId,
                 request,
-                fileName: result.fileName,
-                pageUrl: result.pageUrl,
-                expectedSha256: result.expectedSha256,
+                fileName: file.name,
+                pageUrl: file.pageUrl ?? file.redirectUrl ?? project.value?.pageUrl ?? null,
+                expectedSha256: file.sha256 ?? null,
             }
             return
         }
-        addNotification({
-            type: 'success',
-            title: formatMessage(messages.installed, { fileName: file.name }),
-        })
+        await reviewInstall(instanceId, request)
     } catch (error) {
-        handleError(error)
+        if (generation === operationGeneration) handleError(error)
     } finally {
-        busyFileId.value = null
+        if (generation === operationGeneration) busyFileId.value = null
     }
 }
 
 async function importDownloadedFile() {
-    if (!manualDownload.value || !selectedInstance.value) return
-    const path = await open({
-        multiple: false,
-        title: formatMessage(messages.pickFile),
-        filters: [{ name: formatMessage(messages.archiveFilter), extensions: ['jar', 'zip'] }],
-    })
-    if (!path || Array.isArray(path)) return
-    busyFileId.value = manualDownload.value.request.fileId
+    const pending = manualDownload.value
+    if (!pending || pending.instanceId !== selectedInstance.value?.id || busyFileId.value) return
+    const generation = ++operationGeneration
+    busyFileId.value = pending.request.fileId
     try {
-        const result = await import_mcarchive_content(
-            selectedInstance.value.id,
-            manualDownload.value.request,
-            path,
-        )
-        if (result.state === 'manual_download') {
-            manualDownload.value = {
-                request: manualDownload.value.request,
-                fileName: result.fileName,
-                pageUrl: result.pageUrl,
-                expectedSha256: result.expectedSha256,
-            }
-            return
-        }
-        addNotification({
-            type: 'success',
-            title: formatMessage(messages.installed, { fileName: manualDownload.value.fileName }),
+        const path = await open({
+            multiple: false,
+            title: formatMessage(messages.pickFile),
+            filters: [{ name: formatMessage(messages.archiveFilter), extensions: ['jar', 'zip'] }],
         })
-        manualDownload.value = null
+        if (
+            !path ||
+            Array.isArray(path) ||
+            generation !== operationGeneration ||
+            manualDownload.value !== pending
+        )
+            return
+
+        const accepted = await reviewInstall(pending.instanceId, pending.request, path)
+        if (generation === operationGeneration && accepted) manualDownload.value = null
     } catch (error) {
-        handleError(error)
+        if (generation === operationGeneration) handleError(error)
     } finally {
-        busyFileId.value = null
+        if (generation === operationGeneration) busyFileId.value = null
     }
 }
 
@@ -186,20 +246,28 @@ watch(
     () => route.params.slug,
     async (slug) => {
         if (typeof slug !== 'string' || !slug) return
-        loading.value = true
+        projectRequest?.abort()
+        const request = new AbortController()
+        projectRequest = request
+        operationGeneration++
+        void preview.value?.cancel()
+        busyFileId.value = null
         project.value = null
         manualDownload.value = null
+        loading.value = true
         try {
-            project.value = await getMcArchiveModBySlug(slug)
+            const result = await getMcArchiveModBySlug(slug, request.signal)
+            request.signal.throwIfAborted()
+            project.value = result
             breadcrumbs.setName('Project', project.value.name)
             breadcrumbs.setNameIcon(
                 'Project',
                 project.value.icon_url ?? project.value.iconUrl ?? null,
             )
         } catch (error) {
-            handleError(error)
+            if (!request.signal.aborted) handleError(error)
         } finally {
-            loading.value = false
+            if (projectRequest === request) loading.value = false
         }
     },
     { immediate: true },
@@ -253,15 +321,24 @@ void contentSelection
                     </span>
                 </Button>
             </div>
-            <p
-                v-if="project.description"
-                class="m-0 whitespace-pre-wrap text-sm text-[var(--color-text-tertiary)]"
+            <ResourceDescription
+                source="mcarchive"
+                :project-id="project.uuid"
+                :locator="project.slug"
             >
-                {{ project.description }}
-            </p>
+                <p
+                    v-if="project.description"
+                    class="m-0 whitespace-pre-wrap text-sm text-[var(--color-text-tertiary)]"
+                >
+                    {{ project.description }}
+                </p>
+            </ResourceDescription>
         </section>
 
         <Card v-if="manualDownload" class="flex flex-col gap-3">
+            <p v-if="!manualDownload.expectedSha256" class="m-0">
+                {{ formatMessage(messages.unverifiable) }}
+            </p>
             <div>
                 <h2 class="m-0 text-base font-semibold text-[var(--color-text-primary)]">
                     {{ formatMessage(messages.manualTitle) }}
@@ -282,7 +359,10 @@ void contentSelection
                     ><ExternalIcon />
                     {{ formatMessage(messages.openSource) }}
                 </Button>
-                <Button :disabled="busyFileId !== null" @click="importDownloadedFile"
+                <Button
+                    v-if="manualDownload.expectedSha256"
+                    :disabled="busyFileId !== null"
+                    @click="importDownloadedFile"
                     ><FileArchiveIcon />
                     {{ formatMessage(messages.importFile) }}
                 </Button>
@@ -347,6 +427,7 @@ void contentSelection
     <div v-else class="p-6">
         <Card class="text-[var(--color-text-tertiary)]">{{ formatMessage(messages.loading) }}</Card>
     </div>
+    <ResourceOperationPreviewModal ref="preview" />
     <BrowseInstanceSelector
         ref="instanceSelector"
         :instances="contentSelection.instances.value"

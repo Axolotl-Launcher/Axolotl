@@ -9,6 +9,7 @@ import { loadNotificationDismissals } from './notification-dismissals.ts'
 import { webNotificationKey } from './notification-keys.ts'
 
 export class AppNotificationManager extends AbstractWebNotificationManager {
+    public errorTextFormatter?: (error: unknown) => string | null
     private static readonly STORAGE_KEY = 'axolotl:active-web-notifications-v1'
     private static readonly DISMISSED_STORAGE_KEY = 'axolotl:dismissed-web-notifications-v2'
     private static readonly LEGACY_DISMISSED_STORAGE_KEY = 'axolotl:dismissed-web-notifications'
@@ -95,6 +96,20 @@ export class AppNotificationManager extends AbstractWebNotificationManager {
         const result = super.addNotification(notification)
         this.saveActiveNotifications()
         return result
+    }
+
+    public override handleError(error: unknown): void {
+        const text = this.errorTextFormatter?.(error)
+        if (text === null || text === undefined) {
+            super.handleError(error)
+            return
+        }
+        this.addNotification({
+            title: this.errorTitleProvider?.(),
+            text,
+            type: 'error',
+            supportData: { error: error instanceof Error ? error.message : error },
+        })
     }
 
     public override collapseNotification = (id: string | number): void => {

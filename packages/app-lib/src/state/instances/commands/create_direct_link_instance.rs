@@ -38,6 +38,7 @@ pub(crate) async fn create_direct_link_instance(
     input: CreateDirectLinkInstance,
     state: &State,
 ) -> crate::Result<Instance> {
+    let _metadata_usage = crate::storage::usage::lease().await?;
     let resolved = resolve_direct_link(
         input.launcher_type,
         input.base_path,
@@ -183,8 +184,11 @@ pub(crate) async fn create_direct_link_instance(
         &state.file_watcher,
     )
     .await;
-    if let Err(error) =
-        crate::api::instance::reconcile_screenshots(&instance.id).await
+    if let Err(error) = crate::api::instance::reconcile_screenshots_with_state(
+        &instance.id,
+        state,
+    )
+    .await
     {
         tracing::debug!(%error, "Initial linked screenshot index reconciliation failed");
     }
@@ -275,8 +279,8 @@ mod tests {
             instance_rows::get_instance_by_id(&instance.id, &state.pool)
                 .await?
                 .expect("instance row");
-        let canonical_root = minecraft.path().canonicalize()?;
-        let canonical_json = json_path.canonicalize()?;
+        let canonical_root = crate::util::io::canonicalize(minecraft.path())?;
+        let canonical_json = crate::util::io::canonicalize(&json_path)?;
         assert_eq!(stored.linked_launcher.as_deref(), Some("generic"));
         assert_eq!(
             stored.linked_launcher_root.as_deref(),

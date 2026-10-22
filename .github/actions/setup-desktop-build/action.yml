@@ -1,0 +1,91 @@
+name: Set up desktop build
+description: Prepare native dependencies, pinned tools and verified shared resources
+inputs:
+  profile:
+    description: Build profile
+    default: ci
+  target:
+    description: Rust target triple
+    default: ''
+  save-cache:
+    description: Whether this job can write the dependency cache
+    default: 'false'
+  package-only:
+    description: Skip native dependency cache restore when only bundling binaries
+    default: 'false'
+runs:
+  using: composite
+  steps:
+    - uses: pnpm/action-setup@008330803749db0355799c700092d9a85fd074e9 # v6.0.9
+    - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+      with:
+        node-version-file: .nvmrc
+        cache: pnpm
+    - uses: ./.github/actions/setup-desktop-rust
+      if: inputs.package-only != 'true'
+      with:
+        profile: ${{ inputs.profile }}
+        target: ${{ inputs.target }}
+        save-cache: ${{ inputs.save-cache }}
+    - name: Install packaging toolchain
+      if: inputs.package-only == 'true'
+      shell: bash
+      run: rustup show active-toolchain
+    - name: Install native Linux dependencies
+      if: runner.os == 'Linux'
+      shell: bash
+      run: |
+        sudo apt-get -o Acquire::ForceIPv4=true update
+        sudo apt-get -o Acquire::ForceIPv4=true install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf xdg-utils
+    - id: seed-map-toolchain
+      uses: msys2/setup-msys2@ec48f7c5447b3140e2b088413ae3a55687bccb6e
+      if: runner.os == 'Windows' && inputs.package-only != 'true'
+      with:
+        msystem: UCRT64
+        update: true
+    - name: Install pinned seed map compiler
+      if: runner.os == 'Windows' && inputs.package-only != 'true'
+      shell: msys2 {0}
+      run: |
+        set -euo pipefail
+        gcc_version=16.2.0-6
+        packages=(gcc gcc-libs libgcc 'libstdc++' cc-libs libatomic libgomp libquadmath)
+        urls=()
+        for package in "${packages[@]}"; do
+          urls+=("https://repo.msys2.org/mingw/ucrt64/mingw-w64-ucrt-x86_64-${package}-${gcc_version}-any.pkg.tar.zst")
+        done
+        pacman -U --noconfirm --needed "${urls[@]}"
+        for package in "${packages[@]}"; do
+          installed="$(pacman -Q "mingw-w64-ucrt-x86_64-$package")"
+          expected="mingw-w64-ucrt-x86_64-$package $gcc_version"
+          if [ "$installed" != "$expected" ]; then
+            echo "Seed map toolchain package mismatch: expected $expected, got $installed" >&2
+            exit 1
+          fi
+        done
+    - name: Select native seed map compiler
+      if: runner.os == 'Windows' && inputs.package-only != 'true'
+      shell: pwsh
+      run: |
+        $compiler = Join-Path '${{ steps.seed-map-toolchain.outputs.msys2-location }}' 'ucrt64/bin/gcc.exe'
+        if (!(Test-Path -LiteralPath $compiler -PathType Leaf)) { throw "Seed map compiler is missing: $compiler" }
+        $compilerDirectory = Split-Path -Parent $compiler
+        $env:PATH = "$compilerDirectory;$env:PATH"
+        & $compiler --version
+        if ($LASTEXITCODE -ne 0) { throw "Seed map compiler could not run: $compiler" }
+        'int axolotl_seed_map_compiler_check(void) { return 0; }' | & $compiler -x c -fsyntax-only -
+        if ($LASTEXITCODE -ne 0) { throw "Seed map compiler could not compile C source: $compiler" }
+        $compilerDirectory >> $env:GITHUB_PATH
+        "AXOLOTL_CUBIOMES_CC=$compiler" >> $env:GITHUB_ENV
+    - shell: bash
+      run: pnpm install --frozen-lockfile
+    - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+      with:
+        name: desktop-resources
+        path: target/build-resources
+    - name: Use verified shared resources
+      shell: bash
+      run: |
+        resources="$(node -p 'require("node:path").resolve("target/build-resources")')"
+        echo "AXOLOTL_BUILD_RESOURCES=$resources" >> "$GITHUB_ENV"
+        node scripts/axolotl/prepare-build-resources.mjs --consume --output "$resources"

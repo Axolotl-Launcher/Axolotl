@@ -1,5 +1,5 @@
 use std::{
-    io::{Cursor, Write},
+    io::{Cursor, Read, Write},
     path::Path,
 };
 
@@ -64,7 +64,11 @@ impl MinecraftReleaseVersion {
 
     fn resource_pack_format(self) -> u32 {
         if self.major > 1 {
-            return 75;
+            return match self.minor {
+                0..=1 => 84,
+                2 => 88,
+                _ => 97,
+            };
         }
 
         match self.minor {
@@ -111,6 +115,7 @@ pub(crate) async fn prepare_offline_skin_resource_pack(
     credentials: &Credentials,
     instance_path: &Path,
     game_version: &str,
+    client_jar: &Path,
 ) -> crate::Result<OfflineSkinPackOptions> {
     let resource_pack_dir = instance_path.join("resourcepacks");
     let resource_pack_path =
@@ -165,7 +170,15 @@ pub(crate) async fn prepare_offline_skin_resource_pack(
         texture = png_util::to_legacy_client_texture(&texture)?.to_vec();
     }
 
-    let zip_data = build_resource_pack(&texture, version)?;
+    let client_jar = client_jar.to_path_buf();
+    let target_version = game_version.to_owned();
+    let format = tokio::task::spawn_blocking(move || {
+        read_pack_format_from_jar(&client_jar, &target_version)
+    })
+    .await
+    .ok()
+    .flatten();
+    let zip_data = build_resource_pack(&texture, version, format)?;
     tokio::fs::create_dir_all(&resource_pack_dir).await?;
     tokio::fs::write(&resource_pack_path, zip_data).await?;
 
@@ -186,20 +199,57 @@ async fn remove_pack_if_present(path: &Path) -> crate::Result<()> {
     }
 }
 
+fn read_pack_format_from_jar(
+    path: &Path,
+    target_version: &str,
+) -> Option<[u32; 2]> {
+    let file = std::fs::File::open(path).ok()?;
+    let mut archive = zip::ZipArchive::new(file).ok()?;
+    let entry = archive.by_name("version.json").ok()?;
+    let metadata: serde_json::Value =
+        serde_json::from_reader(entry.take(65_536)).ok()?;
+    if metadata.get("id")?.as_str()? != target_version {
+        return None;
+    }
+    let pack = metadata.get("pack_version")?;
+    let major = pack
+        .get("resource_major")
+        .or_else(|| pack.get("resource"))?
+        .as_u64()?;
+    let minor = pack
+        .get("resource_minor")
+        .and_then(serde_json::Value::as_u64)
+        .unwrap_or(0);
+    Some([u32::try_from(major).ok()?, u32::try_from(minor).ok()?])
+}
+
 fn build_resource_pack(
     texture: &[u8],
     version: MinecraftReleaseVersion,
+    format: Option<[u32; 2]>,
 ) -> crate::Result<Vec<u8>> {
     let mut zip = ZipWriter::new(Cursor::new(Vec::new()));
     let options = SimpleFileOptions::default()
         .compression_method(CompressionMethod::Deflated);
-    let pack_format = version.resource_pack_format();
-    let metadata = json!({
+    let pack_format = format
+        .map_or_else(|| version.resource_pack_format(), |format| format[0]);
+    let mut metadata = json!({
         "pack": {
             "pack_format": pack_format,
             "description": "Axolotl Launcher offline skin"
         }
     });
+
+    if version.major >= 26 || (version.minor == 21 && version.patch >= 9) {
+        let minor = format.map_or_else(
+            || u32::from(version.major == 26 && version.minor >= 3),
+            |format| format[1],
+        );
+        let pack = metadata["pack"].as_object_mut().unwrap();
+        pack.remove("pack_format");
+        pack.insert("min_format".into(), json!([pack_format, minor]));
+        pack.insert("max_format".into(), json!([pack_format, minor]));
+    }
 
     start_zip_file(&mut zip, "pack.mcmeta", options)?;
     zip.write_all(&serde_json::to_vec(&metadata)?)?;
@@ -267,6 +317,53 @@ mod tests {
     }
 
     #[test]
+    fn generated_packs_use_release_specific_modern_formats() {
+        for (release, format) in
+            [("26.1", [84, 0]), ("26.2", [88, 0]), ("26.3", [97, 1])]
+        {
+            let pack = build_resource_pack(
+                b"texture",
+                MinecraftReleaseVersion::parse(release).unwrap(),
+                None,
+            )
+            .unwrap();
+            let mut archive = zip::ZipArchive::new(Cursor::new(pack)).unwrap();
+            let mut entry = archive.by_name("pack.mcmeta").unwrap();
+            let metadata: serde_json::Value =
+                serde_json::from_reader(&mut entry).unwrap();
+            assert_eq!(metadata["pack"]["min_format"], json!(format));
+            assert_eq!(metadata["pack"]["max_format"], json!(format));
+            assert!(metadata["pack"].get("pack_format").is_none());
+        }
+    }
+
+    #[test]
+    fn snapshot_pack_format_comes_from_the_actual_client_jar() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("client.jar");
+        let mut zip = ZipWriter::new(std::fs::File::create(&path).unwrap());
+        zip.start_file("version.json", SimpleFileOptions::default())
+            .unwrap();
+        zip.write_all(br#"{"id":"26.3-snapshot-6","pack_version":{"resource_major":94,"resource_minor":0}}"#).unwrap();
+        zip.finish().unwrap();
+        let format = read_pack_format_from_jar(&path, "26.3-snapshot-6");
+        assert_eq!(format, Some([94, 0]));
+        assert_eq!(read_pack_format_from_jar(&path, "26.3"), None);
+        let pack = build_resource_pack(
+            b"texture",
+            MinecraftReleaseVersion::parse("26.3-snapshot-6").unwrap(),
+            format,
+        )
+        .unwrap();
+        let mut archive = zip::ZipArchive::new(Cursor::new(pack)).unwrap();
+        let metadata: serde_json::Value =
+            serde_json::from_reader(archive.by_name("pack.mcmeta").unwrap())
+                .unwrap();
+        assert_eq!(metadata["pack"]["min_format"], json!([94, 0]));
+        assert_eq!(metadata["pack"]["max_format"], json!([94, 0]));
+    }
+
+    #[test]
     fn rejects_snapshot_versions_without_a_release_shape() {
         assert_eq!(MinecraftReleaseVersion::parse("25w31a"), None);
     }
@@ -275,7 +372,7 @@ mod tests {
     fn generated_pack_replaces_all_modern_default_player_textures() {
         let texture = include_bytes!("assets/default/MissingNo.png");
         let version = MinecraftReleaseVersion::parse("1.19.3").unwrap();
-        let pack = build_resource_pack(texture, version).unwrap();
+        let pack = build_resource_pack(texture, version, None).unwrap();
         let mut archive = zip::ZipArchive::new(Cursor::new(pack)).unwrap();
 
         assert!(archive.by_name("pack.mcmeta").is_ok());

@@ -18,11 +18,15 @@ mod toml_mod;
 use bytes::Bytes;
 use serde::{Deserialize, Serialize};
 
+const LOCAL_METADATA_VERSION: u32 = 2;
+
 /// Unified local mod metadata extracted from inside a JAR.
 ///
 /// Only `mod_id` is required; all other fields are best-effort.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LocalModMetadata {
+    #[serde(default)]
+    pub metadata_version: u32,
     /// Unique mod identifier (e.g. "sodium", "minecraft")
     pub mod_id: String,
     /// Human-readable display name
@@ -51,6 +55,13 @@ pub struct LocalModMetadata {
     /// triggers a one-time re-extraction of the file.
     #[serde(default)]
     pub dependencies: Option<Vec<LocalModDependency>>,
+}
+
+impl LocalModMetadata {
+    pub(crate) fn needs_refresh(&self) -> bool {
+        self.metadata_version < LOCAL_METADATA_VERSION
+            || self.dependencies.is_none()
+    }
 }
 
 /// One required dependency declared in embedded mod metadata.
@@ -121,6 +132,7 @@ fn try_fabric(
     let mod_id = parsed.id.clone()?;
 
     Some(LocalModMetadata {
+        metadata_version: LOCAL_METADATA_VERSION,
         mod_id,
         name: parsed.name,
         version: parsed.version,
@@ -153,6 +165,7 @@ fn try_quilt(
     let mod_id = inner.id.clone()?;
 
     Some(LocalModMetadata {
+        metadata_version: LOCAL_METADATA_VERSION,
         mod_id,
         name: inner.name,
         version: inner.version,
@@ -217,8 +230,15 @@ fn try_toml_path(
         .and_then(|entries| {
             entries
                 .iter()
-                .find(|dep| dep.mod_id.as_deref() == Some("minecraft"))
-                .and_then(|dep| dep.version_range.clone())
+                .find(|dep| {
+                    dep.mod_id.as_deref() == Some("minecraft") && dep.required()
+                })
+                .map(|dep| {
+                    dep.version_range
+                        .clone()
+                        .filter(|range| !range.trim().is_empty())
+                        .unwrap_or_else(|| "*".into())
+                })
         });
     let dependencies = parsed
         .dependencies
@@ -227,7 +247,7 @@ fn try_toml_path(
         .map(|entries| {
             entries
                 .iter()
-                .filter(|dep| dep.mandatory.unwrap_or(true))
+                .filter(|dep| dep.required())
                 .filter_map(|dep| {
                     let dep_id = dep.mod_id.clone()?;
                     if is_env_dependency_id(&dep_id) {
@@ -249,6 +269,7 @@ fn try_toml_path(
     let version = resolve_toml_version(entry.version.clone(), archive);
 
     Some(LocalModMetadata {
+        metadata_version: LOCAL_METADATA_VERSION,
         mod_id,
         name: entry.display_name,
         version,
@@ -274,6 +295,7 @@ fn try_mcmod_info(
     let mod_id = entry.modid.clone()?;
 
     Some(LocalModMetadata {
+        metadata_version: LOCAL_METADATA_VERSION,
         mod_id,
         name: entry.name,
         version: entry.version,
@@ -359,6 +381,107 @@ mod tests {
             archive.finish().expect("finish zip");
         }
         bytes::Bytes::from(buffer.into_inner())
+    }
+
+    #[test]
+    fn required_minecraft_without_a_range_is_unrestricted_but_missing_dependency_is_unknown()
+     {
+        for (dependency, expected) in [
+            ("", None),
+            (
+                "[[dependencies.example]]\nmodId = 'minecraft'\ntype = 'required'",
+                Some("*"),
+            ),
+            (
+                "[[dependencies.example]]\nmodId = 'minecraft'\ntype = 'optional'",
+                None,
+            ),
+            (
+                "[[dependencies.example]]\nmodId = 'minecraft'\nmandatory = true\nversionRange = '[1,)'",
+                Some("[1,)"),
+            ),
+        ] {
+            let content = format!(
+                "modLoader = 'javafml'\n[[mods]]\nmodId = 'example'\nversion = '1'\n{dependency}"
+            );
+            let jar = build_jar(&[("META-INF/neoforge.mods.toml", &content)]);
+            let metadata = super::extract_mod_metadata(&jar).unwrap();
+            assert_eq!(metadata.minecraft_version.as_deref(), expected);
+            let mut old = metadata.clone();
+            old.metadata_version = 1;
+            assert!(old.needs_refresh());
+            assert!(!metadata.needs_refresh());
+        }
+    }
+
+    #[test]
+    fn neoforge_exact_minecraft_dependency_is_an_explicit_compatibility_declaration()
+     {
+        let jar = build_jar(&[(
+            "META-INF/neoforge.mods.toml",
+            r#"
+modLoader = "javafml"
+loaderVersion = "[0,)"
+[[mods]]
+modId = "create"
+version = "6.0.10"
+[[dependencies."create"]]
+modId = "minecraft"
+type = "required"
+versionRange = "[1.21.1]"
+[[dependencies."create"]]
+modId = "flywheel"
+type = "required"
+versionRange = "[1.0.0,2.0)"
+[[dependencies."create"]]
+modId = "sodium"
+type = "optional"
+[[dependencies."create"]]
+modId = "radium"
+type = "incompatible"
+"#,
+        )]);
+        let metadata = super::extract_mod_metadata(&jar).unwrap();
+        assert!(!metadata.needs_refresh());
+        assert_eq!(
+            metadata
+                .dependencies
+                .as_ref()
+                .unwrap()
+                .iter()
+                .map(|dependency| dependency.mod_id.as_str())
+                .collect::<Vec<_>>(),
+            ["flywheel"]
+        );
+        let mut legacy = serde_json::to_value(&metadata).unwrap();
+        legacy.as_object_mut().unwrap().remove("metadata_version");
+        assert!(
+            serde_json::from_value::<super::LocalModMetadata>(legacy)
+                .unwrap()
+                .needs_refresh()
+        );
+        assert_eq!(metadata.minecraft_version.as_deref(), Some("[1.21.1]"));
+        let declared = crate::resources::ReleaseCompatibility {
+            game_versions: metadata.minecraft_version.into_iter().collect(),
+            loaders: metadata.loader.into_iter().collect(),
+        };
+        let assessment = crate::resources::assess_declared_compatibility(
+            &declared,
+            &crate::resources::ipc::ResourceTarget {
+                game_versions: vec!["1.21.1".into()],
+                loaders: vec!["neoforge".into()],
+                channels: vec![],
+            },
+            crate::resources::ResourceType::Mod,
+        );
+        assert_eq!(
+            assessment.game_version,
+            crate::resources::CompatibilityState::Compatible
+        );
+        assert_eq!(
+            assessment.loader,
+            crate::resources::CompatibilityState::Compatible
+        );
     }
 
     #[test]

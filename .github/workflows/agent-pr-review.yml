@@ -48,7 +48,7 @@ jobs:
               uses: alibaba/open-code-review@v1.12.11
               with:
                   ocr_version: "1.12.11"
-                  llm_url: https://codeflow.asia/v1/chat/completions
+                  llm_url: https://codeflow.sh/v1/chat/completions
                   llm_auth_token: ${{ secrets.OCR_LLM_TOKEN }}
                   llm_model: gpt-6.1-sol
                   llm_use_anthropic: "false"

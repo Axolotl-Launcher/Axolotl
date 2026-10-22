@@ -6,6 +6,8 @@ import type { ContentItem } from '@modrinth/ui'
 import {
     buildDependencyGraph,
     dependencyGraphMetrics,
+    dependencyGraphNodeBounds,
+    dependencyGraphNodeGeometry,
     getConnectedComponents,
     getDependencyNodeDepths,
     getDependencyTreeRows,
@@ -73,6 +75,51 @@ test('builds dependency edges, roots, shared nodes, and relationship layout', ()
     assert.equal(graph.rootIds.length, 2)
     assert.equal(graph.nodeById.get(nodeId('b'))?.shared, true)
     assert.equal(layoutDependencyGraph(graph).edges.length, 2)
+})
+
+test('uses one geometry model for regular and compact graph nodes', () => {
+    assert.deepEqual(dependencyGraphNodeGeometry(false), { nodeWidth: 228, nodeHeight: 76 })
+    assert.deepEqual(dependencyGraphNodeGeometry(true), { nodeWidth: 48, nodeHeight: 48 })
+})
+
+test('keeps node centers stable while compacting endpoints and bounds', () => {
+    const graph = buildDependencyGraph([item('a', '1', { requires: [ref('b')] }), item('b', '1')])
+    const regular = layoutDependencyGraph(graph)
+    const compact = layoutDependencyGraph(
+        graph,
+        undefined,
+        new Map(),
+        dependencyGraphNodeGeometry(true),
+    )
+    const regularSource = regular.nodes.find((node) => node.id === nodeId('a'))!
+    const compactSource = compact.nodes.find((node) => node.id === nodeId('a'))!
+    const regularTarget = regular.nodes.find((node) => node.id === nodeId('b'))!
+    const compactTarget = compact.nodes.find((node) => node.id === nodeId('b'))!
+    const regularGeometry = dependencyGraphNodeGeometry(false)
+    const compactGeometry = dependencyGraphNodeGeometry(true)
+    const regularSourceBounds = dependencyGraphNodeBounds(regularSource, regularGeometry)
+    const compactSourceBounds = dependencyGraphNodeBounds(compactSource, compactGeometry)
+    const regularTargetBounds = dependencyGraphNodeBounds(regularTarget, regularGeometry)
+    const compactTargetBounds = dependencyGraphNodeBounds(compactTarget, compactGeometry)
+
+    assert.equal(compactSourceBounds.centerX, regularSourceBounds.centerX)
+    assert.equal(compactSourceBounds.centerY, regularSourceBounds.centerY)
+    assert.equal(compactTargetBounds.centerX, regularTargetBounds.centerX)
+    assert.equal(compactTargetBounds.centerY, regularTargetBounds.centerY)
+    assert.equal(
+        compact.edges[0]?.connector.x,
+        compactSourceBounds.right + dependencyGraphMetrics.edgeClearance,
+    )
+    assert.equal(compact.edges[0]?.connector.y, compactSourceBounds.centerY)
+    assert.equal(
+        compact.edges[0]?.connector.length,
+        Math.hypot(
+            compactTargetBounds.left -
+                dependencyGraphMetrics.edgeClearance -
+                compact.edges[0]!.connector.x,
+            compactTargetBounds.centerY - compact.edges[0]!.connector.y,
+        ),
+    )
 })
 
 test('keeps unresolved dependency targets visible', () => {

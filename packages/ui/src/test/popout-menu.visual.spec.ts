@@ -1,4 +1,7 @@
+import { userEvent } from '@vitest/browser/context'
+import { DropdownMenuItem } from 'reka-ui'
 import { expect, it } from 'vitest'
+import { h } from 'vue'
 
 import PopoutMenu from '../components/base/PopoutMenu.vue'
 import { applyTheme, assertTokensLoaded, mountThemed, waitFor } from './visual-harness'
@@ -23,11 +26,16 @@ function openMenu() {
 const content = () => document.querySelector('.menu-surface') as HTMLElement | null
 
 async function mountPopout(props: Record<string, unknown> = {}) {
-    const wrapper = await mountThemed(PopoutMenu, { ...props }, 'dark', {
+    const wrapper = await mountThemed(PopoutMenu, { menu: true, ...props }, 'dark', {
         attachTo: document.body,
         slots: {
             default: '<span id="popout-trigger">Open</span>',
-            menu: '<button id="menu-item">Item</button>',
+            menu: () =>
+                h(
+                    DropdownMenuItem,
+                    { asChild: true },
+                    { default: () => h('button', { id: 'menu-item' }, 'Item') },
+                ),
         },
     })
     return wrapper
@@ -205,4 +213,27 @@ it('does not move focus when opened with the pointer', async () => {
 
     wrapper.unmount()
     input.remove()
+})
+
+it('lets arbitrary panel controls use native focus and Tab navigation', async () => {
+    const wrapper = await mountThemed(PopoutMenu, {}, 'dark', {
+        slots: {
+            default: 'Notifications',
+            menu: '<button id="panel-first">Clear</button><button id="panel-next">Dismiss</button>',
+        },
+    })
+    const trigger = wrapper.get('button[aria-haspopup="dialog"]').element as HTMLElement
+    trigger.focus()
+    await userEvent.keyboard('{Enter}')
+    await waitFor(() => document.activeElement?.id === 'panel-first')
+    await userEvent.keyboard('{Tab}')
+    expect(document.activeElement?.id).toBe('panel-next')
+    await userEvent.keyboard('{Escape}')
+    await waitFor(() => !content())
+    await waitFor(() => document.activeElement === trigger)
+    await userEvent.keyboard('{ArrowDown}')
+    await waitFor(() => document.activeElement?.id === 'panel-first')
+    await userEvent.keyboard('{Escape}')
+    await waitFor(() => !content())
+    wrapper.unmount()
 })

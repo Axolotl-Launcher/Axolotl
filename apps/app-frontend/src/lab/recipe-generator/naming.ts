@@ -37,6 +37,12 @@ function itemSlug(value: SlotValue | undefined, ctx: RecipeSlotContext): string 
 
 export function getAutoNameCandidates(recipe: RecipeState, ctx: RecipeSlotContext): string[] {
     switch (recipe.recipeType) {
+        case 'brewing':
+            return [
+                ensureName(
+                    `${itemSlug(recipe.slots['brewing.result'], ctx) ?? 'potion'}_${recipe.brewing?.outputPotion?.replace('minecraft:', '') ?? ''}_brewing`,
+                ),
+            ]
         case 'crafting':
             return uniqueNonEmpty([
                 itemSlug(recipe.slots['crafting.result'], ctx) ?? 'crafting_recipe',
@@ -161,6 +167,8 @@ function getSidebarTitle(recipe: RecipeState, ctx: RecipeSlotContext): string | 
 
 function resultSlotForType(type: RecipeState['recipeType']): RecipeSlot | undefined {
     switch (type) {
+        case 'brewing':
+            return 'brewing.result'
         case 'crafting':
             return 'crafting.result'
         case 'smelting':

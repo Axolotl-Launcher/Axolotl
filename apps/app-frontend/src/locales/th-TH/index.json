@@ -155,26 +155,14 @@
   "app.content-install.no-compatible-versions": {
     "message": "ไม่มีเวอร์ชันที่เข้ากันได้ {compatibilityLabel} โปรดเลือกเวอร์ชันที่จะติดตั้ง ไฟล์ที่จำเป็นจะไม่ถูกติดตั้งโดยอัตโนมัติ"
   },
-  "app.export-modal.description-placeholder": {
-    "message": "กรอกคำอธิบายมอดแพ็ก.."
-  },
   "app.export-modal.export-button": {
     "message": "ส่งออก"
-  },
-  "app.export-modal.header": {
-    "message": "ส่งออกแพ็กม็อด"
   },
   "app.export-modal.modpack-name-label": {
     "message": "ชื่อแพ็กม็อด"
   },
-  "app.export-modal.modpack-name-placeholder": {
-    "message": "ชื่อแพ็กม็อด"
-  },
   "app.export-modal.version-number-label": {
     "message": "หมายเลขเวอร์ชัน"
-  },
-  "app.export-modal.version-number-placeholder": {
-    "message": "1.0.0"
   },
   "app.instance.confirm-delete.admonition-body": {
     "message": "ข้อมูลทั้งหมดที่ถูกเก็บไว้ในโปรแกรมจะถูกลบออกอย่างถาวร รวมถึงโลก การตั้งค่า และเนื้อหาอื่นที่ติดตั้งไว้ทั้งหมด"

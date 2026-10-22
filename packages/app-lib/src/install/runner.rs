@@ -38,6 +38,7 @@ use uuid::Uuid;
 
 mod adjunct;
 mod content_change;
+mod export;
 mod init;
 mod lifecycle;
 mod pack;
@@ -235,42 +236,6 @@ pub async fn upgrade_unmanaged_instance(
     .await
 }
 
-pub async fn install_content(
-    instance_id: String,
-    project_id: String,
-    version_id: Option<String>,
-    content_type: modrinth_content_management::ContentType,
-    selected: modrinth_content_management::ResolutionPreferences,
-    excluded_project_ids: Vec<String>,
-    display_title: String,
-    display_icon: Option<String>,
-) -> crate::Result<InstallJobSnapshot> {
-    start(InstallRequest::InstallContent {
-        instance_id,
-        project_id,
-        version_id,
-        content_type,
-        selected,
-        excluded_project_ids,
-        display_title,
-        display_icon,
-    })
-    .await
-}
-
-pub async fn install_curseforge_content(
-    request: crate::api::curseforge::CurseForgeInstallRequest,
-    display_title: String,
-    display_icon: Option<String>,
-) -> crate::Result<InstallJobSnapshot> {
-    start(InstallRequest::InstallCurseForgeContent {
-        request,
-        display_title,
-        display_icon,
-    })
-    .await
-}
-
 pub async fn install_curseforge_world(
     request: crate::api::curseforge::CurseForgeWorldInstallRequest,
     display_title: String,
@@ -297,6 +262,105 @@ pub async fn install_content_batch(
         display_icon,
     })
     .await
+}
+
+pub async fn queue_resource_plan(
+    plan_id: crate::resources::PlanId,
+    revision: u32,
+) -> crate::Result<InstallJobSnapshot> {
+    let state = State::get().await?;
+    let _writer = state.acquire_install_db_permit().await?;
+    let mut tx = state.pool.begin().await?;
+    let existing: Option<String> = sqlx::query_scalar("SELECT job_id FROM resource_operation_plans WHERE id = ? AND revision = ?")
+        .bind(plan_id.as_str()).bind(revision).fetch_optional(&mut *tx).await?.flatten();
+    if let Some(existing) = existing {
+        drop(tx);
+        return store::get(Uuid::parse_str(&existing)?, &state)
+            .await?
+            .map(|record| record.snapshot())
+            .ok_or_else(|| {
+                crate::ErrorKind::InputError(
+                    "resource plan's job no longer exists".into(),
+                )
+                .into()
+            });
+    }
+    let payload: String = sqlx::query_scalar("SELECT payload FROM resource_operation_plans WHERE id = ? AND revision = ? AND queued = 0 AND job_id IS NULL")
+        .bind(plan_id.as_str()).bind(revision).fetch_optional(&mut *tx).await?.ok_or_else(|| crate::ErrorKind::InputError("resource plan was revised or already queued".into()))?;
+    let draft: crate::resources::plans::OperationDraft =
+        serde_json::from_str(&payload)?;
+    let plan = draft.plan;
+    if plan.actions.is_empty() || plan.issues.iter().any(|issue| issue.blocking)
+    {
+        return Err(crate::ErrorKind::InputError(
+            "resource plan has no executable changes".into(),
+        )
+        .into());
+    }
+    let _lock = state
+        .lock_instance_content_exclusive(&plan.instance_id)
+        .await;
+    let current_revision: i64 = sqlx::query_scalar("SELECT content.revision FROM instances instance JOIN instance_content_sets content ON content.id = instance.applied_content_set_id WHERE instance.id = ?").bind(&plan.instance_id).fetch_one(&mut *tx).await?;
+    if u64::try_from(current_revision).ok() != Some(plan.instance_revision) {
+        return Err(crate::ErrorKind::InputError(
+            "instance changed after review".into(),
+        )
+        .into());
+    }
+    let overlapping: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM install_jobs WHERE instance_id = ? AND status IN ('queued', 'running', 'canceling', 'waiting_for_user')").bind(&plan.instance_id).fetch_one(&mut *tx).await?;
+    if overlapping != 0 {
+        return Err(crate::ErrorKind::InputError(
+            "another task is changing this instance".into(),
+        )
+        .into());
+    }
+    let id = Uuid::new_v4();
+    let mut job = InstallJobState::new(InstallRequest::InstallContentBatch {
+        instance_id: plan.instance_id.clone(),
+        items: vec![InstallContentBatchItem::FrozenResource {
+            plan: plan.clone(),
+        }],
+        display_title: if plan.intent
+            == crate::resources::ResourceOperationIntent::Install
+        {
+            "Install resources"
+        } else {
+            "Change resources"
+        }
+        .into(),
+        display_icon: None,
+    });
+    job.display = Some(InstallJobDisplay {
+        title: if plan.intent
+            == crate::resources::ResourceOperationIntent::Install
+        {
+            "Install resources"
+        } else {
+            "Change resources"
+        }
+        .into(),
+        icon: None,
+    });
+    let now = chrono::Utc::now().timestamp();
+    sqlx::query("INSERT INTO install_jobs(id, instance_id, kind, status, state, created, modified, finished, dismissed) VALUES (?, ?, ?, 'queued', ?, ?, ?, NULL, 0)").bind(id.to_string()).bind(&plan.instance_id).bind(job.request.kind().as_str()).bind(serde_json::to_string(&job)?).bind(now).bind(now).execute(&mut *tx).await?;
+    let updated = sqlx::query("UPDATE resource_operation_plans SET job_id = ?, queued = 1 WHERE id = ? AND revision = ? AND queued = 0 AND job_id IS NULL").bind(id.to_string()).bind(plan_id.as_str()).bind(revision).execute(&mut *tx).await?;
+    if updated.rows_affected() != 1 {
+        return Err(crate::ErrorKind::InputError(
+            "resource plan changed concurrently".into(),
+        )
+        .into());
+    }
+    tx.commit().await?;
+    drop(_lock);
+    drop(_writer);
+    let record = store::get(id, &state).await?.ok_or_else(|| {
+        crate::ErrorKind::InputError("resource job was not created".into())
+    })?;
+    lifecycle::spawn_job(id);
+    if let Err(error) = emit_install_job(&record.snapshot()).await {
+        tracing::warn!(%error, "Could not emit queued resource job");
+    }
+    Ok(record.snapshot())
 }
 
 pub async fn queue_content_change(
@@ -481,6 +545,7 @@ pub async fn retry_job(job_id: Uuid) -> crate::Result<InstallJobSnapshot> {
         &state,
     )
     .await?;
+    InstallProgressReporter::reset_job(job_id);
     emit_install_job(&record.snapshot()).await?;
     lifecycle::spawn_job(job_id);
 
@@ -509,6 +574,15 @@ pub async fn repair_cache_and_retry_job(
     let job = store::get_required(job_id, &state).await?;
     let cache_types = validated_cache_repair_types(&job)?;
     operation.cache_repair_started = true;
+    if cache_types
+        .iter()
+        .any(|kind| crate::resources::protocol::owns(*kind))
+        && let Err(error) =
+            async { state.resources().await?.cache().clear().await }.await
+    {
+        operation.cache_repair_started = false;
+        return Err(crate::resources::protocol::error(error));
+    }
 
     if let Err(error) =
         crate::state::CachedEntry::purge_cache_types(&cache_types, &state.pool)
@@ -853,6 +927,31 @@ pub async fn clear_job_history() -> crate::Result<u64> {
     store::clear_finished(&state).await
 }
 
+pub async fn export_resource(
+    plan: crate::resources::ResourceExportPlan,
+    output_path: PathBuf,
+) -> crate::Result<InstallJobSnapshot> {
+    start(InstallRequest::ExportResource {
+        plan,
+        output_path,
+        resolution: None,
+    })
+    .await
+}
+
+pub async fn resolve_export_resource(
+    plan: crate::resources::ResourceExportPlan,
+    checkpoint: crate::resources::export::job::ExportResolutionCheckpoint,
+    output_path: PathBuf,
+) -> crate::Result<InstallJobSnapshot> {
+    start(InstallRequest::ExportResource {
+        plan,
+        output_path,
+        resolution: Some(Box::new(checkpoint)),
+    })
+    .await
+}
+
 async fn start(request: InstallRequest) -> crate::Result<InstallJobSnapshot> {
     let state = State::get().await?;
     let id = Uuid::new_v4();
@@ -1165,6 +1264,18 @@ fn install_error_code(
     use InstallPhaseId::*;
 
     match error.raw.as_ref() {
+        ErrorKind::ResourceError(error) => match error {
+            crate::resources::ResourceError::Network { .. }
+            | crate::resources::ResourceError::Unavailable => "network_error",
+            crate::resources::ResourceError::Database(_) => "database_error",
+            crate::resources::ResourceError::Cache(_) => {
+                "cache_repair_required"
+            }
+            crate::resources::ResourceError::InvalidResponse(_) => {
+                "parse_error"
+            }
+            _ => "export_error",
+        },
         ErrorKind::CacheReadError { .. } => "cache_repair_required",
         ErrorKind::InputError(msg)
             if msg.starts_with("Unrecognized modpack format")
@@ -1173,6 +1284,7 @@ fn install_error_code(
             "unrecognized_format"
         }
         ErrorKind::InputError(_) => match phase {
+            Exporting => "export_error",
             PreparingInstance | CreatingBackup | Finalizing | Completed => {
                 "instance_error"
             }

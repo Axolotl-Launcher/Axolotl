@@ -1,5 +1,6 @@
 use crate::minecraft::{
-    Argument, ArgumentType, JavaVersion, Library, VersionInfo, VersionType,
+    Argument, ArgumentType, JavaVersion, Library, LibraryDownloads,
+    VersionInfo, VersionType,
 };
 use chrono::{DateTime, NaiveDateTime, Utc};
 use serde::{Deserialize, Deserializer, Serialize};
@@ -300,6 +301,127 @@ pub struct Processor {
     pub sides: Option<Vec<String>>,
 }
 
+/// Identifies one library artifact. Entries that differ in version, classifier
+/// or extension are different artifacts: their download URLs and hashes are
+/// not interchangeable. The classifier matters because 1.19 and newer declare
+/// natives as separate `group:artifact:version:natives-<platform>` entries,
+/// each with its own artifact URL and operating-system rules, so those entries
+/// must never be merged into one another.
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
+struct ArtifactKey<'a> {
+    group: &'a str,
+    artifact: &'a str,
+    version: &'a str,
+    classifier: Option<&'a str>,
+    extension: Option<&'a str>,
+}
+
+impl<'a> ArtifactKey<'a> {
+    fn from_name(name: &'a str) -> Option<Self> {
+        let (coordinate, extension) = match name.split_once('@') {
+            Some((coordinate, extension)) => (coordinate, Some(extension)),
+            None => (name, None),
+        };
+        let mut parts = coordinate.split(':');
+        let group = parts.next()?;
+        let artifact = parts.next()?;
+        let version = parts.next()?;
+        Some(Self {
+            group,
+            artifact,
+            version,
+            classifier: parts.next(),
+            extension,
+        })
+    }
+}
+
+fn merge_downloads(target: &mut LibraryDownloads, incoming: &LibraryDownloads) {
+    match (&mut target.artifact, &incoming.artifact) {
+        (Some(existing), Some(candidate)) => {
+            if existing.sha1.is_empty() {
+                existing.sha1 = candidate.sha1.clone();
+            }
+            if existing.url.is_empty() {
+                existing.url = candidate.url.clone();
+            }
+            if existing.size == 0 {
+                existing.size = candidate.size;
+            }
+            if existing.path.is_none() {
+                existing.path = candidate.path.clone();
+            }
+        }
+        (target @ None, Some(candidate)) => *target = Some(candidate.clone()),
+        _ => {}
+    }
+    if let Some(incoming_classifiers) = &incoming.classifiers {
+        let target_classifiers =
+            target.classifiers.get_or_insert_with(HashMap::new);
+        for (classifier, download) in incoming_classifiers {
+            match target_classifiers.get_mut(classifier) {
+                Some(existing) => {
+                    if existing.sha1.is_empty() {
+                        existing.sha1 = download.sha1.clone();
+                    }
+                    if existing.url.is_empty() {
+                        existing.url = download.url.clone();
+                    }
+                    if existing.size == 0 {
+                        existing.size = download.size;
+                    }
+                    if existing.path.is_none() {
+                        existing.path = download.path.clone();
+                    }
+                }
+                None => {
+                    target_classifiers
+                        .insert(classifier.clone(), download.clone());
+                }
+            }
+        }
+    }
+}
+
+/// Fills the gaps of `base` from another entry carrying the same coordinate.
+/// Metadata is only ever completed: a field that is already present keeps its
+/// value, so a URL, hash or native condition is never taken from a different
+/// version of the same artifact. Classpath participation is unioned, because
+/// dropping download metadata would make a required file invisible to the
+/// downloader even when another entry asks for it on the classpath.
+fn merge_library_metadata(base: &mut Library, incoming: &Library) {
+    if base.url.is_none() {
+        base.url = incoming.url.clone();
+    }
+    if base.natives.is_none() {
+        base.natives = incoming.natives.clone();
+    }
+    if base.rules.is_none() {
+        base.rules = incoming.rules.clone();
+    }
+    if base.extract.is_none() {
+        base.extract = incoming.extract.clone();
+    }
+    match (&base.checksums, &incoming.checksums) {
+        (None, Some(checksums)) => base.checksums = Some(checksums.clone()),
+        (Some(existing), Some(candidate)) if existing != candidate => {
+            base.checksums = None;
+        }
+        _ => {}
+    }
+    if let Some(downloads) = &incoming.downloads {
+        merge_downloads(
+            base.downloads.get_or_insert(LibraryDownloads {
+                artifact: None,
+                classifiers: None,
+            }),
+            downloads,
+        );
+    }
+    base.include_in_classpath |= incoming.include_in_classpath;
+    base.downloadable |= incoming.downloadable;
+}
+
 /// Merges a partial version into a complete one
 pub fn merge_partial_version(
     partial: PartialVersionInfo,
@@ -307,26 +429,11 @@ pub fn merge_partial_version(
 ) -> VersionInfo {
     let merge_id = merge.id.clone();
 
-    let mut libraries = vec![];
-
-    // We skip duplicate libraries that exist already in the partial version
-    for mut lib in merge.libraries {
-        let lib_artifact = lib.name.rsplit_once(':').map(|x| x.0);
-
-        if let Some(lib_artifact) = lib_artifact {
-            if !partial.libraries.iter().any(|x| {
-                let target_artifact = x.name.rsplit_once(':').map(|x| x.0);
-
-                target_artifact == Some(lib_artifact) && x.include_in_classpath
-            }) {
-                libraries.push(lib);
-            } else {
-                lib.include_in_classpath = false;
-            }
-        } else {
-            libraries.push(lib);
-        }
-    }
+    // Every library is kept here. Duplicates are merged below, keyed by the
+    // exact coordinate, so metadata carried by only one of the entries (the
+    // `natives` and `downloads.classifiers` of a native carrier, for example)
+    // survives instead of being dropped with the duplicate.
+    let libraries = merge.libraries;
 
     let arguments = if let Some(partial_args) = partial.arguments {
         if let Some(merge_args) = merge.arguments {
@@ -381,33 +488,20 @@ pub fn merge_partial_version(
     // Loader profiles may repeat a vanilla coordinate with a reduced
     // description (Forge 1.16.x is a notable example: its duplicate LWJGL
     // entry omits `natives` and `downloads.classifiers`). Merge metadata from
-    // duplicates before dropping them so native archives remain discoverable.
-    let mut merged_libraries = Vec::with_capacity(libraries.len());
+    // duplicates before dropping them so native archives remain discoverable,
+    // while entries that differ in version or extension stay separate.
+    let mut merged_libraries: Vec<Library> =
+        Vec::with_capacity(libraries.len());
     for library in libraries {
-        if let Some(existing) = merged_libraries
-            .iter_mut()
-            .find(|existing: &&mut Library| existing.name == library.name)
-        {
-            existing.include_in_classpath |= library.include_in_classpath;
-            if existing.natives.is_none() {
-                existing.natives = library.natives.clone();
-            }
-            if let Some(downloads) = &library.downloads {
-                let existing_downloads =
-                    existing.downloads.get_or_insert_with(|| downloads.clone());
-                if existing_downloads.artifact.is_none() {
-                    existing_downloads.artifact = downloads.artifact.clone();
-                }
-                if existing_downloads.classifiers.is_none() {
-                    existing_downloads.classifiers =
-                        downloads.classifiers.clone();
-                }
-            }
-            if existing.extract.is_none() {
-                existing.extract = library.extract.clone();
-            }
-        } else {
-            merged_libraries.push(library);
+        let key = ArtifactKey::from_name(&library.name);
+        let existing = key.as_ref().and_then(|key| {
+            merged_libraries.iter_mut().find(|existing| {
+                ArtifactKey::from_name(&existing.name).as_ref() == Some(key)
+            })
+        });
+        match existing {
+            Some(existing) => merge_library_metadata(existing, &library),
+            None => merged_libraries.push(library),
         }
     }
     libraries = merged_libraries;
@@ -483,6 +577,9 @@ fn argument_pairs(tokens: &[&str]) -> Vec<(usize, usize)> {
 #[cfg(test)]
 mod merge_tests {
     use super::*;
+    use crate::minecraft::{
+        LibraryDownload, LibraryDownloads, Os, OsRule, Rule, RuleAction,
+    };
     use chrono::Utc;
     use std::collections::HashMap;
 
@@ -561,7 +658,7 @@ mod merge_tests {
                 ],
             )])),
             libraries: vec![
-                library("example:shared:2.0"),
+                library("example:shared:1.0"),
                 library("example:lite:1.0"),
             ],
             java_version: None,
@@ -580,7 +677,7 @@ mod merge_tests {
                 .iter()
                 .map(|library| library.name.as_str())
                 .collect::<Vec<_>>(),
-            ["example:base:1.0", "example:shared:2.0", "example:lite:1.0"]
+            ["example:shared:1.0", "example:base:1.0", "example:lite:1.0"]
         );
         assert_eq!(merged.main_class, "net.minecraft.launchwrapper.Launch");
         assert_eq!(
@@ -648,6 +745,403 @@ mod merge_tests {
                 })
                 .count(),
             2
+        );
+    }
+    fn download(
+        url: &str,
+        sha1: &str,
+        size: u32,
+        path: Option<&str>,
+    ) -> LibraryDownload {
+        LibraryDownload {
+            path: path.map(str::to_string),
+            sha1: sha1.to_string(),
+            size,
+            url: url.to_string(),
+        }
+    }
+
+    fn natives_entry(classifier: &str) -> Library {
+        let mut native = library("org.lwjgl:lwjgl:3.2.2");
+        native.natives = Some(HashMap::from([(
+            Os::Windows,
+            format!("natives-windows{classifier}"),
+        )]));
+        native.downloads = Some(LibraryDownloads {
+            artifact: Some(download(
+                "https://example.com/lwjgl.jar",
+                "aaa111",
+                100,
+                Some("org/lwjgl/lwjgl.jar"),
+            )),
+            classifiers: Some(HashMap::from([(
+                format!("natives-windows{classifier}"),
+                download(
+                    "https://example.com/lwjgl-natives.jar",
+                    "bbb222",
+                    50,
+                    None,
+                ),
+            )])),
+        });
+        native
+    }
+
+    fn partial_with_libraries(libraries: Vec<Library>) -> PartialVersionInfo {
+        let now = Utc::now();
+        PartialVersionInfo {
+            id: "1.16.4-forge".to_string(),
+            inherits_from: "1.16.4".to_string(),
+            release_time: now,
+            time: now,
+            main_class: Some("example.Main".to_string()),
+            minecraft_arguments: None,
+            arguments: None,
+            libraries,
+            java_version: None,
+            type_: VersionType::Release,
+            data: None,
+            processors: None,
+        }
+    }
+    #[test]
+    fn merged_library_keeps_natives_artifact_and_classifier_metadata() {
+        let mut minecraft = version_info();
+        let mut reduced = library("org.lwjgl:lwjgl:3.2.2");
+        reduced.downloads = Some(LibraryDownloads {
+            artifact: Some(download(
+                "https://example.com/lwjgl.jar",
+                "aaa111",
+                100,
+                None,
+            )),
+            classifiers: None,
+        });
+        minecraft.libraries = vec![reduced];
+
+        let merged = merge_partial_version(
+            partial_with_libraries(vec![natives_entry("")]),
+            minecraft,
+        );
+
+        let lwjgl = merged
+            .libraries
+            .iter()
+            .find(|library| library.name == "org.lwjgl:lwjgl:3.2.2")
+            .expect("merged lwjgl library");
+        assert!(
+            lwjgl.natives.is_some(),
+            "the natives declaration must survive the merge"
+        );
+        let downloads = lwjgl.downloads.as_ref().expect("merged downloads");
+        let artifact = downloads.artifact.as_ref().expect("artifact");
+        assert_eq!(artifact.url, "https://example.com/lwjgl.jar");
+        assert_eq!(artifact.sha1, "aaa111");
+        let classifiers = downloads.classifiers.as_ref().expect("classifiers");
+        let native = classifiers
+            .get("natives-windows")
+            .expect("native classifier kept from the partial entry");
+        assert_eq!(native.sha1, "bbb222");
+        assert!(lwjgl.include_in_classpath);
+    }
+
+    #[test]
+    fn merged_library_does_not_take_metadata_from_another_version() {
+        let mut minecraft = version_info();
+        let mut other_version = library("org.lwjgl:lwjgl:3.2.1");
+        other_version.downloads = Some(LibraryDownloads {
+            artifact: Some(download(
+                "https://example.com/lwjgl-3.2.1.jar",
+                "oldsha1",
+                90,
+                None,
+            )),
+            classifiers: None,
+        });
+        minecraft.libraries = vec![other_version];
+
+        let merged = merge_partial_version(
+            partial_with_libraries(vec![natives_entry("")]),
+            minecraft,
+        );
+
+        let urls = merged
+            .libraries
+            .iter()
+            .filter(|library| library.name.starts_with("org.lwjgl:lwjgl:"))
+            .map(|library| {
+                library
+                    .downloads
+                    .as_ref()
+                    .and_then(|downloads| downloads.artifact.as_ref())
+                    .map(|artifact| artifact.url.as_str())
+                    .unwrap_or_default()
+            })
+            .collect::<Vec<_>>();
+        assert!(
+            urls.contains(&"https://example.com/lwjgl-3.2.1.jar"),
+            "the other version keeps its own URL: {urls:?}"
+        );
+        assert!(
+            urls.contains(&"https://example.com/lwjgl.jar"),
+            "the native carrier keeps its own URL: {urls:?}"
+        );
+    }
+
+    fn allow_os(target: Os) -> Rule {
+        Rule {
+            action: RuleAction::Allow,
+            os: Some(OsRule {
+                name: Some(target),
+                version: None,
+                arch: None,
+            }),
+            features: None,
+        }
+    }
+
+    fn rule_os(library: &Library) -> Option<&Os> {
+        library
+            .rules
+            .as_ref()
+            .and_then(|rules| rules.first())
+            .and_then(|rule| rule.os.as_ref())
+            .and_then(|os| os.name.as_ref())
+    }
+
+    /// One `group:artifact:version:natives-<platform>` entry as 1.19 and newer
+    /// declare natives: its own artifact URL, hash and operating-system rule.
+    fn platform_native_entry(classifier: &str, os: Os, url: &str) -> Library {
+        let mut native =
+            library(&format!("org.lwjgl:lwjgl:3.3.1:{classifier}"));
+        native.downloads = Some(LibraryDownloads {
+            artifact: Some(download(url, "natives-sha1", 42, None)),
+            classifiers: None,
+        });
+        native.rules = Some(vec![allow_os(os)]);
+        native
+    }
+
+    #[test]
+    fn platform_native_entries_are_never_merged_into_one() {
+        let mut minecraft = version_info();
+        minecraft.libraries = vec![
+            platform_native_entry(
+                "natives-windows",
+                Os::Windows,
+                "https://example.com/lwjgl-natives-windows.jar",
+            ),
+            platform_native_entry(
+                "natives-linux",
+                Os::Linux,
+                "https://example.com/lwjgl-natives-linux.jar",
+            ),
+        ];
+
+        let merged = merge_partial_version(
+            partial_with_libraries(vec![library("org.lwjgl:lwjgl:3.3.1")]),
+            minecraft,
+        );
+
+        let natives = merged
+            .libraries
+            .iter()
+            .filter(|library| library.name.contains(":natives-"))
+            .collect::<Vec<_>>();
+        assert_eq!(
+            natives.len(),
+            2,
+            "each platform native is its own entry: {:?}",
+            merged
+                .libraries
+                .iter()
+                .map(|library| library.name.as_str())
+                .collect::<Vec<_>>()
+        );
+        let windows = natives
+            .iter()
+            .find(|library| library.name.ends_with("natives-windows"))
+            .expect("windows native entry");
+        assert_eq!(
+            windows
+                .downloads
+                .as_ref()
+                .and_then(|downloads| downloads.artifact.as_ref())
+                .map(|artifact| artifact.url.as_str()),
+            Some("https://example.com/lwjgl-natives-windows.jar"),
+            "the native keeps its own artifact URL"
+        );
+        assert_eq!(
+            rule_os(windows),
+            Some(&Os::Windows),
+            "the native keeps its own operating-system rule"
+        );
+        let linux = natives
+            .iter()
+            .find(|library| library.name.ends_with("natives-linux"))
+            .expect("linux native entry");
+        assert_eq!(
+            rule_os(linux),
+            Some(&Os::Linux),
+            "the linux native must not inherit the windows rule"
+        );
+    }
+
+    #[test]
+    fn the_same_artifact_stays_one_entry_even_with_a_classifier() {
+        let mut minecraft = version_info();
+        minecraft.libraries = vec![natives_entry("")];
+
+        let merged = merge_partial_version(
+            partial_with_libraries(vec![natives_entry("-arm64")]),
+            minecraft,
+        );
+
+        let names = merged
+            .libraries
+            .iter()
+            .map(|library| library.name.as_str())
+            .collect::<Vec<_>>();
+        assert_eq!(
+            names
+                .iter()
+                .filter(|name| **name == "org.lwjgl:lwjgl:3.2.2")
+                .count(),
+            1,
+            "one coordinate stays one entry: {names:?}"
+        );
+        let lwjgl = merged
+            .libraries
+            .iter()
+            .find(|library| library.name == "org.lwjgl:lwjgl:3.2.2")
+            .expect("merged lwjgl library");
+        let classifiers = lwjgl
+            .downloads
+            .as_ref()
+            .and_then(|downloads| downloads.classifiers.as_ref())
+            .expect("merged native classifiers");
+        assert!(
+            classifiers.contains_key("natives-windows")
+                && classifiers.contains_key("natives-windows-arm64"),
+            "a classifier map entry still merges into its coordinate: {classifiers:?}"
+        );
+    }
+
+    #[test]
+    fn a_conflicting_checksum_is_dropped_instead_of_mixed() {
+        let mut minecraft = version_info();
+        let mut carrier = library("example:native:1.0");
+        carrier.checksums = Some(vec!["checksum-a".to_string()]);
+        minecraft.libraries = vec![carrier];
+
+        let mut other = library("example:native:1.0");
+        other.checksums = Some(vec!["checksum-b".to_string()]);
+
+        let merged = merge_partial_version(
+            partial_with_libraries(vec![other]),
+            minecraft,
+        );
+        let native = merged
+            .libraries
+            .iter()
+            .find(|library| library.name == "example:native:1.0")
+            .expect("merged library");
+        assert_eq!(
+            native.checksums, None,
+            "unrelated checksums must not be unioned into one unverifiable list"
+        );
+    }
+
+    #[test]
+    fn libraries_without_a_version_are_never_merged_together() {
+        let mut minecraft = version_info();
+        minecraft.libraries =
+            vec![library("example:plain"), library("example:other")];
+
+        let merged = merge_partial_version(
+            partial_with_libraries(Vec::new()),
+            minecraft,
+        );
+
+        assert_eq!(merged.libraries.len(), 2);
+    }
+
+    #[test]
+    fn a_different_version_of_the_same_artifact_is_not_dropped() {
+        let mut minecraft = version_info();
+        let mut newer = library("example:shared:2.0");
+        newer.include_in_classpath = false;
+        minecraft.libraries = vec![newer];
+
+        let merged = merge_partial_version(
+            partial_with_libraries(vec![library("example:shared:1.0")]),
+            minecraft,
+        );
+
+        let names = merged
+            .libraries
+            .iter()
+            .map(|library| library.name.as_str())
+            .collect::<Vec<_>>();
+        assert!(
+            names.contains(&"example:shared:2.0"),
+            "another version of the same artifact is a different library: {names:?}"
+        );
+        assert!(
+            names.contains(&"example:shared:1.0"),
+            "the partial entry keeps its own version: {names:?}"
+        );
+    }
+
+    #[test]
+    fn merge_unions_rules_and_downloadable_without_losing_metadata() {
+        let mut minecraft = version_info();
+        let mut reduced = library("example:dual:1.0");
+        reduced.downloadable = false;
+        reduced.downloads = Some(LibraryDownloads {
+            artifact: Some(download(
+                "https://example.com/dual.jar",
+                "carrier-sha1",
+                7,
+                None,
+            )),
+            classifiers: None,
+        });
+        minecraft.libraries = vec![reduced];
+
+        let mut richer = library("example:dual:1.0");
+        richer.include_in_classpath = false;
+        richer.rules = Some(vec![Rule {
+            action: RuleAction::Allow,
+            os: None,
+            features: None,
+        }]);
+
+        let merged = merge_partial_version(
+            partial_with_libraries(vec![richer]),
+            minecraft,
+        );
+
+        let dual = merged
+            .libraries
+            .iter()
+            .find(|library| library.name == "example:dual:1.0")
+            .expect("merged library");
+        assert!(
+            dual.rules.is_some(),
+            "rules carried by only one entry must survive"
+        );
+        assert!(
+            dual.include_in_classpath,
+            "classpath participation is unioned, not overwritten"
+        );
+        assert_eq!(
+            dual.downloads
+                .as_ref()
+                .and_then(|downloads| downloads.artifact.as_ref())
+                .map(|artifact| artifact.sha1.as_str()),
+            Some("carrier-sha1"),
+            "download metadata must not be dropped with the duplicate"
         );
     }
 
@@ -779,6 +1273,62 @@ fn is_json_profile_source(source: &LoaderProfileSource) -> bool {
 mod tests {
     use super::*;
     use serde_json::json;
+
+    #[test]
+    fn cleanroom_and_forge_profiles_accept_additional_lwjgl_platforms() {
+        for (id, minecraft) in [
+            ("1.12.2-cleanroom-0.7.5", "1.12.2"),
+            ("1.7.10-forge", "1.7.10"),
+        ] {
+            let input = json!({
+                "id": id,
+                "inheritsFrom": minecraft,
+                "releaseTime": "2026-10-15T00:00:00Z",
+                "time": "2026-10-15T00:00:00Z",
+                "type": "release",
+                "arguments": {"jvm": [{
+                    "rules": [{"action": "allow", "os": {"name": "freebsd"}}],
+                    "value": "-Dorg.lwjgl.librarypath=natives/freebsd"
+                }]},
+                "libraries": [{
+                    "name": "org.lwjgl:lwjgl:3.3.6:natives-freebsd",
+                    "rules": [{"action": "allow", "os": {"name": "freebsd"}}],
+                    "natives": {"freebsd": "natives-freebsd"}
+                }, {
+                    "name": "org.lwjgl:lwjgl-natives-linux-ppc64le:3.4.3",
+                    "rules": [{"action": "allow", "os": {"name": "linux-ppc64le"}}]
+                }]
+            });
+            let profile: PartialVersionInfo =
+                serde_json::from_value(input).unwrap();
+            let library = &profile.libraries[0];
+            assert_eq!(
+                library.rules.as_ref().unwrap()[0].os.as_ref().unwrap().name,
+                Some(crate::minecraft::Os::Freebsd)
+            );
+            assert_eq!(
+                library.natives.as_ref().unwrap()
+                    [&crate::minecraft::Os::Freebsd],
+                "natives-freebsd"
+            );
+            assert_eq!(
+                profile.libraries[1].rules.as_ref().unwrap()[0]
+                    .os
+                    .as_ref()
+                    .unwrap()
+                    .name,
+                Some(crate::minecraft::Os::LinuxPpc64le)
+            );
+            let restored: PartialVersionInfo =
+                serde_json::from_value(serde_json::to_value(&profile).unwrap())
+                    .unwrap();
+            assert_eq!(restored.id, id);
+            assert_eq!(restored.inherits_from, minecraft);
+            assert!(
+                restored.arguments.unwrap().contains_key(&ArgumentType::Jvm)
+            );
+        }
+    }
 
     fn library(name: &str) -> Library {
         Library {

@@ -3,6 +3,7 @@ import { renderHighlightedString } from '@modrinth/utils'
 import { configuredXss } from '@modrinth/utils/parse'
 import { invoke } from '@tauri-apps/api/core'
 import { fetch as tauriFetch } from '@tauri-apps/plugin-http'
+import { LRUCache } from 'lru-cache'
 
 import {
     createTranslationBatches,
@@ -401,7 +402,11 @@ export function renderTranslatedDescription(
 const MIRROR_API_BASE = 'https://mod.mcimirror.top/translate'
 
 /** Cache: key → translated description string. Key format: `cf:{provider_project_id}` or `mr:{project_id}`. */
-const descriptionCache = new Map<string, string>()
+const descriptionCache = new LRUCache<string, string>({
+    max: 500,
+    maxSize: 4 * 1024 * 1024,
+    sizeCalculation: (value, key) => Math.max(1, (value.length + key.length) * 2),
+})
 
 function mirrorCacheKey(hit: TranslatableHit): string | null {
     if (hit.provider === 'curseforge') {

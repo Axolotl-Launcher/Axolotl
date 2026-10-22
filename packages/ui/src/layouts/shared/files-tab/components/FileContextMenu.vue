@@ -1,79 +1,9 @@
-<template>
-    <Teleport to="#teleports">
-        <Transition
-            enter-active-class="transition duration-125 ease-out"
-            enter-from-class="transform scale-75 opacity-0"
-            enter-to-class="transform scale-100 opacity-100"
-            leave-active-class="transition duration-125 ease-in"
-            leave-from-class="transform scale-100 opacity-100"
-            leave-to-class="transform scale-75 opacity-0"
-        >
-            <div
-                v-if="visible"
-                ref="menuRef"
-                class="fixed isolate z-[9999] flex w-fit min-w-[180px] flex-col gap-2 overflow-hidden rounded-2xl border border-solid border-surface-5 bg-surface-3 p-2 shadow-lg"
-                :style="{ left: `${position.x}px`, top: `${position.y}px` }"
-                role="menu"
-                tabindex="-1"
-                @mousedown.stop
-            >
-                <Button
-                    type="quiet"
-                    class="w-full !justify-start !whitespace-nowrap"
-                    role="menuitem"
-                    @click="handleCopyFilename"
-                    ><ClipboardCopyIcon class="size-5" />
-                    {{ formatMessage(commonMessages.copyFilenameButton) }}
-                </Button>
-                <Button
-                    type="quiet"
-                    class="w-full !justify-start !whitespace-nowrap"
-                    role="menuitem"
-                    @click="handleCopyPath"
-                    ><ClipboardCopyIcon class="size-5" />
-                    {{ formatMessage(commonMessages.copyFullPathButton) }}
-                </Button>
-                <Button
-                    v-if="ctx.openInFolder"
-                    type="quiet"
-                    class="w-full !justify-start !whitespace-nowrap"
-                    role="menuitem"
-                    @click="handleOpenInFolder"
-                    ><FolderOpenIcon class="size-5" />
-                    {{ formatMessage(commonMessages.openInFolderButton) }}
-                </Button>
-                <div class="h-px w-full bg-surface-5" />
-                <template v-for="(option, index) in menuOptions" :key="index">
-                    <div
-                        v-if="'divider' in option && option.divider && option.shown !== false"
-                        class="h-px w-full bg-surface-5"
-                    />
-                    <Button
-                        v-else-if="'id' in option && option.shown !== false"
-                        v-tooltip="option.tooltip"
-                        type="quiet"
-                        :color="option.color === 'standard' ? undefined : option.color"
-                        :disabled="option.disabled"
-                        class="w-full !justify-start !whitespace-nowrap"
-                        role="menuitem"
-                        @click="handleOptionClick(option)"
-                    >
-                        <slot :name="option.id">
-                            <component :is="option.icon" v-if="option.icon" class="size-5" />
-                            {{ option.label ?? option.id }}
-                        </slot>
-                    </Button>
-                </template>
-            </div>
-        </Transition>
-    </Teleport>
-</template>
-
 <script setup lang="ts">
 import { ClipboardCopyIcon, FolderOpenIcon } from '@modrinth/assets'
-import { nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, ref, shallowRef } from 'vue'
 
-import Button from '#ui/components/base/buttons/Button.vue'
+import type { MenuOption } from '#ui/components/base/menu-options'
+import PointMenu from '#ui/components/base/PointMenu.vue'
 import { useVIntl } from '#ui/composables/i18n'
 import { injectNotificationManager } from '#ui/providers/web-notifications'
 import { commonMessages } from '#ui/utils/common-messages'
@@ -86,34 +16,39 @@ const { formatMessage } = useVIntl()
 const { addNotification } = injectNotificationManager()
 const ctx = injectFileManager()
 
-const visible = ref(false)
-const menuRef = ref<HTMLElement>()
-const position = ref({ x: 0, y: 0 })
-const currentItem = ref<FileItem | null>(null)
-const menuOptions = ref<FileContextMenuOption[]>([])
-
-function show(item: FileItem, x: number, y: number, options: typeof menuOptions.value) {
+const menu = ref<InstanceType<typeof PointMenu>>()
+const currentItem = shallowRef<FileItem | null>(null)
+const menuOptions = shallowRef<FileContextMenuOption[]>([])
+const options = computed<MenuOption[]>(() => [
+    {
+        id: 'copy-filename',
+        label: formatMessage(commonMessages.copyFilenameButton),
+        icon: ClipboardCopyIcon,
+        action: handleCopyFilename,
+    },
+    {
+        id: 'copy-path',
+        label: formatMessage(commonMessages.copyFullPathButton),
+        icon: ClipboardCopyIcon,
+        action: handleCopyPath,
+    },
+    {
+        id: 'open-folder',
+        label: formatMessage(commonMessages.openInFolderButton),
+        icon: FolderOpenIcon,
+        shown: !!ctx.openInFolder,
+        action: handleOpenInFolder,
+    },
+    { divider: true },
+    ...menuOptions.value,
+])
+function show(item: FileItem, x: number, y: number, actions: FileContextMenuOption[]) {
     currentItem.value = item
-    menuOptions.value = options
-    position.value = { x, y }
-    visible.value = true
-
-    nextTick(() => {
-        if (!menuRef.value) return
-        const rect = menuRef.value.getBoundingClientRect()
-        const padding = 10
-        if (rect.right > window.innerWidth - padding) {
-            position.value.x = Math.max(padding, x - rect.width)
-        }
-        if (rect.bottom > window.innerHeight - padding) {
-            position.value.y = Math.max(padding, y - rect.height)
-        }
-    })
+    menuOptions.value = actions
+    menu.value?.show({ clientX: x, clientY: y, target: document.activeElement })
 }
-
 function hide() {
-    visible.value = false
-    currentItem.value = null
+    menu.value?.close()
 }
 
 function handleCopyFilename() {
@@ -141,36 +76,11 @@ function handleOpenInFolder() {
     hide()
 }
 
-function handleOptionClick(option: { action?: () => void }) {
-    option.action?.()
-    hide()
-}
-
-function onClickOutside(event: MouseEvent) {
-    if (menuRef.value && !menuRef.value.contains(event.target as Node)) {
-        hide()
-    }
-}
-
-function onEscape(event: KeyboardEvent) {
-    if (event.key === 'Escape') {
-        hide()
-    }
-}
-
-onMounted(() => {
-    document.addEventListener('mousedown', onClickOutside)
-    document.addEventListener('keydown', onEscape)
-})
-
-onBeforeUnmount(() => {
-    document.removeEventListener('mousedown', onClickOutside)
-    document.removeEventListener('keydown', onEscape)
-})
-
-watch(visible, (v) => {
-    if (!v) currentItem.value = null
-})
-
 defineExpose({ show, hide })
 </script>
+
+<template>
+    <PointMenu ref="menu" :options="options" @close="currentItem = null">
+        <template v-for="(_, name) in $slots" #[name]><slot :name="name" /></template>
+    </PointMenu>
+</template>

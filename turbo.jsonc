@@ -1,134 +1,156 @@
 {
-	"$schema": "./node_modules/turbo/schema.json",
-	"concurrency": "100%",
-	"globalDependencies": [
-		"packages/tooling-config/**",
-		"!packages/tooling-config/.turbo/**",
-		"!packages/tooling-config/node_modules/**",
-		"packages/app-lib/.env"
-	],
-	"globalEnv": [
-		"CF_ACCESS_AUDIENCE",
-		"CF_ACCESS_TEAM_DOMAIN",
-		"DEV",
-		"MODRINTH_URL",
-		"MODRINTH_API_BASE_URL",
-		"MODRINTH_ARCHON_BASE_URL",
-		"VITE_STRIPE_PUBLISHABLE_KEY",
-		"TELEMETRY_ADMIN_MOCK_AUTH",
-		"TELEMETRY_ADMIN_MOCK_SCENARIO",
-		"TELEMETRY_ADMIN_REMOTE_BINDINGS",
-		"VERCEL"
-	],
-	"globalPassThroughEnv": [
-		"CLOUDFLARE_ACCOUNT_ID",
-		"CLOUDFLARE_API_TOKEN",
-		"CLOUDFLARE_D1_DATABASE_ID",
-		"CLOUDFLARE_R2_ACCESS_KEY_ID",
-		"CLOUDFLARE_R2_BUCKET_NAME",
-		"CLOUDFLARE_R2_SECRET_ACCESS_KEY"
-	],
-	"tasks": {
-		"build": {
-			"dependsOn": ["^build"],
-			"inputs": ["$TURBO_DEFAULT$", ".env*"],
-			"outputs": [".nuxt/**", "dist/**", ".output/**"],
-			"env": [
-				"NODE_ENV",
-				"SITE_URL",
-				"BASE_URL",
-				"PREVIEW",
-				"BUILD_ENV",
-				"FLAG_OVERRIDES",
-				"BROWSER_BASE_URL",
-				"RATE_LIMIT_IGNORE_KEY",
-				"VERCEL_*",
-				"CF_PAGES_*",
-				"HEROKU_APP_NAME",
-				"STRIPE_PUBLISHABLE_KEY",
-				"INTERCOM_APP_ID",
-				"INTERCOM_IDENTITY_SECRET",
-				"PYRO_BASE_URL",
-				"PROD_OVERRIDE",
-				"PYRO_MASTER_KEY",
-				"PORT",
-				"SQLX_OFFLINE",
-				"DATABASE_URL",
-				"CARGO_*",
-				"RUST_*",
-				"RUSTFLAGS",
-				"FORCE_COLOR",
-				"NEXTEST_*",
-				"BUILD_ENV",
-				"PREVIEW"
-			],
-			"passThroughEnv": [
-				"SCCACHE_*",
-				"RUSTC_WRAPPER",
-				"AWS_ACCESS_KEY_ID",
-				"AWS_SECRET_ACCESS_KEY",
-				"CURSEFORGE_API_KEY",
-				"AXOLOTL_DATA_DIR_SUFFIX",
-				"THESEUS_CONFIG_DIR",
-				"THESEUS_DB_BACKUP_DIR"
-			]
-		},
-		"@modrinth/app#build": {
-			"cache": false
-		},
-		"lint": {
-			"env": [
-				"DATABASE_URL",
-				"SQLX_OFFLINE",
-				"CARGO_*",
-				"RUST_*",
-				"RUSTFLAGS",
-				"FORCE_COLOR",
-				"NEXTEST_*"
-			],
-			"passThroughEnv": ["SCCACHE_*", "RUSTC_WRAPPER", "AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY"]
-		},
-		"lint:ancillary": {},
-		"dev": {
-			"cache": false,
-			"persistent": true,
-			"inputs": ["$TURBO_DEFAULT$", ".env*"],
-			"env": ["CARGO_*", "RUST_*", "RUSTFLAGS", "FORCE_COLOR", "NEXTEST_*"],
-			"passThroughEnv": [
-				"DISPLAY",
-				"WEBKIT_DISABLE_DMABUF_RENDERER",
-				"JAVA_HOME",
-				"CURSEFORGE_API_KEY",
-				"AXOLOTL_CURSEFORGE_API_KEY",
-				"AXOLOTL_CURSEFORGE_API_BASE_URL",
-				"AXOLOTL_DATA_DIR_SUFFIX",
-				"THESEUS_CONFIG_DIR",
-				"THESEUS_DB_BACKUP_DIR"
-			]
-		},
-		"test": {
-			"env": [
-				"SQLX_OFFLINE",
-				"DATABASE_URL",
-				"CARGO_*",
-				"RUST_*",
-				"RUSTFLAGS",
-				"FORCE_COLOR",
-				"NEXTEST_*"
-			],
-			"passThroughEnv": ["SCCACHE_*", "RUSTC_WRAPPER", "AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY"]
-		},
-		"fix": {},
-		"fix:ancillary": {
-			"cache": false
-		},
-		"intl:extract": {},
-		"intl:prune-local": {
-			"cache": false,
-			"dependsOn": ["intl:extract"]
-		},
-		"prepr": {
-			"dependsOn": ["^prepr", "fix", "intl:extract", "intl:prune-local"]
-		}
-	}
+    "$schema": "./node_modules/turbo/schema.json",
+    "concurrency": "100%",
+    "globalDependencies": [
+        "packages/tooling-config/**",
+        "!packages/tooling-config/.turbo/**",
+        "!packages/tooling-config/node_modules/**",
+        "packages/app-lib/.env"
+    ],
+    "globalEnv": [
+        "CF_ACCESS_AUDIENCE",
+        "CF_ACCESS_TEAM_DOMAIN",
+        "DEV",
+        "MODRINTH_URL",
+        "MODRINTH_API_BASE_URL",
+        "MODRINTH_ARCHON_BASE_URL",
+        "VITE_STRIPE_PUBLISHABLE_KEY",
+        "TELEMETRY_ADMIN_MOCK_AUTH",
+        "TELEMETRY_ADMIN_MOCK_SCENARIO",
+        "TELEMETRY_ADMIN_REMOTE_BINDINGS",
+        "VERCEL"
+    ],
+    "globalPassThroughEnv": [
+        "CLOUDFLARE_ACCOUNT_ID",
+        "CLOUDFLARE_API_TOKEN",
+        "CLOUDFLARE_D1_DATABASE_ID",
+        "CLOUDFLARE_R2_ACCESS_KEY_ID",
+        "CLOUDFLARE_R2_BUCKET_NAME",
+        "CLOUDFLARE_R2_SECRET_ACCESS_KEY"
+    ],
+    "tasks": {
+        "build": {
+            "dependsOn": ["^build"],
+            "inputs": ["$TURBO_DEFAULT$", ".env*"],
+            "outputs": [".nuxt/**", "dist/**", ".output/**"],
+            "env": [
+                "NODE_ENV",
+                "SITE_URL",
+                "BASE_URL",
+                "PREVIEW",
+                "BUILD_ENV",
+                "FLAG_OVERRIDES",
+                "BROWSER_BASE_URL",
+                "RATE_LIMIT_IGNORE_KEY",
+                "VERCEL_*",
+                "CF_PAGES_*",
+                "HEROKU_APP_NAME",
+                "STRIPE_PUBLISHABLE_KEY",
+                "INTERCOM_APP_ID",
+                "INTERCOM_IDENTITY_SECRET",
+                "PYRO_BASE_URL",
+                "PROD_OVERRIDE",
+                "PYRO_MASTER_KEY",
+                "PORT",
+                "FORCE_COLOR",
+                "BUILD_ENV",
+                "PREVIEW"
+            ],
+            "passThroughEnv": [
+                "SCCACHE_*",
+                "RUSTC_WRAPPER",
+                "AWS_ACCESS_KEY_ID",
+                "AWS_SECRET_ACCESS_KEY",
+                "CURSEFORGE_API_KEY",
+                "AXOLOTL_DATA_DIR_SUFFIX",
+                "THESEUS_CONFIG_DIR",
+                "THESEUS_DB_BACKUP_DIR"
+            ]
+        },
+        "@modrinth/app#dev": {
+            "cache": false,
+            "persistent": true,
+            "passThroughEnv": ["*"]
+        },
+        "@modrinth/app#build": {
+            "cache": false,
+            "env": ["CARGO_*", "RUST_*", "RUSTFLAGS", "SQLX_OFFLINE"],
+            "passThroughEnv": [
+                "AXOLOTL_BUILD_RESOURCES",
+                "TAURI_SIGNING_PRIVATE_KEY",
+                "TAURI_SIGNING_PRIVATE_KEY_PASSWORD",
+                "CURSEFORGE_API_KEY"
+            ]
+        },
+        "@modrinth/app-frontend#build": {
+            "dependsOn": ["^build"],
+            "inputs": ["$TURBO_DEFAULT$", ".env*", "../../apps/app/tauri.conf.json"],
+            "outputs": ["dist/**"],
+            "env": ["NODE_ENV", "TAURI_ENV_*", "MODRINTH_*"]
+        },
+        "lint": {
+            "env": [
+                "DATABASE_URL",
+                "SQLX_OFFLINE",
+                "CARGO_*",
+                "RUST_*",
+                "RUSTFLAGS",
+                "FORCE_COLOR",
+                "NEXTEST_*"
+            ],
+            "passThroughEnv": [
+                "SCCACHE_*",
+                "RUSTC_WRAPPER",
+                "AWS_ACCESS_KEY_ID",
+                "AWS_SECRET_ACCESS_KEY"
+            ]
+        },
+        "lint:ancillary": {},
+        "dev": {
+            "cache": false,
+            "persistent": true,
+            "inputs": ["$TURBO_DEFAULT$", ".env*"],
+            "env": ["CARGO_*", "RUST_*", "RUSTFLAGS", "FORCE_COLOR", "NEXTEST_*"],
+            "passThroughEnv": [
+                "DISPLAY",
+                "__NV_DISABLE_EXPLICIT_SYNC",
+                "JAVA_HOME",
+                "CURSEFORGE_API_KEY",
+                "AXOLOTL_CURSEFORGE_API_KEY",
+                "AXOLOTL_CURSEFORGE_API_BASE_URL",
+                "AXOLOTL_DATA_DIR_SUFFIX",
+                "THESEUS_CONFIG_DIR",
+                "THESEUS_DB_BACKUP_DIR"
+            ]
+        },
+        "test": {
+            "env": [
+                "SQLX_OFFLINE",
+                "DATABASE_URL",
+                "CARGO_*",
+                "RUST_*",
+                "RUSTFLAGS",
+                "FORCE_COLOR",
+                "NEXTEST_*"
+            ],
+            "passThroughEnv": [
+                "SCCACHE_*",
+                "RUSTC_WRAPPER",
+                "AWS_ACCESS_KEY_ID",
+                "AWS_SECRET_ACCESS_KEY"
+            ]
+        },
+        "fix": {},
+        "fix:ancillary": {
+            "cache": false
+        },
+        "intl:extract": {},
+        "intl:prune-local": {
+            "cache": false,
+            "dependsOn": ["intl:extract"]
+        },
+        "prepr": {
+            "dependsOn": ["^prepr", "fix", "intl:extract", "intl:prune-local"]
+        }
+    }
 }

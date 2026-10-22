@@ -1,11 +1,13 @@
+mod dependencies;
+
+use dependencies::backfill_dependency_edges_from_metadata;
+
 use std::collections::{HashMap, HashSet};
 
 use sqlx::Row;
 
-use super::list_content::list_all_content;
-use super::sync_content_files::{
-    project_type_for_file, sync_instance_content_files,
-};
+use super::list_content::list_all_content_from_files;
+use super::sync_content_files::project_type_for_file;
 use crate::State;
 use crate::state::instances::adapters::{
     filesystem,
@@ -30,22 +32,32 @@ pub(crate) async fn get_content_snapshot(
     refresh_remote: bool,
     state: &State,
 ) -> crate::Result<InstanceContentSnapshot> {
-    get_content_snapshot_inner(instance_id, refresh_remote, true, state).await
+    get_content_snapshot_inner(instance_id, refresh_remote, true, true, state)
+        .await
 }
 
 pub(crate) async fn get_cached_content_snapshot(
     instance_id: &str,
     state: &State,
 ) -> crate::Result<InstanceContentSnapshot> {
-    get_content_snapshot_inner(instance_id, false, false, state).await
+    get_content_snapshot_inner(instance_id, false, false, true, state).await
+}
+
+pub(crate) async fn get_local_content_snapshot(
+    instance_id: &str,
+    state: &State,
+) -> crate::Result<InstanceContentSnapshot> {
+    get_content_snapshot_inner(instance_id, false, false, false, state).await
 }
 
 async fn get_content_snapshot_inner(
     instance_id: &str,
     refresh_remote: bool,
     sync_direct_instance: bool,
+    enrich: bool,
     state: &State,
 ) -> crate::Result<InstanceContentSnapshot> {
+    super::repair_recorded_pack_unlink(instance_id, &state.pool).await?;
     let instance = instance_rows::get_instance_by_id(instance_id, &state.pool)
         .await?
         .ok_or_else(|| {
@@ -73,9 +85,29 @@ async fn get_content_snapshot_inner(
             && instance.is_direct_linked()
             && cached_files.is_empty())
     {
-        sync_instance_content_files(&instance, state).await?
+        crate::resources::installed::refresh_snapshot(
+            state,
+            instance_id,
+            &tokio_util::sync::CancellationToken::new(),
+        )
+        .await
+        .map_err(|error| crate::ErrorKind::OtherError(error.to_string()))?;
+        content_rows::get_instance_files(&instance.id, &state.pool).await?
     } else {
         cached_files
+    };
+    let content_set = if refresh_remote
+        || sync_direct_instance && instance.is_direct_linked()
+    {
+        content_rows::get_applied_content_set(instance_id, &state.pool)
+            .await?
+            .ok_or_else(|| {
+                crate::ErrorKind::InputError(
+                    "Instance has no applied content set after refresh".into(),
+                )
+            })?
+    } else {
+        content_set
     };
     let mut warnings = Vec::new();
     if refresh_remote
@@ -243,7 +275,7 @@ async fn get_content_snapshot_inner(
         })
         .collect::<HashMap<_, _>>();
     let mut local_metadata_by_entry = HashMap::new();
-    for file in &files {
+    for file in files.iter().filter(|file| !file.missing) {
         let Some(entry) = entries_by_file_id.get(&file.id) else {
             continue;
         };
@@ -258,6 +290,7 @@ async fn get_content_snapshot_inner(
     }
     let mut represented_members = HashSet::new();
     let mut items = Vec::new();
+    let files_for_listing = files.clone();
 
     for file in files.into_iter().filter(|file| !file.missing) {
         let Some(project_type) = project_type_for_file(&file) else {
@@ -416,29 +449,30 @@ async fn get_content_snapshot_inner(
                     return;
                 }
             };
-            for edge in &backfill.edges {
-                if let Err(error) =
-                    content_rows::upsert_content_dependency_edge_in_transaction(
-                        edge, &mut tx,
-                    )
-                    .await
-                {
-                    tracing::warn!(
-                        "Content dependency backfill write failed: {error}"
-                    );
+            let current: Option<(String, i64)> = match sqlx::query_as("SELECT content.id, content.revision FROM instances instance JOIN instance_content_sets content ON content.id = instance.applied_content_set_id WHERE instance.id = ?")
+                .bind(&instance_id).fetch_optional(&mut *tx).await {
+                Ok(current) => current,
+                Err(error) => {
+                    tracing::warn!(%error, "Content dependency backfill snapshot check failed");
                     return;
                 }
+            };
+            if !current.is_some_and(|(id, revision)| {
+                id == content_set.id
+                    && u64::try_from(revision).ok()
+                        == Some(content_set.revision)
+            }) {
+                return;
             }
-            for entry_id in &backfill.backfilled_entry_ids {
-                if let Err(error) = content_rows::set_content_entry_dependency_backfilled_in_transaction(
-                    entry_id,
-                    &mut tx,
-                )
-                .await
-                {
-                    tracing::warn!("Content dependency backfill write failed: {error}");
-                    return;
-                }
+            if let Err(error) = dependencies::persist_backfill(
+                &backfill,
+                &content_set.id,
+                &mut tx,
+            )
+            .await
+            {
+                tracing::warn!(%error, "Content dependency reconciliation failed");
+                return;
             }
             let revision =
                 match content_rows::bump_content_set_revision_in_transaction(
@@ -482,72 +516,134 @@ async fn get_content_snapshot_inner(
     } else {
         CacheBehaviour::CacheOnly
     };
-    match list_all_content(
-        instance_id,
-        Some(cache_behaviour),
-        refresh_remote,
-        state,
-    )
-    .await
-    {
-        Ok(enriched) => {
-            let enriched = enriched
-                .into_iter()
-                .map(|item| (item.file_path.clone(), item))
-                .collect::<HashMap<_, _>>();
-            for item in &mut items {
-                if let Some(content) =
-                    enriched.get(&item.expected_relative_path)
-                {
-                    if refresh_remote
-                        && item.member_id.is_none()
-                        && let Some(reference) = primary_persistent_ref(content)
+    if enrich {
+        match list_all_content_from_files(
+            instance_id,
+            files_for_listing,
+            Some(cache_behaviour),
+            refresh_remote,
+            state,
+        )
+        .await
+        {
+            Ok(enriched) => {
+                let enriched = enriched
+                    .into_iter()
+                    .map(|item| (item.file_path.clone(), item))
+                    .collect::<HashMap<_, _>>();
+                for item in &mut items {
+                    if let Some(content) =
+                        enriched.get(&item.expected_relative_path)
                     {
-                        item.provider = Some(reference.provider());
-                        item.provider_project_id =
-                            Some(reference.database_project_id());
-                        item.provider_release_id =
-                            reference.database_release_id();
+                        if refresh_remote
+                            && item.member_id.is_none()
+                            && let Some(reference) =
+                                primary_persistent_ref(content)
+                        {
+                            item.provider = Some(reference.provider());
+                            item.provider_project_id =
+                                Some(reference.database_project_id());
+                            item.provider_release_id =
+                                reference.database_release_id();
+                        }
+                        item.content = Some(content.clone());
+                        item.capabilities.can_update = content.update.is_some()
+                            && item.materialization_state
+                                == PackMemberMaterializationState::Present;
                     }
-                    item.content = Some(content.clone());
-                    item.capabilities.can_update = content.update.is_some()
-                        && item.materialization_state
-                            == PackMemberMaterializationState::Present;
                 }
             }
+            Err(error) => warnings.push(InstanceContentWarning {
+                code: "provider_metadata_unavailable".to_string(),
+                message: error.to_string(),
+                provider: None,
+            }),
         }
-        Err(error) => warnings.push(InstanceContentWarning {
-            code: "provider_metadata_unavailable".to_string(),
-            message: error.to_string(),
-            provider: None,
-        }),
     }
 
-    let remote_pack = match super::list_content::get_linked_modpack_info(
-        instance_id,
-        None,
-        Some(cache_behaviour),
-        state,
-    )
-    .await
-    {
-        Ok(pack) => pack,
-        Err(error) => {
-            warnings.push(InstanceContentWarning {
-                code: "pack_metadata_unavailable".to_string(),
-                message: error.to_string(),
-                provider: pack_provider(&link),
-            });
-            None
+    let remote_pack = if enrich {
+        match super::list_content::get_linked_modpack_info(
+            instance_id,
+            None,
+            Some(cache_behaviour),
+            state,
+        )
+        .await
+        {
+            Ok(pack) => pack,
+            Err(error) => {
+                warnings.push(InstanceContentWarning {
+                    code: "pack_metadata_unavailable".to_string(),
+                    message: error.to_string(),
+                    provider: pack_provider(&link),
+                });
+                None
+            }
         }
+    } else {
+        None
     };
-    let pack = pack_snapshot(
+    let mut pack = pack_snapshot(
         &instance.name,
         instance.icon_path.clone(),
         &link,
         &members,
         remote_pack,
     );
+
+    let resource_store =
+        crate::state::resources::ResourceStore::new(state.pool.clone());
+    if let Some(pack) = &mut pack {
+        pack.resource_id = resource_store
+            .instance_pack_resource(instance_id)
+            .await
+            .map_err(|error| crate::ErrorKind::OtherError(error.to_string()))?;
+    }
+    let entry_resources = resource_store
+        .entry_resources(instance_id)
+        .await
+        .map_err(|error| crate::ErrorKind::OtherError(error.to_string()))?;
+    let pack_resources = resource_store
+        .pack_resources(instance_id)
+        .await
+        .map_err(|error| crate::ErrorKind::OtherError(error.to_string()))?;
+    for item in &mut items {
+        item.resource_id = item
+            .entry_id
+            .as_ref()
+            .and_then(|id| entry_resources.get(id))
+            .cloned();
+        item.pack_resource_id = item
+            .member_id
+            .as_ref()
+            .and_then(|id| pack_resources.get(id))
+            .cloned();
+    }
+
+    crate::resources::installed::attach_compatibility(
+        &state.pool,
+        instance_id,
+        &content_set.game_version,
+        content_set.loader.as_str(),
+        &mut items,
+        state.resources().await.ok(),
+    )
+    .await?;
+
+    if enrich
+        && let Err(error) = crate::resources::history::attach_to_snapshot(
+            instance_id,
+            &mut items,
+            state,
+        )
+        .await
+    {
+        warnings.push(InstanceContentWarning {
+            code: "resource_history_unavailable".into(),
+            message: error.to_string(),
+            provider: None,
+        });
+    }
 
     items.sort_by(|left, right| {
         left.expected_relative_path
@@ -617,7 +713,8 @@ pub(crate) async fn reconcile_curseforge_members(
         })
         .collect::<crate::Result<Vec<_>>>()?;
     let member_rows = sqlx::query(
-        "SELECT id, member_key, override_kind, materialization_state
+        "SELECT id, member_key, override_kind, materialization_state,
+            CASE WHEN provider IS NULL THEN expected_relative_path END AS override_path
 		 FROM instance_pack_members WHERE content_set_id = ?",
     )
     .bind(content_set_id)
@@ -637,6 +734,7 @@ pub(crate) async fn reconcile_curseforge_members(
                     PackMemberMaterializationState::from_str(
                         &row.try_get::<String, _>("materialization_state")?,
                     )?,
+                    row.try_get::<Option<String>, _>("override_path")?,
                 ),
             ))
         })
@@ -720,7 +818,7 @@ pub(crate) async fn reconcile_curseforge_members(
         let existing = existing_members.remove(&member_key);
         let inherited_override = existing
             .as_ref()
-            .map_or(PackMemberOverrideKind::None, |(_, kind, _)| *kind);
+            .map_or(PackMemberOverrideKind::None, |(_, kind, _, _)| *kind);
         let override_kind =
             if inherited_override != PackMemberOverrideKind::None {
                 inherited_override
@@ -750,7 +848,7 @@ pub(crate) async fn reconcile_curseforge_members(
         };
         let now = Utc::now();
         let member_id = existing
-            .map(|(id, _, _)| id)
+            .map(|(id, _, _, _)| id)
             .unwrap_or_else(|| format!("pack-member:{}", uuid::Uuid::new_v4()));
         content_rows::upsert_pack_member_in_transaction(
             &crate::state::instances::PackMember {
@@ -789,7 +887,16 @@ pub(crate) async fn reconcile_curseforge_members(
         .await?;
     }
 
-    for (_, (member_id, _, _)) in existing_members {
+    for expected_override in &expected.overrides {
+        let expected_path =
+            normalized_content_path(&expected_override.expected_relative_path);
+        existing_members.retain(|_, (_, _, _, path)| {
+            path.as_deref().is_none_or(|path| {
+                normalized_content_path(path) != expected_path
+            })
+        });
+    }
+    for (_, (member_id, _, _, _)) in existing_members {
         sqlx::query("DELETE FROM instance_pack_members WHERE id = ?")
             .bind(member_id)
             .execute(&mut *tx)
@@ -802,6 +909,30 @@ pub(crate) async fn reconcile_curseforge_members(
         &mut tx,
     )
     .await?;
+    content_rows::repair_pack_members_in_transaction(content_set_id, &mut tx)
+        .await?;
+    let override_paths: HashSet<_> = expected
+        .overrides
+        .iter()
+        .map(|item| normalized_content_path(&item.expected_relative_path))
+        .collect();
+    let unreconciled: Vec<(String, String)> = sqlx::query_as(
+        "SELECT id, expected_relative_path FROM instance_pack_members
+         WHERE content_set_id = ? AND provider IS NULL AND reconciled = 0",
+    )
+    .bind(content_set_id)
+    .fetch_all(&mut *tx)
+    .await?;
+    for (member_id, path) in unreconciled {
+        if override_paths.contains(&normalized_content_path(&path)) {
+            sqlx::query(
+                "UPDATE instance_pack_members SET reconciled = 1 WHERE id = ?",
+            )
+            .bind(member_id)
+            .execute(&mut *tx)
+            .await?;
+        }
+    }
     content_rows::bump_content_set_revision_in_transaction(
         content_set_id,
         &mut tx,
@@ -1057,433 +1188,6 @@ fn normalized_content_path(path: &str) -> String {
         .to_ascii_lowercase()
 }
 
-#[derive(Default)]
-struct DependencyBackfill {
-    edges: Vec<crate::state::instances::ContentDependencyEdge>,
-    backfilled_entry_ids: HashSet<String>,
-}
-
-impl DependencyBackfill {
-    fn is_empty(&self) -> bool {
-        self.edges.is_empty() && self.backfilled_entry_ids.is_empty()
-    }
-}
-
-async fn backfill_dependency_edges_from_metadata(
-    entries: &[crate::state::instances::ContentEntry],
-    refs_by_entry: &HashMap<String, Vec<ContentProviderRef>>,
-    content_set: &crate::state::instances::ContentSet,
-    local_metadata_by_entry: &HashMap<
-        String,
-        crate::mod_metadata::LocalModMetadata,
-    >,
-    state: &State,
-) -> crate::Result<DependencyBackfill> {
-    // Only entries that have never had their edges persisted are backfilled.
-    // Checking the table as a whole would leave entries installed before the
-    // edges feature without edges as soon as any other entry had edges.
-    let existing = content_rows::get_content_dependency_edges(
-        &content_set.id,
-        &state.pool,
-    )
-    .await?;
-    let entries_with_edges = existing
-        .iter()
-        .map(|edge| edge.parent_entry_id.as_str())
-        .collect::<HashSet<_>>();
-    let modrinth_origins = entries
-        .iter()
-        .filter(|entry| !entries_with_edges.contains(entry.id.as_str()))
-        .filter_map(|entry| {
-            refs_by_entry.get(&entry.id).and_then(|references| {
-                references.iter().find_map(|reference| match reference {
-                    ContentProviderRef::Modrinth {
-                        project_id,
-                        version_id: Some(version_id),
-                    } => Some((
-                        entry.id.clone(),
-                        (project_id.clone(), version_id.clone()),
-                    )),
-                    _ => None,
-                })
-            })
-        })
-        .collect::<HashMap<_, _>>();
-    let version_ids = modrinth_origins
-        .values()
-        .map(|(_, version_id)| version_id.clone())
-        .collect::<Vec<_>>();
-    let versions_by_id = if version_ids.is_empty() {
-        HashMap::new()
-    } else {
-        CachedEntry::get_version_many(
-            &version_ids,
-            None,
-            &state.pool,
-            &state.api_semaphore,
-        )
-        .await?
-        .into_iter()
-        .map(|version| (version.id.clone(), version))
-        .collect::<HashMap<_, _>>()
-    };
-    let mut backfill = DependencyBackfill::default();
-
-    for entry in entries {
-        if entries_with_edges.contains(entry.id.as_str()) {
-            continue;
-        }
-        let Some((project_id, version_id)) = modrinth_origins.get(&entry.id)
-        else {
-            continue;
-        };
-        let Some(version) = versions_by_id.get(version_id.as_str()) else {
-            continue;
-        };
-        for dependency in &version.dependencies {
-            if !matches!(
-                dependency.dependency_type,
-                crate::state::DependencyType::Required
-            ) {
-                continue;
-            }
-            let Some(dependency_project_id) = dependency.project_id.clone()
-            else {
-                continue;
-            };
-            let dependency_project_id = if content_set.loader
-                == crate::state::ModLoader::Quilt
-                && dependency_project_id == "P7dR8mSH"
-            {
-                "qvIfYCYJ".to_string()
-            } else {
-                dependency_project_id
-            };
-            let child_entry =
-                if let Some(version_id) = dependency.version_id.as_deref() {
-                    match content_rows::get_content_entry_by_provider_ref(
-                        &content_set.id,
-                        ContentProvider::Modrinth,
-                        &dependency_project_id,
-                        version_id,
-                        &state.pool,
-                    )
-                    .await?
-                    {
-                        Some(entry) => Some(entry),
-                        None => {
-                            // The installed version may differ from the
-                            // declared one; match by project as a fallback.
-                            content_rows::get_content_entry_by_provider_project(
-                                &content_set.id,
-                                ContentProvider::Modrinth,
-                                &dependency_project_id,
-                                &state.pool,
-                            )
-                            .await?
-                        }
-                    }
-                } else {
-                    content_rows::get_content_entry_by_provider_project(
-                        &content_set.id,
-                        ContentProvider::Modrinth,
-                        &dependency_project_id,
-                        &state.pool,
-                    )
-                    .await?
-                };
-            let Some(child_entry) = child_entry else {
-                continue;
-            };
-            let child_release_id = refs_by_entry
-                .get(&child_entry.id)
-                .and_then(|references| {
-                    references.iter().find_map(|reference| match reference {
-                        ContentProviderRef::Modrinth {
-                            version_id: Some(version_id),
-                            ..
-                        } => Some(version_id.to_string()),
-                        _ => None,
-                    })
-                })
-                .unwrap_or_else(|| {
-                    dependency.version_id.clone().unwrap_or_default()
-                });
-            if child_release_id.is_empty() {
-                continue;
-            }
-            let now = chrono::Utc::now();
-            backfill.edges.push(crate::state::instances::ContentDependencyEdge {
-                id: format!("content-dependency:{}", uuid::Uuid::new_v4()),
-                content_set_id: content_set.id.clone(),
-                parent_entry_id: entry.id.clone(),
-                child_entry_id: child_entry.id,
-                evidence_provider: ContentProvider::Modrinth,
-                parent_provider: ContentProvider::Modrinth,
-                child_provider: ContentProvider::Modrinth,
-                dependency_kind: crate::state::instances::ContentDependencyKind::Required,
-                parent_project_id: project_id.to_string(),
-                parent_release_id: version_id.to_string(),
-                child_project_id: dependency_project_id,
-                child_release_id,
-                created_at: now,
-                modified_at: now,
-            });
-        }
-    }
-
-    backfill_curseforge_dependency_edges(
-        entries,
-        refs_by_entry,
-        &entries_with_edges,
-        content_set,
-        state,
-        &mut backfill,
-    )
-    .await?;
-
-    backfill_local_dependency_edges(
-        entries,
-        refs_by_entry,
-        &entries_with_edges,
-        content_set,
-        local_metadata_by_entry,
-        &mut backfill,
-    )
-    .await?;
-
-    Ok(backfill)
-}
-
-/// Link CurseForge-identified entries (installed files and pack members alike)
-/// through the dependency relations of their installed file. Pack members are
-/// not special-cased: every CurseForge entry without persisted edges is
-/// resolved the same way, in one batched API request.
-async fn backfill_curseforge_dependency_edges(
-    entries: &[crate::state::instances::ContentEntry],
-    refs_by_entry: &HashMap<String, Vec<ContentProviderRef>>,
-    entries_with_edges: &HashSet<&str>,
-    content_set: &crate::state::instances::ContentSet,
-    state: &State,
-    backfill: &mut DependencyBackfill,
-) -> crate::Result<()> {
-    let backfilled_entry_ids =
-        content_rows::get_dependency_backfilled_entry_ids(
-            &content_set.id,
-            &state.pool,
-        )
-        .await?;
-    let mut pending = Vec::new();
-    for entry in entries {
-        if entries_with_edges.contains(entry.id.as_str())
-            || backfilled_entry_ids.contains(&entry.id)
-        {
-            continue;
-        }
-        let Some((project_id, file_id)) =
-            refs_by_entry.get(&entry.id).and_then(|references| {
-                references.iter().find_map(|reference| match reference {
-                    ContentProviderRef::CurseForge {
-                        project_id,
-                        file_id: Some(file_id),
-                    } => Some((project_id.get(), file_id.get())),
-                    _ => None,
-                })
-            })
-        else {
-            continue;
-        };
-        pending.push((entry, project_id, file_id));
-    }
-    if pending.is_empty() {
-        return Ok(());
-    }
-
-    // One batched request covers every pending entry. A failure here must not
-    // break the content page: skip this snapshot and retry on the next one.
-    let file_ids = pending
-        .iter()
-        .map(|(_, _, file_id)| *file_id)
-        .collect::<Vec<_>>();
-    let files = match crate::api::curseforge::get_files_many(file_ids).await {
-        Ok(files) => files,
-        Err(error) => {
-            tracing::warn!("CurseForge dependency backfill skipped: {error}");
-            return Ok(());
-        }
-    };
-    let dependencies_by_file_id = files
-        .into_iter()
-        .map(|file| (file.id, file.dependencies))
-        .collect::<HashMap<_, _>>();
-
-    let is_quilt = content_set.loader == crate::state::ModLoader::Quilt;
-    for (entry, project_id, file_id) in pending {
-        let Some(dependencies) = dependencies_by_file_id.get(&file_id) else {
-            continue;
-        };
-        let mut resolved_all = true;
-        for dependency in dependencies {
-            if !matches!(
-                dependency.relation_type,
-                crate::api::curseforge::DEPENDENCY_RELATION_REQUIRED
-                    | crate::api::curseforge::DEPENDENCY_RELATION_INCLUDE
-            ) {
-                continue;
-            }
-            let dependency_project_id = if is_quilt
-                && dependency.mod_id
-                    == crate::api::curseforge::FABRIC_API_CURSEFORGE_PROJECT_ID
-            {
-                crate::api::curseforge::QUILTED_FABRIC_API_CURSEFORGE_PROJECT_ID
-            } else {
-                dependency.mod_id
-            };
-            let Some(child_entry) =
-                content_rows::get_content_entry_by_provider_project(
-                    &content_set.id,
-                    ContentProvider::CurseForge,
-                    &dependency_project_id.to_string(),
-                    &state.pool,
-                )
-                .await?
-            else {
-                // Leave the entry unmarked so a later install of the missing
-                // dependency is picked up by a future backfill pass.
-                resolved_all = false;
-                continue;
-            };
-            let child_release_id = refs_by_entry
-                .get(&child_entry.id)
-                .and_then(|references| {
-                    references.iter().find_map(|reference| match reference {
-                        ContentProviderRef::CurseForge {
-                            file_id: Some(file_id),
-                            ..
-                        } => Some(file_id.get().to_string()),
-                        _ => None,
-                    })
-                })
-                .unwrap_or_default();
-            let now = chrono::Utc::now();
-            backfill.edges.push(
-                crate::state::instances::ContentDependencyEdge {
-                    id: format!("content-dependency:{}", uuid::Uuid::new_v4()),
-                    content_set_id: content_set.id.clone(),
-                    parent_entry_id: entry.id.clone(),
-                    child_entry_id: child_entry.id,
-                    evidence_provider: ContentProvider::CurseForge,
-                    parent_provider: ContentProvider::CurseForge,
-                    child_provider: ContentProvider::CurseForge,
-                    dependency_kind: if dependency.relation_type
-                        == crate::api::curseforge::DEPENDENCY_RELATION_INCLUDE
-                    {
-                        crate::state::instances::ContentDependencyKind::Include
-                    } else {
-                        crate::state::instances::ContentDependencyKind::Required
-                    },
-                    parent_project_id: project_id.to_string(),
-                    parent_release_id: file_id.to_string(),
-                    child_project_id: dependency_project_id.to_string(),
-                    child_release_id,
-                    created_at: now,
-                    modified_at: now,
-                },
-            );
-        }
-        if resolved_all {
-            backfill.backfilled_entry_ids.insert(entry.id.clone());
-        }
-    }
-    Ok(())
-}
-
-/// Link locally identified files (no online provider refs) through the
-/// dependency declarations embedded in their own metadata. Mod ids from
-/// `fabric.mod.json`, `quilt.mod.json`, and Forge `mods.toml` are matched
-/// against other locally identified files only, mirroring Prism Launcher's
-/// local mod id matching.
-async fn backfill_local_dependency_edges(
-    entries: &[crate::state::instances::ContentEntry],
-    refs_by_entry: &HashMap<String, Vec<ContentProviderRef>>,
-    entries_with_edges: &HashSet<&str>,
-    content_set: &crate::state::instances::ContentSet,
-    local_metadata_by_entry: &HashMap<
-        String,
-        crate::mod_metadata::LocalModMetadata,
-    >,
-    backfill: &mut DependencyBackfill,
-) -> crate::Result<()> {
-    let local_entry_ids = entries
-        .iter()
-        .filter(|entry| !refs_by_entry.contains_key(&entry.id))
-        .map(|entry| entry.id.as_str())
-        .collect::<HashSet<_>>();
-    if local_entry_ids.is_empty() {
-        return Ok(());
-    }
-
-    let mut entry_id_by_mod_id = HashMap::new();
-    for entry in entries {
-        if !local_entry_ids.contains(entry.id.as_str()) {
-            continue;
-        }
-        let Some(metadata) = local_metadata_by_entry.get(&entry.id) else {
-            continue;
-        };
-        entry_id_by_mod_id
-            .entry(metadata.mod_id.as_str())
-            .or_insert(entry.id.as_str());
-    }
-
-    for entry in entries {
-        if !local_entry_ids.contains(entry.id.as_str())
-            || entries_with_edges.contains(entry.id.as_str())
-        {
-            continue;
-        }
-        let Some(metadata) = local_metadata_by_entry.get(&entry.id) else {
-            continue;
-        };
-        let Some(dependencies) = metadata.dependencies.as_ref() else {
-            continue;
-        };
-        for dependency in dependencies {
-            let Some(child_entry_id) =
-                entry_id_by_mod_id.get(dependency.mod_id.as_str())
-            else {
-                continue;
-            };
-            if *child_entry_id == entry.id {
-                continue;
-            }
-            let Some(child_metadata) =
-                local_metadata_by_entry.get(*child_entry_id)
-            else {
-                continue;
-            };
-            let now = chrono::Utc::now();
-            backfill.edges.push(crate::state::instances::ContentDependencyEdge {
-                id: format!("content-dependency:{}", uuid::Uuid::new_v4()),
-                content_set_id: content_set.id.clone(),
-                parent_entry_id: entry.id.clone(),
-                child_entry_id: (*child_entry_id).to_string(),
-                evidence_provider: ContentProvider::Local,
-                parent_provider: ContentProvider::Local,
-                child_provider: ContentProvider::Local,
-                dependency_kind: crate::state::instances::ContentDependencyKind::Required,
-                parent_project_id: format!("local:{}", metadata.mod_id),
-                parent_release_id: metadata.version.clone().unwrap_or_default(),
-                child_project_id: format!("local:{}", child_metadata.mod_id),
-                child_release_id: child_metadata.version.clone().unwrap_or_default(),
-                created_at: now,
-                modified_at: now,
-            });
-        }
-    }
-    Ok(())
-}
-
 async fn attach_dependency_info(
     items: &mut [InstanceContentSnapshotItem],
     entries: &[crate::state::instances::ContentEntry],
@@ -1585,6 +1289,10 @@ fn snapshot_item(
         .is_some_and(|content| !content.provider_refs.is_empty());
 
     InstanceContentSnapshotItem {
+        artifact_ref: None,
+        compatibility: None,
+        resource_id: None,
+        pack_resource_id: None,
         file_id,
         entry_id,
         member_id: member.map(|member| member.id.clone()),
@@ -1684,6 +1392,7 @@ fn pack_snapshot(
         .unwrap_or(fallback_name);
 
     Some(InstanceContentPack {
+        resource_id: None,
         name,
         icon_path,
         provider,

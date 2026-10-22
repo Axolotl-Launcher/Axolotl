@@ -1,73 +1,41 @@
 //! Modrinth CDN redirect normalization for native download requests.
 
+use crate::util::download::constants::{
+    MAX_REDIRECT_LOCATION_BYTES, MODRINTH_REDIRECT_HTTPS,
+};
 use url::Url;
 
-use crate::util::fetch::{
-    MODRINTH_CDN_LEGACY_HOST, MODRINTH_CDN_OFFICIAL_HOST,
-};
-
-const TIANPAO_HOST: &str = "mod.tianpao.top";
-
-/// Identifies a Tianpao response that points at one of Modrinth's real CDN
-/// hosts. The caller uses this only to abandon the mirror request; it must
-/// follow the server-provided host without rewriting it.
-pub(crate) fn is_tianpao_official_redirect(
-    current: &Url,
-    location: Option<&str>,
-) -> bool {
-    current
-        .host_str()
-        .is_some_and(|host| host.eq_ignore_ascii_case(TIANPAO_HOST))
-        && location.is_some_and(|location| {
-            let Ok(redirect) = current.join(location) else {
-                return false;
-            };
-            redirect.host_str().is_some_and(|host| {
-                host.eq_ignore_ascii_case(MODRINTH_CDN_LEGACY_HOST)
-                    || host.eq_ignore_ascii_case(MODRINTH_CDN_OFFICIAL_HOST)
-            })
-        })
-}
+use super::modrinth_cdn;
 
 pub(crate) fn repair_official_redirect(
     original: &Url,
     redirect: &Url,
     location: &str,
 ) -> Option<Url> {
-    if location.is_ascii()
-        || !redirect.host_str().is_some_and(|host| {
-            host.eq_ignore_ascii_case(MODRINTH_CDN_LEGACY_HOST)
-                || host.eq_ignore_ascii_case(MODRINTH_CDN_OFFICIAL_HOST)
-        })
-        || original.path().is_empty()
+    let mut repaired = modrinth_cdn::normalize_parsed(redirect.clone());
+    if !location.is_ascii()
+        && modrinth_cdn::is_current_url(&repaired)
+        && !original.path().is_empty()
     {
-        return None;
+        repaired.set_path(original.path());
+        repaired.set_query(original.query());
+        repaired.set_fragment(original.fragment());
+        return Some(repaired);
     }
-    let mut repaired = redirect.clone();
-    repaired.set_path(original.path());
-    repaired.set_query(original.query());
-    repaired.set_fragment(original.fragment());
-    Some(repaired)
+    (repaired != *redirect).then_some(repaired)
 }
 
 pub(crate) fn is_official_redirect(location: Option<&str>) -> bool {
     let Some(location) = location.filter(|location| {
-        location.len() <= 8 * 1024
+        location.len() <= MAX_REDIRECT_LOCATION_BYTES
             && location.is_ascii()
-            && location
-                .get(..8)
-                .is_some_and(|scheme| scheme.eq_ignore_ascii_case("https://"))
+            && location.get(..8).is_some_and(|scheme| {
+                scheme.eq_ignore_ascii_case(MODRINTH_REDIRECT_HTTPS)
+            })
     }) else {
         return false;
     };
-    let authority = location[8..]
-        .split(['/', '?', '#'])
-        .next()
-        .unwrap_or_default();
-    authority.eq_ignore_ascii_case(MODRINTH_CDN_OFFICIAL_HOST)
-        || authority
-            .eq_ignore_ascii_case(&format!("{MODRINTH_CDN_OFFICIAL_HOST}:443"))
-        || authority.eq_ignore_ascii_case(MODRINTH_CDN_LEGACY_HOST)
-        || authority
-            .eq_ignore_ascii_case(&format!("{MODRINTH_CDN_LEGACY_HOST}:443"))
+    Url::parse(location).is_ok_and(|url| {
+        modrinth_cdn::is_current_url(&modrinth_cdn::normalize_parsed(url))
+    })
 }

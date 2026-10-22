@@ -678,6 +678,7 @@ async fn auto_install_java_inner(
     reporter: Option<InstallProgressReporter>,
     confirm_download: bool,
 ) -> crate::Result<Option<PathBuf>> {
+    let _metadata_usage = crate::storage::usage::lease().await?;
     let state = State::get().await?;
     let _install_guard = JAVA_INSTALL_LOCK.lock().await;
     if confirm_download
@@ -1637,6 +1638,7 @@ async fn download_java_from_feed_inner(
     jdk_version_major: u32,
     reporter: Option<InstallProgressReporter>,
 ) -> crate::Result<PathBuf> {
+    let _metadata_usage = crate::storage::usage::lease().await?;
     let state = State::get().await?;
     let _install_guard = JAVA_INSTALL_LOCK.lock().await;
 

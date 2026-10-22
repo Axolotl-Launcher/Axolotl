@@ -92,10 +92,6 @@ export async function update_crash_analysis_ai_settings(settings) {
     return await invoke('plugin:logs|logs_update_crash_analysis_ai_settings', { settings })
 }
 
-export async function explain_crash_with_ai(instanceId) {
-    return await invoke('plugin:logs|logs_explain_crash_with_ai', { instanceId })
-}
-
 export async function undo_added_mod(instanceId, filename, expectedHash) {
     return await invoke('plugin:logs|logs_undo_added_mod', { instanceId, filename, expectedHash })
 }
@@ -118,14 +114,6 @@ export async function logshare_get_insights(id) {
 
 export async function logshare_analyse_crash_direct(instanceId) {
     return await invoke('plugin:logs|logs_logshare_analyse_crash_direct', { instanceId })
-}
-
-export async function logshare_ai_analyze_stored(instanceId, id) {
-    return await invoke('plugin:logs|logs_logshare_ai_analyze_stored', { instanceId, id })
-}
-
-export async function logshare_ai_analyze_direct(instanceId) {
-    return await invoke('plugin:logs|logs_logshare_ai_analyze_direct', { instanceId })
 }
 
 export async function logshare_delete(id, token) {

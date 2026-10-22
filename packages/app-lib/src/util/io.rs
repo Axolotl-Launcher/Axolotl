@@ -60,6 +60,34 @@ pub(crate) fn io_error_with_lock_info(
     io_error_with_lock_info_for_paths(source, path, &[path])
 }
 
+/// Joins an untrusted Unix-style relative file path, rejecting traversal and
+/// Windows aliases on every platform. This is a lexical check, not a symlink
+/// sandbox.
+pub(crate) fn safe_relative_join(
+    root: &Path,
+    relative: &str,
+) -> crate::Result<PathBuf> {
+    path_util::SafeRelativeUtf8UnixPathBuf::try_from(relative.to_string())
+        .map_err(|error| {
+            crate::ErrorKind::InputError(format!(
+                "Invalid file path {relative}: {error}"
+            ))
+        })?;
+    if relative.split('/').any(|segment| {
+        segment.is_empty()
+            || segment == "."
+            || segment.ends_with(['.', ' '])
+            || segment.contains(':')
+            || segment.chars().any(char::is_control)
+    }) {
+        return Err(crate::ErrorKind::InputError(format!(
+            "Invalid file path: {relative}"
+        ))
+        .into());
+    }
+    Ok(root.join(relative))
+}
+
 /// Join a user-provided relative path onto `root`, rejecting traversal.
 pub(crate) fn join_within_root(
     root: &Path,
@@ -95,7 +123,7 @@ pub(crate) fn join_within_root(
         )
         .into());
     }
-    Ok(root.join(safe))
+    safe_relative_join(root, &safe.to_string_lossy().replace('\\', "/"))
 }
 
 pub(crate) fn io_error_with_lock_info_for_paths(
@@ -453,6 +481,86 @@ pub fn is_same_disk(old_dir: &Path, new_dir: &Path) -> Result<bool> {
         };
         Ok(same)
     }
+}
+
+/// Replaces `destination` with `source` in a single step where the platform
+/// supports it. A destination that already exists is replaced, and the
+/// previous contents stay in place when the operation fails, so callers never
+/// have to remove the destination first.
+#[cfg(not(target_os = "windows"))]
+pub(crate) fn atomically_replace_file(
+    source: &std::path::Path,
+    destination: &std::path::Path,
+) -> std::io::Result<()> {
+    std::fs::rename(source, destination)
+}
+
+#[cfg(target_os = "windows")]
+pub(crate) fn atomically_replace_file(
+    source: &std::path::Path,
+    destination: &std::path::Path,
+) -> std::io::Result<()> {
+    use std::os::windows::ffi::OsStrExt;
+    use windows::Win32::Storage::FileSystem::{
+        MOVEFILE_REPLACE_EXISTING, MOVEFILE_WRITE_THROUGH, MoveFileExW,
+    };
+    use windows::core::PCWSTR;
+
+    let source = source
+        .as_os_str()
+        .encode_wide()
+        .chain(std::iter::once(0))
+        .collect::<Vec<_>>();
+    let destination = destination
+        .as_os_str()
+        .encode_wide()
+        .chain(std::iter::once(0))
+        .collect::<Vec<_>>();
+    unsafe {
+        MoveFileExW(
+            PCWSTR(source.as_ptr()),
+            PCWSTR(destination.as_ptr()),
+            MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH,
+        )
+        .map_err(|error| {
+            std::io::Error::from_raw_os_error(win32_from_hresult(
+                error.code().0,
+            ))
+        })
+    }
+}
+
+/// The `windows` crate reports a failed Win32 call as an `HRESULT` built by
+/// `HRESULT_FROM_WIN32`, so the original error code sits in the low word under
+/// the `0x8007` facility. `std::io::Error` and the sharing-violation retry
+/// below compare against real Win32 codes, so unwrap it here: a value left as
+/// an `HRESULT` would never match `ERROR_SHARING_VIOLATION` and would also
+/// report the wrong `ErrorKind`.
+#[cfg(target_os = "windows")]
+pub(crate) fn win32_from_hresult(code: i32) -> i32 {
+    const FACILITY_WIN32: u32 = 0x0007;
+    let bits = code as u32;
+    if (bits >> 16) & 0x1FFF == FACILITY_WIN32 {
+        (bits & 0xFFFF) as i32
+    } else {
+        code
+    }
+}
+
+#[cfg(not(target_os = "windows"))]
+pub(crate) fn win32_from_hresult(code: i32) -> i32 {
+    code
+}
+
+/// Flushes a file's contents to stable storage. Used before an atomic replace
+/// so a crash after the rename cannot leave an empty destination behind.
+///
+/// Opened for writing on purpose: `FlushFileBuffers` requires a handle with
+/// write access, so a read-only handle makes this fail with access denied on
+/// Windows.
+pub(crate) async fn fsync_file(path: &std::path::Path) -> std::io::Result<()> {
+    let file = tokio::fs::OpenOptions::new().write(true).open(path).await?;
+    file.sync_all().await
 }
 
 pub async fn rename_or_move(
@@ -896,6 +1004,88 @@ mod windows_sharing_violation_tests {
 
         assert_eq!(error.raw_os_error(), Some(32));
         assert_eq!(attempts.load(Ordering::SeqCst), 3);
+    }
+}
+
+#[cfg(test)]
+mod atomic_replace_tests {
+    use super::*;
+    use tempfile::tempdir;
+
+    #[test]
+    fn join_within_root_uses_portable_path_validation() {
+        let root = Path::new("root");
+        assert_eq!(
+            join_within_root(root, r"config\example.toml").unwrap(),
+            root.join("config/example.toml")
+        );
+        assert_eq!(
+            join_within_root(root, "./config/./example.toml").unwrap(),
+            root.join("config/example.toml")
+        );
+        for relative in [
+            "../outside",
+            r"..\outside",
+            "/outside",
+            "C:/outside",
+            "C:outside",
+            r"\\server\share",
+            "config/.. /outside",
+            "config/file:stream",
+            "config/NUL",
+            "config/file.",
+            "config/file\0",
+        ] {
+            assert!(join_within_root(root, relative).is_err(), "{relative:?}");
+        }
+    }
+
+    #[cfg(target_os = "windows")]
+    #[test]
+    fn a_win32_hresult_is_unwrapped_to_its_error_code() {
+        // HRESULT_FROM_WIN32(ERROR_SHARING_VIOLATION) as the `windows` crate
+        // reports it.
+        assert_eq!(win32_from_hresult(0x8007_0020u32 as i32), 32);
+        assert_eq!(win32_from_hresult(0x8007_0005u32 as i32), 5);
+        // A plain Win32 code and an unrelated HRESULT both pass through.
+        assert_eq!(win32_from_hresult(2), 2);
+        assert_eq!(
+            win32_from_hresult(0x8000_4005u32 as i32),
+            0x8000_4005u32 as i32
+        );
+    }
+
+    #[tokio::test]
+    async fn atomically_replace_file_swaps_contents_in_place() {
+        let directory = tempdir().expect("temp dir");
+        let source = directory.path().join("source.tmp");
+        let destination = directory.path().join("destination.bin");
+        tokio::fs::write(&source, b"new")
+            .await
+            .expect("write source");
+        tokio::fs::write(&destination, b"old")
+            .await
+            .expect("write destination");
+
+        atomically_replace_file(&source, &destination).expect("replace");
+
+        assert_eq!(tokio::fs::read(&destination).await.expect("read"), b"new");
+        assert!(!source.exists(), "the source file is consumed");
+    }
+
+    #[tokio::test]
+    async fn fsync_file_accepts_a_partial_file_and_reports_missing_ones() {
+        let directory = tempdir().expect("temp dir");
+        let part = directory.path().join("download.part");
+        tokio::fs::write(&part, b"partial")
+            .await
+            .expect("write part");
+
+        fsync_file(&part).await.expect("flush an existing file");
+
+        let missing = directory.path().join("missing.part");
+        let error = fsync_file(&missing).await.expect_err("missing file");
+        assert_eq!(error.kind(), std::io::ErrorKind::NotFound);
     }
 }
 

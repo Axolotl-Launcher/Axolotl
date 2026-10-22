@@ -7,7 +7,7 @@ import {
     setDatapackEnabled,
     type WorldWithDatapacks,
 } from '@/helpers/datapacks'
-import { getPackFormatRange } from '@/helpers/pack-formats'
+import { formatDatapackVersion } from '@/helpers/pack-formats'
 
 function datapackDescription(description: unknown): string | undefined {
     if (typeof description === 'string') return description
@@ -63,10 +63,7 @@ export function useWorldDatapacks(getInstanceId: () => string) {
         worldDatapacks.value.flatMap((entry) =>
             entry.datapacks.map((datapack) => {
                 const id = `local:world-datapack:${entry.path}:${datapack.file_name}`
-                const versionRange = getPackFormatRange(datapack.pack_format)
-                const versionNumber =
-                    versionRange?.min ??
-                    (datapack.pack_format != null ? String(datapack.pack_format) : '')
+                const versionNumber = formatDatapackVersion(datapack)
                 return {
                     id,
                     file_name: datapack.file_name,

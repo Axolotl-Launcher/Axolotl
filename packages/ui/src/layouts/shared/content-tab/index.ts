@@ -15,6 +15,7 @@ export type {
     ContentInstallProjectOwner,
 } from './components/modals/ContentInstallModal.vue'
 export { default as ContentInstallModal } from './components/modals/ContentInstallModal.vue'
+export { confirmedContentGroupKey } from './composables/content-duplicates'
 export { clearPinnedContentViewPreferences } from './composables/content-view-state'
 export { default as ContentCardLayout } from './layout.vue'
 export { default as ContentPageLayout } from './layout.vue'

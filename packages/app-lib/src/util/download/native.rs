@@ -1,10 +1,24 @@
 //! Policy boundary for the native download engine.
 
+use crate::util::download::constants::{
+    ALL_PROXY_ENV_LOWER, ALL_PROXY_ENV_UPPER, H2_LARGE_MIN_SUCCESS_SAMPLES,
+    H2_LARGE_PREFERRED_SPEED_RATIO, H2_MIN_SUCCESS_SAMPLES,
+    H2_PREFERRED_SPEED_RATIO, HTTP_PROXY_ENV_LOWER, HTTP_PROXY_ENV_UPPER,
+    HTTPS_PROXY_ENV_LOWER, HTTPS_PROXY_ENV_UPPER,
+    NATIVE_AUTHORITY_IS_TEMPORARILY_USING_HTTP_1_1, NATIVE_AUTOCONFIGURL,
+    NATIVE_CERTIFICATE_POLICY_REQUIRES_THE_REQWEST_TRANSPORT,
+    NATIVE_CONFIGURED_PROXY_REQUIRES_THE_REQWEST_TRANSPORT,
+    NATIVE_DOWNLOAD_SOURCE_HAS_BEEN_RETIRED, NATIVE_PROXYENABLE,
+    NATIVE_SOFTWARE_MICROSOFT_WINDOWS_CURRENTVERSION_INTERNET_SETTINGS,
+    NATIVE_SYSTEM_PROXY_REQUIRES_THE_REQWEST_TRANSPORT,
+};
+
 use crate::util::fetch::{DownloadRoute, ProxyPolicy};
 
-const SMALL_FILE_LIMIT: u64 = 4 * 1024 * 1024;
-const MEDIUM_FILE_LIMIT: u64 = 16 * 1024 * 1024;
-const LARGE_FILE_LIMIT: u64 = 64 * 1024 * 1024;
+use super::constants::{
+    H2_LARGE_FILE_LIMIT as LARGE_FILE_LIMIT,
+    H2_MEDIUM_FILE_LIMIT as MEDIUM_FILE_LIMIT,
+};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) struct NativeH2Policy {
@@ -17,6 +31,7 @@ pub(crate) struct NativeH2Policy {
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum NativeH2IneligibleReason {
+    RetiredSource,
     Http1Fallback,
     SystemProxy,
     ConfiguredProxy,
@@ -26,13 +41,18 @@ pub(crate) enum NativeH2IneligibleReason {
 impl NativeH2IneligibleReason {
     pub(crate) const fn as_str(self) -> &'static str {
         match self {
-            Self::Http1Fallback => "authority is temporarily using HTTP/1.1",
-            Self::SystemProxy => "system proxy requires the reqwest transport",
+            Self::RetiredSource => NATIVE_DOWNLOAD_SOURCE_HAS_BEEN_RETIRED,
+            Self::Http1Fallback => {
+                NATIVE_AUTHORITY_IS_TEMPORARILY_USING_HTTP_1_1
+            }
+            Self::SystemProxy => {
+                NATIVE_SYSTEM_PROXY_REQUIRES_THE_REQWEST_TRANSPORT
+            }
             Self::ConfiguredProxy => {
-                "configured proxy requires the reqwest transport"
+                NATIVE_CONFIGURED_PROXY_REQUIRES_THE_REQWEST_TRANSPORT
             }
             Self::CertificatePolicy => {
-                "certificate policy requires the reqwest transport"
+                NATIVE_CERTIFICATE_POLICY_REQUIRES_THE_REQWEST_TRANSPORT
             }
         }
     }
@@ -41,6 +61,11 @@ impl NativeH2IneligibleReason {
 pub(crate) fn h2_ineligible_reason(
     route: &DownloadRoute,
 ) -> Option<NativeH2IneligibleReason> {
+    if url::Url::parse(&route.url)
+        .is_ok_and(|url| super::retired_sources::is_retired(&url))
+    {
+        return Some(NativeH2IneligibleReason::RetiredSource);
+    }
     let authority = crate::util::fetch::url_authority(&route.url)?;
     if crate::util::fetch::authority_uses_http1_fallback_for(
         &authority,
@@ -49,6 +74,9 @@ pub(crate) fn h2_ineligible_reason(
         return Some(NativeH2IneligibleReason::Http1Fallback);
     }
     if let Some(clients) = super::proxy_context::clients() {
+        if clients.force_http1 {
+            return Some(NativeH2IneligibleReason::Http1Fallback);
+        }
         if clients.ignore_ssl_errors {
             return Some(NativeH2IneligibleReason::CertificatePolicy);
         }
@@ -98,7 +126,7 @@ pub(crate) async fn h2_policy(
     let Some(size) = size else {
         return Some(NativeH2Policy {
             allow_cold_connection: true,
-            abort_if_slow: false,
+            abort_if_slow: true,
             expected_speed: None,
         });
     };
@@ -116,13 +144,6 @@ pub(crate) async fn h2_policy(
     let expected_speed = h2
         .and_then(|health| health.throughput_bps)
         .map(|speed| speed.min(u64::MAX as f64) as u64);
-    if size < SMALL_FILE_LIMIT {
-        return Some(NativeH2Policy {
-            allow_cold_connection: true,
-            abort_if_slow: false,
-            expected_speed,
-        });
-    }
     if size < MEDIUM_FILE_LIMIT {
         // The connection slot serializes the first handshake, so a batch of
         // medium files shares one cold-start attempt instead of stampeding the
@@ -136,12 +157,15 @@ pub(crate) async fn h2_policy(
     if !super::h2_pool::has_live_connection(route).await {
         return None;
     }
-    let h2 = h2.filter(|health| health.success_samples >= 2)?;
+    let h2 =
+        h2.filter(|health| health.success_samples >= H2_MIN_SUCCESS_SAMPLES)?;
     let h2_speed = h2.throughput_bps?;
     let range_speed = multi_range.and_then(|health| health.throughput_bps);
     if size < LARGE_FILE_LIMIT {
         let h2_preferred = range_speed
-            .map(|range_speed| h2_speed >= range_speed * 1.1)
+            .map(|range_speed| {
+                h2_speed >= range_speed * H2_PREFERRED_SPEED_RATIO
+            })
             .unwrap_or(true);
         return h2_preferred.then_some(NativeH2Policy {
             allow_cold_connection: false,
@@ -149,25 +173,26 @@ pub(crate) async fn h2_policy(
             expected_speed: Some(h2_speed.min(u64::MAX as f64) as u64),
         });
     }
-    let range = multi_range.filter(|health| health.success_samples >= 2)?;
+    let range = multi_range
+        .filter(|health| health.success_samples >= H2_MIN_SUCCESS_SAMPLES)?;
     let range_speed = range.throughput_bps?;
-    (h2.success_samples >= 3 && h2_speed >= range_speed * 1.25).then_some(
-        NativeH2Policy {
+    (h2.success_samples >= H2_LARGE_MIN_SUCCESS_SAMPLES
+        && h2_speed >= range_speed * H2_LARGE_PREFERRED_SPEED_RATIO)
+        .then_some(NativeH2Policy {
             allow_cold_connection: false,
             abort_if_slow: true,
             expected_speed: Some(h2_speed.min(u64::MAX as f64) as u64),
-        },
-    )
+        })
 }
 
-fn system_proxy_configured() -> bool {
+pub(crate) fn system_proxy_configured() -> bool {
     let environment_proxy = [
-        "HTTPS_PROXY",
-        "https_proxy",
-        "HTTP_PROXY",
-        "http_proxy",
-        "ALL_PROXY",
-        "all_proxy",
+        HTTPS_PROXY_ENV_UPPER,
+        HTTPS_PROXY_ENV_LOWER,
+        HTTP_PROXY_ENV_UPPER,
+        HTTP_PROXY_ENV_LOWER,
+        ALL_PROXY_ENV_UPPER,
+        ALL_PROXY_ENV_LOWER,
     ]
     .into_iter()
     .any(|name| std::env::var_os(name).is_some_and(|value| !value.is_empty()));
@@ -180,15 +205,15 @@ fn platform_proxy_configured() -> bool {
     use winreg::enums::HKEY_CURRENT_USER;
 
     let Ok(settings) = RegKey::predef(HKEY_CURRENT_USER).open_subkey(
-        "Software\\Microsoft\\Windows\\CurrentVersion\\Internet Settings",
+        NATIVE_SOFTWARE_MICROSOFT_WINDOWS_CURRENTVERSION_INTERNET_SETTINGS,
     ) else {
         return false;
     };
     let enabled = settings
-        .get_value::<u32, _>("ProxyEnable")
+        .get_value::<u32, _>(NATIVE_PROXYENABLE)
         .is_ok_and(|value| value != 0);
     let auto_configured = settings
-        .get_value::<String, _>("AutoConfigURL")
+        .get_value::<String, _>(NATIVE_AUTOCONFIGURL)
         .is_ok_and(|value| !value.trim().is_empty());
     enabled || auto_configured
 }
@@ -247,7 +272,7 @@ mod tests {
             h2_policy(&route(ProxyPolicy::Direct), Some(1024 * 1024),).await,
             Some(NativeH2Policy {
                 allow_cold_connection: true,
-                abort_if_slow: false,
+                abort_if_slow: true,
                 expected_speed: None,
             })
         );

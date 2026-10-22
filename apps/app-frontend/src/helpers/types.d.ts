@@ -46,14 +46,14 @@ export type GameInstance = {
     submitted_time_played: number
     recent_time_played: number
 
-    java_path?: string
-    extra_launch_args?: string[]
-    custom_env_vars?: [string, string][]
+    java_path?: string | null
+    extra_launch_args?: string[] | null
+    custom_env_vars?: [string, string][] | null
 
-    memory?: MemorySettings
-    force_fullscreen?: boolean
-    maximize_window?: boolean
-    game_resolution?: [number, number]
+    memory?: MemorySettings | null
+    force_fullscreen?: boolean | null
+    maximize_window?: boolean | null
+    game_resolution?: [number, number] | null
     window_title?: string | null
     launch_preparation_timeout?: number | null
     hooks: Hooks

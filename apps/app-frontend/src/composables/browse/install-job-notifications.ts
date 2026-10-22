@@ -30,6 +30,8 @@ import {
 import { get_many as getInstances } from '@/helpers/instance'
 import type { DownloadManager } from '@/providers/download-manager'
 
+import { installPhaseMessage } from './install-job-messages'
+
 const messages = defineMessages({
     installs: {
         id: 'app.action-bar.installs',
@@ -91,61 +93,6 @@ const messages = defineMessages({
     cacheRepairFailed: {
         id: 'app.action-bar.install.cache-repair.failed',
         defaultMessage: 'Project cache cleanup failed; retry was not started.',
-    },
-})
-
-const phaseMessages = defineMessages({
-    preparing_instance: {
-        id: 'app.install.phase.preparing_instance',
-        defaultMessage: 'Queued to install',
-    },
-    resolving_pack: {
-        id: 'app.install.phase.resolving_pack',
-        defaultMessage: 'Resolving content',
-    },
-    downloading_pack_file: {
-        id: 'app.install.phase.downloading_pack_file',
-        defaultMessage: 'Downloading .mrpack',
-    },
-    reading_pack_manifest: {
-        id: 'app.install.phase.reading_pack_manifest',
-        defaultMessage: 'Reading pack manifest',
-    },
-    downloading_content: {
-        id: 'app.install.phase.downloading_content',
-        defaultMessage: 'Downloading content',
-    },
-    extracting_overrides: {
-        id: 'app.install.phase.extracting_overrides',
-        defaultMessage: 'Extracting overrides',
-    },
-    resolving_minecraft: {
-        id: 'app.install.phase.resolving_minecraft',
-        defaultMessage: 'Resolving Minecraft',
-    },
-    resolving_loader: {
-        id: 'app.install.phase.resolving_loader',
-        defaultMessage: 'Resolving loader',
-    },
-    preparing_java: {
-        id: 'app.install.phase.preparing_java',
-        defaultMessage: 'Preparing Java',
-    },
-    downloading_minecraft: {
-        id: 'app.install.phase.downloading_minecraft',
-        defaultMessage: 'Downloading Minecraft',
-    },
-    running_loader_processors: {
-        id: 'app.install.phase.running_loader_processors',
-        defaultMessage: 'Running loader processors',
-    },
-    finalizing: {
-        id: 'app.install.phase.finalizing',
-        defaultMessage: 'Finalizing',
-    },
-    rolling_back: {
-        id: 'app.install.phase.rolling_back',
-        defaultMessage: 'Rolling back',
     },
 })
 
@@ -344,7 +291,7 @@ export async function useInstallJobNotifications(opts: {
                 version: job.details.major_version,
             })
         }
-        return formatMessage(phaseMessages[job.phase])
+        return formatMessage(installPhaseMessage(job.phase))
     }
 
     function getFailureSummary(job: InstallJobSnapshot): string {
@@ -465,6 +412,7 @@ export async function useInstallJobNotifications(opts: {
             return installProgressTextSource(job).type === 'bytes' ? 'bytes' : 'count'
         }
         if (
+            job.phase === 'exporting' ||
             job.phase === 'downloading_pack_file' ||
             job.phase === 'extracting_overrides' ||
             job.phase === 'downloading_minecraft'
@@ -798,6 +746,16 @@ export async function useInstallJobNotifications(opts: {
 
     const buttons = computed<PopupNotificationButton[] | undefined>(() => undefined)
 
+    // Same ids with a different status or phase mean the job moved on, so the UI
+    // has to treat it as new information (for example after a dismissed download
+    // notification was remembered across restarts).
+    const stateSignature = computed(() =>
+        jobs.value
+            .map((job) => `${job.job_id}:${job.status}:${job.phase}`)
+            .sort()
+            .join('|'),
+    )
+
     async function refreshMetadata(notify = true) {
         const request = ++metadataRequest
         const sourceJobs = jobs.value.filter((job) => !job.instance_deleted)
@@ -904,6 +862,7 @@ export async function useInstallJobNotifications(opts: {
         hasItems: computed(() => jobs.value.length > 0),
         title: computed(() => formatMessage(messages.installs)),
         progressItems,
+        stateSignature,
         buttons,
         refresh,
         dispose: () => {

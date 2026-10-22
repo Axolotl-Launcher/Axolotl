@@ -6,6 +6,7 @@
 //! prunes only the unsupported *tuning* flags (never the GC selector, which
 //! defines the strategy), and falls back down the candidate chain — ending at
 //! launching with no GC arguments at all rather than refusing to start.
+use crate::util::java_environment;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
@@ -14,7 +15,6 @@ use std::path::Path;
 use std::pin::Pin;
 use std::sync::{Mutex, OnceLock};
 use std::time::Duration;
-use tokio::process::Command;
 use tokio::time::timeout;
 use tracing::warn;
 
@@ -101,10 +101,9 @@ async fn probe_jvm_arguments(java: &Path, args: &[String]) -> ProbeOutcome {
 
     let timed = timeout(
         Duration::from_secs(5),
-        Command::new(java)
+        java_environment::tokio_command(java)
             .args(args)
             .arg("-version")
-            .env_remove("_JAVA_OPTIONS")
             .kill_on_drop(true)
             .output(),
     )

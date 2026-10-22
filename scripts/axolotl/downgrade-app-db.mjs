@@ -52,6 +52,51 @@ const CHANNELS = ['release', 'beta']
 // Only recent migrations are listed. Dropping to a threshold before them is
 // refused rather than guessed at; --allow-unmapped accepts the risk explicitly.
 const REVERTIBLE_SCHEMA = {
+    // CodeFlow endpoint domain move; data only
+    20261021120000: {},
+    20261014210000: { tables: ['resource_legacy_rollback_journals'] },
+    20261014190000: {
+        objects: [
+            { type: 'index', name: 'resource_pending_download_project' },
+            { type: 'index', name: 'resource_link_modrinth_project' },
+            { type: 'index', name: 'resource_link_content_project' },
+            { type: 'index', name: 'resource_link_curseforge_project' },
+        ],
+    },
+    20261013120000: {
+        columns: [
+            { table: 'settings', column: 'resource_chinese_filenames' },
+            { table: 'settings', column: 'resource_preserve_filenames' },
+        ],
+        tables: ['resource_pack_unlinks'],
+    },
+    20261011164500: { objects: [{ type: 'trigger', name: 'resource_install_job_delete' }] },
+    20261011163000: { tables: ['resource_entry_graphs', 'resource_execution_journals'] },
+    20261011160000: { tables: ['resource_history_cleanup_plans', 'resource_history'] },
+    20261011150000: { tables: ['resource_installed_artifacts', 'resource_operation_plans'] },
+    20261011140000: { tables: ['resource_favorites'] },
+    20261011123000: {},
+    20261011120000: {
+        objects: [
+            { type: 'trigger', name: 'resource_instance_links_insert' },
+            { type: 'trigger', name: 'resource_instance_links_update' },
+            { type: 'view', name: 'resource_instance_pack_links' },
+            { type: 'trigger', name: 'resource_instance_content_provider_refs_insert' },
+            { type: 'trigger', name: 'resource_instance_content_provider_refs_update' },
+            { type: 'trigger', name: 'resource_content_favorites_insert' },
+            { type: 'trigger', name: 'resource_content_favorites_update' },
+            { type: 'trigger', name: 'resource_instance_pack_members_insert' },
+            { type: 'trigger', name: 'resource_instance_pack_members_update' },
+            { type: 'trigger', name: 'resource_instance_pending_manual_downloads_insert' },
+            { type: 'trigger', name: 'resource_instance_pending_manual_downloads_update' },
+            { type: 'view', name: 'resource_pack_links' },
+            { type: 'view', name: 'resource_favorite_links' },
+            { type: 'view', name: 'resource_entry_links' },
+            { type: 'view', name: 'resource_legacy_projects' },
+            { type: 'view', name: 'resource_instance_pack_projects' },
+        ],
+        tables: ['resource_identity_evidence', 'resource_aliases', 'resource_source_types', 'resource_source_projects', 'resource_preferences', 'resources'],
+    },
 	20261004140000: {
 		columns: [
 			{ table: 'settings', column: 'doh_enabled' },
@@ -459,6 +504,21 @@ function tablesPresent(db, tables) {
 	return present
 }
 
+function objectsPresent(db, objects) {
+    if (objects.length === 0) return []
+    const database = openReadOnly(db)
+    try {
+        return objects.map(({ type, name }) => {
+            if (!['view', 'trigger', 'index'].includes(type) || !/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(name)) {
+                fail('invalid schema object in REVERTIBLE_SCHEMA')
+            }
+            return { type, name, present: database.prepare('SELECT 1 FROM sqlite_master WHERE type = ? AND name = ?').get(type, name) !== undefined }
+        })
+    } finally {
+        database.close()
+    }
+}
+
 // Names a running launcher can appear under. Installed builds use the configured
 // main binary name and a `tauri dev` binary keeps the crate name; a fork may
 // rename it again, so AXOLOTL_LAUNCHER_IMAGES replaces the list.
@@ -553,6 +613,7 @@ function planDowngrade(db, target) {
 		mapped: REVERTIBLE_SCHEMA[version] !== undefined,
 		columns: columnsPresent(db, REVERTIBLE_SCHEMA[version]?.columns ?? []),
 		tables: tablesPresent(db, REVERTIBLE_SCHEMA[version]?.tables ?? []),
+        objects: objectsPresent(db, REVERTIBLE_SCHEMA[version]?.objects ?? []),
 	}))
 
 	return { applied, failed, plan }
@@ -560,7 +621,7 @@ function planDowngrade(db, target) {
 
 function reportPlan({ applied, failed, plan }) {
 	note(`migrations to remove: ${applied.join(', ')}`)
-	for (const { version, mapped, columns, tables } of plan) {
+    for (const { version, mapped, columns, tables, objects } of plan) {
 		if (!mapped) {
 			note(`  ${version}: no known schema for this migration, removing its record only`)
 			continue
@@ -577,6 +638,9 @@ function reportPlan({ applied, failed, plan }) {
 				present ? `  ${version}: drop table ${table}` : `  ${version}: table ${table} is MISSING`,
 			)
 		}
+        for (const { type, name, present } of objects) {
+            note(present ? `  ${version}: drop ${type} ${name}` : `  ${version}: ${type} ${name} is MISSING`)
+        }
 	}
 
 	if (failed.length > 0) {
@@ -596,9 +660,9 @@ function reportPlan({ applied, failed, plan }) {
 function checkMappings(plan) {
 	const mismatched = plan
 		.filter(
-			({ mapped, columns, tables }) =>
+            ({ mapped, columns, tables, objects }) =>
 				mapped &&
-				(columns.some((column) => !column.present) || tables.some((table) => !table.present)),
+                (columns.some((column) => !column.present) || tables.some((table) => !table.present) || objects.some((object) => !object.present)),
 		)
 		.map(({ version }) => version)
 
@@ -674,7 +738,10 @@ function main() {
 		writable.exec('PRAGMA foreign_keys = OFF')
 		writable.exec('BEGIN')
 		try {
-			for (const { columns, tables } of state.plan) {
+            for (const { columns, tables, objects } of [...state.plan].reverse()) {
+                for (const { type, name, present } of objects) {
+                    if (present) writable.exec(`DROP ${type.toUpperCase()} ${name}`)
+                }
 				for (const { table, present } of tables) {
 					if (present) writable.exec(`DROP TABLE ${table}`)
 				}

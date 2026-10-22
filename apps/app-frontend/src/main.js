@@ -8,6 +8,7 @@ import { createApp } from 'vue'
 import App from '@/App.vue'
 import { overlayScrollbarsDirective } from '@/directives/overlayScrollbars'
 import { installTelemetryHandlers } from '@/helpers/telemetry'
+import { initializeLocale } from '@/i18n.config'
 import i18nPlugin from '@/plugins/i18n'
 import i18nDebugPlugin from '@/plugins/i18n-debug'
 import router from '@/routes'
@@ -28,3 +29,4 @@ app.directive('overlay-scrollbars', overlayScrollbarsDirective)
 app.directive('tooltip', tooltipDirective)
 
 app.mount('#app')
+void initializeLocale().catch(console.error)

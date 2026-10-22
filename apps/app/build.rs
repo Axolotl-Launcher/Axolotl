@@ -16,6 +16,13 @@ fn run_command(command: &mut Command, description: &str) {
     );
 }
 
+fn copy_if_changed(source: &std::path::Path, destination: &std::path::Path) {
+    let contents = std::fs::read(source).expect("Read generated resource");
+    if std::fs::read(destination).ok().as_deref() != Some(contents.as_slice()) {
+        std::fs::copy(source, destination).expect("Copy generated resource");
+    }
+}
+
 fn newest_mtime(path: &std::path::Path) -> Option<std::time::SystemTime> {
     let mut newest: Option<std::time::SystemTime> = None;
     if path.is_file() {
@@ -70,6 +77,26 @@ fn blockbench_skin_is_fresh(
 }
 
 fn build_blockbench_skin_editor() {
+    println!("cargo:rerun-if-env-changed=AXOLOTL_BUILD_RESOURCES");
+    if let Some(resources) = std::env::var_os("AXOLOTL_BUILD_RESOURCES") {
+        run_command(
+            Command::new("node")
+                .arg("scripts/axolotl/prepare-build-resources.mjs")
+                .arg("--consume")
+                .arg("--output")
+                .arg(&resources)
+                .current_dir("../.."),
+            "Prepared Blockbench resource verification",
+        );
+        println!(
+            "cargo:rerun-if-changed={}",
+            std::path::Path::new(&resources)
+                .join("manifest.json")
+                .display()
+        );
+        return;
+    }
+
     if std::env::var_os("AXOLOTL_SKIP_BLOCKBENCH_BUILD").is_some_and(|value| {
         !value.is_empty() && value != "0" && value != "false"
     }) {
@@ -116,7 +143,143 @@ fn build_blockbench_skin_editor() {
     );
 }
 
+fn collect_engine_sources(
+    path: &std::path::Path,
+    sources: &mut Vec<std::path::PathBuf>,
+) {
+    for entry in std::fs::read_dir(path).expect("Read cubiomes sources") {
+        let entry = entry.expect("Read cubiomes entry");
+        let path = entry.path();
+        if path.is_dir() {
+            if matches!(
+                entry.file_name().to_str(),
+                Some(
+                    "features"
+                        | "loot"
+                        | "loot_tables"
+                        | "barrels"
+                        | "chests"
+                        | "trial_chambers"
+                        | "cjson"
+                )
+            ) {
+                collect_engine_sources(&path, sources);
+            }
+        } else if path.extension().is_some_and(|extension| extension == "c")
+            && path.file_name().is_some_and(|name| name != "tests.c")
+        {
+            sources.push(path);
+        }
+    }
+}
+
+fn build_seed_map_engine() {
+    let source = std::path::Path::new("vendor/cubiomes");
+    let out = std::path::PathBuf::from(std::env::var_os("OUT_DIR").unwrap());
+    let compatibility_header = out.join("cubiomes-loot-functions.h");
+    let header = std::fs::read_to_string(source.join("loot/loot_functions.h"))
+        .expect("Read loot header");
+    let rng =
+        std::fs::canonicalize(source.join("rng.h")).expect("Locate RNG header");
+    let header = header
+        .replace(
+            "RandomSource*, const int min",
+            "RandomSource *unused_rnd, const int min",
+        )
+        .replace(
+            "\"../rng.h\"",
+            &format!("\"{}\"", rng.display().to_string().replace('\\', "/")),
+        );
+    std::fs::write(&compatibility_header, header)
+        .expect("Write pre-C23 compatibility header");
+    let mut sources = vec![
+        std::path::PathBuf::from("src/seed_map/cubiomes_bridge.c"),
+        std::path::PathBuf::from("src/seed_map/cubiomes_details.c"),
+        std::path::PathBuf::from("src/seed_map/underground_volume.c"),
+        std::path::PathBuf::from("src/seed_map/ancient_city_layout.c"),
+    ];
+    collect_engine_sources(source, &mut sources);
+    sources.sort();
+    println!("cargo:rerun-if-changed=src/seed_map/cubiomes_bridge.c");
+    println!("cargo:rerun-if-changed=src/seed_map/cubiomes_details.c");
+    println!("cargo:rerun-if-changed=src/seed_map/underground_volume.c");
+    println!("cargo:rerun-if-changed=src/seed_map/ancient_city_layout.c");
+    println!("cargo:rerun-if-changed=src/seed_map/ancient_city_layout.h");
+    println!("cargo:rerun-if-changed=src/seed_map/cubiomes_bridge.h");
+    println!("cargo:rerun-if-changed=vendor/cubiomes");
+    if std::env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("windows") {
+        println!("cargo:rerun-if-env-changed=AXOLOTL_CUBIOMES_CC");
+        let compiler = std::env::var_os("AXOLOTL_CUBIOMES_CC")
+            .unwrap_or_else(|| "gcc".into());
+        let out =
+            std::path::PathBuf::from(std::env::var_os("OUT_DIR").unwrap());
+        let dll = out.join("axolotl-cubiomes.dll");
+        let architecture = std::env::var("CARGO_CFG_TARGET_ARCH").unwrap();
+        let target = Command::new(&compiler)
+            .arg("-dumpmachine")
+            .output()
+            .expect("Inspect MinGW target");
+        let machine = String::from_utf8_lossy(&target.stdout);
+        let prefix = if architecture == "x86_64" {
+            "x86_64"
+        } else if architecture == "aarch64" {
+            "aarch64"
+        } else {
+            panic!("Unsupported Windows seed map architecture: {architecture}")
+        };
+        assert!(
+            target.status.success() && machine.starts_with(prefix),
+            "Seed map compiler architecture does not match Rust target: {machine}"
+        );
+        run_command(
+            Command::new(compiler)
+                .args([
+                    "-shared",
+                    "-O3",
+                    "-std=gnu11",
+                    "-fwrapv",
+                    "-static-libgcc",
+                    "-Wl,--export-all-symbols",
+                    // Tauri watches the bundled DLL. Keep identical builds
+                    // byte-for-byte stable so syncing it preserves its mtime.
+                    "-Wl,--no-insert-timestamp",
+                    "-Ivendor/cubiomes",
+                ])
+                .arg("-include")
+                .arg(&compatibility_header)
+                .args(&sources)
+                .arg("-o")
+                .arg(&dll),
+            "MinGW cubiomes engine build",
+        );
+        let resources = std::path::Path::new("resources/seed-map");
+        std::fs::create_dir_all(resources).expect("Create seed map resources");
+        copy_if_changed(&dll, &resources.join("axolotl-cubiomes.dll"));
+        copy_if_changed(
+            &source.join("LICENSE"),
+            &resources.join("LICENSE.cubiomes.txt"),
+        );
+        println!(
+            "cargo:rustc-env=AXOLOTL_CUBIOMES_BUILD_DLL={}",
+            dll.display()
+        );
+    } else {
+        cc::Build::new()
+            .flag("-include")
+            .flag(compatibility_header.to_str().unwrap())
+            .include(source)
+            .files(&sources)
+            .opt_level(3)
+            .flag_if_supported("-fwrapv")
+            .flag_if_supported("-std=gnu11")
+            .warnings(false)
+            .compile("axolotl-cubiomes");
+        println!("cargo:rustc-link-lib=m");
+    }
+}
+
 fn main() {
+    println!("cargo:rerun-if-env-changed=CI");
     println!("cargo:rerun-if-changed=tauri.conf.json");
     println!("cargo:rerun-if-changed=tauri.windows.conf.json");
     println!("cargo:rerun-if-changed=tauri.macos.conf.json");
@@ -145,34 +308,7 @@ fn main() {
         .expect("Failed to create the frontend distribution directory");
     build_blockbench_skin_editor();
 
-    let cubiomes_dir = std::path::Path::new("vendor/cubiomes");
-    cc::Build::new()
-        .include(cubiomes_dir)
-        .include(cubiomes_dir.join("tables"))
-        .file("src/seed_map/cubiomes_bridge.c")
-        .files([
-            "vendor/cubiomes/biomenoise.c",
-            "vendor/cubiomes/biomes.c",
-            "vendor/cubiomes/finders.c",
-            "vendor/cubiomes/generator.c",
-            "vendor/cubiomes/layers.c",
-            "vendor/cubiomes/noise.c",
-            "vendor/cubiomes/quadbase.c",
-            "vendor/cubiomes/util.c",
-        ])
-        .opt_level(3)
-        .flag_if_supported("-fwrapv")
-        .warnings(false)
-        .compile("axolotl-cubiomes");
-
-    println!("cargo:rerun-if-changed=src/seed_map/cubiomes_bridge.c");
-    println!("cargo:rerun-if-changed=src/seed_map/cubiomes_bridge.h");
-    println!("cargo:rerun-if-changed=vendor/cubiomes");
-    // Build scripts run for the host, so use Cargo's target metadata rather
-    // than `cfg(target_os = ...)` when deciding whether libm is needed.
-    if std::env::var("CARGO_CFG_TARGET_OS").as_deref() != Ok("windows") {
-        println!("cargo:rustc-link-lib=m");
-    }
+    build_seed_map_engine();
 
     // Sadly, there is no better way to do it right now
     // You could try parsing source code here and detecting #[tauri::command]
@@ -266,6 +402,55 @@ fn main() {
                     ),
             )
             .plugin(
+                "axolotl-resources",
+                InlinedPlugin::new()
+                    .commands(&[
+                        "resource_sources",
+                        "resource_search",
+                        "resource_get",
+                        "resource_get_description",
+                        "resource_list_releases",
+                        "resource_get_release",
+                        "resource_get_changelog",
+                        "resource_list_changelogs",
+                        "resource_cancel",
+                        "resource_preferred_source",
+                        "resource_set_preferred_source",
+                        "resource_cache_info",
+                        "resource_cache_clear",
+                        "resource_locate",
+                        "resource_project_document",
+                        "resource_project_documents",
+                        "resource_project_protocol",
+                        "resource_release_documents",
+                        "resource_favorites",
+                        "resource_favorite_add",
+                        "resource_favorite_remove",
+                        "resource_prepare_operation",
+                        "resource_prepare_entry_operation",
+                        "resource_list_installed",
+                        "resource_check_updates",
+                        "resource_revise_plan",
+                        "resource_queue_plan",
+                        "resource_list_history",
+                        "resource_scan_backups",
+                        "resource_prepare_history_cleanup",
+                        "resource_execute_history_cleanup",
+                        "resource_export_scan",
+                        "resource_export_refresh",
+                        "resource_export_refresh_retry",
+                        "resource_export_close",
+                        "resource_export_plan",
+                        "resource_export_execute",
+                        "resource_export_queue",
+                        "resource_export_cancel",
+                        "resource_rollback",
+                    ])
+                    .default_permission(
+                        DefaultPermissionRule::AllowAllCommands,
+                    ),
+            )
+            .plugin(
                 "datapacks",
                 InlinedPlugin::new()
                     .commands(&[
@@ -295,10 +480,6 @@ fn main() {
                         "curseforge_get_download_url",
                         "curseforge_get_categories",
                         "curseforge_match_fingerprints",
-                        "curseforge_install_file",
-                        "curseforge_preview_install_file",
-                        "curseforge_update_installed_file",
-                        "curseforge_switch_installed_file_version",
                         "curseforge_recognize_instance_files",
                         "curseforge_import_manual_downloads",
                         "curseforge_list_pending_manual_downloads",
@@ -382,7 +563,11 @@ fn main() {
                         "logs_analyze_crash",
                         "logs_get_crash_analysis_ai_settings",
                         "logs_update_crash_analysis_ai_settings",
-                        "logs_explain_crash_with_ai",
+                        "logs_logagent_prepare",
+                        "logs_logagent_model_turn",
+                        "logs_logagent_tool",
+                        "logs_logagent_cloud",
+                        "logs_logagent_cancel",
                         "logs_undo_added_mod",
                         "logs_export_crash_context",
                         "logs_get_log_share_settings",
@@ -390,8 +575,6 @@ fn main() {
                         "logs_logshare_upload_crash",
                         "logs_logshare_get_insights",
                         "logs_logshare_analyse_crash_direct",
-                        "logs_logshare_ai_analyze_stored",
-                        "logs_logshare_ai_analyze_direct",
                         "logs_logshare_delete",
                         "logs_list_shared_logs",
                         "logs_record_shared_log",
@@ -546,6 +729,7 @@ fn main() {
                         "instance_apply_content_update_plan",
                         "instance_plan_upgrade",
                         "instance_get_upgrade_plan",
+                        "instance_discard_upgrade_plan",
                         "instance_update_upgrade_resolution",
                         "instance_update_upgrade_resolutions",
                         "instance_reset_upgrade_resolution",
@@ -568,10 +752,6 @@ fn main() {
                         "instance_preview_core_jar",
                         "instance_install_mcarchive_modloader",
                         "instance_import_mcarchive_modloader",
-                        "instance_install_mcarchive_content",
-                        "instance_import_mcarchive_content",
-                        "instance_install_planet_minecraft_content",
-                        "instance_import_planet_minecraft_content",
                         "instance_get_full_path",
                         "instance_get_mod_full_path",
                         "instance_list",
@@ -579,17 +759,8 @@ fn main() {
                         "instance_get_daily_playtime",
                         "instance_get_daily_playtime_details",
                         "instance_check_installed",
-                        "instance_update_all",
-                        "instance_update_project",
-                        "instance_add_project_from_version",
-                        "instance_install_project_with_dependencies",
-                        "instance_preview_project_with_dependencies",
-                        "instance_preview_project_with_dependencies_for_target",
-                        "instance_queue_project_with_dependencies",
                         "instance_queue_content_batch",
-                        "instance_queue_curseforge_content",
                         "instance_queue_curseforge_world",
-                        "instance_switch_project_version_with_dependencies",
                         "instance_add_project_from_path",
                         "instance_import_world_save",
                         "instance_install_datapack_to_world",
@@ -609,8 +780,6 @@ fn main() {
                         "instance_edit",
                         "instance_cache_icon",
                         "instance_edit_icon",
-                        "instance_export_mrpack",
-                        "instance_get_pack_export_candidates",
                         "instance_list_screenshots",
                         "instance_list_all_screenshots",
                         "instance_list_synced_screenshots",
@@ -678,6 +847,8 @@ fn main() {
                         "proxy_get",
                         "proxy_set",
                         "proxy_test",
+                        "network_test",
+                        "network_test_cancel",
                     ])
                     .default_permission(
                         DefaultPermissionRule::AllowAllCommands,
@@ -694,6 +865,11 @@ fn main() {
                         "seed_map_biome_at",
                         "seed_map_scan_ores",
                         "seed_map_read_level_dat",
+                        "seed_map_structure_details",
+                        "seed_map_container_loot",
+                        "seed_map_underground_tile",
+                        "seed_map_underground_volume",
+                        "seed_map_cancel_underground",
                     ])
                     .default_permission(
                         DefaultPermissionRule::AllowAllCommands,
@@ -803,7 +979,13 @@ fn main() {
             .plugin(
                 "storage",
                 InlinedPlugin::new()
-                    .commands(&["storage_scan_start", "storage_open_paths"])
+                    .commands(&[
+                        "storage_scan",
+                        "storage_cache_clear",
+                        "storage_meta_analyze",
+                        "storage_meta_clean",
+                        "storage_open_paths",
+                    ])
                     .default_permission(
                         DefaultPermissionRule::AllowAllCommands,
                     ),
@@ -958,6 +1140,7 @@ fn main() {
                         "servers_kill_port_process",
                         "servers_port_process",
                         "servers_get_log_buffer",
+                        "servers_get_log_delta",
                         "servers_clear_log",
                     ])
                     .default_permission(

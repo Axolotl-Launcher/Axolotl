@@ -25,6 +25,8 @@ export type SeedMapFeatureKind =
     | 'bastion'
     | 'end-city'
     | 'end-gateway'
+    | 'abandoned-camp'
+    | 'nether-fossil'
 
 export type SeedMapFeature = {
     kind: SeedMapFeatureKind
@@ -76,6 +78,8 @@ export const SEED_MAP_FEATURES: readonly SeedMapFeatureDefinition[] = [
     { kind: 'bastion', mask: 1 << 21, dimensions: NETHER, maxScale: 16 },
     { kind: 'end-city', mask: 1 << 22, dimensions: END, maxScale: 16 },
     { kind: 'end-gateway', mask: 1 << 23, dimensions: END, maxScale: 4 },
+    { kind: 'abandoned-camp', mask: 1 << 24, dimensions: OVERWORLD, maxScale: 16 },
+    { kind: 'nether-fossil', mask: 1 << 25, dimensions: NETHER, maxScale: 4 },
 ]
 
 export function visibleFeatureDefinitions(

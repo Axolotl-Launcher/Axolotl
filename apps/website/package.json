@@ -3,6 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "test": "node --test \"src/**/*.test.ts\"",
     "build": "nuxi generate",
     "dev": "nuxi dev",
     "generate": "nuxi generate",

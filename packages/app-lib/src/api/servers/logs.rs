@@ -70,6 +70,13 @@ pub async fn get_log_buffer(server_id: &str) -> Result<Vec<String>> {
     Ok(crate::state::get_log_buffer(server_id))
 }
 
+pub fn get_log_delta(
+    server_id: &str,
+    cursor: Option<crate::state::LogCursor>,
+) -> crate::state::LogDelta {
+    crate::state::get_log_delta(server_id, cursor)
+}
+
 pub async fn clear_log(server_id: &str) -> Result<()> {
     clear_log_buffer(server_id);
     Ok(())
@@ -242,7 +249,7 @@ pub(super) async fn tail_server_log_file(server_id: String, dir: PathBuf) {
                 let trimmed = line.trim_end_matches(['\r', '\n']);
                 let cleaned = strip_ansi(trimmed);
                 let already_present =
-                    crate::state::get_log_buffer(&server_id).contains(&cleaned);
+                    crate::state::log_buffer_contains(&server_id, &cleaned);
                 if !cleaned.is_empty() && !already_present {
                     push_log_line(&server_id, cleaned.clone());
                     emit_server(

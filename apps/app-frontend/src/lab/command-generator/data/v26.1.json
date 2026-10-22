@@ -1,0 +1,635 @@
+{
+  "version": "26.1",
+  "base": "1.21",
+  "generatedAt": "2026-10-22",
+  "sources": [
+    "https://minecraft.wiki/w/Java_Edition_26.1",
+    "https://www.minecraft.net/en-us/article/minecraft-java-edition-26-1",
+    "https://www.minecraft.net/en-us/article/minecraft-java-edition-1-21-11"
+  ],
+  "added": [
+    {
+      "id": "fetchprofile",
+      "name": "fetchprofile",
+      "descriptionKey": "app.lab.command-generator.cmd.fetchprofile.desc",
+      "category": "misc",
+      "permissionLevel": 2,
+      "arguments": [
+        {
+          "name": "source",
+          "displayNameKey": "app.lab.command-generator.arg.fetchprofile.source.display",
+          "type": "enum",
+          "required": true,
+          "descriptionKey": "app.lab.command-generator.arg.fetchprofile.source.desc",
+          "enumValues": ["name", "id", "entity"],
+          "defaultValue": "name"
+        },
+        {
+          "name": "profile",
+          "displayNameKey": "app.lab.command-generator.arg.fetchprofile.profile.display",
+          "type": "string",
+          "required": true,
+          "descriptionKey": "app.lab.command-generator.arg.fetchprofile.profile.desc",
+          "placeholder": "Steve"
+        }
+      ]
+    },
+    {
+      "id": "swing",
+      "name": "swing",
+      "descriptionKey": "app.lab.command-generator.cmd.swing.desc",
+      "category": "entity",
+      "permissionLevel": 2,
+      "arguments": [
+        {
+          "name": "target",
+          "displayNameKey": "app.lab.command-generator.arg.swing.target.display",
+          "type": "entity-selector",
+          "required": false,
+          "descriptionKey": "app.lab.command-generator.arg.swing.target.desc",
+          "selector": true,
+          "placeholder": "@s",
+          "presets": [
+            {
+              "labelKey": "app.lab.command-generator.preset.common.self",
+              "value": "@s"
+            },
+            {
+              "labelKey": "app.lab.command-generator.preset.common.all-players",
+              "value": "@a"
+            }
+          ]
+        },
+        {
+          "name": "hand",
+          "displayNameKey": "app.lab.command-generator.arg.swing.hand.display",
+          "type": "enum",
+          "required": false,
+          "descriptionKey": "app.lab.command-generator.arg.swing.hand.desc",
+          "enumValues": ["mainhand", "offhand"],
+          "presets": [
+            {
+              "labelKey": "app.lab.command-generator.preset.hand.mainhand",
+              "value": "mainhand"
+            },
+            {
+              "labelKey": "app.lab.command-generator.preset.hand.offhand",
+              "value": "offhand"
+            }
+          ]
+        }
+      ],
+      "sinceVersion": "26.1"
+    }
+  ],
+  "patched": {
+    "time": {
+      "arguments": [
+        {
+          "name": "clock",
+          "displayNameKey": "app.lab.command-generator.arg.time.clock.display",
+          "type": "string",
+          "required": false,
+          "descriptionKey": "app.lab.command-generator.arg.time.clock.desc",
+          "prefix": "of",
+          "unless": { "action": ["query"], "query": ["gametime"] },
+          "placeholder": "minecraft:overworld"
+        },
+        {
+          "name": "action",
+          "displayNameKey": "app.lab.command-generator.arg.time.action.display",
+          "type": "enum",
+          "required": true,
+          "descriptionKey": "app.lab.command-generator.arg.time.action.desc",
+          "enumValues": ["set", "add", "pause", "resume", "rate", "query"],
+          "presets": [
+            {
+              "labelKey": "app.lab.command-generator.preset.time-action.set",
+              "value": "set"
+            },
+            {
+              "labelKey": "app.lab.command-generator.preset.time-action.add",
+              "value": "add"
+            },
+            {
+              "labelKey": "app.lab.command-generator.preset.time-action.query",
+              "value": "query"
+            }
+          ],
+          "defaultValue": "set"
+        },
+        {
+          "name": "value",
+          "displayNameKey": "app.lab.command-generator.arg.time.value.display",
+          "type": "time",
+          "required": true,
+          "descriptionKey": "app.lab.command-generator.arg.time.value.desc",
+          "placeholder": "day",
+          "presets": [
+            {
+              "labelKey": "app.lab.command-generator.preset.time-of-day.day",
+              "value": "day"
+            },
+            {
+              "labelKey": "app.lab.command-generator.preset.time-of-day.noon",
+              "value": "noon"
+            },
+            {
+              "labelKey": "app.lab.command-generator.preset.time-of-day.night",
+              "value": "night"
+            },
+            {
+              "labelKey": "app.lab.command-generator.preset.time-of-day.midnight",
+              "value": "midnight"
+            }
+          ],
+          "when": {
+            "action": ["set", "add"]
+          }
+        },
+        {
+          "name": "rate",
+          "displayNameKey": "app.lab.command-generator.arg.time.rate.display",
+          "type": "number",
+          "required": true,
+          "descriptionKey": "app.lab.command-generator.arg.time.rate.desc",
+          "when": {
+            "action": ["rate"]
+          },
+          "defaultValue": 1,
+          "exclusiveMin": 0,
+          "max": 1000
+        },
+        {
+          "name": "query",
+          "displayNameKey": "app.lab.command-generator.arg.time.query.display",
+          "type": "string",
+          "required": true,
+          "descriptionKey": "app.lab.command-generator.arg.time.query.desc",
+          "when": {
+            "action": ["query"]
+          },
+          "defaultValue": "time",
+          "placeholder": "minecraft:day repetition",
+          "presets": [
+            {
+              "labelKey": "app.lab.command-generator.preset.time.clock-time",
+              "value": "time"
+            },
+            {
+              "labelKey": "app.lab.command-generator.preset.time.game-time",
+              "value": "gametime"
+            },
+            {
+              "labelKey": "app.lab.command-generator.preset.time.day-cycles",
+              "value": "minecraft:day repetition"
+            }
+          ]
+        }
+      ]
+    },
+    "gamerule": {
+      "arguments": [
+        {
+          "name": "rule",
+          "displayNameKey": "app.lab.command-generator.arg.gamerule.rule.display",
+          "type": "gamerule",
+          "required": true,
+          "descriptionKey": "app.lab.command-generator.arg.gamerule.rule.desc",
+          "placeholder": "minecraft:keep_inventory",
+          "presets": [
+            {
+              "labelKey": "app.lab.command-generator.preset.gamerule.keep-inventory",
+              "value": "minecraft:keep_inventory"
+            },
+            {
+              "labelKey": "app.lab.command-generator.preset.gamerule.no-mob-griefing",
+              "value": "minecraft:mob_griefing"
+            },
+            {
+              "labelKey": "app.lab.command-generator.preset.gamerule.no-daylight-cycle",
+              "value": "minecraft:advance_time"
+            },
+            {
+              "labelKey": "app.lab.command-generator.preset.gamerule.no-mob-spawning",
+              "value": "minecraft:spawn_mobs"
+            },
+            {
+              "labelKey": "app.lab.command-generator.preset.gamerule.no-weather-cycle",
+              "value": "minecraft:advance_weather"
+            },
+            {
+              "labelKey": "app.lab.command-generator.preset.gamerule.no-natural-regen",
+              "value": "minecraft:natural_health_regeneration"
+            },
+            {
+              "labelKey": "app.lab.command-generator.preset.gamerule.no-insomnia",
+              "value": "minecraft:spawn_phantoms"
+            },
+            {
+              "labelKey": "app.lab.command-generator.preset.gamerule.no-command-feedback",
+              "value": "minecraft:send_command_feedback"
+            },
+            {
+              "labelKey": "app.lab.command-generator.preset.gamerule.fire-radius",
+              "value": "minecraft:fire_spread_radius_around_player"
+            }
+          ]
+        },
+        {
+          "name": "value",
+          "displayNameKey": "app.lab.command-generator.arg.gamerule.value.display",
+          "type": "string",
+          "required": false,
+          "descriptionKey": "app.lab.command-generator.arg.gamerule.value.desc.26",
+          "placeholder": "true",
+          "presets": [
+            {
+              "labelKey": "app.lab.command-generator.preset.boolean.true",
+              "value": "true"
+            },
+            {
+              "labelKey": "app.lab.command-generator.preset.boolean.false",
+              "value": "false"
+            }
+          ]
+        }
+      ]
+    },
+    "publish": {
+      "arguments": [
+        {
+          "name": "allowCheats",
+          "displayNameKey": "app.lab.command-generator.arg.publish.allowCheats.display",
+          "type": "boolean",
+          "required": false,
+          "descriptionKey": "app.lab.command-generator.arg.publish.allowCheats.desc",
+          "defaultValue": false
+        },
+        {
+          "name": "gamemode",
+          "displayNameKey": "app.lab.command-generator.arg.publish.gamemode.display",
+          "type": "gamemode",
+          "required": false,
+          "descriptionKey": "app.lab.command-generator.arg.publish.gamemode.desc",
+          "enumValues": ["survival", "creative", "adventure", "spectator"],
+          "defaultValue": "survival"
+        },
+        {
+          "name": "port",
+          "displayNameKey": "app.lab.command-generator.arg.publish.port.display",
+          "type": "integer",
+          "required": false,
+          "descriptionKey": "app.lab.command-generator.arg.publish.port.desc",
+          "defaultValue": 25565,
+          "presets": [
+            {
+              "labelKey": "app.lab.command-generator.preset.port.25565",
+              "value": 25565
+            },
+            {
+              "labelKey": "app.lab.command-generator.preset.port.25566",
+              "value": 25566
+            }
+          ]
+        }
+      ]
+    },
+    "attribute": {
+      "arguments": [
+        {
+          "name": "target",
+          "displayNameKey": "app.lab.command-generator.arg.attribute.target.display",
+          "type": "entity-selector",
+          "required": true,
+          "descriptionKey": "app.lab.command-generator.arg.attribute.target.desc",
+          "selector": true,
+          "placeholder": "@s",
+          "presets": [
+            {
+              "labelKey": "app.lab.command-generator.preset.common.self",
+              "value": "@s"
+            },
+            {
+              "labelKey": "app.lab.command-generator.preset.common.all-players",
+              "value": "@a"
+            }
+          ]
+        },
+        {
+          "name": "attribute",
+          "displayNameKey": "app.lab.command-generator.arg.attribute.attribute.display",
+          "type": "attribute",
+          "required": true,
+          "descriptionKey": "app.lab.command-generator.arg.attribute.attribute.desc",
+          "placeholder": "minecraft:max_health",
+          "presets": [
+            {
+              "labelKey": "app.lab.command-generator.preset.attribute.max-health",
+              "value": "minecraft:max_health"
+            },
+            {
+              "labelKey": "app.lab.command-generator.preset.attribute.movement-speed",
+              "value": "minecraft:movement_speed"
+            },
+            {
+              "labelKey": "app.lab.command-generator.preset.attribute.attack-damage",
+              "value": "minecraft:attack_damage"
+            }
+          ]
+        },
+        {
+          "name": "action",
+          "displayNameKey": "app.lab.command-generator.arg.attribute.action.display",
+          "type": "enum",
+          "required": true,
+          "descriptionKey": "app.lab.command-generator.arg.attribute.action.desc",
+          "enumValues": ["get", "base get", "base set", "base reset"]
+        },
+        {
+          "name": "value",
+          "displayNameKey": "app.lab.command-generator.arg.attribute.value.display",
+          "type": "number",
+          "required": true,
+          "descriptionKey": "app.lab.command-generator.arg.attribute.value.desc",
+          "when": {
+            "action": ["base set"]
+          }
+        }
+      ]
+    },
+    "dialog": {
+      "arguments": [
+        {
+          "name": "action",
+          "displayNameKey": "app.lab.command-generator.arg.dialog.action.display",
+          "type": "enum",
+          "required": true,
+          "descriptionKey": "app.lab.command-generator.arg.dialog.action.desc",
+          "enumValues": ["show", "clear"],
+          "defaultValue": "show"
+        },
+        {
+          "name": "target",
+          "displayNameKey": "app.lab.command-generator.arg.dialog.target.display",
+          "type": "entity-selector",
+          "required": true,
+          "descriptionKey": "app.lab.command-generator.arg.dialog.target.desc",
+          "selector": true,
+          "placeholder": "@a",
+          "presets": [
+            {
+              "labelKey": "app.lab.command-generator.preset.common.self",
+              "value": "@s"
+            },
+            {
+              "labelKey": "app.lab.command-generator.preset.common.all-players",
+              "value": "@a"
+            },
+            {
+              "labelKey": "app.lab.command-generator.preset.common.nearest-player",
+              "value": "@p"
+            }
+          ]
+        },
+        {
+          "name": "dialog",
+          "displayNameKey": "app.lab.command-generator.arg.dialog.dialog.display",
+          "type": "string",
+          "required": true,
+          "descriptionKey": "app.lab.command-generator.arg.dialog.dialog.desc",
+          "placeholder": "minecraft:custom_dialog",
+          "when": {
+            "action": ["show"]
+          }
+        }
+      ]
+    },
+    "stopwatch": {
+      "arguments": [
+        {
+          "name": "action",
+          "displayNameKey": "app.lab.command-generator.arg.stopwatch.action.display",
+          "type": "enum",
+          "required": true,
+          "descriptionKey": "app.lab.command-generator.arg.stopwatch.action.desc",
+          "enumValues": ["create", "query", "restart", "remove"],
+          "presets": [
+            {
+              "labelKey": "app.lab.command-generator.preset.stopwatch-action.create",
+              "value": "create"
+            },
+            {
+              "labelKey": "app.lab.command-generator.preset.stopwatch-action.query",
+              "value": "query"
+            },
+            {
+              "labelKey": "app.lab.command-generator.preset.stopwatch-action.restart",
+              "value": "restart"
+            },
+            {
+              "labelKey": "app.lab.command-generator.preset.stopwatch-action.remove",
+              "value": "remove"
+            }
+          ]
+        },
+        {
+          "name": "id",
+          "displayNameKey": "app.lab.command-generator.arg.stopwatch.id.display",
+          "type": "string",
+          "required": true,
+          "descriptionKey": "app.lab.command-generator.arg.stopwatch.id.desc",
+          "placeholder": "minecraft:my_stopwatch"
+        },
+        {
+          "name": "scale",
+          "displayNameKey": "app.lab.command-generator.arg.stopwatch.scale.display",
+          "type": "number",
+          "required": false,
+          "descriptionKey": "app.lab.command-generator.arg.stopwatch.scale.desc",
+          "defaultValue": 1,
+          "presets": [
+            {
+              "labelKey": "app.lab.command-generator.preset.scale.1",
+              "value": 1
+            },
+            {
+              "labelKey": "app.lab.command-generator.preset.scale.0-05",
+              "value": 0.05
+            },
+            {
+              "labelKey": "app.lab.command-generator.preset.scale.20",
+              "value": 20
+            }
+          ],
+          "when": {
+            "action": ["query"]
+          }
+        }
+      ]
+    },
+    "setblock": {
+      "arguments": [
+        {
+          "name": "pos",
+          "displayNameKey": "app.lab.command-generator.arg.setblock.pos.display",
+          "type": "coordinates",
+          "required": true,
+          "descriptionKey": "app.lab.command-generator.arg.setblock.pos.desc"
+        },
+        {
+          "name": "block",
+          "displayNameKey": "app.lab.command-generator.arg.setblock.block.display",
+          "type": "block",
+          "required": true,
+          "descriptionKey": "app.lab.command-generator.arg.setblock.block.desc",
+          "placeholder": "minecraft:stone",
+          "presets": [
+            {
+              "labelKey": "app.lab.command-generator.preset.block.stone",
+              "value": "minecraft:stone"
+            },
+            {
+              "labelKey": "app.lab.command-generator.preset.block.chest",
+              "value": "minecraft:chest"
+            },
+            {
+              "labelKey": "app.lab.command-generator.preset.block.air",
+              "value": "minecraft:air"
+            }
+          ]
+        },
+        {
+          "name": "mode",
+          "displayNameKey": "app.lab.command-generator.arg.setblock.mode.display",
+          "type": "enum",
+          "required": false,
+          "descriptionKey": "app.lab.command-generator.arg.setblock.mode.desc",
+          "enumValues": ["replace", "keep", "destroy", "strict"]
+        }
+      ]
+    },
+    "fill": {
+      "arguments": [
+        {
+          "name": "from",
+          "displayNameKey": "app.lab.command-generator.arg.fill.from.display",
+          "type": "coordinates",
+          "required": true,
+          "descriptionKey": "app.lab.command-generator.arg.fill.from.desc"
+        },
+        {
+          "name": "to",
+          "displayNameKey": "app.lab.command-generator.arg.fill.to.display",
+          "type": "coordinates",
+          "required": true,
+          "descriptionKey": "app.lab.command-generator.arg.fill.to.desc"
+        },
+        {
+          "name": "block",
+          "displayNameKey": "app.lab.command-generator.arg.fill.block.display",
+          "type": "block",
+          "required": true,
+          "descriptionKey": "app.lab.command-generator.arg.fill.block.desc",
+          "placeholder": "minecraft:stone",
+          "presets": [
+            {
+              "labelKey": "app.lab.command-generator.preset.block.stone",
+              "value": "minecraft:stone"
+            },
+            {
+              "labelKey": "app.lab.command-generator.preset.block.glass",
+              "value": "minecraft:glass"
+            },
+            {
+              "labelKey": "app.lab.command-generator.preset.block.air",
+              "value": "minecraft:air"
+            },
+            {
+              "labelKey": "app.lab.command-generator.preset.block.diamond-block",
+              "value": "minecraft:diamond_block"
+            }
+          ]
+        },
+        {
+          "name": "mode",
+          "displayNameKey": "app.lab.command-generator.arg.fill.mode.display",
+          "type": "enum",
+          "required": false,
+          "descriptionKey": "app.lab.command-generator.arg.fill.mode.desc",
+          "enumValues": ["replace", "keep", "outline", "hollow", "destroy", "strict"],
+          "presets": [
+            {
+              "labelKey": "app.lab.command-generator.preset.fill-mode.replace",
+              "value": "replace"
+            },
+            {
+              "labelKey": "app.lab.command-generator.preset.fill-mode.keep",
+              "value": "keep"
+            },
+            {
+              "labelKey": "app.lab.command-generator.preset.fill-mode.outline",
+              "value": "outline"
+            },
+            {
+              "labelKey": "app.lab.command-generator.preset.fill-mode.hollow",
+              "value": "hollow"
+            },
+            {
+              "labelKey": "app.lab.command-generator.preset.fill-mode.destroy",
+              "value": "destroy"
+            }
+          ]
+        }
+      ]
+    },
+    "waypoint": {
+      "arguments": [
+        {
+          "name": "action",
+          "type": "enum",
+          "required": true,
+          "displayNameKey": "app.lab.command-generator.arg.waypoint.action.display",
+          "descriptionKey": "app.lab.command-generator.arg.waypoint.action.desc",
+          "enumValues": ["list", "modify"],
+          "defaultValue": "list"
+        },
+        {
+          "name": "waypoint",
+          "type": "entity-selector",
+          "required": true,
+          "displayNameKey": "app.lab.command-generator.arg.waypoint.waypoint.display",
+          "descriptionKey": "app.lab.command-generator.arg.waypoint.waypoint.desc",
+          "when": {
+            "action": ["modify"]
+          },
+          "defaultValue": "@s"
+        },
+        {
+          "name": "property",
+          "type": "enum",
+          "required": true,
+          "displayNameKey": "app.lab.command-generator.arg.waypoint.property.display",
+          "descriptionKey": "app.lab.command-generator.arg.waypoint.property.desc",
+          "when": {
+            "action": ["modify"]
+          },
+          "enumValues": ["color", "color hex", "color reset", "style set", "style reset"],
+          "defaultValue": "color"
+        },
+        {
+          "name": "value",
+          "type": "string",
+          "required": true,
+          "displayNameKey": "app.lab.command-generator.arg.waypoint.value.display",
+          "descriptionKey": "app.lab.command-generator.arg.waypoint.value.desc",
+          "when": {
+            "action": ["modify"],
+            "property": ["color", "color hex", "style set"]
+          },
+          "placeholder": "gold"
+        }
+      ]
+    }
+  }
+}

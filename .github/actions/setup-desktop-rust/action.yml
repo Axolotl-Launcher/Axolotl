@@ -1,0 +1,50 @@
+name: Set up desktop Rust
+description: Install the repository toolchain and restore a matching desktop dependency cache
+inputs:
+  profile:
+    description: Build profile (ci or release)
+    default: ci
+  target:
+    description: Explicit compilation target
+    default: ''
+  save-cache:
+    description: Whether this trusted job produces a dependency cache
+    default: 'false'
+runs:
+  using: composite
+  steps:
+    - name: Install pinned Rust toolchain
+      shell: bash
+      env:
+        BUILD_PROFILE: ${{ inputs.profile }}
+        BUILD_TARGET: ${{ inputs.target }}
+      run: |
+        toolchain="$(node -e 'const fs = require("node:fs"); const source = fs.readFileSync("rust-toolchain.toml", "utf8"); const version = source.match(/^channel\s*=\s*"([^"]+)"/m)?.[1]; if (!version || !/^\d+\.\d+\.\d+$/.test(version)) process.exit(1); process.stdout.write(version);')"
+        rustup toolchain install "$toolchain" --profile minimal --component rustfmt
+        rustup default "$toolchain"
+        if [ -n "$BUILD_TARGET" ]; then
+          rustup target add --toolchain "$toolchain" "$BUILD_TARGET"
+        fi
+        if [ "${RUNNER_ENVIRONMENT:-}" = github-hosted ]; then
+          active="$(rustup show active-toolchain)"
+          active="${active%% *}"
+          while IFS= read -r installed; do
+            installed="${installed%% *}"
+            if [ -n "$installed" ] && [ "$installed" != "$active" ]; then
+              rustup toolchain uninstall "$installed"
+            fi
+          done < <(rustup toolchain list --quiet)
+        fi
+        case "$BUILD_PROFILE" in
+          release) echo 'CARGO_PROFILE_RELEASE_LTO=true' >> "$GITHUB_ENV" ;;
+          ci) ;;
+          *) echo 'Unsupported desktop profile' >&2; exit 1 ;;
+        esac
+
+    - name: Restore desktop Rust dependencies
+      uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      with:
+        shared-key: axolotl-desktop-v3-${{ inputs.profile }}-${{ inputs.target || 'host' }}
+        save-if: ${{ inputs.save-cache }}
+        cache-on-failure: true
+        cache-bin: false

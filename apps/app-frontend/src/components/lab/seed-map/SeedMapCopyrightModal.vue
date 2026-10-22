@@ -4,6 +4,8 @@ import { Button, defineMessages, NewModal, useVIntl } from '@modrinth/ui'
 import { openUrl } from '@tauri-apps/plugin-opener'
 import { useTemplateRef } from 'vue'
 
+import cubiomesLicense from '../../../../../app/vendor/cubiomes/LICENSE?raw'
+
 const { formatMessage } = useVIntl()
 const modal = useTemplateRef<InstanceType<typeof NewModal>>('modal')
 
@@ -32,7 +34,11 @@ const messages = defineMessages({
     engineBody: {
         id: 'app.lab.seed-map.copyright.engine-body',
         defaultMessage:
-            'Biome, terrain, spawn, and structure data is generated locally with cubiomes, Copyright (c) 2020 Cubitect, provided under the MIT License, together with the Axolotl native integration.',
+            'Map predictions are computed locally with xpple/cubiomes, based on cubiomes by Cubitect (MIT License), together with the Axolotl native integration.',
+    },
+    viewLicense: {
+        id: 'app.lab.seed-map.copyright.view-license',
+        defaultMessage: 'View MIT License',
     },
     viewCubiomes: {
         id: 'app.lab.seed-map.copyright.view-cubiomes',
@@ -81,10 +87,18 @@ defineExpose({
                 <div>
                     <h3>{{ formatMessage(messages.engineHeading) }}</h3>
                     <p>{{ formatMessage(messages.engineBody) }}</p>
+                    <details class="mb-3 rounded-lg border border-surface-4 bg-surface-3 p-2">
+                        <summary class="cursor-pointer text-sm">
+                            {{ formatMessage(messages.viewLicense) }}
+                        </summary>
+                        <pre
+                            class="mb-0 max-h-48 overflow-y-auto whitespace-pre-wrap break-words text-xs"
+                            >{{ cubiomesLicense }}</pre>
+                    </details>
                     <Button
                         type="outlined"
                         size="2xs"
-                        @click="openUrl('https://github.com/Cubitect/cubiomes')"
+                        @click="openUrl('https://github.com/xpple/cubiomes')"
                         >{{ formatMessage(messages.viewCubiomes) }}
                         <ExternalIcon />
                     </Button>

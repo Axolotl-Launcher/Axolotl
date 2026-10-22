@@ -11,71 +11,76 @@
         :disable-close="resolveCtxFn(currentStage.disableClose, context)"
     >
         <template #title>
-            <div class="flex w-full min-w-0 items-center gap-3">
-                <Button
-                    v-if="backButtonVisible"
-                    v-tooltip="backButtonLabel"
-                    class="shrink-0"
-                    type="outlined"
-                    size="2xs"
-                    circular
-                    icon-only
-                    :aria-label="backButtonLabel"
-                    @click="prevStage()"
-                    ><ChevronLeftIcon />
-                </Button>
-                <div
-                    v-if="breadcrumbs && !resolveCtxFn(currentStage.nonProgressStage, context)"
-                    class="relative min-w-0 flex-1"
-                >
+            <div class="flex w-full min-w-0 flex-col gap-2">
+                <div class="flex w-full min-w-0 items-center gap-3">
+                    <Button
+                        v-if="backButtonVisible"
+                        v-tooltip="backButtonLabel"
+                        class="shrink-0"
+                        type="outlined"
+                        size="2xs"
+                        circular
+                        icon-only
+                        :aria-label="backButtonLabel"
+                        @click="prevStage()"
+                        ><ChevronLeftIcon />
+                    </Button>
                     <div
-                        class="pointer-events-none absolute left-0 top-0 bottom-0 w-8 bg-gradient-to-r from-bg-raised to-transparent z-10 transition-opacity duration-200"
-                        :class="showLeftShadow ? 'opacity-100' : 'opacity-0'"
-                    />
-                    <div
-                        ref="breadcrumbScroller"
-                        class="flex w-full overflow-x-auto overflow-y-hidden scrollbar-hide pr-6"
-                        @wheel.prevent="onBreadcrumbWheel"
-                        @scroll="updateScrollShadows"
+                        v-if="breadcrumbs && !resolveCtxFn(currentStage.nonProgressStage, context)"
+                        class="relative min-w-0 flex-1"
                     >
-                        <template v-for="(stage, index) in breadcrumbStages" :key="stage.id">
-                            <div
-                                :ref="(el) => setBreadcrumbRef(stage.id, el as HTMLElement | null)"
-                                class="flex w-max items-center"
-                            >
-                                <button
-                                    class="bg-transparent active:scale-95 font-bold text-[var(--color-text-tertiary)] p-0 w-max py-3 px-1"
-                                    :class="{
-                                        '!text-[var(--color-text-primary)] font-bold':
-                                            resolveCtxFn(currentStage.id, context) === stage.id,
-                                        'font-bold':
-                                            resolveCtxFn(currentStage.id, context) !== stage.id,
-                                        'opacity-50 cursor-not-allowed':
-                                            cannotNavigateToStage(index),
-                                    }"
-                                    :disabled="cannotNavigateToStage(index)"
-                                    @click="setStage(stage.id)"
+                        <div
+                            class="pointer-events-none absolute left-0 top-0 bottom-0 w-8 bg-gradient-to-r from-bg-raised to-transparent z-10 transition-opacity duration-200"
+                            :class="showLeftShadow ? 'opacity-100' : 'opacity-0'"
+                        />
+                        <div
+                            ref="breadcrumbScroller"
+                            class="flex w-full overflow-x-auto overflow-y-hidden scrollbar-hide pr-6"
+                            @wheel.prevent="onBreadcrumbWheel"
+                            @scroll="updateScrollShadows"
+                        >
+                            <template v-for="(stage, index) in breadcrumbStages" :key="stage.id">
+                                <div
+                                    :ref="
+                                        (el) => setBreadcrumbRef(stage.id, el as HTMLElement | null)
+                                    "
+                                    class="flex w-max items-center"
                                 >
-                                    {{ resolveCtxFn(stage.title, context) }}
-                                </button>
-                                <ChevronRightIcon
-                                    v-if="index < breadcrumbStages.length - 1"
-                                    class="h-5 w-5 text-[var(--color-text-tertiary)]"
-                                    stroke-width="3"
-                                />
-                            </div>
-                        </template>
+                                    <button
+                                        class="bg-transparent active:scale-95 font-bold text-[var(--color-text-tertiary)] p-0 w-max py-3 px-1"
+                                        :class="{
+                                            '!text-[var(--color-text-primary)] font-bold':
+                                                resolveCtxFn(currentStage.id, context) === stage.id,
+                                            'font-bold':
+                                                resolveCtxFn(currentStage.id, context) !== stage.id,
+                                            'opacity-50 cursor-not-allowed':
+                                                cannotNavigateToStage(index),
+                                        }"
+                                        :disabled="cannotNavigateToStage(index)"
+                                        @click="setStage(stage.id)"
+                                    >
+                                        {{ resolveCtxFn(stage.title, context) }}
+                                    </button>
+                                    <ChevronRightIcon
+                                        v-if="index < breadcrumbStages.length - 1"
+                                        class="h-5 w-5 text-[var(--color-text-tertiary)]"
+                                        stroke-width="3"
+                                    />
+                                </div>
+                            </template>
+                        </div>
+                        <div
+                            class="pointer-events-none absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-bg-raised to-transparent z-10 transition-opacity duration-200"
+                            :class="showRightShadow ? 'opacity-100' : 'opacity-0'"
+                        />
                     </div>
-                    <div
-                        class="pointer-events-none absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-bg-raised to-transparent z-10 transition-opacity duration-200"
-                        :class="showRightShadow ? 'opacity-100' : 'opacity-0'"
-                    />
+                    <span
+                        v-else
+                        class="min-w-0 flex-1 text-lg font-bold text-[var(--color-text-primary)] sm:text-xl"
+                        >{{ resolvedTitle }}</span
+                    >
                 </div>
-                <span
-                    v-else
-                    class="min-w-0 flex-1 text-lg font-bold text-[var(--color-text-primary)] sm:text-xl"
-                    >{{ resolvedTitle }}</span
-                >
+                <slot name="header-extra" />
             </div>
         </template>
 
@@ -94,6 +99,13 @@
                 :class="leftButtonConfig || rightButtonConfig || cancelButton ? 'mt-4' : ''"
             >
                 <Button
+                    v-if="cancelButton"
+                    type="outlined"
+                    :disabled="cancelButton.disabled"
+                    @click="cancelButton.onClick"
+                    >{{ cancelButton.label }}
+                </Button>
+                <Button
                     v-if="leftButtonConfig"
                     v-tooltip="leftButtonConfig.tooltip"
                     type="outlined"
@@ -102,13 +114,6 @@
                     @click="leftButtonConfig.onClick"
                     ><component :is="leftButtonConfig.icon" />
                     {{ leftButtonConfig.label }}
-                </Button>
-                <Button
-                    v-if="cancelButton"
-                    type="outlined"
-                    :disabled="cancelButton.disabled"
-                    @click="cancelButton.onClick"
-                    >{{ cancelButton.label }}
                 </Button>
                 <Button
                     v-if="rightButtonConfig"
@@ -154,12 +159,14 @@
 
 <script lang="ts">
 import { ChevronLeftIcon, ChevronRightIcon, SpinnerIcon } from '@modrinth/assets'
-import { commonMessages, NewModal, useVIntl } from '@modrinth/ui'
 import type { Component } from 'vue'
 import { computed, nextTick, ref, useTemplateRef, watch } from 'vue'
 
 import Button from '#ui/components/base/buttons/Button.vue'
 import type { ButtonColor } from '#ui/components/base/buttons/types'
+import NewModal from '#ui/components/modal/NewModal.vue'
+import { useVIntl } from '#ui/composables/i18n'
+import { commonMessages } from '#ui/utils/common-messages'
 
 export interface StageButtonConfig {
     label?: string

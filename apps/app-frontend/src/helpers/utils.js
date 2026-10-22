@@ -86,6 +86,7 @@ export async function exportLauncherLogs({
     includeSystemInfo = true,
     includeInstanceLogs = false,
     includeCrashAnalysis = false,
+    includeNetworkConnections = false,
     fileNamePrefix = 'Axolotl Launcher logs',
 } = {}) {
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
@@ -108,6 +109,7 @@ export async function exportLauncherLogs({
         includeSystemInfo,
         includeInstanceLogs,
         includeCrashAnalysis,
+        includeNetworkConnections,
     })
     return outputPath
 }

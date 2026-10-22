@@ -1,13 +1,13 @@
 - [Adding a New API Module](#adding-a-new-api-module)
-	- [Steps](#steps)
-		- [1. Define types in the module's `types.ts`](#1-define-types-in-the-modules-typests)
-		- [2. Create the module class](#2-create-the-module-class)
-			- [Request options](#request-options)
-			- [For uploads](#for-uploads)
-		- [3. Register in the MODULE\_REGISTRY](#3-register-in-the-module_registry)
-		- [4. Export types](#4-export-types)
-	- [Naming Conventions](#naming-conventions)
-	- [Key Files](#key-files)
+  - [Steps](#steps)
+    - [1. Define types in the module's `types.ts`](#1-define-types-in-the-modules-typests)
+    - [2. Create the module class](#2-create-the-module-class)
+      - [Request options](#request-options)
+      - [For uploads](#for-uploads)
+    - [3. Register in the MODULE\_REGISTRY](#3-register-in-the-module_registry)
+    - [4. Export types](#4-export-types)
+  - [Naming Conventions](#naming-conventions)
+  - [Key Files](#key-files)
 
 # Adding a New API Module
 
@@ -24,20 +24,20 @@ Add to an existing namespace or create a new one:
 ```ts
 // modules/labrinth/types.ts (existing namespace)
 export namespace Labrinth {
-	export namespace MyDomain {
-		export namespace v3 {
-			export type Thing = {
-				id: string
-				name: string
-				created: string
-				// ... matches API response exactly
-			}
+  export namespace MyDomain {
+    export namespace v3 {
+      export type Thing = {
+        id: string
+        name: string
+        created: string
+        // ... matches API response exactly
+      }
 
-			export type CreateThingRequest = {
-				name: string
-			}
-		}
-	}
+      export type CreateThingRequest = {
+        name: string
+      }
+    }
+  }
 }
 ```
 
@@ -53,34 +53,34 @@ import { AbstractModule } from '../../../core/abstract-module'
 import type { Labrinth } from '../types'
 
 export class LabrinthThingsV3Module extends AbstractModule {
-	public getModuleID(): string {
-		return 'labrinth_things_v3'
-	}
+  public getModuleID(): string {
+    return 'labrinth_things_v3'
+  }
 
-	public async get(id: string): Promise<Labrinth.MyDomain.v3.Thing> {
-		return this.client.request<Labrinth.MyDomain.v3.Thing>(`/thing/${id}`, {
-			api: 'labrinth',
-			version: 3,
-			method: 'GET',
-		})
-	}
+  public async get(id: string): Promise<Labrinth.MyDomain.v3.Thing> {
+    return this.client.request<Labrinth.MyDomain.v3.Thing>(`/thing/${id}`, {
+      api: 'labrinth',
+      version: 3,
+      method: 'GET',
+    })
+  }
 
-	public async create(data: Labrinth.MyDomain.v3.CreateThingRequest): Promise<Labrinth.MyDomain.v3.Thing> {
-		return this.client.request<Labrinth.MyDomain.v3.Thing>(`/thing`, {
-			api: 'labrinth',
-			version: 3,
-			method: 'POST',
-			body: data,
-		})
-	}
+  public async create(data: Labrinth.MyDomain.v3.CreateThingRequest): Promise<Labrinth.MyDomain.v3.Thing> {
+    return this.client.request<Labrinth.MyDomain.v3.Thing>(`/thing`, {
+      api: 'labrinth',
+      version: 3,
+      method: 'POST',
+      body: data,
+    })
+  }
 
-	public async delete(id: string): Promise<void> {
-		return this.client.request(`/thing/${id}`, {
-			api: 'labrinth',
-			version: 3,
-			method: 'DELETE',
-		})
-	}
+  public async delete(id: string): Promise<void> {
+    return this.client.request(`/thing/${id}`, {
+      api: 'labrinth',
+      version: 3,
+      method: 'DELETE',
+    })
+  }
 }
 ```
 
@@ -134,12 +134,12 @@ Add to `modules/index.ts`:
 import { LabrinthThingsV3Module } from './labrinth/things/v3'
 
 export const MODULE_REGISTRY = {
-	// ... existing modules
-	labrinth_things_v3: LabrinthThingsV3Module,
+  // ... existing modules
+  labrinth_things_v3: LabrinthThingsV3Module,
 } as const
 ```
 
-The naming convention is `<api>_<domain>_<version>`. This flat key gets transformed into nested access: `client.labrinth.things_v3`.
+The registry key uses `<api>_<domain>_v<version>`. This flat key gets transformed into nested access: `client.labrinth.things_v3`.
 
 ### 4. Export types
 

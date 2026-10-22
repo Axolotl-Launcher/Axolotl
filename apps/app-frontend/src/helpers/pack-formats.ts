@@ -32,9 +32,32 @@ const PACK_FORMAT_TO_VERSION: Record<number, PackFormatRange> = {
     94: { min: '1.21.11', max: '1.21.11' },
     101: { min: '26.1', max: '26.1' },
     107: { min: '26.2', max: '26.2' },
+    121: { min: '26.3', max: '26.3' },
 }
 
 export function getPackFormatRange(packFormat?: number): PackFormatRange | undefined {
     if (packFormat == null) return undefined
     return PACK_FORMAT_TO_VERSION[packFormat]
+}
+
+/** Formats normalized major/minor bounds without discarding unknown formats. */
+export function formatDatapackVersion(pack: {
+    pack_format?: number
+    min_format?: [number, number]
+    max_format?: [number, number]
+}): string {
+    const min = pack.min_format ?? (pack.pack_format == null ? undefined : [pack.pack_format, 0])
+    if (!min) return ''
+    const max = pack.max_format ?? min
+    const label = (format: number[], bound: 'min' | 'max') => {
+        if (format[1] === 2_147_483_647) return `${format[0]}.*`
+        const minor = ({ 88: 0, 94: 1, 101: 1, 107: 1, 121: 0 } as Record<number, number>)[
+            format[0]
+        ]
+        const versions = (minor ?? 0) === format[1] ? getPackFormatRange(format[0]) : undefined
+        return versions?.[bound] ?? versions?.min ?? `${format[0]}.${format[1]}`
+    }
+    const first = label(min, 'min')
+    const last = label(max, 'max')
+    return first === last ? first : `${first}–${last}`
 }

@@ -8,6 +8,7 @@
 
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
+import { createHash } from 'node:crypto'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
@@ -304,7 +305,7 @@ console.log('keeping the migration mapping honest')
 	const source = fs.readFileSync(script, 'utf8')
 	const block = source.slice(source.indexOf('const REVERTIBLE_SCHEMA = {'))
 	const body = block.slice(0, block.indexOf('\n}'))
-	const registered = [...body.matchAll(/^\t(\d{14}):/gm)].map((match) => Number(match[1]))
+    const registered = [...body.matchAll(/^[ \t]+(\d{14}):/gm)].map((match) => Number(match[1]))
 
 	const files = fs.readdirSync(migrationsDir).filter((name) => name.endsWith('.sql'))
 	const versions = files.map((name) => Number(name.slice(0, 14)))
@@ -326,6 +327,112 @@ console.log('keeping the migration mapping honest')
 }
 
 // --- refusing a database a running launcher holds open ------------------------
+
+console.log('resource identities: real upgrade, downgrade and re-upgrade')
+{
+    const version = 20261011120000
+    const file = path.join(directory, 'resources', 'beta', 'app.db')
+    fs.mkdirSync(path.dirname(file), { recursive: true })
+    const database = new DatabaseSync(file)
+    database.exec('PRAGMA foreign_keys = ON')
+    database.exec(`CREATE TABLE _sqlx_migrations (
+        version BIGINT PRIMARY KEY, description TEXT NOT NULL,
+        installed_on TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        success BOOLEAN NOT NULL, checksum BLOB NOT NULL, execution_time BIGINT NOT NULL
+    )`)
+    const files = fs.readdirSync(migrationsDir).filter((name) => name.endsWith('.sql')).sort()
+    function apply(name) {
+        const sql = fs.readFileSync(path.join(migrationsDir, name), 'utf8')
+        database.exec('BEGIN')
+        try {
+            database.exec(sql)
+            database.prepare('INSERT INTO _sqlx_migrations(version, description, success, checksum, execution_time) VALUES (?, ?, 1, ?, 0)')
+                .run(Number(name.slice(0, 14)), name, createHash('sha384').update(sql).digest())
+            database.exec('COMMIT')
+        } catch (error) {
+            database.exec('ROLLBACK')
+            throw error
+        }
+    }
+    for (const name of files.filter((name) => Number(name.slice(0, 14)) < version)) apply(name)
+    database.exec(`
+        INSERT INTO content_favorites VALUES ('modrinth', '12345678', 'mod', 123), ('curseforge', '12345678', 'mod', 456),
+            ('modrinth', 'old-slug', 'mod', 789), ('curseforge', '000123', 'shader', 800);
+        INSERT INTO cache(id, data_type, data, expires) VALUES ('malformed', 'project', 'broken JSON', 0);
+        INSERT INTO instances(id, path, install_stage, launcher_feature_version, name, created, modified)
+            VALUES ('sample', '/sample', 'installed', '1', 'Sample', 10, 20);
+        INSERT INTO instance_content_sets(id, instance_id, name, source_kind, status, game_version, loader, created, modified)
+            VALUES ('set', 'sample', 'Root', 'local', 'applied', '1.20.1', 'fabric', 10, 20);
+        INSERT INTO instance_files(id, instance_id, relative_path, file_name, enabled, sha1, size, missing, added_at, modified_at)
+            VALUES ('file', 'sample', 'mods/custom.jar', 'custom.jar', 0, 'hash', 100, 0, 10, 20);
+        INSERT INTO instance_content_entries(id, instance_id, content_set_id, file_id, project_type, source_kind, server_requirement, client_requirement, enabled, added_at, modified_at)
+            VALUES ('entry', 'sample', 'set', 'file', 'mod', 'modrinth', 'unknown', 'unknown', 0, 11, 21);
+        INSERT INTO instance_content_provider_refs(content_entry_id, provider, provider_project_id, provider_release_id, provider_file_id, is_origin)
+            VALUES ('entry', 'modrinth', '12345678', 'release1', 'artifact1', 1);
+        INSERT INTO instance_links(instance_id, link_kind, curseforge_project_id, curseforge_file_id)
+            VALUES ('sample', 'curseforge_modpack', 100, 200);
+        INSERT INTO instance_pack_members(id, content_set_id, content_entry_id, member_key, project_type, expected_relative_path, provider, provider_project_id, provider_release_id, created_at, modified_at)
+            VALUES ('member', 'set', 'entry', 'key', 'mod', 'mods/custom.jar', 'curseforge', '12345678', '101', 30, 40);
+        INSERT INTO install_jobs(id, instance_id, kind, status, state, created, modified)
+            VALUES ('frozen', 'sample', 'install_content', 'queued',
+                '{"request":{"type":"install_content","project_id":"12345678","version_id":"release1"}}', 1, 2);
+    `)
+    const businessTables = ['content_favorites', 'instance_files', 'instance_content_entries', 'instance_content_provider_refs', 'instance_pack_members', 'instance_links', 'install_jobs', 'cache']
+    const original = businessTables.map((table) => database.prepare(`SELECT * FROM ${table}`).all())
+    for (const name of files.filter((name) => Number(name.slice(0, 14)) >= version)) apply(name)
+    check('resource naming preferences default on when upgrading', database.prepare('SELECT resource_chinese_filenames, resource_preserve_filenames FROM settings WHERE id = 0').get().resource_chinese_filenames === 1 && database.prepare('SELECT resource_preserve_filenames FROM settings WHERE id = 0').get().resource_preserve_filenames === 1)
+    database.exec("INSERT INTO resource_pack_unlinks(instance_id, content_set_id, unlinked_at) VALUES ('sample', 'set', 42)")
+    assert.deepEqual(businessTables.map((table) => database.prepare(`SELECT * FROM ${table}`).all()), original)
+    check('provider-qualified IDs remain separate', database.prepare("SELECT COUNT(DISTINCT resource_id) AS count FROM resource_source_projects WHERE project_id = '12345678'").get().count === 2)
+    check('malformed cache and slug do not become business identities', database.prepare("SELECT COUNT(*) AS count FROM resource_source_projects WHERE project_id IN ('old-slug', '000123', 'malformed')").get().count === 0)
+    check('online pack has a durable identity', database.prepare('SELECT COUNT(*) AS count FROM resource_instance_pack_links').get().count === 1)
+    check('upgrade has no broken foreign keys', database.prepare('PRAGMA foreign_key_check').all().length === 0)
+    const lookupPlan = database.prepare("EXPLAIN QUERY PLAN SELECT source, project_id, content_type FROM resource_legacy_projects WHERE source = 'curseforge' AND project_id = '12345678'").all().map(row => row.detail).join('\n')
+    check('resource trigger lookup searches pending downloads through its covering index', lookupPlan.includes('SEARCH instance_pending_manual_downloads USING COVERING INDEX resource_pending_download_project'), lookupPlan)
+    check('resource favorites preserve exact source timestamps', database.prepare('SELECT saved_at FROM resource_favorites ORDER BY saved_at').all().map((row) => row.saved_at).join(',') === database.prepare("SELECT saved_at FROM content_favorites WHERE project_id = '12345678' ORDER BY saved_at").all().map((row) => row.saved_at).join(','))
+    database.exec(`
+        INSERT INTO resource_operation_plans(id, instance_id, revision, payload) VALUES ('frozen-plan', 'sample', 1, '{"exact":"retained"}');
+        INSERT INTO resource_execution_journals(plan_id, payload) VALUES ('frozen-plan', '[]');
+        INSERT INTO resource_entry_graphs(entry_id, nodes, edges) VALUES ('entry', '[]', '[]');
+        INSERT INTO resource_installed_artifacts(entry_id, artifact, scope) VALUES ('entry', '{"source":"modrinth"}', '{"kind":"instance"}');
+        INSERT INTO resource_history(id, instance_id, entry_id, recorded_at, payload, backup_relative_path, backup_size, backup_sha1, backup_available)
+            VALUES ('history', 'sample', 'entry', 30, '{"previous":"exact"}', 'mods/backup.old', 100, 'hash', 1);
+    `)
+    database.exec(`
+        INSERT INTO install_jobs(id, instance_id, kind, status, state, created, modified, finished, dismissed) VALUES ('resource-job', 'sample', 'change_content', 'succeeded', '{}', 1, 1, 2, 0);
+        UPDATE resource_operation_plans SET job_id = 'resource-job', queued = 1, completed = 1 WHERE id = 'frozen-plan';
+        DELETE FROM install_jobs WHERE id = 'resource-job';
+    `)
+    check('clearing task history preserves the durable reviewed resource plan', database.prepare("SELECT COUNT(*) AS count FROM resource_operation_plans WHERE id = 'frozen-plan' AND job_id IS NULL AND completed = 1").get().count === 1)
+    check('frozen resource tasks and populated history preserve foreign keys', database.prepare('PRAGMA foreign_key_check').all().length === 0)
+    database.exec("BEGIN; DELETE FROM instances WHERE id = 'sample'; ROLLBACK;")
+    check('resource execution and history tables were created', database.prepare("SELECT COUNT(*) AS count FROM sqlite_master WHERE type = 'table' AND name IN ('resource_history', 'resource_entry_graphs', 'resource_execution_journals')").get().count === 3)
+    check('cascading deletion does not conflict with identity triggers', database.prepare("SELECT COUNT(*) AS count FROM instances WHERE id = 'sample'").get().count === 1)
+    database.close()
+    const result = run(['--db', file, '--to', String(version), '--apply'])
+    check('real downgrade succeeds', result.status === 0, result.output)
+    const old = new DatabaseSync(file)
+    assert.deepEqual(businessTables.map((table) => old.prepare(`SELECT * FROM ${table}`).all()), original)
+    check('downgrade removes resource schema including triggers and views', old.prepare("SELECT COUNT(*) AS count FROM sqlite_master WHERE name = 'resources' OR name LIKE 'resource_%'").get().count === 0)
+    check('downgrade removes naming columns', !old.prepare('PRAGMA table_info(settings)').all().some(row => row.name === 'resource_chinese_filenames' || row.name === 'resource_preserve_filenames'))
+    old.exec('BEGIN')
+    for (const name of files.filter((name) => Number(name.slice(0, 14)) >= version)) {
+        const sql = fs.readFileSync(path.join(migrationsDir, name))
+        old.exec(sql.toString())
+        old.prepare('INSERT INTO _sqlx_migrations(version, description, success, checksum, execution_time) VALUES (?, ?, 1, ?, 0)')
+            .run(Number(name.slice(0, 14)), name, createHash('sha384').update(sql).digest())
+    }
+    old.exec('COMMIT')
+    check('re-upgrade restores source-qualified identities', old.prepare("SELECT COUNT(DISTINCT resource_id) AS count FROM resource_source_projects WHERE project_id = '12345678'").get().count === 2)
+    check('re-upgrade keeps foreign keys valid', old.prepare('PRAGMA foreign_key_check').all().length === 0)
+    check('re-upgrade restores naming defaults without duplicate schema', old.prepare('SELECT resource_chinese_filenames, resource_preserve_filenames FROM settings WHERE id = 0').get().resource_preserve_filenames === 1)
+    check('resource favorites are re-seeded with their original timestamps', old.prepare('SELECT saved_at FROM resource_favorites ORDER BY saved_at').all().map((row) => row.saved_at).join(',') === old.prepare("SELECT saved_at FROM content_favorites WHERE project_id = '12345678' ORDER BY saved_at").all().map((row) => row.saved_at).join(','))
+    assert.deepEqual(businessTables.map((table) => old.prepare(`SELECT * FROM ${table}`).all()), original)
+    old.exec('DROP TRIGGER resource_content_favorites_insert')
+    old.close()
+    const refused = run(['--db', file, '--to', String(version), '--apply'])
+    check('missing mapped trigger prevents unsafe downgrade', refused.status === 1 && refused.output.includes('does not match'))
+}
 
 if (process.platform !== 'win32') {
 	console.log('skipping the running launcher checks outside Windows')

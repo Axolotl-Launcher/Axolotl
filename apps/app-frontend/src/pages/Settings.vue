@@ -54,6 +54,9 @@ const searchQuery = ref('')
 const selectedCategoryId = ref(route.hash.slice(1) || 'interface')
 const settingsContentPending = ref(false)
 const contentContainer = ref<HTMLElement | null>(null)
+const pendingSearchTarget = ref<{ categoryId: string; targetId: string; query: string } | null>(
+    null,
+)
 const searchHighlightTarget = ref<HTMLElement | null>(null)
 const expandedGroups = ref<Record<string, boolean>>({
     launcher: true,
@@ -78,6 +81,9 @@ const CATEGORY_SKELETON_MAX_MS = 4000
 const isContentLoading = computed(() => showContentSkeleton.value || settingsContentPending.value)
 
 watch(searchQuery, (value) => {
+    if (pendingSearchTarget.value && value !== pendingSearchTarget.value.query) {
+        pendingSearchTarget.value = null
+    }
     searchResultsPending.value = true
     if (searchDebounceTimer) window.clearTimeout(searchDebounceTimer)
     searchDebounceTimer = window.setTimeout(() => {
@@ -88,7 +94,8 @@ watch(searchQuery, (value) => {
     }, SEARCH_DEBOUNCE_MS)
 })
 
-watch(selectedCategoryId, () => {
+watch(selectedCategoryId, (categoryId) => {
+    if (pendingSearchTarget.value?.categoryId !== categoryId) pendingSearchTarget.value = null
     const token = ++categoryTransitionToken
     showContentSkeleton.value = true
     const startedAt = Date.now()
@@ -232,8 +239,9 @@ function selectCategory(categoryId: string) {
     contentContainer.value?.scrollTo({ top: 0 })
     // Keep the URL hash in sync so a remount (error recovery, HMR) restores
     // this tab instead of falling back to the default category.
-    if (route.hash !== `#${categoryId}`) {
-        void router.replace({ hash: `#${categoryId}` })
+    if (route.hash !== `#${categoryId}` || route.query.page) {
+        const { page: _page, ...query } = route.query
+        void router.replace({ query, hash: `#${categoryId}` })
     }
 }
 
@@ -241,25 +249,42 @@ function toggleGroup(groupId: string) {
     expandedGroups.value[groupId] = !expandedGroups.value[groupId]
 }
 
+async function revealSearchTarget() {
+    await nextTick()
+    const pending = pendingSearchTarget.value
+    if (!pending || isContentLoading.value || activeCategory.value?.id !== pending.categoryId)
+        return
+    const target = contentContainer.value?.querySelector<HTMLElement>(`#${pending.targetId}`)
+    if (!target) return
+    target.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    flashSearchTarget(target)
+    pendingSearchTarget.value = null
+    if (searchQuery.value === pending.query) searchQuery.value = ''
+}
+
+watch(isContentLoading, () => void revealSearchTarget(), { flush: 'post' })
+
+function onSettingsContentResolved() {
+    settingsContentPending.value = false
+    void revealSearchTarget()
+}
+
 async function selectSearchResult(result: SettingsSearchResult) {
+    pendingSearchTarget.value = result.entry
+        ? {
+              categoryId: result.category.id,
+              targetId: getSettingsSearchTargetId(result.entry),
+              query: searchQuery.value,
+          }
+        : null
     selectedCategoryId.value = result.category.id
     expandedGroups.value[result.category.group] = true
-    searchQuery.value = ''
+    if (!result.entry) searchQuery.value = ''
+    const { page: _page, ...query } = route.query
+    await router.replace({ query, hash: `#${result.category.id}` })
+    if (selectedCategoryId.value !== result.category.id) return
     contentContainer.value?.scrollTo({ top: 0 })
-
-    if (!result.entry) return
-
-    const targetId = getSettingsSearchTargetId(result.entry)
-    for (let attempt = 0; attempt < 12; attempt++) {
-        await nextTick()
-        const target = contentContainer.value?.querySelector<HTMLElement>(`#${targetId}`)
-        if (target) {
-            target.scrollIntoView({ behavior: 'smooth', block: 'center' })
-            flashSearchTarget(target)
-            return
-        }
-        await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
-    }
+    await revealSearchTarget()
 }
 
 async function toggleDeveloperMode() {
@@ -542,10 +567,8 @@ const pageTitle: MessageDescriptor = settingsPageTitle
                                 aria-hidden="true"
                             >
                                 <div class="settings-content-skeleton-inner">
-                                    <div class="h-6 w-40 animate-pulse rounded bg-surface-3" />
-                                    <div
-                                        class="h-3 w-72 max-w-full animate-pulse rounded bg-surface-2"
-                                    />
+                                    <div class="h-6 w-40 rounded bg-surface-3" />
+                                    <div class="h-3 w-72 max-w-full rounded bg-surface-2" />
                                     <div class="mt-2 flex flex-col gap-3">
                                         <div
                                             v-for="row in 5"
@@ -559,15 +582,13 @@ const pageTitle: MessageDescriptor = settingsPageTitle
                                         >
                                             <div class="flex min-w-0 flex-1 flex-col gap-2">
                                                 <div
-                                                    class="h-4 animate-pulse rounded bg-surface-3"
+                                                    class="h-4 rounded bg-surface-3"
                                                     :class="row % 2 === 0 ? 'w-2/5' : 'w-1/3'"
                                                 />
-                                                <div
-                                                    class="h-3 w-3/5 animate-pulse rounded bg-surface-2"
-                                                />
+                                                <div class="h-3 w-3/5 rounded bg-surface-2" />
                                             </div>
                                             <div
-                                                class="h-8 w-16 shrink-0 animate-pulse rounded-lg bg-surface-3"
+                                                class="h-8 w-16 shrink-0 rounded-lg bg-surface-3"
                                             />
                                         </div>
                                     </div>
@@ -589,7 +610,7 @@ const pageTitle: MessageDescriptor = settingsPageTitle
                         >
                             <Suspense
                                 @pending="settingsContentPending = true"
-                                @resolve="settingsContentPending = false"
+                                @resolve="onSettingsContentResolved"
                             >
                                 <component :is="activeCategory.content" :key="activeCategory.id" />
                                 <template #fallback>
@@ -953,9 +974,7 @@ const pageTitle: MessageDescriptor = settingsPageTitle
 }
 
 .settings-content-body {
-    transition:
-        opacity 180ms ease,
-        transform 180ms ease;
+    transition: opacity 180ms ease;
 
     /* Programmatic focus target after category changes. Clicking the panel
 	   focuses it; Tab/Shift/Esc then paint the UA ring as a full-panel black
@@ -968,26 +987,21 @@ const pageTitle: MessageDescriptor = settingsPageTitle
 
 .settings-content-body.is-loading {
     opacity: 0;
-    transform: translateY(4px);
     pointer-events: none;
 }
 
 .settings-content-body.is-ready {
     opacity: 1;
-    transform: none;
 }
 
 .settings-content-skeleton-enter-active,
 .settings-content-skeleton-leave-active {
-    transition:
-        opacity 160ms ease,
-        transform 160ms ease;
+    transition: opacity 160ms ease;
 }
 
 .settings-content-skeleton-enter-from,
 .settings-content-skeleton-leave-to {
     opacity: 0;
-    transform: translateY(4px);
 }
 
 .settings-content-header-enter-active,

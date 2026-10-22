@@ -1,12 +1,10 @@
 <script setup lang="ts">
 import { ChevronRightIcon, FileIcon, FolderIcon, FolderOpenIcon } from '@modrinth/assets'
-import { useFormatBytes, useVIntl } from '@modrinth/ui'
+import { IconButton, useFormatBytes, useVIntl } from '@modrinth/ui'
 import { computed } from 'vue'
 
-import type { StorageNode, StorageNodeType } from './storageData'
-import { storageMessages } from './storageMessages'
-
-type MessageDescriptor = (typeof storageMessages)['total']
+import type { StorageNode } from './storageData'
+import { storageLabels, storageMessages } from './storageMessages'
 
 defineOptions({ name: 'StorageTreeRow' })
 
@@ -15,50 +13,21 @@ const props = defineProps<{
     depth: number
     parentTotal: number
     expanded: boolean
+    showFolderAction?: boolean
 }>()
 
 const emit = defineEmits<{
     action: [node: StorageNode]
+    openFolder: [node: StorageNode]
 }>()
 
 const { formatMessage } = useVIntl()
 const formatBytes = useFormatBytes()
 
-const typeLabels: Record<StorageNodeType, MessageDescriptor> = {
-    instances: storageMessages.instanceData,
-    cache: storageMessages.cacheData,
-    meta: storageMessages.metaData,
-    database: storageMessages.database,
-    other: storageMessages.other,
-    instance: storageMessages.instance,
-    mods: storageMessages.mods,
-    replay: storageMessages.replay,
-    resourcepacks: storageMessages.resourcepacks,
-    saves: storageMessages.saves,
-    world: storageMessages.world,
-    schematics: storageMessages.schematics,
-    screenshots: storageMessages.screenshots,
-    shaderpacks: storageMessages.shaderpacks,
-    minimap: storageMessages.minimap,
-    'distant-horizons': storageMessages.distantHorizons,
-    'db-file': storageMessages.dbFile,
-    'db-backup': storageMessages.dbBackup,
-}
+const typeLabels = storageLabels
 
 const hasChildren = computed(() => (props.node.children?.length ?? 0) > 0)
 const isDirectory = computed(() => (props.node.paths[0]?.kind ?? 'directory') !== 'file')
-
-const actualShare = computed(() =>
-    props.parentTotal > 0 ? props.node.size.actual / props.parentTotal : 0,
-)
-
-const symShare = computed(() =>
-    props.parentTotal > 0 ? props.node.size.symlink / props.parentTotal : 0,
-)
-
-const totalShare = computed(() => Math.min(1, actualShare.value + symShare.value))
-
-const percent = computed(() => Math.round(totalShare.value * 100))
 
 const displayLabel = computed(() => props.node.name ?? formatMessage(typeLabels[props.node.type]))
 
@@ -81,23 +50,6 @@ const symlinkSizeTooltip = computed(() =>
     }),
 )
 
-const progressTitle = computed(() =>
-    props.node.size.symlink > 0
-        ? `${actualSizeTooltip.value}\n${symlinkSizeTooltip.value}`
-        : actualSizeTooltip.value,
-)
-
-const progressTooltip = computed(() => ({
-    content: progressTitle.value,
-    popperClass: 'storage-tooltip',
-}))
-
-const progressLabel = computed(() =>
-    props.node.size.symlink > 0
-        ? `${actualSizeTooltip.value} ${symlinkSizeTooltip.value}`
-        : actualSizeTooltip.value,
-)
-
 const actualSizeText = computed(() => formatBytes(props.node.size.actual))
 const symlinkSizeText = computed(() => formatBytes(props.node.size.symlink))
 
@@ -106,14 +58,14 @@ const openActionLabel = computed(() => formatMessage(storageMessages.openAction)
 
 <template>
     <div
-        class="tree-row hover:bg-surface-2"
-        :class="{ clickable: hasChildren, 'is-expanded': expanded }"
+        class="tree-row flex min-h-10 select-none items-center justify-between border-0 bg-transparent px-3 py-2 hover:bg-surface-4"
+        :class="{ 'cursor-pointer': hasChildren, 'is-expanded': expanded }"
     >
         <!-- 左侧树层级与名称部分 -->
         <div class="flex h-full min-w-0 flex-1 items-center">
             <!-- 根据 depth 生成层级缩进和导轨线 -->
-            <div class="indent-guides" aria-hidden="true">
-                <span v-for="i in depth" :key="i" class="guide-line" />
+            <div class="indent-guides flex h-full shrink-0" aria-hidden="true">
+                <span v-for="i in depth" :key="i" class="guide-line relative block h-full w-5" />
             </div>
 
             <!-- 展开/折叠 箭头（装饰性，由原生的 <summary> 负责展开） -->
@@ -124,7 +76,7 @@ const openActionLabel = computed(() => formatMessage(storageMessages.openAction)
             >
                 <ChevronRightIcon class="size-3.5" />
             </span>
-            <span v-else class="chevron-placeholder" aria-hidden="true" />
+            <span v-else class="w-5 shrink-0" aria-hidden="true" />
 
             <!-- 文件/文件夹按钮：打开位置（不展开树） -->
             <button
@@ -134,80 +86,60 @@ const openActionLabel = computed(() => formatMessage(storageMessages.openAction)
                 :aria-label="`${displayLabel}: ${openActionLabel}`"
                 @click.stop="emit('action', node)"
             >
-                <FolderOpenIcon v-if="hasChildren && expanded" class="node-type-icon text-brand" />
-                <FolderIcon v-else-if="isDirectory" class="node-type-icon" />
-                <FileIcon v-else class="node-type-icon" />
+                <FolderOpenIcon v-if="hasChildren && expanded" class="size-4 shrink-0 text-brand" />
+                <FolderIcon v-else-if="isDirectory" class="size-4 shrink-0" />
+                <FileIcon v-else class="size-4 shrink-0" />
             </button>
 
             <!-- 节点名称 -->
-            <span v-tooltip="nameTooltip" class="node-name">
+            <span
+                v-tooltip="nameTooltip"
+                class="min-w-0 truncate text-sm font-normal text-[var(--color-text-primary)]"
+            >
                 {{ displayLabel }}
             </span>
 
-            <span v-if="node.count !== undefined" class="count-badge">
+            <span
+                v-if="node.count !== undefined"
+                class="ml-1.5 h-4 shrink-0 rounded bg-surface-3 px-1 text-xs leading-4 tabular-nums text-[var(--color-text-tertiary)]"
+            >
                 {{ node.count }}
             </span>
         </div>
 
         <!-- 右侧数据与进度列 -->
         <div class="ml-4 flex shrink-0 items-center gap-4">
-            <div class="storage-size">
-                {{ actualSizeText }}
-                <span v-if="node.size.symlink > 0" class="text-[var(--color-text-tertiary)]">
+            <slot name="actions" />
+            <div
+                class="min-w-20 whitespace-nowrap text-right text-sm tabular-nums text-[var(--color-text-default)]"
+            >
+                <span v-tooltip="actualSizeTooltip">{{ actualSizeText }}</span>
+                <span
+                    v-if="node.size.symlink > 0"
+                    v-tooltip="symlinkSizeTooltip"
+                    class="text-[var(--color-text-tertiary)]"
+                >
                     + {{ symlinkSizeText }}
                 </span>
             </div>
-
-            <div
-                class="w-9 max-sm:hidden text-right text-xs tabular-nums text-[var(--color-text-tertiary)]"
-            >
-                {{ percent }}%
-            </div>
-
-            <progress
-                v-tooltip="progressTooltip"
-                class="storage-progress h-1 w-24 shrink-0 appearance-none overflow-hidden rounded-full border-0 bg-surface-3"
-                :value="totalShare"
-                :max="1"
-                :aria-label="progressLabel"
-            />
+            <IconButton
+                v-if="showFolderAction && node.paths.some((path) => path.kind === 'directory')"
+                v-tooltip="formatMessage(storageMessages.openFolder)"
+                size="2xs"
+                type="quiet"
+                :label="formatMessage(storageMessages.openFolder)"
+                @click.stop="emit('openFolder', node)"
+                @keydown.stop
+                ><FolderOpenIcon
+            /></IconButton>
         </div>
     </div>
 </template>
 
 <style scoped>
-/* 整体行布局：去卡片化、去分割线 */
 .tree-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    height: 2rem;
-    padding: 0 0.5rem;
-    border: none;
-    background: transparent;
-    user-select: none;
     transition: background-color 0.1s ease;
 }
-
-.tree-row.clickable {
-    cursor: pointer;
-}
-
-/* 竖向缩进线容器 */
-.indent-guides {
-    display: flex;
-    height: 100%;
-    flex-shrink: 0;
-}
-
-/* 垂直导轨线：跟随主题 surface 描边色，浅色/深色模式都清晰可见 */
-.guide-line {
-    display: block;
-    width: 1.25rem;
-    height: 100%;
-    position: relative;
-}
-
 .guide-line::before {
     content: '';
     position: absolute;
@@ -216,96 +148,26 @@ const openActionLabel = computed(() => formatMessage(storageMessages.openAction)
     bottom: 0;
     width: 1px;
     background-color: var(--surface-5);
-    opacity: 1;
 }
-
-/* 展开状态下高亮当前父级的引导线，使用主题品牌色 */
-.tree-row.is-expanded .indent-guides .guide-line:last-child::before {
+.tree-row.is-expanded .guide-line:last-child::before {
     background-color: var(--color-brand);
-    opacity: 1;
 }
-
-/* 折叠/展开 箭头图标 */
 .chevron-icon {
     transition: transform 0.15s ease;
 }
-
 .tree-row.is-expanded .chevron-icon {
     transform: rotate(90deg);
 }
-
-.chevron-placeholder {
-    width: 1.25rem;
-    flex-shrink: 0;
-}
-
-/* 文件/文件夹打开按钮 */
-.node-type-icon {
-    width: 1.125rem;
-    height: 1.125rem;
-    flex-shrink: 0;
-}
-
 .node-type-btn:focus-visible {
     outline: 2px solid var(--color-brand);
     outline-offset: -1px;
 }
-
-.node-name {
-    min-width: 0;
-    overflow: hidden;
-    font-size: 0.8125rem;
-    font-weight: 400;
-    color: var(--color-text-primary);
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.count-badge {
-    margin-left: 0.375rem;
-    padding: 0 0.35rem;
-    height: 1rem;
-    border-radius: 0.25rem;
-    background: var(--surface-3);
-    color: var(--color-text-tertiary);
-    font-size: 0.6875rem;
-    line-height: 1rem;
-    font-variant-numeric: tabular-nums;
-    flex-shrink: 0;
-}
-
-.storage-size {
-    font-size: 0.8125rem;
-    font-variant-numeric: tabular-nums;
-    color: var(--color-text-default);
-    white-space: nowrap;
-    text-align: right;
-    min-width: 5rem;
-}
-
-/* 原生 <progress> 作为共享占用进度条 */
-.storage-progress::-webkit-progress-bar {
-    background: var(--surface-3);
-    border-radius: 9999px;
-}
-
-.storage-progress::-webkit-progress-value {
-    background: var(--color-brand);
-    border-radius: 9999px;
-}
-
-.storage-progress::-moz-progress-bar {
-    background: var(--color-brand);
-    border-radius: 9999px;
-}
-
-@media (max-width: 900px) {
-    .storage-progress {
-        display: none;
+@media (prefers-reduced-motion: reduce) {
+    .tree-row,
+    .chevron-icon {
+        transition: none;
     }
 }
-
-/* 存储页多行 tooltip：内容换行并限制宽度 */
 :global(.tooltip-popper.storage-tooltip) {
     white-space: pre-line;
     max-width: 22rem;

@@ -1,5 +1,5 @@
 {
-  "source": "LobeHub 6c7a6fb033e443bc27bf34cbd5509ab3db7f22f3 model-bank chat models",
+  "source": "LobeHub 49204982cab98bfa2f2fb6831a34d5018a2af6be model-bank chat models",
   "providers": {
     "ai21": [
       {
@@ -384,6 +384,11 @@
         "enabled": false
       },
       {
+        "id": "claude-haiku-5-5",
+        "name": "Claude Haiku 5.5",
+        "enabled": true
+      },
+      {
         "id": "claude-opus-5-5",
         "name": "Claude Opus 5.5",
         "enabled": true
@@ -589,6 +594,11 @@
       }
     ],
     "anthropic": [
+      {
+        "id": "claude-haiku-5-5",
+        "name": "Claude Haiku 5.5",
+        "enabled": true
+      },
       {
         "id": "claude-opus-5-5",
         "name": "Claude Opus 5.5",
@@ -949,6 +959,11 @@
       }
     ],
     "bedrock": [
+      {
+        "id": "global.anthropic.claude-haiku-5-5",
+        "name": "Claude Haiku 5.5",
+        "enabled": true
+      },
       {
         "id": "global.anthropic.claude-opus-5-5",
         "name": "Claude Opus 5.5",
@@ -4863,6 +4878,11 @@
         "enabled": true
       },
       {
+        "id": "anthropic/claude-haiku-5.5",
+        "name": "Claude Haiku 5.5",
+        "enabled": true
+      },
+      {
         "id": "anthropic/claude-opus-5.5",
         "name": "Claude Opus 5.5",
         "enabled": true
@@ -8449,28 +8469,38 @@
     ],
     "codeflow": [
       {
-        "id": "gpt-5.4",
-        "name": "gpt-5.4",
+        "id": "gpt-6.1-sol",
+        "name": "GPT-6.1 Sol",
         "enabled": true
       },
       {
-        "id": "gpt-5.4-mini",
-        "name": "gpt-5.4-mini",
+        "id": "gpt-6-astra",
+        "name": "GPT-6 Astra",
         "enabled": true
       },
       {
-        "id": "gpt-5.5",
-        "name": "gpt-5.5",
+        "id": "gpt-6-sol",
+        "name": "GPT-6 Sol",
+        "enabled": true
+      },
+      {
+        "id": "gpt-6-luna",
+        "name": "GPT-6 Luna",
         "enabled": true
       },
       {
         "id": "gpt-5.6-sol",
-        "name": "gpt-5.6-sol",
+        "name": "GPT-5.6 Sol",
         "enabled": true
       },
       {
         "id": "gpt-5.6-terra",
-        "name": "gpt-5.6-terra",
+        "name": "GPT-5.6 Terra",
+        "enabled": true
+      },
+      {
+        "id": "gpt-5.6-luna",
+        "name": "GPT-5.6 Luna",
         "enabled": true
       }
     ]

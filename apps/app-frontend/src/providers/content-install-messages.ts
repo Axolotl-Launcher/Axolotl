@@ -1,4 +1,75 @@
-import { defineMessage } from '@modrinth/ui'
+import { defineMessage, defineMessages } from '@modrinth/ui'
+
+export const retainedInstanceMessages = defineMessages({
+    title: {
+        id: 'app.content-install.retained-instance.title',
+        defaultMessage: 'Created instance retained',
+    },
+    description: {
+        id: 'app.content-install.retained-instance.description',
+        defaultMessage:
+            '{name} was created. The content installation was cancelled; you can manage or remove the instance from your library.',
+    },
+})
+
+export const errorMessages = defineMessages({
+    installFailed: {
+        id: 'app.content-install.error.failed',
+        defaultMessage: 'Could not install the selected content.',
+    },
+    missingCurseForgeFile: {
+        id: 'app.content-install.error.missing-curseforge-file',
+        defaultMessage:
+            'The selected CurseForge project or file is unavailable. Reopen the project and try again.',
+    },
+    reviewRequired: {
+        id: 'app.content-install.error.review-required',
+        defaultMessage: 'Review the content changes before installing.',
+    },
+    previewUnavailable: {
+        id: 'app.content-install.error.preview-unavailable',
+        defaultMessage:
+            'The installation preview is unavailable. Reopen the project and try again.',
+    },
+    unsupportedType: {
+        id: 'app.content-install.error.unsupported-type',
+        defaultMessage: 'This content type cannot be installed here.',
+    },
+    missingTarget: {
+        id: 'app.content-install.error.missing-target',
+        defaultMessage: 'The selected project or instance is no longer available.',
+    },
+    missingVersion: {
+        id: 'app.content-install.error.missing-version',
+        defaultMessage: 'The selected release is no longer available.',
+    },
+    unsupportedProvider: {
+        id: 'app.content-install.error.unsupported-provider',
+        defaultMessage: 'This content source cannot be used for this installation.',
+    },
+    projectNotFound: {
+        id: 'app.content-install.error.project-not-found',
+        defaultMessage: 'Could not find project {project}.',
+    },
+    invalidCurseForgeProject: {
+        id: 'app.content-install.error.invalid-curseforge-project',
+        defaultMessage:
+            'The CurseForge project reference is invalid. Reopen the project and try again.',
+    },
+    noCurseForgeFiles: {
+        id: 'app.content-install.error.no-curseforge-files',
+        defaultMessage: 'This CurseForge project has no available files.',
+    },
+    reinstallUnavailable: {
+        id: 'app.content-install.error.reinstall-unavailable',
+        defaultMessage:
+            'The selected CurseForge modpack release is unavailable for reinstallation.',
+    },
+    missingGameVersion: {
+        id: 'app.content-install.error.missing-game-version',
+        defaultMessage: 'This CurseForge modpack does not specify a Minecraft version.',
+    },
+})
 
 export const noCompatibleVersionsMessage = defineMessage({
     id: 'app.content-install.no-compatible-versions',

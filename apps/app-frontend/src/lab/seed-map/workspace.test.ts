@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 
 import {
+    compareSeedMapVersions,
     fallbackSeedMapProfiles,
     SEED_MAP_DEFAULT_VERSION,
     seedMapTileConcurrency,
@@ -11,6 +12,7 @@ import { featureMask, SEED_MAP_FEATURES, visibleFeatureDefinitions } from './fea
 import {
     applyShareQuery,
     createDefaultSeedMapWorkspace,
+    createShareQuery,
     isCurrentSeedMapEpoch,
     sanitizeSeedMapWorkspace,
     SEED_MAP_MIN_ZOOM,
@@ -32,6 +34,46 @@ test('seed map starts near spawn with a lightweight layer set', () => {
     ])
     assert.equal(workspace.displayMode, 'structures')
     assert.deepEqual(workspace.selectedOres, ['diamond'])
+})
+
+test('game version choices sort newest releases first and beta releases last', () => {
+    const versions = [
+        'b1.7',
+        '1.9.4',
+        '1.21.9',
+        '26.1',
+        '1.20',
+        '1.21.11',
+        '26.1.2',
+        'b1.8',
+        '26.3',
+        '26.2',
+    ]
+    assert.deepEqual(versions.sort(compareSeedMapVersions), [
+        '26.3',
+        '26.2',
+        '26.1.2',
+        '26.1',
+        '1.21.11',
+        '1.21.9',
+        '1.20',
+        '1.9.4',
+        'b1.8',
+        'b1.7',
+    ])
+})
+
+test('removed end-island layer is discarded from saved selections while other data survives', () => {
+    const state = sanitizeSeedMapWorkspace({
+        ...createDefaultSeedMapWorkspace(),
+        visibleFeatures: ['end-island', 'end-city', 'nether-fossil', 'abandoned-camp'],
+        completedFeatures: ['end-island:1200:1300', 'end-city:1500:1600'],
+        markers: [{ id: 'home', name: 'Home', x: 12, z: -34, color: '#22C55E' }],
+    })
+    assert.deepEqual(state.visibleFeatures, ['end-city', 'nether-fossil', 'abandoned-camp'])
+    assert.equal(featureMask(['end-island'] as never[]), 0)
+    assert.equal(state.completedFeatures.length, 2)
+    assert.equal(state.markers[0].name, 'Home')
 })
 
 test('seed map workspace recovers from invalid persisted values', () => {
@@ -74,10 +116,10 @@ test('seed map supports a closer maximum zoom', () => {
 
 test('seed map exposes every categorized cubiomes biome exactly once', () => {
     const groups = seedMapBiomeGroups()
-    assert.equal(SEED_MAP_BIOMES.length, 65)
+    assert.equal(SEED_MAP_BIOMES.length, Object.keys(SEED_MAP_BIOME_NAMES).length)
     assert.equal(groups.length, 17)
-    assert.equal(groups.flatMap((group) => group.biomes).length, 65)
-    assert.equal(new Set(SEED_MAP_BIOMES.map((biome) => biome.id)).size, 65)
+    assert.equal(groups.flatMap((group) => group.biomes).length, SEED_MAP_BIOMES.length)
+    assert.equal(new Set(SEED_MAP_BIOMES.map((biome) => biome.id)).size, SEED_MAP_BIOMES.length)
     assert.deepEqual(
         groups.filter((group) => group.dimension === 'nether').map((group) => group.category),
         ['nether'],
@@ -102,7 +144,7 @@ test('seed map migrates legacy biome highlighting and terrain defaults', () => {
     assert.deepEqual(state.highlightedBiomes, [21])
     assert.equal(state.highlightBiomeEnabled, true)
     assert.equal(state.terrainEstimation, true)
-    assert.equal(state.version, 3)
+    assert.equal(state.version, 4)
 })
 
 test('seed map share queries preserve useful map state', () => {
@@ -140,6 +182,7 @@ test('fallback profiles gate dimensions, ores, and large biomes by version', () 
     const modern = profiles.find(
         (profile) => profile.edition === 'java' && profile.version === '1.21.3',
     )
+    assert.equal(modern?.available, false)
     assert.deepEqual(modern?.dimensions, ['overworld', 'nether', 'end'])
     assert.equal(modern?.ores, true)
     const legacy = profiles.find(
@@ -214,4 +257,59 @@ test('slime chunks are the first layer in every dimension', () => {
         )
         assert.equal(visible[0]?.kind, 'slime-chunk')
     }
+})
+
+test('v3 migration retains version, markers and completion records', () => {
+    const previous = {
+        ...createDefaultSeedMapWorkspace(),
+        version: 3,
+        gameVersion: '26.2',
+        markers: [{ id: 'camp', name: 'Home', x: -20, z: 42, color: '#FF0000' }],
+        completedFeatures: ['village:1:2'],
+        completedOres: ['diamond:3:-40:5'],
+    }
+    const migrated = sanitizeSeedMapWorkspace(previous)
+    assert.equal(migrated.version, 4)
+    assert.equal(migrated.gameVersion, '26.2')
+    assert.deepEqual(
+        migrated.markers,
+        previous.markers.map((marker) => ({ ...marker, dimension: 'overworld' })),
+    )
+    assert.deepEqual(migrated.completedFeatures, previous.completedFeatures)
+    assert.deepEqual(migrated.completedOres, previous.completedOres)
+})
+
+test('markers preserve dimension on reload and legacy or invalid dimensions default to overworld', () => {
+    const marker = { id: 'camp', name: 'Camp', x: -20, z: 42, color: '#FF0000' }
+    const workspace = sanitizeSeedMapWorkspace({
+        ...createDefaultSeedMapWorkspace(),
+        dimension: 'end',
+        markers: [
+            marker,
+            { ...marker, id: 'nether', dimension: 'nether' },
+            { ...marker, id: 'end', dimension: 'end' },
+            { ...marker, id: 'invalid', dimension: 'unknown' },
+        ],
+    })
+    assert.deepEqual(
+        workspace.markers.map((item) => item.dimension),
+        ['overworld', 'nether', 'end', 'overworld'],
+    )
+    assert.deepEqual(
+        sanitizeSeedMapWorkspace(JSON.parse(JSON.stringify(workspace))).markers,
+        workspace.markers,
+    )
+})
+
+test('sharing underground view preserves height and individual layers', () => {
+    const workspace = {
+        ...createDefaultSeedMapWorkspace(),
+        displayMode: 'underground' as const,
+        undergroundY: -32,
+        undergroundLayers: 5,
+    }
+    const restored = applyShareQuery(createShareQuery(workspace))
+    assert.equal(restored.displayMode, 'underground')
+    assert.equal(restored.undergroundY, -32)
+    assert.equal(restored.undergroundLayers, 5)
 })

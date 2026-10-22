@@ -21,8 +21,8 @@ pub struct ContentItem {
     pub date_added: Option<String>,
     pub provider_refs: Vec<ContentProviderRef>,
     pub origin_provider: Option<ContentProvider>,
-    /// Present when an update backup (`{active}_{previous}.old`) exists and
-    /// can be rolled back; `file_name` is the file that would be restored.
+    /// Available durable resource history or a real legacy update backup;
+    /// `file_name` identifies the previous file displayed by the rollback action.
     pub rollback: Option<ContentItemRollback>,
     /// Version-level environment (client/server/singleplayer) from the
     /// Modrinth v3 version API. `None` when the file has no Modrinth

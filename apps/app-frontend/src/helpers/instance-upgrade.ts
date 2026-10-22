@@ -367,3 +367,11 @@ export async function execute_instance_upgrade(
         displayNames,
     })
 }
+
+export async function discard_instance_upgrade_plan(planId: string): Promise<void> {
+    await invoke('plugin:instance|instance_discard_upgrade_plan', { planId })
+}
+
+export async function get_instance_upgrade_plan(planId: string): Promise<InstanceUpgradePlan> {
+    return await invoke('plugin:instance|instance_get_upgrade_plan', { planId })
+}

@@ -7,6 +7,8 @@
             <TooltipPortal>
                 <TooltipContent
                     :side="side"
+                    :side-offset="6"
+                    :collision-padding="8"
                     :class="contentClass ?? headlessTokenClasses.tooltipContent"
                 >
                     <slot name="content" />

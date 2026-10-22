@@ -321,9 +321,9 @@ async function unpinLocalServer(serverId: string) {
         </div>
         <ul
             v-else
-            class="home-server-list grid min-w-0 min-h-0 flex-1 grid-auto-rows-max content-start gap-1 m-0 list-none overflow-x-hidden overflow-y-auto p-0 pr-1"
+            class="home-server-list grid grid-cols-1 min-w-0 min-h-0 flex-1 grid-auto-rows-max content-start gap-1 m-0 list-none overflow-x-hidden overflow-y-auto p-0 pr-1"
         >
-            <li v-for="server in servers" :key="serverKey(server.world)">
+            <li v-for="server in servers" :key="serverKey(server.world)" class="min-w-0">
                 <SmartClickable>
                     <template #clickable>
                         <router-link
@@ -445,7 +445,7 @@ async function unpinLocalServer(serverId: string) {
                     </div>
                 </SmartClickable>
             </li>
-            <li v-for="server in pinnedLocalServers" :key="'local-' + server.id">
+            <li v-for="server in pinnedLocalServers" :key="'local-' + server.id" class="min-w-0">
                 <SmartClickable>
                     <template #clickable>
                         <router-link
@@ -577,10 +577,6 @@ async function unpinLocalServer(serverId: string) {
 .home-pinned-servers[data-size='1x1'] .home-server-row {
     gap: 0.5rem;
     padding: 0.375rem;
-}
-
-.home-pinned-servers[data-size='1x1'] .home-server-menu {
-    display: none;
 }
 
 .home-widget-empty {

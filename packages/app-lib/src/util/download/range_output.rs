@@ -1,12 +1,19 @@
 //! Positional output for native HTTP/1.1 and HTTP/2 range downloads.
 
+use crate::util::download::constants::{
+    RANGE_OUTPUT_CREATING_RANGED_DOWNLOAD_OUTPUT,
+    RANGE_OUTPUT_FLUSHING_RANGED_DOWNLOAD_OUTPUT,
+    RANGE_OUTPUT_INVALID_RANGE_BOUNDS, RANGE_OUTPUT_OFFSET_OVERFLOW,
+    RANGE_OUTPUT_OPENING_RANGED_DOWNLOAD_OUTPUT,
+    RANGE_OUTPUT_RANGE_OUTPUT_LENGTH_CHANGED, RANGE_OUTPUT_WRITE_EXCEEDS_RANGE,
+};
 use crate::util::io::{self, IOError};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tokio::fs::{File, OpenOptions};
 use tokio::io::{AsyncSeekExt, AsyncWriteExt, BufWriter, SeekFrom};
 
-const RANGE_WRITER_BUFFER_CAPACITY: usize = 256 * 1024;
+use super::constants::RANGE_WRITER_BUFFER_CAPACITY;
 
 #[cfg(test)]
 struct RangeWriteTestProbe {
@@ -45,7 +52,7 @@ impl RangeOutput {
             .map_err(|error| IOError::with_path(error, path))?;
         if !metadata.is_file() || metadata.len() != size {
             return Err(IOError::with_path(
-                std::io::Error::other("range output length changed"),
+                std::io::Error::other(RANGE_OUTPUT_RANGE_OUTPUT_LENGTH_CHANGED),
                 path,
             ));
         }
@@ -60,7 +67,7 @@ impl RangeOutput {
     ) -> Result<Arc<Self>, IOError> {
         io::retry_windows_sharing_violation(
             path,
-            "creating ranged download output",
+            RANGE_OUTPUT_CREATING_RANGED_DOWNLOAD_OUTPUT,
             || async {
                 let file = OpenOptions::new()
                     .create(true)
@@ -91,7 +98,7 @@ impl RangeOutput {
             return Err(IOError::with_path(
                 std::io::Error::new(
                     std::io::ErrorKind::InvalidInput,
-                    "invalid range bounds",
+                    RANGE_OUTPUT_INVALID_RANGE_BOUNDS,
                 ),
                 &self.path,
             ));
@@ -99,7 +106,7 @@ impl RangeOutput {
         let path = self.path.clone();
         let mut file = io::retry_windows_sharing_violation(
             &path,
-            "opening ranged download output",
+            RANGE_OUTPUT_OPENING_RANGED_DOWNLOAD_OUTPUT,
             || async {
                 OpenOptions::new().read(true).write(true).open(&path).await
             },
@@ -129,7 +136,7 @@ impl RangeOutput {
             IOError::with_path(
                 std::io::Error::new(
                     std::io::ErrorKind::InvalidInput,
-                    "offset overflow",
+                    RANGE_OUTPUT_OFFSET_OVERFLOW,
                 ),
                 path,
             )
@@ -144,7 +151,7 @@ impl RangeOutput {
     pub(crate) async fn flush(&self, path: &Path) -> Result<(), IOError> {
         let mut file = io::retry_windows_sharing_violation(
             path,
-            "flushing ranged download output",
+            RANGE_OUTPUT_FLUSHING_RANGED_DOWNLOAD_OUTPUT,
             || async {
                 OpenOptions::new().read(true).write(true).open(path).await
             },
@@ -175,7 +182,7 @@ impl RangeWriter {
             return Err(IOError::with_path(
                 std::io::Error::new(
                     std::io::ErrorKind::InvalidInput,
-                    "write exceeds range",
+                    RANGE_OUTPUT_WRITE_EXCEEDS_RANGE,
                 ),
                 &self.path,
             ));

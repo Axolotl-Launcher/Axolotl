@@ -19,6 +19,7 @@ import {
     XIcon,
 } from '@modrinth/assets'
 import {
+    Admonition,
     Avatar,
     Button,
     type ButtonMenuOption,
@@ -79,8 +80,14 @@ import {
 import ScreenshotDragGather from './drag-gather.vue'
 import ScreenshotDragPreview from './drag-preview.vue'
 import ScreenshotGroupSection from './group.vue'
+import {
+    createScreenshotSelection,
+    isSelectionModifier,
+    screenshotGridTargets,
+} from './screenshot-selection'
 import ScreenshotToolbar from './toolbar.vue'
 import { type ActiveScreenshotDrag, useScreenshotDragGather } from './use-screenshot-drag-gather'
+import { useScreenshotMarquee } from './use-screenshot-marquee'
 
 type ScreenshotSort = 'newest' | 'oldest' | 'name'
 type ScreenshotGroupBy = 'custom' | 'instance' | 'date' | 'none'
@@ -171,7 +178,8 @@ const legacyCustomGrouping = useStorage<LegacyCustomScreenshotGrouping>(
         assignments: {},
     },
 )
-const selectedKeys = ref(new Set<string>())
+const selection = createScreenshotSelection()
+const { selectedKeys } = selection
 const copiedScreenshotIds = ref(new Set<string>())
 const copiedResetTimeouts = new Map<string, ReturnType<typeof setTimeout>>()
 const screenshotsPage = ref<HTMLElement>()
@@ -226,6 +234,15 @@ const { width: windowWidth } = useWindowSize()
 const formatDateTime = useFormatDateTime({ dateStyle: 'long', timeStyle: 'short' })
 const formatMonth = useFormatDateTime({ month: 'long', year: 'numeric' })
 const messages = defineMessages({
+    selectGroup: {
+        id: 'app.screenshots.selection.select-group',
+        defaultMessage: 'Select all screenshots in {group}',
+    },
+    selectionHint: {
+        id: 'app.screenshots.selection.hint',
+        defaultMessage:
+            'Use the checkboxes or Ctrl/Command-click to select, Shift-click for a range, or drag from empty space to select an area.',
+    },
     heading: { id: 'app.screenshots.heading', defaultMessage: 'Screenshots' },
     emptyHeading: { id: 'app.screenshots.empty-heading', defaultMessage: 'No screenshots yet' },
     emptyDescription: {
@@ -243,6 +260,11 @@ const messages = defineMessages({
     errorHeading: {
         id: 'app.screenshots.error-heading',
         defaultMessage: 'Failed to load screenshots',
+    },
+    skippedFolders: {
+        id: 'app.screenshots.skipped-folders',
+        defaultMessage:
+            '{count, plural, one {Skipped # inaccessible instance folder} other {Skipped # inaccessible instance folders}}',
     },
     newest: { id: 'app.screenshots.sort.newest', defaultMessage: 'Newest' },
     oldest: { id: 'app.screenshots.sort.oldest', defaultMessage: 'Oldest' },
@@ -336,7 +358,23 @@ const screenshotsReadyPending = computed(
         (groupBy.value === 'custom' &&
             (screenshotGroupsQueryPending.value || migratingLegacyGroups.value)),
 )
-const screenshots = computed(() => screenshotsQuery.data.value ?? [])
+const screenshots = computed(() => screenshotsQuery.data.value?.screenshots ?? [])
+let warnedScanAt = 0
+watch(
+    () => [screenshotsQuery.isFetching.value, screenshotsQuery.dataUpdatedAt.value] as const,
+    ([fetching, updatedAt]) => {
+        const result = screenshotsQuery.data.value
+        if (fetching || !result || !result.skipped_instances.length) return
+        if (updatedAt === warnedScanAt) return
+        warnedScanAt = updatedAt
+        addNotification({
+            type: 'warning',
+            title: formatMessage(messages.skippedFolders, {
+                count: result.skipped_instances.length,
+            }),
+        })
+    },
+)
 const customGroups = computed(() => screenshotGroupsQuery.data.value ?? [])
 const screenshotOptionsInstance = computed(() =>
     (instancesQuery.data.value ?? []).find(
@@ -354,6 +392,25 @@ const screenshotsError = computed(() => {
     }
     return new Error(String(error))
 })
+const hasScreenshotViewData = computed(
+    () =>
+        screenshotsQuery.data.value !== undefined &&
+        (groupBy.value !== 'custom' || screenshotGroupsQuery.data.value !== undefined),
+)
+const retryingScreenshots = computed(
+    () =>
+        screenshotsQuery.isFetching.value ||
+        (groupBy.value === 'custom' && screenshotGroupsQuery.isFetching.value),
+)
+async function retryScreenshots() {
+    const requests = []
+    if (screenshotsQuery.error.value) requests.push(screenshotsQuery.refetch())
+    if (groupBy.value === 'custom' && screenshotGroupsQuery.error.value) {
+        requests.push(screenshotGroupsQuery.refetch())
+    }
+    await Promise.all(requests)
+}
+
 const selectionActive = computed(() => selectedKeys.value.size > 0)
 const selectedScreenshots = computed(() =>
     screenshots.value.filter((screenshot) => selectedKeys.value.has(getSelectionKey(screenshot))),
@@ -703,7 +760,7 @@ const moveMutation = useMutation({
             ...variables.keys.map((key) => key.instance_id),
             variables.targetInstanceId,
         ])
-        selectedKeys.value = new Set()
+        selection.clear()
     },
 })
 const saveEditMutation = useMutation({
@@ -744,10 +801,61 @@ const bulkBusy = computed(
         updatingCustomGroupMemberships.value,
 )
 
-watch(screenshots, (currentScreenshots) => {
-    const currentKeys = new Set(currentScreenshots.map(getSelectionKey))
-    selectedKeys.value = new Set([...selectedKeys.value].filter((key) => currentKeys.has(key)))
+const selectionOrder = computed(() =>
+    screenshotGroupLayouts.value
+        .filter((layout) => layout.isOpen)
+        .flatMap((layout) => layout.group.screenshots.map(getSelectionKey)),
+)
+const selectionTargets = computed(() =>
+    screenshotGridTargets(
+        screenshotGroupLayouts.value.map((layout) => ({
+            keys: layout.group.screenshots.map(getSelectionKey),
+            gridTop: layout.gridTop,
+            isOpen: layout.isOpen,
+        })),
+        screenshotColumnCount.value,
+        screenshotCardWidth.value,
+        screenshotCardHeight.value,
+        SCREENSHOT_GRID_GAP,
+    ),
+)
+const marquee = useScreenshotMarquee({
+    container: screenshotListContainer,
+    disabled: () => bulkBusy.value || !!activeDrag.value,
+    targets: () => selectionTargets.value,
+    snapshot: () => selectedKeys.value,
+    apply: selection.box,
 })
+const selectionRectangle = marquee.rectangle
+watch(
+    selectionOrder,
+    (order) => {
+        marquee.cancel()
+        selection.reconcile(order)
+    },
+    { flush: 'sync' },
+)
+watch(bulkBusy, (busy) => {
+    if (busy) marquee.cancel()
+})
+
+function toggleGroupSelection(group: ScreenshotGroupData) {
+    if (bulkBusy.value) return
+    setGroupCollapsed(group.id, false)
+    selection.toggleGroup(group.screenshots.map(getSelectionKey))
+}
+
+function onSelectionAreaClick(event: MouseEvent) {
+    if (marquee.click(event)) return
+    const target = event.target instanceof Element ? event.target : null
+    if (
+        !target?.closest(
+            '[data-screenshot-card], [data-screenshot-group-header], button, input, a, [role="button"]',
+        ) &&
+        !isSelectionModifier(event)
+    )
+        clearSelection()
+}
 
 watch(groupBy, async (currentGroupBy, previousGroupBy) => {
     if (currentGroupBy !== 'custom') {
@@ -900,7 +1008,7 @@ async function createCustomGroup() {
             ...new Set(screenshotsToGroup.map((screenshot) => screenshot.instance_id)),
         ])
         groupBy.value = 'custom'
-        selectedKeys.value = new Set()
+        selection.clear()
         groupIdPendingNameEdit.value = group.id
     } catch (error) {
         handleError(error)
@@ -982,7 +1090,7 @@ async function assignCustomGroup(
             })),
         )
         await invalidateScreenshots(movedScreenshots.map((screenshot) => screenshot.instance_id))
-        selectedKeys.value = new Set()
+        selection.clear()
     } catch (error) {
         handleError(error)
     } finally {
@@ -1033,23 +1141,20 @@ async function invalidateScreenshots(instanceIds: string[]) {
     ])
 }
 
-function toggleScreenshotSelection(screenshot: InstanceScreenshot) {
+function toggleScreenshotSelection(
+    screenshot: InstanceScreenshot,
+    event?: MouseEvent | KeyboardEvent,
+) {
     if (bulkBusy.value) return
-    const key = getSelectionKey(screenshot)
-    const next = new Set(selectedKeys.value)
-    if (next.has(key)) {
-        next.delete(key)
-    } else {
-        next.add(key)
-    }
-    selectedKeys.value = next
+    selection.select(getSelectionKey(screenshot), selectionOrder.value, event)
 }
 
 function activateScreenshot(screenshot: InstanceScreenshot, event: MouseEvent | KeyboardEvent) {
-    if (selectionActive.value || event.shiftKey) {
-        toggleScreenshotSelection(screenshot)
+    if (selectionActive.value || isSelectionModifier(event)) {
+        toggleScreenshotSelection(screenshot, event)
         return
     }
+    selection.markAnchor(getSelectionKey(screenshot))
     const index = filteredScreenshots.value.findIndex(
         (candidate) => getSelectionKey(candidate) === getSelectionKey(screenshot),
     )
@@ -1060,7 +1165,7 @@ function activateScreenshot(screenshot: InstanceScreenshot, event: MouseEvent | 
 }
 
 function clearSelection() {
-    if (!bulkBusy.value) selectedKeys.value = new Set()
+    if (!bulkBusy.value) selection.clear()
 }
 
 function requestDelete(screenshot: InstanceScreenshot, fromPreview = false) {
@@ -1231,7 +1336,7 @@ async function deleteSelected() {
     if (bulkBusy.value || selected.length === 0) return
     try {
         await deleteMutation.mutateAsync(selected.map(getScreenshotKey))
-        selectedKeys.value = new Set()
+        selection.clear()
         addNotification({
             type: 'success',
             title: formatMessage(messages.bulkDeleteSuccess, { count: selected.length }),
@@ -1526,15 +1631,29 @@ onBeforeUnmount(() => {
             />
         </template>
 
+        <Admonition
+            v-if="screenshotsError && hasScreenshotViewData"
+            type="warning"
+            :header="formatMessage(messages.errorHeading)"
+        >
+            <p class="m-0">{{ screenshotsError.message }}</p>
+            <Button type="outlined" :loading="retryingScreenshots" @click="retryScreenshots">
+                {{ formatMessage(commonMessages.retryButton) }}
+            </Button>
+        </Admonition>
         <ReadyTransition :pending="screenshotsReadyPending">
             <EmptyState
-                v-if="screenshotsError"
+                v-if="screenshotsError && !hasScreenshotViewData"
                 type="error"
                 :heading="formatMessage(messages.errorHeading)"
                 :description="screenshotsError.message"
             >
                 <template #actions>
-                    <Button type="outlined" @click="screenshotsQuery.refetch()">
+                    <Button
+                        type="outlined"
+                        :loading="retryingScreenshots"
+                        @click="retryScreenshots"
+                    >
                         {{ formatMessage(commonMessages.retryButton) }}
                     </Button>
                 </template>
@@ -1562,11 +1681,14 @@ onBeforeUnmount(() => {
             >
                 <div
                     ref="screenshotListContainer"
+                    data-screenshot-selection-area
                     class="w-full"
                     :style="{
                         overflowAnchor: 'none',
                         visibility: screenshotListWidth > 0 ? 'visible' : 'hidden',
                     }"
+                    @pointerdown.capture="marquee.start"
+                    @click.capture="onSelectionAreaClick"
                 >
                     <div
                         v-for="{
@@ -1591,7 +1713,10 @@ onBeforeUnmount(() => {
                             :show-drop-outline="
                                 activeDropGroupId === group.id && canDropScreenshotsOnGroup(group)
                             "
-                            :can-drag="groupBy === 'custom' || (isGlobal && groupBy === 'instance')"
+                            :can-drag="
+                                !bulkBusy &&
+                                (groupBy === 'custom' || (isGlobal && groupBy === 'instance'))
+                            "
                             :drop-instance-id="
                                 groupBy === 'instance' ? group.dropInstanceId : undefined
                             "
@@ -1617,8 +1742,32 @@ onBeforeUnmount(() => {
                             @edit="editScreenshot"
                             @more="showScreenshotOptions"
                         >
-                            <template v-if="group.customGroupId" #actions="{ startEditing }">
+                            <template #actions="{ startEditing }">
+                                <input
+                                    type="checkbox"
+                                    class="size-4 shrink-0 cursor-pointer accent-brand"
+                                    :checked="
+                                        group.screenshots.length > 0 &&
+                                        group.screenshots.every((screenshot) =>
+                                            selectedKeys.has(getSelectionKey(screenshot)),
+                                        )
+                                    "
+                                    :indeterminate.prop="
+                                        group.screenshots.some((screenshot) =>
+                                            selectedKeys.has(getSelectionKey(screenshot)),
+                                        ) &&
+                                        !group.screenshots.every((screenshot) =>
+                                            selectedKeys.has(getSelectionKey(screenshot)),
+                                        )
+                                    "
+                                    :aria-label="
+                                        formatMessage(messages.selectGroup, { group: group.title })
+                                    "
+                                    :disabled="bulkBusy || group.screenshots.length === 0"
+                                    @change="toggleGroupSelection(group)"
+                                />
                                 <div
+                                    v-if="group.customGroupId"
                                     class="flex shrink-0 items-center opacity-0 transition-opacity duration-250 group-hover/header:opacity-100 focus-within:opacity-100"
                                 >
                                     <IconButton
@@ -1672,6 +1821,19 @@ onBeforeUnmount(() => {
         </ReadyTransition>
     </div>
 
+    <Teleport to="body">
+        <div
+            v-if="selectionRectangle"
+            aria-hidden="true"
+            class="pointer-events-none fixed z-[9998] rounded border border-solid border-brand bg-brand-highlight"
+            :style="{
+                left: `${selectionRectangle.left}px`,
+                top: `${selectionRectangle.top}px`,
+                width: `${selectionRectangle.width}px`,
+                height: `${selectionRectangle.height}px`,
+            }"
+        />
+    </Teleport>
     <FloatingActionBar
         :shown="selectionActive"
         :aria-label="formatMessage(messages.selectionAriaLabel)"

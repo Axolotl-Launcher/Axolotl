@@ -23,6 +23,7 @@ import {
     export_crash_context,
     get_output_by_filename,
 } from '@/helpers/logs.js'
+import { createRequestGeneration } from '@/helpers/request-generation'
 
 const { handleError } = injectNotificationManager()
 const route = useRoute()
@@ -110,12 +111,26 @@ function buildLogList(rawLogs) {
 }
 
 const logs = ref(buildLogList([]))
+const logsLoading = ref(true)
+const historicalLoading = ref(false)
+const historyRequests = createRequestGeneration()
 
-void getHistoricalLogs()
-    .then((allLogs) => {
+async function loadHistoricalLogs() {
+    const request = historyRequests.begin(`${props.instance.id}:list`)
+    logsLoading.value = true
+    try {
+        const allLogs = await getHistoricalLogs()
+        if (!historyRequests.isCurrent(request, `${props.instance.id}:list`)) return
         logs.value = buildLogList(allLogs)
-    })
-    .catch(handleError)
+    } catch (error) {
+        if (historyRequests.isCurrent(request, `${props.instance.id}:list`)) handleError(error)
+    } finally {
+        if (historyRequests.isCurrent(request, `${props.instance.id}:list`))
+            logsLoading.value = false
+    }
+}
+
+void loadHistoricalLogs()
 
 const selectedLogIndex = ref(0)
 const isLive = computed(() => selectedLogIndex.value === 0)
@@ -163,8 +178,7 @@ async function deleteSelectedLog() {
     if (!log || log.live) return
     await delete_logs_by_filename(props.instance.id, log.log_type, log.filename)
     invalidate()
-    const freshLogs = await getHistoricalLogs()
-    logs.value = buildLogList(freshLogs)
+    await loadHistoricalLogs()
     selectedLogIndex.value = 0
 }
 
@@ -173,7 +187,7 @@ provideConsoleManager({
     logSources,
     activeLogSourceIndex: selectedLogIndex,
     showCommandInput: false,
-    loading: ref(false),
+    loading: computed(() => !isLive.value && (logsLoading.value || historicalLoading.value)),
     onClear: () => {
         if (!isLive.value) return
         void clearLive()
@@ -193,21 +207,22 @@ watch(selectedLogIndex, async (newIndex) => {
     const log = filteredLogs.value[newIndex]
     if (!log) return
 
+    const requestKey = `${props.instance.id}:${log.log_type}:${log.filename}`
+    const request = historyRequests.begin(requestKey)
+    historicalLoading.value = true
+    historicalConsole.clear()
     const cached = getHistoricalContent(log.filename)
-    if (cached) {
-        historicalConsole.clear()
-        await historicalConsole.addLegacyLog(cached)
-        return
-    }
-
-    const output = await get_output_by_filename(
-        props.instance.id,
-        log.log_type,
-        log.filename,
-    ).catch(handleError)
-    if (output) {
-        historicalConsole.clear()
-        await historicalConsole.addLegacyLog(output)
+    try {
+        const output =
+            cached !== undefined
+                ? cached
+                : await get_output_by_filename(props.instance.id, log.log_type, log.filename)
+        if (!historyRequests.isCurrent(request, requestKey)) return
+        if (output) await historicalConsole.addLegacyLog(output)
+    } catch (error) {
+        if (historyRequests.isCurrent(request, requestKey)) handleError(error)
+    } finally {
+        if (historyRequests.isCurrent(request, requestKey)) historicalLoading.value = false
     }
 })
 
@@ -237,8 +252,7 @@ const unlistenProcesses = await process_listener(async (e) => {
     }
     if (e.event === 'finished') {
         invalidate()
-        const freshLogs = await getHistoricalLogs()
-        logs.value = buildLogList(freshLogs)
+        await loadHistoricalLogs()
         void analyseForCrash()
     }
 })

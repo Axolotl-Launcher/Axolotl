@@ -1,5 +1,15 @@
 use super::*;
 
+#[test]
+fn historical_content_recovery_requires_its_saved_release() {
+    assert_eq!(
+        request::require_historical_release(Some("original".into())).unwrap(),
+        "original"
+    );
+    assert!(request::require_historical_release(None).is_err());
+    assert!(request::require_historical_release(Some(String::new())).is_err());
+}
+
 fn update_one(content_id: &str) -> crate::install::ContentChangeIntent {
     crate::install::ContentChangeIntent::UpdateOne {
         content_id: content_id.to_string(),
@@ -426,6 +436,31 @@ fn stalled_downloads_are_reported_as_network_errors() {
         install_error_code(InstallPhaseId::DownloadingMinecraft, &error),
         "network_error"
     );
+}
+
+#[test]
+fn export_resolution_errors_keep_network_database_and_parse_categories() {
+    use crate::resources::ResourceError;
+    for (error, expected) in [
+        (
+            ResourceError::Network { status: Some(503) },
+            "network_error",
+        ),
+        (
+            ResourceError::Database("query failed".into()),
+            "database_error",
+        ),
+        (ResourceError::InvalidResponse("JSON".into()), "parse_error"),
+        (
+            ResourceError::InvalidRequest("selection".into()),
+            "export_error",
+        ),
+    ] {
+        assert_eq!(
+            install_error_code(InstallPhaseId::Verifying, &error.into()),
+            expected
+        );
+    }
 }
 
 #[test]

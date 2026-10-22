@@ -37,6 +37,21 @@ pub fn should_use_mojang_mirror() -> bool {
         .is_some_and(|state| state.mojang_auth_use_mirror())
 }
 
+pub(crate) fn auth_proxy_java_args(
+    args: &[String],
+    use_mirror: bool,
+) -> Vec<String> {
+    let proxy_args = ["auth", "account", "session", "services", "profiles"]
+        .map(|service| format!("-Dminecraft.api.{service}.host=https://{service}.msp.fallenbreath.me"));
+    let mut result = if use_mirror {
+        proxy_args.to_vec()
+    } else {
+        Vec::new()
+    };
+    result.extend(args.iter().filter(|arg| !proxy_args.contains(arg)).cloned());
+    result
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -19,7 +19,7 @@ const messages = defineMessages({
     tagsBody: {
         id: 'app.lab.recipe-generator.copyright.tags-body',
         defaultMessage:
-            'Expanded item tags are sourced from the crafting generator by destruc7i0n, provided under the MIT License.',
+            'Legacy expanded tags are sourced from the crafting generator by destruc7i0n (MIT License). Minecraft 26.3 tags come from vanilla data archived by mcmeta.',
     },
     viewTags: {
         id: 'app.lab.recipe-generator.copyright.view-tags',
@@ -67,7 +67,7 @@ defineExpose({
                     <Button
                         type="outlined"
                         size="2xs"
-                        @click="openUrl('https://github.com/destruc7i0n/crafting')"
+                        @click="openUrl('https://github.com/misode/mcmeta')"
                         >{{ formatMessage(messages.viewTags) }}
                         <ExternalIcon />
                     </Button>

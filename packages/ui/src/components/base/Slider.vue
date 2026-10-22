@@ -24,7 +24,7 @@
             </div>
             <input
                 ref="input"
-                v-model="currentValue"
+                :value="currentValue"
                 type="range"
                 :min="min"
                 :max="max"
@@ -47,14 +47,14 @@
             </div>
         </div>
         <StyledInput
-            :model-value="String(currentValue)"
+            v-model="inputText"
             type="number"
             class="w-24 ml-3"
             :disabled="disabled"
             :min="min"
             :max="max"
             :step="step"
-            @change="onInput(($event.target as HTMLInputElement).value)"
+            @change="onInput($event)"
         />
     </div>
 </template>
@@ -91,6 +91,11 @@ const props = withDefaults(defineProps<Props>(), {
 })
 
 const currentValue = ref(Math.max(props.min, props.modelValue))
+const inputText = ref<string | number | undefined>(String(currentValue.value))
+
+watch(currentValue, (value) => {
+    inputText.value = String(value)
+})
 
 watch(
     () => props.modelValue,
@@ -100,19 +105,26 @@ watch(
 )
 
 const inputValueValid = (inputValue: number) => {
-    let newValue = inputValue || props.min
+    let newValue = inputValue
 
     if (props.forceStep) {
-        newValue -= newValue % props.step
+        const ratio = newValue / props.step
+        const tolerance = Number.EPSILON * Math.max(1, Math.abs(ratio))
+        const steps = Math.trunc(ratio + Math.sign(ratio) * tolerance)
+        const [coefficient, exponent = '0'] = props.step.toString().split('e')
+        const precision = Math.max(0, (coefficient.split('.')[1]?.length ?? 0) - Number(exponent))
+        newValue = Number((steps * props.step).toFixed(precision))
     }
     newValue = Math.max(props.min, Math.min(newValue, props.max))
 
     currentValue.value = newValue
+    inputText.value = String(newValue)
     emit('update:modelValue', currentValue.value)
 }
 
 const onInputWithSnap = (value: string) => {
-    let parsedValue = parseInt(value)
+    let parsedValue = Number(value)
+    if (!Number.isFinite(parsedValue)) return
 
     for (const snapPoint of props.snapPoints) {
         const distance = Math.abs(snapPoint - parsedValue)
@@ -125,8 +137,16 @@ const onInputWithSnap = (value: string) => {
     inputValueValid(parsedValue)
 }
 
-const onInput = (value: string) => {
-    inputValueValid(parseInt(value))
+const onInput = (event: Event) => {
+    const input = event.target as HTMLInputElement
+    const value = input.value.trim()
+    const parsedValue = Number(value)
+    if (input.validity.badInput || !Number.isFinite(parsedValue)) {
+        inputText.value = String(currentValue.value)
+    } else {
+        inputValueValid(value === '' ? props.min : parsedValue)
+    }
+    input.value = String(currentValue.value)
 }
 </script>
 

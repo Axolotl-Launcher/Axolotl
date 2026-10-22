@@ -5,6 +5,12 @@ import type { RouteRecordRaw } from 'vue-router'
 /** Discover vertical: browse, favorites, and multi-provider project pages. */
 export const discoverRoutes: RouteRecordRaw[] = [
     {
+        path: '/resource/:id',
+        name: 'ResourceProject',
+        component: () => import('@/pages/project/ResourceRoute.vue'),
+        meta: { useContext: true, pageTransitionGroup: 'project' },
+    },
+    {
         path: '/browse/favorites',
         name: 'Favorites',
         component: () => import('@/pages/Favorites.vue'),
@@ -59,6 +65,13 @@ export const discoverRoutes: RouteRecordRaw[] = [
             discordActivity: 'Browsing mods...',
             pageTransitionGroup: 'curseforge-project',
         },
+    },
+    {
+        path: '/project/curseforge/:id/changelog',
+        name: 'CurseForgeProjectChangelog',
+        component: () => import('@/pages/project/CurseForge.vue'),
+        props: true,
+        meta: { useContext: true, pageTransitionGroup: 'curseforge-project' },
     },
     {
         path: '/project/curseforge/:id/gallery',
@@ -143,6 +156,12 @@ export const discoverRoutes: RouteRecordRaw[] = [
                         { name: '?Version' },
                     ],
                 },
+            },
+            {
+                path: 'changelog',
+                name: 'Changelog',
+                component: () => import('@/pages/project/Changelog.vue'),
+                meta: { useContext: true },
             },
             {
                 path: 'gallery',

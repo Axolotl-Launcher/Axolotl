@@ -1,0 +1,303 @@
+name: Update nix flake
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - flake.nix
+      - flake.lock
+      - pnpm-lock.yaml
+      - nix/axolotl.nix
+      - packages/app-lib/java/**
+      - .github/workflows/update-nix-flake.yml
+  # Triggered after releases so the commits with release tags use legacy locks.
+  # It prevents the release to be effected when the latest nixpkgs is broken.
+  release:
+    types:
+      - published
+  # Upstream inputs move daily and a security fix cannot be told apart from
+  # them, so the lock stays on the branch until a maintainer dispatches this.
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  # A release run and a push run target the same branch, so key the group by
+  # that branch instead of by the ref that triggered the run.
+  group: ${{ github.workflow }}-${{ (github.event_name == 'release' || github.ref_type == 'tag') && github.event.repository.default_branch || github.ref_name }}
+  # Every run commits into the branch it updates, so queue instead of cancelling.
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    name: Refresh the nix locks and caches
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    outputs:
+      branch: ${{ steps.branch.outputs.name }}
+      sha: ${{ steps.base.outputs.sha }}
+      flake: ${{ steps.flake-inputs.outputs.changed }}
+      hash: ${{ steps.pnpm-deps.outputs.changed }}
+      gradle: ${{ steps.gradle-deps.outputs.changed }}
+      old-hash: ${{ steps.pnpm-deps.outputs.old }}
+      new-hash: ${{ steps.pnpm-deps.outputs.new }}
+    steps:
+      - name: Resolve the branch to update
+        id: branch
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          REF_TYPE: ${{ github.ref_type }}
+          REF_NAME: ${{ github.ref_name }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          # A release refreshes the default branch; a branch push refreshes itself.
+          if [ "$REF_TYPE" = 'tag' ] || [ "$EVENT_NAME" = 'release' ]; then
+            echo "name=$DEFAULT_BRANCH" >> "$GITHUB_OUTPUT"
+          else
+            echo "name=$REF_NAME" >> "$GITHUB_OUTPUT"
+          fi
+
+      # This job runs code from the flake inputs, so it holds no write
+      # credential; only the commit job below is allowed to write.
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: ${{ steps.branch.outputs.name }}
+          submodules: recursive
+          persist-credentials: false
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@13d8dd58da0234aa297dedd986986ccb8e7f3e24 # v31.11.1
+
+      - name: Record the refreshed base commit
+        id: base
+        # The commit job only applies the artifacts if this commit still holds
+        # the inputs they were derived from.
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Update flake inputs
+        id: flake-inputs
+        # The pinned inputs stay usable when the update fails, so report it
+        # instead of failing the run.
+        continue-on-error: true
+        run: |
+          nix flake update --accept-flake-config
+          if git diff --quiet -- flake.lock; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      # The launcher itself is built and cached by Axolotl-Cachix
+      # (Axolotl-Launcher/Axolotl-Cachix), so this job only proves that the
+      # refreshed inputs still evaluate and fetch their pnpm dependencies.
+      - name: Recompute the pnpm dependency hash
+        id: pnpm-deps
+        run: |
+          read_hash() {
+            sed -nE 's|^[[:space:]]*hash = "(sha256-[A-Za-z0-9+/=]+)";[[:space:]]*$|\1|p' nix/axolotl.nix
+          }
+          old_hash="$(read_hash)"
+          if [ "$(printf '%s' "$old_hash" | grep -c '^sha256-')" -ne 1 ]; then
+            echo "error: expected exactly one pnpm dependency hash in nix/axolotl.nix" >&2
+            exit 1
+          fi
+          nix develop . --accept-flake-config --command update-pnpm-deps
+          new_hash="$(read_hash)"
+          echo "old=$old_hash" >> "$GITHUB_OUTPUT"
+          echo "new=$new_hash" >> "$GITHUB_OUTPUT"
+          if [ "$old_hash" = "$new_hash" ]; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Recompute the gradle dependency cache
+        id: gradle-deps
+        # The Gradle that resolves these dependencies comes from nixpkgs, so a
+        # refreshed lock can invalidate nix/mitmCache.json even though the Java
+        # build files did not move.
+        env:
+          # bubblewrap is only a guard against sloppy build scripts and needs
+          # user namespaces the hosted runners do not reliably provide.
+          USE_BWRAP: '0'
+        run: |
+          nix develop . --accept-flake-config --command update-gradle-deps
+          if git diff --quiet -- nix/mitmCache.json; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Upload the refreshed lock file
+        if: steps.flake-inputs.outputs.changed == 'true'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: nix-flake-lock
+          path: flake.lock
+          overwrite: true
+          retention-days: 1
+          if-no-files-found: error
+
+      - name: Upload the refreshed gradle dependency cache
+        if: steps.gradle-deps.outputs.changed == 'true'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: nix-mitm-cache
+          path: nix/mitmCache.json
+          overwrite: true
+          retention-days: 1
+          if-no-files-found: error
+
+  commit:
+    name: Commit the refreshed nix inputs
+    needs: refresh
+    if: needs.refresh.outputs.flake == 'true' || needs.refresh.outputs.hash == 'true' || needs.refresh.outputs.gradle == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: ${{ needs.refresh.outputs.branch }}
+          # Full history keeps the rebase below possible when the branch has
+          # advanced while the refresh job ran.
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Require the refreshed inputs to still be current
+        id: base
+        # The artifacts were derived from the refresh job's checkout, so a
+        # branch that moved on those inputs makes them stale.
+        env:
+          BASE: ${{ needs.refresh.outputs.sha }}
+          TARGET_BRANCH: ${{ needs.refresh.outputs.branch }}
+        run: |
+          if [ -z "$BASE" ]; then
+            echo "error: the refresh job did not report its base commit" >&2
+            exit 1
+          fi
+          current=true
+          if ! git merge-base --is-ancestor "$BASE" HEAD; then
+            echo "::warning::${BASE} is not an ancestor of ${TARGET_BRANCH}; a newer run supersedes this refresh"
+            current=false
+          elif ! git diff --quiet "$BASE" HEAD -- flake.lock pnpm-lock.yaml nix packages/app-lib/java; then
+            echo "::warning::${TARGET_BRANCH} moved on the refreshed inputs after ${BASE}; the run triggered by that push redoes the refresh"
+            current=false
+          fi
+          echo "current=$current" >> "$GITHUB_OUTPUT"
+
+      - name: Download the refreshed lock file
+        if: needs.refresh.outputs.flake == 'true'
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: nix-flake-lock
+          path: refreshed
+
+      - name: Apply the refreshed lock file
+        if: steps.base.outputs.current == 'true' && needs.refresh.outputs.flake == 'true'
+        # Only the expected file with the expected structure crosses the job
+        # boundary; anything else the refresh job produced is dropped.
+        run: |
+          lock_file="$(find refreshed -type f -name flake.lock -print -quit)"
+          if [ -z "$lock_file" ]; then
+            echo "error: the refreshed lock file is missing from the artifact" >&2
+            exit 1
+          fi
+          node -e '
+            const fs = require("node:fs");
+            const lock = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
+            const keys = Object.keys(lock).sort().join(",");
+            if (keys !== "nodes,root,version") {
+              throw new Error("unexpected flake.lock keys: " + keys);
+            }
+          ' "$lock_file"
+          install -m 644 "$lock_file" flake.lock
+
+      - name: Apply the recomputed pnpm dependency hash
+        if: steps.base.outputs.current == 'true' && needs.refresh.outputs.hash == 'true'
+        env:
+          OLD_HASH: ${{ needs.refresh.outputs.old-hash }}
+          NEW_HASH: ${{ needs.refresh.outputs.new-hash }}
+        # The refresh job ran the updated flake, so only two hash strings cross
+        # the job boundary and both are matched against the current file here.
+        run: |
+          hash_pattern='^sha256-[A-Za-z0-9+/]{43}=$'
+          if ! [[ "$OLD_HASH" =~ $hash_pattern ]]; then
+            echo "error: unexpected old pnpm dependency hash: $OLD_HASH" >&2
+            exit 1
+          fi
+          if ! [[ "$NEW_HASH" =~ $hash_pattern ]]; then
+            echo "error: unexpected new pnpm dependency hash: $NEW_HASH" >&2
+            exit 1
+          fi
+          occurrences="$(grep -cF "hash = \"$OLD_HASH\";" nix/axolotl.nix || true)"
+          if [ "$occurrences" -ne 1 ]; then
+            echo "error: expected the pnpm dependency hash once in nix/axolotl.nix, found $occurrences" >&2
+            exit 1
+          fi
+          sed -i "s|hash = \"$OLD_HASH\";|hash = \"$NEW_HASH\";|" nix/axolotl.nix
+          grep -qF "hash = \"$NEW_HASH\";" nix/axolotl.nix
+
+      - name: Download the refreshed gradle dependency cache
+        if: needs.refresh.outputs.gradle == 'true'
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: nix-mitm-cache
+          path: refreshed
+
+      - name: Apply the refreshed gradle dependency cache
+        if: steps.base.outputs.current == 'true' && needs.refresh.outputs.gradle == 'true'
+        # Same boundary rule as the lock file: only the expected file and its
+        # structure are accepted.
+        run: |
+          cache_file="$(find refreshed -type f -name mitmCache.json -print -quit)"
+          if [ -z "$cache_file" ]; then
+            echo "error: the refreshed gradle dependency cache is missing from the artifact" >&2
+            exit 1
+          fi
+          node -e '
+            const fs = require("node:fs");
+            const cache = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
+            const hosts = Object.entries(cache).filter(([key]) => !key.startsWith("!"));
+            if (cache["!version"] !== 1 || hosts.length === 0
+                || hosts.some(([, value]) => typeof value !== "object" || value === null)) {
+              throw new Error("unexpected gradle dependency cache structure");
+            }
+          ' "$cache_file"
+          install -m 644 "$cache_file" nix/mitmCache.json
+
+      - name: Commit the refreshed nix inputs
+        if: steps.base.outputs.current == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TARGET_BRANCH: ${{ needs.refresh.outputs.branch }}
+        # One commit for every refreshed file: a lock without the dependency
+        # metadata derived from it would leave the branch broken.
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -- flake.lock nix/axolotl.nix nix/mitmCache.json
+          if git diff --cached --quiet; then
+            echo "the refreshed nix inputs already match ${TARGET_BRANCH}"
+            exit 0
+          fi
+          git commit -m "chore(nix): refresh the nix inputs and dependency metadata [skip ci]"
+          gh auth setup-git
+          for attempt in 1 2 3; do
+            if git push origin "HEAD:refs/heads/${TARGET_BRANCH}"; then
+              exit 0
+            fi
+            echo "push was rejected (attempt $attempt); rebasing onto the updated ${TARGET_BRANCH}"
+            git fetch origin "${TARGET_BRANCH}"
+            git rebase FETCH_HEAD || {
+              echo "error: cannot rebase onto ${TARGET_BRANCH}; the next triggered run will retry" >&2
+              exit 1
+            }
+          done
+          echo "error: could not push the refreshed nix inputs after 3 attempts" >&2
+          exit 1

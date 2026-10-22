@@ -3,6 +3,7 @@ import { computed, nextTick, onScopeDispose, ref, shallowRef, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import { useDebugLogger } from '#ui/composables/debug-logger'
+import { defineMessages, useVIntl } from '#ui/composables/i18n'
 import type {
     EnvironmentSearchOverride,
     FilterType,
@@ -17,18 +18,21 @@ import { useServerSearch } from '#ui/utils/server-search'
 import type { BrowseDisplayMode, BrowseSearchResponse } from '../types'
 
 export interface UseBrowseSearchOptions {
+    formatError?: (error: unknown) => string
     projectType: Ref<string>
     tags: Ref<Tags>
     providedFilters?: ComputedRef<FilterValue[]>
     environmentOverride?: ComputedRef<EnvironmentSearchOverride | undefined>
     installContextLoader?: ComputedRef<string | undefined>
     search: (params: string, signal: AbortSignal) => Promise<BrowseSearchResponse>
+    invalidateSearch?: () => void
     syncQueryParams?: boolean
     persistentQueryParams: string[]
     getExtraQueryParams?: () => Record<string, string | undefined>
     maxResultsOptions?: ComputedRef<number[]>
     displayMode?: Ref<BrowseDisplayMode> | ComputedRef<BrowseDisplayMode>
     initialSearchResponse?: BrowseSearchResponse
+    sortOptions?: readonly SortType[]
 }
 
 export interface BrowseSearchState {
@@ -47,6 +51,7 @@ export interface BrowseSearchState {
     effectiveCurrentSortType: Ref<SortType>
 
     loading: Ref<boolean>
+    searchError: Ref<string | null>
     projectHits: ShallowRef<BrowseSearchResponse['projectHits']>
     serverHits: ShallowRef<BrowseSearchResponse['serverHits']>
     totalHits: Ref<number>
@@ -67,6 +72,14 @@ export interface BrowseSearchState {
 }
 
 export function useBrowseSearch(options: UseBrowseSearchOptions): BrowseSearchState {
+    const { formatMessage } = useVIntl()
+    const messages = defineMessages({
+        failed: {
+            id: 'browse.search.failed',
+            defaultMessage:
+                'The search could not be completed. Check your connection or filters and try again.',
+        },
+    })
     const debug = useDebugLogger('BrowseSearch')
     const route = useRoute()
     const router = useRouter()
@@ -93,6 +106,7 @@ export function useBrowseSearch(options: UseBrowseSearchOptions): BrowseSearchSt
         options.tags,
         options.providedFilters ?? computed(() => []),
         options.environmentOverride ?? computed(() => undefined),
+        options.sortOptions,
     )
 
     const {
@@ -187,8 +201,12 @@ export function useBrowseSearch(options: UseBrowseSearchOptions): BrowseSearchSt
         initialSearchResponse?.serverHits ?? [],
     )
     const totalHits = ref(initialSearchResponse?.total_hits ?? 0)
+    const searchError = ref<string | null>(null)
+    const cursorHasMore = ref<boolean | undefined>(initialSearchResponse?.has_more)
 
     const pageCount = computed(() => {
+        if (cursorHasMore.value !== undefined)
+            return currentPage.value + (cursorHasMore.value ? 1 : 0)
         if (totalHits.value === 0) return 1
         return Math.ceil(totalHits.value / maxResults.value)
     })
@@ -228,12 +246,13 @@ export function useBrowseSearch(options: UseBrowseSearchOptions): BrowseSearchSt
         if (searchDebounceTimer) clearTimeout(searchDebounceTimer)
         searchDebounceTimer = setTimeout(() => {
             searchDebounceTimer = null
-            refreshSearch()
+            refreshSearch(true)
         }, 200)
     })
 
-    async function refreshSearch() {
+    async function refreshSearch(reuseCache = false) {
         searchAbortController?.abort()
+        if (!reuseCache) options.invalidateSearch?.()
         const abortController = new AbortController()
         searchAbortController = abortController
         const version = ++searchVersion
@@ -246,6 +265,7 @@ export function useBrowseSearch(options: UseBrowseSearchOptions): BrowseSearchSt
         // Always surface the loading state so pagination/filter changes can mask
         // or skeleton the results area instead of silently swapping content.
         loading.value = true
+        searchError.value = null
 
         try {
             const response = await options.search(
@@ -264,6 +284,8 @@ export function useBrowseSearch(options: UseBrowseSearchOptions): BrowseSearchSt
                 projectHits.value = response.projectHits
             }
             totalHits.value = response.total_hits
+            cursorHasMore.value = response.has_more
+            if (response.page !== undefined) currentPage.value = response.page
             if (currentPage.value > pageCount.value) {
                 currentPage.value = pageCount.value
             }
@@ -284,6 +306,7 @@ export function useBrowseSearch(options: UseBrowseSearchOptions): BrowseSearchSt
             debug('refreshSearch error', err)
             console.error('Browse search error:', err)
             if (version === searchVersion) {
+                searchError.value = options.formatError?.(err) ?? formatMessage(messages.failed)
                 loading.value = false
             }
         } finally {
@@ -363,6 +386,7 @@ export function useBrowseSearch(options: UseBrowseSearchOptions): BrowseSearchSt
         projectHits,
         serverHits,
         totalHits,
+        searchError,
         pageCount,
         maxResults,
         currentPage,

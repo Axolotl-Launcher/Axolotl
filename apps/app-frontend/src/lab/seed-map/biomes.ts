@@ -49,7 +49,7 @@ export const SEED_MAP_BIOMES: readonly SeedMapBiome[] = [
     { id: 183, dimensions: OVERWORLD, category: 'cave', color: '#031F29' },
     { id: 174, dimensions: OVERWORLD, category: 'cave', color: '#4E3012' },
     { id: 175, dimensions: OVERWORLD, category: 'cave', color: '#283C00' },
-    { id: 187, dimensions: OVERWORLD, category: 'cave', color: '#C8C828' },
+    { id: 187, dimensions: OVERWORLD, category: 'cave', color: '#C8D232' },
     { id: 2, dimensions: OVERWORLD, category: 'desert', color: '#FA9418' },
     { id: 27, dimensions: OVERWORLD, category: 'forest', color: '#307444' },
     { id: 185, dimensions: OVERWORLD, category: 'forest', color: '#FF91C8' },
@@ -59,6 +59,7 @@ export const SEED_MAP_BIOMES: readonly SeedMapBiome[] = [
     { id: 178, dimensions: OVERWORLD, category: 'forest', color: '#47726C' },
     { id: 155, dimensions: OVERWORLD, category: 'forest', color: '#589C6C' },
     { id: 186, dimensions: OVERWORLD, category: 'forest', color: '#696D95' },
+    { id: 188, dimensions: OVERWORLD, category: 'forest', color: '#EB9234' },
     { id: 34, dimensions: OVERWORLD, category: 'forest', color: '#5B7352' },
     { id: 181, dimensions: OVERWORLD, category: 'ice', color: '#B0B3CE' },
     { id: 11, dimensions: OVERWORLD, category: 'ice', color: '#A0A0FF' },
@@ -177,6 +178,7 @@ export const SEED_MAP_BIOME_NAMES: Readonly<Record<number, string>> = {
     185: 'Cherry Grove',
     186: 'Pale Garden',
     187: 'Sulfur Caves',
+    188: 'Dappled Forest',
 }
 
 export function seedMapBiomeGroups(): SeedMapBiomeGroup[] {
@@ -363,6 +365,10 @@ export const seedMapBiomeMessages = defineMessages({
     },
     'cherry-grove': { id: 'app.lab.seed-map.biome.cherry-grove', defaultMessage: 'Cherry Grove' },
     'pale-garden': { id: 'app.lab.seed-map.biome.pale-garden', defaultMessage: 'Pale Garden' },
+    'dappled-forest': {
+        id: 'app.lab.seed-map.biome.dappled-forest',
+        defaultMessage: 'Dappled Forest',
+    },
     'sulfur-caves': { id: 'app.lab.seed-map.biome.sulfur-caves', defaultMessage: 'Sulfur Caves' },
 })
 

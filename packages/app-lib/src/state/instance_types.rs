@@ -279,7 +279,7 @@ impl ProjectType {
     }
 }
 
-impl From<ProjectType> for modrinth_content_management::ContentType {
+impl From<ProjectType> for content_management::ContentType {
     fn from(project_type: ProjectType) -> Self {
         match project_type {
             ProjectType::Mod => Self::Mod,

@@ -2,7 +2,9 @@ import type { ContentItem } from '../types'
 
 export function isPresentContentItem(item: ContentItem): boolean {
     return (
-        item.instanceMaterializationState == null || item.instanceMaterializationState === 'present'
+        item.instanceMaterializationState === null ||
+        item.instanceMaterializationState === undefined ||
+        item.instanceMaterializationState === 'present'
     )
 }
 
@@ -25,4 +27,11 @@ export function canToggleContentItem(item: ContentItem): boolean {
 export interface ContentFilterOption {
     id: string
     label: string
+}
+
+export function hasContentUpdate(item: ContentItem): boolean {
+    return (
+        (item.resourceUpdate !== null && item.resourceUpdate !== undefined) ||
+        (item.update !== null && item.update !== undefined)
+    )
 }

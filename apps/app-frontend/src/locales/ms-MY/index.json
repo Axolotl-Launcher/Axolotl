@@ -140,26 +140,14 @@
   "app.content-install.no-compatible-versions": {
     "message": "Tiada versi tersedia yang sepadan dengan {compatibilityLabel}. Pilih versi untuk dipasang juga. Kebergantungan tidak akan dipasang secara automatik."
   },
-  "app.export-modal.description-placeholder": {
-    "message": "Masukkan keterangan pek mod..."
-  },
   "app.export-modal.export-button": {
     "message": "Eksport"
-  },
-  "app.export-modal.header": {
-    "message": "Eksport pek mod"
   },
   "app.export-modal.modpack-name-label": {
     "message": "Nama Pek Mod"
   },
-  "app.export-modal.modpack-name-placeholder": {
-    "message": "Nama pek mod"
-  },
   "app.export-modal.version-number-label": {
     "message": "Nombor versi"
-  },
-  "app.export-modal.version-number-placeholder": {
-    "message": "1.0.0"
   },
   "app.instance.confirm-delete.admonition-body": {
     "message": "Semua data untuk pemasangan anda akan dipadamkan secara kekal, termasuk dunia, konfigurasi dan semua kandungan yang dipasang."

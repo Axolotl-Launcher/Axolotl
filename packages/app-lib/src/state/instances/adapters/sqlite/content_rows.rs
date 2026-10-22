@@ -2256,6 +2256,44 @@ pub(crate) async fn get_pending_manual_downloads(
     rows.into_iter().map(TryInto::try_into).collect()
 }
 
+/// Restores membership for legacy pack-owned files without inventing remote
+/// identity or treating their current bytes as the pack's expected artifact.
+/// Entry identity keeps missing and disabled files at the same path distinct.
+pub(crate) async fn repair_pack_members_in_transaction(
+    content_set_id: &str,
+    tx: &mut Transaction<'_, Sqlite>,
+) -> crate::Result<bool> {
+    let result = sqlx::query(
+        "INSERT INTO instance_pack_members (
+            id, content_set_id, content_entry_id, member_key, project_type,
+            expected_relative_path, required, materialization_state,
+            override_kind, reconciled, created_at, modified_at
+         ) SELECT 'pack-member:entry:' || entry.id, entry.content_set_id, entry.id,
+            'entry:' || entry.id, entry.project_type,
+            file.pack_path, 1,
+            CASE WHEN file.missing = 1 THEN 'missing' ELSE 'present' END,
+            CASE WHEN file.enabled = 0 THEN 'disabled' ELSE 'none' END,
+            0, entry.added_at, entry.modified_at
+         FROM instance_content_entries entry
+         JOIN (
+            SELECT *, CASE WHEN substr(relative_path, -9) = '.disabled'
+                THEN substr(relative_path, 1, length(relative_path) - 9)
+                ELSE relative_path END AS pack_path
+            FROM instance_files
+         ) file ON file.id = entry.file_id
+         WHERE entry.content_set_id = ? AND entry.ownership_kind = 'pack_managed'
+            AND NOT EXISTS (
+                SELECT 1 FROM instance_pack_members member
+                WHERE member.content_set_id = entry.content_set_id
+                    AND member.content_entry_id = entry.id
+            )",
+    )
+    .bind(content_set_id)
+    .execute(&mut **tx)
+    .await?;
+    Ok(result.rows_affected() != 0)
+}
+
 pub(crate) async fn upsert_pack_member_in_transaction(
     member: &PackMember,
     tx: &mut Transaction<'_, Sqlite>,
@@ -2615,6 +2653,7 @@ mod tests {
 				provider TEXT NOT NULL,
 				provider_project_id TEXT NOT NULL,
 				provider_release_id TEXT NULL,
+                provider_file_id TEXT NULL,
 				is_origin INTEGER NOT NULL DEFAULT 0
 			);
 			CREATE UNIQUE INDEX instance_content_provider_refs_identity

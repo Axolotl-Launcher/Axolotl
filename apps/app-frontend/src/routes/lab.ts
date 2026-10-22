@@ -70,4 +70,13 @@ export const labRoutes: RouteRecordRaw[] = [
             discordActivity: 'Messing with labs...',
         },
     },
+    {
+        path: '/lab/command-generator',
+        name: 'CommandGenerator',
+        component: () => import('@/pages/LabCommandGenerator.vue'),
+        meta: {
+            breadcrumb: [{ name: 'Lab', link: '/lab' }, { name: 'Command generator' }],
+            discordActivity: 'Generating a command...',
+        },
+    },
 ]

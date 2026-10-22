@@ -27,6 +27,7 @@ import { computed, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 
 import type { ServerView } from '@/composables/useServers'
+import { createRequestGeneration } from '@/helpers/request-generation'
 import { highlightInFolder } from '@/helpers/utils'
 
 const props = defineProps<{
@@ -57,6 +58,7 @@ const loading = ref(true)
 const error = ref<Error | null>(null)
 const currentPath = ref('')
 const editingFile = ref<EditingFile | null>(null)
+const refreshRequests = createRequestGeneration()
 
 const serverRoot = computed(() => props.server.path)
 const isBusy = computed(() => props.server.running)
@@ -104,15 +106,32 @@ async function listDirectory(dirPath: string): Promise<FileItem[]> {
 }
 
 async function refresh() {
+    const request = refreshRequests.begin(`${serverRoot.value}\0${currentPath.value}`)
+    const requestedRoot = serverRoot.value
+    const requestedPath = currentPath.value
     loading.value = true
     error.value = null
     try {
-        items.value = await listDirectory(currentPath.value)
+        const nextItems = await listDirectory(requestedPath)
+        if (
+            !refreshRequests.isCurrent(request, `${serverRoot.value}\0${currentPath.value}`) ||
+            requestedRoot !== serverRoot.value ||
+            requestedPath !== currentPath.value
+        )
+            return
+        items.value = nextItems
     } catch (e) {
+        if (
+            !refreshRequests.isCurrent(request, `${serverRoot.value}\0${currentPath.value}`) ||
+            requestedRoot !== serverRoot.value ||
+            requestedPath !== currentPath.value
+        )
+            return
         error.value = e instanceof Error ? e : new Error(String(e))
         items.value = []
     } finally {
-        loading.value = false
+        if (refreshRequests.isCurrent(request, `${serverRoot.value}\0${currentPath.value}`))
+            loading.value = false
     }
 }
 
@@ -204,6 +223,7 @@ async function handleDownloadFile(path: string, fileName: string) {
 watch(
     () => props.server.path,
     async () => {
+        refreshRequests.invalidate()
         currentPath.value = ''
         await refresh()
     },

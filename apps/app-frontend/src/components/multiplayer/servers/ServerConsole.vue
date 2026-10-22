@@ -10,13 +10,8 @@ import {
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 
 import { ServerConsoleBuffer } from '@/composables/server-console-buffer'
-import {
-    hydrateLog,
-    type ServerView,
-    subscribeServerConsoleOutput,
-    useServers,
-} from '@/composables/useServers'
-import { servers } from '@/helpers/servers'
+import { type ServerView, subscribeServerConsoleOutput, useServers } from '@/composables/useServers'
+import { type ServerLogCursor, servers } from '@/helpers/servers'
 
 const props = defineProps<{
     server: ServerView
@@ -34,18 +29,17 @@ const messages = defineMessages({
     },
 })
 
-const { logLines, sendCommand } = useServers()
+const { sendCommand } = useServers()
 const consoleState = createConsoleState()
 const loading = ref(true)
 const hasLogs = computed(() => consoleState.output.value.length > 0)
 const isForge = computed(() => props.server.serverType === 'forge')
 const jlineInput = ref<InstanceType<typeof JLineCommandInput> | null>(null)
-let consumedLines = 0
-// Guards the live length-watcher from double-appending while we rebuild the
-// console from the buffer during (re)hydration. Without it, the async
-// hydrate fetch and the streamed `logLines` updates race, dropping or
-// duplicating the earliest startup lines.
-let hydrating = false
+let disposed = false
+let clearing = false
+let cursor: ServerLogCursor | undefined
+let logGeneration = 0
+let hydration: Promise<void> | undefined
 let unsubscribeConsoleOutput: (() => void) | null = null
 const PENDING_CONSOLE_OUTPUT_CAPACITY = 64 * 1024
 let pendingConsoleOutput = new ServerConsoleBuffer(PENDING_CONSOLE_OUTPUT_CAPACITY)
@@ -70,38 +64,47 @@ watch(
     { immediate: true },
 )
 
-async function hydrateAndDisplay() {
-    hydrating = true
-    try {
-        await hydrateLog(props.server.id)
-        const buffer = logLines[props.server.id] ?? []
-        if (buffer.length > 0) await consoleState.addLegacyLog(buffer.join('\n'))
-        consumedLines = buffer.length
-    } finally {
-        hydrating = false
-    }
+function hydrateAndDisplay(): Promise<void> {
+    if (clearing || disposed) return Promise.resolve()
+    if (hydration) return hydration
+    const serverId = props.server.id
+    const generation = logGeneration
+    hydration = (async () => {
+        try {
+            const delta = await servers.getLogDelta(serverId, cursor)
+            if (disposed || props.server.id !== serverId || generation !== logGeneration) return
+            if (delta.reset) consoleState.clear()
+            if (delta.lines.length) await consoleState.addLegacyLog(delta.lines.join('\n'))
+            cursor = delta.cursor
+        } catch {
+            // Preserve the cursor so the next reconciliation retries the missing lines.
+        } finally {
+            hydration = undefined
+        }
+    })()
+    return hydration
 }
 
 // The per-line `server` events can drop during heavy bursts, so we
 // periodically reconcile the displayed log against the lossless backend
-// buffer. This guarantees the console always shows the complete history,
-// including the server's startup and command responses that arrived in a
-// single fast burst.
-let syncTimer: ReturnType<typeof setInterval> | null = null
+// buffer. A cursor transfers only new lines and detects rotation and restart.
+let syncTimer: ReturnType<typeof setTimeout> | null = null
 function startSync() {
     stopSync()
-    syncTimer = setInterval(() => {
-        if (hydrating) return
-        if (!props.server.running) {
-            stopSync()
-            return
+    if (disposed || clearing || !props.server.running) return
+    syncTimer = setTimeout(async () => {
+        syncTimer = null
+        if (disposed || !props.server.running) return
+        try {
+            await hydrateAndDisplay()
+        } finally {
+            startSync()
         }
-        void hydrateLog(props.server.id)
     }, 1000)
 }
 function stopSync() {
     if (syncTimer) {
-        clearInterval(syncTimer)
+        clearTimeout(syncTimer)
         syncTimer = null
     }
 }
@@ -109,32 +112,17 @@ function stopSync() {
 onMounted(async () => {
     flushConsoleOutput()
     await hydrateAndDisplay()
+    if (disposed) return
     loading.value = false
     startSync()
 })
 
 onUnmounted(() => {
+    disposed = true
     stopSync()
+    consoleState.clear()
     unsubscribeConsoleOutput?.()
 })
-
-watch(
-    () => (logLines[props.server.id] ?? []).length,
-    (count) => {
-        if (loading.value || hydrating) return
-        const lines = logLines[props.server.id] ?? []
-        if (count < consumedLines) {
-            consoleState.clear()
-            consumedLines = 0
-        }
-        const fresh = lines.slice(consumedLines)
-        consumedLines = lines.length
-        if (fresh.length === 0) return
-        for (const line of fresh) {
-            void consoleState.addLegacyLog(line)
-        }
-    },
-)
 
 async function handleSendCommand(command: string) {
     // The server echoes the command into its own log (e.g. "> time set 0"),
@@ -142,31 +130,29 @@ async function handleSendCommand(command: string) {
     await sendCommand(props.server.id, command)
 }
 
-// Starting a server always resets the console to a clean slate and resumes
-// bottom-following. The displayed `consoleState` is cleared here, but the
-// shared `logLines` buffer is intentionally preserved: the global listener may
-// have already streamed the earliest startup lines, and discarding them (or
-// letting the async hydrate overwrite them) is what made the launch appear to
-// have "no startup info". We rebuild the view from whatever `logLines` already
-// holds, then continue following new lines.
+// Starting a server invalidates responses from the previous run.
 const consoleLayout = ref<InstanceType<typeof ConsolePageLayout> | null>(null)
 watch(
     () => props.server.running,
     async (running, previousRunning) => {
         if (!running) {
+            stopSync()
             pendingConsoleOutput = new ServerConsoleBuffer(PENDING_CONSOLE_OUTPUT_CAPACITY)
+            await hydration
+            await hydrateAndDisplay()
             return
         }
         if (previousRunning) return
         await nextTick()
+        if (disposed) return
         flushConsoleOutput()
         consoleState.clear()
-        consumedLines = 0
-        // Drop the previous run's lines from the shared buffer too; the backend
-        // cleared its own buffer at launch, so without this the old history
-        // would be rehydrated into the fresh console on every restart.
-        logLines[props.server.id] = []
+        logGeneration++
+        cursor = undefined
+        await hydration
         await hydrateAndDisplay()
+        if (disposed) return
+        startSync()
         consoleLayout.value?.scrollToBottom()
     },
 )
@@ -179,13 +165,19 @@ provideConsoleManager({
     disableCommandInputTooltip: computed(() => formatMessage(messages.notRunning)),
     loading,
     emptyStateType: 'server',
-    onClear: () => {
+    onClear: async () => {
+        clearing = true
+        stopSync()
+        logGeneration++
         consoleState.clear()
-        consumedLines = 0
-        // Drop the shared frontend buffer too, otherwise the next incoming log
-        // line replays the entire pre-clear history back into the console.
-        logLines[props.server.id] = []
-        void servers.clearLog(props.server.id).catch(() => {})
+        try {
+            await hydration
+            await servers.clearLog(props.server.id).catch(() => {})
+            cursor = undefined
+        } finally {
+            clearing = false
+            startSync()
+        }
     },
 })
 </script>

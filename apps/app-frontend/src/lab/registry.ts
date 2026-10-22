@@ -66,6 +66,14 @@ export const labTools: readonly LabToolDefinition[] = [
         title: 'Recipe generator',
         description: 'Create Minecraft Java data pack recipes from local item and tag data.',
     },
+    {
+        id: 'command-generator',
+        category: 'creation',
+        route: '/lab/command-generator',
+        icon: BoxIcon,
+        title: 'Command generator',
+        description: 'Generate Minecraft Java Edition commands with visual NBT editing.',
+    },
 ]
 
 export function getLabTool(id: string): LabToolDefinition | undefined {

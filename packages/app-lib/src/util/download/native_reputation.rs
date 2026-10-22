@@ -1,5 +1,9 @@
 //! Persisted route reputation for the native download engine.
 
+use crate::util::download::constants::{
+    NATIVE_REPUTATION_DISABLE_FAILURES, NATIVE_REPUTATION_DISABLE_SECS,
+    NATIVE_REPUTATION_EWMA_ALPHA, NATIVE_REPUTATION_TMP,
+};
 use crate::util::fetch::ProxyPolicy;
 use parking_lot::Mutex;
 use serde::{Deserialize, Serialize};
@@ -7,14 +11,15 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{LazyLock, OnceLock};
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::{SystemTime, UNIX_EPOCH};
 
-const FILE_NAME: &str = "native-download-reputation.json";
-const SCHEMA_VERSION: u32 = 2;
-const MAX_ENTRIES: usize = 256;
-const MAX_AGE_SECS: u64 = 7 * 24 * 60 * 60;
-const WRITE_DELAY: Duration = Duration::from_secs(5);
-
+use crate::util::download::constants::{
+    NATIVE_REPUTATION_FILE_NAME as FILE_NAME,
+    NATIVE_REPUTATION_MAX_AGE_SECS as MAX_AGE_SECS,
+    NATIVE_REPUTATION_MAX_ENTRIES as MAX_ENTRIES,
+    NATIVE_REPUTATION_SCHEMA_VERSION as SCHEMA_VERSION,
+    NATIVE_REPUTATION_WRITE_DELAY as WRITE_DELAY,
+};
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub(crate) enum NativeTransport {
@@ -215,8 +220,9 @@ pub(crate) fn record_transport_failure(
     entry.failure_samples = entry.failure_samples.saturating_add(1);
     entry.consecutive_failures = entry.consecutive_failures.saturating_add(1);
     entry.updated_at = now_secs();
-    if entry.consecutive_failures >= 3 {
-        entry.disabled_until = now_secs().saturating_add(120);
+    if entry.consecutive_failures >= NATIVE_REPUTATION_DISABLE_FAILURES {
+        entry.disabled_until =
+            now_secs().saturating_add(NATIVE_REPUTATION_DISABLE_SECS);
     }
     drop(reputation);
     schedule_write();
@@ -311,7 +317,10 @@ pub(crate) fn record_failure(
 }
 
 fn update_ewma(current: Option<f64>, sample: f64) -> f64 {
-    current.map_or(sample, |current| current * 0.75 + sample * 0.25)
+    current.map_or(sample, |current| {
+        current * (1.0 - NATIVE_REPUTATION_EWMA_ALPHA)
+            + sample * NATIVE_REPUTATION_EWMA_ALPHA
+    })
 }
 
 fn schedule_write() {
@@ -402,7 +411,7 @@ fn reputation_path() -> Option<PathBuf> {
 
 fn temporary_path(path: &Path) -> PathBuf {
     let mut name = path.file_name().unwrap_or_default().to_os_string();
-    name.push(".tmp");
+    name.push(NATIVE_REPUTATION_TMP);
     path.with_file_name(name)
 }
 

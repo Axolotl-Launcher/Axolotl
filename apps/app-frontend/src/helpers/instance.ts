@@ -344,77 +344,6 @@ export async function import_mcarchive_modloader(
     })
 }
 
-export type McArchiveContentInstallRequest = {
-    projectId: string
-    projectSlug: string
-    versionId: string
-    fileId: string
-    projectType: ContentFileProjectType
-}
-
-export type McArchiveContentInstallResult =
-    | { state: 'installed'; relativePath: string }
-    | {
-          state: 'manual_download'
-          fileName: string
-          pageUrl: string | null
-          expectedSha256: string | null
-      }
-
-export type PlanetMinecraftContentInstallRequest = {
-    projectId: string
-    versionId: string
-    projectType: ContentFileProjectType
-}
-
-export type PlanetMinecraftContentInstallResult =
-    | { state: 'installed'; relativePath: string }
-    | { state: 'manual_download'; pageUrl: string; fileName: string | null }
-
-export async function install_mcarchive_content(
-    instanceId: string,
-    request: McArchiveContentInstallRequest,
-): Promise<McArchiveContentInstallResult> {
-    return await invoke('plugin:instance|instance_install_mcarchive_content', {
-        instanceId,
-        request,
-    })
-}
-
-export async function import_mcarchive_content(
-    instanceId: string,
-    request: McArchiveContentInstallRequest,
-    sourcePath: string,
-): Promise<McArchiveContentInstallResult> {
-    return await invoke('plugin:instance|instance_import_mcarchive_content', {
-        instanceId,
-        request,
-        sourcePath,
-    })
-}
-
-export async function install_planet_minecraft_content(
-    instanceId: string,
-    request: PlanetMinecraftContentInstallRequest,
-): Promise<PlanetMinecraftContentInstallResult> {
-    return await invoke('plugin:instance|instance_install_planet_minecraft_content', {
-        instanceId,
-        request,
-    })
-}
-
-export async function import_planet_minecraft_content(
-    instanceId: string,
-    request: PlanetMinecraftContentInstallRequest,
-    sourcePath: string,
-): Promise<PlanetMinecraftContentInstallResult> {
-    return await invoke('plugin:instance|instance_import_planet_minecraft_content', {
-        instanceId,
-        request,
-        sourcePath,
-    })
-}
-
 export type InstanceInstallTarget = {
     game_version: string
     loader: string
@@ -473,6 +402,10 @@ export type PackMemberMaterializationState = 'present' | 'pending_manual' | 'mis
 export type PackMemberOverrideKind = 'none' | 'disabled' | 'removed' | 'version'
 
 export interface InstanceContentSnapshotItem {
+    artifactRef?: import('./resources').ResourceArtifact['reference'] | null
+    resourceId?: string | null
+    packResourceId?: string | null
+    compatibility?: ContentItem['compatibility']
     fileId: string | null
     entryId: string | null
     memberId: string | null
@@ -554,8 +487,14 @@ export interface InstanceContentSnapshot {
     }>
 }
 
-export async function get_content_snapshot(instanceId: string): Promise<InstanceContentSnapshot> {
-    return await invoke('plugin:instance|instance_get_content_snapshot', { instanceId })
+export async function get_content_snapshot(
+    instanceId: string,
+    deferEnrichment = false,
+): Promise<InstanceContentSnapshot> {
+    return await invoke('plugin:instance|instance_get_content_snapshot', {
+        instanceId,
+        deferEnrichment,
+    })
 }
 
 export async function refresh_content(instanceId: string): Promise<InstanceContentSnapshot> {
@@ -744,131 +683,7 @@ export async function check_installed(instanceId: string, projectId: string): Pr
     return await invoke('plugin:instance|instance_check_installed', { instanceId, projectId })
 }
 
-export async function update_all(instanceId: string): Promise<Record<string, string>> {
-    return await invoke('plugin:instance|instance_update_all', { instanceId })
-}
-
-// Updates a specified project
-export async function update_project(instanceId: string, projectPath: string): Promise<string> {
-    return await invoke('plugin:instance|instance_update_project', { instanceId, projectPath })
-}
-
-// Add a project to an instance from a version
-// Returns a path to the new project file
-export type DownloadReason = 'standalone' | 'dependency' | 'modpack' | 'update'
-
-export interface ResolutionPreferences {
-    game_versions?: string[]
-    loaders?: string[]
-}
-
-export interface ResolveContentRequest {
-    project_id: string
-    version_id?: string | null
-    content_type: Labrinth.Content.v3.ContentType
-    selected?: ResolutionPreferences
-    excluded_project_ids?: string[]
-    force_project_ids?: string[]
-}
-
-export interface ResolvedContent {
-    project_id: string
-    version_id: string
-    dependent_on_version_id?: string | null
-    required?: boolean
-    metadata?: ContentMetadata | null
-}
-
-export interface ContentMetadata {
-    title?: string | null
-    version_number?: string | null
-    icon_url?: string | null
-    filename?: string | null
-    sha1?: string | null
-}
-
-export interface ResolveContentPlan {
-    primary: ResolvedContent
-    dependencies: ResolvedContent[]
-    skipped: Array<{
-        project_id: string
-        version_id?: string | null
-        dependent_on_version_id?: string | null
-        reason: string
-    }>
-}
-
-export async function add_project_from_version(
-    instanceId: string,
-    versionId: string,
-    reason: DownloadReason,
-    dependentOnVersionId?: string,
-): Promise<string> {
-    return await invoke('plugin:instance|instance_add_project_from_version', {
-        instanceId,
-        versionId,
-        reason,
-        dependentOnVersionId,
-    })
-}
-
-export async function install_project_with_dependencies(
-    instanceId: string,
-    request: ResolveContentRequest,
-): Promise<ResolveContentPlan> {
-    return await invoke('plugin:instance|instance_install_project_with_dependencies', {
-        instanceId,
-        request,
-    })
-}
-
-export async function preview_project_with_dependencies(
-    instanceId: string,
-    request: ResolveContentRequest,
-): Promise<ResolveContentPlan> {
-    return await invoke('plugin:instance|instance_preview_project_with_dependencies', {
-        instanceId,
-        request,
-    })
-}
-
-export async function preview_project_with_dependencies_for_target(
-    request: ResolveContentRequest,
-    gameVersion: string,
-    loader: string,
-): Promise<ResolveContentPlan> {
-    return await invoke('plugin:instance|instance_preview_project_with_dependencies_for_target', {
-        request,
-        gameVersion,
-        loader,
-    })
-}
-
-export async function queue_project_with_dependencies(
-    instanceId: string,
-    request: ResolveContentRequest,
-    display: { title: string; iconUrl?: string | null },
-): Promise<InstallJobSnapshot> {
-    return await invoke('plugin:instance|instance_queue_project_with_dependencies', {
-        instanceId,
-        request,
-        displayTitle: display.title,
-        displayIcon: display.iconUrl ?? null,
-    })
-}
-
-export type InstallContentBatchItem =
-    | {
-          type: 'modrinth'
-          project_id: string
-          version_id?: string
-          content_type: Labrinth.Content.v3.ContentType
-          selected?: unknown
-          excluded_project_ids?: string[]
-          force_project_ids?: string[]
-      }
-    | { type: 'curse_forge'; request: unknown }
-    | { type: 'curse_forge_world'; request: unknown }
+export type InstallContentBatchItem = { type: 'curse_forge_world'; request: unknown }
 
 export async function queue_content_batch(
     instanceId: string,
@@ -882,18 +697,6 @@ export async function queue_content_batch(
             displayTitle: display.title,
             displayIcon: display.iconUrl ?? null,
         },
-    })
-}
-
-export async function switch_project_version_with_dependencies(
-    instanceId: string,
-    projectPath: string,
-    versionId: string,
-): Promise<string> {
-    return await invoke('plugin:instance|instance_switch_project_version_with_dependencies', {
-        instanceId,
-        projectPath,
-        versionId,
     })
 }
 
@@ -1048,39 +851,6 @@ export async function update_managed_modrinth_version(
 // Repair a managed Modrinth instance
 export async function update_repair_modrinth(instanceId: string): Promise<InstallJobSnapshot> {
     return await invoke('plugin:instance|instance_repair_managed_modrinth', { instanceId })
-}
-
-// Export an instance to .mrpack
-// included_overrides is an array of paths to override folders to include (ie: 'mods', 'resource_packs')
-// Version id is optional (ie: 1.1.5)
-export async function export_instance_mrpack(
-    instanceId: string,
-    exportLocation: string,
-    includedOverrides: string[],
-    versionId?: string,
-    description?: string,
-    name?: string,
-): Promise<void> {
-    return await invoke('plugin:instance|instance_export_mrpack', {
-        instanceId,
-        exportLocation,
-        includedOverrides,
-        versionId,
-        description,
-        name,
-    })
-}
-
-// Given a folder path, populate an array of all the subfolders
-// Intended to be used for finding potential override folders
-// profile
-// -- mods
-// -- resourcepacks
-// -- file1
-// => [mods, resourcepacks]
-// allows selection for 'included_overrides' in export_instance_mrpack
-export async function get_pack_export_candidates(instanceId: string): Promise<string[]> {
-    return await invoke('plugin:instance|instance_get_pack_export_candidates', { instanceId })
 }
 
 export interface GcLaunchIntent {
@@ -1279,6 +1049,10 @@ export type InstanceScreenshot = {
     url: string
 }
 export type ScreenshotGroup = { id: string; name: string }
+export type ScreenshotScanResult = {
+    screenshots: InstanceScreenshot[]
+    skipped_instances: string[]
+}
 export type ScreenshotGroupImport = ScreenshotGroup & { screenshot_ids: string[] }
 export type ScreenshotGroupMembershipUpdate = { screenshot_id: string; group_id: string | null }
 
@@ -1286,9 +1060,13 @@ export async function list_screenshots(instanceId: string): Promise<InstanceScre
     return await invoke('plugin:instance|instance_list_screenshots', { instanceId })
 }
 export async function list_all_screenshots(): Promise<InstanceScreenshot[]> {
-    return await invoke('plugin:instance|instance_list_all_screenshots')
+    return (await invoke<ScreenshotScanResult>('plugin:instance|instance_list_all_screenshots'))
+        .screenshots
 }
 export async function list_synced_screenshots(): Promise<InstanceScreenshot[]> {
+    return (await list_synced_screenshots_with_warnings()).screenshots
+}
+export async function list_synced_screenshots_with_warnings(): Promise<ScreenshotScanResult> {
     return await invoke('plugin:instance|instance_list_synced_screenshots')
 }
 export async function list_screenshot_groups(): Promise<ScreenshotGroup[]> {

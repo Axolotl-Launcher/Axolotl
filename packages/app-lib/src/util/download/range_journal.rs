@@ -1,5 +1,9 @@
 //! Validated checkpoints for sparse range downloads.
 
+use crate::util::download::constants::{
+    DOWNLOAD_BUFFER_BYTES, H2_RANGE_MAX_WORKERS, RANGE_JOURNAL_MAX_BYTES,
+    RANGE_JOURNAL_RANGE_CHECKPOINT_EXCEEDS_ITS_BOUNDS, RANGE_JOURNAL_SUFFIX,
+};
 use crate::util::fetch::{self, Integrity};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -33,7 +37,7 @@ pub(crate) struct RangeJournal {
 }
 
 pub(crate) fn path(part: &Path) -> PathBuf {
-    fetch::suffixed_path(part, ".ranges.json")
+    fetch::suffixed_path(part, RANGE_JOURNAL_SUFFIX)
 }
 
 impl Journal {
@@ -78,7 +82,9 @@ impl RangeJournal {
         }
         let journal_path = path(part);
         let metadata = match tokio::fs::metadata(&journal_path).await {
-            Ok(metadata) if metadata.len() <= 16 * 1024 => metadata,
+            Ok(metadata) if metadata.len() <= RANGE_JOURNAL_MAX_BYTES => {
+                metadata
+            }
             _ => return Ok(None),
         };
         if !metadata.is_file() {
@@ -87,10 +93,10 @@ impl RangeJournal {
         let mut bytes = Vec::new();
         tokio::fs::File::open(&journal_path)
             .await?
-            .take(16 * 1024 + 1)
+            .take(RANGE_JOURNAL_MAX_BYTES + 1)
             .read_to_end(&mut bytes)
             .await?;
-        if bytes.len() > 16 * 1024 {
+        if bytes.len() > RANGE_JOURNAL_MAX_BYTES as usize {
             return Ok(None);
         }
         let mut state = match serde_json::from_slice::<Journal>(&bytes) {
@@ -130,7 +136,7 @@ impl RangeJournal {
         count: usize,
     ) -> Arc<Self> {
         let count = count
-            .clamp(1, 8)
+            .clamp(1, H2_RANGE_MAX_WORKERS)
             .min(usize::try_from(size.max(1)).unwrap_or(usize::MAX));
         let base = size / count as u64;
         let remainder = size % count as u64;
@@ -187,7 +193,7 @@ impl RangeJournal {
         let range = &mut state.ranges[index];
         if written > range.end - range.start {
             return Err(crate::ErrorKind::InputError(
-                "range checkpoint exceeds its bounds".into(),
+                RANGE_JOURNAL_RANGE_CHECKPOINT_EXCEEDS_ITS_BOUNDS.into(),
             )
             .into());
         }
@@ -242,7 +248,7 @@ pub(crate) async fn hash_prefix(
     file.seek(std::io::SeekFrom::Start(checkpoint.start))
         .await?;
     let mut remaining = checkpoint.written;
-    let mut buffer = vec![0; 256 * 1024];
+    let mut buffer = vec![0; DOWNLOAD_BUFFER_BYTES];
     while remaining > 0 {
         let wanted = remaining.min(buffer.len() as u64) as usize;
         file.read_exact(&mut buffer[..wanted]).await?;

@@ -393,7 +393,7 @@ watch(
                         :disabled="starting || !supportsQuickPlay"
                         @click="playShortcut"
                         ><SpinnerIcon v-if="starting" class="animate-spin" />
-                        <PlayIcon v-else class="translate-x-px" />
+                        <PlayIcon v-else />
                     </Button>
                 </div>
             </div>

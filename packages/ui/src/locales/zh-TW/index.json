@@ -4034,26 +4034,8 @@
   "content.metadata-filter.select-all": {
     "defaultMessage": "全選"
   },
-  "content.metadata-filter.source": {
-    "defaultMessage": "來源"
-  },
   "content.metadata-filter.source.curseforge": {
     "defaultMessage": "CurseForge"
-  },
-  "content.metadata-filter.source.imported-modpack": {
-    "defaultMessage": "匯入整合包"
-  },
-  "content.metadata-filter.source.local": {
-    "defaultMessage": "本地"
-  },
-  "content.metadata-filter.source.modrinth-modpack": {
-    "defaultMessage": "Modrinth 整合包"
-  },
-  "content.metadata-filter.source.server-project": {
-    "defaultMessage": "伺服器專案"
-  },
-  "content.metadata-filter.source.shared-instance": {
-    "defaultMessage": "共享例項"
   },
   "content.metadata-filter.toggle": {
     "defaultMessage": "篩選"

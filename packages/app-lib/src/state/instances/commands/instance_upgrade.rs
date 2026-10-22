@@ -5,26 +5,22 @@ use std::time::SystemTime;
 use chrono::{DateTime, Utc};
 
 use crate::State;
-use crate::api::curseforge::{
-    CurseForgeFilesRequest, DEPENDENCY_RELATION_REQUIRED, get_file, get_files,
-    get_files_many,
-};
+use crate::api::curseforge::DEPENDENCY_RELATION_REQUIRED;
 use crate::state::instances::{
     ContentItemCapabilities, ContentOwnershipKind, InstanceContentSnapshot,
     InstanceContentSnapshotItem, InstanceLink, LoaderComponentKind,
     PackMemberMaterializationState, PackMemberOverrideKind,
 };
 use crate::state::{
-    CacheBehaviour, CachedEntry, ContentItem, ContentProvider,
-    ContentProviderRef, ContentSourceKind, DependencyType,
-    InstanceUpgradeAction, InstanceUpgradeDependencyChange,
+    ContentItem, ContentProvider, ContentProviderRef, ContentSourceKind,
+    DependencyType, InstanceUpgradeAction, InstanceUpgradeDependencyChange,
     InstanceUpgradeDependencyChangeKind, InstanceUpgradeDependencyRequirement,
     InstanceUpgradeEnvironment, InstanceUpgradeFixedConstraint,
     InstanceUpgradeIssue, InstanceUpgradeIssueCode, InstanceUpgradeItem,
     InstanceUpgradeItemStatus, InstanceUpgradePlan, InstanceUpgradeResolution,
     InstanceUpgradeSelection, InstanceUpgradeSolution,
     InstanceUpgradeSolutionKind, InstanceUpgradeSourceFile, ModrinthProjectId,
-    ModrinthVersionId, ProjectType, ShaderRuntime, Version,
+    ProjectType, ShaderRuntime, Version,
 };
 
 const MAX_CANDIDATES_PER_PROJECT: usize = 6;
@@ -447,6 +443,10 @@ async fn read_only_upgrade_source(
             continue;
         };
         snapshot.items.push(InstanceContentSnapshotItem {
+            artifact_ref: None,
+            compatibility: None,
+            resource_id: None,
+            pack_resource_id: None,
             file_id: None,
             entry_id: None,
             member_id: None,
@@ -578,10 +578,8 @@ impl UpgradePlanRuntimeValidation {
             .content_watch_snapshot(&plan.instance_id)
             .await
         else {
-            // Directly linked instances deliberately have no folder watcher.
-            // Their cached resolved game directory still supports the same
-            // metadata and hash validation without re-resolving every linked
-            // launcher version on each planner interaction.
+            // Unwatched game directories still support metadata and hash
+            // validation through the resolved source directory.
             self.incremental_validate(plan, None, state).await?;
             return Ok(self.source.clone());
         };
@@ -1343,6 +1341,7 @@ async fn load_upgrade_catalog(
                                 &exact,
                                 &custom_fixed_versions,
                                 target,
+                                state,
                             )
                             .await?
                         }
@@ -1404,52 +1403,50 @@ async fn load_upgrade_catalog(
     Ok(catalog)
 }
 
-/// Loads a project's version list for upgrade planning.
-///
-/// The planner decides which releases can be installed, so it must not plan
-/// against a list that is older than the cache TTL: serving stale rows here
-/// hides releases published since the list was cached (issue #594). When the
-/// refresh fails (offline, API error) the cached copy is used instead, so
-/// planning still works without a network connection. A failure to read that
-/// cached copy is propagated instead of being reported as an empty version
-/// list, which would silently look like "no compatible release".
+/// The environment solver reads provider protocol projections from the shared
+/// resource catalog. Source failure remains visible instead of becoming an
+/// empty list or an apparently fresh legacy cache hit.
 async fn load_planner_project_versions(
     project_id: &ModrinthProjectId,
+    target: &InstanceUpgradeEnvironment,
     state: &State,
-) -> crate::Result<Vec<Version>> {
-    let refresh_result = CachedEntry::get_project_versions(
-        project_id,
-        Some(CacheBehaviour::MustRevalidate),
-        &state.pool,
-        &state.api_semaphore,
+) -> crate::Result<(Vec<Version>, bool)> {
+    crate::resources::legacy_catalog::page(
+        crate::resources::SourceId::modrinth(),
+        project_id.as_str().into(),
+        crate::resources::ipc::ResourceTarget {
+            game_versions: vec![target.game_version.clone()],
+            loaders: vec![],
+            channels: vec![],
+        },
+        state,
     )
-    .await;
-
-    match refresh_result {
-        Ok(Some(versions)) => return Ok(versions),
-        Ok(None) => {
-            tracing::warn!(
-                project_id = %project_id,
-                "Project versions refresh returned no data for upgrade planning; using cached versions"
-            );
-        }
-        Err(error) => {
-            tracing::warn!(
-                project_id = %project_id,
-                error = %error,
-                "Failed to refresh project versions for upgrade planning; using cached versions"
-            );
-        }
-    }
-
-    Ok(CachedEntry::get_project_versions(
-        project_id,
-        Some(CacheBehaviour::CacheOnly),
-        &state.pool,
-        &state.api_semaphore,
+    .await
+}
+async fn planner_version(
+    id: &str,
+    state: &State,
+) -> crate::Result<Option<Version>> {
+    crate::resources::legacy_catalog::exact(
+        crate::resources::SourceId::modrinth(),
+        None,
+        id.into(),
+        state,
     )
-    .await?
-    .unwrap_or_default())
+    .await
+}
+async fn planner_cf_file(
+    project_id: u32,
+    file_id: u32,
+    state: &State,
+) -> crate::Result<Option<crate::api::curseforge::CurseForgeFile>> {
+    crate::resources::legacy_catalog::exact(
+        crate::resources::SourceId::curseforge(),
+        Some(project_id.to_string()),
+        file_id.to_string(),
+        state,
+    )
+    .await
 }
 
 async fn load_modrinth_candidates(
@@ -1462,8 +1459,8 @@ async fn load_modrinth_candidates(
     state: &State,
 ) -> crate::Result<CandidatePool> {
     let project_id = ModrinthProjectId::new(key.project_id.clone())?;
-    let mut versions =
-        load_planner_project_versions(&project_id, state).await?;
+    let (mut versions, more_releases) =
+        load_planner_project_versions(&project_id, target, state).await?;
     let has_target_game_version_release = versions.iter().any(|version| {
         version
             .game_versions
@@ -1484,13 +1481,7 @@ async fn load_modrinth_candidates(
             .iter()
             .find(|version| version.id == current_release_id)
             .cloned()
-            .or(CachedEntry::get_version(
-                &ModrinthVersionId::new(current_release_id.to_string())?,
-                Some(CacheBehaviour::StaleWhileRevalidateSkipOffline),
-                &state.pool,
-                &state.api_semaphore,
-            )
-            .await?);
+            .or(planner_version(current_release_id, state).await?);
         if let Some(current) = current {
             selected.push(current);
         }
@@ -1511,13 +1502,7 @@ async fn load_modrinth_candidates(
                     .find(|version| version.id == *exact_version)
                     .cloned()
             })
-            .or(CachedEntry::get_version(
-                &ModrinthVersionId::new(exact_version.clone())?,
-                Some(CacheBehaviour::StaleWhileRevalidateSkipOffline),
-                &state.pool,
-                &state.api_semaphore,
-            )
-            .await?);
+            .or(planner_version(&(exact_version.clone()), state).await?);
         if let Some(exact) = exact {
             if custom_fixed_versions.contains(exact_version) {
                 validate_modrinth_custom_fixed(
@@ -1548,15 +1533,12 @@ async fn load_modrinth_candidates(
             let project_id = match dependency.project_id.clone() {
                 Some(project_id) => project_id,
                 None => match dependency.version_id.as_deref() {
-                    Some(version_id) => CachedEntry::get_version(
-                        &ModrinthVersionId::new(version_id.to_string())?,
-                        Some(CacheBehaviour::StaleWhileRevalidateSkipOffline),
-                        &state.pool,
-                        &state.api_semaphore,
-                    )
-                    .await?
-                    .map(|version| version.project_id)
-                    .unwrap_or_else(|| format!("missing-version:{version_id}")),
+                    Some(version_id) => planner_version(version_id, state)
+                        .await?
+                        .map(|version| version.project_id)
+                        .unwrap_or_else(|| {
+                            format!("missing-version:{version_id}")
+                        }),
                     None => continue,
                 },
             };
@@ -1594,7 +1576,7 @@ async fn load_modrinth_candidates(
     sort_candidates(&mut candidates);
     Ok(CandidatePool {
         candidates,
-        exploration_limited,
+        exploration_limited: exploration_limited || more_releases,
         has_target_game_version_release,
     })
 }
@@ -1629,6 +1611,7 @@ async fn load_curseforge_candidates(
     exact_versions: &HashSet<String>,
     custom_fixed_versions: &HashSet<String>,
     target: &InstanceUpgradeEnvironment,
+    state: &State,
 ) -> crate::Result<CandidatePool> {
     let project_id = key.project_id.parse::<u32>().map_err(|_| {
         crate::ErrorKind::InputError(format!(
@@ -1636,20 +1619,30 @@ async fn load_curseforge_candidates(
             key.project_id
         ))
     })?;
-    let mut files = get_files(
-        project_id,
-        CurseForgeFilesRequest {
-            game_version: Some(target.game_version.clone()),
-            mod_loader_type: (project_type == ProjectType::Mod)
-                .then(|| curseforge_loader_type(target.mod_loader))
-                .flatten(),
-            game_version_type_id: None,
-            index: 0,
-            page_size: 50,
+    let (mut files, more_releases): (
+        Vec<crate::api::curseforge::CurseForgeFile>,
+        bool,
+    ) = crate::resources::legacy_catalog::page(
+        crate::resources::SourceId::curseforge(),
+        project_id.to_string(),
+        crate::resources::ipc::ResourceTarget {
+            game_versions: vec![target.game_version.clone()],
+            loaders: if project_type == ProjectType::Mod {
+                match target.mod_loader.as_str() {
+                    "forge" | "fabric" | "quilt" | "neoforge" => {
+                        vec![target.mod_loader.as_str().into()]
+                    }
+                    "lite_loader" => vec!["liteloader".into()],
+                    _ => vec![],
+                }
+            } else {
+                vec![]
+            },
+            channels: vec![],
         },
+        state,
     )
-    .await?
-    .files;
+    .await?;
     let has_target_game_version_release = files.iter().any(|file| {
         file.is_available && curseforge_game_version_matches(file, target)
     });
@@ -1677,7 +1670,9 @@ async fn load_curseforge_candidates(
         let current = match current {
             Some(current) => Some(current),
             None => match current_release_id.parse::<u32>() {
-                Ok(file_id) => Some(get_file(project_id, file_id).await?),
+                Ok(file_id) => {
+                    planner_cf_file(project_id, file_id, state).await?
+                }
                 Err(_) => None,
             },
         };
@@ -1700,10 +1695,8 @@ async fn load_curseforge_candidates(
         let exact =
             match selected.iter().find(|file| file.id == file_id).cloned() {
                 Some(file) => file,
-                None => get_files_many(vec![file_id])
+                None => planner_cf_file(project_id, file_id, state)
                     .await?
-                    .into_iter()
-                    .next()
                     .ok_or_else(|| {
                         crate::ErrorKind::InputError(format!(
                             "Unknown CurseForge file ID {exact_version}"
@@ -1776,7 +1769,7 @@ async fn load_curseforge_candidates(
     sort_candidates(&mut candidates);
     Ok(CandidatePool {
         candidates,
-        exploration_limited,
+        exploration_limited: exploration_limited || more_releases,
         has_target_game_version_release,
     })
 }
@@ -1797,16 +1790,6 @@ fn bounded_compatible_candidates<T: Clone>(
         }
     }
     (selected, compatible_count > MAX_CANDIDATES_PER_PROJECT)
-}
-
-fn curseforge_loader_type(loader: crate::state::ModLoader) -> Option<u32> {
-    match loader {
-        crate::state::ModLoader::Forge => Some(1),
-        crate::state::ModLoader::Fabric => Some(4),
-        crate::state::ModLoader::Quilt => Some(5),
-        crate::state::ModLoader::NeoForge => Some(6),
-        _ => None,
-    }
 }
 
 fn compare_modrinth_version(left: &Version, right: &Version) -> Ordering {
@@ -4994,7 +4977,8 @@ mod tests {
             ContentProviderRef::Modrinth {
                 project_id: ModrinthProjectId::new("P7dR8mSH").unwrap(),
                 version_id: Some(
-                    ModrinthVersionId::new(current_release).unwrap(),
+                    crate::state::ModrinthVersionId::new(current_release)
+                        .unwrap(),
                 ),
             },
         ];
@@ -6478,6 +6462,10 @@ mod tests {
             revision: 7,
             pack: None,
             items: vec![InstanceContentSnapshotItem {
+                artifact_ref: None,
+                compatibility: None,
+                resource_id: None,
+                pack_resource_id: None,
                 file_id: Some("file".to_string()),
                 entry_id: Some("entry".to_string()),
                 member_id: None,
@@ -6761,6 +6749,10 @@ mod tests {
                 .any(|file| file.relative_path == "mods/new.jar")
         );
 
+        let creation_watch = state
+            .file_watcher
+            .content_watch_snapshot(&instance.id)
+            .await;
         let source = read_only_upgrade_source(&instance.id, &state)
             .await
             .unwrap();
@@ -6789,7 +6781,7 @@ mod tests {
         let mut validation = UpgradePlanRuntimeValidation::new(
             source,
             &instance.id,
-            None,
+            creation_watch,
             &state,
         )
         .await;
@@ -6929,6 +6921,10 @@ mod tests {
         release_id: Option<&str>,
     ) -> InstanceContentSnapshotItem {
         InstanceContentSnapshotItem {
+            artifact_ref: None,
+            compatibility: None,
+            resource_id: None,
+            pack_resource_id: None,
             file_id: Some("file".to_string()),
             entry_id: Some("entry".to_string()),
             member_id: None,

@@ -272,7 +272,7 @@ where
     Ok(value.and_then(OneOrCollection::into_first))
 }
 
-async fn get_json<T>(url: &str, fields: &str) -> crate::Result<T>
+pub(crate) async fn get_json<T>(url: &str, fields: &str) -> crate::Result<T>
 where
     T: for<'de> Deserialize<'de>,
 {

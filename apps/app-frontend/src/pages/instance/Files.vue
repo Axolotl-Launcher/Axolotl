@@ -29,6 +29,7 @@ import { useRouter } from 'vue-router'
 
 import { instance_listener } from '@/helpers/events'
 import { get_full_path } from '@/helpers/instance'
+import { createRequestGeneration } from '@/helpers/request-generation'
 import type { GameInstance } from '@/helpers/types'
 import { highlightInFolder } from '@/helpers/utils'
 
@@ -73,6 +74,7 @@ const loading = ref(true)
 const error = ref<Error | null>(null)
 const currentPath = ref('')
 const editingFile = ref<EditingFile | null>(null)
+const refreshRequests = createRequestGeneration()
 
 debug('setup: start, instance.id =', props.instance.id)
 
@@ -126,26 +128,44 @@ async function listDirectory(dirPath: string): Promise<FileItem[]> {
 }
 
 async function refresh() {
+    const request = refreshRequests.begin(`${instanceRoot.value}\0${currentPath.value}`)
+    const requestedRoot = instanceRoot.value
+    const requestedPath = currentPath.value
     debug('refresh: called, currentPath =', currentPath.value, 'instanceRoot =', instanceRoot.value)
     loading.value = true
     error.value = null
     try {
-        items.value = await listDirectory(currentPath.value)
+        const nextItems = await listDirectory(requestedPath)
+        if (
+            !refreshRequests.isCurrent(request, `${instanceRoot.value}\0${currentPath.value}`) ||
+            requestedRoot !== instanceRoot.value ||
+            requestedPath !== currentPath.value
+        )
+            return
+        items.value = nextItems
         debug('refresh: success, items =', items.value.length)
     } catch (e) {
         debug('refresh: error =', e)
+        if (
+            !refreshRequests.isCurrent(request, `${instanceRoot.value}\0${currentPath.value}`) ||
+            requestedRoot !== instanceRoot.value ||
+            requestedPath !== currentPath.value
+        )
+            return
         error.value = e instanceof Error ? e : new Error(String(e))
         items.value = []
     } finally {
-        loading.value = false
-        firstPaintPending.value = false
+        if (refreshRequests.isCurrent(request, `${instanceRoot.value}\0${currentPath.value}`)) {
+            loading.value = false
+            firstPaintPending.value = false
+        }
     }
 }
 
 function navigateTo(path: string) {
     debug('navigateTo:', path)
     currentPath.value = path.startsWith('/') ? path.slice(1) : path
-    refresh()
+    void refresh()
 }
 
 function startEditing(file: EditingFile) {
@@ -296,7 +316,10 @@ watch(
     async () => {
         debug('watch instance.id: changed to', props.instance.id)
         firstPaintPending.value = true
+        refreshRequests.invalidate()
+        const instanceId = props.instance.id
         instanceRoot.value = await get_full_path(props.instance.id)
+        if (instanceId !== props.instance.id) return
         currentPath.value = ''
         await refresh()
     },

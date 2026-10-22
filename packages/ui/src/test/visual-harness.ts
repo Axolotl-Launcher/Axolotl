@@ -14,8 +14,10 @@ import './visual-styles.scss'
 
 import { mount, type MountingOptions } from '@vue/test-utils'
 import type { Component } from 'vue'
+import { ref } from 'vue'
 
 import { tooltipDirective } from '../directives/tooltip'
+import { I18N_INJECTION_KEY } from '../providers/i18n'
 
 export const THEMES = ['light', 'dark', 'oled'] as const
 export type Theme = (typeof THEMES)[number]
@@ -61,6 +63,14 @@ export async function mountThemed<P extends Record<string, unknown>>(
         ...options,
         global: {
             ...options.global,
+            provide: {
+                [I18N_INJECTION_KEY as symbol]: {
+                    locale: ref('en-US'),
+                    t: (key: string) => key,
+                    setLocale: () => {},
+                },
+                ...options.global?.provide,
+            },
             directives: {
                 ...options.global?.directives,
                 tooltip: tooltipDirective,

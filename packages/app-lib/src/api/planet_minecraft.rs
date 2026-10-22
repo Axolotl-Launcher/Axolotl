@@ -176,7 +176,7 @@ fn validated_download_url(value: &str) -> crate::Result<reqwest::Url> {
     Ok(url)
 }
 
-async fn connector_get<T>(url: &str) -> crate::Result<T>
+pub(crate) async fn connector_get<T>(url: &str) -> crate::Result<T>
 where
     T: for<'de> Deserialize<'de>,
 {

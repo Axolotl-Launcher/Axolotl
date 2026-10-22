@@ -11,6 +11,9 @@ use crate::state::{
     LoaderComponentKind, LoaderComponentRole, ModrinthProjectId,
     ModrinthVersionId, SideType,
 };
+use crate::util::download::constants::{
+    INSTALL_FILE_REPORTED_ATTEMPTS, MODPACK_REQUESTED_H2_RANGES,
+};
 use crate::util::fetch::{
     ContentValidation, DownloadMeta, DownloadReason, DownloadRequest,
     FetchProgressFn, Integrity, ResourceClass, download_to_path, fetch,
@@ -21,7 +24,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::future::Future;
 
-use std::path::{Component, Path, PathBuf};
+use std::path::{Path, PathBuf};
 use std::pin::Pin;
 
 use zip::ZipArchive;
@@ -45,7 +48,7 @@ pub struct PackFile {
     pub hashes: HashMap<PackFileHash, String>,
     pub env: Option<HashMap<EnvType, SideType>>,
     pub downloads: Vec<String>,
-    pub file_size: u32,
+    pub file_size: u64,
 }
 
 #[derive(Serialize, Deserialize, Clone, Eq, PartialEq, Hash)]
@@ -258,19 +261,32 @@ pub(crate) async fn generate_pack_from_version_id_with_reporter(
 ) -> crate::Result<CreatePack> {
     let state = State::get().await?;
     let has_icon_url = icon_url.is_some();
-
-    let version = CachedEntry::get_version(
-        &ModrinthVersionId::new(version_id.clone())?,
+    let cancellation = reporter.cancellation_token();
+    let version_id_ref = ModrinthVersionId::new(version_id.clone())?;
+    let version_query = CachedEntry::get_version(
+        &version_id_ref,
         Some(CacheBehaviour::Bypass),
         &state.pool,
         &state.api_semaphore,
-    )
-    .await?
+    );
+    let version = tokio::select! {
+        biased;
+        _ = cancellation.cancelled() => return Err(crate::resources::protocol::error(crate::resources::ResourceError::Canceled)),
+        version = version_query => version?,
+    }
     .ok_or_else(|| {
         crate::ErrorKind::InputError(
             "Invalid version ID specified!".to_string(),
         )
     })?;
+
+    if version.project_id != project_id {
+        return Err(crate::ErrorKind::InputError(
+            "The selected modpack release belongs to a different project"
+                .into(),
+        )
+        .into());
+    }
 
     // Update instance with correct loader and game version from the API version metadata,
     // so the UI shows accurate info while the pack file is still downloading.
@@ -308,23 +324,13 @@ pub(crate) async fn generate_pack_from_version_id_with_reporter(
                 "Specified version has no files".to_string(),
             )
         })?;
-    let file_name = Path::new(&pack_file.filename);
-    if file_name.components().count() != 1
-        || !matches!(file_name.components().next(), Some(Component::Normal(_)))
-    {
-        return Err(crate::ErrorKind::InputError(
-            "Modrinth returned an invalid modpack file name".to_string(),
-        )
-        .into());
-    }
     let hash = pack_file.hashes.get("sha1");
-    let pack_path = state
-        .directories
-        .caches_dir()
-        .join("modpacks")
-        .join(&project_id)
-        .join(&version_id)
-        .join(file_name);
+    let pack_path = modpack_cache_path(
+        &state.directories.caches_dir().join("modpacks"),
+        &project_id,
+        &version_id,
+        &pack_file.filename,
+    )?;
 
     let metadata =
         crate::api::instance::get(&instance_id)
@@ -401,7 +407,7 @@ pub(crate) async fn generate_pack_from_version_id_with_reporter(
             vec![InstallJobEventKind::ContentFileQueued {
                 path: item_path,
                 bytes_total: Some(pack_file.size as u64),
-                max_attempts: 5,
+                max_attempts: INSTALL_FILE_REPORTED_ATTEMPTS,
             }],
         )
         .await?;
@@ -415,7 +421,7 @@ pub(crate) async fn generate_pack_from_version_id_with_reporter(
                 content: ContentValidation::Jar,
                 ..Integrity::default()
             })
-            .with_h2_range_concurrency(16)
+            .with_h2_range_concurrency(MODPACK_REQUESTED_H2_RANGES)
             .with_download_meta(download_meta)
             .with_install_tracking(
                 reporter.clone(),
@@ -523,8 +529,26 @@ pub(crate) async fn generate_pack_from_version_id_with_reporter(
     })
 }
 
-#[tracing::instrument]
+fn modpack_cache_path(
+    root: &Path,
+    project_id: &str,
+    version_id: &str,
+    filename: &str,
+) -> crate::Result<PathBuf> {
+    let mut path = root.to_path_buf();
+    for segment in [project_id, version_id, filename] {
+        if segment.contains('/') {
+            return Err(crate::ErrorKind::InputError(
+                "Invalid modpack cache path component".to_string(),
+            )
+            .into());
+        }
+        path = crate::util::io::safe_relative_join(&path, segment)?;
+    }
+    Ok(path)
+}
 
+#[tracing::instrument]
 pub async fn generate_pack_from_file(
     path: PathBuf,
     instance_id: String,
@@ -554,6 +578,25 @@ pub async fn set_instance_information(
     pack_version_id: Option<&str>,
     dependencies: &HashMap<PackDependency, String>,
     _ignore_lock: bool,
+) -> crate::Result<()> {
+    set_instance_information_with_local_loader_versions(
+        instance_id,
+        description,
+        backup_name,
+        pack_version_id,
+        dependencies,
+        &HashMap::new(),
+    )
+    .await
+}
+
+pub(crate) async fn set_instance_information_with_local_loader_versions(
+    instance_id: String,
+    description: &CreatePackDescription,
+    backup_name: &str,
+    pack_version_id: Option<&str>,
+    dependencies: &HashMap<PackDependency, String>,
+    local_loader_versions: &HashMap<PackDependency, String>,
 ) -> crate::Result<()> {
     let mut game_version: Option<&String> = None;
     for (key, value) in dependencies {
@@ -607,6 +650,7 @@ pub async fn set_instance_information(
             *dependency,
             *loader,
             game_version,
+            local_loader_versions,
         )
         .await?;
         components[0].version = Some(version);
@@ -632,6 +676,7 @@ pub async fn set_instance_information(
                 dependency,
                 loader,
                 game_version,
+                local_loader_versions,
             )
             .await?;
             components.push(LoaderComponent {
@@ -733,7 +778,11 @@ async fn resolve_pack_loader_version(
     dependency: PackDependency,
     loader: ModLoader,
     game_version: &str,
+    local_loader_versions: &HashMap<PackDependency, String>,
 ) -> crate::Result<String> {
+    if let Some(version) = local_loader_versions.get(&dependency) {
+        return Ok(version.clone());
+    }
     let requested = dependencies
         .get(&dependency)
         .filter(|version| !version.trim().is_empty())
@@ -757,4 +806,48 @@ async fn resolve_pack_loader_version(
         ))
         .into()
     })
+}
+
+#[cfg(test)]
+mod cache_path_tests {
+    use super::modpack_cache_path;
+    use std::path::Path;
+
+    #[test]
+    fn cache_components_cannot_escape_their_directories() {
+        let root = Path::new("modpacks");
+        assert_eq!(
+            modpack_cache_path(root, "project", "version", "pack.mrpack")
+                .unwrap(),
+            root.join("project/version/pack.mrpack")
+        );
+        for malicious in [
+            "../outside",
+            "nested/name",
+            r"..\outside",
+            "C:/outside",
+            "C:outside",
+            r"\\server\share",
+            ".",
+            "",
+            "NUL",
+            "pack.mrpack:stream",
+            ".. ",
+        ] {
+            for position in 0..3 {
+                let mut components = ["project", "version", "pack.mrpack"];
+                components[position] = malicious;
+                assert!(
+                    modpack_cache_path(
+                        root,
+                        components[0],
+                        components[1],
+                        components[2]
+                    )
+                    .is_err(),
+                    "{position}: {malicious:?}"
+                );
+            }
+        }
+    }
 }

@@ -52,37 +52,44 @@ pub(crate) async fn get_instances_metadata(
 ) -> crate::Result<Vec<InstanceMetadata>> {
     let records =
         instance_rows::get_instance_metadata_many(instance_ids, pool).await?;
-    let mut metadata = Vec::with_capacity(records.len());
-    for record in records {
-        let components = loader_component_rows::list_loader_components(
-            &record.instance.id,
-            pool,
-        )
-        .await?;
-        let mut item = InstanceMetadata::from_record(record, components);
-        item.synced_options =
-            instance_rows::get_instance_synced_options(&item.instance.id, pool)
-                .await?;
-        metadata.push(item);
-    }
-    Ok(metadata)
+    hydrate_instance_records(records, pool).await
 }
 
 pub(crate) async fn list_instances(
     pool: &SqlitePool,
 ) -> crate::Result<Vec<InstanceMetadata>> {
     let records = instance_rows::list_instance_metadata(pool).await?;
+    hydrate_instance_records(records, pool).await
+}
+
+async fn hydrate_instance_records(
+    records: Vec<instance_rows::InstanceMetadataRecord>,
+    pool: &SqlitePool,
+) -> crate::Result<Vec<InstanceMetadata>> {
+    if records.is_empty() {
+        return Ok(Vec::new());
+    }
+    let ids = records
+        .iter()
+        .map(|record| record.instance.id.as_str())
+        .collect::<Vec<_>>();
+    let mut components =
+        loader_component_rows::list_loader_components_many(&ids, pool).await?;
+    let preferences =
+        instance_rows::get_instance_synced_options_many(&ids, pool).await?;
     let mut metadata = Vec::with_capacity(records.len());
     for record in records {
-        let components = loader_component_rows::list_loader_components(
-            &record.instance.id,
-            pool,
-        )
-        .await?;
-        let mut item = InstanceMetadata::from_record(record, components);
-        item.synced_options =
-            instance_rows::get_instance_synced_options(&item.instance.id, pool)
-                .await?;
+        // Clone for repeated ids in get_many; preserve the requested order and duplicates.
+        let loader_components = components
+            .entry(record.instance.id.clone())
+            .or_default()
+            .clone();
+        let options = preferences
+            .get(&record.instance.id)
+            .copied()
+            .unwrap_or_default();
+        let mut item = InstanceMetadata::from_record(record, loader_components);
+        item.synced_options = options;
         metadata.push(item);
     }
     Ok(metadata)

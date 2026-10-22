@@ -46,7 +46,7 @@ import {
     list as listInstances,
 } from '@/helpers/instance'
 import { getDisplayInstanceIcon } from '@/helpers/instance-icons'
-import { areLoadersCompatible, isVersionInRange } from '@/helpers/version-compatibility'
+import { assessLocalModCompatibility } from '@/helpers/version-compatibility'
 import type { AppNotificationManager } from '@/providers/app-notifications'
 import type { AppPopupNotificationManager } from '@/providers/app-popup-notifications'
 import type { ContentInstallContext } from '@/providers/content-install'
@@ -71,6 +71,7 @@ export interface PendingDropIncompatibility {
     instLoader: string | undefined
     meta: { name?: string; mod_id?: string } | null
     modrinthLookup: ModrinthLookupResult | null
+    innerBase?: string
 }
 
 export interface SelectedInstance {
@@ -254,7 +255,7 @@ export function useDropImport(options: DropImportOptions) {
     let batchGroupMode = false
     const batchGroupKey = ref(0)
     const incompatWarningKey = ref(0)
-    let batchCompatResolve: ((installed: boolean) => void) | null = null
+    let batchCompatResolve: ((result: 'installed' | 'skipped' | 'failed') => void) | null = null
     let batchCurrentInstallJobId: string | null = null
 
     // ── Content install incompatibility state ─────────────────────────────
@@ -272,6 +273,10 @@ export function useDropImport(options: DropImportOptions) {
 
     // ── Messages ─────────────────────────────────────────────────────────
     const messages = defineMessages({
+        unknownCompatibility: {
+            id: 'app.drop.compatibility.unknown',
+            defaultMessage: 'Unknown',
+        },
         dropOverlayTitle: {
             id: 'app.drop.overlay-title',
             defaultMessage: 'Drop to import',
@@ -481,14 +486,10 @@ export function useDropImport(options: DropImportOptions) {
             id: 'app.drop.unknown-force-analysis-failed-text',
             defaultMessage: 'Could not identify the file type even after deep analysis.',
         },
-        dropInstallModTitle: {
-            id: 'app.drop.mod-compatibility-title',
-            defaultMessage: 'Version Mismatch',
-        },
         dropInstallModWarning: {
-            id: 'app.drop.mod-compatibility-warning',
+            id: 'app.drop.compatibility-review-warning',
             defaultMessage:
-                '{file} targets {modVersion} ({modLoader}), but the instance is {instVersion} ({instLoader}).',
+                '{file} targets {modVersion} ({modLoader}); the instance is {instVersion} ({instLoader}). Minecraft: {gameState, select, compatible {compatible} incompatible {incompatible} other {unknown}}; loader: {loaderState, select, compatible {compatible} incompatible {incompatible} other {unknown}}. Confirm to import this file with these compatibility exceptions.',
         },
         dropCompatibleModeTitle: {
             id: 'app.drop.compatible-mode-title',
@@ -1086,21 +1087,15 @@ export function useDropImport(options: DropImportOptions) {
                     loader: inst?.loader,
                 })
 
-                if (inst && meta?.minecraft_version) {
+                if (inst) {
                     const instVersion = inst.game_version
                     const instLoader = inst.loader
-                    const modMcVersion = meta.minecraft_version
-                    const modLoader = meta.loader
+                    const modMcVersion = meta?.minecraft_version
+                    const modLoader = meta?.loader
 
-                    let versionMismatch = false
-                    if (modMcVersion && instVersion) {
-                        versionMismatch = !isVersionInRange(instVersion, modMcVersion)
-                    }
-
-                    let loaderMismatch = false
-                    if (modLoader && instLoader) {
-                        loaderMismatch = !areLoadersCompatible(modLoader, instLoader)
-                    }
+                    const assessment = assessLocalModCompatibility(meta, inst)
+                    const versionMismatch = assessment.gameVersion !== 'compatible'
+                    const loaderMismatch = assessment.loader !== 'compatible'
 
                     dropDebug('installContentDirectly: compatibility check', {
                         versionMismatch,
@@ -1121,11 +1116,15 @@ export function useDropImport(options: DropImportOptions) {
                             instLoader,
                             meta,
                             modrinthLookup,
+                            innerBase,
                         }
                         const warning = formatMessage(messages.dropInstallModWarning, {
+                            gameState: assessment.gameVersion,
+                            loaderState: assessment.loader,
                             file: filePath.split(/[/\\]/).pop() || filePath,
-                            modVersion: modMcVersion ?? 'any',
-                            modLoader: modLoader ?? 'any',
+                            modVersion:
+                                modMcVersion ?? formatMessage(messages.unknownCompatibility),
+                            modLoader: modLoader ?? formatMessage(messages.unknownCompatibility),
                             instVersion: instVersion ?? 'any',
                             instLoader: instLoader ?? 'none',
                         })
@@ -2171,7 +2170,7 @@ export function useDropImport(options: DropImportOptions) {
         const compatResolve = batchCompatResolve
         batchCompatResolve = null
         pendingDropIncompatibility.value = null
-        compatResolve?.(false)
+        compatResolve?.('skipped')
         confirmDropModal.value?.hide()
         symlinkCardsModal.value?.hide()
         if (batchPhase.value === 'scanning' && batchScanPromise) {
@@ -2293,19 +2292,24 @@ export function useDropImport(options: DropImportOptions) {
                 await installBatchItem(item)
                 if (batchInstallCancelled) break
                 if (pendingDropIncompatibility.value) {
-                    const installed = await new Promise<boolean>((resolve) => {
-                        batchCompatResolve = resolve
-                    })
-                    if (installed) {
+                    const result = await new Promise<'installed' | 'skipped' | 'failed'>(
+                        (resolve) => {
+                            batchCompatResolve = resolve
+                        },
+                    )
+                    if (result === 'installed') {
                         item.installState = 'success'
                         succeeded++
                         console.log(`[BatchDrop] install SUCCESS (compat) name=${item.name}`)
-                    } else {
+                    } else if (result === 'skipped') {
                         item.installState = 'skipped'
                         skipped++
                         console.log(
                             `[BatchDrop] install SKIPPED (compat cancelled) name=${item.name}`,
                         )
+                    } else {
+                        item.installState = 'failed'
+                        failed++
                     }
                 } else {
                     item.installState = 'success'
@@ -2430,12 +2434,18 @@ export function useDropImport(options: DropImportOptions) {
             pendingDropIncompatibility.value = null
             const projectType = contentFileProjectTypeMap[pending.type]
             try {
-                await add_project_from_path(pending.instId, pending.filePath, projectType)
+                await add_project_from_path(
+                    pending.instId,
+                    pending.filePath,
+                    projectType,
+                    pending.innerBase,
+                )
                 addNotification({
                     title: formatMessage(messages.dropContentInstalledTitle),
                     text: formatMessage(messages.dropContentInstalledText),
                     type: 'success',
                 })
+                decision?.('installed')
             } catch (e) {
                 addNotification({
                     title: formatMessage(messages.dropInstallFailedTitle),
@@ -2447,8 +2457,8 @@ export function useDropImport(options: DropImportOptions) {
                               : JSON.stringify(e),
                     type: 'error',
                 })
+                decision?.('failed')
             }
-            decision?.(true)
             return
         }
         // Delegate to content install provider for normal flow
@@ -2460,7 +2470,7 @@ export function useDropImport(options: DropImportOptions) {
         batchCompatResolve = null
         pendingDropIncompatibility.value = null
         if (decision) {
-            decision(false)
+            decision('skipped')
             return
         }
     }
@@ -2475,7 +2485,7 @@ export function useDropImport(options: DropImportOptions) {
             ? `/project/${pending.modrinthLookup.project_id}`
             : `/browse/mod?q=${encodeURIComponent(searchName)}&i=${pending.instId}`
         pendingDropIncompatibility.value = null
-        decision?.(false)
+        decision?.('skipped')
         router.push(searchUrl)
     }
 

@@ -22,26 +22,19 @@ const DEFAULT_CONSOLE_COLUMNS: usize = 80;
 #[cfg(debug_assertions)]
 const CONSOLE_TRUNCATION_MARKER: &str = "... [console output truncated]";
 
-#[cfg(not(debug_assertions))]
 const LAUNCHER_LOG_MAX_BYTES: u64 = 10 * 1024 * 1024;
-#[cfg(not(debug_assertions))]
 const LAUNCHER_WARN_ERROR_MAX_BYTES: u64 = 30 * 1024 * 1024;
-#[cfg(not(debug_assertions))]
 const LAUNCHER_LOG_MAX_FILES: usize = 5;
-#[cfg(not(debug_assertions))]
 const LAUNCHER_LOG_MAX_AGE: std::time::Duration =
     std::time::Duration::from_secs(3 * 24 * 60 * 60);
 
 /// Logs younger than this are kept at full fidelity, including TRACE.
-#[cfg(any(test, not(debug_assertions)))]
 const LAUNCHER_LOG_FULL_FIDELITY_AGE: std::time::Duration =
     std::time::Duration::from_secs(30 * 60);
 /// Logs older than this drop TRACE; older than the debug window they also
 /// drop DEBUG.
-#[cfg(any(test, not(debug_assertions)))]
 const LAUNCHER_LOG_DEBUG_FIDELITY_AGE: std::time::Duration =
     std::time::Duration::from_secs(2 * 60 * 60);
-#[cfg(not(debug_assertions))]
 const LAUNCHER_LOG_PRUNE_INTERVAL: std::time::Duration =
     std::time::Duration::from_secs(5 * 60);
 
@@ -53,12 +46,13 @@ pub const DEFAULT_LOG_LEVEL: &str = "info";
 const THIRD_PARTY_LOG_DIRECTIVES: [&str; 4] =
     ["h2=info", "hyper=info", "hyper_util=info", "sqlx=warn"];
 
-static LOG_FILTER_RELOAD: std::sync::OnceLock<
-    tracing_subscriber::reload::Handle<
-        tracing_subscriber::EnvFilter,
-        tracing_subscriber::Registry,
-    >,
-> = std::sync::OnceLock::new();
+type LogFilterReloadHandle = tracing_subscriber::reload::Handle<
+    tracing_subscriber::EnvFilter,
+    tracing_subscriber::Registry,
+>;
+
+static LOG_FILTER_RELOAD: std::sync::OnceLock<LogFilterReloadHandle> =
+    std::sync::OnceLock::new();
 
 fn log_level_directives(level: &str) -> String {
     format!("theseus={level},theseus_gui={level}")
@@ -115,14 +109,22 @@ fn normalize_log_level(level: &str) -> crate::Result<&'static str> {
 /// always wins from then on.
 pub fn set_log_level(level: &str) -> crate::Result<()> {
     let level = normalize_log_level(level)?;
-    let filter = add_third_party_directives(
-        tracing_subscriber::EnvFilter::new(log_level_directives(level)),
-    );
 
     let Some(handle) = LOG_FILTER_RELOAD.get() else {
         // The logger was never started (or is not reloadable yet).
         return Ok(());
     };
+    reload_log_level(handle, level)
+}
+
+fn reload_log_level(
+    handle: &LogFilterReloadHandle,
+    level: &str,
+) -> crate::Result<()> {
+    let level = normalize_log_level(level)?;
+    let filter = add_third_party_directives(
+        tracing_subscriber::EnvFilter::new(log_level_directives(level)),
+    );
     handle.reload(filter).map_err(|error| {
         crate::ErrorKind::OtherError(format!(
             "Failed to apply log level {level:?}: {error}"
@@ -131,7 +133,6 @@ pub fn set_log_level(level: &str) -> crate::Result<()> {
     })
 }
 
-#[cfg(any(test, not(debug_assertions)))]
 #[derive(Clone)]
 struct RotatingLogWriter {
     state: std::sync::Arc<std::sync::Mutex<RotatingLogState>>,
@@ -139,7 +140,6 @@ struct RotatingLogWriter {
     warn_error_max_bytes: u64,
 }
 
-#[cfg(any(test, not(debug_assertions)))]
 struct RotatingLogState {
     logs_dir: std::path::PathBuf,
     session_name: String,
@@ -150,7 +150,6 @@ struct RotatingLogState {
     max_age: std::time::Duration,
 }
 
-#[cfg(any(test, not(debug_assertions)))]
 impl RotatingLogWriter {
     fn new(
         logs_dir: std::path::PathBuf,
@@ -180,10 +179,6 @@ impl RotatingLogWriter {
                 .max(normal_max_bytes)
                 .max(1),
         };
-        writer.cleanup_old_logs();
-        // Apply the retention ladder once at startup so logs left behind by a
-        // previous session are degraded immediately.
-        writer.prune_old_logs();
         Ok(writer)
     }
 
@@ -222,7 +217,6 @@ impl RotatingLogWriter {
     }
 }
 
-#[cfg(any(test, not(debug_assertions)))]
 impl RotatingLogState {
     fn write_event(
         &mut self,
@@ -259,7 +253,6 @@ impl RotatingLogState {
     }
 }
 
-#[cfg(any(test, not(debug_assertions)))]
 fn rotating_log_path(
     logs_dir: &std::path::Path,
     session_name: &str,
@@ -272,7 +265,6 @@ fn rotating_log_path(
     }
 }
 
-#[cfg(any(test, not(debug_assertions)))]
 fn open_log_file(path: &std::path::Path) -> std::io::Result<std::fs::File> {
     std::fs::OpenOptions::new()
         .create(true)
@@ -280,7 +272,6 @@ fn open_log_file(path: &std::path::Path) -> std::io::Result<std::fs::File> {
         .open(path)
 }
 
-#[cfg(any(test, not(debug_assertions)))]
 fn cleanup_launcher_logs(
     logs_dir: &std::path::Path,
     max_files: usize,
@@ -296,7 +287,6 @@ fn cleanup_launcher_logs(
     );
 }
 
-#[cfg(any(test, not(debug_assertions)))]
 fn cleanup_launcher_logs_at(
     logs_dir: &std::path::Path,
     max_files: usize,
@@ -346,7 +336,6 @@ fn cleanup_launcher_logs_at(
     }
 }
 
-#[cfg(any(test, not(debug_assertions)))]
 fn launcher_log_is_expired(
     created: std::time::SystemTime,
     now: std::time::SystemTime,
@@ -357,7 +346,6 @@ fn launcher_log_is_expired(
 
 /// Lowest level kept for a given log age: full fidelity (TRACE) inside the
 /// full window, DEBUG up to the debug window, and INFO beyond it.
-#[cfg(any(test, not(debug_assertions)))]
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum LogFidelity {
     Trace,
@@ -365,7 +353,6 @@ enum LogFidelity {
     Info,
 }
 
-#[cfg(any(test, not(debug_assertions)))]
 fn log_fidelity_for_age(age: std::time::Duration) -> LogFidelity {
     if age <= LAUNCHER_LOG_FULL_FIDELITY_AGE {
         LogFidelity::Trace
@@ -389,7 +376,6 @@ fn log_level_ordinal(token: &str) -> Option<u8> {
     }
 }
 
-#[cfg(any(test, not(debug_assertions)))]
 fn minimum_kept_ordinal(fidelity: LogFidelity) -> u8 {
     match fidelity {
         LogFidelity::Trace => 0,
@@ -466,7 +452,6 @@ where
 }
 
 /// Drops log lines that fall outside the retention ladder.
-#[cfg(any(test, not(debug_assertions)))]
 fn prune_log_contents(
     contents: &[u8],
     now: chrono::DateTime<chrono::FixedOffset>,
@@ -506,14 +491,12 @@ pub fn filter_log_contents(
 }
 
 /// Path of the scratch file used while a log segment is being rewritten.
-#[cfg(any(test, not(debug_assertions)))]
 fn prune_temporary_path(path: &std::path::Path) -> std::path::PathBuf {
     path.with_extension("log.pruning")
 }
 
 /// Writes contents durably, so an interrupted rewrite can never leave a
 /// partially written file behind.
-#[cfg(any(test, not(debug_assertions)))]
 fn write_file_durably(
     path: &std::path::Path,
     contents: &[u8],
@@ -526,7 +509,6 @@ fn write_file_durably(
 
 /// Rewrites a rotated log file through a temporary sibling, so a crash during
 /// pruning never leaves a truncated file behind.
-#[cfg(any(test, not(debug_assertions)))]
 fn prune_inactive_log_file(
     path: &std::path::Path,
     now: chrono::DateTime<chrono::FixedOffset>,
@@ -555,7 +537,6 @@ fn prune_inactive_log_file(
 /// from shortening the log being written, and the replacement is only adopted
 /// once the pruned copy is safely on disk. The writer holds the lock for the
 /// whole swap, so no event can land in the discarded file.
-#[cfg(any(test, not(debug_assertions)))]
 fn prune_active_log_file(
     state: &mut RotatingLogState,
     path: &std::path::Path,
@@ -599,7 +580,6 @@ fn prune_active_log_file(
 ///
 /// Callers must hold the writer lock; failures are returned instead of logged
 /// because emitting a tracing event here would deadlock on that same lock.
-#[cfg(any(test, not(debug_assertions)))]
 fn prune_launcher_logs(
     state: &mut RotatingLogState,
     now: chrono::DateTime<chrono::FixedOffset>,
@@ -645,14 +625,12 @@ fn prune_launcher_logs(
     failures
 }
 
-#[cfg(any(test, not(debug_assertions)))]
 struct LogEventWriter {
     writer: RotatingLogWriter,
     buffer: Vec<u8>,
     max_file_bytes: u64,
 }
 
-#[cfg(any(test, not(debug_assertions)))]
 impl LogEventWriter {
     fn commit(&mut self) -> std::io::Result<()> {
         if self.buffer.is_empty() {
@@ -664,7 +642,6 @@ impl LogEventWriter {
     }
 }
 
-#[cfg(any(test, not(debug_assertions)))]
 impl std::io::Write for LogEventWriter {
     fn write(&mut self, buffer: &[u8]) -> std::io::Result<usize> {
         self.buffer.extend_from_slice(buffer);
@@ -677,14 +654,12 @@ impl std::io::Write for LogEventWriter {
     }
 }
 
-#[cfg(any(test, not(debug_assertions)))]
 impl Drop for LogEventWriter {
     fn drop(&mut self) {
         let _ = self.commit();
     }
 }
 
-#[cfg(any(test, not(debug_assertions)))]
 impl<'a> tracing_subscriber::fmt::MakeWriter<'a> for RotatingLogWriter {
     type Writer = LogEventWriter;
 
@@ -706,7 +681,6 @@ impl<'a> tracing_subscriber::fmt::MakeWriter<'a> for RotatingLogWriter {
     }
 }
 
-#[cfg(any(test, not(debug_assertions)))]
 impl RotatingLogWriter {
     fn event_writer(&self, max_file_bytes: u64) -> LogEventWriter {
         LogEventWriter {
@@ -1034,32 +1008,23 @@ impl std::io::Write for TruncatedConsoleWriter {
     }
 }
 
-// Handling for the live development logging
-// This will log to the console, and will not log to a file
-#[cfg(debug_assertions)]
-pub fn start_logger(_app_identifier: &str) -> Option<()> {
-    use tracing_subscriber::prelude::*;
-    // Development keeps the console quieter by default; the stored preference
-    // still applies through `set_log_level`, and RUST_LOG keeps working.
-    let filter = initial_log_filter("info")?;
-    let (filter_layer, reload_handle) =
-        tracing_subscriber::reload::Layer::new(filter);
-    tracing_subscriber::registry()
-        .with(filter_layer)
-        .with(tracing_subscriber::fmt::layer().with_writer(|| {
-            TruncatedConsoleWriter {
-                stdout: std::io::stdout(),
-            }
-        }))
-        .with(tracing_error::ErrorLayer::default())
-        .init();
-    let _ = LOG_FILTER_RELOAD.set(reload_handle);
-    Some(())
-}
-
 #[cfg(all(test, debug_assertions))]
 mod tests {
     use super::*;
+
+    #[derive(Clone)]
+    struct CapturedLogWriter(std::sync::Arc<std::sync::Mutex<Vec<u8>>>);
+
+    impl std::io::Write for CapturedLogWriter {
+        fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+            self.0.lock().unwrap().extend_from_slice(bytes);
+            Ok(bytes.len())
+        }
+
+        fn flush(&mut self) -> std::io::Result<()> {
+            Ok(())
+        }
+    }
 
     #[test]
     fn short_console_events_are_unchanged() {
@@ -1155,6 +1120,78 @@ mod tests {
         assert_eq!(
             compact_modrinth_console_event("INFO ordinary event\n"),
             None
+        );
+    }
+
+    #[test]
+    fn development_disk_logs_keep_complete_events_after_console_truncation() {
+        use tracing_subscriber::prelude::*;
+
+        let directory = tempfile::tempdir().unwrap();
+        let session_name = "session_20261018_141000";
+        let writer = RotatingLogWriter::new(
+            directory.path().to_path_buf(),
+            session_name.to_string(),
+            LAUNCHER_LOG_MAX_BYTES,
+            LAUNCHER_WARN_ERROR_MAX_BYTES,
+            LAUNCHER_LOG_MAX_FILES,
+            LAUNCHER_LOG_MAX_AGE,
+        )
+        .unwrap();
+        let subscriber = tracing_subscriber::registry().with(Some(
+            tracing_subscriber::fmt::layer()
+                .with_ansi(false)
+                .with_writer(writer.clone()),
+        ));
+        let message =
+            format!("{} end-of-event", "download diagnostic ".repeat(100));
+        assert!(
+            truncate_console_event(&message, 80, 5)
+                .contains(CONSOLE_TRUNCATION_MARKER)
+        );
+
+        tracing::subscriber::with_default(subscriber, || {
+            tracing::debug!("{message}");
+        });
+        writer.flush().unwrap();
+        let contents = std::fs::read_to_string(rotating_log_path(
+            directory.path(),
+            session_name,
+            0,
+        ))
+        .unwrap();
+        assert!(contents.contains(&message));
+        assert!(!contents.contains(CONSOLE_TRUNCATION_MARKER));
+        assert!(!contents.contains('\u{1b}'));
+    }
+
+    #[test]
+    fn creating_writer_defers_history_maintenance() {
+        let directory = tempfile::tempdir().unwrap();
+        let old_path = directory.path().join("session_20260718_120000.log");
+        let now = test_now();
+        let contents =
+            log_line(now, chrono::Duration::hours(3), "DEBUG", "old debug");
+        std::fs::write(&old_path, &contents).unwrap();
+        let writer = RotatingLogWriter::new(
+            directory.path().to_path_buf(),
+            "session_20260722_120000".to_string(),
+            10_000,
+            30_000,
+            1,
+            std::time::Duration::from_secs(3 * 24 * 60 * 60),
+        )
+        .unwrap();
+        assert_eq!(std::fs::read_to_string(&old_path).unwrap(), contents);
+        writer.write_event(b"first event\n", 10_000).unwrap();
+        writer.flush().unwrap();
+        writer.cleanup_old_logs();
+        writer.prune_old_logs();
+        assert!(!old_path.exists());
+        let active_path = directory.path().join("session_20260722_120000.log");
+        assert_eq!(
+            std::fs::read_to_string(active_path).unwrap(),
+            "first event\n"
         );
     }
 
@@ -1454,16 +1491,53 @@ mod tests {
         // No logger is installed in tests, so a valid level is a quiet no-op.
         assert!(set_log_level("debug").is_ok());
     }
+
+    #[test]
+    fn reloaded_log_level_changes_which_events_are_written() {
+        use tracing_subscriber::prelude::*;
+
+        let captured = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+        let writer = CapturedLogWriter(std::sync::Arc::clone(&captured));
+        let (filter, reload_handle) = tracing_subscriber::reload::Layer::new(
+            add_third_party_directives(tracing_subscriber::EnvFilter::new(
+                log_level_directives("info"),
+            )),
+        );
+        let subscriber = tracing_subscriber::registry().with(filter).with(
+            tracing_subscriber::fmt::layer()
+                .without_time()
+                .with_ansi(false)
+                .with_target(false)
+                .with_writer(move || writer.clone()),
+        );
+
+        tracing::subscriber::with_default(subscriber, || {
+            tracing::debug!(
+                target: "theseus::logger::reload_test",
+                "hidden before reload"
+            );
+            tracing::info!(
+                target: "theseus::logger::reload_test",
+                "visible before reload"
+            );
+            reload_log_level(&reload_handle, "debug").unwrap();
+            tracing::debug!(
+                target: "theseus::logger::reload_test",
+                "visible after reload"
+            );
+        });
+
+        let output =
+            String::from_utf8(captured.lock().unwrap().clone()).unwrap();
+        assert!(!output.contains("hidden before reload"));
+        assert!(output.contains("visible before reload"));
+        assert!(output.contains("visible after reload"));
+    }
 }
 
-// Handling for the live production logging
-// This will log to a file in the logs directory, and will not show any logs in the console
-#[cfg(not(debug_assertions))]
-pub fn start_logger(app_identifier: &str) -> Option<()> {
+fn launcher_log_writer(app_identifier: &str) -> Option<RotatingLogWriter> {
     use crate::prelude::DirectoryInfo;
     use chrono::Local;
-    use tracing_subscriber::fmt::time::ChronoLocal;
-    use tracing_subscriber::prelude::*;
     // Initialize and get logs directory path
     let logs_dir = if let Some(d) =
         DirectoryInfo::launcher_logs_dir_path(app_identifier)
@@ -1476,7 +1550,7 @@ pub fn start_logger(app_identifier: &str) -> Option<()> {
 
     let session_name =
         format!("session_{}", Local::now().format("%Y%m%d_%H%M%S"));
-    let writer = match RotatingLogWriter::new(
+    match RotatingLogWriter::new(
         logs_dir,
         session_name,
         LAUNCHER_LOG_MAX_BYTES,
@@ -1484,44 +1558,63 @@ pub fn start_logger(app_identifier: &str) -> Option<()> {
         LAUNCHER_LOG_MAX_FILES,
         LAUNCHER_LOG_MAX_AGE,
     ) {
-        Ok(writer) => writer,
+        Ok(writer) => Some(writer),
         Err(e) => {
             eprintln!("Could not start launcher log writer: {e}");
-            return None;
+            None
         }
-    };
+    }
+}
 
-    let filter = match initial_log_filter(DEFAULT_LOG_LEVEL) {
-        Some(filter) => filter,
-        None => return None,
-    };
+/// Saves complete session logs in all builds, with compact console output in development.
+pub fn start_logger(app_identifier: &str) -> Option<()> {
+    use tracing_subscriber::fmt::time::ChronoLocal;
+    use tracing_subscriber::prelude::*;
+
+    let writer = launcher_log_writer(app_identifier);
+    #[cfg(not(debug_assertions))]
+    if writer.is_none() {
+        return None;
+    }
+
+    let filter = initial_log_filter(DEFAULT_LOG_LEVEL)?;
     let (filter_layer, reload_handle) =
         tracing_subscriber::reload::Layer::new(filter);
 
-    tracing_subscriber::registry()
-        .with(filter_layer)
-        .with(
+    let subscriber = tracing_subscriber::registry().with(filter_layer).with(
+        writer.clone().map(|writer| {
             tracing_subscriber::fmt::layer()
-                .with_writer(writer.clone())
-                .with_ansi(false) // disable ANSI escape codes
-                .with_timer(ChronoLocal::rfc_3339()),
-        )
-        .with(tracing_error::ErrorLayer::default())
-        .init();
+                .with_writer(writer)
+                .with_ansi(false)
+                .with_timer(ChronoLocal::rfc_3339())
+        }),
+    );
+    #[cfg(debug_assertions)]
+    let subscriber =
+        subscriber.with(tracing_subscriber::fmt::layer().with_writer(|| {
+            TruncatedConsoleWriter {
+                stdout: std::io::stdout(),
+            }
+        }));
+    subscriber.with(tracing_error::ErrorLayer::default()).init();
     let _ = LOG_FILTER_RELOAD.set(reload_handle);
 
     // Retention degrades by age (30 minutes / 2 hours), so a coarse periodic
     // sweep is enough; rotating on size does not need to trigger one.
-    let prune_writer = writer;
-    std::thread::Builder::new()
-        .name("launcher-log-prune".to_string())
-        .spawn(move || {
-            loop {
-                std::thread::sleep(LAUNCHER_LOG_PRUNE_INTERVAL);
-                prune_writer.prune_old_logs();
-            }
-        })
-        .ok();
+    if let Some(prune_writer) = writer {
+        std::thread::Builder::new()
+            .name("launcher-log-prune".to_string())
+            .spawn(move || {
+                // Let the shell begin creating its window before scanning history.
+                std::thread::sleep(std::time::Duration::from_secs(2));
+                loop {
+                    prune_writer.cleanup_old_logs();
+                    prune_writer.prune_old_logs();
+                    std::thread::sleep(LAUNCHER_LOG_PRUNE_INTERVAL);
+                }
+            })
+            .ok();
+    }
 
     Some(())
 }

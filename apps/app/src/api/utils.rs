@@ -232,7 +232,7 @@ const LOG_EXPORT_INSTANCE_LOG_TAIL_BYTES: u64 = 512 * 1024;
 
 /// Export launcher logs (filtered by time range and level) plus optional
 /// system information, the most recent instance log, and a crash analysis
-/// summary into a ZIP archive.
+/// summary and fresh network connection tests into a ZIP archive.
 #[tauri::command]
 pub async fn export_launcher_logs(
     output_path: PathBuf,
@@ -241,6 +241,7 @@ pub async fn export_launcher_logs(
     include_system_info: bool,
     include_instance_logs: bool,
     include_crash_analysis: bool,
+    include_network_connections: bool,
 ) -> Result<()> {
     // Censoring needs the app state (credentials, IPs). Without it an export
     // would silently ship secrets, so fail rather than degrade.
@@ -260,8 +261,10 @@ pub async fn export_launcher_logs(
          System information: {}\n\
          Recent instance log: {}\n\
          Crash analysis: {}\n\
+         Network connections: {}\n\
          Log files: {exported_logs}\n\n\
-         Access tokens, Minecraft tokens, and IP addresses are replaced with placeholders.\n",
+         Access tokens and Minecraft tokens are replaced with placeholders.\n\
+         IP addresses are hidden in logs and preserved in network connection reports.\n",
         chrono::Local::now().to_rfc3339(),
         env!("CARGO_PKG_VERSION"),
         range.label(),
@@ -278,6 +281,11 @@ pub async fn export_launcher_logs(
         },
         if include_crash_analysis {
             "included"
+        } else {
+            "omitted"
+        },
+        if include_network_connections {
+            "included (fresh tests using launcher network settings)"
         } else {
             "omitted"
         },
@@ -341,8 +349,144 @@ pub async fn export_launcher_logs(
         .await?;
     }
 
+    if include_network_connections {
+        let report = build_network_report(|target| {
+            theseus::test_network_connection(
+                target,
+                theseus::NetworkTestMode::Launcher,
+            )
+        })
+        .await;
+        let report = serde_json::to_string_pretty(&report)
+            .map_err(theseus::Error::from)?;
+        let report =
+            theseus::install::censor_shared_credentials(report, &state).await?;
+        write_zip_entry(
+            &mut writer,
+            "network-connections.json",
+            report.as_bytes(),
+        )
+        .await?;
+    }
+
     writer.close().await.map_err(zip_error)?;
     Ok(())
+}
+
+async fn build_network_report<F, Fut>(mut probe: F) -> serde_json::Value
+where
+    F: FnMut(theseus::NetworkTestTarget) -> Fut,
+    Fut: std::future::Future<
+            Output = theseus::Result<theseus::NetworkTestResult>,
+        >,
+{
+    use theseus::NetworkTestTarget;
+
+    let generated_at = chrono::Utc::now().to_rfc3339();
+    let mut tests = Vec::new();
+    // Keep the download sample from competing with other probes for bandwidth.
+    for target in [
+        NetworkTestTarget::CurseforgeApi,
+        NetworkTestTarget::ModrinthApi,
+        NetworkTestTarget::ModrinthCdn,
+        NetworkTestTarget::MojangApi,
+        NetworkTestTarget::MinecraftServices,
+    ] {
+        tests.push(match probe(target).await {
+            Ok(result) => serde_json::json!({
+                "target": target,
+                "state": "done",
+                "result": result,
+            }),
+            // Configuration errors may contain proxy credentials; retain only a safe code.
+            Err(_) => serde_json::json!({
+                "target": target,
+                "state": "failed",
+                "error": "request",
+            }),
+        });
+    }
+
+    serde_json::json!({
+        "schema_version": 1,
+        "generated_at": generated_at,
+        "tests": tests,
+    })
+}
+
+#[cfg(test)]
+mod network_export_tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn exports_fresh_results_and_continues_after_setup_failure() {
+        let mut attempts = Vec::new();
+        for _ in 0..2 {
+            let report = build_network_report(|target| {
+                attempts.push(serde_json::to_value(target).unwrap());
+                async move {
+                    if matches!(target, theseus::NetworkTestTarget::ModrinthApi)
+                    {
+                        return Err(theseus::ErrorKind::InputError(
+                            "proxy https://user:secret@localhost".to_string(),
+                        )
+                        .as_error());
+                    }
+                    Ok(theseus::NetworkTestResult {
+                        target,
+                        mode: theseus::NetworkTestMode::Launcher,
+                        tested_at: "2026-10-19T00:00:00Z".to_string(),
+                        launcher_version: "test".to_string(),
+                        platform: "test".to_string(),
+                        url: "https://example.com".to_string(),
+                        proxy_mode: "none".to_string(),
+                        dns_mode: "system".to_string(),
+                        tls_verification: true,
+                        resolved_ips: vec!["192.0.2.1".to_string()],
+                        dns_ms: 1,
+                        dns_error: None,
+                        peer_ip: Some("192.0.2.1".to_string()),
+                        status: Some(200),
+                        response_ms: Some(2),
+                        total_ms: 3,
+                        http_version: Some("HTTP/2.0".to_string()),
+                        server: None,
+                        served_by: None,
+                        cache: None,
+                        bytes_received: 0,
+                        sample_ms: None,
+                        sample_mib_per_second: None,
+                        error: None,
+                    })
+                }
+            })
+            .await;
+
+            assert_eq!(report["schema_version"], 1);
+            assert_eq!(report["tests"].as_array().unwrap().len(), 5);
+            assert_eq!(report["tests"][0]["result"]["status"], 200);
+            assert_eq!(report["tests"][0]["result"]["dns_ms"], 1);
+            assert_eq!(report["tests"][0]["result"]["mode"], "launcher");
+            assert_eq!(report["tests"][1]["state"], "failed");
+            assert_eq!(report["tests"][1]["error"], "request");
+            assert_eq!(report["tests"][4]["state"], "done");
+            assert!(!report.to_string().contains("secret"));
+        }
+        assert_eq!(
+            attempts,
+            [
+                "curseforge_api",
+                "modrinth_api",
+                "modrinth_cdn",
+                "mojang_api",
+                "minecraft_services",
+            ]
+            .repeat(2)
+            .into_iter()
+            .map(serde_json::Value::from)
+            .collect::<Vec<_>>()
+        );
+    }
 }
 
 /// Writes the matching launcher logs and reports how many were written plus

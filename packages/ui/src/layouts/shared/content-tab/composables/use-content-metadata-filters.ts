@@ -5,6 +5,7 @@ import { defineMessages, useVIntl } from '#ui/composables/i18n'
 
 import type { ContentItem } from '../types'
 import { pruneMetadataFilterSelections } from './content-filter-state'
+import { contentOwnership, installedSource } from './content-provenance'
 
 export interface MetadataFilterOption {
     value: string
@@ -104,8 +105,33 @@ const messages = defineMessages({
         defaultMessage: 'Loader',
     },
     categorySource: {
-        id: 'content.metadata-filter.source',
-        defaultMessage: 'Source',
+        id: 'content.metadata-filter.installed-source',
+        defaultMessage: 'Installation source',
+    },
+    categoryOwnership: {
+        id: 'content.metadata-filter.ownership',
+        defaultMessage: 'Content ownership',
+    },
+    sourceModrinth: { id: 'content.metadata-filter.source.modrinth', defaultMessage: 'Modrinth' },
+    sourceMcarchive: {
+        id: 'content.metadata-filter.source.mcarchive',
+        defaultMessage: 'MCArchive',
+    },
+    sourcePlanetMinecraft: {
+        id: 'content.metadata-filter.source.planet-minecraft',
+        defaultMessage: 'Planet Minecraft',
+    },
+    ownershipUser: {
+        id: 'content.metadata-filter.ownership.user-added',
+        defaultMessage: 'User added',
+    },
+    ownershipPack: {
+        id: 'content.metadata-filter.ownership.pack-managed',
+        defaultMessage: 'Pack managed',
+    },
+    ownershipLocal: {
+        id: 'content.metadata-filter.ownership.local-discovered',
+        defaultMessage: 'Locally discovered',
     },
     categoryExternal: {
         id: 'content.metadata-filter.external',
@@ -155,29 +181,9 @@ const messages = defineMessages({
         id: 'content.metadata-filter.loader.quilt',
         defaultMessage: 'Quilt',
     },
-    optionSourceLocal: {
-        id: 'content.metadata-filter.source.local',
-        defaultMessage: 'Local',
-    },
     optionSourceCurseforge: {
         id: 'content.metadata-filter.source.curseforge',
         defaultMessage: 'CurseForge',
-    },
-    optionSourceModrinthModpack: {
-        id: 'content.metadata-filter.source.modrinth-modpack',
-        defaultMessage: 'Modrinth modpack',
-    },
-    optionSourceImportedModpack: {
-        id: 'content.metadata-filter.source.imported-modpack',
-        defaultMessage: 'Imported modpack',
-    },
-    optionSourceServerProject: {
-        id: 'content.metadata-filter.source.server-project',
-        defaultMessage: 'Server project',
-    },
-    optionSourceSharedInstance: {
-        id: 'content.metadata-filter.source.shared-instance',
-        defaultMessage: 'Shared instance',
     },
     optionExternal: {
         id: 'content.metadata-filter.external.external',
@@ -276,39 +282,40 @@ export function useContentMetadataFilters(
             {
                 key: 'source',
                 label: formatMessage(messages.categorySource),
-                order: [
-                    'local',
-                    'curseforge',
-                    'modrinth_modpack',
-                    'imported_modpack',
-                    'server_project',
-                    'shared_instance',
-                ],
-                values: (item) => {
-                    const kind = item.source_kind === 'world_datapack' ? 'local' : item.source_kind
-                    return kind ? [kind] : [UNKNOWN]
-                },
+                order: ['modrinth', 'curseforge', 'mcarchive', 'planet_minecraft'],
+                values: (item) => [installedSource(item)],
                 labelFor: (value) => {
                     switch (value) {
-                        case 'local':
-                            return formatMessage(messages.optionSourceLocal)
+                        case 'modrinth':
+                            return formatMessage(messages.sourceModrinth)
                         case 'curseforge':
                             return formatMessage(messages.optionSourceCurseforge)
-                        case 'modrinth_modpack':
-                            return formatMessage(messages.optionSourceModrinthModpack)
-                        case 'imported_modpack':
-                            return formatMessage(messages.optionSourceImportedModpack)
-                        case 'server_project':
-                            return formatMessage(messages.optionSourceServerProject)
-                        case 'shared_instance':
-                            return formatMessage(messages.optionSourceSharedInstance)
+                        case 'mcarchive':
+                            return formatMessage(messages.sourceMcarchive)
+                        case 'planet_minecraft':
+                            return formatMessage(messages.sourcePlanetMinecraft)
                         case UNKNOWN:
                             return formatMessage(messages.optionUnknown)
                         default:
-                            // 未登记的新来源值：显示可读的原始值，避免与真正的"未知"选项重复
-                            return value
-                                .replace(/_/g, ' ')
-                                .replace(/\b\w/g, (char) => char.toUpperCase())
+                            return formatMessage(messages.optionUnknown)
+                    }
+                },
+            },
+            {
+                key: 'ownership',
+                label: formatMessage(messages.categoryOwnership),
+                order: ['user_added', 'pack_managed', 'local_discovered'],
+                values: (item) => [contentOwnership(item)],
+                labelFor: (value) => {
+                    switch (value) {
+                        case 'user_added':
+                            return formatMessage(messages.ownershipUser)
+                        case 'pack_managed':
+                            return formatMessage(messages.ownershipPack)
+                        case 'local_discovered':
+                            return formatMessage(messages.ownershipLocal)
+                        default:
+                            return formatMessage(messages.optionUnknown)
                     }
                 },
             },

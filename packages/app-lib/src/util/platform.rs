@@ -115,7 +115,9 @@ pub fn os_rule(
 
     if let Some(name) = &rule.name {
         let native = Os::native_arch(normalized_arch);
-        rule_match &= name == &native || name == &native.get_os();
+        rule_match &= name == &Os::Universal
+            || name == &native
+            || name == &native.get_os();
     }
 
     // `rule.version` is ignored because it's not usually seen on real recent
@@ -139,6 +141,9 @@ pub fn classpath_separator(java_arch: &str) -> &'static str {
         | Os::Linux
         | Os::LinuxArm32
         | Os::LinuxArm64
+        | Os::LinuxPpc64le
+        | Os::Freebsd
+        | Os::Universal
         | Os::Unknown => ":",
         Os::Windows | Os::WindowsArm64 => ";",
     }

@@ -18,6 +18,18 @@ const message = (id: string, defaultMessage: string): MessageDescriptor => ({ id
 
 export const settingsSearchEntries: SettingsSearchEntry[] = [
     {
+        id: 'network-tests',
+        categoryId: 'network-connection',
+        targetId: 'settings-target-network-tests',
+        label: message('app.settings.network.title', 'Connection tests'),
+        keywords: [
+            message(
+                'app.settings.network.search',
+                'DNS IP latency speed connectivity diagnostics CurseForge CF Modrinth MR CDN Mojang API proxy',
+            ),
+        ],
+    },
+    {
         id: 'appearance-color-theme',
         categoryId: 'interface',
         targetId: 'settings-target-appearance-color-theme',
@@ -462,6 +474,11 @@ export const settingsSearchEntries: SettingsSearchEntry[] = [
         keywords: [
             message('app.log-share.settings.share-provider', 'Log sharing service'),
             message('app.log-share.settings.ai-source', 'AI analysis source'),
+            message('app.logagent.source-local', 'Local LogAgent'),
+            message('app.logagent.source-cloud', 'Cloud LogShare'),
+            message('app.logagent.settings.analysis-title', 'Crash analysis'),
+            message('app.logagent.settings.sharing-title', 'Diagnostic sharing'),
+            message('app.logagent.settings.display-title', 'Analysis display'),
         ],
     },
     {
@@ -615,6 +632,24 @@ export const settingsSearchEntries: SettingsSearchEntry[] = [
         keywords: [message('app.settings.tabs.resource-management', 'Resource management')],
     },
     {
+        id: 'resources-chinese-names',
+        categoryId: 'content-downloads',
+        targetId: 'settings-target-resources-chinese-names',
+        label: message(
+            'app.settings.resources.chinese-names',
+            'Add known Chinese names to downloads',
+        ),
+    },
+    {
+        id: 'resources-preserve-names',
+        categoryId: 'content-downloads',
+        targetId: 'settings-target-resources-preserve-names',
+        label: message(
+            'app.settings.resources.preserve-names',
+            'Preserve local prefixes and suffixes when updating',
+        ),
+    },
+    {
         id: 'resources-data-storage',
         categoryId: 'storage-backups',
         targetId: 'settings-target-resources-data-storage',
@@ -709,7 +744,7 @@ export const settingsSearchEntries: SettingsSearchEntry[] = [
     {
         id: 'storage-cache',
         categoryId: 'storage-backups',
-        targetId: 'settings-target-storage-cache',
+        targetId: 'settings-target-storage-overview',
         label: message('app.settings.resources.app-cache', 'App cache'),
     },
     {
@@ -722,7 +757,11 @@ export const settingsSearchEntries: SettingsSearchEntry[] = [
         id: 'storage-overview',
         categoryId: 'storage-backups',
         targetId: 'settings-target-storage-overview',
-        label: message('app.settings.storage.total', 'Storage usage'),
+        label: message('app.settings.storage.analysisTitle', 'Storage analysis'),
+        description: message(
+            'app.settings.storage.analysisDescription',
+            'Inspect launcher and game storage, then analyze unused metadata for cleanup.',
+        ),
     },
     {
         id: 'updates-history',

@@ -25,6 +25,7 @@ mod lightweight_mode;
 mod mod_translation;
 mod portable;
 mod seed_map;
+mod window_frame;
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -214,9 +215,24 @@ async fn initialize_state(app: tauri::AppHandle) -> api::Result<()> {
             tracing::warn!(%error, "Could not notify frontend of offline account eligibility");
         }
     });
-    if let Err(error) = theseus::instance::maintain_backup_repository().await {
-        tracing::warn!(%error, "Failed to maintain the instance backup repository");
-    }
+    // A recreated webview must not recover or interrupt backup operations a second time.
+    static BACKUP_STARTUP: tokio::sync::OnceCell<()> =
+        tokio::sync::OnceCell::const_new();
+    BACKUP_STARTUP.get_or_try_init(|| async {
+        theseus::instance::recover_backup_repository().await?;
+        tauri::async_runtime::spawn(async {
+            tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+            if let Some(state) = State::get_if_initialized()
+                && let Err(error) = state.maintain_database_backups().await
+            {
+                tracing::warn!(%error, "Failed to prune old database backups");
+            }
+            if let Err(error) = theseus::instance::maintain_backup_repository().await {
+                tracing::warn!(%error, "Failed to maintain the instance backup repository");
+            }
+        });
+        Ok::<(), theseus::Error>(())
+    }).await?;
 
     // The logger starts before the database is available, so the stored level
     // is applied here once settings can be read. Beta keeps enough detail for
@@ -468,72 +484,11 @@ fn show_window(app: tauri::AppHandle) {
 }
 
 #[tauri::command]
-fn set_transparent_window_frame(
+async fn set_transparent_window_frame(
     enabled: bool,
     window: tauri::Window,
-) -> Result<(), String> {
-    #[cfg(windows)]
-    {
-        use windows::Win32::Graphics::Dwm::{
-            DWMWA_BORDER_COLOR, DWMWA_CAPTION_COLOR, DWMWA_COLOR_DEFAULT,
-            DWMWA_COLOR_NONE, DWMWA_TEXT_COLOR, DWMWA_WINDOW_CORNER_PREFERENCE,
-            DWMWCP_DEFAULT, DWMWCP_ROUND, DwmSetWindowAttribute,
-        };
-
-        window.set_shadow(true).map_err(|error| error.to_string())?;
-
-        let hwnd = window.hwnd().map_err(|error| error.to_string())?;
-        let corner_preference = if enabled {
-            DWMWCP_ROUND
-        } else {
-            DWMWCP_DEFAULT
-        };
-        let border_color = if enabled {
-            DWMWA_COLOR_NONE
-        } else {
-            DWMWA_COLOR_DEFAULT
-        };
-        // Caption must match the border: leaving the default paints a white
-        // strip at the top of a transparent window (issue #444).
-        let caption_color = border_color;
-        let text_color = border_color;
-
-        unsafe {
-            DwmSetWindowAttribute(
-                hwnd,
-                DWMWA_WINDOW_CORNER_PREFERENCE,
-                std::ptr::from_ref(&corner_preference).cast(),
-                std::mem::size_of_val(&corner_preference) as u32,
-            )
-            .map_err(|error| error.to_string())?;
-            DwmSetWindowAttribute(
-                hwnd,
-                DWMWA_BORDER_COLOR,
-                std::ptr::from_ref(&border_color).cast(),
-                std::mem::size_of_val(&border_color) as u32,
-            )
-            .map_err(|error| error.to_string())?;
-            DwmSetWindowAttribute(
-                hwnd,
-                DWMWA_CAPTION_COLOR,
-                std::ptr::from_ref(&caption_color).cast(),
-                std::mem::size_of_val(&caption_color) as u32,
-            )
-            .map_err(|error| error.to_string())?;
-            DwmSetWindowAttribute(
-                hwnd,
-                DWMWA_TEXT_COLOR,
-                std::ptr::from_ref(&text_color).cast(),
-                std::mem::size_of_val(&text_color) as u32,
-            )
-            .map_err(|error| error.to_string())?;
-        }
-    }
-
-    #[cfg(not(windows))]
-    let _ = (enabled, window);
-
-    Ok(())
+) -> Result<window_frame::FrameResult, String> {
+    window_frame::apply_frame(enabled, &window).await
 }
 
 #[tauri::command]
@@ -717,11 +672,11 @@ fn main() {
 
     // Workaround: NVIDIA's proprietary EGL driver crashes WebKitGTK's DMA-BUF renderer
     #[cfg(target_os = "linux")]
-    if env::var_os("WEBKIT_DISABLE_DMABUF_RENDERER").is_none()
+    if env::var_os("__NV_DISABLE_EXPLICIT_SYNC").is_none()
         && std::path::Path::new("/proc/driver/nvidia/version").exists()
     {
         // SAFETY: This is called before any threads are spawned in main()
-        unsafe { env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1") }
+        unsafe { env::set_var("__NV_DISABLE_EXPLICIT_SYNC", "1") }
     }
 
     /*
@@ -759,7 +714,7 @@ fn main() {
     std::mem::forget(rt);
     tauri::async_runtime::set(handle);
 
-    let tauri_context = tauri::generate_context!();
+    let tauri_context = tauri::tauri_build_context!();
 
     let _log_guard = theseus::start_logger(&tauri_context.config().identifier);
 
@@ -895,7 +850,7 @@ fn main() {
                 ));
             });
 
-            #[cfg(not(target_os = "linux"))]
+            #[cfg(target_os = "macos")]
             if let Some(window) = app.get_window("main")
                 && let Err(e) = window.set_shadow(true)
             {
@@ -933,6 +888,7 @@ fn main() {
         .plugin(api::cache::init())
         .plugin(api::content_favorites::init())
         .plugin(api::content_search::init())
+        .plugin(api::resources::init())
         .plugin(api::curseforge::init())
         .plugin(api::datapacks::init())
         .plugin(api::drop::init())
@@ -1101,6 +1057,12 @@ fn main() {
                             }
                         }
                     }
+                }
+                if matches!(&event, tauri::RunEvent::Exit)
+                    && let Some(state) = State::get_if_initialized()
+                    && let Err(error) = tauri::async_runtime::block_on(state.finish_database_session())
+                {
+                    tracing::warn!(%error, "Could not record a clean database shutdown");
                 }
                 #[cfg(target_os = "macos")]
                 if let tauri::RunEvent::Opened { urls } = event {

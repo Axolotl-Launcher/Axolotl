@@ -6,6 +6,7 @@ import type { ContentItem } from '../types'
 export function useContentSelection(
     items: Ref<ContentItem[]>,
     getItemId: (item: ContentItem) => string,
+    visibleItems?: Ref<ContentItem[]>,
 ) {
     const selectedIds = ref<string[]>([])
 
@@ -14,7 +15,7 @@ export function useContentSelection(
         const seenIds = new Set<string>()
         const result: ContentItem[] = []
 
-        for (const item of items.value) {
+        for (const item of (visibleItems ?? items).value) {
             const id = getItemId(item)
             if (selectedIdSet.has(id) && !seenIds.has(id)) {
                 seenIds.add(id)

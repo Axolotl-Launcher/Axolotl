@@ -5,13 +5,11 @@
 module.exports = {
     semi: false,
     singleQuote: true,
-    // The repository indents source with tabs (.editorconfig + CLAUDE.md), and
-    // the vast majority of tracked JSON is tab-indented too. Without this,
-    // Prettier falls back to `.editorconfig`, whose `[*.{toml,json}]` block
-    // forces spaces, so `prettier --check` failed on the tab-indented JSON in
-    // the packages that use this config.
+    // Keep tracked JSON in the repository's space-indented format.
     useTabs: false,
     plugins: [
+        // Keep the Tailwind plugin scoped to frontend packages. Its transitive
+        // import-sort dependency can misparse TypeScript type annotations.
         // In typical JS/TS britleness fashion, the Tailwind CSS plugin
         // has a transitive dependency on an import sort plugin that breaks
         // TypeScript type annotations, for reasons unbeknownst to anyone.

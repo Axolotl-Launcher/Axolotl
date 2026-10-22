@@ -29,3 +29,9 @@ The AI provider settings information architecture, provider catalog, and provide
 Provider and model marks are loaded from [Lobe Icons](https://github.com/lobehub/lobe-icons) through `@lobehub/icons-static-svg`. Lobe Icons is distributed under the MIT License; its license is included with the installed package.
 
 The translation provider and model selection workflow is adapted from [Read Frog](https://github.com/mengxi-ream/read-frog) at commit `951e20fa82cd96d606a44156362f402c79d11473`. Read Frog is distributed under the GNU General Public License, Version 3; a copy is provided in [third-party/licenses/Read-Frog-GPL-3.0.txt](../../third-party/licenses/Read-Frog-GPL-3.0.txt).
+
+## Local LogAgent attribution
+
+Local crash analysis uses [Deep Agents JS](https://github.com/langchain-ai/deepagentsjs) 1.14.2 with LangChain. These packages are distributed under the MIT License; their licenses are included with the installed dependencies. The browser entry is loaded only when a local analysis starts. Model requests and credentials are handled by the launcher Rust gateway.
+
+The diagnostic workflow, focused log windows, bounded file tools and result contract are informed by the PHP LogAgent in [LogShare](https://github.com/anylyralabs/LogShare). The local implementation omits RAG and external search tools. LogShare's source license credits Aternos GmbH & ZeinkLab (2018–2024). No LogShare server credentials are bundled.

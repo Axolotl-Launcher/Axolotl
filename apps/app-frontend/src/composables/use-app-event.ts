@@ -10,8 +10,17 @@ export interface InstanceAppEvent {
 export function useAppEvent(type: 'instance', callback: (event: InstanceAppEvent) => void) {
     if (type !== 'instance') return
     let unlisten: (() => void) | undefined
-    void instance_listener(callback).then((dispose) => {
-        unlisten = dispose
+    let disposed = false
+    void instance_listener((event: InstanceAppEvent) => {
+        if (!disposed) callback(event)
     })
-    onUnmounted(() => unlisten?.())
+        .then((dispose) => {
+            if (disposed) dispose()
+            else unlisten = dispose
+        })
+        .catch(console.error)
+    onUnmounted(() => {
+        disposed = true
+        unlisten?.()
+    })
 }

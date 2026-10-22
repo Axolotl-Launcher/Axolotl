@@ -1,4 +1,5 @@
 use super::*;
+use crate::util::download::constants::INSTALL_FILE_REPORTED_ATTEMPTS;
 use std::collections::{HashMap, HashSet};
 use std::time::Duration;
 
@@ -253,7 +254,7 @@ async fn download_prepared_files(
         events.push(InstallJobEventKind::ContentFileQueued {
             path: file.target_relative_path.clone(),
             bytes_total: file.integrity.size,
-            max_attempts: 5,
+            max_attempts: INSTALL_FILE_REPORTED_ATTEMPTS,
         });
         if !file.urls.is_empty() {
             events.push(InstallJobEventKind::ContentFileBrowserOptions {
@@ -1114,18 +1115,17 @@ mod tests {
             vec![file("primary")],
         );
         assert!(needs_preparation(&prepared));
-        prepared.modrinth_plan =
-            Some(modrinth_content_management::ResolveContentPlan {
-                primary: modrinth_content_management::ResolvedContent {
-                    project_id: "projectA".into(),
-                    version_id: "versionA".into(),
-                    dependent_on_version_id: None,
-                    required: true,
-                    metadata: None,
-                },
-                dependencies: Vec::new(),
-                skipped: Vec::new(),
-            });
+        prepared.modrinth_plan = Some(content_management::ResolveContentPlan {
+            primary: content_management::ResolvedContent {
+                project_id: "projectA".into(),
+                version_id: "versionA".into(),
+                dependent_on_version_id: None,
+                required: true,
+                metadata: None,
+            },
+            dependencies: Vec::new(),
+            skipped: Vec::new(),
+        });
         let serialized = serde_json::to_string(&prepared).unwrap();
         let restored: ContentChangeAction =
             serde_json::from_str(&serialized).unwrap();

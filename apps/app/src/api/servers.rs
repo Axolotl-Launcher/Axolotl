@@ -28,6 +28,7 @@ pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
             servers_kill_port_process,
             servers_port_process,
             servers_get_log_buffer,
+            servers_get_log_delta,
             servers_clear_log,
         ])
         .build()
@@ -251,6 +252,14 @@ pub async fn servers_port_process(
 #[tauri::command]
 pub async fn servers_get_log_buffer(server_id: &str) -> Result<Vec<String>> {
     Ok(servers::get_log_buffer(server_id).await?)
+}
+
+#[tauri::command]
+pub async fn servers_get_log_delta(
+    server_id: &str,
+    cursor: Option<servers::LogCursor>,
+) -> Result<servers::LogDelta> {
+    Ok(servers::get_log_delta(server_id, cursor))
 }
 
 #[tauri::command]

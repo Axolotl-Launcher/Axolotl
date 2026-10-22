@@ -1,0 +1,9 @@
+.app-grid-layout.has-css-window-border:not(.is-maximized):not(.has-native-decorations)::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    border-radius: inherit;
+    z-index: 100;
+    pointer-events: none;
+    box-shadow: inset 0 0 0 1px var(--surface-5);
+}

@@ -1,8 +1,8 @@
 use crate::data::ModLoader;
 use crate::event::InstancePayloadType;
 use crate::event::emit::emit_instance;
-use crate::instance::get_full_path;
 use crate::launcher::get_loader_version_from_profile;
+use crate::launcher::instance_runtime::InstanceRuntimeAdapter;
 use crate::server_address::{parse_server_address, resolve_server_address};
 use crate::state::attached_world_data::AttachedWorldData;
 use crate::state::{
@@ -199,25 +199,21 @@ pub async fn get_recent_worlds(
     limit: usize,
     display_statuses: EnumSet<DisplayStatus>,
 ) -> Result<Vec<WorldWithInstance>> {
+    if limit == 0 || display_statuses.is_empty() {
+        return Ok(Vec::new());
+    }
     let state = State::get().await?;
 
-    let mut instances = crate::state::list_instances(&state.pool).await?;
-    instances.sort_by_key(|x| Reverse(x.instance.last_played));
+    let instances = crate::state::list_instances(&state.pool).await?;
 
     let mut result = Vec::with_capacity(limit.min(256));
 
-    let mut least_recent_time = None;
     for instance in instances {
-        if result.len() >= limit
-            && instance.instance.last_played < least_recent_time
-        {
-            break;
-        }
         let instance_id = &instance.instance.id;
-        let instance_dir =
-            state.directories.instance_game_dir(&instance.instance);
+        // Other launchers can update world timestamps without updating our
+        // instance timestamp, so every instance must be considered.
         let instance_worlds =
-            get_all_worlds_in_instance(instance_id, &instance_dir).await;
+            get_worlds_for_instance(&instance.instance, &state).await;
         if let Err(e) = instance_worlds {
             tracing::error!(
                 "Failed to get worlds for instance {}: {}",
@@ -227,16 +223,8 @@ pub async fn get_recent_worlds(
             continue;
         }
         for world in instance_worlds? {
-            let is_older = least_recent_time.is_none()
-                || world.last_played < least_recent_time;
-            if result.len() >= limit && is_older {
-                continue;
-            }
             if !display_statuses.contains(world.display_status) {
                 continue;
-            }
-            if is_older {
-                least_recent_time = world.last_played;
             }
             result.push(WorldWithInstance {
                 instance_id: instance_id.clone(),
@@ -249,9 +237,7 @@ pub async fn get_recent_worlds(
         }
     }
 
-    if result.len() <= limit {
-        result.sort_by_key(|x| Reverse(x.world.last_played));
-    }
+    result.sort_by_key(|x| Reverse(x.world.last_played));
     Ok(result)
 }
 
@@ -261,8 +247,21 @@ pub async fn get_favorite_worlds() -> Result<Vec<WorldWithInstance>> {
 }
 
 pub async fn get_instance_worlds(instance_id: &str) -> Result<Vec<World>> {
-    get_all_worlds_in_instance(instance_id, &get_full_path(instance_id).await?)
-        .await
+    let state = State::get().await?;
+    let instance = crate::state::get_instance(instance_id, &state.pool)
+        .await?
+        .ok_or_else(|| ErrorKind::InputError("Unknown instance".to_string()))?;
+    get_worlds_for_instance(&instance.instance, &state).await
+}
+
+async fn get_worlds_for_instance(
+    instance: &crate::state::Instance,
+    state: &State,
+) -> Result<Vec<World>> {
+    let adapter =
+        InstanceRuntimeAdapter::for_instance(instance, &state.directories)?;
+    let game_dir = io::canonicalize(adapter.game_dir())?;
+    get_all_worlds_in_instance(&instance.id, &game_dir).await
 }
 
 async fn resolve_instance_id(instance: &str, state: &State) -> Result<String> {
@@ -1242,8 +1241,360 @@ async fn _get_server_status_new(
 
 #[cfg(test)]
 mod tests {
-    use super::read_hardcore;
+    use super::*;
+    use crate::instance::get_full_path;
+    use crate::state::{
+        CreateDirectLinkInstance, CreateInstance, InstanceLink,
+    };
+    use futures::FutureExt;
     use quartz_nbt::{NbtCompound, NbtTag};
+    use tempfile::TempDir;
+
+    fn write_world(game_dir: &Path, last_played: i64) {
+        let world_dir = game_dir.join("saves").join("home-world");
+        std::fs::create_dir_all(&world_dir).unwrap();
+        let mut data = NbtCompound::new();
+        data.insert("LevelName", "Home world");
+        data.insert("LastPlayed", last_played);
+        let mut root = NbtCompound::new();
+        root.insert("Data", data);
+        let mut bytes = Vec::new();
+        quartz_nbt::io::write_nbt(
+            &mut bytes,
+            None,
+            &root,
+            quartz_nbt::io::Flavor::GzCompressed,
+        )
+        .unwrap();
+        std::fs::write(world_dir.join("level.dat"), bytes).unwrap();
+    }
+
+    async fn check_home_worlds(
+        state: &State,
+        fixture: &TempDir,
+        created_instances: &mut Vec<crate::state::Instance>,
+    ) {
+        let mut expected_ids = Vec::new();
+        for (index, label) in
+            ["pcl-isolated", "pcl-shared", "managed", "override"]
+                .into_iter()
+                .enumerate()
+        {
+            let instance = if label.starts_with("pcl-") {
+                let launcher_root = fixture.path().join(label);
+                let version_dir = launcher_root
+                    .join(".minecraft")
+                    .join("versions")
+                    .join(label);
+                std::fs::create_dir_all(&version_dir).unwrap();
+                std::fs::write(
+                    version_dir.join(format!("{label}.json")),
+                    serde_json::to_vec(&serde_json::json!({
+                        "id": label,
+                        "inheritsFrom": "1.20.1",
+                        "mainClass": "net.minecraft.client.main.Main"
+                    }))
+                    .unwrap(),
+                )
+                .unwrap();
+                crate::state::create_direct_link_instance(
+                    CreateDirectLinkInstance {
+                        name: None,
+                        launcher_type:
+                            crate::api::pack::import::ImportLauncherType::PCL2,
+                        base_path: launcher_root,
+                        instance_folder: label.into(),
+                        instance_path: Some(
+                            version_dir.to_string_lossy().into_owned(),
+                        ),
+                        game_dir_mode: (label == "pcl-shared").then_some(
+                            crate::launcher::ExternalGameDirMode::Shared,
+                        ),
+                    },
+                    state,
+                )
+                .await
+                .unwrap()
+            } else {
+                crate::state::instances::commands::create_instance(
+                    CreateInstance {
+                        name: format!("{label} {}", uuid::Uuid::new_v4()),
+                        path: None,
+                        game_version: "1.20.1".into(),
+                        loader: ModLoader::Vanilla,
+                        loader_version: None,
+                        icon_path: None,
+                        link: InstanceLink::Unmanaged,
+                        symlink_target: None,
+                        game_dir_override: (label == "override").then(|| {
+                            fixture
+                                .path()
+                                .join(label)
+                                .to_string_lossy()
+                                .into_owned()
+                        }),
+                    },
+                    state,
+                )
+                .await
+                .unwrap()
+            };
+            created_instances.push(instance.clone());
+            let expected_dir = if label.starts_with("pcl-") {
+                let minecraft = fixture.path().join(label).join(".minecraft");
+                if label == "pcl-shared" {
+                    minecraft
+                } else {
+                    minecraft.join("versions").join(label)
+                }
+            } else if label == "override" {
+                fixture.path().join(label)
+            } else {
+                state.directories.instances_dir().join(&instance.path)
+            };
+            let game_dir = io::canonicalize(expected_dir).unwrap();
+            assert_eq!(get_full_path(&instance.id).await.unwrap(), game_dir);
+            write_world(&game_dir, 1_900_000_000_000 - index as i64 * 100_000);
+            if label == "managed" {
+                // Axolotl's instance timestamp can be newer even when a
+                // linked world has been played more recently through PCL.
+                sqlx::query(
+                    "UPDATE instances SET last_played = ? WHERE id = ?",
+                )
+                .bind(1_900_001_000_i64)
+                .bind(&instance.id)
+                .execute(&state.pool)
+                .await
+                .unwrap();
+            }
+            add_server_to_instance(
+                &instance.id,
+                "Home server".into(),
+                "localhost:25565".into(),
+                ServerPackStatus::Prompt,
+                None,
+                None,
+            )
+            .await
+            .unwrap();
+            attached_world_data::set_display_status(
+                &instance.id,
+                WorldType::Singleplayer,
+                "home-world",
+                DisplayStatus::Favorite,
+                &state.pool,
+            )
+            .await
+            .unwrap();
+            assert_eq!(
+                get_instance_worlds(&instance.id).await.unwrap().len(),
+                2
+            );
+            expected_ids.push(instance.id);
+        }
+
+        let recent = get_recent_worlds(
+            usize::MAX,
+            enumset::enum_set!(DisplayStatus::Normal | DisplayStatus::Favorite),
+        )
+        .await
+        .unwrap();
+        let favorites = get_favorite_worlds().await.unwrap();
+        for instance_id in &expected_ids {
+            let worlds: Vec<_> = recent
+                .iter()
+                .filter(|world| &world.instance_id == instance_id)
+                .collect();
+            assert_eq!(worlds.len(), 2, "recent worlds for {instance_id}");
+            assert!(
+                worlds
+                    .iter()
+                    .any(|world| world.world.world_type() == WorldType::Server)
+            );
+            let pinned: Vec<_> = favorites
+                .iter()
+                .filter(|world| &world.instance_id == instance_id)
+                .collect();
+            assert_eq!(pinned.len(), 1, "favorite worlds for {instance_id}");
+            assert_eq!(pinned[0].world.world_id(), "home-world");
+            assert_eq!(pinned[0].world.name, "Home world");
+        }
+
+        assert!(recent.windows(2).all(|pair| {
+            pair[0].world.last_played >= pair[1].world.last_played
+        }));
+        assert!(
+            crate::state::get_instance(&expected_ids[0], &state.pool)
+                .await
+                .unwrap()
+                .unwrap()
+                .instance
+                .last_played
+                .is_none()
+        );
+        for limit in [0, 1, 2, 3, 5, 8] {
+            let limited = get_recent_worlds(
+                limit,
+                enumset::enum_set!(
+                    DisplayStatus::Normal | DisplayStatus::Favorite
+                ),
+            )
+            .await
+            .unwrap();
+            assert_eq!(limited.len(), limit.min(recent.len()));
+            assert_eq!(
+                limited
+                    .iter()
+                    .map(|world| world.world.last_played)
+                    .collect::<Vec<_>>(),
+                recent
+                    .iter()
+                    .take(limit)
+                    .map(|world| world.world.last_played)
+                    .collect::<Vec<_>>()
+            );
+        }
+        assert!(
+            get_recent_worlds(8, EnumSet::empty())
+                .await
+                .unwrap()
+                .is_empty()
+        );
+
+        // Test both a missing and a stale instance timestamp for the newest
+        // linked world. Neither is an upper bound on its level.dat timestamp.
+        sqlx::query("UPDATE instances SET last_played = ? WHERE id = ?")
+            .bind(1_800_000_000_i64)
+            .bind(&expected_ids[0])
+            .execute(&state.pool)
+            .await
+            .unwrap();
+        let newest = get_recent_worlds(1, EnumSet::all()).await.unwrap();
+        assert_eq!(newest[0].instance_id, expected_ids[0]);
+        let stale_instance =
+            crate::state::get_instance(&expected_ids[0], &state.pool)
+                .await
+                .unwrap()
+                .unwrap();
+        assert!(
+            stale_instance.instance.last_played < newest[0].world.last_played
+        );
+
+        let hidden_id = &expected_ids[1];
+        set_world_display_status(
+            hidden_id,
+            WorldType::Server,
+            "localhost:25565",
+            DisplayStatus::Hidden,
+        )
+        .await
+        .unwrap();
+        let visible = get_recent_worlds(
+            usize::MAX,
+            enumset::enum_set!(DisplayStatus::Normal | DisplayStatus::Favorite),
+        )
+        .await
+        .unwrap();
+        assert!(!visible.iter().any(|world| {
+            &world.instance_id == hidden_id
+                && world.world.world_type() == WorldType::Server
+        }));
+        set_world_display_status(
+            hidden_id,
+            WorldType::Server,
+            "localhost:25565",
+            DisplayStatus::Favorite,
+        )
+        .await
+        .unwrap();
+        assert!(get_favorite_worlds().await.unwrap().iter().any(|world| {
+            &world.instance_id == hidden_id
+                && world.world.world_id() == "localhost:25565"
+        }));
+
+        // A disconnected installation must not hide worlds from valid ones.
+        // Point the record at a missing root instead of moving watched folders.
+        let missing_id = expected_ids.remove(0);
+        sqlx::query(
+            "UPDATE instances SET linked_dot_minecraft = ?, linked_version_json_path = NULL WHERE id = ?",
+        )
+        .bind(fixture.path().join("disconnected").to_string_lossy().as_ref())
+        .bind(&missing_id)
+        .execute(&state.pool)
+        .await
+            .unwrap();
+        assert!(get_instance_worlds(&missing_id).await.is_err());
+        let favorites = get_favorite_worlds().await.unwrap();
+        assert!(
+            !favorites
+                .iter()
+                .any(|world| world.instance_id == missing_id)
+        );
+        for instance_id in &expected_ids {
+            assert!(
+                favorites
+                    .iter()
+                    .any(|world| &world.instance_id == instance_id)
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn home_worlds_use_instance_game_directories() {
+        // Keep the singleton's data directory alive for other API tests.
+        if !State::initialized() {
+            let root = TempDir::new().unwrap().keep();
+            State::init_for_test(root.to_string_lossy().into_owned())
+                .await
+                .unwrap();
+        }
+        let state = State::get().await.unwrap();
+        let fixture = TempDir::new().unwrap();
+        let mut created_instances = Vec::new();
+        let outcome = std::panic::AssertUnwindSafe(check_home_worlds(
+            &state,
+            &fixture,
+            &mut created_instances,
+        ))
+        .catch_unwind()
+        .await;
+
+        // Restore the deliberately disconnected record, then remove only our
+        // fixtures while their directories still exist, including on failure.
+        for instance in &created_instances {
+            sqlx::query("UPDATE instances SET linked_dot_minecraft = ?, linked_version_json_path = ? WHERE id = ?")
+                .bind(&instance.linked_dot_minecraft)
+                .bind(&instance.linked_version_json_path)
+                .bind(&instance.id)
+                .execute(&state.pool)
+                .await
+                .unwrap();
+            crate::state::remove_instance_preserving_external_files(
+                &instance.id,
+                &state,
+            )
+            .await
+            .unwrap();
+            assert!(
+                crate::state::get_instance(&instance.id, &state.pool)
+                    .await
+                    .unwrap()
+                    .is_none()
+            );
+            assert!(
+                AttachedWorldData::get_all_for_instance(
+                    &instance.id,
+                    &state.pool
+                )
+                .await
+                .unwrap()
+                .is_empty()
+            );
+        }
+        if let Err(panic) = outcome {
+            std::panic::resume_unwind(panic);
+        }
+    }
 
     #[test]
     fn reads_hardcore_from_legacy_and_26_1_layouts() {

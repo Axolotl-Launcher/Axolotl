@@ -13,8 +13,14 @@ import {
 import Button from '#ui/components/base/buttons/Button.vue'
 import IconButton from '#ui/components/base/buttons/IconButton.vue'
 import PopoutMenu from '#ui/components/base/PopoutMenu.vue'
+import { defineMessages, useVIntl } from '#ui/composables/i18n'
 
 import type { ContentSortMode } from '../composables'
+
+const { formatMessage } = useVIntl()
+const messages = defineMessages({
+    updateAll: { id: 'content.actions.update-all', defaultMessage: 'Update all' },
+})
 
 export interface ContentSortOption {
     id: ContentSortMode
@@ -112,7 +118,7 @@ const emit = defineEmits<{
         <IconButton
             v-if="props.hasBulkUpdateSupport && props.hasOutdatedProjects"
             v-tooltip="props.bulkUpdateTooltip"
-            :label="props.bulkUpdateTooltip ?? 'Update all'"
+            :label="props.bulkUpdateTooltip ?? formatMessage(messages.updateAll)"
             color="green"
             type="quiet"
             interaction="filled"

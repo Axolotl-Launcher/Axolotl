@@ -12,6 +12,7 @@ import {
     HashIcon,
     HistoryIcon,
     ImportIcon,
+    InfoIcon,
     LandmarkIcon,
     LayersIcon,
     MinusIcon,
@@ -43,7 +44,10 @@ import {
 } from '@modrinth/ui'
 import {
     computed,
+    defineAsyncComponent,
+    inject,
     nextTick,
+    onBeforeUnmount,
     onMounted,
     onUnmounted,
     reactive,
@@ -53,11 +57,15 @@ import {
 } from 'vue'
 import { useRoute } from 'vue-router'
 
+import SeedMapAreaAnalysis from '@/components/lab/seed-map/SeedMapAreaAnalysis.vue'
 import SeedMapBiomePicker from '@/components/lab/seed-map/SeedMapBiomePicker.vue'
 import SeedMapCopyrightModal from '@/components/lab/seed-map/SeedMapCopyrightModal.vue'
+import SeedMapSplitView from '@/components/lab/seed-map/SeedMapSplitView.vue'
+import SeedMapStructureDetails from '@/components/lab/seed-map/SeedMapStructureDetails.vue'
 import SeedMapWorldImportModal, {
     type SeedMapWorldImport,
 } from '@/components/lab/seed-map/SeedMapWorldImportModal.vue'
+import { loadMinecraftItemImage } from '@/lab/recipe-generator/item-images'
 import {
     applyShareQuery,
     clearSeedMapHistory,
@@ -70,7 +78,6 @@ import {
     getSeedMapBiomeAt,
     getSeedMapProfiles,
     getSeedMapSpawn,
-    isCurrentSeedMapEpoch,
     loadSeedMapHistory,
     loadSeedMapWorkspace,
     recordSeedMapHistory,
@@ -107,12 +114,41 @@ import {
     seedMapOreYRange,
     type SeedMapSpawnPoint,
     seedMapTileConcurrency,
-    type SeedMapTileRequest,
     type SeedMapVersionProfile,
     updateSeedMapHistoryProgress,
     useSeedMapOreLayer,
     visibleFeatureDefinitions,
 } from '@/lab/seed-map'
+import {
+    getSeedMapStructureDetails,
+    type SeedMapStructurePiece,
+    type SeedMapStructureQuery,
+} from '@/lab/seed-map/advanced'
+import { type AreaLootMatch, type SeedMapArea, seedMapArea } from '@/lab/seed-map/area-analysis'
+import { compareSeedMapVersions } from '@/lab/seed-map/backend'
+import { createSeedMapLayoutLayer } from '@/lab/seed-map/layout-layer'
+import {
+    drawSeedMapMarkers,
+    hitSeedMapMarker,
+    layoutSeedMapMarkers,
+} from '@/lab/seed-map/marker-rendering'
+import {
+    drawSeedMapLayout,
+    hitSeedMapLayout,
+    SEED_MAP_LAYOUT_MAX_SCALE,
+    seedMapLayoutPalette,
+    seedMapLayoutPieces,
+    seedMapStructureBadgePositions,
+} from '@/lab/seed-map/structure-layout'
+import {
+    createSeedMapTileLayer,
+    seedMapTileLevel,
+    type SeedMapTileView,
+} from '@/lab/seed-map/tile-layer'
+
+const SeedMapUndergroundPreview = defineAsyncComponent(
+    () => import('@/components/lab/seed-map/SeedMapUndergroundPreview.vue'),
+)
 
 type MapBounds = {
     minX: number
@@ -131,20 +167,10 @@ type Selection = {
     biome?: number
 }
 
-type TileJob = {
-    epoch: number
-    key: string
-    run: () => Promise<void>
-}
-
 type ActivePointer = {
     x: number
     y: number
 }
-
-// Keep one extra source tile around each edge so a fractional zoom/pan does
-// not make an edge tile disappear when a bounds value crosses a tile boundary.
-const TILE_CULL_PADDING = 1
 
 type SeedMapElevation = (typeof SEED_MAP_ELEVATIONS)[number]
 
@@ -157,9 +183,43 @@ const workspace = reactive(applyShareQuery(route.query, loadSeedMapWorkspace()))
 if (!SEED_MAP_ELEVATIONS.includes(workspace.elevation as SeedMapElevation))
     workspace.elevation = SEED_MAP_ELEVATIONS[0]
 const profiles = ref<SeedMapVersionProfile[]>(fallbackSeedMapProfiles())
+const profilesResolved = ref(false)
 const features = ref<SeedMapFeature[]>([])
 const spawn = ref<SeedMapSpawnPoint | null>(null)
 const selection = ref<Selection | null>(null)
+const selectedArea = ref<SeedMapArea | null>(null)
+const areaDrag = ref<{
+    id: number
+    start: { x: number; z: number }
+    end: { x: number; z: number }
+    screenX: number
+    screenY: number
+    moved: boolean
+} | null>(null)
+let suppressAreaContextMenu = false
+let areaContextMenuTimer: ReturnType<typeof setTimeout> | undefined
+function captureAreaContextMenu(event: MouseEvent) {
+    if (!areaDrag.value && !suppressAreaContextMenu) return
+    event.preventDefault()
+    if (areaDrag.value?.moved || suppressAreaContextMenu) {
+        event.stopImmediatePropagation()
+        suppressAreaContextMenu = false
+    }
+}
+const areaStyle = computed(() => {
+    const area = areaDrag.value?.moved
+        ? seedMapArea(areaDrag.value.start, areaDrag.value.end)
+        : selectedArea.value
+    if (!area) return undefined
+    const min = worldToScreen(area.minX, area.minZ)
+    const max = worldToScreen(area.maxX + 1, area.maxZ + 1)
+    return {
+        left: `${min.x}px`,
+        top: `${min.y}px`,
+        width: `${max.x - min.x}px`,
+        height: `${max.y - min.y}px`,
+    }
+})
 const markerName = ref('')
 const markerColor = ref('#22C55E')
 const markerDraftOpen = ref(false)
@@ -178,17 +238,12 @@ const copyrightModal = useTemplateRef<InstanceType<typeof SeedMapCopyrightModal>
 let activeHistoryId = seedMapHistoryId(workspace.seed.trim().slice(0, 256), workspace.edition)
 const coordinateX = ref(String(Math.round(workspace.center.x)))
 const coordinateZ = ref(String(Math.round(workspace.center.z)))
-const tileImages = new Map<string, ImageBitmap>()
 const featureImages = new Map<string, HTMLImageElement>()
 const oreImages = new Map<string, HTMLImageElement>()
 let spawnImage: HTMLImageElement | undefined
-const pendingTiles = new Map<string, number>()
-const tileQueue: TileJob[] = []
 const activePointers = new Map<number, ActivePointer>()
 const pointer = reactive({ id: -1, startX: 0, startY: 0, centerX: 0, centerZ: 0, moved: false })
 const viewport = reactive({ width: 0, height: 0 })
-let activeTileRequests = 0
-const activeTileRequestsByEpoch = new Map<number, number>()
 let requestEpoch = 0
 let refreshTimer: ReturnType<typeof window.setTimeout> | undefined
 let saveTimer: ReturnType<typeof window.setTimeout> | undefined
@@ -197,7 +252,6 @@ let redrawFrame: number | undefined
 let panFrame: number | undefined
 let pendingPanCenter: { x: number; z: number } | undefined
 let zoomAnimationFrame: number | undefined
-let fallbackTileScale: number | undefined
 let resizeObserver: ResizeObserver | undefined
 let pinchDistance = 0
 let wheelMode: 'trackpad' | 'wheel' | undefined
@@ -209,6 +263,8 @@ let wheelAnchor = { x: 0, y: 0 }
 let suppressPointerSelection = false
 let centerOnNextSpawn = false
 let spawnContextKey = ''
+let spawnRequest: { key: string; promise: Promise<SeedMapSpawnPoint> } | undefined
+let disposed = false
 let pendingHistorySource: SeedMapHistorySource | null = null
 let pendingHistoryLabels: { instanceName?: string; worldName?: string } = {}
 let historyTimer: ReturnType<typeof window.setTimeout> | undefined
@@ -221,6 +277,7 @@ const formatRelativeTime = useRelativeTime()
 const {
     hits: oreHits,
     scanning: oreScanning,
+    truncated: oreScanTruncated,
     scannedChunks: oreScannedChunks,
     totalChunks: oreTotalChunks,
     refresh: refreshOreLayer,
@@ -234,6 +291,7 @@ const {
 })
 
 const messages = defineMessages({
+    retryMap: { id: 'app.lab.seed-map.retry-map', defaultMessage: 'Retry map calculation' },
     title: { id: 'app.lab.seed-map.title', defaultMessage: 'Seed map' },
     seed: { id: 'app.lab.seed-map.seed', defaultMessage: 'Seed' },
     seedPlaceholder: {
@@ -321,11 +379,25 @@ const messages = defineMessages({
         id: 'app.lab.seed-map.ore-scan-failed',
         defaultMessage: 'Ore scanning failed. Try refreshing the map.',
     },
-    oreVerified: { id: 'app.lab.seed-map.ore-verified', defaultMessage: 'Verified' },
-    oreLikely: { id: 'app.lab.seed-map.ore-likely', defaultMessage: 'Likely' },
-    orePrecision: {
-        id: 'app.lab.seed-map.ore-precision',
-        defaultMessage: '{precision}% precision',
+    versionUnavailable: {
+        id: 'app.lab.seed-map.version-unavailable',
+        defaultMessage:
+            'The engine cannot calculate this version. Choose a supported version to continue.',
+    },
+    oreTruncated: {
+        id: 'app.lab.seed-map.ore-truncated',
+        defaultMessage: 'Result limit reached. Select fewer ore types to see more positions.',
+    },
+    undergroundMode: { id: 'app.lab.seed-map.underground-mode', defaultMessage: 'Underground' },
+    advancedTour: { id: 'app.lab.seed-map.advanced-tour', defaultMessage: 'Map exploration guide' },
+    abandonedCamp: {
+        id: 'app.lab.seed-map.feature.abandoned-camp',
+        defaultMessage: 'Abandoned camp',
+    },
+    netherFossil: { id: 'app.lab.seed-map.feature.nether-fossil', defaultMessage: 'Nether fossil' },
+    oreCandidate: {
+        id: 'app.lab.seed-map.ore-candidate',
+        defaultMessage: 'Predicted position; terrain and block replacement are unverified',
     },
     oreCoverage: {
         id: 'app.lab.seed-map.ore-coverage',
@@ -426,6 +498,21 @@ const messages = defineMessages({
         defaultMessage: 'End city (without ship)',
     },
     endGateway: { id: 'app.lab.seed-map.feature.end-gateway', defaultMessage: 'End gateway' },
+    oreEmerald: { id: 'app.lab.seed-map.ore.emerald', defaultMessage: 'Emerald ore' },
+    oreQuartz: { id: 'app.lab.seed-map.ore.quartz', defaultMessage: 'Nether quartz ore' },
+    oreNetherGold: { id: 'app.lab.seed-map.ore.nether_gold', defaultMessage: 'Nether gold ore' },
+    oreAndesite: { id: 'app.lab.seed-map.ore.andesite', defaultMessage: 'Andesite' },
+    oreDiorite: { id: 'app.lab.seed-map.ore.diorite', defaultMessage: 'Diorite' },
+    oreGranite: { id: 'app.lab.seed-map.ore.granite', defaultMessage: 'Granite' },
+    oreDirt: { id: 'app.lab.seed-map.ore.dirt', defaultMessage: 'Dirt' },
+    oreGravel: { id: 'app.lab.seed-map.ore.gravel', defaultMessage: 'Gravel' },
+    oreInfested: { id: 'app.lab.seed-map.ore.infested', defaultMessage: 'Infested stone' },
+    oreDeepslate: { id: 'app.lab.seed-map.ore.deepslate', defaultMessage: 'Deepslate' },
+    oreTuff: { id: 'app.lab.seed-map.ore.tuff', defaultMessage: 'Tuff' },
+    oreClay: { id: 'app.lab.seed-map.ore.clay', defaultMessage: 'Clay' },
+    oreBlackstone: { id: 'app.lab.seed-map.ore.blackstone', defaultMessage: 'Blackstone' },
+    oreMagma: { id: 'app.lab.seed-map.ore.magma', defaultMessage: 'Magma block' },
+    oreSoulSand: { id: 'app.lab.seed-map.ore.soul_sand', defaultMessage: 'Soul sand' },
     oreDiamond: { id: 'app.lab.seed-map.ore.diamond', defaultMessage: 'Diamond ore' },
     oreNetherite: { id: 'app.lab.seed-map.ore.netherite', defaultMessage: 'Ancient debris' },
     oreIron: { id: 'app.lab.seed-map.ore.iron', defaultMessage: 'Iron ore' },
@@ -463,9 +550,26 @@ const featureMessages: Record<SeedMapFeatureKind, (typeof messages)[keyof typeof
     bastion: messages.bastion,
     'end-city': messages.endCity,
     'end-gateway': messages.endGateway,
+    'abandoned-camp': messages.abandonedCamp,
+    'nether-fossil': messages.netherFossil,
 }
 
 const oreMessages: Record<SeedMapOreKind, (typeof messages)[keyof typeof messages]> = {
+    emerald: messages.oreEmerald,
+    quartz: messages.oreQuartz,
+    nether_gold: messages.oreNetherGold,
+    andesite: messages.oreAndesite,
+    diorite: messages.oreDiorite,
+    granite: messages.oreGranite,
+    dirt: messages.oreDirt,
+    gravel: messages.oreGravel,
+    infested: messages.oreInfested,
+    deepslate: messages.oreDeepslate,
+    tuff: messages.oreTuff,
+    clay: messages.oreClay,
+    blackstone: messages.oreBlackstone,
+    magma: messages.oreMagma,
+    soul_sand: messages.oreSoulSand,
     diamond: messages.oreDiamond,
     netherite: messages.oreNetherite,
     iron: messages.oreIron,
@@ -504,32 +608,79 @@ const selectedProfile = computed(() =>
 const availableVersions = computed(() =>
     profiles.value
         .filter((profile) => profile.edition === workspace.edition)
-        .map((profile) => profile.version),
+        .map((profile) => profile.version)
+        .sort(compareSeedMapVersions),
 )
 const dimensions = computed(
     () => selectedProfile.value?.dimensions ?? ['overworld', 'nether', 'end'],
 )
 const scale = computed(() => 4 ** workspace.zoom)
-// Native tiles are generated at discrete powers of four. Keep the current
-// tile source for the whole zoom interval and switch only at its boundary;
-// rounding here used to replace the biome sampler halfway through an
-// animated zoom (for example at zoom 0.5), causing abrupt color changes.
-const tileScale = computed(
-    () =>
-        SEED_MAP_SCALES[
-            Math.min(Math.max(Math.floor(workspace.zoom), 0), SEED_MAP_SCALES.length - 1)
-        ],
+const poiIconScale = computed(() => (scale.value < 4 ? 1.5 : 1))
+const tileLevel = computed(() => seedMapTileLevel(scale.value))
+const tileScale = computed(() => tileLevel.value.scale)
+const undergroundMask = computed(
+    () => selectedProfile.value?.undergroundMasks?.[dimensionsIndex.value] ?? 0,
 )
+const undergroundSupported = computed(
+    () =>
+        !!selectedProfile.value?.available &&
+        !!(undergroundMask.value & 1) &&
+        workspace.dimension !== 'end',
+)
+const focusedPiece = ref<SeedMapStructurePiece | null>(null)
+const layoutRevision = ref(0)
+const layoutLayer = createSeedMapLayoutLayer(getSeedMapStructureDetails, () => {
+    layoutRevision.value++
+    redraw()
+})
+let layoutRefreshTimer: ReturnType<typeof setTimeout> | undefined
+const replayOnboarding = inject<(mode: 'seed-map') => Promise<void>>('replayOnboarding')
+const structureQuery = computed<SeedMapStructureQuery | null>(() =>
+    selection.value?.feature
+        ? {
+              seed: workspace.seed,
+              edition: workspace.edition,
+              version: workspace.gameVersion,
+              dimension: workspace.dimension,
+              x: selection.value.feature.x,
+              z: selection.value.feature.z,
+              featureMask: featureMask([selection.value.feature.kind]),
+          }
+        : null,
+)
+function closeStructureDetails() {
+    selection.value = null
+    focusedPiece.value = null
+}
+function focusStructurePiece(piece: SeedMapStructurePiece) {
+    focusedPiece.value = piece
+    const min = piece.min ?? piece.position
+    const max = piece.max ?? piece.position
+    workspace.center = { x: (min.x + max.x) / 2, z: (min.z + max.z) / 2 }
+    redraw()
+}
 const mapScaleLabel = computed(() =>
     scale.value >= 10
         ? String(Math.round(scale.value))
         : scale.value.toFixed(2).replace(/\.00$/, ''),
 )
+const dimensionsIndex = computed(() =>
+    workspace.dimension === 'nether' ? 1 : workspace.dimension === 'end' ? 2 : 0,
+)
 const dimensionFeatures = computed(() =>
-    SEED_MAP_FEATURES.filter((feature) => feature.dimensions.includes(workspace.dimension)),
+    SEED_MAP_FEATURES.filter(
+        (feature) =>
+            feature.dimensions.includes(workspace.dimension) &&
+            (selectedProfile.value?.featureMasks === undefined ||
+                (selectedProfile.value.featureMasks[dimensionsIndex.value] & feature.mask) !== 0),
+    ),
 )
 const requestedFeatures = computed(() =>
-    visibleFeatureDefinitions(workspace.visibleFeatures, workspace.dimension, tileScale.value),
+    visibleFeatureDefinitions(
+        workspace.visibleFeatures,
+        workspace.dimension,
+        tileScale.value,
+    ).filter((feature) => dimensionFeatures.value.includes(feature)),
 )
 const requestedFeatureKinds = computed(
     () => new Set(requestedFeatures.value.map((feature) => feature.kind)),
@@ -537,12 +688,103 @@ const requestedFeatureKinds = computed(
 const displayedFeatures = computed(() =>
     features.value.filter((feature) => requestedFeatureKinds.value.has(feature.kind)),
 )
+const visibleLayoutQueries = computed(() => {
+    if (workspace.displayMode !== 'structures' || scale.value > SEED_MAP_LAYOUT_MAX_SCALE) return []
+    const bounds = mapBounds()
+    return displayedFeatures.value
+        .filter(
+            (feature) =>
+                feature.kind !== 'slime-chunk' &&
+                feature.x >= bounds.minX - 256 &&
+                feature.x <= bounds.maxX + 256 &&
+                feature.z >= bounds.minZ - 256 &&
+                feature.z <= bounds.maxZ + 256,
+        )
+        .sort(
+            (a, b) =>
+                Math.hypot(a.x - workspace.center.x, a.z - workspace.center.z) -
+                Math.hypot(b.x - workspace.center.x, b.z - workspace.center.z),
+        )
+        .map((feature) => ({
+            feature,
+            query: {
+                seed: workspace.seed,
+                edition: workspace.edition,
+                version: workspace.gameVersion,
+                dimension: workspace.dimension,
+                x: feature.x,
+                z: feature.z,
+                featureMask: featureMask([feature.kind]),
+            },
+        }))
+})
+const projectedStructures = computed(() => {
+    const currentRevision = layoutRevision.value
+    return visibleLayoutQueries.value.flatMap(({ feature, query }) => {
+        if (currentRevision < 0) return []
+        const pieces = seedMapLayoutPieces(layoutLayer.peek(query) ?? null)
+        return pieces.length ? [{ feature, pieces }] : []
+    })
+})
+const projectedFeatureKeys = computed(
+    () => new Set(projectedStructures.value.map(({ feature }) => featureKey(feature))),
+)
+function structureBadges(size: { width: number; height: number }) {
+    return seedMapStructureBadgePositions(
+        projectedStructures.value.map(({ feature, pieces }) => {
+            const min = worldToScreen(
+                Math.min(...pieces.map((piece) => piece.min!.x)),
+                Math.min(...pieces.map((piece) => piece.min!.z)),
+            )
+            const max = worldToScreen(
+                Math.max(...pieces.map((piece) => piece.max!.x + 1)),
+                Math.max(...pieces.map((piece) => piece.max!.z + 1)),
+            )
+            return { id: featureKey(feature), minX: min.x, minY: min.y, maxX: max.x, maxY: max.y }
+        }),
+        size,
+    ).map((badge) => ({
+        ...badge,
+        feature: projectedStructures.value.find(({ feature }) => featureKey(feature) === badge.id)!
+            .feature,
+    }))
+}
+function selectStructureBadge(feature: SeedMapFeature) {
+    selection.value = { x: feature.x, z: feature.z, feature }
+    focusedPiece.value = null
+    markerDraftOpen.value = false
+    redraw()
+}
+watch(visibleLayoutQueries, () => {
+    clearTimeout(layoutRefreshTimer)
+    layoutRefreshTimer = setTimeout(
+        () => layoutLayer.update(visibleLayoutQueries.value.map((entry) => entry.query)),
+        120,
+    )
+})
+onBeforeUnmount(() => {
+    if (canvas.value) {
+        canvas.value.width = 1
+        canvas.value.height = 1
+    }
+})
+
+onUnmounted(() => {
+    clearTimeout(layoutRefreshTimer)
+    layoutLayer.dispose()
+})
 const activeFeatureMask = computed(() =>
     featureMask(requestedFeatures.value.map((feature) => feature.kind)),
 )
 const oreModeSupported = computed(() => selectedProfile.value?.ores !== false)
 const dimensionOres = computed(() =>
-    oreModeSupported.value ? seedMapOresForDimension(workspace.dimension) : [],
+    oreModeSupported.value
+        ? seedMapOresForDimension(workspace.dimension).filter(
+              (ore) =>
+                  !selectedProfile.value?.oreKinds ||
+                  selectedProfile.value.oreKinds.includes(ore.kind),
+          )
+        : [],
 )
 const activeSelectedOres = computed(() => {
     const available = new Set(dimensionOres.value.map((ore) => ore.kind))
@@ -572,14 +814,18 @@ const oreZoomLimited = computed(
 )
 const mapBusy = computed(() => loading.value || oreScanning.value)
 const availableBiomes = computed(() =>
-    SEED_MAP_BIOMES.filter((biome) => biome.dimensions.includes(workspace.dimension)).map(
-        (biome) => biome.id,
-    ),
+    SEED_MAP_BIOMES.filter(
+        (biome) =>
+            biome.dimensions.includes(workspace.dimension) &&
+            (!selectedProfile.value?.biomes || selectedProfile.value.biomes.includes(biome.id)),
+    ).map((biome) => biome.id),
 )
 const activeHighlightedBiomes = computed(() =>
     workspace.highlightedBiomes.filter((biome) => availableBiomes.value.includes(biome)),
 )
-const terrainSupported = computed(() => workspace.dimension !== 'nether')
+const terrainSupported = computed(
+    () => workspace.dimension !== 'nether' && workspace.displayMode !== 'underground',
+)
 const terrainEnabled = computed({
     get: () => terrainSupported.value && workspace.terrainEstimation,
     set: (enabled: boolean) => {
@@ -627,9 +873,12 @@ const selectedOreCompleted = computed({
             : workspace.completedOres.filter((item) => item !== key)
     },
 })
+const dimensionMarkers = computed(() =>
+    workspace.markers.filter((marker) => marker.dimension === workspace.dimension),
+)
 const selectedMarker = computed(() =>
     selection.value?.markerId
-        ? (workspace.markers.find((marker) => marker.id === selection.value?.markerId) ?? null)
+        ? (dimensionMarkers.value.find((marker) => marker.id === selection.value?.markerId) ?? null)
         : null,
 )
 const rulerDistance = computed(() => {
@@ -645,6 +894,13 @@ const selectionStyle = computed(() => {
         top: `${Math.min(Math.max(point.y + 14, 8), Math.max(viewport.height - 226, 8))}px`,
     }
 })
+const selectionPointStyle = computed(() => {
+    const current = selection.value
+    if (!current || current.feature || current.ore || current.markerId || current.spawn)
+        return undefined
+    const point = worldToScreen(current.x, current.z)
+    return { left: `${point.x}px`, top: `${point.y}px` }
+})
 const selectionVisible = computed(() => {
     if (!selection.value) return false
     if (selection.value.feature && !requestedFeatureKinds.value.has(selection.value.feature.kind))
@@ -659,6 +915,26 @@ const selectionVisible = computed(() => {
     )
 })
 
+watch(
+    () => JSON.stringify(structureQuery.value),
+    () => {
+        layoutLayer.select(structureQuery.value)
+        focusedPiece.value = null
+        redraw()
+    },
+)
+watch(
+    () => [profilesResolved.value, undergroundSupported.value, workspace.displayMode],
+    () => {
+        if (
+            profilesResolved.value &&
+            workspace.displayMode === 'underground' &&
+            !undergroundSupported.value
+        )
+            workspace.displayMode = 'structures'
+    },
+    { immediate: true, flush: 'sync' },
+)
 watch(
     workspace,
     () => {
@@ -726,6 +1002,8 @@ watch(
         workspace.gameVersion = shared.gameVersion
         workspace.dimension = shared.dimension
         workspace.displayMode = shared.displayMode
+        workspace.undergroundY = shared.undergroundY
+        workspace.undergroundLayers = shared.undergroundLayers
         workspace.selectedOres = [...shared.selectedOres]
         workspace.oreYMin = shared.oreYMin
         workspace.oreYMax = shared.oreYMax
@@ -758,12 +1036,21 @@ watch(
 )
 
 watch(
+    () => workspace.displayMode,
+    () => {
+        void nextTick(resizeCanvas)
+    },
+)
+
+watch(
     () => [
         workspace.seed,
         workspace.edition,
         workspace.gameVersion,
         workspace.dimension,
         workspace.displayMode,
+        workspace.undergroundY,
+        workspace.undergroundLayers,
         tileScale.value,
         workspace.elevation,
         workspace.terrainEstimation,
@@ -863,12 +1150,16 @@ watch(
 
 onMounted(async () => {
     await nextTick()
+    if (disposed) return
     preloadMapIcons()
     resizeCanvas()
     resizeObserver = new ResizeObserver(resizeCanvas)
     if (canvas.value) resizeObserver.observe(canvas.value)
     document.addEventListener('fullscreenchange', onFullscreenChange)
+    document.addEventListener('contextmenu', captureAreaContextMenu, true)
     profiles.value = await getSeedMapProfiles().catch(() => fallbackSeedMapProfiles())
+    if (disposed) return
+    profilesResolved.value = true
     ensureProfile()
     if (typeof route.query.seed === 'string' && route.query.seed.trim()) {
         recordHistory('share')
@@ -877,6 +1168,8 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
+    disposed = true
+    requestEpoch++
     if (historyTimer) {
         window.clearTimeout(historyTimer)
         historyTimer = undefined
@@ -897,19 +1190,25 @@ onUnmounted(() => {
     if (zoomAnimationFrame !== undefined) window.cancelAnimationFrame(zoomAnimationFrame)
     saveSeedMapWorkspace(workspace)
     disposeOreLayer()
-    clearTileImages()
+    tileLayer.dispose()
+    featureImages.clear()
+    oreImages.clear()
+    spawnImage = undefined
     resizeObserver?.disconnect()
     document.removeEventListener('fullscreenchange', onFullscreenChange)
+    document.removeEventListener('contextmenu', captureAreaContextMenu, true)
+    if (areaContextMenuTimer) clearTimeout(areaContextMenuTimer)
 })
 
 function ensureProfile() {
     if (selectedProfile.value) return
-    const replacement =
-        profiles.value.find((item) => item.edition === workspace.edition) ?? profiles.value[0]
-    if (!replacement) return
-    workspace.edition = replacement.edition
-    workspace.gameVersion = replacement.version
-    workspace.dimension = replacement.dimensions[0] ?? 'overworld'
+    profiles.value.push({
+        edition: workspace.edition,
+        version: workspace.gameVersion,
+        available: false,
+        dimensions: [workspace.dimension],
+        ores: false,
+    })
 }
 
 function editionLabel(edition: SeedMapEdition) {
@@ -943,6 +1242,7 @@ function oreLabel(kind: SeedMapOreKind) {
 
 function setDisplayMode(mode: SeedMapDisplayMode) {
     if (mode === 'ores' && !oreModeSupported.value) return
+    if (mode === 'underground' && !undergroundSupported.value) return
     if (mode === 'ores' && workspace.dimension === 'end') workspace.dimension = 'overworld'
     workspace.displayMode = mode
     ensureDimensionOreSelection()
@@ -964,10 +1264,16 @@ function featureImageSource(kind: SeedMapFeatureKind) {
     return featureImageSources[kind]
 }
 
+const itemImageSources = ref<Record<string, string>>({})
+function oreImageSource(source: string) {
+    return itemImageSources.value[source] ?? (source.startsWith('minecraft:') ? undefined : source)
+}
+
 function preloadMapIcons() {
     const preloadFeatureImage = (key: string, source: string) => {
         const image = new Image()
         image.onload = () => {
+            if (disposed) return
             featureImages.set(key, image)
             redraw()
         }
@@ -991,14 +1297,24 @@ function preloadMapIcons() {
             if (!source) continue
             const image = new Image()
             image.onload = () => {
+                if (disposed) return
                 oreImages.set(`${ore.kind}:${variant}`, image)
                 redraw()
             }
-            image.src = source
+            if (source.startsWith('minecraft:')) {
+                void loadMinecraftItemImage(source)
+                    .then((loaded) => {
+                        if (disposed) return
+                        itemImageSources.value[source] = loaded.src
+                        image.src = loaded.src
+                    })
+                    .catch(() => {})
+            } else image.src = source
         }
     }
     const image = new Image()
     image.onload = () => {
+        if (disposed) return
         spawnImage = image
         redraw()
     }
@@ -1008,14 +1324,22 @@ function preloadMapIcons() {
 function resizeCanvas() {
     const element = canvas.value
     if (!element) return
+    if (workspace.displayMode === 'underground') {
+        element.width = 1
+        element.height = 1
+        return
+    }
     const bounds = element.getBoundingClientRect()
     viewport.width = Math.max(1, Math.round(bounds.width))
     viewport.height = Math.max(1, Math.round(bounds.height))
     const ratio = window.devicePixelRatio || 1
-    element.width = Math.round(viewport.width * ratio)
-    element.height = Math.round(viewport.height * ratio)
+    const width = Math.round(viewport.width * ratio)
+    const height = Math.round(viewport.height * ratio)
+    if (element.width === width && element.height === height) return
+    element.width = width
+    element.height = height
     element.getContext('2d')?.setTransform(ratio, 0, 0, ratio, 0, 0)
-    redraw()
+    drawMap()
     scheduleRefresh()
 }
 
@@ -1057,24 +1381,48 @@ function screenToWorld(x: number, y: number) {
     }
 }
 
-function tileKey(x: number, z: number, sourceScale = tileScale.value) {
-    return [
-        workspace.seed,
-        workspace.edition,
-        workspace.gameVersion,
-        workspace.dimension,
-        sourceScale,
-        workspace.elevation,
-        terrainEnabled.value,
-        workspace.contourLines,
-        workspace.highlightBiomeEnabled ? activeHighlightedBiomes.value.join(',') : 'none',
-        x,
-        z,
-    ].join(':')
+function tileView(): SeedMapTileView {
+    return {
+        epoch: requestEpoch,
+        context: {
+            seed: workspace.seed,
+            edition: workspace.edition,
+            version: workspace.gameVersion,
+            dimension: workspace.dimension,
+            elevation: workspace.elevation,
+            terrain: terrainEnabled.value,
+            contours: contoursEnabled.value,
+            highlightBiomes: workspace.highlightBiomeEnabled
+                ? [...activeHighlightedBiomes.value]
+                : undefined,
+        },
+        bounds: mapBounds(),
+        center: { ...workspace.center },
+        level: { ...tileLevel.value },
+        concurrency: seedMapTileConcurrency(tileScale.value),
+    }
 }
 
+let overlaysEpoch = -1
+const tileLayer = createSeedMapTileLayer({
+    render: renderSeedMapTile,
+    onUpdate: () => redraw(),
+    onLoading: (value) => {
+        loading.value = value
+    },
+    onError: (message) => {
+        mapError.value = message
+    },
+    onCoverage: (epoch) => {
+        if (epoch !== requestEpoch || epoch === overlaysEpoch) return
+        overlaysEpoch = epoch
+        if (workspace.displayMode === 'structures') void requestFeatures(epoch)
+        refreshCurrentOreLayer()
+    },
+})
+
 function redraw() {
-    if (redrawFrame !== undefined) return
+    if (disposed || workspace.displayMode === 'underground' || redrawFrame !== undefined) return
     redrawFrame = window.requestAnimationFrame(() => {
         redrawFrame = undefined
         drawMap()
@@ -1082,6 +1430,7 @@ function redraw() {
 }
 
 function drawMap() {
+    if (disposed || workspace.displayMode === 'underground') return
     const element = canvas.value
     const context = element?.getContext('2d')
     if (!element || !context || !viewport.width || !viewport.height) return
@@ -1099,81 +1448,48 @@ function drawMap() {
     }
 
     const bounds = mapBounds()
-    if (fallbackTileScale !== undefined && fallbackTileScale !== tileScale.value) {
-        drawTileLayer(context, bounds, fallbackTileScale)
+    context.save()
+    context.imageSmoothingEnabled = false
+    for (const tile of tileLayer.drawable(tileView())) {
+        const position = worldToScreen(tile.x, tile.z)
+        const size = tile.span / scale.value
+        context.drawImage(tile.bitmap, position.x, position.y, size, size)
     }
-    drawTileLayer(context, bounds, tileScale.value)
+    context.restore()
 
     if (workspace.showGrid || workspace.showChunkCoordinates) drawGrid(context, bounds)
     if (workspace.displayMode === 'structures') drawFeatures(context)
-    else drawOres(context)
+    else if (workspace.displayMode === 'ores') drawOres(context)
+    for (const { query } of visibleLayoutQueries.value) {
+        drawSeedMapLayout(
+            context,
+            seedMapLayoutPieces(layoutLayer.peek(query) ?? null),
+            scale.value,
+            worldToScreen,
+            JSON.stringify(query) === JSON.stringify(structureQuery.value)
+                ? focusedPiece.value?.id
+                : undefined,
+        )
+    }
+    if (focusedPiece.value && structureQuery.value) {
+        const piece = focusedPiece.value
+        const min = piece.min ?? piece.position
+        const max = piece.max ?? piece.position
+        const position = worldToScreen(min.x, min.z)
+        context.save()
+        context.strokeStyle = seedMapLayoutPalette(element).selected
+        context.lineWidth = 3
+        context.strokeRect(
+            position.x,
+            position.y,
+            Math.max(8, (max.x - min.x + 1) / scale.value),
+            Math.max(8, (max.z - min.z + 1) / scale.value),
+        )
+        context.restore()
+    }
     drawSpawn(context)
     drawMarkers(context)
     drawRuler(context)
-}
-
-function drawTileLayer(context: CanvasRenderingContext2D, bounds: MapBounds, sourceScale: number) {
-    const tileSpan = 256 * sourceScale
-    const minTileX = Math.floor(bounds.minX / tileSpan) - TILE_CULL_PADDING
-    const minTileZ = Math.floor(bounds.minZ / tileSpan) - TILE_CULL_PADDING
-    const maxTileX = Math.floor(bounds.maxX / tileSpan) + TILE_CULL_PADDING
-    const maxTileZ = Math.floor(bounds.maxZ / tileSpan) + TILE_CULL_PADDING
-    const displaySize = tileSpan / scale.value
-    context.save()
-    context.imageSmoothingEnabled = false
-    for (let tileX = minTileX; tileX <= maxTileX; tileX++) {
-        for (let tileZ = minTileZ; tileZ <= maxTileZ; tileZ++) {
-            const key = tileKey(tileX, tileZ, sourceScale)
-            const bitmap = tileImages.get(key)
-            const position = worldToScreen(tileX * tileSpan, tileZ * tileSpan)
-            if (bitmap) {
-                tileImages.delete(key)
-                tileImages.set(key, bitmap)
-                context.drawImage(bitmap, position.x, position.y, displaySize, displaySize)
-            }
-        }
-    }
-    context.restore()
-}
-
-function visibleTileKeys(bounds: MapBounds): Set<string> {
-    const keys = new Set<string>()
-    const sourceScales = new Set<number>([tileScale.value])
-    if (fallbackTileScale !== undefined) sourceScales.add(fallbackTileScale)
-    for (const sourceScale of sourceScales) {
-        const tileSpan = 256 * sourceScale
-        const minTileX = Math.floor(bounds.minX / tileSpan) - TILE_CULL_PADDING
-        const minTileZ = Math.floor(bounds.minZ / tileSpan) - TILE_CULL_PADDING
-        const maxTileX = Math.floor(bounds.maxX / tileSpan) + TILE_CULL_PADDING
-        const maxTileZ = Math.floor(bounds.maxZ / tileSpan) + TILE_CULL_PADDING
-        for (let tileX = minTileX; tileX <= maxTileX; tileX++) {
-            for (let tileZ = minTileZ; tileZ <= maxTileZ; tileZ++)
-                keys.add(tileKey(tileX, tileZ, sourceScale))
-        }
-    }
-    return keys
-}
-
-function hasMissingCurrentTiles(bounds: MapBounds): boolean {
-    return countMissingCurrentTiles(bounds).missing > 0
-}
-
-function countMissingCurrentTiles(bounds: MapBounds) {
-    const sourceScale = tileScale.value
-    const tileSpan = 256 * sourceScale
-    const minTileX = Math.floor(bounds.minX / tileSpan) - TILE_CULL_PADDING
-    const minTileZ = Math.floor(bounds.minZ / tileSpan) - TILE_CULL_PADDING
-    const maxTileX = Math.floor(bounds.maxX / tileSpan) + TILE_CULL_PADDING
-    const maxTileZ = Math.floor(bounds.maxZ / tileSpan) + TILE_CULL_PADDING
-    let visible = 0
-    let missing = 0
-    for (let tileX = minTileX; tileX <= maxTileX; tileX++) {
-        for (let tileZ = minTileZ; tileZ <= maxTileZ; tileZ++) {
-            visible++
-            if (!tileImages.has(tileKey(tileX, tileZ, sourceScale))) missing++
-        }
-    }
-    return { visible, missing }
 }
 
 function drawGrid(context: CanvasRenderingContext2D, bounds: MapBounds) {
@@ -1208,12 +1524,13 @@ function drawGrid(context: CanvasRenderingContext2D, bounds: MapBounds) {
 
 function drawFeatures(context: CanvasRenderingContext2D) {
     for (const feature of displayedFeatures.value) {
+        if (projectedFeatureKeys.value.has(featureKey(feature))) continue
         const point = worldToScreen(feature.x, feature.z)
         if (
-            point.x < -18 ||
-            point.x > viewport.width + 18 ||
-            point.y < -18 ||
-            point.y > viewport.height + 18
+            point.x < -28 ||
+            point.x > viewport.width + 28 ||
+            point.y < -28 ||
+            point.y > viewport.height + 28
         )
             continue
         const selected = selectedFeatureKey.value === featureKey(feature)
@@ -1232,7 +1549,7 @@ function drawFeatures(context: CanvasRenderingContext2D) {
         } else {
             const icon = featureImages.get(featureImageKey(feature))
             if (icon) {
-                const size = selected ? 32 : 28
+                const size = (selected ? 32 : 28) * poiIconScale.value
                 context.shadowColor = 'rgba(0, 0, 0, 0.48)'
                 context.shadowBlur = 5
                 context.shadowOffsetY = 2
@@ -1246,7 +1563,7 @@ function drawFeatures(context: CanvasRenderingContext2D) {
                     context.stroke()
                 }
             } else {
-                const radius = selected ? 10 : 8
+                const radius = (selected ? 10 : 8) * poiIconScale.value
                 context.fillStyle = featureColors[feature.kind]
                 context.strokeStyle = selected ? '#FFFFFF' : 'rgba(15, 18, 20, 0.86)'
                 context.lineWidth = selected ? 3 : 2
@@ -1255,7 +1572,7 @@ function drawFeatures(context: CanvasRenderingContext2D) {
                 context.fill()
                 context.stroke()
                 context.fillStyle = '#FFFFFF'
-                context.font = '700 9px system-ui'
+                context.font = `700 ${9 * poiIconScale.value}px system-ui`
                 context.textAlign = 'center'
                 context.textBaseline = 'middle'
                 context.fillText(
@@ -1265,7 +1582,12 @@ function drawFeatures(context: CanvasRenderingContext2D) {
                 )
             }
         }
-        if (completed) drawCompletionBadge(context, point.x + 10, point.y - 10)
+        if (completed)
+            drawCompletionBadge(
+                context,
+                point.x + 10 * poiIconScale.value,
+                point.y - 10 * poiIconScale.value,
+            )
         context.restore()
     }
 }
@@ -1287,9 +1609,11 @@ function drawOres(context: CanvasRenderingContext2D) {
         const definition = seedMapOreDefinition(hit.ore)
         const variant = hit.y < 0 && definition.deepslateTexture ? 'deepslate' : 'stone'
         const image = oreImages.get(`${hit.ore}:${variant}`)
-        const size = Math.max(10, Math.min(18, 1.2 / scale.value)) + (selected ? 4 : 0)
+        const size =
+            (Math.max(10, Math.min(18, 1.2 / scale.value)) + (selected ? 4 : 0)) *
+            poiIconScale.value
         context.save()
-        context.globalAlpha = completed ? 0.42 : hit.verified ? 1 : 0.78
+        context.globalAlpha = completed ? 0.42 : 0.78
         context.imageSmoothingEnabled = false
         if (image) {
             context.drawImage(image, point.x - size / 2, point.y - size / 2, size, size)
@@ -1312,7 +1636,7 @@ function drawSpawn(context: CanvasRenderingContext2D) {
             selection.value?.spawn === true &&
             selection.value.x === spawn.value.x &&
             selection.value.z === spawn.value.z
-        const size = selected ? 36 : 32
+        const size = (selected ? 36 : 32) * poiIconScale.value
         context.save()
         if (spawnImage) {
             context.shadowColor = 'rgba(0, 0, 0, 0.48)'
@@ -1324,7 +1648,7 @@ function drawSpawn(context: CanvasRenderingContext2D) {
             context.strokeStyle = '#FFFFFF'
             context.lineWidth = 2
             context.beginPath()
-            context.arc(point.x, point.y, 10, 0, Math.PI * 2)
+            context.arc(point.x, point.y, 10 * poiIconScale.value, 0, Math.PI * 2)
             context.fill()
             context.stroke()
         }
@@ -1362,38 +1686,18 @@ function drawCompletionBadge(context: CanvasRenderingContext2D, x: number, y: nu
 }
 
 function drawMarkers(context: CanvasRenderingContext2D) {
-    for (const marker of workspace.markers) {
-        const point = worldToScreen(marker.x, marker.z)
-        if (
-            point.x < -20 ||
-            point.x > viewport.width + 20 ||
-            point.y < -20 ||
-            point.y > viewport.height + 20
-        )
-            continue
-        context.save()
-        context.fillStyle = marker.color
-        context.strokeStyle = '#FFFFFF'
-        context.lineWidth = 2
-        context.beginPath()
-        context.arc(point.x, point.y - 3, 7, 0, Math.PI * 2)
-        context.moveTo(point.x - 4, point.y + 2)
-        context.lineTo(point.x, point.y + 11)
-        context.lineTo(point.x + 4, point.y + 2)
-        context.fill()
-        context.stroke()
-        if (showLayerNames.value) {
-            context.font = '600 11px system-ui'
-            const width = context.measureText(marker.name).width + 10
-            context.fillStyle = 'rgba(20, 22, 26, 0.86)'
-            context.fillRect(point.x + 10, point.y - 12, width, 22)
-            context.fillStyle = '#FFFFFF'
-            context.textAlign = 'left'
-            context.textBaseline = 'middle'
-            context.fillText(marker.name, point.x + 15, point.y - 1)
-        }
-        context.restore()
-    }
+    drawSeedMapMarkers(context, markerPlacements(context))
+}
+
+function markerPlacements(context: CanvasRenderingContext2D) {
+    return layoutSeedMapMarkers(
+        context,
+        dimensionMarkers.value,
+        worldToScreen,
+        viewport,
+        poiIconScale.value,
+        selection.value?.markerId,
+    )
 }
 
 function drawRuler(context: CanvasRenderingContext2D) {
@@ -1420,10 +1724,26 @@ function drawRuler(context: CanvasRenderingContext2D) {
     context.restore()
 }
 
+async function retryMap() {
+    try {
+        profiles.value = await getSeedMapProfiles()
+        ensureProfile()
+        scheduleRefresh(0)
+    } catch (error) {
+        mapError.value = error instanceof Error ? error.message : String(error)
+    }
+}
+async function startMapGuide() {
+    if (document.fullscreenElement) await document.exitFullscreen()
+    await replayOnboarding?.('seed-map')
+}
+
 function scheduleRefresh(delay = 80) {
-    if (!viewport.width || !viewport.height) return
+    if (disposed || !viewport.width || !viewport.height) return
     requestEpoch++
-    clearQueuedTileJobs()
+    if (workspace.displayMode === 'underground') tileLayer.clear()
+    else tileLayer.invalidate(tileView())
+    refreshCurrentOreLayer(null)
     redraw()
     if (refreshTimer) window.clearTimeout(refreshTimer)
     refreshTimer = window.setTimeout(refreshMap, delay)
@@ -1431,7 +1751,7 @@ function scheduleRefresh(delay = 80) {
 
 function refreshMap() {
     refreshTimer = undefined
-    const epoch = requestEpoch
+    if (workspace.displayMode === 'underground') return
     if (!workspace.seed.trim()) {
         features.value = []
         spawn.value = null
@@ -1441,6 +1761,7 @@ function refreshMap() {
         return
     }
     if (!selectedProfile.value?.available) {
+        mapError.value = selectedProfile.value?.note ?? formatMessage(messages.versionUnavailable)
         features.value = []
         spawn.value = null
         refreshCurrentOreLayer(0)
@@ -1448,22 +1769,20 @@ function refreshMap() {
         return
     }
     mapError.value = ''
-    if (centerOnNextSpawn && workspace.dimension === 'overworld' && workspace.showSpawn) {
-        void requestSpawn(epoch)
-        return
-    }
-    requestVisibleTiles(epoch)
-    if (workspace.displayMode === 'structures') void requestFeatures(epoch)
-    else features.value = []
-    void requestSpawn(epoch)
-    refreshCurrentOreLayer()
+    tileLayer.refresh(tileView())
+    if (workspace.displayMode !== 'structures') features.value = []
+    void requestSpawn()
 }
 
-function refreshCurrentOreLayer(delay = 180) {
+function refreshCurrentOreLayer(delay: number | null = 180) {
     refreshOreLayer(
         {
-            enabled: workspace.displayMode === 'ores',
+            enabled:
+                workspace.displayMode === 'ores' &&
+                !!selectedProfile.value?.available &&
+                !!workspace.seed.trim(),
             seed: workspace.seed,
+            edition: workspace.edition,
             version: workspace.gameVersion,
             dimension: workspace.dimension,
             scale: scale.value,
@@ -1475,149 +1794,6 @@ function refreshCurrentOreLayer(delay = 180) {
         },
         delay,
     )
-}
-
-function requestVisibleTiles(epoch: number) {
-    const bounds = mapBounds()
-    const requestScale = tileScale.value
-    const tileSpan = 256 * requestScale
-    const minTileX = Math.floor(bounds.minX / tileSpan) - TILE_CULL_PADDING
-    const minTileZ = Math.floor(bounds.minZ / tileSpan) - TILE_CULL_PADDING
-    const maxTileX = Math.floor(bounds.maxX / tileSpan) + TILE_CULL_PADDING
-    const maxTileZ = Math.floor(bounds.maxZ / tileSpan) + TILE_CULL_PADDING
-    const candidates: { tileX: number; tileZ: number }[] = []
-    for (let tileX = minTileX; tileX <= maxTileX; tileX++) {
-        for (let tileZ = minTileZ; tileZ <= maxTileZ; tileZ++) candidates.push({ tileX, tileZ })
-    }
-    candidates.sort(
-        (a, b) =>
-            Math.hypot(
-                a.tileX * tileSpan + tileSpan / 2 - workspace.center.x,
-                a.tileZ * tileSpan + tileSpan / 2 - workspace.center.z,
-            ) -
-            Math.hypot(
-                b.tileX * tileSpan + tileSpan / 2 - workspace.center.x,
-                b.tileZ * tileSpan + tileSpan / 2 - workspace.center.z,
-            ),
-    )
-    let hasMissingTiles = false
-    for (const { tileX, tileZ } of candidates) {
-        const key = tileKey(tileX, tileZ, requestScale)
-        if (tileImages.has(key) || pendingTiles.get(key) === epoch) continue
-        hasMissingTiles = true
-        const request: SeedMapTileRequest = {
-            epoch,
-            seed: workspace.seed,
-            edition: workspace.edition,
-            version: workspace.gameVersion,
-            dimension: workspace.dimension,
-            x: tileX * tileSpan,
-            z: tileZ * tileSpan,
-            scale: requestScale,
-            width: 256,
-            height: 256,
-            elevation: workspace.elevation,
-            terrain: terrainEnabled.value,
-            contours: contoursEnabled.value,
-            highlightBiomes:
-                workspace.highlightBiomeEnabled && activeHighlightedBiomes.value.length > 0
-                    ? activeHighlightedBiomes.value
-                    : undefined,
-        }
-        pendingTiles.set(key, epoch)
-        enqueueTile({
-            epoch,
-            key,
-            run: async () => {
-                try {
-                    if (!isCurrentSeedMapEpoch(epoch, requestEpoch)) {
-                        return
-                    }
-                    const tile = await renderSeedMapTile(request)
-                    if (!isCurrentSeedMapEpoch(tile.epoch, requestEpoch)) {
-                        tile.bitmap.close()
-                        return
-                    }
-                    tileImages.get(key)?.close()
-                    tileImages.set(key, tile.bitmap)
-                    const protectedKeys = visibleTileKeys(mapBounds())
-                    while (tileImages.size > 96) {
-                        const oldest = [...tileImages.keys()].find(
-                            (candidate) => !protectedKeys.has(candidate),
-                        )
-                        // Never evict a tile that is currently drawable. The cache may
-                        // temporarily exceed its soft limit when the viewport is large.
-                        if (oldest === undefined) break
-                        tileImages.get(oldest)?.close()
-                        tileImages.delete(oldest)
-                    }
-                    redraw()
-                } catch (error) {
-                    if (isCurrentSeedMapEpoch(epoch, requestEpoch)) {
-                        mapError.value = error instanceof Error ? error.message : String(error)
-                    }
-                } finally {
-                    if (pendingTiles.get(key) === epoch) pendingTiles.delete(key)
-                }
-            },
-        })
-    }
-    if (!hasMissingTiles) fallbackTileScale = undefined
-}
-
-function enqueueTile(job: TileJob) {
-    tileQueue.push(job)
-    pumpTileQueue()
-}
-
-function pumpTileQueue() {
-    const concurrency = seedMapTileConcurrency(tileScale.value)
-    const totalConcurrency = concurrency * 2
-    while (
-        (activeTileRequestsByEpoch.get(requestEpoch) ?? 0) < concurrency &&
-        activeTileRequests < totalConcurrency &&
-        tileQueue.length
-    ) {
-        const job = tileQueue.shift()
-        if (!job) return
-        activeTileRequests += 1
-        activeTileRequestsByEpoch.set(
-            job.epoch,
-            (activeTileRequestsByEpoch.get(job.epoch) ?? 0) + 1,
-        )
-        loading.value = true
-        void job.run().finally(() => {
-            activeTileRequests -= 1
-            const epochRequests = (activeTileRequestsByEpoch.get(job.epoch) ?? 1) - 1
-            if (epochRequests > 0) activeTileRequestsByEpoch.set(job.epoch, epochRequests)
-            else activeTileRequestsByEpoch.delete(job.epoch)
-            loading.value =
-                (activeTileRequestsByEpoch.get(requestEpoch) ?? 0) > 0 ||
-                tileQueue.some((queuedJob) => queuedJob.epoch === requestEpoch)
-            if (
-                !loading.value &&
-                job.epoch === requestEpoch &&
-                fallbackTileScale !== undefined &&
-                !hasMissingCurrentTiles(mapBounds())
-            ) {
-                fallbackTileScale = undefined
-                redraw()
-            }
-            pumpTileQueue()
-        })
-    }
-}
-
-function clearQueuedTileJobs() {
-    const queuedJobs = tileQueue.splice(0, tileQueue.length)
-    for (const job of queuedJobs) {
-        if (pendingTiles.get(job.key) === job.epoch) pendingTiles.delete(job.key)
-    }
-}
-
-function clearTileImages() {
-    for (const bitmap of tileImages.values()) bitmap.close()
-    tileImages.clear()
 }
 
 async function requestFeatures(epoch: number) {
@@ -1648,7 +1824,7 @@ async function requestFeatures(epoch: number) {
     }
 }
 
-async function requestSpawn(epoch: number) {
+async function requestSpawn() {
     if (workspace.dimension !== 'overworld' || !workspace.showSpawn) {
         spawn.value = null
         return
@@ -1659,13 +1835,26 @@ async function requestSpawn(epoch: number) {
         return
     }
     spawn.value = null
+    const request =
+        spawnRequest?.key === contextKey
+            ? spawnRequest
+            : {
+                  key: contextKey,
+                  promise: getSeedMapSpawn(
+                      workspace.seed,
+                      workspace.edition,
+                      workspace.gameVersion,
+                  ),
+              }
+    spawnRequest = request
+    const isCurrent = () =>
+        !disposed &&
+        workspace.dimension === 'overworld' &&
+        workspace.showSpawn &&
+        contextKey === `${workspace.seed}|${workspace.edition}|${workspace.gameVersion}`
     try {
-        const result = await getSeedMapSpawn(
-            workspace.seed,
-            workspace.edition,
-            workspace.gameVersion,
-        )
-        if (epoch !== requestEpoch) return
+        const result = await request.promise
+        if (!isCurrent()) return
         spawn.value = result
         spawnContextKey = contextKey
         if (centerOnNextSpawn) {
@@ -1677,7 +1866,7 @@ async function requestSpawn(epoch: number) {
         }
         redraw()
     } catch {
-        if (epoch === requestEpoch) {
+        if (isCurrent()) {
             spawn.value = null
             spawnContextKey = ''
             if (centerOnNextSpawn) {
@@ -1685,10 +1874,31 @@ async function requestSpawn(epoch: number) {
                 scheduleRefresh()
             }
         }
+    } finally {
+        if (spawnRequest === request) spawnRequest = undefined
     }
 }
 
 function onPointerDown(event: PointerEvent) {
+    if (canvas.value && event.button === 2) {
+        event.preventDefault()
+        clearWheelGesture()
+        stopZoomAnimation()
+        flushPendingPan()
+        const start = screenToWorld(event.offsetX, event.offsetY)
+        areaDrag.value = {
+            id: event.pointerId,
+            start,
+            end: start,
+            screenX: event.offsetX,
+            screenY: event.offsetY,
+            moved: false,
+        }
+        suppressAreaContextMenu = false
+        if (areaContextMenuTimer) clearTimeout(areaContextMenuTimer)
+        canvas.value.setPointerCapture(event.pointerId)
+        return
+    }
     if (!canvas.value || event.button !== 0) return
     clearWheelGesture()
     stopZoomAnimation()
@@ -1719,6 +1929,13 @@ function onPointerDown(event: PointerEvent) {
 }
 
 function onPointerMove(event: PointerEvent) {
+    if (areaDrag.value?.id === event.pointerId) {
+        const drag = areaDrag.value
+        drag.end = screenToWorld(event.offsetX, event.offsetY)
+        drag.moved ||= Math.hypot(event.offsetX - drag.screenX, event.offsetY - drag.screenY) > 4
+        suppressAreaContextMenu ||= drag.moved
+        return
+    }
     if (!activePointers.has(event.pointerId)) return
     activePointers.set(event.pointerId, { x: event.offsetX, y: event.offsetY })
     if (activePointers.size === 2) {
@@ -1753,6 +1970,24 @@ function onPointerMove(event: PointerEvent) {
 }
 
 function onPointerUp(event: PointerEvent) {
+    if (areaDrag.value?.id === event.pointerId) {
+        const drag = areaDrag.value
+        if (event.type !== 'pointercancel' && drag.moved) {
+            selectedArea.value = seedMapArea(
+                drag.start,
+                screenToWorld(event.offsetX, event.offsetY),
+            )
+            selection.value = null
+            markerDraftOpen.value = false
+        }
+        areaDrag.value = null
+        if (suppressAreaContextMenu)
+            areaContextMenuTimer = setTimeout(() => {
+                suppressAreaContextMenu = false
+            }, 1000)
+        canvas.value?.releasePointerCapture(event.pointerId)
+        return
+    }
     if (!activePointers.has(event.pointerId)) return
     activePointers.delete(event.pointerId)
     clearLongPress()
@@ -1845,10 +2080,15 @@ function onDoubleClick(event: MouseEvent) {
 
 function onContextMenu(event: MouseEvent) {
     event.preventDefault()
+    if (suppressAreaContextMenu) {
+        suppressAreaContextMenu = false
+        return
+    }
     openMarkerDraftAt(event.offsetX, event.offsetY)
 }
 
 function onMapKeydown(event: KeyboardEvent) {
+    if (workspace.displayMode === 'underground') return
     const target = event.target
     if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) return
     let mapMoved = false
@@ -1872,6 +2112,8 @@ function onMapKeydown(event: KeyboardEvent) {
     else if (event.key === '-') zoomBy(0.5)
     else if (event.key.toLowerCase() === 'f') void toggleFullscreen()
     else if (event.key === 'Escape') {
+        selectedArea.value = null
+        areaDrag.value = null
         selection.value = null
         advancedOpen.value = false
         layersExpanded.value = false
@@ -1896,16 +2138,38 @@ function clearLongPress() {
 
 function selectAt(x: number, y: number) {
     const point = screenToWorld(x, y)
-    const marker = workspace.markers.find((item) => {
-        const screen = worldToScreen(item.x, item.z)
-        return Math.hypot(screen.x - x, screen.y - y) <= 13
-    })
+    const context = canvas.value?.getContext('2d')
+    const marker = context ? hitSeedMapMarker(markerPlacements(context), x, y) : undefined
+    if (
+        !marker &&
+        scale.value <= SEED_MAP_LAYOUT_MAX_SCALE &&
+        workspace.displayMode === 'structures'
+    ) {
+        for (const { feature, query } of visibleLayoutQueries.value) {
+            const piece = hitSeedMapLayout(
+                seedMapLayoutPieces(layoutLayer.peek(query) ?? null),
+                point.x,
+                point.z,
+                focusedPiece.value?.id,
+            )
+            if (!piece) continue
+            selection.value = { x: feature.x, z: feature.z, feature }
+            nextTick(() => {
+                focusedPiece.value = piece
+                redraw()
+            })
+            markerDraftOpen.value = false
+            return
+        }
+    }
     const feature =
         workspace.displayMode === 'structures'
             ? displayedFeatures.value
                   .map((item) => ({ item, point: worldToScreen(item.x, item.z) }))
                   .find(
-                      (candidate) => Math.hypot(candidate.point.x - x, candidate.point.y - y) <= 13,
+                      (candidate) =>
+                          Math.hypot(candidate.point.x - x, candidate.point.y - y) <=
+                          13 * (candidate.item.kind === 'slime-chunk' ? 1 : poiIconScale.value),
                   )?.item
             : undefined
     const ore =
@@ -1913,7 +2177,9 @@ function selectAt(x: number, y: number) {
             ? oreHits.value
                   .map((item) => ({ item, point: worldToScreen(item.x, item.z) }))
                   .filter(
-                      (candidate) => Math.hypot(candidate.point.x - x, candidate.point.y - y) <= 12,
+                      (candidate) =>
+                          Math.hypot(candidate.point.x - x, candidate.point.y - y) <=
+                          12 * poiIconScale.value,
                   )
                   .sort(
                       (a, b) =>
@@ -1923,11 +2189,13 @@ function selectAt(x: number, y: number) {
             : undefined
     const spawnSelected =
         workspace.showSpawn &&
+        workspace.dimension === 'overworld' &&
         spawn.value !== null &&
         Math.hypot(
             worldToScreen(spawn.value.x, spawn.value.z).x - x,
             worldToScreen(spawn.value.x, spawn.value.z).y - y,
-        ) <= 14
+        ) <=
+            14 * poiIconScale.value
     selection.value = marker
         ? { x: marker.x, z: marker.z, markerId: marker.id }
         : feature
@@ -1946,6 +2214,26 @@ function selectAt(x: number, y: number) {
     }
     redraw()
 }
+
+function locateAreaLoot(match: AreaLootMatch) {
+    workspace.center = { x: match.container.x, z: match.container.z }
+    selection.value = { ...workspace.center }
+    scheduleRefresh()
+}
+
+watch(
+    () => [
+        workspace.seed,
+        workspace.edition,
+        workspace.gameVersion,
+        workspace.dimension,
+        workspace.displayMode,
+    ],
+    () => {
+        selectedArea.value = null
+        areaDrag.value = null
+    },
+)
 
 async function lookupSelectionBiome(point: { x: number; z: number }) {
     if (!workspace.seed.trim() || !selectedProfile.value?.available) return
@@ -2028,9 +2316,7 @@ function applyZoomAt(x: number, y: number, delta: number) {
         x: workspace.center.x + (x - viewport.width / 2) * scale.value,
         z: workspace.center.z + (y - viewport.height / 2) * scale.value,
     }
-    const previousTileScale = tileScale.value
     workspace.zoom = targetZoom
-    if (tileScale.value !== previousTileScale) fallbackTileScale = previousTileScale
     workspace.center.x = clampWorldCoordinate(anchor.x - (x - viewport.width / 2) * scale.value)
     workspace.center.z = clampWorldCoordinate(anchor.z - (y - viewport.height / 2) * scale.value)
     redraw()
@@ -2048,9 +2334,7 @@ function animateZoomTo(x: number, y: number, targetZoom: number, duration: numbe
     const step = (now: number) => {
         const progress = Math.min(1, (now - startTime) / duration)
         const easedProgress = 1 - (1 - progress) ** 3
-        const previousTileScale = tileScale.value
         workspace.zoom = startZoom + (targetZoom - startZoom) * easedProgress
-        if (tileScale.value !== previousTileScale) fallbackTileScale = previousTileScale
         workspace.center.x = clampWorldCoordinate(anchor.x - (x - viewport.width / 2) * scale.value)
         workspace.center.z = clampWorldCoordinate(
             anchor.z - (y - viewport.height / 2) * scale.value,
@@ -2144,14 +2428,8 @@ function randomizeSeed() {
 
 function onWorldImported(selection: SeedMapWorldImport) {
     workspace.edition = 'java'
-    if (
-        selection.version &&
-        profiles.value.some(
-            (profile) => profile.edition === 'java' && profile.version === selection.version,
-        )
-    ) {
-        workspace.gameVersion = selection.version
-    }
+    if (selection.version) workspace.gameVersion = selection.version
+    ensureProfile()
     pendingHistorySource = 'instance'
     pendingHistoryLabels = {
         instanceName: selection.instance.name,
@@ -2198,13 +2476,8 @@ function applyHistoryEntry(entry: SeedMapHistoryEntry) {
     pendingHistorySource = entry.source
     pendingHistoryLabels = { instanceName: entry.instanceName, worldName: entry.worldName }
     workspace.edition = entry.edition
-    if (
-        profiles.value.some(
-            (profile) => profile.edition === entry.edition && profile.version === entry.gameVersion,
-        )
-    ) {
-        workspace.gameVersion = entry.gameVersion
-    }
+    workspace.gameVersion = entry.gameVersion
+    ensureProfile()
     if (workspace.seed === entry.seed) {
         if (activeHistoryId !== entry.id) {
             stashActiveProgress()
@@ -2264,6 +2537,7 @@ function addMarker() {
         x: selection.value.x,
         z: selection.value.z,
         color: markerColor.value,
+        dimension: workspace.dimension,
     }
     workspace.markers.push(marker)
     selection.value = { x: marker.x, z: marker.z, markerId: marker.id }
@@ -2278,6 +2552,7 @@ function removeMarker(id: string) {
 }
 
 function jumpToMarker(marker: SeedMapMarker) {
+    if (marker.dimension !== workspace.dimension) return
     workspace.center = { x: marker.x, z: marker.z }
     selection.value = { x: marker.x, z: marker.z, markerId: marker.id }
     advancedOpen.value = false
@@ -2401,6 +2676,7 @@ function clampWorldCoordinate(value: number) {
                             :placeholder="formatMessage(messages.seedPlaceholder)"
                             wrapper-class="seed-map-seed w-full"
                         />
+
                         <Button
                             v-tooltip="formatMessage(messages.randomSeed)"
                             type="outlined"
@@ -2410,12 +2686,17 @@ function clampWorldCoordinate(value: number) {
                             @click="randomizeSeed"
                             ><RefreshCwIcon />
                         </Button>
-                        <PopoutMenu
-                            :aria-label="formatMessage(messages.history)"
-                            dropdown-class="seed-map-history-popout"
-                            placement="bottom-end"
-                        >
-                            <HistoryIcon />
+                        <PopoutMenu dropdown-class="seed-map-history-popout" placement="bottom-end">
+                            <template #trigger>
+                                <Button
+                                    v-tooltip="formatMessage(messages.history)"
+                                    type="outlined"
+                                    circular
+                                    icon-only
+                                    :aria-label="formatMessage(messages.history)"
+                                    ><HistoryIcon />
+                                </Button>
+                            </template>
                             <template #menu>
                                 <div class="seed-history-menu">
                                     <div class="seed-history-heading">
@@ -2562,7 +2843,10 @@ function clampWorldCoordinate(value: number) {
                     </div>
                 </div>
                 <div
-                    v-if="workspace.dimension === 'overworld'"
+                    v-if="
+                        workspace.dimension === 'overworld' &&
+                        workspace.displayMode !== 'underground'
+                    "
                     class="control-group elevation-group shrink-0"
                 >
                     <span class="control-label">{{ formatMessage(messages.depth) }}</span>
@@ -2593,7 +2877,12 @@ function clampWorldCoordinate(value: number) {
             type="critical"
             :header="formatMessage(messages.mapFailed)"
             :body="mapError"
-        />
+            ><template #actions
+                ><Button type="outlined" size="2xs" @click="retryMap"
+                    ><RefreshCwIcon />{{ formatMessage(messages.retryMap) }}</Button
+                ></template
+            ></Admonition
+        >
 
         <section
             ref="fullscreenContainer"
@@ -2608,7 +2897,9 @@ function clampWorldCoordinate(value: number) {
                         formatMessage(
                             workspace.displayMode === 'structures'
                                 ? messages.layers
-                                : messages.oreLayers,
+                                : workspace.displayMode === 'ores'
+                                  ? messages.oreLayers
+                                  : messages.undergroundMode,
                         )
                     }}</span>
                     <div
@@ -2640,6 +2931,22 @@ function clampWorldCoordinate(value: number) {
                         >
                             <PickaxeIcon />{{ formatMessage(messages.ores) }}
                         </Button>
+                        <Button
+                            :type="workspace.displayMode === 'underground' ? 'colored' : 'quiet'"
+                            :disabled="!undergroundSupported"
+                            size="2xs"
+                            data-onboarding-id="seed-map-underground-mode"
+                            @click="setDisplayMode('underground')"
+                            ><LayersIcon />{{ formatMessage(messages.undergroundMode) }}</Button
+                        >
+                        <Button
+                            type="quiet"
+                            icon-only
+                            :aria-label="formatMessage(messages.advancedTour)"
+                            data-onboarding-id="seed-map-advanced-guide"
+                            @click="startMapGuide"
+                            ><InfoIcon
+                        /></Button>
                     </div>
                     <div class="flex items-center gap-1">
                         <Button
@@ -2680,13 +2987,17 @@ function clampWorldCoordinate(value: number) {
                         /></Button>
                     </div>
                 </div>
-                <div class="layer-options">
+                <div v-if="workspace.displayMode !== 'underground'" class="layer-options">
                     <template v-if="workspace.displayMode === 'structures'">
                         <Button
                             v-for="feature in dimensionFeatures"
                             :key="feature.kind"
                             v-tooltip="featureTooltip(feature.kind, feature.maxScale)"
-                            type="colored"
+                            :type="
+                                workspace.visibleFeatures.includes(feature.kind)
+                                    ? 'colored'
+                                    : 'base'
+                            "
                             :color="
                                 workspace.visibleFeatures.includes(feature.kind)
                                     ? 'brand'
@@ -2715,16 +3026,17 @@ function clampWorldCoordinate(value: number) {
                             v-for="ore in dimensionOres"
                             :key="ore.kind"
                             v-tooltip="oreLabel(ore.kind)"
-                            type="colored"
+                            :type="workspace.selectedOres.includes(ore.kind) ? 'colored' : 'base'"
                             :color="workspace.selectedOres.includes(ore.kind) ? 'brand' : undefined"
                             class="layer-option w-10 p-1"
                             :class="{ named: showLayerNames }"
                             :aria-pressed="workspace.selectedOres.includes(ore.kind)"
                             @click="toggleOre(ore.kind)"
                         >
-                            <img :src="ore.image" alt="" /><span v-if="showLayerNames">{{
-                                oreLabel(ore.kind)
-                            }}</span>
+                            <img :src="oreImageSource(ore.image)" alt="" /><span
+                                v-if="showLayerNames"
+                                >{{ oreLabel(ore.kind) }}</span
+                            >
                         </Button>
                     </template>
                     <span
@@ -2736,7 +3048,7 @@ function clampWorldCoordinate(value: number) {
                     <Button
                         v-if="workspace.dimension === 'overworld'"
                         v-tooltip="formatMessage(messages.spawnPoint)"
-                        type="colored"
+                        :type="workspace.showSpawn ? 'colored' : 'base'"
                         :color="workspace.showSpawn ? 'brand' : undefined"
                         class="layer-option w-10 p-1"
                         :class="{ named: showLayerNames }"
@@ -2749,7 +3061,10 @@ function clampWorldCoordinate(value: number) {
                         >
                     </Button>
                 </div>
-                <div v-if="layersExpanded" class="layer-expanded-panel">
+                <div
+                    v-if="layersExpanded && workspace.displayMode !== 'underground'"
+                    class="layer-expanded-panel"
+                >
                     <div class="layer-bulk-actions">
                         <Button
                             type="outlined"
@@ -2811,7 +3126,7 @@ function clampWorldCoordinate(value: number) {
                                 @update:model-value="toggleOre(ore.kind)"
                             >
                                 <span class="layer-checklist-label flex min-w-0 items-center gap-2">
-                                    <img :src="ore.image" alt="" />
+                                    <img :src="oreImageSource(ore.image)" alt="" />
                                     <span>{{ oreLabel(ore.kind) }}</span>
                                     <small>Y {{ ore.yMin }}~{{ ore.yMax }}</small>
                                 </span>
@@ -2862,362 +3177,567 @@ function clampWorldCoordinate(value: number) {
                 </div>
             </div>
 
-            <div
-                class="seed-map-canvas-shell relative flex-1 overflow-hidden rounded-b-[var(--radius-md)] min-h-[32rem] border-x border-b border-surface-5 bg-surface-2"
-                data-onboarding-id="seed-map-canvas"
+            <SeedMapSplitView
+                :open="!!structureQuery || !!selectedArea"
+                class="seed-map-workspace-panes min-h-[32rem] rounded-b-[var(--radius-md)] border-x border-b border-surface-5"
             >
-                <canvas
-                    ref="mapCanvas"
-                    class="block size-full touch-none"
-                    :class="{ 'cursor-crosshair': rulerEnabled }"
-                    @pointerdown="onPointerDown"
-                    @pointermove="onPointerMove"
-                    @pointerup="onPointerUp"
-                    @pointercancel="onPointerUp"
-                    @wheel="onWheel"
-                    @dblclick="onDoubleClick"
-                    @contextmenu="onContextMenu"
-                />
-
-                <div class="map-coordinate-ruler map-coordinate-ruler-x">
-                    <span v-for="offset in [-2, -1, 0, 1, 2]" :key="offset">{{
-                        Math.round(workspace.center.x + (offset * viewport.width * scale) / 4)
-                    }}</span>
-                </div>
-                <div class="map-coordinate-ruler map-coordinate-ruler-z">
-                    <span v-for="offset in [-1, 0, 1]" :key="offset">{{
-                        Math.round(workspace.center.z + (offset * viewport.height * scale) / 3)
-                    }}</span>
-                </div>
-
-                <div class="map-control-stack map-control-stack-left left-3">
-                    <Button
-                        v-tooltip="formatMessage(messages.zoomIn)"
-                        circular
-                        icon-only
-                        :aria-label="formatMessage(messages.zoomIn)"
-                        :disabled="workspace.zoom <= SEED_MAP_MIN_ZOOM"
-                        @click="zoomBy(-0.5)"
-                        ><PlusIcon
-                    /></Button>
-                    <Button
-                        v-tooltip="formatMessage(messages.zoomOut)"
-                        circular
-                        icon-only
-                        :aria-label="formatMessage(messages.zoomOut)"
-                        :disabled="workspace.zoom >= SEED_MAP_SCALES.length - 1"
-                        @click="zoomBy(0.5)"
-                        ><MinusIcon
-                    /></Button>
-                    <Button
-                        v-tooltip="formatMessage(messages.centerSpawn)"
-                        circular
-                        icon-only
-                        :aria-label="formatMessage(messages.centerSpawn)"
-                        :disabled="!spawn"
-                        @click="centerSpawn"
-                        ><CompassIcon
-                    /></Button>
-                </div>
-
-                <div class="map-control-stack map-control-stack-right right-3">
-                    <Button
-                        v-tooltip="
-                            formatMessage(
-                                isFullscreen ? messages.exitFullscreen : messages.fullscreen,
-                            )
-                        "
-                        circular
-                        icon-only
-                        :aria-label="
-                            formatMessage(
-                                isFullscreen ? messages.exitFullscreen : messages.fullscreen,
-                            )
-                        "
-                        @click="toggleFullscreen"
-                        ><ContractIcon v-if="isFullscreen" /><ExpandIcon v-else
-                    /></Button>
-                    <Button
-                        v-tooltip="formatMessage(messages.ruler)"
-                        :type="rulerEnabled ? 'base' : 'outlined'"
-                        circular
-                        icon-only
-                        :aria-label="formatMessage(messages.ruler)"
-                        :aria-pressed="rulerEnabled"
-                        @click="rulerEnabled = !rulerEnabled"
-                        ><ScaleIcon
-                    /></Button>
-                    <Button
-                        v-tooltip="formatMessage(messages.mapSettings)"
-                        :type="advancedOpen ? 'base' : 'outlined'"
-                        circular
-                        icon-only
-                        :aria-label="formatMessage(messages.mapSettings)"
-                        :aria-pressed="advancedOpen"
-                        @click="advancedOpen = !advancedOpen"
-                        ><SettingsIcon
-                    /></Button>
-                </div>
-
-                <div v-if="oreZoomLimited" class="map-status map-ore-status">
-                    <PickaxeIcon class="size-3" />{{ formatMessage(messages.zoomToScanOres) }}
-                </div>
-                <div
-                    v-else-if="workspace.displayMode === 'ores' && workspace.dimension === 'end'"
-                    class="map-status map-ore-status"
-                >
-                    <PickaxeIcon class="size-3" />{{ formatMessage(messages.noOresInEnd) }}
-                </div>
-                <div v-else-if="mapBusy" class="map-status map-ore-status">
-                    <RefreshCwIcon class="size-3 animate-spin" />{{
-                        oreScanning
-                            ? formatMessage(messages.scanningOres, {
-                                  processed: oreScannedChunks,
-                                  total: oreTotalChunks,
-                              })
-                            : formatMessage(messages.loading)
-                    }}
-                </div>
-                <div v-if="rulerDistance !== null" class="map-status map-ruler-status">
-                    <ScaleIcon class="size-3" />{{
-                        formatMessage(messages.distance, { distance: rulerDistance })
-                    }}<Button
-                        v-tooltip="formatMessage(messages.clearRuler)"
-                        type="quiet"
-                        size="2xs"
-                        circular
-                        icon-only
-                        :aria-label="formatMessage(messages.clearRuler)"
-                        @click="rulerPoints = []"
-                        ><XIcon
-                    /></Button>
-                </div>
-
-                <div v-if="selection && selectionVisible" class="map-popup" :style="selectionStyle">
-                    <div class="flex items-start justify-between gap-3">
-                        <div class="min-w-0">
-                            <strong class="block truncate text-sm text-[var(--color-text-primary)]">
-                                <i
-                                    v-if="selection.biome !== undefined && !selectedMarker"
-                                    class="popup-biome-dot"
-                                    :style="{ backgroundColor: biomeColorOf(selection.biome) }"
-                                ></i
-                                >{{
-                                    selection.feature
-                                        ? featureResultLabel(selection.feature)
-                                        : selection.ore
-                                          ? oreLabel(selection.ore.ore)
-                                          : selection.spawn
-                                            ? formatMessage(messages.spawnPoint)
-                                            : selectedMarker?.name ||
-                                              (selection.biome !== undefined
-                                                  ? biomeDisplayName(selection.biome)
-                                                  : formatMessage(messages.location))
-                                }}
-                            </strong>
-                            <span class="text-xs text-[var(--color-text-tertiary)]"
-                                >X {{ selection.x
-                                }}<template v-if="selection.ore">, Y {{ selection.ore.y }}</template
-                                >, Z {{ selection.z
-                                }}<template v-if="selection.biome !== undefined && !selectedMarker">
-                                    · {{ formatMessage(messages.biomeTag) }}</template
-                                ></span
-                            >
-                        </div>
-                        <Button
-                            type="quiet"
-                            size="2xs"
-                            circular
-                            icon-only
-                            :aria-label="formatMessage(messages.closePanel)"
-                            @click="selection = null"
-                            ><XIcon
-                        /></Button>
-                    </div>
-                    <div v-if="selection.ore" class="ore-hit-details">
-                        <span :class="{ verified: selection.ore.verified }">
-                            {{
-                                formatMessage(
-                                    selection.ore.verified
-                                        ? messages.oreVerified
-                                        : messages.oreLikely,
-                                )
-                            }}
-                        </span>
-                        <span>{{
-                            formatMessage(messages.orePrecision, {
-                                precision: selection.ore.precision,
-                            })
-                        }}</span>
-                        <span>{{
-                            formatMessage(messages.oreCoverage, {
-                                min: selection.ore.yMin,
-                                max: selection.ore.yMax,
-                            })
-                        }}</span>
-                    </div>
+                <template #default="{ canvasSize, visibleSize }">
                     <div
-                        v-if="markerDraftOpen"
-                        class="mt-3 grid grid-cols-[minmax(0,1fr)_2.25rem] gap-2"
+                        class="seed-map-canvas-shell relative min-h-0 min-w-0 flex-1 overflow-hidden bg-surface-2"
+                        data-onboarding-id="seed-map-canvas"
+                        @contextmenu.prevent
                     >
-                        <StyledInput
-                            v-model="markerName"
-                            :placeholder="formatMessage(messages.markerName)"
+                        <canvas
+                            v-show="workspace.displayMode !== 'underground'"
+                            ref="mapCanvas"
+                            class="absolute left-0 top-0 block size-full touch-none"
+                            :style="
+                                canvasSize
+                                    ? {
+                                          width: `${canvasSize.width}px`,
+                                          height: `${canvasSize.height}px`,
+                                      }
+                                    : undefined
+                            "
+                            :class="{ 'cursor-crosshair': rulerEnabled }"
+                            @pointerdown="onPointerDown"
+                            @mousedown.right.prevent
+                            @pointermove="onPointerMove"
+                            @pointerup="onPointerUp"
+                            @pointercancel="onPointerUp"
+                            @wheel="onWheel"
+                            @dblclick="onDoubleClick"
+                            @contextmenu.prevent.stop="onContextMenu"
                         />
-                        <input
-                            v-model="markerColor"
-                            type="color"
-                            class="marker-color-input"
-                            :aria-label="formatMessage(messages.markerColor)"
-                        />
-                    </div>
-                    <div class="mt-3 flex flex-wrap gap-2">
-                        <Button
-                            v-if="markerDraftOpen"
-                            type="colored"
-                            color="brand"
-                            size="2xs"
-                            @click="addMarker"
-                            ><PinIcon />{{ formatMessage(messages.addMarker) }}
-                        </Button>
-                        <Button type="outlined" size="2xs" @click="copyTeleport"
-                            ><ClipboardCopyIcon />{{ formatMessage(messages.copyTeleport) }}
-                        </Button>
-                        <Button
-                            v-if="!markerDraftOpen && !selectedMarker"
-                            type="outlined"
-                            size="2xs"
-                            @click="markerDraftOpen = true"
-                            ><PlusIcon />{{ formatMessage(messages.addMarker) }}
-                        </Button>
-                        <Checkbox
-                            v-if="selection.feature"
-                            v-model="selectedFeatureCompleted"
-                            class="feature-completed-checkbox"
-                            :label="formatMessage(messages.completed)"
-                        />
-                        <Checkbox
-                            v-if="selection.ore"
-                            v-model="selectedOreCompleted"
-                            class="feature-completed-checkbox"
-                            :label="formatMessage(messages.mined)"
-                        />
-                        <Button
-                            v-if="selectedMarker"
-                            type="outlined"
-                            size="2xs"
-                            @click="removeMarker(selectedMarker.id)"
-                            ><TrashIcon />{{ formatMessage(messages.removeMarker) }}
-                        </Button>
-                    </div>
-                </div>
 
-                <div v-if="advancedOpen" class="advanced-panel">
-                    <div class="flex items-center justify-between gap-3">
-                        <strong class="text-sm text-[var(--color-text-primary)]">{{
-                            formatMessage(messages.mapSettings)
-                        }}</strong
-                        ><Button
-                            type="quiet"
-                            size="2xs"
-                            circular
-                            icon-only
-                            :aria-label="formatMessage(messages.closePanel)"
-                            @click="advancedOpen = false"
-                            ><XIcon
-                        /></Button>
-                    </div>
-                    <label
-                        ><span>{{ formatMessage(messages.chunkCoordinates) }}</span
-                        ><Toggle v-model="workspace.showChunkCoordinates" small
-                    /></label>
-                    <label
-                        ><span>{{ formatMessage(messages.contours) }}</span
-                        ><Toggle
-                            v-model="contoursEnabled"
-                            :disabled="workspace.dimension === 'nether'"
-                            small
-                    /></label>
-                    <div class="mt-3 border-t border-surface-5 pt-3">
-                        <div class="mb-2 flex items-center justify-between">
-                            <strong class="text-sm text-[var(--color-text-primary)]">{{
-                                formatMessage(messages.markers)
-                            }}</strong
-                            ><span class="text-xs text-[var(--color-text-tertiary)]">{{
-                                workspace.markers.length
-                            }}</span>
-                        </div>
-                        <p
-                            v-if="!workspace.markers.length"
-                            class="m-0 text-xs text-[var(--color-text-tertiary)]"
-                        >
-                            {{ formatMessage(messages.noMarkers) }}
-                        </p>
-                        <div v-else class="marker-list flex flex-col gap-1">
-                            <div v-for="marker in workspace.markers" :key="marker.id">
-                                <button class="marker-jump" @click="jumpToMarker(marker)">
-                                    <i :style="{ backgroundColor: marker.color }"></i
-                                    ><span>{{ marker.name }}</span
-                                    ><small>{{ marker.x }}, {{ marker.z }}</small>
-                                </button>
+                        <template v-if="workspace.displayMode !== 'underground'">
+                            <div
+                                v-if="areaStyle"
+                                class="pointer-events-none absolute z-[4] border-2 border-solid border-purple-800 bg-highlight-purple"
+                                :style="areaStyle"
+                                data-testid="seed-map-area-selection"
+                            />
+                            <span
+                                v-if="selectionVisible && selectionPointStyle"
+                                class="pointer-events-none absolute z-[5] size-6 -translate-x-1/2 -translate-y-1/2"
+                                :style="selectionPointStyle"
+                                data-testid="seed-map-selection-point"
+                                aria-hidden="true"
+                            >
+                                <PlusIcon
+                                    class="absolute inset-0 size-full text-black [stroke-width:4]"
+                                />
+                                <PlusIcon class="absolute inset-0 size-full text-white" />
+                            </span>
+                            <button
+                                v-for="badge in structureBadges(visibleSize)"
+                                :key="badge.id"
+                                type="button"
+                                class="absolute z-[6] flex h-8 items-center gap-2 rounded-lg border border-surface-4 bg-surface-3 px-2 text-xs font-semibold text-[var(--color-text-primary)] shadow-md hover:bg-surface-4"
+                                :class="{ 'ring-2 ring-brand': selectedFeatureKey === badge.id }"
+                                :style="{
+                                    left: `${badge.x}px`,
+                                    top: `${badge.y}px`,
+                                    width: `${badge.width}px`,
+                                }"
+                                :title="`${featureResultLabel(badge.feature)} · ${badge.feature.x}, ${badge.feature.z}`"
+                                :aria-pressed="selectedFeatureKey === badge.id"
+                                data-testid="seed-map-structure-badge"
+                                @pointerdown.stop
+                                @dblclick.stop
+                                @keydown.stop
+                                @click="selectStructureBadge(badge.feature)"
+                            >
+                                <img
+                                    :src="
+                                        badge.feature.kind === 'end-city' &&
+                                        badge.feature.endShip !== undefined
+                                            ? endCityImageSources[
+                                                  badge.feature.endShip ? 'ship' : 'noShip'
+                                              ]
+                                            : featureImageSource(badge.feature.kind)
+                                    "
+                                    alt=""
+                                    class="shrink-0 [image-rendering:pixelated]"
+                                    :style="{
+                                        width: `${20 * poiIconScale}px`,
+                                        height: `${20 * poiIconScale}px`,
+                                    }"
+                                />
+                                <span class="truncate">{{
+                                    featureResultLabel(badge.feature)
+                                }}</span>
+                            </button>
+
+                            <div class="map-coordinate-ruler map-coordinate-ruler-x">
+                                <span v-for="offset in [-2, -1, 0, 1, 2]" :key="offset">{{
+                                    Math.round(
+                                        viewBounds().minX +
+                                            ((offset + 2) * visibleSize.width * scale) / 4,
+                                    )
+                                }}</span>
+                            </div>
+                            <div class="map-coordinate-ruler map-coordinate-ruler-z">
+                                <span v-for="offset in [-1, 0, 1]" :key="offset">{{
+                                    Math.round(
+                                        viewBounds().minZ +
+                                            ((offset + 1.5) * visibleSize.height * scale) / 3,
+                                    )
+                                }}</span>
+                            </div>
+
+                            <div class="map-control-stack map-control-stack-left left-3">
                                 <Button
+                                    v-tooltip="formatMessage(messages.zoomIn)"
+                                    circular
+                                    icon-only
+                                    :aria-label="formatMessage(messages.zoomIn)"
+                                    :disabled="workspace.zoom <= SEED_MAP_MIN_ZOOM"
+                                    @click="zoomBy(-0.5)"
+                                    ><PlusIcon
+                                /></Button>
+                                <Button
+                                    v-tooltip="formatMessage(messages.zoomOut)"
+                                    circular
+                                    icon-only
+                                    :aria-label="formatMessage(messages.zoomOut)"
+                                    :disabled="workspace.zoom >= SEED_MAP_SCALES.length - 1"
+                                    @click="zoomBy(0.5)"
+                                    ><MinusIcon
+                                /></Button>
+                                <Button
+                                    v-tooltip="formatMessage(messages.centerSpawn)"
+                                    circular
+                                    icon-only
+                                    :aria-label="formatMessage(messages.centerSpawn)"
+                                    :disabled="!spawn"
+                                    @click="centerSpawn"
+                                    ><CompassIcon
+                                /></Button>
+                            </div>
+
+                            <div class="map-control-stack map-control-stack-right right-3">
+                                <Button
+                                    v-tooltip="
+                                        formatMessage(
+                                            isFullscreen
+                                                ? messages.exitFullscreen
+                                                : messages.fullscreen,
+                                        )
+                                    "
+                                    circular
+                                    icon-only
+                                    :aria-label="
+                                        formatMessage(
+                                            isFullscreen
+                                                ? messages.exitFullscreen
+                                                : messages.fullscreen,
+                                        )
+                                    "
+                                    @click="toggleFullscreen"
+                                    ><ContractIcon v-if="isFullscreen" /><ExpandIcon v-else
+                                /></Button>
+                                <Button
+                                    v-tooltip="formatMessage(messages.ruler)"
+                                    :type="rulerEnabled ? 'base' : 'outlined'"
+                                    circular
+                                    icon-only
+                                    :aria-label="formatMessage(messages.ruler)"
+                                    :aria-pressed="rulerEnabled"
+                                    @click="rulerEnabled = !rulerEnabled"
+                                    ><ScaleIcon
+                                /></Button>
+                                <Button
+                                    v-tooltip="formatMessage(messages.mapSettings)"
+                                    :type="advancedOpen ? 'base' : 'outlined'"
+                                    circular
+                                    icon-only
+                                    :aria-label="formatMessage(messages.mapSettings)"
+                                    :aria-pressed="advancedOpen"
+                                    @click="advancedOpen = !advancedOpen"
+                                    ><SettingsIcon
+                                /></Button>
+                            </div>
+
+                            <div v-if="oreZoomLimited" class="map-status map-ore-status">
+                                <PickaxeIcon class="size-3" />{{
+                                    formatMessage(messages.zoomToScanOres)
+                                }}
+                            </div>
+                            <div
+                                v-else-if="
+                                    workspace.displayMode === 'ores' &&
+                                    workspace.dimension === 'end'
+                                "
+                                class="map-status map-ore-status"
+                            >
+                                <PickaxeIcon class="size-3" />{{
+                                    formatMessage(messages.noOresInEnd)
+                                }}
+                            </div>
+                            <div v-else-if="mapBusy" class="map-status map-ore-status">
+                                <RefreshCwIcon class="size-3 animate-spin" />{{
+                                    oreScanning
+                                        ? formatMessage(messages.scanningOres, {
+                                              processed: oreScannedChunks,
+                                              total: oreTotalChunks,
+                                          })
+                                        : formatMessage(messages.loading)
+                                }}
+                            </div>
+                            <div
+                                v-if="
+                                    workspace.displayMode === 'ores' && !mapBusy && !oreZoomLimited
+                                "
+                                class="map-status map-ore-status"
+                            >
+                                {{
+                                    formatMessage(
+                                        oreScanTruncated
+                                            ? messages.oreTruncated
+                                            : messages.oreCandidate,
+                                    )
+                                }}
+                            </div>
+                            <div v-if="rulerDistance !== null" class="map-status map-ruler-status">
+                                <ScaleIcon class="size-3" />{{
+                                    formatMessage(messages.distance, { distance: rulerDistance })
+                                }}<Button
+                                    v-tooltip="formatMessage(messages.clearRuler)"
                                     type="quiet"
                                     size="2xs"
                                     circular
                                     icon-only
-                                    :aria-label="formatMessage(messages.removeMarker)"
-                                    @click="removeMarker(marker.id)"
-                                    ><TrashIcon
+                                    :aria-label="formatMessage(messages.clearRuler)"
+                                    @click="rulerPoints = []"
+                                    ><XIcon
                                 /></Button>
+                            </div>
+
+                            <div
+                                v-if="selection && selectionVisible && !structureQuery"
+                                class="map-popup"
+                                :style="selectionStyle"
+                            >
+                                <div class="flex items-start justify-between gap-3">
+                                    <div class="min-w-0">
+                                        <strong
+                                            class="block truncate text-sm text-[var(--color-text-primary)]"
+                                        >
+                                            <i
+                                                v-if="
+                                                    selection.biome !== undefined && !selectedMarker
+                                                "
+                                                class="popup-biome-dot"
+                                                :style="{
+                                                    backgroundColor: biomeColorOf(selection.biome),
+                                                }"
+                                            ></i
+                                            >{{
+                                                selection.feature
+                                                    ? featureResultLabel(selection.feature)
+                                                    : selection.ore
+                                                      ? oreLabel(selection.ore.ore)
+                                                      : selection.spawn
+                                                        ? formatMessage(messages.spawnPoint)
+                                                        : selectedMarker?.name ||
+                                                          (selection.biome !== undefined
+                                                              ? biomeDisplayName(selection.biome)
+                                                              : formatMessage(messages.location))
+                                            }}
+                                        </strong>
+                                        <span class="text-xs text-[var(--color-text-tertiary)]"
+                                            >X {{ selection.x
+                                            }}<template v-if="selection.ore"
+                                                >, Y {{ selection.ore.y }}</template
+                                            >, Z {{ selection.z
+                                            }}<template
+                                                v-if="
+                                                    selection.biome !== undefined && !selectedMarker
+                                                "
+                                            >
+                                                · {{ formatMessage(messages.biomeTag) }}</template
+                                            ></span
+                                        >
+                                    </div>
+                                    <Button
+                                        type="quiet"
+                                        size="2xs"
+                                        circular
+                                        icon-only
+                                        :aria-label="formatMessage(messages.closePanel)"
+                                        @click="selection = null"
+                                        ><XIcon
+                                    /></Button>
+                                </div>
+                                <div v-if="selection.ore" class="ore-hit-details">
+                                    <span>{{ formatMessage(messages.oreCandidate) }}</span>
+                                    <span>{{
+                                        formatMessage(messages.oreCoverage, {
+                                            min: selection.ore.yMin,
+                                            max: selection.ore.yMax,
+                                        })
+                                    }}</span>
+                                </div>
+                                <div
+                                    v-if="markerDraftOpen"
+                                    class="mt-3 grid grid-cols-[minmax(0,1fr)_2.25rem] gap-2"
+                                >
+                                    <StyledInput
+                                        v-model="markerName"
+                                        :placeholder="formatMessage(messages.markerName)"
+                                    />
+                                    <input
+                                        v-model="markerColor"
+                                        type="color"
+                                        class="marker-color-input"
+                                        :aria-label="formatMessage(messages.markerColor)"
+                                    />
+                                </div>
+                                <div class="mt-3 flex flex-wrap gap-2">
+                                    <Button
+                                        v-if="markerDraftOpen"
+                                        type="colored"
+                                        color="brand"
+                                        size="2xs"
+                                        @click="addMarker"
+                                        ><PinIcon />{{ formatMessage(messages.addMarker) }}
+                                    </Button>
+                                    <Button type="outlined" size="2xs" @click="copyTeleport"
+                                        ><ClipboardCopyIcon />{{
+                                            formatMessage(messages.copyTeleport)
+                                        }}
+                                    </Button>
+                                    <Button
+                                        v-if="!markerDraftOpen && !selectedMarker"
+                                        type="outlined"
+                                        size="2xs"
+                                        @click="markerDraftOpen = true"
+                                        ><PlusIcon />{{ formatMessage(messages.addMarker) }}
+                                    </Button>
+                                    <Checkbox
+                                        v-if="selection.feature"
+                                        v-model="selectedFeatureCompleted"
+                                        class="feature-completed-checkbox"
+                                        :label="formatMessage(messages.completed)"
+                                    />
+                                    <Checkbox
+                                        v-if="selection.ore"
+                                        v-model="selectedOreCompleted"
+                                        class="feature-completed-checkbox"
+                                        :label="formatMessage(messages.mined)"
+                                    />
+                                    <Button
+                                        v-if="selectedMarker"
+                                        type="outlined"
+                                        size="2xs"
+                                        @click="removeMarker(selectedMarker.id)"
+                                        ><TrashIcon />{{ formatMessage(messages.removeMarker) }}
+                                    </Button>
+                                </div>
+                            </div>
+
+                            <div v-if="advancedOpen" class="advanced-panel">
+                                <div class="flex items-center justify-between gap-3">
+                                    <strong class="text-sm text-[var(--color-text-primary)]">{{
+                                        formatMessage(messages.mapSettings)
+                                    }}</strong
+                                    ><Button
+                                        type="quiet"
+                                        size="2xs"
+                                        circular
+                                        icon-only
+                                        :aria-label="formatMessage(messages.closePanel)"
+                                        @click="advancedOpen = false"
+                                        ><XIcon
+                                    /></Button>
+                                </div>
+                                <label
+                                    ><span>{{ formatMessage(messages.chunkCoordinates) }}</span
+                                    ><Toggle v-model="workspace.showChunkCoordinates" small
+                                /></label>
+                                <label
+                                    ><span>{{ formatMessage(messages.contours) }}</span
+                                    ><Toggle
+                                        v-model="contoursEnabled"
+                                        :disabled="workspace.dimension === 'nether'"
+                                        small
+                                /></label>
+                                <div class="mt-3 border-t border-surface-5 pt-3">
+                                    <div class="mb-2 flex items-center justify-between">
+                                        <strong class="text-sm text-[var(--color-text-primary)]">{{
+                                            formatMessage(messages.markers)
+                                        }}</strong
+                                        ><span class="text-xs text-[var(--color-text-tertiary)]">{{
+                                            dimensionMarkers.length
+                                        }}</span>
+                                    </div>
+                                    <p
+                                        v-if="!dimensionMarkers.length"
+                                        class="m-0 text-xs text-[var(--color-text-tertiary)]"
+                                    >
+                                        {{ formatMessage(messages.noMarkers) }}
+                                    </p>
+                                    <div v-else class="marker-list flex flex-col gap-1">
+                                        <div v-for="marker in dimensionMarkers" :key="marker.id">
+                                            <button
+                                                class="marker-jump"
+                                                @click="jumpToMarker(marker)"
+                                            >
+                                                <i :style="{ backgroundColor: marker.color }"></i
+                                                ><span>{{ marker.name }}</span
+                                                ><small>{{ marker.x }}, {{ marker.z }}</small>
+                                            </button>
+                                            <Button
+                                                type="quiet"
+                                                size="2xs"
+                                                circular
+                                                icon-only
+                                                :aria-label="formatMessage(messages.removeMarker)"
+                                                @click="removeMarker(marker.id)"
+                                                ><TrashIcon
+                                            /></Button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </template>
+                        <SeedMapUndergroundPreview
+                            v-if="workspace.displayMode === 'underground' && undergroundSupported"
+                            :key="`${workspace.seed}:${workspace.edition}:${workspace.gameVersion}:${workspace.dimension}`"
+                            :query="{
+                                seed: workspace.seed,
+                                edition: workspace.edition,
+                                version: workspace.gameVersion,
+                                dimension: workspace.dimension,
+                                x: workspace.center.x,
+                                y: workspace.undergroundY,
+                                z: workspace.center.z,
+                            }"
+                            @close="setDisplayMode('structures')"
+                        />
+                        <div
+                            v-if="workspace.displayMode !== 'underground'"
+                            class="map-bottom-toolbar"
+                        >
+                            <SeedMapBiomePicker
+                                class="map-bottom-biomes"
+                                :dimension="workspace.dimension"
+                                :enabled="workspace.highlightBiomeEnabled"
+                                :highlighted-biomes="workspace.highlightedBiomes"
+                                :available-biome-ids="selectedProfile?.biomes"
+                                :available-dimensions="dimensions"
+                                :container="isFullscreen ? fullscreenContainer : undefined"
+                                @update:dimension="workspace.dimension = $event"
+                                @update:enabled="workspace.highlightBiomeEnabled = $event"
+                                @update:highlighted-biomes="workspace.highlightedBiomes = $event"
+                            />
+                            <div
+                                class="map-bottom-actions max-sm:w-full max-sm:flex-wrap max-sm:justify-start max-sm:ml-0"
+                            >
+                                <Button
+                                    :type="terrainEnabled ? 'chip-text' : 'outlined'"
+                                    color="brand"
+                                    class="map-action"
+                                    :disabled="!terrainSupported"
+                                    :aria-pressed="terrainEnabled"
+                                    @click="terrainEnabled = !terrainEnabled"
+                                >
+                                    <LayersIcon />{{ formatMessage(messages.terrain) }}
+                                </Button>
+                                <Button
+                                    :type="workspace.showGrid ? 'chip-text' : 'outlined'"
+                                    color="brand"
+                                    class="map-action"
+                                    :aria-pressed="workspace.showGrid"
+                                    @click="workspace.showGrid = !workspace.showGrid"
+                                >
+                                    <GridIcon />{{ formatMessage(messages.showGrid) }}
+                                </Button>
+                                <Button
+                                    v-if="workspace.displayMode === 'structures'"
+                                    type="outlined"
+                                    class="map-action"
+                                    :disabled="!displayedFeatures.length"
+                                    @click="focusNearestFeature"
+                                    ><SearchIcon />{{ formatMessage(messages.searchNearby) }}
+                                </Button>
                             </div>
                         </div>
                     </div>
-                </div>
-
-                <div class="map-bottom-toolbar">
-                    <SeedMapBiomePicker
-                        class="map-bottom-biomes"
-                        :dimension="workspace.dimension"
-                        :enabled="workspace.highlightBiomeEnabled"
-                        :highlighted-biomes="workspace.highlightedBiomes"
-                        :container="isFullscreen ? fullscreenContainer : undefined"
-                        @update:dimension="workspace.dimension = $event"
-                        @update:enabled="workspace.highlightBiomeEnabled = $event"
-                        @update:highlighted-biomes="workspace.highlightedBiomes = $event"
+                </template>
+                <template #details>
+                    <SeedMapAreaAnalysis
+                        v-if="selectedArea"
+                        :area="selectedArea"
+                        :context="{
+                            seed: workspace.seed,
+                            edition: workspace.edition,
+                            version: workspace.gameVersion,
+                            dimension: workspace.dimension,
+                        }"
+                        :ores="dimensionOres.map((ore) => ore.kind)"
+                        :y-range="
+                            selectedProfile?.undergroundYRanges?.[dimensionsIndex] ??
+                            (workspace.dimension === 'nether' ? [0, 127] : [-64, 319])
+                        "
+                        :feature-mask="
+                            selectedProfile?.featureMasks?.[dimensionsIndex] ?? 0x3ffffff
+                        "
+                        :feature-label="featureLabel"
+                        :ore-label="oreLabel"
+                        @close="selectedArea = null"
+                        @locate="locateAreaLoot"
                     />
-                    <div
-                        class="map-bottom-actions max-sm:w-full max-sm:flex-wrap max-sm:justify-start max-sm:ml-0"
+                    <SeedMapStructureDetails
+                        v-else-if="structureQuery && selection?.feature"
+                        :query="structureQuery"
+                        :kind="selection.feature.kind"
+                        :title="featureResultLabel(selection.feature)"
+                        :selected="focusedPiece?.id"
+                        :load="layoutLayer.load"
+                        @close="closeStructureDetails"
+                        @focus="focusStructurePiece"
                     >
-                        <Button
-                            :type="terrainEnabled ? 'chip-text' : 'outlined'"
-                            color="brand"
-                            class="map-action"
-                            :disabled="!terrainSupported"
-                            :aria-pressed="terrainEnabled"
-                            @click="terrainEnabled = !terrainEnabled"
-                        >
-                            <LayersIcon />{{ formatMessage(messages.terrain) }}
-                        </Button>
-                        <Button
-                            :type="workspace.showGrid ? 'chip-text' : 'outlined'"
-                            color="brand"
-                            class="map-action"
-                            :aria-pressed="workspace.showGrid"
-                            @click="workspace.showGrid = !workspace.showGrid"
-                        >
-                            <GridIcon />{{ formatMessage(messages.showGrid) }}
-                        </Button>
-                        <Button
-                            v-if="workspace.displayMode === 'structures'"
-                            type="outlined"
-                            class="map-action"
-                            :disabled="!displayedFeatures.length"
-                            @click="focusNearestFeature"
-                            ><SearchIcon />{{ formatMessage(messages.searchNearby) }}
-                        </Button>
-                    </div>
-                </div>
-            </div>
+                        <template #actions>
+                            <div
+                                v-if="markerDraftOpen"
+                                class="grid grid-cols-[minmax(0,1fr)_2.25rem] gap-2"
+                            >
+                                <StyledInput
+                                    v-model="markerName"
+                                    :placeholder="formatMessage(messages.markerName)"
+                                />
+                                <input
+                                    v-model="markerColor"
+                                    type="color"
+                                    class="size-9 rounded border border-surface-4 bg-surface-3"
+                                    :aria-label="formatMessage(messages.markerColor)"
+                                />
+                            </div>
+                            <div class="flex flex-wrap items-center gap-2">
+                                <Button type="outlined" size="2xs" @click="copyTeleport"
+                                    ><ClipboardCopyIcon />{{
+                                        formatMessage(messages.copyTeleport)
+                                    }}</Button
+                                >
+                                <Button
+                                    :type="markerDraftOpen ? 'colored' : 'outlined'"
+                                    size="2xs"
+                                    @click="
+                                        markerDraftOpen ? addMarker() : (markerDraftOpen = true)
+                                    "
+                                    ><PinIcon />{{ formatMessage(messages.addMarker) }}</Button
+                                >
+                                <Checkbox
+                                    v-model="selectedFeatureCompleted"
+                                    :label="formatMessage(messages.completed)"
+                                />
+                            </div>
+                        </template>
+                    </SeedMapStructureDetails>
+                </template>
+            </SeedMapSplitView>
         </section>
 
         <SeedMapWorldImportModal ref="worldImportModal" @import="onWorldImported" />
@@ -3531,7 +4051,7 @@ function clampWorldCoordinate(value: number) {
     padding: 0.75rem;
 }
 
-.seed-map-experience:fullscreen .seed-map-canvas-shell {
+.seed-map-experience:fullscreen .seed-map-workspace-panes {
     /* The normal map has a 32rem minimum for usability; fullscreen must be able
 	 * to shrink so the toolbar and canvas do not push the surface past the viewport. */
     min-height: 0;
@@ -3737,7 +4257,7 @@ function clampWorldCoordinate(value: number) {
     white-space: nowrap;
 }
 
-.seed-map-canvas-shell canvas {
+.seed-map-canvas-shell > canvas {
     image-rendering: pixelated;
 }
 
@@ -4072,10 +4592,6 @@ function clampWorldCoordinate(value: number) {
     .layer-mode-switch :deep(.button-base),
     .layer-mode-switch :deep(button) {
         flex: 1;
-    }
-
-    .seed-map-canvas-shell {
-        min-height: 32rem;
     }
 }
 

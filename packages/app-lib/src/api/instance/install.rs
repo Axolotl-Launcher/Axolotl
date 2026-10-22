@@ -22,22 +22,63 @@ pub async fn get_optimal_jre_key(
         )
         .await?;
     let version = &minecraft.versions[version_index];
-    let loader_version = crate::launcher::get_loader_version_from_profile(
+    let game_dir = crate::launcher::instance_runtime::InstanceRuntimeAdapter::for_instance(&context.instance, &state.directories)?.game_dir();
+    let mmc_profile = crate::launcher::multimc::MultiMcProfile::load(
+        &game_dir,
         &context.applied_content_set.game_version,
         context.applied_content_set.loader,
         context.applied_content_set.loader_version.as_deref(),
     )
     .await?;
-    let version_info = crate::launcher::download::download_version_info(
+    let metadata_loader = mmc_profile
+        .as_ref()
+        .map_or(context.applied_content_set.loader, |profile| {
+            profile.metadata_loader(context.applied_content_set.loader)
+        });
+    let loader_version = crate::launcher::get_loader_version_from_profile(
+        &context.applied_content_set.game_version,
+        metadata_loader,
+        context.applied_content_set.loader_version.as_deref(),
+    )
+    .await?;
+    let mut version_info = crate::launcher::download::download_version_info(
         &state,
         version,
-        context.applied_content_set.loader,
+        metadata_loader,
         loader_version.as_ref(),
         None,
         None,
         None,
     )
     .await?;
+
+    if let Some(profile) = &mmc_profile {
+        let vanilla = if profile.replaces_minecraft()
+            && metadata_loader != crate::state::ModLoader::Vanilla
+        {
+            Some(
+                crate::launcher::download::download_version_info(
+                    &state,
+                    version,
+                    crate::state::ModLoader::Vanilla,
+                    None,
+                    None,
+                    None,
+                    None,
+                )
+                .await?,
+            )
+        } else {
+            None
+        };
+        profile
+            .apply(
+                &mut version_info,
+                vanilla.as_ref(),
+                &state.directories.libraries_dir(),
+            )
+            .await?;
+    }
 
     let major_version = version_info
         .java_version

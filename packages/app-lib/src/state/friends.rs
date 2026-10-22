@@ -2,7 +2,9 @@ use crate::ErrorKind;
 use crate::data::ModrinthCredentials;
 use crate::event::FriendPayload;
 use crate::event::emit::{emit_friend, emit_notification};
-use crate::state::tunnel::InternalTunnelSocket;
+use crate::state::tunnel::{
+    InternalTunnelSocket, SocketRegistry, close_sockets, take_sockets,
+};
 use crate::state::{ProcessManager, TunnelSocket};
 use crate::util::fetch::{FetchSemaphore, fetch_advanced, fetch_json};
 use ariadne::ids::UserId;
@@ -24,17 +26,17 @@ use reqwest::header::HeaderValue;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::net::SocketAddr;
-use std::ops::Deref;
 use std::sync::Arc;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
 use tokio::net::tcp::OwnedReadHalf;
-use tokio::sync::{Mutex, RwLock};
+use tokio::sync::RwLock;
+use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
 
 pub(super) type WriteSocket =
     Arc<RwLock<Option<WebSocketSender<ConnectStream>>>>;
-pub(super) type TunnelSockets = Arc<DashMap<Uuid, Arc<InternalTunnelSocket>>>;
+pub(super) type TunnelSockets = Arc<SocketRegistry>;
 
 pub struct FriendsSocket {
     write: WriteSocket,
@@ -61,7 +63,7 @@ impl FriendsSocket {
         Self {
             write: Arc::new(RwLock::new(None)),
             user_statuses: Arc::new(DashMap::new()),
-            tunnel_sockets: Arc::new(DashMap::new()),
+            tunnel_sockets: Arc::new(SocketRegistry::default()),
         }
     }
 
@@ -191,23 +193,31 @@ impl FriendsSocket {
                                             ServerToClientMessage::FriendSocketStoppedListening { .. } => {}, // TODO
 
                                             ServerToClientMessage::SocketConnected { to_socket, new_socket } => {
-                                                if let Some(connected_to) = sockets.get(&to_socket)
-                                                    && let InternalTunnelSocket::Listening(local_addr) = *connected_to.value().clone()
-                                                        && let Ok(new_stream) = TcpStream::connect(local_addr).await {
-                                                            let (read, write) = new_stream.into_split();
-                                                            sockets.insert(new_socket, Arc::new(InternalTunnelSocket::Connected(Mutex::new(write))));
-                                                            Self::socket_read_loop(write_handle.clone(), read, new_socket);
-                                                            continue;
-                                                        }
+                                                let connected_to = sockets.lock().get(&to_socket).cloned();
+                                                if let Some(connected_to) = connected_to
+                                                    && let InternalTunnelSocket::Listening(local_addr) = *connected_to
+                                                        && let Ok(new_stream) = TcpStream::connect(local_addr).await
+                                                            && let Some((read, cancel)) = InternalTunnelSocket::register_connection(&sockets, to_socket, &connected_to, new_socket, new_stream) {
+                                                                Self::socket_read_loop(write_handle.clone(), sockets.clone(), read, new_socket, cancel);
+                                                                continue;
+                                                            }
                                                 let _ = Self::send_message(&write_handle, ClientToServerMessage::SocketClose { socket: new_socket }).await;
                                             },
                                             ServerToClientMessage::SocketClosed { socket } => {
-                                                sockets.remove_if(&socket, |_, x| matches!(*x.clone(), InternalTunnelSocket::Connected(_)));
+                                                let mut sockets = sockets.lock();
+                                                if sockets.get(&socket).is_some_and(|value| matches!(**value, InternalTunnelSocket::Connected { .. })) {
+                                                    sockets.remove(&socket);
+                                                }
                                             },
                                             ServerToClientMessage::SocketData { socket, data } => {
-                                                if let Some(mut socket) = sockets.get_mut(&socket)
-                                                    && let InternalTunnelSocket::Connected(ref stream) = *socket.value_mut().clone() {
-                                                        let _ = stream.lock().await.write_all(&data).await;
+                                                let socket = sockets.lock().get(&socket).cloned();
+                                                if let Some(socket) = socket
+                                                    && let InternalTunnelSocket::Connected { ref stream, ref cancel, .. } = *socket {
+                                                        tokio::select! {
+                                                            biased;
+                                                            _ = cancel.cancelled() => {},
+                                                            _ = async { let _ = stream.lock().await.write_all(&data).await; } => {},
+                                                        }
                                                     }
                                             },
                                         }
@@ -404,59 +414,63 @@ impl FriendsSocket {
     #[tracing::instrument(skip(self))]
     pub async fn open_port(&self, port: u16) -> crate::Result<TunnelSocket> {
         let socket_id = Uuid::new_v4();
-        let socket = self.tunnel_sockets.entry(socket_id).insert(Arc::new(
-            InternalTunnelSocket::Listening(SocketAddr::new(
-                "127.0.0.1".parse().unwrap(),
-                port,
-            )),
+        let socket = Arc::new(InternalTunnelSocket::Listening(
+            SocketAddr::new("127.0.0.1".parse().unwrap(), port),
         ));
+        self.tunnel_sockets.lock().insert(socket_id, socket);
+        let tunnel = TunnelSocket {
+            socket_id,
+            write: self.write.clone(),
+            sockets: self.tunnel_sockets.clone(),
+        };
         Self::send_message(
             &self.write,
             ClientToServerMessage::SocketListen { socket: socket_id },
         )
         .await?;
-        self.create_tunnel_socket(socket_id, socket)
+        Ok(tunnel)
     }
 
     pub async fn is_connected(&self) -> bool {
         self.write.read().await.is_some()
     }
 
-    fn create_tunnel_socket(
-        &self,
-        socket_id: Uuid,
-        socket: impl Deref<Target = Arc<InternalTunnelSocket>>,
-    ) -> crate::Result<TunnelSocket> {
-        Ok(TunnelSocket {
-            socket_id,
-            write: self.write.clone(),
-            sockets: self.tunnel_sockets.clone(),
-            internal: socket.clone(),
-        })
-    }
-
-    fn socket_read_loop(
+    pub(super) fn socket_read_loop(
         write: WriteSocket,
+        sockets: TunnelSockets,
         mut read_half: OwnedReadHalf,
         socket_id: Uuid,
+        cancel: CancellationToken,
     ) {
         tokio::spawn(async move {
             let mut read_buffer = [0u8; 8192];
             loop {
-                match read_half.read(&mut read_buffer).await {
+                let result = tokio::select! {
+                    biased;
+                    _ = cancel.cancelled() => break,
+                    result = read_half.read(&mut read_buffer) => result,
+                };
+                match result {
                     Ok(0) | Err(_) => break,
                     Ok(n) => {
-                        let _ = Self::send_message(
+                        let message = Self::send_message(
                             &write,
                             ClientToServerMessage::SocketSend {
                                 socket: socket_id,
                                 data: read_buffer[..n].to_vec(),
                             },
-                        )
-                        .await;
+                        );
+                        tokio::select! {
+                            biased;
+                            _ = cancel.cancelled() => break,
+                            _ = message => {},
+                        }
                     }
                 };
             }
+            drop(read_half);
+            let removed = take_sockets(&sockets, socket_id);
+            let _ = close_sockets(write, removed).await;
         });
     }
 

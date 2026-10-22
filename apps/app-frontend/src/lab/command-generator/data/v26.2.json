@@ -1,0 +1,20 @@
+{
+  "version": "26.2",
+  "base": "26.1",
+  "generatedAt": "2026-10-22",
+  "sources": [
+    "https://minecraft.wiki/w/Java_Edition_26.2",
+    "https://www.minecraft.net/en-us/article/minecraft-java-edition-26-2",
+    "https://www.minecraft.net/en-us/article/minecraft-26-2-pre-release-1"
+  ],
+  "added": [
+    {
+      "id": "unpublish",
+      "name": "unpublish",
+      "descriptionKey": "app.lab.command-generator.cmd.unpublish.desc",
+      "category": "server",
+      "permissionLevel": 4,
+      "arguments": []
+    }
+  ]
+}

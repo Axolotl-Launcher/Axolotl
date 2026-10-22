@@ -1,6 +1,8 @@
 import { convertFileSrc, invoke } from '@tauri-apps/api/core'
 import { type MaybeRefOrGetter, ref, toValue, watch } from 'vue'
 
+import { createThumbnailQueue } from './thumbnail-queue'
+
 export type ImageThumbnailSource = {
     instanceId: string
     filePath: string
@@ -9,6 +11,7 @@ export type ImageThumbnailSource = {
 
 type ThumbnailCacheEntry = {
     promise: Promise<string>
+    cancelQueued: () => boolean
     url?: string
     users: number
     lastUsed: number
@@ -18,33 +21,12 @@ const MAX_CONCURRENT_THUMBNAILS = 4
 const MAX_CACHED_THUMBNAILS = 256
 
 const thumbnailCache = new Map<string, ThumbnailCacheEntry>()
-const thumbnailQueue: Array<() => void> = []
-let activeThumbnailRequests = 0
-
-function runThumbnailQueue() {
-    while (activeThumbnailRequests < MAX_CONCURRENT_THUMBNAILS && thumbnailQueue.length > 0) {
-        activeThumbnailRequests += 1
-        thumbnailQueue.shift()?.()
-    }
-}
-
-function enqueueThumbnail<T>(task: () => Promise<T>) {
-    return new Promise<T>((resolve, reject) => {
-        thumbnailQueue.push(() => {
-            void task()
-                .then(resolve, reject)
-                .finally(() => {
-                    activeThumbnailRequests -= 1
-                    runThumbnailQueue()
-                })
-        })
-        runThumbnailQueue()
-    })
-}
+const thumbnailQueue = createThumbnailQueue(MAX_CONCURRENT_THUMBNAILS)
 
 function removeThumbnail(cacheKey: string, entry: ThumbnailCacheEntry) {
     if (thumbnailCache.get(cacheKey) !== entry) return
     thumbnailCache.delete(cacheKey)
+    entry.cancelQueued()
     if (entry.url) {
         URL.revokeObjectURL(entry.url)
     } else {
@@ -76,17 +58,19 @@ function acquireThumbnail(source: ImageThumbnailSource, maxDimension: number, re
     ])
     let entry = thumbnailCache.get(cacheKey)
     if (!entry) {
+        const request = thumbnailQueue.enqueue(async () => {
+            const bytes = await invoke<ArrayBuffer>('plugin:files|screenshot_thumbnail', {
+                instanceId: source.instanceId,
+                filePath: source.filePath,
+                maxDimension,
+            })
+            return URL.createObjectURL(new Blob([bytes]))
+        })
         entry = {
             users: 0,
             lastUsed: performance.now(),
-            promise: enqueueThumbnail(async () => {
-                const bytes = await invoke<ArrayBuffer>('plugin:files|screenshot_thumbnail', {
-                    instanceId: source.instanceId,
-                    filePath: source.filePath,
-                    maxDimension,
-                })
-                return URL.createObjectURL(new Blob([bytes]))
-            }),
+            promise: request.promise,
+            cancelQueued: request.cancel,
         }
         thumbnailCache.set(cacheKey, entry)
         void entry.promise.then(
@@ -107,6 +91,9 @@ function acquireThumbnail(source: ImageThumbnailSource, maxDimension: number, re
         release: () => {
             entry!.users = Math.max(0, entry!.users - 1)
             entry!.lastUsed = performance.now()
+            if (entry!.users === 0 && !entry!.url && entry!.cancelQueued()) {
+                removeThumbnail(cacheKey, entry!)
+            }
             trimThumbnailCache()
         },
     }
@@ -142,6 +129,7 @@ export function useImageThumbnail(
                     if (active) thumbnail.value = url
                 },
                 (error) => {
+                    if (!active) return
                     console.warn('Could not create image thumbnail', error)
                     if (active) thumbnail.value = fallbackUrl
                 },

@@ -22,6 +22,8 @@ test('maps legacy game versions to their required Java major', () => {
 
 test('maps year-based game versions to Java 25', () => {
     assert.equal(requiredJavaMajorVersion('26.2'), 25)
+    assert.equal(requiredJavaMajorVersion('26.3'), 25)
+    assert.equal(requiredJavaMajorVersion('26.3-snapshot-6'), 25)
     assert.equal(requiredJavaMajorVersion('26.1'), 25)
     assert.equal(requiredJavaMajorVersion('26w14a'), 25)
     assert.equal(requiredJavaMajorVersion('25w46a'), 21)

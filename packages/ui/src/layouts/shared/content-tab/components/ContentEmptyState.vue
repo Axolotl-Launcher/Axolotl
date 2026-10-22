@@ -65,6 +65,7 @@ const emit = defineEmits<{
             }}
         </template>
         <template #actions>
+            <slot name="actions" />
             <Button
                 v-tooltip="props.busyTooltip"
                 type="outlined"

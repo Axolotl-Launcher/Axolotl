@@ -27,6 +27,7 @@ import {
     kill,
     run,
 } from '@/helpers/instance'
+import { createRequestGeneration } from '@/helpers/request-generation'
 import type { GameInstance } from '@/helpers/types'
 import { handleSevereError } from '@/store/error'
 
@@ -82,12 +83,8 @@ const anchor = ref(new Date())
 const selectedKey = ref(todayKey)
 const dailyPlaytime = ref<DailyPlaytime[]>([])
 const dayDetails = ref<DailyPlaytimeEntry[]>([])
-const activeTooltip = ref<{
-    dateKey: string
-    lines: string[]
-    left: number
-    top: number
-} | null>(null)
+const playtimeRequests = createRequestGeneration()
+const detailsRequests = createRequestGeneration()
 
 const periodStart = computed(() => startOfPeriod(anchor.value, 'month'))
 const periodEnd = computed(() => endOfPeriod(anchor.value, 'month'))
@@ -140,56 +137,55 @@ function tooltipLinesFor(dateKey: string): string[] {
     return lines
 }
 
-function showTooltip(event: PointerEvent | FocusEvent) {
-    const target =
-        event.target instanceof Element
-            ? event.target.closest<HTMLElement>('[data-date-key]')
-            : null
-    const dateKey = target?.dataset.dateKey
-    if (!target || !dateKey) {
-        activeTooltip.value = null
-        return
-    }
-
-    const rect = target.getBoundingClientRect()
-    const halfWidth = Math.min(144, Math.max(0, (window.innerWidth - 24) / 2))
-    activeTooltip.value = {
-        dateKey,
-        lines: tooltipLinesFor(dateKey),
-        left: Math.min(
-            Math.max(rect.left + rect.width / 2, 12 + halfWidth),
-            window.innerWidth - 12 - halfWidth,
-        ),
-        top: rect.top - 8,
-    }
-}
-
 async function refreshPlaytime() {
-    dailyPlaytime.value = await get_daily_playtime(
-        toDateKey(periodStart.value),
-        toDateKey(periodEnd.value),
-    ).catch((error): DailyPlaytime[] => {
-        handleError(error)
-        return []
-    })
+    const start = toDateKey(periodStart.value)
+    const end = toDateKey(periodEnd.value)
+    const request = playtimeRequests.begin(`${start}\0${end}`)
+    try {
+        const result = await get_daily_playtime(start, end)
+        if (
+            playtimeRequests.isCurrent(
+                request,
+                `${toDateKey(periodStart.value)}\0${toDateKey(periodEnd.value)}`,
+            ) &&
+            start === toDateKey(periodStart.value) &&
+            end === toDateKey(periodEnd.value)
+        ) {
+            dailyPlaytime.value = result
+        }
+    } catch (error) {
+        if (
+            playtimeRequests.isCurrent(
+                request,
+                `${toDateKey(periodStart.value)}\0${toDateKey(periodEnd.value)}`,
+            )
+        ) {
+            handleError(error)
+            dailyPlaytime.value = []
+        }
+    }
 }
 
 async function refreshDayDetails() {
-    dayDetails.value = await get_daily_playtime_details(selectedKey.value).catch(
-        (error): DailyPlaytimeEntry[] => {
+    const dateKey = selectedKey.value
+    const request = detailsRequests.begin(dateKey)
+    try {
+        const result = await get_daily_playtime_details(dateKey)
+        if (detailsRequests.isCurrent(request, selectedKey.value) && dateKey === selectedKey.value)
+            dayDetails.value = result
+    } catch (error) {
+        if (detailsRequests.isCurrent(request, selectedKey.value)) {
             handleError(error)
-            return []
-        },
-    )
+            dayDetails.value = []
+        }
+    }
 }
 
 function movePeriod(amount: number) {
-    activeTooltip.value = null
     anchor.value = shiftPeriod(anchor.value, 'month', amount)
 }
 
 function goToThisMonth() {
-    activeTooltip.value = null
     anchor.value = new Date()
     selectedKey.value = todayKey
 }
@@ -270,13 +266,7 @@ watch(instanceRevision, async () => {
                 </Button>
             </div>
         </header>
-        <div
-            class="flex-none"
-            @pointerover="showTooltip"
-            @pointerleave="activeTooltip = null"
-            @focusin="showTooltip"
-            @focusout="activeTooltip = null"
-        >
+        <div class="flex-none">
             <div
                 class="mb-1 grid grid-cols-7 gap-[0.1875rem] text-center text-xs font-semibold text-[var(--color-text-tertiary)]"
                 aria-hidden="true"
@@ -291,6 +281,14 @@ watch(instanceRevision, async () => {
                 <button
                     v-for="day in days"
                     :key="day.dateKey"
+                    v-tooltip="
+                        day.inPeriod && day.dateKey <= todayKey
+                            ? {
+                                  content: tooltipLinesFor(day.dateKey).join('\n'),
+                                  popperClass: 'whitespace-pre-line !leading-snug',
+                              }
+                            : undefined
+                    "
                     type="button"
                     class="home-calendar-cell h-[1.4rem] border border-solid rounded-[var(--radius-sm)] text-[0.6875rem] font-semibold outline-none p-0"
                     :class="{
@@ -314,9 +312,6 @@ watch(instanceRevision, async () => {
                     "
                     :aria-label="day.inPeriod ? day.dateKey : undefined"
                     :aria-pressed="day.inPeriod ? day.dateKey === selectedKey : undefined"
-                    :aria-describedby="
-                        activeTooltip?.dateKey === day.dateKey ? 'home-calendar-tooltip' : undefined
-                    "
                     role="gridcell"
                     @click="selectDay(day.dateKey)"
                 >
@@ -384,20 +379,6 @@ watch(instanceRevision, async () => {
             </ul>
         </div>
     </section>
-    <Teleport to="body">
-        <Transition name="home-calendar-tooltip">
-            <div
-                v-if="activeTooltip"
-                id="home-calendar-tooltip"
-                class="home-calendar-tooltip"
-                role="tooltip"
-                :style="{ left: `${activeTooltip.left}px`, top: `${activeTooltip.top}px` }"
-            >
-                <strong>{{ activeTooltip.lines[0] }}</strong>
-                <span v-for="line in activeTooltip.lines.slice(1)" :key="line">{{ line }}</span>
-            </div>
-        </Transition>
-    </Teleport>
 </template>
 
 <style scoped>
@@ -445,62 +426,5 @@ watch(instanceRevision, async () => {
 .home-calendar-level-4 {
     background: var(--color-brand);
     color: var(--color-accent-contrast);
-}
-
-.home-calendar-tooltip {
-    position: fixed;
-    z-index: 1000;
-    display: flex;
-    max-width: 18rem;
-    transform: translate(-50%, -100%);
-    flex-direction: column;
-    gap: 0.125rem;
-    pointer-events: none;
-    padding: 0.5rem 0.625rem;
-    border: 1px solid var(--surface-5);
-    border-radius: var(--radius-sm);
-    background: var(--color-tooltip-bg);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
-    color: var(--color-tooltip-text);
-    font-size: 0.8125rem;
-    font-weight: 500;
-    line-height: 1.4;
-}
-
-.home-calendar-tooltip::after {
-    position: absolute;
-    top: 100%;
-    left: 50%;
-    width: 0.5rem;
-    height: 0.5rem;
-    transform: translate(-50%, -50%) rotate(45deg);
-    border-right: 1px solid var(--surface-5);
-    border-bottom: 1px solid var(--surface-5);
-    background: var(--color-tooltip-bg);
-    content: '';
-}
-
-.home-calendar-tooltip strong {
-    font-weight: 700;
-}
-
-.home-calendar-tooltip-enter-active,
-.home-calendar-tooltip-leave-active {
-    transition:
-        opacity 100ms ease,
-        transform 100ms ease;
-}
-
-.home-calendar-tooltip-enter-from,
-.home-calendar-tooltip-leave-to {
-    transform: translate(-50%, calc(-100% + 0.25rem));
-    opacity: 0;
-}
-
-@media (prefers-reduced-motion: reduce) {
-    .home-calendar-tooltip-enter-active,
-    .home-calendar-tooltip-leave-active {
-        transition: none;
-    }
 }
 </style>

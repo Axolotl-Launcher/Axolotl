@@ -41,5 +41,8 @@
 	"i18n-ally.keystyle": "flat",
 	"i18n-ally.sourceLanguage": "zh-CN",
 	"i18n-ally.namespace": false,
-	"i18n-ally.includeSubfolders": true
+    "i18n-ally.includeSubfolders": true,
+    "[json]": {
+        "editor.defaultFormatter": "vscode.json-language-features"
+    }
 }

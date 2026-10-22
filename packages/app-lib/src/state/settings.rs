@@ -1,5 +1,8 @@
 //! Theseus settings file
 
+use crate::util::download::constants::{
+    AUTO_DOWNLOAD_CONCURRENCY_INITIAL, DOWNLOAD_CONCURRENCY_HARD_MAX,
+};
 use serde::{Deserialize, Serialize};
 use sqlx::{Pool, Sqlite};
 use std::collections::HashMap;
@@ -99,6 +102,10 @@ impl<'de> Deserialize<'de> for HomeLayout {
 /// Global Theseus settings
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Settings {
+    #[serde(default = "default_true")]
+    pub resource_chinese_filenames: bool,
+    #[serde(default = "default_true")]
+    pub resource_preserve_filenames: bool,
     pub max_concurrent_downloads: usize,
     pub max_concurrent_writes: usize,
     #[serde(default)]
@@ -426,6 +433,16 @@ impl Settings {
                 .fetch_one(&mut *connection)
                 .await?;
         let settings = Self {
+            resource_chinese_filenames: sqlx::query_scalar(
+                "SELECT resource_chinese_filenames FROM settings WHERE id = 0",
+            )
+            .fetch_one(&mut *connection)
+            .await?,
+            resource_preserve_filenames: sqlx::query_scalar(
+                "SELECT resource_preserve_filenames FROM settings WHERE id = 0",
+            )
+            .fetch_one(&mut *connection)
+            .await?,
             max_concurrent_downloads: res.max_concurrent_downloads as usize,
             max_concurrent_writes: res.max_concurrent_writes as usize,
             auto_concurrent_downloads: res.auto_concurrent_downloads == 1,
@@ -587,7 +604,8 @@ impl Settings {
     ) -> crate::Result<()> {
         let max_concurrent_writes = self.max_concurrent_writes as i32;
         let max_concurrent_downloads =
-            self.max_concurrent_downloads.clamp(1, 256) as i32;
+            self.max_concurrent_downloads
+                .clamp(1, DOWNLOAD_CONCURRENCY_HARD_MAX) as i32;
         let theme = self.theme.as_str();
         let accent_color = self.accent_color.as_str();
         let default_page = self.default_page.as_str();
@@ -839,6 +857,10 @@ impl Settings {
         .bind(self.bypass_curseforge_download_restrictions)
         .execute(&mut *connection)
         .await?;
+        sqlx::query("UPDATE settings SET resource_chinese_filenames = ?, resource_preserve_filenames = ? WHERE id = 0")
+            .bind(self.resource_chinese_filenames)
+            .bind(self.resource_preserve_filenames)
+            .execute(&mut *connection).await?;
         sqlx::query("UPDATE settings SET ignore_ssl_errors = ? WHERE id = 0")
             .bind(self.ignore_ssl_errors)
             .execute(&mut *connection)
@@ -880,9 +902,10 @@ impl Settings {
 
     pub fn effective_max_concurrent_downloads(&self) -> usize {
         if self.auto_concurrent_downloads {
-            64
+            AUTO_DOWNLOAD_CONCURRENCY_INITIAL
         } else {
-            self.max_concurrent_downloads.clamp(1, 256)
+            self.max_concurrent_downloads
+                .clamp(1, DOWNLOAD_CONCURRENCY_HARD_MAX)
         }
     }
 
@@ -1367,12 +1390,18 @@ mod tests {
         sqlx::migrate!().run(&pool).await.unwrap();
 
         let mut settings = Settings::get(&pool).await.unwrap();
+        assert!(settings.resource_chinese_filenames);
+        assert!(settings.resource_preserve_filenames);
+        settings.resource_chinese_filenames = false;
+        settings.resource_preserve_filenames = false;
         assert!(settings.bypass_curseforge_download_restrictions);
 
         settings.bypass_curseforge_download_restrictions = false;
         settings.update(&pool).await.unwrap();
 
         let reloaded = Settings::get(&pool).await.unwrap();
+        assert!(!reloaded.resource_chinese_filenames);
+        assert!(!reloaded.resource_preserve_filenames);
         assert!(!reloaded.bypass_curseforge_download_restrictions);
     }
 

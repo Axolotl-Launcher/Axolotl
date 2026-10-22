@@ -37,6 +37,8 @@ pub(crate) struct ModsTomlEntry {
 pub(crate) struct ForgeDependencyEntry {
     pub mod_id: Option<String>,
     pub mandatory: Option<bool>,
+    #[serde(rename = "type")]
+    pub dependency_type: Option<String>,
     pub version_range: Option<String>,
     #[allow(dead_code)]
     pub ordering: Option<String>,
@@ -44,9 +46,38 @@ pub(crate) struct ForgeDependencyEntry {
     pub side: Option<String>,
 }
 
+impl ForgeDependencyEntry {
+    pub fn required(&self) -> bool {
+        match self.dependency_type.as_deref() {
+            Some("required") => true,
+            Some(_) => false,
+            None => self.mandatory.unwrap_or(true),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn neoforge_dependency_types_and_forge_mandatory_are_distinct() {
+        for (declaration, required) in [
+            ("type = 'required'", true),
+            ("type = 'optional'", false),
+            ("type = 'incompatible'", false),
+            ("type = 'discouraged'", false),
+            ("type = 'unknown'", false),
+            ("mandatory = false", false),
+            ("mandatory = true", true),
+            ("", true),
+        ] {
+            let entry: ForgeDependencyEntry =
+                toml::from_str(&format!("modId = 'example'\n{declaration}"))
+                    .unwrap();
+            assert_eq!(entry.required(), required, "{declaration}");
+        }
+    }
 
     #[test]
     fn parses_camel_case_mods_toml_fields() {

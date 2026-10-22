@@ -11,6 +11,7 @@ export type SettingsCategoryId =
     | 'java-performance'
     | 'content-downloads'
     | 'network-multiplayer'
+    | 'network-connection'
     | 'storage-backups'
     | 'privacy-data'
     | 'updates'
@@ -164,6 +165,14 @@ export const settingsCategoryDefinitions: SettingsCategoryDefinition[] = [
         }),
         group: 'support',
         onboardingId: 'settings-tab-about',
+    },
+    {
+        id: 'network-connection',
+        name: defineMessage({
+            id: 'app.settings.tabs.network-connection',
+            defaultMessage: 'Network tests',
+        }),
+        group: 'support',
     },
     {
         id: 'logs',

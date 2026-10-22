@@ -2,7 +2,6 @@
 import { BoxIcon, FolderOpenIcon, FolderSearchIcon, PlusIcon, TrashIcon } from '@modrinth/assets'
 import {
     Combobox,
-    ConfirmModal,
     defineMessages,
     IconButton,
     injectNotificationManager,
@@ -15,17 +14,16 @@ import { invoke } from '@tauri-apps/api/core'
 import { open } from '@tauri-apps/plugin-dialog'
 import { computed, ref, watch } from 'vue'
 
-import { purge_cache_types } from '@/helpers/cache.js'
 import { configureCurseForgeManualDownloadWatcher } from '@/helpers/curseforge'
 import { syncConfiguredDirectLinks } from '@/helpers/direct-link-sync'
 import {
     getMissingContentScannerSettings,
     setMissingContentScannerSettings,
 } from '@/helpers/downloads-scanner'
+import { resourcePreferredSource, resourceSetPreferredSource } from '@/helpers/resources'
 import { get, getProxyConfig, setProxyConfig, testProxyConfig, update } from '@/helpers/settings.ts'
 import { createSettingsPatchSaver } from '@/helpers/settings-patch'
 import { showAppDbBackupsFolder } from '@/helpers/utils.js'
-import { useTheming } from '@/store/state'
 
 import SettingsRow from './SettingsRow.vue'
 import SettingsSection from './SettingsSection.vue'
@@ -40,14 +38,44 @@ const props = defineProps({
 })
 
 const { handleError } = injectNotificationManager()
-const themeStore = useTheming()
 const settings = ref(await get())
 const saveDraft = createSettingsPatchSaver(settings.value, update)
 const missingContentScannerSettings = ref(getMissingContentScannerSettings())
 const minecraftDirectories = ref(loadMinecraftDirectories())
 const minecraftDirectoryError = ref(null)
-const purgeCacheConfirmModal = ref(null)
 const { formatMessage } = useVIntl()
+const preferredResourceSource = ref('modrinth')
+try {
+    preferredResourceSource.value = await resourcePreferredSource()
+} catch (error) {
+    handleError(error)
+}
+const savingResourceSource = ref(false)
+const resourceSourceOptions = [
+    { value: 'modrinth', label: 'Modrinth' },
+    { value: 'curseforge', label: 'CurseForge' },
+    { value: 'mcarchive', label: 'MCArchive' },
+    { value: 'planet_minecraft', label: 'Planet Minecraft' },
+]
+const resourceSourceIds = ['modrinth', 'curseforge', 'mcarchive', 'planet_minecraft']
+const resourceSourceChoice = computed({
+    get: () => preferredResourceSource.value,
+    set: (value) => {
+        void saveResourceSource(value)
+    },
+})
+async function saveResourceSource(value) {
+    savingResourceSource.value = true
+    try {
+        const source = resourceSourceIds.includes(value) ? value : resourceSourceIds[0]
+        await resourceSetPreferredSource(source)
+        preferredResourceSource.value = source
+    } catch (error) {
+        handleError(error)
+    } finally {
+        savingResourceSource.value = false
+    }
+}
 
 const isPortable = ref(false)
 
@@ -115,6 +143,32 @@ async function testProxy() {
 }
 
 const messages = defineMessages({
+    chineseNames: {
+        id: 'app.settings.resources.chinese-names',
+        defaultMessage: 'Add known Chinese names to downloads',
+    },
+    chineseNamesDescription: {
+        id: 'app.settings.resources.chinese-names-description',
+        defaultMessage:
+            'Prefix new resource filenames with the known Chinese project name, when available.',
+    },
+    preserveNames: {
+        id: 'app.settings.resources.preserve-names',
+        defaultMessage: 'Preserve local prefixes and suffixes when updating',
+    },
+    preserveNamesDescription: {
+        id: 'app.settings.resources.preserve-names-description',
+        defaultMessage:
+            'Updates and version changes replace only the known original filename. Custom names that cannot be matched are kept intact.',
+    },
+    preferredResourceSource: {
+        id: 'app.resources.preferred-source',
+        defaultMessage: 'Preferred resource source',
+    },
+    preferredResourceSourceDescription: {
+        id: 'app.resources.preferred-source.description',
+        defaultMessage: 'Used for default descriptions and equivalent releases. Default: Modrinth.',
+    },
     dataStorageSectionTitle: {
         id: 'app.settings.resources.sections.data-storage',
         defaultMessage: 'Data directories & cache',
@@ -186,22 +240,6 @@ const messages = defineMessages({
     minecraftDirectoryModeAutomatic: {
         id: 'app.settings.resources.minecraft-directory-mode.automatic',
         defaultMessage: 'Automatic',
-    },
-    purgeConfirmTitle: {
-        id: 'app.settings.resources.purge-confirm-title',
-        defaultMessage: 'Are you sure you want to purge the cache?',
-    },
-    purgeConfirmDescription: {
-        id: 'app.settings.resources.purge-confirm-description',
-        defaultMessage:
-            'If you proceed, your entire cache will be purged. This may slow down the app temporarily.',
-    },
-    appCache: { id: 'app.settings.resources.app-cache', defaultMessage: 'App cache' },
-    purgeCache: { id: 'app.settings.resources.purge-cache', defaultMessage: 'Purge cache' },
-    appCacheDescription: {
-        id: 'app.settings.resources.app-cache-description',
-        defaultMessage:
-            'Axolotl Launcher caches data to speed up loading. Purging it forces the app to reload data and may temporarily slow the app down.',
     },
     downloadMirrors: {
         id: 'app.settings.resources.download-mirrors',
@@ -619,21 +657,18 @@ watch(
     minecraftDirectories,
     (value) => {
         persistMinecraftDirectories(value)
-        void syncDirectLinkInstances(true)
+        void syncDirectLinkInstances()
     },
     { deep: true },
 )
 
-async function syncDirectLinkInstances(allowEmpty = false) {
-    if (!allowEmpty && minecraftDirectories.value.length === 0) return
+async function syncDirectLinkInstances() {
     try {
         await syncConfiguredDirectLinks(minecraftDirectories.value)
     } catch (error) {
         handleError(error)
     }
 }
-
-void syncDirectLinkInstances()
 
 watch(
     missingContentScannerSettings,
@@ -653,39 +688,6 @@ watch(
     },
     { deep: true },
 )
-
-async function purgeCache() {
-    await purge_cache_types([
-        'project',
-        'project_v3',
-        'curseforge_project',
-        'version',
-        'user',
-        'team',
-        'organization',
-        'file',
-        'loader_manifest',
-        'minecraft_manifest',
-        'categories',
-        'report_types',
-        'loaders',
-        'game_versions',
-        'donation_platforms',
-        'file_hash',
-        'file_update',
-        'search_results',
-        'search_results_v3',
-    ]).catch(handleError)
-}
-
-function handlePurgeCacheClick() {
-    if (themeStore.getFeatureFlag('skip_non_essential_warnings')) {
-        void purgeCache()
-        return
-    }
-
-    purgeCacheConfirmModal.value?.show()
-}
 
 async function openDbBackupsFolder() {
     await showAppDbBackupsFolder().catch(handleError)
@@ -746,15 +748,6 @@ function validateMinecraftDirectory(_value) {
 
 <template>
     <div class="flex flex-col gap-6">
-        <ConfirmModal
-            ref="purgeCacheConfirmModal"
-            :title="formatMessage(messages.purgeConfirmTitle)"
-            :description="formatMessage(messages.purgeConfirmDescription)"
-            :has-to-type="false"
-            :proceed-label="formatMessage(messages.purgeCache)"
-            @proceed="purgeCache"
-        />
-
         <SettingsSection
             v-if="props.scope === 'storage-backups'"
             :title="formatMessage(messages.dataStorageSectionTitle)"
@@ -840,20 +833,6 @@ function validateMinecraftDirectory(_value) {
             </SettingsRow>
             <SettingsRow>
                 <template #label>
-                    <span id="settings-target-storage-cache" tabindex="-1">
-                        {{ formatMessage(messages.appCache) }}
-                    </span>
-                </template>
-                <template #description>{{ formatMessage(messages.appCacheDescription) }}</template>
-                <template #control>
-                    <button id="purge-cache" class="btn min-w-max" @click="handlePurgeCacheClick">
-                        <TrashIcon />
-                        {{ formatMessage(messages.purgeCache) }}
-                    </button>
-                </template>
-            </SettingsRow>
-            <SettingsRow>
-                <template #label>
                     <span id="settings-target-resources-database-backups" tabindex="-1">
                         {{ formatMessage(messages.databaseBackups) }}
                     </span>
@@ -875,6 +854,48 @@ function validateMinecraftDirectory(_value) {
         </SettingsSection>
 
         <SettingsSection v-if="props.scope === 'content-downloads'">
+            <SettingsRow>
+                <template #label>{{ formatMessage(messages.preferredResourceSource) }}</template>
+                <template #description>{{
+                    formatMessage(messages.preferredResourceSourceDescription)
+                }}</template>
+                <template #control
+                    ><Combobox
+                        v-model="resourceSourceChoice"
+                        :options="resourceSourceOptions"
+                        :disabled="savingResourceSource"
+                /></template>
+            </SettingsRow>
+            <SettingsRow>
+                <template #label
+                    ><span id="settings-target-resources-chinese-names" tabindex="-1">{{
+                        formatMessage(messages.chineseNames)
+                    }}</span></template
+                >
+                <template #description>{{
+                    formatMessage(messages.chineseNamesDescription)
+                }}</template>
+                <template #control
+                    ><Toggle
+                        id="resource-chinese-filenames"
+                        v-model="settings.resource_chinese_filenames"
+                /></template>
+            </SettingsRow>
+            <SettingsRow>
+                <template #label
+                    ><span id="settings-target-resources-preserve-names" tabindex="-1">{{
+                        formatMessage(messages.preserveNames)
+                    }}</span></template
+                >
+                <template #description>{{
+                    formatMessage(messages.preserveNamesDescription)
+                }}</template>
+                <template #control
+                    ><Toggle
+                        id="resource-preserve-filenames"
+                        v-model="settings.resource_preserve_filenames"
+                /></template>
+            </SettingsRow>
             <template #header>
                 <h2
                     id="settings-target-resources-download-mirrors"

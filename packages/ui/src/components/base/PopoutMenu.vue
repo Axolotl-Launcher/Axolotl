@@ -1,32 +1,50 @@
 <template>
-    <DropdownMenuRoot v-model:open="open" :modal="false">
-        <DropdownMenuTrigger
+    <component :is="menu ? DropdownMenuRoot : PopoverRoot" v-model:open="open" :modal="false">
+        <component
+            :is="menu ? DropdownMenuTrigger : PopoverTrigger"
             as-child
             @keydown="noteTriggerKeydown"
             @pointerdown="noteTriggerPointerdown"
+            @mouseenter="enterHover"
+            @mouseleave="leaveHover"
+            @click.stop
+            @pointerdown.stop
+            @mousedown.stop
         >
             <slot name="trigger">
-                <button ref="trigger" v-bind="$attrs" v-tooltip="tooltip">
+                <button v-tooltip="tooltip" v-bind="$attrs">
                     <slot></slot>
                 </button>
             </slot>
-        </DropdownMenuTrigger>
+        </component>
 
-        <DropdownMenuPortal :to="portalTarget">
-            <DropdownMenuContent
+        <component :is="menu ? DropdownMenuPortal : PopoverPortal" :to="portalTarget">
+            <component
+                :is="menu ? DropdownMenuContent : PopoverContent"
                 :id="dropdownId || undefined"
-                ref="content"
                 :side="side"
                 :align="align"
                 :side-offset="sideOffset"
                 :class="[dropdownClass, 'menu-surface']"
-                @open-auto-focus="focusFirstContent"
+                v-bind="contentAttrs"
+                :collision-padding="8"
+                @mouseenter="enterHover"
+                @mouseleave="leaveHover"
+                @open-auto-focus="preventPointerFocus"
+                @close-auto-focus="preventReplacedFocus"
+                @keydown="dismissOnEscape"
+                @escape-key-down="dismissOnEscape"
             >
                 <slot name="menu" :hide="hide"></slot>
-                <DropdownMenuArrow class="menu-arrow" :width="14" :height="7" />
-            </DropdownMenuContent>
-        </DropdownMenuPortal>
-    </DropdownMenuRoot>
+                <component
+                    :is="menu ? DropdownMenuArrow : PopoverArrow"
+                    class="menu-arrow"
+                    :width="14"
+                    :height="7"
+                />
+            </component>
+        </component>
+    </component>
 </template>
 
 <script setup lang="ts">
@@ -41,8 +59,13 @@ import {
     DropdownMenuPortal,
     DropdownMenuRoot,
     DropdownMenuTrigger,
+    PopoverArrow,
+    PopoverContent,
+    PopoverPortal,
+    PopoverRoot,
+    PopoverTrigger,
 } from 'reka-ui'
-import { type ComponentPublicInstance, computed, ref } from 'vue'
+import { computed, onMounted, onScopeDispose, useAttrs, watch } from 'vue'
 
 const props = withDefaults(
     defineProps<{
@@ -52,6 +75,10 @@ const props = withDefaults(
         tooltip?: string
         placement?: string
         container?: string | HTMLElement | boolean
+        /** Registered menu items use DropdownMenu; arbitrary panels use Popover. */
+        menu?: boolean
+        hoverable?: boolean
+        contentAttrs?: Record<string, unknown>
     }>(),
     {
         dropdownId: undefined,
@@ -60,6 +87,7 @@ const props = withDefaults(
         tooltip: undefined,
         placement: 'bottom-end',
         container: undefined,
+        menu: false,
     },
 )
 
@@ -68,8 +96,42 @@ defineOptions({
 })
 
 const open = defineModel<boolean>('open', { default: false })
-const trigger = ref<HTMLElement>()
-const content = ref<ComponentPublicInstance>()
+const attrs = useAttrs()
+let hoverTimer: ReturnType<typeof setTimeout> | undefined
+function enterHover() {
+    clearTimeout(hoverTimer)
+    if (props.hoverable && !attrs.disabled) open.value = true
+}
+function leaveHover() {
+    if (props.hoverable)
+        hoverTimer = setTimeout(() => {
+            open.value = false
+        }, 250)
+}
+const closeAll = 'close-all-context-menus'
+let replaced = false
+function preventReplacedFocus(event: Event) {
+    if (replaced) event.preventDefault()
+}
+function closeOtherMenus() {
+    if (props.menu && open.value) {
+        replaced = true
+        open.value = false
+    }
+}
+onMounted(() => window.addEventListener(closeAll, closeOtherMenus))
+watch(open, (value) => {
+    if (value && props.menu) {
+        replaced = false
+        window.removeEventListener(closeAll, closeOtherMenus)
+        window.dispatchEvent(new CustomEvent(closeAll))
+        window.addEventListener(closeAll, closeOtherMenus)
+    }
+})
+onScopeDispose(() => {
+    clearTimeout(hoverTimer)
+    window.removeEventListener(closeAll, closeOtherMenus)
+})
 
 // A pointer open must not move focus: clicking a menu would otherwise pull the
 // caret out of whatever the user was editing and drop a focus ring on the first
@@ -79,24 +141,22 @@ let openedFromKeyboard = false
 
 function noteTriggerKeydown(event: KeyboardEvent) {
     openedFromKeyboard = ['ArrowDown', 'ArrowUp', 'Enter', ' '].includes(event.key)
+    if (!props.menu && ['ArrowDown', 'ArrowUp'].includes(event.key)) {
+        event.preventDefault()
+        open.value = true
+    }
 }
 
 function noteTriggerPointerdown() {
     openedFromKeyboard = false
 }
 
-function focusFirstContent(event: Event) {
+function preventPointerFocus(event: Event) {
     if (!openedFromKeyboard) {
         // Leave focus where the user left it; reka would otherwise focus the
         // content itself on a pointer open.
         event.preventDefault()
-        return
     }
-    event.preventDefault()
-    const root = content.value?.$el as HTMLElement | undefined
-    root?.querySelector<HTMLElement>(
-        'button:not(:disabled), a[href], [tabindex]:not([tabindex="-1"])',
-    )?.focus()
 }
 
 /**
@@ -136,7 +196,12 @@ function show() {
 
 function hide() {
     open.value = false
-    trigger.value?.focus()
+}
+function dismissOnEscape(event: KeyboardEvent) {
+    if (event.key !== 'Escape' || event.defaultPrevented) return
+    event.preventDefault()
+    event.stopPropagation()
+    hide()
 }
 
 defineExpose({ show, hide })

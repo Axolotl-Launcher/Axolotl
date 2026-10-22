@@ -174,6 +174,8 @@ import { open } from '@tauri-apps/plugin-dialog'
 import { openUrl } from '@tauri-apps/plugin-opener'
 import { computed, onUnmounted, ref } from 'vue'
 
+import { resolveDownloadUrl } from '@/helpers/download-url'
+import { retiredDownloadMessage } from '@/helpers/download-url-messages'
 import {
     createDownloadsScanLoop,
     createDownloadsScannerPresentationState,
@@ -593,7 +595,9 @@ async function retryAll() {
 
 async function openBrowser(url: string) {
     try {
-        await openUrl(url)
+        const resolved = resolveDownloadUrl(url)
+        if (!resolved) throw new Error(formatMessage(retiredDownloadMessage))
+        await openUrl(resolved)
     } catch (error) {
         handleError(error)
     }

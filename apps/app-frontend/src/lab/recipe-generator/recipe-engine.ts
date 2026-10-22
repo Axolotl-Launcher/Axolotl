@@ -1,5 +1,5 @@
 import { createJavaFormatter, type JavaRecipeFormatter } from './formatter.ts'
-import { fullId, parseIdentifier } from './identifier.ts'
+import { fullId, parseIdentifier, rawId } from './identifier.ts'
 import type {
     JavaVersionId,
     RecipeSlot,
@@ -8,7 +8,8 @@ import type {
     SlotValue,
 } from './types.ts'
 import {
-    DEFAULT_COOKING_TIME,
+    defaultCookingTime,
+    isRecipeTypeAvailable,
     isVersionAtLeast,
     supportsRecipeCategory,
     supportsShowNotification,
@@ -286,7 +287,7 @@ function buildCooking(
         ...(group ? { group } : {}),
         ...showNotification,
         experience: state.cooking.experience,
-        cookingtime: state.cooking.time ?? DEFAULT_COOKING_TIME[type],
+        cookingtime: state.cooking.time ?? defaultCookingTime(type, version),
         ingredient: ingredient ? fmt.ingredient(ingredient.ref, ingredient.isTag) : {},
         result:
             result && !result.isTag
@@ -375,8 +376,12 @@ export function generateJavaRecipe(
     version: JavaVersionId,
     ctx: RecipeSlotContext,
 ): Record<string, unknown> {
+    if (!isRecipeTypeAvailable(version, state.recipeType))
+        throw new Error('This recipe type is not supported by the selected version.')
     const fmt = createJavaFormatter(version)
     switch (state.recipeType) {
+        case 'brewing':
+            return buildBrewing(state, ctx)
         case 'crafting':
             return buildCrafting(state, version, ctx, fmt)
         case 'smelting':
@@ -397,4 +402,57 @@ export function generateJavaRecipe(
 
 export function getCraftingGridValues(state: RecipeState): (SlotValue | undefined)[] {
     return craftingGrid(state)
+}
+
+export function parseRecipeJsonObject(source: string): Record<string, unknown> {
+    const value: unknown = JSON.parse(source.trim() || '{}')
+    if (!value || typeof value !== 'object' || Array.isArray(value))
+        throw new Error('Expected a JSON object')
+    return value as Record<string, unknown>
+}
+
+function buildBrewing(state: RecipeState, ctx: RecipeSlotContext): Record<string, unknown> {
+    const brewing = state.brewing
+    const ingredient = (slot: 'brewing.input' | 'brewing.reagent', source = '', potion = '') => {
+        const resolved = resolveSlotValue(state.slots[slot], ctx)
+        const predicate = parseRecipeJsonObject(source)
+        return {
+            ...predicate,
+            ...(resolved ? { item: `${resolved.isTag ? '#' : ''}${rawId(resolved.ref)}` } : {}),
+            ...(potion
+                ? {
+                      potion_contents: {
+                          ...(typeof predicate.potion_contents === 'object' &&
+                          predicate.potion_contents
+                              ? predicate.potion_contents
+                              : {}),
+                          potions: potion,
+                      },
+                  }
+                : {}),
+        }
+    }
+    const result = resolveSlotValue(state.slots['brewing.result'], ctx)
+    if (result?.isTag) throw new Error('A brewing result must be an item')
+    const components = parseRecipeJsonObject(brewing?.outputComponents ?? '')
+    if (brewing?.outputPotion)
+        components['minecraft:potion_contents'] = {
+            ...(typeof components['minecraft:potion_contents'] === 'object' &&
+            components['minecraft:potion_contents']
+                ? components['minecraft:potion_contents']
+                : {}),
+            potion: brewing.outputPotion,
+        }
+    return {
+        type: 'minecraft:brewing',
+        input: ingredient('brewing.input', brewing?.inputPredicate, brewing?.inputPotion),
+        reagent: ingredient('brewing.reagent', brewing?.reagentPredicate, brewing?.reagentPotion),
+        output: {
+            ...(result ? { id: rawId(result.ref) } : {}),
+            ...(slotCount(state.slots['brewing.result']) !== undefined
+                ? { count: slotCount(state.slots['brewing.result']) }
+                : {}),
+            ...(Object.keys(components).length ? { components } : {}),
+        },
+    }
 }

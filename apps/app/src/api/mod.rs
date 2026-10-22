@@ -39,6 +39,7 @@ pub mod drop;
 pub mod files;
 pub mod fonts;
 pub mod friends;
+pub mod resources;
 pub mod worlds;
 
 mod oauth_utils;
@@ -76,6 +77,9 @@ pub enum TheseusSerializableError {
 
     #[error("Search request cancelled: {0}")]
     SearchCancelled(String),
+
+    #[error("{0}")]
+    Resource(#[from] theseus::resources::ResourceError),
 }
 
 // Generic implementation of From<T> for ErrorTypeA
@@ -109,6 +113,16 @@ macro_rules! impl_serialize {
                             "message",
                             &theseus_error.user_facing_message(),
                         )?;
+                        state.end()
+                    }
+                    TheseusSerializableError::Resource(error) => {
+                        if !matches!(error, theseus::resources::ResourceError::Canceled) {
+                            tracing::error!(error = %error, "Resource operation failed");
+                        }
+                        let mut state = serializer.serialize_struct("Resource", 3)?;
+                        state.serialize_field("field_name", "Resource")?;
+                        state.serialize_field("message", &error.to_string())?;
+                        state.serialize_field("code", if matches!(error, theseus::resources::ResourceError::CursorExpired) { "cursorExpired" } else { "resourceError" })?;
                         state.end()
                     }
                     $(

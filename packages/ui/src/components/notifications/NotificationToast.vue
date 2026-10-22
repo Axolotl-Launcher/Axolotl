@@ -94,8 +94,7 @@
                 class="grid grid-cols-[minmax(0,1fr)_auto] gap-x-1 gap-y-[0.1875rem] min-w-0 flex-1 text-base leading-5"
             >
                 <p
-                    ref="titleRef"
-                    v-tooltip="truncatedTooltip(titleRef, entityLabel)"
+                    v-tooltip="{ content: entityLabel, onlyWhenTruncated: true }"
                     class="col-start-1 col-end-3 row-start-1 m-0 min-w-0 truncate pr-9 text-lg font-semibold leading-6 text-[var(--color-text-primary)]"
                 >
                     {{ entityLabel }}
@@ -116,8 +115,7 @@
                     class="col-start-1 col-end-3 row-start-2 flex min-w-0 items-center justify-between gap-0.5"
                 >
                     <p
-                        ref="statusRef"
-                        v-tooltip="truncatedTooltip(statusRef, statusLine)"
+                        v-tooltip="{ content: statusLine, onlyWhenTruncated: true }"
                         class="m-0 min-w-0 flex-1 font-normal leading-tight text-[var(--color-text-primary)]/85"
                         :class="wrapText ? 'whitespace-normal break-words' : 'truncate'"
                     >
@@ -194,11 +192,10 @@
 
 <script setup lang="ts">
 import { XIcon } from '@modrinth/assets'
-import { computed, ref } from 'vue'
+import { computed } from 'vue'
 
 import { useFormatBytes, useFormatNumber } from '../../composables'
 import type { PopupNotificationButton, PopupNotificationProgressType } from '../../providers'
-import { truncatedTooltip } from '../../utils/truncate'
 import Avatar from '../base/Avatar.vue'
 import Button from '../base/buttons/Button.vue'
 
@@ -329,9 +326,6 @@ const progressLabel = computed(() => {
     )
     return primary
 })
-
-const titleRef = ref<HTMLElement | null>(null)
-const statusRef = ref<HTMLElement | null>(null)
 </script>
 
 <style scoped>

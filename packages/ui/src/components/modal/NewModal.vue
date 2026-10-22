@@ -144,6 +144,7 @@
 import { XIcon } from '@modrinth/assets'
 import { computed, nextTick, onUnmounted, ref } from 'vue'
 
+import { useBodyScrollLock } from '../../composables/body-scroll-lock'
 import { useVIntl } from '../../composables/i18n'
 import { useModalStack } from '../../composables/modal-stack'
 import { useScrollIndicator } from '../../composables/scroll-indicator'
@@ -232,10 +233,25 @@ const headerId = `${modalId}-header`
 const closeLabel = computed(() => formatMessage(commonMessages.closeButton))
 
 const open = ref(false)
+const { lock: lockBodyScroll, unlock: unlockBodyScroll } = useBodyScrollLock()
 const visible = ref(false)
 const stackDepth = ref(0)
 const modalBodyRef = ref<HTMLElement | null>(null)
 let previousFocusEl: Element | null = null
+let phase: 'closed' | 'opening' | 'open' | 'closing' | 'disposed' = 'closed'
+let transitionGeneration = 0
+let showTimer: ReturnType<typeof setTimeout> | undefined
+let hideTimer: ReturnType<typeof setTimeout> | undefined
+let resolveHide: ((completed: boolean) => void) | undefined
+
+function cancelTransitionTimers() {
+    clearTimeout(showTimer)
+    clearTimeout(hideTimer)
+    showTimer = undefined
+    hideTimer = undefined
+    resolveHide?.(false)
+    resolveHide = undefined
+}
 
 const scrollContainer = ref<HTMLElement | null>(null)
 const { showTopFade, showBottomFade, checkScrollState } = useScrollIndicator(scrollContainer)
@@ -249,15 +265,17 @@ function getFocusableElements(): HTMLElement[] {
 }
 
 function show(event?: MouseEvent) {
-    props.onShow?.()
+    if (phase === 'disposed' || phase === 'opening' || phase === 'open') return
+    cancelTransitionTimers()
+    const generation = ++transitionGeneration
+    phase = 'opening'
     const wasEmpty = modalStackSize() === 0
     stackDepth.value = modalStackSize()
     open.value = true
     previousFocusEl = document.activeElement
     pushModal()
-    if (wasEmpty) modalBehavior?.onShow?.()
 
-    document.body.style.overflow = 'hidden'
+    lockBodyScroll()
     window.addEventListener('keydown', handleWindowKeyDown)
     window.addEventListener('mousedown', updateMousePosition)
     if (event) {
@@ -266,9 +284,13 @@ function show(event?: MouseEvent) {
         mouseX.value = Math.round(window.innerWidth / 2)
         mouseY.value = Math.round(window.innerHeight / 2)
     }
-    setTimeout(() => {
+    showTimer = setTimeout(() => {
+        showTimer = undefined
+        if (generation !== transitionGeneration || phase !== 'opening') return
+        phase = 'open'
         visible.value = true
         nextTick(() => {
+            if (generation !== transitionGeneration || phase !== 'open') return
             const focusable = getFocusableElements()
             if (focusable.length > 0) {
                 focusable[0].focus()
@@ -277,22 +299,27 @@ function show(event?: MouseEvent) {
             }
         })
     }, 50)
+    if (wasEmpty) modalBehavior?.onShow?.()
+    if (generation === transitionGeneration) props.onShow?.()
 }
 
 async function hide() {
+    if (phase !== 'opening' && phase !== 'open') return
     if (props.disableClose) {
         return
     }
     if (props.beforeHide?.() === false) {
         return
     }
-    props.onHide?.()
+    cancelTransitionTimers()
+    const generation = ++transitionGeneration
+    phase = 'closing'
     resetMousePosition()
     visible.value = false
     popModal()
+    unlockBodyScroll()
     if (modalStackSize() === 0) {
         modalBehavior?.onHide?.()
-        document.body.style.overflow = ''
     }
     window.removeEventListener('keydown', handleWindowKeyDown)
     window.removeEventListener('mousedown', updateMousePosition)
@@ -300,12 +327,21 @@ async function hide() {
         previousFocusEl.focus()
     }
     previousFocusEl = null
-    //把原有300ms等待挪出来，避免闪烁
-    await new Promise<void>((resolve) => {
-        setTimeout(resolve, 300)
+    const completion = new Promise<boolean>((resolve) => {
+        resolveHide = resolve
+        hideTimer = setTimeout(() => {
+            hideTimer = undefined
+            resolveHide = undefined
+            resolve(true)
+        }, 300)
     })
+    props.onHide?.()
+    const completed = await completion
+    if (!completed || generation !== transitionGeneration || phase !== 'closing') return
+    phase = 'closed'
     open.value = false
     await nextTick()
+    if (generation !== transitionGeneration) return
     props.onAfterHide?.()
 }
 
@@ -351,21 +387,30 @@ function resetMousePosition() {
 }
 
 onUnmounted(() => {
-    if (open.value) {
-        popModal()
-        window.removeEventListener('keydown', handleWindowKeyDown)
-        window.removeEventListener('mousedown', updateMousePosition)
+    const wasActive = phase === 'opening' || phase === 'open'
+    phase = 'disposed'
+    transitionGeneration++
+    cancelTransitionTimers()
+    popModal()
+    unlockBodyScroll()
+    window.removeEventListener('keydown', handleWindowKeyDown)
+    window.removeEventListener('mousedown', updateMousePosition)
+    if (wasActive) {
         if (modalStackSize() === 0) {
-            document.body.style.overflow = ''
             modalBehavior?.onHide?.()
         }
     }
 })
 
 function handleWindowKeyDown(event: KeyboardEvent) {
+    if (event.defaultPrevented) return
     if (props.closeOnEsc && event.key === 'Escape' && props.closable) {
-        if (!isTopmostModal()) return
-        hide()
+        setTimeout(() => {
+            if (event.defaultPrevented || !isTopmostModal() || props.disableClose) return
+            if (phase !== 'opening' && phase !== 'open') return
+            event.preventDefault()
+            hide()
+        }, 0)
     }
 }
 

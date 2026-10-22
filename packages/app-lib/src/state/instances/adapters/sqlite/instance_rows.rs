@@ -11,6 +11,7 @@ use crate::state::{
 use chrono::{DateTime, TimeZone, Utc};
 use serde::de::DeserializeOwned;
 use sqlx::{Executor, Sqlite, SqlitePool, Transaction};
+use std::collections::HashMap;
 use uuid::Uuid;
 
 #[derive(Clone, Debug, sqlx::FromRow)]
@@ -1297,6 +1298,12 @@ pub(crate) async fn upsert_instance_link(
     tx: &mut Transaction<'_, Sqlite>,
 ) -> crate::Result<()> {
     let columns = instance_link_columns(link)?;
+    if !matches!(link, InstanceLink::Unmanaged) {
+        sqlx::query("DELETE FROM resource_pack_unlinks WHERE instance_id = ?")
+            .bind(instance_id)
+            .execute(&mut **tx)
+            .await?;
+    }
     let modrinth_project_id = columns.modrinth_project_id.as_deref();
     let modrinth_version_id = columns.modrinth_version_id.as_deref();
     let server_project_id = columns.server_project_id.as_deref();
@@ -1470,18 +1477,52 @@ pub(crate) async fn get_instance_synced_options(
     for row in rows {
         let feature: String = sqlx::Row::get(&row, "feature");
         let enabled: bool = sqlx::Row::get(&row, "enabled");
-        match feature.as_str() {
-            "game_options" => options.game_options = enabled,
-            "command_history" => options.command_history = enabled,
-            "multiplayer_servers" => options.multiplayer_servers = enabled,
-            "creative_hotbars" => options.creative_hotbars = enabled,
-            "screenshots" => options.screenshots = enabled,
-            "resource_packs" => options.resource_packs = enabled,
-            "data_packs" => options.data_packs = enabled,
-            _ => {}
-        }
+        apply_sync_preference(&mut options, &feature, enabled);
     }
     Ok(options)
+}
+
+pub(crate) async fn get_instance_synced_options_many(
+    instance_ids: &[&str],
+    pool: &SqlitePool,
+) -> crate::Result<HashMap<String, crate::state::InstanceSyncedOptions>> {
+    use sqlx::Row;
+    let rows = sqlx::query(
+        "SELECT instance_id, feature, enabled FROM instance_sync_preferences
+         WHERE instance_id IN (SELECT value FROM json_each(?))",
+    )
+    .bind(serde_json::to_string(instance_ids)?)
+    .fetch_all(pool)
+    .await?;
+    let mut grouped = HashMap::new();
+    for row in rows {
+        let id: String = row.try_get("instance_id")?;
+        let feature: String = row.try_get("feature")?;
+        let enabled: bool = row.try_get("enabled")?;
+        apply_sync_preference(
+            grouped.entry(id).or_default(),
+            &feature,
+            enabled,
+        );
+    }
+    Ok(grouped)
+}
+
+fn apply_sync_preference(
+    options: &mut crate::state::InstanceSyncedOptions,
+    feature: &str,
+    enabled: bool,
+) {
+    match feature {
+        "game_options" => options.game_options = enabled,
+        "command_history" => options.command_history = enabled,
+        "multiplayer_servers" => options.multiplayer_servers = enabled,
+        "creative_hotbars" => options.creative_hotbars = enabled,
+        "screenshots" => options.screenshots = enabled,
+        "resource_packs" => options.resource_packs = enabled,
+        "data_packs" => options.data_packs = enabled,
+        _ => {}
+    }
 }
 
 struct InstanceLinkColumns {

@@ -31,6 +31,7 @@ jobs:
       branch: ${{ steps.branch.outputs.name }}
       flake: ${{ steps.flake-inputs.outputs.changed }}
       hash: ${{ steps.pnpm-deps.outputs.changed }}
+      gradle: ${{ steps.gradle-deps.outputs.changed }}
       old-hash: ${{ steps.pnpm-deps.outputs.old }}
       new-hash: ${{ steps.pnpm-deps.outputs.new }}
     steps:
@@ -98,6 +99,24 @@ jobs:
             echo "changed=true" >> "$GITHUB_OUTPUT"
           fi
 
+      - name: Recompute the gradle dependency cache
+        id: gradle-deps
+        # The Gradle that resolves these dependencies comes from nixpkgs, so a
+        # refreshed lock can invalidate nix/mitmCache.json even though the Java
+        # build files did not move.
+        if: steps.flake-inputs.outputs.changed == 'true' || github.event_name == 'workflow_dispatch'
+        env:
+          # bubblewrap is only a guard against sloppy build scripts and needs
+          # user namespaces the hosted runners do not reliably provide.
+          USE_BWRAP: '0'
+        run: |
+          nix develop . --accept-flake-config --command update-gradle-deps
+          if git diff --quiet -- nix/mitmCache.json; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Upload the refreshed lock file
         if: steps.flake-inputs.outputs.changed == 'true'
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
@@ -108,10 +127,20 @@ jobs:
           retention-days: 1
           if-no-files-found: error
 
+      - name: Upload the refreshed gradle dependency cache
+        if: steps.gradle-deps.outputs.changed == 'true'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: nix-mitm-cache
+          path: nix/mitmCache.json
+          overwrite: true
+          retention-days: 1
+          if-no-files-found: error
+
   commit:
     name: Commit the refreshed nix locks
     needs: refresh
-    if: needs.refresh.outputs.flake == 'true' || needs.refresh.outputs.hash == 'true'
+    if: needs.refresh.outputs.flake == 'true' || needs.refresh.outputs.hash == 'true' || needs.refresh.outputs.gradle == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
@@ -138,15 +167,20 @@ jobs:
         # Only the expected file with the expected structure crosses the job
         # boundary; anything else the refresh job produced is dropped.
         run: |
+          lock_file="$(find refreshed -type f -name flake.lock -print -quit)"
+          if [ -z "$lock_file" ]; then
+            echo "error: the refreshed lock file is missing from the artifact" >&2
+            exit 1
+          fi
           node -e '
             const fs = require("node:fs");
-            const lock = JSON.parse(fs.readFileSync("refreshed/flake.lock", "utf8"));
+            const lock = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
             const keys = Object.keys(lock).sort().join(",");
             if (keys !== "nodes,root,version") {
               throw new Error("unexpected flake.lock keys: " + keys);
             }
-          '
-          install -m 644 refreshed/flake.lock flake.lock
+          ' "$lock_file"
+          install -m 644 "$lock_file" flake.lock
 
       - name: Commit the refreshed lock file
         if: needs.refresh.outputs.flake == 'true'
@@ -221,4 +255,57 @@ jobs:
             }
           done
           echo "error: could not push the updated pnpm dependency hash after 3 attempts" >&2
+          exit 1
+
+      - name: Download the refreshed gradle dependency cache
+        if: needs.refresh.outputs.gradle == 'true'
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: nix-mitm-cache
+          path: refreshed
+
+      - name: Apply the refreshed gradle dependency cache
+        if: needs.refresh.outputs.gradle == 'true'
+        # Same boundary rule as the lock file: only the expected file and its
+        # structure are accepted.
+        run: |
+          cache_file="$(find refreshed -type f -name mitmCache.json -print -quit)"
+          if [ -z "$cache_file" ]; then
+            echo "error: the refreshed gradle dependency cache is missing from the artifact" >&2
+            exit 1
+          fi
+          node -e '
+            const fs = require("node:fs");
+            const cache = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
+            const hosts = Object.entries(cache).filter(([key]) => !key.startsWith("!"));
+            if (cache["!version"] !== 1 || hosts.length === 0
+                || hosts.some(([, value]) => typeof value !== "object" || value === null)) {
+              throw new Error("unexpected gradle dependency cache structure");
+            }
+          ' "$cache_file"
+          install -m 644 "$cache_file" nix/mitmCache.json
+
+      - name: Commit the refreshed gradle dependency cache
+        if: needs.refresh.outputs.gradle == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TARGET_BRANCH: ${{ needs.refresh.outputs.branch }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          gh auth setup-git
+          git add nix/mitmCache.json
+          git commit -m "chore(nix): update the gradle dependency cache [skip ci]"
+          for attempt in 1 2 3; do
+            if git push origin "HEAD:refs/heads/${TARGET_BRANCH}"; then
+              exit 0
+            fi
+            echo "push was rejected (attempt $attempt); rebasing onto the updated ${TARGET_BRANCH}"
+            git fetch origin "${TARGET_BRANCH}"
+            git rebase FETCH_HEAD || {
+              echo "error: cannot rebase onto ${TARGET_BRANCH}; the next triggered run will retry" >&2
+              exit 1
+            }
+          done
+          echo "error: could not push the refreshed gradle dependency cache after 3 attempts" >&2
           exit 1

@@ -35,3 +35,9 @@ The translation provider and model selection workflow is adapted from [Read Frog
 Local crash analysis uses [Deep Agents JS](https://github.com/langchain-ai/deepagentsjs) 1.14.2 with LangChain. These packages are distributed under the MIT License; their licenses are included with the installed dependencies. The browser entry is loaded only when a local analysis starts. Model requests and credentials are handled by the launcher Rust gateway.
 
 The diagnostic workflow, focused log windows, bounded file tools and result contract are informed by the PHP LogAgent in [LogShare](https://github.com/anylyralabs/LogShare). The local implementation omits RAG and external search tools. LogShare's source license credits Aternos GmbH & ZeinkLab (2018–2024). No LogShare server credentials are bundled.
+
+## Stronghold locator attribution
+
+The stronghold generation-range model and reference triangulation implementation in `src/lab/stronghold/core.ts` are adapted from [Ninjabrain Bot](https://github.com/Ninjabrain1/Ninjabrain-Bot), commit `44cc82c89ece79fcfad2b9ffb1c8ede5ec8dae16`, Copyright Ninjabrain Bot contributors. It is distributed under GPL-3.0; the license is included at [third-party/licenses/Ninjabrain-Bot-GPL-3.0.txt](../../third-party/licenses/Ninjabrain-Bot-GPL-3.0.txt).
+
+The launcher UI uses an additive, linearly weighted angular-sector score implemented in `src/lab/stronghold/sectors.ts`; it does not use the reference triangulation posterior for its displayed scores.

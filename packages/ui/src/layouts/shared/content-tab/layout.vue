@@ -55,6 +55,7 @@ import {
     duplicateUpdateAnchor,
     visibleDuplicateGroups,
 } from './composables/content-duplicates'
+import { getContentTabMap } from './composables/content-tab-memory'
 import { injectContentManager } from './providers/content-manager'
 import type { ContentCardTableItem, ContentItem, ContentWorldGroupMeta } from './types'
 
@@ -186,15 +187,6 @@ const messages = defineMessages({
 const ctx = injectContentManager()
 const skipNonEssentialWarnings = computed(() => ctx.skipNonEssentialWarnings?.value ?? false)
 
-// window 级内存（导航切换保留，关软件丢弃）
-const memory: Record<string, Map<string, unknown>> = ((
-    globalThis as unknown as { __ctMemory?: Record<string, Map<string, unknown>> }
-).__ctMemory ??= {})
-function getMap<K, V>(namespace: string): Map<K, V> {
-    if (!memory[namespace]) memory[namespace] = new Map<string, unknown>()
-    return memory[namespace] as Map<K, V>
-}
-
 function getItemId(item: ContentItem) {
     return ctx.getItemId?.(item) ?? item.file_path ?? item.file_name ?? item.id
 }
@@ -205,7 +197,7 @@ function findContentItem(id: string): ContentItem | undefined {
     return ctx.modpackItems?.value?.find((i) => getItemId(i) === id)
 }
 
-const viewStateMemory = getMap<string, Partial<ContentViewState>>('viewState')
+const viewStateMemory = getContentTabMap<string, Partial<ContentViewState>>('viewState')
 const initialPinnedView = ctx.instanceId ? getPinnedContentViewPreferences(ctx.instanceId) : null
 const pinnedView = ref(initialPinnedView !== null)
 const initialViewState = ctx.instanceId ? viewStateMemory.get(ctx.instanceId) : undefined
@@ -218,7 +210,7 @@ function updateSessionViewState(patch: Partial<ContentViewState>) {
     })
 }
 
-const sortMemory = getMap<string, ContentSortMode>('sort')
+const sortMemory = getContentTabMap<string, ContentSortMode>('sort')
 const sortMode = ref<ContentSortMode>(
     initialPinnedView?.sortMode ??
         (ctx.instanceId
@@ -357,7 +349,7 @@ const bulkStatusMessage = ref<string | null>(null)
 const bulkItemCount = ref(0)
 
 // 整合包分组展开状态（导航切换保留，关软件丢弃）
-const expandedGroupsMemory = getMap<string, Set<string>>('expandedGroups')
+const expandedGroupsMemory = getContentTabMap<string, Set<string>>('expandedGroups')
 
 const refreshing = ref(false)
 

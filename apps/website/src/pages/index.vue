@@ -27,6 +27,7 @@ import MultiplayerIcon from '~/components/landing/MultiplayerIcon.vue'
 import OfflineModeIcon from '~/components/landing/OfflineModeIcon.vue'
 import ProjectsShowcase from '~/components/landing/ProjectsShowcase.vue'
 import WindowsLogo from '~/components/landing/WindowsLogo.vue'
+import LauncherPreviewHero from '~/components/launcher-preview/LauncherPreviewHero.vue'
 import { trackHeroGlow } from '~/utils/hero-glow'
 import {
     getDownloadAvailability,
@@ -1050,15 +1051,7 @@ useHead(() => ({
                 </div>
             </div>
             <div class="hero-product">
-                <img
-                    class="block h-auto w-full rounded"
-                    src="/showcase/launcher-home.webp"
-                    :alt="formatMessage(messages.heroScreenshotAlt)"
-                    width="2560"
-                    height="1489"
-                    decoding="async"
-                    fetchpriority="high"
-                />
+                <LauncherPreviewHero :label="formatMessage(messages.heroScreenshotAlt)" />
             </div>
             <div class="hero-scroll-mark" aria-hidden="true"><span /></div>
             <div class="bottom-transition" />
@@ -1766,6 +1759,8 @@ useHead(() => ({
 
 .hero-product {
     position: relative;
+    // The launcher preview is interactive, so it sits above the bottom fade.
+    z-index: 1;
     width: min(79rem, 112%);
     margin-top: clamp(3.25rem, 7vw, 5.5rem);
 }

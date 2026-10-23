@@ -34,9 +34,15 @@
         </template>
 
         <template v-else>
+            <!--
+				A local tab carries an id derived from its href so a consumer can point
+				its panel's aria-labelledby at `nav-tab-<href>`. The href is also the
+				v-for key, so the id is unique without a prefix prop to thread through.
+			-->
             <button
                 v-for="(link, index) in filteredLinks"
                 v-show="link.shown ?? true"
+                :id="link.href ? `nav-tab-${link.href}` : undefined"
                 :key="link.href"
                 ref="tabLinkElements"
                 type="button"

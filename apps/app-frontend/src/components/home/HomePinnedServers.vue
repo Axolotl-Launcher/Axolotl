@@ -351,7 +351,7 @@ async function unpinLocalServer(serverId: string) {
                                 class="absolute -bottom-0.5 -right-0.5 size-2.5 rounded-full border-2 border-solid border-bg-raised"
                                 :class="
                                     dataFor(server.world).refreshing
-                                        ? 'animate-pulse bg-secondary'
+                                        ? 'animate-pulse bg-[var(--color-text-tertiary)]'
                                         : dataFor(server.world).status
                                           ? 'bg-brand-green'
                                           : 'bg-red'

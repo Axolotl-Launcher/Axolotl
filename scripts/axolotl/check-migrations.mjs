@@ -1,9 +1,10 @@
 import { execFileSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import { isExcludedRelease } from './release-policy.mjs'
+import { githubRepository } from './release-utils.mjs'
 
 const migrationsDirectory = 'packages/app-lib/migrations'
-const repository = process.env.GITHUB_REPOSITORY ?? 'Mystic-Stars/Axolotl'
+const repository = githubRepository()
 // v1.7.5 is the canonical snapshot immediately before the v1.7.6 incident.
 const canonicalBootstrap = {
 	ref: '7ddbfb8e57db4b0044a04cf28f25fb29e08c3279',

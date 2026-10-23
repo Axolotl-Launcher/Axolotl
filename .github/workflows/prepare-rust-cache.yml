@@ -1,14 +1,14 @@
-name: Prepare desktop release dependencies
+name: Prepare desktop release caches
 
 on:
   workflow_dispatch:
   push:
     branches: [main]
     paths:
-      - '**/Cargo.toml'
+      - "**/Cargo.toml"
       - Cargo.lock
       - rust-toolchain.toml
-      - '**/.cargo/config.toml'
+      - "**/.cargo/config.toml"
       - .github/actions/setup-desktop-rust/**
       - .github/workflows/axolotl-release.yml
       - .github/workflows/prepare-rust-cache.yml
@@ -28,11 +28,11 @@ jobs:
       matrix:
         include:
           - runner: ubuntu-24.04
-            target: ''
+            target: ""
           - runner: ubuntu-24.04-arm
-            target: ''
+            target: ""
           - runner: windows-2025
-            target: ''
+            target: ""
           - runner: macos-15
             target: aarch64-apple-darwin
           - runner: macos-15-intel
@@ -40,7 +40,7 @@ jobs:
     runs-on: ${{ matrix.runner }}
     env:
       SQLX_OFFLINE: true
-      CARGO_PROFILE_RELEASE_LTO: 'true'
+      CARGO_PROFILE_RELEASE_LTO: "true"
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
@@ -52,7 +52,7 @@ jobs:
         with:
           profile: release
           target: ${{ matrix.target }}
-          save-cache: 'true'
+          save-cache: "true"
       - name: Install Linux dependencies
         if: runner.os == 'Linux'
         run: |

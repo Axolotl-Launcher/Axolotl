@@ -123,43 +123,51 @@ defineExpose({ show })
                 @tab-click="(index) => (activeTab = index)"
             />
 
-            <label v-if="activeTab === 0" class="flex min-w-0 flex-col gap-2">
-                <span class="text-sm font-semibold text-[var(--color-text-primary)]">{{
-                    formatMessage(messages.nicknameLabel)
-                }}</span>
-                <StyledInput
-                    v-model="nickname"
-                    :maxlength="HOME_GREETING_NICKNAME_MAX"
-                    :disabled="!canEditNickname"
-                    :placeholder="nicknamePlaceholder"
-                    wrapper-class="w-full"
-                />
-                <span class="text-xs leading-4 text-[var(--color-text-tertiary)]">{{
-                    formatMessage(messages.nicknameHint)
-                }}</span>
-                <Admonition
-                    v-if="!canEditNickname"
-                    type="info"
-                    :body="formatMessage(messages.noAccount)"
-                />
-            </label>
+            <!--
+                The panel role belongs on a wrapper, never on the label: a role
+                overrides the label semantics and the inputs inside lose their name.
+            -->
+            <div v-if="activeTab === 0" role="tabpanel" aria-labelledby="nav-tab-nickname">
+                <label class="flex min-w-0 flex-col gap-2">
+                    <span class="text-sm font-semibold text-[var(--color-text-primary)]">{{
+                        formatMessage(messages.nicknameLabel)
+                    }}</span>
+                    <StyledInput
+                        v-model="nickname"
+                        :maxlength="HOME_GREETING_NICKNAME_MAX"
+                        :disabled="!canEditNickname"
+                        :placeholder="nicknamePlaceholder"
+                        wrapper-class="w-full"
+                    />
+                    <span class="text-xs leading-4 text-[var(--color-text-tertiary)]">{{
+                        formatMessage(messages.nicknameHint)
+                    }}</span>
+                    <Admonition
+                        v-if="!canEditNickname"
+                        type="info"
+                        :body="formatMessage(messages.noAccount)"
+                    />
+                </label>
+            </div>
 
-            <label v-else class="flex min-w-0 flex-col gap-2">
-                <span class="text-sm font-semibold text-[var(--color-text-primary)]">{{
-                    formatMessage(messages.titleLabel)
-                }}</span>
-                <StyledInput
-                    v-model="title"
-                    multiline
-                    :rows="2"
-                    :maxlength="HOME_GREETING_TITLE_MAX"
-                    :placeholder="formatMessage(messages.titlePlaceholder)"
-                    wrapper-class="w-full"
-                />
-                <span class="text-xs leading-4 text-[var(--color-text-tertiary)]">{{
-                    formatMessage(messages.titleHint)
-                }}</span>
-            </label>
+            <div v-else role="tabpanel" aria-labelledby="nav-tab-title">
+                <label class="flex min-w-0 flex-col gap-2">
+                    <span class="text-sm font-semibold text-[var(--color-text-primary)]">{{
+                        formatMessage(messages.titleLabel)
+                    }}</span>
+                    <StyledInput
+                        v-model="title"
+                        multiline
+                        :rows="2"
+                        :maxlength="HOME_GREETING_TITLE_MAX"
+                        :placeholder="formatMessage(messages.titlePlaceholder)"
+                        wrapper-class="w-full"
+                    />
+                    <span class="text-xs leading-4 text-[var(--color-text-tertiary)]">{{
+                        formatMessage(messages.titleHint)
+                    }}</span>
+                </label>
+            </div>
         </div>
 
         <template #actions>

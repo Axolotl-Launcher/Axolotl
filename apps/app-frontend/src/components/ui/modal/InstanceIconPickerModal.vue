@@ -38,7 +38,7 @@
                             class="h-10 w-10 cursor-pointer rounded-xl border-2 border-solid transition-transform hover:scale-105 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand disabled:cursor-wait disabled:opacity-60"
                             :class="
                                 iconBackground.id === selectedBackgroundId
-                                    ? 'border-contrast shadow-md'
+                                    ? 'border-brand shadow-md'
                                     : 'border-transparent'
                             "
                             :style="iconBackground.style"

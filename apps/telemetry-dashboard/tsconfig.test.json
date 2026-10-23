@@ -1,7 +1,0 @@
-{
-  "extends": "./.nuxt/tsconfig.json",
-  "compilerOptions": {
-    "types": ["@cloudflare/workers-types", "@cloudflare/vitest-pool-workers", "vitest/globals"]
-  },
-  "include": [".nuxt/**/*.d.ts", "server/**/*.ts", "shared/**/*.ts", "test/**/*.ts"]
-}

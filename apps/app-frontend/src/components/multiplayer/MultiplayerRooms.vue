@@ -785,85 +785,94 @@ function submitJoin() {
                         @tab-click="tabIndex = $event"
                     />
 
-                    <div>
-                        <h2 class="m-0 text-lg font-semibold text-[var(--color-text-primary)]">
-                            {{ formatMessage(tabIndex === 0 ? messages.host : messages.join) }}
-                        </h2>
-                        <p class="mb-0 mt-1 text-[var(--color-text-tertiary)]">
-                            {{
-                                formatMessage(
-                                    tabIndex === 0
-                                        ? messages.hostDescription
-                                        : messages.joinDescription,
-                                )
-                            }}
-                        </p>
-                    </div>
+                    <div
+                        role="tabpanel"
+                        :aria-labelledby="'nav-tab-' + tabLinks[tabIndex].href"
+                        class="flex flex-col gap-5"
+                    >
+                        <div>
+                            <h2 class="m-0 text-lg font-semibold text-[var(--color-text-primary)]">
+                                {{ formatMessage(tabIndex === 0 ? messages.host : messages.join) }}
+                            </h2>
+                            <p class="mb-0 mt-1 text-[var(--color-text-tertiary)]">
+                                {{
+                                    formatMessage(
+                                        tabIndex === 0
+                                            ? messages.hostDescription
+                                            : messages.joinDescription,
+                                    )
+                                }}
+                            </p>
+                        </div>
 
-                    <div class="grid gap-4 md:grid-cols-2">
-                        <label class="flex min-w-0 flex-col gap-2" for="multiplayer-player-name">
-                            <span class="font-semibold text-[var(--color-text-primary)]">
-                                {{ formatMessage(messages.playerName) }}
-                            </span>
-                            <StyledInput
-                                id="multiplayer-player-name"
-                                v-model="playerName"
-                                :icon="UserIcon"
-                                :placeholder="formatMessage(messages.playerName)"
-                                autocomplete="off"
-                            />
-                        </label>
-
-                        <label
-                            v-if="tabIndex === 1"
-                            class="flex min-w-0 flex-col gap-2"
-                            for="multiplayer-room-code"
-                        >
-                            <span class="font-semibold text-[var(--color-text-primary)]">
-                                {{ formatMessage(messages.roomCode) }}
-                            </span>
-                            <StyledInput
-                                id="multiplayer-room-code"
-                                v-model="roomCodeInput"
-                                :icon="UsersIcon"
-                                :placeholder="formatMessage(messages.roomCodePlaceholder)"
-                                :error="showRoomCodeError"
-                                :input-attrs="{
-                                    'aria-invalid': showRoomCodeError,
-                                    'aria-describedby': showRoomCodeError
-                                        ? 'multiplayer-room-code-error'
-                                        : undefined,
-                                }"
-                                autocomplete="off"
-                                :spellcheck="false"
-                                @focusout="roomCodeTouched = true"
-                            />
-                            <span
-                                v-if="showRoomCodeError"
-                                id="multiplayer-room-code-error"
-                                class="text-xs text-red"
+                        <div class="grid gap-4 md:grid-cols-2">
+                            <label
+                                class="flex min-w-0 flex-col gap-2"
+                                for="multiplayer-player-name"
                             >
-                                {{ formatMessage(messages.roomCodeInvalid) }}
-                            </span>
-                        </label>
-                    </div>
+                                <span class="font-semibold text-[var(--color-text-primary)]">
+                                    {{ formatMessage(messages.playerName) }}
+                                </span>
+                                <StyledInput
+                                    id="multiplayer-player-name"
+                                    v-model="playerName"
+                                    :icon="UserIcon"
+                                    :placeholder="formatMessage(messages.playerName)"
+                                    autocomplete="off"
+                                />
+                            </label>
 
-                    <div class="flex flex-wrap gap-2">
-                        <Button
-                            type="colored"
-                            color="brand"
-                            native-type="button"
-                            :disabled="!canSubmitSession || isActionPending"
-                            @click="tabIndex === 0 ? hostGame() : submitJoin()"
-                        >
-                            <PlayIcon v-if="tabIndex === 0" />
-                            <LogInIcon v-else />
-                            {{
-                                formatMessage(
-                                    tabIndex === 0 ? messages.startHosting : messages.joinRoom,
-                                )
-                            }}
-                        </Button>
+                            <label
+                                v-if="tabIndex === 1"
+                                class="flex min-w-0 flex-col gap-2"
+                                for="multiplayer-room-code"
+                            >
+                                <span class="font-semibold text-[var(--color-text-primary)]">
+                                    {{ formatMessage(messages.roomCode) }}
+                                </span>
+                                <StyledInput
+                                    id="multiplayer-room-code"
+                                    v-model="roomCodeInput"
+                                    :icon="UsersIcon"
+                                    :placeholder="formatMessage(messages.roomCodePlaceholder)"
+                                    :error="showRoomCodeError"
+                                    :input-attrs="{
+                                        'aria-invalid': showRoomCodeError,
+                                        'aria-describedby': showRoomCodeError
+                                            ? 'multiplayer-room-code-error'
+                                            : undefined,
+                                    }"
+                                    autocomplete="off"
+                                    :spellcheck="false"
+                                    @focusout="roomCodeTouched = true"
+                                />
+                                <span
+                                    v-if="showRoomCodeError"
+                                    id="multiplayer-room-code-error"
+                                    class="text-xs text-red"
+                                >
+                                    {{ formatMessage(messages.roomCodeInvalid) }}
+                                </span>
+                            </label>
+                        </div>
+
+                        <div class="flex flex-wrap gap-2">
+                            <Button
+                                type="colored"
+                                color="brand"
+                                native-type="button"
+                                :disabled="!canSubmitSession || isActionPending"
+                                @click="tabIndex === 0 ? hostGame() : submitJoin()"
+                            >
+                                <PlayIcon v-if="tabIndex === 0" />
+                                <LogInIcon v-else />
+                                {{
+                                    formatMessage(
+                                        tabIndex === 0 ? messages.startHosting : messages.joinRoom,
+                                    )
+                                }}
+                            </Button>
+                        </div>
                     </div>
                 </div>
             </Card>

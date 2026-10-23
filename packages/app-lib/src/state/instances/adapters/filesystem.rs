@@ -254,6 +254,19 @@ pub(crate) fn is_scannable_project_path(
     }
 }
 
+/// Whether a tracked row can be refreshed by the content scan.
+///
+/// The scan only reports files whose extension matches their folder's content
+/// type, so a row outside that scope can never be reported again. Iris writes
+/// shader configuration sidecars such as `shaderpacks/<pack>.zip.txt` next to
+/// the packs; a tracked row for one of them would stay marked missing forever
+/// and surface as phantom content.
+pub(crate) fn is_scannable_instance_file_path(relative_path: &str) -> bool {
+    project_type_from_relative_path(relative_path).is_some_and(|project_type| {
+        is_scannable_project_path(project_type, relative_path)
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -328,6 +341,25 @@ mod tests {
             ProjectType::ShaderPack,
             "shaderpacks/ComplementaryReimagined_r5.3.txt"
         ));
+    }
+
+    #[test]
+    fn tracked_rows_outside_the_scan_scope_are_recognised() {
+        assert!(is_scannable_instance_file_path("mods/example.jar"));
+        assert!(is_scannable_instance_file_path("mods/example.jar.disabled"));
+        assert!(is_scannable_instance_file_path(
+            "shaderpacks/BSL_v10.1.3.zip"
+        ));
+        assert!(is_scannable_instance_file_path(
+            "schematics/redstone/house.litematic"
+        ));
+        assert!(!is_scannable_instance_file_path(
+            "shaderpacks/BSL_v10.1.3.zip.txt"
+        ));
+        assert!(!is_scannable_instance_file_path(
+            "mods/Mod-2.jar_Mod-1.jar.old"
+        ));
+        assert!(!is_scannable_instance_file_path("config/example.json"));
     }
 
     #[test]

@@ -67,6 +67,26 @@ vi.mock('@modrinth/ui', async () => {
                     open.value ? h('section', [slots.default?.(), slots.actions?.()]) : null
             },
         }),
+        Checkbox: defineComponent({
+            props: ['modelValue', 'disabled', 'label'],
+            emits: ['update:modelValue'],
+            setup:
+                (props, { emit }) =>
+                () =>
+                    h('label', [
+                        props.label,
+                        h('input', {
+                            type: 'checkbox',
+                            checked: props.modelValue,
+                            disabled: props.disabled,
+                            onChange: (event: Event) =>
+                                emit(
+                                    'update:modelValue',
+                                    (event.target as HTMLInputElement).checked,
+                                ),
+                        }),
+                    ]),
+        }),
         Button: defineComponent({
             props: ['disabled'],
             setup:
@@ -136,6 +156,7 @@ vi.mock('@modrinth/ui', async () => {
 let wrapper: VueWrapper
 const preview = () => ({
     innerBase: 'wrapper',
+    sourceIsDirectory: false,
     serverType: 'forge',
     gameVersion: '1.20.1',
     loaderVersion: '47.4.16',
@@ -172,6 +193,7 @@ it('uses matching Java and passes exact detected versions without accepting EULA
     await flushPromises()
     expect(fixture.importServer).toHaveBeenCalledWith({
         sourcePath: '/fixture/external.zip',
+        sourceStopped: false,
         expected: preview(),
         name: 'external',
         javaPath: '/fixture/java17',
@@ -233,6 +255,7 @@ it('requires explicit configuration and sends it separately from detected eviden
     await flushPromises()
     expect(fixture.importServer).toHaveBeenCalledWith({
         sourcePath: '/fixture/external.zip',
+        sourceStopped: false,
         expected: resourceOnlyPreview(),
         configuration: {
             serverType: 'forge',
@@ -328,4 +351,22 @@ it('keeps an animated status visible until the pending import completes', async 
     complete({ id: 'new-id', installState: null })
     await flushPromises()
     expect(wrapper.find('[role="status"]').exists()).toBe(false)
+})
+
+it('requires a stopped source confirmation for folders and resets it when reopening', async () => {
+    fixture.inspect.mockResolvedValue({ ...preview(), sourceIsDirectory: true })
+    fixture.importServer.mockResolvedValue({ id: 'new-id', installState: null })
+    await open()
+    expect(submitButton().attributes('disabled')).toBeDefined()
+    await wrapper.get('input[type="checkbox"]').setValue(true)
+    expect(submitButton().attributes('disabled')).toBeUndefined()
+    await submitButton().trigger('click')
+    await flushPromises()
+    expect(fixture.importServer).toHaveBeenCalledWith(
+        expect.objectContaining({ sourceStopped: true }),
+    )
+    await (wrapper.vm as unknown as { show: (path: string) => Promise<void> }).show(
+        '/fixture/folder',
+    )
+    expect(submitButton().attributes('disabled')).toBeDefined()
 })

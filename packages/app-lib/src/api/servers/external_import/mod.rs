@@ -3,11 +3,13 @@
 mod detect;
 mod install;
 mod launch;
+mod operations;
 mod source;
 #[cfg(test)]
 mod tests;
 
 pub(super) use launch::{launch_args, prepare_fabric_launch};
+pub(super) use operations::acquire as acquire_operation;
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 
@@ -38,9 +40,21 @@ fn copy_tree(
     depth: usize,
     count: &mut usize,
     bytes: &mut u64,
+    locks: &mut Vec<std::fs::File>,
 ) -> std::result::Result<(), String> {
     if depth > 64 {
         return Err("Folder nesting exceeds the import limit".into());
+    }
+    let session = source.join("session.lock");
+    if session.is_symlink() {
+        return Err(
+            "Symbolic links and special files cannot be imported".into()
+        );
+    }
+    if session.is_file() {
+        let file = std::fs::File::open(&session).map_err(|e| e.to_string())?;
+        file.try_lock_shared().map_err(|_| "The source world is in use. Stop the source server before importing".to_string())?;
+        locks.push(file);
     }
     std::fs::create_dir_all(dest).map_err(|e| e.to_string())?;
     for entry in std::fs::read_dir(source).map_err(|e| e.to_string())? {
@@ -65,7 +79,7 @@ fn copy_tree(
             super::files::safe_relative_join(dest, &name.to_string_lossy())
                 .map_err(|e| e.to_string())?;
         if meta.is_dir() {
-            copy_tree(&entry.path(), &target, depth + 1, count, bytes)?;
+            copy_tree(&entry.path(), &target, depth + 1, count, bytes, locks)?;
         } else {
             let mut reader =
                 std::fs::File::open(entry.path()).map_err(|e| e.to_string())?;
@@ -120,7 +134,7 @@ fn prepare_source(
             } else {
                 safe_source_path(&root, &expected.inner_base)?
             };
-            copy_tree(&root, content, 0, &mut 0, &mut 0)?;
+            copy_tree(&root, content, 0, &mut 0, &mut 0, &mut Vec::new())?;
         }
         source::Source::Zip(mut archive, _) => {
             source::validate_archive(&mut archive)?;
@@ -147,6 +161,7 @@ fn prepare_source(
     let actual = inspect_configurable_server_import(content)?
         .ok_or("The copied package no longer contains a recognized server")?;
     let mut expected = expected.clone();
+    expected.source_is_directory = true;
     expected.inner_base.clear();
     expected.archives.clear();
     if actual != expected {
@@ -210,6 +225,7 @@ pub async fn import_external_server(
     java_path: String,
     memory_mb: u32,
     configuration: Option<ServerImportConfiguration>,
+    source_stopped: bool,
 ) -> Result<ServerManifest> {
     let configured = apply_configuration(expected.clone(), configuration)?;
     if name.trim().is_empty() || java_path.trim().is_empty() || memory_mb < 512
@@ -219,6 +235,11 @@ pub async fn import_external_server(
         ));
     }
     let source = PathBuf::from(source_path);
+    if source.is_dir() && !source_stopped {
+        return Err(input(
+            "Confirm that the source server is stopped before importing its files",
+        ));
+    }
     let probe = source.clone();
     let actual = tokio::task::spawn_blocking(move || {
         inspect_configurable_server_import(&probe)
@@ -284,6 +305,7 @@ pub async fn import_external_server(
             break;
         }
     }
+    let _operation = acquire_operation(&manifest.id)?;
     // Stage metadata before publishing; the list never sees a copied source manifest or a ready half-install.
     write_manifest(&content, &manifest).await?;
     tokio::fs::rename(&content, &dir)
@@ -291,7 +313,7 @@ pub async fn import_external_server(
         .map_err(|e| input(e.to_string()))?;
     drop(staging);
     if expected.needs_install {
-        install::finish_import_install(&manifest.id).await?;
+        install::finish_import_install_locked(&manifest.id).await?;
     } else {
         match launch::imported_launch_args(&dir, &manifest) {
             Ok(_) => {
@@ -309,15 +331,8 @@ pub async fn import_external_server(
 }
 
 pub async fn retry_external_server(id: &str) -> Result<ServerManifest> {
-    let dir = server_path(id).await?;
-    let manifest = read_manifest(&dir).await?;
-    if !manifest.external_import
-        || manifest.install_state.is_none()
-        || super::lifecycle::is_running(id)
-    {
-        return Err(input("This server does not need an import repair"));
-    }
     install::finish_import_install(id).await?;
+    let dir = server_path(id).await?;
     read_manifest(&dir).await
 }
 

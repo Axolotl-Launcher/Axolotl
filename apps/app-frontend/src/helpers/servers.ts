@@ -39,6 +39,7 @@ export interface ServerImportConfiguration {
 }
 
 export interface ServerImportPreview {
+    sourceIsDirectory: boolean
     innerBase: string
     archives?: string[]
     serverType: string
@@ -119,6 +120,7 @@ export const servers = {
         invoke<ServerImportPreview | null>(command('servers_inspect_import'), { sourcePath }),
     importExternal: (options: {
         sourcePath: string
+        sourceStopped: boolean
         expected: ServerImportPreview
         configuration?: ServerImportConfiguration
         name: string

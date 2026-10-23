@@ -19208,6 +19208,9 @@
   "app.servers.import.files-present": {
     "message": "Server files are present. The server will stay stopped after import."
   },
+  "app.servers.import.source-stopped": {
+    "message": "The source server is stopped and will remain stopped until import finishes."
+  },
   "app.servers.import.inspecting": {
     "message": "Checking server files…"
   },

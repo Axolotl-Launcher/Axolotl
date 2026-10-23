@@ -19241,6 +19241,9 @@
   "app.servers.import.working": {
     "defaultMessage": "正在导入服务端…"
   },
+  "app.servers.import.source-stopped": {
+    "message": "源服务器已停止，并将在导入完成前保持停止。"
+  },
   "app.servers.import.inspecting": {
     "defaultMessage": "正在检查服务端文件…"
   },

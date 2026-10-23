@@ -3,6 +3,7 @@ import { SpinnerIcon } from '@modrinth/assets'
 import { requiredJavaMajorVersion, SERVER_TYPES, type ServerTypeId } from '@modrinth/server'
 import {
     Button,
+    Checkbox,
     Combobox,
     commonMessages,
     defineMessages,
@@ -39,6 +40,7 @@ const router = useRouter()
 const modal = ref<InstanceType<typeof NewModal> | null>(null)
 const preview = ref<ServerImportPreview | null>(null)
 const sourcePath = ref('')
+const sourceStopped = ref(false)
 const configuredType = ref<ServerImportConfiguration['serverType'] | ''>('')
 const configuredGame = ref('')
 const configuredLoader = ref('')
@@ -113,6 +115,11 @@ const busy = ref(false)
 const inspecting = ref(false)
 const error = ref('')
 const messages = defineMessages({
+    sourceStopped: {
+        id: 'app.servers.import.source-stopped',
+        defaultMessage:
+            'The source server is stopped and will remain stopped until import finishes.',
+    },
     title: { id: 'app.servers.import.title', defaultMessage: 'Import server' },
     configuration: {
         id: 'app.servers.import.configuration-required',
@@ -215,6 +222,7 @@ const canImport = computed(
         !busy.value &&
         !inspecting.value &&
         !!preview.value &&
+        (!preview.value.sourceIsDirectory || sourceStopped.value) &&
         (!preview.value.problem || (needsConfiguration.value && configurationComplete.value)) &&
         !!name.value.trim() &&
         !!java.value.path.trim() &&
@@ -264,6 +272,7 @@ async function loadConfiguredJava() {
 
 async function show(path: string) {
     if (busy.value || inspecting.value) return
+    sourceStopped.value = false
     sourcePath.value = path
     preview.value = null
     configuredType.value = ''
@@ -310,6 +319,7 @@ async function submit() {
     try {
         const result = await servers.importExternal({
             sourcePath: sourcePath.value,
+            sourceStopped: sourceStopped.value,
             expected: preview.value,
             ...(needsConfiguration.value
                 ? {
@@ -359,6 +369,12 @@ defineExpose({ show })
                 {{ formatMessage(messages.inspecting) }}
             </p>
             <template v-if="preview">
+                <Checkbox
+                    v-if="preview.sourceIsDirectory && !importedId"
+                    v-model="sourceStopped"
+                    :disabled="busy"
+                    :label="formatMessage(messages.sourceStopped)"
+                />
                 <div v-if="needsConfiguration && !importedId" class="flex flex-col gap-3">
                     <p>{{ formatMessage(messages.configuration) }}</p>
                     <div class="flex flex-col gap-2">

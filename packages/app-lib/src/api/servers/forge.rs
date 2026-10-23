@@ -145,6 +145,25 @@ pub(super) async fn run_installer(
     java_path: Option<&str>,
     loader: &str,
 ) -> Result<()> {
+    run_installer_with_timeout(
+        server_id,
+        dir,
+        installer_name,
+        java_path,
+        loader,
+        None,
+    )
+    .await
+}
+
+pub(super) async fn run_installer_with_timeout(
+    server_id: &str,
+    dir: &Path,
+    installer_name: &str,
+    java_path: Option<&str>,
+    loader: &str,
+    timeout: Option<std::time::Duration>,
+) -> Result<()> {
     let installer_path = safe_relative_join(dir, installer_name)?;
     let java = java_path.unwrap_or("java");
     let java = java_environment::console_java_executable(java)?;
@@ -157,7 +176,7 @@ pub(super) async fn run_installer(
     let mut command = java_environment::tokio_command(&java);
     #[cfg(windows)]
     command.creation_flags(0x0800_0000);
-    let output = command
+    command
         .arg("-jar")
         .arg(&installer_path)
         .arg("--installServer")
@@ -165,14 +184,13 @@ pub(super) async fn run_installer(
         .current_dir(&dir)
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::piped())
-        .output()
-        .await
-        .map_err(|e| {
-            ErrorKind::LauncherError(format!(
-                "Failed to run {loader} installer: {e}"
-            ))
-            .as_error()
-        })?;
+        .kill_on_drop(true);
+    let output = wait_installer(&mut command, timeout).await.map_err(|e| {
+        ErrorKind::LauncherError(format!(
+            "Failed to run {loader} installer: {e}"
+        ))
+        .as_error()
+    })?;
 
     for bytes in [&output.stdout, &output.stderr] {
         let text = String::from_utf8_lossy(bytes);
@@ -216,6 +234,46 @@ pub(super) async fn run_installer(
     Ok(())
 }
 
+/// A timeout must kill and reap the JVM before releasing the import operation.
+async fn wait_installer(
+    command: &mut tokio::process::Command,
+    timeout: Option<std::time::Duration>,
+) -> std::io::Result<std::process::Output> {
+    use tokio::io::AsyncReadExt;
+    let mut child = command.kill_on_drop(true).spawn()?;
+    let mut stdout = child.stdout.take().expect("installer stdout is piped");
+    let mut stderr = child.stderr.take().expect("installer stderr is piped");
+    let mut out = Vec::new();
+    let mut err = Vec::new();
+    let collect = async {
+        let (status, _, _) = tokio::try_join!(
+            child.wait(),
+            stdout.read_to_end(&mut out),
+            stderr.read_to_end(&mut err)
+        )?;
+        Ok::<_, std::io::Error>(status)
+    };
+    let status = match timeout {
+        Some(limit) => match tokio::time::timeout(limit, collect).await {
+            Ok(result) => result?,
+            Err(_) => {
+                child.kill().await?;
+                child.wait().await?;
+                return Err(std::io::Error::new(
+                    std::io::ErrorKind::TimedOut,
+                    "Installer timed out and was stopped. Check Java and network access, then retry the import",
+                ));
+            }
+        },
+        None => collect.await?,
+    };
+    Ok(std::process::Output {
+        status,
+        stdout: out,
+        stderr: err,
+    })
+}
+
 async fn log(server_id: &str, line: &str) -> Result<()> {
     emit_server(
         server_id,
@@ -229,6 +287,58 @@ async fn log(server_id: &str, line: &str) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn installer_timeout_kills_and_reaps_the_child() {
+        let fixture = tempfile::tempdir().unwrap();
+        let pid_file = fixture.path().join("pid");
+        let mut command = tokio::process::Command::new("sh");
+        command
+            .arg("-c")
+            .arg("echo $$ > \"$1\"; exec sleep 60")
+            .arg("installer-fixture")
+            .arg(&pid_file)
+            .stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::piped());
+        let error = wait_installer(
+            &mut command,
+            Some(std::time::Duration::from_millis(200)),
+        )
+        .await
+        .unwrap_err();
+        assert_eq!(error.kind(), std::io::ErrorKind::TimedOut);
+        let pid = std::fs::read_to_string(pid_file).unwrap();
+        let status = std::process::Command::new("kill")
+            .args(["-0", pid.trim()])
+            .output()
+            .unwrap();
+        assert!(
+            !status.status.success(),
+            "timed-out installer must no longer exist"
+        );
+    }
+
+    #[tokio::test]
+    async fn installer_collects_both_output_streams() {
+        #[cfg(unix)]
+        {
+            let mut command = tokio::process::Command::new("sh");
+            command
+                .args(["-c", "printf out; printf err >&2"])
+                .stdout(std::process::Stdio::piped())
+                .stderr(std::process::Stdio::piped());
+            let output = wait_installer(
+                &mut command,
+                Some(std::time::Duration::from_secs(5)),
+            )
+            .await
+            .unwrap();
+            assert!(output.status.success());
+            assert_eq!(output.stdout, b"out");
+            assert_eq!(output.stderr, b"err");
+        }
+    }
 
     #[test]
     fn neoforge_installer_uses_official_modern_and_legacy_coordinates() {

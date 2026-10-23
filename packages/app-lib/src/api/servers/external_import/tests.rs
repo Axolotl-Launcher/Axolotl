@@ -112,6 +112,7 @@ async fn manual_legacy_forge_install_and_explicit_start_are_isolated() {
             game_version: "1.12.2".into(),
             loader_version: Some("14.23.5.2864".into()),
         }),
+        true,
     )
     .await
     .unwrap();
@@ -265,6 +266,7 @@ async fn fabric_and_manual_vanilla_acquire_verified_launchers_without_starting()
         "/fixture/not-executed-java".into(),
         2048,
         None,
+        true,
     )
     .await
     .unwrap();
@@ -306,6 +308,7 @@ async fn fabric_and_manual_vanilla_acquire_verified_launchers_without_starting()
             game_version: "1.20.1".into(),
             loader_version: None,
         }),
+        true,
     )
     .await
     .unwrap();
@@ -492,9 +495,18 @@ async fn external_server_managed_import_and_repair_are_isolated() {
         "/fixture/java17".into(),
         2048,
         None,
+        true,
     )
     .await
     .unwrap();
+    assert!(retry_external_server(&imported.id).await.is_err());
+    assert_eq!(
+        read_manifest(&server_path(&imported.id).await.unwrap())
+            .await
+            .unwrap()
+            .install_state,
+        None
+    );
     assert!(imported.external_import);
     assert_eq!(imported.install_state, None);
     assert_eq!(imported.pre_launch_hook, None);
@@ -515,6 +527,7 @@ async fn external_server_managed_import_and_repair_are_isolated() {
         "/fixture/java17".into(),
         2048,
         None,
+        true,
     )
     .await
     .unwrap();
@@ -539,6 +552,7 @@ async fn external_server_managed_import_and_repair_are_isolated() {
         "/fixture/no-java".into(),
         2048,
         None,
+        true,
     )
     .await
     .unwrap();
@@ -606,6 +620,7 @@ async fn external_server_official_forge_installs_without_starting() {
         java,
         2048,
         None,
+        true,
     )
     .await
     .unwrap();
@@ -636,6 +651,7 @@ async fn external_server_official_forge_installs_without_starting() {
         result.java_path.clone().unwrap(),
         2048,
         None,
+        true,
     )
     .await
     .unwrap();
@@ -703,6 +719,26 @@ async fn fabric_preparation_retains_installed_imports_and_validates_unattended_l
     )
     .unwrap();
     manifest.external_import = true;
+    // Older installed launchers use this external property file, not install.properties.
+    std::fs::write(
+        root.path().join("fabric-server-launch.properties"),
+        "serverJar=minecraft-server.jar\n",
+    )
+    .unwrap();
+    std::fs::write(root.path().join("minecraft-server.jar"), vanilla())
+        .unwrap();
+    std::fs::write(
+        root.path().join("server.properties"),
+        "server-port=25577\n",
+    )
+    .unwrap();
+    let preview = inspect_server_import(root.path()).unwrap().unwrap();
+    assert_eq!(preview.server_type, "fabric");
+    assert!(!preview.needs_install);
+    assert_eq!(
+        imported_launch_args(root.path(), &manifest).unwrap()[1],
+        "server.jar"
+    );
     prepare_fabric_launch("fixture", root.path(), &manifest, &cancellation)
         .await
         .unwrap();
@@ -725,5 +761,50 @@ async fn fabric_preparation_retains_installed_imports_and_validates_unattended_l
         prepare_fabric_launch("fixture", root.path(), &manifest, &cancellation)
             .await
             .is_err()
+    );
+}
+
+#[test]
+fn folder_copy_rejects_locked_world_without_changing_source() {
+    let src = source();
+    let world = src.path().join("world");
+    std::fs::create_dir(&world).unwrap();
+    let session = world.join("session.lock");
+    std::fs::write(&session, b"original-session").unwrap();
+    let owner = std::fs::File::open(&session).unwrap();
+    owner.lock().unwrap();
+    let preview = inspect_server_import(src.path()).unwrap().unwrap();
+    assert!(preview.source_is_directory);
+    let staging = tempfile::tempdir().unwrap();
+    let error =
+        prepare_source(src.path(), &staging.path().join("blocked"), &preview)
+            .unwrap_err();
+    assert!(error.contains("source world is in use"));
+    assert_eq!(std::fs::read(&session).unwrap(), b"original-session");
+    drop(owner);
+    prepare_source(src.path(), &staging.path().join("stopped"), &preview)
+        .unwrap();
+    assert_eq!(std::fs::read(&session).unwrap(), b"original-session");
+}
+
+#[tokio::test]
+async fn folder_import_requires_confirmation_before_accessing_managed_data() {
+    let src = source();
+    let preview = inspect_server_import(src.path()).unwrap().unwrap();
+    let error = import_external_server(
+        src.path().to_string_lossy().into(),
+        preview,
+        "Test".into(),
+        "/fixture/java".into(),
+        2048,
+        None,
+        false,
+    )
+    .await
+    .unwrap_err();
+    assert!(
+        error
+            .to_string()
+            .contains("Confirm that the source server is stopped")
     );
 }

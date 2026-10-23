@@ -92,6 +92,7 @@ pub async fn start(
     memory_mb: Option<u32>,
     jvm_args: Option<Vec<String>>,
 ) -> Result<()> {
+    let _operation = super::external_import::acquire_operation(server_id)?;
     let cancellation = CancellationToken::new();
     match SERVER_STARTING.entry(server_id.to_string()) {
         Entry::Vacant(entry) if !SERVER_PROCESSES.contains_key(server_id) => {

@@ -19,6 +19,8 @@ const MAX_ROOT_JARS: usize = 32;
 pub struct ServerImportPreview {
     pub inner_base: String,
     #[serde(default)]
+    pub source_is_directory: bool,
+    #[serde(default)]
     pub archives: Vec<String>,
     pub server_type: String,
     pub game_version: String,
@@ -96,6 +98,7 @@ fn candidate(
         };
     ServerImportPreview {
         inner_base: String::new(),
+        source_is_directory: false,
         archives: Vec::new(),
         server_type: kind.into(),
         game_version: game,
@@ -669,6 +672,7 @@ fn inspect(
         if let Some(mut result) =
             inspect_root(&mut source, &base, &names, false)?
         {
+            result.source_is_directory = path.is_dir();
             result.archives = archives;
             return Ok(Some(result));
         }
@@ -699,6 +703,7 @@ fn inspect(
                 None
             };
             if let Some(preview) = result.as_mut() {
+                preview.source_is_directory = path.is_dir();
                 preview.archives = archives;
             }
             return Ok(result);

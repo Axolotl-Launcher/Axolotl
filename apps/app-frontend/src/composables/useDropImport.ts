@@ -1286,7 +1286,11 @@ export function useDropImport(options: DropImportOptions) {
                 await handleDropConfirm('instance')
                 break
             default:
-                if (result.item_type === 'resource_pack' || result.item_type === 'multiple') {
+                if (
+                    result.item_type === 'server' ||
+                    result.item_type === 'resource_pack' ||
+                    result.item_type === 'multiple'
+                ) {
                     confirmDropModal.value?.show()
                     return
                 }

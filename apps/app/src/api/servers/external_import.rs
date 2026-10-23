@@ -23,6 +23,7 @@ pub async fn servers_import_external(
     java_path: String,
     memory_mb: u32,
     configuration: Option<servers::ServerImportConfiguration>,
+    source_stopped: bool,
 ) -> Result<servers::ServerManifest> {
     Ok(servers::import_external_server(
         source_path,
@@ -31,6 +32,7 @@ pub async fn servers_import_external(
         java_path,
         memory_mb,
         configuration,
+        source_stopped,
     )
     .await?)
 }

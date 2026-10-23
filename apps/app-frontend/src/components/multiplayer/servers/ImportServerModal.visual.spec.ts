@@ -312,3 +312,20 @@ it('uses shared version-group metadata without choosing a loader automatically',
     expect(loader.props('options')).toEqual([{ value: '0.16.14', label: '0.16.14' }])
     expect(loader.props('modelValue')).toBe('')
 })
+
+it('keeps an animated status visible until the pending import completes', async () => {
+    let complete!: (result: { id: string; installState: null }) => void
+    fixture.importServer.mockReturnValue(
+        new Promise((resolve) => {
+            complete = resolve
+        }),
+    )
+    await open()
+    await submitButton().trigger('click')
+    expect(wrapper.get('[role="status"]').text()).toBe('Importing server…')
+    expect(wrapper.find('[role="status"] .animate-spin').exists()).toBe(true)
+    expect(submitButton().attributes('disabled')).toBeDefined()
+    complete({ id: 'new-id', installState: null })
+    await flushPromises()
+    expect(wrapper.find('[role="status"]').exists()).toBe(false)
+})

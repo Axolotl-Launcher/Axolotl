@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { SpinnerIcon } from '@modrinth/assets'
 import { requiredJavaMajorVersion, SERVER_TYPES, type ServerTypeId } from '@modrinth/server'
 import {
     Button,
@@ -353,7 +354,10 @@ defineExpose({ show })
         scrollable
     >
         <div class="flex flex-col gap-4">
-            <p v-if="inspecting" role="status">{{ formatMessage(messages.inspecting) }}</p>
+            <p v-if="inspecting" role="status" class="flex items-center gap-2">
+                <SpinnerIcon class="size-5 shrink-0 animate-spin" aria-hidden="true" />
+                {{ formatMessage(messages.inspecting) }}
+            </p>
             <template v-if="preview">
                 <div v-if="needsConfiguration && !importedId" class="flex flex-col gap-3">
                     <p>{{ formatMessage(messages.configuration) }}</p>
@@ -455,7 +459,10 @@ defineExpose({ show })
                 </template>
             </template>
             <p v-if="error" class="text-red" role="alert">{{ error }}</p>
-            <p v-if="busy" role="status">{{ formatMessage(messages.working) }}</p>
+            <p v-if="busy" role="status" class="flex items-center gap-2">
+                <SpinnerIcon class="size-5 shrink-0 animate-spin" aria-hidden="true" />
+                {{ formatMessage(messages.working) }}
+            </p>
         </div>
         <template #actions>
             <Button :disabled="busy || inspecting" @click="modal?.hide()">{{

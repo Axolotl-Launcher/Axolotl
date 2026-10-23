@@ -165,7 +165,9 @@ export function useDropImport(options: DropImportOptions) {
     const { formatMessage } = useVIntl()
     const dropDebug = useDebugLogger('DropFlow')
     const { addNotification } = notificationManager
-    const { addPopupNotification } = popupNotificationManager
+    const addDropPrompt = (
+        notification: Parameters<AppPopupNotificationManager['addPopupNotification']>[0],
+    ) => popupNotificationManager.addPopupNotification(notification, { resurface: true })
 
     const isSettingsImagePath = (path: string) =>
         /\.(png|jpe?g|webp|gif|avif|bmp)$/i.test(path.split(/[/\\]/).pop() ?? '')
@@ -196,6 +198,7 @@ export function useDropImport(options: DropImportOptions) {
                 launcherType?: string
                 basePath?: string
                 compatibleMode?: boolean
+                versionPath?: string
             }>
             symlinkCapable: string
         }) => void
@@ -1204,7 +1207,7 @@ export function useDropImport(options: DropImportOptions) {
             filePath,
         })
 
-        addPopupNotification({
+        addDropPrompt({
             title: formatMessage(messages.dropUnknownForceAnalysisTitle),
             text: formatMessage(messages.dropUnknownForceAnalysisText),
             type: 'info',
@@ -1309,7 +1312,7 @@ export function useDropImport(options: DropImportOptions) {
                     : `${Math.max(1, Math.round(sizeBytes / 1024))} KB`
                 : '?'
 
-        addPopupNotification({
+        addDropPrompt({
             title: formatMessage(messages.dropNestedUnpackTitle),
             text: formatMessage(messages.dropNestedUnpackText, { size: sizeLabel }),
             type: 'info',
@@ -1318,6 +1321,12 @@ export function useDropImport(options: DropImportOptions) {
                 {
                     label: formatMessage(messages.dropNestedUnpackButton),
                     action: async () => {
+                        const analyzing = addDropPrompt({
+                            title: formatMessage(messages.dropUnknownForceAnalyzing),
+                            type: 'info',
+                            waiting: true,
+                            autoCloseMs: null,
+                        })
                         try {
                             const result = await classifyDroppedItem(filePath, true)
                             await continueWithClassification(result, dropFileName.value || 'file')
@@ -1327,6 +1336,8 @@ export function useDropImport(options: DropImportOptions) {
                                 text: e instanceof Error ? e.message : String(e),
                                 type: 'error',
                             })
+                        } finally {
+                            popupNotificationManager.removeNotification(analyzing.id)
                         }
                     },
                 },
@@ -1490,10 +1501,7 @@ export function useDropImport(options: DropImportOptions) {
         cleanupLauncherZipTemp()
     }
 
-    function resolvedInstancePath(
-        inst: SelectedInstance,
-        _ctx: ImportContext | null,
-    ): string | undefined {
+    function resolvedInstancePath(inst: SelectedInstance): string | undefined {
         if (inst.compatibleMode) return inst.versionPath
         return inst.path
     }

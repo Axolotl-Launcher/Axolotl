@@ -94,7 +94,7 @@ importers:
         version: 0.5.0(vue@3.5.42(typescript@5.9.3))
       '@langchain/core':
         specifier: 1.2.14
-        version: 1.2.14(ws@8.21.0)
+        version: 1.2.14(ws@8.22.0)
       '@lobehub/icons-static-svg':
         specifier: ^1.95.0
         version: 1.95.0
@@ -166,7 +166,7 @@ importers:
         version: 1.11.23
       deepagents:
         specifier: 1.14.2
-        version: 1.14.2(@langchain/core@1.2.14(ws@8.21.0))(@langchain/langgraph-checkpoint@1.1.6(@langchain/core@1.2.14(ws@8.21.0)))(@langchain/langgraph-sdk@1.12.3(@langchain/core@1.2.14(ws@8.21.0))(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(@langchain/langgraph@1.4.21(@langchain/core@1.2.14(ws@8.21.0))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(zod@4.3.6))(langchain@1.5.10(@langchain/core@1.2.14(ws@8.21.0))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(ws@8.21.0))(langsmith@0.9.0(ws@8.21.0))
+        version: 1.14.2(@langchain/core@1.2.14(ws@8.22.0))(@langchain/langgraph-checkpoint@1.1.6(@langchain/core@1.2.14(ws@8.22.0)))(@langchain/langgraph-sdk@1.12.3(@langchain/core@1.2.14(ws@8.22.0))(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(@langchain/langgraph@1.4.21(@langchain/core@1.2.14(ws@8.22.0))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(zod@4.3.6))(langchain@1.5.10(@langchain/core@1.2.14(ws@8.22.0))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(ws@8.22.0))(langsmith@0.9.0(ws@8.22.0))
       deepslate:
         specifier: ^0.26.2
         version: 0.26.2
@@ -181,10 +181,10 @@ importers:
         version: 10.7.18
       langchain:
         specifier: 1.5.10
-        version: 1.5.10(@langchain/core@1.2.14(ws@8.21.0))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(ws@8.21.0)
+        version: 1.5.10(@langchain/core@1.2.14(ws@8.22.0))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(ws@8.22.0)
       langsmith:
         specifier: 0.9.0
-        version: 0.9.0(ws@8.21.0)
+        version: 0.9.0(ws@8.22.0)
       lru-cache:
         specifier: ^11.5.2
         version: 11.5.2
@@ -284,7 +284,7 @@ importers:
         version: 8.2.1(vite@8.2.4(@types/node@24.13.3)(esbuild@0.28.2)(jiti@1.21.7)(sass@1.104.0)(terser@5.46.0)(yaml@2.8.2))(vue@3.5.42(typescript@5.9.3))
       vitest:
         specifier: ^4.1.11
-        version: 4.1.11(@types/node@24.13.3)(@vitest/browser-playwright@4.1.11)(happy-dom@18.0.1)(jsdom@26.1.0(canvas@3.2.3))(vite@8.2.4(@types/node@24.13.3)(esbuild@0.28.2)(jiti@1.21.7)(sass@1.104.0)(terser@5.46.0)(yaml@2.8.2))
+        version: 4.1.11(@types/node@24.13.3)(@vitest/browser-playwright@4.1.11)(happy-dom@20.8.9)(jsdom@26.1.0(canvas@3.2.3))(vite@8.2.4(@types/node@24.13.3)(esbuild@0.28.2)(jiti@1.21.7)(sass@1.104.0)(terser@5.46.0)(yaml@2.8.2))
       vue-component-type-helpers:
         specifier: ^3.3.11
         version: 3.3.11
@@ -333,7 +333,7 @@ importers:
     devDependencies:
       '@cloudflare/vitest-pool-workers':
         specifier: ^0.8.69
-        version: 0.8.71(@cloudflare/workers-types@5.20260804.1)(@vitest/runner@4.1.11)(@vitest/snapshot@4.1.11)(vitest@3.2.7(@types/node@24.12.2)(happy-dom@18.0.1)(jiti@2.7.0)(jsdom@26.1.0(canvas@3.2.3))(lightningcss@1.33.0)(sass@1.104.0)(terser@5.46.0)(yaml@2.8.2))
+        version: 0.8.71(@cloudflare/workers-types@5.20260804.1)(@vitest/runner@4.1.11)(@vitest/snapshot@4.1.11)(vitest@3.2.7(@types/node@24.12.2)(happy-dom@20.8.9)(jiti@2.7.0)(jsdom@26.1.0(canvas@3.2.3))(lightningcss@1.33.0)(sass@1.104.0)(terser@5.46.0)(yaml@2.8.2))
       '@cloudflare/workers-types':
         specifier: ^5.20260801.1
         version: 5.20260804.1
@@ -353,8 +353,8 @@ importers:
         specifier: ^10.4.19
         version: 10.4.24(postcss@8.5.8)
       happy-dom:
-        specifier: ^18.0.1
-        version: 18.0.1
+        specifier: ^20.8.9
+        version: 20.8.9
       postcss:
         specifier: ^8.4.39
         version: 8.5.8
@@ -369,7 +369,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^3.2.4
-        version: 3.2.7(@types/node@24.12.2)(happy-dom@18.0.1)(jiti@2.7.0)(jsdom@26.1.0(canvas@3.2.3))(lightningcss@1.33.0)(sass@1.104.0)(terser@5.46.0)(yaml@2.8.2)
+        version: 3.2.7(@types/node@24.12.2)(happy-dom@20.8.9)(jiti@2.7.0)(jsdom@26.1.0(canvas@3.2.3))(lightningcss@1.33.0)(sass@1.104.0)(terser@5.46.0)(yaml@2.8.2)
       wrangler:
         specifier: ^4.28.1
         version: 4.119.0(@cloudflare/workers-types@5.20260804.1)
@@ -385,7 +385,7 @@ importers:
     devDependencies:
       '@cloudflare/vitest-pool-workers':
         specifier: ^0.8.69
-        version: 0.8.71(@cloudflare/workers-types@5.20260804.1)(@vitest/runner@4.1.11)(@vitest/snapshot@4.1.11)(vitest@3.2.7(@types/node@24.12.2)(happy-dom@18.0.1)(jiti@2.7.0)(jsdom@26.1.0(canvas@3.2.3))(lightningcss@1.33.0)(sass@1.104.0)(terser@5.46.0)(yaml@2.8.2))
+        version: 0.8.71(@cloudflare/workers-types@5.20260804.1)(@vitest/runner@4.1.11)(@vitest/snapshot@4.1.11)(vitest@3.2.7(@types/node@24.12.2)(happy-dom@20.8.9)(jiti@2.7.0)(jsdom@26.1.0(canvas@3.2.3))(lightningcss@1.33.0)(sass@1.104.0)(terser@5.46.0)(yaml@2.8.2))
       '@cloudflare/workers-types':
         specifier: ^5.20260801.1
         version: 5.20260804.1
@@ -397,7 +397,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^3.2.4
-        version: 3.2.7(@types/node@24.12.2)(happy-dom@18.0.1)(jiti@2.7.0)(jsdom@26.1.0(canvas@3.2.3))(lightningcss@1.33.0)(sass@1.104.0)(terser@5.46.0)(yaml@2.8.2)
+        version: 3.2.7(@types/node@24.12.2)(happy-dom@20.8.9)(jiti@2.7.0)(jsdom@26.1.0(canvas@3.2.3))(lightningcss@1.33.0)(sass@1.104.0)(terser@5.46.0)(yaml@2.8.2)
       wrangler:
         specifier: ^4.28.1
         version: 4.119.0(@cloudflare/workers-types@5.20260804.1)
@@ -741,7 +741,7 @@ importers:
         version: 5.1.3(vue@3.5.42(typescript@5.9.3))
       vitest:
         specifier: ^4.1.11
-        version: 4.1.11(@types/node@24.13.3)(@vitest/browser-playwright@4.1.11)(happy-dom@18.0.1)(jsdom@26.1.0(canvas@3.2.3))(vite@8.2.4(@types/node@24.13.3)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.104.0)(terser@5.46.0)(yaml@2.8.2))
+        version: 4.1.11(@types/node@24.13.3)(@vitest/browser-playwright@4.1.11)(happy-dom@20.8.9)(jsdom@26.1.0(canvas@3.2.3))(vite@8.2.4(@types/node@24.13.3)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.104.0)(terser@5.46.0)(yaml@2.8.2))
       vue:
         specifier: ^3.5.42
         version: 3.5.42(typescript@5.9.3)
@@ -3933,9 +3933,6 @@ packages:
   '@types/mdurl@2.0.0':
     resolution: {integrity: sha512-RGdgjQUZba5p6QEFAVx2OGb8rQDL/cPRG7GiedRzMcJ1tYnUANBncjbSB1NRGwbvjcPeikRABz2nshyPk1bhWg==}
 
-  '@types/node@20.19.43':
-    resolution: {integrity: sha512-6oYBAi5ikg4Pl+kGsoYtawUMBT2zZMCvPNF7pVLnHZfd1zf38DRiWn/gT01RYCdUqkv7Fhr+C9ot4/tb+2sVvA==}
-
   '@types/node@24.12.2':
     resolution: {integrity: sha512-A1sre26ke7HDIuY/M23nd9gfB+nrmhtYyMINbjI1zHJxYteKR6qSMX56FsmjMcDb3SMcjJg5BiRRgOCC/yBD0g==}
 
@@ -4008,6 +4005,9 @@ packages:
 
   '@types/whatwg-mimetype@3.0.2':
     resolution: {integrity: sha512-c2AKvDT8ToxLIOUlN51gTiHXflsfIFisS4pO7pDPoKouJCESkhZnEy623gwP9laCy5lnLDAw1vAzu2vM2YLOrA==}
+
+  '@types/ws@8.18.2':
+    resolution: {integrity: sha512-67MQl+fpWKVTT1NYdnmo3U4sc/xPo/zQBncVnI74qmQa0z/b+1g6iYqNmGCPbxO+zz2aklb08a0oHfegiVd0/w==}
 
   '@typescript-eslint/eslint-plugin@8.69.0':
     resolution: {integrity: sha512-t5jQTKPIgVW1PE6dR6H6Qz5gm8zjMlX5/2gRaOGd9eO6V7J+tQc6iWKukEe7dY8u9HyYasQ0yfF0/FSSTEO2gA==}
@@ -6238,8 +6238,8 @@ packages:
   h3@1.15.5:
     resolution: {integrity: sha512-xEyq3rSl+dhGX2Lm0+eFQIAzlDN6Fs0EcC4f7BNUmzaRX/PTzeuM+Tr2lHB8FoXggsQIeXLj8EDVgs5ywxyxmg==}
 
-  happy-dom@18.0.1:
-    resolution: {integrity: sha512-qn+rKOW7KWpVTtgIUi6RVmTBZJSe2k0Db0vh1f7CWrWclkkc7/Q+FrOfkZIb2eiErLyqu5AXEzE7XthO9JVxRA==}
+  happy-dom@20.8.9:
+    resolution: {integrity: sha512-Tz23LR9T9jOGVZm2x1EPdXqwA37G/owYMxRwU0E4miurAtFsPMQ1d2Jc2okUaSjZqAFz2oEn3FLXC5a0a+siyA==}
     engines: {node: '>=20.0.0'}
 
   has-flag@4.0.0:
@@ -8857,9 +8857,6 @@ packages:
   unctx@2.5.0:
     resolution: {integrity: sha512-p+Rz9x0R7X+CYDkT+Xg8/GhpcShTlU8n+cf9OtOEf7zEQsNcCZO1dPKNRDqvUTaq+P32PMMkxWHwfrxkqfqAYg==}
 
-  undici-types@6.21.0:
-    resolution: {integrity: sha512-iwDZqg0QAGrg9Rav5H4n0M64c3mkR59cJ6wQp+7C4nI0gsmExaedaYLNO44eT4AtBBwjbTiGPMlt2Md0T9H9JQ==}
-
   undici-types@7.16.0:
     resolution: {integrity: sha512-Zz+aZWSj8LE6zoxD+xrjh4VfkIG8Ya6LvYkZqtUQGJPZjYl53ypCaUwWqo7eI0x66KBGeRo+mlBEkMSeSZ38Nw==}
 
@@ -9556,6 +9553,18 @@ packages:
       utf-8-validate:
         optional: true
 
+  ws@8.22.0:
+    resolution: {integrity: sha512-Ydggc987+RO0AnWtZ/7Wq9FtNvcrL1b/RO0ud9mWjUPgDrsAAwQSF51sm2hm1XofbU/4jkpGEsLFsZZxU+1DOg==}
+    engines: {node: '>=10.0.0'}
+    peerDependencies:
+      bufferutil: ^4.0.1
+      utf-8-validate: '>=5.0.2'
+    peerDependenciesMeta:
+      bufferutil:
+        optional: true
+      utf-8-validate:
+        optional: true
+
   wsl-utils@1.0.0:
     resolution: {integrity: sha512-Hl0ZOAs672vg+06kfujwRhoS6/jehvULrlFkuF2dRu6pHgA8U06h3xqNIqNNU1LTXPcedxByAR4GS6pwQK0mgA==}
     engines: {node: '>=20'}
@@ -10091,7 +10100,7 @@ snapshots:
     optionalDependencies:
       workerd: 1.20250906.0
 
-  '@cloudflare/vitest-pool-workers@0.8.71(@cloudflare/workers-types@5.20260804.1)(@vitest/runner@4.1.11)(@vitest/snapshot@4.1.11)(vitest@3.2.7(@types/node@24.12.2)(happy-dom@18.0.1)(jiti@2.7.0)(jsdom@26.1.0(canvas@3.2.3))(lightningcss@1.33.0)(sass@1.104.0)(terser@5.46.0)(yaml@2.8.2))':
+  '@cloudflare/vitest-pool-workers@0.8.71(@cloudflare/workers-types@5.20260804.1)(@vitest/runner@4.1.11)(@vitest/snapshot@4.1.11)(vitest@3.2.7(@types/node@24.12.2)(happy-dom@20.8.9)(jiti@2.7.0)(jsdom@26.1.0(canvas@3.2.3))(lightningcss@1.33.0)(sass@1.104.0)(terser@5.46.0)(yaml@2.8.2))':
     dependencies:
       '@vitest/runner': 4.1.11
       '@vitest/snapshot': 4.1.11
@@ -10100,7 +10109,7 @@ snapshots:
       devalue: 5.6.2
       miniflare: 4.20250906.0
       semver: 7.8.5
-      vitest: 3.2.7(@types/node@24.12.2)(happy-dom@18.0.1)(jiti@2.7.0)(jsdom@26.1.0(canvas@3.2.3))(lightningcss@1.33.0)(sass@1.104.0)(terser@5.46.0)(yaml@2.8.2)
+      vitest: 3.2.7(@types/node@24.12.2)(happy-dom@20.8.9)(jiti@2.7.0)(jsdom@26.1.0(canvas@3.2.3))(lightningcss@1.33.0)(sass@1.104.0)(terser@5.46.0)(yaml@2.8.2)
       wrangler: 4.35.0(@cloudflare/workers-types@5.20260804.1)
       zod: 3.25.76
     transitivePeerDependencies:
@@ -11201,12 +11210,12 @@ snapshots:
 
   '@kwsites/promise-deferred@1.1.1': {}
 
-  '@langchain/core@1.2.14(ws@8.21.0)':
+  '@langchain/core@1.2.14(ws@8.22.0)':
     dependencies:
       '@cfworker/json-schema': 4.1.1
       '@standard-schema/spec': 1.1.0
       js-tiktoken: 1.0.21
-      langsmith: 0.9.0(ws@8.21.0)
+      langsmith: 0.9.0(ws@8.22.0)
       mustache: 4.2.0
       p-queue: 6.6.2
       zod: 3.25.76
@@ -11217,13 +11226,13 @@ snapshots:
       - openai
       - ws
 
-  '@langchain/langgraph-checkpoint@1.1.6(@langchain/core@1.2.14(ws@8.21.0))':
+  '@langchain/langgraph-checkpoint@1.1.6(@langchain/core@1.2.14(ws@8.22.0))':
     dependencies:
-      '@langchain/core': 1.2.14(ws@8.21.0)
+      '@langchain/core': 1.2.14(ws@8.22.0)
 
-  '@langchain/langgraph-sdk@1.12.3(@langchain/core@1.2.14(ws@8.21.0))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)':
+  '@langchain/langgraph-sdk@1.12.3(@langchain/core@1.2.14(ws@8.22.0))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)':
     dependencies:
-      '@langchain/core': 1.2.14(ws@8.21.0)
+      '@langchain/core': 1.2.14(ws@8.22.0)
       '@langchain/protocol': 0.0.19
       '@types/json-schema': 7.0.15
       p-queue: 9.3.3
@@ -11232,11 +11241,11 @@ snapshots:
       react: 19.2.4
       react-dom: 19.2.4(react@19.2.4)
 
-  '@langchain/langgraph@1.4.21(@langchain/core@1.2.14(ws@8.21.0))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(zod@3.25.76)':
+  '@langchain/langgraph@1.4.21(@langchain/core@1.2.14(ws@8.22.0))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(zod@3.25.76)':
     dependencies:
-      '@langchain/core': 1.2.14(ws@8.21.0)
-      '@langchain/langgraph-checkpoint': 1.1.6(@langchain/core@1.2.14(ws@8.21.0))
-      '@langchain/langgraph-sdk': 1.12.3(@langchain/core@1.2.14(ws@8.21.0))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+      '@langchain/core': 1.2.14(ws@8.22.0)
+      '@langchain/langgraph-checkpoint': 1.1.6(@langchain/core@1.2.14(ws@8.22.0))
+      '@langchain/langgraph-sdk': 1.12.3(@langchain/core@1.2.14(ws@8.22.0))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       '@langchain/protocol': 0.0.19
       '@standard-schema/spec': 1.1.0
       zod: 3.25.76
@@ -11244,11 +11253,11 @@ snapshots:
       - react
       - react-dom
 
-  '@langchain/langgraph@1.4.21(@langchain/core@1.2.14(ws@8.21.0))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(zod@4.3.6)':
+  '@langchain/langgraph@1.4.21(@langchain/core@1.2.14(ws@8.22.0))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(zod@4.3.6)':
     dependencies:
-      '@langchain/core': 1.2.14(ws@8.21.0)
-      '@langchain/langgraph-checkpoint': 1.1.6(@langchain/core@1.2.14(ws@8.21.0))
-      '@langchain/langgraph-sdk': 1.12.3(@langchain/core@1.2.14(ws@8.21.0))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+      '@langchain/core': 1.2.14(ws@8.22.0)
+      '@langchain/langgraph-checkpoint': 1.1.6(@langchain/core@1.2.14(ws@8.22.0))
+      '@langchain/langgraph-sdk': 1.12.3(@langchain/core@1.2.14(ws@8.22.0))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       '@langchain/protocol': 0.0.19
       '@standard-schema/spec': 1.1.0
       zod: 4.3.6
@@ -11456,7 +11465,7 @@ snapshots:
       vite-plugin-inspect: 11.4.1(@nuxt/kit@4.3.0(magicast@0.5.1))(vite@8.2.4(@types/node@24.12.2)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.104.0)(terser@5.46.0)(yaml@2.8.2))
       vite-plugin-vue-tracer: 1.2.0(vite@8.2.4(@types/node@24.12.2)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.104.0)(terser@5.46.0)(yaml@2.8.2))(vue@3.5.27(typescript@5.9.3))
       which: 5.0.0
-      ws: 8.21.0
+      ws: 8.22.0
     transitivePeerDependencies:
       - bufferutil
       - supports-color
@@ -11497,7 +11506,7 @@ snapshots:
       vite-plugin-inspect: 11.4.1(@nuxt/kit@4.3.0(magicast@0.5.1))(vite@8.2.4(@types/node@24.13.3)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.104.0)(terser@5.46.0)(yaml@2.8.2))
       vite-plugin-vue-tracer: 1.2.0(vite@8.2.4(@types/node@24.13.3)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.104.0)(terser@5.46.0)(yaml@2.8.2))(vue@3.5.27(typescript@5.9.3))
       which: 5.0.0
-      ws: 8.21.0
+      ws: 8.22.0
     transitivePeerDependencies:
       - bufferutil
       - supports-color
@@ -12866,10 +12875,6 @@ snapshots:
 
   '@types/mdurl@2.0.0': {}
 
-  '@types/node@20.19.43':
-    dependencies:
-      undici-types: 6.21.0
-
   '@types/node@24.12.2':
     dependencies:
       undici-types: 7.16.0
@@ -12950,6 +12955,10 @@ snapshots:
   '@types/webxr@0.5.24': {}
 
   '@types/whatwg-mimetype@3.0.2': {}
+
+  '@types/ws@8.18.2':
+    dependencies:
+      '@types/node': 24.13.3
 
   '@typescript-eslint/eslint-plugin@8.69.0(@typescript-eslint/parser@8.69.0(eslint@9.39.5(jiti@1.21.7))(typescript@5.9.3))(eslint@9.39.5(jiti@1.21.7))(typescript@5.9.3)':
     dependencies:
@@ -13343,7 +13352,7 @@ snapshots:
       '@vitest/mocker': 4.1.11(vite@8.2.4(@types/node@24.13.3)(esbuild@0.28.2)(jiti@1.21.7)(sass@1.104.0)(terser@5.46.0)(yaml@2.8.2))
       playwright: 1.63.0
       tinyrainbow: 3.1.1
-      vitest: 4.1.11(@types/node@24.13.3)(@vitest/browser-playwright@4.1.11)(happy-dom@18.0.1)(jsdom@26.1.0(canvas@3.2.3))(vite@8.2.4(@types/node@24.13.3)(esbuild@0.28.2)(jiti@1.21.7)(sass@1.104.0)(terser@5.46.0)(yaml@2.8.2))
+      vitest: 4.1.11(@types/node@24.13.3)(@vitest/browser-playwright@4.1.11)(happy-dom@20.8.9)(jsdom@26.1.0(canvas@3.2.3))(vite@8.2.4(@types/node@24.13.3)(esbuild@0.28.2)(jiti@1.21.7)(sass@1.104.0)(terser@5.46.0)(yaml@2.8.2))
     transitivePeerDependencies:
       - bufferutil
       - msw
@@ -13356,7 +13365,7 @@ snapshots:
       '@vitest/mocker': 4.1.11(vite@8.2.4(@types/node@24.13.3)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.104.0)(terser@5.46.0)(yaml@2.8.2))
       playwright: 1.63.0
       tinyrainbow: 3.1.1
-      vitest: 4.1.11(@types/node@24.13.3)(@vitest/browser-playwright@4.1.11)(happy-dom@18.0.1)(jsdom@26.1.0(canvas@3.2.3))(vite@8.2.4(@types/node@24.13.3)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.104.0)(terser@5.46.0)(yaml@2.8.2))
+      vitest: 4.1.11(@types/node@24.13.3)(@vitest/browser-playwright@4.1.11)(happy-dom@20.8.9)(jsdom@26.1.0(canvas@3.2.3))(vite@8.2.4(@types/node@24.13.3)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.104.0)(terser@5.46.0)(yaml@2.8.2))
     transitivePeerDependencies:
       - bufferutil
       - msw
@@ -13372,8 +13381,8 @@ snapshots:
       pngjs: 7.0.0
       sirv: 3.0.2
       tinyrainbow: 3.1.1
-      vitest: 4.1.11(@types/node@24.13.3)(@vitest/browser-playwright@4.1.11)(happy-dom@18.0.1)(jsdom@26.1.0(canvas@3.2.3))(vite@8.2.4(@types/node@24.13.3)(esbuild@0.28.2)(jiti@1.21.7)(sass@1.104.0)(terser@5.46.0)(yaml@2.8.2))
-      ws: 8.21.0
+      vitest: 4.1.11(@types/node@24.13.3)(@vitest/browser-playwright@4.1.11)(happy-dom@20.8.9)(jsdom@26.1.0(canvas@3.2.3))(vite@8.2.4(@types/node@24.13.3)(esbuild@0.28.2)(jiti@1.21.7)(sass@1.104.0)(terser@5.46.0)(yaml@2.8.2))
+      ws: 8.22.0
     transitivePeerDependencies:
       - bufferutil
       - msw
@@ -13389,8 +13398,8 @@ snapshots:
       pngjs: 7.0.0
       sirv: 3.0.2
       tinyrainbow: 3.1.1
-      vitest: 4.1.11(@types/node@24.13.3)(@vitest/browser-playwright@4.1.11)(happy-dom@18.0.1)(jsdom@26.1.0(canvas@3.2.3))(vite@8.2.4(@types/node@24.13.3)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.104.0)(terser@5.46.0)(yaml@2.8.2))
-      ws: 8.21.0
+      vitest: 4.1.11(@types/node@24.13.3)(@vitest/browser-playwright@4.1.11)(happy-dom@20.8.9)(jsdom@26.1.0(canvas@3.2.3))(vite@8.2.4(@types/node@24.13.3)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.104.0)(terser@5.46.0)(yaml@2.8.2))
+      ws: 8.22.0
     transitivePeerDependencies:
       - bufferutil
       - msw
@@ -14920,15 +14929,15 @@ snapshots:
 
   deep-is@0.1.4: {}
 
-  deepagents@1.14.2(@langchain/core@1.2.14(ws@8.21.0))(@langchain/langgraph-checkpoint@1.1.6(@langchain/core@1.2.14(ws@8.21.0)))(@langchain/langgraph-sdk@1.12.3(@langchain/core@1.2.14(ws@8.21.0))(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(@langchain/langgraph@1.4.21(@langchain/core@1.2.14(ws@8.21.0))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(zod@4.3.6))(langchain@1.5.10(@langchain/core@1.2.14(ws@8.21.0))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(ws@8.21.0))(langsmith@0.9.0(ws@8.21.0)):
+  deepagents@1.14.2(@langchain/core@1.2.14(ws@8.22.0))(@langchain/langgraph-checkpoint@1.1.6(@langchain/core@1.2.14(ws@8.22.0)))(@langchain/langgraph-sdk@1.12.3(@langchain/core@1.2.14(ws@8.22.0))(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(@langchain/langgraph@1.4.21(@langchain/core@1.2.14(ws@8.22.0))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(zod@4.3.6))(langchain@1.5.10(@langchain/core@1.2.14(ws@8.22.0))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(ws@8.22.0))(langsmith@0.9.0(ws@8.22.0)):
     dependencies:
-      '@langchain/core': 1.2.14(ws@8.21.0)
-      '@langchain/langgraph': 1.4.21(@langchain/core@1.2.14(ws@8.21.0))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(zod@4.3.6)
-      '@langchain/langgraph-checkpoint': 1.1.6(@langchain/core@1.2.14(ws@8.21.0))
-      '@langchain/langgraph-sdk': 1.12.3(@langchain/core@1.2.14(ws@8.21.0))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+      '@langchain/core': 1.2.14(ws@8.22.0)
+      '@langchain/langgraph': 1.4.21(@langchain/core@1.2.14(ws@8.22.0))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(zod@4.3.6)
+      '@langchain/langgraph-checkpoint': 1.1.6(@langchain/core@1.2.14(ws@8.22.0))
+      '@langchain/langgraph-sdk': 1.12.3(@langchain/core@1.2.14(ws@8.22.0))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       fast-glob: 3.3.3
-      langchain: 1.5.10(@langchain/core@1.2.14(ws@8.21.0))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(ws@8.21.0)
-      langsmith: 0.9.0(ws@8.21.0)
+      langchain: 1.5.10(@langchain/core@1.2.14(ws@8.22.0))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(ws@8.22.0)
+      langsmith: 0.9.0(ws@8.22.0)
       micromatch: 4.0.8
       yaml: 2.8.2
       zod: 4.3.6
@@ -15948,11 +15957,17 @@ snapshots:
       ufo: 1.6.3
       uncrypto: 0.1.3
 
-  happy-dom@18.0.1:
+  happy-dom@20.8.9:
     dependencies:
-      '@types/node': 20.19.43
+      '@types/node': 24.13.3
       '@types/whatwg-mimetype': 3.0.2
+      '@types/ws': 8.18.2
+      entities: 7.0.1
       whatwg-mimetype: 3.0.0
+      ws: 8.22.0
+    transitivePeerDependencies:
+      - bufferutil
+      - utf-8-validate
 
   has-flag@4.0.0: {}
 
@@ -16335,7 +16350,7 @@ snapshots:
       whatwg-encoding: 3.1.1
       whatwg-mimetype: 4.0.0
       whatwg-url: 14.2.0
-      ws: 8.21.0
+      ws: 8.22.0
       xml-name-validator: 5.0.0
     optionalDependencies:
       canvas: 3.2.3
@@ -16389,12 +16404,12 @@ snapshots:
 
   kolorist@1.8.0: {}
 
-  langchain@1.5.10(@langchain/core@1.2.14(ws@8.21.0))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(ws@8.21.0):
+  langchain@1.5.10(@langchain/core@1.2.14(ws@8.22.0))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(ws@8.22.0):
     dependencies:
-      '@langchain/core': 1.2.14(ws@8.21.0)
-      '@langchain/langgraph': 1.4.21(@langchain/core@1.2.14(ws@8.21.0))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(zod@3.25.76)
-      '@langchain/langgraph-checkpoint': 1.1.6(@langchain/core@1.2.14(ws@8.21.0))
-      langsmith: 0.9.0(ws@8.21.0)
+      '@langchain/core': 1.2.14(ws@8.22.0)
+      '@langchain/langgraph': 1.4.21(@langchain/core@1.2.14(ws@8.22.0))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(zod@3.25.76)
+      '@langchain/langgraph-checkpoint': 1.1.6(@langchain/core@1.2.14(ws@8.22.0))
+      langsmith: 0.9.0(ws@8.22.0)
       zod: 3.25.76
     transitivePeerDependencies:
       - '@opentelemetry/api'
@@ -16405,11 +16420,11 @@ snapshots:
       - react-dom
       - ws
 
-  langsmith@0.9.0(ws@8.21.0):
+  langsmith@0.9.0(ws@8.22.0):
     dependencies:
       p-queue: 6.6.2
     optionalDependencies:
-      ws: 8.21.0
+      ws: 8.22.0
 
   launch-editor@2.12.0:
     dependencies:
@@ -18963,8 +18978,6 @@ snapshots:
       magic-string: 0.30.21
       unplugin: 2.3.11
 
-  undici-types@6.21.0: {}
-
   undici-types@7.16.0: {}
 
   undici-types@7.18.2: {}
@@ -19493,7 +19506,7 @@ snapshots:
       terser: 5.46.0
       yaml: 2.8.2
 
-  vitest@3.2.7(@types/node@24.12.2)(happy-dom@18.0.1)(jiti@2.7.0)(jsdom@26.1.0(canvas@3.2.3))(lightningcss@1.33.0)(sass@1.104.0)(terser@5.46.0)(yaml@2.8.2):
+  vitest@3.2.7(@types/node@24.12.2)(happy-dom@20.8.9)(jiti@2.7.0)(jsdom@26.1.0(canvas@3.2.3))(lightningcss@1.33.0)(sass@1.104.0)(terser@5.46.0)(yaml@2.8.2):
     dependencies:
       '@types/chai': 5.2.3
       '@vitest/expect': 3.2.7
@@ -19520,7 +19533,7 @@ snapshots:
       why-is-node-running: 2.3.0
     optionalDependencies:
       '@types/node': 24.12.2
-      happy-dom: 18.0.1
+      happy-dom: 20.8.9
       jsdom: 26.1.0(canvas@3.2.3)
     transitivePeerDependencies:
       - jiti
@@ -19536,7 +19549,7 @@ snapshots:
       - tsx
       - yaml
 
-  vitest@4.1.11(@types/node@24.13.3)(@vitest/browser-playwright@4.1.11)(happy-dom@18.0.1)(jsdom@26.1.0(canvas@3.2.3))(vite@8.2.4(@types/node@24.13.3)(esbuild@0.28.2)(jiti@1.21.7)(sass@1.104.0)(terser@5.46.0)(yaml@2.8.2)):
+  vitest@4.1.11(@types/node@24.13.3)(@vitest/browser-playwright@4.1.11)(happy-dom@20.8.9)(jsdom@26.1.0(canvas@3.2.3))(vite@8.2.4(@types/node@24.13.3)(esbuild@0.28.2)(jiti@1.21.7)(sass@1.104.0)(terser@5.46.0)(yaml@2.8.2)):
     dependencies:
       '@vitest/expect': 4.1.11
       '@vitest/mocker': 4.1.11(vite@8.2.4(@types/node@24.13.3)(esbuild@0.28.2)(jiti@1.21.7)(sass@1.104.0)(terser@5.46.0)(yaml@2.8.2))
@@ -19561,12 +19574,12 @@ snapshots:
     optionalDependencies:
       '@types/node': 24.13.3
       '@vitest/browser-playwright': 4.1.11(playwright@1.63.0)(vite@8.2.4(@types/node@24.13.3)(esbuild@0.28.2)(jiti@1.21.7)(sass@1.104.0)(terser@5.46.0)(yaml@2.8.2))(vitest@4.1.11)
-      happy-dom: 18.0.1
+      happy-dom: 20.8.9
       jsdom: 26.1.0(canvas@3.2.3)
     transitivePeerDependencies:
       - msw
 
-  vitest@4.1.11(@types/node@24.13.3)(@vitest/browser-playwright@4.1.11)(happy-dom@18.0.1)(jsdom@26.1.0(canvas@3.2.3))(vite@8.2.4(@types/node@24.13.3)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.104.0)(terser@5.46.0)(yaml@2.8.2)):
+  vitest@4.1.11(@types/node@24.13.3)(@vitest/browser-playwright@4.1.11)(happy-dom@20.8.9)(jsdom@26.1.0(canvas@3.2.3))(vite@8.2.4(@types/node@24.13.3)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.104.0)(terser@5.46.0)(yaml@2.8.2)):
     dependencies:
       '@vitest/expect': 4.1.11
       '@vitest/mocker': 4.1.11(vite@8.2.4(@types/node@24.13.3)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.104.0)(terser@5.46.0)(yaml@2.8.2))
@@ -19591,7 +19604,7 @@ snapshots:
     optionalDependencies:
       '@types/node': 24.13.3
       '@vitest/browser-playwright': 4.1.11(playwright@1.63.0)(vite@8.2.4(@types/node@24.13.3)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.104.0)(terser@5.46.0)(yaml@2.8.2))(vitest@4.1.11)
-      happy-dom: 18.0.1
+      happy-dom: 20.8.9
       jsdom: 26.1.0(canvas@3.2.3)
     transitivePeerDependencies:
       - msw
@@ -19891,6 +19904,8 @@ snapshots:
   ws@8.18.0: {}
 
   ws@8.21.0: {}
+
+  ws@8.22.0: {}
 
   wsl-utils@1.0.0:
     dependencies:

@@ -70,7 +70,7 @@
     "ace-builds": "^1.14.0",
     "apexcharts": "^4.7.0",
     "dayjs": "^1.11.23",
-    "dompurify": "^3.4.14",
+    "dompurify": "^3.4.17",
     "es-toolkit": "^1.52.0",
     "fabric": "^7.4.0",
     "flatpickr": "^4.6.13",

@@ -3,6 +3,7 @@ import { ChevronRightIcon } from '@modrinth/assets'
 import { Button, Checkbox, NewModal, useFormatBytes, useVIntl } from '@modrinth/ui'
 import { computed, nextTick, ref } from 'vue'
 
+import { errorText } from '@/helpers/error-text'
 import {
     analyzeMeta,
     cleanMeta,
@@ -197,7 +198,7 @@ async function clean() {
         void analyze()
     } catch (cause) {
         error.value = 'cleanFailed'
-        errorDetail.value = cause instanceof Error ? cause.message : String(cause)
+        errorDetail.value = errorText(cause)
         console.warn('[storage] Metadata cleanup failed', cause)
     } finally {
         cleaning.value = false

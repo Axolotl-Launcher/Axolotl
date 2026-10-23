@@ -3537,6 +3537,16 @@ fn resolve_toggle_paths(
     } else {
         format!("{trimmed}.disabled")
     };
+    // An enabled and a disabled copy of the same name can coexist on disk, for
+    // example an imported file next to a disabled sibling. Renaming onto that
+    // sibling would replace it, so refuse before anything is moved.
+    if new_path != current_path && join_content_path(base, &new_path).exists() {
+        return Err(crate::ErrorKind::InputError(format!(
+            "Cannot {} '{project_path}' because '{new_path}' already exists",
+            if enabled { "enable" } else { "disable" }
+        ))
+        .into());
+    }
     Ok((current_path, enabled, new_path))
 }
 
@@ -4379,6 +4389,64 @@ mod tests {
                 == materialization_path_key("mods/foo.jar"),
             cfg!(any(windows, target_os = "macos"))
         );
+    }
+
+    #[test]
+    fn toggle_refuses_to_replace_an_existing_sibling_file() {
+        let directory = tempfile::tempdir().unwrap();
+        let mods = directory.path().join("mods");
+        std::fs::create_dir_all(&mods).unwrap();
+        std::fs::write(mods.join("sibling.jar"), b"enabled").unwrap();
+        std::fs::write(mods.join("sibling.jar.disabled"), b"disabled").unwrap();
+
+        let error = resolve_toggle_paths(
+            directory.path(),
+            "mods/sibling.jar",
+            Some(false),
+        )
+        .unwrap_err();
+        assert!(error.to_string().contains("already exists"));
+
+        let error = resolve_toggle_paths(
+            directory.path(),
+            "mods/sibling.jar.disabled",
+            Some(true),
+        )
+        .unwrap_err();
+        assert!(error.to_string().contains("already exists"));
+
+        assert_eq!(std::fs::read(mods.join("sibling.jar")).unwrap(), b"enabled");
+        assert_eq!(
+            std::fs::read(mods.join("sibling.jar.disabled")).unwrap(),
+            b"disabled"
+        );
+    }
+
+    #[test]
+    fn toggle_renames_when_the_destination_is_free() {
+        let directory = tempfile::tempdir().unwrap();
+        let mods = directory.path().join("mods");
+        std::fs::create_dir_all(&mods).unwrap();
+        std::fs::write(mods.join("single.jar"), b"enabled").unwrap();
+        std::fs::write(mods.join("already.jar.disabled"), b"disabled").unwrap();
+
+        let (current, enabled, next) =
+            resolve_toggle_paths(directory.path(), "mods/single.jar", Some(false))
+                .unwrap();
+        assert_eq!(current, "mods/single.jar");
+        assert!(!enabled);
+        assert_eq!(next, "mods/single.jar.disabled");
+
+        // Disabling a file that is already disabled keeps its current path.
+        let (current, enabled, next) = resolve_toggle_paths(
+            directory.path(),
+            "mods/already.jar.disabled",
+            Some(false),
+        )
+        .unwrap();
+        assert_eq!(current, "mods/already.jar.disabled");
+        assert!(!enabled);
+        assert_eq!(next, "mods/already.jar.disabled");
     }
 
     #[tokio::test]

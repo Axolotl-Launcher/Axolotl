@@ -1,0 +1,464 @@
+{
+ "source": "Minecraft Server List Ping (handshake protocol 767, next state 1) to each address, SRV records resolved like the launcher",
+ "servers": {
+  "mc.hypixel.net": {
+   "address": "mc.hypixel.net",
+   "online": true,
+   "fetched_at": "2026-10-23T11:07:06+00:00",
+   "version": "Requires MC 1.8 / 1.21",
+   "protocol": 767,
+   "players": {
+    "max": 200000,
+    "online": 19038
+   },
+   "motd": "§f                 §aHypixel Network §c[1.8/26.3]\n§f    §2§lSB 0.27.2 §a§lMINISTERS §7§l| §d§lHALLOWEEN EVENT",
+   "motd_text": "§f                 §aHypixel Network §c[1.8/26.3]\n§f    §2§lSB 0.27.2 §a§lMINISTERS §7§l| §d§lHALLOWEEN EVENT",
+   "latency_ms": 237,
+   "favicon": "/launcher-preview/servers/mc.hypixel.net.png"
+  },
+  "play.wynncraft.com": {
+   "address": "play.wynncraft.com",
+   "online": true,
+   "fetched_at": "2026-10-23T11:07:08+00:00",
+   "version": "WynnProxy 1.9.x-26.3.x+",
+   "protocol": 767,
+   "players": {
+    "max": 2000,
+    "online": 1128
+   },
+   "motd": {
+    "extra": [
+     {
+      "text": "                  "
+     },
+     {
+      "color": "dark_gray",
+      "text": "play."
+     },
+     {
+      "bold": true,
+      "color": "green",
+      "text": "WYNNCRAFT"
+     },
+     {
+      "color": "dark_gray",
+      "text": ".com           "
+     },
+     {
+      "color": "gray",
+      "text": "v2.2.5 "
+     },
+     {
+      "color": "yellow",
+      "text": "✦\n "
+     },
+     {
+      "bold": true,
+      "color": "dark_aqua",
+      "text": "FESTIVAL OF THE SPIRITS "
+     },
+     {
+      "color": "aqua",
+      "text": "(30x FREE CRATES)"
+     }
+    ],
+    "text": ""
+   },
+   "motd_text": "                  play.WYNNCRAFT.com           v2.2.5 ✦\n FESTIVAL OF THE SPIRITS (30x FREE CRATES)",
+   "latency_ms": 234,
+   "favicon": "/launcher-preview/servers/play.wynncraft.com.png"
+  },
+  "play.cubecraft.net": {
+   "address": "play.cubecraft.net",
+   "online": true,
+   "fetched_at": "2026-10-23T11:07:08+00:00",
+   "version": "CubeCraft",
+   "protocol": 767,
+   "players": {
+    "max": 5000,
+    "online": 671
+   },
+   "motd": {
+    "extra": [
+     {
+      "extra": [
+       {
+        "extra": [
+         {
+          "extra": [
+           {
+            "color": "white",
+            "text": "⏴"
+           },
+           {
+            "text": " "
+           },
+           {
+            "color": "#3AA9FF",
+            "extra": [
+             {
+              "bold": true,
+              "text": "CᴜʙᴇCʀᴀꜰᴛ Gᴀᴍᴇꜱ"
+             },
+             {
+              "text": " [AS]"
+             }
+            ],
+            "text": ""
+           },
+           {
+            "text": " "
+           },
+           {
+            "color": "white",
+            "text": "⏵"
+           }
+          ],
+          "text": "               "
+         }
+        ],
+        "text": ""
+       },
+       {
+        "text": "\n"
+       },
+       {
+        "extra": [
+         {
+          "text": "     "
+         },
+         {
+          "extra": [
+           {
+            "extra": [
+             {
+              "bold": true,
+              "color": "gold",
+              "text": "H"
+             },
+             {
+              "bold": true,
+              "color": "#FFA703",
+              "text": "A"
+             },
+             {
+              "bold": true,
+              "color": "#FFA505",
+              "text": "L"
+             },
+             {
+              "bold": true,
+              "color": "#FFA208",
+              "text": "L"
+             },
+             {
+              "bold": true,
+              "color": "#FFA00A",
+              "text": "O"
+             },
+             {
+              "bold": true,
+              "color": "#FF9D0D",
+              "text": "W"
+             },
+             {
+              "bold": true,
+              "color": "#FF9B0F",
+              "text": "E"
+             },
+             {
+              "bold": true,
+              "color": "#FF9812",
+              "text": "E"
+             },
+             {
+              "bold": true,
+              "color": "#FF9515",
+              "text": "N"
+             },
+             {
+              "bold": true,
+              "color": "#FF9317",
+              "text": " "
+             },
+             {
+              "bold": true,
+              "color": "#FF901A",
+              "text": "E"
+             },
+             {
+              "bold": true,
+              "color": "#FF8E1C",
+              "text": "V"
+             },
+             {
+              "bold": true,
+              "color": "#FF8B1F",
+              "text": "E"
+             },
+             {
+              "bold": true,
+              "color": "#FF8921",
+              "text": "N"
+             },
+             {
+              "bold": true,
+              "color": "#FF8624",
+              "text": "T"
+             },
+             {
+              "bold": true,
+              "color": "#FF8327",
+              "text": ":"
+             },
+             {
+              "bold": true,
+              "color": "#FF8129",
+              "text": " "
+             },
+             {
+              "bold": true,
+              "color": "#FF7E2C",
+              "text": "H"
+             },
+             {
+              "bold": true,
+              "color": "#FF7C2E",
+              "text": "U"
+             },
+             {
+              "bold": true,
+              "color": "#FF7931",
+              "text": "N"
+             },
+             {
+              "bold": true,
+              "color": "#FF7634",
+              "text": "T"
+             },
+             {
+              "bold": true,
+              "color": "#FF7436",
+              "text": ","
+             },
+             {
+              "bold": true,
+              "color": "#FF7139",
+              "text": " "
+             },
+             {
+              "bold": true,
+              "color": "#FF6F3B",
+              "text": "M"
+             },
+             {
+              "bold": true,
+              "color": "#FF6C3E",
+              "text": "A"
+             },
+             {
+              "bold": true,
+              "color": "#FF6A40",
+              "text": "P"
+             },
+             {
+              "bold": true,
+              "color": "#FF6743",
+              "text": "S"
+             },
+             {
+              "bold": true,
+              "color": "#FF6446",
+              "text": " "
+             },
+             {
+              "bold": true,
+              "color": "#FF6248",
+              "text": "&"
+             },
+             {
+              "bold": true,
+              "color": "#FF5F4B",
+              "text": " "
+             },
+             {
+              "bold": true,
+              "color": "#FF5D4D",
+              "text": "H"
+             },
+             {
+              "bold": true,
+              "color": "#FF5A50",
+              "text": "U"
+             },
+             {
+              "bold": true,
+              "color": "#FF5852",
+              "text": "B"
+             },
+             {
+              "bold": true,
+              "color": "red",
+              "text": "!"
+             }
+            ],
+            "text": ""
+           },
+           {
+            "text": " "
+           }
+          ],
+          "text": " "
+         }
+        ],
+        "text": ""
+       }
+      ],
+      "text": ""
+     }
+    ],
+    "text": ""
+   },
+   "motd_text": "               ⏴ CᴜʙᴇCʀᴀꜰᴛ Gᴀᴍᴇꜱ [AS] ⏵\n      HALLOWEEN EVENT: HUNT, MAPS & HUB! ",
+   "latency_ms": 67,
+   "favicon": "/launcher-preview/servers/play.cubecraft.net.png"
+  },
+  "2b2t.org": {
+   "address": "2b2t.org",
+   "online": true,
+   "fetched_at": "2026-10-23T11:07:09+00:00",
+   "version": "Velocity 1.7.2-26.3",
+   "protocol": 767,
+   "players": {
+    "max": 1,
+    "online": 1209
+   },
+   "motd": {
+    "extra": [
+     {
+      "bold": true,
+      "color": "gray",
+      "text": "2B "
+     },
+     {
+      "color": "gold",
+      "text": "Updated to 1.21.4"
+     },
+     "\n",
+     {
+      "bold": true,
+      "color": "gray",
+      "text": "2T "
+     },
+     {
+      "color": "green",
+      "text": "2b2t.org "
+     },
+     "- ",
+     {
+      "color": "green",
+      "text": "status.2b2t.org"
+     }
+    ],
+    "text": ""
+   },
+   "motd_text": "2B Updated to 1.21.4\n2T 2b2t.org - status.2b2t.org",
+   "latency_ms": 229,
+   "favicon": "/launcher-preview/servers/2b2t.org.png"
+  },
+  "us.mineplex.com": {
+   "address": "us.mineplex.com",
+   "online": true,
+   "fetched_at": "2026-10-23T11:07:11+00:00",
+   "version": "1.8.9 / 1.21.11 / 26",
+   "protocol": -1,
+   "players": {
+    "online": 44,
+    "max": 45
+   },
+   "motd": {
+    "extra": [
+     {
+      "bold": true,
+      "strikethrough": true,
+      "color": "blue",
+      "text": "   "
+     },
+     {
+      "bold": true,
+      "strikethrough": true,
+      "color": "dark_gray",
+      "text": "["
+     },
+     {
+      "color": "white",
+      "text": " "
+     },
+     {
+      "bold": true,
+      "color": "gold",
+      "text": "Mineplex"
+     },
+     {
+      "color": "white",
+      "text": " "
+     },
+     {
+      "bold": true,
+      "color": "white",
+      "text": "Games"
+     },
+     {
+      "color": "white",
+      "text": " "
+     },
+     {
+      "bold": true,
+      "strikethrough": true,
+      "color": "dark_gray",
+      "text": "]"
+     },
+     {
+      "bold": true,
+      "strikethrough": true,
+      "color": "blue",
+      "text": "   "
+     },
+     {
+      "color": "white",
+      "text": "\n         "
+     },
+     {
+      "bold": true,
+      "color": "yellow",
+      "text": "★ "
+     },
+     {
+      "bold": true,
+      "color": "gold",
+      "text": "ONE BLOCK "
+     },
+     {
+      "bold": true,
+      "color": "white",
+      "text": "- OUT NOW! "
+     },
+     {
+      "bold": true,
+      "color": "yellow",
+      "text": "★"
+     }
+    ],
+    "text": "           "
+   },
+   "motd_text": "              [ Mineplex Games ]   \n         ★ ONE BLOCK - OUT NOW! ★",
+   "latency_ms": 308,
+   "favicon": "/launcher-preview/servers/us.mineplex.com.png"
+  },
+  "play.cobblemon.com": {
+   "address": "play.cobblemon.com",
+   "online": false,
+   "fetched_at": "2026-10-23T11:07:22+00:00"
+  }
+ }
+}

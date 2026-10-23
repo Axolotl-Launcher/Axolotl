@@ -1,0 +1,754 @@
+{
+ "source": {
+  "software": "Minecraft Java Edition dedicated server",
+  "version": "26.3",
+  "jar": {
+   "url": "https://piston-data.mojang.com/v1/objects/33680f5f2ac32864d6d7cf5e56a705fdb3e05f4c/server.jar",
+   "sha1": "33680f5f2ac32864d6d7cf5e56a705fdb3e05f4c",
+   "name": "server.jar"
+  },
+  "java": "openjdk version \"25.0.1\" 2025-10-21 LTS",
+  "command": "java -Xms1G -Xmx2G -jar server.jar nogui",
+  "recordedAt": "2026-10-23T16:11:54Z",
+  "label": "Minecraft 26.3 server",
+  "notes": "Recorded by running the jar once to its EULA stop, accepting the EULA, starting it again and typing the listed commands. The replay stamps lines with the current time and shows the server folder at its location on the preview machine."
+ },
+ "files": {
+  "eula.txt": "#By changing the setting below to TRUE you are indicating your agreement to our EULA (https://aka.ms/MinecraftEULA).\n#Sat Oct 24 00:11:34 CST 2026\neula=false\n",
+  "server.properties": "#Minecraft server properties\n#Sat Oct 24 00:11:34 CST 2026\naccepts-transfers=false\nallow-flight=false\nbroadcast-console-to-ops=true\nbroadcast-rcon-to-ops=true\nbug-report-link=\nchat-spam-threshold-seconds=10\ncommand-spam-threshold-seconds=10\ndifficulty=easy\nenable-code-of-conduct=false\nenable-jmx-monitoring=false\nenable-query=false\nenable-rcon=false\nenable-status=true\nenforce-secure-profile=true\nenforce-whitelist=false\nentity-broadcast-range-percentage=100\nforce-gamemode=false\nfunction-permission-level=2\ngamemode=survival\ngenerate-structures=true\ngenerator-settings={}\nhardcore=false\nhide-online-players=false\ninitial-disabled-packs=\ninitial-enabled-packs=vanilla\nlevel-name=world\nlevel-seed=\nlevel-type=minecraft\\:normal\nlog-ips=true\nmanagement-server-allowed-origins=\nmanagement-server-enabled=false\nmanagement-server-host=localhost\nmanagement-server-port=0\nmanagement-server-secret=EWkySe4aUKUMiTGvirBWvQsy5fhj8RakNEdXanvL\nmanagement-server-tls-enabled=true\nmanagement-server-tls-keystore=\nmanagement-server-tls-keystore-password=\nmax-chained-neighbor-updates=1000000\nmax-players=20\nmax-tick-time=60000\nmax-world-size=29999984\nmotd=A Minecraft Server\nnetwork-compression-threshold=256\nonline-mode=true\nop-permission-level=4\npause-when-empty-seconds=60\nplayer-idle-timeout=0\nprevent-proxy-connections=false\nquery.port=25565\nrate-limit=0\nrcon.password=\nrcon.port=25575\nregion-file-compression=deflate\nrequire-resource-pack=false\nresource-pack=\nresource-pack-id=\nresource-pack-prompt=\nresource-pack-sha1=\nserver-ip=\nserver-port=25565\nsimulation-distance=10\nspawn-protection=16\nstatus-heartbeat-interval=0\nsync-chunk-writes=true\ntext-filtering-config=\ntext-filtering-version=0\nuse-native-transport=true\nview-distance=10\nwhite-list=true\n"
+ },
+ "tree": [
+  {
+   "path": "banned-ips.json",
+   "size": 2
+  },
+  {
+   "path": "banned-players.json",
+   "size": 2
+  },
+  {
+   "path": "eula.txt",
+   "size": 157
+  },
+  {
+   "path": "ops.json",
+   "size": 2
+  },
+  {
+   "path": "server.jar",
+   "size": 62294556
+  },
+  {
+   "path": "server.properties",
+   "size": 1811
+  },
+  {
+   "path": "usercache.json",
+   "size": 2
+  },
+  {
+   "path": "whitelist.json",
+   "size": 2
+  },
+  {
+   "path": "libraries/",
+   "size": 0
+  },
+  {
+   "path": "logs/",
+   "size": 0
+  },
+  {
+   "path": "versions/",
+   "size": 0
+  },
+  {
+   "path": "world/",
+   "size": 0
+  },
+  {
+   "path": "libraries/at/",
+   "size": 0
+  },
+  {
+   "path": "libraries/com/",
+   "size": 0
+  },
+  {
+   "path": "libraries/commons-io/",
+   "size": 0
+  },
+  {
+   "path": "libraries/io/",
+   "size": 0
+  },
+  {
+   "path": "libraries/it/",
+   "size": 0
+  },
+  {
+   "path": "libraries/net/",
+   "size": 0
+  },
+  {
+   "path": "libraries/org/",
+   "size": 0
+  },
+  {
+   "path": "libraries/at/yawk/",
+   "size": 0
+  },
+  {
+   "path": "libraries/com/azure/",
+   "size": 0
+  },
+  {
+   "path": "libraries/com/github/",
+   "size": 0
+  },
+  {
+   "path": "libraries/com/google/",
+   "size": 0
+  },
+  {
+   "path": "libraries/com/microsoft/",
+   "size": 0
+  },
+  {
+   "path": "libraries/com/mojang/",
+   "size": 0
+  },
+  {
+   "path": "libraries/commons-io/commons-io/",
+   "size": 0
+  },
+  {
+   "path": "libraries/io/netty/",
+   "size": 0
+  },
+  {
+   "path": "libraries/it/unimi/",
+   "size": 0
+  },
+  {
+   "path": "libraries/net/java/",
+   "size": 0
+  },
+  {
+   "path": "libraries/net/sf/",
+   "size": 0
+  },
+  {
+   "path": "libraries/org/apache/",
+   "size": 0
+  },
+  {
+   "path": "libraries/org/joml/",
+   "size": 0
+  },
+  {
+   "path": "libraries/org/jspecify/",
+   "size": 0
+  },
+  {
+   "path": "libraries/org/slf4j/",
+   "size": 0
+  },
+  {
+   "path": "logs/2026-10-24-1.log.gz",
+   "size": 489
+  },
+  {
+   "path": "logs/latest.log",
+   "size": 12332
+  },
+  {
+   "path": "versions/26.3/",
+   "size": 0
+  },
+  {
+   "path": "versions/26.3/server-26.3.jar",
+   "size": 26652008
+  },
+  {
+   "path": "world/level.dat",
+   "size": 401
+  },
+  {
+   "path": "world/level.dat_old",
+   "size": 401
+  },
+  {
+   "path": "world/session.lock",
+   "size": 3
+  },
+  {
+   "path": "world/data/",
+   "size": 0
+  },
+  {
+   "path": "world/datapacks/",
+   "size": 0
+  },
+  {
+   "path": "world/dimensions/",
+   "size": 0
+  },
+  {
+   "path": "world/players/",
+   "size": 0
+  },
+  {
+   "path": "world/data/minecraft/",
+   "size": 0
+  },
+  {
+   "path": "world/dimensions/minecraft/",
+   "size": 0
+  },
+  {
+   "path": "world/players/data/",
+   "size": 0
+  }
+ ],
+ "start": [
+  {
+   "t": 188,
+   "line": "Starting net.minecraft.server.Main"
+  },
+  {
+   "t": 782,
+   "line": "WARNING: A restricted method in java.lang.System has been called"
+  },
+  {
+   "t": 782,
+   "line": "WARNING: java.lang.System::load has been called by com.sun.jna.Native in an unnamed module ({serverUrl}/libraries/net/java/dev/jna/jna/5.17.0/jna-5.17.0.jar)"
+  },
+  {
+   "t": 782,
+   "line": "WARNING: Use --enable-native-access=ALL-UNNAMED to avoid a warning for callers in this module"
+  },
+  {
+   "t": 782,
+   "line": "WARNING: Restricted methods will be blocked in a future release unless native access is enabled"
+  },
+  {
+   "t": 782,
+   "line": ""
+  },
+  {
+   "t": 1735,
+   "line": "WARNING: A terminally deprecated method in sun.misc.Unsafe has been called"
+  },
+  {
+   "t": 1735,
+   "line": "WARNING: sun.misc.Unsafe::objectFieldOffset has been called by org.joml.MemUtil$MemUtilUnsafe ({serverUrl}/libraries/org/joml/joml/1.10.9/joml-1.10.9.jar)"
+  },
+  {
+   "t": 1735,
+   "line": "WARNING: Please consider reporting this to the maintainers of class org.joml.MemUtil$MemUtilUnsafe"
+  },
+  {
+   "t": 1735,
+   "line": "WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release"
+  },
+  {
+   "t": 3703,
+   "line": "[{time}] [ServerMain/INFO]: Environment: Environment[discoveryUrl=https://discovery.minecraftservices.com/minecraft/client, name=PROD]"
+  },
+  {
+   "t": 4016,
+   "line": "[{time}] [Worker-Main-23/INFO]: No existing world data, creating new world"
+  },
+  {
+   "t": 4375,
+   "line": "[{time}] [Worker-Main-10/INFO]: Loaded 1866 advancements"
+  },
+  {
+   "t": 4438,
+   "line": "[{time}] [Server thread/INFO]: Starting minecraft server version 26.3"
+  },
+  {
+   "t": 4438,
+   "line": "[{time}] [Server thread/INFO]: Loading properties"
+  },
+  {
+   "t": 4438,
+   "line": "[{time}] [Server thread/INFO]: Default game type: SURVIVAL"
+  },
+  {
+   "t": 4438,
+   "line": "[{time}] [Server thread/INFO]: Generating keypair"
+  },
+  {
+   "t": 4453,
+   "line": "[{time}] [Server thread/INFO]: Starting Minecraft server on *:25565"
+  },
+  {
+   "t": 4625,
+   "line": "[{time}] [Server thread/INFO]: Preparing level \"world\""
+  },
+  {
+   "t": 4782,
+   "line": "[{time}] [Server thread/INFO]: Selecting global world spawn..."
+  },
+  {
+   "t": 6141,
+   "line": "[{time}] [Server thread/INFO]: Loading 0 persistent chunks..."
+  },
+  {
+   "t": 6141,
+   "line": "[{time}] [Server thread/INFO]: Preparing spawn area: 100%"
+  },
+  {
+   "t": 6141,
+   "line": "[{time}] [Server thread/INFO]: Time elapsed: 1361 ms"
+  },
+  {
+   "t": 6141,
+   "line": "[{time}] [Server thread/INFO]: Done (1.510s)! For help, type \"help\""
+  },
+  {
+   "t": 6141,
+   "line": "[{time}] [Server thread/INFO]: Saving chunks for level 'ServerLevel[world]'/minecraft:overworld"
+  },
+  {
+   "t": 6172,
+   "line": "[{time}] [Server thread/INFO]: Saving chunks for level 'ServerLevel[world]'/minecraft:the_nether"
+  },
+  {
+   "t": 6172,
+   "line": "[{time}] [Server thread/INFO]: Saving chunks for level 'ServerLevel[world]'/minecraft:the_end"
+  }
+ ],
+ "commands": {
+  "help": [
+   {
+    "t": 31,
+    "line": "[{time}] [Server thread/INFO]: System chat: /advancement (grant|revoke)"
+   },
+   {
+    "t": 31,
+    "line": "[{time}] [Server thread/INFO]: System chat: /attribute <target> <attribute> (get|base|modifier)"
+   },
+   {
+    "t": 31,
+    "line": "[{time}] [Server thread/INFO]: System chat: /execute (run|if|unless|as|at|store|positioned|rotated|facing|align|anchored|in|summon|on)"
+   },
+   {
+    "t": 31,
+    "line": "[{time}] [Server thread/INFO]: System chat: /bossbar (add|remove|list|set|get)"
+   },
+   {
+    "t": 31,
+    "line": "[{time}] [Server thread/INFO]: System chat: /clear [<targets>]"
+   },
+   {
+    "t": 31,
+    "line": "[{time}] [Server thread/INFO]: System chat: /clone (<begin>|from)"
+   },
+   {
+    "t": 31,
+    "line": "[{time}] [Server thread/INFO]: System chat: /compute (default|block|entity)"
+   },
+   {
+    "t": 31,
+    "line": "[{time}] [Server thread/INFO]: System chat: /damage <target> <amount> [<damageType>]"
+   },
+   {
+    "t": 31,
+    "line": "[{time}] [Server thread/INFO]: System chat: /data (merge|get|remove|modify)"
+   },
+   {
+    "t": 31,
+    "line": "[{time}] [Server thread/INFO]: System chat: /datapack (enable|disable|list|create)"
+   },
+   {
+    "t": 31,
+    "line": "[{time}] [Server thread/INFO]: System chat: /debug (start|stop|function)"
+   },
+   {
+    "t": 31,
+    "line": "[{time}] [Server thread/INFO]: System chat: /defaultgamemode <gamemode>"
+   },
+   {
+    "t": 31,
+    "line": "[{time}] [Server thread/INFO]: System chat: /dialog (show|clear)"
+   },
+   {
+    "t": 31,
+    "line": "[{time}] [Server thread/INFO]: System chat: /difficulty [peaceful|easy|normal|hard]"
+   },
+   {
+    "t": 31,
+    "line": "[{time}] [Server thread/INFO]: System chat: /effect (clear|give)"
+   },
+   {
+    "t": 31,
+    "line": "[{time}] [Server thread/INFO]: System chat: /me <action>"
+   },
+   {
+    "t": 31,
+    "line": "[{time}] [Server thread/INFO]: System chat: /enchant <targets> <enchantment> [<level>]"
+   },
+   {
+    "t": 31,
+    "line": "[{time}] [Server thread/INFO]: System chat: /experience (add|set|query)"
+   },
+   {
+    "t": 31,
+    "line": "[{time}] [Server thread/INFO]: System chat: /xp -> experience"
+   },
+   {
+    "t": 31,
+    "line": "[{time}] [Server thread/INFO]: System chat: /fill <from> <to> <block> [outline|hollow|destroy|strict|replace|keep]"
+   },
+   {
+    "t": 31,
+    "line": "[{time}] [Server thread/INFO]: System chat: /fillbiome <from> <to> <biome> [replace]"
+   },
+   {
+    "t": 31,
+    "line": "[{time}] [Server thread/INFO]: System chat: /forceload (add|remove|query)"
+   },
+   {
+    "t": 31,
+    "line": "[{time}] [Server thread/INFO]: System chat: /function <name> [<arguments>|with]"
+   },
+   {
+    "t": 31,
+    "line": "[{time}] [Server thread/INFO]: System chat: /gamemode <gamemode> [<target>]"
+   },
+   {
+    "t": 31,
+    "line": "[{time}] [Server thread/INFO]: System chat: /gamerule (elytra_movement_check|minecraft:elytra_movement_check|show_death_messages|minecraft:show_death_messages|advance_weather|minecraft:advance_weather|max_command_sequence_length|minecraft:max_command_sequence_length|universal_anger|minecraft:universal_anger|block_drops|minecraft:block_drops|fire_damage|minecraft:fire_damage|random_tick_speed|minecraft:random_tick_speed|water_source_conversion|minecraft:water_source_conversion|allow_entering_nether_using_portals|minecraft:allow_entering_nether_using_portals|lava_source_conversion|minecraft:lava_source_conversion|max_entity_cramming|minecraft:max_entity_cramming|ender_pearls_vanish_on_death|minecraft:ender_pearls_vanish_on_death|keep_inventory|minecraft:keep_inventory|global_sound_events|minecraft:global_sound_events|spawn_wardens|minecraft:spawn_wardens|freeze_damage|minecraft:freeze_damage|max_snow_accumulation_height|minecraft:max_snow_accumulation_height|immediate_respawn|minecraft:immediate_respawn|spawn_patrols|minecraft:spawn_patrols|players_nether_portal_creative_delay|minecraft:players_nether_portal_creative_delay|raids|minecraft:raids|spectators_generate_chunks|minecraft:spectators_generate_chunks|mob_griefing|minecraft:mob_griefing|mob_explosion_drop_decay|minecraft:mob_explosion_drop_decay|projectiles_can_break_blocks|minecraft:projectiles_can_break_blocks|limited_crafting|minecraft:limited_crafting|respawn_radius|minecraft:respawn_radius|spawn_mobs|minecraft:spawn_mobs|tnt_explodes|minecraft:tnt_explodes|send_command_feedback|minecraft:send_command_feedback|spawn_monsters|minecraft:spawn_monsters|pvp|minecraft:pvp|command_blocks_work|minecraft:command_blocks_work|forgive_dead_players|minecraft:forgive_dead_players|drowning_damage|minecraft:drowning_damage|player_movement_check|minecraft:player_movement_check|fall_damage|minecraft:fall_damage|entity_drops|minecraft:entity_drops|natural_health_regeneration|minecraft:natural_health_regeneration|fire_spread_radius_around_player|minecraft:fire_spread_radius_around_player|players_sleeping_percentage|minecraft:players_sleeping_percentage|command_block_output|minecraft:command_block_output|players_nether_portal_default_delay|minecraft:players_nether_portal_default_delay|locator_bar|minecraft:locator_bar|max_block_modifications|minecraft:max_block_modifications|mob_drops|minecraft:mob_drops|log_admin_commands|minecraft:log_admin_commands|block_explosion_drop_decay|minecraft:block_explosion_drop_decay|spawner_blocks_work|minecraft:spawner_blocks_work|advance_time|minecraft:advance_time|max_command_forks|minecraft:max_command_forks|show_advancement_messages|minecraft:show_advancement_messages|reduced_debug_info|minecraft:reduced_debug_info|spawn_wandering_traders|minecraft:spawn_wandering_traders|tnt_explosion_drop_decay|minecraft:tnt_explosion_drop_decay|spread_vines|minecraft:spread_vines|spawn_phantoms|minecraft:spawn_phantoms)"
+   },
+   {
+    "t": 31,
+    "line": "[{time}] [Server thread/INFO]: System chat: /give <targets> <item> [<count>]"
+   },
+   {
+    "t": 31,
+    "line": "[{time}] [Server thread/INFO]: System chat: /help [<command>]"
+   },
+   {
+    "t": 31,
+    "line": "[{time}] [Server thread/INFO]: System chat: /item (replace|fill|override|modify)"
+   },
+   {
+    "t": 31,
+    "line": "[{time}] [Server thread/INFO]: System chat: /kick <targets> [<reason>]"
+   },
+   {
+    "t": 31,
+    "line": "[{time}] [Server thread/INFO]: System chat: /kill [<targets>]"
+   },
+   {
+    "t": 31,
+    "line": "[{time}] [Server thread/INFO]: System chat: /list [uuids]"
+   },
+   {
+    "t": 31,
+    "line": "[{time}] [Server thread/INFO]: System chat: /locate (structure|biome|poi)"
+   },
+   {
+    "t": 31,
+    "line": "[{time}] [Server thread/INFO]: System chat: /loot (replace|insert|give|spawn)"
+   },
+   {
+    "t": 31,
+    "line": "[{time}] [Server thread/INFO]: System chat: /msg <targets> <message>"
+   },
+   {
+    "t": 31,
+    "line": "[{time}] [Server thread/INFO]: System chat: /tell -> msg"
+   },
+   {
+    "t": 31,
+    "line": "[{time}] [Server thread/INFO]: System chat: /w -> msg"
+   },
+   {
+    "t": 31,
+    "line": "[{time}] [Server thread/INFO]: System chat: /swing [<targets>]"
+   },
+   {
+    "t": 31,
+    "line": "[{time}] [Server thread/INFO]: System chat: /particle <name> [<pos>]"
+   },
+   {
+    "t": 31,
+    "line": "[{time}] [Server thread/INFO]: System chat: /place (feature|jigsaw|structure|template)"
+   },
+   {
+    "t": 31,
+    "line": "[{time}] [Server thread/INFO]: System chat: /playsound <sound> [master|music|record|weather|block|hostile|neutral|player|ambient|voice|ui]"
+   },
+   {
+    "t": 31,
+    "line": "[{time}] [Server thread/INFO]: System chat: /posteffect (add|clear|list|remove)"
+   },
+   {
+    "t": 31,
+    "line": "[{time}] [Server thread/INFO]: System chat: /random (value|roll|reset)"
+   },
+   {
+    "t": 31,
+    "line": "[{time}] [Server thread/INFO]: System chat: /reload"
+   },
+   {
+    "t": 31,
+    "line": "[{time}] [Server thread/INFO]: System chat: /recipe (give|take)"
+   },
+   {
+    "t": 31,
+    "line": "[{time}] [Server thread/INFO]: System chat: /fetchprofile (name|id|entity)"
+   },
+   {
+    "t": 31,
+    "line": "[{time}] [Server thread/INFO]: System chat: /return (<value>|fail|run)"
+   },
+   {
+    "t": 31,
+    "line": "[{time}] [Server thread/INFO]: System chat: /ride <target> (mount|dismount)"
+   },
+   {
+    "t": 31,
+    "line": "[{time}] [Server thread/INFO]: System chat: /rotate <target> (<rotation>|facing)"
+   },
+   {
+    "t": 31,
+    "line": "[{time}] [Server thread/INFO]: System chat: /say <message>"
+   },
+   {
+    "t": 31,
+    "line": "[{time}] [Server thread/INFO]: System chat: /schedule (function|clear)"
+   },
+   {
+    "t": 31,
+    "line": "[{time}] [Server thread/INFO]: System chat: /scoreboard (objectives|players)"
+   },
+   {
+    "t": 31,
+    "line": "[{time}] [Server thread/INFO]: System chat: /seed"
+   },
+   {
+    "t": 31,
+    "line": "[{time}] [Server thread/INFO]: System chat: /version"
+   },
+   {
+    "t": 31,
+    "line": "[{time}] [Server thread/INFO]: System chat: /setblock <pos> <block> [destroy|keep|replace|strict]"
+   },
+   {
+    "t": 31,
+    "line": "[{time}] [Server thread/INFO]: System chat: /spawnpoint [<targets>]"
+   },
+   {
+    "t": 31,
+    "line": "[{time}] [Server thread/INFO]: System chat: /setworldspawn [<pos>]"
+   },
+   {
+    "t": 31,
+    "line": "[{time}] [Server thread/INFO]: System chat: /spectate [<target>]"
+   },
+   {
+    "t": 31,
+    "line": "[{time}] [Server thread/INFO]: System chat: /spreadplayers <center> <spreadDistance> <maxRange> (<respectTeams>|under)"
+   },
+   {
+    "t": 31,
+    "line": "[{time}] [Server thread/INFO]: System chat: /stopsound <targets> [*|master|music|record|weather|block|hostile|neutral|player|ambient|voice|ui]"
+   },
+   {
+    "t": 31,
+    "line": "[{time}] [Server thread/INFO]: System chat: /stopwatch (create|query|restart|remove)"
+   },
+   {
+    "t": 31,
+    "line": "[{time}] [Server thread/INFO]: System chat: /summon <entity> [<pos>]"
+   },
+   {
+    "t": 31,
+    "line": "[{time}] [Server thread/INFO]: System chat: /tag <targets> (add|remove|list)"
+   },
+   {
+    "t": 31,
+    "line": "[{time}] [Server thread/INFO]: System chat: /team (list|add|remove|empty|join|leave|modify)"
+   },
+   {
+    "t": 31,
+    "line": "[{time}] [Server thread/INFO]: System chat: /teammsg <message>"
+   },
+   {
+    "t": 31,
+    "line": "[{time}] [Server thread/INFO]: System chat: /tm -> teammsg"
+   },
+   {
+    "t": 31,
+    "line": "[{time}] [Server thread/INFO]: System chat: /teleport (<location>|<destination>|<targets>)"
+   },
+   {
+    "t": 31,
+    "line": "[{time}] [Server thread/INFO]: System chat: /tp -> teleport"
+   },
+   {
+    "t": 31,
+    "line": "[{time}] [Server thread/INFO]: System chat: /tellraw <targets> <message>"
+   },
+   {
+    "t": 31,
+    "line": "[{time}] [Server thread/INFO]: System chat: /test (run|runmultiple|runthese|runclosest|runthat|runfailed|verify|locate|resetclosest|resetthese|resetthat|clearthat|clearthese|clearall|stop|pos|create)"
+   },
+   {
+    "t": 31,
+    "line": "[{time}] [Server thread/INFO]: System chat: /tick (query|rate|step|sprint|unfreeze|freeze)"
+   },
+   {
+    "t": 31,
+    "line": "[{time}] [Server thread/INFO]: System chat: /time (set|add|pause|resume|rate|query|of)"
+   },
+   {
+    "t": 31,
+    "line": "[{time}] [Server thread/INFO]: System chat: /title <targets> (clear|reset|title|subtitle|actionbar|times)"
+   },
+   {
+    "t": 31,
+    "line": "[{time}] [Server thread/INFO]: System chat: /trigger <objective> [add|set]"
+   },
+   {
+    "t": 31,
+    "line": "[{time}] [Server thread/INFO]: System chat: /waypoint (list|modify)"
+   },
+   {
+    "t": 31,
+    "line": "[{time}] [Server thread/INFO]: System chat: /weather (clear|rain|thunder)"
+   },
+   {
+    "t": 31,
+    "line": "[{time}] [Server thread/INFO]: System chat: /worldborder (add|set|center|damage|get|warning)"
+   },
+   {
+    "t": 31,
+    "line": "[{time}] [Server thread/INFO]: System chat: /jfr (start|stop)"
+   },
+   {
+    "t": 31,
+    "line": "[{time}] [Server thread/INFO]: System chat: /ban-ip <target> [<reason>]"
+   },
+   {
+    "t": 31,
+    "line": "[{time}] [Server thread/INFO]: System chat: /banlist [ips|players]"
+   },
+   {
+    "t": 31,
+    "line": "[{time}] [Server thread/INFO]: System chat: /ban <targets> [<reason>]"
+   },
+   {
+    "t": 31,
+    "line": "[{time}] [Server thread/INFO]: System chat: /deop <targets>"
+   },
+   {
+    "t": 31,
+    "line": "[{time}] [Server thread/INFO]: System chat: /op <targets>"
+   },
+   {
+    "t": 31,
+    "line": "[{time}] [Server thread/INFO]: System chat: /pardon <targets>"
+   },
+   {
+    "t": 31,
+    "line": "[{time}] [Server thread/INFO]: System chat: /pardon-ip <target>"
+   },
+   {
+    "t": 31,
+    "line": "[{time}] [Server thread/INFO]: System chat: /perf (start|stop)"
+   },
+   {
+    "t": 31,
+    "line": "[{time}] [Server thread/INFO]: System chat: /save-all [flush]"
+   },
+   {
+    "t": 31,
+    "line": "[{time}] [Server thread/INFO]: System chat: /save-off"
+   },
+   {
+    "t": 31,
+    "line": "[{time}] [Server thread/INFO]: System chat: /save-on"
+   },
+   {
+    "t": 31,
+    "line": "[{time}] [Server thread/INFO]: System chat: /setidletimeout <minutes>"
+   },
+   {
+    "t": 31,
+    "line": "[{time}] [Server thread/INFO]: System chat: /stop"
+   },
+   {
+    "t": 31,
+    "line": "[{time}] [Server thread/INFO]: System chat: /transfer <hostname> [<port>]"
+   },
+   {
+    "t": 31,
+    "line": "[{time}] [Server thread/INFO]: System chat: /whitelist (on|off|list|add|remove|reload)"
+   }
+  ],
+  "list": [
+   {
+    "t": 31,
+    "line": "[{time}] [Server thread/INFO]: System chat: There are 0 of a max of 20 players online: "
+   }
+  ],
+  "seed": [
+   {
+    "t": 31,
+    "line": "[{time}] [Server thread/INFO]: System chat: Seed: [2830979027397972426]"
+   }
+  ],
+  "time query daytime": [
+   {
+    "t": 31,
+    "line": "[{time}] [Server thread/INFO]: System chat: Can't find element 'minecraft:daytime' of type 'minecraft:timeline'"
+   },
+   {
+    "t": 31,
+    "line": "[{time}] [Server thread/INFO]: System chat: ...ry daytime<--[HERE]"
+   }
+  ],
+  "difficulty": [
+   {
+    "t": 16,
+    "line": "[{time}] [Server thread/INFO]: System chat: The difficulty is Easy"
+   }
+  ]
+ },
+ "stop": [
+  {
+   "t": 31,
+   "line": "[{time}] [Server thread/INFO]: System chat: Stopping the server"
+  },
+  {
+   "t": 78,
+   "line": "[{time}] [Server thread/INFO]: Stopping server"
+  },
+  {
+   "t": 78,
+   "line": "[{time}] [Server thread/INFO]: Saving players"
+  },
+  {
+   "t": 78,
+   "line": "[{time}] [Server thread/INFO]: Saving worlds"
+  },
+  {
+   "t": 78,
+   "line": "[{time}] [Server thread/INFO]: Saving chunks for level 'ServerLevel[world]'/minecraft:overworld"
+  },
+  {
+   "t": 78,
+   "line": "[{time}] [Server thread/INFO]: Saving chunks for level 'ServerLevel[world]'/minecraft:the_nether"
+  },
+  {
+   "t": 94,
+   "line": "[{time}] [Server thread/INFO]: Saving chunks for level 'ServerLevel[world]'/minecraft:the_end"
+  }
+ ]
+}

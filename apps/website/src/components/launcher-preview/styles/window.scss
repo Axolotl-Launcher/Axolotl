@@ -1,0 +1,136 @@
+@import '@modrinth/assets/styles/opacity.scss';
+
+// The desktop app publishes these tokens on its root element and resolves them
+// against the theme classes on that same element (see the app's global.scss).
+// The preview window carries its own theme and accent classes, so the tokens are
+// republished here to resolve against the window's theme instead of the site's.
+.launcher-preview-window {
+    --surface-1-opaque: var(--surface-1);
+    --surface-1-5-opaque: var(--surface-1-5);
+    --surface-2-opaque: var(--surface-2);
+    --surface-2-5-opaque: var(--surface-2-5);
+    --surface-3-opaque: var(--surface-3);
+    --surface-4-opaque: var(--surface-4);
+    --surface-5-opaque: var(--surface-5);
+    --surface-card: var(--surface-3);
+    --surface-content: var(--surface-3-opaque);
+    --surface-content-alt: var(--surface-1-5-opaque);
+    --surface-bar: var(--surface-3-opaque);
+    --surface-content-muted: var(--surface-2-opaque);
+    --surface-content-selected: var(--surface-2-5-opaque);
+    --opacity-baseline: 100%;
+    --opacity-baseline-page: 100%;
+
+    @include opacity-scale;
+
+    --color-brand-highlight: color-mix(
+        in srgb,
+        var(--color-brand-highlight-opaque) var(--opacity-ratio-keep-25, 25%),
+        transparent
+    );
+
+    font-family: var(--font-standard, sans-serif), sans-serif;
+    color: var(--color-text-default);
+    font-size: 16px;
+    line-height: normal;
+    text-align: left;
+    -webkit-font-smoothing: antialiased;
+}
+
+// The site's own theme rules redefine a few tokens the app also declares; the
+// compound selectors restore the app's values inside the window.
+.launcher-preview-window:is(.light-mode, .dark-mode, .oled-mode) {
+    --color-button-text: var(--color-base);
+    --color-button-text-active: var(--color-contrast);
+    --color-text: var(--color-text-default);
+}
+
+.launcher-preview-window.light-mode {
+    --color-divider-dark: var(--surface-5);
+    color-scheme: light;
+}
+
+.launcher-preview-window:is(.dark-mode, .oled-mode) {
+    --color-divider-dark: #646c75;
+    color-scheme: dark;
+}
+
+.launcher-preview-window *,
+.launcher-preview-window *::before,
+.launcher-preview-window *::after {
+    box-sizing: border-box;
+}
+
+.launcher-preview-window * {
+    scrollbar-width: auto;
+    scrollbar-color: var(--color-scrollbar) var(--color-bg);
+}
+
+.launcher-preview-window ::-webkit-scrollbar {
+    width: 16px;
+    border: 3px solid transparent;
+    opacity: 0.5;
+    transition: opacity 0.2s ease-in-out;
+}
+
+.launcher-preview-window ::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.launcher-preview-window ::-webkit-scrollbar-thumb {
+    background-color: var(--color-scrollbar);
+    border-radius: var(--radius-lg);
+    border: 5px solid transparent;
+    background-clip: content-box;
+}
+
+// The app styles these elements with bare selectors (global.scss), which
+// utilities override; `:where()` keeps the window scope at that specificity.
+:where(.launcher-preview-window) :is(button, [role='button'], [data-preview-drag-region]) {
+    user-select: none;
+}
+
+:where(.launcher-preview-window) img {
+    user-select: none;
+}
+
+:where(.launcher-preview-window) a {
+    color: inherit;
+    text-decoration: none;
+}
+
+:where(.launcher-preview-window) input,
+:where(.launcher-preview-window) textarea {
+    border-radius: var(--radius-md);
+    color: var(--color-text-default);
+}
+
+.launcher-preview-window .page-transition-layer {
+    grid-area: 1 / 1;
+    min-width: 0;
+    isolation: isolate;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+    .launcher-preview-window .page-slide-enter-active {
+        transition: opacity 0.18s ease;
+        will-change: opacity;
+    }
+
+    .launcher-preview-window .page-slide-enter-from {
+        opacity: 0;
+    }
+
+    .launcher-preview-window .page-slide-enter-to {
+        opacity: 1;
+    }
+
+    .launcher-preview-window .page-slide-leave-active {
+        transition: opacity 0.12s ease;
+        pointer-events: none;
+    }
+
+    .launcher-preview-window .page-slide-leave-to {
+        opacity: 0;
+    }
+}

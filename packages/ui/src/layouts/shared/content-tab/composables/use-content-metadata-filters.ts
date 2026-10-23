@@ -206,7 +206,7 @@ const messages = defineMessages({
 // ---- window 级内存持久化（导航切换保留，关软件丢弃） ----
 
 const memory: Record<string, Map<string, unknown>> = ((
-    window as unknown as { __ctMemory?: Record<string, Map<string, unknown>> }
+    globalThis as unknown as { __ctMemory?: Record<string, Map<string, unknown>> }
 ).__ctMemory ??= {})
 function getMap<K, V>(namespace: string): Map<K, V> {
     if (!memory[namespace]) memory[namespace] = new Map<string, unknown>()

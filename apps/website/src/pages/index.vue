@@ -11,13 +11,17 @@ import GitGraphIcon from '@modrinth/assets/icons/git-graph.svg?component'
 import IssuesIcon from '@modrinth/assets/icons/issues.svg?component'
 import SearchIcon from '@modrinth/assets/icons/search.svg?component'
 import TrashIcon from '@modrinth/assets/icons/trash.svg?component'
-import Accordion from '@modrinth/ui/src/components/base/Accordion.vue'
-import Avatar from '@modrinth/ui/src/components/base/Avatar.vue'
-import Button from '@modrinth/ui/src/components/base/buttons/Button.vue'
-import Checkbox from '@modrinth/ui/src/components/base/Checkbox.vue'
-import Combobox, { type ComboboxOption } from '@modrinth/ui/src/components/base/Combobox.vue'
-import IntlFormatted from '@modrinth/ui/src/components/base/IntlFormatted.vue'
-import { defineMessages, useVIntl } from '@modrinth/ui/src/composables/i18n.ts'
+import {
+    Accordion,
+    Avatar,
+    Button,
+    Checkbox,
+    Combobox,
+    type ComboboxOption,
+    defineMessages,
+    IntlFormatted,
+    useVIntl,
+} from '@modrinth/ui'
 
 import AppleLogo from '~/components/landing/AppleLogo.vue'
 import CommunitySection from '~/components/landing/CommunitySection.vue'

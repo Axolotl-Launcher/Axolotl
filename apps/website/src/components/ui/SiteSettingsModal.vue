@@ -2,13 +2,17 @@
 import { DownloadIcon, LanguagesIcon, PaintbrushIcon } from '@modrinth/assets'
 import SettingsIcon from '@modrinth/assets/icons/settings.svg?component'
 import XIcon from '@modrinth/assets/icons/x.svg?component'
-import Button from '@modrinth/ui/src/components/base/buttons/Button.vue'
-import Combobox from '@modrinth/ui/src/components/base/Combobox.vue'
-import Toggle from '@modrinth/ui/src/components/base/Toggle.vue'
-import LanguageSelector from '@modrinth/ui/src/components/settings/LanguageSelector.vue'
-import ThemeSelector from '@modrinth/ui/src/components/settings/ThemeSelector.vue'
-import { defineMessages, LOCALES, useVIntl } from '@modrinth/ui/src/composables/i18n.ts'
-import { injectI18n } from '@modrinth/ui/src/providers/i18n.ts'
+import {
+    Button,
+    Combobox,
+    defineMessages,
+    injectI18n,
+    LanguageSelector,
+    LOCALES,
+    ThemeSelector,
+    Toggle,
+    useVIntl,
+} from '@modrinth/ui'
 
 import { type DownloadSource, useDownloadSource } from '~/composables/use-download-source'
 

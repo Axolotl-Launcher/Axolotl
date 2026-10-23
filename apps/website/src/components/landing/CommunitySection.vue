@@ -2,7 +2,7 @@
 import CheckIcon from '@modrinth/assets/icons/check.svg?component'
 import CopyIcon from '@modrinth/assets/icons/copy.svg?component'
 import ExternalIcon from '@modrinth/assets/icons/external.svg?component'
-import { defineMessages, useVIntl } from '@modrinth/ui/src/composables/i18n.ts'
+import { defineMessages, useVIntl } from '@modrinth/ui'
 
 import QqChannelIcon from '~/components/landing/QqChannelIcon.vue'
 import QqIcon from '~/components/landing/QqIcon.vue'

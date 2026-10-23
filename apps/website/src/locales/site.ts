@@ -177,6 +177,7 @@ export const siteLocaleMessages: Record<string, Record<string, string>> = {
 		'axolotl-site.navigation.features': '功能',
 		'axolotl-site.navigation.faq': '常见问题',
 		'axolotl-site.navigation.changelog': '更新日志',
+		'axolotl-site.navigation.community': '社区',
 		'axolotl-site.navigation.open-source': '开放源代码',
 		'axolotl-site.navigation.download': '下载',
 		'axolotl-site.navigation.open-settings': '打开显示设置',

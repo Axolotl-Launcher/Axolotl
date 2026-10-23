@@ -1,8 +1,6 @@
 <script setup lang="ts">
 import { CalendarIcon, HistoryIcon } from '@modrinth/assets'
-import Accordion from '@modrinth/ui/src/components/base/Accordion.vue'
-import TagItem from '@modrinth/ui/src/components/base/TagItem.vue'
-import { defineMessages, useVIntl } from '@modrinth/ui/src/composables/i18n.ts'
+import { Accordion, defineMessages, TagItem, useVIntl } from '@modrinth/ui'
 
 import releaseCatalog from '../../releases/catalog.json'
 

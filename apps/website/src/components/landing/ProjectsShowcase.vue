@@ -1,6 +1,5 @@
 <script setup lang="ts">
-import Avatar from '@modrinth/ui/src/components/base/Avatar.vue'
-import { defineMessages, useVIntl } from '@modrinth/ui/src/composables/i18n.ts'
+import { Avatar, defineMessages, useVIntl } from '@modrinth/ui'
 
 const { formatMessage } = useVIntl()
 

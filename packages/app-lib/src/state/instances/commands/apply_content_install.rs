@@ -4415,7 +4415,10 @@ mod tests {
         .unwrap_err();
         assert!(error.to_string().contains("already exists"));
 
-        assert_eq!(std::fs::read(mods.join("sibling.jar")).unwrap(), b"enabled");
+        assert_eq!(
+            std::fs::read(mods.join("sibling.jar")).unwrap(),
+            b"enabled"
+        );
         assert_eq!(
             std::fs::read(mods.join("sibling.jar.disabled")).unwrap(),
             b"disabled"
@@ -4430,9 +4433,12 @@ mod tests {
         std::fs::write(mods.join("single.jar"), b"enabled").unwrap();
         std::fs::write(mods.join("already.jar.disabled"), b"disabled").unwrap();
 
-        let (current, enabled, next) =
-            resolve_toggle_paths(directory.path(), "mods/single.jar", Some(false))
-                .unwrap();
+        let (current, enabled, next) = resolve_toggle_paths(
+            directory.path(),
+            "mods/single.jar",
+            Some(false),
+        )
+        .unwrap();
         assert_eq!(current, "mods/single.jar");
         assert!(!enabled);
         assert_eq!(next, "mods/single.jar.disabled");

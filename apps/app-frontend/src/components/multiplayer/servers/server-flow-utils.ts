@@ -7,7 +7,6 @@ import {
     type PaperBuildsResponse,
     paperBuildsUrl,
     quiltInstallerVersionsUrl,
-    requiredJavaMajorVersion,
     resolveServerJar,
     type ServerJarDownload,
     type ServerTypeId,
@@ -17,7 +16,6 @@ import { getVersion } from '@tauri-apps/api/app'
 import { fetch as tauriFetch } from '@tauri-apps/plugin-http'
 import { type as osType } from '@tauri-apps/plugin-os'
 
-import { find_filtered_jres, get_java_default_versions } from '@/helpers/jre'
 import { get_game_versions } from '@/helpers/metadata'
 import { serverEventListener, type ServerEventPayload } from '@/helpers/servers'
 
@@ -47,29 +45,6 @@ export function javaMajorFromVersion(version: string): number | null {
     if (parts.length === 0) return null
     if (parts[0] === 1 && parts.length > 1) return parts[1]
     return parts[0]
-}
-
-/** Reuses launcher defaults and discovery, preferring the game's matching Java major. */
-export async function findServerJava(
-    gameVersion: string,
-): Promise<{ path: string; version: string } | undefined> {
-    const major = requiredJavaMajorVersion(gameVersion)
-    const defaults = (await get_java_default_versions().catch(() => [])) as Array<{
-        parsed_version: number
-        path: string
-        version: string
-    }>
-    const exact = defaults.find((entry) => entry.parsed_version === major)
-    if (exact) return { path: exact.path, version: exact.version }
-    const found = (await find_filtered_jres(major).catch(() => [])) as Array<{
-        path: string
-        version: string
-    }>
-    return (
-        found.find((entry) => javaMajorFromVersion(entry.version) === major) ??
-        defaults.find((entry) => entry.parsed_version >= major) ??
-        found[0]
-    )
 }
 
 /**

@@ -26,8 +26,15 @@ export interface LinkedWorldData {
     address: string
 }
 
+export interface ServerImportConfiguration {
+    serverType: 'vanilla' | 'fabric' | 'forge'
+    gameVersion: string
+    loaderVersion: string | null
+}
+
 export interface ServerImportPreview {
     innerBase: string
+    archives?: string[]
     serverType: string
     gameVersion: string
     loaderVersion: string | null
@@ -104,6 +111,7 @@ export const servers = {
     importExternal: (options: {
         sourcePath: string
         expected: ServerImportPreview
+        configuration?: ServerImportConfiguration
         name: string
         javaPath: string
         memoryMb: number

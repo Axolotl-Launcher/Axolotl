@@ -17,13 +17,12 @@ import { computed, markRaw, type Ref, ref } from 'vue'
 import type { ComponentExposed } from 'vue-component-type-helpers'
 
 import {
-    findServerJava,
     javaMajorFromVersion,
     toErrorMessage,
 } from '@/components/multiplayer/servers/server-flow-utils'
 import { getServerInstallStrategy, runServerInstall } from '@/composables/server-install'
 import { refresh as refreshServerList } from '@/composables/useServers'
-import { get_max_memory } from '@/helpers/jre'
+import { find_filtered_jres, get_java_default_versions, get_max_memory } from '@/helpers/jre'
 import { get_game_versions, get_loader_versions } from '@/helpers/metadata'
 import { type ServerManifestData, servers } from '@/helpers/servers'
 import { injectDownloadManager } from '@/providers/download-manager'
@@ -206,8 +205,29 @@ export function createCreateServerFlowContext(
     /** Prefills the Java path from the instance-level defaults, falling back to a scan. */
     async function loadDefaultJava() {
         if (selectedJava.value.path !== '') return
-        const found = await findServerJava(selectedGameVersion.value || '1.21')
-        if (found) selectedJava.value = found
+        const major = requiredJavaMajorVersion(selectedGameVersion.value || '1.21')
+        try {
+            const defaults = (await get_java_default_versions()) as Array<{
+                parsed_version: number
+                version: string
+                path: string
+            }>
+            const match =
+                defaults.find((entry) => entry.parsed_version === major) ??
+                defaults.find((entry) => entry.parsed_version >= major)
+            if (match) {
+                selectedJava.value = { path: match.path, version: match.version }
+                return
+            }
+        } catch {
+            // Fall through to a filtered scan
+        }
+        try {
+            const javas = (await find_filtered_jres(major)) as JavaSelection[]
+            if (javas.length > 0) selectedJava.value = javas[0]
+        } catch {
+            // Leave empty; the user picks manually in the setup stage
+        }
     }
 
     async function loadMaxMemory() {

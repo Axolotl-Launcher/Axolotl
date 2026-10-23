@@ -32,24 +32,6 @@ pub async fn install_forge(
     build: &str,
     java_path: Option<String>,
 ) -> Result<()> {
-    let result =
-        install_forge_inner(server_id, mc_version, build, java_path).await;
-    if let Err(error) = &result {
-        let dir = server_path(server_id).await?;
-        let mut manifest = read_manifest(&dir).await?;
-        manifest.install_state = Some(InstallState::Failed);
-        manifest.install_error = Some(error.to_string());
-        write_manifest(&dir, &manifest).await?;
-    }
-    result
-}
-
-async fn install_forge_inner(
-    server_id: &str,
-    mc_version: &str,
-    build: &str,
-    java_path: Option<String>,
-) -> Result<()> {
     let dir = server_path(server_id).await?;
 
     let mut manifest = read_manifest(&dir).await?;
@@ -75,7 +57,6 @@ async fn install_forge_inner(
 
     log(server_id, "Running Forge installer (this may take a while)").await?;
     let output = java_environment::tokio_command(&java)
-        .kill_on_drop(true)
         .arg("-jar")
         .arg(&installer_path)
         .arg("--installServer")
@@ -99,6 +80,11 @@ async fn install_forge_inner(
     }
 
     if !output.status.success() {
+        let mut manifest = read_manifest(&dir).await?;
+        manifest.install_state = Some(InstallState::Failed);
+        manifest.install_error =
+            Some("Forge installer exited with an error".to_string());
+        write_manifest(&dir, &manifest).await?;
         return Err(ErrorKind::LauncherError(
 			"Forge installer failed. Check that the selected Java version supports this game version."
 				.to_string(),
@@ -116,12 +102,7 @@ async fn install_forge_inner(
     }
 
     let mut manifest = read_manifest(&dir).await?;
-    // External imports become ready only after the caller validates their launch files.
-    if !manifest.external_import {
-        manifest.install_state = None;
-        manifest.install_error = None;
-        write_manifest(&dir, &manifest).await?;
-    }
+    super::external_import::complete_forge_install(&dir, &mut manifest).await?;
     log(server_id, "Forge server files installed").await.ok();
     Ok(())
 }

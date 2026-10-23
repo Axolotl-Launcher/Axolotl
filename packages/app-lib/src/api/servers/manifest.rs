@@ -80,41 +80,6 @@ pub struct ServerManifest {
     pub last_exit_crashed: bool,
 }
 
-impl ServerManifest {
-    pub(super) fn new(
-        id: String,
-        name: &str,
-        server_type: &str,
-        game_version: &str,
-        loader_version: Option<String>,
-        java_path: Option<String>,
-        memory_mb: Option<u32>,
-    ) -> Self {
-        Self {
-            external_import: false,
-            id,
-            name: name.to_string(),
-            server_type: server_type.to_string(),
-            game_version: game_version.to_string(),
-            loader_version,
-            jar_name: type_default_jar_name(server_type),
-            java_path,
-            memory_mb,
-            icon_path: None,
-            modpack: None,
-            install_state: None,
-            install_error: None,
-            jvm_args: Vec::new(),
-            pre_launch_hook: None,
-            home_pinned_at: None,
-            linked_world: None,
-            created_at: Utc::now(),
-            last_started_at: None,
-            last_exit_crashed: false,
-        }
-    }
-}
-
 /// Links a managed server to a saved multiplayer entry (an instance's server
 /// list entry) whose address points back at this machine. When set, launching
 /// that entry from the home pinned-servers widget first starts this server and

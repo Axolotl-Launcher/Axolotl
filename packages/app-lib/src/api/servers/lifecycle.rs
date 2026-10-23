@@ -129,15 +129,10 @@ async fn start_inner(
 ) -> Result<()> {
     let dir = server_path(server_id).await?;
     let mut manifest = read_manifest(&dir).await?;
-    if manifest.install_state.is_some() {
-        return Err(ErrorKind::InputError(
-            "Finish installing this server before starting it".into(),
-        )
-        .as_error());
-    }
-    let launch_args = if manifest.external_import {
-        super::import::imported_launch_args(&dir, &manifest)
-            .map_err(|e| ErrorKind::InputError(e).as_error())?
+    let launch_args = if let Some(args) =
+        super::external_import::launch_args(&dir, &manifest)?
+    {
+        args
     } else if uses_pty_transport(&manifest.server_type) {
         forge_launch_args(&dir)?
     } else {

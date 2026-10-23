@@ -26,6 +26,7 @@ fn runtime_commands(source: &str) -> BTreeSet<&str> {
         .split(',')
         .map(str::trim)
         .filter(|command| !command.is_empty())
+        .map(|command| command.rsplit("::").next().unwrap())
         .collect()
 }
 

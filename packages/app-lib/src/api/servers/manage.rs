@@ -11,7 +11,7 @@ use super::files::safe_relative_join;
 use super::lifecycle::is_running;
 use super::manifest::{
     LinkedWorld, ServerInfo, ServerManifest, build_server_info, read_manifest,
-    sanitize_folder_name, server_path, write_manifest,
+    sanitize_folder_name, server_path, type_default_jar_name, write_manifest,
 };
 
 pub async fn list() -> Result<Vec<ServerInfo>> {
@@ -76,15 +76,28 @@ pub async fn create(
     let dir = safe_relative_join(&state.directories.servers_dir(), &dir_name)?;
     io::create_dir_all(&dir).await?;
 
-    let manifest = ServerManifest::new(
-        dir_name,
-        name,
-        server_type,
-        game_version,
+    let manifest = ServerManifest {
+        external_import: false,
+        id: dir_name,
+        name: name.to_string(),
+        server_type: server_type.to_string(),
+        game_version: game_version.to_string(),
         loader_version,
+        jar_name: type_default_jar_name(server_type),
         java_path,
         memory_mb,
-    );
+        icon_path: None,
+        modpack: None,
+        install_state: None,
+        install_error: None,
+        jvm_args: Vec::new(),
+        pre_launch_hook: None,
+        home_pinned_at: None,
+        linked_world: None,
+        created_at: Utc::now(),
+        last_started_at: None,
+        last_exit_crashed: false,
+    };
     write_manifest(&dir, &manifest).await?;
     Ok(manifest)
 }

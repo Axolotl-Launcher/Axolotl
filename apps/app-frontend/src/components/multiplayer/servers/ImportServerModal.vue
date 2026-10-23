@@ -2,28 +2,108 @@
 import { requiredJavaMajorVersion, SERVER_TYPES, type ServerTypeId } from '@modrinth/server'
 import {
     Button,
+    Combobox,
     commonMessages,
     defineMessages,
+    loaderVersionsForGameVersion,
     NewModal,
     Slider,
     StyledInput,
     useVIntl,
 } from '@modrinth/ui'
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 
 import JavaSelector from '@/components/ui/JavaSelector.vue'
 import { refresh } from '@/composables/useServers'
-import { get_max_memory } from '@/helpers/jre'
-import { type ServerImportPreview, servers } from '@/helpers/servers'
+import { find_filtered_jres, get_java_default_versions, get_max_memory } from '@/helpers/jre'
+import { get_game_versions, get_loader_versions } from '@/helpers/metadata'
+import {
+    type ServerImportConfiguration,
+    type ServerImportPreview,
+    servers,
+} from '@/helpers/servers'
 
-import { findServerJava, javaMajorFromVersion, toErrorMessage } from './server-flow-utils'
+import { javaMajorFromVersion, toErrorMessage } from './server-flow-utils'
+
+type LoaderManifest = NonNullable<Parameters<typeof loaderVersionsForGameVersion>[0]>
+
+const serverTypeOptions = (['vanilla', 'fabric', 'forge'] as const).map((value) => ({
+    value,
+    label: SERVER_TYPES[value].label,
+}))
 
 const { formatMessage } = useVIntl()
 const router = useRouter()
 const modal = ref<InstanceType<typeof NewModal> | null>(null)
 const preview = ref<ServerImportPreview | null>(null)
 const sourcePath = ref('')
+const configuredType = ref<ServerImportConfiguration['serverType'] | ''>('')
+const configuredGame = ref('')
+const configuredLoader = ref('')
+const gameOptions = ref<Array<{ value: string; label: string }>>([])
+const loaderOptions = ref<Array<{ value: string; label: string }>>([])
+const versionsError = ref('')
+function withCustomVersion(options: Array<{ value: string; label: string }>, value: string) {
+    return value && !options.some((option) => option.value === value)
+        ? [{ value, label: value }, ...options]
+        : options
+}
+const selectableGames = computed(() => withCustomVersion(gameOptions.value, configuredGame.value))
+const selectableLoaders = computed(() =>
+    withCustomVersion(loaderOptions.value, configuredLoader.value),
+)
+
+watch([configuredType, configuredGame], ([type, game], _, onCleanup) => {
+    java.value = { path: '', version: '' }
+    configuredLoader.value = ''
+    loaderOptions.value = []
+    versionsError.value = ''
+    if (!needsConfiguration.value || !type || type === 'vanilla' || !game.trim()) return
+    let active = true
+    const timer = setTimeout(async () => {
+        try {
+            const manifest = (await get_loader_versions(type, game.trim())) as LoaderManifest
+            if (active) {
+                loaderOptions.value = loaderVersionsForGameVersion(manifest, game.trim()).map(
+                    ({ id }) => ({ value: id, label: id }),
+                )
+            }
+        } catch (e) {
+            if (active) versionsError.value = toErrorMessage(e)
+        }
+    }, 300)
+    onCleanup(() => {
+        active = false
+        clearTimeout(timer)
+    })
+})
+
+async function loadGameOptions() {
+    try {
+        const manifest = (await get_game_versions()) as { versions: Array<{ id: string }> }
+        gameOptions.value = manifest.versions.map(({ id }) => ({ value: id, label: id }))
+    } catch (e) {
+        versionsError.value = toErrorMessage(e)
+    }
+}
+const needsConfiguration = computed(() => preview.value?.problem === 'configuration-required')
+const effectiveGame = computed(() =>
+    needsConfiguration.value ? configuredGame.value.trim() : preview.value?.gameVersion || '',
+)
+const effectiveType = computed(() =>
+    needsConfiguration.value ? configuredType.value : preview.value?.serverType,
+)
+const effectiveLoader = computed(() =>
+    needsConfiguration.value ? configuredLoader.value : preview.value?.loaderVersion,
+)
+const exactJava = computed(() => effectiveType.value === 'forge' && requiredJava.value === 8)
+const configurationComplete = computed(
+    () =>
+        !!configuredType.value &&
+        !!configuredGame.value.trim() &&
+        (configuredType.value === 'vanilla' || !!configuredLoader.value.trim()),
+)
 const name = ref('')
 const java = ref({ path: '', version: '' })
 const memory = ref(4096)
@@ -33,6 +113,18 @@ const inspecting = ref(false)
 const error = ref('')
 const messages = defineMessages({
     title: { id: 'app.servers.import.title', defaultMessage: 'Import server' },
+    configuration: {
+        id: 'app.servers.import.configuration-required',
+        defaultMessage:
+            'Choose the server type and exact versions required by this package. Its launcher will be installed after import.',
+    },
+    type: { id: 'app.servers.wizard.type-title', defaultMessage: 'Server type' },
+    gameVersion: { id: 'app.servers.wizard.game-version', defaultMessage: 'Game version' },
+    loaderVersion: { id: 'app.servers.wizard.loader-version', defaultMessage: 'Loader version' },
+    exactJava: {
+        id: 'app.servers.import.exact-java',
+        defaultMessage: 'Select Java {version} for this Forge version.',
+    },
     name: { id: 'app.servers.wizard.name', defaultMessage: 'Server name' },
     java: { id: 'app.servers.settings.java', defaultMessage: 'Java' },
     memory: { id: 'app.servers.settings.memory', defaultMessage: 'Memory' },
@@ -99,15 +191,15 @@ const messages = defineMessages({
     view: { id: 'app.servers.import.view-server', defaultMessage: 'View server' },
 })
 const importedId = ref('')
-const requiredJava = computed(() => requiredJavaMajorVersion(preview.value?.gameVersion || ''))
+const requiredJava = computed(() => requiredJavaMajorVersion(effectiveGame.value))
 const serverTypeLabel = computed(() =>
-    preview.value
-        ? (SERVER_TYPES[preview.value.serverType as ServerTypeId]?.label ??
-          preview.value.serverType)
+    effectiveType.value
+        ? (SERVER_TYPES[effectiveType.value as ServerTypeId]?.label ?? effectiveType.value)
         : '',
 )
 const problemMessage = computed(() => {
     const problem = preview.value?.problem
+    if (problem === 'configuration-required') return ''
     const map = {
         'missing-version': messages.missing,
         'conflicting-versions': messages.conflict,
@@ -122,17 +214,63 @@ const canImport = computed(
         !busy.value &&
         !inspecting.value &&
         !!preview.value &&
-        !preview.value.problem &&
+        (!preview.value.problem || (needsConfiguration.value && configurationComplete.value)) &&
         !!name.value.trim() &&
         !!java.value.path.trim() &&
         !importedId.value,
 )
 
+/** Reuses launcher defaults and discovery, preferring the game's matching Java major. */
+async function findServerJava(
+    gameVersion: string,
+): Promise<{ path: string; version: string } | undefined> {
+    const major = requiredJavaMajorVersion(gameVersion)
+    const defaults = (await get_java_default_versions().catch(() => [])) as Array<{
+        parsed_version: number
+        path: string
+        version: string
+    }>
+    const exact = defaults.find((entry) => entry.parsed_version === major)
+    if (exact) return { path: exact.path, version: exact.version }
+    const found = (await find_filtered_jres(major).catch(() => [])) as Array<{
+        path: string
+        version: string
+    }>
+    const discovered = found.find((entry) => javaMajorFromVersion(entry.version) === major)
+    return (
+        discovered ??
+        (exactJava.value
+            ? undefined
+            : (defaults.find((entry) => entry.parsed_version >= major) ?? found[0]))
+    )
+}
+
+function changeConfiguredType() {
+    java.value = { path: '', version: '' }
+    configuredLoader.value = ''
+    void loadConfiguredJava()
+}
+
+async function loadConfiguredJava() {
+    if (!effectiveGame.value || busy.value || java.value.path) return
+    const game = effectiveGame.value
+    const type = effectiveType.value
+    const found = await findServerJava(game)
+    if (game === effectiveGame.value && type === effectiveType.value && !java.value.path) {
+        java.value = found ?? { path: '', version: '' }
+    }
+}
+
 async function show(path: string) {
     if (busy.value || inspecting.value) return
     sourcePath.value = path
     preview.value = null
+    configuredType.value = ''
+    configuredGame.value = ''
+    configuredLoader.value = ''
     error.value = ''
+    versionsError.value = ''
+    gameOptions.value = []
     importedId.value = ''
     java.value = { path: '', version: '' }
     name.value = (path.split(/[/\\]/).pop() || 'server').replace(/\.zip$/i, '')
@@ -144,11 +282,11 @@ async function show(path: string) {
             error.value = formatMessage(messages.none)
             return
         }
-        if (preview.value.problem) return
-        const found = await findServerJava(preview.value.gameVersion)
-        if (found) java.value = found
+        if (preview.value.problem && !needsConfiguration.value) return
         maxMemory.value = Math.max(1024, Math.floor(Number(await get_max_memory()) / 1024))
         memory.value = Math.min(4096, maxMemory.value)
+        if (needsConfiguration.value) void loadGameOptions()
+        else await loadConfiguredJava()
     } catch (e) {
         error.value = toErrorMessage(e)
     } finally {
@@ -158,6 +296,10 @@ async function show(path: string) {
 async function submit() {
     if (!canImport.value || !preview.value) return
     const major = javaMajorFromVersion(java.value.version)
+    if (exactJava.value && major !== requiredJava.value) {
+        error.value = formatMessage(messages.exactJava, { version: requiredJava.value })
+        return
+    }
     if (major !== null && major < requiredJava.value) {
         error.value = formatMessage(messages.javaRequired)
         return
@@ -168,6 +310,19 @@ async function submit() {
         const result = await servers.importExternal({
             sourcePath: sourcePath.value,
             expected: preview.value,
+            ...(needsConfiguration.value
+                ? {
+                      configuration: {
+                          serverType:
+                              configuredType.value as ServerImportConfiguration['serverType'],
+                          gameVersion: configuredGame.value.trim(),
+                          loaderVersion:
+                              configuredType.value === 'vanilla'
+                                  ? null
+                                  : configuredLoader.value.trim(),
+                      },
+                  }
+                : {}),
             name: name.value,
             javaPath: java.value.path,
             memoryMb: memory.value,
@@ -200,15 +355,63 @@ defineExpose({ show })
         <div class="flex flex-col gap-4">
             <p v-if="inspecting" role="status">{{ formatMessage(messages.inspecting) }}</p>
             <template v-if="preview">
-                <div class="flex flex-col gap-1">
+                <div v-if="needsConfiguration && !importedId" class="flex flex-col gap-3">
+                    <p>{{ formatMessage(messages.configuration) }}</p>
+                    <div class="flex flex-col gap-2">
+                        <span>{{ formatMessage(messages.type) }}</span>
+                        <Combobox
+                            id="import-server-type"
+                            v-model="configuredType"
+                            :disabled="busy"
+                            :options="serverTypeOptions"
+                            @update:model-value="changeConfiguredType"
+                        />
+                    </div>
+                    <label class="flex flex-col gap-2" for="import-server-game">
+                        <span>{{ formatMessage(messages.gameVersion) }}</span>
+                        <Combobox
+                            id="import-server-game"
+                            v-model="configuredGame"
+                            :options="selectableGames"
+                            :search-placeholder="formatMessage(messages.gameVersion)"
+                            searchable
+                            sync-with-selection
+                            :search-value="configuredGame"
+                            :disabled="busy"
+                            @search-input="configuredGame = $event"
+                            @update:model-value="java = { path: '', version: '' }"
+                            @search-blur="loadConfiguredJava"
+                        />
+                    </label>
+                    <label
+                        v-if="configuredType && configuredType !== 'vanilla'"
+                        class="flex flex-col gap-2"
+                        for="import-server-loader"
+                    >
+                        <span>{{ formatMessage(messages.loaderVersion) }}</span>
+                        <Combobox
+                            id="import-server-loader"
+                            v-model="configuredLoader"
+                            :options="selectableLoaders"
+                            :search-placeholder="formatMessage(messages.loaderVersion)"
+                            searchable
+                            sync-with-selection
+                            :search-value="configuredLoader"
+                            :disabled="busy"
+                            @search-input="configuredLoader = $event"
+                        />
+                    </label>
+                    <p v-if="versionsError" class="text-orange" role="alert">{{ versionsError }}</p>
+                </div>
+                <div v-else class="flex flex-col gap-1">
                     <span class="font-semibold">{{
                         formatMessage(messages.version, {
-                            gameVersion: preview.gameVersion || '?',
+                            gameVersion: effectiveGame || '?',
                             serverType: serverTypeLabel,
                         })
                     }}</span>
-                    <span v-if="preview.loaderVersion">{{
-                        formatMessage(messages.loader, { version: preview.loaderVersion })
+                    <span v-if="effectiveLoader">{{
+                        formatMessage(messages.loader, { version: effectiveLoader })
                     }}</span>
                     <p v-if="problemMessage" class="text-orange" role="alert">
                         {{ problemMessage }}
@@ -219,7 +422,7 @@ defineExpose({ show })
                         }}
                     </p>
                 </div>
-                <template v-if="!preview.problem && !importedId">
+                <template v-if="(!preview.problem || needsConfiguration) && !importedId">
                     <label class="flex flex-col gap-2" for="import-server-name">
                         <span>{{ formatMessage(messages.name) }}</span>
                         <StyledInput id="import-server-name" v-model="name" :disabled="busy" />
@@ -258,10 +461,10 @@ defineExpose({ show })
             <Button :disabled="busy || inspecting" @click="modal?.hide()">{{
                 formatMessage(commonMessages.cancelButton)
             }}</Button>
-            <Button v-if="importedId" color="brand" @click="viewServer">{{
+            <Button v-if="importedId" type="colored" color="brand" @click="viewServer">{{
                 formatMessage(messages.view)
             }}</Button>
-            <Button v-else color="brand" :disabled="!canImport" @click="submit">{{
+            <Button v-else type="colored" color="brand" :disabled="!canImport" @click="submit">{{
                 formatMessage(preview?.needsInstall ? messages.installSubmit : messages.submit)
             }}</Button>
         </template>

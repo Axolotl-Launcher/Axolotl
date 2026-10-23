@@ -173,15 +173,11 @@ fn classify_dropped_item_inner(
         };
     }
 
-    match crate::api::servers::inspect_server_import(path) {
-        Ok(Some(preview)) => {
-            return DroppedItemType::Server {
-                file_path: path.to_path_buf(),
-                preview,
-            };
-        }
-        Err(reason) => return DroppedItemType::Unknown { reason },
-        Ok(None) => {}
+    if let Some(server) = crate::api::servers::external_import::classify_drop(
+        path,
+        allow_nested_unpack,
+    ) {
+        return server;
     }
 
     if is_zip_path(path) {
@@ -600,7 +596,7 @@ fn resource_pack_candidates(entries: &ZipEntrySet, base: &str) -> Vec<String> {
 /// Whether the filesystem holding `dir` has at least `required` bytes free.
 /// Returns `true` when the free space cannot be determined so the hard size
 /// cap still applies as a fallback.
-fn temp_dir_has_space(dir: &Path, required: u64) -> bool {
+pub(crate) fn temp_dir_has_space(dir: &Path, required: u64) -> bool {
     let disks = sysinfo::Disks::new_with_refreshed_list();
     let mut best: Option<(usize, u64)> = None;
     for disk in disks.list() {
@@ -1348,7 +1344,15 @@ fn extract_zip_to_dir_with_cancellation(
     let mut archive = zip::ZipArchive::new(file).map_err(|e| {
         format!("Invalid ZIP archive '{}': {e}", zip_path.display())
     })?;
-    let total_bytes = validate_zip_extraction_budget(&mut archive)?;
+    extract_archive_to_dir(&mut archive, dest_dir, cancellation)
+}
+
+pub(crate) fn extract_archive_to_dir(
+    archive: &mut zip::ZipArchive<std::fs::File>,
+    dest_dir: &Path,
+    cancellation: Option<&CancellationToken>,
+) -> Result<(), String> {
+    let total_bytes = validate_zip_extraction_budget(archive)?;
     if !temp_dir_has_space(dest_dir, total_bytes) {
         return Err(format!(
             "Not enough free disk space to extract ZIP (requires {total_bytes} bytes)"

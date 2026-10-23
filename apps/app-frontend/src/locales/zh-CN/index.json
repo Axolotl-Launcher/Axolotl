@@ -19124,6 +19124,12 @@
   "app.lab.command-generator.arg.waypoint.value.desc": {
     "message": "颜色或样式"
   },
+  "app.servers.import.configuration-required": {
+    "message": "请选择此服务端包要求的服务端类型和准确版本，导入后将安装对应启动器。"
+  },
+  "app.servers.import.exact-java": {
+    "message": "请为此 Forge 版本选择 Java {version}。"
+  },
   "app.servers.import.title": {
     "defaultMessage": "导入服务端"
   },

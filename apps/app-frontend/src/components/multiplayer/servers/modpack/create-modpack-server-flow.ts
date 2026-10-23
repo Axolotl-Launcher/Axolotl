@@ -13,14 +13,13 @@ import type { ComponentExposed } from 'vue-component-type-helpers'
 
 import { startModpackServerInstall } from '@/composables/useServerInstalls'
 import { refresh as refreshServerList } from '@/composables/useServers'
-import { get_max_memory } from '@/helpers/jre'
+import { find_filtered_jres, get_java_default_versions, get_max_memory } from '@/helpers/jre'
 import { get_loader_versions } from '@/helpers/metadata'
 import { serverEventListener, type ServerManifestData, servers } from '@/helpers/servers'
 import { injectDownloadManager } from '@/providers/download-manager'
 
 import type { CreateServerFlowContext, JavaSelection } from '../create-server-flow'
 import {
-    findServerJava,
     javaMajorFromVersion,
     resolveServerLauncher,
     toErrorMessage,
@@ -206,8 +205,29 @@ export function createModpackServerFlowContext(
 
     async function loadDefaultJava() {
         if (selectedJava.value.path !== '') return
-        const found = await findServerJava(selectedGameVersion.value || '1.21')
-        if (found) selectedJava.value = found
+        const major = javaMajorFromVersion(selectedGameVersion.value || '1.21') ?? 21
+        try {
+            const defaults = (await get_java_default_versions()) as Array<{
+                parsed_version: number
+                version: string
+                path: string
+            }>
+            const match =
+                defaults.find((entry) => entry.parsed_version === major) ??
+                defaults.find((entry) => entry.parsed_version >= major)
+            if (match) {
+                selectedJava.value = { path: match.path, version: match.version }
+                return
+            }
+        } catch {
+            // Fall through to a filtered scan
+        }
+        try {
+            const javas = (await find_filtered_jres(major)) as JavaSelection[]
+            if (javas.length > 0) selectedJava.value = javas[0]
+        } catch {
+            // Leave empty; the user picks manually in the setup stage
+        }
     }
 
     async function loadMaxMemory() {

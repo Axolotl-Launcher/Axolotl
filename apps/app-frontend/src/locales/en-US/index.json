@@ -19100,6 +19100,12 @@
   "app.lab.command-generator.arg.waypoint.value.desc": {
     "message": "Color or style"
   },
+  "app.servers.import.configuration-required": {
+    "message": "Choose the server type and exact versions required by this package. Its launcher will be installed after import."
+  },
+  "app.servers.import.exact-java": {
+    "message": "Select Java {version} for this Forge version."
+  },
   "app.servers.import.batch-limit": {
     "message": "Import servers one at a time. Drop this server on its own to configure it."
   },

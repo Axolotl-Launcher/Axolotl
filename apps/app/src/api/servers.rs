@@ -1,3 +1,5 @@
+mod external_import;
+
 use crate::api::Result;
 use theseus::prelude::*;
 use theseus::servers::ServerInfo;
@@ -5,9 +7,9 @@ use theseus::servers::ServerInfo;
 pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
     tauri::plugin::Builder::new("servers")
         .invoke_handler(tauri::generate_handler![
-            servers_inspect_import,
-            servers_import_external,
-            servers_retry_external,
+            external_import::servers_inspect_import,
+            external_import::servers_import_external,
+            external_import::servers_retry_external,
             servers_list,
             servers_get,
             servers_create,
@@ -268,40 +270,4 @@ pub async fn servers_get_log_delta(
 #[tauri::command]
 pub async fn servers_clear_log(server_id: &str) -> Result<()> {
     Ok(servers::clear_log(server_id).await?)
-}
-
-#[tauri::command]
-pub async fn servers_inspect_import(
-    source_path: String,
-) -> std::result::Result<Option<servers::ServerImportPreview>, String> {
-    tokio::task::spawn_blocking(move || {
-        servers::inspect_server_import(std::path::Path::new(&source_path))
-    })
-    .await
-    .map_err(|e| e.to_string())?
-}
-
-#[tauri::command]
-pub async fn servers_import_external(
-    source_path: String,
-    expected: servers::ServerImportPreview,
-    name: String,
-    java_path: String,
-    memory_mb: u32,
-) -> Result<servers::ServerManifest> {
-    Ok(servers::import_external_server(
-        source_path,
-        expected,
-        name,
-        java_path,
-        memory_mb,
-    )
-    .await?)
-}
-
-#[tauri::command]
-pub async fn servers_retry_external(
-    server_id: String,
-) -> Result<servers::ServerManifest> {
-    Ok(servers::retry_external_server(&server_id).await?)
 }

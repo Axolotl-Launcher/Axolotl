@@ -36,6 +36,14 @@ html.accent-pink.dark-mode {
     --landing-border-color: rgb(230 170 204 / 24%);
 }
 
+// OLED 把 html 的类切成 `accent-pink oled-mode`，既不是 light-mode 也不是 dark-mode。
+// `.oled-mode` 在共享变量里 `@extend .dark-mode`，品牌色仍是粉，遮罩文字沿用深色值；
+// `--surface-1` 在 OLED 下是纯黑，过渡带末端因此也要跟着走变量而不是写死。
+html.accent-pink.oled-mode {
+    --color-on-brand: #1a1018;
+    --landing-transition-gradient-end: var(--surface-1);
+}
+
 html {
     scroll-behavior: smooth;
     scroll-padding-top: 5rem;

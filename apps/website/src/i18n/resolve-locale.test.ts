@@ -101,3 +101,55 @@ test('empty input falls back to the default locale', () => {
         defaultLocale,
     )
 })
+
+test('q weights decide the order, not the written order', () => {
+    assert.equal(
+        resolveLocale({ acceptLanguage: 'en-US;q=0.1,zh-CN;q=0.9', supported, defaultLocale }),
+        'zh-CN',
+    )
+})
+
+test('a tag without q keeps the implicit weight of 1', () => {
+    assert.equal(
+        resolveLocale({ acceptLanguage: 'en-US,zh-CN;q=0.9', supported, defaultLocale }),
+        'en-US',
+    )
+})
+
+test('q=0 marks a tag as unacceptable', () => {
+    assert.equal(
+        resolveLocale({ acceptLanguage: 'zh-CN;q=0,en-US;q=0.5', supported, defaultLocale }),
+        'en-US',
+    )
+    assert.equal(
+        resolveLocale({
+            acceptLanguage: 'zh-CN;q=0,en-US;q=0',
+            browserLanguages: ['zh-CN'],
+            supported,
+            defaultLocale,
+        }),
+        'zh-CN',
+    )
+})
+
+test('equal q weights keep the written order', () => {
+    assert.equal(
+        resolveLocale({ acceptLanguage: 'en-US;q=0.5,zh-CN;q=0.5', supported, defaultLocale }),
+        'en-US',
+    )
+})
+
+test('a malformed or out-of-range q weight falls back to 1', () => {
+    assert.equal(
+        resolveLocale({ acceptLanguage: 'zh-CN;q=abc,en-US', supported, defaultLocale }),
+        'zh-CN',
+    )
+    assert.equal(
+        resolveLocale({ acceptLanguage: 'en-US;q=2,zh-CN;q=0.9', supported, defaultLocale }),
+        'en-US',
+    )
+    assert.equal(
+        resolveLocale({ acceptLanguage: 'en-US;q=-1,zh-CN;q=0.9', supported, defaultLocale }),
+        'en-US',
+    )
+})

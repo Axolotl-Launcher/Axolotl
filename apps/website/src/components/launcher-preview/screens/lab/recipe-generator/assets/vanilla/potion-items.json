@@ -1,0 +1,1470 @@
+[
+  {
+    "id": "minecraft:lingering_potion",
+    "potion": "minecraft:awkward",
+    "bedrockPotion": "minecraft:awkward",
+    "readable": "Awkward Lingering Potion",
+    "texture": "34425dd3f31c7c03.png",
+    "tooltip": []
+  },
+  {
+    "id": "minecraft:lingering_potion",
+    "potion": "minecraft:fire_resistance",
+    "bedrockPotion": "minecraft:fire_resistance",
+    "readable": "Lingering Potion of Fire Resistance",
+    "texture": "7460ef68dffa6261.png",
+    "tooltip": ["Fire Resistance (00:45)"]
+  },
+  {
+    "id": "minecraft:lingering_potion",
+    "potion": "minecraft:harming",
+    "bedrockPotion": "minecraft:harming",
+    "readable": "Lingering Potion of Harming",
+    "texture": "ab538b655a5005db.png",
+    "tooltip": ["Instant Damage"]
+  },
+  {
+    "id": "minecraft:lingering_potion",
+    "potion": "minecraft:healing",
+    "bedrockPotion": "minecraft:healing",
+    "readable": "Lingering Potion of Healing",
+    "texture": "883fae5b70740cd3.png",
+    "tooltip": ["Instant Health"]
+  },
+  {
+    "id": "minecraft:lingering_potion",
+    "potion": "minecraft:infested",
+    "bedrockPotion": "minecraft:infested",
+    "readable": "Lingering Potion of Infestation",
+    "texture": "c218d01de3a2f23d.png",
+    "tooltip": ["Infested (00:45)"]
+  },
+  {
+    "id": "minecraft:lingering_potion",
+    "potion": "minecraft:invisibility",
+    "bedrockPotion": "minecraft:invisibility",
+    "readable": "Lingering Potion of Invisibility",
+    "texture": "2628330fc2179e30.png",
+    "tooltip": ["Invisibility (00:45)"]
+  },
+  {
+    "id": "minecraft:lingering_potion",
+    "potion": "minecraft:leaping",
+    "bedrockPotion": "minecraft:leaping",
+    "readable": "Lingering Potion of Leaping",
+    "texture": "749bb9829524b7a4.png",
+    "tooltip": ["Jump Boost (00:45)"]
+  },
+  {
+    "id": "minecraft:lingering_potion",
+    "potion": "minecraft:long_fire_resistance",
+    "bedrockPotion": "minecraft:long_fire_resistance",
+    "readable": "Lingering Potion of Fire Resistance",
+    "texture": "7460ef68dffa6261.png",
+    "tooltip": ["Fire Resistance (02:00)"]
+  },
+  {
+    "id": "minecraft:lingering_potion",
+    "potion": "minecraft:long_invisibility",
+    "bedrockPotion": "minecraft:long_invisibility",
+    "readable": "Lingering Potion of Invisibility",
+    "texture": "2628330fc2179e30.png",
+    "tooltip": ["Invisibility (02:00)"]
+  },
+  {
+    "id": "minecraft:lingering_potion",
+    "potion": "minecraft:long_leaping",
+    "bedrockPotion": "minecraft:long_leaping",
+    "readable": "Lingering Potion of Leaping",
+    "texture": "749bb9829524b7a4.png",
+    "tooltip": ["Jump Boost (02:00)"]
+  },
+  {
+    "id": "minecraft:lingering_potion",
+    "potion": "minecraft:long_night_vision",
+    "bedrockPotion": "minecraft:long_nightvision",
+    "readable": "Lingering Potion of Night Vision",
+    "texture": "aae00cf88d90b8cd.png",
+    "tooltip": ["Night Vision (02:00)"]
+  },
+  {
+    "id": "minecraft:lingering_potion",
+    "potion": "minecraft:long_poison",
+    "bedrockPotion": "minecraft:long_poison",
+    "readable": "Lingering Potion of Poison",
+    "texture": "1f5c1874a6ca7f96.png",
+    "tooltip": ["Poison (00:22)"]
+  },
+  {
+    "id": "minecraft:lingering_potion",
+    "potion": "minecraft:long_regeneration",
+    "bedrockPotion": "minecraft:long_regeneration",
+    "readable": "Lingering Potion of Regeneration",
+    "texture": "05de7a27ce5e2fde.png",
+    "tooltip": ["Regeneration (00:22)"]
+  },
+  {
+    "id": "minecraft:lingering_potion",
+    "potion": "minecraft:long_slow_falling",
+    "bedrockPotion": "minecraft:long_slow_falling",
+    "readable": "Lingering Potion of Slow Falling",
+    "texture": "5a360341c237f7f8.png",
+    "tooltip": ["Slow Falling (01:00)"]
+  },
+  {
+    "id": "minecraft:lingering_potion",
+    "potion": "minecraft:long_slowness",
+    "bedrockPotion": "minecraft:long_slowness",
+    "readable": "Lingering Potion of Slowness",
+    "texture": "6609a9d9806efdff.png",
+    "tooltip": ["Slowness (01:00)"]
+  },
+  {
+    "id": "minecraft:lingering_potion",
+    "potion": "minecraft:long_strength",
+    "bedrockPotion": "minecraft:long_strength",
+    "readable": "Lingering Potion of Strength",
+    "texture": "c81194bf771af7e0.png",
+    "tooltip": ["Strength (02:00)"]
+  },
+  {
+    "id": "minecraft:lingering_potion",
+    "potion": "minecraft:long_swiftness",
+    "bedrockPotion": "minecraft:long_swiftness",
+    "readable": "Lingering Potion of Swiftness",
+    "texture": "e2b2906fdfad546d.png",
+    "tooltip": ["Speed (02:00)"]
+  },
+  {
+    "id": "minecraft:lingering_potion",
+    "potion": "minecraft:long_turtle_master",
+    "bedrockPotion": "minecraft:long_turtle_master",
+    "readable": "Lingering Potion of the Turtle Master",
+    "texture": "9451c20b05a2ef48.png",
+    "tooltip": ["Slowness IV (00:10)", "Resistance III (00:10)"]
+  },
+  {
+    "id": "minecraft:lingering_potion",
+    "potion": "minecraft:long_water_breathing",
+    "bedrockPotion": "minecraft:long_water_breathing",
+    "readable": "Lingering Potion of Water Breathing",
+    "texture": "b94cc1e0776441b4.png",
+    "tooltip": ["Water Breathing (02:00)"]
+  },
+  {
+    "id": "minecraft:lingering_potion",
+    "potion": "minecraft:long_weakness",
+    "bedrockPotion": "minecraft:long_weakness",
+    "readable": "Lingering Potion of Weakness",
+    "texture": "7b455dd41bec9293.png",
+    "tooltip": ["Weakness (01:00)"]
+  },
+  {
+    "id": "minecraft:lingering_potion",
+    "potion": "minecraft:luck",
+    "readable": "Lingering Potion of Luck",
+    "texture": "8aa9f049a355e2e2.png",
+    "tooltip": ["Luck (01:15)"]
+  },
+  {
+    "id": "minecraft:lingering_potion",
+    "potion": "minecraft:mundane",
+    "bedrockPotion": "minecraft:mundane",
+    "readable": "Mundane Lingering Potion",
+    "texture": "34425dd3f31c7c03.png",
+    "tooltip": []
+  },
+  {
+    "id": "minecraft:lingering_potion",
+    "potion": "minecraft:night_vision",
+    "bedrockPotion": "minecraft:nightvision",
+    "readable": "Lingering Potion of Night Vision",
+    "texture": "aae00cf88d90b8cd.png",
+    "tooltip": ["Night Vision (00:45)"]
+  },
+  {
+    "id": "minecraft:lingering_potion",
+    "potion": "minecraft:oozing",
+    "bedrockPotion": "minecraft:oozing",
+    "readable": "Lingering Potion of Oozing",
+    "texture": "ec8240e5bb83b457.png",
+    "tooltip": ["Oozing (00:45)"]
+  },
+  {
+    "id": "minecraft:lingering_potion",
+    "potion": "minecraft:poison",
+    "bedrockPotion": "minecraft:poison",
+    "readable": "Lingering Potion of Poison",
+    "texture": "1f5c1874a6ca7f96.png",
+    "tooltip": ["Poison (00:11)"]
+  },
+  {
+    "id": "minecraft:lingering_potion",
+    "potion": "minecraft:regeneration",
+    "bedrockPotion": "minecraft:regeneration",
+    "readable": "Lingering Potion of Regeneration",
+    "texture": "05de7a27ce5e2fde.png",
+    "tooltip": ["Regeneration (00:11)"]
+  },
+  {
+    "id": "minecraft:lingering_potion",
+    "potion": "minecraft:slow_falling",
+    "bedrockPotion": "minecraft:slow_falling",
+    "readable": "Lingering Potion of Slow Falling",
+    "texture": "5a360341c237f7f8.png",
+    "tooltip": ["Slow Falling (00:22)"]
+  },
+  {
+    "id": "minecraft:lingering_potion",
+    "potion": "minecraft:slowness",
+    "bedrockPotion": "minecraft:slowness",
+    "readable": "Lingering Potion of Slowness",
+    "texture": "6609a9d9806efdff.png",
+    "tooltip": ["Slowness (00:22)"]
+  },
+  {
+    "id": "minecraft:lingering_potion",
+    "potion": "minecraft:strength",
+    "bedrockPotion": "minecraft:strength",
+    "readable": "Lingering Potion of Strength",
+    "texture": "c81194bf771af7e0.png",
+    "tooltip": ["Strength (00:45)"]
+  },
+  {
+    "id": "minecraft:lingering_potion",
+    "potion": "minecraft:strong_harming",
+    "bedrockPotion": "minecraft:strong_harming",
+    "readable": "Lingering Potion of Harming",
+    "texture": "ab538b655a5005db.png",
+    "tooltip": ["Instant Damage II"]
+  },
+  {
+    "id": "minecraft:lingering_potion",
+    "potion": "minecraft:strong_healing",
+    "bedrockPotion": "minecraft:strong_healing",
+    "readable": "Lingering Potion of Healing",
+    "texture": "883fae5b70740cd3.png",
+    "tooltip": ["Instant Health II"]
+  },
+  {
+    "id": "minecraft:lingering_potion",
+    "potion": "minecraft:strong_leaping",
+    "bedrockPotion": "minecraft:strong_leaping",
+    "readable": "Lingering Potion of Leaping",
+    "texture": "749bb9829524b7a4.png",
+    "tooltip": ["Jump Boost II (00:22)"]
+  },
+  {
+    "id": "minecraft:lingering_potion",
+    "potion": "minecraft:strong_poison",
+    "bedrockPotion": "minecraft:strong_poison",
+    "readable": "Lingering Potion of Poison",
+    "texture": "1f5c1874a6ca7f96.png",
+    "tooltip": ["Poison II (00:05)"]
+  },
+  {
+    "id": "minecraft:lingering_potion",
+    "potion": "minecraft:strong_regeneration",
+    "bedrockPotion": "minecraft:strong_regeneration",
+    "readable": "Lingering Potion of Regeneration",
+    "texture": "05de7a27ce5e2fde.png",
+    "tooltip": ["Regeneration II (00:05)"]
+  },
+  {
+    "id": "minecraft:lingering_potion",
+    "potion": "minecraft:strong_slowness",
+    "bedrockPotion": "minecraft:strong_slowness",
+    "readable": "Lingering Potion of Slowness",
+    "texture": "6609a9d9806efdff.png",
+    "tooltip": ["Slowness IV (00:05)"]
+  },
+  {
+    "id": "minecraft:lingering_potion",
+    "potion": "minecraft:strong_strength",
+    "bedrockPotion": "minecraft:strong_strength",
+    "readable": "Lingering Potion of Strength",
+    "texture": "c81194bf771af7e0.png",
+    "tooltip": ["Strength II (00:22)"]
+  },
+  {
+    "id": "minecraft:lingering_potion",
+    "potion": "minecraft:strong_swiftness",
+    "bedrockPotion": "minecraft:strong_swiftness",
+    "readable": "Lingering Potion of Swiftness",
+    "texture": "e2b2906fdfad546d.png",
+    "tooltip": ["Speed II (00:22)"]
+  },
+  {
+    "id": "minecraft:lingering_potion",
+    "potion": "minecraft:strong_turtle_master",
+    "bedrockPotion": "minecraft:strong_turtle_master",
+    "readable": "Lingering Potion of the Turtle Master",
+    "texture": "194e45038dd1b671.png",
+    "tooltip": ["Slowness VI (00:05)", "Resistance IV (00:05)"]
+  },
+  {
+    "id": "minecraft:lingering_potion",
+    "potion": "minecraft:swiftness",
+    "bedrockPotion": "minecraft:swiftness",
+    "readable": "Lingering Potion of Swiftness",
+    "texture": "e2b2906fdfad546d.png",
+    "tooltip": ["Speed (00:45)"]
+  },
+  {
+    "id": "minecraft:lingering_potion",
+    "potion": "minecraft:thick",
+    "bedrockPotion": "minecraft:thick",
+    "readable": "Thick Lingering Potion",
+    "texture": "34425dd3f31c7c03.png",
+    "tooltip": []
+  },
+  {
+    "id": "minecraft:lingering_potion",
+    "potion": "minecraft:turtle_master",
+    "bedrockPotion": "minecraft:turtle_master",
+    "readable": "Lingering Potion of the Turtle Master",
+    "texture": "9451c20b05a2ef48.png",
+    "tooltip": ["Slowness IV (00:05)", "Resistance III (00:05)"]
+  },
+  {
+    "id": "minecraft:lingering_potion",
+    "potion": "minecraft:water",
+    "bedrockPotion": "minecraft:water",
+    "readable": "Lingering Water Bottle",
+    "texture": "34425dd3f31c7c03.png",
+    "tooltip": []
+  },
+  {
+    "id": "minecraft:lingering_potion",
+    "potion": "minecraft:water_breathing",
+    "bedrockPotion": "minecraft:water_breathing",
+    "readable": "Lingering Potion of Water Breathing",
+    "texture": "b94cc1e0776441b4.png",
+    "tooltip": ["Water Breathing (00:45)"]
+  },
+  {
+    "id": "minecraft:lingering_potion",
+    "potion": "minecraft:weakness",
+    "bedrockPotion": "minecraft:weakness",
+    "readable": "Lingering Potion of Weakness",
+    "texture": "7b455dd41bec9293.png",
+    "tooltip": ["Weakness (00:22)"]
+  },
+  {
+    "id": "minecraft:lingering_potion",
+    "potion": "minecraft:weaving",
+    "bedrockPotion": "minecraft:weaving",
+    "readable": "Lingering Potion of Weaving",
+    "texture": "28c770b004d405cb.png",
+    "tooltip": ["Weaving (00:45)"]
+  },
+  {
+    "id": "minecraft:lingering_potion",
+    "potion": "minecraft:wind_charged",
+    "bedrockPotion": "minecraft:wind_charged",
+    "readable": "Lingering Potion of Wind Charging",
+    "texture": "363c718e0ffa6bf2.png",
+    "tooltip": ["Wind Charged (00:45)"]
+  },
+  {
+    "id": "minecraft:potion",
+    "potion": "minecraft:awkward",
+    "bedrockPotion": "minecraft:awkward",
+    "readable": "Awkward Potion",
+    "texture": "7982bbe06dfe3071.png",
+    "tooltip": []
+  },
+  {
+    "id": "minecraft:potion",
+    "potion": "minecraft:fire_resistance",
+    "bedrockPotion": "minecraft:fire_resistance",
+    "readable": "Potion of Fire Resistance",
+    "texture": "faaa06245ff31015.png",
+    "tooltip": ["Fire Resistance (03:00)"]
+  },
+  {
+    "id": "minecraft:potion",
+    "potion": "minecraft:harming",
+    "bedrockPotion": "minecraft:harming",
+    "readable": "Potion of Harming",
+    "texture": "3bade995dbbd99e5.png",
+    "tooltip": ["Instant Damage"]
+  },
+  {
+    "id": "minecraft:potion",
+    "potion": "minecraft:healing",
+    "bedrockPotion": "minecraft:healing",
+    "readable": "Potion of Healing",
+    "texture": "5d74929bd94fb75a.png",
+    "tooltip": ["Instant Health"]
+  },
+  {
+    "id": "minecraft:potion",
+    "potion": "minecraft:infested",
+    "bedrockPotion": "minecraft:infested",
+    "readable": "Potion of Infestation",
+    "texture": "e086b5879e131c8d.png",
+    "tooltip": ["Infested (03:00)"]
+  },
+  {
+    "id": "minecraft:potion",
+    "potion": "minecraft:invisibility",
+    "bedrockPotion": "minecraft:invisibility",
+    "readable": "Potion of Invisibility",
+    "texture": "f8ad36729f1704d5.png",
+    "tooltip": ["Invisibility (03:00)"]
+  },
+  {
+    "id": "minecraft:potion",
+    "potion": "minecraft:leaping",
+    "bedrockPotion": "minecraft:leaping",
+    "readable": "Potion of Leaping",
+    "texture": "8f3ad0c1635f9104.png",
+    "tooltip": ["Jump Boost (03:00)"]
+  },
+  {
+    "id": "minecraft:potion",
+    "potion": "minecraft:long_fire_resistance",
+    "bedrockPotion": "minecraft:long_fire_resistance",
+    "readable": "Potion of Fire Resistance",
+    "texture": "faaa06245ff31015.png",
+    "tooltip": ["Fire Resistance (08:00)"]
+  },
+  {
+    "id": "minecraft:potion",
+    "potion": "minecraft:long_invisibility",
+    "bedrockPotion": "minecraft:long_invisibility",
+    "readable": "Potion of Invisibility",
+    "texture": "f8ad36729f1704d5.png",
+    "tooltip": ["Invisibility (08:00)"]
+  },
+  {
+    "id": "minecraft:potion",
+    "potion": "minecraft:long_leaping",
+    "bedrockPotion": "minecraft:long_leaping",
+    "readable": "Potion of Leaping",
+    "texture": "8f3ad0c1635f9104.png",
+    "tooltip": ["Jump Boost (08:00)"]
+  },
+  {
+    "id": "minecraft:potion",
+    "potion": "minecraft:long_night_vision",
+    "bedrockPotion": "minecraft:long_nightvision",
+    "readable": "Potion of Night Vision",
+    "texture": "9bbb37eccceaf5aa.png",
+    "tooltip": ["Night Vision (08:00)"]
+  },
+  {
+    "id": "minecraft:potion",
+    "potion": "minecraft:long_poison",
+    "bedrockPotion": "minecraft:long_poison",
+    "readable": "Potion of Poison",
+    "texture": "7df8668f4a473de9.png",
+    "tooltip": ["Poison (01:30)"]
+  },
+  {
+    "id": "minecraft:potion",
+    "potion": "minecraft:long_regeneration",
+    "bedrockPotion": "minecraft:long_regeneration",
+    "readable": "Potion of Regeneration",
+    "texture": "6adc9868ef328a89.png",
+    "tooltip": ["Regeneration (01:30)"]
+  },
+  {
+    "id": "minecraft:potion",
+    "potion": "minecraft:long_slow_falling",
+    "bedrockPotion": "minecraft:long_slow_falling",
+    "readable": "Potion of Slow Falling",
+    "texture": "94312137c1cd83eb.png",
+    "tooltip": ["Slow Falling (04:00)"]
+  },
+  {
+    "id": "minecraft:potion",
+    "potion": "minecraft:long_slowness",
+    "bedrockPotion": "minecraft:long_slowness",
+    "readable": "Potion of Slowness",
+    "texture": "acc83733c7762c65.png",
+    "tooltip": ["Slowness (04:00)"]
+  },
+  {
+    "id": "minecraft:potion",
+    "potion": "minecraft:long_strength",
+    "bedrockPotion": "minecraft:long_strength",
+    "readable": "Potion of Strength",
+    "texture": "db206bf1c7af65c2.png",
+    "tooltip": ["Strength (08:00)"]
+  },
+  {
+    "id": "minecraft:potion",
+    "potion": "minecraft:long_swiftness",
+    "bedrockPotion": "minecraft:long_swiftness",
+    "readable": "Potion of Swiftness",
+    "texture": "ad4f08ff90c57d6f.png",
+    "tooltip": ["Speed (08:00)"]
+  },
+  {
+    "id": "minecraft:potion",
+    "potion": "minecraft:long_turtle_master",
+    "bedrockPotion": "minecraft:long_turtle_master",
+    "readable": "Potion of the Turtle Master",
+    "texture": "656476dc864e4ba8.png",
+    "tooltip": ["Slowness IV (00:40)", "Resistance III (00:40)"]
+  },
+  {
+    "id": "minecraft:potion",
+    "potion": "minecraft:long_water_breathing",
+    "bedrockPotion": "minecraft:long_water_breathing",
+    "readable": "Potion of Water Breathing",
+    "texture": "bf54ebeb8400b14c.png",
+    "tooltip": ["Water Breathing (08:00)"]
+  },
+  {
+    "id": "minecraft:potion",
+    "potion": "minecraft:long_weakness",
+    "bedrockPotion": "minecraft:long_weakness",
+    "readable": "Potion of Weakness",
+    "texture": "910003f4ffc9512a.png",
+    "tooltip": ["Weakness (04:00)"]
+  },
+  {
+    "id": "minecraft:potion",
+    "potion": "minecraft:luck",
+    "readable": "Potion of Luck",
+    "texture": "d3e390b1a9ee6750.png",
+    "tooltip": ["Luck (05:00)"]
+  },
+  {
+    "id": "minecraft:potion",
+    "potion": "minecraft:mundane",
+    "bedrockPotion": "minecraft:mundane",
+    "readable": "Mundane Potion",
+    "texture": "7982bbe06dfe3071.png",
+    "tooltip": []
+  },
+  {
+    "id": "minecraft:potion",
+    "potion": "minecraft:night_vision",
+    "bedrockPotion": "minecraft:nightvision",
+    "readable": "Potion of Night Vision",
+    "texture": "9bbb37eccceaf5aa.png",
+    "tooltip": ["Night Vision (03:00)"]
+  },
+  {
+    "id": "minecraft:potion",
+    "potion": "minecraft:oozing",
+    "bedrockPotion": "minecraft:oozing",
+    "readable": "Potion of Oozing",
+    "texture": "b7986a73554dbe27.png",
+    "tooltip": ["Oozing (03:00)"]
+  },
+  {
+    "id": "minecraft:potion",
+    "potion": "minecraft:poison",
+    "bedrockPotion": "minecraft:poison",
+    "readable": "Potion of Poison",
+    "texture": "7df8668f4a473de9.png",
+    "tooltip": ["Poison (00:45)"]
+  },
+  {
+    "id": "minecraft:potion",
+    "potion": "minecraft:regeneration",
+    "bedrockPotion": "minecraft:regeneration",
+    "readable": "Potion of Regeneration",
+    "texture": "6adc9868ef328a89.png",
+    "tooltip": ["Regeneration (00:45)"]
+  },
+  {
+    "id": "minecraft:potion",
+    "potion": "minecraft:slow_falling",
+    "bedrockPotion": "minecraft:slow_falling",
+    "readable": "Potion of Slow Falling",
+    "texture": "94312137c1cd83eb.png",
+    "tooltip": ["Slow Falling (01:30)"]
+  },
+  {
+    "id": "minecraft:potion",
+    "potion": "minecraft:slowness",
+    "bedrockPotion": "minecraft:slowness",
+    "readable": "Potion of Slowness",
+    "texture": "acc83733c7762c65.png",
+    "tooltip": ["Slowness (01:30)"]
+  },
+  {
+    "id": "minecraft:potion",
+    "potion": "minecraft:strength",
+    "bedrockPotion": "minecraft:strength",
+    "readable": "Potion of Strength",
+    "texture": "db206bf1c7af65c2.png",
+    "tooltip": ["Strength (03:00)"]
+  },
+  {
+    "id": "minecraft:potion",
+    "potion": "minecraft:strong_harming",
+    "bedrockPotion": "minecraft:strong_harming",
+    "readable": "Potion of Harming",
+    "texture": "3bade995dbbd99e5.png",
+    "tooltip": ["Instant Damage II"]
+  },
+  {
+    "id": "minecraft:potion",
+    "potion": "minecraft:strong_healing",
+    "bedrockPotion": "minecraft:strong_healing",
+    "readable": "Potion of Healing",
+    "texture": "5d74929bd94fb75a.png",
+    "tooltip": ["Instant Health II"]
+  },
+  {
+    "id": "minecraft:potion",
+    "potion": "minecraft:strong_leaping",
+    "bedrockPotion": "minecraft:strong_leaping",
+    "readable": "Potion of Leaping",
+    "texture": "8f3ad0c1635f9104.png",
+    "tooltip": ["Jump Boost II (01:30)"]
+  },
+  {
+    "id": "minecraft:potion",
+    "potion": "minecraft:strong_poison",
+    "bedrockPotion": "minecraft:strong_poison",
+    "readable": "Potion of Poison",
+    "texture": "7df8668f4a473de9.png",
+    "tooltip": ["Poison II (00:21)"]
+  },
+  {
+    "id": "minecraft:potion",
+    "potion": "minecraft:strong_regeneration",
+    "bedrockPotion": "minecraft:strong_regeneration",
+    "readable": "Potion of Regeneration",
+    "texture": "6adc9868ef328a89.png",
+    "tooltip": ["Regeneration II (00:22)"]
+  },
+  {
+    "id": "minecraft:potion",
+    "potion": "minecraft:strong_slowness",
+    "bedrockPotion": "minecraft:strong_slowness",
+    "readable": "Potion of Slowness",
+    "texture": "acc83733c7762c65.png",
+    "tooltip": ["Slowness IV (00:20)"]
+  },
+  {
+    "id": "minecraft:potion",
+    "potion": "minecraft:strong_strength",
+    "bedrockPotion": "minecraft:strong_strength",
+    "readable": "Potion of Strength",
+    "texture": "db206bf1c7af65c2.png",
+    "tooltip": ["Strength II (01:30)"]
+  },
+  {
+    "id": "minecraft:potion",
+    "potion": "minecraft:strong_swiftness",
+    "bedrockPotion": "minecraft:strong_swiftness",
+    "readable": "Potion of Swiftness",
+    "texture": "ad4f08ff90c57d6f.png",
+    "tooltip": ["Speed II (01:30)"]
+  },
+  {
+    "id": "minecraft:potion",
+    "potion": "minecraft:strong_turtle_master",
+    "bedrockPotion": "minecraft:strong_turtle_master",
+    "readable": "Potion of the Turtle Master",
+    "texture": "72c54b062de80f43.png",
+    "tooltip": ["Slowness VI (00:20)", "Resistance IV (00:20)"]
+  },
+  {
+    "id": "minecraft:potion",
+    "potion": "minecraft:swiftness",
+    "bedrockPotion": "minecraft:swiftness",
+    "readable": "Potion of Swiftness",
+    "texture": "ad4f08ff90c57d6f.png",
+    "tooltip": ["Speed (03:00)"]
+  },
+  {
+    "id": "minecraft:potion",
+    "potion": "minecraft:thick",
+    "bedrockPotion": "minecraft:thick",
+    "readable": "Thick Potion",
+    "texture": "7982bbe06dfe3071.png",
+    "tooltip": []
+  },
+  {
+    "id": "minecraft:potion",
+    "potion": "minecraft:turtle_master",
+    "bedrockPotion": "minecraft:turtle_master",
+    "readable": "Potion of the Turtle Master",
+    "texture": "656476dc864e4ba8.png",
+    "tooltip": ["Slowness IV (00:20)", "Resistance III (00:20)"]
+  },
+  {
+    "id": "minecraft:potion",
+    "potion": "minecraft:water",
+    "bedrockPotion": "minecraft:water",
+    "readable": "Water Bottle",
+    "texture": "7982bbe06dfe3071.png",
+    "tooltip": []
+  },
+  {
+    "id": "minecraft:potion",
+    "potion": "minecraft:water_breathing",
+    "bedrockPotion": "minecraft:water_breathing",
+    "readable": "Potion of Water Breathing",
+    "texture": "bf54ebeb8400b14c.png",
+    "tooltip": ["Water Breathing (03:00)"]
+  },
+  {
+    "id": "minecraft:potion",
+    "potion": "minecraft:weakness",
+    "bedrockPotion": "minecraft:weakness",
+    "readable": "Potion of Weakness",
+    "texture": "910003f4ffc9512a.png",
+    "tooltip": ["Weakness (01:30)"]
+  },
+  {
+    "id": "minecraft:potion",
+    "potion": "minecraft:weaving",
+    "bedrockPotion": "minecraft:weaving",
+    "readable": "Potion of Weaving",
+    "texture": "744b264e1581f80d.png",
+    "tooltip": ["Weaving (03:00)"]
+  },
+  {
+    "id": "minecraft:potion",
+    "potion": "minecraft:wind_charged",
+    "bedrockPotion": "minecraft:wind_charged",
+    "readable": "Potion of Wind Charging",
+    "texture": "5cad3b13c603e28f.png",
+    "tooltip": ["Wind Charged (03:00)"]
+  },
+  {
+    "id": "minecraft:splash_potion",
+    "potion": "minecraft:awkward",
+    "bedrockPotion": "minecraft:awkward",
+    "readable": "Awkward Splash Potion",
+    "texture": "f652f0fd9be10cc3.png",
+    "tooltip": []
+  },
+  {
+    "id": "minecraft:splash_potion",
+    "potion": "minecraft:fire_resistance",
+    "bedrockPotion": "minecraft:fire_resistance",
+    "readable": "Splash Potion of Fire Resistance",
+    "texture": "1f11537a4d3beee0.png",
+    "tooltip": ["Fire Resistance (03:00)"]
+  },
+  {
+    "id": "minecraft:splash_potion",
+    "potion": "minecraft:harming",
+    "bedrockPotion": "minecraft:harming",
+    "readable": "Splash Potion of Harming",
+    "texture": "dd0add84e35e4619.png",
+    "tooltip": ["Instant Damage"]
+  },
+  {
+    "id": "minecraft:splash_potion",
+    "potion": "minecraft:healing",
+    "bedrockPotion": "minecraft:healing",
+    "readable": "Splash Potion of Healing",
+    "texture": "458cac7112f1222c.png",
+    "tooltip": ["Instant Health"]
+  },
+  {
+    "id": "minecraft:splash_potion",
+    "potion": "minecraft:infested",
+    "bedrockPotion": "minecraft:infested",
+    "readable": "Splash Potion of Infestation",
+    "texture": "571f656e358bb990.png",
+    "tooltip": ["Infested (03:00)"]
+  },
+  {
+    "id": "minecraft:splash_potion",
+    "potion": "minecraft:invisibility",
+    "bedrockPotion": "minecraft:invisibility",
+    "readable": "Splash Potion of Invisibility",
+    "texture": "477c38c41bc8bcaa.png",
+    "tooltip": ["Invisibility (03:00)"]
+  },
+  {
+    "id": "minecraft:splash_potion",
+    "potion": "minecraft:leaping",
+    "bedrockPotion": "minecraft:leaping",
+    "readable": "Splash Potion of Leaping",
+    "texture": "41181acbf299fbe2.png",
+    "tooltip": ["Jump Boost (03:00)"]
+  },
+  {
+    "id": "minecraft:splash_potion",
+    "potion": "minecraft:long_fire_resistance",
+    "bedrockPotion": "minecraft:long_fire_resistance",
+    "readable": "Splash Potion of Fire Resistance",
+    "texture": "1f11537a4d3beee0.png",
+    "tooltip": ["Fire Resistance (08:00)"]
+  },
+  {
+    "id": "minecraft:splash_potion",
+    "potion": "minecraft:long_invisibility",
+    "bedrockPotion": "minecraft:long_invisibility",
+    "readable": "Splash Potion of Invisibility",
+    "texture": "477c38c41bc8bcaa.png",
+    "tooltip": ["Invisibility (08:00)"]
+  },
+  {
+    "id": "minecraft:splash_potion",
+    "potion": "minecraft:long_leaping",
+    "bedrockPotion": "minecraft:long_leaping",
+    "readable": "Splash Potion of Leaping",
+    "texture": "41181acbf299fbe2.png",
+    "tooltip": ["Jump Boost (08:00)"]
+  },
+  {
+    "id": "minecraft:splash_potion",
+    "potion": "minecraft:long_night_vision",
+    "bedrockPotion": "minecraft:long_nightvision",
+    "readable": "Splash Potion of Night Vision",
+    "texture": "1dc9dbab803cc59a.png",
+    "tooltip": ["Night Vision (08:00)"]
+  },
+  {
+    "id": "minecraft:splash_potion",
+    "potion": "minecraft:long_poison",
+    "bedrockPotion": "minecraft:long_poison",
+    "readable": "Splash Potion of Poison",
+    "texture": "434dcf9c6d49ec78.png",
+    "tooltip": ["Poison (01:30)"]
+  },
+  {
+    "id": "minecraft:splash_potion",
+    "potion": "minecraft:long_regeneration",
+    "bedrockPotion": "minecraft:long_regeneration",
+    "readable": "Splash Potion of Regeneration",
+    "texture": "f3571188894cbbbb.png",
+    "tooltip": ["Regeneration (01:30)"]
+  },
+  {
+    "id": "minecraft:splash_potion",
+    "potion": "minecraft:long_slow_falling",
+    "bedrockPotion": "minecraft:long_slow_falling",
+    "readable": "Splash Potion of Slow Falling",
+    "texture": "389eebbfa8e23b9d.png",
+    "tooltip": ["Slow Falling (04:00)"]
+  },
+  {
+    "id": "minecraft:splash_potion",
+    "potion": "minecraft:long_slowness",
+    "bedrockPotion": "minecraft:long_slowness",
+    "readable": "Splash Potion of Slowness",
+    "texture": "42347651b3a60ebc.png",
+    "tooltip": ["Slowness (04:00)"]
+  },
+  {
+    "id": "minecraft:splash_potion",
+    "potion": "minecraft:long_strength",
+    "bedrockPotion": "minecraft:long_strength",
+    "readable": "Splash Potion of Strength",
+    "texture": "a0214fa401b31cc8.png",
+    "tooltip": ["Strength (08:00)"]
+  },
+  {
+    "id": "minecraft:splash_potion",
+    "potion": "minecraft:long_swiftness",
+    "bedrockPotion": "minecraft:long_swiftness",
+    "readable": "Splash Potion of Swiftness",
+    "texture": "9f1914efe0c4ada4.png",
+    "tooltip": ["Speed (08:00)"]
+  },
+  {
+    "id": "minecraft:splash_potion",
+    "potion": "minecraft:long_turtle_master",
+    "bedrockPotion": "minecraft:long_turtle_master",
+    "readable": "Splash Potion of the Turtle Master",
+    "texture": "82d0cd900ac71861.png",
+    "tooltip": ["Slowness IV (00:40)", "Resistance III (00:40)"]
+  },
+  {
+    "id": "minecraft:splash_potion",
+    "potion": "minecraft:long_water_breathing",
+    "bedrockPotion": "minecraft:long_water_breathing",
+    "readable": "Splash Potion of Water Breathing",
+    "texture": "92009bb9fa2e63c2.png",
+    "tooltip": ["Water Breathing (08:00)"]
+  },
+  {
+    "id": "minecraft:splash_potion",
+    "potion": "minecraft:long_weakness",
+    "bedrockPotion": "minecraft:long_weakness",
+    "readable": "Splash Potion of Weakness",
+    "texture": "5e7232c324f9efe3.png",
+    "tooltip": ["Weakness (04:00)"]
+  },
+  {
+    "id": "minecraft:splash_potion",
+    "potion": "minecraft:luck",
+    "readable": "Splash Potion of Luck",
+    "texture": "a36de9b578bcda2e.png",
+    "tooltip": ["Luck (05:00)"]
+  },
+  {
+    "id": "minecraft:splash_potion",
+    "potion": "minecraft:mundane",
+    "bedrockPotion": "minecraft:mundane",
+    "readable": "Mundane Splash Potion",
+    "texture": "f652f0fd9be10cc3.png",
+    "tooltip": []
+  },
+  {
+    "id": "minecraft:splash_potion",
+    "potion": "minecraft:night_vision",
+    "bedrockPotion": "minecraft:nightvision",
+    "readable": "Splash Potion of Night Vision",
+    "texture": "1dc9dbab803cc59a.png",
+    "tooltip": ["Night Vision (03:00)"]
+  },
+  {
+    "id": "minecraft:splash_potion",
+    "potion": "minecraft:oozing",
+    "bedrockPotion": "minecraft:oozing",
+    "readable": "Splash Potion of Oozing",
+    "texture": "e4f35a6e08acd7cc.png",
+    "tooltip": ["Oozing (03:00)"]
+  },
+  {
+    "id": "minecraft:splash_potion",
+    "potion": "minecraft:poison",
+    "bedrockPotion": "minecraft:poison",
+    "readable": "Splash Potion of Poison",
+    "texture": "434dcf9c6d49ec78.png",
+    "tooltip": ["Poison (00:45)"]
+  },
+  {
+    "id": "minecraft:splash_potion",
+    "potion": "minecraft:regeneration",
+    "bedrockPotion": "minecraft:regeneration",
+    "readable": "Splash Potion of Regeneration",
+    "texture": "f3571188894cbbbb.png",
+    "tooltip": ["Regeneration (00:45)"]
+  },
+  {
+    "id": "minecraft:splash_potion",
+    "potion": "minecraft:slow_falling",
+    "bedrockPotion": "minecraft:slow_falling",
+    "readable": "Splash Potion of Slow Falling",
+    "texture": "389eebbfa8e23b9d.png",
+    "tooltip": ["Slow Falling (01:30)"]
+  },
+  {
+    "id": "minecraft:splash_potion",
+    "potion": "minecraft:slowness",
+    "bedrockPotion": "minecraft:slowness",
+    "readable": "Splash Potion of Slowness",
+    "texture": "42347651b3a60ebc.png",
+    "tooltip": ["Slowness (01:30)"]
+  },
+  {
+    "id": "minecraft:splash_potion",
+    "potion": "minecraft:strength",
+    "bedrockPotion": "minecraft:strength",
+    "readable": "Splash Potion of Strength",
+    "texture": "a0214fa401b31cc8.png",
+    "tooltip": ["Strength (03:00)"]
+  },
+  {
+    "id": "minecraft:splash_potion",
+    "potion": "minecraft:strong_harming",
+    "bedrockPotion": "minecraft:strong_harming",
+    "readable": "Splash Potion of Harming",
+    "texture": "dd0add84e35e4619.png",
+    "tooltip": ["Instant Damage II"]
+  },
+  {
+    "id": "minecraft:splash_potion",
+    "potion": "minecraft:strong_healing",
+    "bedrockPotion": "minecraft:strong_healing",
+    "readable": "Splash Potion of Healing",
+    "texture": "458cac7112f1222c.png",
+    "tooltip": ["Instant Health II"]
+  },
+  {
+    "id": "minecraft:splash_potion",
+    "potion": "minecraft:strong_leaping",
+    "bedrockPotion": "minecraft:strong_leaping",
+    "readable": "Splash Potion of Leaping",
+    "texture": "41181acbf299fbe2.png",
+    "tooltip": ["Jump Boost II (01:30)"]
+  },
+  {
+    "id": "minecraft:splash_potion",
+    "potion": "minecraft:strong_poison",
+    "bedrockPotion": "minecraft:strong_poison",
+    "readable": "Splash Potion of Poison",
+    "texture": "434dcf9c6d49ec78.png",
+    "tooltip": ["Poison II (00:21)"]
+  },
+  {
+    "id": "minecraft:splash_potion",
+    "potion": "minecraft:strong_regeneration",
+    "bedrockPotion": "minecraft:strong_regeneration",
+    "readable": "Splash Potion of Regeneration",
+    "texture": "f3571188894cbbbb.png",
+    "tooltip": ["Regeneration II (00:22)"]
+  },
+  {
+    "id": "minecraft:splash_potion",
+    "potion": "minecraft:strong_slowness",
+    "bedrockPotion": "minecraft:strong_slowness",
+    "readable": "Splash Potion of Slowness",
+    "texture": "42347651b3a60ebc.png",
+    "tooltip": ["Slowness IV (00:20)"]
+  },
+  {
+    "id": "minecraft:splash_potion",
+    "potion": "minecraft:strong_strength",
+    "bedrockPotion": "minecraft:strong_strength",
+    "readable": "Splash Potion of Strength",
+    "texture": "a0214fa401b31cc8.png",
+    "tooltip": ["Strength II (01:30)"]
+  },
+  {
+    "id": "minecraft:splash_potion",
+    "potion": "minecraft:strong_swiftness",
+    "bedrockPotion": "minecraft:strong_swiftness",
+    "readable": "Splash Potion of Swiftness",
+    "texture": "9f1914efe0c4ada4.png",
+    "tooltip": ["Speed II (01:30)"]
+  },
+  {
+    "id": "minecraft:splash_potion",
+    "potion": "minecraft:strong_turtle_master",
+    "bedrockPotion": "minecraft:strong_turtle_master",
+    "readable": "Splash Potion of the Turtle Master",
+    "texture": "2318d856e006738c.png",
+    "tooltip": ["Slowness VI (00:20)", "Resistance IV (00:20)"]
+  },
+  {
+    "id": "minecraft:splash_potion",
+    "potion": "minecraft:swiftness",
+    "bedrockPotion": "minecraft:swiftness",
+    "readable": "Splash Potion of Swiftness",
+    "texture": "9f1914efe0c4ada4.png",
+    "tooltip": ["Speed (03:00)"]
+  },
+  {
+    "id": "minecraft:splash_potion",
+    "potion": "minecraft:thick",
+    "bedrockPotion": "minecraft:thick",
+    "readable": "Thick Splash Potion",
+    "texture": "f652f0fd9be10cc3.png",
+    "tooltip": []
+  },
+  {
+    "id": "minecraft:splash_potion",
+    "potion": "minecraft:turtle_master",
+    "bedrockPotion": "minecraft:turtle_master",
+    "readable": "Splash Potion of the Turtle Master",
+    "texture": "82d0cd900ac71861.png",
+    "tooltip": ["Slowness IV (00:20)", "Resistance III (00:20)"]
+  },
+  {
+    "id": "minecraft:splash_potion",
+    "potion": "minecraft:water",
+    "bedrockPotion": "minecraft:water",
+    "readable": "Splash Water Bottle",
+    "texture": "f652f0fd9be10cc3.png",
+    "tooltip": []
+  },
+  {
+    "id": "minecraft:splash_potion",
+    "potion": "minecraft:water_breathing",
+    "bedrockPotion": "minecraft:water_breathing",
+    "readable": "Splash Potion of Water Breathing",
+    "texture": "92009bb9fa2e63c2.png",
+    "tooltip": ["Water Breathing (03:00)"]
+  },
+  {
+    "id": "minecraft:splash_potion",
+    "potion": "minecraft:weakness",
+    "bedrockPotion": "minecraft:weakness",
+    "readable": "Splash Potion of Weakness",
+    "texture": "5e7232c324f9efe3.png",
+    "tooltip": ["Weakness (01:30)"]
+  },
+  {
+    "id": "minecraft:splash_potion",
+    "potion": "minecraft:weaving",
+    "bedrockPotion": "minecraft:weaving",
+    "readable": "Splash Potion of Weaving",
+    "texture": "62a859bb7543fdd5.png",
+    "tooltip": ["Weaving (03:00)"]
+  },
+  {
+    "id": "minecraft:splash_potion",
+    "potion": "minecraft:wind_charged",
+    "bedrockPotion": "minecraft:wind_charged",
+    "readable": "Splash Potion of Wind Charging",
+    "texture": "9ad7d38fb43a211d.png",
+    "tooltip": ["Wind Charged (03:00)"]
+  },
+  {
+    "id": "minecraft:tipped_arrow",
+    "potion": "minecraft:awkward",
+    "bedrockPotion": "minecraft:awkward",
+    "readable": "Tipped Arrow",
+    "texture": "8624d487408a60cd.png",
+    "tooltip": []
+  },
+  {
+    "id": "minecraft:tipped_arrow",
+    "potion": "minecraft:fire_resistance",
+    "bedrockPotion": "minecraft:fire_resistance",
+    "readable": "Arrow of Fire Resistance",
+    "texture": "a1b3de4d2833cf92.png",
+    "tooltip": ["Fire Resistance (00:22)"]
+  },
+  {
+    "id": "minecraft:tipped_arrow",
+    "potion": "minecraft:harming",
+    "bedrockPotion": "minecraft:harming",
+    "readable": "Arrow of Harming",
+    "texture": "7168e9ecdc98483b.png",
+    "tooltip": ["Instant Damage"]
+  },
+  {
+    "id": "minecraft:tipped_arrow",
+    "potion": "minecraft:healing",
+    "bedrockPotion": "minecraft:healing",
+    "readable": "Arrow of Healing",
+    "texture": "43081e65d2d62441.png",
+    "tooltip": ["Instant Health"]
+  },
+  {
+    "id": "minecraft:tipped_arrow",
+    "potion": "minecraft:infested",
+    "bedrockPotion": "minecraft:infested",
+    "readable": "Arrow of Infestation",
+    "texture": "54d6d47863ebc8fa.png",
+    "tooltip": ["Infested (00:22)"]
+  },
+  {
+    "id": "minecraft:tipped_arrow",
+    "potion": "minecraft:invisibility",
+    "bedrockPotion": "minecraft:invisibility",
+    "readable": "Arrow of Invisibility",
+    "texture": "9a87934127029fe2.png",
+    "tooltip": ["Invisibility (00:22)"]
+  },
+  {
+    "id": "minecraft:tipped_arrow",
+    "potion": "minecraft:leaping",
+    "bedrockPotion": "minecraft:leaping",
+    "readable": "Arrow of Leaping",
+    "texture": "fba0057f704b81e5.png",
+    "tooltip": ["Jump Boost (00:22)"]
+  },
+  {
+    "id": "minecraft:tipped_arrow",
+    "potion": "minecraft:long_fire_resistance",
+    "bedrockPotion": "minecraft:long_fire_resistance",
+    "readable": "Arrow of Fire Resistance",
+    "texture": "a1b3de4d2833cf92.png",
+    "tooltip": ["Fire Resistance (01:00)"]
+  },
+  {
+    "id": "minecraft:tipped_arrow",
+    "potion": "minecraft:long_invisibility",
+    "bedrockPotion": "minecraft:long_invisibility",
+    "readable": "Arrow of Invisibility",
+    "texture": "9a87934127029fe2.png",
+    "tooltip": ["Invisibility (01:00)"]
+  },
+  {
+    "id": "minecraft:tipped_arrow",
+    "potion": "minecraft:long_leaping",
+    "bedrockPotion": "minecraft:long_leaping",
+    "readable": "Arrow of Leaping",
+    "texture": "fba0057f704b81e5.png",
+    "tooltip": ["Jump Boost (01:00)"]
+  },
+  {
+    "id": "minecraft:tipped_arrow",
+    "potion": "minecraft:long_night_vision",
+    "bedrockPotion": "minecraft:long_nightvision",
+    "readable": "Arrow of Night Vision",
+    "texture": "b174b78bdbaaff65.png",
+    "tooltip": ["Night Vision (01:00)"]
+  },
+  {
+    "id": "minecraft:tipped_arrow",
+    "potion": "minecraft:long_poison",
+    "bedrockPotion": "minecraft:long_poison",
+    "readable": "Arrow of Poison",
+    "texture": "020fff9e5cb06d43.png",
+    "tooltip": ["Poison (00:11)"]
+  },
+  {
+    "id": "minecraft:tipped_arrow",
+    "potion": "minecraft:long_regeneration",
+    "bedrockPotion": "minecraft:long_regeneration",
+    "readable": "Arrow of Regeneration",
+    "texture": "89169e09ec032fe7.png",
+    "tooltip": ["Regeneration (00:11)"]
+  },
+  {
+    "id": "minecraft:tipped_arrow",
+    "potion": "minecraft:long_slow_falling",
+    "bedrockPotion": "minecraft:long_slow_falling",
+    "readable": "Arrow of Slow Falling",
+    "texture": "f415b848d4816d6d.png",
+    "tooltip": ["Slow Falling (00:30)"]
+  },
+  {
+    "id": "minecraft:tipped_arrow",
+    "potion": "minecraft:long_slowness",
+    "bedrockPotion": "minecraft:long_slowness",
+    "readable": "Arrow of Slowness",
+    "texture": "ae7e0b442bc0d4f6.png",
+    "tooltip": ["Slowness (00:30)"]
+  },
+  {
+    "id": "minecraft:tipped_arrow",
+    "potion": "minecraft:long_strength",
+    "bedrockPotion": "minecraft:long_strength",
+    "readable": "Arrow of Strength",
+    "texture": "02cb71db1e11785c.png",
+    "tooltip": ["Strength (01:00)"]
+  },
+  {
+    "id": "minecraft:tipped_arrow",
+    "potion": "minecraft:long_swiftness",
+    "bedrockPotion": "minecraft:long_swiftness",
+    "readable": "Arrow of Swiftness",
+    "texture": "f7940f2c82f091ab.png",
+    "tooltip": ["Speed (01:00)"]
+  },
+  {
+    "id": "minecraft:tipped_arrow",
+    "potion": "minecraft:long_turtle_master",
+    "bedrockPotion": "minecraft:long_turtle_master",
+    "readable": "Arrow of the Turtle Master",
+    "texture": "1f2ef7e87004f856.png",
+    "tooltip": ["Slowness IV (00:05)", "Resistance III (00:05)"]
+  },
+  {
+    "id": "minecraft:tipped_arrow",
+    "potion": "minecraft:long_water_breathing",
+    "bedrockPotion": "minecraft:long_water_breathing",
+    "readable": "Arrow of Water Breathing",
+    "texture": "bf825fa4969ef998.png",
+    "tooltip": ["Water Breathing (01:00)"]
+  },
+  {
+    "id": "minecraft:tipped_arrow",
+    "potion": "minecraft:long_weakness",
+    "bedrockPotion": "minecraft:long_weakness",
+    "readable": "Arrow of Weakness",
+    "texture": "3ae93b6f4c738d1f.png",
+    "tooltip": ["Weakness (00:30)"]
+  },
+  {
+    "id": "minecraft:tipped_arrow",
+    "potion": "minecraft:luck",
+    "readable": "Arrow of Luck",
+    "texture": "f017ebc575993312.png",
+    "tooltip": ["Luck (00:37)"]
+  },
+  {
+    "id": "minecraft:tipped_arrow",
+    "potion": "minecraft:mundane",
+    "bedrockPotion": "minecraft:mundane",
+    "readable": "Tipped Arrow",
+    "texture": "8624d487408a60cd.png",
+    "tooltip": []
+  },
+  {
+    "id": "minecraft:tipped_arrow",
+    "potion": "minecraft:night_vision",
+    "bedrockPotion": "minecraft:nightvision",
+    "readable": "Arrow of Night Vision",
+    "texture": "b174b78bdbaaff65.png",
+    "tooltip": ["Night Vision (00:22)"]
+  },
+  {
+    "id": "minecraft:tipped_arrow",
+    "potion": "minecraft:oozing",
+    "bedrockPotion": "minecraft:oozing",
+    "readable": "Arrow of Oozing",
+    "texture": "d66bf700a167a246.png",
+    "tooltip": ["Oozing (00:22)"]
+  },
+  {
+    "id": "minecraft:tipped_arrow",
+    "potion": "minecraft:poison",
+    "bedrockPotion": "minecraft:poison",
+    "readable": "Arrow of Poison",
+    "texture": "020fff9e5cb06d43.png",
+    "tooltip": ["Poison (00:05)"]
+  },
+  {
+    "id": "minecraft:tipped_arrow",
+    "potion": "minecraft:regeneration",
+    "bedrockPotion": "minecraft:regeneration",
+    "readable": "Arrow of Regeneration",
+    "texture": "89169e09ec032fe7.png",
+    "tooltip": ["Regeneration (00:05)"]
+  },
+  {
+    "id": "minecraft:tipped_arrow",
+    "potion": "minecraft:slow_falling",
+    "bedrockPotion": "minecraft:slow_falling",
+    "readable": "Arrow of Slow Falling",
+    "texture": "f415b848d4816d6d.png",
+    "tooltip": ["Slow Falling (00:11)"]
+  },
+  {
+    "id": "minecraft:tipped_arrow",
+    "potion": "minecraft:slowness",
+    "bedrockPotion": "minecraft:slowness",
+    "readable": "Arrow of Slowness",
+    "texture": "ae7e0b442bc0d4f6.png",
+    "tooltip": ["Slowness (00:11)"]
+  },
+  {
+    "id": "minecraft:tipped_arrow",
+    "potion": "minecraft:strength",
+    "bedrockPotion": "minecraft:strength",
+    "readable": "Arrow of Strength",
+    "texture": "02cb71db1e11785c.png",
+    "tooltip": ["Strength (00:22)"]
+  },
+  {
+    "id": "minecraft:tipped_arrow",
+    "potion": "minecraft:strong_harming",
+    "bedrockPotion": "minecraft:strong_harming",
+    "readable": "Arrow of Harming",
+    "texture": "7168e9ecdc98483b.png",
+    "tooltip": ["Instant Damage II"]
+  },
+  {
+    "id": "minecraft:tipped_arrow",
+    "potion": "minecraft:strong_healing",
+    "bedrockPotion": "minecraft:strong_healing",
+    "readable": "Arrow of Healing",
+    "texture": "43081e65d2d62441.png",
+    "tooltip": ["Instant Health II"]
+  },
+  {
+    "id": "minecraft:tipped_arrow",
+    "potion": "minecraft:strong_leaping",
+    "bedrockPotion": "minecraft:strong_leaping",
+    "readable": "Arrow of Leaping",
+    "texture": "fba0057f704b81e5.png",
+    "tooltip": ["Jump Boost II (00:11)"]
+  },
+  {
+    "id": "minecraft:tipped_arrow",
+    "potion": "minecraft:strong_poison",
+    "bedrockPotion": "minecraft:strong_poison",
+    "readable": "Arrow of Poison",
+    "texture": "020fff9e5cb06d43.png",
+    "tooltip": ["Poison II (00:02)"]
+  },
+  {
+    "id": "minecraft:tipped_arrow",
+    "potion": "minecraft:strong_regeneration",
+    "bedrockPotion": "minecraft:strong_regeneration",
+    "readable": "Arrow of Regeneration",
+    "texture": "89169e09ec032fe7.png",
+    "tooltip": ["Regeneration II (00:02)"]
+  },
+  {
+    "id": "minecraft:tipped_arrow",
+    "potion": "minecraft:strong_slowness",
+    "bedrockPotion": "minecraft:strong_slowness",
+    "readable": "Arrow of Slowness",
+    "texture": "ae7e0b442bc0d4f6.png",
+    "tooltip": ["Slowness IV (00:02)"]
+  },
+  {
+    "id": "minecraft:tipped_arrow",
+    "potion": "minecraft:strong_strength",
+    "bedrockPotion": "minecraft:strong_strength",
+    "readable": "Arrow of Strength",
+    "texture": "02cb71db1e11785c.png",
+    "tooltip": ["Strength II (00:11)"]
+  },
+  {
+    "id": "minecraft:tipped_arrow",
+    "potion": "minecraft:strong_swiftness",
+    "bedrockPotion": "minecraft:strong_swiftness",
+    "readable": "Arrow of Swiftness",
+    "texture": "f7940f2c82f091ab.png",
+    "tooltip": ["Speed II (00:11)"]
+  },
+  {
+    "id": "minecraft:tipped_arrow",
+    "potion": "minecraft:strong_turtle_master",
+    "bedrockPotion": "minecraft:strong_turtle_master",
+    "readable": "Arrow of the Turtle Master",
+    "texture": "5724b18da43e0921.png",
+    "tooltip": ["Slowness VI (00:02)", "Resistance IV (00:02)"]
+  },
+  {
+    "id": "minecraft:tipped_arrow",
+    "potion": "minecraft:swiftness",
+    "bedrockPotion": "minecraft:swiftness",
+    "readable": "Arrow of Swiftness",
+    "texture": "f7940f2c82f091ab.png",
+    "tooltip": ["Speed (00:22)"]
+  },
+  {
+    "id": "minecraft:tipped_arrow",
+    "potion": "minecraft:thick",
+    "bedrockPotion": "minecraft:thick",
+    "readable": "Tipped Arrow",
+    "texture": "8624d487408a60cd.png",
+    "tooltip": []
+  },
+  {
+    "id": "minecraft:tipped_arrow",
+    "potion": "minecraft:turtle_master",
+    "bedrockPotion": "minecraft:turtle_master",
+    "readable": "Arrow of the Turtle Master",
+    "texture": "1f2ef7e87004f856.png",
+    "tooltip": ["Slowness IV (00:02)", "Resistance III (00:02)"]
+  },
+  {
+    "id": "minecraft:tipped_arrow",
+    "potion": "minecraft:water",
+    "bedrockPotion": "minecraft:water",
+    "readable": "Arrow of Splashing",
+    "texture": "8624d487408a60cd.png",
+    "tooltip": []
+  },
+  {
+    "id": "minecraft:tipped_arrow",
+    "potion": "minecraft:water_breathing",
+    "bedrockPotion": "minecraft:water_breathing",
+    "readable": "Arrow of Water Breathing",
+    "texture": "bf825fa4969ef998.png",
+    "tooltip": ["Water Breathing (00:22)"]
+  },
+  {
+    "id": "minecraft:tipped_arrow",
+    "potion": "minecraft:weakness",
+    "bedrockPotion": "minecraft:weakness",
+    "readable": "Arrow of Weakness",
+    "texture": "3ae93b6f4c738d1f.png",
+    "tooltip": ["Weakness (00:11)"]
+  },
+  {
+    "id": "minecraft:tipped_arrow",
+    "potion": "minecraft:weaving",
+    "bedrockPotion": "minecraft:weaving",
+    "readable": "Arrow of Weaving",
+    "texture": "b6b0f0afef8d0789.png",
+    "tooltip": ["Weaving (00:22)"]
+  },
+  {
+    "id": "minecraft:tipped_arrow",
+    "potion": "minecraft:wind_charged",
+    "bedrockPotion": "minecraft:wind_charged",
+    "readable": "Arrow of Wind Charging",
+    "texture": "9551914bc8035407.png",
+    "tooltip": ["Wind Charged (00:22)"]
+  }
+]

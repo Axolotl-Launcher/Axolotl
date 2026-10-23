@@ -1,0 +1,49 @@
+{
+ "capacity": 4096,
+ "layout": "per chunk in window order (cx outer, cz inner): u16 count, then count x (i8 x-cx*16, i8 z-cz*16, i16 y), little-endian",
+ "dimensions": {
+  "overworld": {
+   "windows": [
+    [
+     -16,
+     -12,
+     15,
+     11
+    ],
+    [
+     8,
+     21,
+     39,
+     44
+    ]
+   ],
+   "kinds": [
+    "diamond",
+    "iron",
+    "iron_vein",
+    "copper",
+    "copper_vein",
+    "gold",
+    "redstone",
+    "lapis",
+    "coal",
+    "emerald"
+   ]
+  },
+  "nether": {
+   "windows": [
+    [
+     -16,
+     -12,
+     15,
+     11
+    ]
+   ],
+   "kinds": [
+    "netherite",
+    "nether_gold",
+    "quartz"
+   ]
+  }
+ }
+}

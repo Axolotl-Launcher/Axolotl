@@ -1,0 +1,18 @@
+{
+  "source": "Minecraft Java Edition 1.7.10 client JAR",
+  "copyright": "Minecraft assets © Mojang AB / Microsoft. All rights reserved.",
+  "jarSha256": "a4fc2284657544e0f4bcc964f927c2fda3e3a205178ed1d5d58883aaf9780cce",
+  "assetSha256": "c2b68d2e8a46bc44fdc90c6e90f71064fd12cbaa60d8d70a8d79bb7c10221da8",
+  "version": "1.7.10",
+  "dataVersion": 0,
+  "dataVersionKnown": false,
+  "templateDataVersions": [],
+  "templates": {},
+  "templateSources": {},
+  "ancientCityLayoutSha256": null,
+  "ancientCityBlocksSha256": null,
+  "colorAlgorithm": "alpha-weighted linear-sRGB mean of nontransparent pixels, weighted by animation frame duration; per model face texture",
+  "textureCount": 435,
+  "placementRules": "template-v1: EndCityPiece air processors; Shipwreck pivot (4,0,15) encoded by engine origin; Igloo pivots and offsets from IglooPieces; Outpost main tower only; RuinedPortal center pivot and FRONT_BACK mirror, excluding terrain processors; NetherFossil variant; Ancient City pools and jigsaw connectors are bundled separately for native layout expansion. Verify rules against each new game version.",
+  "omitted": ["entities", "block entity contents", "data marker entities"]
+}

@@ -1,0 +1,4421 @@
+{
+  "comment": "This file is maintained by destruc7i0n (https://twitter.com/TheDestruc7i0n).",
+  "version": "1.15",
+  "items": [
+    {
+      "id": "minecraft:oak_log",
+      "readable": "Oak Log",
+      "texture": "b0de5972050fe4be.png"
+    },
+    {
+      "id": "minecraft:oak_wood",
+      "readable": "Oak Wood",
+      "texture": "ac98aa1d888cf4c5.png"
+    },
+    {
+      "id": "minecraft:stripped_oak_log",
+      "readable": "Stripped Oak Log",
+      "texture": "3f24dc547d3fb9b8.png"
+    },
+    {
+      "id": "minecraft:stripped_oak_wood",
+      "readable": "Stripped Oak Wood",
+      "texture": "b770346c85d5b5bd.png"
+    },
+    {
+      "id": "minecraft:oak_planks",
+      "readable": "Oak Planks",
+      "texture": "ab2db32ee2e95998.png"
+    },
+    {
+      "id": "minecraft:oak_stairs",
+      "readable": "Oak Wood Stairs",
+      "texture": "ca749adab5c9988c.png"
+    },
+    {
+      "id": "minecraft:oak_slab",
+      "readable": "Oak Wood Slab",
+      "texture": "5254d44426412a62.png"
+    },
+    {
+      "id": "minecraft:oak_fence",
+      "readable": "Oak Fence",
+      "texture": "59ed240f6408c7e6.png"
+    },
+    {
+      "id": "minecraft:oak_fence_gate",
+      "readable": "Oak Fence Gate",
+      "texture": "897f7391699142a2.png"
+    },
+    {
+      "id": "minecraft:oak_door",
+      "readable": "Oak Door",
+      "texture": "ff8ecc194a73692e.png"
+    },
+    {
+      "id": "minecraft:oak_trapdoor",
+      "readable": "Wooden Trapdoor",
+      "texture": "171a6cab02b37383.png"
+    },
+    {
+      "id": "minecraft:oak_pressure_plate",
+      "readable": "Oak Pressure Plate",
+      "texture": "602e9aca2e7e6963.png"
+    },
+    {
+      "id": "minecraft:oak_button",
+      "readable": "Wooden Button",
+      "texture": "ddda5f966370c185.png"
+    },
+    {
+      "id": "minecraft:spruce_log",
+      "readable": "Spruce Log",
+      "texture": "e9e7b18fd79441ec.png"
+    },
+    {
+      "id": "minecraft:spruce_wood",
+      "readable": "Spruce Wood",
+      "texture": "66b2c91bf3b21a5d.png"
+    },
+    {
+      "id": "minecraft:stripped_spruce_log",
+      "readable": "Stripped Spruce Log",
+      "texture": "fec700b9791242fe.png"
+    },
+    {
+      "id": "minecraft:stripped_spruce_wood",
+      "readable": "Stripped Spruce Wood",
+      "texture": "67fc082ec182b92e.png"
+    },
+    {
+      "id": "minecraft:spruce_planks",
+      "readable": "Spruce Planks",
+      "texture": "39731daf47521dbc.png"
+    },
+    {
+      "id": "minecraft:spruce_stairs",
+      "readable": "Spruce Wood Stairs",
+      "texture": "8f4f8b7cbf514f22.png"
+    },
+    {
+      "id": "minecraft:spruce_slab",
+      "readable": "Spruce Wood Slab",
+      "texture": "7e150826da7f7641.png"
+    },
+    {
+      "id": "minecraft:spruce_fence",
+      "readable": "Spruce Fence",
+      "texture": "a40889f34e2266a0.png"
+    },
+    {
+      "id": "minecraft:spruce_fence_gate",
+      "readable": "Spruce Fence Gate",
+      "texture": "2ef348bf4b42ae25.png"
+    },
+    {
+      "id": "minecraft:spruce_door",
+      "readable": "Spruce Door",
+      "texture": "df5456c6e2f1ca2e.png"
+    },
+    {
+      "id": "minecraft:spruce_trapdoor",
+      "readable": "Spruce Trapdoor",
+      "texture": "25bb615e961d77ad.png"
+    },
+    {
+      "id": "minecraft:spruce_pressure_plate",
+      "readable": "Spruce Pressure Plate",
+      "texture": "bec955003404c028.png"
+    },
+    {
+      "id": "minecraft:spruce_button",
+      "readable": "Spruce Button",
+      "texture": "7e637b05950deb0d.png"
+    },
+    {
+      "id": "minecraft:birch_log",
+      "readable": "Birch Log",
+      "texture": "463f18b142ede2dd.png"
+    },
+    {
+      "id": "minecraft:birch_wood",
+      "readable": "Birch Wood",
+      "texture": "27ebcc1f6547463c.png"
+    },
+    {
+      "id": "minecraft:stripped_birch_log",
+      "readable": "Stripped Birch Log",
+      "texture": "1c5cc5d14589400e.png"
+    },
+    {
+      "id": "minecraft:stripped_birch_wood",
+      "readable": "Stripped Birch Wood",
+      "texture": "2b6a8eb09a8c8bfb.png"
+    },
+    {
+      "id": "minecraft:birch_planks",
+      "readable": "Birch Planks",
+      "texture": "adb219367149cc2d.png"
+    },
+    {
+      "id": "minecraft:birch_stairs",
+      "readable": "Birch Wood Stairs",
+      "texture": "89e4e25b6edc987b.png"
+    },
+    {
+      "id": "minecraft:birch_slab",
+      "readable": "Birch Wood Slab",
+      "texture": "0f7e883d4affee57.png"
+    },
+    {
+      "id": "minecraft:birch_fence",
+      "readable": "Birch Fence",
+      "texture": "dc136209a48f72db.png"
+    },
+    {
+      "id": "minecraft:birch_fence_gate",
+      "readable": "Birch Fence Gate",
+      "texture": "774f9175aa38f435.png"
+    },
+    {
+      "id": "minecraft:birch_door",
+      "readable": "Birch Door",
+      "texture": "7515b9900dce6449.png"
+    },
+    {
+      "id": "minecraft:birch_trapdoor",
+      "readable": "Birch Trapdoor",
+      "texture": "b7623933aa96ea48.png"
+    },
+    {
+      "id": "minecraft:birch_pressure_plate",
+      "readable": "Birch Pressure Plate",
+      "texture": "8ec85ae299580e8f.png"
+    },
+    {
+      "id": "minecraft:birch_button",
+      "readable": "Birch Button",
+      "texture": "d67ffbfa5a59e65e.png"
+    },
+    {
+      "id": "minecraft:jungle_log",
+      "readable": "Jungle Log",
+      "texture": "8ea846984524e012.png"
+    },
+    {
+      "id": "minecraft:jungle_wood",
+      "readable": "Jungle Wood",
+      "texture": "4304ddc5e299ee5d.png"
+    },
+    {
+      "id": "minecraft:stripped_jungle_log",
+      "readable": "Stripped Jungle Log",
+      "texture": "7371b10650155579.png"
+    },
+    {
+      "id": "minecraft:stripped_jungle_wood",
+      "readable": "Stripped Jungle Wood",
+      "texture": "375681e35add6692.png"
+    },
+    {
+      "id": "minecraft:jungle_planks",
+      "readable": "Jungle Planks",
+      "texture": "be08eb15fb8eb3c7.png"
+    },
+    {
+      "id": "minecraft:jungle_stairs",
+      "readable": "Jungle Wood Stairs",
+      "texture": "90210f2a8a38e76d.png"
+    },
+    {
+      "id": "minecraft:jungle_slab",
+      "readable": "Jungle Wood Slab",
+      "texture": "3d4cd369fbc86192.png"
+    },
+    {
+      "id": "minecraft:jungle_fence",
+      "readable": "Jungle Fence",
+      "texture": "9ab704fbcad7be74.png"
+    },
+    {
+      "id": "minecraft:jungle_fence_gate",
+      "readable": "Jungle Fence Gate",
+      "texture": "51f9cb208f503510.png"
+    },
+    {
+      "id": "minecraft:jungle_door",
+      "readable": "Jungle Door",
+      "texture": "f3aca99f399a18d1.png"
+    },
+    {
+      "id": "minecraft:jungle_trapdoor",
+      "readable": "Jungle Trapdoor",
+      "texture": "161b0910151ddc0a.png"
+    },
+    {
+      "id": "minecraft:jungle_pressure_plate",
+      "readable": "Jungle Pressure Plate",
+      "texture": "652e28e98fff5276.png"
+    },
+    {
+      "id": "minecraft:jungle_button",
+      "readable": "Jungle Button",
+      "texture": "d67ffbfa5a59e65e.png"
+    },
+    {
+      "id": "minecraft:acacia_log",
+      "readable": "Acacia Log",
+      "texture": "5cd6b0b873979a43.png"
+    },
+    {
+      "id": "minecraft:acacia_wood",
+      "readable": "Acacia Wood",
+      "texture": "c602a2a789fe3313.png"
+    },
+    {
+      "id": "minecraft:stripped_acacia_log",
+      "readable": "Stripped Acacia Log",
+      "texture": "54924d78dce234aa.png"
+    },
+    {
+      "id": "minecraft:stripped_acacia_wood",
+      "readable": "Stripped Acacia Wood",
+      "texture": "1f10ceba3d1c6444.png"
+    },
+    {
+      "id": "minecraft:acacia_planks",
+      "readable": "Acacia Planks",
+      "texture": "97d7db5f1e496483.png"
+    },
+    {
+      "id": "minecraft:acacia_stairs",
+      "readable": "Acacia Wood Stairs",
+      "texture": "ed6e7289f805a4be.png"
+    },
+    {
+      "id": "minecraft:acacia_slab",
+      "readable": "Acacia Wood Slab",
+      "texture": "fd9fc033c574d5e5.png"
+    },
+    {
+      "id": "minecraft:acacia_fence",
+      "readable": "Acacia Fence",
+      "texture": "49bbfe68e05ab9a2.png"
+    },
+    {
+      "id": "minecraft:acacia_fence_gate",
+      "readable": "Acacia Fence Gate",
+      "texture": "8f63da13ca5d1b54.png"
+    },
+    {
+      "id": "minecraft:acacia_door",
+      "readable": "Acacia Door",
+      "texture": "6d9ac195d0fd5a3e.png"
+    },
+    {
+      "id": "minecraft:acacia_trapdoor",
+      "readable": "Acacia Trapdoor",
+      "texture": "6746ace171cd7e8b.png"
+    },
+    {
+      "id": "minecraft:acacia_pressure_plate",
+      "readable": "Acacia Pressure Plate",
+      "texture": "158125124c029679.png"
+    },
+    {
+      "id": "minecraft:acacia_button",
+      "readable": "Acacia Button",
+      "texture": "855113a75228297f.png"
+    },
+    {
+      "id": "minecraft:dark_oak_log",
+      "readable": "Dark Oak Log",
+      "texture": "3ab682a820c4e450.png"
+    },
+    {
+      "id": "minecraft:dark_oak_wood",
+      "readable": "Dark Oak Wood",
+      "texture": "7f817a5ee0e5bcb0.png"
+    },
+    {
+      "id": "minecraft:stripped_dark_oak_log",
+      "readable": "Stripped Dark Oak Log",
+      "texture": "855d039223a4e507.png"
+    },
+    {
+      "id": "minecraft:stripped_dark_oak_wood",
+      "readable": "Stripped Dark Oak Wood",
+      "texture": "113b696c913fd1ce.png"
+    },
+    {
+      "id": "minecraft:dark_oak_planks",
+      "readable": "Dark Oak Planks",
+      "texture": "7453e4e85a4f3e80.png"
+    },
+    {
+      "id": "minecraft:dark_oak_stairs",
+      "readable": "Dark Oak Wood Stairs",
+      "texture": "251b9498c806daa5.png"
+    },
+    {
+      "id": "minecraft:dark_oak_slab",
+      "readable": "Dark Oak Wood Slab",
+      "texture": "e3c9112b31d70f86.png"
+    },
+    {
+      "id": "minecraft:dark_oak_fence",
+      "readable": "Dark Oak Fence",
+      "texture": "e5dc2cdb7fc187c2.png"
+    },
+    {
+      "id": "minecraft:dark_oak_fence_gate",
+      "readable": "Dark Oak Fence Gate",
+      "texture": "572e3020b135907c.png"
+    },
+    {
+      "id": "minecraft:dark_oak_door",
+      "readable": "Dark Oak Door",
+      "texture": "0b5164f28d888f07.png"
+    },
+    {
+      "id": "minecraft:dark_oak_trapdoor",
+      "readable": "Dark Oak Trapdoor",
+      "texture": "b9828d12e368ec1b.png"
+    },
+    {
+      "id": "minecraft:dark_oak_pressure_plate",
+      "readable": "Dark Oak Pressure Plate",
+      "texture": "8ba3af0597d9f966.png"
+    },
+    {
+      "id": "minecraft:dark_oak_button",
+      "readable": "Dark Oak Button",
+      "texture": "b037ea40038f4505.png"
+    },
+    {
+      "id": "minecraft:stone",
+      "readable": "Stone",
+      "texture": "26f5dedb3df640a8.png"
+    },
+    {
+      "id": "minecraft:stone_stairs",
+      "readable": "Stone Stairs",
+      "texture": "5754e651f0634855.png"
+    },
+    {
+      "id": "minecraft:stone_slab",
+      "readable": "Stone Slab",
+      "texture": "8e03a3ba5748ff0d.png"
+    },
+    {
+      "id": "minecraft:stone_pressure_plate",
+      "readable": "Stone Pressure Plate",
+      "texture": "dc15b95067d472f2.png"
+    },
+    {
+      "id": "minecraft:stone_button",
+      "readable": "Stone Button",
+      "texture": "fce8f811b7d147a1.png"
+    },
+    {
+      "id": "minecraft:cobblestone",
+      "readable": "Cobblestone",
+      "texture": "a8e0b73887be3704.png"
+    },
+    {
+      "id": "minecraft:cobblestone_stairs",
+      "readable": "Cobblestone Stairs",
+      "texture": "36fc242026326505.png"
+    },
+    {
+      "id": "minecraft:cobblestone_slab",
+      "readable": "Cobblestone Slab",
+      "texture": "7e2174bdd1cd08e1.png"
+    },
+    {
+      "id": "minecraft:cobblestone_wall",
+      "readable": "Cobblestone Wall",
+      "texture": "ee25997986c4c7d4.png"
+    },
+    {
+      "id": "minecraft:mossy_cobblestone",
+      "readable": "Moss Stone",
+      "texture": "8539def84fac4154.png"
+    },
+    {
+      "id": "minecraft:mossy_cobblestone_stairs",
+      "readable": "Mossy Cobblestone Stairs",
+      "texture": "c4dee90f009fc634.png"
+    },
+    {
+      "id": "minecraft:mossy_cobblestone_slab",
+      "readable": "Mossy Cobblestone Slab",
+      "texture": "1790d476b687c047.png"
+    },
+    {
+      "id": "minecraft:mossy_cobblestone_wall",
+      "readable": "Mossy Cobblestone Wall",
+      "texture": "b7ecf19aa6c83aae.png"
+    },
+    {
+      "id": "minecraft:smooth_stone",
+      "readable": "Smooth Stone",
+      "texture": "8761076b92ec5921.png"
+    },
+    {
+      "id": "minecraft:smooth_stone_slab",
+      "readable": "Smooth Stone Slab",
+      "texture": "12e441faed27a454.png"
+    },
+    {
+      "id": "minecraft:stone_bricks",
+      "readable": "Stone Bricks",
+      "texture": "1edbe86832a9977b.png"
+    },
+    {
+      "id": "minecraft:cracked_stone_bricks",
+      "readable": "Cracked Stone Bricks",
+      "texture": "0d62873848969108.png"
+    },
+    {
+      "id": "minecraft:stone_brick_stairs",
+      "readable": "Stone Brick Stairs",
+      "texture": "65fe75bde7f15cba.png"
+    },
+    {
+      "id": "minecraft:stone_brick_slab",
+      "readable": "Stone Brick Slab",
+      "texture": "18ea4f651751a432.png"
+    },
+    {
+      "id": "minecraft:stone_brick_wall",
+      "readable": "Stone Brick Wall",
+      "texture": "f24d9d8f2d61332d.png"
+    },
+    {
+      "id": "minecraft:chiseled_stone_bricks",
+      "readable": "Chiseled Stone Bricks",
+      "texture": "05ff3b29595e0454.png"
+    },
+    {
+      "id": "minecraft:mossy_stone_bricks",
+      "readable": "Mossy Stone Bricks",
+      "texture": "036f304f637067c2.png"
+    },
+    {
+      "id": "minecraft:mossy_stone_brick_stairs",
+      "readable": "Mossy Stone Brick Stairs",
+      "texture": "ffa0ceebeebcde7c.png"
+    },
+    {
+      "id": "minecraft:mossy_stone_brick_slab",
+      "readable": "Mossy Stone Brick Slab",
+      "texture": "4fb84b6c83a4dfae.png"
+    },
+    {
+      "id": "minecraft:mossy_stone_brick_wall",
+      "readable": "Mossy Stone Brick Wall",
+      "texture": "53d419c98f5d45fa.png"
+    },
+    {
+      "id": "minecraft:granite",
+      "readable": "Granite",
+      "texture": "a27e490b23069562.png"
+    },
+    {
+      "id": "minecraft:granite_stairs",
+      "readable": "Granite Stairs",
+      "texture": "2568636c327127dc.png"
+    },
+    {
+      "id": "minecraft:granite_slab",
+      "readable": "Granite Slab",
+      "texture": "6e07ab252823e19c.png"
+    },
+    {
+      "id": "minecraft:granite_wall",
+      "readable": "Granite Wall",
+      "texture": "e75b748f8d5e3ea8.png"
+    },
+    {
+      "id": "minecraft:polished_granite",
+      "readable": "Polished Granite",
+      "texture": "ab8098f45f579619.png"
+    },
+    {
+      "id": "minecraft:polished_granite_stairs",
+      "readable": "Polished Granite Stairs",
+      "texture": "3b53ca29f5d909ff.png"
+    },
+    {
+      "id": "minecraft:polished_granite_slab",
+      "readable": "Polished Granite Slab",
+      "texture": "f6517968117f6764.png"
+    },
+    {
+      "id": "minecraft:diorite",
+      "readable": "Diorite",
+      "texture": "0cc700429e252f76.png"
+    },
+    {
+      "id": "minecraft:diorite_stairs",
+      "readable": "Diorite Stairs",
+      "texture": "674b989fe9867715.png"
+    },
+    {
+      "id": "minecraft:diorite_slab",
+      "readable": "Diorite Slab",
+      "texture": "1bb3dda3c9dd2f37.png"
+    },
+    {
+      "id": "minecraft:diorite_wall",
+      "readable": "Diorite Wall",
+      "texture": "bd10f19eef0f5047.png"
+    },
+    {
+      "id": "minecraft:polished_diorite",
+      "readable": "Polished Diorite",
+      "texture": "153818bbac0741d0.png"
+    },
+    {
+      "id": "minecraft:polished_diorite_stairs",
+      "readable": "Polished Diorite Stairs",
+      "texture": "d550cff1e3f5ff83.png"
+    },
+    {
+      "id": "minecraft:polished_diorite_slab",
+      "readable": "Polished Diorite Slab",
+      "texture": "9abc8564fbf75f63.png"
+    },
+    {
+      "id": "minecraft:andesite",
+      "readable": "Andesite",
+      "texture": "96c83ecb3bcc85fe.png"
+    },
+    {
+      "id": "minecraft:andesite_stairs",
+      "readable": "Andesite Stairs",
+      "texture": "c663b6e261c4f04b.png"
+    },
+    {
+      "id": "minecraft:andesite_slab",
+      "readable": "Andesite Slab",
+      "texture": "d359f252586701f0.png"
+    },
+    {
+      "id": "minecraft:andesite_wall",
+      "readable": "Andesite Wall",
+      "texture": "3f0ce816bff1a35b.png"
+    },
+    {
+      "id": "minecraft:polished_andesite",
+      "readable": "Polished Andesite",
+      "texture": "95ef48efb4c5fd1e.png"
+    },
+    {
+      "id": "minecraft:polished_andesite_stairs",
+      "readable": "Polished Andesite Stairs",
+      "texture": "98c9fa2d51086988.png"
+    },
+    {
+      "id": "minecraft:polished_andesite_slab",
+      "readable": "Polished Andesite Slab",
+      "texture": "a130bdfb221cae17.png"
+    },
+    {
+      "id": "minecraft:bricks",
+      "readable": "Bricks",
+      "texture": "e5d60cb13f8766c9.png"
+    },
+    {
+      "id": "minecraft:brick_stairs",
+      "readable": "Brick Stairs",
+      "texture": "4d81fd576d02f86a.png"
+    },
+    {
+      "id": "minecraft:brick_slab",
+      "readable": "Brick Slab",
+      "texture": "136ad00c63b5deb2.png"
+    },
+    {
+      "id": "minecraft:brick_wall",
+      "readable": "Brick Wall",
+      "texture": "ef291ad2520ba8d8.png"
+    },
+    {
+      "id": "minecraft:sandstone",
+      "readable": "Sandstone",
+      "texture": "a1105a9eb09f4a5a.png"
+    },
+    {
+      "id": "minecraft:sandstone_stairs",
+      "readable": "Sandstone Stairs",
+      "texture": "d832dbb0d1fc128a.png"
+    },
+    {
+      "id": "minecraft:sandstone_slab",
+      "readable": "Sandstone Slab",
+      "texture": "9eb30f9cf987d797.png"
+    },
+    {
+      "id": "minecraft:sandstone_wall",
+      "readable": "Sandstone Wall",
+      "texture": "4550fbd641cb74f2.png"
+    },
+    {
+      "id": "minecraft:chiseled_sandstone",
+      "readable": "Chiseled Sandstone",
+      "texture": "d4ce9e33043a78a1.png"
+    },
+    {
+      "id": "minecraft:smooth_sandstone",
+      "readable": "Smooth Sandstone",
+      "texture": "68ea823bb73c645e.png"
+    },
+    {
+      "id": "minecraft:smooth_sandstone_stairs",
+      "readable": "Smooth Sandstone Stairs",
+      "texture": "af0ff73b260aea5d.png"
+    },
+    {
+      "id": "minecraft:smooth_sandstone_slab",
+      "readable": "Smooth Sandstone Slab",
+      "texture": "000c847ddf3e072f.png"
+    },
+    {
+      "id": "minecraft:cut_sandstone",
+      "readable": "Cut Sandstone",
+      "texture": "8d0d751874b40b77.png"
+    },
+    {
+      "id": "minecraft:cut_sandstone_slab",
+      "readable": "Cut Sandstone Slab",
+      "texture": "f89065854b490c88.png"
+    },
+    {
+      "id": "minecraft:red_sandstone",
+      "readable": "Red Sandstone",
+      "texture": "37866aaa869920eb.png"
+    },
+    {
+      "id": "minecraft:red_sandstone_stairs",
+      "readable": "Red Sandstone Stairs",
+      "texture": "b8a08762ee793488.png"
+    },
+    {
+      "id": "minecraft:red_sandstone_slab",
+      "readable": "Red Sandstone Slab",
+      "texture": "ae08fb0c140ceea3.png"
+    },
+    {
+      "id": "minecraft:red_sandstone_wall",
+      "readable": "Red Sandstone Wall",
+      "texture": "b700d4a158eba399.png"
+    },
+    {
+      "id": "minecraft:chiseled_red_sandstone",
+      "readable": "Chiseled Red Sandstone",
+      "texture": "ffb1a79520c8165a.png"
+    },
+    {
+      "id": "minecraft:smooth_red_sandstone",
+      "readable": "Smooth Red Sandstone",
+      "texture": "37fdcdf83edac87a.png"
+    },
+    {
+      "id": "minecraft:smooth_red_sandstone_stairs",
+      "readable": "Smooth Red Sandstone Stairs",
+      "texture": "af18a4458253e040.png"
+    },
+    {
+      "id": "minecraft:smooth_red_sandstone_slab",
+      "readable": "Smooth Red Sandstone Slab",
+      "texture": "b74b71691df8d71e.png"
+    },
+    {
+      "id": "minecraft:cut_red_sandstone",
+      "readable": "Cut Red Sandstone",
+      "texture": "85658b50ac054768.png"
+    },
+    {
+      "id": "minecraft:cut_red_sandstone_slab",
+      "readable": "Cut Red Sandstone Slab",
+      "texture": "7fae917b1b13aaaa.png"
+    },
+    {
+      "id": "minecraft:sea_lantern",
+      "readable": "Sea Lantern",
+      "texture": "749905d3120a7b36.png"
+    },
+    {
+      "id": "minecraft:prismarine",
+      "readable": "Prismarine",
+      "texture": "d725f6b876e7efba.png"
+    },
+    {
+      "id": "minecraft:prismarine_stairs",
+      "readable": "Prismarine Stairs",
+      "texture": "0e0efd46380de290.png"
+    },
+    {
+      "id": "minecraft:prismarine_slab",
+      "readable": "Prismarine Slab",
+      "texture": "c1a74e61d6af81b3.png"
+    },
+    {
+      "id": "minecraft:prismarine_wall",
+      "readable": "Prismarine Wall",
+      "texture": "00e1132f582e6a04.png"
+    },
+    {
+      "id": "minecraft:prismarine_bricks",
+      "readable": "Prismarine Bricks",
+      "texture": "3f5fec4e0ad66ed6.png"
+    },
+    {
+      "id": "minecraft:prismarine_brick_stairs",
+      "readable": "Prismarine Brick Stairs",
+      "texture": "4571d90bfbe3930a.png"
+    },
+    {
+      "id": "minecraft:prismarine_brick_slab",
+      "readable": "Prismarine Brick Slab",
+      "texture": "86d2c40907c68bd6.png"
+    },
+    {
+      "id": "minecraft:dark_prismarine",
+      "readable": "Dark Prismarine",
+      "texture": "3fdab84579f60a2c.png"
+    },
+    {
+      "id": "minecraft:dark_prismarine_stairs",
+      "readable": "Dark Prismarine Stairs",
+      "texture": "910419324de250d6.png"
+    },
+    {
+      "id": "minecraft:dark_prismarine_slab",
+      "readable": "Dark Prismarine Slab",
+      "texture": "4290abe82ce30865.png"
+    },
+    {
+      "id": "minecraft:netherrack",
+      "readable": "Netherrack",
+      "texture": "4eefbeba0080d376.png"
+    },
+    {
+      "id": "minecraft:nether_bricks",
+      "readable": "Nether Bricks",
+      "texture": "31d4b2dd057a268b.png"
+    },
+    {
+      "id": "minecraft:nether_brick_stairs",
+      "readable": "Nether Brick Stairs",
+      "texture": "0ecf532212a56653.png"
+    },
+    {
+      "id": "minecraft:nether_brick_slab",
+      "readable": "Nether Brick Slab",
+      "texture": "71f0f038339353b7.png"
+    },
+    {
+      "id": "minecraft:nether_brick_wall",
+      "readable": "Nether Brick Wall",
+      "texture": "90e3ad74fda70367.png"
+    },
+    {
+      "id": "minecraft:nether_brick_fence",
+      "readable": "Nether Brick Fence",
+      "texture": "a51271a94e6d4c95.png"
+    },
+    {
+      "id": "minecraft:red_nether_bricks",
+      "readable": "Red Nether Brick",
+      "texture": "a58d5d92937ecf49.png"
+    },
+    {
+      "id": "minecraft:red_nether_brick_stairs",
+      "readable": "Red Nether Brick Stairs",
+      "texture": "7e8285cc06b957e5.png"
+    },
+    {
+      "id": "minecraft:red_nether_brick_slab",
+      "readable": "Red Nether Brick Slab",
+      "texture": "d3d3506a1c2c4037.png"
+    },
+    {
+      "id": "minecraft:red_nether_brick_wall",
+      "readable": "Red Nether Brick Wall",
+      "texture": "7bf132f7f5c1f5bc.png"
+    },
+    {
+      "id": "minecraft:end_stone",
+      "readable": "End Stone",
+      "texture": "4e8d83a37a44cbc8.png"
+    },
+    {
+      "id": "minecraft:end_stone_bricks",
+      "readable": "End Stone Bricks",
+      "texture": "04aeca22c674180e.png"
+    },
+    {
+      "id": "minecraft:end_stone_brick_stairs",
+      "readable": "End Stone Brick Stairs",
+      "texture": "70636a0b1d05b07e.png"
+    },
+    {
+      "id": "minecraft:end_stone_brick_slab",
+      "readable": "End Stone Brick Slab",
+      "texture": "49112dc3427e0cdc.png"
+    },
+    {
+      "id": "minecraft:end_stone_brick_wall",
+      "readable": "End Stone Brick Wall",
+      "texture": "7cac6b64465b84c4.png"
+    },
+    {
+      "id": "minecraft:purpur_block",
+      "readable": "Purpur Block",
+      "texture": "3351e9d10f5ffc4b.png"
+    },
+    {
+      "id": "minecraft:purpur_pillar",
+      "readable": "Purpur Pillar",
+      "texture": "a4b5bbac0916434e.png"
+    },
+    {
+      "id": "minecraft:purpur_stairs",
+      "readable": "Purpur Stairs",
+      "texture": "621657c4cc4ec38b.png"
+    },
+    {
+      "id": "minecraft:purpur_slab",
+      "readable": "Purpur Slab",
+      "texture": "9d7e78ba63c00ed8.png"
+    },
+    {
+      "id": "minecraft:coal_block",
+      "readable": "Block of Coal",
+      "texture": "8c7c637e23c3c6aa.png"
+    },
+    {
+      "id": "minecraft:iron_block",
+      "readable": "Iron Block",
+      "texture": "c8a1b1daf0a095f3.png"
+    },
+    {
+      "id": "minecraft:iron_bars",
+      "readable": "Iron Bars",
+      "texture": "389313064ab84a81.png"
+    },
+    {
+      "id": "minecraft:iron_door",
+      "readable": "Iron Door",
+      "texture": "ba08a1a5262174fa.png"
+    },
+    {
+      "id": "minecraft:iron_trapdoor",
+      "readable": "Iron Trapdoor",
+      "texture": "68dd6f17b3c48456.png"
+    },
+    {
+      "id": "minecraft:heavy_weighted_pressure_plate",
+      "readable": "Heavy Weighted Pressure Plate",
+      "texture": "54db6c26a85e6750.png"
+    },
+    {
+      "id": "minecraft:gold_block",
+      "readable": "Gold Block",
+      "texture": "f5b4b6a814503d83.png"
+    },
+    {
+      "id": "minecraft:light_weighted_pressure_plate",
+      "readable": "Light Weighted Pressure Plate",
+      "texture": "1a0dbeed28ef9773.png"
+    },
+    {
+      "id": "minecraft:redstone_block",
+      "readable": "Redstone Block",
+      "texture": "2dc1a0d7ed819db8.png"
+    },
+    {
+      "id": "minecraft:emerald_block",
+      "readable": "Emerald Block",
+      "texture": "316dbda58e30acf5.png"
+    },
+    {
+      "id": "minecraft:lapis_block",
+      "readable": "Lapis Lazuli Block",
+      "texture": "e56e8e8d9c9ccb80.png"
+    },
+    {
+      "id": "minecraft:diamond_block",
+      "readable": "Diamond Block",
+      "texture": "9bffe65c684c6bd6.png"
+    },
+    {
+      "id": "minecraft:quartz_block",
+      "readable": "Quartz Block",
+      "texture": "37b2a2b2d0b4a614.png"
+    },
+    {
+      "id": "minecraft:quartz_stairs",
+      "readable": "Quartz Stairs",
+      "texture": "24ac5907b31773c3.png"
+    },
+    {
+      "id": "minecraft:quartz_slab",
+      "readable": "Quartz Slab",
+      "texture": "64d37462cb78ab17.png"
+    },
+    {
+      "id": "minecraft:chiseled_quartz_block",
+      "readable": "Chiseled Quartz Block",
+      "texture": "2f3bf91395a6009d.png"
+    },
+    {
+      "id": "minecraft:quartz_pillar",
+      "readable": "Pillar Quartz Block",
+      "texture": "36426dc47e3e1308.png"
+    },
+    {
+      "id": "minecraft:smooth_quartz",
+      "readable": "Smooth Quartz",
+      "texture": "37b2a2b2d0b4a614.png"
+    },
+    {
+      "id": "minecraft:smooth_quartz_stairs",
+      "readable": "Smooth Quartz Stairs",
+      "texture": "24ac5907b31773c3.png"
+    },
+    {
+      "id": "minecraft:smooth_quartz_slab",
+      "readable": "Smooth Quartz Slab",
+      "texture": "64d37462cb78ab17.png"
+    },
+    {
+      "id": "minecraft:white_wool",
+      "readable": "White Wool",
+      "texture": "bc5768cdbcad5525.png"
+    },
+    {
+      "id": "minecraft:light_gray_wool",
+      "readable": "Light Gray Wool",
+      "texture": "d54bb5a23492ba0d.png"
+    },
+    {
+      "id": "minecraft:gray_wool",
+      "readable": "Gray Wool",
+      "texture": "237893c84a846380.png"
+    },
+    {
+      "id": "minecraft:black_wool",
+      "readable": "Black Wool",
+      "texture": "bae76f53a04d4dd6.png"
+    },
+    {
+      "id": "minecraft:brown_wool",
+      "readable": "Brown Wool",
+      "texture": "35cf1bbc4a07535a.png"
+    },
+    {
+      "id": "minecraft:red_wool",
+      "readable": "Red Wool",
+      "texture": "603379f1aeffd128.png"
+    },
+    {
+      "id": "minecraft:orange_wool",
+      "readable": "Orange Wool",
+      "texture": "895a37af1e59ba30.png"
+    },
+    {
+      "id": "minecraft:yellow_wool",
+      "readable": "Yellow Wool",
+      "texture": "5f1c742dbb002c8c.png"
+    },
+    {
+      "id": "minecraft:lime_wool",
+      "readable": "Lime Wool",
+      "texture": "ad2a7b3a14099dc3.png"
+    },
+    {
+      "id": "minecraft:green_wool",
+      "readable": "Green Wool",
+      "texture": "50db1c0d3feb0d60.png"
+    },
+    {
+      "id": "minecraft:cyan_wool",
+      "readable": "Cyan Wool",
+      "texture": "a5e2712e38bcb183.png"
+    },
+    {
+      "id": "minecraft:light_blue_wool",
+      "readable": "Light Blue Wool",
+      "texture": "cdea7a497626ff95.png"
+    },
+    {
+      "id": "minecraft:blue_wool",
+      "readable": "Blue Wool",
+      "texture": "cc0beb8ed5029073.png"
+    },
+    {
+      "id": "minecraft:purple_wool",
+      "readable": "Purple Wool",
+      "texture": "d3d71da8ec34a198.png"
+    },
+    {
+      "id": "minecraft:magenta_wool",
+      "readable": "Magenta Wool",
+      "texture": "b8947ddcf8f0193a.png"
+    },
+    {
+      "id": "minecraft:pink_wool",
+      "readable": "Pink Wool",
+      "texture": "7722b90e48b5e710.png"
+    },
+    {
+      "id": "minecraft:white_carpet",
+      "readable": "White Carpet",
+      "texture": "bc205c9d860bf3b0.png"
+    },
+    {
+      "id": "minecraft:light_gray_carpet",
+      "readable": "Light Gray Carpet",
+      "texture": "3c76dfaf555f6d04.png"
+    },
+    {
+      "id": "minecraft:gray_carpet",
+      "readable": "Gray Carpet",
+      "texture": "44afd8d8ebdd2865.png"
+    },
+    {
+      "id": "minecraft:black_carpet",
+      "readable": "Black Carpet",
+      "texture": "6e99eade0b0f1cb2.png"
+    },
+    {
+      "id": "minecraft:brown_carpet",
+      "readable": "Brown Carpet",
+      "texture": "0bfe15390784a6fc.png"
+    },
+    {
+      "id": "minecraft:red_carpet",
+      "readable": "Red Carpet",
+      "texture": "da132d8e7d9309f0.png"
+    },
+    {
+      "id": "minecraft:orange_carpet",
+      "readable": "Orange Carpet",
+      "texture": "a1de7dd5d21f87bf.png"
+    },
+    {
+      "id": "minecraft:yellow_carpet",
+      "readable": "Yellow Carpet",
+      "texture": "41399f52b03c37ae.png"
+    },
+    {
+      "id": "minecraft:lime_carpet",
+      "readable": "Lime Carpet",
+      "texture": "731b23f47cd881e6.png"
+    },
+    {
+      "id": "minecraft:green_carpet",
+      "readable": "Green Carpet",
+      "texture": "12636be7bbec980e.png"
+    },
+    {
+      "id": "minecraft:cyan_carpet",
+      "readable": "Cyan Carpet",
+      "texture": "0ca60dafe2f877e8.png"
+    },
+    {
+      "id": "minecraft:light_blue_carpet",
+      "readable": "Light Blue Carpet",
+      "texture": "ce0cdba50416dd29.png"
+    },
+    {
+      "id": "minecraft:blue_carpet",
+      "readable": "Blue Carpet",
+      "texture": "dcd967b540e1b5f6.png"
+    },
+    {
+      "id": "minecraft:purple_carpet",
+      "readable": "Purple Carpet",
+      "texture": "fb1e0d7c4b465543.png"
+    },
+    {
+      "id": "minecraft:magenta_carpet",
+      "readable": "Magenta Carpet",
+      "texture": "bc71657237ea00cb.png"
+    },
+    {
+      "id": "minecraft:pink_carpet",
+      "readable": "Pink Carpet",
+      "texture": "d590387d2a8e93e2.png"
+    },
+    {
+      "id": "minecraft:terracotta",
+      "readable": "Terracotta",
+      "texture": "7556f61ff8785cc9.png"
+    },
+    {
+      "id": "minecraft:white_terracotta",
+      "readable": "White Terracotta",
+      "texture": "3f8f3dd5d7e9ce1a.png"
+    },
+    {
+      "id": "minecraft:light_gray_terracotta",
+      "readable": "Light Gray Terracotta",
+      "texture": "2fe4dec90c81674d.png"
+    },
+    {
+      "id": "minecraft:gray_terracotta",
+      "readable": "Gray Terracotta",
+      "texture": "2e82fcdeee0369bd.png"
+    },
+    {
+      "id": "minecraft:black_terracotta",
+      "readable": "Black Terracotta",
+      "texture": "7e50b0cde0bc9ae7.png"
+    },
+    {
+      "id": "minecraft:brown_terracotta",
+      "readable": "Brown Terracotta",
+      "texture": "1923953b0d4e7798.png"
+    },
+    {
+      "id": "minecraft:red_terracotta",
+      "readable": "Red Terracotta",
+      "texture": "87c45936be0b8fa1.png"
+    },
+    {
+      "id": "minecraft:orange_terracotta",
+      "readable": "Orange Terracotta",
+      "texture": "463712d4c3c1699a.png"
+    },
+    {
+      "id": "minecraft:yellow_terracotta",
+      "readable": "Yellow Terracotta",
+      "texture": "064df5e82aaf1d9e.png"
+    },
+    {
+      "id": "minecraft:lime_terracotta",
+      "readable": "Lime Terracotta",
+      "texture": "11c885a4b28ce2b9.png"
+    },
+    {
+      "id": "minecraft:green_terracotta",
+      "readable": "Green Terracotta",
+      "texture": "055b811ff34cde0e.png"
+    },
+    {
+      "id": "minecraft:cyan_terracotta",
+      "readable": "Cyan Terracotta",
+      "texture": "e3b57c4c75467a2c.png"
+    },
+    {
+      "id": "minecraft:light_blue_terracotta",
+      "readable": "Light Blue Terracotta",
+      "texture": "2b410dff38481d45.png"
+    },
+    {
+      "id": "minecraft:blue_terracotta",
+      "readable": "Blue Terracotta",
+      "texture": "92e293080494e1e7.png"
+    },
+    {
+      "id": "minecraft:purple_terracotta",
+      "readable": "Purple Terracotta",
+      "texture": "c2820f1418bf7910.png"
+    },
+    {
+      "id": "minecraft:magenta_terracotta",
+      "readable": "Magenta Terracotta",
+      "texture": "a8a5f6f02ab00a17.png"
+    },
+    {
+      "id": "minecraft:pink_terracotta",
+      "readable": "Pink Terracotta",
+      "texture": "5a954520c1532324.png"
+    },
+    {
+      "id": "minecraft:white_concrete",
+      "readable": "White Concrete",
+      "texture": "f2be5f4186aa0bfd.png"
+    },
+    {
+      "id": "minecraft:light_gray_concrete",
+      "readable": "Light Gray Concrete",
+      "texture": "ae3ff6a28655b9f3.png"
+    },
+    {
+      "id": "minecraft:gray_concrete",
+      "readable": "Gray Concrete",
+      "texture": "d54c47239de15777.png"
+    },
+    {
+      "id": "minecraft:black_concrete",
+      "readable": "Black Concrete",
+      "texture": "bc04e40e55688d21.png"
+    },
+    {
+      "id": "minecraft:brown_concrete",
+      "readable": "Brown Concrete",
+      "texture": "3c599bcdb65595fc.png"
+    },
+    {
+      "id": "minecraft:red_concrete",
+      "readable": "Red Concrete",
+      "texture": "5f5f7f1fe97c7b30.png"
+    },
+    {
+      "id": "minecraft:orange_concrete",
+      "readable": "Orange Concrete",
+      "texture": "2158e050d37ec5b6.png"
+    },
+    {
+      "id": "minecraft:yellow_concrete",
+      "readable": "Yellow Concrete",
+      "texture": "8875eab52d2c975d.png"
+    },
+    {
+      "id": "minecraft:lime_concrete",
+      "readable": "Lime Concrete",
+      "texture": "d3ee95d877a33d9b.png"
+    },
+    {
+      "id": "minecraft:green_concrete",
+      "readable": "Green Concrete",
+      "texture": "fd2a4d66132c97ca.png"
+    },
+    {
+      "id": "minecraft:cyan_concrete",
+      "readable": "Cyan Concrete",
+      "texture": "2be08c0c1bad6f6c.png"
+    },
+    {
+      "id": "minecraft:light_blue_concrete",
+      "readable": "Light Blue Concrete",
+      "texture": "0370c8e042692c97.png"
+    },
+    {
+      "id": "minecraft:blue_concrete",
+      "readable": "Blue Concrete",
+      "texture": "e17ecf5e69e87f1b.png"
+    },
+    {
+      "id": "minecraft:purple_concrete",
+      "readable": "Purple Concrete",
+      "texture": "d7b7328cfe826b51.png"
+    },
+    {
+      "id": "minecraft:magenta_concrete",
+      "readable": "Magenta Concrete",
+      "texture": "8beff04408125bfa.png"
+    },
+    {
+      "id": "minecraft:pink_concrete",
+      "readable": "Pink Concrete",
+      "texture": "0ba3b6df1891b33d.png"
+    },
+    {
+      "id": "minecraft:white_concrete_powder",
+      "readable": "White Concrete Powder",
+      "texture": "ffc9090a1fba94e2.png"
+    },
+    {
+      "id": "minecraft:light_gray_concrete_powder",
+      "readable": "Light Gray Concrete Powder",
+      "texture": "e8a46ba6c19d3180.png"
+    },
+    {
+      "id": "minecraft:gray_concrete_powder",
+      "readable": "Gray Concrete Powder",
+      "texture": "12ec9657d0c56901.png"
+    },
+    {
+      "id": "minecraft:black_concrete_powder",
+      "readable": "Black Concrete Powder",
+      "texture": "699f4f64c76f3589.png"
+    },
+    {
+      "id": "minecraft:brown_concrete_powder",
+      "readable": "Brown Concrete Powder",
+      "texture": "9ad9aa9d14f1cd77.png"
+    },
+    {
+      "id": "minecraft:red_concrete_powder",
+      "readable": "Red Concrete Powder",
+      "texture": "c025fb7e09e05492.png"
+    },
+    {
+      "id": "minecraft:orange_concrete_powder",
+      "readable": "Orange Concrete Powder",
+      "texture": "6bd0da6a6f3144c5.png"
+    },
+    {
+      "id": "minecraft:yellow_concrete_powder",
+      "readable": "Yellow Concrete Powder",
+      "texture": "b44c720da8dcac6a.png"
+    },
+    {
+      "id": "minecraft:lime_concrete_powder",
+      "readable": "Lime Concrete Powder",
+      "texture": "f7fd67ac7de285f6.png"
+    },
+    {
+      "id": "minecraft:green_concrete_powder",
+      "readable": "Green Concrete Powder",
+      "texture": "f50ee4f30aed408c.png"
+    },
+    {
+      "id": "minecraft:cyan_concrete_powder",
+      "readable": "Cyan Concrete Powder",
+      "texture": "7f87ac44307f6ad7.png"
+    },
+    {
+      "id": "minecraft:light_blue_concrete_powder",
+      "readable": "Light Blue Concrete Powder",
+      "texture": "8f5a5807ce7e1c62.png"
+    },
+    {
+      "id": "minecraft:blue_concrete_powder",
+      "readable": "Blue Concrete Powder",
+      "texture": "29b8c2450076b8a6.png"
+    },
+    {
+      "id": "minecraft:purple_concrete_powder",
+      "readable": "Purple Concrete Powder",
+      "texture": "8125b97b37800182.png"
+    },
+    {
+      "id": "minecraft:magenta_concrete_powder",
+      "readable": "Magenta Concrete Powder",
+      "texture": "34b1eb8a418ac026.png"
+    },
+    {
+      "id": "minecraft:pink_concrete_powder",
+      "readable": "Pink Concrete Powder",
+      "texture": "4acc7ad0102a862e.png"
+    },
+    {
+      "id": "minecraft:white_glazed_terracotta",
+      "readable": "White Glazed Terracotta",
+      "texture": "1fb95f07b0add309.png"
+    },
+    {
+      "id": "minecraft:light_gray_glazed_terracotta",
+      "readable": "Light Gray Glazed Terracotta",
+      "texture": "cf06efdf0c97d681.png"
+    },
+    {
+      "id": "minecraft:gray_glazed_terracotta",
+      "readable": "Gray Glazed Terracotta",
+      "texture": "13ffc807a1d9d13f.png"
+    },
+    {
+      "id": "minecraft:black_glazed_terracotta",
+      "readable": "Black Glazed Terracotta",
+      "texture": "258ed23cd55175b0.png"
+    },
+    {
+      "id": "minecraft:brown_glazed_terracotta",
+      "readable": "Brown Glazed Terracotta",
+      "texture": "5bd1db3f66adc15e.png"
+    },
+    {
+      "id": "minecraft:red_glazed_terracotta",
+      "readable": "Red Glazed Terracotta",
+      "texture": "365934ff41e2ec45.png"
+    },
+    {
+      "id": "minecraft:orange_glazed_terracotta",
+      "readable": "Orange Glazed Terracotta",
+      "texture": "fa9358843d3193e2.png"
+    },
+    {
+      "id": "minecraft:yellow_glazed_terracotta",
+      "readable": "Yellow Glazed Terracotta",
+      "texture": "71a0db98fda5e1cf.png"
+    },
+    {
+      "id": "minecraft:lime_glazed_terracotta",
+      "readable": "Lime Glazed Terracotta",
+      "texture": "d90536443cbb9d21.png"
+    },
+    {
+      "id": "minecraft:green_glazed_terracotta",
+      "readable": "Green Glazed Terracotta",
+      "texture": "2c3541e016d76b3c.png"
+    },
+    {
+      "id": "minecraft:cyan_glazed_terracotta",
+      "readable": "Cyan Glazed Terracotta",
+      "texture": "b2706456e929e700.png"
+    },
+    {
+      "id": "minecraft:light_blue_glazed_terracotta",
+      "readable": "Light Blue Glazed Terracotta",
+      "texture": "f706d91cd4a1ace9.png"
+    },
+    {
+      "id": "minecraft:blue_glazed_terracotta",
+      "readable": "Blue Glazed Terracotta",
+      "texture": "70fdc4db96aab44d.png"
+    },
+    {
+      "id": "minecraft:purple_glazed_terracotta",
+      "readable": "Purple Glazed Terracotta",
+      "texture": "b3750ce52d5f3ed8.png"
+    },
+    {
+      "id": "minecraft:magenta_glazed_terracotta",
+      "readable": "Magenta Glazed Terracotta",
+      "texture": "20511a124e39a4f8.png"
+    },
+    {
+      "id": "minecraft:pink_glazed_terracotta",
+      "readable": "Pink Glazed Terracotta",
+      "texture": "2e8213854ca745e4.png"
+    },
+    {
+      "id": "minecraft:glass",
+      "readable": "Glass",
+      "texture": "b48a382cae162e08.png"
+    },
+    {
+      "id": "minecraft:white_stained_glass",
+      "readable": "White Stained Glass",
+      "texture": "8d5aa1978cc6440c.png"
+    },
+    {
+      "id": "minecraft:light_gray_stained_glass",
+      "readable": "Light Gray Stained Glass",
+      "texture": "9e96b37db1910c4e.png"
+    },
+    {
+      "id": "minecraft:gray_stained_glass",
+      "readable": "Gray Stained Glass",
+      "texture": "2d168faf919d3532.png"
+    },
+    {
+      "id": "minecraft:black_stained_glass",
+      "readable": "Black Stained Glass",
+      "texture": "d38f37b75dbf42af.png"
+    },
+    {
+      "id": "minecraft:brown_stained_glass",
+      "readable": "Brown Stained Glass",
+      "texture": "1ea86de78422037b.png"
+    },
+    {
+      "id": "minecraft:red_stained_glass",
+      "readable": "Red Stained Glass",
+      "texture": "195e71fa19947bf5.png"
+    },
+    {
+      "id": "minecraft:orange_stained_glass",
+      "readable": "Orange Stained Glass",
+      "texture": "dd634e9c9604092b.png"
+    },
+    {
+      "id": "minecraft:yellow_stained_glass",
+      "readable": "Yellow Stained Glass",
+      "texture": "e1a4946db5682c94.png"
+    },
+    {
+      "id": "minecraft:lime_stained_glass",
+      "readable": "Lime Stained Glass",
+      "texture": "6aed197b4a973931.png"
+    },
+    {
+      "id": "minecraft:green_stained_glass",
+      "readable": "Green Stained Glass",
+      "texture": "e40e23b93e30e119.png"
+    },
+    {
+      "id": "minecraft:cyan_stained_glass",
+      "readable": "Cyan Stained Glass",
+      "texture": "cd854bd0fd58c466.png"
+    },
+    {
+      "id": "minecraft:light_blue_stained_glass",
+      "readable": "Light Blue Stained Glass",
+      "texture": "7683380c0a808e0f.png"
+    },
+    {
+      "id": "minecraft:blue_stained_glass",
+      "readable": "Blue Stained Glass",
+      "texture": "c47a4ee4a0b9027a.png"
+    },
+    {
+      "id": "minecraft:purple_stained_glass",
+      "readable": "Purple Stained Glass",
+      "texture": "7d4f3844721eb111.png"
+    },
+    {
+      "id": "minecraft:magenta_stained_glass",
+      "readable": "Magenta Stained Glass",
+      "texture": "13b73bd20c773ec8.png"
+    },
+    {
+      "id": "minecraft:pink_stained_glass",
+      "readable": "Pink Stained Glass",
+      "texture": "000f775f8548e141.png"
+    },
+    {
+      "id": "minecraft:glass_pane",
+      "readable": "Glass Pane",
+      "texture": "380c20f094cc72d2.png"
+    },
+    {
+      "id": "minecraft:white_stained_glass_pane",
+      "readable": "White Stained Glass Pane",
+      "texture": "b3f72392c9d6578a.png"
+    },
+    {
+      "id": "minecraft:light_gray_stained_glass_pane",
+      "readable": "Light Gray Stained Glass Pane",
+      "texture": "af550a93829f2033.png"
+    },
+    {
+      "id": "minecraft:gray_stained_glass_pane",
+      "readable": "Gray Stained Glass Pane",
+      "texture": "5984559b0248618e.png"
+    },
+    {
+      "id": "minecraft:black_stained_glass_pane",
+      "readable": "Black Stained Glass Pane",
+      "texture": "bd5952c925981409.png"
+    },
+    {
+      "id": "minecraft:brown_stained_glass_pane",
+      "readable": "Brown Stained Glass Pane",
+      "texture": "a1e8969830d247f5.png"
+    },
+    {
+      "id": "minecraft:red_stained_glass_pane",
+      "readable": "Red Stained Glass Pane",
+      "texture": "6291304b46dec33c.png"
+    },
+    {
+      "id": "minecraft:orange_stained_glass_pane",
+      "readable": "Orange Stained Glass Pane",
+      "texture": "7dd73bad9893400e.png"
+    },
+    {
+      "id": "minecraft:yellow_stained_glass_pane",
+      "readable": "Yellow Stained Glass Pane",
+      "texture": "b17a247ef3aaf635.png"
+    },
+    {
+      "id": "minecraft:lime_stained_glass_pane",
+      "readable": "Lime Stained Glass Pane",
+      "texture": "5173b7dd8581387e.png"
+    },
+    {
+      "id": "minecraft:green_stained_glass_pane",
+      "readable": "Green Stained Glass Pane",
+      "texture": "ed66d4fc609e798b.png"
+    },
+    {
+      "id": "minecraft:cyan_stained_glass_pane",
+      "readable": "Cyan Stained Glass Pane",
+      "texture": "74ee506b3d573aef.png"
+    },
+    {
+      "id": "minecraft:light_blue_stained_glass_pane",
+      "readable": "Light Blue Stained Glass Pane",
+      "texture": "b77b22a818bab67a.png"
+    },
+    {
+      "id": "minecraft:blue_stained_glass_pane",
+      "readable": "Blue Stained Glass Pane",
+      "texture": "1b16382d37f4b446.png"
+    },
+    {
+      "id": "minecraft:purple_stained_glass_pane",
+      "readable": "Purple Stained Glass Pane",
+      "texture": "121ee025050213f2.png"
+    },
+    {
+      "id": "minecraft:magenta_stained_glass_pane",
+      "readable": "Magenta Stained Glass Pane",
+      "texture": "fa887df714a83410.png"
+    },
+    {
+      "id": "minecraft:pink_stained_glass_pane",
+      "readable": "Pink Stained Glass Pane",
+      "texture": "046d2ca6bf8aa9df.png"
+    },
+    {
+      "id": "minecraft:shulker_box",
+      "readable": "Shulker Box",
+      "texture": "8be4d383a99e3fb3.png"
+    },
+    {
+      "id": "minecraft:white_shulker_box",
+      "readable": "White Shulker Box",
+      "texture": "8660dfa541e52d42.png"
+    },
+    {
+      "id": "minecraft:light_gray_shulker_box",
+      "readable": "Light Gray Shulker Box",
+      "texture": "f5b8c360701e9ff3.png"
+    },
+    {
+      "id": "minecraft:gray_shulker_box",
+      "readable": "Gray Shulker Box",
+      "texture": "4c161229a7a0cd17.png"
+    },
+    {
+      "id": "minecraft:black_shulker_box",
+      "readable": "Black Shulker Box",
+      "texture": "6103caa68729be7d.png"
+    },
+    {
+      "id": "minecraft:brown_shulker_box",
+      "readable": "Brown Shulker Box",
+      "texture": "7015526f878c4b1e.png"
+    },
+    {
+      "id": "minecraft:red_shulker_box",
+      "readable": "Red Shulker Box",
+      "texture": "86567f9a6d89e918.png"
+    },
+    {
+      "id": "minecraft:orange_shulker_box",
+      "readable": "Orange Shulker Box",
+      "texture": "60d7810caee43488.png"
+    },
+    {
+      "id": "minecraft:yellow_shulker_box",
+      "readable": "Yellow Shulker Box",
+      "texture": "418ec5b1da928ab8.png"
+    },
+    {
+      "id": "minecraft:lime_shulker_box",
+      "readable": "Lime Shulker Box",
+      "texture": "3d83fe4e49e0d881.png"
+    },
+    {
+      "id": "minecraft:green_shulker_box",
+      "readable": "Green Shulker Box",
+      "texture": "9602c3fa0df8cbfa.png"
+    },
+    {
+      "id": "minecraft:cyan_shulker_box",
+      "readable": "Cyan Shulker Box",
+      "texture": "9747623b3de078fa.png"
+    },
+    {
+      "id": "minecraft:light_blue_shulker_box",
+      "readable": "Light Blue Shulker Box",
+      "texture": "1d6e1ab7a9e1fb76.png"
+    },
+    {
+      "id": "minecraft:blue_shulker_box",
+      "readable": "Blue Shulker Box",
+      "texture": "adbb74ecc4d7e6a9.png"
+    },
+    {
+      "id": "minecraft:purple_shulker_box",
+      "readable": "Purple Shulker Box",
+      "texture": "3a1dd134dbf23340.png"
+    },
+    {
+      "id": "minecraft:magenta_shulker_box",
+      "readable": "Magenta Shulker Box",
+      "texture": "18fbbda5477231ab.png"
+    },
+    {
+      "id": "minecraft:pink_shulker_box",
+      "readable": "Pink Shulker Box",
+      "texture": "26bde8a33aa9e938.png"
+    },
+    {
+      "id": "minecraft:white_bed",
+      "readable": "White Bed",
+      "texture": "46c3b85517e12ec5.png"
+    },
+    {
+      "id": "minecraft:light_gray_bed",
+      "readable": "Light Gray Bed",
+      "texture": "19aef8a2b350b5e8.png"
+    },
+    {
+      "id": "minecraft:gray_bed",
+      "readable": "Gray Bed",
+      "texture": "e7c08541c925549f.png"
+    },
+    {
+      "id": "minecraft:black_bed",
+      "readable": "Black Bed",
+      "texture": "276aacf17cceef9a.png"
+    },
+    {
+      "id": "minecraft:brown_bed",
+      "readable": "Brown Bed",
+      "texture": "9bfc4d59824deb3f.png"
+    },
+    {
+      "id": "minecraft:red_bed",
+      "readable": "Red Bed",
+      "texture": "2f64eec864aa244a.png"
+    },
+    {
+      "id": "minecraft:orange_bed",
+      "readable": "Orange Bed",
+      "texture": "ec76307e1e5d832f.png"
+    },
+    {
+      "id": "minecraft:yellow_bed",
+      "readable": "Yellow Bed",
+      "texture": "d7410eccb9cf46c5.png"
+    },
+    {
+      "id": "minecraft:lime_bed",
+      "readable": "Lime Bed",
+      "texture": "503c3ea46811f68d.png"
+    },
+    {
+      "id": "minecraft:green_bed",
+      "readable": "Green Bed",
+      "texture": "e676c31d4050e0df.png"
+    },
+    {
+      "id": "minecraft:cyan_bed",
+      "readable": "Cyan Bed",
+      "texture": "9200e8f6094da66b.png"
+    },
+    {
+      "id": "minecraft:light_blue_bed",
+      "readable": "Light Blue Bed",
+      "texture": "b3c07561a1055511.png"
+    },
+    {
+      "id": "minecraft:blue_bed",
+      "readable": "Blue Bed",
+      "texture": "6f0bfe72fcce4398.png"
+    },
+    {
+      "id": "minecraft:purple_bed",
+      "readable": "Purple Bed",
+      "texture": "fe6a9a4a84042300.png"
+    },
+    {
+      "id": "minecraft:magenta_bed",
+      "readable": "Magenta Bed",
+      "texture": "fe6a9a4a84042300.png"
+    },
+    {
+      "id": "minecraft:pink_bed",
+      "readable": "Pink Bed",
+      "texture": "36d7dddda7e50f51.png"
+    },
+    {
+      "id": "minecraft:white_banner",
+      "readable": "White Banner",
+      "texture": "d1b95248ca48d526.png"
+    },
+    {
+      "id": "minecraft:light_gray_banner",
+      "readable": "Light Gray Banner",
+      "texture": "16d63f61d182e9c5.png"
+    },
+    {
+      "id": "minecraft:gray_banner",
+      "readable": "Gray Banner",
+      "texture": "5fc6c93c4fcb3a52.png"
+    },
+    {
+      "id": "minecraft:black_banner",
+      "readable": "Black Banner",
+      "texture": "c0a0f2a37b8212bc.png"
+    },
+    {
+      "id": "minecraft:brown_banner",
+      "readable": "Brown Banner",
+      "texture": "0186c484476ff338.png"
+    },
+    {
+      "id": "minecraft:red_banner",
+      "readable": "Red Banner",
+      "texture": "dc8e177e3609a079.png"
+    },
+    {
+      "id": "minecraft:orange_banner",
+      "readable": "Orange Banner",
+      "texture": "ab57eff60a34a615.png"
+    },
+    {
+      "id": "minecraft:yellow_banner",
+      "readable": "Yellow Banner",
+      "texture": "e35be2cce5061245.png"
+    },
+    {
+      "id": "minecraft:lime_banner",
+      "readable": "Lime Banner",
+      "texture": "d45e679479273dc6.png"
+    },
+    {
+      "id": "minecraft:green_banner",
+      "readable": "Green Banner",
+      "texture": "b22d46c25a65dd0d.png"
+    },
+    {
+      "id": "minecraft:cyan_banner",
+      "readable": "Cyan Banner",
+      "texture": "172e962fd3420a09.png"
+    },
+    {
+      "id": "minecraft:light_blue_banner",
+      "readable": "Light Blue Banner",
+      "texture": "95ae7cfc2fb93930.png"
+    },
+    {
+      "id": "minecraft:blue_banner",
+      "readable": "Blue Banner",
+      "texture": "be7f783190fe35b6.png"
+    },
+    {
+      "id": "minecraft:purple_banner",
+      "readable": "Purple Banner",
+      "texture": "c07689f58e474c53.png"
+    },
+    {
+      "id": "minecraft:magenta_banner",
+      "readable": "Magenta Banner",
+      "texture": "6602802f0c4ea34a.png"
+    },
+    {
+      "id": "minecraft:pink_banner",
+      "readable": "Pink Banner",
+      "texture": "ff39ef18b3eaf55e.png"
+    },
+    {
+      "id": "minecraft:grass_block",
+      "readable": "Grass Block",
+      "texture": "7b93dcab8ab508e4.png"
+    },
+    {
+      "id": "minecraft:podzol",
+      "readable": "Podzol",
+      "texture": "2a7523d77f722d03.png"
+    },
+    {
+      "id": "minecraft:mycelium",
+      "readable": "Mycelium",
+      "texture": "9ce5994143d66361.png"
+    },
+    {
+      "id": "minecraft:dirt",
+      "readable": "Dirt",
+      "texture": "ceef0bb9011f5d79.png"
+    },
+    {
+      "id": "minecraft:coarse_dirt",
+      "readable": "Coarse Dirt",
+      "texture": "f164ea4517900a11.png"
+    },
+    {
+      "id": "minecraft:farmland",
+      "readable": "Farmland",
+      "texture": "99e3879a16344df1.png"
+    },
+    {
+      "id": "minecraft:clay",
+      "readable": "Clay",
+      "texture": "e90d302443b14776.png"
+    },
+    {
+      "id": "minecraft:gravel",
+      "readable": "Gravel",
+      "texture": "ffcf92fe1337fab6.png"
+    },
+    {
+      "id": "minecraft:sand",
+      "readable": "Sand",
+      "texture": "4c2599ae9d7050bf.png"
+    },
+    {
+      "id": "minecraft:red_sand",
+      "readable": "Red Sand",
+      "texture": "bea1f50d78897fb6.png"
+    },
+    {
+      "id": "minecraft:ice",
+      "readable": "Ice",
+      "texture": "6d8a931d8282c865.png"
+    },
+    {
+      "id": "minecraft:packed_ice",
+      "readable": "Packed Ice",
+      "texture": "504da451a13cb60b.png"
+    },
+    {
+      "id": "minecraft:blue_ice",
+      "readable": "Blue Ice",
+      "texture": "bc352cc84266f009.png"
+    },
+    {
+      "id": "minecraft:snow_block",
+      "readable": "Snow Block",
+      "texture": "930e846ad21cc93e.png"
+    },
+    {
+      "id": "minecraft:snow",
+      "readable": "Snow",
+      "texture": "411fae4f048f7e9b.png"
+    },
+    {
+      "id": "minecraft:magma_block",
+      "readable": "Magma Block",
+      "texture": "5043aa8699a41db5.png"
+    },
+    {
+      "id": "minecraft:obsidian",
+      "readable": "Obsidian",
+      "texture": "5c4e148adfbfb834.png"
+    },
+    {
+      "id": "minecraft:soul_sand",
+      "readable": "Soul Sand",
+      "texture": "0bfba27aadfdf421.png"
+    },
+    {
+      "id": "minecraft:bone_block",
+      "readable": "Bone Block",
+      "texture": "afaf3da8adb69b65.png"
+    },
+    {
+      "id": "minecraft:coal_ore",
+      "readable": "Coal Ore",
+      "texture": "608e7b727b604099.png"
+    },
+    {
+      "id": "minecraft:iron_ore",
+      "readable": "Iron Ore",
+      "texture": "0deea8782ecf8946.png"
+    },
+    {
+      "id": "minecraft:gold_ore",
+      "readable": "Gold Ore",
+      "texture": "9b585a946e6fd7ee.png"
+    },
+    {
+      "id": "minecraft:redstone_ore",
+      "readable": "Redstone Ore",
+      "texture": "fb0b6bbdcc9ce062.png"
+    },
+    {
+      "id": "minecraft:emerald_ore",
+      "readable": "Emerald Ore",
+      "texture": "f2ea53af8eed6cc8.png"
+    },
+    {
+      "id": "minecraft:lapis_ore",
+      "readable": "Lapis Lazuli Ore",
+      "texture": "6c22686bc72dfb4f.png"
+    },
+    {
+      "id": "minecraft:diamond_ore",
+      "readable": "Diamond Ore",
+      "texture": "7917a9689fb24a91.png"
+    },
+    {
+      "id": "minecraft:nether_quartz_ore",
+      "readable": "Nether Quartz Ore",
+      "texture": "f57511186ef00e8b.png"
+    },
+    {
+      "id": "minecraft:glowstone",
+      "readable": "Glowstone",
+      "texture": "d6a828c683c4ad42.png"
+    },
+    {
+      "id": "minecraft:oak_leaves",
+      "readable": "Oak Leaves",
+      "texture": "924a0644f44f6e0c.png"
+    },
+    {
+      "id": "minecraft:spruce_leaves",
+      "readable": "Spruce Leaves",
+      "texture": "924a0644f44f6e0c.png"
+    },
+    {
+      "id": "minecraft:birch_leaves",
+      "readable": "Birch Leaves",
+      "texture": "924a0644f44f6e0c.png"
+    },
+    {
+      "id": "minecraft:jungle_leaves",
+      "readable": "Jungle Leaves",
+      "texture": "d91f565a6d37ee7f.png"
+    },
+    {
+      "id": "minecraft:acacia_leaves",
+      "readable": "Acacia Leaves",
+      "texture": "1560dec449d25dbe.png"
+    },
+    {
+      "id": "minecraft:dark_oak_leaves",
+      "readable": "Dark Oak Leaves",
+      "texture": "1560dec449d25dbe.png"
+    },
+    {
+      "id": "minecraft:brown_mushroom_block",
+      "readable": "Brown Mushroom Block",
+      "texture": "23cce198b71f5baf.png"
+    },
+    {
+      "id": "minecraft:red_mushroom_block",
+      "readable": "Red Mushroom Block",
+      "texture": "d9439becf783b8d7.png"
+    },
+    {
+      "id": "minecraft:nether_wart_block",
+      "readable": "Nether Wart Block",
+      "texture": "820155b25ca04d11.png"
+    },
+    {
+      "id": "minecraft:oak_sapling",
+      "readable": "Oak Sapling",
+      "texture": "c7a7fb1f5d89bdb4.png"
+    },
+    {
+      "id": "minecraft:spruce_sapling",
+      "readable": "Spruce Sapling",
+      "texture": "e0129d1a7cf446c7.png"
+    },
+    {
+      "id": "minecraft:birch_sapling",
+      "readable": "Birch Sapling",
+      "texture": "77d4fe0bc30cad0c.png"
+    },
+    {
+      "id": "minecraft:jungle_sapling",
+      "readable": "Jungle Sapling",
+      "texture": "bdbb3676d9b36286.png"
+    },
+    {
+      "id": "minecraft:acacia_sapling",
+      "readable": "Acacia Sapling",
+      "texture": "6f4051c3afc4b94c.png"
+    },
+    {
+      "id": "minecraft:dark_oak_sapling",
+      "readable": "Dark Oak Sapling",
+      "texture": "892df1281c06d40a.png"
+    },
+    {
+      "id": "minecraft:brown_mushroom",
+      "readable": "Brown Mushroom",
+      "texture": "427c3845eb3d84be.png"
+    },
+    {
+      "id": "minecraft:red_mushroom",
+      "readable": "Red Mushroom",
+      "texture": "9baa6ee9f9468afa.png"
+    },
+    {
+      "id": "minecraft:fern",
+      "readable": "Fern",
+      "texture": "93018180b4012187.png"
+    },
+    {
+      "id": "minecraft:dead_bush",
+      "readable": "Dead Bush",
+      "texture": "293106ac0e5fa632.png"
+    },
+    {
+      "id": "minecraft:dandelion",
+      "readable": "Dandelion",
+      "texture": "e2e3f0d47902bff3.png"
+    },
+    {
+      "id": "minecraft:poppy",
+      "readable": "Poppy",
+      "texture": "eb08d3ebdc1bc5ba.png"
+    },
+    {
+      "id": "minecraft:blue_orchid",
+      "readable": "Blue Orchid",
+      "texture": "0cc6fdbc501f3bcf.png"
+    },
+    {
+      "id": "minecraft:allium",
+      "readable": "Allium",
+      "texture": "63f04c1b851e9f67.png"
+    },
+    {
+      "id": "minecraft:azure_bluet",
+      "readable": "Azure Bluet",
+      "texture": "d5ed064e1ea69d99.png"
+    },
+    {
+      "id": "minecraft:red_tulip",
+      "readable": "Red Tulip",
+      "texture": "3b02d8dba52741ff.png"
+    },
+    {
+      "id": "minecraft:orange_tulip",
+      "readable": "Orange Tulip",
+      "texture": "6e8a7910029cace4.png"
+    },
+    {
+      "id": "minecraft:white_tulip",
+      "readable": "White Tulip",
+      "texture": "d7ea5eda9b6d83a4.png"
+    },
+    {
+      "id": "minecraft:pink_tulip",
+      "readable": "Pink Tulip",
+      "texture": "683f189c0c6f3fb1.png"
+    },
+    {
+      "id": "minecraft:oxeye_daisy",
+      "readable": "Oxeye Daisy",
+      "texture": "30c12f3e8c2e18b3.png"
+    },
+    {
+      "id": "minecraft:cornflower",
+      "readable": "Cornflower",
+      "texture": "68901b93e3919f4d.png"
+    },
+    {
+      "id": "minecraft:lily_of_the_valley",
+      "readable": "Lily of the Valley",
+      "texture": "e776ff28be6a26f2.png"
+    },
+    {
+      "id": "minecraft:wither_rose",
+      "readable": "Wither Rose",
+      "texture": "9b0dfde660782061.png"
+    },
+    {
+      "id": "minecraft:bamboo",
+      "readable": "Bamboo",
+      "texture": "a3a1bbdff7d87882.png"
+    },
+    {
+      "id": "minecraft:sugar_cane",
+      "readable": "Sugar Canes",
+      "texture": "f537888cd778c617.png"
+    },
+    {
+      "id": "minecraft:cactus",
+      "readable": "Cactus",
+      "texture": "e488537e9aee837e.png"
+    },
+    {
+      "id": "minecraft:vine",
+      "readable": "Vines",
+      "texture": "543767d8e0afc9ec.png"
+    },
+    {
+      "id": "minecraft:tall_grass",
+      "readable": "Double Tallgrass",
+      "texture": "f9214f995f3b5990.png"
+    },
+    {
+      "id": "minecraft:large_fern",
+      "readable": "Large Fern",
+      "texture": "950b716d7c736413.png"
+    },
+    {
+      "id": "minecraft:sunflower",
+      "readable": "Sunflower",
+      "texture": "e9dfb34bfb9d0cac.png"
+    },
+    {
+      "id": "minecraft:lilac",
+      "readable": "Lilac",
+      "texture": "2bf10f7bf932bafd.png"
+    },
+    {
+      "id": "minecraft:rose_bush",
+      "readable": "Rose Bush",
+      "texture": "8f6c2bd4b7ab5c4a.png"
+    },
+    {
+      "id": "minecraft:peony",
+      "readable": "Peony",
+      "texture": "e90915b88156ffdf.png"
+    },
+    {
+      "id": "minecraft:chorus_plant",
+      "readable": "Chorus Plant",
+      "texture": "24693ba5d9385bba.png"
+    },
+    {
+      "id": "minecraft:chorus_flower",
+      "readable": "Chorus Flower",
+      "texture": "4d50c9a13aadc8ee.png"
+    },
+    {
+      "id": "minecraft:turtle_egg",
+      "readable": "Turtle Egg",
+      "texture": "00ed1a1918bb05ae.png"
+    },
+    {
+      "id": "minecraft:wheat_seeds",
+      "readable": "Wheat Seeds",
+      "texture": "59457d2abe6ad7ef.png"
+    },
+    {
+      "id": "minecraft:cocoa_beans",
+      "readable": "Cocoa Beans",
+      "texture": "30523f9f940ab5cb.png"
+    },
+    {
+      "id": "minecraft:pumpkin_seeds",
+      "readable": "Pumpkin Seeds",
+      "texture": "874209c005fc1445.png"
+    },
+    {
+      "id": "minecraft:melon_seeds",
+      "readable": "Melon Seeds",
+      "texture": "729ced93e8e01d53.png"
+    },
+    {
+      "id": "minecraft:beetroot_seeds",
+      "readable": "Beetroot Seeds",
+      "texture": "a0988caedd3387e4.png"
+    },
+    {
+      "id": "minecraft:sweet_berries",
+      "readable": "Sweet Berries",
+      "texture": "a968c6461f957685.png"
+    },
+    {
+      "id": "minecraft:nether_wart",
+      "readable": "Nether Wart",
+      "texture": "bdf45f8aa0edf9a7.png"
+    },
+    {
+      "id": "minecraft:lily_pad",
+      "readable": "Lily Pad",
+      "texture": "2a90ccf7bfc5b059.png"
+    },
+    {
+      "id": "minecraft:seagrass",
+      "readable": "Sea Grass",
+      "texture": "048b7dab52b625ed.png"
+    },
+    {
+      "id": "minecraft:sea_pickle",
+      "readable": "Sea Pickle",
+      "texture": "2af9a0bb643f25d0.png"
+    },
+    {
+      "id": "minecraft:kelp",
+      "readable": "Kelp",
+      "texture": "0b6b44f36e2c609b.png"
+    },
+    {
+      "id": "minecraft:dried_kelp_block",
+      "readable": "Dried Kelp Block",
+      "texture": "812848455661aa56.png"
+    },
+    {
+      "id": "minecraft:tube_coral_block",
+      "readable": "Tube Coral Block",
+      "texture": "a9e9bbaa4a86421b.png"
+    },
+    {
+      "id": "minecraft:brain_coral_block",
+      "readable": "Brain Coral Block",
+      "texture": "a57df76677880df6.png"
+    },
+    {
+      "id": "minecraft:bubble_coral_block",
+      "readable": "Bubble Coral Block",
+      "texture": "0008ba9ea71ee998.png"
+    },
+    {
+      "id": "minecraft:fire_coral_block",
+      "readable": "Fire Coral Block",
+      "texture": "ce250f2d8bcc0fa9.png"
+    },
+    {
+      "id": "minecraft:horn_coral_block",
+      "readable": "Horn Coral block",
+      "texture": "1801b23f44ca69a1.png"
+    },
+    {
+      "id": "minecraft:dead_tube_coral_block",
+      "readable": "Dead Tube Coral Block",
+      "texture": "bc509fb0c2d54472.png"
+    },
+    {
+      "id": "minecraft:dead_brain_coral_block",
+      "readable": "Dead Brain Coral Block",
+      "texture": "8a96105fb7887a72.png"
+    },
+    {
+      "id": "minecraft:dead_bubble_coral_block",
+      "readable": "Dead Bubble Coral Block",
+      "texture": "b6239b9d692862e5.png"
+    },
+    {
+      "id": "minecraft:dead_fire_coral_block",
+      "readable": "Dead Fire Coral Block",
+      "texture": "f023d2e9ef306468.png"
+    },
+    {
+      "id": "minecraft:dead_horn_coral_block",
+      "readable": "Dead Horn Coral Block",
+      "texture": "d990cc8dc357b41e.png"
+    },
+    {
+      "id": "minecraft:tube_coral",
+      "readable": "Tube Coral",
+      "texture": "fe33903d3fea26d7.png"
+    },
+    {
+      "id": "minecraft:brain_coral",
+      "readable": "Brain Coral",
+      "texture": "73e3f803381031ac.png"
+    },
+    {
+      "id": "minecraft:bubble_coral",
+      "readable": "Bubble Coral",
+      "texture": "ca1f741499141096.png"
+    },
+    {
+      "id": "minecraft:fire_coral",
+      "readable": "Fire Coral",
+      "texture": "9eec1bef57acd629.png"
+    },
+    {
+      "id": "minecraft:horn_coral",
+      "readable": "Horn Coral",
+      "texture": "2176732c50530630.png"
+    },
+    {
+      "id": "minecraft:dead_tube_coral",
+      "readable": "Dead Tube Coral",
+      "texture": "6d98b10fc6237633.png"
+    },
+    {
+      "id": "minecraft:dead_brain_coral",
+      "readable": "Dead Brain Coral",
+      "texture": "f68ab5109de4393b.png"
+    },
+    {
+      "id": "minecraft:dead_bubble_coral",
+      "readable": "Dead Bubble Coral",
+      "texture": "2a62ae01f2803f62.png"
+    },
+    {
+      "id": "minecraft:dead_fire_coral",
+      "readable": "Dead Fire Coral",
+      "texture": "bb00a14527ed6ee6.png"
+    },
+    {
+      "id": "minecraft:dead_horn_coral",
+      "readable": "Dead Horn Coral",
+      "texture": "94bae0072b2aa025.png"
+    },
+    {
+      "id": "minecraft:tube_coral_fan",
+      "readable": "Tube Coral Fan",
+      "texture": "b34609f2bf64c00c.png"
+    },
+    {
+      "id": "minecraft:brain_coral_fan",
+      "readable": "Brain Coral Fan",
+      "texture": "7c2032a694733e4b.png"
+    },
+    {
+      "id": "minecraft:bubble_coral_fan",
+      "readable": "Bubble Coral Fan",
+      "texture": "b80e413734bbc541.png"
+    },
+    {
+      "id": "minecraft:fire_coral_fan",
+      "readable": "Fire Coral Fan",
+      "texture": "6f4d5a7f40b46e5c.png"
+    },
+    {
+      "id": "minecraft:horn_coral_fan",
+      "readable": "Horn Coral Fan",
+      "texture": "e4ab27e58cbb0204.png"
+    },
+    {
+      "id": "minecraft:dead_tube_coral_fan",
+      "readable": "Dead Tube Coral Fan",
+      "texture": "67855eb5582b336d.png"
+    },
+    {
+      "id": "minecraft:dead_brain_coral_fan",
+      "readable": "Dead Brain Coral Fan",
+      "texture": "5b3e9da0f1c90dd0.png"
+    },
+    {
+      "id": "minecraft:dead_bubble_coral_fan",
+      "readable": "Dead Bubble Coral Fan",
+      "texture": "ba14122108b44433.png"
+    },
+    {
+      "id": "minecraft:dead_fire_coral_fan",
+      "readable": "Dead Fire Coral Fan",
+      "texture": "2f2313c13c2177a4.png"
+    },
+    {
+      "id": "minecraft:dead_horn_coral_fan",
+      "readable": "Dead Horn Coral Fan",
+      "texture": "3f350086bdf8c215.png"
+    },
+    {
+      "id": "minecraft:sponge",
+      "readable": "Sponge",
+      "texture": "6eee2361e94d0493.png"
+    },
+    {
+      "id": "minecraft:wet_sponge",
+      "readable": "Wet Sponge",
+      "texture": "eb3a3d844b9366c8.png"
+    },
+    {
+      "id": "minecraft:melon",
+      "readable": "Melon",
+      "texture": "d8f24930f9607932.png"
+    },
+    {
+      "id": "minecraft:pumpkin",
+      "readable": "Pumpkin",
+      "texture": "043735669aed40cc.png"
+    },
+    {
+      "id": "minecraft:carved_pumpkin",
+      "readable": "Carved Pumpkin",
+      "texture": "501a5ca5d0ec3b66.png"
+    },
+    {
+      "id": "minecraft:jack_o_lantern",
+      "readable": "Jack o'Lantern",
+      "texture": "ae4a35437025f6c0.png"
+    },
+    {
+      "id": "minecraft:hay_block",
+      "readable": "Hay Bale",
+      "texture": "d122d6b3f0eda17b.png"
+    },
+    {
+      "id": "minecraft:bee_nest",
+      "readable": "Bee Nest",
+      "texture": "0efdf6a71af40d64.png"
+    },
+    {
+      "id": "minecraft:honeycomb_block",
+      "readable": "Honeycomb Block",
+      "texture": "a1de1c0f8b0e8b91.png"
+    },
+    {
+      "id": "minecraft:slime_block",
+      "readable": "Slime Block",
+      "texture": "eb1476144866bedb.png"
+    },
+    {
+      "id": "minecraft:honey_block",
+      "readable": "Honey Block",
+      "texture": "7a1ccf72fbbb3992.png"
+    },
+    {
+      "id": "minecraft:cobweb",
+      "readable": "Cobweb",
+      "texture": "2dbf04f669825660.png"
+    },
+    {
+      "id": "minecraft:bedrock",
+      "readable": "Bedrock",
+      "texture": "3eae2ed9c05713c5.png"
+    },
+    {
+      "id": "minecraft:torch",
+      "readable": "Torch",
+      "texture": "4f083473972f4e32.png"
+    },
+    {
+      "id": "minecraft:redstone_torch",
+      "readable": "Redstone Torch",
+      "texture": "511b853532c03243.png"
+    },
+    {
+      "id": "minecraft:lantern",
+      "readable": "Lantern",
+      "texture": "0a4f906875906931.png"
+    },
+    {
+      "id": "minecraft:end_rod",
+      "readable": "End Rod",
+      "texture": "4dc37be73100ca87.png"
+    },
+    {
+      "id": "minecraft:redstone_lamp",
+      "readable": "Redstone Lamp",
+      "texture": "a289426e5272264e.png"
+    },
+    {
+      "id": "minecraft:crafting_table",
+      "readable": "Crafting Table",
+      "texture": "a241ccf2ecdce020.png"
+    },
+    {
+      "id": "minecraft:stonecutter",
+      "readable": "Stonecutter",
+      "texture": "3275e1997fbc4957.png"
+    },
+    {
+      "id": "minecraft:cartography_table",
+      "readable": "Cartography Table",
+      "texture": "fa623aad3b61a9fd.png"
+    },
+    {
+      "id": "minecraft:fletching_table",
+      "readable": "Fletching Table",
+      "texture": "f5aa75b648794974.png"
+    },
+    {
+      "id": "minecraft:smithing_table",
+      "readable": "Smithing Table",
+      "texture": "6e9a68ecb5005075.png"
+    },
+    {
+      "id": "minecraft:grindstone",
+      "readable": "Grindstone",
+      "texture": "9b4972fb24b29c64.png"
+    },
+    {
+      "id": "minecraft:loom",
+      "readable": "Loom",
+      "texture": "eb7fee7b1b35c3dd.png"
+    },
+    {
+      "id": "minecraft:furnace",
+      "readable": "Furnace",
+      "texture": "f01adb56e08f8d6e.png"
+    },
+    {
+      "id": "minecraft:smoker",
+      "readable": "Smoker",
+      "texture": "b0b56de2acd76a09.png"
+    },
+    {
+      "id": "minecraft:blast_furnace",
+      "readable": "Blast Furnace",
+      "texture": "51bac93b63b8b494.png"
+    },
+    {
+      "id": "minecraft:campfire",
+      "readable": "Campfire",
+      "texture": "20bdeb9aae00faf7.png"
+    },
+    {
+      "id": "minecraft:anvil",
+      "readable": "Anvil",
+      "texture": "84357a873ab90de2.png"
+    },
+    {
+      "id": "minecraft:chipped_anvil",
+      "readable": "Chipped Anvil",
+      "texture": "87d36b138ed77403.png"
+    },
+    {
+      "id": "minecraft:damaged_anvil",
+      "readable": "Damaged Anvil",
+      "texture": "8643907b89e567b2.png"
+    },
+    {
+      "id": "minecraft:composter",
+      "readable": "Composter",
+      "texture": "74d2f7ffca28fda4.png"
+    },
+    {
+      "id": "minecraft:note_block",
+      "readable": "Note Block",
+      "texture": "28bd33ba635bbba0.png"
+    },
+    {
+      "id": "minecraft:jukebox",
+      "readable": "Jukebox",
+      "texture": "10d31d44c9a3952f.png"
+    },
+    {
+      "id": "minecraft:enchanting_table",
+      "readable": "Enchantment Table",
+      "texture": "c56de23f289b4ead.png"
+    },
+    {
+      "id": "minecraft:end_crystal",
+      "readable": "End Crystal",
+      "texture": "b9017962f2006715.png"
+    },
+    {
+      "id": "minecraft:brewing_stand",
+      "readable": "Brewing Stand",
+      "texture": "a11bbfab04693501.png"
+    },
+    {
+      "id": "minecraft:cauldron",
+      "readable": "Cauldron",
+      "texture": "97fc4b54df52d59f.png"
+    },
+    {
+      "id": "minecraft:bell",
+      "readable": "Bell",
+      "texture": "925c4a39ab4750ca.png"
+    },
+    {
+      "id": "minecraft:beacon",
+      "readable": "Beacon",
+      "texture": "2ac07d97d74e0ad2.png"
+    },
+    {
+      "id": "minecraft:conduit",
+      "readable": "Conduit",
+      "texture": "a2ccb2d7f8e26c21.png"
+    },
+    {
+      "id": "minecraft:ladder",
+      "readable": "Ladder",
+      "texture": "af55baa0f83f5025.png"
+    },
+    {
+      "id": "minecraft:scaffolding",
+      "readable": "Scaffolding",
+      "texture": "cb3e4ba84d6f64cf.png"
+    },
+    {
+      "id": "minecraft:beehive",
+      "readable": "Beehive",
+      "texture": "865a78f106006c85.png"
+    },
+    {
+      "id": "minecraft:flower_pot",
+      "readable": "Flower Pot",
+      "texture": "ea6d3262262d2fee.png"
+    },
+    {
+      "id": "minecraft:armor_stand",
+      "readable": "Armor Stand",
+      "texture": "e993d2d2c8089d8d.png"
+    },
+    {
+      "id": "minecraft:item_frame",
+      "readable": "Item Frame",
+      "texture": "4c6a1d87e53590f6.png"
+    },
+    {
+      "id": "minecraft:painting",
+      "readable": "Painting",
+      "texture": "e318585cd65f9a8f.png"
+    },
+    {
+      "id": "minecraft:bookshelf",
+      "readable": "Bookshelf",
+      "texture": "f4b9d3204cf9c91e.png"
+    },
+    {
+      "id": "minecraft:lectern",
+      "readable": "Lectern",
+      "texture": "510b3b66cce0c388.png"
+    },
+    {
+      "id": "minecraft:oak_sign",
+      "readable": "Oak Sign",
+      "texture": "2dff2540bd52eb63.png"
+    },
+    {
+      "id": "minecraft:spruce_sign",
+      "readable": "Spruce Sign",
+      "texture": "33f757650209ccfc.png"
+    },
+    {
+      "id": "minecraft:birch_sign",
+      "readable": "Birch Sign",
+      "texture": "5777a017ef847f55.png"
+    },
+    {
+      "id": "minecraft:jungle_sign",
+      "readable": "Jungle Sign",
+      "texture": "f56752255132c82d.png"
+    },
+    {
+      "id": "minecraft:acacia_sign",
+      "readable": "Acacia Sign",
+      "texture": "3cd3f239523a7369.png"
+    },
+    {
+      "id": "minecraft:dark_oak_sign",
+      "readable": "Dark Oak Sign",
+      "texture": "215154c1146aaec8.png"
+    },
+    {
+      "id": "minecraft:chest",
+      "readable": "Chest",
+      "texture": "808c5cde654de0cf.png"
+    },
+    {
+      "id": "minecraft:barrel",
+      "readable": "Barrel",
+      "texture": "987e8d41eff9baaa.png"
+    },
+    {
+      "id": "minecraft:ender_chest",
+      "readable": "Ender Chest",
+      "texture": "ab40cbc28ebf709f.png"
+    },
+    {
+      "id": "minecraft:skeleton_skull",
+      "readable": "Skeleton Skull",
+      "texture": "2ee37e78182228b8.png"
+    },
+    {
+      "id": "minecraft:wither_skeleton_skull",
+      "readable": "Wither Skeleton Skull",
+      "texture": "3ecac0eda08c8fff.png"
+    },
+    {
+      "id": "minecraft:player_head",
+      "readable": "Player Head",
+      "texture": "1fe2ac5f7b4a2710.png"
+    },
+    {
+      "id": "minecraft:zombie_head",
+      "readable": "Zombie Head",
+      "texture": "901655bd4f3556be.png"
+    },
+    {
+      "id": "minecraft:creeper_head",
+      "readable": "Creeper Head",
+      "texture": "ccea093c78f9ca49.png"
+    },
+    {
+      "id": "minecraft:dragon_head",
+      "readable": "Ender Dragon Head",
+      "texture": "13cec83675c5c178.png"
+    },
+    {
+      "id": "minecraft:dragon_egg",
+      "readable": "Dragon Egg",
+      "texture": "15743954fd279b9c.png"
+    },
+    {
+      "id": "minecraft:end_portal_frame",
+      "readable": "End Portal Frame",
+      "texture": "a1fda2a8e065fe25.png"
+    },
+    {
+      "id": "minecraft:ender_eye",
+      "readable": "Eye of Ender",
+      "texture": "b4d38b47bad546c3.png"
+    },
+    {
+      "id": "minecraft:infested_stone",
+      "readable": "Stone Monster Egg",
+      "texture": "e971e2387fc3c288.png"
+    },
+    {
+      "id": "minecraft:infested_cobblestone",
+      "readable": "Cobblestone Monster Egg",
+      "texture": "a8e0b73887be3704.png"
+    },
+    {
+      "id": "minecraft:infested_stone_bricks",
+      "readable": "Stone Brick Monster Egg",
+      "texture": "1edbe86832a9977b.png"
+    },
+    {
+      "id": "minecraft:infested_mossy_stone_bricks",
+      "readable": "Mossy Stone Brick Monster Egg",
+      "texture": "11a003b86b5e6026.png"
+    },
+    {
+      "id": "minecraft:infested_cracked_stone_bricks",
+      "readable": "Cracked Stone Brick Monster Egg",
+      "texture": "d51886e8f8d52ca1.png"
+    },
+    {
+      "id": "minecraft:infested_chiseled_stone_bricks",
+      "readable": "Chiseled Stone Brick Monster Egg",
+      "texture": "05ff3b29595e0454.png"
+    },
+    {
+      "id": "minecraft:redstone",
+      "readable": "Redstone",
+      "texture": "6787a6a7a652730a.png"
+    },
+    {
+      "id": "minecraft:repeater",
+      "readable": "Redstone Repeater",
+      "texture": "d7c9fdebe6ed44a0.png"
+    },
+    {
+      "id": "minecraft:comparator",
+      "readable": "Redstone Comparator",
+      "texture": "9b9acf58d4ca4c8a.png"
+    },
+    {
+      "id": "minecraft:lever",
+      "readable": "Lever",
+      "texture": "5e438e485d42c999.png"
+    },
+    {
+      "id": "minecraft:tripwire_hook",
+      "readable": "Tripwire Hook",
+      "texture": "252144ec5efcf5a4.png"
+    },
+    {
+      "id": "minecraft:string",
+      "readable": "String",
+      "texture": "44f178af33dc3b81.png"
+    },
+    {
+      "id": "minecraft:daylight_detector",
+      "readable": "Daylight Sensor",
+      "texture": "fd2f901ecd0a892d.png"
+    },
+    {
+      "id": "minecraft:piston",
+      "readable": "Piston",
+      "texture": "e270cd97f820c69e.png"
+    },
+    {
+      "id": "minecraft:sticky_piston",
+      "readable": "Sticky Piston",
+      "texture": "d43e43ad47e922bb.png"
+    },
+    {
+      "id": "minecraft:dispenser",
+      "readable": "Dispenser",
+      "texture": "65b3b1adb6006464.png"
+    },
+    {
+      "id": "minecraft:dropper",
+      "readable": "Dropper",
+      "texture": "9719a9a09abc9b5c.png"
+    },
+    {
+      "id": "minecraft:hopper",
+      "readable": "Hopper",
+      "texture": "a2c7f1ffdf4667af.png"
+    },
+    {
+      "id": "minecraft:trapped_chest",
+      "readable": "Trapped Chest",
+      "texture": "808c5cde654de0cf.png"
+    },
+    {
+      "id": "minecraft:observer",
+      "readable": "Observer",
+      "texture": "dbafef4ca4737290.png"
+    },
+    {
+      "id": "minecraft:rail",
+      "readable": "Rail",
+      "texture": "6b4aa661061041c7.png"
+    },
+    {
+      "id": "minecraft:powered_rail",
+      "readable": "Powered Rail",
+      "texture": "5148483acab51787.png"
+    },
+    {
+      "id": "minecraft:detector_rail",
+      "readable": "Detector Rail",
+      "texture": "7961f18db7822799.png"
+    },
+    {
+      "id": "minecraft:activator_rail",
+      "readable": "Activator Rail",
+      "texture": "07b119d23b419ff6.png"
+    },
+    {
+      "id": "minecraft:minecart",
+      "readable": "Minecart",
+      "texture": "bd127b8ba021795f.png"
+    },
+    {
+      "id": "minecraft:hopper_minecart",
+      "readable": "Minecart with Hopper",
+      "texture": "f5fe42000b98cccc.png"
+    },
+    {
+      "id": "minecraft:chest_minecart",
+      "readable": "Minecart with Chest",
+      "texture": "33f2fbaa9552280b.png"
+    },
+    {
+      "id": "minecraft:furnace_minecart",
+      "readable": "Minecart with Furnace",
+      "texture": "f920554503578505.png"
+    },
+    {
+      "id": "minecraft:tnt_minecart",
+      "readable": "Minecart with TNT",
+      "texture": "76825cc9ae428adf.png"
+    },
+    {
+      "id": "minecraft:tnt",
+      "readable": "TNT",
+      "texture": "047c09bb59c39876.png"
+    },
+    {
+      "id": "minecraft:wooden_shovel",
+      "readable": "Wooden Shovel",
+      "texture": "3ff8f1d6a74cd150.png"
+    },
+    {
+      "id": "minecraft:wooden_pickaxe",
+      "readable": "Wooden Pickaxe",
+      "texture": "851498e7ebde65f7.png"
+    },
+    {
+      "id": "minecraft:wooden_axe",
+      "readable": "Wooden Axe",
+      "texture": "9678b960d611b072.png"
+    },
+    {
+      "id": "minecraft:wooden_hoe",
+      "readable": "Wooden Hoe",
+      "texture": "7d5f068f32535b60.png"
+    },
+    {
+      "id": "minecraft:stone_shovel",
+      "readable": "Stone Shovel",
+      "texture": "72288cc5c366ea1f.png"
+    },
+    {
+      "id": "minecraft:stone_pickaxe",
+      "readable": "Stone Pickaxe",
+      "texture": "a317ad15c1391d3b.png"
+    },
+    {
+      "id": "minecraft:stone_axe",
+      "readable": "Stone Axe",
+      "texture": "3978a8f3b209958b.png"
+    },
+    {
+      "id": "minecraft:stone_hoe",
+      "readable": "Stone Hoe",
+      "texture": "0a300fe27287728d.png"
+    },
+    {
+      "id": "minecraft:iron_shovel",
+      "readable": "Iron Shovel",
+      "texture": "8ef257d4e5fea3d6.png"
+    },
+    {
+      "id": "minecraft:iron_pickaxe",
+      "readable": "Iron Pickaxe",
+      "texture": "b76d2b103aa6d511.png"
+    },
+    {
+      "id": "minecraft:iron_axe",
+      "readable": "Iron Axe",
+      "texture": "8b1611e5bdd8b301.png"
+    },
+    {
+      "id": "minecraft:iron_hoe",
+      "readable": "Iron Hoe",
+      "texture": "d2f473287960cdac.png"
+    },
+    {
+      "id": "minecraft:golden_shovel",
+      "readable": "Golden Shovel",
+      "texture": "83da1148871611a9.png"
+    },
+    {
+      "id": "minecraft:golden_pickaxe",
+      "readable": "Golden Pickaxe",
+      "texture": "79d5da849e7951bc.png"
+    },
+    {
+      "id": "minecraft:golden_axe",
+      "readable": "Golden Axe",
+      "texture": "101b18cb488d4df4.png"
+    },
+    {
+      "id": "minecraft:golden_hoe",
+      "readable": "Golden Hoe",
+      "texture": "37b8cdcbc1db6859.png"
+    },
+    {
+      "id": "minecraft:diamond_shovel",
+      "readable": "Diamond Shovel",
+      "texture": "c237ce00109dd605.png"
+    },
+    {
+      "id": "minecraft:diamond_pickaxe",
+      "readable": "Diamond Pickaxe",
+      "texture": "6b775788df4dea56.png"
+    },
+    {
+      "id": "minecraft:diamond_axe",
+      "readable": "Diamond Axe",
+      "texture": "170dc407796b2a74.png"
+    },
+    {
+      "id": "minecraft:diamond_hoe",
+      "readable": "Diamond Hoe",
+      "texture": "2c92b85f30d85b08.png"
+    },
+    {
+      "id": "minecraft:bucket",
+      "readable": "Bucket",
+      "texture": "1201d66921f5dad7.png"
+    },
+    {
+      "id": "minecraft:water_bucket",
+      "readable": "Water Bucket",
+      "texture": "6765944b617c10ff.png"
+    },
+    {
+      "id": "minecraft:cod_bucket",
+      "readable": "Cod Bucket",
+      "texture": "6b6cb61884ed74a5.png"
+    },
+    {
+      "id": "minecraft:salmon_bucket",
+      "readable": "Salmon Bucket",
+      "texture": "591b3520b0695b60.png"
+    },
+    {
+      "id": "minecraft:tropical_fish_bucket",
+      "readable": "Tropical Fish Bucket",
+      "texture": "8f38b62d0e2438fa.png"
+    },
+    {
+      "id": "minecraft:pufferfish_bucket",
+      "readable": "Pufferfish Bucket",
+      "texture": "6ad9f31e0f3c29fa.png"
+    },
+    {
+      "id": "minecraft:lava_bucket",
+      "readable": "Lava Bucket",
+      "texture": "59e97fe53113ef11.png"
+    },
+    {
+      "id": "minecraft:milk_bucket",
+      "readable": "Milk Bucket",
+      "texture": "ee584cf2ea1ee202.png"
+    },
+    {
+      "id": "minecraft:fishing_rod",
+      "readable": "Fishing Rod",
+      "texture": "c7c5310a10ca0060.png"
+    },
+    {
+      "id": "minecraft:flint_and_steel",
+      "readable": "Flint and Steel",
+      "texture": "ef62ed22e4860201.png"
+    },
+    {
+      "id": "minecraft:fire_charge",
+      "readable": "Fire Charge",
+      "texture": "ac2cfc2a4595914c.png"
+    },
+    {
+      "id": "minecraft:bone_meal",
+      "readable": "Bone Meal",
+      "texture": "f72da1023197e22d.png"
+    },
+    {
+      "id": "minecraft:shears",
+      "readable": "Shears",
+      "texture": "211bbc7583c1db2a.png"
+    },
+    {
+      "id": "minecraft:name_tag",
+      "readable": "Name Tag",
+      "texture": "7d8175b2330f1e13.png"
+    },
+    {
+      "id": "minecraft:lead",
+      "readable": "Lead",
+      "texture": "09d0a5e89f5590bb.png"
+    },
+    {
+      "id": "minecraft:compass",
+      "readable": "Compass",
+      "texture": "5249088a0e3e2b8f.png"
+    },
+    {
+      "id": "minecraft:clock",
+      "readable": "Clock",
+      "texture": "7846ef7751b249b2.png"
+    },
+    {
+      "id": "minecraft:map",
+      "readable": "Empty Map",
+      "texture": "661e81047b53eb72.png"
+    },
+    {
+      "id": "minecraft:writable_book",
+      "readable": "Book and Quill",
+      "texture": "93e71df308b0991f.png"
+    },
+    {
+      "id": "minecraft:ender_pearl",
+      "readable": "Ender Pearl",
+      "texture": "96d19822e2193511.png"
+    },
+    {
+      "id": "minecraft:elytra",
+      "readable": "Elytra",
+      "texture": "43c03039b0d19e7e.png"
+    },
+    {
+      "id": "minecraft:firework_rocket",
+      "readable": "Firework Rocket",
+      "texture": "8548fa01acd13aaa.png"
+    },
+    {
+      "id": "minecraft:saddle",
+      "readable": "Saddle",
+      "texture": "89e2897d5cd9a4c7.png"
+    },
+    {
+      "id": "minecraft:carrot_on_a_stick",
+      "readable": "Carrot on a Stick",
+      "texture": "bb2b205dcf45865a.png"
+    },
+    {
+      "id": "minecraft:oak_boat",
+      "readable": "Oak Boat",
+      "texture": "4e7ad261b2213931.png"
+    },
+    {
+      "id": "minecraft:spruce_boat",
+      "readable": "Spruce Boat",
+      "texture": "9282214bb1a3dd0e.png"
+    },
+    {
+      "id": "minecraft:birch_boat",
+      "readable": "Birch Boat",
+      "texture": "122438d739077647.png"
+    },
+    {
+      "id": "minecraft:jungle_boat",
+      "readable": "Jungle Boat",
+      "texture": "43e1156f30156a77.png"
+    },
+    {
+      "id": "minecraft:acacia_boat",
+      "readable": "Acacia Boat",
+      "texture": "5be3975c3df95c1f.png"
+    },
+    {
+      "id": "minecraft:dark_oak_boat",
+      "readable": "Dark Oak Boat",
+      "texture": "ab90b03a7f54f436.png"
+    },
+    {
+      "id": "minecraft:music_disc_13",
+      "readable": "13 Disc",
+      "texture": "a6011d23f1f52317.png"
+    },
+    {
+      "id": "minecraft:music_disc_cat",
+      "readable": "Cat Disc",
+      "texture": "f7f9ddd4bbed9477.png"
+    },
+    {
+      "id": "minecraft:music_disc_blocks",
+      "readable": "Blocks Disc",
+      "texture": "ceeaedc0248a5ca9.png"
+    },
+    {
+      "id": "minecraft:music_disc_chirp",
+      "readable": "Chirp Disc",
+      "texture": "e3b6eb5ea66fa8b0.png"
+    },
+    {
+      "id": "minecraft:music_disc_far",
+      "readable": "Far Disc",
+      "texture": "474131ebe89c33ea.png"
+    },
+    {
+      "id": "minecraft:music_disc_mall",
+      "readable": "Mall Disc",
+      "texture": "0aca7453ee81cafe.png"
+    },
+    {
+      "id": "minecraft:music_disc_mellohi",
+      "readable": "Mellohi Disc",
+      "texture": "1ef1a3df8006a6a0.png"
+    },
+    {
+      "id": "minecraft:music_disc_stal",
+      "readable": "Stal Disc",
+      "texture": "88321817db5e1936.png"
+    },
+    {
+      "id": "minecraft:music_disc_strad",
+      "readable": "Strad Disc",
+      "texture": "834c47c106e43e04.png"
+    },
+    {
+      "id": "minecraft:music_disc_ward",
+      "readable": "Ward Disc",
+      "texture": "598aa8570646e87a.png"
+    },
+    {
+      "id": "minecraft:music_disc_11",
+      "readable": "11 Disc",
+      "texture": "38ee5f992c6da61d.png"
+    },
+    {
+      "id": "minecraft:music_disc_wait",
+      "readable": "Wait Disc",
+      "texture": "cf622358df211a90.png"
+    },
+    {
+      "id": "minecraft:wooden_sword",
+      "readable": "Wooden Sword",
+      "texture": "1eecad2734f32455.png"
+    },
+    {
+      "id": "minecraft:stone_sword",
+      "readable": "Stone Sword",
+      "texture": "e06762f75e5b5846.png"
+    },
+    {
+      "id": "minecraft:iron_sword",
+      "readable": "Iron Sword",
+      "texture": "7c1ef056408b979b.png"
+    },
+    {
+      "id": "minecraft:golden_sword",
+      "readable": "Golden Sword",
+      "texture": "b7414aac01bf7dc5.png"
+    },
+    {
+      "id": "minecraft:diamond_sword",
+      "readable": "Diamond Sword",
+      "texture": "d3a5bd4424833182.png"
+    },
+    {
+      "id": "minecraft:trident",
+      "readable": "Trident",
+      "texture": "f2ebebf97101c56c.png"
+    },
+    {
+      "id": "minecraft:shield",
+      "readable": "Shield",
+      "texture": "d875543ea819dcc0.png"
+    },
+    {
+      "id": "minecraft:leather_helmet",
+      "readable": "Leather Helmet",
+      "texture": "fecaefc31ef5f925.png"
+    },
+    {
+      "id": "minecraft:leather_chestplate",
+      "readable": "Leather Tunic",
+      "texture": "98ec5d617da87178.png"
+    },
+    {
+      "id": "minecraft:leather_leggings",
+      "readable": "Leather Pants",
+      "texture": "f617784a33129a63.png"
+    },
+    {
+      "id": "minecraft:leather_boots",
+      "readable": "Leather Boots",
+      "texture": "6885152dfd087fcb.png"
+    },
+    {
+      "id": "minecraft:chainmail_helmet",
+      "readable": "Chainmail Helmet",
+      "texture": "e7b09b15ba44d1cc.png"
+    },
+    {
+      "id": "minecraft:chainmail_chestplate",
+      "readable": "Chainmail Chestplate",
+      "texture": "4bf1895d0175e4dc.png"
+    },
+    {
+      "id": "minecraft:chainmail_leggings",
+      "readable": "Chainmail Leggings",
+      "texture": "37a48ebb9b871885.png"
+    },
+    {
+      "id": "minecraft:chainmail_boots",
+      "readable": "Chainmail Boots",
+      "texture": "5e9c8f665aeac470.png"
+    },
+    {
+      "id": "minecraft:iron_helmet",
+      "readable": "Iron Helmet",
+      "texture": "442e53ccfc823e87.png"
+    },
+    {
+      "id": "minecraft:iron_chestplate",
+      "readable": "Iron Chestplate",
+      "texture": "6bf9393a270fbbe6.png"
+    },
+    {
+      "id": "minecraft:iron_leggings",
+      "readable": "Iron Leggings",
+      "texture": "f9210ba17dbde4bc.png"
+    },
+    {
+      "id": "minecraft:iron_boots",
+      "readable": "Iron Boots",
+      "texture": "3d3488c237a38c67.png"
+    },
+    {
+      "id": "minecraft:golden_helmet",
+      "readable": "Golden Helmet",
+      "texture": "14b5fd1614e558ce.png"
+    },
+    {
+      "id": "minecraft:golden_chestplate",
+      "readable": "Golden Chestplate",
+      "texture": "db2db1adcc985ed8.png"
+    },
+    {
+      "id": "minecraft:golden_leggings",
+      "readable": "Golden Leggings",
+      "texture": "56c9bccec1a6f240.png"
+    },
+    {
+      "id": "minecraft:golden_boots",
+      "readable": "Golden Boots",
+      "texture": "8b65e86e7a2a22bf.png"
+    },
+    {
+      "id": "minecraft:diamond_helmet",
+      "readable": "Diamond Helmet",
+      "texture": "025be9fb5c44c51b.png"
+    },
+    {
+      "id": "minecraft:diamond_chestplate",
+      "readable": "Diamond Chestplate",
+      "texture": "806d86b47ba7cb05.png"
+    },
+    {
+      "id": "minecraft:diamond_leggings",
+      "readable": "Diamond Leggings",
+      "texture": "e2ca9d2aaf2675f5.png"
+    },
+    {
+      "id": "minecraft:diamond_boots",
+      "readable": "Diamond Boots",
+      "texture": "27e34de41c3283f7.png"
+    },
+    {
+      "id": "minecraft:turtle_helmet",
+      "readable": "Turtle Shell",
+      "texture": "a39ca6d9aba2653e.png"
+    },
+    {
+      "id": "minecraft:leather_horse_armor",
+      "readable": "Leather Horse Armor",
+      "texture": "b45ca39ff7ce9054.png"
+    },
+    {
+      "id": "minecraft:iron_horse_armor",
+      "readable": "Iron Horse Armor",
+      "texture": "520615e242a4714b.png"
+    },
+    {
+      "id": "minecraft:golden_horse_armor",
+      "readable": "Golden Horse Armor",
+      "texture": "5481719ef9c67249.png"
+    },
+    {
+      "id": "minecraft:diamond_horse_armor",
+      "readable": "Diamond Horse Armor",
+      "texture": "f75f3173b10d663f.png"
+    },
+    {
+      "id": "minecraft:totem_of_undying",
+      "readable": "Totem of Undying",
+      "texture": "d1369893e385efc3.png"
+    },
+    {
+      "id": "minecraft:snowball",
+      "readable": "Snowball",
+      "texture": "4ea054b720bdda35.png"
+    },
+    {
+      "id": "minecraft:egg",
+      "readable": "Egg",
+      "texture": "e602db8f3181149b.png"
+    },
+    {
+      "id": "minecraft:bow",
+      "readable": "Bow",
+      "texture": "e3ca28266fae8ff4.png"
+    },
+    {
+      "id": "minecraft:crossbow",
+      "readable": "Crossbow",
+      "texture": "9e8afcbf443b72f7.png"
+    },
+    {
+      "id": "minecraft:arrow",
+      "readable": "Arrow",
+      "texture": "c892488b6841b20b.png"
+    },
+    {
+      "id": "minecraft:spectral_arrow",
+      "readable": "Spectral Arrow",
+      "texture": "75649ec22d25edaf.png"
+    },
+    {
+      "id": "minecraft:tipped_arrow",
+      "readable": "Tipped Arrow",
+      "texture": "57537b6c13c363ad.png"
+    },
+    {
+      "id": "minecraft:apple",
+      "readable": "Apple",
+      "texture": "3c3b962f4dd0578d.png"
+    },
+    {
+      "id": "minecraft:golden_apple",
+      "readable": "Golden Apple",
+      "texture": "567eaef22b385773.png"
+    },
+    {
+      "id": "minecraft:enchanted_golden_apple",
+      "readable": "Enchanted Golden Apple",
+      "texture": "567eaef22b385773.png"
+    },
+    {
+      "id": "minecraft:melon_slice",
+      "readable": "Melon Slice",
+      "texture": "d6f9ecef5f39be21.png"
+    },
+    {
+      "id": "minecraft:chorus_fruit",
+      "readable": "Chorus Fruit",
+      "texture": "207fa3a455a0efff.png"
+    },
+    {
+      "id": "minecraft:carrot",
+      "readable": "Carrot",
+      "texture": "6a0c16cbe3646f71.png"
+    },
+    {
+      "id": "minecraft:golden_carrot",
+      "readable": "Golden Carrot",
+      "texture": "3aa3e358e8eb7686.png"
+    },
+    {
+      "id": "minecraft:potato",
+      "readable": "Potato",
+      "texture": "4387aad700038951.png"
+    },
+    {
+      "id": "minecraft:baked_potato",
+      "readable": "Baked Potato",
+      "texture": "dcb1d960ce6c7220.png"
+    },
+    {
+      "id": "minecraft:poisonous_potato",
+      "readable": "Poisonous Potato",
+      "texture": "9fff2112dbc9b2fe.png"
+    },
+    {
+      "id": "minecraft:beetroot",
+      "readable": "Beetroot",
+      "texture": "eeee4a3d42858332.png"
+    },
+    {
+      "id": "minecraft:dried_kelp",
+      "readable": "Dried Kelp",
+      "texture": "c4d4407f365efd0f.png"
+    },
+    {
+      "id": "minecraft:beef",
+      "readable": "Raw Beef",
+      "texture": "936d6e2807e31dae.png"
+    },
+    {
+      "id": "minecraft:cooked_beef",
+      "readable": "Steak",
+      "texture": "762369418f06686a.png"
+    },
+    {
+      "id": "minecraft:porkchop",
+      "readable": "Raw Porkchop",
+      "texture": "fe0a75483a30476c.png"
+    },
+    {
+      "id": "minecraft:cooked_porkchop",
+      "readable": "Cooked Porkchop",
+      "texture": "cd403e4480a7212b.png"
+    },
+    {
+      "id": "minecraft:mutton",
+      "readable": "Raw Mutton",
+      "texture": "f868baba2eca02e6.png"
+    },
+    {
+      "id": "minecraft:cooked_mutton",
+      "readable": "Cooked Mutton",
+      "texture": "ec723365980e9ad9.png"
+    },
+    {
+      "id": "minecraft:chicken",
+      "readable": "Raw Chicken",
+      "texture": "48bbd8871379ef66.png"
+    },
+    {
+      "id": "minecraft:cooked_chicken",
+      "readable": "Cooked Chicken",
+      "texture": "2f67b288ad77db69.png"
+    },
+    {
+      "id": "minecraft:rabbit",
+      "readable": "Raw Rabbit",
+      "texture": "1c104bb2b19404b8.png"
+    },
+    {
+      "id": "minecraft:cooked_rabbit",
+      "readable": "Cooked Rabbit",
+      "texture": "46bb8f166fa08d33.png"
+    },
+    {
+      "id": "minecraft:cod",
+      "readable": "Cod",
+      "texture": "f919dd4eaf209fea.png"
+    },
+    {
+      "id": "minecraft:cooked_cod",
+      "readable": "Cooked Cod",
+      "texture": "10c9b995d897dde0.png"
+    },
+    {
+      "id": "minecraft:salmon",
+      "readable": "Salmon",
+      "texture": "34e83f9414fcb817.png"
+    },
+    {
+      "id": "minecraft:cooked_salmon",
+      "readable": "Cooked Salmon",
+      "texture": "5f74a1b8636d931c.png"
+    },
+    {
+      "id": "minecraft:tropical_fish",
+      "readable": "Tropical Fish",
+      "texture": "a2389e42bb8af6c8.png"
+    },
+    {
+      "id": "minecraft:pufferfish",
+      "readable": "Pufferfish",
+      "texture": "92c5bffd29a1e90b.png"
+    },
+    {
+      "id": "minecraft:bread",
+      "readable": "Bread",
+      "texture": "53ec8f1e5e64fdd2.png"
+    },
+    {
+      "id": "minecraft:cookie",
+      "readable": "Cookie",
+      "texture": "c0306dcfdd7dd9a0.png"
+    },
+    {
+      "id": "minecraft:cake",
+      "readable": "Cake",
+      "texture": "bdf01ba8a355cb7a.png"
+    },
+    {
+      "id": "minecraft:pumpkin_pie",
+      "readable": "Pumpkin Pie",
+      "texture": "1ebf9f86f7e0cdfe.png"
+    },
+    {
+      "id": "minecraft:rotten_flesh",
+      "readable": "Rotten Flesh",
+      "texture": "095d97dd32168244.png"
+    },
+    {
+      "id": "minecraft:spider_eye",
+      "readable": "Spider Eye",
+      "texture": "8773c22e74f161fc.png"
+    },
+    {
+      "id": "minecraft:mushroom_stew",
+      "readable": "Mushroom Stew",
+      "texture": "0f35eafff73b867d.png"
+    },
+    {
+      "id": "minecraft:beetroot_soup",
+      "readable": "Beetroot Soup",
+      "texture": "662c7975c40d41e8.png"
+    },
+    {
+      "id": "minecraft:rabbit_stew",
+      "readable": "Rabbit Stew",
+      "texture": "f48e0e9455d4295a.png"
+    },
+    {
+      "id": "minecraft:suspicious_stew",
+      "readable": "Suspicious Stew",
+      "texture": "d49f3279ffa9962d.png"
+    },
+    {
+      "id": "minecraft:honey_bottle",
+      "readable": "Honey Bottle",
+      "texture": "3cd2946d91f49fea.png"
+    },
+    {
+      "id": "minecraft:potion",
+      "readable": "Potion",
+      "texture": "df3c6ef9dd6f32d9.png"
+    },
+    {
+      "id": "minecraft:splash_potion",
+      "readable": "Splash Potion",
+      "texture": "649ef9696c755012.png"
+    },
+    {
+      "id": "minecraft:lingering_potion",
+      "readable": "Lingering Potion",
+      "texture": "c04ee4c12848322c.png"
+    },
+    {
+      "id": "minecraft:coal",
+      "readable": "Coal",
+      "texture": "8b1fee4859b02a97.png"
+    },
+    {
+      "id": "minecraft:charcoal",
+      "readable": "Charcoal",
+      "texture": "3de0a90afe3f4aed.png"
+    },
+    {
+      "id": "minecraft:emerald",
+      "readable": "Emerald",
+      "texture": "d43f9d6e24747a41.png"
+    },
+    {
+      "id": "minecraft:lapis_lazuli",
+      "readable": "Lapis Lazuli",
+      "texture": "46d640cf99e10f2a.png"
+    },
+    {
+      "id": "minecraft:diamond",
+      "readable": "Diamond",
+      "texture": "7c95fecff7902910.png"
+    },
+    {
+      "id": "minecraft:quartz",
+      "readable": "Nether Quartz",
+      "texture": "2463aed850cb2e7b.png"
+    },
+    {
+      "id": "minecraft:iron_nugget",
+      "readable": "Iron Nugget",
+      "texture": "9a666e162ee419dd.png"
+    },
+    {
+      "id": "minecraft:gold_nugget",
+      "readable": "Gold Nugget",
+      "texture": "6a225bf85f4a00ec.png"
+    },
+    {
+      "id": "minecraft:iron_ingot",
+      "readable": "Iron Ingot",
+      "texture": "fa4f4cae42f3ec1d.png"
+    },
+    {
+      "id": "minecraft:gold_ingot",
+      "readable": "Gold Ingot",
+      "texture": "53356c8b62575e1e.png"
+    },
+    {
+      "id": "minecraft:stick",
+      "readable": "Stick",
+      "texture": "97789017c12cd3ae.png"
+    },
+    {
+      "id": "minecraft:flint",
+      "readable": "Flint",
+      "texture": "f5936fa6c760c6f1.png"
+    },
+    {
+      "id": "minecraft:wheat",
+      "readable": "Wheat",
+      "texture": "bfd315101e11d1f9.png"
+    },
+    {
+      "id": "minecraft:bone",
+      "readable": "Bone",
+      "texture": "bfbe3a44a04fa7ca.png"
+    },
+    {
+      "id": "minecraft:feather",
+      "readable": "Feather",
+      "texture": "a8c238a1a057b01e.png"
+    },
+    {
+      "id": "minecraft:leather",
+      "readable": "Leather",
+      "texture": "e75773065d54aabc.png"
+    },
+    {
+      "id": "minecraft:rabbit_hide",
+      "readable": "Rabbit Hide",
+      "texture": "f500b5e5e21c1383.png"
+    },
+    {
+      "id": "minecraft:honeycomb",
+      "readable": "Honeycomb",
+      "texture": "2601fc80f7528160.png"
+    },
+    {
+      "id": "minecraft:ink_sac",
+      "readable": "Ink Sack",
+      "texture": "de094f257a325466.png"
+    },
+    {
+      "id": "minecraft:slime_ball",
+      "readable": "Slimeball",
+      "texture": "d52991577a3a753c.png"
+    },
+    {
+      "id": "minecraft:clay_ball",
+      "readable": "Clay",
+      "texture": "b4530314699341c3.png"
+    },
+    {
+      "id": "minecraft:prismarine_shard",
+      "readable": "Prismarine Shard",
+      "texture": "944a69b60db8dfcf.png"
+    },
+    {
+      "id": "minecraft:prismarine_crystals",
+      "readable": "Prismarine Crystals",
+      "texture": "92509d91f4d9611b.png"
+    },
+    {
+      "id": "minecraft:nautilus_shell",
+      "readable": "Nautilus Shell",
+      "texture": "190d8c2ec33a0a22.png"
+    },
+    {
+      "id": "minecraft:heart_of_the_sea",
+      "readable": "Heart of the Sea",
+      "texture": "b172a72d8f8b502b.png"
+    },
+    {
+      "id": "minecraft:blaze_rod",
+      "readable": "Blaze Rod",
+      "texture": "bd4277d53a7c833d.png"
+    },
+    {
+      "id": "minecraft:nether_star",
+      "readable": "Nether Star",
+      "texture": "8ad8167e0ea7203e.png"
+    },
+    {
+      "id": "minecraft:shulker_shell",
+      "readable": "Shulker Shell",
+      "texture": "d4819b71de9c2c86.png"
+    },
+    {
+      "id": "minecraft:popped_chorus_fruit",
+      "readable": "Popped Chorus Fruit",
+      "texture": "0390905b98f4321f.png"
+    },
+    {
+      "id": "minecraft:white_dye",
+      "readable": "White Dye",
+      "texture": "1ae80f02a4dd5a1e.png"
+    },
+    {
+      "id": "minecraft:light_gray_dye",
+      "readable": "Light Gray Dye",
+      "texture": "b674a6fdd8df4e33.png"
+    },
+    {
+      "id": "minecraft:gray_dye",
+      "readable": "Gray Dye",
+      "texture": "334309724f687371.png"
+    },
+    {
+      "id": "minecraft:black_dye",
+      "readable": "Black Dye",
+      "texture": "551dd59f5f8e2072.png"
+    },
+    {
+      "id": "minecraft:brown_dye",
+      "readable": "Brown Dye",
+      "texture": "371230efbd9391e4.png"
+    },
+    {
+      "id": "minecraft:red_dye",
+      "readable": "Red Dye",
+      "texture": "bc677e8661000e5d.png"
+    },
+    {
+      "id": "minecraft:orange_dye",
+      "readable": "Orange Dye",
+      "texture": "388378f204280c3a.png"
+    },
+    {
+      "id": "minecraft:yellow_dye",
+      "readable": "Yellow Dye",
+      "texture": "c9d31fbaee1c3811.png"
+    },
+    {
+      "id": "minecraft:lime_dye",
+      "readable": "Lime Dye",
+      "texture": "d50aa3eba722e4f4.png"
+    },
+    {
+      "id": "minecraft:green_dye",
+      "readable": "Green Dye",
+      "texture": "77d19523cea0132f.png"
+    },
+    {
+      "id": "minecraft:cyan_dye",
+      "readable": "Cyan Dye",
+      "texture": "63baaa9bb6c1fc69.png"
+    },
+    {
+      "id": "minecraft:light_blue_dye",
+      "readable": "Light Blue Dye",
+      "texture": "d205338a1816bdeb.png"
+    },
+    {
+      "id": "minecraft:blue_dye",
+      "readable": "Blue Dye",
+      "texture": "c9edb7689dae3b43.png"
+    },
+    {
+      "id": "minecraft:purple_dye",
+      "readable": "Purple Dye",
+      "texture": "3baea652c8b6287c.png"
+    },
+    {
+      "id": "minecraft:magenta_dye",
+      "readable": "Magenta Dye",
+      "texture": "3a8cd4e56930dd03.png"
+    },
+    {
+      "id": "minecraft:pink_dye",
+      "readable": "Pink Dye",
+      "texture": "067393f5fe465698.png"
+    },
+    {
+      "id": "minecraft:bowl",
+      "readable": "Bowl",
+      "texture": "621d78cd42fe26de.png"
+    },
+    {
+      "id": "minecraft:brick",
+      "readable": "Brick",
+      "texture": "8de0aeec29e01e9b.png"
+    },
+    {
+      "id": "minecraft:nether_brick",
+      "readable": "Nether Brick",
+      "texture": "587bc7913ffd13f8.png"
+    },
+    {
+      "id": "minecraft:paper",
+      "readable": "Paper",
+      "texture": "740dd391050180ec.png"
+    },
+    {
+      "id": "minecraft:book",
+      "readable": "Book",
+      "texture": "61459308d120a204.png"
+    },
+    {
+      "id": "minecraft:firework_star",
+      "readable": "Firework Star",
+      "texture": "e343c4d23d64654b.png"
+    },
+    {
+      "id": "minecraft:glass_bottle",
+      "readable": "Glass Bottle",
+      "texture": "98bc63ca443964d9.png"
+    },
+    {
+      "id": "minecraft:glowstone_dust",
+      "readable": "Glowstone Dust",
+      "texture": "84e4b760b48401bf.png"
+    },
+    {
+      "id": "minecraft:gunpowder",
+      "readable": "Gunpowder",
+      "texture": "0b151bea65219ce5.png"
+    },
+    {
+      "id": "minecraft:dragon_breath",
+      "readable": "Dragon's Breath",
+      "texture": "d72479cf48729d61.png"
+    },
+    {
+      "id": "minecraft:fermented_spider_eye",
+      "readable": "Fermented Spider Eye",
+      "texture": "8447814b2ec70e63.png"
+    },
+    {
+      "id": "minecraft:blaze_powder",
+      "readable": "Blaze Powder",
+      "texture": "ae418ccba698dd83.png"
+    },
+    {
+      "id": "minecraft:sugar",
+      "readable": "Sugar",
+      "texture": "5e83b224fda41854.png"
+    },
+    {
+      "id": "minecraft:rabbit_foot",
+      "readable": "Rabbit's Foot",
+      "texture": "74ef899e685f1ad6.png"
+    },
+    {
+      "id": "minecraft:glistering_melon_slice",
+      "readable": "Glistering Melon Slice",
+      "texture": "058d5234d7c79823.png"
+    },
+    {
+      "id": "minecraft:magma_cream",
+      "readable": "Magma Cream",
+      "texture": "99b39d5ea412e515.png"
+    },
+    {
+      "id": "minecraft:ghast_tear",
+      "readable": "Ghast Tear",
+      "texture": "d328a121f8cde675.png"
+    },
+    {
+      "id": "minecraft:phantom_membrane",
+      "readable": "Phantom Membrane",
+      "texture": "f0a1470d6e9cbcd2.png"
+    },
+    {
+      "id": "minecraft:flower_banner_pattern",
+      "readable": "Flower Banner Pattern",
+      "texture": "2d565051efdbb095.png"
+    },
+    {
+      "id": "minecraft:creeper_banner_pattern",
+      "readable": "Creeper Banner Pattern",
+      "texture": "2d565051efdbb095.png"
+    },
+    {
+      "id": "minecraft:skull_banner_pattern",
+      "readable": "Skull Banner Pattern",
+      "texture": "2d565051efdbb095.png"
+    },
+    {
+      "id": "minecraft:mojang_banner_pattern",
+      "readable": "Thing Banner Pattern",
+      "texture": "2d565051efdbb095.png"
+    },
+    {
+      "id": "minecraft:globe_banner_pattern",
+      "readable": "Globe Banner Pattern",
+      "texture": "2d565051efdbb095.png"
+    },
+    {
+      "id": "minecraft:experience_bottle",
+      "readable": "Bottle o' Enchanting",
+      "texture": "0896925256b6a7e5.png"
+    },
+    {
+      "id": "minecraft:enchanted_book",
+      "readable": "Enchanted Book",
+      "texture": "9633872399160892.png"
+    },
+    {
+      "id": "minecraft:spawner",
+      "readable": "Spawner",
+      "texture": "5e20c853c514217f.png"
+    },
+    {
+      "id": "minecraft:chicken_spawn_egg",
+      "readable": "Chicken Spawn Egg",
+      "texture": "6dc9097c16d1e59b.png"
+    },
+    {
+      "id": "minecraft:cow_spawn_egg",
+      "readable": "Cow Spawn Egg",
+      "texture": "cb1b2d41a83bd7c1.png"
+    },
+    {
+      "id": "minecraft:pig_spawn_egg",
+      "readable": "Pig Spawn Egg",
+      "texture": "608508ac79bfea5c.png"
+    },
+    {
+      "id": "minecraft:sheep_spawn_egg",
+      "readable": "Sheep Spawn Egg",
+      "texture": "52b45295786851b8.png"
+    },
+    {
+      "id": "minecraft:donkey_spawn_egg",
+      "readable": "Donkey Spawn Egg",
+      "texture": "b0179818afbb2a4a.png"
+    },
+    {
+      "id": "minecraft:horse_spawn_egg",
+      "readable": "Horse Spawn Egg",
+      "texture": "cd2789182fa1a143.png"
+    },
+    {
+      "id": "minecraft:mule_spawn_egg",
+      "readable": "Mule Spawn Egg",
+      "texture": "489abaa16ff6cffe.png"
+    },
+    {
+      "id": "minecraft:cat_spawn_egg",
+      "readable": "Cat Spawn Egg",
+      "texture": "e2edabd25af715e3.png"
+    },
+    {
+      "id": "minecraft:parrot_spawn_egg",
+      "readable": "Parrot Spawn Egg",
+      "texture": "c07ac1d67f437098.png"
+    },
+    {
+      "id": "minecraft:wolf_spawn_egg",
+      "readable": "Wolf Spawn Egg",
+      "texture": "b25f25b9eb381287.png"
+    },
+    {
+      "id": "minecraft:bat_spawn_egg",
+      "readable": "Bat Spawn Egg",
+      "texture": "0e88de0afb3ee5bd.png"
+    },
+    {
+      "id": "minecraft:bee_spawn_egg",
+      "readable": "Bee Spawn Egg",
+      "texture": "7fb54b2ffdb3a33a.png"
+    },
+    {
+      "id": "minecraft:fox_spawn_egg",
+      "readable": "Fox Spawn Egg",
+      "texture": "fa6982c0ccb702f3.png"
+    },
+    {
+      "id": "minecraft:llama_spawn_egg",
+      "readable": "Llama Spawn Egg",
+      "texture": "c39dd286e2b75629.png"
+    },
+    {
+      "id": "minecraft:ocelot_spawn_egg",
+      "readable": "Ocelot Spawn Egg",
+      "texture": "94797c75a8a42c5e.png"
+    },
+    {
+      "id": "minecraft:panda_spawn_egg",
+      "readable": "Panda Spawn Egg",
+      "texture": "0ed332aefea1a83f.png"
+    },
+    {
+      "id": "minecraft:polar_bear_spawn_egg",
+      "readable": "Polar Bear Spawn Egg",
+      "texture": "0f0a5e77ac131d22.png"
+    },
+    {
+      "id": "minecraft:rabbit_spawn_egg",
+      "readable": "Rabbit Spawn Egg",
+      "texture": "d15d22feedfc206d.png"
+    },
+    {
+      "id": "minecraft:cod_spawn_egg",
+      "readable": "Cod Spawn Egg",
+      "texture": "9ffabd33db14e94c.png"
+    },
+    {
+      "id": "minecraft:dolphin_spawn_egg",
+      "readable": "Dolphin Spawn Egg",
+      "texture": "d1dceccb8e69080d.png"
+    },
+    {
+      "id": "minecraft:pufferfish_spawn_egg",
+      "readable": "Pufferfish Spawn Egg",
+      "texture": "1b2eb460302faa9d.png"
+    },
+    {
+      "id": "minecraft:salmon_spawn_egg",
+      "readable": "Salmon Spawn Egg",
+      "texture": "1477a8d0657d2649.png"
+    },
+    {
+      "id": "minecraft:squid_spawn_egg",
+      "readable": "Squid Spawn Egg",
+      "texture": "336c39b216a7ca73.png"
+    },
+    {
+      "id": "minecraft:tropical_fish_spawn_egg",
+      "readable": "Tropical Fish Spawn Egg",
+      "texture": "19419fffbb34f3cb.png"
+    },
+    {
+      "id": "minecraft:turtle_spawn_egg",
+      "readable": "Turtle Spawn Egg",
+      "texture": "92a5a3430dfe4bd4.png"
+    },
+    {
+      "id": "minecraft:mooshroom_spawn_egg",
+      "readable": "Mooshroom Spawn Egg",
+      "texture": "de43a6575f7df1f4.png"
+    },
+    {
+      "id": "minecraft:trader_llama_spawn_egg",
+      "readable": "Trader Llama Spawn Egg",
+      "texture": "4cd48ccb6cf1ab0d.png"
+    },
+    {
+      "id": "minecraft:villager_spawn_egg",
+      "readable": "Villager Spawn Egg",
+      "texture": "ea9e4571c32ba293.png"
+    },
+    {
+      "id": "minecraft:wandering_trader_spawn_egg",
+      "readable": "Wandering Trader Spawn Egg",
+      "texture": "b9ab19aa5c3e8493.png"
+    },
+    {
+      "id": "minecraft:drowned_spawn_egg",
+      "readable": "Drowned Spawn Egg",
+      "texture": "e89a34d00cae1719.png"
+    },
+    {
+      "id": "minecraft:husk_spawn_egg",
+      "readable": "Husk Spawn Egg",
+      "texture": "e23dcf8a40208d56.png"
+    },
+    {
+      "id": "minecraft:skeleton_spawn_egg",
+      "readable": "Skeleton Spawn Egg",
+      "texture": "85431c9d8d50b236.png"
+    },
+    {
+      "id": "minecraft:skeleton_horse_spawn_egg",
+      "readable": "Skeleton Horse Spawn Egg",
+      "texture": "f60ca1f8520d8e28.png"
+    },
+    {
+      "id": "minecraft:stray_spawn_egg",
+      "readable": "Stray Spawn Egg",
+      "texture": "8979f272e029293f.png"
+    },
+    {
+      "id": "minecraft:zombie_spawn_egg",
+      "readable": "Zombie Spawn Egg",
+      "texture": "b041c6263a06f159.png"
+    },
+    {
+      "id": "minecraft:zombie_horse_spawn_egg",
+      "readable": "Zombie Horse Spawn Egg",
+      "texture": "3a1d56654f116a30.png"
+    },
+    {
+      "id": "minecraft:zombie_villager_spawn_egg",
+      "readable": "Zombie Villager Spawn Egg",
+      "texture": "b8be2f27c14a4346.png"
+    },
+    {
+      "id": "minecraft:cave_spider_spawn_egg",
+      "readable": "Cave Spider Spawn Egg",
+      "texture": "8f297cb6cf4c3272.png"
+    },
+    {
+      "id": "minecraft:spider_spawn_egg",
+      "readable": "Spider Spawn Egg",
+      "texture": "1c9054df7a82bdb3.png"
+    },
+    {
+      "id": "minecraft:creeper_spawn_egg",
+      "readable": "Creeper Spawn Egg",
+      "texture": "ba51bb26363751cc.png"
+    },
+    {
+      "id": "minecraft:elder_guardian_spawn_egg",
+      "readable": "Elder Guardian Spawn Egg",
+      "texture": "9c71428a7b1d2db5.png"
+    },
+    {
+      "id": "minecraft:guardian_spawn_egg",
+      "readable": "Guardian Spawn Egg",
+      "texture": "d5d70b82c3e985ec.png"
+    },
+    {
+      "id": "minecraft:phantom_spawn_egg",
+      "readable": "Phantom Spawn Egg",
+      "texture": "dd1f4a99d245c8a5.png"
+    },
+    {
+      "id": "minecraft:silverfish_spawn_egg",
+      "readable": "Silverfish Spawn Egg",
+      "texture": "a2585c8c8b5f8e85.png"
+    },
+    {
+      "id": "minecraft:slime_spawn_egg",
+      "readable": "Slime Spawn Egg",
+      "texture": "c42a55c00ff3d0a8.png"
+    },
+    {
+      "id": "minecraft:witch_spawn_egg",
+      "readable": "Witch Spawn Egg",
+      "texture": "171621582ede2f58.png"
+    },
+    {
+      "id": "minecraft:evoker_spawn_egg",
+      "readable": "Evoker Spawn Egg",
+      "texture": "2d4942913e4297a4.png"
+    },
+    {
+      "id": "minecraft:pillager_spawn_egg",
+      "readable": "Pillager Spawn Egg",
+      "texture": "ff34e709a3ef3bcf.png"
+    },
+    {
+      "id": "minecraft:ravager_spawn_egg",
+      "readable": "Ravager Spawn Egg",
+      "texture": "1d90bcc34e93a4d2.png"
+    },
+    {
+      "id": "minecraft:vex_spawn_egg",
+      "readable": "Vex Spawn Egg",
+      "texture": "2d0810e9cd1fc55e.png"
+    },
+    {
+      "id": "minecraft:vindicator_spawn_egg",
+      "readable": "Vindicator Spawn Egg",
+      "texture": "34007eb0376eab07.png"
+    },
+    {
+      "id": "minecraft:blaze_spawn_egg",
+      "readable": "Blaze Spawn Egg",
+      "texture": "89cd8e6232833ae5.png"
+    },
+    {
+      "id": "minecraft:ghast_spawn_egg",
+      "readable": "Ghast Spawn Egg",
+      "texture": "d4c21b9f9a467071.png"
+    },
+    {
+      "id": "minecraft:magma_cube_spawn_egg",
+      "readable": "Magma Cube Spawn Egg",
+      "texture": "13496438c0ce9ba8.png"
+    },
+    {
+      "id": "minecraft:wither_skeleton_spawn_egg",
+      "readable": "Wither Skeleton Spawn Egg",
+      "texture": "c1e6032520a4dad3.png"
+    },
+    {
+      "id": "minecraft:enderman_spawn_egg",
+      "readable": "Enderman Spawn Egg",
+      "texture": "c60447d49ff29a8c.png"
+    },
+    {
+      "id": "minecraft:endermite_spawn_egg",
+      "readable": "Endermite Spawn Egg",
+      "texture": "c08d2ce1ba28b26c.png"
+    },
+    {
+      "id": "minecraft:shulker_spawn_egg",
+      "readable": "Shulker Spawn Egg",
+      "texture": "9be2bd1502b8bba3.png"
+    },
+    {
+      "id": "minecraft:grass",
+      "readable": "Grass",
+      "texture": "f2801ea4909bb439.png"
+    },
+    {
+      "id": "minecraft:petrified_oak_slab",
+      "readable": "Old Wooden Slab",
+      "texture": "5254d44426412a62.png"
+    },
+    {
+      "id": "minecraft:frosted_ice",
+      "readable": "Frosted Ice",
+      "texture": "6efff0148493e986.png"
+    },
+    {
+      "id": "minecraft:grass_path",
+      "readable": "Grass Path",
+      "texture": "ced5d7450459277a.png"
+    },
+    {
+      "id": "minecraft:command_block_minecart",
+      "readable": "Minecart with Command Block",
+      "texture": "546d245523ac43d3.png"
+    },
+    {
+      "id": "minecraft:knowledge_book",
+      "readable": "Knowledge Book",
+      "texture": "bb92112d13dd57ae.png"
+    },
+    {
+      "id": "minecraft:written_book",
+      "readable": "Written Book",
+      "texture": "18441310b2247969.png"
+    },
+    {
+      "id": "minecraft:filled_map",
+      "readable": "Map",
+      "texture": "69ddecbbf809bdee.png"
+    },
+    {
+      "id": "minecraft:zombie_pigman_spawn_egg",
+      "readable": "Zombie Pigman Spawn Egg",
+      "texture": "e4b8d71e0a197e77.png"
+    },
+    {
+      "id": "minecraft:scute",
+      "readable": "Scute",
+      "texture": "31fccf03e2bd97d8.png"
+    },
+    {
+      "id": "minecraft:command_block",
+      "readable": "Command Block",
+      "texture": "42af94756866b7c8.png"
+    },
+    {
+      "id": "minecraft:repeating_command_block",
+      "readable": "Repeating Command Block",
+      "texture": "77aba969b9a5532d.png"
+    },
+    {
+      "id": "minecraft:chain_command_block",
+      "readable": "Chain Command Block",
+      "texture": "9096879f18c463fe.png"
+    },
+    {
+      "id": "minecraft:barrier",
+      "readable": "Barrier",
+      "texture": "5d3b6ad6d7a83500.png"
+    },
+    {
+      "id": "minecraft:structure_block",
+      "readable": "Structure Block",
+      "texture": "f57858289839d429.png"
+    },
+    {
+      "id": "minecraft:structure_void",
+      "readable": "Structure Void",
+      "texture": "b850e47c158a8046.png"
+    },
+    {
+      "id": "minecraft:debug_stick",
+      "readable": "Debug Stick",
+      "texture": "ff6bdc3f81913e99.png"
+    },
+    {
+      "id": "minecraft:jigsaw",
+      "readable": "Jigsaw Block",
+      "texture": "4285d89068cd98d4.png"
+    }
+  ]
+}

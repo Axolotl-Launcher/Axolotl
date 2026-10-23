@@ -1,0 +1,8 @@
+Blockbench skin editor, as embedded by the Axolotl Launcher's Lab "Skin editor".
+
+Source: https://github.com/Axolotl-Launcher/blockbench-skin-standalone (submodule
+third-party/blockbench of the Axolotl repository), a fork of Blockbench by JannisX11,
+licensed under the GNU General Public License v3.0 (see LICENSE).
+
+These files are the launcher's own build (resources/blockbench-skin). dist/skin.bundle.js
+is the launcher's dist/skin.bundle.js.gz, decompressed so a static host can serve it.

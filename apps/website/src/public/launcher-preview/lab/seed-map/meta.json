@@ -1,0 +1,98 @@
+{
+ "seed": "10292992",
+ "edition": "java",
+ "version": "26.3",
+ "spawn": {
+  "x": 384,
+  "z": 528,
+  "approximate": true
+ },
+ "source": {
+  "engine": "axolotl-cubiomes, the seed map engine bundled with Axolotl Launcher",
+  "engineRevision": "a49d5bc5b709e6e28b5a74daddb3efb382fba7bb",
+  "engineAbi": 2,
+  "library": "resources/seed-map/axolotl-cubiomes.dll of an Axolotl Launcher 1.10.0-beta.5 install; the engine sources (apps/app/src/seed_map, vendor/cubiomes) are unchanged in v1.10.0",
+  "requests": "the seed map plugin commands of apps/app/src/seed_map (render_tile, find_features, spawn, biome_at, structure_details, container_loot, scan_ores), called with the requests LabSeedMap.vue makes",
+  "generatedAt": "2026-10-23"
+ },
+ "tileExtents": {
+  "overworld": {
+   "1": [
+    -1024,
+    -512,
+    1023,
+    511
+   ],
+   "4": [
+    -4096,
+    -2048,
+    4095,
+    2047
+   ],
+   "16": [
+    -16384,
+    -8192,
+    16383,
+    8191
+   ],
+   "64": [
+    -32768,
+    -16384,
+    32767,
+    16383
+   ],
+   "256": [
+    -131072,
+    -65536,
+    131071,
+    65535
+   ]
+  },
+  "nether": {
+   "1": [
+    -1024,
+    -512,
+    1023,
+    511
+   ],
+   "4": [
+    -4096,
+    -2048,
+    4095,
+    2047
+   ],
+   "16": [
+    -8192,
+    -4096,
+    8191,
+    4095
+   ]
+  },
+  "end": {
+   "1": [
+    -1024,
+    -512,
+    1023,
+    511
+   ],
+   "4": [
+    -2048,
+    -1024,
+    2047,
+    1023
+   ],
+   "16": [
+    -8192,
+    -4096,
+    8191,
+    4095
+   ]
+  }
+ },
+ "detailExtent": [
+  -2048,
+  -1024,
+  2047,
+  1023
+ ]
+}

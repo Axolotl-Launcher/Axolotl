@@ -1,0 +1,42 @@
+{
+  "EditedAt": "2026-08-08T00:07:53+08:00",
+  "sources": [
+    {
+      "id": "vanilla-tags",
+      "repository": "https://github.com/destruc7i0n/crafting",
+      "commit": "e6c71dd816216a73cda2787aa5253f641b57fbeb",
+      "license": "MIT",
+      "copyright": "Copyright (c) 2017 TheDestruc7i0n",
+      "licenseFile": "third-party/licenses/MIT.txt",
+      "note": "Expanded item tags."
+    },
+    {
+      "id": "minecraft-textures",
+      "repository": "https://github.com/destruc7i0n/minecraft-textures",
+      "npmVersion": "26.3.0",
+      "license": "GPL-3.0",
+      "author": "TheDestruc7i0n",
+      "licenseFile": "apps/app-frontend/LICENSE",
+      "note": "Item identifiers, readable names, and the texture atlas.",
+      "integrity": "sha512-6T8mutuOKbxxYKDdPyFK3hHr/kP65yFTw3ShXw//irDF9We3NrjwJTc0CbS5Nk31rRxyReMME9Kg9raQSNoXhA=="
+    },
+    {
+      "id": "vanilla-26.3-data",
+      "repository": "https://github.com/misode/mcmeta",
+      "commit": "538b2b167248c648b2198f2c0d56eced10dfc0cf",
+      "note": "26.3 item tags expanded recursively; brewing and cooking serializers checked against vanilla recipes."
+    },
+    {
+      "id": "vanilla-26.3-registries",
+      "repository": "https://github.com/misode/mcmeta",
+      "commit": "2240df2376509bfaf12becbb36e156e29f8ecb4d",
+      "note": "26.3 registry baseline."
+    },
+    {
+      "id": "vanilla-26.3-localization",
+      "repository": "https://github.com/InventivetalentDev/minecraft-assets",
+      "commit": "13f6f6ec4fae33d9724b16ed1e332657a6c125c8",
+      "note": "English and Simplified Chinese vanilla names."
+    }
+  ]
+}

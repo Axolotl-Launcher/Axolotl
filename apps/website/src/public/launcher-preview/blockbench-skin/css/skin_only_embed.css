@@ -1,0 +1,251 @@
+@font-face {
+	font-family: Inter;
+	font-style: normal;
+	font-weight: 400;
+	font-display: swap;
+	src:
+		url('https://cdn-raw.modrinth.com/fonts/inter/Inter-Regular.woff2?v=3.19') format('woff2'),
+		url('https://cdn-raw.modrinth.com/fonts/inter/Inter-Regular.woff?v=3.19') format('woff');
+}
+
+@font-face {
+	font-family: Inter;
+	font-style: normal;
+	font-weight: 500;
+	font-display: swap;
+	src:
+		url('https://cdn-raw.modrinth.com/fonts/inter/Inter-Medium.woff2?v=3.19') format('woff2'),
+		url('https://cdn-raw.modrinth.com/fonts/inter/Inter-Medium.woff?v=3.19') format('woff');
+}
+
+@font-face {
+	font-family: Inter;
+	font-style: normal;
+	font-weight: 600;
+	font-display: swap;
+	src:
+		url('https://cdn-raw.modrinth.com/fonts/inter/Inter-SemiBold.woff2?v=3.19') format('woff2'),
+		url('https://cdn-raw.modrinth.com/fonts/inter/Inter-SemiBold.woff?v=3.19') format('woff');
+}
+
+@font-face {
+	font-family: Inter;
+	font-style: normal;
+	font-weight: 700;
+	font-display: swap;
+	src:
+		url('https://cdn-raw.modrinth.com/fonts/inter/Inter-Bold.woff2?v=3.19') format('woff2'),
+		url('https://cdn-raw.modrinth.com/fonts/inter/Inter-Bold.woff?v=3.19') format('woff');
+}
+
+/* The embedded skin editor keeps Blockbench's native workspace and controls. */
+body.skin_only_embed {
+	--font-main:
+		Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Oxygen, Ubuntu, Roboto, Cantarell,
+		'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+	--font-headline: var(--font-main);
+	--axolotl-gap-xs: 0.25rem;
+	--axolotl-gap-sm: 0.5rem;
+	--axolotl-gap-md: 0.75rem;
+	--axolotl-gap-lg: 1rem;
+	--axolotl-radius-xs: 0.25rem;
+	--axolotl-radius-sm: 0.5rem;
+	--axolotl-radius-md: 0.75rem;
+	--axolotl-control-height: 32px;
+	--axolotl-compact-control-height: 30px;
+}
+
+body.skin_only_embed dialog .dialog_bar > button:not(.minor) {
+	height: var(--axolotl-control-height);
+	padding-inline: var(--axolotl-gap-md);
+	border-radius: var(--axolotl-radius-sm);
+}
+
+body.skin_only_embed select,
+body.skin_only_embed div.bb-select,
+body.skin_only_embed textarea,
+body.skin_only_embed div.nslide {
+	border-radius: var(--axolotl-radius-sm);
+}
+
+body.skin_only_embed
+	dialog
+	.dialog_bar
+	input:is([type='text'], [type='number'], [type='password'], [type='search']),
+body.skin_only_embed dialog .dialog_bar select,
+body.skin_only_embed dialog .dialog_bar div.bb-select,
+body.skin_only_embed dialog textarea {
+	border: 1px solid var(--color-border);
+	background-color: var(--color-elevated);
+}
+
+body.skin_only_embed label.toggle_panel {
+	border-radius: var(--axolotl-radius-sm);
+}
+
+body.skin_only_embed #main_toolbar .tool {
+	border-radius: var(--axolotl-radius-xs);
+}
+
+body.skin_only_embed .tool.enabled,
+body.skin_only_embed .tool.bar_select.icon_mode,
+body.skin_only_embed .tool.bar_select .select_option,
+body.skin_only_embed .tooltip {
+	border-radius: var(--axolotl-radius-xs);
+}
+
+body.skin_only_embed .panel_tab_list > .panel_handle {
+	padding: var(--axolotl-gap-sm) var(--axolotl-gap-md);
+	border-top-left-radius: var(--axolotl-radius-sm);
+	border-top-right-radius: var(--axolotl-radius-sm);
+}
+
+body.skin_only_embed .panel > .form {
+	margin-inline: var(--axolotl-gap-sm);
+}
+
+body.skin_only_embed .contextMenu {
+	border-radius: var(--axolotl-radius-md);
+}
+
+body.skin_only_embed .contextMenu li:not(.menu_separator) {
+	min-height: var(--axolotl-compact-control-height);
+}
+
+body.skin_only_embed .contextMenu li.menu_separator {
+	height: 2px;
+	padding: 0;
+}
+
+body.skin_only_embed dialog {
+	border-radius: var(--axolotl-radius-md);
+}
+
+body.skin_only_embed dialog .dialog_bar.button_bar,
+body.skin_only_embed .dialog_vector_group {
+	gap: var(--axolotl-gap-xs);
+}
+
+body.skin_only_embed #main_toolbar .tool:not(.enabled):hover {
+	background-color: var(--color-hover);
+}
+
+body.skin_only_embed .tool.enabled,
+body.skin_only_embed .tool.bar_select .select_option.selected,
+body.skin_only_embed #mode_selector > li.selected,
+body.skin_only_embed .form_inline_select > li.selected {
+	background-color: var(--color-accent_highlight);
+	color: var(--color-accent);
+}
+
+body.skin_only_embed li.menu_bar_point.opened {
+	background-color: var(--color-accent_highlight);
+	color: var(--color-accent);
+	border-radius: 0 0 var(--axolotl-radius-xs) var(--axolotl-radius-xs);
+}
+
+body.skin_only_embed dialog button:not(.confirm_btn, .minor):hover {
+	background-color: var(--color-hover);
+	color: var(--color-text) !important;
+}
+
+body.skin_only_embed dialog button.confirm_btn:hover {
+	background-color: var(--color-accent);
+	color: var(--color-accent_text) !important;
+}
+
+body.skin_only_embed .contextMenu li.focused,
+body.skin_only_embed .contextMenu li.parent.opened {
+	background-color: var(--color-hover);
+	color: var(--color-bright_ui_text);
+}
+
+body.skin_only_embed
+	:is(
+		button,
+		select,
+		textarea,
+		input[type='text'],
+		input[type='number'],
+		input[type='password'],
+		input[type='search'],
+		[contenteditable='true'],
+		div.bb-select,
+		div.nslide
+	):focus-visible {
+	outline: 2px solid var(--color-focus_ring);
+	outline-offset: 1px;
+}
+
+body.skin_only_embed
+	:is(button:disabled, button.disabled, input:disabled, select:disabled, textarea:disabled) {
+	opacity: 0.45;
+	cursor: not-allowed;
+}
+
+body.skin_only_embed :is(input, select, textarea, div.bb-select, div.nslide):hover {
+	border-color: var(--color-bright_border);
+}
+
+body.skin_only_embed .contextMenu,
+body.skin_only_embed dialog,
+body.skin_only_embed .toolbar_overflow_popup {
+	outline: 1px solid var(--color-border);
+	box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
+}
+
+body.skin_only_embed .tooltip {
+	outline: 1px solid var(--color-border);
+}
+
+body.skin_only_embed :not(#uv_viewport)::-webkit-scrollbar-thumb {
+	background-color: var(--color-selected);
+	border-radius: var(--axolotl-radius-md);
+}
+
+body.skin_only_embed :not(#uv_viewport)::-webkit-scrollbar-thumb:hover {
+	background-color: var(--color-accent);
+}
+
+body.skin_only_embed .tool.panel_control {
+	border-radius: var(--axolotl-radius-xs);
+}
+
+body.skin_only_embed #corner_logo,
+body.skin_only_embed #header_free_bar,
+body.skin_only_embed #update_menu,
+body.skin_only_embed #settings_profiles_header_menu,
+body.skin_only_embed #web_download_button,
+body.skin_only_embed #new_tab_button,
+body.skin_only_embed #search_tab_button,
+body.skin_only_embed #title_bar_home_button {
+	display: none !important;
+}
+
+body.skin_only_embed #tab_bar {
+	display: none !important;
+}
+
+body.skin_only_embed #skin_only_attribution {
+	display: flex;
+	align-items: center;
+	margin-left: auto;
+	padding-inline: var(--axolotl-gap-md);
+	color: var(--color-subtle_text);
+	font-size: 12px;
+	white-space: nowrap;
+}
+
+body.skin_only_embed #work_screen {
+	grid-template-rows: var(--toolbar-height) minmax(200px, 5000px) var(--status-bar-height);
+}
+
+body.skin_only_embed.axolotl_light_theme .checkerboard,
+body.skin_only_embed.axolotl_light_theme .checkerboard_trigger .checkerboard_target {
+	--color-checker_offset: rgba(0, 0, 0, 0.05);
+}
+
+body.skin_only_embed.axolotl_dark_theme .checkerboard,
+body.skin_only_embed.axolotl_dark_theme .checkerboard_trigger .checkerboard_target {
+	--color-checker_offset: rgba(255, 255, 255, 0.035);
+}

@@ -1,0 +1,152 @@
+<script setup lang="ts" generic="T extends string">
+import MoonIcon from '@modrinth/assets/icons/moon.svg?component'
+import RadioButtonIcon from '@modrinth/assets/icons/radio-button.svg?component'
+import RadioButtonCheckedIcon from '@modrinth/assets/icons/radio-button-checked.svg?component'
+import SunIcon from '@modrinth/assets/icons/sun.svg?component'
+import { defineMessages, useVIntl } from '@modrinth/ui/src/composables/i18n.ts'
+
+/**
+ * The shared theme picker (packages/ui/src/components/settings/ThemeSelector.vue).
+ * Its scoped styles `@extend` the theme classes into each preview, which only
+ * compiles alongside the shared stylesheet; the page already carries those
+ * classes globally, so each preview takes its theme class directly instead.
+ * The strings are the shared component's own, which the site translates.
+ */
+const { formatMessage } = useVIntl()
+
+const { updateColorTheme, currentTheme, themeOptions, systemThemeColor } = defineProps<{
+    updateColorTheme: (theme: T) => void
+    currentTheme: T
+    themeOptions: readonly T[]
+    systemThemeColor: T
+}>()
+
+const colorTheme = defineMessages({
+    title: {
+        id: 'settings.display.theme.title',
+        defaultMessage: 'Color theme',
+    },
+    description: {
+        id: 'settings.display.theme.description',
+        defaultMessage: 'Select your preferred color theme for Modrinth on this device.',
+    },
+    system: {
+        id: 'settings.display.theme.system',
+        defaultMessage: 'Sync with system',
+    },
+    light: {
+        id: 'settings.display.theme.light',
+        defaultMessage: 'Light',
+    },
+    dark: {
+        id: 'settings.display.theme.dark',
+        defaultMessage: 'Dark',
+    },
+    oled: {
+        id: 'settings.display.theme.oled',
+        defaultMessage: 'OLED',
+    },
+    retro: {
+        id: 'settings.display.theme.retro',
+        defaultMessage: 'Retro',
+    },
+    preferredLight: {
+        id: 'settings.display.theme.preferred-light-theme',
+        defaultMessage: 'Preferred light theme',
+    },
+    preferredDark: {
+        id: 'settings.display.theme.preferred-dark-theme',
+        defaultMessage: 'Preferred dark theme',
+    },
+})
+
+function asString(theme: T): string {
+    return theme
+}
+
+function getPreviewClass(option: T): string {
+    const base = option === 'system' ? systemThemeColor : option
+    return base.endsWith('-mode') ? base : `${base}-mode`
+}
+</script>
+
+<template>
+    <div class="theme-options mt-4 grid grid-cols-[repeat(auto-fit,minmax(12rem,1fr))] gap-4">
+        <button
+            v-for="option in themeOptions"
+            :key="option"
+            class="preview-radio button-base"
+            :class="{ selected: currentTheme === option }"
+            @click="() => updateColorTheme(option)"
+        >
+            <div class="preview" :class="getPreviewClass(option)">
+                <div class="example-card card card">
+                    <div class="example-icon"></div>
+                    <div class="example-text-1"></div>
+                    <div class="example-text-2"></div>
+                </div>
+            </div>
+            <div class="label">
+                <RadioButtonCheckedIcon v-if="currentTheme === option" class="radio shrink-0" />
+                <RadioButtonIcon v-else class="radio shrink-0" />
+                {{
+                    colorTheme[asString(option) as keyof typeof colorTheme]
+                        ? formatMessage(colorTheme[asString(option) as keyof typeof colorTheme])
+                        : option
+                }}
+                <SunIcon
+                    v-if="'light' === option"
+                    v-tooltip="formatMessage(colorTheme.preferredLight)"
+                    class="theme-icon shrink-0"
+                />
+                <MoonIcon
+                    v-else-if="'dark' === option"
+                    v-tooltip="formatMessage(colorTheme.preferredDark)"
+                    class="theme-icon shrink-0"
+                />
+            </div>
+        </button>
+    </div>
+</template>
+
+<style scoped lang="scss">
+.theme-options {
+    .preview .example-card {
+        margin: 0;
+        padding: 1rem;
+        display: grid;
+        grid-template: 'icon text1' 'icon text2';
+        grid-template-columns: auto 1fr;
+        gap: 0.5rem;
+        outline: 2px solid transparent;
+
+        .example-icon {
+            grid-area: icon;
+            width: 2rem;
+            height: 2rem;
+            background-color: var(--surface-4);
+            border-radius: var(--radius-sm);
+            outline: 2px solid transparent;
+        }
+
+        .example-text-1,
+        .example-text-2 {
+            height: 0.5rem;
+            border-radius: var(--radius-sm);
+            outline: 2px solid transparent;
+        }
+
+        .example-text-1 {
+            grid-area: text1;
+            width: 100%;
+            background-color: var(--color-text-default);
+        }
+
+        .example-text-2 {
+            grid-area: text2;
+            width: 60%;
+            background-color: var(--color-text-tertiary);
+        }
+    }
+}
+</style>

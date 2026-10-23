@@ -1,0 +1,618 @@
+{
+  "version": "26.3",
+  "base": "26.2",
+  "generatedAt": "2026-10-22",
+  "sources": [
+    "https://minecraft.wiki/w/Java_Edition_26.3",
+    "https://www.minecraft.net/en-us/article/minecraft-java-edition-26-3"
+  ],
+  "added": [
+    {
+      "id": "compute",
+      "name": "compute",
+      "descriptionKey": "app.lab.command-generator.cmd.compute.desc",
+      "category": "data",
+      "permissionLevel": 2,
+      "arguments": [
+        {
+          "name": "context",
+          "displayNameKey": "app.lab.command-generator.arg.compute.context.display",
+          "type": "enum",
+          "required": true,
+          "descriptionKey": "app.lab.command-generator.arg.compute.context.desc",
+          "enumValues": ["default", "block", "entity"],
+          "defaultValue": "default"
+        },
+        {
+          "name": "pos",
+          "displayNameKey": "app.lab.command-generator.arg.compute.pos.display",
+          "type": "coordinates",
+          "required": true,
+          "descriptionKey": "app.lab.command-generator.arg.compute.pos.desc",
+          "when": {
+            "context": ["block"]
+          },
+          "defaultValue": "~ ~ ~"
+        },
+        {
+          "name": "target",
+          "displayNameKey": "app.lab.command-generator.arg.compute.target.display",
+          "type": "entity-selector",
+          "required": true,
+          "descriptionKey": "app.lab.command-generator.arg.compute.target.desc",
+          "when": {
+            "context": ["entity"]
+          },
+          "defaultValue": "@s"
+        },
+        {
+          "name": "type",
+          "displayNameKey": "app.lab.command-generator.arg.compute.type.display",
+          "type": "enum",
+          "required": true,
+          "descriptionKey": "app.lab.command-generator.arg.compute.type.desc",
+          "enumValues": ["integer", "float"],
+          "defaultValue": "integer"
+        },
+        {
+          "name": "provider",
+          "displayNameKey": "app.lab.command-generator.arg.compute.provider.display",
+          "type": "string",
+          "required": true,
+          "descriptionKey": "app.lab.command-generator.arg.compute.provider.desc",
+          "placeholder": "{type:\"minecraft:constant\",value:5}"
+        },
+        {
+          "name": "scale",
+          "displayNameKey": "app.lab.command-generator.arg.compute.scale.display",
+          "type": "number",
+          "required": false,
+          "descriptionKey": "app.lab.command-generator.arg.compute.scale.desc",
+          "when": {
+            "type": ["float"]
+          }
+        }
+      ]
+    },
+    {
+      "id": "posteffect",
+      "name": "posteffect",
+      "descriptionKey": "app.lab.command-generator.cmd.posteffect.desc",
+      "category": "player",
+      "permissionLevel": 2,
+      "arguments": [
+        {
+          "name": "action",
+          "displayNameKey": "app.lab.command-generator.arg.posteffect.action.display",
+          "type": "enum",
+          "required": true,
+          "descriptionKey": "app.lab.command-generator.arg.posteffect.action.desc",
+          "enumValues": ["add", "remove", "clear", "list"],
+          "defaultValue": "add"
+        },
+        {
+          "name": "target",
+          "displayNameKey": "app.lab.command-generator.arg.posteffect.target.display",
+          "type": "entity-selector",
+          "required": true,
+          "descriptionKey": "app.lab.command-generator.arg.posteffect.target.desc",
+          "defaultValue": "@s"
+        },
+        {
+          "name": "effect",
+          "displayNameKey": "app.lab.command-generator.arg.posteffect.effect.display",
+          "type": "string",
+          "required": true,
+          "descriptionKey": "app.lab.command-generator.arg.posteffect.effect.desc",
+          "when": {
+            "action": ["add", "remove"]
+          },
+          "placeholder": "minecraft:creeper"
+        }
+      ]
+    }
+  ],
+  "patched": {
+    "publish": {
+      "arguments": [
+        {
+          "name": "allowCheats",
+          "displayNameKey": "app.lab.command-generator.arg.publish.allowCheats.display",
+          "type": "boolean",
+          "required": false,
+          "descriptionKey": "app.lab.command-generator.arg.publish.allowCheats.desc",
+          "defaultValue": false
+        },
+        {
+          "name": "port",
+          "displayNameKey": "app.lab.command-generator.arg.publish.port.display",
+          "type": "integer",
+          "required": false,
+          "descriptionKey": "app.lab.command-generator.arg.publish.port.desc",
+          "defaultValue": 25565,
+          "presets": [
+            {
+              "labelKey": "app.lab.command-generator.preset.port.25565",
+              "value": 25565
+            },
+            {
+              "labelKey": "app.lab.command-generator.preset.port.25566",
+              "value": 25566
+            }
+          ]
+        }
+      ]
+    },
+    "swing": {
+      "arguments": [
+        {
+          "name": "target",
+          "displayNameKey": "app.lab.command-generator.arg.swing.target.display",
+          "type": "entity-selector",
+          "required": false,
+          "descriptionKey": "app.lab.command-generator.arg.swing.target.desc",
+          "selector": true,
+          "placeholder": "@s",
+          "presets": [
+            {
+              "labelKey": "app.lab.command-generator.preset.common.self",
+              "value": "@s"
+            },
+            {
+              "labelKey": "app.lab.command-generator.preset.common.all-players",
+              "value": "@a"
+            }
+          ],
+          "defaultValue": "@s"
+        },
+        {
+          "name": "hand",
+          "displayNameKey": "app.lab.command-generator.arg.swing.hand.display",
+          "type": "enum",
+          "required": false,
+          "descriptionKey": "app.lab.command-generator.arg.swing.hand.desc",
+          "enumValues": ["mainhand", "offhand"],
+          "presets": [
+            {
+              "labelKey": "app.lab.command-generator.preset.hand.mainhand",
+              "value": "mainhand"
+            },
+            {
+              "labelKey": "app.lab.command-generator.preset.hand.offhand",
+              "value": "offhand"
+            }
+          ],
+          "defaultValue": "mainhand"
+        },
+        {
+          "name": "animation",
+          "displayNameKey": "app.lab.command-generator.arg.swing.animation.display",
+          "type": "enum",
+          "required": false,
+          "descriptionKey": "app.lab.command-generator.arg.swing.animation.desc",
+          "enumValues": ["none", "whack", "stab"],
+          "defaultValue": "whack"
+        },
+        {
+          "name": "duration",
+          "displayNameKey": "app.lab.command-generator.arg.swing.duration.display",
+          "type": "time",
+          "required": false,
+          "descriptionKey": "app.lab.command-generator.arg.swing.duration.desc",
+          "placeholder": "6t"
+        }
+      ]
+    },
+    "item": {
+      "arguments": [
+        {
+          "name": "action",
+          "displayNameKey": "app.lab.command-generator.arg.item.action.display",
+          "type": "enum",
+          "required": true,
+          "descriptionKey": "app.lab.command-generator.arg.item.action.desc",
+          "enumValues": ["replace", "fill", "override", "modify"]
+        },
+        {
+          "name": "targetType",
+          "displayNameKey": "app.lab.command-generator.arg.item.targetType.display",
+          "type": "enum",
+          "required": true,
+          "descriptionKey": "app.lab.command-generator.arg.item.targetType.desc",
+          "enumValues": ["block", "entity"],
+          "defaultValue": "block"
+        },
+        {
+          "name": "pos",
+          "displayNameKey": "app.lab.command-generator.arg.item.pos.display",
+          "type": "coordinates",
+          "required": true,
+          "descriptionKey": "app.lab.command-generator.arg.item.pos.desc",
+          "when": {
+            "targetType": ["block"]
+          }
+        },
+        {
+          "name": "target",
+          "displayNameKey": "app.lab.command-generator.arg.item.target.display",
+          "type": "entity-selector",
+          "required": true,
+          "descriptionKey": "app.lab.command-generator.arg.item.target.desc",
+          "when": {
+            "targetType": ["entity"]
+          },
+          "defaultValue": "@s"
+        },
+        {
+          "name": "slot",
+          "displayNameKey": "app.lab.command-generator.arg.item.slot.display",
+          "type": "slot",
+          "required": true,
+          "descriptionKey": "app.lab.command-generator.arg.item.slot.desc.26",
+          "placeholder": "container.*"
+        },
+        {
+          "name": "source",
+          "displayNameKey": "app.lab.command-generator.arg.item.source.display",
+          "type": "enum",
+          "required": true,
+          "descriptionKey": "app.lab.command-generator.arg.item.source.desc",
+          "when": {
+            "action": ["replace", "fill", "override"]
+          },
+          "enumValues": ["with"],
+          "literal": "with"
+        },
+        {
+          "name": "item",
+          "displayNameKey": "app.lab.command-generator.arg.item.item.display",
+          "type": "item",
+          "required": true,
+          "descriptionKey": "app.lab.command-generator.arg.item.item.desc",
+          "when": {
+            "action": ["replace", "fill", "override"]
+          }
+        },
+        {
+          "name": "nbt",
+          "displayNameKey": "app.lab.command-generator.arg.item.nbt.display",
+          "type": "nbt",
+          "required": false,
+          "descriptionKey": "app.lab.command-generator.arg.item.nbt.desc",
+          "supportsNbtEditor": true,
+          "nbtKind": "item",
+          "attachToPrevious": true,
+          "when": {
+            "action": ["replace", "fill", "override"]
+          }
+        },
+        {
+          "name": "count",
+          "displayNameKey": "app.lab.command-generator.arg.item.count.display",
+          "type": "integer",
+          "required": false,
+          "descriptionKey": "app.lab.command-generator.arg.item.count.desc",
+          "when": {
+            "action": ["replace", "fill", "override"]
+          }
+        },
+        {
+          "name": "modifier",
+          "displayNameKey": "app.lab.command-generator.arg.item.modifier.display",
+          "type": "string",
+          "required": true,
+          "descriptionKey": "app.lab.command-generator.arg.item.modifier.desc",
+          "when": {
+            "action": ["modify"]
+          },
+          "placeholder": "minecraft:my_modifier"
+        }
+      ]
+    },
+    "data": {
+      "arguments": [
+        {
+          "name": "action",
+          "displayNameKey": "app.lab.command-generator.arg.data.action.display",
+          "type": "enum",
+          "required": true,
+          "descriptionKey": "app.lab.command-generator.arg.data.action.desc",
+          "enumValues": ["get", "merge", "modify", "remove"],
+          "defaultValue": "get"
+        },
+        {
+          "name": "targetType",
+          "displayNameKey": "app.lab.command-generator.arg.data.targetType.display",
+          "type": "enum",
+          "required": true,
+          "descriptionKey": "app.lab.command-generator.arg.data.targetType.desc",
+          "enumValues": ["block", "entity", "storage"]
+        },
+        {
+          "name": "target",
+          "displayNameKey": "app.lab.command-generator.arg.data.target.display",
+          "type": "string",
+          "required": true,
+          "descriptionKey": "app.lab.command-generator.arg.data.target.desc",
+          "placeholder": "@e[type=pig]"
+        },
+        {
+          "name": "queryPath",
+          "displayNameKey": "app.lab.command-generator.arg.data.path.display",
+          "type": "string",
+          "required": false,
+          "descriptionKey": "app.lab.command-generator.arg.data.path.desc",
+          "placeholder": "Health",
+          "supportsNbtEditor": false,
+          "nbtKind": "generic",
+          "when": {
+            "action": ["get"]
+          }
+        },
+        {
+          "name": "path",
+          "displayNameKey": "app.lab.command-generator.arg.data.path.display",
+          "type": "string",
+          "required": true,
+          "descriptionKey": "app.lab.command-generator.arg.data.path.desc",
+          "placeholder": "Health",
+          "supportsNbtEditor": false,
+          "nbtKind": "generic",
+          "when": {
+            "action": ["modify", "remove"]
+          }
+        },
+        {
+          "name": "value",
+          "displayNameKey": "app.lab.command-generator.arg.data.value.display",
+          "type": "string",
+          "required": true,
+          "descriptionKey": "app.lab.command-generator.arg.data.value.desc",
+          "supportsNbtEditor": false,
+          "nbtKind": "generic",
+          "when": {
+            "action": ["merge"]
+          }
+        },
+        {
+          "name": "method",
+          "displayNameKey": "app.lab.command-generator.arg.data.method.display",
+          "type": "enum",
+          "required": true,
+          "descriptionKey": "app.lab.command-generator.arg.data.method.desc",
+          "when": {
+            "action": ["modify"]
+          },
+          "enumValues": ["set", "append", "prepend", "merge", "insert"],
+          "defaultValue": "set"
+        },
+        {
+          "name": "index",
+          "displayNameKey": "app.lab.command-generator.arg.data.index.display",
+          "type": "integer",
+          "required": true,
+          "descriptionKey": "app.lab.command-generator.arg.data.index.desc",
+          "when": {
+            "action": ["modify"],
+            "method": ["insert"]
+          },
+          "defaultValue": 0
+        },
+        {
+          "name": "source",
+          "displayNameKey": "app.lab.command-generator.arg.data.source.display",
+          "type": "enum",
+          "required": true,
+          "descriptionKey": "app.lab.command-generator.arg.data.source.desc",
+          "when": {
+            "action": ["modify"]
+          },
+          "enumValues": ["value", "compute"],
+          "defaultValue": "value"
+        },
+        {
+          "name": "literalValue",
+          "displayNameKey": "app.lab.command-generator.arg.data.literalValue.display",
+          "type": "string",
+          "required": true,
+          "descriptionKey": "app.lab.command-generator.arg.data.literalValue.desc",
+          "when": {
+            "action": ["modify"],
+            "source": ["value"]
+          },
+          "placeholder": "{value:1}"
+        },
+        {
+          "name": "context",
+          "displayNameKey": "app.lab.command-generator.arg.compute.context.display",
+          "type": "enum",
+          "required": true,
+          "descriptionKey": "app.lab.command-generator.arg.compute.context.desc",
+          "enumValues": ["default", "block", "entity"],
+          "defaultValue": "default",
+          "when": {
+            "action": ["modify"],
+            "source": ["compute"]
+          }
+        },
+        {
+          "name": "pos",
+          "displayNameKey": "app.lab.command-generator.arg.compute.pos.display",
+          "type": "coordinates",
+          "required": true,
+          "descriptionKey": "app.lab.command-generator.arg.compute.pos.desc",
+          "when": {
+            "context": ["block"],
+            "action": ["modify"],
+            "source": ["compute"]
+          },
+          "defaultValue": "~ ~ ~"
+        },
+        {
+          "name": "computeTarget",
+          "displayNameKey": "app.lab.command-generator.arg.compute.target.display",
+          "type": "entity-selector",
+          "required": true,
+          "descriptionKey": "app.lab.command-generator.arg.compute.target.desc",
+          "when": {
+            "context": ["entity"],
+            "action": ["modify"],
+            "source": ["compute"]
+          },
+          "defaultValue": "@s"
+        },
+        {
+          "name": "type",
+          "displayNameKey": "app.lab.command-generator.arg.compute.type.display",
+          "type": "enum",
+          "required": true,
+          "descriptionKey": "app.lab.command-generator.arg.compute.type.desc",
+          "enumValues": ["integer", "float"],
+          "defaultValue": "integer",
+          "when": {
+            "action": ["modify"],
+            "source": ["compute"]
+          }
+        },
+        {
+          "name": "provider",
+          "displayNameKey": "app.lab.command-generator.arg.compute.provider.display",
+          "type": "string",
+          "required": true,
+          "descriptionKey": "app.lab.command-generator.arg.compute.provider.desc",
+          "placeholder": "{type:\"minecraft:constant\",value:5}",
+          "when": {
+            "action": ["modify"],
+            "source": ["compute"]
+          }
+        }
+      ]
+    }
+  },
+  "chainPatches": {
+    "execute": {
+      "categoryId": "conditions",
+      "added": [
+        {
+          "id": "if-slots",
+          "labelKey": "app.lab.command-generator.execute.if-slots.label",
+          "descriptionKey": "app.lab.command-generator.execute.if-slots.desc",
+          "template": "if slots {source} {target} {slots}",
+          "arguments": [
+            {
+              "name": "source",
+              "displayNameKey": "app.lab.command-generator.arg.execute.source.display",
+              "type": "enum",
+              "required": true,
+              "descriptionKey": "app.lab.command-generator.arg.execute.source.desc",
+              "enumValues": ["entity", "block"],
+              "defaultValue": "entity"
+            },
+            {
+              "name": "target",
+              "displayNameKey": "app.lab.command-generator.arg.execute.target.display",
+              "type": "string",
+              "required": true,
+              "descriptionKey": "app.lab.command-generator.arg.execute.target.desc",
+              "defaultValue": "@s"
+            },
+            {
+              "name": "slots",
+              "displayNameKey": "app.lab.command-generator.arg.execute.slots.display",
+              "type": "string",
+              "required": true,
+              "descriptionKey": "app.lab.command-generator.arg.execute.slots.desc",
+              "defaultValue": "container.*"
+            }
+          ]
+        },
+        {
+          "id": "unless-slots",
+          "labelKey": "app.lab.command-generator.execute.unless-slots.label",
+          "descriptionKey": "app.lab.command-generator.execute.unless-slots.desc",
+          "template": "unless slots {source} {target} {slots}",
+          "arguments": [
+            {
+              "name": "source",
+              "displayNameKey": "app.lab.command-generator.arg.execute.source.display",
+              "type": "enum",
+              "required": true,
+              "descriptionKey": "app.lab.command-generator.arg.execute.source.desc",
+              "enumValues": ["entity", "block"],
+              "defaultValue": "entity"
+            },
+            {
+              "name": "target",
+              "displayNameKey": "app.lab.command-generator.arg.execute.target.display",
+              "type": "string",
+              "required": true,
+              "descriptionKey": "app.lab.command-generator.arg.execute.target.desc",
+              "defaultValue": "@s"
+            },
+            {
+              "name": "slots",
+              "displayNameKey": "app.lab.command-generator.arg.execute.slots.display",
+              "type": "string",
+              "required": true,
+              "descriptionKey": "app.lab.command-generator.arg.execute.slots.desc",
+              "defaultValue": "container.*"
+            }
+          ]
+        }
+      ],
+      "patched": {
+        "if-items": {
+          "arguments": [
+            {
+              "name": "source",
+              "displayNameKey": "app.lab.command-generator.arg.execute.if-items.source.display",
+              "type": "enum",
+              "required": true,
+              "descriptionKey": "app.lab.command-generator.arg.execute.if-items.source.desc",
+              "enumValues": ["block", "entity"],
+              "defaultValue": "entity"
+            },
+            {
+              "name": "target",
+              "displayNameKey": "app.lab.command-generator.arg.execute.if-items.target.display",
+              "type": "string",
+              "required": true,
+              "descriptionKey": "app.lab.command-generator.arg.execute.if-items.target.desc",
+              "placeholder": "@s"
+            },
+            {
+              "name": "slot",
+              "displayNameKey": "app.lab.command-generator.arg.execute.if-items.slot.display",
+              "type": "string",
+              "required": true,
+              "descriptionKey": "app.lab.command-generator.arg.execute.slot.desc.26",
+              "placeholder": "container.*",
+              "presets": [
+                {
+                  "labelKey": "app.lab.command-generator.preset.slot.mainhand",
+                  "value": "weapon.mainhand"
+                },
+                {
+                  "labelKey": "app.lab.command-generator.preset.slot.container-all",
+                  "value": "container.*"
+                },
+                {
+                  "labelKey": "app.lab.command-generator.preset.slot.all",
+                  "value": "*"
+                }
+              ]
+            },
+            {
+              "name": "item",
+              "displayNameKey": "app.lab.command-generator.arg.execute.if-items.item.display",
+              "type": "item",
+              "required": true,
+              "descriptionKey": "app.lab.command-generator.arg.execute.if-items.item.desc",
+              "placeholder": "minecraft:diamond"
+            }
+          ]
+        }
+      }
+    }
+  }
+}

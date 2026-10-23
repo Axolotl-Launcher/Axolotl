@@ -1200,4 +1200,125 @@ mod tests {
         assert!(physical_file_identity_changed(&file, "external", 10));
         assert!(physical_file_identity_changed(&file, "official", 11));
     }
+
+    async fn cleanup_pool() -> sqlx::SqlitePool {
+        let pool = sqlx::sqlite::SqlitePoolOptions::new()
+            .max_connections(1)
+            .connect("sqlite::memory:")
+            .await
+            .expect("in-memory SQLite pool");
+        sqlx::raw_sql(
+            "CREATE TABLE instance_files (
+                 id TEXT PRIMARY KEY,
+                 instance_id TEXT NOT NULL,
+                 relative_path TEXT NOT NULL
+             );
+             CREATE TABLE instance_content_entries (
+                 id TEXT PRIMARY KEY,
+                 instance_id TEXT NOT NULL,
+                 file_id TEXT
+             );",
+        )
+        .execute(&pool)
+        .await
+        .expect("instance tables");
+        pool
+    }
+
+    async fn insert_file(
+        pool: &sqlx::SqlitePool,
+        id: &str,
+        instance_id: &str,
+        relative_path: &str,
+    ) {
+        sqlx::query(
+            "INSERT INTO instance_files (id, instance_id, relative_path) VALUES (?, ?, ?)",
+        )
+        .bind(id)
+        .bind(instance_id)
+        .bind(relative_path)
+        .execute(pool)
+        .await
+        .expect("insert instance file");
+    }
+
+    async fn insert_entry(
+        pool: &sqlx::SqlitePool,
+        id: &str,
+        instance_id: &str,
+        file_id: &str,
+    ) {
+        sqlx::query(
+            "INSERT INTO instance_content_entries (id, instance_id, file_id) VALUES (?, ?, ?)",
+        )
+        .bind(id)
+        .bind(instance_id)
+        .bind(file_id)
+        .execute(pool)
+        .await
+        .expect("insert content entry");
+    }
+
+    #[tokio::test]
+    async fn cleanup_removes_only_rows_outside_the_scan_scope() {
+        let pool = cleanup_pool().await;
+        // Content the scan reports, plus a scannable path whose file was genuinely
+        // deleted: both must survive the cleanup.
+        insert_file(&pool, "tracked", "instance", "mods/example.jar").await;
+        insert_entry(&pool, "tracked-entry", "instance", "tracked").await;
+        insert_file(
+            &pool,
+            "deleted",
+            "instance",
+            "schematics/old/house.litematic",
+        )
+        .await;
+        insert_entry(&pool, "deleted-entry", "instance", "deleted").await;
+        // Legacy rows the scan can never report: an Iris shader sidecar and an
+        // update backup.
+        insert_file(
+            &pool,
+            "sidecar",
+            "instance",
+            "shaderpacks/BSL_v10.1.3.zip.txt",
+        )
+        .await;
+        insert_entry(&pool, "sidecar-entry", "instance", "sidecar").await;
+        insert_file(
+            &pool,
+            "backup",
+            "instance",
+            "mods/Mod-1.0.jar_Mod-0.9.jar.old",
+        )
+        .await;
+        // Another instance keeps its own rows.
+        insert_file(
+            &pool,
+            "other",
+            "other-instance",
+            "shaderpacks/BSL_v10.1.3.zip.txt",
+        )
+        .await;
+
+        let mut tx = pool.begin().await.expect("transaction");
+        remove_untracked_instance_files("instance", &mut tx)
+            .await
+            .expect("cleanup");
+        tx.commit().await.expect("commit");
+
+        let files: Vec<String> =
+            sqlx::query_scalar("SELECT id FROM instance_files ORDER BY id")
+                .fetch_all(&pool)
+                .await
+                .expect("read files");
+        assert_eq!(files, vec!["deleted", "other", "tracked"]);
+
+        let entries: Vec<String> = sqlx::query_scalar(
+            "SELECT id FROM instance_content_entries ORDER BY id",
+        )
+        .fetch_all(&pool)
+        .await
+        .expect("read entries");
+        assert_eq!(entries, vec!["deleted-entry", "tracked-entry"]);
+    }
 }

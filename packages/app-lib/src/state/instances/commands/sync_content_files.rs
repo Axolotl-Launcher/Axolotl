@@ -465,6 +465,8 @@ async fn sync_instance_content_files_with_verification(
         synced_files.push(synced);
     }
 
+    remove_untracked_instance_files(&instance.id, &mut tx).await?;
+
     if invalidated_provider_identity
         && let Some(content_set) = content_set.as_ref()
     {
@@ -488,6 +490,67 @@ async fn sync_instance_content_files_with_verification(
     }
 
     Ok(synced_files)
+}
+
+/// Drops tracked rows the content scan can never refresh.
+///
+/// `scan_content_files` only reports files whose extension matches their
+/// folder's content type, so a row outside that scope is never reported again —
+/// Iris writes shader configuration sidecars such as
+/// `shaderpacks/BSL_v10.1.3.zip.txt` next to the pack itself. Left in place such
+/// a row stays `missing` forever and surfaces as phantom content, so the
+/// reconciliation drops it. Entries go first: their foreign key only nulls
+/// `file_id` instead of deleting the entry.
+///
+/// Runs after every upsert and reclaim, so a row a scan result adopted has
+/// already been renamed onto a scannable path.
+async fn remove_untracked_instance_files(
+    instance_id: &str,
+    tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>,
+) -> crate::Result<()> {
+    let rows: Vec<(String, String)> = sqlx::query_as(
+        "SELECT id, relative_path FROM instance_files WHERE instance_id = ?",
+    )
+    .bind(instance_id)
+    .fetch_all(&mut **tx)
+    .await?;
+
+    let stale_ids: Vec<String> = rows
+        .into_iter()
+        .filter(|(_, relative_path)| {
+            !filesystem::is_scannable_instance_file_path(relative_path)
+        })
+        .map(|(id, _)| id)
+        .collect();
+    if stale_ids.is_empty() {
+        return Ok(());
+    }
+
+    for chunk in stale_ids.chunks(400) {
+        let mut entries = sqlx::QueryBuilder::<sqlx::Sqlite>::new(
+            "DELETE FROM instance_content_entries WHERE instance_id = ",
+        );
+        entries.push_bind(instance_id).push(" AND file_id IN (");
+        let mut separated = entries.separated(", ");
+        for id in chunk {
+            separated.push_bind(id.as_str());
+        }
+        separated.push_unseparated(")");
+        entries.build().execute(&mut **tx).await?;
+
+        let mut files = sqlx::QueryBuilder::<sqlx::Sqlite>::new(
+            "DELETE FROM instance_files WHERE instance_id = ",
+        );
+        files.push_bind(instance_id).push(" AND id IN (");
+        let mut separated = files.separated(", ");
+        for id in chunk {
+            separated.push_bind(id.as_str());
+        }
+        separated.push_unseparated(")");
+        files.build().execute(&mut **tx).await?;
+    }
+
+    Ok(())
 }
 
 fn content_path_is_dirty(path: &str, dirty_paths: &HashSet<String>) -> bool {

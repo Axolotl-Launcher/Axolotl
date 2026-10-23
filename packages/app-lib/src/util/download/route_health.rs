@@ -112,9 +112,7 @@ pub(crate) fn resource_family(
 ) -> ResourceFamily {
     match resource {
         ResourceClass::MinecraftLibrary
-            if route_policy::uses_mirror_first_loader_routes(
-                &route.url, resource,
-            ) =>
+            if route_policy::is_loader_repository(&route.url, resource) =>
         {
             ResourceFamily::Loader
         }

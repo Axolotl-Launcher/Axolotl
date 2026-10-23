@@ -1,6 +1,6 @@
 use crate::State;
 use crate::state::CachedLoaderManifest;
-use crate::util::fetch::{FetchSemaphore, fetch, fetch_json, fetch_official};
+use crate::util::fetch::{FetchSemaphore, fetch, fetch_json, fetch_metadata};
 use crate::util::io;
 use daedalus::minecraft::{
     Argument, ArgumentType, JavaVersion, Library, VersionType,
@@ -14,7 +14,11 @@ use serde::Deserialize;
 use sqlx::SqlitePool;
 use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
+use std::future::Future;
 use std::io::{Cursor, Read};
+use std::sync::{Arc, LazyLock};
+use std::time::{Duration, Instant};
+use tokio::sync::Mutex;
 
 const FABRIC_META_URL: &str = "https://meta.fabricmc.net/v2/versions/";
 const QUILT_META_URL: &str = "https://meta.quiltmc.org/v3/versions/";
@@ -45,6 +49,17 @@ const NEOFORGE_MAVEN_URL: &str =
     "https://maven.neoforged.net/releases/net/neoforged/neoforge/";
 const NEOFORGE_LEGACY_MAVEN_URL: &str =
     "https://maven.neoforged.net/releases/net/neoforged/forge/";
+const LOADER_METADATA_TTL: Duration = Duration::from_secs(30 * 60);
+const LOADER_METADATA_RETRY_DELAY: Duration = Duration::from_secs(5);
+const LOADER_METADATA_TIMEOUT: Duration = Duration::from_secs(15);
+const FORGE_PROMOTIONS_TIMEOUT: Duration = Duration::from_secs(2);
+const MAX_LOADER_METADATA_ENTRIES: usize = 128;
+static NEOFORGE_CURRENT_METADATA: LazyLock<MetadataCache<MavenMetadata>> =
+    LazyLock::new(MetadataCache::default);
+static NEOFORGE_LEGACY_METADATA: LazyLock<MetadataCache<MavenMetadata>> =
+    LazyLock::new(MetadataCache::default);
+static LOADER_MANIFESTS: LazyLock<LoaderManifestCache> =
+    LazyLock::new(LoaderManifestCache::default);
 const INSTALLER_URL_KEY: &str = "AXOLOTL_INSTALLER_URL";
 const INSTALLER_ENTRY_KEY_PREFIX: &str = "AXOLOTL_INSTALLER_ENTRY_";
 
@@ -104,22 +119,149 @@ struct GithubReleaseAsset {
     browser_download_url: String,
 }
 
-#[derive(Deserialize)]
+#[derive(Clone, Deserialize, Default)]
 struct MavenMetadata {
     versioning: MavenVersioning,
 }
 
-#[derive(Deserialize)]
+#[derive(Clone, Deserialize, Default)]
 struct MavenVersioning {
     #[serde(default)]
     release: String,
     versions: MavenVersions,
 }
 
-#[derive(Deserialize)]
+#[derive(Clone, Deserialize, Default)]
 struct MavenVersions {
     #[serde(rename = "version", default)]
     values: Vec<String>,
+}
+
+struct MetadataCache<T> {
+    value: Mutex<Option<(Instant, T)>>,
+    failure: Mutex<Option<(Instant, Arc<crate::ErrorKind>)>>,
+}
+
+impl<T> Default for MetadataCache<T> {
+    fn default() -> Self {
+        Self {
+            value: Mutex::new(None),
+            failure: Mutex::new(None),
+        }
+    }
+}
+
+impl<T: Clone> MetadataCache<T> {
+    async fn get_or_fetch<F, Fut>(&self, fetch: F) -> crate::Result<T>
+    where
+        F: FnOnce() -> Fut,
+        Fut: Future<Output = crate::Result<T>>,
+    {
+        // Keep the lock through the fetch so full and scoped
+        // requests share one download, including during background refresh.
+        let mut cached = self.value.lock().await;
+        if let Some((fetched_at, metadata)) = cached.as_ref()
+            && fetched_at.elapsed() < LOADER_METADATA_TTL
+        {
+            return Ok(metadata.clone());
+        }
+
+        if let Some((failed_at, error)) = self.failure.lock().await.as_ref()
+            && failed_at.elapsed() < LOADER_METADATA_RETRY_DELAY
+        {
+            return cached.as_ref().map(|(_, value)| value.clone()).ok_or_else(
+                || crate::Error::from_shared_kind(Arc::clone(error)),
+            );
+        }
+
+        match fetch().await {
+            Ok(metadata) => {
+                *cached = Some((Instant::now(), metadata.clone()));
+                *self.failure.lock().await = None;
+                Ok(metadata)
+            }
+            Err(error) => {
+                *self.failure.lock().await =
+                    Some((Instant::now(), Arc::clone(&error.raw)));
+                if let Some((_, metadata)) = cached.as_ref() {
+                    tracing::warn!(error = %error, "Loader metadata refresh failed; serving cached data");
+                    Ok(metadata.clone())
+                } else {
+                    Err(error)
+                }
+            }
+        }
+    }
+}
+
+#[derive(Default)]
+struct LoaderManifestCache {
+    entries: Mutex<HashMap<String, Arc<MetadataCache<CachedLoaderManifest>>>>,
+}
+
+impl LoaderManifestCache {
+    async fn get_or_fetch<'a, Fut>(
+        &self,
+        loader: &str,
+        game_version: Option<&'a str>,
+        fetch: impl FnOnce(Option<&'a str>) -> Fut,
+    ) -> crate::Result<CachedLoaderManifest>
+    where
+        Fut: Future<Output = crate::Result<CachedLoaderManifest>>,
+    {
+        let request_scope = manifest_request_scope(loader, game_version);
+        let cache_key = if let Some(game_version) = request_scope {
+            daedalus::modded::loader_manifest_metadata_for_game(
+                loader,
+                game_version,
+            )
+        } else {
+            daedalus::modded::loader_manifest_metadata(loader)
+        }
+        .cache_key;
+        let cache = self.entry(cache_key).await;
+        let mut result = cache.get_or_fetch(|| fetch(request_scope)).await?;
+        if request_scope != game_version
+            && let Some(game_version) = game_version
+        {
+            result.manifest = scope_manifest(result.manifest, game_version);
+        }
+        Ok(result)
+    }
+
+    async fn entry(
+        &self,
+        key: String,
+    ) -> Arc<MetadataCache<CachedLoaderManifest>> {
+        let mut entries = self.entries.lock().await;
+        if let Some(entry) = entries.get(&key) {
+            return Arc::clone(entry);
+        }
+        if entries.len() >= MAX_LOADER_METADATA_ENTRIES {
+            let unused = entries
+                .iter()
+                .find(|(_, entry)| Arc::strong_count(entry) == 1)
+                .map(|(key, _)| key.clone());
+            if let Some(unused) = unused {
+                entries.remove(&unused);
+            } else {
+                return Arc::new(MetadataCache::default());
+            }
+        }
+        Arc::clone(entries.entry(key).or_default())
+    }
+}
+
+fn manifest_request_scope<'a>(
+    loader: &str,
+    game_version: Option<&'a str>,
+) -> Option<&'a str> {
+    match loader {
+        "forge" | "legacy_fabric" | "babric" | "lite_loader" | "cleanroom" => {
+            None
+        }
+        _ => game_version,
+    }
 }
 
 #[derive(Deserialize)]
@@ -189,76 +331,150 @@ pub(crate) async fn fetch_loader_manifest_official_first(
     fetch_semaphore: &FetchSemaphore,
     pool: &SqlitePool,
 ) -> crate::Result<CachedLoaderManifest> {
-    let official = match (loader, game_version) {
-        ("fabric", Some(game_version)) => {
-            fetch_fabric_manifest_for_game(game_version, fetch_semaphore, pool)
-                .await
+    if let Some(game_version) = game_version {
+        let unsupported = match loader {
+            "babric" => game_version != BABRIC_GAME_VERSION,
+            "cleanroom" => game_version != "1.12.2",
+            "lite_loader" => !liteloader_supports_game_version(game_version),
+            _ => false,
+        };
+        if unsupported {
+            return Ok(CachedLoaderManifest {
+                loader: loader.to_string(),
+                manifest: unsupported_loader_manifest(game_version),
+            });
         }
-        ("quilt", Some(game_version)) => {
-            fetch_quilt_manifest_for_game(game_version, fetch_semaphore, pool)
-                .await
-        }
-        ("legacy_fabric", Some(game_version)) => {
-            fetch_legacy_fabric_manifest(fetch_semaphore, pool)
-                .await
-                .map(|manifest| scope_manifest(manifest, game_version))
-        }
-        ("babric", Some(game_version)) => {
-            fetch_babric_manifest_for_game(game_version, fetch_semaphore, pool)
-                .await
-        }
-        ("optifine", Some(game_version)) => {
-            fetch_optifine_manifest(Some(game_version), fetch_semaphore, pool)
-                .await
-        }
-        ("lite_loader", Some(game_version)) => {
-            fetch_liteloader_manifest(fetch_semaphore, pool)
-                .await
-                .map(|manifest| scope_manifest(manifest, game_version))
-        }
-        ("cleanroom", Some(game_version)) => {
-            fetch_cleanroom_manifest(fetch_semaphore, pool)
-                .await
-                .map(|manifest| scope_manifest(manifest, game_version))
-        }
-        ("forge", Some(game_version)) => {
-            fetch_forge_manifest(fetch_semaphore, pool)
-                .await
-                .map(|manifest| scope_manifest(manifest, game_version))
-        }
-        ("neo", Some(game_version)) => {
-            fetch_neoforge_manifest(fetch_semaphore, pool)
-                .await
-                .map(|manifest| scope_manifest(manifest, game_version))
-        }
-        ("fabric", None) => fetch_fabric_manifest(fetch_semaphore, pool).await,
-        ("forge", None) => fetch_forge_manifest(fetch_semaphore, pool).await,
-        ("neo", None) => fetch_neoforge_manifest(fetch_semaphore, pool).await,
-        ("quilt", None) => fetch_quilt_manifest(fetch_semaphore, pool).await,
-        ("legacy_fabric", None) => {
-            fetch_legacy_fabric_manifest(fetch_semaphore, pool).await
-        }
-        ("babric", None) => fetch_babric_manifest(fetch_semaphore, pool).await,
-        ("optifine", None) => {
-            fetch_optifine_manifest(None, fetch_semaphore, pool).await
-        }
-        ("lite_loader", None) => {
-            fetch_liteloader_manifest(fetch_semaphore, pool).await
-        }
-        ("cleanroom", None) => {
-            fetch_cleanroom_manifest(fetch_semaphore, pool).await
-        }
-        _ => {
-            return fetch_fallback_manifest(
+    }
+    LOADER_MANIFESTS
+        .get_or_fetch(loader, game_version, |request_scope| {
+            fetch_loader_manifest_uncached(
                 loader,
-                game_version,
+                request_scope,
                 fallback_url,
                 fetch_semaphore,
                 pool,
             )
-            .await;
-        }
-    };
+        })
+        .await
+}
+
+async fn fetch_loader_manifest_uncached(
+    loader: &str,
+    game_version: Option<&str>,
+    fallback_url: &str,
+    fetch_semaphore: &FetchSemaphore,
+    pool: &SqlitePool,
+) -> crate::Result<CachedLoaderManifest> {
+    let official = tokio::time::timeout(LOADER_METADATA_TIMEOUT, async {
+        let official = match (loader, game_version) {
+            ("fabric", Some(game_version)) => {
+                fetch_fabric_manifest_for_game(
+                    game_version,
+                    fetch_semaphore,
+                    pool,
+                )
+                .await
+            }
+            ("quilt", Some(game_version)) => {
+                fetch_quilt_manifest_for_game(
+                    game_version,
+                    fetch_semaphore,
+                    pool,
+                )
+                .await
+            }
+            ("legacy_fabric", Some(game_version)) => {
+                fetch_legacy_fabric_manifest(fetch_semaphore, pool)
+                    .await
+                    .map(|manifest| scope_manifest(manifest, game_version))
+            }
+            ("babric", Some(game_version)) => {
+                fetch_babric_manifest_for_game(
+                    game_version,
+                    fetch_semaphore,
+                    pool,
+                )
+                .await
+            }
+            ("optifine", Some(game_version)) => {
+                fetch_optifine_manifest(
+                    Some(game_version),
+                    fetch_semaphore,
+                    pool,
+                )
+                .await
+            }
+            ("lite_loader", Some(game_version)) => {
+                fetch_liteloader_manifest(fetch_semaphore, pool)
+                    .await
+                    .map(|manifest| scope_manifest(manifest, game_version))
+            }
+            ("cleanroom", Some(game_version)) => {
+                fetch_cleanroom_manifest(fetch_semaphore, pool)
+                    .await
+                    .map(|manifest| scope_manifest(manifest, game_version))
+            }
+            ("forge", Some(game_version)) => {
+                fetch_forge_manifest(fetch_semaphore, pool)
+                    .await
+                    .map(|manifest| scope_manifest(manifest, game_version))
+            }
+            ("neo", Some(game_version)) => {
+                fetch_neoforge_manifest(
+                    Some(game_version),
+                    fetch_semaphore,
+                    pool,
+                )
+                .await
+            }
+            ("fabric", None) => {
+                fetch_fabric_manifest(fetch_semaphore, pool).await
+            }
+            ("forge", None) => {
+                fetch_forge_manifest(fetch_semaphore, pool).await
+            }
+            ("neo", None) => {
+                fetch_neoforge_manifest(None, fetch_semaphore, pool).await
+            }
+            ("quilt", None) => {
+                fetch_quilt_manifest(fetch_semaphore, pool).await
+            }
+            ("legacy_fabric", None) => {
+                fetch_legacy_fabric_manifest(fetch_semaphore, pool).await
+            }
+            ("babric", None) => {
+                fetch_babric_manifest(fetch_semaphore, pool).await
+            }
+            ("optifine", None) => {
+                fetch_optifine_manifest(None, fetch_semaphore, pool).await
+            }
+            ("lite_loader", None) => {
+                fetch_liteloader_manifest(fetch_semaphore, pool).await
+            }
+            ("cleanroom", None) => {
+                fetch_cleanroom_manifest(fetch_semaphore, pool).await
+            }
+            _ => {
+                return fetch_fallback_manifest(
+                    loader,
+                    game_version,
+                    fallback_url,
+                    fetch_semaphore,
+                    pool,
+                )
+                .await
+                .map(|metadata| metadata.manifest);
+            }
+        };
+        official
+    })
+    .await
+    .unwrap_or_else(|_| {
+        Err(crate::ErrorKind::OtherError(format!(
+            "{loader} metadata request timed out"
+        ))
+        .as_error())
+    });
 
     let official = official.and_then(|manifest| {
         if let Some(game_version) = game_version {
@@ -299,16 +515,8 @@ async fn fetch_fallback_manifest(
     fetch_semaphore: &FetchSemaphore,
     pool: &SqlitePool,
 ) -> crate::Result<CachedLoaderManifest> {
-    let mut manifest: Manifest = fetch_json(
-        Method::GET,
-        fallback_url,
-        None,
-        None,
-        None,
-        fetch_semaphore,
-        pool,
-    )
-    .await?;
+    let mut manifest: Manifest =
+        fetch_loader_json(fallback_url, fetch_semaphore, pool).await?;
     if loader == "lite_loader" {
         manifest
             .game_versions
@@ -369,23 +577,15 @@ async fn fetch_fabric_manifest(
     let game_url = format!("{FABRIC_META_URL}game");
     let loader_url = format!("{FABRIC_META_URL}loader");
     let (games, loaders) = tokio::try_join!(
-        fetch_json::<Vec<MetaGameVersion>>(
-            Method::GET,
+        fetch_loader_json::<Vec<MetaGameVersion>>(
             &game_url,
-            None,
-            None,
-            None,
             fetch_semaphore,
-            pool,
+            pool
         ),
-        fetch_json::<Vec<FabricLoaderVersion>>(
-            Method::GET,
+        fetch_loader_json::<Vec<FabricLoaderVersion>>(
             &loader_url,
-            None,
-            None,
-            None,
             fetch_semaphore,
-            pool,
+            pool
         ),
     )?;
     Ok(meta_api_manifest(
@@ -406,12 +606,8 @@ async fn fetch_fabric_manifest_for_game(
     pool: &SqlitePool,
 ) -> crate::Result<Manifest> {
     let url = meta_loader_versions_url(FABRIC_META_URL, game_version);
-    let loaders = fetch_json::<Vec<FabricLoaderMetadata>>(
-        Method::GET,
+    let loaders = fetch_loader_json::<Vec<FabricLoaderMetadata>>(
         &url,
-        None,
-        None,
-        None,
         fetch_semaphore,
         pool,
     )
@@ -435,23 +631,15 @@ async fn fetch_quilt_manifest(
     let game_url = format!("{QUILT_META_URL}game");
     let loader_url = format!("{QUILT_META_URL}loader");
     let (games, loaders) = tokio::try_join!(
-        fetch_json::<Vec<MetaGameVersion>>(
-            Method::GET,
+        fetch_loader_json::<Vec<MetaGameVersion>>(
             &game_url,
-            None,
-            None,
-            None,
             fetch_semaphore,
-            pool,
+            pool
         ),
-        fetch_json::<Vec<QuiltLoaderVersion>>(
-            Method::GET,
+        fetch_loader_json::<Vec<QuiltLoaderVersion>>(
             &loader_url,
-            None,
-            None,
-            None,
             fetch_semaphore,
-            pool,
+            pool
         ),
     )?;
     Ok(meta_api_manifest(
@@ -475,12 +663,8 @@ async fn fetch_quilt_manifest_for_game(
     pool: &SqlitePool,
 ) -> crate::Result<Manifest> {
     let url = meta_loader_versions_url(QUILT_META_URL, game_version);
-    let loaders = fetch_json::<Vec<QuiltLoaderMetadata>>(
-        Method::GET,
+    let loaders = fetch_loader_json::<Vec<QuiltLoaderMetadata>>(
         &url,
-        None,
-        None,
-        None,
         fetch_semaphore,
         pool,
     )
@@ -505,12 +689,8 @@ async fn fetch_legacy_fabric_manifest(
     fetch_semaphore: &FetchSemaphore,
     pool: &SqlitePool,
 ) -> crate::Result<Manifest> {
-    let metadata: LegacyFabricMetadata = fetch_json(
-        Method::GET,
+    let metadata: LegacyFabricMetadata = fetch_loader_json(
         LEGACY_FABRIC_META_URL.trim_end_matches('/'),
-        None,
-        None,
-        None,
         fetch_semaphore,
         pool,
     )
@@ -542,7 +722,7 @@ async fn fetch_babric_manifest_for_game(
     pool: &SqlitePool,
 ) -> crate::Result<Manifest> {
     if game_version != BABRIC_GAME_VERSION {
-        return Ok(babric_unsupported_manifest(game_version));
+        return Ok(unsupported_loader_manifest(game_version));
     }
     let metadata_url =
         format!("{BABRIC_LOADER_METADATA_URL}maven-metadata.xml");
@@ -556,7 +736,7 @@ async fn fetch_babric_manifest_for_game(
     Ok(babric_manifest(game_version, versions))
 }
 
-fn babric_unsupported_manifest(game_version: &str) -> Manifest {
+fn unsupported_loader_manifest(game_version: &str) -> Manifest {
     Manifest {
         game_versions: vec![Version {
             id: game_version.to_string(),
@@ -600,8 +780,7 @@ async fn fetch_optifine_manifest(
 ) -> crate::Result<Manifest> {
     let url = optifine_metadata_url(game_version);
     let entries: Vec<OptiFineMetadata> =
-        fetch_json(Method::GET, &url, None, None, None, fetch_semaphore, pool)
-            .await?;
+        fetch_loader_json(&url, fetch_semaphore, pool).await?;
     Ok(optifine_manifest(entries, game_version))
 }
 
@@ -647,16 +826,8 @@ async fn fetch_liteloader_manifest(
     fetch_semaphore: &FetchSemaphore,
     pool: &SqlitePool,
 ) -> crate::Result<Manifest> {
-    let metadata: serde_json::Value = fetch_json(
-        Method::GET,
-        LITELOADER_META_URL,
-        None,
-        None,
-        None,
-        fetch_semaphore,
-        pool,
-    )
-    .await?;
+    let metadata: serde_json::Value =
+        fetch_loader_json(LITELOADER_META_URL, fetch_semaphore, pool).await?;
     liteloader_manifest(&metadata)
 }
 
@@ -747,12 +918,8 @@ async fn fetch_cleanroom_manifest(
                 error = %maven_error,
                 "CleanroomMC maven metadata failed; falling back to GitHub releases"
             );
-            let releases: Vec<GithubRelease> = fetch_json(
-                Method::GET,
+            let releases: Vec<GithubRelease> = fetch_loader_json(
                 CLEANROOM_RELEASES_URL,
-                None,
-                None,
-                None,
                 fetch_semaphore,
                 pool,
             )
@@ -912,22 +1079,25 @@ async fn fetch_forge_manifest(
     pool: &SqlitePool,
 ) -> crate::Result<Manifest> {
     let metadata_url = format!("{FORGE_MAVEN_URL}maven-metadata.xml");
-    let metadata =
-        fetch_forge_maven_metadata(&metadata_url, fetch_semaphore, pool)
-            .await?;
-    let promotions = fetch_json::<ForgePromotions>(
-        Method::GET,
-        FORGE_PROMOTIONS_URL,
-        None,
-        None,
-        None,
-        fetch_semaphore,
-        pool,
+    let (metadata, promotions) = fetch_forge_indexes(
+        fetch_maven_metadata(&metadata_url, fetch_semaphore, pool),
+        fetch_loader_json(FORGE_PROMOTIONS_URL, fetch_semaphore, pool),
     )
-    .await
-    .unwrap_or_default();
-
+    .await?;
     Ok(forge_manifest(metadata, promotions))
+}
+
+async fn fetch_forge_indexes(
+    metadata: impl Future<Output = crate::Result<MavenMetadata>>,
+    promotions: impl Future<Output = crate::Result<ForgePromotions>>,
+) -> crate::Result<(MavenMetadata, ForgePromotions)> {
+    tokio::try_join!(metadata, async {
+        Ok(tokio::time::timeout(FORGE_PROMOTIONS_TIMEOUT, promotions)
+            .await
+            .ok()
+            .and_then(Result::ok)
+            .unwrap_or_default())
+    })
 }
 
 fn forge_manifest(
@@ -1013,16 +1183,49 @@ fn add_forge_loader_version(
 }
 
 async fn fetch_neoforge_manifest(
+    game_version: Option<&str>,
     fetch_semaphore: &FetchSemaphore,
     pool: &SqlitePool,
 ) -> crate::Result<Manifest> {
-    let current_url = format!("{NEOFORGE_MAVEN_URL}maven-metadata.xml");
-    let legacy_url = format!("{NEOFORGE_LEGACY_MAVEN_URL}maven-metadata.xml");
-    let (current, legacy) = tokio::try_join!(
-        fetch_maven_metadata(&current_url, fetch_semaphore, pool),
-        fetch_maven_metadata(&legacy_url, fetch_semaphore, pool),
-    )?;
-    Ok(neoforge_manifest(current, legacy))
+    let (current, legacy) = fetch_neoforge_indexes(
+        game_version,
+        || {
+            NEOFORGE_CURRENT_METADATA.get_or_fetch(|| async {
+                let url = format!("{NEOFORGE_MAVEN_URL}maven-metadata.xml");
+                fetch_maven_metadata(&url, fetch_semaphore, pool).await
+            })
+        },
+        || {
+            NEOFORGE_LEGACY_METADATA.get_or_fetch(|| async {
+                let url =
+                    format!("{NEOFORGE_LEGACY_MAVEN_URL}maven-metadata.xml");
+                fetch_maven_metadata(&url, fetch_semaphore, pool).await
+            })
+        },
+    )
+    .await?;
+    let manifest = neoforge_manifest(current, legacy);
+    Ok(if let Some(game_version) = game_version {
+        scope_manifest(manifest, game_version)
+    } else {
+        manifest
+    })
+}
+
+async fn fetch_neoforge_indexes<C, L>(
+    game_version: Option<&str>,
+    current: impl FnOnce() -> C,
+    legacy: impl FnOnce() -> L,
+) -> crate::Result<(MavenMetadata, MavenMetadata)>
+where
+    C: Future<Output = crate::Result<MavenMetadata>>,
+    L: Future<Output = crate::Result<MavenMetadata>>,
+{
+    match game_version {
+        Some("1.20.1") => Ok((MavenMetadata::default(), legacy().await?)),
+        Some(_) => Ok((current().await?, MavenMetadata::default())),
+        None => tokio::try_join!(current(), legacy()),
+    }
 }
 
 fn neoforge_manifest(
@@ -1147,40 +1350,53 @@ async fn fetch_maven_metadata(
     fetch_semaphore: &FetchSemaphore,
     pool: &SqlitePool,
 ) -> crate::Result<MavenMetadata> {
-    let bytes = fetch(url, None, None, None, fetch_semaphore, pool).await?;
+    fetch_metadata(
+        url,
+        |bytes| parse_maven_metadata(url, bytes),
+        fetch_semaphore,
+        pool,
+    )
+    .await
+}
+
+fn parse_maven_metadata(
+    url: &str,
+    bytes: &[u8],
+) -> crate::Result<MavenMetadata> {
     let xml = std::str::from_utf8(&bytes).map_err(|error| {
         crate::ErrorKind::OtherError(format!(
             "Maven metadata at {url} was not UTF-8: {error}"
         ))
         .as_error()
     })?;
-    quick_xml::de::from_str(xml).map_err(|error| {
-        crate::ErrorKind::OtherError(format!(
-            "Failed to parse Maven metadata at {url}: {error}"
+    let metadata: MavenMetadata =
+        quick_xml::de::from_str(xml).map_err(|error| {
+            crate::ErrorKind::OtherError(format!(
+                "Failed to parse Maven metadata at {url}: {error}"
+            ))
+            .as_error()
+        })?;
+    if metadata.versioning.versions.values.is_empty() {
+        return Err(crate::ErrorKind::OtherError(format!(
+            "Maven metadata at {url} contained no versions"
         ))
-        .as_error()
-    })
+        .as_error());
+    }
+    Ok(metadata)
 }
 
-async fn fetch_forge_maven_metadata(
+async fn fetch_loader_json<T: serde::de::DeserializeOwned>(
     url: &str,
     fetch_semaphore: &FetchSemaphore,
     pool: &SqlitePool,
-) -> crate::Result<MavenMetadata> {
-    let bytes =
-        fetch_official(url, None, None, None, fetch_semaphore, pool).await?;
-    let xml = std::str::from_utf8(&bytes).map_err(|error| {
-        crate::ErrorKind::OtherError(format!(
-            "Forge Maven metadata at {url} was not UTF-8: {error}"
-        ))
-        .as_error()
-    })?;
-    quick_xml::de::from_str(xml).map_err(|error| {
-        crate::ErrorKind::OtherError(format!(
-            "Failed to parse Forge Maven metadata at {url}: {error}"
-        ))
-        .as_error()
-    })
+) -> crate::Result<T> {
+    fetch_metadata(
+        url,
+        |bytes| serde_json::from_slice(bytes).map_err(Into::into),
+        fetch_semaphore,
+        pool,
+    )
+    .await
 }
 
 fn fallback_profile_url(
@@ -2105,6 +2321,377 @@ mod tests {
         }
     }
 
+    #[tokio::test]
+    async fn catalog_loaders_share_downloads_without_mixing_game_versions() {
+        use std::sync::atomic::{AtomicUsize, Ordering};
+        let cache = LoaderManifestCache::default();
+        for loader in [
+            "forge",
+            "legacy_fabric",
+            "babric",
+            "lite_loader",
+            "cleanroom",
+        ] {
+            let calls = AtomicUsize::new(0);
+            let fetch = |scope| {
+                assert_eq!(scope, None);
+                async {
+                    calls.fetch_add(1, Ordering::Relaxed);
+                    tokio::task::yield_now().await;
+                    Ok(CachedLoaderManifest {
+                        loader: loader.into(),
+                        manifest: forge_manifest(
+                            maven_metadata(
+                                "",
+                                &["1.20.1-47.1.0", "1.21.1-52.1.0"],
+                            ),
+                            ForgePromotions::default(),
+                        ),
+                    })
+                }
+            };
+            let (full, first, second) = tokio::join!(
+                cache.get_or_fetch(loader, None, fetch),
+                cache.get_or_fetch(loader, Some("1.20.1"), fetch),
+                cache.get_or_fetch(loader, Some("1.21.1"), fetch),
+            );
+            assert_eq!(full.unwrap().manifest.game_versions.len(), 2);
+            let first = first.unwrap().manifest;
+            let second = second.unwrap().manifest;
+            assert_eq!(first.game_versions.len(), 1);
+            assert_eq!(first.game_versions[0].id, "1.20.1");
+            assert_eq!(first.game_versions[0].loaders[0].id, "47.1.0");
+            assert_eq!(second.game_versions[0].id, "1.21.1");
+            assert_eq!(second.game_versions[0].loaders[0].id, "52.1.0");
+            let unsupported = cache
+                .get_or_fetch(loader, Some("1.2.3"), fetch)
+                .await
+                .unwrap();
+            assert!(unsupported.manifest.game_versions[0].loaders.is_empty());
+            assert_eq!(calls.load(Ordering::Relaxed), 1);
+        }
+    }
+
+    #[tokio::test]
+    async fn known_unsupported_versions_return_without_network_or_database_access()
+     {
+        let pool = sqlx::sqlite::SqlitePoolOptions::new()
+            .connect_lazy("sqlite::memory:")
+            .unwrap();
+        let semaphore = FetchSemaphore(tokio::sync::Semaphore::new(0));
+        for (loader, game) in [
+            ("babric", "1.21.1"),
+            ("cleanroom", "1.20.1"),
+            ("lite_loader", "1.6.4"),
+        ] {
+            let result = tokio::time::timeout(
+                Duration::from_secs(1),
+                fetch_loader_manifest_official_first(
+                    loader,
+                    Some(game),
+                    "https://invalid.test/manifest.json",
+                    &semaphore,
+                    &pool,
+                ),
+            )
+            .await
+            .unwrap()
+            .unwrap();
+            assert_eq!(result.manifest.game_versions[0].id, game);
+            assert!(result.manifest.game_versions[0].loaders.is_empty());
+        }
+    }
+
+    #[tokio::test]
+    async fn scoped_loader_caches_preserve_compatibility_and_empty_results() {
+        use std::sync::atomic::{AtomicUsize, Ordering};
+        let cache = LoaderManifestCache::default();
+        for loader in ["fabric", "quilt", "optifine", "neo"] {
+            let calls = AtomicUsize::new(0);
+            for (game, versions) in [
+                ("1.21.1", vec![("compatible".into(), true)]),
+                ("1.2.3", vec![]),
+            ] {
+                let fetch = |scope| {
+                    assert_eq!(scope, Some(game));
+                    calls.fetch_add(1, Ordering::Relaxed);
+                    let versions = versions.clone();
+                    async move {
+                        Ok(CachedLoaderManifest {
+                            loader: loader.into(),
+                            manifest: meta_api_manifest_for_game(
+                                game,
+                                versions,
+                                loader,
+                                FABRIC_META_URL,
+                                0,
+                            ),
+                        })
+                    }
+                };
+                let first = cache
+                    .get_or_fetch(loader, Some(game), fetch)
+                    .await
+                    .unwrap();
+                let repeated = cache
+                    .get_or_fetch(loader, Some(game), |_| async {
+                        panic!("scoped cache should avoid repeated downloads")
+                    })
+                    .await
+                    .unwrap();
+                assert_eq!(
+                    first.manifest.game_versions[0].loaders.len(),
+                    versions.len()
+                );
+                assert_eq!(repeated.manifest.game_versions[0].id, game);
+            }
+            assert_eq!(calls.load(Ordering::Relaxed), 2);
+        }
+    }
+
+    #[tokio::test]
+    async fn manifest_cache_capacity_preserves_active_requests() {
+        let cache = LoaderManifestCache::default();
+        let active = cache.entry("active".into()).await;
+        for index in 0..MAX_LOADER_METADATA_ENTRIES * 2 {
+            cache.entry(format!("key-{index}")).await;
+        }
+        assert_eq!(
+            cache.entries.lock().await.len(),
+            MAX_LOADER_METADATA_ENTRIES
+        );
+        assert!(Arc::ptr_eq(&active, &cache.entry("active".into()).await));
+    }
+
+    #[tokio::test]
+    async fn metadata_cache_coalesces_failures_and_retries_after_cooldown() {
+        let cache = MetadataCache::<MavenMetadata>::default();
+        let failed = cache
+            .get_or_fetch(|| async {
+                Err(crate::ErrorKind::OtherError("offline".into()).as_error())
+            })
+            .await;
+        assert!(failed.is_err());
+        assert!(
+            cache
+                .get_or_fetch(|| async {
+                    panic!("failure cooldown must prevent another request")
+                })
+                .await
+                .is_err()
+        );
+        cache.failure.lock().await.as_mut().unwrap().0 =
+            Instant::now() - LOADER_METADATA_RETRY_DELAY;
+        assert!(
+            cache
+                .get_or_fetch(|| async {
+                    Ok(maven_metadata("", &["21.1.200"]))
+                })
+                .await
+                .is_ok()
+        );
+    }
+
+    #[tokio::test]
+    async fn forge_fetches_catalog_and_promotions_concurrently() {
+        let barrier = tokio::sync::Barrier::new(2);
+        let (metadata, promotions) = tokio::time::timeout(
+            Duration::from_secs(1),
+            fetch_forge_indexes(
+                async {
+                    barrier.wait().await;
+                    Ok(maven_metadata("", &["1.20.1-47.1.0"]))
+                },
+                async {
+                    barrier.wait().await;
+                    Ok(ForgePromotions {
+                        promos: HashMap::from([(
+                            "1.20.1-recommended".into(),
+                            "47.1.0".into(),
+                        )]),
+                    })
+                },
+            ),
+        )
+        .await
+        .unwrap()
+        .unwrap();
+        let manifest = forge_manifest(metadata, promotions);
+        assert!(manifest.game_versions[0].loaders[0].stable);
+    }
+
+    #[tokio::test]
+    async fn forge_keeps_catalog_when_promotions_stall_or_fail() {
+        let (metadata, promotions) = tokio::time::timeout(
+            FORGE_PROMOTIONS_TIMEOUT + Duration::from_secs(1),
+            fetch_forge_indexes(
+                async { Ok(maven_metadata("", &["1.20.1-47.1.0"])) },
+                std::future::pending(),
+            ),
+        )
+        .await
+        .unwrap()
+        .unwrap();
+        assert!(promotions.promos.is_empty());
+        assert_eq!(
+            forge_manifest(metadata, promotions).game_versions[0]
+                .loaders
+                .len(),
+            1
+        );
+        assert!(
+            fetch_forge_indexes(
+                async { Ok(maven_metadata("", &["1.20.1-47.1.0"])) },
+                async {
+                    Err(crate::ErrorKind::OtherError("offline".into())
+                        .as_error())
+                },
+            )
+            .await
+            .is_ok()
+        );
+        assert!(
+            fetch_forge_indexes(
+                async {
+                    Err(crate::ErrorKind::OtherError("invalid XML".into())
+                        .as_error())
+                },
+                async { Ok(ForgePromotions::default()) },
+            )
+            .await
+            .is_err()
+        );
+    }
+
+    #[tokio::test]
+    async fn neoforge_scoped_requests_skip_the_unrelated_index() {
+        for game_version in ["1.21.1", "26.3", "1.0.25w14craftmine"] {
+            let (current, legacy) = fetch_neoforge_indexes(
+                Some(game_version),
+                || async { Ok(maven_metadata("21.1.200", &["21.1.200"])) },
+                || async {
+                    panic!("modern versions must not fetch the legacy index")
+                },
+            )
+            .await
+            .unwrap();
+            assert_eq!(current.versioning.versions.values.len(), 1);
+            assert!(legacy.versioning.versions.values.is_empty());
+        }
+        let (current, legacy) = fetch_neoforge_indexes(
+            Some("1.20.1"),
+            || async { panic!("1.20.1 must not fetch the modern index") },
+            || async { Ok(maven_metadata("", &["1.20.1-47.1.106"])) },
+        )
+        .await
+        .unwrap();
+        assert!(current.versioning.versions.values.is_empty());
+        let manifest = neoforge_manifest(current, legacy);
+        assert_eq!(manifest.game_versions[0].id, "1.20.1");
+        assert_eq!(manifest.game_versions[0].loaders[0].id, "47.1.106");
+    }
+
+    #[tokio::test]
+    async fn neoforge_full_catalog_and_scoped_requests_share_index_downloads() {
+        use std::sync::atomic::{AtomicUsize, Ordering};
+        let current = MetadataCache::default();
+        let legacy = MetadataCache::default();
+        let current_calls = AtomicUsize::new(0);
+        let legacy_calls = AtomicUsize::new(0);
+        let fetch_current = || {
+            current.get_or_fetch(|| async {
+                current_calls.fetch_add(1, Ordering::Relaxed);
+                tokio::task::yield_now().await;
+                Ok(maven_metadata("21.1.200", &["21.1.200", "26.3.0.1"]))
+            })
+        };
+        let fetch_legacy = || {
+            legacy.get_or_fetch(|| async {
+                legacy_calls.fetch_add(1, Ordering::Relaxed);
+                tokio::task::yield_now().await;
+                Ok(maven_metadata("", &["1.20.1-47.1.106"]))
+            })
+        };
+        let (full, modern, old) = tokio::join!(
+            fetch_neoforge_indexes(None, fetch_current, fetch_legacy),
+            fetch_neoforge_indexes(Some("1.21.1"), fetch_current, fetch_legacy),
+            fetch_neoforge_indexes(Some("1.20.1"), fetch_current, fetch_legacy),
+        );
+        let (current_metadata, legacy_metadata) = full.unwrap();
+        assert_eq!(
+            neoforge_manifest(current_metadata, legacy_metadata)
+                .game_versions
+                .len(),
+            3
+        );
+        assert_eq!(modern.unwrap().0.versioning.versions.values.len(), 2);
+        assert_eq!(old.unwrap().1.versioning.versions.values.len(), 1);
+        fetch_neoforge_indexes(Some("26.3"), fetch_current, fetch_legacy)
+            .await
+            .unwrap();
+        assert_eq!(current_calls.load(Ordering::Relaxed), 1);
+        assert_eq!(legacy_calls.load(Ordering::Relaxed), 1);
+    }
+
+    #[tokio::test]
+    async fn neoforge_index_refreshes_after_expiry_and_preserves_data_on_failure()
+     {
+        let cache = MetadataCache::default();
+        *cache.value.lock().await = Some((
+            Instant::now() - LOADER_METADATA_TTL,
+            maven_metadata("21.1.200", &["21.1.200"]),
+        ));
+        let updated = cache
+            .get_or_fetch(|| async {
+                Ok(maven_metadata("21.1.201", &["21.1.200", "21.1.201"]))
+            })
+            .await
+            .unwrap();
+        assert_eq!(updated.versioning.release, "21.1.201");
+        let cached = cache
+            .get_or_fetch(|| async {
+                panic!("fresh cache must avoid fetching")
+            })
+            .await
+            .unwrap();
+        assert_eq!(cached.versioning.release, "21.1.201");
+        cache.value.lock().await.as_mut().unwrap().0 =
+            Instant::now() - LOADER_METADATA_TTL;
+        let fail = || async {
+            Err(crate::ErrorKind::OtherError("offline".into()).as_error())
+        };
+        let stale = cache.get_or_fetch(fail).await.unwrap();
+        assert_eq!(stale.versioning.release, "21.1.201");
+        assert!(
+            MetadataCache::<MavenMetadata>::default()
+                .get_or_fetch(fail)
+                .await
+                .is_err()
+        );
+    }
+
+    #[test]
+    fn maven_index_validation_rejects_invalid_and_empty_responses() {
+        for xml in [
+            "not XML",
+            "<html><body>upstream unavailable</body></html>",
+            "<metadata><versioning><versions/></versioning></metadata>",
+        ] {
+            assert!(
+                parse_maven_metadata(
+                    "https://example.test/index.xml",
+                    xml.as_bytes()
+                )
+                .is_err()
+            );
+        }
+        let metadata = parse_maven_metadata(
+            "https://example.test/index.xml",
+            b"<metadata><versioning><versions><version>21.1.200</version></versions></versioning></metadata>",
+        ).unwrap();
+        assert_eq!(metadata.versioning.versions.values, ["21.1.200"]);
+    }
+
     fn forge_loaders<'a>(
         manifest: &'a Manifest,
         game_version: &str,
@@ -2574,7 +3161,7 @@ mod tests {
                 .contains("loader/b1.7.3/0.15.6-babric.2/profile/json")
         );
 
-        let unsupported = babric_unsupported_manifest("1.7.10");
+        let unsupported = unsupported_loader_manifest("1.7.10");
         assert_eq!(unsupported.game_versions[0].id, "1.7.10");
         assert!(unsupported.game_versions[0].loaders.is_empty());
     }

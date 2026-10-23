@@ -179,6 +179,7 @@ pub(crate) const MAX_H2_RANGES_PER_FILE: usize = 16;
 pub(crate) const MAX_REDIRECT_LOCATION_BYTES: usize = 8 * 1024;
 pub(crate) const MAX_TASK_PROBE_STATES: usize = 64;
 pub(crate) const METADATA_ATTEMPT_BUDGET: usize = 4;
+pub(crate) const METADATA_REQUEST_TIMEOUT: Duration = Duration::from_secs(10);
 #[cfg(not(test))]
 pub(crate) const METADATA_HEDGE_DELAY: Duration = Duration::from_secs(2);
 pub(crate) const MINECRAFT_DOWNLOAD_PROGRESS_MIN_BYTES: u64 = 256 * 1024;

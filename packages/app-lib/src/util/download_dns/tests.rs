@@ -9,8 +9,8 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
 fn response_with_chain(query: &Message, ttl: u32) -> Message {
     let mut response = query.clone();
-    response.set_message_type(MessageType::Response);
-    let name = query.query().unwrap().name().clone();
+    response.metadata.message_type = MessageType::Response;
+    let name = query.queries.first().unwrap().name().clone();
     let alias = DnsName::from_ascii("edge.example.").unwrap();
     response.add_answer(Record::from_rdata(
         name,
@@ -170,22 +170,22 @@ fn rejects_wrong_class_cname_cycles_conflicting_targets_and_unrelated_addresses(
  {
     let query = doh_query("cdn.example", RecordType::A).unwrap();
     let mut wrong_class = response_with_chain(&query, 60);
-    wrong_class.answers_mut()[0].set_dns_class(DNSClass::CH);
+    wrong_class.answers[0].dns_class = DNSClass::CH;
     let mut cycle = response_with_chain(&query, 60);
-    cycle.answers_mut().pop();
+    cycle.answers.pop();
     cycle.add_answer(Record::from_rdata(
         DnsName::from_ascii("edge.example.").unwrap(),
         60,
-        RData::CNAME(CNAME(query.query().unwrap().name().clone())),
+        RData::CNAME(CNAME(query.queries.first().unwrap().name().clone())),
     ));
     let mut conflict = response_with_chain(&query, 60);
     conflict.add_answer(Record::from_rdata(
-        query.query().unwrap().name().clone(),
+        query.queries.first().unwrap().name().clone(),
         60,
         RData::CNAME(CNAME(DnsName::from_ascii("other.example.").unwrap())),
     ));
     let mut unrelated = response_with_chain(&query, 60);
-    unrelated.answers_mut().remove(0);
+    unrelated.answers.remove(0);
     for response in [wrong_class, cycle, conflict, unrelated] {
         assert!(
             parse_doh_metadata(
@@ -205,22 +205,22 @@ fn rejects_bad_header_question_class_type_truncation_and_oversize() {
         let mut response = response_with_chain(&query, 60);
         match invalid {
             0 => {
-                response.set_id(query.id().wrapping_add(1));
+                response.metadata.id = query.metadata.id.wrapping_add(1);
             }
             1 => {
-                response.set_truncated(true);
+                response.metadata.truncation = true;
             }
             2 => {
-                response.queries_mut()[0].set_query_class(DNSClass::CH);
+                response.queries[0].set_query_class(DNSClass::CH);
             }
             3 => {
-                response.queries_mut()[0].set_query_type(RecordType::AAAA);
+                response.queries[0].set_query_type(RecordType::AAAA);
             }
             4 => {
-                response.set_response_code(ResponseCode::ServFail);
+                response.metadata.response_code = ResponseCode::ServFail;
             }
             5 => {
-                response.queries_mut()[0]
+                response.queries[0]
                     .set_name(DnsName::from_ascii("other.example.").unwrap());
             }
             _ => unreachable!(),
@@ -300,20 +300,20 @@ impl DohFixture {
                             }
                             let query = Message::from_vec(&bytes[body_start..body_start + length]).unwrap();
                             counted.fetch_add(1, Ordering::SeqCst);
-                            let ipv4 = query.query().unwrap().query_type() == RecordType::A;
+                            let ipv4 = query.queries.first().unwrap().query_type() == RecordType::A;
                             tokio::time::sleep(if ipv4 { ipv4_delay } else { ipv6_delay }).await;
                             let mut response = if ipv4 {
                                 response_with_chain(&query, 60)
                             } else {
                                 let mut response = query.clone();
-                                response.set_message_type(MessageType::Response);
+                                response.metadata.message_type = MessageType::Response;
                                 response.add_answer(Record::from_rdata(
-                                    query.query().unwrap().name().clone(), 60,
+                                    query.queries.first().unwrap().name().clone(), 60,
                                     RData::AAAA(AAAA(Ipv6Addr::new(0x2a04, 0x4e42, 0, 0, 0, 0, 0, 0x498))),
                                 ));
                                 response
                             };
-                            response.set_id(query.id());
+                            response.metadata.id = query.metadata.id;
                             let body = response.to_vec().unwrap();
                             let headers = format!("HTTP/1.1 200 OK\r\nContent-Type: application/dns-message\r\nContent-Length: {}\r\nConnection: close\r\n\r\n", body.len());
                             if stream.write_all(headers.as_bytes()).await.is_ok() {

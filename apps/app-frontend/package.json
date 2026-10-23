@@ -70,7 +70,7 @@
     "@modrinth/tooling-config": "workspace:*",
     "@nuxt/eslint-config": "^0.5.7",
     "@vitejs/plugin-vue": "^6.0.8",
-    "@vitest/browser-playwright": "^4.1.11",
+    "@vitest/browser-playwright": "^4.1.12",
     "@vue/test-utils": "^2.4.11",
     "autoprefixer": "^10.5.5",
     "eslint": "^9.39.5",
@@ -84,7 +84,7 @@
     "vite": "^8.2.4",
     "vite-plugin-node-polyfills": "0.28.0",
     "vite-plugin-vue-devtools": "^8.2.1",
-    "vitest": "^4.1.11",
+    "vitest": "^4.1.12",
     "vue-component-type-helpers": "^3.3.11",
     "vue-tsc": "^2.2.12"
   },

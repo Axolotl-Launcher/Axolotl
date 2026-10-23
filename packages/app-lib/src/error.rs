@@ -200,7 +200,7 @@ pub enum ErrorKind {
     DirectoryMoveError(String),
 
     #[error("Error resolving DNS: {0}")]
-    DNSError(#[from] hickory_resolver::ResolveError),
+    DNSError(#[from] hickory_resolver::net::NetError),
 
     #[error("An online profile for {user_name} is not available")]
     OnlineMinecraftProfileUnavailable { user_name: String },

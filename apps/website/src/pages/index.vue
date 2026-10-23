@@ -27,6 +27,7 @@ import MultiplayerIcon from '~/components/landing/MultiplayerIcon.vue'
 import OfflineModeIcon from '~/components/landing/OfflineModeIcon.vue'
 import ProjectsShowcase from '~/components/landing/ProjectsShowcase.vue'
 import WindowsLogo from '~/components/landing/WindowsLogo.vue'
+import { trackHeroGlow } from '~/utils/hero-glow'
 import {
     getDownloadAvailability,
     getReleasePage,
@@ -46,23 +47,11 @@ const downloadMac = ref<HTMLAnchorElement | null>(null)
 const downloadSection = ref<HTMLElement | null>(null)
 const hero = ref<HTMLElement | null>(null)
 
-const updateHeroGlow = (event: PointerEvent) => {
-    if (!hero.value) return
-
-    const bounds = hero.value.getBoundingClientRect()
-    const x = Math.max(0, Math.min(1, (event.clientX - bounds.left) / bounds.width))
-    const y = Math.max(0, Math.min(1, (event.clientY - bounds.top) / bounds.height))
-
-    hero.value.style.setProperty('--pointer-x', `${x * 100}%`)
-    hero.value.style.setProperty('--pointer-y', `${y * 100}%`)
-}
-
-const resetHeroGlow = () => {
-    if (!hero.value) return
-
-    hero.value.style.removeProperty('--pointer-x')
-    hero.value.style.removeProperty('--pointer-y')
-}
+let stopHeroGlow: (() => void) | undefined
+onMounted(() => {
+    if (hero.value) stopHeroGlow = trackHeroGlow(hero.value, window)
+})
+onBeforeUnmount(() => stopHeroGlow?.())
 
 const { resolvedSource } = useDownloadSource()
 const UPDATE_SERVER_BASE_URL = 'https://update.axlmc.org'
@@ -1018,12 +1007,7 @@ useHead(() => ({
 
 <template>
     <div>
-        <div
-            ref="hero"
-            class="landing-hero"
-            @pointerleave="resetHeroGlow"
-            @pointermove="updateHeroGlow"
-        >
+        <div ref="hero" class="landing-hero">
             <div class="hero-grid" aria-hidden="true" />
             <div class="hero-content">
                 <div class="flex items-center gap-3">

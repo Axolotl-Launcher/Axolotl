@@ -80,6 +80,8 @@ impl AggregateProgress {
 #[derive(Deserialize)]
 struct MrpackIndex {
     #[serde(default)]
+    dependencies: HashMap<String, String>,
+    #[serde(default)]
     files: Vec<MrpackFile>,
 }
 
@@ -195,7 +197,9 @@ impl ModMetadata {
 ///
 /// `mrpack_url` / `mrpack_sha1` identify the `.mrpack` archive to download;
 /// `jar_url` / `jar_filename` / `jar_sha1` describe the loader's server
-/// launcher jar that boots the modpack. The optional `modpack_*` fields are
+/// launcher jar that boots the modpack. NeoForge resolves its installer from
+/// the pack's dependencies instead, so these launcher fields may be omitted.
+/// The optional `modpack_*` fields are
 /// recorded on the manifest so the UI can badge and link the server back to
 /// its source project.
 ///
@@ -208,8 +212,8 @@ pub async fn install_modpack(
     server_id: &str,
     mrpack_url: &str,
     mrpack_sha1: Option<String>,
-    jar_url: &str,
-    jar_filename: &str,
+    jar_url: Option<&str>,
+    jar_filename: Option<&str>,
     jar_sha1: Option<String>,
     modpack_project_id: Option<String>,
     modpack_version_id: Option<String>,
@@ -258,7 +262,11 @@ pub async fn install_modpack(
     let mut manifest = read_manifest(&dir).await?;
     match result {
         Ok(()) => {
-            manifest.jar_name = Some(jar_filename.to_string());
+            manifest.jar_name = if manifest.server_type == "neoforge" {
+                None
+            } else {
+                jar_filename.map(str::to_string)
+            };
             // Icon was already downloaded at the start; only download if still missing
             if manifest.icon_path.is_none()
                 && let Some(icon_url) = modpack_icon_url.as_deref()
@@ -302,8 +310,8 @@ async fn run_modpack_install(
     dir: &Path,
     mrpack_url: &str,
     mrpack_sha1: Option<&str>,
-    jar_url: &str,
-    jar_filename: &str,
+    jar_url: Option<&str>,
+    jar_filename: Option<&str>,
     jar_sha1: Option<&str>,
 ) -> Result<()> {
     let state = State::get().await?;
@@ -325,6 +333,41 @@ async fn run_modpack_install(
     let base_folder = base_folder(&manifest_entry);
     let index = parse_index(&archive_path, &manifest_entry).await?;
     validate_index(&index, dir)?;
+
+    let mut manifest = read_manifest(dir).await?;
+    let neoforge_installer = if manifest.server_type == "neoforge" {
+        let build = neoforge_pack_version(&index, &manifest.game_version)?;
+        let download = super::forge::installer_download(
+            "neoforge",
+            &manifest.game_version,
+            build,
+        )?;
+        manifest.loader_version = Some(build.to_string());
+        write_manifest(dir, &manifest).await?;
+        Some(download)
+    } else {
+        None
+    };
+    let (jar_url, jar_filename, jar_sha1) = match neoforge_installer.as_ref() {
+        Some((url, filename)) => (url.as_str(), filename.as_str(), None),
+        None => {
+            let missing = || {
+                ErrorKind::InputError(
+                    "Server launcher download is required".to_string(),
+                )
+                .as_error()
+            };
+            (
+                jar_url
+                    .filter(|value| !value.is_empty())
+                    .ok_or_else(missing)?,
+                jar_filename
+                    .filter(|value| !value.is_empty())
+                    .ok_or_else(missing)?,
+                jar_sha1,
+            )
+        }
+    };
 
     let (installable_files, excluded_files): (
         Vec<&MrpackFile>,
@@ -472,7 +515,43 @@ async fn run_modpack_install(
     )
     .await?;
 
+    if neoforge_installer.is_some() {
+        super::forge::run_installer(
+            server_id,
+            dir,
+            jar_filename,
+            manifest.java_path.as_deref(),
+            "neoforge",
+        )
+        .await?;
+    }
+
     Ok(())
+}
+
+fn neoforge_pack_version<'a>(
+    index: &'a MrpackIndex,
+    game_version: &str,
+) -> Result<&'a str> {
+    if index.dependencies.get("minecraft").map(String::as_str)
+        != Some(game_version)
+    {
+        return Err(ErrorKind::InputError(
+            "Modpack Minecraft version does not match this server".to_string(),
+        )
+        .as_error());
+    }
+    index
+        .dependencies
+        .get("neoforge")
+        .map(String::as_str)
+        .filter(|version| !version.is_empty())
+        .ok_or_else(|| {
+            ErrorKind::InputError(
+                "Modpack does not declare a NeoForge version".to_string(),
+            )
+            .as_error()
+        })
 }
 
 /// Fetches the modpack icon into the server directory and returns its path.
@@ -951,6 +1030,24 @@ async fn log(server_id: &str, line: &str) -> Result<()> {
 mod tests {
     use super::*;
     use std::io::Write;
+
+    #[test]
+    fn neoforge_pack_requires_its_exact_loader_and_matching_game() {
+        let index: MrpackIndex = serde_json::from_value(serde_json::json!({
+            "dependencies": {"minecraft": "1.21.1", "neoforge": "21.1.172"}
+        }))
+        .unwrap();
+        assert_eq!(
+            neoforge_pack_version(&index, "1.21.1").unwrap(),
+            "21.1.172"
+        );
+        assert!(neoforge_pack_version(&index, "1.20.1").is_err());
+        let missing: MrpackIndex = serde_json::from_value(serde_json::json!({
+            "dependencies": {"minecraft": "1.21.1", "forge": "52.0.1"}
+        }))
+        .unwrap();
+        assert!(neoforge_pack_version(&missing, "1.21.1").is_err());
+    }
 
     fn index_file(path: &str) -> serde_json::Value {
         serde_json::json!({

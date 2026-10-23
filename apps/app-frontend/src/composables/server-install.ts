@@ -65,11 +65,25 @@ export class ForgeServerInstallStrategy implements ServerInstallStrategy {
     }
 }
 
+export class NeoForgeServerInstallStrategy implements ServerInstallStrategy {
+    readonly id = 'neoforge' as const
+    async install(serverId: string, inputs: ServerInstallInputs): Promise<void> {
+        if (!inputs.loaderVersion) throw new Error('Select a NeoForge version first')
+        await servers.installNeoForge(
+            serverId,
+            inputs.gameVersion,
+            inputs.loaderVersion,
+            inputs.javaPath,
+        )
+    }
+}
+
 /** Picks the install strategy for a server type from its declared install mode. */
 export function getServerInstallStrategy(type: ServerTypeId): ServerInstallStrategy {
     const def = SERVER_TYPES[type]
     if (def.installMode === 'installer') {
         if (type === 'forge') return new ForgeServerInstallStrategy()
+        if (type === 'neoforge') return new NeoForgeServerInstallStrategy()
         throw new Error(`Server type '${type}' installer is not supported yet`)
     }
     return new JarServerInstallStrategy(type)

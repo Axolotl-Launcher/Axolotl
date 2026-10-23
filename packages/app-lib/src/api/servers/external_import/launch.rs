@@ -19,6 +19,31 @@ pub(in crate::api::servers) fn launch_args(
     imported_launch_args(dir, manifest).map(Some).map_err(input)
 }
 
+/// Use upstream preparation for unattended Fabric launchers while retaining
+/// installed launchers which manage their dependencies through their classpath.
+pub(in crate::api::servers) async fn prepare_fabric_launch(
+    id: &str,
+    dir: &Path,
+    manifest: &ServerManifest,
+    cancellation: &tokio_util::sync::CancellationToken,
+) -> Result<()> {
+    if manifest.external_import {
+        let path = safe_source_path(
+            dir,
+            &super::super::manifest::resolve_jar_name(manifest),
+        )
+        .map_err(input)?;
+        let jar = zip::ZipArchive::new(
+            std::fs::File::open(path).map_err(|e| input(e.to_string()))?,
+        )
+        .map_err(|e| input(e.to_string()))?;
+        if jar.index_for_name("install.properties").is_none() {
+            return Ok(());
+        }
+    }
+    super::super::fabric::prepare(id, dir, manifest, cancellation).await
+}
+
 pub(super) fn imported_launch_args(
     dir: &Path,
     manifest: &ServerManifest,

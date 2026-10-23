@@ -24,19 +24,7 @@ pub(super) async fn finish_import_install(id: &str) -> Result<()> {
         manifest.install_error = None;
         write_manifest(&dir, &manifest).await?;
         let result = match manifest.server_type.as_str() {
-            "forge" => {
-                if let Some(build) = manifest.loader_version.as_deref() {
-                    forge::install_forge(
-                        id,
-                        &manifest.game_version,
-                        build,
-                        manifest.java_path.clone(),
-                    )
-                    .await
-                } else {
-                    Err(input("Missing Forge version"))
-                }
-            }
+            "forge" => install_forge_launcher(id, &dir, &manifest).await,
             "fabric" if manifest.jar_name.is_none() => {
                 install_fabric_launcher(id, &dir, &mut manifest).await
             }
@@ -76,6 +64,29 @@ pub(super) async fn finish_import_install(id: &str) -> Result<()> {
     .await;
     INSTALLING.remove(id);
     result
+}
+
+async fn install_forge_launcher(
+    id: &str,
+    dir: &Path,
+    manifest: &ServerManifest,
+) -> Result<()> {
+    let build = manifest
+        .loader_version
+        .as_deref()
+        .ok_or_else(|| input("Missing Forge version"))?;
+    let (url, filename) =
+        forge::installer_download("forge", &manifest.game_version, build)?;
+    files::download_to_dir(id, dir, &url, &filename, None).await?;
+    // The import owns readiness; reuse the installer's caller-owned-state API.
+    forge::run_installer(
+        id,
+        dir,
+        &filename,
+        manifest.java_path.as_deref(),
+        "forge",
+    )
+    .await
 }
 
 /// Acquire the official executable launcher for the declared versions. Its

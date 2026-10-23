@@ -61,7 +61,7 @@ const editingFile = ref<EditingFile | null>(null)
 const refreshRequests = createRequestGeneration()
 
 const serverRoot = computed(() => props.server.path)
-const isBusy = computed(() => props.server.running)
+const isBusy = computed(() => props.server.running || props.server.starting)
 
 async function resolvePath(relativePath: string): Promise<string> {
     const clean = relativePath.startsWith('/') ? relativePath.slice(1) : relativePath

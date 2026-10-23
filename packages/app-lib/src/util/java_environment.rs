@@ -1,5 +1,6 @@
 //! Keep launcher rendering workarounds out of Java and game launch hooks.
 use std::ffi::OsStr;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 
 pub(crate) const LAUNCHER_RENDERING_ENVIRONMENT: &[&str] = &[
@@ -47,11 +48,78 @@ pub(crate) fn configure_pty_java_environment(
     command.env_remove("_JAVA_OPTIONS");
 }
 
+/// Server consoles and installers require the console entry point from the
+/// selected runtime. Java discovery uses javaw.exe for desktop game launches.
+pub(crate) fn console_java_executable(program: &str) -> crate::Result<PathBuf> {
+    let path = Path::new(program);
+    #[cfg(windows)]
+    if path.file_name().is_some_and(|name| {
+        name.eq_ignore_ascii_case("javaw.exe")
+            || name.eq_ignore_ascii_case("javaw")
+    }) {
+        let console = path.with_file_name("java.exe");
+        // A bare executable is resolved through PATH by the process launcher.
+        // Explicit paths must stay in the selected Java installation.
+        if path
+            .parent()
+            .is_some_and(|parent| !parent.as_os_str().is_empty())
+            && !console.is_file()
+        {
+            return Err(crate::ErrorKind::InputError(format!(
+                "The selected Java runtime has no console executable: {}. Select its java.exe to use the server console.",
+                console.display(),
+            )).as_error());
+        }
+        return Ok(console);
+    }
+    Ok(path.to_path_buf())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use std::collections::BTreeMap;
     use std::ffi::OsString;
+
+    #[test]
+    fn console_java_preserves_explicit_console_and_custom_executables() {
+        for program in ["java", "java.exe", "custom-java", "runtime/bin/java"] {
+            assert_eq!(
+                console_java_executable(program).unwrap(),
+                PathBuf::from(program)
+            );
+        }
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn console_java_uses_the_console_sibling_and_rejects_missing_siblings() {
+        let runtime = tempfile::tempdir().unwrap();
+        let windowed = runtime.path().join("javaw.exe");
+        let console = runtime.path().join("java.exe");
+        std::fs::write(&windowed, []).unwrap();
+        assert!(console_java_executable(windowed.to_str().unwrap()).is_err());
+        std::fs::write(&console, []).unwrap();
+        assert_eq!(
+            console_java_executable(windowed.to_str().unwrap()).unwrap(),
+            console
+        );
+        assert_eq!(
+            console_java_executable(
+                runtime.path().join("JAVAW.EXE").to_str().unwrap()
+            )
+            .unwrap(),
+            console
+        );
+        assert_eq!(
+            console_java_executable("javaw.exe").unwrap(),
+            PathBuf::from("java.exe")
+        );
+        assert_eq!(
+            console_java_executable("javaw").unwrap(),
+            PathBuf::from("java.exe")
+        );
+    }
 
     #[test]
     fn removes_launcher_workarounds_without_clearing_os_or_gpu_environment() {

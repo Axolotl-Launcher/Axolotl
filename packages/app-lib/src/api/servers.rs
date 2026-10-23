@@ -2,7 +2,9 @@
 //! Each server lives in its own directory under the launcher's `servers` folder
 //! and is described by an `axolotl-server.json` manifest.
 
+mod console;
 pub(crate) mod external_import;
+mod fabric;
 mod files;
 pub use external_import::{
     ServerImportConfiguration, ServerImportPreview, import_external_server,
@@ -18,10 +20,11 @@ mod manifest;
 mod modpack;
 mod ports;
 
+pub use self::console::{ConsoleDelta, get_console_delta};
 pub use self::files::{download_file, read_file, write_file};
-pub use self::forge::install_forge;
+pub use self::forge::{install_forge, install_neoforge};
 pub use self::lifecycle::{
-    kill, resize_console, send_command, send_console_input, start, stop,
+    kill, resize_console, send_console_input, start, stop,
 };
 pub use self::link::{
     DEFAULT_READY_TIMEOUT_MS, is_local_address, wait_until_ready,

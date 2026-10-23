@@ -10577,17 +10577,47 @@
   "app.servers.action.stop": {
     "message": "停止"
   },
+  "app.servers.action.stopping": {
+    "message": "正在停止…"
+  },
   "app.servers.card.port": {
     "message": "端口 {port}"
   },
   "app.servers.card.type": {
     "message": "{type} · {version}"
   },
-  "app.servers.console.forge-command-placeholder": {
-    "message": "发送命令，支持 Tab 补全"
+  "app.servers.console.logs": {
+    "message": "日志"
   },
   "app.servers.console.not-running": {
     "message": "服务器未运行"
+  },
+  "app.servers.console.terminal": {
+    "message": "终端"
+  },
+  "app.servers.card.manage": {
+    "message": "管理 {name}"
+  },
+  "app.servers.management.heading": {
+    "message": "我的服务器"
+  },
+  "app.servers.management.search": {
+    "message": "搜索名称、加载器或版本"
+  },
+  "app.servers.management.no-matches": {
+    "message": "没有匹配的服务器"
+  },
+  "app.servers.management.clear-search": {
+    "message": "清除搜索"
+  },
+  "app.servers.action.terminate": {
+    "message": "终止"
+  },
+  "app.servers.settings.stop-command": {
+    "message": "停止指令"
+  },
+  "app.servers.settings.stop-command-hint": {
+    "message": "默认为 stop。填写 ^C 可发送 Ctrl+C，保存后立即生效。"
   },
   "app.servers.count": {
     "message": "{count, plural, =0 {还没有服务器} other {共 # 个服务器}}"
@@ -11048,8 +11078,8 @@
   "app.servers.status.crashed": {
     "message": "已崩溃"
   },
-  "app.servers.status.created": {
-    "message": "未配置"
+  "app.servers.status.not-running": {
+    "message": "未运行"
   },
   "app.servers.status.download-failed": {
     "message": "下载失败"
@@ -11077,6 +11107,9 @@
   },
   "app.servers.type.forge": {
     "message": "Forge"
+  },
+  "app.servers.type.neoforge": {
+    "message": "NeoForge"
   },
   "app.servers.type.paper": {
     "message": "Paper"
@@ -11122,6 +11155,12 @@
   },
   "app.servers.wizard.java-too-old": {
     "message": "Java {selected} 无法运行此游戏版本；需要 Java {required} 或更高版本。"
+  },
+  "app.servers.wizard.loading-versions": {
+    "message": "正在加载版本…"
+  },
+  "app.servers.wizard.no-loader-versions": {
+    "message": "该游戏版本暂无可用的加载器版本。"
   },
   "app.servers.wizard.loader-version": {
     "message": "加载器版本"
@@ -12784,6 +12823,54 @@
   },
   "app.settings.resources.concurrency.manual": {
     "message": "手动"
+  },
+  "app.settings.resources.curseforge-api-key": {
+    "message": "CurseForge API 密钥"
+  },
+  "app.settings.resources.curseforge-api-key-description": {
+    "message": "用于 CurseForge 搜索、项目页面与安装。在此填写的密钥会替代启动器提供的密钥。"
+  },
+  "app.settings.resources.curseforge-api-key-field": {
+    "message": "API 密钥"
+  },
+  "app.settings.resources.curseforge-api-key-placeholder": {
+    "message": "留空并保存即取消此处填写的密钥"
+  },
+  "app.settings.resources.curseforge-api-key-save": {
+    "message": "保存密钥"
+  },
+  "app.settings.resources.curseforge-api-key-saving": {
+    "message": "正在保存…"
+  },
+  "app.settings.resources.curseforge-api-key-status-launcher": {
+    "message": "此处未填写密钥，正在使用启动器提供的密钥。"
+  },
+  "app.settings.resources.curseforge-api-key-status-missing": {
+    "message": "当前没有可用密钥。在填写之前无法搜索或安装 CurseForge 内容。"
+  },
+  "app.settings.resources.curseforge-api-key-status-override": {
+    "message": "正在使用此处填写的密钥，不使用启动器提供的密钥。"
+  },
+  "app.settings.resources.curseforge-api-key-status-unauthorized": {
+    "message": "CurseForge 已拒绝该密钥，请检查或换一个。"
+  },
+  "app.settings.resources.curseforge-api-key-unsaved": {
+    "message": "有未保存的更改"
+  },
+  "app.settings.resources.curseforge-api-key-verified": {
+    "message": "CurseForge 已接受该密钥。"
+  },
+  "app.settings.resources.curseforge-api-key-verify": {
+    "message": "检查密钥"
+  },
+  "app.settings.resources.curseforge-api-key-verify-failed": {
+    "message": "CurseForge 未接受该密钥。"
+  },
+  "app.settings.resources.curseforge-api-key-verify-unavailable": {
+    "message": "无法完成密钥检查，请稍后再试。"
+  },
+  "app.settings.resources.curseforge-api-key-verifying": {
+    "message": "正在检查…"
   },
   "app.settings.resources.curseforge-mirror": {
     "message": "CurseForge 服务"

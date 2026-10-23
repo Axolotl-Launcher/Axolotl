@@ -23,9 +23,9 @@ pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
             servers_write_file,
             servers_download_file,
             servers_install_forge,
+            servers_install_neoforge,
             servers_install_modpack,
             servers_start,
-            servers_send_command,
             servers_send_console_input,
             servers_resize_console,
             servers_stop,
@@ -34,6 +34,7 @@ pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
             servers_port_process,
             servers_get_log_buffer,
             servers_get_log_delta,
+            servers_get_console_delta,
             servers_clear_log,
         ])
         .build()
@@ -78,6 +79,7 @@ pub async fn servers_update_settings(
     jvm_args: Option<Vec<String>>,
     pre_launch_hook: Option<String>,
     home_pinned: Option<bool>,
+    stop_command: Option<String>,
 ) -> Result<servers::ServerManifest> {
     Ok(servers::update_settings(
         server_id,
@@ -87,6 +89,7 @@ pub async fn servers_update_settings(
         jvm_args,
         pre_launch_hook,
         home_pinned,
+        stop_command,
     )
     .await?)
 }
@@ -169,13 +172,26 @@ pub async fn servers_install_forge(
 }
 
 #[tauri::command]
+pub async fn servers_install_neoforge(
+    server_id: &str,
+    mc_version: &str,
+    build: &str,
+    java_path: Option<String>,
+) -> Result<()> {
+    Ok(
+        servers::install_neoforge(server_id, mc_version, build, java_path)
+            .await?,
+    )
+}
+
+#[tauri::command]
 #[allow(clippy::too_many_arguments)]
 pub async fn servers_install_modpack(
     server_id: &str,
     mrpack_url: &str,
     mrpack_sha1: Option<String>,
-    jar_url: &str,
-    jar_filename: &str,
+    jar_url: Option<&str>,
+    jar_filename: Option<&str>,
     jar_sha1: Option<String>,
     modpack_project_id: Option<String>,
     modpack_version_id: Option<String>,
@@ -205,14 +221,6 @@ pub async fn servers_start(
     jvm_args: Option<Vec<String>>,
 ) -> Result<()> {
     Ok(servers::start(server_id, java_path, memory_mb, jvm_args).await?)
-}
-
-#[tauri::command]
-pub async fn servers_send_command(
-    server_id: &str,
-    command: &str,
-) -> Result<()> {
-    Ok(servers::send_command(server_id, command).await?)
 }
 
 #[tauri::command]
@@ -265,6 +273,14 @@ pub async fn servers_get_log_delta(
     cursor: Option<servers::LogCursor>,
 ) -> Result<servers::LogDelta> {
     Ok(servers::get_log_delta(server_id, cursor))
+}
+
+#[tauri::command]
+pub async fn servers_get_console_delta(
+    server_id: &str,
+    cursor: Option<servers::LogCursor>,
+) -> Result<servers::ConsoleDelta> {
+    Ok(servers::get_console_delta(server_id, cursor))
 }
 
 #[tauri::command]

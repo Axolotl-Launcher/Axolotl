@@ -243,6 +243,9 @@ fn build_seed_map_engine() {
                     // Tauri watches the bundled DLL. Keep identical builds
                     // byte-for-byte stable so syncing it preserves its mtime.
                     "-Wl,--no-insert-timestamp",
+                    // MinGW's automatic base depends on the output path, which
+                    // differs between Cargo configurations. ASLR stays enabled.
+                    "-Wl,--image-base,0x180000000",
                     "-Ivendor/cubiomes",
                 ])
                 .arg("-include")
@@ -468,6 +471,8 @@ fn main() {
                 InlinedPlugin::new()
                     .commands(&[
                         "curseforge_capability",
+                        "curseforge_api_key_override",
+                        "curseforge_set_api_key",
                         "curseforge_validate_credentials",
                         "curseforge_search_projects",
                         "curseforge_get_project",
@@ -1134,9 +1139,9 @@ fn main() {
                         "servers_write_file",
                         "servers_download_file",
                         "servers_install_forge",
+                        "servers_install_neoforge",
                         "servers_install_modpack",
                         "servers_start",
-                        "servers_send_command",
                         "servers_send_console_input",
                         "servers_resize_console",
                         "servers_stop",
@@ -1145,6 +1150,7 @@ fn main() {
                         "servers_port_process",
                         "servers_get_log_buffer",
                         "servers_get_log_delta",
+                        "servers_get_console_delta",
                         "servers_clear_log",
                     ])
                     .default_permission(

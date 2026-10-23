@@ -13,6 +13,12 @@ export interface ServerLogDelta {
     lines: string[]
 }
 
+export interface ServerConsoleDelta {
+    cursor: ServerLogCursor
+    reset: boolean
+    data: string
+}
+
 export interface ModpackInfoData {
     projectId: string
     versionId: string
@@ -59,6 +65,7 @@ export interface ServerManifestData {
     memoryMb?: number
     jvmArgs: string[]
     preLaunchHook?: string
+    stopCommand?: string
     homePinnedAt?: string
     linkedWorld?: LinkedWorldData | null
     createdAt: string
@@ -69,6 +76,8 @@ export interface ServerManifestData {
 export interface ServerInfoData extends ServerManifestData {
     path: string
     running: boolean
+    starting?: boolean
+    stopping?: boolean
     eulaExists: boolean
     eulaAccepted: boolean
     port: number | null
@@ -82,7 +91,7 @@ export type ServerEventPayload =
     | { event: 'log'; line: string }
     | { event: 'console_output'; data: string }
     | { event: 'download_progress'; downloaded: number; total?: number }
-    | { event: 'started' }
+    | { event: 'starting' | 'stopping' | 'started' }
     | { event: 'stopped'; crashed: boolean; reason?: ServerExitReason }
     | { event: 'eula_required'; server_id: string; eula_text: string }
 
@@ -94,8 +103,8 @@ export interface PortProcessInfoData {
 export interface InstallModpackOptions {
     mrpackUrl: string
     mrpackSha1?: string
-    jarUrl: string
-    jarFilename: string
+    jarUrl?: string
+    jarFilename?: string
     jarSha1?: string
     modpackProjectId?: string
     modpackVersionId?: string
@@ -136,6 +145,7 @@ export const servers = {
             memoryMb?: number
             jvmArgs?: string[]
             preLaunchHook?: string
+            stopCommand?: string
             homePinned?: boolean
         },
     ) => invoke<ServerManifestData>(command('servers_update_settings'), { serverId, ...options }),
@@ -163,12 +173,12 @@ export const servers = {
         invoke<void>(command('servers_install_modpack'), { serverId, ...options }),
     installForge: (serverId: string, mcVersion: string, build: string, javaPath?: string) =>
         invoke<void>(command('servers_install_forge'), { serverId, mcVersion, build, javaPath }),
+    installNeoForge: (serverId: string, mcVersion: string, build: string, javaPath?: string) =>
+        invoke<void>(command('servers_install_neoforge'), { serverId, mcVersion, build, javaPath }),
     start: (
         serverId: string,
         options?: { javaPath?: string; memoryMb?: number; jvmArgs?: string[] },
     ) => invoke<void>(command('servers_start'), { serverId, ...options }),
-    sendCommand: (serverId: string, commandText: string) =>
-        invoke<void>(command('servers_send_command'), { serverId, command: commandText }),
     sendConsoleInput: (serverId: string, data: Uint8Array) =>
         invoke<void>(command('servers_send_console_input'), {
             serverId,
@@ -185,6 +195,8 @@ export const servers = {
         invoke<string[]>(command('servers_get_log_buffer'), { serverId }),
     getLogDelta: (serverId: string, cursor?: ServerLogCursor) =>
         invoke<ServerLogDelta>(command('servers_get_log_delta'), { serverId, cursor }),
+    getConsoleDelta: (serverId: string, cursor?: ServerLogCursor) =>
+        invoke<ServerConsoleDelta>(command('servers_get_console_delta'), { serverId, cursor }),
     clearLog: (serverId: string) => invoke<void>(command('servers_clear_log'), { serverId }),
 }
 

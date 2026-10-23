@@ -4,6 +4,7 @@ import { onScopeDispose, ref, useTemplateRef } from 'vue'
 import type { ComponentExposed } from 'vue-component-type-helpers'
 
 import type EulaModal from '@/components/multiplayer/servers/EulaModal.vue'
+import { getServerInstallStrategy, runServerInstall } from '@/composables/server-install'
 import { resumeModpackInstall } from '@/composables/useServerInstalls'
 import {
     refresh,
@@ -148,7 +149,7 @@ export function useServerLifecycle() {
     })
     onScopeDispose(unregisterExitReasonHandler)
 
-    /** Resumes or retries an interrupted/failed modpack download for this server. */
+    /** Resumes an interrupted or failed install using its recorded server source. */
     async function resumeInstall(server: ServerView) {
         try {
             // [SERVER-DOWNLOAD-BRIDGE] Pass the download manager captured
@@ -157,8 +158,21 @@ export function useServerLifecycle() {
                 const result = await serversApi.retryExternal(server.id)
                 await refresh()
                 if (result.installError) throw new Error(result.installError)
-            } else {
+            } else if (server.modpack) {
                 await resumeModpackInstall(server, downloadManager)
+            } else {
+                await runServerInstall({
+                    serverId: server.id,
+                    name: server.name,
+                    inputs: {
+                        gameVersion: server.gameVersion,
+                        loaderVersion: server.loaderVersion,
+                        javaPath: server.javaPath,
+                        memoryMb: server.memoryMb,
+                    },
+                    strategy: getServerInstallStrategy(server.serverType),
+                    downloadManager,
+                })
             }
         } catch (error) {
             handleError(error)

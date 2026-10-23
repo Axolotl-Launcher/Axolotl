@@ -42,6 +42,8 @@ it('ignores log/progress bursts and coalesces lifecycle refreshes on the home pa
         await flushPromises()
         expect(backend.list).toHaveBeenCalledOnce()
         for (let i = 0; i < 100; i++) callback('server', { event: 'started' })
+        callback('server', { event: 'starting' })
+        callback('server', { event: 'stopping' })
         await new Promise((resolve) => setTimeout(resolve, 150))
         expect(backend.list).toHaveBeenCalledTimes(2)
     } finally {

@@ -686,26 +686,44 @@ fn lifecycle_adapter_leaves_existing_servers_to_the_original_launch_flow() {
 }
 
 #[tokio::test]
-async fn forge_completion_adapter_preserves_import_validation_and_existing_readiness()
+async fn fabric_preparation_retains_installed_imports_and_validates_unattended_launchers()
  {
     let root = tempfile::tempdir().unwrap();
     let mut manifest = adapter_manifest();
+    manifest.server_type = "fabric".into();
+    manifest.jar_name = Some("server.jar".into());
+    let cancellation = tokio_util::sync::CancellationToken::new();
+    let jar = root.path().join("server.jar");
+    std::fs::write(
+        &jar,
+        super::detect::tests::jar(
+            "net.fabricmc.loader.impl.launch.server.FabricServerLauncher",
+            &[],
+        ),
+    )
+    .unwrap();
     manifest.external_import = true;
-    manifest.install_state = Some(InstallState::Incomplete);
-    write_manifest(root.path(), &manifest).await.unwrap();
-    complete_forge_install(root.path(), &mut manifest)
+    prepare_fabric_launch("fixture", root.path(), &manifest, &cancellation)
         .await
         .unwrap();
-    assert!(matches!(
-        read_manifest(root.path()).await.unwrap().install_state,
-        Some(InstallState::Incomplete)
-    ));
     manifest.external_import = false;
-    manifest.install_error = Some("previous failure".into());
-    complete_forge_install(root.path(), &mut manifest)
-        .await
-        .unwrap();
-    let completed = read_manifest(root.path()).await.unwrap();
-    assert!(completed.install_state.is_none());
-    assert!(completed.install_error.is_none());
+    assert!(
+        prepare_fabric_launch("fixture", root.path(), &manifest, &cancellation)
+            .await
+            .is_err()
+    );
+    manifest.external_import = true;
+    std::fs::write(
+        &jar,
+        super::detect::tests::jar(
+            "net.fabricmc.installer.ServerLauncher",
+            &[("install.properties", "invalid-properties")],
+        ),
+    )
+    .unwrap();
+    assert!(
+        prepare_fabric_launch("fixture", root.path(), &manifest, &cancellation)
+            .await
+            .is_err()
+    );
 }

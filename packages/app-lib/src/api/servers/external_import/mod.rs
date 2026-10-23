@@ -7,7 +7,7 @@ mod source;
 #[cfg(test)]
 mod tests;
 
-pub(super) use launch::launch_args;
+pub(super) use launch::{launch_args, prepare_fabric_launch};
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 
@@ -270,6 +270,7 @@ pub async fn import_external_server(
         install_error: None,
         jvm_args: Vec::new(),
         pre_launch_hook: None,
+        stop_command: super::manifest::default_stop_command(),
         home_pinned_at: None,
         linked_world: None,
         created_at: chrono::Utc::now(),
@@ -334,17 +335,4 @@ pub(crate) fn classify_drop(
         Ok(None) => None,
         Err(reason) => Some(DroppedItemType::Unknown { reason }),
     }
-}
-
-/// Imported Forge packages become ready only after their launch files validate.
-pub(super) async fn complete_forge_install(
-    dir: &Path,
-    manifest: &mut ServerManifest,
-) -> Result<()> {
-    if !manifest.external_import {
-        manifest.install_state = None;
-        manifest.install_error = None;
-        write_manifest(dir, manifest).await?;
-    }
-    Ok(())
 }

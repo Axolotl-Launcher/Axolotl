@@ -632,6 +632,17 @@ export const settingsSearchEntries: SettingsSearchEntry[] = [
         keywords: [message('app.settings.tabs.resource-management', 'Resource management')],
     },
     {
+        id: 'resources-curseforge-api-key',
+        categoryId: 'content-downloads',
+        targetId: 'settings-target-resources-curseforge-api-key',
+        label: message('app.settings.resources.curseforge-api-key', 'CurseForge API key'),
+        description: message(
+            'app.settings.resources.curseforge-api-key-description',
+            'Used for CurseForge search, project pages, and installations. A key entered here replaces the one the launcher provides.',
+        ),
+        keywords: [message('app.settings.resources.curseforge-api-key-field', 'API key')],
+    },
+    {
         id: 'resources-chinese-names',
         categoryId: 'content-downloads',
         targetId: 'settings-target-resources-chinese-names',

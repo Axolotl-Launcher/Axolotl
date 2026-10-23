@@ -3,9 +3,11 @@ import path from 'node:path'
 import { setTimeout } from 'node:timers/promises'
 
 import { root, run } from './desktop-build-utils.mjs'
+import { githubRepository, releaseVersion } from './release-utils.mjs'
 
 const [tag, directory] = process.argv.slice(2)
-if (!/^v\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/.test(tag || '') || !directory) {
+releaseVersion(tag)
+if (!directory) {
     throw new Error('Expected a version tag and release asset directory')
 }
 const absolute = path.resolve(root, directory)
@@ -15,7 +17,15 @@ if (!assets.length || assets.some((entry) => !entry.isFile()))
 for (const entry of assets) {
     for (let attempt = 1; ; attempt++) {
         try {
-            run('gh', ['release', 'upload', tag, path.join(absolute, entry.name), '--clobber'])
+            run('gh', [
+                'release',
+                'upload',
+                tag,
+                '--repo',
+                githubRepository(),
+                path.join(absolute, entry.name),
+                '--clobber',
+            ])
             break
         } catch (error) {
             if (attempt === 3) throw error

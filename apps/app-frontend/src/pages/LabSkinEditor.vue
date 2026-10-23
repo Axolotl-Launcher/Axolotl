@@ -199,6 +199,7 @@ onUnmounted(() => {
             ref="frame"
             :title="formatMessage(messages.title)"
             :src="editorUrl"
+            allow="clipboard-read; clipboard-write"
             class="h-full min-h-0 w-full flex-1 border-0 transition-opacity duration-150"
             :class="editorState === 'ready' ? 'opacity-100' : 'pointer-events-none opacity-0'"
             :aria-label="formatMessage(messages.title)"

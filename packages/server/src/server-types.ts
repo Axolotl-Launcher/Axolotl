@@ -11,11 +11,7 @@ const QUILT_META_URL = 'https://meta.quiltmc.org/v3'
 const PAPER_API_URL = 'https://fill.papermc.io/v3'
 const PAPER_PROJECT = 'paper'
 
-/**
- * Known server types. `forge`, `neoforge` and `quilt` require an installer run
- * step that is not implemented yet (TODO) but are registered so the UI and
- * future CLI share one source of truth.
- */
+/** Server capabilities shared by creation flows and download resolution. */
 export const SERVER_TYPES: Record<ServerTypeId, ServerTypeDefinition> = {
     vanilla: {
         id: 'vanilla',
@@ -50,7 +46,7 @@ export const SERVER_TYPES: Record<ServerTypeId, ServerTypeDefinition> = {
         label: 'NeoForge',
         installMode: 'installer',
         needsLoaderVersion: true,
-        implemented: false,
+        implemented: true,
     },
     quilt: {
         id: 'quilt',
@@ -71,6 +67,17 @@ export function isServerTypeSupported(type: ServerTypeId): boolean {
 
 /** Base URL of the Forge Maven repository hosting installer and launcher artifacts. */
 export const FORGE_MAVEN_URL = 'https://maven.minecraftforge.net/net/minecraftforge/forge'
+
+/** NeoForge 1.20.1 used the `forge` artifact before switching to `neoforge`. */
+export function neoForgeInstaller(gameVersion: string, loaderVersion: string): ServerJarDownload {
+    const artifact = gameVersion === '1.20.1' ? 'forge' : 'neoforge'
+    const version = gameVersion === '1.20.1' ? `${gameVersion}-${loaderVersion}` : loaderVersion
+    const filename = `${artifact}-${version}-installer.jar`
+    return {
+        url: `https://maven.neoforged.net/releases/net/neoforged/${artifact}/${version}/${filename}`,
+        filename,
+    }
+}
 
 /** Base URL of the Forge web host that publishes the promotions manifest. */
 export const FORGE_FILES_URL = 'https://files.minecraftforge.net/net/minecraftforge/forge'

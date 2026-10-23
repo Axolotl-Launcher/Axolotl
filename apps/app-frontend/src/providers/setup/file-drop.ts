@@ -1,4 +1,4 @@
-import { provideFileDrop } from '@modrinth/ui'
+import { type FileDropProvider, provideFileDrop } from '@modrinth/ui'
 import type { DragDropEvent } from '@tauri-apps/api/webview'
 import { getCurrentWebview } from '@tauri-apps/api/webview'
 
@@ -25,7 +25,7 @@ export function setupFileDropProvider() {
         internalDragActive = false
     })
 
-    const provider = {
+    const provider: FileDropProvider = {
         async listenNativeFileDrop(handler) {
             return await getCurrentWebview().onDragDropEvent(
                 (event: { payload: DragDropEvent }) => {

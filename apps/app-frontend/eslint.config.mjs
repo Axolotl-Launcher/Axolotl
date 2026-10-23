@@ -1,6 +1,7 @@
 import config from '@modrinth/tooling-config/eslint/nuxt.mjs'
 
 export default config
+    .clone()
     .append({
         rules: {
             // The shared package exposes a barrel; reaching past it couples the app

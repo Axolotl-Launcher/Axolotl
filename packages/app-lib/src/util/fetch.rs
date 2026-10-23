@@ -82,11 +82,11 @@ use crate::util::download::constants::{
     INITIAL_SEGMENT_CONCURRENCY, JOB_PROBE_WINDOW, MAX_FAILURE_COOLDOWN,
     MAX_GLOBAL_TAIL_HEDGES, MAX_SEGMENT_CONCURRENCY, MAX_TAIL_HEDGES_PER_FILE,
     MAX_TASK_PROBE_STATES, MCIM_BASE_URL, METADATA_ATTEMPT_BUDGET,
-    METADATA_HEDGE_DELAY, MIN_SEGMENT_SIZE, MODRINTH_API_HOST,
-    MODRINTH_DATA_PREFIX, NATIVE_DOWNLOAD_SOURCE_HAS_BEEN_RETIRED,
-    PARTIAL_FILE_SUFFIX, RANGE_IDLE_RECONNECT_TIMEOUT,
-    REASSIGNABLE_FIRST_BYTE_TIMEOUT, RESOURCE_WAIT_TIMEOUT,
-    RETIRED_SOURCES_MEDIA_FORGECDN_NET, RETRY_AFTER_CAP,
+    METADATA_HEDGE_DELAY, METADATA_REQUEST_TIMEOUT, MIN_SEGMENT_SIZE,
+    MODRINTH_API_HOST, MODRINTH_DATA_PREFIX,
+    NATIVE_DOWNLOAD_SOURCE_HAS_BEEN_RETIRED, PARTIAL_FILE_SUFFIX,
+    RANGE_IDLE_RECONNECT_TIMEOUT, REASSIGNABLE_FIRST_BYTE_TIMEOUT,
+    RESOURCE_WAIT_TIMEOUT, RETIRED_SOURCES_MEDIA_FORGECDN_NET, RETRY_AFTER_CAP,
     ROUTE_POLICY_LAUNCHERMETA_MOJANG_COM, ROUTE_POLICY_MAVEN_FABRICMC_NET,
     ROUTE_POLICY_MAVEN_MINECRAFTFORGE_NET, ROUTE_POLICY_MAVEN_NEOFORGED_NET,
     ROUTE_POLICY_PISTON_META_MOJANG_COM, ROUTE_PROBE_BYTES,
@@ -782,12 +782,7 @@ fn is_official_version_manifest_url(url: &str) -> bool {
     route_policy::is_official_version_manifest_url(url)
 }
 
-fn order_auto_routes(
-    routes: &mut [DownloadRoute],
-    resource: ResourceClass,
-    force_mirror_first: bool,
-) {
-    let cold_prefers_mirror = force_mirror_first;
+fn order_auto_routes(routes: &mut [DownloadRoute], resource: ResourceClass) {
     let health = ROUTE_HEALTH.lock().clone();
     routes.sort_by(|left, right| {
         let route_health = |route: &DownloadRoute| {
@@ -814,23 +809,11 @@ fn order_auto_routes(
                     .cmp(&right_health.consecutive_failures)
             })
             .then_with(|| {
-                if force_mirror_first {
-                    {
-                        let left_mirror_rank = !left.is_mirror;
-                        let right_mirror_rank = !right.is_mirror;
-                        left_mirror_rank.cmp(&right_mirror_rank)
-                    }
-                } else {
-                    std::cmp::Ordering::Equal
-                }
-            })
-            .then_with(|| {
                 // Automatic content downloads start from the supplied
                 // official URL. Health can still move a failing official
                 // route behind a mirror, but connectivity alone is not a
                 // reason to call a mirror faster.
-                (!force_mirror_first && !is_official_route(left))
-                    .cmp(&(!force_mirror_first && !is_official_route(right)))
+                (!is_official_route(left)).cmp(&(!is_official_route(right)))
             })
             .then_with(|| {
                 (right_health.success_samples > 0)
@@ -846,19 +829,8 @@ fn order_auto_routes(
                 };
                 ordering.unwrap_or(std::cmp::Ordering::Equal)
             })
-            .then_with(|| {
-                let left_cold_rank = left.is_mirror != cold_prefers_mirror;
-                let right_cold_rank = right.is_mirror != cold_prefers_mirror;
-                left_cold_rank.cmp(&right_cold_rank)
-            })
+            .then_with(|| left.is_mirror.cmp(&right.is_mirror))
     });
-}
-
-/// Loader Maven repositories that are served mirror-first: their mirrors are
-/// tried before the official repository, which stays available as a final
-/// fallback for content the mirrors have not synced yet.
-fn uses_mirror_first_loader_routes(url: &str, resource: ResourceClass) -> bool {
-    route_policy::uses_mirror_first_loader_routes(url, resource)
 }
 
 pub fn resolve_download_routes_for(
@@ -871,7 +843,6 @@ pub fn resolve_download_routes_for(
     };
     let url = url.into_owned();
     let official = official_route(&url, resource);
-    let mirror_first_loader = uses_mirror_first_loader_routes(&url, resource);
     let mut routes = explicit_mirror_routes(&url, resource);
     routes.push(official);
     // Modrinth API calls are authenticated and remain official-only.
@@ -887,7 +858,7 @@ pub fn resolve_download_routes_for(
             routes.sort_by_key(|route| route.is_mirror)
         }
         crate::state::DownloadSourceMode::Auto => {
-            order_auto_routes(&mut routes, resource, mirror_first_loader)
+            order_auto_routes(&mut routes, resource)
         }
         crate::state::DownloadSourceMode::OfficialOnly => {
             routes.retain(|route| !route.is_mirror);
@@ -1701,6 +1672,9 @@ async fn fetch_validated_metadata_route(
         ProxyPolicy::Direct => &download_clients.direct,
     };
     let mut request = route_client.get(&route.url);
+    if matches!(resource, ResourceClass::Metadata | ResourceClass::Loader) {
+        request = request.timeout(METADATA_REQUEST_TIMEOUT);
+    }
     if let Some((name, value)) = header {
         request = request.header(name, value);
     }
@@ -1899,6 +1873,46 @@ pub async fn fetch_official(
         METADATA_ATTEMPT_BUDGET,
     )
     .await
+}
+
+#[tracing::instrument(skip_all)]
+pub(crate) async fn fetch_metadata<T>(
+    url: &str,
+    parse: impl Fn(&Bytes) -> crate::Result<T> + Send + Sync,
+    semaphore: &FetchSemaphore,
+    exec: impl sqlx::Executor<'_, Database = sqlx::Sqlite>,
+) -> crate::Result<T> {
+    let validate = |bytes: &Bytes| parse(bytes).map(|_| ());
+    let client = configured_client().await?;
+    let bytes = tokio::time::timeout(
+        METADATA_REQUEST_TIMEOUT,
+        fetch_advanced_with_client_and_progress(
+            Method::GET,
+            url,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            semaphore,
+            exec,
+            &client,
+            None,
+            None,
+            Some(&validate),
+            METADATA_ATTEMPT_BUDGET,
+        ),
+    )
+    .await
+    .map_err(|_| {
+        ErrorKind::OtherError(format!(
+            "Metadata request timed out: {}",
+            sanitize_url_for_log(url)
+        ))
+        .as_error()
+    })??;
+    parse(&bytes)
 }
 
 #[tracing::instrument(skip_all)]
@@ -2272,6 +2286,14 @@ async fn fetch_advanced_inner(
                 (ProxyPolicy::Direct, true) => &download_clients.direct,
             };
             let mut req = route_client.request(method.clone(), request_url);
+            if response_validator.is_some()
+                && matches!(
+                    resource,
+                    ResourceClass::Metadata | ResourceClass::Loader
+                )
+            {
+                req = req.timeout(METADATA_REQUEST_TIMEOUT);
+            }
             if modrinth_request_kind == Some(FETCH_CDN) && !is_mrpack_download {
                 req = req.timeout(MODRINTH_CDN_ATTEMPT_TIMEOUT);
             }
@@ -4239,11 +4261,7 @@ async fn ensure_task_routes_probed(
             });
         }
     }
-    order_auto_routes(
-        routes,
-        request.resource,
-        uses_mirror_first_loader_routes(&request.url, request.resource),
-    );
+    order_auto_routes(routes, request.resource);
 }
 
 pub(crate) async fn prepare_native_download_routes(
@@ -4263,11 +4281,7 @@ pub(crate) async fn prepare_native_download_routes(
     if source_mode_for_resource(request.resource)
         == crate::state::DownloadSourceMode::Auto
     {
-        order_auto_routes(
-            routes,
-            request.resource,
-            uses_mirror_first_loader_routes(&request.url, request.resource),
-        );
+        order_auto_routes(routes, request.resource);
     }
 }
 
@@ -8664,6 +8678,113 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn xml_metadata_hedging_bypasses_slow_or_invalid_official_responses()
+    {
+        #[derive(Deserialize)]
+        struct XmlVersion {
+            version: String,
+        }
+        for (body, delay) in [
+            (
+                b"<metadata><version>old</version></metadata>".as_slice(),
+                Duration::from_secs(2),
+            ),
+            (b"<html>upstream error</html>".as_slice(), Duration::ZERO),
+        ] {
+            let (primary_url, primary_requests, primary_server) =
+                spawn_http_fixture(
+                    HttpFixture::new("200 OK", body).with_delay(delay),
+                )
+                .await;
+            let valid = b"<metadata><version>21.1.200</version></metadata>";
+            let (secondary_url, secondary_requests, secondary_server) =
+                spawn_http_fixture(HttpFixture::new(
+                    "200 OK",
+                    valid.as_slice(),
+                ))
+                .await;
+            let routes = [
+                direct_test_route(primary_url, DownloadRouteSource::Official),
+                direct_test_route(secondary_url, DownloadRouteSource::Bmclapi),
+            ];
+            let validate = |bytes: &Bytes| -> crate::Result<()> {
+                quick_xml::de::from_reader::<_, XmlVersion>(bytes.as_ref())
+                    .map(|_| ())
+                    .map_err(|error| {
+                        ErrorKind::OtherError(error.to_string()).as_error()
+                    })
+            };
+            let bytes = tokio::time::timeout(
+                Duration::from_secs(1),
+                fetch_hedged_metadata(
+                    &routes,
+                    ResourceClass::Loader,
+                    None,
+                    None,
+                    &FetchSemaphore(Semaphore::new(2)),
+                    &INSECURE_REQWEST_CLIENT,
+                    &validate,
+                ),
+            )
+            .await
+            .unwrap()
+            .unwrap();
+            let parsed: XmlVersion =
+                quick_xml::de::from_reader(bytes.as_ref()).unwrap();
+            assert_eq!(parsed.version, "21.1.200");
+            assert_eq!(primary_requests.load(Ordering::Relaxed), 1);
+            assert_eq!(secondary_requests.load(Ordering::Relaxed), 1);
+            primary_server.abort();
+            secondary_server.abort();
+        }
+    }
+
+    #[tokio::test]
+    async fn typed_metadata_fetch_validates_xml_without_initializing_application_state()
+     {
+        #[derive(Deserialize)]
+        struct XmlVersion {
+            version: String,
+        }
+        let (url, requests, server) = spawn_http_fixture(HttpFixture::new(
+            "200 OK",
+            b"<metadata><version>21.1.200</version></metadata>".as_slice(),
+        ))
+        .await;
+        let clients = DownloadClients::build(
+            &crate::util::proxy::ProxyConfig {
+                mode: crate::util::proxy::ProxyMode::None,
+                ..Default::default()
+            },
+            false,
+            false,
+        )
+        .unwrap();
+        let pool = sqlx::sqlite::SqlitePoolOptions::new()
+            .connect_lazy("sqlite::memory:")
+            .unwrap();
+        let parsed = super::super::download::proxy_context::with_snapshot(
+            clients,
+            fetch_metadata(
+                &url,
+                |bytes| {
+                    quick_xml::de::from_reader::<_, XmlVersion>(bytes.as_ref())
+                        .map_err(|error| {
+                            ErrorKind::OtherError(error.to_string()).as_error()
+                        })
+                },
+                &FetchSemaphore(Semaphore::new(2)),
+                &pool,
+            ),
+        )
+        .await
+        .unwrap();
+        assert_eq!(parsed.version, "21.1.200");
+        assert_eq!(requests.load(Ordering::Relaxed), 1);
+        server.abort();
+    }
+
+    #[tokio::test]
     async fn canceling_a_file_download_drops_the_response_read_promptly() {
         let _guard = RANGE_SPLITTING_TEST_LOCK.lock().await;
         RANGE_SPLITTING_PROTOCOL_FAILURES.lock().clear();
@@ -8759,7 +8880,7 @@ mod tests {
             },
         );
 
-        order_auto_routes(&mut routes, ResourceClass::Modrinth, false);
+        order_auto_routes(&mut routes, ResourceClass::Modrinth);
 
         assert_eq!(routes[0].source, DownloadRouteSource::Official);
         *ROUTE_HEALTH.lock() = previous_health;
@@ -9152,6 +9273,41 @@ mod tests {
             resource_family(route, ResourceClass::MinecraftLibrary)
                 == ResourceFamily::Loader
         }));
+    }
+
+    #[test]
+    fn auto_loader_routes_start_official_and_retain_explicit_mirror_preference()
+    {
+        let _guard = AUTO_SOURCE_TEST_LOCK.lock().unwrap();
+        let previous_health = std::mem::take(&mut *ROUTE_HEALTH.lock());
+        for source in [
+            "https://maven.neoforged.net/releases/net/neoforged/neoforge/maven-metadata.xml",
+            "https://maven.minecraftforge.net/net/minecraftforge/forge/maven-metadata.xml",
+            "https://maven.fabricmc.net/net/fabricmc/fabric-loader/maven-metadata.xml",
+        ] {
+            let routes = resolve_download_routes_for(
+                source,
+                ResourceClass::Loader,
+                crate::state::DownloadSourceMode::Auto,
+            );
+            assert_eq!(routes[0].url, source);
+            assert_eq!(routes[0].source, DownloadRouteSource::Official);
+            assert!(routes[1..].iter().any(|route| route.is_mirror));
+            let mirrors = resolve_download_routes_for(
+                source,
+                ResourceClass::Loader,
+                crate::state::DownloadSourceMode::MirrorPreferred,
+            );
+            assert!(mirrors[0].is_mirror);
+            record_route_failure(&routes[0], ResourceClass::Loader, None);
+            let after_failure = resolve_download_routes_for(
+                source,
+                ResourceClass::Loader,
+                crate::state::DownloadSourceMode::Auto,
+            );
+            assert!(after_failure[0].is_mirror);
+        }
+        *ROUTE_HEALTH.lock() = previous_health;
     }
 
     #[test]

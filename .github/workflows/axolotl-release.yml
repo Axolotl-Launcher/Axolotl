@@ -47,6 +47,7 @@ jobs:
         run: |
           node --test scripts/axolotl/release-policy.test.mjs
           node --test scripts/axolotl/set-version.test.mjs
+          node --test scripts/axolotl/update-manifest.test.mjs
           node scripts/axolotl/check-migrations.mjs --release
           node scripts/axolotl/brand-guard.mjs
           node scripts/axolotl/i18n-check.mjs

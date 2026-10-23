@@ -382,6 +382,15 @@ const messages = defineMessages({
         defaultMessage:
             'You can try increasing the instance memory allocation, or removing memory-heavy Mods and resource packs.',
     },
+    nativeOutOfMemoryTitle: {
+        id: 'app.minecraft-crash.diagnosis.native-out-of-memory.title',
+        defaultMessage: 'Possible issue: the game ran out of system memory',
+    },
+    nativeOutOfMemoryAction: {
+        id: 'app.minecraft-crash.diagnosis.native-out-of-memory.action',
+        defaultMessage:
+            'This is a native memory failure, not a full Java heap, so a larger allocation can make it worse. Lower the instance memory allocation (for example to 4 GB), close other memory-heavy applications, then try again.',
+    },
     diskSpaceTitle: {
         id: 'app.minecraft-crash.diagnosis.disk-space.title',
         defaultMessage: 'Possible issue: the disk ran out of free space',
@@ -553,6 +562,7 @@ const diagnosisMessages = {
     openj9: [messages.openJ9Title, messages.openJ9Action],
     jdk_runtime: [messages.jdkRuntimeTitle, messages.jdkRuntimeAction],
     forge_java_incompatible: [messages.forgeJavaTitle, messages.forgeJavaAction],
+    native_out_of_memory: [messages.nativeOutOfMemoryTitle, messages.nativeOutOfMemoryAction],
     out_of_memory: [messages.outOfMemoryTitle, messages.outOfMemoryAction],
     disk_space: [messages.diskSpaceTitle, messages.diskSpaceAction],
     file_in_use: [messages.fileInUseTitle, messages.fileInUseAction],

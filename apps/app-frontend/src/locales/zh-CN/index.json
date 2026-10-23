@@ -9344,6 +9344,12 @@
   "app.minecraft-crash.diagnosis.known-failure.title": {
     "message": "可能的问题：检测到特定启动异常"
   },
+  "app.minecraft-crash.diagnosis.native-out-of-memory.action": {
+    "message": "这是原生内存分配失败，而不是 Java 堆用满，因此把内存调大反而可能更快崩溃。请将实例内存调小（例如 4 GB），关闭其它占用内存较多的程序后重试。"
+  },
+  "app.minecraft-crash.diagnosis.native-out-of-memory.title": {
+    "message": "可能的问题：游戏耗尽了系统（原生）内存"
+  },
   "app.minecraft-crash.diagnosis.openj9.action": {
     "message": "可以尝试选择基于 HotSpot 的 Java 运行时，例如 Minecraft 自带运行时或 Eclipse Temurin。"
   },

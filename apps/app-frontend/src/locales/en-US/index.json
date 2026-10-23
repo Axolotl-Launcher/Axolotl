@@ -10526,6 +10526,12 @@
   "app.minecraft-crash.diagnosis.known-failure.title": {
     "message": "Possible issue: a specific launch problem was detected"
   },
+  "app.minecraft-crash.diagnosis.native-out-of-memory.action": {
+    "message": "This is a native memory failure, not a full Java heap, so a larger allocation can make it worse. Lower the instance memory allocation (for example to 4 GB), close other memory-heavy applications, then try again."
+  },
+  "app.minecraft-crash.diagnosis.native-out-of-memory.title": {
+    "message": "Possible issue: the game ran out of system memory"
+  },
   "app.minecraft-crash.diagnosis.openj9.action": {
     "message": "You can try selecting a HotSpot-based Java runtime, such as the bundled Minecraft runtime or Eclipse Temurin."
   },

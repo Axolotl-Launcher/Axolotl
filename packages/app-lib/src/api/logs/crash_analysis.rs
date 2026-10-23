@@ -141,13 +141,21 @@ const RULES: &[Rule] = &[
         ],
     },
     Rule {
+        id: "native_out_of_memory",
+        phase: 1,
+        patterns: &[
+            "Native memory allocation (malloc) failed",
+            "insufficient memory for the Java Runtime Environment to continue",
+            "The system is out of physical RAM or swap space",
+            "Out of Memory Error",
+        ],
+    },
+    Rule {
         id: "out_of_memory",
         phase: 1,
         patterns: &[
             "java.lang.OutOfMemoryError",
             "an out of memory error",
-            "The system is out of physical RAM or swap space",
-            "Out of Memory Error",
             "Could not reserve enough space",
             "InsufficientMemory",
         ],
@@ -1665,6 +1673,23 @@ mod tests {
         assert_eq!(findings[0].id, "out_of_memory");
         assert_eq!(findings[0].evidence[0].line, 2);
         assert_eq!(findings[0].evidence[0].filename, "latest.log");
+    }
+
+    #[test]
+    fn native_memory_exhaustion_is_not_reported_as_java_heap_exhaustion() {
+        // Header of a real `hs_err_pid*.log` produced by an 8 GiB heap on a
+        // machine with 12 GiB of RAM: the C2 arena could not allocate native
+        // memory, so advising a larger heap would make the crash worse.
+        let findings = analyze_sources(&[source(
+            "hs_err_pid12432.log",
+            "# There is insufficient memory for the Java Runtime Environment to continue.\n# Native memory allocation (malloc) failed to allocate 1053024 bytes. Error detail: Chunk::new\n# Possible reasons:\n#   The system is out of physical RAM or swap space\n#  Out of Memory Error (arena.cpp:168), pid=12432, tid=12592",
+        )]);
+        assert_eq!(findings.len(), 1);
+        assert_eq!(findings[0].id, "native_out_of_memory");
+        assert!(
+            findings.iter().all(|finding| finding.id != "out_of_memory"),
+            "a native allocation failure must not be reported as a java heap failure"
+        );
     }
 
     #[test]

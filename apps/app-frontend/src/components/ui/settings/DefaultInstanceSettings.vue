@@ -6,6 +6,7 @@ import { ref, watch } from 'vue'
 import EnvironmentVariablesInput from '@/components/ui/EnvironmentVariablesInput.vue'
 import { get, update } from '@/helpers/settings.ts'
 import { createSettingsPatchSaver } from '@/helpers/settings-patch'
+import { usableWindowSize } from '@/helpers/window-size'
 
 import LogShareSettings from './LogShareSettings.vue'
 import SettingsRow from './SettingsRow.vue'
@@ -152,6 +153,15 @@ watch(
     settings,
     async () => {
         const setSettings = JSON.parse(JSON.stringify(settings.value))
+        // `game_resolution` is a `WindowSize(u16, u16)` on the Rust side, while the width
+        // and height fields are `<input type="number">`: clearing one yields `undefined`
+        // (or `NaN` for unparsable text), which `JSON.stringify` turns into `null` and
+        // `settings_set` rejects with `invalid type: null, expected u16`. Send the last
+        // persisted dimension for any field that cannot be persisted right now.
+        setSettings.game_resolution = [
+            usableWindowSize(setSettings.game_resolution?.[0]) ?? fetchSettings.game_resolution[0],
+            usableWindowSize(setSettings.game_resolution?.[1]) ?? fetchSettings.game_resolution[1],
+        ]
 
         if (!setSettings.hooks.pre_launch) {
             setSettings.hooks.pre_launch = null

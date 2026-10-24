@@ -1,3 +1,5 @@
+import '@modrinth/ui/directives/tooltip-styles.ts'
+
 import { tooltipDirective } from '@modrinth/ui'
 
 /**

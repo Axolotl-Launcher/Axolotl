@@ -147,6 +147,33 @@ const fetchSettings = await get()
 const saveDraft = createSettingsPatchSaver(fetchSettings, update)
 const supportsMaximizeWindow = (await platform()) === 'windows'
 const settings = ref(fetchSettings)
+// Bumped when an unusable size edit is discarded so both fields re-mount and show the
+// stored pair again instead of the text the user cleared.
+const dimensionResetToken = ref(0)
+
+// `game_resolution` is a `WindowSize(u16, u16)` on the Rust side, so only integers in
+// `0..=65535` survive `settings_set`. A cleared or half-typed `<input type="number">`
+// reports `undefined`/`NaN` (JSON `null`), and decimals or out-of-range numbers fail
+// the `u16` deserialization as well; each of those drops the whole patch. Re-assign
+// the stored pair so the field re-renders with it instead of staying blank.
+const MAX_WINDOW_DIMENSION = 65535
+
+function usableDimension(value: unknown): number | null {
+    if (typeof value !== 'number' || !Number.isInteger(value)) return null
+    return value >= 0 && value <= MAX_WINDOW_DIMENSION ? value : null
+}
+
+function setResolutionDimension(index: 0 | 1, value: number) {
+    const current = settings.value.game_resolution
+    const usable = usableDimension(value)
+    if (usable === null) {
+        dimensionResetToken.value += 1
+        return
+    }
+    const next: [number, number] = [...current]
+    next[index] = usable
+    settings.value.game_resolution = next
+}
 
 watch(
     settings,
@@ -215,11 +242,13 @@ watch(
                 <template #control>
                     <StyledInput
                         id="width"
-                        v-model="settings.game_resolution[0]"
+                        :key="`width-${dimensionResetToken}`"
+                        :model-value="settings.game_resolution[0]"
                         :disabled="settings.force_fullscreen"
                         autocomplete="off"
                         type="number"
                         :placeholder="formatMessage(messages.widthPlaceholder)"
+                        @update:model-value="(value: number) => setResolutionDimension(0, value)"
                     />
                 </template>
             </SettingsRow>
@@ -229,11 +258,13 @@ watch(
                 <template #control>
                     <StyledInput
                         id="height"
-                        v-model="settings.game_resolution[1]"
+                        :key="`height-${dimensionResetToken}`"
+                        :model-value="settings.game_resolution[1]"
                         :disabled="settings.force_fullscreen"
                         autocomplete="off"
                         type="number"
                         :placeholder="formatMessage(messages.heightPlaceholder)"
+                        @update:model-value="(value: number) => setResolutionDimension(1, value)"
                     />
                 </template>
             </SettingsRow>

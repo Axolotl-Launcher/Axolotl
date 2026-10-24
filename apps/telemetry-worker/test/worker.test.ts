@@ -4,8 +4,10 @@ import { describe, expect, it } from 'vitest'
 import { runMaintenance, type Bindings } from '../src'
 import { batchSchema } from '../src/schema'
 
-declare module 'cloudflare:test' {
-    interface ProvidedEnv extends Bindings {}
+declare global {
+    namespace Cloudflare {
+        interface Env extends Bindings {}
+    }
 }
 
 const installationId = '018f6ee8-4cb1-7db3-8a8d-8df96f122d85'

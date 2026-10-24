@@ -1,3 +1,4 @@
+import '@modrinth/ui/directives/tooltip-styles.ts'
 import { tooltipDirective } from '@modrinth/ui/directives/tooltip.ts'
 import { afterEach, expect, it, vi } from 'vitest'
 import { createApp, defineComponent, h, nextTick, ref, withDirectives } from 'vue'

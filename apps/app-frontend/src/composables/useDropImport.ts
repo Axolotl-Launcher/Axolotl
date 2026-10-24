@@ -165,7 +165,9 @@ export function useDropImport(options: DropImportOptions) {
     const { formatMessage } = useVIntl()
     const dropDebug = useDebugLogger('DropFlow')
     const { addNotification } = notificationManager
-    const { addPopupNotification } = popupNotificationManager
+    const addDropPrompt = (
+        notification: Parameters<AppPopupNotificationManager['addPopupNotification']>[0],
+    ) => popupNotificationManager.addPopupNotification(notification, { resurface: true })
 
     const isSettingsImagePath = (path: string) =>
         /\.(png|jpe?g|webp|gif|avif|bmp)$/i.test(path.split(/[/\\]/).pop() ?? '')
@@ -174,6 +176,7 @@ export function useDropImport(options: DropImportOptions) {
     const { isInInstance, instanceId } = useInstanceContext()
 
     // ── Modal refs (to be bound externally) ──────────────────────────────
+    const serverImportModal = ref<{ show: (path: string) => Promise<void> } | null>(null)
     const confirmDropModal = ref<{ show: () => void; hide: () => void } | null>(null)
     const genericInstallModal = ref<{
         show: (options: {
@@ -195,6 +198,7 @@ export function useDropImport(options: DropImportOptions) {
                 launcherType?: string
                 basePath?: string
                 compatibleMode?: boolean
+                versionPath?: string
             }>
             symlinkCapable: string
         }) => void
@@ -273,6 +277,11 @@ export function useDropImport(options: DropImportOptions) {
 
     // ── Messages ─────────────────────────────────────────────────────────
     const messages = defineMessages({
+        serverBatch: {
+            id: 'app.servers.import.batch-limit',
+            defaultMessage:
+                'Import servers one at a time. Drop this server on its own to configure it.',
+        },
         unknownCompatibility: {
             id: 'app.drop.compatibility.unknown',
             defaultMessage: 'Unknown',
@@ -562,16 +571,6 @@ export function useDropImport(options: DropImportOptions) {
         if (onSettingsPage.value && isSettingsImagePath(path)) {
             return { item_type: 'unknown' as const, file_path: path, reason: 'skipped' }
         }
-        const folderName = path.split(/[\\/]/).filter(Boolean).at(-1)
-        if (folderName?.toLowerCase() === '.minecraft') {
-            dropDebug('classifyDropPath: routing .minecraft folder as GameDir', { path })
-            return {
-                item_type: 'launcher',
-                launcher_type: 'Generic',
-                base_path: path,
-                innerBase: undefined,
-            }
-        }
         return classifyDroppedItem(path)
     }
 
@@ -695,6 +694,11 @@ export function useDropImport(options: DropImportOptions) {
     }
 
     async function handleConfirmDropConfirm(type: string, innerBase?: string) {
+        if (type === 'server' && batchGroupMode) {
+            addNotification({ title: formatMessage(messages.serverBatch), type: 'warning' })
+            await cancelBatch('server-requires-individual-import')
+            return
+        }
         if (batchGroupMode) {
             batchGroupMode = false
             confirmDropModal.value?.hide()
@@ -778,6 +782,12 @@ export function useDropImport(options: DropImportOptions) {
             isLauncherImport,
             item_type: classification?.item_type,
         })
+
+        if (type === 'server') {
+            clearDropProcessingNotification()
+            await serverImportModal.value?.show(filePath)
+            return
+        }
 
         if (type === 'dot_minecraft') {
             await routeToGamedirFlow([dropFilePath.value ?? ''])
@@ -1197,7 +1207,7 @@ export function useDropImport(options: DropImportOptions) {
             filePath,
         })
 
-        addPopupNotification({
+        addDropPrompt({
             title: formatMessage(messages.dropUnknownForceAnalysisTitle),
             text: formatMessage(messages.dropUnknownForceAnalysisText),
             type: 'info',
@@ -1276,7 +1286,11 @@ export function useDropImport(options: DropImportOptions) {
                 await handleDropConfirm('instance')
                 break
             default:
-                if (result.item_type === 'resource_pack' || result.item_type === 'multiple') {
+                if (
+                    result.item_type === 'server' ||
+                    result.item_type === 'resource_pack' ||
+                    result.item_type === 'multiple'
+                ) {
                     confirmDropModal.value?.show()
                     return
                 }
@@ -1302,7 +1316,7 @@ export function useDropImport(options: DropImportOptions) {
                     : `${Math.max(1, Math.round(sizeBytes / 1024))} KB`
                 : '?'
 
-        addPopupNotification({
+        addDropPrompt({
             title: formatMessage(messages.dropNestedUnpackTitle),
             text: formatMessage(messages.dropNestedUnpackText, { size: sizeLabel }),
             type: 'info',
@@ -1311,6 +1325,12 @@ export function useDropImport(options: DropImportOptions) {
                 {
                     label: formatMessage(messages.dropNestedUnpackButton),
                     action: async () => {
+                        const analyzing = addDropPrompt({
+                            title: formatMessage(messages.dropUnknownForceAnalyzing),
+                            type: 'info',
+                            waiting: true,
+                            autoCloseMs: null,
+                        })
                         try {
                             const result = await classifyDroppedItem(filePath, true)
                             await continueWithClassification(result, dropFileName.value || 'file')
@@ -1320,6 +1340,8 @@ export function useDropImport(options: DropImportOptions) {
                                 text: e instanceof Error ? e.message : String(e),
                                 type: 'error',
                             })
+                        } finally {
+                            popupNotificationManager.removeNotification(analyzing.id)
                         }
                     },
                 },
@@ -1483,10 +1505,7 @@ export function useDropImport(options: DropImportOptions) {
         cleanupLauncherZipTemp()
     }
 
-    function resolvedInstancePath(
-        inst: SelectedInstance,
-        _ctx: ImportContext | null,
-    ): string | undefined {
+    function resolvedInstancePath(inst: SelectedInstance): string | undefined {
         if (inst.compatibleMode) return inst.versionPath
         return inst.path
     }
@@ -1738,6 +1757,12 @@ export function useDropImport(options: DropImportOptions) {
             'resolved=',
             resolved.item_type,
         )
+        if (resolved.item_type === 'server') {
+            item.scanState = 'skipped'
+            item.reason = formatMessage(messages.serverBatch)
+            addNotification({ title: formatMessage(messages.serverBatch), type: 'warning' })
+            return
+        }
         if (resolved.item_type === 'unknown') {
             item.scanState = 'skipped'
             item.reason = resolved.reason ?? 'unknown'
@@ -2638,6 +2663,7 @@ export function useDropImport(options: DropImportOptions) {
         incompatWarningKey,
 
         // Modal refs (to be bound in template)
+        serverImportModal,
         confirmDropModal,
         genericInstallModal,
         launcherImportModal,

@@ -1,4 +1,4 @@
-import { provideFileDrop } from '@modrinth/ui'
+import { type FileDropProvider, provideFileDrop } from '@modrinth/ui'
 import type { DragDropEvent } from '@tauri-apps/api/webview'
 import { getCurrentWebview } from '@tauri-apps/api/webview'
 
@@ -25,7 +25,7 @@ export function setupFileDropProvider() {
         internalDragActive = false
     })
 
-    const provider = {
+    const provider: FileDropProvider = {
         async listenNativeFileDrop(handler) {
             return await getCurrentWebview().onDragDropEvent(
                 (event: { payload: DragDropEvent }) => {
@@ -49,7 +49,8 @@ export function setupFileDropProvider() {
                         nativeFileDropPaths = payload.paths
                         nativeFileDropActive = true
                     } else if (payload.type === 'drop' && payload.paths?.length) {
-                        if (!nativeFileDropActive) return
+                        // A native drop with concrete paths is complete evidence on its own.
+                        // Webviews can omit a new enter event after a modal is dismissed.
                         nativeFileDropPaths = payload.paths
                     } else if (!nativeFileDropActive) {
                         return

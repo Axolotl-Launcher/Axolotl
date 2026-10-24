@@ -176,6 +176,11 @@ pub struct CandidateResult {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "item_type")]
 pub enum ClassificationResult {
+    #[serde(rename = "server")]
+    Server {
+        file_path: String,
+        preview: theseus::servers::ServerImportPreview,
+    },
     #[serde(rename = "launcher")]
     Launcher {
         launcher_type: String,
@@ -257,6 +262,10 @@ impl From<DroppedCandidate> for CandidateResult {
 impl From<DroppedItemType> for ClassificationResult {
     fn from(item: DroppedItemType) -> Self {
         match item {
+            DroppedItemType::Server { file_path, preview } => Self::Server {
+                file_path: file_path.to_string_lossy().into_owned(),
+                preview,
+            },
             DroppedItemType::Launcher {
                 launcher_type,
                 base_path,

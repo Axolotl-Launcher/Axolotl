@@ -32,7 +32,26 @@ export interface LinkedWorldData {
     address: string
 }
 
+export interface ServerImportConfiguration {
+    serverType: 'vanilla' | 'fabric' | 'forge'
+    gameVersion: string
+    loaderVersion: string | null
+}
+
+export interface ServerImportPreview {
+    sourceIsDirectory: boolean
+    innerBase: string
+    archives?: string[]
+    serverType: string
+    gameVersion: string
+    loaderVersion: string | null
+    jarName: string | null
+    needsInstall: boolean
+    problem: string | null
+}
+
 export interface ServerManifestData {
+    externalImport?: boolean
     id: string
     name: string
     serverType: ServerTypeId
@@ -97,6 +116,19 @@ export interface InstallModpackOptions {
 const command = (name: string) => `plugin:servers|${name}`
 
 export const servers = {
+    inspectImport: (sourcePath: string) =>
+        invoke<ServerImportPreview | null>(command('servers_inspect_import'), { sourcePath }),
+    importExternal: (options: {
+        sourcePath: string
+        sourceStopped: boolean
+        expected: ServerImportPreview
+        configuration?: ServerImportConfiguration
+        name: string
+        javaPath: string
+        memoryMb: number
+    }) => invoke<ServerManifestData>(command('servers_import_external'), options),
+    retryExternal: (serverId: string) =>
+        invoke<ServerManifestData>(command('servers_retry_external'), { serverId }),
     list: () => invoke<ServerInfoData[]>(command('servers_list')),
     get: (serverId: string) => invoke<ServerInfoData>(command('servers_get'), { serverId }),
     create: (options: {

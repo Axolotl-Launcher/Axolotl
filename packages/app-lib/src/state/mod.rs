@@ -728,7 +728,7 @@ impl State {
         Ok(())
     }
 
-    #[cfg(all(test, not(feature = "tauri")))]
+    #[cfg(test)]
     pub(crate) async fn init_for_test(
         app_identifier: String,
     ) -> crate::Result<Arc<Self>> {

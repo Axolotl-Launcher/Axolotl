@@ -77,6 +77,7 @@ pub async fn create(
     io::create_dir_all(&dir).await?;
 
     let manifest = ServerManifest {
+        external_import: false,
         id: dir_name,
         name: name.to_string(),
         server_type: server_type.to_string(),
@@ -239,6 +240,7 @@ pub async fn update_settings(
 }
 
 pub async fn delete(server_id: &str) -> Result<()> {
+    let _operation = super::external_import::acquire_operation(server_id)?;
     if is_running(server_id) {
         return Err(ErrorKind::InputError(
             "Stop the server before deleting it".to_string(),

@@ -63,6 +63,8 @@ pub(super) fn resolve_jar_name(manifest: &ServerManifest) -> String {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct ServerManifest {
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub external_import: bool,
     pub id: String,
     pub name: String,
     pub server_type: String,
@@ -111,7 +113,7 @@ pub struct LinkedWorld {
     pub address: String,
 }
 
-/// Tracks whether a modpack server has finished materializing. `Incomplete`
+/// Tracks whether a managed server has finished materializing. `Incomplete`
 /// is written when an install starts (and left behind if the app exits
 /// mid-download); `Failed` records an install error so the UI can offer a
 /// retry. Both clear once the install succeeds.
@@ -285,6 +287,7 @@ mod tests {
     #[test]
     fn server_manifest_round_trips() {
         let manifest = ServerManifest {
+            external_import: false,
             id: "test-12345678".to_string(),
             name: "Test".to_string(),
             server_type: "vanilla".to_string(),
@@ -324,6 +327,7 @@ mod tests {
     #[test]
     fn resolves_jar_name_from_type_then_manifest() {
         let mut manifest = ServerManifest {
+            external_import: false,
             id: "test-12345678".to_string(),
             name: "Test".to_string(),
             server_type: "fabric".to_string(),

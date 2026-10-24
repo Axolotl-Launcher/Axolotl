@@ -1,3 +1,5 @@
+mod external_import;
+
 use crate::api::Result;
 use theseus::prelude::*;
 use theseus::servers::ServerInfo;
@@ -5,6 +7,9 @@ use theseus::servers::ServerInfo;
 pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
     tauri::plugin::Builder::new("servers")
         .invoke_handler(tauri::generate_handler![
+            external_import::servers_inspect_import,
+            external_import::servers_import_external,
+            external_import::servers_retry_external,
             servers_list,
             servers_get,
             servers_create,

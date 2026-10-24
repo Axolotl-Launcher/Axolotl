@@ -102,6 +102,7 @@ pub async fn start(
     memory_mb: Option<u32>,
     jvm_args: Option<Vec<String>>,
 ) -> Result<()> {
+    let _operation = super::external_import::acquire_operation(server_id)?;
     let cancellation = CancellationToken::new();
     match SERVER_STARTING.entry(server_id.to_string()) {
         Entry::Vacant(entry) if !SERVER_PROCESSES.contains_key(server_id) => {
@@ -159,7 +160,11 @@ async fn start_inner(
 ) -> Result<()> {
     let dir = server_path(server_id).await?;
     let mut manifest = read_manifest(&dir).await?;
-    let launch_args = if manifest.server_type == "forge" {
+    let launch_args = if let Some(args) =
+        super::external_import::launch_args(&dir, &manifest)?
+    {
+        args
+    } else if manifest.server_type == "forge" {
         forge_launch_args(&dir)?
     } else if manifest.server_type == "neoforge" {
         neoforge_launch_args(
@@ -198,7 +203,7 @@ async fn start_inner(
         tokio::select! {
             biased;
             _ = cancellation.cancelled() => return Ok(()),
-            result = super::fabric::prepare(server_id, &dir, &manifest, cancellation) => result?,
+            result = super::external_import::prepare_fabric_launch(server_id, &dir, &manifest, cancellation) => result?,
         }
     }
     if cancellation.is_cancelled() {

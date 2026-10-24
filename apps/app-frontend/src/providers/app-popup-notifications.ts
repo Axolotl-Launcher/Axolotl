@@ -28,6 +28,20 @@ export class AppPopupNotificationManager extends AbstractPopupNotificationManage
         this.dismissedBefore = dismissed.clearedAt
     }
 
+    public override addPopupNotification = (
+        notification: Omit<PopupNotification, 'id' | 'timer'>,
+        options?: { resurface?: boolean },
+    ): PopupNotification => {
+        if (options?.resurface) {
+            // A new user action needs a fresh decision even if its earlier prompt was dismissed.
+            const keyedNotification = { ...notification, id: 0 }
+            this.dismissedKeys.delete(popupNotificationKey(keyedNotification))
+            this.legacyDismissedKeys.delete(legacyPopupNotificationKey(keyedNotification))
+            this.saveDismissedKeys()
+        }
+        return super.addPopupNotification(notification)
+    }
+
     public getNotifications(): PopupNotification[] {
         return this.state.value
     }

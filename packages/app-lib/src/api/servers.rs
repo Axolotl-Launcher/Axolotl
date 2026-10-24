@@ -3,8 +3,14 @@
 //! and is described by an `axolotl-server.json` manifest.
 
 mod console;
+pub(crate) mod external_import;
 mod fabric;
 mod files;
+pub use external_import::{
+    ServerImportConfiguration, ServerImportPreview, import_external_server,
+    inspect_configurable_server_import, inspect_server_import,
+    retry_external_server,
+};
 mod forge;
 mod lifecycle;
 mod link;

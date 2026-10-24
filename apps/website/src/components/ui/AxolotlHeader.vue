@@ -96,7 +96,7 @@ function openSettings() {
                     rel="noopener"
                     type="quiet"
                 >
-                    <GithubIcon aria-hidden="true" />
+                    <GithubIcon width="20" height="20" aria-hidden="true" />
                     {{ formatMessage(messages.openSource) }}
                 </ButtonLink>
             </nav>
@@ -108,7 +108,7 @@ function openSettings() {
                     type="colored"
                     color="brand"
                 >
-                    <DownloadIcon aria-hidden="true" />
+                    <DownloadIcon width="20" height="20" aria-hidden="true" />
                     {{ formatMessage(messages.download) }}
                 </ButtonLink>
                 <IconButton
@@ -116,7 +116,7 @@ function openSettings() {
                     type="quiet"
                     :label="formatMessage(messages.openSettings)"
                     @click="openSettings"
-                    ><SettingsIcon aria-hidden="true" />
+                    ><SettingsIcon width="20" height="20" aria-hidden="true" />
                 </IconButton>
                 <IconButton
                     ref="mobileMenuButtonRef"
@@ -125,8 +125,8 @@ function openSettings() {
                     :label="formatMessage(mobileMenuOpen ? messages.closeMenu : messages.openMenu)"
                     :aria-expanded="mobileMenuOpen"
                     @click="mobileMenuOpen = !mobileMenuOpen"
-                    ><XIcon v-if="mobileMenuOpen" aria-hidden="true" />
-                    <HamburgerIcon v-else aria-hidden="true" />
+                    ><XIcon v-if="mobileMenuOpen" width="20" height="20" aria-hidden="true" />
+                    <HamburgerIcon v-else width="20" height="20" aria-hidden="true" />
                 </IconButton>
             </div>
         </div>
@@ -159,7 +159,7 @@ function openSettings() {
                     {{ formatMessage(messages.openSource) }}
                 </a>
                 <a class="mobile-download" href="#download" @click="mobileMenuOpen = false">
-                    <DownloadIcon aria-hidden="true" />
+                    <DownloadIcon width="20" height="20" aria-hidden="true" />
                     {{ formatMessage(messages.download) }}
                 </a>
             </nav>

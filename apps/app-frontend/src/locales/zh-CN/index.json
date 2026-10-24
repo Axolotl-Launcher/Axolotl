@@ -9351,7 +9351,7 @@
     "message": "可能的问题：OpenJ9 与此实例不兼容"
   },
   "app.minecraft-crash.diagnosis.out-of-memory.action": {
-    "message": "可以尝试增加实例内存分配，或移除占用内存较多的模组与资源包。"
+    "message": "可以尝试增加实例内存分配，或移除占用内存较多的模组与资源包。若日志提示系统物理内存或交换空间不足，则应改为降低内存分配或关闭其他程序。"
   },
   "app.minecraft-crash.diagnosis.out-of-memory.title": {
     "message": "可能的问题：Minecraft 内存不足"

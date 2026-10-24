@@ -10533,7 +10533,7 @@
     "message": "Possible issue: OpenJ9 is not compatible with this instance"
   },
   "app.minecraft-crash.diagnosis.out-of-memory.action": {
-    "message": "You can try increasing the instance memory allocation, or removing memory-heavy Mods and resource packs."
+    "message": "You can try increasing the instance memory allocation, or removing memory-heavy Mods and resource packs. If the log reports that the system is out of physical RAM or swap space, lower the allocation or close other programs instead."
   },
   "app.minecraft-crash.diagnosis.out-of-memory.title": {
     "message": "Possible issue: Minecraft ran out of memory"

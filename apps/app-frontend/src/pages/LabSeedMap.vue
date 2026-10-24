@@ -80,6 +80,7 @@ import {
     getSeedMapSpawn,
     loadSeedMapHistory,
     loadSeedMapWorkspace,
+    portalCounterpart,
     recordSeedMapHistory,
     removeSeedMapHistoryEntry,
     renderSeedMapTile,
@@ -949,6 +950,7 @@ watch(
     (seed, previousSeed) => {
         if (seed === previousSeed) return
         stashActiveProgress()
+        dimensionCenters.clear()
         activeHistoryId = seedMapHistoryId(seed.trim().slice(0, 256), workspace.edition)
         const entry = historyEntries.value.find((item) => item.id === activeHistoryId)
         workspace.completedFeatures = entry ? [...entry.completedFeatures] : []
@@ -991,6 +993,7 @@ watch(
     () => route.query,
     (query) => {
         if (typeof query.seed !== 'string' || !query.seed.trim()) return
+        dimensionCenters.clear()
         const shared = applyShareQuery(query, {
             ...createDefaultSeedMapWorkspace(),
             markers: [...workspace.markers],
@@ -2521,6 +2524,29 @@ function goToCoordinates() {
     scheduleRefresh()
 }
 
+const dimensionCenters = new Map<SeedMapDimension, { x: number; z: number }>()
+
+function switchDimension(dimension: SeedMapDimension) {
+    if (dimension === workspace.dimension) return
+    dimensionCenters.set(workspace.dimension, {
+        x: workspace.center.x,
+        z: workspace.center.z,
+    })
+    const counterpart = portalCounterpart(
+        workspace.dimension,
+        Math.round(workspace.center.x),
+        Math.round(workspace.center.z),
+    )
+    workspace.dimension = dimension
+    const target =
+        dimensionCenters.get(dimension) ??
+        (counterpart?.dimension === dimension ? counterpart : null)
+    if (!target) return
+    workspace.center.x = clampWorldCoordinate(target.x)
+    workspace.center.z = clampWorldCoordinate(target.z)
+    scheduleRefresh()
+}
+
 function centerSpawn() {
     if (!spawn.value) return
     workspace.center.x = spawn.value.x
@@ -2807,7 +2833,7 @@ function clampWorldCoordinate(value: number) {
                             :color="workspace.dimension === dimension ? 'brand' : undefined"
                             class="dimension-option"
                             :aria-pressed="workspace.dimension === dimension"
-                            @click="workspace.dimension = dimension"
+                            @click="switchDimension(dimension)"
                         >
                             {{ dimensionLabel(dimension) }}
                         </Button>

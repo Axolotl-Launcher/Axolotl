@@ -1089,3 +1089,66 @@ it('loads the provided camp and fossil PNGs and omits the removed end-island lay
     await flushPromises()
     expect(wrapper!.findAll('.layer-options > button')).toHaveLength(3)
 })
+
+it('converts the map centre to the paired dimension when switching', async () => {
+    const { vm } = await openMap()
+    vm.workspace.center.x = 100
+    vm.workspace.center.z = -200
+    await flushPromises()
+    await userEvent.click(page.getByRole('button', { name: 'Nether', exact: true }))
+    await flushPromises()
+    expect(vm.workspace.dimension).toBe('nether')
+    expect(vm.workspace.center.x).toBe(12)
+    expect(vm.workspace.center.z).toBe(-25)
+})
+
+it('restores each dimension centre instead of drifting on repeat switches', async () => {
+    const { vm } = await openMap()
+    vm.workspace.center.x = 100
+    vm.workspace.center.z = -200
+    await flushPromises()
+    await userEvent.click(page.getByRole('button', { name: 'Nether', exact: true }))
+    await flushPromises()
+    await userEvent.click(page.getByRole('button', { name: 'Overworld', exact: true }))
+    await flushPromises()
+    expect(vm.workspace.dimension).toBe('overworld')
+    expect(vm.workspace.center.x).toBe(100)
+    expect(vm.workspace.center.z).toBe(-200)
+
+    await userEvent.click(page.getByRole('button', { name: 'Nether', exact: true }))
+    await flushPromises()
+    expect(vm.workspace.dimension).toBe('nether')
+    expect(vm.workspace.center.x).toBe(12)
+    expect(vm.workspace.center.z).toBe(-25)
+})
+
+it('keeps the centre when switching to the end', async () => {
+    const { vm } = await openMap()
+    vm.workspace.center.x = 100
+    vm.workspace.center.z = -200
+    await flushPromises()
+    await userEvent.click(page.getByRole('button', { name: 'The End', exact: true }))
+    await flushPromises()
+    expect(vm.workspace.dimension).toBe('end')
+    expect(vm.workspace.center.x).toBe(100)
+    expect(vm.workspace.center.z).toBe(-200)
+})
+
+it('forgets dimension centres when the seed changes', async () => {
+    const { vm } = await openMap()
+    vm.workspace.center.x = 100
+    vm.workspace.center.z = -200
+    await flushPromises()
+    await userEvent.click(page.getByRole('button', { name: 'Nether', exact: true }))
+    await flushPromises()
+    expect(vm.workspace.center.x).toBe(12)
+
+    vm.workspace.seed = '987654321'
+    await flushPromises()
+    expect(vm.workspace.dimension).toBe('overworld')
+    expect(vm.workspace.center).toEqual({ x: 0, z: 0 })
+
+    await userEvent.click(page.getByRole('button', { name: 'Nether', exact: true }))
+    await flushPromises()
+    expect(vm.workspace.center).toEqual({ x: 0, z: 0 })
+})

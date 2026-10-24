@@ -1,6 +1,7 @@
 import {
     BlocksIcon,
     BoxIcon,
+    FlaskConicalIcon,
     LanguagesIcon,
     PaletteIcon,
     PencilIcon,
@@ -70,7 +71,7 @@ export const labTools: readonly LabToolDefinition[] = [
         id: 'command-generator',
         category: 'creation',
         route: '/lab/command-generator',
-        icon: BoxIcon,
+        icon: FlaskConicalIcon,
         title: 'Command generator',
         description: 'Generate Minecraft Java Edition commands with visual NBT editing.',
     },

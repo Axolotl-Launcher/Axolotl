@@ -58,6 +58,11 @@ export interface CommandArgument {
     max?: number
     exclusiveMin?: number
     /**
+     * 坐标参数的分量数量。
+     * 3（默认）= x y z；2 = x z（如 /spreadplayers 的 center、/forceload 的 from/to）。
+     */
+    coordinatesDimensions?: 2 | 3
+    /**
      * 为 true 时，该参数渲染后直接追加到前一个参数尾部，**不加空格**。
      *
      * 用于 /give、/item 等把 NBT 视为「物品参数一部分」的命令：
@@ -65,6 +70,7 @@ export interface CommandArgument {
      * 而非把 NBT 作为独立参数：
      *   /summon zombie ~ ~ ~ {IsBaby:1b}
      */
+    coordinatesOptionalTarget?: boolean
     attachToPrevious?: boolean
 }
 

@@ -6809,6 +6809,18 @@
   "app.lab.command-generator.subtitle": {
     "message": "Build Minecraft Java Edition commands visually."
   },
+  "app.lab.command-generator.error.unknown": {
+    "message": "Unknown error"
+  },
+  "app.lab.command-generator.coordinate.axis-label": {
+    "message": "{axis} coordinate"
+  },
+  "app.lab.command-generator.coordinate.use-coords": {
+    "message": "Coordinates"
+  },
+  "app.lab.command-generator.coordinate.use-entity": {
+    "message": "Entity"
+  },
   "app.lab.command-generator.select-version": {
     "message": "Game version"
   },
@@ -7224,19 +7236,49 @@
     "message": "Misc"
   },
   "app.lab.command-generator.perm.0": {
-    "message": "Everyone"
+    "message": "All"
   },
   "app.lab.command-generator.perm.1": {
-    "message": "Admin"
+    "message": "Moderator"
   },
   "app.lab.command-generator.perm.2": {
-    "message": "OP"
+    "message": "Gamemaster"
   },
   "app.lab.command-generator.perm.3": {
-    "message": "Server console"
+    "message": "Admin"
   },
   "app.lab.command-generator.perm.4": {
-    "message": "Singleplayer only"
+    "message": "Owner"
+  },
+  "app.lab.command-generator.perm.0.desc": {
+    "message": "No special permission required"
+  },
+  "app.lab.command-generator.perm.1.desc": {
+    "message": "Can bypass spawn protection"
+  },
+  "app.lab.command-generator.perm.2.desc": {
+    "message": "Most gameplay commands, command blocks and functions"
+  },
+  "app.lab.command-generator.perm.3.desc": {
+    "message": "Multiplayer management commands"
+  },
+  "app.lab.command-generator.perm.4.desc": {
+    "message": "Server management commands"
+  },
+  "app.lab.command-generator.perm.seed.multiplayer-note": {
+    "message": "In multiplayer, /seed requires permission level 2"
+  },
+  "app.lab.command-generator.alias-of": {
+    "message": "{command}'s alias"
+  },
+  "app.lab.command-generator.coordinate.relative": {
+    "message": "Relative (~)"
+  },
+  "app.lab.command-generator.coordinate.local": {
+    "message": "Local (^)"
+  },
+  "app.lab.command-generator.coordinate.absolute": {
+    "message": "Absolute"
   },
   "app.lab.command-generator.cmd.advancement.desc": {
     "message": "Grant or revoke player advancements"
@@ -7753,6 +7795,75 @@
   },
   "app.lab.command-generator.item-picker.button": {
     "message": "Pick item"
+  },
+  "app.lab.command-generator.block-picker.button": {
+    "message": "Pick block"
+  },
+  "app.lab.command-generator.block-picker.title": {
+    "message": "Pick a block"
+  },
+  "app.lab.command-generator.block.air": {
+    "message": "Air"
+  },
+  "app.lab.command-generator.block.cave_air": {
+    "message": "Cave Air"
+  },
+  "app.lab.command-generator.block.void_air": {
+    "message": "Void Air"
+  },
+  "app.lab.command-generator.block.water": {
+    "message": "Water"
+  },
+  "app.lab.command-generator.block.lava": {
+    "message": "Lava"
+  },
+  "app.lab.command-generator.block.fire": {
+    "message": "Fire"
+  },
+  "app.lab.command-generator.block.nether_portal": {
+    "message": "Nether Portal"
+  },
+  "app.lab.command-generator.block.end_portal": {
+    "message": "End Portal"
+  },
+  "app.lab.command-generator.block.end_gateway": {
+    "message": "End Gateway"
+  },
+  "app.lab.command-generator.block.frosted_ice": {
+    "message": "Frosted Ice"
+  },
+  "app.lab.command-generator.block.bubble_column": {
+    "message": "Bubble Column"
+  },
+  "app.lab.command-generator.block.moving_piston": {
+    "message": "Moving Piston"
+  },
+  "app.lab.command-generator.block.piston_head": {
+    "message": "Piston Head"
+  },
+  "app.lab.command-generator.block.light": {
+    "message": "Light"
+  },
+  "app.lab.command-generator.effect-picker.button": {
+    "message": "Pick effect"
+  },
+  "app.lab.command-generator.effect-picker.title": {
+    "message": "Pick a status effect"
+  },
+  "app.lab.command-generator.advancement-picker.button": {
+    "message": "Pick advancement"
+  },
+  "app.lab.command-generator.advancement-picker.title": {
+    "message": "Pick an advancement"
+  },
+  "app.lab.command-generator.item-picker.pick-effect": {
+    "message": "Pick effect"
+  },
+  "app.lab.command-generator.item-picker.pick-advancement": {
+    "message": "Pick advancement"
+  },
+  "app.lab.command-generator.view-on-wiki": {
+    "message": "View on English Wiki"
   },
   "app.lab.command-generator.item-picker.search-placeholder": {
     "message": "Search items by name or ID"
@@ -19195,5 +19306,389 @@
   },
   "app.lab.command-generator.arg.waypoint.value.desc": {
     "message": "Color or style"
+  },
+  "effect.speed": {
+    "message": "Speed"
+  },
+  "effect.slowness": {
+    "message": "Slowness"
+  },
+  "effect.haste": {
+    "message": "Haste"
+  },
+  "effect.mining_fatigue": {
+    "message": "Mining Fatigue"
+  },
+  "effect.strength": {
+    "message": "Strength"
+  },
+  "effect.instant_health": {
+    "message": "Instant Health"
+  },
+  "effect.instant_damage": {
+    "message": "Instant Damage"
+  },
+  "effect.jump_boost": {
+    "message": "Jump Boost"
+  },
+  "effect.nausea": {
+    "message": "Nausea"
+  },
+  "effect.regeneration": {
+    "message": "Regeneration"
+  },
+  "effect.resistance": {
+    "message": "Resistance"
+  },
+  "effect.fire_resistance": {
+    "message": "Fire Resistance"
+  },
+  "effect.water_breathing": {
+    "message": "Water Breathing"
+  },
+  "effect.invisibility": {
+    "message": "Invisibility"
+  },
+  "effect.blindness": {
+    "message": "Blindness"
+  },
+  "effect.night_vision": {
+    "message": "Night Vision"
+  },
+  "effect.hunger": {
+    "message": "Hunger"
+  },
+  "effect.weakness": {
+    "message": "Weakness"
+  },
+  "effect.poison": {
+    "message": "Poison"
+  },
+  "effect.wither": {
+    "message": "Wither"
+  },
+  "effect.health_boost": {
+    "message": "Health Boost"
+  },
+  "effect.absorption": {
+    "message": "Absorption"
+  },
+  "effect.saturation": {
+    "message": "Saturation"
+  },
+  "effect.glowing": {
+    "message": "Glowing"
+  },
+  "effect.levitation": {
+    "message": "Levitation"
+  },
+  "effect.luck": {
+    "message": "Luck"
+  },
+  "effect.unluck": {
+    "message": "Bad Luck"
+  },
+  "effect.slow_falling": {
+    "message": "Slow Falling"
+  },
+  "effect.conduit_power": {
+    "message": "Conduit Power"
+  },
+  "effect.dolphins_grace": {
+    "message": "Dolphin's Grace"
+  },
+  "effect.bad_omen": {
+    "message": "Bad Omen"
+  },
+  "effect.hero_of_the_village": {
+    "message": "Hero of the Village"
+  },
+  "effect.darkness": {
+    "message": "Darkness"
+  },
+  "effect.trial_omen": {
+    "message": "Trial Omen"
+  },
+  "effect.raid_omen": {
+    "message": "Raid Omen"
+  },
+  "effect.wind_charged": {
+    "message": "Wind Charged"
+  },
+  "effect.weaving": {
+    "message": "Weaving"
+  },
+  "effect.oozing": {
+    "message": "Oozing"
+  },
+  "effect.infested": {
+    "message": "Infested"
+  },
+  "advancement.minecraft:story/root.title": {
+    "message": "Minecraft"
+  },
+  "advancement.minecraft:story/mine_stone.title": {
+    "message": "Stone Age"
+  },
+  "advancement.minecraft:story/upgrade_tools.title": {
+    "message": "Getting an Upgrade"
+  },
+  "advancement.minecraft:story/smelt_iron.title": {
+    "message": "Acquire Hardware"
+  },
+  "advancement.minecraft:story/obtain_armor.title": {
+    "message": "Suit Up"
+  },
+  "advancement.minecraft:story/lava_bucket.title": {
+    "message": "Hot Stuff"
+  },
+  "advancement.minecraft:story/iron_tools.title": {
+    "message": "Isn't It Iron Pick"
+  },
+  "advancement.minecraft:story/deflect_arrow.title": {
+    "message": "Not Today, Thank You"
+  },
+  "advancement.minecraft:story/enter_the_nether.title": {
+    "message": "We Need to Go Deeper"
+  },
+  "advancement.minecraft:story/form_obsidian.title": {
+    "message": "Ice Bucket Challenge"
+  },
+  "advancement.minecraft:story/mine_diamond.title": {
+    "message": "Diamonds!"
+  },
+  "advancement.minecraft:story/enchant_item.title": {
+    "message": "Enchanter"
+  },
+  "advancement.minecraft:story/cure_zombie_villager.title": {
+    "message": "Zombie Doctor"
+  },
+  "advancement.minecraft:story/follow_ender_eye.title": {
+    "message": "Eye Spy"
+  },
+  "advancement.minecraft:story/enter_the_end.title": {
+    "message": "The End?"
+  },
+  "advancement.minecraft:nether/root.title": {
+    "message": "Nether"
+  },
+  "advancement.minecraft:nether/return_to_sender.title": {
+    "message": "Return to Sender"
+  },
+  "advancement.minecraft:nether/find_bastion.title": {
+    "message": "Those Were the Days"
+  },
+  "advancement.minecraft:nether/obtain_blaze_rod.title": {
+    "message": "Into Fire"
+  },
+  "advancement.minecraft:nether/loot_bastion.title": {
+    "message": "War Pigs"
+  },
+  "advancement.minecraft:nether/brew_potion.title": {
+    "message": "Local Brewery"
+  },
+  "advancement.minecraft:nether/summon_wither.title": {
+    "message": "Withering Heights"
+  },
+  "advancement.minecraft:nether/create_beacon.title": {
+    "message": "Bring Home the Beacon"
+  },
+  "advancement.minecraft:nether/create_full_beacon.title": {
+    "message": "Beaconator"
+  },
+  "advancement.minecraft:nether/fast_travel.title": {
+    "message": "Subspace Bubble"
+  },
+  "advancement.minecraft:nether/find_fortress.title": {
+    "message": "A Terrible Fortress"
+  },
+  "advancement.minecraft:nether/obtain_ancient_debris.title": {
+    "message": "Hidden in the Depths"
+  },
+  "advancement.minecraft:nether/obtain_crying_obsidian.title": {
+    "message": "Who is Cutting Onions?"
+  },
+  "advancement.minecraft:nether/distract_piglin.title": {
+    "message": "Oh Shiny"
+  },
+  "advancement.minecraft:nether/uneasy_alliance.title": {
+    "message": "Uneasy Alliance"
+  },
+  "advancement.minecraft:nether/all_potions.title": {
+    "message": "A Furious Cocktail"
+  },
+  "advancement.minecraft:nether/all_effects.title": {
+    "message": "How Did We Get Here?"
+  },
+  "advancement.minecraft:end/root.title": {
+    "message": "The End"
+  },
+  "advancement.minecraft:end/kill_dragon.title": {
+    "message": "Free the End"
+  },
+  "advancement.minecraft:end/dragon_egg.title": {
+    "message": "The Next Generation"
+  },
+  "advancement.minecraft:end/enter_end_gateway.title": {
+    "message": "Remote Getaway"
+  },
+  "advancement.minecraft:end/respawn_dragon.title": {
+    "message": "The End... Again..."
+  },
+  "advancement.minecraft:end/dragon_breath.title": {
+    "message": "You Need a Mint"
+  },
+  "advancement.minecraft:end/find_end_city.title": {
+    "message": "The City at the End of the Game"
+  },
+  "advancement.minecraft:end/elytra.title": {
+    "message": "Sky's the Limit"
+  },
+  "advancement.minecraft:end/levitate.title": {
+    "message": "Great View From Up Here"
+  },
+  "advancement.minecraft:adventure/root.title": {
+    "message": "Adventure"
+  },
+  "advancement.minecraft:adventure/kill_a_mob.title": {
+    "message": "Monster Hunter"
+  },
+  "advancement.minecraft:adventure/trade.title": {
+    "message": "What a Deal!"
+  },
+  "advancement.minecraft:adventure/shoot_arrow.title": {
+    "message": "Take Aim"
+  },
+  "advancement.minecraft:adventure/kill_all_mobs.title": {
+    "message": "Monsters Hunted"
+  },
+  "advancement.minecraft:adventure/totem_of_undying.title": {
+    "message": "Postmortal"
+  },
+  "advancement.minecraft:adventure/sleep_in_bed.title": {
+    "message": "Sweet Dreams"
+  },
+  "advancement.minecraft:adventure/hero_of_the_village.title": {
+    "message": "Hero of the Village"
+  },
+  "advancement.minecraft:adventure/sniper_duel.title": {
+    "message": "Sniper Duel"
+  },
+  "advancement.minecraft:adventure/bullseye.title": {
+    "message": "Bullseye"
+  },
+  "advancement.minecraft:adventure/two_birds_one_arrow.title": {
+    "message": "Two Birds, One Arrow"
+  },
+  "advancement.minecraft:adventure/whos_the_pillager_now.title": {
+    "message": "Who's the Pillager Now?"
+  },
+  "advancement.minecraft:adventure/arbalistic.title": {
+    "message": "Arbalistic"
+  },
+  "advancement.minecraft:adventure/voluntary_exile.title": {
+    "message": "Voluntary Exile"
+  },
+  "advancement.minecraft:adventure/honey_block_slide.title": {
+    "message": "Sticky Situation"
+  },
+  "advancement.minecraft:adventure/very_very_frightening.title": {
+    "message": "Very Very Frightening"
+  },
+  "advancement.minecraft:adventure/lightning_rod_with_villager_no_damage.title": {
+    "message": "Surge Protector"
+  },
+  "advancement.minecraft:adventure/play_jukebox_in_meadows.title": {
+    "message": "Sound of Music"
+  },
+  "advancement.minecraft:adventure/walk_on_powder_snow_with_leather_boots.title": {
+    "message": "Light as a Rabbit"
+  },
+  "advancement.minecraft:adventure/fall_from_world_height.title": {
+    "message": "Caves & Cliffs"
+  },
+  "advancement.minecraft:adventure/kill_mob_near_sculk_catalyst.title": {
+    "message": "It Spreads"
+  },
+  "advancement.minecraft:adventure/avoid_vibration.title": {
+    "message": "Sneak 100"
+  },
+  "advancement.minecraft:adventure/read_power_of_chiseled_bookshelf.title": {
+    "message": "The Power of Books"
+  },
+  "advancement.minecraft:adventure/trim_with_all_exclusive_armor_patterns.title": {
+    "message": "Smithing with Style"
+  },
+  "advancement.minecraft:adventure/craft_decorated_pot_using_only_sherds.title": {
+    "message": "Careful Restoration"
+  },
+  "advancement.minecraft:adventure/salvage_sherd.title": {
+    "message": "Respecting the Remnants"
+  },
+  "advancement.minecraft:adventure/brush_armadillo.title": {
+    "message": "Is It a Bird?"
+  },
+  "advancement.minecraft:adventure/mob_kebab.title": {
+    "message": "Mob Kabob"
+  },
+  "advancement.minecraft:husbandry/root.title": {
+    "message": "Husbandry"
+  },
+  "advancement.minecraft:husbandry/breed_an_animal.title": {
+    "message": "The Parrots and the Bats"
+  },
+  "advancement.minecraft:husbandry/tame_an_animal.title": {
+    "message": "Best Friends Forever"
+  },
+  "advancement.minecraft:husbandry/plant_seed.title": {
+    "message": "A Seedy Place"
+  },
+  "advancement.minecraft:husbandry/fishy_business.title": {
+    "message": "Fishy Business"
+  },
+  "advancement.minecraft:husbandry/tactical_fishing.title": {
+    "message": "Tactical Fishing"
+  },
+  "advancement.minecraft:husbandry/balanced_diet.title": {
+    "message": "A Balanced Diet"
+  },
+  "advancement.minecraft:husbandry/obtain_netherite_hoe.title": {
+    "message": "Serious Dedication"
+  },
+  "advancement.minecraft:husbandry/complete_catalogue.title": {
+    "message": "A Complete Catalogue"
+  },
+  "advancement.minecraft:husbandry/two_by_two.title": {
+    "message": "Two by Two"
+  },
+  "advancement.minecraft:husbandry/wax_on.title": {
+    "message": "Wax On"
+  },
+  "advancement.minecraft:husbandry/wax_off.title": {
+    "message": "Wax Off"
+  },
+  "advancement.minecraft:husbandry/ride_a_boat_with_a_goat.title": {
+    "message": "Whatever Floats Your Goat!"
+  },
+  "advancement.minecraft:husbandry/make_a_sign_glow.title": {
+    "message": "Glow and Behold!"
+  },
+  "advancement.minecraft:husbandry/allay_deliver_item_to_player.title": {
+    "message": "You've Got a Friend in Me"
+  },
+  "advancement.minecraft:husbandry/leash_all_frog_variants.title": {
+    "message": "When the Squad Hops into Town"
+  },
+  "advancement.minecraft:husbandry/feed_snifflet.title": {
+    "message": "Little Sniffs"
+  },
+  "advancement.minecraft:husbandry/plant_any_sniffer_seed.title": {
+    "message": "Planting the Past"
+  },
+  "advancement.minecraft:husbandry/repair_wolf_armor.title": {
+    "message": "Good as New"
+  },
+  "advancement.minecraft:husbandry/whole_pack.title": {
+    "message": "The Whole Pack"
   }
 }

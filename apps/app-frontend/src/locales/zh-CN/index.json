@@ -5768,6 +5768,18 @@
   "app.lab.command-generator.subtitle": {
     "message": "可视化构建 Minecraft Java 版命令。"
   },
+  "app.lab.command-generator.error.unknown": {
+    "message": "未知错误"
+  },
+  "app.lab.command-generator.coordinate.axis-label": {
+    "message": "{axis} 坐标"
+  },
+  "app.lab.command-generator.coordinate.use-coords": {
+    "message": "坐标"
+  },
+  "app.lab.command-generator.coordinate.use-entity": {
+    "message": "实体"
+  },
   "app.lab.command-generator.select-version": {
     "message": "游戏版本"
   },
@@ -6195,16 +6207,46 @@
     "message": "所有人"
   },
   "app.lab.command-generator.perm.1": {
-    "message": "管理员"
+    "message": "版主"
   },
   "app.lab.command-generator.perm.2": {
-    "message": "OP (管理员权限)"
+    "message": "游戏管理员"
   },
   "app.lab.command-generator.perm.3": {
-    "message": "服务器控制台"
+    "message": "管理员"
   },
   "app.lab.command-generator.perm.4": {
-    "message": "仅单人"
+    "message": "所有者"
+  },
+  "app.lab.command-generator.perm.0.desc": {
+    "message": "无特殊权限要求"
+  },
+  "app.lab.command-generator.perm.1.desc": {
+    "message": "可绕过出生点保护"
+  },
+  "app.lab.command-generator.perm.2.desc": {
+    "message": "绝大多数游戏命令、命令方块和函数"
+  },
+  "app.lab.command-generator.perm.3.desc": {
+    "message": "多人游戏管理命令"
+  },
+  "app.lab.command-generator.perm.4.desc": {
+    "message": "服务器管理命令"
+  },
+  "app.lab.command-generator.perm.seed.multiplayer-note": {
+    "message": "多人游戏下 /seed 需要 2 级权限"
+  },
+  "app.lab.command-generator.alias-of": {
+    "message": "{command} 的缩写"
+  },
+  "app.lab.command-generator.coordinate.relative": {
+    "message": "相对坐标（~）"
+  },
+  "app.lab.command-generator.coordinate.local": {
+    "message": "局部坐标（^）"
+  },
+  "app.lab.command-generator.coordinate.absolute": {
+    "message": "绝对坐标"
   },
   "app.lab.command-generator.cmd.advancement.desc": {
     "message": "给予或移除玩家的进度"
@@ -6721,6 +6763,75 @@
   },
   "app.lab.command-generator.item-picker.button": {
     "message": "选择物品"
+  },
+  "app.lab.command-generator.block-picker.button": {
+    "message": "选择方块"
+  },
+  "app.lab.command-generator.block-picker.title": {
+    "message": "选择一个方块"
+  },
+  "app.lab.command-generator.block.air": {
+    "message": "空气"
+  },
+  "app.lab.command-generator.block.cave_air": {
+    "message": "洞穴空气"
+  },
+  "app.lab.command-generator.block.void_air": {
+    "message": "虚空空气"
+  },
+  "app.lab.command-generator.block.water": {
+    "message": "水"
+  },
+  "app.lab.command-generator.block.lava": {
+    "message": "熔岩"
+  },
+  "app.lab.command-generator.block.fire": {
+    "message": "火"
+  },
+  "app.lab.command-generator.block.nether_portal": {
+    "message": "下界传送门"
+  },
+  "app.lab.command-generator.block.end_portal": {
+    "message": "末地传送门"
+  },
+  "app.lab.command-generator.block.end_gateway": {
+    "message": "末地折跃门"
+  },
+  "app.lab.command-generator.block.frosted_ice": {
+    "message": "霜冰"
+  },
+  "app.lab.command-generator.block.bubble_column": {
+    "message": "气泡柱"
+  },
+  "app.lab.command-generator.block.moving_piston": {
+    "message": "移动的活塞"
+  },
+  "app.lab.command-generator.block.piston_head": {
+    "message": "活塞头"
+  },
+  "app.lab.command-generator.block.light": {
+    "message": "光源方块"
+  },
+  "app.lab.command-generator.effect-picker.button": {
+    "message": "选择效果"
+  },
+  "app.lab.command-generator.effect-picker.title": {
+    "message": "选择状态效果"
+  },
+  "app.lab.command-generator.advancement-picker.button": {
+    "message": "选择成就"
+  },
+  "app.lab.command-generator.advancement-picker.title": {
+    "message": "选择进度/成就"
+  },
+  "app.lab.command-generator.item-picker.pick-effect": {
+    "message": "选择效果"
+  },
+  "app.lab.command-generator.item-picker.pick-advancement": {
+    "message": "选择成就"
+  },
+  "app.lab.command-generator.view-on-wiki": {
+    "message": "转到中文 Wiki"
   },
   "app.lab.command-generator.item-picker.search-placeholder": {
     "message": "按名称或 ID 搜索物品"
@@ -19219,5 +19330,389 @@
   },
   "app.lab.command-generator.arg.waypoint.value.desc": {
     "message": "颜色或样式"
+  },
+  "effect.speed": {
+    "message": "迅捷"
+  },
+  "effect.slowness": {
+    "message": "缓慢"
+  },
+  "effect.haste": {
+    "message": "急迫"
+  },
+  "effect.mining_fatigue": {
+    "message": "挖掘疲劳"
+  },
+  "effect.strength": {
+    "message": "力量"
+  },
+  "effect.instant_health": {
+    "message": "瞬间治疗"
+  },
+  "effect.instant_damage": {
+    "message": "瞬间伤害"
+  },
+  "effect.jump_boost": {
+    "message": "跳跃提升"
+  },
+  "effect.nausea": {
+    "message": "反胃"
+  },
+  "effect.regeneration": {
+    "message": "生命恢复"
+  },
+  "effect.resistance": {
+    "message": "抗性提升"
+  },
+  "effect.fire_resistance": {
+    "message": "抗火"
+  },
+  "effect.water_breathing": {
+    "message": "水下呼吸"
+  },
+  "effect.invisibility": {
+    "message": "隐身"
+  },
+  "effect.blindness": {
+    "message": "失明"
+  },
+  "effect.night_vision": {
+    "message": "夜视"
+  },
+  "effect.hunger": {
+    "message": "饥饿"
+  },
+  "effect.weakness": {
+    "message": "虚弱"
+  },
+  "effect.poison": {
+    "message": "中毒"
+  },
+  "effect.wither": {
+    "message": "凋零"
+  },
+  "effect.health_boost": {
+    "message": "生命提升"
+  },
+  "effect.absorption": {
+    "message": "伤害吸收"
+  },
+  "effect.saturation": {
+    "message": "饱和"
+  },
+  "effect.glowing": {
+    "message": "发光"
+  },
+  "effect.levitation": {
+    "message": "飘浮"
+  },
+  "effect.luck": {
+    "message": "幸运"
+  },
+  "effect.unluck": {
+    "message": "霉运"
+  },
+  "effect.slow_falling": {
+    "message": "缓降"
+  },
+  "effect.conduit_power": {
+    "message": "潮涌能量"
+  },
+  "effect.dolphins_grace": {
+    "message": "海豚的恩惠"
+  },
+  "effect.bad_omen": {
+    "message": "不祥之兆"
+  },
+  "effect.hero_of_the_village": {
+    "message": "村庄英雄"
+  },
+  "effect.darkness": {
+    "message": "黑暗"
+  },
+  "effect.trial_omen": {
+    "message": "试炼之兆"
+  },
+  "effect.raid_omen": {
+    "message": "袭击之兆"
+  },
+  "effect.wind_charged": {
+    "message": "蓄风"
+  },
+  "effect.weaving": {
+    "message": "盘丝"
+  },
+  "effect.oozing": {
+    "message": "渗浆"
+  },
+  "effect.infested": {
+    "message": "寄生"
+  },
+  "advancement.minecraft:story/root.title": {
+    "message": "我的世界"
+  },
+  "advancement.minecraft:story/mine_stone.title": {
+    "message": "石器时代"
+  },
+  "advancement.minecraft:story/upgrade_tools.title": {
+    "message": "获得升级"
+  },
+  "advancement.minecraft:story/smelt_iron.title": {
+    "message": "来硬的"
+  },
+  "advancement.minecraft:story/obtain_armor.title": {
+    "message": "铠甲护身"
+  },
+  "advancement.minecraft:story/lava_bucket.title": {
+    "message": "热腾腾的"
+  },
+  "advancement.minecraft:story/iron_tools.title": {
+    "message": "这不是铁镐么？"
+  },
+  "advancement.minecraft:story/deflect_arrow.title": {
+    "message": "不吃这套，谢谢"
+  },
+  "advancement.minecraft:story/enter_the_nether.title": {
+    "message": "勇往直下"
+  },
+  "advancement.minecraft:story/form_obsidian.title": {
+    "message": "冰桶挑战"
+  },
+  "advancement.minecraft:story/mine_diamond.title": {
+    "message": "钻石！"
+  },
+  "advancement.minecraft:story/enchant_item.title": {
+    "message": "附魔师"
+  },
+  "advancement.minecraft:story/cure_zombie_villager.title": {
+    "message": "僵尸医生"
+  },
+  "advancement.minecraft:story/follow_ender_eye.title": {
+    "message": "隔墙有眼"
+  },
+  "advancement.minecraft:story/enter_the_end.title": {
+    "message": "末地"
+  },
+  "advancement.minecraft:nether/root.title": {
+    "message": "下界"
+  },
+  "advancement.minecraft:nether/return_to_sender.title": {
+    "message": "见鬼去吧"
+  },
+  "advancement.minecraft:nether/find_bastion.title": {
+    "message": "战利品"
+  },
+  "advancement.minecraft:nether/obtain_blaze_rod.title": {
+    "message": "与火共舞"
+  },
+  "advancement.minecraft:nether/loot_bastion.title": {
+    "message": "战利品"
+  },
+  "advancement.minecraft:nether/brew_potion.title": {
+    "message": "本地酿造厂"
+  },
+  "advancement.minecraft:nether/summon_wither.title": {
+    "message": "凋零山庄"
+  },
+  "advancement.minecraft:nether/create_beacon.title": {
+    "message": "带信标回家"
+  },
+  "advancement.minecraft:nether/create_full_beacon.title": {
+    "message": "信标工程师"
+  },
+  "advancement.minecraft:nether/fast_travel.title": {
+    "message": "急速狂飙"
+  },
+  "advancement.minecraft:nether/find_fortress.title": {
+    "message": "可怕的要塞"
+  },
+  "advancement.minecraft:nether/obtain_ancient_debris.title": {
+    "message": "深藏不露"
+  },
+  "advancement.minecraft:nether/obtain_crying_obsidian.title": {
+    "message": "谁在切洋葱？"
+  },
+  "advancement.minecraft:nether/distract_piglin.title": {
+    "message": "哦，闪亮！"
+  },
+  "advancement.minecraft:nether/uneasy_alliance.title": {
+    "message": "不安的联盟"
+  },
+  "advancement.minecraft:nether/all_potions.title": {
+    "message": "狂乱的鸡尾酒"
+  },
+  "advancement.minecraft:nether/all_effects.title": {
+    "message": "为什么会变成这样呢？"
+  },
+  "advancement.minecraft:end/root.title": {
+    "message": "末地"
+  },
+  "advancement.minecraft:end/kill_dragon.title": {
+    "message": "解放末地"
+  },
+  "advancement.minecraft:end/dragon_egg.title": {
+    "message": "下一世代"
+  },
+  "advancement.minecraft:end/enter_end_gateway.title": {
+    "message": "远程传输"
+  },
+  "advancement.minecraft:end/respawn_dragon.title": {
+    "message": "又…再一次…"
+  },
+  "advancement.minecraft:end/dragon_breath.title": {
+    "message": "你需要来点薄荷"
+  },
+  "advancement.minecraft:end/find_end_city.title": {
+    "message": "在歌曲中"
+  },
+  "advancement.minecraft:end/elytra.title": {
+    "message": "天空即为极限"
+  },
+  "advancement.minecraft:end/levitate.title": {
+    "message": "上面有无"
+  },
+  "advancement.minecraft:adventure/root.title": {
+    "message": "冒险"
+  },
+  "advancement.minecraft:adventure/kill_a_mob.title": {
+    "message": "怪物猎人"
+  },
+  "advancement.minecraft:adventure/trade.title": {
+    "message": "成交！"
+  },
+  "advancement.minecraft:adventure/shoot_arrow.title": {
+    "message": "瞄准目标"
+  },
+  "advancement.minecraft:adventure/kill_all_mobs.title": {
+    "message": "资深怪物猎人"
+  },
+  "advancement.minecraft:adventure/totem_of_undying.title": {
+    "message": "超越生死"
+  },
+  "advancement.minecraft:adventure/sleep_in_bed.title": {
+    "message": "甜蜜的梦"
+  },
+  "advancement.minecraft:adventure/hero_of_the_village.title": {
+    "message": "村庄英雄"
+  },
+  "advancement.minecraft:adventure/sniper_duel.title": {
+    "message": "狙击手对决"
+  },
+  "advancement.minecraft:adventure/bullseye.title": {
+    "message": "正中靶心"
+  },
+  "advancement.minecraft:adventure/two_birds_one_arrow.title": {
+    "message": "一箭双雕"
+  },
+  "advancement.minecraft:adventure/whos_the_pillager_now.title": {
+    "message": "现在谁才是掠夺者？"
+  },
+  "advancement.minecraft:adventure/arbalistic.title": {
+    "message": "劲弩手"
+  },
+  "advancement.minecraft:adventure/voluntary_exile.title": {
+    "message": "自我放逐"
+  },
+  "advancement.minecraft:adventure/honey_block_slide.title": {
+    "message": "胶着状态"
+  },
+  "advancement.minecraft:adventure/very_very_frightening.title": {
+    "message": "非常吓人"
+  },
+  "advancement.minecraft:adventure/lightning_rod_with_villager_no_damage.title": {
+    "message": "电涌保护器"
+  },
+  "advancement.minecraft:adventure/play_jukebox_in_meadows.title": {
+    "message": "音乐之声"
+  },
+  "advancement.minecraft:adventure/walk_on_powder_snow_with_leather_boots.title": {
+    "message": "轻如兔子"
+  },
+  "advancement.minecraft:adventure/fall_from_world_height.title": {
+    "message": "洞穴与山崖"
+  },
+  "advancement.minecraft:adventure/kill_mob_near_sculk_catalyst.title": {
+    "message": "它蔓延了"
+  },
+  "advancement.minecraft:adventure/avoid_vibration.title": {
+    "message": "潜行 100 级"
+  },
+  "advancement.minecraft:adventure/read_power_of_chiseled_bookshelf.title": {
+    "message": "书之力量"
+  },
+  "advancement.minecraft:adventure/trim_with_all_exclusive_armor_patterns.title": {
+    "message": "风格锻造"
+  },
+  "advancement.minecraft:adventure/craft_decorated_pot_using_only_sherds.title": {
+    "message": "精心修复"
+  },
+  "advancement.minecraft:adventure/salvage_sherd.title": {
+    "message": "尊重遗迹"
+  },
+  "advancement.minecraft:adventure/brush_armadillo.title": {
+    "message": "那是只鸟吗？"
+  },
+  "advancement.minecraft:adventure/mob_kebab.title": {
+    "message": "怪物烤串"
+  },
+  "advancement.minecraft:husbandry/root.title": {
+    "message": "农牧业"
+  },
+  "advancement.minecraft:husbandry/breed_an_animal.title": {
+    "message": "我从哪儿来？"
+  },
+  "advancement.minecraft:husbandry/tame_an_animal.title": {
+    "message": "最佳拍档"
+  },
+  "advancement.minecraft:husbandry/plant_seed.title": {
+    "message": "汗滴禾下土"
+  },
+  "advancement.minecraft:husbandry/fishy_business.title": {
+    "message": "经营渔场"
+  },
+  "advancement.minecraft:husbandry/tactical_fishing.title": {
+    "message": "战术性捕鱼"
+  },
+  "advancement.minecraft:husbandry/balanced_diet.title": {
+    "message": "均衡饮食"
+  },
+  "advancement.minecraft:husbandry/obtain_netherite_hoe.title": {
+    "message": "终极奉献"
+  },
+  "advancement.minecraft:husbandry/complete_catalogue.title": {
+    "message": "猫科全书"
+  },
+  "advancement.minecraft:husbandry/two_by_two.title": {
+    "message": "成双成对"
+  },
+  "advancement.minecraft:husbandry/wax_on.title": {
+    "message": "涂蜡"
+  },
+  "advancement.minecraft:husbandry/wax_off.title": {
+    "message": "脱蜡"
+  },
+  "advancement.minecraft:husbandry/ride_a_boat_with_a_goat.title": {
+    "message": "羊帆起航！"
+  },
+  "advancement.minecraft:husbandry/make_a_sign_glow.title": {
+    "message": "眼前一亮！"
+  },
+  "advancement.minecraft:husbandry/allay_deliver_item_to_player.title": {
+    "message": "我们永远是朋友"
+  },
+  "advancement.minecraft:husbandry/leash_all_frog_variants.title": {
+    "message": "蛙跳小队"
+  },
+  "advancement.minecraft:husbandry/feed_snifflet.title": {
+    "message": "小小嗅探"
+  },
+  "advancement.minecraft:husbandry/plant_any_sniffer_seed.title": {
+    "message": "种植历史"
+  },
+  "advancement.minecraft:husbandry/repair_wolf_armor.title": {
+    "message": "完好如新"
+  },
+  "advancement.minecraft:husbandry/whole_pack.title": {
+    "message": "完整群落"
   }
 }

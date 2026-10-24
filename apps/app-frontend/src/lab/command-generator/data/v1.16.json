@@ -62,7 +62,7 @@
         {
           "name": "advancement",
           "displayNameKey": "app.lab.command-generator.arg.advancement.advancement.display",
-          "type": "string",
+          "type": "advancement",
           "required": true,
           "descriptionKey": "app.lab.command-generator.arg.advancement.advancement.desc",
           "placeholder": "minecraft:story/root",
@@ -1634,14 +1634,16 @@
           "displayNameKey": "app.lab.command-generator.arg.forceload.from.display",
           "type": "coordinates",
           "required": true,
-          "descriptionKey": "app.lab.command-generator.arg.forceload.from.desc"
+          "descriptionKey": "app.lab.command-generator.arg.forceload.from.desc",
+          "coordinatesDimensions": 2
         },
         {
           "name": "to",
           "displayNameKey": "app.lab.command-generator.arg.forceload.to.display",
           "type": "coordinates",
           "required": false,
-          "descriptionKey": "app.lab.command-generator.arg.forceload.to.desc"
+          "descriptionKey": "app.lab.command-generator.arg.forceload.to.desc",
+          "coordinatesDimensions": 2
         }
       ]
     },
@@ -2684,7 +2686,8 @@
           "type": "coordinates",
           "required": true,
           "descriptionKey": "app.lab.command-generator.arg.spreadplayers.center.desc",
-          "placeholder": "0 0"
+          "placeholder": "0 0",
+          "coordinatesDimensions": 2
         },
         {
           "name": "spreadDistance",
@@ -2976,7 +2979,8 @@
         {
           "name": "destination",
           "displayNameKey": "app.lab.command-generator.arg.teleport.destination.display",
-          "type": "string",
+          "type": "coordinates",
+          "coordinatesOptionalTarget": true,
           "required": true,
           "descriptionKey": "app.lab.command-generator.arg.teleport.destination.desc",
           "placeholder": "~ ~ ~ 或 @p",

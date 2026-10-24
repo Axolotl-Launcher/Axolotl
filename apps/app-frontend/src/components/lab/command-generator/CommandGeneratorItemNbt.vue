@@ -10,7 +10,6 @@ import {
 } from '@modrinth/ui'
 import { computed, ref, watch } from 'vue'
 
-import { commandGeneratorMessages as commonMessages } from '@/lab/command-generator/i18n/messages.ts'
 import {
     mergeItemNbt,
     type NbtTagNode,
@@ -90,7 +89,8 @@ const messages = defineMessages({
         defaultMessage: 'Add enchantment',
     },
     enchLevel: {
-        id: 'app.lab.command-generator.item-nbt.ench-level',
+        // 复用语言文件中已有的 item-nbt.level，不新增 ench-level
+        id: 'app.lab.command-generator.item-nbt.level',
         defaultMessage: 'Level',
     },
     enchEmpty: {
@@ -112,6 +112,14 @@ const messages = defineMessages({
     previewEmpty: {
         id: 'app.lab.command-generator.item-nbt.preview-empty',
         defaultMessage: 'Empty — no NBT will be applied.',
+    },
+    removeLore: {
+        id: 'app.lab.command-generator.item-nbt.remove-lore',
+        defaultMessage: 'Remove lore line',
+    },
+    removeEnchantment: {
+        id: 'app.lab.command-generator.item-nbt.remove-enchantment',
+        defaultMessage: 'Remove enchantment',
     },
 })
 
@@ -345,11 +353,9 @@ const useDataComponents = computed(() => {
 
     const is120Family = v[0] === 1 && v[1] === 20
     if (is120Family) {
-        // 用户切换优先
         if (props.forceDataComponents !== undefined) {
             return props.forceDataComponents
         }
-        // 默认走数据组件
         return true
     }
 
@@ -362,11 +368,6 @@ const useInlineText = computed(
 
 // ============ 序列化 ============
 
-/**
- * SNBT 字符串内容转义。
- * - 单引号包裹：转义 \ 和 '
- * - 双引号包裹：转义 \ 和 "
- */
 function escapeSnbt(value: string, quote: "'" | '"' = "'"): string {
     let result = value.replace(/\\/g, '\\\\')
     if (quote === "'") {
@@ -377,10 +378,6 @@ function escapeSnbt(value: string, quote: "'" | '"' = "'"): string {
     return result
 }
 
-/**
- * 旧版 NBT 格式（1.20.4 及之前）
- * 使用 {display:{Name:...}} + Enchantments + Unbreakable
- */
 function serializeLegacy(): string {
     const parts: string[] = []
 
@@ -400,7 +397,6 @@ function serializeLegacy(): string {
     }
 
     if (enchantments.value.length) {
-        // 旧版附魔 lvl 是 short 类型，必须加 s 后缀
         const items = enchantments.value.map((e) => `{id:"${e.id}",lvl:${e.level}s}`).join(',')
         parts.push(`Enchantments:[${items}]`)
     }
@@ -412,10 +408,6 @@ function serializeLegacy(): string {
     return parts.length ? `{${parts.join(',')}}` : ''
 }
 
-/**
- * 新版数据组件格式（1.20.5+）
- * 使用 [custom_name=..., lore=..., enchantments={...}, unbreakable={}]
- */
 function serializeDataComponents(): string {
     const parts: string[] = []
 
@@ -439,7 +431,6 @@ function serializeDataComponents(): string {
     }
 
     if (enchantments.value.length) {
-        // 新版附魔是键值对映射
         const enchMap = enchantments.value.map((e) => `"${e.id}":${e.level}`).join(',')
         parts.push(`enchantments={${enchMap}}`)
     }
@@ -459,7 +450,6 @@ const snbt = computed(() =>
 
 let syncing = false
 
-// 初始：从 prop 恢复内部状态
 if (props.modelValue) {
     parseSnbt(props.modelValue)
 }
@@ -489,7 +479,6 @@ watch(
     },
 )
 
-// 版本或用户切换变化时，用新格式重新序列化并 emit
 watch(
     () => [props.version, props.forceDataComponents],
     () => {
@@ -619,11 +608,11 @@ function setEnchantLevel(index: number, level: number) {
                         :placeholder="formatMessage(messages.lorePlaceholder)"
                     />
                     <Button
-                        v-tooltip="formatMessage(commonMessages.removeLore)"
+                        v-tooltip="formatMessage(messages.removeLore)"
                         type="quiet"
                         size="sm"
                         icon-only
-                        :label="formatMessage(commonMessages.removeLore)"
+                        :label="formatMessage(messages.removeLore)"
                         @click="removeLore(i)"
                         ><XIcon
                     /></Button>
@@ -663,11 +652,11 @@ function setEnchantLevel(index: number, level: number) {
                         "
                 /></label>
                 <Button
-                    v-tooltip="formatMessage(commonMessages.removeEnchantment)"
+                    v-tooltip="formatMessage(messages.removeEnchantment)"
                     type="quiet"
                     size="sm"
                     icon-only
-                    :label="formatMessage(commonMessages.removeEnchantment)"
+                    :label="formatMessage(messages.removeEnchantment)"
                     @click="removeEnchant(i)"
                     ><XIcon
                 /></Button>

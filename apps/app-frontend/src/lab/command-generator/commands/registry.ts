@@ -63,6 +63,36 @@ export const PERMISSION_KEYS: Record<number, string> = {
     4: 'app.lab.command-generator.perm.4',
 }
 
+/**
+ * 权限等级的语义名称，与 Minecraft Wiki / MC 百科的 Java 版定义对齐。
+ * 高等级继承低等级的全部权限。
+ */
+export const PERMISSION_LABELS: Record<number, string> = {
+    0: 'app.lab.command-generator.perm.0',
+    1: 'app.lab.command-generator.perm.1',
+    2: 'app.lab.command-generator.perm.2',
+    3: 'app.lab.command-generator.perm.3',
+    4: 'app.lab.command-generator.perm.4',
+}
+
+/** 权限等级描述的翻译键 */
+export const PERMISSION_DESC_KEYS: Record<number, string> = {
+    0: 'app.lab.command-generator.perm.0.desc',
+    1: 'app.lab.command-generator.perm.1.desc',
+    2: 'app.lab.command-generator.perm.2.desc',
+    3: 'app.lab.command-generator.perm.3.desc',
+    4: 'app.lab.command-generator.perm.4.desc',
+}
+
+/** 权限等级描述的英文兜底，翻译缺失时使用 */
+export const PERMISSION_DESCRIPTIONS: Record<number, string> = {
+    0: 'No special permission required.',
+    1: 'Can bypass spawn protection.',
+    2: 'Most gameplay commands, command blocks and functions.',
+    3: 'Multiplayer management commands.',
+    4: 'Server management commands.',
+}
+
 export function searchCommands(query: string): CommandDefinition[] {
     if (!query.trim()) return currentCommands.value
     const q = query.toLowerCase().trim()

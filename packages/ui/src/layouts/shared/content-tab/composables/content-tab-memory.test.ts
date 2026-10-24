@@ -7,7 +7,9 @@ const originalWindowDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'wi
 const originalMemoryDescriptor = Object.getOwnPropertyDescriptor(globalThis, '__ctMemory')
 
 function installBrowserWindow() {
-    Object.defineProperty(globalThis, 'window', { configurable: true, value: {} })
+    // `writable` matters: without it the stubbed descriptor survives a thrown
+    // assertion instead of being restorable by the cleanup that follows.
+    Object.defineProperty(globalThis, 'window', { configurable: true, writable: true, value: {} })
 }
 
 function restoreGlobals() {
@@ -23,7 +25,8 @@ function restoreGlobals() {
     }
 }
 
-test('shares one map per namespace while a window exists', () => {
+test('shares one map per namespace while a window exists', (t) => {
+    t.after(restoreGlobals)
     installBrowserWindow()
 
     try {
@@ -44,7 +47,8 @@ test('shares one map per namespace while a window exists', () => {
     }
 })
 
-test('gives every server render its own store', () => {
+test('gives every server render its own store', (t) => {
+    t.after(restoreGlobals)
     restoreGlobals()
 
     try {
@@ -65,7 +69,8 @@ test('gives every server render its own store', () => {
     }
 })
 
-test('a kept server map still reads back what the same render wrote', () => {
+test('a kept server map still reads back what the same render wrote', (t) => {
+    t.after(restoreGlobals)
     restoreGlobals()
 
     try {
@@ -74,6 +79,9 @@ test('a kept server map still reads back what the same render wrote', () => {
         const filterMemory = getContentTabMap<string, { type: string[] }>('filter')
         filterMemory.set('instance-a', { type: ['mod'] })
         assert.deepEqual(filterMemory.get('instance-a'), { type: ['mod'] })
+
+        // Same contract as the isolation test: a server render leaves nothing behind.
+        assert.equal((globalThis as { __ctMemory?: unknown }).__ctMemory, undefined)
     } finally {
         restoreGlobals()
     }

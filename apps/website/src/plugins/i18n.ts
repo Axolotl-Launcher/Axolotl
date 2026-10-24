@@ -10,7 +10,7 @@ import {
 import IntlMessageFormat from 'intl-messageformat'
 import { LRUCache } from 'lru-cache'
 
-import { resolveLocale } from '~/i18n/resolve-locale'
+import { resolveInitialLocale } from '~/i18n/resolve-locale'
 import { siteLocaleMessages, SUPPORTED_SITE_LOCALES } from '~/locales/site'
 
 const debug = useDebugLogger('i18n')
@@ -126,7 +126,7 @@ export default defineNuxtPlugin({
 
         // 首屏语言优先级：cookie > Accept-Language（SSR）> 默认中文。
         // SSR 阶段就决定语言，避免客户端挂载后整页跳变。
-        const initialLocale = resolveLocale({
+        const initialLocale = resolveInitialLocale({
             cookieLocale: savedLocale,
             acceptLanguage: import.meta.server
                 ? useRequestHeaders(['accept-language'])['accept-language']
@@ -210,8 +210,15 @@ export default defineNuxtPlugin({
         nuxtApp.vueApp.provide(I18N_INJECTION_KEY, context)
 
         nuxtApp.hook('app:mounted', async () => {
-            const preferredLocale = resolveLocale({
+            // The client re-resolves with the browser's own preferences, but only
+            // gets to override the server when the server had nothing to go on --
+            // see resolveInitialLocale. Re-deciding here regardless is what made a
+            // page switch language right after the first paint.
+            const preferredLocale = resolveInitialLocale({
                 cookieLocale: savedLocale,
+                acceptLanguage: import.meta.server
+                    ? useRequestHeaders(['accept-language'])['accept-language']
+                    : null,
                 browserLanguages: getBrowserLanguages(),
                 supported: supportedLocaleCodes,
                 defaultLocale: DEFAULT_LOCALE,

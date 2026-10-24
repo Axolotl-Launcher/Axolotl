@@ -389,7 +389,7 @@ const { fontSize: nametagFontSize } = useDynamicFontSize({
     minFontSize: 1.25,
     maxFontSize: 2,
     padding: 24,
-    fontFamily: 'inherit',
+    fontFamily: "'bundled-minecraft-font-mrapp', monospace",
 })
 
 const nametagStyle = computed(() => ({

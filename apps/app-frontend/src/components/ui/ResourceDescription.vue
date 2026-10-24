@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import { Button, defineMessages, useVIntl } from '@modrinth/ui'
+import { useQuery } from '@tanstack/vue-query'
 import { computed, onScopeDispose, ref, useSlots, watch } from 'vue'
 
 import TranslatedProjectDescription from '@/components/ui/TranslatedProjectDescription.vue'
 import {
-    type Resource,
     resourceDescription,
     resourceGet,
     type ResourceText,
@@ -15,7 +15,20 @@ import {
 const props = defineProps<{ source: SourceId; projectId: string; locator?: string }>()
 const slots = useSlots()
 const { formatMessage } = useVIntl()
-const resource = ref<Resource | null>(null)
+const resourceQuery = useQuery({
+    queryKey: computed(() => ['resource', props.source, props.projectId, props.locator ?? null]),
+    queryFn: ({ signal }) =>
+        resourceGet(
+            sourceResource(props.source, props.projectId),
+            undefined,
+            props.locator,
+            signal,
+        ),
+    retry: false,
+    refetchOnWindowFocus: false,
+})
+const resource = resourceQuery.data
+let sourceChosen = false
 const text = ref<ResourceText | null>(null)
 const selected = ref<SourceId>(props.source)
 const attemptedSource = ref<SourceId>(props.source)
@@ -57,10 +70,7 @@ async function load(source?: SourceId) {
     error.value = false
     try {
         const reference = sourceResource(props.source, props.projectId)
-        const current =
-            resource.value ??
-            (await resourceGet(reference, undefined, props.locator, request.signal))
-        const readingSource = source ?? current.defaultProject.source
+        const readingSource = source ?? props.source
         pendingSource.value = readingSource
         attemptedSource.value = readingSource
         const description =
@@ -68,7 +78,6 @@ async function load(source?: SourceId) {
                 ? null
                 : await resourceDescription(reference, readingSource, props.locator, request.signal)
         request.signal.throwIfAborted()
-        resource.value = current
         selected.value = readingSource
         text.value = description
     } catch {
@@ -80,13 +89,26 @@ async function load(source?: SourceId) {
         }
     }
 }
+function selectSource(source: SourceId) {
+    sourceChosen = true
+    void load(source)
+}
 watch(
     () => [props.source, props.projectId, props.locator],
     () => {
-        resource.value = null
+        sourceChosen = false
         text.value = null
         selected.value = props.source
         void load()
+    },
+    { immediate: true },
+)
+watch(
+    resource,
+    (current) => {
+        if (current && !sourceChosen && current.defaultProject.source !== selected.value) {
+            void load(current.defaultProject.source)
+        }
     },
     { immediate: true },
 )
@@ -102,7 +124,7 @@ onScopeDispose(() => controller?.abort())
                 size="sm"
                 :type="selected === readingSource ? 'outlined' : 'quiet'"
                 :disabled="pendingSource === readingSource"
-                @click="load(readingSource)"
+                @click="selectSource(readingSource)"
                 >{{ names[readingSource] }}</Button
             >
             <span class="text-sm text-[var(--color-text-tertiary)]">{{

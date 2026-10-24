@@ -51,6 +51,24 @@ export interface ProjectVersion {
 }
 
 export interface ProjectDetail extends ProjectCard {
+    minecraft_server?: { region?: string | null } | null
+    minecraft_java_server?: {
+        address: string
+        content: {
+            kind: string
+            supported_game_versions?: string[]
+            recommended_game_version?: string
+        }
+        ping?: {
+            when: string
+            data: {
+                players_online: number
+                players_max: number
+                latency: { secs: number; nanos: number }
+            } | null
+        } | null
+        verified_plays_2w?: number
+    } | null
     /** Description markdown; images are local copies or removed (alt text kept). */
     body?: string
     published?: string | null
@@ -129,7 +147,10 @@ export function loadProject(id: string): Promise<ProjectDetail> {
     if (hit) return hit
     const loader = projectLoaders[`./project/${id}.json`]
     if (!loader) return Promise.reject(new Error(`Unknown project ${id}`))
-    const promise = loader().then((module) => module.default)
+    const promise = loader().then((module) => module.default).catch((error) => {
+        cache.delete(key)
+        throw error
+    })
     cache.set(key, promise)
     return promise
 }

@@ -22,22 +22,22 @@ import PreviewShell from './shell/PreviewShell.vue'
 /**
  * The launcher window: providers for the in-memory launcher, the 1280×800 window
  * scaled to the hero, and the macOS window states driven by the titlebar
- * controls (minimized/hidden to the tray, full screen, quit).
+ * controls (minimized, full screen, close).
  */
-const emit = defineEmits<{ ready: []; relaunch: [] }>()
+const emit = defineEmits<{ ready: []; close: [] }>()
 
 const frame = ref<HTMLElement | null>(null)
 const windowEl = ref<HTMLElement | null>(null)
 const layerEl = ref<HTMLElement | null>(null)
 const scale = ref(1)
 const offset = ref({ x: 0, y: 0 })
-const windowState = ref<'open' | 'minimized' | 'tray' | 'closed'>('open')
+const windowState = ref<'open' | 'minimized'>('open')
 const fullScreen = ref(false)
 /** Only window-state changes animate the transform; resizing the page must not lag. */
 const animatingState = ref(false)
 let animationTimer: ReturnType<typeof setTimeout> | undefined
 
-function setWindowState(next: 'open' | 'minimized' | 'tray' | 'closed') {
+function setWindowState(next: 'open' | 'minimized') {
     animatingState.value = true
     windowState.value = next
     clearTimeout(animationTimer)
@@ -59,11 +59,23 @@ const windowTransform = computed(() => {
 
 providePreviewI18n()
 const { formatMessage } = useVIntl()
+const readyTasks = new Set<Promise<void>>()
 providePreviewWindow({
     root: windowEl,
     layer: layerEl,
     scale,
     fullScreen,
+    deferReady() {
+        let complete!: () => void
+        const task = new Promise<void>((resolve) => {
+            complete = resolve
+        })
+        readyTasks.add(task)
+        return () => {
+            complete()
+            readyTasks.delete(task)
+        }
+    },
     toLocal(clientX, clientY) {
         const rect = windowEl.value?.getBoundingClientRect()
         if (!rect) return { x: WINDOW_WIDTH / 2, y: WINDOW_HEIGHT / 2 }
@@ -118,10 +130,11 @@ function onFullScreenChange() {
     void nextTick(updateScale)
 }
 
-/** Reopening after a quit starts the launcher afresh, like launching the app again. */
-function restoreWindow() {
-    if (windowState.value === 'closed') emit('relaunch')
-    else setWindowState('open')
+async function closeWindow() {
+    if (document.fullscreenElement === frame.value) {
+        await document.exitFullscreen().catch(() => undefined)
+    }
+    emit('close')
 }
 
 /** Resolves once the images inside the window have loaded, or after `timeoutMs`. */
@@ -150,7 +163,10 @@ onMounted(async () => {
     await router.push(state.settings.default_page === 'Library' ? '/library' : '/')
     await router.isReady()
     await nextTick()
-    await new Promise((resolve) => requestAnimationFrame(resolve))
+    // Let observed panel sizes settle before collecting the home widgets' images.
+    await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))
+    await nextTick()
+    while (readyTasks.size) await Promise.all([...readyTasks])
     if (windowEl.value) await imagesSettled(windowEl.value, 1500)
     emit('ready')
 })
@@ -188,9 +204,8 @@ onBeforeUnmount(() => {
         >
             <PreviewShell
                 @minimize="setWindowState('minimized')"
-                @hide-to-tray="setWindowState('tray')"
                 @zoom="toggleFullScreen"
-                @quit="setWindowState('closed')"
+                @quit="closeWindow"
             />
             <div ref="layerEl" class="launcher-preview-layer" />
         </div>
@@ -200,7 +215,7 @@ onBeforeUnmount(() => {
                 type="button"
                 class="absolute bottom-[6%] left-1/2 flex -translate-x-1/2 flex-col items-center gap-2 rounded-2xl border-0 bg-transparent p-2 text-sm font-semibold text-[var(--color-text-primary)] transition-transform hover:scale-105 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--color-brand)]"
                 :aria-label="formatMessage(shellMessages.windowReopen)"
-                @click="restoreWindow"
+                @click="setWindowState('open')"
             >
                 <img
                     src="/axolotl.png"

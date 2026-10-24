@@ -1,6 +1,5 @@
 <script setup lang="ts">
-import Avatar from '@modrinth/ui/src/components/base/Avatar.vue'
-import { defineMessages, useVIntl } from '@modrinth/ui/src/composables/i18n.ts'
+import { Avatar, defineMessages, useVIntl } from '@modrinth/ui'
 
 const { formatMessage } = useVIntl()
 
@@ -333,7 +332,7 @@ const messages = defineMessages({
 }
 
 // 亮色模式项目卡背景（与页面其它卡片一致）
-:global(html.light-mode) .project {
+html.light-mode .project {
     background: rgba(255, 255, 255, 0.8) !important;
 }
 </style>

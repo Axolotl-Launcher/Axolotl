@@ -1,3 +1,4 @@
+import { QueryClient, VueQueryPlugin } from '@tanstack/vue-query'
 import { flushPromises, mount } from '@vue/test-utils'
 import { expect, it, vi } from 'vitest'
 import { defineComponent, h } from 'vue'
@@ -5,6 +6,10 @@ import { defineComponent, h } from 'vue'
 import { resourceDescription, resourceGet } from '@/helpers/resources'
 
 import ResourceDescription from './ResourceDescription.vue'
+
+function queryPlugin() {
+    return { plugins: [[VueQueryPlugin, { queryClient: new QueryClient() }]] }
+}
 
 vi.mock('@/helpers/resources', () => ({
     sourceResource: (source: string, projectId: string) => ({
@@ -51,6 +56,7 @@ function ready() {
 it('reads the preferred description while keeping the original installation reference', async () => {
     ready()
     const wrapper = mount(ResourceDescription, {
+        global: queryPlugin(),
         props: { source: 'modrinth', projectId: 'abcdefgh' },
         slots: { default: '<p>Original translated description</p>' },
     })
@@ -78,6 +84,7 @@ it('reads the preferred description while keeping the original installation refe
 it('retries the failed source while preserving the last successful description', async () => {
     ready()
     const wrapper = mount(ResourceDescription, {
+        global: queryPlugin(),
         props: { source: 'modrinth', projectId: 'abcdefgh' },
     })
     try {
@@ -109,6 +116,7 @@ it('retries the failed source while preserving the last successful description',
 it('keeps a completed description on failure and aborts old subscriptions on source change', async () => {
     ready()
     const wrapper = mount(ResourceDescription, {
+        global: queryPlugin(),
         props: { source: 'modrinth', projectId: 'abcdefgh' },
     })
     try {
@@ -139,6 +147,22 @@ it('keeps a completed description on failure and aborts old subscriptions on sou
         resolveOld({ source: 'modrinth', format: 'plain', body: 'late response' })
         await flushPromises()
         expect(wrapper.text()).not.toContain('late response')
+    } finally {
+        wrapper.unmount()
+    }
+})
+
+it('renders the original source before aggregate discovery completes', async () => {
+    ready()
+    vi.mocked(resourceGet).mockImplementationOnce(() => new Promise(() => {}))
+    const wrapper = mount(ResourceDescription, {
+        global: queryPlugin(),
+        props: { source: 'modrinth', projectId: 'abcdefgh' },
+    })
+    try {
+        await flushPromises()
+        expect(wrapper.text()).toContain('modrinth description')
+        expect(wrapper.attributes('aria-busy')).toBe('false')
     } finally {
         wrapper.unmount()
     }

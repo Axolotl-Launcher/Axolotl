@@ -1,5 +1,5 @@
 import { loadProject } from '../../../../data'
-import { type PreviewState, usePreview, usePreviewDomain } from '../../../../lib/state/index'
+import { previewDomain, type PreviewState, usePreview } from '../../../../lib/state/index'
 import type { GameInstance } from '../../../../lib/types'
 import {
     buildDisk,
@@ -394,8 +394,11 @@ function newId() {
 
 /** The storage commands, bound to the window's storage state. */
 export function useStorageBackend() {
-    const preview = usePreview()
-    const state = usePreviewDomain<StorageBackendState>('settings:storage', (source) => ({
+    return storageBackend(usePreview())
+}
+
+export function storageBackend(preview: PreviewState) {
+    const state = previewDomain<StorageBackendState>(preview, 'settings:storage', (source) => ({
         value: createState(source),
     }))
     return createStorageBackend(preview, state)

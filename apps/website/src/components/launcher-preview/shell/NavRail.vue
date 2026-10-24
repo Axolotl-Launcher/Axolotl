@@ -18,7 +18,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 
 /** Port of the app's NavRail: a sliding highlight follows the active navigation button. */
@@ -82,12 +82,26 @@ function positionSlider() {
     }
 }
 
-async function updateSlider() {
-    await nextTick()
-    positionSlider()
+let frame = 0
+let observer: ResizeObserver | null = null
+
+function updateSlider() {
+    cancelAnimationFrame(frame)
+    frame = requestAnimationFrame(() => {
+        frame = requestAnimationFrame(positionSlider)
+    })
 }
 
-onMounted(updateSlider)
+onMounted(() => {
+    observer = new ResizeObserver(updateSlider)
+    if (rail.value) observer.observe(rail.value)
+    updateSlider()
+})
+
+onBeforeUnmount(() => {
+    cancelAnimationFrame(frame)
+    observer?.disconnect()
+})
 
 watch(() => [route.path, route.query], updateSlider)
 </script>

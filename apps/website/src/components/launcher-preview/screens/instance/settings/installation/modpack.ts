@@ -1,4 +1,5 @@
 import type { ProjectDetail, ProjectVersion } from '../../../../data'
+import { instanceContentProject, isServerProjectLink } from '../../../../lib/instance-project'
 import type { PreviewState } from '../../../../lib/state'
 import type { ContentItem } from '../../../../lib/state/downloads'
 import type { GameInstance, InstanceLoader, ReleaseChannel } from '../../../../lib/types'
@@ -67,14 +68,19 @@ export function checkModpackUpdate(
 export async function getLinkedModpackInfo(
     instance: GameInstance,
 ): Promise<LinkedModpackInfo | null> {
-    if (instance.link?.type !== 'modrinth_modpack') return null
-    const projectId = instance.link.project_id
-    const versionId = instance.link.version_id
+    const reference = instanceContentProject(instance.link)
+    const versionId =
+        instance.link?.type === 'server_project_modpack'
+            ? instance.link.content_version_id
+            : instance.link?.version_id
+    if (!reference || reference.source !== 'modrinth' || !versionId) return null
+    const projectId = reference.projectId
     const project = await loadModpackProject(projectId)
     const version = project.versions.find((entry) => entry.id === versionId) ?? null
-    const update = version
-        ? checkModpackUpdate(version, project.versions, instance.update_channel)
-        : null
+    const update =
+        version && !isServerProjectLink(instance.link)
+            ? checkModpackUpdate(version, project.versions, instance.update_channel)
+            : null
     return {
         project: {
             id: project.id,

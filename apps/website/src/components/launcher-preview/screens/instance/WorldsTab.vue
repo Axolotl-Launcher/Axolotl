@@ -231,8 +231,7 @@ type HomeWorld = World
  * Port of `apps/app-frontend/src/pages/instance/Worlds.vue`. The world list is
  * the Home screen's (the app reads both from one backend), server status comes
  * from the Server List Ping snapshot, and joins go through the same launch path
- * as Home (`start_join_*`). A Modrinth server project's managed entry needs a
- * `minecraft_server` record, which none of the preview's linked projects carry.
+ * as Home (`start_join_*`). Server-project entries remain managed by their link.
  */
 defineOptions({ inheritAttrs: false })
 
@@ -259,6 +258,7 @@ const props = defineProps<{
     offline: boolean
     playing: boolean
     installed: boolean
+    serverProject?: import('../../data').ProjectDetail | null
 }>()
 
 const instance = computed(() => props.instance)
@@ -329,6 +329,17 @@ const supportsWorldQuickPlay = computed(() =>
 )
 
 function serverDataFor(world: ServerWorld): HomeServerData {
+    const ping = props.serverProject?.minecraft_java_server?.ping?.data
+    if (isManagedServerWorld(world) && ping) {
+        return {
+            refreshing: false,
+            status: {
+                players: { online: ping.players_online, max: ping.players_max, sample: [] },
+                ping: Math.round(ping.latency.secs * 1000 + ping.latency.nanos / 1e6),
+                enforces_secure_chat: false,
+            },
+        }
+    }
     return home.getServerData(props.instance.id, world.address)
 }
 
@@ -343,8 +354,10 @@ watch(
     { immediate: true },
 )
 
-const managedServerName = ref<string | null>(null)
-const managedServerAddress = ref<string | null>(null)
+const managedServerName = computed(() => props.serverProject?.title ?? null)
+const managedServerAddress = computed(
+    () => props.serverProject?.minecraft_java_server?.address ?? null,
+)
 
 const managedServerWorld = computed(() =>
     resolveManagedServerWorld(worlds.value, managedServerName.value, managedServerAddress.value),

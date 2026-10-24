@@ -1176,7 +1176,7 @@ pub(crate) async fn recompute_instance_upgrade_plan_from_source(
             }
         }
     };
-    tracing::warn!(
+    tracing::debug!(
         elapsed_ms = started_at.elapsed().as_millis(),
         catalog_reused = fixed_constraints.is_empty()
             || catalog_supports_fixed_constraints(&catalog, &fixed),
@@ -1188,7 +1188,7 @@ pub(crate) async fn recompute_instance_upgrade_plan_from_source(
         &catalog,
         &plan.target_environment,
     );
-    tracing::warn!(
+    tracing::debug!(
         elapsed_ms = started_at.elapsed().as_millis(),
         "[upgrade-plan-bench] recompute classified items"
     );
@@ -1200,7 +1200,7 @@ pub(crate) async fn recompute_instance_upgrade_plan_from_source(
         &fixed,
         &confirmed_prereleases(&plan.items),
     );
-    tracing::warn!(
+    tracing::debug!(
         elapsed_ms = started_at.elapsed().as_millis(),
         "[upgrade-plan-bench] recompute solver"
     );

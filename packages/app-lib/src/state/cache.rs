@@ -2127,6 +2127,7 @@ impl CachedEntry {
                 remaining_keys.clone(),
                 fetch_semaphore,
                 pool,
+                cache_behaviour == CacheBehaviour::Bypass,
             )
             .await;
 
@@ -2205,6 +2206,7 @@ impl CachedEntry {
                         expired_keys,
                         &state.api_semaphore,
                         &state.pool,
+                        false,
                     )
                     .await?
                     .into_iter()
@@ -2242,6 +2244,7 @@ impl CachedEntry {
         keys: DashSet<impl Display + Eq + Hash + Serialize>,
         fetch_semaphore: &FetchSemaphore,
         pool: &SqlitePool,
+        force_refresh: bool,
     ) -> crate::Result<Vec<(Self, bool)>> {
         async fn fetch_many_batched<T: DeserializeOwned>(
             method: Method,
@@ -2515,6 +2518,7 @@ impl CachedEntry {
                             url,
                             fetch_semaphore,
                             pool,
+                            force_refresh,
                         )
                     },
                 ))

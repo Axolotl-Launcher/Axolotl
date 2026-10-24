@@ -5,31 +5,28 @@ defineProps<{
     /** Accessible description of the launcher poster shown before the preview mounts. */
     label: string
 }>()
+const emit = defineEmits<{ close: [] }>()
 
 /**
  * Starts the poster download from `<head>`, before the body is parsed, using the
  * same theme resolution as the site's `theme-init` script and the language the
- * i18n plugin will pick (the `locale` cookie, else Chinese). The poster is a CSS
- * background so that only the variant matching the visitor's theme and language
- * is fetched; `data-launcher-poster` carries the language to the stylesheet.
+ * i18n plugin will pick (the `locale` cookie, else Chinese). Populate the native
+ * image as it is parsed so decoding does not wait for CSS background discovery.
+ * The CSS poster remains the no-script fallback, with the same aspect ratio.
  */
-const POSTER_PRELOAD = `(function(){try{var t=localStorage.getItem('axolotl-theme');var r=t;if(!r||r==='system'){r=(window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches)?'light':'dark'}var c=document.cookie.match(/(?:^|; )locale=([^;]*)/);var g=c&&decodeURIComponent(c[1])==='en-US'?'en':'zh';document.documentElement.setAttribute('data-launcher-poster',g);var l=document.createElement('link');l.rel='preload';l.as='image';l.href='/launcher-preview/poster-'+(r==='light'?'light':r==='oled'?'oled':'dark')+'-'+g+'.webp';l.setAttribute('fetchpriority','high');document.head.appendChild(l)}catch(e){}})()`
+const POSTER_PRELOAD = `(function(){try{var t=localStorage.getItem('axolotl-theme');var r=t;if(!r||r==='system'){r=(window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches)?'light':'dark'}var c=document.cookie.match(/(?:^|; )locale=([^;]*)/);var g=c&&decodeURIComponent(c[1])==='en-US'?'en':'zh';document.documentElement.setAttribute('data-launcher-poster',g);var l=document.createElement('link');l.rel='preload';l.as='image';l.href='/launcher-preview/poster-'+(r==='light'?'light':r==='oled'?'oled':'dark')+'-'+g+'.webp';l.setAttribute('fetchpriority','high');document.head.appendChild(l);document.documentElement.setAttribute('data-launcher-poster-src',l.href);var o;function p(){var n=document.querySelector('[data-launcher-poster-image]');if(n){n.src=l.href;if(o)o.disconnect()}}o=new MutationObserver(p);o.observe(document.documentElement,{childList:true,subtree:true});p()}catch(e){}})()`
 
 useHead({
     script: [{ key: 'launcher-preview-poster', innerHTML: POSTER_PRELOAD }],
 })
 
 const host = ref<HTMLElement | null>(null)
+const posterSrc = import.meta.client
+    ? (document.documentElement.getAttribute('data-launcher-poster-src') ?? undefined)
+    : undefined
 const mounted = ref(false)
 const ready = ref(false)
 const failed = ref(false)
-/** Bumped when the launcher is quit and opened again, so it starts from a fresh state. */
-const launchCount = ref(0)
-
-function relaunch() {
-    ready.value = false
-    launchCount.value++
-}
 
 let previewModule: Promise<Component> | null = null
 function loadPreview() {
@@ -51,6 +48,7 @@ const LauncherPreview = defineAsyncComponent({
 let observer: IntersectionObserver | null = null
 let idleHandle: number | null = null
 let loadListener: (() => void) | null = null
+let disposed = false
 
 function whenIdle(callback: () => void) {
     if ('requestIdleCallback' in window) {
@@ -68,7 +66,7 @@ function cancelIdle() {
 }
 
 function mountNow() {
-    if (mounted.value || failed.value) return
+    if (disposed || mounted.value || failed.value) return
     cancelIdle()
     observer?.disconnect()
     mounted.value = true
@@ -76,7 +74,9 @@ function mountNow() {
 
 function loadThenMount() {
     loadPreview()
-        .then(() => whenIdle(mountNow))
+        .then(() => {
+            if (!disposed) whenIdle(mountNow)
+        })
         .catch(() => {
             failed.value = true
         })
@@ -112,6 +112,7 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
+    disposed = true
     observer?.disconnect()
     cancelIdle()
     if (loadListener) window.removeEventListener('load', loadListener)
@@ -124,17 +125,30 @@ onBeforeUnmount(() => {
             role="img"
             :aria-label="label"
             :aria-hidden="ready ? 'true' : undefined"
-            class="launcher-preview-poster launcher-preview-surface absolute inset-0 rounded-[10px] bg-cover bg-center"
+            class="launcher-preview-poster absolute inset-0 rounded-[10px] bg-cover bg-center"
             :class="{ 'launcher-preview-poster--hidden': ready }"
             @pointerdown="mountNow"
             @focusin="mountNow"
-        />
+        >
+            <img
+                data-launcher-poster-image
+                data-allow-mismatch="attribute"
+                :src="posterSrc"
+                alt=""
+                width="1280"
+                height="800"
+                decoding="async"
+                fetchpriority="high"
+                draggable="false"
+                class="h-full w-full rounded-[10px] object-cover [&:not([src])]:invisible"
+            />
+        </div>
         <div
             v-if="mounted && !failed"
             class="launcher-preview-stage launcher-preview-surface absolute inset-0 rounded-[10px]"
             :class="{ 'launcher-preview-stage--ready': ready }"
         >
-            <LauncherPreview :key="launchCount" @ready="ready = true" @relaunch="relaunch" />
+            <LauncherPreview @ready="ready = true" @close="emit('close')" />
         </div>
     </div>
 </template>
@@ -181,6 +195,10 @@ html.light-mode[data-launcher-poster='en'] .launcher-preview-poster {
 
 html.oled-mode[data-launcher-poster='en'] .launcher-preview-poster {
     background-image: url('/launcher-preview/poster-oled-en.webp');
+}
+
+html[data-launcher-poster-src] .launcher-preview-poster {
+    background-image: none;
 }
 
 .launcher-preview-poster--hidden {

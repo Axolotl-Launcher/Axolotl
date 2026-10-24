@@ -1,7 +1,7 @@
 use super::super::synced_options::{
-    CheckpointStatus, checkpoint, detach_link, ensure_link, finish_checkpoint,
+    CheckpointStatus, checkpoint, ensure_link, finish_checkpoint,
     instance_game_dir, instance_is_running, instance_option_enabled,
-    instance_option_supported, sha1_bytes, sha1_file, sync_files_are_protected,
+    instance_option_supported, sha1_bytes, sync_files_are_protected,
 };
 use crate::state::{InstanceMetadata, SyncedOption};
 use crate::{ErrorKind, State};
@@ -10,12 +10,16 @@ use uuid::Uuid;
 
 use super::SERVERS_FILE;
 use super::codec::{
-    read_servers, server_address, server_hidden, server_identity_address,
-    server_identity_name, servers_to_bytes, update_server_data, write_servers,
+    read_server_bytes, read_servers, server_address, server_hidden,
+    server_identity_address, server_identity_name, servers_from_bytes,
+    servers_to_bytes, update_server_data, write_servers,
 };
 use super::modpack::{
     is_modpack_link, pack_state_exists, pack_state_matches_link,
     reconstruct_modpack_servers,
+};
+use super::projection::{
+    detach_existing_file, existing_game_dir, sibling_wrote_file,
 };
 use super::storage::{
     begin_server_checkpoint, canonical_exists, commit_server_state,
@@ -23,8 +27,8 @@ use super::storage::{
     read_server_snapshot, server_revision, write_local,
 };
 use super::types::{
-    CanonicalServer, DesyncServerMode, LocalServer, ProjectionEntry,
-    ProjectionOwner, ServerRecord, ServerSource, SyncedServer,
+    CanonicalServer, DesyncServerMode, LocalServer, ServerRecord, ServerSource,
+    SyncedServer,
 };
 use std::collections::HashSet;
 
@@ -177,19 +181,44 @@ pub(in crate::api::instance) async fn detach_servers(
     metadata: &InstanceMetadata,
     state: &State,
 ) -> crate::Result<()> {
-    let generated = generated_path(state, &metadata.instance.id);
-    let local = instance_game_dir(metadata, state)?.join(SERVERS_FILE);
-    detach_link(&generated, &local).await
+    if checkpoint(
+        &metadata.instance.id,
+        SyncedOption::MultiplayerServers,
+        "default",
+        state,
+    )
+    .await?
+    .is_none()
+    {
+        return Ok(());
+    }
+    if let Some(root) = existing_game_dir(metadata, state)? {
+        detach_existing_file(&root.join(SERVERS_FILE)).await?;
+    }
+    let mut tx = state.pool.begin().await?;
+    sqlx::query("DELETE FROM instance_sync_checkpoints WHERE instance_id = ? AND feature = 'multiplayer_servers'")
+        .bind(&metadata.instance.id).execute(&mut *tx).await?;
+    sqlx::query(
+        "DELETE FROM instance_server_projection_entries WHERE instance_id = ?",
+    )
+    .bind(&metadata.instance.id)
+    .execute(&mut *tx)
+    .await?;
+    tx.commit().await?;
+    Ok(())
 }
 
 pub(in crate::api::instance) async fn reconcile_servers(
     metadata: &InstanceMetadata,
     state: &State,
 ) -> crate::Result<()> {
+    let Some(root) = existing_game_dir(metadata, state)? else {
+        return Ok(());
+    };
     if !effective(metadata, state).await? {
         return Ok(());
     }
-    let local_path = instance_game_dir(metadata, state)?.join(SERVERS_FILE);
+    let local_path = root.join(SERVERS_FILE);
     if !local_path.exists() {
         return compose_instance(metadata, state).await;
     }
@@ -206,7 +235,8 @@ pub(in crate::api::instance) async fn reconcile_servers(
     {
         return compose_instance(metadata, state).await;
     }
-    let actual = sha1_file(&local_path).await?;
+    let bytes = read_server_bytes(&local_path).await?;
+    let actual = sha1_bytes(&bytes);
     let revision = server_revision(state).await?;
     if checkpoint
         .as_ref()
@@ -222,84 +252,22 @@ pub(in crate::api::instance) async fn reconcile_servers(
         return compose_instance(metadata, state).await;
     }
 
-    let current = read_servers(&local_path).await?;
+    if sibling_wrote_file(&metadata.instance.id, &root, &actual, state).await? {
+        return Ok(());
+    }
+    let current = servers_from_bytes(bytes)?;
     let projections =
         load_projection_entries(&metadata.instance.id, state).await?;
-    let projection_matches = match_projection_entries(&current, &projections);
-    let mut matched = HashSet::new();
-    let mut canonical = read_canonical(state).await?;
-    let mut locals = load_local(&metadata.instance.id, state).await?;
-
-    let mut canonical_order = Vec::new();
-
-    for ((position, data), projection) in
-        current.into_iter().enumerate().zip(projection_matches)
-    {
-        if let Some(projection) = projection {
-            matched.insert(projection.id.clone());
-            match projection.owner {
-                ProjectionOwner::Synced => {
-                    canonical_order.push(projection.id.clone());
-                    if let Some(server) = canonical
-                        .iter_mut()
-                        .find(|server| server.id == projection.id)
-                        && data != projection.data
-                    {
-                        server.data = data;
-                    }
-                }
-                ProjectionOwner::Instance => {
-                    if let Some(server) = locals
-                        .iter_mut()
-                        .find(|server| server.id == projection.id)
-                    {
-                        if data != projection.data {
-                            server.data = data;
-                        }
-                        server.position = position as i64;
-                    }
-                }
-            }
-        } else {
-            let id = Uuid::new_v4().to_string();
-            canonical_order.push(id.clone());
-            canonical.push(CanonicalServer { id, data });
-        }
-    }
-
-    canonical.retain(|server| {
-        !projections.iter().any(|projection| {
-            projection.owner == ProjectionOwner::Synced
-                && projection.id == server.id
-                && !matched.contains(&projection.id)
-        })
-    });
-    locals.retain(|server| {
-        !projections.iter().any(|projection| {
-            projection.owner == ProjectionOwner::Instance
-                && projection.id == server.id
-                && !matched.contains(&projection.id)
-        })
-    });
-    let by_id = canonical
-        .iter()
-        .cloned()
-        .map(|server| (server.id.clone(), server))
-        .collect::<std::collections::HashMap<_, _>>();
-    let visible = canonical_order.iter().cloned().collect::<HashSet<_>>();
-    let mut ordered = canonical_order
-        .into_iter()
-        .filter_map(|id| by_id.get(&id).cloned());
-    for server in &mut canonical {
-        if visible.contains(&server.id)
-            && let Some(next) = ordered.next()
-        {
-            *server = next;
-        }
-    }
-    let canonical_changed = commit_server_state(
-        Some(&canonical),
-        Some((&metadata.instance.id, &locals)),
+    let (canonical, locals) = super::reconciliation::reconcile_entries(
+        current,
+        &projections,
+        read_canonical(state).await?,
+        load_local(&metadata.instance.id, state).await?,
+    );
+    let canonical_changed = super::storage::commit_captured_servers(
+        &metadata.instance.id,
+        &canonical,
+        &locals,
         state,
     )
     .await?;
@@ -308,86 +276,6 @@ pub(in crate::api::instance) async fn reconcile_servers(
     } else {
         compose_instance(metadata, state).await
     }
-}
-
-fn match_projection_entries<'a>(
-    current: &[NbtCompound],
-    projections: &'a [ProjectionEntry],
-) -> Vec<Option<&'a ProjectionEntry>> {
-    let mut matches = vec![None; current.len()];
-    let mut matched_projections = HashSet::new();
-
-    for (position, data) in current.iter().enumerate() {
-        let candidate = projections
-            .iter()
-            .enumerate()
-            .filter(|(index, projection)| {
-                !matched_projections.contains(index) && projection.data == *data
-            })
-            .min_by_key(|(_, projection)| {
-                projection.position.abs_diff(position as i64)
-            })
-            .map(|(index, _)| index);
-        if let Some(index) = candidate {
-            matches[position] = Some(index);
-            matched_projections.insert(index);
-        }
-    }
-
-    for (position, data) in current.iter().enumerate() {
-        if matches[position].is_some() {
-            continue;
-        }
-        let address = server_identity_address(data);
-        if address.is_empty() {
-            continue;
-        }
-        let candidate = projections
-            .iter()
-            .enumerate()
-            .filter(|(index, projection)| {
-                !matched_projections.contains(index)
-                    && server_identity_address(&projection.data) == address
-            })
-            .min_by_key(|(_, projection)| {
-                projection.position.abs_diff(position as i64)
-            })
-            .map(|(index, _)| index);
-        if let Some(index) = candidate {
-            matches[position] = Some(index);
-            matched_projections.insert(index);
-        }
-    }
-
-    for (position, data) in current.iter().enumerate() {
-        if matches[position].is_some() {
-            continue;
-        }
-        let name = server_identity_name(data);
-        if name.is_empty() {
-            continue;
-        }
-        let candidate = projections
-            .iter()
-            .enumerate()
-            .filter(|(index, projection)| {
-                !matched_projections.contains(index)
-                    && server_identity_name(&projection.data) == name
-            })
-            .min_by_key(|(_, projection)| {
-                projection.position.abs_diff(position as i64)
-            })
-            .map(|(index, _)| index);
-        if let Some(index) = candidate {
-            matches[position] = Some(index);
-            matched_projections.insert(index);
-        }
-    }
-
-    matches
-        .into_iter()
-        .map(|projection| projection.map(|index| &projections[index]))
-        .collect()
 }
 
 #[tracing::instrument(name = "server_records", skip_all, fields(instance_id = %metadata.instance.id))]
@@ -816,6 +704,21 @@ pub(super) async fn compose_instance(
     metadata: &InstanceMetadata,
     state: &State,
 ) -> crate::Result<()> {
+    let Some(root) = existing_game_dir(metadata, state)? else {
+        return Ok(());
+    };
+    if !effective(metadata, state).await? {
+        return Ok(());
+    }
+    publish_instance(metadata, &root, state).await
+}
+
+async fn publish_instance(
+    metadata: &InstanceMetadata,
+    root: &std::path::Path,
+    state: &State,
+) -> crate::Result<()> {
+    let target = root.join(SERVERS_FILE);
     let records = compose_records(metadata, state).await?;
     let bytes = servers_to_bytes(
         &records
@@ -838,7 +741,6 @@ pub(super) async fn compose_instance(
         crate::util::io::create_dir_all(parent).await?;
     }
     crate::util::io::write(&generated, &bytes).await?;
-    let target = instance_game_dir(metadata, state)?.join(SERVERS_FILE);
     let mode = ensure_link(&generated, &target).await?;
     finish_checkpoint(
         &metadata.instance.id,
@@ -895,12 +797,17 @@ fn merge_server_records(
 }
 
 async fn regenerate_servers(state: &State) -> crate::Result<()> {
+    let mut first_error = None;
     for metadata in crate::state::list_instances(&state.pool).await? {
-        if effective(&metadata, state).await? {
-            compose_instance(&metadata, state).await?;
+        if let Err(error) = compose_instance(&metadata, state).await {
+            tracing::warn!(instance_id = %metadata.instance.id, %error,
+                "Could not project multiplayer servers; continuing with remaining instances");
+            if first_error.is_none() {
+                first_error = Some(error);
+            }
         }
     }
-    Ok(())
+    first_error.map_or(Ok(()), Err)
 }
 
 pub(super) async fn effective(
@@ -944,6 +851,8 @@ async fn participating(
 
 #[cfg(test)]
 mod tests {
+    use super::super::reconciliation::match_projection_entries;
+    use super::super::types::{ProjectionEntry, ProjectionOwner};
     use super::*;
 
     fn server(name: &str, address: &str) -> NbtCompound {
@@ -1037,3 +946,7 @@ mod tests {
         );
     }
 }
+
+#[cfg(test)]
+#[path = "tests.rs"]
+mod regression_tests;

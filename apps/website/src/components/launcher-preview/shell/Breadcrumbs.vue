@@ -125,6 +125,7 @@ const staticLabels = {
     Logs: breadcrumbMessages.logs,
     Screenshots: breadcrumbMessages.screenshots,
     'Edit world': breadcrumbMessages.editWorld,
+    'Upgrade instance': breadcrumbMessages.upgradeInstance,
     Upgrade: breadcrumbMessages.upgradeInstance,
 } as const
 
@@ -243,7 +244,6 @@ function onAnimationIteration() {
 let resizeObserver: ResizeObserver | null = null
 
 onMounted(() => {
-    checkOverflow()
     resizeObserver = new ResizeObserver(checkOverflow)
     if (outerRef.value) resizeObserver.observe(outerRef.value)
     if (innerRef.value) resizeObserver.observe(innerRef.value)
@@ -257,7 +257,6 @@ watch(
     breadcrumbs,
     () => {
         breadcrumbData.resetToNames(breadcrumbs.value)
-        requestAnimationFrame(checkOverflow)
     },
     { immediate: true },
 )

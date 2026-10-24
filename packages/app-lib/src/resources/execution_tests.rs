@@ -369,6 +369,43 @@ async fn unchanged_installed_artifacts_do_not_fetch_project_presentations() {
     assert_eq!(result.entries[0].artifact, original.artifact);
     assert_eq!(provider.0.load(Ordering::Relaxed), 0);
 
+    let batch = super::installed::hydrate_update_batch_with_service(
+        &state,
+        "instance",
+        &CancellationToken::new(),
+        &[original.entry_id.clone()],
+        &service,
+    )
+    .await
+    .unwrap();
+    assert_eq!(batch.entries.len(), 1);
+    assert!(batch.failures.is_empty());
+    assert_eq!(provider.0.load(Ordering::Relaxed), 0);
+
+    // Even an uncached installed entry must stay untouched outside the batch.
+    sqlx::query("DELETE FROM resource_installed_artifacts WHERE entry_id = ?")
+        .bind(original.entry_id.as_str())
+        .execute(&state.pool)
+        .await
+        .unwrap();
+    for ids in [vec![], vec![InstalledEntryId::new("not-visible").unwrap()]] {
+        let batch = super::installed::hydrate_update_batch_with_service(
+            &state,
+            "instance",
+            &CancellationToken::new(),
+            &ids,
+            &service,
+        )
+        .await
+        .unwrap();
+        assert!(batch.entries.is_empty());
+        assert!(batch.failures.is_empty());
+        assert_eq!(provider.0.load(Ordering::Relaxed), 0);
+    }
+    sqlx::query("INSERT INTO resource_installed_artifacts(entry_id, artifact, scope) VALUES (?, ?, ?)")
+        .bind(original.entry_id.as_str()).bind(serde_json::to_string(&saved).unwrap())
+        .bind(serde_json::to_string(&original.scope).unwrap()).execute(&state.pool).await.unwrap();
+
     let child = SourceProjectRef {
         source: SourceId::modrinth(),
         project_id: SourceProjectId::new("child000").unwrap(),

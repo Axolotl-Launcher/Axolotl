@@ -1625,6 +1625,12 @@
   "app.downloads.history": {
     "message": "历史记录"
   },
+  "app.downloads.history-empty-description": {
+    "message": "已完成、失败、中断和取消的下载记录会显示在这里。"
+  },
+  "app.downloads.history-empty-title": {
+    "message": "暂无下载历史"
+  },
   "app.downloads.in-progress": {
     "message": "正在进行"
   },
@@ -17260,6 +17266,9 @@
   },
   "app.instance.mods.manage-backups": {
     "message": "旧文件与备份"
+  },
+  "app.instance.mods.loading-online-information": {
+    "message": "正在加载在线信息，请稍后"
   },
   "app.resources.backups.back": {
     "message": "返回选择"

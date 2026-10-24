@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import BoxIcon from '@modrinth/assets/icons/box.svg?component'
 import BoxesIcon from '@modrinth/assets/icons/boxes.svg?component'
+import DropdownIcon from '@modrinth/assets/icons/chevron-down.svg?component'
 import ClipboardCopyIcon from '@modrinth/assets/icons/clipboard-copy.svg?component'
 import DownloadIcon from '@modrinth/assets/icons/download.svg?component'
 import EditIcon from '@modrinth/assets/icons/edit.svg?component'
@@ -16,7 +17,9 @@ import SettingsIcon from '@modrinth/assets/icons/settings.svg?component'
 import SpinnerIcon from '@modrinth/assets/icons/spinner.svg?component'
 import StopCircleIcon from '@modrinth/assets/icons/stop-circle.svg?component'
 import TerminalSquareIcon from '@modrinth/assets/icons/terminal-square.svg?component'
+import Badge from '@modrinth/ui/src/components/base/Badge.vue'
 import Button from '@modrinth/ui/src/components/base/buttons/Button.vue'
+import ButtonGroup from '@modrinth/ui/src/components/base/buttons/ButtonGroup.vue'
 import NavTabs from '@modrinth/ui/src/components/base/NavTabs.vue'
 import OverflowMenu from '@modrinth/ui/src/components/base/OverflowMenu.vue'
 import { useVIntl } from '@modrinth/ui/src/composables/i18n.ts'
@@ -24,12 +27,17 @@ import { commonMessages } from '@modrinth/ui/src/utils/common-messages.ts'
 import { computed, onUnmounted, ref, shallowRef, watch } from 'vue'
 import { type RouteLocationNormalizedLoaded, RouterView, useRoute, useRouter } from 'vue-router'
 
+import { loadProject, type ProjectDetail, projectIcon } from '../../data'
+import { instanceServerProjectId, isServerProjectLink } from '../../lib/instance-project'
 import { createShortcutNotice, revealInFolder } from '../../lib/platform/opener'
+import { instanceUpgradeNotices } from '../../lib/post-upgrade-notice'
 import { usePreview } from '../../lib/state'
 import { injectPreviewWindow } from '../../lib/window'
 import PreviewContextMenu from '../../overlays/PreviewContextMenu.vue'
 import InstanceIcon from '../../shell/InstanceIcon.vue'
+import { useHomeState } from '../home/state'
 import { getLoaderIcon } from './components/loader-icons'
+import ServerProjectStats from './components/ServerProjectStats.vue'
 import { useSymlinkWarningDismiss } from './components/symlink-warning'
 import SymlinkInstanceWarning from './components/SymlinkInstanceWarning.vue'
 import ExportModal from './export/ExportModal.vue'
@@ -64,8 +72,58 @@ watch(
 )
 
 const instance = computed(() => preview.instances.get(pageId))
+const homeState = useHomeState()
 const offline = false
-const isServerInstance = false
+const linkedServerProject = shallowRef<ProjectDetail | null>(null)
+const isServerInstance = computed(
+    () =>
+        isServerProjectLink(instance.value?.link) || !!linkedServerProject.value?.minecraft_server,
+)
+const notices = instanceUpgradeNotices(preview)
+const postUpgradeNotice = computed(() => notices.get(pageId))
+const canUpgradeInstance = computed(() => {
+    const current = instance.value
+    return (
+        current?.install_stage === 'installed' &&
+        (!current.link || current.link.type === 'shared_instance' || !!current.symlink_target)
+    )
+})
+watch(
+    () => instanceServerProjectId(instance.value?.link),
+    async (id) => {
+        linkedServerProject.value = null
+        if (!id) return
+        const project = await loadProject(id).catch(() => null)
+        if (instanceServerProjectId(instance.value?.link) !== id) return
+        linkedServerProject.value = project?.minecraft_server ? project : null
+        const address = linkedServerProject.value?.minecraft_java_server?.address
+        if (
+            address &&
+            !homeState.worlds.value.some(
+                (world) =>
+                    world.instance_id === pageId &&
+                    world.type === 'server' &&
+                    world.address === address,
+            )
+        ) {
+            const index = homeState.worlds.value.filter(
+                (world) => world.instance_id === pageId && world.type === 'server',
+            ).length
+            homeState.worlds.value.push({
+                type: 'server',
+                instance_id: pageId,
+                name: project!.title,
+                address,
+                index,
+                path: `servers.dat#${index}`,
+                pack_status: 'prompt',
+                icon: projectIcon(id),
+                display_status: 'normal',
+            })
+        }
+    },
+    { immediate: true },
+)
 const symlinkWarning = useSymlinkWarningDismiss(() => instance.value?.id)
 
 // `get(id)` fails with "not managed" for an unknown or deleted instance, and
@@ -143,6 +201,17 @@ function startInstance(_context: string) {
     )
 }
 
+function handlePlayServer() {
+    const address = linkedServerProject.value?.minecraft_java_server?.address
+    if (!address || loading.value || playing.value) return
+    homeState.pendingJoins.set(pageId, {
+        instanceId: pageId,
+        type: 'server',
+        identifier: address,
+    })
+    startInstance('InstancePageServer')
+}
+
 function stopInstance(_context: string) {
     if (process.value) preview.processes.stop(process.value.uuid)
 }
@@ -177,6 +246,7 @@ const basePath = computed(
  */
 /** The Files tab's Studio takes the whole page: the header and tabs are hidden and the body is fixed. */
 const isStudioMode = computed(() => displayedInstanceRoute.value.name === 'FileStudio')
+const isUpgradeMode = computed(() => displayedInstanceRoute.value.path.includes('/upgrade'))
 const isFixedRender = computed(
     () => displayedInstanceRoute.value.name === 'Logs' || isStudioMode.value,
 )
@@ -361,33 +431,69 @@ onUnmounted(() => {
                             </div>
                             <div class="flex flex-wrap gap-3 empty:hidden">
                                 <div class="flex flex-wrap items-center gap-2">
-                                    <div class="flex items-center gap-1.5 font-medium">
-                                        <BoxIcon class="h-4 w-4" />
-                                        {{ instance.game_version }}
-                                    </div>
-
-                                    <div class="h-1.5 w-1.5 rounded-full bg-surface-5"></div>
-
-                                    <div class="flex items-center gap-1.5 font-medium capitalize">
-                                        <component
-                                            :is="loaderIcon"
-                                            v-if="loaderIcon"
-                                            class="h-4 w-4"
+                                    <template v-if="!isServerInstance">
+                                        <div class="flex items-center gap-1.5 font-medium">
+                                            <BoxIcon class="h-4 w-4" />
+                                            {{ instance.game_version }}
+                                        </div>
+                                        <Badge
+                                            v-if="postUpgradeNotice"
+                                            color="green"
+                                            :type="
+                                                formatMessage(messages.upgradedTo, {
+                                                    version: postUpgradeNotice.targetGameVersion,
+                                                })
+                                            "
                                         />
-                                        {{ instance.loader }}
-                                        {{ instance.loader_version ? instance.loader_version : '' }}
-                                    </div>
 
-                                    <template v-if="showInstancePlayTime">
                                         <div class="h-1.5 w-1.5 rounded-full bg-surface-5"></div>
 
-                                        <div class="flex items-center gap-2 font-medium">
-                                            <template v-if="timePlayed > 0">
-                                                {{ timePlayedHumanized }}
-                                            </template>
-                                            <template v-else>{{
-                                                formatMessage(messages.neverPlayed)
-                                            }}</template>
+                                        <div
+                                            class="flex items-center gap-1.5 font-medium capitalize"
+                                        >
+                                            <component
+                                                :is="loaderIcon"
+                                                v-if="loaderIcon"
+                                                class="h-4 w-4"
+                                            />
+                                            {{ instance.loader }}
+                                            {{
+                                                instance.loader_version
+                                                    ? instance.loader_version
+                                                    : ''
+                                            }}
+                                        </div>
+
+                                        <template v-if="showInstancePlayTime">
+                                            <div
+                                                class="h-1.5 w-1.5 rounded-full bg-surface-5"
+                                            ></div>
+
+                                            <div class="flex items-center gap-2 font-medium">
+                                                <template v-if="timePlayed > 0">
+                                                    {{ timePlayedHumanized }}
+                                                </template>
+                                                <template v-else>{{
+                                                    formatMessage(messages.neverPlayed)
+                                                }}</template>
+                                            </div>
+                                        </template>
+                                    </template>
+                                    <template v-else-if="linkedServerProject">
+                                        <ServerProjectStats :project="linkedServerProject" />
+                                        <div class="flex items-center gap-1.5 font-medium">
+                                            {{ formatMessage(messages.linkedTo) }}
+                                            <img
+                                                :src="projectIcon(linkedServerProject.id)"
+                                                :alt="linkedServerProject.title"
+                                                class="h-6 w-6 rounded"
+                                                draggable="false"
+                                            />
+                                            <router-link
+                                                :to="`/project/${linkedServerProject.id}`"
+                                                class="hover:underline"
+                                                >{{ linkedServerProject.title }}</router-link
+                                            >
                                         </div>
                                     </template>
 
@@ -450,7 +556,7 @@ onUnmounted(() => {
                                 }}
                             </Button>
                             <Button
-                                v-else-if="!loading"
+                                v-else-if="!loading && !isServerInstance"
                                 type="colored"
                                 color="brand"
                                 size="xl"
@@ -458,6 +564,39 @@ onUnmounted(() => {
                                 ><PlayIcon />
                                 {{ formatMessage(commonMessages.playButton) }}
                             </Button>
+                            <ButtonGroup v-else-if="!loading && isServerInstance">
+                                <Button
+                                    type="colored"
+                                    color="brand"
+                                    size="xl"
+                                    :disabled="!linkedServerProject?.minecraft_java_server?.address"
+                                    @click="handlePlayServer"
+                                >
+                                    <PlayIcon />{{ formatMessage(commonMessages.playButton) }}
+                                </Button>
+                                <OverflowMenu
+                                    :container="layer ?? undefined"
+                                    :options="[
+                                        { id: 'join-server', action: handlePlayServer },
+                                        {
+                                            id: 'launch-instance',
+                                            action: () => startInstance('InstancePage'),
+                                        },
+                                    ]"
+                                >
+                                    <DropdownIcon />
+                                    <template #join-server
+                                        ><PlayIcon />{{
+                                            formatMessage(messages.joinServer)
+                                        }}</template
+                                    >
+                                    <template #launch-instance
+                                        ><PlayIcon />{{
+                                            formatMessage(messages.launchInstance)
+                                        }}</template
+                                    >
+                                </OverflowMenu>
+                            </ButtonGroup>
                             <Button v-else type="colored" color="brand" size="xl" disabled
                                 ><SpinnerIcon class="animate-spin" />
                                 {{
@@ -481,6 +620,11 @@ onUnmounted(() => {
                                     { id: 'open-folder', action: () => showInstanceInFolder() },
                                     { id: 'export-mrpack', action: () => exportModal?.show() },
                                     { id: 'create-shortcut', action: () => createShortcut() },
+                                    {
+                                        id: 'upgrade-instance',
+                                        shown: canUpgradeInstance,
+                                        action: () => router.push(`${basePath}/upgrade`),
+                                    },
                                 ]"
                             >
                                 <MoreVerticalIcon />
@@ -494,6 +638,11 @@ onUnmounted(() => {
                                 <template #create-shortcut>
                                     <ExternalIcon /> {{ formatMessage(messages.createShortcut) }}
                                 </template>
+                                <template #upgrade-instance
+                                    ><DownloadIcon />{{
+                                        formatMessage(messages.upgradeInstance)
+                                    }}</template
+                                >
                             </OverflowMenu>
                         </div>
                     </div>
@@ -502,7 +651,7 @@ onUnmounted(() => {
         </div>
         <div
             data-onboarding-id="instance-tabs"
-            :class="['px-6', { 'shrink-0': isFixedRender, hidden: isStudioMode }]"
+            :class="['px-6', { 'shrink-0': isFixedRender, hidden: isStudioMode || isUpgradeMode }]"
         >
             <SymlinkInstanceWarning
                 v-if="instance.symlink_target && !symlinkWarning.isHidden.value"
@@ -526,6 +675,7 @@ onUnmounted(() => {
                             :playing="playing"
                             :installed="instance.install_stage !== 'installed'"
                             :is-server-instance="isServerInstance"
+                            :server-project="linkedServerProject"
                             :open-settings="() => settingsModal?.show(1)"
                             @play="updatePlayState"
                             @stop="() => stopInstance('InstanceSubpage')"

@@ -128,6 +128,8 @@ const activeDrag = ref<{ primarySelectionKey: string; selectionKeys: string[] } 
 const activeDropGroupId = ref<string | null>(null)
 const dragPointer = ref({ x: 0, y: 0 })
 const dragOrigin = ref({ x: 0, y: 0 })
+let pendingDrag: NonNullable<typeof activeDrag.value> | null = null
+let dragPointerId: number | null = null
 let suppressClick = false
 
 /**
@@ -502,7 +504,7 @@ onBeforeUnmount(() => {
     for (const timeout of copiedTimeouts) window.clearTimeout(timeout)
     copiedTimeouts = []
     if (revealTimeout) window.clearTimeout(revealTimeout)
-    clearGroupHoverOpenTimeout()
+    clearDrag()
 })
 
 function screenshotByKey(key: string) {
@@ -842,14 +844,14 @@ function beginDrag(screenshot: PreviewScreenshot, event: PointerEvent) {
     )
         return
     const key = getSelectionKey(screenshot)
-    if (!selectedKeys.value.has(key) && selectedKeys.value.size > 0) return
-    const selectionKeys = selectedKeys.value.has(key)
-        ? [key, ...selectedKeys.value].filter((value, index, list) => list.indexOf(value) === index)
-        : [key]
-    activeDrag.value = { primarySelectionKey: key, selectionKeys }
+    if (!selectedKeys.value.has(key) || isSelectionModifier(event)) return
+    const selectionKeys = [key, ...selectedKeys.value].filter(
+        (value, index, list) => list.indexOf(value) === index,
+    )
+    pendingDrag = { primarySelectionKey: key, selectionKeys }
+    dragPointerId = event.pointerId
     dragPointer.value = { x: event.clientX, y: event.clientY }
     dragOrigin.value = { x: event.clientX, y: event.clientY }
-    startGather(activeDrag.value, { x: event.clientX, y: event.clientY })
     document.addEventListener('pointermove', dragMove, true)
     document.addEventListener('pointerup', dragEnd, true)
     document.addEventListener('pointercancel', dragEnd, true)
@@ -875,54 +877,65 @@ function groupUnderPointer(): string | null {
 }
 
 function dragMove(event: PointerEvent) {
-    if (!activeDrag.value) return
+    if (event.pointerId !== dragPointerId) return
+    if (!activeDrag.value) {
+        if (
+            !pendingDrag ||
+            Math.hypot(event.clientX - dragOrigin.value.x, event.clientY - dragOrigin.value.y) < 4
+        )
+            return
+        activeDrag.value = pendingDrag
+        pendingDrag = null
+        startGather(activeDrag.value, { x: event.clientX, y: event.clientY })
+    }
     dragPointer.value = { x: event.clientX, y: event.clientY }
     updateGatherTarget({ x: event.clientX, y: event.clientY })
     activeDropGroupId.value = groupUnderPointer()
 }
 
-function dragEnd(event: PointerEvent) {
-    const drag = activeDrag.value
-    if (!drag) return
+function clearDrag() {
     document.removeEventListener('pointermove', dragMove, true)
     document.removeEventListener('pointerup', dragEnd, true)
     document.removeEventListener('pointercancel', dragEnd, true)
     window.removeEventListener('blur', dragEnd)
     clearGroupHoverOpenTimeout()
+    clearGather()
+    pendingDrag = null
+    dragPointerId = null
+    activeDrag.value = null
+    activeDropGroupId.value = null
+}
+
+function dragEnd(event: Event) {
+    if (event instanceof PointerEvent && event.pointerId !== dragPointerId) return
+    if (!activeDrag.value) {
+        clearDrag()
+        return
+    }
 
     const targetId = activeDropGroupId.value
     const targetGroup = groupedScreenshots.value.find((group) => group.id === targetId)
-    if (targetGroup && canDropOnGroup(targetGroup)) {
+    if (event.type === 'pointerup' && targetGroup && canDropOnGroup(targetGroup)) {
         if (groupBy.value === 'custom') {
             assignCustomGroup(activeDraggedScreenshots.value, targetGroup.customGroupId ?? null)
-        } else if (targetGroup.dropInstanceId && event.type === 'pointerup') {
+        } else if (targetGroup.dropInstanceId) {
             const keys = activeDraggedScreenshots.value
                 .filter((screenshot) => screenshot.instance_id !== targetGroup.dropInstanceId)
                 .map((screenshot) => screenshot.id)
             if (keys.length > 0) moveScreenshotsToInstance(keys, targetGroup.dropInstanceId)
         }
-    } else if (event.type === 'pointerup' && !targetGroup) {
-        // A press without movement is a plain click on an already selected
-        // card, which toggles it exactly like the app's pointer selection.
-        const moved = Math.hypot(
-            event.clientX - dragOrigin.value.x,
-            event.clientY - dragOrigin.value.y,
-        )
-        if (moved < 4) selection.select(drag.primarySelectionKey, selectionOrder.value, event)
     }
 
     // The release that ends a drag must not also open the viewer; the app's
     // dnd-kit sensors swallow that click the same way.
-    if (Math.hypot(event.clientX - dragOrigin.value.x, event.clientY - dragOrigin.value.y) >= 4) {
+    if (event.type === 'pointerup') {
         suppressClick = true
         window.setTimeout(() => {
             suppressClick = false
         }, 0)
     }
 
-    clearGather()
-    activeDrag.value = null
-    activeDropGroupId.value = null
+    clearDrag()
 }
 
 const GROUP_HOVER_OPEN_DELAY = 750

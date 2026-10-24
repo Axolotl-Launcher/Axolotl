@@ -1,6 +1,6 @@
 import { effectScope, reactive, watch } from 'vue'
 
-import { type PreviewState, usePreviewDomain } from '../../../lib/state'
+import { previewDomain, type PreviewState, usePreviewDomain } from '../../../lib/state'
 
 /*
  * The instance's core components (`packages/app-lib/src/api/instance/core_components.rs`):
@@ -342,15 +342,45 @@ function createCoreComponents(state: PreviewState) {
     })
 
     return {
-        value: { list, add, move, setEnabled, remove, restore, preview },
+        value: {
+            list,
+            add,
+            move,
+            setEnabled,
+            remove,
+            restore,
+            preview,
+            snapshot: (instanceId: string) =>
+                list(instanceId).map((component) => ({
+                    component,
+                    entries: [...(payloads.get(component.id)?.entries ?? [])],
+                })),
+            restoreSnapshot: (instanceId: string, snapshot: CoreComponentSnapshot) => {
+                manifests[instanceId] = snapshot.map(({ component, entries }) => {
+                    const id = uuid()
+                    payloads.set(id, { entries: [...entries] })
+                    return {
+                        ...component,
+                        source: component.source ? { ...component.source } : null,
+                        id,
+                        relativePath: `files/${id}`,
+                    }
+                })
+            },
+        },
         dispose: () => scope.stop(),
     }
 }
 
 export type InstanceCoreComponents = ReturnType<typeof createCoreComponents>['value']
+export type CoreComponentSnapshot = { component: CoreComponent; entries: string[] }[]
 
 export function useInstanceCoreComponents(): InstanceCoreComponents {
     return usePreviewDomain('instance-settings:core-components', createCoreComponents)
+}
+
+export function instanceCoreComponents(preview: PreviewState): InstanceCoreComponents {
+    return previewDomain(preview, 'instance-settings:core-components', createCoreComponents)
 }
 
 /** `legacy_modloader_game_version`: ModLoader patches exist through Minecraft 1.6.2. */

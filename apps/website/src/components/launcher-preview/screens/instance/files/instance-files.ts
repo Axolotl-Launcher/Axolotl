@@ -1,5 +1,5 @@
 import { hyphenateUuid } from '../../../lib/offline-uuid'
-import { type PreviewState, usePreview, usePreviewDomain } from '../../../lib/state'
+import { previewDomain, type PreviewState, usePreview } from '../../../lib/state'
 import type { GameInstance } from '../../../lib/types'
 import {
     type DiskDir,
@@ -7,8 +7,8 @@ import {
     findEntry,
     screenshotName,
 } from '../../settings/categories/storage/launcherDisk'
-import { useStorageBackend } from '../../settings/categories/storage/storageBackend'
-import { type InstanceLogsDomain, useInstanceLogs } from '../logs/state'
+import { storageBackend } from '../../settings/categories/storage/storageBackend'
+import { instanceLogs, type InstanceLogsDomain } from '../logs/state'
 
 /**
  * The instance folder the Files tab browses: the simulated launcher disk the
@@ -193,10 +193,15 @@ export function nodeAt(root: FsDir, path: string): FsNode | null {
 
 /** The editable copy of each instance's folder, kept while the window is open. */
 export function useInstanceFiles() {
-    const backend = useStorageBackend()
-    const logs = useInstanceLogs()
-    const trees = usePreviewDomain('instance-files', () => ({ value: new Map<string, FsDir>() }))
-    const preview = usePreview()
+    return instanceFiles(usePreview())
+}
+
+export function instanceFiles(preview: PreviewState) {
+    const backend = storageBackend(preview)
+    const logs = instanceLogs(preview)
+    const trees = previewDomain(preview, 'instance-files', () => ({
+        value: new Map<string, FsDir>(),
+    }))
 
     function treeFor(instance: GameInstance): FsDir {
         let tree = trees.get(instance.id)
@@ -207,5 +212,5 @@ export function useInstanceFiles() {
         return tree
     }
 
-    return { treeFor }
+    return { treeFor, setTree: (instanceId: string, tree: FsDir) => trees.set(instanceId, tree) }
 }

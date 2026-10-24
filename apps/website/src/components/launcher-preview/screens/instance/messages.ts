@@ -14,6 +14,14 @@ registerPreviewMessages('zh-CN', zhCN)
 
 /** `apps/app-frontend/src/pages/instance/Index.vue` */
 export const instancePageMessages = defineMessages({
+    upgradedTo: {
+        id: 'app.instance.post-upgrade-status',
+        defaultMessage: 'Upgraded to {version}',
+    },
+    linkedTo: { id: 'app.instance.linked-to', defaultMessage: 'Linked to' },
+    joinServer: { id: 'app.instance.join-server', defaultMessage: 'Join server' },
+    launchInstance: { id: 'app.instance.launch-instance', defaultMessage: 'Launch instance' },
+    upgradeInstance: { id: 'app.instance.upgrade-instance', defaultMessage: 'Upgrade instance' },
     neverPlayed: {
         id: 'app.instance.never-played',
         defaultMessage: 'Never played',
@@ -70,6 +78,47 @@ export const instancePageMessages = defineMessages({
 
 /** `apps/app-frontend/src/pages/instance/Mods.vue` */
 export const modsMessages = defineMessages({
+    postUpgradeNoticeTitle: {
+        id: 'app.instance.mods.post-upgrade-notice.title',
+        defaultMessage: 'Post-upgrade compatibility review',
+    },
+    postUpgradeNoticeBody: {
+        id: 'app.instance.mods.post-upgrade-notice.body',
+        defaultMessage:
+            'Some preserved content may not support the current Minecraft version and should be reviewed manually.',
+    },
+    ignoreAllPostUpgradeWarnings: {
+        id: 'app.instance.mods.post-upgrade-notice.ignore-all',
+        defaultMessage: 'Ignore all',
+    },
+    postUpgradeWarningTooltip: {
+        id: 'app.instance.mods.post-upgrade-notice.item-tooltip',
+        defaultMessage:
+            'This content was preserved during the instance upgrade without installing a new compatible version. It may be incompatible with the current Minecraft version.',
+    },
+    compatibilityWarning: {
+        id: 'app.resources.installed.compatibility',
+        defaultMessage:
+            'Minecraft: {game, select, compatible {compatible} incompatible {incompatible} other {no supported version declaration}}; loader: {loader, select, compatible {compatible} incompatible {incompatible} other {no loader declaration}}.',
+    },
+    contentRefreshWarningTitle: {
+        id: 'app.instance.mods.content-refresh-warning.title',
+        defaultMessage: 'Some online details are unavailable',
+    },
+    contentRefreshWarningBody: {
+        id: 'app.instance.mods.content-refresh-warning.body',
+        defaultMessage:
+            'Local content is still complete and can be managed. Names, icons, or update information may be temporarily unavailable.',
+    },
+    contentHistoryWarningTitle: {
+        id: 'app.instance.mods.content-history-warning.title',
+        defaultMessage: 'Some local history details are unavailable',
+    },
+    contentHistoryWarningBody: {
+        id: 'app.instance.mods.content-history-warning.body',
+        defaultMessage:
+            'Local content is still complete and can be managed. Rollback or cleanup details may be temporarily unavailable.',
+    },
     versionsFailed: {
         id: 'app.instance.content.versions-failed',
         defaultMessage:

@@ -5,8 +5,8 @@ use std::sync::atomic::{AtomicU64, Ordering};
 
 #[derive(Default)]
 pub(super) struct CurseForgeDownloadMetrics {
-    source: Mutex<Option<String>>,
-    fallback_count: AtomicU64,
+    pub(super) source: Mutex<Option<String>>,
+    pub(super) fallback_count: AtomicU64,
     pub(super) reporter: Option<InstallProgressReporter>,
 }
 

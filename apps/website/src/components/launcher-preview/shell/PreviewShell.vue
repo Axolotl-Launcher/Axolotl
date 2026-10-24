@@ -11,20 +11,17 @@ import RightArrowIcon from '@modrinth/assets/icons/right-arrow.svg?component'
 import SettingsIcon from '@modrinth/assets/icons/settings.svg?component'
 import UsersIcon from '@modrinth/assets/icons/users.svg?component'
 import WorldIcon from '@modrinth/assets/icons/world.svg?component'
-import Button from '@modrinth/ui/src/components/base/buttons/Button.vue'
-import Checkbox from '@modrinth/ui/src/components/base/Checkbox.vue'
 import ScrollToTopButton from '@modrinth/ui/src/components/base/ScrollToTopButton.vue'
 import NotificationPanel from '@modrinth/ui/src/components/nav/NotificationPanel.vue'
 import PopupNotificationPanel from '@modrinth/ui/src/components/nav/PopupNotificationPanel.vue'
 import { useVIntl } from '@modrinth/ui/src/composables/i18n.ts'
 import { commonMessages } from '@modrinth/ui/src/utils/common-messages.ts'
-import { computed, provide, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, provide, ref } from 'vue'
 import { type RouteLocationNormalizedLoaded, RouterView, useRoute, useRouter } from 'vue-router'
 
 import { breadcrumbMessages, shellMessages } from '../lib/messages'
 import { createPreviewShell, providePreviewShell } from '../lib/shell'
 import { usePreview } from '../lib/state'
-import PreviewModal from '../overlays/PreviewModal.vue'
 import AccountsCard from './AccountsCard.vue'
 import ActionBar from './ActionBar.vue'
 import Breadcrumbs from './Breadcrumbs.vue'
@@ -40,7 +37,6 @@ import TrafficLights from './TrafficLights.vue'
  */
 const emit = defineEmits<{
     quit: []
-    hideToTray: []
     minimize: []
     zoom: []
 }>()
@@ -69,6 +65,18 @@ const { settings } = state
 const shell = createPreviewShell(settings)
 providePreviewShell(shell)
 const { sidebarVisible, forceSidebar, forceSidebarHidden, sidebarToggled, toggleSidebar } = shell
+const scrollControlReady = ref(false)
+let scrollControlFrame = 0
+
+onMounted(() => {
+    scrollControlFrame = requestAnimationFrame(() => {
+        scrollControlFrame = requestAnimationFrame(() => {
+            scrollControlReady.value = true
+        })
+    })
+})
+
+onBeforeUnmount(() => cancelAnimationFrame(scrollControlFrame))
 
 const onSettingsPage = computed(() => route.path.startsWith('/settings'))
 const discoverContentPath = computed(() =>
@@ -88,37 +96,6 @@ function getPageTransitionKey(pageRoute: RouteLocationNormalizedLoaded) {
     }
     if (pageRoute.name === 'Favorites') return `${transitionGroup}:favorites`
     return `${transitionGroup}:`
-}
-
-const closeChoiceModal = ref<InstanceType<typeof PreviewModal>>()
-const closeChoiceRemember = ref(false)
-const closeChoiceOpen = ref(false)
-
-function requestClose(event: MouseEvent) {
-    if (closeChoiceOpen.value) return
-    if (settings.close_behavior === 'close') {
-        emit('quit')
-        return
-    }
-    if (settings.close_behavior === 'lightweight') {
-        emit('hideToTray')
-        return
-    }
-    closeChoiceOpen.value = true
-    closeChoiceRemember.value = false
-    closeChoiceModal.value?.show(event)
-}
-
-function applyCloseChoice(choice: 'close' | 'lightweight') {
-    if (closeChoiceRemember.value) settings.close_behavior = choice
-    closeChoiceModal.value?.hide()
-    if (choice === 'close') emit('quit')
-    else emit('hideToTray')
-}
-
-function onCloseChoiceModalHide() {
-    closeChoiceOpen.value = false
-    closeChoiceRemember.value = false
 }
 </script>
 
@@ -229,7 +206,7 @@ function onCloseChoiceModalHide() {
             class="app-grid-statusbar relative flex h-[--top-bar-height] min-w-0 items-center bg-surface-bar pl-20"
         >
             <TrafficLights
-                @close="requestClose"
+                @close="emit('quit')"
                 @minimize="emit('minimize')"
                 @zoom="emit('zoom')"
             />
@@ -282,7 +259,10 @@ function onCloseChoiceModalHide() {
             'disable-advanced-rendering': !settings.advanced_rendering,
         }"
     >
-        <div class="app-viewport router-view flex-grow" tabindex="-1">
+        <div
+            class="app-viewport router-view h-full min-h-0 min-w-0 overflow-y-auto overflow-x-hidden"
+            tabindex="-1"
+        >
             <div
                 id="background-teleport-target"
                 class="absolute -z-10 h-full overflow-hidden rounded-tl-[--radius-xl]"
@@ -308,10 +288,10 @@ function onCloseChoiceModalHide() {
                     </Transition>
                 </RouterView>
             </div>
-            <ScrollToTopButton />
+            <ScrollToTopButton v-if="scrollControlReady" />
         </div>
         <div
-            class="app-sidebar mt-px flex shrink-0 flex-col border-0 border-l-[1px] border-solid border-[--brand-gradient-border]"
+            class="app-sidebar mt-px flex min-h-0 shrink-0 flex-col border-0 border-l-[1px] border-solid border-[--brand-gradient-border]"
         >
             <button
                 v-if="!forceSidebar && !forceSidebarHidden"
@@ -368,29 +348,6 @@ function onCloseChoiceModalHide() {
         v-bind="overlay.props"
         @close="state.ui.hideAppOverlay(overlay.key)"
     />
-    <PreviewModal
-        ref="closeChoiceModal"
-        :header="formatMessage(shellMessages.closeLauncherTitle)"
-        :closable="true"
-        :close-on-click-outside="true"
-        :on-hide="onCloseChoiceModalHide"
-        max-width="30rem"
-    >
-        <div class="grid grid-cols-2 gap-3">
-            <Button type="colored" color="brand" @click="applyCloseChoice('close')"
-                >{{ formatMessage(shellMessages.closeLauncherDirect) }}
-            </Button>
-            <Button @click="applyCloseChoice('lightweight')"
-                >{{ formatMessage(shellMessages.closeLauncherTray) }}
-            </Button>
-        </div>
-        <div class="mt-4">
-            <Checkbox
-                v-model="closeChoiceRemember"
-                :label="formatMessage(shellMessages.closeLauncherRemember)"
-            />
-        </div>
-    </PreviewModal>
 </template>
 
 <style lang="scss" scoped>
@@ -447,8 +404,8 @@ function onCloseChoiceModalHide() {
     --right-bar-width: 0px;
 
     display: grid;
-    grid-template-columns: 1fr var(--right-bar-width);
-    grid-template-rows: 1fr;
+    grid-template-columns: minmax(0, 1fr) var(--right-bar-width);
+    grid-template-rows: minmax(0, 1fr);
 
     &.sidebar-enabled {
         --right-bar-width: 300px;
@@ -466,7 +423,6 @@ function onCloseChoiceModalHide() {
     width: 300px;
     position: relative;
     z-index: 11;
-    height: calc(800px - var(--top-bar-height));
     background: var(--brand-gradient-bg);
 
     --sidebar-control-surface: var(--brand-gradient-button);
@@ -587,12 +543,6 @@ function onCloseChoiceModalHide() {
 }
 
 .app-viewport {
-    flex-grow: 1;
-    height: 100%;
-    overflow: auto;
-    overflow-x: hidden;
-    scrollbar-gutter: stable;
-
     &:focus,
     &:focus-visible {
         outline: none;

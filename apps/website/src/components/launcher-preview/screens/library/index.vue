@@ -29,10 +29,7 @@ preview.breadcrumbs.setRootContext({ name: formatMessage(messages.library), link
 const instances = computed<GameInstance[]>(() => preview.instances.instances.value)
 const tab = computed(() => (route.params.tab as string | undefined) || 'overview')
 
-/**
- * `useLinkedServerProjects`: server-project links, plus linked Modrinth projects
- * with a `minecraft_server` record, which the preview's snapshots do not have.
- */
+/** Snapshot server instances carry the same explicit server-project link as the app. */
 const isServerProject = (instance: GameInstance) => isServerProjectLink(instance.link)
 
 const tabInstances = computed<GameInstance[]>(() => {

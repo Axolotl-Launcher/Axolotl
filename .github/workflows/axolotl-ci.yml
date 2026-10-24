@@ -71,8 +71,9 @@ jobs:
         run: |
           node --test scripts/axolotl/ci-changes.test.mjs
           node --test scripts/axolotl/release-policy.test.mjs
+          node --test scripts/axolotl/aliyunoss-release.test.mjs
           node --test scripts/axolotl/set-version.test.mjs
-          node --test scripts/axolotl/update-manifest.test.mjs scripts/axolotl/finalize-github-release.test.mjs scripts/axolotl/publish-update-server.test.mjs scripts/axolotl/cnb-release.test.mjs scripts/axolotl/create-website-release-metadata.test.mjs
+          node --test scripts/axolotl/update-manifest.test.mjs scripts/axolotl/finalize-github-release.test.mjs scripts/axolotl/publish-update-server.test.mjs scripts/axolotl/cnb-release.test.mjs scripts/axolotl/gitlink-release.test.mjs scripts/axolotl/create-website-release-metadata.test.mjs
           node scripts/axolotl/create-update-server-catalog.test.mjs
           node scripts/axolotl/check-migrations.mjs --base "${MIGRATION_BASE_REF:-HEAD^}"
           node scripts/axolotl/check-migrations.mjs --release
@@ -98,6 +99,8 @@ jobs:
         run: node scripts/axolotl/downgrade-app-db.test.mjs
       - name: Check release notes
         run: node --test scripts/axolotl/create-release-notes.test.mjs
+      - name: Check Discord release notifications
+        run: node --test scripts/axolotl/publish-discord-release.test.mjs
       - name: Check formatting of Rust code
         run: cargo fmt --all --check
 

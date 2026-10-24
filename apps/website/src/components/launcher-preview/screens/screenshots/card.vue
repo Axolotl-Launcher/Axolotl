@@ -10,6 +10,7 @@ import { computed, onMounted, ref, watch } from 'vue'
 
 import type { PreviewScreenshot } from '../../lib/state/screenshots'
 import { messages } from './messages'
+import { isSelectionModifier } from './screenshot-selection'
 import { fileName, screenshotSources } from './state'
 
 const props = defineProps<{
@@ -59,7 +60,7 @@ function startDrag(event: PointerEvent) {
     if (event.button !== 0 || event.pointerType !== 'mouse') return
     const target = event.target instanceof Element ? event.target : null
     if (target?.closest('button, input, a')) return
-    if (!props.canDrag && !props.selected) return
+    if (!props.canDrag || !props.selected || isSelectionModifier(event)) return
     emit('drag-start', event)
 }
 
@@ -100,7 +101,7 @@ watch(
             '!border-brand brightness-110': selected,
             'animate-pulse !border-brand ring-2 ring-brand': highlighted,
             'opacity-50': activeDragged,
-            'cursor-grab active:cursor-grabbing': canDrag,
+            'cursor-grab active:cursor-grabbing': canDrag && selected,
         }"
         data-screenshot-card
         :data-screenshot-id="screenshot.id"
@@ -112,6 +113,7 @@ watch(
         "
         :aria-pressed="selectionActive ? selected : undefined"
         @click="activate"
+        @dragstart.prevent
         @pointerdown="startDrag"
         @contextmenu.prevent.stop="emit('more', $event)"
         @keydown="activate"

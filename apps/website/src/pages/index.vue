@@ -11,13 +11,17 @@ import GitGraphIcon from '@modrinth/assets/icons/git-graph.svg?component'
 import IssuesIcon from '@modrinth/assets/icons/issues.svg?component'
 import SearchIcon from '@modrinth/assets/icons/search.svg?component'
 import TrashIcon from '@modrinth/assets/icons/trash.svg?component'
-import Accordion from '@modrinth/ui/src/components/base/Accordion.vue'
-import Avatar from '@modrinth/ui/src/components/base/Avatar.vue'
-import Button from '@modrinth/ui/src/components/base/buttons/Button.vue'
-import Checkbox from '@modrinth/ui/src/components/base/Checkbox.vue'
-import Combobox, { type ComboboxOption } from '@modrinth/ui/src/components/base/Combobox.vue'
-import IntlFormatted from '@modrinth/ui/src/components/base/IntlFormatted.vue'
-import { defineMessages, useVIntl } from '@modrinth/ui/src/composables/i18n.ts'
+import {
+    Accordion,
+    Avatar,
+    Button,
+    Checkbox,
+    Combobox,
+    type ComboboxOption,
+    defineMessages,
+    IntlFormatted,
+    useVIntl,
+} from '@modrinth/ui'
 
 import AppleLogo from '~/components/landing/AppleLogo.vue'
 import CommunitySection from '~/components/landing/CommunitySection.vue'
@@ -28,18 +32,13 @@ import OfflineModeIcon from '~/components/landing/OfflineModeIcon.vue'
 import ProjectsShowcase from '~/components/landing/ProjectsShowcase.vue'
 import WindowsLogo from '~/components/landing/WindowsLogo.vue'
 import LauncherPreviewHero from '~/components/launcher-preview/LauncherPreviewHero.vue'
+import type { ReleaseChannel } from '~/utils/download-sources'
 import { trackHeroGlow } from '~/utils/hero-glow'
 import {
     getDownloadAvailability,
     getReleasePage,
-    type ReleaseChannel,
-    resolveLauncherDownloads,
+    hasLauncherDownloads,
 } from '~/utils/launcher-downloads'
-
-interface UpdateServerDownloadMetadata {
-    version: string
-    downloads: Array<{ filename: string; url: string }>
-}
 
 type OSType = 'Mac' | 'Windows' | 'Linux' | null
 
@@ -47,6 +46,8 @@ const downloadWindows = ref<HTMLAnchorElement | null>(null)
 const downloadMac = ref<HTMLAnchorElement | null>(null)
 const downloadSection = ref<HTMLElement | null>(null)
 const hero = ref<HTMLElement | null>(null)
+const launcherVisible = ref(true)
+const launcherClosed = ref(false)
 
 let stopHeroGlow: (() => void) | undefined
 onMounted(() => {
@@ -54,30 +55,13 @@ onMounted(() => {
 })
 onBeforeUnmount(() => stopHeroGlow?.())
 
-const { resolvedSource } = useDownloadSource()
-const UPDATE_SERVER_BASE_URL = 'https://update.axlmc.org'
 const releaseChannel = ref<ReleaseChannel>('release')
-const releaseApi = computed(
-    () => `${UPDATE_SERVER_BASE_URL}/api/downloads/latest?channel=${releaseChannel.value}`,
-)
-
-// 使用 Update Server 的下载目录作为默认发布数据源；GitHub 保留为手动备用源。
 const {
-    data: launcherRelease,
+    release: launcherRelease,
     status: launcherReleaseStatus,
     refresh: refreshLauncherRelease,
-} = await useFetch<UpdateServerDownloadMetadata>(releaseApi, {
-    // Download metadata is intentionally fetched in the browser. This keeps
-    // static generation independent from the update service's availability and
-    // lets every deployed page resolve the current release after loading.
-    server: false,
-    transform(data: UpdateServerDownloadMetadata) {
-        return {
-            tag_name: `v${data.version}`,
-            assets: data.downloads.map((download) => download.filename),
-        }
-    },
-})
+    links: downloadLinks,
+} = useLauncherDownloads(releaseChannel)
 
 // 下载链接的三种状态：获取中 / 就绪 / 失败。失败时主 CTA 降级为跳转下载区，
 // 下载区显示错误提示与 GitHub Releases 手动下载入口，避免点击死链接。
@@ -87,12 +71,6 @@ const downloadState = computed<'loading' | 'ready' | 'error'>(() => {
     return 'loading'
 })
 
-const downloadLinks = computed(() =>
-    resolveLauncherDownloads(
-        launcherReleaseStatus.value === 'success' ? launcherRelease.value : null,
-        resolvedSource.value,
-    ),
-)
 const windowsLink = computed(() => downloadLinks.value.windows)
 const macLinks = computed(() => ({ universal: downloadLinks.value.mac }))
 const linuxLinks = computed(() => ({
@@ -105,6 +83,10 @@ const releasePage = computed(() =>
         releaseChannel.value,
         launcherReleaseStatus.value === 'success' ? launcherRelease.value : null,
     ),
+)
+// A valid catalog may have no packages for this channel or platform.
+const releaseUnavailable = computed(
+    () => downloadState.value === 'ready' && !hasLauncherDownloads(launcherRelease.value),
 )
 const linkUnavailableLabel = computed(() =>
     formatMessage(
@@ -1008,7 +990,7 @@ useHead(() => ({
 
 <template>
     <div>
-        <div ref="hero" class="landing-hero">
+        <div ref="hero" class="landing-hero" :class="{ 'landing-hero--closed': launcherClosed }">
             <div class="hero-grid" aria-hidden="true" />
             <div class="hero-content">
                 <div class="flex items-center gap-3">
@@ -1050,10 +1032,15 @@ useHead(() => ({
                     </Button>
                 </div>
             </div>
-            <div class="hero-product">
-                <LauncherPreviewHero :label="formatMessage(messages.heroScreenshotAlt)" />
-            </div>
-            <div class="hero-scroll-mark" aria-hidden="true"><span /></div>
+            <Transition name="launcher-close" @after-leave="launcherClosed = true">
+                <div v-if="launcherVisible" class="hero-product">
+                    <LauncherPreviewHero
+                        :label="formatMessage(messages.heroScreenshotAlt)"
+                        @close="launcherVisible = false"
+                    />
+                </div>
+            </Transition>
+            <div v-if="!launcherClosed" class="hero-scroll-mark" aria-hidden="true"><span /></div>
             <div class="bottom-transition" />
         </div>
         <section
@@ -1412,7 +1399,7 @@ useHead(() => ({
                             })
                         }}
                     </span>
-                    <span v-else-if="launcherReleaseStatus === 'error'">
+                    <span v-else-if="launcherReleaseStatus === 'error' || releaseUnavailable">
                         {{ formatMessage(messages.downloadChannelVersionUnavailable) }}
                     </span>
                     <span v-else>{{ formatMessage(messages.downloadChannelFetchingVersion) }}</span>
@@ -1687,6 +1674,26 @@ useHead(() => ({
         inset: 9.25rem 7% auto;
         height: 1px;
         background: linear-gradient(90deg, transparent, rgb(255 170 206 / 38%), transparent);
+    }
+}
+
+.landing-hero--closed {
+    min-height: 0;
+    padding-bottom: clamp(3rem, 6vw, 5rem);
+}
+
+.launcher-close-leave-active {
+    transition: opacity 150ms ease-out;
+    pointer-events: none;
+}
+
+.launcher-close-leave-to {
+    opacity: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .launcher-close-leave-active {
+        transition-duration: 100ms;
     }
 }
 
@@ -2023,15 +2030,15 @@ useHead(() => ({
     }
 }
 
-:global(html.light-mode) .axolotl-highlights {
+html.light-mode .axolotl-highlights {
     background: #f8f7f8;
 }
 
-:global(html.light-mode) .promise-card::after {
+html.light-mode .promise-card::after {
     color: rgb(0 0 0 / 5%);
 }
 
-:global(html.light-mode) .mods .row:not(.header):hover {
+html.light-mode .mods .row:not(.header):hover {
     background: rgb(0 0 0 / 4%);
 }
 

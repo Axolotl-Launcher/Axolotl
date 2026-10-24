@@ -1,6 +1,6 @@
 import { effectScope, reactive, watch } from 'vue'
 
-import { type PreviewState, usePreview, usePreviewDomain } from '../../../lib/state'
+import { previewDomain, type PreviewState, usePreview, usePreviewDomain } from '../../../lib/state'
 
 /*
  * Instance settings the preview's shared `GameInstance` does not carry, kept per
@@ -84,6 +84,10 @@ export type InstanceSettingsDomain = ReturnType<typeof createSettingsDomain>['va
 
 export function useInstanceSettingsState(): InstanceSettingsDomain {
     return usePreviewDomain('instance-settings', createSettingsDomain)
+}
+
+export function instanceSettingsState(preview: PreviewState): InstanceSettingsDomain {
+    return previewDomain(preview, 'instance-settings', createSettingsDomain)
 }
 
 /** Resolves after `ms` on the window's clock, standing in for an `invoke` round trip. */

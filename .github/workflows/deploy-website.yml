@@ -59,7 +59,7 @@ jobs:
           path: apps/website/.output/public/
           retention-days: 7
           if-no-files-found: error
-      - name: Deploy prebuilt website and functions to Netlify
+      - name: Deploy prebuilt website to Netlify
         env:
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
           NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
@@ -69,7 +69,6 @@ jobs:
             --no-build \
             --filter @axolotl/website \
             --dir "$PWD/apps/website/.output/public" \
-            --functions "$PWD/netlify/functions" \
             --site "$NETLIFY_SITE_ID" \
             --message "Manual website deploy (GitHub Actions ${GITHUB_RUN_ID})" \
             --timeout 600

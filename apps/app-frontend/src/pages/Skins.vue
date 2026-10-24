@@ -310,6 +310,8 @@ const accountsCard = inject('accountsCard') as Ref<typeof AccountsCard>
 const currentUser = ref(undefined)
 const currentUserId = ref<string | undefined>(undefined)
 const currentAccountType = ref<'microsoft' | 'offline' | 'yggdrasil' | undefined>(undefined)
+const isAccountLoading = ref(true)
+const isSkinLibraryLoading = ref(true)
 
 const username = computed(() => currentUser.value?.profile?.name ?? undefined)
 const selectedSkin = ref<Skin | null>(null)
@@ -459,9 +461,9 @@ async function deleteSkin() {
     }
 }
 
-async function loadCapes(generation = skinAccountGeneration) {
+async function loadCapes(generation = skinAccountGeneration, cachedOnly = false) {
     try {
-        const loadedCapes = (await get_available_capes()) ?? []
+        const loadedCapes = (await get_available_capes(cachedOnly)) ?? []
         if (generation === skinAccountGeneration) capes.value = loadedCapes
     } catch (error) {
         if (generation === skinAccountGeneration && currentUser.value && error instanceof Error) {
@@ -470,10 +472,18 @@ async function loadCapes(generation = skinAccountGeneration) {
     }
 }
 
-async function loadSkins(generation = skinAccountGeneration) {
+async function loadSkins(
+    generation = skinAccountGeneration,
+    cachedOnly = false,
+    preserveSelection = false,
+) {
+    const previousSkins = skins.value
+    const previousSelection = selectedSkin.value
     try {
-        const loadedSkins = (await get_available_skins()) ?? []
+        const loadedSkins = (await get_available_skins(cachedOnly)) ?? []
         if (generation !== skinAccountGeneration) return
+        // A background response must not overwrite a save, reorder or apply.
+        if (preserveSelection && skins.value !== previousSkins) return
         const loadedEquippedSkin = loadedSkins.find((s) => s.is_equipped)
         const locallyKnownEquippedSkin =
             originalSelectedSkin.value &&
@@ -493,8 +503,14 @@ async function loadSkins(generation = skinAccountGeneration) {
         if (generation !== skinAccountGeneration) return
         skins.value = nextSkins
         void generateSkinPreviews(nextSkins, capes.value)
-        selectedSkin.value = nextSkins.find((s) => s.is_equipped) ?? null
-        originalSelectedSkin.value = selectedSkin.value
+        const equippedSkin = nextSkins.find((s) => s.is_equipped) ?? null
+        const preview = selectedSkin.value
+        const keepPreview =
+            preserveSelection && (preview !== previousSelection || hasPendingSkinChange.value)
+        selectedSkin.value = keepPreview
+            ? (nextSkins.find((skin) => skinsMatch(skin, preview)) ?? preview)
+            : equippedSkin
+        originalSelectedSkin.value = equippedSkin
     } catch (error) {
         if (generation === skinAccountGeneration && currentUser.value && error instanceof Error) {
             handleError(error)
@@ -867,8 +883,10 @@ async function onSkinSaved(options: { applied: boolean; skin?: Skin; previousSki
 
 async function loadCurrentUser(generation = skinAccountGeneration) {
     try {
-        const defaultId = await get_default_user(offline.value)
-        const allAccounts = await users(offline.value)
+        const [defaultId, allAccounts] = await Promise.all([
+            get_default_user(offline.value),
+            users(offline.value, true),
+        ])
         if (generation !== skinAccountGeneration) return false
         const selectedAccount = allAccounts.find((acc) => acc.account_id === defaultId)
         currentAccountType.value = selectedAccount?.account_type
@@ -888,13 +906,36 @@ async function loadCurrentUser(generation = skinAccountGeneration) {
 async function refreshSelectedAccount() {
     const session = skinAccountSessions.begin()
     const generation = ++skinAccountGeneration
+    isAccountLoading.value = true
+    isSkinLibraryLoading.value = true
+    currentUser.value = undefined
+    currentUserId.value = undefined
+    currentAccountType.value = undefined
     skins.value = []
     capes.value = []
     selectedSkin.value = null
     originalSelectedSkin.value = null
     isApplyingSkin.value = false
-    if (!(await loadCurrentUser(generation)) || !skinAccountSessions.isCurrent(session)) return
-    await Promise.all([loadCapes(generation), loadSkins(generation)])
+    const loaded = await loadCurrentUser(generation)
+    if (!skinAccountSessions.isCurrent(session)) return
+    isAccountLoading.value = false
+    if (!loaded || !currentUser.value) {
+        isSkinLibraryLoading.value = false
+        return
+    }
+    await Promise.all([loadCapes(generation, true), loadSkins(generation, true)])
+    if (!skinAccountSessions.isCurrent(session)) return
+    isSkinLibraryLoading.value = false
+    if (!offline.value && currentAccountType.value !== 'offline') {
+        void refreshOnlineSkinLibrary(generation)
+    }
+}
+
+async function refreshOnlineSkinLibrary(generation: number) {
+    // The skin read reuses the profile fetched for capes instead of racing it.
+    await loadCapes(generation)
+    if (generation !== skinAccountGeneration) return
+    await loadSkins(generation, false, true)
 }
 
 watch(accountSelectionRevision, () => {
@@ -1069,10 +1110,13 @@ onBeforeRouteLeave(async (to) => {
 
 onMounted(() => {
     void setupNativeDropHandler()
+    void refreshSelectedAccount()
 })
 
 onUnmounted(() => {
     isUnmounted = true
+    skinAccountSessions.begin()
+    skinAccountGeneration += 1
     cancelSkinPreviews?.()
     setActiveSkinPreviews([])
     removeNavigationFailureHandler()
@@ -1091,8 +1135,6 @@ onUnmounted(() => {
 watch(offline, () => {
     void refreshSelectedAccount()
 })
-
-await refreshSelectedAccount()
 </script>
 
 <template>
@@ -1144,7 +1186,7 @@ await refreshSelectedAccount()
     </Teleport>
 
     <div
-        v-if="currentUser"
+        v-if="currentUser || isAccountLoading"
         data-onboarding-id="skins-page"
         class="skin-layout box-border min-h-full p-4"
     >
@@ -1164,6 +1206,7 @@ await refreshSelectedAccount()
                 class="ml-5 mt-4 flex h-[calc(100vh_-_var(--top-bar-height)_-_11rem)] min-h-[14rem] items-center justify-center"
             >
                 <SkinPreviewRenderer
+                    v-if="selectedSkin"
                     v-model:armor-config="armorPreviewConfig"
                     armor-preview
                     :armor-controls="false"
@@ -1252,9 +1295,9 @@ await refreshSelectedAccount()
                     role="tabpanel"
                     :aria-labelledby="'nav-tab-' + lastSkinListTab"
                 >
-                    <SkinListSkeleton v-if="isSkinListBuffering" />
+                    <SkinListSkeleton v-if="isSkinListBuffering || isSkinLibraryLoading" />
                     <VirtualSkinSectionList
-                        v-show="!isSkinListBuffering"
+                        v-show="!isSkinListBuffering && !isSkinLibraryLoading"
                         ref="skinSectionList"
                         :active-tab="lastSkinListTab"
                         :saved-skins="savedSkins"

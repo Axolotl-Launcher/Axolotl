@@ -491,6 +491,43 @@ pub(crate) async fn hydrate_selected_with_service(
     selected: Option<&[InstalledEntryId]>,
     service: &std::sync::Arc<ResourceService>,
 ) -> ResourceResult<HydratedInstalled> {
+    hydrate_entries_with_service(
+        state,
+        instance_id,
+        cancel,
+        selected,
+        false,
+        service,
+    )
+    .await
+}
+
+pub(crate) async fn hydrate_update_batch_with_service(
+    state: &crate::State,
+    instance_id: &str,
+    cancel: &CancellationToken,
+    entry_ids: &[InstalledEntryId],
+    service: &std::sync::Arc<ResourceService>,
+) -> ResourceResult<HydratedInstalled> {
+    hydrate_entries_with_service(
+        state,
+        instance_id,
+        cancel,
+        Some(entry_ids),
+        true,
+        service,
+    )
+    .await
+}
+
+async fn hydrate_entries_with_service(
+    state: &crate::State,
+    instance_id: &str,
+    cancel: &CancellationToken,
+    selected: Option<&[InstalledEntryId]>,
+    only_selected: bool,
+    service: &std::sync::Arc<ResourceService>,
+) -> ResourceResult<HydratedInstalled> {
     let revision = plans::instance_revision(&state.pool, instance_id).await?;
     let scope = crate::state::instances::commands::resolve_content_scope(
         instance_id,
@@ -504,6 +541,11 @@ pub(crate) async fn hydrate_selected_with_service(
     )
     .map_err(|error| ResourceError::InvalidRequest(error.to_string()))?;
     let mut entries = plans::installed(&state.pool, instance_id).await?;
+    if only_selected {
+        entries.retain(|entry| {
+            selected.is_some_and(|ids| ids.contains(&entry.entry_id))
+        });
+    }
     let mut identities = Vec::new();
     let mut indices = Vec::new();
     let mut failures = Vec::new();
@@ -519,7 +561,8 @@ pub(crate) async fn hydrate_selected_with_service(
         if cancel.is_cancelled() {
             return Err(ResourceError::Canceled);
         }
-        if selected.is_none_or(|ids| !ids.contains(&entry.entry_id))
+        if (only_selected
+            || selected.is_none_or(|ids| !ids.contains(&entry.entry_id)))
             && saved_records
                 .get(entry.entry_id.as_str())
                 .and_then(|payload| {

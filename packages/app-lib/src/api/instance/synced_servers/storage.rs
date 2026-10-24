@@ -2,12 +2,13 @@ use super::super::synced_options::{
     nbt_from_bytes, nbt_to_bytes, safe_instance_id, synced_options_path,
 };
 use super::SERVERS_FILE;
+use super::limits::validate_size;
 use super::types::{
     CanonicalServer, LocalServer, ProjectionEntry, ProjectionOwner,
     ServerRecord, ServerSource,
 };
 use crate::{ErrorKind, State};
-use sqlx::{Executor, Sqlite, Transaction};
+use sqlx::{Sqlite, SqliteConnection, Transaction};
 use std::collections::HashSet;
 use std::path::PathBuf;
 
@@ -32,12 +33,13 @@ async fn canonical_initialized(state: &State) -> crate::Result<bool> {
 pub(super) async fn read_canonical(
     state: &State,
 ) -> crate::Result<Vec<CanonicalServer>> {
-    read_canonical_with(&state.pool).await
+    read_canonical_with(&mut *state.pool.acquire().await?).await
 }
 
-async fn read_canonical_with<'e>(
-    executor: impl Executor<'e, Database = Sqlite>,
+async fn read_canonical_with(
+    executor: &mut SqliteConnection,
 ) -> crate::Result<Vec<CanonicalServer>> {
+    validate_stored_list(executor, "synced_servers", None).await?;
     let rows = sqlx::query!(
         "
 		SELECT id, nbt
@@ -75,9 +77,48 @@ pub(super) async fn commit_server_state(
     state: &State,
 ) -> crate::Result<bool> {
     let mut tx = state.pool.begin().await?;
+    let canonical_changed =
+        write_server_state(&mut tx, canonical, local).await?;
+    tx.commit().await?;
+    Ok(canonical_changed)
+}
+
+/// A consumed file and its database changes must survive a failed fan-out together.
+/// Pending checkpoints retry projection, never import the same change again.
+pub(super) async fn commit_captured_servers(
+    instance_id: &str,
+    canonical: &[CanonicalServer],
+    local: &[LocalServer],
+    state: &State,
+) -> crate::Result<bool> {
+    let mut tx = state.pool.begin().await?;
+    let changed = write_server_state(
+        &mut tx,
+        Some(canonical),
+        Some((instance_id, local)),
+    )
+    .await?;
+    sqlx::query(
+        "INSERT INTO instance_sync_checkpoints
+         (instance_id, feature, variant, expected_sha1, source_revision, status)
+         VALUES (?, 'multiplayer_servers', 'default', '',
+                 (SELECT revision FROM synced_server_state WHERE singleton = 1), 'pending')
+         ON CONFLICT(instance_id, feature, variant) DO UPDATE SET
+             expected_sha1 = '', source_revision = excluded.source_revision,
+             status = 'pending', link_mode = NULL, merge_base = NULL"
+    ).bind(instance_id).execute(&mut *tx).await?;
+    tx.commit().await?;
+    Ok(changed)
+}
+
+async fn write_server_state(
+    tx: &mut Transaction<'_, Sqlite>,
+    canonical: Option<&[CanonicalServer]>,
+    local: Option<(&str, &[LocalServer])>,
+) -> crate::Result<bool> {
     let mut canonical_changed = false;
     if let Some(canonical) = canonical {
-        canonical_changed = write_canonical_rows(&mut tx, canonical).await?;
+        canonical_changed = write_canonical_rows(tx, canonical).await?;
         sqlx::query!(
             "
 			INSERT INTO synced_server_state (singleton, revision)
@@ -85,7 +126,7 @@ pub(super) async fn commit_server_state(
 			ON CONFLICT(singleton) DO NOTHING
 			",
         )
-        .execute(&mut *tx)
+        .execute(&mut **tx)
         .await?;
         if canonical_changed {
             sqlx::query!(
@@ -95,21 +136,47 @@ pub(super) async fn commit_server_state(
 				WHERE singleton = 1
 				",
             )
-            .execute(&mut *tx)
+            .execute(&mut **tx)
             .await?;
         }
     }
     if let Some((instance_id, local)) = local {
-        write_local_rows(&mut tx, instance_id, local).await?;
+        write_local_rows(tx, instance_id, local).await?;
     }
-    tx.commit().await?;
     Ok(canonical_changed)
+}
+
+async fn validate_stored_list(
+    connection: &mut SqliteConnection,
+    table: &str,
+    instance_id: Option<&str>,
+) -> crate::Result<()> {
+    // Table names are private constants supplied by the storage functions below.
+    let filter = if instance_id.is_some() {
+        " WHERE instance_id = ?"
+    } else {
+        ""
+    };
+    let query = format!(
+        "SELECT COUNT(*), COALESCE(SUM(length(nbt)), 0) FROM {table}{filter}"
+    );
+    let mut query = sqlx::query_as::<_, (i64, i64)>(&query);
+    if let Some(id) = instance_id {
+        query = query.bind(id);
+    }
+    let (count, bytes) = query.fetch_one(connection).await?;
+    validate_size(
+        count.try_into().unwrap_or(usize::MAX),
+        bytes.try_into().unwrap_or(usize::MAX),
+    )
 }
 
 async fn write_canonical_rows(
     tx: &mut Transaction<'_, Sqlite>,
     servers: &[CanonicalServer],
 ) -> crate::Result<bool> {
+    validate_size(servers.len(), 0)?;
+    validate_stored_list(&mut **tx, "synced_servers", None).await?;
     let current = sqlx::query!(
         "
 		SELECT id, position, nbt
@@ -120,20 +187,30 @@ async fn write_canonical_rows(
     .fetch_all(&mut **tx)
     .await?;
     let mut desired = Vec::with_capacity(servers.len());
+    let mut bytes = 0;
     for (position, server) in servers.iter().enumerate() {
-        desired.push((
-            server.id.as_str(),
-            position as i64,
-            nbt_to_bytes(&server.data)?,
-        ));
+        let nbt = nbt_to_bytes(&server.data)?;
+        bytes += nbt.len();
+        validate_size(servers.len(), bytes)?;
+        desired.push((server.id.as_str(), position as i64, nbt));
     }
-    if current.len() == desired.len()
-        && current.iter().zip(&desired).all(|(current, desired)| {
-            current.id == desired.0
-                && current.position == desired.1
-                && current.nbt == desired.2
-        })
-    {
+    let mut unchanged = current.len() == desired.len();
+    if unchanged {
+        for ((current, desired), server) in
+            current.iter().zip(&desired).zip(servers)
+        {
+            // Compound field order is not meaningful; quartz_nbt uses HashMap.
+            // Comparing serialized bytes marks unchanged lists as new revisions.
+            if current.id != desired.0
+                || current.position != desired.1
+                || nbt_from_bytes(current.nbt.clone())? != server.data
+            {
+                unchanged = false;
+                break;
+            }
+        }
+    }
+    if unchanged {
         return Ok(false);
     }
 
@@ -197,13 +274,15 @@ pub(super) async fn load_local(
     instance_id: &str,
     state: &State,
 ) -> crate::Result<Vec<LocalServer>> {
-    load_local_with(instance_id, &state.pool).await
+    load_local_with(instance_id, &mut *state.pool.acquire().await?).await
 }
 
-async fn load_local_with<'e>(
+async fn load_local_with(
     instance_id: &str,
-    executor: impl Executor<'e, Database = Sqlite>,
+    executor: &mut SqliteConnection,
 ) -> crate::Result<Vec<LocalServer>> {
+    validate_stored_list(executor, "instance_servers", Some(instance_id))
+        .await?;
     let rows = sqlx::query!(
         "
 		SELECT id, source, excluded_synced_server_id, nbt, position
@@ -249,6 +328,8 @@ pub(super) async fn write_local_rows(
     instance_id: &str,
     servers: &[LocalServer],
 ) -> crate::Result<()> {
+    validate_size(servers.len(), 0)?;
+    let mut bytes = 0;
     sqlx::query!(
         "DELETE FROM instance_servers WHERE instance_id = ?",
         instance_id,
@@ -258,6 +339,8 @@ pub(super) async fn write_local_rows(
     for server in servers {
         let source = server.source.as_str();
         let nbt = nbt_to_bytes(&server.data)?;
+        bytes += nbt.len();
+        validate_size(servers.len(), bytes)?;
         sqlx::query!(
             "
 			INSERT INTO instance_servers
@@ -283,6 +366,13 @@ pub(super) async fn load_projection_entries(
     instance_id: &str,
     state: &State,
 ) -> crate::Result<Vec<ProjectionEntry>> {
+    let mut connection = state.pool.acquire().await?;
+    validate_stored_list(
+        &mut connection,
+        "instance_server_projection_entries",
+        Some(instance_id),
+    )
+    .await?;
     let rows = sqlx::query!(
         "
 		SELECT server_id, owner, nbt, position
@@ -292,7 +382,7 @@ pub(super) async fn load_projection_entries(
 		",
         instance_id,
     )
-    .fetch_all(&state.pool)
+    .fetch_all(&mut *connection)
     .await?;
     rows.into_iter()
         .map(|row| {
@@ -320,6 +410,8 @@ pub(super) async fn begin_server_checkpoint(
     source_revision: i64,
     state: &State,
 ) -> crate::Result<()> {
+    validate_size(servers.len(), 0)?;
+    let mut bytes = 0;
     let mut tx = state.pool.begin().await?;
     sqlx::query!(
         "DELETE FROM instance_server_projection_entries WHERE instance_id = ?",
@@ -335,6 +427,8 @@ pub(super) async fn begin_server_checkpoint(
         }
         .as_str();
         let nbt = nbt_to_bytes(&server.data)?;
+        bytes += nbt.len();
+        validate_size(servers.len(), bytes)?;
         let position = position as i64;
         sqlx::query!(
             "

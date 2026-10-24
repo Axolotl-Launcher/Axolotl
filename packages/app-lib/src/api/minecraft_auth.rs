@@ -1,6 +1,6 @@
 //! Authentication flow interface
 
-mod profile_cache;
+pub(super) mod profile_cache;
 
 use chrono::{DateTime, Utc};
 use reqwest::StatusCode;

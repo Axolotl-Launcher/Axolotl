@@ -79,10 +79,10 @@ async function repair(event: MouseEvent) {
 <template>
     <template v-if="compact">
         <div
-            class="grid cursor-pointer grid-cols-[auto_1fr_auto] items-center gap-2 rounded-lg transition-colors"
+            class="grid cursor-pointer grid-cols-[auto_1fr_auto] items-center gap-x-2 gap-y-1 rounded-lg transition-colors"
             :class="
                 flat
-                    ? 'px-2 py-2 hover:bg-surface-4'
+                    ? 'px-2 py-1.5 hover:bg-surface-4'
                     : 'card-shadow bg-surface-2 p-3 pl-4 hover:brightness-90'
             "
             @click="seeInstance"
@@ -134,7 +134,7 @@ async function repair(event: MouseEvent) {
                 class="col-span-3 flex items-center gap-1 font-semibold text-[var(--color-text-tertiary)]"
             >
                 <TimerIcon />
-                <span class="text-sm">
+                <span class="text-sm leading-4">
                     <template v-if="instance.last_played">
                         {{
                             formatMessage(messages.instancePlayed, {

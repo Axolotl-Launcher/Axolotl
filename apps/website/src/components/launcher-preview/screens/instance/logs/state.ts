@@ -1,7 +1,7 @@
 import { reactive, watch } from 'vue'
 
 import type { PreviewState } from '../../../lib/state'
-import { usePreviewDomain } from '../../../lib/state'
+import { previewDomain, usePreviewDomain } from '../../../lib/state'
 import type { GameInstance } from '../../../lib/types'
 
 /*
@@ -178,4 +178,8 @@ export type InstanceLogsDomain = ReturnType<typeof createLogsDomain>['value']
 
 export function useInstanceLogs(): InstanceLogsDomain {
     return usePreviewDomain('instance-logs', createLogsDomain)
+}
+
+export function instanceLogs(preview: PreviewState): InstanceLogsDomain {
+    return previewDomain(preview, 'instance-logs', createLogsDomain)
 }

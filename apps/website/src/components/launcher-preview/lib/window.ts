@@ -13,6 +13,8 @@ export interface PreviewWindowContext {
     scale: Ref<number>
     /** Whether the window fills the screen (the green titlebar control). */
     fullScreen: Ref<boolean>
+    /** Hold the poster while initial panels are being mounted in separate tasks. */
+    deferReady: () => () => void
     /** Converts viewport coordinates to the window's unscaled coordinate space. */
     toLocal: (clientX: number, clientY: number) => { x: number; y: number }
 }

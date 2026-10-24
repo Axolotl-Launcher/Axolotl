@@ -3,6 +3,67 @@
         <template #pending>
             <LoadingIndicator class="pt-4" />
         </template>
+        <CollapsibleAdmonition
+            v-if="postUpgradeNotice?.warnings.length"
+            v-model="postUpgradeNoticeExpanded"
+            type="warning"
+            class="mb-4"
+        >
+            <template #header>
+                <span class="inline-flex items-center gap-2">
+                    {{ formatMessage(messages.postUpgradeNoticeTitle) }}
+                    <span class="rounded-full bg-bg-orange px-2 py-0.5 text-sm tabular-nums">{{
+                        postUpgradeNotice.warnings.length
+                    }}</span>
+                </span>
+            </template>
+            <div class="border-0 border-t border-solid border-divider bg-bg-orange p-4">
+                <p class="m-0">{{ formatMessage(messages.postUpgradeNoticeBody) }}</p>
+                <div class="mt-3 flex justify-end">
+                    <Button
+                        type="colored"
+                        color="orange"
+                        size="2xs"
+                        @click="notices.dismiss(instance.id)"
+                        >{{ formatMessage(messages.ignoreAllPostUpgradeWarnings) }}</Button
+                    >
+                </div>
+            </div>
+        </CollapsibleAdmonition>
+        <CollapsibleAdmonition
+            v-if="metadataUnavailable || contentLoadError"
+            v-model="contentWarningExpanded"
+            type="warning"
+            class="mb-4"
+        >
+            <template #header>{{
+                formatMessage(
+                    contentLoadError
+                        ? messages.contentHistoryWarningTitle
+                        : messages.contentRefreshWarningTitle,
+                )
+            }}</template>
+            <div class="border-0 border-t border-solid border-divider bg-bg-orange p-4">
+                <p class="m-0">
+                    {{
+                        formatMessage(
+                            contentLoadError
+                                ? messages.contentHistoryWarningBody
+                                : messages.contentRefreshWarningBody,
+                        )
+                    }}
+                </p>
+                <div class="mt-3 flex justify-end">
+                    <Button
+                        type="outlined"
+                        size="2xs"
+                        :disabled="refreshingWarnings"
+                        @click="retryContentWarnings"
+                        >{{ formatMessage(commonMessages.retryButton) }}</Button
+                    >
+                </div>
+            </div>
+        </CollapsibleAdmonition>
         <ContentPageLayout>
             <template #toolbar-actions>
                 <Button
@@ -107,6 +168,7 @@ import ClipboardCopyIcon from '@modrinth/assets/icons/clipboard-copy.svg?compone
 import FolderOpenIcon from '@modrinth/assets/icons/folder-open.svg?component'
 import UndoIcon from '@modrinth/assets/icons/undo.svg?component'
 import Button from '@modrinth/ui/src/components/base/buttons/Button.vue'
+import CollapsibleAdmonition from '@modrinth/ui/src/components/base/CollapsibleAdmonition.vue'
 import LoadingIndicator from '@modrinth/ui/src/components/base/LoadingIndicator.vue'
 import type { Option as OverflowMenuOption } from '@modrinth/ui/src/components/base/OverflowMenu.vue'
 import ReadyTransition from '@modrinth/ui/src/components/base/ReadyTransition.vue'
@@ -128,7 +190,9 @@ import { useRouter } from 'vue-router'
 
 import { bilingualTitle, mcmodUrl, useContentEntries } from '../../lib/content-search'
 import { getDisplayInstanceIcon } from '../../lib/instance-icons'
+import { instanceContentProject } from '../../lib/instance-project'
 import { openUrl, revealInFolder } from '../../lib/platform/opener'
+import { instanceUpgradeNotices, matchesPostUpgradeWarning } from '../../lib/post-upgrade-notice'
 import { usePreview } from '../../lib/state'
 import type { GameInstance } from '../../lib/types'
 import PreviewShareModal from '../../overlays/PreviewShareModal.vue'
@@ -162,9 +226,8 @@ import { projectOwner, useInstanceContentItems } from './state'
  * preview's content domain (`./state`); updates and version switches go through
  * the same "Review content changes" modal and download queue as Browse, and a
  * linked modpack's version switch runs the pack install stages of Settings >
- * Installation. Warnings the app raises from its content database (post-upgrade
- * review, skipped CurseForge files, missing pack members) have no source in the
- * preview, so they never show.
+ * Installation. Upgrade review and metadata failures are driven by the same
+ * in-memory content state; unavailable project details never erase local files.
  */
 const ShareModal = PreviewShareModal
 
@@ -191,6 +254,16 @@ defineEmits<{
 }>()
 
 const { domain, items: allItems } = useInstanceContentItems(() => props.instance.id)
+const notices = instanceUpgradeNotices(preview)
+const postUpgradeNotice = computed(() => notices.get(props.instance.id))
+const postUpgradeNoticeExpanded = ref(false)
+const contentWarningExpanded = ref(false)
+const refreshingWarnings = ref(false)
+const metadataUnavailable = computed(() =>
+    domain
+        .sharedItems(props.instance.id)
+        .some((item) => domain.metaFor(props.instance.id, item.id)?.metadataUnavailable),
+)
 const loading = ref(!domain.entryFor(props.instance.id).loaded)
 const contentLoadError = computed(() => {
     const error = domain.entryFor(props.instance.id).error
@@ -351,7 +424,11 @@ const linkedModpack = ref<{
     updateVersionId: string | null
 } | null>(null)
 const linkVersionId = computed(() =>
-    props.instance.link?.type === 'modrinth_modpack' ? props.instance.link.version_id : null,
+    props.instance.link?.type === 'modrinth_modpack'
+        ? props.instance.link.version_id
+        : props.instance.link?.type === 'server_project_modpack'
+          ? props.instance.link.content_version_id
+          : null,
 )
 const isModpackUpdating = computed(
     () =>
@@ -362,21 +439,23 @@ const isModpackUpdating = computed(
 /** `get_linked_modpack_info` and the pack project's card metadata. */
 async function loadLinkedModpack() {
     const link = props.instance.link
-    if (link?.type !== 'modrinth_modpack') {
+    const reference = instanceContentProject(link)
+    if (!reference || reference.source !== 'modrinth' || !linkVersionId.value) {
         linkedModpack.value = null
         return
     }
     const instanceId = props.instance.id
     try {
         const [project, tags] = await Promise.all([
-            loadModpackProject(link.project_id),
+            loadModpackProject(reference.projectId),
             discover.ensureTags(),
         ])
         if (props.instance.id !== instanceId) return
-        const version = project.versions.find((entry) => entry.id === link.version_id) ?? null
-        const update = version
-            ? checkModpackUpdate(version, project.versions, props.instance.update_channel)
-            : null
+        const version = project.versions.find((entry) => entry.id === linkVersionId.value) ?? null
+        const update =
+            version && !props.isServerInstance
+                ? checkModpackUpdate(version, project.versions, props.instance.update_channel)
+                : null
         const categoryTags = new Map(
             tags.categories
                 .filter((category) => category.project_type === 'modpack')
@@ -825,8 +904,18 @@ async function refreshContentState() {
     await domain.reload(props.instance.id)
 }
 
+async function retryContentWarnings() {
+    if (refreshingWarnings.value) return
+    refreshingWarnings.value = true
+    try {
+        await refreshContentState()
+    } finally {
+        refreshingWarnings.value = false
+    }
+}
+
 watch(
-    () => props.instance?.update_channel,
+    () => [props.instance?.update_channel, props.instance?.game_version, props.instance?.loader],
     (newValue, oldValue) => {
         if (newValue !== oldValue) void domain.reload(props.instance.id)
     },
@@ -1212,8 +1301,20 @@ provideContentManager({
             },
             versionLink,
             owner: ownerLink,
-            postUpgradeWarningTooltip: null,
-            compatibilityWarningTooltip: null,
+            postUpgradeWarningTooltip: postUpgradeNotice.value?.warnings.some((warning) =>
+                matchesPostUpgradeWarning(warning, item),
+            )
+                ? formatMessage(messages.postUpgradeWarningTooltip)
+                : null,
+            compatibilityWarningTooltip:
+                item.compatibility &&
+                (item.compatibility.gameVersion !== 'compatible' ||
+                    item.compatibility.loader !== 'compatible')
+                    ? formatMessage(messages.compatibilityWarning, {
+                          game: item.compatibility.gameVersion,
+                          loader: item.compatibility.loader,
+                      })
+                    : null,
             enabled: item.enabled,
             disabledTooltip:
                 item.instanceMaterializationState === 'missing'

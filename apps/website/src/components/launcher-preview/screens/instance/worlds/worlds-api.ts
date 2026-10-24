@@ -230,7 +230,10 @@ export type WorldSettingsPatch = {
     game_rules?: GameRuleEntry[]
 }
 
-type StoredLevel = Pick<WorldLevelData, 'difficulty' | 'allow_commands' | 'seed' | 'game_rules'>
+export type StoredLevel = Pick<
+    WorldLevelData,
+    'difficulty' | 'allow_commands' | 'seed' | 'game_rules'
+>
 
 /** `level.dat` fields the world list does not carry, per `<instance>:<save folder>`. */
 function levelStore() {
@@ -279,6 +282,24 @@ function findSave(instanceId: string, path: string): SingleplayerWorld | undefin
             world.type === 'singleplayer' &&
             world.path === path,
     )
+}
+
+export async function prepareWorldLevels(instanceId: string) {
+    const instance = currentPreview().instances.get(instanceId)
+    if (!instance) return levelStore()
+    const store = levelStore()
+    for (const world of home().worlds.value) {
+        if (world.instance_id !== instanceId || world.type !== 'singleplayer') continue
+        const key = `${instanceId}:${world.path}`
+        if (!store.has(key))
+            store.set(key, {
+                difficulty: world.hardcore ? 'hard' : 'normal',
+                allow_commands: world.game_mode === 'creative',
+                seed: worldSeed(instanceId, world.path),
+                game_rules: await defaultGameRules(instance.game_version),
+            })
+    }
+    return store
 }
 
 /** `get_world_level_data`: reads the save's `level.dat` and game rules. */

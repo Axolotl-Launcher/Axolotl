@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { Checkbox, defineMessages, injectNotificationManager, Slider, useVIntl } from '@modrinth/ui'
+import { useQuery } from '@tanstack/vue-query'
 import { platform } from '@tauri-apps/plugin-os'
-import { computed, readonly, ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 
 import EnvironmentVariablesInput from '@/components/ui/EnvironmentVariablesInput.vue'
 import JavaArgumentsInput from '@/components/ui/JavaArgumentsInput.vue'
@@ -79,20 +80,31 @@ const messages = defineMessages({
 
 const { instance } = injectInstanceSettings()
 const instanceId = instance.value.id
-const supportsMemoryOptimization = (await platform()) === 'windows'
+const supportsMemoryOptimization = platform() === 'windows'
 
 const globalSettings = (await get().catch(handleError)) as unknown as AppSettings
-const optimalJava = readonly(await get_optimal_jre_key(instance.value.id).catch(handleError))
-const requiredJavaVersion = optimalJava?.parsed_version ?? null
+const optimalJavaQuery = useQuery({
+    queryKey: ['instance', instanceId, 'optimal-java'],
+    queryFn: () => get_optimal_jre_key(instanceId),
+    retry: false,
+    refetchOnWindowFocus: false,
+})
+const optimalJava = computed(() => optimalJavaQuery.data.value ?? null)
+const requiredJavaVersion = computed(() => optimalJava.value?.parsed_version ?? null)
+watch(optimalJavaQuery.error, (error) => {
+    if (error) handleError(error)
+})
 
 const overrideJavaInstall = ref(!!instance.value.java_path)
-const overrideJava = ref({
-    ...(optimalJava ?? {}),
-    path: instance.value.java_path ?? optimalJava?.path ?? '',
+const overrideJava = ref<{ path: string; parsed_version?: string | number }>({
+    path: instance.value.java_path ?? '',
 })
 const displayedJava = computed({
-    get: () =>
-        overrideJavaInstall.value ? overrideJava.value : (optimalJava ?? overrideJava.value),
+    get: () => ({
+        ...(optimalJava.value ?? {}),
+        ...(overrideJavaInstall.value ? overrideJava.value : {}),
+        path: overrideJavaInstall.value ? overrideJava.value.path : (optimalJava.value?.path ?? ''),
+    }),
     set: (value) => {
         overrideJava.value = value
     },
@@ -100,7 +112,7 @@ const displayedJava = computed({
 
 watch(overrideJavaInstall, (enabled) => {
     if (enabled && !overrideJava.value.path) {
-        overrideJava.value = { ...(optimalJava ?? {}), path: optimalJava?.path ?? '' }
+        overrideJava.value = { path: optimalJava.value?.path ?? '' }
     }
 })
 
@@ -126,29 +138,38 @@ const maxMemory = memData.maxMemory
 const snapPoints = memData.snapPoints
 
 const gcContext = ref<GcContext | null>(null)
-
-async function updateGcContext() {
-    const javaMajorVersion = extractJavaMajorVersion(displayedJava.value?.parsed_version)
-    let modCount = 0
-    try {
-        const snapshot = await get_content_snapshot(instance.value.id)
-        modCount = snapshot.items.filter(
+const contentQuery = useQuery({
+    queryKey: ['instance', instanceId, 'local-content-snapshot'],
+    queryFn: () => get_content_snapshot(instanceId, true),
+    retry: false,
+    refetchOnWindowFocus: false,
+})
+const modCount = computed(
+    () =>
+        contentQuery.data.value?.items.filter(
             (item) => item.projectType === 'mod' && item.materializationState === 'present',
-        ).length
-    } catch {
-        modCount = 0
-    }
-    gcContext.value = await collectGcContext(
-        memory.value.maximum,
-        instance.value.loader,
-        javaMajorVersion,
+        ).length ?? 0,
+)
+watch(
+    [
+        () => effectiveMemory.value.maximum,
+        () => displayedJava.value.parsed_version,
+        () => instance.value.loader,
         modCount,
-    )
-}
-
-await updateGcContext()
-
-watch([memory, displayedJava, () => instance.value.loader], updateGcContext)
+    ],
+    async ([allocatedMemory, javaVersion, loader, count], _, onCleanup) => {
+        let active = true
+        onCleanup(() => (active = false))
+        const context = await collectGcContext(
+            allocatedMemory,
+            loader,
+            extractJavaMajorVersion(javaVersion),
+            count,
+        )
+        if (active) gcContext.value = context
+    },
+    { immediate: true },
+)
 
 const editInstanceObject = computed(() => ({
     java_path:

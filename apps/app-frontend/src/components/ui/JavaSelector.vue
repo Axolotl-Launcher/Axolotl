@@ -209,8 +209,8 @@ function commitSelection(javaVersion) {
 }
 
 watch(
-    () => props.modelValue?.path,
-    (newPath) => {
+    [() => props.modelValue?.path, () => props.version, () => props.selectAllVersions],
+    ([newPath]) => {
         if (newPath) {
             if (!hasInitialized) {
                 testJavaInstallation(newPath, testVersion.value, false)

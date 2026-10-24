@@ -17,7 +17,7 @@ use url::Url;
 
 const UPDATE_SERVER_LATEST_URL: &str = "https://update.axlmc.org/latest";
 const UPDATE_SERVER_API: &str = "https://update.axlmc.org/api/versions";
-const UPDATE_SERVER_BASE: &str = "https://update.axlmc.org/";
+const UPDATE_ARTIFACT_BASE: &str = "https://dist.axlmc.org/";
 
 // The updater plugin builds `Update` with no request timeout, so a stalled
 // connection would hang the download forever. Bound the whole download.
@@ -139,13 +139,7 @@ async fn fetch_apt_deb_asset(version: &str) -> Result<AptDebAsset> {
         )))
     })?;
 
-    let url =
-        Url::parse(&format!("{UPDATE_SERVER_BASE}{}", artifact.relative_path))
-            .map_err(|error| {
-                theseus::Error::from(theseus::ErrorKind::OtherError(
-                    error.to_string(),
-                ))
-            })?;
+    let url = update_artifact_url(&artifact.relative_path)?;
 
     Ok(AptDebAsset {
         url,
@@ -187,6 +181,31 @@ fn update_endpoint() -> Result<Url> {
         theseus::Error::from(theseus::ErrorKind::OtherError(error.to_string()))
             .into()
     })
+}
+
+fn update_artifact_url(relative_path: &str) -> Result<Url> {
+    let relative_path =
+        relative_path.strip_prefix('/').unwrap_or(relative_path);
+    if !relative_path.starts_with("dist/") {
+        return Err(
+            Error::Network("Invalid update artifact path".to_string()).into()
+        );
+    }
+    let base = Url::parse(UPDATE_ARTIFACT_BASE)
+        .map_err(|error| Error::Network(error.to_string()))?;
+    let url = base
+        .join(relative_path)
+        .map_err(|error| Error::Network(error.to_string()))?;
+    if url.origin() != base.origin()
+        || !url.path().starts_with("/dist/")
+        || url.query().is_some()
+        || url.fragment().is_some()
+    {
+        return Err(
+            Error::Network("Invalid update artifact path".to_string()).into()
+        );
+    }
+    Ok(url)
 }
 
 /// Build the platform-updater with the given endpoints and run a check.
@@ -252,6 +271,8 @@ async fn check_with_updater<R: Runtime>(
     // is verified with the catalog's sha256/size during the download.
     if is_apt_linux() {
         update.download_url = fetch_apt_deb_asset(&update.version).await?.url;
+    } else {
+        update.download_url = update_artifact_url(update.download_url.path())?;
     }
 
     let published_at = update
@@ -566,6 +587,65 @@ impl Drop for TempDebFile {
                 path = %self.0.display(),
                 error = %error,
                 "Failed to remove temporary deb file"
+            );
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{UPDATE_SERVER_API, update_artifact_url, update_endpoint};
+
+    #[test]
+    fn metadata_endpoints_stay_on_update_server() {
+        assert_eq!(
+            update_endpoint().unwrap().as_str(),
+            "https://update.axlmc.org/latest"
+        );
+        assert_eq!(UPDATE_SERVER_API, "https://update.axlmc.org/api/versions");
+    }
+
+    #[test]
+    fn relative_artifacts_use_the_distribution_origin() {
+        for path in [
+            "dist/1.10.0/Axolotl_amd64.deb",
+            "/dist/1.10.0/Axolotl_x64-setup.nsis.zip",
+        ] {
+            let url = update_artifact_url(path).unwrap();
+            assert_eq!(url.host_str(), Some("dist.axlmc.org"));
+            assert_eq!(url.scheme(), "https");
+            assert_eq!(
+                url.path().trim_start_matches('/'),
+                path.trim_start_matches('/')
+            );
+        }
+    }
+
+    #[test]
+    fn manifest_paths_keep_their_encoding_on_distribution() {
+        let manifest_url = url::Url::parse(
+            "https://update.axlmc.org/dist/1.10.0/Axolotl%20Launcher%25.zip",
+        )
+        .unwrap();
+        assert_eq!(
+            update_artifact_url(manifest_url.path()).unwrap().as_str(),
+            "https://dist.axlmc.org/dist/1.10.0/Axolotl%20Launcher%25.zip"
+        );
+    }
+
+    #[test]
+    fn artifact_paths_cannot_escape_distribution_or_add_url_parameters() {
+        for path in [
+            "https://example.com/dist/file.zip",
+            "//example.com/dist/file.zip",
+            "../file.zip",
+            "dist/../../file.zip",
+            "dist/1.10.0/file.zip?token=value",
+            "dist/1.10.0/file.zip#fragment",
+        ] {
+            assert!(
+                update_artifact_url(path).is_err(),
+                "accepted invalid path: {path}"
             );
         }
     }

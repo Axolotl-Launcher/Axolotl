@@ -6,8 +6,8 @@
 use std::time::Duration;
 
 /// Automatic file concurrency; the user-adjusted limits are retained.
-pub(crate) const AUTO_DOWNLOAD_CONCURRENCY_INITIAL: usize = 64;
-pub(crate) const AUTO_DOWNLOAD_CONCURRENCY_MAX: usize = 128;
+pub(crate) const AUTO_DOWNLOAD_CONCURRENCY_INITIAL: usize = 96;
+pub(crate) const AUTO_DOWNLOAD_CONCURRENCY_MAX: usize = 256;
 pub(crate) const AUTO_DOWNLOAD_CONCURRENCY_MIN: usize = 32;
 pub(crate) const AUTO_DOWNLOAD_CONCURRENCY_STEP: usize = 8;
 pub(crate) const AUTO_DOWNLOAD_EXPANSION_ERROR_RATE: f64 = 0.1;
@@ -68,14 +68,14 @@ pub(crate) const CONNECTION_GROWTH_FACTOR: usize = 2;
 pub(crate) const CONNECTION_STABILITY_WINDOW: Duration =
     Duration::from_millis(500);
 pub(crate) const INITIAL_CONNECTION_TARGET: usize = 4;
-pub(crate) const MAX_ASSET_H2_STREAMS_PER_AUTHORITY: usize = 24;
+pub(crate) const MAX_ASSET_H2_STREAMS_PER_AUTHORITY: usize = 32;
 pub(crate) const MAX_CONNECTIONS_PER_AUTHORITY: usize = 32;
 pub(crate) const MAX_CONNECTION_TARGET: usize = 64;
 pub(crate) const MAX_H2_STREAMS_PER_AUTHORITY: usize = 256;
 pub(crate) const MAX_PHYSICAL_DOWNLOAD_CONNECTIONS: usize = 256;
 
 /// HTTP/2 transport, receive flow control and asset batches.
-pub(crate) const ASSET_BATCH_CONCURRENCY: usize = 128;
+pub(crate) const ASSET_BATCH_CONCURRENCY: usize = 512;
 pub(crate) const ASSET_BATCH_RETRY_PASSES: usize = 3;
 pub(crate) const ASSET_RESOURCE_WAIT_TIMEOUT: Duration =
     Duration::from_secs(30);
@@ -100,7 +100,7 @@ pub(crate) const H2_LARGE_PREFERRED_SPEED_RATIO: f64 = 1.25;
 pub(crate) const H2_MEDIUM_FILE_LIMIT: u64 = 4 * 1024 * 1024;
 pub(crate) const H2_MIN_SUCCESS_SAMPLES: u32 = 2;
 pub(crate) const H2_PREFERRED_SPEED_RATIO: f64 = 1.1;
-pub(crate) const H2_RANGE_FILE_THRESHOLD: u64 = 4 * 1024 * 1024;
+pub(crate) const H2_RANGE_FILE_THRESHOLD: u64 = 2 * 1024 * 1024;
 pub(crate) const H2_RANGE_MAX_WORKERS: usize = 8;
 pub(crate) const H2_RANGE_RETRY_ATTEMPTS: usize = 4;
 pub(crate) const H2_RANGE_RETRY_DELAY_MS: u64 = 100;
@@ -166,7 +166,7 @@ pub(crate) const FILE_TRANSFER_FIRST_BYTE_TIMEOUT: Duration =
     Duration::from_secs(20);
 #[cfg(not(test))]
 pub(crate) const FILE_TRANSFER_READ_TIMEOUT: Duration = Duration::from_secs(60);
-pub(crate) const FILE_VALIDATION_CONCURRENCY: usize = 4;
+pub(crate) const FILE_VALIDATION_CONCURRENCY: usize = 8;
 pub(crate) const HTTPS_PORT: u16 = 443;
 #[cfg(not(test))]
 pub(crate) const JOB_PROBE_WINDOW: Duration = Duration::from_secs(5 * 60);

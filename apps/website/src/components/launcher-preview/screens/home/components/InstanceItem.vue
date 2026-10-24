@@ -135,11 +135,12 @@ const lastPlayedTooltip = computed(() => {
         <div
             class="smart-clickable:highlight-on-hover grid grid-cols-[auto_minmax(0,3fr)_minmax(0,4fr)_auto] items-center gap-2 rounded-lg"
             :class="[
-                flat ? 'px-2 py-2 hover:bg-surface-4' : 'card-shadow bg-surface-2 p-3',
+                flat ? 'hover:bg-surface-4' : 'card-shadow bg-surface-2',
+                dashboardDensity === 'compact' ? 'p-1.5' : flat ? 'p-2' : 'p-3',
                 {
-                    'instance-item-dashboard-compact grid grid-cols-[auto_minmax(0,1fr)_auto] gap-2 p-1.5':
+                    'instance-item-dashboard-compact grid grid-cols-[auto_minmax(0,1fr)_auto] gap-2':
                         dashboardDensity === 'compact',
-                    'instance-item-dashboard-comfortable p-2': dashboardDensity === 'comfortable',
+                    'instance-item-dashboard-comfortable': dashboardDensity === 'comfortable',
                 },
             ]"
         >
@@ -272,10 +273,12 @@ const lastPlayedTooltip = computed(() => {
 
 .instance-item-dashboard-compact > :nth-child(2) > :first-child > :first-child {
     font-size: 0.875rem;
+    line-height: 1.25rem;
 }
 
 .instance-item-dashboard-compact > :nth-child(2) > :last-child {
     font-size: 0.7rem;
+    line-height: 1rem;
 }
 
 .instance-item-dashboard-compact > :last-child {

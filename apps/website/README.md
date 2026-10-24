@@ -2,6 +2,23 @@
 
 The official website for Axolotl Launcher.
 
+## Download sources
+
+The browser reads release metadata only from
+`https://update.axlmc.org/api/downloads/latest?channel=release|beta`. Switching
+download sources keeps that catalog and its version tag, attachment names and
+relative paths; it only changes the generated file URLs. No Netlify Functions or
+GitHub/GitLink release-list requests are used.
+The Update Server download source serves files from
+`https://dist.axlmc.org/<relative_path>` while keeping metadata on Update Server.
+
+Sources are registered in `src/utils/download-sources.ts` with an identity,
+localized label and description, and an asset URL builder. The settings list and
+preference validation derive from that registry; its first entry is the
+recommended source used by Automatic. `use-launcher-downloads.ts` owns the single
+browser request, loading/error state, timeout and retry. Add a registry entry and
+its Chinese translations to introduce a new file source.
+
 ## Development
 
 From the repository root:
@@ -26,11 +43,11 @@ verified, and published. The job:
    that the released version appears in the prerendered changelog HTML.
 4. Saves the static output as a GitHub artifact and commits the generated release
    data to `main` with `[skip ci]`.
-5. Uploads `apps/website/.output/public` and `netlify/functions` directly to the
+5. Uploads `apps/website/.output/public` directly to the
    existing production site using pinned Netlify CLI with `--prod --no-build`.
 
-Netlify hosts the uploaded output without running a hosted build. Deployment,
-bandwidth, and Functions usage remain subject to the site's plan.
+Netlify hosts the uploaded output without running a hosted build. Deployment
+and bandwidth remain subject to the site's plan.
 
 ### One-time setup
 
@@ -43,8 +60,7 @@ bandwidth, and Functions usage remain subject to the site's plan.
 - Ensure repository branch rules permit the release workflow's `GITHUB_TOKEN`
   to push generated release data to `main`.
 - Any website build-time environment variables previously configured only in
-  Netlify must also be provided to the GitHub build step. Runtime Functions
-  variables stay configured on Netlify.
+  Netlify must also be provided to the GitHub build step.
 
 Push these workflow changes before creating the next release tag. No credentials
 belong in source control. A missing secret or failed website build fails the

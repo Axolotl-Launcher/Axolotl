@@ -564,21 +564,54 @@ pub async fn get_loader_version_from_profile_with_cache(
             .await;
     }
 
-    let versions =
-        crate::api::metadata::get_loader_versions_for_game_with_cache(
-            loader.as_meta_str(),
-            game_version,
-            cache_behaviour,
-        )
-        .await?;
+    resolve_loader_version_with_refresh(
+        game_version,
+        loader_version,
+        cache_behaviour,
+        |behaviour| {
+            crate::api::metadata::get_loader_versions_for_game_with_cache(
+                loader.as_meta_str(),
+                game_version,
+                behaviour,
+            )
+        },
+    )
+    .await
+}
 
-    if let Some(loaders) =
-        loader_versions_for_game_version(&versions, game_version)
-    {
-        Ok(select_loader_version(loaders, loader_version).cloned())
-    } else {
-        Ok(None)
+async fn resolve_loader_version_with_refresh<F, Fut>(
+    game_version: &str,
+    requested: Option<&str>,
+    cache_behaviour: Option<CacheBehaviour>,
+    mut fetch: F,
+) -> crate::Result<Option<LoaderVersion>>
+where
+    F: FnMut(Option<CacheBehaviour>) -> Fut,
+    Fut: std::future::Future<Output = crate::Result<Manifest>>,
+{
+    let select = |manifest: &Manifest| {
+        loader_versions_for_game_version(manifest, game_version)
+            .and_then(|loaders| select_loader_version(loaders, requested))
+            .cloned()
+    };
+    let manifest = fetch(cache_behaviour).await?;
+    if let Some(version) = select(&manifest) {
+        return Ok(Some(version));
     }
+    if matches!(
+        cache_behaviour,
+        Some(CacheBehaviour::CacheOnly | CacheBehaviour::Bypass)
+    ) {
+        return Ok(None);
+    }
+
+    tracing::info!(
+        game_version,
+        requested,
+        "Loader version missing from catalog; forcing metadata refresh"
+    );
+    let refreshed = fetch(Some(CacheBehaviour::Bypass)).await?;
+    Ok(select(&refreshed))
 }
 
 fn select_loader_version<'a>(
@@ -648,10 +681,18 @@ fn loader_versions_for_game_version<'a>(
     manifest: &'a Manifest,
     game_version: &str,
 ) -> Option<&'a [LoaderVersion]> {
-    let version = manifest.game_versions.iter().find(|x| {
-        x.id.replace(daedalus::modded::DUMMY_REPLACE_STRING, game_version)
-            == game_version
-    })?;
+    let version = manifest
+        .game_versions
+        .iter()
+        .find(|version| version.id == game_version)
+        .or_else(|| {
+            manifest.game_versions.iter().find(|version| {
+                version.id.replace(
+                    daedalus::modded::DUMMY_REPLACE_STRING,
+                    game_version,
+                ) == game_version
+            })
+        })?;
 
     if let Some(version_group) = &version.version_group {
         manifest
@@ -2121,6 +2162,12 @@ pub async fn launch_minecraft(
         };
 
         if metadata_loader != ModLoader::Vanilla && loader_version.is_none() {
+            missing_loader_version_fallback(
+                metadata_loader,
+                &content_set.game_version,
+                content_set.loader_version.as_deref(),
+            )
+            .map_err(crate::ErrorKind::LauncherError)?;
             return Err(crate::ErrorKind::LauncherError(format!(
                 "No loader version selected for {}",
                 content_set.loader.as_str()
@@ -3021,6 +3068,129 @@ mod loader_resolution_tests {
             profile_source: Default::default(),
             fallback_url: None,
         }
+    }
+
+    fn forge_manifest(ids: &[&str]) -> Manifest {
+        Manifest {
+            game_versions: vec![d::modded::Version {
+                id: "1.20.1".into(),
+                stable: true,
+                version_group: None,
+                loaders: ids
+                    .iter()
+                    .map(|id| loader_version(id, false))
+                    .collect(),
+            }],
+            version_groups: vec![],
+        }
+    }
+
+    #[tokio::test]
+    async fn missing_exact_loader_refreshes_once_and_keeps_requested_version() {
+        let mut calls = vec![];
+        let selected = resolve_loader_version_with_refresh(
+            "1.20.1",
+            Some("47.4.28"),
+            None,
+            |behaviour| {
+                calls.push(behaviour);
+                let manifest = if behaviour == Some(CacheBehaviour::Bypass) {
+                    forge_manifest(&["47.4.29", "47.4.28", "47.4.22"])
+                } else {
+                    forge_manifest(&["47.4.22"])
+                };
+                std::future::ready(Ok(manifest))
+            },
+        )
+        .await
+        .unwrap()
+        .unwrap();
+        assert_eq!(selected.id, "47.4.28");
+        assert_eq!(calls, [None, Some(CacheBehaviour::Bypass)]);
+    }
+
+    #[tokio::test]
+    async fn loader_refresh_respects_offline_mode_and_stops_on_missing_version()
+    {
+        for (behaviour, count) in [
+            (None, 2),
+            (Some(CacheBehaviour::CacheOnly), 1),
+            (Some(CacheBehaviour::Bypass), 1),
+        ] {
+            let mut calls = 0;
+            let result = resolve_loader_version_with_refresh(
+                "1.20.1",
+                Some("47.4.28"),
+                behaviour,
+                |_| {
+                    calls += 1;
+                    std::future::ready(Ok(forge_manifest(&["47.4.22"])))
+                },
+            )
+            .await
+            .unwrap();
+            assert!(result.is_none());
+            assert_eq!(calls, count);
+        }
+    }
+
+    #[tokio::test]
+    async fn matching_loader_does_not_refresh_and_refresh_errors_are_preserved()
+    {
+        let mut calls = 0;
+        let result = resolve_loader_version_with_refresh(
+            "1.20.1",
+            Some("47.4.28"),
+            None,
+            |_| {
+                calls += 1;
+                std::future::ready(Ok(forge_manifest(&["47.4.28"])))
+            },
+        )
+        .await
+        .unwrap();
+        assert!(result.is_some());
+        assert_eq!(calls, 1);
+
+        let result = resolve_loader_version_with_refresh(
+            "1.20.1",
+            Some("47.4.28"),
+            None,
+            |behaviour| {
+                std::future::ready(
+                    if behaviour == Some(CacheBehaviour::Bypass) {
+                        Err(crate::ErrorKind::OtherError(
+                            "metadata unavailable".into(),
+                        )
+                        .as_error())
+                    } else {
+                        Ok(forge_manifest(&[]))
+                    },
+                )
+            },
+        )
+        .await;
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("metadata unavailable")
+        );
+    }
+
+    #[test]
+    fn exact_game_version_precedes_generic_manifest_entry() {
+        let mut manifest = forge_manifest(&["47.4.28"]);
+        let mut generic = manifest.game_versions[0].clone();
+        generic.id = d::modded::DUMMY_REPLACE_STRING.into();
+        generic.loaders = vec![loader_version("47.4.22", false)];
+        manifest.game_versions.insert(0, generic);
+        let loaders =
+            loader_versions_for_game_version(&manifest, "1.20.1").unwrap();
+        assert_eq!(
+            select_loader_version(loaders, Some("47.4.28")).unwrap().id,
+            "47.4.28"
+        );
     }
 
     #[test]

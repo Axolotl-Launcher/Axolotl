@@ -102,6 +102,41 @@ it('keeps remainOnClick actions open and prevents disabled activation', async ()
     await waitFor(() => document.activeElement === trigger)
 })
 
+it('sizes instance actions to the longest label rather than the combined row widths', async () => {
+    await menu([
+        { id: '打开文件夹', action: vi.fn() },
+        { id: '导出整合包', action: vi.fn() },
+        { id: '创建快捷方式', action: vi.fn() },
+        { id: '升级实例', action: vi.fn() },
+    ])
+    const surface = document.querySelector<HTMLElement>('[role="menu"]')!
+    const items = [...surface.querySelectorAll<HTMLElement>('[role="menuitem"]')]
+    const horizontalChrome = (element: HTMLElement) => {
+        const style = getComputedStyle(element)
+        return (
+            parseFloat(style.paddingLeft) +
+            parseFloat(style.paddingRight) +
+            parseFloat(style.borderLeftWidth) +
+            parseFloat(style.borderRightWidth)
+        )
+    }
+    const longestItem = Math.max(
+        ...items.map((item) => {
+            const range = document.createRange()
+            range.selectNodeContents(item)
+            return range.getBoundingClientRect().width + horizontalChrome(item)
+        }),
+    )
+    expect(surface.getBoundingClientRect().width).toBeLessThanOrEqual(
+        longestItem + horizontalChrome(surface) + 2,
+    )
+    for (let index = 1; index < items.length; index++) {
+        expect(items[index].getBoundingClientRect().top).toBeGreaterThanOrEqual(
+            items[index - 1].getBoundingClientRect().bottom,
+        )
+    }
+})
+
 it('preserves external link and download attributes, and restores focus on Escape', async () => {
     const { trigger } = await menu([
         {

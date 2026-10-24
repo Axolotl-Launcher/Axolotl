@@ -42,11 +42,7 @@ const emit = defineEmits<{
     updated: [instance: GameInstance]
 }>()
 
-/**
- * Server-project links, as in the app. The app also asks Modrinth whether a
- * linked project has a `minecraft_server` record; the preview's project
- * snapshots carry none, so that check never adds one.
- */
+/** Snapshot server instances carry explicit server-project links. */
 const isMinecraftServer = ref(false)
 watch(
     () => props.instance,

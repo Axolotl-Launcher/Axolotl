@@ -28,6 +28,7 @@ declare module 'vue-router' {
         useContext?: boolean
         useRootContext?: boolean
         renderMode?: 'fixed'
+        upgradeRequirement?: 'plan' | 'unblocked-plan' | 'selection' | 'job' | 'result'
     }
 }
 
@@ -300,6 +301,41 @@ export function createPreviewRoutes(screens: PreviewScreens): RouteRecordRaw[] {
                     { name: 'Studio' },
                 ]),
                 tab('logs', 'Logs', 'InstanceLogs', [{ name: 'Logs' }]),
+                ...(screens.InstanceUpgrade
+                    ? [
+                          {
+                              path: 'upgrade',
+                              component: screens.InstanceUpgrade,
+                              meta: {
+                                  useRootContext: true,
+                                  breadcrumb: [{ name: 'Upgrade instance' }],
+                              },
+                              children: [
+                                  ['', 'InstanceUpgradeSelect', undefined],
+                                  ['compatibility', 'InstanceUpgradeCompatibility', 'plan'],
+                                  ['customize', 'InstanceUpgradeCustomize', 'unblocked-plan'],
+                                  ['confirm', 'InstanceUpgradeConfirm', 'selection'],
+                                  ['progress', 'InstanceUpgradeProgress', 'job'],
+                                  ['result', 'InstanceUpgradeResult', 'result'],
+                              ].flatMap(([path, name, requirement]) =>
+                                  name && screens[name]
+                                      ? [
+                                            {
+                                                path,
+                                                name,
+                                                component: screens[name],
+                                                meta: {
+                                                    useRootContext: true,
+                                                    breadcrumb: [{ name: 'Upgrade instance' }],
+                                                    upgradeRequirement: requirement,
+                                                },
+                                            },
+                                        ]
+                                      : [],
+                              ),
+                          } as RouteRecordRaw,
+                      ]
+                    : []),
             ].filter((record): record is RouteRecordRaw => record !== null),
         } as RouteRecordRaw)
     }

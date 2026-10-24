@@ -47,7 +47,7 @@ pub(crate) async fn get_local_content_snapshot(
     instance_id: &str,
     state: &State,
 ) -> crate::Result<InstanceContentSnapshot> {
-    get_content_snapshot_inner(instance_id, false, false, false, state).await
+    get_content_snapshot_inner(instance_id, false, true, false, state).await
 }
 
 async fn get_content_snapshot_inner(
@@ -85,13 +85,24 @@ async fn get_content_snapshot_inner(
             && instance.is_direct_linked()
             && cached_files.is_empty())
     {
-        crate::resources::installed::refresh_snapshot(
-            state,
-            instance_id,
-            &tokio_util::sync::CancellationToken::new(),
-        )
-        .await
-        .map_err(|error| crate::ErrorKind::OtherError(error.to_string()))?;
+        let cancel = tokio_util::sync::CancellationToken::new();
+        let refreshed = if refresh_remote {
+            crate::resources::installed::refresh_snapshot(
+                state,
+                instance_id,
+                &cancel,
+            )
+            .await
+        } else {
+            crate::resources::installed::refresh_install_snapshot(
+                state,
+                instance_id,
+                &cancel,
+            )
+            .await
+        };
+        refreshed
+            .map_err(|error| crate::ErrorKind::OtherError(error.to_string()))?;
         content_rows::get_instance_files(&instance.id, &state.pool).await?
     } else {
         cached_files

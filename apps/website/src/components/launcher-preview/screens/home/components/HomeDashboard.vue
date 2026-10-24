@@ -69,7 +69,7 @@ const emit = defineEmits<{
 }>()
 
 const { formatMessage } = useVIntl()
-const { layer, scale, toLocal } = injectPreviewWindow()
+const { layer, scale, toLocal, deferReady } = injectPreviewWindow()
 const messages = homeMessages
 
 const editing = computed(() => props.editing)
@@ -83,6 +83,31 @@ const dragging = ref(false)
 const draggableWidgets = ref<HomeWidgetPlacement[]>([])
 const previewPositions = ref<Record<string, HomeWidgetPosition>>({})
 const width = ref(0)
+const mountedWidgetCount = ref(0)
+const finishInitialMount = deferReady()
+let widgetMountFrame = 0
+let widgetsMounted = false
+
+function mountNextWidget() {
+    if (width.value <= 0 || widgetsMounted) return
+    mountedWidgetCount.value += 1
+    if (mountedWidgetCount.value < props.config.widgets.length) {
+        widgetMountFrame = requestAnimationFrame(mountNextWidget)
+    } else {
+        widgetsMounted = true
+        mountedWidgetCount.value = Number.POSITIVE_INFINITY
+        void nextTick(finishInitialMount)
+    }
+}
+
+watch(
+    () => width.value > 0,
+    (hasWidth) => {
+        if (!hasWidth || widgetsMounted) return
+        cancelAnimationFrame(widgetMountFrame)
+        widgetMountFrame = requestAnimationFrame(mountNextWidget)
+    },
+)
 const columnCount = computed(() => getHomeGridColumnCount(width.value))
 const widgetsForPacking = computed(() =>
     editing.value ? draggableWidgets.value : props.config.widgets,
@@ -124,13 +149,14 @@ let gridDrag: {
 let resizeObserver: ResizeObserver | null = null
 onMounted(() => {
     if (!gridContainer.value) return
-    width.value = gridContainer.value.clientWidth
     resizeObserver = new ResizeObserver(([entry]) => {
         width.value = entry.contentRect.width
     })
     resizeObserver.observe(gridContainer.value)
 })
 onBeforeUnmount(() => {
+    cancelAnimationFrame(widgetMountFrame)
+    finishInitialMount()
     resizeObserver?.disconnect()
     endGridDrag()
 })
@@ -734,9 +760,10 @@ defineExpose({ openWidgetPicker, setLayout })
         :player-name="playerName"
         @save="saveGreetingSettings"
     />
-    <section class="home-dashboard p-6 pb-20" :class="{ 'is-dragging': dragging }">
+    <section class="home-dashboard p-6" :class="{ 'is-dragging': dragging, 'pb-20': editing }">
         <div ref="gridContainer" class="mx-auto w-full max-w-[96rem]">
             <div
+                v-if="width > 0"
                 ref="gridElement"
                 class="home-dashboard-grid"
                 :class="{
@@ -824,7 +851,10 @@ defineExpose({ openWidgetPicker, setLayout })
                             </OverflowMenu>
                         </div>
                     </div>
-                    <div class="home-widget-content min-h-0 min-w-0 flex-1 overflow-hidden p-4">
+                    <div
+                        v-if="index < mountedWidgetCount"
+                        class="home-widget-content min-h-0 min-w-0 flex-1 overflow-hidden p-4"
+                    >
                         <HomeGreeting
                             v-if="widget.kind === 'greeting'"
                             :player-name="playerName"

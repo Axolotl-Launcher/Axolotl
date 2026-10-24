@@ -111,7 +111,7 @@ pub async fn update_instance_upgrade_resolution(
     let handle = stored_plan_handle(plan_id)?;
     let mut stored = handle.lock().await;
     let source = ensure_current_revision(&mut stored, &state).await?;
-    tracing::warn!(
+    tracing::debug!(
         elapsed_ms = started_at.elapsed().as_millis(),
         "[upgrade-plan-bench] update-resolution source validation"
     );
@@ -136,7 +136,7 @@ pub async fn update_instance_upgrade_resolution(
         &state,
     )
     .await?;
-    tracing::warn!(
+    tracing::debug!(
         elapsed_ms = started_at.elapsed().as_millis(),
         "[upgrade-plan-bench] update-resolution complete"
     );

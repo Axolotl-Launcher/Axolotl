@@ -1,25 +1,29 @@
-export type ReleaseChannel = 'release' | 'beta'
+import {
+    type DownloadSourceId,
+    getDownloadSource,
+    GITHUB_RELEASES_BASE_URL,
+    type LauncherRelease,
+    type ReleaseChannel,
+} from './download-sources.ts'
+
 export type DownloadStatus = 'idle' | 'pending' | 'success' | 'error'
-export interface LauncherRelease {
-    tag_name: string
-    assets: string[]
+
+export function hasLauncherDownloads(release: LauncherRelease | null | undefined) {
+    return Object.values(resolveLauncherDownloads(release, 'update-server')).some(Boolean)
 }
 
 export function resolveLauncherDownloads(
     release: LauncherRelease | null | undefined,
-    source: 'update-server' | 'github',
+    source: DownloadSourceId,
 ) {
+    const definition = getDownloadSource(source)
     function findAsset(patterns: RegExp[]) {
         if (!release) return null
-        const filename = patterns
-            .map((pattern) => release.assets.find((name) => pattern.test(name)))
+        const asset = patterns
+            .map((pattern) => release.assets.find((candidate) => pattern.test(candidate.name)))
             .find(Boolean)
-        if (!filename) return null
-        const tag = encodeURIComponent(release.tag_name)
-        const version = encodeURIComponent(release.tag_name.replace(/^v/, ''))
-        return source === 'update-server'
-            ? `https://update.axlmc.org/dist/${version}/${encodeURIComponent(filename)}`
-            : `https://github.com/Mystic-Stars/Axolotl/releases/download/${tag}/${encodeURIComponent(filename)}`
+        if (!asset) return null
+        return definition.assetUrl(release, asset)
     }
 
     return {
@@ -38,7 +42,7 @@ export function getDownloadAvailability(status: DownloadStatus, link: string | n
 }
 
 export function getReleasePage(channel: ReleaseChannel, release?: LauncherRelease | null) {
-    const base = 'https://github.com/Mystic-Stars/Axolotl/releases'
+    const base = GITHUB_RELEASES_BASE_URL
     if (release?.tag_name) return `${base}/tag/${encodeURIComponent(release.tag_name)}`
     return channel === 'release' ? `${base}/latest` : base
 }

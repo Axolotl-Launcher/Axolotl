@@ -2,15 +2,20 @@
 import { DownloadIcon, LanguagesIcon, PaintbrushIcon } from '@modrinth/assets'
 import SettingsIcon from '@modrinth/assets/icons/settings.svg?component'
 import XIcon from '@modrinth/assets/icons/x.svg?component'
-import Button from '@modrinth/ui/src/components/base/buttons/Button.vue'
-import Combobox from '@modrinth/ui/src/components/base/Combobox.vue'
-import Toggle from '@modrinth/ui/src/components/base/Toggle.vue'
-import LanguageSelector from '@modrinth/ui/src/components/settings/LanguageSelector.vue'
-import ThemeSelector from '@modrinth/ui/src/components/settings/ThemeSelector.vue'
-import { defineMessages, LOCALES, useVIntl } from '@modrinth/ui/src/composables/i18n.ts'
-import { injectI18n } from '@modrinth/ui/src/providers/i18n.ts'
+import {
+    Button,
+    Combobox,
+    defineMessages,
+    injectI18n,
+    LanguageSelector,
+    LOCALES,
+    ThemeSelector,
+    Toggle,
+    useVIntl,
+} from '@modrinth/ui'
 
-import { type DownloadSource, useDownloadSource } from '~/composables/use-download-source'
+import { useDownloadSource } from '~/composables/use-download-source'
+import { type DownloadSource, downloadSources } from '~/utils/download-sources'
 
 type Theme = 'system' | 'light' | 'dark' | 'oled'
 type SettingsTab = 'appearance' | 'downloads' | 'language'
@@ -54,8 +59,7 @@ const messages = defineMessages({
     },
     downloadSourceDescription: {
         id: 'axolotl-settings.download-source.description',
-        defaultMessage:
-            'Automatic selection uses the Update Server, with GitHub available as a backup.',
+        defaultMessage: 'Choose a download source. If a download fails, try another.',
     },
     downloadSourceAuto: {
         id: 'axolotl-settings.download-source.auto',
@@ -63,23 +67,7 @@ const messages = defineMessages({
     },
     downloadSourceAutoDescription: {
         id: 'axolotl-settings.download-source.auto.description',
-        defaultMessage: 'Choose a source from your browser language and timezone.',
-    },
-    downloadSourceUpdateServer: {
-        id: 'axolotl-settings.download-source.update-server',
-        defaultMessage: 'Update Server',
-    },
-    downloadSourceUpdateServerDescription: {
-        id: 'axolotl-settings.download-source.update-server.description',
-        defaultMessage: 'Download through the official Axolotl update service.',
-    },
-    downloadSourceGithub: {
-        id: 'axolotl-settings.download-source.github',
-        defaultMessage: 'GitHub',
-    },
-    downloadSourceGithubDescription: {
-        id: 'axolotl-settings.download-source.github.description',
-        defaultMessage: 'Download from the official GitHub release.',
+        defaultMessage: 'Use the recommended download source.',
     },
     currentDownloadSource: {
         id: 'axolotl-settings.download-source.current',
@@ -130,23 +118,14 @@ const downloadSourceOptions = computed<
         label: formatMessage(messages.downloadSourceAuto),
         subLabel: formatMessage(messages.downloadSourceAutoDescription),
     },
-    {
-        value: 'update-server',
-        label: formatMessage(messages.downloadSourceUpdateServer),
-        subLabel: formatMessage(messages.downloadSourceUpdateServerDescription),
-    },
-    {
-        value: 'github',
-        label: formatMessage(messages.downloadSourceGithub),
-        subLabel: formatMessage(messages.downloadSourceGithubDescription),
-    },
+    ...downloadSources.map((source) => ({
+        value: source.id,
+        label: formatMessage(source.label),
+        subLabel: formatMessage(source.description),
+    })),
 ])
 
-const resolvedDownloadSourceLabel = computed(() => {
-    if (resolvedSource.value === 'update-server')
-        return formatMessage(messages.downloadSourceUpdateServer)
-    return formatMessage(messages.downloadSourceGithub)
-})
+const resolvedDownloadSourceLabel = computed(() => formatMessage(resolvedSource.value.label))
 
 let systemThemeQuery: MediaQueryList | undefined
 

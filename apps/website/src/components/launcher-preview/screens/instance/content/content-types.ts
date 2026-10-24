@@ -35,5 +35,5 @@ export function compatibleVersions(
             return version.loaders.includes('datapack') || version.loaders.includes(instance.loader)
         return version.loaders.includes(instance.loader)
     })
-    return matches.length ? matches : versions.slice(0, 1)
+    return matches
 }

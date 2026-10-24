@@ -123,8 +123,11 @@ async fn sync_instance_content_files_with_verification(
     } else {
         instance.path.clone()
     };
-    let scanned =
-        filesystem::scan_content_files_from(&content_root, &cache_key_path)?;
+    let scan_root = content_root.clone();
+    let scanned = tokio::task::spawn_blocking(move || {
+        filesystem::scan_content_files_from(&scan_root, &cache_key_path)
+    })
+    .await??;
     let scanned_paths = scanned
         .iter()
         .map(|file| file.relative_path.clone())

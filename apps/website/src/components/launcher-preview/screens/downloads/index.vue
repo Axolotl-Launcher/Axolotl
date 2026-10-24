@@ -28,10 +28,11 @@ import type { TableColumn } from '@modrinth/ui/src/components/base/Table.vue'
 import Table from '@modrinth/ui/src/components/base/Table.vue'
 import TagItem from '@modrinth/ui/src/components/base/TagItem.vue'
 import { useFormatBytes } from '@modrinth/ui/src/composables/format-bytes.ts'
-import { useVIntl } from '@modrinth/ui/src/composables/i18n.ts'
+import { defineMessages, useVIntl } from '@modrinth/ui/src/composables/i18n.ts'
 import { computed, nextTick, onScopeDispose, ref, shallowRef, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
+import { registerPreviewMessages } from '../../lib/i18n'
 import PreviewConfirmModal from '../../overlays/PreviewConfirmModal.vue'
 import PreviewModal from '../../overlays/PreviewModal.vue'
 import {
@@ -55,7 +56,15 @@ import { type DownloadItem, type DownloadJob, type JobProvider, useDownloadJobs 
  * loading bars, CurseForge manual downloads and content-change jobs do not
  * occur in the preview, so their branches are left out.
  */
-const { preview, domain, localJobs, jobs, activeJobs, historyJobs } = useDownloadJobs()
+const { preview, domain, localJobs, upgradeJobs, jobs, activeJobs, historyJobs } = useDownloadJobs()
+const upgradeMessages = defineMessages({
+    type: { id: 'preview.downloads.upgrade', defaultMessage: 'Instance upgrade' },
+    result: { id: 'preview.downloads.upgrade-result', defaultMessage: 'View upgrade result' },
+})
+registerPreviewMessages('zh-CN', {
+    'preview.downloads.upgrade': '实例升级',
+    'preview.downloads.upgrade-result': '查看升级结果',
+})
 const instanceNames = computed(
     () =>
         new Map(preview.instances.instances.value.map((instance) => [instance.id, instance.name])),
@@ -252,6 +261,7 @@ function providerIcon(value: JobProvider) {
 }
 
 function jobTypeLabel(job: DownloadJob) {
+    if (job.kind === 'upgrade_unmanaged_instance') return formatMessage(upgradeMessages.type)
     return providerLabel(job.provider)
 }
 
@@ -510,6 +520,10 @@ function cancelContentJob(jobId: string) {
 }
 
 async function cancel(job: DownloadJob) {
+    if (job.kind === 'upgrade_unmanaged_instance') {
+        upgradeJobs.value?.cancel(job.job_id)
+        return
+    }
     await withBusy(job.job_id, () =>
         job.kind === 'install_content'
             ? cancelContentJob(job.job_id)
@@ -538,6 +552,11 @@ function retryContentJob(jobId: string) {
 }
 
 async function retry(job: DownloadJob) {
+    if (job.kind === 'upgrade_unmanaged_instance' && job.upgradeSourceInstanceId) {
+        upgradeJobs.value?.flows.delete(job.upgradeSourceInstanceId)
+        await router.push(`/instance/${encodeURIComponent(job.upgradeSourceInstanceId)}/upgrade`)
+        return
+    }
     await withBusy(job.job_id, () =>
         job.kind === 'install_content' ? retryContentJob(job.job_id) : localJobs.retry(job.job_id),
     )
@@ -549,6 +568,8 @@ async function remove(job: DownloadJob) {
             preview.downloads.history.value = preview.downloads.history.value.filter(
                 (entry) => entry.id !== job.job_id,
             )
+        } else if (job.kind === 'upgrade_unmanaged_instance') {
+            upgradeJobs.value?.jobs.delete(job.job_id)
         } else {
             localJobs.remove(job.job_id)
         }
@@ -598,6 +619,9 @@ function clearHistory() {
         canceling.has(job.id),
     )
     localJobs.clearHistory()
+    for (const job of upgradeJobs.value?.jobs.values() ?? []) {
+        if (job.status !== 'running') upgradeJobs.value?.jobs.delete(job.job_id)
+    }
 }
 </script>
 
@@ -749,6 +773,23 @@ function clearHistory() {
                         </div>
                     </div>
                     <div class="flex flex-wrap items-center gap-2">
+                        <Button
+                            v-if="
+                                job.upgradeComplete &&
+                                job.upgradeSourceInstanceId &&
+                                !job.instance_deleted
+                            "
+                            type="colored"
+                            color="brand"
+                            size="2xs"
+                            @click="
+                                router.push({
+                                    path: `/instance/${encodeURIComponent(job.upgradeSourceInstanceId)}/upgrade/result`,
+                                    query: { job: job.job_id },
+                                })
+                            "
+                            ><CheckCircleIcon />{{ formatMessage(upgradeMessages.result) }}
+                        </Button>
                         <Button
                             v-if="canCancel(job)"
                             type="outlined"

@@ -123,6 +123,19 @@ function defaultInstances(): GameInstance[] {
             41 * MINUTE,
             150 * DAY,
         ),
+        // Identity and recommended client version: data/project/s8kML22l.json.
+        instance(
+            'hoplite',
+            'Hoplite',
+            'vanilla',
+            null,
+            '1.21.11',
+            projectIcon('s8kML22l'),
+            20 * DAY,
+            0,
+            21 * DAY,
+            { link: { type: 'server_project', project_id: 's8kML22l' }, last_played: undefined },
+        ),
     ]
 }
 

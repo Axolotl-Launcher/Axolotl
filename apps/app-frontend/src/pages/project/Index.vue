@@ -76,7 +76,7 @@
         <div class="flex flex-col gap-4 p-6">
             <div
                 v-if="projectInstallContext && projectInstallContext.showInstallHeader !== false"
-                class="sticky top-0 z-20 -mx-6 -mt-6 rounded-tl-[--radius-xl] border-0 border-b border-solid bg-surface-1 p-3 border-surface-5"
+                class="sticky top-0 z-20 -mx-6 -mt-6 rounded-tl-[--radius-xl] border-0 border-b border-solid border-surface-5 bg-[color-mix(in_srgb,var(--surface-1-opaque,var(--surface-1))_20%,transparent)] p-3 backdrop-blur-xl"
             >
                 <BrowseInstallHeader :install-context="projectInstallContext" />
             </div>
@@ -365,15 +365,19 @@
                         },
                     ]"
                 />
+                <ProjectPageSkeleton
+                    v-if="versionsLoading && (onVersionsPage || route.params.version)"
+                    variant="versions"
+                />
                 <RouterView
-                    v-if="route.path.startsWith('/project')"
+                    v-else-if="route.path.startsWith('/project')"
                     :project="data"
                     :versions="versions"
                     :members="members"
                     :instance="instance"
                     :install="install"
                     :installed="installed"
-                    :installing="installing"
+                    :installing="installing || instanceContextLoading"
                     :installed-version="installedVersion"
                     :translation-active="translationActive"
                     :translations="translations"
@@ -524,7 +528,7 @@ import { retiredDownloadMessage } from '@/helpers/download-url-messages'
 import { process_listener } from '@/helpers/events'
 import {
     get as getInstance,
-    get_projects as getInstanceProjects,
+    get_content_snapshot,
     kill,
     list as listInstances,
 } from '@/helpers/instance'
@@ -533,7 +537,7 @@ import { get_loader_versions as getLoaderManifest } from '@/helpers/metadata'
 import { get_by_instance_id } from '@/helpers/process'
 import { projectGalleryTranslationSegments } from '@/helpers/project-gallery'
 import { createProjectBrowseLocation } from '@/helpers/project-links'
-import { get_categories, get_game_versions, get_loaders } from '@/helpers/tags'
+import { get_game_versions, get_loaders } from '@/helpers/tags'
 import {
     autoTranslateHintMessages,
     getTranslationErrorKind,
@@ -694,10 +698,10 @@ const data = shallowRef(null)
 const mcmodUrl = ref(null)
 const versions = shallowRef([])
 const members = shallowRef([])
-const categories = shallowRef([])
 const organization = shallowRef(null)
 const instance = ref(null)
-const instanceProjects = ref(null)
+const versionsLoading = ref(false)
+const instanceContextLoading = ref(false)
 
 const favoriteSupported = computed(() => isFavoriteContentType(data.value?.project_type ?? ''))
 const favoritePending = computed(() =>
@@ -787,7 +791,7 @@ const translationStyle = ref('weakened')
 let translationRequestVersion = 0
 
 serverInstallContent.watchServerContextChanges()
-const serverContextReady = serverInstallContent.initServerContext().catch(handleError)
+void serverInstallContent.initServerContext().catch(handleError)
 
 const instanceFilters = computed(() => {
     if (!instance.value) {
@@ -880,9 +884,10 @@ const cartProjectSelected = computed(
     () => !!cartProjectKey.value && contentSelection.isSelected(cartProjectKey.value),
 )
 
-async function syncContentSelectionTarget() {
+async function syncContentSelectionTarget(isCurrent = () => true) {
     if (!fromBrowse.value && !route.query.i) return
     await contentSelection.refreshInstances(instance.value?.id ?? null)
+    if (!isCurrent()) return
     await contentSelection.refreshInstalledIdentities()
 }
 
@@ -969,6 +974,8 @@ const serverProjectInstalled = computed(
 const installButtonLoading = computed(
     () =>
         installing.value ||
+        versionsLoading.value ||
+        instanceContextLoading.value ||
         serverInstallContent.isInstallingQueuedServerInstalls.value ||
         (cartProjectKey.value ? contentSelection.isInstalling(cartProjectKey.value) : false),
 )
@@ -1050,13 +1057,12 @@ function goToVersions() {
 
 const allLoaders = ref([])
 const allGameVersions = ref([])
-const tagsReady = Promise.all([
-    get_loaders().catch(handleError),
-    get_game_versions().catch(handleError),
-]).then(([loaders, gameVersions]) => {
-    allLoaders.value = loaders ?? []
-    allGameVersions.value = gameVersions ?? []
-})
+void Promise.all([get_loaders().catch(handleError), get_game_versions().catch(handleError)]).then(
+    ([loaders, gameVersions]) => {
+        allLoaders.value = loaders ?? []
+        allGameVersions.value = gameVersions ?? []
+    },
+)
 
 async function handleClickPlay() {
     if (!isServerProject.value) return
@@ -1118,52 +1124,92 @@ async function fetchProjectData() {
     void resolveMcmodUrl(project.slug, 'modrinth').then((url) => {
         if (isCurrent()) mcmodUrl.value = url
     })
-    const relatedData = await Promise.all([
-        get_version_many(project.versions, 'must_revalidate').catch(handleError),
-        get_team(project.team).catch(handleError),
-        get_categories().catch(handleError),
-        requestedInstanceId
-            ? getInstance(requestedInstanceId).catch(handleError)
-            : Promise.resolve(),
-        requestedInstanceId
-            ? getInstanceProjects(requestedInstanceId).catch(handleError)
-            : Promise.resolve(),
-    ])
-    if (!isCurrent()) return
-    ;[versions.value, members.value, categories.value, instance.value, instanceProjects.value] =
-        relatedData.map((value, index) => (index < 3 ? (value ?? []) : value))
-
-    versions.value = versions.value.sort(
-        (a, b) => dayjs(b.date_published) - dayjs(a.date_published),
-    )
-
-    if (instanceProjects.value) {
-        const installedFile = Object.values(instanceProjects.value).find((x) =>
-            x.provider_refs.some(
-                (reference) =>
-                    reference.provider === 'modrinth' &&
-                    String(reference.project_id) === data.value.id,
-            ),
-        )
-        if (installedFile) {
-            installed.value = true
-            installedVersion.value = installedFile.modrinth?.version_id ?? null
-        }
-    }
-    if (project.organization) {
-        const projectOrganization = await get_organization(project.organization).catch(handleError)
-        if (!isCurrent()) return
-        organization.value = projectOrganization
-    }
-
     isServerProject.value = projectV3.value?.minecraft_server != null
     serverStatusOnline.value = !!projectV3.value?.minecraft_java_server?.ping?.data
 
     breadcrumbs.setName('Project', data.value.title)
     breadcrumbs.setNameIcon('Project', data.value.icon_url)
 
+    void loadSupplementalProjectData(project, requestedInstanceId, isCurrent).catch(handleError)
     fetchDeferredServerData(project)
     void maybeAutoTranslate()
+}
+
+async function loadSupplementalProjectData(project, requestedInstanceId, isCurrent) {
+    const updates = [
+        get_version_many(project.versions, 'must_revalidate')
+            .catch(handleError)
+            .then((result) => {
+                if (!isCurrent()) return
+                versions.value = (result ?? []).sort(
+                    (a, b) => dayjs(b.date_published) - dayjs(a.date_published),
+                )
+            })
+            .finally(() => {
+                if (isCurrent()) versionsLoading.value = false
+            }),
+        get_team(project.team)
+            .catch(handleError)
+            .then((result) => {
+                if (isCurrent()) members.value = result ?? []
+            }),
+    ]
+
+    if (requestedInstanceId) {
+        updates.push(
+            Promise.all([
+                getInstance(requestedInstanceId),
+                get_content_snapshot(requestedInstanceId, true).catch((error) => {
+                    if (isCurrent()) handleError(error)
+                    return null
+                }),
+            ])
+                .then(async ([target, snapshot]) => {
+                    if (!isCurrent()) return
+                    instance.value = target
+                    const installedFile = snapshot?.items.find(
+                        (item) =>
+                            item.materializationState === 'present' &&
+                            ((item.provider === 'modrinth' &&
+                                item.providerProjectId === project.id) ||
+                                item.content?.provider_refs.some(
+                                    (reference) =>
+                                        reference.provider === 'modrinth' &&
+                                        String(reference.project_id) === project.id,
+                                )),
+                    )
+                    installed.value = !!installedFile
+                    installedVersion.value =
+                        (installedFile?.provider === 'modrinth'
+                            ? installedFile.providerReleaseId
+                            : installedFile?.content?.provider_refs.find(
+                                  (reference) =>
+                                      reference.provider === 'modrinth' &&
+                                      String(reference.project_id) === project.id,
+                              )?.version_id) ?? null
+                    await syncContentSelectionTarget(isCurrent)
+                })
+                .catch((error) => {
+                    if (isCurrent()) handleError(error)
+                })
+                .finally(() => {
+                    if (isCurrent()) instanceContextLoading.value = false
+                }),
+        )
+    } else {
+        void syncContentSelectionTarget().catch(handleError)
+    }
+    if (project.organization) {
+        updates.push(
+            get_organization(project.organization)
+                .catch(handleError)
+                .then((result) => {
+                    if (isCurrent()) organization.value = result
+                }),
+        )
+    }
+
+    await Promise.all(updates)
 }
 
 function translationFailureMessage(error) {
@@ -1346,24 +1392,27 @@ async function loadProjectPage() {
     projectV3.value = null
     versions.value = []
     members.value = []
-    categories.value = []
     organization.value = null
     instance.value = null
-    instanceProjects.value = null
+    versionsLoading.value = true
+    instanceContextLoading.value = !!route.query.i
     installed.value = false
     installedVersion.value = null
 
     try {
-        await Promise.all([serverContextReady, tagsReady])
         await fetchProjectData()
-        if (loadVersion !== projectLoadVersion) return
-        await syncContentSelectionTarget()
     } catch (error) {
         if (loadVersion !== projectLoadVersion) return
         if (data.value) handleError(error)
         else loadFailed.value = true
     } finally {
-        if (loadVersion === projectLoadVersion) loading.value = false
+        if (loadVersion === projectLoadVersion) {
+            loading.value = false
+            if (!data.value) {
+                versionsLoading.value = false
+                instanceContextLoading.value = false
+            }
+        }
     }
 }
 
@@ -1383,6 +1432,7 @@ process_listener((e) => {
 })
 
 onUnmounted(() => {
+    projectLoadVersion++
     unlistenProcesses?.()
 })
 

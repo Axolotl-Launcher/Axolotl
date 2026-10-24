@@ -130,7 +130,7 @@ fn is_allowed_blockbench_skin_request(
     }
 
     const ALLOWED_ORIGINS: [&str; 6] = [
-        "http://localhost:5201",
+        "http://127.0.0.1:5201",
         "http://tauri.localhost",
         "https://tauri.localhost",
         "tauri://localhost",

@@ -1,6 +1,11 @@
 import { ref } from 'vue'
 
-const heads = ref(new Map<string, string>())
+const heads = ref(
+    new Map<string, string>([
+        ['/launcher-preview/skins/steve.png', '/launcher-preview/skins/heads/steve.png'],
+        ['/launcher-preview/skins/herobrine.png', '/launcher-preview/skins/heads/herobrine.png'],
+    ]),
+)
 const pending = new Set<string>()
 
 /**
@@ -19,7 +24,7 @@ function renderHead(texture: string) {
         const outerLayer = document.createElement('canvas')
         outerLayer.width = 8
         outerLayer.height = 8
-        const outerContext = outerLayer.getContext('2d')
+        const outerContext = outerLayer.getContext('2d', { willReadFrequently: true })
         if (!outerContext) return
         outerContext.drawImage(image, 40, 8, 8, 8, 0, 0, 8, 8)
         const hasOuterLayer = outerContext
@@ -31,7 +36,7 @@ function renderHead(texture: string) {
         const output = document.createElement('canvas')
         output.width = size
         output.height = size
-        const context = output.getContext('2d')
+        const context = output.getContext('2d', { willReadFrequently: true })
         if (!context) return
         context.imageSmoothingEnabled = false
         context.drawImage(image, 8, 8, 8, 8, offset, offset, 64, 64)

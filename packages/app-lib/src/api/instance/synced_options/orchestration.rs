@@ -448,6 +448,11 @@ async fn set_global_option_with_state(
             }
         };
         if let Err(error) = result {
+            if option == SyncedOption::MultiplayerServers {
+                tracing::warn!(instance_id = %metadata.instance.id, %error,
+                    "Multiplayer sync preference saved; continuing after an instance projection failure");
+                continue;
+            }
             if option == SyncedOption::GameOptions {
                 tracing::warn!(
                     "Game-settings sync changed, but {} could not be reconciled yet: {error}",

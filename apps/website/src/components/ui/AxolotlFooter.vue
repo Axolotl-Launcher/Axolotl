@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { defineMessages, useVIntl } from '@modrinth/ui/src/composables/i18n.ts'
+import { defineMessages, useVIntl } from '@modrinth/ui'
 
 const { formatMessage } = useVIntl()
 
@@ -8,6 +8,7 @@ const messages = defineMessages({
     faq: { id: 'axolotl-site.navigation.faq', defaultMessage: 'FAQ' },
     downloads: { id: 'axolotl-site.footer.downloads', defaultMessage: 'Downloads' },
     changelog: { id: 'axolotl-site.footer.release-history', defaultMessage: 'Changelog' },
+    community: { id: 'axolotl-site.navigation.community', defaultMessage: 'Community' },
     terms: { id: 'axolotl-site.navigation.terms', defaultMessage: 'Terms of Service' },
     privacy: { id: 'axolotl-site.navigation.privacy', defaultMessage: 'Privacy Policy' },
     developer: { id: 'axolotl-site.footer.developer', defaultMessage: 'Axolotl Launcher Team' },
@@ -69,12 +70,13 @@ const messages = defineMessages({
                 <NuxtLink to="/#faq">{{ formatMessage(messages.faq) }}</NuxtLink>
                 <a href="#download">{{ formatMessage(messages.downloads) }}</a>
                 <NuxtLink to="/changelog">{{ formatMessage(messages.changelog) }}</NuxtLink>
+                <NuxtLink to="/#community">{{ formatMessage(messages.community) }}</NuxtLink>
                 <NuxtLink to="/terms">{{ formatMessage(messages.terms) }}</NuxtLink>
                 <NuxtLink to="/privacy">{{ formatMessage(messages.privacy) }}</NuxtLink>
             </nav>
 
             <p
-                class="col-span-full m-0 text-center text-[0.64rem] tracking-[0.015em] text-[var(--color-secondary)] opacity-45"
+                class="col-span-full m-0 text-center text-[0.8125rem] tracking-[0.015em] text-[var(--color-secondary)]"
             >
                 {{ formatMessage(messages.disclaimer) }}
             </p>

@@ -469,11 +469,9 @@
         <Card v-else role="tabpanel" :aria-labelledby="'nav-tab-' + tab" class="flex flex-1">
             <EmptyState
                 class="my-auto"
-                :type="query ? 'no-search-result' : 'no-tasks'"
-                :heading="formatMessage(query ? messages.noResultsTitle : messages.emptyTitle)"
-                :description="
-                    formatMessage(query ? messages.noResultsDescription : messages.emptyDescription)
-                "
+                :type="emptyState.type"
+                :heading="formatMessage(emptyState.title)"
+                :description="formatMessage(emptyState.description)"
             />
         </Card>
     </div>
@@ -578,6 +576,7 @@ import { listPendingCurseForgeManualDownloads } from '@/helpers/curseforge'
 import type { CurseForgeManualDownloadItem } from '@/helpers/curseforge-manual'
 import { resolveDownloadUrl } from '@/helpers/download-url'
 import { retiredDownloadMessage } from '@/helpers/download-url-messages'
+import { selectDownloadEmptyState } from '@/helpers/downloads-empty-state'
 import {
     download_job_support_details,
     type InstallJobSnapshot,
@@ -769,6 +768,15 @@ const messages = defineMessages({
     emptyDescription: {
         id: 'app.downloads.empty-description',
         defaultMessage: 'New downloads and installation progress will appear here.',
+    },
+    historyEmptyTitle: {
+        id: 'app.downloads.history-empty-title',
+        defaultMessage: 'No download history',
+    },
+    historyEmptyDescription: {
+        id: 'app.downloads.history-empty-description',
+        defaultMessage:
+            'Records of completed, failed, interrupted, and canceled downloads will appear here.',
     },
     noResultsTitle: {
         id: 'app.downloads.no-results-title',
@@ -983,6 +991,36 @@ const visibleJobs = computed(() => {
             job.job_id.includes(normalized)
         )
     })
+})
+const emptyState = computed(() => {
+    const kind = selectDownloadEmptyState({
+        query: query.value,
+        tab: tab.value,
+        providerFiltered: provider.value !== 'all',
+        historyStatusFiltered: historyStatus.value !== 'all',
+        sourceJobCount: sourceJobs.value.length,
+    })
+    // The wording differs from the illustration: a narrowed list is a search
+    // result, while a genuinely empty tab keeps the "no tasks" illustration.
+    if (kind === 'no-search-result') {
+        return {
+            type: 'no-search-result' as const,
+            title: messages.noResultsTitle,
+            description: messages.noResultsDescription,
+        }
+    }
+    if (kind === 'no-download-history') {
+        return {
+            type: 'no-tasks' as const,
+            title: messages.historyEmptyTitle,
+            description: messages.historyEmptyDescription,
+        }
+    }
+    return {
+        type: 'no-tasks' as const,
+        title: messages.emptyTitle,
+        description: messages.emptyDescription,
+    }
 })
 function jobTitle(job: InstallJobSnapshot) {
     return (

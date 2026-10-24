@@ -10,19 +10,16 @@ import { useVIntl } from '@modrinth/ui/src/composables/i18n.ts'
 import { commonMessages } from '@modrinth/ui/src/utils/common-messages.ts'
 import { computed } from 'vue'
 
+import type { ProjectDetail } from '../../../../data'
+import ServerProjectStats from '../../../instance/components/ServerProjectStats.vue'
+
 /**
  * Port of the shared `ProjectHeader` (packages/ui/src/components/project/ProjectHeader.vue) for
- * a non-server project. A category tag opens the matching browse filter.
+ * snapshot projects. Server projects use the launcher's server statistics.
  */
 const props = withDefaults(
     defineProps<{
-        project: {
-            title: string
-            description: string
-            downloads: number
-            followers: number
-            categories: string[]
-        }
+        project: ProjectDetail
         iconUrl?: string
         translatedTitle?: string
         translatedDescription?: string
@@ -96,7 +93,9 @@ const translationClass = computed(
         </template>
         <template #stats>
             <div class="flex flex-wrap items-center gap-3 gap-y-0">
+                <ServerProjectStats v-if="project.minecraft_server" :project="project" />
                 <div
+                    v-else
                     v-tooltip="
                         capitalize(
                             formatMessage(commonMessages.projectDownloads, {
@@ -125,7 +124,10 @@ const translationClass = computed(
                         {{ formatCompactNumber(project.followers) }}
                     </span>
                 </div>
-                <div v-if="project.categories.length > 0" class="hidden items-center gap-2 md:flex">
+                <div
+                    v-if="project.categories.length > 0 && !project.minecraft_server"
+                    class="hidden items-center gap-2 md:flex"
+                >
                     <div class="flex flex-wrap gap-2">
                         <TagItem
                             v-for="(category, index) in project.categories"

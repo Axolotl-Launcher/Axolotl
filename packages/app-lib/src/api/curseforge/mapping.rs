@@ -1,4 +1,6 @@
-use super::{CurseForgeCategory, ProjectType};
+use super::CurseForgeCategory;
+
+use crate::state::ProjectType;
 
 pub(super) fn mod_loader_to_slug(mod_loader_type: u32) -> &'static str {
     match mod_loader_type {

@@ -55,6 +55,7 @@ import {
     duplicateUpdateAnchor,
     visibleDuplicateGroups,
 } from './composables/content-duplicates'
+import { getContentTabMap } from './composables/content-tab-memory'
 import { injectContentManager } from './providers/content-manager'
 import type { ContentCardTableItem, ContentItem, ContentWorldGroupMeta } from './types'
 
@@ -186,26 +187,25 @@ const messages = defineMessages({
 const ctx = injectContentManager()
 const skipNonEssentialWarnings = computed(() => ctx.skipNonEssentialWarnings?.value ?? false)
 
-// window 级内存（导航切换保留，关软件丢弃）
-const memory: Record<string, Map<string, unknown>> = ((
-    window as unknown as { __ctMemory?: Record<string, Map<string, unknown>> }
-).__ctMemory ??= {})
-function getMap<K, V>(namespace: string): Map<K, V> {
-    if (!memory[namespace]) memory[namespace] = new Map<string, unknown>()
-    return memory[namespace] as Map<K, V>
-}
-
 function getItemId(item: ContentItem) {
     return ctx.getItemId?.(item) ?? item.file_path ?? item.file_name ?? item.id
 }
 
+const contentItemsById = computed(
+    () =>
+        new Map(
+            [...(ctx.modpackItems?.value ?? []), ...ctx.items.value].map((item) => [
+                getItemId(item),
+                item,
+            ]),
+        ),
+)
+
 function findContentItem(id: string): ContentItem | undefined {
-    const item = ctx.items.value.find((i) => getItemId(i) === id)
-    if (item) return item
-    return ctx.modpackItems?.value?.find((i) => getItemId(i) === id)
+    return contentItemsById.value.get(id)
 }
 
-const viewStateMemory = getMap<string, Partial<ContentViewState>>('viewState')
+const viewStateMemory = getContentTabMap<string, Partial<ContentViewState>>('viewState')
 const initialPinnedView = ctx.instanceId ? getPinnedContentViewPreferences(ctx.instanceId) : null
 const pinnedView = ref(initialPinnedView !== null)
 const initialViewState = ctx.instanceId ? viewStateMemory.get(ctx.instanceId) : undefined
@@ -218,7 +218,7 @@ function updateSessionViewState(patch: Partial<ContentViewState>) {
     })
 }
 
-const sortMemory = getMap<string, ContentSortMode>('sort')
+const sortMemory = getContentTabMap<string, ContentSortMode>('sort')
 const sortMode = ref<ContentSortMode>(
     initialPinnedView?.sortMode ??
         (ctx.instanceId
@@ -357,7 +357,7 @@ const bulkStatusMessage = ref<string | null>(null)
 const bulkItemCount = ref(0)
 
 // 整合包分组展开状态（导航切换保留，关软件丢弃）
-const expandedGroupsMemory = getMap<string, Set<string>>('expandedGroups')
+const expandedGroupsMemory = getContentTabMap<string, Set<string>>('expandedGroups')
 
 const refreshing = ref(false)
 
@@ -596,6 +596,18 @@ const nonDuplicateItems = computed(() =>
     filteredItems.value.filter((item) => !duplicateIds.value.has(getItemId(item))),
 )
 
+const worldDatapackFolders = computed(() => {
+    const folders = new Set<string>()
+    for (const item of filteredItems.value) {
+        if (item.source_kind !== 'world_datapack') continue
+        const segments = datapackTreePath(item).split('/')
+        for (let index = 1; index < segments.length; index += 1) {
+            folders.add(segments.slice(0, index).join('/'))
+        }
+    }
+    return folders
+})
+
 const { folderRows: schematicFolderRows, regularItems: schematicGroupRegularItems } =
     useContentFolderGroups({
         filteredItems: nonDuplicateItems,
@@ -618,11 +630,7 @@ const { folderRows: schematicFolderRows, regularItems: schematicGroupRegularItem
             return datapackTreePath(item)
         },
         folderGroupId: (path) => {
-            const isWorldDatapackFolder = filteredItems.value.some((item) => {
-                if (item.source_kind !== 'world_datapack') return false
-                const itemPath = datapackTreePath(item)
-                return itemPath === path || itemPath.startsWith(`${path}/`)
-            })
+            const isWorldDatapackFolder = worldDatapackFolders.value.has(path)
             return isWorldDatapackFolder ? `datapack-folder:${path}` : `schematic-folder:${path}`
         },
         folderGroupIdPrefix: ['schematic-folder:', 'datapack-folder:'],
@@ -751,6 +759,12 @@ const hasOutdatedProjects = computed(() => {
 
 //  Deletion
 const pendingDeletionItems = ref<ContentItem[]>([])
+const pendingDeletionContentType = computed(() => {
+    const types = new Set(
+        pendingDeletionItems.value.map((item) => normalizeProjectType(item.project_type)),
+    )
+    return types.size === 1 ? [...types][0] : undefined
+})
 const confirmDeletionModal = ref<InstanceType<typeof ConfirmDeletionModal>>()
 const contentDependencyWarningModal = ref<InstanceType<typeof ContentDependencyWarningModal>>()
 const pendingDependencyWarningItems = ref<ContentCardTableItem[]>([])
@@ -1153,6 +1167,7 @@ const confirmUnlinkModal = ref<InstanceType<typeof ConfirmUnlinkModal>>()
                     @toggle-expand="toggleGroupExpand"
                     @visible-items="handleVisibleTableItems"
                 >
+                    <template #header-status><slot name="header-status" /></template>
                     <template #header-project>
                         <div class="flex min-w-0 flex-1 items-center gap-4">
                             <div class="flex shrink-0 items-center gap-4">
@@ -1350,6 +1365,7 @@ const confirmUnlinkModal = ref<InstanceType<typeof ConfirmUnlinkModal>>()
             ref="confirmDeletionModal"
             :count="pendingDeletionItems.length"
             :item-type="ctx.contentTypeLabel.value"
+            :content-type="pendingDeletionContentType"
             :variant="ctx.deletionContext ?? 'instance'"
             :backup-tip="
                 pendingDeletionItems.map((i) => i.project?.title ?? i.file_name).join(', ')

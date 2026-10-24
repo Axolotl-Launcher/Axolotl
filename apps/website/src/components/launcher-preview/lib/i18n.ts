@@ -20,6 +20,7 @@ export function registerPreviewMessages(locale: string, messages: Record<string,
 }
 
 function format(message: string, locale: string, values?: Record<string, unknown>) {
+    if (!/[{}'<>]/.test(message)) return message
     const cacheKey = `${locale}\u0000${message}`
     let formatter = formatters.get(cacheKey)
     try {

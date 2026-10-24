@@ -488,16 +488,6 @@ pub(crate) async fn watch_instances_init(
             watcher,
         )
         .await;
-        let screenshot_instance_id = instance.id.clone();
-        tokio::spawn(async move {
-            if let Err(error) = crate::api::instance::reconcile_screenshots(
-                &screenshot_instance_id,
-            )
-            .await
-            {
-                tracing::debug!(%error, "Initial screenshot index reconciliation failed");
-            }
-        });
         let synced_instance_id = instance.id.clone();
         tokio::spawn(async move {
             if let Err(error) =

@@ -12,6 +12,7 @@ import { contentFolderFor, type ContentItem as SharedContentItem } from '../../l
 import type { GameInstance } from '../../lib/types'
 import type { HomeWorld } from '../home/home-utils'
 import { useHomeState } from '../home/state'
+import { contentCompatibility } from './content/compatibility'
 import { compatibleVersions, type ContentProjectType } from './content/content-types'
 
 /*
@@ -62,6 +63,9 @@ export interface ContentMeta {
     update: ContentRelease | null
     /** Project ids this project requires (from the installed release's dependencies). */
     requires: string[]
+    gameVersions: string[]
+    loaders: string[]
+    metadataUnavailable: boolean
 }
 
 /** The file an update kept as `<file>.old`, which a rollback restores. */
@@ -146,7 +150,10 @@ function createContentDomain(state: PreviewState) {
     function project(id: string): Promise<ProjectDetail | null> {
         let request = projects.get(id)
         if (!request) {
-            request = loadProject(id).catch(() => null)
+            request = loadProject(id).catch(() => {
+                projects.delete(id)
+                return null
+            })
             projects.set(id, request)
         }
         return request
@@ -168,6 +175,9 @@ function createContentDomain(state: PreviewState) {
                 releases: [],
                 update: null,
                 requires: [],
+                gameVersions: [],
+                loaders: [],
+                metadataUnavailable: !!item.project_id,
             }
         }
         const releases = compatibleVersions(detail, instance).map(toRelease)
@@ -177,7 +187,11 @@ function createContentDomain(state: PreviewState) {
         // The update check follows the instance's update channel (Settings > General).
         const allowed = CHANNEL_TYPES[instance.update_channel] ?? CHANNEL_TYPES.release
         const newest = releases.find((release) => allowed.includes(release.versionType)) ?? null
-        const version = detail.versions.find((entry) => entry.id === item.version_id)
+        const version = detail.versions.find(
+            (entry) =>
+                entry.id === item.version_id ||
+                entry.files.some((file) => file.filename === item.file_name),
+        )
         return {
             projectId: detail.id,
             slug: detail.slug,
@@ -197,6 +211,9 @@ function createContentDomain(state: PreviewState) {
                 .filter((dependency) => dependency.dependency_type === 'required')
                 .map((dependency) => dependency.project_id)
                 .filter((id): id is string => !!id),
+            gameVersions: version?.game_versions ?? [],
+            loaders: version?.loaders ?? [],
+            metadataUnavailable: false,
         }
     }
 
@@ -232,12 +249,22 @@ function createContentDomain(state: PreviewState) {
         await ensureLoaded(instanceId)
         const instance = state.instances.get(instanceId)
         if (!instance) return
-        const fresh: Record<string, ContentMeta> = {}
-        for (const item of sharedItems(instanceId)) {
-            const detail = item.project_id ? await project(item.project_id) : null
-            fresh[`${instanceId}:${item.id}`] = buildMeta(instance, item, detail)
+        const entry = entryFor(instanceId)
+        try {
+            const fresh: Record<string, ContentMeta> = {}
+            for (const item of sharedItems(instanceId)) {
+                const detail = item.project_id ? await project(item.project_id) : null
+                const key = `${instanceId}:${item.id}`
+                fresh[key] =
+                    !detail && meta[key] && !meta[key].metadataUnavailable
+                        ? { ...meta[key], metadataUnavailable: true }
+                        : buildMeta(instance, item, detail)
+            }
+            Object.assign(meta, fresh)
+            entry.error = null
+        } catch (error) {
+            entry.error = error instanceof Error ? error.message : String(error)
         }
-        Object.assign(meta, fresh)
     }
 
     function ensureLoaded(instanceId: string): Promise<void> {
@@ -443,6 +470,19 @@ function createContentDomain(state: PreviewState) {
         hintMemory,
         addLocalFile,
         project,
+        rollbackSnapshot: (instanceId: string) =>
+            Object.fromEntries(
+                Object.entries(rollbacks)
+                    .filter(([key]) => key.startsWith(`${instanceId}:`))
+                    .map(([key, value]) => [key.slice(instanceId.length + 1), { ...value }]),
+            ),
+        restoreRollbackSnapshot: (
+            instanceId: string,
+            snapshot: Record<string, ContentRollback>,
+        ) => {
+            for (const [itemId, value] of Object.entries(snapshot))
+                rollbacks[`${instanceId}:${itemId}`] = { ...value }
+        },
     }
 }
 
@@ -463,6 +503,7 @@ export function useInstanceContent(): InstanceContentDomain {
 /** Installed content of an instance in the shape the content layout consumes. */
 export function useInstanceContentItems(instanceId: () => string) {
     const domain = useInstanceContent()
+    const preview = usePreview()
     const items = computed<LayoutContentItem[]>(() => {
         const id = instanceId()
         const shared = domain.sharedItems(id)
@@ -485,6 +526,7 @@ export function useInstanceContentItems(instanceId: () => string) {
                 domain.metaFor(id, item.id),
                 domain.rollbackFor(id, item.id),
                 item.project_id ? (requiredBy.get(item.project_id) ?? []) : [],
+                preview.instances.get(id),
             ),
         )
     })
@@ -505,6 +547,7 @@ export function toLayoutItem(
     info: ContentMeta | null,
     rollback: ContentRollback | null,
     requiredBy: string[],
+    instance?: GameInstance,
 ): LayoutContentItem {
     const fileName = item.enabled ? item.file_name : `${item.file_name}.disabled`
     const folder = item.folder ?? contentFolder(item.project_type)
@@ -538,6 +581,7 @@ export function toLayoutItem(
                   }
                 : null,
         origin_provider: online ? 'modrinth' : null,
+        compatibility: instance ? contentCompatibility(item, info, instance) : null,
         installedSource: online ? 'modrinth' : null,
         external: !online,
         provider_refs: online

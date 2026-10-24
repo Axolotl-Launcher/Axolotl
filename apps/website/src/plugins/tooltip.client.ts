@@ -1,4 +1,6 @@
-import { tooltipDirective } from '@modrinth/ui/src/directives/tooltip.ts'
+import '@modrinth/ui/directives/tooltip-styles.ts'
+
+import { tooltipDirective } from '@modrinth/ui'
 
 /**
  * Registers the shared `v-tooltip` directive on the website.

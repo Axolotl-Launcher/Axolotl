@@ -484,7 +484,8 @@ pub(super) fn local_file_dependency(
         return Ok(true);
     }
     let entry = enabled[0];
-    if let Some(constraint) = &dependency.version_constraint
+    if draft.plan.intent != ResourceOperationIntent::Install
+        && let Some(constraint) = &dependency.version_constraint
         && !draft
             .local_metadata
             .get(&entry.entry_id)

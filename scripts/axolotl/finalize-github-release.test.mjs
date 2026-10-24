@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { createHash } from 'node:crypto'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
@@ -28,6 +29,7 @@ function fixture(t) {
                 .flatMap((name) => [name, `${name}.sig`])
                 .map((name) => ({
                     name,
+                    digest: `sha256:${createHash('sha256').update(name).digest('hex')}`,
                     browser_download_url: `https://github.com/Example/Axolotl/releases/download/untagged-example/${name}`,
                 })),
         },
@@ -119,6 +121,38 @@ test('a damaged published manifest is not silently overwritten', (t) => {
     finalizeGithubRelease(tag, directory, { run })
     const manifest = JSON.parse(state.manifest)
     manifest.platforms['darwin-aarch64'].signature = 'different signature'.repeat(4)
+    state.manifest = JSON.stringify(manifest)
+    state.calls.length = 0
+    assert.throws(() => finalizeGithubRelease(tag, directory, { run }), /does not match/)
+    assert(!state.calls.some((args) => ['upload', 'edit'].includes(args[1])))
+})
+
+test('a published manifest without SHA-256 entries is preserved', (t) => {
+    const { directory, state, run } = fixture(t)
+    finalizeGithubRelease(tag, directory, { run })
+    const manifest = JSON.parse(state.manifest)
+    for (const update of Object.values(manifest.platforms)) delete update.sha256
+    state.manifest = JSON.stringify(manifest)
+    state.calls.length = 0
+    const logs = []
+    const log = console.log
+    console.log = (message) => logs.push(String(message))
+    try {
+        finalizeGithubRelease(tag, directory, { run })
+    } finally {
+        console.log = log
+    }
+    assert(!state.calls.some((args) => ['upload', 'edit'].includes(args[1])))
+    assert.equal(fs.readFileSync(path.join(directory, 'latest.json'), 'utf8'), state.manifest)
+    for (const platform of Object.keys(manifest.platforms))
+        assert(logs.includes(`Preserved published manifest without SHA-256 for ${platform}`))
+})
+
+test('a published manifest with a divergent SHA-256 is rejected', (t) => {
+    const { directory, state, run } = fixture(t)
+    finalizeGithubRelease(tag, directory, { run })
+    const manifest = JSON.parse(state.manifest)
+    manifest.platforms['windows-x86_64'].sha256 = createHash('sha256').update('other').digest('hex')
     state.manifest = JSON.stringify(manifest)
     state.calls.length = 0
     assert.throws(() => finalizeGithubRelease(tag, directory, { run }), /does not match/)

@@ -12,6 +12,7 @@ import HeartIcon from '@modrinth/assets/icons/heart.svg?component'
 import LanguagesIcon from '@modrinth/assets/icons/languages.svg?component'
 import MoreVerticalIcon from '@modrinth/assets/icons/more-vertical.svg?component'
 import PackageIcon from '@modrinth/assets/icons/package.svg?component'
+import PlayIcon from '@modrinth/assets/icons/play.svg?component'
 import ReportIcon from '@modrinth/assets/icons/report.svg?component'
 import SearchIcon from '@modrinth/assets/icons/search.svg?component'
 import SpinnerIcon from '@modrinth/assets/icons/spinner.svg?component'
@@ -39,10 +40,14 @@ import { useRoute, useRouter } from 'vue-router'
 import type { ProjectDetail, ProjectVersion } from '../../data'
 import { projectIcon } from '../../data'
 import { resolveMcmodUrl } from '../../lib/content-search'
+import { instanceServerProjectId } from '../../lib/instance-project'
 import { usePreview } from '../../lib/state'
 import type { GameInstance } from '../../lib/types'
 import { injectPreviewWindow } from '../../lib/window'
 import PreviewContextMenu from '../../overlays/PreviewContextMenu.vue'
+import { provideHomeRuntime } from '../home/runtime'
+import { useHomeState } from '../home/state'
+import { instancePageMessages } from '../instance/messages'
 import type { BrowseInstallContext } from './browse-context'
 import BrowseInstallHeader from './components/BrowseInstallHeader.vue'
 import BrowseInstanceSelector from './components/BrowseInstanceSelector.vue'
@@ -76,6 +81,7 @@ const { addNotification, handleError } = injectNotificationManager()
 const route = useRoute()
 const router = useRouter()
 const preview = usePreview()
+const homeRuntime = provideHomeRuntime(useHomeState())
 const discover = useDiscover()
 const selection = discover.selection
 const { layer } = injectPreviewWindow()
@@ -515,6 +521,26 @@ function toggleTranslation() {
 async function install(version: string | null) {
     const project = data.value
     if (!project) return
+    if (project.minecraft_java_server) {
+        const current = preview.instances.instances.value.find(
+            (entry) => instanceServerProjectId(entry.link) === project.id,
+        )
+        const target =
+            current ??
+            preview.instances.create({
+                name: project.title,
+                gameVersion:
+                    project.minecraft_java_server.content.recommended_game_version ??
+                    project.game_versions[0],
+                loader: 'vanilla',
+                loaderVersion: null,
+                iconPath: projectIcon(project.id),
+                link: { type: 'server_project', project_id: project.id },
+            })
+        void homeRuntime.startJoinServer(target, project.minecraft_java_server.address)
+        await router.push(`/instance/${encodeURIComponent(target.id)}`)
+        return
+    }
     if (cartEligible.value && !cartTarget.value) {
         selection.refreshInstances()
         browseInstanceSelector.value?.show()
@@ -635,8 +661,13 @@ const tabLinks = computed(() => [
         label: formatMessage(commonProjectSettingsMessages.versions),
         href: versionsHref.value,
         subpages: ['version'],
+        shown: !data.value?.minecraft_server,
     },
-    { label: formatMessage(commonMessages.changelogLabel), href: projectChangelogHref.value },
+    {
+        label: formatMessage(commonMessages.changelogLabel),
+        href: projectChangelogHref.value,
+        shown: !data.value?.minecraft_server,
+    },
     {
         label: formatMessage(commonProjectSettingsMessages.gallery),
         href: projectGalleryHref.value,
@@ -704,7 +735,15 @@ const tabLinks = computed(() => [
                         }}
                     </Button>
                     <Button
-                        v-if="showSwitchVersion && onVersionsPage"
+                        v-if="data.minecraft_server"
+                        type="colored"
+                        color="brand"
+                        size="xl"
+                        @click="install(null)"
+                        ><PlayIcon />{{ formatMessage(instancePageMessages.joinServer) }}</Button
+                    >
+                    <Button
+                        v-else-if="showSwitchVersion && onVersionsPage"
                         v-tooltip="installButtonTooltip"
                         size="xl"
                         disabled

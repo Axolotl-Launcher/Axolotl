@@ -1,21 +1,37 @@
 import { flushPromises, mount } from '@vue/test-utils'
 import { expect, it, vi } from 'vitest'
+import { defineComponent, h } from 'vue'
 
+import CurseForge from './CurseForge.vue'
 import Project from './Index.vue'
 
 const api = vi.hoisted(() => ({
     project: vi.fn(),
     versions: vi.fn().mockResolvedValue([]),
+    snapshot: vi.fn().mockResolvedValue({ items: [] }),
+    instance: vi.fn().mockResolvedValue({
+        id: 'target-instance',
+        name: 'Target instance',
+        loader: 'fabric',
+        game_version: '1.21.8',
+    }),
+    team: vi.fn().mockResolvedValue([]),
+    refreshInstances: vi.fn().mockResolvedValue(undefined),
+    cfProject: vi.fn(),
+    cfDescription: vi.fn(),
+    cfFiles: vi.fn(),
+    params: { id: 'one' },
     push: vi.fn(),
     query: { b: '/browse/mod?q=kept', i: 'target-instance' },
 }))
-vi.mock('@tauri-apps/api/core', () => ({
+vi.mock('@tauri-apps/api/core', async (importOriginal) => ({
+    ...(await importOriginal<typeof import('@tauri-apps/api/core')>()),
     invoke: vi.fn().mockResolvedValue([]),
     convertFileSrc: (path: string) => path,
 }))
 vi.mock('vue-router', () => ({
     useRoute: () => ({
-        params: { id: 'one' },
+        params: api.params,
         query: api.query,
         path: '/project/one',
         fullPath: '/project/one',
@@ -25,7 +41,7 @@ vi.mock('vue-router', () => ({
 vi.mock('@/helpers/cache.js', () => ({
     get_project: api.project,
     get_project_v3: async () => null,
-    get_team: async () => [],
+    get_team: api.team,
     get_version_many: api.versions,
     get_version: vi.fn(),
     get_organization: vi.fn(),
@@ -37,9 +53,30 @@ vi.mock('@/helpers/tags', () => ({
 }))
 vi.mock('@/helpers/events', () => ({ process_listener: async () => () => {} }))
 vi.mock('@/helpers/content-search', () => ({ resolveMcmodUrl: async () => null }))
+vi.mock('@/helpers/curseforge', () => ({
+    getCurseForgeProject: api.cfProject,
+    getCurseForgeDescription: api.cfDescription,
+    getCurseForgeFilesPage: api.cfFiles,
+    getCurseForgeFiles: vi.fn(),
+    getCurseForgeImageUrl: (url: string) => url,
+}))
+vi.mock('@/components/ui/ResourceDescription.vue', () => ({
+    default: defineComponent({
+        setup:
+            (_, { slots }) =>
+            () =>
+                h('div', slots.default?.()),
+    }),
+}))
+vi.mock('@/components/ui/TranslatedProjectDescription.vue', () => ({
+    default: defineComponent({
+        props: ['description'],
+        setup: (props) => () => h('p', props.description),
+    }),
+}))
 vi.mock('@/helpers/instance', () => ({
-    get: async () => null,
-    get_projects: async () => [],
+    get: api.instance,
+    get_content_snapshot: api.snapshot,
     list: async () => [],
     kill: vi.fn(),
 }))
@@ -88,7 +125,7 @@ vi.mock('@/providers/content-selection', async () => {
             selectedCount: ref(0),
             state: ref('idle'),
             progress: ref(null),
-            refreshInstances: vi.fn(),
+            refreshInstances: api.refreshInstances,
             refreshInstalledIdentities: vi.fn(),
             setTarget: vi.fn(),
             isInstalling: () => false,
@@ -97,6 +134,7 @@ vi.mock('@/providers/content-selection', async () => {
         }),
     }
 })
+
 vi.mock('@/providers/server-install', async () => {
     const { ref } = await import('vue')
     return { injectServerInstall: () => ({ installingServerProjects: ref({}) }) }
@@ -122,6 +160,8 @@ vi.mock('@/components/multiplayer/servers/modpack/CreateModpackServerModal.vue',
 vi.mock('@/components/ui/InstanceIndicator.vue', () => ({ default: { render: () => null } }))
 vi.mock('@/components/ui/ContextMenu.vue', () => ({ default: { render: () => null } }))
 vi.mock('./UpgradeProjectReturnBar.vue', () => ({ default: { render: () => null } }))
+vi.mock('./Changelog.vue', () => ({ default: { render: () => null } }))
+vi.mock('./Gallery.vue', () => ({ default: { render: () => null } }))
 vi.mock('@tanstack/vue-query', () => ({ useQueryClient: () => ({}) }))
 vi.mock('@modrinth/ui', async () => {
     const { defineComponent, h } = await import('vue')
@@ -142,7 +182,15 @@ vi.mock('@modrinth/ui', async () => {
                 'ProjectSidebarServerInfo',
                 'ProjectSidebarTags',
                 'SelectedProjectsFloatingBar',
-            ].map((name) => [name, { render: () => null }]),
+            ].map((name) => [
+                name,
+                {
+                    render: () =>
+                        name === 'ProjectPageSkeleton'
+                            ? h('div', { 'data-testid': 'project-skeleton' })
+                            : null,
+                },
+            ]),
         ),
         commonMessages: {
             retryButton: { defaultMessage: 'Retry' },
@@ -157,6 +205,23 @@ vi.mock('@modrinth/ui', async () => {
             versions: { defaultMessage: 'Versions' },
             gallery: { defaultMessage: 'Gallery' },
         },
+        Card: defineComponent({
+            setup:
+                (_, { slots }) =>
+                () =>
+                    h('div', slots.default?.()),
+        }),
+        ProjectHeader: defineComponent({
+            props: ['project'],
+            setup:
+                (props, { slots }) =>
+                () =>
+                    h('header', { 'data-testid': 'project-header' }, [
+                        h('h1', props.project.title),
+                        slots.actions?.(),
+                    ]),
+        }),
+        ProjectPageVersions: { render: () => null },
         defineMessage: (value: unknown) => value,
         defineMessages: (value: unknown) => value,
         formatDependencyProjectFilterOption: vi.fn(),
@@ -181,8 +246,42 @@ vi.mock('@modrinth/ui', async () => {
         injectNotificationManager: () => ({ handleError: vi.fn(), addNotification: vi.fn() }),
         injectPopupNotificationManager: () => ({ addPopupNotification: vi.fn() }),
         useVIntl: () => ({
-            formatMessage: (message: { defaultMessage: string }) => message.defaultMessage,
+            formatMessage: (message?: { defaultMessage: string }) => message?.defaultMessage ?? '',
         }),
+    }
+})
+
+it('renders CurseForge metadata while description and file requests are pending', async () => {
+    api.params.id = '42'
+    api.cfProject.mockResolvedValue({
+        id: 42,
+        name: 'CurseForge details',
+        slug: 'cf-project',
+        summary: 'Project summary',
+        classId: 6,
+        categories: [],
+        screenshots: [],
+        latestFilesIndexes: [],
+        links: {},
+        authors: [],
+    })
+    api.cfDescription.mockImplementationOnce(() => new Promise(() => {}))
+    api.cfFiles.mockImplementationOnce(() => new Promise(() => {}))
+    const wrapper = mount(CurseForge, {
+        global: { stubs: { Teleport: true }, directives: { tooltip: {} } },
+    })
+    try {
+        await vi.waitFor(() => expect(wrapper.text()).toContain('CurseForge details'))
+        expect(wrapper.text()).toContain('Project summary')
+        expect(
+            wrapper
+                .findAll('button')
+                .find((button) => button.text() === 'Translate')
+                ?.attributes('disabled'),
+        ).toBeDefined()
+    } finally {
+        wrapper.unmount()
+        api.params.id = 'one'
     }
 })
 
@@ -246,5 +345,150 @@ it('loads releases from the revalidated project index on each visit', async () =
         } finally {
             wrapper.unmount()
         }
+    }
+})
+
+it('keeps installation busy until the target instance has been synchronized', async () => {
+    api.project.mockResolvedValue({
+        id: 'one',
+        slug: 'one',
+        title: 'Target project',
+        project_type: 'mod',
+        versions: [],
+        team: 'team',
+        categories: [],
+        game_versions: [],
+        loaders: [],
+        gallery: [],
+    })
+    api.snapshot.mockClear()
+    api.refreshInstances.mockClear().mockImplementationOnce(() => new Promise(() => {}))
+    const wrapper = mount(Project, {
+        global: {
+            stubs: {
+                Teleport: true,
+                RouterView: defineComponent({
+                    name: 'TargetProjectDetails',
+                    props: ['project', 'installing'],
+                    setup: (props) => () => h('p', props.project.title),
+                }),
+            },
+            directives: { tooltip: {} },
+        },
+    })
+    try {
+        await vi.waitFor(() => expect(api.refreshInstances).toHaveBeenCalledWith('target-instance'))
+        expect(api.snapshot).toHaveBeenCalledExactlyOnceWith('target-instance', true)
+        await flushPromises()
+        expect(wrapper.findComponent({ name: 'TargetProjectDetails' }).props('installing')).toBe(
+            true,
+        )
+    } finally {
+        wrapper.unmount()
+    }
+})
+
+it.each(['cross-provider version', 'snapshot failure'])(
+    'preserves the requested instance when reading %s',
+    async (scenario) => {
+        api.project.mockResolvedValue({
+            id: 'one',
+            slug: 'one',
+            title: 'Target project',
+            project_type: 'mod',
+            versions: [],
+            team: 'team',
+            categories: [],
+            game_versions: [],
+            loaders: [],
+            gallery: [],
+        })
+        api.refreshInstances.mockReset().mockResolvedValue(undefined)
+        if (scenario === 'snapshot failure') {
+            api.snapshot.mockRejectedValueOnce(new Error('snapshot unavailable'))
+        } else {
+            api.snapshot.mockResolvedValueOnce({
+                items: [
+                    {
+                        materializationState: 'present',
+                        provider: 'curseforge',
+                        providerProjectId: '42',
+                        providerReleaseId: '123',
+                        content: {
+                            provider_refs: [
+                                {
+                                    provider: 'modrinth',
+                                    project_id: 'one',
+                                    version_id: 'installed-release',
+                                },
+                            ],
+                        },
+                    },
+                ],
+            })
+        }
+        const wrapper = mount(Project, {
+            global: {
+                stubs: {
+                    Teleport: true,
+                    RouterView: defineComponent({
+                        name: 'TargetProjectDetails',
+                        props: ['instance', 'installedVersion', 'installing'],
+                        setup: () => () => null,
+                    }),
+                },
+                directives: { tooltip: {} },
+            },
+        })
+        try {
+            await vi.waitFor(() =>
+                expect(api.refreshInstances).toHaveBeenCalledWith('target-instance'),
+            )
+            await flushPromises()
+            const details = wrapper.findComponent({ name: 'TargetProjectDetails' })
+            expect(details.props('instance').id).toBe('target-instance')
+            expect(details.props('installing')).toBe(false)
+            expect(details.props('installedVersion')).toBe(
+                scenario === 'snapshot failure' ? null : 'installed-release',
+            )
+        } finally {
+            wrapper.unmount()
+        }
+    },
+)
+
+it('shows the project while release data is still loading', async () => {
+    api.project.mockReset().mockResolvedValue({
+        id: 'one',
+        slug: 'one',
+        title: 'Pack',
+        project_type: 'modpack',
+        versions: ['release'],
+        team: 'team',
+        categories: [],
+        game_versions: [],
+        loaders: [],
+        gallery: [],
+    })
+    let resolveVersions!: (versions: unknown[]) => void
+    api.versions
+        .mockReset()
+        .mockImplementation(() => new Promise((resolve) => (resolveVersions = resolve)))
+
+    const wrapper = mount(Project, {
+        global: {
+            stubs: { Teleport: true, RouterView: true },
+            directives: { tooltip: {} },
+        },
+    })
+    try {
+        await vi.waitFor(() =>
+            expect(wrapper.find('[data-testid="project-header"]').exists()).toBe(true),
+        )
+        expect(wrapper.find('[data-testid="project-skeleton"]').exists()).toBe(false)
+        resolveVersions([])
+        await flushPromises()
+    } finally {
+        wrapper.unmount()
     }
 })

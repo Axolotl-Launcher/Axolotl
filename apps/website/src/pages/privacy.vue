@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { useVIntl } from '@modrinth/ui/src/composables/i18n.ts'
+import { useVIntl } from '@modrinth/ui'
 
 import LegalDocument from '~/components/ui/LegalDocument.vue'
 

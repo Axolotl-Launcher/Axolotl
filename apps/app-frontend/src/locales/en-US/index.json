@@ -1487,6 +1487,12 @@
   "app.downloads.history": {
     "message": "History"
   },
+  "app.downloads.history-empty-description": {
+    "message": "Records of completed, failed, interrupted, and canceled downloads will appear here."
+  },
+  "app.downloads.history-empty-title": {
+    "message": "No download history"
+  },
   "app.downloads.in-progress": {
     "message": "In progress"
   },
@@ -3514,6 +3520,9 @@
   },
   "app.instance.mods.manage-backups": {
     "message": "Old files and backups"
+  },
+  "app.instance.mods.loading-online-information": {
+    "message": "Loading online information, please wait"
   },
   "app.instance.mods.missing-files-warning.body": {
     "message": "The required files below were not downloaded or are no longer present. Restore them individually; refreshing scans the instance folder again."

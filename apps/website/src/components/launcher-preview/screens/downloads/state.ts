@@ -3,6 +3,7 @@ import { computed, ref } from 'vue'
 import { loadInstanceContent, loadProject, projectIcon } from '../../data'
 import { type PreviewState, usePreview, usePreviewDomain } from '../../lib/state'
 import type { InstallJob } from '../../lib/state/downloads'
+import type { InstallJobSnapshot as UpgradeJob, upgradeDomain } from '../instance/upgrade/backend'
 import { isActive, type LocalJob, useLocalJobs } from './local-jobs'
 
 /**
@@ -56,7 +57,11 @@ export interface ProgressValue {
 
 export interface DownloadJob {
     job_id: string
-    kind: 'install_content' | 'duplicate_instance' | 'install_existing_instance'
+    kind:
+        | 'install_content'
+        | 'duplicate_instance'
+        | 'install_existing_instance'
+        | 'upgrade_unmanaged_instance'
     provider: JobProvider
     status: InstallJobStatus
     phase: string
@@ -82,6 +87,8 @@ export interface DownloadJob {
     finished: string | null
     error: { message: string } | null
     rollback_error: { message: string } | null
+    upgradeSourceInstanceId?: string
+    upgradeComplete?: boolean
 }
 
 /** `MODRINTH_CDN_ATTEMPTS` in `packages/app-lib/src/util/fetch.rs`. */
@@ -219,6 +226,49 @@ export function localJobView(job: LocalJob, deleted: boolean): DownloadJob {
         finished: job.finished,
         error: job.error ? { message: job.error } : null,
         rollback_error: null,
+    }
+}
+
+function upgradeJobView(job: UpgradeJob, preview: PreviewState): DownloadJob {
+    const phases: Record<string, string> = {
+        backup: 'creating_backup',
+        prepare: 'preparing_instance',
+        minecraft: 'resolving_minecraft',
+        content: 'staging_content',
+        apply: 'finalizing',
+    }
+    return {
+        job_id: job.job_id,
+        kind: job.kind,
+        provider: 'local',
+        status: job.status,
+        phase: phases[job.phase] ?? 'finalizing',
+        progress: { current: Math.round(job.progress * 100), total: 100 },
+        summary: {
+            files_completed: 0,
+            files_total: null,
+            bytes_downloaded: 0,
+            bytes_total: null,
+            source: null,
+            fallback_count: 0,
+            speed_bytes_per_second: null,
+            eta_seconds: null,
+        },
+        items: [],
+        display: {
+            title: job.title,
+            icon: preview.instances.get(job.instance_id)?.icon_path ?? null,
+        },
+        details: { type: 'instance', name: job.title },
+        instance_id: job.instance_id,
+        instance_deleted: !preview.instances.get(job.instance_id),
+        created: job.created,
+        modified: job.finished ?? job.created,
+        finished: job.finished,
+        error: job.error ? { message: job.error } : null,
+        rollback_error: null,
+        upgradeSourceInstanceId: job.source_instance_id,
+        upgradeComplete: !!job.upgrade_result,
     }
 }
 
@@ -363,6 +413,11 @@ export function useDownloadJobs() {
     const preview = usePreview()
     const domain = useDownloadsDomain()
     const localJobs = useLocalJobs()
+    const upgradeJobs = computed(
+        () =>
+            preview.domains.get('instance-upgrade')?.value as
+                ReturnType<typeof upgradeDomain> | undefined,
+    )
 
     const jobs = computed<DownloadJob[]>(() => {
         const deleted = (id: string | null) => Boolean(id) && !preview.instances.get(id!)
@@ -381,11 +436,16 @@ export function useDownloadJobs() {
         const local = localJobs.jobs.value.map((job) =>
             localJobView(job, !isActive(job) && deleted(job.instance_id)),
         )
-        return [...content, ...local].sort((a, b) => b.created.localeCompare(a.created))
+        const upgrades = [...(upgradeJobs.value?.jobs.values() ?? [])].map((job) =>
+            upgradeJobView(job, preview),
+        )
+        return [...content, ...local, ...upgrades].sort((a, b) =>
+            b.created.localeCompare(a.created),
+        )
     })
 
     const activeJobs = computed(() => jobs.value.filter((job) => isActive(job)))
     const historyJobs = computed(() => jobs.value.filter((job) => !isActive(job)))
 
-    return { preview, domain, localJobs, jobs, activeJobs, historyJobs }
+    return { preview, domain, localJobs, upgradeJobs, jobs, activeJobs, historyJobs }
 }

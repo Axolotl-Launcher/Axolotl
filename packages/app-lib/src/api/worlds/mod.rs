@@ -215,6 +215,11 @@ pub async fn get_recent_worlds(
         let instance_worlds =
             get_worlds_for_instance(&instance.instance, &state).await;
         if let Err(e) = instance_worlds {
+            if matches!(e.raw.as_ref(), ErrorKind::IOError(error)
+                if error.kind() == std::io::ErrorKind::NotFound)
+            {
+                continue;
+            }
             tracing::error!(
                 "Failed to get worlds for instance {}: {}",
                 instance_id,

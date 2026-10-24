@@ -25,6 +25,9 @@ pub enum InstallPauseReason {
         failed_files: u64,
         paths: Vec<String>,
     },
+    /// The pack marks files as optional; the user picks which ones to skip
+    /// before the install downloads them.
+    OptionalContentSelection { optional_files: u64 },
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Eq, PartialEq)]
@@ -253,6 +256,14 @@ pub struct InstallJobState {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub skipped_missing_content_paths: Vec<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub optional_content: Option<OptionalModpackContentState>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub skipped_optional_content_paths: Vec<String>,
+    /// Set once the user has confirmed the optional-file selection, so a
+    /// resumed install does not offer the same files again.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub optional_content_decided: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub upgrade_result: Option<InstanceUpgradeResult>,
     /// Incrementally maintained download items, mirroring the replay of
     /// `events`. Skipped during (de)serialization because it is derivable
@@ -285,6 +296,11 @@ impl Clone for InstallJobState {
             skipped_missing_content_paths: self
                 .skipped_missing_content_paths
                 .clone(),
+            optional_content: self.optional_content.clone(),
+            skipped_optional_content_paths: self
+                .skipped_optional_content_paths
+                .clone(),
+            optional_content_decided: self.optional_content_decided,
             upgrade_result: self.upgrade_result.clone(),
             download_items_cache: std::sync::Mutex::new(None),
             summary_cache: std::sync::Mutex::new(None),
@@ -328,6 +344,9 @@ impl InstallJobState {
             continuation: None,
             missing_content: None,
             skipped_missing_content_paths: Vec::new(),
+            optional_content: None,
+            skipped_optional_content_paths: Vec::new(),
+            optional_content_decided: false,
             upgrade_result: None,
             download_items_cache: std::sync::Mutex::new(None),
             summary_cache: std::sync::Mutex::new(None),
@@ -2701,6 +2720,28 @@ pub struct InstanceUpgradeResult {
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
 pub struct MissingModpackContentState {
     pub files: Vec<MissingModpackFileState>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, Default)]
+pub struct OptionalModpackContentState {
+    pub files: Vec<OptionalModpackFileState>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct OptionalModpackFileState {
+    pub item_id: String,
+    pub manifest_path: String,
+    pub target_path: String,
+    pub expected_size: u64,
+    pub sha1: Option<String>,
+    #[serde(default)]
+    pub title: Option<String>,
+    #[serde(default)]
+    pub source: Option<String>,
+    /// Upstream recommendation: optional files default to installed; the
+    /// user unchecks the ones to skip.
+    #[serde(default)]
+    pub recommended: bool,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]

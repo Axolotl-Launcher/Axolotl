@@ -4,6 +4,7 @@ use super::model::{
     InstallJobState, InstallParallelProgress, InstallPauseReason,
     InstallPhaseDetails, InstallPhaseId, InstallProgress, InstallRollbackState,
     InstanceUpgradeResult, MissingModpackContentState,
+    OptionalModpackContentState,
 };
 use super::store;
 use crate::util::download::constants::CONTENT_CHECKPOINT_FILE_COUNT;
@@ -487,6 +488,19 @@ impl InstallProgressReporter {
         let mut state = self.state.lock().await;
         self.sync_latest(&mut state, &app_state).await?;
         state.job.continuation = continuation;
+        let record =
+            store::update_state(self.job_id, &state.job, &app_state).await?;
+        state.mark_persisted(record.snapshot());
+        emit_install_job(&record.snapshot()).await
+    }
+
+    pub async fn set_optional_content(
+        &self,
+        optional_content: Option<OptionalModpackContentState>,
+    ) -> crate::Result<()> {
+        let app_state = crate::State::get().await?;
+        let mut state = self.state.write().await;
+        state.job.optional_content = optional_content;
         let record =
             store::update_state(self.job_id, &state.job, &app_state).await?;
         state.mark_persisted(record.snapshot());

@@ -6,6 +6,7 @@ use crate::api::content_search::{
 use crate::event::emit::loading_try_for_each_concurrent;
 use crate::install::model::{
     InstallPauseReason, MissingModpackContentState, MissingModpackFileState,
+    OptionalModpackContentState, OptionalModpackFileState,
 };
 use crate::install::{
     DownloadItemStatus, InstallErrorContext, InstallJobEventKind,
@@ -1129,14 +1130,22 @@ pub(crate) async fn install_zipped_mrpack_files_with_reporter(
             &content_context.resolve_install_path(file),
         )?;
     }
+    let current_job_state = reporter.current_state().await?;
     let skipped_missing_content_paths = Arc::new(
-        reporter
-            .current_state()
-            .await?
+        current_job_state
             .skipped_missing_content_paths
+            .clone()
             .into_iter()
             .collect::<HashSet<_>>(),
     );
+    let skipped_optional_content_paths = Arc::new(
+        current_job_state
+            .skipped_optional_content_paths
+            .clone()
+            .into_iter()
+            .collect::<HashSet<_>>(),
+    );
+    let optional_content_decided = current_job_state.optional_content_decided;
     let mut queued_events = Vec::with_capacity(num_files.saturating_add(1));
     queued_events.push(InstallJobEventKind::ContentDownloadStarted {
         files: num_files as u64,
@@ -1209,6 +1218,41 @@ pub(crate) async fn install_zipped_mrpack_files_with_reporter(
                 .collect(),
         }))
         .await?;
+    let optional_files: Vec<OptionalModpackFileState> = pack
+        .files
+        .iter()
+        .filter(|file| {
+            file.env.as_ref().is_some_and(|env| {
+                env.get(&EnvType::Client) == Some(&SideType::Optional)
+            })
+        })
+        .map(|file| {
+            let target_path = content_context.resolve_install_path(file);
+            OptionalModpackFileState {
+                item_id: target_path.clone(),
+                manifest_path: file.path.as_str().to_string(),
+                target_path,
+                expected_size: file.file_size,
+                sha1: file.hashes.get(&PackFileHash::Sha1).cloned(),
+                title: None,
+                source: None,
+                recommended: true,
+            }
+        })
+        .collect();
+    if !optional_files.is_empty() && !optional_content_decided {
+        let optional_files_count = optional_files.len() as u64;
+        reporter
+            .set_optional_content(Some(OptionalModpackContentState {
+                files: optional_files,
+            }))
+            .await?;
+        return Ok(MrpackInstallOutcome::WaitingForUser(
+            InstallPauseReason::OptionalContentSelection {
+                optional_files: optional_files_count,
+            },
+        ));
+    }
     reporter
         .track_rollback_paths(
             pack.files
@@ -1524,6 +1568,8 @@ pub(crate) async fn install_zipped_mrpack_files_with_reporter(
             let content_context = content_context.clone();
             let skipped_missing_content_paths =
                 skipped_missing_content_paths.clone();
+            let skipped_optional_content_paths =
+                skipped_optional_content_paths.clone();
             let finalize_semaphore = finalize_semaphore.clone();
             let verification_tx = verification_tx.clone();
              async move {
@@ -1582,7 +1628,22 @@ pub(crate) async fn install_zipped_mrpack_files_with_reporter(
                     return Ok(());
                 }
 
-                //TODO: Future update: prompt user for optional files in a modpack
+                if skipped_optional_content_paths.contains(&project_path) {
+                    content_context
+                        .mark_file_settled(
+                            0,
+                            InstallJobEventKind::ContentFileSkipped {
+                                path: project_path.clone(),
+                                reason: "optional file skipped by user".to_string(),
+                                project_id: None,
+                                version_id: None,
+                                manual_url: None,
+                            },
+                        )
+                        .await?;
+                    return Ok(());
+                }
+
                 if let Some(env) = project.env.as_ref()
                     && env
                         .get(&EnvType::Client)

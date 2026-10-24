@@ -158,7 +158,7 @@ useHead({
             <a href="https://github.com/Mystic-Stars/Axolotl/issues" target="_blank" rel="noopener"
                 >GitHub Issues</a
             >
-            联系项目维护者，或加入官方 QQ 群 737601250。本页面不是法律意见。
+            联系项目维护者，或加入官方 QQ 群 830619067。本页面不是法律意见。
         </p>
     </LegalDocument>
     <LegalDocument
@@ -321,7 +321,7 @@ useHead({
             corresponding packages. For further confirmation, contact the project maintainers via
             <a href="https://github.com/Mystic-Stars/Axolotl/issues" target="_blank" rel="noopener"
                 >GitHub Issues</a
-            >, or join the official QQ group 737601250. This page is not legal advice.
+            >, or join the official QQ group 830619067. This page is not legal advice.
         </p>
     </LegalDocument>
 </template>

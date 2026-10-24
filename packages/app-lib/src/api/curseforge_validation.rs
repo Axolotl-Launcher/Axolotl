@@ -1,20 +1,8 @@
 use crate::{ErrorKind, Result};
 use std::path::Path;
 
-use std::path::Component;
-
 pub(super) fn validate_file_name(file_name: &str) -> Result<()> {
-    let path = Path::new(file_name);
-    if file_name.is_empty()
-        || path.components().count() != 1
-        || !matches!(path.components().next(), Some(Component::Normal(_)))
-    {
-        return Err(ErrorKind::InputError(
-            "CurseForge returned an invalid file name".to_string(),
-        )
-        .into());
-    }
-    Ok(())
+    crate::util::io::sanitize_download_file_name(file_name).map(|_| ())
 }
 
 pub(super) fn validate_world_archive_name(file_name: &str) -> Result<()> {

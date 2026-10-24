@@ -948,7 +948,7 @@ mod tests {
         let server = tokio::spawn(async move {
             let (mut stream, _) = listener.accept().await.unwrap();
             let mut request = [0; 4096];
-            stream.read(&mut request).await.unwrap();
+            let _bytes_read = stream.read(&mut request).await.unwrap();
             stream.write_all(b"HTTP/1.1 206 Partial Content\r\nContent-Length: 65536\r\nContent-Range: bytes 0-65535/65536\r\n\r\nx").await.unwrap();
             std::future::pending::<()>().await;
         });

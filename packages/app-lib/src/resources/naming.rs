@@ -22,11 +22,13 @@ pub(crate) fn replacement_path(
     filename: &str,
     preserve: bool,
 ) -> ResourceResult<String> {
+    let filename = crate::util::io::sanitize_download_file_name(filename)
+        .map_err(|error| ResourceError::InvalidRequest(error.to_string()))?;
     let path = if preserve {
         crate::state::instances::commands::preserved_update_relative_path(
             &current.relative_path,
             current.original_file_name.as_deref(),
-            filename,
+            &filename,
         )
         .map_err(|error| ResourceError::InvalidRequest(error.to_string()))?
     } else {

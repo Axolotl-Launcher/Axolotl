@@ -1,44 +1,44 @@
 {
-	"fill": {
-		"linear-gradient": [
-			"display-p3:1.00000,1.00000,1.00000,1.00000",
-			"display-p3:0.99608,0.83922,0.92157,1.00000"
-		],
-		"orientation": {
-			"start": {
-				"x": 0.5,
-				"y": 1
-			},
-			"stop": {
-				"x": 0.5,
-				"y": 0.3
-			}
-		}
-	},
-	"groups": [
-		{
-			"layers": [
-				{
-					"glass": false,
-					"image-name": "AXL(fixed).svg",
-					"name": "AXL(fixed)",
-					"position": {
-						"scale": 1.6,
-						"translation-in-points": [0, -21]
-					}
-				}
-			],
-			"shadow": {
-				"kind": "neutral",
-				"opacity": 0.5
-			},
-			"translucency": {
-				"enabled": true,
-				"value": 0.5
-			}
-		}
-	],
-	"supported-platforms": {
-		"squares": ["macOS"]
-	}
+  "fill": {
+    "linear-gradient": [
+      "display-p3:1.00000,1.00000,1.00000,1.00000",
+      "display-p3:0.99608,0.83922,0.92157,1.00000"
+    ],
+    "orientation": {
+      "start": {
+        "x": 0.5,
+        "y": 1
+      },
+      "stop": {
+        "x": 0.5,
+        "y": 0.3
+      }
+    }
+  },
+  "groups": [
+    {
+      "layers": [
+        {
+          "glass": false,
+          "image-name": "AXL(fixed).svg",
+          "name": "AXL(fixed)",
+          "position": {
+            "scale": 1.6,
+            "translation-in-points": [0, -21]
+          }
+        }
+      ],
+      "shadow": {
+        "kind": "neutral",
+        "opacity": 0.5
+      },
+      "translucency": {
+        "enabled": true,
+        "value": 0.5
+      }
+    }
+  ],
+  "supported-platforms": {
+    "squares": ["macOS"]
+  }
 }

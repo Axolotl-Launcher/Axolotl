@@ -35,6 +35,8 @@ pub struct ChatModel {
     definition: &'static AiProviderDefinition,
     config: AiProviderConfig,
     model_id: String,
+    // A model is retained for all turns of one LogAgent analysis.
+    session_id: Uuid,
 }
 
 impl ChatModel {
@@ -70,6 +72,7 @@ impl ChatModel {
             definition: provider_definition(provider_id)?,
             config,
             model_id: model_id.to_string(),
+            session_id: Uuid::new_v4(),
         })
     }
 
@@ -153,6 +156,8 @@ impl ChatModel {
             let builder = client
                 .post(endpoint_with_path(&self.config.endpoint, "/v1/messages"))
                 .header("anthropic-version", "2023-06-01");
+            let builder =
+                opencode_headers(builder, self.definition.id, self.session_id);
             let builder = if copilot {
                 copilot_headers(builder.bearer_auth(token), None)
             } else {
@@ -222,7 +227,11 @@ impl ChatModel {
         } else if !ollama {
             body["tool_choice"] = json!("auto");
         }
-        let mut builder = client.post(endpoint).json(&body);
+        let mut builder = opencode_headers(
+            client.post(endpoint).json(&body),
+            self.definition.id,
+            self.session_id,
+        );
         if !token.is_empty() {
             builder = if self.config.protocol == AiProtocol::Azure
                 || (self.config.protocol == AiProtocol::AzureAi

@@ -165,6 +165,10 @@ vi.mock('@/helpers/instance', () => ({
     queue_content_batch: vi.fn(),
 }))
 vi.mock('@/helpers/resources', () => ({
+    resourceAnalysisOpen: vi.fn().mockResolvedValue('analysis'),
+    resourceAnalysisClose: vi.fn().mockResolvedValue(undefined),
+    resourceAnalysisUpdate: vi.fn().mockResolvedValue({ nodes: [] }),
+    resourcePrepareOperation: vi.fn(),
     resourceProjectDocuments: vi.fn().mockResolvedValue([]),
     sourceResource: (provider: string, projectId: string) => ({
         kind: 'source',
@@ -210,6 +214,7 @@ it('routes pending-version cart items into the resource preview as automatic rel
     await expect(selection.installSelected()).resolves.toBe(true)
     expect(showInstall).toHaveBeenCalledTimes(1)
     expect(showInstall).toHaveBeenCalledWith({
+        analysis: expect.objectContaining({ prepare: expect.any(Function) }),
         instanceId: 'instance-1',
         instanceName: 'Example',
         selections: [
@@ -321,6 +326,58 @@ it('queues only confirmed roots in a mixed batch and clears excluded worlds', as
         ],
         expect.anything(),
     )
+})
+
+it('changing the cart during world review cannot install an unrelated resource snapshot', async () => {
+    let finish!: (value: { primaryKeys: string[] }) => void
+    const showBatch = vi.fn(
+        () =>
+            new Promise((resolve) => {
+                finish = resolve
+            }),
+    )
+    const showInstallSelection = vi.fn()
+    const selection = createContentSelection({
+        addNotification: vi.fn(),
+        handleError: vi.fn(),
+        downloadManager: { jobs: ref([]) } as never,
+    })
+    selection.setTarget(instance)
+    selection.setPreviewModal({ showBatch } as never)
+    selection.setResourceInstallPreview({ showInstallSelection } as never)
+    await selection.add({
+        key: 'curseforge:world',
+        provider: 'curseforge',
+        projectId: '42',
+        providerProjectId: '42',
+        contentType: 'world',
+        title: 'World',
+        versionId: '123',
+        sha1: 'a'.repeat(40),
+    })
+    await selection.add({
+        key: 'modrinth:first',
+        provider: 'modrinth',
+        projectId: 'first',
+        providerProjectId: 'first',
+        contentType: 'mod',
+        title: 'First',
+    })
+    const pending = selection.installSelected()
+    await vi.waitFor(() => expect(showBatch).toHaveBeenCalled())
+    await selection.add({
+        key: 'modrinth:late',
+        provider: 'modrinth',
+        projectId: 'late',
+        providerProjectId: 'late',
+        contentType: 'mod',
+        title: 'Late addition',
+    })
+    finish({ primaryKeys: ['curseforge:world'] })
+    await expect(pending).resolves.toBe(false)
+    expect(showInstallSelection).not.toHaveBeenCalled()
+    expect(selection.items.value.size).toBe(3)
+    selection.clear()
 })
 
 it('preserves the unqueued world when its batch fails after resource queue acceptance', async () => {

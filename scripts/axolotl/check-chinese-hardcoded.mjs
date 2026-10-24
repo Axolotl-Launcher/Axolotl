@@ -49,7 +49,6 @@ const SKIP_FILE = [
 	/oauth_utils\/auth_code_reply\.rs$/,
 	/packages\/ui\/src\/composables\/i18n\.ts$/,
 	/game-settings-modal\/languages\.ts$/,
-	/^apps\/telemetry-dashboard\//,
 	/^apps\/website\//,
 	/\/mod_translation(\.rs|\/)/,
 	/\/AIIcon\.vue$/,

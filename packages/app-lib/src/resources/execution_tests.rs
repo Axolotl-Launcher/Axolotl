@@ -831,7 +831,7 @@ async fn connector_download_with_hash_and_unknown_size_commits_measured_bytes_an
     let server = tokio::spawn(async move {
         let (mut socket, _) = listener.accept().await.unwrap();
         let mut request = vec![0u8; 4096];
-        socket.read(&mut request).await.unwrap();
+        let _bytes_read = socket.read(&mut request).await.unwrap();
         socket.write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 9\r\nConnection: close\r\n\r\nnew bytes").await.unwrap();
     });
     let mut target = artifact(

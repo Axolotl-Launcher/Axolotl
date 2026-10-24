@@ -21,6 +21,7 @@ import {
     type SourceReleaseRef,
 } from '@/helpers/resources'
 import { get_instance_worlds } from '@/helpers/worlds'
+import type { ContentAnalysisReview } from '@/providers/content-analysis'
 
 const { formatMessage } = useVIntl()
 const messages = defineMessages({
@@ -163,6 +164,7 @@ const messages = defineMessages({
 })
 
 type OperationInput = {
+    analysis?: ContentAnalysisReview
     importFiles?: Record<string, string>
     locators?: Record<string, string>
     instanceId: string
@@ -481,6 +483,7 @@ async function revise(decision: ResourcePlanDecision) {
 }
 function hide() {
     generation++
+    input.value?.analysis?.signal.removeEventListener('abort', invalidateAnalysis)
     controller?.abort()
     const resolve = resolveShow
     resolveShow = null
@@ -501,6 +504,7 @@ function show(value: OperationInput): Promise<InstallJobSnapshot | null> {
     worldOptions.value = []
     targetWorld.value = null
     modal.value?.show()
+    value.analysis?.signal.addEventListener('abort', invalidateAnalysis, { once: true })
     const result = new Promise<InstallJobSnapshot | null>((resolve) => {
         resolveShow = resolve
     })
@@ -539,34 +543,39 @@ function show(value: OperationInput): Promise<InstallJobSnapshot | null> {
     void prepareInput(value)
     return result
 }
+function invalidateAnalysis() {
+    void cancel()
+}
 async function prepareInput(
     value: OperationInput,
     resolveDependencies = !dependenciesIgnored.value,
 ) {
     return await run(
         (signal, onProgress) =>
-            value.selections
-                ? resourcePrepareOperation(
-                      value.instanceId,
-                      'install',
-                      value.selections,
-                      value.installDependencies,
-                      signal,
-                      value.importFiles,
-                      value.locators,
-                      onProgress,
-                      resolveDependencies,
-                  )
-                : resourcePrepareEntryOperation(
-                      value.instanceId,
-                      value.intent,
-                      value.entryIds,
-                      value.release ?? null,
-                      value.installDependencies,
-                      signal,
-                      onProgress,
-                      resolveDependencies,
-                  ),
+            value.analysis && resolveDependencies
+                ? value.analysis.prepare(signal, onProgress, value.selections)
+                : value.selections
+                  ? resourcePrepareOperation(
+                        value.instanceId,
+                        'install',
+                        value.selections,
+                        value.installDependencies,
+                        signal,
+                        value.importFiles,
+                        value.locators,
+                        onProgress,
+                        resolveDependencies,
+                    )
+                  : resourcePrepareEntryOperation(
+                        value.instanceId,
+                        value.intent,
+                        value.entryIds,
+                        value.release ?? null,
+                        value.installDependencies,
+                        signal,
+                        onProgress,
+                        resolveDependencies,
+                    ),
         !resolveDependencies,
     )
 }
@@ -694,6 +703,7 @@ function accept(node: ResourceDependencyNode, dimension: 'gameVersion' | 'loader
 }
 onBeforeUnmount(hide)
 function showInstall(value: {
+    analysis?: ContentAnalysisReview
     importFiles?: Record<string, string>
     locators?: Record<string, string>
     instanceId: string

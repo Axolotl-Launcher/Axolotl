@@ -751,6 +751,12 @@ const hasOutdatedProjects = computed(() => {
 
 //  Deletion
 const pendingDeletionItems = ref<ContentItem[]>([])
+const pendingDeletionContentType = computed(() => {
+    const types = new Set(
+        pendingDeletionItems.value.map((item) => normalizeProjectType(item.project_type)),
+    )
+    return types.size === 1 ? [...types][0] : undefined
+})
 const confirmDeletionModal = ref<InstanceType<typeof ConfirmDeletionModal>>()
 const contentDependencyWarningModal = ref<InstanceType<typeof ContentDependencyWarningModal>>()
 const pendingDependencyWarningItems = ref<ContentCardTableItem[]>([])
@@ -1350,6 +1356,7 @@ const confirmUnlinkModal = ref<InstanceType<typeof ConfirmUnlinkModal>>()
             ref="confirmDeletionModal"
             :count="pendingDeletionItems.length"
             :item-type="ctx.contentTypeLabel.value"
+            :content-type="pendingDeletionContentType"
             :variant="ctx.deletionContext ?? 'instance'"
             :backup-tip="
                 pendingDeletionItems.map((i) => i.project?.title ?? i.file_name).join(', ')

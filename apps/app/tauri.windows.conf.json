@@ -1,12 +1,12 @@
 {
-    "bundle": {
-        "targets": ["nsis"],
-        "resources": ["resources/blockbench-skin", "resources/seed-map"],
-        "windows": {
-            "nsis": {
-                "installMode": "currentUser",
-                "languages": ["SimpChinese", "English"]
-            }
-        }
+  "bundle": {
+    "targets": ["nsis"],
+    "resources": ["resources/blockbench-skin", "resources/seed-map"],
+    "windows": {
+      "nsis": {
+        "installMode": "currentUser",
+        "languages": ["SimpChinese", "English"]
+      }
     }
+  }
 }

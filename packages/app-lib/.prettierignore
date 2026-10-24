@@ -6,3 +6,7 @@ java/build
 # Migrations existing before Prettier formatted them shall always be ignored,
 # as any changes to them will break existing deployments
 migrations/**
+backup_migrations/**
+# TOML formatting is owned by tombi (see tombi.toml and the repo-check CI job);
+# Prettier's TOML output conflicts with `tombi fmt --check`.
+**/*.toml

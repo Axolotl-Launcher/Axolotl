@@ -242,7 +242,7 @@ function onStartLongPress(instanceId: string) {
     >
         <div
             v-if="!hideHeader && isDropTarget && isGroupDragActive"
-            class="pointer-events-none absolute -inset-2 inset-y-0 z-20 rounded-xl border-2 border-dashed border-contrast opacity-40 bg-transparent transition-opacity duration-150"
+            class="pointer-events-none absolute -inset-2 inset-y-0 z-20 rounded-xl border-2 border-dashed border-brand opacity-40 bg-transparent transition-opacity duration-150"
         />
         <div
             v-if="!hideHeader && (grouping === 'Group' || sectionKey !== UNGROUPED_GROUP_KEY)"

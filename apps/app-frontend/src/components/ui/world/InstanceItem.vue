@@ -20,17 +20,19 @@ import {
     useVIntl,
 } from '@modrinth/ui'
 import { capitalizeString } from '@modrinth/utils'
+import { useQuery } from '@tanstack/vue-query'
 import type { Dayjs } from 'dayjs'
-import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 
 import InstanceIcon from '@/components/ui/InstanceIcon.vue'
 import { useMinecraftLaunchError } from '@/composables/useMinecraftLaunchError'
 import { trackEvent } from '@/helpers/analytics'
-import { get_project } from '@/helpers/cache'
 import { process_listener } from '@/helpers/events'
 import { kill, run } from '@/helpers/instance'
+import { instanceContentProject } from '@/helpers/instance-project'
 import { get_by_instance_id } from '@/helpers/process'
+import { resourceProjectDocuments } from '@/helpers/resources'
 import type { GameInstance } from '@/helpers/types'
 import { showInstanceInFolder } from '@/helpers/utils'
 import { handleSevereError } from '@/store/error'
@@ -71,18 +73,25 @@ const props = defineProps<{
     dashboardDensity?: 'compact' | 'comfortable'
 }>()
 
-const loadingModpack = ref(!!props.instance.link?.project_id)
-
-const modpack = ref()
-
-if (props.instance.link?.project_id) {
-    nextTick().then(async () => {
-        modpack.value = await get_project(props.instance.link.project_id, 'must_revalidate')
-        loadingModpack.value = false
-    })
-} else {
-    loadingModpack.value = false
-}
+const linkedProject = computed(() => instanceContentProject(props.instance.link))
+const { data: modpack, isLoading: loadingModpack } = useQuery({
+    queryKey: computed(() => ['instance-card-project', linkedProject.value]),
+    enabled: computed(() => !!linkedProject.value),
+    queryFn: async ({ signal }) => {
+        const project = linkedProject.value!
+        const [document] = await resourceProjectDocuments(
+            project.source,
+            [project.projectId],
+            signal,
+        )
+        return document?.metadata ?? null
+    },
+})
+const modpackRoute = computed(() =>
+    linkedProject.value?.source === 'curseforge'
+        ? `/project/curseforge/${linkedProject.value.projectId}`
+        : `/project/${linkedProject.value?.projectId}`,
+)
 
 const loader = computed(() => {
     if (props.instance.loader === 'vanilla') {
@@ -210,9 +219,9 @@ onUnmounted(() => {
                     >
                         <router-link
                             class="inline-flex items-center gap-1 truncate hover:underline text-[var(--color-text-tertiary)] smart-clickable:allow-pointer-events"
-                            :to="`/project/${modpack.id}`"
+                            :to="modpackRoute"
                         >
-                            <Avatar :src="modpack.icon_url" size="16px" class="shrink-0" />
+                            <Avatar :src="modpack.iconUrl" size="16px" class="shrink-0" />
                             <span class="truncate">{{ modpack.title }}</span>
                         </router-link>
                         ({{ loader }} {{ instance.game_version }})

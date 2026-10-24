@@ -48,6 +48,40 @@ fn manifest_commands<'a>(source: &'a str, plugin: &str) -> BTreeSet<&'a str> {
 }
 
 #[test]
+fn resource_analysis_commands_are_registered_and_allowed_for_the_main_window() {
+    let runtime = runtime_commands(include_str!("../src/api/resources.rs"));
+    let manifest =
+        manifest_commands(include_str!("../build.rs"), "axolotl-resources");
+    for command in [
+        "resource_analysis_open",
+        "resource_analysis_update",
+        "resource_analysis_close",
+        "resource_prepare_operation",
+    ] {
+        assert!(runtime.contains(command));
+        assert!(manifest.contains(command));
+    }
+    assert!(runtime.difference(&manifest).next().is_none());
+    let capabilities: serde_json::Value =
+        serde_json::from_str(include_str!("../capabilities/plugins.json"))
+            .unwrap();
+    assert!(
+        capabilities["windows"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|window| window == "main")
+    );
+    assert!(
+        capabilities["permissions"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|permission| permission == "axolotl-resources:default")
+    );
+}
+
+#[test]
 fn instance_runtime_handlers_are_registered_in_build_manifest() {
     let runtime = runtime_commands(include_str!("../src/api/instance.rs"));
     let manifest = manifest_commands(include_str!("../build.rs"), "instance");

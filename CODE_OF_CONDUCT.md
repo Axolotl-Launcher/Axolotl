@@ -52,7 +52,7 @@
 如果你遭遇或目睹了违反本准则的行为，请尽快联系项目维护者：
 
 - 对于需要保密的事件，请在 [Axolotl GitHub Issues](https://github.com/Mystic-Stars/Axolotl/issues) 中仅留下“需要私下联系维护者”的简短说明，不要公开事件细节、个人信息、账号令牌或完整日志；维护者会通过可用的私下渠道与你联系。
-- 对于一般性的社区问题，可以在相关 Issue 或官方 QQ 群（737601250）中提出。请勿在公开频道发布可能使当事人被识别的敏感信息。
+- 对于一般性的社区问题，可以在相关 Issue 或官方 QQ 群（830619067）中提出。请勿在公开频道发布可能使当事人被识别的敏感信息。
 
 维护者会及时、公平地受理和调查报告，并尽可能保护报告人的隐私。请仅提供与事件相关且你有权分享的信息；恶意或明显虚假的报告也可能构成对社区的骚扰。
 
@@ -116,7 +116,7 @@ Maintainers may remove, edit, or reject comments, commits, issues, pull requests
 If you experience or witness a violation of this Code of Conduct, please contact the project maintainers as soon as possible:
 
 - For confidential matters, please leave only a brief note saying "Need to contact maintainers privately" in the [Axolotl GitHub Issues](https://github.com/Mystic-Stars/Axolotl/issues), without publicly disclosing event details, personal information, account tokens, or full logs; the maintainers will contact you through available private channels.
-- For general community issues, you can raise them in the relevant Issue or the official QQ group (737601250). Do not post sensitive information in public channels that could identify the parties involved.
+- For general community issues, you can raise them in the relevant Issue or the official QQ group (830619067). Do not post sensitive information in public channels that could identify the parties involved.
 
 Maintainers will promptly and fairly receive and investigate reports, and protect the privacy of reporters to the best of their ability. Please only provide information that is relevant to the incident and that you are authorized to share; malicious or clearly false reports may also constitute harassment of the community.
 

@@ -64,10 +64,13 @@ defineExpose({ show })
         max-content-height="min(36rem, 70vh)"
     >
         <div class="flex min-w-0 flex-col gap-3">
-            <p class="m-0 text-sm text-secondary">
+            <p class="m-0 text-sm text-[var(--color-text-tertiary)]">
                 {{ formatMessage(messages.description) }}
             </p>
-            <p v-if="props.servers.length === 0" class="m-0 text-sm text-secondary">
+            <p
+                v-if="props.servers.length === 0"
+                class="m-0 text-sm text-[var(--color-text-tertiary)]"
+            >
                 {{ formatMessage(messages.empty) }}
             </p>
             <ul v-else class="m-0 flex list-none flex-col gap-1 p-0">
@@ -85,10 +88,11 @@ defineExpose({ show })
                             size="36px"
                         />
                         <span class="flex min-w-0 flex-1 flex-col">
-                            <span class="truncate text-sm font-semibold text-contrast">{{
-                                server.name
-                            }}</span>
-                            <span class="truncate text-xs text-secondary">
+                            <span
+                                class="truncate text-sm font-semibold text-[var(--color-text-primary)]"
+                                >{{ server.name }}</span
+                            >
+                            <span class="truncate text-xs text-[var(--color-text-tertiary)]">
                                 {{ server.running ? '▶ ' : '' }}{{ addressOf(server) }}
                             </span>
                         </span>

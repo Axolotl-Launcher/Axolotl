@@ -4,24 +4,29 @@ on:
   push:
     branches: [main]
     paths-ignore:
-      - 'apps/telemetry-dashboard/**'
       - 'apps/telemetry-worker/**'
   pull_request:
     paths-ignore:
-      - 'apps/telemetry-dashboard/**'
       - 'apps/telemetry-worker/**'
   workflow_dispatch:
 
 concurrency:
-  group: desktop-ci-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  group: desktop-ci-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}${{ github.event_name == 'workflow_dispatch' && format('-{0}', github.run_id) || '' }}
+  cancel-in-progress: ${{ github.event_name != 'workflow_dispatch' }}
+
+env:
+  CI_SCOPE_PROTOCOL: cumulative-v1
 
 permissions:
   contents: read
 
 jobs:
   changes:
+    name: Check for changes
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
     outputs:
       desktop: ${{ steps.scope.outputs.desktop }}
       frontend: ${{ steps.scope.outputs.frontend }}
@@ -33,63 +38,93 @@ jobs:
       - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
         with:
           node-version-file: .nvmrc
-      - id: scope
+      - name: Determine checks since the last successful CI
+        id: scope
         env:
           CHANGE_BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+          GH_TOKEN: ${{ github.token }}
         run: node scripts/axolotl/ci-changes.mjs
 
   guardrails:
+    name: Run guardrails checks
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Checkout code
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           fetch-depth: 0
-      - uses: pnpm/action-setup@008330803749db0355799c700092d9a85fd074e9 # v6.0.9
-      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+      - name: Setup pnpm
+        uses: pnpm/action-setup@008330803749db0355799c700092d9a85fd074e9 # v6.0.9
+      - name: Setup Node.js
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
         with:
           node-version-file: .nvmrc
           cache: pnpm
-      - run: pnpm install --frozen-lockfile
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Setup Rustfmt
+        run: rustup component add rustfmt
       - name: Check immutable database migrations
         env:
           MIGRATION_BASE_REF: ${{ github.event.pull_request.base.sha || github.event.before }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          node --test scripts/axolotl/ci-changes.test.mjs
           node --test scripts/axolotl/release-policy.test.mjs
           node --test scripts/axolotl/set-version.test.mjs
           node --test scripts/axolotl/update-manifest.test.mjs scripts/axolotl/finalize-github-release.test.mjs scripts/axolotl/publish-update-server.test.mjs scripts/axolotl/cnb-release.test.mjs scripts/axolotl/create-website-release-metadata.test.mjs
           node scripts/axolotl/create-update-server-catalog.test.mjs
           node scripts/axolotl/check-migrations.mjs --base "${MIGRATION_BASE_REF:-HEAD^}"
           node scripts/axolotl/check-migrations.mjs --release
-      - run: node scripts/axolotl/brand-guard.mjs
-      - run: node scripts/axolotl/check-agents.mjs
-      - run: node scripts/axolotl/i18n-check.mjs
-      - run: node scripts/axolotl/check-css-vars.mjs
-      - run: node scripts/axolotl/check-orphan-components.mjs
-      - run: node scripts/axolotl/check-scoped-styles.mjs
-      - run: node scripts/axolotl/check-retired-ui.mjs
-      - run: node scripts/axolotl/downgrade-app-db.test.mjs
-      - run: node --test scripts/axolotl/create-release-notes.test.mjs
-      - run: rustup component add rustfmt
-      - run: cargo fmt --all --check
+      - name: Check brand guidelines
+        run: node scripts/axolotl/brand-guard.mjs
+      - name: Check agents
+        run: node scripts/axolotl/check-agents.mjs
+      - name: Check internationalization
+        run: node scripts/axolotl/i18n-check.mjs
+      - name: Check CSS variables
+        run: node scripts/axolotl/check-css-vars.mjs
+      - name: Check orphan components
+        run: node scripts/axolotl/check-orphan-components.mjs
+      - name: Check scoped styles
+        run: node scripts/axolotl/check-scoped-styles.mjs
+      - name: Check retired UI
+        run: node scripts/axolotl/check-retired-ui.mjs
+      - name: Check dead colours
+        run: node scripts/axolotl/check-dead-colours.mjs
+      - name: Check dead colours (tests)
+        run: node scripts/axolotl/check-dead-colours.test.mjs
+      - name: Check downgrade for app database
+        run: node scripts/axolotl/downgrade-app-db.test.mjs
+      - name: Check release notes
+        run: node --test scripts/axolotl/create-release-notes.test.mjs
+      - name: Check Discord release notifications
+        run: node --test scripts/axolotl/publish-discord-release.test.mjs
+      - name: Check formatting of Rust code
+        run: cargo fmt --all --check
 
   # The frontend lint and test suites were previously never run in CI, so
   # design-system regressions (duplicate components, boundary violations,
   # broken tests) could merge silently.
   frontend:
+    name: Run frontend lint and tests
     needs: changes
     if: needs.changes.outputs.frontend == 'true'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Checkout code
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           submodules: recursive
-      - uses: pnpm/action-setup@008330803749db0355799c700092d9a85fd074e9 # v6.0.9
-      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+      - name: Setup pnpm
+        uses: pnpm/action-setup@008330803749db0355799c700092d9a85fd074e9 # v6.0.9
+      - name: Setup Node.js
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
         with:
           node-version-file: .nvmrc
           cache: pnpm
-      - run: pnpm install --frozen-lockfile
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
       - name: Install Playwright browser for visual tests
         run: pnpm --filter @modrinth/ui exec playwright install --with-deps chromium
       - name: Lint frontend packages
@@ -110,21 +145,28 @@ jobs:
         run: pnpm --filter @modrinth/app-frontend test:visual
 
   resources:
+    name: Prepare build resources
     needs: [changes, guardrails]
     if: needs.changes.outputs.desktop == 'true'
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Checkout code
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           submodules: recursive
-      - uses: pnpm/action-setup@008330803749db0355799c700092d9a85fd074e9 # v6.0.9
-      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+      - name: Setup pnpm
+        uses: pnpm/action-setup@008330803749db0355799c700092d9a85fd074e9 # v6.0.9
+      - name: Setup Node.js
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
         with:
           node-version-file: .nvmrc
           cache: pnpm
-      - run: pnpm install --frozen-lockfile
-      - run: node scripts/axolotl/prepare-build-resources.mjs
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Prepare build resources
+        run: node scripts/axolotl/prepare-build-resources.mjs
+      - name: Upload build resources
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: desktop-resources
           path: target/build-resources/
@@ -133,6 +175,7 @@ jobs:
           if-no-files-found: error
 
   desktop:
+    name: Build and test desktop application
     needs: [changes, guardrails, resources]
     if: needs.changes.outputs.desktop == 'true'
     strategy:
@@ -143,10 +186,12 @@ jobs:
     env:
       SQLX_OFFLINE: true
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Checkout code
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           submodules: recursive
-      - uses: ./.github/actions/setup-desktop-build
+      - name: Setup desktop build
+        uses: ./.github/actions/setup-desktop-build
         with:
           profile: ci
           save-cache: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
@@ -159,7 +204,8 @@ jobs:
             Linux) platform=linux ;;
           esac
           echo "TAURI_ENV_PLATFORM=$platform" >> "$GITHUB_ENV"
-      - run: pnpm turbo run build --filter=@modrinth/app-frontend
+      - name: Build frontend
+        run: pnpm turbo run build --filter=@modrinth/app-frontend
       - name: Check for dead alpha utilities
         run: node scripts/axolotl/check-dead-utilities.mjs
       - name: Test version metadata writes
@@ -189,18 +235,24 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "Failed to compile NSIS uninstall fixture" }
           & apps/installer-ui/tests/uninstall-smoke.ps1
   website:
+    name: Build website
     needs: [changes, guardrails]
     if: needs.changes.outputs.website == 'true'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-      - uses: pnpm/action-setup@008330803749db0355799c700092d9a85fd074e9 # v6.0.9
-      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+      - name: Checkout code
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Setup pnpm
+        uses: pnpm/action-setup@008330803749db0355799c700092d9a85fd074e9 # v6.0.9
+      - name: Setup Node.js
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
         with:
           node-version-file: .nvmrc
           cache: pnpm
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm --filter @axolotl/website build
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Build website
+        run: pnpm --filter @axolotl/website build
 
   desktop-ci-result:
     name: Desktop CI result
@@ -208,8 +260,13 @@ jobs:
     needs: [changes, guardrails, frontend, resources, desktop, website]
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout code
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Setup Node.js
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version-file: .nvmrc
       - name: Require all selected checks to pass
         env:
           RESULTS: ${{ toJSON(needs) }}
-        run: |
-          node -e 'const jobs = JSON.parse(process.env.RESULTS); for (const [name, job] of Object.entries(jobs)) { if (!["success", "skipped"].includes(job.result)) { console.error(name, job.result); process.exitCode = 1; } }'
+        run: node scripts/axolotl/ci-result.mjs

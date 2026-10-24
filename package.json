@@ -1,80 +1,80 @@
 {
-	"name": "@axolotl/monorepo",
-	"version": "0.0.0",
-	"private": true,
-	"scripts": {
-		"website:dev": "turbo run dev --filter=@axolotl/website",
-		"website:build": "turbo run build --filter=@axolotl/website",
-		"app:dev": "turbo run dev --filter=@modrinth/app",
-		"app:build": "turbo run build --filter=@modrinth/app",
-		"build": "turbo run build --continue",
-		"lint": "turbo run lint lint:ancillary --continue",
-		"lint:ancillary": "prettier --check .github README.md AGENTS.md \"apps/**/AGENTS.md\" \"packages/**/AGENTS.md\" .agents/AGENTS.md \".agents/skills/*/SKILL.md\" standards/frontend/DEVELOPMENT.md standards/frontend/FIGMA_MCP_USAGE.md standards/frontend/ADDING_API_MODULES.md standards/frontend/INTERNATIONALIZATION.md Cargo.toml package.json pnpm-workspace.yaml turbo.jsonc crowdin.yml web-types.json _typos.toml tombi.toml clippy.toml rustfmt.toml",
-		"test": "turbo run test --continue",
-		"fix": "turbo run fix fix:ancillary --continue",
-		"fix:ancillary": "prettier --write .github README.md AGENTS.md \"apps/**/AGENTS.md\" \"packages/**/AGENTS.md\" .agents/AGENTS.md \".agents/skills/*/SKILL.md\" standards/frontend/DEVELOPMENT.md standards/frontend/FIGMA_MCP_USAGE.md standards/frontend/ADDING_API_MODULES.md standards/frontend/INTERNATIONALIZATION.md Cargo.toml package.json pnpm-workspace.yaml turbo.jsonc crowdin.yml web-types.json _typos.toml tombi.toml clippy.toml rustfmt.toml",
-		"ci": "turbo run lint test --continue",
-		"prepr": "turbo run prepr --continue",
-		"prepr:frontend": "turbo run prepr --filter=@modrinth/app-frontend --filter=@axolotl/website",
-		"prepr:frontend:lib": "turbo run prepr --filter=@modrinth/ui --filter=@modrinth/assets --filter=@modrinth/api-client --filter=@modrinth/utils --filter=@modrinth/server --filter=@modrinth/tooling-config",
-		"prepr:frontend:app": "turbo run prepr --filter=@modrinth/app-frontend",
-		"prepr:website": "turbo run prepr --filter=@axolotl/website",
-		"icons:add": "pnpm --filter @modrinth/assets icons:add",
-		"scripts": "node scripts/run.mjs",
-		"axolotl:brand-guard": "node scripts/axolotl/brand-guard.mjs",
-		"axolotl:check-agents": "node scripts/axolotl/check-agents.mjs",
-		"axolotl:check-css-vars": "node scripts/axolotl/check-css-vars.mjs",
-		"axolotl:check-orphan-components": "node scripts/axolotl/check-orphan-components.mjs",
-		"blockbench:skin:sync": "node scripts/axolotl/sync-blockbench-skin-editor.mjs",
-		"axolotl:i18n-check": "node scripts/axolotl/i18n-check.mjs",
-		"axolotl:check-chinese": "node scripts/axolotl/check-chinese-hardcoded.mjs"
-	},
-	"devDependencies": {
-		"@clack/prompts": "^1.0.0",
-		"@crowdin/crowdin-api-client": "^1.55.2",
-		"@formatjs/icu-messageformat-parser": "^2.11.4",
-		"@modrinth/tooling-config": "workspace:*",
-		"@tailwindcss/container-queries": "^0.1.1",
-		"@types/node": "^24",
-		"@vue/compiler-dom": "^3.5.26",
-		"@vue/compiler-sfc": "^3.5.26",
-		"chalk": "^5.6.2",
-		"if-ci": "^3.0.0",
-		"keep-a-changelog": "^3.0.2",
-		"pngjs": "7.0.0",
-		"prettier": "^3.9.6",
-		"turbo": "^2.5.4",
-		"vue": "^3.5.42",
-		"yaml": "^2.8.2"
-	},
-	"packageManager": "pnpm@10.33.2",
-	"engines": {
-		"node": ">=24.15.0"
-	},
-	"pnpm": {
-		"overrides": {
-			"typescript": "5.9.3"
-		},
-		"patchedDependencies": {
-			"readable-stream@2.3.8": "patches/readable-stream@2.3.8.patch"
-		},
-		"peerDependencyRules": {
-			"allowedVersions": {
-				"vite": "8",
-				"esbuild": "0"
-			}
-		},
-		"onlyBuiltDependencies": [
-			"@parcel/watcher",
-			"@sentry/cli",
-			"core-js",
-			"esbuild",
-			"protobufjs",
-			"sharp",
-			"unrs-resolver",
-			"vue-demi",
-			"workerd"
-		]
-	},
-	"prettier": "@modrinth/tooling-config/prettier.config.cjs"
+  "name": "@axolotl/monorepo",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "website:dev": "turbo run dev --filter=@axolotl/website",
+    "website:build": "turbo run build --filter=@axolotl/website",
+    "app:dev": "turbo run dev --filter=@modrinth/app",
+    "app:build": "turbo run build --filter=@modrinth/app",
+    "build": "turbo run build --continue",
+    "lint": "turbo run lint lint:ancillary --continue",
+    "lint:ancillary": "prettier --check .github README.md AGENTS.md \"apps/**/AGENTS.md\" \"packages/**/AGENTS.md\" .agents/AGENTS.md \".agents/skills/*/SKILL.md\" standards/frontend/DEVELOPMENT.md standards/frontend/FIGMA_MCP_USAGE.md standards/frontend/ADDING_API_MODULES.md standards/frontend/INTERNATIONALIZATION.md Cargo.toml package.json pnpm-workspace.yaml turbo.jsonc crowdin.yml web-types.json _typos.toml tombi.toml clippy.toml rustfmt.toml",
+    "test": "turbo run test --continue",
+    "fix": "turbo run fix fix:ancillary --continue",
+    "fix:ancillary": "prettier --write .github README.md AGENTS.md \"apps/**/AGENTS.md\" \"packages/**/AGENTS.md\" .agents/AGENTS.md \".agents/skills/*/SKILL.md\" standards/frontend/DEVELOPMENT.md standards/frontend/FIGMA_MCP_USAGE.md standards/frontend/ADDING_API_MODULES.md standards/frontend/INTERNATIONALIZATION.md Cargo.toml package.json pnpm-workspace.yaml turbo.jsonc crowdin.yml web-types.json _typos.toml tombi.toml clippy.toml rustfmt.toml",
+    "ci": "turbo run lint test --continue",
+    "prepr": "turbo run prepr --continue",
+    "prepr:frontend": "turbo run prepr --filter=@modrinth/app-frontend --filter=@axolotl/website",
+    "prepr:frontend:lib": "turbo run prepr --filter=@modrinth/ui --filter=@modrinth/assets --filter=@modrinth/api-client --filter=@modrinth/utils --filter=@modrinth/server --filter=@modrinth/tooling-config",
+    "prepr:frontend:app": "turbo run prepr --filter=@modrinth/app-frontend",
+    "prepr:website": "turbo run prepr --filter=@axolotl/website",
+    "icons:add": "pnpm --filter @modrinth/assets icons:add",
+    "scripts": "node scripts/run.mjs",
+    "axolotl:brand-guard": "node scripts/axolotl/brand-guard.mjs",
+    "axolotl:check-agents": "node scripts/axolotl/check-agents.mjs",
+    "axolotl:check-css-vars": "node scripts/axolotl/check-css-vars.mjs",
+    "axolotl:check-orphan-components": "node scripts/axolotl/check-orphan-components.mjs",
+    "blockbench:skin:sync": "node scripts/axolotl/sync-blockbench-skin-editor.mjs",
+    "axolotl:i18n-check": "node scripts/axolotl/i18n-check.mjs",
+    "axolotl:check-chinese": "node scripts/axolotl/check-chinese-hardcoded.mjs"
+  },
+  "devDependencies": {
+    "@clack/prompts": "^1.0.0",
+    "@crowdin/crowdin-api-client": "^1.55.2",
+    "@formatjs/icu-messageformat-parser": "^2.11.4",
+    "@modrinth/tooling-config": "workspace:*",
+    "@tailwindcss/container-queries": "^0.1.1",
+    "@types/node": "^24",
+    "@vue/compiler-dom": "^3.5.26",
+    "@vue/compiler-sfc": "^3.5.26",
+    "chalk": "^5.6.2",
+    "if-ci": "^3.0.0",
+    "keep-a-changelog": "^3.0.2",
+    "pngjs": "7.0.0",
+    "prettier": "^3.9.6",
+    "turbo": "^2.5.4",
+    "vue": "^3.5.42",
+    "yaml": "^2.8.2"
+  },
+  "packageManager": "pnpm@10.33.2",
+  "engines": {
+    "node": ">=24.15.0"
+  },
+  "pnpm": {
+    "overrides": {
+      "typescript": "5.9.3"
+    },
+    "patchedDependencies": {
+      "readable-stream@2.3.8": "patches/readable-stream@2.3.8.patch"
+    },
+    "peerDependencyRules": {
+      "allowedVersions": {
+        "vite": "8",
+        "esbuild": "0"
+      }
+    },
+    "onlyBuiltDependencies": [
+      "@parcel/watcher",
+      "@sentry/cli",
+      "core-js",
+      "esbuild",
+      "protobufjs",
+      "sharp",
+      "unrs-resolver",
+      "vue-demi",
+      "workerd"
+    ]
+  },
+  "prettier": "@modrinth/tooling-config/prettier.config.cjs"
 }

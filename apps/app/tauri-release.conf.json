@@ -1,22 +1,22 @@
 {
-	"bundle": {
-		"createUpdaterArtifacts": false
-	},
-	"build": {
-		"features": ["updater"]
-	},
-	"app": {
-		"security": {
-			"capabilities": ["core", "plugins", "updater"]
-		}
-	},
-	"plugins": {
-		"updater": {
-			"pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDNGNEE1MkMxOTI0MDA4NzYKUldSMkNFQ1N3VkpLUC9kcEtlZFRWak5FRXJsWUw3YllxWGh6bkg3ZEh3K1ZQa1VNZHl6Y0IvQysK",
-			"endpoints": ["https://update.axlmc.org/latest"],
-			"windows": {
-				"installMode": "quiet"
-			}
-		}
-	}
+  "bundle": {
+    "createUpdaterArtifacts": false
+  },
+  "build": {
+    "features": ["updater"]
+  },
+  "app": {
+    "security": {
+      "capabilities": ["core", "plugins", "updater"]
+    }
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDNGNEE1MkMxOTI0MDA4NzYKUldSMkNFQ1N3VkpLUC9kcEtlZFRWak5FRXJsWUw3YllxWGh6bkg3ZEh3K1ZQa1VNZHl6Y0IvQysK",
+      "endpoints": ["https://update.axlmc.org/latest"],
+      "windows": {
+        "installMode": "quiet"
+      }
+    }
+  }
 }

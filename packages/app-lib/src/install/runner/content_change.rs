@@ -659,7 +659,10 @@ async fn publish_downloaded_action(
                     staged.project_type.get_folder()
                 }
             };
-            format!("{folder}/{}", file.file_name)
+            format!(
+                "{folder}/{}",
+                crate::util::io::sanitize_download_file_name(&file.file_name)?
+            )
         };
         path_util::SafeRelativeUtf8UnixPathBuf::try_from(install_path.clone())?;
         if (!primary || install_path != old_path)

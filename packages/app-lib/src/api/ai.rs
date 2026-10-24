@@ -926,6 +926,19 @@ fn text_client(request: &AiTextRequest) -> &'static reqwest::Client {
     }
 }
 
+// OpenCode routes and caches requests by conversation, not by API key.
+fn opencode_headers(
+    builder: reqwest::RequestBuilder,
+    provider_id: &str,
+    session_id: Uuid,
+) -> reqwest::RequestBuilder {
+    if matches!(provider_id, "opencodecodingplan" | "opencodezen") {
+        builder.header("x-opencode-session", session_id.to_string())
+    } else {
+        builder
+    }
+}
+
 fn lowest_openai_reasoning_effort(model_id: &str) -> Option<&'static str> {
     let model = model_id
         .rsplit('/')
@@ -2380,7 +2393,11 @@ async fn complete_openai(
     });
     apply_openai_translation_options(&mut body, request);
     apply_openai_response_format(&mut body, request);
-    let mut builder = text_client(request).post(endpoint).json(&body);
+    let mut builder = opencode_headers(
+        text_client(request).post(endpoint).json(&body),
+        definition.id,
+        Uuid::new_v4(),
+    );
     if !token.is_empty() {
         builder = if config.protocol == AiProtocol::Azure {
             builder.header("api-key", token)
@@ -2439,14 +2456,18 @@ async fn complete_anthropic(
         );
     }
     let value = checked_json(
-        text_client(request)
-            .post(endpoint_with_path(&config.endpoint, "/v1/messages"))
-            .header("x-api-key", api_key)
-            .header("anthropic-version", "2023-06-01")
-            .json(&body)
-            .send()
-            .await
-            .map_err(|error| ai_network_error(definition.name, error))?,
+        opencode_headers(
+            text_client(request)
+                .post(endpoint_with_path(&config.endpoint, "/v1/messages")),
+            definition.id,
+            Uuid::new_v4(),
+        )
+        .header("x-api-key", api_key)
+        .header("anthropic-version", "2023-06-01")
+        .json(&body)
+        .send()
+        .await
+        .map_err(|error| ai_network_error(definition.name, error))?,
         definition.name,
     )
     .await?;
@@ -3635,6 +3656,55 @@ pub fn disconnect_oauth(provider_id: String) -> crate::Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn opencode_session_headers_are_stable_and_provider_scoped() {
+        let client = reqwest::Client::builder()
+            .user_agent(crate::launcher_user_agent())
+            .build()
+            .unwrap();
+        let session = Uuid::new_v4();
+        for provider in ["opencodecodingplan", "opencodezen"] {
+            for _ in 0..2 {
+                let request = opencode_headers(
+                    client
+                        .post("https://opencode.ai/zen/go/v1/chat/completions"),
+                    provider,
+                    session,
+                )
+                .build()
+                .unwrap();
+                assert_eq!(
+                    request.headers()["x-opencode-session"],
+                    session.to_string()
+                );
+            }
+        }
+        let other_session = Uuid::new_v4();
+        let other_request = opencode_headers(
+            client.post("https://opencode.ai/zen/go/v1/chat/completions"),
+            "opencodecodingplan",
+            other_session,
+        )
+        .build()
+        .unwrap();
+        assert_eq!(
+            other_request.headers()["x-opencode-session"],
+            other_session.to_string()
+        );
+        assert_ne!(
+            other_request.headers()["x-opencode-session"],
+            session.to_string()
+        );
+        let request = opencode_headers(
+            client.post("https://example.com/v1/chat/completions"),
+            "openai",
+            session,
+        )
+        .build()
+        .unwrap();
+        assert!(!request.headers().contains_key("x-opencode-session"));
+    }
 
     #[tokio::test]
     async fn retries_persistence_without_redeeming_the_authorization_code() {

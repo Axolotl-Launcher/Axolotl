@@ -3,6 +3,272 @@ use crate::resources::plans::OperationDraft;
 use std::collections::HashMap;
 
 #[tokio::test]
+async fn resource_operation_futures_can_cross_runtime_threads() {
+    fn require_send<T: Send>(value: T) -> T {
+        value
+    }
+
+    let release = release("root0000", "1", 'a');
+    let (_directory, service) = service(vec![release.clone()]).await;
+    let target = target();
+    let cancel = CancellationToken::new();
+    let memo = plans::analysis::AnalysisMemo::default();
+    let plan = require_send(service.build_operation_with_memo(
+        draft(
+            vec![selection("root", &release, None)],
+            ResourceOperationIntent::Install,
+        ),
+        &target,
+        &[],
+        &cancel,
+        None,
+        Some(&memo),
+    ))
+    .await
+    .unwrap();
+    assert_eq!(plan.plan.actions.len(), 1);
+
+    let session_id = SessionId::new("send-contract").unwrap();
+    // Tauri runs these futures on its multithreaded runtime. Enforce the
+    // contract without initializing the global application state in a test.
+    drop(require_send(plans::analysis::update(
+        &session_id,
+        1,
+        vec![],
+        true,
+        &cancel,
+        None,
+        false,
+        None,
+    )));
+    drop(require_send(plans::prepare_with_progress(
+        "instance".into(),
+        ResourceOperationIntent::Install,
+        vec![],
+        true,
+        &cancel,
+        None,
+        true,
+    )));
+    service.cache().close().await;
+}
+
+#[tokio::test]
+async fn cart_analysis_reuses_unchanged_resolutions_and_removes_only_unused_dependencies()
+ {
+    let shared = release("shared00", "1", 'c');
+    let mut first = release("first000", "1", 'a');
+    let mut second = release("second00", "1", 'b');
+    requires(&mut first, &shared, ResourceDependencyKind::Required);
+    requires(&mut second, &shared, ResourceDependencyKind::Required);
+    let (directory, cache) = cache().await;
+    let provider = Arc::new(PlanProvider {
+        source: SourceId::modrinth(),
+        releases: vec![first.clone(), second.clone(), shared.clone()],
+        requests: Mutex::new(vec![]),
+    });
+    let service = ResourceService::new(cache, vec![provider.clone()]).unwrap();
+    let memo = plans::analysis::AnalysisMemo::default();
+    let cancel = CancellationToken::new();
+    let one = draft(
+        vec![selection("first", &first, None)],
+        ResourceOperationIntent::Install,
+    );
+    service
+        .build_operation_with_memo(
+            one,
+            &target(),
+            &[],
+            &cancel,
+            None,
+            Some(&memo),
+        )
+        .await
+        .unwrap();
+
+    // Clear the source cache so a repeated network request cannot hide behind
+    // HTTP/cache reuse. The cart memo must retain the unchanged resolution.
+    service.cache().clear().await.unwrap();
+    provider.requests.lock().unwrap().clear();
+    let both = draft(
+        vec![
+            selection("first", &first, None),
+            selection("second", &second, None),
+        ],
+        ResourceOperationIntent::Install,
+    );
+    let result = service
+        .build_operation_with_memo(
+            both,
+            &target(),
+            &[],
+            &cancel,
+            None,
+            Some(&memo),
+        )
+        .await
+        .unwrap();
+    assert_eq!(result.plan.actions.len(), 3);
+    assert_eq!(
+        result
+            .plan
+            .nodes
+            .iter()
+            .filter(|node| node.artifact.as_ref().is_some_and(|artifact| {
+                artifact.reference.release == shared.reference
+            }))
+            .count(),
+        1
+    );
+    assert!(!provider.requests.lock().unwrap().iter().any(|query| matches!(query,
+        ProviderQuery::Release { release_id, .. } if release_id == &first.reference.release_id || release_id == &shared.reference.release_id
+    )));
+
+    let remaining = draft(
+        vec![selection("second", &second, None)],
+        ResourceOperationIntent::Install,
+    );
+    let result = service
+        .build_operation_with_memo(
+            remaining,
+            &target(),
+            &[],
+            &cancel,
+            None,
+            Some(&memo),
+        )
+        .await
+        .unwrap();
+    assert_eq!(result.plan.actions.len(), 2);
+    assert!(
+        result.plan.actions.iter().all(|action| action
+            .target
+            .reference
+            .release
+            != first.reference)
+    );
+    assert!(
+        result.plan.actions.iter().any(|action| action
+            .target
+            .reference
+            .release
+            == shared.reference)
+    );
+    service.cache().close().await;
+    drop(directory);
+}
+
+#[tokio::test]
+async fn cart_analysis_rechecks_shared_constraints_after_adding_and_removing_a_conflicting_root()
+ {
+    let old = release("shared00", "1", 'a');
+    let new = release("shared00", "2", 'b');
+    let mut first = release("first000", "1", 'c');
+    let mut second = release("second00", "1", 'd');
+    requires(&mut first, &old, ResourceDependencyKind::Required);
+    requires(&mut second, &new, ResourceDependencyKind::Required);
+    let (_directory, service) = service(vec![
+        first.clone(),
+        second.clone(),
+        old.clone(),
+        new.clone(),
+    ])
+    .await;
+    let memo = plans::analysis::AnalysisMemo::default();
+    let cancel = CancellationToken::new();
+    for (roots, conflict, expected) in [
+        (
+            vec![selection("first", &first, None)],
+            false,
+            old.reference.clone(),
+        ),
+        (
+            vec![
+                selection("first", &first, None),
+                selection("second", &second, None),
+            ],
+            true,
+            old.reference.clone(),
+        ),
+        (
+            vec![selection("second", &second, None)],
+            false,
+            new.reference.clone(),
+        ),
+    ] {
+        let result = service
+            .build_operation_with_memo(
+                draft(roots, ResourceOperationIntent::Install),
+                &target(),
+                &[],
+                &cancel,
+                None,
+                Some(&memo),
+            )
+            .await
+            .unwrap();
+        assert_eq!(
+            result.plan.issues.iter().any(|issue| issue.blocking
+                && issue.code == ResourceIssueCode::VersionConflict),
+            conflict
+        );
+        if !conflict {
+            assert!(
+                result.plan.actions.iter().any(|action| action
+                    .target
+                    .reference
+                    .release
+                    == expected)
+            );
+        }
+    }
+    service.cache().close().await;
+}
+
+#[tokio::test]
+async fn remote_artifact_file_names_are_sanitized_for_install_and_update() {
+    let mut root = release("root0000", "1", 'a');
+    root.artifacts[0].file_name = Some("mod:version?\n.jar".into());
+    let (_directory, service) = service(vec![root.clone()]).await;
+    let plan = service
+        .build_operation(
+            draft(
+                vec![selection("root", &root, None)],
+                ResourceOperationIntent::Install,
+            ),
+            &target(),
+            &[],
+            &CancellationToken::new(),
+        )
+        .await
+        .unwrap()
+        .plan;
+    assert_eq!(plan.actions.len(), 1);
+    assert_eq!(
+        plan.actions[0].target_relative_path,
+        "mods/mod_version__.jar"
+    );
+    assert_eq!(
+        plan.actions[0].target.file_name.as_deref(),
+        Some("mod:version?\n.jar")
+    );
+
+    let mut current =
+        installed(&root, "entry", "mods/[自定义]mod_old.jar.disabled");
+    current.original_file_name = Some("mod:old.jar".into());
+    assert_eq!(
+        super::naming::replacement_path(&current, "mod:new.jar", true).unwrap(),
+        "mods/[自定义]mod_new.jar.disabled"
+    );
+    assert_eq!(
+        super::naming::replacement_path(&current, "mod:new.jar", false)
+            .unwrap(),
+        "mods/mod_new.jar.disabled"
+    );
+    service.cache().close().await;
+}
+
+#[tokio::test]
 async fn switching_a_missing_entry_to_its_current_artifact_restores_the_file() {
     let current = release("root0000", "1", 'a');
     let (_temp, service) = service(vec![current.clone()]).await;

@@ -206,6 +206,17 @@ impl DiscordGuard {
         }
         Ok(())
     }
+
+    /// Closes the Discord IPC connection; used when rich presence is
+    /// disabled or the launcher is shutting down.
+    pub async fn disconnect(&self) {
+        self.run_ipc("disconnect", false, |client| {
+            let _ = client.close();
+            Ok(())
+        })
+        .await;
+        self.connected.store(false, Ordering::Relaxed);
+    }
 }
 
 #[cfg(test)]

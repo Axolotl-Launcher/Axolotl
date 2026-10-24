@@ -1487,6 +1487,12 @@
   "app.downloads.history": {
     "message": "History"
   },
+  "app.downloads.history-empty-description": {
+    "message": "Records of completed, failed, interrupted, and canceled downloads will appear here."
+  },
+  "app.downloads.history-empty-title": {
+    "message": "No download history"
+  },
   "app.downloads.in-progress": {
     "message": "In progress"
   },

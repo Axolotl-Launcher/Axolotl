@@ -804,7 +804,7 @@
     "defaultMessage": "Update {count, plural, one {# project} other {# projects}}"
   },
   "content.confirm-deletion.admonition-body": {
-    "defaultMessage": "Deleting a mod can permanently affect your world and may cause missing content or unexpected issues when it loads again."
+    "defaultMessage": "Deleting {contentType, select, mod {a mod} resourcepack {a resource pack} shader {a shader} datapack {a data pack} other {content}} can permanently affect your world and may cause missing content or unexpected issues when it loads again."
   },
   "content.confirm-deletion.admonition-header": {
     "defaultMessage": "Deletion warning"

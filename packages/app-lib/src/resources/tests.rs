@@ -1885,6 +1885,236 @@ async fn modrinth_project_batches_keep_public_team_members_and_ignore_pending_in
 }
 
 #[tokio::test]
+async fn curseforge_auto_download_derives_missing_urls_but_keeps_public_and_unavailable_files()
+ {
+    let transport = FixtureTransport::new(|_, request| {
+        assert_eq!(request.path, "/v1/mods/files");
+        let files: Vec<_> = [
+            Value::Null,
+            json!(""),
+            json!("  "),
+            json!("https://example.com/original.jar"),
+            Value::Null,
+        ]
+        .into_iter()
+        .enumerate()
+        .map(|(index, url)| {
+            let mut file: Value =
+                serde_json::from_str(fixtures::CF_IRIS).unwrap();
+            file["id"] = json!(5425378 + index);
+            file["downloadUrl"] = url;
+            file["fileName"] = json!("chest dna: 1.jar");
+            file["isAvailable"] = json!(index != 4);
+            file
+        })
+        .collect();
+        Ok(json!({"data": files}))
+    });
+    let provider = CurseForgeProvider::with_download_restriction_policy(
+        transport.clone(),
+        Arc::new(|| true),
+    );
+    let queries = (5425378..=5425382)
+        .map(|id| ProviderQuery::Release {
+            project_id: None,
+            release_id: SourceReleaseId::new(id.to_string()).unwrap(),
+            slug: None,
+        })
+        .collect::<Vec<_>>();
+    let results = provider.fetch_many(&queries).await;
+    for (index, result) in results.into_iter().enumerate() {
+        let ProviderValue::Release(document) = result.unwrap() else {
+            panic!("wrong release");
+        };
+        let acquisition = &document.release.artifacts[0].acquisition;
+        let expected = match index {
+            0..=2 => ArtifactAcquisition::PublicDownload {
+                urls: vec![format!(
+                    "https://edge.forgecdn.net/files/5425/{}/chest%20dna%3A%201.jar",
+                    378 + index
+                )],
+            },
+            3 => ArtifactAcquisition::PublicDownload {
+                urls: vec!["https://example.com/original.jar".into()],
+            },
+            _ => ArtifactAcquisition::Unavailable,
+        };
+        assert_eq!(acquisition, &expected);
+    }
+    assert_eq!(transport.requests.lock().unwrap().len(), 1);
+}
+
+#[tokio::test]
+async fn curseforge_auto_download_applies_to_automatic_release_catalogs() {
+    let transport = FixtureTransport::new(|_, request| {
+        assert_eq!(request.path, "/v1/mods/455508/files");
+        let mut file: Value = serde_json::from_str(fixtures::CF_IRIS).unwrap();
+        file["downloadUrl"] = Value::Null;
+        Ok(
+            json!({"data": [file], "pagination": {"index":0,"pageSize":50,"resultCount":1,"totalCount":1}}),
+        )
+    });
+    let provider = CurseForgeProvider::with_download_restriction_policy(
+        transport,
+        Arc::new(|| true),
+    );
+    let results = provider
+        .fetch_many(&[ProviderQuery::Releases {
+            project_id: SourceProjectId::new("455508").unwrap(),
+            slug: None,
+            target: ipc::ResourceTarget {
+                game_versions: vec![],
+                loaders: vec![],
+                channels: vec![],
+            },
+            cursor: None,
+            page_size: 50,
+        }])
+        .await;
+    let ProviderValue::Releases(page) = results[0].as_ref().unwrap() else {
+        panic!("wrong catalog");
+    };
+    assert!(matches!(
+        page.entries[0].artifacts[0].acquisition,
+        ArtifactAcquisition::PublicDownload { .. }
+    ));
+}
+
+#[tokio::test]
+async fn curseforge_download_policy_changes_do_not_reuse_the_other_policy_cache()
+ {
+    let transport = FixtureTransport::new(|_, request| {
+        match request.path.as_str() {
+            "/v1/mods/files" => {
+                let mut file: Value =
+                    serde_json::from_str(fixtures::CF_IRIS).unwrap();
+                file["downloadUrl"] = Value::Null;
+                Ok(json!({"data": [file]}))
+            }
+            "/v1/mods" => Ok(
+                json!({"data":[{"id":455508,"slug":"irisshaders","name":"Iris","classId":6,"links":{"websiteUrl":"https://www.curseforge.com/minecraft/mc-mods/irisshaders"}}]}),
+            ),
+            _ => panic!("unexpected endpoint"),
+        }
+    });
+    let enabled = Arc::new(AtomicBool::new(false));
+    let setting = Arc::clone(&enabled);
+    let provider = CurseForgeProvider::with_download_restriction_policy(
+        transport.clone(),
+        Arc::new(move || setting.load(Ordering::Relaxed)),
+    );
+    let (_directory, cache) = cache().await;
+    let service = ResourceService::new(
+        cache,
+        vec![Arc::new(Available(Arc::new(provider)))],
+    )
+    .unwrap();
+    let query = ProviderQuery::Release {
+        project_id: None,
+        release_id: SourceReleaseId::new("5425378").unwrap(),
+        slug: None,
+    };
+    for (bypass, cached) in
+        [(false, false), (true, false), (false, true), (true, true)]
+    {
+        enabled.store(bypass, Ordering::Relaxed);
+        let result = service
+            .query(
+                &SourceId::curseforge(),
+                query.clone(),
+                CachePolicy::UseFresh,
+                &CancellationToken::new(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(result.from_cache, cached);
+        let ProviderValue::Release(document) = result.value else {
+            panic!("wrong release");
+        };
+        assert_eq!(
+            matches!(
+                document.release.artifacts[0].acquisition,
+                ArtifactAcquisition::PublicDownload { .. }
+            ),
+            bypass
+        );
+        assert_eq!(
+            matches!(
+                document.release.artifacts[0].acquisition,
+                ArtifactAcquisition::ManualDownload { .. }
+            ),
+            !bypass
+        );
+    }
+    assert_eq!(transport.requests.lock().unwrap().len(), 3);
+    service.cache().close().await;
+}
+
+#[tokio::test]
+async fn curseforge_policy_change_during_a_request_cannot_poison_the_cache() {
+    let enabled = Arc::new(AtomicBool::new(false));
+    let setting = Arc::clone(&enabled);
+    let transport = FixtureTransport::new(move |_, request| {
+        match request.path.as_str() {
+            "/v1/mods/files" => {
+                setting.store(true, Ordering::Relaxed);
+                let mut file: Value =
+                    serde_json::from_str(fixtures::CF_IRIS).unwrap();
+                file["downloadUrl"] = Value::Null;
+                Ok(json!({"data": [file]}))
+            }
+            "/v1/mods" => Ok(
+                json!({"data":[{"id":455508,"slug":"irisshaders","name":"Iris","classId":6,"links":{"websiteUrl":"https://www.curseforge.com/minecraft/mc-mods/irisshaders"}}]}),
+            ),
+            _ => panic!("unexpected endpoint"),
+        }
+    });
+    let setting = Arc::clone(&enabled);
+    let provider = CurseForgeProvider::with_download_restriction_policy(
+        transport,
+        Arc::new(move || setting.load(Ordering::Relaxed)),
+    );
+    let (_directory, cache) = cache().await;
+    let service = ResourceService::new(
+        cache,
+        vec![Arc::new(Available(Arc::new(provider)))],
+    )
+    .unwrap();
+    let query = ProviderQuery::Release {
+        project_id: None,
+        release_id: SourceReleaseId::new("5425378").unwrap(),
+        slug: None,
+    };
+    let cancel = CancellationToken::new();
+    assert_eq!(
+        service
+            .query(
+                &SourceId::curseforge(),
+                query.clone(),
+                CachePolicy::UseFresh,
+                &cancel
+            )
+            .await
+            .unwrap_err(),
+        ResourceError::Canceled
+    );
+    enabled.store(false, Ordering::Relaxed);
+    assert_eq!(
+        service
+            .query(
+                &SourceId::curseforge(),
+                query,
+                CachePolicy::OnlyCached,
+                &cancel
+            )
+            .await
+            .unwrap_err(),
+        ResourceError::Unavailable
+    );
+    service.cache().close().await;
+}
+
+#[tokio::test]
 async fn curseforge_manual_links_use_project_urls_and_unavailable_files_remain_unavailable()
  {
     let transport = FixtureTransport::new(|_, request| {

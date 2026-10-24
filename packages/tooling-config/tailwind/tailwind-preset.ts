@@ -209,6 +209,7 @@ const config: Config = {
                     active: 'var(--color-link-active)',
                 },
                 warning: {
+                    DEFAULT: 'var(--color-warning)',
                     bg: 'var(--color-warning-bg)',
                     text: 'var(--color-warning-text)',
                     banner: {

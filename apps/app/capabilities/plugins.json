@@ -1,175 +1,175 @@
 {
-	"identifier": "plugins",
-	"description": "",
-	"local": true,
-	"windows": ["main"],
-	"permissions": [
-		"dialog:allow-open",
-		"dialog:allow-confirm",
-		"opener:default",
-		"os:allow-platform",
-		"os:allow-version",
-		"os:allow-os-type",
-		"os:allow-family",
-		"os:allow-arch",
-		"os:allow-exe-extension",
-		"os:allow-locale",
-		"os:allow-hostname",
-		"deep-link:default",
-		"window-state:default",
-		"window-state:allow-restore-state",
-		"window-state:allow-save-window-state",
-		{
-			"identifier": "http:default",
-			"allow": [
-				{
-					"url": "https://modrinth.com/*"
-				},
-				{
-					"url": "https://*.modrinth.com/*"
-				},
-				{
-					"url": "https://*.nodes.modrinth.com/*"
-				},
-				{
-					"url": "https://api.mclo.gs/*"
-				},
-				{
-					"url": "https://fill.papermc.io/*"
-				},
-				{
-					"url": "https://api.papermc.io/*"
-				},
-				{
-					"url": "https://piston-meta.mojang.com/*"
-				},
-				{
-					"url": "https://launchermeta.mojang.com/*"
-				},
-				{
-					"url": "https://meta.fabricmc.net/*"
-				},
-				{
-					"url": "https://files.minecraftforge.net/*"
-				},
-				{
-					"url": "https://maven.minecraftforge.net/*"
-				},
-				{
-					"url": "https://api.purpurmc.org/*"
-				},
-				{
-					"url": "https://update.axlmc.org/*"
-				},
-				{
-					"url": "http://localhost:8000/*"
-				},
-				{
-					"url": "http://127.0.0.1:8000/*"
-				},
-				{
-					"url": "https://mod.mcimirror.top/*"
-				}
-			]
-		},
-		"dialog:allow-save",
-		"fs:allow-read-dir",
-		"fs:allow-read-file",
-		"fs:allow-read-text-file",
-		"fs:allow-write-file",
-		"fs:allow-write-text-file",
-		"fs:allow-create",
-		"fs:allow-remove",
-		"fs:allow-rename",
-		"fs:allow-copy-file",
-		"fs:allow-stat",
-		"fs:allow-exists",
-		"fs:allow-mkdir",
-		"fs:allow-watch",
-		{
-			"identifier": "fs:scope",
-			"allow": [
-				{
-					"path": "$APPDATA/backgrounds"
-				},
-				{
-					"path": "$APPDATA/backgrounds/**"
-				},
-				{
-					"path": "$APPDATA/profiles"
-				},
-				{
-					"path": "$APPDATA/profiles/**"
-				},
-				{
-					"path": "$APPCONFIG/profiles"
-				},
-				{
-					"path": "$APPCONFIG/profiles/**"
-				},
-				{
-					"path": "$CONFIG/profiles"
-				},
-				{
-					"path": "$CONFIG/profiles/**"
-				},
-				{
-					"path": "$APPDATA/servers"
-				},
-				{
-					"path": "$APPDATA/servers/**"
-				},
-				{
-					"path": "$APPCONFIG/servers"
-				},
-				{
-					"path": "$APPCONFIG/servers/**"
-				},
-				{
-					"path": "$CONFIG/servers"
-				},
-				{
-					"path": "$CONFIG/servers/**"
-				}
-			]
-		},
-		"auth:default",
-		"import:default",
-		"jre:default",
-		"logs:default",
-		"metadata:default",
-		"minecraft-skins:default",
-		"mr-auth:default",
-		"mod-translation:default",
-		"instance:default",
-		"install:default",
-		"process:default",
-		"cache:default",
-		"content-search:default",
-		"content-favorites:default",
-		"axolotl-resources:default",
-		"curseforge:default",
-		"mcarchive:default",
-		"datapacks:default",
-		"files:default",
-		"fonts:default",
-		"settings:default",
-		"seed-map:default",
-		"schematic-preview:default",
-		"shortcuts:default",
-		"tags:default",
-		"ai:default",
-		"translation:default",
-		"storage:default",
-		"system-accent:default",
-		"utils:default",
-		"worlds:default",
-		"drop:default",
-		"terracotta:default",
-		"multiplayer:default",
-		"servers:default",
-		"friends:default",
-		"telemetry:default",
-		"planet-minecraft:default"
-	]
+  "identifier": "plugins",
+  "description": "",
+  "local": true,
+  "windows": ["main"],
+  "permissions": [
+    "dialog:allow-open",
+    "dialog:allow-confirm",
+    "opener:default",
+    "os:allow-platform",
+    "os:allow-version",
+    "os:allow-os-type",
+    "os:allow-family",
+    "os:allow-arch",
+    "os:allow-exe-extension",
+    "os:allow-locale",
+    "os:allow-hostname",
+    "deep-link:default",
+    "window-state:default",
+    "window-state:allow-restore-state",
+    "window-state:allow-save-window-state",
+    {
+      "identifier": "http:default",
+      "allow": [
+        {
+          "url": "https://modrinth.com/*"
+        },
+        {
+          "url": "https://*.modrinth.com/*"
+        },
+        {
+          "url": "https://*.nodes.modrinth.com/*"
+        },
+        {
+          "url": "https://api.mclo.gs/*"
+        },
+        {
+          "url": "https://fill.papermc.io/*"
+        },
+        {
+          "url": "https://api.papermc.io/*"
+        },
+        {
+          "url": "https://piston-meta.mojang.com/*"
+        },
+        {
+          "url": "https://launchermeta.mojang.com/*"
+        },
+        {
+          "url": "https://meta.fabricmc.net/*"
+        },
+        {
+          "url": "https://files.minecraftforge.net/*"
+        },
+        {
+          "url": "https://maven.minecraftforge.net/*"
+        },
+        {
+          "url": "https://api.purpurmc.org/*"
+        },
+        {
+          "url": "https://update.axlmc.org/*"
+        },
+        {
+          "url": "http://localhost:8000/*"
+        },
+        {
+          "url": "http://127.0.0.1:8000/*"
+        },
+        {
+          "url": "https://mod.mcimirror.top/*"
+        }
+      ]
+    },
+    "dialog:allow-save",
+    "fs:allow-read-dir",
+    "fs:allow-read-file",
+    "fs:allow-read-text-file",
+    "fs:allow-write-file",
+    "fs:allow-write-text-file",
+    "fs:allow-create",
+    "fs:allow-remove",
+    "fs:allow-rename",
+    "fs:allow-copy-file",
+    "fs:allow-stat",
+    "fs:allow-exists",
+    "fs:allow-mkdir",
+    "fs:allow-watch",
+    {
+      "identifier": "fs:scope",
+      "allow": [
+        {
+          "path": "$APPDATA/backgrounds"
+        },
+        {
+          "path": "$APPDATA/backgrounds/**"
+        },
+        {
+          "path": "$APPDATA/profiles"
+        },
+        {
+          "path": "$APPDATA/profiles/**"
+        },
+        {
+          "path": "$APPCONFIG/profiles"
+        },
+        {
+          "path": "$APPCONFIG/profiles/**"
+        },
+        {
+          "path": "$CONFIG/profiles"
+        },
+        {
+          "path": "$CONFIG/profiles/**"
+        },
+        {
+          "path": "$APPDATA/servers"
+        },
+        {
+          "path": "$APPDATA/servers/**"
+        },
+        {
+          "path": "$APPCONFIG/servers"
+        },
+        {
+          "path": "$APPCONFIG/servers/**"
+        },
+        {
+          "path": "$CONFIG/servers"
+        },
+        {
+          "path": "$CONFIG/servers/**"
+        }
+      ]
+    },
+    "auth:default",
+    "import:default",
+    "jre:default",
+    "logs:default",
+    "metadata:default",
+    "minecraft-skins:default",
+    "mr-auth:default",
+    "mod-translation:default",
+    "instance:default",
+    "install:default",
+    "process:default",
+    "cache:default",
+    "content-search:default",
+    "content-favorites:default",
+    "axolotl-resources:default",
+    "curseforge:default",
+    "mcarchive:default",
+    "datapacks:default",
+    "files:default",
+    "fonts:default",
+    "settings:default",
+    "seed-map:default",
+    "schematic-preview:default",
+    "shortcuts:default",
+    "tags:default",
+    "ai:default",
+    "translation:default",
+    "storage:default",
+    "system-accent:default",
+    "utils:default",
+    "worlds:default",
+    "drop:default",
+    "terracotta:default",
+    "multiplayer:default",
+    "servers:default",
+    "friends:default",
+    "telemetry:default",
+    "planet-minecraft:default"
+  ]
 }

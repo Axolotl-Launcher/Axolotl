@@ -584,6 +584,7 @@ pub struct Project {
     pub source_url: Option<String>,
     pub wiki_url: Option<String>,
     pub discord_url: Option<String>,
+    #[serde(default, deserialize_with = "deserialize_donation_links")]
     pub donation_urls: Option<Vec<DonationLink>>,
     pub gallery: Vec<GalleryItem>,
     pub color: Option<u32>,
@@ -608,7 +609,7 @@ pub struct License {
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct GalleryItem {
     pub url: String,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "deserialize_optional_string")]
     pub raw_url: String,
     pub featured: bool,
     pub title: Option<String>,
@@ -635,6 +636,21 @@ mod gallery_item_tests {
 
         assert!(item.raw_url.is_empty());
     }
+
+    #[test]
+    fn accepts_redacted_or_missing_optional_gallery_urls() {
+        let item = serde_json::from_value::<GalleryItem>(serde_json::json!({
+            "url": "https://cdn.modrinth.com/data/project/image.png",
+            "raw_url": null,
+            "featured": false,
+            "title": null,
+            "description": null,
+            "created": "2026-07-20T00:00:00Z",
+            "ordering": 0
+        }))
+        .unwrap();
+        assert!(item.raw_url.is_empty());
+    }
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -642,6 +658,41 @@ pub struct DonationLink {
     pub id: String,
     pub platform: String,
     pub url: String,
+}
+
+fn deserialize_optional_string<'de, D: serde::Deserializer<'de>>(
+    deserializer: D,
+) -> Result<String, D::Error> {
+    Ok(Option::<String>::deserialize(deserializer)?.unwrap_or_default())
+}
+
+fn deserialize_donation_links<'de, D: serde::Deserializer<'de>>(
+    deserializer: D,
+) -> Result<Option<Vec<DonationLink>>, D::Error> {
+    #[derive(Deserialize)]
+    struct Link {
+        id: String,
+        platform: String,
+        url: Option<String>,
+    }
+    // Resource protocol projections redact credential-bearing URLs to null.
+    // Keep the valid project metadata without exposing unusable links.
+    Ok(
+        Option::<Vec<Link>>::deserialize(deserializer)?.map(|links| {
+            links
+                .into_iter()
+                .filter_map(|link| {
+                    link.url.filter(|url| !url.trim().is_empty()).map(|url| {
+                        DonationLink {
+                            id: link.id,
+                            platform: link.platform,
+                            url,
+                        }
+                    })
+                })
+                .collect()
+        }),
+    )
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Eq, PartialEq)]

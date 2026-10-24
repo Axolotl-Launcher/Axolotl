@@ -1,4 +1,4 @@
-name: Prepare pnpm cache
+name: Prepare pnpm caches
 
 on:
   workflow_dispatch:

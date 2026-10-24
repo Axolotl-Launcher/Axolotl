@@ -1,5 +1,5 @@
 {
-	"bundle": {
-		"createUpdaterArtifacts": "v1Compatible"
-	}
+  "bundle": {
+    "createUpdaterArtifacts": "v1Compatible"
+  }
 }

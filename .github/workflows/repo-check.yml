@@ -1,0 +1,121 @@
+name: Repository checks
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  CARGO_TERM_COLOR: always
+  SQLX_OFFLINE: true
+
+permissions:
+  contents: read
+
+jobs:
+  changes:
+    name: Check for changes
+    runs-on: ubuntu-latest
+    outputs:
+      desktop: ${{ steps.scope.outputs.desktop }}
+      frontend: ${{ steps.scope.outputs.frontend }}
+      website: ${{ steps.scope.outputs.website }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version-file: .nvmrc
+      - id: scope
+        env:
+          CHANGE_BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: node scripts/axolotl/ci-changes.mjs
+
+  typos:
+    name: Run typos checks
+    needs: changes
+    if: needs.changes.outputs.desktop == 'true' || needs.changes.outputs.frontend == 'true' || needs.changes.outputs.website == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Run typos checks
+        uses: crate-ci/typos@6ac2ebd1b93eade61faf7e12688ad87a073fea59 # v1.46.0
+
+  # see <https://github.com/influxdata/datafusion-udf-wasm/pull/275>
+  tombi:
+    name: Run tombi checks
+    needs: changes
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Install tombi
+        uses: taiki-e/install-action@fd2f5e3d644b484055ebf4268f474c565f148f25 # v2.81.9
+        with:
+          tool: tombi@1.1.2
+      - name: Run tombi lint
+        run: tombi lint
+      - name: Run tombi fmt
+        run: tombi fmt --check
+
+  shear:
+    name: Run cargo-shear
+    needs: changes
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          submodules: recursive
+      - name: Setup Node.js
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version-file: .nvmrc
+      - name: Show active Rust toolchain
+        run: rustup show active-toolchain
+      - name: Install cargo-binstall
+        uses: cargo-bins/cargo-binstall@dc19f1e48450eefe5a29b8da6c6b00a87d730b37 # v1.18.1
+      - name: Install cargo-shear
+        run: cargo binstall --no-confirm --locked cargo-shear@1.13.0
+      - name: Run cargo-shear
+        run: cargo shear
+
+  clippy:
+    name: Run rust-clippy analyzing
+    needs: changes
+    if: needs.changes.outputs.desktop == 'true' && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+      actions: read # only required for a private repository by github/codeql-action/upload-sarif to get the Action run status
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          submodules: recursive
+      - name: Show active Rust toolchain
+        run: rustup show active-toolchain
+      - name: Install cargo-binstall
+        uses: cargo-bins/cargo-binstall@dc19f1e48450eefe5a29b8da6c6b00a87d730b37 # v1.18.1
+      - name: Setup Clippy
+        run: rustup component add clippy
+      - name: Install required cargo
+        run: cargo install clippy-sarif sarif-fmt
+      - name: Run rust-clippy
+        run: cargo clippy
+          --all-features
+          --message-format=json | clippy-sarif | tee rust-clippy-results.sarif | sarif-fmt
+        continue-on-error: true
+      - name: Upload analysis results to GitHub
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: rust-clippy-results.sarif
+          wait-for-processing: true

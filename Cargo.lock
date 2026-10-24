@@ -7062,7 +7062,7 @@ dependencies = [
 
 [[package]]
 name = "theseus"
-version = "1.10.0-beta.5"
+version = "1.10.0"
 dependencies = [
  "ariadne",
  "async-minecraft-ping",
@@ -7173,7 +7173,7 @@ dependencies = [
 
 [[package]]
 name = "theseus_gui"
-version = "1.10.0-beta.5"
+version = "1.10.0"
 dependencies = [
  "ashpd",
  "async_zip",
@@ -7196,6 +7196,7 @@ dependencies = [
  "libloading",
  "native-dialog",
  "notify",
+ "objc2",
  "objc2-app-kit",
  "objc2-foundation",
  "paste",

@@ -283,10 +283,10 @@ function closeArmorTab() {
 }
 
 /**
- * The tab bar keeps the last list tab highlighted while the armour tab shows, so
- * picking one of them leaves the armour tab. That transition has to drop the
- * draft exactly like the toggle and Escape paths do, or it lingers on the model
- * while the panel is gone.
+ * While the armour tab shows, no list tab is selected, so picking one of them
+ * leaves the armour surface. That transition has to drop the draft exactly like
+ * the toggle and Escape paths do, or it lingers on the model while the panel is
+ * gone.
  */
 function selectSkinListTab(index: number) {
     if (skinListTab.value === 'armor') resetArmorPreviewToSaved()
@@ -1233,7 +1233,9 @@ await refreshSelectedAccount()
         <div class="pt-2">
             <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
                 <NavTabs
-                    :active-index="lastSkinListTab === 'saved' ? 0 : 1"
+                    :active-index="
+                        skinListTab === 'armor' ? -1 : lastSkinListTab === 'saved' ? 0 : 1
+                    "
                     :links="skinListTabLinks"
                     mode="local"
                     @tab-click="selectSkinListTab"
@@ -1244,7 +1246,12 @@ await refreshSelectedAccount()
                 </Button>
             </div>
             <Transition name="armor-tab" mode="out-in">
-                <div v-if="skinListTab !== 'armor'" key="list">
+                <div
+                    v-if="skinListTab !== 'armor'"
+                    key="list"
+                    role="tabpanel"
+                    :aria-labelledby="'nav-tab-' + lastSkinListTab"
+                >
                     <SkinListSkeleton v-if="isSkinListBuffering" />
                     <VirtualSkinSectionList
                         v-show="!isSkinListBuffering"

@@ -1,6 +1,111 @@
 use super::*;
 use crate::state::{CacheBehaviour, CacheValueType};
 
+fn project_protocol(id: &str) -> Value {
+    json!({
+        "id": id, "slug": id, "project_type": "mod", "team": "team0000", "organization": null,
+        "title": "Example", "description": "Example mod", "body": "", "published": "2024-01-01T00:00:00Z",
+        "updated": "2024-01-01T00:00:00Z", "approved": null, "status": "approved",
+        "license": {"id": "MIT", "name": "MIT", "url": null}, "client_side": "optional", "server_side": "optional",
+        "downloads": 1, "followers": 0, "categories": [], "additional_categories": [], "game_versions": ["1.21.1"],
+        "loaders": ["neoforge"], "versions": [], "icon_url": null, "issues_url": null, "source_url": null,
+        "wiki_url": null, "discord_url": null, "donation_urls": [
+            {"id": "patreon", "platform": "Patreon", "url": "https://patreon.com/example"},
+            {"id": "other", "platform": "Other", "url": "https://example.com/donate?key=private-donation-key"}
+        ],
+        "gallery": [{"url": "https://example.com/gallery.png", "raw_url": "https://example.com/original.png", "featured": false,
+            "title": null, "description": null, "created": "2024-01-01T00:00:00Z", "ordering": 0}], "color": null
+    })
+}
+
+#[tokio::test]
+async fn project_projection_accepts_nullable_fields_and_redacted_links_online_and_from_cache()
+ {
+    let transport =
+        FixtureTransport::new(|_, request| match request.path.as_str() {
+            "/projects" => Ok(json!([project_protocol("joEfVgkn")])),
+            "/teams" => Ok(json!([])),
+            _ => panic!("unexpected endpoint"),
+        });
+    let (_directory, cache) = cache().await;
+    let service = ResourceService::new(
+        cache,
+        vec![Arc::new(ModrinthProvider::new(transport.clone()))],
+    )
+    .unwrap();
+    for behaviour in [None, Some(CacheBehaviour::CacheOnly)] {
+        let entries = protocol::many(
+            &service,
+            CacheValueType::Project,
+            &["joEfVgkn"],
+            behaviour,
+            &CancellationToken::new(),
+        )
+        .await
+        .unwrap();
+        assert_eq!(entries.len(), 1);
+        let entry = serde_json::to_value(&entries[0]).unwrap();
+        let project: crate::state::Project =
+            serde_json::from_value(entry["data"]["Project"].clone()).unwrap();
+        assert!(project.organization.is_none());
+        assert!(project.wiki_url.is_none());
+        assert!(project.license.url.is_none());
+        let links = project.donation_urls.as_ref().unwrap();
+        assert_eq!(links.len(), 1);
+        assert_eq!(links[0].url, "https://patreon.com/example");
+        assert_eq!(
+            project.gallery[0].raw_url,
+            "https://example.com/original.png"
+        );
+        assert!(
+            !serde_json::to_string(&entries)
+                .unwrap()
+                .contains("private-donation-key")
+        );
+    }
+    assert_eq!(transport.requests.lock().unwrap().len(), 2);
+    service.cache().close().await;
+}
+
+#[tokio::test]
+async fn malformed_project_projection_does_not_discard_other_content_metadata()
+{
+    let transport =
+        FixtureTransport::new(|_, request| match request.path.as_str() {
+            "/projects" => {
+                let valid = project_protocol("joEfVgkn");
+                let mut broken = project_protocol("broken00");
+                broken["license"]["name"] = Value::Null;
+                Ok(json!([broken, valid]))
+            }
+            "/teams" => Ok(json!([])),
+            _ => panic!("unexpected endpoint"),
+        });
+    let (_directory, cache) = cache().await;
+    let service = ResourceService::new(
+        cache,
+        vec![Arc::new(ModrinthProvider::new(transport))],
+    )
+    .unwrap();
+    for behaviour in [None, Some(CacheBehaviour::CacheOnly)] {
+        let entries = protocol::many(
+            &service,
+            CacheValueType::Project,
+            &["broken00", "joEfVgkn"],
+            behaviour,
+            &CancellationToken::new(),
+        )
+        .await
+        .unwrap();
+        assert_eq!(entries.len(), 1);
+        assert_eq!(
+            serde_json::to_value(&entries[0]).unwrap()["id"],
+            "joEfVgkn"
+        );
+    }
+    service.cache().close().await;
+}
+
 fn mr_protocol() -> Value {
     let mut value: Value = serde_json::from_str(fixtures::MR_IRIS).unwrap();
     value["author_id"] = json!("author00");

@@ -140,7 +140,7 @@ useHead({
                 >GitHub Issues</a
             >
             联系项目维护者。请勿在公开 Issue
-            中提交账户令牌、密码、完整日志或其他敏感信息。也可加入官方 QQ 群 737601250
+            中提交账户令牌、密码、完整日志或其他敏感信息。也可加入官方 QQ 群 830619067
             咨询一般问题。
         </p>
     </LegalDocument>
@@ -300,7 +300,7 @@ useHead({
             <a href="https://github.com/Mystic-Stars/Axolotl/issues" target="_blank" rel="noopener"
                 >GitHub Issues</a
             >. Do not submit account tokens, passwords, full logs, or other sensitive information in
-            public issues. You may also join the official QQ group 737601250 for general questions.
+            public issues. You may also join the official QQ group 830619067 for general questions.
         </p>
     </LegalDocument>
 </template>

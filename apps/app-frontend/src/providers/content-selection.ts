@@ -1,6 +1,6 @@
 import type { Labrinth } from '@modrinth/api-client'
 import { type BrowseInstallPreferences, type BrowseSelectedProject, useVIntl } from '@modrinth/ui'
-import { computed, ref, watch } from 'vue'
+import { computed, getCurrentScope, onScopeDispose, ref, watch } from 'vue'
 
 import type ContentInstallPreviewModal from '@/components/ui/ContentInstallPreviewModal.vue'
 import type ResourceOperationPreviewModal from '@/components/ui/ResourceOperationPreviewModal.vue'
@@ -14,6 +14,7 @@ import {
     resolveContentIdentities,
 } from '@/helpers/content-identity'
 import { getCurseForgeFile, getCurseForgeFiles, getCurseForgeProjects } from '@/helpers/curseforge'
+import { installJobInstanceId } from '@/helpers/install'
 import {
     get_content_snapshot,
     type InstallContentBatchItem,
@@ -23,6 +24,7 @@ import {
 import { type ResourceSelection, sourceResource } from '@/helpers/resources'
 import { getBrowseDefaultInstanceId, setBrowseDefaultInstanceId } from '@/helpers/settings'
 import type { GameInstance } from '@/helpers/types'
+import { createContentAnalysis } from '@/providers/content-analysis'
 import {
     type ContentSelectionContext,
     type ContentSelectionItem,
@@ -60,6 +62,35 @@ function installJobKey(instanceId: string, itemKey: string) {
     return `${instanceId}\0${itemKey}`
 }
 
+function resourceSelections(resources: ContentSelectionItem[]): ResourceSelection[] {
+    return resources.map((item) => ({
+        id: item.key,
+        resource: sourceResource(item.provider, item.providerProjectId),
+        release: item.versionId
+            ? {
+                  kind: 'release',
+                  reference: {
+                      project: {
+                          source: item.provider,
+                          projectId: item.providerProjectId,
+                      },
+                      releaseId: item.versionId,
+                  },
+              }
+            : { kind: 'automatic' },
+        resourceType: (
+            {
+                mod: 'mod',
+                plugin: 'plugin',
+                datapack: 'dataPack',
+                resourcepack: 'resourcePack',
+                shader: 'shader',
+            } as const
+        )[item.contentType as Exclude<typeof item.contentType, 'world'>],
+        scope: { kind: 'instance' },
+    }))
+}
+
 export function createContentSelection({
     addNotification,
     handleError,
@@ -82,6 +113,39 @@ export function createContentSelection({
     let selectionGeneration = 0
     let resourcePreview: InstanceType<typeof ResourceOperationPreviewModal> | null = null
     let previewModal: InstanceType<typeof ContentInstallPreviewModal> | null = null
+    const analysis = createContentAnalysis()
+    const snapshotGeneration = ref(0)
+    const stopAnalysis = watch(
+        () => {
+            const instance = targetInstance.value
+            if (!instance) return null
+            const selected = [...items.value.values()].filter(
+                (item) => item.targetInstanceId === instance.id && item.contentType !== 'world',
+            )
+            return {
+                instanceId: instance.id,
+                context: JSON.stringify([
+                    instance.game_version,
+                    instance.loader,
+                    instance.loader_version,
+                    instance.update_channel,
+                    snapshotGeneration.value,
+                    downloadManager.jobs.value
+                        .filter((job) => installJobInstanceId(job) === instance.id)
+                        .map(({ job_id, status }) => [job_id, status]),
+                ]),
+                selections: resourceSelections(selected),
+                installDependencies: themeStore.getFeatureFlag('auto_install_dependencies'),
+            }
+        },
+        (input) => analysis.update(input),
+        { flush: 'sync' },
+    )
+    if (getCurrentScope())
+        onScopeDispose(() => {
+            stopAnalysis()
+            analysis.clear()
+        })
 
     const selectedProjects = computed<BrowseSelectedProject[]>(() =>
         Array.from(items.value.values()).map((item) => ({
@@ -233,6 +297,7 @@ export function createContentSelection({
     }
 
     async function refreshInstalledIdentities() {
+        snapshotGeneration.value++
         if (!targetInstance.value) {
             installedIdentityKeys.value = new Set()
             installedIdentitySlugs.value = new Set()
@@ -441,6 +506,10 @@ export function createContentSelection({
         const queuedKeys = new Set<string>()
         let acceptedJobs = 0
         try {
+            let selectionSnapshot = JSON.stringify([...items.value.values()])
+            const isCurrentSelection = () =>
+                targetInstance.value?.id === instance.id &&
+                JSON.stringify([...items.value.values()]) === selectionSnapshot
             state.value = 'validating'
             progress.value = { completed: 0, total: worlds.length }
             for (const item of worlds) {
@@ -449,6 +518,7 @@ export function createContentSelection({
                     throw new Error(formatMessage(messages.previewFailed))
                 if (!item.versionId) {
                     const page = await getCurseForgeFiles(projectId, {})
+                    if (!isCurrentSelection()) return false
                     const file = page.files.find((file) => file.isAvailable)
                     if (!file) throw new Error(formatMessage(messages.previewFailed))
                     item.versionId = String(file.id)
@@ -458,6 +528,7 @@ export function createContentSelection({
                         undefined,
                         file.hashes.find((hash) => hash.algo === 1)?.value,
                     )
+                    selectionSnapshot = JSON.stringify([...items.value.values()])
                 }
                 const fileId = Number(item.versionId)
                 if (!Number.isSafeInteger(fileId) || fileId <= 0)
@@ -483,39 +554,17 @@ export function createContentSelection({
                     skipped: [],
                 })
                 if (!review) return false
+                if (!isCurrentSelection()) return false
                 includedWorlds = worlds.filter((item) => review.primaryKeys.includes(item.key))
             }
             if (resources.length) {
-                const selections: ResourceSelection[] = resources.map((item) => ({
-                    id: item.key,
-                    resource: sourceResource(item.provider, item.providerProjectId),
-                    release: item.versionId
-                        ? {
-                              kind: 'release',
-                              reference: {
-                                  project: {
-                                      source: item.provider,
-                                      projectId: item.providerProjectId,
-                                  },
-                                  releaseId: item.versionId,
-                              },
-                          }
-                        : { kind: 'automatic' },
-                    resourceType: (
-                        {
-                            mod: 'mod',
-                            plugin: 'plugin',
-                            datapack: 'dataPack',
-                            resourcepack: 'resourcePack',
-                            shader: 'shader',
-                        } as const
-                    )[item.contentType as Exclude<typeof item.contentType, 'world'>],
-                    scope: { kind: 'instance' },
-                }))
+                if (!isCurrentSelection()) return false
+                const selections = resourceSelections(resources)
                 const result = await resourcePreview!.showInstallSelection({
                     instanceId: instance.id,
                     instanceName: instance.name,
                     selections,
+                    analysis: analysis.review(),
                     installDependencies: themeStore.getFeatureFlag('auto_install_dependencies'),
                 })
                 if (!result) return false

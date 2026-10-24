@@ -393,7 +393,7 @@ async fn download_size_header_is_rejected_before_a_file_is_installed() {
     let server = tokio::spawn(async move {
         let (mut stream, _) = listener.accept().await.unwrap();
         let mut request = [0; 2048];
-        stream.read(&mut request).await.unwrap();
+        let _bytes_read = stream.read(&mut request).await.unwrap();
         stream
 			.write_all(
 				format!(
@@ -602,7 +602,7 @@ async fn truncated_node_response_falls_back_to_validated_v2_disk_cache() {
     let server = tokio::spawn(async move {
         let (mut stream, _) = listener.accept().await.unwrap();
         let mut request = [0; 2048];
-        stream.read(&mut request).await.unwrap();
+        let _bytes_read = stream.read(&mut request).await.unwrap();
         stream.write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 100\r\nConnection: close\r\n\r\n{").await.unwrap();
     });
     let (map, cached) = load_node_map_from(

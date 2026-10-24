@@ -584,7 +584,9 @@ pub(crate) async fn stage_curseforge_upgrade_file(
         .join("curseforge")
         .join(project_id.to_string())
         .join(file_id.to_string())
-        .join(&file.file_name);
+        .join(crate::util::io::sanitize_download_file_name(
+            &file.file_name,
+        )?);
     let tracking = path.display().to_string();
     download_curseforge_path(
         &url,
@@ -925,7 +927,9 @@ pub(crate) async fn get_modpack_expected_members_with_reporter(
             .join("modpacks")
             .join(project_id.to_string())
             .join(file_id.to_string())
-            .join(&pack_file.file_name)
+            .join(crate::util::io::sanitize_download_file_name(
+                &pack_file.file_name,
+            )?)
             .display()
             .to_string();
         reporter
@@ -1071,7 +1075,8 @@ pub(crate) async fn get_modpack_expected_members_with_reporter(
             project_type,
             expected_relative_path: format!(
                 "{}/{}",
-                target_folder, file.file_name
+                target_folder,
+                crate::util::io::sanitize_download_file_name(&file.file_name)?
             ),
             required: member.required,
             expected_sha1: file
@@ -1509,7 +1514,7 @@ pub async fn get_download_url(
 
 use curseforge_download::resolve_download_url as resolve_curseforge_download_url;
 
-fn derived_curseforge_download_url(
+pub(crate) fn derived_curseforge_download_url(
     file_id: u32,
     file_name: &str,
 ) -> crate::Result<String> {
@@ -1675,7 +1680,9 @@ async fn install_world_file(
     };
 
     let staging_directory = tempfile::tempdir()?;
-    let staging_path = staging_directory.path().join(&file.file_name);
+    let staging_path = staging_directory.path().join(
+        crate::util::io::sanitize_download_file_name(&file.file_name)?,
+    );
     let tracking_path = format!("worlds/{}/{}", project.id, file.id);
     download_curseforge_path(
         &download_url,
@@ -3533,7 +3540,9 @@ async fn download_modpack_archive_with_reporter(
             .join("modpacks")
             .join(project_id.to_string())
             .join(file_id.to_string())
-            .join(&pack_file.file_name)
+            .join(crate::util::io::sanitize_download_file_name(
+                &pack_file.file_name,
+            )?)
             .display()
             .to_string();
         reporter
@@ -3970,12 +3979,13 @@ pub async fn install_modpack_with_reporter(
                         manifest_file.file_id
                     ))
                 })?;
-                let original_relative_path = format!("{folder}/{}", meta.file_name);
+                let file_name = crate::util::io::sanitize_download_file_name(&meta.file_name)?;
+                let original_relative_path = format!("{folder}/{file_name}");
                 let localized_candidate = (project_type != "mod" && project_type != "world")
                     .then(|| {
                         chinese_file_title_for_curseforge_slug(&project.slug)
                             .and_then(|title| {
-                                localized_content_file_name(&meta.file_name, &title)
+                                localized_content_file_name(&file_name, &title)
                             })
                             .map(|file_name| format!("{folder}/{file_name}"))
                     })
@@ -4541,9 +4551,14 @@ async fn retry_modpack_file_install(
         match result {
             Ok(item_result) if !item_result.installed.is_empty() => {
                 let installed_path = &item_result.installed[0].relative_path;
+                let expected_name =
+                    crate::util::io::sanitize_download_file_name(
+                        expected_file_name,
+                    )
+                    .ok();
                 if project_type == ProjectType::Mod.get_name()
                     && Path::new(installed_path).file_name()
-                        != Some(std::ffi::OsStr::new(expected_file_name))
+                        != expected_name.as_deref().map(std::ffi::OsStr::new)
                 {
                     failure_reason = format!(
                         "CurseForge install context mismatch: project_id={} file_id={} expected_file={} installed_path={}",
@@ -4997,12 +5012,13 @@ pub(crate) async fn install_local_manifest_files(
                         manifest_file.file_id
                     ))
                 })?;
-                let original_relative_path = format!("{folder}/{}", meta.file_name);
+                let file_name = crate::util::io::sanitize_download_file_name(&meta.file_name)?;
+                let original_relative_path = format!("{folder}/{file_name}");
                 let localized_candidate = (project_type != "mod" && project_type != "world")
                     .then(|| {
                         chinese_file_title_for_curseforge_slug(&project.slug)
                             .and_then(|title| {
-                                localized_content_file_name(&meta.file_name, &title)
+                                localized_content_file_name(&file_name, &title)
                             })
                             .map(|file_name| format!("{folder}/{file_name}"))
                     })
@@ -6262,7 +6278,9 @@ pub(crate) async fn prepare_curseforge_content_change_action(
             .join("curseforge")
             .join(item.project_id.to_string())
             .join(item.file_id.to_string())
-            .join(&item.file_name);
+            .join(crate::util::io::sanitize_download_file_name(
+                &item.file_name,
+            )?);
         let id = format!("curseforge:{}:{}", item.project_id, item.file_id);
         action.files.push(crate::install::ContentChangeFile {
 			id: id.clone(),
@@ -7668,8 +7686,9 @@ async fn install_manual_download(
     if download.project_type == "world" {
         validate_world_archive_name(&download.file_name)?;
         let verified_directory = tempfile::tempdir()?;
-        let verified_source =
-            verified_directory.path().join(&download.file_name);
+        let verified_source = verified_directory.path().join(
+            crate::util::io::sanitize_download_file_name(&download.file_name)?,
+        );
         crate::state::materialize_verified_project_download_copy(
             source_path,
             &verified_source,
@@ -7690,19 +7709,19 @@ async fn install_manual_download(
     }
     let project_type = managed_project_type(&download.project_type)?;
     let target_folder = manual_download_target_folder(download, project_type)?;
+    let file_name =
+        crate::util::io::sanitize_download_file_name(&download.file_name)?;
     let state = State::get().await?;
     let localized_candidate = if project_type == ProjectType::Mod {
         None
     } else {
         chinese_file_title_for_curseforge_slug(&download.project_slug)
-            .and_then(|title| {
-                localized_content_file_name(&download.file_name, &title)
-            })
+            .and_then(|title| localized_content_file_name(&file_name, &title))
             .map(|file_name| format!("{target_folder}/{file_name}"))
     };
     let relative_path = crate::state::resolve_content_install_relative_path(
         instance_id,
-        format!("{target_folder}/{}", download.file_name),
+        format!("{target_folder}/{file_name}"),
         localized_candidate,
         &state.pool,
     )
@@ -8962,7 +8981,9 @@ async fn download_curseforge_archive(
         .join("modpacks")
         .join(project_id.to_string())
         .join(file_id.to_string())
-        .join(&file.file_name);
+        .join(crate::util::io::sanitize_download_file_name(
+            &file.file_name,
+        )?);
     let tracking_item_id = path.display().to_string();
     download_curseforge_path(
         url,
@@ -9515,15 +9536,14 @@ async fn download_installed_file(
         .into());
     }
     let state = State::get().await?;
-    validate_file_name(&file.file_name)?;
+    let file_name =
+        crate::util::io::sanitize_download_file_name(&file.file_name)?;
     let folder = content_target_folder(project_type, world_name)?;
     let localized_candidate = if project_type == ProjectType::Mod {
         None
     } else {
         chinese_file_title_for_curseforge_slug(project_slug)
-            .and_then(|title| {
-                localized_content_file_name(&file.file_name, &title)
-            })
+            .and_then(|title| localized_content_file_name(&file_name, &title))
             .map(|file_name| format!("{folder}/{file_name}"))
     };
     let relative_path = match pre_resolved_relative_path {
@@ -9531,7 +9551,7 @@ async fn download_installed_file(
         None => {
             crate::state::resolve_content_install_relative_path(
                 instance_id,
-                format!("{folder}/{}", file.file_name),
+                format!("{folder}/{file_name}"),
                 localized_candidate,
                 &state.pool,
             )
@@ -9544,7 +9564,11 @@ async fn download_installed_file(
     if project_type == ProjectType::Mod
         && let Some(expected_file_name) = expected_file_name
         && Path::new(&relative_path).file_name()
-            != Some(std::ffi::OsStr::new(expected_file_name))
+            != Some(std::ffi::OsStr::new(
+                &crate::util::io::sanitize_download_file_name(
+                    expected_file_name,
+                )?,
+            ))
     {
         return Err(ErrorKind::OtherError(format!(
             "CurseForge install context mismatch before download: expected_file={expected_file_name} installed_path={relative_path}",

@@ -28,26 +28,32 @@ pub(crate) fn start(state: Arc<State>) {
 
     let (wake_tx, mut wake_rx) = tokio::sync::mpsc::channel(1);
     let _ = WAKE_TX.set(wake_tx);
-    tokio::spawn(async move {
-        loop {
-            let client = match crate::util::fetch::configured_client().await {
-                Ok(client) => client,
-                Err(error) => {
-                    tracing::debug!(target: "theseus::telemetry", %error, "Telemetry client configuration failed");
-                    tokio::time::sleep(Duration::from_secs(60)).await;
-                    continue;
+    let task = tokio::spawn({
+        let state = Arc::clone(&state);
+        async move {
+            loop {
+                state.maintenance_gate.wait_until_resumed().await;
+                let client = match crate::util::fetch::configured_client().await
+                {
+                    Ok(client) => client,
+                    Err(error) => {
+                        tracing::debug!(target: "theseus::telemetry", %error, "Telemetry client configuration failed");
+                        tokio::time::sleep(Duration::from_secs(60)).await;
+                        continue;
+                    }
+                };
+                if let Err(error) = run_cycle(&state, &client).await {
+                    tracing::debug!(target: "theseus::telemetry", %error, "Telemetry cycle failed");
                 }
-            };
-            if let Err(error) = run_cycle(&state, &client).await {
-                tracing::debug!(target: "theseus::telemetry", %error, "Telemetry cycle failed");
-            }
 
-            tokio::select! {
-                _ = tokio::time::sleep(Duration::from_secs(60)) => {},
-                _ = wake_rx.recv() => {},
+                tokio::select! {
+                    _ = tokio::time::sleep(Duration::from_secs(60)) => {},
+                    _ = wake_rx.recv() => {},
+                }
             }
         }
     });
+    state.background_tasks.lock().push(task);
 }
 
 pub async fn set_enabled(state: &State, enabled: bool) -> crate::Result<()> {

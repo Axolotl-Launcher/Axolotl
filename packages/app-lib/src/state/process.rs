@@ -314,6 +314,14 @@ pub fn remove_log_buffer(instance_id: &str) {
     LOG_BUFFERS.remove(instance_id);
 }
 
+/// Drops buffered logs for every instance or dedicated server that no longer
+/// has a running process.
+pub(crate) fn remove_inactive_log_buffers(active_log_ids: &[String]) {
+    let active: std::collections::HashSet<&str> =
+        active_log_ids.iter().map(String::as_str).collect();
+    LOG_BUFFERS.retain(|log_id, _| active.contains(log_id.as_str()));
+}
+
 pub struct ProcessManager {
     processes: DashMap<Uuid, Process>,
 }
@@ -1547,6 +1555,19 @@ mod post_upgrade_tests {
         assert!(!crash_reports_changed(&before, &unchanged));
         assert!(crash_reports_changed(&before, &added));
         assert!(crash_reports_changed(&before, &modified));
+    }
+
+    #[test]
+    fn remove_inactive_log_buffers_keeps_active_log_ids() {
+        push_log_line("remove_inactive_keep_test", "kept".to_string());
+        push_log_line("remove_inactive_drop_test", "dropped".to_string());
+
+        remove_inactive_log_buffers(&["remove_inactive_keep_test".to_string()]);
+
+        assert!(!get_log_buffer("remove_inactive_keep_test").is_empty());
+        assert!(get_log_buffer("remove_inactive_drop_test").is_empty());
+
+        remove_log_buffer("remove_inactive_keep_test");
     }
 }
 

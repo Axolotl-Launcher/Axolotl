@@ -96,6 +96,7 @@ import {
     get_installed_project_ids as getInstalledProjectIds,
 } from '@/helpers/instance'
 import { getDisplayInstanceIcon } from '@/helpers/instance-icons'
+import { instanceServerProjectId, isServerProjectLink } from '@/helpers/instance-project'
 import { getMcArchiveGameVersions, type McArchiveGameVersion } from '@/helpers/mcarchive'
 import { get_loader_versions as getLoaderManifest } from '@/helpers/metadata'
 import { runAfterPageTransitionSettle } from '@/helpers/page-transition'
@@ -595,12 +596,11 @@ async function initInstanceContext() {
             gameVersion: instance.value?.game_version,
         })
 
-        if (instance.value?.link?.project_id) {
-            debugLog('checking linked project for server status', instance.value.link.project_id)
-            initialInstanceFilterPromise = get_project_v3(
-                instance.value.link.project_id,
-                'must_revalidate',
-            )
+        isServerInstance.value = isServerProjectLink(instance.value?.link)
+        const projectId = instanceServerProjectId(instance.value?.link)
+        if (projectId) {
+            debugLog('checking linked project for server status', projectId)
+            initialInstanceFilterPromise = get_project_v3(projectId, 'must_revalidate')
                 .then((projectV3) => {
                     if (projectV3?.minecraft_server != null) {
                         debugLog('instance is a server instance')
@@ -610,11 +610,10 @@ async function initInstanceContext() {
                 .catch((error) => handleError(error))
         }
     }
-    if (!instance.value && activeInstance.value?.link?.project_id) {
-        initialInstanceFilterPromise = get_project_v3(
-            activeInstance.value.link.project_id,
-            'must_revalidate',
-        )
+    const activeProjectId = instanceServerProjectId(activeInstance.value?.link)
+    if (!instance.value && activeProjectId) {
+        isServerInstance.value = isServerProjectLink(activeInstance.value?.link)
+        initialInstanceFilterPromise = get_project_v3(activeProjectId, 'must_revalidate')
             .then((projectV3) => {
                 isServerInstance.value = projectV3?.minecraft_server != null
             })

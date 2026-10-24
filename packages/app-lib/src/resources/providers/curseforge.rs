@@ -6,11 +6,29 @@ use super::*;
 
 pub struct CurseForgeProvider {
     transport: Arc<dyn ProtocolTransport>,
+    download_restriction_bypass: Arc<dyn Fn() -> bool + Send + Sync>,
 }
 
 impl CurseForgeProvider {
     pub fn new(transport: Arc<dyn ProtocolTransport>) -> Self {
-        Self { transport }
+        Self::with_download_restriction_policy(
+            transport,
+            Arc::new(|| {
+                crate::State::get_if_initialized().is_some_and(|state| {
+                    state.bypass_curseforge_download_restrictions()
+                })
+            }),
+        )
+    }
+
+    pub(crate) fn with_download_restriction_policy(
+        transport: Arc<dyn ProtocolTransport>,
+        download_restriction_bypass: Arc<dyn Fn() -> bool + Send + Sync>,
+    ) -> Self {
+        Self {
+            transport,
+            download_restriction_bypass,
+        }
     }
     async fn request(&self, request: ProtocolRequest) -> ResourceResult<Value> {
         self.transport
@@ -21,6 +39,7 @@ impl CurseForgeProvider {
     async fn fetch_batch(
         &self,
         queries: &[ProviderQuery],
+        bypass_restrictions: bool,
     ) -> ResourceResult<Vec<ResourceResult<ProviderValue>>> {
         if queries
             .iter()
@@ -107,7 +126,15 @@ impl CurseForgeProvider {
                         "unexpected file in batch".into(),
                     ));
                 }
-                if values.insert(id, file.document()?).is_some() {
+                if values
+                    .insert(
+                        id,
+                        file.document_with_download_policy(
+                            bypass_restrictions,
+                        )?,
+                    )
+                    .is_some()
+                {
                     return Err(ResourceError::InvalidResponse(
                         "duplicate file in batch".into(),
                     ));
@@ -180,10 +207,11 @@ impl CurseForgeProvider {
                         "fingerprint project mismatch".into(),
                     ));
                 }
-                candidates
-                    .entry(fingerprint)
-                    .or_default()
-                    .push(matched.file.document()?);
+                candidates.entry(fingerprint).or_default().push(
+                    matched
+                        .file
+                        .document_with_download_policy(bypass_restrictions)?,
+                );
             }
             return Ok(queries
                 .iter()
@@ -218,7 +246,7 @@ impl CurseForgeProvider {
         }
         let mut results = vec![];
         for query in queries {
-            results.push(self.fetch_one(query).await);
+            results.push(self.fetch_one(query, bypass_restrictions).await);
         }
         Ok(results)
     }
@@ -298,6 +326,7 @@ impl CurseForgeProvider {
     async fn fetch_one(
         &self,
         query: &ProviderQuery,
+        bypass_restrictions: bool,
     ) -> ResourceResult<ProviderValue> {
         match query {
             ProviderQuery::Description { id, .. } => {
@@ -364,7 +393,9 @@ impl CurseForgeProvider {
                 let count = files.len();
                 let mut documents = files
                     .into_iter()
-                    .map(RemoteFile::document)
+                    .map(|file| {
+                        file.document_with_download_policy(bypass_restrictions)
+                    })
                     .collect::<ResourceResult<Vec<_>>>()?;
                 self.fill_manual_links(&mut documents).await?;
                 let entries = documents
@@ -504,7 +535,11 @@ impl ResourceProvider for CurseForgeProvider {
         }
     }
     fn namespace(&self) -> String {
-        "curseforge-v1-dates".into()
+        if (self.download_restriction_bypass)() {
+            "curseforge-v1-dates-auto-download".into()
+        } else {
+            "curseforge-v1-dates".into()
+        }
     }
     fn batch_limit(&self, query: &ProviderQuery) -> usize {
         if query.batch_group() < 3 { 50 } else { 1 }
@@ -544,7 +579,8 @@ impl ResourceProvider for CurseForgeProvider {
         &self,
         queries: &[ProviderQuery],
     ) -> Vec<ResourceResult<ProviderValue>> {
-        match self.fetch_batch(queries).await {
+        let bypass_restrictions = (self.download_restriction_bypass)();
+        match self.fetch_batch(queries, bypass_restrictions).await {
             Ok(values) => values,
             Err(ResourceError::Network { status: Some(404) }) => {
                 vec![Ok(ProviderValue::NotFound); queries.len()]
@@ -721,6 +757,30 @@ struct RemoteDependency {
 }
 
 impl RemoteFile {
+    fn document_with_download_policy(
+        self,
+        bypass_restrictions: bool,
+    ) -> ResourceResult<ReleaseDocument> {
+        let mut document = self.document()?;
+        if bypass_restrictions {
+            for artifact in &mut document.release.artifacts {
+                if artifact.available != Some(false)
+                    && !matches!(
+                        artifact.acquisition,
+                        ArtifactAcquisition::PublicDownload { .. }
+                    )
+                    && let Some(filename) = &artifact.file_name
+                {
+                    let file_id =
+                        positive_id(artifact.reference.artifact_id.as_str())?;
+                    let url = crate::api::curseforge::derived_curseforge_download_url(file_id, filename)?;
+                    artifact.acquisition = acquisition(vec![url], None);
+                }
+            }
+        }
+        Ok(document)
+    }
+
     pub(crate) fn document(self) -> ResourceResult<ReleaseDocument> {
         let protocol = Some(protocol_projection(serde_json::to_value(&self)?));
         positive_id(&self.id.to_string())?;

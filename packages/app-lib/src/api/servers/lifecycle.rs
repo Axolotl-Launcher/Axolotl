@@ -86,6 +86,16 @@ pub(super) fn is_server_running(server_id: &str) -> bool {
     SERVER_PROCESSES.contains_key(server_id)
 }
 
+/// Ids of every dedicated server that is starting or running; their console
+/// buffers must survive maintenance cleanups.
+pub(crate) fn running_server_ids() -> Vec<String> {
+    SERVER_PROCESSES
+        .iter()
+        .map(|entry| entry.key().clone())
+        .chain(SERVER_STARTING.iter().map(|entry| entry.key().clone()))
+        .collect()
+}
+
 pub async fn start(
     server_id: &str,
     java_path: Option<String>,
@@ -550,6 +560,49 @@ pub async fn kill(server_id: &str) -> Result<()> {
         child.kill()?;
     }
     Ok(())
+}
+
+/// Gracefully stops every running dedicated server and kills whatever is
+/// still alive when the shutdown budget expires. Returns how many processes
+/// had to be killed.
+pub async fn shutdown_all() -> usize {
+    const SHUTDOWN_BUDGET: std::time::Duration =
+        std::time::Duration::from_secs(5);
+
+    let server_ids: Vec<String> = SERVER_PROCESSES
+        .iter()
+        .map(|entry| entry.key().clone())
+        .collect();
+    for server_id in &server_ids {
+        // Reuse configured stop commands and non-blocking PTY writes.
+        let _ = stop(server_id).await;
+    }
+
+    let deadline = tokio::time::Instant::now() + SHUTDOWN_BUDGET;
+    while !SERVER_PROCESSES.is_empty() {
+        if tokio::time::Instant::now() >= deadline {
+            break;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+    }
+
+    let remaining: Vec<Arc<ServerProcess>> = SERVER_PROCESSES
+        .iter()
+        .map(|entry| entry.value().clone())
+        .collect();
+    let mut killed = 0;
+    for process in remaining {
+        process.stop_requested.store(true, Ordering::SeqCst);
+        let mut child = process.child.lock().await;
+        let was_running = child
+            .try_wait()
+            .map(|status| status.is_none())
+            .unwrap_or(true);
+        if was_running && child.kill().is_ok() {
+            killed += 1;
+        }
+    }
+    killed
 }
 
 async fn monitor_server_process(
@@ -1200,6 +1253,51 @@ class ConsoleProbe {
         }
         SERVER_PROCESSES.remove(id);
         result.unwrap().unwrap();
+        assert!(child.killed.load(Ordering::SeqCst));
+    }
+
+    #[tokio::test]
+    async fn shutdown_all_returns_directly_without_running_servers() {
+        let killed = tokio::time::timeout(
+            std::time::Duration::from_millis(500),
+            shutdown_all(),
+        )
+        .await
+        .expect("shutdown_all must not wait when no servers are tracked");
+
+        assert_eq!(killed, 0);
+    }
+
+    #[tokio::test]
+    async fn shutdown_all_uses_configured_stop_commands() {
+        let id = "test-shutdown-custom-stop";
+        let (_, child, bytes) = tracked_process(id, true, false);
+        update_stop_command(id, "^c");
+        let result = tokio::time::timeout(
+            std::time::Duration::from_secs(7),
+            shutdown_all(),
+        )
+        .await;
+        SERVER_PROCESSES.remove(id);
+        assert_eq!(result.unwrap(), 1);
+        assert_eq!(*bytes.lock().unwrap(), b"\x03");
+        assert!(child.killed.load(Ordering::SeqCst));
+    }
+
+    #[tokio::test]
+    async fn shutdown_all_cannot_be_blocked_by_a_stuck_pty_write() {
+        let id = "test-shutdown-backpressure";
+        let (_, mut child, _) = tracked_process(id, true, true);
+        let result = tokio::time::timeout(
+            std::time::Duration::from_secs(7),
+            shutdown_all(),
+        )
+        .await;
+        SERVER_PROCESSES.remove(id);
+        // Release the fake pipe even when the shutdown regression fails.
+        use portable_pty::ChildKiller;
+        child.kill().unwrap();
+        assert_eq!(result.unwrap(), 1);
         assert!(child.killed.load(Ordering::SeqCst));
     }
 }

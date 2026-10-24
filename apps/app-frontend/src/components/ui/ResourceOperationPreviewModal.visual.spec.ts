@@ -188,6 +188,30 @@ function ready() {
     )
 }
 
+it('uses the cart analysis and closes its preview when that cart snapshot is invalidated', async () => {
+    ready()
+    const controller = new AbortController()
+    const prepare = vi.fn().mockResolvedValue(plan())
+    const wrapper = mount(ResourceOperationPreviewModal)
+    const result = wrapper.vm.showInstallSelection({
+        instanceId: 'instance',
+        instanceName: 'Instance',
+        selections: [],
+        installDependencies: true,
+        analysis: { signal: controller.signal, prepare },
+    })
+    try {
+        await flushPromises()
+        expect(prepare).toHaveBeenCalledTimes(1)
+        expect(resourcePrepareOperation).not.toHaveBeenCalled()
+        controller.abort()
+        await expect(result).resolves.toBeNull()
+        expect(resourceQueuePlan).not.toHaveBeenCalled()
+    } finally {
+        wrapper.unmount()
+    }
+})
+
 it('requires an explicit roots-only preview after dependency analysis fails', async () => {
     ready()
     const reviewed = {

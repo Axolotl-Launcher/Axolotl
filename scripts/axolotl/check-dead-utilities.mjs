@@ -40,11 +40,13 @@ function walk(dir, files = []) {
 
 function builtCss() {
 	const chunks = []
+	const missing = []
 	const collect = (dir) => {
 		let entries
 		try {
 			entries = readdirSync(dir, { withFileTypes: true })
 		} catch {
+			missing.push(dir)
 			return
 		}
 		for (const entry of entries) {
@@ -54,6 +56,11 @@ function builtCss() {
 		}
 	}
 	for (const dir of CSS_DIRS) collect(dir)
+	if (missing.length > 0) {
+		console.warn(
+			`  note: built CSS is not in this checkout, so the scan is narrower: ${missing.join(', ')}`,
+		)
+	}
 	return chunks.join('\n')
 }
 

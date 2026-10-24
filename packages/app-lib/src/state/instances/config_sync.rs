@@ -59,11 +59,23 @@ pub(crate) async fn run(state: Arc<State>) {
     }
 
     let mut dirty_tick = tokio::time::interval(DIRTY_POLL_INTERVAL);
+    dirty_tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
     dirty_tick.tick().await;
     let mut reconcile_tick = tokio::time::interval(RECONCILE_INTERVAL);
+    reconcile_tick
+        .set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
     reconcile_tick.tick().await;
 
     loop {
+        if state.maintenance_gate.wait_until_resumed().await {
+            // One catch-up reconcile per observed pause; the periodic branch
+            // below keeps the normal reconcile cadence.
+            if let Err(error) = reconcile_all(&state).await {
+                tracing::warn!(
+                    "Failed to reconcile instance config files: {error}"
+                );
+            }
+        }
         tokio::select! {
             _ = dirty_tick.tick() => {
                 let mut dirty = Vec::new();

@@ -1,3 +1,8 @@
 Cargo.lock
 pnpm-lock.yaml
+packages/app-lib/migrations/**
+packages/app-lib/backup_migrations/**
 .github/**/*.png
+# TOML formatting is owned by tombi (see tombi.toml and the repo-check CI job);
+# Prettier's TOML output conflicts with `tombi fmt --check`.
+**/*.toml

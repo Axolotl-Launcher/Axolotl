@@ -221,6 +221,7 @@ import { useMinecraftLaunchError } from '@/composables/useMinecraftLaunchError'
 import { trackEvent } from '@/helpers/analytics'
 import { get_project, get_project_v3 } from '@/helpers/cache.js'
 import { instance_listener } from '@/helpers/events'
+import { instanceServerProjectId } from '@/helpers/instance-project'
 import { get_game_versions } from '@/helpers/tags'
 import type { GameInstance } from '@/helpers/types'
 import { ensureManagedServerWorldExists, getServerAddress } from '@/helpers/worlds'
@@ -421,14 +422,17 @@ function isManagedServerWorld(world: World): world is ServerWorld {
     return world.type === 'server' && managedServerWorld.value?.index === world.index
 }
 
+let managedServerMetadataGeneration = 0
 async function refreshManagedServerMetadata() {
-    await ensureManagedServerWorldExists(
-        instance.value.id,
-        managedServerName.value,
-        managedServerAddress.value,
-    )
-
-    const projectId = instance.value.link?.project_id
+    const generation = ++managedServerMetadataGeneration
+    const instanceId = instance.value.id
+    const projectId = instanceServerProjectId(instance.value.link)
+    const isCurrent = () =>
+        generation === managedServerMetadataGeneration &&
+        instance.value.id === instanceId &&
+        instanceServerProjectId(instance.value.link) === projectId
+    managedServerName.value = null
+    managedServerAddress.value = null
     if (!projectId) {
         managedServerName.value = null
         managedServerAddress.value = null
@@ -440,6 +444,7 @@ async function refreshManagedServerMetadata() {
             get_project(projectId),
             get_project_v3(projectId),
         ])
+        if (!isCurrent()) return
 
         if (projectV3?.minecraft_server == null) {
             managedServerName.value = null
@@ -456,7 +461,9 @@ async function refreshManagedServerMetadata() {
 
         managedServerName.value = project.title
         managedServerAddress.value = serverAddress
+        await ensureManagedServerWorldExists(instanceId, project.title, serverAddress)
     } catch (err) {
+        if (!isCurrent()) return
         console.error(
             `Failed to resolve managed server metadata for instance: ${instance.value.id}`,
             err,
@@ -467,7 +474,7 @@ async function refreshManagedServerMetadata() {
 }
 
 watch(
-    () => instance.value.link?.project_id,
+    () => [instance.value.id, instanceServerProjectId(instance.value.link)],
     async () => {
         await refreshManagedServerMetadata()
     },
@@ -607,7 +614,7 @@ async function joinWorld(world: World) {
     startingInstance.value = true
     worldPlaying.value = world
     if (world.type === 'server') {
-        const managedProjectId = instance.value.link?.project_id
+        const managedProjectId = instanceServerProjectId(instance.value.link)
         if (managedProjectId && isManagedServerWorld(world)) {
             await playServerProject(managedProjectId).catch(handleJoinError)
             trackEvent('InstanceStart', {

@@ -18,6 +18,7 @@ on:
           - update-server
           - website
           - cnb
+          - discord
   push:
     tags:
       - 'v*'
@@ -41,22 +42,22 @@ jobs:
     env:
       SQLX_OFFLINE: true
     steps:
-      - name: Check out source
+      - name: Checkout code
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           fetch-depth: 0
           submodules: recursive
 
-      - name: Set up pnpm
+      - name: Setup pnpm
         uses: pnpm/action-setup@008330803749db0355799c700092d9a85fd074e9 # v6.0.9
 
-      - name: Set up Node.js
+      - name: Setup Node.js
         uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
         with:
           node-version-file: .nvmrc
           cache: pnpm
 
-      - name: Install pinned formatting toolchain
+      - name: Setup Rustfmt
         run: rustup component add rustfmt
 
       - name: Install dependencies
@@ -74,6 +75,7 @@ jobs:
           node scripts/axolotl/brand-guard.mjs
           node scripts/axolotl/i18n-check.mjs
           node --test scripts/axolotl/create-release-notes.test.mjs
+          node --test scripts/axolotl/publish-discord-release.test.mjs
           cargo fmt --all --check
 
       - name: Prepare draft release
@@ -102,13 +104,14 @@ jobs:
           fi
           gh release create "${RELEASE_TAG}" "${release_args[@]}"
 
-      - name: Prepare shared build resources
+      - name: Prepare build resources
         env:
           AXOLOTL_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           node scripts/axolotl/sync-contributors.mjs
           node scripts/axolotl/prepare-build-resources.mjs
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+      - name: Upload build resources
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: desktop-resources
           path: target/build-resources/
@@ -137,10 +140,12 @@ jobs:
       SQLX_OFFLINE: true
       CARGO_PROFILE_RELEASE_LTO: 'true'
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Checkout code
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           submodules: recursive
-      - uses: ./.github/actions/setup-desktop-build
+      - name: Setup desktop build
+        uses: ./.github/actions/setup-desktop-build
         with:
           profile: release
       - name: Reserve Linux ARM64 swap for full LTO
@@ -192,7 +197,7 @@ jobs:
       fail-fast: true
       matrix:
         include:
-          - runner: macos-15
+          - runner: macos-26
             target: aarch64-apple-darwin
           - runner: macos-15-intel
             target: x86_64-apple-darwin
@@ -201,19 +206,23 @@ jobs:
       SQLX_OFFLINE: true
       CARGO_PROFILE_RELEASE_LTO: 'true'
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Checkout code
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           submodules: recursive
-      - uses: ./.github/actions/setup-desktop-build
+      - name: Setup desktop build
+        uses: ./.github/actions/setup-desktop-build
         with:
           profile: release
           target: ${{ matrix.target }}
-      - run: node scripts/axolotl/set-version.mjs "${{ github.ref_name }}"
+      - name: Set release version
+        run: node scripts/axolotl/set-version.mjs "${{ github.ref_name }}"
       - name: Compile native macOS binary with full LTO
         env:
           CURSEFORGE_API_KEY: ${{ secrets.CURSEFORGE_API_KEY }}
         run: node scripts/axolotl/build-desktop.mjs --profile release --target "${{ matrix.target }}"
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+      - name: Upload macOS build artifacts
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: macos-${{ matrix.target }}
           overwrite: true
@@ -226,28 +235,33 @@ jobs:
   macos-universal:
     name: Package macOS universal
     needs: [preflight, macos-build]
-    runs-on: macos-15
+    runs-on: macos-26
     env:
       SQLX_OFFLINE: true
       CARGO_PROFILE_RELEASE_LTO: 'true'
       TAURI_BUNDLER_DMG_IGNORE_CI: 'true'
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Checkout code
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           submodules: recursive
-      - uses: ./.github/actions/setup-desktop-build
+      - name: Setup desktop build
+        uses: ./.github/actions/setup-desktop-build
         with:
           profile: release
           package-only: 'true'
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+      - name: Download macOS ARM64 build artifacts
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: macos-aarch64-apple-darwin
           path: target/macos-input/aarch64-apple-darwin
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+      - name: Download macOS x64 build artifacts
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: macos-x86_64-apple-darwin
           path: target/macos-input/x86_64-apple-darwin
-      - run: node scripts/axolotl/set-version.mjs "${{ github.ref_name }}"
+      - name: Set release version
+        run: node scripts/axolotl/set-version.mjs "${{ github.ref_name }}"
       - name: Merge architectures and package signed updater
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
@@ -272,12 +286,13 @@ jobs:
     outputs:
       release-sha: ${{ steps.release-ref.outputs.sha }}
     steps:
-      - name: Check out publication scripts
+      - name: Checkout code
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           fetch-depth: 0
           ref: ${{ github.sha }}
-      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+      - name: Setup Node.js
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
         with:
           node-version-file: .nvmrc
       - name: Validate requested release tag
@@ -312,7 +327,8 @@ jobs:
             release-check/update-server-catalog.json
           node scripts/axolotl/create-update-server-catalog.test.mjs
 
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+      - name: Upload published release metadata
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: published-release-metadata
           path: release-check/
@@ -320,19 +336,34 @@ jobs:
           retention-days: 7
           if-no-files-found: error
 
+  notify-discord:
+    name: Notify Discord
+    needs: [verify-and-publish, notify-update-server]
+    if: ${{ !cancelled() && needs.verify-and-publish.result == 'success' && (github.event_name == 'push' || inputs.target == 'all' || inputs.target == 'discord') }}
+    permissions:
+      contents: read
+    uses: ./.github/workflows/discord-release.yml
+    with:
+      tag: ${{ inputs.tag || github.ref_name }}
+    secrets:
+      DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
+
   notify-update-server:
     needs: verify-and-publish
     timeout-minutes: 45
     if: ${{ !cancelled() && needs.verify-and-publish.result == 'success' && (github.event_name == 'push' || inputs.target == 'all' || inputs.target == 'update-server') }}
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Checkout code
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           ref: ${{ github.sha }}
-      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+      - name: Setup Node.js
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
         with:
           node-version-file: .nvmrc
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+      - name: Download published release metadata
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: published-release-metadata
           path: release-check
@@ -366,22 +397,26 @@ jobs:
             echo '::error::Configure NETLIFY_AUTH_TOKEN and NETLIFY_SITE_ID repository secrets. See apps/website/README.md.'
             exit 1
           fi
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Checkout code
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           ref: ${{ github.sha }}
-      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+      - name: Setup Node.js
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
         with:
           node-version-file: .nvmrc
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+      - name: Download published release metadata
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: published-release-metadata
           path: release-check
-      - name: Check out website publication branch
+      - name: Checkout website publication branch
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           ref: main
           path: website-publish
-      - uses: pnpm/action-setup@008330803749db0355799c700092d9a85fd074e9 # v6.0.9
+      - name: Setup pnpm
+        uses: pnpm/action-setup@008330803749db0355799c700092d9a85fd074e9 # v6.0.9
       - name: Generate website release data from the release tag
         run: |
           if [[ "${RELEASE_TAG}" != *-* ]]; then
@@ -397,7 +432,7 @@ jobs:
       - name: Install website dependencies
         working-directory: website-publish
         run: pnpm install --frozen-lockfile --filter @axolotl/website...
-      - name: Generate static website on GitHub
+      - name: Build website
         working-directory: website-publish
         run: pnpm --filter @axolotl/website build
       - name: Verify prerendered release notes
@@ -452,13 +487,16 @@ jobs:
     if: ${{ !cancelled() && needs.verify-and-publish.result == 'success' && (github.event_name == 'push' || inputs.target == 'all' || inputs.target == 'cnb') }}
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Checkout code
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           ref: ${{ github.sha }}
-      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+      - name: Setup Node.js
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
         with:
           node-version-file: .nvmrc
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+      - name: Download published release metadata
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: published-release-metadata
           path: release-check

@@ -536,7 +536,7 @@ fn modpack_cache_path(
     filename: &str,
 ) -> crate::Result<PathBuf> {
     let mut path = root.to_path_buf();
-    for segment in [project_id, version_id, filename] {
+    for segment in [project_id, version_id] {
         if segment.contains('/') {
             return Err(crate::ErrorKind::InputError(
                 "Invalid modpack cache path component".to_string(),
@@ -545,7 +545,8 @@ fn modpack_cache_path(
         }
         path = crate::util::io::safe_relative_join(&path, segment)?;
     }
-    Ok(path)
+    let filename = crate::util::io::sanitize_download_file_name(filename)?;
+    crate::util::io::safe_relative_join(&path, &filename)
 }
 
 #[tracing::instrument]
@@ -826,13 +827,10 @@ mod cache_path_tests {
             "nested/name",
             r"..\outside",
             "C:/outside",
-            "C:outside",
             r"\\server\share",
             ".",
             "",
             "NUL",
-            "pack.mrpack:stream",
-            ".. ",
         ] {
             for position in 0..3 {
                 let mut components = ["project", "version", "pack.mrpack"];
@@ -849,5 +847,37 @@ mod cache_path_tests {
                 );
             }
         }
+        for invalid_id in ["C:outside", "pack.mrpack:stream", ".. "] {
+            assert!(
+                modpack_cache_path(root, invalid_id, "version", "pack.mrpack")
+                    .is_err()
+            );
+            assert!(
+                modpack_cache_path(root, "project", invalid_id, "pack.mrpack")
+                    .is_err()
+            );
+        }
+    }
+
+    #[test]
+    fn remote_modpack_filename_replaces_invalid_characters() {
+        let root = Path::new("modpacks");
+        let path = modpack_cache_path(
+            root,
+            "oMMOxJjh",
+            "RRYxMDqj",
+            "Yet Another Bingo: Ultimate-214.0.mrpack",
+        )
+        .unwrap();
+        assert_eq!(
+            path,
+            root.join(
+                "oMMOxJjh/RRYxMDqj/Yet Another Bingo_ Ultimate-214.0.mrpack"
+            )
+        );
+        let directory = tempfile::tempdir().unwrap();
+        let target = directory.path().join(path.file_name().unwrap());
+        std::fs::write(&target, b"pack").unwrap();
+        assert_eq!(std::fs::read(target).unwrap(), b"pack");
     }
 }

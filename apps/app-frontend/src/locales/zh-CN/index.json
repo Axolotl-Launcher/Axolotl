@@ -1625,6 +1625,12 @@
   "app.downloads.history": {
     "message": "历史记录"
   },
+  "app.downloads.history-empty-description": {
+    "message": "已完成、失败、中断和取消的下载记录会显示在这里。"
+  },
+  "app.downloads.history-empty-title": {
+    "message": "暂无下载历史"
+  },
   "app.downloads.in-progress": {
     "message": "正在进行"
   },

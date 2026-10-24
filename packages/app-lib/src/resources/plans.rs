@@ -1,6 +1,8 @@
+pub mod analysis;
 pub(crate) mod artifact_metadata;
 pub(crate) mod requirements;
 
+use futures::StreamExt;
 use requirements::RetainedRequirement;
 
 use super::{ipc::ResourceTarget, providers::*, *};
@@ -261,9 +263,8 @@ pub fn artifact_path(
         .file_name
         .as_ref()
         .ok_or_else(|| invalid("artifact has no filename"))?;
-    if !safe_relative_path(file) || file.contains('/') {
-        return Err(invalid("invalid artifact filename"));
-    }
+    let file = crate::util::io::sanitize_download_file_name(file)
+        .map_err(|_| invalid("invalid artifact filename"))?;
     let base = match scope {
         InstallScope::World { relative_path } => {
             format!("{relative_path}/datapacks")
@@ -1128,20 +1129,38 @@ impl ResourceService {
         cancel: &CancellationToken,
         progress: OperationProgress<'_>,
     ) -> ResourceResult<OperationDraft> {
+        self.build_operation_with_memo(
+            draft, target, installed, cancel, progress, None,
+        )
+        .await
+    }
+
+    pub(crate) async fn build_operation_with_memo(
+        self: &Arc<Self>,
+        draft: OperationDraft,
+        target: &ResourceTarget,
+        installed: &[InstalledResource],
+        cancel: &CancellationToken,
+        progress: OperationProgress<'_>,
+        memo: Option<&analysis::AnalysisMemo>,
+    ) -> ResourceResult<OperationDraft> {
         let mut draft = draft;
         let mut retained_warning = None;
         draft.retained_requirements = if !draft.resolve_dependencies {
             Vec::new()
         } else {
-            match self
-                .retained_requirements(
+            match if let Some(memo) = memo {
+                memo.retained_requirements(self, &draft, installed, cancel)
+                    .await
+            } else {
+                self.retained_requirements(
                     &draft.plan.selections,
                     installed,
                     &draft.local_metadata,
                     cancel,
                 )
                 .await
-            {
+            } {
                 Ok(requirements) => requirements,
                 Err(error)
                     if draft.plan.intent
@@ -1170,6 +1189,7 @@ impl ResourceService {
                     cancel,
                     progress,
                     &seeded,
+                    memo,
                 )
                 .await?;
             if let Some(message) = &retained_warning {
@@ -1236,6 +1256,7 @@ impl ResourceService {
         cancel: &CancellationToken,
         progress: OperationProgress<'_>,
         seeded: &HashMap<SelectionKey, Vec<String>>,
+        memo: Option<&analysis::AnalysisMemo>,
     ) -> ResourceResult<OperationDraft> {
         let preferred = self.preferred_source().await?;
         draft.plan.nodes.clear();
@@ -1248,6 +1269,18 @@ impl ResourceService {
         let mut resolved: HashMap<SelectionKey, SelectionId> = HashMap::new();
         let mut incompatible = Vec::new();
         let mut seen = HashSet::new();
+        if let Some(memo) = memo {
+            memo.prefetch(
+                self,
+                &queue,
+                target,
+                &preferred,
+                &draft.retained_requirements,
+                seeded,
+                cancel,
+            )
+            .await?;
+        }
         while let Some(mut selection) = queue.pop_front() {
             if cancel.is_cancelled() {
                 return Err(ResourceError::Canceled);
@@ -1292,32 +1325,35 @@ impl ResourceService {
                 }
                 continue;
             }
-            let metadata = match self.canonical(&mut selection, cancel).await {
-                Ok(metadata) => metadata,
-                Err(ResourceError::Canceled) => {
-                    return Err(ResourceError::Canceled);
-                }
-                Err(error) => {
-                    if !draft.plan.active_roots.contains(&selection.id)
-                        && dependency_source_failed(&error)
-                    {
-                        dependency_analysis_issue(
+            let metadata =
+                match analysis::canonical(self, &mut selection, cancel, memo)
+                    .await
+                {
+                    Ok(metadata) => metadata,
+                    Err(ResourceError::Canceled) => {
+                        return Err(ResourceError::Canceled);
+                    }
+                    Err(error) => {
+                        if !draft.plan.active_roots.contains(&selection.id)
+                            && dependency_source_failed(&error)
+                        {
+                            dependency_analysis_issue(
+                                &mut draft.plan,
+                                &selection.id,
+                                error.to_string(),
+                            );
+                            continue;
+                        }
+                        issue(
                             &mut draft.plan,
+                            ResourceIssueCode::SourceUnavailable,
                             &selection.id,
+                            true,
                             error.to_string(),
                         );
                         continue;
                     }
-                    issue(
-                        &mut draft.plan,
-                        ResourceIssueCode::SourceUnavailable,
-                        &selection.id,
-                        true,
-                        error.to_string(),
-                    );
-                    continue;
-                }
-            };
+                };
             if selection.id.as_str().starts_with("dependency:")
                 && matches!(selection.release, ReleaseSelection::Automatic)
                 && let Some(fixed) = queue.iter().find(|other| {
@@ -1415,7 +1451,9 @@ impl ResourceService {
             {
                 Ok(selected)
             } else {
-                self.selected_release_with_requirements(
+                analysis::selected_release(
+                    self,
+                    memo,
                     &selection,
                     target,
                     &preferred,
@@ -2042,7 +2080,35 @@ impl ResourceService {
             if !draft.resolve_dependencies {
                 continue;
             }
-            for dependency in &artifact.dependencies {
+            let dependencies =
+                futures::stream::iter(artifact.dependencies.clone())
+                    .map(|dependency| {
+                        let parent = selection.clone();
+                        let service = Arc::clone(self);
+                        let cancel = cancel.clone();
+                        async move {
+                            let child = if matches!(
+                                dependency.kind,
+                                ResourceDependencyKind::Embedded
+                            ) {
+                                Ok(None)
+                            } else {
+                                analysis::dependency_selection(
+                                    &service,
+                                    memo,
+                                    &dependency,
+                                    &parent,
+                                    &cancel,
+                                )
+                                .await
+                            };
+                            (dependency, child)
+                        }
+                    })
+                    .buffered(6)
+                    .collect::<Vec<_>>()
+                    .await;
+            for (dependency, child) in dependencies {
                 if dependency.kind == ResourceDependencyKind::Embedded {
                     continue;
                 }
@@ -2050,15 +2116,12 @@ impl ResourceService {
                     &mut draft,
                     &selection,
                     &artifact.reference,
-                    dependency,
+                    &dependency,
                     installed,
                 )? {
                     continue;
                 }
-                let child = match self
-                    .dependency_selection(dependency, &selection, cancel)
-                    .await
-                {
+                let child = match child {
                     Ok(Some(child)) => child,
                     Ok(None) => {
                         if dependency.kind == ResourceDependencyKind::Required {
@@ -2672,6 +2735,47 @@ pub(crate) async fn prepare_with_installed(
     progress: OperationProgress<'_>,
     resolve_dependencies: bool,
 ) -> ResourceResult<ResourceOperationPlan> {
+    let (draft, target, installed) = initialize_operation(
+        instance_id,
+        intent,
+        selections,
+        install_dependencies,
+        cancel,
+        verified,
+        resolve_dependencies,
+    )
+    .await?;
+    let state = crate::State::get().await?;
+    let revision = draft.plan.instance_revision;
+    let mut draft = state
+        .resources()
+        .await?
+        .build_operation_with_progress(
+            draft, &target, &installed, cancel, progress,
+        )
+        .await?;
+    super::write_access::review(&mut draft, &state).await?;
+    if cancel.is_cancelled() {
+        return Err(ResourceError::Canceled);
+    }
+    if instance_revision(&state.pool, &draft.plan.instance_id).await?
+        != revision
+    {
+        return Err(invalid("instance changed while preparing the plan"));
+    }
+    sqlx::query("INSERT INTO resource_operation_plans(id, instance_id, revision, payload) VALUES (?, ?, ?, ?)").bind(draft.plan.id.as_str()).bind(&draft.plan.instance_id).bind(draft.plan.revision).bind(serde_json::to_string(&draft)?).execute(&state.pool).await.map_err(db)?;
+    Ok(draft.plan)
+}
+
+async fn initialize_operation(
+    instance_id: String,
+    intent: ResourceOperationIntent,
+    selections: Vec<ResourceSelection>,
+    install_dependencies: bool,
+    cancel: &CancellationToken,
+    verified: Option<&[InstalledResource]>,
+    resolve_dependencies: bool,
+) -> ResourceResult<(OperationDraft, ResourceTarget, Vec<InstalledResource>)> {
     match intent {
         ResourceOperationIntent::Install
             if selections
@@ -2782,24 +2886,7 @@ pub(crate) async fn prepare_with_installed(
         .await?
         .entries
     };
-    let mut draft = state
-        .resources()
-        .await?
-        .build_operation_with_progress(
-            draft, &target, &installed, cancel, progress,
-        )
-        .await?;
-    super::write_access::review(&mut draft, &state).await?;
-    if cancel.is_cancelled() {
-        return Err(ResourceError::Canceled);
-    }
-    if instance_revision(&state.pool, &draft.plan.instance_id).await?
-        != revision
-    {
-        return Err(invalid("instance changed while preparing the plan"));
-    }
-    sqlx::query("INSERT INTO resource_operation_plans(id, instance_id, revision, payload) VALUES (?, ?, ?, ?)").bind(draft.plan.id.as_str()).bind(&draft.plan.instance_id).bind(draft.plan.revision).bind(serde_json::to_string(&draft)?).execute(&state.pool).await.map_err(db)?;
-    Ok(draft.plan)
+    Ok((draft, target, installed))
 }
 
 pub(crate) async fn load(

@@ -802,6 +802,11 @@ fn main() {
         })
         .setup(|app| {
             lightweight_mode::init(app.handle());
+            #[cfg(target_os = "macos")]
+            if let Some(window) = app.get_webview_window("main") {
+                macos::traffic_lights::install(&window)?;
+            }
+
             let app_handle = app.handle().clone();
             tauri::async_runtime::spawn(async move {
                 tokio::time::sleep(std::time::Duration::from_secs(4)).await;
@@ -933,6 +938,8 @@ fn main() {
             lightweight_mode::lightweight_mode_frontend_ready,
             lightweight_mode::lightweight_mode_set_route,
             lightweight_mode::lightweight_mode_enter,
+            #[cfg(target_os = "macos")]
+            macos::traffic_lights::update_traffic_lights_anchor,
         ]);
 
     tracing::info!("Initializing app...");
@@ -962,6 +969,20 @@ fn main() {
                     tracing::warn!(
                         "Failed to stop multiplayer services before exit: {error}"
                     );
+                }
+
+                if matches!(&event, tauri::RunEvent::ExitRequested { .. }) {
+                    tauri::async_runtime::block_on(async {
+                        let killed = theseus::servers::shutdown_all().await;
+                        if killed > 0 {
+                            tracing::info!(
+                                "Killed {killed} dedicated server process(es) after the shutdown budget"
+                            );
+                        }
+                        if let Some(state) = State::get_if_initialized() {
+                            state.shutdown().await;
+                        }
+                    });
                 }
 
                 #[cfg(feature = "updater")]

@@ -762,7 +762,7 @@
     "defaultMessage": "更新 {count, plural, other {# 个项目}}"
   },
   "content.confirm-deletion.admonition-body": {
-    "defaultMessage": "删除模组可能会对你的游戏世界造成永久性影响，并可能导致再次加载时出现内容缺失或意外问题。"
+    "defaultMessage": "删除{contentType, select, mod {模组} resourcepack {资源包} shader {光影} datapack {数据包} other {内容}}可能会对你的游戏世界造成永久性影响，并可能导致再次加载时出现内容缺失或意外问题。"
   },
   "content.confirm-deletion.admonition-header": {
     "defaultMessage": "删除警告"

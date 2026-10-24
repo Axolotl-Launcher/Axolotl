@@ -1,3 +1,6 @@
 **/*.rs
 src/api/oauth_utils/auth_code_reply/page.html
 vendor/
+# TOML formatting is owned by tombi (see tombi.toml and the repo-check CI job);
+# Prettier's TOML output conflicts with `tombi fmt --check`.
+**/*.toml

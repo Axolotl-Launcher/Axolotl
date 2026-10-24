@@ -13,7 +13,7 @@
         <div class="flex flex-col gap-6">
             <SymlinkWarningAdmonition :symlink-target="symlinkTarget" />
             <Admonition type="warning" :header="formatMessage(messages.admonitionHeader)">
-                {{ formatMessage(messages.admonitionBody) }}
+                {{ formatMessage(messages.admonitionBody, admonitionValues) }}
             </Admonition>
             <p v-if="error" class="m-0 text-red">{{ error }}</p>
         </div>
@@ -50,13 +50,17 @@
 
 <script setup lang="ts">
 import { TrashIcon, XIcon } from '@modrinth/assets'
-import { nextTick, ref } from 'vue'
+import { computed, nextTick, ref } from 'vue'
 
 import Admonition from '#ui/components/base/Admonition.vue'
 import Button from '#ui/components/base/buttons/Button.vue'
 import NewModal from '#ui/components/modal/NewModal.vue'
 import { defineMessages, useVIntl } from '#ui/composables/i18n'
-import { commonMessages, formatContentTypeSentence } from '#ui/utils/common-messages'
+import {
+    commonMessages,
+    formatContentTypeSentence,
+    normalizeProjectType,
+} from '#ui/utils/common-messages'
 
 import SymlinkWarningAdmonition from './SymlinkWarningAdmonition.vue'
 
@@ -78,7 +82,7 @@ const messages = defineMessages({
     admonitionBody: {
         id: 'content.confirm-deletion.admonition-body',
         defaultMessage:
-            'Deleting a mod can permanently affect your world and may cause missing content or unexpected issues when it loads again.',
+            'Deleting {contentType, select, mod {a mod} resourcepack {a resource pack} shader {a shader} datapack {a data pack} other {content}} can permanently affect your world and may cause missing content or unexpected issues when it loads again.',
     },
     deleteButton: {
         id: 'content.confirm-deletion.delete-button',
@@ -90,6 +94,7 @@ const props = withDefaults(
     defineProps<{
         count: number
         itemType: string
+        contentType?: string
         variant?: 'instance' | 'server'
         backupTip?: string
         actionDisabled?: boolean
@@ -99,6 +104,7 @@ const props = withDefaults(
     }>(),
     {
         variant: 'instance',
+        contentType: undefined,
         backupTip: undefined,
         actionDisabled: false,
         actionDisabledTooltip: undefined,
@@ -113,14 +119,25 @@ const emit = defineEmits<{
 const modal = ref<InstanceType<typeof NewModal>>()
 const visibleCount = ref(props.count)
 const visibleItemType = ref(props.itemType)
+// Snapshot the raw type as well: a partially failed batch mutates the pending
+// selection while this modal stays open, and the warning must keep describing
+// the same selection as the header and the delete button.
+const visibleContentType = ref(props.contentType)
 const busy = ref(false)
 const error = ref<string | null>(null)
+
+// The warning body names the content type, so it needs the raw type key rather
+// than the pre-rendered label the header and button use.
+const admonitionValues = computed(() => ({
+    contentType: normalizeProjectType(visibleContentType.value ?? ''),
+}))
 
 async function show() {
     error.value = null
     await nextTick()
     visibleCount.value = props.count
     visibleItemType.value = props.itemType
+    visibleContentType.value = props.contentType
     modal.value?.show()
 }
 

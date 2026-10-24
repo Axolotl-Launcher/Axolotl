@@ -31,6 +31,7 @@ import WindowSettings from '@/components/ui/instance_settings/WindowSettings.vue
 import InstanceIcon from '@/components/ui/InstanceIcon.vue'
 import { get_project_v3 } from '@/helpers/cache'
 import { get_linked_modpack_info } from '@/helpers/instance'
+import { instanceServerProjectId, isServerProjectLink } from '@/helpers/instance-project'
 import { get_game_versions, get_loaders } from '@/helpers/tags'
 import { provideInstanceSettings } from '@/providers/instance-settings'
 
@@ -72,10 +73,11 @@ watch(
     () => props.instance,
     (instance) => {
         const generation = ++serverMetadataGeneration
-        isMinecraftServer.value = false
-        if (instance.install_stage === 'installed' && instance.link?.project_id) {
+        isMinecraftServer.value = isServerProjectLink(instance.link)
+        const projectId = instanceServerProjectId(instance.link)
+        if (instance.install_stage === 'installed' && projectId) {
             const instanceId = instance.id
-            get_project_v3(instance.link.project_id, 'must_revalidate')
+            get_project_v3(projectId, 'must_revalidate')
                 .then((project: Labrinth.Projects.v3.Project | undefined) => {
                     if (
                         generation === serverMetadataGeneration &&

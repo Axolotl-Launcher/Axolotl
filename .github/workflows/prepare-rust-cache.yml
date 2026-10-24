@@ -1,4 +1,4 @@
-name: Prepare desktop release dependencies
+name: Prepare desktop release caches
 
 on:
   workflow_dispatch:

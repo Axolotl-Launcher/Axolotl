@@ -427,6 +427,7 @@ export function resourcePrepareOperation(
     locators?: Record<string, string>,
     onProgress?: (progress: ResourceOperationProgress) => void,
     resolveDependencies = true,
+    analysis?: { sessionId: string; selectionRevision: number },
 ) {
     return resourceRequest<ResourceOperationPlan>(
         'resource_prepare_operation',
@@ -439,6 +440,34 @@ export function resourcePrepareOperation(
             locators: locators ?? null,
             onProgress: operationProgressChannel(onProgress, signal),
             resolveDependencies,
+            analysisSessionId: analysis?.sessionId ?? null,
+            selectionRevision: analysis?.selectionRevision ?? null,
+        },
+        signal,
+    )
+}
+export function resourceAnalysisOpen(instanceId: string) {
+    return invoke<string>('plugin:axolotl-resources|resource_analysis_open', { instanceId })
+}
+export function resourceAnalysisClose(sessionId: string) {
+    return invoke<void>('plugin:axolotl-resources|resource_analysis_close', { sessionId })
+}
+export function resourceAnalysisUpdate(
+    sessionId: string,
+    selectionRevision: number,
+    selections: ResourceSelection[],
+    installDependencies: boolean,
+    signal: AbortSignal,
+    onProgress: (progress: ResourceOperationProgress) => void,
+) {
+    return resourceRequest<ResourceOperationPlan>(
+        'resource_analysis_update',
+        {
+            sessionId,
+            selectionRevision,
+            selections,
+            installDependencies,
+            onProgress: operationProgressChannel(onProgress, signal),
         },
         signal,
     )

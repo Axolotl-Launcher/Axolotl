@@ -9,7 +9,7 @@ import QqIcon from '~/components/landing/QqIcon.vue'
 
 const { formatMessage } = useVIntl()
 
-const QQ_GROUP_NUMBER = '737601250'
+const QQ_GROUP_NUMBER = '830619067'
 const QQ_CHANNEL_URL = 'https://pd.qq.com/s/9nfp5rlz0'
 
 const copied = ref(false)

@@ -14,11 +14,7 @@
 				"visible": false,
 				"zoomHotkeysEnabled": false,
 				"decorations": true,
-				"transparent": true,
-				"trafficLightPosition": {
-					"x": 15.0,
-					"y": 22.0
-				}
+				"transparent": true
 			}
 		]
 	}

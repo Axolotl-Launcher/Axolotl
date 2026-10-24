@@ -131,6 +131,45 @@ pub fn optimize_current_process_context() -> i32 {
     }
 }
 
+/// Trim the launcher's own working set, releasing physical pages that are no
+/// longer touched once the main webview has been destroyed.
+#[cfg(target_os = "windows")]
+pub async fn trim_launcher_working_set() -> Option<(u64, u64)> {
+    tokio::task::spawn_blocking(|| {
+        let before = current_working_set_bytes()?;
+        use windows::Win32::System::ProcessStatus::EmptyWorkingSet;
+        use windows::Win32::System::Threading::GetCurrentProcess;
+        unsafe { EmptyWorkingSet(GetCurrentProcess()) }.ok()?;
+        let after = current_working_set_bytes()?;
+        Some((before, after))
+    })
+    .await
+    .ok()
+    .flatten()
+}
+
+#[cfg(not(target_os = "windows"))]
+pub async fn trim_launcher_working_set() -> Option<(u64, u64)> {
+    None
+}
+
+#[cfg(target_os = "windows")]
+fn current_working_set_bytes() -> Option<u64> {
+    use std::mem::size_of;
+    use windows::Win32::System::ProcessStatus::{
+        GetProcessMemoryInfo, PROCESS_MEMORY_COUNTERS,
+    };
+    use windows::Win32::System::Threading::GetCurrentProcess;
+
+    let mut counters = PROCESS_MEMORY_COUNTERS::default();
+    let size = size_of::<PROCESS_MEMORY_COUNTERS>() as u32;
+    unsafe {
+        GetProcessMemoryInfo(GetCurrentProcess(), &raw mut counters, size)
+    }
+    .ok()?;
+    Some(counters.WorkingSetSize as u64)
+}
+
 #[cfg(target_os = "windows")]
 fn optimize_windows_memory() -> Result<(), String> {
     use std::ffi::c_void;

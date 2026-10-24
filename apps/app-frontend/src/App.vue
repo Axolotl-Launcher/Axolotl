@@ -427,6 +427,76 @@ watch(
 const stateInitialized = ref(false)
 const privacyConsentModal = ref<InstanceType<typeof PrivacyConsentModal>>()
 const privacyConsentPending = ref(false)
+const titlebar = ref<InstanceType<typeof AppTitlebar>>()
+const titlebarAnchor = computed<HTMLElement | undefined>(() => titlebar.value?.$el)
+let titlebarAnchorObserver: ResizeObserver | undefined
+let titlebarAnchorFrame: number | undefined
+let titlebarAnchorUpdatePending = false
+let titlebarAnchorUpdateRunning = false
+
+async function updateNativeTrafficLightAnchor() {
+    if (titlebarAnchorUpdateRunning) {
+        titlebarAnchorUpdatePending = true
+        return
+    }
+
+    titlebarAnchorUpdateRunning = true
+    do {
+        titlebarAnchorUpdatePending = false
+        const anchorElement = titlebarAnchor.value
+        if (!anchorElement || os.value !== 'MacOS') break
+
+        const rect = anchorElement.getBoundingClientRect()
+        try {
+            await invoke('update_traffic_lights_anchor', {
+                anchor: {
+                    x: rect.x,
+                    y: rect.y,
+                    width: rect.width,
+                    height: rect.height,
+                    viewportWidth: document.documentElement.clientWidth,
+                    viewportHeight: document.documentElement.clientHeight,
+                },
+            })
+        } catch (error) {
+            console.warn('Failed to update the native traffic-light anchor', error)
+        }
+    } while (titlebarAnchorUpdatePending)
+    titlebarAnchorUpdateRunning = false
+}
+
+function scheduleNativeTrafficLightAnchorUpdate() {
+    if (os.value !== 'MacOS' || titlebarAnchorFrame !== undefined) return
+    titlebarAnchorFrame = requestAnimationFrame(() => {
+        titlebarAnchorFrame = undefined
+        void updateNativeTrafficLightAnchor()
+    })
+}
+
+function stopNativeTrafficLightAnchorTracking() {
+    titlebarAnchorObserver?.disconnect()
+    titlebarAnchorObserver = undefined
+    window.removeEventListener('resize', scheduleNativeTrafficLightAnchorUpdate)
+    window.visualViewport?.removeEventListener('resize', scheduleNativeTrafficLightAnchorUpdate)
+    window.visualViewport?.removeEventListener('scroll', scheduleNativeTrafficLightAnchorUpdate)
+    if (titlebarAnchorFrame !== undefined) {
+        cancelAnimationFrame(titlebarAnchorFrame)
+        titlebarAnchorFrame = undefined
+    }
+}
+
+watch([() => os.value, titlebarAnchor], ([platform, anchorElement]) => {
+    stopNativeTrafficLightAnchorTracking()
+    if (platform !== 'MacOS' || !anchorElement) return
+
+    titlebarAnchorObserver = new ResizeObserver(scheduleNativeTrafficLightAnchorUpdate)
+    titlebarAnchorObserver.observe(anchorElement)
+    titlebarAnchorObserver.observe(document.documentElement)
+    window.addEventListener('resize', scheduleNativeTrafficLightAnchorUpdate)
+    window.visualViewport?.addEventListener('resize', scheduleNativeTrafficLightAnchorUpdate)
+    window.visualViewport?.addEventListener('scroll', scheduleNativeTrafficLightAnchorUpdate)
+    scheduleNativeTrafficLightAnchorUpdate()
+})
 const updateAnnouncementModal = ref()
 const closeChoiceModal = ref<InstanceType<typeof NewModal>>()
 const backupExitModal = ref<InstanceType<typeof NewModal>>()
@@ -810,6 +880,7 @@ onUnmounted(async () => {
     stopNativeEditMenu?.()
     if (maximizedStateTimer) clearTimeout(maximizedStateTimer)
     unlistenWindowResize?.()
+    stopNativeTrafficLightAnchorTracking()
     window.removeEventListener('keydown', handleGlobalKeydown, true)
     window.removeEventListener('mousedown', handleShortcutMouse, true)
     window.removeEventListener('wheel', handleShortcutWheel, { capture: true, passive: false })
@@ -3036,6 +3107,7 @@ provideAppUpdateDownloadProgress(appUpdateDownload)
             </NavButton>
         </div>
         <AppTitlebar
+            ref="titlebar"
             class="app-grid-statusbar bg-surface-bar h-[--top-bar-height]"
             :is-beta-build="isBetaBuild"
         >

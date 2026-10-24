@@ -199,8 +199,10 @@ pub enum ErrorKind {
     #[error("Move directory error: {0}")]
     DirectoryMoveError(String),
 
+    /// Carries the resolver's message rather than the upstream error type so a
+    /// hickory-resolver minor bump cannot change this crate's public API.
     #[error("Error resolving DNS: {0}")]
-    DNSError(#[from] hickory_resolver::net::NetError),
+    DNSError(String),
 
     #[error("An online profile for {user_name} is not available")]
     OnlineMinecraftProfileUnavailable { user_name: String },
@@ -311,6 +313,12 @@ impl Error {
             );
         }
         self.to_string()
+    }
+}
+
+impl From<hickory_resolver::net::NetError> for ErrorKind {
+    fn from(source: hickory_resolver::net::NetError) -> Self {
+        Self::DNSError(source.to_string())
     }
 }
 

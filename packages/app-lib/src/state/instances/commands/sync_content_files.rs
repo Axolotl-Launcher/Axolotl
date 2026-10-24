@@ -465,6 +465,8 @@ async fn sync_instance_content_files_with_verification(
         synced_files.push(synced);
     }
 
+    remove_untracked_instance_files(&instance.id, &mut tx).await?;
+
     if invalidated_provider_identity
         && let Some(content_set) = content_set.as_ref()
     {
@@ -488,6 +490,67 @@ async fn sync_instance_content_files_with_verification(
     }
 
     Ok(synced_files)
+}
+
+/// Drops tracked rows the content scan can never refresh.
+///
+/// `scan_content_files` only reports files whose extension matches their
+/// folder's content type, so a row outside that scope is never reported again —
+/// Iris writes shader configuration sidecars such as
+/// `shaderpacks/BSL_v10.1.3.zip.txt` next to the pack itself. Left in place such
+/// a row stays `missing` forever and surfaces as phantom content, so the
+/// reconciliation drops it. Entries go first: their foreign key only nulls
+/// `file_id` instead of deleting the entry.
+///
+/// Runs after every upsert and reclaim, so a row a scan result adopted has
+/// already been renamed onto a scannable path.
+async fn remove_untracked_instance_files(
+    instance_id: &str,
+    tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>,
+) -> crate::Result<()> {
+    let rows: Vec<(String, String)> = sqlx::query_as(
+        "SELECT id, relative_path FROM instance_files WHERE instance_id = ?",
+    )
+    .bind(instance_id)
+    .fetch_all(&mut **tx)
+    .await?;
+
+    let stale_ids: Vec<String> = rows
+        .into_iter()
+        .filter(|(_, relative_path)| {
+            !filesystem::is_scannable_instance_file_path(relative_path)
+        })
+        .map(|(id, _)| id)
+        .collect();
+    if stale_ids.is_empty() {
+        return Ok(());
+    }
+
+    for chunk in stale_ids.chunks(400) {
+        let mut entries = sqlx::QueryBuilder::<sqlx::Sqlite>::new(
+            "DELETE FROM instance_content_entries WHERE instance_id = ",
+        );
+        entries.push_bind(instance_id).push(" AND file_id IN (");
+        let mut separated = entries.separated(", ");
+        for id in chunk {
+            separated.push_bind(id.as_str());
+        }
+        separated.push_unseparated(")");
+        entries.build().execute(&mut **tx).await?;
+
+        let mut files = sqlx::QueryBuilder::<sqlx::Sqlite>::new(
+            "DELETE FROM instance_files WHERE instance_id = ",
+        );
+        files.push_bind(instance_id).push(" AND id IN (");
+        let mut separated = files.separated(", ");
+        for id in chunk {
+            separated.push_bind(id.as_str());
+        }
+        separated.push_unseparated(")");
+        files.build().execute(&mut **tx).await?;
+    }
+
+    Ok(())
 }
 
 fn content_path_is_dirty(path: &str, dirty_paths: &HashSet<String>) -> bool {
@@ -1136,5 +1199,126 @@ mod tests {
         assert!(!physical_file_identity_changed(&file, "official", 10));
         assert!(physical_file_identity_changed(&file, "external", 10));
         assert!(physical_file_identity_changed(&file, "official", 11));
+    }
+
+    async fn cleanup_pool() -> sqlx::SqlitePool {
+        let pool = sqlx::sqlite::SqlitePoolOptions::new()
+            .max_connections(1)
+            .connect("sqlite::memory:")
+            .await
+            .expect("in-memory SQLite pool");
+        sqlx::raw_sql(
+            "CREATE TABLE instance_files (
+                 id TEXT PRIMARY KEY,
+                 instance_id TEXT NOT NULL,
+                 relative_path TEXT NOT NULL
+             );
+             CREATE TABLE instance_content_entries (
+                 id TEXT PRIMARY KEY,
+                 instance_id TEXT NOT NULL,
+                 file_id TEXT
+             );",
+        )
+        .execute(&pool)
+        .await
+        .expect("instance tables");
+        pool
+    }
+
+    async fn insert_file(
+        pool: &sqlx::SqlitePool,
+        id: &str,
+        instance_id: &str,
+        relative_path: &str,
+    ) {
+        sqlx::query(
+            "INSERT INTO instance_files (id, instance_id, relative_path) VALUES (?, ?, ?)",
+        )
+        .bind(id)
+        .bind(instance_id)
+        .bind(relative_path)
+        .execute(pool)
+        .await
+        .expect("insert instance file");
+    }
+
+    async fn insert_entry(
+        pool: &sqlx::SqlitePool,
+        id: &str,
+        instance_id: &str,
+        file_id: &str,
+    ) {
+        sqlx::query(
+            "INSERT INTO instance_content_entries (id, instance_id, file_id) VALUES (?, ?, ?)",
+        )
+        .bind(id)
+        .bind(instance_id)
+        .bind(file_id)
+        .execute(pool)
+        .await
+        .expect("insert content entry");
+    }
+
+    #[tokio::test]
+    async fn cleanup_removes_only_rows_outside_the_scan_scope() {
+        let pool = cleanup_pool().await;
+        // Content the scan reports, plus a scannable path whose file was genuinely
+        // deleted: both must survive the cleanup.
+        insert_file(&pool, "tracked", "instance", "mods/example.jar").await;
+        insert_entry(&pool, "tracked-entry", "instance", "tracked").await;
+        insert_file(
+            &pool,
+            "deleted",
+            "instance",
+            "schematics/old/house.litematic",
+        )
+        .await;
+        insert_entry(&pool, "deleted-entry", "instance", "deleted").await;
+        // Legacy rows the scan can never report: an Iris shader sidecar and an
+        // update backup.
+        insert_file(
+            &pool,
+            "sidecar",
+            "instance",
+            "shaderpacks/BSL_v10.1.3.zip.txt",
+        )
+        .await;
+        insert_entry(&pool, "sidecar-entry", "instance", "sidecar").await;
+        insert_file(
+            &pool,
+            "backup",
+            "instance",
+            "mods/Mod-1.0.jar_Mod-0.9.jar.old",
+        )
+        .await;
+        // Another instance keeps its own rows.
+        insert_file(
+            &pool,
+            "other",
+            "other-instance",
+            "shaderpacks/BSL_v10.1.3.zip.txt",
+        )
+        .await;
+
+        let mut tx = pool.begin().await.expect("transaction");
+        remove_untracked_instance_files("instance", &mut tx)
+            .await
+            .expect("cleanup");
+        tx.commit().await.expect("commit");
+
+        let files: Vec<String> =
+            sqlx::query_scalar("SELECT id FROM instance_files ORDER BY id")
+                .fetch_all(&pool)
+                .await
+                .expect("read files");
+        assert_eq!(files, vec!["deleted", "other", "tracked"]);
+
+        let entries: Vec<String> = sqlx::query_scalar(
+            "SELECT id FROM instance_content_entries ORDER BY id",
+        )
+        .fetch_all(&pool)
+        .await
+        .expect("read entries");
+        assert_eq!(entries, vec!["deleted-entry", "tracked-entry"]);
     }
 }

@@ -39,6 +39,14 @@ const fullscreenSetting: Ref<boolean> = ref(
 const maximizeWindowSetting = ref(initialInstance.maximize_window ?? globalSettings.maximize_window)
 const windowTitle = ref(initialInstance.window_title ?? '')
 let saveQueue = Promise.resolve()
+let restoringResolution: [number, number] | null = null
+
+// Only finite numbers are accepted: an empty or half-typed `<input type="number">`
+// reports `NaN`, and `null` reaches the model through the same binding. Both would
+// serialize into a `game_resolution` the Rust `WindowSize(u16, u16)` cannot read.
+function usableSize(value: unknown) {
+    return typeof value === 'number' && Number.isFinite(value) ? value : null
+}
 
 watch(
     [
@@ -61,7 +69,32 @@ watch(
         } else if (override) {
             if (fullscreen !== oldFullscreen) patch.force_fullscreen = fullscreen
             if (maximize !== oldMaximize) patch.maximize_window = maximize
-            if (width !== oldWidth || height !== oldHeight) patch.game_resolution = [width, height]
+            // `game_resolution` is deserialized into `WindowSize(u16, u16)` on the Rust
+            // side. A `<input type="number">` reports `NaN` while it is empty or holds
+            // text that is not a valid number, and `NaN` serializes to JSON `null`,
+            // which the command rejects with `invalid type: null, expected u16`. Drop
+            // such an edit instead of sending a value the launcher cannot store.
+            if (width !== oldWidth || height !== oldHeight) {
+                const restored = restoringResolution
+                restoringResolution = null
+                if (restored && width === restored[0] && height === restored[1]) {
+                    // Echo of the restore written below; not a user edit.
+                } else {
+                    const nextWidth = usableSize(width)
+                    const nextHeight = usableSize(height)
+                    if (nextWidth === null || nextHeight === null) {
+                        // Restore the last usable size so an empty or half-typed field
+                        // never reaches the command with a value it cannot deserialize.
+                        restoringResolution = [
+                            nextWidth ?? (oldWidth as number),
+                            nextHeight ?? (oldHeight as number),
+                        ]
+                        resolution.value = restoringResolution
+                    } else {
+                        patch.game_resolution = [nextWidth, nextHeight]
+                    }
+                }
+            }
         }
         if (title !== oldTitle) patch.window_title = title.trim() || null
         if (Object.keys(patch).length) {

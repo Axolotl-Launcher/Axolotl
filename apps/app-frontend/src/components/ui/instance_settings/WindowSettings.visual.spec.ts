@@ -50,11 +50,17 @@ vi.mock('@modrinth/ui', async () => {
                     h('input', {
                         value: props.modelValue,
                         type: props.type,
+                        // Mirrors the real StyledInput: a cleared number field reports
+                        // `undefined` and unparsable text reports `NaN`.
                         onInput: (event: Event) => {
                             const input = event.target as HTMLInputElement
                             emit(
                                 'update:modelValue',
-                                props.type === 'number' ? input.valueAsNumber : input.value,
+                                props.type === 'number'
+                                    ? input.value === ''
+                                        ? undefined
+                                        : Number(input.value)
+                                    : input.value,
                             )
                         },
                     }),
@@ -187,4 +193,36 @@ it('serializes rapid edits so the last title remains persisted', async () => {
     release()
     await flushPromises()
     expect(backend.persisted).toMatchObject({ window_title: 'Last', force_fullscreen: false })
+})
+
+it('never persists a non-numeric window size', async () => {
+    const wrapper = await settings({
+        force_fullscreen: false,
+        game_resolution: [1920, 1080],
+    })
+    // Clearing a `<input type="number">` makes it report `undefined`, which serializes
+    // to JSON `null`. The Rust side deserializes `game_resolution` into
+    // `WindowSize(u16, u16)`, so the command rejects it with
+    // `invalid type: null, expected u16` and the edit is lost.
+    await wrapper.get('#width').setValue('')
+    await flushPromises()
+    expect(backend.edit).not.toHaveBeenCalled()
+    expect(backend.persisted.game_resolution).toEqual([1920, 1080])
+    await wrapper.get('#height').setValue('')
+    await flushPromises()
+    expect(backend.edit).not.toHaveBeenCalled()
+    expect(backend.persisted.game_resolution).toEqual([1920, 1080])
+})
+
+it('persists a partial resolution edit as numbers', async () => {
+    const wrapper = await settings({
+        force_fullscreen: false,
+        game_resolution: [1920, 1080],
+    })
+    await wrapper.get('#width').setValue('1280')
+    await flushPromises()
+    expect(backend.persisted.game_resolution).toEqual([1280, 1080])
+    await wrapper.get('#height').setValue('720')
+    await flushPromises()
+    expect(backend.persisted.game_resolution).toEqual([1280, 720])
 })

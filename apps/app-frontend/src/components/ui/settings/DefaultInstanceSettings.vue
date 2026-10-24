@@ -159,8 +159,12 @@ watch(
         // `settings_set` rejects with `invalid type: null, expected u16`. Send the last
         // persisted dimension for any field that cannot be persisted right now.
         setSettings.game_resolution = [
-            usableWindowSize(setSettings.game_resolution?.[0]) ?? fetchSettings.game_resolution[0],
-            usableWindowSize(setSettings.game_resolution?.[1]) ?? fetchSettings.game_resolution[1],
+            usableWindowSize(setSettings.game_resolution?.[0]) ??
+                fetchSettings.game_resolution?.[0] ??
+                854,
+            usableWindowSize(setSettings.game_resolution?.[1]) ??
+                fetchSettings.game_resolution?.[1] ??
+                480,
         ]
 
         if (!setSettings.hooks.pre_launch) {

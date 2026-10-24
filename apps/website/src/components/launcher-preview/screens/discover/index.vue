@@ -52,7 +52,6 @@ import {
     isFavoriteContentType,
     isSnapshotType,
     makeContentSelectionKey,
-    SNAPSHOT_TYPES,
     useDiscover,
 } from './state'
 
@@ -556,26 +555,12 @@ function getCardActions(result: SearchHit, currentProjectType: string): CardActi
 // Search ---------------------------------------------------------------------------------------------
 const resourceSearchNotice = ref('')
 
-function wait(ms: number, signal: AbortSignal) {
-    return new Promise<void>((resolve, reject) => {
-        const cancel = preview.clock.after(ms, resolve)
-        signal.addEventListener(
-            'abort',
-            () => {
-                cancel()
-                reject(new DOMException('Aborted', 'AbortError'))
-            },
-            { once: true },
-        )
-    })
-}
-
 async function search(
     request: BrowseSearchRequest,
     signal: AbortSignal,
 ): Promise<BrowseSearchResponse> {
     const type = projectType.value
-    await wait(380, signal)
+    signal.throwIfAborted()
     if (type === 'server') throw new Error(formatMessage(messages.serverSourceUnavailable))
     if (type === WORLD) {
         return {
@@ -911,13 +896,8 @@ onMounted(() => {
         instanceSelector.value?.requestSwitch(pendingRouteInstanceSwitch.value)
         pendingRouteInstanceSwitch.value = null
     }
-    // The first search waits for the page transition to settle (helpers/page-transition.ts).
-    preview.clock.after(220, () => {
-        if (unmounted) return
-        if (browseReturn) searchState.currentPage.value = Math.max(1, browseReturn.page)
-        void searchState.refreshSearch()
-    })
-    void Promise.all(SNAPSHOT_TYPES.map((type) => discover.ensurePool(type).catch(() => [])))
+    if (browseReturn) searchState.currentPage.value = Math.max(1, browseReturn.page)
+    void searchState.refreshSearch()
 })
 
 onUnmounted(() => {

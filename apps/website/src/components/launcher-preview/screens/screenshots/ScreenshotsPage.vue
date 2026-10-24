@@ -14,13 +14,12 @@ import IconButton from '@modrinth/ui/src/components/base/buttons/IconButton.vue'
 import type { ComboboxOption } from '@modrinth/ui/src/components/base/Combobox.vue'
 import EmptyState from '@modrinth/ui/src/components/base/EmptyState.vue'
 import type { ButtonMenuOption } from '@modrinth/ui/src/components/base/menu-options.ts'
-import ReadyTransition from '@modrinth/ui/src/components/base/ReadyTransition.vue'
 import StyledInput from '@modrinth/ui/src/components/base/StyledInput.vue'
 import { useFormatDateTime } from '@modrinth/ui/src/composables/format-date-time.ts'
 import { useVIntl } from '@modrinth/ui/src/composables/i18n.ts'
 import { injectNotificationManager } from '@modrinth/ui/src/providers/web-notifications.ts'
 import { commonMessages } from '@modrinth/ui/src/utils/common-messages.ts'
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
 import { useRouter } from 'vue-router'
 
 import { usePreview } from '../../lib/state'
@@ -50,7 +49,7 @@ import ScreenshotToolbar from './toolbar.vue'
 import { useScreenshotDragGather } from './use-screenshot-drag-gather'
 import { useScreenshotMarquee } from './use-screenshot-marquee'
 import type { ViewerItem, ViewerSavePayload } from './viewer.vue'
-import Viewer from './viewer.vue'
+import type Viewer from './viewer.vue'
 
 const MAX_INSTANCE_GROUP_NAME_LENGTH = 256
 const SCREENSHOT_GRID_GAP = 12
@@ -99,14 +98,7 @@ const screenshotListContainer = ref<HTMLElement>()
 const screenshotListWidth = ref(0)
 const windowWidth = ref(1280)
 const bulkBusy = ref(false)
-/**
- * `syncedScreenshotsQueryOptions` scans every instance folder on first load;
- * the preview repeats that pending phase once per window (the page's state
- * survives navigation, like the app's query cache).
- */
-const pending = ref(!page.ready.value)
 const error = ref<string | null>(null)
-let pendingStop: (() => void) | undefined
 const creatingCustomGroup = ref(false)
 const updatingCustomGroupMemberships = ref(false)
 const movingScreenshots = ref(false)
@@ -120,6 +112,41 @@ const groupIdPendingNameEdit = ref<string>()
 const screenshotOptionsMenu = ref<InstanceType<typeof PreviewContextMenu>>()
 const screenshotOptionsTarget = ref<PreviewScreenshot>()
 const imageViewer = ref<InstanceType<typeof Viewer>>()
+const viewerComponent = shallowRef<typeof Viewer>()
+let viewerLoad: Promise<InstanceType<typeof Viewer> | undefined> | undefined
+let viewerRequest = 0
+let disposed = false
+
+function ensureViewer() {
+    viewerLoad ??= import('./viewer.vue')
+        .then(async (module) => {
+            if (disposed) return undefined
+            viewerComponent.value = module.default
+            await nextTick()
+            return imageViewer.value
+        })
+        .catch((failure: unknown) => {
+            viewerLoad = undefined
+            throw failure
+        })
+    return viewerLoad
+}
+
+async function openViewer(screenshot: PreviewScreenshot, mode: 'show' | 'edit' = 'show') {
+    const request = ++viewerRequest
+    const key = getSelectionKey(screenshot)
+    screenshotOptionsMenu.value?.close()
+    try {
+        const viewer = await ensureViewer()
+        if (disposed || request !== viewerRequest || !viewer) return
+        const index = visibleScreenshots.value.findIndex(
+            (candidate) => getSelectionKey(candidate) === key,
+        )
+        if (index >= 0) await viewer[mode](index)
+    } catch (failure) {
+        if (!disposed && request === viewerRequest) handleError(failure)
+    }
+}
 const exportProgress = ref<{ name: string; value: number } | null>(null)
 const saveDialog = ref<{ name: string; count: number } | null>(null)
 const exportPath = ref('')
@@ -477,19 +504,16 @@ function onWindowResize() {
 }
 
 onMounted(() => {
-    if (pending.value) {
-        pendingStop = preview.clock.after(550, () => {
-            pending.value = false
-            page.ready.value = true
-            if (page.skippedFolders.value.length > 0) {
-                addNotification({
-                    type: 'warning',
-                    title: formatMessage(messages.skippedFolders, {
-                        count: page.skippedFolders.value.length,
-                    }),
-                })
-            }
-        })
+    if (!page.ready.value) {
+        page.ready.value = true
+        if (page.skippedFolders.value.length > 0) {
+            addNotification({
+                type: 'warning',
+                title: formatMessage(messages.skippedFolders, {
+                    count: page.skippedFolders.value.length,
+                }),
+            })
+        }
     }
     onWindowResize()
     screenshotListObserver = new ResizeObserver(measureList)
@@ -498,7 +522,8 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
-    pendingStop?.()
+    disposed = true
+    viewerRequest++
     screenshotListObserver?.disconnect()
     window.removeEventListener('resize', onWindowResize)
     for (const timeout of copiedTimeouts) window.clearTimeout(timeout)
@@ -549,13 +574,7 @@ function activateScreenshot(screenshot: PreviewScreenshot, event: MouseEvent | K
         return
     }
     selection.markAnchor(getSelectionKey(screenshot))
-    const index = visibleScreenshots.value.findIndex(
-        (candidate) => getSelectionKey(candidate) === getSelectionKey(screenshot),
-    )
-    if (index >= 0) {
-        screenshotOptionsMenu.value?.close()
-        imageViewer.value?.show(index)
-    }
+    void openViewer(screenshot)
 }
 
 function clearSelection() {
@@ -605,13 +624,7 @@ function showScreenshotOptions(screenshot: PreviewScreenshot, event: MouseEvent)
 }
 
 function editScreenshot(screenshot: PreviewScreenshot) {
-    const index = visibleScreenshots.value.findIndex(
-        (candidate) => getSelectionKey(candidate) === getSelectionKey(screenshot),
-    )
-    if (index >= 0) {
-        screenshotOptionsMenu.value?.close()
-        imageViewer.value?.edit(index)
-    }
+    void openViewer(screenshot, 'edit')
 }
 
 function requestDelete(screenshot: PreviewScreenshot, fromPreview = false) {
@@ -718,10 +731,7 @@ function openScreenshot(screenshot: PreviewScreenshot) {
     // `instance_open_screenshot` hands the file to the operating system's image
     // viewer, which is outside the window; the preview opens the same capture
     // in the page's viewer instead of reporting an artificial result.
-    const index = visibleScreenshots.value.findIndex(
-        (candidate) => getSelectionKey(candidate) === getSelectionKey(screenshot),
-    )
-    if (index >= 0) imageViewer.value?.show(index)
+    void openViewer(screenshot)
 }
 
 function goToInstance(screenshot: PreviewScreenshot) {
@@ -1037,7 +1047,9 @@ async function revealScreenshot(id: string) {
             {{ formatMessage(messages.goToInstance) }}
         </template>
     </PreviewContextMenu>
-    <Viewer
+    <component
+        :is="viewerComponent"
+        v-if="viewerComponent"
         ref="imageViewer"
         :items="previewItems"
         :saving="page.saving.value"
@@ -1086,7 +1098,7 @@ async function revealScreenshot(id: string) {
                 <TrashIcon />
             </IconButton>
         </template>
-    </Viewer>
+    </component>
 
     <PreviewModal
         ref="saveDialogModal"
@@ -1148,127 +1160,122 @@ async function revealScreenshot(id: string) {
             />
         </template>
 
-        <ReadyTransition :pending="pending">
-            <EmptyState
-                v-if="error"
-                type="error"
-                :heading="formatMessage(messages.errorHeading)"
-                :description="error"
-            />
-            <EmptyState
-                v-else-if="allScreenshots.length === 0 && !groupIdPendingNameEdit"
-                type="no-images"
-                :heading="formatMessage(messages.emptyHeading)"
-                :description="formatMessage(messages.emptyDescription)"
-            />
-            <EmptyState
-                v-else-if="visibleScreenshots.length === 0 && !groupIdPendingNameEdit"
-                type="no-images"
-                :heading="formatMessage(messages.noResultsHeading)"
-                :description="formatMessage(messages.noResultsDescription)"
-            />
+        <EmptyState
+            v-if="error"
+            type="error"
+            :heading="formatMessage(messages.errorHeading)"
+            :description="error"
+        />
+        <EmptyState
+            v-else-if="allScreenshots.length === 0 && !groupIdPendingNameEdit"
+            type="no-images"
+            :heading="formatMessage(messages.emptyHeading)"
+            :description="formatMessage(messages.emptyDescription)"
+        />
+        <EmptyState
+            v-else-if="visibleScreenshots.length === 0 && !groupIdPendingNameEdit"
+            type="no-images"
+            :heading="formatMessage(messages.noResultsHeading)"
+            :description="formatMessage(messages.noResultsDescription)"
+        />
 
-            <div
-                v-else
-                ref="screenshotListContainer"
-                data-screenshot-selection-area
-                class="w-full"
-                :style="{ overflowAnchor: 'none' }"
-                @pointerdown.capture="marquee.start"
-                @click.capture="onSelectionAreaClick"
-            >
-                <div v-for="{ id, group } in screenshotGroupLayouts" :key="id">
-                    <ScreenshotGroup
-                        :id="group.id"
-                        :title="group.title"
-                        :screenshots="group.screenshots"
-                        :selected-keys="selectedKeys"
-                        :selection-active="selectionActive"
-                        :active-dragged-keys="activeDraggedKeys"
-                        :show-drop-outline="activeDropGroupId === group.id && canDropOnGroup(group)"
-                        :can-drag="
-                            !bulkBusy &&
-                            (groupBy === 'custom' || (isGlobal && groupBy === 'instance'))
-                        "
-                        :drop-instance-id="
-                            groupBy === 'instance' ? group.dropInstanceId : undefined
-                        "
-                        :drop-custom-group="groupBy === 'custom'"
-                        :drop-custom-group-id="group.customGroupId ?? null"
-                        :show-instance-name="isGlobal && groupBy !== 'instance'"
-                        :highlighted-screenshot-id="highlightedScreenshotId"
-                        :copied-screenshot-ids="copiedScreenshotIds"
-                        :force-open="search.length > 0"
-                        :hide-header="groupBy === 'none'"
-                        :editable-title="Boolean(group.customGroupId)"
-                        :start-editing-title="groupIdPendingNameEdit === group.customGroupId"
-                        :max-title-length="MAX_INSTANCE_GROUP_NAME_LENGTH"
-                        :validate-title="validateCustomGroupName"
-                        :on-title-change="
-                            (name: string) => renameCustomGroup(group.customGroupId, name)
-                        "
-                        :collapsed="Boolean(collapsedGroups[group.id])"
-                        :source-for="imageSource"
-                        @update:collapsed="(value) => setGroupCollapsed(group.id, value)"
-                        @activate="activateScreenshot"
-                        @toggle-selection="toggleScreenshotSelection"
-                        @copy="copyScreenshot"
-                        @edit="editScreenshot"
-                        @more="showScreenshotOptions"
-                        @drag-start="beginDrag"
-                    >
-                        <template #actions="{ startEditing }">
-                            <input
-                                type="checkbox"
-                                class="size-4 shrink-0 cursor-pointer accent-brand"
-                                :checked="
-                                    group.screenshots.length > 0 &&
-                                    group.screenshots.every((screenshot) =>
-                                        selectedKeys.has(getSelectionKey(screenshot)),
-                                    )
-                                "
-                                :indeterminate.prop="
-                                    group.screenshots.some((screenshot) =>
-                                        selectedKeys.has(getSelectionKey(screenshot)),
-                                    ) &&
-                                    !group.screenshots.every((screenshot) =>
-                                        selectedKeys.has(getSelectionKey(screenshot)),
-                                    )
-                                "
-                                :aria-label="
-                                    formatMessage(messages.selectGroup, { group: group.title })
-                                "
-                                :disabled="bulkBusy || group.screenshots.length === 0"
-                                @change="toggleGroupSelection(group)"
-                            />
-                            <div
-                                v-if="group.customGroupId"
-                                class="duration-250 flex shrink-0 items-center opacity-0 transition-opacity focus-within:opacity-100 group-hover/header:opacity-100"
+        <div
+            v-else
+            ref="screenshotListContainer"
+            data-screenshot-selection-area
+            class="w-full"
+            :style="{ overflowAnchor: 'none' }"
+            @pointerdown.capture="marquee.start"
+            @click.capture="onSelectionAreaClick"
+        >
+            <div v-for="{ id, group } in screenshotGroupLayouts" :key="id">
+                <ScreenshotGroup
+                    :id="group.id"
+                    :title="group.title"
+                    :screenshots="group.screenshots"
+                    :selected-keys="selectedKeys"
+                    :selection-active="selectionActive"
+                    :active-dragged-keys="activeDraggedKeys"
+                    :show-drop-outline="activeDropGroupId === group.id && canDropOnGroup(group)"
+                    :can-drag="
+                        !bulkBusy && (groupBy === 'custom' || (isGlobal && groupBy === 'instance'))
+                    "
+                    :drop-instance-id="groupBy === 'instance' ? group.dropInstanceId : undefined"
+                    :drop-custom-group="groupBy === 'custom'"
+                    :drop-custom-group-id="group.customGroupId ?? null"
+                    :show-instance-name="isGlobal && groupBy !== 'instance'"
+                    :highlighted-screenshot-id="highlightedScreenshotId"
+                    :copied-screenshot-ids="copiedScreenshotIds"
+                    :force-open="search.length > 0"
+                    :hide-header="groupBy === 'none'"
+                    :editable-title="Boolean(group.customGroupId)"
+                    :start-editing-title="groupIdPendingNameEdit === group.customGroupId"
+                    :max-title-length="MAX_INSTANCE_GROUP_NAME_LENGTH"
+                    :validate-title="validateCustomGroupName"
+                    :on-title-change="
+                        (name: string) => renameCustomGroup(group.customGroupId, name)
+                    "
+                    :collapsed="Boolean(collapsedGroups[group.id])"
+                    :source-for="imageSource"
+                    @update:collapsed="(value) => setGroupCollapsed(group.id, value)"
+                    @activate="activateScreenshot"
+                    @toggle-selection="toggleScreenshotSelection"
+                    @copy="copyScreenshot"
+                    @edit="editScreenshot"
+                    @more="showScreenshotOptions"
+                    @drag-start="beginDrag"
+                >
+                    <template #actions="{ startEditing }">
+                        <input
+                            type="checkbox"
+                            class="size-4 shrink-0 cursor-pointer accent-brand"
+                            :checked="
+                                group.screenshots.length > 0 &&
+                                group.screenshots.every((screenshot) =>
+                                    selectedKeys.has(getSelectionKey(screenshot)),
+                                )
+                            "
+                            :indeterminate.prop="
+                                group.screenshots.some((screenshot) =>
+                                    selectedKeys.has(getSelectionKey(screenshot)),
+                                ) &&
+                                !group.screenshots.every((screenshot) =>
+                                    selectedKeys.has(getSelectionKey(screenshot)),
+                                )
+                            "
+                            :aria-label="
+                                formatMessage(messages.selectGroup, { group: group.title })
+                            "
+                            :disabled="bulkBusy || group.screenshots.length === 0"
+                            @change="toggleGroupSelection(group)"
+                        />
+                        <div
+                            v-if="group.customGroupId"
+                            class="duration-250 flex shrink-0 items-center opacity-0 transition-opacity focus-within:opacity-100 group-hover/header:opacity-100"
+                        >
+                            <IconButton
+                                v-tooltip="formatMessage(messages.editGroup)"
+                                :label="formatMessage(messages.editGroup)"
+                                type="quiet"
+                                size="sm"
+                                @click.stop="startEditing"
                             >
-                                <IconButton
-                                    v-tooltip="formatMessage(messages.editGroup)"
-                                    :label="formatMessage(messages.editGroup)"
-                                    type="quiet"
-                                    size="sm"
-                                    @click.stop="startEditing"
-                                >
-                                    <EditIcon />
-                                </IconButton>
-                                <IconButton
-                                    v-tooltip="formatMessage(messages.deleteGroup)"
-                                    :label="formatMessage(messages.deleteGroup)"
-                                    type="quiet"
-                                    size="sm"
-                                    @click.stop="requestCustomGroupDeletion(group.customGroupId)"
-                                >
-                                    <TrashIcon />
-                                </IconButton>
-                            </div>
-                        </template>
-                    </ScreenshotGroup>
-                </div>
+                                <EditIcon />
+                            </IconButton>
+                            <IconButton
+                                v-tooltip="formatMessage(messages.deleteGroup)"
+                                :label="formatMessage(messages.deleteGroup)"
+                                type="quiet"
+                                size="sm"
+                                @click.stop="requestCustomGroupDeletion(group.customGroupId)"
+                            >
+                                <TrashIcon />
+                            </IconButton>
+                        </div>
+                    </template>
+                </ScreenshotGroup>
             </div>
-        </ReadyTransition>
+        </div>
     </div>
 
     <Teleport :to="layer" :disabled="!layer">

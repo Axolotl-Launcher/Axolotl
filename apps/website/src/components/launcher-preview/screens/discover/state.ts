@@ -11,7 +11,7 @@ import {
     type ProjectDetail,
     type ProjectTagData,
 } from '../../data'
-import { type PreviewState, usePreviewDomain } from '../../lib/state'
+import { previewDomain, type PreviewState, usePreviewDomain } from '../../lib/state'
 import type { InstallJob } from '../../lib/state/downloads'
 import type { GameInstance } from '../../lib/types'
 
@@ -558,6 +558,15 @@ function createDiscoverDomain(preview: PreviewState) {
 }
 
 export type DiscoverDomain = ReturnType<typeof createDiscoverDomain>['value']
+
+export async function prepareDiscover(preview: PreviewState) {
+    const domain = previewDomain(preview, 'discover.v2', createDiscoverDomain)
+    await Promise.all([
+        domain.ensureTags(),
+        domain.ensurePool('mod'),
+        preview.downloads.ensureContents(),
+    ])
+}
 
 export function useDiscover(): DiscoverDomain {
     return usePreviewDomain('discover.v2', createDiscoverDomain)

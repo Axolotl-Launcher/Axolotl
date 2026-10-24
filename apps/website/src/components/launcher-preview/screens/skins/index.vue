@@ -23,7 +23,6 @@ import { bakeSkinPreviews } from './bake'
 import { messages } from './messages'
 import ArmorTrimTab from './parts/ArmorTrimTab.vue'
 import EditSkinModal from './parts/EditSkinModal.vue'
-import SkinListSkeleton from './parts/SkinListSkeleton.vue'
 import VirtualSkinSectionList from './parts/VirtualSkinSectionList.vue'
 import {
     type Cape,
@@ -82,7 +81,6 @@ const username = computed(() => currentUser.value?.profile?.name)
  */
 const offline = computed(() => state.settings.feature_flags.preview_offline === true)
 const isApplyingSkin = ref(false)
-const isSkinListBuffering = ref(false)
 const isDraggingSkinFile = ref(false)
 const isAddSkinButtonDragActive = ref(false)
 const skinToDelete = ref<Skin | null>(null)
@@ -91,7 +89,6 @@ const lastSkinListTab = ref<'saved' | 'default'>('saved')
 /** The last file the page refused, shown under the list the way the app toasts it. */
 const failedFileName = ref<string | null>(null)
 
-let skinListBufferTimer: ReturnType<typeof setTimeout> | undefined
 let isUnmounted = false
 
 const isSkinManagementReadOnly = computed(
@@ -146,16 +143,6 @@ const skinListTabLinks = computed(() => [
     { href: 'default', label: formatMessage(messages.defaultTab) },
 ])
 
-watch(skinListTab, (tab, previous) => {
-    if (tab === 'armor' || previous === 'armor') return
-
-    isSkinListBuffering.value = true
-    clearTimeout(skinListBufferTimer)
-    skinListBufferTimer = setTimeout(() => {
-        isSkinListBuffering.value = false
-    }, 240)
-})
-
 watch(
     skins,
     (nextSkins) => {
@@ -173,7 +160,6 @@ watch(isSkinManagementReadOnly, (readOnly) => {
 
 onUnmounted(() => {
     isUnmounted = true
-    clearTimeout(skinListBufferTimer)
 })
 
 function getDefaultSkinSectionTitle(section: string) {
@@ -541,7 +527,7 @@ const capeList = computed<Cape[]>(() => capes.value)
 			-->
             <div
                 ref="skinPreviewArea"
-                class="ml-5 mt-4 flex h-[calc(800px_-_var(--top-bar-height)_-_11rem)] min-h-[14rem] items-center justify-center"
+                class="ml-5 mt-4 flex h-[calc(800px_-_var(--top-bar-height)_-_11rem)] min-h-[14rem] items-center justify-center [contain:layout_paint_style]"
             >
                 <SkinPreviewRenderer
                     v-model:armor-config="armorPreviewConfig"
@@ -631,7 +617,6 @@ const capeList = computed<Cape[]>(() => capes.value)
                     role="tabpanel"
                     :aria-labelledby="'nav-tab-' + lastSkinListTab"
                 >
-                    <SkinListSkeleton v-if="isSkinListBuffering" />
                     <div
                         v-if="failedFileName"
                         class="mb-4 flex items-start justify-between gap-3 rounded-xl border border-solid border-red bg-bg-red p-3 text-sm leading-6 text-red"
@@ -652,7 +637,6 @@ const capeList = computed<Cape[]>(() => capes.value)
                         </button>
                     </div>
                     <VirtualSkinSectionList
-                        v-show="!isSkinListBuffering"
                         :active-tab="lastSkinListTab"
                         :saved-skins="savedSkins"
                         :default-skin-sections="defaultSkinSections"

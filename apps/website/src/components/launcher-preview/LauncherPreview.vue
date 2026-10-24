@@ -13,6 +13,7 @@ import { createPreviewFilePicker } from './lib/file-picker'
 import { providePreviewI18n } from './lib/i18n'
 import { shellMessages } from './lib/messages'
 import { createPreviewModrinthClient } from './lib/modrinth-client'
+import { preparePrimaryNavigation } from './lib/navigation-ready'
 import { createPreviewRouter, providePreviewRouter } from './lib/router'
 import { previewScreens } from './lib/screens'
 import { createPreviewState, providePreviewState, setCurrentPreview } from './lib/state'
@@ -219,7 +220,11 @@ onMounted(async () => {
 
     try {
         await router.push(state.settings.default_page === 'Library' ? '/library' : '/')
-        await waitUntilReady((value) => emit('progress', value))
+        await waitUntilReady((value) => emit('progress', 25 + value * 0.35))
+        await preparePrimaryNavigation(router, state, loadingController.signal, (value) =>
+            emit('progress', 60 + value * 35),
+        )
+        await nextPaint()
         if (!loadingController.signal.aborted) emit('ready')
     } catch {
         if (!loadingController.signal.aborted) emit('failed')
@@ -245,7 +250,7 @@ onBeforeUnmount(() => {
     >
         <div
             ref="windowEl"
-            class="launcher-preview-window absolute left-0 top-0 h-[800px] w-[1280px] origin-top-left overflow-hidden"
+            class="launcher-preview-window absolute left-0 top-0 h-[800px] w-[1280px] origin-top-left overflow-hidden [contain:layout_paint_style]"
             :class="[
                 state.theme.className.value,
                 state.theme.accentClassName.value,

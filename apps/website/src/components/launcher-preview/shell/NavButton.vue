@@ -6,6 +6,9 @@
         active-class="nav-router-active"
         :class="activeClasses"
         class="nav-button flex size-12 items-center justify-center rounded-full bg-transparent text-2xl text-[var(--color-text-default)] transition-all hover:bg-surface-4 hover:text-[var(--color-text-primary)]"
+        @pointerenter="prepareRoute"
+        @focusin="prepareRoute"
+        @pointerdown="prepareRoute"
     >
         <slot />
     </RouterLink>
@@ -35,7 +38,14 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { type RouteLocationNormalizedLoaded, RouterLink, useLink, useRoute } from 'vue-router'
+import {
+    loadRouteLocation,
+    type RouteLocationNormalizedLoaded,
+    RouterLink,
+    useLink,
+    useRoute,
+    useRouter,
+} from 'vue-router'
 
 /** Port of the app's NavButton, highlighting itself for its primary route and subpages. */
 type RouteFunction = (route: RouteLocationNormalizedLoaded) => boolean
@@ -55,6 +65,18 @@ const props = withDefaults(
 )
 
 const route = useRoute()
+const router = useRouter()
+let preparingPath: string | undefined
+
+function prepareRoute() {
+    const path = props.to
+    if (typeof path !== 'string' || props.disabled || path === preparingPath || path === route.path)
+        return
+    preparingPath = path
+    void loadRouteLocation(router.resolve(path)).catch(() => {
+        if (preparingPath === path) preparingPath = undefined
+    })
+}
 const link = useLink({ to: computed(() => (typeof props.to === 'string' ? props.to : '/')) })
 const activeClasses = computed(() => {
     const primary = props.isPrimary ? props.isPrimary(route) : link.isActive.value

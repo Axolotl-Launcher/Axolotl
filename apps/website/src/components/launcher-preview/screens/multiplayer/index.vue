@@ -5,13 +5,14 @@ import ServerIcon from '@modrinth/assets/icons/server.svg?component'
 import UsersIcon from '@modrinth/assets/icons/users.svg?component'
 import NavTabs from '@modrinth/ui/src/components/base/NavTabs.vue'
 import { defineMessages, useVIntl } from '@modrinth/ui/src/composables/i18n.ts'
-import { computed } from 'vue'
+import { computed, defineAsyncComponent } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
-import MultiplayerRooms from './components/MultiplayerRooms.vue'
-import ServerDetail from './servers/ServerDetail.vue'
-import ServerFileStudio from './servers/ServerFileStudio.vue'
 import ServersOverview from './servers/ServersOverview.vue'
+
+const MultiplayerRooms = defineAsyncComponent(() => import('./components/MultiplayerRooms.vue'))
+const ServerDetail = defineAsyncComponent(() => import('./servers/ServerDetail.vue'))
+const ServerFileStudio = defineAsyncComponent(() => import('./servers/ServerFileStudio.vue'))
 
 /**
  * Port of `pages/Multiplayer.vue`: the page title and the Servers/Rooms tabs

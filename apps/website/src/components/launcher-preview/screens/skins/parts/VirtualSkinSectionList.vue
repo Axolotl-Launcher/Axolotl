@@ -101,7 +101,6 @@ function watchSizes() {
     windowWidth.value = window.innerWidth
     const element = listContainer.value
     if (element) {
-        listWidth.value = element.clientWidth
         listResizeObserver?.disconnect()
         listResizeObserver = new ResizeObserver((entries) => {
             const entry = entries[0]

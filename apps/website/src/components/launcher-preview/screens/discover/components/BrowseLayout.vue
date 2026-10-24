@@ -367,6 +367,11 @@ function cardDates(result: (typeof ctx.projectHits.value)[number]) {
                 <ContentCardReveal
                     v-for="result in ctx.projectHits.value"
                     :key="`${result.provider}:${result.project_id}`"
+                    class="[content-visibility:auto]"
+                    :style="{
+                        containIntrinsicSize:
+                            ctx.effectiveLayout.value === 'compact' ? 'auto 72px' : 'auto 180px',
+                    }"
                 >
                     <ProjectCard
                         :link="ctx.getProjectLink(result)"

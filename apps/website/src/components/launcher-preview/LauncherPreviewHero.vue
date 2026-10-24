@@ -27,9 +27,7 @@ const ready = ref(false)
 const failed = ref(false)
 const progress = ref(0)
 const launchCount = ref(0)
-let startedAt = 0
 let disposed = false
-let revealTimer: ReturnType<typeof setTimeout> | undefined
 let previewModule: Promise<Component> | null = null
 
 function loadPreview() {
@@ -73,12 +71,10 @@ function mountNow() {
     if (disposed || mounted.value || failed.value) return
     cancelIdle()
     observer?.disconnect()
-    startedAt ||= performance.now()
     mounted.value = true
 }
 
 function loadThenMount() {
-    startedAt ||= performance.now()
     loadPreview()
         .then(() => {
             if (disposed) return
@@ -94,12 +90,7 @@ async function finishLoading() {
     progress.value = 100
     await nextTick()
     if (disposed) return
-    revealTimer = setTimeout(
-        () => {
-            if (!disposed) prepared.value = true
-        },
-        Math.max(0, 500 - (performance.now() - startedAt)),
-    )
+    prepared.value = true
 }
 
 async function retry() {
@@ -108,7 +99,6 @@ async function retry() {
     prepared.value = false
     ready.value = false
     progress.value = 0
-    startedAt = 0
     launchCount.value++
     await nextTick()
     loadThenMount()
@@ -144,7 +134,6 @@ onBeforeUnmount(() => {
     disposed = true
     observer?.disconnect()
     cancelIdle()
-    clearTimeout(revealTimer)
     if (loadListener) window.removeEventListener('load', loadListener)
 })
 </script>

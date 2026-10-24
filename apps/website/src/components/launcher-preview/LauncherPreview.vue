@@ -139,7 +139,7 @@ async function closeWindow() {
     emit('close')
 }
 
-async function settleFirstScreen(root: HTMLElement) {
+async function settleFirstScreen(root: HTMLElement, onProgress: (value: number) => void) {
     const bounds = root.getBoundingClientRect()
     const images = Array.from(root.querySelectorAll('img')).filter((image) => {
         const rect = image.getBoundingClientRect()
@@ -152,6 +152,7 @@ async function settleFirstScreen(root: HTMLElement) {
             rect.left < bounds.right
         )
     })
+    let decodedImages = 0
     await Promise.all(
         images.map(async (image) => {
             image.loading = 'eager'
@@ -182,6 +183,8 @@ async function settleFirstScreen(root: HTMLElement) {
                 })
             if (!image.naturalWidth) throw new Error('Preview image could not load')
             await image.decode()
+            decodedImages++
+            onProgress(75 + (decodedImages / images.length) * 20)
         }),
     )
     await document.fonts.ready
@@ -202,7 +205,7 @@ async function waitUntilReady(onProgress: (value: number) => void = () => {}) {
     while (readyTasks.size) await Promise.all([...readyTasks])
     onProgress(75)
     await nextTick()
-    if (windowEl.value) await settleFirstScreen(windowEl.value)
+    if (windowEl.value) await settleFirstScreen(windowEl.value, onProgress)
     onProgress(95)
     await nextPaint()
     loadingController.signal.throwIfAborted()

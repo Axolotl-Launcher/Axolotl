@@ -12,7 +12,7 @@ import LauncherSplash from '../../../../shared/LauncherSplash.vue'
 /** The restart overlay outlives Settings while the configured first page becomes ready. */
 const emit = defineEmits<{ close: [] }>()
 const router = useRouter()
-const { clock, settings } = usePreview()
+const { settings } = usePreview()
 const { waitUntilReady } = injectPreviewWindow()
 const notifications = injectNotificationManager()
 const popups = injectPopupNotificationManager()
@@ -26,17 +26,14 @@ const messages = defineMessages({
 const doneLoading = ref(false)
 const loadingProgress = ref(0)
 const failed = ref(false)
-const MIN_DISPLAY_MS = 500
 let active = false
 let disposed = false
-let cancelFinish: (() => void) | undefined
 
 async function restart() {
     if (active || disposed) return
     active = true
     failed.value = false
     loadingProgress.value = 0
-    const startedAt = Date.now()
     notifications.clearAllNotifications()
     popups.clearAllNotifications()
     try {
@@ -47,9 +44,7 @@ async function restart() {
         })
         if (disposed) return
         loadingProgress.value = 100
-        cancelFinish = clock.after(Math.max(0, MIN_DISPLAY_MS - (Date.now() - startedAt)), () => {
-            doneLoading.value = true
-        })
+        doneLoading.value = true
     } catch {
         if (!disposed) failed.value = true
     } finally {
@@ -60,7 +55,6 @@ async function restart() {
 onMounted(restart)
 onBeforeUnmount(() => {
     disposed = true
-    cancelFinish?.()
 })
 </script>
 

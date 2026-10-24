@@ -312,7 +312,6 @@ export function useUpdateBackend() {
 
     /** `restart_app`: the launcher closes and starts again behind its splash screen. */
     async function restartApp() {
-        await simulate(120)
         const { default: AppRestartSplash } = await import('./AppRestartSplash.vue')
         preview.ui.showAppOverlay({ key: 'restart', component: AppRestartSplash })
     }

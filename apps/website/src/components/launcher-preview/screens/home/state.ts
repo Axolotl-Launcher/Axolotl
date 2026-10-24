@@ -517,10 +517,13 @@ export function createHomeState(preview: PreviewState) {
      * after a round trip, or fails after the status timeout for a host that did
      * not answer. A local address reaches the simulated local server.
      */
-    async function pingServer(address: string): Promise<HomeServerStatus> {
+    async function pingServer(
+        address: string,
+        simulateNetwork: boolean,
+    ): Promise<HomeServerStatus> {
         const local = localServerAt(address)
         if (isLocalAddress(address)) {
-            await delay(40)
+            if (simulateNetwork) await delay(40)
             if (!local || local.phase !== 'running') throw new Error('Connection refused')
             // The server answers from its server.properties.
             const [{ servers }, { getProperty, parseProperties }] = await Promise.all([
@@ -557,11 +560,11 @@ export function createHomeState(preview: PreviewState) {
             favicon?: string
         } | null
         if (!snapshot?.online) {
-            await delay(SERVER_STATUS_TIMEOUT_MS)
+            if (simulateNetwork) await delay(SERVER_STATUS_TIMEOUT_MS)
             throw new Error('Server status timed out')
         }
         const latency = snapshot.latency_ms ?? 100
-        await delay(120 + latency * 2)
+        if (simulateNetwork) await delay(120 + latency * 2)
         return {
             description: snapshot.motd,
             players: {
@@ -580,11 +583,16 @@ export function createHomeState(preview: PreviewState) {
         }
     }
 
-    async function refreshServerData(data: HomeServerData, address: string, legacy = false) {
+    async function refreshServerData(
+        data: HomeServerData,
+        address: string,
+        simulateNetwork: boolean,
+        legacy = false,
+    ) {
         const refreshTime = Date.now()
         data.refreshing = true
         try {
-            const status = await pingServer(address)
+            const status = await pingServer(address, simulateNetwork)
             if (data.lastSuccessfulRefresh && data.lastSuccessfulRefresh > refreshTime) return
             data.lastSuccessfulRefresh = Date.now()
             data.status = status
@@ -597,8 +605,8 @@ export function createHomeState(preview: PreviewState) {
             }
         } catch {
             // The app retries once with the legacy ping before giving up.
-            if (!legacy) {
-                await refreshServerData(data, address, true)
+            if (simulateNetwork && !legacy) {
+                await refreshServerData(data, address, simulateNetwork, true)
                 return
             }
             if (!data.lastSuccessfulRefresh || data.lastSuccessfulRefresh <= refreshTime) {
@@ -620,8 +628,10 @@ export function createHomeState(preview: PreviewState) {
         const data = ensureServerData(instanceId, address)
         const request = (async () => {
             // `get_instance_protocol_version` resolves the protocol to ping with.
-            await delay(30)
-            await refreshServerData(data, address)
+            if (force) await delay(30)
+            // Initial status is already available in the packaged snapshot.
+            // Only an explicit refresh simulates the desktop network round trip.
+            await refreshServerData(data, address, force)
             loadedServers.add(key)
         })().finally(() => serverRequests.delete(key))
         serverRequests.set(key, request)
@@ -638,6 +648,7 @@ export function createHomeState(preview: PreviewState) {
         watch(favoriteWorlds, warmServerData, { immediate: true })
         watch(recentWorlds, warmServerData, { immediate: true })
     })
+    const initialServersReady = Promise.all([...serverRequests.values()])
 
     /* -- local servers ---------------------------------------------------- */
 
@@ -681,8 +692,8 @@ export function createHomeState(preview: PreviewState) {
      */
     function loadNews() {
         if (news.value || newsRequest) return newsRequest ?? Promise.resolve()
-        newsRequest = Promise.all([import('./data/news.json'), delay(650)])
-            .then(([module]) => {
+        newsRequest = import('./data/news.json')
+            .then((module) => {
                 news.value = module.default as HomeNewsItem[]
             })
             .catch(() => {
@@ -698,15 +709,13 @@ export function createHomeState(preview: PreviewState) {
     const insightsLoaded = ref(false)
     function loadInsights() {
         if (insightsLoaded.value) return
-        preview.clock.after(220, () => {
-            insightsLoaded.value = true
-        })
+        insightsLoaded.value = true
     }
 
     return {
         value: {
             async whenReady() {
-                await Promise.all([tagsReady, ...serverRequests.values(), newsRequest])
+                await Promise.all([tagsReady, initialServersReady, newsRequest])
             },
             worlds,
             sessions,

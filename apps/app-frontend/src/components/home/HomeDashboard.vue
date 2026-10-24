@@ -868,20 +868,23 @@ defineExpose({ openWidgetPicker, setLayout })
 }
 
 .home-widget:hover .home-widget-edit-bar,
-.home-widget:focus-within .home-widget-edit-bar {
+.home-widget:has(:focus-visible) .home-widget-edit-bar,
+.home-widget:has(.home-widget-options [aria-expanded='true']) .home-widget-edit-bar {
     box-shadow: var(--shadow-card);
     opacity: 1;
 }
 
 .home-widget:hover .home-widget-size-label,
-.home-widget:focus-within .home-widget-size-label {
+.home-widget:has(:focus-visible) .home-widget-size-label,
+.home-widget:has(.home-widget-options [aria-expanded='true']) .home-widget-size-label {
     width: 2.25rem;
     margin-left: 0.25rem;
     opacity: 1;
 }
 
 .home-widget:hover .home-widget-options,
-.home-widget:focus-within .home-widget-options {
+.home-widget:has(:focus-visible) .home-widget-options,
+.home-widget:has(.home-widget-options [aria-expanded='true']) .home-widget-options {
     width: 2rem;
     opacity: 1;
     pointer-events: auto;

@@ -46,14 +46,97 @@ const downloadWindows = ref<HTMLAnchorElement | null>(null)
 const downloadMac = ref<HTMLAnchorElement | null>(null)
 const downloadSection = ref<HTMLElement | null>(null)
 const hero = ref<HTMLElement | null>(null)
+const features = ref<HTMLElement | null>(null)
 const launcherVisible = ref(true)
 const launcherClosed = ref(false)
+let finishLauncherClose: (() => void) | undefined
+
+async function leaveLauncher(element: Element, done: () => void) {
+    const container = hero.value
+    if (!container || !(element instanceof HTMLElement)) {
+        launcherClosed.value = true
+        done()
+        return
+    }
+
+    const initialHeight = container.getBoundingClientRect().height
+    const root = document.documentElement
+    const previousAnchoring = root.style.overflowAnchor
+    const reducedMotion =
+        window.matchMedia('(prefers-reduced-motion: reduce)').matches ||
+        root.classList.contains('reduced-motion')
+    const animations: Animation[] = []
+    let finished = false
+    element.inert = true
+    // Keep the viewport still while the following sections move with the collapse.
+    root.style.overflowAnchor = 'none'
+    const finish = () => {
+        if (finished) return
+        finished = true
+        for (const animation of animations) animation.cancel()
+        root.style.overflowAnchor = previousAnchoring
+        finishLauncherClose = undefined
+        done()
+    }
+    finishLauncherClose = finish
+
+    try {
+        const fade = element.animate([{ opacity: 1 }, { opacity: 0 }], {
+            duration: reducedMotion ? 100 : 120,
+            fill: 'forwards',
+        })
+        animations.push(fade)
+        await fade.finished
+        if (finished) return
+
+        element.style.display = 'none'
+        launcherClosed.value = true
+        await nextTick()
+        if (finished || reducedMotion) return
+
+        // Measure the final layout, including the hero's minimum height and padding,
+        // then animate the occupied space rather than jumping after the window fades.
+        const finalHeight = container.getBoundingClientRect().height
+        const collapse = container.animate(
+            [{ height: `${initialHeight}px` }, { height: `${finalHeight}px` }],
+            { duration: 280, easing: 'cubic-bezier(0.23, 1, 0.32, 1)' },
+        )
+        animations.push(collapse)
+        const settling = Array.from(
+            features.value?.querySelectorAll<HTMLElement>('.highlights-intro, .promise-card') ?? [],
+        ).map((surface, index) => {
+            const bounce = surface.animate(
+                [
+                    { transform: 'translateY(0) scale(1)', offset: 0 },
+                    { transform: 'translateY(-6px) scale(1.012)', offset: 0.4 },
+                    { transform: 'translateY(2px) scale(0.997)', offset: 0.7 },
+                    { transform: 'translateY(0) scale(1)', offset: 1 },
+                ],
+                {
+                    duration: 260,
+                    delay: 180 + Math.min(index, 3) * 30,
+                    easing: 'cubic-bezier(0.23, 1, 0.32, 1)',
+                },
+            )
+            animations.push(bounce)
+            return bounce.finished
+        })
+        await Promise.all([collapse.finished, ...settling])
+    } catch {
+        // Unmounting cancels the animations and releases their temporary state.
+    } finally {
+        finish()
+    }
+}
 
 let stopHeroGlow: (() => void) | undefined
 onMounted(() => {
     if (hero.value) stopHeroGlow = trackHeroGlow(hero.value, window)
 })
-onBeforeUnmount(() => stopHeroGlow?.())
+onBeforeUnmount(() => {
+    stopHeroGlow?.()
+    finishLauncherClose?.()
+})
 
 const releaseChannel = ref<ReleaseChannel>('release')
 const {
@@ -992,7 +1075,7 @@ useHead(() => ({
     <div>
         <div ref="hero" class="landing-hero" :class="{ 'landing-hero--closed': launcherClosed }">
             <div class="hero-grid" aria-hidden="true" />
-            <div class="hero-content">
+            <div class="hero-content shrink-0">
                 <div class="flex items-center gap-3">
                     <div class="hero-kicker">
                         {{ formatMessage(messages.openSourceBadge) }}
@@ -1032,7 +1115,7 @@ useHead(() => ({
                     </Button>
                 </div>
             </div>
-            <Transition name="launcher-close" @after-leave="launcherClosed = true">
+            <Transition :css="false" @leave="leaveLauncher">
                 <div v-if="launcherVisible" class="hero-product">
                     <LauncherPreviewHero
                         :label="formatMessage(messages.heroScreenshotAlt)"
@@ -1045,6 +1128,7 @@ useHead(() => ({
         </div>
         <section
             id="features"
+            ref="features"
             class="axolotl-highlights"
             aria-labelledby="axolotl-highlights-title"
         >
@@ -1680,21 +1764,6 @@ useHead(() => ({
 .landing-hero--closed {
     min-height: 0;
     padding-bottom: clamp(3rem, 6vw, 5rem);
-}
-
-.launcher-close-leave-active {
-    transition: opacity 150ms ease-out;
-    pointer-events: none;
-}
-
-.launcher-close-leave-to {
-    opacity: 0;
-}
-
-@media (prefers-reduced-motion: reduce) {
-    .launcher-close-leave-active {
-        transition-duration: 100ms;
-    }
 }
 
 @media (max-width: 1023px) {

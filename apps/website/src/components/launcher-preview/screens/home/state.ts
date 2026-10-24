@@ -258,7 +258,7 @@ export function createHomeState(preview: PreviewState) {
     const instanceRevision = ref(0)
     const gameVersions = ref<GameVersionTag[]>([])
 
-    void loadTags()
+    const tagsReady = loadTags()
         .then((tags) => {
             gameVersions.value = tags.gameVersions
         })
@@ -705,6 +705,9 @@ export function createHomeState(preview: PreviewState) {
 
     return {
         value: {
+            async whenReady() {
+                await Promise.all([tagsReady, ...serverRequests.values(), newsRequest])
+            },
             worlds,
             sessions,
             dashboard,

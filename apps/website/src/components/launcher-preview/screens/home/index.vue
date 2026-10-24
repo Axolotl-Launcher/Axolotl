@@ -8,12 +8,13 @@ import PencilIcon from '@modrinth/assets/icons/pencil.svg?component'
 import PlusIcon from '@modrinth/assets/icons/plus.svg?component'
 import RotateCounterClockwiseIcon from '@modrinth/assets/icons/rotate-counter-clockwise.svg?component'
 import { useVIntl } from '@modrinth/ui/src/composables/i18n.ts'
-import { computed, onUnmounted, provide, ref, watch } from 'vue'
+import { computed, nextTick, onUnmounted, provide, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import { usePreviewShell } from '../../lib/shell'
 import { usePreview } from '../../lib/state'
 import type { GameInstance } from '../../lib/types'
+import { injectPreviewWindow } from '../../lib/window'
 import HomeDailyChallenge from './components/HomeDailyChallenge.vue'
 import HomeDashboard from './components/HomeDashboard.vue'
 import HomeGreetingAccountModal from './components/HomeGreetingAccountModal.vue'
@@ -41,6 +42,11 @@ const router = useRouter()
 const preview = usePreview()
 const shell = usePreviewShell()
 const state = useHomeState()
+const finishInitialData = injectPreviewWindow().deferReady()
+void nextTick()
+    .then(() => state.whenReady())
+    .finally(finishInitialData)
+onUnmounted(finishInitialData)
 const runtime = provideHomeRuntime(state)
 const messages = homeMessages
 

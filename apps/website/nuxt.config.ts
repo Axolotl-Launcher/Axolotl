@@ -7,6 +7,7 @@ const SITE_URL = 'https://axlmc.org'
 
 export default defineNuxtConfig({
     srcDir: 'src/',
+    devtools: { enabled: false },
     app: {
         head: {
             htmlAttrs: {

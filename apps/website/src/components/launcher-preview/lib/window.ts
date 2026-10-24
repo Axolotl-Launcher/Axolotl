@@ -13,8 +13,10 @@ export interface PreviewWindowContext {
     scale: Ref<number>
     /** Whether the window fills the screen (the green titlebar control). */
     fullScreen: Ref<boolean>
-    /** Hold the poster while initial panels are being mounted in separate tasks. */
+    /** Hold the startup screen while panels are being mounted in separate tasks. */
     deferReady: () => () => void
+    /** Shared readiness gate for first startup and a restart from settings. */
+    waitUntilReady: (onProgress?: (value: number) => void) => Promise<void>
     /** Converts viewport coordinates to the window's unscaled coordinate space. */
     toLocal: (clientX: number, clientY: number) => { x: number; y: number }
 }

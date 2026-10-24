@@ -102,6 +102,9 @@ function getPageTransitionKey(pageRoute: RouteLocationNormalizedLoaded) {
 <template>
     <div
         class="app-grid-layout relative"
+        :inert="
+            state.ui.appOverlays.value.some((overlay) => overlay.key === 'restart') || undefined
+        "
         :class="{ 'disable-advanced-rendering': !settings.advanced_rendering }"
     >
         <div

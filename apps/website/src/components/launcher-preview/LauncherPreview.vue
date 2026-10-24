@@ -24,7 +24,7 @@ import PreviewShell from './shell/PreviewShell.vue'
  * scaled to the hero, and the macOS window states driven by the titlebar
  * controls (minimized, full screen, close).
  */
-const emit = defineEmits<{ ready: []; close: [] }>()
+const emit = defineEmits<{ ready: []; close: []; progress: [value: number]; failed: [] }>()
 
 const frame = ref<HTMLElement | null>(null)
 const windowEl = ref<HTMLElement | null>(null)
@@ -65,6 +65,7 @@ providePreviewWindow({
     layer: layerEl,
     scale,
     fullScreen,
+    waitUntilReady,
     deferReady() {
         let complete!: () => void
         const task = new Promise<void>((resolve) => {
@@ -99,6 +100,7 @@ const router = createPreviewRouter(previewScreens)
 providePreviewRouter(router)
 
 let resizeObserver: ResizeObserver | null = null
+const loadingController = new AbortController()
 
 function updateScale() {
     if (!frame.value) return
@@ -137,21 +139,73 @@ async function closeWindow() {
     emit('close')
 }
 
-/** Resolves once the images inside the window have loaded, or after `timeoutMs`. */
-function imagesSettled(root: HTMLElement, timeoutMs: number) {
-    const pending = Array.from(root.querySelectorAll('img'))
-        .filter((image) => !image.complete)
-        .map(
-            (image) =>
-                new Promise<void>((resolve) => {
-                    image.addEventListener('load', () => resolve(), { once: true })
-                    image.addEventListener('error', () => resolve(), { once: true })
-                }),
+async function settleFirstScreen(root: HTMLElement) {
+    const bounds = root.getBoundingClientRect()
+    const images = Array.from(root.querySelectorAll('img')).filter((image) => {
+        const rect = image.getBoundingClientRect()
+        return (
+            rect.width > 0 &&
+            rect.height > 0 &&
+            rect.bottom > bounds.top &&
+            rect.top < bounds.bottom &&
+            rect.right > bounds.left &&
+            rect.left < bounds.right
         )
-    return Promise.race([
-        Promise.all(pending),
-        new Promise<void>((resolve) => setTimeout(resolve, timeoutMs)),
-    ])
+    })
+    await Promise.all(
+        images.map(async (image) => {
+            image.loading = 'eager'
+            if (!image.complete)
+                await new Promise<void>((resolve, reject) => {
+                    const signal = loadingController.signal
+                    const cleanup = () => {
+                        image.removeEventListener('load', loaded)
+                        image.removeEventListener('error', failed)
+                        signal.removeEventListener('abort', aborted)
+                    }
+                    const loaded = () => {
+                        cleanup()
+                        resolve()
+                    }
+                    const failed = () => {
+                        cleanup()
+                        reject(new Error('Preview image could not load'))
+                    }
+                    const aborted = () => {
+                        cleanup()
+                        reject(signal.reason)
+                    }
+                    image.addEventListener('load', loaded, { once: true })
+                    image.addEventListener('error', failed, { once: true })
+                    signal.addEventListener('abort', aborted, { once: true })
+                    if (signal.aborted) aborted()
+                })
+            if (!image.naturalWidth) throw new Error('Preview image could not load')
+            await image.decode()
+        }),
+    )
+    await document.fonts.ready
+}
+
+function nextPaint() {
+    return new Promise<void>((resolve) =>
+        requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+    )
+}
+
+async function waitUntilReady(onProgress: (value: number) => void = () => {}) {
+    await router.isReady()
+    onProgress(50)
+    await nextTick()
+    await nextPaint()
+    await nextTick()
+    while (readyTasks.size) await Promise.all([...readyTasks])
+    onProgress(75)
+    await nextTick()
+    if (windowEl.value) await settleFirstScreen(windowEl.value)
+    onProgress(95)
+    await nextPaint()
+    loadingController.signal.throwIfAborted()
 }
 
 onMounted(async () => {
@@ -160,18 +214,17 @@ onMounted(async () => {
     if (frame.value) resizeObserver.observe(frame.value)
     document.addEventListener('fullscreenchange', onFullScreenChange)
 
-    await router.push(state.settings.default_page === 'Library' ? '/library' : '/')
-    await router.isReady()
-    await nextTick()
-    // Let observed panel sizes settle before collecting the home widgets' images.
-    await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))
-    await nextTick()
-    while (readyTasks.size) await Promise.all([...readyTasks])
-    if (windowEl.value) await imagesSettled(windowEl.value, 1500)
-    emit('ready')
+    try {
+        await router.push(state.settings.default_page === 'Library' ? '/library' : '/')
+        await waitUntilReady((value) => emit('progress', value))
+        if (!loadingController.signal.aborted) emit('ready')
+    } catch {
+        if (!loadingController.signal.aborted) emit('failed')
+    }
 })
 
 onBeforeUnmount(() => {
+    loadingController.abort()
     clearTimeout(animationTimer)
     resizeObserver?.disconnect()
     document.removeEventListener('fullscreenchange', onFullScreenChange)

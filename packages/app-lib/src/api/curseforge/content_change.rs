@@ -1,11 +1,8 @@
 //! Content version changes.
 
-use super::catalog::{get_file, get_files_many, get_project, get_projects};
+use super::catalog::{get_file, get_modpack_files, get_modpack_projects};
 use super::download::resolve_download_url as resolve_curseforge_download_url;
-use super::dto::{
-    CurseForgeFile, CurseForgeInstallRequest, CurseForgeInstallResult,
-    CurseForgeProject,
-};
+use super::dto::{CurseForgeInstallRequest, CurseForgeInstallResult};
 use super::install::{install_file, install_file_with_reporter};
 use super::manual::mark_pack_member_version_override;
 use super::preview::preview_install_file;
@@ -13,7 +10,6 @@ use super::selection::curseforge_file_sha1;
 use crate::install::InstallProgressReporter;
 use crate::state::ContentProvider;
 use crate::{ErrorKind, State};
-use std::collections::{BTreeSet, HashMap};
 
 pub(crate) async fn prepare_curseforge_content_change_action(
     instance_id: &str,
@@ -129,31 +125,27 @@ pub(crate) async fn prepare_curseforge_content_change_action(
         .chain(preview.dependencies.iter())
         .collect();
     let files =
-        get_files_many(items.iter().map(|item| item.file_id).collect()).await?;
-    let files: HashMap<u32, CurseForgeFile> =
-        files.into_iter().map(|file| (file.id, file)).collect();
-    let projects = get_projects(
-        items
-            .iter()
-            .map(|item| item.project_id)
-            .collect::<BTreeSet<_>>()
-            .into_iter()
-            .collect(),
+        get_modpack_files(items.iter().map(|item| item.file_id).collect())
+            .await?;
+    let projects = get_modpack_projects(
+        items.iter().map(|item| item.project_id).collect(),
     )
     .await?;
-    let projects: HashMap<u32, CurseForgeProject> = projects
-        .into_iter()
-        .map(|project| (project.id, project))
-        .collect();
 
     for (index, item) in items.into_iter().enumerate() {
-        let file = match files.get(&item.file_id) {
-            Some(file) => file.clone(),
-            None => get_file(item.project_id, item.file_id).await?,
+        let Some(file) = files.get(&item.file_id) else {
+            return Err(ErrorKind::OtherError(format!(
+                "CurseForge file {} was not returned by the metadata batch",
+                item.file_id
+            ))
+            .into());
         };
-        let project = match projects.get(&item.project_id) {
-            Some(project) => project.clone(),
-            None => get_project(item.project_id).await?,
+        let Some(project) = projects.get(&item.project_id) else {
+            return Err(ErrorKind::OtherError(format!(
+                "CurseForge project {} was not returned by the metadata batch",
+                item.project_id
+            ))
+            .into());
         };
         let url = resolve_curseforge_download_url(
             item.project_id,

@@ -95,10 +95,12 @@ vi.mock('@/providers/app-update', () => ({
         finishedDownloading: ref(true),
         isVisible: ref(true),
         metered: ref(false),
+        packageManaged: ref(false),
         restarting: ref(false),
     },
     downloadAvailableAppUpdate: vi.fn(),
     installAvailableAppUpdate: vi.fn(),
+    showPackageManagerHint: vi.fn(),
 }))
 
 const cleanup: (() => void)[] = []

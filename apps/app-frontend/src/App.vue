@@ -169,6 +169,7 @@ import {
     enqueueUpdateForInstallation,
     exportErrorLogs,
     getOS,
+    getUpdateCapability,
     getUpdateSize,
     isDev,
     isElevated,
@@ -190,6 +191,7 @@ import {
     markAppUpdatePopupShown,
     openAppUpdateChangelog,
     setAppUpdateActions,
+    setAppUpdatePackageManaged,
 } from '@/providers/app-update.ts'
 import { createContentInstall, provideContentInstall } from '@/providers/content-install'
 import { createContentSelection, provideContentSelection } from '@/providers/content-selection'
@@ -540,6 +542,13 @@ const {
     updatesEnabled,
     updatesPaused,
 } = appUpdateState
+// How this installation may be updated: the built-in updater or the system
+// package manager that installed the launcher.
+const updateCapability = ref<{
+    source: string
+    selfUpdate: boolean
+    command: string | null
+} | null>(null)
 let delayedUpdatePopupTimeout = null
 
 async function checkUpdates() {
@@ -2549,6 +2558,34 @@ const updatePopupMessages = defineMessages({
         id: 'app.update-popup.changelog',
         defaultMessage: 'Changelog',
     },
+    packageManaged: {
+        id: 'app.update-popup.body.package-managed',
+        defaultMessage: `Axolotl Launcher v{version} is installed through {source}. The built-in updater is disabled for this installation; update it with your system package manager.`,
+    },
+    packageManagedCommand: {
+        id: 'app.update-popup.body.package-managed-command',
+        defaultMessage: `Axolotl Launcher v{version} is installed through {source}. Update it with: {command}`,
+    },
+    sourceAur: {
+        id: 'app.update-popup.source.aur',
+        defaultMessage: 'the AUR',
+    },
+    sourceFlatpak: {
+        id: 'app.update-popup.source.flatpak',
+        defaultMessage: 'Flatpak',
+    },
+    sourceNix: {
+        id: 'app.update-popup.source.nix',
+        defaultMessage: 'Nix',
+    },
+    copyCommand: {
+        id: 'app.update-popup.copy-command',
+        defaultMessage: 'Copy command',
+    },
+    commandCopied: {
+        id: 'app.update-popup.command-copied',
+        defaultMessage: 'Command copied',
+    },
 })
 
 function clearDelayedUpdatePopup() {
@@ -2584,6 +2621,37 @@ function scheduleDelayedUpdatePopup() {
     delayedUpdatePopupTimeout = setTimeout(showDelayedUpdatePopup, Math.min(delay, 2_147_483_647))
 }
 
+function updateSourceLabel(source) {
+    switch (source) {
+        case 'pacman':
+            return formatMessage(updatePopupMessages.sourceAur)
+        case 'flatpak':
+            return formatMessage(updatePopupMessages.sourceFlatpak)
+        default:
+            return formatMessage(updatePopupMessages.sourceNix)
+    }
+}
+
+function copyPackageUpdateCommand() {
+    const command = updateCapability.value?.command
+    if (!command) {
+        return
+    }
+    navigator.clipboard
+        .writeText(command)
+        .then(() => {
+            addNotification({
+                title: formatMessage(updatePopupMessages.commandCopied),
+                type: 'success',
+            })
+        })
+        .catch((error) => handleError(error))
+}
+
+function isPackageManaged() {
+    return updateCapability.value !== null && !updateCapability.value.selfUpdate
+}
+
 function showDelayedUpdatePopup() {
     const update = availableUpdate.value
     if (!update) {
@@ -2598,6 +2666,44 @@ function showDelayedUpdatePopup() {
 
     if (Date.now() < nextPopupTime) {
         scheduleDelayedUpdatePopup()
+        return
+    }
+
+    if (isPackageManaged()) {
+        const source = updateSourceLabel(updateCapability.value.source)
+        const command = updateCapability.value.command
+        addPopupNotification({
+            title: formatMessage(updatePopupMessages.updateAvailable),
+            text: command
+                ? formatMessage(updatePopupMessages.packageManagedCommand, {
+                      version: update.version,
+                      source,
+                      command,
+                  })
+                : formatMessage(updatePopupMessages.packageManaged, {
+                      version: update.version,
+                      source,
+                  }),
+            type: 'info',
+            autoCloseMs: null,
+            buttons: [
+                ...(command
+                    ? [
+                          {
+                              label: formatMessage(updatePopupMessages.copyCommand),
+                              action: () => copyPackageUpdateCommand(),
+                              color: 'brand',
+                          },
+                      ]
+                    : []),
+                {
+                    label: formatMessage(updatePopupMessages.changelog),
+                    action: () => openAppUpdateChangelog(),
+                    keepOpen: true,
+                },
+            ],
+        })
+        markAppUpdatePopupShown(update.version, 'available')
         return
     }
 
@@ -2704,6 +2810,21 @@ async function performUpdateCheck() {
 
     console.log(`Update ${update.version} is available.`)
 
+    updateCapability.value = await getUpdateCapability().catch((error) => {
+        console.warn('Failed to read the update capability', error)
+        return null
+    })
+    setAppUpdatePackageManaged(isPackageManaged())
+
+    // Installations owned by the system package manager must not be replaced
+    // by the built-in updater; show the package manager command instead.
+    if (isPackageManaged()) {
+        console.log(`Update is managed by ${updateCapability.value.source}`)
+        markAppUpdateActionable(update.version)
+        scheduleDelayedUpdatePopup()
+        return 'available'
+    }
+
     metered.value = await isNetworkMetered()
 
     if (!metered.value) {
@@ -2744,6 +2865,11 @@ async function downloadAvailableUpdate() {
 async function downloadUpdate(versionToDownload) {
     if (!versionToDownload) {
         handleError(`Failed to download update: no version available`)
+        return
+    }
+
+    if (isPackageManaged()) {
+        console.warn('Skipping download: this installation is updated by its package manager')
         return
     }
 
@@ -2806,6 +2932,7 @@ setAppUpdateActions({
     check: manualUpdateCheck,
     download: downloadAvailableUpdate,
     install: installUpdate,
+    packageManagerHint: () => showDelayedUpdatePopup(),
     changelog: (version) => {
         if (version && getAnnouncementByVersion(version)) {
             updateAnnouncementModal.value?.show(version)

@@ -12092,8 +12092,20 @@
   "app.update-popup.body.metered": {
     "message": "Axolotl Launcher v{version} 现已发布！由于你正在使用按流量计费的网络，该更新未自动下载。"
   },
+  "app.update-popup.body.package-managed": {
+    "message": "Axolotl Launcher v{version} 由{source}安装，此安装已禁用内置更新器，请使用系统包管理器更新。"
+  },
+  "app.update-popup.body.package-managed-command": {
+    "message": "Axolotl Launcher v{version} 由{source}安装，请使用以下命令更新：{command}"
+  },
   "app.update-popup.changelog": {
     "message": "更新日志"
+  },
+  "app.update-popup.command-copied": {
+    "message": "已复制命令"
+  },
+  "app.update-popup.copy-command": {
+    "message": "复制命令"
   },
   "app.update-popup.download": {
     "message": "下载（{size}）"
@@ -12103,6 +12115,15 @@
   },
   "app.update-popup.reload": {
     "message": "重新加载以更新"
+  },
+  "app.update-popup.source.aur": {
+    "message": "AUR（Arch 用户仓库）"
+  },
+  "app.update-popup.source.flatpak": {
+    "message": "Flatpak 应用"
+  },
+  "app.update-popup.source.nix": {
+    "message": "Nix 包管理器"
   },
   "app.update-popup.title": {
     "message": "有可用的更新"

@@ -23,6 +23,19 @@ export async function getUpdateSize(updateRid) {
     return await invoke('get_update_size', { rid: updateRid })
 }
 
+/**
+ * How this installation may be updated.
+ *
+ * @returns {Promise<{
+ *   source: 'appimage' | 'apt' | 'dnf' | 'zypper' | 'pacman' | 'flatpak' | 'nix' | 'unknown'
+ *   selfUpdate: boolean
+ *   command: string | null
+ * }>}
+ */
+export async function getUpdateCapability() {
+    return await invoke('get_update_capability')
+}
+
 export async function enqueueUpdateForInstallation(updateRid) {
     return await invoke('enqueue_update_for_installation', { rid: updateRid })
 }

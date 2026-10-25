@@ -13931,8 +13931,20 @@
   "app.update-popup.body.metered": {
     "message": "Axolotl Launcher v{version} is available now! Since you're on a metered network, we didn't automatically download it."
   },
+  "app.update-popup.body.package-managed": {
+    "message": "Axolotl Launcher v{version} is installed through {source}. The built-in updater is disabled for this installation; update it with your system package manager."
+  },
+  "app.update-popup.body.package-managed-command": {
+    "message": "Axolotl Launcher v{version} is installed through {source}. Update it with: {command}"
+  },
   "app.update-popup.changelog": {
     "message": "Changelog"
+  },
+  "app.update-popup.command-copied": {
+    "message": "Command copied"
+  },
+  "app.update-popup.copy-command": {
+    "message": "Copy command"
   },
   "app.update-popup.download": {
     "message": "Download ({size})"
@@ -13942,6 +13954,15 @@
   },
   "app.update-popup.reload": {
     "message": "Reload to update"
+  },
+  "app.update-popup.source.aur": {
+    "message": "the AUR"
+  },
+  "app.update-popup.source.flatpak": {
+    "message": "Flatpak"
+  },
+  "app.update-popup.source.nix": {
+    "message": "Nix"
   },
   "app.update-popup.title": {
     "message": "Update available"

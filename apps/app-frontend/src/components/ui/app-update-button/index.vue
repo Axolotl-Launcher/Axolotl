@@ -32,6 +32,7 @@ import {
     appUpdateState,
     downloadAvailableAppUpdate,
     installAvailableAppUpdate,
+    showPackageManagerHint,
 } from '@/providers/app-update'
 
 const { formatMessage } = useVIntl()
@@ -58,6 +59,7 @@ const {
     finishedDownloading,
     isVisible: isUpdateVisible,
     metered,
+    packageManaged,
     restarting,
 } = appUpdateState
 
@@ -106,6 +108,11 @@ watch([showUpdatePill, finishedDownloading], async ([show, ready], [wasShown, wa
 })
 async function handleUpdateClick() {
     if (isUpdateDownloading.value) {
+        return
+    }
+
+    if (packageManaged.value) {
+        await showPackageManagerHint()
         return
     }
 

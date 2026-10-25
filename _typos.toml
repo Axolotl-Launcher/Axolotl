@@ -14,6 +14,8 @@ extend-exclude = [
   "packages/app-lib/src/api/content_search/WikiEntries.txt",
   # Bundled Monaco editor runtime contains upstream generated assets.
   "apps/app-frontend/public/monaco/",
+  # Launcher preview contains generated preview content.
+  "apps/website/src/components/launcher-preview/",
 ]
 
 [default.extend-words]

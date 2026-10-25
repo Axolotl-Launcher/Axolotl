@@ -254,6 +254,7 @@ pub(crate) async fn enqueue_curseforge_dependencies(
                     dependency_ref.relation(),
                 )),
                 depth: pending_file.depth + 1,
+                file: Some(selected.file.clone()),
             });
         } else if fallback_parents.insert((project_id, file_id)) {
             match resolve_modrinth_fallback_plan(

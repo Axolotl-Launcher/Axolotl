@@ -204,6 +204,7 @@ pub async fn preview_install_file(
         item_type: primary_type,
         depth: 0,
         ancestors: HashSet::new(),
+        file: Some(primary_file.clone()),
     }];
 
     while let Some(pending_file) = pending.pop() {
@@ -213,12 +214,10 @@ pub async fn preview_install_file(
         if !visited.insert((project_id, file_id)) {
             continue;
         }
-        let file =
-            if project_id == request.project_id && file_id == request.file_id {
-                primary_file.clone()
-            } else {
-                get_file(project_id, file_id).await?
-            };
+        let file = match pending_file.file {
+            Some(file) => file,
+            None => get_file(project_id, file_id).await?,
+        };
         if request.install_dependencies
             && pending_file.depth < MAX_DEPENDENCY_DEPTH
         {
@@ -411,6 +410,7 @@ pub async fn preview_install_file(
                         item_type: dependency_type,
                         depth: pending_file.depth + 1,
                         ancestors,
+                        file: Some(dependency_file),
                     });
                 }
             }

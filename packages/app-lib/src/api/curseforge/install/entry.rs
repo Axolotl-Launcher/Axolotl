@@ -158,7 +158,7 @@ pub(crate) async fn install_world_file(
     })
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 pub(crate) struct PendingCurseForgeFile {
     pub(crate) project_id: u32,
     pub(crate) file_id: u32,
@@ -169,6 +169,9 @@ pub(crate) struct PendingCurseForgeFile {
     pub(crate) dependency_kind:
         Option<crate::state::instances::ContentDependencyKind>,
     pub(crate) depth: usize,
+    /// Set when the caller already fetched this file, so the walk does not
+    /// read it again.
+    pub(crate) file: Option<CurseForgeFile>,
 }
 
 #[derive(Clone)]
@@ -178,6 +181,9 @@ pub(crate) struct PreviewPendingCurseForgeFile {
     pub(crate) item_type: ProjectType,
     pub(crate) depth: usize,
     pub(crate) ancestors: HashSet<(u32, u32)>,
+    /// Set when the caller already fetched this file, so the walk does not
+    /// read it again.
+    pub(crate) file: Option<CurseForgeFile>,
 }
 
 #[derive(Clone)]
@@ -253,9 +259,10 @@ pub(crate) async fn install_file_with_metrics(
         parent_file_id: None,
         dependency_kind: None,
         depth: 0,
+        file: None,
     }];
 
-    while let Some(pending_file) = pending.pop() {
+    while let Some(mut pending_file) = pending.pop() {
         if !visited.insert((pending_file.project_id, pending_file.file_id)) {
             continue;
         }
@@ -264,7 +271,10 @@ pub(crate) async fn install_file_with_metrics(
         let item_type = pending_file.item_type;
         let dependency = pending_file.dependency;
 
-        let file = get_file(project_id, file_id).await?;
+        let file = match pending_file.file.take() {
+            Some(file) => file,
+            None => get_file(project_id, file_id).await?,
+        };
         let project = match projects.get(&project_id) {
             Some(project) => project.clone(),
             None => {

@@ -524,39 +524,6 @@ pub fn is_apt_linux() -> bool {
     install_source() == theseus::InstallSource::Apt
 }
 
-/// How this installation should be updated, for the frontend's update UI.
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct UpdateCapability {
-    source: &'static str,
-    self_update: bool,
-    command: Option<String>,
-}
-
-#[tauri::command]
-pub fn get_update_capability() -> UpdateCapability {
-    let source = install_source();
-    let command = match source {
-        theseus::InstallSource::Pacman => {
-            Some("yay -S axolotl-launcher-bin".to_string())
-        }
-        theseus::InstallSource::Flatpak => Some(
-            std::env::var("FLATPAK_ID")
-                .ok()
-                .filter(|id| !id.is_empty())
-                .map(|id| format!("flatpak update {id}"))
-                .unwrap_or_else(|| "flatpak update".to_string()),
-        ),
-        _ => None,
-    };
-
-    UpdateCapability {
-        source: source.as_str(),
-        self_update: source.self_update_supported(),
-        command,
-    }
-}
-
 /// Install the downloaded .deb on Debian and its derivatives, prompting for
 /// root once via `pkexec`. The package is installed from the absolute path
 /// of a temporary file, which is removed afterwards.

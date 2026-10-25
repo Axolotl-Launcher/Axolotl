@@ -25,20 +25,3 @@ pub fn remove_enqueued_update() {}
 pub fn is_apt_linux() -> bool {
     false
 }
-
-#[derive(serde::Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct UpdateCapability {
-    source: &'static str,
-    self_update: bool,
-    command: Option<String>,
-}
-
-#[tauri::command]
-pub fn get_update_capability() -> UpdateCapability {
-    UpdateCapability {
-        source: "unknown",
-        self_update: true,
-        command: None,
-    }
-}

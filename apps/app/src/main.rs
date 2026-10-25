@@ -42,6 +42,10 @@ mod updater_impl;
 #[cfg(not(feature = "updater"))]
 mod updater_impl_noop;
 
+// Not feature-gated: the settings panel needs the installation source even in
+// builds that compile the no-op updater.
+mod update_capability;
+
 const BLOCKBENCH_SKIN_RESOURCE_DIR: &str = "resources/blockbench-skin";
 
 fn blockbench_skin_response(
@@ -929,7 +933,7 @@ fn main() {
             remove_enqueued_update,
             set_restart_after_pending_update,
             is_apt_linux,
-            get_update_capability,
+            update_capability::get_update_capability,
             toggle_decorations,
             set_transparent_window_frame,
             show_window,

@@ -1,8 +1,11 @@
 //! Content version changes.
 
-use super::catalog::{get_file, get_project};
+use super::catalog::{get_file, get_files_many, get_project, get_projects};
 use super::download::resolve_download_url as resolve_curseforge_download_url;
-use super::dto::{CurseForgeInstallRequest, CurseForgeInstallResult};
+use super::dto::{
+    CurseForgeFile, CurseForgeInstallRequest, CurseForgeInstallResult,
+    CurseForgeProject,
+};
 use super::install::{install_file, install_file_with_reporter};
 use super::manual::mark_pack_member_version_override;
 use super::preview::preview_install_file;
@@ -10,6 +13,7 @@ use super::selection::curseforge_file_sha1;
 use crate::install::InstallProgressReporter;
 use crate::state::ContentProvider;
 use crate::{ErrorKind, State};
+use std::collections::{BTreeSet, HashMap};
 
 pub(crate) async fn prepare_curseforge_content_change_action(
     instance_id: &str,
@@ -121,12 +125,36 @@ pub(crate) async fn prepare_curseforge_content_change_action(
     action.files.clear();
     action.dependencies.clear();
 
-    for (index, item) in std::iter::once(&preview.primary)
+    let items: Vec<_> = std::iter::once(&preview.primary)
         .chain(preview.dependencies.iter())
-        .enumerate()
-    {
-        let file = get_file(item.project_id, item.file_id).await?;
-        let project = get_project(item.project_id).await?;
+        .collect();
+    let files =
+        get_files_many(items.iter().map(|item| item.file_id).collect()).await?;
+    let files: HashMap<u32, CurseForgeFile> =
+        files.into_iter().map(|file| (file.id, file)).collect();
+    let projects = get_projects(
+        items
+            .iter()
+            .map(|item| item.project_id)
+            .collect::<BTreeSet<_>>()
+            .into_iter()
+            .collect(),
+    )
+    .await?;
+    let projects: HashMap<u32, CurseForgeProject> = projects
+        .into_iter()
+        .map(|project| (project.id, project))
+        .collect();
+
+    for (index, item) in items.into_iter().enumerate() {
+        let file = match files.get(&item.file_id) {
+            Some(file) => file.clone(),
+            None => get_file(item.project_id, item.file_id).await?,
+        };
+        let project = match projects.get(&item.project_id) {
+            Some(project) => project.clone(),
+            None => get_project(item.project_id).await?,
+        };
         let url = resolve_curseforge_download_url(
             item.project_id,
             item.file_id,

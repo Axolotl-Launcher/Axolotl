@@ -16,6 +16,7 @@ extend-exclude = [
   "apps/app-frontend/public/monaco/",
   # Launcher preview contains generated preview content.
   "apps/website/src/components/launcher-preview/",
+  "apps/website/src/public/launcher-preview/",
 ]
 
 [default.extend-words]

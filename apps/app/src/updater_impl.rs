@@ -499,17 +499,15 @@ pub fn remove_enqueued_update<R: Runtime>(webview: Webview<R>) {
 
 /// Whether this Linux system updates Axolotl through apt (Debian and its
 /// derivatives) and has `pkexec` available for a single privileged prompt.
+/// The distribution family comes from `/etc/os-release`.
 #[tauri::command]
 pub fn is_apt_linux() -> bool {
     #[cfg(target_os = "linux")]
     {
-        let debian_like = std::path::Path::new("/etc/debian_version").exists()
-            || std::path::Path::new("/etc/apt").is_dir()
-            || std::path::Path::new("/usr/bin/apt-get").exists();
         let has_pkexec = ["/usr/bin/pkexec", "/bin/pkexec"]
             .iter()
             .any(|path| std::path::Path::new(path).exists());
-        debian_like && has_pkexec
+        theseus::is_debian_family() && has_pkexec
     }
     #[cfg(not(target_os = "linux"))]
     {

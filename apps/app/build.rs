@@ -973,6 +973,7 @@ fn main() {
                 InlinedPlugin::new()
                     .commands(&[
                         "get_os",
+                        "get_os_info",
                         "is_network_metered",
                         "should_disable_mouseover",
                         "highlight_in_folder",

@@ -12,6 +12,9 @@ vi.mock('@tauri-apps/api/app', () => ({ getVersion: async () => '1.0' }))
 vi.mock('@tauri-apps/plugin-os', () => ({ platform: () => 'windows', version: () => '11' }))
 vi.mock('@/store/state', () => ({ useTheming: () => ({ devMode: false }) }))
 vi.mock('@/helpers/settings', () => ({ update: vi.fn() }))
+vi.mock('@/helpers/utils.js', () => ({
+    getOsInfo: async () => ({ os: 'Windows', kernel: null, isWsl: false, linux: null }),
+}))
 vi.mock('@/providers/download-progress', async () => {
     const { ref } = await import('vue')
     return { injectAppUpdateDownloadProgress: () => ({ progress: ref(null), version: ref(null) }) }

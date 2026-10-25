@@ -19,6 +19,7 @@ pub fn init<R: Runtime>() -> tauri::plugin::TauriPlugin<R> {
     tauri::plugin::Builder::new("utils")
         .invoke_handler(tauri::generate_handler![
             get_os,
+            get_os_info,
             is_network_metered,
             should_disable_mouseover,
             highlight_in_folder,
@@ -57,6 +58,51 @@ pub fn get_os() -> OS {
 #[tauri::command]
 pub async fn is_network_metered() -> Result<bool> {
     Ok(theseus::prelude::is_network_metered().await?)
+}
+
+/// Linux distribution details reported by `/etc/os-release`.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LinuxDistribution {
+    id: String,
+    name: String,
+    version_id: Option<String>,
+    version: Option<String>,
+    family: String,
+    package_manager: Option<String>,
+}
+
+/// Operating system details used by the settings footer and diagnostics.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SystemOsInfo {
+    os: OS,
+    kernel: Option<String>,
+    is_wsl: bool,
+    linux: Option<LinuxDistribution>,
+}
+
+/// Gets OS, distribution and kernel details
+#[tauri::command]
+pub fn get_os_info() -> SystemOsInfo {
+    let linux =
+        theseus::detect_linux_distro().map(|distro| LinuxDistribution {
+            id: distro.id.clone(),
+            name: distro.name.clone(),
+            version_id: distro.version_id.clone(),
+            version: distro.version.clone(),
+            family: distro.family.as_str().to_string(),
+            package_manager: distro
+                .package_manager
+                .map(|manager| manager.as_str().to_string()),
+        });
+
+    SystemOsInfo {
+        os: get_os(),
+        kernel: theseus::kernel_release().map(str::to_owned),
+        is_wsl: theseus::is_wsl(),
+        linux,
+    }
 }
 
 // Lists active progress bars

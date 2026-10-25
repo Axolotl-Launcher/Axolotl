@@ -134,6 +134,368 @@ pub fn os_rule(
     rule_match
 }
 
+/// Package manager associated with a Linux distribution family.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PackageManager {
+    Apt,
+    Pacman,
+    Dnf,
+    Zypper,
+    Nix,
+    Apk,
+}
+
+impl PackageManager {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Apt => "apt",
+            Self::Pacman => "pacman",
+            Self::Dnf => "dnf",
+            Self::Zypper => "zypper",
+            Self::Nix => "nix",
+            Self::Apk => "apk",
+        }
+    }
+}
+
+/// Coarse Linux distribution family, used for platform-specific behavior.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DistroFamily {
+    Debian,
+    Arch,
+    Fedora,
+    Suse,
+    NixOs,
+    Alpine,
+    Unknown,
+}
+
+impl DistroFamily {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Debian => "debian",
+            Self::Arch => "arch",
+            Self::Fedora => "fedora",
+            Self::Suse => "suse",
+            Self::NixOs => "nixos",
+            Self::Alpine => "alpine",
+            Self::Unknown => "unknown",
+        }
+    }
+
+    pub fn package_manager(self) -> Option<PackageManager> {
+        match self {
+            Self::Debian => Some(PackageManager::Apt),
+            Self::Arch => Some(PackageManager::Pacman),
+            Self::Fedora => Some(PackageManager::Dnf),
+            Self::Suse => Some(PackageManager::Zypper),
+            Self::NixOs => Some(PackageManager::Nix),
+            Self::Alpine => Some(PackageManager::Apk),
+            Self::Unknown => None,
+        }
+    }
+
+    fn from_identifiers(id: &str, id_like: &str) -> Self {
+        let tokens: Vec<&str> = std::iter::once(id)
+            .chain(std::iter::once(id_like))
+            .flat_map(str::split_whitespace)
+            .collect();
+        let any =
+            |names: &[&str]| tokens.iter().any(|token| names.contains(token));
+        let opensuse = tokens.iter().any(|token| {
+            token.starts_with("opensuse")
+                || matches!(*token, "suse" | "sles" | "sled")
+        });
+
+        if any(&["nixos"]) {
+            return Self::NixOs;
+        }
+        if any(&["alpine", "postmarketos"]) {
+            return Self::Alpine;
+        }
+        if opensuse {
+            return Self::Suse;
+        }
+        if any(&[
+            "arch",
+            "archlinux",
+            "manjaro",
+            "endeavouros",
+            "artix",
+            "garuda",
+            "cachyos",
+            "arcolinux",
+            "blackarch",
+            "rebornos",
+            "archcraft",
+        ]) {
+            return Self::Arch;
+        }
+        if any(&[
+            "debian",
+            "ubuntu",
+            "linuxmint",
+            "lmde",
+            "pop",
+            "elementary",
+            "kali",
+            "raspbian",
+            "devuan",
+            "mx",
+            "zorin",
+            "neon",
+            "deepin",
+            "parrot",
+            "trisquel",
+            "pureos",
+            "peppermint",
+            "bodhi",
+            "tails",
+        ]) {
+            return Self::Debian;
+        }
+        if any(&[
+            "fedora",
+            "rhel",
+            "centos",
+            "rocky",
+            "almalinux",
+            "nobara",
+            "bazzite",
+            "ultramarine",
+            "mageia",
+            "openmandriva",
+        ]) {
+            return Self::Fedora;
+        }
+        Self::Unknown
+    }
+}
+
+/// The Linux distribution this process runs on, as declared by
+/// `/etc/os-release`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LinuxDistro {
+    /// `ID` field, e.g. `arch`.
+    pub id: String,
+    /// Human readable name, preferring `PRETTY_NAME`, then `NAME` with the
+    /// distribution version appended.
+    pub name: String,
+    pub version_id: Option<String>,
+    pub version: Option<String>,
+    pub family: DistroFamily,
+    pub package_manager: Option<PackageManager>,
+}
+
+fn unescape_quoted(value: &str) -> String {
+    let mut unescaped = String::with_capacity(value.len());
+    let mut chars = value.chars();
+    while let Some(character) = chars.next() {
+        if character != '\\' {
+            unescaped.push(character);
+            continue;
+        }
+        match chars.next() {
+            Some('"') => unescaped.push('"'),
+            Some('\\') => unescaped.push('\\'),
+            Some('$') => unescaped.push('$'),
+            Some('`') => unescaped.push('`'),
+            Some(other) => {
+                unescaped.push('\\');
+                unescaped.push(other);
+            }
+            None => unescaped.push('\\'),
+        }
+    }
+    unescaped
+}
+
+fn unquote(value: &str) -> String {
+    let bytes = value.as_bytes();
+    if bytes.len() >= 2 {
+        let quote = bytes[0];
+        if (quote == b'"' || quote == b'\'') && bytes[bytes.len() - 1] == quote
+        {
+            let inner = &value[1..value.len() - 1];
+            return if quote == b'"' {
+                unescape_quoted(inner)
+            } else {
+                inner.to_string()
+            };
+        }
+    }
+    value.to_string()
+}
+
+fn os_release_fields(
+    content: &str,
+) -> std::collections::BTreeMap<String, String> {
+    let mut fields = std::collections::BTreeMap::new();
+    for line in content.lines() {
+        let line = line.trim();
+        if line.is_empty() || line.starts_with('#') {
+            continue;
+        }
+        let Some((key, raw)) = line.split_once('=') else {
+            continue;
+        };
+        let key = key.trim();
+        if key.is_empty() {
+            continue;
+        }
+        fields.insert(key.to_string(), unquote(raw.trim()));
+    }
+    fields
+}
+
+/// Parse the contents of `/etc/os-release` into a distribution description.
+/// Returns `None` when the file carries no distribution identity.
+pub fn parse_linux_distro(content: &str) -> Option<LinuxDistro> {
+    let fields = os_release_fields(content);
+    let id = fields
+        .get("ID")
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+        .or_else(|| {
+            fields
+                .get("NAME")
+                .map(|value| value.trim().to_ascii_lowercase())
+                .filter(|value| !value.is_empty())
+        })?;
+    let id_like = fields
+        .get("ID_LIKE")
+        .map(|value| value.trim().to_string())
+        .unwrap_or_default();
+    let family = DistroFamily::from_identifiers(&id, &id_like);
+
+    let version_id = fields
+        .get("VERSION_ID")
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty());
+    let version = fields
+        .get("VERSION")
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty());
+
+    // Prefer PRETTY_NAME, which already embeds the distribution version. Fall
+    // back to NAME plus VERSION/VERSION_ID so the version is not lost.
+    let name = fields
+        .get("PRETTY_NAME")
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+        .or_else(|| {
+            let name = fields
+                .get("NAME")
+                .map(|value| value.trim().to_string())
+                .filter(|value| !value.is_empty())?;
+            Some(match version.as_deref().or(version_id.as_deref()) {
+                Some(version) => format!("{name} {version}"),
+                None => name,
+            })
+        })
+        .unwrap_or_else(|| id.clone());
+
+    Some(LinuxDistro {
+        package_manager: family.package_manager(),
+        id,
+        name,
+        version_id,
+        version,
+        family,
+    })
+}
+
+static LINUX_DISTRO: std::sync::OnceLock<Option<LinuxDistro>> =
+    std::sync::OnceLock::new();
+
+/// The distribution this process runs on, read once from `/etc/os-release`.
+/// Always `None` on non-Linux platforms.
+pub fn detect_linux_distro() -> Option<&'static LinuxDistro> {
+    LINUX_DISTRO
+        .get_or_init(|| {
+            #[cfg(target_os = "linux")]
+            {
+                std::fs::read_to_string("/etc/os-release")
+                    .ok()
+                    .and_then(|content| parse_linux_distro(&content))
+            }
+            #[cfg(not(target_os = "linux"))]
+            {
+                None
+            }
+        })
+        .as_ref()
+}
+
+static KERNEL_RELEASE: std::sync::OnceLock<Option<String>> =
+    std::sync::OnceLock::new();
+
+/// The running kernel release, e.g. `7.2.11-zen1-1-zen`. Always `None` on
+/// non-Linux platforms.
+pub fn kernel_release() -> Option<&'static str> {
+    KERNEL_RELEASE
+        .get_or_init(|| {
+            #[cfg(target_os = "linux")]
+            {
+                std::fs::read_to_string("/proc/sys/kernel/osrelease")
+                    .ok()
+                    .map(|value| value.trim().to_string())
+                    .filter(|value| !value.is_empty())
+            }
+            #[cfg(not(target_os = "linux"))]
+            {
+                None
+            }
+        })
+        .as_deref()
+}
+
+static IS_WSL: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+
+/// Whether this process runs inside Windows Subsystem for Linux.
+pub fn is_wsl() -> bool {
+    *IS_WSL.get_or_init(|| {
+        #[cfg(target_os = "linux")]
+        {
+            let has_env =
+                ["WSL_DISTRO_NAME", "WSL_INTEROP"].iter().any(|key| {
+                    std::env::var_os(key).is_some_and(|value| !value.is_empty())
+                });
+            has_env
+                || std::fs::read_to_string("/proc/version")
+                    .map(|value| {
+                        value.to_ascii_lowercase().contains("microsoft")
+                    })
+                    .unwrap_or(false)
+        }
+        #[cfg(not(target_os = "linux"))]
+        {
+            false
+        }
+    })
+}
+
+/// Whether this Linux system is Debian-based. Unknown distributions fall back
+/// to the conventional Debian markers so derivatives without a recognized
+/// `ID`/`ID_LIKE` keep the previous behavior.
+pub fn is_debian_family() -> bool {
+    #[cfg(target_os = "linux")]
+    {
+        if let Some(distro) = detect_linux_distro()
+            && distro.family != DistroFamily::Unknown
+        {
+            return distro.family == DistroFamily::Debian;
+        }
+        ["/etc/debian_version", "/etc/apt", "/usr/bin/apt-get"]
+            .iter()
+            .any(|path| std::path::Path::new(path).exists())
+    }
+    #[cfg(not(target_os = "linux"))]
+    {
+        false
+    }
+}
+
 pub fn classpath_separator(java_arch: &str) -> &'static str {
     match Os::native_arch(java_arch) {
         Os::Osx
@@ -146,5 +508,121 @@ pub fn classpath_separator(java_arch: &str) -> &'static str {
         | Os::Universal
         | Os::Unknown => ":",
         Os::Windows | Os::WindowsArm64 => ";",
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{DistroFamily, PackageManager, parse_linux_distro};
+
+    fn distro(content: &str) -> super::LinuxDistro {
+        parse_linux_distro(content).expect("os-release content should parse")
+    }
+
+    #[test]
+    fn arch_linux_uses_its_pretty_name_without_a_version() {
+        let parsed = distro(
+            "NAME=\"Arch Linux\"\n\
+             PRETTY_NAME=\"Arch Linux\"\n\
+             ID=arch\n\
+             BUILD_ID=rolling\n",
+        );
+
+        assert_eq!(parsed.id, "arch");
+        assert_eq!(parsed.name, "Arch Linux");
+        assert_eq!(parsed.version_id, None);
+        assert_eq!(parsed.version, None);
+        assert_eq!(parsed.family, DistroFamily::Arch);
+        assert_eq!(parsed.package_manager, Some(PackageManager::Pacman));
+    }
+
+    #[test]
+    fn ubuntu_is_debian_family_and_keeps_its_release_name() {
+        let parsed = distro(
+            "NAME=\"Ubuntu\"\n\
+             VERSION=\"26.04 LTS (Resolute Raccoon)\"\n\
+             ID=ubuntu\n\
+             ID_LIKE=debian\n\
+             PRETTY_NAME=\"Ubuntu 26.04 LTS\"\n\
+             VERSION_ID=\"26.04\"\n",
+        );
+
+        assert_eq!(parsed.name, "Ubuntu 26.04 LTS");
+        assert_eq!(parsed.version_id.as_deref(), Some("26.04"));
+        assert_eq!(parsed.family, DistroFamily::Debian);
+        assert_eq!(parsed.package_manager, Some(PackageManager::Apt));
+    }
+
+    #[test]
+    fn nixos_is_detected_from_its_bare_id() {
+        let parsed = distro(
+            "NAME=NixOS\n\
+             ID=nixos\n\
+             PRETTY_NAME=\"NixOS 26.11 (Xantusia)\"\n\
+             VERSION_ID=\"26.11\"\n",
+        );
+
+        assert_eq!(parsed.name, "NixOS 26.11 (Xantusia)");
+        assert_eq!(parsed.family, DistroFamily::NixOs);
+        assert_eq!(parsed.package_manager, Some(PackageManager::Nix));
+    }
+
+    #[test]
+    fn opensuse_matches_by_identifier_prefix() {
+        let parsed = distro(
+            "NAME=\"openSUSE Tumbleweed\"\n\
+             ID=opensuse-tumbleweed\n\
+             ID_LIKE=\"opensuse suse\"\n",
+        );
+
+        assert_eq!(parsed.family, DistroFamily::Suse);
+        assert_eq!(parsed.package_manager, Some(PackageManager::Zypper));
+    }
+
+    #[test]
+    fn id_like_contributes_family_detection() {
+        let parsed =
+            distro("NAME=\"Custom Roll\"\nID=customroll\nID_LIKE=arch\n");
+
+        assert_eq!(parsed.family, DistroFamily::Arch);
+    }
+
+    #[test]
+    fn missing_pretty_name_falls_back_to_name_and_version() {
+        let parsed = distro(
+            "NAME=\"Some Distro\"\n\
+             ID=somedistro\n\
+             VERSION_ID=\"1.2\"\n",
+        );
+
+        assert_eq!(parsed.name, "Some Distro 1.2");
+        assert_eq!(parsed.family, DistroFamily::Unknown);
+        assert_eq!(parsed.package_manager, None);
+    }
+
+    #[test]
+    fn missing_id_falls_back_to_a_lowercased_name() {
+        let parsed = distro("NAME=\"Some Distro\"\n");
+
+        assert_eq!(parsed.id, "some distro");
+        assert_eq!(parsed.name, "Some Distro");
+    }
+
+    #[test]
+    fn quoted_values_are_unescaped() {
+        let parsed = distro(
+            "ID=quoted\n\
+             PRETTY_NAME=\"Quoted \\\"Distro\\\" Name\"\n\
+             NAME='Single Quoted'\n",
+        );
+
+        assert_eq!(parsed.name, "Quoted \"Distro\" Name");
+    }
+
+    #[test]
+    fn empty_or_comment_only_content_has_no_distribution() {
+        assert_eq!(parse_linux_distro(""), None);
+        assert_eq!(parse_linux_distro("# only a comment\n"), None);
+        assert_eq!(parse_linux_distro("NO_EQUALS_SIGN\n"), None);
     }
 }

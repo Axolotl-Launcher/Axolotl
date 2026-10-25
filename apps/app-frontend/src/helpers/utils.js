@@ -44,6 +44,27 @@ export async function getOS() {
     return await invoke('plugin:utils|get_os')
 }
 
+/**
+ * OS details used by the settings footer.
+ *
+ * @returns {Promise<{
+ *   os: 'Windows' | 'Linux' | 'MacOS'
+ *   kernel: string | null
+ *   isWsl: boolean
+ *   linux: {
+ *     id: string
+ *     name: string
+ *     versionId: string | null
+ *     version: string | null
+ *     family: string
+ *     packageManager: string | null
+ *   } | null
+ * }>}
+ */
+export async function getOsInfo() {
+    return await invoke('plugin:utils|get_os_info')
+}
+
 export async function isNetworkMetered() {
     return await invoke('plugin:utils|is_network_metered')
 }

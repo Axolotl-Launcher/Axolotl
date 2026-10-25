@@ -29,6 +29,7 @@ import {
 } from '@/components/ui/settings/settings-search-index'
 import { AxolotlBrandConfig } from '@/config'
 import { update } from '@/helpers/settings'
+import { getOsInfo } from '@/helpers/utils.js'
 import { injectAppUpdateDownloadProgress } from '@/providers/download-progress'
 import { useTheming } from '@/store/state'
 
@@ -49,6 +50,7 @@ const { progress, version: downloadingVersion } = injectAppUpdateDownloadProgres
 const version = await getVersion()
 const osPlatform = getOsPlatform()
 const osVersion = getOsVersion()
+const osInfo = await getOsInfo().catch(() => null)
 const devModeCounter = ref(0)
 const searchQuery = ref('')
 const selectedCategoryId = ref(route.hash.slice(1) || 'interface')
@@ -360,6 +362,21 @@ function platformName() {
         : osPlatform.charAt(0).toUpperCase() + osPlatform.slice(1)
 }
 
+// Linux shows the distribution name and the running kernel; other platforms
+// keep the previous "platform version" label.
+const osLabel = computed(() => {
+    const distro = osInfo?.linux
+    const kernel = osInfo?.kernel
+    if (distro) {
+        const label = kernel ? `${distro.name} ${kernel}` : distro.name
+        return osInfo?.isWsl ? `${label} (WSL)` : label
+    }
+    if (osPlatform === 'linux') {
+        return kernel ? `Linux ${kernel}` : 'Linux'
+    }
+    return `${platformName()} ${osVersion}`
+})
+
 const pageTitle: MessageDescriptor = settingsPageTitle
 </script>
 
@@ -529,7 +546,7 @@ const pageTitle: MessageDescriptor = settingsPageTitle
                             <p class="m-0 break-words">
                                 {{ AxolotlBrandConfig.productName }} {{ version }}
                             </p>
-                            <p class="m-0 truncate">{{ platformName() }} {{ osVersion }}</p>
+                            <p class="m-0 truncate" :title="osLabel">{{ osLabel }}</p>
                         </div>
                     </div>
                 </footer>

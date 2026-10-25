@@ -114,6 +114,13 @@ fn write_environment_details(details: &mut String) {
     let _ = writeln!(details, "OS kind: {}", std::env::consts::OS);
     let _ = writeln!(details, "OS family: {}", std::env::consts::FAMILY);
     let _ = writeln!(details, "Architecture: {}", std::env::consts::ARCH);
+    if let Some(distro) = crate::util::platform::detect_linux_distro() {
+        let _ =
+            writeln!(details, "Distribution: {} ({})", distro.name, distro.id);
+    }
+    if crate::util::platform::is_wsl() {
+        let _ = writeln!(details, "WSL: yes");
+    }
     if let Some(kernel_version) = sysinfo::System::kernel_version() {
         let _ = writeln!(details, "Kernel: {kernel_version}");
     }

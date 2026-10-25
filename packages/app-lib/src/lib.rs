@@ -47,7 +47,10 @@ pub use util::network_diagnostics::{
     NetworkTestMode, NetworkTestResult, NetworkTestTarget,
     test_network_connection,
 };
-pub use util::platform::is_process_elevated;
+pub use util::platform::{
+    DistroFamily, LinuxDistro, PackageManager, detect_linux_distro,
+    is_debian_family, is_process_elevated, is_wsl, kernel_release,
+};
 pub use util::proxy::{
     ProxyConfig, ProxyMode, ProxyTestResult, test_proxy_connection,
 };

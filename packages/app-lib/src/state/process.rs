@@ -6,8 +6,8 @@ use crate::util::io::IOError;
 use crate::util::rpc::RpcServer;
 use chrono::{DateTime, Duration, NaiveDateTime, TimeZone, Utc};
 use dashmap::DashMap;
-use quick_xml::Reader;
 use quick_xml::events::Event;
+use quick_xml::{Reader, XmlVersion};
 use serde::Deserialize;
 use serde::Serialize;
 use std::collections::{BTreeMap, HashMap, VecDeque};
@@ -925,7 +925,9 @@ impl Process {
                     }
                     Ok(Event::Text(mut e)) => {
                         if in_message || in_throwable {
-                            if let Ok(text) = e.xml_content() {
+                            if let Ok(text) =
+                                e.xml_content(XmlVersion::Explicit1_1)
+                            {
                                 append_bounded_log4j_content(
                                     &mut current_content,
                                     &text,
@@ -934,7 +936,8 @@ impl Process {
                         } else if !in_event
                             && !e.inplace_trim_end()
                             && !e.inplace_trim_start()
-                            && let Ok(text) = e.xml_content()
+                            && let Ok(text) =
+                                e.xml_content(XmlVersion::Explicit1_1)
                         {
                             if let Err(e) = Process::append_to_log_file(
                                 &log_path,
@@ -950,7 +953,8 @@ impl Process {
                     }
                     Ok(Event::CData(e)) => {
                         if (in_message || in_throwable)
-                            && let Ok(text) = e.xml_content()
+                            && let Ok(text) =
+                                e.xml_content(XmlVersion::Explicit1_1)
                         {
                             append_bounded_log4j_content(
                                 &mut current_content,

@@ -851,7 +851,7 @@ defineExpose({ show, edit, hide, next, previous, markSavedAndView })
                         />
                         <div
                             v-if="cropRect && canvasReady"
-                            class="pointer-events-none absolute border-2 border-dashed border-white/90 bg-black/25"
+                            class="crop-selection pointer-events-none absolute border-2 border-dashed"
                             :style="{
                                 left: `${(cropRect.left / dims.width) * 100}%`,
                                 top: `${(cropRect.top / dims.height) * 100}%`,
@@ -1176,6 +1176,14 @@ defineExpose({ show, edit, hide, next, previous, markSavedAndView })
 
 .viewer-heading-text {
     filter: drop-shadow(0 2px 3px rgb(0 0 0 / 90%));
+}
+
+/* White and black are literal because the crop marquee sits on the screenshot
+   rather than a themed surface; the rungs keep both layers on the shared opacity
+   scale instead of the /NN alpha utilities, which emit no CSS. */
+.crop-selection {
+    border-color: color-mix(in srgb, white var(--opacity-ratio-keep-90, 90%), transparent);
+    background-color: color-mix(in srgb, black var(--opacity-ratio-keep-25, 25%), transparent);
 }
 
 .editor-viewport {

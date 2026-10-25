@@ -486,7 +486,7 @@ pub fn is_debian_family() -> bool {
         {
             return distro.family == DistroFamily::Debian;
         }
-        ["/etc/debian_version", "/etc/apt", "/usr/bin/apt-get"]
+        ["/etc/debian_version", "/usr/bin/apt-get"]
             .iter()
             .any(|path| std::path::Path::new(path).exists())
     }
@@ -494,6 +494,138 @@ pub fn is_debian_family() -> bool {
     {
         false
     }
+}
+
+/// Whether `pkexec` is available for a single privileged prompt.
+pub fn has_pkexec() -> bool {
+    ["/usr/bin/pkexec", "/bin/pkexec"]
+        .iter()
+        .any(|path| std::path::Path::new(path).exists())
+}
+
+/// How this copy of the launcher was installed, which decides how it should
+/// be updated.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum InstallSource {
+    AppImage,
+    Apt,
+    Dnf,
+    Zypper,
+    Pacman,
+    Flatpak,
+    Nix,
+    Unknown,
+}
+
+impl InstallSource {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::AppImage => "appimage",
+            Self::Apt => "apt",
+            Self::Dnf => "dnf",
+            Self::Zypper => "zypper",
+            Self::Pacman => "pacman",
+            Self::Flatpak => "flatpak",
+            Self::Nix => "nix",
+            Self::Unknown => "unknown",
+        }
+    }
+
+    /// Sources updated by the built-in updater or by a package manager we can
+    /// drive through `pkexec`. Pacman, Flatpak and Nix installations are owned
+    /// by the system, so the launcher must not replace their files.
+    pub fn self_update_supported(self) -> bool {
+        !matches!(self, Self::Pacman | Self::Flatpak | Self::Nix)
+    }
+
+    /// Installer artifact variant to fetch from the update catalog.
+    pub fn package_variant(self) -> Option<&'static str> {
+        match self {
+            Self::Apt => Some("deb"),
+            Self::Dnf | Self::Zypper => Some("rpm"),
+            _ => None,
+        }
+    }
+}
+
+fn command_available(paths: &[&str]) -> bool {
+    paths.iter().any(|path| std::path::Path::new(path).exists())
+}
+
+/// Whether a pacman-managed Axolotl package is installed. AUR packages use
+/// names such as `axolotl-launcher` or `axolotl-launcher-bin`.
+fn installed_by_pacman() -> bool {
+    std::fs::read_dir("/var/lib/pacman/local")
+        .ok()
+        .is_some_and(|entries| {
+            entries.flatten().any(|entry| {
+                entry.file_name().to_string_lossy().starts_with("axolotl")
+            })
+        })
+}
+
+fn env_present(key: &str) -> bool {
+    std::env::var_os(key).is_some_and(|value| !value.is_empty())
+}
+
+static INSTALL_SOURCE: std::sync::OnceLock<InstallSource> =
+    std::sync::OnceLock::new();
+
+/// Detect how this copy of the launcher was installed. The result is cached
+/// for the lifetime of the process.
+pub fn detect_install_source() -> InstallSource {
+    *INSTALL_SOURCE.get_or_init(|| {
+        #[cfg(target_os = "linux")]
+        {
+            if env_present("APPIMAGE") {
+                return InstallSource::AppImage;
+            }
+            if std::env::current_exe()
+                .is_ok_and(|exe| exe.starts_with("/nix/store"))
+            {
+                return InstallSource::Nix;
+            }
+            if std::path::Path::new("/.flatpak-info").exists()
+                || env_present("FLATPAK_ID")
+            {
+                return InstallSource::Flatpak;
+            }
+            if let Some(distro) = detect_linux_distro() {
+                match distro.family {
+                    DistroFamily::Debian if has_pkexec() => {
+                        return InstallSource::Apt;
+                    }
+                    DistroFamily::Fedora
+                        if command_available(&["/usr/bin/dnf", "/bin/dnf"]) =>
+                    {
+                        return InstallSource::Dnf;
+                    }
+                    DistroFamily::Suse
+                        if command_available(&[
+                            "/usr/bin/zypper",
+                            "/usr/sbin/zypper",
+                            "/bin/zypper",
+                        ]) =>
+                    {
+                        return InstallSource::Zypper;
+                    }
+                    DistroFamily::Arch if installed_by_pacman() => {
+                        return InstallSource::Pacman;
+                    }
+                    DistroFamily::NixOs => return InstallSource::Nix,
+                    _ => {}
+                }
+            }
+            if is_debian_family() && has_pkexec() {
+                return InstallSource::Apt;
+            }
+            InstallSource::Unknown
+        }
+        #[cfg(not(target_os = "linux"))]
+        {
+            InstallSource::Unknown
+        }
+    })
 }
 
 pub fn classpath_separator(java_arch: &str) -> &'static str {

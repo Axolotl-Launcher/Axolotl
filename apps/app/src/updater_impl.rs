@@ -69,27 +69,45 @@ struct ArtifactEntry {
     size: u64,
 }
 
-/// The .deb asset for an apt-managed Linux update, from the Update Server
-/// catalog (`/api/versions`). The deb has no minisign signature, so its
+/// An installer package fetched from the Update Server catalog
+/// (`/api/versions`). These artifacts carry no minisign signature, so their
 /// integrity is verified with the catalog's sha256 and size instead.
-struct AptDebAsset {
+struct PackageAsset {
     url: Url,
     sha256: String,
     size: u64,
 }
 
-fn apt_deb_arch() -> Result<&'static str> {
+fn deb_arch() -> Result<&'static str> {
     match std::env::consts::ARCH {
         "x86_64" => Ok("amd64"),
         "aarch64" => Ok("arm64"),
         arch => Err(theseus::Error::from(theseus::ErrorKind::OtherError(
-            format!("Unsupported architecture for apt updates: {arch}"),
+            format!("Unsupported architecture for deb updates: {arch}"),
         ))
         .into()),
     }
 }
 
-async fn fetch_apt_deb_asset(version: &str) -> Result<AptDebAsset> {
+fn rpm_arch() -> Result<&'static str> {
+    match std::env::consts::ARCH {
+        "x86_64" => Ok("x86_64"),
+        "aarch64" => Ok("aarch64"),
+        arch => Err(theseus::Error::from(theseus::ErrorKind::OtherError(
+            format!("Unsupported architecture for rpm updates: {arch}"),
+        ))
+        .into()),
+    }
+}
+
+fn install_source() -> theseus::InstallSource {
+    theseus::detect_install_source()
+}
+
+async fn fetch_package_asset(
+    version: &str,
+    variant: &str,
+) -> Result<PackageAsset> {
     let response = ClientBuilder::new()
         .user_agent(launcher_user_agent())
         .timeout(UPDATE_DOWNLOAD_TIMEOUT)
@@ -123,25 +141,25 @@ async fn fetch_apt_deb_asset(version: &str) -> Result<AptDebAsset> {
         .iter()
         .find(|entry| {
             entry.kind == "installer"
-                && entry.variant.as_deref() == Some("deb")
+                && entry.variant.as_deref() == Some(variant)
                 && entry.platform == "linux"
                 && entry.architecture == arch
         })
         .ok_or_else(|| {
             theseus::Error::from(theseus::ErrorKind::OtherError(format!(
-                "Update catalog has no deb artifact for {version} on {arch}"
+                "Update catalog has no {variant} artifact for {version} on {arch}"
             )))
         })?;
 
     let sha256 = artifact.sha256.clone().ok_or_else(|| {
         theseus::Error::from(theseus::ErrorKind::OtherError(format!(
-            "Update catalog has no sha256 for the deb artifact of {version}"
+            "Update catalog has no sha256 for the {variant} artifact of {version}"
         )))
     })?;
 
     let url = update_artifact_url(&artifact.relative_path)?;
 
-    Ok(AptDebAsset {
+    Ok(PackageAsset {
         url,
         sha256,
         size: artifact.size,
@@ -265,12 +283,13 @@ async fn check_with_updater<R: Runtime>(
     };
     update.timeout = Some(UPDATE_DOWNLOAD_TIMEOUT);
 
-    // On Debian and derivatives the plugin's minisign signature check cannot
-    // validate the unsigned .deb, so point the download at the deb from the
-    // Update Server catalog instead of the AppImage artifact. Its integrity
-    // is verified with the catalog's sha256/size during the download.
-    if is_apt_linux() {
-        update.download_url = fetch_apt_deb_asset(&update.version).await?.url;
+    // On package-manager installations the plugin's minisign signature check
+    // cannot validate the unsigned .deb/.rpm, so point the download at the
+    // catalog artifact instead of the AppImage. Its integrity is verified with
+    // the catalog's sha256/size during the download.
+    if let Some(variant) = install_source().package_variant() {
+        update.download_url =
+            fetch_package_asset(&update.version, variant).await?.url;
     } else {
         update.download_url = update_artifact_url(update.download_url.path())?;
     }
@@ -377,11 +396,12 @@ pub async fn enqueue_update_for_installation<R: Runtime>(
     .await?;
 
     let download_start = Instant::now();
-    let update_data = if is_apt_linux() {
-        // The .deb carries no minisign signature, so the plugin's signed
-        // download cannot be used. Fetch the catalog entry and verify the
-        // downloaded bytes against its sha256 and size instead.
-        let asset = fetch_apt_deb_asset(&update.version).await?;
+    let update_data = if let Some(variant) = install_source().package_variant()
+    {
+        // Package artifacts carry no minisign signature, so the plugin's
+        // signed download cannot be used. Fetch the catalog entry and verify
+        // the downloaded bytes against its sha256 and size instead.
+        let asset = fetch_package_asset(&update.version, variant).await?;
 
         let mut headers = update.headers.clone();
         if !headers.contains_key(ACCEPT) {
@@ -435,7 +455,7 @@ pub async fn enqueue_update_for_installation<R: Runtime>(
         if buffer.len() as u64 != asset.size {
             return Err(theseus::Error::from(theseus::ErrorKind::OtherError(
                 format!(
-                    "Downloaded deb size mismatch: expected {}, got {}",
+                    "Downloaded {variant} size mismatch: expected {}, got {}",
                     asset.size,
                     buffer.len()
                 ),
@@ -450,7 +470,7 @@ pub async fn enqueue_update_for_installation<R: Runtime>(
             .collect::<String>();
         if digest_hex != asset.sha256 {
             return Err(theseus::Error::from(theseus::ErrorKind::OtherError(
-                "Downloaded deb sha256 mismatch".to_string(),
+                format!("Downloaded {variant} sha256 mismatch"),
             ))
             .into());
         }
@@ -495,23 +515,45 @@ pub fn remove_enqueued_update<R: Runtime>(webview: Webview<R>) {
     pending_data.0.lock().unwrap().take();
 }
 
-// ── Debian / derivatives apt update ─────────────────────────────
+// ── Package-manager updates ─────────────────────────────────────
 
 /// Whether this Linux system updates Axolotl through apt (Debian and its
 /// derivatives) and has `pkexec` available for a single privileged prompt.
-/// The distribution family comes from `/etc/os-release`.
 #[tauri::command]
 pub fn is_apt_linux() -> bool {
-    #[cfg(target_os = "linux")]
-    {
-        let has_pkexec = ["/usr/bin/pkexec", "/bin/pkexec"]
-            .iter()
-            .any(|path| std::path::Path::new(path).exists());
-        theseus::is_debian_family() && has_pkexec
-    }
-    #[cfg(not(target_os = "linux"))]
-    {
-        false
+    install_source() == theseus::InstallSource::Apt
+}
+
+/// How this installation should be updated, for the frontend's update UI.
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdateCapability {
+    source: &'static str,
+    self_update: bool,
+    command: Option<String>,
+}
+
+#[tauri::command]
+pub fn get_update_capability() -> UpdateCapability {
+    let source = install_source();
+    let command = match source {
+        theseus::InstallSource::Pacman => {
+            Some("yay -S axolotl-launcher-bin".to_string())
+        }
+        theseus::InstallSource::Flatpak => Some(
+            std::env::var("FLATPAK_ID")
+                .ok()
+                .filter(|id| !id.is_empty())
+                .map(|id| format!("flatpak update {id}"))
+                .unwrap_or_else(|| "flatpak update".to_string()),
+        ),
+        _ => None,
+    };
+
+    UpdateCapability {
+        source: source.as_str(),
+        self_update: source.self_update_supported(),
+        command,
     }
 }
 
@@ -519,7 +561,7 @@ pub fn is_apt_linux() -> bool {
 /// root once via `pkexec`. The package is installed from the absolute path
 /// of a temporary file, which is removed afterwards.
 pub async fn install_apt_package(version: &str, data: &[u8]) -> Result<()> {
-    if !is_apt_linux() {
+    if install_source() != theseus::InstallSource::Apt {
         return Err(theseus::Error::from(theseus::ErrorKind::OtherError(
             "apt updates are only supported on Debian-based Linux systems with pkexec"
                 .to_string(),
@@ -527,7 +569,7 @@ pub async fn install_apt_package(version: &str, data: &[u8]) -> Result<()> {
         .into());
     }
 
-    let arch = apt_deb_arch()?;
+    let arch = deb_arch()?;
     let deb_path = std::env::temp_dir()
         .join(format!("Axolotl.Launcher_{version}_{arch}.deb"));
     std::fs::write(&deb_path, data).map_err(|io| {
@@ -535,7 +577,7 @@ pub async fn install_apt_package(version: &str, data: &[u8]) -> Result<()> {
             "Failed to write the downloaded deb: {io}"
         )))
     })?;
-    let _deb_cleanup = TempDebFile(deb_path.clone());
+    let _deb_cleanup = TempPackageFile(deb_path.clone());
 
     let install_path = deb_path.clone();
     let output = tokio::task::spawn_blocking(move || {
@@ -569,14 +611,90 @@ pub async fn install_apt_package(version: &str, data: &[u8]) -> Result<()> {
     Ok(())
 }
 
-/// Removes a temporary Debian package when installation finishes or fails.
+/// Install the downloaded .rpm on Fedora/openSUSE through `dnf` or `zypper`,
+/// prompting for root once via `pkexec`. The catalog's sha256 already verified
+/// the package, so the distribution's signature policy is not required here.
+async fn install_rpm_package(
+    source: theseus::InstallSource,
+    version: &str,
+    data: &[u8],
+) -> Result<()> {
+    let arch = rpm_arch()?;
+    let rpm_path = std::env::temp_dir()
+        .join(format!("Axolotl.Launcher-{version}-1.{arch}.rpm"));
+    std::fs::write(&rpm_path, data).map_err(|io| {
+        theseus::Error::from(theseus::ErrorKind::OtherError(format!(
+            "Failed to write the downloaded rpm: {io}"
+        )))
+    })?;
+    let _rpm_cleanup = TempPackageFile(rpm_path.clone());
+
+    let install_path = rpm_path.clone();
+    let (manager, arguments): (&'static str, &'static [&'static str]) =
+        match source {
+            theseus::InstallSource::Zypper => (
+                "zypper",
+                &["--non-interactive", "install", "--allow-unsigned-rpm"],
+            ),
+            _ => ("dnf", &["install", "-y"]),
+        };
+    let output = tokio::task::spawn_blocking(move || {
+        let mut command = std::process::Command::new("pkexec");
+        command.arg(manager);
+        for argument in arguments {
+            command.arg(argument);
+        }
+        command.arg(&install_path).output()
+    })
+    .await
+    .map_err(|join| {
+        theseus::Error::from(theseus::ErrorKind::OtherError(format!(
+            "Failed to run the rpm updater: {join}"
+        )))
+    })?
+    .map_err(|io| {
+        theseus::Error::from(theseus::ErrorKind::OtherError(format!(
+            "Failed to start pkexec: {io}"
+        )))
+    })?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(theseus::Error::from(theseus::ErrorKind::OtherError(
+            format!("{manager} install failed: {}", stderr.trim()),
+        ))
+        .into());
+    }
+
+    Ok(())
+}
+
+/// Install the staged update with the package manager owning this launcher.
+pub async fn install_package(version: &str, data: &[u8]) -> Result<()> {
+    let source = install_source();
+    match source {
+        theseus::InstallSource::Apt => install_apt_package(version, data).await,
+        theseus::InstallSource::Dnf | theseus::InstallSource::Zypper => {
+            install_rpm_package(source, version, data).await
+        }
+        other => {
+            Err(theseus::Error::from(theseus::ErrorKind::OtherError(format!(
+                "{} installations are updated by the system package manager",
+                other.as_str()
+            )))
+            .into())
+        }
+    }
+}
+
+/// Removes a temporary package when installation finishes or fails.
 ///
 /// The installer awaits a blocking task and has several fallible operations
 /// after creating the file. Keeping cleanup in `Drop` makes every return path
 /// (including task and process-launch errors) remove the package.
-struct TempDebFile(std::path::PathBuf);
+struct TempPackageFile(std::path::PathBuf);
 
-impl Drop for TempDebFile {
+impl Drop for TempPackageFile {
     fn drop(&mut self) {
         if let Err(error) = std::fs::remove_file(&self.0)
             && error.kind() != std::io::ErrorKind::NotFound
@@ -584,7 +702,7 @@ impl Drop for TempDebFile {
             tracing::warn!(
                 path = %self.0.display(),
                 error = %error,
-                "Failed to remove temporary deb file"
+                "Failed to remove temporary package file"
             );
         }
     }

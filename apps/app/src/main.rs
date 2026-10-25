@@ -929,6 +929,7 @@ fn main() {
             remove_enqueued_update,
             set_restart_after_pending_update,
             is_apt_linux,
+            get_update_capability,
             toggle_decorations,
             set_transparent_window_frame,
             show_window,
@@ -1011,12 +1012,13 @@ fn main() {
                         }
 
                         let version = update.version.clone();
-                        let install_result = if is_apt_linux() {
-                            tauri::async_runtime::block_on(
-                                install_apt_package(&version, data),
-                            )
+                        let source = theseus::detect_install_source();
+                        let install_result = if source.package_variant().is_some() {
+                            tauri::async_runtime::block_on(install_package(
+                                &version, data,
+                            ))
                             .map_err(|error| error.to_string())
-                        } else {
+                        } else if source.self_update_supported() {
                             let update = if should_restart {
                                 (**update).clone()
                             } else {
@@ -1032,6 +1034,11 @@ fn main() {
                             set_changelog_toast(Some(update.version.clone()));
 
                             update.install(data).map_err(|error| error.to_string())
+                        } else {
+                            Err(format!(
+                                "This installation is managed by {}; update it with the system package manager.",
+                                source.as_str()
+                            ))
                         };
 
                         match install_result {

@@ -28,7 +28,6 @@ interface AppUpdateActions {
     download?: () => Promise<void> | void
     install?: () => Promise<void> | void
     changelog?: (version?: string) => Promise<void> | void
-    packageManagerHint?: () => Promise<void> | void
 }
 
 const progress = ref(0)
@@ -40,8 +39,6 @@ const availableUpdate = ref<AppUpdate | null>(null)
 const updateSize = ref<number | null>(null)
 const updatesEnabled = ref(true)
 const updatesPaused = ref(false)
-/** True when the installation is updated by the system package manager. */
-const packageManaged = ref(false)
 
 let actions: AppUpdateActions = {}
 
@@ -59,7 +56,6 @@ export const appUpdateState = {
     updateSize,
     updatesEnabled,
     updatesPaused,
-    packageManaged,
     downloadProgress: computed(() => progress.value),
     downloadPercent: computed(() => Math.trunc(progress.value * 100)),
     isVisible: computed(
@@ -170,15 +166,6 @@ export function getNextAppUpdatePopupTime(
 
 export function setAppUpdateActions(nextActions: AppUpdateActions): void {
     actions = nextActions
-}
-
-export function setAppUpdatePackageManaged(value: boolean): void {
-    packageManaged.value = value
-}
-
-/** Ask the shell to explain how package-manager installations update. */
-export async function showPackageManagerHint(): Promise<void> {
-    await actions.packageManagerHint?.()
 }
 
 export async function checkForAppUpdate(): Promise<AppUpdateCheckResult> {

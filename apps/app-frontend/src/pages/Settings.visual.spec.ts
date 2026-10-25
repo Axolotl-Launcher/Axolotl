@@ -14,6 +14,11 @@ vi.mock('@/store/state', () => ({ useTheming: () => ({ devMode: false }) }))
 vi.mock('@/helpers/settings', () => ({ update: vi.fn() }))
 vi.mock('@/helpers/utils.js', () => ({
     getOsInfo: async () => ({ os: 'Windows', kernel: null, isWsl: false, linux: null }),
+    getUpdateCapability: async () => ({
+        source: 'unknown',
+        selfUpdate: true,
+        command: null,
+    }),
 }))
 vi.mock('@/providers/download-progress', async () => {
     const { ref } = await import('vue')

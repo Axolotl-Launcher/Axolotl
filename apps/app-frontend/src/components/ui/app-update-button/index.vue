@@ -32,7 +32,6 @@ import {
     appUpdateState,
     downloadAvailableAppUpdate,
     installAvailableAppUpdate,
-    showPackageManagerHint,
 } from '@/providers/app-update'
 
 const { formatMessage } = useVIntl()
@@ -59,7 +58,6 @@ const {
     finishedDownloading,
     isVisible: isUpdateVisible,
     metered,
-    packageManaged,
     restarting,
 } = appUpdateState
 
@@ -69,9 +67,7 @@ const isUpdateDownloading = computed(
         (downloadProgress.value > 0 && downloadProgress.value < 1 && !finishedDownloading.value),
 )
 const showUpdatePill = computed(
-    () =>
-        isUpdateVisible.value &&
-        (finishedDownloading.value || metered.value || packageManaged.value),
+    () => isUpdateVisible.value && (finishedDownloading.value || metered.value),
 )
 const animateReadyPill = ref(false)
 const updateLabel = computed(() => {
@@ -110,11 +106,6 @@ watch([showUpdatePill, finishedDownloading], async ([show, ready], [wasShown, wa
 })
 async function handleUpdateClick() {
     if (isUpdateDownloading.value) {
-        return
-    }
-
-    if (packageManaged.value) {
-        await showPackageManagerHint()
         return
     }
 

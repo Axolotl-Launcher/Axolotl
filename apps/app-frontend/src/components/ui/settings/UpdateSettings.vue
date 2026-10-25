@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { DatabaseIcon, EyeIcon, RefreshCwIcon, XIcon } from '@modrinth/assets'
+import { CopyIcon, DatabaseIcon, EyeIcon, RefreshCwIcon, XIcon } from '@modrinth/assets'
 import {
     Button,
     defineMessages,
@@ -10,7 +10,7 @@ import {
 } from '@modrinth/ui'
 import { getVersion } from '@tauri-apps/api/app'
 import { fetch as tauriFetch } from '@tauri-apps/plugin-http'
-import { inject, nextTick, ref, watch } from 'vue'
+import { computed, inject, nextTick, ref, watch } from 'vue'
 
 import UpdateAnnouncementHistory from '@/components/ui/announcement/UpdateAnnouncementHistory.vue'
 import {
@@ -24,7 +24,7 @@ import {
     setUpdatePreferences,
     type UpdateChannel,
 } from '@/helpers/settings.ts'
-import { isDev, restartApp } from '@/helpers/utils.js'
+import { getUpdateCapability, isDev, restartApp } from '@/helpers/utils.js'
 import { type AppUpdateCheckResult, checkForAppUpdate } from '@/providers/app-update.ts'
 
 import SettingsRow from './SettingsRow.vue'
@@ -44,6 +44,20 @@ const selectedChannel = ref<UpdateChannel>(activeChannel)
 const updatePreferences = ref(initialUpdatePreferences)
 const checking = ref(false)
 const checkResult = ref<AppUpdateCheckResult | 'failed' | null>(null)
+const updateCapability = ref(await getUpdateCapability().catch(() => null))
+const packageManaged = computed(
+    () => updateCapability.value !== null && !updateCapability.value.selfUpdate,
+)
+const managedHint = computed(() => {
+    const capability = updateCapability.value
+    if (!capability) {
+        return ''
+    }
+    const source = managedSourceLabel(capability.source)
+    return capability.command
+        ? formatMessage(messages.managedCommand, { source, command: capability.command })
+        : formatMessage(messages.managed, { source })
+})
 const currentDatabasePath = ref(databasePath)
 const latestChannelVersions = ref<Partial<Record<UpdateChannel, string>>>({})
 const latestChannelVersionsLoaded = ref(false)
@@ -279,6 +293,36 @@ const messages = defineMessages({
         id: 'app.settings.updates.database-operation.cancel',
         defaultMessage: 'Cancel',
     },
+    managed: {
+        id: 'app.settings.updates.managed',
+        defaultMessage:
+            'Axolotl Launcher is installed through {source}. Update checks are disabled for this installation; update it with your system package manager.',
+    },
+    managedCommand: {
+        id: 'app.settings.updates.managed-command',
+        defaultMessage:
+            'Axolotl Launcher is installed through {source}. Update checks are disabled for this installation; update it with: {command}',
+    },
+    managedSourceAur: {
+        id: 'app.settings.updates.managed-source.aur',
+        defaultMessage: 'the AUR',
+    },
+    managedSourceFlatpak: {
+        id: 'app.settings.updates.managed-source.flatpak',
+        defaultMessage: 'Flatpak',
+    },
+    managedSourceNix: {
+        id: 'app.settings.updates.managed-source.nix',
+        defaultMessage: 'Nix',
+    },
+    copyCommand: {
+        id: 'app.settings.updates.copy-command',
+        defaultMessage: 'Copy command',
+    },
+    commandCopied: {
+        id: 'app.settings.updates.command-copied',
+        defaultMessage: 'Command copied',
+    },
 })
 
 async function loadLatestChannelVersions() {
@@ -387,7 +431,38 @@ async function saveUpdatePreferences() {
     }
 }
 
+function managedSourceLabel(source: string) {
+    switch (source) {
+        case 'pacman':
+            return formatMessage(messages.managedSourceAur)
+        case 'flatpak':
+            return formatMessage(messages.managedSourceFlatpak)
+        default:
+            return formatMessage(messages.managedSourceNix)
+    }
+}
+
+function copyManagedCommand() {
+    const command = updateCapability.value?.command
+    if (!command) {
+        return
+    }
+    navigator.clipboard
+        .writeText(command)
+        .then(() => {
+            addNotification({
+                title: formatMessage(messages.commandCopied),
+                type: 'success',
+            })
+        })
+        .catch((error) => handleError(error))
+}
+
 async function checkForUpdates() {
+    if (packageManaged.value) {
+        return
+    }
+
     checking.value = true
     checkResult.value = null
 
@@ -633,7 +708,7 @@ function onDatabaseOperationModalHide() {
                     <Button
                         type="colored"
                         color="brand"
-                        :disabled="checking"
+                        :disabled="checking || packageManaged"
                         @click="checkForUpdates"
                     >
                         <RefreshCwIcon :class="{ 'animate-spin': checking }" />
@@ -647,6 +722,20 @@ function onDatabaseOperationModalHide() {
                     >
                         <EyeIcon />
                         {{ formatMessage(messages.preview) }}
+                    </Button>
+                </div>
+                <div v-if="packageManaged" class="update-managed-hint" role="status">
+                    <p class="m-0 text-sm">
+                        {{ managedHint }}
+                    </p>
+                    <Button
+                        v-if="updateCapability?.command"
+                        type="outlined"
+                        native-type="button"
+                        @click="copyManagedCommand"
+                    >
+                        <CopyIcon />
+                        {{ formatMessage(messages.copyCommand) }}
                     </Button>
                 </div>
                 <p
@@ -942,6 +1031,19 @@ function onDatabaseOperationModalHide() {
     display: flex;
     flex-direction: column;
     gap: var(--gap-xs);
+}
+
+.update-managed-hint {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--gap-sm);
+    padding: var(--gap-sm) var(--gap-md);
+    border: 1px solid var(--surface-4);
+    border-radius: var(--radius-sm);
+    background: var(--surface-1);
+    color: var(--color-text-tertiary);
+    line-height: 1.4;
 }
 
 .update-check-result {

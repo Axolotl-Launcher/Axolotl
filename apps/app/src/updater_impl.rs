@@ -107,14 +107,15 @@ fn install_source() -> theseus::InstallSource {
 async fn fetch_package_asset(
     version: &str,
     variant: &str,
+    proxy: Option<&str>,
 ) -> Result<PackageAsset> {
-    let response = ClientBuilder::new()
+    let mut builder = ClientBuilder::new()
         .user_agent(launcher_user_agent())
-        .timeout(UPDATE_DOWNLOAD_TIMEOUT)
-        .build()?
-        .get(UPDATE_SERVER_API)
-        .send()
-        .await?;
+        .timeout(UPDATE_DOWNLOAD_TIMEOUT);
+    if let Some(proxy) = proxy {
+        builder = builder.proxy(reqwest::Proxy::all(proxy)?);
+    }
+    let response = builder.build()?.get(UPDATE_SERVER_API).send().await?;
 
     if !response.status().is_success() {
         return Err(Error::Network(format!(
@@ -288,8 +289,13 @@ async fn check_with_updater<R: Runtime>(
     // catalog artifact instead of the AppImage. Its integrity is verified with
     // the catalog's sha256/size during the download.
     if let Some(variant) = install_source().package_variant() {
-        update.download_url =
-            fetch_package_asset(&update.version, variant).await?.url;
+        update.download_url = fetch_package_asset(
+            &update.version,
+            variant,
+            update.proxy.as_ref().map(|proxy| proxy.as_str()),
+        )
+        .await?
+        .url;
     } else {
         update.download_url = update_artifact_url(update.download_url.path())?;
     }
@@ -401,7 +407,12 @@ pub async fn enqueue_update_for_installation<R: Runtime>(
         // Package artifacts carry no minisign signature, so the plugin's
         // signed download cannot be used. Fetch the catalog entry and verify
         // the downloaded bytes against its sha256 and size instead.
-        let asset = fetch_package_asset(&update.version, variant).await?;
+        let asset = fetch_package_asset(
+            &update.version,
+            variant,
+            update.proxy.as_ref().map(|proxy| proxy.as_str()),
+        )
+        .await?;
 
         let mut headers = update.headers.clone();
         if !headers.contains_key(ACCEPT) {
@@ -422,7 +433,7 @@ pub async fn enqueue_update_for_installation<R: Runtime>(
         }
         let response = request
             .build()?
-            .get(update.download_url.clone())
+            .get(asset.url.clone())
             .headers(headers)
             .send()
             .await?;
@@ -435,11 +446,22 @@ pub async fn enqueue_update_for_installation<R: Runtime>(
             .into());
         }
 
-        let total_size = response.content_length().unwrap_or(asset.size);
+        let total_size = asset.size;
         let mut buffer = Vec::new();
         let mut stream = response.bytes_stream();
         while let Some(chunk) = stream.next().await {
             let chunk = chunk?;
+            // Reject an oversized response before buffering it, so a broken
+            // mirror cannot exhaust memory ahead of the size check below.
+            if buffer.len() as u64 + chunk.len() as u64 > asset.size {
+                return Err(theseus::Error::from(
+                    theseus::ErrorKind::OtherError(format!(
+                        "Downloaded {variant} exceeds the catalog size of {} bytes",
+                        asset.size
+                    )),
+                )
+                .into());
+            }
             buffer.extend_from_slice(&chunk);
             if total_size > 0
                 && let Err(e) = emit_loading(
@@ -536,15 +558,26 @@ pub async fn install_apt_package(version: &str, data: &[u8]) -> Result<()> {
         .into());
     }
 
+    // Stage the package in a private directory: a predictable name in the
+    // shared temp directory could be swapped between verification and the
+    // privileged install.
+    let staging = tempfile::Builder::new()
+        .prefix("axolotl-update-")
+        .tempdir()
+        .map_err(|io| {
+            theseus::Error::from(theseus::ErrorKind::OtherError(format!(
+                "Failed to create a staging directory for the deb: {io}"
+            )))
+        })?;
     let arch = deb_arch()?;
-    let deb_path = std::env::temp_dir()
+    let deb_path = staging
+        .path()
         .join(format!("Axolotl.Launcher_{version}_{arch}.deb"));
     std::fs::write(&deb_path, data).map_err(|io| {
         theseus::Error::from(theseus::ErrorKind::OtherError(format!(
             "Failed to write the downloaded deb: {io}"
         )))
     })?;
-    let _deb_cleanup = TempPackageFile(deb_path.clone());
 
     let install_path = deb_path.clone();
     let output = tokio::task::spawn_blocking(move || {
@@ -586,15 +619,25 @@ async fn install_rpm_package(
     version: &str,
     data: &[u8],
 ) -> Result<()> {
+    // Stage the package in a private directory rather than a predictable
+    // name in the shared temp directory.
+    let staging = tempfile::Builder::new()
+        .prefix("axolotl-update-")
+        .tempdir()
+        .map_err(|io| {
+            theseus::Error::from(theseus::ErrorKind::OtherError(format!(
+                "Failed to create a staging directory for the rpm: {io}"
+            )))
+        })?;
     let arch = rpm_arch()?;
-    let rpm_path = std::env::temp_dir()
+    let rpm_path = staging
+        .path()
         .join(format!("Axolotl.Launcher-{version}-1.{arch}.rpm"));
     std::fs::write(&rpm_path, data).map_err(|io| {
         theseus::Error::from(theseus::ErrorKind::OtherError(format!(
             "Failed to write the downloaded rpm: {io}"
         )))
     })?;
-    let _rpm_cleanup = TempPackageFile(rpm_path.clone());
 
     let install_path = rpm_path.clone();
     let (manager, arguments): (&'static str, &'static [&'static str]) =
@@ -603,7 +646,8 @@ async fn install_rpm_package(
                 "zypper",
                 &["--non-interactive", "install", "--allow-unsigned-rpm"],
             ),
-            _ => ("dnf", &["install", "-y"]),
+            // The catalog sha256 already verified this exact file.
+            _ => ("dnf", &["install", "-y", "--nogpgcheck"]),
         };
     let output = tokio::task::spawn_blocking(move || {
         let mut command = std::process::Command::new("pkexec");
@@ -650,27 +694,6 @@ pub async fn install_package(version: &str, data: &[u8]) -> Result<()> {
                 other.as_str()
             )))
             .into())
-        }
-    }
-}
-
-/// Removes a temporary package when installation finishes or fails.
-///
-/// The installer awaits a blocking task and has several fallible operations
-/// after creating the file. Keeping cleanup in `Drop` makes every return path
-/// (including task and process-launch errors) remove the package.
-struct TempPackageFile(std::path::PathBuf);
-
-impl Drop for TempPackageFile {
-    fn drop(&mut self) {
-        if let Err(error) = std::fs::remove_file(&self.0)
-            && error.kind() != std::io::ErrorKind::NotFound
-        {
-            tracing::warn!(
-                path = %self.0.display(),
-                error = %error,
-                "Failed to remove temporary package file"
-            );
         }
     }
 }

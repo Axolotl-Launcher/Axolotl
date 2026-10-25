@@ -552,16 +552,35 @@ fn command_available(paths: &[&str]) -> bool {
     paths.iter().any(|path| std::path::Path::new(path).exists())
 }
 
-/// Whether a pacman-managed Axolotl package is installed. AUR packages use
-/// names such as `axolotl-launcher` or `axolotl-launcher-bin`.
-fn installed_by_pacman() -> bool {
-    std::fs::read_dir("/var/lib/pacman/local")
-        .ok()
-        .is_some_and(|entries| {
-            entries.flatten().any(|entry| {
-                entry.file_name().to_string_lossy().starts_with("axolotl")
-            })
+static PACMAN_PACKAGE: std::sync::OnceLock<Option<String>> =
+    std::sync::OnceLock::new();
+
+/// Package name of the pacman-managed Axolotl installation, when present.
+/// AUR packages use names such as `axolotl-launcher` or
+/// `axolotl-launcher-bin`; pacman's local database names entries
+/// `<pkgname>-<pkgver>-<pkgrel>`, and `pkgver` cannot contain `-`.
+pub fn pacman_package_name() -> Option<&'static str> {
+    PACMAN_PACKAGE
+        .get_or_init(|| {
+            let mut names: Vec<String> =
+                std::fs::read_dir("/var/lib/pacman/local")
+                    .ok()?
+                    .flatten()
+                    .filter_map(|entry| {
+                        let entry =
+                            entry.file_name().to_string_lossy().to_string();
+                        if !entry.starts_with("axolotl")
+                            || entry.ends_with("-debug")
+                        {
+                            return None;
+                        }
+                        entry.rsplitn(3, '-').nth(2).map(str::to_string)
+                    })
+                    .collect();
+            names.sort();
+            names.into_iter().next()
         })
+        .as_deref()
 }
 
 fn env_present(key: &str) -> bool {
@@ -596,20 +615,25 @@ pub fn detect_install_source() -> InstallSource {
                         return InstallSource::Apt;
                     }
                     DistroFamily::Fedora
-                        if command_available(&["/usr/bin/dnf", "/bin/dnf"]) =>
+                        if has_pkexec()
+                            && command_available(&[
+                                "/usr/bin/dnf",
+                                "/bin/dnf",
+                            ]) =>
                     {
                         return InstallSource::Dnf;
                     }
                     DistroFamily::Suse
-                        if command_available(&[
-                            "/usr/bin/zypper",
-                            "/usr/sbin/zypper",
-                            "/bin/zypper",
-                        ]) =>
+                        if has_pkexec()
+                            && command_available(&[
+                                "/usr/bin/zypper",
+                                "/usr/sbin/zypper",
+                                "/bin/zypper",
+                            ]) =>
                     {
                         return InstallSource::Zypper;
                     }
-                    DistroFamily::Arch if installed_by_pacman() => {
+                    DistroFamily::Arch if pacman_package_name().is_some() => {
                         return InstallSource::Pacman;
                     }
                     DistroFamily::NixOs => return InstallSource::Nix,
@@ -703,8 +727,7 @@ mod tests {
     fn opensuse_matches_by_identifier_prefix() {
         let parsed = distro(
             "NAME=\"openSUSE Tumbleweed\"\n\
-             ID=opensuse-tumbleweed\n\
-             ID_LIKE=\"opensuse suse\"\n",
+             ID=opensuse-tumbleweed\n",
         );
 
         assert_eq!(parsed.family, DistroFamily::Suse);

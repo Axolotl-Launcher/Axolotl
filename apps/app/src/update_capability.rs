@@ -28,18 +28,31 @@ pub fn current() -> UpdateCapability {
 
 fn update_command(source: InstallSource) -> Option<String> {
     match source {
-        InstallSource::Pacman => {
-            Some("yay -S axolotl-launcher-bin".to_string())
-        }
+        InstallSource::Pacman => Some(format!(
+            "yay -S {}",
+            theseus::pacman_package_name().unwrap_or("axolotl-launcher-bin")
+        )),
+        // The app ID comes from the environment, so only accept the
+        // restricted character set Flatpak IDs may contain before showing a
+        // command the user is likely to paste into a shell.
         InstallSource::Flatpak => Some(
             std::env::var("FLATPAK_ID")
                 .ok()
-                .filter(|id| !id.is_empty())
+                .filter(|id| is_valid_flatpak_id(id))
                 .map(|id| format!("flatpak update {id}"))
                 .unwrap_or_else(|| "flatpak update".to_string()),
         ),
         _ => None,
     }
+}
+
+fn is_valid_flatpak_id(id: &str) -> bool {
+    !id.is_empty()
+        && id.len() <= 255
+        && id.contains('.')
+        && id
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '_' | '-'))
 }
 
 #[tauri::command]

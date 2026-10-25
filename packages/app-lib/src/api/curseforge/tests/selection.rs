@@ -455,3 +455,19 @@ fn quilted_fabric_api_dependency_records_are_reported_by_the_shared_step() {
         _ => panic!("an incompatible dependency must be recorded"),
     }
 }
+
+#[test]
+fn dependency_candidates_rank_release_before_prerelease_and_newer_first() {
+    use super::fixtures::curseforge_file_variant;
+    use crate::api::curseforge::selection::dependency_file_is_better;
+
+    let file = curseforge_file_variant;
+
+    let release = file(1, 1, "2024-01-01T00:00:00Z");
+    let newer_beta = file(2, 2, "2025-01-01T00:00:00Z");
+    let older_release = file(3, 1, "2023-01-01T00:00:00Z");
+
+    assert!(dependency_file_is_better(&release, &newer_beta));
+    assert!(dependency_file_is_better(&release, &older_release));
+    assert!(!dependency_file_is_better(&older_release, &release));
+}

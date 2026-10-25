@@ -1,7 +1,7 @@
 //! Dependency file selection and resolution plan storage.
 
 use crate::State;
-use crate::api::curseforge::catalog::get_files;
+use crate::api::curseforge::catalog::get_files_page;
 use crate::api::curseforge::constants::{DEPENDENCY_PLAN_TTL, MAX_PAGE_SIZE};
 use crate::api::curseforge::dto::{CurseForgeFile, CurseForgeFilesRequest};
 use crate::api::curseforge::mapping::mod_loader_to_slug;
@@ -57,6 +57,66 @@ pub(crate) fn dependency_target_game_version(
     game_version.filter(|version| !version.trim().is_empty())
 }
 
+/// The better of two dependency candidates, using the same ranking as
+/// `select_best_dependency_file`.
+pub(crate) fn dependency_file_is_better(
+    candidate: &CurseForgeFile,
+    current: &CurseForgeFile,
+) -> bool {
+    dependency_release_rank(candidate)
+        .cmp(&dependency_release_rank(current))
+        .then_with(|| candidate.file_date.cmp(&current.file_date))
+        .then_with(|| candidate.id.cmp(&current.id))
+        .is_gt()
+}
+
+/// Best matching file across the pages of one query.
+///
+/// The API returns files newest first, so once a release candidate is found no
+/// later page can hold a better one and the walk stops. Without that early exit
+/// a popular project costs one request per fifty files.
+async fn best_dependency_file(
+    project_id: u32,
+    request: CurseForgeFilesRequest,
+    target_game_version: &str,
+    mod_loader_type: Option<u32>,
+) -> crate::Result<Option<CurseForgeFile>> {
+    let mut index = request.index;
+    let mut best: Option<CurseForgeFile> = None;
+    loop {
+        let page = get_files_page(
+            project_id,
+            CurseForgeFilesRequest {
+                index,
+                ..request.clone()
+            },
+        )
+        .await?;
+        let pagination = page.pagination;
+        if let Some(candidate) = select_best_dependency_file(
+            page.files,
+            Some(target_game_version),
+            mod_loader_type,
+        ) && best.as_ref().is_none_or(|current| {
+            dependency_file_is_better(&candidate, current)
+        }) {
+            best = Some(candidate);
+        }
+        let found_release = best
+            .as_ref()
+            .is_some_and(|file| dependency_release_rank(file) == 3);
+        if found_release || pagination.result_count == 0 {
+            break;
+        }
+        let next = index + pagination.result_count;
+        if next >= pagination.total_count {
+            break;
+        }
+        index = next;
+    }
+    Ok(best)
+}
+
 pub(crate) async fn select_dependency_file(
     project_id: u32,
     game_version: Option<String>,
@@ -73,7 +133,7 @@ pub(crate) async fn select_dependency_file(
         );
         return Ok(None);
     };
-    let filtered = get_files(
+    let filtered = best_dependency_file(
         project_id,
         CurseForgeFilesRequest {
             game_version: game_version.clone(),
@@ -82,14 +142,11 @@ pub(crate) async fn select_dependency_file(
             index: 0,
             page_size: MAX_PAGE_SIZE,
         },
-    )
-    .await?
-    .files;
-    if let Some(file) = select_best_dependency_file(
-        filtered,
-        Some(target_game_version),
+        target_game_version,
         mod_loader_type,
-    ) {
+    )
+    .await?;
+    if let Some(file) = filtered {
         #[cfg(debug_assertions)]
         log_dependency_file_selection(
             project_id,
@@ -103,7 +160,7 @@ pub(crate) async fn select_dependency_file(
             reason: CurseForgeDependencySelectionReason::NativeStrictMatch,
         }));
     }
-    let unfiltered = get_files(
+    let selected = best_dependency_file(
         project_id,
         CurseForgeFilesRequest {
             game_version: None,
@@ -112,14 +169,10 @@ pub(crate) async fn select_dependency_file(
             index: 0,
             page_size: MAX_PAGE_SIZE,
         },
-    )
-    .await?
-    .files;
-    let selected = select_best_dependency_file(
-        unfiltered,
-        Some(target_game_version),
+        target_game_version,
         mod_loader_type,
-    );
+    )
+    .await?;
     #[cfg(debug_assertions)]
     if let Some(file) = selected.as_ref() {
         log_dependency_file_selection(

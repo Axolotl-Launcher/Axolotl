@@ -493,3 +493,38 @@ pub(super) fn category(
         display_index: Some(0),
     }
 }
+
+pub(super) fn curseforge_file_variant(
+    id: u32,
+    release_type: u32,
+    file_date: &str,
+) -> CurseForgeFile {
+    CurseForgeFile {
+        id,
+        game_id: 432,
+        mod_id: 1,
+        is_available: true,
+        display_name: format!("File {id}"),
+        file_name: format!("file-{id}.jar"),
+        release_type,
+        file_status: 4,
+        hashes: Vec::new(),
+        file_date: file_date.to_string(),
+        file_length: 1,
+        download_count: 0,
+        file_size_on_disk: None,
+        download_url: None,
+        game_versions: Vec::new(),
+        sortable_game_versions: Vec::new(),
+        dependencies: Vec::new(),
+        expose_as_alternative: None,
+        parent_project_file_id: None,
+        alternate_file_id: None,
+        is_server_pack: None,
+        server_pack_file_id: None,
+        is_early_access_content: None,
+        early_access_end_date: None,
+        file_fingerprint: 0,
+        modules: Vec::new(),
+    }
+}

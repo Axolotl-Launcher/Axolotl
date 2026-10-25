@@ -2652,6 +2652,63 @@ function isPackageManaged() {
     return updateCapability.value !== null && !updateCapability.value.selfUpdate
 }
 
+/**
+ * Explain how a system-managed installation updates. Without `force` the
+ * prompt is shown once per version, using the persisted prompt state; manual
+ * checks and the titlebar pill pass `force` to answer the user immediately.
+ */
+function showPackageManagerPopup(update, { force = false } = {}) {
+    if (!update || !isPackageManaged()) {
+        return
+    }
+
+    if (!force && getNextAppUpdatePopupTime(update.version, 'available') === null) {
+        return
+    }
+
+    const source = updateSourceLabel(updateCapability.value.source)
+    const command = updateCapability.value.command
+    addPopupNotification({
+        title: formatMessage(updatePopupMessages.updateAvailable),
+        text: command
+            ? formatMessage(updatePopupMessages.packageManagedCommand, {
+                  version: update.version,
+                  source,
+                  command,
+              })
+            : formatMessage(updatePopupMessages.packageManaged, {
+                  version: update.version,
+                  source,
+              }),
+        type: 'info',
+        autoCloseMs: null,
+        buttons: [
+            ...(command
+                ? [
+                      {
+                          label: formatMessage(updatePopupMessages.copyCommand),
+                          action: () => copyPackageUpdateCommand(),
+                          color: 'brand',
+                      },
+                  ]
+                : []),
+            {
+                label: formatMessage(updatePopupMessages.changelog),
+                action: () => openAppUpdateChangelog(),
+                keepOpen: true,
+            },
+        ],
+    })
+    markAppUpdatePopupShown(update.version, 'available')
+}
+
+function showCurrentPackageManagerPopup() {
+    const update = availableUpdate.value
+    if (update) {
+        showPackageManagerPopup(update, { force: true })
+    }
+}
+
 function showDelayedUpdatePopup() {
     const update = availableUpdate.value
     if (!update) {
@@ -2670,40 +2727,7 @@ function showDelayedUpdatePopup() {
     }
 
     if (isPackageManaged()) {
-        const source = updateSourceLabel(updateCapability.value.source)
-        const command = updateCapability.value.command
-        addPopupNotification({
-            title: formatMessage(updatePopupMessages.updateAvailable),
-            text: command
-                ? formatMessage(updatePopupMessages.packageManagedCommand, {
-                      version: update.version,
-                      source,
-                      command,
-                  })
-                : formatMessage(updatePopupMessages.packageManaged, {
-                      version: update.version,
-                      source,
-                  }),
-            type: 'info',
-            autoCloseMs: null,
-            buttons: [
-                ...(command
-                    ? [
-                          {
-                              label: formatMessage(updatePopupMessages.copyCommand),
-                              action: () => copyPackageUpdateCommand(),
-                              color: 'brand',
-                          },
-                      ]
-                    : []),
-                {
-                    label: formatMessage(updatePopupMessages.changelog),
-                    action: () => openAppUpdateChangelog(),
-                    keepOpen: true,
-                },
-            ],
-        })
-        markAppUpdatePopupShown(update.version, 'available')
+        showPackageManagerPopup(update, { force: true })
         return
     }
 
@@ -2759,7 +2783,7 @@ function showDelayedUpdatePopup() {
 
 let lastUpdateChannel = 'release'
 
-async function performUpdateCheck() {
+async function performUpdateCheck(notifyImmediately = false) {
     const channel = await getUpdateChannel()
     const preferences = await getUpdatePreferences()
     updatesPaused.value = preferences.updatesPaused
@@ -2798,7 +2822,11 @@ async function performUpdateCheck() {
 
     if (isExistingUpdate) {
         console.log('Update is already known')
-        scheduleDelayedUpdatePopup()
+        if (notifyImmediately && isPackageManaged()) {
+            showPackageManagerPopup(update, { force: true })
+        } else {
+            scheduleDelayedUpdatePopup()
+        }
         return 'available'
     }
 
@@ -2817,11 +2845,13 @@ async function performUpdateCheck() {
     setAppUpdatePackageManaged(isPackageManaged())
 
     // Installations owned by the system package manager must not be replaced
-    // by the built-in updater; show the package manager command instead.
+    // by the built-in updater; show the package manager command instead. A
+    // manual check always answers immediately, automatic checks only once per
+    // version.
     if (isPackageManaged()) {
         console.log(`Update is managed by ${updateCapability.value.source}`)
         markAppUpdateActionable(update.version)
-        scheduleDelayedUpdatePopup()
+        showPackageManagerPopup(update, { force: notifyImmediately })
         return 'available'
     }
 
@@ -2855,7 +2885,7 @@ async function manualUpdateCheck() {
         return 'offline'
     }
 
-    return await performUpdateCheck()
+    return await performUpdateCheck(true)
 }
 
 async function downloadAvailableUpdate() {
@@ -2932,7 +2962,7 @@ setAppUpdateActions({
     check: manualUpdateCheck,
     download: downloadAvailableUpdate,
     install: installUpdate,
-    packageManagerHint: () => showDelayedUpdatePopup(),
+    packageManagerHint: () => showCurrentPackageManagerPopup(),
     changelog: (version) => {
         if (version && getAnnouncementByVersion(version)) {
             updateAnnouncementModal.value?.show(version)

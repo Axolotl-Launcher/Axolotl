@@ -3,8 +3,8 @@
 use super::catalog::{get_file, get_project};
 use super::constants::MAX_DEPENDENCY_DEPTH;
 use super::dto::{
-    CurseForgeInstallRequest, CurseForgeProject, CurseForgeSkippedDependency,
-    default_true,
+    CurseForgeFile, CurseForgeInstallRequest, CurseForgeProject,
+    CurseForgeSkippedDependency, default_true,
 };
 use super::install::{
     CurseForgeModrinthFallbackPreview, PreviewPendingCurseForgeFile,
@@ -22,9 +22,9 @@ use super::selection::{
 };
 use crate::State;
 use crate::state::{
-    ContentProvider, DependencyResolutionEdge, DependencyResolutionIssue,
-    DependencyResolutionNode, DependencyResolutionPlan,
-    DependencyResolutionTarget,
+    ContentProvider, ContentProviderRef, DependencyResolutionEdge,
+    DependencyResolutionIssue, DependencyResolutionNode,
+    DependencyResolutionPlan, DependencyResolutionTarget,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
@@ -62,18 +62,13 @@ pub struct CurseForgeInstallPreview {
     pub incompatible_dependencies: Vec<u32>,
 }
 
-pub async fn preview_install_file(
-    request: CurseForgeInstallRequest,
-) -> crate::Result<CurseForgeInstallPreview> {
-    let state = State::get().await?;
-    let primary_type = managed_project_type(&request.project_type)?;
-    let primary_file = get_file(request.project_id, request.file_id).await?;
-    let primary_project = get_project(request.project_id).await?;
-    let primary_ref =
-        curseforge_content_ref(request.project_id, request.file_id)?;
-    let instance_revision =
-        instance_content_revision(&request.instance_id, &state).await?;
-    let mut plan = DependencyResolutionPlan {
+fn base_plan(
+    request: &CurseForgeInstallRequest,
+    instance_revision: Option<u64>,
+    primary_ref: ContentProviderRef,
+    primary_file: &CurseForgeFile,
+) -> DependencyResolutionPlan {
+    DependencyResolutionPlan {
         id: format!("dependency-resolution-plan:{}", uuid::Uuid::new_v4()),
         instance_id: request.instance_id.clone(),
         instance_revision,
@@ -85,13 +80,105 @@ pub async fn preview_install_file(
                 .map(str::to_string),
             content_type: Some(request.project_type.clone()),
         },
-        primary: primary_ref.clone(),
-        primary_expected_sha1: curseforge_file_sha1(&primary_file),
+        primary: primary_ref,
+        primary_expected_sha1: curseforge_file_sha1(primary_file),
         primary_expected_size: Some(primary_file.file_length),
         nodes: Vec::new(),
         edges: Vec::new(),
         issues: Vec::new(),
-    };
+    }
+}
+
+/// Collected dependency decisions of one preview traversal.
+struct TraversalOutcome {
+    dependencies: Vec<CurseForgePreviewItem>,
+    modrinth_fallbacks: Vec<CurseForgeModrinthFallbackPreview>,
+    skipped: Vec<CurseForgeSkippedDependency>,
+    optional: Vec<u32>,
+    incompatible: Vec<u32>,
+}
+
+fn assemble_preview(
+    mut plan: DependencyResolutionPlan,
+    request: &CurseForgeInstallRequest,
+    primary_project: &CurseForgeProject,
+    primary_file: &CurseForgeFile,
+    outcome: TraversalOutcome,
+) -> crate::Result<CurseForgeInstallPreview> {
+    let TraversalOutcome {
+        dependencies,
+        mut modrinth_fallbacks,
+        mut skipped,
+        mut optional,
+        mut incompatible,
+    } = outcome;
+    optional.sort_unstable();
+    optional.dedup();
+    incompatible.sort_unstable();
+    incompatible.dedup();
+    skipped.sort_unstable();
+    skipped.dedup();
+    modrinth_fallbacks.sort_by(|left, right| {
+        left.project_id
+            .cmp(&right.project_id)
+            .then_with(|| left.version_id.cmp(&right.version_id))
+    });
+    modrinth_fallbacks.dedup_by(|left, right| {
+        left.project_id == right.project_id
+            && left.version_id == right.version_id
+    });
+    plan.issues.extend(skipped.iter().map(|skipped| {
+        DependencyResolutionIssue {
+            provider: ContentProvider::CurseForge,
+            project_id: skipped.project_id.to_string(),
+            parent: None,
+            relation: Some(
+                crate::state::instances::ContentDependencyKind::Required,
+            ),
+            reason: skipped.reason.clone(),
+        }
+    }));
+    store_dependency_resolution_plan(plan.clone());
+
+    Ok(CurseForgeInstallPreview {
+        plan_id: plan.id,
+        primary: CurseForgePreviewItem {
+            project_id: request.project_id,
+            file_id: request.file_id,
+            title: primary_project.name.clone(),
+            version_number: primary_file.display_name.clone(),
+            file_name: primary_file.file_name.clone(),
+            size: primary_file.file_length,
+            required_by_project_ids: Vec::new(),
+            icon_url: primary_project
+                .logo
+                .as_ref()
+                .map(|logo| logo.thumbnail_url.clone()),
+            version_mismatch: false,
+            selection_reason: None,
+            required: true,
+        },
+        dependencies,
+        modrinth_fallbacks,
+        skipped,
+        optional_dependencies: optional,
+        incompatible_dependencies: incompatible,
+    })
+}
+
+pub async fn preview_install_file(
+    request: CurseForgeInstallRequest,
+) -> crate::Result<CurseForgeInstallPreview> {
+    let state = State::get().await?;
+    let primary_type = managed_project_type(&request.project_type)?;
+    let primary_file = get_file(request.project_id, request.file_id).await?;
+    let primary_project = get_project(request.project_id).await?;
+    let primary_ref =
+        curseforge_content_ref(request.project_id, request.file_id)?;
+    let instance_revision =
+        instance_content_revision(&request.instance_id, &state).await?;
+    let mut plan =
+        base_plan(&request, instance_revision, primary_ref, &primary_file);
     let installed_project_ids = if request.instance_id.is_empty() {
         Vec::new()
     } else {
@@ -109,7 +196,7 @@ pub async fn preview_install_file(
     let mut modrinth_fallbacks = Vec::new();
     let mut fallback_parents = HashSet::new();
     let mut skipped = Vec::new();
-    let mut optional = Vec::new();
+    let optional = Vec::new();
     let mut incompatible = Vec::new();
     let mut pending = vec![PreviewPendingCurseForgeFile {
         project_id: request.project_id,
@@ -336,56 +423,17 @@ pub async fn preview_install_file(
         }
     }
 
-    optional.sort_unstable();
-    optional.dedup();
-    incompatible.sort_unstable();
-    incompatible.dedup();
-    skipped.sort_unstable();
-    skipped.dedup();
-    modrinth_fallbacks.sort_by(|left, right| {
-        left.project_id
-            .cmp(&right.project_id)
-            .then_with(|| left.version_id.cmp(&right.version_id))
-    });
-    modrinth_fallbacks.dedup_by(|left, right| {
-        left.project_id == right.project_id
-            && left.version_id == right.version_id
-    });
-    plan.issues.extend(skipped.iter().map(|skipped| {
-        DependencyResolutionIssue {
-            provider: ContentProvider::CurseForge,
-            project_id: skipped.project_id.to_string(),
-            parent: None,
-            relation: Some(
-                crate::state::instances::ContentDependencyKind::Required,
-            ),
-            reason: skipped.reason.clone(),
-        }
-    }));
-    store_dependency_resolution_plan(plan.clone());
-
-    Ok(CurseForgeInstallPreview {
-        plan_id: plan.id,
-        primary: CurseForgePreviewItem {
-            project_id: request.project_id,
-            file_id: request.file_id,
-            title: primary_project.name,
-            version_number: primary_file.display_name,
-            file_name: primary_file.file_name,
-            size: primary_file.file_length,
-            required_by_project_ids: Vec::new(),
-            icon_url: primary_project
-                .logo
-                .as_ref()
-                .map(|logo| logo.thumbnail_url.clone()),
-            version_mismatch: false,
-            selection_reason: None,
-            required: true,
+    assemble_preview(
+        plan,
+        &request,
+        &primary_project,
+        &primary_file,
+        TraversalOutcome {
+            dependencies,
+            modrinth_fallbacks,
+            skipped,
+            optional,
+            incompatible,
         },
-        dependencies,
-        modrinth_fallbacks,
-        skipped,
-        optional_dependencies: optional,
-        incompatible_dependencies: incompatible,
-    })
+    )
 }

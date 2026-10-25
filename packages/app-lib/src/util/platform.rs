@@ -569,12 +569,13 @@ pub fn pacman_package_name() -> Option<&'static str> {
                     .filter_map(|entry| {
                         let entry =
                             entry.file_name().to_string_lossy().to_string();
-                        if !entry.starts_with("axolotl")
-                            || entry.ends_with("-debug")
+                        let name = entry.rsplitn(3, '-').nth(2)?;
+                        if !name.starts_with("axolotl")
+                            || name.ends_with("-debug")
                         {
                             return None;
                         }
-                        entry.rsplitn(3, '-').nth(2).map(str::to_string)
+                        Some(name.to_string())
                     })
                     .collect();
             names.sort();

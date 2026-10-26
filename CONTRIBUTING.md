@@ -111,7 +111,7 @@ node scripts/axolotl/downgrade-app-db.mjs --suffix pr538 --to 20260903120000 --a
 
 该脚本依赖 Node 内置的 `node:sqlite`，并要求 Windows（解析默认数据目录需要 `APPDATA`；其他平台请用 `--db` 指定路径）。
 
-### 模拟安装来源（仅调试构建）由 ljm-233 添加
+### 模拟安装来源（仅调试构建）由 ljm-233 添加 仅Linux Bash
 
 `pnpm app:dev` 运行的是 `target/debug` 下的二进制，它不属于任何包数据库，所以安装来源会被判定为便携版并保留检查更新。调试构建可以用环境变量覆盖这个判定，用来预览被包管理器托管的安装（禁用检查更新、显示更新命令）：
 

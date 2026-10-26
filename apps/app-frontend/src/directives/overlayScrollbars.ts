@@ -18,10 +18,21 @@ const mergeOptions = (options: PartialOptions = {}): PartialOptions => ({
     },
 })
 
+/** Runs `callback` once the next frame has been painted. */
+const afterNextPaint = (callback: () => void) =>
+    requestAnimationFrame(() => {
+        setTimeout(callback, 0)
+    })
+
 export const overlayScrollbarsDirective: ObjectDirective<HTMLElement, PartialOptions | undefined> =
     {
         mounted(el, binding) {
-            OverlayScrollbars(el, mergeOptions(binding.value))
+            // Initializing measures the element; inside the task that mounts it, that
+            // forces the whole window's first layout. `data-overlayscrollbars-initialize`
+            // keeps native scrollbars hidden until then.
+            afterNextPaint(() => {
+                if (el.isConnected) OverlayScrollbars(el, mergeOptions(binding.value))
+            })
         },
         updated(el, binding) {
             if (binding.value === binding.oldValue) return

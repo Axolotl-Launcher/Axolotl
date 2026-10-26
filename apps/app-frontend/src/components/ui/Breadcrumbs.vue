@@ -298,7 +298,8 @@ function onAnimationIteration() {
 let resizeObserver: ResizeObserver | null = null
 
 onMounted(() => {
-    checkOverflow()
+    // The observer reports both elements after the next layout. Measuring here would
+    // force the whole window's first layout inside the task that mounts it.
     resizeObserver = new ResizeObserver(checkOverflow)
     if (outerRef.value) resizeObserver.observe(outerRef.value)
     if (innerRef.value) resizeObserver.observe(innerRef.value)

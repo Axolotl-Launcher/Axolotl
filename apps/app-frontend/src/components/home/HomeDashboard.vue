@@ -18,8 +18,8 @@ import {
     OverflowMenu,
     useVIntl,
 } from '@modrinth/ui'
-import { useElementSize } from '@vueuse/core'
-import { computed, ref, shallowRef, watch } from 'vue'
+import { until, useResizeObserver } from '@vueuse/core'
+import { computed, defineAsyncComponent, ref, shallowRef, watch } from 'vue'
 import Draggable from 'vuedraggable'
 
 import {
@@ -54,14 +54,22 @@ import {
 import { provideHomeDashboardRuntime } from '@/components/home/home-dashboard-runtime'
 import HomeCalendar from '@/components/home/HomeCalendar.vue'
 import HomeGreeting from '@/components/home/HomeGreeting.vue'
-import HomeGreetingSettingsModal from '@/components/home/HomeGreetingSettingsModal.vue'
+import type HomeGreetingSettingsModalInstance from '@/components/home/HomeGreetingSettingsModal.vue'
 import HomePinnedInstances from '@/components/home/HomePinnedInstances.vue'
 import HomePinnedServers from '@/components/home/HomePinnedServers.vue'
 import HomePinnedWorlds from '@/components/home/HomePinnedWorlds.vue'
 import HomeRecentWorlds from '@/components/home/HomeRecentWorlds.vue'
 import HomeShortcutWidget from '@/components/home/HomeShortcutWidget.vue'
-import HomeWidgetPickerModal from '@/components/home/HomeWidgetPickerModal.vue'
+import type HomeWidgetPickerModalInstance from '@/components/home/HomeWidgetPickerModal.vue'
 import type { GameInstance } from '@/helpers/types'
+
+// Opened from the edit controls only: loaded and mounted the first time they open.
+const HomeGreetingSettingsModal = defineAsyncComponent(
+    () => import('@/components/home/HomeGreetingSettingsModal.vue'),
+)
+const HomeWidgetPickerModal = defineAsyncComponent(
+    () => import('@/components/home/HomeWidgetPickerModal.vue'),
+)
 
 const props = defineProps<{
     config: HomeDashboardConfig
@@ -81,13 +89,20 @@ provideHomeDashboardRuntime(handleError)
 const editing = computed(() => props.editing)
 const isFreeLayout = computed(() => props.config.layout === 'free')
 const gridContainer = ref<HTMLElement>()
-const widgetPicker = ref<InstanceType<typeof HomeWidgetPickerModal>>()
-const greetingSettings = ref<InstanceType<typeof HomeGreetingSettingsModal>>()
+const widgetPicker = ref<InstanceType<typeof HomeWidgetPickerModalInstance>>()
+const greetingSettings = ref<InstanceType<typeof HomeGreetingSettingsModalInstance>>()
+const widgetPickerUsed = ref(false)
+const greetingSettingsUsed = ref(false)
 const replacingWidgetId = ref<string | null>(null)
 const dragging = ref(false)
 const draggableWidgets = ref<HomeWidgetPlacement[]>([])
 const previewPositions = ref<Record<string, HomeWidgetPosition>>({})
-const { width } = useElementSize(gridContainer)
+// The grid's content width as the observer reports it after layout; measuring while
+// mounting (as useElementSize does) forces the window's first layout in that task.
+const width = ref(0)
+useResizeObserver(gridContainer, ([entry]) => {
+    width.value = entry.contentRect.width
+})
 const columnCount = computed(() => getHomeGridColumnCount(width.value))
 const widgetsForPacking = computed(() =>
     editing.value ? draggableWidgets.value : props.config.widgets,
@@ -368,9 +383,15 @@ function effectiveSize(widget: HomeWidgetPlacement): HomeWidgetSize {
         : widget.size
 }
 
+async function showWidgetPicker(kind?: HomeWidgetPlacement['kind']) {
+    widgetPickerUsed.value = true
+    const picker = await until(widgetPicker).toBeTruthy()
+    picker.show(kind)
+}
+
 function openWidgetPicker() {
     replacingWidgetId.value = null
-    widgetPicker.value?.show()
+    void showWidgetPicker()
 }
 
 function addWidget(widget: HomeWidgetPlacement) {
@@ -404,7 +425,7 @@ function addWidget(widget: HomeWidgetPlacement) {
 
 function replaceWidgetTarget(widget: HomeWidgetPlacement) {
     replacingWidgetId.value = widget.id
-    widgetPicker.value?.show(widget.kind)
+    void showWidgetPicker(widget.kind)
 }
 
 function removeWidget(id: string) {
@@ -435,8 +456,10 @@ function setRecentLimit(id: string, limit: (typeof HOME_RECENT_LIMIT_OPTIONS)[nu
     emit('change', setHomeRecentLimit(props.config, id, limit))
 }
 
-function openGreetingSettings(widget: HomeWidgetPlacement) {
-    greetingSettings.value?.show(widget)
+async function openGreetingSettings(widget: HomeWidgetPlacement) {
+    greetingSettingsUsed.value = true
+    const settings = await until(greetingSettings).toBeTruthy()
+    settings.show(widget)
 }
 
 function saveGreetingSettings(
@@ -539,8 +562,14 @@ defineExpose({ openWidgetPicker, setLayout })
 </script>
 
 <template>
-    <HomeWidgetPickerModal ref="widgetPicker" :instances="instances" @add="addWidget" />
+    <HomeWidgetPickerModal
+        v-if="widgetPickerUsed"
+        ref="widgetPicker"
+        :instances="instances"
+        @add="addWidget"
+    />
     <HomeGreetingSettingsModal
+        v-if="greetingSettingsUsed"
         ref="greetingSettings"
         :player-name="playerName"
         @save="saveGreetingSettings"

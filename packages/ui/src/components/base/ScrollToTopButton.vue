@@ -28,7 +28,9 @@ onMounted(() => {
     scrollContainer = document.querySelector('.app-viewport')
     if (scrollContainer) {
         scrollContainer.addEventListener('scroll', update, { passive: true })
-        update()
+        // Read the position with the next frame: reading it now would force a layout
+        // of the whole page inside the task that mounts it.
+        requestAnimationFrame(update)
     }
 })
 

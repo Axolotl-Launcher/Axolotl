@@ -850,7 +850,6 @@ export function useSearch(
             readParams.add('s')
         })
         loadQueryParam(['m'], (count) => {
-<<<<<<< Updated upstream
             // A hand-edited or malformed `?m=` must not overwrite the stored
             // preference: `?m=0` would otherwise persist 0 and reset the user to
             // the default on the next visit.
@@ -858,13 +857,6 @@ export function useSearch(
             if (!Number.isFinite(parsed) || parsed <= 0) return
             setMaxResultsProgrammatically(parsed)
             readParams.add('m')
-=======
-            const n = Number(count)
-            if (Number.isFinite(n) && n >= 5) {
-                maxResults.value = n
-                readParams.add('m')
-            }
->>>>>>> Stashed changes
         })
         loadQueryParam(['o'], (offset) => {
             currentPage.value = Math.ceil(Number(offset) / maxResults.value) + 1

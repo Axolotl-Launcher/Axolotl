@@ -80,7 +80,7 @@ export function useContentPipeline(config: ContentPipelineConfig) {
         showTypeFilters = false,
         showUpdateFilter = false,
         memoryKey = '',
-        searchKeys = ['project.title', 'owner.name', 'file_name'],
+        searchKeys = ['project.title', 'owner.name', 'file_name', 'chinese_title'],
         initialFilters,
         filterOptionsReady,
     } = config

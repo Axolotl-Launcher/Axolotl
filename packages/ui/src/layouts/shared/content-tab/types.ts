@@ -165,6 +165,8 @@ export interface ContentItem extends Omit<
     source_kind?: string
     /** True when the file is not linked to any online project. */
     external?: boolean
+    /** Dictionary name used for local search when the displayed title is not localized. */
+    chinese_title?: string
     /** Loader derived from the installed version or locally parsed mod metadata. */
     loader?: string
     installing?: boolean

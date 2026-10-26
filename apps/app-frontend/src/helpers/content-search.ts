@@ -1,6 +1,8 @@
 import type { ContentItem } from '@modrinth/ui'
 import { invoke } from '@tauri-apps/api/core'
 
+import { get as getSettings } from '@/helpers/settings.ts'
+
 export interface ChineseSearchTranslation {
     chineseName: string
     curseforgeSlug?: string
@@ -96,6 +98,11 @@ export function bilingualTitle(chineseName: string, originalTitle: string) {
     return `${chineseTitle} (${originalTitle})`
 }
 
+/** Whether content lists should keep dictionary names out of the displayed title. */
+async function hidesChineseContentTitles(): Promise<boolean> {
+    return (await getSettings()).hide_chinese_content_titles
+}
+
 /**
  * Rewrites search hit titles to the bilingual `中文名 (English)` format,
  * resolving names from the bundled wiki dictionary by project slug. Hits are
@@ -106,6 +113,7 @@ export async function translateSearchHitTitles<
     T extends { slug?: string | null; title: string; provider: 'modrinth' | 'curseforge' },
 >(hits: T[], locale: string): Promise<T[]> {
     if (locale !== 'zh-CN' || hits.length === 0) return hits
+    if (await hidesChineseContentTitles()) return hits
 
     const modrinthSlugs: string[] = []
     const curseforgeSlugs: string[] = []
@@ -135,7 +143,9 @@ export async function translateSearchHitTitles<
 /**
  * Rewrites content item titles to the bilingual `中文名 (English)` format used
  * by the Browse page, resolving names from the bundled wiki dictionary by
- * project slug. Items are returned unchanged unless the locale is zh-CN.
+ * project slug. Items are returned unchanged unless the locale is zh-CN. When
+ * Chinese titles are hidden, the dictionary name is kept on `chinese_title`
+ * instead so the local content search can still match it.
  */
 export async function translateContentItemTitles<T extends ContentItem>(
     items: T[],
@@ -156,6 +166,8 @@ export async function translateContentItemTitles<T extends ContentItem>(
     const lookup = await lookupChineseContentNames(modrinthSlugs, curseforgeSlugs).catch(() => null)
     if (!lookup) return items
 
+    const hidden = await hidesChineseContentTitles()
+
     return items.map((item) => {
         const project = item.project
         if (!project?.slug) return item
@@ -166,6 +178,7 @@ export async function translateContentItemTitles<T extends ContentItem>(
                   ? lookup.modrinth[project.slug]
                   : undefined
         if (!chineseName) return item
+        if (hidden) return { ...item, chinese_title: chineseName }
         return {
             ...item,
             project: { ...project, title: bilingualTitle(chineseName, project.title) },

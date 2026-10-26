@@ -2632,6 +2632,7 @@ function enrichContentData(data: InstanceContentData, generation: number) {
                         return item
                     return {
                         ...item,
+                        chinese_title: translated.item.chinese_title,
                         project: { ...item.project, title: translated.item.project.title },
                     }
                 })

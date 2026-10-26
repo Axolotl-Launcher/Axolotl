@@ -34,11 +34,7 @@ impl SourceId {
     }
 
     pub fn all() -> &'static [Self] {
-        &[
-            Self::Reden,
-            Self::BuildSchematics,
-            Self::McSchematics,
-        ]
+        &[Self::Reden, Self::BuildSchematics, Self::McSchematics]
     }
 
     /// Human-facing label, kept untranslated: the frontend maps it through i18n.

@@ -32,7 +32,8 @@ const saveDraft = createSettingsPatchSaver(settings.value, update)
 watch(
     settings,
     () => {
-        void saveDraft(JSON.parse(JSON.stringify(settings.value))).catch(handleError)
+        // The saver snapshots the draft itself; only the changed keys are sent.
+        void saveDraft(settings.value).catch(handleError)
     },
     { deep: true },
 )

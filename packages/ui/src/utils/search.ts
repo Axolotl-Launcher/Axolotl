@@ -5,10 +5,7 @@ import { type Component, computed, readonly, type Ref, ref, watch } from 'vue'
 import { type LocationQueryRaw, type LocationQueryValue, useRoute } from 'vue-router'
 
 import { defineMessage, useVIntl } from '../composables/i18n'
-import {
-    persistMaxResults,
-    readPersistedMaxResults,
-} from './browse-max-results.ts'
+import { persistMaxResults, readPersistedMaxResults } from './browse-max-results.ts'
 import {
     DEFAULT_MOD_LOADERS,
     DEFAULT_PLUGIN_LOADERS,

@@ -27,7 +27,6 @@ import {
 import {
     Admonition,
     Avatar,
-    BatchScanOverlay,
     BigOptionButton,
     bindingMatchesKeyboardEvent,
     bindingMatchesMouseEvent,
@@ -36,15 +35,9 @@ import {
     Checkbox,
     clientInstallableLoaders,
     commonMessages,
-    ConfirmDropTypeModal,
-    ContentInstallModal,
-    ContentUpdaterModal,
     CreationFlowModal,
     defineMessages,
-    GenericContentInstallModal,
-    I18nDebugPanel,
     type KeyBinding,
-    LauncherImportModal,
     LoadingBar,
     NewModal,
     NotificationPanel,
@@ -56,7 +49,6 @@ import {
     providePageContext,
     providePopupNotificationManager,
     ScrollToTopButton,
-    SymlinkMethodCards,
     useFormatBytes,
     useModalStack,
     useVIntl,
@@ -70,37 +62,36 @@ import { fetch as tauriFetch } from '@tauri-apps/plugin-http'
 import { openUrl } from '@tauri-apps/plugin-opener'
 import { type as getOsType } from '@tauri-apps/plugin-os'
 import { saveWindowState, StateFlags } from '@tauri-apps/plugin-window-state'
-import { computed, nextTick, onMounted, onUnmounted, provide, ref, watch } from 'vue'
+import {
+    computed,
+    defineAsyncComponent,
+    nextTick,
+    onMounted,
+    onUnmounted,
+    provide,
+    ref,
+    watch,
+} from 'vue'
 import { type RouteLocationNormalizedLoaded, RouterView, useRoute, useRouter } from 'vue-router'
 
-import { getAnnouncementByVersion } from '@/announcements/catalog'
-import InstanceExportModal from '@/components/lab/recipe-generator/InstanceExportModal.vue'
 import AccountsCard from '@/components/ui/AccountsCard.vue'
-import UpdateAnnouncementModal from '@/components/ui/announcement/UpdateAnnouncementModal.vue'
 import AppActionBar from '@/components/ui/AppActionBar.vue'
 import AppTitlebar from '@/components/ui/AppTitlebar.vue'
-import ContentInstallPreviewModal from '@/components/ui/ContentInstallPreviewModal.vue'
-import ErrorModal from '@/components/ui/ErrorModal.vue'
-import AddServerToInstanceModal from '@/components/ui/install_flow/AddServerToInstanceModal.vue'
+import type ContentInstallPreviewModalInstance from '@/components/ui/ContentInstallPreviewModal.vue'
 import UnknownPackWarningModal from '@/components/ui/install_flow/UnknownPackWarningModal.vue'
-import MinecraftAuthErrorModal from '@/components/ui/minecraft-auth-error-modal/MinecraftAuthErrorModal.vue'
-import MinecraftCrashModal from '@/components/ui/MinecraftCrashModal.vue'
-import AuthGrantFlowWaitModal from '@/components/ui/modal/AuthGrantFlowWaitModal.vue'
-import CurseForgeManualDownloadsModal from '@/components/ui/modal/CurseForgeManualDownloadsModal.vue'
+import { launchFailureKind } from '@/components/ui/minecraft-launch-failure'
 import InstanceIconPickerModal from '@/components/ui/modal/InstanceIconPickerModal.vue'
-import JavaDownloadConfirmationModal from '@/components/ui/modal/JavaDownloadConfirmationModal.vue'
-import ModpackAlreadyInstalledModal from '@/components/ui/modal/ModpackAlreadyInstalledModal.vue'
-import ModpackInstallModal from '@/components/ui/modal/ModpackInstallModal.vue'
-import PrivacyConsentModal from '@/components/ui/modal/PrivacyConsentModal.vue'
+import type ModpackInstallModalInstance from '@/components/ui/modal/ModpackInstallModal.vue'
+import type PrivacyConsentModalInstance from '@/components/ui/modal/PrivacyConsentModal.vue'
 import NavButton from '@/components/ui/NavButton.vue'
 import NavRail from '@/components/ui/NavRail.vue'
-import OfflineAccountRestrictionModal from '@/components/ui/OfflineAccountRestrictionModal.vue'
-import OnboardingOverlay from '@/components/ui/onboarding/OnboardingOverlay.vue'
+import type OfflineAccountRestrictionModalInstance from '@/components/ui/OfflineAccountRestrictionModal.vue'
 import QuickInstanceSwitcher from '@/components/ui/QuickInstanceSwitcher.vue'
-import RemoteAnnouncements from '@/components/ui/RemoteAnnouncements.vue'
-import ResourceOperationPreviewModal from '@/components/ui/ResourceOperationPreviewModal.vue'
+import type RemoteAnnouncementsInstance from '@/components/ui/RemoteAnnouncements.vue'
+import type ResourceOperationPreviewModalInstance from '@/components/ui/ResourceOperationPreviewModal.vue'
 import SplashScreen from '@/components/ui/SplashScreen.vue'
 import WindowControls from '@/components/ui/WindowControls.vue'
+import { createDeferredUi } from '@/composables/deferred-ui'
 import { useCheckDisableMouseover } from '@/composables/macCssFix.js'
 import { isOfflineAccountRestrictedError } from '@/composables/useAntiPiracyStatus'
 import { useDropImport } from '@/composables/useDropImport'
@@ -205,6 +196,87 @@ import { useTheming } from '@/store/state'
 
 import { AppNotificationManager } from './providers/app-notifications'
 import { AppPopupNotificationManager } from './providers/app-popup-notifications'
+
+// Dialogs, overlays and flows the first screen does not show. They load and mount
+// with the deferred UI: on the first interaction, when idle, or when code needs one.
+const AddServerToInstanceModal = defineAsyncComponent(
+    () => import('@/components/ui/install_flow/AddServerToInstanceModal.vue'),
+)
+const AuthGrantFlowWaitModal = defineAsyncComponent(
+    () => import('@/components/ui/modal/AuthGrantFlowWaitModal.vue'),
+)
+const BatchScanOverlay = defineAsyncComponent(
+    () => import('@modrinth/ui/src/components/flows/drop/BatchScanOverlay.vue'),
+)
+const ConfirmDropTypeModal = defineAsyncComponent(
+    () => import('@modrinth/ui/src/components/flows/drop/ConfirmDropTypeModal.vue'),
+)
+const ContentInstallModal = defineAsyncComponent(
+    () =>
+        import('@modrinth/ui/src/layouts/shared/content-tab/components/modals/ContentInstallModal.vue'),
+)
+const ContentInstallPreviewModal = defineAsyncComponent(
+    () => import('@/components/ui/ContentInstallPreviewModal.vue'),
+)
+const ContentUpdaterModal = defineAsyncComponent(
+    () =>
+        import('@modrinth/ui/src/layouts/shared/content-tab/components/modals/content-updater-modal/index.vue'),
+)
+const CurseForgeManualDownloadsModal = defineAsyncComponent(
+    () => import('@/components/ui/modal/CurseForgeManualDownloadsModal.vue'),
+)
+const ErrorModal = defineAsyncComponent(() => import('@/components/ui/ErrorModal.vue'))
+const GenericContentInstallModal = defineAsyncComponent(
+    () => import('@modrinth/ui/src/components/flows/drop/GenericContentInstallModal.vue'),
+)
+const I18nDebugPanel = defineAsyncComponent(
+    () => import('@modrinth/ui/src/components/base/I18nDebugPanel.vue'),
+)
+const InstanceExportModal = defineAsyncComponent(
+    () => import('@/components/lab/recipe-generator/InstanceExportModal.vue'),
+)
+const JavaDownloadConfirmationModal = defineAsyncComponent(
+    () => import('@/components/ui/modal/JavaDownloadConfirmationModal.vue'),
+)
+const LauncherImportModal = defineAsyncComponent(
+    () => import('@modrinth/ui/src/components/flows/drop/LauncherImportModal.vue'),
+)
+const MinecraftAuthErrorModal = defineAsyncComponent(
+    () => import('@/components/ui/minecraft-auth-error-modal/MinecraftAuthErrorModal.vue'),
+)
+const MinecraftCrashModal = defineAsyncComponent(
+    () => import('@/components/ui/MinecraftCrashModal.vue'),
+)
+const ModpackAlreadyInstalledModal = defineAsyncComponent(
+    () => import('@/components/ui/modal/ModpackAlreadyInstalledModal.vue'),
+)
+const ModpackInstallModal = defineAsyncComponent(
+    () => import('@/components/ui/modal/ModpackInstallModal.vue'),
+)
+const OfflineAccountRestrictionModal = defineAsyncComponent(
+    () => import('@/components/ui/OfflineAccountRestrictionModal.vue'),
+)
+const OnboardingOverlay = defineAsyncComponent(
+    () => import('@/components/ui/onboarding/OnboardingOverlay.vue'),
+)
+const PrivacyConsentModal = defineAsyncComponent(
+    () => import('@/components/ui/modal/PrivacyConsentModal.vue'),
+)
+const RemoteAnnouncements = defineAsyncComponent(
+    () => import('@/components/ui/RemoteAnnouncements.vue'),
+)
+const ResourceOperationPreviewModal = defineAsyncComponent(
+    () => import('@/components/ui/ResourceOperationPreviewModal.vue'),
+)
+const SymlinkMethodCards = defineAsyncComponent(
+    () => import('@modrinth/ui/src/components/flows/drop/SymlinkMethodCards.vue'),
+)
+const UpdateAnnouncementModal = defineAsyncComponent(
+    () => import('@/components/ui/announcement/UpdateAnnouncementModal.vue'),
+)
+// At the latest it mounts once the app is idle, so its dialogs open without a wait.
+const deferredUi = createDeferredUi(4000)
+const deferredUiMounted = deferredUi.mounted
 
 const themeStore = useTheming()
 /** While a dialog is open no shortcut fires, including the one being recorded. */
@@ -424,7 +496,8 @@ watch(
 )
 
 const stateInitialized = ref(false)
-const privacyConsentModal = ref<InstanceType<typeof PrivacyConsentModal>>()
+const privacyConsentModal = ref<InstanceType<typeof PrivacyConsentModalInstance>>()
+const privacyConsent = deferredUi.handle(privacyConsentModal)
 const privacyConsentPending = ref(false)
 const titlebar = ref<InstanceType<typeof AppTitlebar>>()
 const titlebarAnchor = computed<HTMLElement | undefined>(() => titlebar.value?.$el)
@@ -511,6 +584,7 @@ let maximizedStateTimer: ReturnType<typeof setTimeout> | undefined
 let unlistenWindowResize: (() => void) | undefined
 let stopNativeEditMenu: (() => void) | undefined
 const minecraftCrashModal = ref()
+const crashModal = deferredUi.handle(minecraftCrashModal)
 const javaDownloadConfirmationModal = ref()
 const pendingUpdateAnnouncementVersion = ref(null)
 const updateAnnouncementShowing = ref(false)
@@ -1554,7 +1628,7 @@ async function setupApp() {
     stateInitialized.value = true
     if (privacyConsentPending.value) {
         await nextTick()
-        privacyConsentModal.value?.show({
+        void privacyConsent.show({
             telemetry,
             discord_rpc,
             consent_version: telemetry_consent_version,
@@ -1590,7 +1664,7 @@ async function setupApp() {
 
     await warning_listener(async (e) => {
         if (e.kind === 'minecraft_crash') {
-            await minecraftCrashModal.value?.handleWarning(e)
+            await crashModal.handleWarning(e)
             return
         }
 
@@ -1601,7 +1675,7 @@ async function setupApp() {
         })
     })
     await java_download_confirmation_listener((request) => {
-        javaDownloadConfirmationModal.value?.show(request)
+        void deferredUi.handle(javaDownloadConfirmationModal).show(request)
     })
     await drop_classify_progress_listener((payload) => {
         if (dropProcessingNotificationId.value === null) return
@@ -1713,10 +1787,12 @@ async function scheduleStartupDialogs() {
     )
         return
 
-    if (pendingUpdateAnnouncementVersion.value && updateAnnouncementModal.value) {
+    const version = pendingUpdateAnnouncementVersion.value
+    if (version) {
         updateAnnouncementShowing.value = true
+        const modal = await deferredUi.when(updateAnnouncementModal)
         await nextTick()
-        updateAnnouncementModal.value.show(pendingUpdateAnnouncementVersion.value)
+        modal.show(version)
         return
     }
 }
@@ -1750,7 +1826,7 @@ async function previewPrivacyConsentModal() {
             onboardingSettings.value.telemetry_consent_version = privacy.consent_version
         }
         await nextTick()
-        privacyConsentModal.value?.show(privacy)
+        void privacyConsent.show(privacy)
     } catch (error) {
         handleError(error)
     }
@@ -1762,17 +1838,17 @@ provide(minecraftLaunchErrorKey, async (launchError, payload) => {
         useError().showAntiPiracyNotice()
         return true
     }
-    return (await minecraftCrashModal.value?.handleLaunchError(launchError, payload)) ?? false
+    return (await crashModal.handleLaunchError(launchError, payload)) ?? false
 })
-provide('previewMinecraftCrashModal', () => minecraftCrashModal.value?.showPreview())
-const remoteAnnouncementPreview = ref<InstanceType<typeof RemoteAnnouncements>>()
+provide('previewMinecraftCrashModal', () => crashModal.showPreview())
+const remoteAnnouncementPreview = ref<InstanceType<typeof RemoteAnnouncementsInstance>>()
 provide('previewRemoteAnnouncement', (type: 'modal' | 'notification', withAction = false) => {
-    remoteAnnouncementPreview.value?.preview(type, withAction)
+    void deferredUi.handle(remoteAnnouncementPreview).preview(type, withAction)
 })
 provide('previewPrivacyConsentModal', previewPrivacyConsentModal)
 provide('previewUpdateAnnouncement', (version = null) => {
     const previewVersion = version ?? pendingUpdateAnnouncementVersion.value
-    if (previewVersion) updateAnnouncementModal.value?.show(previewVersion)
+    if (previewVersion) void deferredUi.handle(updateAnnouncementModal).show(previewVersion)
 })
 
 const stateFailed = ref(false)
@@ -2088,16 +2164,15 @@ watch(
 
 const error = useError()
 error.setMinecraftLaunchErrorHandler((launchError, context) => {
-    if (!minecraftCrashModal.value?.isLaunchFailure(launchError) || !context?.instanceId)
-        return false
-    void minecraftCrashModal.value.handleLaunchError(launchError, {
+    if (launchFailureKind(launchError) === null || !context?.instanceId) return false
+    void crashModal.handleLaunchError(launchError, {
         instance_id: context.instanceId,
         instance_name: 'Minecraft',
     })
     return true
 })
 const errorModal = ref()
-const antiPiracyNoticeModal = ref<InstanceType<typeof OfflineAccountRestrictionModal>>()
+const antiPiracyNoticeModal = ref<InstanceType<typeof OfflineAccountRestrictionModalInstance>>()
 const minecraftAuthErrorModal = ref()
 
 const contentInstall = createContentInstall({ router, handleError, addNotification })
@@ -2143,16 +2218,23 @@ const {
 } = serverInstall
 
 const modInstallModal = ref()
-const resourceInstallPreview = ref<InstanceType<typeof ResourceOperationPreviewModal> | null>(null)
-const contentInstallPreviewModal = ref<InstanceType<typeof ContentInstallPreviewModal> | null>(null)
+const resourceInstallPreview = ref<InstanceType<
+    typeof ResourceOperationPreviewModalInstance
+> | null>(null)
+const contentInstallPreviewModal = ref<InstanceType<
+    typeof ContentInstallPreviewModalInstance
+> | null>(null)
 const modpackAlreadyInstalledModal = ref()
-const contentInstallModpackInstallModal = ref<InstanceType<typeof ModpackInstallModal> | null>(null)
+const contentInstallModpackInstallModal = ref<InstanceType<
+    typeof ModpackInstallModalInstance
+> | null>(null)
 const handleContentInstallModpackDuplicateGoToInstance = (instanceId: string) =>
     router.push(`/instance/${encodeURIComponent(instanceId)}`)
 const contentInstallCurseForgeManualDownloadsModal = ref()
 const addServerToInstanceModal = ref()
 const incompatibilityWarningModal = ref()
 const modrinthLoginFlowWaitModal = ref()
+const loginFlowWait = deferredUi.handle(modrinthLoginFlowWaitModal)
 
 // ── Drop import system ──────────────────────────────────────────────────
 const dropImport = useDropImport({
@@ -2225,23 +2307,19 @@ const {
 
 provide('chooseImportMethod', chooseImportMethod)
 
-watch(
-    dropIncompatibilityWarningModal,
-    (modal) => {
-        if (modal) {
-            setContentIncompatibilityWarningModal(modal)
-        }
-    },
-    { flush: 'post' },
-)
-
-watch(
-    incompatibilityWarningModal,
-    (modal) => {
-        dropIncompatibilityWarningModal.value = modal
-    },
-    { flush: 'post' },
-)
+const confirmDropModalInstance = ref()
+const genericInstallModalInstance = ref()
+const launcherImportModalInstance = ref()
+const symlinkCardsModalInstance = ref()
+const dataPackWorldModalInstance = ref()
+confirmDropModal.value = deferredUi.handle(confirmDropModalInstance)
+genericInstallModal.value = deferredUi.handle(genericInstallModalInstance)
+launcherImportModal.value = deferredUi.handle(launcherImportModalInstance)
+symlinkCardsModal.value = deferredUi.handle(symlinkCardsModalInstance)
+dataPackWorldModal.value = deferredUi.handle(dataPackWorldModalInstance)
+const incompatibilityWarning = deferredUi.handle(incompatibilityWarningModal)
+dropIncompatibilityWarningModal.value = incompatibilityWarning
+setContentIncompatibilityWarningModal(incompatibilityWarning)
 
 setupAuthProvider(credentials, async (_redirectPath) => {
     if (AxolotlBrandConfig.capabilities.privateModrinthServices) await signIn()
@@ -2278,7 +2356,7 @@ async function fetchCredentials() {
 }
 
 async function signIn() {
-    modrinthLoginFlowWaitModal.value.show()
+    void loginFlowWait.show()
 
     try {
         await login()
@@ -2294,7 +2372,7 @@ async function signIn() {
             handleError(error)
         }
     } finally {
-        modrinthLoginFlowWaitModal.value.hide()
+        void loginFlowWait.hide()
     }
 }
 
@@ -2306,22 +2384,23 @@ async function logOut() {
 onMounted(() => {
     invoke('show_window')
 
-    error.setErrorModal(errorModal.value)
-    error.setAntiPiracyNoticeModal(antiPiracyNoticeModal.value)
-    error.setMinecraftAuthErrorModal(minecraftAuthErrorModal.value)
+    // These modules hold on to their dialogs: they get stand-ins that wait for the
+    // deferred UI to mount on the first call.
+    error.setErrorModal(deferredUi.handle(errorModal))
+    error.setAntiPiracyNoticeModal(deferredUi.handle(antiPiracyNoticeModal))
+    error.setMinecraftAuthErrorModal(deferredUi.handle(minecraftAuthErrorModal))
 
-    setContentIncompatibilityWarningModal(incompatibilityWarningModal.value)
-    dropIncompatibilityWarningModal.value = incompatibilityWarningModal.value
-    setContentInstallModal(modInstallModal.value)
-    contentSelection.setPreviewModal(contentInstallPreviewModal.value)
-    contentSelection.setResourceInstallPreview(resourceInstallPreview.value)
-    contentInstall.setResourceInstallPreview(resourceInstallPreview.value)
-    setContentInstallModpackInstallModal(contentInstallModpackInstallModal.value!)
+    setContentInstallModal(deferredUi.handle(modInstallModal))
+    const resourcePreview = deferredUi.handle(resourceInstallPreview)
+    contentSelection.setPreviewModal(deferredUi.handle(contentInstallPreviewModal))
+    contentSelection.setResourceInstallPreview(resourcePreview)
+    contentInstall.setResourceInstallPreview(resourcePreview)
+    setContentInstallModpackInstallModal(deferredUi.handle(contentInstallModpackInstallModal))
     setContentInstallCurseForgeManualDownloadsModal(
-        contentInstallCurseForgeManualDownloadsModal.value,
+        deferredUi.handle(contentInstallCurseForgeManualDownloadsModal),
     )
-    setModpackAlreadyInstalledModal(modpackAlreadyInstalledModal.value)
-    setServerAddServerToInstanceModal(addServerToInstanceModal.value)
+    setModpackAlreadyInstalledModal(deferredUi.handle(modpackAlreadyInstalledModal))
+    setServerAddServerToInstanceModal(deferredUi.handle(addServerToInstanceModal))
     void (async () => {
         try {
             const ready = await invoke<{
@@ -2330,7 +2409,7 @@ onMounted(() => {
             }>('lightweight_mode_frontend_ready', { route: route.fullPath })
             for (const pendingCrash of ready.pending_crashes) {
                 const instance = await getInstance(pendingCrash.instance_id).catch(() => null)
-                await minecraftCrashModal.value?.handleWarning({
+                await crashModal.handleWarning({
                     message: `Instance ${instance?.name || 'Minecraft'} has crashed`,
                     kind: 'minecraft_crash',
                     instance_id: pendingCrash.instance_id,
@@ -2419,7 +2498,7 @@ async function handleCommand(e) {
                 return
             }
             const handled =
-                (await minecraftCrashModal.value?.handleLaunchError(launchError, {
+                (await crashModal.handleLaunchError(launchError, {
                     instance_id: e.id,
                     instance_name: instance?.name || 'Minecraft',
                 })) ?? false
@@ -2793,9 +2872,10 @@ setAppUpdateActions({
     check: manualUpdateCheck,
     download: downloadAvailableUpdate,
     install: installUpdate,
-    changelog: (version) => {
+    changelog: async (version) => {
+        const { getAnnouncementByVersion } = await import('@/announcements/catalog')
         if (version && getAnnouncementByVersion(version)) {
-            updateAnnouncementModal.value?.show(version)
+            void deferredUi.handle(updateAnnouncementModal).show(version)
         } else {
             openUrl(AxolotlBrandConfig.website)
         }
@@ -2932,7 +3012,11 @@ provideAppUpdateDownloadProgress(appUpdateDownload)
             </div>
         </Transition>
         <Suspense>
-            <AuthGrantFlowWaitModal ref="modrinthLoginFlowWaitModal" @flow-cancel="cancelLogin" />
+            <AuthGrantFlowWaitModal
+                v-if="deferredUiMounted"
+                ref="modrinthLoginFlowWaitModal"
+                @flow-cancel="cancelLogin"
+            />
         </Suspense>
         <InstanceIconPickerModal ref="instanceIconPickerModal" />
         <CreationFlowModal
@@ -3247,7 +3331,7 @@ provideAppUpdateDownloadProgress(appUpdateDownload)
             </div>
         </div>
     </div>
-    <I18nDebugPanel />
+    <I18nDebugPanel v-if="deferredUiMounted" />
     <NotificationPanel
         :has-sidebar="sidebarVisible"
         :on-error-action="exportNotificationErrorLogs"
@@ -3258,10 +3342,15 @@ provideAppUpdateDownloadProgress(appUpdateDownload)
         :on-error-action="exportNotificationErrorLogs"
         :error-action-label="formatMessage(messages.exportErrorLogs)"
     />
-    <MinecraftCrashModal ref="minecraftCrashModal" />
-    <JavaDownloadConfirmationModal ref="javaDownloadConfirmationModal" />
-    <PrivacyConsentModal ref="privacyConsentModal" @saved="handlePrivacyConsentSaved" />
+    <MinecraftCrashModal v-if="deferredUiMounted" ref="minecraftCrashModal" />
+    <JavaDownloadConfirmationModal v-if="deferredUiMounted" ref="javaDownloadConfirmationModal" />
+    <PrivacyConsentModal
+        v-if="deferredUiMounted"
+        ref="privacyConsentModal"
+        @saved="handlePrivacyConsentSaved"
+    />
     <RemoteAnnouncements
+        v-if="deferredUiMounted"
         :ready="
             stateInitialized &&
             !privacyConsentPending &&
@@ -3270,6 +3359,7 @@ provideAppUpdateDownloadProgress(appUpdateDownload)
         "
     />
     <RemoteAnnouncements
+        v-if="deferredUiMounted"
         ref="remoteAnnouncementPreview"
         preview-only
         :ready="
@@ -3280,6 +3370,7 @@ provideAppUpdateDownloadProgress(appUpdateDownload)
         "
     />
     <UpdateAnnouncementModal
+        v-if="deferredUiMounted"
         ref="updateAnnouncementModal"
         @closed="handleUpdateAnnouncementClosed"
     />
@@ -3355,10 +3446,15 @@ provideAppUpdateDownloadProgress(appUpdateDownload)
             </div>
         </template>
     </NewModal>
-    <ErrorModal ref="errorModal" />
-    <OfflineAccountRestrictionModal ref="antiPiracyNoticeModal" @sign-in="accounts?.login()" />
-    <MinecraftAuthErrorModal ref="minecraftAuthErrorModal" />
+    <ErrorModal v-if="deferredUiMounted" ref="errorModal" />
+    <OfflineAccountRestrictionModal
+        v-if="deferredUiMounted"
+        ref="antiPiracyNoticeModal"
+        @sign-in="accounts?.login()"
+    />
+    <MinecraftAuthErrorModal v-if="deferredUiMounted" ref="minecraftAuthErrorModal" />
     <ContentInstallModal
+        v-if="deferredUiMounted"
         ref="modInstallModal"
         :instances="contentInstallInstances"
         :compatible-loaders="contentInstallLoaders"
@@ -3375,18 +3471,21 @@ provideAppUpdateDownloadProgress(appUpdateDownload)
         @navigate="handleContentInstallNavigate"
         @cancel="handleContentInstallCancel"
     />
-    <ContentInstallPreviewModal ref="contentInstallPreviewModal" />
-    <ResourceOperationPreviewModal ref="resourceInstallPreview" />
+    <ContentInstallPreviewModal v-if="deferredUiMounted" ref="contentInstallPreviewModal" />
+    <ResourceOperationPreviewModal v-if="deferredUiMounted" ref="resourceInstallPreview" />
     <ModpackAlreadyInstalledModal
+        v-if="deferredUiMounted"
         ref="modpackAlreadyInstalledModal"
         @create-anyway="handleModpackDuplicateCreateAnyway"
         @go-to-instance="handleModpackDuplicateGoToInstance"
     />
     <AddServerToInstanceModal
+        v-if="deferredUiMounted"
         ref="addServerToInstanceModal"
         :symlink-target="addServerSymlinkTarget"
     />
     <ContentUpdaterModal
+        v-if="deferredUiMounted"
         ref="incompatibilityWarningModal"
         :key="incompatWarningKey"
         mode="incompatibility-warning"
@@ -3405,11 +3504,13 @@ provideAppUpdateDownloadProgress(appUpdateDownload)
         @search-compat="handleDropInstallSearchCompat"
     />
     <ModpackInstallModal
+        v-if="deferredUiMounted"
         ref="contentInstallModpackInstallModal"
         @install="handleContentInstallModpackInstall"
         @cancel="handleContentInstallModpackInstallCancel"
     />
     <CurseForgeManualDownloadsModal
+        v-if="deferredUiMounted"
         ref="contentInstallCurseForgeManualDownloadsModal"
         @view-instance="handleContentInstallModpackDuplicateGoToInstance"
         @imported="handleContentInstallCurseForgeManualDownloadsImported"
@@ -3453,7 +3554,8 @@ provideAppUpdateDownloadProgress(appUpdateDownload)
 
     <!-- Drop type confirmation modal -->
     <ConfirmDropTypeModal
-        ref="confirmDropModal"
+        v-if="deferredUiMounted"
+        ref="confirmDropModalInstance"
         :key="batchGroupKey"
         :classification="dropClassification"
         :file-name="dropFileName"
@@ -3464,7 +3566,8 @@ provideAppUpdateDownloadProgress(appUpdateDownload)
 
     <!-- Generic content install modal (instance selection when not in an instance page) -->
     <GenericContentInstallModal
-        ref="genericInstallModal"
+        v-if="deferredUiMounted"
+        ref="genericInstallModalInstance"
         @install="handleGenericInstall"
         @cancel="handleGenericInstallCancel"
         @navigate-create="handleGenericInstallNavigateCreate"
@@ -3472,7 +3575,8 @@ provideAppUpdateDownloadProgress(appUpdateDownload)
 
     <!-- Data pack world selection modal -->
     <InstanceExportModal
-        ref="dataPackWorldModal"
+        v-if="deferredUiMounted"
+        ref="dataPackWorldModalInstance"
         :show-save-as="false"
         @select="handleBatchOrDatapackWorldSelect"
         @after-hide="handleBatchWorldAfterHide"
@@ -3480,14 +3584,16 @@ provideAppUpdateDownloadProgress(appUpdateDownload)
 
     <!-- Launcher import instance selection modal -->
     <LauncherImportModal
-        ref="launcherImportModal"
+        v-if="deferredUiMounted"
+        ref="launcherImportModalInstance"
         @confirm="onImportSelected"
         @cancel="onLauncherImportCancelled"
     />
 
     <!-- Symlink method selection modal -->
     <SymlinkMethodCards
-        ref="symlinkCardsModal"
+        v-if="deferredUiMounted"
+        ref="symlinkCardsModalInstance"
         @confirm="onSymlinkMethodConfirmed"
         @cancel="onSymlinkMethodCancelled"
     />
@@ -3532,7 +3638,7 @@ provideAppUpdateDownloadProgress(appUpdateDownload)
 
     <!-- Batch drag-and-drop import UI -->
     <BatchScanOverlay
-        v-if="batchPhase === 'scanning'"
+        v-if="deferredUiMounted && batchPhase === 'scanning'"
         :items="batchItems"
         :done="batchScanDone"
         :total="batchOriginalCount"
@@ -3540,6 +3646,7 @@ provideAppUpdateDownloadProgress(appUpdateDownload)
     />
 
     <OnboardingOverlay
+        v-if="deferredUiMounted || showOnboarding"
         :visible="showOnboarding"
         :mode="onboardingMode"
         @complete="finishOnboarding"

@@ -64,6 +64,7 @@ import {
     selectCrashLogFiles,
     shouldUseLogShareAutoAnalysis,
 } from './minecraft-crash-logs'
+import { launchFailureKind } from './minecraft-launch-failure'
 
 interface CrashModalPayload extends MinecraftLaunchErrorPayload {
     title?: string
@@ -756,39 +757,13 @@ function openModChanges(): void {
     if (lastAnalysis?.mod_changes.length) modChangesModal.value?.show(lastAnalysis)
 }
 
-function launchErrorText(error: unknown): string {
-    if (typeof error === 'string') return error
-    if (error && typeof error === 'object') {
-        const record = error as Record<string, unknown>
-        const values = [record.message, record.error, record.cause]
-            .filter((value): value is string => typeof value === 'string')
-            .join('\n')
-        if (values) return values
-        try {
-            return JSON.stringify(error)
-        } catch {
-            return ''
-        }
-    }
-    return String(error)
-}
-
 function launchFailureBody(error: unknown): string | null {
-    const errorText = launchErrorText(error)
-    if (errorText.includes('Minecraft exited before launcher initialization completed')) {
-        return formatMessage(messages.exitedBeforeInitialization)
-    }
-    if (errorText.includes('Minecraft launcher initialization did not respond')) {
-        return formatMessage(messages.initializationTimedOut)
-    }
-    if (errorText.includes('Minecraft launch preparation timed out')) {
-        return formatMessage(messages.preparationTimedOut)
-    }
-    return null
+    const kind = launchFailureKind(error)
+    return kind ? formatMessage(messages[kind]) : null
 }
 
 function isLaunchFailure(error: unknown): boolean {
-    return launchFailureBody(error) !== null
+    return launchFailureKind(error) !== null
 }
 
 function useLogShareAi(): boolean {

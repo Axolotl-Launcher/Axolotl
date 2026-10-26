@@ -25,6 +25,7 @@ pub mod multiplayer;
 pub mod pack;
 pub mod planet_minecraft;
 pub mod process;
+pub mod schematic_browser;
 pub mod server_address;
 pub mod servers;
 pub mod settings;

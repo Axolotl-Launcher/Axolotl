@@ -790,7 +790,7 @@ function onDatabaseOperationModalHide() {
                 </div>
                 <div
                     v-if="packageManaged"
-                    class="flex flex-wrap items-center gap-2 rounded-lg border border-solid border-surface-4 bg-surface-1 px-3 py-2 leading-[1.4] text-[var(--color-text-tertiary)]"
+                    class="flex flex-wrap items-center gap-2 rounded-[var(--radius-sm)] border border-solid border-surface-4 bg-surface-1 px-3 py-2 leading-[1.4] text-[var(--color-text-tertiary)]"
                     role="status"
                 >
                     <p class="m-0 text-sm">

@@ -67,7 +67,7 @@ async fn index_path(source: SourceId) -> SourceResult<PathBuf> {
 /// Read one source's cached index.
 ///
 /// Returns `Ok(None)` for every "no usable cache" case: missing file, unreadable
-/// file, wrong schema, or unparseable payload. A corrupt cache is a cache miss,
+/// file, wrong schema, or unparsable payload. A corrupt cache is a cache miss,
 /// not an error the caller has to handle.
 pub async fn read<T: for<'de> Deserialize<'de>>(
     source: SourceId,

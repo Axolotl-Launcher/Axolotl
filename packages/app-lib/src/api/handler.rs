@@ -583,13 +583,24 @@ fn decoded(raw: &str) -> String {
     decode_segment(raw).unwrap_or_default()
 }
 
+// 外链单闸：取不到状态时拒绝，与 require_privileged 的 fail-closed 姿态一致
 async fn external_scheme_allowed() -> bool {
     match crate::State::get().await {
         Ok(state) => match Settings::get(&state.pool).await {
             Ok(settings) => settings.allow_external_scheme,
-            Err(_) => true,
+            Err(err) => {
+                tracing::warn!(
+                    "Failed to read settings, denying external scheme commands: {err}"
+                );
+                false
+            }
         },
-        Err(_) => true,
+        Err(err) => {
+            tracing::warn!(
+                "Failed to get app state, denying external scheme commands: {err}"
+            );
+            false
+        }
     }
 }
 

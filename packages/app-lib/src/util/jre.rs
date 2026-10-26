@@ -52,6 +52,9 @@ const DIR_NAME_KEYWORDS: &[&str] = &[
     "x86_64",
     "amd64",
     "arm64",
+    "riscv",
+    "loongarch",
+    "loong64",
     "minecraft",
     "launcher",
     "hmcl",
@@ -866,6 +869,8 @@ fn normalize_release_arch(os_arch: &str) -> Option<String> {
         "aarch64" | "arm64" => "aarch64",
         "x86" | "i386" | "i486" | "i586" | "i686" => "x86",
         "arm" => "arm",
+        "loongarch64" | "loongarch64el" | "loong64" => "loongarch64",
+        "riscv64" | "riscv64gc" => "riscv64",
         _ => return None,
     };
     Some(normalized.to_string())
@@ -957,6 +962,38 @@ mod tests {
         assert!(dir_name_excluded("javapath"));
         assert!(dir_name_excluded("java8path"));
         assert!(dir_name_excluded("node_modules"));
+    }
+
+    #[test]
+    fn keyword_matching_accepts_loongarch_and_riscv_install_names() {
+        for name in [
+            "loongarch64-jdk-21",
+            "loong64-jdk",
+            "riscv64-jdk-21",
+            "jdk-21-riscv64",
+        ] {
+            assert!(
+                dir_name_matches_keywords(&name.to_lowercase()),
+                "expected {name} to match"
+            );
+        }
+    }
+
+    #[test]
+    fn release_arch_normalizes_loongarch64_and_riscv64_aliases() {
+        for alias in ["loongarch64", "LOONGARCH64", "loongarch64el", "loong64"]
+        {
+            assert_eq!(
+                normalize_release_arch(alias).as_deref(),
+                Some("loongarch64")
+            );
+        }
+        for alias in ["riscv64", "RISCV64", "riscv64gc"] {
+            assert_eq!(
+                normalize_release_arch(alias).as_deref(),
+                Some("riscv64")
+            );
+        }
     }
 
     #[test]

@@ -177,6 +177,16 @@ pub enum Os {
     LinuxArm32,
     /// Linux PowerPC 64 little-endian
     LinuxPpc64le,
+    /// Linux LoongArch 64
+    #[serde(
+        rename = "linux-loongarch64",
+        alias = "linux-loong64",
+        alias = "linux-loong-arch64"
+    )]
+    LinuxLoongArch64,
+    /// Linux RISC-V 64
+    #[serde(rename = "linux-riscv64", alias = "linux-riscv64gc")]
+    LinuxRiscv64,
     /// FreeBSD
     Freebsd,
     /// Matches every operating system in a rule, subject to its architecture restriction
@@ -212,6 +222,13 @@ impl Os {
                 Os::LinuxArm32
             } else if matches!(java_arch, "ppc64le" | "powerpc64le") {
                 Os::LinuxPpc64le
+            } else if matches!(
+                java_arch,
+                "loongarch64" | "loongarch64el" | "loong64"
+            ) {
+                Os::LinuxLoongArch64
+            } else if matches!(java_arch, "riscv64" | "riscv64gc") {
+                Os::LinuxRiscv64
             } else {
                 Os::Linux
             }
@@ -235,6 +252,8 @@ impl Os {
             Os::LinuxArm32 => Os::Linux,
             Os::LinuxArm64 => Os::Linux,
             Os::LinuxPpc64le => Os::Linux,
+            Os::LinuxLoongArch64 => Os::Linux,
+            Os::LinuxRiscv64 => Os::Linux,
             Os::WindowsArm64 => Os::Windows,
             _ => self.clone(),
         }
@@ -432,6 +451,71 @@ mod tests {
         );
     }
 
+    #[test]
+    fn loongarch64_and_riscv64_rules_round_trip_and_keep_their_base_platform() {
+        for (name, os) in [
+            ("linux-loongarch64", Os::LinuxLoongArch64),
+            ("linux-riscv64", Os::LinuxRiscv64),
+        ] {
+            let input = json!({ "name": name });
+            let rule: OsRule = serde_json::from_value(input.clone()).unwrap();
+            assert_eq!(rule.name, Some(os.clone()));
+            assert_eq!(os.get_os(), Os::Linux);
+            assert_eq!(serde_json::to_value(rule).unwrap(), input);
+        }
+
+        for alias in ["linux-loong64", "linux-loong-arch64"] {
+            assert_eq!(
+                serde_json::from_value::<OsRule>(json!({ "name": alias }))
+                    .unwrap()
+                    .name,
+                Some(Os::LinuxLoongArch64)
+            );
+        }
+        assert_eq!(
+            serde_json::from_value::<OsRule>(json!({
+                "name": "linux-riscv64gc"
+            }))
+            .unwrap()
+            .name,
+            Some(Os::LinuxRiscv64)
+        );
+    }
+
+    #[test]
+    fn native_lookup_selects_loongarch64_and_riscv64_classifiers() {
+        let library = native_library(json!({
+            "linux": "natives-linux",
+            "linux-loongarch64": "natives-linux-loongarch64",
+            "linux-riscv64": "natives-linux-riscv64"
+        }));
+
+        assert_eq!(
+            library
+                .natives_os_key_and_classifiers_for_os(Os::LinuxLoongArch64)
+                .map(|(key, _)| key),
+            Some("natives-linux-loongarch64")
+        );
+        assert_eq!(
+            library
+                .natives_os_key_and_classifiers_for_os(Os::LinuxRiscv64)
+                .map(|(key, _)| key),
+            Some("natives-linux-riscv64")
+        );
+    }
+
+    #[test]
+    fn linux_architecture_names_map_to_specific_os_variants() {
+        if std::env::consts::OS != "linux" {
+            return;
+        }
+        assert_eq!(Os::native_arch("loongarch64"), Os::LinuxLoongArch64);
+        assert_eq!(Os::native_arch("loongarch64el"), Os::LinuxLoongArch64);
+        assert_eq!(Os::native_arch("loong64"), Os::LinuxLoongArch64);
+        assert_eq!(Os::native_arch("riscv64"), Os::LinuxRiscv64);
+        assert_eq!(Os::native_arch("riscv64gc"), Os::LinuxRiscv64);
+    }
+
     fn native_library(natives: serde_json::Value) -> Library {
         serde_json::from_value(json!({
             "downloads": {
@@ -496,6 +580,8 @@ mod tests {
             (Os::LinuxArm32, "natives-linux"),
             (Os::LinuxArm64, "natives-linux"),
             (Os::LinuxPpc64le, "natives-linux"),
+            (Os::LinuxLoongArch64, "natives-linux"),
+            (Os::LinuxRiscv64, "natives-linux"),
             (Os::OsxArm64, "natives-osx"),
             (Os::WindowsArm64, "natives-windows"),
         ] {
@@ -526,6 +612,8 @@ mod tests {
             Os::LinuxArm32,
             Os::LinuxArm64,
             Os::LinuxPpc64le,
+            Os::LinuxLoongArch64,
+            Os::LinuxRiscv64,
             Os::Unknown,
         ] {
             assert!(

@@ -75,6 +75,7 @@ jobs:
           node --test scripts/axolotl/set-version.test.mjs
           node --test scripts/axolotl/update-manifest.test.mjs scripts/axolotl/finalize-github-release.test.mjs scripts/axolotl/publish-update-server.test.mjs scripts/axolotl/cnb-release.test.mjs scripts/axolotl/gitlink-release.test.mjs scripts/axolotl/create-website-release-metadata.test.mjs
           node scripts/axolotl/create-update-server-catalog.test.mjs
+          node --test scripts/axolotl/package-linux.test.mjs
           node scripts/axolotl/check-migrations.mjs --base "${MIGRATION_BASE_REF:-HEAD^}"
           node scripts/axolotl/check-migrations.mjs --release
       - name: Check brand guidelines

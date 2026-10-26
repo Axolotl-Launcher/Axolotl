@@ -82,6 +82,7 @@ fn apt_deb_arch() -> Result<&'static str> {
     match std::env::consts::ARCH {
         "x86_64" => Ok("amd64"),
         "aarch64" => Ok("arm64"),
+        "riscv64" => Ok("riscv64"),
         arch => Err(theseus::Error::from(theseus::ErrorKind::OtherError(
             format!("Unsupported architecture for apt updates: {arch}"),
         ))
@@ -165,6 +166,9 @@ fn update_platform() -> Result<&'static str> {
         ("windows", "x86_64") => Ok("windows-x86_64"),
         ("linux", "x86_64") => Ok("linux-x86_64"),
         ("linux", "aarch64") => Ok("linux-aarch64"),
+        ("linux", "riscv64") => Ok("linux-riscv64"),
+        // tauri-plugin-updater has no LoongArch target, so update checks
+        // report an unsupported platform instead of failing inside the plugin.
         ("macos", "x86_64") => Ok("darwin-x86_64"),
         ("macos", "aarch64") => Ok("darwin-aarch64"),
         (os, arch) => {

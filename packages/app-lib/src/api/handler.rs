@@ -607,7 +607,19 @@ pub async fn parse_command(
         }
         Ok(handle_url(sublink).await?)
     } else {
-        let path = PathBuf::from(command_string);
+        let path = if command_string.starts_with("file://") {
+            match url::Url::parse(command_string)?.to_file_path() {
+                Ok(path) => path,
+                Err(()) => {
+                    return Err(crate::ErrorKind::InputError(format!(
+                        "Invalid file URL: {command_string}"
+                    ))
+                    .into());
+                }
+            }
+        } else {
+            PathBuf::from(command_string)
+        };
         let path = io::canonicalize(path)?;
         if let Some(ext) = path.extension()
             && (ext == "mrpack" || ext == "zip")
@@ -702,6 +714,20 @@ mod tests {
         assert!(matches!(
             parse_command("axolotl://install?version=abc123").await.unwrap(),
             CommandPayload::InstallVersion { id } if id == "abc123"
+        ));
+    }
+
+    #[tokio::test]
+    async fn parses_file_urls_for_modpacks() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("example pack.mrpack");
+        std::fs::write(&path, b"fixture").unwrap();
+        let url = url::Url::from_file_path(&path).unwrap();
+
+        assert!(matches!(
+            parse_command(url.as_str()).await.unwrap(),
+            CommandPayload::RunMRPack { path: parsed }
+                if parsed == std::fs::canonicalize(&path).unwrap()
         ));
     }
 }

@@ -3601,6 +3601,43 @@ mod linked_rule_tests {
         }
     }
 
+    #[test]
+    fn linux_loongarch64_and_riscv64_rules_only_apply_to_their_architectures() {
+        for (name, aliases) in [
+            (
+                "linux-loongarch64",
+                &["loongarch64", "loong64", "loongarch64el"][..],
+            ),
+            ("linux-riscv64", &["riscv64", "riscv64gc"][..]),
+        ] {
+            for arch in [
+                "x86_64",
+                "aarch64",
+                "loongarch64",
+                "loong64",
+                "loongarch64el",
+                "riscv64",
+                "riscv64gc",
+            ] {
+                let allowed: Vec<Rule> =
+                    serde_json::from_value(serde_json::json!([
+                        {
+                            "action": "allow",
+                            "os": {"name": name, "arch": arch}
+                        }
+                    ]))
+                    .unwrap();
+                let matches =
+                    cfg!(target_os = "linux") && aliases.contains(&arch);
+                assert_eq!(
+                    parse_rules(&allowed, arch, &QuickPlayType::None, true),
+                    matches,
+                    "unexpected result for {name} with Java architecture {arch}",
+                );
+            }
+        }
+    }
+
     fn rule(
         action: RuleAction,
         os: Option<OsRule>,

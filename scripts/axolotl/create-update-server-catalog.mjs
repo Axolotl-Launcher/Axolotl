@@ -39,6 +39,9 @@ function describe(filename) {
 	if (filename.endsWith('_x64_portable.zip')) {
 		return { kind: 'portable', platform: 'windows', targetPlatforms: [], variant: 'portable' }
 	}
+	if (filename.endsWith('_portable.tar.gz')) {
+		return { kind: 'portable', platform: 'linux', targetPlatforms: [], variant: 'portable' }
+	}
 	if (filename.endsWith('.dmg')) {
 		return { kind: 'installer', platform: 'macos', targetPlatforms: [], variant: 'dmg' }
 	}
@@ -56,6 +59,8 @@ function describe(filename) {
 
 function architecture(filename) {
 	if (/universal/i.test(filename)) return 'universal'
+	if (/(loongarch64|loong64|loong-arch64)/i.test(filename)) return 'loongarch64'
+	if (/riscv64/i.test(filename)) return 'riscv64'
 	if (/(aarch64|arm64)/i.test(filename)) return 'aarch64'
 	if (/(amd64|x86_64|x64)/i.test(filename)) return 'x86_64'
 	return null

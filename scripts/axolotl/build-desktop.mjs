@@ -12,15 +12,25 @@ import {
     sha256,
     version,
 } from './desktop-build-utils.mjs'
+import {
+    architectureFromTarget,
+    buildLinuxPackages,
+} from './package-linux.mjs'
 
 const { values } = parseArgs({
     options: {
         profile: { type: 'string', default: process.env.AXOLOTL_BUILD_PROFILE || 'release' },
         target: { type: 'string' },
         'installer-only': { type: 'boolean' },
+        'package-linux': { type: 'boolean' },
     },
 })
 const profile = values.profile
+const packageLinux = values['package-linux']
+if (packageLinux && values['installer-only'])
+    throw new Error('--package-linux cannot be combined with --installer-only')
+if (packageLinux && process.platform !== 'linux')
+    throw new Error('--package-linux is only supported on Linux')
 if (!values['installer-only'] || process.env.CI) requireProfile(profile)
 if (values['installer-only']) {
     run('cargo', ['build', '--locked', '--profile', profile, '--package', 'axolotl-installer-ui'])
@@ -41,6 +51,8 @@ if (values['installer-only']) {
         targetDirectory,
         `Axolotl Launcher${process.platform === 'win32' ? '.exe' : ''}`,
     )
+    const resolvedTarget =
+        target || output('rustc', ['-vV']).match(/^host: (.+)$/m)[1]
     const args = ['tauri', 'build', '--ci', '--no-bundle', '--config', 'tauri-release.conf.json']
     if (target) args.push('--target', target)
     args.push('--', '--locked', '--profile', profile)
@@ -54,7 +66,7 @@ if (values['installer-only']) {
                 commit: output('git', ['rev-parse', 'HEAD']),
                 version: version(),
                 profile,
-                target: target || output('rustc', ['-vV']).match(/^host: (.+)$/m)[1],
+                target: resolvedTarget,
                 binarySha256: sha256(binary),
                 resources: JSON.parse(
                     fs.readFileSync(path.join(resources, 'manifest.json'), 'utf8'),
@@ -64,4 +76,15 @@ if (values['installer-only']) {
             2,
         )}\n`,
     )
+
+    if (packageLinux) {
+        const result = buildLinuxPackages({
+            architecture: architectureFromTarget(resolvedTarget),
+            binaryPath: binary,
+            profile,
+        })
+        console.log(`Packaged Linux artifacts for ${result.architecture}:`)
+        console.log(result.deb)
+        console.log(result.portable)
+    }
 }

@@ -82,6 +82,15 @@ fn normalize_architecture(java_arch: &str) -> &str {
         "aarch64"
     } else if java_arch.eq_ignore_ascii_case("arm32") {
         "arm"
+    } else if java_arch.eq_ignore_ascii_case("loongarch64")
+        || java_arch.eq_ignore_ascii_case("loongarch64el")
+        || java_arch.eq_ignore_ascii_case("loong64")
+    {
+        "loongarch64"
+    } else if java_arch.eq_ignore_ascii_case("riscv64")
+        || java_arch.eq_ignore_ascii_case("riscv64gc")
+    {
+        "riscv64"
     } else {
         java_arch
     }
@@ -109,6 +118,10 @@ pub fn os_rule(
             "aarch64" | "arm64" => {
                 matches!(actual.as_str(), "aarch64" | "arm64")
             }
+            "loongarch64" | "loongarch64el" | "loong64" => {
+                actual == "loongarch64"
+            }
+            "riscv64" | "riscv64gc" => actual == "riscv64",
             expected => expected == actual,
         };
     }
@@ -142,9 +155,57 @@ pub fn classpath_separator(java_arch: &str) -> &'static str {
         | Os::LinuxArm32
         | Os::LinuxArm64
         | Os::LinuxPpc64le
+        | Os::LinuxLoongArch64
+        | Os::LinuxRiscv64
         | Os::Freebsd
         | Os::Universal
         | Os::Unknown => ":",
         Os::Windows | Os::WindowsArm64 => ";",
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn arch_rule(arch: &str) -> OsRule {
+        OsRule {
+            name: None,
+            version: None,
+            arch: Some(arch.to_string()),
+        }
+    }
+
+    #[test]
+    fn architecture_aliases_normalize_to_canonical_names() {
+        for alias in ["loongarch64", "LoongArch64", "loongarch64el", "loong64"]
+        {
+            assert_eq!(normalize_architecture(alias), "loongarch64");
+        }
+        for alias in ["riscv64", "RISCV64", "riscv64gc"] {
+            assert_eq!(normalize_architecture(alias), "riscv64");
+        }
+    }
+
+    #[test]
+    fn loongarch64_and_riscv64_architecture_rules_match() {
+        for arch in ["loongarch64", "loong64", "loongarch64el"] {
+            assert!(os_rule(&arch_rule(arch), "loongarch64", true));
+            assert!(!os_rule(&arch_rule(arch), "riscv64", true));
+        }
+        for arch in ["riscv64", "riscv64gc"] {
+            assert!(os_rule(&arch_rule(arch), "riscv64", true));
+            assert!(!os_rule(&arch_rule(arch), "loongarch64", true));
+        }
+    }
+
+    #[test]
+    fn linux_java_arch_aliases_use_the_unix_classpath_separator() {
+        if std::env::consts::OS != "linux" {
+            return;
+        }
+        for arch in ["loongarch64", "loong64", "riscv64", "riscv64gc"] {
+            assert_eq!(classpath_separator(arch), ":");
+        }
     }
 }

@@ -1913,6 +1913,15 @@ fn normalize_architecture(java_arch: &str) -> &str {
         "aarch64"
     } else if java_arch.eq_ignore_ascii_case("arm32") {
         "arm"
+    } else if java_arch.eq_ignore_ascii_case("loongarch64")
+        || java_arch.eq_ignore_ascii_case("loongarch64el")
+        || java_arch.eq_ignore_ascii_case("loong64")
+    {
+        "loongarch64"
+    } else if java_arch.eq_ignore_ascii_case("riscv64")
+        || java_arch.eq_ignore_ascii_case("riscv64gc")
+    {
+        "riscv64"
     } else {
         java_arch
     }
@@ -1924,7 +1933,7 @@ pub(crate) fn linked_architecture_width(java_arch: &str) -> &'static str {
         .as_str()
     {
         "x86" | "arm" => "32",
-        "x86_64" | "aarch64" => "64",
+        "x86_64" | "aarch64" | "loongarch64" | "riscv64" => "64",
         _ => "64",
     }
 }
@@ -1933,6 +1942,23 @@ pub(crate) fn linked_architecture_width(java_arch: &str) -> &'static str {
 mod tests {
     use super::*;
     use serde_json::json;
+
+    #[test]
+    fn loongarch64_and_riscv64_use_64_bit_native_classifiers() {
+        for arch in ["loongarch64", "loong64", "riscv64", "riscv64gc"] {
+            assert_eq!(linked_architecture_width(arch), "64");
+        }
+        assert_eq!(normalize_architecture("LOONG64"), "loongarch64");
+        assert_eq!(normalize_architecture("RISCV64GC"), "riscv64");
+        let os = match std::env::consts::OS {
+            "macos" => "osx",
+            other => other,
+        };
+        let candidates = native_classifier_candidates("loongarch64");
+        assert!(candidates.contains(&format!("natives-{os}-loongarch64")));
+        let candidates = native_classifier_candidates("riscv64");
+        assert!(candidates.contains(&format!("natives-{os}-riscv64")));
+    }
 
     fn minimal_merged() -> MergedVersion {
         let root = tempfile::tempdir().unwrap();

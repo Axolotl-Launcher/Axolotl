@@ -25,6 +25,16 @@ const files = [
 	'Axolotl.Launcher_1.9.5-beta.1_amd64.deb.sig',
 	'Axolotl.Launcher_1.9.5-beta.1_arm64.deb',
 	'Axolotl.Launcher_1.9.5-beta.1_arm64.deb.sig',
+	'Axolotl.Launcher-1.9.5-beta.1-1.riscv64.rpm',
+	'Axolotl.Launcher-1.9.5-beta.1-1.riscv64.rpm.sig',
+	'Axolotl.Launcher_1.9.5-beta.1_riscv64.deb',
+	'Axolotl.Launcher_1.9.5-beta.1_riscv64.deb.sig',
+	'Axolotl.Launcher-1.9.5-beta.1-1.loongarch64.rpm',
+	'Axolotl.Launcher-1.9.5-beta.1-1.loongarch64.rpm.sig',
+	'Axolotl.Launcher_1.9.5-beta.1_loong64.deb',
+	'Axolotl.Launcher_1.9.5-beta.1_loong64.deb.sig',
+	'Axolotl_Launcher_1.9.5-beta.1_loongarch64_portable.tar.gz',
+	'Axolotl_Launcher_1.9.5-beta.1_riscv64_portable.tar.gz',
 	'Axolotl.Launcher_1.9.5-beta.1_universal.dmg',
 	'Axolotl.Launcher_1.9.5-beta.1_x64-setup.exe',
 	'Axolotl.Launcher_1.9.5-beta.1_x64-setup.exe.sig',
@@ -77,10 +87,32 @@ try {
             .variant,
 		'modern',
 	)
+	for (const [filename, architecture] of [
+		['_riscv64.deb', 'riscv64'],
+		['-1.riscv64.rpm', 'riscv64'],
+		['_loong64.deb', 'loongarch64'],
+		['-1.loongarch64.rpm', 'loongarch64'],
+	]) {
+		assert.equal(
+			catalog.artifacts.find((artifact) => artifact.filename.endsWith(filename)).architecture,
+			architecture,
+		)
+	}
 	assert.equal(
 		catalog.artifacts.find((artifact) => artifact.filename.endsWith('portable.zip')).kind,
 		'portable',
 	)
+	for (const [filename, architecture] of [
+		['_loongarch64_portable.tar.gz', 'loongarch64'],
+		['_riscv64_portable.tar.gz', 'riscv64'],
+	]) {
+		const artifact = catalog.artifacts.find((candidate) =>
+			candidate.filename.endsWith(filename),
+		)
+		assert.equal(artifact.kind, 'portable')
+		assert.equal(artifact.platform, 'linux')
+		assert.equal(artifact.architecture, architecture)
+	}
 	assert.deepEqual(
 		catalog.artifacts.find((artifact) => artifact.filename.endsWith('_universal.app.tar.gz'))
 			.targetPlatforms,

@@ -133,7 +133,9 @@ pub async fn list_java_distribution_versions(
     match distribution.as_str() {
         "zulu" => {
             let platform = std::env::consts::OS;
-            let arch = std::env::consts::ARCH;
+            let Some(arch) = azul_runtime_arch(std::env::consts::ARCH) else {
+                return Ok(Vec::new());
+            };
             let url = format!(
                 "https://api.azul.com/metadata/v1/zulu/packages/?os={platform}&arch={arch}&archive_type=tar.gz&java_package_type=jre&page_size=1000"
             );
@@ -149,6 +151,9 @@ pub async fn list_java_distribution_versions(
             .await?;
             let mut versions: Vec<u32> = packages
                 .iter()
+                .filter(|package| {
+                    azul_package_matches_arch(&package.name, arch)
+                })
                 .filter_map(|p| p.java_version.first().copied())
                 .filter(|v| *v >= 8)
                 .collect();
@@ -547,6 +552,7 @@ enum MojangRuntimeFile {
 struct AzulPackageSummary {
     package_uuid: String,
     java_version: Vec<u32>,
+    name: String,
 }
 
 #[derive(Deserialize)]
@@ -554,6 +560,27 @@ struct AzulPackage {
     download_url: String,
     name: PathBuf,
     sha256_hash: String,
+    size: u64,
+}
+
+#[derive(Deserialize)]
+struct AdoptiumAsset {
+    binary: AdoptiumBinary,
+}
+
+#[derive(Deserialize)]
+struct AdoptiumBinary {
+    architecture: String,
+    image_type: String,
+    os: String,
+    package: AdoptiumPackage,
+}
+
+#[derive(Deserialize)]
+struct AdoptiumPackage {
+    checksum: String,
+    link: String,
+    name: PathBuf,
     size: u64,
 }
 
@@ -714,6 +741,17 @@ async fn auto_install_java_inner(
     .await?;
 
     if let Some(path) = install_mojang_runtime(
+        &state,
+        java_version,
+        loading_bar.as_ref(),
+        reporter.as_ref(),
+    )
+    .await?
+    {
+        return Ok(Some(path));
+    }
+
+    if let Some(path) = install_adoptium_runtime(
         &state,
         java_version,
         loading_bar.as_ref(),
@@ -1255,16 +1293,315 @@ fn extract_azul_archive(
     Ok(root)
 }
 
+fn azul_runtime_arch(arch: &str) -> Option<&'static str> {
+    match arch {
+        "x86_64" => Some("x86_64"),
+        "aarch64" => Some("aarch64"),
+        _ => None,
+    }
+}
+
+/// Checks the architecture encoded in an Azul package filename before the
+/// package is downloaded. The API can silently substitute a different
+/// architecture for an unsupported `arch` query, so trusting the query alone
+/// would install an incompatible runtime.
+fn azul_package_matches_arch(name: &str, arch: &str) -> bool {
+    let name = name.to_ascii_lowercase();
+    let Some(stem) = [".tar.gz", ".tar.xz", ".tgz", ".zip"]
+        .iter()
+        .find_map(|suffix| name.strip_suffix(suffix))
+    else {
+        return false;
+    };
+    match arch {
+        "x86_64" => stem.ends_with("_x64") || stem.ends_with("_x86_64"),
+        "aarch64" => stem.ends_with("_aarch64") || stem.ends_with("_arm64"),
+        _ => false,
+    }
+}
+
+fn adoptium_runtime_arch(os: &str, arch: &str) -> Option<&'static str> {
+    if os != "linux" {
+        return None;
+    }
+    match arch {
+        "riscv64" | "riscv64gc" => Some("riscv64"),
+        _ => None,
+    }
+}
+
+fn automatic_java_install_message(
+    os: &str,
+    arch: &str,
+    java_version: u32,
+) -> String {
+    format!(
+        "Automatic installation of Java {java_version} is not available for {os}/{arch}. Install a matching JDK with your system package manager, then select it in Settings > Java."
+    )
+}
+
+fn automatic_java_install_error(java_version: u32) -> crate::Error {
+    crate::ErrorKind::LauncherError(automatic_java_install_message(
+        std::env::consts::OS,
+        std::env::consts::ARCH,
+        java_version,
+    ))
+    .into()
+}
+
+fn is_sha256_hex(value: &str) -> bool {
+    value.len() == 64 && value.bytes().all(|byte| byte.is_ascii_hexdigit())
+}
+
+async fn install_adoptium_runtime(
+    state: &State,
+    java_version: u32,
+    loading_bar: Option<&crate::event::LoadingBarId>,
+    reporter: Option<&InstallProgressReporter>,
+) -> crate::Result<Option<PathBuf>> {
+    let Some(arch) =
+        adoptium_runtime_arch(std::env::consts::OS, std::env::consts::ARCH)
+    else {
+        return Ok(None);
+    };
+    let metadata_url = format!(
+        "https://api.adoptium.net/v3/assets/latest/{java_version}/hotspot?architecture={arch}&image_type=jre&os=linux&vendor=eclipse"
+    );
+    if let Some(reporter) = reporter {
+        reporter
+            .set_context(
+                InstallErrorContext::new(
+                    "fetch Adoptium Java package metadata",
+                )
+                .urls(vec![metadata_url.clone()])
+                .java_version(java_version)
+                .os(std::env::consts::OS)
+                .arch(std::env::consts::ARCH)
+                .build(),
+            )
+            .await?;
+    }
+    let assets = fetch_json::<Vec<AdoptiumAsset>>(
+        Method::GET,
+        &metadata_url,
+        None,
+        None,
+        None,
+        &state.api_semaphore,
+        &state.pool,
+    )
+    .await?;
+    let Some(asset) = assets.into_iter().next() else {
+        return Ok(None);
+    };
+    if asset.binary.architecture != arch
+        || asset.binary.os != "linux"
+        || asset.binary.image_type != "jre"
+    {
+        return Err(crate::ErrorKind::LauncherError(format!(
+            "Adoptium returned an incompatible Java package for {}/{}",
+            std::env::consts::OS,
+            std::env::consts::ARCH,
+        ))
+        .into());
+    }
+    if !is_sha256_hex(&asset.binary.package.checksum) {
+        return Err(crate::ErrorKind::InputError(
+            "Adoptium Java metadata contains an invalid SHA-256 checksum"
+                .to_string(),
+        )
+        .into());
+    }
+    validate_archive_file_name(&asset.binary.package.name)?;
+
+    let install_name = format!(
+        "temurin-{java_version}-{arch}-{}",
+        &asset.binary.package.checksum[..12]
+    );
+    let java_root = state.directories.java_versions_dir();
+    let final_root = java_root.join(&install_name);
+    let final_executable = final_root.join("bin").join(jre::JAVA_BIN);
+    if final_executable.is_file() {
+        return Ok(Some(
+            validate_installed_java(
+                final_executable,
+                java_version,
+                reporter,
+                loading_bar,
+            )
+            .await?,
+        ));
+    }
+
+    let archive_path = state
+        .directories
+        .caches_dir()
+        .join("java")
+        .join("adoptium")
+        .join(&asset.binary.package.checksum)
+        .join(&asset.binary.package.name);
+    if let Some(reporter) = reporter {
+        reporter
+            .set_context(
+                InstallErrorContext::new("download Adoptium Java archive")
+                    .urls(vec![asset.binary.package.link.clone()])
+                    .file_path(asset.binary.package.name.display().to_string())
+                    .target_path(archive_path.display().to_string())
+                    .expected_hash(asset.binary.package.checksum.clone())
+                    .expected_size(asset.binary.package.size)
+                    .java_version(java_version)
+                    .os(std::env::consts::OS)
+                    .arch(std::env::consts::ARCH)
+                    .build(),
+            )
+            .await?;
+    }
+    update_java_install_progress(
+        reporter,
+        java_version,
+        InstallJavaStep::Downloading,
+        Some(InstallProgress {
+            current: 0,
+            total: asset.binary.package.size,
+            secondary: None,
+        }),
+    )
+    .await?;
+    if let Some(loading_bar) = loading_bar {
+        emit_loading(loading_bar, 10.0, Some("Downloading java version"))?;
+    }
+
+    let mut last_reported_bytes = 0_u64;
+    let download_reporter = reporter.cloned();
+    let mut progress =
+        |current: u64,
+         total: u64|
+         -> Pin<Box<dyn Future<Output = crate::Result<()>> + Send>> {
+            let min_delta = (total / 200).max(JAVA_DOWNLOAD_PROGRESS_MIN_BYTES);
+            if current < total
+                && current.saturating_sub(last_reported_bytes) < min_delta
+            {
+                return Box::pin(async { Ok(()) });
+            }
+            last_reported_bytes = current;
+            let reporter = download_reporter.clone();
+            Box::pin(async move {
+                update_java_install_progress(
+                    reporter.as_ref(),
+                    java_version,
+                    InstallJavaStep::Downloading,
+                    Some(InstallProgress {
+                        current,
+                        total: total.max(1),
+                        secondary: None,
+                    }),
+                )
+                .await
+            })
+        };
+    let mut request =
+        DownloadRequest::new(&asset.binary.package.link, ResourceClass::Java)
+            .with_integrity(Integrity {
+                size: Some(asset.binary.package.size),
+                sha256: Some(asset.binary.package.checksum.clone()),
+                content: ContentValidation::None,
+                ..Integrity::default()
+            });
+    if let Some(reporter) = reporter {
+        request = request.with_install_tracking(
+            reporter.clone(),
+            archive_path.display().to_string(),
+            asset.binary.package.name.to_string_lossy().into_owned(),
+        );
+    }
+    let download_result = download_to_path(
+        request,
+        &archive_path,
+        &state.download_semaphore,
+        &state.pool,
+        Some(&mut progress as &mut FetchProgressFn<'_>),
+    )
+    .await?;
+    if let Some(reporter) = reporter
+        && download_result.attempts > 0
+    {
+        reporter
+            .record_download_metrics(
+                download_result.source.as_str(),
+                download_result.fallback_count as u64,
+            )
+            .await?;
+    }
+    if let Some(loading_bar) = loading_bar {
+        emit_loading(loading_bar, 80.0, Some("Extracting java"))?;
+    }
+    update_java_install_progress(
+        reporter,
+        java_version,
+        InstallJavaStep::Extracting,
+        Some(java_step_progress(3)),
+    )
+    .await?;
+
+    let staging_root = java_root.join(format!(".{install_name}.installing"));
+    remove_path_if_present(&staging_root).await?;
+    io::create_dir_all(&staging_root).await?;
+    let archive_for_extract = archive_path.clone();
+    let staging_for_extract = staging_root.clone();
+    tokio::task::spawn_blocking(move || {
+        extract_archive(&archive_for_extract, &staging_for_extract)
+    })
+    .await??;
+
+    let mut entries = tokio::fs::read_dir(&staging_root).await?;
+    let extracted = entries.next_entry().await?.ok_or_else(|| {
+        crate::ErrorKind::InputError(
+            "Adoptium Java archive is empty".to_string(),
+        )
+    })?;
+    if entries.next_entry().await?.is_some() {
+        return Err(crate::ErrorKind::InputError(
+            "Adoptium Java archive contains multiple top-level entries"
+                .to_string(),
+        )
+        .into());
+    }
+    let extracted_path = extracted.path();
+    if !extracted_path.is_dir() {
+        return Err(crate::ErrorKind::InputError(
+            "Adoptium Java archive does not contain an install directory"
+                .to_string(),
+        )
+        .into());
+    }
+
+    remove_path_if_present(&final_root).await?;
+    tokio::fs::rename(&extracted_path, &final_root).await?;
+    remove_path_if_present(&staging_root).await?;
+
+    let executable = final_root.join("bin").join(jre::JAVA_BIN);
+    Ok(Some(
+        validate_installed_java(
+            executable,
+            java_version,
+            reporter,
+            loading_bar,
+        )
+        .await?,
+    ))
+}
+
 async fn install_azul_runtime(
     state: &State,
     java_version: u32,
     loading_bar: Option<&crate::event::LoadingBarId>,
     reporter: Option<&InstallProgressReporter>,
 ) -> crate::Result<PathBuf> {
+    let Some(arch) = azul_runtime_arch(std::env::consts::ARCH) else {
+        return Err(automatic_java_install_error(java_version));
+    };
     let metadata_url = format!(
-        "https://api.azul.com/metadata/v1/zulu/packages?arch={}&java_version={}&os={}&archive_type=zip&javafx_bundled=false&java_package_type=jre&page_size=1",
-        std::env::consts::ARCH,
-        java_version,
+        "https://api.azul.com/metadata/v1/zulu/packages?arch={arch}&java_version={java_version}&os={}&archive_type=zip&javafx_bundled=false&java_package_type=jre&page_size=1",
         std::env::consts::OS
     );
     if let Some(reporter) = reporter {
@@ -1289,14 +1626,16 @@ async fn install_azul_runtime(
         &state.pool,
     )
     .await?;
-    let summary = packages.first().ok_or_else(|| {
-        crate::ErrorKind::LauncherError(format!(
-            "No Java Version found for Java version {}, OS {}, and Architecture {}",
-            java_version,
-            std::env::consts::OS,
-            std::env::consts::ARCH,
-        ))
-    })?;
+    let summary = packages
+        .iter()
+        .find(|package| azul_package_matches_arch(&package.name, arch))
+        .ok_or_else(|| {
+            crate::ErrorKind::LauncherError(format!(
+                "No compatible Java {java_version} runtime found for {}/{}",
+                std::env::consts::OS,
+                std::env::consts::ARCH,
+            ))
+        })?;
     let details_url = format!(
         "https://api.azul.com/metadata/v1/zulu/packages/{}",
         summary.package_uuid
@@ -1312,6 +1651,19 @@ async fn install_azul_runtime(
     )
     .await?;
     validate_archive_file_name(&download.name)?;
+    if !download
+        .name
+        .to_str()
+        .is_some_and(|name| azul_package_matches_arch(name, arch))
+    {
+        return Err(crate::ErrorKind::LauncherError(format!(
+            "Azul returned an incompatible Java package for {}/{}: {}",
+            std::env::consts::OS,
+            std::env::consts::ARCH,
+            download.name.display(),
+        ))
+        .into());
+    }
 
     let archive_path = state
         .directories
@@ -1526,10 +1878,18 @@ fn map_platform_to_feed_os() -> &'static str {
 }
 
 fn map_arch_to_feed_arch() -> &'static str {
-    match std::env::consts::ARCH {
+    feed_arch_for(std::env::consts::ARCH)
+}
+
+fn feed_arch_for(arch: &str) -> &'static str {
+    match arch {
         "x86_64" => "x86_64",
+        "x86" => "x86",
         "aarch64" => "aarch64",
-        _ => "x86_64",
+        "arm" => "arm",
+        "riscv64" | "riscv64gc" => "riscv64",
+        "loongarch64" | "loongarch64el" | "loong64" => "loongarch64",
+        _ => "unknown",
     }
 }
 
@@ -2155,5 +2515,73 @@ mod tests {
     fn automatic_memory_matches_mod_targets() {
         assert_eq!(automatic_memory_max_mb(8 * GIB, 100, true), 5836);
         assert_eq!(automatic_memory_max_mb(0, 300, true), 2560);
+    }
+
+    #[test]
+    fn java_feed_arch_keeps_supported_architectures_and_never_guesses_x64() {
+        assert_eq!(feed_arch_for("x86_64"), "x86_64");
+        assert_eq!(feed_arch_for("aarch64"), "aarch64");
+        assert_eq!(feed_arch_for("riscv64gc"), "riscv64");
+        assert_eq!(feed_arch_for("loong64"), "loongarch64");
+        assert_eq!(feed_arch_for("loongarch64el"), "loongarch64");
+        assert_eq!(feed_arch_for("powerpc64le"), "unknown");
+    }
+
+    #[test]
+    fn java_runtime_sources_do_not_guess_unsupported_architectures() {
+        assert_eq!(azul_runtime_arch("x86_64"), Some("x86_64"));
+        assert_eq!(azul_runtime_arch("aarch64"), Some("aarch64"));
+        assert_eq!(azul_runtime_arch("x86"), None);
+        assert_eq!(azul_runtime_arch("arm"), None);
+        assert_eq!(azul_runtime_arch("riscv64"), None);
+        assert_eq!(azul_runtime_arch("loongarch64"), None);
+
+        assert_eq!(adoptium_runtime_arch("linux", "riscv64"), Some("riscv64"));
+        assert_eq!(
+            adoptium_runtime_arch("linux", "riscv64gc"),
+            Some("riscv64")
+        );
+        assert_eq!(adoptium_runtime_arch("linux", "loongarch64"), None);
+        assert_eq!(adoptium_runtime_arch("macos", "riscv64"), None);
+    }
+
+    #[test]
+    fn azul_packages_are_checked_for_the_requested_architecture() {
+        assert!(azul_package_matches_arch(
+            "zulu21.0.1-ca-jre21.0.1-linux_x64.zip",
+            "x86_64"
+        ));
+        assert!(azul_package_matches_arch(
+            "zulu21.0.1-ca-jre21.0.1-linux_musl_x64.tar.gz",
+            "x86_64"
+        ));
+        assert!(azul_package_matches_arch(
+            "zulu21.0.1-ca-jre21.0.1-linux_aarch64.tar.gz",
+            "aarch64"
+        ));
+        assert!(!azul_package_matches_arch(
+            "zulu21.0.1-ca-jre21.0.1-linux_x64.zip",
+            "aarch64"
+        ));
+        assert!(!azul_package_matches_arch(
+            "zulu21.0.1-ca-jre21.0.1-linux_aarch64.tar.gz",
+            "x86_64"
+        ));
+        assert!(!azul_package_matches_arch(
+            "zulu21.0.1-ca-jre21.0.1-linux_x64.zip",
+            "x86"
+        ));
+    }
+
+    #[test]
+    fn unsupported_automatic_java_errors_tell_users_to_install_a_jdk() {
+        let message =
+            automatic_java_install_message("linux", "loongarch64", 21);
+        assert!(message.contains("Java 21"));
+        assert!(message.contains("linux/loongarch64"));
+        assert!(message.contains("Settings > Java"));
+        assert!(is_sha256_hex(&"a".repeat(64)));
+        assert!(!is_sha256_hex(&"g".repeat(64)));
+        assert!(!is_sha256_hex("abc"));
     }
 }

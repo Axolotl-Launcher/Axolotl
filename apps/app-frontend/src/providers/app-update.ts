@@ -50,7 +50,7 @@ export interface UpdateCapability {
     owners: string[]
 }
 
-const updateCapability = ref<UpdateCapability | null>(null)
+export const updateCapability = ref<UpdateCapability | null>(null)
 let updateCapabilityRequest: Promise<UpdateCapability | null> | null = null
 
 /**

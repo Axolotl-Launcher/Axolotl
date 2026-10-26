@@ -111,19 +111,16 @@ node scripts/axolotl/downgrade-app-db.mjs --suffix pr538 --to 20260903120000 --a
 
 该脚本依赖 Node 内置的 `node:sqlite`，并要求 Windows（解析默认数据目录需要 `APPDATA`；其他平台请用 `--db` 指定路径）。
 
-### 模拟安装来源（仅调试构建）
+### 模拟安装来源（仅调试构建）由 ljm-233 添加
 
 `pnpm app:dev` 运行的是 `target/debug` 下的二进制，它不属于任何包数据库，所以安装来源会被判定为便携版并保留检查更新。调试构建可以用环境变量覆盖这个判定，用来预览被包管理器托管的安装（禁用检查更新、显示更新命令）：
 
 ```powershell
 # 预览 AUR 安装：禁用检查更新，并提示 yay -S axolotl-launcher
-$env:AXOLOTL_INSTALL_SOURCE = "yay"
-pnpm app:dev
+$env:AXOLOTL_INSTALL_SOURCE = "yay" pnpm app:dev
 
-# 同时指定提示命令里使用的包名
-$env:AXOLOTL_INSTALL_SOURCE = "yay"
-$env:AXOLOTL_INSTALL_PACKAGE = "axolotl-launcher-bin"
-pnpm app:dev
+# 还可以同时指定提示命令里使用的包名
+$env:AXOLOTL_INSTALL_SOURCE = "yay" $env:AXOLOTL_INSTALL_PACKAGE = "axolotl-launcher-bin" pnpm app:dev
 ```
 
 `AXOLOTL_INSTALL_SOURCE` 接受 `pacman`、`yay`、`paru`、`apt`、`dpkg`、`dnf`、`zypper`、`rpm`、`flatpak`、`nix`、`conflict`、`unconfirmed`、`query-failed`、`portable` 和 `appimage`；无法识别的值会被忽略，回退到真实检测。`apt`、`dnf`、`zypper` 在 `pkexec` 可用时按“可以内置安装”处理，`dpkg`、`rpm` 没有可用前端，只显示通用的包管理器提示。

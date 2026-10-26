@@ -1,0 +1,2 @@
+# Web demo build output (demo/vite.config.ts); kept out of `dist`, which the desktop app bundles.
+dist-demo/

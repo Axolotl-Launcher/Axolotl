@@ -4,7 +4,8 @@ import { pathToFileURL } from 'node:url'
 
 // 从 app 前端的公告 catalog（apps/app-frontend/src/announcements/catalog.ts，
 // 发布时人工维护的唯一数据源）导出网站 changelog 数据。
-// 该文件提交到仓库 main 分支后由网站在构建期导入，使 changelog 页面
+// sync-website-release-data.yml 将其提交到网站仓库（Axolotl-Website）的
+// releases/catalog.json，网站在构建期导入，使 changelog 页面
 // 能够生成包含完整更新记录的静态 HTML。
 // catalog.ts 只使用可擦除语法（无 enum/namespace），直接由 Node 原生类型剥离导入，
 // 无需 typescript 依赖（verify-and-publish job 不安装依赖）。

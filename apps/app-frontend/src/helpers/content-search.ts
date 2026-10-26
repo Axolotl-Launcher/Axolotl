@@ -113,7 +113,6 @@ export async function translateSearchHitTitles<
     T extends { slug?: string | null; title: string; provider: 'modrinth' | 'curseforge' },
 >(hits: T[], locale: string): Promise<T[]> {
     if (locale !== 'zh-CN' || hits.length === 0) return hits
-    if (await hidesChineseContentTitles()) return hits
 
     const modrinthSlugs: string[] = []
     const curseforgeSlugs: string[] = []
@@ -126,6 +125,7 @@ export async function translateSearchHitTitles<
 
     const lookup = await lookupChineseContentNames(modrinthSlugs, curseforgeSlugs).catch(() => null)
     if (!lookup) return hits
+    if (await hidesChineseContentTitles()) return hits
 
     return hits.map((hit) => {
         if (!hit.slug) return hit
@@ -141,17 +141,17 @@ export async function translateSearchHitTitles<
 }
 
 /**
- * Rewrites content item titles to the bilingual `中文名 (English)` format used
- * by the Browse page, resolving names from the bundled wiki dictionary by
- * project slug. Items are returned unchanged unless the locale is zh-CN. The
- * dictionary name is always kept on `chinese_title` so the local content search
- * can match it whether or not the title is localized.
+ * Attaches the bundled wiki dictionary name to each content item and, in
+ * zh-CN with the preference enabled, rewrites the title to the bilingual
+ * `中文名 (English)` format used by the Browse page. The name is attached in
+ * every locale so the local content search matches Chinese queries regardless
+ * of the interface language.
  */
 export async function translateContentItemTitles<T extends ContentItem>(
     items: T[],
     locale: string,
 ): Promise<T[]> {
-    if (locale !== 'zh-CN' || items.length === 0) return items
+    if (items.length === 0) return items
 
     const modrinthSlugs: string[] = []
     const curseforgeSlugs: string[] = []
@@ -166,7 +166,9 @@ export async function translateContentItemTitles<T extends ContentItem>(
     const lookup = await lookupChineseContentNames(modrinthSlugs, curseforgeSlugs).catch(() => null)
     if (!lookup) return items
 
-    const hidden = await hidesChineseContentTitles()
+    // Read the preference after the lookup so a change made while it was pending
+    // still applies to the result.
+    const localizeTitles = locale === 'zh-CN' && !(await hidesChineseContentTitles())
 
     return items.map((item) => {
         const project = item.project
@@ -178,12 +180,15 @@ export async function translateContentItemTitles<T extends ContentItem>(
                   ? lookup.modrinth[project.slug]
                   : undefined
         if (!chineseName) return item
-        const titled = hidden
-            ? item
-            : {
+        const titled = localizeTitles
+            ? {
                   ...item,
-                  project: { ...project, title: bilingualTitle(chineseName, project.title) },
+                  project: {
+                      ...project,
+                      title: bilingualTitle(chineseName, project.title),
+                  },
               }
+            : item
         return { ...titled, chinese_title: chineseName }
     })
 }

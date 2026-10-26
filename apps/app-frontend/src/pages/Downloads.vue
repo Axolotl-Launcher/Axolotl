@@ -220,7 +220,16 @@
                             ><ArrowBigRightDashIcon />{{ formatMessage(messages.skipMissingFiles) }}
                         </Button>
                         <Button
-                            v-if="job.status === 'waiting_for_user'"
+                            v-if="isOptionalSelection(job)"
+                            type="colored"
+                            color="brand"
+                            size="2xs"
+                            :disabled="busy.has(job.job_id)"
+                            @click="confirmOptionalSelection(job)"
+                            ><DownloadIcon />{{ formatMessage(messages.confirmOptionalSelection) }}
+                        </Button>
+                        <Button
+                            v-if="job.status === 'waiting_for_user' && !isOptionalSelection(job)"
                             type="colored"
                             color="brand"
                             size="2xs"
@@ -343,7 +352,25 @@
                 </div>
 
                 <div v-if="job.status === 'waiting_for_user'" class="px-4 pb-4">
-                    <Admonition type="warning" :header="formatMessage(messages.actionNeeded)">
+                    <Admonition
+                        v-if="isOptionalSelection(job)"
+                        type="info"
+                        :header="formatMessage(messages.optionalContentHeader)"
+                    >
+                        {{
+                            formatMessage(messages.optionalContent, {
+                                count:
+                                    job.pause_reason?.type === 'optional_content_selection'
+                                        ? job.pause_reason.optional_files
+                                        : 0,
+                            })
+                        }}
+                    </Admonition>
+                    <Admonition
+                        v-else
+                        type="warning"
+                        :header="formatMessage(messages.actionNeeded)"
+                    >
                         {{
                             formatMessage(messages.missingRequiredContent, {
                                 completed: completedRequiredFiles(job),
@@ -352,6 +379,20 @@
                             })
                         }}
                     </Admonition>
+                    <div
+                        v-if="isOptionalSelection(job) && optionalFilesFor(job).length"
+                        class="mt-3 flex flex-col gap-2"
+                    >
+                        <Checkbox
+                            v-for="file in optionalFilesFor(job)"
+                            :key="file.itemId"
+                            :model-value="isOptionalFileChecked(job, file)"
+                            :description="file.path"
+                            @update:model-value="toggleOptionalFile(job, file, $event)"
+                        >
+                            {{ file.title || file.path }}
+                        </Checkbox>
+                    </div>
                 </div>
 
                 <div
@@ -545,6 +586,7 @@ import {
     BulletDivider,
     Button,
     Card,
+    Checkbox,
     Combobox,
     commonMessages,
     ConfirmModal,
@@ -579,9 +621,11 @@ import { retiredDownloadMessage } from '@/helpers/download-url-messages'
 import { selectDownloadEmptyState } from '@/helpers/downloads-empty-state'
 import {
     download_job_support_details,
+    install_job_optional_files,
     type InstallJobSnapshot,
     type InstallJobStatus,
     type InstallPhaseId,
+    type OptionalModpackFileView,
 } from '@/helpers/install'
 import {
     effectiveInstallProgress,
@@ -722,6 +766,19 @@ const messages = defineMessages({
         defaultMessage: 'Complete missing files',
     },
     actionNeeded: { id: 'app.downloads.action-needed', defaultMessage: 'Action needed' },
+    optionalContentHeader: {
+        id: 'app.downloads.optional-content-header',
+        defaultMessage: 'Choose optional files',
+    },
+    optionalContent: {
+        id: 'app.downloads.optional-content',
+        defaultMessage:
+            'This modpack marks {count, plural, one {# file} other {# files}} as optional. Uncheck the ones you do not want to install.',
+    },
+    confirmOptionalSelection: {
+        id: 'app.downloads.confirm-optional-selection',
+        defaultMessage: 'Install selected files',
+    },
     missingRequiredContent: {
         id: 'app.downloads.missing-required-content',
         defaultMessage:
@@ -1173,6 +1230,79 @@ function canSkipMissingContent(job: InstallJobSnapshot) {
         job.pause_reason.failed_files > 0
     )
 }
+
+const optionalFilesByJob = ref(new Map<string, OptionalModpackFileView[]>())
+const optionalSkipByJob = ref(new Map<string, Set<string>>())
+
+function isOptionalSelection(job: InstallJobSnapshot) {
+    return (
+        job.status === 'waiting_for_user' && job.pause_reason?.type === 'optional_content_selection'
+    )
+}
+
+function optionalFilesFor(job: InstallJobSnapshot): OptionalModpackFileView[] {
+    return optionalFilesByJob.value.get(job.job_id) ?? []
+}
+
+async function ensureOptionalFiles(job: InstallJobSnapshot) {
+    if (!isOptionalSelection(job) || optionalFilesByJob.value.has(job.job_id)) return
+    try {
+        const view = await install_job_optional_files(job.job_id)
+        const files = view.files
+        const nextFiles = new Map(optionalFilesByJob.value)
+        nextFiles.set(job.job_id, files)
+        optionalFilesByJob.value = nextFiles
+        const nextSkip = new Map(optionalSkipByJob.value)
+        nextSkip.set(
+            job.job_id,
+            new Set(files.filter((file) => !file.recommended).map((file) => file.itemId)),
+        )
+        optionalSkipByJob.value = nextSkip
+    } catch {
+        // The job may already be resolved; the next reconcile drops it from the list.
+    }
+}
+
+function isOptionalFileChecked(job: InstallJobSnapshot, file: OptionalModpackFileView) {
+    return !optionalSkipByJob.value.get(job.job_id)?.has(file.itemId)
+}
+
+function toggleOptionalFile(
+    job: InstallJobSnapshot,
+    file: OptionalModpackFileView,
+    checked: boolean,
+) {
+    const next = new Map(optionalSkipByJob.value)
+    const skipped = new Set(next.get(job.job_id) ?? [])
+    if (checked) {
+        skipped.delete(file.itemId)
+    } else {
+        skipped.add(file.itemId)
+    }
+    next.set(job.job_id, skipped)
+    optionalSkipByJob.value = next
+}
+
+async function confirmOptionalSelection(job: InstallJobSnapshot) {
+    const skippedPaths = [...(optionalSkipByJob.value.get(job.job_id) ?? [])]
+    await withBusy(job.job_id, () => manager.selectOptionalContent(job.job_id, skippedPaths))
+    const nextFiles = new Map(optionalFilesByJob.value)
+    nextFiles.delete(job.job_id)
+    optionalFilesByJob.value = nextFiles
+    const nextSkip = new Map(optionalSkipByJob.value)
+    nextSkip.delete(job.job_id)
+    optionalSkipByJob.value = nextSkip
+}
+
+watch(
+    manager.jobs,
+    (jobs) => {
+        for (const job of jobs) {
+            void ensureOptionalFiles(job)
+        }
+    },
+    { immediate: true },
+)
 
 function showProgress(job: InstallJobSnapshot) {
     return ['queued', 'running', 'canceling', 'waiting_for_user'].includes(job.status)

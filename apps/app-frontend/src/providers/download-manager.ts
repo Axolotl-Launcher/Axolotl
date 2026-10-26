@@ -17,6 +17,7 @@ import {
     download_job_resume,
     download_job_retry,
     type DownloadRequestUpdate,
+    install_job_select_optional_content,
     install_job_skip_missing_content,
     installJobInstanceId,
     type InstallJobSnapshot,
@@ -51,6 +52,7 @@ export interface DownloadManager {
     retry: (jobId: string) => Promise<void>
     resume: (jobId: string) => Promise<void>
     skipMissingContent: (jobId: string) => Promise<void>
+    selectOptionalContent: (jobId: string, skippedPaths: string[]) => Promise<void>
     remove: (jobId: string) => Promise<void>
     clearHistory: () => Promise<void>
     trackJob: (job: InstallJobSnapshot) => void
@@ -531,6 +533,12 @@ export function createDownloadManager(handleError: (error: unknown) => void): Do
         await reconcileJob(job, revision)
     }
 
+    async function selectOptionalContent(jobId: string, skippedPaths: string[]) {
+        const revision = jobRevisions.get(jobId) ?? 0
+        const job = await install_job_select_optional_content(jobId, skippedPaths)
+        await reconcileJob(job, revision)
+    }
+
     /**
      * The job may already have reached a terminal state (or been removed) by
      * the time the retry/cancel command returns. Fetch the freshest snapshot so
@@ -609,6 +617,7 @@ export function createDownloadManager(handleError: (error: unknown) => void): Do
         retry,
         resume,
         skipMissingContent,
+        selectOptionalContent,
         remove,
         clearHistory,
         trackJob: setJob,

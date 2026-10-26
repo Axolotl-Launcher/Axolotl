@@ -711,12 +711,14 @@ pub async fn skip_missing_content_and_resume_job(
         .map(|item| item.id)
         .collect::<Vec<_>>();
     let mut job_state = job.state;
-    let InstallPauseReason::MissingRequiredContent { paths, .. } =
-        job_state.pause_reason.as_ref().ok_or_else(|| {
-            crate::ErrorKind::InputError(
-                "Install job has no missing content to skip".to_string(),
-            )
-        })?;
+    let Some(InstallPauseReason::MissingRequiredContent { paths, .. }) =
+        job_state.pause_reason.as_ref()
+    else {
+        return Err(crate::ErrorKind::InputError(
+            "Install job has no missing content to skip".to_string(),
+        )
+        .into());
+    };
     if current_missing_paths.is_empty() {
         current_missing_paths = paths.clone();
     }
@@ -732,6 +734,49 @@ pub async fn skip_missing_content_and_resume_job(
     job_state.skipped_missing_content_paths.sort_unstable();
     job_state.skipped_missing_content_paths.dedup();
 
+    queue_waiting_job(job_id, job_state, &state).await
+}
+
+/// Record the user's optional-file selection for a paused modpack install
+/// and queue it again. `skipped_paths` are the install paths the user chose
+/// to skip; every other optional file is installed.
+pub async fn select_optional_content_and_resume_job(
+    job_id: Uuid,
+    skipped_paths: Vec<String>,
+) -> crate::Result<InstallJobSnapshot> {
+    let state = State::get().await?;
+    let job = store::get_required(job_id, &state).await?;
+    if job.status != InstallJobStatus::WaitingForUser {
+        return Err(crate::ErrorKind::InputError(
+            "Only install jobs waiting for user action can select optional content"
+                .to_string(),
+        )
+        .into());
+    }
+    let mut job_state = job.state;
+    if !matches!(
+        job_state.pause_reason,
+        Some(InstallPauseReason::OptionalContentSelection { .. })
+    ) {
+        return Err(crate::ErrorKind::InputError(
+            "Install job is not waiting for an optional content selection"
+                .to_string(),
+        )
+        .into());
+    }
+    let known_paths: std::collections::HashSet<&str> = job_state
+        .optional_content
+        .as_ref()
+        .map(|content| {
+            content.files.iter().map(|f| f.item_id.as_str()).collect()
+        })
+        .unwrap_or_default();
+    let mut skipped = skipped_paths;
+    skipped.retain(|path| known_paths.contains(path.as_str()));
+    skipped.sort_unstable();
+    skipped.dedup();
+    job_state.skipped_optional_content_paths = skipped;
+    job_state.optional_content_decided = true;
     queue_waiting_job(job_id, job_state, &state).await
 }
 

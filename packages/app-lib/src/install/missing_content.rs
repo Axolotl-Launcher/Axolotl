@@ -141,6 +141,50 @@ pub async fn list_missing_modpack_files(
     missing_content_view(&job.state)
 }
 
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct OptionalModpackContentView {
+    pub files: Vec<OptionalModpackFileView>,
+}
+
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct OptionalModpackFileView {
+    pub item_id: String,
+    pub path: String,
+    pub expected_size: u64,
+    pub title: Option<String>,
+    pub source: Option<String>,
+    pub recommended: bool,
+}
+
+pub async fn list_optional_modpack_files(
+    job_id: Uuid,
+) -> crate::Result<OptionalModpackContentView> {
+    let state = State::get().await?;
+    let job = waiting_job(job_id, &state).await?;
+    let files = job
+        .state
+        .optional_content
+        .as_ref()
+        .map(|content| {
+            content
+                .files
+                .iter()
+                .map(|file| OptionalModpackFileView {
+                    item_id: file.item_id.clone(),
+                    path: file.target_path.clone(),
+                    expected_size: file.expected_size,
+                    title: file.title.clone(),
+                    source: file.source.clone(),
+                    recommended: file.recommended,
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+    Ok(OptionalModpackContentView { files })
+}
+
 pub async fn scan_missing_modpack_files(
     job_id: Uuid,
     scan_directory: Option<PathBuf>,
@@ -1188,6 +1232,10 @@ mod tests {
     use crate::api::pack::install_from::CreatePackLocation;
     use crate::install::model::MissingModpackContentState;
     #[cfg(not(feature = "tauri"))]
+    use crate::install::model::{
+        OptionalModpackContentState, OptionalModpackFileState,
+    };
+    #[cfg(not(feature = "tauri"))]
     use crate::install::model::{InstallJobExecutionMode, InstallPauseReason};
     #[cfg(not(feature = "tauri"))]
     use crate::state::{InstanceLink, ModLoader};
@@ -2063,5 +2111,115 @@ mod tests {
                 .count(),
             2
         );
+    }
+
+    #[cfg(not(feature = "tauri"))]
+    #[tokio::test]
+    async fn optional_content_selection_resumes_with_skipped_paths() {
+        crate::event::EventState::init().await.unwrap();
+        let root = tempfile::tempdir().unwrap().keep();
+        let state = State::init_for_test(root.to_string_lossy().to_string())
+            .await
+            .unwrap();
+        let created = crate::api::instance::create(
+            format!("Optional content {}", Uuid::new_v4()),
+            "1.20.1".to_string(),
+            ModLoader::Vanilla,
+            None,
+            None,
+            InstanceLink::Unmanaged,
+            None,
+            None,
+        )
+        .await
+        .unwrap();
+        let instance_id = created.instance.id;
+        let first = OptionalModpackFileState {
+            item_id: "mods/opt-one.jar".to_string(),
+            manifest_path: "mods/opt-one.jar".to_string(),
+            target_path: "mods/opt-one.jar".to_string(),
+            expected_size: 10,
+            sha1: None,
+            title: None,
+            source: None,
+            recommended: true,
+        };
+        let second = OptionalModpackFileState {
+            item_id: "mods/opt-two.jar".to_string(),
+            manifest_path: "mods/opt-two.jar".to_string(),
+            target_path: "mods/opt-two.jar".to_string(),
+            expected_size: 20,
+            sha1: None,
+            title: None,
+            source: None,
+            recommended: true,
+        };
+        let mut job_state = InstallJobState::new(
+            InstallRequest::InstallPackToExistingInstance {
+                instance_id: instance_id.clone(),
+                location: CreatePackLocation::FromFile {
+                    path: root.join("optional.mrpack"),
+                },
+                post_install_edit: None,
+            },
+        );
+        job_state.optional_content = Some(OptionalModpackContentState {
+            files: vec![first.clone(), second.clone()],
+        });
+        job_state.pause_reason = Some(
+            InstallPauseReason::OptionalContentSelection { optional_files: 2 },
+        );
+        let job_id = Uuid::new_v4();
+        store::insert(
+            job_id,
+            &job_state,
+            InstallJobStatus::WaitingForUser,
+            &state,
+        )
+        .await
+        .unwrap();
+
+        let view = list_optional_modpack_files(job_id).await.unwrap();
+        assert_eq!(view.files.len(), 2);
+        assert_eq!(view.files[0].item_id, "mods/opt-one.jar");
+        assert!(view.files[0].recommended);
+
+        // A job that is not waiting for the user cannot be re-selected.
+        let queued_id = Uuid::new_v4();
+        store::insert(
+            queued_id,
+            &job_state,
+            InstallJobStatus::Queued,
+            &state,
+        )
+        .await
+        .unwrap();
+        assert!(
+            runner::select_optional_content_and_resume_job(
+                queued_id,
+                Vec::new()
+            )
+            .await
+            .is_err()
+        );
+
+        // Unknown paths are dropped; the decision sticks and the job resumes.
+        let snapshot = runner::select_optional_content_and_resume_job(
+            job_id,
+            vec![
+                "mods/opt-two.jar".to_string(),
+                "mods/unknown.jar".to_string(),
+            ],
+        )
+        .await
+        .unwrap();
+        assert_eq!(snapshot.status, InstallJobStatus::Queued);
+        let updated = store::get_required(job_id, &state).await.unwrap();
+        assert!(updated.state.optional_content_decided);
+        assert_eq!(
+            updated.state.skipped_optional_content_paths,
+            vec!["mods/opt-two.jar".to_string()]
+        );
+        assert!(updated.state.pause_reason.is_none());
     }
 }

@@ -236,6 +236,9 @@ async fn run_job(job_id: Uuid) -> crate::Result<()> {
             }
             job_state.missing_content = None;
             job_state.skipped_missing_content_paths.clear();
+            job_state.optional_content = None;
+            job_state.skipped_optional_content_paths.clear();
+            job_state.optional_content_decided = false;
             job_state.context = None;
             let mut completed_state = job_state.clone();
             completed_state.rollback = None;

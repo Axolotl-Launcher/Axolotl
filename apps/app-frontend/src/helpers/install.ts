@@ -126,10 +126,28 @@ export interface InstallErrorView {
     } | null
 }
 
-export type InstallPauseReason = {
-    type: 'missing_required_content'
-    failed_files: number
-    paths: string[]
+export type InstallPauseReason =
+    | {
+          type: 'missing_required_content'
+          failed_files: number
+          paths: string[]
+      }
+    | {
+          type: 'optional_content_selection'
+          optional_files: number
+      }
+
+export interface OptionalModpackFileView {
+    itemId: string
+    path: string
+    expectedSize: number
+    title?: string | null
+    source?: string | null
+    recommended: boolean
+}
+
+export interface OptionalModpackContentView {
+    files: OptionalModpackFileView[]
 }
 
 export interface InstallJobSnapshot {
@@ -457,6 +475,19 @@ export async function install_job_resume(jobId: string) {
 
 export async function install_job_skip_missing_content(jobId: string) {
     return await invoke<InstallJobSnapshot>('plugin:install|install_job_skip_missing_content', {
+        jobId,
+    })
+}
+
+export async function install_job_select_optional_content(jobId: string, skippedPaths: string[]) {
+    return await invoke<InstallJobSnapshot>('plugin:install|install_job_select_optional_content', {
+        jobId,
+        skippedPaths,
+    })
+}
+
+export async function install_job_optional_files(jobId: string) {
+    return await invoke<OptionalModpackContentView>('plugin:install|install_job_optional_files', {
         jobId,
     })
 }

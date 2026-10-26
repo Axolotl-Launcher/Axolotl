@@ -8,15 +8,15 @@
  * type-check and build all stay green, which is why these survive.
  *
  * The built stylesheet is the oracle, because that is exactly what the browser
- * sees. Build the app and the website first, then run this.
+ * sees. Build the app first, then run this.
  *
  * Entries in ALLOWED name a file, a class and the reason it may stay.
  */
 import { readFileSync, readdirSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 
-const ROOTS = ['packages/ui/src', 'apps/app-frontend/src', 'apps/website/src']
-const CSS_DIRS = ['apps/app-frontend/dist/assets', 'apps/website/dist']
+const ROOTS = ['packages/ui/src', 'apps/app-frontend/src']
+const CSS_DIRS = ['apps/app-frontend/dist/assets']
 const ALLOWED = []
 
 const UTILITY =
@@ -69,7 +69,7 @@ const escape = (name) => name.replace(/[.:/[\]%!#(),]/g, (char) => `\\${char}`)
 
 const css = builtCss()
 if (!css) {
-    console.error('No built CSS found. Build the app (and website) first.')
+    console.error('No built CSS found. Build the app first.')
     process.exit(1)
 }
 

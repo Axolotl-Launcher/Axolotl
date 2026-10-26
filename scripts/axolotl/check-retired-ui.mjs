@@ -19,7 +19,6 @@ import path from 'node:path'
 const ROOTS = [
     'packages/ui/src',
     'apps/app-frontend/src',
-    'apps/website/src',
     'packages/assets/styles',
 ]
 

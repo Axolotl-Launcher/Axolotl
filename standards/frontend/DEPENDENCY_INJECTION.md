@@ -130,7 +130,7 @@ Register it in `apps/app-frontend/src/providers/setup.ts`, which is called from 
 
 ### Website Frontend (Nuxt)
 
-Provide directly in `apps/website/src/app.vue` when the website needs a shared context:
+The website lives in [Axolotl-Launcher/Axolotl-Website](https://github.com/Axolotl-Launcher/Axolotl-Website) with a vendored copy of `packages/ui`. Provide directly in its `src/app.vue` when the website needs a shared context:
 
 ```ts
 provideMyFeature({
@@ -146,7 +146,7 @@ provideMyFeature({
 
 ## Consuming Providers
 
-In any component across `packages/ui`, `apps/website`, or `apps/app-frontend`:
+In any component across `packages/ui`, `apps/app-frontend`, or the website:
 
 ```vue
 <script setup lang="ts">
@@ -183,6 +183,6 @@ Default to props and emits. DI adds indirection — only use it with a concrete 
 
 - `packages/ui/src/providers/index.ts` — `createContext` factory + barrel exports
 - `packages/ui/src/providers/*.ts` — Provider definitions
-- `apps/website/src/app.vue` — Nuxt root provider setup
+- `src/app.vue` in the website repository — Nuxt root provider setup
 - `apps/app-frontend/src/App.vue` — Tauri root provider setup
 - `apps/app-frontend/src/providers/setup/` — App provider setup functions

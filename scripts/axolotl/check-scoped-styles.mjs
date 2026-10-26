@@ -19,7 +19,7 @@ import path from 'node:path'
  * a blanket exemption.
  */
 
-const roots = ['packages/ui/src', 'apps/app-frontend/src', 'apps/website/src']
+const roots = ['packages/ui/src', 'apps/app-frontend/src']
 const ignoredDirectories = new Set([
     'node_modules',
     '.vite',
@@ -94,36 +94,6 @@ allow('styles-its-own-element', [
         '.advanced-panel > label',
         'raw labels are direct children of its own .advanced-panel (LabSeedMap.vue:2982,2995,2999)',
     ],
-    [
-        'apps/website/src/components/ui/AxolotlFooter.vue',
-        '.footer-legal a',
-        'raw anchors inside its own .footer-legal (AxolotlFooter.vue:35,42,46)',
-    ],
-    [
-        'apps/website/src/components/ui/SiteSettingsModal.vue',
-        '.settings-sidebar button',
-        'three raw buttons inside its own .settings-sidebar (SiteSettingsModal.vue:313,315,322,329), repeated in the narrow-viewport block at :700',
-    ],
-    [
-        'apps/website/src/components/ui/SiteSettingsModal.vue',
-        '.settings-sidebar button:hover',
-        'same own buttons (SiteSettingsModal.vue:533)',
-    ],
-    [
-        'apps/website/src/components/ui/SiteSettingsModal.vue',
-        '.setting-row label',
-        'raw labels inside its own .setting-row blocks (SiteSettingsModal.vue:366,373,380)',
-    ],
-    [
-        'apps/website/src/pages/index.vue',
-        '.footer .download-channel-picker label',
-        'raw label inside its own .download-channel-picker (index.vue:1114,1115)',
-    ],
-    [
-        'apps/website/src/pages/index.vue',
-        '.footer .download-error-banner .download-error-links a',
-        'one raw anchor inside its own .download-error-links (index.vue:1223,1224)',
-    ],
 ])
 
 // These style an element written in the file itself AND land on a `NuxtLink`,
@@ -131,41 +101,6 @@ allow('styles-its-own-element', [
 // that root is wanted here (the links sit in the same list), so the entry
 // records the reach rather than forbidding it.
 allow('also-matches-a-child-root', [
-    [
-        'apps/website/src/components/ui/AxolotlFooter.vue',
-        '.footer-links a',
-        'raw anchor at AxolotlFooter.vue:61, plus NuxtLink roots in the same list',
-    ],
-    [
-        'apps/website/src/components/ui/AxolotlFooter.vue',
-        '.footer-links a:hover',
-        'same list (AxolotlFooter.vue:141)',
-    ],
-    [
-        'apps/website/src/components/ui/AxolotlHeader.vue',
-        '.mobile-navigation a',
-        'raw anchors at AxolotlHeader.vue:157,165, plus NuxtLink roots beside them',
-    ],
-    [
-        'apps/website/src/components/ui/AxolotlHeader.vue',
-        '.mobile-navigation a:hover',
-        'same list (AxolotlHeader.vue:236)',
-    ],
-    [
-        'apps/website/src/pages/index.vue',
-        '.footer .download-section .download-card .description a',
-        'raw anchors at index.vue:1150-1184, plus a NuxtLink root in the same block',
-    ],
-    [
-        'apps/website/src/pages/index.vue',
-        '.footer .download-section .download-card .description a:hover',
-        'same block (index.vue:1966)',
-    ],
-    [
-        'apps/website/src/pages/index.vue',
-        '.footer .terms a',
-        'raw anchor in the terms slot at index.vue:1236, plus its NuxtLink root',
-    ],
 ])
 
 const styleBlockPattern = /<style([^>]*)>([\s\S]*?)<\/style>/g

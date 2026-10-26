@@ -30,7 +30,7 @@ import { readFileSync, readdirSync, realpathSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-const ROOTS = ['apps/app-frontend/src', 'packages/ui/src', 'apps/website/src']
+const ROOTS = ['apps/app-frontend/src', 'packages/ui/src']
 const EXTENSIONS = ['.vue', '.ts', '.tsx', '.mjs', '.js', '.scss', '.css']
 const IGNORED_DIRECTORIES = new Set(['node_modules', 'dist', '__screenshots__'])
 const IGNORED_FILE = /\.(test|spec)\.(?:[cm]?js|[jt]sx?)$/
@@ -147,7 +147,7 @@ function collectFiles(directory, files = [], unreadable = []) {
 /**
  * Scans the given roots and returns what the caller should act on: the
  * violations, the allowlist entries that no longer match anything, and the
- * roots that are not in this checkout (the website is optional in some).
+ * roots that are not in this checkout.
  */
 export function scan(roots = ROOTS) {
     const files = []

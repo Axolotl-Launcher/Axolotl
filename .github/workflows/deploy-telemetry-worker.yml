@@ -61,7 +61,7 @@ jobs:
           CF_ZONE_ID: ${{ vars.CLOUDFLARE_ZONE_ID }}
         run: |
           if [[ -z "$CLOUDFLARE_API_TOKEN" || -z "$CLOUDFLARE_ACCOUNT_ID" ]]; then
-            echo '::error::Set the CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID secrets, shared with the website workflow.'
+            echo '::error::Set the CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID secrets.'
             exit 1
           fi
           if [[ "$CONFIGURE_RATE_LIMIT" == 'true' && -z "$CF_ZONE_ID" ]]; then

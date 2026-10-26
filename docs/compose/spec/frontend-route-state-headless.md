@@ -97,7 +97,7 @@ settings_dir / SQLite（权威持久化）
 
 - 每阶段：`pnpm prepr:frontend:app`；相关 `node --test`；`vue-tsc --noEmit`。
 - 路由改名后：rg 旧 name 字符串应无残留（除 changelog 历史）。
-- headless 阶段：双端目视（桌面 `pnpm app:dev`；website 仅在触及 `packages/ui` 时 `pnpm website:dev` 冒烟）。
+- headless 阶段：双端目视（桌面 `pnpm app:dev`；website 已迁至 Axolotl-Website 仓库，仅在其同步 `packages/ui` 改动后于该仓库 `pnpm dev` 冒烟）。
 
 ## [S3] Out of Scope
 

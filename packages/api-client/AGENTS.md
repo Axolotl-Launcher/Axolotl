@@ -68,7 +68,7 @@ this.client.request<MyType>('/endpoint', {
 Vue consumers can provide the client via the [DI standard](../../standards/frontend/DEPENDENCY_INJECTION.md). The following shows the platform setup pattern; verify each app's actual provider setup before using it. The current website does not provide the desktop layout contracts:
 
 ```ts
-// apps/website/src/app.vue (Nuxt)
+// src/app.vue in the website repository (Nuxt)
 const client = new NuxtModrinthClient({ ... })
 provideModrinthClient(client)
 

@@ -3,7 +3,7 @@ name: cross-platform-pages
 description: Share a Vue page between the website and desktop app by placing it in packages/ui and defining only the required platform contracts. Use when moving or designing cross-platform pages and layouts.
 ---
 
-Read [shared UI instructions](../../../packages/ui/AGENTS.md), the [DI standard](../../../standards/frontend/DEPENDENCY_INJECTION.md) and each affected app's instructions. The website currently consumes shared components without the desktop layout providers; do not assume it is ready to render an existing desktop layout. Implement a website route or provider only when the requested scope requires it.
+Read [shared UI instructions](../../../packages/ui/AGENTS.md), the [DI standard](../../../standards/frontend/DEPENDENCY_INJECTION.md) and each affected app's instructions. The website lives in [Axolotl-Launcher/Axolotl-Website](https://github.com/Axolotl-Launcher/Axolotl-Website) and consumes a vendored copy of `packages/ui` without the desktop layout providers; do not assume it is ready to render an existing desktop layout. Implement a website route or provider only when the requested scope requires it.
 
 ## Steps
 
@@ -16,7 +16,7 @@ Read [shared UI instructions](../../../packages/ui/AGENTS.md), the [DI standard]
    - Define a DI contract interface in `providers/` capturing all platform-specific operations.
    - Create the layout component that injects the context and handles all UI logic.
    - Extract reusable stateful logic (search, filtering, selection) into `composables/`.
-   - Implement the contract separately in each frontend (`apps/website/`, `apps/app-frontend/`).
+   - Implement the contract separately in each frontend (`apps/app-frontend/` here; the website repository after its vendored `packages/ui` receives the same change).
 5. **For wrapped pages:**
    - Move the page component into `packages/ui/src/layouts/wrapped/` matching the route structure.
    - Replace any platform-specific imports with shared utilities.

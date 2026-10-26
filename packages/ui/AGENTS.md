@@ -1,6 +1,6 @@
 # Architecture
 
-The shared UI package used by both `apps/website` (Nuxt 3) and `apps/app-frontend` (Vue 3 + Tauri). Components here must be platform-agnostic — use dependency injection for platform-specific behavior.
+The shared UI package used by `apps/app-frontend` (Vue 3 + Tauri) and, through a vendored copy, by the website repository [Axolotl-Launcher/Axolotl-Website](https://github.com/Axolotl-Launcher/Axolotl-Website) (Nuxt 4). Components here must be platform-agnostic — use dependency injection for platform-specific behavior.
 
 ## Folder Structure
 
@@ -28,7 +28,7 @@ Files inside `layouts/` use the `#ui/*` import alias (resolved via the `"imports
 
 ### Platform independence
 
-Components here must stay platform-agnostic: platform capabilities arrive through the `providers/` DI contracts. Importing `@tauri-apps/*` from this package is blocked by ESLint, because the Nuxt website consumes it too and has no Tauri runtime.
+Components here must stay platform-agnostic: platform capabilities arrive through the `providers/` DI contracts. Importing `@tauri-apps/*` from this package is blocked by ESLint, because the website vendors this package and has no Tauri runtime.
 
 # Code Guidelines
 

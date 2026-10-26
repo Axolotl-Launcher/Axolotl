@@ -24,7 +24,6 @@ jobs:
     outputs:
       desktop: ${{ steps.scope.outputs.desktop }}
       frontend: ${{ steps.scope.outputs.frontend }}
-      website: ${{ steps.scope.outputs.website }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
@@ -40,7 +39,7 @@ jobs:
   typos:
     name: Run typos checks
     needs: changes
-    if: needs.changes.outputs.desktop == 'true' || needs.changes.outputs.frontend == 'true' || needs.changes.outputs.website == 'true'
+    if: needs.changes.outputs.desktop == 'true' || needs.changes.outputs.frontend == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code

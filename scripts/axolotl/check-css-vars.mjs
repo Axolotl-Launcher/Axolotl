@@ -152,7 +152,7 @@ allow('runtime-set', [
 allow('declared-outside-scan-roots', [
     [
         'size-mobile-navbar-height',
-        'apps/website/src/assets/styles/global.scss declares `--size-mobile-navbar-height`',
+        'the website (Axolotl-Launcher/Axolotl-Website) declares `--size-mobile-navbar-height` in src/assets/styles/global.scss',
     ],
 ])
 

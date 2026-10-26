@@ -26,11 +26,11 @@ Configure these repository Actions settings:
 
 | Setting                 | Kind               | Purpose                                                                                           |
 | ----------------------- | ------------------ | ------------------------------------------------------------------------------------------------- |
-| `CLOUDFLARE_API_TOKEN`  | Secret             | Reuses the website token for Worker deployment and D1 migrations.                                 |
-| `CLOUDFLARE_ACCOUNT_ID` | Secret             | Reuses the website account ID; this account must contain `axolotl-telemetry` and its D1 database. |
+| `CLOUDFLARE_API_TOKEN`  | Secret             | Cloudflare API token for Worker deployment and D1 migrations.                                     |
+| `CLOUDFLARE_ACCOUNT_ID` | Secret             | Cloudflare account ID; this account must contain `axolotl-telemetry` and its D1 database.         |
 | `CLOUDFLARE_ZONE_ID`    | Variable, optional | Required only when selecting `configure_rate_limit`.                                              |
 
-The token must be scoped to the correct account/zone and allow Workers script deployment, D1 edits/migrations, and management of the Worker's custom domain/routes. Configuring the optional edge rule additionally requires zone rate-limiting/WAF rule write access. The website and Telemetry workflows share this token and account configuration.
+The token must be scoped to the correct account/zone and allow Workers script deployment, D1 edits/migrations, and management of the Worker's custom domain/routes. Configuring the optional edge rule additionally requires zone rate-limiting/WAF rule write access.
 
 `INSTALLATION_HMAC_SECRET` must already exist as a **Cloudflare Worker secret**, at least 32 characters long. The workflow checks for its presence and preserves it; do not replace it with a new value during routine deployment, because that changes installation identities. For initial provisioning, run `pnpm exec wrangler secret put INSTALLATION_HMAC_SECRET` from this package directory using the intended existing value.
 

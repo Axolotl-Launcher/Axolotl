@@ -989,16 +989,101 @@ fn env_present(key: &str) -> bool {
     std::env::var_os(key).is_some_and(|value| !value.is_empty())
 }
 
+/// Debug builds only: `AXOLOTL_INSTALL_SOURCE` fakes an install source so the
+/// package-managed update UI can be exercised from a development build, where
+/// the running executable never belongs to a package. `AXOLOTL_INSTALL_PACKAGE`
+/// overrides the package name shown in the guidance. Release builds ignore
+/// both variables.
+#[cfg(debug_assertions)]
+fn debug_install_source_override() -> Option<InstallSource> {
+    let value = std::env::var("AXOLOTL_INSTALL_SOURCE").ok()?;
+    let package = std::env::var("AXOLOTL_INSTALL_PACKAGE")
+        .ok()
+        .filter(|package| !package.trim().is_empty())
+        .unwrap_or_else(|| "axolotl-launcher".to_string());
+    install_source_override(&value, &package)
+}
+
+#[cfg(debug_assertions)]
+fn install_source_override(
+    value: &str,
+    package: &str,
+) -> Option<InstallSource> {
+    let owned = |database: PackageDatabase,
+                 frontend: Option<PackageFrontend>| {
+        OwnedPackage {
+            database,
+            frontend,
+            name: package.to_string(),
+            version: None,
+            architecture: None,
+        }
+    };
+    Some(match value.trim().to_ascii_lowercase().as_str() {
+        "appimage" => InstallSource::AppImage,
+        "flatpak" => InstallSource::Flatpak,
+        "nix" => InstallSource::Nix,
+        "portable" => InstallSource::Portable,
+        "unconfirmed" => InstallSource::Unconfirmed,
+        "query-failed" => InstallSource::QueryFailed,
+        "conflict" => InstallSource::Conflict(vec![
+            owned(PackageDatabase::Dpkg, Some(PackageFrontend::Apt)),
+            owned(PackageDatabase::Pacman, Some(PackageFrontend::Yay)),
+        ]),
+        "pacman" => InstallSource::Managed(owned(
+            PackageDatabase::Pacman,
+            Some(PackageFrontend::Pacman),
+        )),
+        "yay" => InstallSource::Managed(owned(
+            PackageDatabase::Pacman,
+            Some(PackageFrontend::Yay),
+        )),
+        "paru" => InstallSource::Managed(owned(
+            PackageDatabase::Pacman,
+            Some(PackageFrontend::Paru),
+        )),
+        "apt" => InstallSource::Managed(owned(
+            PackageDatabase::Dpkg,
+            Some(PackageFrontend::Apt),
+        )),
+        "dpkg" => InstallSource::Managed(owned(PackageDatabase::Dpkg, None)),
+        "dnf" => InstallSource::Managed(owned(
+            PackageDatabase::Rpm,
+            Some(PackageFrontend::Dnf),
+        )),
+        "zypper" => InstallSource::Managed(owned(
+            PackageDatabase::Rpm,
+            Some(PackageFrontend::Zypper),
+        )),
+        "rpm" => InstallSource::Managed(owned(PackageDatabase::Rpm, None)),
+        _ => return None,
+    })
+}
+
 static INSTALL_SOURCE: std::sync::OnceLock<InstallSource> =
     std::sync::OnceLock::new();
 
 /// Detect how this copy of the launcher was installed. The result is cached
 /// for the lifetime of the process.
 pub fn detect_install_source() -> &'static InstallSource {
-    INSTALL_SOURCE.get_or_init(detect_install_source_uncached)
+    INSTALL_SOURCE.get_or_init(|| {
+        let source = detect_install_source_uncached();
+        tracing::info!("Detected install source: {source:?}");
+        source
+    })
 }
 
 fn detect_install_source_uncached() -> InstallSource {
+    #[cfg(debug_assertions)]
+    {
+        if let Some(source) = debug_install_source_override() {
+            tracing::warn!(
+                "AXOLOTL_INSTALL_SOURCE overrides the install source: {source:?}"
+            );
+            return source;
+        }
+    }
+
     #[cfg(target_os = "linux")]
     {
         if env_present("APPIMAGE") {
@@ -1407,5 +1492,39 @@ mod install_source_tests {
         assert_eq!(InstallSource::Conflict(vec![]).as_str(), "conflict");
         assert_eq!(InstallSource::Unconfirmed.as_str(), "unconfirmed");
         assert_eq!(InstallSource::QueryFailed.as_str(), "query-failed");
+    }
+
+    #[cfg(debug_assertions)]
+    #[test]
+    fn debug_override_maps_the_documented_values() {
+        use super::install_source_override;
+
+        let source = |value: &str| {
+            install_source_override(value, "axolotl-launcher-bin")
+                .map(|source| source.as_str())
+        };
+
+        assert_eq!(source("yay"), Some("yay"));
+        assert_eq!(source("pacman"), Some("pacman"));
+        assert_eq!(source("apt"), Some("apt"));
+        assert_eq!(source("conflict"), Some("conflict"));
+        assert_eq!(source("query-failed"), Some("query-failed"));
+        // The launcher runs the value through trim + lowercase.
+        assert_eq!(source(" Portable "), Some("portable"));
+        assert_eq!(source("not-a-source"), None);
+
+        let managed = install_source_override("yay", "my-package")
+            .expect("yay should map to a managed install");
+        // pacman owns the files, so the launcher must not replace them.
+        assert!(!managed.self_update_supported_with(true));
+        assert_eq!(
+            managed.package().map(|p| p.name.as_str()),
+            Some("my-package")
+        );
+
+        let deb = install_source_override("apt", "my-package")
+            .expect("apt should map to a managed install");
+        assert!(deb.self_update_supported_with(true));
+        assert_eq!(deb.package_variant(), Some("deb"));
     }
 }

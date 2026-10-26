@@ -1,11 +1,14 @@
 import { Hono } from 'hono'
 
+import { ingestBatch, type IngestionLimits } from './ingest'
 import { redact, truncateUtf8 } from './redact'
-import { batchSchema, type TelemetryBatch } from './schema'
+import { batchSchema, heartbeatDayWindow, type TelemetryBatch } from './schema'
 
 const MAX_REQUEST_BYTES = 64 * 1024
 const HARD_MAX_BATCHES_PER_INSTALLATION_PER_DAY = 25
 const HARD_MAX_ACCEPTED_BATCHES_PER_DAY = 100_000
+const DEFAULT_MAX_RESERVED_WRITES_PER_DAY = 60_000
+const HARD_MAX_RESERVED_WRITES_PER_DAY = 80_000
 
 export interface Bindings {
     DB: D1Database
@@ -13,10 +16,10 @@ export interface Bindings {
     INGEST_ENABLED?: string
     MAX_BATCHES_PER_INSTALLATION_PER_DAY?: string
     MAX_ACCEPTED_BATCHES_PER_DAY?: string
+    MAX_RESERVED_WRITES_PER_DAY?: string
 }
 
 type Variables = { requestId: string }
-type IngestionReservation = 'reserved' | 'duplicate' | 'installation_limit' | 'global_limit'
 
 const app = new Hono<{ Bindings: Bindings; Variables: Variables }>()
 
@@ -70,43 +73,34 @@ app.post('/v1/batch', async (context) => {
     }
 
     try {
-        const accepted = await context.env.DB.prepare(
-            'SELECT 1 FROM accepted_batches WHERE batch_id = ? LIMIT 1',
-        )
-            .bind(parsed.data.batch_id)
-            .first()
-        if (accepted) return context.json({ accepted: true, duplicate: true })
-
         const installationHash = await hmacInstallationId(
             context.env.INSTALLATION_HMAC_SECRET,
             parsed.data.installation_id,
         )
         const limits = ingestionLimits(context.env)
-        const reservation = await reserveIngestion(
+        const result = await ingestBatch(
             context.env.DB,
-            parsed.data.batch_id,
+            sanitizeBatch(parsed.data),
             installationHash,
             limits,
         )
-        if (reservation === 'duplicate') return context.json({ accepted: true, duplicate: true })
-        if (reservation === 'installation_limit') {
+        if (result === 'duplicate') return context.json({ accepted: true, duplicate: true })
+        if (result === 'conflict') return context.json({ error: 'batch_id_conflict' }, 409)
+        if (result === 'installation_limit') {
             return context.json({ error: 'installation_batch_limit' }, 429, {
                 'Retry-After': retryAfterSeconds().toString(),
             })
         }
-        if (reservation === 'global_limit') {
-            console.error('Telemetry ingestion budget exhausted', { limit: limits.global })
-            return context.json({ error: 'global_batch_limit' }, 429, {
-                'Retry-After': retryAfterSeconds().toString(),
-            })
+        if (result === 'global_limit' || result === 'write_limit') {
+            return context.json(
+                { error: result === 'global_limit' ? 'global_batch_limit' : 'global_write_limit' },
+                429,
+                {
+                    'Retry-After': retryAfterSeconds().toString(),
+                },
+            )
         }
 
-        try {
-            await persistBatch(context.env.DB, sanitizeBatch(parsed.data), installationHash)
-        } catch (error) {
-            await rollbackIngestion(context.env.DB, parsed.data.batch_id, installationHash)
-            throw error
-        }
         return context.json({ accepted: true, duplicate: false })
     } catch (error) {
         console.error('Telemetry ingestion failed', {
@@ -156,7 +150,7 @@ async function hmacInstallationId(secret: string, installationId: string): Promi
     return [...new Uint8Array(signature)].map((byte) => byte.toString(16).padStart(2, '0')).join('')
 }
 
-function ingestionLimits(env: Bindings): { installation: number; global: number } {
+function ingestionLimits(env: Bindings): IngestionLimits {
     return {
         installation: Math.min(
             positiveInteger(
@@ -169,90 +163,11 @@ function ingestionLimits(env: Bindings): { installation: number; global: number 
             positiveInteger(env.MAX_ACCEPTED_BATCHES_PER_DAY, HARD_MAX_ACCEPTED_BATCHES_PER_DAY),
             HARD_MAX_ACCEPTED_BATCHES_PER_DAY,
         ),
+        writes: Math.min(
+            positiveInteger(env.MAX_RESERVED_WRITES_PER_DAY, DEFAULT_MAX_RESERVED_WRITES_PER_DAY),
+            HARD_MAX_RESERVED_WRITES_PER_DAY,
+        ),
     }
-}
-
-async function reserveIngestion(
-    db: D1Database,
-    batchId: string,
-    installationHash: string,
-    limits: { installation: number; global: number },
-): Promise<IngestionReservation> {
-    const day = utcDay()
-    const batch = await db
-        .prepare(
-            'INSERT OR IGNORE INTO accepted_batches (batch_id, installation_hash, accepted_at) VALUES (?, ?, unixepoch())',
-        )
-        .bind(batchId, installationHash)
-        .run()
-    if (batch.meta.changes !== 1) return 'duplicate'
-
-    const installation = await db
-        .prepare(
-            `INSERT INTO ingestion_daily (day, installation_hash, accepted_batches)
-			VALUES (?, ?, 1)
-			ON CONFLICT (day, installation_hash) DO UPDATE
-			SET accepted_batches = accepted_batches + 1
-			WHERE accepted_batches < ?`,
-        )
-        .bind(day, installationHash, limits.installation)
-        .run()
-    if (installation.meta.changes !== 1) {
-        await db.prepare('DELETE FROM accepted_batches WHERE batch_id = ?').bind(batchId).run()
-        return 'installation_limit'
-    }
-
-    const global = await db
-        .prepare(
-            `INSERT INTO ingestion_global_daily (day, accepted_batches)
-			VALUES (?, 1)
-			ON CONFLICT (day) DO UPDATE
-			SET accepted_batches = accepted_batches + 1
-			WHERE accepted_batches < ?`,
-        )
-        .bind(day, limits.global)
-        .run()
-    if (global.meta.changes !== 1) {
-        await db.batch([
-            db
-                .prepare(
-                    'UPDATE ingestion_daily SET accepted_batches = accepted_batches - 1 WHERE day = ? AND installation_hash = ?',
-                )
-                .bind(day, installationHash),
-            db.prepare('DELETE FROM accepted_batches WHERE batch_id = ?').bind(batchId),
-        ])
-        return 'global_limit'
-    }
-
-    const currentGlobal = await db
-        .prepare('SELECT accepted_batches FROM ingestion_global_daily WHERE day = ?')
-        .bind(day)
-        .first<{ accepted_batches: number }>()
-    if (currentGlobal) warnIngestionThresholds(currentGlobal.accepted_batches, limits.global)
-    return 'reserved'
-}
-
-async function rollbackIngestion(
-    db: D1Database,
-    batchId: string,
-    installationHash: string,
-): Promise<void> {
-    const day = utcDay()
-    await db.batch([
-        db
-            .prepare('DELETE FROM accepted_batches WHERE batch_id = ? AND installation_hash = ?')
-            .bind(batchId, installationHash),
-        db
-            .prepare(
-                'UPDATE ingestion_daily SET accepted_batches = accepted_batches - 1 WHERE day = ? AND installation_hash = ?',
-            )
-            .bind(day, installationHash),
-        db
-            .prepare(
-                'UPDATE ingestion_global_daily SET accepted_batches = accepted_batches - 1 WHERE day = ?',
-            )
-            .bind(day),
-    ])
 }
 
 function sanitizeBatch(batch: TelemetryBatch): TelemetryBatch {
@@ -268,89 +183,62 @@ function sanitizeBatch(batch: TelemetryBatch): TelemetryBatch {
     }
 }
 
-async function persistBatch(
-    db: D1Database,
-    batch: TelemetryBatch,
-    installationHash: string,
-): Promise<void> {
-    const acceptedDay = utcDay()
-    const statements: D1PreparedStatement[] = [
-        db
-            .prepare(
-                `INSERT OR IGNORE INTO installations (
-					installation_hash, first_seen_at, last_seen_at,
-					first_seen_day, app_version, platform, arch
-				) VALUES (?, unixepoch(), unixepoch(), ?, ?, ?, ?)`,
-            )
-            .bind(
-                installationHash,
-                acceptedDay,
-                batch.app.version,
-                batch.app.platform,
-                batch.app.arch,
-            ),
-        db
-            .prepare('INSERT OR IGNORE INTO platforms (platform) VALUES (?)')
-            .bind(batch.app.platform),
-    ]
-
-    for (const event of batch.events) {
-        statements.push(
-            db
-                .prepare(
-                    'INSERT OR IGNORE INTO daily_active (day, installation_hash, app_version, platform, arch) VALUES (?, ?, ?, ?, ?)',
-                )
-                .bind(
-                    event.day,
-                    installationHash,
-                    batch.app.version,
-                    batch.app.platform,
-                    batch.app.arch,
-                ),
-        )
-    }
-    await db.batch(statements)
-}
-
 async function runMaintenance(db: D1Database): Promise<void> {
     const now = new Date()
     const yesterday = daysAgo(now, 1)
+    const { oldest, latest } = heartbeatDayWindow(now)
     const dayMinus = (days: number) => daysAgo(now, days)
 
     // Usage-only maintenance. Error aggregate/R2 work was intentionally removed.
     await db.batch([
         db
             .prepare(
-                `INSERT INTO daily_totals (day, new_installations, active_installations)
-				VALUES (?,
-					(SELECT COUNT(*) FROM installations WHERE first_seen_day = ?),
-					(SELECT COUNT(*) FROM daily_active WHERE day = ?))
-				ON CONFLICT (day) DO UPDATE SET
-					new_installations = excluded.new_installations,
-					active_installations = excluded.active_installations`,
+                `WITH active AS (
+                    SELECT day, COUNT(*) AS count FROM daily_active
+                    WHERE day BETWEEN ?1 AND ?2 GROUP BY day
+                ), new_installs AS (
+                    SELECT first_seen_day AS day, COUNT(*) AS count FROM installations
+                    WHERE first_seen_day BETWEEN ?1 AND ?2 GROUP BY first_seen_day
+                ), days AS (
+                    SELECT ?2 AS day UNION SELECT day FROM active UNION SELECT day FROM new_installs
+                    UNION SELECT day FROM daily_totals WHERE day BETWEEN ?1 AND ?2
+                )
+                INSERT INTO daily_totals (day, new_installations, active_installations)
+                SELECT days.day, COALESCE(new_installs.count, 0), COALESCE(active.count, 0)
+                FROM days LEFT JOIN active USING (day) LEFT JOIN new_installs USING (day)
+                WHERE 1
+                ON CONFLICT (day) DO UPDATE SET
+                    new_installations = excluded.new_installations,
+                    active_installations = excluded.active_installations
+                WHERE daily_totals.new_installations <> excluded.new_installations
+                    OR daily_totals.active_installations <> excluded.active_installations`,
             )
-            .bind(yesterday, yesterday, yesterday),
+            .bind(oldest, yesterday),
         db
             .prepare(
                 `DELETE FROM wau_seen WHERE NOT EXISTS (
-					SELECT 1 FROM daily_active da
-					WHERE da.installation_hash = wau_seen.installation_hash AND da.day >= ?
-				)`,
+                    SELECT 1 FROM daily_active da
+                    WHERE da.installation_hash = wau_seen.installation_hash AND da.day BETWEEN ? AND ?
+                )`,
             )
-            .bind(dayMinus(6)),
+            .bind(dayMinus(6), latest),
         db
             .prepare(
                 `DELETE FROM mau_seen WHERE NOT EXISTS (
-					SELECT 1 FROM daily_active da
-					WHERE da.installation_hash = mau_seen.installation_hash AND da.day >= ?
-				)`,
+                    SELECT 1 FROM daily_active da
+                    WHERE da.installation_hash = mau_seen.installation_hash AND da.day BETWEEN ? AND ?
+                )`,
             )
-            .bind(dayMinus(29)),
-        db.prepare("DELETE FROM daily_active WHERE day < date('now', '-35 days')"),
+            .bind(dayMinus(29), latest),
+        db.prepare('DELETE FROM daily_active WHERE day < ? OR day > ?').bind(oldest, latest),
         db.prepare("DELETE FROM accepted_batches WHERE accepted_at < unixepoch('now', '-8 days')"),
         db.prepare("DELETE FROM ingestion_daily WHERE day < date('now', '-8 days')"),
         db.prepare("DELETE FROM ingestion_global_daily WHERE day < date('now', '-8 days')"),
-        db.prepare("DELETE FROM daily_active_dims WHERE day < date('now', '-365 days')"),
+        db
+            .prepare(
+                "DELETE FROM daily_active_dims WHERE day < date('now', '-365 days') OR day > ?",
+            )
+            .bind(latest),
     ])
 }
 
@@ -363,22 +251,6 @@ function daysAgo(now: Date, days: number): string {
 function positiveInteger(value: string | undefined, fallback: number): number {
     const parsed = Number(value)
     return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : fallback
-}
-
-function utcDay(): string {
-    return new Date().toISOString().slice(0, 10)
-}
-
-function warnIngestionThresholds(count: number, limit: number): void {
-    for (const ratio of [0.8, 0.9, 0.95]) {
-        if (count === Math.ceil(limit * ratio)) {
-            console.warn('Telemetry ingestion budget threshold reached', {
-                count,
-                limit,
-                percent: ratio * 100,
-            })
-        }
-    }
 }
 
 function retryAfterSeconds(now = new Date()): number {

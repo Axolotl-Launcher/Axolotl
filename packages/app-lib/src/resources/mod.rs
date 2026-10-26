@@ -89,6 +89,9 @@ impl From<crate::Error> for ResourceError {
             | crate::ErrorKind::ApiIsDownError(_) => {
                 Self::Network { status: None }
             }
+            crate::ErrorKind::DownloadResourceWaitTimeout(_) => {
+                Self::Unavailable
+            }
             crate::ErrorKind::InputError(_) => {
                 Self::InvalidRequest(error.to_string())
             }

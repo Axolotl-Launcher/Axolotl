@@ -39,7 +39,10 @@ export interface ContentSelectionContext {
     state: Ref<ContentSelectionState>
     progress: Ref<{ completed: number; total: number }>
     errorKeys: Ref<Set<string>>
-    refreshInstances: (preferredId?: string | null) => Promise<GameInstance | null>
+    refreshInstances: (
+        preferredId?: string | null,
+        isCurrent?: () => boolean,
+    ) => Promise<GameInstance | null>
     refreshInstalledIdentities: () => Promise<void>
     setTarget: (instance: GameInstance | null) => void
     add: (item: ContentSelectionItem) => Promise<boolean>

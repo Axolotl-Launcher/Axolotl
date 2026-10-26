@@ -47,7 +47,7 @@ pub(crate) async fn get_local_content_snapshot(
     instance_id: &str,
     state: &State,
 ) -> crate::Result<InstanceContentSnapshot> {
-    get_content_snapshot_inner(instance_id, false, false, false, state).await
+    get_content_snapshot_inner(instance_id, false, true, false, state).await
 }
 
 async fn get_content_snapshot_inner(
@@ -85,13 +85,24 @@ async fn get_content_snapshot_inner(
             && instance.is_direct_linked()
             && cached_files.is_empty())
     {
-        crate::resources::installed::refresh_snapshot(
-            state,
-            instance_id,
-            &tokio_util::sync::CancellationToken::new(),
-        )
-        .await
-        .map_err(|error| crate::ErrorKind::OtherError(error.to_string()))?;
+        let cancel = tokio_util::sync::CancellationToken::new();
+        let refreshed = if refresh_remote {
+            crate::resources::installed::refresh_snapshot(
+                state,
+                instance_id,
+                &cancel,
+            )
+            .await
+        } else {
+            crate::resources::installed::refresh_install_snapshot(
+                state,
+                instance_id,
+                &cancel,
+            )
+            .await
+        };
+        refreshed
+            .map_err(|error| crate::ErrorKind::OtherError(error.to_string()))?;
         content_rows::get_instance_files(&instance.id, &state.pool).await?
     } else {
         cached_files
@@ -118,9 +129,9 @@ async fn get_content_snapshot_inner(
     {
         let needs_reconciliation = sqlx::query_scalar::<_, i64>(
             "SELECT EXISTS(
-				SELECT 1 FROM instance_pack_members
-				WHERE content_set_id = ? AND reconciled = 0
-			)",
+                SELECT 1 FROM instance_pack_members
+                WHERE content_set_id = ? AND reconciled = 0
+            )",
         )
         .bind(&content_set.id)
         .fetch_one(&state.pool)
@@ -128,12 +139,12 @@ async fn get_content_snapshot_inner(
             != 0;
         let needs_manual_recovery = sqlx::query_scalar::<_, i64>(
             "SELECT EXISTS(
-				SELECT 1 FROM instance_pack_members member
-				WHERE member.content_set_id = ?
-					AND member.provider = 'curseforge'
-					AND member.required = 1
-					AND member.materialization_state = 'missing'
-			)",
+                SELECT 1 FROM instance_pack_members member
+                WHERE member.content_set_id = ?
+                    AND member.provider = 'curseforge'
+                    AND member.required = 1
+                    AND member.materialization_state = 'missing'
+            )",
         )
         .bind(&content_set.id)
         .fetch_one(&state.pool)
@@ -221,7 +232,7 @@ async fn get_content_snapshot_inner(
     let provider_rows = sqlx::query(
         "SELECT ref.content_entry_id, ref.provider,
                 ref.provider_project_id, ref.provider_release_id,
-				ref.provider_file_id,
+                ref.provider_file_id,
                 ref.is_origin
          FROM instance_content_provider_refs ref
          INNER JOIN instance_content_entries entry
@@ -688,13 +699,13 @@ pub(crate) async fn reconcile_curseforge_members(
     let mut tx = state.pool.begin_with("BEGIN IMMEDIATE").await?;
     let rows = sqlx::query(
         "SELECT entry.id AS entry_id, file.relative_path, entry.enabled,
-			file.missing, ref.provider_project_id, ref.provider_release_id
-		 FROM instance_content_entries entry
-		 INNER JOIN instance_files file ON file.id = entry.file_id
-		 LEFT JOIN instance_content_provider_refs ref
-			ON ref.content_entry_id = entry.id AND ref.provider = 'curseforge'
-		 WHERE entry.content_set_id = ?
-		 ORDER BY entry.modified_at DESC",
+            file.missing, ref.provider_project_id, ref.provider_release_id
+         FROM instance_content_entries entry
+         INNER JOIN instance_files file ON file.id = entry.file_id
+         LEFT JOIN instance_content_provider_refs ref
+            ON ref.content_entry_id = entry.id AND ref.provider = 'curseforge'
+         WHERE entry.content_set_id = ?
+         ORDER BY entry.modified_at DESC",
     )
     .bind(content_set_id)
     .fetch_all(&mut *tx)
@@ -715,7 +726,7 @@ pub(crate) async fn reconcile_curseforge_members(
     let member_rows = sqlx::query(
         "SELECT id, member_key, override_kind, materialization_state,
             CASE WHEN provider IS NULL THEN expected_relative_path END AS override_path
-		 FROM instance_pack_members WHERE content_set_id = ?",
+         FROM instance_pack_members WHERE content_set_id = ?",
     )
     .bind(content_set_id)
     .fetch_all(&mut *tx)
@@ -741,9 +752,9 @@ pub(crate) async fn reconcile_curseforge_members(
         .collect::<crate::Result<HashMap<_, _>>>()?;
     let pending_rows = sqlx::query(
         "SELECT provider_project_id, provider_release_id
-		 FROM instance_pending_manual_downloads
-		 WHERE instance_id = ? AND provider = 'curseforge'
-			AND state IN ('waiting', 'matched', 'error')",
+         FROM instance_pending_manual_downloads
+         WHERE instance_id = ? AND provider = 'curseforge'
+            AND state IN ('waiting', 'matched', 'error')",
     )
     .bind(instance_id)
     .fetch_all(&mut *tx)
@@ -760,8 +771,8 @@ pub(crate) async fn reconcile_curseforge_members(
 
     sqlx::query(
         "UPDATE instance_content_entries
-		 SET ownership_kind = 'user_added', modified_at = ?
-		 WHERE content_set_id = ? AND ownership_kind = 'pack_managed'",
+         SET ownership_kind = 'user_added', modified_at = ?
+         WHERE content_set_id = ? AND ownership_kind = 'pack_managed'",
     )
     .bind(Utc::now().timestamp())
     .bind(content_set_id)
@@ -801,8 +812,8 @@ pub(crate) async fn reconcile_curseforge_members(
             claimed_entries.insert(candidate.entry_id.clone());
             sqlx::query(
                 "UPDATE instance_content_entries
-				 SET ownership_kind = 'pack_managed', modified_at = ?
-				 WHERE id = ?",
+                 SET ownership_kind = 'pack_managed', modified_at = ?
+                 WHERE id = ?",
             )
             .bind(Utc::now().timestamp())
             .bind(&candidate.entry_id)
@@ -879,7 +890,7 @@ pub(crate) async fn reconcile_curseforge_members(
         .await?;
         sqlx::query(
             "UPDATE instance_pack_members
-			 SET required = ?, reconciled = 1 WHERE id = ?",
+             SET required = ?, reconciled = 1 WHERE id = ?",
         )
         .bind(i64::from(expected_member.required))
         .bind(member_id)

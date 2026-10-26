@@ -1,0 +1,32 @@
+{
+  "db_name": "SQLite",
+  "query": "\n            SELECT display_status, project_id, content_kind\n            FROM attached_world_data\n            WHERE instance_id = ? and world_type = ? and world_id = ?\n            ",
+  "describe": {
+    "columns": [
+      {
+        "name": "display_status",
+        "ordinal": 0,
+        "type_info": "Text"
+      },
+      {
+        "name": "project_id",
+        "ordinal": 1,
+        "type_info": "Text"
+      },
+      {
+        "name": "content_kind",
+        "ordinal": 2,
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Right": 3
+    },
+    "nullable": [
+      false,
+      true,
+      true
+    ]
+  },
+  "hash": "6312b173726e3aee65dfe33d2892e0e6df2a413645974548b3128c3dc18cc855"
+}

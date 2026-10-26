@@ -263,14 +263,14 @@ pub async fn init_watcher() -> crate::Result<FileWatcher> {
                                             let world = world.clone();
                                             tokio::spawn(async move {
                                                 if let Ok(state) = State::get().await
-												&& let Err(e) = attached_world_data::AttachedWorldData::remove_for_world(
-													&instance_id,
-													WorldType::Singleplayer,
-													&world,
-													&state.pool
-												).await {
-													tracing::warn!("Failed to remove AttachedWorldData for '{world}': {e}")
-												}
+                                                && let Err(e) = attached_world_data::AttachedWorldData::remove_for_world(
+                                                    &instance_id,
+                                                    WorldType::Singleplayer,
+                                                    &world,
+                                                    &state.pool
+                                                ).await {
+                                                    tracing::warn!("Failed to remove AttachedWorldData for '{world}': {e}")
+                                                }
                                             });
                                         }
                                         Some(
@@ -488,16 +488,6 @@ pub(crate) async fn watch_instances_init(
             watcher,
         )
         .await;
-        let screenshot_instance_id = instance.id.clone();
-        tokio::spawn(async move {
-            if let Err(error) = crate::api::instance::reconcile_screenshots(
-                &screenshot_instance_id,
-            )
-            .await
-            {
-                tracing::debug!(%error, "Initial screenshot index reconciliation failed");
-            }
-        });
         let synced_instance_id = instance.id.clone();
         tokio::spawn(async move {
             if let Err(error) =

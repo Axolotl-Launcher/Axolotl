@@ -10,7 +10,6 @@ import {
 import { Button, Combobox, defineMessages, useVIntl } from '@modrinth/ui'
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 
-import { loadMinecraftItemImage } from '@/lab/recipe-generator/item-images'
 import {
     getSeedMapContainerLoot,
     getSeedMapStructureDetails,
@@ -30,6 +29,7 @@ import {
     seedMapStructureCapabilities,
     seedMapVolumePieces,
 } from '@/lab/seed-map/structure-layout'
+import { loadMinecraftItemImage } from '@/lab/shared/minecraft/item-images'
 
 import SeedMapLayoutPreview from './SeedMapLayoutPreview.vue'
 

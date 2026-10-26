@@ -25,21 +25,21 @@ pub(crate) async fn list_screenshots(
     Ok(sqlx::query_as!(
         ScreenshotRow,
         r#"
-		SELECT
-			screenshots.id,
-			screenshots.instance_id,
-			screenshots.file_name,
-			screenshots.content_hash,
-			screenshots.file_size,
-			screenshots.modified_at,
-			screenshots.created_at,
-			memberships.group_id AS "group_id?"
-		FROM screenshots
-		LEFT JOIN screenshot_group_memberships memberships
-			ON memberships.screenshot_id = screenshots.id
-		WHERE screenshots.instance_id = ?
-		ORDER BY screenshots.file_name, screenshots.id
-		"#,
+        SELECT
+            screenshots.id,
+            screenshots.instance_id,
+            screenshots.file_name,
+            screenshots.content_hash,
+            screenshots.file_size,
+            screenshots.modified_at,
+            screenshots.created_at,
+            memberships.group_id AS "group_id?"
+        FROM screenshots
+        LEFT JOIN screenshot_group_memberships memberships
+            ON memberships.screenshot_id = screenshots.id
+        WHERE screenshots.instance_id = ?
+        ORDER BY screenshots.file_name, screenshots.id
+        "#,
         instance_id,
     )
     .fetch_all(pool)
@@ -54,20 +54,20 @@ pub(crate) async fn get_screenshot_by_key(
     Ok(sqlx::query_as!(
         ScreenshotRow,
         r#"
-		SELECT
-			screenshots.id,
-			screenshots.instance_id,
-			screenshots.file_name,
-			screenshots.content_hash,
-			screenshots.file_size,
-			screenshots.modified_at,
-			screenshots.created_at,
-			memberships.group_id AS "group_id?"
-		FROM screenshots
-		LEFT JOIN screenshot_group_memberships memberships
-			ON memberships.screenshot_id = screenshots.id
-		WHERE screenshots.instance_id = ? AND screenshots.file_name = ?
-		"#,
+        SELECT
+            screenshots.id,
+            screenshots.instance_id,
+            screenshots.file_name,
+            screenshots.content_hash,
+            screenshots.file_size,
+            screenshots.modified_at,
+            screenshots.created_at,
+            memberships.group_id AS "group_id?"
+        FROM screenshots
+        LEFT JOIN screenshot_group_memberships memberships
+            ON memberships.screenshot_id = screenshots.id
+        WHERE screenshots.instance_id = ? AND screenshots.file_name = ?
+        "#,
         instance_id,
         file_name,
     )
@@ -82,12 +82,12 @@ pub(crate) async fn copy_group_membership(
 ) -> crate::Result<()> {
     sqlx::query!(
         r#"
-		INSERT INTO screenshot_group_memberships (screenshot_id, group_id)
-		SELECT ?, group_id
-		FROM screenshot_group_memberships
-		WHERE screenshot_id = ?
-		ON CONFLICT (screenshot_id) DO UPDATE SET group_id = excluded.group_id
-		"#,
+        INSERT INTO screenshot_group_memberships (screenshot_id, group_id)
+        SELECT ?, group_id
+        FROM screenshot_group_memberships
+        WHERE screenshot_id = ?
+        ON CONFLICT (screenshot_id) DO UPDATE SET group_id = excluded.group_id
+        "#,
         edited_id,
         source_id,
     )
@@ -103,17 +103,17 @@ pub(crate) async fn insert_screenshot(
 ) -> crate::Result<()> {
     sqlx::query!(
         "
-		INSERT INTO screenshots (
-			id,
-			instance_id,
-			file_name,
-			content_hash,
-			file_size,
-			modified_at,
-			created_at
-		)
-		VALUES (?, ?, ?, ?, ?, ?, ?)
-		",
+        INSERT INTO screenshots (
+            id,
+            instance_id,
+            file_name,
+            content_hash,
+            file_size,
+            modified_at,
+            created_at
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+        ",
         row.id,
         row.instance_id,
         row.file_name,
@@ -134,16 +134,16 @@ pub(crate) async fn update_screenshot(
 ) -> crate::Result<()> {
     sqlx::query!(
         "
-		UPDATE screenshots
-		SET
-			instance_id = ?,
-			file_name = ?,
-			content_hash = ?,
-			file_size = ?,
-			modified_at = ?,
-			created_at = ?
-		WHERE id = ?
-		",
+        UPDATE screenshots
+        SET
+            instance_id = ?,
+            file_name = ?,
+            content_hash = ?,
+            file_size = ?,
+            modified_at = ?,
+            created_at = ?
+        WHERE id = ?
+        ",
         row.instance_id,
         row.file_name,
         row.content_hash,
@@ -187,10 +187,10 @@ pub(crate) async fn move_screenshot(
 
     sqlx::query!(
         "
-		UPDATE screenshots
-		SET instance_id = ?, file_name = ?
-		WHERE instance_id = ? AND file_name = ?
-		",
+        UPDATE screenshots
+        SET instance_id = ?, file_name = ?
+        WHERE instance_id = ? AND file_name = ?
+        ",
         target_instance_id,
         target_file_name,
         source_instance_id,
@@ -227,9 +227,9 @@ pub(crate) async fn list_groups(
         ScreenshotGroupRow,
         "
         SELECT id, name
-		FROM screenshot_groups
-		ORDER BY display_order, name, id
-		",
+        FROM screenshot_groups
+        ORDER BY display_order, name, id
+        ",
     )
     .fetch_all(pool)
     .await?)

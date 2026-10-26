@@ -7,10 +7,10 @@ const { sections = 2, cards = 12 } = defineProps<{
 
 <template>
     <!--
-		Shaped after VirtualSkinSectionList: the same grid breakpoints and card
-		ratio, so the swap to real content does not move anything. Decorative, so
-		it stays out of the accessibility tree.
-	-->
+        Shaped after VirtualSkinSectionList: the same grid breakpoints and card
+        ratio, so the swap to real content does not move anything. Decorative, so
+        it stays out of the accessibility tree.
+    -->
     <div class="flex flex-col gap-8" aria-hidden="true">
         <div v-for="section in sections" :key="section" class="flex flex-col gap-4">
             <div class="h-7 w-44 animate-pulse rounded-lg bg-surface-4" />

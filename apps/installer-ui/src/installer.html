@@ -1,1686 +1,1686 @@
 <!doctype html>
 <html lang="en">
-	<head>
-		<meta charset="UTF-8" />
-		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-		<title>Axolotl Launcher</title>
-		<style>
-			:root {
-				color-scheme: dark;
-				font-family: Inter, 'Segoe UI Variable Text', 'Segoe UI', system-ui, sans-serif;
-				--surface-1: #09090b;
-				--surface-2: rgba(24, 24, 27, 0.4);
-				--surface-3: rgba(39, 39, 42, 0.5);
-				--surface-4: rgba(63, 63, 70, 0.5);
-				--surface-5: rgba(82, 82, 91, 0.8);
-				--text: #ffffff;
-				--text-secondary: #a1a1aa;
-				--text-tertiary: #71717a;
-				--brand: #f472b6;
-				--brand-strong: #ec4899;
-				--brand-shadow: rgba(244, 114, 182, 0.6);
-				--brand-highlight: rgba(244, 114, 182, 0.2);
-				--brand-highlight-hover: rgba(244, 114, 182, 0.3);
-				--brand-bg: rgba(244, 114, 182, 0.1);
-				--red: #f43f5e;
-				--red-bg: rgba(244, 63, 94, 0.15);
-				--green: #10b981;
-				--radius-sm: 0.5rem;
-				--radius-md: 0.75rem;
-				--radius-lg: 1rem;
-				--radius-full: 9999px;
-				--shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-				--shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-				--shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-			}
-
-			* {
-				box-sizing: border-box;
-				letter-spacing: -0.01em;
-			}
-
-			html,
-			body {
-				width: 100%;
-				height: 100%;
-				margin: 0;
-				overflow: hidden;
-				background: var(--surface-1);
-				color: var(--text);
-			}
-
-			body {
-				border: 1px solid rgba(255, 255, 255, 0.1);
-				position: relative;
-			}
-
-			/* Ambient Background Glow */
-			.ambient-glow {
-				position: absolute;
-				inset: 0;
-				pointer-events: none;
-				z-index: 0;
-				overflow: hidden;
-				transition: opacity 1.5s cubic-bezier(0.22, 1, 0.36, 1);
-			}
-			.ambient-glow::before,
-			.ambient-glow::after {
-				content: '';
-				position: absolute;
-				border-radius: 50%;
-				filter: blur(120px);
-			}
-
-			/* Idle State (Welcome/Configure/Complete) */
-			.glow-idle {
-				opacity: 1;
-			}
-			body.is-installing .glow-idle {
-				opacity: 0;
-			}
-
-			.glow-idle::before {
-				top: -20%;
-				right: -10%;
-				width: 50vw;
-				height: 50vw;
-				background: radial-gradient(circle, var(--brand) 0%, transparent 70%);
-				opacity: 0.55;
-				animation: float1 10s ease-in-out infinite;
-			}
-			.glow-idle::after {
-				bottom: -20%;
-				left: -10%;
-				width: 40vw;
-				height: 40vw;
-				background: radial-gradient(circle, #8b5cf6 0%, transparent 70%);
-				opacity: 0.55;
-				animation: float2 14s ease-in-out infinite alternate;
-			}
-
-			/* Active State (Installing) */
-			.glow-active {
-				opacity: 0;
-			}
-			body.is-installing .glow-active {
-				opacity: 1;
-			}
-
-			.glow-active::before {
-				top: -20%;
-				right: -10%;
-				width: 50vw;
-				height: 50vw;
-				background: radial-gradient(circle, var(--brand-strong) 0%, transparent 70%);
-				opacity: 0.7;
-				animation: fastFlow1 4s ease-in-out infinite;
-			}
-			.glow-active::after {
-				bottom: -20%;
-				left: -10%;
-				width: 40vw;
-				height: 40vw;
-				background: radial-gradient(circle, #a855f7 0%, transparent 70%);
-				opacity: 0.7;
-				animation: fastFlow2 3s ease-in-out infinite alternate;
-			}
-
-			@keyframes float1 {
-				0%,
-				100% {
-					transform: translate(0, 0) scale(1);
-				}
-				33% {
-					transform: translate(15%, 20%) scale(1.2);
-				}
-				66% {
-					transform: translate(-10%, 15%) scale(0.85);
-				}
-			}
-			@keyframes float2 {
-				0%,
-				100% {
-					transform: translate(0, 0) scale(1);
-				}
-				33% {
-					transform: translate(-20%, -15%) scale(0.85);
-				}
-				66% {
-					transform: translate(15%, -25%) scale(1.2);
-				}
-			}
-			@keyframes fastFlow1 {
-				0% {
-					transform: translate(-10%, -10%) scale(1);
-				}
-				50% {
-					transform: translate(30%, 30%) scale(1.3);
-				}
-				100% {
-					transform: translate(-10%, -10%) scale(1);
-				}
-			}
-			@keyframes fastFlow2 {
-				0% {
-					transform: translate(10%, 10%) scale(1);
-				}
-				50% {
-					transform: translate(-30%, -30%) scale(1.4);
-				}
-				100% {
-					transform: translate(10%, 10%) scale(1);
-				}
-			}
-
-			button,
-			input {
-				font: inherit;
-				transition: all 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
-			}
-
-			button {
-				border: 0;
-			}
-
-			button:focus-visible {
-				outline: none;
-				box-shadow:
-					0 0 0 3px var(--brand-highlight),
-					0 0 0 1px var(--brand);
-			}
-
-			.titlebar {
-				position: relative;
-				z-index: 20;
-				display: flex;
-				justify-content: space-between;
-				align-items: center;
-				height: 54px;
-				background: transparent;
-				user-select: none;
-				border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-			}
-
-			.titlebar-left {
-				display: flex;
-				flex: 1;
-				align-items: center;
-				min-width: 0;
-				height: 100%;
-				padding: 0 20px;
-				-webkit-app-region: drag;
-				app-region: drag;
-			}
-
-			.titlebar-brand {
-				display: flex;
-				align-items: center;
-				gap: 12px;
-			}
-
-			.titlebar-logo {
-				width: 22px;
-				height: 22px;
-				object-fit: contain;
-				filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2));
-			}
-
-			.titlebar-name {
-				font-size: 14px;
-				font-weight: 700;
-				background: linear-gradient(to right, #fff, #a1a1aa);
-				-webkit-background-clip: text;
-				-webkit-text-fill-color: transparent;
-			}
-
-			.window-actions {
-				display: flex;
-				justify-content: flex-end;
-				height: 100%;
-				app-region: no-drag;
-			}
-
-			.window-button {
-				display: grid;
-				place-items: center;
-				width: 46px;
-				height: 100%;
-				padding: 0;
-				background: transparent;
-				color: var(--text-secondary);
-				cursor: pointer;
-			}
-
-			.window-button:hover {
-				background: rgba(255, 255, 255, 0.1);
-				color: var(--text);
-			}
-
-			.window-button:disabled {
-				opacity: 0.45;
-				cursor: not-allowed;
-			}
-
-			.window-button.close:hover:not(:disabled) {
-				background: #e11d48;
-			}
-
-			.window-button svg {
-				width: 16px;
-				height: 16px;
-			}
-
-			.shell {
-				position: relative;
-				z-index: 10;
-				display: flex;
-				flex-direction: column;
-				height: calc(100% - 54px);
-			}
-
-			.steps {
-				display: flex;
-				align-items: center;
-				gap: 16px;
-				margin: 0;
-				padding: 0;
-				list-style: none;
-			}
-
-			.step {
-				display: flex;
-				align-items: center;
-				gap: 8px;
-				color: var(--text-tertiary);
-				font-size: 13px;
-				font-weight: 500;
-				transition: all 0.3s ease;
-			}
-
-			.step-index {
-				display: none !important;
-			}
-
-			.step-connector {
-				width: 4px;
-				height: 4px;
-				background: rgba(255, 255, 255, 0.1);
-				border-radius: 50%;
-			}
-
-			.step.active {
-				color: var(--brand);
-				font-weight: 600;
-			}
-
-			.step.done {
-				color: var(--text-secondary);
-			}
-
-			.step.done + .step-connector {
-				background: rgba(255, 255, 255, 0.2);
-			}
-
-			.content-panel {
-				display: flex;
-				flex-direction: column;
-				flex: 1;
-				min-height: 0;
-			}
-
-			.screen-stack {
-				min-height: 0;
-				position: relative;
-				flex: 1;
-				overflow: hidden;
-			}
-
-			.screen {
-				position: absolute;
-				inset: 0;
-				display: flex;
-				flex-direction: column;
-				align-items: center;
-				padding: 24px 48px;
-				overflow-y: auto;
-				opacity: 0;
-				transform: translateY(20px) scale(0.98);
-				pointer-events: none;
-				transition: all 400ms cubic-bezier(0.2, 0.8, 0.2, 1);
-			}
-
-			.screen.active {
-				opacity: 1;
-				transform: translateY(0) scale(1);
-				pointer-events: auto;
-			}
-
-			.screen-content-wrapper {
-				width: 100%;
-				max-width: 540px;
-				min-width: 0;
-				margin-block: auto;
-				flex-shrink: 0;
-				display: flex;
-				flex-direction: column;
-			}
-
-			.screen[data-screen='welcome'] .screen-content-wrapper {
-				max-width: none;
-			}
-
-			h1,
-			h2,
-			p {
-				margin: 0;
-			}
-
-			@property --spot-x {
-				syntax: '<percentage>';
-				initial-value: 0%;
-				inherits: false;
-			}
-			@property --spot-y {
-				syntax: '<percentage>';
-				initial-value: 50%;
-				inherits: false;
-			}
-
-			@keyframes random-spotlight {
-				0% {
-					--spot-x: -10%;
-					--spot-y: 50%;
-				}
-				15% {
-					--spot-x: 25%;
-					--spot-y: 5%;
-				}
-				35% {
-					--spot-x: 80%;
-					--spot-y: -10%;
-				}
-				50% {
-					--spot-x: 110%;
-					--spot-y: 50%;
-				}
-				65% {
-					--spot-x: 75%;
-					--spot-y: 110%;
-				}
-				85% {
-					--spot-x: 20%;
-					--spot-y: 95%;
-				}
-				100% {
-					--spot-x: -10%;
-					--spot-y: 50%;
-				}
-			}
-
-			h1 {
-				font-size: 84px;
-				line-height: 1.05;
-				font-weight: 900;
-				letter-spacing: -0.04em;
-				background:
-					radial-gradient(
-						ellipse 120% 140% at var(--spot-x) var(--spot-y),
-						#ffffff 0%,
-						rgba(255, 255, 255, 0) 65%
-					),
-					linear-gradient(180deg, #fbcfe8 0%, #f472b6 100%);
-				animation: random-spotlight 16s cubic-bezier(0.4, 0, 0.2, 1) infinite;
-				-webkit-background-clip: text;
-				-webkit-text-fill-color: transparent;
-				max-width: 100%;
-				white-space: normal;
-				overflow-wrap: anywhere;
-				filter: drop-shadow(0 16px 32px rgba(244, 114, 182, 0.2));
-			}
-
-			h2 {
-				font-size: 28px;
-				line-height: 1.2;
-				font-weight: 700;
-				letter-spacing: -0.01em;
-			}
-
-			.lead {
-				margin-top: 32px;
-				font-size: 24px;
-				line-height: 1.5;
-				font-weight: 500;
-				color: var(--text-secondary);
-				max-width: 100%;
-				white-space: normal;
-				margin-left: auto;
-				margin-right: auto;
-			}
-
-			.task-copy {
-				margin-top: 12px;
-				font-size: 14px;
-				line-height: 1.6;
-				color: var(--text-secondary);
-				white-space: normal;
-				overflow-wrap: anywhere;
-			}
-
-			.screen[data-screen='uninstall'] .install-facts {
-				margin-top: 24px;
-			}
-
-			.screen[data-screen='uninstall'] .toggles {
-				margin-top: 24px;
-			}
-
-			.checkbox-box {
-				flex-shrink: 0;
-			}
-
-			body.is-uninstalling .fact-value {
-				white-space: normal;
-				overflow-wrap: anywhere;
-			}
-
-			.error-panel {
-				overflow-wrap: anywhere;
-			}
-
-			body.is-failed .spinner {
-				display: none;
-			}
-
-			body.is-failed .progress-fill {
-				background: var(--red);
-				box-shadow: none;
-			}
-
-			.section-copy {
-				margin-top: 12px;
-				font-size: 14px;
-				line-height: 1.5;
-				color: var(--text-secondary);
-			}
-
-			.form {
-				display: flex;
-				flex-direction: column;
-				gap: 24px;
-				margin-top: 32px;
-			}
-
-			.field {
-				display: flex;
-				flex-direction: column;
-				gap: 8px;
-			}
-
-			.field-label {
-				display: flex;
-				align-items: baseline;
-				justify-content: space-between;
-				gap: 12px;
-				font-size: 13px;
-				font-weight: 600;
-				color: var(--text);
-			}
-
-			.field-hint {
-				font-size: 12px;
-				font-weight: 500;
-				color: var(--text-tertiary);
-			}
-
-			.input-group {
-				display: flex;
-				align-items: center;
-				height: 40px;
-				background: transparent;
-				border-bottom: 2px solid #3f3f46;
-				transition: border-color 0.2s ease;
-			}
-
-			.input-group:focus-within {
-				border-bottom-color: var(--brand);
-			}
-
-			.path-input {
-				flex: 1;
-				min-width: 0;
-				height: 100%;
-				background: transparent;
-				border: none;
-				outline: none;
-				color: var(--text);
-				font-size: 13px;
-				padding: 0;
-				font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-			}
-
-			.path-input:focus,
-			.path-input:focus-visible {
-				outline: none;
-				box-shadow: none !important;
-			}
-
-			.browse-button {
-				display: flex;
-				align-items: center;
-				justify-content: center;
-				gap: 6px;
-				height: 28px;
-				padding: 0 8px;
-				background: transparent;
-				border: none;
-				color: var(--text-secondary);
-				font-size: 12px;
-				font-weight: 600;
-				cursor: pointer;
-				transition: color 0.2s ease;
-			}
-
-			.browse-button:hover {
-				color: var(--brand);
-			}
-
-			.browse-button svg {
-				width: 14px;
-				height: 14px;
-			}
-
-			.notice {
-				display: flex;
-				align-items: flex-start;
-				gap: 10px;
-				padding: 12px 14px;
-				border-radius: 6px;
-				background: rgba(0, 0, 0, 0.2);
-				border: 1px solid rgba(255, 255, 255, 0.04);
-				border-top-color: rgba(255, 255, 255, 0.08);
-				font-size: 13px;
-				line-height: 1.5;
-				color: var(--text-secondary);
-				box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.2);
-			}
-
-			.notice svg {
-				flex: 0 0 auto;
-				width: 16px;
-				height: 16px;
-				margin-top: 2px;
-				color: var(--brand);
-			}
-
-			.toggles {
-				display: flex;
-				flex-direction: column;
-				gap: 16px;
-				margin-top: 12px;
-			}
-
-			.checkbox-label {
-				display: inline-flex;
-				align-items: center;
-				gap: 12px;
-				cursor: pointer;
-				font-size: 13px;
-				font-weight: 500;
-				color: var(--text-secondary);
-				user-select: none;
-				transition: color 0.2s ease;
-			}
-
-			.checkbox-label:hover {
-				color: var(--text);
-			}
-
-			.checkbox-label input {
-				position: absolute;
-				opacity: 0;
-				pointer-events: none;
-			}
-
-			.checkbox-box {
-				display: flex;
-				align-items: center;
-				justify-content: center;
-				width: 18px;
-				height: 18px;
-				border-radius: 4px;
-				background: rgba(255, 255, 255, 0.05);
-				border: 1px solid rgba(255, 255, 255, 0.15);
-				transition: all 0.2s ease;
-			}
-
-			.check-icon {
-				width: 12px;
-				height: 12px;
-				color: transparent;
-				transition: color 0.2s ease;
-			}
-
-			.checkbox-label input:focus-visible + .checkbox-box {
-				box-shadow:
-					0 0 0 3px var(--brand-highlight),
-					0 0 0 1px var(--brand);
-			}
-
-			.checkbox-label input:checked + .checkbox-box {
-				background: var(--brand);
-				border-color: var(--brand);
-				box-shadow: 0 0 10px var(--brand-highlight);
-			}
-
-			.checkbox-label input:checked + .checkbox-box .check-icon {
-				color: #09090b;
-			}
-
-			.field-error {
-				min-height: 20px;
-				margin-top: 8px;
-				font-size: 12px;
-				font-weight: 600;
-				color: var(--red);
-			}
-
-			.progress-heading {
-				display: flex;
-				align-items: flex-end;
-				justify-content: space-between;
-				gap: 24px;
-				margin-bottom: 20px;
-			}
-
-			.progress-value {
-				font-size: 48px;
-				font-weight: 800;
-				line-height: 1;
-				color: var(--text);
-				text-shadow: 0 0 20px rgba(255, 255, 255, 0.2);
-				font-variant-numeric: tabular-nums;
-			}
-
-			.progress-track {
-				height: 6px;
-				overflow: hidden;
-				border-radius: 3px;
-				background: rgba(255, 255, 255, 0.1);
-			}
-
-			.progress-fill {
-				height: 100%;
-				width: 4%;
-				border-radius: inherit;
-				background: linear-gradient(90deg, var(--brand-strong), var(--brand), #fff);
-				box-shadow: 0 0 12px var(--brand);
-				transition: width 400ms cubic-bezier(0.22, 1, 0.36, 1);
-			}
-
-			.progress-detail {
-				display: flex;
-				align-items: center;
-				gap: 12px;
-				margin-top: 16px;
-				font-size: 13px;
-				color: var(--text-tertiary);
-			}
-
-			.spinner {
-				width: 16px;
-				height: 16px;
-				border: 2px solid rgba(255, 255, 255, 0.1);
-				border-top-color: var(--brand);
-				border-radius: 50%;
-				animation: spin 800ms linear infinite;
-			}
-
-			.install-facts {
-				display: flex;
-				flex-direction: column;
-				gap: 8px;
-				margin-top: 40px;
-				padding-top: 24px;
-				border-top: 1px solid rgba(255, 255, 255, 0.05);
-			}
-
-			.install-fact {
-				display: flex;
-				align-items: center;
-				justify-content: space-between;
-				gap: 16px;
-				font-size: 12px;
-			}
-
-			.fact-label {
-				color: var(--text-tertiary);
-				font-weight: 500;
-			}
-
-			.fact-value {
-				overflow: hidden;
-				color: var(--text-secondary);
-				font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
-				text-overflow: ellipsis;
-				white-space: nowrap;
-				max-width: 70%;
-				text-align: right;
-			}
-
-			.complete-brand {
-				position: relative;
-				width: 80px;
-				height: 80px;
-				margin-bottom: 32px;
-			}
-			.complete-brand .complete-logo {
-				width: 100%;
-				height: 100%;
-				border-radius: 16px;
-				box-shadow:
-					0 8px 32px rgba(244, 114, 182, 0.4),
-					inset 0 1px 0 rgba(255, 255, 255, 0.2);
-				background: var(--brand-bg);
-				object-fit: cover;
-			}
-			.complete-brand .complete-badge {
-				position: absolute;
-				bottom: -8px;
-				right: -8px;
-				width: 32px;
-				height: 32px;
-				background: #1bd96a;
-				border-radius: 50%;
-				display: grid;
-				place-items: center;
-				color: #000;
-				border: 4px solid var(--surface-1);
-				box-shadow: 0 4px 12px rgba(27, 217, 106, 0.4);
-			}
-			.complete-brand .complete-badge svg {
-				width: 16px;
-				height: 16px;
-			}
-
-			.screen[data-screen='complete'] .complete-brand {
-				transform: scale(0.5) translateY(20px);
-				opacity: 0;
-				transition: all 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
-			}
-			.screen[data-screen='complete'].active .complete-brand {
-				transform: scale(1) translateY(0);
-				opacity: 1;
-				transition-delay: 0.1s;
-			}
-			.screen[data-screen='complete'] .complete-badge {
-				transform: scale(0);
-				transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
-			}
-			.screen[data-screen='complete'].active .complete-badge {
-				transform: scale(1);
-				transition-delay: 0.5s;
-			}
-
-			.screen[data-screen='complete'] h2,
-			.screen[data-screen='complete'] .lead {
-				transform: translateY(20px);
-				opacity: 0;
-				transition: all 0.6s cubic-bezier(0.22, 1, 0.36, 1);
-			}
-			.screen[data-screen='complete'].active h2 {
-				transition-delay: 0.2s;
-				transform: none;
-				opacity: 1;
-			}
-			.screen[data-screen='complete'].active .lead {
-				transition-delay: 0.3s;
-				transform: none;
-				opacity: 1;
-			}
-
-			.error-panel {
-				display: none;
-				margin-top: 24px;
-				padding: 16px;
-				border-radius: var(--radius-md);
-				background: var(--red-bg);
-				border: 1px solid rgba(244, 63, 94, 0.3);
-				border-left: 4px solid var(--red);
-				font-size: 13px;
-				line-height: 1.6;
-				color: #fff1f2;
-			}
-
-			.error-panel.visible {
-				display: block;
-			}
-
-			.footer {
-				position: relative;
-				z-index: 20;
-				display: flex;
-				align-items: center;
-				justify-content: space-between;
-				gap: 24px;
-				padding: 24px 48px;
-				background: linear-gradient(to top, rgba(9, 9, 11, 0.9), transparent);
-			}
-
-			.footer-note {
-				min-width: 0;
-				font-size: 12px;
-				color: var(--text-tertiary);
-				font-weight: 500;
-			}
-
-			.footer-actions {
-				display: flex;
-				align-items: center;
-				gap: 12px;
-			}
-
-			.action-button {
-				display: inline-flex;
-				align-items: center;
-				justify-content: center;
-				gap: 8px;
-				min-width: 80px;
-				height: 32px;
-				padding: 0 16px;
-				border-radius: var(--radius-full);
-				background: transparent;
-				border: 1px solid transparent;
-				color: var(--text-secondary);
-				font-size: 14px;
-				font-weight: 500;
-				cursor: pointer;
-				transition: all 0.2s ease;
-			}
-
-			.action-button:hover:not(:disabled) {
-				background: rgba(255, 255, 255, 0.06);
-				color: var(--text);
-			}
-
-			.action-button:active:not(:disabled) {
-				background: rgba(255, 255, 255, 0.03);
-			}
-
-			.action-button.primary {
-				background: #db2777;
-				border: 1px solid #be185d;
-				color: #ffffff;
-				box-shadow:
-					0 0 0 1px rgba(255, 255, 255, 0.08) inset,
-					0 4px 12px rgba(219, 39, 119, 0.2);
-				font-weight: 600;
-				text-shadow: none;
-			}
-
-			.action-button.primary:hover:not(:disabled) {
-				background: #ec4899;
-				border-color: #db2777;
-				box-shadow:
-					0 0 0 1px rgba(255, 255, 255, 0.15) inset,
-					0 6px 20px rgba(236, 72, 153, 0.4);
-			}
-
-			.action-button:disabled {
-				opacity: 0.5;
-				cursor: not-allowed;
-				box-shadow: none;
-			}
-
-			.action-button svg {
-				width: 18px;
-				height: 18px;
-			}
-
-			.hidden {
-				display: none !important;
-			}
-
-			@keyframes spin {
-				to {
-					transform: rotate(360deg);
-				}
-			}
-
-			@media (prefers-reduced-motion: reduce) {
-				*,
-				*::before,
-				*::after {
-					scroll-behavior: auto !important;
-					transition-duration: 0.01ms !important;
-					animation-duration: 0.01ms !important;
-					animation-iteration-count: 1 !important;
-				}
-			}
-		</style>
-	</head>
-	<body>
-		<div class="ambient-glow glow-idle"></div>
-		<div class="ambient-glow glow-active"></div>
-
-		<header class="titlebar">
-			<div class="titlebar-left" data-drag-region>
-				<div class="titlebar-brand">
-					<img class="titlebar-logo" id="product-logo" alt="Axolotl Launcher" />
-					<div class="titlebar-name">Axolotl Launcher</div>
-				</div>
-			</div>
-
-			<div class="window-actions">
-				<button
-					class="window-button"
-					id="minimize"
-					type="button"
-					title="Minimize"
-					aria-label="Minimize"
-					data-i18n-label="minimize"
-				>
-					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-						<path d="M5 12h14" />
-					</svg>
-				</button>
-				<button
-					class="window-button close"
-					id="close"
-					type="button"
-					title="Close"
-					aria-label="Close"
-					data-i18n-label="close"
-				>
-					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-						<path d="m6 6 12 12M18 6 6 18" />
-					</svg>
-				</button>
-			</div>
-		</header>
-
-		<main class="shell">
-			<section class="content-panel">
-				<div class="screen-stack">
-					<!-- Welcome Screen -->
-					<section class="screen active" data-screen="welcome">
-						<div class="screen-content-wrapper" style="align-items: center; text-align: center">
-							<h1 id="welcome-title" data-i18n="welcomeTitle">
-								Your Minecraft worlds, in one place.
-							</h1>
-							<p id="welcome-copy" class="lead" data-i18n="welcomeCopy">
-								Install Axolotl Launcher, a focused home for instances, content, saves, and Java
-								runtimes.
-							</p>
-
-							<!-- Version tag for sidebar parity -->
-							<div style="display: none" id="version"></div>
-						</div>
-					</section>
-
-					<!-- Uninstall confirmation -->
-					<section class="screen" data-screen="uninstall">
-						<div class="screen-content-wrapper">
-							<h2 data-i18n="uninstallTitle">Uninstall Axolotl Launcher</h2>
-							<p class="task-copy" data-i18n="uninstallCopy"></p>
-							<div class="install-facts">
-								<div class="install-fact">
-									<span class="fact-label" data-i18n="programLocation">Program location</span>
-									<span class="fact-value" id="uninstall-directory"></span>
-								</div>
-							</div>
-							<div class="toggles">
-								<label class="checkbox-label" id="delete-app-data-row">
-									<input id="delete-app-data" type="checkbox" />
-									<div class="checkbox-box">
-										<svg
-											class="check-icon"
-											viewBox="0 0 24 24"
-											fill="none"
-											stroke="currentColor"
-											stroke-width="3"
-										>
-											<path d="M5 12l4 4L19 7" stroke-linecap="round" stroke-linejoin="round" />
-										</svg>
-									</div>
-									<span data-i18n="deleteAppData">Delete application data</span>
-								</label>
-							</div>
-							<p class="task-copy" data-i18n="uninstallDataScope"></p>
-						</div>
-					</section>
-
-					<!-- Configure Screen -->
-					<section class="screen" data-screen="configure">
-						<div class="screen-content-wrapper">
-							<h2 id="configure-title" data-i18n="configureTitle">Choose installation locations</h2>
-							<p class="section-copy" id="configure-copy" data-i18n="configureCopy">
-								You can keep the defaults or choose separate locations for the program and its data.
-							</p>
-
-							<div class="form">
-								<label class="field">
-									<span class="field-label">
-										<span data-i18n="programLocation">Program location</span>
-										<span class="field-hint" data-i18n="programHint">Launcher files</span>
-									</span>
-									<span class="input-group">
-										<input
-											class="path-input"
-											id="install-dir"
-											autocomplete="off"
-											spellcheck="false"
-										/>
-										<button
-											class="browse-button"
-											id="browse-install"
-											type="button"
-											aria-label="Browse"
-											data-i18n-label="browse"
-										>
-											<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-												<path
-													d="M3 7a2 2 0 0 1 2-2h5l2 2h7a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"
-												/>
-											</svg>
-											<span data-i18n="browse">Browse</span>
-										</button>
-									</span>
-								</label>
-
-								<label class="field" id="resource-field">
-									<span class="field-label">
-										<span data-i18n="dataLocation">Application directory</span>
-										<span class="field-hint" data-i18n="dataHint"
-											>Instances, Java, assets, caches</span
-										>
-									</span>
-									<span class="input-group">
-										<input
-											class="path-input"
-											id="resource-dir"
-											autocomplete="off"
-											spellcheck="false"
-										/>
-										<button
-											class="browse-button"
-											id="browse-resource"
-											type="button"
-											aria-label="Browse"
-											data-i18n-label="browse"
-										>
-											<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-												<path
-													d="M3 7a2 2 0 0 1 2-2h5l2 2h7a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"
-												/>
-											</svg>
-											<span data-i18n="browse">Browse</span>
-										</button>
-									</span>
-								</label>
-
-								<div class="notice hidden" id="existing-notice">
-									<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-										<circle cx="12" cy="12" r="9" />
-										<path d="M12 11v5m0-8h.01" />
-									</svg>
-									<span data-i18n="existingNotice"
-										>Your existing application directory will be preserved. You can change it later
-										in Settings.</span
-									>
-								</div>
-
-								<div class="toggles">
-									<label class="checkbox-label">
-										<input id="desktop-shortcut" type="checkbox" checked />
-										<div class="checkbox-box">
-											<svg
-												class="check-icon"
-												viewBox="0 0 24 24"
-												fill="none"
-												stroke="currentColor"
-												stroke-width="3"
-											>
-												<path d="M5 12l4 4L19 7" stroke-linecap="round" stroke-linejoin="round" />
-											</svg>
-										</div>
-										<span data-i18n="desktopShortcut">Desktop shortcut</span>
-									</label>
-
-									<label class="checkbox-label">
-										<input id="launch-after" type="checkbox" checked />
-										<div class="checkbox-box">
-											<svg
-												class="check-icon"
-												viewBox="0 0 24 24"
-												fill="none"
-												stroke="currentColor"
-												stroke-width="3"
-											>
-												<path d="M5 12l4 4L19 7" stroke-linecap="round" stroke-linejoin="round" />
-											</svg>
-										</div>
-										<span data-i18n="launchAfter">Launch when complete</span>
-									</label>
-								</div>
-							</div>
-							<div class="field-error" id="field-error" role="alert"></div>
-						</div>
-					</section>
-
-					<!-- Installing Screen -->
-					<section class="screen" data-screen="installing">
-						<div class="screen-content-wrapper">
-							<div class="progress-heading">
-								<div>
-									<h2 id="progress-title" data-i18n="progressPreparing">
-										Preparing Axolotl Launcher
-									</h2>
-								</div>
-								<div class="progress-value"><span id="progress-value">4</span>%</div>
-							</div>
-							<div
-								class="progress-track"
-								role="progressbar"
-								aria-valuemin="0"
-								aria-valuemax="100"
-								aria-valuenow="4"
-							>
-								<div class="progress-fill" id="progress-fill"></div>
-							</div>
-							<div class="progress-detail">
-								<span class="spinner"></span
-								><span id="progress-detail" data-i18n="progressWait"
-									>This usually takes less than a minute.</span
-								>
-							</div>
-							<div class="install-facts">
-								<div class="install-fact">
-									<span class="fact-label" data-i18n="programLocation">Program location</span
-									><span class="fact-value" id="install-summary"></span>
-								</div>
-								<div class="install-fact" id="resource-summary-row">
-									<span class="fact-label" data-i18n="dataLocation">Application directory</span
-									><span class="fact-value" id="resource-summary"></span>
-								</div>
-							</div>
-							<div class="error-panel" id="install-error" role="alert"></div>
-						</div>
-					</section>
-
-					<!-- Complete Screen -->
-					<section class="screen" data-screen="complete">
-						<div class="screen-content-wrapper" style="align-items: center; text-align: center">
-							<div class="complete-brand">
-								<img id="complete-logo" alt="Axolotl Launcher" class="complete-logo" />
-								<div class="complete-badge">
-									<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5">
-										<path d="M5 12l4 4L19 7" stroke-linecap="round" stroke-linejoin="round" />
-									</svg>
-								</div>
-							</div>
-							<h2 data-i18n="completeTitle">Axolotl Launcher is ready</h2>
-							<p class="lead" style="margin-top: 16px" data-i18n="completeCopy">
-								Installation completed successfully. Your new launcher is ready to use.
-							</p>
-							<div class="error-panel" id="launch-error" role="alert"></div>
-						</div>
-					</section>
-				</div>
-
-				<footer class="footer">
-					<div class="footer-note" id="footer-note" data-i18n="footerWelcome">
-						No account or game files are changed during setup.
-					</div>
-					<div class="footer-actions">
-						<button class="action-button hidden" id="secondary-action" type="button"></button>
-						<button class="action-button primary" id="primary-action" type="button">
-							<span id="primary-label">Continue</span>
-							<svg
-								id="primary-icon"
-								viewBox="0 0 24 24"
-								fill="none"
-								stroke="currentColor"
-								stroke-width="2.5"
-							>
-								<path d="m9 18 6-6-6-6" />
-							</svg>
-						</button>
-					</div>
-				</footer>
-			</section>
-		</main>
-		<script>
-			const boot = window.__AXOLOTL_INSTALLER__ || {
-				language: 'zhCn',
-				version: 'v2.0.0 (Preview)',
-				logoDataUrl: '../../app/icons/128x128.png',
-				installDir: 'C:\\Program Files\\Axolotl Launcher',
-				resourceDir: 'C:\\Users\\Admin\\AppData\\Roaming\\axolotl-launcher',
-				freshInstall: false,
-				uninstall: false,
-			}
-			window.ipc = window.ipc || { postMessage: (msg) => console.log('IPC Mock:', msg) }
-
-			const copy = {
-				en: {
-					installer: 'Installer',
-					windowTitle: 'Axolotl Launcher Setup',
-					minimize: 'Minimize',
-					browse: 'Browse',
-					stepWelcome: 'Welcome',
-					stepConfigure: 'Configure',
-					stepInstall: 'Install',
-					stepComplete: 'Complete',
-					version: 'Version',
-					scope: 'Windows 10/11 · Current user',
-					ready: 'Ready to install',
-					welcomeTitle: 'Your last next launcher.',
-					welcomeCopy: 'Install Axolotl Launcher and start a whole new Minecraft experience.',
-					packageVersion: 'Version',
-					packageArch: 'Architecture',
-					packageScope: 'Scope',
-					packageCurrentUser: 'Current user',
-					packageEngine: 'Interface',
-					configureTitle: 'Choose installation locations',
-					configureCopy:
-						'Keep the defaults or choose separate locations for the program and its data.',
-					updateTitle: 'Update Axolotl Launcher',
-					updateCopy:
-						'The launcher will be updated in place and your application data will be preserved.',
-					programLocation: 'Program location',
-					programHint: 'Launcher files',
-					dataLocation: 'Application directory',
-					dataHint: 'Instances, Java, assets, caches',
-					existingNotice:
-						'Your existing application directory will be preserved. You can change it later in Settings.',
-					desktopShortcut: 'Desktop shortcut',
-					launchAfter: 'Launch when complete',
-					deleteAppData: 'Delete configuration and caches',
-					uninstallTitle: 'Uninstall Axolotl Launcher',
-					uninstallCopy:
-						'Remove Axolotl Launcher and its Windows shortcuts from this computer. Application data is kept by default.',
-					uninstallDataScope:
-						'The optional cleanup removes Axolotl data in AppData. Instances, saves, Java and resources in a custom application directory are kept.',
-					uninstall: 'Uninstall',
-					uninstalling: 'Uninstalling',
-					cancel: 'Cancel',
-					uninstallPreparing: 'Preparing to uninstall Axolotl Launcher',
-					uninstallFiles: 'Removing launcher files',
-					uninstallIntegrations: 'Removing Windows shortcuts and integrations',
-					uninstallFinalizing: 'Finishing uninstallation',
-					uninstallWait: 'Keep this window open while uninstallation completes.',
-					uninstallFailed: 'Uninstallation failed',
-					uninstallFailedDetail:
-						'Close Axolotl Launcher and check access to the installation directory, then retry.',
-					uninstallFooter: 'Custom application directories are kept.',
-					uninstallCompleteFooter: 'You can now close this uninstaller.',
-					uninstallCompleteTitle: 'Axolotl Launcher was removed',
-					uninstallCompleteCopy: 'Axolotl Launcher has been uninstalled successfully.',
-					installingEyebrow: 'Installation in progress',
-					progressPreparing: 'Preparing Axolotl Launcher',
-					progressRuntime: 'Checking WebView2 runtime',
-					progressFiles: 'Installing launcher files',
-					progressIntegrations: 'Creating Windows integrations',
-					progressFinalizing: 'Finishing setup',
-					progressWait: 'This usually takes less than a minute.',
-					completeTitle: 'Axolotl Launcher is ready',
-					completeCopy: 'Installation completed successfully. Your new launcher is ready to use.',
-					footerWelcome: 'No account or game files are changed during setup.',
-					footerConfigure: 'Both locations can be changed later.',
-					footerInstalling: 'Keep this window open while setup completes.',
-					footerComplete: 'You can now close this installer.',
-					footerLaunchFailed: 'Installation is complete. Retry launching or close this installer.',
-					continue: 'Continue',
-					back: 'Back',
-					install: 'Install',
-					update: 'Update',
-					retry: 'Retry',
-					finish: 'Finish',
-					launch: 'Launch Axolotl Launcher',
-					close: 'Close',
-					absolutePath: 'Choose an absolute Windows path.',
-					driveRoot: 'A drive root cannot be used as the application directory.',
-					insideInstall: 'The application directory must be separate from the program location.',
-					notWritable: 'Axolotl cannot write to this directory.',
-					installFailed: 'Installation failed',
-					installFailedDetail:
-						'The installation core returned an error. Check that Axolotl Launcher is closed, then retry.',
-					launchFailed:
-						'Installation completed, but Axolotl Launcher could not be started. Try again or close this installer.',
-				},
-				zhCn: {
-					installer: 'Windows 安装程序',
-					windowTitle: 'Axolotl Launcher 安装程序',
-					minimize: '最小化',
-					browse: '浏览',
-					stepWelcome: '欢迎',
-					stepConfigure: '安装设置',
-					stepInstall: '安装',
-					stepComplete: '完成',
-					version: '版本',
-					scope: 'Windows 10/11 · 当前用户',
-					ready: '准备安装',
-					welcomeTitle: '你的最后一款启动器',
-					welcomeCopy: '安装 Axolotl Launcher，开启Minecraft全新体验',
-					packageVersion: '版本',
-					packageArch: '架构',
-					packageScope: '安装范围',
-					packageCurrentUser: '当前用户',
-					packageEngine: '界面引擎',
-					configureTitle: '选择安装位置',
-					configureCopy: '可以直接使用默认值，也可以把程序与游戏数据放到不同位置。',
-					updateTitle: '更新 Axolotl Launcher',
-					updateCopy: '启动器会原位更新，并完整保留现有应用数据。',
-					programLocation: '程序安装位置',
-					programHint: '启动器程序文件',
-					dataLocation: '应用目录',
-					dataHint: '实例、Java、资源与缓存',
-					existingNotice: '现有应用目录会被保留，之后仍可在启动器设置中修改。',
-					desktopShortcut: '创建桌面快捷方式',
-					launchAfter: '完成后启动',
-					deleteAppData: '删除配置与缓存',
-					uninstallTitle: '卸载 Axolotl Launcher',
-					uninstallCopy: '从此电脑移除 Axolotl Launcher 及其 Windows 快捷方式。默认保留应用数据。',
-					uninstallDataScope:
-						'可选清理仅移除 AppData 中的 Axolotl 数据。自定义应用目录中的实例、存档、Java 和资源会保留。',
-					uninstall: '卸载',
-					uninstalling: '正在卸载',
-					cancel: '取消',
-					uninstallPreparing: '正在准备卸载 Axolotl Launcher',
-					uninstallFiles: '正在移除启动器文件',
-					uninstallIntegrations: '正在移除 Windows 快捷方式与集成',
-					uninstallFinalizing: '正在完成卸载',
-					uninstallWait: '卸载完成前请保持此窗口打开。',
-					uninstallFailed: '卸载失败',
-					uninstallFailedDetail: '请关闭 Axolotl Launcher，检查安装目录的访问权限，然后重试。',
-					uninstallFooter: '自定义应用目录会保留。',
-					uninstallCompleteFooter: '现在可以关闭卸载程序。',
-					uninstallCompleteTitle: 'Axolotl Launcher 已卸载',
-					uninstallCompleteCopy: 'Axolotl Launcher 已成功卸载。',
-					installingEyebrow: '正在安装',
-					progressPreparing: '正在准备 Axolotl Launcher',
-					progressRuntime: '正在检查 WebView2 运行时',
-					progressFiles: '正在安装启动器文件',
-					progressIntegrations: '正在创建 Windows 集成',
-					progressFinalizing: '正在完成安装',
-					progressWait: '通常不到一分钟即可完成。',
-					completeTitle: 'Axolotl Launcher 已就绪',
-					completeCopy: '安装已成功完成，现在可以开始使用你的全新启动器。',
-					footerWelcome: '安装过程不会修改账号或现有游戏文件。',
-					footerConfigure: '这两个位置之后仍可调整。',
-					footerInstalling: '安装完成前请保持此窗口打开。',
-					footerComplete: '现在可以关闭安装程序。',
-					footerLaunchFailed: '安装已完成。请重试启动，或关闭安装程序。',
-					continue: '继续',
-					back: '上一步',
-					install: '安装',
-					update: '更新',
-					retry: '重试',
-					finish: '完成',
-					launch: '启动 Axolotl Launcher',
-					close: '关闭',
-					absolutePath: '请选择有效的 Windows 绝对路径。',
-					driveRoot: '不能把磁盘根目录直接用作应用目录。',
-					insideInstall: '应用目录必须与程序安装位置分开。',
-					notWritable: 'Axolotl 无法写入此目录。',
-					installFailed: '安装失败',
-					installFailedDetail: '安装核心返回了错误。请确认 Axolotl Launcher 已关闭，然后重试。',
-					launchFailed: '安装已完成，但无法启动 Axolotl Launcher。请重试或关闭安装程序。',
-				},
-			}
-
-			const language = boot.language === 'zhCn' ? 'zhCn' : 'en'
-			const t = copy[language]
-			const state = {
-				screen: boot.uninstall ? 'uninstall' : 'welcome',
-				progress: 4,
-				failed: false,
-				launchFailed: false,
-				launchAfter: !boot.uninstall,
-			}
-			const screens = ['welcome', 'configure', 'installing', 'complete']
-			const $ = (selector) => document.querySelector(selector)
-			const post = (payload) => window.ipc.postMessage(JSON.stringify(payload))
-
-			document.documentElement.lang = language === 'zhCn' ? 'zh-CN' : 'en'
-			document.querySelectorAll('[data-i18n]').forEach((element) => {
-				const value = t[element.dataset.i18n]
-				if (value) element.textContent = value
-			})
-			document.querySelectorAll('[data-i18n-label]').forEach((element) => {
-				const value = t[element.dataset.i18nLabel]
-				if (!value) return
-				element.setAttribute('aria-label', value)
-				element.title = value
-			})
-			$('#product-logo').src = boot.logoDataUrl
-			$('#complete-logo').src = boot.logoDataUrl
-			if ($('#version')) $('#version').textContent = boot.version
-			if ($('#package-version')) $('#package-version').textContent = boot.version
-			$('#install-dir').value = boot.installDir
-			$('#resource-dir').value = boot.resourceDir
-			if (boot.uninstall) {
-				document.body.classList.add('is-uninstalling')
-				$('#uninstall-directory').textContent = boot.installDir
-				$('[data-screen="complete"] h2').textContent = t.uninstallCompleteTitle
-				$('[data-screen="complete"] .lead').textContent = t.uninstallCompleteCopy
-				$('[data-screen="complete"] .lead').classList.replace('lead', 'task-copy')
-				$('#progress-detail').textContent = t.uninstallWait
-			}
-
-			if (!boot.freshInstall) {
-				$('#resource-field').classList.add('hidden')
-				$('#existing-notice').classList.remove('hidden')
-				$('#configure-title').textContent = t.updateTitle
-				$('#configure-copy').textContent = t.updateCopy
-			}
-
-			function setScreen(screen) {
-				state.screen = screen
-				document.body.classList.toggle('is-installing', screen === 'installing' && !state.failed)
-				document.body.classList.toggle('is-failed', state.failed)
-				document
-					.querySelectorAll('[data-screen]')
-					.forEach((element) =>
-						element.classList.toggle('active', element.dataset.screen === screen),
-					)
-				const current = screens.indexOf(screen)
-				document.querySelectorAll('[data-step]').forEach((element) => {
-					const index = screens.indexOf(element.dataset.step)
-					element.classList.toggle('active', index === current)
-					element.classList.toggle('done', index < current)
-					if (index < current)
-						element.querySelector('.step-index').innerHTML =
-							'<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m5 12 4 4L19 6"/></svg>'
-					else element.querySelector('.step-index').textContent = String(index + 1)
-				})
-				renderFooter()
-			}
-
-			function renderFooter() {
-				const primary = $('#primary-action')
-				const secondary = $('#secondary-action')
-				const icon = $('#primary-icon')
-				const installationLocked = state.screen === 'installing' && !state.failed
-				primary.disabled = installationLocked
-				$('#close').disabled = installationLocked
-				secondary.classList.add('hidden')
-				icon.classList.remove('hidden')
-
-				if (state.screen === 'uninstall') {
-					$('#footer-note').textContent = t.uninstallFooter
-					$('#primary-label').textContent = t.uninstall
-					secondary.textContent = t.cancel
-					secondary.classList.remove('hidden')
-				} else if (state.screen === 'welcome') {
-					$('#footer-note').textContent = t.footerWelcome
-					$('#primary-label').textContent = t.continue
-				} else if (state.screen === 'configure') {
-					$('#footer-note').textContent = t.footerConfigure
-					$('#primary-label').textContent = boot.freshInstall ? t.install : t.update
-					secondary.textContent = t.back
-					secondary.classList.remove('hidden')
-				} else if (state.screen === 'installing') {
-					$('#footer-note').textContent = boot.uninstall ? t.uninstallWait : t.footerInstalling
-					$('#primary-label').textContent = state.failed
-						? t.retry
-						: boot.uninstall
-							? t.uninstalling
-							: t.install
-					if (boot.uninstall && state.failed) {
-						secondary.textContent = t.close
-						secondary.classList.remove('hidden')
-					}
-					icon.classList.toggle('hidden', !state.failed)
-				} else {
-					$('#footer-note').textContent = state.launchFailed
-						? t.footerLaunchFailed
-						: boot.uninstall
-							? t.uninstallCompleteFooter
-							: t.footerComplete
-					$('#primary-label').textContent = boot.uninstall
-						? t.close
-						: state.launchAfter
-							? t.launch
-							: t.finish
-					icon.innerHTML = state.launchAfter
-						? '<path d="M5 12h14m-6-6 6 6-6 6"/>'
-						: '<path d="m5 12 4 4L19 6"/>'
-				}
-			}
-
-			function install() {
-				$('#field-error').textContent = ''
-				$('#install-error').classList.remove('visible')
-				$('#launch-error').classList.remove('visible')
-				state.failed = false
-				state.launchFailed = false
-				if (boot.uninstall) {
-					window.axolotlInstaller.receive({ type: 'installStarted' })
-					state.launchAfter = false
-					post({ command: 'uninstall', deleteAppData: $('#delete-app-data').checked })
-					return
-				}
-				state.launchAfter = $('#launch-after').checked
-				post({
-					command: 'install',
-					installDir: $('#install-dir').value.trim(),
-					resourceDir: $('#resource-dir').value.trim(),
-					desktopShortcut: $('#desktop-shortcut').checked,
-					launchAfter: state.launchAfter,
-				})
-
-				// Developer Preview Mock
-				if (!window.__AXOLOTL_INSTALLER__) {
-					window.axolotlInstaller.receive({ type: 'installStarted' })
-					let p = 4
-					const timer = setInterval(() => {
-						p += Math.floor(Math.random() * 15) + 5
-						if (p >= 100) {
-							clearInterval(timer)
-							window.axolotlInstaller.receive({ type: 'installFinished' })
-						} else {
-							window.axolotlInstaller.receive({ type: 'progress', value: p })
-						}
-					}, 600)
-				}
-			}
-
-			function setProgress(value) {
-				state.progress = Math.max(state.progress, value)
-				$('#progress-value').textContent = state.progress
-				$('#progress-fill').style.width = `${state.progress}%`
-				$('.progress-track').setAttribute('aria-valuenow', String(state.progress))
-				let key = 'progressPreparing'
-				if (boot.uninstall) {
-					key =
-						state.progress >= 82
-							? 'uninstallFinalizing'
-							: state.progress >= 66
-								? 'uninstallIntegrations'
-								: state.progress >= 26
-									? 'uninstallFiles'
-									: 'uninstallPreparing'
-				} else if (state.progress >= 82) key = 'progressFinalizing'
-				else if (state.progress >= 66) key = 'progressIntegrations'
-				else if (state.progress >= 26) key = 'progressFiles'
-				else if (state.progress >= 10) key = 'progressRuntime'
-				$('#progress-title').textContent = t[key]
-			}
-
-			$('#minimize').addEventListener('click', () => post({ command: 'minimize' }))
-			$('#close').addEventListener('click', () => post({ command: 'close' }))
-			document.querySelector('[data-drag-region]').addEventListener('mousedown', (event) => {
-				if (event.button === 0) post({ command: 'dragWindow' })
-			})
-			$('#browse-install').addEventListener('click', () =>
-				post({ command: 'browse', target: 'install', current: $('#install-dir').value }),
-			)
-			$('#browse-resource').addEventListener('click', () =>
-				post({ command: 'browse', target: 'resource', current: $('#resource-dir').value }),
-			)
-			$('#launch-after').addEventListener('change', () => {
-				state.launchAfter = $('#launch-after').checked
-				renderFooter()
-			})
-
-			$('#primary-action').addEventListener('click', () => {
-				if (state.screen === 'uninstall') install()
-				else if (state.screen === 'welcome') setScreen('configure')
-				else if (state.screen === 'configure' || (state.screen === 'installing' && state.failed))
-					install()
-				else if (state.screen === 'complete') post({ command: 'finish', launch: state.launchAfter })
-			})
-			$('#secondary-action').addEventListener('click', () =>
-				boot.uninstall ? post({ command: 'close' }) : setScreen('welcome'),
-			)
-
-			window.axolotlInstaller = {
-				receive(message) {
-					if (message.type === 'pathSelected') {
-						$(`#${message.target}-dir`).value = message.path
-					} else if (message.type === 'validationError') {
-						setScreen('configure')
-						$('#field-error').textContent = t[message.code] || t.absolutePath
-						$(`#${message.field}-dir`).focus()
-					} else if (message.type === 'installStarted') {
-						$('#progress-detail').textContent = boot.uninstall ? t.uninstallWait : t.progressWait
-						$('#install-summary').textContent = $('#install-dir').value
-						$('#resource-summary').textContent = $('#resource-dir').value
-						$('#resource-summary-row').classList.toggle(
-							'hidden',
-							boot.uninstall || !boot.freshInstall,
-						)
-						state.progress = 0
-						setProgress(4)
-						setScreen('installing')
-					} else if (message.type === 'progress') {
-						setProgress(message.value)
-					} else if (message.type === 'installFinished') {
-						state.launchAfter = !boot.uninstall && (message.launchAfter ?? state.launchAfter)
-						setProgress(100)
-						setScreen('complete')
-					} else if (message.type === 'launchFailed') {
-						state.launchFailed = true
-						state.launchAfter = true
-						setProgress(100)
-						$('#launch-error').textContent = t.launchFailed
-						$('#launch-error').classList.add('visible')
-						setScreen('complete')
-					} else if (message.type === 'installFailed') {
-						state.failed = true
-						const suffix = message.exitCode == null ? '' : ` (${message.exitCode})`
-						$('#install-error').textContent =
-							`${boot.uninstall ? t.uninstallFailed : t.installFailed}${suffix}. ${boot.uninstall ? t.uninstallFailedDetail : t.installFailedDetail}${boot.uninstall && message.message ? ` ${message.message}` : ''}`
-						$('#install-error').classList.add('visible')
-						$('#progress-title').textContent = boot.uninstall ? t.uninstallFailed : t.installFailed
-						$('#progress-detail').textContent = t.retry
-						setScreen('installing')
-					}
-				},
-			}
-
-			setScreen(state.screen)
-		</script>
-	</body>
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Axolotl Launcher</title>
+        <style>
+            :root {
+                color-scheme: dark;
+                font-family: Inter, 'Segoe UI Variable Text', 'Segoe UI', system-ui, sans-serif;
+                --surface-1: #09090b;
+                --surface-2: rgba(24, 24, 27, 0.4);
+                --surface-3: rgba(39, 39, 42, 0.5);
+                --surface-4: rgba(63, 63, 70, 0.5);
+                --surface-5: rgba(82, 82, 91, 0.8);
+                --text: #ffffff;
+                --text-secondary: #a1a1aa;
+                --text-tertiary: #71717a;
+                --brand: #f472b6;
+                --brand-strong: #ec4899;
+                --brand-shadow: rgba(244, 114, 182, 0.6);
+                --brand-highlight: rgba(244, 114, 182, 0.2);
+                --brand-highlight-hover: rgba(244, 114, 182, 0.3);
+                --brand-bg: rgba(244, 114, 182, 0.1);
+                --red: #f43f5e;
+                --red-bg: rgba(244, 63, 94, 0.15);
+                --green: #10b981;
+                --radius-sm: 0.5rem;
+                --radius-md: 0.75rem;
+                --radius-lg: 1rem;
+                --radius-full: 9999px;
+                --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+                --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+                --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            }
+
+            * {
+                box-sizing: border-box;
+                letter-spacing: -0.01em;
+            }
+
+            html,
+            body {
+                width: 100%;
+                height: 100%;
+                margin: 0;
+                overflow: hidden;
+                background: var(--surface-1);
+                color: var(--text);
+            }
+
+            body {
+                border: 1px solid rgba(255, 255, 255, 0.1);
+                position: relative;
+            }
+
+            /* Ambient Background Glow */
+            .ambient-glow {
+                position: absolute;
+                inset: 0;
+                pointer-events: none;
+                z-index: 0;
+                overflow: hidden;
+                transition: opacity 1.5s cubic-bezier(0.22, 1, 0.36, 1);
+            }
+            .ambient-glow::before,
+            .ambient-glow::after {
+                content: '';
+                position: absolute;
+                border-radius: 50%;
+                filter: blur(120px);
+            }
+
+            /* Idle State (Welcome/Configure/Complete) */
+            .glow-idle {
+                opacity: 1;
+            }
+            body.is-installing .glow-idle {
+                opacity: 0;
+            }
+
+            .glow-idle::before {
+                top: -20%;
+                right: -10%;
+                width: 50vw;
+                height: 50vw;
+                background: radial-gradient(circle, var(--brand) 0%, transparent 70%);
+                opacity: 0.55;
+                animation: float1 10s ease-in-out infinite;
+            }
+            .glow-idle::after {
+                bottom: -20%;
+                left: -10%;
+                width: 40vw;
+                height: 40vw;
+                background: radial-gradient(circle, #8b5cf6 0%, transparent 70%);
+                opacity: 0.55;
+                animation: float2 14s ease-in-out infinite alternate;
+            }
+
+            /* Active State (Installing) */
+            .glow-active {
+                opacity: 0;
+            }
+            body.is-installing .glow-active {
+                opacity: 1;
+            }
+
+            .glow-active::before {
+                top: -20%;
+                right: -10%;
+                width: 50vw;
+                height: 50vw;
+                background: radial-gradient(circle, var(--brand-strong) 0%, transparent 70%);
+                opacity: 0.7;
+                animation: fastFlow1 4s ease-in-out infinite;
+            }
+            .glow-active::after {
+                bottom: -20%;
+                left: -10%;
+                width: 40vw;
+                height: 40vw;
+                background: radial-gradient(circle, #a855f7 0%, transparent 70%);
+                opacity: 0.7;
+                animation: fastFlow2 3s ease-in-out infinite alternate;
+            }
+
+            @keyframes float1 {
+                0%,
+                100% {
+                    transform: translate(0, 0) scale(1);
+                }
+                33% {
+                    transform: translate(15%, 20%) scale(1.2);
+                }
+                66% {
+                    transform: translate(-10%, 15%) scale(0.85);
+                }
+            }
+            @keyframes float2 {
+                0%,
+                100% {
+                    transform: translate(0, 0) scale(1);
+                }
+                33% {
+                    transform: translate(-20%, -15%) scale(0.85);
+                }
+                66% {
+                    transform: translate(15%, -25%) scale(1.2);
+                }
+            }
+            @keyframes fastFlow1 {
+                0% {
+                    transform: translate(-10%, -10%) scale(1);
+                }
+                50% {
+                    transform: translate(30%, 30%) scale(1.3);
+                }
+                100% {
+                    transform: translate(-10%, -10%) scale(1);
+                }
+            }
+            @keyframes fastFlow2 {
+                0% {
+                    transform: translate(10%, 10%) scale(1);
+                }
+                50% {
+                    transform: translate(-30%, -30%) scale(1.4);
+                }
+                100% {
+                    transform: translate(10%, 10%) scale(1);
+                }
+            }
+
+            button,
+            input {
+                font: inherit;
+                transition: all 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
+            }
+
+            button {
+                border: 0;
+            }
+
+            button:focus-visible {
+                outline: none;
+                box-shadow:
+                    0 0 0 3px var(--brand-highlight),
+                    0 0 0 1px var(--brand);
+            }
+
+            .titlebar {
+                position: relative;
+                z-index: 20;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                height: 54px;
+                background: transparent;
+                user-select: none;
+                border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            }
+
+            .titlebar-left {
+                display: flex;
+                flex: 1;
+                align-items: center;
+                min-width: 0;
+                height: 100%;
+                padding: 0 20px;
+                -webkit-app-region: drag;
+                app-region: drag;
+            }
+
+            .titlebar-brand {
+                display: flex;
+                align-items: center;
+                gap: 12px;
+            }
+
+            .titlebar-logo {
+                width: 22px;
+                height: 22px;
+                object-fit: contain;
+                filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2));
+            }
+
+            .titlebar-name {
+                font-size: 14px;
+                font-weight: 700;
+                background: linear-gradient(to right, #fff, #a1a1aa);
+                -webkit-background-clip: text;
+                -webkit-text-fill-color: transparent;
+            }
+
+            .window-actions {
+                display: flex;
+                justify-content: flex-end;
+                height: 100%;
+                app-region: no-drag;
+            }
+
+            .window-button {
+                display: grid;
+                place-items: center;
+                width: 46px;
+                height: 100%;
+                padding: 0;
+                background: transparent;
+                color: var(--text-secondary);
+                cursor: pointer;
+            }
+
+            .window-button:hover {
+                background: rgba(255, 255, 255, 0.1);
+                color: var(--text);
+            }
+
+            .window-button:disabled {
+                opacity: 0.45;
+                cursor: not-allowed;
+            }
+
+            .window-button.close:hover:not(:disabled) {
+                background: #e11d48;
+            }
+
+            .window-button svg {
+                width: 16px;
+                height: 16px;
+            }
+
+            .shell {
+                position: relative;
+                z-index: 10;
+                display: flex;
+                flex-direction: column;
+                height: calc(100% - 54px);
+            }
+
+            .steps {
+                display: flex;
+                align-items: center;
+                gap: 16px;
+                margin: 0;
+                padding: 0;
+                list-style: none;
+            }
+
+            .step {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                color: var(--text-tertiary);
+                font-size: 13px;
+                font-weight: 500;
+                transition: all 0.3s ease;
+            }
+
+            .step-index {
+                display: none !important;
+            }
+
+            .step-connector {
+                width: 4px;
+                height: 4px;
+                background: rgba(255, 255, 255, 0.1);
+                border-radius: 50%;
+            }
+
+            .step.active {
+                color: var(--brand);
+                font-weight: 600;
+            }
+
+            .step.done {
+                color: var(--text-secondary);
+            }
+
+            .step.done + .step-connector {
+                background: rgba(255, 255, 255, 0.2);
+            }
+
+            .content-panel {
+                display: flex;
+                flex-direction: column;
+                flex: 1;
+                min-height: 0;
+            }
+
+            .screen-stack {
+                min-height: 0;
+                position: relative;
+                flex: 1;
+                overflow: hidden;
+            }
+
+            .screen {
+                position: absolute;
+                inset: 0;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                padding: 24px 48px;
+                overflow-y: auto;
+                opacity: 0;
+                transform: translateY(20px) scale(0.98);
+                pointer-events: none;
+                transition: all 400ms cubic-bezier(0.2, 0.8, 0.2, 1);
+            }
+
+            .screen.active {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+                pointer-events: auto;
+            }
+
+            .screen-content-wrapper {
+                width: 100%;
+                max-width: 540px;
+                min-width: 0;
+                margin-block: auto;
+                flex-shrink: 0;
+                display: flex;
+                flex-direction: column;
+            }
+
+            .screen[data-screen='welcome'] .screen-content-wrapper {
+                max-width: none;
+            }
+
+            h1,
+            h2,
+            p {
+                margin: 0;
+            }
+
+            @property --spot-x {
+                syntax: '<percentage>';
+                initial-value: 0%;
+                inherits: false;
+            }
+            @property --spot-y {
+                syntax: '<percentage>';
+                initial-value: 50%;
+                inherits: false;
+            }
+
+            @keyframes random-spotlight {
+                0% {
+                    --spot-x: -10%;
+                    --spot-y: 50%;
+                }
+                15% {
+                    --spot-x: 25%;
+                    --spot-y: 5%;
+                }
+                35% {
+                    --spot-x: 80%;
+                    --spot-y: -10%;
+                }
+                50% {
+                    --spot-x: 110%;
+                    --spot-y: 50%;
+                }
+                65% {
+                    --spot-x: 75%;
+                    --spot-y: 110%;
+                }
+                85% {
+                    --spot-x: 20%;
+                    --spot-y: 95%;
+                }
+                100% {
+                    --spot-x: -10%;
+                    --spot-y: 50%;
+                }
+            }
+
+            h1 {
+                font-size: 84px;
+                line-height: 1.05;
+                font-weight: 900;
+                letter-spacing: -0.04em;
+                background:
+                    radial-gradient(
+                        ellipse 120% 140% at var(--spot-x) var(--spot-y),
+                        #ffffff 0%,
+                        rgba(255, 255, 255, 0) 65%
+                    ),
+                    linear-gradient(180deg, #fbcfe8 0%, #f472b6 100%);
+                animation: random-spotlight 16s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+                -webkit-background-clip: text;
+                -webkit-text-fill-color: transparent;
+                max-width: 100%;
+                white-space: normal;
+                overflow-wrap: anywhere;
+                filter: drop-shadow(0 16px 32px rgba(244, 114, 182, 0.2));
+            }
+
+            h2 {
+                font-size: 28px;
+                line-height: 1.2;
+                font-weight: 700;
+                letter-spacing: -0.01em;
+            }
+
+            .lead {
+                margin-top: 32px;
+                font-size: 24px;
+                line-height: 1.5;
+                font-weight: 500;
+                color: var(--text-secondary);
+                max-width: 100%;
+                white-space: normal;
+                margin-left: auto;
+                margin-right: auto;
+            }
+
+            .task-copy {
+                margin-top: 12px;
+                font-size: 14px;
+                line-height: 1.6;
+                color: var(--text-secondary);
+                white-space: normal;
+                overflow-wrap: anywhere;
+            }
+
+            .screen[data-screen='uninstall'] .install-facts {
+                margin-top: 24px;
+            }
+
+            .screen[data-screen='uninstall'] .toggles {
+                margin-top: 24px;
+            }
+
+            .checkbox-box {
+                flex-shrink: 0;
+            }
+
+            body.is-uninstalling .fact-value {
+                white-space: normal;
+                overflow-wrap: anywhere;
+            }
+
+            .error-panel {
+                overflow-wrap: anywhere;
+            }
+
+            body.is-failed .spinner {
+                display: none;
+            }
+
+            body.is-failed .progress-fill {
+                background: var(--red);
+                box-shadow: none;
+            }
+
+            .section-copy {
+                margin-top: 12px;
+                font-size: 14px;
+                line-height: 1.5;
+                color: var(--text-secondary);
+            }
+
+            .form {
+                display: flex;
+                flex-direction: column;
+                gap: 24px;
+                margin-top: 32px;
+            }
+
+            .field {
+                display: flex;
+                flex-direction: column;
+                gap: 8px;
+            }
+
+            .field-label {
+                display: flex;
+                align-items: baseline;
+                justify-content: space-between;
+                gap: 12px;
+                font-size: 13px;
+                font-weight: 600;
+                color: var(--text);
+            }
+
+            .field-hint {
+                font-size: 12px;
+                font-weight: 500;
+                color: var(--text-tertiary);
+            }
+
+            .input-group {
+                display: flex;
+                align-items: center;
+                height: 40px;
+                background: transparent;
+                border-bottom: 2px solid #3f3f46;
+                transition: border-color 0.2s ease;
+            }
+
+            .input-group:focus-within {
+                border-bottom-color: var(--brand);
+            }
+
+            .path-input {
+                flex: 1;
+                min-width: 0;
+                height: 100%;
+                background: transparent;
+                border: none;
+                outline: none;
+                color: var(--text);
+                font-size: 13px;
+                padding: 0;
+                font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            }
+
+            .path-input:focus,
+            .path-input:focus-visible {
+                outline: none;
+                box-shadow: none !important;
+            }
+
+            .browse-button {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                gap: 6px;
+                height: 28px;
+                padding: 0 8px;
+                background: transparent;
+                border: none;
+                color: var(--text-secondary);
+                font-size: 12px;
+                font-weight: 600;
+                cursor: pointer;
+                transition: color 0.2s ease;
+            }
+
+            .browse-button:hover {
+                color: var(--brand);
+            }
+
+            .browse-button svg {
+                width: 14px;
+                height: 14px;
+            }
+
+            .notice {
+                display: flex;
+                align-items: flex-start;
+                gap: 10px;
+                padding: 12px 14px;
+                border-radius: 6px;
+                background: rgba(0, 0, 0, 0.2);
+                border: 1px solid rgba(255, 255, 255, 0.04);
+                border-top-color: rgba(255, 255, 255, 0.08);
+                font-size: 13px;
+                line-height: 1.5;
+                color: var(--text-secondary);
+                box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.2);
+            }
+
+            .notice svg {
+                flex: 0 0 auto;
+                width: 16px;
+                height: 16px;
+                margin-top: 2px;
+                color: var(--brand);
+            }
+
+            .toggles {
+                display: flex;
+                flex-direction: column;
+                gap: 16px;
+                margin-top: 12px;
+            }
+
+            .checkbox-label {
+                display: inline-flex;
+                align-items: center;
+                gap: 12px;
+                cursor: pointer;
+                font-size: 13px;
+                font-weight: 500;
+                color: var(--text-secondary);
+                user-select: none;
+                transition: color 0.2s ease;
+            }
+
+            .checkbox-label:hover {
+                color: var(--text);
+            }
+
+            .checkbox-label input {
+                position: absolute;
+                opacity: 0;
+                pointer-events: none;
+            }
+
+            .checkbox-box {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                width: 18px;
+                height: 18px;
+                border-radius: 4px;
+                background: rgba(255, 255, 255, 0.05);
+                border: 1px solid rgba(255, 255, 255, 0.15);
+                transition: all 0.2s ease;
+            }
+
+            .check-icon {
+                width: 12px;
+                height: 12px;
+                color: transparent;
+                transition: color 0.2s ease;
+            }
+
+            .checkbox-label input:focus-visible + .checkbox-box {
+                box-shadow:
+                    0 0 0 3px var(--brand-highlight),
+                    0 0 0 1px var(--brand);
+            }
+
+            .checkbox-label input:checked + .checkbox-box {
+                background: var(--brand);
+                border-color: var(--brand);
+                box-shadow: 0 0 10px var(--brand-highlight);
+            }
+
+            .checkbox-label input:checked + .checkbox-box .check-icon {
+                color: #09090b;
+            }
+
+            .field-error {
+                min-height: 20px;
+                margin-top: 8px;
+                font-size: 12px;
+                font-weight: 600;
+                color: var(--red);
+            }
+
+            .progress-heading {
+                display: flex;
+                align-items: flex-end;
+                justify-content: space-between;
+                gap: 24px;
+                margin-bottom: 20px;
+            }
+
+            .progress-value {
+                font-size: 48px;
+                font-weight: 800;
+                line-height: 1;
+                color: var(--text);
+                text-shadow: 0 0 20px rgba(255, 255, 255, 0.2);
+                font-variant-numeric: tabular-nums;
+            }
+
+            .progress-track {
+                height: 6px;
+                overflow: hidden;
+                border-radius: 3px;
+                background: rgba(255, 255, 255, 0.1);
+            }
+
+            .progress-fill {
+                height: 100%;
+                width: 4%;
+                border-radius: inherit;
+                background: linear-gradient(90deg, var(--brand-strong), var(--brand), #fff);
+                box-shadow: 0 0 12px var(--brand);
+                transition: width 400ms cubic-bezier(0.22, 1, 0.36, 1);
+            }
+
+            .progress-detail {
+                display: flex;
+                align-items: center;
+                gap: 12px;
+                margin-top: 16px;
+                font-size: 13px;
+                color: var(--text-tertiary);
+            }
+
+            .spinner {
+                width: 16px;
+                height: 16px;
+                border: 2px solid rgba(255, 255, 255, 0.1);
+                border-top-color: var(--brand);
+                border-radius: 50%;
+                animation: spin 800ms linear infinite;
+            }
+
+            .install-facts {
+                display: flex;
+                flex-direction: column;
+                gap: 8px;
+                margin-top: 40px;
+                padding-top: 24px;
+                border-top: 1px solid rgba(255, 255, 255, 0.05);
+            }
+
+            .install-fact {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                gap: 16px;
+                font-size: 12px;
+            }
+
+            .fact-label {
+                color: var(--text-tertiary);
+                font-weight: 500;
+            }
+
+            .fact-value {
+                overflow: hidden;
+                color: var(--text-secondary);
+                font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+                max-width: 70%;
+                text-align: right;
+            }
+
+            .complete-brand {
+                position: relative;
+                width: 80px;
+                height: 80px;
+                margin-bottom: 32px;
+            }
+            .complete-brand .complete-logo {
+                width: 100%;
+                height: 100%;
+                border-radius: 16px;
+                box-shadow:
+                    0 8px 32px rgba(244, 114, 182, 0.4),
+                    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+                background: var(--brand-bg);
+                object-fit: cover;
+            }
+            .complete-brand .complete-badge {
+                position: absolute;
+                bottom: -8px;
+                right: -8px;
+                width: 32px;
+                height: 32px;
+                background: #1bd96a;
+                border-radius: 50%;
+                display: grid;
+                place-items: center;
+                color: #000;
+                border: 4px solid var(--surface-1);
+                box-shadow: 0 4px 12px rgba(27, 217, 106, 0.4);
+            }
+            .complete-brand .complete-badge svg {
+                width: 16px;
+                height: 16px;
+            }
+
+            .screen[data-screen='complete'] .complete-brand {
+                transform: scale(0.5) translateY(20px);
+                opacity: 0;
+                transition: all 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+            }
+            .screen[data-screen='complete'].active .complete-brand {
+                transform: scale(1) translateY(0);
+                opacity: 1;
+                transition-delay: 0.1s;
+            }
+            .screen[data-screen='complete'] .complete-badge {
+                transform: scale(0);
+                transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+            }
+            .screen[data-screen='complete'].active .complete-badge {
+                transform: scale(1);
+                transition-delay: 0.5s;
+            }
+
+            .screen[data-screen='complete'] h2,
+            .screen[data-screen='complete'] .lead {
+                transform: translateY(20px);
+                opacity: 0;
+                transition: all 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+            }
+            .screen[data-screen='complete'].active h2 {
+                transition-delay: 0.2s;
+                transform: none;
+                opacity: 1;
+            }
+            .screen[data-screen='complete'].active .lead {
+                transition-delay: 0.3s;
+                transform: none;
+                opacity: 1;
+            }
+
+            .error-panel {
+                display: none;
+                margin-top: 24px;
+                padding: 16px;
+                border-radius: var(--radius-md);
+                background: var(--red-bg);
+                border: 1px solid rgba(244, 63, 94, 0.3);
+                border-left: 4px solid var(--red);
+                font-size: 13px;
+                line-height: 1.6;
+                color: #fff1f2;
+            }
+
+            .error-panel.visible {
+                display: block;
+            }
+
+            .footer {
+                position: relative;
+                z-index: 20;
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                gap: 24px;
+                padding: 24px 48px;
+                background: linear-gradient(to top, rgba(9, 9, 11, 0.9), transparent);
+            }
+
+            .footer-note {
+                min-width: 0;
+                font-size: 12px;
+                color: var(--text-tertiary);
+                font-weight: 500;
+            }
+
+            .footer-actions {
+                display: flex;
+                align-items: center;
+                gap: 12px;
+            }
+
+            .action-button {
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                gap: 8px;
+                min-width: 80px;
+                height: 32px;
+                padding: 0 16px;
+                border-radius: var(--radius-full);
+                background: transparent;
+                border: 1px solid transparent;
+                color: var(--text-secondary);
+                font-size: 14px;
+                font-weight: 500;
+                cursor: pointer;
+                transition: all 0.2s ease;
+            }
+
+            .action-button:hover:not(:disabled) {
+                background: rgba(255, 255, 255, 0.06);
+                color: var(--text);
+            }
+
+            .action-button:active:not(:disabled) {
+                background: rgba(255, 255, 255, 0.03);
+            }
+
+            .action-button.primary {
+                background: #db2777;
+                border: 1px solid #be185d;
+                color: #ffffff;
+                box-shadow:
+                    0 0 0 1px rgba(255, 255, 255, 0.08) inset,
+                    0 4px 12px rgba(219, 39, 119, 0.2);
+                font-weight: 600;
+                text-shadow: none;
+            }
+
+            .action-button.primary:hover:not(:disabled) {
+                background: #ec4899;
+                border-color: #db2777;
+                box-shadow:
+                    0 0 0 1px rgba(255, 255, 255, 0.15) inset,
+                    0 6px 20px rgba(236, 72, 153, 0.4);
+            }
+
+            .action-button:disabled {
+                opacity: 0.5;
+                cursor: not-allowed;
+                box-shadow: none;
+            }
+
+            .action-button svg {
+                width: 18px;
+                height: 18px;
+            }
+
+            .hidden {
+                display: none !important;
+            }
+
+            @keyframes spin {
+                to {
+                    transform: rotate(360deg);
+                }
+            }
+
+            @media (prefers-reduced-motion: reduce) {
+                *,
+                *::before,
+                *::after {
+                    scroll-behavior: auto !important;
+                    transition-duration: 0.01ms !important;
+                    animation-duration: 0.01ms !important;
+                    animation-iteration-count: 1 !important;
+                }
+            }
+        </style>
+    </head>
+    <body>
+        <div class="ambient-glow glow-idle"></div>
+        <div class="ambient-glow glow-active"></div>
+
+        <header class="titlebar">
+            <div class="titlebar-left" data-drag-region>
+                <div class="titlebar-brand">
+                    <img class="titlebar-logo" id="product-logo" alt="Axolotl Launcher" />
+                    <div class="titlebar-name">Axolotl Launcher</div>
+                </div>
+            </div>
+
+            <div class="window-actions">
+                <button
+                    class="window-button"
+                    id="minimize"
+                    type="button"
+                    title="Minimize"
+                    aria-label="Minimize"
+                    data-i18n-label="minimize"
+                >
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                        <path d="M5 12h14" />
+                    </svg>
+                </button>
+                <button
+                    class="window-button close"
+                    id="close"
+                    type="button"
+                    title="Close"
+                    aria-label="Close"
+                    data-i18n-label="close"
+                >
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                        <path d="m6 6 12 12M18 6 6 18" />
+                    </svg>
+                </button>
+            </div>
+        </header>
+
+        <main class="shell">
+            <section class="content-panel">
+                <div class="screen-stack">
+                    <!-- Welcome Screen -->
+                    <section class="screen active" data-screen="welcome">
+                        <div class="screen-content-wrapper" style="align-items: center; text-align: center">
+                            <h1 id="welcome-title" data-i18n="welcomeTitle">
+                                Your Minecraft worlds, in one place.
+                            </h1>
+                            <p id="welcome-copy" class="lead" data-i18n="welcomeCopy">
+                                Install Axolotl Launcher, a focused home for instances, content, saves, and Java
+                                runtimes.
+                            </p>
+
+                            <!-- Version tag for sidebar parity -->
+                            <div style="display: none" id="version"></div>
+                        </div>
+                    </section>
+
+                    <!-- Uninstall confirmation -->
+                    <section class="screen" data-screen="uninstall">
+                        <div class="screen-content-wrapper">
+                            <h2 data-i18n="uninstallTitle">Uninstall Axolotl Launcher</h2>
+                            <p class="task-copy" data-i18n="uninstallCopy"></p>
+                            <div class="install-facts">
+                                <div class="install-fact">
+                                    <span class="fact-label" data-i18n="programLocation">Program location</span>
+                                    <span class="fact-value" id="uninstall-directory"></span>
+                                </div>
+                            </div>
+                            <div class="toggles">
+                                <label class="checkbox-label" id="delete-app-data-row">
+                                    <input id="delete-app-data" type="checkbox" />
+                                    <div class="checkbox-box">
+                                        <svg
+                                            class="check-icon"
+                                            viewBox="0 0 24 24"
+                                            fill="none"
+                                            stroke="currentColor"
+                                            stroke-width="3"
+                                        >
+                                            <path d="M5 12l4 4L19 7" stroke-linecap="round" stroke-linejoin="round" />
+                                        </svg>
+                                    </div>
+                                    <span data-i18n="deleteAppData">Delete application data</span>
+                                </label>
+                            </div>
+                            <p class="task-copy" data-i18n="uninstallDataScope"></p>
+                        </div>
+                    </section>
+
+                    <!-- Configure Screen -->
+                    <section class="screen" data-screen="configure">
+                        <div class="screen-content-wrapper">
+                            <h2 id="configure-title" data-i18n="configureTitle">Choose installation locations</h2>
+                            <p class="section-copy" id="configure-copy" data-i18n="configureCopy">
+                                You can keep the defaults or choose separate locations for the program and its data.
+                            </p>
+
+                            <div class="form">
+                                <label class="field">
+                                    <span class="field-label">
+                                        <span data-i18n="programLocation">Program location</span>
+                                        <span class="field-hint" data-i18n="programHint">Launcher files</span>
+                                    </span>
+                                    <span class="input-group">
+                                        <input
+                                            class="path-input"
+                                            id="install-dir"
+                                            autocomplete="off"
+                                            spellcheck="false"
+                                        />
+                                        <button
+                                            class="browse-button"
+                                            id="browse-install"
+                                            type="button"
+                                            aria-label="Browse"
+                                            data-i18n-label="browse"
+                                        >
+                                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                <path
+                                                    d="M3 7a2 2 0 0 1 2-2h5l2 2h7a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"
+                                                />
+                                            </svg>
+                                            <span data-i18n="browse">Browse</span>
+                                        </button>
+                                    </span>
+                                </label>
+
+                                <label class="field" id="resource-field">
+                                    <span class="field-label">
+                                        <span data-i18n="dataLocation">Application directory</span>
+                                        <span class="field-hint" data-i18n="dataHint"
+                                            >Instances, Java, assets, caches</span
+                                        >
+                                    </span>
+                                    <span class="input-group">
+                                        <input
+                                            class="path-input"
+                                            id="resource-dir"
+                                            autocomplete="off"
+                                            spellcheck="false"
+                                        />
+                                        <button
+                                            class="browse-button"
+                                            id="browse-resource"
+                                            type="button"
+                                            aria-label="Browse"
+                                            data-i18n-label="browse"
+                                        >
+                                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                <path
+                                                    d="M3 7a2 2 0 0 1 2-2h5l2 2h7a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"
+                                                />
+                                            </svg>
+                                            <span data-i18n="browse">Browse</span>
+                                        </button>
+                                    </span>
+                                </label>
+
+                                <div class="notice hidden" id="existing-notice">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <circle cx="12" cy="12" r="9" />
+                                        <path d="M12 11v5m0-8h.01" />
+                                    </svg>
+                                    <span data-i18n="existingNotice"
+                                        >Your existing application directory will be preserved. You can change it later
+                                        in Settings.</span
+                                    >
+                                </div>
+
+                                <div class="toggles">
+                                    <label class="checkbox-label">
+                                        <input id="desktop-shortcut" type="checkbox" checked />
+                                        <div class="checkbox-box">
+                                            <svg
+                                                class="check-icon"
+                                                viewBox="0 0 24 24"
+                                                fill="none"
+                                                stroke="currentColor"
+                                                stroke-width="3"
+                                            >
+                                                <path d="M5 12l4 4L19 7" stroke-linecap="round" stroke-linejoin="round" />
+                                            </svg>
+                                        </div>
+                                        <span data-i18n="desktopShortcut">Desktop shortcut</span>
+                                    </label>
+
+                                    <label class="checkbox-label">
+                                        <input id="launch-after" type="checkbox" checked />
+                                        <div class="checkbox-box">
+                                            <svg
+                                                class="check-icon"
+                                                viewBox="0 0 24 24"
+                                                fill="none"
+                                                stroke="currentColor"
+                                                stroke-width="3"
+                                            >
+                                                <path d="M5 12l4 4L19 7" stroke-linecap="round" stroke-linejoin="round" />
+                                            </svg>
+                                        </div>
+                                        <span data-i18n="launchAfter">Launch when complete</span>
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="field-error" id="field-error" role="alert"></div>
+                        </div>
+                    </section>
+
+                    <!-- Installing Screen -->
+                    <section class="screen" data-screen="installing">
+                        <div class="screen-content-wrapper">
+                            <div class="progress-heading">
+                                <div>
+                                    <h2 id="progress-title" data-i18n="progressPreparing">
+                                        Preparing Axolotl Launcher
+                                    </h2>
+                                </div>
+                                <div class="progress-value"><span id="progress-value">4</span>%</div>
+                            </div>
+                            <div
+                                class="progress-track"
+                                role="progressbar"
+                                aria-valuemin="0"
+                                aria-valuemax="100"
+                                aria-valuenow="4"
+                            >
+                                <div class="progress-fill" id="progress-fill"></div>
+                            </div>
+                            <div class="progress-detail">
+                                <span class="spinner"></span
+                                ><span id="progress-detail" data-i18n="progressWait"
+                                    >This usually takes less than a minute.</span
+                                >
+                            </div>
+                            <div class="install-facts">
+                                <div class="install-fact">
+                                    <span class="fact-label" data-i18n="programLocation">Program location</span
+                                    ><span class="fact-value" id="install-summary"></span>
+                                </div>
+                                <div class="install-fact" id="resource-summary-row">
+                                    <span class="fact-label" data-i18n="dataLocation">Application directory</span
+                                    ><span class="fact-value" id="resource-summary"></span>
+                                </div>
+                            </div>
+                            <div class="error-panel" id="install-error" role="alert"></div>
+                        </div>
+                    </section>
+
+                    <!-- Complete Screen -->
+                    <section class="screen" data-screen="complete">
+                        <div class="screen-content-wrapper" style="align-items: center; text-align: center">
+                            <div class="complete-brand">
+                                <img id="complete-logo" alt="Axolotl Launcher" class="complete-logo" />
+                                <div class="complete-badge">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5">
+                                        <path d="M5 12l4 4L19 7" stroke-linecap="round" stroke-linejoin="round" />
+                                    </svg>
+                                </div>
+                            </div>
+                            <h2 data-i18n="completeTitle">Axolotl Launcher is ready</h2>
+                            <p class="lead" style="margin-top: 16px" data-i18n="completeCopy">
+                                Installation completed successfully. Your new launcher is ready to use.
+                            </p>
+                            <div class="error-panel" id="launch-error" role="alert"></div>
+                        </div>
+                    </section>
+                </div>
+
+                <footer class="footer">
+                    <div class="footer-note" id="footer-note" data-i18n="footerWelcome">
+                        No account or game files are changed during setup.
+                    </div>
+                    <div class="footer-actions">
+                        <button class="action-button hidden" id="secondary-action" type="button"></button>
+                        <button class="action-button primary" id="primary-action" type="button">
+                            <span id="primary-label">Continue</span>
+                            <svg
+                                id="primary-icon"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                stroke-width="2.5"
+                            >
+                                <path d="m9 18 6-6-6-6" />
+                            </svg>
+                        </button>
+                    </div>
+                </footer>
+            </section>
+        </main>
+        <script>
+            const boot = window.__AXOLOTL_INSTALLER__ || {
+                language: 'zhCn',
+                version: 'v2.0.0 (Preview)',
+                logoDataUrl: '../../app/icons/128x128.png',
+                installDir: 'C:\\Program Files\\Axolotl Launcher',
+                resourceDir: 'C:\\Users\\Admin\\AppData\\Roaming\\axolotl-launcher',
+                freshInstall: false,
+                uninstall: false,
+            }
+            window.ipc = window.ipc || { postMessage: (msg) => console.log('IPC Mock:', msg) }
+
+            const copy = {
+                en: {
+                    installer: 'Installer',
+                    windowTitle: 'Axolotl Launcher Setup',
+                    minimize: 'Minimize',
+                    browse: 'Browse',
+                    stepWelcome: 'Welcome',
+                    stepConfigure: 'Configure',
+                    stepInstall: 'Install',
+                    stepComplete: 'Complete',
+                    version: 'Version',
+                    scope: 'Windows 10/11 · Current user',
+                    ready: 'Ready to install',
+                    welcomeTitle: 'Your last next launcher.',
+                    welcomeCopy: 'Install Axolotl Launcher and start a whole new Minecraft experience.',
+                    packageVersion: 'Version',
+                    packageArch: 'Architecture',
+                    packageScope: 'Scope',
+                    packageCurrentUser: 'Current user',
+                    packageEngine: 'Interface',
+                    configureTitle: 'Choose installation locations',
+                    configureCopy:
+                        'Keep the defaults or choose separate locations for the program and its data.',
+                    updateTitle: 'Update Axolotl Launcher',
+                    updateCopy:
+                        'The launcher will be updated in place and your application data will be preserved.',
+                    programLocation: 'Program location',
+                    programHint: 'Launcher files',
+                    dataLocation: 'Application directory',
+                    dataHint: 'Instances, Java, assets, caches',
+                    existingNotice:
+                        'Your existing application directory will be preserved. You can change it later in Settings.',
+                    desktopShortcut: 'Desktop shortcut',
+                    launchAfter: 'Launch when complete',
+                    deleteAppData: 'Delete configuration and caches',
+                    uninstallTitle: 'Uninstall Axolotl Launcher',
+                    uninstallCopy:
+                        'Remove Axolotl Launcher and its Windows shortcuts from this computer. Application data is kept by default.',
+                    uninstallDataScope:
+                        'The optional cleanup removes Axolotl data in AppData. Instances, saves, Java and resources in a custom application directory are kept.',
+                    uninstall: 'Uninstall',
+                    uninstalling: 'Uninstalling',
+                    cancel: 'Cancel',
+                    uninstallPreparing: 'Preparing to uninstall Axolotl Launcher',
+                    uninstallFiles: 'Removing launcher files',
+                    uninstallIntegrations: 'Removing Windows shortcuts and integrations',
+                    uninstallFinalizing: 'Finishing uninstallation',
+                    uninstallWait: 'Keep this window open while uninstallation completes.',
+                    uninstallFailed: 'Uninstallation failed',
+                    uninstallFailedDetail:
+                        'Close Axolotl Launcher and check access to the installation directory, then retry.',
+                    uninstallFooter: 'Custom application directories are kept.',
+                    uninstallCompleteFooter: 'You can now close this uninstaller.',
+                    uninstallCompleteTitle: 'Axolotl Launcher was removed',
+                    uninstallCompleteCopy: 'Axolotl Launcher has been uninstalled successfully.',
+                    installingEyebrow: 'Installation in progress',
+                    progressPreparing: 'Preparing Axolotl Launcher',
+                    progressRuntime: 'Checking WebView2 runtime',
+                    progressFiles: 'Installing launcher files',
+                    progressIntegrations: 'Creating Windows integrations',
+                    progressFinalizing: 'Finishing setup',
+                    progressWait: 'This usually takes less than a minute.',
+                    completeTitle: 'Axolotl Launcher is ready',
+                    completeCopy: 'Installation completed successfully. Your new launcher is ready to use.',
+                    footerWelcome: 'No account or game files are changed during setup.',
+                    footerConfigure: 'Both locations can be changed later.',
+                    footerInstalling: 'Keep this window open while setup completes.',
+                    footerComplete: 'You can now close this installer.',
+                    footerLaunchFailed: 'Installation is complete. Retry launching or close this installer.',
+                    continue: 'Continue',
+                    back: 'Back',
+                    install: 'Install',
+                    update: 'Update',
+                    retry: 'Retry',
+                    finish: 'Finish',
+                    launch: 'Launch Axolotl Launcher',
+                    close: 'Close',
+                    absolutePath: 'Choose an absolute Windows path.',
+                    driveRoot: 'A drive root cannot be used as the application directory.',
+                    insideInstall: 'The application directory must be separate from the program location.',
+                    notWritable: 'Axolotl cannot write to this directory.',
+                    installFailed: 'Installation failed',
+                    installFailedDetail:
+                        'The installation core returned an error. Check that Axolotl Launcher is closed, then retry.',
+                    launchFailed:
+                        'Installation completed, but Axolotl Launcher could not be started. Try again or close this installer.',
+                },
+                zhCn: {
+                    installer: 'Windows 安装程序',
+                    windowTitle: 'Axolotl Launcher 安装程序',
+                    minimize: '最小化',
+                    browse: '浏览',
+                    stepWelcome: '欢迎',
+                    stepConfigure: '安装设置',
+                    stepInstall: '安装',
+                    stepComplete: '完成',
+                    version: '版本',
+                    scope: 'Windows 10/11 · 当前用户',
+                    ready: '准备安装',
+                    welcomeTitle: '你的最后一款启动器',
+                    welcomeCopy: '安装 Axolotl Launcher，开启Minecraft全新体验',
+                    packageVersion: '版本',
+                    packageArch: '架构',
+                    packageScope: '安装范围',
+                    packageCurrentUser: '当前用户',
+                    packageEngine: '界面引擎',
+                    configureTitle: '选择安装位置',
+                    configureCopy: '可以直接使用默认值，也可以把程序与游戏数据放到不同位置。',
+                    updateTitle: '更新 Axolotl Launcher',
+                    updateCopy: '启动器会原位更新，并完整保留现有应用数据。',
+                    programLocation: '程序安装位置',
+                    programHint: '启动器程序文件',
+                    dataLocation: '应用目录',
+                    dataHint: '实例、Java、资源与缓存',
+                    existingNotice: '现有应用目录会被保留，之后仍可在启动器设置中修改。',
+                    desktopShortcut: '创建桌面快捷方式',
+                    launchAfter: '完成后启动',
+                    deleteAppData: '删除配置与缓存',
+                    uninstallTitle: '卸载 Axolotl Launcher',
+                    uninstallCopy: '从此电脑移除 Axolotl Launcher 及其 Windows 快捷方式。默认保留应用数据。',
+                    uninstallDataScope:
+                        '可选清理仅移除 AppData 中的 Axolotl 数据。自定义应用目录中的实例、存档、Java 和资源会保留。',
+                    uninstall: '卸载',
+                    uninstalling: '正在卸载',
+                    cancel: '取消',
+                    uninstallPreparing: '正在准备卸载 Axolotl Launcher',
+                    uninstallFiles: '正在移除启动器文件',
+                    uninstallIntegrations: '正在移除 Windows 快捷方式与集成',
+                    uninstallFinalizing: '正在完成卸载',
+                    uninstallWait: '卸载完成前请保持此窗口打开。',
+                    uninstallFailed: '卸载失败',
+                    uninstallFailedDetail: '请关闭 Axolotl Launcher，检查安装目录的访问权限，然后重试。',
+                    uninstallFooter: '自定义应用目录会保留。',
+                    uninstallCompleteFooter: '现在可以关闭卸载程序。',
+                    uninstallCompleteTitle: 'Axolotl Launcher 已卸载',
+                    uninstallCompleteCopy: 'Axolotl Launcher 已成功卸载。',
+                    installingEyebrow: '正在安装',
+                    progressPreparing: '正在准备 Axolotl Launcher',
+                    progressRuntime: '正在检查 WebView2 运行时',
+                    progressFiles: '正在安装启动器文件',
+                    progressIntegrations: '正在创建 Windows 集成',
+                    progressFinalizing: '正在完成安装',
+                    progressWait: '通常不到一分钟即可完成。',
+                    completeTitle: 'Axolotl Launcher 已就绪',
+                    completeCopy: '安装已成功完成，现在可以开始使用你的全新启动器。',
+                    footerWelcome: '安装过程不会修改账号或现有游戏文件。',
+                    footerConfigure: '这两个位置之后仍可调整。',
+                    footerInstalling: '安装完成前请保持此窗口打开。',
+                    footerComplete: '现在可以关闭安装程序。',
+                    footerLaunchFailed: '安装已完成。请重试启动，或关闭安装程序。',
+                    continue: '继续',
+                    back: '上一步',
+                    install: '安装',
+                    update: '更新',
+                    retry: '重试',
+                    finish: '完成',
+                    launch: '启动 Axolotl Launcher',
+                    close: '关闭',
+                    absolutePath: '请选择有效的 Windows 绝对路径。',
+                    driveRoot: '不能把磁盘根目录直接用作应用目录。',
+                    insideInstall: '应用目录必须与程序安装位置分开。',
+                    notWritable: 'Axolotl 无法写入此目录。',
+                    installFailed: '安装失败',
+                    installFailedDetail: '安装核心返回了错误。请确认 Axolotl Launcher 已关闭，然后重试。',
+                    launchFailed: '安装已完成，但无法启动 Axolotl Launcher。请重试或关闭安装程序。',
+                },
+            }
+
+            const language = boot.language === 'zhCn' ? 'zhCn' : 'en'
+            const t = copy[language]
+            const state = {
+                screen: boot.uninstall ? 'uninstall' : 'welcome',
+                progress: 4,
+                failed: false,
+                launchFailed: false,
+                launchAfter: !boot.uninstall,
+            }
+            const screens = ['welcome', 'configure', 'installing', 'complete']
+            const $ = (selector) => document.querySelector(selector)
+            const post = (payload) => window.ipc.postMessage(JSON.stringify(payload))
+
+            document.documentElement.lang = language === 'zhCn' ? 'zh-CN' : 'en'
+            document.querySelectorAll('[data-i18n]').forEach((element) => {
+                const value = t[element.dataset.i18n]
+                if (value) element.textContent = value
+            })
+            document.querySelectorAll('[data-i18n-label]').forEach((element) => {
+                const value = t[element.dataset.i18nLabel]
+                if (!value) return
+                element.setAttribute('aria-label', value)
+                element.title = value
+            })
+            $('#product-logo').src = boot.logoDataUrl
+            $('#complete-logo').src = boot.logoDataUrl
+            if ($('#version')) $('#version').textContent = boot.version
+            if ($('#package-version')) $('#package-version').textContent = boot.version
+            $('#install-dir').value = boot.installDir
+            $('#resource-dir').value = boot.resourceDir
+            if (boot.uninstall) {
+                document.body.classList.add('is-uninstalling')
+                $('#uninstall-directory').textContent = boot.installDir
+                $('[data-screen="complete"] h2').textContent = t.uninstallCompleteTitle
+                $('[data-screen="complete"] .lead').textContent = t.uninstallCompleteCopy
+                $('[data-screen="complete"] .lead').classList.replace('lead', 'task-copy')
+                $('#progress-detail').textContent = t.uninstallWait
+            }
+
+            if (!boot.freshInstall) {
+                $('#resource-field').classList.add('hidden')
+                $('#existing-notice').classList.remove('hidden')
+                $('#configure-title').textContent = t.updateTitle
+                $('#configure-copy').textContent = t.updateCopy
+            }
+
+            function setScreen(screen) {
+                state.screen = screen
+                document.body.classList.toggle('is-installing', screen === 'installing' && !state.failed)
+                document.body.classList.toggle('is-failed', state.failed)
+                document
+                    .querySelectorAll('[data-screen]')
+                    .forEach((element) =>
+                        element.classList.toggle('active', element.dataset.screen === screen),
+                    )
+                const current = screens.indexOf(screen)
+                document.querySelectorAll('[data-step]').forEach((element) => {
+                    const index = screens.indexOf(element.dataset.step)
+                    element.classList.toggle('active', index === current)
+                    element.classList.toggle('done', index < current)
+                    if (index < current)
+                        element.querySelector('.step-index').innerHTML =
+                            '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m5 12 4 4L19 6"/></svg>'
+                    else element.querySelector('.step-index').textContent = String(index + 1)
+                })
+                renderFooter()
+            }
+
+            function renderFooter() {
+                const primary = $('#primary-action')
+                const secondary = $('#secondary-action')
+                const icon = $('#primary-icon')
+                const installationLocked = state.screen === 'installing' && !state.failed
+                primary.disabled = installationLocked
+                $('#close').disabled = installationLocked
+                secondary.classList.add('hidden')
+                icon.classList.remove('hidden')
+
+                if (state.screen === 'uninstall') {
+                    $('#footer-note').textContent = t.uninstallFooter
+                    $('#primary-label').textContent = t.uninstall
+                    secondary.textContent = t.cancel
+                    secondary.classList.remove('hidden')
+                } else if (state.screen === 'welcome') {
+                    $('#footer-note').textContent = t.footerWelcome
+                    $('#primary-label').textContent = t.continue
+                } else if (state.screen === 'configure') {
+                    $('#footer-note').textContent = t.footerConfigure
+                    $('#primary-label').textContent = boot.freshInstall ? t.install : t.update
+                    secondary.textContent = t.back
+                    secondary.classList.remove('hidden')
+                } else if (state.screen === 'installing') {
+                    $('#footer-note').textContent = boot.uninstall ? t.uninstallWait : t.footerInstalling
+                    $('#primary-label').textContent = state.failed
+                        ? t.retry
+                        : boot.uninstall
+                            ? t.uninstalling
+                            : t.install
+                    if (boot.uninstall && state.failed) {
+                        secondary.textContent = t.close
+                        secondary.classList.remove('hidden')
+                    }
+                    icon.classList.toggle('hidden', !state.failed)
+                } else {
+                    $('#footer-note').textContent = state.launchFailed
+                        ? t.footerLaunchFailed
+                        : boot.uninstall
+                            ? t.uninstallCompleteFooter
+                            : t.footerComplete
+                    $('#primary-label').textContent = boot.uninstall
+                        ? t.close
+                        : state.launchAfter
+                            ? t.launch
+                            : t.finish
+                    icon.innerHTML = state.launchAfter
+                        ? '<path d="M5 12h14m-6-6 6 6-6 6"/>'
+                        : '<path d="m5 12 4 4L19 6"/>'
+                }
+            }
+
+            function install() {
+                $('#field-error').textContent = ''
+                $('#install-error').classList.remove('visible')
+                $('#launch-error').classList.remove('visible')
+                state.failed = false
+                state.launchFailed = false
+                if (boot.uninstall) {
+                    window.axolotlInstaller.receive({ type: 'installStarted' })
+                    state.launchAfter = false
+                    post({ command: 'uninstall', deleteAppData: $('#delete-app-data').checked })
+                    return
+                }
+                state.launchAfter = $('#launch-after').checked
+                post({
+                    command: 'install',
+                    installDir: $('#install-dir').value.trim(),
+                    resourceDir: $('#resource-dir').value.trim(),
+                    desktopShortcut: $('#desktop-shortcut').checked,
+                    launchAfter: state.launchAfter,
+                })
+
+                // Developer Preview Mock
+                if (!window.__AXOLOTL_INSTALLER__) {
+                    window.axolotlInstaller.receive({ type: 'installStarted' })
+                    let p = 4
+                    const timer = setInterval(() => {
+                        p += Math.floor(Math.random() * 15) + 5
+                        if (p >= 100) {
+                            clearInterval(timer)
+                            window.axolotlInstaller.receive({ type: 'installFinished' })
+                        } else {
+                            window.axolotlInstaller.receive({ type: 'progress', value: p })
+                        }
+                    }, 600)
+                }
+            }
+
+            function setProgress(value) {
+                state.progress = Math.max(state.progress, value)
+                $('#progress-value').textContent = state.progress
+                $('#progress-fill').style.width = `${state.progress}%`
+                $('.progress-track').setAttribute('aria-valuenow', String(state.progress))
+                let key = 'progressPreparing'
+                if (boot.uninstall) {
+                    key =
+                        state.progress >= 82
+                            ? 'uninstallFinalizing'
+                            : state.progress >= 66
+                                ? 'uninstallIntegrations'
+                                : state.progress >= 26
+                                    ? 'uninstallFiles'
+                                    : 'uninstallPreparing'
+                } else if (state.progress >= 82) key = 'progressFinalizing'
+                else if (state.progress >= 66) key = 'progressIntegrations'
+                else if (state.progress >= 26) key = 'progressFiles'
+                else if (state.progress >= 10) key = 'progressRuntime'
+                $('#progress-title').textContent = t[key]
+            }
+
+            $('#minimize').addEventListener('click', () => post({ command: 'minimize' }))
+            $('#close').addEventListener('click', () => post({ command: 'close' }))
+            document.querySelector('[data-drag-region]').addEventListener('mousedown', (event) => {
+                if (event.button === 0) post({ command: 'dragWindow' })
+            })
+            $('#browse-install').addEventListener('click', () =>
+                post({ command: 'browse', target: 'install', current: $('#install-dir').value }),
+            )
+            $('#browse-resource').addEventListener('click', () =>
+                post({ command: 'browse', target: 'resource', current: $('#resource-dir').value }),
+            )
+            $('#launch-after').addEventListener('change', () => {
+                state.launchAfter = $('#launch-after').checked
+                renderFooter()
+            })
+
+            $('#primary-action').addEventListener('click', () => {
+                if (state.screen === 'uninstall') install()
+                else if (state.screen === 'welcome') setScreen('configure')
+                else if (state.screen === 'configure' || (state.screen === 'installing' && state.failed))
+                    install()
+                else if (state.screen === 'complete') post({ command: 'finish', launch: state.launchAfter })
+            })
+            $('#secondary-action').addEventListener('click', () =>
+                boot.uninstall ? post({ command: 'close' }) : setScreen('welcome'),
+            )
+
+            window.axolotlInstaller = {
+                receive(message) {
+                    if (message.type === 'pathSelected') {
+                        $(`#${message.target}-dir`).value = message.path
+                    } else if (message.type === 'validationError') {
+                        setScreen('configure')
+                        $('#field-error').textContent = t[message.code] || t.absolutePath
+                        $(`#${message.field}-dir`).focus()
+                    } else if (message.type === 'installStarted') {
+                        $('#progress-detail').textContent = boot.uninstall ? t.uninstallWait : t.progressWait
+                        $('#install-summary').textContent = $('#install-dir').value
+                        $('#resource-summary').textContent = $('#resource-dir').value
+                        $('#resource-summary-row').classList.toggle(
+                            'hidden',
+                            boot.uninstall || !boot.freshInstall,
+                        )
+                        state.progress = 0
+                        setProgress(4)
+                        setScreen('installing')
+                    } else if (message.type === 'progress') {
+                        setProgress(message.value)
+                    } else if (message.type === 'installFinished') {
+                        state.launchAfter = !boot.uninstall && (message.launchAfter ?? state.launchAfter)
+                        setProgress(100)
+                        setScreen('complete')
+                    } else if (message.type === 'launchFailed') {
+                        state.launchFailed = true
+                        state.launchAfter = true
+                        setProgress(100)
+                        $('#launch-error').textContent = t.launchFailed
+                        $('#launch-error').classList.add('visible')
+                        setScreen('complete')
+                    } else if (message.type === 'installFailed') {
+                        state.failed = true
+                        const suffix = message.exitCode == null ? '' : ` (${message.exitCode})`
+                        $('#install-error').textContent =
+                            `${boot.uninstall ? t.uninstallFailed : t.installFailed}${suffix}. ${boot.uninstall ? t.uninstallFailedDetail : t.installFailedDetail}${boot.uninstall && message.message ? ` ${message.message}` : ''}`
+                        $('#install-error').classList.add('visible')
+                        $('#progress-title').textContent = boot.uninstall ? t.uninstallFailed : t.installFailed
+                        $('#progress-detail').textContent = t.retry
+                        setScreen('installing')
+                    }
+                },
+            }
+
+            setScreen(state.screen)
+        </script>
+    </body>
 </html>

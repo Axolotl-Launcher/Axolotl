@@ -1,6 +1,6 @@
+import type { TextureAtlas } from '../shared/minecraft/resources.ts'
 import { getSlotDisplay } from './display.ts'
 import { getCraftingGridValues } from './recipe-engine.ts'
-import type { TextureAtlas } from './resources.ts'
 import type { RecipeSlotContext, RecipeState } from './types.ts'
 
 const imageCache = new Map<string, Promise<HTMLImageElement>>()

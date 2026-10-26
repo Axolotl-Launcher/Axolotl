@@ -13,6 +13,7 @@ import {
     ButtonLink,
     Collapsible,
     defineMessages,
+    IntlFormatted,
     NewModal,
     useVIntl,
 } from '@modrinth/ui'
@@ -33,6 +34,9 @@ const debugCollapsed = ref(true)
 const copied = ref(false)
 const loadingSignIn = ref(false)
 const { formatMessage } = useVIntl()
+const missingJavaProfile = computed(() =>
+    rawError.value.includes('The Microsoft account does not own Minecraft: Java Edition'),
+)
 
 const messages = defineMessages({
     title: { id: 'app.minecraft-auth.title', defaultMessage: 'Sign in failed' },
@@ -40,6 +44,21 @@ const messages = defineMessages({
         id: 'app.minecraft-auth.warning',
         defaultMessage:
             "We couldn't sign you in to your Microsoft account. This may be due to account restrictions or regional limitations.",
+    },
+    missingJavaProfile: {
+        id: 'app.minecraft-auth.missing-java-profile',
+        defaultMessage:
+            "We couldn't find a Minecraft: Java Edition profile for this Microsoft account.",
+    },
+    purchaseMinecraft: {
+        id: 'app.minecraft-auth.purchase-minecraft',
+        defaultMessage:
+            'If you need to buy Minecraft, you can purchase it <store-link>here</store-link>.',
+    },
+    activateJavaProfile: {
+        id: 'app.minecraft-auth.activate-java-profile',
+        defaultMessage:
+            'If you already own Minecraft, sign in on the <minecraft-link>official Minecraft website</minecraft-link>, then try signing in to the launcher again.',
     },
     whatHappened: {
         id: 'app.minecraft-auth.what-happened',
@@ -155,11 +174,47 @@ async function copyToClipboard(text: string) {
 <template>
     <NewModal ref="modal" :header="formatMessage(messages.title)" :max-width="'548px'">
         <div class="flex flex-col gap-6">
-            <Admonition type="warning" :body="formatMessage(messages.warning)"> </Admonition>
+            <Admonition
+                type="warning"
+                :body="
+                    formatMessage(
+                        missingJavaProfile ? messages.missingJavaProfile : messages.warning,
+                    )
+                "
+            />
 
             <!-- Matched error details -->
             <div class="bg-surface-2 rounded-2xl p-4 px-5 flex flex-col gap-3">
-                <template v-if="localizedMatchedError">
+                <ul
+                    v-if="missingJavaProfile"
+                    class="list-disc flex flex-col gap-2 m-0 pl-5 text-sm"
+                >
+                    <li>
+                        <IntlFormatted :message-id="messages.purchaseMinecraft">
+                            <template #store-link="{ children }">
+                                <a
+                                    class="text-info font-medium underline hover:underline"
+                                    href="https://www.xbox.com/zh-CN/games/store/minecraft-java-bedrock-edition-for-pc/9nxp44l49shj"
+                                >
+                                    <component :is="() => children" />
+                                </a>
+                            </template>
+                        </IntlFormatted>
+                    </li>
+                    <li>
+                        <IntlFormatted :message-id="messages.activateJavaProfile">
+                            <template #minecraft-link="{ children }">
+                                <a
+                                    class="text-info font-medium underline hover:underline"
+                                    href="https://minecraft.net"
+                                >
+                                    <component :is="() => children" />
+                                </a>
+                            </template>
+                        </IntlFormatted>
+                    </li>
+                </ul>
+                <template v-else-if="localizedMatchedError">
                     <div class="flex flex-col gap-1.5">
                         <h3 class="text-base font-bold m-0">
                             {{ formatMessage(messages.whatHappened) }}

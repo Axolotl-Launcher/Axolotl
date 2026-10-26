@@ -71,8 +71,9 @@ jobs:
         run: |
           node --test scripts/axolotl/ci-changes.test.mjs
           node --test scripts/axolotl/release-policy.test.mjs
+          node --test scripts/axolotl/aliyunoss-release.test.mjs
           node --test scripts/axolotl/set-version.test.mjs
-          node --test scripts/axolotl/update-manifest.test.mjs scripts/axolotl/finalize-github-release.test.mjs scripts/axolotl/publish-update-server.test.mjs scripts/axolotl/cnb-release.test.mjs scripts/axolotl/create-website-release-metadata.test.mjs
+          node --test scripts/axolotl/update-manifest.test.mjs scripts/axolotl/finalize-github-release.test.mjs scripts/axolotl/publish-update-server.test.mjs scripts/axolotl/cnb-release.test.mjs scripts/axolotl/gitlink-release.test.mjs scripts/axolotl/create-website-release-metadata.test.mjs
           node scripts/axolotl/create-update-server-catalog.test.mjs
           node scripts/axolotl/check-migrations.mjs --base "${MIGRATION_BASE_REF:-HEAD^}"
           node scripts/axolotl/check-migrations.mjs --release
@@ -165,6 +166,8 @@ jobs:
         run: pnpm install --frozen-lockfile
       - name: Prepare build resources
         run: node scripts/axolotl/prepare-build-resources.mjs
+      - name: Test Java agent cache and offline behavior
+        run: node --test scripts/axolotl/java-build.test.mjs
       - name: Upload build resources
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
@@ -185,6 +188,10 @@ jobs:
     runs-on: ${{ matrix.os }}
     env:
       SQLX_OFFLINE: true
+      # The desktop app runs its async workload on 16 MiB worker stacks
+      # (see apps/app/src/main.rs); test threads default to 2 MiB and the
+      # CurseForge install pipeline is deep enough to overflow that.
+      RUST_MIN_STACK: 16777216
     steps:
       - name: Checkout code
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -210,6 +217,21 @@ jobs:
         run: node scripts/axolotl/check-dead-utilities.mjs
       - name: Test version metadata writes
         run: cargo test --package theseus writing_version_info_creates_missing_parent_directory
+      # Runs the CurseForge content pipeline suites (recognition, dependency
+      # selection, install, verification, manual downloads, reconciliation).
+      # Linux only: the code is platform independent and this keeps the matrix
+      # cost to one extra test binary run.
+      - name: Test CurseForge content pipeline
+        if: runner.os == 'Linux'
+        run: cargo test --package theseus curseforge
+      # Provider-neutral resource layer: catalog, plans, execution, providers.
+      # Hermetic (in-memory sqlite + temp dirs); Linux only for matrix cost.
+      - name: Test provider-neutral resource layer
+        if: runner.os == 'Linux'
+        run: cargo test --package theseus resources
+      - name: Test Java build fingerprints
+        if: runner.os == 'Linux'
+        run: cargo test --package theseus --test java_build_cache
       - run: cargo check --package theseus_gui --features updater
       - name: Test Windows installer UI and core
         if: runner.os == 'Windows'
@@ -235,10 +257,14 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "Failed to compile NSIS uninstall fixture" }
           & apps/installer-ui/tests/uninstall-smoke.ps1
   website:
-    name: Build website
+    name: Build website (${{ matrix.nitro-preset }})
     needs: [changes, guardrails]
     if: needs.changes.outputs.website == 'true'
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        nitro-preset: [static, cloudflare-module]
     steps:
       - name: Checkout code
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -251,12 +277,17 @@ jobs:
           cache: pnpm
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+      - name: Test website
+        run: pnpm --filter @axolotl/website test
       - name: Build website
+        env:
+          NITRO_PRESET: ${{ matrix.nitro-preset }}
         run: pnpm --filter @axolotl/website build
 
   desktop-ci-result:
     name: Desktop CI result
-    if: always()
+    # Report failed checks, but skip the gate when a newer run cancels this workflow.
+    if: ${{ !cancelled() }}
     needs: [changes, guardrails, frontend, resources, desktop, website]
     runs-on: ubuntu-latest
     steps:

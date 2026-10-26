@@ -1,0 +1,91 @@
+name: Sync release to GitLink
+
+# Manual, re-runnable mirror of an already-published GitHub release onto GitLink.
+# It reuses the exact same code path as the release workflow (gitlink-release.mjs),
+# so it is safe to run any number of times: assets are deduplicated by title and the
+# prune step keeps only the newest stable + newest beta slot.
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to mirror (e.g. v1.10.1). Leave empty to use the latest published release."
+        required: false
+        type: string
+      skip_prune:
+        description: "Only sync this release; do not prune older GitLink releases"
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sync-gitlink-release-${{ inputs.tag || 'latest' }}
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    name: Mirror release to GitLink
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - name: Resolve target tag
+        id: resolve
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          INPUT_TAG: ${{ inputs.tag }}
+        run: |
+          set -euo pipefail
+          tag="${INPUT_TAG:-}"
+          if [[ -z "$tag" ]]; then
+            tag="$(gh release view --repo "${GITHUB_REPOSITORY}" --json tagName --jq .tagName)"
+          fi
+          if [[ -z "$tag" || "$tag" == "null" ]]; then
+            echo "Could not resolve a tag to mirror" >&2
+            exit 1
+          fi
+          echo "target=$tag" >> "$GITHUB_OUTPUT"
+          echo "Mirroring $tag"
+
+      - name: Check out source
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version-file: .nvmrc
+
+      - name: Mirror release assets to GitLink
+        env:
+          GITLINK_TOKEN: ${{ secrets.GITLINK_TOKEN }}
+          GITLINK_REPO_SLUG: ${{ vars.GITLINK_REPO_SLUG }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLINK_PRUNE: ${{ inputs.skip_prune && '0' || '1' }}
+          RELEASE_TAG: ${{ steps.resolve.outputs.target }}
+        run: |
+          set -euo pipefail
+          if [[ -z "${GITLINK_TOKEN:-}" ]]; then
+            echo "GITLINK_TOKEN is not configured" >&2
+            exit 1
+          fi
+          node scripts/axolotl/gitlink-release.mjs finalize "$RELEASE_TAG" gitlink-release/final
+
+      - name: Verify mirrored release without a token
+        env:
+          GITLINK_REPO_SLUG: ${{ vars.GITLINK_REPO_SLUG }}
+          RELEASE_TAG: ${{ steps.resolve.outputs.target }}
+        run: node scripts/axolotl/gitlink-release.mjs verify "$RELEASE_TAG"
+
+      - name: Upload summary
+        if: always()
+        continue-on-error: true
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: gitlink-sync-summary
+          path: gitlink-release/final/gitlink-release.json
+          if-no-files-found: ignore
+          retention-days: 7

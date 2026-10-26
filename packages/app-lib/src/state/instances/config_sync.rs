@@ -347,25 +347,25 @@ mod tests {
 
         sqlx::query(
             "
-			INSERT INTO instances (
-				id,
-				path,
-				applied_content_set_id,
-				install_stage,
-				launcher_feature_version,
-				update_channel,
-				name,
-				icon_path,
-				symlink_target,
-				created,
-				modified,
-				last_played,
-				pinned_at,
-				submitted_time_played,
-				recent_time_played
-			)
-			VALUES (?, ?, ?, ?, ?, ?, ?, NULL, NULL, ?, ?, NULL, NULL, 0, 0)
-			",
+            INSERT INTO instances (
+                id,
+                path,
+                applied_content_set_id,
+                install_stage,
+                launcher_feature_version,
+                update_channel,
+                name,
+                icon_path,
+                symlink_target,
+                created,
+                modified,
+                last_played,
+                pinned_at,
+                submitted_time_played,
+                recent_time_played
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, NULL, NULL, ?, ?, NULL, NULL, 0, 0)
+            ",
         )
         .bind(instance_id)
         .bind(instance_path)
@@ -382,23 +382,23 @@ mod tests {
 
         sqlx::query(
             "
-			INSERT INTO instance_content_sets (
-				id,
-				instance_id,
-				name,
-				source_kind,
-				status,
-				game_version,
-				protocol_version,
-				loader,
-				loader_version,
-				revision,
-				created,
-				modified
-			)
-			VALUES (?, ?, 'Default', 'local', 'available', '1.21.4',
-				NULL, 'vanilla', NULL, 0, ?, ?)
-			",
+            INSERT INTO instance_content_sets (
+                id,
+                instance_id,
+                name,
+                source_kind,
+                status,
+                game_version,
+                protocol_version,
+                loader,
+                loader_version,
+                revision,
+                created,
+                modified
+            )
+            VALUES (?, ?, 'Default', 'local', 'available', '1.21.4',
+                NULL, 'vanilla', NULL, 0, ?, ?)
+            ",
         )
         .bind(&content_set_id)
         .bind(instance_id)
@@ -410,7 +410,7 @@ mod tests {
 
         sqlx::query(
             "INSERT INTO instance_links (instance_id, link_kind)
-			 VALUES (?, 'unmanaged')",
+             VALUES (?, 'unmanaged')",
         )
         .bind(instance_id)
         .execute(pool)
@@ -419,7 +419,7 @@ mod tests {
 
         sqlx::query(
             "INSERT INTO instance_launch_overrides (instance_id, overrides)
-			 VALUES (?, jsonb('{}'))",
+             VALUES (?, jsonb('{}'))",
         )
         .bind(instance_id)
         .execute(pool)
@@ -571,7 +571,7 @@ mod tests {
 
         let state_rows: i64 = sqlx::query_scalar(
             "SELECT COUNT(*) FROM instance_config_sync_state
-			 WHERE instance_id = ?",
+             WHERE instance_id = ?",
         )
         .bind(&instance.id)
         .fetch_one(&pool)
@@ -662,8 +662,8 @@ mod tests {
             std::fs::metadata(&path).unwrap().modified().unwrap();
         sqlx::query(
             "UPDATE instance_config_sync_state
-			 SET config_updated_at = generated_at + 100
-			 WHERE instance_id = ?",
+             SET config_updated_at = generated_at + 100
+             WHERE instance_id = ?",
         )
         .bind("local:unchanged")
         .execute(&pool)
@@ -809,7 +809,7 @@ mod tests {
             .unwrap();
         let state_rows: i64 = sqlx::query_scalar(
             "SELECT COUNT(*) FROM instance_config_sync_state
-			 WHERE instance_id = ?",
+             WHERE instance_id = ?",
         )
         .bind("local:delete")
         .fetch_one(&pool)

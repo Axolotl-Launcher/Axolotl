@@ -1,0 +1,116 @@
+name: Deploy Telemetry Worker
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Validate and bundle without changing Cloudflare
+        type: boolean
+        default: false
+      configure_rate_limit:
+        description: Also configure the telemetry WAF rate-limit rule (requires Zone ID and WAF permission)
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: telemetry-worker-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Validate, migrate, and deploy
+    if: inputs.dry_run || github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    defaults:
+      run:
+        shell: bash
+        working-directory: apps/telemetry-worker
+    env:
+      CI: 'true'
+      WRANGLER_SEND_METRICS: 'false'
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - name: Check out the selected revision
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@008330803749db0355799c700092d9a85fd074e9 # v6.0.9
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - name: Install Worker and repository tooling dependencies
+        working-directory: .
+        run: pnpm install --frozen-lockfile --filter @axolotl/telemetry-worker... --filter @axolotl/monorepo...
+      - name: Check formatting and types
+        run: pnpm lint
+      - name: Run Worker and deployment regression tests
+        run: pnpm test
+      - name: Validate the paused deployment bundle
+        run: pnpm exec wrangler deploy --dry-run --var INGEST_ENABLED:false --outdir "$RUNNER_TEMP/telemetry-worker-bundle"
+
+      - name: Check production configuration and existing HMAC secret
+        if: ${{ !inputs.dry_run }}
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CONFIGURE_RATE_LIMIT: ${{ inputs.configure_rate_limit }}
+          CF_ZONE_ID: ${{ vars.CLOUDFLARE_ZONE_ID }}
+        run: |
+          if [[ -z "$CLOUDFLARE_API_TOKEN" || -z "$CLOUDFLARE_ACCOUNT_ID" ]]; then
+            echo '::error::Set the CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID secrets, shared with the website workflow.'
+            exit 1
+          fi
+          if [[ "$CONFIGURE_RATE_LIMIT" == 'true' && -z "$CF_ZONE_ID" ]]; then
+            echo '::error::Set the CLOUDFLARE_ZONE_ID variable before enabling configure_rate_limit.'
+            exit 1
+          fi
+          pnpm exec wrangler secret list --format json > "$RUNNER_TEMP/telemetry-secrets.json"
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict'
+          import { readFileSync } from 'node:fs'
+          import { join } from 'node:path'
+          const secrets = JSON.parse(readFileSync(join(process.env.RUNNER_TEMP, 'telemetry-secrets.json'), 'utf8'))
+          assert(secrets.some(secret => secret.name === 'INSTALLATION_HMAC_SECRET'),
+            'Provision INSTALLATION_HMAC_SECRET on the Worker first. Preserve the existing value; do not rotate it during deployment.')
+          NODE
+
+      - name: Configure the telemetry edge rate limit
+        if: ${{ !inputs.dry_run && inputs.configure_rate_limit }}
+        env:
+          CF_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CF_ZONE_ID: ${{ vars.CLOUDFLARE_ZONE_ID }}
+        run: pnpm configure:rate-limit
+
+      - name: Deploy with ingestion paused
+        id: pause
+        if: ${{ !inputs.dry_run }}
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: pnpm exec wrangler deploy --var INGEST_ENABLED:false --message "Pause ingestion for GitHub Actions $GITHUB_RUN_ID ($GITHUB_SHA)"
+      - name: Verify the custom domain rejects legacy error packets
+        if: ${{ !inputs.dry_run }}
+        run: node scripts/check-deployment.mjs
+      - name: Apply pending D1 migrations
+        if: ${{ !inputs.dry_run }}
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          pnpm exec wrangler d1 migrations list axolotl-telemetry --remote
+          pnpm exec wrangler d1 migrations apply axolotl-telemetry --remote
+      - name: Deploy with ingestion enabled
+        id: enable
+        if: ${{ !inputs.dry_run }}
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: pnpm exec wrangler deploy --var INGEST_ENABLED:true --message "Enable ingestion for GitHub Actions $GITHUB_RUN_ID ($GITHUB_SHA)"
+      - name: Verify the final deployment
+        if: ${{ !inputs.dry_run }}
+        run: node scripts/check-deployment.mjs
+      - name: Explain recovery after an interrupted deployment
+        if: ${{ failure() && !inputs.dry_run && (steps.pause.outcome == 'success' || steps.pause.outcome == 'failure') }}
+        run: |
+          echo '::warning::Deployment failed after the pause step was attempted. Inspect the pause and enable steps. If migrations or the final deploy failed, ingestion may remain paused; fix the cause and rerun this workflow. It does not automatically re-enable ingestion after a failed migration.'

@@ -62,6 +62,47 @@ pub(crate) fn endpoint_speed(
     aggregate.filter(|speed| *speed < NATIVE_SLOW_COLD_SPEED_FLOOR)
 }
 
+/// A file can leave a congested shared socket without declaring its siblings
+/// or the authority unhealthy. Only count windows with spare physical slots.
+pub(crate) struct BatchTailWindow {
+    started_at: Instant,
+    start_bytes: u64,
+}
+
+impl BatchTailWindow {
+    pub(crate) fn new(now: Instant) -> Self {
+        Self {
+            started_at: now,
+            start_bytes: 0,
+        }
+    }
+
+    pub(crate) fn observe(
+        &mut self,
+        downloaded: u64,
+        can_recover: bool,
+        now: Instant,
+    ) -> bool {
+        if !can_recover
+            || now < self.started_at
+            || downloaded < self.start_bytes
+        {
+            self.started_at = now;
+            self.start_bytes = downloaded;
+            return false;
+        }
+        let elapsed = now.duration_since(self.started_at);
+        if elapsed < super::constants::BATCH_TAIL_RECOVERY_WINDOW {
+            return false;
+        }
+        let speed = ((downloaded - self.start_bytes) as f64
+            / elapsed.as_secs_f64()) as u64;
+        self.started_at = now;
+        self.start_bytes = downloaded;
+        speed < NATIVE_SLOW_COLD_SPEED_FLOOR
+    }
+}
+
 /// Tracks one active H2 stream in the native automatic-concurrency metrics.
 pub(crate) struct H2TransferActivity {
     _activity: Option<crate::state::DownloadConnectionActivity>,
@@ -159,6 +200,22 @@ mod tests {
     use super::*;
     use futures::future::poll_fn;
     use http::{Request, Response};
+
+    #[test]
+    fn tail_floor_waits_for_a_sustained_slow_window_and_resets_under_load() {
+        let now = Instant::now();
+        let mut window = BatchTailWindow::new(now);
+        assert!(!window.observe(100_000, true, now + Duration::from_secs(1)));
+        assert!(window.observe(150_000, true, now + Duration::from_secs(3)));
+        assert!(!window.observe(160_000, false, now + Duration::from_secs(4)));
+        assert!(!window.observe(170_000, true, now + Duration::from_secs(6)));
+        assert!(window.observe(180_000, true, now + Duration::from_secs(7)));
+        assert!(!window.observe(
+            4_000_000,
+            true,
+            now + Duration::from_secs(10)
+        ));
+    }
 
     #[test]
     fn aggregate_windows_expire_fast_prefix_and_protect_healthy_siblings() {

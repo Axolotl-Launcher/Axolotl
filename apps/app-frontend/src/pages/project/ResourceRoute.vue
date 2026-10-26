@@ -1,12 +1,14 @@
 <script setup lang="ts">
 import { Button, defineMessages, ProjectPageSkeleton, useVIntl } from '@modrinth/ui'
-import { onScopeDispose, ref, watch } from 'vue'
+import { computed, onScopeDispose, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
+import { createProjectPreviewState, readProjectPreviewTitle } from '@/helpers/project-preview'
 import { resourceGet } from '@/helpers/resources'
 
 const route = useRoute()
 const router = useRouter()
+const previewTitle = computed(() => readProjectPreviewTitle(route.path))
 const { formatMessage } = useVIntl()
 const failed = ref(false)
 let controller: AbortController | null = null
@@ -45,7 +47,12 @@ async function openResource() {
                     ? `/project/mcarchive/${metadata.slug ?? project.projectId}`
                     : `/project/planet-minecraft/${project.projectId}`
         request.signal.throwIfAborted()
-        await router.replace({ path, query: route.query, hash: route.hash })
+        await router.replace({
+            path,
+            query: route.query,
+            hash: route.hash,
+            state: createProjectPreviewState(path, metadata.title),
+        })
     } catch {
         if (!request.signal.aborted) failed.value = true
     }
@@ -65,5 +72,5 @@ onScopeDispose(() => controller?.abort())
         <span>{{ formatMessage(messages.failed) }}</span>
         <Button @click="openResource">{{ formatMessage(messages.retry) }}</Button>
     </div>
-    <ProjectPageSkeleton v-else />
+    <ProjectPageSkeleton v-else :title="previewTitle" />
 </template>

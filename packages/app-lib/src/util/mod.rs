@@ -5,6 +5,7 @@ pub mod download_manager;
 pub mod downloads;
 pub mod fetch;
 pub mod file_lock;
+pub(crate) mod fingerprint;
 pub mod io;
 pub(crate) mod java_environment;
 pub mod jre;

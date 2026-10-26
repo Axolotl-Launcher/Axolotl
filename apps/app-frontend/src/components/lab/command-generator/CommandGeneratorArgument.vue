@@ -1,10 +1,27 @@
 <script setup lang="ts">
-import { Button, Combobox, type ComboboxOption, StyledInput, Toggle, useVIntl } from '@modrinth/ui'
-import { computed, ref, useId, useTemplateRef } from 'vue'
+import { BoxIcon } from '@modrinth/assets'
+import {
+    Button,
+    Combobox,
+    type ComboboxOption,
+    commonMessages,
+    defineMessages,
+    StyledInput,
+    Toggle,
+    useVIntl,
+} from '@modrinth/ui'
+import { computed, ref, useId, useTemplateRef, watch } from 'vue'
 
+import RecipeItemIcon from '@/components/lab/recipe-generator/RecipeItemIcon.vue'
 import { getCurrentVersion } from '@/lab/command-generator/commands/registry.ts'
 import type { ArgumentPreset, CommandArgument } from '@/lab/command-generator/commands/types.ts'
-import { commandGeneratorMessages as messages } from '@/lab/command-generator/i18n/messages.ts'
+import advancementsData from '@/lab/command-generator/data/advancements.json'
+import effectsData from '@/lab/command-generator/data/effects.json'
+import type { SlotDisplay } from '@/lab/recipe-generator/display'
+import { getSlotDisplay } from '@/lab/recipe-generator/display'
+import { buildSlotContext } from '@/lab/recipe-generator/slot-context'
+import type { JavaVersionId, SlotValue } from '@/lab/recipe-generator/types'
+import { loadVersionResources, TEXTURE_ATLAS } from '@/lab/shared/minecraft/resources'
 
 import CommandGeneratorItemPickerModal from './CommandGeneratorItemPickerModal.vue'
 import CommandGeneratorNbtEditor from './CommandGeneratorNbtEditor.vue'
@@ -12,13 +29,7 @@ import CommandGeneratorNbtEditor from './CommandGeneratorNbtEditor.vue'
 const props = defineProps<{
     arg: CommandArgument
     modelValue: string | number | boolean | undefined
-    /** 当前选中的游戏版本，用于 NBT 序列化分支 */
     version?: string
-    /**
-     * 是否强制使用 1.20.5+ 数据组件格式。
-     * - undefined：由 NBT 编辑器内部根据 version 自动判定
-     * - true / false：仅在 1.20.x 下由用户显式切换时传入
-     */
     forceDataComponents?: boolean
 }>()
 
@@ -30,8 +41,60 @@ const emit = defineEmits<{
 
 const { formatMessage } = useVIntl()
 
-function t(key: string, fallback?: string): string {
-    return formatMessage({ id: key, defaultMessage: fallback ?? key })
+const messages = defineMessages({
+    argRequired: {
+        id: 'app.lab.command-generator.arg.required',
+        defaultMessage: 'Required',
+    },
+    argSelectPlaceholder: {
+        id: 'app.lab.command-generator.arg.select-placeholder',
+        defaultMessage: 'Select…',
+    },
+    coordinateRelative: {
+        id: 'app.lab.command-generator.coordinate.relative',
+        defaultMessage: 'Relative (~)',
+    },
+    coordinateLocal: {
+        id: 'app.lab.command-generator.coordinate.local',
+        defaultMessage: 'Local (^)',
+    },
+    coordinateAbsolute: {
+        id: 'app.lab.command-generator.coordinate.absolute',
+        defaultMessage: 'Absolute',
+    },
+    coordinateAxisLabel: {
+        id: 'app.lab.command-generator.coordinate.axis-label',
+        defaultMessage: '{axis} coordinate',
+    },
+    coordinateUseCoords: {
+        id: 'app.lab.command-generator.coordinate.use-coords',
+        defaultMessage: 'Coordinates',
+    },
+    coordinateUseEntity: {
+        id: 'app.lab.command-generator.coordinate.use-entity',
+        defaultMessage: 'Entity',
+    },
+    pickItem: {
+        id: 'app.lab.command-generator.item-picker.button',
+        defaultMessage: 'Pick item',
+    },
+    pickBlock: {
+        id: 'app.lab.command-generator.block-picker.button',
+        defaultMessage: 'Pick block',
+    },
+    pickEffect: {
+        id: 'app.lab.command-generator.effect-picker.button',
+        defaultMessage: 'Pick effect',
+    },
+    pickAdvancement: {
+        id: 'app.lab.command-generator.advancement-picker.button',
+        defaultMessage: 'Pick advancement',
+    },
+})
+
+/** 数据文件里的动态 key（preset.labelKey、arg.displayNameKey、arg.descriptionKey）。 */
+function formatDynamic(id: string, fallback = ''): string {
+    return formatMessage({ id, defaultMessage: fallback || id })
 }
 
 const ENTITY_SELECTOR_DEFAULT_PRESETS: ArgumentPreset[] = [
@@ -135,11 +198,15 @@ const GAMERULE_DEFAULT_PRESETS: ArgumentPreset[] = [
 const isNumber = computed(() => props.arg.type === 'number' || props.arg.type === 'integer')
 const isNbt = computed(() => props.arg.supportsNbtEditor === true)
 const isItem = computed(() => props.arg.type === 'item')
+const isBlock = computed(() => props.arg.type === 'block')
+const isEffect = computed(() => props.arg.type === 'effect')
+const isAdvancement = computed(() => props.arg.type === 'advancement')
 
-/**
- * 这三种类型统一走「普通 input + 下方预设 chip」的路径，
- * 显式排除出 Combobox 分支，避免被 enumValues 抢占。
- */
+const isCoordinates = computed(
+    () => props.arg.type === 'coordinates' || props.arg.coordinatesOptionalTarget === true,
+)
+const isMixedCoordinates = computed(() => props.arg.coordinatesOptionalTarget === true)
+
 const hasInlinePresets = computed(
     () =>
         props.arg.type === 'entity-selector' ||
@@ -196,7 +263,15 @@ const mergedPresets = computed<ArgumentPreset[]>(() => {
 })
 
 const showPresets = computed(
-    () => !isEnumDropdown.value && !isNbt.value && !isItem.value && mergedPresets.value.length > 0,
+    () =>
+        !isEnumDropdown.value &&
+        !isNbt.value &&
+        !isItem.value &&
+        !isBlock.value &&
+        !isEffect.value &&
+        !isAdvancement.value &&
+        !isCoordinates.value &&
+        mergedPresets.value.length > 0,
 )
 
 const VISIBLE_PRESET_COUNT = 4
@@ -223,8 +298,8 @@ function onTextInput(value: string) {
     }
 }
 
-function onCheckboxChange(checked: boolean) {
-    emit('update:modelValue', checked)
+function onCheckboxChange(checked: boolean | undefined) {
+    emit('update:modelValue', checked === true)
 }
 
 function applyPreset(value: string | number | boolean) {
@@ -238,17 +313,332 @@ function openItemPicker() {
 function onItemPicked(id: string) {
     emit('update:modelValue', id)
 }
+
+// ===== 物品/方块/效果/成就 图标实时渲染 =====
+const inputDisplay = ref<SlotDisplay | undefined>(undefined)
+let itemCtx: ReturnType<typeof buildSlotContext> | null = null
+let resourcesLoaded = false
+let requestId = 0
+
+const FORCE_MISSING_ICONS = new Set([
+    'minecraft:air',
+    'minecraft:cave_air',
+    'minecraft:void_air',
+    'minecraft:water',
+    'minecraft:lava',
+    'minecraft:fire',
+    'minecraft:nether_portal',
+    'minecraft:end_portal',
+    'minecraft:end_gateway',
+    'minecraft:bubble_column',
+    'minecraft:moving_piston',
+    'minecraft:piston_head',
+    'minecraft:light',
+    'minecraft:frosted_ice',
+])
+
+watch(
+    () => [props.modelValue, props.arg.type],
+    async ([val, type]) => {
+        const currentRequest = ++requestId
+        if (!['item', 'block', 'effect', 'advancement'].includes(type as string)) return
+
+        const id = String(val ?? '').trim()
+        if (!id) {
+            inputDisplay.value = undefined
+            return
+        }
+
+        if (type === 'effect') {
+            const shortId = id.split(':').pop()
+            const effectData = effectsData.find((e) => e.id === shortId)
+
+            if (!resourcesLoaded) {
+                const version = (props.version || getCurrentVersion()) as JavaVersionId
+                const resources = await loadVersionResources(version)
+                if (currentRequest !== requestId) return
+                itemCtx = buildSlotContext([], [], resources)
+                resourcesLoaded = true
+            }
+
+            const iconItem = effectData?.icon || 'potion'
+            let display = getSlotDisplay(
+                { kind: 'item', id: `minecraft:${iconItem}` } as unknown as SlotValue,
+                itemCtx!,
+            )
+            if (!display)
+                display = getSlotDisplay(
+                    { kind: 'item', id: 'minecraft:potion' } as unknown as SlotValue,
+                    itemCtx!,
+                )
+            if (currentRequest === requestId) inputDisplay.value = display || undefined
+            return
+        }
+
+        if (type === 'advancement') {
+            const cleanId = id.replace('minecraft:', '')
+            const adv = advancementsData.find((a) => a.id === cleanId)
+
+            if (!resourcesLoaded) {
+                const version = (props.version || getCurrentVersion()) as JavaVersionId
+                const resources = await loadVersionResources(version)
+                if (currentRequest !== requestId) return
+                itemCtx = buildSlotContext([], [], resources)
+                resourcesLoaded = true
+            }
+
+            const iconItem = adv?.icon || 'book'
+            let display = getSlotDisplay(
+                { kind: 'item', id: `minecraft:${iconItem}` } as unknown as SlotValue,
+                itemCtx!,
+            )
+            if (!display)
+                display = getSlotDisplay(
+                    { kind: 'item', id: 'minecraft:book' } as unknown as SlotValue,
+                    itemCtx!,
+                )
+            if (currentRequest === requestId) inputDisplay.value = display || undefined
+            return
+        }
+
+        if (FORCE_MISSING_ICONS.has(id) || !id.includes('minecraft:')) {
+            inputDisplay.value = undefined
+            return
+        }
+
+        if (!resourcesLoaded) {
+            try {
+                const version = (props.version || getCurrentVersion()) as JavaVersionId
+                const resources = await loadVersionResources(version)
+                if (currentRequest !== requestId) return
+                itemCtx = buildSlotContext([], [], resources)
+                resourcesLoaded = true
+            } catch {
+                if (currentRequest === requestId) inputDisplay.value = undefined
+                return
+            }
+        }
+
+        let display = getSlotDisplay({ kind: 'item', id }, itemCtx!)
+        if (!display) {
+            display = getSlotDisplay({ kind: 'block', id } as unknown as SlotValue, itemCtx!)
+        }
+        if (currentRequest === requestId) inputDisplay.value = display || undefined
+    },
+    { immediate: true },
+)
+
+// ===== 坐标编辑器 =====
+type CoordinateMode = 'relative' | 'local' | 'absolute'
+
+interface CoordinatePart {
+    mode: CoordinateMode
+    value: string
+}
+
+const coordinateDimensions = computed<2 | 3>(() => props.arg.coordinatesDimensions ?? 3)
+const COORDINATE_AXES_3D = ['x', 'y', 'z'] as const
+const COORDINATE_AXES_2D = ['x', 'z'] as const
+const coordinateAxes = computed<readonly string[]>(() =>
+    coordinateDimensions.value === 2 ? COORDINATE_AXES_2D : COORDINATE_AXES_3D,
+)
+
+function isCoordinateString(value: string): boolean {
+    return /^[-+~^0-9.\s]*$/.test(value)
+}
+
+function isCoordinateTuple(value: string): boolean {
+    const parts = value.trim().split(/\s+/)
+    return (
+        parts.length === coordinateDimensions.value &&
+        parts.every((part) => /^(?:~[-+]?\d*\.?\d*|\^[-+]?\d*\.?\d*|[-+]?\d*\.?\d+)$/.test(part))
+    )
+}
+
+const mixedAsEntity = ref(
+    isMixedCoordinates.value && !isCoordinateString(String(props.modelValue ?? '')),
+)
+
+function parseCoordinates(raw: string, dims: number): CoordinatePart[] {
+    const parts = raw
+        .trim()
+        .split(/\s+/)
+        .filter((p) => p.length > 0)
+    const result: CoordinatePart[] = []
+    for (let i = 0; i < dims; i++) {
+        const part = parts[i] ?? ''
+        if (!part || part === '~') {
+            result.push({ mode: 'relative', value: '' })
+        } else if (part.startsWith('~')) {
+            result.push({ mode: 'relative', value: part.slice(1) })
+        } else if (part === '^') {
+            result.push({ mode: 'local', value: '' })
+        } else if (part.startsWith('^')) {
+            result.push({ mode: 'local', value: part.slice(1) })
+        } else {
+            result.push({ mode: 'absolute', value: part })
+        }
+    }
+    return result
+}
+
+function serializeCoordinates(parts: CoordinatePart[]): string {
+    return parts
+        .map((part) => {
+            if (part.mode === 'relative') return `~${part.value}`
+            if (part.mode === 'local') return `^${part.value}`
+            return part.value
+        })
+        .join(' ')
+}
+
+const coordinateParts = ref<CoordinatePart[]>(
+    isCoordinates.value
+        ? parseCoordinates(String(props.modelValue ?? ''), coordinateDimensions.value)
+        : [],
+)
+
+if (
+    isCoordinates.value &&
+    props.arg.required &&
+    !mixedAsEntity.value &&
+    (props.modelValue === undefined || props.modelValue === '')
+) {
+    emit('update:modelValue', serializeCoordinates(coordinateParts.value))
+}
+
+watch(
+    [() => props.modelValue, isCoordinates, isMixedCoordinates, coordinateDimensions],
+    ([val]) => {
+        if (!isCoordinates.value) return
+        const next = String(val ?? '')
+        if (isMixedCoordinates.value) {
+            if (isCoordinateTuple(next)) mixedAsEntity.value = false
+            else if (!isCoordinateString(next)) mixedAsEntity.value = true
+        }
+        if (mixedAsEntity.value) return
+        const current = serializeCoordinates(coordinateParts.value)
+        if (next === current && coordinateParts.value.length === coordinateDimensions.value) return
+        coordinateParts.value = parseCoordinates(next, coordinateDimensions.value)
+    },
+)
+
+function emitCoordinates() {
+    if (mixedAsEntity.value) return
+    emit('update:modelValue', serializeCoordinates(coordinateParts.value))
+}
+
+function cycleCoordinateMode(index: number) {
+    const part = coordinateParts.value[index]
+    if (!part) return
+
+    let nextMode: CoordinateMode
+    if (part.mode === 'relative') nextMode = 'absolute'
+    else if (part.mode === 'absolute' && coordinateDimensions.value === 3) nextMode = 'local'
+    else nextMode = 'relative'
+
+    if (nextMode === 'local') {
+        coordinateParts.value.forEach((p) => {
+            p.mode = 'local'
+            if (p.value === '') p.value = '0'
+        })
+    } else {
+        part.mode = nextMode
+        if (part.mode === 'absolute' && part.value === '') {
+            part.value = '0'
+        }
+        coordinateParts.value.forEach((p, i) => {
+            if (i !== index && p.mode === 'local') {
+                p.mode = 'relative'
+            }
+        })
+    }
+    emitCoordinates()
+}
+
+function setCoordinateValue(index: number, value: string) {
+    const part = coordinateParts.value[index]
+    if (!part) return
+    part.value = value.replace(/[^-0-9.]/g, '')
+    emitCoordinates()
+}
+
+function clearCoordinates() {
+    coordinateParts.value = parseCoordinates('', coordinateDimensions.value)
+    emit('update:modelValue', '')
+}
+
+function switchMixedMode(toEntity: boolean) {
+    mixedAsEntity.value = toEntity
+    const val = String(props.modelValue ?? '')
+    const isCoordString = isCoordinateString(val)
+
+    if (toEntity) {
+        if (!val || isCoordString) emit('update:modelValue', '@p')
+    } else {
+        if (val && !isCoordString) {
+            coordinateParts.value = parseCoordinates('', coordinateDimensions.value)
+        }
+        emitCoordinates()
+    }
+}
+
+function coordinateModeSymbol(mode: CoordinateMode): string {
+    if (mode === 'relative') return '~'
+    if (mode === 'local') return '^'
+    return '='
+}
+
+function coordinateModeLabel(mode: CoordinateMode): string {
+    if (mode === 'relative') return formatMessage(messages.coordinateRelative)
+    if (mode === 'local') return formatMessage(messages.coordinateLocal)
+    return formatMessage(messages.coordinateAbsolute)
+}
 </script>
 
 <template>
-    <div class="argument-card flex min-w-0 flex-col gap-2" :class="{ 'md:col-span-2': isNbt }">
-        <div class="flex flex-wrap items-center gap-2">
-            <label :for="fieldId" class="text-sm font-semibold text-[var(--color-text-primary)]">{{
-                t(arg.displayNameKey)
-            }}</label>
-            <span v-if="arg.required" class="text-xs text-[var(--color-text-tertiary)]">{{
-                formatMessage(messages.argRequired)
-            }}</span>
+    <div
+        class="argument-card flex min-w-0 flex-col gap-2"
+        :class="{ 'md:col-span-2': isNbt }"
+        :data-testid="`arg-card-${arg.name}`"
+    >
+        <div class="flex flex-wrap items-center justify-between gap-2">
+            <div class="flex flex-wrap items-center gap-2">
+                <label
+                    :for="fieldId"
+                    class="text-sm font-semibold text-[var(--color-text-primary)]"
+                    >{{ formatDynamic(arg.displayNameKey, arg.name) }}</label
+                >
+                <span v-if="arg.required" class="text-xs text-[var(--color-text-tertiary)]">{{
+                    formatMessage(messages.argRequired)
+                }}</span>
+            </div>
+            <div v-if="isMixedCoordinates" class="flex items-center gap-1">
+                <button
+                    type="button"
+                    class="rounded-md px-2 py-0.5 text-xs transition-colors"
+                    :class="
+                        !mixedAsEntity
+                            ? 'bg-surface-4 text-[var(--color-text-primary)] font-medium'
+                            : 'text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)]'
+                    "
+                    @click="switchMixedMode(false)"
+                >
+                    {{ formatMessage(messages.coordinateUseCoords) }}
+                </button>
+                <button
+                    type="button"
+                    class="rounded-md px-2 py-0.5 text-xs transition-colors"
+                    :class="
+                        mixedAsEntity
+                            ? 'bg-surface-4 text-[var(--color-text-primary)] font-medium'
+                            : 'text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)]'
+                    "
+                    @click="switchMixedMode(true)"
+                >
+                    {{ formatMessage(messages.coordinateUseEntity) }}
+                </button>
+            </div>
         </div>
         <CommandGeneratorNbtEditor
             v-if="isNbt"
@@ -262,7 +652,7 @@ function onItemPicked(id: string) {
             v-else-if="isEnumDropdown"
             :model-value="String(modelValue ?? '')"
             :options="enumOptions"
-            :aria-label="t(arg.displayNameKey)"
+            :aria-label="formatDynamic(arg.displayNameKey, arg.name)"
             :placeholder="formatMessage(messages.argSelectPlaceholder)"
             width="full"
             @update:model-value="onEnumChange"
@@ -271,28 +661,103 @@ function onItemPicked(id: string) {
             v-else-if="arg.type === 'boolean'"
             :id="fieldId"
             :model-value="modelValue === true || modelValue === 'true'"
-            :aria-label="t(arg.displayNameKey)"
+            :aria-label="formatDynamic(arg.displayNameKey, arg.name)"
             @update:model-value="onCheckboxChange"
         />
-        <div v-else-if="isItem" class="flex min-w-0 flex-wrap gap-2">
-            <StyledInput
-                :id="fieldId"
-                :model-value="String(modelValue ?? '')"
-                :placeholder="arg.placeholder ?? t(arg.descriptionKey)"
-                class="min-w-0 flex-1"
-                :spellcheck="false"
-                @update:model-value="onTextInput(String($event ?? ''))"
-            />
-            <Button type="outlined" @click="openItemPicker">{{
-                t('app.lab.command-generator.item-picker.button')
-            }}</Button>
+        <div
+            v-else-if="isItem || isBlock || isEffect || isAdvancement"
+            class="flex min-w-0 flex-wrap gap-2"
+        >
+            <div class="relative min-w-0 flex-1">
+                <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                    <RecipeItemIcon
+                        v-if="inputDisplay"
+                        :display="inputDisplay"
+                        :atlas="TEXTURE_ATLAS"
+                        :size="20"
+                        :show-count="false"
+                    />
+                    <BoxIcon v-else class="h-5 w-5 text-[var(--color-text-tertiary)]" />
+                </div>
+                <StyledInput
+                    :id="fieldId"
+                    :model-value="String(modelValue ?? '')"
+                    :placeholder="arg.placeholder ?? formatDynamic(arg.descriptionKey)"
+                    class="w-full pl-10"
+                    :spellcheck="false"
+                    @update:model-value="onTextInput(String($event ?? ''))"
+                />
+            </div>
+            <Button type="outlined" @click="openItemPicker">
+                {{
+                    formatMessage(
+                        isBlock
+                            ? messages.pickBlock
+                            : isEffect
+                              ? messages.pickEffect
+                              : isAdvancement
+                                ? messages.pickAdvancement
+                                : messages.pickItem,
+                    )
+                }}
+            </Button>
+        </div>
+        <StyledInput
+            v-else-if="isMixedCoordinates && mixedAsEntity"
+            :id="fieldId"
+            :model-value="String(modelValue ?? '')"
+            :placeholder="arg.placeholder ?? formatDynamic(arg.descriptionKey)"
+            class="w-full"
+            :spellcheck="false"
+            @update:model-value="onTextInput(String($event ?? ''))"
+        />
+        <div v-else-if="isCoordinates" class="flex min-w-0 flex-col gap-2">
+            <div class="flex min-w-0 flex-wrap items-center gap-2">
+                <div
+                    v-for="(part, index) in coordinateParts"
+                    :key="index"
+                    class="flex min-w-0 items-center gap-1"
+                >
+                    <button
+                        v-tooltip="coordinateModeLabel(part.mode)"
+                        type="button"
+                        class="coordinate-mode flex shrink-0 items-center justify-center rounded-lg border border-solid border-surface-4 bg-surface-3 px-2 py-2 font-mono text-sm leading-none text-[var(--color-text-primary)] hover:border-brand focus-visible:outline-brand"
+                        :aria-label="coordinateModeLabel(part.mode)"
+                        @click="cycleCoordinateMode(index)"
+                    >
+                        {{ coordinateModeSymbol(part.mode) }}
+                    </button>
+                    <StyledInput
+                        :model-value="part.value"
+                        :aria-label="
+                            formatMessage(messages.coordinateAxisLabel, {
+                                axis: coordinateAxes[index] ?? '0',
+                            })
+                        "
+                        :placeholder="
+                            part.mode === 'relative' ? '0' : (coordinateAxes[index] ?? '0')
+                        "
+                        style="width: 4.5rem"
+                        :spellcheck="false"
+                        @update:model-value="setCoordinateValue(index, String($event ?? ''))"
+                    />
+                </div>
+                <Button
+                    v-if="!arg.required && modelValue !== undefined && modelValue !== ''"
+                    type="quiet"
+                    size="sm"
+                    @click="clearCoordinates"
+                >
+                    {{ formatMessage(commonMessages.clearButton) }}
+                </Button>
+            </div>
         </div>
         <StyledInput
             v-else
             :id="fieldId"
             :model-value="String(modelValue ?? '')"
             :type="isNumber ? 'number' : 'text'"
-            :placeholder="arg.placeholder ?? t(arg.descriptionKey)"
+            :placeholder="arg.placeholder ?? formatDynamic(arg.descriptionKey)"
             :step="arg.type === 'integer' ? 1 : undefined"
             :min="arg.min"
             :max="arg.max"
@@ -301,17 +766,17 @@ function onItemPicked(id: string) {
             @update:model-value="onTextInput(String($event ?? ''))"
         />
         <p v-if="!isNbt" class="m-0 text-xs leading-5 text-[var(--color-text-tertiary)]">
-            {{ t(arg.descriptionKey) }}
+            {{ formatDynamic(arg.descriptionKey) }}
         </p>
         <div v-if="showPresets" class="flex flex-wrap gap-1.5">
             <Button
                 v-for="preset in visiblePresets"
                 :key="preset.labelKey"
-                v-tooltip="preset.descriptionKey ? t(preset.descriptionKey) : undefined"
+                v-tooltip="preset.descriptionKey ? formatDynamic(preset.descriptionKey) : undefined"
                 type="quiet"
                 size="2xs"
                 @click="applyPreset(preset.value)"
-                >{{ t(preset.labelKey) }}</Button
+                >{{ formatDynamic(preset.labelKey) }}</Button
             >
             <Button
                 v-if="hiddenPresetCount > 0 && !showAllPresets"
@@ -322,9 +787,10 @@ function onItemPicked(id: string) {
             >
         </div>
         <CommandGeneratorItemPickerModal
-            v-if="isItem"
+            v-if="isItem || isBlock || isEffect || isAdvancement"
             ref="itemPickerRef"
             :version="getCurrentVersion()"
+            :kind="isBlock ? 'block' : isEffect ? 'effect' : isAdvancement ? 'advancement' : 'item'"
             @select="onItemPicked"
         />
     </div>

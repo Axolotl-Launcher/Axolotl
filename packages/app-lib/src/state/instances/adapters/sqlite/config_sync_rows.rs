@@ -22,14 +22,14 @@ where
 
     sqlx::query(
         "
-		INSERT INTO instance_config_sync_state (
-			instance_id,
-			config_updated_at
-		)
-		VALUES (?, ?)
-		ON CONFLICT (instance_id) DO UPDATE SET
-			config_updated_at = excluded.config_updated_at
-		",
+        INSERT INTO instance_config_sync_state (
+            instance_id,
+            config_updated_at
+        )
+        VALUES (?, ?)
+        ON CONFLICT (instance_id) DO UPDATE SET
+            config_updated_at = excluded.config_updated_at
+        ",
     )
     .bind(instance_id)
     .bind(now)
@@ -47,9 +47,9 @@ where
 
     sqlx::query(
         "
-		UPDATE instance_config_sync_state
-		SET config_updated_at = ?
-		",
+        UPDATE instance_config_sync_state
+        SET config_updated_at = ?
+        ",
     )
     .bind(now)
     .execute(exec)
@@ -67,10 +67,10 @@ where
 {
     let generated_at: Option<Option<i64>> = sqlx::query_scalar(
         "
-		SELECT generated_at
-		FROM instance_config_sync_state
-		WHERE instance_id = ?
-		",
+        SELECT generated_at
+        FROM instance_config_sync_state
+        WHERE instance_id = ?
+        ",
     )
     .bind(instance_id)
     .fetch_optional(exec)
@@ -89,15 +89,15 @@ where
 {
     sqlx::query(
         "
-		INSERT INTO instance_config_sync_state (
-			instance_id,
-			config_updated_at,
-			generated_at
-		)
-		VALUES (?, ?, ?)
-		ON CONFLICT (instance_id) DO UPDATE SET
-			generated_at = excluded.generated_at
-		",
+        INSERT INTO instance_config_sync_state (
+            instance_id,
+            config_updated_at,
+            generated_at
+        )
+        VALUES (?, ?, ?)
+        ON CONFLICT (instance_id) DO UPDATE SET
+            generated_at = excluded.generated_at
+        ",
     )
     .bind(instance_id)
     .bind(generated_at)
@@ -113,15 +113,15 @@ pub(crate) async fn list_instance_config_sync_rows(
 ) -> crate::Result<Vec<InstanceConfigSyncRow>> {
     let rows = sqlx::query_as::<_, InstanceConfigSyncRow>(
         "
-		SELECT
-			i.id AS instance_id,
-			i.path AS path,
-			s.config_updated_at AS config_updated_at,
-			s.generated_at AS generated_at
-		FROM instances i
-		LEFT JOIN instance_config_sync_state s
-			ON s.instance_id = i.id
-		",
+        SELECT
+            i.id AS instance_id,
+            i.path AS path,
+            s.config_updated_at AS config_updated_at,
+            s.generated_at AS generated_at
+        FROM instances i
+        LEFT JOIN instance_config_sync_state s
+            ON s.instance_id = i.id
+        ",
     )
     .fetch_all(pool)
     .await?;

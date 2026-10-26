@@ -76,7 +76,7 @@ async fn curseforge_filter_only_constraints_reach_the_request_and_conflicts_fail
             json!({"data":[], "pagination":{"index":0,"resultCount":0,"totalCount":0}}),
         )
     });
-    let provider = CurseForgeProvider::new(transport.clone());
+    let provider = CurseForgeProvider::for_tests(transport.clone());
     let mut query = search_query();
     query.filter = Some(ResourceSearchExpression::All {
         terms: vec![

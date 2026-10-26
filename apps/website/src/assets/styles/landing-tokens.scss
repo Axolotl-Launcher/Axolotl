@@ -1,0 +1,30 @@
+// Landing typography scale.
+//
+// The landing page previously hand-tuned a separate size per heading, which let a
+// section heading (`h2`) grow bolder and longer than the page title (`h1`). These
+// tokens keep one ordered scale so hierarchy is decided once, here.
+//
+// Sizes are fluid because the page is read from 390px phones to wide desktops;
+// the clamp bounds keep the ratio between steps intact at both ends.
+:root {
+    --landing-size-display: clamp(2.75rem, 5.2vw, 4.25rem);
+    --landing-size-section: clamp(2rem, 3.6vw, 2.75rem);
+    --landing-size-card: clamp(1.15rem, 1.6vw, 1.35rem);
+    --landing-size-lead: clamp(1rem, 1.3vw, 1.125rem);
+    --landing-size-body: 0.9375rem;
+    --landing-size-caption: 0.8125rem;
+
+    --landing-weight-display: 700;
+    --landing-weight-section: 600;
+    --landing-weight-card: 600;
+    --landing-weight-lead: 400;
+    --landing-weight-body: 400;
+    --landing-weight-caption: 400;
+
+    --landing-leading-display: 1.02;
+    --landing-leading-section: 1.08;
+    --landing-leading-card: 1.25;
+    --landing-leading-lead: 1.65;
+    --landing-leading-body: 1.7;
+    --landing-leading-caption: 1.5;
+}

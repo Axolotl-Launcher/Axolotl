@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "\n        UPDATE instance_files\n        SET\n            missing = 1,\n            modified_at = ?\n        WHERE instance_id = ?\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": []
+  },
+  "hash": "fc7a1ac2a4414d2b1dd54c1fbe3fab8028bba42a75179cf7979b55b1c2de574e"
+}

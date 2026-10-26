@@ -6,6 +6,7 @@ export type SettingsCategoryId =
     | 'language-translation'
     | 'shortcut-settings'
     | 'ai'
+    | 'mcp'
     | 'launch-defaults'
     | 'instance-sync'
     | 'java-performance'
@@ -84,6 +85,14 @@ export const settingsCategoryDefinitions: SettingsCategoryDefinition[] = [
         group: 'launcher',
         flushContent: true,
         onboardingId: 'settings-tab-ai',
+    },
+    {
+        id: 'mcp',
+        name: defineMessage({
+            id: 'app.settings.tabs.mcp',
+            defaultMessage: 'MCP',
+        }),
+        group: 'launcher',
     },
     {
         id: 'launch-defaults',

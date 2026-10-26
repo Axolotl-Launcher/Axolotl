@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "\n        UPDATE instance_sync_checkpoints\n        SET status = 'ready', link_mode = ?\n        WHERE instance_id = ? AND feature = ? AND variant = ?\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 4
+    },
+    "nullable": []
+  },
+  "hash": "f1cac809c15f5eb648610167d3583c31ed5edb5420a729cb17e0c9b656b6227a"
+}

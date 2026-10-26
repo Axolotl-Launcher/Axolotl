@@ -256,7 +256,7 @@ mod tests {
     #[tokio::test]
     async fn medium_file_can_establish_a_cold_h2_connection() {
         assert_eq!(
-            h2_policy(&route(ProxyPolicy::Direct), Some(8 * 1024 * 1024),)
+            h2_policy(&route(ProxyPolicy::Direct), Some(2 * 1024 * 1024),)
                 .await,
             Some(NativeH2Policy {
                 allow_cold_connection: true,

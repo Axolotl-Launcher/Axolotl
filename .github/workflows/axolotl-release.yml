@@ -4,11 +4,11 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: 'Existing release tag to resume (no compilation)'
+        description: "Existing release tag to resume (no compilation)"
         required: true
         type: string
       target:
-        description: 'Publication tasks to run using existing release assets'
+        description: "Publication tasks to run using existing release assets"
         required: true
         default: all
         type: choice
@@ -18,11 +18,13 @@ on:
           - update-server
           - website
           - cnb
+          - gitlink
+          - aliyunoss
           - discord
   push:
     tags:
-      - 'v*'
-      - '!v1.9.9'
+      - "v*"
+      - "!v1.9.9"
 
 permissions:
   contents: write
@@ -68,8 +70,9 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           node --test scripts/axolotl/release-policy.test.mjs
+          node --test scripts/axolotl/aliyunoss-release.test.mjs
           node --test scripts/axolotl/set-version.test.mjs
-          node --test scripts/axolotl/update-manifest.test.mjs scripts/axolotl/finalize-github-release.test.mjs scripts/axolotl/publish-update-server.test.mjs scripts/axolotl/cnb-release.test.mjs scripts/axolotl/create-website-release-metadata.test.mjs
+          node --test scripts/axolotl/update-manifest.test.mjs scripts/axolotl/finalize-github-release.test.mjs scripts/axolotl/publish-update-server.test.mjs scripts/axolotl/cnb-release.test.mjs scripts/axolotl/gitlink-release.test.mjs scripts/axolotl/create-website-release-metadata.test.mjs
           node scripts/axolotl/create-update-server-catalog.test.mjs
           node scripts/axolotl/check-migrations.mjs --release
           node scripts/axolotl/brand-guard.mjs
@@ -138,7 +141,7 @@ jobs:
     runs-on: ${{ matrix.runner }}
     env:
       SQLX_OFFLINE: true
-      CARGO_PROFILE_RELEASE_LTO: 'true'
+      CARGO_PROFILE_RELEASE_LTO: "true"
     steps:
       - name: Checkout code
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -204,7 +207,7 @@ jobs:
     runs-on: ${{ matrix.runner }}
     env:
       SQLX_OFFLINE: true
-      CARGO_PROFILE_RELEASE_LTO: 'true'
+      CARGO_PROFILE_RELEASE_LTO: "true"
     steps:
       - name: Checkout code
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -238,8 +241,8 @@ jobs:
     runs-on: macos-26
     env:
       SQLX_OFFLINE: true
-      CARGO_PROFILE_RELEASE_LTO: 'true'
-      TAURI_BUNDLER_DMG_IGNORE_CI: 'true'
+      CARGO_PROFILE_RELEASE_LTO: "true"
+      TAURI_BUNDLER_DMG_IGNORE_CI: "true"
     steps:
       - name: Checkout code
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -249,7 +252,7 @@ jobs:
         uses: ./.github/actions/setup-desktop-build
         with:
           profile: release
-          package-only: 'true'
+          package-only: "true"
       - name: Download macOS ARM64 build artifacts
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
@@ -349,6 +352,7 @@ jobs:
       DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
 
   notify-update-server:
+    name: Notify Update Server
     needs: verify-and-publish
     timeout-minutes: 45
     if: ${{ !cancelled() && needs.verify-and-publish.result == 'success' && (github.event_name == 'push' || inputs.target == 'all' || inputs.target == 'update-server') }}
@@ -371,7 +375,7 @@ jobs:
         env:
           UPDATE_SERVER_URL: ${{ secrets.UPDATE_SERVER_URL }}
           UPDATE_SERVER_WEBHOOK_SECRET: ${{ secrets.UPDATE_SERVER_WEBHOOK_SECRET }}
-          UPDATE_SERVER_FORCE_UPDATE: 'false'
+          UPDATE_SERVER_FORCE_UPDATE: "false"
         run: |
           node scripts/axolotl/publish-update-server.mjs \
             release-check/update-server-catalog.json \
@@ -379,7 +383,7 @@ jobs:
             "${RELEASE_TAG}"
 
   publish-website:
-    name: Build and deploy website to Netlify
+    name: Build and deploy website to Cloudflare Pages
     needs: verify-and-publish
     if: ${{ !cancelled() && needs.verify-and-publish.result == 'success' && (github.event_name == 'push' || inputs.target == 'all' || inputs.target == 'website') }}
     runs-on: ubuntu-24.04
@@ -387,14 +391,16 @@ jobs:
     concurrency:
       group: website-production
       cancel-in-progress: false
+    env:
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      CLOUDFLARE_PAGES_PROJECT_NAME: ${{ vars.CLOUDFLARE_PAGES_PROJECT_NAME }}
     steps:
-      - name: Check Netlify deployment credentials
+      - name: Check Cloudflare Pages deployment configuration
         env:
-          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
-          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
         run: |
-          if [[ -z "$NETLIFY_AUTH_TOKEN" || -z "$NETLIFY_SITE_ID" ]]; then
-            echo '::error::Configure NETLIFY_AUTH_TOKEN and NETLIFY_SITE_ID repository secrets. See apps/website/README.md.'
+          if [[ -z "$CLOUDFLARE_API_TOKEN" || -z "$CLOUDFLARE_ACCOUNT_ID" || -z "$CLOUDFLARE_PAGES_PROJECT_NAME" ]]; then
+            echo '::error::Configure the CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID secrets and the CLOUDFLARE_PAGES_PROJECT_NAME variable. See apps/website/README.md.'
             exit 1
           fi
       - name: Checkout code
@@ -466,23 +472,19 @@ jobs:
             git -C website-publish commit -m "chore(website): update release data for ${RELEASE_TAG} [skip ci]"
             git -C website-publish push origin main
           fi
-      - name: Deploy prebuilt website and functions to Netlify
+      - name: Deploy prebuilt website to Cloudflare Pages
         working-directory: website-publish
         env:
-          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
-          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
         run: |
-          pnpm --package=netlify-cli@27.13.0 dlx netlify deploy \
-            --prod \
-            --no-build \
-            --filter @axolotl/website \
-            --dir "$PWD/apps/website/.output/public" \
-            --functions "$PWD/netlify/functions" \
-            --site "$NETLIFY_SITE_ID" \
-            --message "Launcher ${RELEASE_TAG} (GitHub Actions ${GITHUB_RUN_ID})" \
-            --timeout 600
+          pnpm --package=wrangler@4.152.0 dlx wrangler pages deploy \
+            apps/website/.output/public \
+            --project-name "$CLOUDFLARE_PAGES_PROJECT_NAME" \
+            --branch main \
+            --commit-message "Launcher ${RELEASE_TAG} (GitHub Actions ${GITHUB_RUN_ID})"
 
   mirror-cnb:
+    name: Mirror release to CNB
     needs: verify-and-publish
     if: ${{ !cancelled() && needs.verify-and-publish.result == 'success' && (github.event_name == 'push' || inputs.target == 'all' || inputs.target == 'cnb') }}
     runs-on: ubuntu-24.04
@@ -529,3 +531,80 @@ jobs:
           node scripts/axolotl/cnb-release.mjs finalize "${RELEASE_TAG}" cnb-release/final
           node scripts/axolotl/verify-update-manifest.mjs \
             cnb-release/final/latest.json "${RELEASE_TAG}" cnb
+
+  mirror-aliyunoss:
+    name: Mirror release to Aliyun OSS
+    needs: verify-and-publish
+    if: ${{ !cancelled() && needs.verify-and-publish.result == 'success' && (github.event_name == 'push' || inputs.target == 'all' || inputs.target == 'aliyunoss') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    concurrency:
+      group: aliyunoss-release-mirror
+      cancel-in-progress: false
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: ${{ github.sha }}
+      - name: Setup Node.js
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version-file: .nvmrc
+      - name: Install OSS SDK
+        run: npm install --prefix "$RUNNER_TEMP/aliyunoss-sdk" --ignore-scripts --no-audit --no-fund ali-oss@6.23.0
+      - name: Download published release metadata
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: published-release-metadata
+          path: release-check
+      - name: Upload all release assets and prune expired versions
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ALIYUN_OSS_SDK_DIR: ${{ runner.temp }}/aliyunoss-sdk
+          ALIYUN_OSS_REGION: ${{ secrets.ALIYUN_OSS_REGION }}
+          ALIYUN_OSS_BUCKET: ${{ secrets.ALIYUN_OSS_BUCKET }}
+          ALIYUN_OSS_ACCESS_KEY_ID: ${{ secrets.ALIYUN_OSS_ACCESS_KEY_ID }}
+          ALIYUN_OSS_ACCESS_KEY_SECRET: ${{ secrets.ALIYUN_OSS_ACCESS_KEY_SECRET }}
+          ALIYUN_OSS_STS_TOKEN: ${{ secrets.ALIYUN_OSS_STS_TOKEN }}
+          RELEASE_RETENTION_COUNT: ${{ vars.RELEASE_RETENTION_COUNT || '3' }}
+          BETA_RETENTION_COUNT: ${{ vars.BETA_RETENTION_COUNT || '3' }}
+        run: node scripts/axolotl/aliyunoss-release.mjs release-check/release.json "${RELEASE_TAG}"
+
+  mirror-gitlink:
+    name: Mirror release to GitLink
+    needs: verify-and-publish
+    if: ${{ !cancelled() && needs.verify-and-publish.result == 'success' && (github.event_name == 'push' || inputs.target == 'all' || inputs.target == 'gitlink') }}
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: ${{ github.sha }}
+      - name: Setup Node.js
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version-file: .nvmrc
+      - name: Download published release metadata
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: published-release-metadata
+          path: release-check
+      - name: Mirror published release to GitLink
+        env:
+          GITLINK_TOKEN: ${{ secrets.GITLINK_TOKEN }}
+          GITLINK_REPO_SLUG: ${{ vars.GITLINK_REPO_SLUG }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [[ -z "${GITLINK_TOKEN:-}" ]]; then
+            echo "GITLINK_TOKEN is not configured"
+            exit 1
+          fi
+
+          node scripts/axolotl/gitlink-release.mjs finalize "${RELEASE_TAG}" gitlink-release/final
+      - name: Verify mirrored GitLink release without a token
+        env:
+          GITLINK_REPO_SLUG: ${{ vars.GITLINK_REPO_SLUG }}
+        run: node scripts/axolotl/gitlink-release.mjs verify "${RELEASE_TAG}"

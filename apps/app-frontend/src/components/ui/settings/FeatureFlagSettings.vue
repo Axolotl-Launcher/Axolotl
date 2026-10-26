@@ -4,6 +4,7 @@ import { Button, defineMessages, injectNotificationManager, Toggle, useVIntl } f
 import { inject, ref, watch } from 'vue'
 
 import { useAntiPiracyStatus } from '@/composables/useAntiPiracyStatus'
+import McpDebugSettings from '@/features/mcp/McpDebugSettings.vue'
 import { get as getSettings, update as updateSettings } from '@/helpers/settings.ts'
 import { createSettingsPatchSaver } from '@/helpers/settings-patch'
 import { isDev } from '@/helpers/utils'
@@ -259,6 +260,8 @@ watch(
             </Button>
         </div>
     </SettingsSection>
+
+    <McpDebugSettings />
 
     <SettingsSection v-if="(themeStore.devMode || isDevEnvironment) && previewRemoteAnnouncement">
         <template #header>

@@ -746,20 +746,20 @@ async fn fetch_excluded_mod_ids(
                 }
                 None => {
                     log(
-						server_id,
-						&format!("Could not read metadata of client-side mod {filename}"),
-					)
-					.await
-					.ok();
+                        server_id,
+                        &format!("Could not read metadata of client-side mod {filename}"),
+                    )
+                    .await
+                    .ok();
                 }
             },
             Err(error) => {
                 log(
-					server_id,
-					&format!("Failed to download client-side mod {filename} for inspection: {error}"),
-				)
-				.await
-				.ok();
+                    server_id,
+                    &format!("Failed to download client-side mod {filename} for inspection: {error}"),
+                )
+                .await
+                .ok();
             }
         }
     }

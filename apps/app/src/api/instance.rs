@@ -1128,7 +1128,7 @@ pub async fn instance_plan_content_updates(
 pub async fn instance_apply_content_update_plan(
     plan_id: &str,
     resolutions: Vec<theseus::data::ContentUpdateResolution>,
-) -> Result<theseus::data::InstanceContentSnapshot> {
+) -> Result<theseus::instance::ContentUpdateApplyResult> {
     Ok(
         theseus::instance::apply_content_update_plan(plan_id, resolutions)
             .await?,

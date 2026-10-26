@@ -4,6 +4,7 @@
         :max-width="showSimplifiedWarning ? '480px' : 'min(928px, calc(95vw - 10rem))'"
         :width="showSimplifiedWarning ? '480px' : 'min(928px, calc(95vw - 10rem))'"
         :on-hide="handleModalHide"
+        :disable-close="actionLoading"
         :no-padding="!showSimplifiedWarning"
     >
         <template #title>
@@ -52,6 +53,12 @@
                             <span class="text-sm text-[var(--color-text-tertiary)]">{{
                                 formatMessage(messages.loadingVersions)
                             }}</span>
+                        </div>
+                        <div v-else-if="loadingError" class="flex flex-col gap-3 py-4" role="alert">
+                            <p class="m-0">{{ loadingError }}</p>
+                            <Button @click="emit('retry')">{{
+                                formatMessage(commonMessages.retryButton)
+                            }}</Button>
                         </div>
                         <div v-else class="min-h-full">
                             <div class="flex flex-col gap-1.5" role="listbox">
@@ -263,7 +270,7 @@
                     }}</span>
                 </div>
                 <div class="flex flex-row gap-2 shrink-0 ml-auto">
-                    <Button type="outlined" @click="handleCancel"
+                    <Button type="outlined" :disabled="actionLoading" @click="handleCancel"
                         ><XIcon />
                         {{ formatMessage(commonMessages.cancelButton) }}
                     </Button>
@@ -306,10 +313,14 @@
         <!-- Simplified warning mode actions -->
         <template v-if="showSimplifiedWarning" #actions>
             <div class="flex gap-3 w-full">
-                <Button @click="handleCancel"
+                <Button :disabled="actionLoading" @click="handleCancel"
                     >{{ formatMessage(commonMessages.cancelButton) }}
                 </Button>
-                <Button type="colored" color="brand" @click="handleSearchCompat"
+                <Button
+                    type="colored"
+                    color="brand"
+                    :disabled="actionLoading"
+                    @click="handleSearchCompat"
                     ><SearchIcon class="size-4" />
                     {{ formatMessage(messages.searchCompatButton) }}
                 </Button>
@@ -513,6 +524,7 @@ const props = withDefaults(
         hideOnUpdate?: boolean
         /** Whether versions are currently being loaded */
         loading?: boolean
+        loadingError?: string
         /** Whether changelog is being loaded for the selected version */
         loadingChangelog?: boolean
         actionDisabled?: boolean
@@ -530,6 +542,7 @@ const props = withDefaults(
         actionLoading: false,
         hideOnUpdate: true,
         loading: false,
+        loadingError: undefined,
         loadingChangelog: false,
         actionDisabled: false,
         actionDisabledTooltip: undefined,
@@ -560,6 +573,7 @@ const defaultHeader = computed(() => {
 const emit = defineEmits<{
     update: [version: Labrinth.Versions.v2.Version, event: MouseEvent]
     cancel: []
+    retry: []
     /** Emitted when user selects a version, so parent can fetch full version data with changelog */
     versionSelect: [version: Labrinth.Versions.v2.Version]
     versionHover: [version: Labrinth.Versions.v2.Version]
@@ -729,6 +743,7 @@ function handleVersionMouseLeave() {
 }
 
 function handleVersionSelect(version: Labrinth.Versions.v2.Version) {
+    if (props.actionLoading) return
     if (prefetchTimeout) prefetchTimeout.stop()
     selectVersion(version)
 }
@@ -808,11 +823,13 @@ function emitUpdate(
 }
 
 function handleCancel() {
+    if (props.actionLoading) return
     emit('cancel')
     hide()
 }
 
 function handleSearchCompat() {
+    if (props.actionLoading) return
     emit('searchCompat')
     hide()
 }

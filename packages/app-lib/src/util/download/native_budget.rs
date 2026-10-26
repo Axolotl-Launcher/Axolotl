@@ -242,6 +242,18 @@ pub(crate) fn available(route: &DownloadRoute) -> usize {
         .min(PHYSICAL_CONNECTIONS.available_permits())
 }
 
+pub(crate) fn in_use(route: &DownloadRoute) -> usize {
+    budget(route).map_or(0, |budget| {
+        MAX_CONNECTIONS_PER_AUTHORITY.saturating_sub(budget.available_permits())
+    })
+}
+
+/// Admission changes with active transfers; it must not permanently reduce a
+/// file's growth ceiling when that file starts during a busy batch.
+pub(crate) fn capacity(route: &DownloadRoute) -> usize {
+    MAX_CONNECTIONS_PER_AUTHORITY - usize::from(regular_budget(route).is_some())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

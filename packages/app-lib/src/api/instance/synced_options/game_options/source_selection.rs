@@ -48,38 +48,38 @@ pub(in crate::api::instance) async fn initialize_from_source_instance(
 
     sqlx::query!(
         "
-		INSERT INTO sync_feature_settings
-			(feature, globally_enabled, new_instance_default)
-		VALUES ('game_options', 1, 1)
-		ON CONFLICT(feature) DO UPDATE SET globally_enabled = 1
-		",
+        INSERT INTO sync_feature_settings
+            (feature, globally_enabled, new_instance_default)
+        VALUES ('game_options', 1, 1)
+        ON CONFLICT(feature) DO UPDATE SET globally_enabled = 1
+        ",
     )
     .execute(&mut *tx)
     .await?;
     sqlx::query!(
         "
-		INSERT INTO instance_sync_preferences (instance_id, feature, enabled)
-		VALUES (?, 'game_options', 1)
-		ON CONFLICT(instance_id, feature) DO UPDATE SET enabled = 1
-		",
+        INSERT INTO instance_sync_preferences (instance_id, feature, enabled)
+        VALUES (?, 'game_options', 1)
+        ON CONFLICT(instance_id, feature) DO UPDATE SET enabled = 1
+        ",
         source_id,
     )
     .execute(&mut *tx)
     .await?;
     sqlx::query!(
         "
-		INSERT INTO synced_game_option_state (singleton, revision, catalog_revision)
-		VALUES (1, 0, ?)
-		ON CONFLICT(singleton) DO UPDATE SET
-			catalog_revision = excluded.catalog_revision
-		",
+        INSERT INTO synced_game_option_state (singleton, revision, catalog_revision)
+        VALUES (1, 0, ?)
+        ON CONFLICT(singleton) DO UPDATE SET
+            catalog_revision = excluded.catalog_revision
+        ",
         catalog_revision,
     )
     .execute(&mut *tx)
     .await?;
     sqlx::query!(
         "UPDATE synced_game_option_values
-		 SET seeded = 0, revision = revision + 1, updated_at = ?",
+         SET seeded = 0, revision = revision + 1, updated_at = ?",
         now,
     )
     .execute(&mut *tx)
@@ -101,10 +101,10 @@ pub(in crate::api::instance) async fn initialize_from_source_instance(
                 .saturating_add(1) as i64;
             sqlx::query!(
                 "
-				UPDATE synced_game_option_values
-				SET seeded = 0, revision = ?, updated_at = ?
-				WHERE option_id = ?
-				",
+                UPDATE synced_game_option_values
+                SET seeded = 0, revision = ?, updated_at = ?
+                WHERE option_id = ?
+                ",
                 revision,
                 now,
                 custom_id,
@@ -113,10 +113,10 @@ pub(in crate::api::instance) async fn initialize_from_source_instance(
             .await?;
             sqlx::query!(
                 "
-				UPDATE synced_game_option_preferences
-				SET enabled = 0, source = 'catalog_default', revision = ?
-				WHERE option_id = ?
-				",
+                UPDATE synced_game_option_preferences
+                SET enabled = 0, source = 'catalog_default', revision = ?
+                WHERE option_id = ?
+                ",
                 revision,
                 custom_id,
             )
@@ -172,22 +172,22 @@ pub(in crate::api::instance) async fn initialize_from_source_instance(
         let canonical_type = value.type_name();
         sqlx::query!(
             "
-			INSERT INTO synced_game_option_values
-				(option_id, kind, raw_key, canonical_type,
-				 canonical_value_json, value_codec, seeded, revision, origin,
-				 source_game_version, source_instance_id, updated_at)
-			VALUES (?, 'vanilla', NULL, ?, ?, 'catalog', 1, ?,
-				'source_seed', ?, ?, ?)
-			ON CONFLICT(option_id) DO UPDATE SET
-				kind = 'vanilla', raw_key = NULL,
-				canonical_type = excluded.canonical_type,
-				canonical_value_json = excluded.canonical_value_json,
-				value_codec = excluded.value_codec, seeded = 1,
-				revision = excluded.revision, origin = 'source_seed',
-				source_game_version = excluded.source_game_version,
-				source_instance_id = excluded.source_instance_id,
-				updated_at = excluded.updated_at
-			",
+            INSERT INTO synced_game_option_values
+                (option_id, kind, raw_key, canonical_type,
+                 canonical_value_json, value_codec, seeded, revision, origin,
+                 source_game_version, source_instance_id, updated_at)
+            VALUES (?, 'vanilla', NULL, ?, ?, 'catalog', 1, ?,
+                'source_seed', ?, ?, ?)
+            ON CONFLICT(option_id) DO UPDATE SET
+                kind = 'vanilla', raw_key = NULL,
+                canonical_type = excluded.canonical_type,
+                canonical_value_json = excluded.canonical_value_json,
+                value_codec = excluded.value_codec, seeded = 1,
+                revision = excluded.revision, origin = 'source_seed',
+                source_game_version = excluded.source_game_version,
+                source_instance_id = excluded.source_instance_id,
+                updated_at = excluded.updated_at
+            ",
             definition.id,
             canonical_type,
             value_json,
@@ -201,11 +201,11 @@ pub(in crate::api::instance) async fn initialize_from_source_instance(
         let default_enabled = definition.default_on;
         sqlx::query!(
             "
-			INSERT INTO synced_game_option_preferences
-				(option_id, enabled, source, revision)
-			VALUES (?, ?, 'catalog_default', ?)
-			ON CONFLICT(option_id) DO NOTHING
-			",
+            INSERT INTO synced_game_option_preferences
+                (option_id, enabled, source, revision)
+            VALUES (?, ?, 'catalog_default', ?)
+            ON CONFLICT(option_id) DO NOTHING
+            ",
             definition.id,
             default_enabled,
             option_revision,
@@ -244,21 +244,21 @@ pub(in crate::api::instance) async fn initialize_from_source_instance(
         let value_json = serde_json::to_string(&value)?;
         sqlx::query!(
             "
-			INSERT INTO synced_game_option_values
-				(option_id, kind, raw_key, canonical_type,
-				 canonical_value_json, value_codec, seeded, revision, origin,
-				 source_game_version, source_instance_id, updated_at)
-			VALUES (?, 'external', ?, 'external_raw', ?, 'exact_raw',
-				1, ?, 'source_seed', ?, ?, ?)
-			ON CONFLICT(option_id) DO UPDATE SET
-				raw_key = excluded.raw_key,
-				canonical_value_json = excluded.canonical_value_json,
-				seeded = 1, revision = excluded.revision,
-				origin = 'source_seed',
-				source_game_version = excluded.source_game_version,
-				source_instance_id = excluded.source_instance_id,
-				updated_at = excluded.updated_at
-			",
+            INSERT INTO synced_game_option_values
+                (option_id, kind, raw_key, canonical_type,
+                 canonical_value_json, value_codec, seeded, revision, origin,
+                 source_game_version, source_instance_id, updated_at)
+            VALUES (?, 'external', ?, 'external_raw', ?, 'exact_raw',
+                1, ?, 'source_seed', ?, ?, ?)
+            ON CONFLICT(option_id) DO UPDATE SET
+                raw_key = excluded.raw_key,
+                canonical_value_json = excluded.canonical_value_json,
+                seeded = 1, revision = excluded.revision,
+                origin = 'source_seed',
+                source_game_version = excluded.source_game_version,
+                source_instance_id = excluded.source_instance_id,
+                updated_at = excluded.updated_at
+            ",
             option_id,
             key,
             value_json,
@@ -271,11 +271,11 @@ pub(in crate::api::instance) async fn initialize_from_source_instance(
         .await?;
         sqlx::query(
             "
-			INSERT INTO synced_game_option_preferences
-				(option_id, enabled, source, revision)
-			VALUES (?, 0, 'discovery_default', ?)
-			ON CONFLICT(option_id) DO NOTHING
-			",
+            INSERT INTO synced_game_option_preferences
+                (option_id, enabled, source, revision)
+            VALUES (?, 0, 'discovery_default', ?)
+            ON CONFLICT(option_id) DO NOTHING
+            ",
         )
         .bind(option_id)
         .bind(option_revision)
@@ -291,10 +291,10 @@ pub(in crate::api::instance) async fn initialize_from_source_instance(
     let next_revision = current_revision.saturating_add(1) as i64;
     sqlx::query!(
         "
-		UPDATE synced_game_option_state
-		SET revision = ?, catalog_revision = ?
-		WHERE singleton = 1
-		",
+        UPDATE synced_game_option_state
+        SET revision = ?, catalog_revision = ?
+        WHERE singleton = 1
+        ",
         next_revision,
         catalog_revision,
     )

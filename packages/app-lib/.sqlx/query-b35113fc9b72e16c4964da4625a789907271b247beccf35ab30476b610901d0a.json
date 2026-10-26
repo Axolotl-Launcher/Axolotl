@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "\n        DELETE FROM instance_content_entries\n        WHERE content_set_id = ? AND file_id = ?\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": []
+  },
+  "hash": "b35113fc9b72e16c4964da4625a789907271b247beccf35ab30476b610901d0a"
+}

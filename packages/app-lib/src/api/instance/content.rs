@@ -197,10 +197,10 @@ async fn plan_content_updates_with_refresh(
             })?;
             if !pack.reconciled {
                 return Err(crate::ErrorKind::InputError(
-					"Pack membership is not calibrated yet; refresh while online before updating the pack"
-						.to_string(),
-				)
-				.into());
+                    "Pack membership is not calibrated yet; refresh while online before updating the pack"
+                        .to_string(),
+                )
+                .into());
             }
             if let Some(target_release_id) = target {
                 let provider = pack.provider.ok_or_else(|| {
@@ -247,11 +247,28 @@ async fn plan_content_updates_with_refresh(
     Ok(plan)
 }
 
+#[derive(serde::Serialize)]
+#[serde(tag = "status", rename_all = "camelCase")]
+pub enum ContentUpdateApplyResult {
+    Queued {
+        job: crate::install::InstallJobSnapshot,
+    },
+    Completed {
+        snapshot: InstanceContentSnapshot,
+    },
+}
+
 #[tracing::instrument]
 pub async fn apply_content_update_plan(
     plan_id: &str,
     resolutions: Vec<ContentUpdateResolution>,
-) -> crate::Result<InstanceContentSnapshot> {
+) -> crate::Result<ContentUpdateApplyResult> {
+    let state = State::get().await?;
+    if let Some(job) =
+        crate::install::runner::content_plan_job(plan_id, &state).await?
+    {
+        return Ok(ContentUpdateApplyResult::Queued { job });
+    }
     let plan = CONTENT_UPDATE_PLANS
         .get(plan_id)
         .map(|entry| entry.clone())
@@ -260,18 +277,31 @@ pub async fn apply_content_update_plan(
                 "The content update plan has expired".to_string(),
             )
         })?;
-    let state = State::get().await?;
+    if plan.scope == ContentUpdateScope::Pack {
+        if !resolutions.is_empty() {
+            return Err(crate::ErrorKind::InputError(
+                "Pack updates do not accept per-file override resolutions"
+                    .into(),
+            )
+            .into());
+        }
+        let job =
+            crate::install::runner::queue_content_update_plan(&plan).await?;
+        CONTENT_UPDATE_PLANS.remove(plan_id);
+        return Ok(ContentUpdateApplyResult::Queued { job });
+    }
+
     let current_revision = crate::state::instances::adapters::sqlite::content_rows::get_applied_content_set(
-		&plan.instance_id,
-		&state.pool,
-	)
-	.await?
-	.ok_or_else(|| {
-		crate::ErrorKind::InputError(
-			"Instance has no applied content set".to_string(),
-		)
-	})?
-	.revision;
+        &plan.instance_id,
+        &state.pool,
+    )
+    .await?
+    .ok_or_else(|| {
+        crate::ErrorKind::InputError(
+            "Instance has no applied content set".to_string(),
+        )
+    })?
+    .revision;
     if let Err(error) =
         ensure_update_plan_revision(plan.revision, current_revision)
     {
@@ -291,56 +321,25 @@ pub async fn apply_content_update_plan(
         }
     }
 
-    if plan.scope == ContentUpdateScope::Pack {
-        if let Some(action) = plan.actions.first() {
-            match action.provider {
-                ContentProvider::Modrinth => {
-                    super::projects::update_managed_modrinth_version(
-                        &plan.instance_id,
-                        &action.target_release_id,
-                    )
-                    .await?;
-                }
-                ContentProvider::CurseForge => {
-                    let file_id = action
-                        .target_release_id
-                        .parse::<u32>()
-                        .map_err(|_| {
-                            crate::ErrorKind::InputError(
-                                "The planned CurseForge file ID is invalid"
-                                    .to_string(),
-                            )
-                        })?;
-                    crate::install::runner::update_managed_curseforge_modpack(
-                        plan.instance_id.clone(),
-                        file_id,
-                    )
-                    .await?;
-                }
-                ContentProvider::McArchive => {
-                    return Err(crate::ErrorKind::InputError(
-                        "MCArchive does not support automatic pack updates"
-                            .to_string(),
-                    )
-                    .into());
-                }
-                ContentProvider::Local => {}
-            }
-        }
-    } else {
-        for action in &plan.actions {
-            super::projects::switch_content_entry_version(
-                &plan.instance_id,
-                &action.content_id,
-                &action.target_release_id,
-                None,
-            )
-            .await?;
-        }
+    for action in &plan.actions {
+        super::projects::switch_content_entry_version(
+            &plan.instance_id,
+            &action.content_id,
+            &action.target_release_id,
+            None,
+        )
+        .await?;
     }
 
     CONTENT_UPDATE_PLANS.remove(plan_id);
-    crate::state::get_content_snapshot(&plan.instance_id, false, &state).await
+    Ok(ContentUpdateApplyResult::Completed {
+        snapshot: crate::state::get_content_snapshot(
+            &plan.instance_id,
+            false,
+            &state,
+        )
+        .await?,
+    })
 }
 
 pub(crate) async fn resolve_content_change_actions(

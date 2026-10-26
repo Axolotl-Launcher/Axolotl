@@ -488,7 +488,9 @@ async fn automatic_trial_measures_candidates_with_only_one_recovery_slot_and_res
     let transfer = proxy_context::with_snapshot(clients, async {
         let mut occupied_route = fixture_route();
         occupied_route.proxy = ProxyPolicy::System;
-        let _occupied: Vec<_> = (0..30)
+        let limit =
+            crate::util::download::constants::MAX_CONNECTIONS_PER_AUTHORITY;
+        let _occupied: Vec<_> = (0..limit - 2)
             .map(|_| {
                 crate::util::download::native_budget::try_acquire(
                     &occupied_route,
@@ -599,7 +601,11 @@ async fn production_reqwest_requests_and_retries_follow_new_selection_without_dn
         )
         .await
         .unwrap();
-    assert_eq!(crate::util::download::native_budget::available(&route), 31);
+    let limit = crate::util::download::constants::MAX_CONNECTIONS_PER_AUTHORITY;
+    assert_eq!(
+        crate::util::download::native_budget::available(&route),
+        limit - 1
+    );
     let budget = response
         .extensions()
         .get::<crate::util::download::native_request::ResponseBudget>()
@@ -607,9 +613,15 @@ async fn production_reqwest_requests_and_retries_follow_new_selection_without_dn
         .unwrap();
     assert_eq!(response.remote_addr(), Some(second.address));
     assert_eq!(response.bytes().await.unwrap().len(), 65536);
-    assert_eq!(crate::util::download::native_budget::available(&route), 31);
+    assert_eq!(
+        crate::util::download::native_budget::available(&route),
+        limit - 1
+    );
     drop(budget);
-    assert_eq!(crate::util::download::native_budget::available(&route), 32);
+    assert_eq!(
+        crate::util::download::native_budget::available(&route),
+        limit
+    );
 }
 
 #[tokio::test]
@@ -730,7 +742,10 @@ async fn legacy_memory_cdn_fetch_holds_physical_budget_until_body_or_cancellatio
     proxy_context::with_snapshot(audit_clients, async {
         let mut route = fixture_route();
         route.proxy = ProxyPolicy::System;
-        assert_eq!(native_budget::available(&route), 32);
+        assert_eq!(
+            native_budget::available(&route),
+            crate::util::download::constants::MAX_CONNECTIONS_PER_AUTHORITY
+        );
     })
     .await;
 }

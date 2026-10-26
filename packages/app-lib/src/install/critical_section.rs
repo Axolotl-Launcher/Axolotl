@@ -40,22 +40,22 @@ pub(crate) async fn run_cancelable<F: Future>(
 ) -> Option<F::Output> {
     let sections = Arc::new(CriticalSections::default());
     SECTIONS.scope(sections.clone(), async {
-		tokio::pin!(work);
-		tokio::select! {
-			biased;
-			_ = cancellation.cancelled() => {
-				loop {
-					let finished = sections.finished.notified();
-					if sections.active.load(Ordering::Acquire) == 0 { return None; }
-					tokio::select! {
-						result = &mut work => return Some(result),
-						_ = finished => {},
-					}
-				}
-			}
-			result = &mut work => Some(result),
-		}
-	}).await
+        tokio::pin!(work);
+        tokio::select! {
+            biased;
+            _ = cancellation.cancelled() => {
+                loop {
+                    let finished = sections.finished.notified();
+                    if sections.active.load(Ordering::Acquire) == 0 { return None; }
+                    tokio::select! {
+                        result = &mut work => return Some(result),
+                        _ = finished => {},
+                    }
+                }
+            }
+            result = &mut work => Some(result),
+        }
+    }).await
 }
 
 #[cfg(test)]

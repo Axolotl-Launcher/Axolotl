@@ -1769,9 +1769,9 @@ async fn curseforge_automatic_roots_and_optional_candidates_resolve_under_channe
     let (_directory, cache) = cache().await;
     let service = ResourceService::new(
         cache.clone(),
-        vec![Arc::new(Available(Arc::new(CurseForgeProvider::new(
-            transport.clone(),
-        ))))],
+        vec![Arc::new(Available(Arc::new(
+            CurseForgeProvider::for_tests(transport.clone()),
+        )))],
     )
     .unwrap();
     let root = ResourceSelection {
@@ -2370,4 +2370,95 @@ async fn merged_explicit_roots_preserve_both_selection_ids_and_frozen_artifacts(
         vec![SelectionId::new("first").unwrap()]
     );
     service.cache().close().await;
+}
+
+#[tokio::test]
+async fn whole_instance_update_checks_run_concurrently_with_source_limits() {
+    struct GatedProvider {
+        inner: PlanProvider,
+        gate: Arc<Semaphore>,
+        slow_first: Arc<Semaphore>,
+        active: AtomicUsize,
+        maximum: AtomicUsize,
+    }
+    #[async_trait]
+    impl ResourceProvider for GatedProvider {
+        fn source(&self) -> ResourceSource {
+            self.inner.source()
+        }
+        fn namespace(&self) -> String {
+            self.inner.namespace()
+        }
+        fn batch_limit(&self, query: &ProviderQuery) -> usize {
+            self.inner.batch_limit(query)
+        }
+        async fn fetch_many(
+            &self,
+            queries: &[ProviderQuery],
+        ) -> Vec<ResourceResult<ProviderValue>> {
+            let active = self.active.fetch_add(1, Ordering::SeqCst) + 1;
+            self.maximum.fetch_max(active, Ordering::SeqCst);
+            self.gate.acquire().await.unwrap().forget();
+            if queries.iter().any(|query| matches!(query, ProviderQuery::Release { release_id, .. } if release_id.as_str() == "p0000000-1")) {
+                self.slow_first.acquire().await.unwrap().forget();
+            }
+            let result = self.inner.fetch_many(queries).await;
+            self.active.fetch_sub(1, Ordering::SeqCst);
+            result
+        }
+    }
+    let mut releases = Vec::new();
+    let mut entries = Vec::new();
+    for index in 0..70 {
+        let project = format!("p{index:07}");
+        let old = release(&project, "1", 'a');
+        entries.push(installed(&old, &project, &format!("mods/{project}.jar")));
+        releases.extend([old, release(&project, "2", 'b')]);
+    }
+    let (_temp, cache) = cache().await;
+    let provider = Arc::new(GatedProvider {
+        inner: PlanProvider {
+            source: SourceId::modrinth(),
+            releases,
+            requests: Mutex::new(vec![]),
+        },
+        gate: Arc::new(Semaphore::new(0)),
+        slow_first: Arc::new(Semaphore::new(0)),
+        active: AtomicUsize::new(0),
+        maximum: AtomicUsize::new(0),
+    });
+    let service =
+        ResourceService::new(cache.clone(), vec![provider.clone()]).unwrap();
+    let task = tokio::spawn(async move {
+        super::super::updates::check_entries(
+            &service,
+            entries,
+            super::super::updates::ResourceUpdateCheck {
+                entries: vec![],
+                releases: Default::default(),
+                unresolved: vec![],
+                failures: vec![],
+                failed_entries: vec![],
+            },
+            &target(),
+            &SourceId::modrinth(),
+            |_| {},
+            &CancellationToken::new(),
+        )
+        .await
+        .unwrap()
+    });
+    wait_until(|| provider.active.load(Ordering::SeqCst) == 3).await;
+    provider.gate.add_permits(1000);
+    wait_until(|| provider.inner.requests.lock().unwrap().iter().any(|query| {
+        matches!(query, ProviderQuery::Releases { project_id, .. } if project_id.as_str() == "p0000069")
+    })).await;
+    assert!(!task.is_finished());
+    provider.slow_first.add_permits(1);
+    let result = task.await.unwrap();
+    assert_eq!(result.entries.len(), 70, "{:?}", result.failures);
+    assert_eq!(result.releases.len(), 70);
+    assert!(result.failed_entries.is_empty());
+    assert_eq!(provider.maximum.load(Ordering::SeqCst), 3);
+    cache.close().await;
 }

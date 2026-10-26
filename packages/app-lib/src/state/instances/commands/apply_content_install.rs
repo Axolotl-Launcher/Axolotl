@@ -1,3 +1,4 @@
+use super::content_file_operations;
 use super::sync_content_files::{instance_content_root, join_content_path};
 use crate::api::content_search::{
     chinese_file_title_for_modrinth_slug, localized_content_file_name,
@@ -3124,7 +3125,7 @@ async fn record_resolved_plan_edges(
     let mut ids = Vec::with_capacity(paths.len());
     for path in paths {
         ids.push(sqlx::query_scalar::<_, String>("SELECT entry.id FROM instance_content_entries entry JOIN instance_files file ON file.id = entry.file_id WHERE entry.content_set_id = ? AND file.relative_path = ? ORDER BY entry.modified_at DESC LIMIT 1")
-			.bind(content_set_id).bind(path).fetch_one(&mut **tx).await?);
+            .bind(content_set_id).bind(path).fetch_one(&mut **tx).await?);
     }
     for id in ids.iter().skip(1) {
         content_rows::set_content_entry_auto_dependency_in_transaction(
@@ -3167,9 +3168,9 @@ async fn record_resolved_plan_edges(
             continue;
         };
         if let Some(child) = sqlx::query_scalar::<_, String>("SELECT entry.id FROM instance_content_entries entry JOIN instance_content_provider_refs ref ON ref.content_entry_id = entry.id WHERE entry.content_set_id = ? AND ref.provider = 'modrinth' AND ref.provider_project_id = ? AND ref.provider_release_id = ? ORDER BY entry.modified_at DESC LIMIT 1")
-			.bind(content_set_id).bind(&skipped.project_id).bind(version).fetch_optional(&mut **tx).await? {
-			edges.push((parent, child, skipped.project_id.clone(), version.to_string()));
-		}
+            .bind(content_set_id).bind(&skipped.project_id).bind(version).fetch_optional(&mut **tx).await? {
+            edges.push((parent, child, skipped.project_id.clone(), version.to_string()));
+        }
     }
     for (parent, child, project, version) in edges {
         let now = chrono::Utc::now();
@@ -3210,89 +3211,39 @@ pub(crate) async fn toggle_disable_project(
     desired_enabled: Option<bool>,
     state: &State,
 ) -> crate::Result<String> {
-    let _instance_lock = state.lock_instance_content(instance_id).await;
-    let scope = resolve_content_scope(instance_id, None, state).await?;
-    let base = instance_full_path(state, &scope.instance);
-    let (current_path, enabled, new_path) =
-        resolve_toggle_paths(&base, project_path, desired_enabled)?;
-
-    if current_path != new_path {
-        io::rename_or_move(
-            &join_content_path(&base, &current_path),
-            &join_content_path(&base, &new_path),
+    let _instance_lock = state
+        .lock_instance_content_with_timeout(
+            instance_id,
+            std::time::Duration::from_secs(20),
         )
         .await?;
-    }
-
+    let scope = resolve_content_scope(instance_id, None, state).await?;
+    let base = instance_full_path(state, &scope.instance);
+    content_file_operations::recover(state, instance_id, &base).await?;
+    let (current_path, _, _) =
+        resolve_toggle_paths(&base, project_path, desired_enabled)?;
     let file = rename_indexed_file(
         &scope,
         project_path,
         &current_path,
-        &new_path,
-        enabled,
+        &current_path,
+        !current_path.ends_with(".disabled"),
         state,
     )
     .await?;
-    let mut tx = begin_content_write(&state.pool).await?;
-    let modified_at = chrono::Utc::now().timestamp();
-    let updated_entry = sqlx::query(
-        "UPDATE instance_content_entries
-         SET enabled = ?, modified_at = ?
-         WHERE content_set_id = ? AND file_id = ?",
-    )
-    .bind(i64::from(enabled))
-    .bind(modified_at)
-    .bind(&scope.content_set_id)
-    .bind(&file.id)
-    .execute(&mut *tx)
-    .await?;
-    if updated_entry.rows_affected() == 0 {
-        let project_type = project_type_from_relative_path(&new_path)
-            .ok_or_else(|| {
-                crate::ErrorKind::InputError(format!(
-                    "Unable to infer project type from {new_path}"
-                ))
-            })?;
-        content_rows::upsert_content_entry_from_parts_in_transaction(
-            content_rows::UpsertContentEntry {
-                instance_id: &scope.instance.id,
-                content_set_id: &scope.content_set_id,
-                file_id: Some(&file.id),
-                project_type,
-                source_kind: ContentSourceKind::Local,
-                ownership_kind: ContentOwnershipKind::UserAdded,
-                auto_dependency: false,
-                server_requirement: ContentRequirement::Required,
-                client_requirement: ContentRequirement::Required,
-                enabled,
-            },
-            &mut tx,
-        )
-        .await?;
-    }
-    sqlx::query(
-        "UPDATE instance_pack_members
-         SET override_kind = ?, materialization_state = 'present',
-             modified_at = ?
-         WHERE content_entry_id IN (
-            SELECT id FROM instance_content_entries
-            WHERE content_set_id = ? AND file_id = ?
-         )",
-    )
-    .bind(if enabled { "none" } else { "disabled" })
-    .bind(modified_at)
-    .bind(&scope.content_set_id)
-    .bind(&file.id)
-    .execute(&mut *tx)
-    .await?;
-    content_rows::bump_content_set_revision_in_transaction(
-        &scope.content_set_id,
-        &mut tx,
-    )
-    .await?;
-    tx.commit().await?;
-
-    Ok(new_path)
+    let results =
+        toggle_content_entries(instance_id, &[file.id], desired_enabled, state)
+            .await?;
+    results
+        .into_iter()
+        .next()
+        .map(|entry| entry.path)
+        .ok_or_else(|| {
+            crate::ErrorKind::InputError(
+                "Content toggle returned no result".into(),
+            )
+            .into()
+        })
 }
 
 pub(crate) async fn toggle_content_entries(
@@ -3313,6 +3264,7 @@ pub(crate) async fn toggle_content_entries(
         .await?;
     let scope = resolve_content_scope(instance_id, None, state).await?;
     let base = instance_full_path(state, &scope.instance);
+    content_file_operations::recover(state, instance_id, &base).await?;
     let mut seen_ids = std::collections::HashSet::new();
     let mut seen_paths = std::collections::HashSet::new();
     let mut operations = Vec::new();
@@ -3381,27 +3333,30 @@ pub(crate) async fn toggle_content_entries(
         }
     }
 
-    let mut renamed: Vec<&ContentToggleOperation> = Vec::new();
-    for operation in &operations {
-        if operation.current_path == operation.new_path {
-            continue;
-        }
-        if let Err(error) = io::rename_or_move(
-            &join_content_path(&base, &operation.current_path),
-            &join_content_path(&base, &operation.new_path),
+    let _critical = crate::install::critical_section::enter();
+    content_file_operations::prepare(
+        state,
+        instance_id,
+        &base,
+        operations
+            .iter()
+            .map(|operation| {
+                (operation.current_path.clone(), operation.new_path.clone())
+            })
+            .collect(),
+        false,
+    )
+    .await?;
+    if let Err(error) =
+        content_file_operations::publish(state, instance_id, &base).await
+    {
+        return Err(content_file_operations::rollback_error(
+            state,
+            instance_id,
+            &base,
+            error,
         )
-        .await
-        {
-            for previous in renamed.into_iter().rev() {
-                let _ = io::rename_or_move(
-                    &join_content_path(&base, &previous.new_path),
-                    &join_content_path(&base, &previous.current_path),
-                )
-                .await;
-            }
-            return Err(error.into());
-        }
-        renamed.push(operation);
+        .await);
     }
 
     let database_result = async {
@@ -3490,23 +3445,24 @@ pub(crate) async fn toggle_content_entries(
             &mut tx,
         )
         .await?;
+        content_file_operations::mark_committed(instance_id, &mut tx).await?;
         tx.commit().await?;
         Ok(results)
     }
     .await;
 
     match database_result {
-        Ok(results) => Ok(results),
-        Err(error) => {
-            for operation in renamed.into_iter().rev() {
-                let _ = io::rename_or_move(
-                    &join_content_path(&base, &operation.new_path),
-                    &join_content_path(&base, &operation.current_path),
-                )
-                .await;
-            }
-            Err(error)
+        Ok(results) => {
+            content_file_operations::finish(state, instance_id, &base).await;
+            Ok(results)
         }
+        Err(error) => Err(content_file_operations::rollback_error(
+            state,
+            instance_id,
+            &base,
+            error,
+        )
+        .await),
     }
 }
 
@@ -3537,6 +3493,16 @@ fn resolve_toggle_paths(
     } else {
         format!("{trimmed}.disabled")
     };
+    // An enabled and a disabled copy of the same name can coexist on disk, for
+    // example an imported file next to a disabled sibling. Renaming onto that
+    // sibling would replace it, so refuse before anything is moved.
+    if new_path != current_path && join_content_path(base, &new_path).exists() {
+        return Err(crate::ErrorKind::InputError(format!(
+            "Cannot {} '{project_path}' because '{new_path}' already exists",
+            if enabled { "enable" } else { "disable" }
+        ))
+        .into());
+    }
     Ok((current_path, enabled, new_path))
 }
 
@@ -3591,10 +3557,16 @@ pub(crate) async fn remove_project(
     project_path: &str,
     state: &State,
 ) -> crate::Result<()> {
-    let _instance_lock = state.lock_instance_content(instance_id).await;
+    let _instance_lock = state
+        .lock_instance_content_with_timeout(
+            instance_id,
+            std::time::Duration::from_secs(20),
+        )
+        .await?;
 
     let scope = resolve_content_scope(instance_id, None, state).await?;
     let base = instance_full_path(state, &scope.instance);
+    content_file_operations::recover(state, instance_id, &base).await?;
     let file = content_rows::get_instance_file_by_relative_path(
         &scope.instance.id,
         project_path,
@@ -3603,10 +3575,26 @@ pub(crate) async fn remove_project(
     .await?;
 
     let full_path = join_content_path(&base, project_path);
-    let staged_path =
-        full_path.with_extension(format!("{}.removing", uuid::Uuid::new_v4()));
-    if full_path.exists() {
-        io::rename_or_move(&full_path, &staged_path).await?;
+    let staged_relative =
+        format!("{project_path}.{}.removing", uuid::Uuid::new_v4());
+    let paths = if tokio::fs::try_exists(&full_path).await? {
+        vec![(project_path.to_owned(), staged_relative)]
+    } else {
+        vec![]
+    };
+    let _critical = crate::install::critical_section::enter();
+    content_file_operations::prepare(state, instance_id, &base, paths, true)
+        .await?;
+    if let Err(error) =
+        content_file_operations::publish(state, instance_id, &base).await
+    {
+        return Err(content_file_operations::rollback_error(
+            state,
+            instance_id,
+            &base,
+            error,
+        )
+        .await);
     }
 
     let db_result = async {
@@ -3651,20 +3639,21 @@ pub(crate) async fn remove_project(
             &mut tx,
         )
         .await?;
+        content_file_operations::mark_committed(instance_id, &mut tx).await?;
         tx.commit().await?;
         Ok::<(), crate::Error>(())
     }
     .await;
     if let Err(error) = db_result {
-        if staged_path.exists() {
-            io::rename_or_move(&staged_path, &full_path).await?;
-        }
-        return Err(error);
+        return Err(content_file_operations::rollback_error(
+            state,
+            instance_id,
+            &base,
+            error,
+        )
+        .await);
     }
-    if staged_path.exists() {
-        io::remove_file(staged_path).await?;
-    }
-
+    content_file_operations::finish(state, instance_id, &base).await;
     Ok(())
 }
 
@@ -4379,6 +4368,70 @@ mod tests {
                 == materialization_path_key("mods/foo.jar"),
             cfg!(any(windows, target_os = "macos"))
         );
+    }
+
+    #[test]
+    fn toggle_refuses_to_replace_an_existing_sibling_file() {
+        let directory = tempfile::tempdir().unwrap();
+        let mods = directory.path().join("mods");
+        std::fs::create_dir_all(&mods).unwrap();
+        std::fs::write(mods.join("sibling.jar"), b"enabled").unwrap();
+        std::fs::write(mods.join("sibling.jar.disabled"), b"disabled").unwrap();
+
+        let error = resolve_toggle_paths(
+            directory.path(),
+            "mods/sibling.jar",
+            Some(false),
+        )
+        .unwrap_err();
+        assert!(error.to_string().contains("already exists"));
+
+        let error = resolve_toggle_paths(
+            directory.path(),
+            "mods/sibling.jar.disabled",
+            Some(true),
+        )
+        .unwrap_err();
+        assert!(error.to_string().contains("already exists"));
+
+        assert_eq!(
+            std::fs::read(mods.join("sibling.jar")).unwrap(),
+            b"enabled"
+        );
+        assert_eq!(
+            std::fs::read(mods.join("sibling.jar.disabled")).unwrap(),
+            b"disabled"
+        );
+    }
+
+    #[test]
+    fn toggle_renames_when_the_destination_is_free() {
+        let directory = tempfile::tempdir().unwrap();
+        let mods = directory.path().join("mods");
+        std::fs::create_dir_all(&mods).unwrap();
+        std::fs::write(mods.join("single.jar"), b"enabled").unwrap();
+        std::fs::write(mods.join("already.jar.disabled"), b"disabled").unwrap();
+
+        let (current, enabled, next) = resolve_toggle_paths(
+            directory.path(),
+            "mods/single.jar",
+            Some(false),
+        )
+        .unwrap();
+        assert_eq!(current, "mods/single.jar");
+        assert!(!enabled);
+        assert_eq!(next, "mods/single.jar.disabled");
+
+        // Disabling a file that is already disabled keeps its current path.
+        let (current, enabled, next) = resolve_toggle_paths(
+            directory.path(),
+            "mods/already.jar.disabled",
+            Some(false),
+        )
+        .unwrap();
+        assert_eq!(current, "mods/already.jar.disabled");
+        assert!(!enabled);
+        assert_eq!(next, "mods/already.jar.disabled");
     }
 
     #[tokio::test]

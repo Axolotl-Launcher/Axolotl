@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "\n        INSERT INTO screenshots (\n            id,\n            instance_id,\n            file_name,\n            content_hash,\n            file_size,\n            modified_at,\n            created_at\n        )\n        VALUES (?, ?, ?, ?, ?, ?, ?)\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 7
+    },
+    "nullable": []
+  },
+  "hash": "03ca2dc1a219d07c1c09c3c6a8626f8674f60ade45d1540b63ea513d4a899102"
+}

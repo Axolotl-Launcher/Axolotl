@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "\n            INSERT INTO instance_servers\n                (instance_id, id, source, excluded_synced_server_id,\n                 nbt, position)\n            VALUES (?, ?, ?,\n                (SELECT id FROM synced_servers WHERE id = ?), ?, ?)\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 6
+    },
+    "nullable": []
+  },
+  "hash": "d95064c31d347027b44671423e1608e043f4e5ad499d7fca1c26c0826f042886"
+}

@@ -3,7 +3,6 @@ import { ChevronDownIcon, ChevronUpIcon, PlusIcon, XIcon } from '@modrinth/asset
 import { Button, Combobox, type ComboboxOption, defineMessages, useVIntl } from '@modrinth/ui'
 import { computed, ref } from 'vue'
 
-import { commandGeneratorMessages as commonMessages } from '@/lab/command-generator/i18n/messages.ts'
 import type { NbtTagNode, NbtTagType } from '@/lab/command-generator/nbt-tree.ts'
 
 const props = defineProps<{
@@ -58,13 +57,24 @@ const messages = defineMessages({
         id: 'app.lab.command-generator.nbt.child-count',
         defaultMessage: '{count} children',
     },
+    toggleTag: {
+        id: 'app.lab.command-generator.nbt.toggle-tag',
+        defaultMessage: 'Expand or collapse tag',
+    },
+    tagName: { id: 'app.lab.command-generator.nbt.tag-name', defaultMessage: 'Tag name' },
+    tagValue: { id: 'app.lab.command-generator.nbt.tag-value', defaultMessage: 'Tag value' },
+    addTag: { id: 'app.lab.command-generator.nbt.add-tag', defaultMessage: 'Add child tag' },
+    removeTag: {
+        id: 'app.lab.command-generator.nbt.remove-tag',
+        defaultMessage: 'Remove tag',
+    },
 })
 
 const expanded = ref(true)
 
 const isContainer = computed(() => props.node.type === 'compound' || props.node.type === 'list')
 
-const typeOptions = computed<ComboboxOption[]>(() => [
+const typeOptions = computed<ComboboxOption<string>[]>(() => [
     { value: 'string', label: formatMessage(messages.typeString) },
     { value: 'int', label: formatMessage(messages.typeInt) },
     { value: 'long', label: formatMessage(messages.typeLong) },
@@ -91,11 +101,11 @@ function onTypeChange(value: unknown) {
         <div class="nbt-row flex min-w-0 flex-wrap items-center gap-2">
             <Button
                 v-if="isContainer"
-                v-tooltip="formatMessage(commonMessages.toggleTag)"
+                v-tooltip="formatMessage(messages.toggleTag)"
                 type="quiet"
                 size="sm"
                 icon-only
-                :label="formatMessage(commonMessages.toggleTag)"
+                :label="formatMessage(messages.toggleTag)"
                 :aria-expanded="expanded"
                 @click="expanded = !expanded"
             >
@@ -106,7 +116,7 @@ function onTypeChange(value: unknown) {
 
             <input
                 class="nbt-name min-w-0 flex-1 rounded-lg border-0 bg-surface-4 px-2 py-2 text-sm outline-none focus:ring-4 focus:ring-brand-shadow"
-                :aria-label="formatMessage(commonMessages.tagName)"
+                :aria-label="formatMessage(messages.tagName)"
                 :value="node.name"
                 @input="emit('update', node.id, 'name', ($event.target as HTMLInputElement).value)"
             />
@@ -122,7 +132,7 @@ function onTypeChange(value: unknown) {
             <input
                 v-if="!isContainer"
                 class="nbt-value min-w-0 flex-1 rounded-lg border-0 bg-surface-4 px-2 py-2 text-sm outline-none focus:ring-4 focus:ring-brand-shadow"
-                :aria-label="formatMessage(commonMessages.tagValue)"
+                :aria-label="formatMessage(messages.tagValue)"
                 :value="String(node.value)"
                 @input="emit('update', node.id, 'value', ($event.target as HTMLInputElement).value)"
             />
@@ -132,21 +142,21 @@ function onTypeChange(value: unknown) {
 
             <Button
                 v-if="isContainer"
-                v-tooltip="formatMessage(commonMessages.addTag)"
+                v-tooltip="formatMessage(messages.addTag)"
                 type="quiet"
                 size="sm"
                 icon-only
-                :label="formatMessage(commonMessages.addTag)"
+                :label="formatMessage(messages.addTag)"
                 @click="emit('add-child', node.id)"
             >
                 <PlusIcon />
             </Button>
             <Button
-                v-tooltip="formatMessage(commonMessages.removeTag)"
+                v-tooltip="formatMessage(messages.removeTag)"
                 type="quiet"
                 size="sm"
                 icon-only
-                :label="formatMessage(commonMessages.removeTag)"
+                :label="formatMessage(messages.removeTag)"
                 @click="emit('remove', node.id)"
             >
                 <XIcon />

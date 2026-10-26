@@ -18,6 +18,8 @@ before(async () => {
     server = await createServer({
         root: appRoot,
         configFile: `${appRoot}/vite.config.ts`,
+        // This SSR fixture must not replace an active dev server's optimized dependencies.
+        cacheDir: `${appRoot}/node_modules/.vite-schematic-resources`,
         server: { middlewareMode: true, hmr: false },
         appType: 'custom',
     })

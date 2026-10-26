@@ -1,0 +1,447 @@
+[
+  {
+    "id": "story/root",
+    "icon": "grass_block",
+    "since": "1.12"
+  },
+  {
+    "id": "story/mine_stone",
+    "icon": "wooden_pickaxe",
+    "since": "1.12"
+  },
+  {
+    "id": "story/upgrade_tools",
+    "icon": "stone_pickaxe",
+    "since": "1.12"
+  },
+  {
+    "id": "story/smelt_iron",
+    "icon": "furnace",
+    "since": "1.12"
+  },
+  {
+    "id": "story/obtain_armor",
+    "icon": "iron_chestplate",
+    "since": "1.12"
+  },
+  {
+    "id": "story/lava_bucket",
+    "icon": "lava_bucket",
+    "since": "1.12"
+  },
+  {
+    "id": "story/iron_tools",
+    "icon": "iron_pickaxe",
+    "since": "1.12"
+  },
+  {
+    "id": "story/deflect_arrow",
+    "icon": "shield",
+    "since": "1.12"
+  },
+  {
+    "id": "story/enter_the_nether",
+    "icon": "flint_and_steel",
+    "since": "1.12"
+  },
+  {
+    "id": "story/form_obsidian",
+    "icon": "obsidian",
+    "since": "1.12"
+  },
+  {
+    "id": "story/mine_diamond",
+    "icon": "diamond",
+    "since": "1.12"
+  },
+  {
+    "id": "story/enchant_item",
+    "icon": "enchanting_table",
+    "since": "1.12"
+  },
+  {
+    "id": "story/cure_zombie_villager",
+    "icon": "golden_apple",
+    "since": "1.12"
+  },
+  {
+    "id": "story/follow_ender_eye",
+    "icon": "ender_eye",
+    "since": "1.12"
+  },
+  {
+    "id": "story/enter_the_end",
+    "icon": "end_stone",
+    "since": "1.12"
+  },
+  {
+    "id": "nether/root",
+    "icon": "red_nether_bricks",
+    "since": "1.12"
+  },
+  {
+    "id": "nether/return_to_sender",
+    "icon": "fire_charge",
+    "since": "1.12"
+  },
+  {
+    "id": "nether/find_bastion",
+    "icon": "chest",
+    "since": "1.16"
+  },
+  {
+    "id": "nether/obtain_blaze_rod",
+    "icon": "blaze_rod",
+    "since": "1.12"
+  },
+  {
+    "id": "nether/loot_bastion",
+    "icon": "chest",
+    "since": "1.16"
+  },
+  {
+    "id": "nether/brew_potion",
+    "icon": "brewing_stand",
+    "since": "1.12"
+  },
+  {
+    "id": "nether/summon_wither",
+    "icon": "wither_skeleton_skull",
+    "since": "1.12"
+  },
+  {
+    "id": "nether/create_beacon",
+    "icon": "beacon",
+    "since": "1.12"
+  },
+  {
+    "id": "nether/create_full_beacon",
+    "icon": "beacon",
+    "since": "1.12"
+  },
+  {
+    "id": "nether/fast_travel",
+    "icon": "map",
+    "since": "1.12"
+  },
+  {
+    "id": "nether/find_fortress",
+    "icon": "nether_bricks",
+    "since": "1.12"
+  },
+  {
+    "id": "nether/obtain_ancient_debris",
+    "icon": "ancient_debris",
+    "since": "1.16"
+  },
+  {
+    "id": "nether/obtain_crying_obsidian",
+    "icon": "crying_obsidian",
+    "since": "1.16"
+  },
+  {
+    "id": "nether/distract_piglin",
+    "icon": "gold_ingot",
+    "since": "1.16"
+  },
+  {
+    "id": "nether/uneasy_alliance",
+    "icon": "ghast_tear",
+    "since": "1.12"
+  },
+  {
+    "id": "nether/all_potions",
+    "icon": "potion",
+    "since": "1.12"
+  },
+  {
+    "id": "nether/all_effects",
+    "icon": "golden_apple",
+    "since": "1.12"
+  },
+  {
+    "id": "end/root",
+    "icon": "end_stone",
+    "since": "1.12"
+  },
+  {
+    "id": "end/kill_dragon",
+    "icon": "dragon_head",
+    "since": "1.12"
+  },
+  {
+    "id": "end/dragon_egg",
+    "icon": "dragon_egg",
+    "since": "1.12"
+  },
+  {
+    "id": "end/enter_end_gateway",
+    "icon": "ender_pearl",
+    "since": "1.12"
+  },
+  {
+    "id": "end/respawn_dragon",
+    "icon": "end_crystal",
+    "since": "1.12"
+  },
+  {
+    "id": "end/dragon_breath",
+    "icon": "dragon_breath",
+    "since": "1.12"
+  },
+  {
+    "id": "end/find_end_city",
+    "icon": "purpur_block",
+    "since": "1.12"
+  },
+  {
+    "id": "end/elytra",
+    "icon": "elytra",
+    "since": "1.12"
+  },
+  {
+    "id": "end/levitate",
+    "icon": "shulker_shell",
+    "since": "1.12"
+  },
+  {
+    "id": "adventure/root",
+    "icon": "map",
+    "since": "1.12"
+  },
+  {
+    "id": "adventure/kill_a_mob",
+    "icon": "iron_sword",
+    "since": "1.12"
+  },
+  {
+    "id": "adventure/trade",
+    "icon": "emerald",
+    "since": "1.12"
+  },
+  {
+    "id": "adventure/shoot_arrow",
+    "icon": "bow",
+    "since": "1.12"
+  },
+  {
+    "id": "adventure/kill_all_mobs",
+    "icon": "diamond_sword",
+    "since": "1.12"
+  },
+  {
+    "id": "adventure/totem_of_undying",
+    "icon": "totem_of_undying",
+    "since": "1.12"
+  },
+  {
+    "id": "adventure/sleep_in_bed",
+    "icon": "red_bed",
+    "since": "1.12"
+  },
+  {
+    "id": "adventure/hero_of_the_village",
+    "icon": "emerald",
+    "since": "1.14"
+  },
+  {
+    "id": "adventure/sniper_duel",
+    "icon": "arrow",
+    "since": "1.12"
+  },
+  {
+    "id": "adventure/bullseye",
+    "icon": "target",
+    "since": "1.16"
+  },
+  {
+    "id": "adventure/two_birds_one_arrow",
+    "icon": "crossbow",
+    "since": "1.14"
+  },
+  {
+    "id": "adventure/whos_the_pillager_now",
+    "icon": "crossbow",
+    "since": "1.14"
+  },
+  {
+    "id": "adventure/arbalistic",
+    "icon": "crossbow",
+    "since": "1.14"
+  },
+  {
+    "id": "adventure/voluntary_exile",
+    "icon": "crossbow",
+    "since": "1.14"
+  },
+  {
+    "id": "adventure/honey_block_slide",
+    "icon": "honey_block",
+    "since": "1.15"
+  },
+  {
+    "id": "adventure/very_very_frightening",
+    "icon": "trident",
+    "since": "1.16"
+  },
+  {
+    "id": "adventure/lightning_rod_with_villager_no_damage",
+    "icon": "lightning_rod",
+    "since": "1.17"
+  },
+  {
+    "id": "adventure/play_jukebox_in_meadows",
+    "icon": "jukebox",
+    "since": "1.18"
+  },
+  {
+    "id": "adventure/walk_on_powder_snow_with_leather_boots",
+    "icon": "leather_boots",
+    "since": "1.17"
+  },
+  {
+    "id": "adventure/fall_from_world_height",
+    "icon": "water_bucket",
+    "since": "1.17"
+  },
+  {
+    "id": "adventure/kill_mob_near_sculk_catalyst",
+    "icon": "sculk_catalyst",
+    "since": "1.19"
+  },
+  {
+    "id": "adventure/avoid_vibration",
+    "icon": "sculk_sensor",
+    "since": "1.19"
+  },
+  {
+    "id": "adventure/read_power_of_chiseled_bookshelf",
+    "icon": "chiseled_bookshelf",
+    "since": "1.20"
+  },
+  {
+    "id": "adventure/trim_with_all_exclusive_armor_patterns",
+    "icon": "dune_armor_trim_smithing_template",
+    "since": "1.20"
+  },
+  {
+    "id": "adventure/craft_decorated_pot_using_only_sherds",
+    "icon": "decorated_pot",
+    "since": "1.20"
+  },
+  {
+    "id": "adventure/salvage_sherd",
+    "icon": "brush",
+    "since": "1.20"
+  },
+  {
+    "id": "adventure/brush_armadillo",
+    "icon": "armadillo_scute",
+    "since": "1.21"
+  },
+  {
+    "id": "adventure/mob_kebab",
+    "icon": "stick",
+    "since": "1.21.6"
+  },
+  {
+    "id": "husbandry/root",
+    "icon": "hay_block",
+    "since": "1.12"
+  },
+  {
+    "id": "husbandry/breed_an_animal",
+    "icon": "wheat",
+    "since": "1.12"
+  },
+  {
+    "id": "husbandry/tame_an_animal",
+    "icon": "bone",
+    "since": "1.12"
+  },
+  {
+    "id": "husbandry/plant_seed",
+    "icon": "wheat_seeds",
+    "since": "1.12"
+  },
+  {
+    "id": "husbandry/fishy_business",
+    "icon": "fishing_rod",
+    "since": "1.12"
+  },
+  {
+    "id": "husbandry/tactical_fishing",
+    "icon": "bucket",
+    "since": "1.13"
+  },
+  {
+    "id": "husbandry/balanced_diet",
+    "icon": "apple",
+    "since": "1.12"
+  },
+  {
+    "id": "husbandry/obtain_netherite_hoe",
+    "icon": "netherite_hoe",
+    "since": "1.16"
+  },
+  {
+    "id": "husbandry/complete_catalogue",
+    "icon": "cod",
+    "since": "1.14"
+  },
+  {
+    "id": "husbandry/two_by_two",
+    "icon": "golden_carrot",
+    "since": "1.12"
+  },
+  {
+    "id": "husbandry/wax_on",
+    "icon": "honeycomb",
+    "since": "1.17"
+  },
+  {
+    "id": "husbandry/wax_off",
+    "icon": "iron_axe",
+    "since": "1.17"
+  },
+  {
+    "id": "husbandry/ride_a_boat_with_a_goat",
+    "icon": "oak_boat",
+    "since": "1.17"
+  },
+  {
+    "id": "husbandry/make_a_sign_glow",
+    "icon": "glow_ink_sac",
+    "since": "1.17"
+  },
+  {
+    "id": "husbandry/allay_deliver_item_to_player",
+    "icon": "allay_spawn_egg",
+    "since": "1.19"
+  },
+  {
+    "id": "husbandry/leash_all_frog_variants",
+    "icon": "lead",
+    "since": "1.19"
+  },
+  {
+    "id": "husbandry/feed_snifflet",
+    "icon": "torchflower_seeds",
+    "since": "1.20"
+  },
+  {
+    "id": "husbandry/plant_any_sniffer_seed",
+    "icon": "pitcher_pod",
+    "since": "1.20"
+  },
+  {
+    "id": "husbandry/repair_wolf_armor",
+    "icon": "wolf_armor",
+    "since": "1.21"
+  },
+  {
+    "id": "husbandry/whole_pack",
+    "icon": "bone",
+    "since": "1.21"
+  }
+]

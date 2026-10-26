@@ -852,7 +852,20 @@ pub(crate) struct RemoteProject {
 
 impl RemoteProject {
     pub(crate) fn document(self) -> ResourceResult<ProjectDocument> {
-        let protocol = Some(protocol_projection(serde_json::to_value(&self)?));
+        let mut protocol = protocol_projection(serde_json::to_value(&self)?);
+        // The legacy project API represents an unknown team as an empty ID.
+        if self.team.is_none() {
+            protocol["team"] = json!("");
+        }
+        // Redacted links cannot satisfy the legacy protocol's required URL.
+        if let Some(links) = protocol["donation_urls"].as_array_mut() {
+            links.retain(|link| {
+                link["url"]
+                    .as_str()
+                    .is_some_and(|url| !url.trim().is_empty())
+            });
+        }
+        let protocol = Some(protocol);
         let types = resource_types(&self.project_type, &self.loaders);
         Ok(ProjectDocument {
             protocol,

@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "\n        INSERT INTO synced_game_option_state (singleton, revision, catalog_revision)\n        VALUES (1, 0, ?)\n        ON CONFLICT(singleton) DO UPDATE SET\n            catalog_revision = excluded.catalog_revision\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": []
+  },
+  "hash": "d61b07ef5fb14855ca868cb3d447c1e4d02c88eb217d55376895d2795b5dee55"
+}

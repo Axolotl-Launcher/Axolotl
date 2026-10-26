@@ -1,48 +1,48 @@
 {
-	"prettier.endOfLine": "lf",
-	"editor.formatOnSave": true,
-	"eslint.validate": ["javascript", "javascriptreact", "typescript", "typescriptreact"],
-	"editor.detectIndentation": false,
-	"editor.insertSpaces": true,
-	"files.eol": "\n",
-	"files.trimTrailingWhitespace": true,
-	"files.insertFinalNewline": true,
-	"editor.codeActionsOnSave": {
-		"source.fixAll.eslint": "explicit",
-		"source.organizeImports": "never"
-	},
-	"editor.defaultFormatter": "esbenp.prettier-vscode",
-	"[vue]": {
-		"editor.defaultFormatter": "esbenp.prettier-vscode"
-	},
-	"[typescript]": {
-		"editor.defaultFormatter": "esbenp.prettier-vscode"
-	},
-	"[javascript]": {
-		"editor.defaultFormatter": "esbenp.prettier-vscode"
-	},
-	"[scss]": {
-		"editor.defaultFormatter": "esbenp.prettier-vscode"
-	},
-	"[css]": {
-		"editor.defaultFormatter": "esbenp.prettier-vscode"
-	},
-	"[rust]": {
-		"editor.defaultFormatter": "rust-lang.rust-analyzer"
-	},
-	"css.lint.unknownAtRules": "ignore",
-	"scss.lint.unknownAtRules": "ignore",
-	"i18n-ally.localesPaths": [
-		"packages/ui/src/locales",
-		"apps/app-frontend/src/locales",
-		"apps/website/src/locales"
-	],
-	"i18n-ally.pathMatcher": "{locale}/index.{ext}",
-	"i18n-ally.keystyle": "flat",
-	"i18n-ally.sourceLanguage": "zh-CN",
-	"i18n-ally.namespace": false,
-    "i18n-ally.includeSubfolders": true,
-    "[json]": {
-        "editor.defaultFormatter": "vscode.json-language-features"
-    }
+  "prettier.endOfLine": "lf",
+  "editor.formatOnSave": true,
+  "eslint.validate": ["javascript", "javascriptreact", "typescript", "typescriptreact"],
+  "editor.detectIndentation": false,
+  "editor.insertSpaces": true,
+  "files.eol": "\n",
+  "files.trimTrailingWhitespace": true,
+  "files.insertFinalNewline": true,
+  "editor.codeActionsOnSave": {
+    "source.fixAll.eslint": "explicit",
+    "source.organizeImports": "never"
+  },
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+  "[vue]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "[typescript]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "[javascript]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "[scss]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "[css]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "[rust]": {
+    "editor.defaultFormatter": "rust-lang.rust-analyzer"
+  },
+  "css.lint.unknownAtRules": "ignore",
+  "scss.lint.unknownAtRules": "ignore",
+  "i18n-ally.localesPaths": [
+    "packages/ui/src/locales",
+    "apps/app-frontend/src/locales",
+    "apps/website/src/locales"
+  ],
+  "i18n-ally.pathMatcher": "{locale}/index.{ext}",
+  "i18n-ally.keystyle": "flat",
+  "i18n-ally.sourceLanguage": "zh-CN",
+  "i18n-ally.namespace": false,
+  "i18n-ally.includeSubfolders": true,
+  "[json]": {
+    "editor.defaultFormatter": "vscode.json-language-features"
+  }
 }

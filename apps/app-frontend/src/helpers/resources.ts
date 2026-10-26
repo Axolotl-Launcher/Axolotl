@@ -323,14 +323,39 @@ export type ResourceDependencyNode = {
 export function resourceListInstalled(instanceId: string, signal?: AbortSignal) {
     return resourceRequest<InstalledResource[]>('resource_list_installed', { instanceId }, signal)
 }
-export function resourceCheckUpdates(instanceId: string, signal?: AbortSignal) {
+export interface ResourceUpdateProgress {
+    entryId: string
+    release: SourceReleaseRef | null
+    failed: boolean
+    unresolved: boolean
+}
+export interface ResourceUpdateCheckOptions {
+    entryIds?: string[]
+    onProgress?: (progress: ResourceUpdateProgress) => void
+}
+export function resourceCheckUpdates(
+    instanceId: string,
+    signal?: AbortSignal,
+    options?: ResourceUpdateCheckOptions,
+) {
+    let onProgress: Channel<ResourceUpdateProgress> | null = null
+    if (options?.onProgress) {
+        onProgress = new Channel<ResourceUpdateProgress>()
+        onProgress.onmessage = (progress) => {
+            if (!signal?.aborted) options.onProgress?.(progress)
+        }
+    }
     return resourceRequest<{
         entries: string[]
         releases: Record<string, SourceReleaseRef>
         unresolved: string[]
         failures: string[]
         failedEntries: string[]
-    }>('resource_check_updates', { instanceId }, signal)
+    }>(
+        'resource_check_updates',
+        { instanceId, entryIds: options?.entryIds ?? null, onProgress },
+        signal,
+    )
 }
 export function resourcePrepareEntryOperation(
     instanceId: string,

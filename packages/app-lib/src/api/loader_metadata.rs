@@ -1,6 +1,8 @@
 use crate::State;
 use crate::state::CachedLoaderManifest;
-use crate::util::fetch::{FetchSemaphore, fetch, fetch_json, fetch_metadata};
+use crate::util::fetch::{
+    FetchSemaphore, fetch, fetch_json, fetch_metadata, fetch_official,
+};
 use crate::util::io;
 use daedalus::minecraft::{
     Argument, ArgumentType, JavaVersion, Library, VersionType,
@@ -152,16 +154,34 @@ impl<T> Default for MetadataCache<T> {
 }
 
 impl<T: Clone> MetadataCache<T> {
+    #[cfg(test)]
     async fn get_or_fetch<F, Fut>(&self, fetch: F) -> crate::Result<T>
     where
         F: FnOnce() -> Fut,
         Fut: Future<Output = crate::Result<T>>,
     {
+        self.get_or_fetch_with_refresh(false, fetch).await
+    }
+
+    async fn get_or_fetch_with_refresh<F, Fut>(
+        &self,
+        force_refresh: bool,
+        fetch: F,
+    ) -> crate::Result<T>
+    where
+        F: FnOnce() -> Fut,
+        Fut: Future<Output = crate::Result<T>>,
+    {
+        let requested_at = Instant::now();
         // Keep the lock through the fetch so full and scoped
         // requests share one download, including during background refresh.
         let mut cached = self.value.lock().await;
         if let Some((fetched_at, metadata)) = cached.as_ref()
-            && fetched_at.elapsed() < LOADER_METADATA_TTL
+            && if force_refresh {
+                *fetched_at >= requested_at
+            } else {
+                fetched_at.elapsed() < LOADER_METADATA_TTL
+            }
         {
             return Ok(metadata.clone());
         }
@@ -169,9 +189,10 @@ impl<T: Clone> MetadataCache<T> {
         if let Some((failed_at, error)) = self.failure.lock().await.as_ref()
             && failed_at.elapsed() < LOADER_METADATA_RETRY_DELAY
         {
-            return cached.as_ref().map(|(_, value)| value.clone()).ok_or_else(
-                || crate::Error::from_shared_kind(Arc::clone(error)),
-            );
+            if !force_refresh && let Some((_, value)) = cached.as_ref() {
+                return Ok(value.clone());
+            }
+            return Err(crate::Error::from_shared_kind(Arc::clone(error)));
         }
 
         match fetch().await {
@@ -183,7 +204,7 @@ impl<T: Clone> MetadataCache<T> {
             Err(error) => {
                 *self.failure.lock().await =
                     Some((Instant::now(), Arc::clone(&error.raw)));
-                if let Some((_, metadata)) = cached.as_ref() {
+                if !force_refresh && let Some((_, metadata)) = cached.as_ref() {
                     tracing::warn!(error = %error, "Loader metadata refresh failed; serving cached data");
                     Ok(metadata.clone())
                 } else {
@@ -200,10 +221,25 @@ struct LoaderManifestCache {
 }
 
 impl LoaderManifestCache {
+    #[cfg(test)]
     async fn get_or_fetch<'a, Fut>(
         &self,
         loader: &str,
         game_version: Option<&'a str>,
+        fetch: impl FnOnce(Option<&'a str>) -> Fut,
+    ) -> crate::Result<CachedLoaderManifest>
+    where
+        Fut: Future<Output = crate::Result<CachedLoaderManifest>>,
+    {
+        self.get_or_fetch_with_refresh(loader, game_version, false, fetch)
+            .await
+    }
+
+    async fn get_or_fetch_with_refresh<'a, Fut>(
+        &self,
+        loader: &str,
+        game_version: Option<&'a str>,
+        force_refresh: bool,
         fetch: impl FnOnce(Option<&'a str>) -> Fut,
     ) -> crate::Result<CachedLoaderManifest>
     where
@@ -220,7 +256,9 @@ impl LoaderManifestCache {
         }
         .cache_key;
         let cache = self.entry(cache_key).await;
-        let mut result = cache.get_or_fetch(|| fetch(request_scope)).await?;
+        let mut result = cache
+            .get_or_fetch_with_refresh(force_refresh, || fetch(request_scope))
+            .await?;
         if request_scope != game_version
             && let Some(game_version) = game_version
         {
@@ -330,6 +368,7 @@ pub(crate) async fn fetch_loader_manifest_official_first(
     fallback_url: &str,
     fetch_semaphore: &FetchSemaphore,
     pool: &SqlitePool,
+    force_refresh: bool,
 ) -> crate::Result<CachedLoaderManifest> {
     if let Some(game_version) = game_version {
         let unsupported = match loader {
@@ -346,15 +385,21 @@ pub(crate) async fn fetch_loader_manifest_official_first(
         }
     }
     LOADER_MANIFESTS
-        .get_or_fetch(loader, game_version, |request_scope| {
-            fetch_loader_manifest_uncached(
-                loader,
-                request_scope,
-                fallback_url,
-                fetch_semaphore,
-                pool,
-            )
-        })
+        .get_or_fetch_with_refresh(
+            loader,
+            game_version,
+            force_refresh,
+            |request_scope| {
+                fetch_loader_manifest_uncached(
+                    loader,
+                    request_scope,
+                    fallback_url,
+                    fetch_semaphore,
+                    pool,
+                    force_refresh,
+                )
+            },
+        )
         .await
 }
 
@@ -364,6 +409,7 @@ async fn fetch_loader_manifest_uncached(
     fallback_url: &str,
     fetch_semaphore: &FetchSemaphore,
     pool: &SqlitePool,
+    force_refresh: bool,
 ) -> crate::Result<CachedLoaderManifest> {
     let official = tokio::time::timeout(LOADER_METADATA_TIMEOUT, async {
         let official = match (loader, game_version) {
@@ -415,7 +461,7 @@ async fn fetch_loader_manifest_uncached(
                     .map(|manifest| scope_manifest(manifest, game_version))
             }
             ("forge", Some(game_version)) => {
-                fetch_forge_manifest(fetch_semaphore, pool)
+                fetch_forge_manifest(fetch_semaphore, pool, force_refresh)
                     .await
                     .map(|manifest| scope_manifest(manifest, game_version))
             }
@@ -424,6 +470,7 @@ async fn fetch_loader_manifest_uncached(
                     Some(game_version),
                     fetch_semaphore,
                     pool,
+                    force_refresh,
                 )
                 .await
             }
@@ -431,10 +478,16 @@ async fn fetch_loader_manifest_uncached(
                 fetch_fabric_manifest(fetch_semaphore, pool).await
             }
             ("forge", None) => {
-                fetch_forge_manifest(fetch_semaphore, pool).await
+                fetch_forge_manifest(fetch_semaphore, pool, force_refresh).await
             }
             ("neo", None) => {
-                fetch_neoforge_manifest(None, fetch_semaphore, pool).await
+                fetch_neoforge_manifest(
+                    None,
+                    fetch_semaphore,
+                    pool,
+                    force_refresh,
+                )
+                .await
             }
             ("quilt", None) => {
                 fetch_quilt_manifest(fetch_semaphore, pool).await
@@ -861,20 +914,20 @@ fn liteloader_manifest(
             .and_then(|value| value.as_str())
             .is_none_or(|stream| !stream.eq_ignore_ascii_case("snapshot"));
         game_versions.push(Version {
-			id: game_version.clone(),
-			stable: true,
-			version_group: None,
-			loaders: vec![LoaderVersion {
-				id: version.to_string(),
-				url: LITELOADER_META_URL.to_string(),
-				stable,
-				profile_source: LoaderProfileSource::LiteLoader,
-				fallback_url: Some(
-					"https://bmclapi2.bangbang93.com/maven/com/mumfrey/liteloader/versions.json"
-						.to_string(),
-				),
-			}],
-		});
+            id: game_version.clone(),
+            stable: true,
+            version_group: None,
+            loaders: vec![LoaderVersion {
+                id: version.to_string(),
+                url: LITELOADER_META_URL.to_string(),
+                stable,
+                profile_source: LoaderProfileSource::LiteLoader,
+                fallback_url: Some(
+                    "https://bmclapi2.bangbang93.com/maven/com/mumfrey/liteloader/versions.json"
+                        .to_string(),
+                ),
+            }],
+        });
     }
     game_versions.sort_by(|left, right| compare_versions(&right.id, &left.id));
     Ok(Manifest {
@@ -1077,14 +1130,75 @@ fn meta_api_manifest(
 async fn fetch_forge_manifest(
     fetch_semaphore: &FetchSemaphore,
     pool: &SqlitePool,
+    official_only: bool,
 ) -> crate::Result<Manifest> {
     let metadata_url = format!("{FORGE_MAVEN_URL}maven-metadata.xml");
     let (metadata, promotions) = fetch_forge_indexes(
-        fetch_maven_metadata(&metadata_url, fetch_semaphore, pool),
+        async {
+            if official_only {
+                let bytes = fetch_official(
+                    &metadata_url,
+                    None,
+                    None,
+                    None,
+                    fetch_semaphore,
+                    pool,
+                )
+                .await?;
+                parse_maven_metadata(&metadata_url, &bytes)
+            } else {
+                fetch_maven_metadata(&metadata_url, fetch_semaphore, pool).await
+            }
+        },
         fetch_loader_json(FORGE_PROMOTIONS_URL, fetch_semaphore, pool),
     )
     .await?;
     Ok(forge_manifest(metadata, promotions))
+}
+
+/// An exact-version miss is not a transport error, so it needs an independent
+/// catalog lookup even when the primary catalog passed its format validation.
+pub(crate) async fn find_forge_version_in_fallback(
+    game_version: &str,
+    requested: &str,
+) -> crate::Result<Option<LoaderVersion>> {
+    let state = crate::State::get().await?;
+    let url = format!(
+        "{}forge/v0/manifest.json",
+        env!("MODRINTH_LAUNCHER_META_URL")
+    );
+    let bytes = tokio::time::timeout(
+        LOADER_METADATA_TIMEOUT,
+        fetch_official(
+            &url,
+            None,
+            None,
+            None,
+            &state.api_semaphore,
+            &state.pool,
+        ),
+    )
+    .await
+    .map_err(|_| {
+        crate::ErrorKind::OtherError(
+            "Forge fallback catalog request timed out".into(),
+        )
+        .as_error()
+    })??;
+    let manifest = validate_manifest(serde_json::from_slice(&bytes)?)?;
+    Ok(find_exact_forge_version(manifest, game_version, requested))
+}
+
+fn find_exact_forge_version(
+    manifest: Manifest,
+    game_version: &str,
+    requested: &str,
+) -> Option<LoaderVersion> {
+    scope_manifest(manifest, game_version)
+        .game_versions
+        .into_iter()
+        .flat_map(|version| version.loaders)
+        .find(|version| version.id == requested)
 }
 
 async fn fetch_forge_indexes(
@@ -1186,21 +1300,29 @@ async fn fetch_neoforge_manifest(
     game_version: Option<&str>,
     fetch_semaphore: &FetchSemaphore,
     pool: &SqlitePool,
+    force_refresh: bool,
 ) -> crate::Result<Manifest> {
     let (current, legacy) = fetch_neoforge_indexes(
         game_version,
         || {
-            NEOFORGE_CURRENT_METADATA.get_or_fetch(|| async {
-                let url = format!("{NEOFORGE_MAVEN_URL}maven-metadata.xml");
-                fetch_maven_metadata(&url, fetch_semaphore, pool).await
-            })
+            NEOFORGE_CURRENT_METADATA.get_or_fetch_with_refresh(
+                force_refresh,
+                || async {
+                    let url = format!("{NEOFORGE_MAVEN_URL}maven-metadata.xml");
+                    fetch_maven_metadata(&url, fetch_semaphore, pool).await
+                },
+            )
         },
         || {
-            NEOFORGE_LEGACY_METADATA.get_or_fetch(|| async {
-                let url =
-                    format!("{NEOFORGE_LEGACY_MAVEN_URL}maven-metadata.xml");
-                fetch_maven_metadata(&url, fetch_semaphore, pool).await
-            })
+            NEOFORGE_LEGACY_METADATA.get_or_fetch_with_refresh(
+                force_refresh,
+                || async {
+                    let url = format!(
+                        "{NEOFORGE_LEGACY_MAVEN_URL}maven-metadata.xml"
+                    );
+                    fetch_maven_metadata(&url, fetch_semaphore, pool).await
+                },
+            )
         },
     )
     .await?;
@@ -1312,9 +1434,16 @@ fn scope_manifest(manifest: Manifest, game_version: &str) -> Manifest {
         .game_versions
         .iter()
         .any(|version| version.id == game_version);
-    let scoped = manifest.game_versions.iter().find(|version| {
-        version.id.replace(DUMMY_REPLACE_STRING, game_version) == game_version
-    });
+    let scoped = manifest
+        .game_versions
+        .iter()
+        .find(|version| version.id == game_version)
+        .or_else(|| {
+            manifest.game_versions.iter().find(|version| {
+                version.id.replace(DUMMY_REPLACE_STRING, game_version)
+                    == game_version
+            })
+        });
 
     let (stable, loaders) = scoped.map_or((true, Vec::new()), |version| {
         let loaders = if version.id == DUMMY_REPLACE_STRING
@@ -1846,9 +1975,9 @@ fn build_liteloader_profile(
         })?;
     if actual_version != loader_version {
         return Err(crate::ErrorKind::InputError(format!(
-			"LiteLoader version {loader_version} is not available for Minecraft {game_version}"
-		))
-		.into());
+            "LiteLoader version {loader_version} is not available for Minecraft {game_version}"
+        ))
+        .into());
     }
     let tweak_class = entry
         .get("tweakClass")
@@ -2007,10 +2136,10 @@ fn parse_installer(
         serde_json::to_vec(version_info)?
     } else {
         return Err(crate::ErrorKind::OtherError(
-			"Loader installer contains no version.json, profile json, or versionInfo"
-				.to_string(),
-		)
-		.as_error());
+            "Loader installer contains no version.json, profile json, or versionInfo"
+                .to_string(),
+        )
+        .as_error());
     };
     let mut installer: InstallerProfile =
         serde_json::from_value(profile_value)?;
@@ -2019,10 +2148,10 @@ fn parse_installer(
     if version_value.get("inheritsFrom").is_none() {
         let minecraft = installer.minecraft.clone().ok_or_else(|| {
             crate::ErrorKind::OtherError(
-				"Loader installer version has no inheritsFrom or minecraft version"
-					.to_string(),
-			)
-			.as_error()
+                "Loader installer version has no inheritsFrom or minecraft version"
+                    .to_string(),
+            )
+            .as_error()
         })?;
         version_value
             .as_object_mut()
@@ -2307,6 +2436,30 @@ mod tests {
     use std::io::Write;
     use zip::write::SimpleFileOptions;
 
+    #[test]
+    fn forge_fallback_requires_exact_game_and_loader_version() {
+        let manifest = forge_manifest(
+            maven_metadata(
+                "",
+                &["1.20.1-47.4.28", "1.20.1-47.4.22", "1.21.1-52.1.0"],
+            ),
+            ForgePromotions::default(),
+        );
+        assert_eq!(
+            find_exact_forge_version(manifest.clone(), "1.20.1", "47.4.28")
+                .unwrap()
+                .id,
+            "47.4.28"
+        );
+        assert!(
+            find_exact_forge_version(manifest.clone(), "1.21.1", "47.4.28")
+                .is_none()
+        );
+        assert!(
+            find_exact_forge_version(manifest, "1.20.1", "47.4.29").is_none()
+        );
+    }
+
     fn maven_metadata(release: &str, versions: &[&str]) -> MavenMetadata {
         MavenMetadata {
             versioning: MavenVersioning {
@@ -2319,6 +2472,169 @@ mod tests {
                 },
             },
         }
+    }
+
+    #[tokio::test]
+    async fn forced_forge_refresh_replaces_fresh_memory_catalog() {
+        let cache = LoaderManifestCache::default();
+        let old = || async {
+            Ok(CachedLoaderManifest {
+                loader: "forge".into(),
+                manifest: forge_manifest(
+                    maven_metadata("", &["1.20.1-47.4.22"]),
+                    ForgePromotions::default(),
+                ),
+            })
+        };
+        cache
+            .get_or_fetch("forge", Some("1.20.1"), |_| old())
+            .await
+            .unwrap();
+        let fresh = cache
+            .get_or_fetch_with_refresh(
+                "forge",
+                Some("1.20.1"),
+                true,
+                |scope| async move {
+                    assert_eq!(scope, None);
+                    Ok(CachedLoaderManifest {
+                        loader: "forge".into(),
+                        manifest: forge_manifest(
+                            maven_metadata(
+                                "",
+                                &["1.20.1-47.4.28", "1.21.1-52.1.0"],
+                            ),
+                            ForgePromotions::default(),
+                        ),
+                    })
+                },
+            )
+            .await
+            .unwrap();
+        assert_eq!(forge_loaders(&fresh.manifest, "1.20.1")[0].id, "47.4.28");
+        let other = cache
+            .get_or_fetch("forge", Some("1.21.1"), |_| async {
+                panic!(
+                    "refreshed full catalog should serve other game versions"
+                )
+            })
+            .await
+            .unwrap();
+        assert_eq!(forge_loaders(&other.manifest, "1.21.1")[0].id, "52.1.0");
+    }
+
+    #[tokio::test]
+    async fn forced_metadata_refresh_reports_failure_without_destroying_cache()
+    {
+        let cache = MetadataCache::default();
+        cache.get_or_fetch(|| async { Ok(22) }).await.unwrap();
+        let failed = cache
+            .get_or_fetch_with_refresh(true, || async {
+                Err(crate::ErrorKind::OtherError("refresh failed".into())
+                    .as_error())
+            })
+            .await;
+        assert!(failed.unwrap_err().to_string().contains("refresh failed"));
+        assert_eq!(
+            cache
+                .get_or_fetch(|| async { panic!("keep good cache") })
+                .await
+                .unwrap(),
+            22
+        );
+        let retry = cache
+            .get_or_fetch_with_refresh(true, || async {
+                panic!("failure backoff should prevent a retry storm")
+            })
+            .await;
+        assert!(retry.is_err());
+    }
+
+    #[tokio::test]
+    async fn simultaneous_forced_refreshes_share_the_inflight_request() {
+        use std::sync::atomic::{AtomicUsize, Ordering};
+        let cache = MetadataCache::default();
+        cache.get_or_fetch(|| async { Ok(22) }).await.unwrap();
+        let calls = AtomicUsize::new(0);
+        let fetch = || async {
+            calls.fetch_add(1, Ordering::SeqCst);
+            tokio::task::yield_now().await;
+            Ok(28)
+        };
+        let (first, second) = tokio::join!(
+            cache.get_or_fetch_with_refresh(true, fetch),
+            cache.get_or_fetch_with_refresh(true, fetch),
+        );
+        assert_eq!(first.unwrap(), 28);
+        assert_eq!(second.unwrap(), 28);
+        assert_eq!(calls.load(Ordering::SeqCst), 1);
+    }
+
+    #[tokio::test]
+    async fn database_bypass_propagates_through_loader_memory_cache() {
+        let entry = LOADER_MANIFESTS
+            .entry(
+                daedalus::modded::loader_manifest_metadata("forge").cache_key,
+            )
+            .await;
+        *entry.value.lock().await = Some((
+            Instant::now(),
+            CachedLoaderManifest {
+                loader: "forge".into(),
+                manifest: forge_manifest(
+                    maven_metadata("", &["1.20.1-47.4.22"]),
+                    ForgePromotions::default(),
+                ),
+            },
+        ));
+        *entry.failure.lock().await = Some((
+            Instant::now(),
+            Arc::new(crate::ErrorKind::OtherError(
+                "forced refresh reached memory cache".into(),
+            )),
+        ));
+        let pool = sqlx::sqlite::SqlitePoolOptions::new()
+            .max_connections(1)
+            .connect("sqlite::memory:")
+            .await
+            .unwrap();
+        let semaphore = FetchSemaphore(tokio::sync::Semaphore::new(0));
+        let result = tokio::time::timeout(
+            Duration::from_secs(2),
+            crate::state::CachedEntry::get_loader_manifest(
+                &daedalus::modded::loader_manifest_metadata_for_game(
+                    "forge", "1.20.1",
+                )
+                .cache_key,
+                Some(crate::state::CacheBehaviour::Bypass),
+                &pool,
+                &semaphore,
+            ),
+        )
+        .await;
+        *entry.value.lock().await = None;
+        *entry.failure.lock().await = None;
+        pool.close().await;
+        let error = result.unwrap().unwrap_err();
+        assert!(
+            error
+                .to_string()
+                .contains("forced refresh reached memory cache")
+        );
+    }
+
+    #[test]
+    fn scoped_catalog_prefers_explicit_game_over_earlier_placeholder() {
+        let mut full = forge_manifest(
+            maven_metadata("", &["1.20.1-47.4.28"]),
+            ForgePromotions::default(),
+        );
+        let mut generic = full.game_versions[0].clone();
+        generic.id = DUMMY_REPLACE_STRING.into();
+        generic.loaders.clear();
+        full.game_versions.insert(0, generic);
+        let scoped = scope_manifest(full, "1.20.1");
+        assert_eq!(forge_loaders(&scoped, "1.20.1")[0].id, "47.4.28");
     }
 
     #[tokio::test]
@@ -2392,6 +2708,7 @@ mod tests {
                     "https://invalid.test/manifest.json",
                     &semaphore,
                     &pool,
+                    false,
                 ),
             )
             .await
@@ -3221,18 +3538,18 @@ mod tests {
         let options = SimpleFileOptions::default();
         archive.start_file("install_profile.json", options).unwrap();
         archive
-			.write_all(
-				serde_json::json!({
-					"versionInfo": minimal_installer_version("1.7.10-Forge"),
-					"install": {
-						"path": "net.minecraftforge:forge:1.7.10-10.13.4.1614-1.7.10",
-						"filePath": "/forge-universal.jar"
-					}
-				})
-				.to_string()
-				.as_bytes(),
-			)
-			.unwrap();
+            .write_all(
+                serde_json::json!({
+                    "versionInfo": minimal_installer_version("1.7.10-Forge"),
+                    "install": {
+                        "path": "net.minecraftforge:forge:1.7.10-10.13.4.1614-1.7.10",
+                        "filePath": "/forge-universal.jar"
+                    }
+                })
+                .to_string()
+                .as_bytes(),
+            )
+            .unwrap();
         archive.start_file("forge-universal.jar", options).unwrap();
         archive.write_all(b"legacy universal artifact").unwrap();
         let parsed = parse_installer(
@@ -3280,20 +3597,20 @@ mod tests {
         let options = SimpleFileOptions::default();
         archive.start_file("version.json", options).unwrap();
         archive
-			.write_all(
-				serde_json::json!({
-					"id": "1.12.2-Cleanroom-test",
-					"releaseTime": "2026-08-15T20:37:45+00:00",
-					"time": "2026-08-15T20:37:45+00:00",
-					"mainClass": "top.outlands.foundation.boot.Foundation",
-					"javaVersion": {"component": "java-runtime-epsilon", "majorVersion": 25},
-					"libraries": [],
-					"type": "release"
-				})
-				.to_string()
-				.as_bytes(),
-			)
-			.unwrap();
+            .write_all(
+                serde_json::json!({
+                    "id": "1.12.2-Cleanroom-test",
+                    "releaseTime": "2026-08-15T20:37:45+00:00",
+                    "time": "2026-08-15T20:37:45+00:00",
+                    "mainClass": "top.outlands.foundation.boot.Foundation",
+                    "javaVersion": {"component": "java-runtime-epsilon", "majorVersion": 25},
+                    "libraries": [],
+                    "type": "release"
+                })
+                .to_string()
+                .as_bytes(),
+            )
+            .unwrap();
         archive.start_file("install_profile.json", options).unwrap();
         archive
             .write_all(br#"{"minecraft":"1.12.2","json":"/version.json"}"#)

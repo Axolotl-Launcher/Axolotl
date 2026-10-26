@@ -158,13 +158,13 @@ pub async fn set_privacy(
     let state = State::get().await?;
     let mut transaction = state.pool.begin().await?;
     sqlx::query(
-		"UPDATE settings SET telemetry = ?, discord_rpc = ?, telemetry_consent_version = ? WHERE id = 0",
-	)
-	.bind(privacy.telemetry)
-	.bind(privacy.discord_rpc)
-	.bind(privacy.consent_version)
-	.execute(&mut *transaction)
-	.await?;
+        "UPDATE settings SET telemetry = ?, discord_rpc = ?, telemetry_consent_version = ? WHERE id = 0",
+    )
+    .bind(privacy.telemetry)
+    .bind(privacy.discord_rpc)
+    .bind(privacy.consent_version)
+    .execute(&mut *transaction)
+    .await?;
     sqlx::query("DELETE FROM telemetry_outbox")
         .execute(&mut *transaction)
         .await?;

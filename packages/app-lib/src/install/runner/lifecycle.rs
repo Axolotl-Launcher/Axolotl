@@ -13,7 +13,7 @@ impl Drop for CancellationRegistration<'_> {
 
 pub(super) fn spawn_job(job_id: Uuid) {
     tokio::spawn(async move {
-        if let Err(error) = run_job(job_id).await {
+        if let Err(error) = EXECUTING_JOB.scope(job_id, run_job(job_id)).await {
             tracing::error!("Install job {job_id} failed: {error}");
         }
     });
@@ -88,7 +88,8 @@ async fn run_job(job_id: Uuid) -> crate::Result<()> {
         return Ok(());
     }
 
-    let _install_permit = state.install_job_semaphore.acquire().await?;
+    let (_execution, _install_permit) =
+        admission::execution_slot(&state, &job).await?;
     job = store::get_required(job_id, &state).await?;
 
     if job.status != InstallJobStatus::Queued {

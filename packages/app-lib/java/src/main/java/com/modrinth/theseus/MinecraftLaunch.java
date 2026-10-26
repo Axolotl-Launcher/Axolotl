@@ -20,6 +20,10 @@ public final class MinecraftLaunch {
                 .map(MinecraftLaunch::decodeGameArgument)
                 .toArray(String[]::new);
 
+        // Some mods read the JVM's command property instead of the main
+        // method arguments. Restore the game invocation they expect after
+        // decoding arguments for paths that contain non-ASCII characters.
+        setGameCommandProperty(mainClass, gameArgs);
         System.setProperty("modrinth.process.args", String.join("\u001f", gameArgs));
 
         final CompletableFuture<Void> waitForLaunch = new CompletableFuture<>();
@@ -41,6 +45,14 @@ public final class MinecraftLaunch {
 
         final byte[] encoded = Base64.getDecoder().decode(argument.substring(UTF8_GAME_ARGUMENT_PREFIX.length()));
         return new String(encoded, StandardCharsets.UTF_8);
+    }
+
+    static void setGameCommandProperty(String mainClassName, String[] args) {
+        final StringBuilder command = new StringBuilder(mainClassName);
+        for (String argument : args) {
+            command.append(' ').append(argument);
+        }
+        System.setProperty("sun.java.command", command.toString());
     }
 
     private static void relaunch(String mainClassName, String[] args) throws ReflectiveOperationException {

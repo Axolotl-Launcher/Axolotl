@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "\n        INSERT INTO instance_sync_checkpoints\n            (instance_id, feature, variant, expected_sha1, merge_base,\n             source_revision, status, link_mode)\n        VALUES (?, 'multiplayer_servers', 'default', ?, NULL, ?,\n            'pending', NULL)\n        ON CONFLICT(instance_id, feature, variant) DO UPDATE SET\n            expected_sha1 = excluded.expected_sha1,\n            merge_base = NULL,\n            source_revision = excluded.source_revision,\n            status = 'pending',\n            link_mode = NULL\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 3
+    },
+    "nullable": []
+  },
+  "hash": "1bffe174cd6c11122e2ca85de6b1c6e35b55ab7e9933c9090e95e8591687c906"
+}

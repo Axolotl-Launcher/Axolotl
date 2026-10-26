@@ -31,13 +31,13 @@
                     <CheckIcon v-else />
                 </Button>
                 <!-- 开服功能暂有问题，隐藏该按钮
-				<Button v-if="serverCapable && startServer" circular icon-only type="quiet"
-						v-tooltip="formatMessage(messages.startServer)"
-						@click.stop="() => startServer(version)"
-					>
-						<ServerIcon />
-					</Button>
-				-->
+                <Button v-if="serverCapable && startServer" circular icon-only type="quiet"
+                        v-tooltip="formatMessage(messages.startServer)"
+                        @click.stop="() => startServer(version)"
+                    >
+                        <ServerIcon />
+                    </Button>
+                -->
                 <ButtonLink
                     v-tooltip="formatMessage(commonMessages.openInBrowserButton)"
                     :href="`https://modrinth.com/${project.project_type}/${project.slug}/version/${version.id}`"

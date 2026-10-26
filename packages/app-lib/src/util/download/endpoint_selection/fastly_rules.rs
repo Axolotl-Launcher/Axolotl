@@ -6,6 +6,7 @@ use std::net::{IpAddr, Ipv4Addr};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use crate::util::download::constants::{
+    FASTLY_ATLAS_SEED_PREFIXES as ATLAS_SEED_PREFIXES,
     FASTLY_CATALOG_LIFETIME as CATALOG_LIFETIME,
     FASTLY_CATALOG_VERSION as CATALOG_VERSION,
     FASTLY_KNOWN_CNAME as KNOWN_CNAME,
@@ -13,7 +14,7 @@ use crate::util::download::constants::{
     FASTLY_REVIEWED_UNIX_SECONDS as REVIEWED_UNIX_SECONDS,
     FASTLY_SEED_PREFIXES as SEED_PREFIXES,
 };
-// Reviewed 2026-10-21 against the public A/AAAA and CNAME responses. These
+// Reviewed against the 2026-10-24 study and 2026-10-25 DoH/TLS checks. These
 // prefixes remain untrusted seeds; every use requires TLS and Range checks.
 pub(super) fn seed_candidates(
     answers: &[DnsAnswer],
@@ -39,6 +40,7 @@ pub(super) fn seed_candidates(
         return Vec::new();
     }
     let mut suffix = None;
+    let mut atlas = None;
     let mut seen = [false; 4];
     let mut valid_until = now + ENDPOINT_HINT_LIFETIME;
     for answer in fresh {
@@ -46,26 +48,38 @@ pub(super) fn seed_candidates(
             valid_until = valid_until.min(address.expires_at);
             let IpAddr::V4(ip) = address.ip else { continue };
             let [a, b, c, d] = ip.octets();
-            let Some(index) =
-                POOL_THIRD_OCTETS.iter().position(|&octet| octet == c)
-            else {
-                return Vec::new();
-            };
-            if a != 151 || b != 101 || suffix.is_some_and(|suffix| suffix != d)
+            let pool_index = (a == 151 && b == 101)
+                .then(|| POOL_THIRD_OCTETS.iter().position(|&octet| octet == c))
+                .flatten();
+            let is_atlas = c % 4 == 1
+                && (a == 146 && b == 75
+                    || a == 151 && b == 101 && pool_index.is_none());
+            if (!is_atlas && pool_index.is_none())
+                || atlas.is_some_and(|atlas| atlas != is_atlas)
+                || suffix.is_some_and(|suffix| suffix != d)
             {
                 return Vec::new();
             }
+            atlas = Some(is_atlas);
             suffix = Some(d);
-            seen[index] = true;
+            if let Some(index) = pool_index {
+                seen[index] = true;
+            }
         }
     }
-    let Some(suffix) = suffix.filter(|_| seen.into_iter().all(|value| value))
+    let Some(suffix) = suffix
+        .filter(|_| atlas == Some(true) || seen.into_iter().all(|value| value))
     else {
         return Vec::new();
     };
     valid_until =
         valid_until.min(now + expires.duration_since(wall_time).unwrap());
-    SEED_PREFIXES
+    let prefixes = if atlas == Some(true) {
+        ATLAS_SEED_PREFIXES
+    } else {
+        SEED_PREFIXES
+    };
+    prefixes
         .into_iter()
         .map(|[a, b, c]| EndpointCandidate {
             ip: Ipv4Addr::new(a, b, c, suffix).into(),

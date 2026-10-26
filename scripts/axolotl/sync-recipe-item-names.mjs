@@ -2,11 +2,11 @@ import fs from 'node:fs/promises'
 
 const MINECRAFT_ASSETS_VERSION = '13f6f6ec4fae33d9724b16ed1e332657a6c125c8'
 const ITEMS_ROOT = new URL(
-    '../../apps/app-frontend/src/lab/recipe-generator/assets/items/',
+    '../../apps/app-frontend/src/lab/shared/minecraft/assets/items/',
     import.meta.url,
 )
 const OUTPUT_FILE = new URL(
-    '../../apps/app-frontend/src/lab/recipe-generator/assets/vanilla/item-name-index.json',
+    '../../apps/app-frontend/src/lab/shared/minecraft/assets/vanilla/item-name-index.json',
     import.meta.url,
 )
 

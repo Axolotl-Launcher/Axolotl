@@ -95,14 +95,83 @@ async fn sync_instance_content_files_with_verification(
     state: &State,
     verify_all: bool,
 ) -> crate::Result<Vec<InstanceFile>> {
+    Box::pin(sync_with_retry(instance, state, verify_all, || {
+        std::future::ready(())
+    }))
+    .await
+}
+
+enum ScanAttempt {
+    Committed(Vec<InstanceFile>),
+    Retry(HashSet<String>),
+}
+
+async fn sync_with_retry<F, Fut>(
+    instance: &Instance,
+    state: &State,
+    verify_all: bool,
+    mut before_commit: F,
+) -> crate::Result<Vec<InstanceFile>>
+where
+    F: FnMut() -> Fut,
+    Fut: std::future::Future<Output = ()>,
+{
+    {
+        let _lock = state
+            .lock_instance_content_with_timeout(
+                &instance.id,
+                std::time::Duration::from_secs(20),
+            )
+            .await?;
+        let root = instance_content_root(&state.directories, instance)?;
+        super::content_file_operations::recover(state, &instance.id, &root)
+            .await?;
+    }
+    let mut changed = HashSet::new();
+    for _ in 0..3 {
+        match scan_and_commit(
+            instance,
+            state,
+            verify_all,
+            &changed,
+            &mut before_commit,
+        )
+        .await?
+        {
+            ScanAttempt::Committed(files) => return Ok(files),
+            ScanAttempt::Retry(paths) => changed.extend(paths),
+        }
+    }
+    Err(crate::ErrorKind::InputError(
+        "Content changed repeatedly during scanning; retry after file operations finish".into(),
+    ).into())
+}
+
+async fn scan_and_commit<F, Fut>(
+    instance: &Instance,
+    state: &State,
+    verify_all: bool,
+    changed: &HashSet<String>,
+    before_commit: &mut F,
+) -> crate::Result<ScanAttempt>
+where
+    F: FnMut() -> Fut,
+    Fut: std::future::Future<Output = ()>,
+{
+    let content_set = sqlite::content_rows::get_applied_content_set(
+        &instance.id,
+        &state.pool,
+    )
+    .await?;
     let watch_snapshot = state
         .file_watcher
         .content_watch_snapshot(&instance.id)
         .await;
-    let dirty_paths = watch_snapshot
+    let mut dirty_paths: HashSet<String> = watch_snapshot
         .as_ref()
         .map(|snapshot| snapshot.dirty_paths.clone())
         .unwrap_or_default();
+    dirty_paths.extend(changed.iter().cloned());
     let content_root = instance_content_root(&state.directories, instance)?;
     // The hash-cache layer resolves key paths against Axolotl's own instances
     // folder (`state/cache.rs`). For directly associated instances the
@@ -123,8 +192,12 @@ async fn sync_instance_content_files_with_verification(
     } else {
         instance.path.clone()
     };
-    let scanned =
-        filesystem::scan_content_files_from(&content_root, &cache_key_path)?;
+    let scan_root = content_root.clone();
+    let scanned = tokio::task::spawn_blocking(move || {
+        filesystem::scan_content_files_from(&scan_root, &cache_key_path)
+    })
+    .await??;
+    let scanned_state = scan_state(&scanned);
     let scanned_paths = scanned
         .iter()
         .map(|file| file.relative_path.clone())
@@ -173,11 +246,6 @@ async fn sync_instance_content_files_with_verification(
             )
         })
         .collect();
-    let content_set = sqlite::content_rows::get_applied_content_set(
-        &instance.id,
-        &state.pool,
-    )
-    .await?;
     let entry_file_ids = match content_set.as_ref() {
         Some(content_set) => sqlite::content_rows::get_content_entries(
             &content_set.id,
@@ -380,7 +448,44 @@ async fn sync_instance_content_files_with_verification(
     // Hashing is deliberately outside the instance lock. The lock only
     // protects the short database reconciliation transaction, so a large
     // modpack cannot block disable/delete operations for its entire scan.
-    let _instance_lock = state.lock_instance_content(&instance.id).await;
+    before_commit().await;
+    let _instance_lock = state
+        .lock_instance_content_with_timeout(
+            &instance.id,
+            std::time::Duration::from_secs(20),
+        )
+        .await?;
+    super::content_file_operations::recover(
+        state,
+        &instance.id,
+        &instance_files_root,
+    )
+    .await?;
+    let latest_set = sqlite::content_rows::get_applied_content_set(
+        &instance.id,
+        &state.pool,
+    )
+    .await?;
+    let latest_watch = state
+        .file_watcher
+        .content_watch_snapshot(&instance.id)
+        .await;
+    let verify_root = instance_files_root.clone();
+    let latest_files = tokio::task::spawn_blocking(move || {
+        filesystem::scan_content_files_from(&verify_root, "")
+    })
+    .await??;
+    let latest_state = scan_state(&latest_files);
+    let changed_paths = changed_scan_paths(&scanned_state, &latest_state);
+    let revision = |set: &Option<crate::state::ContentSet>| {
+        set.as_ref().map(|set| (set.id.clone(), set.revision))
+    };
+    if !changed_paths.is_empty()
+        || watch_snapshot != latest_watch
+        || revision(&content_set) != revision(&latest_set)
+    {
+        return Ok(ScanAttempt::Retry(changed_paths));
+    }
     let mut tx = state.pool.begin_with("BEGIN IMMEDIATE").await?;
     sqlite::content_rows::ensure_instance_exists(&instance.id, &mut tx).await?;
     sqlite::content_rows::mark_instance_files_missing(&instance.id, &mut tx)
@@ -475,6 +580,15 @@ async fn sync_instance_content_files_with_verification(
         .await?;
     }
 
+    if state
+        .file_watcher
+        .content_watch_snapshot(&instance.id)
+        .await
+        != watch_snapshot
+    {
+        tx.rollback().await?;
+        return Ok(ScanAttempt::Retry(HashSet::new()));
+    }
     tx.commit().await?;
 
     if let Some(snapshot) = watch_snapshot {
@@ -487,7 +601,28 @@ async fn sync_instance_content_files_with_verification(
             .await;
     }
 
-    Ok(synced_files)
+    Ok(ScanAttempt::Committed(synced_files))
+}
+
+type ScanState = HashMap<String, (u64, Option<std::time::SystemTime>)>;
+
+fn scan_state(files: &[filesystem::ScannedContentFile]) -> ScanState {
+    files
+        .iter()
+        .map(|file| (file.relative_path.clone(), (file.size, file.modified)))
+        .collect()
+}
+
+fn changed_scan_paths(
+    before: &ScanState,
+    after: &ScanState,
+) -> HashSet<String> {
+    before
+        .keys()
+        .chain(after.keys())
+        .filter(|path| before.get(*path) != after.get(*path))
+        .cloned()
+        .collect()
 }
 
 fn content_path_is_dirty(path: &str, dirty_paths: &HashSet<String>) -> bool {
@@ -1136,5 +1271,152 @@ mod tests {
         assert!(!physical_file_identity_changed(&file, "official", 10));
         assert!(physical_file_identity_changed(&file, "external", 10));
         assert!(physical_file_identity_changed(&file, "official", 11));
+    }
+
+    async fn isolated_scan_fixture()
+    -> (tempfile::TempDir, Arc<State>, Instance, PathBuf) {
+        let temp = tempfile::tempdir().unwrap();
+        let directories = DirectoryInfo {
+            settings_dir: temp.path().to_owned(),
+            config_dir: temp.path().to_owned(),
+            app_identifier: "content-scan-test".into(),
+        };
+        let root = directories.instances_dir().join("example");
+        fs::create_dir_all(root.join("mods")).unwrap();
+        fs::write(root.join("mods/example.jar"), b"old bytes").unwrap();
+        let pool = sqlx::sqlite::SqlitePoolOptions::new()
+            .max_connections(1)
+            .connect_with(
+                sqlx::sqlite::SqliteConnectOptions::new()
+                    .filename(temp.path().join("state.db"))
+                    .create_if_missing(true)
+                    .foreign_keys(true),
+            )
+            .await
+            .unwrap();
+        sqlx::migrate!().run(&pool).await.unwrap();
+        sqlx::raw_sql("INSERT INTO instances(id, path, install_stage, launcher_feature_version, name, created, modified) VALUES ('instance', 'example', 'installed', '1', 'Example', 1, 1); INSERT INTO instance_content_sets(id, instance_id, name, source_kind, status, game_version, loader, created, modified) VALUES ('set', 'instance', 'Example', 'local', 'available', '1.20.1', 'fabric', 1, 1); UPDATE instances SET applied_content_set_id = 'set' WHERE id = 'instance';").execute(&pool).await.unwrap();
+        let state = crate::state::test_state(directories, pool).await.unwrap();
+        let instance =
+            sqlite::instance_rows::get_instance_by_id("instance", &state.pool)
+                .await
+                .unwrap()
+                .unwrap();
+        sync_instance_content_files(&instance, &state)
+            .await
+            .unwrap();
+        (temp, state, instance, root)
+    }
+
+    #[tokio::test]
+    async fn stale_scans_cannot_overwrite_toggle_delete_or_replacement() {
+        for operation in ["toggle", "delete", "replace"] {
+            let (_temp, state, instance, root) = isolated_scan_fixture().await;
+            let barrier = tokio::sync::Barrier::new(2);
+            let mut attempts = 0;
+            let scan = sync_with_retry(&instance, &state, false, || {
+                attempts += 1;
+                let pause = attempts == 1;
+                let barrier = &barrier;
+                async move {
+                    if pause {
+                        barrier.wait().await;
+                        barrier.wait().await;
+                    }
+                }
+            });
+            let mutate = async {
+                barrier.wait().await;
+                match operation {
+                    "toggle" => {
+                        crate::state::instances::commands::toggle_disable_project("instance", "mods/example.jar", Some(false), &state).await.unwrap();
+                    }
+                    "delete" => {
+                        crate::state::instances::commands::remove_project(
+                            "instance",
+                            "mods/example.jar",
+                            &state,
+                        )
+                        .await
+                        .unwrap();
+                    }
+                    _ => {
+                        let _lock =
+                            state.lock_instance_content("instance").await;
+                        fs::write(
+                            root.join("mods/example.jar"),
+                            b"replacement bytes",
+                        )
+                        .unwrap();
+                    }
+                }
+                barrier.wait().await;
+            };
+            let (files, _) = tokio::join!(scan, mutate);
+            let files = files.unwrap();
+            assert!(attempts >= 2);
+            match operation {
+                "toggle" => {
+                    assert_eq!(files.len(), 1);
+                    assert_eq!(
+                        files[0].relative_path,
+                        "mods/example.jar.disabled"
+                    );
+                    assert!(!files[0].enabled);
+                    assert!(!root.join("mods/example.jar").exists());
+                }
+                "delete" => {
+                    assert!(files.is_empty());
+                    let count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM instance_files WHERE instance_id = 'instance'").fetch_one(&state.pool).await.unwrap();
+                    assert_eq!(count, 0);
+                }
+                _ => {
+                    assert_eq!(files.len(), 1);
+                    assert_eq!(
+                        files[0].sha1,
+                        sha1_smol::Sha1::from(b"replacement bytes").hexdigest()
+                    );
+                    assert_eq!(files[0].size, 17);
+                }
+            }
+            assert!(
+                sqlx::query("PRAGMA foreign_key_check")
+                    .fetch_all(&state.pool)
+                    .await
+                    .unwrap()
+                    .is_empty()
+            );
+            state.pool.close().await;
+        }
+    }
+
+    #[tokio::test]
+    async fn repeatedly_changing_scan_leaves_database_untouched_and_is_retryable()
+     {
+        let (_temp, state, instance, root) = isolated_scan_fixture().await;
+        let before =
+            sqlite::content_rows::get_instance_files("instance", &state.pool)
+                .await
+                .unwrap();
+        let mut count = 0;
+        let result = sync_with_retry(&instance, &state, false, || {
+            count += 1;
+            fs::write(root.join("mods/example.jar"), vec![b'x'; 20 + count])
+                .unwrap();
+            std::future::ready(())
+        })
+        .await;
+        assert!(result.is_err());
+        assert_eq!(count, 3);
+        let after =
+            sqlite::content_rows::get_instance_files("instance", &state.pool)
+                .await
+                .unwrap();
+        assert_eq!(after[0].sha1, before[0].sha1);
+        let retried = sync_instance_content_files(&instance, &state)
+            .await
+            .unwrap();
+        assert_eq!(retried[0].size, 23);
+        state.pool.close().await;
     }
 }

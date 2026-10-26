@@ -66,6 +66,13 @@ async fn remove_instance_files_and_state(
         return Ok(());
     };
 
+    super::content_file_operations::recover(
+        state,
+        instance_id,
+        &super::instance_full_path(state, &instance),
+    )
+    .await?;
+
     // Directly associated instances have no Axolotl profile directory. Their
     // version directory is the instance itself, so removal deliberately
     // deletes the externally managed content in place. Keep the shared

@@ -156,7 +156,7 @@ async fn constraints_from_deeper_parents_reselect_the_shared_dependency_in_both_
 }
 
 #[tokio::test]
-async fn disabled_missing_and_outdated_dependencies_require_review_without_installing_an_extra_copy()
+async fn disabled_and_missing_dependencies_require_review_but_outdated_dependency_is_reused()
  {
     let mut a = release("root0000", "1", 'a');
     let old = release("depend00", "1", 'b');
@@ -169,11 +169,7 @@ async fn disabled_missing_and_outdated_dependencies_require_review_without_insta
     disabled.enabled = false;
     let mut missing = installed(&current, "missing", "mods/custom.jar");
     missing.missing = true;
-    for entry in [
-        disabled,
-        missing,
-        installed(&old, "outdated", "mods/custom.jar"),
-    ] {
+    for entry in [disabled, missing] {
         let plan = service
             .build_operation(
                 draft(
@@ -203,6 +199,26 @@ async fn disabled_missing_and_outdated_dependencies_require_review_without_insta
                 )
         }));
     }
+    let outdated = installed(&old, "outdated", "mods/custom.jar");
+    let plan = service
+        .build_operation(
+            draft(
+                vec![selection("a", &a, None)],
+                ResourceOperationIntent::Install,
+            ),
+            &target(),
+            &[outdated.clone()],
+            &CancellationToken::new(),
+        )
+        .await
+        .unwrap()
+        .plan;
+    assert!(plan.issues.is_empty(), "{:?}", plan.issues);
+    assert_eq!(plan.actions.len(), 1);
+    assert!(plan.nodes.iter().any(|node| {
+        node.installed_entries.contains(&outdated.entry_id)
+            && node.state == DependencyNodeState::Satisfied
+    }));
     let disabled = installed(&old, "disabled-root", "mods/custom.jar.disabled");
     let plan = service
         .build_operation(
@@ -226,6 +242,153 @@ async fn disabled_missing_and_outdated_dependencies_require_review_without_insta
             .any(|issue| issue.code == ResourceIssueCode::VersionConflict
                 && issue.blocking)
     );
+    service.cache().close().await;
+}
+
+#[tokio::test]
+async fn install_reuses_local_dependency_across_parent_release_requirements() {
+    let mut first = release("first000", "1", 'a');
+    let mut second = release("second00", "1", 'b');
+    let old = release("depend00", "1", 'c');
+    let required_by_first = release("depend00", "2", 'd');
+    let required_by_second = release("depend00", "3", 'e');
+    requires(
+        &mut first,
+        &required_by_first,
+        ResourceDependencyKind::Required,
+    );
+    requires(
+        &mut second,
+        &required_by_second,
+        ResourceDependencyKind::Required,
+    );
+    let (_directory, service) = service(vec![
+        first.clone(),
+        second.clone(),
+        old.clone(),
+        required_by_first,
+        required_by_second,
+    ])
+    .await;
+
+    let existing = installed(&old, "existing", "mods/dependency.jar");
+    let plan = service
+        .build_operation(
+            draft(
+                vec![
+                    selection("first", &first, None),
+                    selection("second", &second, None),
+                ],
+                ResourceOperationIntent::Install,
+            ),
+            &target(),
+            &[existing.clone()],
+            &CancellationToken::new(),
+        )
+        .await
+        .unwrap()
+        .plan;
+
+    assert!(plan.issues.is_empty(), "{:?}", plan.issues);
+    assert_eq!(plan.actions.len(), 2);
+    assert!(plan.nodes.iter().any(|node| {
+        node.state == DependencyNodeState::Satisfied
+            && node.installed_entries.contains(&existing.entry_id)
+    }));
+    service.cache().close().await;
+}
+
+#[tokio::test]
+async fn install_does_not_revalidate_a_satisfied_dependency_against_retained_parents()
+ {
+    let mut root = release("root0000", "1", 'a');
+    let mut retained_parent = release("parent00", "1", 'b');
+    let installed_dependency = release("depend00", "1", 'c');
+    let requested_dependency = release("depend00", "2", 'd');
+    let retained_requirement = release("depend00", "3", 'e');
+    requires(
+        &mut root,
+        &requested_dependency,
+        ResourceDependencyKind::Required,
+    );
+    requires(
+        &mut retained_parent,
+        &retained_requirement,
+        ResourceDependencyKind::Required,
+    );
+    let (_directory, service) = service(vec![
+        root.clone(),
+        retained_parent.clone(),
+        installed_dependency.clone(),
+        requested_dependency,
+        retained_requirement,
+    ])
+    .await;
+
+    let entries = [
+        installed(&retained_parent, "parent", "mods/parent.jar"),
+        installed(&installed_dependency, "dependency", "mods/dependency.jar"),
+    ];
+    let plan = service
+        .build_operation(
+            draft(
+                vec![selection("root", &root, None)],
+                ResourceOperationIntent::Install,
+            ),
+            &target(),
+            &entries,
+            &CancellationToken::new(),
+        )
+        .await
+        .unwrap()
+        .plan;
+
+    assert!(plan.issues.is_empty(), "{:?}", plan.issues);
+    assert_eq!(plan.actions.len(), 1);
+    service.cache().close().await;
+}
+
+#[tokio::test]
+async fn install_reuses_a_locally_satisfied_dependency_with_unknown_compatibility()
+ {
+    let mut root = release("root0000", "1", 'a');
+    let mut installed_dependency = release("depend00", "1", 'b');
+    installed_dependency.compatibility.game_versions.clear();
+    installed_dependency.compatibility.loaders.clear();
+    let requested_dependency = release("depend00", "2", 'c');
+    requires(
+        &mut root,
+        &requested_dependency,
+        ResourceDependencyKind::Required,
+    );
+    let (_directory, service) = service(vec![
+        root.clone(),
+        installed_dependency.clone(),
+        requested_dependency,
+    ])
+    .await;
+
+    let existing =
+        installed(&installed_dependency, "existing", "mods/dependency.jar");
+    let plan = service
+        .build_operation(
+            draft(
+                vec![selection("root", &root, None)],
+                ResourceOperationIntent::Install,
+            ),
+            &target(),
+            &[existing.clone()],
+            &CancellationToken::new(),
+        )
+        .await
+        .unwrap()
+        .plan;
+
+    assert!(plan.issues.is_empty(), "{:?}", plan.issues);
+    assert!(plan.nodes.iter().any(|node| {
+        node.state == DependencyNodeState::Satisfied
+            && node.installed_entries.contains(&existing.entry_id)
+    }));
     service.cache().close().await;
 }
 
@@ -647,13 +810,36 @@ async fn retained_local_jar_ranges_filter_updates_even_without_online_parent_ide
     .map(|(reference, version)| (reference, version.to_string()))
     .collect();
     let (_temp, mut service) =
-        service(vec![old.clone(), compatible.clone(), latest]).await;
+        service(vec![old.clone(), compatible.clone(), latest.clone()]).await;
     Arc::get_mut(&mut service).unwrap().artifact_metadata_reader =
         Arc::new(FixtureMetadataReader(versions));
     let mut local_parent = installed(&parent, "parent", "mods/local.jar");
     local_parent.artifact = None;
     local_parent.known_artifacts.clear();
     let child = installed(&old, "child", "mods/child.jar");
+    let discovery = crate::resources::updates::check_entries(
+        &service,
+        vec![local_parent.clone(), child.clone()],
+        crate::resources::updates::ResourceUpdateCheck {
+            entries: vec![],
+            releases: Default::default(),
+            unresolved: vec![],
+            failures: vec![],
+            failed_entries: vec![],
+        },
+        &target(),
+        &SourceId::modrinth(),
+        |_| {},
+        &CancellationToken::new(),
+    )
+    .await
+    .unwrap();
+    assert_eq!(
+        discovery.releases.get(&child.entry_id),
+        Some(&latest.reference),
+    );
+    // Candidate JAR metadata is loaded only when reviewing the actual update.
+    assert!(service.artifact_metadata.is_empty());
     let mut automatic = selection("child", &old, Some("child"));
     automatic.release = ReleaseSelection::Automatic;
     let mut request = draft(vec![automatic], ResourceOperationIntent::Update);
@@ -760,6 +946,55 @@ async fn filename_dependencies_match_unrecognized_files_and_keep_disabled_missin
             assert_eq!(plan.edges.len(), 1);
         }
     }
+    service.cache().close().await;
+}
+
+#[tokio::test]
+async fn install_ignores_filename_dependency_version_for_an_existing_local_mod()
+{
+    let mut parent = release("parent00", "1", 'a');
+    let dependency = release("depend00", "1", 'b');
+    parent.artifacts[0].dependencies.push(ArtifactDependency {
+        target: DependencyTarget::FileName {
+            name: "local.jar".into(),
+        },
+        kind: ResourceDependencyKind::Required,
+        version_constraint: Some(">=2".into()),
+    });
+    let (_directory, service) = service(vec![parent.clone()]).await;
+    let mut local = installed(&dependency, "local", "mods/local.jar");
+    local.artifact = None;
+    local.known_artifacts.clear();
+    let mut request = draft(
+        vec![selection("parent", &parent, None)],
+        ResourceOperationIntent::Install,
+    );
+    request.local_metadata.insert(
+        local.entry_id.clone(),
+        serde_json::from_value(serde_json::json!({
+            "mod_id": "local",
+            "version": "1",
+            "dependencies": []
+        }))
+        .unwrap(),
+    );
+    let plan = service
+        .build_operation(
+            request,
+            &target(),
+            &[local.clone()],
+            &CancellationToken::new(),
+        )
+        .await
+        .unwrap()
+        .plan;
+
+    assert!(plan.issues.is_empty(), "{:?}", plan.issues);
+    assert_eq!(plan.actions.len(), 1);
+    assert!(plan.nodes.iter().any(|node| {
+        node.state == DependencyNodeState::Satisfied
+            && node.installed_entries.contains(&local.entry_id)
+    }));
     service.cache().close().await;
 }
 

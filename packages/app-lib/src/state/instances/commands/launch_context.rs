@@ -34,10 +34,10 @@ pub(crate) async fn replace_instance_loader_components(
     .await?;
     sqlx::query(
         "UPDATE instance_content_sets
-		 SET loader = ?, loader_version = ?, modified = ?
-		 WHERE id = (
-			SELECT applied_content_set_id FROM instances WHERE id = ?
-		 )",
+         SET loader = ?, loader_version = ?, modified = ?
+         WHERE id = (
+            SELECT applied_content_set_id FROM instances WHERE id = ?
+         )",
     )
     .bind(loader.as_str())
     .bind(loader_version)
@@ -61,10 +61,10 @@ pub(crate) async fn set_instance_install_stage(
 
     sqlx::query!(
         "
-		UPDATE instances
-		SET install_stage = ?, modified = ?
-		WHERE id = ?
-		",
+        UPDATE instances
+        SET install_stage = ?, modified = ?
+        WHERE id = ?
+        ",
         install_stage,
         modified,
         instance_id,
@@ -85,14 +85,14 @@ pub(crate) async fn set_applied_content_set_loader_version(
 
     sqlx::query!(
         "
-		UPDATE instance_content_sets
-		SET loader_version = ?, modified = ?
-		WHERE id = (
-			SELECT applied_content_set_id
-			FROM instances
-			WHERE id = ?
-		)
-		",
+        UPDATE instance_content_sets
+        SET loader_version = ?, modified = ?
+        WHERE id = (
+            SELECT applied_content_set_id
+            FROM instances
+            WHERE id = ?
+        )
+        ",
         loader_version,
         modified,
         instance_id,
@@ -118,14 +118,14 @@ pub(crate) async fn set_applied_content_set_protocol_version(
 
     sqlx::query!(
         "
-		UPDATE instance_content_sets
-		SET protocol_version = ?, modified = ?
-		WHERE id = (
-			SELECT applied_content_set_id
-			FROM instances
-			WHERE id = ?
-		)
-		",
+        UPDATE instance_content_sets
+        SET protocol_version = ?, modified = ?
+        WHERE id = (
+            SELECT applied_content_set_id
+            FROM instances
+            WHERE id = ?
+        )
+        ",
         protocol_version,
         modified,
         instance_id,
@@ -150,10 +150,10 @@ pub(crate) async fn set_instance_last_played(
 
     sqlx::query!(
         "
-		UPDATE instances
-		SET last_played = ?, modified = ?
-		WHERE id = ?
-		",
+        UPDATE instances
+        SET last_played = ?, modified = ?
+        WHERE id = ?
+        ",
         last_played,
         modified,
         instance_id,
@@ -173,10 +173,10 @@ pub(crate) async fn set_instance_pinned(
     let modified = Utc::now().timestamp();
     let result = sqlx::query!(
         "
-		UPDATE instances
-		SET pinned_at = ?, modified = ?
-		WHERE id = ?
-		",
+        UPDATE instances
+        SET pinned_at = ?, modified = ?
+        WHERE id = ?
+        ",
         pinned_at,
         modified,
         instance_id,
@@ -305,23 +305,23 @@ pub(crate) async fn get_daily_playtime(
     let end_date = end_date.format("%Y-%m-%d").to_string();
     let rows = sqlx::query!(
         r#"
-		SELECT
-			daily.played_on AS "date!: String",
-			SUM(daily.played_seconds) AS "played_seconds!: i64",
-			SUM(daily.session_count) AS "session_count!: i64",
-			(
-				SELECT candidate.instance_name
-				FROM instance_daily_playtime candidate
-				WHERE candidate.played_on = daily.played_on
-					AND candidate.played_seconds > 0
-				ORDER BY candidate.played_seconds DESC, candidate.instance_name ASC
-				LIMIT 1
-			) AS "top_instance_name?: String"
-		FROM instance_daily_playtime daily
-		WHERE daily.played_on BETWEEN ? AND ?
-		GROUP BY daily.played_on
-		ORDER BY daily.played_on
-		"#,
+        SELECT
+            daily.played_on AS "date!: String",
+            SUM(daily.played_seconds) AS "played_seconds!: i64",
+            SUM(daily.session_count) AS "session_count!: i64",
+            (
+                SELECT candidate.instance_name
+                FROM instance_daily_playtime candidate
+                WHERE candidate.played_on = daily.played_on
+                    AND candidate.played_seconds > 0
+                ORDER BY candidate.played_seconds DESC, candidate.instance_name ASC
+                LIMIT 1
+            ) AS "top_instance_name?: String"
+        FROM instance_daily_playtime daily
+        WHERE daily.played_on BETWEEN ? AND ?
+        GROUP BY daily.played_on
+        ORDER BY daily.played_on
+        "#,
         start_date,
         end_date,
     )
@@ -359,16 +359,16 @@ pub(crate) async fn get_daily_playtime_details(
     let date = date.format("%Y-%m-%d").to_string();
     let rows = sqlx::query!(
         r#"
-		SELECT
-			daily.instance_id AS "instance_id!: String",
-			daily.instance_name AS "instance_name!: String",
-			daily.played_seconds AS "played_seconds!: i64",
-			daily.session_count AS "session_count!: i64"
-		FROM instance_daily_playtime daily
-		WHERE daily.played_on = ?
-			AND daily.played_seconds > 0
-		ORDER BY daily.played_seconds DESC, daily.instance_name ASC
-		"#,
+        SELECT
+            daily.instance_id AS "instance_id!: String",
+            daily.instance_name AS "instance_name!: String",
+            daily.played_seconds AS "played_seconds!: i64",
+            daily.session_count AS "session_count!: i64"
+        FROM instance_daily_playtime daily
+        WHERE daily.played_on = ?
+            AND daily.played_seconds > 0
+        ORDER BY daily.played_seconds DESC, daily.instance_name ASC
+        "#,
         date,
     )
     .fetch_all(pool)
@@ -404,10 +404,10 @@ async fn get_instance_name(
 ) -> crate::Result<String> {
     sqlx::query_scalar!(
         "
-		SELECT name
-		FROM instances
-		WHERE id = ?
-		",
+        SELECT name
+        FROM instances
+        WHERE id = ?
+        ",
         instance_id,
     )
     .fetch_optional(pool)
@@ -433,25 +433,25 @@ async fn upsert_daily_playtime(
 
     sqlx::query!(
         "
-		INSERT INTO instance_daily_playtime (
-			played_on,
-			instance_id,
-			instance_name,
-			played_seconds,
-			session_count
-		)
-		VALUES (?, ?, ?, ?, ?)
-		ON CONFLICT(played_on, instance_id) DO UPDATE SET
-			instance_name = excluded.instance_name,
-			played_seconds = CASE
-				WHEN instance_daily_playtime.played_seconds > ? THEN ?
-				ELSE instance_daily_playtime.played_seconds + excluded.played_seconds
-			END,
-			session_count = CASE
-				WHEN instance_daily_playtime.session_count > ? THEN ?
-				ELSE instance_daily_playtime.session_count + excluded.session_count
-			END
-		",
+        INSERT INTO instance_daily_playtime (
+            played_on,
+            instance_id,
+            instance_name,
+            played_seconds,
+            session_count
+        )
+        VALUES (?, ?, ?, ?, ?)
+        ON CONFLICT(played_on, instance_id) DO UPDATE SET
+            instance_name = excluded.instance_name,
+            played_seconds = CASE
+                WHEN instance_daily_playtime.played_seconds > ? THEN ?
+                ELSE instance_daily_playtime.played_seconds + excluded.played_seconds
+            END,
+            session_count = CASE
+                WHEN instance_daily_playtime.session_count > ? THEN ?
+                ELSE instance_daily_playtime.session_count + excluded.session_count
+            END
+        ",
         played_on,
         instance_id,
         instance_name,
@@ -484,16 +484,16 @@ pub(crate) async fn add_instance_recent_playtime(
 
     sqlx::query!(
         "
-		UPDATE instances
-		SET
-			recent_time_played = CASE
-				WHEN recent_time_played < 0 THEN ?
-				WHEN recent_time_played > ? THEN ?
-				ELSE recent_time_played + ?
-			END,
-			modified = ?
-		WHERE id = ?
-		",
+        UPDATE instances
+        SET
+            recent_time_played = CASE
+                WHEN recent_time_played < 0 THEN ?
+                WHEN recent_time_played > ? THEN ?
+                ELSE recent_time_played + ?
+            END,
+            modified = ?
+        WHERE id = ?
+        ",
         seconds,
         max_playtime_before_increment,
         max_playtime,
@@ -524,17 +524,17 @@ pub(crate) async fn mark_instance_playtime_submitted(
 
     sqlx::query!(
         "
-		UPDATE instances
-		SET
-			submitted_time_played = CASE
-				WHEN submitted_time_played < 0 THEN ?
-				WHEN submitted_time_played > ? THEN ?
-				ELSE submitted_time_played + ?
-			END,
-			recent_time_played = 0,
-			modified = ?
-		WHERE id = ?
-		",
+        UPDATE instances
+        SET
+            submitted_time_played = CASE
+                WHEN submitted_time_played < 0 THEN ?
+                WHEN submitted_time_played > ? THEN ?
+                ELSE submitted_time_played + ?
+            END,
+            recent_time_played = 0,
+            modified = ?
+        WHERE id = ?
+        ",
         recent_time_played,
         max_playtime_before_increment,
         max_playtime,
@@ -616,17 +616,17 @@ mod tests {
             .await
             .expect("in-memory SQLite pool");
         sqlx::query(
-			"CREATE TABLE instances (id TEXT PRIMARY KEY, name TEXT NOT NULL, pinned_at INTEGER NULL, modified INTEGER NOT NULL)",
-		)
-		.execute(&pool)
-		.await
-		.expect("instances table");
+            "CREATE TABLE instances (id TEXT PRIMARY KEY, name TEXT NOT NULL, pinned_at INTEGER NULL, modified INTEGER NOT NULL)",
+        )
+        .execute(&pool)
+        .await
+        .expect("instances table");
         sqlx::query(
-			"CREATE TABLE instance_daily_playtime (played_on TEXT NOT NULL, instance_id TEXT NOT NULL, instance_name TEXT NOT NULL, played_seconds INTEGER NOT NULL DEFAULT 0, session_count INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (played_on, instance_id))",
-		)
-		.execute(&pool)
-		.await
-		.expect("daily playtime table");
+            "CREATE TABLE instance_daily_playtime (played_on TEXT NOT NULL, instance_id TEXT NOT NULL, instance_name TEXT NOT NULL, played_seconds INTEGER NOT NULL DEFAULT 0, session_count INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (played_on, instance_id))",
+        )
+        .execute(&pool)
+        .await
+        .expect("daily playtime table");
         pool
     }
 
@@ -683,9 +683,9 @@ mod tests {
     async fn persists_pinned_state_without_erasing_playtime_history() {
         let pool = test_pool().await;
         sqlx::query("INSERT INTO instances (id, name, pinned_at, modified) VALUES ('instance', 'Instance', NULL, 0)")
-			.execute(&pool)
-			.await
-			.unwrap();
+            .execute(&pool)
+            .await
+            .unwrap();
         upsert_daily_playtime(
             "instance",
             "Instance",
@@ -712,9 +712,9 @@ mod tests {
             .unwrap();
 
         let rows: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM instance_daily_playtime WHERE instance_id = 'instance'")
-			.fetch_one(&pool)
-			.await
-			.unwrap();
+            .fetch_one(&pool)
+            .await
+            .unwrap();
         assert_eq!(rows, 1);
     }
 }

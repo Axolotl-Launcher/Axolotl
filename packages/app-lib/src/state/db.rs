@@ -1677,12 +1677,12 @@ async fn open_app_db_pool(db_path: &Path) -> crate::Result<Pool<Sqlite>> {
 async fn record_current_app_version(pool: &Pool<Sqlite>) -> crate::Result<()> {
     sqlx::query!(
         "
-		INSERT INTO app_metadata (key, value, updated_at)
-		VALUES ('app_version', ?, unixepoch())
-		ON CONFLICT(key) DO UPDATE SET
-			value = excluded.value,
-			updated_at = excluded.updated_at
-		",
+        INSERT INTO app_metadata (key, value, updated_at)
+        VALUES ('app_version', ?, unixepoch())
+        ON CONFLICT(key) DO UPDATE SET
+            value = excluded.value,
+            updated_at = excluded.updated_at
+        ",
         env!("CARGO_PKG_VERSION"),
     )
     .execute(pool)
@@ -1698,18 +1698,18 @@ async fn stale_data_cleanup(pool: &Pool<Sqlite>) -> crate::Result<()> {
     let mut tx = pool.begin().await?;
 
     let has_skin_tables = sqlx::query!(
-		"SELECT COUNT(*) AS \"count!: i64\" FROM sqlite_master WHERE type = 'table' AND name IN ('custom_minecraft_skins', 'minecraft_users')",
-	)
-	.fetch_one(&mut *tx)
-	.await?
-	.count == 2;
+        "SELECT COUNT(*) AS \"count!: i64\" FROM sqlite_master WHERE type = 'table' AND name IN ('custom_minecraft_skins', 'minecraft_users')",
+    )
+    .fetch_one(&mut *tx)
+    .await?
+    .count == 2;
 
     if has_skin_tables {
         sqlx::query!(
-			"DELETE FROM custom_minecraft_skins WHERE minecraft_user_uuid NOT IN (SELECT uuid FROM minecraft_users)"
-		)
-		.execute(&mut *tx)
-		.await?;
+            "DELETE FROM custom_minecraft_skins WHERE minecraft_user_uuid NOT IN (SELECT uuid FROM minecraft_users)"
+        )
+        .execute(&mut *tx)
+        .await?;
     }
 
     tx.commit().await?;
@@ -1833,9 +1833,9 @@ mod tests {
         MIGRATOR.run(&fresh).await.unwrap();
         let table_exists: bool = sqlx::query_scalar(
             "SELECT EXISTS(
-				SELECT 1 FROM sqlite_master
-				WHERE type = 'table' AND name = 'instance_loader_components'
-			)",
+                SELECT 1 FROM sqlite_master
+                WHERE type = 'table' AND name = 'instance_loader_components'
+            )",
         )
         .fetch_one(&fresh)
         .await
@@ -1879,12 +1879,12 @@ mod tests {
             let content_set_id = format!("{id}-set");
             sqlx::query(
                 "INSERT INTO instances (
-					id, path, applied_content_set_id, install_stage,
-					launcher_feature_version, update_channel, name,
-					created, modified, submitted_time_played,
-					recent_time_played
-				 ) VALUES (?, ?, ?, 'installed', 'migrated_launch_hooks',
-					'release', ?, 1, 1, 0, 0)",
+                    id, path, applied_content_set_id, install_stage,
+                    launcher_feature_version, update_channel, name,
+                    created, modified, submitted_time_played,
+                    recent_time_played
+                    ) VALUES (?, ?, ?, 'installed', 'migrated_launch_hooks',
+                    'release', ?, 1, 1, 0, 0)",
             )
             .bind(id)
             .bind(id)
@@ -1895,10 +1895,10 @@ mod tests {
             .unwrap();
             sqlx::query(
                 "INSERT INTO instance_content_sets (
-					id, instance_id, name, source_kind, status,
-					game_version, loader, loader_version, created, modified
-				 ) VALUES (?, ?, 'Default', 'local', 'available',
-					'1.12.2', ?, ?, 1, 1)",
+                    id, instance_id, name, source_kind, status,
+                    game_version, loader, loader_version, created, modified
+                    ) VALUES (?, ?, 'Default', 'local', 'available',
+                    '1.12.2', ?, ?, 1, 1)",
             )
             .bind(&content_set_id)
             .bind(id)
@@ -1914,8 +1914,8 @@ mod tests {
         let rows: Vec<(String, String, Option<String>, String)> =
             sqlx::query_as(
                 "SELECT instance_id, kind, version, role
-				 FROM instance_loader_components
-				 ORDER BY instance_id, role DESC, kind",
+                    FROM instance_loader_components
+                    ORDER BY instance_id, role DESC, kind",
             )
             .fetch_all(&upgraded)
             .await
@@ -1951,8 +1951,8 @@ mod tests {
         );
         let malformed_metadata = sqlx::query(
             "UPDATE instance_loader_components
-			 SET provider_metadata = '{'
-			 WHERE instance_id = 'forge'",
+                SET provider_metadata = '{'
+                WHERE instance_id = 'forge'",
         )
         .execute(&upgraded)
         .await;

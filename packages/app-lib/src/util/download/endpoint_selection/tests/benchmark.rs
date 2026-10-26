@@ -12,6 +12,24 @@ use std::sync::Arc;
 use std::sync::atomic::Ordering;
 use std::time::{Duration, Instant};
 
+async fn endpoint_trial_for_range_recovery() -> super::tuning::TrialLease {
+    use super::tuning::{TRIALS, TrialKind};
+    tokio::time::timeout(Duration::from_secs(10), async {
+        loop {
+            if let Some(trial) = TRIALS.acquire(
+                TrialKind::Endpoint,
+                Instant::now(),
+                Duration::from_secs(60),
+            ) {
+                return trial;
+            }
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+    })
+    .await
+    .expect("the range recovery fixture must acquire its endpoint experiment")
+}
+
 #[derive(Clone, Copy, Debug, Serialize)]
 enum Scenario {
     Healthy,
@@ -323,6 +341,506 @@ async fn real_slow_tail_is_probed_at_unfinished_offset_and_resumed_without_dupli
     assert_eq!(result.attempts, 2);
     assert_eq!(result.received_bytes, result.unique_bytes);
     assert!(result.probe_bytes > 0 && result.probe_bytes <= 2 * 1024 * 1024);
+}
+
+#[tokio::test]
+async fn default_selection_recovers_a_fast_prefix_then_500_kib_tail() {
+    let size = 32 * 1024 * 1024;
+    let stats = Arc::new(SocketStats::default());
+    let first = EndpointFixture::start(
+        Ipv4Addr::LOCALHOST,
+        Profile {
+            slow_tail: Some((16 * 1024 * 1024, 500 * 1024)),
+            ..Profile::rate(5 * 1024 * 1024)
+        },
+        stats.clone(),
+    )
+    .await;
+    let second = EndpointFixture::start(
+        Ipv4Addr::new(127, 0, 0, 2),
+        Profile::rate(5 * 1024 * 1024),
+        stats.clone(),
+    )
+    .await;
+    let clients =
+        fixtures::clients(SelectionMode::parse(None), &first, &second, true);
+    let selector = clients.endpoints.clone();
+    let request = fixtures::request(size, 0);
+    let directory = tempfile::tempdir().unwrap();
+    let destination = directory.path().join("throttled-tail.bin");
+    let semaphore = FetchSemaphore(tokio::sync::Semaphore::new(4));
+    let result = tokio::time::timeout(
+        Duration::from_secs(40),
+        proxy_context::with_snapshot(
+            clients,
+            fetch::download_benchmark_fixture(
+                request.clone(),
+                &destination,
+                &semaphore,
+            ),
+        ),
+    )
+    .await
+    .unwrap()
+    .unwrap();
+    assert_eq!(result.size, size);
+    assert_eq!(request.endpoint_migrations.load(Ordering::Relaxed), 1);
+    let counters = request.transfer_counters.snapshot();
+    assert_eq!(counters.received_payload_bytes, size);
+    assert_eq!(counters.committed_unique_bytes, size);
+    assert!(selector.benchmark_counters().0 > 0);
+    selector.close();
+}
+
+#[tokio::test]
+async fn segmented_tail_reuses_initial_slots_after_an_unproductive_expansion() {
+    let size = 32 * 1024 * 1024;
+    let stats = Arc::new(SocketStats::default());
+    let first = EndpointFixture::start(
+        Ipv4Addr::LOCALHOST,
+        Profile {
+            slow_tail: Some((16 * 1024 * 1024, 500 * 1024)),
+            ..Profile::rate(5 * 1024 * 1024)
+        },
+        stats.clone(),
+    )
+    .await;
+    let clients = fixtures::clients(SelectionMode::Off, &first, &first, false);
+    let selector = clients.endpoints.clone();
+    let request = fixtures::request(size, 0).with_segmented_download(true);
+    let directory = tempfile::tempdir().unwrap();
+    let destination = directory.path().join("segmented-tail.bin");
+    let semaphore = FetchSemaphore(tokio::sync::Semaphore::new(8));
+    let result = tokio::time::timeout(
+        Duration::from_secs(40),
+        proxy_context::with_snapshot(
+            clients,
+            fetch::download_benchmark_fixture(
+                request.clone(),
+                &destination,
+                &semaphore,
+            ),
+        ),
+    )
+    .await
+    .unwrap()
+    .unwrap();
+    assert_eq!(result.size, size);
+    assert_eq!(
+        request.transfer_counters.snapshot().committed_unique_bytes,
+        size
+    );
+    assert!(
+        stats.requests.load(Ordering::Relaxed) >= 6,
+        "initial four ranges and the first growth trial must be followed by a replacement for completed ranges"
+    );
+    assert!(stats.peak.load(Ordering::Relaxed) <= 8);
+    assert_eq!(selector.benchmark_counters().0, 0);
+    selector.close();
+}
+
+#[tokio::test]
+async fn tail_floor_moves_small_batch_files_off_a_slow_shared_h2_socket() {
+    let size = 1024 * 1024;
+    let stats = Arc::new(SocketStats::default());
+    let fast = EndpointFixture::start(
+        Ipv4Addr::LOCALHOST,
+        Profile::rate(100 * 1024),
+        stats.clone(),
+    )
+    .await;
+    let mut clients =
+        fixtures::clients(SelectionMode::Off, &fast, &fast, false);
+    clients.force_http1 = false;
+    let request = fixtures::request(size, 0).with_batch_download_policy();
+    let directory = tempfile::tempdir().unwrap();
+    let destination = directory.path().join("small-batch-tail.bin");
+    let part = destination.with_extension("bin.part");
+    let _disk = crate::util::download::local_resources::set_test_disk_kind(
+        &part,
+        sysinfo::DiskKind::SSD,
+    );
+    let semaphore = FetchSemaphore(tokio::sync::Semaphore::new(16));
+    proxy_context::with_snapshot(clients, async {
+        let route = crate::util::fetch::DownloadRoute {
+            url: request.url.clone(), source: crate::util::fetch::DownloadRouteSource::Official,
+            is_mirror: false, allow_sensitive_headers: true, supports_range: true,
+            proxy: crate::util::fetch::ProxyPolicy::System,
+        };
+        let (client_io, server_io) = tokio::io::duplex(1024 * 1024);
+        let server = tokio::spawn(async move {
+            let mut server = h2::server::handshake(server_io).await.unwrap();
+            let (_, mut response) = server.accept().await.unwrap().unwrap();
+            let mut body = response.send_response(http::Response::builder().header("content-length", size).body(()).unwrap(), false).unwrap();
+            let sender = tokio::spawn(async move {
+                for offset in (0..size).step_by(4096) {
+                    tokio::time::sleep(Duration::from_millis(100)).await;
+                    if body.send_data(bytes::Bytes::from(vec![42; 4096]), offset + 4096 == size).is_err() { break; }
+                }
+            });
+            while server.accept().await.is_some() {}
+            sender.abort();
+        });
+        let (sender, driver) = h2::client::handshake(client_io).await.unwrap();
+        let connection = crate::util::download::h2_pool::SharedH2Connection::cache_for_test(&route, sender).await;
+        let driver = crate::util::download::h2_pool::spawn_connection_driver(&connection, driver, Duration::from_secs(60));
+        let started = Instant::now();
+        let result = tokio::time::timeout(Duration::from_secs(12), fetch::download_benchmark_fixture(request.clone(), &destination, &semaphore)).await
+            .expect("small batch recovery must not wait for the 35-second target or an endpoint trial").unwrap();
+        println!("tail_floor small_batch elapsed_ms={}", started.elapsed().as_millis());
+        assert_eq!(result.size, size);
+        assert!(stats.requests.load(Ordering::Relaxed) > 0, "the small file must resume on the independent HTTP/1 server");
+          assert!(stats.peak.load(Ordering::Relaxed) >= 2, "leaving H2 must not strand the small file on another slow single connection");
+        assert!(stats.requested_ranges.lock().iter().all(|(start, _)| *start > 0));
+        assert_eq!(request.transfer_counters.snapshot().committed_unique_bytes, size);
+        assert!(!connection.is_retiring());
+        driver.abort();
+        server.abort();
+    }).await;
+    assert_eq!(semaphore.0.available_permits(), 16);
+}
+
+#[tokio::test]
+async fn tail_floor_promotes_a_slow_small_http1_batch_file_to_multiple_connections()
+ {
+    let size = 6 * 1024 * 1024;
+    let stats = Arc::new(SocketStats::default());
+    let server = EndpointFixture::start(
+        Ipv4Addr::LOCALHOST,
+        Profile::rate(128 * 1024),
+        stats.clone(),
+    )
+    .await;
+    let clients =
+        fixtures::clients(SelectionMode::Off, &server, &server, false);
+    let request = fixtures::request(size, 0).with_batch_download_policy();
+    let directory = tempfile::tempdir().unwrap();
+    let destination = directory.path().join("small-http1-tail.bin");
+    let part = destination.with_extension("bin.part");
+    let _disk = crate::util::download::local_resources::set_test_disk_kind(
+        &part,
+        sysinfo::DiskKind::SSD,
+    );
+    let semaphore = FetchSemaphore(tokio::sync::Semaphore::new(32));
+    let result = tokio::time::timeout(
+        Duration::from_secs(20),
+        proxy_context::with_snapshot(
+            clients,
+            fetch::download_benchmark_fixture(
+                request.clone(),
+                &destination,
+                &semaphore,
+            ),
+        ),
+    )
+    .await
+    .expect("a slow small HTTP/1 file must borrow idle connections")
+    .unwrap();
+    assert_eq!(result.size, size);
+    let ranges = stats.requested_ranges.lock();
+    assert_eq!(ranges[0].0, 0);
+    assert!(ranges.iter().skip(1).all(|(start, _)| *start > 0));
+    assert!(stats.peak.load(Ordering::Relaxed) >= 4);
+    assert_eq!(
+        result.attempts, 1,
+        "transport recovery is not a failed download attempt"
+    );
+    assert_eq!(
+        request.transfer_counters.snapshot().committed_unique_bytes,
+        size
+    );
+    assert_eq!(semaphore.0.available_permits(), 32);
+}
+
+#[tokio::test]
+async fn range_recovery_replenishes_the_last_quarter_during_an_endpoint_trial()
+{
+    let size = 64 * 1024 * 1024;
+    let tail = size / 4;
+    let stats = Arc::new(SocketStats::default());
+    let server = EndpointFixture::start(
+        Ipv4Addr::LOCALHOST,
+        Profile {
+            slow_tail: Some((tail, 100 * 1024)),
+            ..Profile::rate(10 * 1024 * 1024)
+        },
+        stats.clone(),
+    )
+    .await;
+    let clients =
+        fixtures::clients(SelectionMode::Off, &server, &server, false);
+    let request = fixtures::request(size, 0)
+        .with_segmented_download(true)
+        .with_range_connection_floor(32);
+    let directory = tempfile::tempdir().unwrap();
+    let destination = directory.path().join("last-quarter.bin");
+    let part = destination.with_extension("bin.part");
+    let _disk = crate::util::download::local_resources::set_test_disk_kind(
+        &part,
+        sysinfo::DiskKind::SSD,
+    );
+    let semaphore = FetchSemaphore(tokio::sync::Semaphore::new(64));
+    let trial = endpoint_trial_for_range_recovery().await;
+    let started = Instant::now();
+    let result = tokio::time::timeout(
+        Duration::from_secs(15),
+        proxy_context::with_snapshot(
+            clients,
+            fetch::download_benchmark_fixture(
+                request.clone(),
+                &destination,
+                &semaphore,
+            ),
+        ),
+    )
+    .await
+    .expect("tail recovery must not wait for a throughput experiment")
+    .unwrap();
+    let tail_requests = stats
+        .requested_ranges
+        .lock()
+        .iter()
+        .filter(|(start, _)| *start >= size - tail)
+        .count();
+    println!(
+        "range_recovery elapsed_ms={} tail_requests={tail_requests}",
+        started.elapsed().as_millis()
+    );
+    assert_eq!(result.size, size);
+    assert!(
+        tail_requests > 8,
+        "the last eight original ranges must borrow new connections"
+    );
+    assert!(!trial.valid(Instant::now()));
+    assert_eq!(
+        request.transfer_counters.snapshot().committed_unique_bytes,
+        size
+    );
+    assert_eq!(semaphore.0.available_permits(), 64);
+}
+
+#[tokio::test]
+async fn connection_limited_bulk_download_grows_past_eight_and_verifies_hash() {
+    let size = 64 * 1024 * 1024;
+    let stats = Arc::new(SocketStats::default());
+    let server = EndpointFixture::start(
+        Ipv4Addr::LOCALHOST,
+        Profile::rate(256 * 1024),
+        stats.clone(),
+    )
+    .await;
+    let clients =
+        fixtures::clients(SelectionMode::Off, &server, &server, false);
+    let selector = clients.endpoints.clone();
+    let request = fixtures::request(size, 0).with_segmented_download(true);
+    let directory = tempfile::tempdir().unwrap();
+    let destination = directory.path().join("bulk-ranges.bin");
+    let part = destination.with_extension("bin.part");
+    let _disk = crate::util::download::local_resources::set_test_disk_kind(
+        &part,
+        sysinfo::DiskKind::SSD,
+    );
+    let semaphore = FetchSemaphore(tokio::sync::Semaphore::new(64));
+    let started = Instant::now();
+    let result = tokio::time::timeout(
+        Duration::from_secs(40),
+        proxy_context::with_snapshot(
+            clients,
+            fetch::download_benchmark_fixture(
+                request.clone(),
+                &destination,
+                &semaphore,
+            ),
+        ),
+    )
+    .await
+    .expect("parallel ranges must finish within the connection-limited budget")
+    .unwrap();
+    let peak = stats.peak.load(Ordering::Relaxed);
+    println!(
+        "bulk_ranges size={size} elapsed_ms={} peak_connections={peak}",
+        started.elapsed().as_millis()
+    );
+    assert_eq!(result.size, size);
+    assert_eq!(
+        request.transfer_counters.snapshot().committed_unique_bytes,
+        size
+    );
+    assert!(
+        peak > 8,
+        "bulk traffic must escape the former eight-socket cap"
+    );
+    assert!(
+        peak <= 56,
+        "one bulk file must leave eight global permits available"
+    );
+    assert_eq!(semaphore.0.available_permits(), 64);
+    assert_eq!(selector.benchmark_counters().0, 0);
+    selector.close();
+}
+
+#[tokio::test]
+async fn batch_large_item_resumes_after_halfway_with_multiple_ranges() {
+    let size = 24 * 1024 * 1024;
+    let prefix = 16 * 1024 * 1024;
+    let stats = Arc::new(SocketStats::default());
+    let server = EndpointFixture::start(
+        Ipv4Addr::LOCALHOST,
+        Profile::rate(1024 * 1024),
+        stats.clone(),
+    )
+    .await;
+    let clients =
+        fixtures::clients(SelectionMode::Off, &server, &server, false);
+    let request = fixtures::request(size, 0).with_batch_download_policy();
+    let directory = tempfile::tempdir().unwrap();
+    let destination = directory.path().join("resumed-batch.jar");
+    let part = destination.with_extension("jar.part");
+    tokio::fs::write(&part, vec![42; prefix as usize])
+        .await
+        .unwrap();
+    let _disk = crate::util::download::local_resources::set_test_disk_kind(
+        &part,
+        sysinfo::DiskKind::SSD,
+    );
+    let semaphore = FetchSemaphore(tokio::sync::Semaphore::new(64));
+    let result = tokio::time::timeout(
+        Duration::from_secs(20),
+        proxy_context::with_snapshot(
+            clients,
+            fetch::download_benchmark_fixture(
+                request.clone(),
+                &destination,
+                &semaphore,
+            ),
+        ),
+    )
+    .await
+    .expect("the remaining ranges should finish in parallel")
+    .unwrap();
+    assert_eq!(result.size, size);
+    assert!(stats.peak.load(Ordering::Relaxed) >= 2);
+    assert!(
+        stats
+            .requested_ranges
+            .lock()
+            .iter()
+            .all(|(start, end)| *start >= prefix && *end < size)
+    );
+    let counters = request.transfer_counters.snapshot();
+    assert_eq!(counters.received_payload_bytes, size - prefix);
+    assert_eq!(counters.committed_unique_bytes, size);
+    assert_eq!(semaphore.0.available_permits(), 64);
+}
+
+#[tokio::test]
+async fn batch_cancelled_ranges_restore_the_original_contiguous_prefix() {
+    let size = 24 * 1024 * 1024;
+    let prefix = vec![42; 16 * 1024 * 1024];
+    let stats = Arc::new(SocketStats::default());
+    let server = EndpointFixture::start(
+        Ipv4Addr::LOCALHOST,
+        Profile::rate(45 * 1024),
+        stats.clone(),
+    )
+    .await;
+    let clients =
+        fixtures::clients(SelectionMode::Off, &server, &server, false);
+    let request = fixtures::request(size, 0).with_batch_download_policy();
+    let directory = tempfile::tempdir().unwrap();
+    let destination = directory.path().join("cancelled-batch.jar");
+    let part = destination.with_extension("jar.part");
+    tokio::fs::write(&part, &prefix).await.unwrap();
+    let _disk = crate::util::download::local_resources::set_test_disk_kind(
+        &part,
+        sysinfo::DiskKind::SSD,
+    );
+    let semaphore = FetchSemaphore(tokio::sync::Semaphore::new(64));
+    {
+        let transfer = proxy_context::with_snapshot(
+            clients,
+            fetch::download_benchmark_fixture(
+                request,
+                &destination,
+                &semaphore,
+            ),
+        );
+        tokio::pin!(transfer);
+        tokio::select! {
+            result = &mut transfer => panic!("download finished before cancellation: {result:?}"),
+            ready = tokio::time::timeout(Duration::from_secs(5), async {
+                while stats.requests.load(Ordering::Relaxed) < 2 || stats.server_payload.load(Ordering::Relaxed) == 0 {
+                    tokio::time::sleep(Duration::from_millis(10)).await;
+                }
+            }) => ready.expect("parallel requests must start before cancellation"),
+        }
+    }
+    assert_eq!(tokio::fs::read(&part).await.unwrap(), prefix);
+    assert!(!destination.exists());
+    assert_eq!(semaphore.0.available_permits(), 64);
+}
+
+#[tokio::test]
+async fn range_recovery_borrows_connections_after_other_files_finish() {
+    let size = 12 * 1024 * 1024;
+    let stats = Arc::new(SocketStats::default());
+    let server = EndpointFixture::start(
+        Ipv4Addr::LOCALHOST,
+        Profile::rate(100 * 1024),
+        stats.clone(),
+    )
+    .await;
+    let clients =
+        fixtures::clients(SelectionMode::Off, &server, &server, false);
+    let request = fixtures::request(size, 0).with_batch_download_policy();
+    let directory = tempfile::tempdir().unwrap();
+    let destination = directory.path().join("growing-batch.jar");
+    let part = destination.with_extension("jar.part");
+    let _disk = crate::util::download::local_resources::set_test_disk_kind(
+        &part,
+        sysinfo::DiskKind::SSD,
+    );
+    let semaphore = FetchSemaphore(tokio::sync::Semaphore::new(64));
+    let started = Instant::now();
+    let trial = endpoint_trial_for_range_recovery().await;
+    proxy_context::with_snapshot(clients, async {
+        let route = crate::util::fetch::DownloadRoute {
+            url: request.url.clone(), source: crate::util::fetch::DownloadRouteSource::Official,
+            is_mirror: false, allow_sensitive_headers: true, supports_range: true,
+            proxy: crate::util::fetch::ProxyPolicy::System,
+        };
+        let held: Vec<_> = (0..crate::util::download::constants::MAX_CONNECTIONS_PER_AUTHORITY - 1)
+            .map(|_| crate::util::download::native_budget::try_acquire(&route).unwrap()).collect();
+        let finish_other_files = async {
+            tokio::time::timeout(Duration::from_secs(5), async {
+                while stats.requests.load(Ordering::Relaxed) == 0 {
+                    tokio::time::sleep(Duration::from_millis(10)).await;
+                }
+            }).await.unwrap();
+            assert_eq!(stats.requests.load(Ordering::Relaxed), 1);
+            tokio::time::sleep(Duration::from_millis(250)).await;
+            drop(held);
+        };
+        let (result, _) = tokio::join!(
+            tokio::time::timeout(Duration::from_secs(30), fetch::download_benchmark_fixture(
+                request.clone(), &destination, &semaphore,
+            )),
+            finish_other_files,
+        );
+        assert_eq!(result.expect("a slow batch item must grow beyond its initial single connection").unwrap().size, size);
+    }).await;
+    let peak = stats.peak.load(Ordering::Relaxed);
+    println!(
+        "batch_growth size={size} elapsed_ms={} peak_connections={peak}",
+        started.elapsed().as_millis()
+    );
+    assert!(peak >= 3);
+    assert!(!trial.valid(Instant::now()));
+    assert_eq!(
+        request.transfer_counters.snapshot().committed_unique_bytes,
+        size
+    );
+    assert_eq!(semaphore.0.available_permits(), 64);
 }
 
 #[tokio::test]

@@ -33,15 +33,16 @@
 
 <table>
   <tr>
-    <td><img src="./.github/assets/codeflow-logo.png" width="72" alt="CodeFlow Logo" /></td>
+    <td width="105"><img src="./.github/assets/codeflow-logo.png" width="72" alt="CodeFlow Logo" /></td>
     <td><strong>CodeFlow</strong><br>更稳、更省地调用顶级 AI 模型<br>原生协议转发 · 无需海外网络 · 支付宝即充即用</td>
     <td><a href="https://codeflow.sh/register?invite=4UHP2KYH">访问 CodeFlow</a></td>
   </tr>
+  <tr>
+    <td width="105"><img src="./.github/assets/fastai-logo.png" width="72" alt="FastAI Logo" /></td>
+    <td><strong>FastAI</strong><br>面向开发者的 AI API 聚合平台，支持 OpenAI、Claude、Gemini 、Grok等主流大模型，兼容 OpenAI API 协议，可无缝接入 Claude Code、Codex等各类 AI 开发工具。平台采用 充值 1:1（1 元 = 1 美元 API 额度），对公后台自助开票，企业SLA保证，微信支付宝直充。</td>
+    <td><a href="https://www.fastaitoken.com/register?aff=KBGN38QZUXNZ">访问 FastAI</a></td>
+  </tr>
 </table>
-
-<a href="https://www.netlify.com">
-  <img src="https://www.netlify.com/assets/badges/netlify-badge-color-accent.svg" alt="Deploys by Netlify" />
-</a>
 
 - [在爱发电支持 Axolotl Launcher](https://ifdian.net/a/Mystic-Stars) — 你的支持将帮助项目持续维护与改进
 

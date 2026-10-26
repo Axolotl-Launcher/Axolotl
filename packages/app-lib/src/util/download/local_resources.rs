@@ -13,8 +13,9 @@ use std::time::Instant;
 use tokio::sync::Semaphore;
 
 use super::constants::{
-    HDD_RANGE_CONCURRENCY, PRESSURE_RANGE_CONCURRENCY, SSD_RANGE_CONCURRENCY,
-    UNKNOWN_DISK_RANGE_CONCURRENCY,
+    HDD_RANGE_CONCURRENCY, HTTP1_SSD_RANGE_CONCURRENCY,
+    HTTP1_UNKNOWN_DISK_RANGE_CONCURRENCY, PRESSURE_RANGE_CONCURRENCY,
+    SSD_RANGE_CONCURRENCY, UNKNOWN_DISK_RANGE_CONCURRENCY,
 };
 
 static FALLBACK_WRITES: LazyLock<Arc<Semaphore>> = LazyLock::new(|| {
@@ -151,21 +152,78 @@ pub(crate) fn disk_range_limit(kind: sysinfo::DiskKind) -> usize {
 }
 
 pub(crate) async fn range_limit(path: &Path) -> usize {
+    range_limit_with_disk_caps(
+        path,
+        SSD_RANGE_CONCURRENCY,
+        UNKNOWN_DISK_RANGE_CONCURRENCY,
+    )
+    .await
+}
+
+/// Buffered network ranges share the I/O semaphore; socket and write counts
+/// need not be equal. Virtual disks often have no media type, so measured
+/// write pressure limits their buffered network ranges instead.
+pub(crate) async fn http1_range_limit(path: &Path) -> usize {
+    range_limit_with_disk_caps(
+        path,
+        HTTP1_SSD_RANGE_CONCURRENCY,
+        HTTP1_UNKNOWN_DISK_RANGE_CONCURRENCY,
+    )
+    .await
+}
+
+async fn range_limit_with_disk_caps(
+    path: &Path,
+    ssd_cap: usize,
+    unknown_cap: usize,
+) -> usize {
     initialize_disks().await;
-    let limit = DISKS
-        .get()
-        .map_or(&[][..], Vec::as_slice)
-        .iter()
-        .filter(|(mount, _)| path.starts_with(mount))
-        .max_by_key(|(mount, _)| mount.as_os_str().len())
-        .map_or(UNKNOWN_DISK_RANGE_CONCURRENCY, |(_, kind)| {
-            disk_range_limit(*kind)
-        });
+    #[cfg(test)]
+    let test_kind = TEST_DISK_KINDS.lock().get(path).copied();
+    #[cfg(not(test))]
+    let test_kind: Option<sysinfo::DiskKind> = None;
+    let kind = test_kind.or_else(|| {
+        DISKS
+            .get()
+            .map_or(&[][..], Vec::as_slice)
+            .iter()
+            .filter(|(mount, _)| path.starts_with(mount))
+            .max_by_key(|(mount, _)| mount.as_os_str().len())
+            .map(|(_, kind)| *kind)
+    });
+    let limit = kind.map_or(unknown_cap, |kind| match kind {
+        sysinfo::DiskKind::SSD => ssd_cap,
+        sysinfo::DiskKind::Unknown(_) => unknown_cap,
+        sysinfo::DiskKind::HDD => disk_range_limit(kind),
+    });
     if pressure(path).blocks_expansion() {
         limit.min(PRESSURE_RANGE_CONCURRENCY)
     } else {
         limit
     }
+}
+
+#[cfg(test)]
+static TEST_DISK_KINDS: LazyLock<Mutex<HashMap<PathBuf, sysinfo::DiskKind>>> =
+    LazyLock::new(|| Mutex::new(HashMap::new()));
+
+#[cfg(test)]
+pub(crate) struct TestDiskKind(PathBuf);
+
+#[cfg(test)]
+impl Drop for TestDiskKind {
+    fn drop(&mut self) {
+        TEST_DISK_KINDS.lock().remove(&self.0);
+    }
+}
+
+#[cfg(test)]
+pub(crate) fn set_test_disk_kind(
+    path: &Path,
+    kind: sysinfo::DiskKind,
+) -> TestDiskKind {
+    TEST_DISK_KINDS.lock().insert(path.to_path_buf(), kind);
+    TestDiskKind(path.to_path_buf())
 }
 
 pub(crate) async fn write<F, T>(
@@ -286,6 +344,42 @@ mod tests {
             }
             .blocks_expansion()
         );
+    }
+
+    #[tokio::test]
+    async fn http1_network_ranges_keep_hdd_and_write_pressure_limits() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("network-ranges");
+        for (kind, expected) in [
+            (sysinfo::DiskKind::SSD, HTTP1_SSD_RANGE_CONCURRENCY),
+            (sysinfo::DiskKind::HDD, HDD_RANGE_CONCURRENCY),
+            (
+                sysinfo::DiskKind::Unknown(0),
+                HTTP1_UNKNOWN_DISK_RANGE_CONCURRENCY,
+            ),
+        ] {
+            let _disk = set_test_disk_kind(&path, kind);
+            assert_eq!(http1_range_limit(&path).await, expected);
+        }
+        let _disk = set_test_disk_kind(&path, sysinfo::DiskKind::SSD);
+        assert_eq!(range_limit(&path).await, SSD_RANGE_CONCURRENCY);
+        let _disk = set_test_disk_kind(&path, sysinfo::DiskKind::Unknown(0));
+        assert_eq!(range_limit(&path).await, UNKNOWN_DISK_RANGE_CONCURRENCY);
+        let key = volume(&path);
+        let previous = WRITE_SAMPLES.lock().insert(
+            key.clone(),
+            WriteSample {
+                latency_ms: LOCAL_WRITE_PRESSURE_MS,
+                updated: Some(Instant::now()),
+            },
+        );
+        let limited = http1_range_limit(&path).await;
+        let mut samples = WRITE_SAMPLES.lock();
+        samples.remove(&key);
+        if let Some(previous) = previous {
+            samples.insert(key, previous);
+        }
+        assert_eq!(limited, PRESSURE_RANGE_CONCURRENCY);
     }
 
     #[tokio::test]

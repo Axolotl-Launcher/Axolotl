@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "\n                UPDATE synced_game_option_preferences\n                SET enabled = 0, source = 'catalog_default', revision = ?\n                WHERE option_id = ?\n                ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": []
+  },
+  "hash": "21aba9d5fbecb493f7aaf3bc340b321a591438e608741da9576cc981e3a333da"
+}

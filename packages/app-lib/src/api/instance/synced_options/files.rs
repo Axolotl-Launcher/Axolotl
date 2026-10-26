@@ -183,17 +183,17 @@ pub(in crate::api::instance) async fn begin_checkpoint(
     let option_name = option.as_str();
     sqlx::query!(
         "
-		INSERT INTO instance_sync_checkpoints
-			(instance_id, feature, variant, expected_sha1, merge_base,
-			 source_revision, status, link_mode)
-		VALUES (?, ?, ?, ?, ?, ?, 'pending', NULL)
-		ON CONFLICT(instance_id, feature, variant) DO UPDATE SET
-			expected_sha1 = excluded.expected_sha1,
-			merge_base = excluded.merge_base,
-			source_revision = excluded.source_revision,
-			status = 'pending',
-			link_mode = NULL
-		",
+        INSERT INTO instance_sync_checkpoints
+            (instance_id, feature, variant, expected_sha1, merge_base,
+             source_revision, status, link_mode)
+        VALUES (?, ?, ?, ?, ?, ?, 'pending', NULL)
+        ON CONFLICT(instance_id, feature, variant) DO UPDATE SET
+            expected_sha1 = excluded.expected_sha1,
+            merge_base = excluded.merge_base,
+            source_revision = excluded.source_revision,
+            status = 'pending',
+            link_mode = NULL
+        ",
         instance_id,
         option_name,
         variant,
@@ -217,10 +217,10 @@ pub(in crate::api::instance) async fn finish_checkpoint(
     let link_mode = mode.as_str();
     sqlx::query!(
         "
-		UPDATE instance_sync_checkpoints
-		SET status = 'ready', link_mode = ?
-		WHERE instance_id = ? AND feature = ? AND variant = ?
-		",
+        UPDATE instance_sync_checkpoints
+        SET status = 'ready', link_mode = ?
+        WHERE instance_id = ? AND feature = ? AND variant = ?
+        ",
         link_mode,
         instance_id,
         option_name,
@@ -240,10 +240,10 @@ pub(in crate::api::instance) async fn finish_plain_checkpoint(
     let option_name = option.as_str();
     sqlx::query!(
         "
-		UPDATE instance_sync_checkpoints
-		SET status = 'ready', link_mode = NULL
-		WHERE instance_id = ? AND feature = ? AND variant = ?
-		",
+        UPDATE instance_sync_checkpoints
+        SET status = 'ready', link_mode = NULL
+        WHERE instance_id = ? AND feature = ? AND variant = ?
+        ",
         instance_id,
         option_name,
         variant,
@@ -262,11 +262,11 @@ pub(in crate::api::instance) async fn checkpoint(
     let option_name = option.as_str();
     let row = sqlx::query!(
         r#"
-		SELECT expected_sha1, merge_base,
-			source_revision AS "source_revision!: i64", status
-		FROM instance_sync_checkpoints
-		WHERE instance_id = ? AND feature = ? AND variant = ?
-		"#,
+        SELECT expected_sha1, merge_base,
+            source_revision AS "source_revision!: i64", status
+        FROM instance_sync_checkpoints
+        WHERE instance_id = ? AND feature = ? AND variant = ?
+        "#,
         instance_id,
         option_name,
         variant,

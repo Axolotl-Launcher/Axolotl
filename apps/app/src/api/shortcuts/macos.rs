@@ -49,16 +49,16 @@ pub(super) async fn create_shortcut(
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<key>CFBundleExecutable</key>
-	<string>launch</string>
-	<key>CFBundleIdentifier</key>
-	<string>{}</string>
-	<key>CFBundleIconFile</key>
-	<string>icon.icns</string>
-	<key>CFBundleName</key>
-	<string>{}</string>
-	<key>CFBundlePackageType</key>
-	<string>APPL</string>
+    <key>CFBundleExecutable</key>
+    <string>launch</string>
+    <key>CFBundleIdentifier</key>
+    <string>{}</string>
+    <key>CFBundleIconFile</key>
+    <string>icon.icns</string>
+    <key>CFBundleName</key>
+    <string>{}</string>
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
 </dict>
 </plist>
 "#,

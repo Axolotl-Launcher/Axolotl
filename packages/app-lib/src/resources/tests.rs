@@ -627,7 +627,7 @@ async fn changelog_curseforge_uses_release_html_and_rejects_other_projects() {
                 Ok(json!({"data": file}))
             }
         });
-        let provider = CurseForgeProvider::new(transport.clone());
+        let provider = CurseForgeProvider::for_tests(transport.clone());
         let query = ProviderQuery::Changelog {
             project_id: SourceProjectId::new(project).unwrap(),
             release_id: SourceReleaseId::new(&id).unwrap(),
@@ -1034,7 +1034,13 @@ async fn cache_survives_close_and_reopen_with_a_separate_wal_database() {
     .unwrap();
     let value = project_value(SourceId::modrinth(), "project", "persistent");
     first
-        .put(&key, &value, 1800, first.generation().await, 1)
+        .put(
+            &key,
+            &value,
+            1800,
+            first.generation().await,
+            chrono::Utc::now().timestamp_micros(),
+        )
         .await;
     assert!(first.info().await.unwrap().size_bytes > 0);
     let path = first.path().to_path_buf();
@@ -1142,15 +1148,16 @@ async fn cache_clear_rejects_old_generation_and_late_older_responses() {
         &project_query("project"),
     )
     .unwrap();
+    let now = chrono::Utc::now().timestamp_micros();
     let old_generation = cache.generation().await;
     cache.clear().await.unwrap();
     cache
-        .put(&key, &ProviderValue::NotFound, 100, old_generation, 1)
+        .put(&key, &ProviderValue::NotFound, 100, old_generation, now)
         .await;
     assert!(cache.get(&key).await.is_none());
     let new = project_value(SourceId::modrinth(), "project", "new");
     cache
-        .put(&key, &new, 100, cache.generation().await, 3)
+        .put(&key, &new, 100, cache.generation().await, now + 2)
         .await;
     cache
         .put(
@@ -1158,7 +1165,7 @@ async fn cache_clear_rejects_old_generation_and_late_older_responses() {
             &ProviderValue::NotFound,
             100,
             cache.generation().await,
-            2,
+            now + 1,
         )
         .await;
     assert_eq!(cache.get(&key).await, Some(new));
@@ -1481,7 +1488,9 @@ async fn export_identification_reuses_fresh_multifile_release_and_rejects_finger
     let (_temp, cache) = cache().await;
     let service = ResourceService::new(
         cache,
-        vec![Arc::new(Available(Arc::new(CurseForgeProvider::new(cf))))],
+        vec![Arc::new(Available(Arc::new(
+            CurseForgeProvider::for_tests(cf),
+        )))],
     )
     .unwrap();
     let mut draft = crate::resources::export::refresh::ExportDraft::new(
@@ -1578,7 +1587,7 @@ async fn adapters_normalize_real_iris_and_balm_without_merging_different_bytes()
         slug: None,
     };
     let mr = ModrinthProvider::new(mr_transport);
-    let cf = CurseForgeProvider::new(cf_transport);
+    let cf = CurseForgeProvider::for_tests(cf_transport);
     let mr_results = mr
         .fetch_many(&[
             release_query("G5dd9TM4"),
@@ -1677,9 +1686,9 @@ async fn fingerprint_collision_and_unknown_size_do_not_confirm_identity() {
     let (_temp, cache) = cache().await;
     let service = ResourceService::new(
         cache.clone(),
-        vec![Arc::new(Available(Arc::new(CurseForgeProvider::new(
-            transport,
-        ))))],
+        vec![Arc::new(Available(Arc::new(
+            CurseForgeProvider::for_tests(transport),
+        )))],
     )
     .unwrap();
     let local = LocalArtifactIdentity {
@@ -2140,7 +2149,7 @@ async fn curseforge_manual_links_use_project_urls_and_unavailable_files_remain_u
         release_id: SourceReleaseId::new(id.to_string()).unwrap(),
         slug: None,
     });
-    let results = CurseForgeProvider::new(transport.clone())
+    let results = CurseForgeProvider::for_tests(transport.clone())
         .fetch_many(&queries)
         .await;
     let ProviderValue::Release(document) = results[0].as_ref().unwrap() else {
@@ -2191,7 +2200,7 @@ async fn source_search_projections_preserve_variants_and_date_semantics() {
         cursor: None,
     };
     let mr = ModrinthProvider::new(mr_transport);
-    let cf = CurseForgeProvider::new(cf_transport);
+    let cf = CurseForgeProvider::for_tests(cf_transport);
     let mr_result = mr
         .fetch_many(std::slice::from_ref(&query))
         .await
@@ -2329,7 +2338,7 @@ async fn curseforge_last_window_page_is_bounded_and_does_not_claim_a_complete_to
         },
         cursor: Some("9990".into()),
     };
-    let result = CurseForgeProvider::new(transport)
+    let result = CurseForgeProvider::for_tests(transport)
         .fetch_many(&[query])
         .await
         .remove(0)
@@ -2362,7 +2371,7 @@ async fn curseforge_search_never_uses_game_version_sort_for_publication_dates()
             json!({"data":[{"id":238222,"name":"Sample","slug":"sample","classId":6,"dateCreated":"2015-11-23T23:00:41.923Z","dateReleased":"2026-10-12T14:05:52.453Z"}],"pagination":{"index":0,"resultCount":1,"totalCount":1}}),
         )
     });
-    let provider = CurseForgeProvider::new(transport);
+    let provider = CurseForgeProvider::for_tests(transport);
     let mut query = ipc::ResourceSearchQuery {
         filter: None,
         text: String::new(),
@@ -2433,7 +2442,7 @@ async fn curseforge_release_pages_filter_channels_client_side_without_losing_the
         cursor: None,
         page_size: 50,
     };
-    let provider = CurseForgeProvider::new(transport);
+    let provider = CurseForgeProvider::for_tests(transport);
     let results = provider
         .fetch_many(&[query(vec![ReleaseChannel::Release])])
         .await;
@@ -2529,9 +2538,9 @@ async fn source_validation_rejects_one_bad_id_without_poisoning_peer_results() {
     let (_temp, cache) = cache().await;
     let service = ResourceService::new(
         cache.clone(),
-        vec![Arc::new(Available(Arc::new(CurseForgeProvider::new(
-            transport.clone(),
-        ))))],
+        vec![Arc::new(Available(Arc::new(
+            CurseForgeProvider::for_tests(transport.clone()),
+        )))],
     )
     .unwrap();
     let results = service
@@ -2605,7 +2614,7 @@ async fn project_probe_persists_historical_balm_confirmation_with_a_bounded_budg
         cache.clone(),
         vec![
             Arc::new(ModrinthProvider::new(mr_transport.clone())),
-            Arc::new(Available(Arc::new(CurseForgeProvider::new(
+            Arc::new(Available(Arc::new(CurseForgeProvider::for_tests(
                 cf_transport.clone(),
             )))),
         ],
@@ -3144,4 +3153,164 @@ async fn curated_project_confirmation_rejects_different_mcmod_subvariants() {
     assert!(evidence.contains("mcmod-source-pair"));
     assert!(!evidence.contains("leftArtifact"));
     pool.close().await;
+}
+
+#[test]
+fn launcher_cache_behaviour_maps_onto_the_service_policies() {
+    use crate::resources::legacy_catalog::policy;
+    use crate::state::CacheBehaviour;
+
+    // Expired entries are served immediately and refreshed in the background,
+    // which is what the resource service does for StaleWhileRevalidate.
+    assert_eq!(policy(None), CachePolicy::StaleWhileRevalidate);
+    assert_eq!(
+        policy(Some(CacheBehaviour::StaleWhileRevalidateSkipOffline)),
+        CachePolicy::StaleWhileRevalidate
+    );
+    assert_eq!(
+        policy(Some(CacheBehaviour::StaleWhileRevalidate)),
+        CachePolicy::StaleWhileRevalidate
+    );
+    assert_eq!(
+        policy(Some(CacheBehaviour::CacheOnly)),
+        CachePolicy::OnlyCached
+    );
+    // Valid entries come from the cache, expired ones are refetched.
+    assert_eq!(
+        policy(Some(CacheBehaviour::MustRevalidate)),
+        CachePolicy::UseFresh
+    );
+    assert_eq!(
+        policy(Some(CacheBehaviour::Bypass)),
+        CachePolicy::ForceRefresh
+    );
+}
+
+#[tokio::test]
+async fn legacy_long_lived_cache_is_revalidated_after_one_hour() {
+    let (_temp, cache) = cache().await;
+    let provider = MockProvider::new(100, None);
+    let service =
+        ResourceService::new(cache.clone(), vec![provider.clone()]).unwrap();
+    let query = project_query("project");
+    let key =
+        CacheKey::new("mock-v1".into(), SourceId::modrinth(), &query).unwrap();
+    let token = CancellationToken::new();
+    for value in [
+        ProviderValue::NotFound,
+        project_value(SourceId::modrinth(), "project", "cached"),
+    ] {
+        cache.clear().await.unwrap();
+        let started = chrono::Utc::now().timestamp_micros();
+        cache
+            .put(&key, &value, 86400, cache.generation().await, started)
+            .await;
+        assert_eq!(cache.get(&key).await, Some(value.clone()));
+        let probe = sqlx::SqlitePool::connect_with(
+            sqlx::sqlite::SqliteConnectOptions::new().filename(cache.path()),
+        )
+        .await
+        .unwrap();
+        sqlx::query("UPDATE resource_cache_entries SET retrieved_at = ?")
+            .bind(started - 3601 * 1_000_000)
+            .execute(&probe)
+            .await
+            .unwrap();
+        assert!(cache.get(&key).await.is_none());
+        assert_eq!(cache.get_with_freshness(&key).await, Some((value, false)));
+        provider.fail.store(true, Ordering::Release);
+        assert!(
+            service
+                .query(
+                    &SourceId::modrinth(),
+                    query.clone(),
+                    CachePolicy::UseFresh,
+                    &token
+                )
+                .await
+                .is_err()
+        );
+        provider.fail.store(false, Ordering::Release);
+        assert!(
+            !service
+                .query(
+                    &SourceId::modrinth(),
+                    query.clone(),
+                    CachePolicy::UseFresh,
+                    &token
+                )
+                .await
+                .unwrap()
+                .from_cache
+        );
+        assert!(
+            service
+                .query(
+                    &SourceId::modrinth(),
+                    query.clone(),
+                    CachePolicy::UseFresh,
+                    &token
+                )
+                .await
+                .unwrap()
+                .from_cache
+        );
+        probe.close().await;
+    }
+    cache.close().await;
+}
+
+#[test]
+fn update_query_positive_and_negative_ttls_are_at_most_one_hour() {
+    let project = SourceProjectId::new("project").unwrap();
+    let release = SourceReleaseId::new("release").unwrap();
+    let queries = [
+        ProviderQuery::Release {
+            project_id: Some(project.clone()),
+            release_id: release.clone(),
+            slug: None,
+        },
+        ProviderQuery::ReleaseProtocol {
+            release_id: release,
+            version: "v2".into(),
+        },
+        ProviderQuery::Identify {
+            integrity: ArtifactIntegrity {
+                size: None,
+                hashes: vec![],
+            },
+            fingerprint: None,
+        },
+        ProviderQuery::IdentifyExport {
+            integrity: ArtifactIntegrity {
+                size: None,
+                hashes: vec![],
+            },
+            fingerprint: None,
+        },
+        ProviderQuery::Project {
+            id: project.clone(),
+            slug: None,
+        },
+        ProviderQuery::ReleasesProtocol {
+            project_id: project,
+        },
+    ];
+    for query in queries {
+        for value in [
+            ProviderValue::NotFound,
+            ProviderValue::Matches(vec![]),
+            ProviderValue::Identified(vec![]),
+            ProviderValue::Protocol(serde_json::Value::Null),
+        ] {
+            assert!(query.ttl(&value) <= 3600);
+        }
+    }
+    assert_eq!(
+        ProviderQuery::ReleasesProtocol {
+            project_id: SourceProjectId::new("project").unwrap()
+        }
+        .ttl(&ProviderValue::Protocol(serde_json::Value::Null)),
+        300
+    );
 }

@@ -207,7 +207,8 @@ async fn scan_missing_modpack_files_in_at(
     let mut checked_candidates = 0;
     let mut errors = Vec::new();
     let groups = group_candidates_by_item(candidates.stable);
-    let _permit = state.install_job_semaphore.acquire().await?;
+    let (_execution, _permit) =
+        runner::recovery_execution_slot(&state, job_id).await?;
     let current = store::get_required(job_id, &state).await?;
     if current.status == InstallJobStatus::WaitingForUser {
         let concurrency = crate::util::download::task_concurrency_limit(&state)
@@ -695,7 +696,8 @@ pub async fn retry_missing_modpack_file(
     item_id: String,
 ) -> crate::Result<InstallJobSnapshot> {
     let state = State::get().await?;
-    let _permit = state.install_job_semaphore.acquire().await?;
+    let (_execution, _permit) =
+        runner::recovery_execution_slot(&state, job_id).await?;
     let current = store::get_required(job_id, &state).await?;
     if missing_item_is_resolved(&current, &item_id)? {
         return Ok(current.snapshot());
@@ -785,7 +787,8 @@ pub async fn import_missing_modpack_file(
     selected_file_path: PathBuf,
 ) -> crate::Result<InstallJobSnapshot> {
     let state = State::get().await?;
-    let _permit = state.install_job_semaphore.acquire().await?;
+    let (_execution, _permit) =
+        runner::recovery_execution_slot(&state, job_id).await?;
     let current = store::get_required(job_id, &state).await?;
     if missing_item_is_resolved(&current, &item_id)? {
         return Ok(current.snapshot());
@@ -1807,6 +1810,20 @@ mod tests {
             .is_err()
         );
 
+        // These status-validation probes are no longer active tasks. The
+        // resumed waiting task must own the instance by itself.
+        for probe in [queued_job_id, resolved_queued_job_id] {
+            let record = store::get_required(probe, &state).await.unwrap();
+            store::update_status(
+                probe,
+                InstallJobStatus::Canceled,
+                &record.state,
+                &state,
+            )
+            .await
+            .unwrap();
+        }
+
         let target = instance_base.join(&first.target_path);
         crate::util::io::create_dir_all(target.parent().unwrap())
             .await
@@ -1849,7 +1866,7 @@ mod tests {
             )
         );
         let scan_result = scan_result.unwrap();
-        assert!(manual_result.is_ok());
+        assert!(manual_result.is_ok(), "{manual_result:?}");
         assert!(
             scan_result.imported_item_ids.is_empty()
                 || scan_result.imported_item_ids == vec![first.item_id.clone()]

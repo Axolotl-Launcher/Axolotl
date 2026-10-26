@@ -9,6 +9,7 @@ import { page } from 'vitest/browser'
 import { computed, defineComponent, h, nextTick, ref, Suspense } from 'vue'
 import { createMemoryHistory, createRouter } from 'vue-router'
 
+import { useMcpPreview } from '@/features/mcp/preview'
 import { mountThemed, waitFor } from '@/test/visual-harness'
 
 import AppActionBar from './AppActionBar.vue'
@@ -102,6 +103,30 @@ vi.mock('@/providers/app-update', () => ({
 
 const cleanup: (() => void)[] = []
 afterEach(() => cleanup.splice(0).forEach((dispose) => dispose()))
+
+it('keeps the connected AI control and download actions accessible together', async () => {
+    const { wrapper, width } = await mountTitlebar(true)
+    const preview = useMcpPreview()
+    cleanup.push(preview.disconnect)
+    preview.requestConnection('Codex', true)
+    for (const windowWidth of [1100, 1280]) {
+        width.value = windowWidth
+        await page.viewport(windowWidth, 720)
+        await nextTick()
+        const header = wrapper.getComponent(AppTitlebar).element as HTMLElement
+        expect(header.scrollWidth).toBeLessThanOrEqual(header.clientWidth)
+        const connection = wrapper.get('[data-testid="mcp-connection-status"]').element
+        const rect = connection.getBoundingClientRect()
+        expect(
+            connection.contains(
+                document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2),
+            ),
+        ).toBe(true)
+        expect(wrapper.get('button[aria-label="Downloads"]').isVisible()).toBe(true)
+    }
+    await wrapper.get('[data-testid="mcp-connection-status"]').trigger('click')
+    expect(preview.connectedClient.value).toBeNull()
+})
 
 async function mountTitlebar(withActionBar = false) {
     await page.viewport(1100, 720)

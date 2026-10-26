@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "\n        UPDATE instance_files\n        SET\n            relative_path = ?,\n            file_name = ?,\n            enabled = ?,\n            missing = 0,\n            modified_at = ?\n        WHERE instance_id = ? AND relative_path = ?\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 6
+    },
+    "nullable": []
+  },
+  "hash": "972565ccf976319c152fad3cc88a8061df8ba465faf2c09a55ee8cafd026d4e7"
+}

@@ -11,13 +11,17 @@ import GitGraphIcon from '@modrinth/assets/icons/git-graph.svg?component'
 import IssuesIcon from '@modrinth/assets/icons/issues.svg?component'
 import SearchIcon from '@modrinth/assets/icons/search.svg?component'
 import TrashIcon from '@modrinth/assets/icons/trash.svg?component'
-import Accordion from '@modrinth/ui/src/components/base/Accordion.vue'
-import Avatar from '@modrinth/ui/src/components/base/Avatar.vue'
-import Button from '@modrinth/ui/src/components/base/buttons/Button.vue'
-import Checkbox from '@modrinth/ui/src/components/base/Checkbox.vue'
-import Combobox, { type ComboboxOption } from '@modrinth/ui/src/components/base/Combobox.vue'
-import IntlFormatted from '@modrinth/ui/src/components/base/IntlFormatted.vue'
-import { defineMessages, useVIntl } from '@modrinth/ui/src/composables/i18n.ts'
+import {
+    Accordion,
+    Avatar,
+    Button,
+    Checkbox,
+    Combobox,
+    type ComboboxOption,
+    defineMessages,
+    IntlFormatted,
+    useVIntl,
+} from '@modrinth/ui'
 
 import AppleLogo from '~/components/landing/AppleLogo.vue'
 import CommunitySection from '~/components/landing/CommunitySection.vue'
@@ -27,18 +31,14 @@ import MultiplayerIcon from '~/components/landing/MultiplayerIcon.vue'
 import OfflineModeIcon from '~/components/landing/OfflineModeIcon.vue'
 import ProjectsShowcase from '~/components/landing/ProjectsShowcase.vue'
 import WindowsLogo from '~/components/landing/WindowsLogo.vue'
+import type { ReleaseChannel } from '~/utils/download-sources'
 import { trackHeroGlow } from '~/utils/hero-glow'
 import {
     getDownloadAvailability,
     getReleasePage,
-    type ReleaseChannel,
-    resolveLauncherDownloads,
+    hasLauncherDownloads,
+    shouldDegradeDownload,
 } from '~/utils/launcher-downloads'
-
-interface UpdateServerDownloadMetadata {
-    version: string
-    downloads: Array<{ filename: string; url: string }>
-}
 
 type OSType = 'Mac' | 'Windows' | 'Linux' | null
 
@@ -53,30 +53,13 @@ onMounted(() => {
 })
 onBeforeUnmount(() => stopHeroGlow?.())
 
-const { resolvedSource } = useDownloadSource()
-const UPDATE_SERVER_BASE_URL = 'https://update.axlmc.org'
 const releaseChannel = ref<ReleaseChannel>('release')
-const releaseApi = computed(
-    () => `${UPDATE_SERVER_BASE_URL}/api/downloads/latest?channel=${releaseChannel.value}`,
-)
-
-// 使用 Update Server 的下载目录作为默认发布数据源；GitHub 保留为手动备用源。
 const {
-    data: launcherRelease,
+    release: launcherRelease,
     status: launcherReleaseStatus,
     refresh: refreshLauncherRelease,
-} = await useFetch<UpdateServerDownloadMetadata>(releaseApi, {
-    // Download metadata is intentionally fetched in the browser. This keeps
-    // static generation independent from the update service's availability and
-    // lets every deployed page resolve the current release after loading.
-    server: false,
-    transform(data: UpdateServerDownloadMetadata) {
-        return {
-            tag_name: `v${data.version}`,
-            assets: data.downloads.map((download) => download.filename),
-        }
-    },
-})
+    links: downloadLinks,
+} = useLauncherDownloads(releaseChannel)
 
 // 下载链接的三种状态：获取中 / 就绪 / 失败。失败时主 CTA 降级为跳转下载区，
 // 下载区显示错误提示与 GitHub Releases 手动下载入口，避免点击死链接。
@@ -86,12 +69,6 @@ const downloadState = computed<'loading' | 'ready' | 'error'>(() => {
     return 'loading'
 })
 
-const downloadLinks = computed(() =>
-    resolveLauncherDownloads(
-        launcherReleaseStatus.value === 'success' ? launcherRelease.value : null,
-        resolvedSource.value,
-    ),
-)
 const windowsLink = computed(() => downloadLinks.value.windows)
 const macLinks = computed(() => ({ universal: downloadLinks.value.mac }))
 const linuxLinks = computed(() => ({
@@ -104,6 +81,10 @@ const releasePage = computed(() =>
         releaseChannel.value,
         launcherReleaseStatus.value === 'success' ? launcherRelease.value : null,
     ),
+)
+// A valid catalog may have no packages for this channel or platform.
+const releaseUnavailable = computed(
+    () => downloadState.value === 'ready' && !hasLauncherDownloads(launcherRelease.value),
 )
 const linkUnavailableLabel = computed(() =>
     formatMessage(
@@ -131,13 +112,18 @@ const latestVersion = computed(() => {
     return typeof tagName === 'string' ? tagName.replace(/^v/, '') : null
 })
 
+// The site is statically generated, so prerendering has no request headers to read.
+// Deriving the platform on the server therefore always disagrees with the browser and
+// produces a hydration mismatch on the hero call to action. Stay platform-neutral
+// until the component has mounted, then read the real user agent. Both renders emit
+// the same static markup, and the OS-specific icon appears one frame later.
+const hydrated = ref(false)
+onMounted(() => {
+    hydrated.value = true
+})
 const platform = computed<string>(() => {
-    if (import.meta.server) {
-        const headers = useRequestHeaders()
-        return headers['user-agent'] || ''
-    } else {
-        return navigator.userAgent || ''
-    }
+    if (!hydrated.value) return ''
+    return navigator.userAgent || ''
 })
 const os = computed<OSType>(() => {
     if (/(iPhone|iPad|Android|Mobile)/.test(platform.value)) {
@@ -151,6 +137,66 @@ const os = computed<OSType>(() => {
     } else {
         return null
     }
+})
+
+const DOWNLOAD_WAIT_LIMIT_MS = 2500
+const DOWNLOAD_WAIT_TICK_MS = 250
+
+// The version service is a third party, so the hero call to action cannot assume a
+// reply ever arrives. A request that never settles used to leave the button
+// disabled and wordless for as long as it hung, with no way for the visitor to
+// act. Past the limit the button becomes usable and says why.
+const downloadWaitStartedAt = ref(0)
+const downloadWaitElapsedMs = ref(0)
+let downloadWaitTicker: ReturnType<typeof setInterval> | undefined
+
+function stopDownloadWaitTicker() {
+    if (downloadWaitTicker !== undefined) {
+        clearInterval(downloadWaitTicker)
+        downloadWaitTicker = undefined
+    }
+}
+
+function startDownloadWaitTicker() {
+    // Prerendering has no request in flight, and an interval started there would
+    // never be cleared.
+    if (typeof window === 'undefined') return
+    stopDownloadWaitTicker()
+    downloadWaitStartedAt.value = Date.now()
+    downloadWaitElapsedMs.value = 0
+    downloadWaitTicker = setInterval(() => {
+        downloadWaitElapsedMs.value = Date.now() - downloadWaitStartedAt.value
+    }, DOWNLOAD_WAIT_TICK_MS)
+}
+
+// Declared after `os` on purpose: this watcher evaluates the hero state during
+// setup, and `heroDownloadState` reads `os`.
+watch(
+    heroDownloadState,
+    (state) => {
+        if (state === 'loading') startDownloadWaitTicker()
+        else stopDownloadWaitTicker()
+    },
+    { immediate: true },
+)
+
+onBeforeUnmount(stopDownloadWaitTicker)
+
+const heroCtaDegraded = computed(() =>
+    shouldDegradeDownload(
+        heroDownloadState.value,
+        downloadWaitElapsedMs.value,
+        DOWNLOAD_WAIT_LIMIT_MS,
+    ),
+)
+
+// One line under the button, announced politely so a screen reader hears the
+// reason the button changed rather than only the new label.
+const heroDownloadNote = computed(() => {
+    if (downloadState.value === 'error') return formatMessage(messages.downloadLinksFailed)
+    if (releaseUnavailable.value) return formatMessage(messages.packageUnavailable)
+    if (heroCtaDegraded.value) return formatMessage(messages.downloadTimeoutNote)
+    return ''
 })
 
 const modManagementData = [
@@ -223,8 +269,11 @@ const removeMod = (index: number) => {
 }
 
 const handleDownload = () => {
-    if (heroDownloadState.value === 'loading') return
-    if (heroDownloadState.value !== 'ready' || os.value === 'Linux') {
+    // While the version service is still being asked the button only explains
+    // itself. Once it degrades, clicking takes the visitor to the download
+    // section, where every platform and mirror is listed.
+    if (heroDownloadState.value === 'loading' && !heroCtaDegraded.value) return
+    if (heroCtaDegraded.value || heroDownloadState.value !== 'ready' || os.value === 'Linux') {
         scrollToSection()
     } else if (os.value === 'Windows') {
         downloadWindows.value?.click()
@@ -235,14 +284,19 @@ const handleDownload = () => {
     }
 }
 
+// 页头是 absolute（滚动后会离开视口），但点击那一刻它仍盖在目标上方。
+// window.scrollTo 既不认 scroll-padding-top 也不认 scroll-margin-top，
+// 所以这里自己让出页头高度，并先取整，避免落点比页头高出不到 1px。
 const scrollToSection = () => {
     nextTick(() => {
-        if (downloadSection.value) {
-            window.scrollTo({
-                top: downloadSection.value.offsetTop,
-                behavior: 'smooth',
-            })
-        }
+        const section = downloadSection.value
+        if (!section) return
+        const headerHeight = document.querySelector('header')?.getBoundingClientRect().height ?? 0
+        // scrollTo 会把位置取整到整数像素，先按取整后的文档位置让出页头高度。
+        const target = Math.floor(
+            section.getBoundingClientRect().top + window.scrollY - headerHeight,
+        )
+        window.scrollTo({ top: target, behavior: 'smooth' })
     })
 }
 
@@ -258,6 +312,13 @@ const messages = defineMessages({
         defaultMessage: 'View download options',
     },
     retryDownloads: { id: 'axolotl-marketing.download.retry', defaultMessage: 'Retry' },
+    // Shown when the version service has not answered in time. Deliberately names
+    // the cause, because "something went wrong" leaves the visitor with no next
+    // step, while naming the wait points them at the options below.
+    downloadTimeoutNote: {
+        id: 'axolotl-marketing.download.timeout-note',
+        defaultMessage: 'Could not reach the version service in time — pick your platform below.',
+    },
     recentEyebrow: {
         id: 'axolotl-marketing.recent.eyebrow',
         defaultMessage: 'Made for everyday play',
@@ -336,9 +397,12 @@ const messages = defineMessages({
         defaultMessage:
             'Axolotl Launcher Lab showing the skin editor, gradient text generator, seed map, and schematic workshop.',
     },
-    openSourceBadge: {
-        id: 'axolotl-marketing.hero.open-source',
-        defaultMessage: 'Tauri v2 - Rust - Vue 3',
+    // The hero used to lead with the tech stack, which tells a visitor nothing
+    // about whether the launcher is safe to install. The licence, the price and
+    // the absence of ads are the facts that answer that question.
+    heroTrustLine: {
+        id: 'axolotl-marketing.hero.trust-line',
+        defaultMessage: 'Open source · GPL-3.0 · Free · No ads · Windows / macOS / Linux',
     },
     oneLauncher: {
         id: 'axolotl-marketing.demo.one-launcher',
@@ -373,13 +437,11 @@ const messages = defineMessages({
         id: 'axolotl-marketing.highlights.eyebrow',
         defaultMessage: 'Everything for your next world',
     },
-    highlightsTitle: {
-        id: 'axolotl-marketing.highlights.title',
-        defaultMessage: 'Manage Minecraft content',
-    },
-    highlightsTitleSecond: {
-        id: 'axolotl-marketing.highlights.title-second',
-        defaultMessage: 'without detours',
+    // One message instead of two fragments joined by <br />: the explicit break forced
+    // a fixed two-line heading and fought the balance rule on narrow viewports.
+    highlightsTitleCombined: {
+        id: 'axolotl-marketing.highlights.title-combined',
+        defaultMessage: 'Manage Minecraft content without detours',
     },
     highlightsDescription: {
         id: 'axolotl-marketing.highlights.description',
@@ -1010,14 +1072,8 @@ useHead(() => ({
         <div ref="hero" class="landing-hero">
             <div class="hero-grid" aria-hidden="true" />
             <div class="hero-content">
-                <div class="flex items-center gap-3">
-                    <div class="hero-kicker">
-                        {{ formatMessage(messages.openSourceBadge) }}
-                    </div>
-                </div>
-                <h1
-                    class="main-header mb-8 mt-4 max-w-[52rem] text-balance text-[5.25rem] font-semibold leading-none text-[var(--color-contrast)]"
-                >
+                <div class="hero-kicker">{{ formatMessage(messages.heroTrustLine) }}</div>
+                <h1 class="main-header mb-8 mt-4 max-w-[52rem] text-[var(--color-contrast)]">
                     {{ formatMessage(messages.downloadAxolotl) }}
                 </h1>
                 <p class="main-subheader">
@@ -1025,22 +1081,23 @@ useHead(() => ({
                 </p>
                 <div class="button-group mt-3 flex flex-wrap justify-end gap-2">
                     <Button
-                        v-if="os"
                         type="colored"
                         color="brand"
                         size="xl"
                         class="hero-download-button"
-                        :disabled="heroDownloadState === 'loading'"
+                        :disabled="heroDownloadState === 'loading' && !heroCtaDegraded"
                         @click="handleDownload"
                         ><LinuxIcon v-if="os === 'Linux'" />
                         <WindowsIcon v-else-if="os === 'Windows'" />
                         <AppleIcon v-else-if="os === 'Mac'" />
                         {{
-                            heroDownloadState === 'loading'
-                                ? formatMessage(messages.fetchingDownloadLinks)
-                                : heroDownloadState === 'ready'
-                                  ? formatMessage(messages.downloadAxolotlButton)
-                                  : formatMessage(messages.viewDownloads)
+                            heroCtaDegraded
+                                ? formatMessage(messages.viewDownloads)
+                                : heroDownloadState === 'loading'
+                                  ? formatMessage(messages.fetchingDownloadLinks)
+                                  : heroDownloadState === 'ready'
+                                    ? formatMessage(messages.downloadAxolotlButton)
+                                    : formatMessage(messages.viewDownloads)
                         }}
                     </Button>
                     <Button type="outlined" size="xl" @click="scrollToSection"
@@ -1048,6 +1105,9 @@ useHead(() => ({
                         {{ formatMessage(messages.moreDownloadOptions) }}
                     </Button>
                 </div>
+                <p v-if="heroDownloadNote" class="hero-download-note" aria-live="polite">
+                    {{ heroDownloadNote }}
+                </p>
             </div>
             <div class="hero-product">
                 <img
@@ -1073,8 +1133,7 @@ useHead(() => ({
                     formatMessage(messages.builtOnModrinth)
                 }}</span>
                 <h2 id="axolotl-highlights-title">
-                    {{ formatMessage(messages.highlightsTitle) }}<br />
-                    {{ formatMessage(messages.highlightsTitleSecond) }}
+                    {{ formatMessage(messages.highlightsTitleCombined) }}
                 </h2>
                 <p>{{ formatMessage(messages.highlightsDescription) }}</p>
             </div>
@@ -1082,51 +1141,43 @@ useHead(() => ({
             <div class="modrinth-feature-grid">
                 <article
                     class="feature gradient-border promise-card col-span-2 min-h-[12.5rem] p-6"
-                    data-number="01"
                 >
-                    <div class="promise-meta"><GitGraphIcon /><span>01</span></div>
+                    <div class="promise-meta"><GitGraphIcon /></div>
                     <h3>{{ formatMessage(messages.adFree) }}</h3>
                     <p>{{ formatMessage(messages.adFreeDescription) }}</p>
                 </article>
                 <article
                     class="feature gradient-border promise-card col-span-2 min-h-[12.5rem] p-6"
-                    data-number="02"
                 >
-                    <div class="promise-meta"><BoxesIcon /><span>02</span></div>
+                    <div class="promise-meta"><BoxesIcon /></div>
                     <h3>{{ formatMessage(messages.localized) }}</h3>
                     <p>{{ formatMessage(messages.localizedDescription) }}</p>
                 </article>
                 <article
                     class="feature gradient-border promise-card col-span-2 min-h-[12.5rem] p-6"
-                    data-number="03"
                 >
-                    <div class="promise-meta"><GaugeIcon /><span>03</span></div>
+                    <div class="promise-meta"><GaugeIcon /></div>
                     <h3>{{ formatMessage(messages.performant) }}</h3>
                     <p>{{ formatMessage(messages.performantDescription) }}</p>
                 </article>
                 <article
                     class="feature gradient-border promise-card col-span-2 min-h-[12.5rem] p-6"
-                    data-number="04"
                 >
-                    <div class="promise-meta"><SearchIcon aria-hidden="true" /><span>04</span></div>
+                    <div class="promise-meta"><SearchIcon aria-hidden="true" /></div>
                     <h3>{{ formatMessage(messages.dohSupport) }}</h3>
                     <p>{{ formatMessage(messages.dohSupportDescription) }}</p>
                 </article>
                 <article
                     class="feature gradient-border promise-card col-span-2 min-h-[12.5rem] p-6"
-                    data-number="05"
                 >
-                    <div class="promise-meta">
-                        <DownloadIcon aria-hidden="true" /><span>05</span>
-                    </div>
+                    <div class="promise-meta"><DownloadIcon aria-hidden="true" /></div>
                     <h3>{{ formatMessage(messages.mirrorSupport) }}</h3>
                     <p>{{ formatMessage(messages.mirrorSupportDescription) }}</p>
                 </article>
                 <article
                     class="feature gradient-border promise-card col-span-2 min-h-[12.5rem] p-6"
-                    data-number="06"
                 >
-                    <div class="promise-meta"><BoxesIcon aria-hidden="true" /><span>06</span></div>
+                    <div class="promise-meta"><BoxesIcon aria-hidden="true" /></div>
                     <h3>{{ formatMessage(messages.minecraftSupport) }}</h3>
                     <p>{{ formatMessage(messages.minecraftSupportDescription) }}</p>
                 </article>
@@ -1198,7 +1249,7 @@ useHead(() => ({
                     <div class="row select-none hover:cursor-default">
                         <div />
                         <div class="cell">{{ formatMessage(messages.name) }}</div>
-                        <div class="cell">{{ formatMessage(messages.version) }}</div>
+                        <div class="cell cell--version">{{ formatMessage(messages.version) }}</div>
                         <div class="cell">{{ formatMessage(messages.actions) }}</div>
                     </div>
                     <TransitionGroup name="mod-row" tag="div" class="table">
@@ -1216,7 +1267,7 @@ useHead(() => ({
                                     {{ formatMessage(messages.byAuthor, { author: mod.author }) }}
                                 </div>
                             </div>
-                            <div class="cell">{{ mod.version }}</div>
+                            <div class="cell cell--version">{{ mod.version }}</div>
                             <div class="cell check">
                                 <Checkbox
                                     v-model="checkedMods[index]"
@@ -1366,30 +1417,10 @@ useHead(() => ({
                 </article>
             </div>
         </section>
-        <section id="faq" class="faq-section" aria-labelledby="faq-title">
-            <div class="faq-intro">
-                <span class="text-xs font-extrabold uppercase tracking-[0.1em] text-brand">{{
-                    formatMessage(messages.faqEyebrow)
-                }}</span>
-                <h2 id="faq-title">{{ formatMessage(messages.faqTitle) }}</h2>
-                <p>{{ formatMessage(messages.faqDescription) }}</p>
-            </div>
-            <div class="faq-list flex flex-col gap-3">
-                <details
-                    v-for="item in faqItems"
-                    :key="item.question"
-                    class="faq-item rounded-2xl border border-divider bg-surface-2"
-                >
-                    <summary>{{ item.question }}</summary>
-                    <p>{{ item.answer }}</p>
-                </details>
-            </div>
-        </section>
-        <CommunitySection />
         <div
             id="download"
             ref="downloadSection"
-            class="footer relative flex flex-col items-center justify-center gap-6 overflow-hidden bg-[var(--color-accent-contrast)] px-6 py-[clamp(4rem,8vw,7rem)] text-center text-[var(--color-contrast)]"
+            class="footer relative flex flex-col items-center justify-center gap-6 overflow-hidden bg-[var(--surface-1)] px-6 py-[clamp(4rem,8vw,7rem)] text-center text-[var(--color-contrast)]"
         >
             <div class="section-badge">{{ formatMessage(messages.downloadOptions) }}</div>
             <div class="section-subheader">
@@ -1419,7 +1450,7 @@ useHead(() => ({
                             })
                         }}
                     </span>
-                    <span v-else-if="launcherReleaseStatus === 'error'">
+                    <span v-else-if="launcherReleaseStatus === 'error' || releaseUnavailable">
                         {{ formatMessage(messages.downloadChannelVersionUnavailable) }}
                     </span>
                     <span v-else>{{ formatMessage(messages.downloadChannelFetchingVersion) }}</span>
@@ -1598,6 +1629,26 @@ useHead(() => ({
                 </IntlFormatted>
             </p>
         </div>
+        <section id="faq" class="faq-section" aria-labelledby="faq-title">
+            <div class="faq-intro">
+                <span class="text-xs font-extrabold uppercase tracking-[0.1em] text-brand">{{
+                    formatMessage(messages.faqEyebrow)
+                }}</span>
+                <h2 id="faq-title">{{ formatMessage(messages.faqTitle) }}</h2>
+                <p>{{ formatMessage(messages.faqDescription) }}</p>
+            </div>
+            <div class="faq-list flex flex-col gap-3">
+                <details
+                    v-for="item in faqItems"
+                    :key="item.question"
+                    class="faq-item rounded-2xl border border-divider bg-surface-2"
+                >
+                    <summary>{{ item.question }}</summary>
+                    <p>{{ item.answer }}</p>
+                </details>
+            </div>
+        </section>
+        <CommunitySection />
     </div>
 </template>
 
@@ -1609,6 +1660,11 @@ useHead(() => ({
     width: min(76rem, calc(100% - 3rem));
     margin: 0 auto;
     padding: 7rem 0;
+
+    // 直接跟在下载区之后时，下载区自己的上下留白已经够用，不再叠加一层。
+    .footer + & {
+        padding-top: 0;
+    }
 }
 
 .faq-intro {
@@ -1651,6 +1707,10 @@ useHead(() => ({
         gap: 2rem;
         width: calc(100% - 2rem);
         padding: 5rem 0;
+
+        .footer + & {
+            padding-top: 0;
+        }
     }
 }
 
@@ -1721,30 +1781,33 @@ useHead(() => ({
     text-align: center;
 }
 
+// A trust line, not a badge: the pill treatment made a factual claim read as
+// decoration, and its blur and glow were the heaviest ornament above the fold.
 .hero-kicker {
-    display: inline-flex;
-    align-items: center;
     width: fit-content;
-    height: fit-content;
-    padding: 0.25rem 0.75rem;
-    border-radius: 9999px;
-    background: color-mix(in srgb, var(--color-brand) 12%, transparent);
     color: var(--color-brand);
-    font-size: 0.875rem;
-    font-weight: 700;
-    line-height: 1;
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    box-shadow: 0 0.75rem 2.5rem color-mix(in srgb, var(--color-brand) 12%, transparent);
+    font-size: 0.78125rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    line-height: 1.4;
+    text-align: center;
+}
+
+// The brand pink is tuned for surfaces, not for small text: pink-600 on the light
+// background measures 3.86:1, below the 4.5:1 floor for text this size. The
+// darker step of the same hue clears it at 5.07:1 while staying recognisably the
+// brand colour. The dark and OLED backgrounds already pass with the brand pink.
+.light-mode .hero-kicker {
+    color: var(--color-pink-700);
 }
 
 .landing-hero .main-subheader {
     max-width: 46rem;
     margin: 0;
     color: var(--landing-color-subheading);
-    font-size: clamp(1rem, 1.6vw, 1.25rem);
-    font-weight: 450;
-    line-height: 1.65;
+    font-size: var(--landing-size-lead);
+    font-weight: var(--landing-weight-lead);
+    line-height: var(--landing-leading-lead);
     text-wrap: balance;
 }
 
@@ -1762,6 +1825,15 @@ useHead(() => ({
             cursor: wait;
         }
     }
+}
+
+.hero-download-note {
+    max-width: 46rem;
+    margin: 1rem 0 0;
+    color: var(--landing-color-subheading);
+    font-size: var(--landing-size-caption);
+    line-height: var(--landing-leading-caption);
+    text-align: center;
 }
 
 .hero-product {
@@ -1817,6 +1889,15 @@ useHead(() => ({
     }
 }
 
+.main-header {
+    font-size: var(--landing-size-display);
+    font-weight: var(--landing-weight-display);
+    letter-spacing: -0.03em;
+    line-height: var(--landing-leading-display);
+    word-break: keep-all;
+    text-wrap: balance;
+}
+
 .highlights-intro {
     max-width: 52rem;
     margin: 0 auto clamp(2.75rem, 6vw, 5rem);
@@ -1825,10 +1906,15 @@ useHead(() => ({
     h2 {
         margin: 0.7rem 0 1rem;
         color: var(--color-contrast);
-        font-size: clamp(2.5rem, 5.5vw, 4.75rem);
-        font-weight: 700;
-        letter-spacing: 0;
-        line-height: 1.04;
+        font-size: var(--landing-size-section);
+        font-weight: var(--landing-weight-section);
+        letter-spacing: -0.02em;
+        line-height: var(--landing-leading-section);
+        // CJK titles break inside a word ("内" / "容" on its own line) when the
+        // available width is narrow. Keep words whole and let balance decide where
+        // the line ends instead of a manual <br />.
+        word-break: keep-all;
+        text-wrap: balance;
     }
 
     p {
@@ -1850,16 +1936,8 @@ useHead(() => ({
 .modrinth-feature-grid .feature {
     padding: var(--gap-xl);
     z-index: 1;
-    background: radial-gradient(
-        50% 50% at 50% 50%,
-        rgba(44, 48, 79, 0.35) 0%,
-        rgba(32, 35, 50, 0.27) 100%
-    );
-    box-shadow:
-        0 1.25rem 3rem rgb(0 0 0 / 12%),
-        0 0 4rem rgb(57 61 94 / 20%) inset;
-    backdrop-filter: blur(6px);
-    -webkit-backdrop-filter: blur(6px);
+    background: var(--surface-2);
+    box-shadow: 0 1.25rem 3rem rgb(0 0 0 / 12%);
     overflow: hidden;
 }
 
@@ -1867,19 +1945,12 @@ useHead(() => ({
     .promise-meta {
         display: flex;
         align-items: center;
-        justify-content: space-between;
+        justify-content: flex-start;
         color: var(--color-brand);
 
         svg {
             width: 1.35rem;
             height: 1.35rem;
-        }
-
-        span {
-            color: var(--color-brand);
-            font-size: 0.75rem;
-            font-weight: 800;
-            letter-spacing: 0.09em;
         }
     }
 
@@ -1895,18 +1966,6 @@ useHead(() => ({
         color: var(--color-secondary);
         font-size: 0.9rem;
         line-height: 1.6;
-    }
-
-    &::after {
-        position: absolute;
-        right: -1.75rem;
-        bottom: -2.25rem;
-        z-index: -1;
-        color: rgb(255 255 255 / 4%);
-        content: attr(data-number);
-        font-size: 8rem;
-        font-weight: 800;
-        line-height: 1;
     }
 }
 
@@ -2028,15 +2087,11 @@ useHead(() => ({
     }
 }
 
-:global(html.light-mode) .axolotl-highlights {
+.light-mode .axolotl-highlights {
     background: #f8f7f8;
 }
 
-:global(html.light-mode) .promise-card::after {
-    color: rgb(0 0 0 / 5%);
-}
-
-:global(html.light-mode) .mods .row:not(.header):hover {
+.light-mode .mods .row:not(.header):hover {
     background: rgb(0 0 0 / 4%);
 }
 
@@ -2066,7 +2121,6 @@ useHead(() => ({
     .table {
         margin-bottom: 1rem;
         overflow: hidden;
-        max-height: 32rem;
     }
 
     h3,
@@ -2256,12 +2310,11 @@ useHead(() => ({
     }
 
     .section-badge {
-        border: 1px solid color-mix(in srgb, var(--color-brand) 40%, transparent);
-        background-color: var(--color-brand-highlight);
         color: var(--color-brand);
-        border-radius: 0;
-        width: min-content;
-        padding: var(--gap-lg) var(--gap-xl);
+        font-size: 0.75rem;
+        font-weight: 800;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
         white-space: nowrap;
     }
 
@@ -2484,14 +2537,6 @@ useHead(() => ({
     .website {
         grid-column: 1 / -1 !important;
     }
-
-    .main-header {
-        font-size: 4rem !important;
-    }
-
-    .main-subheader {
-        font-size: 1.25rem !important;
-    }
 }
 
 @media screen and (max-width: 746px) {
@@ -2551,18 +2596,38 @@ useHead(() => ({
         }
     }
 
-    .main-header {
-        font-size: 3rem !important;
-    }
+    .mods .row {
+        // 操作列要放两个 44px 命中区（2 × 2.75rem = 5.5rem）；3.5rem 装不下，
+        // 多出的部分会被 .table 的 overflow: hidden 裁掉
+        grid-template-columns: 3rem minmax(0, 1fr) 5.5rem;
 
-    .main-subheader {
-        font-size: 1.1rem !important;
+        // 版本列在窄屏下让位给名称与操作列
+        .cell--version {
+            display: none;
+        }
+
+        // 勾选框与删除按钮的命中区放大到 44px
+        .cell.check {
+            min-height: 2.75rem;
+            gap: 0;
+
+            :deep(.checkbox-outer) {
+                min-width: 2.75rem;
+                min-height: 2.75rem;
+                justify-content: center;
+            }
+
+            :deep([data-button]) {
+                min-width: 2.75rem;
+                min-height: 2.75rem;
+            }
+        }
     }
 }
 
 .light-mode {
     .footer {
-        background: #f8f7f8;
+        background: var(--surface-1);
     }
 
     .bottom-transition {
@@ -2570,14 +2635,7 @@ useHead(() => ({
     }
 
     .feature {
-        background: radial-gradient(
-            50% 50% at 50% 50%,
-            rgba(255, 255, 255, 0.35) 0%,
-            rgba(255, 255, 255, 0.27) 100%
-        ) !important;
-        box-shadow:
-            2px 2px 64px 0px rgba(255, 255, 255, 0.45) inset,
-            2px 2px 12px 0px rgba(0, 0, 0, 0.16) !important;
+        box-shadow: 2px 2px 12px 0px rgba(0, 0, 0, 0.16) !important;
         border: none !important;
     }
 

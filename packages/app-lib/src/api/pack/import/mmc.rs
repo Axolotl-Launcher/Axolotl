@@ -205,30 +205,7 @@ pub(crate) async fn import_mmc_instance_dir(
         let destination = crate::api::instance::get_full_path(instance_id)
             .await?
             .join(crate::launcher::multimc::PROFILE_DIR);
-        let mut files = Vec::new();
-        for name in ["mmc-pack.json", "instance.cfg"] {
-            files.push((mmc_instance_path.join(name), PathBuf::from(name)));
-        }
-        for directory in ["patches", "libraries"] {
-            let source = mmc_instance_path.join(directory);
-            if source.is_dir() {
-                for file in import::get_all_subfiles(&source, false).await? {
-                    let metadata = tokio::fs::symlink_metadata(&file).await?;
-                    if io::is_symlink_or_reparse(&metadata) {
-                        continue;
-                    }
-                    let relative = file
-                        .strip_prefix(&mmc_instance_path)
-                        .map_err(|_| {
-                            crate::ErrorKind::InputError(
-                                "Invalid MultiMC runtime file path".to_string(),
-                            )
-                        })?
-                        .to_path_buf();
-                    files.push((file, relative));
-                }
-            }
-        }
+        let files = retained_runtime_files(&mmc_instance_path).await?;
         import::copy_files_with_progress(
             &destination,
             files,
@@ -270,16 +247,7 @@ pub(crate) async fn import_mmc_instance_dir(
         source_filename: None,
     };
 
-    let mut minecraft_folder = mmc_instance_path.join("minecraft");
-    if !minecraft_folder.is_dir() {
-        minecraft_folder = mmc_instance_path.join(".minecraft");
-        if !minecraft_folder.is_dir() {
-            return Err(crate::ErrorKind::InputError(
-                "Instance is missing Minecraft directory".to_string(),
-            )
-            .into());
-        }
-    }
+    let minecraft_folder = minecraft_directory(&mmc_instance_path).await?;
 
     // Managed pack
     if instance_cfg.managed_pack.unwrap_or(false) {
@@ -319,6 +287,48 @@ pub(crate) async fn import_mmc_instance_dir(
         .await?;
     }
     Ok(())
+}
+
+async fn retained_runtime_files(
+    root: &Path,
+) -> crate::Result<Vec<(PathBuf, PathBuf)>> {
+    let mut files = Vec::new();
+    for name in ["mmc-pack.json", "instance.cfg"] {
+        files.push((root.join(name), PathBuf::from(name)));
+    }
+    for directory in ["patches", "libraries", "jarmods"] {
+        let source = root.join(directory);
+        if source.is_dir() {
+            for file in import::get_all_subfiles(&source, false).await? {
+                let metadata = tokio::fs::symlink_metadata(&file).await?;
+                if io::is_symlink_or_reparse(&metadata) {
+                    continue;
+                }
+                let relative = file
+                    .strip_prefix(root)
+                    .map_err(|_| {
+                        crate::ErrorKind::InputError(
+                            "Invalid MultiMC runtime file path".to_string(),
+                        )
+                    })?
+                    .to_path_buf();
+                files.push((file, relative));
+            }
+        }
+    }
+    Ok(files)
+}
+
+async fn minecraft_directory(root: &Path) -> crate::Result<PathBuf> {
+    let minecraft = root.join("minecraft");
+    if minecraft.is_dir() {
+        return Ok(minecraft);
+    }
+    let minecraft = root.join(".minecraft");
+    // Exports made before the first launch can contain only components and
+    // JAR mods. There is no game data to copy until a game directory exists.
+    io::create_dir_all(&minecraft).await?;
+    Ok(minecraft)
 }
 
 async fn import_mmc_unmanaged(
@@ -401,10 +411,10 @@ pub(crate) fn mmc_dependencies(
         let uid = component.uid.to_ascii_lowercase();
         if uid.contains("labymod") {
             return Err(crate::ErrorKind::InputError(
-				"Unsupported loader LabyMod: Axolotl does not install, update, or repair LabyMod instances"
-					.to_string(),
-			)
-			.into());
+                "Unsupported loader LabyMod: Axolotl does not install, update, or repair LabyMod instances"
+                    .to_string(),
+            )
+            .into());
         }
         let dependency = if uid.starts_with("net.fabricmc.fabric-loader") {
             Some(if has_legacy_fabric {
@@ -453,6 +463,78 @@ pub(crate) fn mmc_dependencies(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[tokio::test]
+    async fn component_only_export_gets_an_empty_game_directory() {
+        let root = tempfile::tempdir().unwrap();
+        let directory = minecraft_directory(root.path()).await.unwrap();
+        assert!(directory.is_dir());
+        assert_eq!(std::fs::read_dir(&directory).unwrap().count(), 0);
+        std::fs::write(directory.join("options.txt"), b"existing").unwrap();
+        assert_eq!(minecraft_directory(root.path()).await.unwrap(), directory);
+        assert_eq!(
+            std::fs::read(directory.join("options.txt")).unwrap(),
+            b"existing"
+        );
+        std::fs::create_dir(root.path().join("minecraft")).unwrap();
+        assert_eq!(
+            minecraft_directory(root.path()).await.unwrap(),
+            root.path().join("minecraft")
+        );
+    }
+
+    #[tokio::test]
+    async fn retained_runtime_includes_jar_mods_after_source_is_removed() {
+        let source = tempfile::tempdir().unwrap();
+        let target = tempfile::tempdir().unwrap();
+        for (relative, bytes) in [
+            (
+                "mmc-pack.json",
+                "{\"formatVersion\":1,\"components\":[{\"uid\":\"net.minecraft\",\"version\":\"b1.7.3\"},{\"uid\":\"bta\"}]}",
+            ),
+            ("instance.cfg", "name=BTA"),
+            (
+                "patches/bta.json",
+                "{\"+jarMods\":[{\"name\":\"bta.jar\"}]}",
+            ),
+            ("jarmods/bta.jar", "retained jar mod"),
+            (
+                "jarmods/resources/lang/en_US.lang",
+                "retained directory resource",
+            ),
+            ("libraries/custom.jar", "retained library"),
+            ("minecraft/saves/world/level.dat", "game data"),
+        ] {
+            let path = source.path().join(relative);
+            std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+            std::fs::write(path, bytes).unwrap();
+        }
+        let game = target.path().join("minecraft");
+        let retained = game.join(crate::launcher::multimc::PROFILE_DIR);
+        let files = retained_runtime_files(source.path()).await.unwrap();
+        assert_eq!(files.len(), 6);
+        for (source, relative) in files {
+            let destination = retained.join(relative);
+            std::fs::create_dir_all(destination.parent().unwrap()).unwrap();
+            std::fs::copy(source, destination).unwrap();
+        }
+        source.close().unwrap();
+        assert_eq!(
+            std::fs::read(retained.join("jarmods/bta.jar")).unwrap(),
+            b"retained jar mod"
+        );
+        assert!(
+            crate::launcher::multimc::MultiMcProfile::load(
+                &game,
+                "b1.7.3",
+                crate::state::ModLoader::Vanilla,
+                None
+            )
+            .await
+            .unwrap()
+            .is_some()
+        );
+    }
 
     fn component(uid: &str, version: &str) -> MMCComponent {
         MMCComponent {

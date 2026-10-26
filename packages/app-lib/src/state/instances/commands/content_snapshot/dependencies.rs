@@ -1,5 +1,6 @@
 use super::*;
 use crate::mod_metadata::LocalModMetadata;
+use crate::state::instances::DependencyRelation;
 use crate::state::instances::{
     ContentDependencyEdge, ContentDependencyKind, ContentEntry, ContentSet,
 };
@@ -223,24 +224,16 @@ fn append_curseforge_edges(
         .reconciled
         .insert((parent.id.clone(), ContentProvider::CurseForge));
     for dependency in dependencies {
-        let kind = match dependency.relation_type {
-            crate::api::curseforge::DEPENDENCY_RELATION_REQUIRED => {
-                ContentDependencyKind::Required
-            }
-            crate::api::curseforge::DEPENDENCY_RELATION_INCLUDE => {
-                ContentDependencyKind::Include
-            }
+        let kind = match dependency.relation() {
+            DependencyRelation::Required => ContentDependencyKind::Required,
+            DependencyRelation::Include => ContentDependencyKind::Include,
             _ => continue,
         };
-        let project = if content_set.loader == crate::state::ModLoader::Quilt
-            && dependency.mod_id
-                == crate::api::curseforge::FABRIC_API_CURSEFORGE_PROJECT_ID
-        {
-            crate::api::curseforge::QUILTED_FABRIC_API_CURSEFORGE_PROJECT_ID
-        } else {
-            dependency.mod_id
-        }
-        .to_string();
+        let project = dependency
+            .target_project_id(
+                content_set.loader == crate::state::ModLoader::Quilt,
+            )
+            .to_string();
         for (child, reference) in remote_children(
             entries,
             refs,
@@ -599,14 +592,14 @@ mod tests {
             ("b".into(), vec![cf("200", "2001")]),
         ]);
         let dependencies = [
-            crate::api::curseforge::CurseForgeFileDependency {
-                mod_id: 200,
-                relation_type: 3,
-            },
-            crate::api::curseforge::CurseForgeFileDependency {
-                mod_id: 300,
-                relation_type: 3,
-            },
+            crate::api::curseforge::CurseForgeFileDependency::new(
+                200,
+                crate::state::instances::DependencyRelation::Required,
+            ),
+            crate::api::curseforge::CurseForgeFileDependency::new(
+                300,
+                crate::state::instances::DependencyRelation::Required,
+            ),
         ];
         let mut first = DependencyBackfill::default();
         append_curseforge_edges(

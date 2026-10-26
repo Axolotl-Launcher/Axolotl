@@ -70,11 +70,11 @@ async fn replace_modpack_servers(
     let version_id = modpack_version_id(&metadata.link);
     sqlx::query!(
         "
-		INSERT INTO instance_server_pack_state (instance_id, version_id)
-		VALUES (?, ?)
-		ON CONFLICT(instance_id) DO UPDATE SET
-			version_id = excluded.version_id
-		",
+        INSERT INTO instance_server_pack_state (instance_id, version_id)
+        VALUES (?, ?)
+        ON CONFLICT(instance_id) DO UPDATE SET
+            version_id = excluded.version_id
+        ",
         metadata.instance.id,
         version_id,
     )
@@ -90,10 +90,10 @@ pub(super) async fn pack_state_matches_link(
 ) -> crate::Result<bool> {
     let row = sqlx::query!(
         "
-		SELECT version_id
-		FROM instance_server_pack_state
-		WHERE instance_id = ?
-		",
+        SELECT version_id
+        FROM instance_server_pack_state
+        WHERE instance_id = ?
+        ",
         metadata.instance.id,
     )
     .fetch_optional(&state.pool)
@@ -109,10 +109,10 @@ pub(super) async fn pack_state_exists(
 ) -> crate::Result<bool> {
     Ok(sqlx::query_scalar!(
         r#"
-		SELECT EXISTS(
-			SELECT 1 FROM instance_server_pack_state WHERE instance_id = ?
-		) AS "exists!: bool"
-		"#,
+        SELECT EXISTS(
+            SELECT 1 FROM instance_server_pack_state WHERE instance_id = ?
+        ) AS "exists!: bool"
+        "#,
         instance_id,
     )
     .fetch_one(&state.pool)

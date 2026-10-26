@@ -183,6 +183,15 @@
             }}</template>
             <p class="m-0 p-4">{{ formatMessage(messages.packReconciliationWarningBody) }}</p>
         </CollapsibleAdmonition>
+        <CollapsibleAdmonition v-if="worldDatapackErrors.length" type="warning" class="mb-4">
+            <template #header>{{ formatMessage(messages.worldDatapacksFailed) }}</template>
+            <div class="p-4">
+                <p v-for="error in worldDatapackErrors" :key="error" class="m-0">{{ error }}</p>
+                <Button class="mt-3" @click="loadWorldDatapacks">{{
+                    formatMessage(commonMessages.retryButton)
+                }}</Button>
+            </div>
+        </CollapsibleAdmonition>
         <ContentPageLayout @visible-items="handleVisibleItems">
             <template #toolbar-actions>
                 <Button
@@ -271,8 +280,14 @@
                             : (updatingProject?.project?.title ?? updatingProject?.file_name)
                     "
                     :loading="loadingVersions"
+                    :loading-error="
+                        contentVersions.error.value
+                            ? formatMessage(messages.versionsFailed)
+                            : undefined
+                    "
                     :action-loading="contentUpdateSubmitting"
                     :hide-on-update="false"
+                    @retry="contentVersions.retry"
                     @update="handleModalUpdate"
                     @cancel="resetUpdateState"
                 >
@@ -340,21 +355,24 @@ import ResourceBackupsModal from '@/components/ui/ResourceBackupsModal.vue'
 import ResourceHistoryModal from '@/components/ui/ResourceHistoryModal.vue'
 import ResourceOperationPreviewModal from '@/components/ui/ResourceOperationPreviewModal.vue'
 import ResourceReleaseChangelog from '@/components/ui/ResourceReleaseChangelog.vue'
+import { contentVersionContext, useContentVersions } from '@/composables/useContentVersions'
 import { postUpgradeNoticeQueryKey, usePostUpgradeNotice } from '@/composables/usePostUpgradeNotice'
 import { useWorldDatapacks } from '@/composables/useWorldDatapacks'
 import { trackEvent } from '@/helpers/analytics'
-import { get_project_versions, get_version, get_version_many } from '@/helpers/cache.js'
+import { get_version_many } from '@/helpers/cache.js'
 import {
     activeContentChangeJobs as selectActiveContentChangeJobs,
     contentItemStableId,
     hasActiveContentChange,
     pendingContentChangeAffectsItem,
 } from '@/helpers/content-change-jobs'
+import { createContentEventRefresh } from '@/helpers/content-event-refresh'
 import { mergeContentItemMetadata } from '@/helpers/content-item-metadata'
 import { applyContentItemUpdates, matchesContentItem } from '@/helpers/content-item-state'
 import { contentProjectUrl } from '@/helpers/content-project-links'
 import { lookupContentWikiIds, translateContentItemTitles } from '@/helpers/content-search'
-import { type CurseForgeFile, getCurseForgeImageUrl } from '@/helpers/curseforge'
+import { createContentUpdateScanner } from '@/helpers/content-update-scanner'
+import { getCurseForgeImageUrl } from '@/helpers/curseforge'
 import {
     type CurseForgeManualDownloadItem,
     getCurseForgeManualDownloadUrl,
@@ -383,7 +401,7 @@ import {
     isWorldSaveContentItem,
     loadInstanceContentInStages,
     localContentIconUrl,
-    refreshInstanceContentUpdates,
+    preserveContentUpdateState,
 } from '@/helpers/instance-content'
 import { postUpgradeWarningForContent } from '@/helpers/post-upgrade-notice'
 import {
@@ -394,9 +412,6 @@ import {
 import {
     resourceCheckUpdates,
     resourceListHistory,
-    resourceReleaseDocuments,
-    resourceReleases,
-    type SourceProjectRef,
     type SourceReleaseRef,
 } from '@/helpers/resources'
 import type { CacheBehaviour, GameInstance } from '@/helpers/types'
@@ -407,6 +422,14 @@ import { injectDownloadManager } from '@/providers/download-manager'
 import { useTheming } from '@/store/state'
 
 const messages = defineMessages({
+    worldDatapacksFailed: {
+        id: 'app.instance.content.world-datapacks-failed',
+        defaultMessage: 'Could not read some world datapacks',
+    },
+    loadingOnlineInformation: {
+        id: 'app.instance.mods.loading-online-information',
+        defaultMessage: 'Loading online information, please wait',
+    },
     versionsFailed: {
         id: 'app.instance.content.versions-failed',
         defaultMessage:
@@ -473,10 +496,6 @@ const messages = defineMessages({
         id: 'app.instance.mods.update-added-content.description',
         defaultMessage:
             'Updates only content added after the modpack was installed. Modpack files are not changed.',
-    },
-    contentOperationTimedOut: {
-        id: 'app.instance.mods.content-operation-timeout',
-        defaultMessage: 'Timed out waiting for another content operation to finish. Try again.',
     },
     contentRefreshWarningTitle: {
         id: 'app.instance.mods.content-refresh-warning.title',
@@ -612,7 +631,6 @@ const {
     showCurseForgeManualDownloads,
 } = injectContentInstall()
 const router = useRouter()
-const debug = useDebugLogger('Mods:ContentUpdate')
 const themeStore = useTheming()
 const skipNonEssentialWarnings = computed(() =>
     themeStore.getFeatureFlag('skip_non_essential_warnings'),
@@ -656,9 +674,18 @@ const contentLoadError = ref<Error | null>(null)
 const contentSnapshot = ref<InstanceContentData['snapshot'] | null>(null)
 const projects = ref<ContentItem[]>([])
 const linkedModpackContentItems = ref<ContentItem[]>([])
+const contentItemsByEntryId = computed(
+    () =>
+        new Map(
+            [...projects.value, ...linkedModpackContentItems.value]
+                .filter((item) => item.instanceEntryId)
+                .map((item) => [item.instanceEntryId!, item]),
+        ),
+)
 const mcmodUrls = ref(new Map<string, string>())
 const visibleMetadataRequestedPaths = new Set<string>()
 const visibleMetadataPendingPaths = new Set<string>()
+
 let visibleMetadataRefreshRunning = false
 let mcmodLookupVersion = 0
 let isUnmounted = false
@@ -966,6 +993,7 @@ async function restoreMissingPackMember(item: InstanceContentSnapshotItem) {
 
 const {
     worldDatapackItems,
+    worldDatapackErrors,
     isWorldDatapackItem,
     loadWorldDatapacks,
     deleteWorldDatapackItem,
@@ -1126,6 +1154,21 @@ const pendingContentChanges = computed(() =>
     ),
 )
 const isBulkOperating = localBulkOperating
+const CONTENT_EVENT_DEBOUNCE_MS = 180
+let suppressSyncedUntil = 0
+const contentEventRefresh = createContentEventRefresh({
+    busy: () => isBulkOperating.value,
+    revision: () => contentSnapshot.value?.revision,
+    refresh: (filesystem) => {
+        void initProjects(filesystem ? 'bypass' : undefined).catch(handleError)
+    },
+    delay: CONTENT_EVENT_DEBOUNCE_MS,
+})
+
+watch(isBulkOperating, (operating) => {
+    if (!operating) contentEventRefresh.resume()
+})
+
 const isInstanceBusy = computed(() => props.instance?.install_stage !== 'installed')
 const isPackUnlinkDisabled = computed(
     () =>
@@ -1136,6 +1179,30 @@ const isPackUnlinkDisabled = computed(
 let contentEnrichmentController: AbortController | undefined
 let contentRequestGeneration = 0
 let activeBypassRefresh: Promise<void> | null = null
+const contentUpdateScanner = createContentUpdateScanner((updated) => {
+    if (
+        isUnmounted ||
+        props.instance.id !== updated.path ||
+        props.instance.install_stage !== 'installed' ||
+        contentSnapshot.value?.revision !== updated.snapshot.revision
+    )
+        return
+    const failed = new Set(updated.updateCheckFailedEntries)
+    for (const item of [...updated.contentItems, ...updated.linkedContentItems]) {
+        if (item.instanceEntryId && !failed.has(item.instanceEntryId)) mergeContentUpdate(item)
+    }
+    contentSnapshot.value = {
+        ...contentSnapshot.value,
+        warnings: [
+            ...contentSnapshot.value.warnings.filter(
+                (warning) => warning.code !== 'resource_update_unavailable',
+            ),
+            ...updated.snapshot.warnings.filter(
+                (warning) => warning.code === 'resource_update_unavailable',
+            ),
+        ],
+    }
+})
 
 function isCurrentContentRequest(instanceId: string, generation: number) {
     return (
@@ -1147,9 +1214,12 @@ function isCurrentContentRequest(instanceId: string, generation: number) {
 }
 
 function invalidateContentRequests(clearState = false) {
+    contentEventRefresh.clear()
+    contentUpdateScanner.cancel()
     contentEnrichmentController?.abort()
     contentRequestGeneration += 1
     if (!clearState) return
+    resetUpdateState()
 
     contentSnapshot.value = null
     projects.value = []
@@ -1168,9 +1238,6 @@ const isPackLocked = computed(
         props.instance?.link?.type === 'modrinth_modpack' ||
         props.instance?.link?.type === 'curseforge_modpack' ||
         props.instance?.link?.type === 'server_project_modpack',
-)
-const isCurseForgeLinkedModpack = computed(
-    () => props.instance?.link?.type === 'curseforge_modpack',
 )
 
 const shareModal = ref<InstanceType<typeof ShareModal> | null>()
@@ -1208,36 +1275,53 @@ function handleViewDependencies() {
 
 // TODO: Extract content operation and updater modal state into composables; this page currently owns file mutations, dependency installs, busy flags, and version selection flow.
 const updatingProject = ref<ContentItem | null>(null)
-const updatingProjectVersions = ref<Labrinth.Versions.v2.Version[]>([])
-const updaterReleaseRefs = new Map<string, SourceReleaseRef>()
-const loadingVersions = ref(false)
+const contentVersions = useContentVersions()
+const loadingVersions = contentVersions.loading
+const updatingProjectVersions = computed(() =>
+    sortVersionsByPublishedDate(
+        contentVersions.versions.value.map(
+            (release) =>
+                ({
+                    id: release.reference.releaseId,
+                    project_id: release.reference.project.projectId,
+                    name: release.version,
+                    version_number: release.version,
+                    date_published: release.publishedAt ?? '',
+                    version_type: release.channel,
+                    game_versions: release.compatibility.gameVersions,
+                    loaders: release.compatibility.loaders,
+                    files: release.artifacts.map((artifact) => ({
+                        filename: artifact.fileName ?? '',
+                        url:
+                            artifact.acquisition.kind === 'publicDownload'
+                                ? (artifact.acquisition.urls[0] ?? '')
+                                : '',
+                        primary: artifact.role === 'primary',
+                        size: artifact.integrity.size ?? 0,
+                        hashes: Object.fromEntries(
+                            artifact.integrity.hashes.map((hash) => [hash.algorithm, hash.value]),
+                        ),
+                    })),
+                }) as Labrinth.Versions.v2.Version,
+        ),
+    ),
+)
+const updaterReleaseRefs = computed(
+    () =>
+        new Map(
+            contentVersions.versions.value.map((release) => [
+                release.reference.releaseId,
+                release.reference,
+            ]),
+        ),
+)
 const contentUpdateSubmitting = ref(false)
-const CONTENT_OPERATION_TIMEOUT_MS = 30_000
-
-async function withContentOperationTimeout<T>(operation: Promise<T>): Promise<T> {
-    let timeoutId: ReturnType<typeof setTimeout> | undefined
-    try {
-        return await Promise.race([
-            operation,
-            new Promise<T>((_, reject) => {
-                timeoutId = setTimeout(
-                    () => reject(new Error(formatMessage(messages.contentOperationTimedOut))),
-                    CONTENT_OPERATION_TIMEOUT_MS,
-                )
-            }),
-        ])
-    } finally {
-        if (timeoutId) clearTimeout(timeoutId)
-    }
-}
 const updatingModpack = ref(false)
 const pendingModpackUpdateVersion = ref<Labrinth.Versions.v2.Version | null>(null)
 const isModpackUpdateDowngrade = ref(false)
 const activeContentOperationKeys = ref(new Set<string>())
 
 let activeContentOperationCount = 0
-let updateRequestId = 0
-const activeUpdateRequestId = ref(0)
 
 function fileNameFromPath(path: string) {
     return path.split('/').pop() ?? path
@@ -1303,48 +1387,45 @@ function mergeVisibleMetadataItems(
     dependencyGraphModal.value?.setItems(allDependencyGraphItems())
 }
 
+function mergeContentUpdate(item: ContentItem) {
+    if (!item.instanceEntryId) return
+    const current = contentItemsByEntryId.value.get(item.instanceEntryId)
+    if (!current || current.file_path !== item.file_path || hasContentOperation(current)) return
+    current.resourceUpdate = item.resourceUpdate
+    if (current.instanceCapabilities) {
+        current.instanceCapabilities = {
+            ...current.instanceCapabilities,
+            canUpdate: !!item.resourceUpdate && current.instanceMaterializationState === 'present',
+        }
+    }
+}
+
 async function flushVisibleMetadataRefresh() {
     if (visibleMetadataRefreshRunning) return
-
     visibleMetadataRefreshRunning = true
-
     try {
         while (visibleMetadataPendingPaths.size > 0) {
             const instanceId = props.instance.id
             const generation = contentRequestGeneration
             const paths = [...visibleMetadataPendingPaths]
+            visibleMetadataPendingPaths.clear()
             const originals = new Map(
                 [...projects.value, ...linkedModpackContentItems.value]
                     .filter((item) => item.file_path && paths.includes(item.file_path))
                     .map((item) => [item.file_path!, item]),
             )
-            visibleMetadataPendingPaths.clear()
-
             try {
-                let refreshedItems = await get_content_items_by_paths(instanceId, paths)
-
+                let items = await get_content_items_by_paths(instanceId, paths)
                 if (!isCurrentContentRequest(instanceId, generation)) continue
-
-                refreshedItems = await translateContentItemTitles(
-                    refreshedItems,
-                    i18n.global.locale.value,
-                ).catch(() => refreshedItems)
-
-                if (!isCurrentContentRequest(instanceId, generation)) continue
-
-                mergeVisibleMetadataItems(refreshedItems, originals)
+                items = await translateContentItemTitles(items, i18n.global.locale.value).catch(
+                    () => items,
+                )
+                if (isCurrentContentRequest(instanceId, generation))
+                    mergeVisibleMetadataItems(items, originals)
             } catch (error) {
-                // 后台懒加载失败不弹通知。
-                // 删除 requested 标记，这样以后再次进入可见区域还能重试。
-                for (const path of paths) {
-                    visibleMetadataRequestedPaths.delete(path)
-                }
-
-                debugState('visible metadata refresh failed', {
-                    instanceId,
-                    paths,
-                    error,
-                })
+                if (!isCurrentContentRequest(instanceId, generation)) continue
+                for (const path of paths) visibleMetadataRequestedPaths.delete(path)
+                debugState('visible metadata refresh failed', { instanceId, paths, error })
             }
         }
     } finally {
@@ -1353,33 +1434,17 @@ async function flushVisibleMetadataRefresh() {
 }
 
 function handleVisibleItems(items: ContentItem[]) {
-    if (isUnmounted || props.instance.install_stage !== 'installed') {
-        return
-    }
-
+    if (isUnmounted || props.instance.install_stage !== 'installed') return
     const knownPaths = new Set(
-        [...projects.value, ...linkedModpackContentItems.value]
-            .map((item) => item.file_path)
-            .filter((path): path is string => !!path),
+        [...projects.value, ...linkedModpackContentItems.value].map((item) => item.file_path),
     )
-
-    let queued = false
-
     for (const item of items) {
         const path = item.file_path
-
-        if (!path || !knownPaths.has(path) || visibleMetadataRequestedPaths.has(path)) {
-            continue
-        }
-
+        if (!path || !knownPaths.has(path) || visibleMetadataRequestedPaths.has(path)) continue
         visibleMetadataRequestedPaths.add(path)
         visibleMetadataPendingPaths.add(path)
-        queued = true
     }
-
-    if (queued) {
-        void flushVisibleMetadataRefresh()
-    }
+    if (visibleMetadataPendingPaths.size) void flushVisibleMetadataRefresh()
 }
 
 function getStableContentId(item: ContentItem) {
@@ -1464,34 +1529,10 @@ function finishContentOperation(
     }
 }
 
-function beginUpdateRequest() {
-    updateRequestId++
-    activeUpdateRequestId.value = updateRequestId
-    return updateRequestId
-}
-
-function isActiveUpdateRequest(requestId: number) {
-    return activeUpdateRequestId.value === requestId
-}
-
 function sortVersionsByPublishedDate(versions: Labrinth.Versions.v2.Version[]) {
     return [...versions].sort(
         (a, b) => new Date(b.date_published).getTime() - new Date(a.date_published).getTime(),
     )
-}
-
-function mergeVersionIntoList(
-    versions: Labrinth.Versions.v2.Version[],
-    version: Labrinth.Versions.v2.Version,
-) {
-    const existingIndex = versions.findIndex((v) => v.id === version.id)
-    if (existingIndex === -1) {
-        return sortVersionsByPublishedDate([version, ...versions])
-    }
-
-    const mergedVersions = [...versions]
-    mergedVersions[existingIndex] = version
-    return sortVersionsByPublishedDate(mergedVersions)
 }
 
 function parseCurseForgeProjectId(projectId: string): number | null {
@@ -1511,213 +1552,6 @@ function getCurseForgeProjectIdForItem(item: ContentItem | null | undefined): nu
     }
 
     return item.project?.id ? parseCurseForgeProjectId(item.project.id) : null
-}
-
-function mapCurseForgeFileToUpdaterVersion(
-    file: {
-        id: number
-        displayName: string
-        fileName: string
-        releaseType: number
-        fileDate: string
-        downloadUrl?: string | null
-        fileLength: number
-        gameVersions: string[]
-    },
-    projectId: number,
-): Labrinth.Versions.v2.Version {
-    const loaders = [
-        ...new Set(
-            file.gameVersions
-                .map((value) => {
-                    switch (value.toLowerCase().replaceAll(' ', '')) {
-                        case 'forge':
-                            return 'forge'
-                        case 'fabric':
-                        case 'fabricloader':
-                            return 'fabric'
-                        case 'quilt':
-                            return 'quilt'
-                        case 'neoforge':
-                            return 'neoforge'
-                        default:
-                            return null
-                    }
-                })
-                .filter(Boolean),
-        ),
-    ] as string[]
-    const gameVersions = file.gameVersions.filter((value) => {
-        const normalized = value.toLowerCase().replaceAll(' ', '')
-        return !['forge', 'fabric', 'fabricloader', 'quilt', 'neoforge'].includes(normalized)
-    })
-    return {
-        id: file.id.toString(),
-        project_id: `curseforge:${projectId}`,
-        name: file.displayName,
-        version_number: file.displayName,
-        game_versions: gameVersions,
-        loaders: loaders.length > 0 ? loaders : ['minecraft'],
-        date_published: file.fileDate,
-        version_type:
-            file.releaseType === 1 ? 'release' : file.releaseType === 2 ? 'beta' : 'alpha',
-        files: [
-            {
-                filename: file.fileName,
-                url: file.downloadUrl ?? '',
-                primary: true,
-                size: file.fileLength,
-                hashes: {},
-            },
-        ],
-    } as unknown as Labrinth.Versions.v2.Version
-}
-
-async function getUpdaterProjectVersions(
-    projectId: string,
-    pinnedVersionId?: string,
-    item?: ContentItem | null,
-) {
-    if (item?.instanceEntryId) {
-        const snapshot = contentSnapshot.value?.items.find(
-            (entry) => entry.entryId === item.instanceEntryId,
-        )
-        const project: SourceProjectRef | null =
-            snapshot?.artifactRef?.release.project ??
-            (snapshot?.provider && snapshot.providerProjectId
-                ? { source: snapshot.provider, projectId: snapshot.providerProjectId }
-                : null)
-        if (!project) return []
-        const requestId = activeUpdateRequestId.value
-        const releases = []
-        let cursor: string | null = null
-        const cursors = new Set<string>()
-        do {
-            const page = await resourceReleases({ kind: 'source', project }, undefined, cursor)
-            if (!isActiveUpdateRequest(requestId)) return []
-            releases.push(...page.entries)
-            cursor = page.cursor
-            if (cursor && cursors.has(cursor))
-                throw new Error(formatMessage(messages.versionsFailed))
-            if (cursor) cursors.add(cursor)
-        } while (cursor)
-        if (
-            pinnedVersionId &&
-            !releases.some((release) => release.reference.releaseId === pinnedVersionId)
-        ) {
-            const [document] = await resourceReleaseDocuments(
-                project.source,
-                [pinnedVersionId],
-                project.projectId,
-            )
-            if (!isActiveUpdateRequest(requestId)) return []
-            if (document) releases.push(document.release)
-        }
-        return sortVersionsByPublishedDate(
-            releases.map((release) => {
-                updaterReleaseRefs.set(release.reference.releaseId, release.reference)
-                return {
-                    id: release.reference.releaseId,
-                    project_id: release.reference.project.projectId,
-                    name: release.version,
-                    version_number: release.version,
-                    date_published: release.publishedAt ?? '',
-                    version_type: release.channel,
-                    game_versions: release.compatibility.gameVersions,
-                    loaders: release.compatibility.loaders,
-                    changelog:
-                        project.source === 'mcarchive' || project.source === 'planet_minecraft'
-                            ? ''
-                            : undefined,
-                    files: release.artifacts.map((artifact) => ({
-                        filename: artifact.fileName ?? '',
-                        url:
-                            artifact.acquisition.kind === 'publicDownload'
-                                ? (artifact.acquisition.urls[0] ?? '')
-                                : '',
-                        primary: artifact.role === 'primary',
-                        size: artifact.integrity.size ?? 0,
-                        hashes: Object.fromEntries(
-                            artifact.integrity.hashes.map((hash) => [hash.algorithm, hash.value]),
-                        ),
-                    })),
-                } as Labrinth.Versions.v2.Version
-            }),
-        )
-    }
-    const itemCurseForgeProjectId = getCurseForgeProjectIdForItem(item)
-    const curseForgeProjectId = itemCurseForgeProjectId ?? parseCurseForgeProjectId(projectId)
-    const useCurseForge =
-        item?.origin_provider === 'curseforge' ||
-        (!item && isCurseForgeLinkedModpack.value) ||
-        projectId.startsWith('curseforge:')
-    if (useCurseForge) {
-        if (curseForgeProjectId == null) return []
-        const { getCurseForgeFile, getCurseForgeFiles } = await import('@/helpers/curseforge')
-        const files: CurseForgeFile[] = []
-        let index = 0
-        while (true) {
-            const response = await getCurseForgeFiles(curseForgeProjectId, {
-                index,
-                pageSize: 50,
-            }).catch((err) => {
-                handleError(err as Error)
-                return null
-            })
-            if (!response) break
-            files.push(...response.files)
-            index += response.files.length
-            if (
-                response.files.length === 0 ||
-                index >= (response.pagination?.totalCount ?? response.files.length)
-            ) {
-                break
-            }
-        }
-        const pinnedFileId = Number(pinnedVersionId)
-        if (Number.isFinite(pinnedFileId) && !files.some((file) => file.id === pinnedFileId)) {
-            const pinnedFile = await getCurseForgeFile(curseForgeProjectId, pinnedFileId).catch(
-                () => null,
-            )
-            if (pinnedFile?.isAvailable) {
-                files.push(pinnedFile)
-            }
-        }
-        return sortVersionsByPublishedDate(
-            files
-                .filter((file) => file.isAvailable)
-                .map((file) => mapCurseForgeFileToUpdaterVersion(file, curseForgeProjectId)),
-        )
-    }
-
-    let fetchError: unknown = null
-    let versions = (await get_project_versions(projectId, 'bypass').catch((err) => {
-        fetchError = err
-        return null
-    })) as Labrinth.Versions.v2.Version[] | null
-
-    if (!versions) {
-        versions = (await get_project_versions(projectId).catch(() => null)) as
-            Labrinth.Versions.v2.Version[] | null
-    }
-
-    if (!versions && fetchError) {
-        handleError(fetchError as Error)
-    }
-
-    let mergedVersions = sortVersionsByPublishedDate(versions ?? [])
-
-    if (pinnedVersionId && !mergedVersions.some((version) => version.id === pinnedVersionId)) {
-        const pinnedVersion = (await get_version(pinnedVersionId, 'bypass').catch(
-            () => null,
-        )) as Labrinth.Versions.v2.Version | null
-
-        if (pinnedVersion) {
-            mergedVersions = mergeVersionIntoList(mergedVersions, pinnedVersion)
-        }
-    }
-
-    return mergedVersions
 }
 
 async function handleBrowseContent() {
@@ -2057,10 +1891,6 @@ async function applyToggleDisableBatch(items: ContentItem[], enabled: boolean) {
         activeContentOperationCount = Math.max(0, activeContentOperationCount - operations.length)
         if (activeContentOperationCount === 0) {
             isBulkOperating.value = false
-            if (pendingContentRefreshAfterBulk) {
-                pendingContentRefreshAfterBulk = false
-                void initProjects()
-            }
         }
     }
 }
@@ -2348,7 +2178,7 @@ async function switchProjectVersion(mod: ContentItem, version: Labrinth.Versions
     try {
         return await reviewResourceChanges(
             [mod.instanceEntryId],
-            updaterReleaseRefs.get(version.id) ?? {
+            updaterReleaseRefs.value.get(version.id) ?? {
                 project: { source, projectId },
                 releaseId: version.id,
             },
@@ -2406,38 +2236,18 @@ async function handleUpdate(item: ContentItem) {
 }
 
 async function handleSwitchVersion(item: ContentItem) {
-    const exact = contentSnapshot.value?.items.find(
+    const entry = contentSnapshot.value?.items.find(
         (entry) => entry.entryId === item.instanceEntryId,
-    )?.artifactRef
-    const initialVersionId = exact?.release.releaseId ?? item.version?.id
-    if (!initialVersionId || (!exact && !item.project?.id)) return
-
-    const requestId = beginUpdateRequest()
-    const itemId = getContentItemId(item)
-    updaterReleaseRefs.clear()
-
+    )
+    const context = contentVersionContext(item, entry)
+    if (!context) return
+    const { project, pinned: initialVersionId } = context
     updatingModpack.value = false
     updatingProject.value = item
-    updatingProjectVersions.value = []
-    loadingVersions.value = true
-
+    const pending = contentVersions.open(project, initialVersionId)
     await nextTick()
-
     contentUpdaterModal.value?.show(initialVersionId, { switchMode: true })
-
-    try {
-        const versions = await getUpdaterProjectVersions(
-            exact?.release.project.projectId ?? item.project!.id,
-            initialVersionId,
-            item,
-        )
-        if (isActiveUpdateRequest(requestId) && getContentItemId(updatingProject.value) === itemId)
-            updatingProjectVersions.value = versions
-    } catch (error) {
-        if (isActiveUpdateRequest(requestId)) handleError(error as Error)
-    } finally {
-        if (isActiveUpdateRequest(requestId)) loadingVersions.value = false
-    }
+    await pending
 }
 
 async function refreshContentState(cacheBehaviour?: CacheBehaviour) {
@@ -2459,94 +2269,29 @@ watch(
 )
 
 async function handleModpackUpdate() {
-    if (!props.instance?.link?.project_id) return
-
-    const requestId = beginUpdateRequest()
-
+    const link = props.instance.link
+    if (!link?.project_id) return
+    const projectId =
+        link.type === 'server_project_modpack'
+            ? (linkedModpackProject.value?.id ?? link.content_project_id ?? link.project_id)
+            : link.project_id
+    const initialVersionId = linkedModpackUpdateVersionId.value ?? link.version_id ?? undefined
     updatingModpack.value = true
     updatingProject.value = null
-    updatingProjectVersions.value = []
-    loadingVersions.value = true
-
+    const pending = contentVersions.open(
+        {
+            source: link.type === 'curseforge_modpack' ? 'curseforge' : 'modrinth',
+            projectId: projectId.replace(/^curseforge:/, ''),
+        },
+        initialVersionId,
+    )
     await nextTick()
-
-    const initialVersionId =
-        linkedModpackUpdateVersionId.value ?? props.instance?.link?.version_id ?? undefined
-    const projectId =
-        props.instance?.link?.type === 'server_project_modpack'
-            ? (linkedModpackProject.value?.id ??
-              props.instance.link.content_project_id ??
-              props.instance.link.project_id ??
-              '')
-            : (props.instance?.link?.project_id ?? linkedModpackProject.value?.id ?? '')
-    debug('handleModpackUpdate: resolved modpack updater project', {
-        type: 'modpack',
-        projectId,
-        linkedModpackProjectId: linkedModpackProject.value?.id ?? null,
-        updateProvider: contentSnapshot.value?.pack?.metadata?.update?.provider ?? null,
-        link: props.instance.link,
-    })
-    debug('handleModpackUpdate: opening modpack updater modal', {
-        type: 'modpack',
-        initialVersionId,
-        linkedModpackUpdateVersionId: linkedModpackUpdateVersionId.value,
-        linkedModpackProject: linkedModpackProject.value,
-        linkedModpackVersion: linkedModpackVersion.value,
-        linkedModpackHasUpdate: linkedModpackHasUpdate.value,
-        instance: {
-            path: props.instance.id,
-            name: props.instance.name,
-            gameVersion: props.instance.game_version,
-            loader: props.instance.loader,
-            link: props.instance.link,
-        },
-        modalStateBeforeFetch: {
-            updatingModpack: updatingModpack.value,
-            updatingProjectId: updatingProject.value?.id,
-            updatingProjectVersions: updatingProjectVersions.value.map((version) => ({
-                id: version.id,
-                versionNumber: version.version_number,
-                gameVersions: version.game_versions,
-                loaders: version.loaders,
-                datePublished: version.date_published,
-            })),
-        },
-    })
     contentUpdaterModal.value?.show(initialVersionId)
-
-    const versions = await getUpdaterProjectVersions(projectId, initialVersionId)
-
-    if (!isActiveUpdateRequest(requestId) || !updatingModpack.value) return
-
-    loadingVersions.value = false
-
-    if (versions.length === 0) return
-
-    const preselectedVersion =
-        versions.find((version) => version.id === initialVersionId) ?? versions[0] ?? null
-    debug('handleModpackUpdate: resolved modpack updater preselection', {
-        type: 'modpack',
-        initialVersionId,
-        foundInitialVersion: versions.some((version) => version.id === initialVersionId),
-        preselectedVersion: preselectedVersion
-            ? {
-                  id: preselectedVersion.id,
-                  versionNumber: preselectedVersion.version_number,
-                  gameVersions: preselectedVersion.game_versions,
-                  loaders: preselectedVersion.loaders,
-                  datePublished: preselectedVersion.date_published,
-              }
-            : null,
-        versionCount: versions.length,
-        linkedModpackUpdateVersionId: linkedModpackUpdateVersionId.value,
-        currentLinkedVersionId: props.instance.link.version_id,
-    })
-
-    updatingProjectVersions.value = versions
+    await pending
 }
 
 function updaterChangelogRef(version: Labrinth.Versions.v2.Version): SourceReleaseRef | null {
-    const exact = updaterReleaseRefs.get(version.id)
+    const exact = updaterReleaseRefs.value.get(version.id)
     if (exact) return exact
     const item = updatingProject.value
     const link = updatingModpack.value ? props.instance.link : null
@@ -2565,12 +2310,9 @@ function updaterChangelogRef(version: Labrinth.Versions.v2.Version): SourceRelea
 }
 
 function resetUpdateState() {
-    updaterReleaseRefs.clear()
-    activeUpdateRequestId.value = 0
+    contentVersions.reset()
     updatingModpack.value = false
     updatingProject.value = null
-    updatingProjectVersions.value = []
-    loadingVersions.value = false
 }
 
 async function handleModpackUpdateRequest(selectedVersion: Labrinth.Versions.v2.Version) {
@@ -2603,10 +2345,9 @@ async function handleModpackUpdateConfirm() {
     contentUpdateSubmitting.value = true
     let succeeded = false
     try {
-        const plan = await withContentOperationTimeout(
-            plan_content_updates(props.instance.id, 'pack', version.id),
-        )
-        await withContentOperationTimeout(apply_content_update_plan(plan.id))
+        const plan = await plan_content_updates(props.instance.id, 'pack', version.id)
+        const result = await apply_content_update_plan(plan.id)
+        if (result.status === 'queued') downloadManager.trackJob(result.job)
         await initProjects()
         succeeded = true
     } catch (error) {
@@ -2615,6 +2356,7 @@ async function handleModpackUpdateConfirm() {
         isModpackUpdating.value = false
         contentUpdateSubmitting.value = false
         if (succeeded) {
+            await nextTick()
             contentUpdaterModal.value?.hide()
             resetUpdateState()
         }
@@ -2629,6 +2371,7 @@ async function handleModalUpdate(
     selectedVersion: Labrinth.Versions.v2.Version,
     event?: MouseEvent,
 ) {
+    if (contentUpdateSubmitting.value) return
     contentUpdateSubmitting.value = true
     let succeeded = false
     if (updatingModpack.value) {
@@ -2659,6 +2402,7 @@ async function handleModalUpdate(
         }
     }
     if (succeeded) {
+        await nextTick()
         contentUpdaterModal.value?.hide()
         resetUpdateState()
     }
@@ -2810,6 +2554,7 @@ async function initProjects(cacheBehaviour?: CacheBehaviour): Promise<void> {
 }
 
 async function initProjectsInternal(cacheBehaviour?: CacheBehaviour) {
+    contentEventRefresh.clear()
     void loadWorldDatapacks()
     if (!props.instance || props.instance.install_stage !== 'installed') {
         invalidateContentRequests(true)
@@ -2817,7 +2562,10 @@ async function initProjectsInternal(cacheBehaviour?: CacheBehaviour) {
     }
 
     const instanceId = props.instance.id
+    if (cacheBehaviour === 'bypass' || cacheBehaviour === 'must_revalidate')
+        contentUpdateScanner.cancel()
     contentEnrichmentController?.abort()
+    contentEnrichmentController = new AbortController()
     const generation = ++contentRequestGeneration
     visibleMetadataRequestedPaths.clear()
     visibleMetadataPendingPaths.clear()
@@ -2863,48 +2611,9 @@ async function initProjectsInternal(cacheBehaviour?: CacheBehaviour) {
 }
 
 function enrichContentData(data: InstanceContentData, generation: number) {
-    contentEnrichmentController?.abort()
-    const controller = new AbortController()
-    contentEnrichmentController = controller
+    const controller = (contentEnrichmentController ??= new AbortController())
     const isCurrent = () =>
         !controller.signal.aborted && isCurrentContentRequest(data.path, generation)
-    void refreshInstanceContentUpdates(data, controller.signal)
-        .then((updated) => {
-            if (!isCurrent()) return
-            const byEntry = new Map(
-                [...updated.contentItems, ...updated.linkedContentItems]
-                    .filter((item) => item.instanceEntryId)
-                    .map((item) => [item.instanceEntryId, item]),
-            )
-            const merge = (items: ContentItem[]) =>
-                items.map((item) => {
-                    const update = byEntry.get(item.instanceEntryId)
-                    if (!update || hasContentOperation(item) || item.file_path !== update.file_path)
-                        return item
-                    return {
-                        ...item,
-                        resourceUpdate: update.resourceUpdate,
-                        instanceCapabilities: item.instanceCapabilities
-                            ? {
-                                  ...item.instanceCapabilities,
-                                  canUpdate:
-                                      !!update.resourceUpdate &&
-                                      item.instanceMaterializationState === 'present',
-                              }
-                            : item.instanceCapabilities,
-                    }
-                })
-            projects.value = merge(projects.value)
-            linkedModpackContentItems.value = merge(linkedModpackContentItems.value)
-            if (contentSnapshot.value)
-                contentSnapshot.value = {
-                    ...contentSnapshot.value,
-                    warnings: updated.snapshot.warnings,
-                }
-        })
-        .catch((error) => {
-            if (isCurrent()) handleError(error as Error)
-        })
     const originals = [...data.contentItems, ...data.linkedContentItems]
     void translateContentItemTitles(originals, i18n.global.locale.value)
         .then((translated) => {
@@ -2968,10 +2677,27 @@ function applyContentData(contentData: InstanceContentData) {
         paths: contentData.contentItems.map((c) => c.file_name).slice(0, 20),
     })
     contentSnapshot.value = contentData.snapshot
-    let contentItems = contentData.contentItems.filter((item) => !isWorldSaveContentItem(item))
-    let linkedContentItems = contentData.linkedContentItems.filter(
-        (item) => !isWorldSaveContentItem(item),
+    const previousItems = new Map(
+        [...projects.value, ...linkedModpackContentItems.value]
+            .filter((item) => item.instanceEntryId)
+            .map((item) => [item.instanceEntryId, item]),
     )
+    const preserveUpdateState = (item: ContentItem) => {
+        const previous = item.instanceEntryId ? previousItems.get(item.instanceEntryId) : undefined
+        if (
+            !previous ||
+            previous.file_path !== item.file_path ||
+            previous.version?.id !== item.version?.id
+        )
+            return item
+        return hasContentOperation(previous) ? item : preserveContentUpdateState(previous, item)
+    }
+    let contentItems = contentData.contentItems
+        .filter((item) => !isWorldSaveContentItem(item))
+        .map(preserveUpdateState)
+    let linkedContentItems = contentData.linkedContentItems
+        .filter((item) => !isWorldSaveContentItem(item))
+        .map(preserveUpdateState)
     if (!contentData.modpack && !isPackLocked.value && linkedContentItems.length > 0) {
         contentItems = [...contentItems, ...linkedContentItems]
         linkedContentItems = []
@@ -2986,7 +2712,7 @@ function applyContentData(contentData: InstanceContentData) {
                 : item.file_path === updatingProject.value?.file_path,
         )
         if (refreshed) updatingProject.value = refreshed
-        else {
+        else if (!contentUpdateSubmitting.value) {
             contentUpdaterModal.value?.hide()
             resetUpdateState()
         }
@@ -3009,6 +2735,13 @@ function applyContentData(contentData: InstanceContentData) {
         linkedModpackUpdateVersionId.value = null
     }
 
+    void contentUpdateScanner
+        .scan({
+            ...contentData,
+            contentItems: projects.value,
+            linkedContentItems: linkedModpackContentItems.value,
+        })
+        .catch(handleError)
     loading.value = false
 
     const hasContent = contentItems.length > 0 || linkedContentItems.length > 0
@@ -3405,46 +3138,10 @@ async function loadInitialContent(): Promise<void> {
 }
 
 let unlistenInstances: UnlistenFn | null = null
-const CONTENT_EVENT_DEBOUNCE_MS = 180
-let contentEventTimer: ReturnType<typeof setTimeout> | null = null
-let pendingExternalContentSync = false
-let pendingContentChangedRevision: number | null = null
-let pendingContentRefreshAfterBulk = false
-let suppressSyncedUntil = 0
 
 function scheduleContentEventRefresh(event: { event: string; revision?: number }) {
-    if (event.event === 'synced') {
-        if (Date.now() < suppressSyncedUntil) return
-        pendingExternalContentSync = true
-    } else if (event.event === 'content_changed') {
-        if (
-            event.revision != null &&
-            contentSnapshot.value &&
-            event.revision <= contentSnapshot.value.revision
-        ) {
-            return
-        }
-        pendingContentChangedRevision = Math.max(
-            pendingContentChangedRevision ?? 0,
-            event.revision ?? 0,
-        )
-    } else {
-        return
-    }
-
-    if (contentEventTimer) return
-    contentEventTimer = setTimeout(() => {
-        contentEventTimer = null
-        const refreshFilesystem =
-            pendingExternalContentSync && pendingContentChangedRevision == null
-        pendingExternalContentSync = false
-        pendingContentChangedRevision = null
-        if (isBulkOperating.value) {
-            pendingContentRefreshAfterBulk = true
-            return
-        }
-        void initProjects(refreshFilesystem ? 'bypass' : undefined)
-    }, CONTENT_EVENT_DEBOUNCE_MS)
+    if (event.event === 'synced' && Date.now() < suppressSyncedUntil) return
+    contentEventRefresh.enqueue(event)
 }
 
 onMounted(() => {
@@ -3515,7 +3212,8 @@ watch(
 
 onUnmounted(() => {
     isUnmounted = true
-    if (contentEventTimer) clearTimeout(contentEventTimer)
+    contentVersions.reset()
+    contentEventRefresh.clear()
     invalidateContentRequests()
     unlistenInstances?.()
 })

@@ -196,9 +196,9 @@ fn display_from_request(state: &InstallJobState) -> Option<InstallJobDisplay> {
             icon: display_icon.clone(),
         }),
         InstallRequest::InstallCurseForgeWorld {
-			display_title,
-			display_icon,
-			..
+            display_title,
+            display_icon,
+            ..
         } => Some(InstallJobDisplay {
             title: display_title.clone(),
             icon: display_icon.clone(),

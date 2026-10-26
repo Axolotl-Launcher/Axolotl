@@ -15,19 +15,10 @@ import {
 } from './content-filter-state'
 import type { ContentFilterOption } from './content-filtering'
 import { hasContentUpdate, isDisabledContentItem, isEnabledContentItem } from './content-filtering'
+import { getContentTabMap } from './content-tab-memory'
 
 // Re-export utility functions and types for convenience
 export type { ContentFilterOption } from './content-filtering'
-
-// ---- window 级内存持久化（导航切换保留，关软件丢弃） ----
-
-const memory: Record<string, Map<string, unknown>> = ((
-    window as unknown as { __ctMemory?: Record<string, Map<string, unknown>> }
-).__ctMemory ??= {})
-function getMap<K, V>(namespace: string): Map<K, V> {
-    if (!memory[namespace]) memory[namespace] = new Map<string, unknown>()
-    return memory[namespace] as Map<K, V>
-}
 
 // ---- types ----
 
@@ -101,7 +92,7 @@ export function useContentPipeline(config: ContentPipelineConfig) {
         return Array.isArray(value) ? value : [value]
     }
 
-    const filterMemory = getMap<string, { type: string[]; status: string[] }>('filter')
+    const filterMemory = getContentTabMap<string, { type: string[]; status: string[] }>('filter')
     const savedFilters = memoryKey ? filterMemory.get(memoryKey) : undefined
     const selectedTypeFilter = ref<string[]>(
         normalizeTypeFilters(initialFilters?.typeFilters ?? savedFilters?.type),
@@ -133,7 +124,7 @@ export function useContentPipeline(config: ContentPipelineConfig) {
 
     // ---- search state ----
 
-    const searchMemory = getMap<string, string>('search')
+    const searchMemory = getContentTabMap<string, string>('search')
     const searchKey = memoryKey ? `${memoryKey}:search` : ''
     const searchQuery = ref(searchKey ? (searchMemory.get(searchKey) ?? '') : '')
 

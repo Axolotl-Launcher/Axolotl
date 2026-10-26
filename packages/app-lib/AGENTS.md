@@ -4,6 +4,25 @@ This Rust crate owns desktop runtime behavior, persistence, and database migrati
 
 For behavior exposed to the frontend through a new or changed native command, follow the shell's [Tauri command completion rules](../../apps/app/AGENTS.md#tauri-command-completion). For build locks or occupied outputs, follow the root [shared Rust build resource rules](../../AGENTS.md#shared-rust-build-resources); do not allocate another target directory.
 
+## Data Access Interface
+
+Every record this crate keeps between runs is read and written through `packages/app-lib/src/state/store/`. **Do not reach the database on your own**: no business module may use `sqlx`, open a transaction, or query through `State::pool`. Which storage answers, and how it is asked, is the store package's business alone, so that a storage can be replaced without touching a caller.
+
+A caller names a collection and the fields it looks a record up by, through the handle in `State::data`. Four verbs exist:
+
+- `set(handle, key, Some(record))` writes the record under the key; passing `None` removes the record that key held.
+- `get(handle, key) -> Result<Option<Record>>` reads one record; `Ok(None)` means the key holds nothing, which is not an error.
+- `set_all(handle, records)` writes a whole collection as one unit.
+- `get_all(handle) -> Result<Vec<(Key, Record)>>` reads a whole collection, each record together with its key.
+
+The store package is the only place a storage is named:
+
+- Add a collection by creating a module under `src/state/store/` that declares its `Key` and `Record` and implements the four verbs; its statements live in that module and nowhere else.
+- `sqlx` may only appear inside `src/state/store/`. `Handle::pool` is visible to that package alone; using it elsewhere pins the crate to one storage.
+- Signatures return the crate's own `Result`; a storage's error type must not appear in them, so a replacement storage can report the same failures.
+- A record that cannot be interpreted (for example a stored port outside its type) is logged inside the store and skipped, while a collection that cannot be read at all returns `Err` for the caller to decide whether to degrade.
+- Call sites that have not moved yet keep working while the collections are migrated one at a time. When you touch one, move that call onto the store package instead of adding a query beside it; new code never adds a query outside the package.
+
 ## Database Migration Safety
 
 - Treat every migration as immutable as soon as it has been applied to any database, including a local development database. Never edit, rename, reorder, or delete an applied migration.

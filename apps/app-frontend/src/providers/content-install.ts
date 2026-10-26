@@ -1003,6 +1003,7 @@ export function createContentInstall(opts: {
         if (!incompatibilityWarningInstalled) removeInstallingItems(instance.id, [project.id])
         callback(result.versionId, result.installedProjectIds)
         markInstanceContentChanged(instance.id)
+        await nextTick()
         incompatibilityWarningModalRef?.hide()
         removeInstallingItems(instance.id, [project.id])
 

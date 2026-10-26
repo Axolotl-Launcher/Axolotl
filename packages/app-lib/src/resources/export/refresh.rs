@@ -238,9 +238,7 @@ pub async fn freeze_with_progress(
     }
     file.rewind().await.map_err(|e| invalid(e.to_string()))?;
     let mut fingerprint =
-        crate::api::curseforge::CurseForgeFingerprintHasher::new(
-            normalized as u32,
-        );
+        crate::util::fingerprint::Murmur2Hasher::new(normalized as u32);
     let mut second_sha1 = sha1_smol::Sha1::new();
     let mut second_size = 0u64;
     if identifiable {

@@ -641,9 +641,9 @@ const pageTitle: MessageDescriptor = settingsPageTitle
 
 .settings-sidebar {
     /* The shell paints its own surface so the page is a component layer rather
-	   than a window onto `.app-contents`. Without this the region resolved to
-	   `--color-bg`, which only follows "Background visibility", and the
-	   "Component opacity" slider could not reach it at all. */
+                than a window onto `.app-contents`. Without this the region resolved to
+                `--color-bg`, which only follows "Background visibility", and the
+                "Component opacity" slider could not reach it at all. */
     background: var(--surface-2);
     border: 1px solid var(--surface-4);
     border-radius: var(--radius-lg);
@@ -722,8 +722,8 @@ const pageTitle: MessageDescriptor = settingsPageTitle
 
 .settings-category-button.is-active {
     /* A brand token on purpose, not a surface one: the active item should stay
-	   emphasised when the panels fade over a background image. Selection
-	   surfaces elsewhere follow the same pair. */
+                emphasised when the panels fade over a background image. Selection
+                surfaces elsewhere follow the same pair. */
     background: var(--color-button-bg-selected);
     color: var(--color-button-text-selected);
 }
@@ -925,10 +925,10 @@ const pageTitle: MessageDescriptor = settingsPageTitle
 
 .settings-content {
     /* Same reason as `.settings-sidebar`: this is the component layer the
-	   category content sits on, so it must follow "Component opacity" rather
-	   than exposing the page surface beneath it. The height chain that the
-	   `is-flush` category relies on resolves against this box, so padding and
-	   a radius are safe here but a margin would break it. */
+                category content sits on, so it must follow "Component opacity" rather
+                than exposing the page surface beneath it. The height chain that the
+                `is-flush` category relies on resolves against this box, so padding and
+                a radius are safe here but a margin would break it. */
     background: var(--surface-2);
     border: 1px solid var(--surface-4);
     border-radius: var(--radius-lg);
@@ -960,8 +960,8 @@ const pageTitle: MessageDescriptor = settingsPageTitle
     z-index: 2;
     padding: 0 1.5rem 1.5rem;
     /* A full-cover overlay on the content panel, so it takes that panel's own
-	   rung. `--surface-1` here would paint the page colour over the panel and
-	   flash a darker sheet on every category switch. */
+                rung. `--surface-1` here would paint the page colour over the panel and
+                flash a darker sheet on every category switch. */
     background: var(--surface-2);
 }
 
@@ -977,8 +977,8 @@ const pageTitle: MessageDescriptor = settingsPageTitle
     transition: opacity 180ms ease;
 
     /* Programmatic focus target after category changes. Clicking the panel
-	   focuses it; Tab/Shift/Esc then paint the UA ring as a full-panel black
-	   frame (issue #579). */
+                focuses it; Tab/Shift/Esc then paint the UA ring as a full-panel black
+                frame (issue #579). */
     &:focus,
     &:focus-visible {
         outline: none;

@@ -75,7 +75,98 @@ fn seed_rule_uses_pool_suffix_without_assuming_242_or_fixed_pop() {
         seeds
             .iter()
             .all(|seed| seed.expires_at == now + Duration::from_secs(60)
-                && seed.source == CandidateSource::FastlyRule(1))
+                && seed.source == CandidateSource::FastlyRule(2))
+    );
+}
+
+#[test]
+fn atlas_seed_rule_accepts_current_dns_and_derives_suffix_with_bounded_ttl() {
+    let now = Instant::now();
+    for suffix in [212, 242] {
+        let mut answer = pool_answer(now, suffix);
+        answer.addresses.truncate(1);
+        answer.addresses[0].ip =
+            std::net::Ipv4Addr::new(146, 75, 45, suffix).into();
+        let seeds = seed_candidates(&[answer.clone()], now, reviewed_time());
+        assert_eq!(
+            seeds
+                .iter()
+                .map(|seed| seed.ip.to_string())
+                .collect::<Vec<_>>(),
+            [21, 49, 25].map(|octet| format!("146.75.{octet}.{suffix}"))
+        );
+        assert!(seeds.iter().all(|seed| {
+            seed.expires_at == answer.addresses[0].expires_at
+                && seed.source == CandidateSource::FastlyRule(2)
+        }));
+        for ip in ["146.75.44.242", "146.76.45.242", "192.168.1.242"] {
+            answer.addresses[0].ip = ip.parse().unwrap();
+            assert!(
+                seed_candidates(&[answer.clone()], now, reviewed_time())
+                    .is_empty()
+            );
+        }
+    }
+}
+
+#[test]
+fn atlas_seed_rule_rejects_conflicting_suffixes_and_keeps_ordinary_dns() {
+    let now = Instant::now();
+    let mut first = pool_answer(now, 242);
+    first.addresses.truncate(1);
+    first.addresses[0].ip = "146.75.45.242".parse().unwrap();
+    let mut second = first.clone();
+    second.addresses[0].ip = "146.75.113.212".parse().unwrap();
+    let answers = [first, second];
+    assert!(seed_candidates(&answers, now, reviewed_time()).is_empty());
+    let candidates =
+        collect_candidates(&answers, &[], &[], true, now, reviewed_time());
+    assert_eq!(candidates.len(), 2);
+    assert!(
+        candidates.iter().all(|candidate| matches!(
+            candidate.source,
+            CandidateSource::Dns(_)
+        ))
+    );
+}
+
+#[test]
+fn doh_atlas_answers_from_multiple_providers_keep_ipv6_and_expand_ipv4() {
+    let now = Instant::now();
+    let mut first = pool_answer(now, 242);
+    first.addresses.truncate(1);
+    first.addresses[0].ip = "151.101.77.242".parse().unwrap();
+    let mut second = first.clone();
+    second.source = DnsSource::Doh(Arc::from("provider-two"));
+    second.addresses[0].ip = "146.75.113.242".parse().unwrap();
+    let mut ipv6 = first.clone();
+    ipv6.addresses[0].ip = "2a04:4e42:7b::498".parse().unwrap();
+    let candidates = collect_candidates(
+        &[first, second, ipv6],
+        &[],
+        &[],
+        true,
+        now,
+        reviewed_time(),
+    );
+    assert_eq!(candidates.len(), 6);
+    for ip in ["151.101.77.242", "146.75.113.242", "2a04:4e42:7b::498"] {
+        assert!(
+            candidates
+                .iter()
+                .any(|candidate| candidate.ip.to_string() == ip
+                    && matches!(candidate.source, CandidateSource::Dns(_)))
+        );
+    }
+    assert_eq!(
+        candidates
+            .iter()
+            .filter(|candidate| matches!(
+                candidate.source,
+                CandidateSource::FastlyRule(2)
+            ))
+            .count(),
+        3
     );
 }
 

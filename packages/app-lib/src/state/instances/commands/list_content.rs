@@ -58,21 +58,42 @@ async fn load_entry_maps(
         .collect::<HashMap<_, _>>();
     let mut provider_refs_by_file_id = HashMap::new();
     let mut origin_provider_by_file_id = HashMap::new();
-    for entry in &entries {
-        let Some(file_id) = entry.file_id.as_deref() else {
+    let rows = sqlx::query(
+        "SELECT entry.file_id, ref.provider, ref.provider_project_id,
+            ref.provider_release_id, ref.provider_file_id, ref.is_origin
+         FROM instance_content_entries entry
+         JOIN instance_content_provider_refs ref ON ref.content_entry_id = entry.id
+         WHERE entry.content_set_id = ? AND entry.file_id IS NOT NULL
+         ORDER BY entry.id, ref.is_origin DESC, ref.provider, ref.provider_project_id,
+            ref.provider_release_id IS NULL, ref.provider_release_id",
+    )
+    .bind(content_set_id)
+    .fetch_all(pool)
+    .await?;
+    for row in rows {
+        let Some(file_id) = row.try_get::<Option<String>, _>("file_id")? else {
             continue;
         };
-        provider_refs_by_file_id.insert(
-            file_id.to_string(),
-            sqlite::content_rows::get_content_provider_refs(&entry.id, pool)
-                .await?,
-        );
-        if let Some(origin) =
-            sqlite::content_rows::get_content_origin_provider(&entry.id, pool)
-                .await?
-        {
-            origin_provider_by_file_id.insert(file_id.to_string(), origin);
+        let provider = row.try_get::<String, _>("provider")?;
+        let project_id = row.try_get::<String, _>("provider_project_id")?;
+        let release_id =
+            row.try_get::<Option<String>, _>("provider_release_id")?;
+        let file_id_ref =
+            row.try_get::<Option<String>, _>("provider_file_id")?;
+        let reference = ContentProviderRef::from_database(
+            &provider,
+            &project_id,
+            release_id.as_deref(),
+            file_id_ref.as_deref(),
+        )?;
+        if row.try_get::<i64, _>("is_origin")? != 0 {
+            origin_provider_by_file_id
+                .insert(file_id.clone(), reference.provider());
         }
+        provider_refs_by_file_id
+            .entry(file_id)
+            .or_insert_with(Vec::new)
+            .push(reference);
     }
 
     Ok(EntryMaps {
@@ -95,6 +116,12 @@ enum ContentFilter<'a> {
         source_kind: ContentSourceKind,
         include_untracked: bool,
     },
+}
+
+#[derive(Clone, Copy, Debug)]
+enum ContentUpdateLookup {
+    Skip,
+    Include { refresh: bool },
 }
 
 pub(crate) async fn list_content_sets(
@@ -188,48 +215,48 @@ pub(crate) async fn get_instance_install_candidates(
 ) -> crate::Result<Vec<InstanceInstallCandidate>> {
     let rows = sqlx::query_as::<_, InstanceInstallCandidateRow>(
         r#"
-		SELECT
-			i.id,
-			i.name,
-			i.icon_path,
-			cs.game_version,
-			cs.loader,
-			CASE
-				WHEN EXISTS (
-					SELECT 1
-					FROM instance_content_entries entry
-					INNER JOIN instance_files file
-						ON file.id = entry.file_id
-					WHERE entry.content_set_id = cs.id
-						AND EXISTS (
-							SELECT 1
-							FROM instance_content_provider_refs ref
-							WHERE ref.content_entry_id = entry.id
-								AND ref.provider = CASE
-									WHEN ? LIKE 'curseforge:%' THEN 'curseforge'
-									ELSE 'modrinth'
-								END
-								AND ref.provider_project_id = CASE
-									WHEN ? LIKE 'curseforge:%' THEN substr(?, 12)
-									ELSE ?
-									END
-						)
-						AND file.missing = 0
-				)
-					THEN 1
-				ELSE 0
-			END AS installed
-		FROM instances i
-		INNER JOIN instance_content_sets cs
-			ON cs.id = i.applied_content_set_id
-		LEFT JOIN instance_links link
-			ON link.instance_id = i.id
-		WHERE COALESCE(link.link_kind, 'unmanaged') NOT IN (
-			'server_project',
-			'server_project_modpack'
-		)
-		ORDER BY i.name ASC
-		"#,
+        SELECT
+            i.id,
+            i.name,
+            i.icon_path,
+            cs.game_version,
+            cs.loader,
+            CASE
+                WHEN EXISTS (
+                    SELECT 1
+                    FROM instance_content_entries entry
+                    INNER JOIN instance_files file
+                        ON file.id = entry.file_id
+                    WHERE entry.content_set_id = cs.id
+                        AND EXISTS (
+                            SELECT 1
+                            FROM instance_content_provider_refs ref
+                            WHERE ref.content_entry_id = entry.id
+                                AND ref.provider = CASE
+                                    WHEN ? LIKE 'curseforge:%' THEN 'curseforge'
+                                    ELSE 'modrinth'
+                                END
+                                AND ref.provider_project_id = CASE
+                                    WHEN ? LIKE 'curseforge:%' THEN substr(?, 12)
+                                    ELSE ?
+                                    END
+                        )
+                        AND file.missing = 0
+                )
+                    THEN 1
+                ELSE 0
+            END AS installed
+        FROM instances i
+        INNER JOIN instance_content_sets cs
+            ON cs.id = i.applied_content_set_id
+        LEFT JOIN instance_links link
+            ON link.instance_id = i.id
+        WHERE COALESCE(link.link_kind, 'unmanaged') NOT IN (
+            'server_project',
+            'server_project_modpack'
+        )
+        ORDER BY i.name ASC
+        "#,
     )
     .bind(project_id)
     .bind(project_id)
@@ -400,7 +427,9 @@ pub(crate) async fn list_all_content_from_files(
         cache_behaviour,
         state,
         ContentFilter::All,
-        refresh_file_updates,
+        ContentUpdateLookup::Include {
+            refresh: refresh_file_updates,
+        },
     )
     .await?
     .into_iter()
@@ -446,7 +475,7 @@ pub(crate) async fn list_content_by_paths(
         cache_behaviour,
         state,
         ContentFilter::All,
-        false,
+        ContentUpdateLookup::Skip,
     )
     .await?
     .into_iter()
@@ -669,7 +698,7 @@ pub(crate) async fn get_linked_modpack_info(
             avatar_url: org.icon_url,
             owner_type: OwnerType::Organization,
         })
-    } else {
+    } else if !project.team.is_empty() {
         let team = CachedEntry::get_team(
             &project.team,
             cache_behaviour,
@@ -687,6 +716,8 @@ pub(crate) async fn get_linked_modpack_info(
                     owner_type: OwnerType::User,
                 })
         })
+    } else {
+        None
     };
     let (_, update_version_id, update_version) = check_modpack_update(
         version_id,
@@ -813,7 +844,7 @@ async fn get_curseforge_linked_modpack_info(
                     avatar_url: org.icon_url,
                     owner_type: OwnerType::Organization,
                 })
-            } else {
+            } else if !mr_project.team.is_empty() {
                 CachedEntry::get_team(
                     &mr_project.team,
                     cache_behaviour,
@@ -831,6 +862,8 @@ async fn get_curseforge_linked_modpack_info(
                         },
                     )
                 })
+            } else {
+                None
             };
 
             let files = crate::api::curseforge::get_files(
@@ -1270,9 +1303,9 @@ async fn resolve_content_scope_with_instance(
 
             if content_set.instance_id != instance.id {
                 return Err(crate::ErrorKind::InputError(format!(
-					"Content set {content_set_id} does not belong to instance {}",
-					instance.id
-				))
+                    "Content set {content_set_id} does not belong to instance {}",
+                    instance.id
+                ))
                 .into());
             }
 
@@ -1319,7 +1352,9 @@ async fn content_projects_for_scope(
         cache_behaviour,
         state,
         filter,
-        refresh_file_updates,
+        ContentUpdateLookup::Include {
+            refresh: refresh_file_updates,
+        },
     )
     .await
 }
@@ -1330,7 +1365,7 @@ async fn content_projects_for_files(
     cache_behaviour: Option<CacheBehaviour>,
     state: &State,
     filter: ContentFilter<'_>,
-    refresh_file_updates: bool,
+    update_lookup: ContentUpdateLookup,
 ) -> crate::Result<DashMap<String, ContentFile>> {
     let mut entry_maps =
         load_entry_maps(&resolved.content_set.id, &state.pool).await?;
@@ -1366,59 +1401,68 @@ async fn content_projects_for_files(
         entry_maps =
             load_entry_maps(&resolved.content_set.id, &state.pool).await?;
     }
-    let installed_version_ids_by_hash = files
-        .iter()
-        .filter_map(|file| {
-            let provider_refs = entry_maps
-                .provider_refs_by_file_id
-                .get(&file.id)
-                .map(Vec::as_slice)
-                .unwrap_or_default();
-            installed_modrinth_version_id(provider_refs)
-                .or_else(|| {
-                    file_info_by_hash.get(&file.sha1).and_then(|metadata| {
-                        ModrinthVersionId::new(metadata.version_id.clone()).ok()
+    // Visible-row metadata must not depend on update catalogs: one invalid
+    // candidate release would otherwise discard the whole display batch.
+    let file_updates = if let ContentUpdateLookup::Include { refresh } =
+        update_lookup
+    {
+        let installed_version_ids_by_hash = files
+            .iter()
+            .filter_map(|file| {
+                let provider_refs = entry_maps
+                    .provider_refs_by_file_id
+                    .get(&file.id)
+                    .map(Vec::as_slice)
+                    .unwrap_or_default();
+                installed_modrinth_version_id(provider_refs)
+                    .or_else(|| {
+                        file_info_by_hash.get(&file.sha1).and_then(|metadata| {
+                            ModrinthVersionId::new(metadata.version_id.clone())
+                                .ok()
+                        })
                     })
-                })
-                .map(|version_id| (file.sha1.clone(), version_id))
-        })
-        .collect::<HashMap<_, _>>();
-    let installed_channels = get_installed_update_channels(
-        &installed_version_ids_by_hash,
-        cache_behaviour,
-        &state.pool,
-        &state.api_semaphore,
-    )
-    .await?;
-    let update_keys = files
-        .iter()
-        .filter(|file| file_info_by_hash.contains_key(&file.sha1))
-        .filter_map(|file| {
-            let project_type = project_type_for_file(file)?;
-            let channel = resolved.instance.update_channel.least_stable(
-                installed_channels
-                    .get(&file.sha1)
-                    .copied()
-                    .unwrap_or(resolved.instance.update_channel),
-            );
-            Some(file_update_cache_key(
-                &file.sha1,
-                project_type,
-                &resolved.content_set,
-                channel,
-            ))
-        })
-        .collect::<Vec<_>>();
-    let update_key_refs =
-        update_keys.iter().map(String::as_str).collect::<Vec<_>>();
-    let file_updates = fetch_content_file_updates(
-        &update_key_refs,
-        cache_behaviour,
-        refresh_file_updates,
-        &state.pool,
-        &state.api_semaphore,
-    )
-    .await?;
+                    .map(|version_id| (file.sha1.clone(), version_id))
+            })
+            .collect::<HashMap<_, _>>();
+        let installed_channels = get_installed_update_channels(
+            &installed_version_ids_by_hash,
+            cache_behaviour,
+            &state.pool,
+            &state.api_semaphore,
+        )
+        .await?;
+        let update_keys = files
+            .iter()
+            .filter(|file| file_info_by_hash.contains_key(&file.sha1))
+            .filter_map(|file| {
+                let project_type = project_type_for_file(file)?;
+                let channel = resolved.instance.update_channel.least_stable(
+                    installed_channels
+                        .get(&file.sha1)
+                        .copied()
+                        .unwrap_or(resolved.instance.update_channel),
+                );
+                Some(file_update_cache_key(
+                    &file.sha1,
+                    project_type,
+                    &resolved.content_set,
+                    channel,
+                ))
+            })
+            .collect::<Vec<_>>();
+        let update_key_refs =
+            update_keys.iter().map(String::as_str).collect::<Vec<_>>();
+        fetch_content_file_updates(
+            &update_key_refs,
+            cache_behaviour,
+            refresh,
+            &state.pool,
+            &state.api_semaphore,
+        )
+        .await?
+    } else {
+        Vec::new()
+    };
     let mut updates_by_hash: HashMap<String, Vec<String>> = HashMap::new();
     for update in file_updates {
         updates_by_hash
@@ -2295,6 +2339,7 @@ async fn resolve_metadata(
     let team_ids = projects
         .iter()
         .map(|project| project.team.clone())
+        .filter(|team| !team.is_empty())
         .collect::<HashSet<_>>();
     let org_ids = projects
         .iter()
@@ -2991,6 +3036,33 @@ mod tests {
         .unwrap();
         ids.sort();
         assert_eq!(ids, ["curseforge:123", "projectA"]);
+
+        let maps = load_entry_maps(&resolved.content_set.id, &state.pool)
+            .await
+            .unwrap();
+        for (file_id, entry) in &maps.entries_by_file_id {
+            assert_eq!(
+                maps.provider_refs_by_file_id
+                    .get(file_id)
+                    .cloned()
+                    .unwrap_or_default(),
+                sqlite::content_rows::get_content_provider_refs(
+                    &entry.id,
+                    &state.pool
+                )
+                .await
+                .unwrap(),
+            );
+            assert_eq!(
+                maps.origin_provider_by_file_id.get(file_id).copied(),
+                sqlite::content_rows::get_content_origin_provider(
+                    &entry.id,
+                    &state.pool
+                )
+                .await
+                .unwrap(),
+            );
+        }
     }
 
     #[test]
@@ -3163,6 +3235,13 @@ mod tests {
 
     #[tokio::test]
     async fn external_file_edit_invalidates_exact_provider_refs() {
+        // The legacy cache projection uses global runtime state even when the
+        // content snapshot itself is backed by the isolated fixture below.
+        crate::event::EventState::init().await.unwrap();
+        let runtime = tempfile::tempdir().unwrap().keep();
+        State::init_for_test(runtime.to_string_lossy().into_owned())
+            .await
+            .unwrap();
         let (_temp, state, resolved) = reconciliation_fixture().await;
         let relative_path = "mods/lithium.jar";
         let file = insert_test_file(

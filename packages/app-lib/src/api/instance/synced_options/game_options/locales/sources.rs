@@ -157,9 +157,9 @@ pub(super) async fn load_snapshot(
         io::read(root(state).join("snapshots").join(format!("{id}.json")))
             .await?;
     archive::checked_bytes(bytes.clone(), id).inspect_err(|error| {
-		tracing::warn!(%error, expected_hash = id, actual_hash = sha1_bytes(&bytes),
-			"Game setting locales: snapshot checksum mismatch");
-	})?;
+        tracing::warn!(%error, expected_hash = id, actual_hash = sha1_bytes(&bytes),
+            "Game setting locales: snapshot checksum mismatch");
+    })?;
     Ok(serde_json::from_slice(&bytes)?)
 }
 

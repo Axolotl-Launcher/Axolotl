@@ -1,5 +1,6 @@
 import { flushPromises, mount } from '@vue/test-utils'
 import { expect, it, vi } from 'vitest'
+import { ref } from 'vue'
 
 import { useImageThumbnail } from './use-image-thumbnail'
 const backend = vi.hoisted(() => ({ invoke: vi.fn() }))
@@ -38,4 +39,26 @@ it('unmounted queued consumers never invoke native decoding and shared requests 
     await flushPromises()
     for (const wrapper of active) wrapper.unmount()
     another.unmount()
+})
+
+it('only acquires visible sources and never falls back to decoding a large original', async () => {
+    backend.invoke.mockClear()
+    backend.invoke.mockRejectedValue(new Error('decode failed'))
+    const source = ref<{ instanceId: string; filePath: string; path: string } | null>(null)
+    let thumbnail!: ReturnType<typeof useImageThumbnail>
+    const wrapper = mount({
+        setup() {
+            thumbnail = useImageThumbnail(source)
+            return () => null
+        },
+    })
+    await flushPromises()
+    expect(backend.invoke).not.toHaveBeenCalled()
+    source.value = { instanceId: 'test', filePath: 'huge.png', path: 'huge-original.png' }
+    await flushPromises()
+    expect(backend.invoke).toHaveBeenCalledOnce()
+    expect(thumbnail.value).toBe('')
+    source.value = null
+    await flushPromises()
+    wrapper.unmount()
 })

@@ -1627,7 +1627,7 @@ async fn generate_mod_name(
         report: None,
     });
     let prompt = serde_json::json!({
-		"task": "根据模组元数据生成自然、简洁的简体中文名；无法合理生成时保持英文。",
+        "task": "根据模组元数据生成自然、简洁的简体中文名；无法合理生成时保持英文。",
         "modIds": inspection.mod_ids,
         "displayNames": inspection.project_names,
         "loader": inspection.loader.as_str(),
@@ -1636,7 +1636,7 @@ async fn generate_mod_name(
     let response = complete_text(
         &options.provider_id,
         &options.model_id,
-		"你是 Minecraft 模组中文名生成器。只返回严格 JSON：{\"name\":\"中文名\",\"source\":\"generated\"}",
+        "你是 Minecraft 模组中文名生成器。只返回严格 JSON：{\"name\":\"中文名\",\"source\":\"generated\"}",
         &prompt,
     )
     .await
@@ -2011,11 +2011,11 @@ pub async fn run_translation_task(
             &mut work_graph,
             &translation_memory,
             &options,
-			&emitter,
-			&cancel,
-			&task_id,
-			mod_name_context,
-		)
+            &emitter,
+            &cancel,
+            &task_id,
+            mod_name_context,
+        )
         .await?;
         language_attempted += fast.attempted;
         language_accepted += fast.accepted;
@@ -2045,11 +2045,11 @@ pub async fn run_translation_task(
                 &mut work_graph,
                 &translation_memory,
                 &options,
-				&emitter,
-				&cancel,
-				&task_id,
-				mod_name_context,
-			)
+                &emitter,
+                &cancel,
+                &task_id,
+                mod_name_context,
+            )
             .await?;
             language_attempted += deep.attempted;
             language_accepted += deep.accepted;
@@ -2065,85 +2065,85 @@ pub async fn run_translation_task(
             &mut work_graph,
             &translation_memory,
             &options,
-			&emitter,
-			&cancel,
-			&task_id,
-			mod_name_context,
-		)
+            &emitter,
+            &cancel,
+            &task_id,
+            mod_name_context,
+        )
         .await?;
         resume::update_checkpoint_from_state(&mut checkpoint, &work_graph, &class_ledger, &memory, "repair_done");
         resume::save_checkpoint(&workspace, &checkpoint)?;
 
-		if options.class_text_enabled {
-			run_class_route(
-				&workspace,
-				&inspection,
-				&mut work_graph,
-				&mut class_ledger,
-				&options,
-				&emitter,
-				&cancel,
-				&task_id,
-			)
-			.await?;
-			resume::update_checkpoint_from_state(&mut checkpoint, &work_graph, &class_ledger, &memory, "class_done");
-			resume::save_checkpoint(&workspace, &checkpoint)?;
-		}
+        if options.class_text_enabled {
+            run_class_route(
+                &workspace,
+                &inspection,
+                &mut work_graph,
+                &mut class_ledger,
+                &options,
+                &emitter,
+                &cancel,
+                &task_id,
+            )
+            .await?;
+            resume::update_checkpoint_from_state(&mut checkpoint, &work_graph, &class_ledger, &memory, "class_done");
+            resume::save_checkpoint(&workspace, &checkpoint)?;
+        }
 
         // 硬验收
         emit(emitter.clone(), &task_id, Phase::Validation, "正在检查中文版能否正常使用", 0, 0, work_graph.progress().0, work_graph.progress().1, None, "info", false, false, None);
-		let mut verification = verify_harness_state_with_options(
-			&workspace,
-			&inspection,
-			&work_graph,
-			&class_ledger,
-			options.class_text_enabled,
-		)
-		.await?;
-		if !verification.complete && options.repair_enabled {
-			emit(emitter.clone(), &task_id, Phase::Repair, "开始有界疑难项修复", 0, 0, work_graph.progress().0, work_graph.progress().1, None, "info", false, false, None);
-			let repaired = run_repair_passes(RepairContext {
-				workspace: &workspace,
-				inspection: &inspection,
-				work_graph: &mut work_graph,
-				class_ledger: &mut class_ledger,
-				provider_id: &options.provider_id,
-				model_id: &options.model_id,
-				class_text_enabled: options.class_text_enabled,
-				emitter: repair_emitter.clone(),
-				cancel: cancel.clone(),
-				task_id: &task_id,
-			})
-			.await?;
-			let _ = repaired;
-			verification = verify_harness_state_with_options(
-				&workspace,
-				&inspection,
-				&work_graph,
-				&class_ledger,
-				options.class_text_enabled,
-			)
-			.await?;
-		}
+        let mut verification = verify_harness_state_with_options(
+            &workspace,
+            &inspection,
+            &work_graph,
+            &class_ledger,
+            options.class_text_enabled,
+        )
+        .await?;
+        if !verification.complete && options.repair_enabled {
+            emit(emitter.clone(), &task_id, Phase::Repair, "开始有界疑难项修复", 0, 0, work_graph.progress().0, work_graph.progress().1, None, "info", false, false, None);
+            let repaired = run_repair_passes(RepairContext {
+                workspace: &workspace,
+                inspection: &inspection,
+                work_graph: &mut work_graph,
+                class_ledger: &mut class_ledger,
+                provider_id: &options.provider_id,
+                model_id: &options.model_id,
+                class_text_enabled: options.class_text_enabled,
+                emitter: repair_emitter.clone(),
+                cancel: cancel.clone(),
+                task_id: &task_id,
+            })
+            .await?;
+            let _ = repaired;
+            verification = verify_harness_state_with_options(
+                &workspace,
+                &inspection,
+                &work_graph,
+                &class_ledger,
+                options.class_text_enabled,
+            )
+            .await?;
+        }
         resume::update_checkpoint_from_state(&mut checkpoint, &work_graph, &class_ledger, &memory, "validated");
         resume::save_checkpoint(&workspace, &checkpoint)?;
 
         if !verification.complete {
-			let failures =
-				serde_json::to_string(&verification.hard_failures).unwrap_or_default();
-			return Err(TranslateError::new(
-				TranslateErrorCode::QualityHardErrors,
-				format!("硬验收未通过：{} 项问题；{}", verification.hard_failures.len(), failures),
-			));
-		}
+            let failures =
+                serde_json::to_string(&verification.hard_failures).unwrap_or_default();
+            return Err(TranslateError::new(
+                TranslateErrorCode::QualityHardErrors,
+                format!("硬验收未通过：{} 项问题；{}", verification.hard_failures.len(), failures),
+            ));
+        }
 
-		let mod_name = resolve_mod_name(
-			&inspection.project_names,
-			&inspection.mod_ids,
-			&inspection.original_filename,
-			generated_name.as_ref().map(|value| value.name.clone()).or(memory.recommended_name.clone()),
-			generated_name.as_ref().map(|value| value.source.clone()),
-		);
+        let mod_name = resolve_mod_name(
+            &inspection.project_names,
+            &inspection.mod_ids,
+            &inspection.original_filename,
+            generated_name.as_ref().map(|value| value.name.clone()).or(memory.recommended_name.clone()),
+            generated_name.as_ref().map(|value| value.source.clone()),
+        );
 
         // 打包
         emit(emitter.clone(), &task_id, Phase::Packaging, "正在生成中文版模组", 0, 0, work_graph.progress().0, work_graph.progress().1, None, "info", false, false, None);

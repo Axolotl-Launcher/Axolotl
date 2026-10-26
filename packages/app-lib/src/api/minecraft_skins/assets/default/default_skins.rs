@@ -129,7 +129,7 @@ pub static DEFAULT_SKINS: LazyLock<Vec<Skin>> = LazyLock::new(|| {
         source: SkinSource::Default,
         is_equipped: false,
     },
-		//
+        //
     // The Mojang skins below are available in the vanilla Minecraft launcher, and were found
     // by reverse engineering the behavior of the Minecraft launcher. The textures are
     // publicly available at `https://textures.minecraft.net/texture/<texture_key>`.

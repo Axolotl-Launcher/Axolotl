@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "\n        INSERT INTO instance_daily_playtime (\n            played_on,\n            instance_id,\n            instance_name,\n            played_seconds,\n            session_count\n        )\n        VALUES (?, ?, ?, ?, ?)\n        ON CONFLICT(played_on, instance_id) DO UPDATE SET\n            instance_name = excluded.instance_name,\n            played_seconds = CASE\n                WHEN instance_daily_playtime.played_seconds > ? THEN ?\n                ELSE instance_daily_playtime.played_seconds + excluded.played_seconds\n            END,\n            session_count = CASE\n                WHEN instance_daily_playtime.session_count > ? THEN ?\n                ELSE instance_daily_playtime.session_count + excluded.session_count\n            END\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 9
+    },
+    "nullable": []
+  },
+  "hash": "ce3fd17e7d86d37ab42ab21c6e3b4586a7d7c63f70a9454572bb9ae629181026"
+}

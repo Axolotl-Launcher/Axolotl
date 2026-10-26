@@ -1,6 +1,6 @@
 # Axolotl Launcher Monorepo
 
-Axolotl contains a Vue 3 / Nuxt 3 website, a Vue 3 desktop frontend, and a Rust / Tauri shell. Turborepo (`turbo.jsonc`) and pnpm workspaces (`pnpm-workspace.yaml`) coordinate the packages. Frontend styling uses Tailwind CSS v3. Use spaces, never tabs.
+Axolotl contains a Vue 3 / Nuxt 3 website, a Vue 3 desktop frontend, and a Rust / Tauri shell. Turborepo (`turbo.jsonc`) and pnpm workspaces (`pnpm-workspace.yaml`) coordinate the packages. Frontend styling uses Tailwind CSS v3.
 
 ## Instruction Routing
 
@@ -46,8 +46,10 @@ Read [CONTRIBUTING.md](CONTRIBUTING.md) for environment setup and application da
 - Applied database migrations are immutable, including locally applied migrations. Follow the app-lib instructions for new forward migrations and downgrade mappings; do not rewrite migration checksums.
 - Local desktop builds can change the installed application's database. Use the data isolation procedure in the contribution guide before starting development processes.
 - Do not create unrelated scripts, SQL files or documentation. Remove files created only for temporary verification after checks complete.
+- Agent intermediate and archived artifacts — plans, specs, worklogs and captured evidence — belong in the ignored `.agents/plans/` and nowhere else, with descriptive filenames so a later session can find the plan it needs and restore that work's context. Never stage them with `git add -f` or otherwise bypass `.gitignore`; repository content is for code, configuration and maintained documentation.
 - Avoid heading comments such as `=== Helper methods ===`. Use doc comments where helpful; add inline comments only when necessary to explain non-obvious behavior.
 - Preserve exact source whitespace when editing; do not copy tool line numbers or display markers into source.
+- Indent with spaces only: four for source, two for JSON, YAML and Markdown.
 
 ## Shared Rust Build Resources
 

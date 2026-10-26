@@ -12,6 +12,7 @@
 ## Maintenance
 
 - Keep skills and references tracked. Runtime scratch files belong outside `.agents/skills/`, in ignored `.agents/tmp/` or `.agents/cache/`; never ignore all of `.agents/`.
+- Agent intermediate and archived artifacts — plans, specs, worklogs and captured evidence — belong in the ignored `.agents/plans/`. Keep their filenames descriptive, because a later session reads the matching plan to restore the context of that work. Never force-add them past `.gitignore`.
 - Before removing a reference, inspect its callers. Preserve domain constraints when moving rules and update the root routing table when adding a new scoped entry point.
 - Run `pnpm axolotl:check-agents` after changing agent configuration. The check validates Skill frontmatter and evaluation fixtures and catches leftover legacy files and stale paths. Review Markdown links in changed instruction files; this check does not prove model behavior.
 - For workflow changes, exercise representative task scenarios and report the checks actually performed. Keep behavioral evals self-contained and do not claim they ran merely because their JSON is valid.

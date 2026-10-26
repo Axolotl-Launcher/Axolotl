@@ -1,9 +1,9 @@
 <template>
     <!--
-		Fullscreen must teleport to body: .app-contents uses isolation:isolate
-		and z-index:1, so an in-tree fixed overlay cannot paint above its
-		border/vignette pseudo-elements.
-	-->
+        Fullscreen must teleport to body: .app-contents uses isolation:isolate
+        and z-index:1, so an in-tree fixed overlay cannot paint above its
+        border/vignette pseudo-elements.
+    -->
     <Teleport to="body" :disabled="!isFullscreen">
         <div
             class="flex min-h-0 flex-1 flex-col gap-4"

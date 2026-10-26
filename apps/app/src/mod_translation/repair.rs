@@ -552,16 +552,17 @@ fn validate_response(
                                 value,
                             );
                         }
-                        let translation =
-                            translation
-                                .as_deref()
-                                .filter(|value| has_chinese(value))
-                                .ok_or_else(|| {
-                                    TranslateError::new(
-										TranslateErrorCode::InvalidModelResponse,
-										format!("class issue {issue_id} 缺少中文译文"),
-									)
-                                })?;
+                        let translation = translation
+                            .as_deref()
+                            .filter(|value| has_chinese(value))
+                            .ok_or_else(|| {
+                                TranslateError::new(
+                                    TranslateErrorCode::InvalidModelResponse,
+                                    format!(
+                                        "class issue {issue_id} 缺少中文译文"
+                                    ),
+                                )
+                            })?;
                         if let Some(error) = validate_protected_tokens(
                             &issue.source,
                             translation,

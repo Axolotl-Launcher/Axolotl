@@ -64,6 +64,150 @@ async fn project_projection_accepts_nullable_fields_and_redacted_links_online_an
         );
     }
     assert_eq!(transport.requests.lock().unwrap().len(), 2);
+    let query = ProviderQuery::Project {
+        id: SourceProjectId::new("joEfVgkn").unwrap(),
+        slug: None,
+    };
+    let cached = service
+        .query(
+            &SourceId::modrinth(),
+            query,
+            CachePolicy::OnlyCached,
+            &CancellationToken::new(),
+        )
+        .await
+        .unwrap();
+    let ProviderValue::Project(document) = cached.value else {
+        panic!("project expected");
+    };
+    let links = document.protocol.unwrap()["donation_urls"]
+        .as_array()
+        .unwrap()
+        .clone();
+    assert_eq!(links.len(), 1);
+    assert_eq!(links[0]["url"], "https://patreon.com/example");
+    service.cache().close().await;
+}
+
+#[tokio::test]
+async fn project_projection_preserves_projects_without_teams_online_and_from_cache()
+ {
+    let transport = FixtureTransport::new(|_, request| {
+        assert_eq!(request.path, "/projects");
+        let mut nullable = project_protocol("nullable");
+        nullable["team"] = Value::Null;
+        let mut missing = project_protocol("missing0");
+        missing.as_object_mut().unwrap().remove("team");
+        Ok(json!([nullable, missing]))
+    });
+    let (_directory, cache) = cache().await;
+    let service = ResourceService::new(
+        cache,
+        vec![Arc::new(ModrinthProvider::new(transport.clone()))],
+    )
+    .unwrap();
+    for behaviour in [None, Some(CacheBehaviour::CacheOnly)] {
+        let entries = protocol::many(
+            &service,
+            CacheValueType::Project,
+            &["nullable", "missing0"],
+            behaviour,
+            &CancellationToken::new(),
+        )
+        .await
+        .unwrap();
+        assert_eq!(entries.len(), 2);
+        for entry in entries {
+            let entry = serde_json::to_value(entry).unwrap();
+            assert_eq!(entry["data"]["Project"]["team"], "");
+            assert_eq!(entry["data"]["Project"]["title"], "Example");
+        }
+    }
+    let cached = service
+        .query(
+            &SourceId::modrinth(),
+            ProviderQuery::Project {
+                id: SourceProjectId::new("nullable").unwrap(),
+                slug: None,
+            },
+            CachePolicy::OnlyCached,
+            &CancellationToken::new(),
+        )
+        .await
+        .unwrap();
+    let ProviderValue::Project(document) = cached.value else {
+        panic!("project expected");
+    };
+    assert_eq!(document.protocol.unwrap()["team"], "");
+    // Projects without teams must not trigger an author lookup.
+    assert_eq!(transport.requests.lock().unwrap().len(), 1);
+    service.cache().close().await;
+}
+
+#[tokio::test]
+async fn project_projection_reads_legacy_cached_null_and_missing_teams_without_network()
+ {
+    let (_directory, cache) = cache().await;
+    for id in ["nullable", "missing0"] {
+        let mut raw = project_protocol(id);
+        raw["team"] = Value::Null;
+        if id == "missing0" {
+            raw.as_object_mut().unwrap().remove("team");
+        }
+        let mut document =
+            providers::legacy::project("project", raw.clone()).unwrap();
+        // Reproduce a document cached before provider-side normalization.
+        document.protocol = Some(providers::protocol_projection(raw));
+        let query = ProviderQuery::Project {
+            id: SourceProjectId::new(id).unwrap(),
+            slug: None,
+        };
+        let key = CacheKey::new(
+            "modrinth-v2-dates".into(),
+            SourceId::modrinth(),
+            &query.cache_identity(),
+        )
+        .unwrap();
+        cache
+            .put(
+                &key,
+                &ProviderValue::Project(document),
+                -1,
+                cache.generation().await,
+                chrono::Utc::now().timestamp_micros(),
+            )
+            .await;
+    }
+    let transport = FixtureTransport::new(|_, _| {
+        panic!("cached projection must not access the network")
+    });
+    let service = ResourceService::new(
+        cache,
+        vec![Arc::new(ModrinthProvider::new(transport.clone()))],
+    )
+    .unwrap();
+    let entries = protocol::many(
+        &service,
+        CacheValueType::Project,
+        &["nullable", "missing0"],
+        Some(CacheBehaviour::CacheOnly),
+        &CancellationToken::new(),
+    )
+    .await
+    .unwrap();
+    assert_eq!(entries.len(), 2);
+    for entry in entries {
+        let entry = serde_json::to_value(entry).unwrap();
+        assert_eq!(entry["data"]["Project"]["team"], "");
+        assert_eq!(
+            entry["data"]["Project"]["donation_urls"]
+                .as_array()
+                .unwrap()
+                .len(),
+            1
+        );
+    }
+    assert!(transport.requests.lock().unwrap().is_empty());
     service.cache().close().await;
 }
 

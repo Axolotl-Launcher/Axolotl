@@ -743,12 +743,12 @@ fn validate_fixed_constraints(
         });
         if !root_exists {
             return Err(crate::ErrorKind::InputError(format!(
-				"Custom upgrade constraint does not match root content {} at {}:{}",
-				constraint.content_id,
-				constraint.provider.as_str(),
-				constraint.project_id
-			))
-			.into());
+                "Custom upgrade constraint does not match root content {} at {}:{}",
+                constraint.content_id,
+                constraint.provider.as_str(),
+                constraint.project_id
+            ))
+            .into());
         }
     }
     Ok(())

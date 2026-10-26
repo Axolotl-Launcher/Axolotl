@@ -1,25 +1,51 @@
-export type ReleaseChannel = 'release' | 'beta'
+import {
+    type DownloadSourceId,
+    getDownloadSource,
+    GITHUB_RELEASES_BASE_URL,
+    type LauncherRelease,
+    type ReleaseChannel,
+} from './download-sources.ts'
+
 export type DownloadStatus = 'idle' | 'pending' | 'success' | 'error'
-export interface LauncherRelease {
-    tag_name: string
-    assets: string[]
+
+/**
+ * The state the landing page's hero call to action is driven by.
+ *
+ * Deliberately narrower than {@link DownloadStatus}: the page collapses the
+ * request's idle and pending states into one "loading" state, and treats a
+ * settled request with no matching package as "ready" so the button stays usable.
+ */
+export type HeroDownloadState = 'loading' | 'ready' | 'error'
+
+/**
+ * Whether the hero call to action should stop waiting and degrade to a usable
+ * control.
+ *
+ * The version service is a third party. A request that never settles used to
+ * leave the button disabled and wordless for as long as it hung, with no way for
+ * the visitor to act. Past the limit the button becomes clickable and explains
+ * itself instead.
+ */
+export function shouldDegradeDownload(state: HeroDownloadState, elapsedMs: number, limitMs = 2500) {
+    return state === 'loading' && elapsedMs >= limitMs
+}
+
+export function hasLauncherDownloads(release: LauncherRelease | null | undefined) {
+    return Object.values(resolveLauncherDownloads(release, 'update-server')).some(Boolean)
 }
 
 export function resolveLauncherDownloads(
     release: LauncherRelease | null | undefined,
-    source: 'update-server' | 'github',
+    source: DownloadSourceId,
 ) {
+    const definition = getDownloadSource(source)
     function findAsset(patterns: RegExp[]) {
         if (!release) return null
-        const filename = patterns
-            .map((pattern) => release.assets.find((name) => pattern.test(name)))
+        const asset = patterns
+            .map((pattern) => release.assets.find((candidate) => pattern.test(candidate.name)))
             .find(Boolean)
-        if (!filename) return null
-        const tag = encodeURIComponent(release.tag_name)
-        const version = encodeURIComponent(release.tag_name.replace(/^v/, ''))
-        return source === 'update-server'
-            ? `https://update.axlmc.org/dist/${version}/${encodeURIComponent(filename)}`
-            : `https://github.com/Mystic-Stars/Axolotl/releases/download/${tag}/${encodeURIComponent(filename)}`
+        if (!asset) return null
+        return definition.assetUrl(release, asset)
     }
 
     return {
@@ -38,7 +64,7 @@ export function getDownloadAvailability(status: DownloadStatus, link: string | n
 }
 
 export function getReleasePage(channel: ReleaseChannel, release?: LauncherRelease | null) {
-    const base = 'https://github.com/Mystic-Stars/Axolotl/releases'
+    const base = GITHUB_RELEASES_BASE_URL
     if (release?.tag_name) return `${base}/tag/${encodeURIComponent(release.tag_name)}`
     return channel === 'release' ? `${base}/latest` : base
 }

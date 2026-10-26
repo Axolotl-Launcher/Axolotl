@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "\n        INSERT INTO instance_links (\n            instance_id,\n            link_kind,\n            modrinth_project_id,\n            modrinth_version_id,\n            server_project_id,\n            content_project_id,\n            content_version_id,\n            hosting_server_id,\n            hosting_instance_ids,\n            hosting_active_instance_id,\n            shared_instance_id,\n            imported_name,\n            imported_version_number,\n            imported_filename\n        )\n        VALUES (?, ?, ?, ?, ?, ?, ?, ?, jsonb(?), ?, ?, ?, ?, ?)\n        ON CONFLICT (instance_id) DO UPDATE SET\n            link_kind = excluded.link_kind,\n            modrinth_project_id = excluded.modrinth_project_id,\n            modrinth_version_id = excluded.modrinth_version_id,\n            server_project_id = excluded.server_project_id,\n            content_project_id = excluded.content_project_id,\n            content_version_id = excluded.content_version_id,\n            hosting_server_id = excluded.hosting_server_id,\n            hosting_instance_ids = excluded.hosting_instance_ids,\n            hosting_active_instance_id = excluded.hosting_active_instance_id,\n            shared_instance_id = excluded.shared_instance_id,\n            imported_name = excluded.imported_name,\n            imported_version_number = excluded.imported_version_number,\n            imported_filename = excluded.imported_filename\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 14
+    },
+    "nullable": []
+  },
+  "hash": "56a3f8bed1f86c67fa9a2a67a785b4bff5fe6aaea5d415bb0f96275b1182ab66"
+}

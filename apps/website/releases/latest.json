@@ -1,34 +1,109 @@
 {
-  "tag_name": "v1.9.9",
+  "tag_name": "v1.10.1",
   "assets": [
-    "Axolotl.Launcher-1.9.9-1.aarch64.rpm",
-    "Axolotl.Launcher-1.9.9-1.aarch64.rpm.sig",
-    "Axolotl.Launcher-1.9.9-1.x86_64.rpm",
-    "Axolotl.Launcher-1.9.9-1.x86_64.rpm.sig",
-    "Axolotl.Launcher_1.9.9_aarch64.AppImage",
-    "Axolotl.Launcher_1.9.9_aarch64.AppImage.sig",
-    "Axolotl.Launcher_1.9.9_aarch64.AppImage.tar.gz",
-    "Axolotl.Launcher_1.9.9_aarch64.AppImage.tar.gz.sig",
-    "Axolotl.Launcher_1.9.9_amd64.AppImage",
-    "Axolotl.Launcher_1.9.9_amd64.AppImage.sig",
-    "Axolotl.Launcher_1.9.9_amd64.AppImage.tar.gz",
-    "Axolotl.Launcher_1.9.9_amd64.AppImage.tar.gz.sig",
-    "Axolotl.Launcher_1.9.9_amd64.deb",
-    "Axolotl.Launcher_1.9.9_amd64.deb.sig",
-    "Axolotl.Launcher_1.9.9_arm64.deb",
-    "Axolotl.Launcher_1.9.9_arm64.deb.sig",
-    "Axolotl.Launcher_1.9.9_universal.dmg",
-    "Axolotl.Launcher_1.9.9_x64-setup.exe",
-    "Axolotl.Launcher_1.9.9_x64-setup.exe.sig",
-    "Axolotl.Launcher_1.9.9_x64-setup.nsis.zip",
-    "Axolotl.Launcher_1.9.9_x64-setup.nsis.zip.sig",
-    "Axolotl.Launcher_universal.app.tar.gz",
-    "Axolotl.Launcher_universal.app.tar.gz.sig",
-    "Axolotl_Launcher_1.9.9_x64_modern-setup.exe",
-    "Axolotl_Launcher_1.9.9_x64_modern-setup.exe.sig",
-    "Axolotl_Launcher_1.9.9_x64_nsis-setup.exe",
-    "Axolotl_Launcher_1.9.9_x64_nsis-setup.exe.sig",
-    "Axolotl_Launcher_1.9.9_x64_portable.zip",
-    "latest.json"
+    {
+      "name": "Axolotl.Launcher-1.10.1-1.aarch64.rpm",
+      "sha256": "667b9e7d64e7166a3388a99d727093ce06f7e5acefb068a0d3cea4187bea1873"
+    },
+    {
+      "name": "Axolotl.Launcher-1.10.1-1.aarch64.rpm.sig",
+      "sha256": "66e697e336157faa5678e2800fc3263c0db8d8cfbd55a0596080d5ce89df4b5a"
+    },
+    {
+      "name": "Axolotl.Launcher-1.10.1-1.x86_64.rpm",
+      "sha256": "495d78ff2e121947db10c734a7e56e82560216d55df9b278be6f24c3b85a1657"
+    },
+    {
+      "name": "Axolotl.Launcher-1.10.1-1.x86_64.rpm.sig",
+      "sha256": "abe766fc4b7a2158a001be78ac42ffe22b2e5cddcffb79929f5d79bb8be630ce"
+    },
+    {
+      "name": "Axolotl.Launcher_1.10.1_aarch64.AppImage",
+      "sha256": "68c0a21f2cdf96845389d5241ba33314cc0fdec39399dc36ce4f03edc10145b0"
+    },
+    {
+      "name": "Axolotl.Launcher_1.10.1_aarch64.AppImage.sig",
+      "sha256": "544ad34dd8aa704e5123bd715e0ced6edc94ff22d6185ca8e01a247a265509c6"
+    },
+    {
+      "name": "Axolotl.Launcher_1.10.1_aarch64.AppImage.tar.gz",
+      "sha256": "33b8c72b15e25814d2794fc407122221c71fe6a04b01adbaf85f8fb57a6c699b"
+    },
+    {
+      "name": "Axolotl.Launcher_1.10.1_aarch64.AppImage.tar.gz.sig",
+      "sha256": "2c417379e25be87515e4f7534a8de7b661132585b15ea56e5701f02e4ff89d6c"
+    },
+    {
+      "name": "Axolotl.Launcher_1.10.1_amd64.AppImage",
+      "sha256": "22bad2d18dc58f20c11880715d5c83e3c7d3f6069736aabfb3cace8d240be734"
+    },
+    {
+      "name": "Axolotl.Launcher_1.10.1_amd64.AppImage.sig",
+      "sha256": "07e3ced22f2968ef5cc05fb12c55e7621d34b691f776d3fc47f4a819437f08f0"
+    },
+    {
+      "name": "Axolotl.Launcher_1.10.1_amd64.AppImage.tar.gz",
+      "sha256": "7a2fe2d4488ea9da27188ecfc411712b4d0b7c22f8c7d4c922ff07bc80608459"
+    },
+    {
+      "name": "Axolotl.Launcher_1.10.1_amd64.AppImage.tar.gz.sig",
+      "sha256": "e6e9c53bfbd379d1ccf03f1a12e2a94994003c71f6857aded23c691c333ddbd6"
+    },
+    {
+      "name": "Axolotl.Launcher_1.10.1_amd64.deb",
+      "sha256": "1bcb6ea1a5609be369b3944ffe89a763fad664bcda6535861c6035ca4cb63b9f"
+    },
+    {
+      "name": "Axolotl.Launcher_1.10.1_amd64.deb.sig",
+      "sha256": "14273cdfbbb866359941aaeb0ed8c3b5295dba260e3275f64256b5174295142f"
+    },
+    {
+      "name": "Axolotl.Launcher_1.10.1_arm64.deb",
+      "sha256": "416d27954d483d9284db59dfbbc2945e74b817409e08c41f102952da8ba5bdf9"
+    },
+    {
+      "name": "Axolotl.Launcher_1.10.1_arm64.deb.sig",
+      "sha256": "9574f62178f6514f4ee8aac1b2fd240d95c2817654c8e371b258f584714130d6"
+    },
+    {
+      "name": "Axolotl.Launcher_1.10.1_universal.dmg",
+      "sha256": "7a3c306db728f48488ee0b2317bab436fdbc471d5aba717e8eb15ef450b593b8"
+    },
+    {
+      "name": "Axolotl.Launcher_1.10.1_x64-setup.nsis.zip",
+      "sha256": "034d70b385a185425e12c5fc16d70d63637495bdf3abab448ae8b62da846f4fe"
+    },
+    {
+      "name": "Axolotl.Launcher_1.10.1_x64-setup.nsis.zip.sig",
+      "sha256": "7e6d7a87d51925b94e4790a0b0b4c4348ea406d372093993f712b306f94e3ac2"
+    },
+    {
+      "name": "Axolotl.Launcher_universal.app.tar.gz",
+      "sha256": "fcb8f83e103643c7489f4cec5e74e590038205bee24098382dd4154f337c772d"
+    },
+    {
+      "name": "Axolotl.Launcher_universal.app.tar.gz.sig",
+      "sha256": "cfb89886243afaf189cb86cf46b188b2b868d30eac09284ab9658720745a1624"
+    },
+    {
+      "name": "Axolotl_Launcher_1.10.1_x64_modern-setup.exe",
+      "sha256": "fda34dd510984779d17ef8882fe2ee849c3215010e384d10b7b23137d0c908f9"
+    },
+    {
+      "name": "Axolotl_Launcher_1.10.1_x64_modern-setup.exe.sig",
+      "sha256": "7adbf9349c5b49834775eb9361698c47c7aa1e58664d8fd7283df9708d887730"
+    },
+    {
+      "name": "Axolotl_Launcher_1.10.1_x64_nsis-setup.exe",
+      "sha256": "2adc1bb988668c5297418ddda6799e46958e528da7741084c748743d1a9854af"
+    },
+    {
+      "name": "Axolotl_Launcher_1.10.1_x64_portable.zip",
+      "sha256": "e9f7928152a3e3c2e451ec5b3b35714fb0274a40c2a1514a316c094a864cdf50"
+    },
+    {
+      "name": "latest.json",
+      "sha256": "d9c61e31ec28e09b6aff6933495fe68aaee425bd955ce2c073e9d746bf6c1d30"
+    }
   ]
 }

@@ -108,6 +108,16 @@ async fn restore_corrupt_app_db_from(
 async fn check_database_integrity(
     db_path: &Path,
 ) -> crate::Result<IntegrityStatus> {
+    let started = std::time::Instant::now();
+    // The await must happen before the macro: a temporary created inside the
+    // field list would be held across the await point and make the caller's
+    // future non-Send, which breaks every Tauri command that reaches it.
+    let bytes = tokio::fs::metadata(db_path).await?.len();
+    tracing::info!(
+        database = %db_path.display(),
+        bytes,
+        "Checking app database integrity; large databases may take longer"
+    );
     let options = SqliteConnectOptions::new()
         .filename(db_path)
         .busy_timeout(Duration::from_secs(30))
@@ -135,6 +145,11 @@ async fn check_database_integrity(
         Err(error) => return Err(error.into()),
     };
     conn.close().await?;
+
+    tracing::info!(
+        elapsed_ms = started.elapsed().as_millis(),
+        "App database integrity check finished"
+    );
 
     Ok(status)
 }
@@ -597,12 +612,12 @@ async fn prune_app_db_backups(backup_dir: &Path) -> crate::Result<()> {
 async fn has_user_tables(conn: &mut SqliteConnection) -> crate::Result<bool> {
     let count = sqlx::query_scalar!(
         "
-		SELECT COUNT(*)
-		FROM sqlite_master
-		WHERE type = 'table'
-			AND name NOT LIKE 'sqlite_%'
-			AND name NOT IN ('_sqlx_migrations', 'app_metadata')
-		",
+        SELECT COUNT(*)
+        FROM sqlite_master
+        WHERE type = 'table'
+            AND name NOT LIKE 'sqlite_%'
+            AND name NOT IN ('_sqlx_migrations', 'app_metadata')
+        ",
     )
     .fetch_one(&mut *conn)
     .await?;
@@ -630,10 +645,10 @@ async fn has_table(
 ) -> crate::Result<bool> {
     let count = sqlx::query_scalar!(
         "
-		SELECT COUNT(*)
-		FROM sqlite_master
-		WHERE type = 'table' AND name = ?
-		",
+        SELECT COUNT(*)
+        FROM sqlite_master
+        WHERE type = 'table' AND name = ?
+        ",
         table_name,
     )
     .fetch_one(&mut *conn)

@@ -1,6 +1,26 @@
 use super::*;
 
 #[test]
+fn multimc_component_errors_are_pack_errors_during_import() {
+    let error = crate::ErrorKind::InputError(
+        "Invalid MultiMC jarMods list".to_string(),
+    )
+    .into();
+    assert_eq!(
+        install_error_code(InstallPhaseId::ExtractingOverrides, &error),
+        "pack_error"
+    );
+    let error = crate::ErrorKind::InputError(
+        "Inner path escapes the source root".to_string(),
+    )
+    .into();
+    assert_eq!(
+        install_error_code(InstallPhaseId::ExtractingOverrides, &error),
+        "path_error"
+    );
+}
+
+#[test]
 fn historical_content_recovery_requires_its_saved_release() {
     assert_eq!(
         request::require_historical_release(Some("original".into())).unwrap(),
@@ -15,27 +35,6 @@ fn update_one(content_id: &str) -> crate::install::ContentChangeIntent {
         content_id: content_id.to_string(),
         target_release_id: Some(format!("target-{content_id}")),
     }
-}
-
-#[test]
-fn content_change_conflicts_only_for_overlapping_scopes() {
-    use crate::install::{ContentChangeIntent, ContentChangeTarget};
-
-    let first = update_one("first");
-    let second = update_one("second");
-    let selected = ContentChangeIntent::UpdateSelected {
-        targets: vec![ContentChangeTarget {
-            content_id: "first".to_string(),
-            target_release_id: "target-first".to_string(),
-        }],
-    };
-
-    assert!(!content_change_intents_overlap(&first, &second));
-    assert!(content_change_intents_overlap(&first, &selected));
-    assert!(content_change_intents_overlap(
-        &ContentChangeIntent::UpdateAllUserAdded,
-        &second
-    ));
 }
 
 fn physical_test_item(

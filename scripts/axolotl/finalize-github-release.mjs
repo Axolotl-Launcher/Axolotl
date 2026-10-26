@@ -1,4 +1,3 @@
-import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
@@ -9,6 +8,32 @@ import { verifyUpdateManifest } from './verify-update-manifest.mjs'
 
 function gh(args) {
     return execFileSync('gh', args, { encoding: 'utf8', maxBuffer: 16 * 1024 * 1024 })
+}
+
+function assertPublishedManifest(published, expected) {
+    const mismatch = () =>
+        new Error('Published manifest does not match release assets and signatures')
+    const platforms = published.platforms
+    if (!platforms || typeof platforms !== 'object') throw mismatch()
+    const names = Object.keys(expected.platforms)
+    if (Object.keys(platforms).sort().join() !== [...names].sort().join()) throw mismatch()
+    for (const platform of names) {
+        const actual = platforms[platform]
+        const wanted = expected.platforms[platform]
+        if (
+            !actual ||
+            typeof actual !== 'object' ||
+            actual.signature !== wanted.signature ||
+            actual.url !== wanted.url
+        ) {
+            throw mismatch()
+        }
+        if (actual.sha256 === undefined) {
+            console.log(`Preserved published manifest without SHA-256 for ${platform}`)
+        } else if (actual.sha256 !== wanted.sha256) {
+            throw mismatch()
+        }
+    }
 }
 
 export function finalizeGithubRelease(tag, directory, { publishedOnly = false, run = gh } = {}) {
@@ -56,11 +81,7 @@ export function finalizeGithubRelease(tag, directory, { publishedOnly = false, r
         ])
         const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'))
         verifyUpdateManifest(manifest, tag)
-        assert.deepEqual(
-            manifest.platforms,
-            expected.platforms,
-            'Published manifest does not match release assets and signatures',
-        )
+        assertPublishedManifest(manifest, expected)
         console.log(`Preserved published updater manifest for ${tag}`)
     } else {
         if (publishedOnly) throw new Error(`Published release ${tag} is missing latest.json`)

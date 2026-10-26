@@ -50,6 +50,7 @@ import {
     usesTargetGameVersion,
     useVIntl,
 } from '@modrinth/ui'
+import type { Ref } from 'vue'
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import type { LocationQuery } from 'vue-router'
 import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router'
@@ -99,12 +100,13 @@ import { getDisplayInstanceIcon } from '@/helpers/instance-icons'
 import { instanceServerProjectId, isServerProjectLink } from '@/helpers/instance-project'
 import { getMcArchiveGameVersions, type McArchiveGameVersion } from '@/helpers/mcarchive'
 import { get_loader_versions as getLoaderManifest } from '@/helpers/metadata'
-import { runAfterPageTransitionSettle } from '@/helpers/page-transition'
 import { planetMinecraftConnectorAvailable } from '@/helpers/planet-minecraft'
 import { createProjectDetailsQuery } from '@/helpers/project-links'
+import { createProjectPreviewState } from '@/helpers/project-preview'
 import {
     isResourceOperationError,
     resourceOperationError,
+    resourceSearchFailure,
     resourceSourceName,
 } from '@/helpers/resource-operation-logic'
 import {
@@ -185,16 +187,20 @@ const curseForgeClassIds: Partial<Record<ProjectType, number>> = {
     [WORLD_BROWSE_PROJECT_TYPE]: 17,
 }
 
-const [initialCurseForgeCapability, initialPlanetMinecraftAvailable] = await Promise.all([
-    getCurseForgeCapability().catch(() => ({
-        status: 'missing_key' as const,
-        configured: false,
-        key_source: 'missing' as const,
-    })),
-    planetMinecraftConnectorAvailable().catch(() => false),
-])
-const curseForgeCapability = ref(initialCurseForgeCapability)
-const planetMinecraftAvailable = ref(initialPlanetMinecraftAvailable)
+const searchEnabled = ref(false)
+const browseInitialized = ref(false)
+const filterMetadataStatus = ref<'loading' | 'ready' | 'error'>('loading')
+const filtersReady = computed(
+    () => browseInitialized.value && filterMetadataStatus.value === 'ready',
+)
+const filterMetadataFailed = computed(() => filterMetadataStatus.value === 'error')
+let filterMetadataVersion = 0
+const curseForgeCapability = ref<Awaited<ReturnType<typeof getCurseForgeCapability>>>({
+    status: 'missing_key',
+    configured: false,
+    key_source: 'missing',
+})
+const planetMinecraftAvailable = ref(false)
 const rememberedContentSource = getLastBrowseContentSource()
 
 function resolveInitialContentSource(): BrowseContentSource {
@@ -236,7 +242,7 @@ function resolveInitialContentSource(): BrowseContentSource {
     return curseForgeCapability.value.configured ? 'all' : 'modrinth'
 }
 
-const contentSource = ref<BrowseContentSource>(resolveInitialContentSource())
+const contentSource = ref<BrowseContentSource>('modrinth')
 const sourceBeforeWorldMapBrowse = ref<BrowseContentSource>(
     isWorldMapBrowse.value ? (getLastBrowseContentSource() ?? 'all') : contentSource.value,
 )
@@ -255,6 +261,7 @@ async function ensureCurseForgeCategories(projectTypeValue: ProjectType) {
     if (pending) return pending
     const request = getCurseForgeCategories(classId)
         .then((classCategories) => {
+            if (isUnmounted) return
             curseForgeCategoriesByClass.value = {
                 ...curseForgeCategoriesByClass.value,
                 [classId]: classCategories,
@@ -264,21 +271,6 @@ async function ensureCurseForgeCategories(projectTypeValue: ProjectType) {
     curseForgeCategoryRequests.set(classId, request)
     return request
 }
-
-const initialCurseForgeCategoriesPromise =
-    curseForgeCapability.value.configured &&
-    (contentSource.value === 'curseforge' || contentSource.value === 'all')
-        ? new Promise<void>((resolve) => {
-              // Defer the first category fetch so route enter animation is not
-              // competing with a large CF payload on the main thread.
-              runAfterPageTransitionSettle(() => {
-                  void ensureCurseForgeCategories(projectType.value)
-                      .catch(handleError)
-                      .finally(() => resolve())
-              })
-          })
-        : Promise.resolve()
-if (route.query.f || route.query.g) await initialCurseForgeCategoriesPromise
 
 const themeStore = useTheming()
 const navReturn = useNavigationReturnStore()
@@ -320,34 +312,60 @@ const {
     markServerProjectInstalled,
 } = serverInstallContent
 
-debugLog('fetching tags (categories, loaders, gameVersions)')
-let categories: Ref<Labrinth.Tags.v2.Category[]> = ref([])
-let loaders: Ref<Labrinth.Tags.v2.Loader[]> = ref([])
-let availableGameVersions: Ref<Labrinth.Tags.v2.GameVersion[]> = ref([])
+const categories = ref<Labrinth.Tags.v2.Category[]>([])
+const loaders = ref<Labrinth.Tags.v2.Loader[]>([])
+const availableGameVersions = ref<Labrinth.Tags.v2.GameVersion[]>([])
 const mcArchiveGameVersions = ref<McArchiveGameVersion[]>([])
-if (!isWorldMapBrowse.value) {
-    ;[categories, loaders, availableGameVersions] = await Promise.all([
-        get_categories()
-            .catch(handleError)
-            .then(ref<Labrinth.Tags.v2.Category[]>),
-        get_loaders()
-            .catch(handleError)
-            .then(ref<Labrinth.Tags.v2.Loader[]>),
-        get_game_versions()
-            .catch(handleError)
-            .then(ref<Labrinth.Tags.v2.GameVersion[]>),
-    ])
+
+async function loadFilterMetadata(type: ProjectType, source: BrowseContentSource) {
+    if (type === WORLD_BROWSE_PROJECT_TYPE) return
+    const requests: Promise<unknown>[] = [
+        get_game_versions().then((versions) => {
+            if (!isUnmounted) availableGameVersions.value = versions
+        }),
+    ]
+    if (source !== 'mcarchive' && source !== 'planet_minecraft') {
+        requests.push(
+            get_categories().then((result) => {
+                if (!isUnmounted) categories.value = result
+            }),
+            get_loaders().then((result) => {
+                if (!isUnmounted) loaders.value = result
+            }),
+        )
+    }
+    if (source === 'curseforge' || source === 'all') requests.push(ensureCurseForgeCategories(type))
+    if (source === 'mcarchive') requests.push(refreshMcArchiveGameVersions())
+    await Promise.all(requests)
+}
+
+async function prepareFilterMetadata(type = projectType.value, source = contentSource.value) {
+    const version = ++filterMetadataVersion
+    filterMetadataStatus.value = 'loading'
+    const isCurrent = () =>
+        !isUnmounted &&
+        version === filterMetadataVersion &&
+        type === projectType.value &&
+        source === contentSource.value
+    try {
+        await loadFilterMetadata(type, source)
+        if (isCurrent()) filterMetadataStatus.value = 'ready'
+    } catch (error) {
+        if (isCurrent()) filterMetadataStatus.value = 'error'
+        throw error
+    }
+}
+
+function retryFilterMetadata() {
+    if (!searchEnabled.value) void refreshBrowse()
+    else void prepareFilterMetadata().catch(() => {})
 }
 
 async function refreshMcArchiveGameVersions() {
     if (mcArchiveGameVersions.value.length > 0) return
-    mcArchiveGameVersions.value = await getMcArchiveGameVersions().catch((error) => {
-        handleError(error)
-        return []
-    })
+    const versions = await getMcArchiveGameVersions()
+    if (!isUnmounted) mcArchiveGameVersions.value = versions
 }
-
-if (contentSource.value === 'mcarchive') await refreshMcArchiveGameVersions()
 
 const curseForgeCategoryTags = computed(() => {
     const classId = curseForgeClassIds[projectType.value]
@@ -497,7 +515,6 @@ watchServerContextChanges()
 
 let initialInstanceFilterPromise: Promise<void> = Promise.resolve()
 let initialInstalledProjectsPromise: Promise<boolean> = Promise.resolve(false)
-await initInstanceContext()
 
 async function refreshInstalledProjectIds() {
     const requestId = ++installedProjectRequestId
@@ -519,6 +536,7 @@ async function refreshInstalledProjectIds() {
         const worlds = await get_instance_worlds(requestInstanceId).catch(handleError)
         if (!worlds) return false
         if (
+            isUnmounted ||
             requestId !== installedProjectRequestId ||
             activeInstance.value?.id !== requestInstanceId
         )
@@ -539,6 +557,7 @@ async function refreshInstalledProjectIds() {
     const ids = await getInstalledProjectIds(requestInstanceId).catch(handleError)
     if (
         ids &&
+        !isUnmounted &&
         requestId === installedProjectRequestId &&
         activeInstance.value?.id === requestInstanceId
     ) {
@@ -564,7 +583,15 @@ function sameProjectIds(previous: string[] | null, current: string[]) {
     )
 }
 
+let instanceContextVersion = 0
 async function initInstanceContext() {
+    const version = ++instanceContextVersion
+    initialInstanceFilterPromise = Promise.resolve()
+    initialInstalledProjectsPromise = Promise.resolve(false)
+    const requestedInstanceId = route.query.i
+    const isCurrent = () =>
+        !isUnmounted && version === instanceContextVersion && route.query.i === requestedInstanceId
+
     debugLog('initInstanceContext', {
         queryI: route.query.i,
         queryAi: route.query.ai,
@@ -573,10 +600,24 @@ async function initInstanceContext() {
         queryFrom: route.query.from,
     })
     await initServerContext()
-    await contentSelection.refreshInstances((route.query.i as string | undefined) ?? undefined)
+    if (!isCurrent()) return
+    await contentSelection.refreshInstances(
+        (requestedInstanceId as string | undefined) ?? undefined,
+        isCurrent,
+    )
+    if (!isCurrent()) return
 
-    if (route.query.i) {
-        instance.value = (await getInstance(route.query.i as string).catch(handleError)) ?? null
+    if (requestedInstanceId) {
+        try {
+            const selectedInstance = await getInstance(requestedInstanceId as string)
+            if (!isCurrent()) return
+            instance.value = selectedInstance ?? null
+            if (!instance.value) throw new Error('The selected instance could not be loaded.')
+        } catch (error) {
+            if (!isCurrent()) return
+            instance.value = null
+            handleError(error)
+        }
         if (
             instance.value?.install_stage === 'installed' &&
             (contentSelection.selectedCount.value === 0 ||
@@ -602,12 +643,15 @@ async function initInstanceContext() {
             debugLog('checking linked project for server status', projectId)
             initialInstanceFilterPromise = get_project_v3(projectId, 'must_revalidate')
                 .then((projectV3) => {
-                    if (projectV3?.minecraft_server != null) {
+                    if (isCurrent() && projectV3?.minecraft_server != null) {
                         debugLog('instance is a server instance')
                         isServerInstance.value = true
                     }
                 })
-                .catch((error) => handleError(error))
+                .catch((error) => {
+                    handleError(error)
+                    throw error
+                })
         }
     }
     const activeProjectId = instanceServerProjectId(activeInstance.value?.link)
@@ -615,9 +659,12 @@ async function initInstanceContext() {
         isServerInstance.value = isServerProjectLink(activeInstance.value?.link)
         initialInstanceFilterPromise = get_project_v3(activeProjectId, 'must_revalidate')
             .then((projectV3) => {
-                isServerInstance.value = projectV3?.minecraft_server != null
+                if (isCurrent()) isServerInstance.value = projectV3?.minecraft_server != null
             })
-            .catch((error) => handleError(error))
+            .catch((error) => {
+                handleError(error)
+                throw error
+            })
     }
 
     if (route.query.ai && !(route.params.projectType === 'modpack')) {
@@ -625,6 +672,7 @@ async function initInstanceContext() {
         instanceHideInstalled.value = route.query.ai === 'true'
     }
     initialInstalledProjectsPromise = refreshInstalledProjectIds()
+    await initialInstanceFilterPromise
 }
 
 const instanceFilters = computed(() => {
@@ -767,10 +815,9 @@ const messages = defineMessages({
         id: 'app.browse.server-source-unavailable',
         defaultMessage: 'The server content source is unavailable. Try again later.',
     },
-    sourceFailed: {
-        id: 'app.browse.source-failed',
-        defaultMessage:
-            '{source} could not return results for this search. Check the filters or try again later.',
+    filterMetadataFailed: {
+        id: 'app.browse.filter-metadata-failed',
+        defaultMessage: 'Filter options could not be loaded.',
     },
     categoriesFailed: {
         id: 'app.browse.categories-failed',
@@ -1064,22 +1111,33 @@ watch(
     },
     { immediate: true },
 )
-if (instance.value) {
-    const instanceLink = `/instance/${encodeURIComponent(instance.value.id)}`
-    const instanceIcon = getDisplayInstanceIcon(instance.value.icon_path, instance.value.loader).url
-    breadcrumbs.setContext({
-        name: instance.value.name,
-        link:
-            isFromWorlds.value || isWorldMapContext.value ? `${instanceLink}/worlds` : instanceLink,
-        iconUrl: instanceIcon,
-    })
-} else {
-    breadcrumbs.setContext(null)
-}
+watch(
+    instance,
+    () => {
+        if (instance.value) {
+            const instanceLink = `/instance/${encodeURIComponent(instance.value.id)}`
+            const instanceIcon = getDisplayInstanceIcon(
+                instance.value.icon_path,
+                instance.value.loader,
+            ).url
+            breadcrumbs.setContext({
+                name: instance.value.name,
+                link:
+                    isFromWorlds.value || isWorldMapContext.value
+                        ? `${instanceLink}/worlds`
+                        : instanceLink,
+                iconUrl: instanceIcon,
+            })
+        } else {
+            breadcrumbs.setContext(null)
+        }
+    },
+    { immediate: true },
+)
 
 onBeforeRouteLeave((to) => {
     try {
-        const currentPage = searchState.currentPage.value
+        const currentPage = searchState.committed.value?.page ?? searchState.currentPage.value
         if (isBrowseReturnSourcePath(to.path)) {
             const viewport = document.querySelector<HTMLElement>('.app-viewport')
             navReturn.saveBrowseReturnSnapshot({
@@ -1829,7 +1887,9 @@ function resourceEnvironmentSides(environments: string[]): {
                 : 'unknown',
     }
 }
-const resourceSearchNotice = ref('')
+const resourceSearchNotice = computed(
+    () => searchState.committed.value?.response.resourceNotice ?? '',
+)
 const resourceSearchPages = new ResourceSearchPages(resourceSearch)
 
 async function search(requestParams: string, signal: AbortSignal) {
@@ -1892,6 +1952,7 @@ async function search(requestParams: string, signal: AbortSignal) {
               )
             : null
     signal.throwIfAborted()
+    if (categoryFailure) throw new Error(formatMessage(messages.categoriesFailed))
     const query: ResourceSearchQuery = {
         filter: parseResourceSearchFilter(
             filters,
@@ -1926,11 +1987,7 @@ async function search(requestParams: string, signal: AbortSignal) {
     if (page.entries.length === 0 && page.sourceFailures.length > 0)
         throw new Error(
             page.sourceFailures
-                .map((failure) =>
-                    formatMessage(messages.sourceFailed, {
-                        source: resourceSourceName(failure.source),
-                    }),
-                )
+                .map((failure) => resourceSearchFailure(failure, query, formatMessage))
                 .join('; '),
         )
     const hits = page.entries
@@ -1992,18 +2049,9 @@ async function search(requestParams: string, signal: AbortSignal) {
             }
         })
         .filter((hit) => !shouldHideInstalledProject(hit.project_id))
-    const localizable = hits.filter(
-        (hit): hit is typeof hit & { provider: 'modrinth' | 'curseforge' } =>
-            hit.provider === 'modrinth' || hit.provider === 'curseforge',
-    )
-    const localized = await translateSearchHitTitles(localizable, i18n.global.locale.value)
-    const titles = new Map(localized.map((hit) => [hit.project_id, hit.title]))
     signal.throwIfAborted()
     return {
-        projectHits: hits.map((hit) => ({
-            ...hit,
-            title: titles.get(hit.project_id) ?? hit.title,
-        })),
+        projectHits: hits,
         serverHits: [],
         total_hits: page.total.value ?? hits.length,
         total_precision: page.total.precision,
@@ -2011,11 +2059,8 @@ async function search(requestParams: string, signal: AbortSignal) {
         per_page: limit,
         page: resourceSearchPages.indexOf(page) + 1,
         resourceNotice: [
-            ...(categoryFailure ? [formatMessage(messages.categoriesFailed)] : []),
             ...page.sourceFailures.map((failure) =>
-                formatMessage(messages.sourceFailed, {
-                    source: resourceSourceName(failure.source),
-                }),
+                resourceSearchFailure(failure, query, formatMessage),
             ),
             ...page.exhaustedSources.map((source) =>
                 formatMessage(messages.sourceWindowExhausted, {
@@ -2071,6 +2116,8 @@ function setDisplayMode(mode: BrowseDisplayMode) {
 }
 
 const searchState = useBrowseSearch({
+    enabled: searchEnabled,
+    deferInitialization: true,
     invalidateSearch: () => resourceSearchPages.invalidate(searchState.currentPage.value - 1),
     formatError: (error) =>
         isResourceOperationError(error)
@@ -2095,7 +2142,6 @@ const searchState = useBrowseSearch({
     search: async (requestParams: string, signal: AbortSignal) => {
         const response = await search(requestParams, signal)
         signal.throwIfAborted()
-        resourceSearchNotice.value = response.resourceNotice
         return response
     },
     persistentQueryParams: ['i', 'ai', 'shi', 'sid', 'wid', 'from', 'source'],
@@ -2174,15 +2220,11 @@ function applyRememberedFilters(type: ProjectType, resetWhenMissing: boolean) {
         : []
 }
 
-if (!hasExplicitFilterQuery()) {
-    applyRememberedFilters(projectType.value, false)
-}
-
-watch(projectType, (type) => applyRememberedFilters(type, true))
-
 watch(
     [
         projectType,
+        filtersReady,
+        browseInitialized,
         searchState.currentFilters,
         searchState.toggledGroups,
         searchState.overriddenProvidedFilterTypes,
@@ -2190,6 +2232,7 @@ watch(
         searchState.serverToggledGroups,
     ],
     () => {
+        if (!filtersReady.value || !browseInitialized.value) return
         const isServer = projectType.value === 'server'
         setBrowseFilterMemory(projectType.value, {
             filters: isServer
@@ -2214,7 +2257,21 @@ const {
 } = useSearchResultTranslation({
     projectHits: searchState.projectHits,
     serverHits: searchState.serverHits,
-    projectType,
+    projectType: computed(() => searchState.committed.value?.projectType ?? projectType.value),
+    enrichTitles: async (hits, locale) => {
+        const localizable = hits.filter(
+            (hit): hit is typeof hit & { provider: 'modrinth' | 'curseforge' } =>
+                hit.provider === 'modrinth' || hit.provider === 'curseforge',
+        )
+        const localized = await translateSearchHitTitles(localizable, locale)
+        const titles = new Map(
+            localized.map((hit) => [`${hit.provider}:${hit.project_id}`, hit.title]),
+        )
+        return hits.map((hit) => ({
+            ...hit,
+            title: titles.get(`${hit.provider}:${hit.project_id}`) ?? hit.title,
+        }))
+    },
     locale: i18n.global.locale,
     onError: (error) => debugLog('Search result translation failed', error),
 })
@@ -2233,49 +2290,70 @@ function toggleTranslation() {
     toggleResultTranslation()
 }
 
-watch(contentSource, async (source) => {
-    searchState.projectHits.value = []
-    searchState.totalHits.value = 0
-    searchState.currentPage.value = 1
+let sourceRequestVersion = 0
+let initializedFilterType = projectType.value
+let initializedFilterSource = contentSource.value
+let normalizingSource = false
+async function prepareBrowseContext(previousType = projectType.value) {
+    const type = projectType.value
+    const version = ++sourceRequestVersion
+    filterMetadataStatus.value = 'loading'
+    searchEnabled.value = false
     searchState.loading.value = true
-    searchState.currentFilters.value = searchState.currentFilters.value.filter(
-        (filter) => !filter.type.startsWith('category_'),
-    )
-    if (source === 'curseforge' || source === 'all') {
-        await ensureCurseForgeCategories(projectType.value).catch(handleError)
-    }
-    if (source === 'mcarchive') await refreshMcArchiveGameVersions()
-    await searchState.refreshSearch()
-})
-
-watch(projectType, async (type, previousType) => {
-    if (type === WORLD_BROWSE_PROJECT_TYPE) {
-        sourceBeforeWorldMapBrowse.value = contentSource.value
-        // Maps are CurseForge-only. Without an API key keep the source inert so
-        // category fetches and unified search never hit the missing-key error.
-        if (curseForgeCapability.value.configured) {
-            contentSource.value = 'curseforge'
+    searchState.searchError.value = null
+    try {
+        normalizingSource = true
+        try {
+            if (type === WORLD_BROWSE_PROJECT_TYPE && previousType !== type) {
+                sourceBeforeWorldMapBrowse.value = contentSource.value
+                if (curseForgeCapability.value.configured) contentSource.value = 'curseforge'
+            } else if (previousType === WORLD_BROWSE_PROJECT_TYPE && type !== previousType) {
+                contentSource.value = sourceBeforeWorldMapBrowse.value
+            }
+            if (
+                type !== 'mod' &&
+                (contentSource.value === 'mcarchive' || contentSource.value === 'planet_minecraft')
+            ) {
+                contentSource.value = 'all'
+                setLastBrowseContentSource('all')
+            }
+        } finally {
+            normalizingSource = false
         }
-        return
+        await prepareFilterMetadata(type, contentSource.value)
+        if (version !== sourceRequestVersion || isUnmounted) return
+        if (type !== initializedFilterType) applyRememberedFilters(type, true)
+        else if (contentSource.value !== initializedFilterSource) {
+            searchState.currentFilters.value = searchState.currentFilters.value.filter(
+                (filter) => !filter.type.startsWith('category_'),
+            )
+        }
+        searchState.currentPage.value = 1
+        await nextTick()
+        if (version !== sourceRequestVersion || isUnmounted) return
+        initializedFilterType = type
+        initializedFilterSource = contentSource.value
+        searchEnabled.value = true
+        await searchState.refreshSearch()
+    } catch (error) {
+        if (version !== sourceRequestVersion || isUnmounted) return
+        searchState.loading.value = false
+        searchState.searchError.value = resourceOperationError(error, formatMessage)
     }
-    if (previousType === WORLD_BROWSE_PROJECT_TYPE) {
-        contentSource.value = sourceBeforeWorldMapBrowse.value
-    }
-    if (
-        type !== 'mod' &&
-        (contentSource.value === 'mcarchive' || contentSource.value === 'planet_minecraft')
-    ) {
-        contentSource.value = 'all'
-        setLastBrowseContentSource('all')
-    }
-    if (contentSource.value === 'curseforge' || contentSource.value === 'all') {
-        await ensureCurseForgeCategories(type).catch(handleError)
-    }
-})
+}
+watch(
+    [projectType, contentSource],
+    (_, [previousType]) => {
+        if (normalizingSource || !browseInitialized.value) return
+        void prepareBrowseContext(previousType)
+    },
+    { flush: 'sync' },
+)
 
 watch(
     mcArchiveAvailable,
     (available) => {
+        if (!filtersReady.value) return
         if (!available && contentSource.value === 'mcarchive') {
             contentSource.value = 'all'
             setLastBrowseContentSource('all')
@@ -2352,23 +2430,106 @@ watch(
     { flush: 'post' },
 )
 
+let initialization: Promise<void> | null = null
+async function initializeBrowse() {
+    if (initialization) return initialization
+    searchEnabled.value = false
+    searchState.loading.value = true
+    searchState.searchError.value = null
+    const contextKey = () =>
+        JSON.stringify([
+            route.params.projectType,
+            route.query.i,
+            route.query.sid,
+            route.query.wid,
+            route.query.from,
+            route.query.source,
+        ])
+    const requestedContext = contextKey()
+    let restart = false
+    initialization = (async () => {
+        try {
+            const [capability, planetAvailable] = await Promise.all([
+                getCurseForgeCapability(),
+                planetMinecraftConnectorAvailable().catch(() => false),
+                initInstanceContext(),
+            ])
+            if (isUnmounted) return
+            if (contextKey() !== requestedContext) {
+                restart = true
+                return
+            }
+            curseForgeCapability.value = capability
+            planetMinecraftAvailable.value = planetAvailable
+            contentSource.value = resolveInitialContentSource()
+            if (isWorldMapBrowse.value)
+                sourceBeforeWorldMapBrowse.value = getLastBrowseContentSource() ?? 'all'
+            const memory = getBrowseFilterMemory(projectType.value)
+            const metadataRequest = prepareFilterMetadata()
+            const requiresFilterMetadata =
+                hasExplicitFilterQuery() ||
+                !!memory?.filters.length ||
+                !!activeInstance.value ||
+                isServerContext.value ||
+                projectType.value === 'server'
+            if (requiresFilterMetadata) await metadataRequest
+            else void metadataRequest.catch(() => {})
+            await initialInstanceFilterPromise
+            if (instanceHideInstalled.value) {
+                await initialInstalledProjectsPromise
+                if (activeInstance.value && installedProjectIds.value === null)
+                    throw new Error('Installed content could not be loaded.')
+            }
+            if (isUnmounted) return
+            if (contextKey() !== requestedContext) {
+                restart = true
+                return
+            }
+            searchState.initializeFilters()
+            if (!hasExplicitFilterQuery()) applyRememberedFilters(projectType.value, false)
+            await nextTick()
+            restoreBrowseReturnPage()
+            await nextTick()
+            initializedFilterType = projectType.value
+            initializedFilterSource = contentSource.value
+            browseInitialized.value = true
+            searchEnabled.value = true
+            await searchState.refreshSearch()
+            if (pendingRouteInstanceSwitch.value) {
+                instanceSelector.value?.requestSwitch(pendingRouteInstanceSwitch.value)
+                pendingRouteInstanceSwitch.value = null
+            }
+        } catch (error) {
+            if (contextKey() !== requestedContext) {
+                restart = true
+                return
+            }
+            if (!isUnmounted) {
+                searchState.loading.value = false
+                searchState.searchError.value = resourceOperationError(error, formatMessage)
+            }
+        } finally {
+            initialization = null
+            if (restart && !isUnmounted) void initializeBrowse()
+        }
+    })()
+    return initialization
+}
+
+async function refreshBrowse() {
+    if (!searchEnabled.value) {
+        if (browseInitialized.value) return prepareBrowseContext()
+        return initializeBrowse()
+    }
+    await searchState.refreshSearch()
+}
+
 onMounted(() => {
     if (pendingRouteInstanceSwitch.value) {
         instanceSelector.value?.requestSwitch(pendingRouteInstanceSwitch.value)
         pendingRouteInstanceSwitch.value = null
     }
-    const initialSearchDependencies = [initialInstanceFilterPromise]
-    if (instanceHideInstalled.value) initialSearchDependencies.push(initialInstalledProjectsPromise)
-    void Promise.allSettled(initialSearchDependencies).then(() => {
-        if (isUnmounted) return
-        // First search waits until the page-slide opacity transition has painted
-        // so switching nav pages does not hitch mid-animation.
-        runAfterPageTransitionSettle(() => {
-            if (isUnmounted) return
-            restoreBrowseReturnPage()
-            void searchState.refreshSearch()
-        })
-    })
+    void initializeBrowse()
 
     instance_listener(async (event: { event: string; instance_id: string }) => {
         if (
@@ -2413,6 +2574,8 @@ provideBrowseManager({
     tags,
     projectType,
     ...searchState,
+    filtersReady,
+    refreshSearch: refreshBrowse,
     advancedFiltersCollapsed,
     getProjectLink: (
         result: Labrinth.Search.v2.ResultSearchProject & {
@@ -2420,8 +2583,8 @@ provideBrowseManager({
             resource_entry?: { resourceId: string | null; status: string }
             provider_project_id?: string
         },
-    ) => ({
-        path:
+    ) => {
+        const path =
             result.resource_entry?.status === 'confirmed' && result.resource_entry.resourceId
                 ? `/resource/${result.resource_entry.resourceId}`
                 : result.provider === 'curseforge'
@@ -2432,13 +2595,21 @@ provideBrowseManager({
                       ? `/project/planet-minecraft/${result.provider_project_id}`
                       : result.provider === 'modrinth'
                         ? `/project/${result.project_id ?? result.slug}`
-                        : route.path,
-        query: getProjectBrowseQuery(),
-    }),
-    getServerProjectLink: (result: Labrinth.Search.v3.ResultSearchProject) => ({
-        path: `/project/${result.slug ?? result.project_id}`,
-        query: getProjectBrowseQuery(),
-    }),
+                        : route.path
+        return {
+            path,
+            query: getProjectBrowseQuery(),
+            state: createProjectPreviewState(path, result.title),
+        }
+    },
+    getServerProjectLink: (result: Labrinth.Search.v3.ResultSearchProject) => {
+        const path = `/project/${result.slug ?? result.project_id}`
+        return {
+            path,
+            query: getProjectBrowseQuery(),
+            state: createProjectPreviewState(path, result.name),
+        }
+    },
     selectableProjectTypes,
     showProjectTypeTabs: computed(() => !isServerContext.value),
     variant: 'app',
@@ -2497,7 +2668,9 @@ provideBrowseManager({
 
 <template>
     <div data-onboarding-id="browse-content" class="flex flex-col gap-3 p-6">
-        <BrowsePageLayout v-if="!isWorldMapBrowse || curseForgeCapability.configured">
+        <BrowsePageLayout
+            v-if="!filtersReady || !isWorldMapBrowse || curseForgeCapability.configured"
+        >
             <template #nav-tabs-actions>
                 <Button
                     type="quiet"
@@ -2557,6 +2730,7 @@ provideBrowseManager({
                                 :key="option.id"
                                 :type="contentSource === option.id ? 'colored' : 'quiet'"
                                 class="flex w-full items-center gap-2 !justify-start text-left"
+                                :disabled="!browseInitialized"
                                 @click="selectContentSource(option.id)"
                             >
                                 <component :is="option.icon" class="h-4 w-4" />
@@ -2578,6 +2752,16 @@ provideBrowseManager({
                 </ContextMenu>
             </template>
             <template #above-results>
+                <div
+                    v-if="filterMetadataFailed && searchEnabled"
+                    role="alert"
+                    class="mb-3 flex items-center gap-3 rounded-lg border border-solid border-surface-4 bg-surface-2 p-3 text-sm"
+                >
+                    <span>{{ formatMessage(messages.filterMetadataFailed) }}</span>
+                    <Button @click="retryFilterMetadata">{{
+                        formatMessage(commonMessages.retryButton)
+                    }}</Button>
+                </div>
                 <div
                     v-if="resourceSearchNotice"
                     role="status"

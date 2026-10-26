@@ -23,9 +23,12 @@ use crate::state::{
 };
 use crate::util::download::constants::AGGREGATE_FAILURE_PATH_CHAR_LIMIT;
 use crate::util::download::constants::AGGREGATE_FAILURE_PATH_LIMIT;
+use crate::util::download::constants::AUTO_RETRY_BACKOFF_DELAYS;
 use crate::util::download::constants::AUTO_RETRY_PASSES;
 use crate::util::download::constants::CONTENT_DATABASE_BATCH_SIZE;
 use crate::util::download::constants::CONTENT_DATABASE_FLUSH_INTERVAL;
+use crate::util::download::constants::FETCH_RETRY_JITTER_MAX;
+use crate::util::download::constants::FETCH_RETRY_JITTER_MIN;
 use crate::util::download::constants::FINALIZE_WAIT_TIMEOUT;
 use crate::util::download::constants::ITEM_FAILURE_REASON_CHAR_LIMIT;
 use crate::util::download::constants::NATIVE_CONTENT_FINALIZE_CONCURRENCY;
@@ -40,6 +43,7 @@ use async_zip::base::read::{WithEntry, ZipEntryReader};
 use async_zip::tokio::read::fs::ZipFileReader as FsZipFileReader;
 use futures::StreamExt;
 use path_util::SafeRelativeUtf8UnixPathBuf;
+use rand::Rng;
 use std::collections::{HashMap, HashSet, VecDeque};
 #[cfg(test)]
 use std::fmt;
@@ -360,6 +364,19 @@ fn bounded_text(value: &str, max_chars: usize) -> String {
 
 fn estimated_file_max_attempts(file: &PackFile) -> usize {
     file.downloads.len().saturating_mul(2).max(1)
+}
+
+/// Delay before an automatic retry pass. Retried files re-enter the same
+/// native download pool, so a bounded, jittered wait keeps a saturated pool
+/// from being queued behind itself.
+fn retry_pass_delay(pass: usize) -> std::time::Duration {
+    let base = AUTO_RETRY_BACKOFF_DELAYS
+        .get(pass)
+        .copied()
+        .unwrap_or(*AUTO_RETRY_BACKOFF_DELAYS.last().unwrap());
+    let jitter = rand::thread_rng()
+        .gen_range(FETCH_RETRY_JITTER_MIN..=FETCH_RETRY_JITTER_MAX);
+    std::time::Duration::from_secs_f64(base.as_secs_f64() * jitter)
 }
 
 async fn collect_required_file_failures_concurrently<T, F, Fut>(
@@ -1675,8 +1692,7 @@ pub(crate) async fn install_zipped_mrpack_files_with_reporter(
                         .with_download_meta(
                             content_context.download_meta.clone(),
                         )
-                        .with_segmented_download(true)
-                        .with_http1_segmented_download(false)
+                        .with_batch_download_policy()
                         .with_install_tracking(
                             content_context.reporter.clone(),
                             project_path.clone(),
@@ -1821,6 +1837,19 @@ pub(crate) async fn install_zipped_mrpack_files_with_reporter(
             .iter()
             .map(|failure| failure.manifest_index)
             .collect();
+        // Retried files re-enter the same native download pool. Waiting before
+        // the next pass gives a saturated pool time to drain instead of
+        // queueing the retries behind the backlog again. The last pass has no
+        // successor, so it reports its failures without waiting.
+        if pass < AUTO_RETRY_PASSES {
+            let delay = retry_pass_delay(pass);
+            tracing::debug!(
+                files = retry_indices.len(),
+                delay_ms = delay.as_millis(),
+                "Waiting before the next modpack retry pass"
+            );
+            tokio::time::sleep(delay).await;
+        }
     }
     content_context.finish_download_metrics().await?;
     if let Some(reason) =
@@ -2031,7 +2060,7 @@ pub(crate) async fn install_zipped_mrpack_files_with_reporter(
         }
     };
     let materialization_result =
-		crate::api::pack::archive_util::run_cancellable_blocking_instance_write(
+        crate::api::pack::archive_util::run_cancellable_blocking_instance_write(
         instance_id.clone(),
         reporter.cancellation_token(),
         {
@@ -2044,7 +2073,7 @@ pub(crate) async fn install_zipped_mrpack_files_with_reporter(
             }
         },
     )
-	.await;
+    .await;
     let override_replacements = match materialization_result {
         Ok(replacements) => replacements,
         Err(error) => {

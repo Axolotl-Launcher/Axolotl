@@ -1,0 +1,62 @@
+{
+  "db_name": "SQLite",
+  "query": "\n        SELECT\n            screenshots.id,\n            screenshots.instance_id,\n            screenshots.file_name,\n            screenshots.content_hash,\n            screenshots.file_size,\n            screenshots.modified_at,\n            screenshots.created_at,\n            memberships.group_id AS \"group_id?\"\n        FROM screenshots\n        LEFT JOIN screenshot_group_memberships memberships\n            ON memberships.screenshot_id = screenshots.id\n        WHERE screenshots.instance_id = ? AND screenshots.file_name = ?\n        ",
+  "describe": {
+    "columns": [
+      {
+        "name": "id",
+        "ordinal": 0,
+        "type_info": "Text"
+      },
+      {
+        "name": "instance_id",
+        "ordinal": 1,
+        "type_info": "Text"
+      },
+      {
+        "name": "file_name",
+        "ordinal": 2,
+        "type_info": "Text"
+      },
+      {
+        "name": "content_hash",
+        "ordinal": 3,
+        "type_info": "Text"
+      },
+      {
+        "name": "file_size",
+        "ordinal": 4,
+        "type_info": "Integer"
+      },
+      {
+        "name": "modified_at",
+        "ordinal": 5,
+        "type_info": "Integer"
+      },
+      {
+        "name": "created_at",
+        "ordinal": 6,
+        "type_info": "Integer"
+      },
+      {
+        "name": "group_id?",
+        "ordinal": 7,
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "bd6eb18091e0fd6b01f184dd616cabe06b4aa53a1c199e214417b3c272e198dc"
+}

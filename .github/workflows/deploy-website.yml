@@ -1,4 +1,4 @@
-name: Deploy website to Netlify
+name: Deploy website to Cloudflare Pages
 
 on:
   workflow_dispatch:
@@ -15,14 +15,16 @@ jobs:
     concurrency:
       group: website-production
       cancel-in-progress: false
+    env:
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      CLOUDFLARE_PAGES_PROJECT_NAME: ${{ vars.CLOUDFLARE_PAGES_PROJECT_NAME }}
     steps:
-      - name: Check Netlify deployment credentials
+      - name: Check Cloudflare Pages deployment configuration
         env:
-          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
-          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
         run: |
-          if [[ -z "$NETLIFY_AUTH_TOKEN" || -z "$NETLIFY_SITE_ID" ]]; then
-            echo '::error::Configure NETLIFY_AUTH_TOKEN and NETLIFY_SITE_ID repository secrets. See apps/website/README.md.'
+          if [[ -z "$CLOUDFLARE_API_TOKEN" || -z "$CLOUDFLARE_ACCOUNT_ID" || -z "$CLOUDFLARE_PAGES_PROJECT_NAME" ]]; then
+            echo '::error::Configure the CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID secrets and the CLOUDFLARE_PAGES_PROJECT_NAME variable. See apps/website/README.md.'
             exit 1
           fi
       - name: Check out current production source
@@ -59,17 +61,12 @@ jobs:
           path: apps/website/.output/public/
           retention-days: 7
           if-no-files-found: error
-      - name: Deploy prebuilt website and functions to Netlify
+      - name: Deploy prebuilt website to Cloudflare Pages
         env:
-          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
-          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
         run: |
-          pnpm --package=netlify-cli@27.13.0 dlx netlify deploy \
-            --prod \
-            --no-build \
-            --filter @axolotl/website \
-            --dir "$PWD/apps/website/.output/public" \
-            --functions "$PWD/netlify/functions" \
-            --site "$NETLIFY_SITE_ID" \
-            --message "Manual website deploy (GitHub Actions ${GITHUB_RUN_ID})" \
-            --timeout 600
+          pnpm --package=wrangler@4.152.0 dlx wrangler pages deploy \
+            apps/website/.output/public \
+            --project-name "$CLOUDFLARE_PAGES_PROJECT_NAME" \
+            --branch main \
+            --commit-message "Manual website deploy (GitHub Actions ${GITHUB_RUN_ID})"

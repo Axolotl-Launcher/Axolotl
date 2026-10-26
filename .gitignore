@@ -79,9 +79,12 @@ access-jwt*.txt
 # Codex local verification artifacts
 /.codex-*
 
-# Local agent/scratch caches; keep maintained instructions and Skills tracked.
+# Local agent artifacts and caches; keep maintained instructions and Skills tracked.
+# `.agents/plans/` is the single home for agent intermediate and archived
+# artifacts, so a plain `git add` never picks them up.
 /.dev-data/
 /.commandcode/
+/.agents/plans/
 /.agents/tmp/
 /.agents/cache/
 
@@ -118,7 +121,14 @@ apps/app/resources/blockbench-skin/
 # Vitest visual-regression screenshots
 **/__screenshots__/
 
+# Playwright failure artifacts (traces, error contexts, reports)
+**/test-results/
+**/playwright-report/
+
 #local development script
 start-dev.ps1
+
+# WorkBuddy local workspace data
+.workbuddy-ai/
 
 apps/app/resources/seed-map/

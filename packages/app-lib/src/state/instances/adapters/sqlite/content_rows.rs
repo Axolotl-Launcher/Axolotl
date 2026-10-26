@@ -264,12 +264,12 @@ where
 {
     let row = sqlx::query_as::<_, ContentSetRow>(
         "
-		SELECT cs.*
-		FROM instances i
-		INNER JOIN instance_content_sets cs
-			ON cs.id = i.applied_content_set_id
-		WHERE i.id = ?
-		",
+        SELECT cs.*
+        FROM instances i
+        INNER JOIN instance_content_sets cs
+            ON cs.id = i.applied_content_set_id
+        WHERE i.id = ?
+        ",
     )
     .bind(instance_id)
     .fetch_optional(exec)
@@ -287,10 +287,10 @@ where
 {
     let row = sqlx::query_as::<_, ContentSetRow>(
         "
-		SELECT *
-		FROM instance_content_sets
-		WHERE id = ?
-		",
+        SELECT *
+        FROM instance_content_sets
+        WHERE id = ?
+        ",
     )
     .bind(content_set_id)
     .fetch_optional(exec)
@@ -308,11 +308,11 @@ where
 {
     let rows = sqlx::query_as::<_, ContentSetRow>(
         "
-		SELECT *
-		FROM instance_content_sets
-		WHERE instance_id = ?
-		ORDER BY created ASC, id ASC
-		",
+        SELECT *
+        FROM instance_content_sets
+        WHERE instance_id = ?
+        ORDER BY created ASC, id ASC
+        ",
     )
     .bind(instance_id)
     .fetch_all(exec)
@@ -341,22 +341,22 @@ pub(crate) async fn insert_content_set(
 
     sqlx::query(
         "
-		INSERT INTO instance_content_sets (
-			id,
-			instance_id,
-			name,
-			source_kind,
-			status,
-			game_version,
-			protocol_version,
-			loader,
-			loader_version,
-			revision,
-			created,
-			modified
-		)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-		",
+        INSERT INTO instance_content_sets (
+            id,
+            instance_id,
+            name,
+            source_kind,
+            status,
+            game_version,
+            protocol_version,
+            loader,
+            loader_version,
+            revision,
+            created,
+            modified
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ",
     )
     .bind(id)
     .bind(instance_id)
@@ -394,19 +394,19 @@ pub(crate) async fn update_content_set(
 
     sqlx::query(
         "
-		UPDATE instance_content_sets
-		SET
-			name = ?,
-			source_kind = ?,
-			status = ?,
-			game_version = ?,
-			protocol_version = ?,
-			loader = ?,
-			loader_version = ?,
-			revision = ?,
-			modified = ?
-		WHERE id = ?
-		",
+        UPDATE instance_content_sets
+        SET
+            name = ?,
+            source_kind = ?,
+            status = ?,
+            game_version = ?,
+            protocol_version = ?,
+            loader = ?,
+            loader_version = ?,
+            revision = ?,
+            modified = ?
+        WHERE id = ?
+        ",
     )
     .bind(name)
     .bind(source_kind)
@@ -434,11 +434,11 @@ where
     let rows = sqlx::query_as!(
         ContentSetRemoteRefRow,
         "
-		SELECT *
-		FROM instance_content_set_remote_refs
-		WHERE content_set_id = ?
-		ORDER BY ref_type ASC
-		",
+        SELECT *
+        FROM instance_content_set_remote_refs
+        WHERE content_set_id = ?
+        ORDER BY ref_type ASC
+        ",
         content_set_id,
     )
     .fetch_all(exec)
@@ -457,10 +457,10 @@ where
     let row = sqlx::query_as!(
         ContentSetSyncStateRow,
         "
-		SELECT *
-		FROM instance_content_set_sync_state
-		WHERE content_set_id = ?
-		",
+        SELECT *
+        FROM instance_content_set_sync_state
+        WHERE content_set_id = ?
+        ",
         content_set_id,
     )
     .fetch_optional(exec)
@@ -478,11 +478,11 @@ where
 {
     let rows = sqlx::query_as::<_, InstanceFileRow>(
         "
-		SELECT *
-		FROM instance_files
-		WHERE instance_id = ?
-		ORDER BY relative_path ASC
-		",
+        SELECT *
+        FROM instance_files
+        WHERE instance_id = ?
+        ORDER BY relative_path ASC
+        ",
     )
     .bind(instance_id)
     .fetch_all(exec)
@@ -499,12 +499,12 @@ pub(crate) async fn mark_instance_files_missing(
 
     sqlx::query!(
         "
-		UPDATE instance_files
-		SET
-			missing = 1,
-			modified_at = ?
-		WHERE instance_id = ?
-		",
+        UPDATE instance_files
+        SET
+            missing = 1,
+            modified_at = ?
+        WHERE instance_id = ?
+        ",
         modified_at,
         instance_id,
     )
@@ -533,31 +533,31 @@ pub(crate) async fn upsert_instance_file(
 
     sqlx::query!(
         "
-		INSERT INTO instance_files (
-			id,
-			instance_id,
-			relative_path,
-			file_name,
-			enabled,
-			sha1,
-			size,
-			missing,
-			added_at,
-			modified_at,
-			local_mod_data,
-			icon_path
-		)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-		ON CONFLICT (instance_id, relative_path) DO UPDATE SET
-			file_name = excluded.file_name,
-			enabled = excluded.enabled,
-			sha1 = excluded.sha1,
-			size = excluded.size,
-			missing = excluded.missing,
-			modified_at = excluded.modified_at,
-			local_mod_data = COALESCE(excluded.local_mod_data, instance_files.local_mod_data),
-			icon_path = COALESCE(excluded.icon_path, instance_files.icon_path)
-		",
+        INSERT INTO instance_files (
+            id,
+            instance_id,
+            relative_path,
+            file_name,
+            enabled,
+            sha1,
+            size,
+            missing,
+            added_at,
+            modified_at,
+            local_mod_data,
+            icon_path
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT (instance_id, relative_path) DO UPDATE SET
+            file_name = excluded.file_name,
+            enabled = excluded.enabled,
+            sha1 = excluded.sha1,
+            size = excluded.size,
+            missing = excluded.missing,
+            modified_at = excluded.modified_at,
+            local_mod_data = COALESCE(excluded.local_mod_data, instance_files.local_mod_data),
+            icon_path = COALESCE(excluded.icon_path, instance_files.icon_path)
+        ",
         id,
         instance_id,
         relative_path,
@@ -586,14 +586,14 @@ where
 {
     let rows = sqlx::query_as::<_, ContentEntryRow>(
         "
-		SELECT id, instance_id, content_set_id, file_id, project_type,
-			source_kind, ownership_kind, auto_dependency, server_requirement,
-			client_requirement, enabled,
-			added_at, modified_at
-		FROM instance_content_entries
-		WHERE content_set_id = ?
-		ORDER BY added_at ASC, id ASC
-		",
+        SELECT id, instance_id, content_set_id, file_id, project_type,
+            source_kind, ownership_kind, auto_dependency, server_requirement,
+            client_requirement, enabled,
+            added_at, modified_at
+        FROM instance_content_entries
+        WHERE content_set_id = ?
+        ORDER BY added_at ASC, id ASC
+        ",
     )
     .bind(content_set_id)
     .fetch_all(exec)
@@ -611,11 +611,11 @@ where
 {
     let row = sqlx::query_as::<_, ContentUpdateCheckRow>(
         "
-		SELECT content_entry_id, update_channel, provider,
-			provider_project_id, provider_release_id, checked_at
-		FROM instance_content_update_checks
-		WHERE content_entry_id = ?
-		",
+        SELECT content_entry_id, update_channel, provider,
+            provider_project_id, provider_release_id, checked_at
+        FROM instance_content_update_checks
+        WHERE content_entry_id = ?
+        ",
     )
     .bind(content_entry_id)
     .fetch_optional(exec)
@@ -643,10 +643,10 @@ pub(crate) async fn get_instance_file_by_relative_path(
 ) -> crate::Result<Option<InstanceFile>> {
     let row = sqlx::query_as::<_, InstanceFileRow>(
         "
-		SELECT *
-		FROM instance_files
-		WHERE instance_id = ? AND relative_path = ?
-		",
+        SELECT *
+        FROM instance_files
+        WHERE instance_id = ? AND relative_path = ?
+        ",
     )
     .bind(instance_id)
     .bind(relative_path)
@@ -753,10 +753,10 @@ pub(crate) async fn rename_instance_file_in_transaction(
 
     let source_id = sqlx::query_scalar!(
         "
-		SELECT id
-		FROM instance_files
-		WHERE instance_id = ? AND relative_path = ?
-		",
+        SELECT id
+        FROM instance_files
+        WHERE instance_id = ? AND relative_path = ?
+        ",
         instance_id,
         old_relative_path,
     )
@@ -764,10 +764,10 @@ pub(crate) async fn rename_instance_file_in_transaction(
     .await?;
     let target_id = sqlx::query_scalar!(
         "
-		SELECT id
-		FROM instance_files
-		WHERE instance_id = ? AND relative_path = ?
-		",
+        SELECT id
+        FROM instance_files
+        WHERE instance_id = ? AND relative_path = ?
+        ",
         instance_id,
         new_relative_path,
     )
@@ -780,21 +780,21 @@ pub(crate) async fn rename_instance_file_in_transaction(
     {
         sqlx::query!(
             "
-				DELETE FROM instance_content_entries
-				WHERE id IN (
-					SELECT target_entry.id
-					FROM instance_content_entries target_entry
-					WHERE target_entry.instance_id = ?
-						AND target_entry.file_id = ?
-						AND EXISTS (
-							SELECT 1
-							FROM instance_content_entries source_entry
-							WHERE source_entry.instance_id = target_entry.instance_id
-								AND source_entry.content_set_id = target_entry.content_set_id
-								AND source_entry.file_id = ?
-						)
-				)
-				",
+                DELETE FROM instance_content_entries
+                WHERE id IN (
+                    SELECT target_entry.id
+                    FROM instance_content_entries target_entry
+                    WHERE target_entry.instance_id = ?
+                        AND target_entry.file_id = ?
+                        AND EXISTS (
+                            SELECT 1
+                            FROM instance_content_entries source_entry
+                            WHERE source_entry.instance_id = target_entry.instance_id
+                                AND source_entry.content_set_id = target_entry.content_set_id
+                                AND source_entry.file_id = ?
+                        )
+                )
+                ",
             instance_id,
             target_id,
             source_id,
@@ -804,10 +804,10 @@ pub(crate) async fn rename_instance_file_in_transaction(
 
         sqlx::query!(
             "
-				UPDATE instance_content_entries
-				SET file_id = ?, modified_at = ?
-				WHERE instance_id = ? AND file_id = ?
-				",
+                UPDATE instance_content_entries
+                SET file_id = ?, modified_at = ?
+                WHERE instance_id = ? AND file_id = ?
+                ",
             source_id,
             modified_at,
             instance_id,
@@ -818,9 +818,9 @@ pub(crate) async fn rename_instance_file_in_transaction(
 
         sqlx::query!(
             "
-				DELETE FROM instance_files
-				WHERE id = ?
-				",
+                DELETE FROM instance_files
+                WHERE id = ?
+                ",
             target_id,
         )
         .execute(&mut **tx)
@@ -829,15 +829,15 @@ pub(crate) async fn rename_instance_file_in_transaction(
 
     sqlx::query!(
         "
-		UPDATE instance_files
-		SET
-			relative_path = ?,
-			file_name = ?,
-			enabled = ?,
-			missing = 0,
-			modified_at = ?
-		WHERE instance_id = ? AND relative_path = ?
-		",
+        UPDATE instance_files
+        SET
+            relative_path = ?,
+            file_name = ?,
+            enabled = ?,
+            missing = 0,
+            modified_at = ?
+        WHERE instance_id = ? AND relative_path = ?
+        ",
         new_relative_path,
         new_file_name,
         enabled,
@@ -874,10 +874,10 @@ pub(crate) async fn move_instance_file_in_transaction(
 ) -> crate::Result<Option<InstanceFile>> {
     let source_id = sqlx::query_scalar!(
         "
-		SELECT id
-		FROM instance_files
-		WHERE instance_id = ? AND relative_path = ?
-		",
+        SELECT id
+        FROM instance_files
+        WHERE instance_id = ? AND relative_path = ?
+        ",
         instance_id,
         old_relative_path,
     )
@@ -885,10 +885,10 @@ pub(crate) async fn move_instance_file_in_transaction(
     .await?;
     let target_id = sqlx::query_scalar!(
         "
-		SELECT id
-		FROM instance_files
-		WHERE instance_id = ? AND relative_path = ?
-		",
+        SELECT id
+        FROM instance_files
+        WHERE instance_id = ? AND relative_path = ?
+        ",
         instance_id,
         new_relative_path,
     )
@@ -906,19 +906,19 @@ pub(crate) async fn move_instance_file_in_transaction(
 
     sqlx::query(
         "
-		UPDATE instance_files
-		SET
-			relative_path = ?,
-			file_name = ?,
-			enabled = ?,
-			sha1 = ?,
-			size = ?,
-			missing = 0,
-			modified_at = ?,
-			local_mod_data = COALESCE(?, local_mod_data),
-			icon_path = COALESCE(?, icon_path)
-		WHERE instance_id = ? AND relative_path = ?
-		",
+        UPDATE instance_files
+        SET
+            relative_path = ?,
+            file_name = ?,
+            enabled = ?,
+            sha1 = ?,
+            size = ?,
+            missing = 0,
+            modified_at = ?,
+            local_mod_data = COALESCE(?, local_mod_data),
+            icon_path = COALESCE(?, icon_path)
+        WHERE instance_id = ? AND relative_path = ?
+        ",
     )
     .bind(new_relative_path)
     .bind(new_file_name)
@@ -953,10 +953,10 @@ pub(crate) async fn adopt_untracked_file_in_transaction(
 ) -> crate::Result<bool> {
     let untracked_file_id = sqlx::query_scalar!(
         "
-		SELECT id
-		FROM instance_files
-		WHERE instance_id = ? AND relative_path = ?
-		",
+        SELECT id
+        FROM instance_files
+        WHERE instance_id = ? AND relative_path = ?
+        ",
         instance_id,
         new_relative_path,
     )
@@ -1002,9 +1002,9 @@ pub(crate) async fn remove_instance_file_by_relative_path(
 ) -> crate::Result<()> {
     sqlx::query!(
         "
-		DELETE FROM instance_files
-		WHERE instance_id = ? AND relative_path = ?
-		",
+        DELETE FROM instance_files
+        WHERE instance_id = ? AND relative_path = ?
+        ",
         instance_id,
         relative_path,
     )
@@ -1033,13 +1033,13 @@ pub(crate) async fn get_content_entry_by_id(
 ) -> crate::Result<Option<ContentEntry>> {
     let row = sqlx::query_as::<_, ContentEntryRow>(
         "
-		SELECT id, instance_id, content_set_id, file_id, project_type,
-			source_kind, ownership_kind, auto_dependency, server_requirement,
-			client_requirement, enabled,
-			added_at, modified_at
-		FROM instance_content_entries
-		WHERE id = ?
-		",
+        SELECT id, instance_id, content_set_id, file_id, project_type,
+            source_kind, ownership_kind, auto_dependency, server_requirement,
+            client_requirement, enabled,
+            added_at, modified_at
+        FROM instance_content_entries
+        WHERE id = ?
+        ",
     )
     .bind(id)
     .fetch_optional(pool)
@@ -1055,15 +1055,15 @@ pub(crate) async fn get_content_entry_by_file(
 ) -> crate::Result<Option<ContentEntry>> {
     let row = sqlx::query_as::<_, ContentEntryRow>(
         "
-		SELECT id, instance_id, content_set_id, file_id, project_type,
-			source_kind, ownership_kind, auto_dependency, server_requirement,
-			client_requirement, enabled,
-			added_at, modified_at
-		FROM instance_content_entries
-		WHERE content_set_id = ? AND file_id = ?
-		ORDER BY modified_at DESC
-		LIMIT 1
-		",
+        SELECT id, instance_id, content_set_id, file_id, project_type,
+            source_kind, ownership_kind, auto_dependency, server_requirement,
+            client_requirement, enabled,
+            added_at, modified_at
+        FROM instance_content_entries
+        WHERE content_set_id = ? AND file_id = ?
+        ORDER BY modified_at DESC
+        LIMIT 1
+        ",
     )
     .bind(content_set_id)
     .bind(file_id)
@@ -1080,17 +1080,17 @@ pub(crate) async fn get_content_entry_by_relative_path(
 ) -> crate::Result<Option<ContentEntry>> {
     let row = sqlx::query_as::<_, ContentEntryRow>(
         "
-		SELECT entry.id, entry.instance_id, entry.content_set_id, entry.file_id,
-			entry.project_type, entry.source_kind, entry.ownership_kind,
-			entry.auto_dependency, entry.server_requirement,
-			entry.client_requirement, entry.enabled,
-			entry.added_at, entry.modified_at
-		FROM instance_content_entries entry
-		INNER JOIN instance_files file ON file.id = entry.file_id
-		WHERE entry.content_set_id = ? AND file.relative_path = ?
-		ORDER BY entry.modified_at DESC
-		LIMIT 1
-		",
+        SELECT entry.id, entry.instance_id, entry.content_set_id, entry.file_id,
+            entry.project_type, entry.source_kind, entry.ownership_kind,
+            entry.auto_dependency, entry.server_requirement,
+            entry.client_requirement, entry.enabled,
+            entry.added_at, entry.modified_at
+        FROM instance_content_entries entry
+        INNER JOIN instance_files file ON file.id = entry.file_id
+        WHERE entry.content_set_id = ? AND file.relative_path = ?
+        ORDER BY entry.modified_at DESC
+        LIMIT 1
+        ",
     )
     .bind(content_set_id)
     .bind(relative_path)
@@ -1118,10 +1118,10 @@ pub(crate) async fn upsert_content_entry_from_parts_in_transaction(
     let existing_id = if let Some(file_id) = input.file_id {
         sqlx::query_scalar::<_, String>(
             "SELECT id
-			 FROM instance_content_entries
-			 WHERE content_set_id = ? AND file_id = ?
-			 ORDER BY modified_at DESC
-			 LIMIT 1",
+             FROM instance_content_entries
+             WHERE content_set_id = ? AND file_id = ?
+             ORDER BY modified_at DESC
+             LIMIT 1",
         )
         .bind(input.content_set_id)
         .bind(file_id)
@@ -1172,33 +1172,33 @@ pub(crate) async fn upsert_content_entry_from_parts_in_transaction(
 
     sqlx::query(
         "
-		INSERT INTO instance_content_entries (
-			id,
-			instance_id,
-			content_set_id,
-			file_id,
-			project_type,
-			source_kind,
-			ownership_kind,
-			auto_dependency,
-			server_requirement,
-			client_requirement,
-			enabled,
-			added_at,
-			modified_at
-		)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-		ON CONFLICT(id) DO UPDATE SET
-			file_id = excluded.file_id,
-			project_type = excluded.project_type,
-			source_kind = excluded.source_kind,
-			ownership_kind = excluded.ownership_kind,
-			auto_dependency = excluded.auto_dependency,
-			server_requirement = excluded.server_requirement,
-			client_requirement = excluded.client_requirement,
-			enabled = excluded.enabled,
-			modified_at = excluded.modified_at
-		",
+        INSERT INTO instance_content_entries (
+            id,
+            instance_id,
+            content_set_id,
+            file_id,
+            project_type,
+            source_kind,
+            ownership_kind,
+            auto_dependency,
+            server_requirement,
+            client_requirement,
+            enabled,
+            added_at,
+            modified_at
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(id) DO UPDATE SET
+            file_id = excluded.file_id,
+            project_type = excluded.project_type,
+            source_kind = excluded.source_kind,
+            ownership_kind = excluded.ownership_kind,
+            auto_dependency = excluded.auto_dependency,
+            server_requirement = excluded.server_requirement,
+            client_requirement = excluded.client_requirement,
+            enabled = excluded.enabled,
+            modified_at = excluded.modified_at
+        ",
     )
     .bind(id)
     .bind(entry_instance_id)
@@ -1287,7 +1287,7 @@ pub(crate) async fn upsert_content_provider_ref_in_transaction(
                 provider,
                 provider_project_id,
                 provider_release_id,
-				provider_file_id,
+                provider_file_id,
                 is_origin
              ) VALUES (?, ?, ?, ?, ?, ?)",
         )
@@ -1330,7 +1330,7 @@ pub(crate) async fn get_content_provider_refs(
             &provider,
             &project_id,
             release_id.as_deref(),
-			file_id.as_deref(),
+            file_id.as_deref(),
         )
         .map_err(|error| {
             crate::ErrorKind::InputError(format!(
@@ -1533,21 +1533,21 @@ pub(crate) async fn get_content_entry_by_provider_ref(
 ) -> crate::Result<Option<ContentEntry>> {
     let row = sqlx::query_as::<_, ContentEntryRow>(
         "
-		SELECT entry.id, entry.instance_id, entry.content_set_id, entry.file_id,
-			entry.project_type, entry.source_kind, entry.ownership_kind,
-			entry.auto_dependency, entry.server_requirement,
-			entry.client_requirement, entry.enabled,
-			entry.added_at, entry.modified_at
-		FROM instance_content_entries entry
-		INNER JOIN instance_content_provider_refs ref
-			ON ref.content_entry_id = entry.id
-		WHERE entry.content_set_id = ?
-			AND ref.provider = ?
-			AND ref.provider_project_id = ?
-			AND ref.provider_release_id = ?
-		ORDER BY entry.modified_at DESC
-		LIMIT 1
-		",
+        SELECT entry.id, entry.instance_id, entry.content_set_id, entry.file_id,
+            entry.project_type, entry.source_kind, entry.ownership_kind,
+            entry.auto_dependency, entry.server_requirement,
+            entry.client_requirement, entry.enabled,
+            entry.added_at, entry.modified_at
+        FROM instance_content_entries entry
+        INNER JOIN instance_content_provider_refs ref
+            ON ref.content_entry_id = entry.id
+        WHERE entry.content_set_id = ?
+            AND ref.provider = ?
+            AND ref.provider_project_id = ?
+            AND ref.provider_release_id = ?
+        ORDER BY entry.modified_at DESC
+        LIMIT 1
+        ",
     )
     .bind(content_set_id)
     .bind(provider.as_str())
@@ -1567,20 +1567,20 @@ pub(crate) async fn get_content_entry_by_provider_project(
 ) -> crate::Result<Option<ContentEntry>> {
     let row = sqlx::query_as::<_, ContentEntryRow>(
         "
-		SELECT entry.id, entry.instance_id, entry.content_set_id, entry.file_id,
-			entry.project_type, entry.source_kind, entry.ownership_kind,
-			entry.auto_dependency, entry.server_requirement,
-			entry.client_requirement, entry.enabled,
-			entry.added_at, entry.modified_at
-		FROM instance_content_entries entry
-		INNER JOIN instance_content_provider_refs ref
-			ON ref.content_entry_id = entry.id
-		WHERE entry.content_set_id = ?
-			AND ref.provider = ?
-			AND ref.provider_project_id = ?
-		ORDER BY entry.modified_at DESC
-		LIMIT 1
-		",
+        SELECT entry.id, entry.instance_id, entry.content_set_id, entry.file_id,
+            entry.project_type, entry.source_kind, entry.ownership_kind,
+            entry.auto_dependency, entry.server_requirement,
+            entry.client_requirement, entry.enabled,
+            entry.added_at, entry.modified_at
+        FROM instance_content_entries entry
+        INNER JOIN instance_content_provider_refs ref
+            ON ref.content_entry_id = entry.id
+        WHERE entry.content_set_id = ?
+            AND ref.provider = ?
+            AND ref.provider_project_id = ?
+        ORDER BY entry.modified_at DESC
+        LIMIT 1
+        ",
     )
     .bind(content_set_id)
     .bind(provider.as_str())
@@ -1663,38 +1663,38 @@ pub(crate) async fn upsert_content_dependency_edge_in_transaction(
 ) -> crate::Result<()> {
     sqlx::query(
         "
-		INSERT INTO instance_content_dependencies (
-			id,
-			content_set_id,
-			parent_entry_id,
-			child_entry_id,
-			evidence_provider,
-			parent_provider,
-			child_provider,
-			dependency_kind,
-			parent_project_id,
-			parent_release_id,
-			child_project_id,
-			child_release_id,
-			created_at,
-			modified_at
-		)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-		ON CONFLICT (
-			content_set_id,
-			parent_entry_id,
-			child_entry_id,
-			dependency_kind
-		) DO UPDATE SET
-			evidence_provider = excluded.evidence_provider,
-			parent_provider = excluded.parent_provider,
-			child_provider = excluded.child_provider,
-			parent_project_id = excluded.parent_project_id,
-			parent_release_id = excluded.parent_release_id,
-			child_project_id = excluded.child_project_id,
-			child_release_id = excluded.child_release_id,
-			modified_at = excluded.modified_at
-		",
+        INSERT INTO instance_content_dependencies (
+            id,
+            content_set_id,
+            parent_entry_id,
+            child_entry_id,
+            evidence_provider,
+            parent_provider,
+            child_provider,
+            dependency_kind,
+            parent_project_id,
+            parent_release_id,
+            child_project_id,
+            child_release_id,
+            created_at,
+            modified_at
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT (
+            content_set_id,
+            parent_entry_id,
+            child_entry_id,
+            dependency_kind
+        ) DO UPDATE SET
+            evidence_provider = excluded.evidence_provider,
+            parent_provider = excluded.parent_provider,
+            child_provider = excluded.child_provider,
+            parent_project_id = excluded.parent_project_id,
+            parent_release_id = excluded.parent_release_id,
+            child_project_id = excluded.child_project_id,
+            child_release_id = excluded.child_release_id,
+            modified_at = excluded.modified_at
+        ",
     )
     .bind(&edge.id)
     .bind(&edge.content_set_id)
@@ -1797,22 +1797,22 @@ pub(crate) async fn get_orphaned_auto_dependencies(
 ) -> crate::Result<Vec<ContentEntry>> {
     let rows = sqlx::query_as::<_, ContentEntryRow>(
         "
-		SELECT entry.id, entry.instance_id, entry.content_set_id, entry.file_id,
-			entry.project_type, entry.source_kind, entry.ownership_kind,
-			entry.auto_dependency, entry.server_requirement,
-			entry.client_requirement, entry.enabled,
-			entry.added_at, entry.modified_at
-		FROM instance_content_entries entry
-		WHERE entry.content_set_id = ?
-			AND entry.auto_dependency = 1
-			AND NOT EXISTS (
-				SELECT 1
-				FROM instance_content_dependencies edge
-				WHERE edge.child_entry_id = entry.id
-					AND edge.content_set_id = entry.content_set_id
-			)
-		ORDER BY entry.added_at ASC
-		",
+        SELECT entry.id, entry.instance_id, entry.content_set_id, entry.file_id,
+            entry.project_type, entry.source_kind, entry.ownership_kind,
+            entry.auto_dependency, entry.server_requirement,
+            entry.client_requirement, entry.enabled,
+            entry.added_at, entry.modified_at
+        FROM instance_content_entries entry
+        WHERE entry.content_set_id = ?
+            AND entry.auto_dependency = 1
+            AND NOT EXISTS (
+                SELECT 1
+                FROM instance_content_dependencies edge
+                WHERE edge.child_entry_id = entry.id
+                    AND edge.content_set_id = entry.content_set_id
+            )
+        ORDER BY entry.added_at ASC
+        ",
     )
     .bind(content_set_id)
     .fetch_all(pool)
@@ -1832,10 +1832,10 @@ pub(crate) async fn set_content_entry_enabled_for_file(
 
     let result = sqlx::query!(
         "
-		UPDATE instance_content_entries
-		SET enabled = ?, modified_at = ?
-		WHERE content_set_id = ? AND file_id = ?
-		",
+        UPDATE instance_content_entries
+        SET enabled = ?, modified_at = ?
+        WHERE content_set_id = ? AND file_id = ?
+        ",
         enabled,
         modified_at,
         content_set_id,
@@ -1854,9 +1854,9 @@ pub(crate) async fn remove_content_entries_for_file(
 ) -> crate::Result<()> {
     sqlx::query!(
         "
-		DELETE FROM instance_content_entries
-		WHERE content_set_id = ? AND file_id = ?
-		",
+        DELETE FROM instance_content_entries
+        WHERE content_set_id = ? AND file_id = ?
+        ",
         content_set_id,
         file_id,
     )
@@ -1880,25 +1880,25 @@ pub(crate) async fn upsert_content_update_check(
 
     sqlx::query(
         "
-		INSERT INTO instance_content_update_checks (
-			content_entry_id,
-			update_channel,
-			provider,
-			provider_project_id,
-			provider_release_id,
-			checked_at
-		)
-		SELECT ?, ?, ?, ?, ?, ?
-		WHERE EXISTS (
-			SELECT 1 FROM instance_content_entries WHERE id = ?
-		)
-		ON CONFLICT(content_entry_id) DO UPDATE SET
-			update_channel = excluded.update_channel,
-			provider = excluded.provider,
-			provider_project_id = excluded.provider_project_id,
-			provider_release_id = excluded.provider_release_id,
-			checked_at = excluded.checked_at
-		",
+        INSERT INTO instance_content_update_checks (
+            content_entry_id,
+            update_channel,
+            provider,
+            provider_project_id,
+            provider_release_id,
+            checked_at
+        )
+        SELECT ?, ?, ?, ?, ?, ?
+        WHERE EXISTS (
+            SELECT 1 FROM instance_content_entries WHERE id = ?
+        )
+        ON CONFLICT(content_entry_id) DO UPDATE SET
+            update_channel = excluded.update_channel,
+            provider = excluded.provider,
+            provider_project_id = excluded.provider_project_id,
+            provider_release_id = excluded.provider_release_id,
+            checked_at = excluded.checked_at
+        ",
     )
     .bind(content_entry_id)
     .bind(update_channel)
@@ -2123,53 +2123,53 @@ pub(crate) async fn get_content_mutation_target(
     // use those refs only when no origin/member or other provider takes priority.
     let row = sqlx::query(
         "SELECT entry.id AS entry_id,
-			member.id AS member_id,
-			file.relative_path,
-			COALESCE(
-				NULLIF(entry.ownership_kind, ''),
-				CASE
-					WHEN member.id IS NULL THEN 'user_added'
-					ELSE 'pack_managed'
-				END
-			) AS ownership_kind,
-			COALESCE(
-				NULLIF(entry.project_type, ''),
-				NULLIF(member.project_type, '')
-			) AS project_type,
-			COALESCE(origin.provider, member.provider, identified.provider) AS provider,
-			COALESCE(origin.provider_project_id, member.provider_project_id, identified.provider_project_id)
-				AS provider_project_id,
-			COALESCE(origin.provider_release_id, member.provider_release_id, identified.provider_release_id)
-				AS provider_release_id
-		 FROM instance_content_sets content_set
-		 INNER JOIN instances instance
-			ON instance.applied_content_set_id = content_set.id
-		 LEFT JOIN instance_pack_members member
-			ON member.content_set_id = content_set.id AND member.id = ?
-		 LEFT JOIN instance_content_entries entry
-			ON entry.content_set_id = content_set.id
-			AND (entry.id = ? OR entry.id = member.content_entry_id)
-		 LEFT JOIN instance_files file
-			ON file.instance_id = instance.id
-			AND (file.id = ? OR file.id = entry.file_id)
-		 LEFT JOIN instance_content_provider_refs origin
-			ON origin.content_entry_id = entry.id AND origin.is_origin = 1
-		 LEFT JOIN instance_content_provider_refs identified
-			ON origin.provider IS NULL AND member.provider IS NULL
-			AND identified.rowid = (
-				SELECT ref.rowid FROM instance_content_provider_refs ref
-				WHERE ref.content_entry_id = entry.id AND ref.provider = 'modrinth'
-					AND NOT EXISTS (
-						SELECT 1 FROM instance_content_provider_refs other
-						WHERE other.content_entry_id = entry.id AND other.provider != 'modrinth'
-					)
-				ORDER BY ref.provider_project_id, ref.provider_release_id IS NULL,
-					ref.provider_release_id
-				LIMIT 1
-			)
-		 WHERE instance.id = ?
-			AND (entry.id = ? OR member.id = ? OR file.id = ?)
-		 LIMIT 1",
+            member.id AS member_id,
+            file.relative_path,
+            COALESCE(
+                NULLIF(entry.ownership_kind, ''),
+                CASE
+                    WHEN member.id IS NULL THEN 'user_added'
+                    ELSE 'pack_managed'
+                END
+            ) AS ownership_kind,
+            COALESCE(
+                NULLIF(entry.project_type, ''),
+                NULLIF(member.project_type, '')
+            ) AS project_type,
+            COALESCE(origin.provider, member.provider, identified.provider) AS provider,
+            COALESCE(origin.provider_project_id, member.provider_project_id, identified.provider_project_id)
+                AS provider_project_id,
+            COALESCE(origin.provider_release_id, member.provider_release_id, identified.provider_release_id)
+                AS provider_release_id
+         FROM instance_content_sets content_set
+         INNER JOIN instances instance
+            ON instance.applied_content_set_id = content_set.id
+         LEFT JOIN instance_pack_members member
+            ON member.content_set_id = content_set.id AND member.id = ?
+         LEFT JOIN instance_content_entries entry
+            ON entry.content_set_id = content_set.id
+            AND (entry.id = ? OR entry.id = member.content_entry_id)
+         LEFT JOIN instance_files file
+            ON file.instance_id = instance.id
+            AND (file.id = ? OR file.id = entry.file_id)
+         LEFT JOIN instance_content_provider_refs origin
+            ON origin.content_entry_id = entry.id AND origin.is_origin = 1
+         LEFT JOIN instance_content_provider_refs identified
+            ON origin.provider IS NULL AND member.provider IS NULL
+            AND identified.rowid = (
+                SELECT ref.rowid FROM instance_content_provider_refs ref
+                WHERE ref.content_entry_id = entry.id AND ref.provider = 'modrinth'
+                    AND NOT EXISTS (
+                        SELECT 1 FROM instance_content_provider_refs other
+                        WHERE other.content_entry_id = entry.id AND other.provider != 'modrinth'
+                    )
+                ORDER BY ref.provider_project_id, ref.provider_release_id IS NULL,
+                    ref.provider_release_id
+                LIMIT 1
+            )
+         WHERE instance.id = ?
+            AND (entry.id = ? OR member.id = ? OR file.id = ?)
+         LIMIT 1",
     )
     .bind(target_id)
     .bind(target_id)
@@ -2182,32 +2182,32 @@ pub(crate) async fn get_content_mutation_target(
     .await?;
 
     row.map(|row| {
-		let relative_path = row.try_get::<Option<String>, _>("relative_path")?;
-		let project_type = row
-			.try_get::<Option<String>, _>("project_type")?
-			.as_deref()
-			.map(project_type_from_str)
-			.transpose()?
-			.or_else(|| {
-				relative_path.as_deref().and_then(
-					crate::state::instances::adapters::filesystem::project_type_from_relative_path,
-				)
-			})
-			.ok_or_else(|| {
-				crate::ErrorKind::InputError(
-					"Unable to determine the selected content project type"
-						.to_string(),
-				)
-			})?;
+        let relative_path = row.try_get::<Option<String>, _>("relative_path")?;
+        let project_type = row
+            .try_get::<Option<String>, _>("project_type")?
+            .as_deref()
+            .map(project_type_from_str)
+            .transpose()?
+            .or_else(|| {
+                relative_path.as_deref().and_then(
+                    crate::state::instances::adapters::filesystem::project_type_from_relative_path,
+                )
+            })
+            .ok_or_else(|| {
+                crate::ErrorKind::InputError(
+                    "Unable to determine the selected content project type"
+                        .to_string(),
+                )
+            })?;
 
-		Ok(ContentMutationTarget {
-			entry_id: row.try_get("entry_id")?,
-			member_id: row.try_get("member_id")?,
-			relative_path,
-			ownership_kind: ContentOwnershipKind::from_str(
-				&row.try_get::<String, _>("ownership_kind")?,
-			)?,
-			project_type,
+        Ok(ContentMutationTarget {
+            entry_id: row.try_get("entry_id")?,
+            member_id: row.try_get("member_id")?,
+            relative_path,
+            ownership_kind: ContentOwnershipKind::from_str(
+                &row.try_get::<String, _>("ownership_kind")?,
+            )?,
+            project_type,
             provider: row
                 .try_get::<Option<String>, _>("provider")?
                 .as_deref()
@@ -2228,8 +2228,8 @@ pub(crate) async fn set_pack_member_override_in_transaction(
 ) -> crate::Result<bool> {
     let result = sqlx::query(
         "UPDATE instance_pack_members
-		 SET materialization_state = ?, override_kind = ?, modified_at = ?
-		 WHERE id = ?",
+         SET materialization_state = ?, override_kind = ?, modified_at = ?
+         WHERE id = ?",
     )
     .bind(materialization_state.as_str())
     .bind(override_kind.as_str())
@@ -2306,26 +2306,26 @@ pub(crate) async fn upsert_pack_member_in_transaction(
             expected_fingerprint, materialization_state, override_kind,
             reconciled, created_at, modified_at
          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-		 ON CONFLICT(content_set_id, member_key) DO UPDATE SET
-			content_entry_id = excluded.content_entry_id,
-			project_type = excluded.project_type,
-			expected_relative_path = excluded.expected_relative_path,
+         ON CONFLICT(content_set_id, member_key) DO UPDATE SET
+            content_entry_id = excluded.content_entry_id,
+            project_type = excluded.project_type,
+            expected_relative_path = excluded.expected_relative_path,
             provider = excluded.provider,
             provider_project_id = excluded.provider_project_id,
             provider_release_id = excluded.provider_release_id,
-			required = CASE
-				WHEN instance_pack_members.reconciled = 0 THEN excluded.required
-				ELSE instance_pack_members.required
-			END,
+            required = CASE
+                WHEN instance_pack_members.reconciled = 0 THEN excluded.required
+                ELSE instance_pack_members.required
+            END,
             expected_sha1 = excluded.expected_sha1,
             expected_size = excluded.expected_size,
             expected_fingerprint = excluded.expected_fingerprint,
             materialization_state = excluded.materialization_state,
-			override_kind = CASE
+            override_kind = CASE
                 WHEN excluded.override_kind = 'none' THEN override_kind
                 ELSE excluded.override_kind
-			END,
-			reconciled = excluded.reconciled,
+            END,
+            reconciled = excluded.reconciled,
             modified_at = excluded.modified_at",
     )
     .bind(&member.id)
@@ -2647,26 +2647,26 @@ mod tests {
         let pool = test_pool().await;
         sqlx::raw_sql(
             "
-			CREATE TABLE instance_content_provider_refs (
-				id INTEGER PRIMARY KEY AUTOINCREMENT,
-				content_entry_id TEXT NOT NULL,
-				provider TEXT NOT NULL,
-				provider_project_id TEXT NOT NULL,
-				provider_release_id TEXT NULL,
+            CREATE TABLE instance_content_provider_refs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                content_entry_id TEXT NOT NULL,
+                provider TEXT NOT NULL,
+                provider_project_id TEXT NOT NULL,
+                provider_release_id TEXT NULL,
                 provider_file_id TEXT NULL,
-				is_origin INTEGER NOT NULL DEFAULT 0
-			);
-			CREATE UNIQUE INDEX instance_content_provider_refs_identity
-				ON instance_content_provider_refs (
-					content_entry_id,
-					provider,
-					provider_project_id,
-					COALESCE(provider_release_id, '')
-				);
-			CREATE UNIQUE INDEX instance_content_provider_refs_origin
-				ON instance_content_provider_refs(content_entry_id)
-				WHERE is_origin = 1;
-			",
+                is_origin INTEGER NOT NULL DEFAULT 0
+            );
+            CREATE UNIQUE INDEX instance_content_provider_refs_identity
+                ON instance_content_provider_refs (
+                    content_entry_id,
+                    provider,
+                    provider_project_id,
+                    COALESCE(provider_release_id, '')
+                );
+            CREATE UNIQUE INDEX instance_content_provider_refs_origin
+                ON instance_content_provider_refs(content_entry_id)
+                WHERE is_origin = 1;
+            ",
         )
         .execute(&pool)
         .await
@@ -2783,35 +2783,35 @@ mod tests {
         .expect("applied content set column");
         sqlx::raw_sql(
             "
-			CREATE TABLE instance_files (
-				id TEXT PRIMARY KEY,
-				instance_id TEXT NOT NULL,
-				relative_path TEXT NOT NULL
-			);
-			CREATE TABLE instance_content_entries (
-				id TEXT PRIMARY KEY,
-				content_set_id TEXT NOT NULL,
-				file_id TEXT NULL,
-				ownership_kind TEXT NOT NULL,
-				project_type TEXT NOT NULL
-			);
-			CREATE TABLE instance_pack_members (
-				id TEXT PRIMARY KEY,
-				content_set_id TEXT NOT NULL,
-				content_entry_id TEXT NULL,
-				project_type TEXT NOT NULL,
-				provider TEXT NULL,
-				provider_project_id TEXT NULL,
-				provider_release_id TEXT NULL
-			);
-			CREATE TABLE instance_content_provider_refs (
-				content_entry_id TEXT NOT NULL,
-				provider TEXT NOT NULL,
-				provider_project_id TEXT NOT NULL,
-				provider_release_id TEXT NULL,
-				is_origin INTEGER NOT NULL
-			);
-			",
+            CREATE TABLE instance_files (
+                id TEXT PRIMARY KEY,
+                instance_id TEXT NOT NULL,
+                relative_path TEXT NOT NULL
+            );
+            CREATE TABLE instance_content_entries (
+                id TEXT PRIMARY KEY,
+                content_set_id TEXT NOT NULL,
+                file_id TEXT NULL,
+                ownership_kind TEXT NOT NULL,
+                project_type TEXT NOT NULL
+            );
+            CREATE TABLE instance_pack_members (
+                id TEXT PRIMARY KEY,
+                content_set_id TEXT NOT NULL,
+                content_entry_id TEXT NULL,
+                project_type TEXT NOT NULL,
+                provider TEXT NULL,
+                provider_project_id TEXT NULL,
+                provider_release_id TEXT NULL
+            );
+            CREATE TABLE instance_content_provider_refs (
+                content_entry_id TEXT NOT NULL,
+                provider TEXT NOT NULL,
+                provider_project_id TEXT NOT NULL,
+                provider_release_id TEXT NULL,
+                is_origin INTEGER NOT NULL
+            );
+            ",
         )
         .execute(&pool)
         .await
@@ -2821,14 +2821,14 @@ mod tests {
             .await
             .expect("insert content set");
         sqlx::query(
-			"INSERT INTO instances (id, applied_content_set_id) VALUES ('instance', 'set')",
-		)
-		.execute(&pool)
-		.await
-		.expect("insert instance");
+            "INSERT INTO instances (id, applied_content_set_id) VALUES ('instance', 'set')",
+        )
+        .execute(&pool)
+        .await
+        .expect("insert instance");
         sqlx::query(
             "INSERT INTO instance_files (id, instance_id, relative_path)
-			 VALUES ('file', 'instance', 'mods/example.jar')",
+             VALUES ('file', 'instance', 'mods/example.jar')",
         )
         .execute(&pool)
         .await

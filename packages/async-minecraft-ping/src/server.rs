@@ -204,21 +204,28 @@ impl ConnectionConfig {
 
     #[cfg(feature = "srv")]
     async fn lookup_srv(&self) -> Option<(String, u16)> {
-        use hickory_resolver::TokioAsyncResolver;
+        use hickory_resolver::proto::rr::RData;
+        use hickory_resolver::TokioResolver;
 
-        let resolver = TokioAsyncResolver::tokio_from_system_conf().ok()?;
+        let resolver = TokioResolver::builder_tokio().ok()?.build().ok()?;
         let srv_name = format!("_minecraft._tcp.{}", self.address);
 
-        let lookup = tokio::time::timeout(self.timeout, resolver.srv_lookup(&srv_name))
+        let lookup = tokio::time::timeout(self.timeout, resolver.srv_lookup(srv_name.as_str()))
             .await
             .ok()?
             .ok()?;
 
-        let record = lookup.iter().next()?;
-        let target = record.target().to_string();
+        let record = lookup
+            .answers()
+            .iter()
+            .find_map(|record| match &record.data {
+                RData::SRV(record) => Some(record),
+                _ => None,
+            })?;
+        let target = record.target.to_string();
         // Remove trailing dot from DNS name
         let host = target.trim_end_matches('.').to_string();
-        let port = record.port();
+        let port = record.port;
 
         Some((host, port))
     }

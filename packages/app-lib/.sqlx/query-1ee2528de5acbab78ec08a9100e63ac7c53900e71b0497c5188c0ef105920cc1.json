@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "\n        INSERT INTO instance_game_option_pack_bases\n            (instance_id, pack_version_id, source, sha1, encoding, document)\n        VALUES (?, ?, ?, ?, ?, ?)\n        ON CONFLICT(instance_id) DO UPDATE SET\n            pack_version_id = excluded.pack_version_id,\n            source = excluded.source, sha1 = excluded.sha1,\n            encoding = excluded.encoding, document = excluded.document\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 6
+    },
+    "nullable": []
+  },
+  "hash": "1ee2528de5acbab78ec08a9100e63ac7c53900e71b0497c5188c0ef105920cc1"
+}

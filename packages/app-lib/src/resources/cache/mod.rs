@@ -201,7 +201,7 @@ impl ResourceCache {
     ) -> Option<(ProviderValue, bool)> {
         let _guard = self.gate.read().await;
         let pool = self.pool.as_ref()?;
-        let row = sqlx::query("SELECT payload, value_version, expires_at FROM resource_cache_entries WHERE namespace = ? AND source = ? AND query_key = ? AND (expires_at > ? OR ? = 0)")
+        let row = sqlx::query("SELECT payload, value_version, MIN(expires_at, retrieved_at / 1000000 + 3600) AS expires_at FROM resource_cache_entries WHERE namespace = ? AND source = ? AND query_key = ? AND (MIN(expires_at, retrieved_at / 1000000 + 3600) > ? OR ? = 0)")
             .bind(&key.namespace).bind(key.source.as_str()).bind(&key.query).bind(Utc::now().timestamp()).bind(fresh).fetch_optional(pool).await.ok()??;
         let version: i64 = row.try_get("value_version").ok()?;
         let payload: String = row.try_get("payload").ok()?;

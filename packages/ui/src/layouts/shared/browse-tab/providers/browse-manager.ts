@@ -5,6 +5,7 @@ import type { RouteLocationRaw } from 'vue-router'
 import { createContext } from '#ui/providers/create-context'
 import type { FilterType, FilterValue, SortType, Tags } from '#ui/utils/search'
 
+import type { BrowseCommittedSearch } from '../composables/use-browse-search'
 import type {
     BrowseDisplayMode,
     BrowseDisplayModeOption,
@@ -28,6 +29,8 @@ export interface BrowseManagerContext {
     serverToggledGroups: Ref<string[]>
     effectiveSortTypes: ComputedRef<readonly SortType[]>
     effectiveCurrentSortType: Ref<SortType>
+    filtersReady?: Ref<boolean>
+    committed?: ShallowRef<BrowseCommittedSearch | null>
     loading: Ref<boolean>
     searchError?: Ref<string | null>
     projectHits: ShallowRef<BrowseSearchResponse['projectHits']>

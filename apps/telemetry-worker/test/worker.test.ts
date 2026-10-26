@@ -4,8 +4,10 @@ import { describe, expect, it } from 'vitest'
 import { runMaintenance, type Bindings } from '../src'
 import { batchSchema } from '../src/schema'
 
-declare module 'cloudflare:test' {
-    interface ProvidedEnv extends Bindings {}
+declare global {
+    namespace Cloudflare {
+        interface Env extends Bindings {}
+    }
 }
 
 const installationId = '018f6ee8-4cb1-7db3-8a8d-8df96f122d85'
@@ -31,6 +33,10 @@ function batch(
 
 function heartbeat(eventId: string, day = new Date().toISOString().slice(0, 10)) {
     return { type: 'heartbeat', event_id: eventId, occurred_at: `${day}T12:00:00.000Z`, day }
+}
+
+function daysAgo(days: number): string {
+    return new Date(Date.now() - days * 24 * 60 * 60 * 1_000).toISOString().slice(0, 10)
 }
 
 async function post(payload: unknown): Promise<Response> {
@@ -88,11 +94,15 @@ describe('telemetry worker', () => {
 
     it('enforces the daily installation batch cap without charging duplicates', async () => {
         const cappedInstallation = '018f6ee8-4cb1-7db3-8a8d-8df96f122d99'
-        const day = new Date().toISOString().slice(0, 10)
         const payloadFor = (index: number) =>
             batch(
                 `60000000-0000-4000-8000-${index.toString().padStart(12, '0')}`,
-                [heartbeat(`70000000-0000-4000-8000-${index.toString().padStart(12, '0')}`, day)],
+                [
+                    heartbeat(
+                        `70000000-0000-4000-8000-${index.toString().padStart(12, '0')}`,
+                        daysAgo(index),
+                    ),
+                ],
                 cappedInstallation,
             )
 
@@ -109,8 +119,8 @@ describe('telemetry worker', () => {
         const day = new Date().toISOString().slice(0, 10)
         await env.DB.prepare(
             `INSERT INTO ingestion_global_daily (day, accepted_batches)
-			VALUES (?, 99999)
-			ON CONFLICT (day) DO UPDATE SET accepted_batches = 99999`,
+            VALUES (?, 99999)
+            ON CONFLICT (day) DO UPDATE SET accepted_batches = 99999`,
         )
             .bind(day)
             .run()
@@ -124,6 +134,7 @@ describe('telemetry worker', () => {
         const rejected = await post({
             ...first,
             batch_id: '80000000-0000-4000-8000-000000000002',
+            installation_id: '018f6ee8-4cb1-7db3-8a8d-8df96f122d97',
             events: [heartbeat('81000000-0000-4000-8000-000000000002', day)],
         })
         expect(rejected.status).toBe(429)
@@ -131,7 +142,7 @@ describe('telemetry worker', () => {
 
     it('hashes installations and keeps heartbeat batches idempotent', async () => {
         const payload = batch('31111111-1111-4111-8111-111111111111', [
-            heartbeat('41111111-1111-4111-8111-111111111111', '2026-08-14'),
+            heartbeat('41111111-1111-4111-8111-111111111111'),
         ])
         expect((await post(payload)).status).toBe(200)
         expect((await post(payload)).status).toBe(200)
@@ -181,10 +192,10 @@ describe('telemetry worker', () => {
 
         const counts = await env.DB.prepare(
             `SELECT
-				COUNT(DISTINCT CASE WHEN day = ? THEN installation_hash END) AS dau,
-				COUNT(DISTINCT CASE WHEN day >= date(?, '-6 days') THEN installation_hash END) AS wau,
-				COUNT(DISTINCT CASE WHEN day >= date(?, '-29 days') THEN installation_hash END) AS mau
-			FROM daily_active`,
+                COUNT(DISTINCT CASE WHEN day = ? THEN installation_hash END) AS dau,
+                COUNT(DISTINCT CASE WHEN day >= date(?, '-6 days') THEN installation_hash END) AS wau,
+                COUNT(DISTINCT CASE WHEN day >= date(?, '-29 days') THEN installation_hash END) AS mau
+            FROM daily_active`,
         )
             .bind(day(0), day(0), day(0))
             .first<{ dau: number; wau: number; mau: number }>()

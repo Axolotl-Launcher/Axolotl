@@ -21,13 +21,14 @@ fn selection(ip: &str, now: Instant) -> Selection {
 }
 
 #[test]
-fn mode_defaults_and_unknown_values_are_passive() {
+fn mode_defaults_to_auto_and_explicit_passive_modes_do_not_probe() {
     assert!(catalog_expansion(None));
     assert!(catalog_expansion(Some("on")));
     assert!(!catalog_expansion(Some("off")));
     assert!(!catalog_expansion(Some("OFF")));
     assert!(!catalog_expansion(Some("151.101.1.242")));
-    assert_eq!(SelectionMode::parse(None), SelectionMode::Off);
+    assert_eq!(SelectionMode::parse(None), SelectionMode::Auto);
+    assert_eq!(SelectionMode::parse(Some("off")), SelectionMode::Off);
     assert_eq!(SelectionMode::parse(Some("AUTO")), SelectionMode::Off);
     assert_eq!(
         SelectionMode::parse(Some("observe")),
@@ -86,7 +87,8 @@ fn disk_pressure_or_cpu_pressure_does_not_start_a_host_trial_or_consume_budget()
             write_latency_ms: 75.0,
         },
         super::super::super::local_resources::Pressure {
-            cpu_percent: 90,
+            cpu_percent:
+                crate::util::download::constants::LOCAL_CPU_PRESSURE_PERCENT,
             write_latency_ms: 0.0,
         },
     ] {
@@ -489,8 +491,10 @@ async fn saturated_production_leaves_exactly_one_recovery_slot_across_generation
         proxy: ProxyPolicy::System,
     };
     proxy_context::with_snapshot(clients, async {
+        let limit =
+            crate::util::download::constants::MAX_CONNECTIONS_PER_AUTHORITY;
         let mut regular = Vec::new();
-        for _ in 0..31 {
+        for _ in 0..limit - 1 {
             regular.push(native_budget::try_acquire(&route).unwrap());
         }
         selector.install_test_selection(
@@ -503,7 +507,7 @@ async fn saturated_production_leaves_exactly_one_recovery_slot_across_generation
         assert!(native_budget::try_acquire_recovery(&route).is_err());
         drop(recovery);
         drop(regular);
-        assert_eq!(native_budget::available(&route), 32);
+        assert_eq!(native_budget::available(&route), limit);
     })
     .await;
 }

@@ -327,7 +327,7 @@ impl Settings {
                 auto_concurrent_downloads, minecraft_metadata_source,
                 minecraft_file_source, modrinth_source, curseforge_source, mojang_auth_source,
                 theme, locale, default_page, collapsed_navigation, hide_nametag_skins_page, advanced_rendering, native_decorations,
-				discord_rpc, developer_mode, telemetry, telemetry_consent_version, personalized_ads,
+                discord_rpc, developer_mode, telemetry, telemetry_consent_version, personalized_ads,
                 onboarded, onboarding_version, onboarding_instance_tour_completed,
                 json(extra_launch_args) extra_launch_args, json(custom_env_vars) custom_env_vars,
                 mc_memory_max, mc_memory_auto, mc_force_fullscreen, mc_maximize_window, mc_game_resolution_x, mc_game_resolution_y, hide_on_process_start, enter_lightweight_mode_on_game_launch,
@@ -714,8 +714,8 @@ impl Settings {
                  auto_hide_downloads_button = $57,
                  home_widgets = jsonb($58),
                  mojang_auth_source = $59,
-				terracotta_public_nodes = jsonb($60),
-				telemetry_consent_version = $61
+                terracotta_public_nodes = jsonb($60),
+                telemetry_consent_version = $61
             ",
             max_concurrent_writes,
             max_concurrent_downloads,
@@ -783,11 +783,11 @@ impl Settings {
         .await?;
 
         sqlx::query(
-			"UPDATE settings SET enter_lightweight_mode_on_game_launch = ? WHERE id = 0",
-		)
-		.bind(self.enter_lightweight_mode_on_game_launch)
-		.execute(&mut *connection)
-		.await?;
+            "UPDATE settings SET enter_lightweight_mode_on_game_launch = ? WHERE id = 0",
+        )
+        .bind(self.enter_lightweight_mode_on_game_launch)
+        .execute(&mut *connection)
+        .await?;
 
         sqlx::query("UPDATE settings SET close_behavior = ? WHERE id = 0")
             .bind(&self.close_behavior)

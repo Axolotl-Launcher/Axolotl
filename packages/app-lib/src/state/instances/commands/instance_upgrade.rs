@@ -5,7 +5,7 @@ use std::time::SystemTime;
 use chrono::{DateTime, Utc};
 
 use crate::State;
-use crate::api::curseforge::DEPENDENCY_RELATION_REQUIRED;
+use crate::state::instances::DependencyRelation;
 use crate::state::instances::{
     ContentItemCapabilities, ContentOwnershipKind, InstanceContentSnapshot,
     InstanceContentSnapshotItem, InstanceLink, LoaderComponentKind,
@@ -1744,14 +1744,22 @@ async fn load_curseforge_candidates(
                     .dependencies
                     .into_iter()
                     .filter_map(|dependency| {
-                        let kind = match dependency.relation_type {
-                            DEPENDENCY_RELATION_REQUIRED | 6 => {
+                        let kind = match dependency.relation() {
+                            DependencyRelation::Required
+                            | DependencyRelation::Include => {
                                 CandidateDependencyKind::Required
                             }
-                            2 => CandidateDependencyKind::Optional,
-                            5 => CandidateDependencyKind::Incompatible,
-                            1 | 4 => CandidateDependencyKind::Embedded,
-                            _ => return None,
+                            DependencyRelation::Optional => {
+                                CandidateDependencyKind::Optional
+                            }
+                            DependencyRelation::Incompatible => {
+                                CandidateDependencyKind::Incompatible
+                            }
+                            DependencyRelation::Embedded
+                            | DependencyRelation::Tool => {
+                                CandidateDependencyKind::Embedded
+                            }
+                            DependencyRelation::Unknown(_) => return None,
                         };
                         Some(CandidateDependency {
                             key: NodeKey::new(

@@ -3,6 +3,8 @@ import { LeftArrowIcon, RightArrowIcon } from '@modrinth/assets'
 import { commonMessages, defineMessages, useVIntl } from '@modrinth/ui'
 import { useRouter } from 'vue-router'
 
+import McpConnectionStatus from '@/features/mcp/McpConnectionStatus.vue'
+
 import AxolotlLogo from './AxolotlLogo.vue'
 import Breadcrumbs from './Breadcrumbs.vue'
 
@@ -51,6 +53,7 @@ const messages = defineMessages({
         </div>
         <Breadcrumbs class="flex-1 pt-[2px] pr-3" />
         <section data-tauri-drag-region class="ml-auto flex min-w-0 items-center">
+            <McpConnectionStatus />
             <slot />
         </section>
     </div>

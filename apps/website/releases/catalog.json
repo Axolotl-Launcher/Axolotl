@@ -1,6 +1,192 @@
 {
-  "updated_at": "2026-10-21T01:58:29.184Z",
+  "updated_at": "2026-10-25T14:00:55.536Z",
   "announcements": [
+    {
+      "id": "launcher-1.10.1",
+      "version": "1.10.1",
+      "publishedAt": "2026-10-25",
+      "title": {
+        "en-US": "Axolotl Launcher 1.10.1",
+        "zh-CN": "Axolotl Launcher 1.10.1"
+      },
+      "changes": {
+        "added": [
+          {
+            "en-US": "Added support for importing and launching MultiMC modpacks containing JAR mods.",
+            "zh-CN": "新增包含 JAR Mod 的 MultiMC 整合包导入与启动支持。"
+          },
+          {
+            "en-US": "Added separate coordinate inputs with absolute, relative, and local modes to Command Generator.",
+            "zh-CN": "命令生成器新增独立坐标输入框，支持绝对坐标、相对坐标和局部坐标切换。"
+          },
+          {
+            "en-US": "Added version-aware block, effect, and advancement pickers to Command Generator.",
+            "zh-CN": "命令生成器新增按游戏版本筛选的方块、状态效果和进度选择器。"
+          },
+          {
+            "en-US": "Added searchable command aliases and links to the corresponding Minecraft Wiki documentation in Command Generator.",
+            "zh-CN": "命令生成器新增命令别名搜索，以及对应的 Minecraft Wiki 文档链接。"
+          },
+          {
+            "en-US": "Added purchase and profile activation guidance when a Microsoft account has no Minecraft: Java Edition profile.",
+            "zh-CN": "新增微软账号缺少 Minecraft Java 版档案时的购买与档案激活指引。"
+          }
+        ],
+        "changed": [
+          {
+            "en-US": "Improved Discover loading by displaying the page before search initialization and keeping existing results visible during refresh.",
+            "zh-CN": "优化发现页面加载，在搜索初始化完成前显示页面，并在刷新期间保留已有结果。"
+          },
+          {
+            "en-US": "Improved project navigation by showing titles first and progressively loading descriptions, media, and versions across supported content sources.",
+            "zh-CN": "优化各内容源的项目详情加载，优先显示标题，再逐步加载简介、媒体和版本信息。"
+          },
+          {
+            "en-US": "Improved Favorites loading by refreshing project information progressively instead of waiting for all requests to finish.",
+            "zh-CN": "优化收藏页面加载，逐项刷新项目信息，无需等待全部请求完成。"
+          },
+          {
+            "en-US": "Improved screenshot and skin page loading by deferring optional metadata and offscreen content.",
+            "zh-CN": "优化截图与皮肤页面加载，延后获取非必要信息和渲染屏幕外内容。"
+          },
+          {
+            "en-US": "Improved content installation and update preparation by batching metadata requests and reusing resolved dependency files.",
+            "zh-CN": "优化内容安装与更新准备，批量获取文件信息并复用已选定的依赖文件。"
+          },
+          {
+            "en-US": "Improved Minecraft asset download concurrency and modpack download scheduling, with delays between automatic retry passes.",
+            "zh-CN": "优化 Minecraft 资源下载并发和整合包下载调度，并为自动重试加入退避等待。"
+          }
+        ],
+        "fixed": [
+          {
+            "en-US": "Fixed enabling or disabling content overwriting an existing file with the same target name.",
+            "zh-CN": "修复启用或禁用内容时覆盖同名目标文件的问题。"
+          },
+          {
+            "en-US": "Fixed unnecessary replacements of enabled, compatible dependencies when installing additional content.",
+            "zh-CN": "修复安装新内容时不必要地替换已启用且兼容的依赖版本的问题。"
+          },
+          {
+            "en-US": "Fixed false dependency conflicts and content update indicators disappearing after refresh.",
+            "zh-CN": "修复依赖冲突误报，以及刷新后内容更新标记丢失的问题。"
+          },
+          {
+            "en-US": "Fixed missing file metadata being left unresolved when a batch response omitted requested files.",
+            "zh-CN": "修复批量查询遗漏部分文件后，未继续单独获取其信息的问题。"
+          },
+          {
+            "en-US": "Fixed installed instances unnecessarily depending on online version catalogs when valid local launch profiles were available.",
+            "zh-CN": "修复已安装实例存在有效本地启动配置时，仍不必要地依赖在线版本列表的问题。"
+          },
+          {
+            "en-US": "Fixed Forge version lookup failures caused by cached metadata and incomplete version catalogs.",
+            "zh-CN": "修复缓存信息和不完整版本列表导致的 Forge 版本查询失败。"
+          },
+          {
+            "en-US": "Fixed selected .minecraft folders being misidentified as launcher directories during import.",
+            "zh-CN": "修复导入时将选中的 .minecraft 文件夹误识别为启动器目录的问题。"
+          },
+          {
+            "en-US": "Fixed importing MultiMC exports that contained component definitions but had not yet created a game directory.",
+            "zh-CN": "修复仅包含组件定义、尚未生成游戏目录的 MultiMC 导出包无法导入的问题。"
+          },
+          {
+            "en-US": "Fixed multiplayer server synchronization repeatedly duplicating entries and expanding server lists.",
+            "zh-CN": "修复多人游戏服务器同步时条目反复重复、列表持续膨胀的问题。"
+          },
+          {
+            "en-US": "Fixed browse filters and navigation context being lost when switching installation targets or returning to Discover.",
+            "zh-CN": "修复切换安装目标或返回发现页面时，筛选条件和浏览上下文丢失的问题。"
+          },
+          {
+            "en-US": "Fixed unclear search errors by explaining unsupported filters and sort orders with specific recovery suggestions.",
+            "zh-CN": "修复搜索失败提示不明确的问题，为不受支持的筛选条件和排序方式提供具体调整建议。"
+          },
+          {
+            "en-US": "Fixed project titles being lost when opening details from Favorites.",
+            "zh-CN": "修复从收藏打开项目详情时标题丢失的问题。"
+          },
+          {
+            "en-US": "Fixed project loading failures caused by null fields in Modrinth metadata.",
+            "zh-CN": "修复 Modrinth 项目信息中的空值导致页面加载失败的问题。"
+          },
+          {
+            "en-US": "Fixed Minecraft asset batch downloads not following redirects and download resource queue timeouts being reported as network errors.",
+            "zh-CN": "修复 Minecraft 资源批量下载未跟随重定向，以及下载资源排队超时被误报为网络错误的问题。"
+          },
+          {
+            "en-US": "Fixed the skin selector waiting on online requests and restored the nametag font.",
+            "zh-CN": "修复皮肤选择器被在线请求阻塞的问题，并恢复名称标签字体。"
+          },
+          {
+            "en-US": "Fixed coordinate defaults and editing in Command Generator, including blocks appearing in unsupported game versions.",
+            "zh-CN": "修复命令生成器的坐标默认值和编辑行为，以及方块出现在不支持的游戏版本中的问题。"
+          },
+          {
+            "en-US": "Fixed empty-state messages confusing missing content with filtered results and deletion warnings not matching the selected content type.",
+            "zh-CN": "修复空状态未区分无内容与筛选无结果，以及删除警告与所选内容类型不一致的问题。"
+          }
+        ],
+        "security": [
+          {
+            "en-US": "Fixed known security vulnerabilities by updating affected dependencies.",
+            "zh-CN": "更新受影响的依赖，修复已知安全漏洞。"
+          }
+        ]
+      }
+    },
+    {
+      "id": "launcher-1.10.1-beta.1",
+      "version": "1.10.1-beta.1",
+      "publishedAt": "2026-10-24",
+      "title": {
+        "en-US": "Axolotl Launcher 1.10.1-beta.1",
+        "zh-CN": "Axolotl Launcher 1.10.1-beta.1"
+      },
+      "changes": {
+        "changed": [
+          {
+            "en-US": "Updated the sticky instance bar on content details pages to match the frosted background on Discover.",
+            "zh-CN": "内容详情页的实例吸附栏改用与发现页一致的磨砂背景。"
+          }
+        ],
+        "fixed": [
+          {
+            "en-US": "Fixed slow opening of the Skin selector by showing saved skins before online updates finish.",
+            "zh-CN": "修复皮肤选择器打开缓慢的问题，先显示已保存的皮肤，再在后台同步在线状态。"
+          },
+          {
+            "en-US": "Fixed the player nametag in the Skin selector to use the bundled Minecraft font.",
+            "zh-CN": "修复皮肤选择器中玩家模型顶部名称标签的字体，恢复为内置 Minecraft 字体。"
+          },
+          {
+            "en-US": "Fixed launcher slowdowns with large screenshot folders by loading thumbnails only for visible images and the next two.",
+            "zh-CN": "修复截图文件夹包含大量高分辨率图片时启动器卡顿的问题，仅加载可见截图及下方两张的缩略图。"
+          },
+          {
+            "en-US": "Fixed instance pages freezing when an instance contains thousands of schematic files.",
+            "zh-CN": "修复实例包含数千个投影文件时，打开实例页面长时间卡死的问题。"
+          },
+          {
+            "en-US": "Fixed instance content waiting for online details before appearing, with local content now shown first and links added in the background.",
+            "zh-CN": "修复实例内容等待联网信息获取完毕才显示的问题，改为先显示本地内容，再在后台补全关联信息和链接。"
+          },
+          {
+            "en-US": "Fixed slow opening of Java settings for instances.",
+            "zh-CN": "修复实例 Java 设置打开缓慢的问题。"
+          },
+          {
+            "en-US": "Fixed slow mod details when opened from an instance, including aggregated Modrinth and CurseForge descriptions.",
+            "zh-CN": "修复从实例打开模组详情时加载缓慢的问题，包括 Modrinth 与 CurseForge 聚合简介。"
+          },
+          {
+            "en-US": "Fixed excessive width in the instance three-dot action menu.",
+            "zh-CN": "修复实例页面三点操作菜单过宽的问题。"
+          }
+        ]
+      }
+    },
     {
       "id": "launcher-1.10.0",
       "version": "1.10.0",

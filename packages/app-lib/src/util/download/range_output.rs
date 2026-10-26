@@ -43,6 +43,42 @@ pub(crate) struct RangeWriter {
 }
 
 impl RangeOutput {
+    /// Extend a contiguous partial file without overwriting its accepted prefix.
+    /// The caller holds the destination lock and verifies the final file hash.
+    pub(crate) async fn resume_prefix(
+        path: &Path,
+        size: u64,
+        prefix: u64,
+    ) -> Result<Arc<Self>, IOError> {
+        let file = OpenOptions::new()
+            .read(true)
+            .write(true)
+            .open(path)
+            .await
+            .map_err(|error| IOError::with_path(error, path))?;
+        let metadata = file
+            .metadata()
+            .await
+            .map_err(|error| IOError::with_path(error, path))?;
+        if prefix == 0
+            || prefix >= size
+            || !metadata.is_file()
+            || metadata.len() != prefix
+        {
+            return Err(IOError::with_path(
+                std::io::Error::other(RANGE_OUTPUT_RANGE_OUTPUT_LENGTH_CHANGED),
+                path,
+            ));
+        }
+        super::local_resources::write(path, 0, file.set_len(size))
+            .await
+            .map_err(|error| IOError::with_path(error, path))?;
+        Ok(Arc::new(Self {
+            path: path.to_path_buf(),
+            size,
+        }))
+    }
+
     pub(crate) async fn reopen(
         path: &Path,
         size: u64,
@@ -234,6 +270,22 @@ mod tests {
     use super::*;
     use futures::future::try_join_all;
     use std::sync::atomic::Ordering;
+
+    #[tokio::test]
+    async fn extends_only_an_unchanged_contiguous_prefix() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("resume.part");
+        tokio::fs::write(&path, [7; 128]).await.unwrap();
+        assert!(RangeOutput::resume_prefix(&path, 512, 127).await.is_err());
+        assert_eq!(tokio::fs::metadata(&path).await.unwrap().len(), 128);
+        let output = RangeOutput::resume_prefix(&path, 512, 128).await.unwrap();
+        let mut writer = output.open_range(128, 512).await.unwrap();
+        writer.write_next(&[8; 384]).await.unwrap();
+        writer.flush().await.unwrap();
+        let bytes = tokio::fs::read(&path).await.unwrap();
+        assert_eq!(&bytes[..128], &[7; 128]);
+        assert_eq!(&bytes[128..], &[8; 384]);
+    }
 
     #[tokio::test]
     async fn writes_non_overlapping_ranges_with_independent_writers() {

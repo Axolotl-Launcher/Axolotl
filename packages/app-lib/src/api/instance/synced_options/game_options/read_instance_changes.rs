@@ -116,12 +116,12 @@ pub(super) async fn read_instance_changes_into_shared_settings(
             let canonical_type = candidate.type_name();
             let result = sqlx::query!(
                 "
-				UPDATE synced_game_option_values
-				SET canonical_type = ?, canonical_value_json = ?, seeded = 1,
-					revision = ?, origin = 'instance', source_game_version = ?,
-					source_instance_id = ?, updated_at = ?
-				WHERE option_id = ? AND revision = ?
-				",
+                UPDATE synced_game_option_values
+                SET canonical_type = ?, canonical_value_json = ?, seeded = 1,
+                    revision = ?, origin = 'instance', source_game_version = ?,
+                    source_instance_id = ?, updated_at = ?
+                WHERE option_id = ? AND revision = ?
+                ",
                 canonical_type,
                 value_json,
                 next_revision,
@@ -145,10 +145,10 @@ pub(super) async fn read_instance_changes_into_shared_settings(
             let next_revision = canonical_revision.saturating_add(1) as i64;
             sqlx::query!(
                 "
-				UPDATE synced_game_option_state
-				SET revision = ?, catalog_revision = ?
-				WHERE singleton = 1
-				",
+                UPDATE synced_game_option_state
+                SET revision = ?, catalog_revision = ?
+                WHERE singleton = 1
+                ",
                 next_revision,
                 CATALOG_REVISION as i64,
             )
@@ -208,10 +208,10 @@ pub(super) async fn discover_custom_settings(
             let revision = custom.revision.saturating_add(1) as i64;
             sqlx::query!(
                 "
-				UPDATE synced_game_option_values
-				SET seeded = 0, revision = ?, updated_at = ?
-				WHERE option_id = ?
-				",
+                UPDATE synced_game_option_values
+                SET seeded = 0, revision = ?, updated_at = ?
+                WHERE option_id = ?
+                ",
                 revision,
                 now,
                 custom_id,
@@ -220,10 +220,10 @@ pub(super) async fn discover_custom_settings(
             .await?;
             sqlx::query!(
                 "
-				UPDATE synced_game_option_preferences
-				SET enabled = 0, source = 'catalog_default', revision = ?
-				WHERE option_id = ?
-				",
+                UPDATE synced_game_option_preferences
+                SET enabled = 0, source = 'catalog_default', revision = ?
+                WHERE option_id = ?
+                ",
                 revision,
                 custom_id,
             )
@@ -252,13 +252,13 @@ pub(super) async fn discover_custom_settings(
             let canonical_type = value.type_name();
             sqlx::query!(
                 "
-				INSERT INTO synced_game_option_values
-					(option_id, kind, raw_key, canonical_type,
-					 canonical_value_json, value_codec, seeded, revision, origin,
-					 source_game_version, source_instance_id, updated_at)
-				VALUES (?, 'vanilla', NULL, ?, ?, 'catalog', 1, 1,
-					'instance', ?, ?, ?)
-				",
+                INSERT INTO synced_game_option_values
+                    (option_id, kind, raw_key, canonical_type,
+                     canonical_value_json, value_codec, seeded, revision, origin,
+                     source_game_version, source_instance_id, updated_at)
+                VALUES (?, 'vanilla', NULL, ?, ?, 'catalog', 1, 1,
+                    'instance', ?, ?, ?)
+                ",
                 definition.id,
                 canonical_type,
                 value_json,
@@ -270,10 +270,10 @@ pub(super) async fn discover_custom_settings(
             .await?;
             sqlx::query!(
                 "
-				INSERT INTO synced_game_option_preferences
-					(option_id, enabled, source, revision)
-				VALUES (?, ?, 'catalog_default', 1)
-				",
+                INSERT INTO synced_game_option_preferences
+                    (option_id, enabled, source, revision)
+                VALUES (?, ?, 'catalog_default', 1)
+                ",
                 definition.id,
                 definition.default_on,
             )
@@ -318,21 +318,21 @@ pub(super) async fn discover_custom_settings(
 
         sqlx::query!(
             "
-			INSERT INTO synced_game_option_values
-				(option_id, kind, raw_key, canonical_type,
-				 canonical_value_json, value_codec, seeded, revision, origin,
-				 source_game_version, source_instance_id, updated_at)
-			VALUES (?, 'external', ?, 'external_raw', ?, 'exact_raw',
-				1, ?, 'instance', ?, ?, ?)
-			ON CONFLICT(option_id) DO UPDATE SET
-				raw_key = excluded.raw_key,
-				canonical_value_json = excluded.canonical_value_json,
-				seeded = 1, revision = excluded.revision,
-				origin = 'instance',
-				source_game_version = excluded.source_game_version,
-				source_instance_id = excluded.source_instance_id,
-				updated_at = excluded.updated_at
-			",
+            INSERT INTO synced_game_option_values
+                (option_id, kind, raw_key, canonical_type,
+                 canonical_value_json, value_codec, seeded, revision, origin,
+                 source_game_version, source_instance_id, updated_at)
+            VALUES (?, 'external', ?, 'external_raw', ?, 'exact_raw',
+                1, ?, 'instance', ?, ?, ?)
+            ON CONFLICT(option_id) DO UPDATE SET
+                raw_key = excluded.raw_key,
+                canonical_value_json = excluded.canonical_value_json,
+                seeded = 1, revision = excluded.revision,
+                origin = 'instance',
+                source_game_version = excluded.source_game_version,
+                source_instance_id = excluded.source_instance_id,
+                updated_at = excluded.updated_at
+            ",
             option_id,
             key,
             value_json,
@@ -345,11 +345,11 @@ pub(super) async fn discover_custom_settings(
         .await?;
         sqlx::query(
             "
-			INSERT INTO synced_game_option_preferences
-				(option_id, enabled, source, revision)
+            INSERT INTO synced_game_option_preferences
+                (option_id, enabled, source, revision)
             VALUES (?, 0, 'discovery_default', ?)
-			ON CONFLICT(option_id) DO NOTHING
-			",
+            ON CONFLICT(option_id) DO NOTHING
+            ",
         )
         .bind(&option_id)
         .bind(revision)
@@ -362,10 +362,10 @@ pub(super) async fn discover_custom_settings(
         let next_revision = canonical_revision.saturating_add(1) as i64;
         sqlx::query!(
             "
-			UPDATE synced_game_option_state
-			SET revision = ?, catalog_revision = ?
-			WHERE singleton = 1
-			",
+            UPDATE synced_game_option_state
+            SET revision = ?, catalog_revision = ?
+            WHERE singleton = 1
+            ",
             next_revision,
             CATALOG_REVISION as i64,
         )

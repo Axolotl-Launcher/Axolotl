@@ -1,68 +1,16 @@
+use chrono::Utc;
 use serde::{Deserialize, Serialize};
-use sqlx::Row;
 
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
-#[serde(rename_all = "snake_case")]
-pub enum ContentFavoriteProvider {
-    Modrinth,
-    Curseforge,
-    Mcarchive,
-}
-
-impl ContentFavoriteProvider {
-    pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Modrinth => "modrinth",
-            Self::Curseforge => "curseforge",
-            Self::Mcarchive => "mcarchive",
-        }
-    }
-
-    fn parse(value: &str) -> crate::Result<Self> {
-        match value {
-            "modrinth" => Ok(Self::Modrinth),
-            "curseforge" => Ok(Self::Curseforge),
-            "mcarchive" => Ok(Self::Mcarchive),
-            _ => Err(crate::ErrorKind::InputError(format!(
-                "Unsupported content favorite provider: {value}"
-            ))
-            .into()),
-        }
-    }
-}
-
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
-#[serde(rename_all = "snake_case")]
-pub enum ContentFavoriteType {
-    Mod,
-    Resourcepack,
-    Datapack,
-    Shader,
-}
-
-impl ContentFavoriteType {
-    pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Mod => "mod",
-            Self::Resourcepack => "resourcepack",
-            Self::Datapack => "datapack",
-            Self::Shader => "shader",
-        }
-    }
-
-    fn parse(value: &str) -> crate::Result<Self> {
-        match value {
-            "mod" => Ok(Self::Mod),
-            "resourcepack" => Ok(Self::Resourcepack),
-            "datapack" => Ok(Self::Datapack),
-            "shader" => Ok(Self::Shader),
-            _ => Err(crate::ErrorKind::InputError(format!(
-                "Unsupported content favorite type: {value}"
-            ))
-            .into()),
-        }
-    }
-}
+pub use crate::state::content_types::{
+    ContentFavoriteProvider, ContentFavoriteType,
+};
+use crate::state::store::content_favorites::{
+    ContentFavoriteKey, ContentFavoriteRecord, ContentFavorites,
+};
+use crate::state::store::resource_source_projects::{
+    ResourceSourceProjectKey, ResourceSourceProjects,
+};
+use crate::state::store::{Collection as _, Handle};
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct ContentFavorite {
@@ -93,80 +41,58 @@ impl ContentFavoriteInput {
     }
 }
 
-fn from_row(row: sqlx::sqlite::SqliteRow) -> crate::Result<ContentFavorite> {
-    let provider: String = row.try_get("provider")?;
-    let content_type: String = row.try_get("content_type")?;
-    Ok(ContentFavorite {
-        resource_id: row.try_get("resource_id")?,
-        provider: ContentFavoriteProvider::parse(&provider)?,
-        project_id: row.try_get("project_id")?,
-        content_type: ContentFavoriteType::parse(&content_type)?,
-        saved_at: row.try_get("saved_at")?,
-    })
-}
-
-pub async fn list(
-    exec: impl sqlx::Executor<'_, Database = sqlx::Sqlite>,
+pub(crate) async fn list(
+    handle: &Handle,
 ) -> crate::Result<Vec<ContentFavorite>> {
-    let rows = sqlx::query(
-        "
-        SELECT provider, project_id, content_type, saved_at,
-            (SELECT resource_id FROM resource_source_projects
-                WHERE source = content_favorites.provider AND project_id = content_favorites.project_id) AS resource_id
-		FROM content_favorites
-		ORDER BY saved_at DESC, provider ASC, project_id ASC
-		",
-    )
-    .fetch_all(exec)
-    .await?;
+    let mut favorites = Vec::new();
+    for (key, record) in ContentFavorites::get_all(handle).await? {
+        favorites.push(with_resource(handle, key, record).await?);
+    }
 
-    rows.into_iter().map(from_row).collect()
+    favorites.sort_by(|left, right| {
+        right
+            .saved_at
+            .cmp(&left.saved_at)
+            .then_with(|| left.provider.as_str().cmp(right.provider.as_str()))
+            .then_with(|| left.project_id.cmp(&right.project_id))
+    });
+    Ok(favorites)
 }
 
-pub async fn add(
+pub(crate) async fn add(
     favorite: ContentFavoriteInput,
-    exec: impl sqlx::Executor<'_, Database = sqlx::Sqlite> + Copy,
+    handle: &Handle,
 ) -> crate::Result<ContentFavorite> {
     favorite.validate()?;
-    let project_id = favorite.project_id.trim();
-    let provider = favorite.provider.as_str();
-    let content_type = favorite.content_type.as_str();
-
-    sqlx::query(
-        "
-		INSERT INTO content_favorites (provider, project_id, content_type, saved_at)
-		VALUES (?, ?, ?, CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER))
-		ON CONFLICT (provider, project_id) DO UPDATE SET
-			content_type = excluded.content_type
-		",
+    let key = ContentFavoriteKey {
+        provider: favorite.provider,
+        project_id: favorite.project_id.trim().to_string(),
+    };
+    // The write keeps the moment an existing favorite was first saved, so the
+    // record the collection hands back is the one the list is ordered by.
+    ContentFavorites::set(
+        handle,
+        &key,
+        Some(&ContentFavoriteRecord {
+            content_type: favorite.content_type,
+            saved_at: Utc::now().timestamp_millis(),
+        }),
     )
-    .bind(provider)
-    .bind(project_id)
-    .bind(content_type)
-    .execute(exec)
     .await?;
-
-    let row = sqlx::query(
-        "
-        SELECT provider, project_id, content_type, saved_at,
-            (SELECT resource_id FROM resource_source_projects
-                WHERE source = content_favorites.provider AND project_id = content_favorites.project_id) AS resource_id
-		FROM content_favorites
-		WHERE provider = ? AND project_id = ?
-		",
-    )
-    .bind(provider)
-    .bind(project_id)
-    .fetch_one(exec)
-    .await?;
-
-    from_row(row)
+    let stored = ContentFavorites::get(handle, &key).await?;
+    match stored {
+        Some(record) => with_resource(handle, key, record).await,
+        None => Err(crate::ErrorKind::OtherError(
+            "The favorite was removed while it was being saved".to_string(),
+        )
+        .into()),
+    }
 }
 
-pub async fn remove(
+pub(crate) async fn remove(
     provider: ContentFavoriteProvider,
     project_id: &str,
-    exec: impl sqlx::Executor<'_, Database = sqlx::Sqlite>,
+    handle: &Handle,
 ) -> crate::Result<()> {
     if project_id.trim().is_empty() {
         return Err(crate::ErrorKind::InputError(
@@ -175,15 +101,35 @@ pub async fn remove(
         .into());
     }
 
-    sqlx::query(
-        "DELETE FROM content_favorites WHERE provider = ? AND project_id = ?",
-    )
-    .bind(provider.as_str())
-    .bind(project_id.trim())
-    .execute(exec)
-    .await?;
+    let key = ContentFavoriteKey {
+        provider,
+        project_id: project_id.trim().to_string(),
+    };
+    ContentFavorites::set(handle, &key, None).await
+}
 
-    Ok(())
+async fn with_resource(
+    handle: &Handle,
+    key: ContentFavoriteKey,
+    record: ContentFavoriteRecord,
+) -> crate::Result<ContentFavorite> {
+    let resource_id = ResourceSourceProjects::get(
+        handle,
+        &ResourceSourceProjectKey {
+            source: key.provider.as_str().to_string(),
+            project_id: key.project_id.clone(),
+        },
+    )
+    .await?
+    .map(|project| project.resource_id);
+
+    Ok(ContentFavorite {
+        resource_id,
+        provider: key.provider,
+        project_id: key.project_id,
+        content_type: record.content_type,
+        saved_at: record.saved_at,
+    })
 }
 
 #[cfg(test)]
@@ -192,67 +138,33 @@ mod tests {
         ContentFavoriteInput, ContentFavoriteProvider, ContentFavoriteType,
         add, list, remove,
     };
+    use crate::state::store::content_favorites::{
+        ContentFavoriteKey, ContentFavoriteRecord, ContentFavorites,
+    };
+    use crate::state::store::{Collection as _, Handle};
     use sqlx::sqlite::SqlitePoolOptions;
     use std::time::Duration;
 
-    async fn pool() -> sqlx::SqlitePool {
+    async fn handle() -> Handle {
         let pool = SqlitePoolOptions::new()
             .max_connections(1)
             .connect("sqlite::memory:")
             .await
             .expect("in-memory database");
         sqlx::migrate!().run(&pool).await.expect("migrations");
-        pool
-    }
-
-    #[tokio::test]
-    async fn content_favorites_migration_preserves_existing_database_rows() {
-        let pool = SqlitePoolOptions::new()
-            .max_connections(1)
-            .connect("sqlite::memory:")
-            .await
-            .expect("in-memory database");
-        sqlx::raw_sql(
-			"CREATE TABLE existing_content (id INTEGER PRIMARY KEY, marker TEXT NOT NULL); INSERT INTO existing_content (marker) VALUES ('keep');",
-		)
-		.execute(&pool)
-		.await
-		.expect("legacy database data");
-
-        sqlx::raw_sql(include_str!(
-            "../../migrations/20260820200000_content-favorites.sql"
-        ))
-        .execute(&pool)
-        .await
-        .expect("apply content favorites migration");
-
-        let marker: String = sqlx::query_scalar(
-            "SELECT marker FROM existing_content WHERE id = 1",
-        )
-        .fetch_one(&pool)
-        .await
-        .expect("legacy row after migration");
-        let table_exists: i64 = sqlx::query_scalar(
-			"SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = 'content_favorites'",
-		)
-		.fetch_one(&pool)
-		.await
-		.expect("content favorites table query");
-
-        assert_eq!(marker, "keep");
-        assert_eq!(table_exists, 1);
+        Handle::new(pool)
     }
 
     #[tokio::test]
     async fn content_favorites_are_provider_qualified_and_idempotent() {
-        let pool = pool().await;
+        let handle = handle().await;
         let modrinth = add(
             ContentFavoriteInput {
                 provider: ContentFavoriteProvider::Modrinth,
                 project_id: "same-id".to_string(),
                 content_type: ContentFavoriteType::Mod,
             },
-            &pool,
+            &handle,
         )
         .await
         .expect("add Modrinth favorite");
@@ -262,7 +174,7 @@ mod tests {
                 project_id: "same-id".to_string(),
                 content_type: ContentFavoriteType::Mod,
             },
-            &pool,
+            &handle,
         )
         .await
         .expect("add duplicate favorite");
@@ -272,12 +184,12 @@ mod tests {
                 project_id: "same-id".to_string(),
                 content_type: ContentFavoriteType::Shader,
             },
-            &pool,
+            &handle,
         )
         .await
         .expect("add CurseForge favorite");
 
-        let favorites = list(&pool).await.expect("list favorites");
+        let favorites = list(&handle).await.expect("list favorites");
         assert_eq!(favorites.len(), 2);
         assert_eq!(duplicate.saved_at, modrinth.saved_at);
         assert!(favorites.iter().any(|favorite| {
@@ -292,67 +204,27 @@ mod tests {
 
     #[tokio::test]
     async fn removing_a_content_favorite_is_idempotent() {
-        let pool = pool().await;
-        remove(ContentFavoriteProvider::Modrinth, "missing", &pool)
+        let handle = handle().await;
+        remove(ContentFavoriteProvider::Modrinth, "missing", &handle)
             .await
             .expect("remove missing favorite");
-        assert!(list(&pool).await.expect("list favorites").is_empty());
-    }
-
-    #[tokio::test]
-    async fn content_favorites_reject_invalid_database_values_and_sort_by_saved_time()
-     {
-        let pool = pool().await;
-        sqlx::query(
-			"INSERT INTO content_favorites (provider, project_id, content_type, saved_at) VALUES ('modrinth', 'older', 'mod', 1)",
-		)
-		.execute(&pool)
-		.await
-		.expect("insert valid favorite");
-        sqlx::query(
-			"INSERT INTO content_favorites (provider, project_id, content_type, saved_at) VALUES ('curseforge', 'newer', 'shader', 2)",
-		)
-		.execute(&pool)
-		.await
-		.expect("insert valid favorite");
-
-        assert!(sqlx::query(
-			"INSERT INTO content_favorites (provider, project_id, content_type, saved_at) VALUES ('unknown', 'bad-provider', 'mod', 3)",
-		)
-		.execute(&pool)
-		.await
-		.is_err());
-        assert!(sqlx::query(
-			"INSERT INTO content_favorites (provider, project_id, content_type, saved_at) VALUES ('modrinth', 'bad-type', 'modpack', 3)",
-		)
-		.execute(&pool)
-		.await
-		.is_err());
-
-        let favorites = list(&pool).await.expect("list favorites");
-        assert_eq!(
-            favorites
-                .iter()
-                .map(|favorite| favorite.project_id.as_str())
-                .collect::<Vec<_>>(),
-            vec!["newer", "older"]
-        );
+        assert!(list(&handle).await.expect("list favorites").is_empty());
     }
 
     #[tokio::test]
     async fn readding_after_remove_gets_a_new_saved_time() {
-        let pool = pool().await;
+        let handle = handle().await;
         let first = add(
             ContentFavoriteInput {
                 provider: ContentFavoriteProvider::Modrinth,
                 project_id: "sodium".to_string(),
                 content_type: ContentFavoriteType::Mod,
             },
-            &pool,
+            &handle,
         )
         .await
         .expect("add favorite");
-        remove(ContentFavoriteProvider::Modrinth, "sodium", &pool)
+        remove(ContentFavoriteProvider::Modrinth, "sodium", &handle)
             .await
             .expect("remove favorite");
         tokio::time::sleep(Duration::from_millis(2)).await;
@@ -362,11 +234,43 @@ mod tests {
                 project_id: "sodium".to_string(),
                 content_type: ContentFavoriteType::Mod,
             },
-            &pool,
+            &handle,
         )
         .await
         .expect("re-add favorite");
 
         assert!(second.saved_at > first.saved_at);
+    }
+
+    #[tokio::test]
+    async fn favorites_are_ordered_by_when_they_were_saved() {
+        let handle = handle().await;
+        for (provider, project_id, saved_at) in [
+            (ContentFavoriteProvider::Modrinth, "older", 1),
+            (ContentFavoriteProvider::Curseforge, "newer", 2),
+        ] {
+            ContentFavorites::set(
+                &handle,
+                &ContentFavoriteKey {
+                    provider,
+                    project_id: project_id.to_string(),
+                },
+                Some(&ContentFavoriteRecord {
+                    content_type: ContentFavoriteType::Mod,
+                    saved_at,
+                }),
+            )
+            .await
+            .expect("seed favorite");
+        }
+
+        let favorites = list(&handle).await.expect("list favorites");
+        assert_eq!(
+            favorites
+                .iter()
+                .map(|favorite| favorite.project_id.as_str())
+                .collect::<Vec<_>>(),
+            vec!["newer", "older"]
+        );
     }
 }

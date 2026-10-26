@@ -36,6 +36,7 @@ pub(crate) struct NativeSlowPolicy {
     slow_windows: u8,
     committed: bool,
     expected_speed: Option<u64>,
+    observed_speed: u64,
     probe_small_transfers: bool,
     last_observed_bytes: u64,
     last_data_at: Instant,
@@ -49,6 +50,7 @@ impl NativeSlowPolicy {
         pressure: super::local_resources::Pressure,
     ) -> SlowDecision {
         if pressure.blocks_expansion() {
+            self.observed_speed = 0;
             self.window_started_at = Instant::now();
             self.window_start_bytes = downloaded;
             self.slow_windows = 0;
@@ -79,6 +81,7 @@ impl NativeSlowPolicy {
             slow_windows: 0,
             committed: false,
             expected_speed,
+            observed_speed: 0,
             probe_small_transfers: false,
             last_observed_bytes: starting_bytes,
             last_data_at: now,
@@ -142,6 +145,12 @@ impl NativeSlowPolicy {
             / elapsed.as_secs_f64()) as u64;
         self.window_started_at = Instant::now();
         self.window_start_bytes = downloaded;
+        // Learn from complete windows of this transfer, so a cold download
+        // can detect a fast prefix followed by a throttled tail. H2 streams
+        // share connection bandwidth and retain their conservative floor.
+        if !self.probe_small_transfers {
+            self.observed_speed = self.observed_speed.max(speed);
+        }
 
         // Zero is also used for unknown length by legacy callers. It must
         // not permanently commit an otherwise stalled or slow transfer.
@@ -178,7 +187,12 @@ impl NativeSlowPolicy {
                     / DOWNLOAD_PERCENT_BASE
             })
             .unwrap_or(COLD_SPEED_FLOOR)
-            .max(ABSOLUTE_SPEED_FLOOR);
+            .max(ABSOLUTE_SPEED_FLOOR)
+            .max(
+                self.observed_speed
+                    .saturating_mul(NATIVE_SLOW_EXPECTED_PERCENT)
+                    / DOWNLOAD_PERCENT_BASE,
+            );
         // A multiplexed stream shares bandwidth with other downloads, so a
         // historical single-file peak alone must not trigger H2 retirement.
         if self.probe_small_transfers {
@@ -255,6 +269,48 @@ pub(crate) fn estimated_duration(bytes: u64, speed: u64) -> Duration {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn cold_http1_transfer_detects_fast_prefix_then_500_kib_tail() {
+        let mut policy = NativeSlowPolicy::new(0, None);
+        let mut downloaded = 5 * 1024 * 1024 * WINDOW.as_secs();
+        policy.window_started_at = Instant::now() - WINDOW;
+        assert_eq!(
+            policy.observe(downloaded, 128 * 1024 * 1024),
+            SlowDecision::Continue
+        );
+        assert!(policy.speed_floor() > 500 * 1024);
+        policy.started_at = Instant::now() - MIN_FLOW;
+        for index in 0..REQUIRED_SLOW_WINDOWS {
+            policy.window_started_at = Instant::now() - WINDOW;
+            downloaded += 500 * 1024 * WINDOW.as_secs();
+            assert_eq!(
+                matches!(
+                    policy.observe(downloaded, 64 * 1024 * 1024),
+                    SlowDecision::Probe { .. }
+                ),
+                index + 1 == REQUIRED_SLOW_WINDOWS
+            );
+        }
+    }
+
+    #[test]
+    fn partial_windows_and_local_pressure_do_not_teach_a_speed_peak() {
+        let mut policy = NativeSlowPolicy::new(0, None);
+        policy.observe(5 * 1024 * 1024, 128 * 1024 * 1024);
+        assert_eq!(policy.observed_speed, 0);
+        policy.observed_speed = 5 * 1024 * 1024;
+        policy.observe_with_pressure(
+            5 * 1024 * 1024,
+            128 * 1024 * 1024,
+            super::super::local_resources::Pressure {
+                cpu_percent: crate::util::download::constants::LOCAL_CPU_PRESSURE_PERCENT,
+                write_latency_ms: 0.0,
+            },
+        );
+        assert_eq!(policy.observed_speed, 0);
+        assert_eq!(policy.speed_floor(), COLD_SPEED_FLOOR);
+    }
 
     #[test]
     fn extreme_content_lengths_saturate_eta_and_reconnect_cost_without_panicking()
@@ -404,7 +460,7 @@ mod tests {
                 0,
                 64 * 1024 * 1024,
                 super::super::local_resources::Pressure {
-                    cpu_percent: 90,
+                    cpu_percent: crate::util::download::constants::LOCAL_CPU_PRESSURE_PERCENT,
                     write_latency_ms: 0.0
                 }
             ),

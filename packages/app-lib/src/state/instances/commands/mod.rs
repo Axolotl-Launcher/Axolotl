@@ -54,8 +54,10 @@ mod launch_context;
 pub(crate) use self::launch_context::*;
 
 mod apply_content_install;
+mod content_file_operations;
 pub(crate) use self::apply_content_install::*;
 pub(crate) use apply_content_install::ProjectFileRecord;
+pub(crate) use content_file_operations::recover_content_file_operations;
 
 mod instance_upgrade;
 pub(crate) use self::instance_upgrade::{

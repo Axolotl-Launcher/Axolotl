@@ -27,6 +27,7 @@ export interface BrowseSearchResponse {
         }
     })[]
     serverHits: Labrinth.Search.v3.ResultSearchProject[]
+    resourceNotice?: string
     total_hits: number
     has_more?: boolean
     total_precision?: 'exact' | 'estimate' | 'unknown'

@@ -18,6 +18,28 @@ const message = (id: string, defaultMessage: string): MessageDescriptor => ({ id
 
 export const settingsSearchEntries: SettingsSearchEntry[] = [
     {
+        id: 'mcp-access',
+        categoryId: 'mcp',
+        targetId: 'settings-target-mcp-access',
+        label: message('app.mcp.full-access', 'Full access mode'),
+        description: message(
+            'app.mcp.full-access-description',
+            'Allow connections without approval, deletion tools, and direct control of the launcher interface.',
+        ),
+    },
+    {
+        id: 'mcp-clients',
+        categoryId: 'mcp',
+        targetId: 'settings-target-mcp-clients',
+        label: message('app.mcp.setup-title', 'Connect your AI client'),
+        keywords: [
+            message(
+                'app.mcp.client-search',
+                'MCP Model Context Protocol Codex Claude Code Cursor VS Code installation connection agent',
+            ),
+        ],
+    },
+    {
         id: 'network-tests',
         categoryId: 'network-connection',
         targetId: 'settings-target-network-tests',

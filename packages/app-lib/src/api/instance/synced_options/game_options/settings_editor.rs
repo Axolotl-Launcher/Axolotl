@@ -423,20 +423,20 @@ pub async fn save_changes(
                 let source_game_version: Option<&str> = None;
                 sqlx::query!(
                     "
-				INSERT INTO synced_game_option_values
-					(option_id, kind, raw_key, canonical_type,
-					 canonical_value_json, value_codec, seeded, revision, origin,
-					 source_game_version, source_instance_id, updated_at)
-				VALUES (?, ?, ?, ?, ?, ?, 1, ?, 'app_editor', ?, NULL, ?)
-				ON CONFLICT(option_id) DO UPDATE SET
-					kind = excluded.kind, raw_key = excluded.raw_key,
-					canonical_type = excluded.canonical_type,
-					canonical_value_json = excluded.canonical_value_json,
-					value_codec = excluded.value_codec, seeded = 1,
-					revision = excluded.revision, origin = 'app_editor',
-					source_game_version = NULL, source_instance_id = NULL,
-					updated_at = excluded.updated_at
-				",
+                INSERT INTO synced_game_option_values
+                    (option_id, kind, raw_key, canonical_type,
+                     canonical_value_json, value_codec, seeded, revision, origin,
+                     source_game_version, source_instance_id, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, 1, ?, 'app_editor', ?, NULL, ?)
+                ON CONFLICT(option_id) DO UPDATE SET
+                    kind = excluded.kind, raw_key = excluded.raw_key,
+                    canonical_type = excluded.canonical_type,
+                    canonical_value_json = excluded.canonical_value_json,
+                    value_codec = excluded.value_codec, seeded = 1,
+                    revision = excluded.revision, origin = 'app_editor',
+                    source_game_version = NULL, source_instance_id = NULL,
+                    updated_at = excluded.updated_at
+                ",
                     setting.option_id,
                     kind,
                     raw_key,
@@ -452,12 +452,12 @@ pub async fn save_changes(
             } else {
                 sqlx::query!(
                     "
-					UPDATE synced_game_option_values
-					SET canonical_value_json = NULL, seeded = 0, revision = ?,
-						origin = 'app_editor', source_game_version = NULL,
-						source_instance_id = NULL, updated_at = ?
-					WHERE option_id = ?
-					",
+                    UPDATE synced_game_option_values
+                    SET canonical_value_json = NULL, seeded = 0, revision = ?,
+                        origin = 'app_editor', source_game_version = NULL,
+                        source_instance_id = NULL, updated_at = ?
+                    WHERE option_id = ?
+                    ",
                     revision,
                     now,
                     setting.option_id,
@@ -469,13 +469,13 @@ pub async fn save_changes(
         if let Some(enabled) = change.sync_enabled {
             sqlx::query!(
                 "
-				INSERT INTO synced_game_option_preferences
-					(option_id, enabled, source, revision)
-				VALUES (?, ?, ?, ?)
-				ON CONFLICT(option_id) DO UPDATE SET
-					enabled = excluded.enabled, source = 'user',
-					revision = excluded.revision
-				",
+                INSERT INTO synced_game_option_preferences
+                    (option_id, enabled, source, revision)
+                VALUES (?, ?, ?, ?)
+                ON CONFLICT(option_id) DO UPDATE SET
+                    enabled = excluded.enabled, source = 'user',
+                    revision = excluded.revision
+                ",
                 setting.option_id,
                 enabled,
                 "user",
@@ -491,12 +491,12 @@ pub async fn save_changes(
         let catalog_revision = CATALOG_REVISION as i64;
         sqlx::query!(
             "
-			INSERT INTO synced_game_option_state (singleton, revision, catalog_revision)
-			VALUES (1, ?, ?)
-			ON CONFLICT(singleton) DO UPDATE SET
-				revision = excluded.revision,
-				catalog_revision = excluded.catalog_revision
-			",
+            INSERT INTO synced_game_option_state (singleton, revision, catalog_revision)
+            VALUES (1, ?, ?)
+            ON CONFLICT(singleton) DO UPDATE SET
+                revision = excluded.revision,
+                catalog_revision = excluded.catalog_revision
+            ",
             next_revision,
             catalog_revision,
         )

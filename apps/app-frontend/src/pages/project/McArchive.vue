@@ -1,6 +1,13 @@
 <script setup lang="ts">
 import { DownloadIcon, ExternalIcon, FileArchiveIcon, SpinnerIcon } from '@modrinth/assets'
-import { Button, Card, defineMessages, injectNotificationManager, useVIntl } from '@modrinth/ui'
+import {
+    Button,
+    Card,
+    commonMessages,
+    defineMessages,
+    injectNotificationManager,
+    useVIntl,
+} from '@modrinth/ui'
 import { open } from '@tauri-apps/plugin-dialog'
 import { openUrl } from '@tauri-apps/plugin-opener'
 import { computed, onScopeDispose, ref, watch } from 'vue'
@@ -15,9 +22,12 @@ import {
     type McArchiveFile,
     type McArchiveModVersion,
 } from '@/helpers/mcarchive'
+import { readProjectPreviewTitle } from '@/helpers/project-preview'
 import { injectContentSelection } from '@/providers/content-selection'
 import { injectDownloadManager } from '@/providers/download-manager'
 import { useBreadcrumbs } from '@/store/breadcrumbs'
+
+import SourceProjectSkeleton from './SourceProjectSkeleton.vue'
 
 type McArchiveContentInstallRequest = {
     projectId: string
@@ -28,6 +38,7 @@ type McArchiveContentInstallRequest = {
 }
 
 const route = useRoute()
+const previewTitle = computed(() => readProjectPreviewTitle(route.path))
 const { formatMessage } = useVIntl()
 const { handleError } = injectNotificationManager()
 const contentSelection = injectContentSelection()
@@ -52,10 +63,6 @@ const messages = defineMessages({
     unavailable: {
         id: 'app.project.mcarchive.unavailable',
         defaultMessage: 'This MCArchive project is unavailable. Reopen the project and try again.',
-    },
-    loading: {
-        id: 'app.project.mcarchive.loading',
-        defaultMessage: 'Loading MCArchive project…',
     },
     versions: {
         id: 'app.project.mcarchive.versions',
@@ -242,34 +249,32 @@ async function selectInstance(instance: (typeof contentSelection.instances.value
     contentSelection.setTarget(instance)
 }
 
+async function loadProject(slug = route.params.slug) {
+    if (typeof slug !== 'string' || !slug) return
+    projectRequest?.abort()
+    const request = new AbortController()
+    projectRequest = request
+    operationGeneration++
+    void preview.value?.cancel()
+    busyFileId.value = null
+    project.value = null
+    manualDownload.value = null
+    loading.value = true
+    try {
+        const result = await getMcArchiveModBySlug(slug, request.signal)
+        request.signal.throwIfAborted()
+        project.value = result
+        breadcrumbs.setName('Project', project.value.name)
+        breadcrumbs.setNameIcon('Project', project.value.icon_url ?? project.value.iconUrl ?? null)
+    } catch (error) {
+        if (!request.signal.aborted) handleError(error)
+    } finally {
+        if (projectRequest === request) loading.value = false
+    }
+}
 watch(
     () => route.params.slug,
-    async (slug) => {
-        if (typeof slug !== 'string' || !slug) return
-        projectRequest?.abort()
-        const request = new AbortController()
-        projectRequest = request
-        operationGeneration++
-        void preview.value?.cancel()
-        busyFileId.value = null
-        project.value = null
-        manualDownload.value = null
-        loading.value = true
-        try {
-            const result = await getMcArchiveModBySlug(slug, request.signal)
-            request.signal.throwIfAborted()
-            project.value = result
-            breadcrumbs.setName('Project', project.value.name)
-            breadcrumbs.setNameIcon(
-                'Project',
-                project.value.icon_url ?? project.value.iconUrl ?? null,
-            )
-        } catch (error) {
-            if (!request.signal.aborted) handleError(error)
-        } finally {
-            if (projectRequest === request) loading.value = false
-        }
-    },
+    (slug) => void loadProject(slug),
     { immediate: true },
 )
 
@@ -286,13 +291,7 @@ void contentSelection
 </script>
 
 <template>
-    <div
-        v-if="loading"
-        class="flex min-h-64 items-center justify-center gap-3 p-6 text-[var(--color-text-tertiary)]"
-    >
-        <SpinnerIcon class="animate-spin" />
-        {{ formatMessage(messages.loading) }}
-    </div>
+    <SourceProjectSkeleton v-if="loading" :title="previewTitle" />
     <div v-else-if="project" class="mx-auto flex w-full max-w-5xl flex-col gap-5 p-6">
         <section class="flex flex-col gap-3">
             <div class="flex flex-wrap items-start justify-between gap-3">
@@ -424,8 +423,14 @@ void contentSelection
             </Card>
         </section>
     </div>
-    <div v-else class="p-6">
-        <Card class="text-[var(--color-text-tertiary)]">{{ formatMessage(messages.loading) }}</Card>
+    <div v-else class="mx-auto flex w-full max-w-5xl flex-col gap-5 p-6">
+        <h1 v-if="previewTitle" class="m-0 text-2xl font-bold text-[var(--color-text-primary)]">
+            {{ previewTitle }}
+        </h1>
+        <Card class="flex flex-wrap items-center gap-3" role="alert">
+            <span>{{ formatMessage(messages.unavailable) }}</span>
+            <Button @click="loadProject()">{{ formatMessage(commonMessages.retryButton) }}</Button>
+        </Card>
     </div>
     <ResourceOperationPreviewModal ref="preview" />
     <BrowseInstanceSelector

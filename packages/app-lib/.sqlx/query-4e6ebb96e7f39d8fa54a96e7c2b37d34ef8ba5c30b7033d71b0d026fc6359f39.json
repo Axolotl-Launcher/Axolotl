@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "\n        DELETE FROM instance_sync_checkpoints\n        WHERE instance_id = ?\n            AND feature = 'creative_hotbars'\n            AND variant != ?\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": []
+  },
+  "hash": "4e6ebb96e7f39d8fa54a96e7c2b37d34ef8ba5c30b7033d71b0d026fc6359f39"
+}

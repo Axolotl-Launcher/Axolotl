@@ -271,12 +271,30 @@ pub async fn resource_export_cancel(
 }
 
 #[tauri::command]
-pub async fn resource_check_updates(
+pub async fn resource_check_updates<R: tauri::Runtime>(
+    webview: tauri::Webview<R>,
     instance_id: String,
     request_id: RequestId,
+    entry_ids: Option<Vec<InstalledEntryId>>,
+    on_progress: Option<tauri::ipc::JavaScriptChannelId>,
 ) -> Result<theseus::resources::updates::ResourceUpdateCheck> {
     let (_guard, cancel) = request(&request_id)?;
-    Ok(theseus::resources::updates::check(instance_id, &cancel).await?)
+    let on_progress = on_progress.map(|id| {
+        id.channel_on::<_, theseus::resources::updates::ResourceUpdateProgress>(
+            webview,
+        )
+    });
+    Ok(theseus::resources::updates::check(
+        instance_id,
+        entry_ids.as_deref(),
+        move |progress| {
+            if let Some(channel) = &on_progress {
+                let _ = channel.send(progress);
+            }
+        },
+        &cancel,
+    )
+    .await?)
 }
 
 #[tauri::command]

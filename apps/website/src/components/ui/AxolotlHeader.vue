@@ -4,9 +4,7 @@ import DownloadIcon from '@modrinth/assets/icons/download.svg?component'
 import HamburgerIcon from '@modrinth/assets/icons/hamburger.svg?component'
 import SettingsIcon from '@modrinth/assets/icons/settings.svg?component'
 import XIcon from '@modrinth/assets/icons/x.svg?component'
-import ButtonLink from '@modrinth/ui/src/components/base/buttons/ButtonLink.vue'
-import IconButton from '@modrinth/ui/src/components/base/buttons/IconButton.vue'
-import { defineMessages, useVIntl } from '@modrinth/ui/src/composables/i18n.ts'
+import { ButtonLink, defineMessages, IconButton, useVIntl } from '@modrinth/ui'
 import { type ComponentPublicInstance, resolveComponent } from 'vue'
 
 import AxolotlWordmark from '~/components/brand/AxolotlWordmark.vue'
@@ -48,8 +46,7 @@ const messages = defineMessages({
     features: { id: 'axolotl-site.navigation.features', defaultMessage: 'Features' },
     faq: { id: 'axolotl-site.navigation.faq', defaultMessage: 'FAQ' },
     changelog: { id: 'axolotl-site.navigation.changelog', defaultMessage: 'Changelog' },
-    terms: { id: 'axolotl-site.navigation.terms', defaultMessage: 'Terms of Service' },
-    privacy: { id: 'axolotl-site.navigation.privacy', defaultMessage: 'Privacy Policy' },
+    community: { id: 'axolotl-site.navigation.community', defaultMessage: 'Community' },
     openSource: { id: 'axolotl-site.navigation.open-source', defaultMessage: 'Open source' },
     download: { id: 'axolotl-site.navigation.download', defaultMessage: 'Download' },
     openSettings: {
@@ -90,11 +87,8 @@ function openSettings() {
                 <ButtonLink :as="NuxtLink" to="/changelog" type="quiet">
                     {{ formatMessage(messages.changelog) }}
                 </ButtonLink>
-                <ButtonLink :as="NuxtLink" to="/terms" type="quiet">
-                    {{ formatMessage(messages.terms) }}
-                </ButtonLink>
-                <ButtonLink :as="NuxtLink" to="/privacy" type="quiet">
-                    {{ formatMessage(messages.privacy) }}
+                <ButtonLink :as="NuxtLink" to="/#community" type="quiet">
+                    {{ formatMessage(messages.community) }}
                 </ButtonLink>
                 <ButtonLink
                     href="https://github.com/Mystic-Stars/Axolotl"
@@ -118,6 +112,7 @@ function openSettings() {
                     {{ formatMessage(messages.download) }}
                 </ButtonLink>
                 <IconButton
+                    class="header-icon-button"
                     type="quiet"
                     :label="formatMessage(messages.openSettings)"
                     @click="openSettings"
@@ -125,7 +120,7 @@ function openSettings() {
                 </IconButton>
                 <IconButton
                     ref="mobileMenuButtonRef"
-                    class="hidden max-lg:flex"
+                    class="header-icon-button hidden max-lg:flex"
                     type="quiet"
                     :label="formatMessage(mobileMenuOpen ? messages.closeMenu : messages.openMenu)"
                     :aria-expanded="mobileMenuOpen"
@@ -152,11 +147,8 @@ function openSettings() {
                 <NuxtLink to="/changelog" @click="mobileMenuOpen = false">
                     {{ formatMessage(messages.changelog) }}
                 </NuxtLink>
-                <NuxtLink to="/terms" @click="mobileMenuOpen = false">
-                    {{ formatMessage(messages.terms) }}
-                </NuxtLink>
-                <NuxtLink to="/privacy" @click="mobileMenuOpen = false">
-                    {{ formatMessage(messages.privacy) }}
+                <NuxtLink to="/#community" @click="mobileMenuOpen = false">
+                    {{ formatMessage(messages.community) }}
                 </NuxtLink>
                 <a
                     href="https://github.com/Mystic-Stars/Axolotl"
@@ -274,6 +266,13 @@ function openSettings() {
 
     .header-actions {
         grid-column: 3;
+    }
+}
+
+@media (max-width: 1024px) {
+    .header-actions :deep(.header-icon-button) {
+        min-width: 2.75rem;
+        min-height: 2.75rem;
     }
 }
 

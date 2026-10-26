@@ -12,7 +12,7 @@ import {
     type LinkedModpackInfo,
     refresh_content,
 } from '@/helpers/instance'
-import { resourceCheckUpdates } from '@/helpers/resources'
+import { resourceCheckUpdates, type ResourceUpdateCheckOptions } from '@/helpers/resources'
 import type { CacheBehaviour } from '@/helpers/types'
 
 export type InstanceContentData = {
@@ -21,6 +21,7 @@ export type InstanceContentData = {
     contentItems: ContentItem[]
     linkedContentItems: ContentItem[]
     modpack: InstanceContentModpackData | null
+    updateCheckFailedEntries?: string[]
 }
 
 export type InstanceContentModpackData = {
@@ -40,13 +41,39 @@ export function localContentIconUrl(iconUrl?: string | null): string {
     return /^(https?:|data:|blob:|asset:|tauri:)/.test(iconUrl) ? iconUrl : convertFileSrc(iconUrl)
 }
 
+export function preserveContentUpdateState(
+    previous: ContentItem | undefined,
+    item: ContentItem,
+): ContentItem {
+    if (
+        !previous ||
+        previous.file_path !== item.file_path ||
+        previous.version?.id !== item.version?.id ||
+        previous.project?.id !== item.project?.id ||
+        previous.installedSource !== item.installedSource
+    )
+        return item
+
+    return {
+        ...item,
+        update: item.update ?? previous.update,
+        resourceUpdate: item.resourceUpdate ?? previous.resourceUpdate,
+        instanceCapabilities: item.instanceCapabilities
+            ? {
+                  ...item.instanceCapabilities,
+                  canUpdate:
+                      item.instanceCapabilities.canUpdate ||
+                      (previous.instanceCapabilities?.canUpdate ?? false),
+              }
+            : item.instanceCapabilities,
+    }
+}
+
 export async function loadInstanceContentInStages(
     path: string,
     cacheBehaviour: CacheBehaviour | undefined,
     showLocal: (data: InstanceContentData) => boolean,
 ): Promise<InstanceContentData | null> {
-    if (cacheBehaviour === 'bypass' || cacheBehaviour === 'must_revalidate')
-        return loadInstanceContentData(path, cacheBehaviour)
     const local = await loadInstanceContentData(path, undefined, undefined, true)
     if (!local || !showLocal(local)) return local
     return loadInstanceContentData(path, cacheBehaviour)
@@ -187,10 +214,11 @@ export async function loadInstanceContentData(
     }
 }
 
-/** Update discovery runs after the local content snapshot has been displayed. */
+/** Discover updates for the supplied batch, after displaying local content. */
 export async function refreshInstanceContentUpdates(
     data: InstanceContentData,
     signal?: AbortSignal,
+    options?: ResourceUpdateCheckOptions,
 ): Promise<InstanceContentData> {
     if (signal?.aborted) return data
     const items = [...data.contentItems, ...data.linkedContentItems].map((item) => ({
@@ -205,17 +233,27 @@ export async function refreshInstanceContentUpdates(
             (warning) => warning.code !== 'resource_update_unavailable',
         ),
     }
-    if (items.some((item) => item.instanceEntryId)) {
+    const updateCheckFailedEntries = new Set<string>()
+    const entryIds =
+        options?.entryIds ??
+        items
+            .filter((item) => item.instanceMaterializationState === 'present')
+            .map((item) => item.instanceEntryId)
+            .filter((id): id is string => !!id)
+    const selected = new Set(entryIds)
+    if (entryIds.length) {
         try {
-            const updates = await resourceCheckUpdates(data.path, signal)
+            const updates = await resourceCheckUpdates(data.path, signal, options)
             if (signal?.aborted) return data
             for (const item of items) {
+                if (!item.instanceEntryId || !selected.has(item.instanceEntryId)) continue
                 if (
-                    !item.instanceEntryId ||
                     updates.failedEntries.includes(item.instanceEntryId) ||
                     updates.unresolved.includes(item.file_path ?? '')
-                )
+                ) {
+                    updateCheckFailedEntries.add(item.instanceEntryId)
                     continue
+                }
                 item.resourceUpdate = updates.releases[item.instanceEntryId] ?? null
                 if (item.instanceCapabilities)
                     item.instanceCapabilities.canUpdate =
@@ -229,6 +267,10 @@ export async function refreshInstanceContentUpdates(
                 })
         } catch (error) {
             if (signal?.aborted) return data
+            for (const item of items) {
+                if (item.instanceEntryId && selected.has(item.instanceEntryId))
+                    updateCheckFailedEntries.add(item.instanceEntryId)
+            }
             snapshot.warnings.push({
                 code: 'resource_update_unavailable',
                 message: error instanceof Error ? error.message : String(error),
@@ -239,6 +281,7 @@ export async function refreshInstanceContentUpdates(
     return {
         ...data,
         snapshot,
+        updateCheckFailedEntries: [...updateCheckFailedEntries],
         contentItems: items.filter((item) => item.instanceOwnershipKind !== 'pack_managed'),
         linkedContentItems: items.filter((item) => item.instanceOwnershipKind === 'pack_managed'),
     }

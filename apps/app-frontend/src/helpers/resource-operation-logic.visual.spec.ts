@@ -4,7 +4,13 @@ import { expect, it, vi } from 'vitest'
 import english from '@/locales/en-US/index.json'
 import chinese from '@/locales/zh-CN/index.json'
 
-import { isResourceOperationError, resourceOperationError } from './resource-operation-logic'
+import {
+    isResourceOperationError,
+    resourceOperationError,
+    resourceSearchFailure,
+} from './resource-operation-logic'
+import { parseResourceSearchFilter } from './resource-search-filter'
+import type { ResourceSearchQuery } from './resources'
 
 vi.mock('@modrinth/ui', () => ({ defineMessages: (messages: unknown) => messages }))
 
@@ -70,4 +76,73 @@ it('explains incomplete version catalogs without calling them incompatible', () 
     expect(resourceOperationError(error, formatter('zh-CN'))).toBe(
         '内容来源未能返回全部版本，请打开项目的“版本”标签页选择文件。',
     )
+})
+
+const browseQuery: ResourceSearchQuery = {
+    text: '',
+    types: ['mod'],
+    sources: [],
+    target: { gameVersions: [], loaders: [], channels: [] },
+    categories: [],
+    sort: 'relevance',
+    pageSize: 20,
+    filter: parseResourceSearchFilter(
+        '(environment = `client_only` OR environment = `client_or_server`) AND game_versions = `26.2` AND categories = `fabric` AND project_types = `mod`',
+        undefined,
+        (value) => value === 'fabric',
+    ),
+}
+
+const filterFailure = {
+    source: 'curseforge' as const,
+    code: 'sourceUnavailable',
+    message: 'unsupported resource operation: CurseForge cannot express these search filters',
+    retryable: false,
+}
+
+it('explains the client environment filter failure when browsing all sources without a keyword', () => {
+    expect(resourceSearchFailure(filterFailure, browseQuery, formatter('zh-CN'))).toBe(
+        'CurseForge 不支持按客户端或服务端筛选。移除运行环境条件后即可显示其结果。',
+    )
+    expect(resourceSearchFailure(filterFailure, browseQuery, formatter('en-US'))).toBe(
+        'CurseForge does not support filtering by client or server. Remove the environment filter to include its results.',
+    )
+    expect(
+        resourceSearchFailure(filterFailure, { ...browseQuery, filter: null }, formatter('zh-CN')),
+    ).toBe('CurseForge 不支持当前筛选组合，请减少筛选条件或切换内容来源。')
+})
+
+it('distinguishes an unsupported sort from environment filters and connection failures', () => {
+    expect(
+        resourceSearchFailure(
+            {
+                ...filterFailure,
+                message: 'unsupported resource operation: source cannot provide Followers ordering',
+            },
+            { ...browseQuery, sort: 'followers' },
+            formatter('zh-CN'),
+        ),
+    ).toBe('CurseForge 不支持当前排序方式。切换为“相关性”或“下载量”后即可显示其结果。')
+    expect(
+        resourceSearchFailure(
+            { ...filterFailure, message: 'resource request failed (HTTP status None)' },
+            browseQuery,
+            formatter('zh-CN'),
+        ),
+    ).toBe('CurseForge：无法连接内容来源，请检查网络后重试。')
+    expect(
+        resourceSearchFailure(
+            { ...filterFailure, message: 'resource request failed (HTTP status Some(503))' },
+            browseQuery,
+            formatter('zh-CN'),
+        ),
+    ).toBe('CurseForge：内容来源拒绝了请求（HTTP 503），请稍后重试。')
+})
+
+it('keeps unknown source diagnostics out of the UI without blaming active filters', () => {
+    const failure = { ...filterFailure, message: 'opaque backend diagnostic' }
+    expect(resourceSearchFailure(failure, browseQuery, formatter('zh-CN'))).toBe(
+        'CurseForge 暂时无法加载搜索结果，请稍后重试。',
+    )
+    expect(failure.message).toBe('opaque backend diagnostic')
 })

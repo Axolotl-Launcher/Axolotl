@@ -156,7 +156,7 @@ pub(super) async fn capture_observation(
         Ok(id) => Some(id),
         Err(error) => {
             tracing::warn!(%error, instance_id = metadata.instance.id,
-				"Game setting locales: snapshot capture failed");
+                "Game setting locales: snapshot capture failed");
             None
         }
     }
@@ -251,13 +251,13 @@ async fn index_installed_sources(state: &State) -> crate::Result<()> {
             Ok(snapshot) => snapshot,
             Err(error) => {
                 tracing::warn!(%error, instance_id = metadata.instance.id, %snapshot_id,
-					"Could not load game-setting locale snapshot");
+                    "Could not load game-setting locale snapshot");
                 continue;
             }
         };
         tracing::info!(instance_id = metadata.instance.id, %snapshot_id, game_version = snapshot.game_version,
-			mods = snapshot.mods.len(),
-			"Game setting locales: snapshot loaded");
+            mods = snapshot.mods.len(),
+            "Game setting locales: snapshot loaded");
         resolver
             .index_snapshot(state, &snapshot_id, snapshot.clone())
             .await?;
@@ -349,7 +349,7 @@ async fn index_installed_sources(state: &State) -> crate::Result<()> {
                 Ok(None) => {}
                 Err(error) => {
                     tracing::warn!(%error, scope = row.scope, option_id = row.option_id,
-					snapshot_id = observation.snapshot, "Game setting locales: origin resolution failed")
+                    snapshot_id = observation.snapshot, "Game setting locales: origin resolution failed")
                 }
             }
         }
@@ -460,10 +460,10 @@ pub async fn get_game_setting_locale_labels(
         .map(|origin| origin.archive.hash.as_str())
         .collect();
     let projects = sources::mod_projects(&state, &hashes.into_iter().collect::<Vec<_>>()).await
-		.unwrap_or_else(|error| {
-			tracing::warn!(%error, "Game setting locales: mod project metadata unavailable");
-			HashMap::new()
-		});
+        .unwrap_or_else(|error| {
+            tracing::warn!(%error, "Game setting locales: mod project metadata unavailable");
+            HashMap::new()
+        });
     let mut result = GameSettingLocaleLabels::default();
     let mut archives = HashMap::new();
     let mut dictionaries: HashMap<String, Translations> = HashMap::new();
@@ -494,7 +494,7 @@ pub async fn get_game_setting_locale_labels(
                 Ok(index) => index,
                 Err(error) => {
                     tracing::warn!(%error, option_id = row.option_id, hash = origin.archive.hash,
-						"Game setting locales: label archive unavailable");
+                        "Game setting locales: label archive unavailable");
                     continue;
                 }
             };
@@ -517,7 +517,7 @@ pub async fn get_game_setting_locale_labels(
             }
             bundle.deprecated.apply(&mut translations);
             tracing::info!(%dictionary_id, %locale, translations = translations.len(),
-				"Game setting locales: dictionary loaded");
+                "Game setting locales: dictionary loaded");
             dictionaries.insert(dictionary_id.clone(), translations);
         }
         let translations = &dictionaries[&dictionary_id];

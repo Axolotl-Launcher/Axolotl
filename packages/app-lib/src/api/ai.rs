@@ -134,45 +134,45 @@ pub struct AiProviderDefinition {
 }
 
 macro_rules! provider {
-	($id:literal, $name:literal, $protocol:ident, $endpoint:literal, $model:literal, $fetch:literal) => {
-		AiProviderDefinition {
-			id: $id,
-			name: $name,
-			protocol: AiProtocol::$protocol,
-			auth_type: AiAuthType::ApiKey,
-			default_endpoint: $endpoint,
-			check_model: $model,
-			show_model_fetcher: $fetch,
-			required_settings: &[],
-			sponsored: false,
-		}
-	};
-	($id:literal, $name:literal, $protocol:ident, $endpoint:literal, $model:literal, $fetch:literal, $auth:ident) => {
-		AiProviderDefinition {
-			id: $id,
-			name: $name,
-			protocol: AiProtocol::$protocol,
-			auth_type: AiAuthType::$auth,
-			default_endpoint: $endpoint,
-			check_model: $model,
-			show_model_fetcher: $fetch,
-			required_settings: &[],
-			sponsored: false,
-		}
-	};
-	($id:literal, $name:literal, $protocol:ident, $endpoint:literal, $model:literal, $fetch:literal, [$($setting:literal),*]) => {
-		AiProviderDefinition {
-			id: $id,
-			name: $name,
-			protocol: AiProtocol::$protocol,
-			auth_type: AiAuthType::ApiKey,
-			default_endpoint: $endpoint,
-			check_model: $model,
-			show_model_fetcher: $fetch,
-			required_settings: &[$($setting),*],
-			sponsored: false,
-		}
-	};
+    ($id:literal, $name:literal, $protocol:ident, $endpoint:literal, $model:literal, $fetch:literal) => {
+        AiProviderDefinition {
+            id: $id,
+            name: $name,
+            protocol: AiProtocol::$protocol,
+            auth_type: AiAuthType::ApiKey,
+            default_endpoint: $endpoint,
+            check_model: $model,
+            show_model_fetcher: $fetch,
+            required_settings: &[],
+            sponsored: false,
+        }
+    };
+    ($id:literal, $name:literal, $protocol:ident, $endpoint:literal, $model:literal, $fetch:literal, $auth:ident) => {
+        AiProviderDefinition {
+            id: $id,
+            name: $name,
+            protocol: AiProtocol::$protocol,
+            auth_type: AiAuthType::$auth,
+            default_endpoint: $endpoint,
+            check_model: $model,
+            show_model_fetcher: $fetch,
+            required_settings: &[],
+            sponsored: false,
+        }
+    };
+    ($id:literal, $name:literal, $protocol:ident, $endpoint:literal, $model:literal, $fetch:literal, [$($setting:literal),*]) => {
+        AiProviderDefinition {
+            id: $id,
+            name: $name,
+            protocol: AiProtocol::$protocol,
+            auth_type: AiAuthType::ApiKey,
+            default_endpoint: $endpoint,
+            check_model: $model,
+            show_model_fetcher: $fetch,
+            required_settings: &[$($setting),*],
+            sponsored: false,
+        }
+    };
 }
 
 // Text-capable providers from LobeHub's model bank. Image-only providers and
@@ -1448,10 +1448,10 @@ fn read_oauth_credentials(
         .map(|value| {
             serde_json::from_str(&value).map_err(|_| {
                 ErrorKind::OtherError(
-					"Stored AI OAuth credentials are invalid; reconnect the provider"
-						.to_string(),
-				)
-				.as_error()
+                    "Stored AI OAuth credentials are invalid; reconnect the provider"
+                        .to_string(),
+                )
+                .as_error()
             })
         })
         .transpose()
@@ -1526,11 +1526,11 @@ async fn load_provider_models(
 ) -> crate::Result<Vec<AiProviderModel>> {
     let state = State::get().await?;
     let rows = sqlx::query(
-		"SELECT model_id, display_name, enabled, source FROM ai_provider_models WHERE provider_id = ? ORDER BY display_name, model_id",
-	)
-	.bind(provider_id)
-	.fetch_all(&state.pool)
-	.await?;
+        "SELECT model_id, display_name, enabled, source FROM ai_provider_models WHERE provider_id = ? ORDER BY display_name, model_id",
+    )
+    .bind(provider_id)
+    .fetch_all(&state.pool)
+    .await?;
     let mut stored = rows
         .into_iter()
         .map(|row| {
@@ -1584,11 +1584,11 @@ async fn load_provider_config(
 ) -> crate::Result<AiProviderConfig> {
     let state = State::get().await?;
     let row = sqlx::query(
-		"SELECT custom_name, protocol, enabled, endpoint, settings FROM ai_provider_configs WHERE provider_id = ?",
-	)
-	.bind(definition.id)
-	.fetch_optional(&state.pool)
-	.await?;
+        "SELECT custom_name, protocol, enabled, endpoint, settings FROM ai_provider_configs WHERE provider_id = ?",
+    )
+    .bind(definition.id)
+    .fetch_optional(&state.pool)
+    .await?;
     let (custom_name, protocol, enabled, endpoint, settings) = match row {
         Some(row) => {
             let settings = serde_json::from_str::<HashMap<String, String>>(
@@ -1695,16 +1695,16 @@ pub async fn update_provider(
         .map_err(|error| ErrorKind::OtherError(error.to_string()))?;
     let state = State::get().await?;
     sqlx::query(
-		"INSERT INTO ai_provider_configs (provider_id, custom_name, protocol, enabled, endpoint, settings) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(provider_id) DO UPDATE SET custom_name = excluded.custom_name, protocol = excluded.protocol, enabled = excluded.enabled, endpoint = excluded.endpoint, settings = excluded.settings",
-	)
-	.bind(definition.id)
-	.bind(update.custom_name.map(|value| value.trim().to_string()))
-	.bind(definition.protocol.as_str())
-	.bind(update.enabled)
-	.bind(endpoint)
-	.bind(settings)
-	.execute(&state.pool)
-	.await?;
+        "INSERT INTO ai_provider_configs (provider_id, custom_name, protocol, enabled, endpoint, settings) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(provider_id) DO UPDATE SET custom_name = excluded.custom_name, protocol = excluded.protocol, enabled = excluded.enabled, endpoint = excluded.endpoint, settings = excluded.settings",
+    )
+    .bind(definition.id)
+    .bind(update.custom_name.map(|value| value.trim().to_string()))
+    .bind(definition.protocol.as_str())
+    .bind(update.enabled)
+    .bind(endpoint)
+    .bind(settings)
+    .execute(&state.pool)
+    .await?;
     Ok(())
 }
 
@@ -1756,15 +1756,15 @@ pub async fn update_model(update: AiModelUpdate) -> crate::Result<()> {
     };
     let state = State::get().await?;
     sqlx::query(
-		"INSERT INTO ai_provider_models (provider_id, model_id, display_name, enabled, source) VALUES (?, ?, ?, ?, ?) ON CONFLICT(provider_id, model_id) DO UPDATE SET display_name = excluded.display_name, enabled = excluded.enabled, source = CASE WHEN excluded.source = 'builtin' THEN 'builtin' ELSE ai_provider_models.source END",
-	)
-	.bind(&update.provider_id)
-	.bind(model_id)
-	.bind(display_name)
-	.bind(update.enabled)
-	.bind(source)
-	.execute(&state.pool)
-	.await?;
+        "INSERT INTO ai_provider_models (provider_id, model_id, display_name, enabled, source) VALUES (?, ?, ?, ?, ?) ON CONFLICT(provider_id, model_id) DO UPDATE SET display_name = excluded.display_name, enabled = excluded.enabled, source = CASE WHEN excluded.source = 'builtin' THEN 'builtin' ELSE ai_provider_models.source END",
+    )
+    .bind(&update.provider_id)
+    .bind(model_id)
+    .bind(display_name)
+    .bind(update.enabled)
+    .bind(source)
+    .execute(&state.pool)
+    .await?;
     Ok(())
 }
 
@@ -3263,13 +3263,13 @@ pub async fn fetch_models(
     let state = State::get().await?;
     for (id, name) in &models {
         sqlx::query(
-			"INSERT INTO ai_provider_models (provider_id, model_id, display_name, enabled, source) VALUES (?, ?, ?, TRUE, 'remote') ON CONFLICT(provider_id, model_id) DO UPDATE SET display_name = CASE WHEN ai_provider_models.source = 'custom' THEN ai_provider_models.display_name ELSE excluded.display_name END",
-		)
-		.bind(&provider_id)
-		.bind(id)
-		.bind(name)
-		.execute(&state.pool)
-		.await?;
+            "INSERT INTO ai_provider_models (provider_id, model_id, display_name, enabled, source) VALUES (?, ?, ?, TRUE, 'remote') ON CONFLICT(provider_id, model_id) DO UPDATE SET display_name = CASE WHEN ai_provider_models.source = 'custom' THEN ai_provider_models.display_name ELSE excluded.display_name END",
+        )
+        .bind(&provider_id)
+        .bind(id)
+        .bind(name)
+        .execute(&state.pool)
+        .await?;
     }
     load_provider_models(&provider_id).await
 }

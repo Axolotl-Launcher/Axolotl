@@ -84,10 +84,10 @@ async fn run_with_extra_launch_args_inner(
 ) -> crate::Result<(ProcessMetadata, Option<GcLaunchReport>)> {
     if crate::api::instance::has_active_instance_operation(instance_id) {
         return Err(crate::ErrorKind::InputError(
-			"Wait for the active backup operation to finish before launching this instance"
-				.to_string(),
-		)
-		.into());
+            "Wait for the active backup operation to finish before launching this instance"
+                .to_string(),
+        )
+        .into());
     }
     let _maintenance_guard =
         crate::api::instance::lock_instance_maintenance(instance_id).await;

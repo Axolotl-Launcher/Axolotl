@@ -96,3 +96,42 @@ it('empty search snapshots cancel older translations without restoring old resul
         wrapper.unmount()
     }
 })
+
+it('shows raw titles before enrichment and discards enrichment for replaced snapshots', async () => {
+    const projects = ref([{ title: 'First' }])
+    const resolvers: Array<(value: typeof projects.value) => void> = []
+    const enrichTitles = vi.fn(
+        () => new Promise<typeof projects.value>((resolve) => resolvers.push(resolve)),
+    )
+    const translate = vi.fn(async (hits: typeof projects.value) => hits)
+    const wrapper = mount(
+        defineComponent({
+            setup() {
+                useSearchResultTranslation({
+                    projectHits: projects,
+                    serverHits: ref([]),
+                    projectType: ref('mod'),
+                    locale: ref('zh-CN'),
+                    onError: vi.fn(),
+                    enrichTitles,
+                    translate: translate as never,
+                })
+                return () => h('div', projects.value[0]?.title)
+            },
+        }),
+    )
+    try {
+        expect(wrapper.text()).toBe('First')
+        projects.value = [{ title: 'Second' }]
+        await flushPromises()
+        resolvers[0]([{ title: 'Stale bilingual name' }])
+        await flushPromises()
+        expect(wrapper.text()).toBe('Second')
+        resolvers[1]([{ title: 'Current bilingual name' }])
+        await flushPromises()
+        expect(wrapper.text()).toBe('Current bilingual name')
+        expect(translate).toHaveBeenCalledTimes(1)
+    } finally {
+        wrapper.unmount()
+    }
+})

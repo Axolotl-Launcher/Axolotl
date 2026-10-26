@@ -1,12 +1,13 @@
 use base64::Engine;
 use chrono::{DateTime, Utc};
 use either::Either;
+use futures::{StreamExt, stream};
 use quartz_nbt::{NbtCompound, NbtList, NbtTag};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::io::{Cursor, Read};
 use std::path::{Component, Path, PathBuf};
-use std::sync::{LazyLock, Mutex};
+use std::sync::{Arc, LazyLock, Mutex, Weak};
 use std::time::SystemTime;
 use tokio::task::JoinSet;
 use url::Url;
@@ -16,8 +17,7 @@ use crate::util::io;
 use crate::{ErrorKind, Result};
 
 use super::{
-    World, WorldDetails, get_singleplayer_worlds_in_instance,
-    read_world_datapack_state,
+    World, WorldDetails, get_world_session_lock, read_world_datapack_state,
 };
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
@@ -51,6 +51,10 @@ pub struct WorldWithDatapacks {
     #[serde(flatten)]
     pub world: World,
     pub datapacks: Vec<WorldDatapack>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub read_error: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub state_error: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
@@ -78,38 +82,127 @@ static ZIP_DATAPACK_META_CACHE: LazyLock<
     Mutex<HashMap<PathBuf, CachedZipDatapackMeta>>,
 > = LazyLock::new(|| Mutex::new(HashMap::new()));
 
+struct WorldMutationGuard {
+    _session: tokio::fs::File,
+    _operation: tokio::sync::OwnedMutexGuard<()>,
+}
+
+static WORLD_MUTATIONS: LazyLock<
+    Mutex<HashMap<PathBuf, Weak<tokio::sync::Mutex<()>>>>,
+> = LazyLock::new(|| Mutex::new(HashMap::new()));
+
+async fn lock_world_mutation(world: &Path) -> Result<WorldMutationGuard> {
+    let path = tokio::fs::canonicalize(world).await?;
+    let lock = {
+        let mut locks = WORLD_MUTATIONS
+            .lock()
+            .unwrap_or_else(|error| error.into_inner());
+        locks.retain(|_, lock| lock.strong_count() > 0);
+        if let Some(lock) = locks.get(&path).and_then(Weak::upgrade) {
+            lock
+        } else {
+            let lock = Arc::new(tokio::sync::Mutex::new(()));
+            locks.insert(path.clone(), Arc::downgrade(&lock));
+            lock
+        }
+    };
+    let operation = tokio::time::timeout(
+        std::time::Duration::from_secs(10),
+        lock.lock_owned(),
+    )
+    .await
+    .map_err(|_| {
+        ErrorKind::InputError(
+            "World is busy; retry after the current operation finishes".into(),
+        )
+        .as_error()
+    })?;
+    let session = get_world_session_lock(&path).await?;
+    Ok(WorldMutationGuard {
+        _session: session,
+        _operation: operation,
+    })
+}
+
 /// Lists every singleplayer save in the instance together with the datapacks
 /// found in each save's `datapacks` folder.
 pub async fn list_world_datapacks(
     instance_id: &str,
 ) -> Result<Vec<WorldWithDatapacks>> {
     let instance_dir = get_full_path(instance_id).await?;
-    let mut worlds = Vec::new();
-    get_singleplayer_worlds_in_instance(&instance_dir, &mut worlds).await?;
+    list_world_datapacks_at(&instance_dir).await
+}
 
+async fn list_world_datapacks_at(
+    instance_dir: &Path,
+) -> Result<Vec<WorldWithDatapacks>> {
     let saves_dir = instance_dir.join("saves");
-    let mut tasks = JoinSet::new();
-    for world in worlds {
-        let world_path = match &world.details {
-            WorldDetails::Singleplayer { path, .. } => saves_dir.join(path),
-            WorldDetails::Server { .. } => continue,
-        };
-        tasks.spawn(read_world_datapacks(world_path, world));
+    if !tokio::fs::try_exists(&saves_dir).await? {
+        return Ok(Vec::new());
     }
-
-    let mut result = Vec::new();
-    while let Some(joined) = tasks.join_next().await {
-        match joined {
-            Ok(Ok(item)) => result.push(item),
-            Ok(Err(error)) => {
-                tracing::warn!("Skipping unreadable world datapacks: {error}");
-            }
-            Err(error) => {
-                tracing::warn!("World datapack read task panicked: {error}");
-            }
+    let mut directory = io::read_dir(&saves_dir).await?;
+    let mut paths = Vec::new();
+    while let Some(entry) = directory.next_entry().await? {
+        let path = entry.path();
+        if !tokio::fs::metadata(&path).await?.is_dir() {
+            continue;
+        }
+        if tokio::fs::try_exists(path.join("level.dat")).await?
+            || tokio::fs::try_exists(path.join("datapacks")).await?
+        {
+            paths.push(path);
         }
     }
-    Ok(result)
+    Ok(stream::iter(paths)
+        .map(|path| async move {
+            let (world, metadata_error) =
+                match super::read_singleplayer_world(path.clone()).await {
+                    Ok(world) => (world, None),
+                    Err(error) => {
+                        let name = path
+                            .file_name()
+                            .unwrap_or_default()
+                            .to_string_lossy()
+                            .into_owned();
+                        (
+                            World {
+                                name: name.clone(),
+                                last_played: None,
+                                icon: None,
+                                display_status: super::DisplayStatus::Normal,
+                                details: WorldDetails::Singleplayer {
+                                    path: name,
+                                    game_mode:
+                                        super::SingleplayerGameMode::Survival,
+                                    hardcore: false,
+                                    locked: true,
+                                },
+                            },
+                            Some(error.to_string()),
+                        )
+                    }
+                };
+            match read_world_datapacks(path, world.clone()).await {
+                Ok(mut result) => {
+                    result.state_error = result.state_error.or(metadata_error);
+                    if result.state_error.is_some() {
+                        for datapack in &mut result.datapacks {
+                            datapack.enabled = None;
+                        }
+                    }
+                    result
+                }
+                Err(error) => WorldWithDatapacks {
+                    world,
+                    datapacks: vec![],
+                    read_error: Some(error.to_string()),
+                    state_error: metadata_error,
+                },
+            }
+        })
+        .buffer_unordered(8)
+        .collect()
+        .await)
 }
 
 /// Accepts exactly one normal path component, rejecting empty names, `.`,
@@ -128,6 +221,14 @@ pub async fn delete_world_datapack(
     file_name: &str,
 ) -> Result<()> {
     let instance_dir = get_full_path(instance_id).await?;
+    delete_world_datapack_at(&instance_dir, world_path, file_name).await
+}
+
+async fn delete_world_datapack_at(
+    instance_dir: &Path,
+    world_path: &str,
+    file_name: &str,
+) -> Result<()> {
     let world_path = Path::new(world_path);
     if !is_single_normal_component(world_path) {
         return Err(
@@ -140,10 +241,9 @@ pub async fn delete_world_datapack(
             .as_error());
     }
 
-    let datapacks_dir = instance_dir
-        .join("saves")
-        .join(world_path)
-        .join("datapacks");
+    let world_dir = instance_dir.join("saves").join(world_path);
+    let _guard = lock_world_mutation(&world_dir).await?;
+    let datapacks_dir = world_dir.join("datapacks");
     let target = datapacks_dir.join(file_name);
     if target.parent() != Some(datapacks_dir.as_path()) {
         return Err(ErrorKind::InputError("Invalid datapack file name".into())
@@ -168,6 +268,16 @@ pub async fn set_world_datapack_enabled(
     enabled: bool,
 ) -> Result<()> {
     let instance_dir = get_full_path(instance_id).await?;
+    set_world_datapack_enabled_at(&instance_dir, world_path, file_name, enabled)
+        .await
+}
+
+async fn set_world_datapack_enabled_at(
+    instance_dir: &Path,
+    world_path: &str,
+    file_name: &str,
+    enabled: bool,
+) -> Result<()> {
     let world_path = Path::new(world_path);
     if !is_single_normal_component(world_path) {
         return Err(
@@ -181,6 +291,7 @@ pub async fn set_world_datapack_enabled(
     }
 
     let world_dir = instance_dir.join("saves").join(world_path);
+    let _guard = lock_world_mutation(&world_dir).await?;
     let datapacks_dir = world_dir.join("datapacks");
     let target = datapacks_dir.join(file_name);
     if target.parent() != Some(datapacks_dir.as_path()) {
@@ -193,12 +304,7 @@ pub async fn set_world_datapack_enabled(
         );
     }
 
-    let file_id = if target.is_dir() {
-        format!("file/{}", file_name.to_string_lossy())
-    } else {
-        let stem = file_name.file_stem().unwrap_or_default().to_string_lossy();
-        format!("file/{stem}")
-    };
+    let file_id = format!("file/{}", file_name.to_string_lossy());
 
     let level_dat_path = world_dir.join("level.dat");
     let raw = io::read(&level_dat_path).await?;
@@ -258,17 +364,15 @@ async fn read_world_datapacks(
 ) -> Result<WorldWithDatapacks> {
     let datapacks_dir = world_path.join("datapacks");
     let mut datapacks = Vec::new();
-    if datapacks_dir.exists() {
+    let mut state_error = None;
+    if tokio::fs::try_exists(&datapacks_dir).await? {
         // Only read the world's level.dat for the enabled/disabled state when it
         // actually has a datapacks folder, and tolerate a missing/corrupt file.
         let (enabled, disabled) =
             match read_world_datapack_state(&world_path).await {
                 Ok(state) => state,
                 Err(error) => {
-                    tracing::debug!(
-                        "Could not read datapack state for world {}: {error}",
-                        world.name
-                    );
+                    state_error = Some(error.to_string());
                     (Vec::new(), Vec::new())
                 }
             };
@@ -294,17 +398,23 @@ async fn read_world_datapacks(
         while let Some(joined) = tasks.join_next().await {
             match joined {
                 Ok(Ok(datapack)) => datapacks.push(datapack),
-                Ok(Err(error)) => {
-                    tracing::warn!("Skipping unreadable datapack: {error}");
-                }
+                Ok(Err(error)) => return Err(error),
                 Err(error) => {
-                    tracing::warn!("Datapack read task panicked: {error}");
+                    return Err(ErrorKind::InputError(format!(
+                        "Datapack read task failed: {error}"
+                    ))
+                    .as_error());
                 }
             }
         }
     }
 
-    Ok(WorldWithDatapacks { world, datapacks })
+    Ok(WorldWithDatapacks {
+        world,
+        datapacks,
+        read_error: None,
+        state_error,
+    })
 }
 
 async fn read_folder_datapack(
@@ -393,12 +503,12 @@ async fn read_zip_datapack(
         .and_then(|meta| meta.modified().ok().map(DateTime::<Utc>::from));
 
     Ok(WorldDatapack {
-        file_name,
+        file_name: file_name.clone(),
         display_name: stem.clone(),
         kind: DatapackKind::Zip,
         metadata,
         icon: icon.map(Either::Right),
-        enabled: match_datapack_state(&stem, &enabled, &disabled),
+        enabled: match_datapack_state(&file_name, &enabled, &disabled),
         size,
         modified,
     })
@@ -680,5 +790,192 @@ mod tests {
                 folder.max_format
             );
         }
+    }
+
+    fn world_fixture() -> tempfile::TempDir {
+        let directory = tempfile::tempdir().unwrap();
+        let world = directory.path().join("saves/world");
+        std::fs::create_dir_all(world.join("datapacks/first")).unwrap();
+        std::fs::create_dir_all(world.join("datapacks/second")).unwrap();
+        let mut root = NbtCompound::new();
+        root.insert("Data", NbtCompound::new());
+        let mut raw = Vec::new();
+        quartz_nbt::io::write_nbt(
+            &mut raw,
+            None,
+            &root,
+            quartz_nbt::io::Flavor::GzCompressed,
+        )
+        .unwrap();
+        std::fs::write(world.join("level.dat"), raw).unwrap();
+        directory
+    }
+
+    #[tokio::test]
+    async fn concurrent_datapack_toggles_preserve_both_changes() {
+        let directory = world_fixture();
+        let (first, second) = tokio::join!(
+            set_world_datapack_enabled_at(
+                directory.path(),
+                "world",
+                "first",
+                true
+            ),
+            set_world_datapack_enabled_at(
+                directory.path(),
+                "world",
+                "second",
+                true
+            ),
+        );
+        first.unwrap();
+        second.unwrap();
+        let world = directory.path().join("saves/world");
+        let (enabled, disabled) =
+            read_world_datapack_state(&world).await.unwrap();
+        assert!(enabled.contains(&"file/first".into()));
+        assert!(enabled.contains(&"file/second".into()));
+        assert!(disabled.is_empty());
+        let guard = lock_world_mutation(&world).await.unwrap();
+        assert!(
+            tokio::time::timeout(
+                std::time::Duration::from_millis(30),
+                lock_world_mutation(&world.join("."))
+            )
+            .await
+            .is_err()
+        );
+        drop(guard);
+        lock_world_mutation(&world).await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn minecraft_session_lock_rejects_datapack_writes_without_changes() {
+        let directory = world_fixture();
+        let world = directory.path().join("saves/world");
+        std::fs::write(world.join("session.lock"), b"game-lock").unwrap();
+        let game = tokio::fs::OpenOptions::new()
+            .read(true)
+            .write(true)
+            .open(world.join("session.lock"))
+            .await
+            .unwrap();
+        assert!(fs4::tokio::AsyncFileExt::try_lock_exclusive(&game).unwrap());
+        let original = std::fs::read(world.join("level.dat")).unwrap();
+        assert!(
+            set_world_datapack_enabled_at(
+                directory.path(),
+                "world",
+                "first",
+                false
+            )
+            .await
+            .is_err()
+        );
+        assert!(
+            delete_world_datapack_at(directory.path(), "world", "first")
+                .await
+                .is_err()
+        );
+        assert_eq!(std::fs::read(world.join("level.dat")).unwrap(), original);
+        assert!(world.join("datapacks/first").exists());
+        drop(game);
+        assert_eq!(
+            std::fs::read(world.join("session.lock")).unwrap(),
+            b"game-lock"
+        );
+        set_world_datapack_enabled_at(
+            directory.path(),
+            "world",
+            "first",
+            false,
+        )
+        .await
+        .unwrap();
+        delete_world_datapack_at(directory.path(), "world", "first")
+            .await
+            .unwrap();
+        assert!(!world.join("datapacks/first").exists());
+    }
+
+    #[tokio::test]
+    async fn zip_datapack_state_uses_full_file_name() {
+        let directory = world_fixture();
+        let world = directory.path().join("saves/world");
+        let zip_path = world.join("datapacks/first.zip");
+        let mut zip =
+            zip::ZipWriter::new(std::fs::File::create(&zip_path).unwrap());
+        zip.start_file("pack.mcmeta", zip::write::SimpleFileOptions::default())
+            .unwrap();
+        zip.write_all(br#"{"pack":{"pack_format":48,"description":"test"}}"#)
+            .unwrap();
+        zip.finish().unwrap();
+        set_world_datapack_enabled_at(
+            directory.path(),
+            "world",
+            "first",
+            false,
+        )
+        .await
+        .unwrap();
+        set_world_datapack_enabled_at(
+            directory.path(),
+            "world",
+            "first.zip",
+            true,
+        )
+        .await
+        .unwrap();
+        let (enabled, disabled) =
+            read_world_datapack_state(&world).await.unwrap();
+        assert_eq!(enabled, vec!["file/first.zip"]);
+        assert_eq!(disabled, vec!["file/first"]);
+        let zip = read_zip_datapack(zip_path, enabled, disabled)
+            .await
+            .unwrap();
+        assert_eq!(zip.enabled, Some(true));
+    }
+
+    #[tokio::test]
+    async fn world_list_reports_partial_and_state_read_failures() {
+        let directory = world_fixture();
+        std::fs::write(directory.path().join("saves/.DS_Store"), b"metadata")
+            .unwrap();
+        let world = directory.path().join("saves/world");
+        std::fs::create_dir_all(
+            directory.path().join("saves/broken/datapacks"),
+        )
+        .unwrap();
+        std::fs::write(
+            directory.path().join("saves/broken/level.dat"),
+            b"corrupt",
+        )
+        .unwrap();
+        std::fs::write(
+            directory.path().join("saves/broken/datapacks/broken.zip"),
+            b"corrupt",
+        )
+        .unwrap();
+        let result = list_world_datapacks_at(directory.path()).await.unwrap();
+        assert_eq!(result.len(), 2);
+        let good = result.iter().find(|entry| matches!(&entry.world.details, WorldDetails::Singleplayer { path, .. } if path == "world")).unwrap();
+        assert_eq!(good.datapacks.len(), 2);
+        assert!(good.read_error.is_none());
+        let broken = result
+            .iter()
+            .find(|entry| entry.read_error.is_some())
+            .unwrap();
+        assert!(broken.state_error.is_some());
+        std::fs::write(world.join("level.dat"), b"corrupt").unwrap();
+        let result = list_world_datapacks_at(directory.path()).await.unwrap();
+        let unknown = result.iter().find(|entry| matches!(&entry.world.details, WorldDetails::Singleplayer { path, .. } if path == "world")).unwrap();
+        assert_eq!(unknown.datapacks.len(), 2);
+        assert!(unknown.state_error.is_some());
+        assert!(
+            unknown
+                .datapacks
+                .iter()
+                .all(|entry| entry.enabled.is_none())
+        );
     }
 }

@@ -1,0 +1,44 @@
+{
+  "db_name": "SQLite",
+  "query": "\n        SELECT id, source, excluded_synced_server_id, nbt, position\n        FROM instance_servers\n        WHERE instance_id = ?\n        ORDER BY position\n        ",
+  "describe": {
+    "columns": [
+      {
+        "name": "id",
+        "ordinal": 0,
+        "type_info": "Text"
+      },
+      {
+        "name": "source",
+        "ordinal": 1,
+        "type_info": "Text"
+      },
+      {
+        "name": "excluded_synced_server_id",
+        "ordinal": 2,
+        "type_info": "Text"
+      },
+      {
+        "name": "nbt",
+        "ordinal": 3,
+        "type_info": "Blob"
+      },
+      {
+        "name": "position",
+        "ordinal": 4,
+        "type_info": "Integer"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      false,
+      false
+    ]
+  },
+  "hash": "ecc0d310711c591242e59a5637ff35aa795c6ed216b1e19e8cba36b38ba0dfde"
+}

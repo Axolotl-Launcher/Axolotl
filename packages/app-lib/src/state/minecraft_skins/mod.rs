@@ -203,18 +203,18 @@ impl CustomMinecraftSkin {
         .await?;
 
         sqlx::query!(
-			"INSERT OR REPLACE INTO custom_minecraft_skin_textures (texture_key, texture) VALUES (?, ?)",
-			texture_key, texture
-		)
-		.execute(&mut *transaction)
+            "INSERT OR REPLACE INTO custom_minecraft_skin_textures (texture_key, texture) VALUES (?, ?)",
+            texture_key, texture
+        )
+        .execute(&mut *transaction)
         .await?;
 
         sqlx::query!(
-			"INSERT INTO custom_minecraft_skins (minecraft_user_uuid, texture_key, variant, cape_id, display_order) VALUES (?, ?, ?, ?, ?)",
-			minecraft_user_id, texture_key, variant, cape_id, display_order
-		)
-		.execute(&mut *transaction)
-		.await?;
+            "INSERT INTO custom_minecraft_skins (minecraft_user_uuid, texture_key, variant, cape_id, display_order) VALUES (?, ?, ?, ?, ?)",
+            minecraft_user_id, texture_key, variant, cape_id, display_order
+        )
+        .execute(&mut *transaction)
+        .await?;
 
         transaction.commit().await?;
 

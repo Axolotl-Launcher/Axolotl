@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { defineMessages, useVIntl } from '@modrinth/ui/src/composables/i18n.ts'
+import { defineMessages, useVIntl } from '@modrinth/ui'
 
 defineProps<{
     eyebrow: string

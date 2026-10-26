@@ -156,6 +156,9 @@ pub async fn toggle_disable_project(
     desired_enabled: Option<bool>,
 ) -> crate::Result<String> {
     let state = State::get().await?;
+    let _operation =
+        crate::install::runner::interactive_content_guard(&state, instance_id)
+            .await?;
     let res = crate::state::instances::commands::toggle_disable_project(
         instance_id,
         project,
@@ -174,6 +177,9 @@ pub async fn rollback_project(
     project_path: &str,
 ) -> crate::Result<String> {
     let state = State::get().await?;
+    let _operation =
+        crate::install::runner::interactive_content_guard(&state, instance_id)
+            .await?;
     let res = crate::state::instances::commands::rollback_project(
         instance_id,
         project_path,
@@ -191,6 +197,9 @@ pub async fn remove_project(
     project: &str,
 ) -> crate::Result<()> {
     let state = State::get().await?;
+    let _operation =
+        crate::install::runner::interactive_content_guard(&state, instance_id)
+            .await?;
     crate::state::instances::commands::remove_project(
         instance_id,
         project,
@@ -229,6 +238,9 @@ pub async fn toggle_content_entries(
     desired_enabled: Option<bool>,
 ) -> crate::Result<Vec<ContentToggleResult>> {
     let state = State::get().await?;
+    let _operation =
+        crate::install::runner::interactive_content_guard(&state, instance_id)
+            .await?;
     let results = crate::state::instances::commands::toggle_content_entries(
         instance_id,
         &content_ids,
@@ -270,6 +282,10 @@ pub(crate) async fn switch_content_entry_version(
     version_id: &str,
     reporter: Option<crate::install::InstallProgressReporter>,
 ) -> crate::Result<String> {
+    let state = State::get().await?;
+    let _operation =
+        crate::install::runner::interactive_content_guard(&state, instance_id)
+            .await?;
     let target = content_mutation_target(instance_id, content_id).await?;
     let path = target.relative_path.ok_or_else(|| {
         crate::ErrorKind::InputError(
@@ -300,11 +316,11 @@ pub(crate) async fn switch_content_entry_version(
             emit_content_changed(instance_id).await?;
             Ok(updated_path)
         }
-		Some(ContentProvider::McArchive) => Err(crate::ErrorKind::InputError(
-			"MCArchive content version changes require selecting a file manually"
-				.to_string(),
-		)
-		.into()),
+        Some(ContentProvider::McArchive) => Err(crate::ErrorKind::InputError(
+            "MCArchive content version changes require selecting a file manually"
+                .to_string(),
+        )
+        .into()),
         _ => {
             let state = State::get().await?;
             crate::state::instances::commands::switch_project_version_with_dependencies_preserving_name(
@@ -326,6 +342,9 @@ pub async fn restore_pack_member_default(
     member_id: &str,
 ) -> crate::Result<Option<String>> {
     let state = State::get().await?;
+    let _operation =
+        crate::install::runner::interactive_content_guard(&state, instance_id)
+            .await?;
     let target = content_rows::get_content_mutation_target(
         instance_id,
         member_id,
@@ -373,9 +392,16 @@ pub async fn restore_pack_member_default(
     if member.override_kind == PackMemberOverrideKind::Disabled
         && let Some(path) = target.relative_path
     {
-        return toggle_disable_project(instance_id, &path, Some(true))
-            .await
-            .map(Some);
+        let restored =
+            crate::state::instances::commands::toggle_disable_project(
+                instance_id,
+                &path,
+                Some(true),
+                &state,
+            )
+            .await?;
+        emit_content_changed(instance_id).await?;
+        return Ok(Some(restored));
     }
 
     let project_id =
@@ -424,30 +450,30 @@ pub async fn restore_pack_member_default(
                     verification_tx: None,
                     pre_resolved_relative_path: None,
                     expected_file_name: None,
-					instance_id: instance_id.to_string(),
-					project_id: project_id.parse().map_err(|_| {
-						crate::ErrorKind::InputError(
-							"Stored CurseForge project ID is invalid".to_string(),
-						)
-					})?,
-					file_id: release_id.parse().map_err(|_| {
-						crate::ErrorKind::InputError(
-							"Stored CurseForge file ID is invalid".to_string(),
-						)
-					})?,
-					project_type: member.project_type.get_name().to_string(),
-					ownership_kind: ContentOwnershipKind::PackManaged,
-					manual_operation_kind: crate::state::instances::ManualDownloadOperationKind::ContentUpdate,
-					game_version: Some(content_set.game_version),
-					mod_loader_type: curseforge_loader_type(content_set.loader),
-					world_name: None,
-					install_dependencies: false,
-					excluded_dependency_project_ids: Vec::new(),
-					force_dependency_project_ids: Vec::new(),
-					dependency_plan_id: None,
-				},
-			)
-			.await?;
+                    instance_id: instance_id.to_string(),
+                    project_id: project_id.parse().map_err(|_| {
+                        crate::ErrorKind::InputError(
+                            "Stored CurseForge project ID is invalid".to_string(),
+                        )
+                    })?,
+                    file_id: release_id.parse().map_err(|_| {
+                        crate::ErrorKind::InputError(
+                            "Stored CurseForge file ID is invalid".to_string(),
+                        )
+                    })?,
+                    project_type: member.project_type.get_name().to_string(),
+                    ownership_kind: ContentOwnershipKind::PackManaged,
+                    manual_operation_kind: crate::state::instances::ManualDownloadOperationKind::ContentUpdate,
+                    game_version: Some(content_set.game_version),
+                    mod_loader_type: curseforge_loader_type(content_set.loader),
+                    world_name: None,
+                    install_dependencies: false,
+                    excluded_dependency_project_ids: Vec::new(),
+                    force_dependency_project_ids: Vec::new(),
+                    dependency_plan_id: None,
+                },
+            )
+            .await?;
             let pending_manual = !result.manual_downloads.is_empty();
             let failure_reason = result
                 .failed_downloads

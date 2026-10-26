@@ -162,6 +162,7 @@ export function useSearch(
     providedFilters: Ref<FilterValue[]>,
     environmentOverride: Ref<EnvironmentSearchOverride | undefined> = ref(undefined),
     sortOptions?: readonly SortType[],
+    deferInitialization = false,
 ) {
     const query = ref('')
     const maxResults = ref(20)
@@ -761,7 +762,13 @@ export function useSearch(
         return `?${params.join('&')}`
     })
 
-    readQueryParams()
+    let initialized = false
+    function initializeQueryParams() {
+        if (initialized) return
+        initialized = true
+        readQueryParams()
+    }
+    if (!deferInitialization) initializeQueryParams()
 
     function readQueryParams() {
         const readParams = new Set<string>()
@@ -977,6 +984,7 @@ export function useSearch(
         requestParams,
 
         // Functions
+        initializeQueryParams,
         createPageParams,
         createPageParamsString,
     }

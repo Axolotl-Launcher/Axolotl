@@ -19,10 +19,10 @@ impl AttachedWorldData {
 
         let attached_data = sqlx::query!(
             "
-			SELECT display_status, project_id, content_kind
-			FROM attached_world_data
-			WHERE instance_id = ? and world_type = ? and world_id = ?
-			",
+            SELECT display_status, project_id, content_kind
+            FROM attached_world_data
+            WHERE instance_id = ? and world_type = ? and world_id = ?
+            ",
             instance_id,
             world_type,
             world_id,
@@ -43,10 +43,10 @@ impl AttachedWorldData {
     ) -> crate::Result<HashMap<(WorldType, String), Self>> {
         let attached_data = sqlx::query!(
             "
-			SELECT world_type, world_id, display_status, project_id, content_kind
-			FROM attached_world_data
-			WHERE instance_id = ?
-			",
+            SELECT world_type, world_id, display_status, project_id, content_kind
+            FROM attached_world_data
+            WHERE instance_id = ?
+            ",
             instance_id,
         )
         .fetch_all(exec)
@@ -80,9 +80,9 @@ impl AttachedWorldData {
 
         sqlx::query!(
             "
-			DELETE FROM attached_world_data
-			WHERE instance_id = ? and world_type = ? and world_id = ?
-			",
+            DELETE FROM attached_world_data
+            WHERE instance_id = ? and world_type = ? and world_id = ?
+            ",
             instance_id,
             world_type,
             world_id,
@@ -106,11 +106,11 @@ pub async fn set_display_status(
 
     sqlx::query!(
         "
-		INSERT INTO attached_world_data (instance_id, world_type, world_id, display_status)
-		VALUES (?, ?, ?, ?)
-		ON CONFLICT (instance_id, world_type, world_id) DO UPDATE
-			SET display_status = excluded.display_status
-		",
+        INSERT INTO attached_world_data (instance_id, world_type, world_id, display_status)
+        VALUES (?, ?, ?, ?)
+        ON CONFLICT (instance_id, world_type, world_id) DO UPDATE
+            SET display_status = excluded.display_status
+        ",
         instance_id,
         world_type,
         world_id,
@@ -133,11 +133,11 @@ pub async fn set_project_id(
 
     sqlx::query!(
         "
-		INSERT INTO attached_world_data (instance_id, world_type, world_id, project_id)
-		VALUES (?, ?, ?, ?)
-		ON CONFLICT (instance_id, world_type, world_id) DO UPDATE
-			SET project_id = excluded.project_id
-		",
+        INSERT INTO attached_world_data (instance_id, world_type, world_id, project_id)
+        VALUES (?, ?, ?, ?)
+        ON CONFLICT (instance_id, world_type, world_id) DO UPDATE
+            SET project_id = excluded.project_id
+        ",
         instance_id,
         world_type,
         world_id,
@@ -160,11 +160,11 @@ pub async fn set_content_kind(
 
     sqlx::query!(
         "
-		INSERT INTO attached_world_data (instance_id, world_type, world_id, content_kind)
-		VALUES (?, ?, ?, ?)
-		ON CONFLICT (instance_id, world_type, world_id) DO UPDATE
-			SET content_kind = excluded.content_kind
-		",
+        INSERT INTO attached_world_data (instance_id, world_type, world_id, content_kind)
+        VALUES (?, ?, ?, ?)
+        ON CONFLICT (instance_id, world_type, world_id) DO UPDATE
+            SET content_kind = excluded.content_kind
+        ",
         instance_id,
         world_type,
         world_id,

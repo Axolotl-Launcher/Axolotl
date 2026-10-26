@@ -156,7 +156,7 @@ node scripts/axolotl/create-release-notes.mjs v1.10.0-beta.4 release-preview.md
 3. 使用仓库 Secrets 中的 Tauri 私钥生成签名更新包。
 4. 生成并校验包含全部桌面平台的 `latest.json`。
 5. 校验成功后将草稿 Release 转为正式发布。
-6. GitHub Release 发布完成后，将安装包、更新清单和 Release 信息镜像到 CNB。
+6. GitHub Release 发布完成后，将安装包、更新清单和 Release 信息镜像到 CNB，并同步镜像到 Gitlink、OSS。
 
 源码分支和标签也由 GitHub Actions 在 push 和删除事件后直接同步到 CNB。CNB 仓库不运行定时同步或标签流水线，避免在 GitHub 构建尚未完成时占用 CNB 构建时长。
 

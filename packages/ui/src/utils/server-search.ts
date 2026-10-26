@@ -133,6 +133,7 @@ export function useServerSearch(opts: {
     maxResults: Ref<number>
     currentPage: Ref<number>
     providedFilters?: ComputedRef<FilterValue[]>
+    deferInitialization?: boolean
 }) {
     const { tags, query, maxResults, currentPage } = opts
 
@@ -497,9 +498,16 @@ export function useServerSearch(opts: {
         return items
     }
 
-    readServerQueryParams()
+    let initialized = false
+    function initializeQueryParams() {
+        if (initialized) return
+        initialized = true
+        readServerQueryParams()
+    }
+    if (!opts.deferInitialization) initializeQueryParams()
 
     return {
+        initializeQueryParams,
         serverCurrentSortType,
         serverCurrentFilters,
         serverToggledGroups,

@@ -5,6 +5,9 @@ use std::borrow::Cow;
 
 const VERSION: i64 = 20261011120000;
 const MIGRATOR: Migrator = sqlx::migrate!();
+fn handle(pool: &SqlitePool) -> crate::state::store::Handle {
+    crate::state::store::Handle::new(pool.clone())
+}
 
 async fn previous_database() -> SqlitePool {
     let pool = SqlitePoolOptions::new()
@@ -226,7 +229,9 @@ async fn fresh_identity_database_and_exact_previous_upgrade_preserve_business_fa
         store.pack_resources("instance").await.unwrap()["member"],
         mr
     );
-    let rows = crate::state::content_favorites::list(&pool).await.unwrap();
+    let rows = crate::state::content_favorites::list(&handle(&pool))
+        .await
+        .unwrap();
     assert_eq!(
         rows.iter()
             .find(|row| row.project_id == "12345678"
@@ -280,7 +285,7 @@ async fn legacy_writes_are_atomic_and_follow_origin_changes_and_deletion() {
                 project_id: "12345678".into(),
                 content_type: crate::state::ContentFavoriteType::Mod,
             },
-            &pool,
+            &handle(&pool),
         )
         .await
         .unwrap();
@@ -464,7 +469,9 @@ async fn confirmed_merges_keep_old_ids_alias_ambiguity_favorites_and_cache_indep
             .len(),
         2
     );
-    let favorites = crate::state::content_favorites::list(&pool).await.unwrap();
+    let favorites = crate::state::content_favorites::list(&handle(&pool))
+        .await
+        .unwrap();
     assert_eq!(
         favorites
             .iter()

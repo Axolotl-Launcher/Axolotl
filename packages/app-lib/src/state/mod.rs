@@ -97,8 +97,9 @@ mod legacy_converter;
 
 pub mod attached_world_data;
 pub(crate) mod content_store;
+pub(crate) mod content_types;
 pub mod instance_groups;
-pub mod server_join_log;
+pub(crate) mod store;
 
 // Global state
 // RwLock on state only has concurrent reads, except for config dir change which takes control of the State
@@ -180,6 +181,8 @@ pub struct State {
     download_sample_throttles: AtomicU64,
     pub(crate) install_job_semaphore: Semaphore,
     pub(crate) install_db_semaphore: Semaphore,
+    pub(crate) install_admission_locks: DashMap<String, Arc<AsyncMutex<()>>>,
+    pub(crate) install_execution_locks: DashMap<String, Arc<AsyncMutex<()>>>,
     pub(crate) install_job_cancellations: DashMap<Uuid, CancellationToken>,
     pub(crate) install_job_operation_locks:
         DashMap<Uuid, Arc<AsyncMutex<InstallJobOperationState>>>,
@@ -212,6 +215,10 @@ pub struct State {
     pub(crate) instance_locks: Arc<InstanceLockManager>,
 
     pub(crate) pool: SqlitePool,
+
+    /// What the collections of [`store`] are read and written through.
+    pub(crate) data: store::Handle,
+
     resource_service: OnceCell<Arc<crate::resources::ResourceService>>,
 
     /// CurseForge API key set in the launcher. Takes precedence over the key
@@ -225,9 +232,9 @@ pub struct State {
     configured_http_client_update: AsyncMutex<()>,
 
     pub(crate) file_watcher: FileWatcher,
-	pub(crate) screenshot_locks: DashMap<String, Arc<AsyncMutex<()>>>,
-	pub(crate) synced_options_lock: Arc<AsyncMutex<()>>,
-	pub(crate) game_locale_indexer: crate::api::instance::synced_options::game_options::locales::GameLocaleIndexer,
+    pub(crate) screenshot_locks: DashMap<String, Arc<AsyncMutex<()>>>,
+    pub(crate) synced_options_lock: Arc<AsyncMutex<()>>,
+    pub(crate) game_locale_indexer: crate::api::instance::synced_options::game_options::locales::GameLocaleIndexer,
 }
 
 impl State {
@@ -655,6 +662,11 @@ impl State {
             .get_or_try_init(move || Self::initialize_state(app_identifier))
             .await?;
 
+        if let Err(error) =
+            instances::commands::recover_content_file_operations(state).await
+        {
+            tracing::error!(%error, "Error recovering content file operations");
+        }
         if let Err(e) =
             crate::install::recovery::recover_interrupted_jobs(state).await
         {
@@ -1269,6 +1281,8 @@ impl State {
             download_sample_errors: AtomicU64::new(0),
             download_sample_throttles: AtomicU64::new(0),
             install_job_semaphore: Semaphore::new(MAX_CONCURRENT_INSTALL_JOBS),
+            install_admission_locks: DashMap::new(),
+            install_execution_locks: DashMap::new(),
             install_db_semaphore: Semaphore::new(1),
             install_job_cancellations: DashMap::new(),
             install_job_operation_locks: DashMap::new(),
@@ -1279,6 +1293,7 @@ impl State {
             friends_socket,
             restart_after_pending_update: AtomicBool::new(false),
             instance_locks: Arc::new(InstanceLockManager::default()),
+            data: store::Handle::new(pool.clone()),
             pool,
             resource_service: OnceCell::new(),
             curseforge_api_key: RwLock::new(curseforge_api_key),
@@ -1389,7 +1404,9 @@ pub(crate) async fn test_state(
         download_sample_requests: AtomicU64::new(0),
         download_sample_errors: AtomicU64::new(0),
         download_sample_throttles: AtomicU64::new(0),
-        install_job_semaphore: Semaphore::new(1),
+        install_job_semaphore: Semaphore::new(MAX_CONCURRENT_INSTALL_JOBS),
+        install_admission_locks: DashMap::new(),
+        install_execution_locks: DashMap::new(),
         install_db_semaphore: Semaphore::new(1),
         install_job_cancellations: DashMap::new(),
         install_job_operation_locks: DashMap::new(),
@@ -1400,6 +1417,7 @@ pub(crate) async fn test_state(
         friends_socket: FriendsSocket::new(),
         restart_after_pending_update: AtomicBool::new(false),
         instance_locks: Arc::new(InstanceLockManager::default()),
+        data: store::Handle::new(pool.clone()),
         pool,
         resource_service: OnceCell::new(),
         curseforge_api_key: RwLock::new(curseforge_api_key),

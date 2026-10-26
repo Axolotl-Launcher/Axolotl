@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "\n        UPDATE screenshots\n        SET\n            instance_id = ?,\n            file_name = ?,\n            content_hash = ?,\n            file_size = ?,\n            modified_at = ?,\n            created_at = ?\n        WHERE id = ?\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 7
+    },
+    "nullable": []
+  },
+  "hash": "370a319b729904e797f6676af7e6c0bc5023ca7d09961c4993d9d4d92e48c2c0"
+}

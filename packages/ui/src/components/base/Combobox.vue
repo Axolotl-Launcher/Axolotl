@@ -8,10 +8,10 @@
         <!-- Searchable mode: input trigger -->
         <div v-if="searchable" class="relative w-full rounded-xl bg-surface-4">
             <!--
-				Selection mirror: horizontal padding must match StyledInput (filled + left icon uses `pl-10`,
-				else `pl-3`) and `searchableInputClass` when the chevron is shown (`!pr-9`), or the overlay
-				text will not line up with the transparent input text / caret.
-			-->
+                Selection mirror: horizontal padding must match StyledInput (filled + left icon uses `pl-10`,
+                else `pl-3`) and `searchableInputClass` when the chevron is shown (`!pr-9`), or the overlay
+                text will not line up with the transparent input text / caret.
+            -->
             <div
                 v-if="searchSelectionOverlayVisible"
                 class="pointer-events-none absolute inset-y-0 left-0 right-0 z-0 flex min-w-0 items-center gap-2 font-medium text-[var(--color-text-default)]"

@@ -68,9 +68,9 @@ async fn join_payload(
 ) -> crate::Result<CommandPayload> {
     if server.is_none() && singleplayer_world.is_none() {
         return Err(crate::ErrorKind::InputError(
-			"Join command requires a server or singleplayer_world query parameter".to_string(),
-		)
-		.into());
+            "Join command requires a server or singleplayer_world query parameter".to_string(),
+        )
+        .into());
     }
     launch_payload(id, server, singleplayer_world).await
 }
@@ -640,11 +640,11 @@ mod tests {
     #[tokio::test]
     async fn parses_launch_query_command() {
         let command =
-			parse_command(
-				"axolotl://launch?instance_id=example%20instance&server=example.org%3A25565",
-			)
-			.await
-			.unwrap();
+            parse_command(
+                "axolotl://launch?instance_id=example%20instance&server=example.org%3A25565",
+            )
+            .await
+            .unwrap();
         assert!(matches!(
             command,
             CommandPayload::LaunchInstance { id, server: Some(server), singleplayer_world: None }

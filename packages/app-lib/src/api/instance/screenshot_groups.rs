@@ -124,11 +124,11 @@ pub async fn delete_screenshot_group(id: String) -> crate::Result<()> {
     let state = State::get().await?;
     let instance_ids = sqlx::query_scalar!(
         "
-		SELECT DISTINCT screenshots.instance_id
-		FROM screenshot_group_memberships memberships
-		INNER JOIN screenshots ON screenshots.id = memberships.screenshot_id
-		WHERE memberships.group_id = ?
-		",
+        SELECT DISTINCT screenshots.instance_id
+        FROM screenshot_group_memberships memberships
+        INNER JOIN screenshots ON screenshots.id = memberships.screenshot_id
+        WHERE memberships.group_id = ?
+        ",
         id,
     )
     .fetch_all(&state.pool)
@@ -220,10 +220,10 @@ pub async fn import_screenshot_groups(
         let display_order = base_order + index as i64;
         sqlx::query!(
             "
-			INSERT INTO screenshot_groups (id, name, display_order)
-			VALUES (?, ?, ?)
-			ON CONFLICT(id) DO UPDATE SET name = excluded.name
-			",
+            INSERT INTO screenshot_groups (id, name, display_order)
+            VALUES (?, ?, ?)
+            ON CONFLICT(id) DO UPDATE SET name = excluded.name
+            ",
             group.id,
             name,
             display_order,
@@ -287,10 +287,10 @@ async fn set_group_members(
         instance_ids.insert(screenshot_instance_id(&screenshot_id, tx).await?);
         sqlx::query!(
             "
-			INSERT INTO screenshot_group_memberships (screenshot_id, group_id)
-			VALUES (?, ?)
-			ON CONFLICT(screenshot_id) DO UPDATE SET group_id = excluded.group_id
-			",
+            INSERT INTO screenshot_group_memberships (screenshot_id, group_id)
+            VALUES (?, ?)
+            ON CONFLICT(screenshot_id) DO UPDATE SET group_id = excluded.group_id
+            ",
             screenshot_id,
             group_id,
         )

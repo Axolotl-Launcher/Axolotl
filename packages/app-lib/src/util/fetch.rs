@@ -97,6 +97,13 @@ use crate::util::download::constants::{
     TASK_PROBE_MAX_WAIT, TASK_PROBE_WINDOW,
 };
 use crate::util::download::constants::{
+    BULK_ADAPTIVE_RANGE_BYTES, BULK_DOWNLOAD_RESERVED_PERMITS,
+    BULK_SEGMENTED_DOWNLOAD_THRESHOLD, DOWNLOAD_RANGE_CONNECTION_FLOOR,
+    DOWNLOAD_RANGE_RECOVERY_INTERVAL, DOWNLOAD_RANGE_TARGET_TIME,
+    INITIAL_BULK_SEGMENT_CONCURRENCY, LARGE_FILE_RANGE_CONNECTION_FLOOR,
+    SEGMENT_EXPANSION_GAIN_PERCENT, SEGMENT_EXPANSION_RETRY_SPEED_PERCENT,
+};
+use crate::util::download::constants::{
     DOWNLOAD_DNS_PREWARM_CONCURRENCY, DOWNLOAD_FAILURE_DIAGNOSTIC_ATTEMPTS,
     DOWNLOAD_PERCENT_BASE, FILE_POOL_MAX_IDLE_PER_HOST,
     FILE_RETRY_SINGLE_STREAM_ROUNDS, FILE_VALIDATION_CONCURRENCY,
@@ -275,14 +282,17 @@ pub struct DownloadRequest {
     pub header: Option<(String, String)>,
     pub candidate_urls: Vec<String>,
     /// Whether range-segmented (multi-connection) downloading is allowed.
-    /// Batch schedulers disable it so many small files share one connection
-    /// budget instead of each file multiplying its connections.
+    /// Batch schedulers restrict small files so they share a connection budget.
     pub allow_segmented_download: bool,
     /// Whether HTTP/1.1 may multiply one file into concurrent Range requests.
-    /// Multi-file batch schedulers disable this while retaining shared H2.
+    /// Batch policy enables this for large items with a known integrity hash.
     pub(crate) allow_http1_segmented_download: bool,
-    /// Explicit shared-connection H2 range stream count for one large file.
-    /// This is currently reserved for standalone modpack archive downloads.
+    pub(crate) batch_download: bool,
+    pub(crate) prefer_http1: bool,
+    /// Minimum independent Range connections, bounded by data and resource limits.
+    pub(crate) range_connection_floor: Option<usize>,
+    /// Requested H2 range streams when the file does not qualify for
+    /// independent connections. Streams on one socket share its bandwidth.
     pub(crate) h2_range_concurrency: Option<usize>,
     pub(crate) cancellation: Option<tokio_util::sync::CancellationToken>,
     pub(crate) install_tracking: Option<DownloadInstallTracking>,
@@ -310,6 +320,9 @@ impl DownloadRequest {
             candidate_urls: Vec::new(),
             allow_segmented_download: true,
             allow_http1_segmented_download: true,
+            batch_download: false,
+            prefer_http1: false,
+            range_connection_floor: None,
             h2_range_concurrency: None,
             cancellation: None,
             install_tracking: None,
@@ -328,6 +341,50 @@ impl DownloadRequest {
     pub(crate) fn with_http1_segmented_download(mut self, allow: bool) -> Self {
         self.allow_http1_segmented_download = allow;
         self
+    }
+
+    /// Small batch items share connections. Large, hash-verified items may
+    /// use spare connections for ranges, including after the batch thins out.
+    pub(crate) fn with_batch_download_policy(mut self) -> Self {
+        self.batch_download = true;
+        self.allow_segmented_download = true;
+        self.allow_http1_segmented_download = self.integrity.supports_resume()
+            && self
+                .integrity
+                .size
+                .is_some_and(|size| size >= BULK_SEGMENTED_DOWNLOAD_THRESHOLD);
+        self
+    }
+
+    pub(crate) fn with_range_connection_floor(mut self, floor: usize) -> Self {
+        self.range_connection_floor =
+            Some(floor.clamp(1, MAX_SEGMENT_CONCURRENCY));
+        self
+    }
+
+    pub(crate) fn supports_range_recovery(&self) -> bool {
+        self.allow_segmented_download
+            && (self.allow_http1_segmented_download || self.batch_download)
+            && self.resource != ResourceClass::Metadata
+            && self.integrity.has_hash()
+    }
+
+    pub(crate) fn prefers_independent_ranges(&self, size: u64) -> bool {
+        self.supports_range_recovery()
+            && self.allow_http1_segmented_download
+            && (size >= BULK_SEGMENTED_DOWNLOAD_THRESHOLD
+                || (self.range_connection_floor.is_some()
+                    && size >= MIN_SEGMENT_SIZE * MIN_PARALLEL_RANGES as u64))
+    }
+
+    fn minimum_range_connections(&self, size: u64) -> usize {
+        self.range_connection_floor.unwrap_or_else(|| {
+            if self.prefers_independent_ranges(size) {
+                LARGE_FILE_RANGE_CONNECTION_FLOOR
+            } else {
+                1
+            }
+        })
     }
 
     pub(crate) fn with_h2_range_concurrency(
@@ -1079,6 +1136,14 @@ pub(crate) fn is_h2_protocol_failure(error: &reqwest::Error) -> bool {
 }
 
 fn reqwest_client_builder() -> reqwest::ClientBuilder {
+    #[cfg(test)]
+    let read_timeout = if BENCHMARK_TIMING.try_with(|_| ()).is_ok() {
+        time::Duration::from_secs(60)
+    } else {
+        FILE_TRANSFER_READ_TIMEOUT
+    };
+    #[cfg(not(test))]
+    let read_timeout = FILE_TRANSFER_READ_TIMEOUT;
     reqwest::Client::builder()
         .redirect(reqwest::redirect::Policy::custom(|attempt| {
             if retired_sources::is_retired(attempt.url()) {
@@ -1090,7 +1155,7 @@ fn reqwest_client_builder() -> reqwest::ClientBuilder {
             }
         }))
         .connect_timeout(FILE_TRANSFER_CONNECT_TIMEOUT)
-        .read_timeout(FILE_TRANSFER_READ_TIMEOUT)
+        .read_timeout(read_timeout)
         .tcp_keepalive(Some(FILE_TCP_KEEPALIVE))
         .tcp_nodelay(true)
         .pool_max_idle_per_host(FILE_POOL_MAX_IDLE_PER_HOST)
@@ -1586,7 +1651,7 @@ pub(crate) fn range_splitting_authority(
     effective_route_authority(route)
 }
 
-fn range_splitting_allowed(route: &DownloadRoute) -> bool {
+pub(crate) fn range_splitting_allowed(route: &DownloadRoute) -> bool {
     let host = route_host(route).unwrap_or_default();
     if [
         FETCH_GITHUB_COM,
@@ -2330,7 +2395,7 @@ async fn fetch_advanced_inner(
                     )
                     .await
                     .map_err(|_| {
-                        ErrorKind::NetworkError(
+                        ErrorKind::DownloadResourceWaitTimeout(
                             FETCH_TIMED_OUT_WAITING_FOR_CDN_CONNECTION_RESOURCES
                                 .into(),
                         )
@@ -2593,10 +2658,10 @@ async fn fetch_advanced_inner(
 
                             while let Some(item) = stream.next().await {
                                 let chunk = item.wrap_err_with(|| {
-									eyre!(
-										"failed to read response body from {log_request_url}"
-									)
-								})?;
+                                    eyre!(
+                                        "failed to read response body from {log_request_url}"
+                                    )
+                                })?;
 
                                 downloaded += chunk.len() as u64;
                                 if let Some(feedback) = &endpoint_feedback { feedback.record(chunk.len(), super::download::local_resources::network_pressure()); }
@@ -2652,7 +2717,7 @@ async fn fetch_advanced_inner(
                             eyre!(
                                 "failed to read response body from {log_request_url}"
                             )
-						})
+                        })
                     };
                     if loading_bar.is_none()
                         && progress.is_none()
@@ -3463,6 +3528,7 @@ struct SegmentDownloadCompletion {
 struct SegmentCleanupGuard {
     part_path: PathBuf,
     armed: bool,
+    preserved_prefix: u64,
 }
 
 impl SegmentCleanupGuard {
@@ -3470,7 +3536,13 @@ impl SegmentCleanupGuard {
         Self {
             part_path: part_path.to_path_buf(),
             armed: true,
+            preserved_prefix: 0,
         }
+    }
+
+    fn preserve_prefix(mut self, bytes: u64) -> Self {
+        self.preserved_prefix = bytes;
+        self
     }
 
     fn disarm(&mut self) {
@@ -3483,7 +3555,18 @@ impl Drop for SegmentCleanupGuard {
         if !self.armed {
             return;
         }
-        let _ = std::fs::remove_file(&self.part_path);
+        if self.preserved_prefix > 0 {
+            // Concurrent ranges may leave holes. Only the original contiguous
+            // prefix remains resumable after cancellation or a failed trial.
+            if let Ok(file) = std::fs::OpenOptions::new()
+                .write(true)
+                .open(&self.part_path)
+            {
+                let _ = file.set_len(self.preserved_prefix);
+            }
+        } else {
+            let _ = std::fs::remove_file(&self.part_path);
+        }
         for index in 0..MAX_SEGMENT_CONCURRENCY {
             let _ = std::fs::remove_file(segment_path(&self.part_path, index));
             for candidate in 0..MAX_TAIL_HEDGES_PER_FILE {
@@ -3512,17 +3595,39 @@ fn response_validator(response: &reqwest::Response) -> ResourceValidator {
     }
 }
 
+fn resource_validator_changed(reason: &str) -> bool {
+    matches!(
+        reason,
+        FETCH_RESOURCE_VALIDATOR_CHANGED_BETWEEN_RANGES
+            | FETCH_RESOURCE_VALIDATOR_CHANGED_DURING_TAIL_HEDGE
+    )
+}
+
 fn validate_resource_version(
     expected: &Mutex<Option<ResourceValidator>>,
     response: &reqwest::Response,
+    integrity: &Integrity,
 ) -> bool {
     let candidate = response_validator(response);
     let mut expected = expected.lock();
     match expected.as_ref() {
         Some(expected) => {
-            (expected.etag.is_none() || expected.etag == candidate.etag)
+            let matches = (expected.etag.is_none()
+                || expected.etag == candidate.etag)
                 && (expected.last_modified.is_none()
-                    || expected.last_modified == candidate.last_modified)
+                    || expected.last_modified == candidate.last_modified);
+            if !matches && integrity.supports_resume() {
+                // CDN cache variants can have different validators. Every
+                // range still needs valid bounds; the expected whole-file
+                // hash, checked before publication, pins the actual content.
+                tracing::debug!(
+                    expected_validator = ?expected,
+                    candidate_validator = ?candidate,
+                    "Continuing ranges with different metadata; whole-file hash verification is required"
+                );
+                return true;
+            }
+            matches
         }
         None => {
             *expected = Some(candidate);
@@ -3538,12 +3643,19 @@ fn segmented_concurrency_cap(available_permits: usize) -> usize {
 fn route_segmented_concurrency_cap(
     route: &DownloadRoute,
     available_permits: usize,
+    size: u64,
 ) -> usize {
-    let fair_share = (available_permits / DOWNLOAD_FAIR_SHARE_DIVISOR).max(1);
+    let fair_share = if size >= BULK_SEGMENTED_DOWNLOAD_THRESHOLD {
+        let reserved = BULK_DOWNLOAD_RESERVED_PERMITS
+            .min(available_permits / DOWNLOAD_FAIR_SHARE_DIVISOR);
+        available_permits.saturating_sub(reserved).max(1)
+    } else {
+        (available_permits / DOWNLOAD_FAIR_SHARE_DIVISOR).max(1)
+    };
 
     segmented_concurrency_cap(available_permits)
         .min(fair_share)
-        .min(crate::util::download::native_budget::available(route))
+        .min(crate::util::download::native_budget::capacity(route))
 }
 
 pub(crate) fn configured_semaphore_limit(semaphore: &FetchSemaphore) -> usize {
@@ -3570,6 +3682,11 @@ async fn acquire_initial_segment_permits<'a>(
     count: usize,
 ) -> crate::Result<Vec<NativeConnectionPermit<'a>>> {
     let queue_started = Instant::now();
+    // Start with the available share instead of waiting for an entire batch.
+    // The scheduler retains its configured ceiling and grows as slots return.
+    let count = count
+        .min(crate::util::download::native_budget::available(route).max(1))
+        .min(semaphore.0.available_permits().max(1));
     let native_permits =
         crate::util::download::native_budget::acquire_many(route, count)
             .await?;
@@ -3626,7 +3743,12 @@ fn initial_segment_count(size: u64, available_permits: usize) -> usize {
     let size_limit = usize::try_from(size / MIN_SEGMENT_SIZE)
         .unwrap_or(usize::MAX)
         .max(1);
-    INITIAL_SEGMENT_CONCURRENCY
+    let initial = if size >= BULK_SEGMENTED_DOWNLOAD_THRESHOLD {
+        INITIAL_BULK_SEGMENT_CONCURRENCY
+    } else {
+        INITIAL_SEGMENT_CONCURRENCY
+    };
+    initial
         .min(segmented_concurrency_cap(available_permits))
         .min(size_limit)
 }
@@ -3636,8 +3758,16 @@ fn adaptive_range_cap(
     route_cap: usize,
     disk_cap: usize,
     consecutive_failures: u32,
+    tail_recovery: bool,
 ) -> usize {
-    let size_cap = (size / ADAPTIVE_RANGE_BYTES)
+    let range_bytes = if tail_recovery {
+        MIN_SEGMENT_SIZE
+    } else if size >= BULK_SEGMENTED_DOWNLOAD_THRESHOLD {
+        BULK_ADAPTIVE_RANGE_BYTES
+    } else {
+        ADAPTIVE_RANGE_BYTES
+    };
+    let size_cap = (size / range_bytes)
         .max(1)
         .min(MAX_SEGMENT_CONCURRENCY as u64) as usize;
     let failure_cap = match consecutive_failures {
@@ -3648,10 +3778,20 @@ fn adaptive_range_cap(
     route_cap.min(size_cap).min(disk_cap).min(failure_cap)
 }
 
+#[cfg(test)]
 fn create_initial_ranges(size: u64, count: usize) -> Vec<DownloadRange> {
-    let base_size = size / count as u64;
-    let remainder = size % count as u64;
-    let mut start = 0_u64;
+    create_remaining_ranges(size, 0, count)
+}
+
+fn create_remaining_ranges(
+    size: u64,
+    prefix: u64,
+    count: usize,
+) -> Vec<DownloadRange> {
+    let remaining = size - prefix;
+    let base_size = remaining / count as u64;
+    let remainder = remaining % count as u64;
+    let mut start = prefix;
     (0..count)
         .map(|index| {
             let range_size = base_size + u64::from(index < remainder as usize);
@@ -3663,6 +3803,87 @@ fn create_initial_ranges(size: u64, count: usize) -> Vec<DownloadRange> {
         .collect()
 }
 
+fn range_growth_target(
+    active: usize,
+    cap: usize,
+    retained: usize,
+    exhausted: bool,
+    remaining: u64,
+    speed: u64,
+) -> usize {
+    if exhausted {
+        retained
+    } else {
+        let deadline_target = if speed == 0 {
+            active
+        } else {
+            let budget = u128::from(speed)
+                * u128::from(DOWNLOAD_RANGE_TARGET_TIME.as_secs());
+            let needed =
+                (u128::from(remaining) * active as u128).div_ceil(budget);
+            usize::try_from(needed).unwrap_or(MAX_SEGMENT_CONCURRENCY)
+        };
+        active.saturating_mul(2).max(deadline_target)
+    }
+    .min(cap)
+}
+
+fn range_growth_can_retry(previous: u64, current: u64) -> bool {
+    previous > 0
+        && u128::from(current) * u128::from(DOWNLOAD_PERCENT_BASE)
+            < u128::from(previous) * SEGMENT_EXPANSION_RETRY_SPEED_PERCENT
+}
+
+fn requested_range_floor(
+    request: &DownloadRequest,
+    size: u64,
+    remaining: u64,
+    cap: usize,
+) -> usize {
+    request.minimum_range_connections(size).min(cap).min(
+        usize::try_from(remaining / MIN_SEGMENT_SIZE)
+            .unwrap_or(usize::MAX)
+            .max(1),
+    )
+}
+
+fn range_connection_floor(
+    size: u64,
+    remaining: u64,
+    cap: usize,
+    tail_recovery: bool,
+) -> usize {
+    if !tail_recovery && size < BULK_SEGMENTED_DOWNLOAD_THRESHOLD {
+        return 1;
+    }
+    DOWNLOAD_RANGE_CONNECTION_FLOOR.min(cap).min(
+        usize::try_from(remaining / MIN_SEGMENT_SIZE)
+            .unwrap_or(usize::MAX)
+            .max(1),
+    )
+}
+
+struct RangeExpansionBaseline {
+    speed: u64,
+    completed_ranges: usize,
+    previous_target: usize,
+}
+
+impl RangeExpansionBaseline {
+    fn gained_throughput(
+        &self,
+        speed: u64,
+        completed_ranges: usize,
+    ) -> Option<bool> {
+        // A smaller active set naturally has less aggregate throughput. It
+        // cannot establish that the new connections made the transfer slower.
+        (completed_ranges == self.completed_ranges).then(|| {
+            u128::from(speed) * u128::from(DOWNLOAD_PERCENT_BASE)
+                >= u128::from(self.speed) * SEGMENT_EXPANSION_GAIN_PERCENT
+        })
+    }
+}
+
 fn expansion_block_reason(
     snapshot: SpeedSnapshot,
     active_ranges: usize,
@@ -3670,6 +3891,7 @@ fn expansion_block_reason(
     available_permits: usize,
     remaining_bytes: u64,
     elapsed_since_expansion: time::Duration,
+    minimum_interval: time::Duration,
 ) -> Option<&'static str> {
     if active_ranges >= concurrency_cap {
         return Some(FETCH_EFFECTIVE_CONCURRENCY_CAP_REACHED);
@@ -3677,7 +3899,7 @@ fn expansion_block_reason(
     if available_permits == 0 {
         return Some(FETCH_NO_GLOBAL_PERMIT_AVAILABLE);
     }
-    if elapsed_since_expansion < SEGMENT_EXPANSION_INTERVAL {
+    if elapsed_since_expansion < minimum_interval {
         return Some(FETCH_EXPANSION_COOLDOWN_ACTIVE);
     }
     if snapshot.sample_count < SEGMENT_EXPANSION_SAMPLE_COUNT {
@@ -3727,7 +3949,24 @@ fn native_first_byte_timeout(
 }
 
 fn should_use_segmented_download(size: u64, resumable_part_bytes: u64) -> bool {
-    size >= SEGMENTED_DOWNLOAD_THRESHOLD && resumable_part_bytes < size / 2
+    size.saturating_sub(resumable_part_bytes) >= SEGMENTED_DOWNLOAD_THRESHOLD
+}
+
+fn range_idle_timeout(tail: bool) -> time::Duration {
+    #[cfg(test)]
+    if BENCHMARK_TIMING.try_with(|_| ()).is_ok() {
+        return time::Duration::from_secs(if tail { 5 } else { 8 });
+    }
+    if tail {
+        TAIL_HEDGE_IDLE_TIMEOUT
+    } else {
+        RANGE_IDLE_RECONNECT_TIMEOUT
+    }
+}
+
+fn can_recover_file_ranges(request: &DownloadRequest, remaining: u64) -> bool {
+    request.supports_range_recovery()
+        && remaining >= MIN_SEGMENT_SIZE * MIN_PARALLEL_RANGES as u64
 }
 
 fn probe_is_meaningfully_faster(
@@ -4364,6 +4603,7 @@ async fn download_tail_candidate(
     candidate_index: usize,
     system_client: &reqwest::Client,
     direct_client: &reqwest::Client,
+    integrity: &Integrity,
     validator: &Mutex<Option<ResourceValidator>>,
     redirect_target: Option<&AsyncMutex<Option<Url>>>,
 ) -> Result<TailCandidateCompletion, SegmentDownloadError> {
@@ -4374,7 +4614,7 @@ async fn download_tail_candidate(
     let path = tail_candidate_path(part_path, range.index, candidate_index);
     let mut cleanup = TailCandidateCleanupGuard::new(path.clone());
     let response = tokio::time::timeout(
-        FILE_TRANSFER_FIRST_BYTE_TIMEOUT,
+        native_first_byte_timeout(route, false),
         send_path_request_with_clients(
             route,
             custom_header,
@@ -4402,7 +4642,7 @@ async fn download_tail_candidate(
             FETCH_INVALID_HEDGED_CONTENT_RANGE,
         ));
     }
-    if !validate_resource_version(validator, &response) {
+    if !validate_resource_version(validator, &response, integrity) {
         return Err(SegmentDownloadError::Protocol(
             FETCH_RESOURCE_VALIDATOR_CHANGED_DURING_TAIL_HEDGE,
         ));
@@ -4417,7 +4657,7 @@ async fn download_tail_candidate(
     let mut stream = response.bytes_stream();
     loop {
         let chunk =
-            tokio::time::timeout(RANGE_IDLE_RECONNECT_TIMEOUT, stream.next())
+            tokio::time::timeout(range_idle_timeout(false), stream.next())
                 .await
                 .map_err(|_| SegmentDownloadError::Transport)?;
         let Some(chunk) = chunk else {
@@ -4488,6 +4728,7 @@ async fn race_tail_candidates(
     part_path: &Path,
     system_client: &reqwest::Client,
     direct_client: &reqwest::Client,
+    integrity: &Integrity,
     validator: &Mutex<Option<ResourceValidator>>,
     redirect_target: Option<&AsyncMutex<Option<Url>>>,
 ) -> Result<(TailCandidateCompletion, usize), SegmentDownloadError> {
@@ -4504,6 +4745,7 @@ async fn race_tail_candidates(
         0,
         system_client,
         direct_client,
+        integrity,
         validator,
         redirect_target,
     );
@@ -4520,6 +4762,7 @@ async fn race_tail_candidates(
         1,
         system_client,
         direct_client,
+        integrity,
         validator,
         redirect_target,
     );
@@ -4587,7 +4830,7 @@ async fn download_segment(
             .await
             .map_err(|error| SegmentDownloadError::Fatal(error.into()))?;
         let response = tokio::time::timeout(
-            FILE_TRANSFER_FIRST_BYTE_TIMEOUT,
+            native_first_byte_timeout(route, false),
             send_path_request_with_clients(
                 route,
                 custom_header,
@@ -4658,7 +4901,8 @@ async fn download_segment(
                 FETCH_INVALID_CONTENT_RANGE,
             ));
         }
-        if !validate_resource_version(validator, &response) {
+        if !validate_resource_version(validator, &response, &request.integrity)
+        {
             return Err(SegmentDownloadError::Protocol(
                 FETCH_RESOURCE_VALIDATOR_CHANGED_BETWEEN_RANGES,
             ));
@@ -4684,11 +4928,7 @@ async fn download_segment(
             let tail_threshold = TAIL_HEDGE_MIN_REMAINING.max(total_size / 10);
             let tail_eligible = range.remaining() <= tail_threshold;
             let chunk = match tokio::time::timeout(
-                if tail_eligible {
-                    TAIL_HEDGE_IDLE_TIMEOUT
-                } else {
-                    RANGE_IDLE_RECONNECT_TIMEOUT
-                },
+                range_idle_timeout(tail_eligible),
                 async {
                     stream
                         .as_mut()
@@ -4730,6 +4970,7 @@ async fn download_segment(
                                 part_path,
                                 system_client,
                                 direct_client,
+                                &request.integrity,
                                 validator,
                                 redirect_target,
                             )
@@ -4820,21 +5061,21 @@ async fn download_segment(
                     }
                     stream_end_reason = Some(format!(
                         "tail range made no progress for {:.0} seconds",
-                        TAIL_HEDGE_IDLE_TIMEOUT.as_secs_f64()
+                        range_idle_timeout(true).as_secs_f64()
                     ));
                     break;
                 }
                 Err(_) => {
                     stream_end_reason = Some(format!(
                         "no range data for {:.0} seconds",
-                        RANGE_IDLE_RECONNECT_TIMEOUT.as_secs_f64()
+                        range_idle_timeout(false).as_secs_f64()
                     ));
                     tracing::warn!(
                         url = %sanitize_url_for_log(&route.url),
                         range_start = requested_start,
                         range_end = requested_end,
                         remaining_bytes = range.remaining(),
-                        idle_seconds = RANGE_IDLE_RECONNECT_TIMEOUT.as_secs_f64(),
+                        idle_seconds = range_idle_timeout(false).as_secs_f64(),
                         "Range stream stalled; reconnecting from confirmed offset"
                     );
                     break;
@@ -5113,8 +5354,34 @@ async fn try_segmented_download(
         max_attempts,
         allow_low_throughput_abort,
     } = context;
+    let resume_prefix = match tokio::fs::metadata(part_path).await {
+        Ok(metadata) if metadata.len() > 0 => {
+            if !metadata.is_file()
+                || metadata.len() >= size
+                || !request.integrity.supports_resume()
+            {
+                return SegmentedDownloadOutcome::FallbackSingle {
+                    disable_range: false,
+                    reason: FETCH_RESUMABLE_PARTIAL_USES_A_SINGLE_STREAM,
+                };
+            }
+            metadata.len()
+        }
+        Ok(_) => 0,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => 0,
+        Err(error) => {
+            return SegmentedDownloadOutcome::Fatal(
+                IOError::with_path(error, part_path).into(),
+            );
+        }
+    };
+    let remaining_size = size - resume_prefix;
     let configured_limit = configured_semaphore_limit(semaphore);
-    let route_cap = route_segmented_concurrency_cap(route, configured_limit);
+    let route_cap = route_segmented_concurrency_cap(
+        route,
+        configured_limit,
+        remaining_size,
+    );
     let health =
         route_health_key(route, request.resource)
             .map(|key| {
@@ -5124,14 +5391,25 @@ async fn try_segmented_download(
             })
             .unwrap_or_default();
     let disk_cap =
-        super::download::local_resources::range_limit(part_path).await;
-    let concurrency_cap = adaptive_range_cap(
-        size,
+        super::download::local_resources::http1_range_limit(part_path).await;
+    let range_recovery = (request.batch_download && request.prefer_http1)
+        || request.minimum_range_connections(size) > 1;
+    let mut concurrency_cap = adaptive_range_cap(
+        remaining_size,
         route_cap,
         disk_cap,
         health.consecutive_failures,
+        range_recovery,
     );
-    let requested_initial_count = initial_segment_count(size, concurrency_cap);
+    let requested_initial_count =
+        initial_segment_count(remaining_size, concurrency_cap).max(
+            requested_range_floor(
+                request,
+                size,
+                remaining_size,
+                concurrency_cap,
+            ),
+        );
     if requested_initial_count < MIN_PARALLEL_RANGES {
         tracing::debug!(
             original_url = %sanitize_url_for_log(&route.url),
@@ -5145,15 +5423,6 @@ async fn try_segmented_download(
             reason: FETCH_CONFIGURED_CONNECTION_LIMIT_IS_ONE,
         };
     }
-    if tokio::fs::metadata(part_path)
-        .await
-        .is_ok_and(|metadata| metadata.len() > 0)
-    {
-        return SegmentedDownloadOutcome::FallbackSingle {
-            disable_range: false,
-            reason: FETCH_RESUMABLE_PARTIAL_USES_A_SINGLE_STREAM,
-        };
-    }
     let permits = match acquire_initial_segment_permits(
         route,
         semaphore,
@@ -5164,26 +5433,42 @@ async fn try_segmented_download(
         Ok(permits) => permits,
         Err(error) => return SegmentedDownloadOutcome::Fatal(error),
     };
-    let mut cleanup_guard = SegmentCleanupGuard::new(part_path);
-    let output = match crate::util::download::range_output::RangeOutput::create(
-        part_path, size,
-    )
-    .await
-    {
+    let mut cleanup_guard =
+        SegmentCleanupGuard::new(part_path).preserve_prefix(resume_prefix);
+    let output = if resume_prefix > 0 {
+        crate::util::download::range_output::RangeOutput::resume_prefix(
+            part_path,
+            size,
+            resume_prefix,
+        )
+        .await
+    } else {
+        crate::util::download::range_output::RangeOutput::create(
+            part_path, size,
+        )
+        .await
+    };
+    let output = match output {
         Ok(output) => output,
         Err(error) => return SegmentedDownloadOutcome::Fatal(error.into()),
     };
+    request.transfer_counters.commit(0, resume_prefix);
     record_install_download_started(request, route, attempt, max_attempts)
         .await;
     let transfer_started = Instant::now();
     let (progress_tx, mut progress_rx) = tokio::sync::mpsc::unbounded_channel();
+    if request.batch_download && request.prefer_http1 {
+        super::download::endpoint_selection::tuning::TRIALS
+            .invalidate_for_range_recovery();
+    }
     let speed = DownloadSpeedTracker::default();
     let validator = Mutex::new(None);
     let redirect_target = AsyncMutex::new(None);
     let hedge_count = AtomicUsize::new(0);
     let hedge_active = AtomicBool::new(false);
     let mut downloads = futures::stream::FuturesUnordered::new();
-    let mut ranges = create_initial_ranges(size, permits.len());
+    let mut ranges =
+        create_remaining_ranges(size, resume_prefix, permits.len());
     for (range, permit) in ranges.iter().cloned().zip(permits) {
         downloads.push(download_segment(
             route,
@@ -5211,27 +5496,34 @@ async fn try_segmented_download(
     tracing::debug!(
         original_url = %sanitize_url_for_log(&route.url),
         file_size = size,
+        resume_offset = resume_prefix,
         supports_range = true,
         active_ranges = downloads.len(),
         concurrency_cap,
+        configured_limit,
+        route_cap,
+        disk_cap,
+        requested_range_floor = request.minimum_range_connections(size),
         available_permits = semaphore.0.available_permits(),
         reason = "initial parallel ranges",
         "Started segmented download"
     );
     let mut next_range_index = ranges.len();
+    let mut retained_ranges = ranges.len();
+    let mut completed_ranges = 0;
     let mut scheduler = tokio::time::interval(DOWNLOAD_SCHEDULER_INTERVAL);
     scheduler.tick().await;
     let mut last_expansion = Instant::now();
-    let mut expansion_baseline = None;
+    let mut expansion_baseline: Option<RangeExpansionBaseline> = None;
     let mut expansion_trial: Option<
         super::download::endpoint_selection::tuning::TrialLease,
     > = None;
-    let mut expansion_exhausted = false;
+    let mut expansion_exhausted: Option<u64> = None;
     let mut last_block_reason = None;
-    let mut downloaded = 0_u64;
+    let mut downloaded = resume_prefix;
     let mut slow_policy =
         crate::util::download::native_slow::NativeSlowPolicy::new(
-            0,
+            resume_prefix,
             expected_route_speed(route, request.resource),
         );
     let mut alternate_probe: Option<RouteProbeFuture<'_>> = None;
@@ -5255,6 +5547,7 @@ async fn try_segmented_download(
             }
             result = downloads.next() => {
                 if let Some(result) = result {
+                    completed_ranges += 1;
                     match result {
                         Ok(completion) if completion.is_first_range => {
                             final_url = Some(completion.final_url);
@@ -5343,13 +5636,21 @@ async fn try_segmented_download(
                     tracing::debug!(cpu_percent = pressure.cpu_percent, write_latency_ms = pressure.write_latency_ms, "Pausing range expansion under local resource pressure");
                     continue;
                 }
+                // A busy disk or CPU at admission must not fix the ceiling
+                // for the entire transfer after local pressure has cleared.
+                concurrency_cap = adaptive_range_cap(
+                    remaining_size,
+                    route_cap,
+                    super::download::local_resources::http1_range_limit(part_path).await,
+                    health.consecutive_failures,
+                    range_recovery,
+                );
                 let snapshot = speed.speed_snapshot();
                 use super::download::endpoint_selection::tuning::{TRIALS, TrialKind};
                 if expansion_trial.as_ref().is_some_and(|lease| !lease.valid(Instant::now())) {
                     expansion_trial = None;
                     expansion_baseline = None;
                 }
-                if expansion_trial.is_none() && TRIALS.snapshot(Instant::now()).1.is_some() { continue; }
                 if expansion_baseline.is_some() && last_expansion.elapsed() >= SEGMENT_EXPANSION_INTERVAL {
                     expansion_trial = None;
                 }
@@ -5359,23 +5660,48 @@ async fn try_segmented_download(
                     .filter(|range| range.is_active())
                     .map(DownloadRange::remaining)
                     .sum();
-                if expansion_exhausted {
-                    continue;
-                }
                 if last_expansion.elapsed() >= SEGMENT_EXPANSION_INTERVAL
                     && let Some(baseline) = expansion_baseline.take()
-                    && u128::from(snapshot.recent_average) * 100
-                        < u128::from(baseline) * 115
-                    {
-                        expansion_exhausted = true;
-                        tracing::debug!(
-                            original_url = %sanitize_url_for_log(&route.url),
-                            baseline_speed = baseline,
-                            expanded_speed = snapshot.recent_average,
-                            "Stopping range expansion because the last connection added less than 15 percent throughput"
-                        );
-                        continue;
-                    }
+                    && baseline.gained_throughput(snapshot.recent_average, completed_ranges) == Some(false)
+                {
+                    retained_ranges = baseline.previous_target;
+                    expansion_exhausted = Some(snapshot.recent_average);
+                    tracing::debug!(
+                        original_url = %sanitize_url_for_log(&route.url),
+                        baseline_speed = baseline.speed,
+                        expanded_speed = snapshot.recent_average,
+                        retained_ranges,
+                        "Stopping range growth because the last batch added less than 15 percent throughput"
+                    );
+                }
+                // A burst can hide per-connection throttling. A substantially
+                // slower production window warrants another bounded trial.
+                if expansion_exhausted.is_some_and(|previous| {
+                    range_growth_can_retry(previous, snapshot.recent_average)
+                }) {
+                    expansion_exhausted = None;
+                }
+                // Reuse the last productive connection count as ranges finish.
+                let remaining_time = super::download::native_slow::estimated_duration(
+                    remaining_bytes,
+                    snapshot.recent_average.min(snapshot.aggregate_speed),
+                );
+                let floor_target = range_connection_floor(size, remaining_bytes, concurrency_cap,
+                    request.batch_download && request.prefer_http1)
+                    .max(requested_range_floor(request, size, remaining_bytes, concurrency_cap));
+                let below_floor = active_ranges < floor_target;
+                if !below_floor && ((expansion_exhausted.is_some() && active_ranges >= retained_ranges)
+                    || remaining_time <= super::download::constants::NATIVE_SLOW_RECONNECT_OVERHEAD
+                        + super::download::constants::NATIVE_SLOW_MIN_SAVINGS
+                ) {
+                    continue;
+                }
+                let restoring_ranges = active_ranges < retained_ranges;
+                let deadline_recovery = expansion_exhausted.is_none()
+                    && remaining_time > DOWNLOAD_RANGE_TARGET_TIME;
+                let recovering_ranges = below_floor || restoring_ranges || deadline_recovery;
+                if !recovering_ranges && expansion_trial.is_none()
+                    && TRIALS.snapshot(Instant::now()).1.is_some() { continue; }
                 if let Some(reason) = expansion_block_reason(
                     snapshot,
                     active_ranges,
@@ -5383,6 +5709,7 @@ async fn try_segmented_download(
                     semaphore.0.available_permits(),
                     remaining_bytes,
                     last_expansion.elapsed(),
+                    if below_floor { DOWNLOAD_RANGE_RECOVERY_INTERVAL } else { SEGMENT_EXPANSION_INTERVAL },
                 ) {
                     if last_block_reason != Some(reason) {
                         tracing::debug!(
@@ -5400,59 +5727,101 @@ async fn try_segmented_download(
                     }
                     continue;
                 }
-                let range = ranges
-                    .iter()
-                    .filter(|range| range.is_active())
-                    .max_by_key(|range| range.remaining())
-                    .cloned();
-                if let Some(range) = range
-                    && let Some(trial) = TRIALS.acquire(TrialKind::Ranges, Instant::now(), SEGMENT_EXPANSION_INTERVAL + DOWNLOAD_SCHEDULING_GRACE)
-                    && let Some(permit) =
-                        try_acquire_native_connection(route, semaphore)
-                    && let Some(new_range) =
-                        range.split_tail(next_range_index)
-                    {
-                        tracing::debug!(
-                            original_url = %sanitize_url_for_log(&route.url),
-                            source = route.source.as_str(),
-                            active_ranges = active_ranges + 1,
-                            aggregate_speed = snapshot.aggregate_speed,
-                            recent_average = snapshot.recent_average,
-                            floor = snapshot.speed_floor,
-                            range_start = new_range.start,
-                            range_end = new_range.end(),
-                            reason = "stable aggregate throughput above floor",
-                            "Starting an additional download range"
-                        );
-                        next_range_index += 1;
-                        downloads.push(download_segment(
-                            route,
-                            new_range.clone(),
-                            size,
-                            request.header.as_ref(),
-                            credentials,
-                            None,
-                            part_path,
-                            &output,
-                            permit,
-                            system_client,
-                            direct_client,
-                            progress_tx.clone(),
-                            &speed,
-                            &validator,
-                            (route.source == DownloadRouteSource::Mcim)
-                                .then_some(&redirect_target),
-                            semaphore,
-                            &hedge_count,
-                            &hedge_active,
-                            request,
-                        ));
-                        ranges.push(new_range);
-                        expansion_baseline = Some(snapshot.recent_average);
-                        expansion_trial = Some(trial);
-                        last_expansion = Instant::now();
-                        last_block_reason = None;
+                let trial = if recovering_ranges {
+                    None
+                } else {
+                    let Some(trial) = TRIALS.acquire(
+                        TrialKind::Ranges,
+                        Instant::now(),
+                        SEGMENT_EXPANSION_INTERVAL + DOWNLOAD_SCHEDULING_GRACE,
+                    ) else { continue; };
+                    Some(trial)
+                };
+                let previous_target = retained_ranges;
+                let growth_target = range_growth_target(
+                    active_ranges,
+                    concurrency_cap,
+                    retained_ranges,
+                    expansion_exhausted.is_some(),
+                    remaining_bytes,
+                    snapshot.recent_average,
+                );
+                let target = if below_floor {
+                    floor_target.max(if restoring_ranges { retained_ranges } else { active_ranges }).min(concurrency_cap)
+                } else if restoring_ranges {
+                    retained_ranges.max(if deadline_recovery { growth_target } else { active_ranges }).min(concurrency_cap)
+                } else { growth_target };
+                for _ in active_ranges..target {
+                    let Some(range) = ranges
+                        .iter()
+                        .filter(|range| range.is_active())
+                        .max_by_key(|range| range.remaining())
+                        .cloned() else { break; };
+                    let Some(permit) = try_acquire_native_connection(route, semaphore) else { break; };
+                    let Some(new_range) = range.split_tail(next_range_index) else { break; };
+                    tracing::debug!(
+                        original_url = %sanitize_url_for_log(&route.url),
+                        source = route.source.as_str(),
+                        active_ranges = downloads.len() + 1,
+                        target_ranges = target,
+                        aggregate_speed = snapshot.aggregate_speed,
+                        recent_average = snapshot.recent_average,
+                        floor = snapshot.speed_floor,
+                        range_start = new_range.start,
+                        range_end = new_range.end(),
+                        reason = if below_floor {
+                            "restoring the minimum live range connections"
+                        } else if restoring_ranges {
+                            "replacing completed range connections"
+                        } else if deadline_recovery {
+                            "recovering the remaining download time target"
+                        } else {
+                            "testing a larger connection batch"
+                        },
+                        "Starting an additional download range"
+                    );
+                    next_range_index += 1;
+                    downloads.push(download_segment(
+                        route,
+                        new_range.clone(),
+                        size,
+                        request.header.as_ref(),
+                        credentials,
+                        None,
+                        part_path,
+                        &output,
+                        permit,
+                        system_client,
+                        direct_client,
+                        progress_tx.clone(),
+                        &speed,
+                        &validator,
+                        (route.source == DownloadRouteSource::Mcim)
+                            .then_some(&redirect_target),
+                        semaphore,
+                        &hedge_count,
+                        &hedge_active,
+                        request,
+                    ));
+                    ranges.push(new_range);
+                }
+                if downloads.len() > active_ranges {
+                    retained_ranges = retained_ranges.max(downloads.len());
+                    if recovering_ranges {
+                        expansion_baseline = None;
+                        expansion_trial = None;
+                        TRIALS.invalidate_for_range_recovery();
+                    } else {
+                        expansion_baseline = Some(RangeExpansionBaseline {
+                            speed: snapshot.recent_average,
+                            completed_ranges,
+                            previous_target,
+                        });
+                        expansion_trial = trial;
                     }
+                    last_expansion = Instant::now();
+                    last_block_reason = None;
+                }
             }
         }
     }
@@ -5469,7 +5838,9 @@ async fn try_segmented_download(
         return match error {
             SegmentDownloadError::Protocol(reason) => {
                 SegmentedDownloadOutcome::FallbackSingle {
-                    disable_range: true,
+                    // Version metadata belongs to one object. A mismatch is
+                    // not evidence that its server cannot serve byte ranges.
+                    disable_range: !resource_validator_changed(reason),
                     reason,
                 }
             }
@@ -5738,6 +6109,23 @@ async fn select_h2_download_route(
         return None;
     }
     let h2_route = first_h2_route(routes)?;
+    // A warm H2 socket must not bypass the large-file connection scheduler.
+    // More streams on that socket cannot escape a per-connection speed limit.
+    if request
+        .integrity
+        .size
+        .is_some_and(|size| request.prefers_independent_ranges(size))
+        && h2_route.supports_range
+        && range_splitting_allowed(&h2_route)
+    {
+        tracing::debug!(
+            url = %sanitize_url_for_log(&h2_route.url),
+            file_size = request.integrity.size,
+            requested_h2_streams = request.h2_range_concurrency,
+            "Selecting independent range connections instead of shared HTTP/2"
+        );
+        return None;
+    }
     let policy = if request.h2_range_concurrency.is_some() {
         if !super::download::h2_pool::has_live_connection(&h2_route).await {
             return None;
@@ -5807,7 +6195,11 @@ async fn prepare_partial_download(
 
 enum H2AttemptResult {
     Completed(DownloadResult),
-    Fallback { failed_nonofficial: Option<String> },
+    Fallback {
+        failed_nonofficial: Option<String>,
+        prefer_http1: bool,
+        discovered_size: Option<u64>,
+    },
 }
 
 async fn try_h2_download(
@@ -5892,7 +6284,16 @@ async fn try_h2_download(
                 remove_if_exists(part_path).await?;
             }
             cleanup_segment_files(part_path, MAX_SEGMENT_CONCURRENCY).await?;
-            Ok(H2AttemptResult::Fallback { failed_nonofficial })
+            Ok(H2AttemptResult::Fallback {
+                failed_nonofficial,
+                prefer_http1: matches!(failure,
+                    crate::util::download::h2_download::H2DownloadFailure::Slow
+                    | crate::util::download::h2_download::H2DownloadFailure::IndependentRanges(_)),
+                discovered_size: match failure {
+                    crate::util::download::h2_download::H2DownloadFailure::IndependentRanges(size) => Some(size),
+                    _ => None,
+                },
+            })
         }
     }
 }
@@ -5987,7 +6388,7 @@ where
 }
 
 async fn download_to_path_inner(
-    request: DownloadRequest,
+    mut request: DownloadRequest,
     destination: &Path,
     semaphore: &FetchSemaphore,
     progress: Option<&mut FetchProgressFn<'_>>,
@@ -6041,9 +6442,8 @@ async fn download_to_path_inner(
     prepare_partial_download(&routes, &part_path, &request.integrity).await?;
     prepare_native_download_routes(&request, &mut routes, semaphore).await;
 
-    // Prefer one stream on a healthy shared HTTP/2 connection when the file
-    // size and transport reputation justify it. Larger or slow H2 transfers
-    // fall through to independent HTTP/1.1 range connections.
+    // Small files can share H2. Large, hash-verified range downloads enter
+    // the independent-connection scheduler even when an H2 socket is warm.
     let h2_failed_nonofficial = if let Some((h2_route, h2_policy)) =
         select_h2_download_route(&request, &routes, &part_path).await
     {
@@ -6064,7 +6464,15 @@ async fn download_to_path_inner(
                 )
                 .await);
             }
-            H2AttemptResult::Fallback { failed_nonofficial } => {
+            H2AttemptResult::Fallback {
+                failed_nonofficial,
+                prefer_http1,
+                discovered_size,
+            } => {
+                request.prefer_http1 = prefer_http1;
+                if request.integrity.size.is_none() {
+                    request.integrity.size = discovered_size;
+                }
                 failed_nonofficial
             }
         }
@@ -6155,13 +6563,28 @@ async fn try_segmented_native_attempt(
         }
         _ => 0,
     };
-    if request.allow_http1_segmented_download
+    let explicitly_parallel = request.range_connection_floor.is_some()
+        && request.integrity.supports_resume()
+        && request.integrity.size.is_some_and(|size| {
+            size.saturating_sub(resumable_part_bytes)
+                >= MIN_SEGMENT_SIZE * MIN_PARALLEL_RANGES as u64
+        });
+    let tail_recovery = request.prefer_http1
+        && request.integrity.size.is_some_and(|size| {
+            can_recover_file_ranges(
+                request,
+                size.saturating_sub(resumable_part_bytes),
+            )
+        });
+    if (request.allow_http1_segmented_download || tail_recovery)
         && !retry_with_single_thread
         && !session.single_thread_routes.contains(&route.url)
         && route.supports_range
         && range_splitting_allowed(route)
         && request.integrity.size.is_some_and(|size| {
-            should_use_segmented_download(size, resumable_part_bytes)
+            tail_recovery
+                || explicitly_parallel
+                || should_use_segmented_download(size, resumable_part_bytes)
         })
     {
         let size = request.integrity.size.unwrap();
@@ -6186,12 +6609,14 @@ async fn try_segmented_native_attempt(
         {
             SegmentedDownloadOutcome::Success(result) => {
                 finalize_download(part_path, destination).await?;
+                let transferred_bytes =
+                    result.size.saturating_sub(resumable_part_bytes);
                 if let Some(authority) = original_route_authority(route) {
                     crate::util::download::native_reputation::record_transport_success(
                         &authority,
                         route.proxy,
                         crate::util::download::native_reputation::NativeTransport::Http1MultiRange,
-                        result.size as f64
+                        transferred_bytes as f64
                             / result
                                 .transfer_elapsed
                                 .as_secs_f64()
@@ -6202,7 +6627,7 @@ async fn try_segmented_native_attempt(
                     route,
                     request.resource,
                     result.ttfb,
-                    result.size,
+                    transferred_bytes,
                     result.transfer_elapsed,
                     result.remote_addr,
                 );
@@ -6271,7 +6696,9 @@ async fn try_segmented_native_attempt(
                     reason,
                     "Falling back to a single connection"
                 );
-                if disable_range {
+                if resource_validator_changed(reason) {
+                    session.single_thread_routes.insert(route.url.clone());
+                } else if disable_range {
                     disable_range_splitting(route);
                 }
             }
@@ -6746,7 +7173,8 @@ async fn run_native_route_attempts(
         can_switch_route,
         retry_with_single_thread,
     );
-    'attempt: {
+    let mut batch_ranges_attempted = false;
+    'attempt: loop {
         if session.attempts >= session.file_attempt_budget {
             break 'attempt;
         }
@@ -6832,7 +7260,7 @@ async fn run_native_route_attempts(
             permit_wait.await
         }
         .map_err(|_| {
-            ErrorKind::NetworkError(
+            ErrorKind::DownloadResourceWaitTimeout(
                 FETCH_TIMED_OUT_WAITING_FOR_NATIVE_DOWNLOAD_RESOURCES
                     .to_string(),
             )
@@ -6863,14 +7291,35 @@ async fn run_native_route_attempts(
             .unwrap_or_else(|| route.clone());
         let (response, final_url) = match tokio::time::timeout(
             first_byte_timeout,
-            send_path_request(
-                &attempt_route,
-                request.header.as_ref(),
-                credentials,
-                request.download_meta.as_ref(),
-                (resume_offset > 0).then_some(resume_offset),
-                None,
-            ),
+            async {
+                if request.prefer_http1 || batch_ranges_attempted {
+                    let clients = DownloadClients::for_request(
+                        &HTTP1_NO_REDIRECT_REQWEST_CLIENT,
+                        &HTTP1_DIRECT_REQWEST_CLIENT,
+                    );
+                    send_path_request_with_clients(
+                        &attempt_route,
+                        request.header.as_ref(),
+                        credentials,
+                        request.download_meta.as_ref(),
+                        (resume_offset > 0).then_some(resume_offset),
+                        None,
+                        &clients,
+                        None,
+                    )
+                    .await
+                } else {
+                    send_path_request(
+                        &attempt_route,
+                        request.header.as_ref(),
+                        credentials,
+                        request.download_meta.as_ref(),
+                        (resume_offset > 0).then_some(resume_offset),
+                        None,
+                    )
+                    .await
+                }
+            },
         )
         .await
         {
@@ -7164,6 +7613,15 @@ async fn run_native_route_attempts(
             .unwrap_or(starting_size.saturating_add(response_length));
         let transfer_started = Instant::now();
         let mut downloaded = starting_size;
+        let mut batch_tail =
+            super::download::h2_receive::BatchTailWindow::new(transfer_started);
+        let mut recover_file_ranges = !batch_ranges_attempted
+            && !retry_with_single_thread
+            && !session.single_thread_routes.contains(&route.url)
+            && request.integrity.size.is_none()
+            && request.prefers_independent_ranges(total_size)
+            && route.supports_range
+            && range_splitting_allowed(route);
         let mut progress_gate =
             super::download::h2_receive::H2ProgressGate::with_starting_bytes(
                 total_size,
@@ -7191,7 +7649,7 @@ async fn run_native_route_attempts(
         let mut transfer_error: Option<crate::Error> = None;
         let mut switched_endpoint = false;
         let mut last_endpoint_speed = 0;
-        loop {
+        while !recover_file_ranges {
             tokio::select! {
                 item = async {
                     #[cfg(test)]
@@ -7250,6 +7708,19 @@ async fn run_native_route_attempts(
                     let persisted = downloaded.saturating_sub(file.pending_bytes());
                     if progress_gate.should_report(persisted, total_size) {
                         record_install_download_progress(request, persisted, total_size).await;
+                    }
+                    let can_recover = !batch_ranges_attempted
+                        && !retry_with_single_thread
+                        && !session.single_thread_routes.contains(&route.url)
+                        && route.supports_range
+                        && range_splitting_allowed(route)
+                        && can_recover_file_ranges(request, total_size.saturating_sub(downloaded))
+                        && !super::download::local_resources::pressure(part_path).blocks_expansion()
+                        && semaphore.0.available_permits() >= super::download::constants::BATCH_DOWNLOAD_CONNECTION_FLOOR
+                        && super::download::native_budget::available(route) >= super::download::constants::BATCH_DOWNLOAD_CONNECTION_FLOOR;
+                    if batch_tail.observe(downloaded.saturating_sub(starting_size), can_recover, Instant::now()) {
+                        recover_file_ranges = true;
+                        break;
                     }
                     let slow_decision = slow_policy.observe_with_pressure(
                         downloaded,
@@ -7403,6 +7874,46 @@ async fn run_native_route_attempts(
         drop(file);
         drop(permit);
         drop(activity.take());
+
+        if recover_file_ranges {
+            batch_ranges_attempted = true;
+            let mut recovery_request = request.clone();
+            recovery_request.prefer_http1 = true;
+            recovery_request.integrity.size.get_or_insert(total_size);
+            tracing::debug!(
+                url = %log_url,
+                downloaded_bytes = downloaded,
+                remaining_bytes = total_size.saturating_sub(downloaded),
+                "Promoting a file connection to adaptive parallel ranges"
+            );
+            match try_segmented_native_attempt(
+                &recovery_request,
+                destination,
+                semaphore,
+                progress,
+                routes,
+                route_index,
+                route,
+                part_path,
+                credentials,
+                session,
+                retry_with_single_thread,
+                allow_low_throughput_abort,
+            )
+            .await?
+            {
+                Some(NativeSegmentedAttempt::Completed(result)) => {
+                    return Ok(NativeRouteAttempt::Completed(result));
+                }
+                Some(NativeSegmentedAttempt::RetryRoute) => break 'attempt,
+                None => {
+                    // A rejected Range response resumes the preserved prefix
+                    // on one connection without spending a failure retry.
+                    session.attempts -= 1;
+                    continue 'attempt;
+                }
+            }
+        }
 
         if switched_endpoint {
             session.preferred_route = Some(route.clone());
@@ -7765,6 +8276,8 @@ mod tests {
         slow_body: bool,
         fail_first_range: bool,
         stall_first_range: bool,
+        vary_mod_validators: bool,
+        vary_range_validators: bool,
     }
 
     async fn spawn_range_server(
@@ -7819,7 +8332,7 @@ mod tests {
                     let requested_range = request
                         .lines()
                         .find_map(|line| line.strip_prefix("range: bytes="));
-                    let (headers, body) = if let Some(range) =
+                    let (mut headers, body) = if let Some(range) =
                         requested_range.filter(|_| !behavior.ignore_range)
                     {
                         let Some((start, end)) = range.split_once('-') else {
@@ -7862,6 +8375,18 @@ mod tests {
                             &data[..],
                         )
                     };
+                    if let Some(range) = requested_range
+                        && (behavior.vary_range_validators
+                            || (behavior.vary_mod_validators
+                                && request.lines().next().is_some_and(
+                                    |line| line.contains(".jar "),
+                                )))
+                    {
+                        headers = headers.replace(
+                            "\"fixture\"",
+                            &format!("\"fixture-{range}\""),
+                        );
+                    }
                     if stream.write_all(headers.as_bytes()).await.is_err() {
                         return;
                     }
@@ -8347,6 +8872,106 @@ mod tests {
     }
 
     #[test]
+    fn batch_policy_splits_ten_megabyte_items_with_a_known_hash() {
+        for (size, segmented) in
+            [(9_999_999, false), (10_000_000, true), (139_963_795, true)]
+        {
+            let request = DownloadRequest::new(
+                "https://example.com/content.jar",
+                ResourceClass::Modpack,
+            )
+            .with_integrity(Integrity::sha1("expected").with_size(size))
+            .with_batch_download_policy();
+            assert!(request.allow_segmented_download);
+            assert_eq!(request.allow_http1_segmented_download, segmented);
+        }
+        let request = DownloadRequest::new(
+            "https://example.com/content.jar",
+            ResourceClass::Modpack,
+        )
+        .with_integrity(Integrity::default().with_size(10_000_000))
+        .with_batch_download_policy();
+        assert!(!request.allow_http1_segmented_download);
+    }
+
+    #[test]
+    fn verified_file_classes_share_range_growth_and_recovery() {
+        for resource in [
+            ResourceClass::MinecraftAsset,
+            ResourceClass::MinecraftLibrary,
+            ResourceClass::Loader,
+            ResourceClass::Java,
+            ResourceClass::Modrinth,
+            ResourceClass::CurseForge,
+            ResourceClass::Modpack,
+            ResourceClass::Other,
+        ] {
+            let request =
+                DownloadRequest::new("https://example.com/file", resource)
+                    .with_integrity(
+                        Integrity::sha1("expected").with_size(16 * 1024 * 1024),
+                    );
+            assert!(
+                request.prefers_independent_ranges(16 * 1024 * 1024),
+                "{resource:?}"
+            );
+            assert_eq!(
+                requested_range_floor(
+                    &request,
+                    16 * 1024 * 1024,
+                    16 * 1024 * 1024,
+                    64
+                ),
+                32
+            );
+            assert_eq!(
+                requested_range_floor(
+                    &request,
+                    16 * 1024 * 1024,
+                    MIN_SEGMENT_SIZE * 3,
+                    64
+                ),
+                3
+            );
+            assert_eq!(
+                requested_range_floor(
+                    &request,
+                    16 * 1024 * 1024,
+                    16 * 1024 * 1024,
+                    2
+                ),
+                2
+            );
+            assert!(can_recover_file_ranges(&request, MIN_SEGMENT_SIZE * 2));
+            assert!(
+                !request
+                    .clone()
+                    .with_http1_segmented_download(false)
+                    .supports_range_recovery()
+            );
+            assert!(
+                !request
+                    .clone()
+                    .with_segmented_download(false)
+                    .supports_range_recovery()
+            );
+            assert!(
+                !request
+                    .with_integrity(Integrity::default())
+                    .supports_range_recovery()
+            );
+        }
+        let metadata = DownloadRequest::new(
+            "https://example.com/metadata",
+            ResourceClass::Metadata,
+        )
+        .with_integrity(
+            Integrity::sha1("expected").with_size(16 * 1024 * 1024),
+        );
+        assert!(!metadata.supports_range_recovery());
+    }
+
+    #[test]
     fn h2_range_concurrency_is_explicit_per_request() {
         let request = DownloadRequest::new(
             "https://example.com/pack.mrpack",
@@ -8357,6 +8982,131 @@ mod tests {
             request.with_h2_range_concurrency(8).h2_range_concurrency,
             Some(8)
         );
+    }
+
+    #[tokio::test]
+    async fn java_h2_probe_discovers_size_before_selecting_independent_ranges()
+    {
+        let size = 16 * 1024 * 1024;
+        let request = DownloadRequest::new(
+            "https://java-size-probe.invalid/runtime.zip",
+            ResourceClass::Java,
+        )
+        .with_integrity(Integrity::sha1("verified-at-completion"));
+        let mut route = direct_test_route(
+            request.url.clone(),
+            DownloadRouteSource::Official,
+        );
+        route.supports_range = true;
+        let (client_io, server_io) = tokio::io::duplex(64 * 1024);
+        let server = tokio::spawn(async move {
+            let mut server = h2::server::handshake(server_io).await.unwrap();
+            let (request, mut respond) =
+                server.accept().await.unwrap().unwrap();
+            assert_eq!(request.headers()[header::RANGE], "bytes=0-0");
+            let response = http::Response::builder()
+                .status(StatusCode::PARTIAL_CONTENT)
+                .header(header::CONTENT_RANGE, format!("bytes 0-0/{size}"))
+                .header(header::CONTENT_LENGTH, 1)
+                .body(())
+                .unwrap();
+            respond
+                .send_response(response, false)
+                .unwrap()
+                .send_data(Bytes::from_static(&[31]), true)
+                .unwrap();
+            while server.accept().await.is_some() {}
+        });
+        let (sender, driver) = h2::client::handshake(client_io).await.unwrap();
+        let connection = super::super::download::h2_pool::SharedH2Connection::cache_for_test(&route, sender).await;
+        let driver = super::super::download::h2_pool::spawn_connection_driver(
+            &connection,
+            driver,
+            Duration::from_secs(60),
+        );
+        let directory = tempfile::tempdir().unwrap();
+        let destination = directory.path().join("runtime.zip");
+        let part = suffixed_path(&destination, ".part");
+        let semaphore = FetchSemaphore(Semaphore::new(64));
+        let result = try_h2_download(
+            &request,
+            route,
+            super::super::download::native::NativeH2Policy {
+                allow_cold_connection: true,
+                abort_if_slow: true,
+                expected_speed: None,
+            },
+            &destination,
+            &part,
+            &semaphore,
+        )
+        .await
+        .unwrap();
+        assert!(matches!(result, H2AttemptResult::Fallback {
+            prefer_http1: true,
+            discovered_size: Some(discovered),
+            failed_nonofficial: None,
+        } if discovered == size));
+        assert!(!destination.exists());
+        assert!(!connection.is_dead());
+        assert!(!connection.is_retiring());
+        assert_eq!(semaphore.0.available_permits(), 64);
+        driver.abort();
+        server.abort();
+    }
+
+    #[tokio::test]
+    async fn warm_h2_archive_hint_cannot_bypass_large_file_connections() {
+        let request = DownloadRequest::new(
+            "https://warm-archive-policy.invalid/pack.mrpack",
+            ResourceClass::Modpack,
+        )
+        .with_integrity(Integrity::sha1("expected").with_size(9_999_999))
+        .with_h2_range_concurrency(16);
+        let mut route = direct_test_route(
+            request.url.clone(),
+            DownloadRouteSource::Official,
+        );
+        route.supports_range = true;
+        let (client_io, server_io) = tokio::io::duplex(64 * 1024);
+        let server = tokio::spawn(async move {
+            let mut server = h2::server::handshake(server_io).await.unwrap();
+            while server.accept().await.is_some() {}
+        });
+        let (sender, driver) = h2::client::handshake(client_io).await.unwrap();
+        let connection = super::super::download::h2_pool::SharedH2Connection::cache_for_test(&route, sender).await;
+        let driver = super::super::download::h2_pool::spawn_connection_driver(
+            &connection,
+            driver,
+            Duration::from_secs(60),
+        );
+        let directory = tempfile::tempdir().unwrap();
+        let part = directory.path().join("archive.part");
+        let routes = [route.clone()];
+        assert!(
+            select_h2_download_route(&request, &routes, &part)
+                .await
+                .is_some()
+        );
+        for size in [10_000_000, 27_137_250, 100_855_703] {
+            let large = request
+                .clone()
+                .with_integrity(Integrity::sha1("expected").with_size(size));
+            assert!(
+                select_h2_download_route(&large, &routes, &part)
+                    .await
+                    .is_none()
+            );
+            let explicitly_shared = large.with_http1_segmented_download(false);
+            assert!(
+                select_h2_download_route(&explicitly_shared, &routes, &part)
+                    .await
+                    .is_some()
+            );
+        }
+        assert!(!connection.is_retiring());
+        driver.abort();
+        server.abort();
     }
 
     #[tokio::test]
@@ -9016,21 +9766,21 @@ mod tests {
     #[test]
     fn malformed_official_cdn_redirects_reuse_the_original_encoded_path() {
         let original = Url::parse(
-			"https://cdn-alt.modrinth.com/data/project/versions/version/%E9%87%91%E5%90%88%E6%AC%A2_1.21%2B.zip",
-		)
-		.unwrap();
+            "https://cdn-alt.modrinth.com/data/project/versions/version/%E9%87%91%E5%90%88%E6%AC%A2_1.21%2B.zip",
+        )
+        .unwrap();
         for host in ["cdn-alt.modrinth.com", "cdn.modrinth.com"] {
             let redirect = Url::parse(&format!(
-				"https://{host}/data/project/versions/version/\u{91c8}\u{91c8}.zip",
-			))
-			.unwrap();
+                "https://{host}/data/project/versions/version/\u{91c8}\u{91c8}.zip",
+            ))
+            .unwrap();
 
             let repaired = repair_official_cdn_redirect(
-				&original,
-				&redirect,
-				&format!("https://{host}/data/project/versions/version/\u{91c8}\u{91c8}.zip"),
-			)
-			.unwrap();
+                &original,
+                &redirect,
+                &format!("https://{host}/data/project/versions/version/\u{91c8}\u{91c8}.zip"),
+            )
+            .unwrap();
 
             assert_eq!(
                 repaired.as_str(),
@@ -9387,7 +10137,7 @@ mod tests {
     #[test]
     fn large_files_start_parallel_ranges_without_consulting_speed_floor() {
         let size = 16 * 1024 * 1024;
-        assert_eq!(initial_segment_count(size, 64), 4);
+        assert_eq!(initial_segment_count(size, 64), 16);
         let ranges = create_initial_ranges(size, 4);
         assert_eq!(ranges.len(), 4);
         assert_eq!(ranges.first().unwrap().start, 0);
@@ -9407,10 +10157,14 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn segmented_permits_wait_fairly_instead_of_falling_back() {
+    async fn segmented_permits_wait_for_one_slot_instead_of_falling_back() {
         let semaphore =
             FetchSemaphore(Semaphore::new(FILE_VALIDATION_CONCURRENCY));
-        let held = semaphore.0.acquire_many(4).await.unwrap();
+        let held = semaphore
+            .0
+            .acquire_many(FILE_VALIDATION_CONCURRENCY as u32)
+            .await
+            .unwrap();
         let route = direct_test_route(
             "https://example.com/file".to_string(),
             DownloadRouteSource::Official,
@@ -9424,7 +10178,7 @@ mod tests {
             acquire_initial_segment_permits(&route, &semaphore, 4,),
         );
         let permits = permits.unwrap();
-        assert_eq!(permits.len(), 4);
+        assert_eq!(permits.len(), 1);
         assert!(started.elapsed() >= Duration::from_millis(40));
     }
 
@@ -9449,29 +10203,119 @@ mod tests {
             false,
             true,
         );
-        assert_eq!(route_segmented_concurrency_cap(&bmclapi, 64), 16);
-        assert_eq!(route_segmented_concurrency_cap(&official, 64), 16);
-        assert_eq!(route_segmented_concurrency_cap(&modrinth, 64), 16);
+        let size = 8 * 1024 * 1024;
+        assert_eq!(route_segmented_concurrency_cap(&bmclapi, 64, size), 32);
+        assert_eq!(route_segmented_concurrency_cap(&official, 64, size), 32);
+        assert_eq!(route_segmented_concurrency_cap(&modrinth, 64, size), 32);
+        let bulk = 100_855_703;
+        assert_eq!(route_segmented_concurrency_cap(&modrinth, 64, bulk), 56);
+        assert_eq!(route_segmented_concurrency_cap(&modrinth, 96, bulk), 64);
     }
 
     #[test]
     fn adaptive_ranges_can_expand_and_reserve_capacity_for_small_files() {
         let size = 128 * 1024 * 1024;
-        let max = adaptive_range_cap(size, 8, 8, 0);
+        let max = adaptive_range_cap(size, 8, 8, 0, false);
         assert_eq!(max, 8);
-        assert!(initial_segment_count(size, max) < max);
-        assert_eq!(adaptive_range_cap(8 * 1024 * 1024, 8, 8, 0), 2);
-        assert_eq!(adaptive_range_cap(size, 8, 1, 0), 1);
-        assert_eq!(adaptive_range_cap(size, 8, 8, 2), 2);
-        assert_eq!(adaptive_range_cap(size, 8, 8, 4), 1);
+        assert!(initial_segment_count(size, 64) < 64);
+        assert_eq!(adaptive_range_cap(8 * 1024 * 1024, 8, 8, 0, false), 2);
+        assert_eq!(adaptive_range_cap(size, 8, 1, 0, false), 1);
+        assert_eq!(adaptive_range_cap(size, 8, 8, 2, false), 2);
+        assert_eq!(adaptive_range_cap(size, 8, 8, 4, false), 1);
         let official = route(
             "https://range-fairness.invalid/file".into(),
             DownloadRouteSource::Official,
             false,
             true,
         );
-        assert_eq!(route_segmented_concurrency_cap(&official, 4), 2);
-        assert_eq!(route_segmented_concurrency_cap(&official, 1), 1);
+        assert_eq!(route_segmented_concurrency_cap(&official, 4, size), 2);
+        assert_eq!(route_segmented_concurrency_cap(&official, 1, size), 1);
+        assert_eq!(initial_segment_count(size, 64), 16);
+    }
+
+    #[test]
+    fn bulk_ranges_can_reach_high_concurrency_without_tiny_file_fanout() {
+        let size = 100_855_703;
+        assert_eq!(adaptive_range_cap(size, 64, 64, 0, false), 64);
+        assert_eq!(adaptive_range_cap(size, 48, 64, 2, false), 2);
+        assert_eq!(adaptive_range_cap(size, 48, 1, 0, false), 1);
+        assert_eq!(adaptive_range_cap(8 * 1024 * 1024, 48, 64, 0, false), 2);
+        assert_eq!(range_growth_target(4, 48, 4, false, 0, 0), 8);
+        assert_eq!(range_growth_target(8, 48, 8, false, 0, 0), 16);
+        assert_eq!(range_growth_target(16, 48, 16, false, 0, 0), 32);
+        assert_eq!(range_growth_target(32, 48, 32, false, 0, 0), 48);
+        assert_eq!(range_growth_target(2, 48, 16, true, 0, 0), 16);
+        assert_eq!(
+            range_growth_target(1, 64, 1, false, 10_000_000, 100_000),
+            3
+        );
+        assert_eq!(range_growth_target(1, 2, 1, false, 10_000_000, 100_000), 2);
+        assert_eq!(range_growth_target(16, 64, 16, false, u64::MAX, 1), 64);
+    }
+
+    #[test]
+    fn tail_floor_scales_with_remaining_data_and_limits() {
+        assert_eq!(
+            range_connection_floor(100_000_000, 20_000_000, 64, false),
+            16
+        );
+        assert_eq!(
+            range_connection_floor(100_000_000, 20_000_000, 2, false),
+            2
+        );
+        assert_eq!(
+            range_connection_floor(
+                100_000_000,
+                MIN_SEGMENT_SIZE * 3,
+                64,
+                false
+            ),
+            3
+        );
+        assert_eq!(range_connection_floor(100_000_000, 1, 64, false), 1);
+        assert_eq!(range_connection_floor(9_999_999, 8_000_000, 64, false), 1);
+        assert_eq!(range_connection_floor(6_000_000, 4_000_000, 64, true), 15);
+        assert_eq!(adaptive_range_cap(6_000_000, 64, 64, 0, true), 22);
+        assert_eq!(adaptive_range_cap(6_000_000, 64, 1, 0, true), 1);
+        assert_eq!(adaptive_range_cap(6_000_000, 64, 64, 2, true), 2);
+    }
+
+    #[test]
+    fn tail_floor_recovery_requires_verified_and_splittable_file_data() {
+        let mut request = DownloadRequest::new(
+            "https://cdn.modrinth.com/tail.jar",
+            ResourceClass::Modpack,
+        );
+        request.integrity.size = Some(6_000_000);
+        request.integrity.sha1 = Some("verified-at-completion".into());
+        assert!(can_recover_file_ranges(&request, 6_000_000));
+        let mut request = request.with_batch_download_policy();
+        assert!(can_recover_file_ranges(&request, 6_000_000));
+        assert!(can_recover_file_ranges(&request, MIN_SEGMENT_SIZE * 2));
+        assert!(!can_recover_file_ranges(&request, MIN_SEGMENT_SIZE * 2 - 1));
+        request.integrity.sha1 = None;
+        assert!(!can_recover_file_ranges(&request, 6_000_000));
+    }
+
+    #[test]
+    fn range_recovery_does_not_treat_completed_ranges_as_failed_growth() {
+        let baseline = RangeExpansionBaseline {
+            speed: 2_712_603,
+            completed_ranges: 5,
+            previous_target: 3,
+        };
+        assert_eq!(baseline.gained_throughput(589_316, 8), None);
+        assert_eq!(baseline.gained_throughput(589_316, 5), Some(false));
+        assert_eq!(baseline.gained_throughput(4_000_000, 5), Some(true));
+    }
+
+    #[test]
+    fn stalled_growth_can_retry_after_the_startup_burst_collapses() {
+        assert!(range_growth_can_retry(5 * 1024 * 1024, 500 * 1024));
+        assert!(!range_growth_can_retry(500 * 1024, 490 * 1024));
+        assert!(!range_growth_can_retry(0, 0));
+        assert!(!range_growth_can_retry(u64::MAX, u64::MAX));
+        assert!(range_growth_can_retry(u64::MAX, 1024));
     }
 
     #[test]
@@ -9490,6 +10334,7 @@ mod tests {
                 4,
                 16 * 1024 * 1024,
                 SEGMENT_EXPANSION_INTERVAL,
+                SEGMENT_EXPANSION_INTERVAL,
             ),
             None
         );
@@ -9500,6 +10345,7 @@ mod tests {
                 8,
                 0,
                 16 * 1024 * 1024,
+                SEGMENT_EXPANSION_INTERVAL,
                 SEGMENT_EXPANSION_INTERVAL,
             ),
             Some("no global permit available")
@@ -9521,6 +10367,7 @@ mod tests {
                 8,
                 7,
                 16 * 1024 * 1024,
+                SEGMENT_EXPANSION_INTERVAL,
                 SEGMENT_EXPANSION_INTERVAL,
             ),
             None
@@ -9591,6 +10438,14 @@ mod tests {
         assert!(should_use_segmented_download(
             SEGMENTED_DOWNLOAD_THRESHOLD,
             0,
+        ));
+        assert!(should_use_segmented_download(
+            24 * 1024 * 1024,
+            16 * 1024 * 1024
+        ));
+        assert!(!should_use_segmented_download(
+            24 * 1024 * 1024,
+            23 * 1024 * 1024
         ));
     }
 
@@ -10199,13 +11054,13 @@ mod tests {
         let file = tempfile::NamedTempFile::new().unwrap();
         std::fs::write(file.path(), b"axolotl download").unwrap();
         let integrity = Integrity {
-			size: Some(16),
-			sha1: Some("90e438ead880c77ea2d7e726b5aa74e6d21a805f".to_string()),
-			sha512: Some("2dcd3e0a9f198e9ef892a28ed6534dd154be2bd13531c961c0852aa6f1e24f633d2cd8288d3cf13c6a482a87c822b74a4901a2aa64292f4a371c5ebfea392c1b".to_string()),
-			sha256: Some("120561bc60d59ebe2a08fc229ff2b1eb06b20c4211d21a17c15dd80790f48672".to_string()),
-			md5: Some("30018bb52add8c6dbc5d4149c1325df0".to_string()),
-			content: ContentValidation::None,
-		};
+            size: Some(16),
+            sha1: Some("90e438ead880c77ea2d7e726b5aa74e6d21a805f".to_string()),
+            sha512: Some("2dcd3e0a9f198e9ef892a28ed6534dd154be2bd13531c961c0852aa6f1e24f633d2cd8288d3cf13c6a482a87c822b74a4901a2aa64292f4a371c5ebfea392c1b".to_string()),
+            sha256: Some("120561bc60d59ebe2a08fc229ff2b1eb06b20c4211d21a17c15dd80790f48672".to_string()),
+            md5: Some("30018bb52add8c6dbc5d4149c1325df0".to_string()),
+            content: ContentValidation::None,
+        };
         assert_eq!(verify_file(file.path(), &integrity).await.unwrap(), 16);
     }
 
@@ -10590,6 +11445,142 @@ mod tests {
             !range_splitting_allowed(&route),
             "repeated protocol failures should disable range splitting"
         );
+        server.abort();
+    }
+
+    #[tokio::test]
+    async fn mod_validator_changes_do_not_disable_the_next_pack_ranges() {
+        let _guard = RANGE_SPLITTING_TEST_LOCK.lock().await;
+        let size = 12 * 1024 * 1024;
+        let data = Arc::new(vec![23_u8; size]);
+        let hash = sha1_smol::Sha1::from(&data[..]).hexdigest();
+        let (url, requests, normal_requests, server) = spawn_range_server(
+            data.clone(),
+            RangeServerBehavior {
+                vary_mod_validators: true,
+                ..Default::default()
+            },
+        )
+        .await;
+        let directory = tempfile::tempdir().unwrap();
+        let semaphore = FetchSemaphore(Semaphore::new(32));
+
+        for file in ["first.jar", "second.jar", "next.mrpack"] {
+            let mut file_url = url::Url::parse(&url).unwrap();
+            file_url.set_path(file);
+            let file_url = file_url.to_string();
+            let destination = directory.path().join(file);
+            let part = suffixed_path(&destination, ".part");
+            let _disk =
+                super::super::download::local_resources::set_test_disk_kind(
+                    &part,
+                    sysinfo::DiskKind::SSD,
+                );
+            let integrity = if file.ends_with(".mrpack") {
+                Integrity::sha1(&hash).with_size(size as u64)
+            } else {
+                Integrity::default().with_size(size as u64)
+            };
+            let request = DownloadRequest::new(&file_url, ResourceClass::Other)
+                .with_integrity(integrity);
+            let before = requests.load(Ordering::Relaxed);
+            let result =
+                download_benchmark_fixture(request, &destination, &semaphore)
+                    .await
+                    .unwrap();
+            assert_eq!(result.size, size as u64);
+            assert_eq!(tokio::fs::read(&destination).await.unwrap(), *data);
+            let file_route =
+                route(file_url, DownloadRouteSource::Official, false, true);
+            assert!(
+                range_splitting_allowed(&file_route),
+                "object version changes must not blacklist the authority"
+            );
+            if file.ends_with(".mrpack") {
+                assert!(
+                    requests.load(Ordering::Relaxed) - before >= 4,
+                    "the next pack must still use independent ranges"
+                );
+                assert_eq!(normal_requests.load(Ordering::Relaxed), 2);
+            }
+        }
+
+        assert_eq!(semaphore.0.available_permits(), 32);
+        server.abort();
+    }
+
+    #[tokio::test]
+    async fn verified_files_keep_32_ranges_on_unknown_disks_when_validators_differ()
+     {
+        let _guard = RANGE_SPLITTING_TEST_LOCK.lock().await;
+        let size = 16 * 1024 * 1024;
+        let data = Arc::new(vec![31_u8; size]);
+        let hash = sha1_smol::Sha1::from(&data[..]).hexdigest();
+        let (url, requests, normal_requests, server) = spawn_range_server(
+            data.clone(),
+            RangeServerBehavior {
+                vary_range_validators: true,
+                ..Default::default()
+            },
+        )
+        .await;
+        let directory = tempfile::tempdir().unwrap();
+        let semaphore = FetchSemaphore(Semaphore::new(64));
+
+        for (resource, valid_hash, known_size) in [
+            (ResourceClass::Modpack, true, true),
+            (ResourceClass::MinecraftLibrary, true, true),
+            (ResourceClass::Java, true, false),
+            (ResourceClass::Modrinth, true, true),
+            (ResourceClass::CurseForge, false, true),
+        ] {
+            let destination = directory
+                .path()
+                .join(format!("file-{resource:?}-{valid_hash}"));
+            let part = suffixed_path(&destination, ".part");
+            let _disk =
+                super::super::download::local_resources::set_test_disk_kind(
+                    &part,
+                    sysinfo::DiskKind::Unknown(0),
+                );
+            let mut integrity = Integrity::sha1(if valid_hash {
+                &hash
+            } else {
+                "0000000000000000000000000000000000000000"
+            });
+            if known_size {
+                integrity.size = Some(size as u64);
+            }
+            let request =
+                DownloadRequest::new(&url, resource).with_integrity(integrity);
+            let before = requests.load(Ordering::Relaxed);
+            let result =
+                download_benchmark_fixture(request, &destination, &semaphore)
+                    .await;
+            assert!(
+                requests.load(Ordering::Relaxed) - before >= 32,
+                "{resource:?}, known_size={known_size}: fewer than 32 requests"
+            );
+            if valid_hash {
+                assert_eq!(
+                    normal_requests.load(Ordering::Relaxed),
+                    usize::from(!known_size),
+                    "{resource:?}"
+                );
+            }
+            if valid_hash {
+                assert_eq!(result.unwrap().size, size as u64);
+                assert_eq!(tokio::fs::read(&destination).await.unwrap(), *data);
+            } else {
+                assert!(
+                    result.is_err(),
+                    "metadata tolerance must never publish content with the wrong hash"
+                );
+                assert!(!destination.exists());
+            }
+            assert_eq!(semaphore.0.available_permits(), 64);
+            normal_requests.store(0, Ordering::Relaxed);
+        }
         server.abort();
     }
 

@@ -1,0 +1,197 @@
+[
+  {
+    "id": "speed",
+    "icon": "sugar",
+    "since": "1.0"
+  },
+  {
+    "id": "slowness",
+    "icon": "soul_sand",
+    "since": "1.0"
+  },
+  {
+    "id": "haste",
+    "icon": "golden_pickaxe",
+    "since": "1.0"
+  },
+  {
+    "id": "mining_fatigue",
+    "icon": "wooden_pickaxe",
+    "since": "1.0"
+  },
+  {
+    "id": "strength",
+    "icon": "blaze_powder",
+    "since": "1.0"
+  },
+  {
+    "id": "instant_health",
+    "icon": "glistering_melon_slice",
+    "since": "1.0"
+  },
+  {
+    "id": "instant_damage",
+    "icon": "spider_eye",
+    "since": "1.0"
+  },
+  {
+    "id": "jump_boost",
+    "icon": "rabbit_foot",
+    "since": "1.0"
+  },
+  {
+    "id": "nausea",
+    "icon": "pufferfish",
+    "since": "1.0"
+  },
+  {
+    "id": "regeneration",
+    "icon": "ghast_tear",
+    "since": "1.0"
+  },
+  {
+    "id": "resistance",
+    "icon": "shulker_shell",
+    "since": "1.0"
+  },
+  {
+    "id": "fire_resistance",
+    "icon": "magma_cream",
+    "since": "1.0"
+  },
+  {
+    "id": "water_breathing",
+    "icon": "turtle_helmet",
+    "since": "1.0"
+  },
+  {
+    "id": "invisibility",
+    "icon": "glass",
+    "since": "1.0"
+  },
+  {
+    "id": "blindness",
+    "icon": "ink_sac",
+    "since": "1.0"
+  },
+  {
+    "id": "night_vision",
+    "icon": "golden_carrot",
+    "since": "1.0"
+  },
+  {
+    "id": "hunger",
+    "icon": "rotten_flesh",
+    "since": "1.0"
+  },
+  {
+    "id": "weakness",
+    "icon": "wooden_sword",
+    "since": "1.0"
+  },
+  {
+    "id": "poison",
+    "icon": "spider_eye",
+    "since": "1.0"
+  },
+  {
+    "id": "wither",
+    "icon": "wither_rose",
+    "since": "1.0"
+  },
+  {
+    "id": "health_boost",
+    "icon": "apple",
+    "since": "1.6.1"
+  },
+  {
+    "id": "absorption",
+    "icon": "golden_apple",
+    "since": "1.6.1"
+  },
+  {
+    "id": "saturation",
+    "icon": "cookie",
+    "since": "1.6.1"
+  },
+  {
+    "id": "glowing",
+    "icon": "spectral_arrow",
+    "since": "1.9"
+  },
+  {
+    "id": "levitation",
+    "icon": "shulker_shell",
+    "since": "1.9"
+  },
+  {
+    "id": "luck",
+    "icon": "emerald",
+    "since": "1.9"
+  },
+  {
+    "id": "unluck",
+    "icon": "cobweb",
+    "since": "1.9"
+  },
+  {
+    "id": "slow_falling",
+    "icon": "phantom_membrane",
+    "since": "1.13"
+  },
+  {
+    "id": "conduit_power",
+    "icon": "nautilus_shell",
+    "since": "1.13"
+  },
+  {
+    "id": "dolphins_grace",
+    "icon": "tropical_fish",
+    "since": "1.13"
+  },
+  {
+    "id": "bad_omen",
+    "icon": "potion",
+    "since": "1.14"
+  },
+  {
+    "id": "hero_of_the_village",
+    "icon": "bell",
+    "since": "1.14"
+  },
+  {
+    "id": "darkness",
+    "icon": "sculk_sensor",
+    "since": "1.19"
+  },
+  {
+    "id": "trial_omen",
+    "icon": "potion",
+    "since": "1.21"
+  },
+  {
+    "id": "raid_omen",
+    "icon": "potion",
+    "since": "1.21"
+  },
+  {
+    "id": "wind_charged",
+    "icon": "breeze_rod",
+    "since": "1.21"
+  },
+  {
+    "id": "weaving",
+    "icon": "cobweb",
+    "since": "1.21"
+  },
+  {
+    "id": "oozing",
+    "icon": "slime_ball",
+    "since": "1.21"
+  },
+  {
+    "id": "infested",
+    "icon": "stone",
+    "since": "1.21"
+  }
+]

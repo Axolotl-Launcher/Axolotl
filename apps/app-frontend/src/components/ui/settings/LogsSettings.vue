@@ -122,7 +122,7 @@ async function openLogsFolder() {
         </SettingsSection>
 
         <!-- Informational only: no controls, so it reads as a note rather than an
-		     empty card. -->
+                            empty card. -->
         <div class="flex flex-col gap-1">
             <h2 class="m-0 text-lg font-semibold text-[var(--color-text-primary)]">
                 {{ formatMessage(messages.retentionTitle) }}

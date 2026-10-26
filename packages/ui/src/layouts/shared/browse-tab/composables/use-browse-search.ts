@@ -171,7 +171,9 @@ export function useBrowseSearch(options: UseBrowseSearchOptions): BrowseSearchSt
             if (opts.includes(maxResults.value)) return
 
             const nearest = opts.reduce((prev, curr) =>
-                Math.abs(curr - maxResults.value) <= Math.abs(prev - maxResults.value) ? curr : prev,
+                Math.abs(curr - maxResults.value) <= Math.abs(prev - maxResults.value)
+                    ? curr
+                    : prev,
             )
             // Mark the write as automatic so it does not overwrite the user's
             // saved preference with this tab's smaller maximum.

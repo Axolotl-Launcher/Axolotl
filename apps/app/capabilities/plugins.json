@@ -155,6 +155,7 @@
     "fonts:default",
     "settings:default",
     "seed-map:default",
+    "schematic-browser:default",
     "schematic-preview:default",
     "shortcuts:default",
     "tags:default",

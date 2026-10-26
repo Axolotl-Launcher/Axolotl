@@ -56,6 +56,8 @@ const allowedUntranslatedMessages = new Set([
     'Studio',
     'https://api-free.deepl.com/v2/translate',
     'Java',
+    'Linux',
+    'WSL',
     'Minecraft EULA',
     'server.properties',
     '{type} · {version}',

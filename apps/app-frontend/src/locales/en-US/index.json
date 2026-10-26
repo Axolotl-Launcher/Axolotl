@@ -10841,6 +10841,12 @@
   "app.settings.feature-flags.worlds-tab": {
     "message": "Worlds tab"
   },
+  "app.settings.footer.linux": {
+    "message": "Linux"
+  },
+  "app.settings.footer.wsl": {
+    "message": "WSL"
+  },
   "app.settings.game-options.category.accessibility.description": {
     "message": "Accessibility preferences"
   },

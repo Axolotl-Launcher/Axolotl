@@ -9476,6 +9476,12 @@
   "app.settings.feature-flags.reset-to-default": {
     "message": "恢复默认值"
   },
+  "app.settings.footer.linux": {
+    "message": "Linux"
+  },
+  "app.settings.footer.wsl": {
+    "message": "WSL"
+  },
   "app.settings.game-options.category.accessibility.description": {
     "message": "无障碍设置"
   },

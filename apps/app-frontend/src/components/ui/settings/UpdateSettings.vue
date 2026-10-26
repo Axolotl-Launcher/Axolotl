@@ -788,7 +788,11 @@ function onDatabaseOperationModalHide() {
                         {{ formatMessage(messages.preview) }}
                     </Button>
                 </div>
-                <div v-if="packageManaged" class="update-managed-hint" role="status">
+                <div
+                    v-if="packageManaged"
+                    class="flex flex-wrap items-center gap-2 rounded-lg border border-solid border-surface-4 bg-surface-1 px-3 py-2 leading-[1.4] text-[var(--color-text-tertiary)]"
+                    role="status"
+                >
                     <p class="m-0 text-sm">
                         {{ managedHint }}
                     </p>
@@ -1095,19 +1099,6 @@ function onDatabaseOperationModalHide() {
     display: flex;
     flex-direction: column;
     gap: var(--gap-xs);
-}
-
-.update-managed-hint {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: var(--gap-sm);
-    padding: var(--gap-sm) var(--gap-md);
-    border: 1px solid var(--surface-4);
-    border-radius: var(--radius-sm);
-    background: var(--surface-1);
-    color: var(--color-text-tertiary);
-    line-height: 1.4;
 }
 
 .update-check-result {

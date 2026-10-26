@@ -170,6 +170,14 @@ const messages = defineMessages({
         id: 'app.settings.developer-mode-enabled',
         defaultMessage: 'Developer mode enabled.',
     },
+    linuxPlatform: {
+        id: 'app.settings.footer.linux',
+        defaultMessage: 'Linux',
+    },
+    wsl: {
+        id: 'app.settings.footer.wsl',
+        defaultMessage: 'WSL',
+    },
 })
 
 const visibleCategories = computed(() => getVisibleSettingsCategories(!!themeStore.devMode))
@@ -367,12 +375,14 @@ function platformName() {
 const osLabel = computed(() => {
     const distro = osInfo?.linux
     const kernel = osInfo?.kernel
+    const wsl = formatMessage(messages.wsl)
     if (distro) {
         const label = kernel ? `${distro.name} ${kernel}` : distro.name
-        return osInfo?.isWsl ? `${label} (WSL)` : label
+        return osInfo?.isWsl ? `${label} (${wsl})` : label
     }
     if (osPlatform === 'linux') {
-        return kernel ? `Linux ${kernel}` : 'Linux'
+        const linux = formatMessage(messages.linuxPlatform)
+        return kernel ? `${linux} ${kernel}` : linux
     }
     return `${platformName()} ${osVersion}`
 })

@@ -2,13 +2,11 @@ import {
     buildLocaleMessages,
     createMessageCompiler,
     type CrowdinMessages,
-    uiEnglishMessages,
     uiLocaleModules,
 } from '@modrinth/ui'
 import { createI18n } from 'vue-i18n'
 
 import { createLocaleLoader } from '@/helpers/locale-loader'
-import englishAppMessages from '@/locales/en-US/index.json'
 
 const localeModules = import.meta.glob<{ default: CrowdinMessages }>('./locales/*/index.json')
 const availableLocales = Object.keys(localeModules).map((path) => path.split('/').at(-2)!)
@@ -20,11 +18,15 @@ const i18n = createI18n({
     messageCompiler: createMessageCompiler(),
     missingWarn: false,
     fallbackWarn: false,
-    messages: buildLocaleMessages(
-        { './locales/en-US/index.json': { default: englishAppMessages } },
-        { './locales/en-US/index.json': { default: uiEnglishMessages } },
-    ),
+    messages: {},
 })
+
+/** English only backs up keys a dictionary lacks, so it waits until the app is idle. */
+function loadEnglishFallbackWhenIdle() {
+    const load = () => void localeLoader.ensure('en-US').catch(console.error)
+    if ('requestIdleCallback' in window) window.requestIdleCallback(load, { timeout: 10000 })
+    else setTimeout(load, 2000)
+}
 
 const localeLoader = createLocaleLoader(
     async (locale) => {
@@ -40,8 +42,8 @@ const localeLoader = createLocaleLoader(
     },
     (locale) => {
         i18n.global.locale.value = locale
+        if (locale !== 'en-US') loadEnglishFallbackWhenIdle()
     },
-    ['en-US'],
 )
 
 export async function setAppLocale(locale: string): Promise<void> {
@@ -127,6 +129,7 @@ export async function applyLocalePreference(
     return locale
 }
 
-// English is available for the first synchronous render. Other dictionaries load
-// alongside backend initialization; setupApp applies the authoritative DB preference.
+// No dictionary ships with the first render: every message falls back to its English
+// defaultMessage until the active locale's dictionary loads, alongside backend
+// initialization; setupApp applies the authoritative DB preference.
 export default i18n

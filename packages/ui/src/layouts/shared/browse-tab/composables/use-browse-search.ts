@@ -161,15 +161,22 @@ export function useBrowseSearch(options: UseBrowseSearchOptions): BrowseSearchSt
         () => options.maxResultsOptions?.value ?? [5, 10, 15, 20, 50, 100],
     )
 
-    watch(effectiveMaxResultsOptions, (opts) => {
-        if (!opts.includes(maxResults.value)) {
-            maxResults.value = opts.reduce((prev, curr) =>
-                Math.abs(curr - maxResults.value) <= Math.abs(prev - maxResults.value)
-                    ? curr
-                    : prev,
-            )
-        }
-    })
+    watch(
+        effectiveMaxResultsOptions,
+        (opts) => {
+            if (!opts.includes(maxResults.value)) {
+                maxResults.value = opts.reduce((prev, curr) =>
+                    Math.abs(curr - maxResults.value) <= Math.abs(prev - maxResults.value)
+                        ? curr
+                        : prev,
+                )
+            }
+        },
+        // `immediate` matters for the persisted value: a page size stored while
+        // a tab offered 100 must still snap to a valid option on a tab whose
+        // maximum is 50, before the first request goes out.
+        { immediate: true },
+    )
 
     const effectiveDisplayMode = computed(() => options.displayMode?.value ?? 'list')
     const effectiveLayout = computed<'list' | 'compact' | 'grid'>(() =>

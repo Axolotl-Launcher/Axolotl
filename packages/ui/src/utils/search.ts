@@ -1,10 +1,14 @@
 import type { Labrinth } from '@modrinth/api-client'
 import { ClientIcon, getCategoryIcon, getLoaderIcon, ServerIcon } from '@modrinth/assets'
 import { sortedCategories } from '@modrinth/utils'
-import { type Component, computed, readonly, type Ref, ref } from 'vue'
+import { type Component, computed, readonly, type Ref, ref, watch } from 'vue'
 import { type LocationQueryRaw, type LocationQueryValue, useRoute } from 'vue-router'
 
 import { defineMessage, useVIntl } from '../composables/i18n'
+import {
+    persistMaxResults,
+    readPersistedMaxResults,
+} from './browse-max-results.ts'
 import {
     DEFAULT_MOD_LOADERS,
     DEFAULT_PLUGIN_LOADERS,
@@ -165,7 +169,11 @@ export function useSearch(
     deferInitialization = false,
 ) {
     const query = ref('')
-    const maxResults = ref(20)
+    const maxResults = ref(readPersistedMaxResults())
+
+    // Persist every change so the choice survives closing the launcher, not just
+    // a route change.
+    watch(maxResults, (value) => persistMaxResults(value))
 
     const sortTypes: readonly SortType[] = readonly(
         sortOptions ?? [

@@ -143,9 +143,9 @@ export async function translateSearchHitTitles<
 /**
  * Rewrites content item titles to the bilingual `中文名 (English)` format used
  * by the Browse page, resolving names from the bundled wiki dictionary by
- * project slug. Items are returned unchanged unless the locale is zh-CN. When
- * Chinese titles are hidden, the dictionary name is kept on `chinese_title`
- * instead so the local content search can still match it.
+ * project slug. Items are returned unchanged unless the locale is zh-CN. The
+ * dictionary name is always kept on `chinese_title` so the local content search
+ * can match it whether or not the title is localized.
  */
 export async function translateContentItemTitles<T extends ContentItem>(
     items: T[],
@@ -178,10 +178,12 @@ export async function translateContentItemTitles<T extends ContentItem>(
                   ? lookup.modrinth[project.slug]
                   : undefined
         if (!chineseName) return item
-        if (hidden) return { ...item, chinese_title: chineseName }
-        return {
-            ...item,
-            project: { ...project, title: bilingualTitle(chineseName, project.title) },
-        }
+        const titled = hidden
+            ? item
+            : {
+                  ...item,
+                  project: { ...project, title: bilingualTitle(chineseName, project.title) },
+              }
+        return { ...titled, chinese_title: chineseName }
     })
 }

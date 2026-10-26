@@ -125,11 +125,13 @@ pub fn capabilities() -> Vec<(SourceId, SourceCapabilities)> {
 
 /// Probe every source's health.
 pub async fn health() -> Vec<SourceStatus> {
-    let mut statuses = Vec::new();
-    for source in source::all() {
-        statuses.push(source.health_check().await);
-    }
-    statuses
+    // Run the probes concurrently: a source whose host is slow or unreachable
+    // would otherwise hold up every source behind it, and each probe carries its
+    // own retries and timeout.
+    let probes = source::all()
+        .into_iter()
+        .map(|source| async move { source.health_check().await });
+    futures::future::join_all(probes).await
 }
 
 /// Items across several sources, flattened and de-duplicated by id.

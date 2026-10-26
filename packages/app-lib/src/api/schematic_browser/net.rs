@@ -28,6 +28,12 @@ const BREAKER_OPEN_FOR: Duration = Duration::from_secs(60);
 const RETRY_BASE_DELAY: Duration = Duration::from_millis(400);
 /// Upper bound on a single retry delay.
 const RETRY_MAX_DELAY: Duration = Duration::from_secs(8);
+/// Requests a host allows inside one window, when it publishes a quota.
+const QUOTA_LIMIT: u32 = 50;
+/// Default window when the host does not tell us how long its quota lasts.
+const QUOTA_WINDOW: Duration = Duration::from_secs(60);
+/// Margin: stop spending once the reported remainder gets this low.
+const QUOTA_RESERVE: u32 = 5;
 /// Total attempts, including the first one.
 const MAX_ATTEMPTS: usize = 3;
 
@@ -75,6 +81,31 @@ struct BreakerState {
     open_until: Option<Instant>,
 }
 
+/// What a host said about its own rate limit.
+///
+/// Reden publishes `x-ratelimit-limit` / `remaining` / `reset`; the reset value
+/// is an absolute Unix timestamp, not a duration.
+#[derive(Clone, Debug, Default)]
+pub struct QuotaHint {
+    pub limit: Option<u32>,
+    pub remaining: Option<u32>,
+    /// Unix seconds at which the current window resets.
+    pub reset_at: Option<i64>,
+}
+
+#[derive(Default)]
+struct QuotaState {
+    /// Requests spent since the window started, when the host reports no quota.
+    spent: u32,
+    window_started: Option<Instant>,
+    /// Last reported remainder, refreshed by each response.
+    remaining: Option<u32>,
+    reset_at: Option<i64>,
+}
+
+static QUOTAS: LazyLock<Mutex<HashMap<HostKey, QuotaState>>> =
+    LazyLock::new(|| Mutex::new(HashMap::new()));
+
 static LIMITERS: LazyLock<ParkingMutex<HashMap<HostKey, HostLimiter>>> =
     LazyLock::new(|| ParkingMutex::new(HashMap::new()));
 static BREAKERS: LazyLock<Mutex<HashMap<HostKey, BreakerState>>> =
@@ -103,41 +134,42 @@ pub async fn acquire(
     cancel: &CancellationToken,
 ) -> SourceResult<tokio::sync::OwnedSemaphorePermit> {
     check_breaker(key)?;
+    // Concurrency says how many run at once; the quota says how many may be sent
+    // inside the host's window. Both have to hold.
+    check_quota(key)?;
+    record_request(key);
 
     let semaphore = limiter_for(key);
-    if semaphore.available_permits() == 0 {
-        // Every slot is busy: only a bounded number of callers may wait.
-        {
-            let mut waiting = WAITING.lock().unwrap();
-            let count = waiting.entry(key.clone()).or_insert(0usize);
-            if *count >= PER_HOST_QUEUE_DEPTH {
-                return Err(SchematicSourceError::RateLimited {
-                    retry_after_ms: 1_000,
-                });
-            }
-            *count += 1;
+
+    // Count the caller as waiting *before* trying to acquire.
+    //
+    // The previous version only counted when `available_permits()` read zero,
+    // which left a race: several callers could each observe a free permit, then
+    // all queue inside `acquire_owned` without ever incrementing the counter,
+    // bypassing the depth limit. Counting first and decrementing on drop keeps
+    // the bound honest regardless of timing.
+    {
+        let mut waiting = WAITING.lock().unwrap();
+        let count = waiting.entry(key.clone()).or_insert(0usize);
+        if *count >= PER_HOST_CONCURRENCY + PER_HOST_QUEUE_DEPTH {
+            return Err(SchematicSourceError::RateLimited {
+                retry_after_ms: 1_000,
+            });
         }
-        let guard = WaitingGuard { key: key.clone() };
-        let acquire = semaphore.acquire_owned();
-        let result = tokio::select! {
-            _ = cancel.cancelled() => Err(SchematicSourceError::Canceled),
-            result = acquire => result.map_err(|_| SchematicSourceError::network(
-                NetworkKind::Unknown,
-                "host limiter closed",
-            )),
-        };
-        drop(guard);
-        return result;
+        *count += 1;
     }
+    let guard = WaitingGuard { key: key.clone() };
 
     let acquire = semaphore.acquire_owned();
-    tokio::select! {
+    let result = tokio::select! {
         _ = cancel.cancelled() => Err(SchematicSourceError::Canceled),
         result = acquire => result.map_err(|_| SchematicSourceError::network(
             NetworkKind::Unknown,
             "host limiter closed",
         )),
-    }
+    };
+    drop(guard);
+    result
 }
 
 /// Decrements the wait counter even if the caller is cancelled mid-wait.
@@ -156,6 +188,77 @@ impl Drop for WaitingGuard {
 
 static WAITING: LazyLock<Mutex<HashMap<HostKey, usize>>> =
     LazyLock::new(|| Mutex::new(HashMap::new()));
+
+/// Refuse a request when the host's own quota is nearly spent.
+///
+/// Per-host concurrency only bounds how many requests run at once; it says
+/// nothing about how many were sent inside the host's window. Reden publishes a
+/// 50-per-window quota, so without this check a burst of pages would simply
+/// exceed it and collect 429s.
+fn check_quota(key: &HostKey) -> SourceResult<()> {
+    let quotas = QUOTAS.lock().unwrap();
+    let Some(state) = quotas.get(key) else {
+        return Ok(());
+    };
+
+    // When the host told us when its window resets, trust that; otherwise fall
+    // back to a local window.
+    if let Some(reset_at) = state.reset_at {
+        let now = chrono::Utc::now().timestamp();
+        if now >= reset_at {
+            return Ok(());
+        }
+        if let Some(remaining) = state.remaining
+            && remaining <= QUOTA_RESERVE
+        {
+            return Err(SchematicSourceError::RateLimited {
+                retry_after_ms: ((reset_at - now).max(1) as u64) * 1_000,
+            });
+        }
+        return Ok(());
+    }
+
+    if state.spent >= QUOTA_LIMIT.saturating_sub(QUOTA_RESERVE) {
+        let elapsed = state
+            .window_started
+            .map(|started| started.elapsed())
+            .unwrap_or_default();
+        let remaining = QUOTA_WINDOW.saturating_sub(elapsed);
+        return Err(SchematicSourceError::RateLimited {
+            retry_after_ms: remaining.as_millis().max(1) as u64,
+        });
+    }
+    Ok(())
+}
+
+/// Account for one request against the host's quota.
+fn record_request(key: &HostKey) {
+    let mut quotas = QUOTAS.lock().unwrap();
+    let state = quotas.entry(key.clone()).or_default();
+    let now = Instant::now();
+    match state.window_started {
+        Some(started) if started.elapsed() < QUOTA_WINDOW => {
+            state.spent = state.spent.saturating_add(1);
+        }
+        _ => {
+            state.window_started = Some(now);
+            state.spent = 1;
+        }
+    }
+}
+
+/// Update what the host told us about its remaining quota.
+pub fn record_quota_hint(key: &HostKey, hint: QuotaHint) {
+    let mut quotas = QUOTAS.lock().unwrap();
+    let state = quotas.entry(key.clone()).or_default();
+    if let Some(remaining) = hint.remaining {
+        state.remaining = Some(remaining);
+    }
+    if let Some(reset_at) = hint.reset_at {
+        state.reset_at = Some(reset_at);
+    }
+    let _ = hint.limit;
+}
 
 fn check_breaker(key: &HostKey) -> SourceResult<()> {
     let mut breakers = BREAKERS.lock().unwrap();

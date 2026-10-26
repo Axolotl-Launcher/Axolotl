@@ -12,7 +12,7 @@ use async_trait::async_trait;
 use serde::Deserialize;
 use tokio_util::sync::CancellationToken;
 
-use super::super::error::SourceResult;
+use super::super::error::{SchematicSourceError, SourceResult};
 use super::super::http::{self, RequestHeaders};
 use super::super::source::SchematicBrowseSource;
 use super::super::types::{
@@ -25,9 +25,17 @@ const SITE: &str = "https://mcimg.com";
 const SITEMAP_URL: &str = "https://www.mcimg.com/sitemap.xml?type=post&page=1";
 const TITLE_URL: &str = "https://mcimg.com/shimu/api";
 const PAGE_SIZE: u32 = 40;
+/// How long a parsed sitemap index may be reused.
+const CACHE_TTL_SECONDS: i64 = super::super::cache::MIN_TTL_SECONDS;
 /// Delay between title lookups. Kept slow on purpose: the endpoint is a courtesy
 /// API, not a bulk one.
 const TITLE_BACKFILL_DELAY_MS: u64 = 500;
+/// How many titles to look up before returning the page.
+///
+/// Each lookup costs one delay plus a request, so this directly bounds how long
+/// a listing call can take. Six rows is about three seconds worst case; the rest
+/// of the page renders immediately with placeholder titles.
+const TITLE_BACKFILL_PER_PAGE: usize = 6;
 
 #[derive(Deserialize, serde::Serialize, Clone, Default)]
 pub struct Index {
@@ -35,7 +43,7 @@ pub struct Index {
 }
 
 /// Extract post ids from the sitemap.
-pub fn parse_sitemap(xml: &str) -> Index {
+pub fn parse_sitemap(xml: &str) -> SourceResult<Index> {
     let mut post_ids = Vec::new();
     let mut reader = quick_xml::Reader::from_str(xml);
     reader.config_mut().trim_text(true);
@@ -56,12 +64,23 @@ pub fn parse_sitemap(xml: &str) -> Index {
             }
             Ok(quick_xml::events::Event::End(_)) => in_loc = false,
             Ok(quick_xml::events::Event::Eof) => break,
-            Err(_) => break,
+            Err(error) => {
+                return Err(SchematicSourceError::parse(
+                    "shimu sitemap",
+                    error.to_string(),
+                ));
+            }
             _ => {}
         }
     }
 
-    Index { post_ids }
+    if post_ids.is_empty() {
+        return Err(SchematicSourceError::upstream_changed(
+            "the sitemap contained no post ids",
+        ));
+    }
+
+    Ok(Index { post_ids })
 }
 
 /// Pull the numeric id out of a post URL.
@@ -143,21 +162,23 @@ impl SchematicBrowseSource for ShimuSource {
         query: &ListQuery,
         cancel: &CancellationToken,
     ) -> SourceResult<ListResult> {
-        let index =
+        let now = chrono::Utc::now().timestamp();
+        let (index, cached, fetched_at) =
             match super::super::cache::read::<Index>(SourceId::Shimu).await? {
-                Some(cached) => cached.payload,
-                None => {
+                Some(hit) if hit.is_fresh(now, CACHE_TTL_SECONDS) => {
+                    (hit.payload, true, Some(hit.fetched_at))
+                }
+                _ => {
                     let response = http::get_text(
                         SITEMAP_URL,
                         &RequestHeaders::default(),
                         cancel,
                     )
                     .await?;
-                    let index = parse_sitemap(&response.body);
-                    let now = chrono::Utc::now().timestamp();
+                    let index = parse_sitemap(&response.body)?;
                     super::super::cache::write(SourceId::Shimu, &index, now)
                         .await?;
-                    index
+                    (index, false, Some(now))
                 }
             };
 
@@ -175,15 +196,25 @@ impl SchematicBrowseSource for ShimuSource {
             index.post_ids[start..end].to_vec()
         };
 
-        // Backfill a bounded number of titles per page so one slow page cannot
-        // stall the listing; the rest stay as placeholders and are upgraded on
-        // the next visit (the title cache makes the second visit free).
+        // Titles come from a rate-limited courtesy endpoint, so they are
+        // backfilled for a small prefix of the page only. Waiting for every row
+        // would make a 40-item page take 20 seconds; the rest keep their
+        // placeholder and are upgraded on the next visit, when the title cache
+        // makes the lookup free.
         let mut items = Vec::with_capacity(slice.len());
-        for post_id in &slice {
-            let title = self
-                .backfill_title(post_id, cancel)
-                .await
-                .unwrap_or_else(|| placeholder_title(post_id));
+        for (index, post_id) in slice.iter().enumerate() {
+            // A cancelled lookup must fail the whole call, not silently degrade
+            // every remaining row to a placeholder: the caller asked to stop.
+            if cancel.is_cancelled() {
+                return Err(SchematicSourceError::Canceled);
+            }
+            let title = if index < TITLE_BACKFILL_PER_PAGE {
+                self.backfill_title(post_id, cancel)
+                    .await
+                    .unwrap_or_else(|| placeholder_title(post_id))
+            } else {
+                placeholder_title(post_id)
+            };
             let degraded = title == placeholder_title(post_id);
             items.push(SchematicItem {
                 id: format!("shimu:{post_id}"),
@@ -213,8 +244,8 @@ impl SchematicBrowseSource for ShimuSource {
                 source_id: SourceId::Shimu,
                 state: SourceState::Ok,
                 message: None,
-                cached: false,
-                fetched_at: None,
+                cached,
+                fetched_at,
             },
             source_failures: Vec::new(),
         })
@@ -340,7 +371,7 @@ mod tests {
             <url><loc>https://www.mcimg.com/my-house-67890/</loc></url>
             <url><loc>https://www.mcimg.com/about</loc></url>
         </urlset>"#;
-        let index = parse_sitemap(xml);
+        let index = parse_sitemap(xml).expect("valid sitemap");
         assert_eq!(index.post_ids, vec!["12345", "67890"]);
     }
 

@@ -23,6 +23,8 @@ use super::super::types::{
 const SITE: &str = "https://mc-schematics.com";
 const SITEMAP_URL: &str = "https://mc-schematics.com/sitemap.xml";
 const BROWSE_PAGE_SIZE: u32 = 21;
+/// How long a parsed sitemap index may be reused before it is refetched.
+const CACHE_TTL_SECONDS: i64 = super::super::cache::MIN_TTL_SECONDS;
 
 /// One `<loc>` entry from the sitemap.
 #[derive(Deserialize, Clone)]
@@ -37,7 +39,10 @@ pub struct Index {
 }
 
 /// Extract item URLs (`/s/<slug>-<hash>`) from a sitemap document.
-pub fn parse_sitemap(xml: &str) -> Index {
+///
+/// A malformed document is an error rather than a partial index: caching a
+/// truncated result would silently hide most of the catalogue.
+pub fn parse_sitemap(xml: &str) -> SourceResult<Index> {
     let mut items = Vec::new();
     let mut reader = quick_xml::Reader::from_str(xml);
     reader.config_mut().trim_text(true);
@@ -60,12 +65,23 @@ pub fn parse_sitemap(xml: &str) -> Index {
             }
             Ok(quick_xml::events::Event::End(_)) => in_loc = false,
             Ok(quick_xml::events::Event::Eof) => break,
-            Err(_) => break,
+            Err(error) => {
+                return Err(SchematicSourceError::parse(
+                    "mc-schematics sitemap",
+                    error.to_string(),
+                ));
+            }
             _ => {}
         }
     }
 
-    Index { items }
+    if items.is_empty() {
+        return Err(SchematicSourceError::upstream_changed(
+            "the sitemap contained no /s/ links",
+        ));
+    }
+
+    Ok(Index { items })
 }
 
 /// JSON-LD block embedded in an item page.
@@ -208,7 +224,9 @@ impl SchematicBrowseSource for McSchematicsSource {
 
     fn capabilities(&self) -> SourceCapabilities {
         SourceCapabilities {
-            supports_search: false,
+            // Filtering happens on the cached sitemap index, so search works even
+            // though the site exposes no search endpoint.
+            supports_search: true,
             supports_version_filter: false,
             supports_server_side_paging: false,
             supports_thumbnail: true,
@@ -222,27 +240,31 @@ impl SchematicBrowseSource for McSchematicsSource {
         query: &ListQuery,
         cancel: &CancellationToken,
     ) -> SourceResult<ListResult> {
-        let index =
+        let now = chrono::Utc::now().timestamp();
+        let (index, cached, fetched_at) =
             match super::super::cache::read::<Index>(SourceId::McSchematics)
                 .await?
             {
-                Some(cached) => cached.payload,
-                None => {
+                // The index still expires: without this the sitemap would be
+                // reused forever and new items would never show up.
+                Some(hit) if hit.is_fresh(now, CACHE_TTL_SECONDS) => {
+                    (hit.payload, true, Some(hit.fetched_at))
+                }
+                _ => {
                     let response = http::get_text(
                         SITEMAP_URL,
                         &RequestHeaders::default(),
                         cancel,
                     )
                     .await?;
-                    let index = parse_sitemap(&response.body);
-                    let now = chrono::Utc::now().timestamp();
+                    let index = parse_sitemap(&response.body)?;
                     super::super::cache::write(
                         SourceId::McSchematics,
                         &index,
                         now,
                     )
                     .await?;
-                    index
+                    (index, false, Some(now))
                 }
             };
 
@@ -303,8 +325,8 @@ impl SchematicBrowseSource for McSchematicsSource {
                 source_id: SourceId::McSchematics,
                 state: SourceState::Ok,
                 message: None,
-                cached: false,
-                fetched_at: None,
+                cached,
+                fetched_at,
             },
             source_failures: Vec::new(),
         })
@@ -431,7 +453,7 @@ mod tests {
             <url><loc>https://mc-schematics.com/s/house-97b216b528</loc></url>
             <url><loc>https://mc-schematics.com/c/houses</loc></url>
         </urlset>"#;
-        let index = parse_sitemap(xml);
+        let index = parse_sitemap(xml).expect("valid sitemap");
         assert_eq!(index.items.len(), 1);
         assert!(index.items[0].ends_with("/s/house-97b216b528"));
     }

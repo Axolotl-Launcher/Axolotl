@@ -15,6 +15,8 @@ use super::net::{self, HostKey};
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(20);
 /// Largest response body we will buffer.
 const MAX_BODY_BYTES: usize = 16 * 1024 * 1024;
+/// Redirects to follow before giving up.
+const MAX_REDIRECTS: usize = 5;
 
 /// A response with its body already read.
 pub struct HttpResponse {
@@ -32,18 +34,64 @@ impl HttpResponse {
 fn client() -> SourceResult<reqwest::Client> {
     // `State` may not be initialized in unit tests; fall back to a plain client
     // so parsing tests never depend on launcher startup.
-    match crate::State::get_if_initialized() {
-        Some(state) => Ok(state.configured_http_client()),
-        None => reqwest::Client::builder()
-            .timeout(REQUEST_TIMEOUT)
-            .user_agent(crate::launcher_user_agent())
-            .build()
-            .map_err(|error| {
-                SchematicSourceError::network(
-                    NetworkKind::Unknown,
-                    error.to_string(),
-                )
-            }),
+    if let Some(state) = crate::State::get_if_initialized() {
+        return Ok(state.configured_http_client());
+    }
+
+    reqwest::Client::builder()
+        .timeout(REQUEST_TIMEOUT)
+        .user_agent(crate::launcher_user_agent())
+        // A redirected request can land anywhere, including a service on the
+        // user's own machine. Only http(s) to a public host is allowed.
+        .redirect(reqwest::redirect::Policy::custom(|attempt| {
+            if attempt.previous().len() >= MAX_REDIRECTS {
+                attempt.error("too many redirects")
+            } else if !is_public_http_url(attempt.url()) {
+                attempt.error("redirect target is not a public http(s) host")
+            } else {
+                attempt.follow()
+            }
+        }))
+        .build()
+        .map_err(|error| {
+            SchematicSourceError::network(
+                NetworkKind::Unknown,
+                error.to_string(),
+            )
+        })
+}
+
+/// Whether a URL points at a routable public host.
+///
+/// Blocks loopback, link-local, private ranges and non-http schemes so a
+/// compromised or malicious source cannot use a redirect to reach local services.
+fn is_public_http_url(url: &reqwest::Url) -> bool {
+    if !matches!(url.scheme(), "http" | "https") {
+        return false;
+    }
+    match url.host() {
+        Some(url::Host::Ipv4(address)) => {
+            let octets = address.octets();
+            !(address.is_loopback()
+                || address.is_private()
+                || address.is_link_local()
+                || address.is_broadcast()
+                || address.is_unspecified()
+                || octets[0] == 0
+                // 100.64.0.0/10 carrier-grade NAT
+                || (octets[0] == 100 && (64..128).contains(&octets[1])))
+        }
+        Some(url::Host::Ipv6(address)) => {
+            !(address.is_loopback()
+                || address.is_unspecified()
+                // Unique local + link local
+                || (address.segments()[0] & 0xfe00) == 0xfc00
+                || (address.segments()[0] & 0xffc0) == 0xfe80)
+        }
+        // A hostname is resolved by the HTTP client; blocking by name is not
+        // reliable, so names are allowed and only literal addresses are checked.
+        Some(url::Host::Domain(_)) => true,
+        None => false,
     }
 }
 
@@ -102,6 +150,103 @@ fn classify_transport(error: &reqwest::Error) -> NetworkKind {
     }
 }
 
+/// Read a response body while enforcing the size cap.
+///
+/// Reads incrementally instead of buffering the whole body, so a server that
+/// omits `Content-Length` cannot make us allocate unbounded memory.
+async fn read_limited(
+    response: reqwest::Response,
+    cancel: &CancellationToken,
+) -> SourceResult<Vec<u8>> {
+    use futures::StreamExt;
+
+    let mut stream = response.bytes_stream();
+    let mut buffer: Vec<u8> = Vec::new();
+
+    loop {
+        let chunk = tokio::select! {
+            _ = cancel.cancelled() => {
+                return Err(SchematicSourceError::Canceled)
+            }
+            next = stream.next() => next,
+        };
+        match chunk {
+            Some(Ok(bytes)) => {
+                if buffer.len() + bytes.len() > MAX_BODY_BYTES {
+                    return Err(SchematicSourceError::parse(
+                        "response",
+                        format!(
+                            "body exceeded the {MAX_BODY_BYTES} byte limit"
+                        ),
+                    ));
+                }
+                buffer.extend_from_slice(&bytes);
+            }
+            Some(Err(error)) => {
+                return Err(SchematicSourceError::network(
+                    classify_transport(&error),
+                    error.to_string(),
+                ));
+            }
+            None => break,
+        }
+    }
+
+    Ok(buffer)
+}
+
+/// Parse `Retry-After` in either of the two forms the spec allows.
+///
+/// It may be a delay in seconds or an HTTP date. Only handling the numeric form
+/// would ignore a perfectly valid header and retry too early.
+fn retry_after_ms(headers: &reqwest::header::HeaderMap) -> u64 {
+    let Some(raw) = headers
+        .get(reqwest::header::RETRY_AFTER)
+        .and_then(|value| value.to_str().ok())
+        .map(str::trim)
+    else {
+        return 1_000;
+    };
+
+    if let Ok(seconds) = raw.parse::<u64>() {
+        return seconds.saturating_mul(1_000).max(1_000);
+    }
+
+    if let Ok(when) = chrono::DateTime::parse_from_rfc2822(raw) {
+        let now = chrono::Utc::now();
+        let millis = when
+            .with_timezone(&chrono::Utc)
+            .signed_duration_since(now)
+            .num_milliseconds();
+        return millis.max(1_000) as u64;
+    }
+
+    1_000
+}
+
+/// Read a host's rate-limit headers.
+///
+/// Reden sends `x-ratelimit-limit`, `x-ratelimit-remaining` and
+/// `x-ratelimit-reset`; the reset value is an absolute Unix timestamp rather than
+/// a duration, so it is compared against the clock instead of being added to it.
+fn parse_quota_headers(headers: &reqwest::header::HeaderMap) -> net::QuotaHint {
+    fn number(headers: &reqwest::header::HeaderMap, name: &str) -> Option<u32> {
+        headers
+            .get(name)
+            .and_then(|value| value.to_str().ok())
+            .and_then(|value| value.trim().parse::<u32>().ok())
+    }
+
+    net::QuotaHint {
+        limit: number(headers, "x-ratelimit-limit"),
+        remaining: number(headers, "x-ratelimit-remaining"),
+        reset_at: headers
+            .get("x-ratelimit-reset")
+            .and_then(|value| value.to_str().ok())
+            .and_then(|value| value.trim().parse::<i64>().ok()),
+    }
+}
+
 fn status_error(status: u16, url: &str) -> SchematicSourceError {
     match status {
         403 => SchematicSourceError::http(
@@ -154,28 +299,38 @@ pub async fn get_text(
         let status = response.status().as_u16();
         let final_url = response.url().to_string();
 
+        // Feed the host's own quota report back into the limiter. Reden publishes
+        // `x-ratelimit-limit` / `remaining` / `reset`, where `reset` is an
+        // absolute Unix timestamp.
+        net::record_quota_hint(&key, parse_quota_headers(response.headers()));
+
         if status == 429 {
-            let retry_after_ms = response
-                .headers()
-                .get(reqwest::header::RETRY_AFTER)
-                .and_then(|value| value.to_str().ok())
-                .and_then(|value| value.trim().parse::<u64>().ok())
-                .map(|seconds| seconds.saturating_mul(1_000))
-                .unwrap_or(1_000);
-            return Err(SchematicSourceError::RateLimited { retry_after_ms });
+            return Err(SchematicSourceError::RateLimited {
+                retry_after_ms: retry_after_ms(response.headers()),
+            });
         }
 
         if !(200..300).contains(&status) {
             return Err(status_error(status, url));
         }
 
+        // Reject an oversized body before reading it, when the server reports a
+        // length, and stream the rest so a lying or absent length cannot force a
+        // multi-gigabyte allocation.
+        if let Some(length) = response.content_length()
+            && length > MAX_BODY_BYTES as u64
+        {
+            return Err(SchematicSourceError::parse(
+                "response",
+                format!("body of {length} bytes exceeds the {MAX_BODY_BYTES} byte limit"),
+            ));
+        }
+
         let bytes = tokio::select! {
             _ = cancel.cancelled() => {
                 return Err(SchematicSourceError::Canceled)
             }
-            result = response.bytes() => result.map_err(|error| {
-                SchematicSourceError::network(classify_transport(&error), error.to_string())
-            })?,
+            result = read_limited(response, cancel) => result?,
         };
 
         if bytes.len() > MAX_BODY_BYTES {
@@ -223,13 +378,23 @@ pub async fn get_bytes(
             return Err(status_error(status, url));
         }
 
+        // Reject an oversized body before reading it, when the server reports a
+        // length, and stream the rest so a lying or absent length cannot force a
+        // multi-gigabyte allocation.
+        if let Some(length) = response.content_length()
+            && length > MAX_BODY_BYTES as u64
+        {
+            return Err(SchematicSourceError::parse(
+                "response",
+                format!("body of {length} bytes exceeds the {MAX_BODY_BYTES} byte limit"),
+            ));
+        }
+
         let bytes = tokio::select! {
             _ = cancel.cancelled() => {
                 return Err(SchematicSourceError::Canceled)
             }
-            result = response.bytes() => result.map_err(|error| {
-                SchematicSourceError::network(classify_transport(&error), error.to_string())
-            })?,
+            result = read_limited(response, cancel) => result?,
         };
         Ok(bytes.to_vec())
     })

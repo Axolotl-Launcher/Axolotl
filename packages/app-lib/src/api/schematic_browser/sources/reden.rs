@@ -21,7 +21,7 @@ use super::super::error::{NetworkKind, SchematicSourceError, SourceResult};
 use super::super::http::{self, RequestHeaders};
 use super::super::source::SchematicBrowseSource;
 use super::super::types::{
-    ContentKind, DownloadPlan, GenerateSize, ListQuery, ListResult,
+    ContentKind, Delivery, DownloadPlan, GenerateSize, ListQuery, ListResult,
     ResourceTotal, SchematicDetail, SchematicFormat, SchematicItem,
     SourceCapabilities, SourceId, SourceState, SourceStatus,
 };
@@ -114,8 +114,11 @@ impl ItemDto {
     }
 
     fn detail_url(&self) -> String {
+        // The share page lives on the website host, not on the API host the
+        // requests go to. Opening `api.redenmc.com/share/...` gives the user a
+        // bare JSON error instead of the item page.
         match self.key() {
-            Some(key) => format!("{BASE}/share/{key}"),
+            Some(key) => format!("{SITE}/share/{key}"),
             None => SITE.to_string(),
         }
     }
@@ -138,7 +141,7 @@ impl ItemDto {
             (
                 SchematicFormat::Litematic,
                 DownloadPlan {
-                    delivery: super::super::types::Delivery::Direct,
+                    delivery: Delivery::Direct,
                     url: format!("{BASE}/api/mc-services/yisibite/{key}"),
                     referer: Some(SITE.to_string()),
                     file_name_hint: None,
@@ -205,6 +208,27 @@ struct DetailDto {
     versions: Option<Vec<String>>,
     #[serde(default)]
     downloads: Option<u64>,
+    /// `LitematicaGen` for generator items, `LitematicaShare` otherwise.
+    ///
+    /// Read here so the detail call can decide the download plan on its own,
+    /// without having to find the item in a listing page.
+    #[serde(default, rename = "type")]
+    kind: Option<String>,
+    /// Direct file links, when the item ships a ready-made file.
+    #[serde(default)]
+    attachments: Option<Vec<AttachmentDto>>,
+}
+
+impl DetailDto {
+    fn is_generator(&self) -> bool {
+        matches!(self.kind.as_deref(), Some("LitematicaGen"))
+    }
+
+    fn direct_file(&self) -> Option<String> {
+        self.attachments
+            .as_ref()
+            .and_then(|list| list.iter().find_map(|a| a.url.clone()))
+    }
 }
 
 pub struct RedenSource;
@@ -312,9 +336,15 @@ impl SchematicBrowseSource for RedenSource {
             None => ResourceTotal::unknown(),
         };
 
-        let effective_page_size = query.page_size.max(1).min(BROWSE_PAGE_SIZE);
+        // Reden ignores `pageSize` and always returns its own fixed page size.
+        // Deciding `has_more` from the *requested* size would therefore claim a
+        // next page exists whenever the caller asked for more than Reden sends,
+        // even on the last page. Compare against what actually arrived instead.
+        let returned = envelope.d.len();
+        let has_more = returned >= BROWSE_PAGE_SIZE as usize;
+
         Ok(ListResult {
-            has_more: envelope.d.len() >= effective_page_size as usize,
+            has_more,
             items,
             page,
             total,
@@ -349,43 +379,50 @@ impl SchematicBrowseSource for RedenSource {
                 SchematicSourceError::parse("reden detail", error.to_string())
             })?;
 
-        let listing_url = format!("{BROWSE_URL}?lang=zh_cn&page=1");
-        let base =
-            http::get_text(&listing_url, &RequestHeaders::default(), cancel)
-                .await
-                .ok()
-                .and_then(|response| {
-                    serde_json::from_str::<Envelope<ItemDto>>(&response.body)
-                        .ok()
-                })
-                .and_then(|envelope| {
-                    envelope
-                        .d
-                        .iter()
-                        .find(|dto| dto.key() == Some(key))
-                        .and_then(ItemDto::to_item)
-                })
-                .unwrap_or_else(|| SchematicItem {
-                    id: format!("reden:{key}"),
-                    source_id: SourceId::Reden,
-                    title: key.to_string(),
-                    description: None,
-                    format: SchematicFormat::Unknown,
-                    content_kind: ContentKind::Schematic,
-                    versions: Vec::new(),
-                    downloads: None,
-                    updated_at: None,
-                    images: Vec::new(),
-                    detail_url: format!("{BASE}/share/{key}"),
-                    download: DownloadPlan::external(format!(
-                        "{BASE}/share/{key}"
-                    )),
-                    degraded: true,
-                    degraded_reason: Some(
-                        "item no longer present in the Reden listing"
-                            .to_string(),
-                    ),
-                });
+        // Build the item from the detail payload alone.
+        //
+        // The previous version looked the item up on listing page 1, which meant
+        // any item beyond the first page fell back to an "external link only"
+        // placeholder and lost its download plan.
+        let (format, download) = if detail.is_generator() {
+            (
+                SchematicFormat::Litematic,
+                DownloadPlan {
+                    delivery: Delivery::Direct,
+                    url: format!("{BASE}/api/mc-services/yisibite/{key}"),
+                    referer: Some(SITE.to_string()),
+                    file_name_hint: None,
+                    requires_login: false,
+                },
+            )
+        } else if let Some(url) = detail.direct_file() {
+            (
+                SchematicFormat::from_url(&url),
+                DownloadPlan::direct(url).with_referer(SITE),
+            )
+        } else {
+            (
+                SchematicFormat::Unknown,
+                DownloadPlan::external(format!("{SITE}/share/{key}")),
+            )
+        };
+
+        let base = SchematicItem {
+            id: format!("reden:{key}"),
+            source_id: SourceId::Reden,
+            title: key.to_string(),
+            description: None,
+            format,
+            content_kind: ContentKind::Schematic,
+            versions: Vec::new(),
+            downloads: None,
+            updated_at: None,
+            images: Vec::new(),
+            detail_url: format!("{SITE}/share/{key}"),
+            download,
+            degraded: false,
+            degraded_reason: None,
+        };
 
         let item = Self::item_from_detail(key, &detail, &base);
         Ok(SchematicDetail {
@@ -417,8 +454,7 @@ impl SchematicBrowseSource for RedenSource {
         let detail = self.detail(id, cancel).await?;
 
         if detail.item.format != SchematicFormat::Unknown
-            && detail.item.download.delivery
-                == super::super::types::Delivery::Direct
+            && detail.item.download.delivery == Delivery::Direct
             && detail.item.download.url.contains("/yisibite/")
             && !detail.item.download.url.contains("xSize=")
         {
@@ -444,7 +480,7 @@ impl SchematicBrowseSource for RedenSource {
                 url.push_str(&parts.join("&"));
             }
             return Ok(DownloadPlan {
-                delivery: super::super::types::Delivery::Direct,
+                delivery: Delivery::Direct,
                 url,
                 referer: Some(SITE.to_string()),
                 file_name_hint: None,

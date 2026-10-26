@@ -12,7 +12,7 @@ use async_trait::async_trait;
 use serde::Deserialize;
 use tokio_util::sync::CancellationToken;
 
-use super::super::error::SourceResult;
+use super::super::error::{SchematicSourceError, SourceResult};
 use super::super::http::{self, RequestHeaders};
 use super::super::source::SchematicBrowseSource;
 use super::super::types::{
@@ -24,6 +24,11 @@ use super::super::types::{
 const SITE: &str = "https://buildschematics.com";
 const SITEMAP_URL: &str = "https://buildschematics.com/sitemap.xml";
 const PAGE_SIZE: u32 = 60;
+/// How long a parsed index may be reused.
+///
+/// The site's terms forbid repeatedly pulling its resources, so this is a floor
+/// as much as a cache lifetime.
+const CACHE_TTL_SECONDS: i64 = super::super::cache::MIN_TTL_SECONDS;
 
 #[derive(Deserialize, serde::Serialize, Clone, Default)]
 pub struct Index {
@@ -32,7 +37,11 @@ pub struct Index {
 }
 
 /// Extract preset slugs from the sitemap.
-pub fn parse_sitemap(xml: &str) -> Index {
+///
+/// Returns an error for malformed XML rather than the entries collected so far:
+/// a truncated document would otherwise be cached as a valid, silently short
+/// index.
+pub fn parse_sitemap(xml: &str) -> SourceResult<Index> {
     let mut slugs = Vec::new();
     let mut reader = quick_xml::Reader::from_str(xml);
     reader.config_mut().trim_text(true);
@@ -56,12 +65,25 @@ pub fn parse_sitemap(xml: &str) -> Index {
             }
             Ok(quick_xml::events::Event::End(_)) => in_loc = false,
             Ok(quick_xml::events::Event::Eof) => break,
-            Err(_) => break,
+            Err(error) => {
+                return Err(SchematicSourceError::parse(
+                    "buildschematics sitemap",
+                    error.to_string(),
+                ));
+            }
             _ => {}
         }
     }
 
-    Index { slugs }
+    if slugs.is_empty() {
+        // A sitemap with no preset links is not a valid index for this site; it
+        // means the document shape changed or an error page came back.
+        return Err(SchematicSourceError::upstream_changed(
+            "the sitemap contained no /presets/ links",
+        ));
+    }
+
+    Ok(Index { slugs })
 }
 
 fn title_from_slug(slug: &str) -> String {
@@ -99,9 +121,10 @@ impl SchematicBrowseSource for BuildSchematicsSource {
 
     fn capabilities(&self) -> SourceCapabilities {
         SourceCapabilities {
-            // The site has no search endpoint; filtering happens locally on the
-            // cached index.
-            supports_search: false,
+            // The site has no search endpoint, but this adapter filters the
+            // cached index locally, so search works from the user's point of
+            // view. Declaring it false would hide the control.
+            supports_search: true,
             supports_version_filter: false,
             supports_server_side_paging: false,
             supports_thumbnail: false,
@@ -115,27 +138,32 @@ impl SchematicBrowseSource for BuildSchematicsSource {
         query: &ListQuery,
         cancel: &CancellationToken,
     ) -> SourceResult<ListResult> {
-        let index =
+        let now = chrono::Utc::now().timestamp();
+        let (index, cached, fetched_at) =
             match super::super::cache::read::<Index>(SourceId::BuildSchematics)
                 .await?
             {
-                Some(cached) => cached.payload,
-                None => {
+                // A cached index still expires. Without this check new presets
+                // would never appear and removed ones would never leave, because
+                // the file would be reused forever.
+                Some(hit) if hit.is_fresh(now, CACHE_TTL_SECONDS) => {
+                    (hit.payload, true, Some(hit.fetched_at))
+                }
+                _ => {
                     let response = http::get_text(
                         SITEMAP_URL,
                         &RequestHeaders::default(),
                         cancel,
                     )
                     .await?;
-                    let index = parse_sitemap(&response.body);
-                    let now = chrono::Utc::now().timestamp();
+                    let index = parse_sitemap(&response.body)?;
                     super::super::cache::write(
                         SourceId::BuildSchematics,
                         &index,
                         now,
                     )
                     .await?;
-                    index
+                    (index, false, Some(now))
                 }
             };
 
@@ -192,8 +220,10 @@ impl SchematicBrowseSource for BuildSchematicsSource {
                 source_id: SourceId::BuildSchematics,
                 state: SourceState::Ok,
                 message: None,
-                cached: false,
-                fetched_at: None,
+                // Report where the index actually came from, so the UI can show
+                // "cached" and the age of what the user is looking at.
+                cached,
+                fetched_at,
             },
             source_failures: Vec::new(),
         })
@@ -287,7 +317,7 @@ mod tests {
             <url><loc>https://buildschematics.com/presets/medieval-house</loc></url>
             <url><loc>https://buildschematics.com/presets/modern-villa/</loc></url>
         </urlset>"#;
-        let index = parse_sitemap(xml);
+        let index = parse_sitemap(xml).expect("valid sitemap");
         assert_eq!(index.slugs, vec!["medieval-house", "modern-villa"]);
     }
 

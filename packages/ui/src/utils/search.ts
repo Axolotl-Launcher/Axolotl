@@ -168,9 +168,31 @@ export function useSearch(
     const query = ref('')
     const maxResults = ref(readPersistedMaxResults())
 
-    // Persist every change so the choice survives closing the launcher, not just
-    // a route change.
-    watch(maxResults, (value) => persistMaxResults(value))
+    /**
+     * Whether a value change came from the user.
+     *
+     * The browse layout clamps the value to the options a tab supports. That
+     * clamp must not overwrite a preference the user set on a tab with more
+     * options, so callers can mark such writes as automatic.
+     */
+    let persistMaxResultsAutomatically = false
+
+    // Persist every user change so the choice survives closing the launcher, not
+    // just a route change.
+    watch(maxResults, (value) => {
+        if (persistMaxResultsAutomatically) return
+        persistMaxResults(value)
+    })
+
+    /**
+     * Let the layout tell this composable that the next change is an automatic
+     * clamp rather than a user choice.
+     */
+    const setMaxResultsProgrammatically = (value: number) => {
+        persistMaxResultsAutomatically = true
+        maxResults.value = value
+        persistMaxResultsAutomatically = false
+    }
 
     const sortTypes: readonly SortType[] = readonly(
         sortOptions ?? [
@@ -828,7 +850,12 @@ export function useSearch(
             readParams.add('s')
         })
         loadQueryParam(['m'], (count) => {
-            maxResults.value = Number(count)
+            // A hand-edited or malformed `?m=` must not overwrite the stored
+            // preference: `?m=0` would otherwise persist 0 and reset the user to
+            // the default on the next visit.
+            const parsed = Number(count)
+            if (!Number.isFinite(parsed) || parsed <= 0) return
+            setMaxResultsProgrammatically(parsed)
             readParams.add('m')
         })
         loadQueryParam(['o'], (offset) => {
@@ -978,6 +1005,7 @@ export function useSearch(
         toggledGroups,
         currentPage,
         maxResults,
+        setMaxResultsProgrammatically,
         overriddenProvidedFilterTypes,
 
         // Lists

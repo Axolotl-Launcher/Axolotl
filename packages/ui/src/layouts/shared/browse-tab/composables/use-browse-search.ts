@@ -109,6 +109,7 @@ export function useBrowseSearch(options: UseBrowseSearchOptions): BrowseSearchSt
         currentFilters,
         toggledGroups,
         maxResults,
+        setMaxResultsProgrammatically,
         currentPage,
         overriddenProvidedFilterTypes,
         filters,
@@ -164,13 +165,17 @@ export function useBrowseSearch(options: UseBrowseSearchOptions): BrowseSearchSt
     watch(
         effectiveMaxResultsOptions,
         (opts) => {
-            if (!opts.includes(maxResults.value)) {
-                maxResults.value = opts.reduce((prev, curr) =>
-                    Math.abs(curr - maxResults.value) <= Math.abs(prev - maxResults.value)
-                        ? curr
-                        : prev,
-                )
-            }
+            // An empty list means the caller has not populated options yet.
+            // Reducing over it would throw and take the whole page down.
+            if (opts.length === 0) return
+            if (opts.includes(maxResults.value)) return
+
+            const nearest = opts.reduce((prev, curr) =>
+                Math.abs(curr - maxResults.value) <= Math.abs(prev - maxResults.value) ? curr : prev,
+            )
+            // Mark the write as automatic so it does not overwrite the user's
+            // saved preference with this tab's smaller maximum.
+            setMaxResultsProgrammatically(nearest)
         },
         // `immediate` matters for the persisted value: a page size stored while
         // a tab offered 100 must still snap to a valid option on a tab whose

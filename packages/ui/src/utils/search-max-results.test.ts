@@ -99,3 +99,36 @@ test('works without any storage at all', () => {
     assert.equal(readPersistedMaxResults(), MAX_RESULTS_DEFAULT)
     assert.doesNotThrow(() => persistMaxResults(50))
 })
+
+test('ignores non-positive values instead of storing them', () => {
+    const store = new Map<string, string>()
+    installStorage(store)
+    try {
+        persistMaxResults(100)
+        for (const value of [0, -1, Number.NaN, Number.POSITIVE_INFINITY]) {
+            persistMaxResults(value)
+            assert.equal(
+                store.get(MAX_RESULTS_STORAGE_KEY),
+                '100',
+                `persisting ${value} must leave the stored value untouched`,
+            )
+        }
+    } finally {
+        restoreStorage()
+    }
+})
+
+test('survives a global that throws on property access', () => {
+    Object.defineProperty(globalThis, 'localStorage', {
+        configurable: true,
+        get() {
+            throw new Error('SecurityError: storage is disabled')
+        },
+    })
+    try {
+        assert.equal(readPersistedMaxResults(), MAX_RESULTS_DEFAULT)
+        assert.doesNotThrow(() => persistMaxResults(50))
+    } finally {
+        restoreStorage()
+    }
+})

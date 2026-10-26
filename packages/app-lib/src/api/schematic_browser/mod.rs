@@ -199,13 +199,13 @@ mod tests {
             ListResult {
                 items: vec![
                     make("reden:1", SourceId::Reden),
-                    make("shimu:2", SourceId::Shimu),
+                    make("mc:2", SourceId::McSchematics),
                 ],
                 page: 1,
                 has_more: false,
                 total: types::ResourceTotal::unknown(),
                 source_status: SourceStatus {
-                    source_id: SourceId::Shimu,
+                    source_id: SourceId::McSchematics,
                     state: types::SourceState::Ok,
                     message: None,
                     cached: false,

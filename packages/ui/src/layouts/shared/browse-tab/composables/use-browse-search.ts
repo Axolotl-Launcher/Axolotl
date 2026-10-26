@@ -162,6 +162,7 @@ export function useBrowseSearch(options: UseBrowseSearchOptions): BrowseSearchSt
         () => options.maxResultsOptions?.value ?? [5, 10, 15, 20, 50, 100],
     )
 
+<<<<<<< Updated upstream
     watch(
         effectiveMaxResultsOptions,
         (opts) => {
@@ -172,6 +173,15 @@ export function useBrowseSearch(options: UseBrowseSearchOptions): BrowseSearchSt
 
             const nearest = opts.reduce((prev, curr) =>
                 Math.abs(curr - maxResults.value) <= Math.abs(prev - maxResults.value) ? curr : prev,
+=======
+    watch(effectiveMaxResultsOptions, (opts) => {
+        if (opts.length === 0) return
+        if (!opts.includes(maxResults.value)) {
+            maxResults.value = opts.reduce((prev, curr) =>
+                Math.abs(curr - maxResults.value) <= Math.abs(prev - maxResults.value)
+                    ? curr
+                    : prev,
+>>>>>>> Stashed changes
             )
             // Mark the write as automatic so it does not overwrite the user's
             // saved preference with this tab's smaller maximum.

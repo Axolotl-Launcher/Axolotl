@@ -64,6 +64,7 @@ import {
     MapIcon,
     PackageOpenIcon,
     PaletteIcon,
+    ServerIcon,
     SparklesIcon,
 } from '@modrinth/assets'
 import type { Component } from 'vue'
@@ -80,6 +81,11 @@ const { formatMessage } = useVIntl()
 const debug = useDebugLogger('ConfirmDropTypeModal')
 
 const messages = defineMessages({
+    serverTitle: { id: 'drop.confirm.as-server', defaultMessage: 'Server' },
+    serverDesc: {
+        id: 'drop.confirm.as-server-desc',
+        defaultMessage: 'Import an external Minecraft server',
+    },
     title: {
         id: 'drop.confirm.title',
         defaultMessage: 'What would you like to import this as?',
@@ -187,6 +193,12 @@ interface DropOption {
 }
 
 const optionByType: Record<string, DropOption> = {
+    server: {
+        type: 'server',
+        icon: ServerIcon,
+        titleMsg: messages.serverTitle,
+        descMsg: messages.serverDesc,
+    },
     mod: {
         type: 'mod',
         icon: PackageOpenIcon,
@@ -267,6 +279,7 @@ function handleCancel() {
 
 /** Groups of option types shown per classification. Keys are DroppedItemType variant names. */
 const OPTION_GROUPS: Record<string, string[]> = {
+    server: ['server'],
     mod: ['mod'],
     instance: ['instance'],
     modpack: ['modpack'],

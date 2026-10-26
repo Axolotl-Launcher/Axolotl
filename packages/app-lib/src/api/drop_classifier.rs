@@ -18,8 +18,8 @@ use tokio_util::sync::CancellationToken;
 /// Maximum number of items allowed in a ZIP before we classify it as "ZIP
 /// with many items" rather than "single file/folder wrapped in ZIP".
 const ZIP_TOP_LEVEL_LIMIT: usize = 200;
-const MAX_ZIP_EXTRACTION_ENTRIES: usize = 100_000;
-const MAX_ZIP_EXTRACTION_BYTES: u64 = 32 * 1024 * 1024 * 1024;
+pub(crate) const MAX_ZIP_EXTRACTION_ENTRIES: usize = 100_000;
+pub(crate) const MAX_ZIP_EXTRACTION_BYTES: u64 = 32 * 1024 * 1024 * 1024;
 
 fn is_cancelled(cancellation: Option<&CancellationToken>) -> bool {
     cancellation.is_some_and(CancellationToken::is_cancelled)
@@ -39,6 +39,10 @@ const NOISE_ENTRY_NAMES: [&str; 4] =
 /// Result of classifying a file path dropped / imported by the user.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum DroppedItemType {
+    Server {
+        file_path: PathBuf,
+        preview: crate::api::servers::ServerImportPreview,
+    },
     /// A recognised third-party launcher root folder.
     Launcher {
         launcher_type: ImportLauncherType,
@@ -169,6 +173,13 @@ fn classify_dropped_item_inner(
         };
     }
 
+    if let Some(server) = crate::api::servers::external_import::classify_drop(
+        path,
+        allow_nested_unpack,
+    ) {
+        return server;
+    }
+
     if is_zip_path(path) {
         return classify_zip_path(path, allow_nested_unpack, cancellation);
     }
@@ -266,12 +277,12 @@ const MAX_ZIP_NESTING_DEPTH: u32 = 5;
 /// Folder nesting is handled virtually: each recursion level reuses this set
 /// and only narrows the path prefix, so no directory tree is written to disk
 /// just to classify it.
-struct ZipEntrySet {
+pub(crate) struct ZipEntrySet {
     /// Decoded entry names exactly as stored (directories keep the trailing
     /// `/`), used for pack-manifest detection.
     names: Vec<String>,
     /// File paths without a trailing slash.
-    files: std::collections::HashSet<String>,
+    pub(crate) files: std::collections::HashSet<String>,
     /// Directory paths without a trailing slash.
     dirs: std::collections::HashSet<String>,
     /// Whether any entry is encrypted (password-protected) and therefore
@@ -280,7 +291,9 @@ struct ZipEntrySet {
 }
 
 impl ZipEntrySet {
-    fn from_archive_with_cancellation<R: std::io::Read + std::io::Seek>(
+    pub(crate) fn from_archive_with_cancellation<
+        R: std::io::Read + std::io::Seek,
+    >(
         archive: &mut zip::ZipArchive<R>,
         cancellation: Option<&CancellationToken>,
     ) -> Result<ZipEntrySet, String> {
@@ -476,7 +489,7 @@ impl ZipEntrySet {
     }
 
     /// Direct child directories under `base`, without the trailing slash.
-    fn child_folders(&self, base: &str) -> Vec<String> {
+    pub(crate) fn child_folders(&self, base: &str) -> Vec<String> {
         let mut children: Vec<String> = Vec::new();
         let mut seen: std::collections::HashSet<&str> =
             std::collections::HashSet::new();
@@ -537,7 +550,7 @@ impl ZipEntrySet {
 
 /// Whether an entry-name segment is operating-system noise that must not be
 /// recursed into (macOS resource forks, VCS metadata, thumbnails).
-fn is_noise_entry(name: &str) -> bool {
+pub(crate) fn is_noise_entry(name: &str) -> bool {
     NOISE_ENTRY_NAMES
         .iter()
         .any(|noise| name.eq_ignore_ascii_case(noise))
@@ -583,7 +596,7 @@ fn resource_pack_candidates(entries: &ZipEntrySet, base: &str) -> Vec<String> {
 /// Whether the filesystem holding `dir` has at least `required` bytes free.
 /// Returns `true` when the free space cannot be determined so the hard size
 /// cap still applies as a fallback.
-fn temp_dir_has_space(dir: &Path, required: u64) -> bool {
+pub(crate) fn temp_dir_has_space(dir: &Path, required: u64) -> bool {
     let disks = sysinfo::Disks::new_with_refreshed_list();
     let mut best: Option<(usize, u64)> = None;
     for disk in disks.list() {
@@ -1331,7 +1344,15 @@ fn extract_zip_to_dir_with_cancellation(
     let mut archive = zip::ZipArchive::new(file).map_err(|e| {
         format!("Invalid ZIP archive '{}': {e}", zip_path.display())
     })?;
-    let total_bytes = validate_zip_extraction_budget(&mut archive)?;
+    extract_archive_to_dir(&mut archive, dest_dir, cancellation)
+}
+
+pub(crate) fn extract_archive_to_dir(
+    archive: &mut zip::ZipArchive<std::fs::File>,
+    dest_dir: &Path,
+    cancellation: Option<&CancellationToken>,
+) -> Result<(), String> {
+    let total_bytes = validate_zip_extraction_budget(archive)?;
     if !temp_dir_has_space(dest_dir, total_bytes) {
         return Err(format!(
             "Not enough free disk space to extract ZIP (requires {total_bytes} bytes)"
@@ -1357,6 +1378,7 @@ fn extract_zip_to_dir_with_cancellation(
         .flatten()
         .collect();
 
+    let mut actual_bytes = 0u64;
     let mut skipped = 0usize;
     let mut extracted_entries = 0usize;
     let mut failed_entries = Vec::new();
@@ -1408,6 +1430,18 @@ fn extract_zip_to_dir_with_cancellation(
                     let read = reader.read(&mut buffer)?;
                     if read == 0 {
                         break;
+                    }
+                    actual_bytes = actual_bytes
+                        .checked_add(read as u64)
+                        .ok_or_else(|| {
+                            std::io::Error::other("ZIP output size overflow")
+                        })?;
+                    if actual_bytes > MAX_ZIP_EXTRACTION_BYTES
+                        || actual_bytes > total_bytes
+                    {
+                        return Err(std::io::Error::other(
+                            "ZIP output exceeds its extraction budget",
+                        ));
                     }
                     writer.write_all(&buffer[..read])?;
                 }
@@ -1866,7 +1900,9 @@ fn classify_dropped_item_with_candidates_inner(
         classify_dropped_item_inner(path, 0, allow_nested_unpack, cancellation);
     if matches!(
         primary,
-        DroppedItemType::Launcher { .. } | DroppedItemType::HmclLauncher { .. }
+        DroppedItemType::Server { .. }
+            | DroppedItemType::Launcher { .. }
+            | DroppedItemType::HmclLauncher { .. }
     ) {
         return primary;
     }
@@ -1923,6 +1959,7 @@ fn primary_path_of(item: &DroppedItemType) -> PathBuf {
         DroppedItemType::HmclLauncher { launcher_dir, .. } => {
             launcher_dir.clone()
         }
+        DroppedItemType::Server { file_path, .. } => file_path.clone(),
         DroppedItemType::Mod { file_path } => file_path.clone(),
         DroppedItemType::Litematic { file_path } => file_path.clone(),
         DroppedItemType::ResourcePack { file_path, .. } => file_path.clone(),
@@ -2133,6 +2170,12 @@ fn candidate_from_result(
     outer_inner_base: Option<String>,
 ) -> Option<DroppedCandidate> {
     let (item_type, file_path, candidates, inner_base) = match result {
+        DroppedItemType::Server { file_path, preview } => (
+            "server".into(),
+            file_path.clone(),
+            Vec::new(),
+            Some(preview.inner_base.clone()),
+        ),
         DroppedItemType::Launcher {
             base_path,
             inner_base,

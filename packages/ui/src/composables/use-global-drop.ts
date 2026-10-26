@@ -10,6 +10,7 @@ import { injectLoadingState } from '#ui/providers/loading-state'
  */
 export interface ClassificationResult {
     item_type:
+        | 'server'
         | 'launcher'
         | 'hmcl_launcher'
         | 'mod'

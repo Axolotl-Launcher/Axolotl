@@ -4828,5 +4828,11 @@
   },
   "version.uploaded-by": {
     "defaultMessage": "Uploaded by"
+  },
+  "drop.confirm.as-server": {
+    "defaultMessage": "Server"
+  },
+  "drop.confirm.as-server-desc": {
+    "defaultMessage": "Import an external Minecraft server"
   }
 }

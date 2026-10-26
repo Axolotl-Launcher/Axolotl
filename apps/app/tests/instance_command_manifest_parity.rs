@@ -26,6 +26,7 @@ fn runtime_commands(source: &str) -> BTreeSet<&str> {
         .split(',')
         .map(str::trim)
         .filter(|command| !command.is_empty())
+        .map(|command| command.rsplit("::").next().unwrap())
         .collect()
 }
 
@@ -194,5 +195,36 @@ fn curseforge_runtime_handlers_match_the_build_manifest() {
         runtime, manifest,
         "curseforge commands must be identical in the runtime handler and the \
          build-time manifest"
+    );
+}
+
+#[test]
+fn external_server_import_commands_are_registered_for_main() {
+    let runtime = runtime_commands(include_str!("../src/api/servers.rs"));
+    let manifest = manifest_commands(include_str!("../build.rs"), "servers");
+    for command in [
+        "servers_inspect_import",
+        "servers_import_external",
+        "servers_retry_external",
+    ] {
+        assert!(runtime.contains(command));
+        assert!(manifest.contains(command));
+    }
+    let capabilities: serde_json::Value =
+        serde_json::from_str(include_str!("../capabilities/plugins.json"))
+            .unwrap();
+    assert!(
+        capabilities["windows"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|w| w == "main")
+    );
+    assert!(
+        capabilities["permissions"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|p| p == "servers:default")
     );
 }

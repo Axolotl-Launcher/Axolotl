@@ -175,6 +175,18 @@ export default defineConfig(({ command }) => ({
                 if (warning.code === 'INEFFECTIVE_DYNAMIC_IMPORT') return
                 defaultHandler(warning)
             },
+            treeshake: {
+                // The workspace packages declare no `sideEffects`, so importing one name
+                // from a barrel kept every module behind it (all of @modrinth/ui, and
+                // markdown-it, xss and highlight.js through @modrinth/utils). Their
+                // modules only export; styles and the directives' style imports are the
+                // side effects to keep.
+                moduleSideEffects: (id) =>
+                    /\/packages\/(ui|utils|assets)\//.test(id.replace(/\\/g, '/')) &&
+                    !/\.(css|scss)$|[?&]type=style|\/directives\//.test(id)
+                        ? false
+                        : undefined,
+            },
             output: {
                 manualChunks(id) {
                     if (id.includes('node_modules/three')) return 'vendor-three'

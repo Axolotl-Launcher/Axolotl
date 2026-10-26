@@ -18,6 +18,7 @@ vi.mock('@/helpers/utils.js', () => ({
         source: 'unknown',
         selfUpdate: true,
         command: null,
+        owners: [],
     }),
 }))
 vi.mock('@/providers/download-progress', async () => {

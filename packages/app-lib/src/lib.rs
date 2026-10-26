@@ -48,9 +48,10 @@ pub use util::network_diagnostics::{
     test_network_connection,
 };
 pub use util::platform::{
-    DistroFamily, InstallSource, LinuxDistro, PackageManager,
-    detect_install_source, detect_linux_distro, has_pkexec, is_debian_family,
-    is_process_elevated, is_wsl, kernel_release, pacman_package_name,
+    DistroFamily, InstallSource, LinuxDistro, OwnedPackage, PackageDatabase,
+    PackageFrontend, PackageManager, detect_install_source,
+    detect_linux_distro, has_pkexec, is_process_elevated, is_wsl,
+    kernel_release,
 };
 pub use util::proxy::{
     ProxyConfig, ProxyMode, ProxyTestResult, test_proxy_connection,

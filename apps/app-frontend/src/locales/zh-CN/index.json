@@ -11483,17 +11483,41 @@
   "app.settings.updates.managed": {
     "message": "Axolotl Launcher 由{source}安装，此安装已禁用检查更新，请使用系统包管理器更新。"
   },
+  "app.settings.updates.managed-conflict": {
+    "message": "有多个包数据库同时声明拥有此安装（{owners}）。已禁用检查更新，请先确认实际是哪一个安装的，再用对应的包管理器更新。"
+  },
   "app.settings.updates.managed-command": {
     "message": "Axolotl Launcher 由{source}安装，此安装已禁用检查更新，请使用以下命令更新：{command}"
   },
+  "app.settings.updates.managed-query-failed": {
+    "message": "无法查询本地包数据库，安装来源未知。已禁用检查更新，请重启启动器重试，或使用系统包管理器更新。"
+  },
+  "app.settings.updates.managed-source.apt": {
+    "message": "apt 包管理器"
+  },
   "app.settings.updates.managed-source.aur": {
     "message": "AUR（Arch 用户仓库）"
+  },
+  "app.settings.updates.managed-source.dnf": {
+    "message": "dnf 包管理器"
   },
   "app.settings.updates.managed-source.flatpak": {
     "message": "Flatpak 应用"
   },
   "app.settings.updates.managed-source.nix": {
     "message": "Nix 包管理器"
+  },
+  "app.settings.updates.managed-source.pacman": {
+    "message": "pacman 包管理器"
+  },
+  "app.settings.updates.managed-source.system": {
+    "message": "系统包管理器"
+  },
+  "app.settings.updates.managed-source.zypper": {
+    "message": "zypper 包管理器"
+  },
+  "app.settings.updates.managed-unconfirmed": {
+    "message": "Axolotl Launcher 运行在系统目录中，但没有任何包数据库声明拥有它。已禁用检查更新，请通过包管理器重新安装，或将程序放到可写的目录中运行。"
   },
   "app.settings.updates.current-version": {
     "message": "当前版本 {version}"

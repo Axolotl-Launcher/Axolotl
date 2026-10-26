@@ -121,9 +121,14 @@ fn write_environment_details(details: &mut String) {
     if crate::util::platform::is_wsl() {
         let _ = writeln!(details, "WSL: yes");
     }
-    if let Some(kernel_version) = sysinfo::System::kernel_version() {
+    if let Some(kernel_version) = crate::util::platform::kernel_release() {
         let _ = writeln!(details, "Kernel: {kernel_version}");
     }
+    let _ = writeln!(
+        details,
+        "Install source: {:?}",
+        crate::util::platform::detect_install_source()
+    );
 }
 
 fn latest_interruption(

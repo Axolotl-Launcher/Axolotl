@@ -169,7 +169,6 @@ import {
     enqueueUpdateForInstallation,
     exportErrorLogs,
     getOS,
-    getUpdateCapability,
     getUpdateSize,
     isDev,
     isElevated,
@@ -187,9 +186,11 @@ import {
     downloadAvailableAppUpdate,
     getNextAppUpdatePopupTime,
     installAvailableAppUpdate,
+    isPackageManagedInstall,
     markAppUpdateActionable,
     markAppUpdatePopupShown,
     openAppUpdateChangelog,
+    resolveUpdateCapability,
     setAppUpdateActions,
 } from '@/providers/app-update.ts'
 import { createContentInstall, provideContentInstall } from '@/providers/content-install'
@@ -541,13 +542,6 @@ const {
     updatesEnabled,
     updatesPaused,
 } = appUpdateState
-// How this installation may be updated: the built-in updater or the system
-// package manager that installed the launcher.
-const updateCapability = ref<{
-    source: string
-    selfUpdate: boolean
-    command: string | null
-} | null>(null)
 let delayedUpdatePopupTimeout = null
 
 async function checkUpdates() {
@@ -2600,18 +2594,6 @@ function scheduleDelayedUpdatePopup() {
     delayedUpdatePopupTimeout = setTimeout(showDelayedUpdatePopup, Math.min(delay, 2_147_483_647))
 }
 
-function isPackageManaged() {
-    return updateCapability.value !== null && !updateCapability.value.selfUpdate
-}
-
-async function resolveUpdateCapability() {
-    updateCapability.value = await getUpdateCapability().catch((error) => {
-        console.warn('Failed to read the update capability', error)
-        return null
-    })
-    return updateCapability.value
-}
-
 function showDelayedUpdatePopup() {
     const update = availableUpdate.value
     if (!update) {
@@ -2682,7 +2664,7 @@ function showDelayedUpdatePopup() {
 let lastUpdateChannel = 'release'
 
 async function performUpdateCheck() {
-    if (isPackageManaged()) {
+    if (isPackageManagedInstall()) {
         console.log('Skipping update check: this installation is managed by its package manager')
         return 'disabled'
     }
@@ -2788,7 +2770,7 @@ async function downloadUpdate(versionToDownload) {
         return
     }
 
-    if (isPackageManaged()) {
+    if (isPackageManagedInstall()) {
         console.warn('Skipping download: this installation is updated by its package manager')
         return
     }

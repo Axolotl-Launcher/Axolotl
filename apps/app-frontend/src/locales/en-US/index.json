@@ -13319,17 +13319,41 @@
   "app.settings.updates.managed": {
     "message": "Axolotl Launcher is installed through {source}. Update checks are disabled for this installation; update it with your system package manager."
   },
+  "app.settings.updates.managed-conflict": {
+    "message": "Several package databases claim this installation ({owners}). Update checks are disabled; confirm which one installed it, then update with that package manager."
+  },
   "app.settings.updates.managed-command": {
     "message": "Axolotl Launcher is installed through {source}. Update checks are disabled for this installation; update it with: {command}"
   },
+  "app.settings.updates.managed-query-failed": {
+    "message": "The local package database could not be queried, so the installation source is unknown. Update checks are disabled; restart the launcher to retry, or update it with your package manager."
+  },
+  "app.settings.updates.managed-source.apt": {
+    "message": "apt"
+  },
   "app.settings.updates.managed-source.aur": {
     "message": "the AUR"
+  },
+  "app.settings.updates.managed-source.dnf": {
+    "message": "dnf"
   },
   "app.settings.updates.managed-source.flatpak": {
     "message": "Flatpak"
   },
   "app.settings.updates.managed-source.nix": {
     "message": "Nix"
+  },
+  "app.settings.updates.managed-source.pacman": {
+    "message": "pacman"
+  },
+  "app.settings.updates.managed-source.system": {
+    "message": "your system package manager"
+  },
+  "app.settings.updates.managed-source.zypper": {
+    "message": "zypper"
+  },
+  "app.settings.updates.managed-unconfirmed": {
+    "message": "Axolotl Launcher runs from a system location that no package database claims. Update checks are disabled; reinstall it through your package manager or run it from a writable folder."
   },
   "app.settings.updates.current-version": {
     "message": "Current version {version}"

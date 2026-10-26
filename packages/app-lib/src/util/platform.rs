@@ -430,22 +430,15 @@ pub fn detect_linux_distro() -> Option<&'static LinuxDistro> {
 static KERNEL_RELEASE: std::sync::OnceLock<Option<String>> =
     std::sync::OnceLock::new();
 
-/// The running kernel release, e.g. `7.2.11-zen1-1-zen`. Always `None` on
-/// non-Linux platforms.
+/// The running kernel release, e.g. `7.2.11-zen1-1-zen`. This is the single
+/// entry point for kernel information; on Windows and macOS `sysinfo` reports
+/// `None`. Always `None` on platforms without kernel information.
 pub fn kernel_release() -> Option<&'static str> {
     KERNEL_RELEASE
         .get_or_init(|| {
-            #[cfg(target_os = "linux")]
-            {
-                std::fs::read_to_string("/proc/sys/kernel/osrelease")
-                    .ok()
-                    .map(|value| value.trim().to_string())
-                    .filter(|value| !value.is_empty())
-            }
-            #[cfg(not(target_os = "linux"))]
-            {
-                None
-            }
+            sysinfo::System::kernel_version()
+                .map(|version| version.trim().to_string())
+                .filter(|version| !version.is_empty())
         })
         .as_deref()
 }
@@ -475,27 +468,6 @@ pub fn is_wsl() -> bool {
     })
 }
 
-/// Whether this Linux system is Debian-based. Unknown distributions fall back
-/// to the conventional Debian markers so derivatives without a recognized
-/// `ID`/`ID_LIKE` keep the previous behavior.
-pub fn is_debian_family() -> bool {
-    #[cfg(target_os = "linux")]
-    {
-        if let Some(distro) = detect_linux_distro()
-            && distro.family != DistroFamily::Unknown
-        {
-            return distro.family == DistroFamily::Debian;
-        }
-        ["/etc/debian_version", "/usr/bin/apt-get"]
-            .iter()
-            .any(|path| std::path::Path::new(path).exists())
-    }
-    #[cfg(not(target_os = "linux"))]
-    {
-        false
-    }
-}
-
 /// Whether `pkexec` is available for a single privileged prompt.
 pub fn has_pkexec() -> bool {
     ["/usr/bin/pkexec", "/bin/pkexec"]
@@ -503,85 +475,514 @@ pub fn has_pkexec() -> bool {
         .any(|path| std::path::Path::new(path).exists())
 }
 
-/// How this copy of the launcher was installed, which decides how it should
-/// be updated.
+/// Local package database that can claim ownership of a file. There are far
+/// fewer databases than package-manager frontends, which makes ownership
+/// queries much more stable than inferring from the distribution.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum InstallSource {
-    AppImage,
+pub enum PackageDatabase {
+    Dpkg,
+    Pacman,
+    Rpm,
+}
+
+impl PackageDatabase {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Dpkg => "dpkg",
+            Self::Pacman => "pacman",
+            Self::Rpm => "rpm",
+        }
+    }
+
+    /// Installer artifact variant built for this database. AUR packages are
+    /// built locally, so no catalog artifact applies to pacman.
+    pub fn package_variant(self) -> Option<&'static str> {
+        match self {
+            Self::Dpkg => Some("deb"),
+            Self::Rpm => Some("rpm"),
+            Self::Pacman => None,
+        }
+    }
+}
+
+/// Frontend command used to apply an update for a package database.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PackageFrontend {
     Apt,
     Dnf,
     Zypper,
     Pacman,
-    Flatpak,
-    Nix,
-    Unknown,
+    Yay,
+    Paru,
 }
 
-impl InstallSource {
+impl PackageFrontend {
     pub fn as_str(self) -> &'static str {
         match self {
-            Self::AppImage => "appimage",
             Self::Apt => "apt",
             Self::Dnf => "dnf",
             Self::Zypper => "zypper",
             Self::Pacman => "pacman",
+            Self::Yay => "yay",
+            Self::Paru => "paru",
+        }
+    }
+}
+
+/// A package that owns the running executable, as reported by a local package
+/// database. Ownership is not install history and does not prove that the
+/// recorded version is the one running, nor that a catalog artifact is
+/// compatible with this system.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct OwnedPackage {
+    pub database: PackageDatabase,
+    /// Frontend that can apply an update, when one is installed.
+    pub frontend: Option<PackageFrontend>,
+    pub name: String,
+    pub version: Option<String>,
+    /// Architecture recorded by the package database, when it reports one.
+    pub architecture: Option<String>,
+}
+
+/// How this copy of the launcher was installed, which decides how it should
+/// be updated.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum InstallSource {
+    /// Running from an AppImage mount.
+    AppImage,
+    Flatpak,
+    Nix,
+    /// Not owned by any package database and running from a writable path, so
+    /// the built-in updater can replace it.
+    Portable,
+    /// Owned by exactly one local package database.
+    Managed(OwnedPackage),
+    /// More than one package database claims the executable, so the update
+    /// path cannot be chosen automatically.
+    Conflict(Vec<OwnedPackage>),
+    /// Installed in a system location that no package database claims.
+    Unconfirmed,
+    /// An ownership query failed, so the install source is unknown. This is
+    /// kept separate from `Unconfirmed` because it is not evidence that no
+    /// package owns the executable.
+    QueryFailed,
+}
+
+impl InstallSource {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::AppImage => "appimage",
             Self::Flatpak => "flatpak",
             Self::Nix => "nix",
-            Self::Unknown => "unknown",
+            Self::Portable => "portable",
+            Self::Managed(package) => package
+                .frontend
+                .map(PackageFrontend::as_str)
+                .unwrap_or_else(|| package.database.as_str()),
+            Self::Conflict(_) => "conflict",
+            Self::Unconfirmed => "unconfirmed",
+            Self::QueryFailed => "query-failed",
         }
     }
 
-    /// Sources updated by the built-in updater or by a package manager we can
-    /// drive through `pkexec`. Pacman, Flatpak and Nix installations are owned
-    /// by the system, so the launcher must not replace their files.
-    pub fn self_update_supported(self) -> bool {
-        !matches!(self, Self::Pacman | Self::Flatpak | Self::Nix)
-    }
-
-    /// Installer artifact variant to fetch from the update catalog.
-    pub fn package_variant(self) -> Option<&'static str> {
+    /// The owning package, when exactly one database claims this executable.
+    pub fn package(&self) -> Option<&OwnedPackage> {
         match self {
-            Self::Apt => Some("deb"),
-            Self::Dnf | Self::Zypper => Some("rpm"),
+            Self::Managed(package) => Some(package),
             _ => None,
         }
     }
+
+    /// Installer artifact variant to fetch from the update catalog.
+    pub fn package_variant(&self) -> Option<&'static str> {
+        self.package()
+            .and_then(|package| package.database.package_variant())
+    }
+
+    /// Whether the launcher can apply the update with the owning package
+    /// manager, prompting once through `pkexec`.
+    pub fn install_supported(&self) -> bool {
+        self.install_supported_with(has_pkexec())
+    }
+
+    fn install_supported_with(&self, has_pkexec: bool) -> bool {
+        match self {
+            Self::Managed(package) => {
+                package.database != PackageDatabase::Pacman
+                    && package.frontend.is_some()
+                    && has_pkexec
+            }
+            _ => false,
+        }
+    }
+
+    /// Whether the built-in updater may replace the running executable.
+    pub fn can_replace_own_files(&self) -> bool {
+        matches!(self, Self::AppImage | Self::Portable)
+    }
+
+    /// Whether the launcher handles updates itself instead of leaving them to
+    /// the system package manager.
+    pub fn self_update_supported(&self) -> bool {
+        self.self_update_supported_with(has_pkexec())
+    }
+
+    fn self_update_supported_with(&self, has_pkexec: bool) -> bool {
+        self.install_supported_with(has_pkexec) || self.can_replace_own_files()
+    }
 }
 
-fn command_available(paths: &[&str]) -> bool {
-    paths.iter().any(|path| std::path::Path::new(path).exists())
+#[cfg(target_os = "linux")]
+fn command_available(name: &str) -> Option<String> {
+    ["/usr/bin", "/bin", "/usr/sbin", "/sbin"]
+        .iter()
+        .map(|directory| format!("{directory}/{name}"))
+        .find(|path| std::path::Path::new(path).exists())
 }
 
-static PACMAN_PACKAGE: std::sync::OnceLock<Option<String>> =
-    std::sync::OnceLock::new();
+#[cfg(target_os = "linux")]
+fn run_command(
+    program: &str,
+    arguments: &[&str],
+) -> Option<std::process::Output> {
+    // Package tools translate their messages, and the parsers below match the
+    // English wording, so pin the C locale instead of inheriting the user's.
+    std::process::Command::new(program)
+        .args(arguments)
+        .env("LC_ALL", "C")
+        .env("LANG", "C")
+        .output()
+        .ok()
+}
 
-/// Package name of the pacman-managed Axolotl installation, when present.
-/// AUR packages use names such as `axolotl-launcher` or
-/// `axolotl-launcher-bin`; pacman's local database names entries
-/// `<pkgname>-<pkgver>-<pkgrel>`, and `pkgver` cannot contain `-`.
-pub fn pacman_package_name() -> Option<&'static str> {
-    PACMAN_PACKAGE
-        .get_or_init(|| {
-            let mut names: Vec<String> =
-                std::fs::read_dir("/var/lib/pacman/local")
-                    .ok()?
-                    .flatten()
-                    .filter_map(|entry| {
-                        let entry =
-                            entry.file_name().to_string_lossy().to_string();
-                        let name = entry.rsplitn(3, '-').nth(2)?;
-                        if !name.starts_with("axolotl")
-                            || name.ends_with("-debug")
-                        {
-                            return None;
-                        }
-                        Some(name.to_string())
-                    })
-                    .collect();
-            names.sort();
-            names.into_iter().next()
+/// Parse `dpkg-query --search` output, which looks like
+/// `axolotl-launcher: /usr/bin/axolotl`, or
+/// `axolotl-launcher:amd64: /usr/bin/axolotl` for an architecture-qualified
+/// package. Returns the display name and the name `dpkg-query` accepts.
+#[cfg(target_os = "linux")]
+fn parse_dpkg_search(stdout: &str) -> Option<(String, String)> {
+    let first = stdout.lines().next()?.split(',').next()?.trim();
+    let (package, _path) = first.rsplit_once(": ")?;
+    let package = package.trim();
+    let name = package
+        .split_once(':')
+        .map_or(package, |(name, _architecture)| name);
+    if name.is_empty() {
+        return None;
+    }
+    Some((name.to_string(), package.to_string()))
+}
+
+/// Parse `dpkg-query --show --showformat='${Version} ${Architecture}'`, which
+/// prints the two fields separated by a space.
+#[cfg(target_os = "linux")]
+fn parse_dpkg_fields(stdout: &str) -> (Option<String>, Option<String>) {
+    let mut fields = stdout.trim().split(' ');
+    let version = fields.next().filter(|value| !value.is_empty());
+    let architecture = fields.next().filter(|value| !value.is_empty());
+    (
+        version.map(str::to_string),
+        architecture.map(str::to_string),
+    )
+}
+
+/// Parse `pacman --query --owns` output, which looks like
+/// `/usr/bin/axolotl is owned by axolotl-launcher-bin 1.10.1-1`.
+#[cfg(target_os = "linux")]
+fn parse_pacman_owner(stdout: &str) -> Option<(String, Option<String>)> {
+    let line = stdout.lines().next()?.trim();
+    let (_, owned) = line.rsplit_once(" is owned by ")?;
+    let (name, version) = match owned.rsplit_once(' ') {
+        Some((name, version)) => (name, Some(version.to_string())),
+        None => (owned, None),
+    };
+    let name = name.trim();
+    if name.is_empty() {
+        return None;
+    }
+    Some((name.to_string(), version))
+}
+
+/// Parse the `Architecture` field out of `pacman --query --info`.
+#[cfg(target_os = "linux")]
+fn parse_pacman_architecture(stdout: &str) -> Option<String> {
+    stdout.lines().find_map(|line| {
+        let (key, value) = line.split_once(':')?;
+        if key.trim() != "Architecture" {
+            return None;
+        }
+        let value = value.trim();
+        (!value.is_empty()).then(|| value.to_string())
+    })
+}
+
+/// Parse the `%{NAME} %{VERSION}-%{RELEASE} %{ARCH}` query format used for
+/// `rpm --query --file`.
+#[cfg(target_os = "linux")]
+fn parse_rpm_record(
+    stdout: &str,
+) -> Option<(String, Option<String>, Option<String>)> {
+    let line = stdout.lines().next()?.trim();
+    if line.is_empty() {
+        return None;
+    }
+    let mut fields = line.split(' ');
+    let name = fields.next()?.trim();
+    if name.is_empty() {
+        return None;
+    }
+    let version = fields.next().filter(|value| !value.is_empty());
+    let architecture = fields.next().filter(|value| !value.is_empty());
+    Some((
+        name.to_string(),
+        version.map(str::to_string),
+        architecture.map(str::to_string),
+    ))
+}
+
+/// Whether a path is a location only a system package or image places files
+/// in. A launcher running from somewhere else is a portable copy.
+#[cfg(target_os = "linux")]
+fn is_system_path(path: &std::path::Path) -> bool {
+    [
+        "/usr",
+        "/bin",
+        "/sbin",
+        "/lib",
+        "/lib32",
+        "/lib64",
+        "/opt",
+        "/app",
+        "/snap",
+        "/nix/store",
+        "/var/lib/flatpak",
+    ]
+    .iter()
+    .any(|prefix| path.starts_with(prefix))
+}
+
+#[cfg(target_os = "linux")]
+enum OwnerQuery {
+    Owned(OwnedPackage),
+    /// The database answered and owns no package for this path.
+    NotOwned,
+    /// The database tool is not installed, so it says nothing about this file.
+    Unavailable,
+    /// The tool exists but answered with an unexpected error.
+    Failed,
+}
+
+#[cfg(target_os = "linux")]
+fn query_owner(
+    database: PackageDatabase,
+    path: &std::path::Path,
+) -> OwnerQuery {
+    let path = path.to_string_lossy();
+    match database {
+        PackageDatabase::Dpkg => query_dpkg(&path),
+        PackageDatabase::Pacman => query_pacman(&path),
+        PackageDatabase::Rpm => query_rpm(&path),
+    }
+}
+
+#[cfg(target_os = "linux")]
+fn dpkg_frontend() -> Option<PackageFrontend> {
+    // apt is the only dpkg frontend with an unambiguous non-interactive
+    // command. Distributions that use another frontend (oma on AOSC, for
+    // example) keep the detected package but get no suggested command.
+    command_available("apt-get").map(|_| PackageFrontend::Apt)
+}
+
+#[cfg(target_os = "linux")]
+fn rpm_frontend() -> Option<PackageFrontend> {
+    command_available("dnf")
+        .map(|_| PackageFrontend::Dnf)
+        .or_else(|| {
+            command_available("zypper").map(|_| PackageFrontend::Zypper)
         })
-        .as_deref()
+}
+
+#[cfg(target_os = "linux")]
+fn pacman_frontend(pacman: &str, package: &str) -> Option<PackageFrontend> {
+    // A package missing from the sync databases is foreign, so it needs an AUR
+    // helper. Official packages upgrade with pacman itself.
+    let foreign = run_command(pacman, &["--query", "--foreign", package])
+        .is_some_and(|output| output.status.success());
+    if !foreign {
+        return Some(PackageFrontend::Pacman);
+    }
+    command_available("yay")
+        .map(|_| PackageFrontend::Yay)
+        .or_else(|| command_available("paru").map(|_| PackageFrontend::Paru))
+}
+
+#[cfg(target_os = "linux")]
+fn query_dpkg(path: &str) -> OwnerQuery {
+    let Some(tool) = command_available("dpkg-query") else {
+        return OwnerQuery::Unavailable;
+    };
+    let Some(output) = run_command(&tool, &["--search", path]) else {
+        return OwnerQuery::Failed;
+    };
+    match output.status.code() {
+        Some(0) => {}
+        Some(1) => return OwnerQuery::NotOwned,
+        _ => return OwnerQuery::Failed,
+    }
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let Some((name, query_name)) = parse_dpkg_search(&stdout) else {
+        return OwnerQuery::Failed;
+    };
+    let (version, architecture) = run_command(
+        &tool,
+        &[
+            "--show",
+            "--showformat=${Version} ${Architecture}",
+            &query_name,
+        ],
+    )
+    .filter(|output| output.status.success())
+    .map(|output| parse_dpkg_fields(&String::from_utf8_lossy(&output.stdout)))
+    .unwrap_or((None, None));
+    OwnerQuery::Owned(OwnedPackage {
+        database: PackageDatabase::Dpkg,
+        frontend: dpkg_frontend(),
+        name,
+        version,
+        architecture,
+    })
+}
+
+#[cfg(target_os = "linux")]
+fn query_pacman(path: &str) -> OwnerQuery {
+    let Some(tool) = command_available("pacman") else {
+        return OwnerQuery::Unavailable;
+    };
+    let Some(output) = run_command(&tool, &["--query", "--owns", path]) else {
+        return OwnerQuery::Failed;
+    };
+    match output.status.code() {
+        Some(0) => {}
+        Some(1) => return OwnerQuery::NotOwned,
+        _ => return OwnerQuery::Failed,
+    }
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let Some((name, version)) = parse_pacman_owner(&stdout) else {
+        return OwnerQuery::Failed;
+    };
+    let frontend = pacman_frontend(&tool, &name);
+    let architecture = run_command(&tool, &["--query", "--info", &name])
+        .filter(|output| output.status.success())
+        .and_then(|output| {
+            parse_pacman_architecture(&String::from_utf8_lossy(&output.stdout))
+        });
+    OwnerQuery::Owned(OwnedPackage {
+        database: PackageDatabase::Pacman,
+        frontend,
+        name,
+        version,
+        architecture,
+    })
+}
+
+#[cfg(target_os = "linux")]
+fn query_rpm(path: &str) -> OwnerQuery {
+    let Some(tool) = command_available("rpm") else {
+        return OwnerQuery::Unavailable;
+    };
+    let Some(output) = run_command(
+        &tool,
+        &[
+            "--query",
+            "--file",
+            "--queryformat",
+            "%{NAME} %{VERSION}-%{RELEASE} %{ARCH}\n",
+            path,
+        ],
+    ) else {
+        return OwnerQuery::Failed;
+    };
+    match output.status.code() {
+        Some(0) => {}
+        Some(1) => return OwnerQuery::NotOwned,
+        _ => return OwnerQuery::Failed,
+    }
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let Some((name, version, architecture)) = parse_rpm_record(&stdout) else {
+        return OwnerQuery::Failed;
+    };
+    OwnerQuery::Owned(OwnedPackage {
+        database: PackageDatabase::Rpm,
+        frontend: rpm_frontend(),
+        name,
+        version,
+        architecture,
+    })
+}
+
+/// Ask every installed local package database whether it owns the running
+/// executable. Both the executable path and its canonical target are probed,
+/// because a package may record either the symlink or the file it points at.
+#[cfg(target_os = "linux")]
+fn probe_package_ownership(
+    executable: &std::path::Path,
+) -> (Vec<OwnedPackage>, bool) {
+    let mut paths = vec![executable.to_path_buf()];
+    if let Ok(canonical) = executable.canonicalize()
+        && canonical != executable
+    {
+        paths.push(canonical);
+    }
+
+    let mut owners = Vec::new();
+    let mut failed = false;
+    for database in [
+        PackageDatabase::Dpkg,
+        PackageDatabase::Pacman,
+        PackageDatabase::Rpm,
+    ] {
+        let mut owner = None;
+        let mut database_failed = false;
+        for path in &paths {
+            match query_owner(database, path) {
+                OwnerQuery::Owned(package) => {
+                    owner = Some(package);
+                    break;
+                }
+                OwnerQuery::NotOwned | OwnerQuery::Unavailable => {}
+                OwnerQuery::Failed => database_failed = true,
+            }
+        }
+        match owner {
+            Some(package) => owners.push(package),
+            None => failed |= database_failed,
+        }
+    }
+    (owners, failed)
+}
+
+/// Decide the install source from the ownership results. A missing database
+/// tool means "this database does not apply", which must not be reported as a
+/// failed query, or every portable copy on Arch and Fedora would look broken.
+#[cfg(target_os = "linux")]
+fn classify_install_source(
+    owners: Vec<OwnedPackage>,
+    failed: bool,
+    system_path: bool,
+) -> InstallSource {
+    if owners.len() > 1 {
+        return InstallSource::Conflict(owners);
+    }
+    if let Some(package) = owners.into_iter().next() {
+        return InstallSource::Managed(package);
+    }
+    if failed {
+        return InstallSource::QueryFailed;
+    }
+    if system_path {
+        return InstallSource::Unconfirmed;
+    }
+    InstallSource::Portable
 }
 
 fn env_present(key: &str) -> bool {
@@ -593,64 +994,48 @@ static INSTALL_SOURCE: std::sync::OnceLock<InstallSource> =
 
 /// Detect how this copy of the launcher was installed. The result is cached
 /// for the lifetime of the process.
-pub fn detect_install_source() -> InstallSource {
-    *INSTALL_SOURCE.get_or_init(|| {
-        #[cfg(target_os = "linux")]
-        {
-            if env_present("APPIMAGE") {
-                return InstallSource::AppImage;
-            }
-            if std::env::current_exe()
-                .is_ok_and(|exe| exe.starts_with("/nix/store"))
-            {
-                return InstallSource::Nix;
-            }
-            if std::path::Path::new("/.flatpak-info").exists()
-                || env_present("FLATPAK_ID")
-            {
-                return InstallSource::Flatpak;
-            }
-            if let Some(distro) = detect_linux_distro() {
-                match distro.family {
-                    DistroFamily::Debian if has_pkexec() => {
-                        return InstallSource::Apt;
-                    }
-                    DistroFamily::Fedora
-                        if has_pkexec()
-                            && command_available(&[
-                                "/usr/bin/dnf",
-                                "/bin/dnf",
-                            ]) =>
-                    {
-                        return InstallSource::Dnf;
-                    }
-                    DistroFamily::Suse
-                        if has_pkexec()
-                            && command_available(&[
-                                "/usr/bin/zypper",
-                                "/usr/sbin/zypper",
-                                "/bin/zypper",
-                            ]) =>
-                    {
-                        return InstallSource::Zypper;
-                    }
-                    DistroFamily::Arch if pacman_package_name().is_some() => {
-                        return InstallSource::Pacman;
-                    }
-                    DistroFamily::NixOs => return InstallSource::Nix,
-                    _ => {}
-                }
-            }
-            if is_debian_family() && has_pkexec() {
-                return InstallSource::Apt;
-            }
-            InstallSource::Unknown
+pub fn detect_install_source() -> &'static InstallSource {
+    INSTALL_SOURCE.get_or_init(detect_install_source_uncached)
+}
+
+fn detect_install_source_uncached() -> InstallSource {
+    #[cfg(target_os = "linux")]
+    {
+        if env_present("APPIMAGE") {
+            return InstallSource::AppImage;
         }
-        #[cfg(not(target_os = "linux"))]
+        if std::path::Path::new("/.flatpak-info").exists()
+            || env_present("FLATPAK_ID")
         {
-            InstallSource::Unknown
+            return InstallSource::Flatpak;
         }
-    })
+
+        let Ok(executable) = std::env::current_exe() else {
+            return InstallSource::Unconfirmed;
+        };
+        let canonical = executable
+            .canonicalize()
+            .unwrap_or_else(|_| executable.clone());
+        if canonical.starts_with("/nix/store")
+            || executable.starts_with("/nix/store")
+        {
+            return InstallSource::Nix;
+        }
+
+        // Package databases answer for the file that was installed, so only an
+        // ownership hit proves this copy belongs to a package. The distribution
+        // and the available frontends say nothing about that.
+        let (owners, failed) = probe_package_ownership(&executable);
+        classify_install_source(
+            owners,
+            failed,
+            is_system_path(&canonical) || is_system_path(&executable),
+        )
+    }
+    #[cfg(not(target_os = "linux"))]
+    {
+        InstallSource::Portable
+    }
 }
 
 pub fn classpath_separator(java_arch: &str) -> &'static str {
@@ -780,5 +1165,247 @@ mod tests {
         assert_eq!(parse_linux_distro(""), None);
         assert_eq!(parse_linux_distro("# only a comment\n"), None);
         assert_eq!(parse_linux_distro("NO_EQUALS_SIGN\n"), None);
+    }
+}
+
+#[cfg(all(test, target_os = "linux"))]
+mod install_source_tests {
+    use super::{
+        InstallSource, OwnedPackage, PackageDatabase, PackageFrontend,
+        classify_install_source, is_system_path, parse_dpkg_fields,
+        parse_dpkg_search, parse_pacman_architecture, parse_pacman_owner,
+        parse_rpm_record,
+    };
+
+    fn owned(
+        database: PackageDatabase,
+        frontend: Option<PackageFrontend>,
+        name: &str,
+    ) -> OwnedPackage {
+        OwnedPackage {
+            database,
+            frontend,
+            name: name.to_string(),
+            version: Some("1.0.0".to_string()),
+            architecture: Some("x86_64".to_string()),
+        }
+    }
+
+    #[test]
+    fn dpkg_search_output_is_parsed() {
+        let owner = parse_dpkg_search("axolotl-launcher: /usr/bin/axolotl\n")
+            .expect("plain dpkg line should parse");
+        assert_eq!(owner.0, "axolotl-launcher");
+        assert_eq!(owner.1, "axolotl-launcher");
+
+        let qualified =
+            parse_dpkg_search("axolotl-launcher:amd64: /usr/bin/axolotl\n")
+                .expect("qualified dpkg line should parse");
+        assert_eq!(qualified.0, "axolotl-launcher");
+        assert_eq!(qualified.1, "axolotl-launcher:amd64");
+
+        let multi = parse_dpkg_search("pkg-one: /a, pkg-two: /b\n")
+            .expect("multi-owner line should parse");
+        assert_eq!(multi.0, "pkg-one");
+
+        assert_eq!(parse_dpkg_search("garbage without a colon-space\n"), None);
+        assert_eq!(parse_dpkg_search(""), None);
+    }
+
+    #[test]
+    fn dpkg_fields_output_is_parsed() {
+        assert_eq!(
+            parse_dpkg_fields("1.10.1 amd64\n"),
+            (Some("1.10.1".to_string()), Some("amd64".to_string()))
+        );
+        assert_eq!(
+            parse_dpkg_fields("1.10.1\n"),
+            (Some("1.10.1".to_string()), None)
+        );
+        assert_eq!(parse_dpkg_fields("\n"), (None, None));
+    }
+
+    #[test]
+    fn pacman_owns_output_is_parsed() {
+        let owner = parse_pacman_owner(
+            "/usr/bin/axolotl is owned by axolotl-launcher-bin 1.10.1-1\n",
+        )
+        .expect("pacman line should parse");
+        assert_eq!(owner.0, "axolotl-launcher-bin");
+        assert_eq!(owner.1.as_deref(), Some("1.10.1-1"));
+
+        let bare = parse_pacman_owner("/usr/bin/x is owned by somepackage\n")
+            .expect("pacman line without a version should parse");
+        assert_eq!(bare.0, "somepackage");
+        assert_eq!(bare.1, None);
+
+        assert_eq!(
+            parse_pacman_owner("error: No package owns /usr/bin/x\n"),
+            None
+        );
+    }
+
+    #[test]
+    fn pacman_info_output_reports_the_architecture() {
+        let info = "Name            : bash\n\
+                    Version         : 5.3.20-1\n\
+                    Architecture    : x86_64\n";
+        assert_eq!(parse_pacman_architecture(info), Some("x86_64".to_string()));
+        assert_eq!(
+            parse_pacman_architecture("Architecture    : aarch64\n"),
+            Some("aarch64".to_string())
+        );
+        assert_eq!(parse_pacman_architecture("Name : bash\n"), None);
+        // The query runs with LC_ALL=C, so localized keys never appear.
+        assert_eq!(
+            parse_pacman_architecture("架构            : x86_64\n"),
+            None
+        );
+    }
+
+    #[test]
+    fn rpm_queryformat_output_is_parsed() {
+        let record =
+            parse_rpm_record("axolotl-launcher 1.10.1-1.fc43 x86_64\n")
+                .expect("rpm line should parse");
+        assert_eq!(record.0, "axolotl-launcher");
+        assert_eq!(record.1.as_deref(), Some("1.10.1-1.fc43"));
+        assert_eq!(record.2.as_deref(), Some("x86_64"));
+
+        let name_only = parse_rpm_record("somepackage\n")
+            .expect("rpm line without fields should parse");
+        assert_eq!(name_only.0, "somepackage");
+        assert_eq!(name_only.1, None);
+        assert_eq!(name_only.2, None);
+
+        assert_eq!(parse_rpm_record("\n"), None);
+    }
+
+    #[test]
+    fn ownership_results_map_to_an_install_source() {
+        let package = owned(
+            PackageDatabase::Pacman,
+            Some(PackageFrontend::Yay),
+            "axolotl-launcher-bin",
+        );
+        assert!(matches!(
+            classify_install_source(vec![package.clone()], true, true),
+            InstallSource::Managed(_)
+        ));
+
+        assert!(matches!(
+            classify_install_source(
+                vec![package.clone(), package],
+                false,
+                true
+            ),
+            InstallSource::Conflict(_)
+        ));
+
+        // A failed query is reported as such, not as an unclaimed file.
+        assert_eq!(
+            classify_install_source(vec![], true, false),
+            InstallSource::QueryFailed
+        );
+        assert_eq!(
+            classify_install_source(vec![], false, true),
+            InstallSource::Unconfirmed
+        );
+        // A missing database tool never reaches this point as `failed`, so a
+        // portable copy stays updatable.
+        assert_eq!(
+            classify_install_source(vec![], false, false),
+            InstallSource::Portable
+        );
+    }
+
+    #[test]
+    fn system_paths_are_classified() {
+        assert!(is_system_path(std::path::Path::new("/usr/bin/axolotl")));
+        assert!(is_system_path(std::path::Path::new("/opt/axolotl/bin")));
+        assert!(is_system_path(std::path::Path::new("/nix/store/x/bin/axo")));
+        assert!(is_system_path(std::path::Path::new("/var/lib/flatpak/app")));
+        assert!(!is_system_path(std::path::Path::new("/home/user/axolotl")));
+        assert!(!is_system_path(std::path::Path::new("/tmp/mount/axolotl")));
+        // A prefix that merely *starts* like a system directory is not one.
+        assert!(!is_system_path(std::path::Path::new("/usrlocal/bin/x")));
+    }
+
+    #[test]
+    fn managed_packages_upgrade_with_their_frontend() {
+        let deb = InstallSource::Managed(owned(
+            PackageDatabase::Dpkg,
+            Some(PackageFrontend::Apt),
+            "axolotl-launcher",
+        ));
+        assert_eq!(deb.package_variant(), Some("deb"));
+        assert!(deb.install_supported_with(true));
+        assert!(deb.self_update_supported_with(true));
+        assert_eq!(deb.as_str(), "apt");
+
+        // Without a usable frontend there is no safe install path, and the
+        // package owns the files, so the built-in updater must stay off.
+        let aosc_like = InstallSource::Managed(owned(
+            PackageDatabase::Dpkg,
+            None,
+            "axolotl-launcher",
+        ));
+        assert!(!aosc_like.install_supported_with(true));
+        assert!(!aosc_like.self_update_supported_with(true));
+        assert_eq!(aosc_like.as_str(), "dpkg");
+    }
+
+    #[test]
+    fn missing_privilege_tool_disables_installing_but_keeps_the_source() {
+        let rpm = InstallSource::Managed(owned(
+            PackageDatabase::Rpm,
+            Some(PackageFrontend::Dnf),
+            "axolotl-launcher",
+        ));
+        assert!(!rpm.install_supported_with(false));
+        assert!(!rpm.self_update_supported_with(false));
+        assert_eq!(rpm.package_variant(), Some("rpm"));
+        assert_eq!(rpm.as_str(), "dnf");
+    }
+
+    #[test]
+    fn pacman_and_system_owned_installs_never_self_update() {
+        let aur = InstallSource::Managed(owned(
+            PackageDatabase::Pacman,
+            Some(PackageFrontend::Yay),
+            "axolotl-launcher-bin",
+        ));
+        assert_eq!(aur.package_variant(), None);
+        assert!(!aur.install_supported_with(true));
+        assert!(!aur.self_update_supported());
+        assert_eq!(aur.as_str(), "yay");
+
+        for source in [
+            InstallSource::Conflict(vec![owned(
+                PackageDatabase::Dpkg,
+                Some(PackageFrontend::Apt),
+                "axolotl-launcher",
+            )]),
+            InstallSource::Unconfirmed,
+            InstallSource::QueryFailed,
+            InstallSource::Flatpak,
+            InstallSource::Nix,
+        ] {
+            assert!(!source.self_update_supported());
+        }
+    }
+
+    #[test]
+    fn portable_copies_keep_the_built_in_updater() {
+        for source in [InstallSource::Portable, InstallSource::AppImage] {
+            assert!(source.can_replace_own_files());
+            assert!(source.self_update_supported());
+            assert!(!source.install_supported_with(true));
+            assert_eq!(source.package_variant(), None);
+        }
+        assert_eq!(InstallSource::Portable.as_str(), "portable");
+        assert_eq!(InstallSource::Conflict(vec![]).as_str(), "conflict");
+        assert_eq!(InstallSource::Unconfirmed.as_str(), "unconfirmed");
+        assert_eq!(InstallSource::QueryFailed.as_str(), "query-failed");
     }
 }

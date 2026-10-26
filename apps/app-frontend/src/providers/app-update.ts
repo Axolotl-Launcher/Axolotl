@@ -1,5 +1,7 @@
 import { computed, ref } from 'vue'
 
+import { getUpdateCapability } from '@/helpers/utils.js'
+
 export const APP_UPDATE_POPUP_DELAY_MS = 24 * 60 * 60 * 1000
 
 const UPDATE_PROMPT_STORAGE_KEY = 'modrinth-app-update-prompt-state'
@@ -39,6 +41,43 @@ const availableUpdate = ref<AppUpdate | null>(null)
 const updateSize = ref<number | null>(null)
 const updatesEnabled = ref(true)
 const updatesPaused = ref(false)
+
+export interface UpdateCapability {
+    source: string
+    selfUpdate: boolean
+    command: string | null
+    /** Claimed package names when several package databases disagree. */
+    owners: string[]
+}
+
+const updateCapability = ref<UpdateCapability | null>(null)
+let updateCapabilityRequest: Promise<UpdateCapability | null> | null = null
+
+/**
+ * Read the update capability from the shell once and share it between the
+ * app shell and the settings panel, so both always agree on whether update
+ * checks may run. A failed query is not cached: the next caller retries.
+ */
+export async function resolveUpdateCapability(): Promise<UpdateCapability | null> {
+    if (!updateCapabilityRequest) {
+        updateCapabilityRequest = getUpdateCapability()
+            .then((capability) => {
+                updateCapability.value = capability
+                return capability
+            })
+            .catch((error) => {
+                console.warn('Failed to read the update capability', error)
+                updateCapabilityRequest = null
+                return null
+            })
+    }
+    return updateCapabilityRequest
+}
+
+/** Whether a package manager owns this installation and must do the update. */
+export function isPackageManagedInstall(): boolean {
+    return updateCapability.value !== null && !updateCapability.value.selfUpdate
+}
 
 let actions: AppUpdateActions = {}
 

@@ -20,8 +20,3 @@ pub fn enqueue_update_for_installation() -> Result<()> {
 
 #[tauri::command]
 pub fn remove_enqueued_update() {}
-
-#[tauri::command]
-pub fn is_apt_linux() -> bool {
-    false
-}

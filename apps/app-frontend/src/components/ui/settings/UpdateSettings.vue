@@ -24,8 +24,14 @@ import {
     setUpdatePreferences,
     type UpdateChannel,
 } from '@/helpers/settings.ts'
-import { getUpdateCapability, isDev, restartApp } from '@/helpers/utils.js'
-import { type AppUpdateCheckResult, checkForAppUpdate } from '@/providers/app-update.ts'
+import { isDev, restartApp } from '@/helpers/utils.js'
+import {
+    type AppUpdateCheckResult,
+    checkForAppUpdate,
+    isPackageManagedInstall,
+    resolveUpdateCapability,
+    updateCapability,
+} from '@/providers/app-update.ts'
 
 import SettingsRow from './SettingsRow.vue'
 import SettingsSection from './SettingsSection.vue'
@@ -44,14 +50,25 @@ const selectedChannel = ref<UpdateChannel>(activeChannel)
 const updatePreferences = ref(initialUpdatePreferences)
 const checking = ref(false)
 const checkResult = ref<AppUpdateCheckResult | 'failed' | null>(null)
-const updateCapability = ref(await getUpdateCapability().catch(() => null))
-const packageManaged = computed(
-    () => updateCapability.value !== null && !updateCapability.value.selfUpdate,
-)
+// The shared capability state from the app-update provider: the settings
+// panel and the shell must always agree on whether checks may run.
+await resolveUpdateCapability()
+const packageManaged = computed(() => isPackageManagedInstall())
 const managedHint = computed(() => {
     const capability = updateCapability.value
     if (!capability) {
         return ''
+    }
+    if (capability.source === 'conflict') {
+        return formatMessage(messages.managedConflict, {
+            owners: capability.owners.join(', '),
+        })
+    }
+    if (capability.source === 'unconfirmed') {
+        return formatMessage(messages.managedUnconfirmed)
+    }
+    if (capability.source === 'query-failed') {
+        return formatMessage(messages.managedQueryFailed)
     }
     const source = managedSourceLabel(capability.source)
     return capability.command
@@ -303,9 +320,40 @@ const messages = defineMessages({
         defaultMessage:
             'Axolotl Launcher is installed through {source}. Update checks are disabled for this installation; update it with: {command}',
     },
+    managedConflict: {
+        id: 'app.settings.updates.managed-conflict',
+        defaultMessage:
+            'Several package databases claim this installation ({owners}). Update checks are disabled; confirm which one installed it, then update with that package manager.',
+    },
+    managedUnconfirmed: {
+        id: 'app.settings.updates.managed-unconfirmed',
+        defaultMessage:
+            'Axolotl Launcher runs from a system location that no package database claims. Update checks are disabled; reinstall it through your package manager or run it from a writable folder.',
+    },
+    managedQueryFailed: {
+        id: 'app.settings.updates.managed-query-failed',
+        defaultMessage:
+            'The local package database could not be queried, so the installation source is unknown. Update checks are disabled; restart the launcher to retry, or update it with your package manager.',
+    },
     managedSourceAur: {
         id: 'app.settings.updates.managed-source.aur',
         defaultMessage: 'the AUR',
+    },
+    managedSourcePacman: {
+        id: 'app.settings.updates.managed-source.pacman',
+        defaultMessage: 'pacman',
+    },
+    managedSourceApt: {
+        id: 'app.settings.updates.managed-source.apt',
+        defaultMessage: 'apt',
+    },
+    managedSourceDnf: {
+        id: 'app.settings.updates.managed-source.dnf',
+        defaultMessage: 'dnf',
+    },
+    managedSourceZypper: {
+        id: 'app.settings.updates.managed-source.zypper',
+        defaultMessage: 'zypper',
     },
     managedSourceFlatpak: {
         id: 'app.settings.updates.managed-source.flatpak',
@@ -314,6 +362,10 @@ const messages = defineMessages({
     managedSourceNix: {
         id: 'app.settings.updates.managed-source.nix',
         defaultMessage: 'Nix',
+    },
+    managedSourceSystem: {
+        id: 'app.settings.updates.managed-source.system',
+        defaultMessage: 'your system package manager',
     },
     copyCommand: {
         id: 'app.settings.updates.copy-command',
@@ -433,12 +485,24 @@ async function saveUpdatePreferences() {
 
 function managedSourceLabel(source: string) {
     switch (source) {
-        case 'pacman':
+        case 'yay':
+        case 'paru':
             return formatMessage(messages.managedSourceAur)
+        case 'pacman':
+            return formatMessage(messages.managedSourcePacman)
+        case 'apt':
+            return formatMessage(messages.managedSourceApt)
+        case 'dnf':
+            return formatMessage(messages.managedSourceDnf)
+        case 'zypper':
+            return formatMessage(messages.managedSourceZypper)
         case 'flatpak':
             return formatMessage(messages.managedSourceFlatpak)
-        default:
+        case 'nix':
             return formatMessage(messages.managedSourceNix)
+        default:
+            // Dpkg or rpm ownership without a usable frontend.
+            return formatMessage(messages.managedSourceSystem)
     }
 }
 

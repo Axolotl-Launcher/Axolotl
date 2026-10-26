@@ -100,7 +100,7 @@ fn rpm_arch() -> Result<&'static str> {
     }
 }
 
-fn install_source() -> theseus::InstallSource {
+fn install_source() -> &'static theseus::InstallSource {
     theseus::detect_install_source()
 }
 
@@ -539,20 +539,17 @@ pub fn remove_enqueued_update<R: Runtime>(webview: Webview<R>) {
 
 // ── Package-manager updates ─────────────────────────────────────
 
-/// Whether this Linux system updates Axolotl through apt (Debian and its
-/// derivatives) and has `pkexec` available for a single privileged prompt.
-#[tauri::command]
-pub fn is_apt_linux() -> bool {
-    install_source() == theseus::InstallSource::Apt
-}
-
-/// Install the downloaded .deb on Debian and its derivatives, prompting for
-/// root once via `pkexec`. The package is installed from the absolute path
-/// of a temporary file, which is removed afterwards.
+/// Install the downloaded .deb when a dpkg database owns this installation,
+/// prompting for root once via `pkexec`. The package is installed from the
+/// absolute path of a temporary file, which is removed afterwards.
 pub async fn install_apt_package(version: &str, data: &[u8]) -> Result<()> {
-    if install_source() != theseus::InstallSource::Apt {
+    if !matches!(
+        install_source(),
+        theseus::InstallSource::Managed(package)
+            if package.database == theseus::PackageDatabase::Dpkg
+    ) {
         return Err(theseus::Error::from(theseus::ErrorKind::OtherError(
-            "apt updates are only supported on Debian-based Linux systems with pkexec"
+            "deb updates require an installation owned by the dpkg database"
                 .to_string(),
         ))
         .into());
@@ -611,11 +608,12 @@ pub async fn install_apt_package(version: &str, data: &[u8]) -> Result<()> {
     Ok(())
 }
 
-/// Install the downloaded .rpm on Fedora/openSUSE through `dnf` or `zypper`,
-/// prompting for root once via `pkexec`. The catalog's sha256 already verified
-/// the package, so the distribution's signature policy is not required here.
+/// Install the downloaded .rpm through the frontend recorded for the owning
+/// package (`dnf` or `zypper`), prompting for root once via `pkexec`. The
+/// catalog's sha256 already verified the package, so the distribution's
+/// signature policy is not required here.
 async fn install_rpm_package(
-    source: theseus::InstallSource,
+    frontend: Option<theseus::PackageFrontend>,
     version: &str,
     data: &[u8],
 ) -> Result<()> {
@@ -640,15 +638,14 @@ async fn install_rpm_package(
     })?;
 
     let install_path = rpm_path.clone();
-    let (manager, arguments): (&'static str, &'static [&'static str]) =
-        match source {
-            theseus::InstallSource::Zypper => (
-                "zypper",
-                &["--non-interactive", "install", "--allow-unsigned-rpm"],
-            ),
-            // The catalog sha256 already verified this exact file.
-            _ => ("dnf", &["install", "-y", "--nogpgcheck"]),
-        };
+    let (manager, arguments): (&'static str, &[&str]) = match frontend {
+        Some(theseus::PackageFrontend::Zypper) => (
+            "zypper",
+            &["--non-interactive", "install", "--allow-unsigned-rpm"],
+        ),
+        // The catalog sha256 already verified this exact file.
+        _ => ("dnf", &["install", "-y", "--nogpgcheck"]),
+    };
     let output = tokio::task::spawn_blocking(move || {
         let mut command = std::process::Command::new("pkexec");
         command.arg(manager);
@@ -682,12 +679,23 @@ async fn install_rpm_package(
 
 /// Install the staged update with the package manager owning this launcher.
 pub async fn install_package(version: &str, data: &[u8]) -> Result<()> {
-    let source = install_source();
-    match source {
-        theseus::InstallSource::Apt => install_apt_package(version, data).await,
-        theseus::InstallSource::Dnf | theseus::InstallSource::Zypper => {
-            install_rpm_package(source, version, data).await
-        }
+    match install_source() {
+        theseus::InstallSource::Managed(package) => match package.database {
+            theseus::PackageDatabase::Dpkg => {
+                install_apt_package(version, data).await
+            }
+            theseus::PackageDatabase::Rpm => {
+                install_rpm_package(package.frontend, version, data).await
+            }
+            // pacman-owned installations must not have their files replaced.
+            theseus::PackageDatabase::Pacman => {
+                Err(theseus::Error::from(theseus::ErrorKind::OtherError(
+                    "pacman installations are updated by the system package manager"
+                        .to_string(),
+                ))
+                .into())
+            }
+        },
         other => {
             Err(theseus::Error::from(theseus::ErrorKind::OtherError(format!(
                 "{} installations are updated by the system package manager",

@@ -932,7 +932,6 @@ fn main() {
             enqueue_update_for_installation,
             remove_enqueued_update,
             set_restart_after_pending_update,
-            is_apt_linux,
             update_capability::get_update_capability,
             toggle_decorations,
             set_transparent_window_frame,
@@ -1017,12 +1016,12 @@ fn main() {
 
                         let version = update.version.clone();
                         let source = theseus::detect_install_source();
-                        let install_result = if source.package_variant().is_some() {
+                        let install_result = if source.install_supported() {
                             tauri::async_runtime::block_on(install_package(
                                 &version, data,
                             ))
                             .map_err(|error| error.to_string())
-                        } else if source.self_update_supported() {
+                        } else if source.can_replace_own_files() {
                             let update = if should_restart {
                                 (**update).clone()
                             } else {

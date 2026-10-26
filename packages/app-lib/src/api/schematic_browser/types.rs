@@ -8,7 +8,6 @@ use serde::{Deserialize, Serialize};
 pub enum SourceId {
     Reden,
     BuildSchematics,
-    Shimu,
     McSchematics,
 }
 
@@ -17,7 +16,6 @@ impl SourceId {
         match self {
             Self::Reden => "reden",
             Self::BuildSchematics => "buildschematics",
-            Self::Shimu => "shimu",
             Self::McSchematics => "mc_schematics",
         }
     }
@@ -30,7 +28,6 @@ impl SourceId {
         match value {
             "reden" => Some(Self::Reden),
             "buildschematics" => Some(Self::BuildSchematics),
-            "shimu" => Some(Self::Shimu),
             "mc_schematics" | "mcschematics" => Some(Self::McSchematics),
             _ => None,
         }
@@ -40,7 +37,6 @@ impl SourceId {
         &[
             Self::Reden,
             Self::BuildSchematics,
-            Self::Shimu,
             Self::McSchematics,
         ]
     }
@@ -50,7 +46,6 @@ impl SourceId {
         match self {
             Self::Reden => "Reden",
             Self::BuildSchematics => "BuildSchematics",
-            Self::Shimu => "Shimu",
             Self::McSchematics => "mc-schematics",
         }
     }
@@ -191,7 +186,7 @@ pub struct SchematicItem {
     pub detail_url: String,
     pub download: DownloadPlan,
     /// True when only part of the metadata could be resolved (for example a
-    /// Shimu title that has not been backfilled yet).
+    /// source-specific title that has not been backfilled yet).
     #[serde(default)]
     pub degraded: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]

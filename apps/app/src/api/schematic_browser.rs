@@ -2,7 +2,7 @@
 //!
 //! The commands are thin: they resolve the caller's arguments, refresh the
 //! cached proxy flag once per batch, and delegate to
-//! [`crate::api::schematic_browser`]. All policy lives in the library so the
+//! [`theseus::schematic_browser`]. All policy lives in the library so the
 //! commands stay testable without a Tauri runtime.
 
 use std::collections::HashMap;
@@ -12,7 +12,7 @@ use serde::Serialize;
 use tauri::Runtime;
 use tokio_util::sync::CancellationToken;
 
-use crate::api::schematic_browser::{self, error::SchematicSourceError, types};
+use theseus::schematic_browser::{self, error::SchematicSourceError, types};
 
 /// In-flight requests, keyed by the caller-supplied `requestId`.
 static CANCELLATIONS: LazyLock<Mutex<HashMap<String, CancellationToken>>> =

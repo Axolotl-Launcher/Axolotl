@@ -178,11 +178,18 @@ export function useSearch(
     let persistMaxResultsAutomatically = false
 
     // Persist every user change so the choice survives closing the launcher, not
-    // just a route change.
-    watch(maxResults, (value) => {
-        if (persistMaxResultsAutomatically) return
-        persistMaxResults(value)
-    })
+    // just a route change. `flush: 'sync'` is required here: an automatic clamp marks
+    // only its own synchronous assignment, so a pre-flush watcher would run once the
+    // mark is already cleared and write the clamped value over the preference the
+    // user saved on a tab that offered more options.
+    watch(
+        maxResults,
+        (value) => {
+            if (persistMaxResultsAutomatically) return
+            persistMaxResults(value)
+        },
+        { flush: 'sync' },
+    )
 
     /**
      * Let the layout tell this composable that the next change is an automatic

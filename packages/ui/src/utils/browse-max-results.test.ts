@@ -3,6 +3,7 @@ import test from 'node:test'
 
 import {
     MAX_RESULTS_DEFAULT,
+    MAX_RESULTS_LIMIT,
     MAX_RESULTS_STORAGE_KEY,
     persistMaxResults,
     readPersistedMaxResults,
@@ -69,6 +70,32 @@ test('keeps a leading number even when the entry is partly malformed', () => {
     installStorage(new Map([[MAX_RESULTS_STORAGE_KEY, '12.5x']]))
     try {
         assert.equal(readPersistedMaxResults(), 12)
+    } finally {
+        restoreStorage()
+    }
+})
+
+test('clamps a stored value above the largest page size', () => {
+    for (const raw of ['101', '999999999']) {
+        installStorage(new Map([[MAX_RESULTS_STORAGE_KEY, raw]]))
+        try {
+            assert.equal(
+                readPersistedMaxResults(),
+                MAX_RESULTS_LIMIT,
+                `unexpected result for ${JSON.stringify(raw)}`,
+            )
+        } finally {
+            restoreStorage()
+        }
+    }
+})
+
+test('never stores a value above the largest page size', () => {
+    const store = new Map<string, string>()
+    installStorage(store)
+    try {
+        persistMaxResults(999999999)
+        assert.equal(store.get(MAX_RESULTS_STORAGE_KEY), String(MAX_RESULTS_LIMIT))
     } finally {
         restoreStorage()
     }

@@ -145,6 +145,8 @@ pub struct Settings {
     pub collapsed_navigation: bool,
     pub hide_nametag_skins_page: bool,
     pub nametag_uses_app_font: bool,
+    #[serde(default)]
+    pub hide_chinese_content_titles: bool,
     pub advanced_rendering: bool,
     pub native_decorations: bool,
     pub toggle_sidebar: bool,
@@ -360,6 +362,7 @@ impl Settings {
             collapsed_navigation: record.collapsed_navigation,
             hide_nametag_skins_page: record.hide_nametag_skins_page,
             nametag_uses_app_font: record.nametag_uses_app_font,
+            hide_chinese_content_titles: record.hide_chinese_content_titles,
             advanced_rendering: record.advanced_rendering,
             native_decorations: record.native_decorations,
             toggle_sidebar: record.toggle_sidebar,
@@ -497,6 +500,7 @@ impl Settings {
             feature_flags: serde_json::to_string(&self.feature_flags)?,
             hide_nametag_skins_page: self.hide_nametag_skins_page,
             nametag_uses_app_font: self.nametag_uses_app_font,
+            hide_chinese_content_titles: self.hide_chinese_content_titles,
             skipped_update: self.skipped_update.clone(),
             pending_update_toast_for_version: self
                 .pending_update_toast_for_version
@@ -590,6 +594,7 @@ impl Settings {
             doh_enabled: self.doh_enabled,
             resource_chinese_filenames: self.resource_chinese_filenames,
             resource_preserve_filenames: self.resource_preserve_filenames,
+            hide_chinese_content_titles: self.hide_chinese_content_titles,
         })
     }
     /// The settings as they stand inside `unit`, for a caller that means to

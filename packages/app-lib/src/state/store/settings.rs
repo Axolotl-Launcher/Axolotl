@@ -164,6 +164,7 @@ pub(crate) struct SettingsRecord {
     pub doh_enabled: bool,
     pub resource_chinese_filenames: bool,
     pub resource_preserve_filenames: bool,
+    pub hide_chinese_content_titles: bool,
 }
 
 impl Collection for Settings {
@@ -220,7 +221,8 @@ impl Collection for Settings {
                 custom_background_component_opacity, ui_font, mono_font,
                 backup_repository_path, allow_external_scheme,
                 allow_privileged_scheme, doh_enabled,
-                resource_chinese_filenames, resource_preserve_filenames
+                resource_chinese_filenames, resource_preserve_filenames,
+                hide_chinese_content_titles
             FROM settings
             WHERE id = 0
             ",
@@ -400,6 +402,8 @@ fn to_record(row: SqliteRow) -> crate::Result<SettingsRecord> {
             .try_get("resource_chinese_filenames")?,
         resource_preserve_filenames: row
             .try_get("resource_preserve_filenames")?,
+        hide_chinese_content_titles: row
+            .try_get("hide_chinese_content_titles")?,
     })
 }
 async fn write_row(
@@ -441,7 +445,7 @@ async fn write_row(
             default_window_title, custom_background_component_opacity,
             ui_font, mono_font, backup_repository_path, allow_external_scheme,
             allow_privileged_scheme, doh_enabled, resource_chinese_filenames,
-            resource_preserve_filenames
+            resource_preserve_filenames, hide_chinese_content_titles
         )
         VALUES (
             0, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, jsonb(?),
@@ -451,7 +455,7 @@ async fn write_row(
             ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, jsonb(?), ?,
             jsonb(?), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
             ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-            ?, ?
+            ?, ?, ?
         )
         ON CONFLICT (id) DO UPDATE SET
             max_concurrent_downloads = excluded.max_concurrent_downloads,
@@ -554,7 +558,8 @@ async fn write_row(
             allow_privileged_scheme = excluded.allow_privileged_scheme,
             doh_enabled = excluded.doh_enabled,
             resource_chinese_filenames = excluded.resource_chinese_filenames,
-            resource_preserve_filenames = excluded.resource_preserve_filenames
+            resource_preserve_filenames = excluded.resource_preserve_filenames,
+            hide_chinese_content_titles = excluded.hide_chinese_content_titles
         ",
     )
     .bind(record.max_concurrent_downloads)
@@ -643,6 +648,7 @@ async fn write_row(
     .bind(record.doh_enabled)
     .bind(record.resource_chinese_filenames)
     .bind(record.resource_preserve_filenames)
+    .bind(record.hide_chinese_content_titles)
     .execute(&mut *conn)
     .await?;
 

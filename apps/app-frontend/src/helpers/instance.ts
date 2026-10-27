@@ -12,6 +12,7 @@ import {
 import { convertFileSrc, invoke } from '@tauri-apps/api/core'
 
 import { isOfflineMode } from '@/composables/useNetworkStatus'
+import { createContentRefreshCoalescer } from '@/helpers/content-refresh-coalescer'
 import { buildGcCandidateChain, resolveAutoGcStrategy } from '@/helpers/gc/auto-selector'
 import { collectGcContext } from '@/helpers/gc/context'
 import { detectGcStrategy, GC_STRATEGY_DEFINITIONS } from '@/helpers/gc/strategies'
@@ -497,8 +498,14 @@ export async function get_content_snapshot(
     })
 }
 
+const coalesceRefreshContent = createContentRefreshCoalescer((instanceId: string) =>
+    invoke<InstanceContentSnapshot>('plugin:instance|instance_refresh_content', {
+        instanceId,
+    }),
+)
+
 export async function refresh_content(instanceId: string): Promise<InstanceContentSnapshot> {
-    return await invoke('plugin:instance|instance_refresh_content', { instanceId })
+    return await coalesceRefreshContent(instanceId)
 }
 
 export type ContentUpdateScope = 'user_added' | 'pack' | 'item'

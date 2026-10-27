@@ -5,10 +5,10 @@ import { computed, type ComputedRef, type Ref, ref, shallowRef } from 'vue'
 import { useRoute } from 'vue-router'
 
 import { defineMessage, LOCALES, useVIntl } from '../composables/i18n'
+import { MAX_RESULTS_LIMIT } from './browse-max-results.ts'
 import type { FilterType, FilterValue, SortType, Tags } from './search'
 import { formatSearchFilterValue } from './search'
 import { formatCategory, formatCategoryHeader } from './tag-messages'
-import { MAX_RESULTS_LIMIT } from './browse-max-results.ts'
 
 export const SERVER_REGIONS = {
     us_east: defineMessage({ id: 'project.server.region.us_east', defaultMessage: 'US East' }),

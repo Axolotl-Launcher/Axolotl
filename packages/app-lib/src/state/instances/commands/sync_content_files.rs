@@ -130,6 +130,70 @@ impl ScanPolicy {
     }
 }
 
+/// Hashes computed during one sync cycle, reused when the scan has to run
+/// again.
+///
+/// Verification deliberately ignores the database hash cache, but a retry
+/// exists to reconcile the tree with the watcher, not to distrust files this
+/// call has already read: hashing everything a second time only widens the
+/// window that caused the retry. Reuse therefore never outlives the call and
+/// never survives an identity change — a value is reused only while the file's
+/// size and modification time are the same.
+#[derive(Default)]
+struct HashMemo {
+    hashes: HashMap<String, (u64, Option<std::time::SystemTime>, String)>,
+    reused: usize,
+}
+
+impl HashMemo {
+    fn reusable(
+        &mut self,
+        relative_path: &str,
+        size: u64,
+        modified: Option<std::time::SystemTime>,
+    ) -> Option<String> {
+        let (memo_size, memo_modified, sha1) =
+            self.hashes.get(relative_path)?;
+        if *memo_size != size || *memo_modified != modified {
+            return None;
+        }
+        let sha1 = sha1.clone();
+        self.reused += 1;
+        Some(sha1)
+    }
+
+    fn record(
+        &mut self,
+        relative_path: &str,
+        size: u64,
+        modified: Option<std::time::SystemTime>,
+        sha1: &str,
+    ) {
+        self.hashes.insert(
+            relative_path.to_string(),
+            (size, modified, sha1.to_string()),
+        );
+    }
+}
+
+/// Reads one file's hash, reusing what an earlier attempt of this same sync
+/// already computed for an identical file identity.
+async fn memoized_sha1(
+    memo: &mut HashMemo,
+    instance_files_root: &Path,
+    file: &filesystem::ScannedContentFile,
+) -> crate::Result<String> {
+    if let Some(sha1) =
+        memo.reusable(&file.relative_path, file.size, file.modified)
+    {
+        return Ok(sha1);
+    }
+    let path = join_content_path(instance_files_root, &file.relative_path);
+    let (_, sha1) = fetch::sha1_file_async(&path).await?;
+    memo.record(&file.relative_path, file.size, file.modified, &sha1);
+    Ok(sha1)
+}
+
 enum ScanAttempt {
     Committed(Vec<InstanceFile>),
     Retry(HashSet<String>),
@@ -175,6 +239,7 @@ where
             .await?;
     }
     let mut changed = HashSet::new();
+    let mut memo = HashMemo::default();
     let mut attempts = 0;
     while attempts < policy.attempts {
         attempts += 1;
@@ -183,6 +248,7 @@ where
             state,
             verify_all,
             &changed,
+            &mut memo,
             &mut before_commit,
         )
         .await?
@@ -196,6 +262,7 @@ where
                     instance_id = %instance.id,
                     attempt = attempts,
                     changed_paths = changed.len(),
+                    reused_hashes = memo.reused,
                     "Content scan did not settle"
                 );
                 if attempts < policy.attempts {
@@ -277,6 +344,7 @@ async fn scan_and_commit<F, Fut>(
     state: &State,
     verify_all: bool,
     changed: &HashSet<String>,
+    memo: &mut HashMemo,
     before_commit: &mut F,
 ) -> crate::Result<ScanAttempt>
 where
@@ -403,21 +471,17 @@ where
         {
             (existing_file.sha1.clone(), file.size)
         } else if existing_file.is_some() {
-            let path =
-                join_content_path(&instance_files_root, &file.relative_path);
-            let (_, sha1) = fetch::sha1_file_async(&path).await?;
-            (sha1, file.size)
+            (
+                memoized_sha1(memo, &instance_files_root, &file).await?,
+                file.size,
+            )
         } else {
             match hashes_by_key.get(hash_key).filter(|_| !verify_all) {
                 Some(hash) => (hash.hash.clone(), hash.size),
-                None => {
-                    let path = join_content_path(
-                        &instance_files_root,
-                        &file.relative_path,
-                    );
-                    let (_, sha1) = fetch::sha1_file_async(&path).await?;
-                    (sha1, file.size)
-                }
+                None => (
+                    memoized_sha1(memo, &instance_files_root, &file).await?,
+                    file.size,
+                ),
             }
         };
         let reclaim_candidate = if existing_file.is_some() {
@@ -1398,6 +1462,33 @@ mod tests {
         assert!(physical_file_identity_changed(&file, "official", 11));
     }
 
+    #[test]
+    fn hash_memo_reuses_only_an_unchanged_file_identity() {
+        let mut memo = HashMemo::default();
+        let modified = std::time::SystemTime::UNIX_EPOCH;
+        memo.record("mods/example.jar", 9, Some(modified), "sha1");
+
+        assert_eq!(
+            memo.reusable("mods/example.jar", 9, Some(modified))
+                .as_deref(),
+            Some("sha1")
+        );
+        assert_eq!(memo.reused, 1);
+        assert!(
+            memo.reusable("mods/example.jar", 10, Some(modified))
+                .is_none()
+        );
+        assert!(
+            memo.reusable(
+                "mods/example.jar",
+                9,
+                Some(modified + std::time::Duration::from_secs(1)),
+            )
+            .is_none()
+        );
+        assert!(memo.reusable("mods/other.jar", 9, Some(modified)).is_none());
+    }
+
     async fn isolated_scan_fixture()
     -> (tempfile::TempDir, Arc<State>, Instance, PathBuf) {
         let temp = tempfile::tempdir().unwrap();
@@ -1565,6 +1656,38 @@ mod tests {
                 panic!("a tree that keeps changing must not report a commit")
             }
         }
+        state.pool.close().await;
+    }
+
+    #[tokio::test]
+    async fn retried_scan_hashes_a_file_again_when_it_changed_between_attempts()
+    {
+        let (_temp, state, instance, root) = isolated_scan_fixture().await;
+        let replacement = b"replacement bytes";
+        let mut attempts = 0;
+        let files = resolve_content_scan(
+            &instance,
+            &state,
+            true,
+            changing_file_scan_policy(),
+            || {
+                attempts += 1;
+                if attempts == 1 {
+                    fs::write(root.join("mods/example.jar"), replacement)
+                        .unwrap();
+                }
+                std::future::ready(())
+            },
+        )
+        .await
+        .unwrap();
+        assert_eq!(attempts, 2);
+        assert_eq!(files.len(), 1);
+        assert_eq!(
+            files[0].sha1,
+            sha1_smol::Sha1::from(replacement).hexdigest()
+        );
+        assert_eq!(files[0].size, replacement.len() as u64);
         state.pool.close().await;
     }
 

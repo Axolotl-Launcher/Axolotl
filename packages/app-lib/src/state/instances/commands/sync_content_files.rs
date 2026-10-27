@@ -95,10 +95,39 @@ async fn sync_instance_content_files_with_verification(
     state: &State,
     verify_all: bool,
 ) -> crate::Result<Vec<InstanceFile>> {
-    Box::pin(sync_with_retry(instance, state, verify_all, || {
-        std::future::ready(())
-    }))
+    Box::pin(resolve_content_scan(
+        instance,
+        state,
+        verify_all,
+        ScanPolicy::DEFAULT,
+        || std::future::ready(()),
+    ))
     .await
+}
+
+/// How a content scan is repeated before its result is accepted.
+#[derive(Clone, Copy, Debug)]
+struct ScanPolicy {
+    /// How many scans may be thrown away before the tree is treated as still
+    /// being written.
+    attempts: usize,
+    /// Delay before another attempt. Doubles after every wasted scan, so a
+    /// writer that is finishing gets progressively more room to finish.
+    backoff: std::time::Duration,
+}
+
+impl ScanPolicy {
+    const DEFAULT: Self = Self {
+        attempts: 3,
+        backoff: std::time::Duration::from_millis(25),
+    };
+
+    /// Delay to wait before `next_attempt` (1-based) runs.
+    fn backoff_before(&self, next_attempt: usize) -> std::time::Duration {
+        let doublings =
+            u32::try_from(next_attempt.saturating_sub(2)).unwrap_or(u32::MAX);
+        self.backoff.saturating_mul(1 << doublings.min(5))
+    }
 }
 
 enum ScanAttempt {
@@ -106,12 +135,30 @@ enum ScanAttempt {
     Retry(HashSet<String>),
 }
 
-async fn sync_with_retry<F, Fut>(
+/// Result of a scan cycle that stopped waiting for the tree to settle.
+enum ScanOutcome {
+    Committed(Vec<InstanceFile>),
+    Unstable {
+        attempts: usize,
+        changed_paths: usize,
+    },
+}
+
+/// Scans and commits the instance content, repeating the scan while the tree
+/// changes underneath it.
+///
+/// Every attempt re-reads the database rows, the watcher snapshot and the
+/// content set revision before it commits, and throws the attempt away instead
+/// of overwriting newer state (see [`scan_and_commit`]). A tree that never
+/// settles is reported as [`ScanOutcome::Unstable`]; whether the caller keeps
+/// serving the previous snapshot is the caller's decision, not this function's.
+async fn scan_until_stable<F, Fut>(
     instance: &Instance,
     state: &State,
     verify_all: bool,
+    policy: ScanPolicy,
     mut before_commit: F,
-) -> crate::Result<Vec<InstanceFile>>
+) -> crate::Result<ScanOutcome>
 where
     F: FnMut() -> Fut,
     Fut: std::future::Future<Output = ()>,
@@ -128,7 +175,9 @@ where
             .await?;
     }
     let mut changed = HashSet::new();
-    for attempt in 1..=3 {
+    let mut attempts = 0;
+    while attempts < policy.attempts {
+        attempts += 1;
         match scan_and_commit(
             instance,
             state,
@@ -138,35 +187,80 @@ where
         )
         .await?
         {
-            ScanAttempt::Committed(files) => return Ok(files),
+            ScanAttempt::Committed(files) => {
+                return Ok(ScanOutcome::Committed(files));
+            }
             ScanAttempt::Retry(paths) => {
                 changed.extend(paths);
                 tracing::debug!(
                     instance_id = %instance.id,
-                    attempt,
+                    attempt = attempts,
                     changed_paths = changed.len(),
-                    "Content scan did not settle; retrying"
+                    "Content scan did not settle"
                 );
+                if attempts < policy.attempts {
+                    tokio::time::sleep(policy.backoff_before(attempts + 1))
+                        .await;
+                }
             }
         }
     }
-    last_committed_content_snapshot(instance, state).await
+    Ok(ScanOutcome::Unstable {
+        attempts,
+        changed_paths: changed.len(),
+    })
+}
+
+/// Commits the scan result, or falls back to the last committed rows when the
+/// tree never settled.
+async fn resolve_content_scan<F, Fut>(
+    instance: &Instance,
+    state: &State,
+    verify_all: bool,
+    policy: ScanPolicy,
+    before_commit: F,
+) -> crate::Result<Vec<InstanceFile>>
+where
+    F: FnMut() -> Fut,
+    Fut: std::future::Future<Output = ()>,
+{
+    match scan_until_stable(instance, state, verify_all, policy, before_commit)
+        .await?
+    {
+        ScanOutcome::Committed(files) => Ok(files),
+        ScanOutcome::Unstable {
+            attempts,
+            changed_paths,
+        } => {
+            last_committed_content_snapshot(
+                instance,
+                state,
+                attempts,
+                changed_paths,
+            )
+            .await
+        }
+    }
 }
 
 /// Returns the content rows the last successful scan committed.
 ///
-/// A scan that never settles means content is still being written — an
-/// install, an update or a batch toggle is in flight — not that the request
-/// was invalid. The page can still serve the previous snapshot, and the next
-/// scan picks the settled tree up, so failing the refresh would only turn a
-/// transient condition into a visible error. Nothing is written here: a stale
-/// scan must never overwrite the newer committed state.
+/// `Unstable` means content is still being written — an install, an update or
+/// a batch toggle is in flight — not that the request was invalid. The page
+/// can still serve the previous snapshot, and the next scan picks the settled
+/// tree up, so failing the refresh would only turn a transient condition into
+/// a visible error. Nothing is written here: a stale scan must never overwrite
+/// the newer committed state.
 async fn last_committed_content_snapshot(
     instance: &Instance,
     state: &State,
+    attempts: usize,
+    changed_paths: usize,
 ) -> crate::Result<Vec<InstanceFile>> {
     tracing::warn!(
         instance_id = %instance.id,
+        attempts,
+        changed_paths,
         "Content kept changing during scanning; returning the last committed snapshot"
     );
     Ok(
@@ -1345,17 +1439,23 @@ mod tests {
             let (_temp, state, instance, root) = isolated_scan_fixture().await;
             let barrier = tokio::sync::Barrier::new(2);
             let mut attempts = 0;
-            let scan = sync_with_retry(&instance, &state, false, || {
-                attempts += 1;
-                let pause = attempts == 1;
-                let barrier = &barrier;
-                async move {
-                    if pause {
-                        barrier.wait().await;
-                        barrier.wait().await;
+            let scan = resolve_content_scan(
+                &instance,
+                &state,
+                false,
+                ScanPolicy::DEFAULT,
+                || {
+                    attempts += 1;
+                    let pause = attempts == 1;
+                    let barrier = &barrier;
+                    async move {
+                        if pause {
+                            barrier.wait().await;
+                            barrier.wait().await;
+                        }
                     }
-                }
-            });
+                },
+            );
             let mutate = async {
                 barrier.wait().await;
                 match operation {
@@ -1421,6 +1521,53 @@ mod tests {
         }
     }
 
+    fn changing_file_scan_policy() -> ScanPolicy {
+        ScanPolicy {
+            attempts: 3,
+            backoff: std::time::Duration::from_millis(1),
+        }
+    }
+
+    #[tokio::test]
+    async fn unstable_scan_reports_how_many_attempts_it_wasted() {
+        let (_temp, state, instance, root) = isolated_scan_fixture().await;
+        let mut count = 0;
+        let outcome = scan_until_stable(
+            &instance,
+            &state,
+            false,
+            ScanPolicy {
+                attempts: 2,
+                backoff: std::time::Duration::from_millis(1),
+            },
+            || {
+                count += 1;
+                fs::write(
+                    root.join("mods/example.jar"),
+                    vec![b'x'; 20 + count],
+                )
+                .unwrap();
+                std::future::ready(())
+            },
+        )
+        .await
+        .unwrap();
+        assert_eq!(count, 2);
+        match outcome {
+            ScanOutcome::Unstable {
+                attempts,
+                changed_paths,
+            } => {
+                assert_eq!(attempts, 2);
+                assert!(changed_paths > 0);
+            }
+            ScanOutcome::Committed(_) => {
+                panic!("a tree that keeps changing must not report a commit")
+            }
+        }
+        state.pool.close().await;
+    }
+
     #[tokio::test]
     async fn repeatedly_changing_scan_returns_last_committed_snapshot_without_writing()
      {
@@ -1430,12 +1577,21 @@ mod tests {
                 .await
                 .unwrap();
         let mut count = 0;
-        let files = sync_with_retry(&instance, &state, false, || {
-            count += 1;
-            fs::write(root.join("mods/example.jar"), vec![b'x'; 20 + count])
+        let files = resolve_content_scan(
+            &instance,
+            &state,
+            false,
+            changing_file_scan_policy(),
+            || {
+                count += 1;
+                fs::write(
+                    root.join("mods/example.jar"),
+                    vec![b'x'; 20 + count],
+                )
                 .unwrap();
-            std::future::ready(())
-        })
+                std::future::ready(())
+            },
+        )
         .await
         .unwrap();
         assert_eq!(count, 3);

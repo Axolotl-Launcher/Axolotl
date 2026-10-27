@@ -15,6 +15,7 @@ const labels = {
     maps: 'Maps',
     shaders: 'Shaders',
     servers: 'Servers',
+    schematics: 'Litematica',
     favorites: 'Favorites',
 }
 
@@ -31,6 +32,7 @@ test('browse project tabs keep favorites after servers and preserve the route co
             'Maps',
             'Shaders',
             'Servers',
+            'Litematica',
             'Favorites',
         ],
     )

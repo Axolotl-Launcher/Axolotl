@@ -193,6 +193,10 @@ const messages = defineMessages({
         id: 'app.browse.project-type.servers',
         defaultMessage: 'Servers',
     },
+    schematics: {
+        id: 'app.browse.project-type.schematics',
+        defaultMessage: 'Litematica',
+    },
     chooseInstance: {
         id: 'app.browse.choose-instance',
         defaultMessage: 'Choose instance',
@@ -360,16 +364,21 @@ const projectTabs = computed(() => {
             maps: formatMessage(messages.maps),
             shaders: formatMessage(messages.shaders),
             servers: formatMessage(messages.servers),
+            schematics: formatMessage(messages.schematics),
             favorites: formatMessage(messages.title),
         },
         suffix,
-        getBrowseProjectTabOptions({
-            instance: contentSelection.targetInstance.value,
-            hasInstanceContext: !!route.query.i,
-            isServerInstance:
-                contentSelection.targetInstance.value?.link?.type === 'server_project' ||
-                contentSelection.targetInstance.value?.link?.type === 'server_project_modpack',
-        }),
+        {
+            ...getBrowseProjectTabOptions({
+                instance: contentSelection.targetInstance.value,
+                hasInstanceContext: !!route.query.i,
+                isServerInstance:
+                    contentSelection.targetInstance.value?.link?.type === 'server_project' ||
+                    contentSelection.targetInstance.value?.link?.type === 'server_project_modpack',
+            }),
+            // Schematics carry no favorites, so the tab never leads anywhere here.
+            schematic: false,
+        },
     )
 })
 

@@ -1,4 +1,7 @@
 {
+  "app.browse.project-type.schematics": {
+    "message": "投影"
+  },
   "app.mcp.require-auth": {
     "message": "要求身份验证"
   },
@@ -37,6 +40,84 @@
   },
   "app.mcp.debug-full-access": {
     "message": "预览完全访问模式（不改变实际权限）"
+  },
+  "app.schematic.cached": {
+    "message": "缓存"
+  },
+  "app.schematic.card.download": {
+    "message": "下载"
+  },
+  "app.schematic.card.external": {
+    "message": "外部链接"
+  },
+  "app.schematic.card.share-page": {
+    "message": "分享页"
+  },
+  "app.schematic.detail.cached": {
+    "message": "缓存"
+  },
+  "app.schematic.detail.close": {
+    "message": "关闭"
+  },
+  "app.schematic.detail.copy-link": {
+    "message": "复制来源链接"
+  },
+  "app.schematic.detail.delivery.external": {
+    "message": "没有直链，请打开来源页获取。"
+  },
+  "app.schematic.detail.delivery.quark": {
+    "message": "该投影通过网盘分享，请打开来源页保存后再导入实例。"
+  },
+  "app.schematic.detail.description": {
+    "message": "描述"
+  },
+  "app.schematic.detail.download": {
+    "message": "下载"
+  },
+  "app.schematic.detail.download-failed": {
+    "message": "下载失败：{reason}"
+  },
+  "app.schematic.detail.downloaded": {
+    "message": "已保存到 {path}"
+  },
+  "app.schematic.detail.downloading": {
+    "message": "下载中…"
+  },
+  "app.schematic.detail.format": {
+    "message": "格式"
+  },
+  "app.schematic.detail.loading": {
+    "message": "正在加载详情…"
+  },
+  "app.schematic.detail.materials": {
+    "message": "材料"
+  },
+  "app.schematic.detail.no-instance": {
+    "message": "先选择要下载到哪个实例。"
+  },
+  "app.schematic.detail.open-source-page": {
+    "message": "打开来源页面"
+  },
+  "app.schematic.detail.title": {
+    "message": "{name} 详情"
+  },
+  "app.schematic.detail.versions": {
+    "message": "版本"
+  },
+  "app.schematic.load-more": {
+    "message": "加载更多"
+  },
+  "app.schematic.loading": {
+    "message": "加载中…"
+  },
+  "app.schematic.no-results": {
+    "message": "没有找到投影"
+  },
+  "app.schematic.refresh": {
+    "message": "刷新"
+  },
+  "app.schematic.search.placeholder": {
+    "message": "搜索投影…"
   },
   "app.settings.tabs.mcp": {
     "message": "MCP 服务器"

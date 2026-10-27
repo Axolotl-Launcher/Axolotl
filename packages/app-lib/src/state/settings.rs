@@ -304,6 +304,7 @@ pub enum FeatureFlag {
     PageTransitions,
     ShowVersionEnvironmentColumn,
     AutoInstallDependencies,
+    SchematicBrowser,
 }
 
 impl Settings {

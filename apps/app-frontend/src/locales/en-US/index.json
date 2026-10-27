@@ -1,4 +1,7 @@
 {
+  "app.browse.project-type.schematics": {
+    "message": "Litematica"
+  },
   "app.mcp.require-auth": {
     "message": "Require authentication"
   },
@@ -37,6 +40,84 @@
   },
   "app.mcp.debug-full-access": {
     "message": "Preview full access (does not change real permissions)"
+  },
+  "app.schematic.cached": {
+    "message": "cached"
+  },
+  "app.schematic.card.download": {
+    "message": "Download"
+  },
+  "app.schematic.card.external": {
+    "message": "External"
+  },
+  "app.schematic.card.share-page": {
+    "message": "Share page"
+  },
+  "app.schematic.detail.cached": {
+    "message": "cached"
+  },
+  "app.schematic.detail.close": {
+    "message": "Close"
+  },
+  "app.schematic.detail.copy-link": {
+    "message": "Copy source link"
+  },
+  "app.schematic.detail.delivery.external": {
+    "message": "No direct file is available. Open the source page to get it."
+  },
+  "app.schematic.detail.delivery.quark": {
+    "message": "This schematic is shared through a netdisk. Open the page to save it, then import the file into your instance."
+  },
+  "app.schematic.detail.description": {
+    "message": "Description"
+  },
+  "app.schematic.detail.download": {
+    "message": "Download"
+  },
+  "app.schematic.detail.download-failed": {
+    "message": "Download failed: {reason}"
+  },
+  "app.schematic.detail.downloaded": {
+    "message": "Saved to {path}"
+  },
+  "app.schematic.detail.downloading": {
+    "message": "Downloading…"
+  },
+  "app.schematic.detail.format": {
+    "message": "Format"
+  },
+  "app.schematic.detail.loading": {
+    "message": "Loading details…"
+  },
+  "app.schematic.detail.materials": {
+    "message": "Materials"
+  },
+  "app.schematic.detail.no-instance": {
+    "message": "Choose an instance to download into."
+  },
+  "app.schematic.detail.open-source-page": {
+    "message": "Open source page"
+  },
+  "app.schematic.detail.title": {
+    "message": "{name}"
+  },
+  "app.schematic.detail.versions": {
+    "message": "Versions"
+  },
+  "app.schematic.load-more": {
+    "message": "Load more"
+  },
+  "app.schematic.loading": {
+    "message": "Loading…"
+  },
+  "app.schematic.no-results": {
+    "message": "No schematics found."
+  },
+  "app.schematic.refresh": {
+    "message": "Refresh"
+  },
+  "app.schematic.search.placeholder": {
+    "message": "Search schematics…"
   },
   "app.settings.tabs.mcp": {
     "message": "MCP"

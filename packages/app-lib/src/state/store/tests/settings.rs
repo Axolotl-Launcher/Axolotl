@@ -100,7 +100,6 @@ fn record() -> SettingsRecord {
         doh_enabled: false,
         resource_chinese_filenames: false,
         resource_preserve_filenames: false,
-        hide_chinese_content_titles: false,
     }
 }
 

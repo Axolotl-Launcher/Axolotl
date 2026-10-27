@@ -128,7 +128,7 @@ where
             .await?;
     }
     let mut changed = HashSet::new();
-    for _ in 0..3 {
+    for attempt in 1..=3 {
         match scan_and_commit(
             instance,
             state,
@@ -139,12 +139,43 @@ where
         .await?
         {
             ScanAttempt::Committed(files) => return Ok(files),
-            ScanAttempt::Retry(paths) => changed.extend(paths),
+            ScanAttempt::Retry(paths) => {
+                changed.extend(paths);
+                tracing::debug!(
+                    instance_id = %instance.id,
+                    attempt,
+                    changed_paths = changed.len(),
+                    "Content scan did not settle; retrying"
+                );
+            }
         }
     }
-    Err(crate::ErrorKind::InputError(
-        "Content changed repeatedly during scanning; retry after file operations finish".into(),
-    ).into())
+    last_committed_content_snapshot(instance, state).await
+}
+
+/// Returns the content rows the last successful scan committed.
+///
+/// A scan that never settles means content is still being written — an
+/// install, an update or a batch toggle is in flight — not that the request
+/// was invalid. The page can still serve the previous snapshot, and the next
+/// scan picks the settled tree up, so failing the refresh would only turn a
+/// transient condition into a visible error. Nothing is written here: a stale
+/// scan must never overwrite the newer committed state.
+async fn last_committed_content_snapshot(
+    instance: &Instance,
+    state: &State,
+) -> crate::Result<Vec<InstanceFile>> {
+    tracing::warn!(
+        instance_id = %instance.id,
+        "Content kept changing during scanning; returning the last committed snapshot"
+    );
+    Ok(
+        sqlite::content_rows::get_instance_files(&instance.id, &state.pool)
+            .await?
+            .into_iter()
+            .filter(|file| !file.missing)
+            .collect(),
+    )
 }
 
 async fn scan_and_commit<F, Fut>(
@@ -1391,7 +1422,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn repeatedly_changing_scan_leaves_database_untouched_and_is_retryable()
+    async fn repeatedly_changing_scan_returns_last_committed_snapshot_without_writing()
      {
         let (_temp, state, instance, root) = isolated_scan_fixture().await;
         let before =
@@ -1399,20 +1430,25 @@ mod tests {
                 .await
                 .unwrap();
         let mut count = 0;
-        let result = sync_with_retry(&instance, &state, false, || {
+        let files = sync_with_retry(&instance, &state, false, || {
             count += 1;
             fs::write(root.join("mods/example.jar"), vec![b'x'; 20 + count])
                 .unwrap();
             std::future::ready(())
         })
-        .await;
-        assert!(result.is_err());
+        .await
+        .unwrap();
         assert_eq!(count, 3);
+        assert_eq!(files.len(), before.len());
+        assert_eq!(files[0].id, before[0].id);
+        assert_eq!(files[0].sha1, before[0].sha1);
+        assert_eq!(files[0].size, before[0].size);
         let after =
             sqlite::content_rows::get_instance_files("instance", &state.pool)
                 .await
                 .unwrap();
         assert_eq!(after[0].sha1, before[0].sha1);
+        assert_eq!(after[0].size, before[0].size);
         let retried = sync_instance_content_files(&instance, &state)
             .await
             .unwrap();

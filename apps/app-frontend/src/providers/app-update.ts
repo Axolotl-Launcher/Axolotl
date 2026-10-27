@@ -74,7 +74,12 @@ export async function resolveUpdateCapability(): Promise<UpdateCapability | null
     return updateCapabilityRequest
 }
 
-/** Whether a package manager owns this installation and must do the update. */
+/**
+ * Whether the update happens outside the launcher: a package database owns the
+ * installation and the launcher cannot drive the update itself. A managed
+ * install with a usable frontend and `pkexec` keeps `selfUpdate` true, because
+ * the launcher runs the package manager for it.
+ */
 export function isPackageManagedInstall(): boolean {
     return updateCapability.value !== null && !updateCapability.value.selfUpdate
 }

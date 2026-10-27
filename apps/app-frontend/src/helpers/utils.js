@@ -27,7 +27,7 @@ export async function getUpdateSize(updateRid) {
  * How this installation may be updated.
  *
  * @returns {Promise<{
- *   source: 'appimage' | 'portable' | 'apt' | 'dnf' | 'zypper' | 'pacman' | 'yay' | 'paru' | 'dpkg' | 'rpm' | 'flatpak' | 'nix' | 'conflict' | 'unconfirmed' | 'query-failed'
+ *   source: 'appimage' | 'portable' | 'apt' | 'dnf' | 'zypper' | 'pacman' | 'yay' | 'paru' | 'dpkg' | 'rpm' | 'flatpak' | 'nix' | 'conflict' | 'unconfirmed' | 'query-failed' | 'unknown'
  *   selfUpdate: boolean
  *   command: string | null
  *   owners: string[]

@@ -554,9 +554,9 @@ async function checkUpdates() {
 
     // Installations owned by the system package manager are updated outside
     // the launcher, so the built-in update check stays off.
-    const capability = await resolveUpdateCapability()
-    if (capability && !capability.selfUpdate) {
-        console.log(`Skipping update check: this installation is managed by ${capability.source}`)
+    await resolveUpdateCapability()
+    if (isPackageManagedInstall()) {
+        console.log('Skipping update check: this installation is managed by its package manager')
         return
     }
 
@@ -2742,10 +2742,10 @@ async function manualUpdateCheck() {
         return 'disabled'
     }
 
-    const capability = await resolveUpdateCapability()
-    if (capability && !capability.selfUpdate) {
+    await resolveUpdateCapability()
+    if (isPackageManagedInstall()) {
         console.log(
-            `Update checks are disabled: this installation is managed by ${capability.source}`,
+            'Update checks are disabled: this installation is managed by its package manager',
         )
         return 'disabled'
     }

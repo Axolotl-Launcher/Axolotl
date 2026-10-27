@@ -5,7 +5,11 @@ import { type Component, computed, readonly, type Ref, ref, watch } from 'vue'
 import { type LocationQueryRaw, type LocationQueryValue, useRoute } from 'vue-router'
 
 import { defineMessage, useVIntl } from '../composables/i18n'
-import { persistMaxResults, readPersistedMaxResults } from './browse-max-results.ts'
+import {
+    MAX_RESULTS_LIMIT,
+    persistMaxResults,
+    readPersistedMaxResults,
+} from './browse-max-results.ts'
 import {
     DEFAULT_MOD_LOADERS,
     DEFAULT_PLUGIN_LOADERS,
@@ -862,7 +866,10 @@ export function useSearch(
             // the default on the next visit.
             const parsed = Number(count)
             if (!Number.isFinite(parsed) || parsed <= 0) return
-            setMaxResultsProgrammatically(parsed)
+            // A URL parameter only affects this session, but an absurd `?m=` must
+            // not reach `limit=` on callers that bypass the browse layout's
+            // options — clamp it to the same ceiling as the stored preference.
+            setMaxResultsProgrammatically(Math.min(parsed, MAX_RESULTS_LIMIT))
             readParams.add('m')
         })
         loadQueryParam(['o'], (offset) => {

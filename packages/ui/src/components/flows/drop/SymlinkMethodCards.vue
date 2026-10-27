@@ -338,7 +338,10 @@
                         <CircleAlertIcon />
                         {{ formatMessage(messages.custom) }}
                     </TagItem>
-                    <Button class="flex items-center gap-2" @click="handleConfirm"
+                    <Button
+                        class="flex items-center gap-2"
+                        :disabled="!confirmAllowed"
+                        @click="handleConfirm"
                         >{{ confirmLabel }}
                     </Button>
                 </div>
@@ -806,6 +809,20 @@ const confirmLabel = computed(() =>
     instances.value.length > 1 && activeIndex.value < instances.value.length - 1
         ? formatMessage(messages.next)
         : formatMessage(messages.confirm),
+)
+
+/**
+ * Confirming before an import plan has settled would emit the fallback
+ * defaults (`vanilla` / `latest` / a null game version) instead of the detected
+ * ones, so the button stays disabled until every instance either has a final
+ * snapshot, carries a plan error the user can override by hand, or has no path
+ * to scan at all.
+ */
+const confirmAllowed = computed(() =>
+    instances.value.every(
+        (instance, index) =>
+            snapshots.value[index] !== null || planErrors.value[index] !== null || !instance.path,
+    ),
 )
 
 function cancelPlan(index: number) {

@@ -82,10 +82,12 @@ it('confirms copying with the detected versions without offering or requiring an
         expect(wrapper.text()).not.toContain('Symbolic link')
         expect(wrapper.text()).not.toContain('Import method')
         expect(wrapper.text()).not.toContain('Game directory')
-        await wrapper
-            .findAll('button')
-            .find((button) => button.text() === 'Confirm')!
-            .trigger('click')
+        const confirm = wrapper.findAll('button').find((button) => button.text() === 'Confirm')!
+        // The plan snapshot lands through a requestAnimationFrame batch, so the
+        // detected versions are only guaranteed once the confirm button unlocks;
+        // clicking earlier used to emit the fallback defaults.
+        await vi.waitFor(() => expect(confirm.attributes('disabled')).toBeUndefined())
+        await confirm.trigger('click')
         expect(wrapper.emitted('confirm')).toEqual([
             [
                 [

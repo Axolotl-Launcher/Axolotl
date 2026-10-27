@@ -656,21 +656,34 @@ fn run_command(
 }
 
 /// Parse `dpkg-query --search` output, which looks like
-/// `axolotl-launcher: /usr/bin/axolotl`, or
+/// `axolotl-launcher: /usr/bin/axolotl`,
 /// `axolotl-launcher:amd64: /usr/bin/axolotl` for an architecture-qualified
-/// package. Returns the display name and the name `dpkg-query` accepts.
+/// package, or `pkg-one, pkg-two: /usr/bin/axolotl` when several packages own
+/// the same path. Every reported owner is kept, because keeping only the first
+/// one would hide an ambiguous ownership behind an arbitrary package name.
+/// Returns each owner's display name and the name `dpkg-query` accepts.
 #[cfg(target_os = "linux")]
-fn parse_dpkg_search(stdout: &str) -> Option<(String, String)> {
-    let first = stdout.lines().next()?.split(',').next()?.trim();
-    let (package, _path) = first.rsplit_once(": ")?;
-    let package = package.trim();
-    let name = package
-        .split_once(':')
-        .map_or(package, |(name, _architecture)| name);
-    if name.is_empty() {
-        return None;
+fn parse_dpkg_search(stdout: &str) -> Vec<(String, String)> {
+    let mut owners: Vec<(String, String)> = Vec::new();
+    for line in stdout.lines() {
+        let Some((packages, _path)) = line.rsplit_once(": ") else {
+            continue;
+        };
+        for package in packages.split(',') {
+            let package = package.trim();
+            let name = package
+                .split_once(':')
+                .map_or(package, |(name, _architecture)| name);
+            if name.is_empty() {
+                continue;
+            }
+            let owner = (name.to_string(), package.to_string());
+            if !owners.contains(&owner) {
+                owners.push(owner);
+            }
+        }
     }
-    Some((name.to_string(), package.to_string()))
+    owners
 }
 
 /// Parse `dpkg-query --show --showformat='${Version} ${Architecture}'`, which
@@ -687,20 +700,22 @@ fn parse_dpkg_fields(stdout: &str) -> (Option<String>, Option<String>) {
 }
 
 /// Parse `pacman --query --owns` output, which looks like
-/// `/usr/bin/axolotl is owned by axolotl-launcher-bin 1.10.1-1`.
+/// `/usr/bin/axolotl is owned by axolotl-launcher-bin 1.10.1-1`. Pacman prints
+/// one line per owning package, so every line is kept.
 #[cfg(target_os = "linux")]
-fn parse_pacman_owner(stdout: &str) -> Option<(String, Option<String>)> {
-    let line = stdout.lines().next()?.trim();
-    let (_, owned) = line.rsplit_once(" is owned by ")?;
-    let (name, version) = match owned.rsplit_once(' ') {
-        Some((name, version)) => (name, Some(version.to_string())),
-        None => (owned, None),
-    };
-    let name = name.trim();
-    if name.is_empty() {
-        return None;
-    }
-    Some((name.to_string(), version))
+fn parse_pacman_owners(stdout: &str) -> Vec<(String, Option<String>)> {
+    stdout
+        .lines()
+        .filter_map(|line| {
+            let (_, owned) = line.trim().rsplit_once(" is owned by ")?;
+            let (name, version) = match owned.rsplit_once(' ') {
+                Some((name, version)) => (name, Some(version.to_string())),
+                None => (owned, None),
+            };
+            let name = name.trim();
+            (!name.is_empty()).then(|| (name.to_string(), version))
+        })
+        .collect()
 }
 
 /// Parse the `Architecture` field out of `pacman --query --info`.
@@ -717,27 +732,28 @@ fn parse_pacman_architecture(stdout: &str) -> Option<String> {
 }
 
 /// Parse the `%{NAME} %{VERSION}-%{RELEASE} %{ARCH}` query format used for
-/// `rpm --query --file`.
+/// `rpm --query --file`. `rpm` answers with one line per owning package.
 #[cfg(target_os = "linux")]
-fn parse_rpm_record(
+fn parse_rpm_records(
     stdout: &str,
-) -> Option<(String, Option<String>, Option<String>)> {
-    let line = stdout.lines().next()?.trim();
-    if line.is_empty() {
-        return None;
-    }
-    let mut fields = line.split(' ');
-    let name = fields.next()?.trim();
-    if name.is_empty() {
-        return None;
-    }
-    let version = fields.next().filter(|value| !value.is_empty());
-    let architecture = fields.next().filter(|value| !value.is_empty());
-    Some((
-        name.to_string(),
-        version.map(str::to_string),
-        architecture.map(str::to_string),
-    ))
+) -> Vec<(String, Option<String>, Option<String>)> {
+    stdout
+        .lines()
+        .filter_map(|line| {
+            let mut fields = line.trim().split(' ');
+            let name = fields.next()?.trim();
+            if name.is_empty() {
+                return None;
+            }
+            let version = fields.next().filter(|value| !value.is_empty());
+            let architecture = fields.next().filter(|value| !value.is_empty());
+            Some((
+                name.to_string(),
+                version.map(str::to_string),
+                architecture.map(str::to_string),
+            ))
+        })
+        .collect()
 }
 
 /// Whether a path is a location only a system package or image places files
@@ -763,13 +779,32 @@ fn is_system_path(path: &std::path::Path) -> bool {
 
 #[cfg(target_os = "linux")]
 enum OwnerQuery {
-    Owned(OwnedPackage),
+    /// One or more packages this database reports as owning the path.
+    Owned(Vec<OwnedPackage>),
     /// The database answered and owns no package for this path.
     NotOwned,
     /// The database tool is not installed, so it says nothing about this file.
     Unavailable,
     /// The tool exists but answered with an unexpected error.
     Failed,
+}
+
+/// Whether a tool's exit status means "no package owns this path" and not a
+/// failure.
+///
+/// All three databases exit with status 1 for both cases, so the message has to
+/// decide. Reading a database error as "not owned" would let a package-managed
+/// launcher replace files the package manager owns.
+#[cfg(target_os = "linux")]
+fn exit_means_not_owned(output: &std::process::Output) -> bool {
+    let stderr = String::from_utf8_lossy(&output.stderr).to_ascii_lowercase();
+    [
+        "no path found matching pattern",
+        "no package owns",
+        "is not owned by any package",
+    ]
+    .iter()
+    .any(|needle| stderr.contains(needle))
 }
 
 #[cfg(target_os = "linux")]
@@ -826,31 +861,41 @@ fn query_dpkg(path: &str) -> OwnerQuery {
     };
     match output.status.code() {
         Some(0) => {}
-        Some(1) => return OwnerQuery::NotOwned,
+        Some(1) if exit_means_not_owned(&output) => {
+            return OwnerQuery::NotOwned;
+        }
         _ => return OwnerQuery::Failed,
     }
     let stdout = String::from_utf8_lossy(&output.stdout);
-    let Some((name, query_name)) = parse_dpkg_search(&stdout) else {
+    let owners: Vec<OwnedPackage> = parse_dpkg_search(&stdout)
+        .into_iter()
+        .map(|(name, query_name)| {
+            let (version, architecture) = run_command(
+                &tool,
+                &[
+                    "--show",
+                    "--showformat=${Version} ${Architecture}",
+                    &query_name,
+                ],
+            )
+            .filter(|output| output.status.success())
+            .map(|output| {
+                parse_dpkg_fields(&String::from_utf8_lossy(&output.stdout))
+            })
+            .unwrap_or((None, None));
+            OwnedPackage {
+                database: PackageDatabase::Dpkg,
+                frontend: dpkg_frontend(),
+                name,
+                version,
+                architecture,
+            }
+        })
+        .collect();
+    if owners.is_empty() {
         return OwnerQuery::Failed;
-    };
-    let (version, architecture) = run_command(
-        &tool,
-        &[
-            "--show",
-            "--showformat=${Version} ${Architecture}",
-            &query_name,
-        ],
-    )
-    .filter(|output| output.status.success())
-    .map(|output| parse_dpkg_fields(&String::from_utf8_lossy(&output.stdout)))
-    .unwrap_or((None, None));
-    OwnerQuery::Owned(OwnedPackage {
-        database: PackageDatabase::Dpkg,
-        frontend: dpkg_frontend(),
-        name,
-        version,
-        architecture,
-    })
+    }
+    OwnerQuery::Owned(owners)
 }
 
 #[cfg(target_os = "linux")]
@@ -863,26 +908,37 @@ fn query_pacman(path: &str) -> OwnerQuery {
     };
     match output.status.code() {
         Some(0) => {}
-        Some(1) => return OwnerQuery::NotOwned,
+        Some(1) if exit_means_not_owned(&output) => {
+            return OwnerQuery::NotOwned;
+        }
         _ => return OwnerQuery::Failed,
     }
     let stdout = String::from_utf8_lossy(&output.stdout);
-    let Some((name, version)) = parse_pacman_owner(&stdout) else {
+    let owners: Vec<OwnedPackage> = parse_pacman_owners(&stdout)
+        .into_iter()
+        .map(|(name, version)| {
+            let frontend = pacman_frontend(&tool, &name);
+            let architecture =
+                run_command(&tool, &["--query", "--info", &name])
+                    .filter(|output| output.status.success())
+                    .and_then(|output| {
+                        parse_pacman_architecture(&String::from_utf8_lossy(
+                            &output.stdout,
+                        ))
+                    });
+            OwnedPackage {
+                database: PackageDatabase::Pacman,
+                frontend,
+                name,
+                version,
+                architecture,
+            }
+        })
+        .collect();
+    if owners.is_empty() {
         return OwnerQuery::Failed;
-    };
-    let frontend = pacman_frontend(&tool, &name);
-    let architecture = run_command(&tool, &["--query", "--info", &name])
-        .filter(|output| output.status.success())
-        .and_then(|output| {
-            parse_pacman_architecture(&String::from_utf8_lossy(&output.stdout))
-        });
-    OwnerQuery::Owned(OwnedPackage {
-        database: PackageDatabase::Pacman,
-        frontend,
-        name,
-        version,
-        architecture,
-    })
+    }
+    OwnerQuery::Owned(owners)
 }
 
 #[cfg(target_os = "linux")]
@@ -904,25 +960,33 @@ fn query_rpm(path: &str) -> OwnerQuery {
     };
     match output.status.code() {
         Some(0) => {}
-        Some(1) => return OwnerQuery::NotOwned,
+        Some(1) if exit_means_not_owned(&output) => {
+            return OwnerQuery::NotOwned;
+        }
         _ => return OwnerQuery::Failed,
     }
     let stdout = String::from_utf8_lossy(&output.stdout);
-    let Some((name, version, architecture)) = parse_rpm_record(&stdout) else {
+    let owners: Vec<OwnedPackage> = parse_rpm_records(&stdout)
+        .into_iter()
+        .map(|(name, version, architecture)| OwnedPackage {
+            database: PackageDatabase::Rpm,
+            frontend: rpm_frontend(),
+            name,
+            version,
+            architecture,
+        })
+        .collect();
+    if owners.is_empty() {
         return OwnerQuery::Failed;
-    };
-    OwnerQuery::Owned(OwnedPackage {
-        database: PackageDatabase::Rpm,
-        frontend: rpm_frontend(),
-        name,
-        version,
-        architecture,
-    })
+    }
+    OwnerQuery::Owned(owners)
 }
 
 /// Ask every installed local package database whether it owns the running
 /// executable. Both the executable path and its canonical target are probed,
 /// because a package may record either the symlink or the file it points at.
+/// Every owner is kept: two databases, or two packages inside one database,
+/// claiming the same file is a conflict, not a choice.
 #[cfg(target_os = "linux")]
 fn probe_package_ownership(
     executable: &std::path::Path,
@@ -934,28 +998,28 @@ fn probe_package_ownership(
         paths.push(canonical);
     }
 
-    let mut owners = Vec::new();
+    let mut owners: Vec<OwnedPackage> = Vec::new();
     let mut failed = false;
     for database in [
         PackageDatabase::Dpkg,
         PackageDatabase::Pacman,
         PackageDatabase::Rpm,
     ] {
-        let mut owner = None;
-        let mut database_failed = false;
         for path in &paths {
             match query_owner(database, path) {
-                OwnerQuery::Owned(package) => {
-                    owner = Some(package);
-                    break;
+                OwnerQuery::Owned(packages) => {
+                    for package in packages {
+                        if !owners.iter().any(|existing| {
+                            existing.database == package.database
+                                && existing.name == package.name
+                        }) {
+                            owners.push(package);
+                        }
+                    }
                 }
                 OwnerQuery::NotOwned | OwnerQuery::Unavailable => {}
-                OwnerQuery::Failed => database_failed = true,
+                OwnerQuery::Failed => failed = true,
             }
-        }
-        match owner {
-            Some(package) => owners.push(package),
-            None => failed |= database_failed,
         }
     }
     (owners, failed)
@@ -970,14 +1034,16 @@ fn classify_install_source(
     failed: bool,
     system_path: bool,
 ) -> InstallSource {
+    // A database that could not answer leaves the source unresolved: a hit in
+    // another database does not prove that no other package owns the file.
+    if failed {
+        return InstallSource::QueryFailed;
+    }
     if owners.len() > 1 {
         return InstallSource::Conflict(owners);
     }
     if let Some(package) = owners.into_iter().next() {
         return InstallSource::Managed(package);
-    }
-    if failed {
-        return InstallSource::QueryFailed;
     }
     if system_path {
         return InstallSource::Unconfirmed;
@@ -987,6 +1053,35 @@ fn classify_install_source(
 
 fn env_present(key: &str) -> bool {
     std::env::var_os(key).is_some_and(|value| !value.is_empty())
+}
+
+/// Whether this process really runs from an AppImage.
+///
+/// `APPIMAGE` alone is not evidence: wrapper scripts and inherited
+/// environments export it, and treating those as an AppImage would let a
+/// package-managed launcher replace files the package manager owns. A real
+/// AppImage also exports `APPDIR` and runs from that mount, or, for runtimes
+/// that exec the image directly, is the image itself.
+#[cfg(target_os = "linux")]
+fn running_inside_appimage() -> bool {
+    let Some(image) = std::env::var_os("APPIMAGE")
+        .map(std::path::PathBuf::from)
+        .filter(|image| image.is_file())
+    else {
+        return false;
+    };
+    let Ok(executable) = std::env::current_exe() else {
+        return false;
+    };
+    let canonical = |path: &std::path::Path| {
+        path.canonicalize().unwrap_or_else(|_| path.to_path_buf())
+    };
+    if canonical(&executable) == canonical(&image) {
+        return true;
+    }
+    std::env::var_os("APPDIR")
+        .map(std::path::PathBuf::from)
+        .is_some_and(|appdir| appdir.is_dir() && executable.starts_with(appdir))
 }
 
 /// Debug builds only: `AXOLOTL_INSTALL_SOURCE` fakes an install source so the
@@ -1086,7 +1181,7 @@ fn detect_install_source_uncached() -> InstallSource {
 
     #[cfg(target_os = "linux")]
     {
-        if env_present("APPIMAGE") {
+        if running_inside_appimage() {
             return InstallSource::AppImage;
         }
         if std::path::Path::new("/.flatpak-info").exists()
@@ -1257,9 +1352,9 @@ mod tests {
 mod install_source_tests {
     use super::{
         InstallSource, OwnedPackage, PackageDatabase, PackageFrontend,
-        classify_install_source, is_system_path, parse_dpkg_fields,
-        parse_dpkg_search, parse_pacman_architecture, parse_pacman_owner,
-        parse_rpm_record,
+        classify_install_source, exit_means_not_owned, is_system_path,
+        parse_dpkg_fields, parse_dpkg_search, parse_pacman_architecture,
+        parse_pacman_owners, parse_rpm_records,
     };
 
     fn owned(
@@ -1278,23 +1373,36 @@ mod install_source_tests {
 
     #[test]
     fn dpkg_search_output_is_parsed() {
-        let owner = parse_dpkg_search("axolotl-launcher: /usr/bin/axolotl\n")
-            .expect("plain dpkg line should parse");
-        assert_eq!(owner.0, "axolotl-launcher");
-        assert_eq!(owner.1, "axolotl-launcher");
+        let plain = parse_dpkg_search("axolotl-launcher: /usr/bin/axolotl\n");
+        assert_eq!(plain.len(), 1);
+        assert_eq!(plain[0].0, "axolotl-launcher");
+        assert_eq!(plain[0].1, "axolotl-launcher");
 
         let qualified =
-            parse_dpkg_search("axolotl-launcher:amd64: /usr/bin/axolotl\n")
-                .expect("qualified dpkg line should parse");
-        assert_eq!(qualified.0, "axolotl-launcher");
-        assert_eq!(qualified.1, "axolotl-launcher:amd64");
+            parse_dpkg_search("axolotl-launcher:amd64: /usr/bin/axolotl\n");
+        assert_eq!(qualified[0].0, "axolotl-launcher");
+        assert_eq!(qualified[0].1, "axolotl-launcher:amd64");
 
-        let multi = parse_dpkg_search("pkg-one: /a, pkg-two: /b\n")
-            .expect("multi-owner line should parse");
-        assert_eq!(multi.0, "pkg-one");
+        // Several packages owning one path is ambiguity, so every owner is
+        // kept instead of the first one.
+        let shared = parse_dpkg_search("pkg-one, pkg-two: /usr/bin/axolotl\n");
+        assert_eq!(
+            shared
+                .iter()
+                .map(|(name, _)| name.as_str())
+                .collect::<Vec<_>>(),
+            vec!["pkg-one", "pkg-two"]
+        );
 
-        assert_eq!(parse_dpkg_search("garbage without a colon-space\n"), None);
-        assert_eq!(parse_dpkg_search(""), None);
+        let separate_lines = parse_dpkg_search(
+            "pkg-one: /usr/bin/axolotl\npkg-two: /usr/bin/axolotl\n",
+        );
+        assert_eq!(separate_lines.len(), 2);
+
+        assert!(
+            parse_dpkg_search("garbage without a colon-space\n").is_empty()
+        );
+        assert!(parse_dpkg_search("").is_empty());
     }
 
     #[test]
@@ -1312,21 +1420,32 @@ mod install_source_tests {
 
     #[test]
     fn pacman_owns_output_is_parsed() {
-        let owner = parse_pacman_owner(
+        let owners = parse_pacman_owners(
             "/usr/bin/axolotl is owned by axolotl-launcher-bin 1.10.1-1\n",
-        )
-        .expect("pacman line should parse");
-        assert_eq!(owner.0, "axolotl-launcher-bin");
-        assert_eq!(owner.1.as_deref(), Some("1.10.1-1"));
+        );
+        assert_eq!(owners.len(), 1);
+        assert_eq!(owners[0].0, "axolotl-launcher-bin");
+        assert_eq!(owners[0].1.as_deref(), Some("1.10.1-1"));
 
-        let bare = parse_pacman_owner("/usr/bin/x is owned by somepackage\n")
-            .expect("pacman line without a version should parse");
-        assert_eq!(bare.0, "somepackage");
-        assert_eq!(bare.1, None);
+        let bare = parse_pacman_owners("/usr/bin/x is owned by somepackage\n");
+        assert_eq!(bare[0].0, "somepackage");
+        assert_eq!(bare[0].1, None);
 
+        let shared = parse_pacman_owners(
+            "/usr/bin/x is owned by pkg-a 1-1\n\
+             /usr/bin/x is owned by pkg-b 2-1\n",
+        );
         assert_eq!(
-            parse_pacman_owner("error: No package owns /usr/bin/x\n"),
-            None
+            shared
+                .iter()
+                .map(|(name, _)| name.as_str())
+                .collect::<Vec<_>>(),
+            vec!["pkg-a", "pkg-b"]
+        );
+
+        assert!(
+            parse_pacman_owners("error: No package owns /usr/bin/x\n")
+                .is_empty()
         );
     }
 
@@ -1350,20 +1469,55 @@ mod install_source_tests {
 
     #[test]
     fn rpm_queryformat_output_is_parsed() {
-        let record =
-            parse_rpm_record("axolotl-launcher 1.10.1-1.fc43 x86_64\n")
-                .expect("rpm line should parse");
-        assert_eq!(record.0, "axolotl-launcher");
-        assert_eq!(record.1.as_deref(), Some("1.10.1-1.fc43"));
-        assert_eq!(record.2.as_deref(), Some("x86_64"));
+        let records =
+            parse_rpm_records("axolotl-launcher 1.10.1-1.fc43 x86_64\n");
+        assert_eq!(records.len(), 1);
+        assert_eq!(records[0].0, "axolotl-launcher");
+        assert_eq!(records[0].1.as_deref(), Some("1.10.1-1.fc43"));
+        assert_eq!(records[0].2.as_deref(), Some("x86_64"));
 
-        let name_only = parse_rpm_record("somepackage\n")
-            .expect("rpm line without fields should parse");
-        assert_eq!(name_only.0, "somepackage");
-        assert_eq!(name_only.1, None);
-        assert_eq!(name_only.2, None);
+        let name_only = parse_rpm_records("somepackage\n");
+        assert_eq!(name_only[0].0, "somepackage");
+        assert_eq!(name_only[0].1, None);
+        assert_eq!(name_only[0].2, None);
 
-        assert_eq!(parse_rpm_record("\n"), None);
+        let shared = parse_rpm_records("pkg-a 1-1 x86_64\npkg-b 2-1 x86_64\n");
+        assert_eq!(
+            shared
+                .iter()
+                .map(|(name, _, _)| name.as_str())
+                .collect::<Vec<_>>(),
+            vec!["pkg-a", "pkg-b"]
+        );
+
+        assert!(parse_rpm_records("\n").is_empty());
+    }
+
+    #[test]
+    fn exit_status_one_only_means_not_owned_when_the_tool_says_so() {
+        let run = |script: &str| {
+            std::process::Command::new("/bin/sh")
+                .args(["-c", script])
+                .output()
+                .expect("sh should run")
+        };
+
+        assert!(exit_means_not_owned(&run(
+            "echo 'dpkg-query: no path found matching pattern /usr/bin/x' >&2; \
+             exit 1"
+        )));
+        assert!(exit_means_not_owned(&run(
+            "echo 'error: No package owns /usr/bin/x' >&2; exit 1"
+        )));
+        assert!(exit_means_not_owned(&run(
+            "echo 'error: file /usr/bin/x is not owned by any package' >&2; \
+             exit 1"
+        )));
+        // A database that cannot answer must not be read as "no owner".
+        assert!(!exit_means_not_owned(&run(
+            "echo 'error: failed to open package info file' >&2; exit 1"
+        )));
+        assert!(!exit_means_not_owned(&run("exit 0")));
     }
 
     #[test]
@@ -1373,17 +1527,24 @@ mod install_source_tests {
             Some(PackageFrontend::Yay),
             "axolotl-launcher-bin",
         );
-        assert!(matches!(
+        // A hit in one database does not resolve the source while another
+        // database could not answer.
+        assert_eq!(
             classify_install_source(vec![package.clone()], true, true),
+            InstallSource::QueryFailed
+        );
+        assert!(matches!(
+            classify_install_source(vec![package.clone()], false, true),
             InstallSource::Managed(_)
         ));
 
+        let deb = owned(
+            PackageDatabase::Dpkg,
+            Some(PackageFrontend::Apt),
+            "axolotl-launcher",
+        );
         assert!(matches!(
-            classify_install_source(
-                vec![package.clone(), package],
-                false,
-                true
-            ),
+            classify_install_source(vec![package.clone(), deb], false, true),
             InstallSource::Conflict(_)
         ));
 

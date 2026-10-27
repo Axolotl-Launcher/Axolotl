@@ -561,6 +561,7 @@ pub(crate) async fn list_linked_modpack_content(
         version_id,
         &resolved.content_set,
         &state.data,
+        &state.pool,
         &state.api_semaphore,
     )
     .await
@@ -2597,6 +2598,7 @@ async fn get_modpack_identifiers(
     version_id: &str,
     content_set: &ContentSet,
     handle: &Handle,
+    pool: &SqlitePool,
     fetch_semaphore: &FetchSemaphore,
 ) -> crate::Result<ModpackIdentifiers> {
     let _cache_usage = crate::storage::usage::lease().await?;

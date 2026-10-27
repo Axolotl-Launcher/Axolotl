@@ -1,5 +1,6 @@
 import type { ContentItem } from '@modrinth/ui'
 import { invoke } from '@tauri-apps/api/core'
+
 import { get as getSettings } from '@/helpers/settings.ts'
 
 export interface ChineseSearchTranslation {

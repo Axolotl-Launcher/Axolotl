@@ -137,6 +137,15 @@ async fn fetch_package_asset(
         })?;
 
     let arch = std::env::consts::ARCH;
+    // The update catalog normalizes artifact architectures to the Rust names
+    // (`scripts/axolotl/create-update-server-catalog.mjs`), but deb and rpm
+    // metadata uses the package-manager spelling, so accept both spellings for
+    // those variants instead of assuming one catalog convention.
+    let accepted = match variant {
+        "deb" => vec![arch, deb_arch()?],
+        "rpm" => vec![arch, rpm_arch()?],
+        _ => vec![arch],
+    };
     let artifact = release
         .artifacts
         .iter()
@@ -144,7 +153,7 @@ async fn fetch_package_asset(
             entry.kind == "installer"
                 && entry.variant.as_deref() == Some(variant)
                 && entry.platform == "linux"
-                && entry.architecture == arch
+                && accepted.contains(&entry.architecture.as_str())
         })
         .ok_or_else(|| {
             theseus::Error::from(theseus::ErrorKind::OtherError(format!(

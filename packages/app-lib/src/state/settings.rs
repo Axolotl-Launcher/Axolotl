@@ -594,7 +594,6 @@ impl Settings {
             doh_enabled: self.doh_enabled,
             resource_chinese_filenames: self.resource_chinese_filenames,
             resource_preserve_filenames: self.resource_preserve_filenames,
-            hide_chinese_content_titles: self.hide_chinese_content_titles,
         })
     }
     /// The settings as they stand inside `unit`, for a caller that means to

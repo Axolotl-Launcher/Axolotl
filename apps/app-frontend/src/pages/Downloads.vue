@@ -222,7 +222,9 @@
                             type="colored"
                             color="brand"
                             size="2xs"
-                            :disabled="busy.has(job.job_id)"
+                            :disabled="
+                                busy.has(job.job_id) || !optionalFilesByJob.has(job.job_id)
+                            "
                             @click="confirmOptionalSelection(job)"
                             ><DownloadIcon />{{ formatMessage(messages.confirmOptionalSelection) }}
                         </Button>
@@ -778,6 +780,11 @@ const messages = defineMessages({
         id: 'app.downloads.confirm-optional-selection',
         defaultMessage: 'Install selected files',
     },
+    optionalFilesWaiting: {
+        id: 'app.downloads.optional-files-waiting',
+        defaultMessage:
+            '{count, plural, one {# optional file} other {# optional files}} to review',
+    },
     missingRequiredContent: {
         id: 'app.downloads.missing-required-content',
         defaultMessage:
@@ -1213,11 +1220,15 @@ async function ensureOptionalFiles(job: InstallJobSnapshot) {
         nextFiles.set(job.job_id, files)
         optionalFilesByJob.value = nextFiles
         const nextSkip = new Map(optionalSkipByJob.value)
-        nextSkip.set(
-            job.job_id,
-            new Set(files.filter((file) => !file.recommended).map((file) => file.itemId)),
-        )
-        optionalSkipByJob.value = nextSkip
+        if (!nextSkip.has(job.job_id)) {
+            nextSkip.set(
+                job.job_id,
+                new Set(
+                    files.filter((file) => !file.recommended).map((file) => file.itemId),
+                ),
+            )
+            optionalSkipByJob.value = nextSkip
+        }
     } catch {
         // The job may already be resolved; the next reconcile drops it from the list.
     }
@@ -1245,13 +1256,15 @@ function toggleOptionalFile(
 
 async function confirmOptionalSelection(job: InstallJobSnapshot) {
     const skippedPaths = [...(optionalSkipByJob.value.get(job.job_id) ?? [])]
-    await withBusy(job.job_id, () => manager.selectOptionalContent(job.job_id, skippedPaths))
-    const nextFiles = new Map(optionalFilesByJob.value)
-    nextFiles.delete(job.job_id)
-    optionalFilesByJob.value = nextFiles
-    const nextSkip = new Map(optionalSkipByJob.value)
-    nextSkip.delete(job.job_id)
-    optionalSkipByJob.value = nextSkip
+    await withBusy(job.job_id, async () => {
+        await manager.selectOptionalContent(job.job_id, skippedPaths)
+        const nextFiles = new Map(optionalFilesByJob.value)
+        nextFiles.delete(job.job_id)
+        optionalFilesByJob.value = nextFiles
+        const nextSkip = new Map(optionalSkipByJob.value)
+        nextSkip.delete(job.job_id)
+        optionalSkipByJob.value = nextSkip
+    })
 }
 
 watch(
@@ -1335,6 +1348,13 @@ function progressText(job: InstallJobSnapshot) {
     const textSource = installProgressTextSource(job)
     if (textSource.type === 'required_files') {
         return `${completedRequiredFiles(job)} / ${totalRequiredFiles(job)}`
+    }
+    if (textSource.type === 'optional_files') {
+        const count =
+            job.pause_reason?.type === 'optional_content_selection'
+                ? job.pause_reason.optional_files
+                : 0
+        return formatMessage(messages.optionalFilesWaiting, { count })
     }
     if (isLocalRecoveryValidation(job)) {
         const progress = effectiveInstallProgress(job)

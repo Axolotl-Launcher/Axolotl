@@ -162,7 +162,7 @@ pub async fn list_optional_modpack_files(
     job_id: Uuid,
 ) -> crate::Result<OptionalModpackContentView> {
     let state = State::get().await?;
-    let job = waiting_job(job_id, &state).await?;
+    let job = waiting_optional_job(job_id, &state).await?;
     let files = job
         .state
         .optional_content
@@ -997,22 +997,14 @@ fn missing_content_view(
     })
 }
 
-async fn waiting_job(
+async fn waiting_install_job(
     job_id: Uuid,
     state: &State,
 ) -> crate::Result<store::InstallJobRecord> {
     let job = store::get_required(job_id, state).await?;
     if job.status != InstallJobStatus::WaitingForUser {
         return Err(crate::ErrorKind::InputError(
-            "Missing modpack files can only be resolved while the job is waiting for user action"
-                .to_string(),
-        )
-        .into());
-    }
-    if job.state.missing_content.is_none() {
-        return Err(crate::ErrorKind::InputError(
-            "This job is not waiting for required Modrinth pack content"
-                .to_string(),
+            "This job is not waiting for user action".to_string(),
         )
         .into());
     }
@@ -1022,7 +1014,37 @@ async fn waiting_job(
             | InstallRequest::InstallPackToExistingInstance { .. }
     ) {
         return Err(crate::ErrorKind::InputError(
-            "Missing-content resolution is only available for modpack install jobs"
+            "Waiting-for-user resolution is only available for modpack install jobs"
+                .to_string(),
+        )
+        .into());
+    }
+    Ok(job)
+}
+
+async fn waiting_job(
+    job_id: Uuid,
+    state: &State,
+) -> crate::Result<store::InstallJobRecord> {
+    let job = waiting_install_job(job_id, state).await?;
+    if job.state.missing_content.is_none() {
+        return Err(crate::ErrorKind::InputError(
+            "This job is not waiting for required Modrinth pack content"
+                .to_string(),
+        )
+        .into());
+    }
+    Ok(job)
+}
+
+async fn waiting_optional_job(
+    job_id: Uuid,
+    state: &State,
+) -> crate::Result<store::InstallJobRecord> {
+    let job = waiting_install_job(job_id, state).await?;
+    if job.state.optional_content.is_none() {
+        return Err(crate::ErrorKind::InputError(
+            "This job is not waiting for optional Modrinth pack content"
                 .to_string(),
         )
         .into());

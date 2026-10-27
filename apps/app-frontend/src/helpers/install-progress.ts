@@ -22,6 +22,7 @@ export interface ProgressSnapshot {
 
 export interface ProgressTextSnapshot extends ProgressSnapshot {
     status: string
+    pause_reason?: { type: string } | null
     details?: { type: string; step?: string } | null
     summary: {
         files_completed: number
@@ -32,7 +33,7 @@ export interface ProgressTextSnapshot extends ProgressSnapshot {
 }
 
 export type InstallProgressTextSource =
-    | { type: 'required_files' | 'phase' }
+    | { type: 'required_files' | 'optional_files' | 'phase' }
     | { type: 'bytes' | 'items'; current: number; total: number }
 
 export function effectiveInstallProgress(
@@ -125,7 +126,11 @@ export function installProgressFraction(snapshot: ProgressSnapshot): number | nu
 export function installProgressTextSource(
     snapshot: ProgressTextSnapshot,
 ): InstallProgressTextSource {
-    if (snapshot.status === 'waiting_for_user') return { type: 'required_files' }
+    if (snapshot.status === 'waiting_for_user') {
+        return snapshot.pause_reason?.type === 'optional_content_selection'
+            ? { type: 'optional_files' }
+            : { type: 'required_files' }
+    }
 
     const isContentDownload = snapshot.phase === 'downloading_content'
     const isByteDownload =

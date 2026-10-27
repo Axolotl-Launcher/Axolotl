@@ -499,7 +499,7 @@ impl InstallProgressReporter {
         optional_content: Option<OptionalModpackContentState>,
     ) -> crate::Result<()> {
         let app_state = crate::State::get().await?;
-        let mut state = self.state.write().await;
+        let mut state = self.state.lock().await;
         state.job.optional_content = optional_content;
         let record =
             store::update_state(self.job_id, &state.job, &app_state).await?;

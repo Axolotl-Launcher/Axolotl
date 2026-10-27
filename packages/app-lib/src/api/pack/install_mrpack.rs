@@ -1258,6 +1258,10 @@ pub(crate) async fn install_zipped_mrpack_files_with_reporter(
             pack.files
                 .iter()
                 .map(|file| content_context.resolve_install_path(file))
+                .filter(|path| {
+                    !skipped_optional_content_paths.contains(path)
+                        && !skipped_missing_content_paths.contains(path)
+                })
                 .collect(),
         )
         .await?;
@@ -1628,7 +1632,12 @@ pub(crate) async fn install_zipped_mrpack_files_with_reporter(
                     return Ok(());
                 }
 
-                if skipped_optional_content_paths.contains(&project_path) {
+                let optional_on_client = project.env.as_ref().is_some_and(|env| {
+                    env.get(&EnvType::Client) == Some(&SideType::Optional)
+                });
+                if optional_on_client
+                    && skipped_optional_content_paths.contains(&project_path)
+                {
                     content_context
                         .mark_file_settled(
                             0,

@@ -17,6 +17,7 @@ const COMMANDS: &[&str] = &[
     "schematic_browser_list",
     "schematic_browser_detail",
     "schematic_browser_download_plan",
+    "schematic_browser_download_apply",
     "schematic_browser_cancel",
     "schematic_browser_capabilities",
     "schematic_browser_health",

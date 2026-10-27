@@ -142,6 +142,32 @@ pub async fn schematic_browser_download_plan(
 }
 
 #[tauri::command]
+pub async fn schematic_browser_download_apply(
+    instance_id: String,
+    source_id: String,
+    id: String,
+    size: Option<types::GenerateSize>,
+    request_id: String,
+) -> Result<String, String> {
+    let cancel = begin_request(&request_id);
+    refresh_proxy().await;
+    let source = parse_source(&source_id)?;
+    let path = schematic_browser::download::download_apply(
+        &instance_id,
+        source,
+        &id,
+        size,
+        &cancel,
+    )
+    .await;
+    // Remove the cancellation record before reporting, so a finished download
+    // does not leave an entry behind for the app's lifetime.
+    end_request(&request_id, &cancel);
+    let path = path.map_err(to_message)?;
+    Ok(path.to_str().ok_or("non-utf8 path")?.to_string())
+}
+
+#[tauri::command]
 pub fn schematic_browser_cancel(request_id: String) -> bool {
     let token = CANCELLATIONS.lock().unwrap().remove(&request_id);
     match token {
@@ -185,6 +211,7 @@ pub fn init<R: Runtime>() -> tauri::plugin::TauriPlugin<R> {
             schematic_browser_list,
             schematic_browser_detail,
             schematic_browser_download_plan,
+            schematic_browser_download_apply,
             schematic_browser_cancel,
             schematic_browser_capabilities,
             schematic_browser_health,

@@ -21,6 +21,7 @@
 //! scanner, so no new `ContentType` and no provider registration is needed.
 
 pub mod cache;
+pub mod download;
 pub mod error;
 pub mod http;
 pub mod net;

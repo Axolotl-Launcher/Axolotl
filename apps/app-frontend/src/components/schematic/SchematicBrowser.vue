@@ -18,6 +18,7 @@ import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import {
     applySchematicDownload,
     getSchematicCapabilities,
+    listAllSchematics,
     listSchematics,
     SCHEMATIC_SOURCE_IDS,
     SCHEMATIC_SOURCE_LABELS,
@@ -40,6 +41,7 @@ const messages = defineMessages({
     loading: { id: 'app.schematic.loading', defaultMessage: 'Loading…' },
     noResults: { id: 'app.schematic.no-results', defaultMessage: 'No schematics found.' },
     sourceLabel: { id: 'app.schematic.filter.source', defaultMessage: 'Source' },
+    allSources: { id: 'app.schematic.filter.all-sources', defaultMessage: 'All sources' },
     formatLabel: { id: 'app.schematic.filter.format', defaultMessage: 'Format' },
     versionLabel: { id: 'app.schematic.filter.game-version', defaultMessage: 'Game version' },
     sortDownloads: { id: 'app.schematic.sort.downloads', defaultMessage: 'Downloads' },
@@ -65,7 +67,6 @@ const PAGE_SIZE = 20
  */
 const base = injectBrowseManager()
 
-const source = ref<SchematicSourceId>('reden')
 const query = ref('')
 const currentPage = ref(1)
 const items = ref<SchematicItem[]>([])
@@ -114,11 +115,19 @@ let requestSeq = 0
 let isUnmounted = false
 
 function sourceFilterOptions() {
-    return SCHEMATIC_SOURCE_IDS.map((id) => ({
-        id,
-        formatted_name: SCHEMATIC_SOURCE_LABELS[id],
+    // "All sources" first, then each site, matching how the mods tab lists its
+    // providers.
+    return [
+        { id: 'all', formatted_name: formatMessage(messages.allSources) },
+        ...SCHEMATIC_SOURCE_IDS.map((id) => ({
+            id,
+            formatted_name: SCHEMATIC_SOURCE_LABELS[id],
+        })),
+    ].map((option) => ({
+        id: option.id,
+        formatted_name: option.formatted_name,
         method: 'or' as const,
-        value: id,
+        value: option.id,
     }))
 }
 
@@ -179,9 +188,13 @@ function chosenValues(filterId: string): string[] {
         .map((entry) => entry.option)
 }
 
-const chosenSource = computed<SchematicSourceId>(() => {
+/** `'all'` asks the backend to merge every source into one ordered page. */
+type SchematicSourceSelection = SchematicSourceId | 'all'
+
+const chosenSource = computed<SchematicSourceSelection>(() => {
     const picked = chosenValues('schematic_source')[0]
-    return (picked as SchematicSourceId | undefined) ?? source.value
+    if (picked === 'all') return 'all'
+    return (picked as SchematicSourceId | undefined) ?? 'all'
 })
 
 const chosenFormats = computed(() => chosenValues('schematic_format'))
@@ -212,12 +225,17 @@ async function load(reset: boolean) {
     searchError.value = null
     const targetPage = reset ? 1 : currentPage.value + 1
     try {
-        const payload = await listSchematics({
-            sourceId: chosenSource.value,
+        const args = {
             page: targetPage,
             pageSize: PAGE_SIZE,
             query: query.value || undefined,
-        })
+        }
+        // "All sources" is a backend call: merging three pages here would order
+        // them differently on every render.
+        const payload =
+            chosenSource.value === 'all'
+                ? await listAllSchematics(args)
+                : await listSchematics({ ...args, sourceId: chosenSource.value })
         if (seq !== requestSeq || isUnmounted) return
         cached.value = payload.cached
         if (reset) {

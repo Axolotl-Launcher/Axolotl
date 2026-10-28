@@ -107,6 +107,9 @@
   "app.schematic.detail.versions": {
     "message": "版本"
   },
+  "app.schematic.filter.all-sources": {
+    "message": "全部来源"
+  },
   "app.schematic.filter.format": {
     "message": "格式"
   },

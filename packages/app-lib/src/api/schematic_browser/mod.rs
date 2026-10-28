@@ -96,6 +96,129 @@ pub async fn list_many(
     (results, failures)
 }
 
+/// List every source and present the merged result as one page.
+///
+/// The tab's "all sources" option needs a single ordered list. Each source is
+/// asked for the same page number and the pages are merged, then ordered by
+/// download count with the title as the tie-break; that is what the caller
+/// shows, so paging stays predictable without a second round trip per source.
+pub async fn list_all(
+    query: &ListQuery,
+    cancel: &CancellationToken,
+) -> SourceResult<ListResult> {
+    let ids = SourceId::all();
+    let (results, failures) = list_many(&ids, query, cancel).await;
+
+    if results.is_empty() {
+        // Every source failed; report the first failure rather than an empty
+        // list, so the UI can offer a retry against a real reason.
+        let first = failures.first().ok_or_else(|| {
+            SchematicSourceError::unsupported("no schematic sources are available")
+        })?;
+        return Err(SchematicSourceError::unsupported(format!(
+            "every source failed ({}: {})",
+            first.code, first.message
+        )));
+    }
+
+    let mut items: Vec<SchematicItem> = results
+        .iter()
+        .flat_map(|result| result.items.iter().cloned())
+        .collect();
+    items.sort_by(|a, b| {
+        b.downloads
+            .unwrap_or(0)
+            .cmp(&a.downloads.unwrap_or(0))
+            .then_with(|| a.title.cmp(&b.title))
+    });
+
+    let total_value: u64 = results
+        .iter()
+        .filter_map(|result| result.total.value)
+        .sum();
+    let any_estimated = results
+        .iter()
+        .any(|result| result.total.precision != types::TotalPrecision::Exact);
+
+    let status = results[0].source_status.clone();
+    Ok(ListResult {
+        page: query.page,
+        has_more: results.iter().any(|result| result.has_more),
+        total: if any_estimated {
+            types::ResourceTotal::estimated(total_value)
+        } else if total_value > 0 {
+            types::ResourceTotal::exact(total_value)
+        } else {
+            types::ResourceTotal::unknown()
+        },
+        items,
+        source_status: status,
+        source_failures: failures,
+    })
+}
+
+/// Fetch a thumbnail and return it as a `data:` URI.
+///
+/// See [`http::get_bytes`] for why this has to happen in Rust rather than in the
+/// webview's `<img>`; the base64 hop keeps the component markup unchanged.
+pub async fn fetch_image(
+    url: &str,
+    referer: Option<&str>,
+    cancel: &CancellationToken,
+) -> SourceResult<String> {
+    let headers = match referer {
+        Some(value) => http::RequestHeaders::with_referer(value),
+        None => http::RequestHeaders::default(),
+    };
+    let bytes = http::get_bytes(url, &headers, cancel).await?;
+    let mime = sniff_image_mime(&bytes);
+    Ok(format!(
+        "data:{mime};base64,{}",
+        base64_encode(&bytes)
+    ))
+}
+
+/// Guess the MIME type from the magic bytes, defaulting to png.
+fn sniff_image_mime(bytes: &[u8]) -> &'static str {
+    if bytes.starts_with(&[0x89, b'P', b'N', b'G']) {
+        "image/png"
+    } else if bytes.starts_with(&[0xFF, 0xD8, 0xFF]) {
+        "image/jpeg"
+    } else if bytes.starts_with(b"GIF8") {
+        "image/gif"
+    } else if bytes.starts_with(b"RIFF") && bytes.get(8..12) == Some(b"WEBP") {
+        "image/webp"
+    } else {
+        "image/png"
+    }
+}
+
+/// Minimal base64 encoder, so the crate does not grow a dependency for one use.
+fn base64_encode(input: &[u8]) -> String {
+    const ALPHABET: &[u8; 64] =
+        b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    let mut out = String::with_capacity(input.len().div_ceil(3) * 4);
+    for chunk in input.chunks(3) {
+        let b0 = chunk[0] as u32;
+        let b1 = *chunk.get(1).unwrap_or(&0) as u32;
+        let b2 = *chunk.get(2).unwrap_or(&0) as u32;
+        let triple = (b0 << 16) | (b1 << 8) | b2;
+        out.push(ALPHABET[((triple >> 18) & 0x3F) as usize] as char);
+        out.push(ALPHABET[((triple >> 12) & 0x3F) as usize] as char);
+        out.push(if chunk.len() > 1 {
+            ALPHABET[((triple >> 6) & 0x3F) as usize] as char
+        } else {
+            '='
+        });
+        out.push(if chunk.len() > 2 {
+            ALPHABET[(triple & 0x3F) as usize] as char
+        } else {
+            '='
+        });
+    }
+    out
+}
+
 /// Read one item's detail.
 pub async fn detail(
     source_id: SourceId,

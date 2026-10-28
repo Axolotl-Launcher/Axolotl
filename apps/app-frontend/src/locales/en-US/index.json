@@ -107,6 +107,9 @@
   "app.schematic.detail.versions": {
     "message": "Versions"
   },
+  "app.schematic.filter.all-sources": {
+    "message": "All sources"
+  },
   "app.schematic.filter.format": {
     "message": "Format"
   },

@@ -15,6 +15,8 @@ const PLUGIN: &str = "schematic-browser";
 /// Every command the plugin exposes.
 const COMMANDS: &[&str] = &[
     "schematic_browser_list",
+    "schematic_browser_list_all",
+    "schematic_browser_image",
     "schematic_browser_detail",
     "schematic_browser_download_plan",
     "schematic_browser_download_apply",

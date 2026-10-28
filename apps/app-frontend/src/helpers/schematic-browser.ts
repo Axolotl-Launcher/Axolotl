@@ -141,6 +141,39 @@ export async function listSchematics(args: SchematicListArgs): Promise<Schematic
     })
 }
 
+/**
+ * Every source at once, merged and ordered by the backend.
+ *
+ * The tab's "all sources" option needs one ordered page; asking three times from
+ * the frontend would interleave pages differently on every call.
+ */
+export async function listAllSchematics(args: {
+    page?: number
+    pageSize?: number
+    query?: string
+    versions?: string[]
+}): Promise<SchematicListPayload> {
+    return invoke<SchematicListPayload>(`plugin:${PLUGIN}|schematic_browser_list_all`, {
+        page: args.page,
+        pageSize: args.pageSize,
+        query: args.query,
+        versions: args.versions,
+        requestId: nextRequestId(),
+    })
+}
+
+/**
+ * Thumbnails have to come through Rust: Reden rejects foreign origins and
+ * BuildSchematics sends no CORS headers, so an `<img src>` would stay blank.
+ */
+export async function getSchematicImage(url: string, referer?: string): Promise<string> {
+    return invoke<string>(`plugin:${PLUGIN}|schematic_browser_image`, {
+        url,
+        referer,
+        requestId: nextRequestId(),
+    })
+}
+
 export async function getSchematicDetail(
     sourceId: SchematicSourceId,
     id: string,

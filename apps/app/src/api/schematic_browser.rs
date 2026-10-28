@@ -112,6 +112,46 @@ pub async fn schematic_browser_list(
 }
 
 #[tauri::command]
+pub async fn schematic_browser_list_all(
+    page: Option<u32>,
+    page_size: Option<u32>,
+    query: Option<String>,
+    versions: Option<Vec<String>>,
+    request_id: String,
+) -> Result<ListPayload, String> {
+    let cancel = begin_request(&request_id);
+    refresh_proxy().await;
+    let list_query = types::ListQuery {
+        page: page.unwrap_or(1),
+        page_size: page_size.unwrap_or(0),
+        query,
+        versions: versions.unwrap_or_default(),
+    };
+    let result = schematic_browser::list_all(&list_query, &cancel).await;
+    end_request(&request_id, &cancel);
+    result.map(ListPayload::from).map_err(to_message)
+}
+
+/// Fetch one remote image and hand it back as a data URI.
+///
+/// The thumbnails these sources serve cannot be loaded by the webview directly:
+/// Reden rejects foreign origins and BuildSchematics sends no CORS headers, the
+/// same reason every other call goes through Rust. Returning a `data:` URI keeps
+/// the component a plain `<img>`.
+#[tauri::command]
+pub async fn schematic_browser_image(
+    url: String,
+    referer: Option<String>,
+    request_id: String,
+) -> Result<String, String> {
+    let cancel = begin_request(&request_id);
+    refresh_proxy().await;
+    let result = schematic_browser::fetch_image(&url, referer.as_deref(), &cancel).await;
+    end_request(&request_id, &cancel);
+    result.map_err(to_message)
+}
+
+#[tauri::command]
 pub async fn schematic_browser_detail(
     source_id: String,
     id: String,
@@ -209,6 +249,8 @@ pub fn init<R: Runtime>() -> tauri::plugin::TauriPlugin<R> {
     tauri::plugin::Builder::new("schematic-browser")
         .invoke_handler(tauri::generate_handler![
             schematic_browser_list,
+            schematic_browser_list_all,
+            schematic_browser_image,
             schematic_browser_detail,
             schematic_browser_download_plan,
             schematic_browser_download_apply,

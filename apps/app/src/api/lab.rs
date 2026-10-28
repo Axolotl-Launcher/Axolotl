@@ -62,16 +62,36 @@ pub struct TrialChamberScan {
 /// Name of the external program, without the platform extension.
 const PROGRAM: &str = "lysh";
 
-/// Locate the search program on `PATH`.
+/// Locate the search program.
 ///
-/// Windows also tries `.exe`; the other platforms use the bare name, which is
-/// what `PATH` lookup already expects.
-fn find_program() -> Option<PathBuf> {
-    let path = std::env::var_os("PATH")?;
+/// The launcher builds its own copy from the vendored submodule and ships it as
+/// an application resource, so that is checked first; `PATH` remains a fallback
+/// for someone who built the CLI themselves.
+fn find_program<R: tauri::Runtime>(
+    app: &tauri::AppHandle<R>,
+) -> Option<PathBuf> {
+    use tauri::Manager;
+
     let mut candidates: Vec<String> = vec![PROGRAM.to_string()];
     if cfg!(windows) {
         candidates.push(format!("{PROGRAM}.exe"));
     }
+
+    if let Ok(resources) = app.path().resource_dir() {
+        for root in [
+            resources.join("resources").join(PROGRAM),
+            resources.join(PROGRAM),
+        ] {
+            for name in &candidates {
+                let candidate = root.join(name);
+                if candidate.is_file() {
+                    return Some(candidate);
+                }
+            }
+        }
+    }
+
+    let path = std::env::var_os("PATH")?;
     for dir in std::env::split_paths(&path) {
         for name in &candidates {
             let candidate = dir.join(name);
@@ -84,8 +104,10 @@ fn find_program() -> Option<PathBuf> {
 }
 
 #[tauri::command]
-pub fn low_y_swamp_hut_available() -> bool {
-    find_program().is_some()
+pub fn low_y_swamp_hut_available<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+) -> bool {
+    find_program(&app).is_some()
 }
 
 /// Parse one `--list` line: `hit <rx> <rz> <x> <y> <z> <flooded>`.
@@ -114,7 +136,8 @@ fn parse_hit_line(line: &str) -> Option<SwampHutHit> {
 }
 
 #[tauri::command]
-pub async fn low_y_swamp_hut_scan(
+pub async fn low_y_swamp_hut_scan<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
     seed: String,
     regions: u32,
     threads: u32,
@@ -123,8 +146,8 @@ pub async fn low_y_swamp_hut_scan(
     max_y: Option<i32>,
     phase2_max_y: Option<i32>,
 ) -> Result<SwampHutScan, String> {
-    let program = find_program().ok_or_else(|| {
-        format!("the `{PROGRAM}` search program is not on PATH")
+    let program = find_program(&app).ok_or_else(|| {
+        format!("the `{PROGRAM}` search program is missing from this build")
     })?;
 
     let seed = seed.trim().to_string();

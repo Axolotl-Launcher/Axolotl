@@ -6,7 +6,8 @@
       "https://api.modrinth.com/v2/tag/loader",
       "https://api.modrinth.com/v2/tag/category",
       "https://api.modrinth.com/v2/tag/license"
-    ]
+    ],
+    "note": "omits one license, whose SPDX identifier the repository typos check reads as a misspelling of Matrix"
   },
   "modpacks.json": {
     "fetchedAt": "2026-10-23T11:35:41+00:00",

@@ -51,5 +51,3 @@ SHS = "SHS"
 # Herzegovina or the ISO 639-1 code for Bashkir.
 bs_ba = "bs_ba"
 ba_ru = "ba_ru"
-# SPDX license identifier in recorded Modrinth tags (web demo data).
-iMatix = "iMatix"

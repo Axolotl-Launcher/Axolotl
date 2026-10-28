@@ -37,7 +37,7 @@ export default defineConfig((env: ConfigEnv) => {
         },
         server: { port: 5202, strictPort: false },
         build: {
-            outDir: resolve(projectRoot, 'dist-demo'),
+            outDir: resolve(projectRoot, 'demo/dist'),
             emptyOutDir: true,
             target: 'es2022',
             rolldownOptions: {

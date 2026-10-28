@@ -4697,6 +4697,12 @@
   "app.lab.low-y-swamp-hut.column-z": {
     "message": "Z"
   },
+  "app.lab.low-y-swamp-hut.copied": {
+    "message": "Copied"
+  },
+  "app.lab.low-y-swamp-hut.copy-tp": {
+    "message": "Copy /tp"
+  },
   "app.lab.low-y-swamp-hut.description": {
     "message": "Find the swamp hut that generates lowest for a given world seed. The scan replays vanilla terrain generation, so it runs for the regions you ask for rather than the whole world."
   },
@@ -4715,6 +4721,18 @@
   "app.lab.low-y-swamp-hut.lowest": {
     "message": "Lowest Y: {y}"
   },
+  "app.lab.low-y-swamp-hut.max-y": {
+    "message": "Height threshold"
+  },
+  "app.lab.low-y-swamp-hut.max-y-hint": {
+    "message": "Phase one stops at this height. Lower values take longer to find candidates."
+  },
+  "app.lab.low-y-swamp-hut.phase2-max-y": {
+    "message": "Final height threshold"
+  },
+  "app.lab.low-y-swamp-hut.preset": {
+    "message": "World preset"
+  },
   "app.lab.low-y-swamp-hut.regions": {
     "message": "Regions"
   },
@@ -4726,6 +4744,15 @@
   },
   "app.lab.low-y-swamp-hut.scan": {
     "message": "Scan"
+  },
+  "app.lab.low-y-swamp-hut.scan-done-body": {
+    "message": "Found {count} huts for seed {seed}."
+  },
+  "app.lab.low-y-swamp-hut.scan-done-title": {
+    "message": "Swamp hut scan finished"
+  },
+  "app.lab.low-y-swamp-hut.scan-failed-title": {
+    "message": "Swamp hut scan failed"
   },
   "app.lab.low-y-swamp-hut.scanning": {
     "message": "Scanning…"
@@ -4739,6 +4766,9 @@
   "app.lab.low-y-swamp-hut.threads": {
     "message": "Threads"
   },
+  "app.lab.low-y-swamp-hut.threads-hint": {
+    "message": "Zero uses one worker per CPU core. Raising it can hit rate limits."
+  },
   "app.lab.low-y-swamp-hut.title": {
     "message": "Low-Y swamp hut"
   },
@@ -4747,6 +4777,9 @@
   },
   "app.lab.low-y-swamp-hut.unavailable-title": {
     "message": "Search program not found"
+  },
+  "app.lab.low-y-swamp-hut.version": {
+    "message": "Game version"
   },
   "app.lab.mod-translation.active-count": {
     "message": "{count} running"

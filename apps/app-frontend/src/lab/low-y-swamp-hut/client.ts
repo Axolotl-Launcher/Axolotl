@@ -13,15 +13,30 @@ import type { SwampHutScan } from './types'
 
 const PLUGIN = 'lab'
 
-export async function scanLowYSwampHut(
-    seed: string,
-    regions: number,
-    threads: number,
-): Promise<SwampHutScan> {
+/** Everything the search program accepts on its `scan` subcommand. */
+export interface SwampHutScanArgs {
+    seed: string
+    regions: number
+    threads: number
+    /** `26.2` | `1.21` | `1.20.1` | `1.19.2` | `1.18.2`; omitted means the default. */
+    version?: string
+    /** `NORMAL` | `LARGE_BIOMES` | `SINGLE_BIOME`. */
+    preset?: string
+    /** Phase-1 max height; the program clamps -50/-54 to -50 internally. */
+    maxY?: number
+    /** Final Y threshold for phase 2; defaults to `maxY` on the program side. */
+    phase2MaxY?: number
+}
+
+export async function scanLowYSwampHut(args: SwampHutScanArgs): Promise<SwampHutScan> {
     return invoke<SwampHutScan>(`plugin:${PLUGIN}|low_y_swamp_hut_scan`, {
-        seed,
-        regions,
-        threads,
+        seed: args.seed,
+        regions: args.regions,
+        threads: args.threads,
+        version: args.version,
+        preset: args.preset,
+        maxY: args.maxY,
+        phase2MaxY: args.phase2MaxY,
     })
 }
 

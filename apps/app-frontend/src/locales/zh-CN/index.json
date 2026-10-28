@@ -14,6 +14,12 @@
   "app.lab.low-y-swamp-hut.column-z": {
     "message": "Z"
   },
+  "app.lab.low-y-swamp-hut.copied": {
+    "message": "已复制"
+  },
+  "app.lab.low-y-swamp-hut.copy-tp": {
+    "message": "复制 /tp"
+  },
   "app.lab.low-y-swamp-hut.description": {
     "message": "为指定种子找出 Y 坐标最低的女巫小屋。扫描会重演原版地形生成，因此只跑你指定的区域数量。"
   },
@@ -32,6 +38,18 @@
   "app.lab.low-y-swamp-hut.lowest": {
     "message": "最低 Y：{y}"
   },
+  "app.lab.low-y-swamp-hut.max-y": {
+    "message": "高度阈值"
+  },
+  "app.lab.low-y-swamp-hut.max-y-hint": {
+    "message": "第一阶段到这个高度就停；调低会更慢。"
+  },
+  "app.lab.low-y-swamp-hut.phase2-max-y": {
+    "message": "最终高度阈值"
+  },
+  "app.lab.low-y-swamp-hut.preset": {
+    "message": "世界预设"
+  },
   "app.lab.low-y-swamp-hut.regions": {
     "message": "区域数"
   },
@@ -43,6 +61,15 @@
   },
   "app.lab.low-y-swamp-hut.scan": {
     "message": "开始扫描"
+  },
+  "app.lab.low-y-swamp-hut.scan-done-body": {
+    "message": "种子 {seed} 共找到 {count} 座。"
+  },
+  "app.lab.low-y-swamp-hut.scan-done-title": {
+    "message": "女巫小屋扫描完成"
+  },
+  "app.lab.low-y-swamp-hut.scan-failed-title": {
+    "message": "女巫小屋扫描失败"
   },
   "app.lab.low-y-swamp-hut.scanning": {
     "message": "扫描中…"
@@ -56,6 +83,9 @@
   "app.lab.low-y-swamp-hut.threads": {
     "message": "线程数"
   },
+  "app.lab.low-y-swamp-hut.threads-hint": {
+    "message": "0 表示按 CPU 核数跑；调高可能被限流。"
+  },
   "app.lab.low-y-swamp-hut.title": {
     "message": "低洼女巫小屋"
   },
@@ -64,6 +94,9 @@
   },
   "app.lab.low-y-swamp-hut.unavailable-title": {
     "message": "未找到搜索程序"
+  },
+  "app.lab.low-y-swamp-hut.version": {
+    "message": "游戏版本"
   },
   "app.resources.operation.review-issues": {
     "message": "安装问题详情"

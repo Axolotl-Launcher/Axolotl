@@ -234,14 +234,19 @@ fn java_is_new_enough(java: &Path) -> bool {
     major.map(|value| value >= JAVA_MAJOR).unwrap_or(false)
 }
 
-/// Directory holding the unpacked trial-chamber program, if it is installed.
+/// Directory holding the trial-chamber program, if it is installed.
 ///
-/// The program is searched for next to the launcher's data directory because it
-/// ships as a zip the launcher can unpack on demand.
-fn trial_program_dir() -> Option<PathBuf> {
-    let data = std::env::var_os("AXOLOTL_DATA_DIR").map(PathBuf::from)?;
-    let dir = data.join("trial-spawner-finder");
-    dir.is_dir().then_some(dir)
+/// The jars are built from the `third-party/trial-spawner-finder` submodule at
+/// build time and shipped as application resources, so they live beside the
+/// executable rather than in the data directory.
+fn trial_program_dir(app: &tauri::AppHandle) -> Option<PathBuf> {
+    use tauri::Manager;
+    let resources = app.path().resource_dir().ok()?;
+    let candidates = [
+        resources.join("resources").join("trial-spawner-finder"),
+        resources.join("trial-spawner-finder"),
+    ];
+    candidates.into_iter().find(|dir| dir.is_dir())
 }
 
 /// Parse the program's CSV.
@@ -304,14 +309,16 @@ fn parse_trial_csv(text: &str) -> Vec<TrialChamberHit> {
 }
 
 #[tauri::command]
-pub fn trial_chamber_available() -> bool {
-    find_java()
+pub fn trial_chamber_available(app: tauri::AppHandle) -> bool {
+    let has_java = find_java()
         .map(|java| java_is_new_enough(&java))
-        .unwrap_or(false)
+        .unwrap_or(false);
+    has_java && trial_program_dir(&app).is_some()
 }
 
 #[tauri::command]
 pub async fn trial_chamber_find(
+    app: tauri::AppHandle,
     seed: String,
     radius: u32,
     threads: u32,
@@ -324,8 +331,8 @@ pub async fn trial_chamber_find(
             "the installed Java is older than {JAVA_MAJOR}; install JDK {JAVA_MAJOR} or newer"
         ));
     }
-    let program = trial_program_dir().ok_or_else(|| {
-        "the trial-chamber program is not installed yet".to_string()
+    let program = trial_program_dir(&app).ok_or_else(|| {
+        "the trial-chamber program is missing from this build".to_string()
     })?;
     let jar = program.join("trial-spawner-finder.jar");
     if !jar.is_file() {

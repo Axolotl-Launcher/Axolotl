@@ -133,3 +133,6 @@ start-dev.ps1
 .workbuddy-ai/
 
 apps/app/resources/seed-map/
+
+# Built from the trial-spawner-finder submodule at package time
+apps/app/resources/trial-spawner-finder/

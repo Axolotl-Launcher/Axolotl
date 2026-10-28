@@ -12,7 +12,10 @@
     "copyright": "",
     "targets": "all",
     "externalBin": [],
-    "resources": ["resources/blockbench-skin"],
+    "resources": [
+      "resources/blockbench-skin",
+      "resources/trial-spawner-finder"
+    ],
     "icon": [
       "icons/128x128.png",
       "icons/128x128@2x.png",

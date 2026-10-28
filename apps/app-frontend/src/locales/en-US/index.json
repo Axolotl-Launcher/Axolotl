@@ -10637,6 +10637,15 @@
   "app.settings.about.version": {
     "message": "Version {version}"
   },
+  "app.settings.content-display.chinese-titles": {
+    "message": "Hide Chinese names in content lists"
+  },
+  "app.settings.content-display.chinese-titles-description": {
+    "message": "Show the original project title instead of the known Chinese name."
+  },
+  "app.settings.content-display.title": {
+    "message": "Content display"
+  },
   "app.settings.defaults.automatic-memory": {
     "message": "Automatically allocate memory at launch"
   },

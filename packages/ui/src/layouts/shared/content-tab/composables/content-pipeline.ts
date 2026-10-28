@@ -31,6 +31,7 @@ export interface ContentPipelineConfig {
     showTypeFilters?: boolean
     showUpdateFilter?: boolean
     memoryKey?: string
+    /** Fields the local search matches. `chinese_title` keeps dictionary names searchable when titles are not localized. */
     searchKeys?: string[]
     initialFilters?: ContentFilterSelections
     filterOptionsReady?: Ref<boolean> | ComputedRef<boolean>
@@ -80,7 +81,7 @@ export function useContentPipeline(config: ContentPipelineConfig) {
         showTypeFilters = false,
         showUpdateFilter = false,
         memoryKey = '',
-        searchKeys = ['project.title', 'owner.name', 'file_name'],
+        searchKeys = ['project.title', 'owner.name', 'file_name', 'chinese_title'],
         initialFilters,
         filterOptionsReady,
     } = config

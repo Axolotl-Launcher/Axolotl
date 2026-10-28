@@ -161,6 +161,26 @@ async fn nametag_app_font_setting_defaults_off_and_round_trips() {
 }
 
 #[tokio::test]
+async fn hide_chinese_content_titles_defaults_off_and_round_trips() {
+    let pool = sqlx::sqlite::SqlitePoolOptions::new()
+        .max_connections(1)
+        .connect("sqlite::memory:")
+        .await
+        .unwrap();
+    sqlx::migrate!().run(&pool).await.unwrap();
+    let handle = Handle::new(pool.clone());
+
+    let mut settings = Settings::get(&handle).await.unwrap();
+    assert!(!settings.hide_chinese_content_titles);
+
+    settings.hide_chinese_content_titles = true;
+    settings.update(&handle).await.unwrap();
+
+    let reloaded = Settings::get(&handle).await.unwrap();
+    assert!(reloaded.hide_chinese_content_titles);
+}
+
+#[tokio::test]
 async fn lightweight_mode_migration_upgrades_existing_settings_database() {
     let pool = sqlx::sqlite::SqlitePoolOptions::new()
         .max_connections(1)

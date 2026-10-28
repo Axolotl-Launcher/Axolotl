@@ -511,6 +511,16 @@ export const settingsSearchEntries: SettingsSearchEntry[] = [
         label: message('app.translation-settings.display-section-title', 'Translation display'),
     },
     {
+        id: 'content-display-chinese-titles',
+        categoryId: 'language-translation',
+        targetId: 'settings-target-content-titles',
+        label: message(
+            'app.settings.content-display.chinese-titles',
+            'Hide Chinese names in content lists',
+        ),
+        keywords: [message('app.settings.content-display.title', 'Content display')],
+    },
+    {
         id: 'ai-providers',
         categoryId: 'ai',
         targetId: 'settings-target-ai-providers',

@@ -21,7 +21,11 @@ import {
 const settingsComponentFiles = {
     interface: ['./AppearanceSettings.vue'],
     'home-navigation': ['./AppearanceSettings.vue'],
-    'language-translation': ['./LanguageSettings.vue', './TranslationSettings.vue'],
+    'language-translation': [
+        './LanguageSettings.vue',
+        './TranslationSettings.vue',
+        './ContentDisplaySettings.vue',
+    ],
     ai: ['./AISettings.vue'],
     mcp: ['./McpSettings.vue'],
     'shortcut-settings': ['./KeybindSettings.vue'],

@@ -9347,6 +9347,15 @@
   "app.settings.about.version": {
     "message": "版本 {version}"
   },
+  "app.settings.content-display.chinese-titles": {
+    "message": "隐藏内容列表中的中文译名"
+  },
+  "app.settings.content-display.chinese-titles-description": {
+    "message": "只显示项目原名，不再附加已知的中文译名。"
+  },
+  "app.settings.content-display.title": {
+    "message": "内容显示"
+  },
   "app.settings.defaults.automatic-memory": {
     "message": "启动时自动分配内存"
   },

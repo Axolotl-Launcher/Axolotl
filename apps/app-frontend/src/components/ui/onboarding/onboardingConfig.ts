@@ -1,7 +1,8 @@
 import { defineMessages, type MessageDescriptor } from '@modrinth/ui'
 
 export type OnboardingInteraction = 'manual' | 'navigate' | 'activate' | 'inspect'
-export type OnboardingMode = 'main' | 'instance' | 'logagent' | 'seed-map' | 'brewing'
+export type OnboardingMode =
+    'main' | 'instance' | 'logagent' | 'seed-map' | 'brewing' | 'schematic-browse'
 export type CreationPath = 'custom'
 export type StepDestination = string | 'complete'
 
@@ -59,6 +60,24 @@ export const onboardingMessages = defineMessages({
         id: 'app.onboarding.brewing.description',
         defaultMessage:
             'Choose an input, reagent and output. Potion conditions are optional, and output components can be edited as validated JSON. Brewing recipes require Minecraft 26.3.',
+    },
+    schematicBrowseTitle: {
+        id: 'app.onboarding.schematic-browse.title',
+        defaultMessage: 'Browse schematics',
+    },
+    schematicBrowseDescription: {
+        id: 'app.onboarding.schematic-browse.description',
+        defaultMessage:
+            'Pick a source on the left, or keep All sources to search every site at once. The list uses the same cards, filters and layout as the mods tab.',
+    },
+    schematicDownloadTitle: {
+        id: 'app.onboarding.schematic-download.title',
+        defaultMessage: 'Download into an instance',
+    },
+    schematicDownloadDescription: {
+        id: 'app.onboarding.schematic-download.description',
+        defaultMessage:
+            'Choose an instance first, then use the green button on a card. Files land in the instance’s schematics folder, ready for Litematica. Tick several cards to download them together.',
     },
     logagentSourceTitle: {
         id: 'app.onboarding.logagent-source.title',
@@ -584,6 +603,20 @@ export const onboardingTours: Record<OnboardingMode, OnboardingStep[]> = {
             'logagent-settings-cloud',
             onboardingMessages.logagentCloudTitle,
             onboardingMessages.logagentCloudDescription,
+        ),
+    ],
+    'schematic-browse': [
+        inspect(
+            'schematic-browse-sources',
+            'schematic-source-filter',
+            onboardingMessages.schematicBrowseTitle,
+            onboardingMessages.schematicBrowseDescription,
+        ),
+        inspect(
+            'schematic-browse-download',
+            'schematic-download-action',
+            onboardingMessages.schematicDownloadTitle,
+            onboardingMessages.schematicDownloadDescription,
         ),
     ],
     main: [

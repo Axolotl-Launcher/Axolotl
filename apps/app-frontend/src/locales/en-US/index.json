@@ -41,6 +41,18 @@
   "app.mcp.debug-full-access": {
     "message": "Preview full access (does not change real permissions)"
   },
+  "app.onboarding.schematic-browse.description": {
+    "message": "Pick a source on the left, or keep All sources to search every site at once. The list uses the same cards, filters and layout as the mods tab."
+  },
+  "app.onboarding.schematic-browse.title": {
+    "message": "Browse schematics"
+  },
+  "app.onboarding.schematic-download.description": {
+    "message": "Choose an instance first, then use the green button on a card. Files land in the instance's schematics folder, ready for Litematica. Tick several cards to download them together."
+  },
+  "app.onboarding.schematic-download.title": {
+    "message": "Download into an instance"
+  },
   "app.schematic.batch.download-count": {
     "message": "Download {count, plural, one {# schematic} other {# schematics}}"
   },

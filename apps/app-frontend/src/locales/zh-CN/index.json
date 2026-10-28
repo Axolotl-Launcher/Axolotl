@@ -41,6 +41,18 @@
   "app.mcp.debug-full-access": {
     "message": "预览完全访问模式（不改变实际权限）"
   },
+  "app.onboarding.schematic-browse.description": {
+    "message": "在左侧选择来源，或保持「全部来源」一次搜索所有站点。列表与模组栏目用同一套卡片、筛选与布局。"
+  },
+  "app.onboarding.schematic-browse.title": {
+    "message": "浏览投影"
+  },
+  "app.onboarding.schematic-download.description": {
+    "message": "先选择实例，再点卡片上的绿色按钮。文件会放进实例的 schematics 目录，Litematica 直接可用。勾选多张卡片可批量下载。"
+  },
+  "app.onboarding.schematic-download.title": {
+    "message": "下载到实例"
+  },
   "app.schematic.batch.download-count": {
     "message": "下载 {count} 个投影"
   },

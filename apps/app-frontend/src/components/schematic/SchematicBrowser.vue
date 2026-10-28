@@ -553,7 +553,10 @@ function openDetail(item: SchematicItem) {
 <template>
     <BrowsePageLayout>
         <template #search-bar-actions>
-            <div class="flex flex-wrap items-center gap-2">
+            <div
+                data-onboarding-id="schematic-source-filter"
+                class="flex flex-wrap items-center gap-2"
+            >
                 <Button
                     v-for="id in SCHEMATIC_SOURCE_IDS"
                     :key="id"
@@ -572,7 +575,10 @@ function openDetail(item: SchematicItem) {
         </template>
 
         <template #above-results>
-            <div class="mb-3 flex flex-wrap items-center gap-2">
+            <div
+                data-onboarding-id="schematic-download-action"
+                class="mb-3 flex flex-wrap items-center gap-2"
+            >
                 <span v-if="cached" class="rounded bg-surface-4 px-2 py-1 text-xs">{{
                     formatMessage(messages.cached)
                 }}</span>

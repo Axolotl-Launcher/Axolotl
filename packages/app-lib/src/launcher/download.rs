@@ -2059,7 +2059,14 @@ pub async fn download_assets(
             )
             .await;
         }
-        let route = routes.into_iter().next();
+        // Batching runs on the native HTTP/2 transport, which refuses routes it
+        // cannot serve (a custom certificate policy, a proxy, or an authority
+        // that fell back to HTTP/1.1). That refusal aborts the whole batch, so
+        // an ineligible route is dropped here and the per-file path below
+        // downloads those assets instead of failing the install.
+        let route = routes.into_iter().next().filter(|route| {
+            crate::util::download::native::h2_ineligible_reason(route).is_none()
+        });
         if let Some(route) = route {
             // Resolve each item's URL onto the chosen route (official or
             // mirror) so the batch reuses one connection to that authority.

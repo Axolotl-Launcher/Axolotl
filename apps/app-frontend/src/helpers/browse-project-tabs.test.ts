@@ -14,6 +14,7 @@ const labels = {
     maps: 'Maps',
     shaders: 'Shaders',
     servers: 'Servers',
+    schematics: 'Litematica',
     favorites: 'Favorites',
 }
 
@@ -28,6 +29,7 @@ it('browse project tabs keep favorites after servers and preserve the route cont
         'Maps',
         'Shaders',
         'Servers',
+        'Litematica',
         'Favorites',
     ])
     expect(tabs.at(-1)?.href).toBe('/browse/favorites?i=instance-id')

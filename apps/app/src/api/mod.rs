@@ -18,6 +18,7 @@ pub mod mr_auth;
 pub mod multiplayer;
 pub mod planet_minecraft;
 pub mod process;
+pub mod schematic_browser;
 pub mod schematic_preview;
 pub mod seed_map;
 pub mod servers;

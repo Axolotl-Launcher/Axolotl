@@ -56,6 +56,7 @@ import type { LocationQuery } from 'vue-router'
 import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router'
 
 import BrowseInstanceSelector from '@/components/browse/BrowseInstanceSelector.vue'
+import SchematicBrowser from '@/components/schematic/SchematicBrowser.vue'
 import ContextMenu from '@/components/ui/ContextMenu.vue'
 import InstanceIcon from '@/components/ui/InstanceIcon.vue'
 import { useAppServerBrowse } from '@/composables/browse/use-app-server-browse'
@@ -160,7 +161,9 @@ const route = useRoute()
 void contentFavorites.load().catch(handleError)
 const projectType = ref<ProjectType>(route.params.projectType as ProjectType)
 const WORLD_BROWSE_PROJECT_TYPE = 'world' as ProjectType
+const SCHEMATIC_BROWSE_PROJECT_TYPE = 'schematic' as ProjectType
 const isWorldMapBrowse = computed(() => projectType.value === WORLD_BROWSE_PROJECT_TYPE)
+const isSchematicBrowse = computed(() => projectType.value === SCHEMATIC_BROWSE_PROJECT_TYPE)
 const isWorldMapContext = computed(() => route.query.from === 'world-maps')
 
 function rememberBrowseContentProjectType(type: ProjectType) {
@@ -319,6 +322,8 @@ const mcArchiveGameVersions = ref<McArchiveGameVersion[]>([])
 
 async function loadFilterMetadata(type: ProjectType, source: BrowseContentSource) {
     if (type === WORLD_BROWSE_PROJECT_TYPE) return
+    // The schematic tab answers from the schematic-browser IPC, never Modrinth.
+    if (type === SCHEMATIC_BROWSE_PROJECT_TYPE) return
     const requests: Promise<unknown>[] = [
         get_game_versions().then((versions) => {
             if (!isUnmounted) availableGameVersions.value = versions
@@ -965,6 +970,10 @@ const messages = defineMessages({
         id: 'app.browse.project-type.servers',
         defaultMessage: 'Servers',
     },
+    schematicsProjectType: {
+        id: 'app.browse.project-type.schematics',
+        defaultMessage: 'Litematica',
+    },
     favoritesProjectType: {
         id: 'app.browse.project-type.favorites',
         defaultMessage: 'Favorites',
@@ -1245,14 +1254,18 @@ const selectableProjectTypes = computed(() => {
             maps: formatMessage(messages.mapsProjectType),
             shaders: formatMessage(messages.shadersProjectType),
             servers: formatMessage(messages.serversProjectType),
+            schematics: formatMessage(messages.schematicsProjectType),
             favorites: formatMessage(messages.favoritesProjectType),
         },
         suffix,
-        getBrowseProjectTabOptions({
-            instance: activeInstance.value,
-            hasInstanceContext: !!instance.value,
-            isServerInstance: isServerInstance.value,
-        }),
+        {
+            ...getBrowseProjectTabOptions({
+                instance: activeInstance.value,
+                hasInstanceContext: !!instance.value,
+                isServerInstance: isServerInstance.value,
+            }),
+            schematic: themeStore.getFeatureFlag('schematic_browser'),
+        },
     )
 })
 
@@ -2297,6 +2310,15 @@ let normalizingSource = false
 async function prepareBrowseContext(previousType = projectType.value) {
     const type = projectType.value
     const version = ++sourceRequestVersion
+    // The schematic tab renders SchematicBrowser, which owns its own IPC-driven
+    // state; the Modrinth search pipeline must stay fully off for it.
+    if (type === SCHEMATIC_BROWSE_PROJECT_TYPE) {
+        searchEnabled.value = false
+        searchState.loading.value = false
+        searchState.searchError.value = null
+        filterMetadataStatus.value = 'ready'
+        return
+    }
     filterMetadataStatus.value = 'loading'
     searchEnabled.value = false
     searchState.loading.value = true
@@ -2668,8 +2690,13 @@ provideBrowseManager({
 
 <template>
     <div data-onboarding-id="browse-content" class="flex flex-col gap-3 p-6">
+        <SchematicBrowser
+            v-if="isSchematicBrowse"
+            :instance-id="activeInstance?.id ?? null"
+            :instance-game-version="activeInstance?.game_version ?? null"
+        />
         <BrowsePageLayout
-            v-if="!filtersReady || !isWorldMapBrowse || curseForgeCapability.configured"
+            v-else-if="!filtersReady || !isWorldMapBrowse || curseForgeCapability.configured"
         >
             <template #nav-tabs-actions>
                 <Button
@@ -2772,7 +2799,7 @@ provideBrowseManager({
             </template>
         </BrowsePageLayout>
         <EmptyState
-            v-else
+            v-else-if="isWorldMapBrowse"
             type="empty-inbox"
             :heading="formatMessage(messages.mapsUnavailable)"
             :description="formatMessage(messages.mapsUnavailableDescription)"
@@ -2809,7 +2836,7 @@ provideBrowseManager({
             @select="selectTargetInstance"
             @cancel-switch="cancelTargetInstanceSwitch"
         />
-        <Teleport to="#sidebar-teleport-target">
+        <Teleport v-if="!isSchematicBrowse" to="#sidebar-teleport-target">
             <BrowseSidebar />
         </Teleport>
     </div>

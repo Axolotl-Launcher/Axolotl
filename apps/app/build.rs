@@ -876,6 +876,24 @@ fn main() {
                     ),
             )
             .plugin(
+                "schematic-browser",
+                InlinedPlugin::new()
+                    .commands(&[
+                        "schematic_browser_list",
+                        "schematic_browser_list_all",
+                        "schematic_browser_image",
+                        "schematic_browser_detail",
+                        "schematic_browser_download_plan",
+                        "schematic_browser_download_apply",
+                        "schematic_browser_cancel",
+                        "schematic_browser_capabilities",
+                        "schematic_browser_health",
+                    ])
+                    .default_permission(
+                        DefaultPermissionRule::AllowAllCommands,
+                    ),
+            )
+            .plugin(
                 "schematic-preview",
                 InlinedPlugin::new()
                     .commands(&[

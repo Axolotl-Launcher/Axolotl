@@ -886,6 +886,7 @@ fn main() {
         .plugin(api::storage::init())
         .plugin(api::system_accent::init())
         .plugin(api::seed_map::init())
+        .plugin(api::schematic_browser::init())
         .plugin(api::schematic_preview::init())
         .plugin(api::shortcuts::init())
         .plugin(api::tags::init())

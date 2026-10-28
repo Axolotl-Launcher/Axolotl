@@ -2,6 +2,69 @@
   "app.drop.minecraft-root-added": {
     "message": "已添加 Minecraft 文件夹"
   },
+  "app.lab.low-y-swamp-hut.column-distance": {
+    "message": "距离"
+  },
+  "app.lab.low-y-swamp-hut.column-x": {
+    "message": "X"
+  },
+  "app.lab.low-y-swamp-hut.column-y": {
+    "message": "Y"
+  },
+  "app.lab.low-y-swamp-hut.column-z": {
+    "message": "Z"
+  },
+  "app.lab.low-y-swamp-hut.description": {
+    "message": "为指定种子找出 Y 坐标最低的女巫小屋。扫描会重演原版地形生成，因此只跑你指定的区域数量。"
+  },
+  "app.lab.low-y-swamp-hut.elapsed": {
+    "message": "耗时 {ms} 毫秒"
+  },
+  "app.lab.low-y-swamp-hut.empty-body": {
+    "message": "输入种子并开始扫描，即可看到女巫小屋的位置。"
+  },
+  "app.lab.low-y-swamp-hut.empty-title": {
+    "message": "还没有结果"
+  },
+  "app.lab.low-y-swamp-hut.failed": {
+    "message": "扫描失败：{reason}"
+  },
+  "app.lab.low-y-swamp-hut.lowest": {
+    "message": "最低 Y：{y}"
+  },
+  "app.lab.low-y-swamp-hut.regions": {
+    "message": "区域数"
+  },
+  "app.lab.low-y-swamp-hut.regions-hint": {
+    "message": "一个区域跨 512 格，区域越多扫描越久。"
+  },
+  "app.lab.low-y-swamp-hut.results": {
+    "message": "女巫小屋（从低到高）"
+  },
+  "app.lab.low-y-swamp-hut.scan": {
+    "message": "开始扫描"
+  },
+  "app.lab.low-y-swamp-hut.scanning": {
+    "message": "扫描中…"
+  },
+  "app.lab.low-y-swamp-hut.seed": {
+    "message": "世界种子"
+  },
+  "app.lab.low-y-swamp-hut.seed-placeholder": {
+    "message": "种子，可为数字或文本"
+  },
+  "app.lab.low-y-swamp-hut.threads": {
+    "message": "线程数"
+  },
+  "app.lab.low-y-swamp-hut.title": {
+    "message": "低洼女巫小屋"
+  },
+  "app.lab.low-y-swamp-hut.unavailable-body": {
+    "message": "该工具需要 LowYSwampHut 搜索程序，当前未安装。请把 `lysh` 放到 PATH 后重载页面。"
+  },
+  "app.lab.low-y-swamp-hut.unavailable-title": {
+    "message": "未找到搜索程序"
+  },
   "app.resources.operation.review-issues": {
     "message": "安装问题详情"
   },

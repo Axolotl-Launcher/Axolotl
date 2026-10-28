@@ -8,6 +8,7 @@ pub mod import;
 pub mod install;
 pub mod instance;
 pub mod jre;
+pub mod lab;
 pub mod logs;
 pub mod mcarchive;
 pub mod mcp;

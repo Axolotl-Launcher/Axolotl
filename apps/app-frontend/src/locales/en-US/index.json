@@ -4685,6 +4685,69 @@
   "app.lab.gradient-text.title": {
     "message": "Gradient text generator"
   },
+  "app.lab.low-y-swamp-hut.column-distance": {
+    "message": "Distance"
+  },
+  "app.lab.low-y-swamp-hut.column-x": {
+    "message": "X"
+  },
+  "app.lab.low-y-swamp-hut.column-y": {
+    "message": "Y"
+  },
+  "app.lab.low-y-swamp-hut.column-z": {
+    "message": "Z"
+  },
+  "app.lab.low-y-swamp-hut.description": {
+    "message": "Find the swamp hut that generates lowest for a given world seed. The scan replays vanilla terrain generation, so it runs for the regions you ask for rather than the whole world."
+  },
+  "app.lab.low-y-swamp-hut.elapsed": {
+    "message": "Scanned in {ms} ms"
+  },
+  "app.lab.low-y-swamp-hut.empty-body": {
+    "message": "Enter a seed and run a scan to see where the swamp huts land."
+  },
+  "app.lab.low-y-swamp-hut.empty-title": {
+    "message": "No huts found yet"
+  },
+  "app.lab.low-y-swamp-hut.failed": {
+    "message": "The scan failed: {reason}"
+  },
+  "app.lab.low-y-swamp-hut.lowest": {
+    "message": "Lowest Y: {y}"
+  },
+  "app.lab.low-y-swamp-hut.regions": {
+    "message": "Regions"
+  },
+  "app.lab.low-y-swamp-hut.regions-hint": {
+    "message": "One region is 512 blocks across. More regions means a longer scan."
+  },
+  "app.lab.low-y-swamp-hut.results": {
+    "message": "Huts, lowest first"
+  },
+  "app.lab.low-y-swamp-hut.scan": {
+    "message": "Scan"
+  },
+  "app.lab.low-y-swamp-hut.scanning": {
+    "message": "Scanning…"
+  },
+  "app.lab.low-y-swamp-hut.seed": {
+    "message": "World seed"
+  },
+  "app.lab.low-y-swamp-hut.seed-placeholder": {
+    "message": "World seed, numeric or text"
+  },
+  "app.lab.low-y-swamp-hut.threads": {
+    "message": "Threads"
+  },
+  "app.lab.low-y-swamp-hut.title": {
+    "message": "Low-Y swamp hut"
+  },
+  "app.lab.low-y-swamp-hut.unavailable-body": {
+    "message": "This tool calls the LowYSwampHut search program, which is not installed here. Place `lysh` on your PATH and reload this page."
+  },
+  "app.lab.low-y-swamp-hut.unavailable-title": {
+    "message": "Search program not found"
+  },
   "app.lab.mod-translation.active-count": {
     "message": "{count} running"
   },

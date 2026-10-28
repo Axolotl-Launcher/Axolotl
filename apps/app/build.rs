@@ -897,6 +897,17 @@ fn main() {
                     ),
             )
             .plugin(
+                "lab",
+                InlinedPlugin::new()
+                    .commands(&[
+                        "low_y_swamp_hut_available",
+                        "low_y_swamp_hut_scan",
+                    ])
+                    .default_permission(
+                        DefaultPermissionRule::AllowAllCommands,
+                    ),
+            )
+            .plugin(
                 "tags",
                 InlinedPlugin::new()
                     .commands(&[

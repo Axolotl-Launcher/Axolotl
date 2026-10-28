@@ -55,7 +55,7 @@ import {
     useTemplateRef,
     watch,
 } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 
 import SeedMapAreaAnalysis from '@/components/lab/seed-map/SeedMapAreaAnalysis.vue'
 import SeedMapBiomePicker from '@/components/lab/seed-map/SeedMapBiomePicker.vue'
@@ -182,6 +182,7 @@ type SeedMapElevation = (typeof SEED_MAP_ELEVATIONS)[number]
 const { addNotification, handleError } = injectNotificationManager()
 const { formatMessage } = useVIntl()
 const route = useRoute()
+const router = useRouter()
 const canvas = useTemplateRef<HTMLCanvasElement>('mapCanvas')
 const fullscreenContainer = useTemplateRef<HTMLElement>('fullscreenContainer')
 const workspace = reactive(applyShareQuery(route.query, loadSeedMapWorkspace()))
@@ -1244,6 +1245,31 @@ function dimensionLabel(dimension: SeedMapDimension) {
 
 function featureLabel(kind: SeedMapFeatureKind) {
     return formatMessage(featureMessages[kind])
+}
+
+/**
+ * Long press on the swamp-hut toggle opens the dedicated finder.
+ *
+ * A plain click keeps toggling the overlay, which is what the button is for; the
+ * press has to be held so the two gestures cannot be confused.
+ */
+const HUT_FINDER_HOLD_MS = 500
+let hutFinderTimer: number | null = null
+
+function cancelHutFinderPress() {
+    if (hutFinderTimer !== null) {
+        window.clearTimeout(hutFinderTimer)
+        hutFinderTimer = null
+    }
+}
+
+function startHutFinderPress(kind: SeedMapFeatureKind) {
+    if (kind !== 'swamp-hut') return
+    cancelHutFinderPress()
+    hutFinderTimer = window.setTimeout(() => {
+        hutFinderTimer = null
+        void router.push('/lab/seed-map/witch-hut')
+    }, HUT_FINDER_HOLD_MS)
 }
 
 function featureResultLabel(feature: SeedMapFeature) {
@@ -3095,6 +3121,10 @@ function selectDimension(dimension: SeedMapDimension) {
                             }"
                             :aria-pressed="workspace.visibleFeatures.includes(feature.kind)"
                             @click="toggleFeature(feature.kind)"
+                            @pointerdown="startHutFinderPress(feature.kind)"
+                            @pointerup="cancelHutFinderPress"
+                            @pointerleave="cancelHutFinderPress"
+                            @pointercancel="cancelHutFinderPress"
                         >
                             <img
                                 v-if="featureImageSource(feature.kind)"

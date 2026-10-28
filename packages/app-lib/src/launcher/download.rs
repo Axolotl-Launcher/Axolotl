@@ -2061,10 +2061,10 @@ pub async fn download_assets(
         }
         // Batching runs on the native HTTP/2 transport, which refuses routes it
         // cannot serve (a custom certificate policy, a proxy, or an authority
-        // that fell back to HTTP/1.1). That refusal aborts the whole batch, so
-        // an ineligible route is dropped here and the per-file path below
-        // downloads those assets instead of failing the install.
-        let route = routes.into_iter().next().filter(|route| {
+        // that fell back to HTTP/1.1). A refused route aborts the whole batch, so
+        // the first route that can serve it is used; when none can, the assets
+        // are downloaded one by one below instead of failing the install.
+        let route = routes.into_iter().find(|route| {
             crate::util::download::native::h2_ineligible_reason(route).is_none()
         });
         if let Some(route) = route {
@@ -2124,18 +2124,48 @@ pub async fn download_assets(
             };
             download_asset_batch_via_h2(
                 &route,
-                batch_items,
+                // Cloned because the per-file branch below needs the same list
+                // when this route turns out to be unusable after all.
+                batch_items.clone(),
                 ASSET_BATCH_CONCURRENCY,
                 apply_native_policy,
                 callback,
             )
             .await?;
         } else {
-            return Err(crate::ErrorKind::NetworkError(
-                "No download route could be resolved for Minecraft assets"
-                    .to_string(),
-            )
-            .into());
+            // No route can carry the batch. These assets still have to be
+            // fetched, so fall back to the per-file downloader, which picks its
+            // own route for every file. Failing here would abort an install that
+            // is otherwise complete (#983).
+            futures::stream::iter(batch_items)
+                .map(Ok::<_, crate::Error>)
+                .try_for_each_concurrent(ASSET_BATCH_CONCURRENCY, |item| {
+                    let progress = progress.clone();
+                    let semaphore = &asset_download_semaphore;
+                    async move {
+                        let context = InstallErrorContext::new(
+                            "download Minecraft asset",
+                        )
+                        .file_path(item.destination.display().to_string())
+                        .build();
+                        download_minecraft_file_with_semaphore(
+                            st,
+                            &item.url,
+                            Some(&item.sha1),
+                            Some(item.size),
+                            &item.destination,
+                            ResourceClass::MinecraftAsset,
+                            ContentValidation::None,
+                            force,
+                            progress,
+                            context,
+                            semaphore,
+                        )
+                        .await?;
+                        Ok::<_, crate::Error>(())
+                    }
+                })
+                .await?;
         }
     }
 

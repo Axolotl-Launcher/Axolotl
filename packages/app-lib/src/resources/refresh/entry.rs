@@ -248,6 +248,14 @@ fn due(
                 now.saturating_sub(success.checked_at) >= REMOTE_CACHE_SECONDS
             })
         }
+        // An unrecognized file has no artifact to show, and the provider may
+        // learn about it later (it finished downloading after the last pass, or
+        // the identify was rate-limited). It is retried on the recognition
+        // interval, not the long cache window; with the cache window a file
+        // could stay unknown for a day.
+        Some(check) if check.attempt == CheckAttempt::Unrecognized => {
+            now.saturating_sub(check.attempted_at) >= RECOGNITION_RETRY_SECS
+        }
         Some(check) => {
             now.saturating_sub(check.attempted_at) >= REMOTE_CACHE_SECONDS
         }

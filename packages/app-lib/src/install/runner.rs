@@ -863,6 +863,12 @@ pub async fn cancel_job(job_id: Uuid) -> crate::Result<InstallJobSnapshot> {
                 emit_install_job(&record.snapshot()).await?;
                 break record;
             }
+            // Canceling: the caller's intent is already recorded, so a second
+            // click must retry the cleanup rather than fail on the state.
+            // Canceled: nothing is left to stop; report the existing record.
+            InstallJobStatus::Canceling | InstallJobStatus::Canceled => {
+                break job;
+            }
             _ => {
                 return Err(crate::ErrorKind::InputError(
                     "Only queued, running, or waiting install jobs can be canceled"

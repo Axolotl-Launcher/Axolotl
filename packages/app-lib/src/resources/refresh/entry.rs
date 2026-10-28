@@ -280,7 +280,11 @@ pub(super) async fn run(
     )?;
     work.context.content_root = root.to_string_lossy().into_owned();
     let mut artifact_write = None;
-    if work.entry.artifact.is_none() {
+    // Recognition reads every untracked file in the instance and batches its
+    // fingerprints to the provider. A file the provider does not know stays
+    // unrecognized, so without a wait it is re-fingerprinted on every refresh
+    // pass; a failed identify was observed to repeat for minutes on end.
+    if work.entry.artifact.is_none() && recognition_is_due(&work) {
         let recognition =
             recognize(state, &service, &root, &mut work, policy, cancel).await;
         match recognition {
@@ -454,6 +458,30 @@ fn record(work: &EntryWork) -> RefreshCheckRecord {
         work.context.clone(),
         chrono::Utc::now().timestamp(),
     )
+}
+
+/// Gap between two recognition passes for an entry the provider does not know.
+const RECOGNITION_RETRY_SECS: i64 = 5 * 60;
+
+/// Whether an artifact-less entry should be fingerprinted again now.
+///
+/// Recognition is the expensive half of a refresh: it reads every untracked file
+/// and posts their fingerprints in batches. When the provider does not know a
+/// file the entry keeps no artifact, so a pass that ignores the previous attempt
+/// repeats that work on every refresh; one instance was observed re-running the
+/// whole batch dozens of times in a row. Waiting keeps that bounded while still
+/// picking up a file that appears later.
+fn recognition_is_due(work: &EntryWork) -> bool {
+    let Some(previous) = work.previous.as_ref() else {
+        return true;
+    };
+    // Any other outcome means the file changed or was never tried, so the entry
+    // is due right away.
+    if previous.attempt != CheckAttempt::Unrecognized {
+        return true;
+    }
+    chrono::Utc::now().timestamp() - previous.attempted_at
+        >= RECOGNITION_RETRY_SECS
 }
 
 pub(super) async fn bytes_still_current(

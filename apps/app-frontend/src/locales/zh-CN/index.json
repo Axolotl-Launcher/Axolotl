@@ -10511,6 +10511,27 @@
   "app.lab.skin-editor.title": {
     "message": "皮肤编辑器"
   },
+  "app.lab.structure-finder.empty-body": {
+    "message": "填好参数后开始扫描。"
+  },
+  "app.lab.structure-finder.empty-title": {
+    "message": "还没有结果"
+  },
+  "app.lab.structure-finder.failed": {
+    "message": "扫描失败：{reason}"
+  },
+  "app.lab.structure-finder.results": {
+    "message": "结果"
+  },
+  "app.lab.structure-finder.scan": {
+    "message": "开始扫描"
+  },
+  "app.lab.structure-finder.scanning": {
+    "message": "扫描中…"
+  },
+  "app.lab.structure-finder.unavailable-title": {
+    "message": "无法扫描"
+  },
   "app.lab.title": {
     "message": "实验室"
   },

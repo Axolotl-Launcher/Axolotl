@@ -7310,6 +7310,27 @@
   "app.lab.skin-editor.title": {
     "message": "Skin editor"
   },
+  "app.lab.structure-finder.empty-body": {
+    "message": "Fill in the parameters and start a scan."
+  },
+  "app.lab.structure-finder.empty-title": {
+    "message": "No results yet"
+  },
+  "app.lab.structure-finder.failed": {
+    "message": "The scan failed: {reason}"
+  },
+  "app.lab.structure-finder.results": {
+    "message": "Results"
+  },
+  "app.lab.structure-finder.scan": {
+    "message": "Scan"
+  },
+  "app.lab.structure-finder.scanning": {
+    "message": "Scanning…"
+  },
+  "app.lab.structure-finder.unavailable-title": {
+    "message": "Cannot scan"
+  },
   "app.lab.title": {
     "message": "Lab"
   },

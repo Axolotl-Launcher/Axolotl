@@ -14,7 +14,8 @@
     "externalBin": [],
     "resources": [
       "resources/blockbench-skin",
-      "resources/trial-spawner-finder"
+      "resources/trial-spawner-finder",
+      "resources/lysh"
     ],
     "icon": [
       "icons/128x128.png",

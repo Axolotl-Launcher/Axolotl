@@ -296,11 +296,11 @@ fn build_seed_map_engine() {
 /// answers only match vanilla generation when the compiler does not fuse
 /// multiply-adds, which the upstream CMake build also enforces.
 fn build_lysh_kernel() {
-    let source = Path::new("../../third-party/lysh/src");
+    let source = Path::new("../../third-party/lysh/lysh-c/src");
     if !source.is_dir() {
         return;
     }
-    println!("cargo:rerun-if-changed=../../third-party/lysh/src");
+    println!("cargo:rerun-if-changed=../../third-party/lysh/lysh-c/src");
 
     let mut build = cc::Build::new();
     build.include(source);

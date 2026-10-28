@@ -5,3 +5,6 @@
     path = third-party/blockbench
     url = https://github.com/Axolotl-Launcher/blockbench-skin-standalone.git
     branch = master
+[submodule "third-party/lysh"]
+	path = third-party/lysh
+	url = https://github.com/M33Galaxy/LowYSwampHut.git

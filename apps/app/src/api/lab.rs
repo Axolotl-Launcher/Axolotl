@@ -346,10 +346,27 @@ pub async fn trial_chamber_find<R: tauri::Runtime>(
     let program = trial_program_dir(&app).ok_or_else(|| {
         "the trial-chamber program is missing from this build".to_string()
     })?;
-    let jar = program.join("trial-spawner-finder.jar");
-    if !jar.is_file() {
-        return Err(format!("missing {}", jar.display()));
+    // The program ships as several jars (engine, runtime, CLI) and only the
+    // runtime jar carries a main class, so it is launched through the classpath
+    // rather than `-jar`.
+    let mut jars: Vec<PathBuf> = std::fs::read_dir(&program)
+        .map_err(|error| format!("cannot read {}: {error}", program.display()))?
+        .flatten()
+        .map(|entry| entry.path())
+        .filter(|path| {
+            path.extension().and_then(|value| value.to_str()) == Some("jar")
+        })
+        .collect();
+    jars.sort();
+    if jars.is_empty() {
+        return Err(format!("no jars found in {}", program.display()));
     }
+    let separator = if cfg!(windows) { ";" } else { ":" };
+    let classpath = jars
+        .iter()
+        .map(|path| path.to_string_lossy().into_owned())
+        .collect::<Vec<_>>()
+        .join(separator);
 
     let seed = seed.trim().to_string();
     if seed.is_empty() {
@@ -357,17 +374,20 @@ pub async fn trial_chamber_find<R: tauri::Runtime>(
     }
 
     let started = Instant::now();
-    let output = Command::new(&java)
-        .arg("-jar")
-        .arg(&jar)
+    let output = tokio::process::Command::new(&java)
+        .arg("-cp")
+        .arg(&classpath)
+        .arg("cn.minecraftfinder.runtime.Main")
         .arg("--seed")
         .arg(&seed)
-        .arg("--radius")
-        .arg(radius.max(1).to_string())
-        .arg("--threads")
-        .arg(threads.max(1).to_string())
+        .arg("--search-radius-blocks")
+        .arg(radius.clamp(128, 1_000_000).to_string())
+        .arg("--scan-threads")
+        .arg(threads.clamp(1, 64).to_string())
+        .arg("--no-progress")
         .current_dir(&program)
         .output()
+        .await
         .map_err(|error| format!("cannot run the search program: {error}"))?;
     let elapsed_ms = started.elapsed().as_millis() as u64;
 

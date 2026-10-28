@@ -2018,6 +2018,21 @@ pub(crate) async fn install_zipped_mrpack_files_with_reporter(
                                     progress,
                                 )
                                 .await;
+                            // This stage reads the archive from disk, so a failure
+                            // belongs to archive or file I/O. A failure reported
+                            // under a network category therefore came from
+                            // somewhere else; record where it actually started so
+                            // the next report shows it instead of only the
+                            // attribution (#984).
+                            if let Err(error) = &extract_result {
+                                tracing::warn!(
+                                    entry = %spec.entry_name,
+                                    target = %spec.target_path.display(),
+                                    error = %error,
+                                    chain = ?error,
+                                    "Extracting a modpack override failed"
+                                );
+                            }
                             let (size, hash) = reporter
                                 .preserve_failure_context(
                                     override_context,

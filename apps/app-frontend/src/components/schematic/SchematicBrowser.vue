@@ -50,6 +50,8 @@ const messages = defineMessages({
         id: 'app.schematic.detail.no-instance',
         defaultMessage: 'Choose an instance to download into.',
     },
+    cached: { id: 'app.schematic.cached', defaultMessage: 'cached' },
+    savedTo: { id: 'app.schematic.detail.downloaded', defaultMessage: 'Saved to {path}' },
 })
 
 const PAGE_SIZE = 20
@@ -391,8 +393,20 @@ function openDetail(item: SchematicItem) {
         </template>
 
         <template #above-results>
-            <div v-if="sourceStatus && sourceStatus.state !== 'ok'" class="mb-3 text-xs">
-                {{ sourceStatus.message ?? sourceStatus.state }}
+            <div class="mb-3 flex flex-wrap items-center gap-2">
+                <span v-if="cached" class="rounded bg-surface-4 px-2 py-1 text-xs">{{
+                    formatMessage(messages.cached)
+                }}</span>
+                <span
+                    v-if="sourceStatus && sourceStatus.state !== 'ok'"
+                    class="text-xs"
+                    :title="sourceStatus.message"
+                >
+                    {{ sourceStatus.message ?? sourceStatus.state }}
+                </span>
+                <span v-if="downloadedNotice" class="truncate text-xs">
+                    {{ formatMessage(messages.savedTo, { path: downloadedNotice }) }}
+                </span>
             </div>
         </template>
     </BrowsePageLayout>

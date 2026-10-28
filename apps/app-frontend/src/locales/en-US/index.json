@@ -50,6 +50,9 @@
   "app.schematic.card.external": {
     "message": "External"
   },
+  "app.schematic.card.open-source": {
+    "message": "Open source"
+  },
   "app.schematic.card.share-page": {
     "message": "Share page"
   },
@@ -104,6 +107,15 @@
   "app.schematic.detail.versions": {
     "message": "Versions"
   },
+  "app.schematic.filter.format": {
+    "message": "Format"
+  },
+  "app.schematic.filter.game-version": {
+    "message": "Game version"
+  },
+  "app.schematic.filter.source": {
+    "message": "Source"
+  },
   "app.schematic.load-more": {
     "message": "Load more"
   },
@@ -118,6 +130,12 @@
   },
   "app.schematic.search.placeholder": {
     "message": "Search schematics…"
+  },
+  "app.schematic.sort.downloads": {
+    "message": "Downloads"
+  },
+  "app.schematic.sort.newest": {
+    "message": "Newest"
   },
   "app.settings.tabs.mcp": {
     "message": "MCP"

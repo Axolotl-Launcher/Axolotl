@@ -837,7 +837,6 @@ async fn verify_and_finalize(
 
 /// A single small file (a Minecraft asset object) to download over a shared
 /// HTTP/2 connection. All items in one batch must share the same authority.
-#[derive(Clone)]
 pub(crate) struct H2BatchAsset {
     /// Route-resolved URL for the asset.
     pub url: String,

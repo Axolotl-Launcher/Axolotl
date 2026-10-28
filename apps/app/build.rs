@@ -1,4 +1,6 @@
+use std::path::Path;
 use std::process::Command;
+
 use tauri_build::{DefaultPermissionRule, InlinedPlugin};
 
 #[cfg(windows)]
@@ -281,8 +283,61 @@ fn build_seed_map_engine() {
     }
 }
 
+/// Build the vendored LowYSwampHut terrain kernel.
+///
+/// The swamp-hut search replays Minecraft's terrain generation; that code is
+/// plain C with no dependencies, so it is compiled here rather than shipped as a
+/// prebuilt binary. Two files are skipped on purpose:
+///
+/// - `main.c` is the standalone CLI entry point, which the launcher does not use;
+/// - `jni_bridge.c` needs the JNI headers and only exists for the Java tool.
+///
+/// Floating-point contraction has to stay off on every platform: the kernel's
+/// answers only match vanilla generation when the compiler does not fuse
+/// multiply-adds, which the upstream CMake build also enforces.
+fn build_lysh_kernel() {
+    let source = Path::new("../../third-party/lysh/src");
+    if !source.is_dir() {
+        return;
+    }
+    println!("cargo:rerun-if-changed=../../third-party/lysh/src");
+
+    let mut build = cc::Build::new();
+    build.include(source);
+    build.std("c11");
+    build.flag_if_supported("-ffp-contract=off");
+    build.flag_if_supported("-O3");
+    build.flag_if_supported("/fp:precise");
+    build.flag_if_supported("/source-charset:utf-8");
+    build.define("_CRT_SECURE_NO_WARNINGS", None);
+    // These are the upstream sources, not ours: warning-cleanliness is the
+    // upstream project's business and `-Werror` is not set anywhere here.
+    build.warnings(false);
+
+    let mut count = 0usize;
+    if let Ok(entries) = std::fs::read_dir(source) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.extension().and_then(|value| value.to_str()) != Some("c") {
+                continue;
+            }
+            match path.file_name().and_then(|value| value.to_str()) {
+                Some("main.c") | Some("jni_bridge.c") => continue,
+                Some(_) => {}
+                None => continue,
+            }
+            build.file(&path);
+            count += 1;
+        }
+    }
+    if count > 0 {
+        build.compile("lysh_core");
+    }
+}
+
 fn main() {
     println!("cargo:rerun-if-env-changed=CI");
+    build_lysh_kernel();
     println!("cargo:rerun-if-changed=tauri.conf.json");
     println!("cargo:rerun-if-changed=tauri.windows.conf.json");
     println!("cargo:rerun-if-changed=tauri.macos.conf.json");

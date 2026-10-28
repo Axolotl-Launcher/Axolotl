@@ -1,5 +1,6 @@
 import { Channel, invoke } from '@tauri-apps/api/core'
 
+import { abortable } from './abortable.ts'
 import type { InstallJobSnapshot } from './install'
 
 export type SourceId = 'modrinth' | 'curseforge' | 'mcarchive' | 'planet_minecraft'
@@ -137,31 +138,36 @@ export const sourceResource = (source: SourceId, projectId: string): ResourceRef
     project: { source, projectId },
 })
 
+/**
+ * Invokes a cancellable resource command. Aborting rejects at once and asks the
+ * native side to stop; a result that still arrives later only has its session
+ * released, so nothing it opened is left without an owner.
+ */
 export async function resourceRequest<T>(
     command: string,
     args: Record<string, unknown>,
     signal?: AbortSignal,
+    requestId: string = crypto.randomUUID(),
 ): Promise<T> {
     signal?.throwIfAborted()
-    const requestId = crypto.randomUUID()
-    const cancel = () => {
+    const request = invoke<T>(`plugin:axolotl-resources|${command}`, {
+        ...args,
+        requestId,
+    })
+    const releaseLate = (result: T) => {
+        if (command !== 'resource_export_scan') return
+        const sessionId = (result as { sessionId?: string } | null)?.sessionId
+        if (sessionId) void resourceExportClose(sessionId).catch(() => {})
+    }
+    const result = await abortable(request, signal, (late) => {
         void invoke('plugin:axolotl-resources|resource_cancel', { requestId }).catch(() => {})
+        void late.then(releaseLate, () => {})
+    })
+    if (signal?.aborted) {
+        releaseLate(result)
+        signal.throwIfAborted()
     }
-    signal?.addEventListener('abort', cancel, { once: true })
-    try {
-        const result = await invoke<T>(`plugin:axolotl-resources|${command}`, {
-            ...args,
-            requestId,
-        })
-        if (signal?.aborted && command === 'resource_export_scan') {
-            const sessionId = (result as { sessionId?: string })?.sessionId
-            if (sessionId) await resourceExportClose(sessionId).catch(() => {})
-        }
-        signal?.throwIfAborted()
-        return result
-    } finally {
-        signal?.removeEventListener('abort', cancel)
-    }
+    return result
 }
 export function resourceSearch(
     query: ResourceSearchQuery,
@@ -367,6 +373,7 @@ export function resourcePrepareEntryOperation(
     onProgress?: (progress: ResourceOperationProgress) => void,
     resolveDependencies = true,
 ) {
+    const requestId = crypto.randomUUID()
     return resourceRequest<ResourceOperationPlan>(
         'resource_prepare_entry_operation',
         {
@@ -375,10 +382,11 @@ export function resourcePrepareEntryOperation(
             entryIds,
             release,
             installDependencies,
-            onProgress: operationProgressChannel(onProgress, signal),
+            onProgress: operationProgressChannel(onProgress, signal, requestId),
             resolveDependencies,
         },
         signal,
+        requestId,
     )
 }
 export type ResourceConflictDetails = {
@@ -440,20 +448,51 @@ export type ResourceOperationPlan = {
     }[]
     selectionReasons: unknown[]
 }
+export type ResourceOperationPhase =
+    | 'refreshingContent'
+    | 'identifyingInstalled'
+    | 'collectingConstraints'
+    | 'prefetching'
+    | 'validating'
+/**
+ * One update from a running dependency analysis. Each resolution round starts
+ * with `roundStarted`, sends `node` for what it resolves or changes and ends
+ * with `nodeRemoved` for nodes it no longer has; the finished plan replaces
+ * them all. `sequence` increases within one request.
+ */
 export type ResourceOperationProgress = {
-    planId: string
-    revision: number
-    node: ResourceDependencyNode
-    metadata: SourceProjectMetadata | null
-}
-function operationProgressChannel(
-    onProgress?: (progress: ResourceOperationProgress) => void,
-    signal?: AbortSignal,
+    requestId: string
+    sequence: number
+    selectionRevision?: number
+} & (
+    | { kind: 'phase'; phase: ResourceOperationPhase }
+    | { kind: 'roundStarted'; planId: string; revision: number; round: number }
+    | {
+          kind: 'node'
+          planId: string
+          revision: number
+          round: number
+          node: ResourceDependencyNode
+          metadata: SourceProjectMetadata | null
+      }
+    | { kind: 'nodeRemoved'; planId: string; revision: number; round: number; nodeId: string }
+)
+/**
+ * Delivers one request's progress in order. Events of another request and
+ * repeated or older sequence numbers are dropped.
+ */
+export function operationProgressChannel(
+    onProgress: ((progress: ResourceOperationProgress) => void) | undefined,
+    signal: AbortSignal | undefined,
+    requestId: string,
 ) {
     if (!onProgress) return null
     const channel = new Channel<ResourceOperationProgress>()
+    let last = 0
     channel.onmessage = (progress) => {
-        if (!signal?.aborted) onProgress(progress)
+        if (signal?.aborted || progress.requestId !== requestId || progress.sequence <= last) return
+        last = progress.sequence
+        onProgress(progress)
     }
     return channel
 }
@@ -479,6 +518,7 @@ export function resourcePrepareOperation(
     resolveDependencies = true,
     analysis?: { sessionId: string; selectionRevision: number },
 ) {
+    const requestId = crypto.randomUUID()
     return resourceRequest<ResourceOperationPlan>(
         'resource_prepare_operation',
         {
@@ -488,12 +528,13 @@ export function resourcePrepareOperation(
             installDependencies,
             importFiles: importFiles ?? null,
             locators: locators ?? null,
-            onProgress: operationProgressChannel(onProgress, signal),
+            onProgress: operationProgressChannel(onProgress, signal, requestId),
             resolveDependencies,
             analysisSessionId: analysis?.sessionId ?? null,
             selectionRevision: analysis?.selectionRevision ?? null,
         },
         signal,
+        requestId,
     )
 }
 export function resourceAnalysisOpen(instanceId: string) {
@@ -510,6 +551,7 @@ export function resourceAnalysisUpdate(
     signal: AbortSignal,
     onProgress: (progress: ResourceOperationProgress) => void,
 ) {
+    const requestId = crypto.randomUUID()
     return resourceRequest<ResourceOperationPlan>(
         'resource_analysis_update',
         {
@@ -517,9 +559,10 @@ export function resourceAnalysisUpdate(
             selectionRevision,
             selections,
             installDependencies,
-            onProgress: operationProgressChannel(onProgress, signal),
+            onProgress: operationProgressChannel(onProgress, signal, requestId),
         },
         signal,
+        requestId,
     )
 }
 export function resourceRevisePlan(
@@ -529,10 +572,17 @@ export function resourceRevisePlan(
     signal?: AbortSignal,
     onProgress?: (progress: ResourceOperationProgress) => void,
 ) {
+    const requestId = crypto.randomUUID()
     return resourceRequest<ResourceOperationPlan>(
         'resource_revise_plan',
-        { planId, revision, decisions, onProgress: operationProgressChannel(onProgress, signal) },
+        {
+            planId,
+            revision,
+            decisions,
+            onProgress: operationProgressChannel(onProgress, signal, requestId),
+        },
         signal,
+        requestId,
     )
 }
 export function resourceQueuePlan(planId: string, revision: number) {

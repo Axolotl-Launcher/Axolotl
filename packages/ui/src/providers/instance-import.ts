@@ -148,8 +148,13 @@ export interface SymlinkMethodChoice {
 }
 
 export interface InstanceImportProvider {
-    /** Returns launchers with instances already populated (one round trip on mount) */
-    getDetectedLaunchers: () => Promise<ImportableLauncher[]>
+    /**
+     * Returns launchers with instances already populated. `onLauncher` receives
+     * each launcher as soon as it has been found, before the slowest one finishes.
+     */
+    getDetectedLaunchers: (
+        onLauncher?: (launcher: ImportableLauncher) => void,
+    ) => Promise<ImportableLauncher[]>
     /** Only needed for manually-added launcher paths */
     getImportableInstances: (
         launcherName: string,

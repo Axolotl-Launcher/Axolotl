@@ -61,6 +61,7 @@ pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
             instance_plan_content_updates,
             instance_apply_content_update_plan,
             instance_plan_upgrade,
+            instance_cancel_upgrade_planning,
             instance_get_upgrade_plan,
             instance_discard_upgrade_plan,
             instance_update_upgrade_resolution,
@@ -1135,16 +1136,93 @@ pub async fn instance_apply_content_update_plan(
     )
 }
 
+/// Upgrade plans being created, by the request ID their caller chose, so the
+/// caller can stop one it no longer waits for.
+static UPGRADE_PLANNING: std::sync::LazyLock<
+    DashMap<String, tokio_util::sync::CancellationToken>,
+> = std::sync::LazyLock::new(DashMap::new);
+/// Cancels that arrived before their planning request was registered.
+static EARLY_UPGRADE_PLANNING_CANCELS: std::sync::LazyLock<
+    DashMap<String, std::time::Instant>,
+> = std::sync::LazyLock::new(DashMap::new);
+const EARLY_CANCEL_TTL: std::time::Duration =
+    std::time::Duration::from_secs(30);
+
+struct UpgradePlanningRequest(String);
+
+impl UpgradePlanningRequest {
+    fn register(
+        id: String,
+        cancel: &tokio_util::sync::CancellationToken,
+    ) -> Self {
+        UPGRADE_PLANNING.insert(id.clone(), cancel.clone());
+        if EARLY_UPGRADE_PLANNING_CANCELS
+            .remove(&id)
+            .is_some_and(|(_, at)| at.elapsed() < EARLY_CANCEL_TTL)
+        {
+            cancel.cancel();
+        }
+        Self(id)
+    }
+}
+
+impl Drop for UpgradePlanningRequest {
+    fn drop(&mut self) {
+        UPGRADE_PLANNING.remove(&self.0);
+    }
+}
+
 #[tauri::command]
-pub async fn instance_plan_upgrade(
+pub async fn instance_plan_upgrade<R: Runtime>(
+    webview: tauri::Webview<R>,
     instance_id: &str,
     target_environment: theseus::data::InstanceUpgradeEnvironment,
+    request_id: Option<String>,
+    on_progress: Option<tauri::ipc::JavaScriptChannelId>,
 ) -> Result<theseus::data::InstanceUpgradePlan> {
+    let cancel = tokio_util::sync::CancellationToken::new();
+    let _request =
+        request_id.map(|id| UpgradePlanningRequest::register(id, &cancel));
+    let progress = on_progress.map(|id| {
+        let channel = id
+            .channel_on::<_, theseus::data::InstanceUpgradePlanningProgress>(
+                webview,
+            );
+        std::sync::Arc::new(
+            move |value: theseus::data::InstanceUpgradePlanningProgress| {
+                let _ = channel.send(value);
+            },
+        )
+            as std::sync::Arc<
+                dyn Fn(theseus::data::InstanceUpgradePlanningProgress)
+                    + Send
+                    + Sync,
+            >
+    });
     Ok(theseus::instance::plan_instance_upgrade(
         instance_id,
         target_environment,
+        cancel,
+        progress,
     )
     .await?)
+}
+
+#[tauri::command]
+pub fn instance_cancel_upgrade_planning(request_id: String) {
+    if let Some(cancel) = UPGRADE_PLANNING.get(&request_id) {
+        cancel.cancel();
+        return;
+    }
+    EARLY_UPGRADE_PLANNING_CANCELS
+        .retain(|_, at| at.elapsed() < EARLY_CANCEL_TTL);
+    if EARLY_UPGRADE_PLANNING_CANCELS.len() < 64 {
+        EARLY_UPGRADE_PLANNING_CANCELS
+            .insert(request_id.clone(), std::time::Instant::now());
+    }
+    if let Some(cancel) = UPGRADE_PLANNING.get(&request_id) {
+        cancel.cancel();
+    }
 }
 
 #[tauri::command]

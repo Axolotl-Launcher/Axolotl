@@ -52,6 +52,44 @@ async fn journal_count(state: &State) -> i64 {
 }
 
 #[tokio::test]
+async fn toggles_and_ten_remote_refreshes_reuse_the_same_byte_evidence() {
+    use crate::util::download::verified_file::track_scans;
+    let (_temp, state, _root, ids) = fixture().await;
+    let cancel = tokio_util::sync::CancellationToken::new();
+    for enabled in [false, true] {
+        let (result, scans) = track_scans(toggle_content_entries(
+            "instance",
+            &ids,
+            Some(enabled),
+            &state,
+        ))
+        .await;
+        result.unwrap();
+        assert_eq!(
+            scans, 0,
+            "controlled moves reuse a validated attribute baseline"
+        );
+        let (result, scans) =
+            track_scans(sync_content_files("instance", &state)).await;
+        result.unwrap();
+        assert_eq!(scans, 0, "the renamed baseline survives the next scan");
+    }
+    for _ in 0..10 {
+        let (result, scans) =
+            track_scans(crate::resources::installed::refresh_snapshot(
+                &state, "instance", &cancel,
+            ))
+            .await;
+        result.unwrap();
+        assert_eq!(
+            scans, 0,
+            "force-remote refresh cannot reread unchanged content"
+        );
+    }
+    state.pool.close().await;
+}
+
+#[tokio::test]
 async fn direct_and_batch_toggle_restore_files_after_database_failure() {
     for single in [true, false] {
         let (_temp, state, root, ids) = fixture().await;

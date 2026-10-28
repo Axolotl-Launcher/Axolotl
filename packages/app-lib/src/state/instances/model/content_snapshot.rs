@@ -23,6 +23,8 @@ pub struct ContentItemCapabilities {
 #[serde(rename_all = "camelCase")]
 pub struct InstanceContentSnapshotItem {
     #[serde(default)]
+    pub resource_update: Option<crate::resources::SourceReleaseRef>,
+    #[serde(default)]
     pub artifact_ref: Option<crate::resources::SourceArtifactRef>,
     #[serde(default)]
     pub resource_id: Option<crate::resources::ResourceId>,
@@ -65,6 +67,8 @@ pub struct InstanceContentPack {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct InstanceContentWarning {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub entry_id: Option<String>,
     pub code: String,
     pub message: String,
     pub provider: Option<ContentProvider>,

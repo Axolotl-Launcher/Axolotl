@@ -127,7 +127,7 @@ impl ResourceService {
             let Some(metadata) =
                 self.artifact_metadata_reader.read(artifact, cancel).await?
             else {
-                return Ok(false);
+                return Ok(true);
             };
             if self.artifact_metadata.len() >= 256 {
                 self.artifact_metadata.clear();
@@ -142,7 +142,7 @@ impl ResourceService {
             requirement.local_mod_id.as_ref() == Some(&metadata.mod_id)
                 && requirement.version_constraint.as_ref().is_none_or(
                     |constraint| {
-                        metadata.version.as_ref().is_some_and(|version| {
+                        metadata.version.as_ref().is_none_or(|version| {
                             requirements::mod_version_matches(
                                 constraint, version,
                             )

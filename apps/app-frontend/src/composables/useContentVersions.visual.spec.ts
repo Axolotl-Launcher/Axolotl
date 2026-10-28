@@ -100,6 +100,41 @@ it('aborts a timed-out native request and leaves a retryable error without a spi
     state.reset()
 })
 
+it('shows each page as it arrives and keeps them when a later page fails, then resumes there', async () => {
+    const state = useContentVersions(source)
+    const second = { reference: { project, releaseId: 'second' } } as ResourceRelease
+    let failSecondPage!: (error: Error) => void
+    resourceReleases
+        .mockResolvedValueOnce(page([release], 'page-2'))
+        .mockImplementationOnce(
+            () =>
+                new Promise((_resolve, reject) => {
+                    failSecondPage = reject
+                }),
+        )
+        .mockResolvedValueOnce(page([release, second]))
+    const pending = state.open(project)
+    await vi.waitFor(() => expect(state.versions.value).toEqual([release]))
+    expect(state.loading.value).toBe(true)
+    failSecondPage(new Error('offline'))
+    await pending
+    expect(state.versions.value).toEqual([release])
+    expect(state.error.value).toBeInstanceOf(Error)
+    expect(state.loading.value).toBe(false)
+
+    await state.retry()
+    expect(resourceReleases).toHaveBeenLastCalledWith(
+        { kind: 'source', project },
+        undefined,
+        'page-2',
+        undefined,
+        expect.any(AbortSignal),
+    )
+    expect(state.versions.value).toEqual([release, second])
+    expect(state.error.value).toBeNull()
+    state.reset()
+})
+
 it('uses persisted provider identity while local metadata is still displayed', () => {
     const item = {
         project: { id: 'local:fabric-api' },

@@ -145,6 +145,9 @@ async fn presentation_failure_uses_expired_metadata_without_masking_force_refres
 #[path = "../../../content-management/tests/fixtures/mod.rs"]
 mod fixtures;
 
+#[path = "update_batches.rs"]
+mod update_batches;
+
 #[tokio::test]
 async fn presentation_keeps_incomplete_protocol_cache_when_offline_without_retrying_twice()
  {
@@ -400,6 +403,7 @@ async fn installed_compatibility_uses_cached_exact_bytes_without_network_or_name
             .await
             .unwrap();
         items.push(crate::state::InstanceContentSnapshotItem {
+            resource_update: None,
             artifact_ref: None,
             resource_id: None,
             pack_resource_id: None,
@@ -862,6 +866,7 @@ fn project_query(id: &str) -> ProviderQuery {
 
 fn project_value(source: SourceId, id: &str, title: &str) -> ProviderValue {
     ProviderValue::Project(ProjectDocument {
+        owner: None,
         protocol: None,
         metadata: SourceProjectMetadata {
             environments: vec![],
@@ -1288,6 +1293,80 @@ async fn service_uses_hot_cache_and_force_refresh_ignores_positive_and_negative_
             .value,
         ProviderValue::Project(_)
     ));
+    cache.close().await;
+}
+
+#[tokio::test]
+async fn refresh_round_revalidates_old_cache_but_reuses_its_own_results() {
+    let (_temp, cache) = cache().await;
+    let provider = MockProvider::new(100, None);
+    let service =
+        ResourceService::new(cache.clone(), vec![provider.clone()]).unwrap();
+    let token = CancellationToken::new();
+    let source = SourceId::modrinth();
+    let query = project_query("project");
+    service
+        .query(&source, query.clone(), CachePolicy::UseFresh, &token)
+        .await
+        .unwrap();
+    let policy =
+        CachePolicy::RefreshSince(chrono::Utc::now().timestamp_micros());
+    assert!(
+        !service
+            .query(&source, query.clone(), policy, &token)
+            .await
+            .unwrap()
+            .from_cache
+    );
+    assert!(
+        service
+            .query(&source, query.clone(), policy, &token)
+            .await
+            .unwrap()
+            .from_cache
+    );
+    assert_eq!(provider.calls(), 2);
+
+    // A new round must neither retain a previous success on error nor turn
+    // a cached negative result into a permanent failure to recognize content.
+    provider.fail.store(true, Ordering::Release);
+    let policy =
+        CachePolicy::RefreshSince(chrono::Utc::now().timestamp_micros());
+    assert!(
+        service
+            .query(&source, query.clone(), policy, &token)
+            .await
+            .is_err()
+    );
+    provider.fail.store(false, Ordering::Release);
+    provider.missing.store(true, Ordering::Release);
+    assert_eq!(
+        service
+            .query(&source, query.clone(), policy, &token)
+            .await
+            .unwrap()
+            .value,
+        ProviderValue::NotFound
+    );
+    assert!(
+        service
+            .query(&source, query.clone(), policy, &token)
+            .await
+            .unwrap()
+            .from_cache
+    );
+    provider.missing.store(false, Ordering::Release);
+    let policy =
+        CachePolicy::RefreshSince(chrono::Utc::now().timestamp_micros());
+    assert!(matches!(
+        service
+            .query(&source, query, policy, &token)
+            .await
+            .unwrap()
+            .value,
+        ProviderValue::Project(_)
+    ));
+    assert_eq!(provider.calls(), 5);
     cache.close().await;
 }
 
@@ -1870,6 +1949,27 @@ async fn concurrent_cache_initialization_does_not_block_the_runtime() {
 }
 
 #[tokio::test]
+async fn modrinth_author_failure_does_not_discard_valid_project_metadata() {
+    let transport = FixtureTransport::new(|_, request| {
+        match request.path.as_str() {
+            "/projects" => Ok(
+                json!([{"id":"YL57xq9U","slug":"iris","title":"Iris","description":"","project_type":"mod","team":"team0001"}]),
+            ),
+            "/teams" => Err(ResourceError::Unavailable),
+            _ => panic!("unexpected endpoint"),
+        }
+    });
+    let results = ModrinthProvider::new(transport)
+        .fetch_many(&[project_query("YL57xq9U")])
+        .await;
+    let ProviderValue::Project(document) = results[0].as_ref().unwrap() else {
+        panic!("wrong project");
+    };
+    assert_eq!(document.metadata.title, "Iris");
+    assert!(document.metadata.authors.is_empty());
+}
+
+#[tokio::test]
 async fn modrinth_project_batches_keep_public_team_members_and_ignore_pending_invites()
  {
     let transport = FixtureTransport::new(|_, request| {
@@ -1878,7 +1978,7 @@ async fn modrinth_project_batches_keep_public_team_members_and_ignore_pending_in
                 json!([{"id":"YL57xq9U","slug":"iris","title":"Iris","description":"","project_type":"mod","team":"team0001"}]),
             ),
             "/teams" => Ok(
-                json!([[{"team_id":"team0001","accepted":true,"user":{"username":"public-author"}}, {"team_id":"team0001","accepted":false,"user":{"username":"pending-invite"}}]]),
+                json!([[{"team_id":"team0001","accepted":true,"is_owner":true,"user":{"id":"author000","username":"public-author","avatar_url":"https://cdn.modrinth.com/avatars/author.png"}}, {"team_id":"team0001","accepted":false,"user":{"username":"pending-invite"}}]]),
             ),
             _ => panic!("unexpected endpoint"),
         }
@@ -1890,6 +1990,59 @@ async fn modrinth_project_batches_keep_public_team_members_and_ignore_pending_in
         panic!("wrong project");
     };
     assert_eq!(document.metadata.authors, ["public-author"]);
+    assert_eq!(document.owner.as_ref().unwrap().id, "author000");
+    assert_eq!(
+        document.owner.as_ref().unwrap().avatar_url.as_deref(),
+        Some("https://cdn.modrinth.com/avatars/author.png")
+    );
+    assert_eq!(transport.requests.lock().unwrap().len(), 2);
+}
+
+#[tokio::test]
+async fn modrinth_owner_avatars_use_one_team_batch_for_multiple_projects() {
+    let transport = FixtureTransport::new(|_, request| {
+        match request.path.as_str() {
+            "/projects" => Ok(json!([
+                {"id":"project1","title":"First","description":"","project_type":"mod","team":"team0001"},
+                {"id":"project2","title":"Second","description":"","project_type":"mod","team":"team0002"}
+            ])),
+            "/teams" => {
+                let ids: Vec<String> = serde_json::from_str(
+                    &request
+                        .query
+                        .iter()
+                        .find(|(key, _)| key == "ids")
+                        .unwrap()
+                        .1,
+                )
+                .unwrap();
+                assert_eq!(ids, ["team0001", "team0002"]);
+                Ok(json!([
+                    [{"team_id":"team0001","accepted":true,"is_owner":false,"user":{"id":"member01","username":"Member"}},
+                     {"team_id":"team0001","accepted":true,"is_owner":true,"user":{"id":"owner001","username":"FirstOwner","avatar_url":"https://cdn.modrinth.com/avatars/first.png"}}],
+                    [{"team_id":"team0002","accepted":true,"role":"Owner","user":{"id":"owner002","username":"SecondOwner","avatar_url":"https://cdn.modrinth.com/avatars/second.png"}}]
+                ]))
+            }
+            _ => panic!("unexpected endpoint"),
+        }
+    });
+    let results = ModrinthProvider::new(transport.clone())
+        .fetch_many(&[project_query("project1"), project_query("project2")])
+        .await;
+    for (result, id, avatar) in [
+        (&results[0], "owner001", "first"),
+        (&results[1], "owner002", "second"),
+    ] {
+        let ProviderValue::Project(document) = result.as_ref().unwrap() else {
+            panic!("wrong response");
+        };
+        let owner = document.owner.as_ref().unwrap();
+        assert_eq!(owner.id, id);
+        assert_eq!(
+            owner.avatar_url,
+            Some(format!("https://cdn.modrinth.com/avatars/{avatar}.png"))
+        );
+    }
     assert_eq!(transport.requests.lock().unwrap().len(), 2);
 }
 

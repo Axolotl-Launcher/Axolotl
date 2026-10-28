@@ -7,6 +7,7 @@
 mod atom;
 mod cache;
 mod content_favorites;
+mod content_refresh;
 mod credentials;
 mod game_option_locale_origins;
 mod game_option_pack_bases;

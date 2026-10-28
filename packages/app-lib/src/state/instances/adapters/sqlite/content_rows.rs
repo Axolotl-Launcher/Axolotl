@@ -1914,7 +1914,7 @@ pub(crate) async fn upsert_content_update_check(
 }
 
 #[derive(Debug, sqlx::FromRow)]
-struct PackMemberRow {
+pub(crate) struct PackMemberRow {
     id: String,
     content_set_id: String,
     content_entry_id: Option<String>,
@@ -1977,7 +1977,7 @@ impl TryFrom<PackMemberRow> for PackMember {
 }
 
 #[derive(Debug, sqlx::FromRow)]
-struct PendingManualDownloadRow {
+pub(crate) struct PendingManualDownloadRow {
     id: String,
     instance_id: String,
     pack_member_id: Option<String>,

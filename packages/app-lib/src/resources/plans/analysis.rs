@@ -336,6 +336,7 @@ async fn update_data(
         return Err(ResourceError::Canceled);
     }
     if persist {
+        report_phase(progress, ResourceOperationPhase::RefreshingContent);
         super::super::installed::refresh_install_snapshot(
             state,
             instance_id,
@@ -349,6 +350,7 @@ async fn update_data(
         data.context != key || data.created.elapsed() > Duration::from_secs(300)
     }) {
         if !persist {
+            report_phase(progress, ResourceOperationPhase::RefreshingContent);
             super::super::installed::refresh_install_snapshot(
                 state,
                 instance_id,
@@ -357,6 +359,7 @@ async fn update_data(
             .await?;
         }
         let initialized_context = context(state, instance_id).await?;
+        report_phase(progress, ResourceOperationPhase::IdentifyingInstalled);
         let installed = super::super::installed::hydrate_selected(
             state,
             instance_id,
@@ -373,6 +376,7 @@ async fn update_data(
             cancel,
             Some(&installed),
             true,
+            progress,
         )
         .await?;
         if context(state, instance_id).await? != initialized_context {
@@ -464,6 +468,7 @@ async fn update_data(
     let mut draft = data.draft.clone();
     if persist {
         draft.plan.id = PlanId::new(uuid::Uuid::new_v4().to_string())?;
+        report_phase(progress, ResourceOperationPhase::Validating);
         super::super::write_access::review(&mut draft, state).await?;
         if cancel.is_cancelled() {
             return Err(ResourceError::Canceled);

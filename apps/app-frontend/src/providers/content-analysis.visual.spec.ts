@@ -41,6 +41,69 @@ const tick = async () => {
     await Promise.resolve()
 }
 
+it('replays only the nodes still shown and the latest stage, and ignores an older selection', async () => {
+    vi.clearAllMocks()
+    let report!: (value: ResourceOperationProgress) => void
+    vi.mocked(resourceAnalysisUpdate).mockImplementationOnce((...args) => {
+        report = args[5]
+        return new Promise(() => {})
+    })
+    const cart = createContentAnalysis()
+    cart.update(input())
+    await tick()
+    const send = (value: object) =>
+        report({ selectionRevision: 1, ...value } as ResourceOperationProgress)
+    send({ kind: 'phase', phase: 'refreshingContent' })
+    send({ kind: 'node', node: { id: 'kept' } })
+    send({ kind: 'node', node: { id: 'removed' } })
+    send({ kind: 'nodeRemoved', nodeId: 'removed' })
+    send({ kind: 'phase', phase: 'prefetching' })
+    send({ kind: 'node', selectionRevision: 0, node: { id: 'older' } })
+    const onProgress = vi.fn()
+    const prepared = cart.review()!.prepare(new AbortController().signal, onProgress)
+    await tick()
+    expect(
+        onProgress.mock.calls.map(([value]: [ResourceOperationProgress]) =>
+            value.kind === 'node'
+                ? value.node.id
+                : value.kind === 'phase'
+                  ? value.phase
+                  : value.kind,
+        ),
+    ).toEqual(['kept', 'prefetching'])
+    cart.clear()
+    await expect(prepared).rejects.toMatchObject({ name: 'AbortError' })
+})
+
+it('replays the current round first and keeps names a re-sent node lacks', async () => {
+    vi.clearAllMocks()
+    let report!: (value: ResourceOperationProgress) => void
+    vi.mocked(resourceAnalysisUpdate).mockImplementationOnce((...args) => {
+        report = args[5]
+        return new Promise(() => {})
+    })
+    const cart = createContentAnalysis()
+    cart.update(input())
+    await tick()
+    const send = (value: object) =>
+        report({ selectionRevision: 1, ...value } as ResourceOperationProgress)
+    const metadata = { title: 'Named', iconUrl: null, summary: '' }
+    send({ kind: 'roundStarted', round: 0 })
+    send({ kind: 'node', node: { id: 'merged' }, metadata })
+    send({ kind: 'roundStarted', round: 1 })
+    send({ kind: 'phase', phase: 'prefetching' })
+    send({ kind: 'node', node: { id: 'merged', state: 'conflict' }, metadata: null })
+    const onProgress = vi.fn()
+    const prepared = cart.review()!.prepare(new AbortController().signal, onProgress)
+    await tick()
+    expect(onProgress.mock.calls.map(([value]) => value)).toMatchObject([
+        { kind: 'roundStarted', round: 1 },
+        { kind: 'node', node: { id: 'merged', state: 'conflict' }, metadata },
+    ])
+    cart.clear()
+    await expect(prepared).rejects.toMatchObject({ name: 'AbortError' })
+})
+
 it('starts on addition and review reuses the running analysis and its progress', async () => {
     vi.clearAllMocks()
     let finish!: (value: ResourceOperationPlan) => void
@@ -57,7 +120,11 @@ it('starts on addition and review reuses the running analysis and its progress',
     cart.update(value)
     await tick()
     expect(resourceAnalysisUpdate).toHaveBeenCalledTimes(1)
-    const progress = { node: { id: 'first' } } as ResourceOperationProgress
+    const progress = {
+        kind: 'node',
+        selectionRevision: 1,
+        node: { id: 'first' },
+    } as ResourceOperationProgress
     report(progress)
     const onProgress = vi.fn()
     const prepared = cart.review()!.prepare(new AbortController().signal, onProgress)
@@ -159,5 +226,80 @@ it('a failed background request is retried when opening the preview without drop
     await tick()
     await expect(cart.review()!.prepare(new AbortController().signal, vi.fn())).resolves.toBe(plan)
     expect(vi.mocked(resourcePrepareOperation).mock.calls[0][2]).toEqual(value.selections)
+    cart.clear()
+})
+
+it('canceling stops the cart analysis, closes its session and does not restart the same selection', async () => {
+    vi.clearAllMocks()
+    vi.mocked(resourceAnalysisUpdate).mockImplementation(() => new Promise(() => {}))
+    const cart = createContentAnalysis()
+    cart.update(input())
+    await tick()
+    const review = cart.review()!
+    const waiting = review.prepare(new AbortController().signal, vi.fn())
+    review.cancel()
+    await expect(waiting).rejects.toThrow()
+    expect(review.signal.aborted).toBe(true)
+    expect(vi.mocked(resourceAnalysisUpdate).mock.calls[0][4].aborted).toBe(true)
+    await tick()
+    expect(resourceAnalysisClose).toHaveBeenCalledWith('session')
+    cart.update({ ...input(), context: 'a download finished' })
+    await tick()
+    expect(resourceAnalysisUpdate).toHaveBeenCalledTimes(1)
+    cart.update(input('second'))
+    await tick()
+    expect(resourceAnalysisUpdate).toHaveBeenCalledTimes(2)
+    cart.clear()
+})
+
+it('opening a review after a cancel starts a new analysis of the kept selection', async () => {
+    vi.clearAllMocks()
+    vi.mocked(resourceAnalysisUpdate)
+        .mockImplementationOnce(() => new Promise(() => {}))
+        .mockResolvedValueOnce(plan)
+    vi.mocked(resourcePrepareOperation).mockResolvedValue(plan)
+    const cart = createContentAnalysis()
+    const value = input()
+    cart.update(value)
+    await tick()
+    cart.cancel()
+    const review = cart.review()!
+    expect(review.signal.aborted).toBe(false)
+    await expect(review.prepare(new AbortController().signal, vi.fn())).resolves.toBe(plan)
+    expect(resourceAnalysisOpen).toHaveBeenCalledTimes(2)
+    expect(vi.mocked(resourceAnalysisUpdate).mock.calls[1][2]).toEqual(value.selections)
+    cart.clear()
+})
+
+it('a finished analysis survives a review cancel', async () => {
+    vi.clearAllMocks()
+    vi.mocked(resourceAnalysisUpdate).mockResolvedValue(plan)
+    const cart = createContentAnalysis()
+    cart.update(input())
+    await tick()
+    await tick()
+    const review = cart.review()!
+    review.cancel()
+    expect(review.signal.aborted).toBe(false)
+    expect(resourceAnalysisClose).not.toHaveBeenCalled()
+    cart.clear()
+})
+
+it('replacing the analysis while a review waits is not recorded as a user cancel', async () => {
+    vi.clearAllMocks()
+    vi.mocked(resourceAnalysisUpdate).mockImplementation(() => new Promise(() => {}))
+    const cart = createContentAnalysis()
+    cart.update(input())
+    await tick()
+    const review = cart.review()!
+    // The preview cancels its borrowed analysis when that analysis is aborted.
+    review.signal.addEventListener('abort', () => review.cancel())
+    void review.prepare(new AbortController().signal, vi.fn()).catch(() => {})
+    cart.update({ ...input(), context: 'a download finished' })
+    await tick()
+    expect(resourceAnalysisUpdate).toHaveBeenCalledTimes(2)
+    cart.update({ ...input(), context: 'another download finished' })
+    await tick()
+    expect(resourceAnalysisUpdate).toHaveBeenCalledTimes(3)
     cart.clear()
 })

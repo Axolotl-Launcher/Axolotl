@@ -357,7 +357,7 @@ pub(super) async fn install_manual_download(
     let full_path = crate::api::instance::get_full_path(instance_id)
         .await?
         .join(&relative_path);
-    let previous_path =
+    let (previous_path, verified_modified) =
         crate::state::materialize_verified_project_download_copy(
             source_path,
             &full_path,
@@ -403,6 +403,26 @@ pub(super) async fn install_manual_download(
         relative_path = %relative_path,
         "Completed CurseForge pending manual download record"
     );
+    if let Err(error) = state
+        .file_fingerprints
+        .seed_verified(
+            &state,
+            instance_id,
+            &crate::api::instance::get_full_path(instance_id).await?,
+            &relative_path,
+            crate::resources::ArtifactIntegrity {
+                size: Some(size),
+                hashes: vec![crate::resources::ContentHash {
+                    algorithm: crate::resources::HashAlgorithm::Sha1,
+                    value: sha1.into(),
+                }],
+            },
+            verified_modified,
+        )
+        .await
+    {
+        tracing::warn!(%error, "Could not save verified manual download fingerprint");
+    }
     if download.ownership_kind
         == crate::state::instances::ContentOwnershipKind::PackManaged
         && download.operation_kind

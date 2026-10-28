@@ -1,7 +1,7 @@
 use super::{identity::LocalArtifactIdentity, *};
 use tokio_util::sync::CancellationToken;
 
-#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct InstalledArtifactRecord {
     #[serde(flatten)]
@@ -354,7 +354,7 @@ pub(crate) async fn refresh_snapshot(
     instance_id: &str,
     cancel: &CancellationToken,
 ) -> ResourceResult<()> {
-    refresh_snapshot_with_verification(state, instance_id, cancel, true).await
+    refresh_snapshot_with_verification(state, instance_id, cancel, false).await
 }
 
 pub(crate) async fn refresh_install_snapshot(
@@ -371,10 +371,6 @@ async fn refresh_snapshot_with_verification(
     cancel: &CancellationToken,
     verify_all: bool,
 ) -> ResourceResult<()> {
-    use crate::state::instances::adapters::sqlite::content_rows;
-    use crate::state::{
-        ContentOwnershipKind, ContentRequirement, ContentSourceKind,
-    };
     if cancel.is_cancelled() {
         return Err(ResourceError::Canceled);
     }
@@ -393,59 +389,11 @@ async fn refresh_snapshot_with_verification(
     }
     let _writer = state.acquire_install_db_permit().await?;
     let _lock = state.lock_instance_content_exclusive(instance_id).await;
-    let scope = crate::state::instances::commands::resolve_content_scope(
+    crate::state::store::instance_content_files::set_discovered_entries(
+        &state.data,
         instance_id,
-        None,
-        state,
     )
     .await?;
-    let mut tx = state.pool.begin().await.map_err(plans::db)?;
-    let rows: Vec<(String, String, i64)> = sqlx::query_as(
-        "SELECT file.id, file.relative_path, file.enabled FROM instance_files file WHERE file.instance_id = ? AND file.missing = 0 AND NOT EXISTS (SELECT 1 FROM instance_content_entries entry WHERE entry.content_set_id = ? AND entry.file_id = file.id)"
-    ).bind(instance_id).bind(&scope.content_set_id).fetch_all(&mut *tx).await.map_err(plans::db)?;
-    let mut changed = false;
-    for (id, path, enabled) in rows {
-        let Some(kind) = crate::state::instances::adapters::filesystem::project_type_from_relative_path(&path) else { continue };
-        if !matches!(
-            kind,
-            crate::state::ProjectType::Mod
-                | crate::state::ProjectType::ResourcePack
-                | crate::state::ProjectType::ShaderPack
-                | crate::state::ProjectType::DataPack
-        ) {
-            continue;
-        }
-        content_rows::upsert_content_entry_from_parts_in_transaction(
-            content_rows::UpsertContentEntry {
-                instance_id,
-                content_set_id: &scope.content_set_id,
-                file_id: Some(&id),
-                project_type: kind,
-                source_kind: ContentSourceKind::Local,
-                ownership_kind: ContentOwnershipKind::UserAdded,
-                auto_dependency: false,
-                server_requirement: ContentRequirement::Unknown,
-                client_requirement: ContentRequirement::Unknown,
-                enabled: enabled != 0,
-            },
-            &mut tx,
-        )
-        .await?;
-        changed = true;
-    }
-    changed |= content_rows::repair_pack_members_in_transaction(
-        &scope.content_set_id,
-        &mut tx,
-    )
-    .await?;
-    if changed {
-        content_rows::bump_content_set_revision_in_transaction(
-            &scope.content_set_id,
-            &mut tx,
-        )
-        .await?;
-    }
-    tx.commit().await.map_err(plans::db)?;
     Ok(())
 }
 
@@ -521,100 +469,47 @@ pub(crate) async fn hydrate_update_batch_with_service(
 }
 
 pub(super) async fn installed_file_identity(
+    state: &crate::State,
+    instance_id: &str,
     root: &std::path::Path,
     entry: &InstalledResource,
     cache: &super::cache::ResourceCache,
     reuse: bool,
     cancel: &CancellationToken,
 ) -> ResourceResult<LocalArtifactIdentity> {
-    if cancel.is_cancelled() {
-        return Err(ResourceError::Canceled);
-    }
-    if reuse
-        && let Some(identity) = cache.local_identity(&entry.integrity).await
-    {
-        return Ok(identity);
-    }
-    let generation = cache.generation().await;
-    #[cfg(test)]
-    crate::util::download::verified_file::record_scan();
-    let bytes =
-        match super::execution::checked_path(root, &entry.relative_path) {
-            Ok(path) => tokio::select! { biased; _ = cancel.cancelled() => return Err(ResourceError::Canceled), bytes = tokio::fs::read(path) => bytes }
-                .map(bytes::Bytes::from)
-                .map_err(|error| error.to_string()),
-            Err(error) => Err(error.to_string()),
-        };
-    let bytes = match bytes {
-        Ok(bytes) => bytes,
-        Err(error) => {
-            return Err(ResourceError::InvalidRequest(format!(
-                "{}: {error}",
-                entry.relative_path
-            )));
-        }
-    };
-    let hash_bytes = bytes.clone();
-    let hash_cancel = cancel.clone();
-    let (mut hashes, sha1, fingerprint) =
-        tokio::task::spawn_blocking(move || {
-            use sha2::Digest;
-            let mut sha512 = sha2::Sha512::new();
-            let mut sha256 = sha2::Sha256::new();
-            let mut sha1 = sha1_smol::Sha1::new();
-            for part in hash_bytes.chunks(256 * 1024) {
-                if hash_cancel.is_cancelled() {
-                    return Err(ResourceError::Canceled);
-                }
-                sha512.update(part);
-                sha256.update(part);
-                sha1.update(part);
-            }
-            let hashes = vec![
-                ContentHash {
-                    algorithm: HashAlgorithm::Sha512,
-                    value: format!("{:x}", sha512.finalize()),
-                },
-                ContentHash {
-                    algorithm: HashAlgorithm::Sha256,
-                    value: format!("{:x}", sha256.finalize()),
-                },
-            ];
-            Ok((
-                hashes,
-                sha1.digest().to_string(),
-                crate::util::fingerprint::compute_fingerprint(&hash_bytes),
-            ))
-        })
-        .await
-        .map_err(|error| ResourceError::InvalidRequest(error.to_string()))??;
-    if entry.integrity.size != Some(bytes.len() as u64)
-        || !entry.integrity.hashes.iter().any(|hash| {
-            hash.algorithm == HashAlgorithm::Sha1
-                && hash.value.eq_ignore_ascii_case(&sha1)
-        })
+    use crate::state::store::content_file_fingerprints::ContentFileFingerprints;
+    let previous = ContentFileFingerprints::get_current(
+        &state.data,
+        instance_id,
+        &entry.relative_path,
+    )
+    .await?;
+    let result = state
+        .file_fingerprints
+        .resolve(
+            root,
+            &entry.relative_path,
+            previous.as_ref(),
+            !reuse,
+            cancel,
+        )
+        .await?;
+    if !identity::exact_integrity(&entry.integrity, &result.identity.integrity)
     {
         return Err(ResourceError::InvalidRequest(format!(
             "{}: installed files changed; refresh content first",
             entry.relative_path
         )));
     }
-    hashes.push(ContentHash {
-        algorithm: HashAlgorithm::Sha1,
-        value: sha1,
-    });
-
-    let identity = LocalArtifactIdentity {
-        integrity: ArtifactIntegrity {
-            size: Some(bytes.len() as u64),
-            hashes,
-        },
-        fingerprint: Some(fingerprint),
-    };
-    // Keep byte evidence even if recognition fails or a concurrent content
-    // change invalidates this analysis; the next snapshot must match its hash.
-    cache.store_local_identity(&identity, generation).await;
-    Ok(identity)
+    if let Some(record) = &result.record {
+        ContentFileFingerprints::set_current(&state.data, instance_id, record)
+            .await?;
+    }
+    let generation = cache.generation().await;
+    cache
+        .store_local_identity(&result.identity, generation)
+        .await;
+    Ok(result.identity)
 }
 
 async fn hydrate_entries_with_service(
@@ -680,10 +575,12 @@ async fn hydrate_entries_with_service(
             continue;
         }
         let local = match installed_file_identity(
+            state,
+            instance_id,
             &root,
             entry,
             service.cache(),
-            selected.is_none_or(|ids| !ids.contains(&entry.entry_id)),
+            true,
             cancel,
         )
         .await
@@ -1025,7 +922,15 @@ pub async fn prepare_entries_with_progress(
         ));
     }
     let state = crate::State::get().await?;
+    plans::report_phase(
+        progress,
+        plans::ResourceOperationPhase::RefreshingContent,
+    );
     refresh_snapshot(&state, &instance_id, cancel).await?;
+    plans::report_phase(
+        progress,
+        plans::ResourceOperationPhase::IdentifyingInstalled,
+    );
     let hydrated =
         hydrate_selected(&state, &instance_id, cancel, Some(&entry_ids))
             .await?;

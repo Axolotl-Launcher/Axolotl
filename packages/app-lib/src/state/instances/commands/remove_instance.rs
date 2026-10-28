@@ -26,6 +26,7 @@ async fn remove_instance_with_policy(
     let _maintenance_guard =
         crate::api::instance::lock_instance_maintenance(instance_id).await;
     crate::api::instance::begin_instance_deletion(instance_id).await?;
+    state.content_refresh.invalidate(instance_id).await;
     let result = remove_instance_files_and_state(
         instance_id,
         state,

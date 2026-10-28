@@ -43,12 +43,33 @@ export function contentVersionContext(item: ContentItem, entry?: InstanceContent
     return pinned && project ? { project, pinned } : null
 }
 
+const releaseKey = ({ reference }: ResourceRelease) =>
+    `${reference.project.source}:${reference.project.projectId}:${reference.releaseId}`
+
+/** Appends releases not listed yet, so a page repeating an earlier release does not duplicate it. */
+function mergeReleases(current: ResourceRelease[], page: ResourceRelease[]) {
+    const seen = new Set(current.map(releaseKey))
+    const added = page.filter((release) => {
+        const key = releaseKey(release)
+        if (seen.has(key)) return false
+        seen.add(key)
+        return true
+    })
+    return added.length ? [...current, ...added] : current
+}
+
+/**
+ * Loads a project's releases page by page. Each page is shown as soon as it
+ * arrives; `loading` stays true until the last page, and a failure on a later
+ * page keeps the releases already shown so `retry` can continue from there.
+ */
 export function useContentVersions(source: ContentVersionSource = defaultContentVersionSource) {
     const versions = shallowRef<ResourceRelease[]>([])
     const loading = ref(false)
     const error = shallowRef<unknown>(null)
     let controller: AbortController | undefined
-    let context: { project: SourceProjectRef; pinned?: string } | undefined
+    let context:
+        { project: SourceProjectRef; pinned?: string; nextCursor: string | null } | undefined
 
     function cancel() {
         controller?.abort()
@@ -56,27 +77,39 @@ export function useContentVersions(source: ContentVersionSource = defaultContent
         loading.value = false
     }
 
-    async function load(project: SourceProjectRef, pinned?: string) {
+    async function load(
+        project: SourceProjectRef,
+        pinned?: string,
+        resume?: { cursor: string; releases: ResourceRelease[] },
+    ) {
         cancel()
-        context = { project, pinned }
+        const current = { project, pinned, nextCursor: resume?.cursor ?? null }
+        context = current
         const request = new AbortController()
         controller = request
         loading.value = true
         error.value = null
-        const timer = setTimeout(() => {
-            const failure = new Error('Version request timed out')
-            request.abort(failure)
-            if (controller === request) {
-                controller = undefined
-                error.value = failure
-                loading.value = false
-            }
-        }, 30_000)
+        let timer: ReturnType<typeof setTimeout> | undefined
+        // Each request gets its own deadline, so a long list that keeps
+        // arriving is not cut off.
+        const armTimeout = () => {
+            clearTimeout(timer)
+            timer = setTimeout(() => {
+                const failure = new Error('Version request timed out')
+                request.abort(failure)
+                if (controller === request) {
+                    controller = undefined
+                    error.value = failure
+                    loading.value = false
+                }
+            }, 30_000)
+        }
         try {
-            const releases: ResourceRelease[] = []
-            let cursor: string | null = null
-            const cursors = new Set<string>()
+            let releases = resume?.releases ?? []
+            let cursor: string | null = resume?.cursor ?? null
+            const cursors = new Set<string>(cursor ? [cursor] : [])
             do {
+                armTimeout()
                 const page = await source.resourceReleases(
                     { kind: 'source', project },
                     undefined,
@@ -85,12 +118,15 @@ export function useContentVersions(source: ContentVersionSource = defaultContent
                     request.signal,
                 )
                 request.signal.throwIfAborted()
-                releases.push(...page.entries)
+                releases = mergeReleases(releases, page.entries)
+                if (controller === request) versions.value = releases
                 cursor = page.cursor
+                current.nextCursor = cursor
                 if (cursor && cursors.has(cursor)) throw new Error('Repeated version cursor')
                 if (cursor) cursors.add(cursor)
             } while (cursor)
             if (pinned && !releases.some((release) => release.reference.releaseId === pinned)) {
+                armTimeout()
                 const [document] = await source.resourceReleaseDocuments(
                     project.source,
                     [pinned],
@@ -98,7 +134,7 @@ export function useContentVersions(source: ContentVersionSource = defaultContent
                     request.signal,
                 )
                 request.signal.throwIfAborted()
-                if (document) releases.push(document.release)
+                if (document) releases = mergeReleases(releases, [document.release])
             }
             if (controller === request) versions.value = releases
         } catch (failure) {
@@ -115,7 +151,11 @@ export function useContentVersions(source: ContentVersionSource = defaultContent
     }
 
     function retry() {
-        return context ? load(context.project, context.pinned) : Promise.resolve()
+        if (!context) return Promise.resolve()
+        const { project, pinned, nextCursor } = context
+        return nextCursor && versions.value.length
+            ? load(project, pinned, { cursor: nextCursor, releases: versions.value })
+            : load(project, pinned)
     }
 
     function reset() {

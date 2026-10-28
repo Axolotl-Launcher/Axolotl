@@ -130,6 +130,7 @@ impl ResourceProvider for SearchProvider {
                         .find(|entry| entry.project.project_id == *id)
                         .map(|metadata| {
                             ProviderValue::Project(ProjectDocument {
+                                owner: None,
                                 metadata: metadata.clone(),
                                 description: ResourceText {
                                     source: self.source.clone(),

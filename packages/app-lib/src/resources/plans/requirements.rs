@@ -14,61 +14,33 @@ pub(crate) struct RetainedRequirement {
 
 impl RetainedRequirement {
     pub(super) fn accepts(&self, release: &ResourceRelease) -> bool {
-        let matches =
-            self.version_constraint.as_ref().is_none_or(|constraint| {
-                self.local_mod_id.is_some()
-                    || matches_release_constraint(constraint, &release.version)
-            }) && (self.exact.is_empty()
-                || release.artifacts.iter().any(|artifact| {
-                    artifact.role == ArtifactRole::Primary
-                        && self.exact.iter().any(|expected| {
-                            identity::exact_integrity(
-                                expected,
-                                &artifact.integrity,
-                            )
-                        })
-                }));
-        matches != self.incompatible
+        let exact_matches = self.exact.is_empty()
+            || release.artifacts.iter().any(|artifact| {
+                artifact.role == ArtifactRole::Primary
+                    && self.exact.iter().any(|expected| {
+                        identity::exact_integrity(expected, &artifact.integrity)
+                    })
+            });
+        if !exact_matches {
+            return self.incompatible;
+        }
+        let version = self.version_constraint.as_ref().map_or(
+            CompatibilityState::Compatible,
+            |constraint| {
+                if self.local_mod_id.is_some() {
+                    CompatibilityState::Compatible
+                } else {
+                    assess_release_constraint(constraint, &release.version)
+                }
+            },
+        );
+        version == CompatibilityState::Unknown
+            || (version == CompatibilityState::Compatible) != self.incompatible
     }
 }
 
 pub(crate) fn mod_version_matches(pattern: &str, version: &str) -> bool {
-    let pattern = pattern.trim();
-    if pattern == version
-        || matches!(pattern, "*" | "x" | "X") && !version.is_empty()
-    {
-        return true;
-    }
-    if pattern.contains("||") {
-        return pattern
-            .split("||")
-            .any(|part| mod_version_matches(part.trim(), version));
-    }
-    if matches_release_constraint(pattern, version) {
-        return true;
-    }
-    if !pattern.starts_with(['~', '^', '<', '>', '='])
-        && !pattern.contains(['*', 'x', 'X'])
-    {
-        return false;
-    }
-    let version = semver::Version::parse(version).or_else(|_| {
-        let mut parts: Vec<_> = version.split('.').collect();
-        if parts.len() > 3
-            || parts.iter().any(|part| {
-                part.is_empty()
-                    || !part.bytes().all(|byte| byte.is_ascii_digit())
-            })
-        {
-            return semver::Version::parse("");
-        }
-        parts.resize(3, "0");
-        semver::Version::parse(&parts.join("."))
-    });
-    let Ok(version) = version else { return false };
-    let normalized = pattern.split_whitespace().collect::<Vec<_>>().join(", ");
-    semver::VersionReq::parse(&normalized)
-        .is_ok_and(|range| range.matches(&version))
+    matches_release_constraint(pattern, version)
 }
 
 pub(crate) async fn local_metadata(
@@ -458,7 +430,21 @@ pub(super) fn local_file_dependency(
         .copied()
         .collect();
     if dependency.kind == ResourceDependencyKind::Incompatible {
-        if !enabled.is_empty() {
+        if enabled.iter().any(|entry| {
+            dependency
+                .version_constraint
+                .as_ref()
+                .is_none_or(|constraint| {
+                    draft
+                        .local_metadata
+                        .get(&entry.entry_id)
+                        .and_then(|metadata| metadata.version.as_deref())
+                        .is_some_and(|version| {
+                            assess_release_constraint(constraint, version)
+                                == CompatibilityState::Compatible
+                        })
+                })
+        }) {
             conflict_issue(
                 &mut draft.plan,
                 &selection.id,
@@ -496,7 +482,7 @@ pub(super) fn local_file_dependency(
             .local_metadata
             .get(&entry.entry_id)
             .and_then(|meta| meta.version.as_deref())
-            .is_some_and(|version| mod_version_matches(constraint, version))
+            .is_none_or(|version| mod_version_matches(constraint, version))
     {
         conflict_issue(
             &mut draft.plan,

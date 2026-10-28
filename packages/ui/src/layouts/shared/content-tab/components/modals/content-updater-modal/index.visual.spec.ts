@@ -70,3 +70,59 @@ it('shows a retryable version error without loading or empty-version feedback', 
     retry.click()
     expect(wrapper.emitted('retry')).toHaveLength(1)
 })
+
+const version = (id: string) => ({
+    id,
+    project_id: 'project',
+    name: id,
+    version_number: id,
+    date_published: '2024-01-01T00:00:00Z',
+    version_type: 'release',
+    game_versions: ['1.20.1'],
+    loaders: ['fabric'],
+    files: [],
+})
+
+it('keeps loaded versions listed while more load or after a later page fails', async () => {
+    const wrapper = await modal({ versions: [version('first')], loading: true })
+    const listed = () =>
+        [...document.querySelectorAll('[role="option"]')].map((option) => option.textContent)
+    expect(listed().some((text) => text?.includes('first'))).toBe(true)
+    expect(document.querySelector('[role="status"]')?.textContent).toContain(
+        'Loading more versions',
+    )
+    await wrapper.setProps({ loading: false, loadingError: 'Versions unavailable' })
+    expect(listed().some((text) => text?.includes('first'))).toBe(true)
+    expect(document.querySelector('[role="alert"]')?.textContent).toContain('Versions unavailable')
+})
+
+it('waits for a requested version on a later page instead of selecting the first one', async () => {
+    const wrapper = await modal({ versions: [], loading: true })
+    ;(wrapper.vm as unknown as { show: (id?: string) => void }).show('wanted')
+    await wrapper.setProps({ versions: [version('first')] })
+    expect(wrapper.emitted('versionSelect')).toBeUndefined()
+    await wrapper.setProps({ versions: [version('first'), version('wanted')], loading: false })
+    expect(wrapper.emitted('versionSelect')?.at(-1)?.[0]).toMatchObject({ id: 'wanted' })
+})
+
+it('keeps waiting for the requested version after a later page fails', async () => {
+    const wrapper = await modal({ versions: [], loading: true })
+    ;(wrapper.vm as unknown as { show: (id?: string) => void }).show('wanted')
+    await wrapper.setProps({ versions: [version('first')], loading: false, loadingError: 'Failed' })
+    expect(wrapper.emitted('versionSelect')).toBeUndefined()
+    await wrapper.setProps({
+        versions: [version('first'), version('wanted')],
+        loadingError: undefined,
+    })
+    expect(wrapper.emitted('versionSelect')?.at(-1)?.[0]).toMatchObject({ id: 'wanted' })
+})
+
+it('opened while pages still arrive, waits for the requested version instead of the first listed', async () => {
+    const wrapper = await modal({ versions: [version('first')], loading: true })
+    const before = wrapper.emitted('versionSelect')?.length ?? 0
+    ;(wrapper.vm as unknown as { show: (id?: string) => void }).show('wanted')
+    await nextTick()
+    expect(wrapper.emitted('versionSelect')?.length ?? 0).toBe(before)
+    await wrapper.setProps({ versions: [version('first'), version('wanted')], loading: false })
+    expect(wrapper.emitted('versionSelect')?.at(-1)?.[0]).toMatchObject({ id: 'wanted' })
+})

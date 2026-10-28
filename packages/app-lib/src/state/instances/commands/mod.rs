@@ -33,7 +33,7 @@ pub(crate) use self::list_content::{
     list_content_sets, list_linked_modpack_content,
 };
 
-mod content_snapshot;
+pub(crate) mod content_snapshot;
 pub(crate) use self::content_snapshot::{
     get_cached_content_snapshot, get_content_snapshot,
     get_local_content_snapshot, reconcile_curseforge_members,
@@ -49,6 +49,9 @@ mod sync_content_files;
 pub(crate) use self::sync_content_files::{
     instance_content_root, sync_content_files, sync_content_files_for_operation,
 };
+pub(crate) use sync_content_files::{
+    ScanProgress, sync_content_files_progressively,
+};
 
 mod launch_context;
 pub(crate) use self::launch_context::*;
@@ -62,7 +65,7 @@ pub(crate) use content_file_operations::recover_content_file_operations;
 mod instance_upgrade;
 pub(crate) use self::instance_upgrade::{
     ReadOnlyUpgradeSource, UpgradePlanRuntimeValidation,
-    create_instance_upgrade_plan_with_source,
+    UpgradePlanningObserver, create_instance_upgrade_plan_with_source,
     recompute_instance_upgrade_plan_from_source,
     scan_instance_upgrade_source_files, validate_instance_upgrade_plan_source,
 };

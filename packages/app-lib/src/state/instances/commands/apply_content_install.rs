@@ -2006,7 +2006,10 @@ pub(crate) async fn materialize_verified_project_download_copy(
     destination: &Path,
     verified_size: u64,
     verified_sha1: &str,
-) -> crate::Result<Option<PathBuf>> {
+) -> crate::Result<(
+    Option<PathBuf>,
+    Option<crate::state::store::content_file_fingerprints::FileModifiedTime>,
+)> {
     if let Some(parent) = destination.parent() {
         io::create_dir_all(parent).await?;
     }
@@ -2057,25 +2060,31 @@ pub(crate) async fn materialize_verified_project_download_copy(
         .exists()
         .then_some(backup)
         .filter(|path| path.exists());
-    if let Err(error) = verify_project_download_identity(
+    let modified = match verify_project_download_identity(
         destination,
         verified_size,
         verified_sha1,
     )
     .await
     {
-        restore_project_materialization(destination, previous.as_deref())
-            .await?;
-        return Err(error);
-    }
-    Ok(previous)
+        Ok(modified) => modified,
+        Err(error) => {
+            restore_project_materialization(destination, previous.as_deref())
+                .await?;
+            return Err(error);
+        }
+    };
+    Ok((previous, modified))
 }
 
 async fn verify_project_download_identity(
     path: &Path,
     verified_size: u64,
     verified_sha1: &str,
-) -> crate::Result<()> {
+) -> crate::Result<
+    Option<crate::state::store::content_file_fingerprints::FileModifiedTime>,
+> {
+    let before = tokio::fs::metadata(path).await?;
     let (actual_size, actual_sha1) = fetch::sha1_file_async(path).await?;
     if actual_size != verified_size {
         return Err(crate::ErrorKind::OtherError(format!(
@@ -2090,7 +2099,16 @@ async fn verify_project_download_identity(
         )
         .into());
     }
-    Ok(())
+    let after = tokio::fs::metadata(path).await?;
+    if before.len() != after.len()
+        || before.modified().ok() != after.modified().ok()
+    {
+        return Err(crate::ErrorKind::InputError(
+            "Copied file changed during verification".into(),
+        )
+        .into());
+    }
+    Ok(after.modified().ok().and_then(crate::state::store::content_file_fingerprints::FileModifiedTime::from_system_time))
 }
 
 pub(crate) async fn finalize_project_materialization(

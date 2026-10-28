@@ -44,7 +44,7 @@
 
                     <div class="flex-1 overflow-y-auto px-4" :class="isModpack ? 'pb-4' : 'pb-16'">
                         <div
-                            v-if="loading"
+                            v-if="loading && versions.length === 0"
                             class="flex flex-col items-center justify-center h-full gap-2"
                         >
                             <SpinnerIcon
@@ -54,7 +54,11 @@
                                 formatMessage(messages.loadingVersions)
                             }}</span>
                         </div>
-                        <div v-else-if="loadingError" class="flex flex-col gap-3 py-4" role="alert">
+                        <div
+                            v-else-if="loadingError && versions.length === 0"
+                            class="flex flex-col gap-3 py-4"
+                            role="alert"
+                        >
                             <p class="m-0">{{ loadingError }}</p>
                             <Button @click="emit('retry')">{{
                                 formatMessage(commonMessages.retryButton)
@@ -115,7 +119,25 @@
                                 </button>
                             </div>
                             <div
-                                v-if="filteredVersions.length === 0"
+                                v-if="loading"
+                                class="flex items-center justify-center gap-2 p-4 text-sm text-[var(--color-text-tertiary)]"
+                                role="status"
+                            >
+                                <SpinnerIcon class="size-4 animate-spin" />
+                                {{ formatMessage(messages.loadingMoreVersions) }}
+                            </div>
+                            <div
+                                v-else-if="loadingError"
+                                class="flex flex-col items-start gap-2 p-4 text-sm"
+                                role="alert"
+                            >
+                                <p class="m-0">{{ loadingError }}</p>
+                                <Button @click="emit('retry')">{{
+                                    formatMessage(commonMessages.retryButton)
+                                }}</Button>
+                            </div>
+                            <div
+                                v-else-if="filteredVersions.length === 0"
                                 class="p-4 text-center text-[var(--color-text-tertiary)] text-sm"
                             >
                                 {{ formatMessage(messages.noVersionsFound) }}
@@ -478,6 +500,10 @@ const messages = defineMessages({
         id: 'instances.updater-modal.loading-versions',
         defaultMessage: 'Loading versions...',
     },
+    loadingMoreVersions: {
+        id: 'instances.updater-modal.loading-more-versions',
+        defaultMessage: 'Loading more versions…',
+    },
     loadingChangelog: {
         id: 'instances.updater-modal.loading-changelog',
         defaultMessage: 'Loading changelog...',
@@ -595,6 +621,8 @@ const suppressCancelOnHide = ref(false)
 const { selectedVersion, pinnedInitialVersionId, selectVersion, resetInitialSelection } =
     useContentUpdaterSelection({
         versions: toRef(props, 'versions'),
+        loading: toRef(props, 'loading'),
+        loadingError: toRef(props, 'loadingError'),
         currentVersionId: toRef(props, 'currentVersionId'),
         onVersionSelect: (version) => emit('versionSelect', version),
         debug,

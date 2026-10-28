@@ -6,10 +6,10 @@ use crate::state::instances::{
 };
 
 #[derive(Default)]
-pub(super) struct DependencyBackfill {
-    pub(super) edges: Vec<ContentDependencyEdge>,
-    reconciled: HashSet<(String, ContentProvider)>,
-    rejected: HashSet<(String, String)>,
+pub(crate) struct DependencyBackfill {
+    pub(crate) edges: Vec<ContentDependencyEdge>,
+    pub(crate) reconciled: HashSet<(String, ContentProvider)>,
+    pub(crate) rejected: HashSet<(String, String)>,
 }
 
 fn edge_fact(edge: &ContentDependencyEdge) -> String {
@@ -29,7 +29,7 @@ fn edge_fact(edge: &ContentDependencyEdge) -> String {
 }
 
 impl DependencyBackfill {
-    pub(super) fn is_empty(&self) -> bool {
+    pub(crate) fn is_empty(&self) -> bool {
         self.reconciled.is_empty() && self.rejected.is_empty()
     }
 
@@ -66,25 +66,7 @@ impl DependencyBackfill {
     }
 }
 
-pub(super) async fn persist_backfill(
-    backfill: &DependencyBackfill,
-    content_set_id: &str,
-    tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>,
-) -> crate::Result<()> {
-    for (parent, provider) in &backfill.reconciled {
-        sqlx::query("DELETE FROM instance_content_dependencies WHERE content_set_id = ? AND parent_entry_id = ? AND evidence_provider = ?")
-            .bind(content_set_id).bind(parent).bind(provider.as_str()).execute(&mut **tx).await?;
-    }
-    for (parent, child) in &backfill.rejected {
-        sqlx::query("DELETE FROM instance_content_dependencies WHERE content_set_id = ? AND parent_entry_id = ? AND child_entry_id = ? AND dependency_kind = 'required'")
-            .bind(content_set_id).bind(parent).bind(child).execute(&mut **tx).await?;
-    }
-    for edge in &backfill.edges {
-        content_rows::upsert_content_dependency_edge_in_transaction(edge, tx)
-            .await?;
-    }
-    Ok(())
-}
+pub(crate) use crate::state::store::content_dependencies::persist_backfill;
 
 fn provider_ref(
     references: &[ContentProviderRef],
@@ -346,7 +328,7 @@ fn append_local_edges(
     }
 }
 
-pub(super) async fn backfill_dependency_edges_from_metadata(
+pub(crate) async fn backfill_dependency_edges_from_metadata(
     entries: &[ContentEntry],
     refs: &HashMap<String, Vec<ContentProviderRef>>,
     content_set: &ContentSet,

@@ -2504,6 +2504,9 @@
   "instances.updater-modal.loading-changelog": {
     "defaultMessage": "Loading changelog..."
   },
+  "instances.updater-modal.loading-more-versions": {
+    "message": "Loading more versions…"
+  },
   "instances.updater-modal.loading-versions": {
     "defaultMessage": "Loading versions..."
   },

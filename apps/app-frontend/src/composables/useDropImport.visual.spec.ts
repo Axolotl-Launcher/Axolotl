@@ -2,10 +2,19 @@ import { beforeEach, expect, it, vi } from 'vitest'
 import { computed, ref } from 'vue'
 
 import { syncConfiguredDirectLinks } from '@/helpers/direct-link-sync'
-import { classifyDroppedItem, resolveGamedirs, scanLauncherInstances } from '@/helpers/drop'
+import {
+    classifyDroppedItem,
+    extractModMetadata,
+    resolveGamedirs,
+    scanLauncherInstances,
+} from '@/helpers/drop'
 import { import_instance } from '@/helpers/import.js'
 import { wait_for_install_job } from '@/helpers/install'
-import { check_symlink_capability } from '@/helpers/instance'
+import {
+    add_project_from_path,
+    check_symlink_capability,
+    get as getInstance,
+} from '@/helpers/instance'
 
 import { type DropImportOptions, useDropImport } from './useDropImport'
 
@@ -69,7 +78,15 @@ function setup() {
         fileDrop: vi.fn(),
         trackEvent: vi.fn(),
         router: { push: vi.fn() },
-        contentInstall: {},
+        contentInstall: {
+            incompatibilityWarningVersions: ref([]),
+            incompatibilityWarningCurrentGameVersion: ref(''),
+            incompatibilityWarningCurrentLoader: ref(''),
+            incompatibilityWarningProjectType: ref(''),
+            incompatibilityWarningProjectName: ref(''),
+            incompatibilityWarningMessage: ref(''),
+            incompatibilityWarningInstalling: ref(false),
+        },
         installModpackFromPath: vi.fn(),
     } as unknown as DropImportOptions)
     const showImportMethods = vi.fn()
@@ -77,6 +94,59 @@ function setup() {
     flow.symlinkCardsModal.value = { show: showImportMethods, hide: vi.fn() }
     return { flow, showImportMethods, addNotification }
 }
+
+it.each([null, { minecraft_version: 'unrecognized declaration', loader: 'fabric' }])(
+    'imports a mod with unknown compatibility without a conflict prompt: %j',
+    async (metadata) => {
+        const { flow, addNotification } = setup()
+        const show = vi.fn()
+        flow.incompatibilityWarningModal.value = { show }
+        flow.pendingInstall.value = { type: 'mod', filePath: 'C:/Downloads/mod.jar' }
+        vi.mocked(extractModMetadata).mockResolvedValue(metadata ? JSON.stringify(metadata) : null)
+        vi.mocked(getInstance).mockResolvedValue({
+            id: 'instance',
+            game_version: '1.21.1',
+            loader: 'fabric',
+        } as Awaited<ReturnType<typeof getInstance>>)
+
+        await flow.handleGenericInstall('instance')
+
+        expect(show).not.toHaveBeenCalled()
+        expect(flow.pendingDropIncompatibility.value).toBeNull()
+        expect(add_project_from_path).toHaveBeenCalledExactlyOnceWith(
+            'instance',
+            'C:/Downloads/mod.jar',
+            'mod',
+            undefined,
+        )
+        expect(addNotification).toHaveBeenCalledWith(expect.objectContaining({ type: 'success' }))
+    },
+)
+
+it.each([{ minecraft_version: '1.20.1' }, { loader: 'forge' }])(
+    'still prompts for an explicitly incompatible mod while the other dimension is unknown: %j',
+    async (metadata) => {
+        const { flow } = setup()
+        const show = vi.fn()
+        flow.incompatibilityWarningModal.value = { show }
+        flow.pendingInstall.value = { type: 'mod', filePath: 'C:/Downloads/mod.jar' }
+        vi.mocked(extractModMetadata).mockResolvedValue(JSON.stringify(metadata))
+        vi.mocked(getInstance).mockResolvedValue({
+            id: 'instance',
+            game_version: '1.21.1',
+            loader: 'fabric',
+        } as Awaited<ReturnType<typeof getInstance>>)
+
+        await flow.handleGenericInstall('instance')
+
+        expect(show).toHaveBeenCalledOnce()
+        expect(flow.pendingDropIncompatibility.value).toMatchObject({
+            filePath: 'C:/Downloads/mod.jar',
+            instId: 'instance',
+        })
+        expect(add_project_from_path).not.toHaveBeenCalled()
+    },
+)
 
 it.each(['D:\\Minecraft\\.minecraft\\versions\\1.21.1', '/games/.minecraft/versions/1.21.1/'])(
     'opens import methods for the selected version directory %s',

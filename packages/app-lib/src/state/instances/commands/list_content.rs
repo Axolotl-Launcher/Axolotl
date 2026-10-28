@@ -1,6 +1,5 @@
 use super::sync_content_files::{
-    fetch_content_file_updates, installed_modrinth_version_id,
-    instance_content_root, join_content_path, modrinth_update_enabled,
+    installed_modrinth_version_id, instance_content_root, join_content_path,
     project_type_for_file, sync_instance_content_files,
 };
 use crate::State;
@@ -117,12 +116,6 @@ enum ContentFilter<'a> {
         source_kind: ContentSourceKind,
         include_untracked: bool,
     },
-}
-
-#[derive(Clone, Copy, Debug)]
-enum ContentUpdateLookup {
-    Skip,
-    Include { refresh: bool },
 }
 
 pub(crate) async fn list_content_sets(
@@ -411,7 +404,7 @@ pub(crate) async fn list_all_content_from_files(
     instance_id: &str,
     files: Vec<InstanceFile>,
     cache_behaviour: Option<CacheBehaviour>,
-    refresh_file_updates: bool,
+    _refresh_file_updates: bool,
     state: &State,
 ) -> crate::Result<Vec<ContentItem>> {
     let resolved =
@@ -423,9 +416,6 @@ pub(crate) async fn list_all_content_from_files(
         cache_behaviour,
         state,
         ContentFilter::All,
-        ContentUpdateLookup::Include {
-            refresh: refresh_file_updates,
-        },
     )
     .await?
     .into_iter()
@@ -471,7 +461,6 @@ pub(crate) async fn list_content_by_paths(
         cache_behaviour,
         state,
         ContentFilter::All,
-        ContentUpdateLookup::Skip,
     )
     .await?
     .into_iter()
@@ -1330,7 +1319,7 @@ async fn content_projects_for_scope(
     cache_behaviour: Option<CacheBehaviour>,
     state: &State,
     filter: ContentFilter<'_>,
-    refresh_file_updates: bool,
+    _refresh_file_updates: bool,
 ) -> crate::Result<DashMap<String, ContentFile>> {
     let files = if cache_behaviour == Some(CacheBehaviour::CacheOnly) {
         sqlite::content_rows::get_instance_files(
@@ -1342,17 +1331,8 @@ async fn content_projects_for_scope(
         sync_instance_content_files(&resolved.instance, state).await?
     };
 
-    content_projects_for_files(
-        resolved,
-        files,
-        cache_behaviour,
-        state,
-        filter,
-        ContentUpdateLookup::Include {
-            refresh: refresh_file_updates,
-        },
-    )
-    .await
+    content_projects_for_files(resolved, files, cache_behaviour, state, filter)
+        .await
 }
 
 async fn content_projects_for_files(
@@ -1361,7 +1341,6 @@ async fn content_projects_for_files(
     cache_behaviour: Option<CacheBehaviour>,
     state: &State,
     filter: ContentFilter<'_>,
-    update_lookup: ContentUpdateLookup,
 ) -> crate::Result<DashMap<String, ContentFile>> {
     let mut entry_maps =
         load_entry_maps(&resolved.content_set.id, &state.pool).await?;
@@ -1396,75 +1375,6 @@ async fn content_projects_for_files(
     if reconciled {
         entry_maps =
             load_entry_maps(&resolved.content_set.id, &state.pool).await?;
-    }
-    // Visible-row metadata must not depend on update catalogs: one invalid
-    // candidate release would otherwise discard the whole display batch.
-    let file_updates = if let ContentUpdateLookup::Include { refresh } =
-        update_lookup
-    {
-        let installed_version_ids_by_hash = files
-            .iter()
-            .filter_map(|file| {
-                let provider_refs = entry_maps
-                    .provider_refs_by_file_id
-                    .get(&file.id)
-                    .map(Vec::as_slice)
-                    .unwrap_or_default();
-                installed_modrinth_version_id(provider_refs)
-                    .or_else(|| {
-                        file_info_by_hash.get(&file.sha1).and_then(|metadata| {
-                            ModrinthVersionId::new(metadata.version_id.clone())
-                                .ok()
-                        })
-                    })
-                    .map(|version_id| (file.sha1.clone(), version_id))
-            })
-            .collect::<HashMap<_, _>>();
-        let installed_channels = get_installed_update_channels(
-            &installed_version_ids_by_hash,
-            cache_behaviour,
-            &state.pool,
-            &state.api_semaphore,
-        )
-        .await?;
-        let update_keys = files
-            .iter()
-            .filter(|file| file_info_by_hash.contains_key(&file.sha1))
-            .filter_map(|file| {
-                let project_type = project_type_for_file(file)?;
-                let channel = resolved.instance.update_channel.least_stable(
-                    installed_channels
-                        .get(&file.sha1)
-                        .copied()
-                        .unwrap_or(resolved.instance.update_channel),
-                );
-                Some(file_update_cache_key(
-                    &file.sha1,
-                    project_type,
-                    &resolved.content_set,
-                    channel,
-                ))
-            })
-            .collect::<Vec<_>>();
-        let update_key_refs =
-            update_keys.iter().map(String::as_str).collect::<Vec<_>>();
-        fetch_content_file_updates(
-            &update_key_refs,
-            cache_behaviour,
-            refresh,
-            &state.pool,
-            &state.api_semaphore,
-        )
-        .await?
-    } else {
-        Vec::new()
-    };
-    let mut updates_by_hash: HashMap<String, Vec<String>> = HashMap::new();
-    for update in file_updates {
-        updates_by_hash
-            .entry(update.hash)
-            .or_default()
-            .push(update.update_version_id);
     }
     let output = DashMap::new();
 
@@ -1546,34 +1456,10 @@ async fn content_projects_for_files(
             }
         }
 
-        let update = if modrinth_update_enabled(origin_provider, &provider_refs)
-        {
-            modrinth_metadata.as_ref().and_then(|metadata| {
-                let current_version_id =
-                    installed_modrinth_version_id(&provider_refs)
-                        .unwrap_or_else(|| metadata.version_id.clone());
-                let update_ids =
-                    updates_by_hash.remove(&file.sha1).unwrap_or_default();
-                update_ids
-                    .into_iter()
-                    .find(|update_id| update_id != current_version_id.as_str())
-                    .and_then(|target| {
-                        Some(ContentItemUpdate::Modrinth {
-                            project_id: metadata.project_id.clone(),
-                            current_version_id: current_version_id.clone(),
-                            target_version_id: ModrinthVersionId::new(target)
-                                .ok()?,
-                        })
-                    })
-            })
-        } else {
-            None
-        };
-
         output.insert(
             file.relative_path.clone(),
             ContentFile {
-                update,
+                update: None,
                 hash: file.sha1,
                 file_name: file.file_name,
                 enabled: entry.map_or(file.enabled, |entry| {
@@ -1690,72 +1576,6 @@ async fn reconcile_hash_matched_entries(
     Ok(true)
 }
 
-async fn get_installed_update_channels(
-    installed_version_ids_by_hash: &HashMap<String, ModrinthVersionId>,
-    cache_behaviour: Option<CacheBehaviour>,
-    pool: &SqlitePool,
-    fetch_semaphore: &FetchSemaphore,
-) -> crate::Result<HashMap<String, ReleaseChannel>> {
-    let version_ids = installed_version_ids_by_hash
-        .values()
-        .map(ModrinthVersionId::as_str)
-        .collect::<HashSet<_>>();
-    if version_ids.is_empty() {
-        return Ok(HashMap::new());
-    }
-    let version_id_refs = version_ids
-        .iter()
-        .filter_map(|id| ModrinthVersionId::new((*id).to_string()).ok())
-        .collect::<Vec<_>>();
-    let versions = CachedEntry::get_version_many(
-        &version_id_refs,
-        cache_behaviour,
-        pool,
-        fetch_semaphore,
-    )
-    .await?;
-    let channels_by_version_id = versions
-        .into_iter()
-        .map(|version| {
-            (
-                version.id,
-                ReleaseChannel::from_version_type(&version.version_type),
-            )
-        })
-        .collect::<HashMap<_, _>>();
-
-    Ok(installed_version_ids_by_hash
-        .iter()
-        .filter_map(|(hash, version_id)| {
-            channels_by_version_id
-                .get(version_id.as_str())
-                .copied()
-                .map(|channel| (hash.clone(), channel))
-        })
-        .collect())
-}
-
-fn file_update_cache_key(
-    hash: &str,
-    project_type: ProjectType,
-    content_set: &ContentSet,
-    channel: ReleaseChannel,
-) -> String {
-    let loader_key = if project_type == ProjectType::Mod {
-        content_set.loader.as_str().to_string()
-    } else {
-        project_type.get_loaders().join("+")
-    };
-
-    format!(
-        "{}-{}-{}-{}",
-        hash,
-        loader_key,
-        channel.key(),
-        content_set.game_version
-    )
-}
-
 async fn content_files_to_content_items(
     instance: &Instance,
     files: &[(String, ContentFile)],
@@ -1834,11 +1654,6 @@ async fn content_files_to_content_items(
         .map(|project| (project.id.to_string(), project))
         .collect::<HashMap<_, _>>()
     };
-    let content_set = sqlite::content_rows::get_applied_content_set(
-        &instance.id,
-        &state.pool,
-    )
-    .await?;
     let project_ids = files
         .iter()
         .filter_map(|(_, file)| {
@@ -1932,75 +1747,6 @@ async fn content_files_to_content_items(
                     .latest_files
                     .iter()
                     .find(|file| file.id == file_id)
-            });
-            let curseforge_update_id = curseforge_ref.and_then(|reference| {
-                if origin_provider != Some(ContentProvider::CurseForge) {
-                    return None;
-                }
-                let ContentProviderRef::CurseForge { file_id, .. } = reference
-                else {
-                    return None;
-                };
-                let current_file_id = file_id.as_ref()?.get();
-                let content_set = content_set.as_ref()?;
-                let loader_type = match content_set.loader.as_str() {
-                    "forge" => Some(1),
-                    "fabric" => Some(4),
-                    "quilt" => Some(5),
-                    "neoforge" => Some(6),
-                    _ => None,
-                };
-                let release_type_allowed =
-                    |release_type: u32| match instance.update_channel {
-                        ReleaseChannel::Release => release_type == 1,
-                        ReleaseChannel::Beta => release_type <= 2,
-                        ReleaseChannel::Alpha => true,
-                    };
-
-                if let Some(index) = curseforge_project?
-                    .latest_files_indexes
-                    .iter()
-                    .find(|index| {
-                        index.game_version == content_set.game_version
-                            && (file.project_type != ProjectType::Mod
-                                || index.mod_loader == loader_type)
-                            && release_type_allowed(index.release_type)
-                    })
-                {
-                    return (index.file_id != current_file_id)
-                        .then(|| index.file_id.to_string());
-                }
-
-                let fallback = curseforge_project?.latest_files.iter().find(
-                    |candidate| {
-                        if !candidate.is_available
-                            || !release_type_allowed(candidate.release_type)
-                        {
-                            return false;
-                        }
-                        let has_game_version = candidate
-                            .game_versions
-                            .iter()
-                            .any(|value| value == &content_set.game_version);
-                        if !has_game_version {
-                            return false;
-                        }
-                        if file.project_type != ProjectType::Mod {
-                            return true;
-                        }
-                        candidate.game_versions.iter().any(|value| {
-                            match curseforge_loader_from_name(value) {
-                                Some("forge") => loader_type == Some(1),
-                                Some("fabric") => loader_type == Some(4),
-                                Some("quilt") => loader_type == Some(5),
-                                Some("neoforge") => loader_type == Some(6),
-                                _ => false,
-                            }
-                        })
-                    },
-                )?;
-                (fallback.id != current_file_id)
-                    .then(|| fallback.id.to_string())
             });
             let project = file.modrinth.as_ref().and_then(|metadata| {
                 meta.projects
@@ -2189,29 +1935,7 @@ async fn content_files_to_content_items(
                             })
                         })
                     }),
-                update: file.update.clone().or_else(|| {
-                    curseforge_update_id.and_then(|target| {
-                        let reference =
-                            provider_refs.iter().find_map(|reference| {
-                                match reference {
-                                    ContentProviderRef::CurseForge {
-                                        project_id,
-                                        file_id: Some(current_file_id),
-                                    } => Some((*project_id, *current_file_id)),
-                                    _ => None,
-                                }
-                            })?;
-                        Some(ContentItemUpdate::CurseForge {
-                            project_id: reference.0,
-                            current_file_id: reference.1,
-                            target_file_id:
-                                crate::state::CurseForgeFileId::new(
-                                    target.parse().ok()?,
-                                )
-                                .ok()?,
-                        })
-                    })
-                }),
+                update: None,
                 date_added: modification_times[index].clone(),
                 provider_refs,
                 origin_provider,

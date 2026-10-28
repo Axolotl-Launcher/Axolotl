@@ -27,16 +27,17 @@ const mkResolved = (path: string): ContentItem => ({
  * three UI providers, the app-backup and content-manager contexts, a query
  * client, a router, the theme store and roughly a dozen child components, so a
  * mount would assert on the mock rig rather than on the page. These cases pin
- * the two properties that matter instead -- the template no longer consumes
- * `visibleItems`, and a snapshot that lands with N unresolved paths issues
- * exactly `ceil(N / chunkSize)` requests -- using the same drain the page
- * calls.
+ * the page's refresh boundary instead: metadata arrives through the backend
+ * subscription, without a second frontend drain or viewport-driven requests.
+ * The standalone drain helper retains its own batching coverage below.
  */
 it('does not subscribe the content layout to visible items any more', () => {
     expect(modsSource).not.toContain('@visible-items')
     expect(modsSource).not.toContain('handleVisibleItems')
     expect(modsSource).not.toContain('visibleMetadataPendingPaths')
-    expect(modsSource).toContain('void refreshAllContentMetadata(generation)')
+    expect(modsSource).not.toContain('refreshAllContentMetadata')
+    expect(modsSource).not.toContain('get_content_items_by_paths')
+    expect(modsSource).toContain('createContentRefreshSubscription(')
 })
 
 it('requests every unresolved path once a snapshot lands, in list order', async () => {

@@ -2033,6 +2033,9 @@
   "instances.updater-modal.loading-changelog": {
     "defaultMessage": "正在加载更新日志..."
   },
+  "instances.updater-modal.loading-more-versions": {
+    "message": "正在加载更多版本……"
+  },
   "instances.updater-modal.loading-versions": {
     "defaultMessage": "版本加载中……"
   },

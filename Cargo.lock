@@ -1128,6 +1128,7 @@ version = "0.0.0"
 dependencies = [
  "async-trait",
  "chrono",
+ "semver",
  "serde",
  "serde_json",
  "thiserror 2.0.19",
@@ -7329,7 +7330,6 @@ dependencies = [
  "rustls",
  "rustls-native-certs",
  "rustls-pki-types",
- "semver",
  "serde",
  "serde_cbor",
  "serde_ini",

@@ -4100,6 +4100,9 @@
   "app.java.none-found": {
     "message": "No Java installations found!"
   },
+  "app.java.searching": {
+    "message": "Looking for Java installations…"
+  },
   "app.java.select": {
     "message": "Select"
   },
@@ -5786,6 +5789,9 @@
   "app.lab.seed-map.area.height": {
     "message": "Height range"
   },
+  "app.lab.seed-map.area.incomplete": {
+    "message": "These results cover only the part of the area searched before it stopped."
+  },
   "app.lab.seed-map.area.invalid-y": {
     "message": "Enter a valid height range between {min} and {max}."
   },
@@ -5833,6 +5839,9 @@
   },
   "app.lab.seed-map.area.query": {
     "message": "Item name or minecraft:item_id"
+  },
+  "app.lab.seed-map.area.scanning": {
+    "message": "Results so far. The rest of the area is still being searched."
   },
   "app.lab.seed-map.area.search": {
     "message": "Search container loot"
@@ -9568,6 +9577,24 @@
   },
   "app.resources.operation.loading": {
     "message": "Resolving releases and dependencies…"
+  },
+  "app.resources.operation.loading-collecting-constraints": {
+    "message": "Collecting the version requirements of installed content…"
+  },
+  "app.resources.operation.loading-identifying-installed": {
+    "message": "Identifying installed content…"
+  },
+  "app.resources.operation.loading-prefetching": {
+    "message": "Fetching project details…"
+  },
+  "app.resources.operation.loading-refreshing-content": {
+    "message": "Checking installed files…"
+  },
+  "app.resources.operation.loading-reresolving": {
+    "message": "Resolving dependencies again to settle version conflicts…"
+  },
+  "app.resources.operation.loading-validating": {
+    "message": "Checking that the files can be written…"
   },
   "app.resources.operation.manual-download-summary": {
     "message": "This file requires a manual download."
@@ -16190,6 +16217,9 @@
   "instance.upgrade.select.fabric-versions-error": {
     "message": "Fabric versions could not be loaded. Automatic remains available."
   },
+  "instance.upgrade.select.item-state": {
+    "message": "{state, select, checking {Checking…} found {Compatible release found} missing {No compatible release} unidentified {Not identified} unsupported {Not supported} other {Needs review}}"
+  },
   "instance.upgrade.select.loading-fabric-versions": {
     "message": "Loading Fabric versions…"
   },
@@ -16220,11 +16250,17 @@
   "instance.upgrade.select.planning-error-title": {
     "message": "Compatibility analysis failed"
   },
+  "instance.upgrade.select.planning-phase": {
+    "message": "{phase, select, reading_content {Reading content files ({completed}/{total})} checking_candidates {Checking releases for Minecraft {version} ({completed}/{total})} solving {Resolving dependencies…} other {Making sure the instance has not changed…}}"
+  },
   "instance.upgrade.select.planning-status": {
     "message": "Analyzing compatibility for {count} content items…"
   },
   "instance.upgrade.select.review-compatibility": {
     "message": "Review compatibility"
+  },
+  "instance.upgrade.select.stop-analysis": {
+    "message": "Stop analysis"
   },
   "instance.upgrade.select.target": {
     "message": "Target"
@@ -16582,5 +16618,14 @@
   },
   "unknown-pack-warning-modal.warning.title": {
     "message": "Unknown file warning"
+  },
+  "app.instance.content.checking": {
+    "message": "Refreshing… {current}/{total}"
+  },
+  "app.instance.content.check-failures": {
+    "message": "{count, plural, one {# check failed} other {# checks failed}}"
+  },
+  "app.instance.content.unrecognized": {
+    "message": "{count, plural, one {# file could not be identified} other {# files could not be identified}}"
   }
 }

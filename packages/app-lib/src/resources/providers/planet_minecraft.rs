@@ -273,6 +273,7 @@ impl RemoteProject {
             _ => vec![],
         };
         Ok(ProjectDocument {
+            owner: None,
             protocol,
             metadata: SourceProjectMetadata {
                 environments: vec![],

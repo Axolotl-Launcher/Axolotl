@@ -103,6 +103,20 @@ pub fn scan_ores(request: OreScanRequest) -> io::Result<Vec<OreChunkResult>> {
     scan_ores_with_budget(request, 4096)
 }
 
+/// Like [`scan_ores`], but the native loop polls `canceled(request_id)` and
+/// stops at its next check with an `Interrupted` error.
+pub fn scan_ores_cancellable(
+    request: OreScanRequest,
+    request_id: u64,
+    canceled: extern "C" fn(u64) -> i32,
+) -> io::Result<Vec<OreChunkResult>> {
+    scan_ores_with_budget_cancellable(
+        request,
+        4096,
+        Some((request_id, canceled)),
+    )
+}
+
 pub(super) fn scan_ores_with_budget(
     request: OreScanRequest,
     total_capacity: usize,

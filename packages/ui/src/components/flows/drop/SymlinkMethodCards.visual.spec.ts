@@ -78,6 +78,9 @@ it('confirms copying with the detected versions without offering or requiring an
         wrapper.vm.show({ instances: [{ name: '1.21.1', path, launcherType: 'Generic' }] })
         await flushPromises()
         await vi.waitFor(() => expect(plans.start).toHaveBeenCalledOnce())
+        // Scan snapshots are applied on the next animation frame.
+        await new Promise(requestAnimationFrame)
+        await flushPromises()
         expect(wrapper.text()).toContain('Import instances')
         expect(wrapper.text()).not.toContain('Symbolic link')
         expect(wrapper.text()).not.toContain('Import method')

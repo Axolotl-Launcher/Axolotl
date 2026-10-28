@@ -36,6 +36,9 @@ pub enum CachePolicy {
     /// Ignore positive, negative, and expired cache entries. A source error
     /// never becomes success by falling back to an old cached response.
     ForceRefresh,
+    /// Revalidate data from before this refresh round, reusing responses
+    /// already fetched during the round (including batched release aliases).
+    RefreshSince(i64),
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -45,6 +48,7 @@ pub struct QueryOutcome {
 }
 
 struct SourceRuntime {
+    pending: parking_lot::Mutex<Vec<Arc<Flight>>>,
     provider: Arc<dyn ResourceProvider>,
     semaphore: Arc<Semaphore>,
 }
@@ -185,6 +189,7 @@ impl ResourceService {
                 .insert(
                     id,
                     SourceRuntime {
+                        pending: Default::default(),
                         provider,
                         semaphore: Arc::new(Semaphore::new(3)),
                     },
@@ -377,6 +382,8 @@ impl ResourceService {
                             .await
                             .map(|(value, fresh)| (Some(value), !fresh))
                             .unwrap_or((None, false))
+                    } else if let CachePolicy::RefreshSince(since) = policy {
+                        (self.cache.get_since(&cache_key, since).await, false)
                     } else if policy == CachePolicy::OnlyCached {
                         (self.cache.get_any(&cache_key).await, false)
                     } else {
@@ -441,29 +448,7 @@ impl ResourceService {
         if !background.is_empty() {
             self.refresh_background(source.clone(), background, generation);
         }
-        let mut groups: HashMap<u8, Vec<Arc<Flight>>> = HashMap::new();
-        for flight in fresh {
-            groups
-                .entry(flight.query.batch_group())
-                .or_default()
-                .push(flight);
-        }
-        for group in groups.into_values() {
-            let limit = group
-                .first()
-                .map(|flight| runtime.provider.batch_limit(&flight.query))
-                .unwrap_or(1)
-                .max(1);
-            for batch in group.chunks(limit) {
-                let service = self.clone();
-                let provider = runtime.provider.clone();
-                let semaphore = runtime.semaphore.clone();
-                let batch = batch.to_vec();
-                tokio::spawn(async move {
-                    service.fetch_batch(provider, semaphore, batch).await;
-                });
-            }
-        }
+        self.dispatch(source, fresh);
         let results = join_all(subscriptions.into_iter().map(
             |subscription| async move {
                 match subscription {
@@ -505,17 +490,79 @@ impl ResourceService {
         }
     }
 
+    fn dispatch(self: &Arc<Self>, source: &SourceId, fresh: Vec<Arc<Flight>>) {
+        if fresh.is_empty() {
+            return;
+        }
+        let Some(runtime) = self.sources.get(source) else {
+            return;
+        };
+        let mut queued = runtime.pending.lock();
+        let start = queued.is_empty();
+        queued.extend(fresh);
+        drop(queued);
+        if !start {
+            return;
+        }
+        let service = self.clone();
+        let source = source.clone();
+        tokio::spawn(async move {
+            // A bounded collection window combines independent row requests.
+            tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+            let runtime = &service.sources[&source];
+            loop {
+                // Form the batch only when it can run. Requests arriving while
+                // the source is busy must not become queued one-item batches.
+                let Ok(permit) =
+                    runtime.semaphore.clone().acquire_owned().await
+                else {
+                    return;
+                };
+                let batch = {
+                    let mut queued = runtime.pending.lock();
+                    let Some(first) = queued.first() else {
+                        return;
+                    };
+                    let group = (
+                        first.query.batch_group(),
+                        first.key.policy,
+                        first.key.generation,
+                    );
+                    let limit =
+                        runtime.provider.batch_limit(&first.query).max(1);
+                    let mut batch = Vec::new();
+                    queued.retain(|flight| {
+                        if batch.len() < limit
+                            && (
+                                flight.query.batch_group(),
+                                flight.key.policy,
+                                flight.key.generation,
+                            ) == group
+                        {
+                            batch.push(flight.clone());
+                            false
+                        } else {
+                            true
+                        }
+                    });
+                    batch
+                };
+                let service = service.clone();
+                let provider = runtime.provider.clone();
+                tokio::spawn(async move {
+                    service.fetch_batch(provider, permit, batch).await;
+                });
+            }
+        });
+    }
+
     async fn fetch_batch(
         self: Arc<Self>,
         provider: Arc<dyn ResourceProvider>,
-        semaphore: Arc<Semaphore>,
+        _permit: tokio::sync::OwnedSemaphorePermit,
         batch: Vec<Arc<Flight>>,
     ) {
         let operation = async {
-            let _permit = semaphore
-                .acquire()
-                .await
-                .map_err(|_| ResourceError::Canceled)?;
             let active: Vec<_> = batch
                 .iter()
                 .filter(|flight| flight.subscribers.load(Ordering::Acquire) > 0)
@@ -589,7 +636,9 @@ impl ResourceService {
                                 .await;
                         }
                     }
-                    if let ProviderValue::Identified(documents) = value {
+                    if let ProviderValue::Identified(documents)
+                    | ProviderValue::UpdateCandidates(documents) = value
+                    {
                         for document in documents {
                             for project_id in [
                                 None,
@@ -771,6 +820,10 @@ pub(crate) fn validate_value(
                         && valid_artifact(artifact)
                 })
         }
+        (ProviderQuery::UpdateCandidates { project_id, .. }, ProviderValue::UpdateCandidates(documents)) => documents.iter().all(|document| {
+            document.release.reference.project.source == *source && document.release.reference.project.project_id == *project_id
+                && document.release.artifacts.iter().all(|artifact| artifact.reference.release == document.release.reference && valid_artifact(artifact))
+        }),
         (
             ProviderQuery::Releases { project_id, .. },
             ProviderValue::Releases(page),

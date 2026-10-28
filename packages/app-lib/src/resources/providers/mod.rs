@@ -26,6 +26,11 @@ pub use transport::{ProtocolRequest, ProtocolTransport};
     rename_all_fields = "camelCase"
 )]
 pub enum ProviderQuery {
+    UpdateCandidates {
+        project_id: SourceProjectId,
+        sha1: String,
+        target: ResourceTarget,
+    },
     ReleaseProtocol {
         release_id: SourceReleaseId,
         version: String,
@@ -94,9 +99,9 @@ impl ProviderQuery {
             Self::Locate { .. } => SourceCapability::Project,
             Self::Project { .. } => SourceCapability::Project,
             Self::Description { .. } => SourceCapability::Description,
-            Self::Release { .. } | Self::Releases { .. } => {
-                SourceCapability::Releases
-            }
+            Self::Release { .. }
+            | Self::Releases { .. }
+            | Self::UpdateCandidates { .. } => SourceCapability::Releases,
             Self::Changelog { .. } => SourceCapability::Changelog,
             Self::Search { .. } => SourceCapability::Search,
             Self::Identify { .. } | Self::IdentifyExport { .. } => {
@@ -107,6 +112,7 @@ impl ProviderQuery {
 
     pub(crate) fn batch_group(&self) -> u8 {
         match self {
+            Self::UpdateCandidates { .. } => 6,
             Self::ReleaseProtocol { .. } => 5,
             Self::ProjectProtocol { .. } => 4,
             Self::Project { .. } => 0,
@@ -117,6 +123,9 @@ impl ProviderQuery {
     }
 
     pub(crate) fn ttl(&self, value: &ProviderValue) -> i64 {
+        if matches!(self, Self::UpdateCandidates { .. }) {
+            return 5 * 60;
+        }
         if matches!(value, ProviderValue::NotFound)
             || matches!(value, ProviderValue::Matches(matches) if matches.is_empty())
             || matches!(value, ProviderValue::Identified(matches) if matches.is_empty())
@@ -129,7 +138,9 @@ impl ProviderQuery {
             | Self::Locate { .. }
             | Self::Project { .. }
             | Self::Description { .. } => 30 * 60,
-            Self::Releases { .. } | Self::ReleasesProtocol { .. } => 5 * 60,
+            Self::Releases { .. }
+            | Self::ReleasesProtocol { .. }
+            | Self::UpdateCandidates { .. } => 5 * 60,
             Self::Release { .. }
             | Self::ReleaseProtocol { .. }
             | Self::Changelog { .. }
@@ -140,7 +151,8 @@ impl ProviderQuery {
 
     pub(crate) fn normalize(&mut self) {
         let target = match self {
-            Self::Releases { target, .. } => Some(target),
+            Self::Releases { target, .. }
+            | Self::UpdateCandidates { target, .. } => Some(target),
             Self::Search { query, .. } => {
                 query.categories.sort();
                 query.categories.dedup();
@@ -155,6 +167,9 @@ impl ProviderQuery {
             target.game_versions.dedup();
             target.loaders.sort();
             target.loaders.dedup();
+        }
+        if let Self::UpdateCandidates { sha1, .. } = self {
+            sha1.make_ascii_lowercase();
         }
         if let Self::Identify { integrity, .. }
         | Self::IdentifyExport { integrity, .. } = self
@@ -195,10 +210,21 @@ pub struct SourcePage<T> {
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ProjectDocument {
+    #[serde(default)]
+    pub owner: Option<ProjectOwner>,
     pub metadata: SourceProjectMetadata,
     pub description: ResourceText,
     #[serde(default)]
     pub protocol: Option<serde_json::Value>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProjectOwner {
+    pub id: String,
+    pub name: String,
+    pub avatar_url: Option<String>,
+    pub organization: bool,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -213,6 +239,8 @@ pub struct ReleaseDocument {
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "kind", content = "value", rename_all = "camelCase")]
 pub enum ProviderValue {
+    /// A source's latest candidates; absence is incomplete, never proof of no update.
+    UpdateCandidates(Vec<ReleaseDocument>),
     Protocol(serde_json::Value),
     Project(ProjectDocument),
     Description(ResourceText),

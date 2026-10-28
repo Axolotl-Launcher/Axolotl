@@ -267,8 +267,8 @@ async fn install_snapshot_reuses_hashes_and_only_rehashes_changed_files() {
     .await;
     result.unwrap();
     assert_eq!(
-        scans, 0,
-        "an unchanged tracked file must not be rehashed even with a cold hash cache"
+        scans, 1,
+        "a legacy tracked file establishes its attribute baseline once"
     );
     std::fs::write(root.join(&original.relative_path), b"changed and longer")
         .unwrap();
@@ -303,10 +303,7 @@ async fn install_snapshot_reuses_hashes_and_only_rehashes_changed_files() {
     ))
     .await;
     result.unwrap();
-    assert_eq!(
-        scans, 1,
-        "explicit verification still reads unchanged bytes"
-    );
+    assert_eq!(scans, 0, "a remote refresh reuses unchanged local bytes");
     state.pool.close().await;
 }
 
@@ -323,7 +320,7 @@ async fn installed_identity_reuses_verified_bytes_across_analysis_retries_and_ca
         .join("local-identity-test.db");
     let cache = cache::ResourceCache::open(cache_path.clone()).await;
     let (first, scans) = track_scans(installed_file_identity(
-        &root, &original, &cache, true, &cancel,
+        &state, "instance", &root, &original, &cache, true, &cancel,
     ))
     .await;
     let first = first.unwrap();
@@ -334,7 +331,7 @@ async fn installed_identity_reuses_verified_bytes_across_analysis_retries_and_ca
         &first.integrity
     ));
     let (again, scans) = track_scans(installed_file_identity(
-        &root, &original, &cache, true, &cancel,
+        &state, "instance", &root, &original, &cache, true, &cancel,
     ))
     .await;
     assert_eq!(again.unwrap().fingerprint, first.fingerprint);
@@ -345,7 +342,7 @@ async fn installed_identity_reuses_verified_bytes_across_analysis_retries_and_ca
     cache.close().await;
     let cache = cache::ResourceCache::open(cache_path).await;
     let (again, scans) = track_scans(installed_file_identity(
-        &root, &original, &cache, true, &cancel,
+        &state, "instance", &root, &original, &cache, true, &cancel,
     ))
     .await;
     assert_eq!(again.unwrap().integrity, first.integrity);
@@ -361,35 +358,44 @@ async fn installed_identity_reuses_verified_bytes_across_analysis_retries_and_ca
             value: sha1_smol::Sha1::from(bytes).hexdigest(),
         }],
     };
+    super::installed::refresh_install_snapshot(&state, "instance", &cancel)
+        .await
+        .unwrap();
     let (result, scans) = track_scans(installed_file_identity(
-        &root, &changed, &cache, true, &cancel,
+        &state, "instance", &root, &changed, &cache, true, &cancel,
     ))
     .await;
     assert!(identity::exact_integrity(
         &changed.integrity,
         &result.unwrap().integrity
     ));
-    assert_eq!(scans, 1, "a changed scanner SHA-1 invalidates the evidence");
+    assert_eq!(scans, 0, "recognition reuses the scanner byte evidence");
     let (result, scans) = track_scans(installed_file_identity(
-        &root, &changed, &cache, false, &cancel,
+        &state, "instance", &root, &changed, &cache, false, &cancel,
     ))
     .await;
     result.unwrap();
     assert_eq!(scans, 1, "explicit checks still verify current bytes");
 
     cache.clear().await.unwrap();
+    super::installed::refresh_install_snapshot(&state, "instance", &cancel)
+        .await
+        .unwrap();
     let (result, scans) = track_scans(installed_file_identity(
-        &root, &changed, &cache, true, &cancel,
+        &state, "instance", &root, &changed, &cache, true, &cancel,
     ))
     .await;
     result.unwrap();
     assert_eq!(
-        scans, 1,
-        "clearing resource caches clears local byte evidence too"
+        scans, 0,
+        "clearing remote caches preserves durable local byte evidence"
     );
     cancel.cancel();
     assert!(matches!(
-        installed_file_identity(&root, &changed, &cache, true, &cancel).await,
+        installed_file_identity(
+            &state, "instance", &root, &changed, &cache, true, &cancel
+        )
+        .await,
         Err(ResourceError::Canceled)
     ));
     cache.close().await;
@@ -411,10 +417,11 @@ async fn local_identity_cache_rejects_stale_writes_and_same_size_content_changes
     )
     .await;
     let generation = cache.generation().await;
-    let first =
-        installed_file_identity(&root, &original, &cache, true, &cancel)
-            .await
-            .unwrap();
+    let first = installed_file_identity(
+        &state, "instance", &root, &original, &cache, true, &cancel,
+    )
+    .await
+    .unwrap();
     cache.clear().await.unwrap();
     cache.store_local_identity(&first, generation).await;
     assert!(cache.local_identity(&original.integrity).await.is_none());
@@ -426,19 +433,24 @@ async fn local_identity_cache_rejects_stale_writes_and_same_size_content_changes
         algorithm: HashAlgorithm::Sha1,
         value: sha1_smol::Sha1::from(&bytes).hexdigest(),
     }];
+    super::installed::refresh_install_snapshot(&state, "instance", &cancel)
+        .await
+        .unwrap();
     let (result, scans) = track_scans(installed_file_identity(
-        &root, &changed, &cache, true, &cancel,
+        &state, "instance", &root, &changed, &cache, true, &cancel,
     ))
     .await;
     assert!(identity::exact_integrity(
         &changed.integrity,
         &result.unwrap().integrity
     ));
-    assert_eq!(scans, 1);
+    assert_eq!(scans, 0);
     assert!(
-        installed_file_identity(&root, &original, &cache, false, &cancel)
-            .await
-            .is_err(),
+        installed_file_identity(
+            &state, "instance", &root, &original, &cache, false, &cancel
+        )
+        .await
+        .is_err(),
         "an out-of-date snapshot cannot bless different bytes"
     );
     assert!(cache.local_identity(&original.integrity).await.is_none());
@@ -1881,6 +1893,7 @@ async fn exact_cross_source_replace_and_rollback_preserve_entry_disabled_path_an
     assert!(!changed.enabled);
     assert_eq!(changed.artifact, Some(target.reference));
     let mut snapshot = vec![crate::state::InstanceContentSnapshotItem {
+        resource_update: None,
         artifact_ref: None,
         compatibility: None,
         resource_id: None,

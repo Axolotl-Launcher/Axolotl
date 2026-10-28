@@ -21,6 +21,7 @@ import {
     type ResourceDependencyNode,
     resourceGet,
     type ResourceOperationIntent,
+    type ResourceOperationPhase,
     type ResourceOperationPlan,
     type ResourceOperationProgress,
     type ResourcePlanDecision,
@@ -55,6 +56,30 @@ const messages = defineMessages({
     loading: {
         id: 'app.resources.operation.loading',
         defaultMessage: 'Resolving releases and dependencies…',
+    },
+    loadingCollectingConstraints: {
+        id: 'app.resources.operation.loading-collecting-constraints',
+        defaultMessage: 'Collecting the version requirements of installed content…',
+    },
+    loadingIdentifyingInstalled: {
+        id: 'app.resources.operation.loading-identifying-installed',
+        defaultMessage: 'Identifying installed content…',
+    },
+    loadingPrefetching: {
+        id: 'app.resources.operation.loading-prefetching',
+        defaultMessage: 'Fetching project details…',
+    },
+    loadingRefreshingContent: {
+        id: 'app.resources.operation.loading-refreshing-content',
+        defaultMessage: 'Checking installed files…',
+    },
+    loadingReresolving: {
+        id: 'app.resources.operation.loading-reresolving',
+        defaultMessage: 'Resolving dependencies again to settle version conflicts…',
+    },
+    loadingValidating: {
+        id: 'app.resources.operation.loading-validating',
+        defaultMessage: 'Checking that the files can be written…',
     },
     artifact: {
         id: 'app.resources.operation.artifact',
@@ -285,8 +310,28 @@ type OperationInput = {
 const modal = ref<InstanceType<typeof NewModal> | null>(null)
 const plan = ref<ResourceOperationPlan | null>(null)
 const progressNodes = shallowRef(new Map<string, ResourceDependencyNode>())
+/** Shown plan nodes the running analysis retracted; hidden until its plan arrives. */
+const removedNodes = shallowRef(new Set<string>())
+/** What the running analysis reports doing; null while it resolves nodes. */
+const progressPhase = ref<ResourceOperationPhase | null>(null)
+const progressRound = ref(0)
+const phaseMessages = {
+    collectingConstraints: messages.loadingCollectingConstraints,
+    identifyingInstalled: messages.loadingIdentifyingInstalled,
+    prefetching: messages.loadingPrefetching,
+    refreshingContent: messages.loadingRefreshingContent,
+    validating: messages.loadingValidating,
+} satisfies Record<ResourceOperationPhase, unknown>
+const progressMessage = computed(() =>
+    progressPhase.value
+        ? phaseMessages[progressPhase.value]
+        : progressRound.value > 0
+          ? messages.loadingReresolving
+          : messages.loading,
+)
 const displayedNodes = computed(() => {
     const nodes = new Map((plan.value?.nodes ?? []).map((node) => [node.id, node]))
+    for (const id of removedNodes.value) nodes.delete(id)
     for (const [id, node] of progressNodes.value) nodes.set(id, node)
     return [...nodes.values()]
 })
@@ -302,6 +347,8 @@ const needsWorld = computed(
         ) ?? false,
 )
 const queueing = ref(false)
+/** Only the queue request writes; analysis and plan revisions before it stay cancellable. */
+const committing = ref(false)
 const closing = ref(false)
 const queueFailed = ref(false)
 const dependenciesIgnored = ref(false)
@@ -716,7 +763,7 @@ async function run(
     controller = new AbortController()
     const signal = controller.signal
     busy.value = true
-    progressNodes.value = new Map()
+    clearProgress()
     error.value = null
     errorSummary.value = null
     retryAction = () => run(action, ignoreDependencies)
@@ -724,15 +771,7 @@ async function run(
     try {
         const value = await action(signal, (progress) => {
             if (!acceptingProgress || current !== generation || signal.aborted) return
-            progressNodes.value.set(progress.node.id, progress.node)
-            triggerRef(progressNodes)
-            if (progress.metadata)
-                names.value[progress.node.id] = {
-                    title: progress.metadata.title,
-                    iconUrl: progress.metadata.iconUrl,
-                    summary:
-                        progress.node.state === 'satisfied' ? undefined : progress.metadata.summary,
-                }
+            applyProgress(progress)
         })
         if (current !== generation || signal.aborted) return
         plan.value = value
@@ -745,7 +784,43 @@ async function run(
         acceptingProgress = false
         if (current === generation && !signal.aborted) {
             busy.value = false
-            progressNodes.value = new Map()
+            clearProgress()
+        }
+    }
+}
+function clearProgress() {
+    progressNodes.value = new Map()
+    removedNodes.value = new Set()
+    progressPhase.value = null
+    progressRound.value = 0
+}
+function applyProgress(progress: ResourceOperationProgress) {
+    switch (progress.kind) {
+        case 'phase':
+            progressPhase.value = progress.phase
+            return
+        case 'roundStarted':
+            progressPhase.value = null
+            progressRound.value = progress.round
+            return
+        case 'nodeRemoved':
+            progressNodes.value.delete(progress.nodeId)
+            triggerRef(progressNodes)
+            removedNodes.value.add(progress.nodeId)
+            triggerRef(removedNodes)
+            return
+        case 'node': {
+            const { node, metadata } = progress
+            progressPhase.value = null
+            if (removedNodes.value.delete(node.id)) triggerRef(removedNodes)
+            progressNodes.value.set(node.id, node)
+            triggerRef(progressNodes)
+            if (metadata)
+                names.value[node.id] = {
+                    title: metadata.title,
+                    iconUrl: metadata.iconUrl,
+                    summary: node.state === 'satisfied' ? undefined : metadata.summary,
+                }
         }
     }
 }
@@ -758,7 +833,7 @@ async function revise(decision: ResourcePlanDecision) {
         decision.kind === 'ignoreDependencies' || dependenciesIgnored.value,
     )
 }
-function hide() {
+function release() {
     generation++
     input.value?.analysis?.signal.removeEventListener('abort', invalidateAnalysis)
     controller?.abort()
@@ -766,12 +841,24 @@ function hide() {
     resolveShow = null
     resolve?.(null)
 }
+function hide() {
+    const analysis =
+        !closing.value && busy.value && !committing.value ? input.value?.analysis : null
+    release()
+    // Leaving during analysis stops the cart's analysis too; the selection itself is kept.
+    analysis?.cancel()
+    // A queued submission keeps its controls locked until the close animation ends.
+    if (!committing.value && !closing.value) {
+        busy.value = false
+        queueing.value = false
+    }
+}
 function show(value: OperationInput): Promise<InstallJobSnapshot | null> {
     if (queueing.value) return Promise.resolve(null)
-    hide()
+    release()
     input.value = value
     plan.value = null
-    progressNodes.value = new Map()
+    clearProgress()
     submittedRoots.value = []
     names.value = {}
     error.value = null
@@ -920,7 +1007,7 @@ async function submit(retryStale: boolean) {
                 if (!node.artifact || node.state === 'optionalCandidate') return []
                 const dimensions = (['gameVersion', 'loader'] as const).filter(
                     (dimension) =>
-                        node.compatibility[dimension] !== 'compatible' &&
+                        node.compatibility[dimension] === 'incompatible' &&
                         !selectedOnly.exceptions.some(
                             (exception) =>
                                 exception.selectionId === node.id &&
@@ -972,7 +1059,15 @@ async function submit(retryStale: boolean) {
             return
         }
         busy.value = true
-        const job = await resourceQueuePlan(reviewed.id, reviewed.revision)
+        committing.value = true
+        let job: InstallJobSnapshot
+        try {
+            job = await resourceQueuePlan(reviewed.id, reviewed.revision)
+        } finally {
+            // Only the queue request itself is locked; the refresh after a stale
+            // plan below is analysis again and must stay cancellable.
+            committing.value = false
+        }
         if (generation !== current) return
         const skippedRoots = new Set(
             reviewed.issues
@@ -1087,13 +1182,12 @@ async function showInstallSelection(value: Parameters<typeof showInstall>[0]) {
     return job ? { job, activeRoots: [...submittedRoots.value] } : null
 }
 async function cancel() {
-    if (queueing.value) return
+    if (committing.value || closing.value) return
     hide()
     const current = generation
-    busy.value = false
     plan.value = null
     input.value = null
-    progressNodes.value = new Map()
+    clearProgress()
     await nextTick()
     if (generation !== current) return
     await modal.value?.hide()
@@ -1106,7 +1200,7 @@ defineExpose({ show, showInstall, showInstallSelection, cancel })
         ref="modal"
         :header="formatMessage(messages.header)"
         :on-hide="hide"
-        :disable-close="(busy || queueing) && !closing"
+        :disable-close="committing && !closing"
         scrollable
         width="min(42rem, 90vw)"
     >
@@ -1267,7 +1361,7 @@ defineExpose({ show, showInstall, showInstallSelection, cancel })
                     >
                         <Button
                             v-if="
-                                node.compatibility[dimension] !== 'compatible' &&
+                                node.compatibility[dimension] === 'incompatible' &&
                                 !plan?.exceptions.some(
                                     (exception) =>
                                         exception.selectionId === node.id &&
@@ -1321,7 +1415,9 @@ defineExpose({ show, showInstall, showInstallSelection, cancel })
                 role="status"
                 data-operation-skeleton
             >
-                <span class="sr-only">{{ formatMessage(messages.loading) }}</span>
+                <p class="m-0 text-sm text-[var(--color-text-tertiary)]" data-operation-phase>
+                    {{ formatMessage(progressMessage) }}
+                </p>
                 <div
                     class="flex flex-col gap-2 rounded-lg border border-surface-4 bg-surface-2 p-3"
                     aria-hidden="true"
@@ -1355,7 +1451,7 @@ defineExpose({ show, showInstall, showInstallSelection, cancel })
         </div>
         <template #actions>
             <div class="flex items-center justify-end gap-2">
-                <Button :disabled="busy || queueing" @click="modal?.hide()">{{
+                <Button :disabled="committing || closing" @click="cancel">{{
                     formatMessage(messages.cancel)
                 }}</Button>
                 <Button

@@ -514,9 +514,14 @@ pub(crate) async fn execute(
         )
         .await?;
     }
-    let service = state.resources().await?;
     let mut retained_parents = HashMap::new();
-    for (action, (path, kind, _, _, _)) in plan.actions.iter().zip(&downloads) {
+    for (action, (path, kind, _, _, _)) in plan
+        .actions
+        .iter()
+        .zip(&downloads)
+        .filter(|_| draft.resolve_dependencies)
+    {
+        let service = state.resources().await?;
         let node = plan
             .nodes
             .iter()
@@ -541,18 +546,18 @@ pub(crate) async fn execute(
             .any(|requirement| requirement.local_mod_id.is_some())
         {
             let bytes = bytes::Bytes::from(tokio::fs::read(path).await?);
-            Some(crate::mod_metadata::extract_mod_metadata(&bytes)
-                .ok_or_else(|| input("cannot verify the updated mod's dependency version"))?)
+            crate::mod_metadata::extract_mod_metadata(&bytes)
         } else {
             None
         };
         for requirement in requirements {
-            if let Some(id) = &requirement.local_mod_id {
-                let metadata = metadata.as_ref().unwrap();
+            if let Some(id) = &requirement.local_mod_id
+                && let Some(metadata) = &metadata
+            {
                 if &metadata.mod_id != id
                     || !requirement.version_constraint.as_ref().is_none_or(
                         |constraint| {
-                            metadata.version.as_ref().is_some_and(|version| {
+                            metadata.version.as_ref().is_none_or(|version| {
                                 plans::requirements::mod_version_matches(
                                     constraint, version,
                                 )
@@ -760,6 +765,7 @@ pub(crate) async fn execute(
     canceled(&cancel)?;
     sqlx::query("INSERT INTO resource_execution_journals(plan_id, payload) VALUES (?, ?) ON CONFLICT(plan_id) DO UPDATE SET payload = excluded.payload").bind(plan.id.as_str()).bind(serde_json::to_string(&journal)?).execute(&state.pool).await?;
     let _critical = crate::install::critical_section::enter();
+    let mut installed_fingerprints = Vec::new();
     let result: crate::Result<()> = async {
         for ((file, (source, _, size, sha1, _)), _) in
             journal.iter().zip(&downloads).zip(&plan.actions)
@@ -775,13 +781,19 @@ pub(crate) async fn execute(
                 )
                 .await?;
             }
-            materialize_verified_project_download_copy(
+            let (_, modified) = materialize_verified_project_download_copy(
                 source,
                 &destination,
                 *size,
                 sha1,
             )
             .await?;
+            installed_fingerprints.push((
+                file.path.clone(),
+                *size,
+                sha1.clone(),
+                modified,
+            ));
         }
         persist_plan(
             &state.pool,
@@ -811,6 +823,28 @@ pub(crate) async fn execute(
             }
         }
         return Err(error);
+    }
+    for (path, size, sha1, modified) in installed_fingerprints {
+        if let Err(error) = state
+            .file_fingerprints
+            .seed_verified(
+                state,
+                &plan.instance_id,
+                &root,
+                &path,
+                ArtifactIntegrity {
+                    size: Some(size),
+                    hashes: vec![ContentHash {
+                        algorithm: HashAlgorithm::Sha1,
+                        value: sha1,
+                    }],
+                },
+                modified,
+            )
+            .await
+        {
+            tracing::warn!(%error, "Could not save verified installed fingerprint");
+        }
     }
     drop(_critical);
     drop(_lock);

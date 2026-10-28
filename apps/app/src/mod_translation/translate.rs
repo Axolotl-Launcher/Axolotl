@@ -1698,7 +1698,8 @@ pub async fn run_translation_task(
     );
     let input_hash = match &prepared {
         Some(prepared) => prepared.input_hash.clone(),
-        None => analyze::input_file_hash(&input_path)?,
+        None => analyze::input_file_hash_cancellable(&input_path, &cancel)
+            .map_err(translation_cancel)?,
     };
     tracing::info!(task_id, input_hash, "input hashed");
 
@@ -1756,12 +1757,17 @@ pub async fn run_translation_task(
         let mut inspection = marker.inspection;
         resume::prepare_resumed_inspection(&directory, &mut inspection)?;
         inspection.class_candidates =
-            analyze::discover_class_candidates(&directory)?;
+            analyze::discover_class_candidates(&directory, &cancel)
+                .map_err(translation_cancel)?;
         (directory, inspection, true)
     } else {
         tracing::info!(task_id, "no checkpoint, extracting fresh");
-        let (directory, inspection) =
-            analyze::extract_and_inspect(&input_path, &workspace_root)?;
+        let (directory, inspection) = analyze::extract_and_inspect_cancellable(
+            &input_path,
+            &workspace_root,
+            &cancel,
+        )
+        .map_err(translation_cancel)?;
         let marker = ResumeMarker {
             version: 3,
             input_hash: input_hash.clone(),
@@ -2269,12 +2275,22 @@ fn emit(
 
 fn ensure_not_cancelled(cancel: &AtomicBool) -> Result<()> {
     if cancel.load(Ordering::Relaxed) {
-        return Err(TranslateError::new(
-            TranslateErrorCode::Cancelled,
-            "翻译任务已取消",
-        ));
+        return Err(translation_cancelled());
     }
     Ok(())
+}
+
+fn translation_cancelled() -> TranslateError {
+    TranslateError::new(TranslateErrorCode::Cancelled, "翻译任务已取消")
+}
+
+/// 分析辅助函数用自己的措辞报告取消；翻译任务统一显示翻译的取消提示。
+fn translation_cancel(error: TranslateError) -> TranslateError {
+    if error.code == TranslateErrorCode::Cancelled {
+        translation_cancelled()
+    } else {
+        error
+    }
 }
 
 fn iso_now() -> String {
@@ -2289,6 +2305,23 @@ pub fn analysis_summary(inspection: &JarInspection) -> AnalysisSummary {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn analysis_cancels_read_as_translation_cancels() {
+        let canceled = translation_cancel(TranslateError::new(
+            TranslateErrorCode::Cancelled,
+            "analysis was canceled",
+        ));
+        assert_eq!(canceled.code, TranslateErrorCode::Cancelled);
+        assert_eq!(canceled.message, "翻译任务已取消");
+        let failed = translation_cancel(TranslateError::new(
+            TranslateErrorCode::InvalidArchive,
+            "bad archive",
+        ));
+        assert_eq!(failed.code, TranslateErrorCode::InvalidArchive);
+        assert_eq!(failed.message, "bad archive");
+    }
+
     use crate::mod_translation::analyze::{
         LanguageKind, Loader, ResourceCoverage,
     };

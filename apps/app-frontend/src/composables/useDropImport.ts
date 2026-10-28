@@ -1076,8 +1076,8 @@ export function useDropImport(options: DropImportOptions) {
                     const modLoader = meta?.loader
 
                     const assessment = assessLocalModCompatibility(meta, inst)
-                    const versionMismatch = assessment.gameVersion !== 'compatible'
-                    const loaderMismatch = assessment.loader !== 'compatible'
+                    const versionMismatch = assessment.gameVersion === 'incompatible'
+                    const loaderMismatch = assessment.loader === 'incompatible'
 
                     dropDebug('installContentDirectly: compatibility check', {
                         versionMismatch,

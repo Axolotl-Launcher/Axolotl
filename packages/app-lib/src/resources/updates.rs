@@ -169,39 +169,261 @@ async fn check_entry(
     preferred: &SourceId,
     cancel: &CancellationToken,
 ) -> ResourceResult<Option<SourceReleaseRef>> {
+    check_entry_with_policy(
+        service,
+        entry,
+        target,
+        preferred,
+        cancel,
+        CachePolicy::UseFresh,
+    )
+    .await
+}
+
+pub(crate) async fn check_entry_with_policy(
+    service: &std::sync::Arc<ResourceService>,
+    entry: &InstalledResource,
+    target: &ipc::ResourceTarget,
+    preferred: &SourceId,
+    cancel: &CancellationToken,
+    policy: CachePolicy,
+) -> ResourceResult<Option<SourceReleaseRef>> {
     if cancel.is_cancelled() {
         return Err(ResourceError::Canceled);
     }
     let Some(artifact) = &entry.artifact else {
         return Ok(None);
     };
-    let selection = ResourceSelection {
-        id: SelectionId::new(entry.entry_id.as_str())?,
-        resource: entry
-            .resource_id
-            .clone()
-            .map(|id| ResourceRef::Resource { id })
-            .unwrap_or_else(|| ResourceRef::Source {
-                project: artifact.release.project.clone(),
-            }),
-        release: ReleaseSelection::Automatic,
-        resource_type: entry.resource_type,
-        scope: entry.scope.clone(),
-        entry_id: Some(entry.entry_id.clone()),
-    };
-    let current = service.release(&artifact.release, None, cancel).await?;
-    let (release, artifact, _) = service
-        .selected_release_for_current(
-            &selection,
-            target,
-            preferred,
-            cancel,
-            Some(&current),
-        )
+    let resource = entry
+        .resource_id
+        .clone()
+        .map(|id| ResourceRef::Resource { id })
+        .unwrap_or_else(|| ResourceRef::Source {
+            project: artifact.release.project.clone(),
+        });
+    let current = service
+        .release_with_policy(&artifact.release, None, cancel, policy)
         .await?;
-    Ok(
-        (!identity::exact_integrity(&entry.integrity, &artifact.integrity)
-            && release_is_newer(&release, &current))
-        .then_some(release.reference),
-    )
+    let (_, projects) = service.source_projects(&resource).await?;
+    let mut catalog_target = target.clone();
+    if matches!(
+        entry.resource_type,
+        ResourceType::ResourcePack
+            | ResourceType::Shader
+            | ResourceType::DataPack
+            | ResourceType::World
+    ) {
+        catalog_target.loaders.clear();
+    }
+    let hash = entry
+        .integrity
+        .hashes
+        .iter()
+        .find(|hash| hash.algorithm == HashAlgorithm::Sha1);
+    // All confirmed sources participate, even when the installed artifact came
+    // from another source. Each source independently falls back only if needed.
+    let outcomes = futures::future::join_all(projects.iter().map(|project| {
+        project_candidates(
+            service,
+            project,
+            hash,
+            &catalog_target,
+            target,
+            entry.resource_type,
+            policy,
+            cancel,
+        )
+    }))
+    .await;
+    let mut releases = Vec::new();
+    let mut failures = Vec::new();
+    for (project, outcome) in projects.iter().zip(outcomes) {
+        match outcome {
+            Ok(candidates) => releases.extend(candidates),
+            Err(ResourceError::Canceled) => {
+                return Err(ResourceError::Canceled);
+            }
+            Err(error) => {
+                failures.push(format!("{}: {error}", project.source.as_str()))
+            }
+        }
+    }
+    if !failures.is_empty() {
+        return Err(ResourceError::InvalidResponse(format!(
+            "Update discovery is incomplete: {}",
+            failures.join("; ")
+        )));
+    }
+    releases.retain(|release| {
+        release_is_newer(release, &current)
+            && release
+                .artifacts
+                .iter()
+                .find(|artifact| artifact.role == ArtifactRole::Primary)
+                .is_some_and(|artifact| {
+                    !identity::exact_integrity(
+                        &entry.integrity,
+                        &artifact.integrity,
+                    )
+                })
+    });
+    Ok(select_automatic_release(releases, preferred)
+        .map(|(release, _)| release.reference))
+}
+
+fn usable_candidate(
+    release: &ResourceRelease,
+    target: &ipc::ResourceTarget,
+    kind: ResourceType,
+) -> bool {
+    let mut primary = release
+        .artifacts
+        .iter()
+        .filter(|artifact| artifact.role == ArtifactRole::Primary);
+    let Some(artifact) = primary.next() else {
+        return false;
+    };
+    primary.next().is_none()
+        && compatible_candidate(release, target, kind)
+        && valid_artifact(artifact)
+        && (artifact.integrity.size.is_some()
+            || !matches!(
+                release.reference.project.source.as_str(),
+                "modrinth" | "curseforge"
+            ))
+        && artifact.available != Some(false)
+        && artifact.reference.release == release.reference
+        && artifact
+            .integrity
+            .hashes
+            .iter()
+            .any(|hash| hash.algorithm != HashAlgorithm::Md5)
+}
+
+fn compatible_candidate(
+    release: &ResourceRelease,
+    target: &ipc::ResourceTarget,
+    kind: ResourceType,
+) -> bool {
+    let compatibility = assess_compatibility(release, target, kind);
+    compatibility.game_version == CompatibilityState::Compatible
+        && compatibility.loader == CompatibilityState::Compatible
+        && (target.channels.is_empty()
+            || target.channels.contains(&release.channel))
+}
+
+async fn project_candidates(
+    service: &std::sync::Arc<ResourceService>,
+    project: &SourceProjectRef,
+    hash: Option<&ContentHash>,
+    catalog_target: &ipc::ResourceTarget,
+    target: &ipc::ResourceTarget,
+    kind: ResourceType,
+    policy: CachePolicy,
+    cancel: &CancellationToken,
+) -> ResourceResult<Vec<ResourceRelease>> {
+    if matches!(project.source.as_str(), "modrinth" | "curseforge")
+        && let Some(hash) = hash
+    {
+        let response = service
+            .query(
+                &project.source,
+                providers::ProviderQuery::UpdateCandidates {
+                    project_id: project.project_id.clone(),
+                    sha1: hash.value.clone(),
+                    target: catalog_target.clone(),
+                },
+                policy,
+                cancel,
+            )
+            .await;
+        match response {
+            Ok(QueryOutcome {
+                value: providers::ProviderValue::UpdateCandidates(documents),
+                ..
+            }) if !documents.is_empty()
+                && documents.iter().all(|document| {
+                    usable_candidate(&document.release, target, kind)
+                }) =>
+            {
+                // These APIs select the latest published compatible files. A
+                // current or numeric-only result is still a complete response;
+                // compare against installed bytes/version without downloading history.
+                tracing::debug!(
+                    source = project.source.as_str(),
+                    project_id = project.project_id.as_str(),
+                    "Resolved update candidates in batch"
+                );
+                return Ok(documents
+                    .into_iter()
+                    .map(|document| document.release)
+                    .collect());
+            }
+            Err(ResourceError::Canceled) => {
+                return Err(ResourceError::Canceled);
+            }
+            _ => {}
+        }
+    }
+    tracing::debug!(
+        source = project.source.as_str(),
+        project_id = project.project_id.as_str(),
+        "Update candidates require a filtered project catalog"
+    );
+    let slug = if let Some(store) = service.store() {
+        store.project_alias(project).await?
+    } else {
+        None
+    };
+    let mut cursor = None;
+    let mut seen = std::collections::HashSet::new();
+    let mut releases = Vec::new();
+    loop {
+        let response = service
+            .query(
+                &project.source,
+                providers::ProviderQuery::Releases {
+                    project_id: project.project_id.clone(),
+                    slug: slug.clone(),
+                    target: catalog_target.clone(),
+                    cursor: cursor.clone(),
+                    page_size: 50,
+                },
+                policy,
+                cancel,
+            )
+            .await?;
+        let providers::ProviderValue::Releases(page) = response.value else {
+            return Err(ResourceError::InvalidResponse(
+                "source returned no release page".into(),
+            ));
+        };
+        for release in page.entries {
+            if !compatible_candidate(&release, target, kind) {
+                continue;
+            }
+            if !usable_candidate(&release, target, kind) {
+                return Err(ResourceError::InvalidResponse(
+                    "compatible release has invalid primary artifact".into(),
+                ));
+            }
+            releases.push(release);
+        }
+        if page.window_exhausted {
+            return Err(ResourceError::Unsupported(
+                "release window exhausted; choose an exact release".into(),
+            ));
+        }
+        cursor = page.cursor;
+        match &cursor {
+            None => return Ok(releases),
+            Some(cursor) if seen.len() < 100 && seen.insert(cursor.clone()) => {
+            }
+            _ => {
+                return Err(ResourceError::InvalidResponse(
+                    "release cursor repeated or exceeded its window".into(),
+                ));
+            }
+        }
+    }
 }

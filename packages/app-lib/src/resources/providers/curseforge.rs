@@ -39,6 +39,7 @@ impl CurseForgeProvider {
         }
     }
     async fn request(&self, request: ProtocolRequest) -> ResourceResult<Value> {
+        tracing::debug!(source = "curseforge", path = %request.path, item_count = request.item_count(), "Requesting content source");
         self.transport
             .request(&SourceId::curseforge(), request)
             .await
@@ -49,6 +50,162 @@ impl CurseForgeProvider {
         queries: &[ProviderQuery],
         bypass_restrictions: bool,
     ) -> ResourceResult<Vec<ResourceResult<ProviderValue>>> {
+        if queries.iter().all(|query| {
+            matches!(query, ProviderQuery::UpdateCandidates { .. })
+        }) {
+            let projects = queries
+                .iter()
+                .map(|query| {
+                    let ProviderQuery::UpdateCandidates { project_id, .. } =
+                        query
+                    else {
+                        unreachable!()
+                    };
+                    positive_id(project_id.as_str())
+                })
+                .collect::<ResourceResult<Vec<_>>>()?;
+            let response = self
+                .request(ProtocolRequest::post(
+                    "/v1/mods",
+                    json!({"modIds": projects, "filterPcOnly": true}),
+                ))
+                .await?;
+            let values: Vec<RemoteProject> =
+                serde_json::from_value(response["data"].clone())?;
+            let mut by_project = HashMap::new();
+            for project in values {
+                if !projects.contains(&project.id)
+                    || by_project.insert(project.id, project).is_some()
+                {
+                    return Err(ResourceError::InvalidResponse(
+                        "unexpected or duplicate update project".into(),
+                    ));
+                }
+            }
+            let mut indexed = Vec::new();
+            let mut file_ids = Vec::new();
+            for (query, project_id) in queries.iter().zip(&projects) {
+                let ProviderQuery::UpdateCandidates { target, .. } = query
+                else {
+                    unreachable!()
+                };
+                let loader = match target.loaders.first().map(String::as_str) {
+                    None => None,
+                    Some("forge") => Some(1),
+                    Some("liteloader") => Some(3),
+                    Some("fabric") => Some(4),
+                    Some("quilt") => Some(5),
+                    Some("neoforge") => Some(6),
+                    _ => Some(u64::MAX),
+                };
+                let ids = by_project
+                    .get(project_id)
+                    .and_then(|project| project.extra.get("latestFilesIndexes"))
+                    .and_then(Value::as_array)
+                    .map(|indexes| {
+                        indexes
+                            .iter()
+                            .filter(|index| {
+                                target.game_versions.len() == 1
+                                    && target.loaders.len() <= 1
+                                    && index["gameVersion"].as_str()
+                                        == target
+                                            .game_versions
+                                            .first()
+                                            .map(String::as_str)
+                                    && loader.is_none_or(|loader| {
+                                        index["modLoader"].as_u64()
+                                            == Some(loader)
+                                    })
+                                    && (target.channels.is_empty() || index["releaseType"].as_u64().is_some_and(|channel| {
+                                        target.channels.iter().any(|allowed| channel == match allowed {
+                                            ReleaseChannel::Release => 1,
+                                            ReleaseChannel::Beta => 2,
+                                            ReleaseChannel::Alpha => 3,
+                                            ReleaseChannel::Unknown => 0,
+                                        })
+                                    }))
+                            })
+                            .filter_map(|index| {
+                                index["fileId"]
+                                    .as_u64()
+                                    .and_then(|id| u32::try_from(id).ok())
+                            })
+                            .collect::<Vec<_>>()
+                    })
+                    .unwrap_or_default();
+                file_ids.extend(ids.iter().copied());
+                indexed.push(ids);
+            }
+            file_ids.sort_unstable();
+            file_ids.dedup();
+            let mut files = HashMap::new();
+            for ids in file_ids.chunks(50) {
+                let response = self
+                    .request(ProtocolRequest::post(
+                        "/v1/mods/files",
+                        json!({"fileIds": ids}),
+                    ))
+                    .await?;
+                let values: Vec<RemoteFile> =
+                    serde_json::from_value(response["data"].clone())?;
+                for file in values {
+                    if !ids.contains(&file.id) || files.contains_key(&file.id) {
+                        return Err(ResourceError::InvalidResponse(
+                            "unexpected or duplicate update file".into(),
+                        ));
+                    }
+                    files.insert(
+                        file.id,
+                        file.document_with_download_policy(
+                            bypass_restrictions,
+                        )?,
+                    );
+                }
+            }
+            let mut documents = files.into_values().collect::<Vec<_>>();
+            self.fill_manual_links(&mut documents).await?;
+            let files = documents
+                .into_iter()
+                .map(|document| {
+                    (
+                        document
+                            .release
+                            .reference
+                            .release_id
+                            .as_str()
+                            .to_owned(),
+                        document,
+                    )
+                })
+                .collect::<HashMap<_, _>>();
+            return Ok(indexed
+                .into_iter()
+                .zip(projects)
+                .map(|(ids, project_id)| {
+                    let mut documents = Vec::new();
+                    for id in ids {
+                        let Some(document) = files.get(&id.to_string()) else {
+                            return Ok(ProviderValue::UpdateCandidates(vec![]));
+                        };
+                        if document
+                            .release
+                            .reference
+                            .project
+                            .project_id
+                            .as_str()
+                            != project_id.to_string()
+                        {
+                            return Err(ResourceError::InvalidResponse(
+                                "update file belongs to another project".into(),
+                            ));
+                        }
+                        documents.push(document.clone());
+                    }
+                    Ok(ProviderValue::UpdateCandidates(documents))
+                })
+                .collect());
+        }
         if queries
             .iter()
             .all(|query| matches!(query, ProviderQuery::Project { .. }))
@@ -550,10 +707,22 @@ impl ResourceProvider for CurseForgeProvider {
         }
     }
     fn batch_limit(&self, query: &ProviderQuery) -> usize {
+        if matches!(query, ProviderQuery::UpdateCandidates { .. }) {
+            return 50;
+        }
         if query.batch_group() < 3 { 50 } else { 1 }
     }
     fn validate_query(&self, query: &ProviderQuery) -> ResourceResult<()> {
         match query {
+            ProviderQuery::UpdateCandidates {
+                project_id,
+                sha1,
+                target,
+            } => {
+                positive_id(project_id.as_str())?;
+                hashes([(HashAlgorithm::Sha1, sha1.clone())])?;
+                add_target(&mut ProtocolRequest::get("/"), target)?;
+            }
             ProviderQuery::Project { id, .. }
             | ProviderQuery::Description { id, .. } => {
                 positive_id(id.as_str())?;
@@ -640,7 +809,16 @@ impl RemoteProject {
             Some(6945) => vec![ResourceType::DataPack],
             _ => vec![],
         };
+        let owner = self.authors.first().and_then(|author| {
+            Some(ProjectOwner {
+                id: author["id"].as_u64()?.to_string(),
+                name: author["name"].as_str()?.into(),
+                avatar_url: author["avatarUrl"].as_str().and_then(public_url),
+                organization: false,
+            })
+        });
         Ok(ProjectDocument {
+            owner,
             protocol,
             metadata: SourceProjectMetadata {
                 environments: vec![],

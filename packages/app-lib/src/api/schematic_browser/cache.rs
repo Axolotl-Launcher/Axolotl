@@ -160,13 +160,22 @@ pub async fn write<T: Serialize>(
     })
 }
 
+/// Unique scratch path beside `path`.
+///
+/// Two requests for the same source can miss the cache at the same time; a fixed
+/// `.tmp` name lets one writer truncate or rename the other's file. The counter
+/// only has to make the name unique within this process, since the rename is what
+/// publishes the result.
 fn temp_path(path: &Path) -> PathBuf {
+    use std::sync::atomic::{AtomicU64, Ordering};
+    static COUNTER: AtomicU64 = AtomicU64::new(0);
     let mut temp = path.to_path_buf();
     let name = path
         .file_name()
         .map(|name| name.to_string_lossy().to_string())
         .unwrap_or_else(|| "index".to_string());
-    temp.set_file_name(format!("{name}.tmp"));
+    let serial = COUNTER.fetch_add(1, Ordering::Relaxed);
+    temp.set_file_name(format!("{name}.{}.{serial}.tmp", std::process::id()));
     temp
 }
 

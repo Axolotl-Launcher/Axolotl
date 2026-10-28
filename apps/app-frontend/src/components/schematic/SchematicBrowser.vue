@@ -76,7 +76,8 @@ const messages = defineMessages({
     },
 })
 
-const PAGE_SIZE = 20
+/** Fallback page size; the layout's own selector wins once it has a value. */
+const DEFAULT_PAGE_SIZE = 20
 
 /**
  * The mods / modpacks tabs render `BrowsePageLayout` and let it ask the browse
@@ -95,6 +96,8 @@ const searchError = ref<string | null>(null)
 const totalHits = ref(0)
 const cached = ref(false)
 const sourceStatus = ref<SchematicSourceStatus | null>(null)
+/** Per-source failures reported alongside a merged "all sources" page. */
+const sourceFailures = ref<{ sourceId: string; message: string }[]>([])
 const currentFilters = ref<FilterValue[]>([])
 const toggledGroups = ref<string[]>([])
 const overridden = ref<string[]>([])
@@ -127,20 +130,38 @@ function toggleSelected(item: SchematicItem) {
 }
 
 /**
+ * Whether a download error is worth another attempt.
+ *
+ * The backend reports `"{code}: {message}"`, where codes like `http_403`,
+ * `unsupported` and `not_found` are permanent; retrying those only wastes the
+ * rate-limit budget. Network, timeout and 5xx stay retryable.
+ */
+function isRetryableDownloadError(error: unknown): boolean {
+    const text = String(error)
+    if (/http_4\d\d/.test(text)) return false
+    if (/unsupported|not_found|parse/.test(text)) return false
+    return true
+}
+
+/**
  * Downloads one item, retrying a transient failure three times before giving up.
  *
  * The sources rate-limit aggressively, so the retries are spaced by a short
- * backoff rather than fired immediately; a permanent failure is reported back so
- * the row can offer a manual download link instead.
+ * backoff rather than fired immediately. The target instance is captured by the
+ * caller: reading `props.instanceId` per attempt would let a mid-batch instance
+ * switch send later items somewhere the user did not choose.
  */
-async function downloadWithRetry(item: SchematicItem, attempts = 3): Promise<boolean> {
-    if (!props.instanceId) return false
+async function downloadWithRetry(
+    instanceId: string,
+    item: SchematicItem,
+    attempts = 3,
+): Promise<boolean> {
     for (let attempt = 1; attempt <= attempts; attempt++) {
         try {
-            await applySchematicDownload(props.instanceId, item.sourceId, item.id)
+            await applySchematicDownload(instanceId, item.sourceId, item.id)
             return true
-        } catch {
-            if (attempt === attempts) {
+        } catch (error) {
+            if (attempt === attempts || !isRetryableDownloadError(error)) {
                 batchFailed.value = [...batchFailed.value, item.title]
                 return false
             }
@@ -157,6 +178,7 @@ async function downloadWithRetry(item: SchematicItem, attempts = 3): Promise<boo
  */
 async function downloadSelected() {
     if (!props.instanceId || batchRunning.value || !selectedItems.value.length) return
+    const instanceId = props.instanceId
     batchRunning.value = true
     batchFailed.value = []
     const bySource = new Map<string, SchematicItem[]>()
@@ -166,7 +188,7 @@ async function downloadSelected() {
         bySource.set(item.sourceId, list)
     }
     const queues = [...bySource.values()].map(async (queue) => {
-        for (const item of queue) await downloadWithRetry(item)
+        for (const item of queue) await downloadWithRetry(instanceId, item)
     })
     await Promise.all(queues)
     batchRunning.value = false
@@ -310,16 +332,18 @@ async function loadGameVersions() {
     }
 }
 
-async function load(reset: boolean) {
+/** Page size the layout's selector currently asks for. */
+const pageSize = computed(() => base.maxResults?.value ?? DEFAULT_PAGE_SIZE)
+
+async function loadPage(targetPage: number) {
     requestSeq += 1
     const seq = requestSeq
     loading.value = true
     searchError.value = null
-    const targetPage = reset ? 1 : currentPage.value + 1
     try {
         const args = {
             page: targetPage,
-            pageSize: PAGE_SIZE,
+            pageSize: pageSize.value,
             query: query.value || undefined,
         }
         // "All sources" is a backend call: merging three pages here would order
@@ -328,22 +352,33 @@ async function load(reset: boolean) {
             chosenSource.value === 'all'
                 ? await listAllSchematics(args)
                 : await listSchematics({ ...args, sourceId: chosenSource.value })
+        // A newer query owns the state now; this response must not write to it,
+        // and neither must its `catch` / `finally` below.
         if (seq !== requestSeq || isUnmounted) return
-        cached.value = payload.cached
-        if (reset) {
-            items.value = []
-            currentPage.value = 1
-        }
-        items.value.push(...payload.items)
-        totalHits.value = payload.total?.value ?? payload.items.length
-        sourceStatus.value = payload.source_status ?? null
+        // The payload is camelCase all the way down (`sourceStatus.cached`), so
+        // reading a top-level `cached` or snake_case `source_status` silently
+        // yields undefined and hides the cache badge.
+        cached.value = payload.sourceStatus?.cached ?? false
+        // Page one replaces the list; later pages append to it.
+        if (targetPage === 1) items.value = [...payload.items]
+        else items.value.push(...payload.items)
+        totalHits.value = payload.total?.value ?? items.value.length
+        sourceStatus.value = payload.sourceStatus ?? null
+        sourceFailures.value = payload.sourceFailures ?? []
         currentPage.value = targetPage
         void prefetchThumbnails(payload.items)
     } catch (error) {
-        if (!isUnmounted) searchError.value = String(error)
+        if (seq !== requestSeq || isUnmounted) return
+        searchError.value = String(error)
     } finally {
-        if (!isUnmounted) loading.value = false
+        if (seq === requestSeq && !isUnmounted) loading.value = false
     }
+}
+
+/** First page, discarding what is loaded: a new query or filter starts over. */
+function reload() {
+    currentPage.value = 1
+    void loadPage(1)
 }
 
 /**
@@ -376,7 +411,15 @@ async function prefetchThumbnails(list: SchematicItem[]) {
  */
 const projectHits = computed(() =>
     items.value
-        .filter((item) => !chosenFormats.value.length || chosenFormats.value.includes(item.format))
+        // An item whose format we could not read stays visible: two of the three
+        // sites leave it `unknown`, and hiding those rows would make a format
+        // filter silently drop an entire source.
+        .filter(
+            (item) =>
+                !chosenFormats.value.length ||
+                item.format === 'unknown' ||
+                chosenFormats.value.includes(item.format),
+        )
         .filter(
             (item) =>
                 !chosenVersions.value.length ||
@@ -411,11 +454,14 @@ const projectHits = computed(() =>
         })),
 )
 
-const pageCount = computed(() => Math.max(1, Math.ceil(totalHits.value / PAGE_SIZE)))
+const pageCount = computed(() =>
+    Math.max(1, Math.ceil(totalHits.value / Math.max(1, pageSize.value))),
+)
 
 function setPage(page: number) {
+    // Request the page the pagination asked for; `reload()` resets to page one.
     currentPage.value = Math.max(1, page)
-    void load(true)
+    void loadPage(currentPage.value)
 }
 
 const manager: BrowseManagerContext = {
@@ -522,22 +568,22 @@ const manager: BrowseManagerContext = {
                 },
             }) as never,
     ),
-    refreshSearch: () => void load(true),
+    refreshSearch: () => reload(),
     clearSearch: () => {
         query.value = ''
-        void load(true)
+        reload()
     },
 }
 
 provideBrowseManager(manager)
 
-watch(query, () => void load(true))
-watch(currentFilters, () => void load(true), { deep: true })
+watch(query, () => reload())
+watch(currentFilters, () => reload(), { deep: true })
 
 onMounted(async () => {
     void loadGameVersions()
     await getSchematicCapabilities().catch(() => [])
-    await load(true)
+    reload()
 })
 
 onUnmounted(() => {
@@ -589,8 +635,18 @@ function openDetail(item: SchematicItem) {
                 >
                     {{ sourceStatus.message ?? sourceStatus.state }}
                 </span>
+                <span
+                    v-if="sourceFailures.length"
+                    class="text-xs text-[var(--color-orange)]"
+                    :title="sourceFailures.map((f) => f.message).join('\n')"
+                >
+                    {{ formatMessage(messages.sourceFailed, { count: sourceFailures.length }) }}
+                </span>
                 <span v-if="downloadedNotice" class="truncate text-xs">
                     {{ formatMessage(messages.savedTo, { path: downloadedNotice }) }}
+                </span>
+                <span v-if="batchFailed.length" class="truncate text-xs text-[var(--color-red)]">
+                    {{ formatMessage(messages.batchFailed, { names: batchFailed.join(', ') }) }}
                 </span>
             </div>
         </template>

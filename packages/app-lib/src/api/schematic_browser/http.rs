@@ -356,6 +356,19 @@ pub async fn get_bytes(
     headers: &RequestHeaders,
     cancel: &CancellationToken,
 ) -> SourceResult<Vec<u8>> {
+    // The caller supplies this URL (the thumbnail command forwards it verbatim),
+    // so the initial request needs the same public-host check a redirect gets:
+    // otherwise a crafted source URL could reach loopback or a private service
+    // and hand its bytes back to the renderer.
+    let parsed = reqwest::Url::parse(url).map_err(|error| {
+        SchematicSourceError::parse("url", error.to_string())
+    })?;
+    if !is_public_http_url(&parsed) {
+        return Err(SchematicSourceError::unsupported(
+            "only public http(s) urls can be fetched",
+        ));
+    }
+
     let key = HostKey::from_url(url, proxied());
 
     net::with_retries(&key, cancel, || async {

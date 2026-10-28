@@ -154,7 +154,16 @@ const deliveryHint = computed(() => {
     }
 })
 
-const canDownload = computed(() => props.item?.download.delivery === 'direct' && !!props.instanceId)
+/**
+ * The detail response can resolve a delivery the list could not: mc-schematics
+ * marks an item `external` until its detail page yields a direct link. Prefer
+ * the resolved item so a download that is actually possible is not hidden.
+ */
+const resolvedItem = computed(() => detail.value?.item ?? props.item)
+
+const canDownload = computed(
+    () => resolvedItem.value?.download.delivery === 'direct' && !!props.instanceId,
+)
 
 const imageIndex = ref(0)
 const images = computed(() => detail.value?.images ?? props.item?.images ?? [])
@@ -282,7 +291,7 @@ defineExpose({ close })
         <!-- Actions -->
         <footer class="mt-2 flex flex-wrap items-center justify-end gap-2">
             <Button
-                v-if="props.item?.download.delivery === 'direct'"
+                v-if="resolvedItem?.download.delivery === 'direct'"
                 size="sm"
                 type="colored"
                 :disabled="downloading || !canDownload"

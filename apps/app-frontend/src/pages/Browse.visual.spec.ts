@@ -301,6 +301,20 @@ vi.mock('@modrinth/ui', async () => {
         },
         defineMessage: (value: unknown) => value,
         defineMessages: (value: unknown) => value,
+        // The schematic tab mounts BrowsePageLayout with its own manager and
+        // opens the detail dialog in `NewModal`; both have to exist here or the
+        // dynamic import of Browse.vue fails before a test runs.
+        injectBrowseManager: () => api.context,
+        NewModal: defineComponent({
+            props: ['visible', 'header'],
+            setup:
+                (props, { slots }) =>
+                () =>
+                    h('dialog', { open: props.visible }, [
+                        props.header,
+                        slots.default?.(),
+                    ]),
+        }),
         formatDependencyProjectFilterOption: vi.fn(),
         formatProjectTypeSentence: vi.fn(),
         getLatestMatchingInstallVersion: vi.fn(),

@@ -95,11 +95,13 @@ pub async fn schematic_browser_list(
     versions: Option<Vec<String>>,
     request_id: String,
 ) -> Result<ListPayload, String> {
+    // Resolve the source before registering the token: an unknown id returns
+    // through `?`, and a token registered before that would never be removed.
+    let source = parse_source(&source_id)?;
     // Register the cancellation token before anything that awaits, so a cancel
     // that arrives while the proxy settings are being refreshed still lands.
     let cancel = begin_request(&request_id);
     refresh_proxy().await;
-    let source = parse_source(&source_id)?;
     let list_query = types::ListQuery {
         page: page.unwrap_or(1),
         page_size: page_size.unwrap_or(0),
@@ -158,9 +160,11 @@ pub async fn schematic_browser_detail(
     id: String,
     request_id: String,
 ) -> Result<types::SchematicDetail, String> {
+    // See `schematic_browser_list`: resolve first so an unknown id cannot leave
+    // a cancellation record behind.
+    let source = parse_source(&source_id)?;
     let cancel = begin_request(&request_id);
     refresh_proxy().await;
-    let source = parse_source(&source_id)?;
     let result = schematic_browser::detail(source, &id, &cancel).await;
     end_request(&request_id, &cancel);
     result.map_err(to_message)
@@ -173,9 +177,10 @@ pub async fn schematic_browser_download_plan(
     size: Option<types::GenerateSize>,
     request_id: String,
 ) -> Result<types::DownloadPlan, String> {
+    // Same ordering as the other commands: an unknown id must not leak a token.
+    let source = parse_source(&source_id)?;
     let cancel = begin_request(&request_id);
     refresh_proxy().await;
-    let source = parse_source(&source_id)?;
     let result =
         schematic_browser::download_plan(source, &id, size, &cancel).await;
     end_request(&request_id, &cancel);
@@ -190,9 +195,9 @@ pub async fn schematic_browser_download_apply(
     size: Option<types::GenerateSize>,
     request_id: String,
 ) -> Result<String, String> {
+    let source = parse_source(&source_id)?;
     let cancel = begin_request(&request_id);
     refresh_proxy().await;
-    let source = parse_source(&source_id)?;
     let path = schematic_browser::download::download_apply(
         &instance_id,
         source,

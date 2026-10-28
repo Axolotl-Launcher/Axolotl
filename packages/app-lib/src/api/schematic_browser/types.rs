@@ -3,11 +3,18 @@
 use serde::{Deserialize, Serialize};
 
 /// Which upstream site an item came from.
+///
+/// The serialized form is the same string [`SourceId::as_str`] returns, and the
+/// one [`SourceId::parse`] accepts. A blanket `snake_case` rename would turn
+/// `BuildSchematics` into `build_schematics`, which `parse` rejects, so the
+/// frontend would hand back a value the backend calls unknown.
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
 pub enum SourceId {
+    #[serde(rename = "reden")]
     Reden,
+    #[serde(rename = "buildschematics")]
     BuildSchematics,
+    #[serde(rename = "mc_schematics")]
     McSchematics,
 }
 

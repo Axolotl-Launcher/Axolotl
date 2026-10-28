@@ -302,6 +302,9 @@
   "app.schematic.batch.download-count": {
     "message": "下载 {count} 个投影"
   },
+  "app.schematic.batch.failed": {
+    "message": "无法下载：{names}"
+  },
   "app.schematic.cached": {
     "message": "缓存"
   },
@@ -406,6 +409,9 @@
   },
   "app.schematic.sort.newest": {
     "message": "最新"
+  },
+  "app.schematic.source-failed": {
+    "message": "{count} 个来源失败"
   },
   "app.settings.tabs.mcp": {
     "message": "MCP 服务器"

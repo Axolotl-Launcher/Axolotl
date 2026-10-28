@@ -9593,6 +9593,9 @@
   "app.schematic.batch.download-count": {
     "message": "Download {count, plural, one {# schematic} other {# schematics}}"
   },
+  "app.schematic.batch.failed": {
+    "message": "Could not download: {names}"
+  },
   "app.schematic.cached": {
     "message": "cached"
   },
@@ -9697,6 +9700,9 @@
   },
   "app.schematic.sort.newest": {
     "message": "Newest"
+  },
+  "app.schematic.source-failed": {
+    "message": "{count, plural, one {# source failed} other {# sources failed}}"
   },
   "app.screenshots.copied": {
     "message": "Copied"

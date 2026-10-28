@@ -10,7 +10,7 @@
 //! (`schematics/`, or `structures/` for raw nbt), so no database write is
 //! needed: the next scan registers it.
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use tokio_util::sync::CancellationToken;
 
@@ -89,6 +89,39 @@ fn safe_file_name(
     base
 }
 
+/// First free path for `file_name` inside `folder`, suffixing `" (2)"`, `" (3)"`.
+///
+/// Re-downloading an item must never replace a file the user may have edited,
+/// and the download path is atomic, so the check has to happen before it runs.
+async fn unique_destination(folder: &Path, file_name: &str) -> PathBuf {
+    let candidate = folder.join(file_name);
+    if io::metadata(&candidate).await.is_err() {
+        return candidate;
+    }
+    let stem = Path::new(file_name)
+        .file_stem()
+        .and_then(|value| value.to_str())
+        .unwrap_or(file_name);
+    let extension = Path::new(file_name)
+        .extension()
+        .and_then(|value| value.to_str())
+        .unwrap_or_default();
+    for index in 2..1000u32 {
+        let name = if extension.is_empty() {
+            format!("{stem} ({index})")
+        } else {
+            format!("{stem} ({index}).{extension}")
+        };
+        let candidate = folder.join(name);
+        if io::metadata(&candidate).await.is_err() {
+            return candidate;
+        }
+    }
+    // Falling back to the original name keeps the command from failing outright;
+    // a thousand collisions already means the folder is unusable anyway.
+    folder.join(file_name)
+}
+
 /// Download one item into the instance and return the written path.
 pub async fn download_apply(
     instance_id: &str,
@@ -125,12 +158,15 @@ pub async fn download_apply(
                 err.to_string(),
             )
         })?;
-    let destination = root.join(folder).join(&file_name);
-    io::create_dir_all(destination.parent().unwrap_or(&root))
-        .await
-        .map_err(|err| {
-            SchematicSourceError::storage(StorageCode::Io, err.to_string())
-        })?;
+    let folder_path = root.join(folder);
+    io::create_dir_all(&folder_path).await.map_err(|err| {
+        SchematicSourceError::storage(StorageCode::Io, err.to_string())
+    })?;
+    // A second download of the same item must not replace the copy the user may
+    // have edited. Pick the next free `"name (2).ext"` instead of overwriting;
+    // the fetch layer replaces its destination atomically, so it would otherwise
+    // silently destroy local work.
+    let destination = unique_destination(&folder_path, &file_name).await;
 
     let mut request = DownloadRequest::new(plan.url, ResourceClass::Other)
         .with_integrity(Integrity::default());

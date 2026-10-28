@@ -247,7 +247,9 @@ fn java_is_new_enough(java: &Path) -> bool {
 /// The jars are built from the `third-party/trial-spawner-finder` submodule at
 /// build time and shipped as application resources, so they live beside the
 /// executable rather than in the data directory.
-fn trial_program_dir(app: &tauri::AppHandle) -> Option<PathBuf> {
+fn trial_program_dir<R: tauri::Runtime>(
+    app: &tauri::AppHandle<R>,
+) -> Option<PathBuf> {
     use tauri::Manager;
     let resources = app.path().resource_dir().ok()?;
     let candidates = [
@@ -317,7 +319,9 @@ fn parse_trial_csv(text: &str) -> Vec<TrialChamberHit> {
 }
 
 #[tauri::command]
-pub fn trial_chamber_available(app: tauri::AppHandle) -> bool {
+pub fn trial_chamber_available<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+) -> bool {
     let has_java = find_java()
         .map(|java| java_is_new_enough(&java))
         .unwrap_or(false);
@@ -325,8 +329,8 @@ pub fn trial_chamber_available(app: tauri::AppHandle) -> bool {
 }
 
 #[tauri::command]
-pub async fn trial_chamber_find(
-    app: tauri::AppHandle,
+pub async fn trial_chamber_find<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
     seed: String,
     radius: u32,
     threads: u32,

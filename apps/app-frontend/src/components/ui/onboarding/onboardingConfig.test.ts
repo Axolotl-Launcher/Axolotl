@@ -1,5 +1,4 @@
-import assert from 'node:assert/strict'
-import test from 'node:test'
+import { expect, it } from 'vitest'
 
 import { onboardingTours } from './onboardingConfig.ts'
 
@@ -9,29 +8,30 @@ import { onboardingTours } from './onboardingConfig.ts'
  * — these assertions pin the pairing.
  */
 
-test('the schematic tour explains the source filter before the download action', () => {
+it('the schematic tour explains the source filter before the download action', () => {
     const steps = onboardingTours['schematic-browse']
-    assert.ok(Array.isArray(steps), 'tour must be registered')
-    assert.equal(steps.length, 2)
-
-    const targets = steps.map((step) => step.targetId)
-    assert.deepEqual(targets, ['schematic-source-filter', 'schematic-download-action'])
+    expect(Array.isArray(steps)).toBe(true)
+    expect(steps).toHaveLength(2)
+    expect(steps.map((step) => step.targetId)).toEqual([
+        'schematic-source-filter',
+        'schematic-download-action',
+    ])
 })
 
-test('the schematic tour only inspects, never activates controls', () => {
+it('the schematic tour only inspects, never activates controls', () => {
     // Inspect steps let any click advance; an activate step would perform the
     // real action (start a download) just by walking the tour.
     for (const step of onboardingTours['schematic-browse']) {
-        assert.equal(step.interaction, 'inspect')
+        expect(step.interaction).toBe('inspect')
     }
 })
 
-test('every registered tour names a target for each of its steps', () => {
+it('every registered tour names a target for each of its steps', () => {
     for (const [mode, steps] of Object.entries(onboardingTours)) {
         for (const step of steps) {
-            assert.ok(step.id, `${mode} has a step without id`)
+            expect(step.id, `${mode} has a step without id`).toBeTruthy()
             if (step.interaction !== 'manual') {
-                assert.ok(step.targetId, `${mode}/${step.id} has no target`)
+                expect(step.targetId, `${mode}/${step.id} has no target`).toBeTruthy()
             }
         }
     }

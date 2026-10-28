@@ -42,7 +42,8 @@ const messages = defineMessages({
     maxYLabel: { id: 'app.lab.low-y-swamp-hut.max-y', defaultMessage: 'Height threshold' },
     maxYHint: {
         id: 'app.lab.low-y-swamp-hut.max-y-hint',
-        defaultMessage: 'Phase one stops at this height. Lower values take longer to find candidates.',
+        defaultMessage:
+            'Phase one stops at this height. Lower values take longer to find candidates.',
     },
     phase2Label: {
         id: 'app.lab.low-y-swamp-hut.phase2-max-y',
@@ -124,9 +125,7 @@ onMounted(async () => {
     }
 })
 
-const canScan = computed(
-    () => !!seed.value.trim() && !scanning.value && available.value !== false,
-)
+const canScan = computed(() => !!seed.value.trim() && !scanning.value && available.value !== false)
 
 async function run() {
     if (!canScan.value) return
@@ -217,10 +216,7 @@ async function copyTeleport(hit: { x: number; z: number; y: number }) {
                     <h2 class="m-0 text-lg font-semibold">
                         {{ formatMessage(messages.resultsTitle) }}
                     </h2>
-                    <span
-                        v-if="result"
-                        class="text-xs text-[var(--color-text-tertiary)]"
-                    >
+                    <span v-if="result" class="text-xs text-[var(--color-text-tertiary)]">
                         <template v-if="result.lowestY !== null">
                             {{ formatMessage(messages.lowest, { y: result.lowestY }) }} ·
                         </template>
@@ -401,9 +397,7 @@ async function copyTeleport(hit: { x: number; z: number; y: number }) {
                 <Button type="colored" :disabled="!canScan" @click="run">
                     <SpinnerIcon v-if="scanning" class="size-4 animate-spin" />
                     <SearchIcon v-else class="size-4" />
-                    {{
-                        scanning ? formatMessage(messages.scanning) : formatMessage(messages.scan)
-                    }}
+                    {{ scanning ? formatMessage(messages.scanning) : formatMessage(messages.scan) }}
                 </Button>
             </aside>
         </div>

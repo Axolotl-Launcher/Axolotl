@@ -7319,6 +7319,90 @@
   "app.lab.tool-count-plural": {
     "message": "{count} tools"
   },
+  "app.lab.trial-chamber.best": {
+    "message": "Most spawners: {count}"
+  },
+  "app.lab.trial-chamber.column-center-x": {
+    "message": "Center X"
+  },
+  "app.lab.trial-chamber.column-center-z": {
+    "message": "Center Z"
+  },
+  "app.lab.trial-chamber.column-chambers": {
+    "message": "Chambers"
+  },
+  "app.lab.trial-chamber.column-rank": {
+    "message": "#"
+  },
+  "app.lab.trial-chamber.column-spawners": {
+    "message": "Spawners"
+  },
+  "app.lab.trial-chamber.copied": {
+    "message": "Copied"
+  },
+  "app.lab.trial-chamber.copy-tp": {
+    "message": "Copy /tp"
+  },
+  "app.lab.trial-chamber.description": {
+    "message": "Find trial chambers for a world seed and count what they contain. The search assembles each chamber from its structure data, so it reports the spawners and chambers that actually generate."
+  },
+  "app.lab.trial-chamber.done-body": {
+    "message": "Found {count} chambers for seed {seed}."
+  },
+  "app.lab.trial-chamber.done-title": {
+    "message": "Trial chamber scan finished"
+  },
+  "app.lab.trial-chamber.elapsed": {
+    "message": "Scanned in {ms} ms"
+  },
+  "app.lab.trial-chamber.empty-body": {
+    "message": "Enter a seed and run a scan to see where the trial chambers land."
+  },
+  "app.lab.trial-chamber.empty-title": {
+    "message": "No chambers found yet"
+  },
+  "app.lab.trial-chamber.failed": {
+    "message": "The scan failed: {reason}"
+  },
+  "app.lab.trial-chamber.failed-title": {
+    "message": "Trial chamber scan failed"
+  },
+  "app.lab.trial-chamber.no-java-body": {
+    "message": "This tool needs a Java 25 runtime. Install JDK 25, or point JAVA_HOME at one, then reload this page."
+  },
+  "app.lab.trial-chamber.no-java-title": {
+    "message": "Java not found"
+  },
+  "app.lab.trial-chamber.radius": {
+    "message": "Search radius"
+  },
+  "app.lab.trial-chamber.radius-hint": {
+    "message": "In blocks around the origin. A wider radius scans for longer."
+  },
+  "app.lab.trial-chamber.results": {
+    "message": "Chambers, most spawners first"
+  },
+  "app.lab.trial-chamber.scan": {
+    "message": "Scan"
+  },
+  "app.lab.trial-chamber.scanning": {
+    "message": "Scanning…"
+  },
+  "app.lab.trial-chamber.seed": {
+    "message": "World seed"
+  },
+  "app.lab.trial-chamber.seed-placeholder": {
+    "message": "World seed, numeric or text"
+  },
+  "app.lab.trial-chamber.threads": {
+    "message": "Threads"
+  },
+  "app.lab.trial-chamber.threads-hint": {
+    "message": "More threads scan faster but need more memory. Eight suits 4 GB."
+  },
+  "app.lab.trial-chamber.title": {
+    "message": "Trial chambers"
+  },
   "app.library.context-menu.pin-instance": {
     "message": "Pin in Library"
   },

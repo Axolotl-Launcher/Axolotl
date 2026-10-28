@@ -5,7 +5,7 @@
 //! something to reimplement here, so the launcher runs it and reads its output.
 //! When it is missing the UI says so rather than pretending to have searched.
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::time::Instant;
 
@@ -33,6 +33,30 @@ pub struct SwampHutScan {
     pub elapsed_ms: u64,
     /// Lowest `y` among the hits, which is the answer the tool exists for.
     pub lowest_y: Option<f64>,
+}
+
+/// One trial chamber the search accepted, with what it contains.
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TrialChamberHit {
+    pub rank: u32,
+    pub center_x: i32,
+    pub center_z: i32,
+    pub chamber_count: u32,
+    pub spawner_count: u32,
+    /// Chamber block coordinates, `(x, z)`.
+    pub positions: Vec<(i32, i32)>,
+}
+
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TrialChamberScan {
+    pub seed: String,
+    pub radius: u32,
+    pub hits: Vec<TrialChamberHit>,
+    pub elapsed_ms: u64,
+    /// Highest spawner count among the hits.
+    pub best_spawners: Option<u32>,
 }
 
 /// Name of the external program, without the platform extension.
@@ -176,11 +200,214 @@ pub async fn low_y_swamp_hut_scan(
     })
 }
 
+/// Minimum Java major version the trial-chamber program needs.
+const JAVA_MAJOR: u32 = 25;
+
+/// Locate `java`: `JAVA_HOME` first, then `PATH`.
+fn find_java() -> Option<PathBuf> {
+    let binary = if cfg!(windows) { "java.exe" } else { "java" };
+    if let Some(home) = std::env::var_os("JAVA_HOME") {
+        let candidate = PathBuf::from(home).join("bin").join(binary);
+        if candidate.is_file() {
+            return Some(candidate);
+        }
+    }
+    let path = std::env::var_os("PATH")?;
+    std::env::split_paths(&path)
+        .map(|dir| dir.join(binary))
+        .find(|candidate| candidate.is_file())
+}
+
+/// Whether `java -version` reports [`JAVA_MAJOR`] or newer.
+fn java_is_new_enough(java: &Path) -> bool {
+    let output = match Command::new(java).arg("-version").output() {
+        Ok(output) => output,
+        Err(_) => return false,
+    };
+    // `-version` writes to stderr.
+    let text = String::from_utf8_lossy(&output.stderr);
+    let major = text
+        .split('"')
+        .nth(1)
+        .and_then(|version| version.split('.').next())
+        .and_then(|first| first.parse::<u32>().ok());
+    major.map(|value| value >= JAVA_MAJOR).unwrap_or(false)
+}
+
+/// Directory holding the unpacked trial-chamber program, if it is installed.
+///
+/// The program is searched for next to the launcher's data directory because it
+/// ships as a zip the launcher can unpack on demand.
+fn trial_program_dir() -> Option<PathBuf> {
+    let data = std::env::var_os("AXOLOTL_DATA_DIR").map(PathBuf::from)?;
+    let dir = data.join("trial-spawner-finder");
+    dir.is_dir().then_some(dir)
+}
+
+/// Parse the program's CSV.
+///
+/// Semicolon-separated, `#` comment lines first, then a header row. Columns are:
+/// rank, center X, center Z, chamber count, spawner count, positions
+/// (`x,z|x,z`).
+fn parse_trial_csv(text: &str) -> Vec<TrialChamberHit> {
+    let mut hits = Vec::new();
+    let mut seen_header = false;
+    for raw in text.lines() {
+        let line = raw.trim_start_matches('\u{feff}').trim();
+        if line.is_empty() || line.starts_with('#') {
+            continue;
+        }
+        if !seen_header {
+            seen_header = true;
+            continue;
+        }
+        let mut parts = line.split(';');
+        let rank = parts.next().and_then(|v| v.trim().parse::<u32>().ok());
+        let center_x = parts.next().and_then(|v| v.trim().parse::<i32>().ok());
+        let center_z = parts.next().and_then(|v| v.trim().parse::<i32>().ok());
+        let (Some(rank), Some(center_x), Some(center_z)) =
+            (rank, center_x, center_z)
+        else {
+            continue;
+        };
+        let chamber_count = parts
+            .next()
+            .and_then(|v| v.trim().parse::<u32>().ok())
+            .unwrap_or(0);
+        let spawner_count = parts
+            .next()
+            .and_then(|v| v.trim().parse::<u32>().ok())
+            .unwrap_or(0);
+        let positions = parts
+            .next()
+            .map(|raw| {
+                raw.split('|')
+                    .filter_map(|pair| {
+                        let mut coords = pair.split(',');
+                        let x = coords.next()?.trim().parse::<i32>().ok()?;
+                        let z = coords.next()?.trim().parse::<i32>().ok()?;
+                        Some((x, z))
+                    })
+                    .collect()
+            })
+            .unwrap_or_default();
+        hits.push(TrialChamberHit {
+            rank,
+            center_x,
+            center_z,
+            chamber_count,
+            spawner_count,
+            positions,
+        });
+    }
+    hits
+}
+
+#[tauri::command]
+pub fn trial_chamber_available() -> bool {
+    find_java()
+        .map(|java| java_is_new_enough(&java))
+        .unwrap_or(false)
+}
+
+#[tauri::command]
+pub async fn trial_chamber_find(
+    seed: String,
+    radius: u32,
+    threads: u32,
+) -> Result<TrialChamberScan, String> {
+    let java = find_java().ok_or_else(|| {
+        "no Java runtime found; install JDK 25 or let the launcher download one".to_string()
+    })?;
+    if !java_is_new_enough(&java) {
+        return Err(format!(
+            "the installed Java is older than {JAVA_MAJOR}; install JDK {JAVA_MAJOR} or newer"
+        ));
+    }
+    let program = trial_program_dir().ok_or_else(|| {
+        "the trial-chamber program is not installed yet".to_string()
+    })?;
+    let jar = program.join("trial-spawner-finder.jar");
+    if !jar.is_file() {
+        return Err(format!("missing {}", jar.display()));
+    }
+
+    let seed = seed.trim().to_string();
+    if seed.is_empty() {
+        return Err("a world seed is required".to_string());
+    }
+
+    let started = Instant::now();
+    let output = Command::new(&java)
+        .arg("-jar")
+        .arg(&jar)
+        .arg("--seed")
+        .arg(&seed)
+        .arg("--radius")
+        .arg(radius.max(1).to_string())
+        .arg("--threads")
+        .arg(threads.max(1).to_string())
+        .current_dir(&program)
+        .output()
+        .map_err(|error| format!("cannot run the search program: {error}"))?;
+    let elapsed_ms = started.elapsed().as_millis() as u64;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(format!(
+            "the search program exited with {}: {}",
+            output.status,
+            stderr.trim()
+        ));
+    }
+
+    // The program writes its CSV next to itself; read the newest one rather than
+    // parsing stdout, which also carries progress output.
+    let newest = std::fs::read_dir(&program)
+        .ok()
+        .into_iter()
+        .flatten()
+        .flatten()
+        .filter(|entry| {
+            entry
+                .file_name()
+                .to_string_lossy()
+                .starts_with("results-trial-spawner-")
+        })
+        .filter_map(|entry| {
+            let modified = entry.metadata().ok()?.modified().ok()?;
+            Some((modified, entry.path()))
+        })
+        .max_by_key(|(modified, _)| *modified)
+        .map(|(_, path)| path);
+
+    let hits = match newest {
+        Some(path) => {
+            let text = std::fs::read_to_string(&path).map_err(|error| {
+                format!("cannot read {}: {error}", path.display())
+            })?;
+            parse_trial_csv(&text)
+        }
+        None => Vec::new(),
+    };
+    let best_spawners = hits.iter().map(|hit| hit.spawner_count).max();
+
+    Ok(TrialChamberScan {
+        seed,
+        radius,
+        hits,
+        elapsed_ms,
+        best_spawners,
+    })
+}
+
 pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
     tauri::plugin::Builder::new("lab")
         .invoke_handler(tauri::generate_handler![
             low_y_swamp_hut_available,
             low_y_swamp_hut_scan,
+            trial_chamber_available,
+            trial_chamber_find,
         ])
         .build()
 }

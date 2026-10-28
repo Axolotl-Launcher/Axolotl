@@ -961,6 +961,8 @@ fn main() {
                     .commands(&[
                         "low_y_swamp_hut_available",
                         "low_y_swamp_hut_scan",
+                        "trial_chamber_available",
+                        "trial_chamber_find",
                     ])
                     .default_permission(
                         DefaultPermissionRule::AllowAllCommands,

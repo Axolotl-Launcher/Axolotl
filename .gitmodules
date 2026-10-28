@@ -8,3 +8,6 @@
 [submodule "third-party/lysh"]
 	path = third-party/lysh
 	url = https://github.com/M33Galaxy/LowYSwampHut.git
+[submodule "third-party/trial-spawner-finder"]
+	path = third-party/trial-spawner-finder
+	url = https://github.com/ZCXEDTA/TrialSpawnerFinder.git

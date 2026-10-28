@@ -1248,28 +1248,35 @@ function featureLabel(kind: SeedMapFeatureKind) {
 }
 
 /**
- * Long press on the swamp-hut toggle opens the dedicated finder.
+ * Long press on a structure toggle opens its dedicated finder.
  *
  * A plain click keeps toggling the overlay, which is what the button is for; the
  * press has to be held so the two gestures cannot be confused.
  */
-const HUT_FINDER_HOLD_MS = 500
-let hutFinderTimer: number | null = null
+const FINDER_HOLD_MS = 500
+let finderTimer: number | null = null
 
-function cancelHutFinderPress() {
-    if (hutFinderTimer !== null) {
-        window.clearTimeout(hutFinderTimer)
-        hutFinderTimer = null
+/** Structure toggles that own a finder page. */
+const FINDER_ROUTES: Partial<Record<SeedMapFeatureKind, string>> = {
+    'swamp-hut': '/lab/seed-map/witch-hut',
+    'trial-chambers': '/lab/seed-map/trial-chamber',
+}
+
+function cancelFinderPress() {
+    if (finderTimer !== null) {
+        window.clearTimeout(finderTimer)
+        finderTimer = null
     }
 }
 
-function startHutFinderPress(kind: SeedMapFeatureKind) {
-    if (kind !== 'swamp-hut') return
-    cancelHutFinderPress()
-    hutFinderTimer = window.setTimeout(() => {
-        hutFinderTimer = null
-        void router.push('/lab/seed-map/witch-hut')
-    }, HUT_FINDER_HOLD_MS)
+function startFinderPress(kind: SeedMapFeatureKind) {
+    const route = FINDER_ROUTES[kind]
+    if (!route) return
+    cancelFinderPress()
+    finderTimer = window.setTimeout(() => {
+        finderTimer = null
+        void router.push(route)
+    }, FINDER_HOLD_MS)
 }
 
 function featureResultLabel(feature: SeedMapFeature) {
@@ -3121,10 +3128,10 @@ function selectDimension(dimension: SeedMapDimension) {
                             }"
                             :aria-pressed="workspace.visibleFeatures.includes(feature.kind)"
                             @click="toggleFeature(feature.kind)"
-                            @pointerdown="startHutFinderPress(feature.kind)"
-                            @pointerup="cancelHutFinderPress"
-                            @pointerleave="cancelHutFinderPress"
-                            @pointercancel="cancelHutFinderPress"
+                            @pointerdown="startFinderPress(feature.kind)"
+                            @pointerup="cancelFinderPress"
+                            @pointerleave="cancelFinderPress"
+                            @pointercancel="cancelFinderPress"
                         >
                             <img
                                 v-if="featureImageSource(feature.kind)"

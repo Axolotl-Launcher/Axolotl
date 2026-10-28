@@ -10520,6 +10520,90 @@
   "app.lab.tool-count-plural": {
     "message": "{count} 个工具"
   },
+  "app.lab.trial-chamber.best": {
+    "message": "最多刷怪笼：{count}"
+  },
+  "app.lab.trial-chamber.column-center-x": {
+    "message": "中心 X"
+  },
+  "app.lab.trial-chamber.column-center-z": {
+    "message": "中心 Z"
+  },
+  "app.lab.trial-chamber.column-chambers": {
+    "message": "密室数"
+  },
+  "app.lab.trial-chamber.column-rank": {
+    "message": "排名"
+  },
+  "app.lab.trial-chamber.column-spawners": {
+    "message": "刷怪笼数"
+  },
+  "app.lab.trial-chamber.copied": {
+    "message": "已复制"
+  },
+  "app.lab.trial-chamber.copy-tp": {
+    "message": "复制 /tp"
+  },
+  "app.lab.trial-chamber.description": {
+    "message": "为指定种子找出试炼密室，并统计里面的刷怪笼与密室数量。搜索会按结构数据拼装每座密室，因此报出的是真正会生成的那些。"
+  },
+  "app.lab.trial-chamber.done-body": {
+    "message": "种子 {seed} 共找到 {count} 座。"
+  },
+  "app.lab.trial-chamber.done-title": {
+    "message": "试炼密室扫描完成"
+  },
+  "app.lab.trial-chamber.elapsed": {
+    "message": "耗时 {ms} 毫秒"
+  },
+  "app.lab.trial-chamber.empty-body": {
+    "message": "输入种子并开始扫描，即可看到试炼密室的位置。"
+  },
+  "app.lab.trial-chamber.empty-title": {
+    "message": "还没有结果"
+  },
+  "app.lab.trial-chamber.failed": {
+    "message": "扫描失败：{reason}"
+  },
+  "app.lab.trial-chamber.failed-title": {
+    "message": "试炼密室扫描失败"
+  },
+  "app.lab.trial-chamber.no-java-body": {
+    "message": "该工具需要 Java 25 运行时。请安装 JDK 25，或把 JAVA_HOME 指向它，然后重载页面。"
+  },
+  "app.lab.trial-chamber.no-java-title": {
+    "message": "未找到 Java"
+  },
+  "app.lab.trial-chamber.radius": {
+    "message": "搜索半径"
+  },
+  "app.lab.trial-chamber.radius-hint": {
+    "message": "以原点为中心，单位是格。半径越大扫描越久。"
+  },
+  "app.lab.trial-chamber.results": {
+    "message": "试炼密室（刷怪笼从多到少）"
+  },
+  "app.lab.trial-chamber.scan": {
+    "message": "开始扫描"
+  },
+  "app.lab.trial-chamber.scanning": {
+    "message": "扫描中…"
+  },
+  "app.lab.trial-chamber.seed": {
+    "message": "世界种子"
+  },
+  "app.lab.trial-chamber.seed-placeholder": {
+    "message": "种子，可为数字或文本"
+  },
+  "app.lab.trial-chamber.threads": {
+    "message": "线程数"
+  },
+  "app.lab.trial-chamber.threads-hint": {
+    "message": "线程越多越快，但占用内存也越多。4 GB 内存建议 8 个。"
+  },
+  "app.lab.trial-chamber.title": {
+    "message": "试炼密室"
+  },
   "app.library.context-menu.pin-instance": {
     "message": "在实例库中置顶"
   },

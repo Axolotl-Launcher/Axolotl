@@ -94,4 +94,18 @@ export const labRoutes: RouteRecordRaw[] = [
             discordActivity: 'Searching for swamp huts...',
         },
     },
+    {
+        // Same entry pattern as the witch hut: long-press its structure icon.
+        path: '/lab/seed-map/trial-chamber',
+        name: 'SeedMapTrialChamber',
+        component: () => import('@/pages/LabTrialChamber.vue'),
+        meta: {
+            breadcrumb: [
+                { name: 'Lab', link: '/lab' },
+                { name: 'Seed map', link: '/lab/seed-map' },
+                { name: 'Trial chamber finder' },
+            ],
+            discordActivity: 'Searching for trial chambers...',
+        },
+    },
 ]

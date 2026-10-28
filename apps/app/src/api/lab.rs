@@ -140,13 +140,19 @@ pub async fn low_y_swamp_hut_scan(
         .parse()
         .map_err(|_| "the seed must be a whole number; textual seeds are not supported yet".to_string())?;
 
-    let mut command = Command::new(&program);
+    // The limits the UI offers are advisory: this command is reachable over IPC
+    // directly, and the scan is CPU-bound for as long as it runs, so clamp here
+    // rather than trusting the caller.
+    let regions = regions.clamp(1, 4096);
+    let threads = threads.min(64);
+
+    let mut command = tokio::process::Command::new(&program);
     command
         .arg("scan")
         .arg("--seed")
         .arg(numeric_seed.to_string())
         .arg("--regions")
-        .arg(regions.max(1).to_string())
+        .arg(regions.to_string())
         .arg("--list")
         .arg("--quiet");
     if threads > 0 {
@@ -171,7 +177,9 @@ pub async fn low_y_swamp_hut_scan(
         command.arg("--phase2-max-y").arg(phase2.to_string());
     }
 
-    let output = command.output().map_err(|error| {
+    // A scan runs for minutes; blocking the runtime thread for that long would
+    // stall every other command in the launcher.
+    let output = command.output().await.map_err(|error| {
         format!("cannot run {}: {error}", program.display())
     })?;
     let elapsed_ms = started.elapsed().as_millis() as u64;

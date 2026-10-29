@@ -8,6 +8,7 @@ pub mod bands;
 pub mod bypass;
 pub mod eviction;
 pub mod fairness;
+pub mod idle_policy;
 pub mod l0;
 pub mod leaf;
 pub mod order;

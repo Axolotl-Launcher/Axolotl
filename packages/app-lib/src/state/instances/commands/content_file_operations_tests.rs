@@ -441,3 +441,63 @@ fn test_access() -> crate::install::critical_section::WriteAccess<'static> {
     )
     .into()
 }
+
+/// Loss list item ⑥: the launcher exits in the middle of a file publish.
+/// The journal row is the recorded publish point and the moved file stays
+/// where publishing left it; the next start reconciles from the journal.
+#[tokio::test]
+async fn staged_publish_reconciliation() {
+    let (_temp, state, root, _) = fixture().await;
+    prepare(
+        &state,
+        "instance",
+        &root,
+        vec![
+            ("mods/a.jar".into(), "mods/a.jar.disabled".into()),
+            ("mods/b.jar".into(), "mods/b.jar.disabled".into()),
+        ],
+        false,
+        test_access(),
+    )
+    .await
+    .unwrap();
+    // Publishing had moved the first file when the process went away.
+    std::fs::rename(root.join("mods/a.jar"), root.join("mods/a.jar.disabled"))
+        .unwrap();
+    let directories = DirectoryInfo {
+        settings_dir: state.directories.settings_dir.clone(),
+        config_dir: state.directories.config_dir.clone(),
+        app_identifier: state.directories.app_identifier.clone(),
+    };
+    let db = state.pool.connect_options().get_filename().to_owned();
+    state.pool.close().await;
+    drop(state);
+
+    let pool = sqlx::sqlite::SqlitePoolOptions::new()
+        .max_connections(1)
+        .connect_with(
+            sqlx::sqlite::SqliteConnectOptions::new()
+                .filename(db)
+                .foreign_keys(true),
+        )
+        .await
+        .unwrap();
+    let reopened = crate::state::test_state(directories, pool).await.unwrap();
+    assert_eq!(
+        journal_count(&reopened).await,
+        1,
+        "the publish point survives"
+    );
+    assert!(
+        root.join("mods/a.jar.disabled").exists(),
+        "the staged file is kept"
+    );
+
+    recover_content_file_operations(&reopened).await.unwrap();
+    assert_eq!(std::fs::read(root.join("mods/a.jar")).unwrap(), b"a bytes");
+    assert_eq!(std::fs::read(root.join("mods/b.jar")).unwrap(), b"b bytes");
+    assert!(!root.join("mods/a.jar.disabled").exists());
+    assert!(!root.join("mods/b.jar.disabled").exists());
+    assert_eq!(journal_count(&reopened).await, 0);
+    reopened.pool.close().await;
+}

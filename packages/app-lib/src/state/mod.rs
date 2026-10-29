@@ -1135,6 +1135,15 @@ impl State {
         }
     }
 
+    /// Install jobs whose runner is still alive, read from memory so the exit
+    /// barrier can list them even when the database no longer answers.
+    pub fn running_install_jobs(&self) -> Vec<Uuid> {
+        self.install_job_cancellations
+            .iter()
+            .map(|entry| *entry.key())
+            .collect()
+    }
+
     fn download_work_is_idle(&self) -> bool {
         self.download_active_connections.load(Ordering::Acquire) == 0
             && self.install_job_cancellations.is_empty()

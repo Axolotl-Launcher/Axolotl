@@ -139,6 +139,12 @@
       "reason": "phase-0 baseline: synchronous file I/O; must not appear in L0 or inside a critical section (D17)"
     },
     {
+      "file": "apps/app/src/exit_barrier.rs",
+      "form": "tauri::async_runtime::spawn",
+      "count": 1,
+      "reason": "exit hard-cap watchdog: started once by the first ExitRequested, follows the re-armable deadline and exits the process at the 15 s cap (spec §8.6)"
+    },
+    {
       "file": "apps/app/src/lightweight_mode.rs",
       "form": "tauri::async_runtime::spawn",
       "count": 10,

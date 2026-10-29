@@ -21,6 +21,7 @@ use theseus::prelude::*;
 
 mod api;
 mod error;
+mod exit_barrier;
 mod lightweight_mode;
 mod mod_translation;
 mod portable;
@@ -557,6 +558,44 @@ async fn exit_app(app: tauri::AppHandle, force: bool) -> api::Result<()> {
     Ok(())
 }
 
+impl exit_barrier::Restarter for tauri::AppHandle {
+    fn request_restart(&self) {
+        tauri::AppHandle::request_restart(self);
+    }
+}
+
+/// The loss list at exit. Install jobs whose runner is still alive are L3, so
+/// the barrier never aborts them; the next start settles them as interrupted.
+/// Whether one is mid-publish is not known in memory; its operation journal
+/// holds the publish point for startup reconciliation. An L0 driver that has
+/// not left after its quiesce is listed with its last safety point.
+fn exit_losses() -> Vec<exit_barrier::Loss> {
+    let jobs = State::get_if_initialized()
+        .map(|state| state.running_install_jobs())
+        .unwrap_or_default();
+    let mut losses = exit_barrier::settle_leftovers(
+        jobs.into_iter()
+            .map(|job| exit_barrier::Leftover {
+                level: theseus::scheduler::tag::Level::L3,
+                label: format!("install job {job}"),
+                publishing: false,
+                abort: Box::new(|| {}),
+            })
+            .collect(),
+    );
+    if let Some(safety_point) =
+        theseus::scheduler::l0::wait_exit(std::time::Instant::now())
+    {
+        losses.push(exit_barrier::Loss::Abandoned {
+            level: theseus::scheduler::tag::Level::L0,
+            label: format!(
+                "L0 driver, last safety point at {safety_point} ms since the epoch"
+            ),
+        });
+    }
+    losses
+}
+
 #[tauri::command]
 async fn check_symlink_capability() -> api::Result<String> {
     let capability = theseus::symlink::check_symlink_capability().await?;
@@ -957,29 +996,52 @@ fn main() {
                 #[cfg(not(any(feature = "updater", target_os = "macos")))]
                 let _ = app;
 
+                // Set by an installed update that asked to relaunch; the
+                // restart is requested only after the database is closed.
+                #[cfg_attr(not(feature = "updater"), allow(unused_mut))]
+                let mut restart_after_update = false;
+
+                // Steps 1–5 of the exit barrier (`exit_barrier`). Every
+                // ExitRequested re-arms EXIT_DEADLINE_MS and resets POOL_CLOSED.
                 if matches!(&event, tauri::RunEvent::ExitRequested { .. })
-                    && let Err(error) = tauri::async_runtime::block_on(
+                    && let Some(_pass) =
+                        exit_barrier::begin(exit_barrier::now_millis())
+                {
+                    exit_barrier::watch_hard_cap(exit_losses);
+                    if let Err(error) = tauri::async_runtime::block_on(
                         theseus::minecraft_skins::flush_pending_skin_change(),
-                    )
-                {
-                    tracing::warn!(
-                        "Failed to flush pending Minecraft skin change before exit: {error}"
-                    );
-                }
-
-                if matches!(&event, tauri::RunEvent::ExitRequested { .. })
-                    && let Err(error) = tauri::async_runtime::block_on(
-                        theseus::multiplayer::shutdown(),
-                    )
-                {
-                    tracing::warn!(
-                        "Failed to stop multiplayer services before exit: {error}"
-                    );
-                }
-
-                if matches!(&event, tauri::RunEvent::ExitRequested { .. }) {
+                    ) {
+                        tracing::warn!(
+                            "Failed to flush pending Minecraft skin change before exit: {error}"
+                        );
+                    }
+                    // L0 quiesces while the services and servers stop, so
+                    // its exit window overlaps steps 3 and 4.
+                    theseus::scheduler::l0::request_exit();
+                    let l0_exit_by = std::time::Instant::now()
+                        + theseus::scheduler::l0::executor::EXIT_WINDOW;
                     tauri::async_runtime::block_on(async {
-                        api::mcp::shutdown(app).await;
+                        let services = async {
+                            if let Err(error) =
+                                theseus::multiplayer::shutdown().await
+                            {
+                                tracing::warn!(
+                                    "Failed to stop multiplayer services before exit: {error}"
+                                );
+                            }
+                            api::mcp::shutdown(app).await;
+                        };
+                        if tokio::time::timeout(
+                            exit_barrier::SOFT_WINDOW,
+                            services,
+                        )
+                        .await
+                        .is_err()
+                        {
+                            tracing::warn!(
+                                "Services did not stop within the exit soft window"
+                            );
+                        }
                         let killed = theseus::servers::shutdown_all().await;
                         if killed > 0 {
                             tracing::info!(
@@ -990,6 +1052,8 @@ fn main() {
                             state.shutdown().await;
                         }
                     });
+                    theseus::scheduler::l0::wait_exit(l0_exit_by);
+                    exit_barrier::record(&exit_losses());
                 }
 
                 #[cfg(feature = "updater")]
@@ -1002,6 +1066,10 @@ fn main() {
                         .unwrap_or(false);
                     if let Some((update, data)) = &*update_data.0.lock().unwrap()
                     {
+                        // Installing waits on the user (an elevation prompt)
+                        // by design, so the exit hard cap does not apply.
+                        exit_barrier::disarm();
+
                         fn set_changelog_toast(version: Option<String>) {
                             let toast_result: theseus::Result<()> = tauri::async_runtime::block_on(async move {
                                 settings::patch(serde_json::json!({ "pending_update_toast_for_version": version })).await?;
@@ -1046,7 +1114,10 @@ fn main() {
                                         "Pending update installed successfully (version {}); restarting because user requested reload",
                                         version
                                     );
-                                    app.restart();
+                                    // Restarting on the spot here would skip
+                                    // closing the database; `Exit` requests it
+                                    // after the pool is closed.
+                                    restart_after_update = true;
                                 } else {
                                     tracing::info!(
                                         "Pending update installed successfully (version {}); exiting without relaunch (user did not request reload)",
@@ -1072,11 +1143,19 @@ fn main() {
                         }
                     }
                 }
-                if matches!(&event, tauri::RunEvent::Exit)
-                    && let Some(state) = State::get_if_initialized()
-                    && let Err(error) = tauri::async_runtime::block_on(state.finish_database_session())
-                {
-                    tracing::warn!(%error, "Could not record a clean database shutdown");
+                // Steps 6–7 of the exit barrier.
+                if matches!(&event, tauri::RunEvent::Exit) {
+                    exit_barrier::finish_exit(
+                        || {
+                            if let Some(state) = State::get_if_initialized()
+                                && let Err(error) = tauri::async_runtime::block_on(state.finish_database_session())
+                            {
+                                tracing::warn!(%error, "Could not record a clean database shutdown");
+                            }
+                        },
+                        restart_after_update,
+                        app,
+                    );
                 }
                 #[cfg(target_os = "macos")]
                 if let tauri::RunEvent::Opened { urls } = event {

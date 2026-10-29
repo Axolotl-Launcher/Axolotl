@@ -88,20 +88,28 @@ impl L0Executor {
         self.handle.spawn_blocking(work)
     }
 
+    /// Waits until `deadline` for the driver thread to leave after a
+    /// quiesce request; returns whether it did.
+    pub fn wait_for_exit(&self, deadline: std::time::Instant) -> bool {
+        while !self.thread.is_finished() {
+            if std::time::Instant::now() >= deadline {
+                return false;
+            }
+            std::thread::sleep(Duration::from_millis(10));
+        }
+        true
+    }
+
     /// Asks L0 to quiesce and waits up to [`EXIT_WINDOW`] for the driver
     /// thread to leave. Returns whether it did; if not, the thread is left
     /// behind and the loss is logged.
     pub fn shutdown(self) -> bool {
         self.control.request_quiesce();
-        let deadline = std::time::Instant::now() + EXIT_WINDOW;
-        while !self.thread.is_finished() {
-            if std::time::Instant::now() >= deadline {
-                tracing::warn!(
-                    "L0 driver thread did not exit within {EXIT_WINDOW:?}"
-                );
-                return false;
-            }
-            std::thread::sleep(Duration::from_millis(10));
+        if !self.wait_for_exit(std::time::Instant::now() + EXIT_WINDOW) {
+            tracing::warn!(
+                "L0 driver thread did not exit within {EXIT_WINDOW:?}"
+            );
+            return false;
         }
         let _ = self.thread.join();
         true

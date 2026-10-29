@@ -49,6 +49,26 @@ pub fn control() -> Option<&'static Arc<ControlTable>> {
     EXECUTOR.get()?.as_ref().map(L0Executor::control)
 }
 
+/// Exit: asks L0 to quiesce; its driver leaves at the next safety point.
+/// The executor stays in place (it is static), so this never joins it.
+pub fn request_exit() {
+    if let Some(control) = control() {
+        control.request_quiesce();
+    }
+}
+
+/// Waits until `deadline` for the L0 driver to leave after
+/// [`request_exit`]. `None` when it left or never started; otherwise the
+/// time of L0's last safety point, for the exit loss list.
+pub fn wait_exit(deadline: std::time::Instant) -> Option<u64> {
+    let executor = EXECUTOR.get()?.as_ref()?;
+    if executor.wait_for_exit(deadline) {
+        None
+    } else {
+        Some(executor.control().safety_point_at())
+    }
+}
+
 #[cfg(test)]
 mod heartbeat_tests {
     use super::*;

@@ -1009,11 +1009,11 @@ fn main() {
                         let root = theseus::brand::development_data_root_path();
                         let keep = root.as_ref().is_none_or(|root| {
                             DialogBuilder::message()
-                                .set_title("Axolotl test build")
+                                .set_title("Axolotl 测试版")
                                 .set_text(format!(
-                                    "Keep the data this test run created?\n\n{}\n\n\
-                                     Yes: the next launch resumes with the same database.\n\
-                                     No: the next launch starts from a clean install.",
+                                    "要保留这次测试产生的数据吗？\n\n{}\n\n\
+                                     是：下次启动继续使用同一个数据库。\n\
+                                     否：下次启动从干净状态重新开始。",
                                     root.display()
                                 ))
                                 .confirm()

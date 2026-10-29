@@ -2,6 +2,11 @@
 //! managed resource whose rank is higher than every rank it already holds.
 //! Ranks come from the generated resource inventory; descending acquisition is
 //! a structural violation (`V_struct`).
+//!
+//! Not wired in yet: no production acquisition goes through an
+//! [`OrderTracker`] until acquisition points carry `sched-order` annotations
+//! (scheduler phase 4). Until then this is the tested primitive, not an
+//! active guard.
 
 use std::cell::RefCell;
 
@@ -103,6 +108,9 @@ mod order_guard_tests {
         assert_eq!(tracker.held(), vec![ADMISSION, DB_PERMIT, CONTENT]);
     }
 
+    // Release builds record without checking, so the violations below only
+    // exist in debug builds.
+    #[cfg(debug_assertions)]
     #[test]
     fn descending_acquisition_is_a_violation() {
         let tracker = OrderTracker::new();
@@ -117,6 +125,7 @@ mod order_guard_tests {
         assert_eq!(tracker.held(), vec![CONTENT]);
     }
 
+    #[cfg(debug_assertions)]
     #[test]
     fn reacquiring_a_held_rank_is_a_violation() {
         let tracker = OrderTracker::new();

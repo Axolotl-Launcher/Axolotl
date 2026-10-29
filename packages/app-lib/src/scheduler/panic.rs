@@ -8,9 +8,11 @@ use std::path::{Path, PathBuf};
 
 pub const PANIC_LOG_FILE: &str = "panic.log";
 /// The launcher's log pruning only removes `session_*` files, so the panic log
-/// bounds itself: once it reaches this size it replaces `panic.old.log`.
+/// bounds itself: it never grows past this size and rotates into
+/// `panic.old.log`.
 pub const PANIC_LOG_MAX_BYTES: u64 = 1024 * 1024;
 const PANIC_LOG_PREVIOUS_FILE: &str = "panic.old.log";
+const TRUNCATED: &str = " [truncated]\n";
 
 /// Installs the hook; call it once, as early in `main` as the log folder is known.
 pub fn install_panic_hook(app_identifier: &str) {
@@ -39,8 +41,9 @@ pub fn install_panic_hook(app_identifier: &str) {
     }));
 }
 
-/// Appends one line: RFC 3339 time, thread, location and message. A log that
-/// already holds `max_bytes` is moved to `panic.old.log` first.
+/// Appends one line: RFC 3339 time, thread, location and message. Neither
+/// `panic.log` nor `panic.old.log` grows past `max_bytes`: an oversized record
+/// is cut to fit, and the log rotates before a write would overflow it.
 pub(crate) fn append_panic_record(
     dir: &Path,
     max_bytes: u64,
@@ -50,19 +53,29 @@ pub(crate) fn append_panic_record(
 ) -> std::io::Result<PathBuf> {
     std::fs::create_dir_all(dir)?;
     let path = dir.join(PANIC_LOG_FILE);
-    if std::fs::metadata(&path).is_ok_and(|meta| meta.len() >= max_bytes) {
+    let mut line = format!(
+        "{} panic thread={thread} at={location}: {}\n",
+        chrono::Local::now().to_rfc3339(),
+        message.replace('\n', "\\n"),
+    );
+    let limit = usize::try_from(max_bytes).unwrap_or(usize::MAX);
+    if line.len() > limit {
+        let mut cut = limit.saturating_sub(TRUNCATED.len());
+        while !line.is_char_boundary(cut) {
+            cut -= 1;
+        }
+        line.truncate(cut);
+        line.push_str(TRUNCATED);
+    }
+    let current = std::fs::metadata(&path).map_or(0, |meta| meta.len());
+    if current > 0 && current + line.len() as u64 > max_bytes {
         std::fs::rename(&path, dir.join(PANIC_LOG_PREVIOUS_FILE))?;
     }
-    let mut file = std::fs::OpenOptions::new()
+    std::fs::OpenOptions::new()
         .create(true)
         .append(true)
-        .open(&path)?;
-    let message = message.replace('\n', "\\n");
-    writeln!(
-        file,
-        "{} panic thread={thread} at={location}: {message}",
-        chrono::Local::now().to_rfc3339()
-    )?;
+        .open(&path)?
+        .write_all(line.as_bytes())?;
     Ok(path)
 }
 
@@ -95,22 +108,39 @@ mod tests {
 
     #[test]
     fn a_full_log_is_rotated_once() {
+        // Two records fit under the cap, a third does not.
+        const CAP: u64 = 180;
         let dir = tempfile::tempdir().unwrap();
-        let record = |message: &str| {
-            append_panic_record(dir.path(), 64, "main", "src/a.rs:1", message)
-                .unwrap()
-        };
-        record("first");
-        record("second");
-        let path = record("third");
-
-        let current = std::fs::read_to_string(&path).unwrap();
+        for message in ["first", "second", "third", "fourth", "fifth"] {
+            append_panic_record(dir.path(), CAP, "main", "src/a.rs:1", message)
+                .unwrap();
+        }
+        let current =
+            std::fs::read_to_string(dir.path().join(PANIC_LOG_FILE)).unwrap();
         let previous =
             std::fs::read_to_string(dir.path().join(PANIC_LOG_PREVIOUS_FILE))
                 .unwrap();
-        assert!(current.ends_with(": third\n"));
         assert_eq!(current.lines().count(), 1);
-        assert!(previous.contains(": second"));
+        assert!(current.ends_with(": fifth\n"));
+        assert!(previous.contains(": third") && previous.contains(": fourth"));
         assert!(!previous.contains(": first"), "only one old log is kept");
+        assert!(current.len() as u64 <= CAP && previous.len() as u64 <= CAP);
+    }
+
+    #[test]
+    fn an_oversized_record_is_cut_to_the_cap() {
+        const CAP: u64 = 512;
+        let dir = tempfile::tempdir().unwrap();
+        let path = append_panic_record(
+            dir.path(),
+            CAP,
+            "main",
+            "src/a.rs:1",
+            &"x".repeat(10_000),
+        )
+        .unwrap();
+        let log = std::fs::read_to_string(path).unwrap();
+        assert!(log.len() as u64 <= CAP);
+        assert!(log.ends_with(TRUNCATED));
     }
 }

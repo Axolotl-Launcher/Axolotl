@@ -4,9 +4,10 @@
 // (V_struct > 0) found here or recorded by the coarse screen in the policy
 // switches the design to per-family orders automatically (spec §11.8 R5).
 //
-// Exit 0: total order holds. Exit 1: fallback triggered. Exit 2: annotation or
-// fingerprint error (never fixed by regenerating ranks, spec §11.8 R2).
-// Usage: node scripts/axolotl/sched-order-annotation-check.mjs [--dir <inventory dir>]
+// Exit 0: total order holds. Exit 1: fallback triggered. Exit 2: annotation,
+// coverage (with --require-annotations) or fingerprint error (never fixed by
+// regenerating ranks, spec §11.8 R2).
+// Usage: node scripts/axolotl/sched-order-annotation-check.mjs [--dir <inventory dir>] [--require-annotations]
 
 import {
     checkAnnotations,
@@ -33,12 +34,30 @@ export function evaluateOrder(registry, policy, annotations) {
     return { errors, descending, recorded, stale }
 }
 
+/**
+ * Acquisition points of registered resources with no `sched-order` annotation
+ * on their line or the line above. The order is only judged where annotated,
+ * so this is the part of the code the gate cannot see yet.
+ */
+export function unannotatedGetpoints(getpoints, registry, annotations) {
+    const registered = new Set(registry.items.map((item) => item.ident))
+    const annotated = new Set(annotations.flatMap((annotation) => [`${annotation.file}:${annotation.line}`, `${annotation.file}:${annotation.line + 1}`]))
+    return getpoints.items.filter((point) => point.idents.some((ident) => registered.has(ident)) && !annotated.has(`${point.file}:${point.line}`))
+}
+
 if (isMain(import.meta.url)) {
     const args = parseArgs(process.argv.slice(2))
-    const registry = readJson(outputPaths(args.dir ?? defaultOutDir).registry)
+    const paths = outputPaths(args.dir ?? defaultOutDir)
+    const registry = readJson(paths.registry)
     const annotations = scanOrderAnnotations(sourcesOf(workspaceCrates()))
     const result = evaluateOrder(registry, loadPolicy(), annotations)
-    console.log(`annotations: ${annotations.length}`)
+    const unannotated = unannotatedGetpoints(readJson(paths.getpoints), registry, annotations)
+    console.log(`annotations: ${annotations.length}; acquisition points without one: ${unannotated.length}`)
+    // Annotations arrive with the total order (scheduler phase 4); from then on
+    // CI passes --require-annotations so an unannotated acquisition fails.
+    if (args['require-annotations']) {
+        for (const point of unannotated) result.errors.push(`${point.file}:${point.line} acquires ${point.idents.join(' | ')} without a sched-order annotation`)
+    }
     for (const error of result.errors) console.error(error)
     if (result.errors.length > 0) process.exit(2)
     for (const { held, acquired } of result.descending) console.log(`V_struct: ${acquired.file}:${acquired.line} acquires ${acquired.ident} after ${held.ident}`)

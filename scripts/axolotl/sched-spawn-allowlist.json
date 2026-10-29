@@ -877,6 +877,12 @@
       "reason": "phase-0 baseline: production OS thread, governed with a bound JoinHandle (T3.4)"
     },
     {
+      "file": "packages/app-lib/src/logger.rs",
+      "form": "thread::Builder spawn",
+      "count": 1,
+      "reason": "phase-0 baseline: .spawn( calls in a file that builds a std::thread::Builder (threads governed with a bound JoinHandle, T3.4)"
+    },
+    {
       "file": "packages/app-lib/src/mod_metadata/icon.rs",
       "form": "std::fs",
       "count": 1,

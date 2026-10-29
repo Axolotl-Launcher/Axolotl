@@ -110,7 +110,9 @@ pub(super) async fn queued_slot<'a>(
     queue::wait_for_slot(state, job, EXECUTION_WAIT).await
 }
 
-/// Like [`queued_slot`], for callers that need the slot or an error.
+/// The slot, or an error once the job leaves the queue; the admission tests
+/// use this shape.
+#[cfg(test)]
 pub(super) async fn execution_slot<'a>(
     state: &'a State,
     job: &store::InstallJobRecord,
@@ -119,9 +121,6 @@ pub(super) async fn execution_slot<'a>(
     tokio::sync::SemaphorePermit<'a>,
 )> {
     queued_slot(state, job).await?.ok_or_else(|| {
-        ErrorKind::InputError(
-            "The install task was canceled while it waited for its turn".into(),
-        )
-        .into()
+        ErrorKind::InputError("The install task left the queue".into()).into()
     })
 }

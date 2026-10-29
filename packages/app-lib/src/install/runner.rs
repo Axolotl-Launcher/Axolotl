@@ -69,15 +69,20 @@ tokio::task_local! {
     static EXECUTING_JOB: Uuid;
 }
 
+/// The job's execution slot for a recovery action, or `None` when the job
+/// finished or started canceling while it waited; callers then read the job
+/// again and answer from its current state.
 pub(crate) async fn recovery_execution_slot<'a>(
     state: &'a State,
     job_id: Uuid,
-) -> crate::Result<(
-    Option<tokio::sync::OwnedMutexGuard<()>>,
-    tokio::sync::SemaphorePermit<'a>,
-)> {
+) -> crate::Result<
+    Option<(
+        Option<tokio::sync::OwnedMutexGuard<()>>,
+        tokio::sync::SemaphorePermit<'a>,
+    )>,
+> {
     let record = store::get_required(job_id, state).await?;
-    admission::execution_slot(state, &record).await
+    admission::queued_slot(state, &record).await
 }
 
 /// Serializes interactive content mutations with task admission.

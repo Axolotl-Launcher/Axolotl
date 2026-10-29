@@ -11,12 +11,82 @@ impl Drop for CancellationRegistration<'_> {
     }
 }
 
+/// Extra runs a job gets when its runner fails before the job settles, such as
+/// on a store write that timed out; the job stays queued between runs.
+const RUNNER_RETRIES: u32 = 3;
+const RUNNER_RETRY_DELAY: std::time::Duration =
+    std::time::Duration::from_secs(5);
+
 pub(super) fn spawn_job(job_id: Uuid) {
     tokio::spawn(async move {
-        if let Err(error) = EXECUTING_JOB.scope(job_id, run_job(job_id)).await {
+        for attempt in 0..=RUNNER_RETRIES {
+            let Err(error) = EXECUTING_JOB.scope(job_id, run_job(job_id)).await
+            else {
+                return;
+            };
             tracing::error!("Install job {job_id} failed: {error}");
+            if !settle_after_runner_error(job_id, attempt).await {
+                return;
+            }
+            tokio::time::sleep(RUNNER_RETRY_DELAY).await;
         }
     });
+}
+
+#[derive(Debug, PartialEq, Eq)]
+enum AfterRunnerError {
+    /// Run the job again; it has not started.
+    Retry,
+    /// Roll the job back and mark it Interrupted; nothing drives it any more.
+    Interrupt,
+    /// Leave the job as it is.
+    Leave,
+}
+
+fn after_runner_error(
+    status: Option<InstallJobStatus>,
+    attempt: u32,
+) -> AfterRunnerError {
+    match status {
+        // An unreadable status is as transient as the error that caused it.
+        None | Some(InstallJobStatus::Queued) if attempt < RUNNER_RETRIES => {
+            AfterRunnerError::Retry
+        }
+        Some(InstallJobStatus::Running) => AfterRunnerError::Interrupt,
+        _ => AfterRunnerError::Leave,
+    }
+}
+
+/// Settles a job after `run_job` failed. Returns whether to run it again.
+async fn settle_after_runner_error(job_id: Uuid, attempt: u32) -> bool {
+    let Ok(state) = State::get().await else {
+        return attempt < RUNNER_RETRIES;
+    };
+    let record = match store::get(job_id, &state).await {
+        Ok(Some(record)) => Some(record),
+        Ok(None) => return false,
+        Err(error) => {
+            tracing::warn!(%job_id, %error, "Could not read install job after its runner failed");
+            None
+        }
+    };
+    match after_runner_error(record.as_ref().map(|job| job.status), attempt) {
+        AfterRunnerError::Retry => true,
+        AfterRunnerError::Interrupt => {
+            if let Some(job) = record
+                && let Err(error) = recovery::settle_interrupted_job(
+                    job,
+                    recovery::Interruption::RunnerFailed,
+                    &state,
+                )
+                .await
+            {
+                tracing::error!(%job_id, %error, "Could not interrupt install job after its runner failed");
+            }
+            false
+        }
+        AfterRunnerError::Leave => false,
+    }
 }
 
 pub(super) fn begin_failed_job_rollback(
@@ -450,5 +520,52 @@ mod registration_tests {
         task.abort();
         assert!(task.await.unwrap_err().is_cancelled());
         assert!(!registrations.contains_key(&id));
+    }
+}
+
+#[cfg(test)]
+mod runner_error_tests {
+    use super::*;
+
+    #[test]
+    fn a_job_that_never_started_runs_again_until_retries_run_out() {
+        for status in [None, Some(InstallJobStatus::Queued)] {
+            assert_eq!(after_runner_error(status, 0), AfterRunnerError::Retry);
+            assert_eq!(
+                after_runner_error(status, RUNNER_RETRIES - 1),
+                AfterRunnerError::Retry
+            );
+            assert_eq!(
+                after_runner_error(status, RUNNER_RETRIES),
+                AfterRunnerError::Leave
+            );
+        }
+    }
+
+    #[test]
+    fn a_running_job_without_a_runner_is_interrupted() {
+        for attempt in [0, RUNNER_RETRIES] {
+            assert_eq!(
+                after_runner_error(Some(InstallJobStatus::Running), attempt),
+                AfterRunnerError::Interrupt
+            );
+        }
+    }
+
+    #[test]
+    fn settled_jobs_are_left_alone() {
+        for status in [
+            InstallJobStatus::Succeeded,
+            InstallJobStatus::Failed,
+            InstallJobStatus::Canceled,
+            InstallJobStatus::Interrupted,
+            InstallJobStatus::WaitingForUser,
+            InstallJobStatus::Canceling,
+        ] {
+            assert_eq!(
+                after_runner_error(Some(status), 0),
+                AfterRunnerError::Leave
+            );
+        }
     }
 }

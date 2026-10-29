@@ -1204,23 +1204,31 @@ impl State {
         self.maintenance_gate.set_paused(false);
     }
 
-    /// Runs a long-lived maintenance loop that shutdown aborts.
+    /// Runs a long-lived maintenance loop that shutdown aborts. A loop
+    /// registered after shutdown began is aborted at once, so none outlives it.
     pub(crate) fn spawn_background(
         &self,
         task: impl std::future::Future<Output = ()> + Send + 'static,
     ) {
         let handle = self.background_tracker.spawn(task);
-        self.background_tasks.lock().push(handle.abort_handle());
+        let mut tasks = self.background_tasks.lock();
+        // Shutdown closes the tracker before it drains this list, so a
+        // registration either lands before the drain or sees the close.
+        if self.background_tracker.is_closed() {
+            handle.abort();
+        } else {
+            tasks.push(handle.abort_handle());
+        }
     }
 
     /// Aborts the maintenance loops and closes the Discord IPC connection;
     /// intended for the app-exit path.
     pub async fn shutdown(&self) {
         self.content_refresh.shutdown().await;
+        self.background_tracker.close();
         for task in self.background_tasks.lock().drain(..) {
             task.abort();
         }
-        self.background_tracker.close();
         self.discord_rpc.disconnect().await;
         self.trim_idle_caches();
     }
@@ -1965,6 +1973,16 @@ mod shutdown_tests {
             .await
             .expect("shutdown returns while a task never finishes");
         assert!(all_dropped(&[flag]).await);
+    }
+
+    #[tokio::test]
+    async fn loops_registered_after_shutdown_do_not_survive_it() {
+        let (_temp, state) = fixture().await;
+        state.shutdown().await;
+        let flag = Arc::new(AtomicBool::new(false));
+        register(&state, pending_task(&flag));
+        assert!(all_dropped(&[flag]).await, "a late loop is aborted at once");
+        assert!(state.background_tasks.lock().is_empty());
     }
 
     #[tokio::test]

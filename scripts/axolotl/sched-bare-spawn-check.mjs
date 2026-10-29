@@ -17,6 +17,9 @@ export const FORMS = {
     spawn_blocking: /\bspawn_blocking\s*\(/g,
     'std::thread::spawn': /\b(?:std::)?thread::spawn\s*\(/g,
     'thread::Builder': /\b(?:std::)?thread::Builder::new\s*\(/g,
+    // A builder can be stored and spawned later, so in files that build one
+    // every `.spawn(` call counts; a new spawn on an old builder grows it.
+    'thread::Builder spawn': /\.spawn\s*\(/g,
     'tauri::async_runtime::spawn': /\b(?:tauri::)?async_runtime::spawn\s*\(/g,
     'std::fs': /\bstd::fs::/g,
     'std::thread::sleep': /\b(?:std::)?thread::sleep\s*\(/g,
@@ -26,7 +29,9 @@ const UNBOUNDED = /\b(UnboundedSender|UnboundedReceiver|unbounded_channel|mpsc::
 export function countForms(sources) {
     const counts = new Map()
     for (const source of sources) {
+        const buildsThreads = /\b(?:std::)?thread::Builder::new\s*\(/.test(source.code)
         for (const [form, pattern] of Object.entries(FORMS)) {
+            if (form === 'thread::Builder spawn' && !buildsThreads) continue
             const lines = [...source.code.matchAll(pattern)].map((match) => lineOf(source.starts, match.index))
             if (lines.length > 0) counts.set(`${source.rel}\0${form}`, { file: source.rel, form, count: lines.length, lines })
         }

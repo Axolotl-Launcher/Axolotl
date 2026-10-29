@@ -207,8 +207,7 @@ async fn scan_missing_modpack_files_in_at(
     let mut checked_candidates = 0;
     let mut errors = Vec::new();
     let groups = group_candidates_by_item(candidates.stable);
-    let (_execution, _permit) =
-        runner::recovery_execution_slot(&state, job_id).await?;
+    let _slot = runner::recovery_execution_slot(&state, job_id).await?;
     let current = store::get_required(job_id, &state).await?;
     if current.status == InstallJobStatus::WaitingForUser {
         let concurrency = crate::util::download::task_concurrency_limit(&state)
@@ -696,8 +695,7 @@ pub async fn retry_missing_modpack_file(
     item_id: String,
 ) -> crate::Result<InstallJobSnapshot> {
     let state = State::get().await?;
-    let (_execution, _permit) =
-        runner::recovery_execution_slot(&state, job_id).await?;
+    let _slot = runner::recovery_execution_slot(&state, job_id).await?;
     let current = store::get_required(job_id, &state).await?;
     if missing_item_is_resolved(&current, &item_id)? {
         return Ok(current.snapshot());
@@ -786,8 +784,7 @@ pub async fn import_missing_modpack_file(
     selected_file_path: PathBuf,
 ) -> crate::Result<InstallJobSnapshot> {
     let state = State::get().await?;
-    let (_execution, _permit) =
-        runner::recovery_execution_slot(&state, job_id).await?;
+    let _slot = runner::recovery_execution_slot(&state, job_id).await?;
     let current = store::get_required(job_id, &state).await?;
     if missing_item_is_resolved(&current, &item_id)? {
         return Ok(current.snapshot());

@@ -141,6 +141,22 @@ const messages = defineMessages({
         id: 'app.lab.mod-translation.title',
         defaultMessage: 'Mod translation',
     },
+    recipeGenerator: {
+        id: 'app.lab.recipe-generator.title',
+        defaultMessage: 'Recipe generator',
+    },
+    commandGenerator: {
+        id: 'app.lab.command-generator.title',
+        defaultMessage: 'Command generator',
+    },
+    witchHutFinder: {
+        id: 'app.lab.low-y-swamp-hut.title',
+        defaultMessage: 'Low-Y swamp hut',
+    },
+    trialChamberFinder: {
+        id: 'app.lab.trial-chamber.title',
+        defaultMessage: 'Trial chamber',
+    },
     skinEditor: { id: 'app.lab.skin-editor.title', defaultMessage: 'Skin editor' },
     content: { id: 'app.instance.tabs.content', defaultMessage: 'Content' },
     files: { id: 'app.instance.tabs.files', defaultMessage: 'Files' },
@@ -165,6 +181,10 @@ const staticLabels = {
     'Seed map': messages.seedMap,
     'Schematic workshop': messages.schematicWorkshop,
     'Mod translation': messages.modTranslation,
+    'Recipe generator': messages.recipeGenerator,
+    'Command generator': messages.commandGenerator,
+    'Witch hut finder': messages.witchHutFinder,
+    'Trial chamber finder': messages.trialChamberFinder,
     'Skin editor': messages.skinEditor,
     Content: messages.content,
     Files: messages.files,

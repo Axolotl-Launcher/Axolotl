@@ -7850,6 +7850,9 @@
   "app.lab.gradient-text.output.title": {
     "message": "输出"
   },
+  "app.lab.gradient-text.preset.example": {
+    "message": "示例"
+  },
   "app.lab.gradient-text.presets.apply": {
     "message": "应用预设"
   },
@@ -8054,6 +8057,9 @@
   "app.lab.mod-translation.description": {
     "message": "把任意 Minecraft 模组 JAR 翻译成简体中文。"
   },
+  "app.lab.mod-translation.dialog-title": {
+    "message": "选择 Minecraft 模组 JAR"
+  },
   "app.lab.mod-translation.done": {
     "message": "完成"
   },
@@ -8071,6 +8077,9 @@
   },
   "app.lab.mod-translation.failed-count": {
     "message": "{count} 个失败"
+  },
+  "app.lab.mod-translation.file-filter.mod": {
+    "message": "Minecraft 模组"
   },
   "app.lab.mod-translation.generate-mod-name": {
     "message": "AI 生成中文模组名"
@@ -8138,6 +8147,9 @@
   "app.lab.mod-translation.preparing": {
     "message": "准备中…"
   },
+  "app.lab.mod-translation.progress.aria-label": {
+    "message": "任务进度"
+  },
   "app.lab.mod-translation.progress.current-batch": {
     "message": "当前批次 {completed} / {total}"
   },
@@ -8152,6 +8164,9 @@
   },
   "app.lab.mod-translation.provider": {
     "message": "AI 提供商"
+  },
+  "app.lab.mod-translation.remove-task": {
+    "message": "移除任务"
   },
   "app.lab.mod-translation.repair-enabled": {
     "message": "复验后批量修复疑难翻译"
@@ -8708,6 +8723,15 @@
   "app.lab.schematic-preview.export-sponge": {
     "message": "Sponge 投影（.schem）"
   },
+  "app.lab.schematic-preview.file-filter.litematica": {
+    "message": "Litematica 结构文件"
+  },
+  "app.lab.schematic-preview.file-filter.schematics": {
+    "message": "Minecraft 结构文件"
+  },
+  "app.lab.schematic-preview.file-filter.sponge": {
+    "message": "Sponge 结构文件"
+  },
   "app.lab.schematic-preview.focus-region": {
     "message": "聚焦区域"
   },
@@ -8842,6 +8866,9 @@
   },
   "app.lab.schematic-preview.orbit-view": {
     "message": "轨道视角"
+  },
+  "app.lab.schematic-preview.preview-aria-label": {
+    "message": "结构三维预览"
   },
   "app.lab.schematic-preview.projection": {
     "message": "切换相机投影"
@@ -10549,6 +10576,12 @@
   },
   "app.lab.tool-count-plural": {
     "message": "{count} 个工具"
+  },
+  "app.lab.tool-filters-label": {
+    "message": "实验室工具筛选"
+  },
+  "app.lab.tools-label": {
+    "message": "实验室工具"
   },
   "app.lab.trial-chamber.best": {
     "message": "最多刷怪笼：{count}"

@@ -4649,6 +4649,9 @@
   "app.lab.gradient-text.output.title": {
     "message": "Output"
   },
+  "app.lab.gradient-text.preset.example": {
+    "message": "Example"
+  },
   "app.lab.gradient-text.presets.apply": {
     "message": "Apply preset"
   },
@@ -4853,6 +4856,9 @@
   "app.lab.mod-translation.description": {
     "message": "Translate any Minecraft mod JAR into Simplified Chinese."
   },
+  "app.lab.mod-translation.dialog-title": {
+    "message": "Choose a Minecraft mod JAR"
+  },
   "app.lab.mod-translation.done": {
     "message": "Done"
   },
@@ -4870,6 +4876,9 @@
   },
   "app.lab.mod-translation.failed-count": {
     "message": "{count} failed"
+  },
+  "app.lab.mod-translation.file-filter.mod": {
+    "message": "Minecraft mod"
   },
   "app.lab.mod-translation.generate-mod-name": {
     "message": "AI-generate a Chinese mod name"
@@ -4937,6 +4946,9 @@
   "app.lab.mod-translation.preparing": {
     "message": "Preparing…"
   },
+  "app.lab.mod-translation.progress.aria-label": {
+    "message": "Task progress"
+  },
   "app.lab.mod-translation.progress.current-batch": {
     "message": "Batch {completed} / {total}"
   },
@@ -4951,6 +4963,9 @@
   },
   "app.lab.mod-translation.provider": {
     "message": "AI provider"
+  },
+  "app.lab.mod-translation.remove-task": {
+    "message": "Remove task"
   },
   "app.lab.mod-translation.repair-enabled": {
     "message": "Repair difficult translations after verification"
@@ -5507,6 +5522,15 @@
   "app.lab.schematic-preview.export-sponge": {
     "message": "Sponge schematic (.schem)"
   },
+  "app.lab.schematic-preview.file-filter.litematica": {
+    "message": "Litematica schematic"
+  },
+  "app.lab.schematic-preview.file-filter.schematics": {
+    "message": "Minecraft schematics"
+  },
+  "app.lab.schematic-preview.file-filter.sponge": {
+    "message": "Sponge schematic"
+  },
   "app.lab.schematic-preview.focus-region": {
     "message": "Focus region"
   },
@@ -5641,6 +5665,9 @@
   },
   "app.lab.schematic-preview.orbit-view": {
     "message": "Orbit view"
+  },
+  "app.lab.schematic-preview.preview-aria-label": {
+    "message": "Schematic 3D preview"
   },
   "app.lab.schematic-preview.projection": {
     "message": "Switch camera projection"
@@ -7348,6 +7375,12 @@
   },
   "app.lab.tool-count-plural": {
     "message": "{count} tools"
+  },
+  "app.lab.tool-filters-label": {
+    "message": "Lab tool filters"
+  },
+  "app.lab.tools-label": {
+    "message": "Lab tools"
   },
   "app.lab.trial-chamber.best": {
     "message": "Most spawners: {count}"

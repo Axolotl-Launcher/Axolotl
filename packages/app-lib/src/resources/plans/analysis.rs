@@ -13,7 +13,7 @@ pub(crate) struct AnalysisMemo {
     projects: DashMap<String, (ResourceSelection, SourceProjectMetadata)>,
     releases: DashMap<String, SelectedRelease>,
     dependencies: DashMap<String, Option<ResourceSelection>>,
-    retained: std::sync::Mutex<Option<Vec<RetainedRequirement>>>,
+    retained: std::sync::Mutex<Option<(Vec<RetainedRequirement>, Vec<String>)>>,
 }
 
 pub(crate) struct AnalysisSession {
@@ -126,19 +126,22 @@ impl AnalysisMemo {
         draft: &OperationDraft,
         installed: &[InstalledResource],
         cancel: &CancellationToken,
-    ) -> ResourceResult<Vec<RetainedRequirement>> {
+    ) -> ResourceResult<(Vec<RetainedRequirement>, Vec<String>)> {
         if let Some(value) = self.retained.lock().unwrap().clone() {
             return Ok(value);
         }
         let value = service
-            .retained_requirements(
+            .retained_requirements_with_failures(
                 &draft.plan.selections,
                 installed,
                 &draft.local_metadata,
                 cancel,
+                draft.plan.intent == ResourceOperationIntent::Install,
             )
             .await?;
-        *self.retained.lock().unwrap() = Some(value.clone());
+        if value.1.is_empty() {
+            *self.retained.lock().unwrap() = Some(value.clone());
+        }
         Ok(value)
     }
 
@@ -270,6 +273,36 @@ pub async fn update(
     persist: bool,
     expected_instance_id: Option<&str>,
 ) -> ResourceResult<ResourceOperationPlan> {
+    bounded_preparation(
+        cancel,
+        Duration::from_secs(15 * 60),
+        |cancel| async move {
+            update_inner(
+                id,
+                selection_revision,
+                selections,
+                install_dependencies,
+                &cancel,
+                progress,
+                persist,
+                expected_instance_id,
+            )
+            .await
+        },
+    )
+    .await
+}
+
+async fn update_inner(
+    id: &SessionId,
+    selection_revision: u32,
+    selections: Vec<ResourceSelection>,
+    install_dependencies: bool,
+    cancel: &CancellationToken,
+    progress: OperationProgress<'_>,
+    persist: bool,
+    expected_instance_id: Option<&str>,
+) -> ResourceResult<ResourceOperationPlan> {
     let state = crate::State::get().await?;
     let service = state.resources().await?.clone();
     let session = service
@@ -287,13 +320,10 @@ pub async fn update(
     // sched-order: theseus::resources::plans::analysis::AnalysisSession.touched temporary
     *session.touched.lock().unwrap() = Instant::now();
     // sched-order: theseus::resources::plans::analysis::AnalysisSession.data
-    let mut data = tokio::select! {
-        biased;
-        _ = session.cancel.cancelled() => return Err(ResourceError::Canceled),
-        _ = cancel.cancelled() => return Err(ResourceError::Canceled),
-        data = session.data.lock() => data,
-    };
+    let mut data =
+        lock_session_data(&session, cancel, Duration::from_secs(20)).await?;
     let operation_cancel = cancel.child_token();
+    let _cancel_on_exit = operation_cancel.clone().drop_guard();
     let result = tokio::select! {
         biased;
         _ = session.cancel.cancelled() => Err(ResourceError::Canceled),
@@ -301,6 +331,19 @@ pub async fn update(
     };
     operation_cancel.cancel();
     result
+}
+
+async fn lock_session_data<'a>(
+    session: &'a AnalysisSession,
+    cancel: &CancellationToken,
+    budget: Duration,
+) -> ResourceResult<tokio::sync::MutexGuard<'a, Option<AnalysisData>>> {
+    tokio::select! {
+        biased;
+        _ = session.cancel.cancelled() => Err(ResourceError::Canceled),
+        _ = cancel.cancelled() => Err(ResourceError::Canceled),
+        data = tokio::time::timeout(budget, session.data.lock()) => data.map_err(|_| ResourceError::Network { status: Some(408) }),
+    }
 }
 
 async fn update_data(
@@ -481,4 +524,66 @@ async fn update_data(
         sqlx::query("INSERT INTO resource_operation_plans(id, instance_id, revision, payload) VALUES (?, ?, ?, ?)").bind(draft.plan.id.as_str()).bind(instance_id).bind(draft.plan.revision).bind(serde_json::to_string(&draft)?).execute(&state.pool).await.map_err(db)?;
     }
     Ok(draft.plan)
+}
+
+#[cfg(test)]
+mod deadline_tests {
+    use super::*;
+
+    fn session() -> AnalysisSession {
+        AnalysisSession {
+            instance_id: "instance".into(),
+            cancel: CancellationToken::new(),
+            touched: std::sync::Mutex::new(Instant::now()),
+            data: Mutex::new(None),
+        }
+    }
+
+    #[tokio::test]
+    async fn session_lock_timeout_and_cancellation_leave_the_session_reusable()
+    {
+        let session = session();
+        let held = session.data.lock().await;
+        let cancel = CancellationToken::new();
+        assert!(matches!(
+            lock_session_data(&session, &cancel, Duration::from_millis(20))
+                .await,
+            Err(ResourceError::Network { status: Some(408) })
+        ));
+        cancel.cancel();
+        assert!(matches!(
+            lock_session_data(&session, &cancel, Duration::from_secs(1)).await,
+            Err(ResourceError::Canceled)
+        ));
+        drop(held);
+        assert!(
+            lock_session_data(
+                &session,
+                &CancellationToken::new(),
+                Duration::from_secs(1)
+            )
+            .await
+            .is_ok()
+        );
+    }
+
+    #[tokio::test]
+    async fn preparation_deadline_cancels_children_and_releases_the_session_lock()
+     {
+        let session = session();
+        let child = std::sync::Mutex::new(None);
+        let result: ResourceResult<()> = bounded_preparation(
+            &CancellationToken::new(),
+            Duration::from_millis(20),
+            |cancel| async {
+                *child.lock().unwrap() = Some(cancel);
+                let _lock = session.data.lock().await;
+                std::future::pending().await
+            },
+        )
+        .await;
+        assert_eq!(result, Err(ResourceError::Network { status: Some(408) }));
+        assert!(child.lock().unwrap().as_ref().unwrap().is_cancelled());
+        assert!(session.data.try_lock().is_ok());
+    }
 }

@@ -12,6 +12,7 @@ import { computed, nextTick, onBeforeUnmount, ref, shallowRef, triggerRef } from
 
 import type { InstallJobSnapshot } from '@/helpers/install'
 import { refresh_content } from '@/helpers/instance'
+import { resourceAnalysisRequest } from '@/helpers/resource-analysis-request'
 import {
     resourceFailureFeedback,
     resourcePlanIssueFeedback,
@@ -761,7 +762,9 @@ async function run(
     const current = generation
     controller?.abort()
     controller = new AbortController()
-    const signal = controller.signal
+    const request = controller
+    const signal = request.signal
+    const isCurrent = () => current === generation && controller === request
     busy.value = true
     clearProgress()
     error.value = null
@@ -769,20 +772,23 @@ async function run(
     retryAction = () => run(action, ignoreDependencies)
     let acceptingProgress = true
     try {
-        const value = await action(signal, (progress) => {
-            if (!acceptingProgress || current !== generation || signal.aborted) return
-            applyProgress(progress)
-        })
-        if (current !== generation || signal.aborted) return
+        const value = await resourceAnalysisRequest(request, (signal) =>
+            action(signal, (progress) => {
+                if (!acceptingProgress || !isCurrent() || signal.aborted) return
+                applyProgress(progress)
+            }),
+        )
+        if (!isCurrent() || signal.aborted) return
         plan.value = value
         dependenciesIgnored.value = ignoreDependencies
         void enrich(value, signal, current)
         return value
     } catch (failure) {
-        if (current === generation && !signal.aborted) showFailure(failure)
+        if (isCurrent() && (!signal.aborted || signal.reason?.name === 'TimeoutError'))
+            showFailure(failure)
     } finally {
         acceptingProgress = false
-        if (current === generation && !signal.aborted) {
+        if (isCurrent()) {
             busy.value = false
             clearProgress()
         }

@@ -1213,11 +1213,9 @@ async fn externally_replaced_file_does_not_reuse_local_metadata_or_icon() {
             version_id: None,
         })
         .get_entry();
-    let mut tx = state.pool.begin().await.unwrap();
-    crate::state::CachedEntry::upsert_many(&[cache], &mut *tx)
+    crate::state::CachedEntry::upsert_many(&[cache], state.cache_pool())
         .await
         .unwrap();
-    tx.commit().await.unwrap();
     crate::state::sync_content_files("instance", &state)
         .await
         .unwrap();

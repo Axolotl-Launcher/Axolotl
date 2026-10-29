@@ -3,7 +3,11 @@ import { IntlMessageFormat } from 'intl-messageformat'
 import { expect, it, vi } from 'vitest'
 import { defineComponent, h, ref } from 'vue'
 
+import { RESOURCE_ANALYSIS_TIMEOUT_MS } from '@/helpers/resource-analysis-request'
 import {
+    resourceAnalysisClose,
+    resourceAnalysisOpen,
+    resourceAnalysisUpdate,
     resourceGet,
     type ResourceOperationPlan,
     type ResourceOperationProgress,
@@ -14,6 +18,7 @@ import {
 } from '@/helpers/resources'
 import { get_instance_worlds } from '@/helpers/worlds'
 import zhMessages from '@/locales/zh-CN/index.json'
+import { createContentAnalysis } from '@/providers/content-analysis'
 
 import ResourceOperationPreviewModal from './ResourceOperationPreviewModal.vue'
 
@@ -25,6 +30,9 @@ const testLocale: { language: string; messages: Record<string, { message: string
 config.global.directives.tooltip = {}
 
 vi.mock('@/helpers/resources', () => ({
+    resourceAnalysisOpen: vi.fn(),
+    resourceAnalysisClose: vi.fn().mockResolvedValue(undefined),
+    resourceAnalysisUpdate: vi.fn(),
     resourceGet: vi.fn(),
     resourcePrepareEntryOperation: vi.fn(),
     resourcePrepareOperation: vi.fn(),
@@ -1861,5 +1869,130 @@ it('removes one explicit choice from a shared node without removing another choi
         expect(await result).toBeNull()
     } finally {
         wrapper.unmount()
+    }
+})
+
+it('recovers a timed-out cart analysis in place and retries with a new native session', async () => {
+    ready()
+    vi.useFakeTimers()
+    vi.mocked(resourceAnalysisOpen)
+        .mockResolvedValueOnce('old-session')
+        .mockResolvedValueOnce('new-session')
+    let report!: (value: ResourceOperationProgress) => void
+    let late!: (value: ResourceOperationPlan) => void
+    vi.mocked(resourceAnalysisUpdate)
+        .mockImplementationOnce((...args) => {
+            report = args[5]
+            return new Promise((resolve) => (late = resolve))
+        })
+        .mockResolvedValue(plan())
+    vi.mocked(resourcePrepareOperation).mockResolvedValue(plan())
+    const selections = [
+        {
+            id: 'root',
+            resource: { kind: 'source', project: reference.release.project },
+            release: { kind: 'automatic' },
+            resourceType: 'mod',
+            scope: { kind: 'instance' },
+        },
+    ] as ResourceOperationPlan['selections']
+    const cart = createContentAnalysis()
+    cart.update({
+        instanceId: 'instance',
+        context: 'review',
+        selections,
+        installDependencies: true,
+    })
+    const analysis = cart.review()!
+    const wrapper = mount(ResourceOperationPreviewModal)
+    const result = wrapper.vm.showInstallSelection({
+        instanceId: 'instance',
+        instanceName: 'Instance',
+        selections,
+        installDependencies: true,
+        analysis,
+    })
+    try {
+        await vi.advanceTimersByTimeAsync(RESOURCE_ANALYSIS_TIMEOUT_MS - 1)
+        report({
+            kind: 'phase',
+            phase: 'validating',
+            selectionRevision: 1,
+        } as ResourceOperationProgress)
+        await vi.advanceTimersByTimeAsync(1)
+        expect(wrapper.find('section').exists()).toBe(true)
+        expect(wrapper.find('[data-operation-skeleton]').exists()).toBe(false)
+        expect(wrapper.text()).toContain('The request timed out. Check your connection and retry.')
+        expect(analysis.signal.aborted).toBe(false)
+        expect(vi.mocked(resourceAnalysisUpdate).mock.calls[0][4].aborted).toBe(true)
+        expect(resourceAnalysisClose).toHaveBeenCalledWith('old-session')
+        report({
+            kind: 'node',
+            selectionRevision: 1,
+            node: { ...root, id: 'late' },
+        } as ResourceOperationProgress)
+        late({ ...plan(), id: 'late-plan' })
+        await vi.advanceTimersByTimeAsync(0)
+        expect(wrapper.text()).not.toContain('late')
+        expect(resourceQueuePlan).not.toHaveBeenCalled()
+        const retry = wrapper.findAll('button').find((button) => button.text() === 'Retry')!
+        expect(retry.attributes('disabled')).toBeUndefined()
+        await retry.trigger('click')
+        await vi.advanceTimersByTimeAsync(0)
+        expect(resourceAnalysisOpen).toHaveBeenCalledTimes(2)
+        expect(vi.mocked(resourceAnalysisUpdate).mock.calls[1][2]).toEqual(selections)
+        expect(vi.mocked(resourcePrepareOperation).mock.calls[0][9]).toEqual({
+            sessionId: 'new-session',
+            selectionRevision: 2,
+        })
+        expect(wrapper.find('[data-operation-skeleton]').exists()).toBe(false)
+        expect(wrapper.text()).toContain('mods/custom.jar.disabled')
+        expect(wrapper.text()).not.toContain('The request timed out.')
+        expect(vi.getTimerCount()).toBe(0)
+        await wrapper.vm.cancel()
+        expect(await result).toBeNull()
+    } finally {
+        wrapper.unmount()
+        cart.clear()
+        vi.useRealTimers()
+    }
+})
+
+it('bounds an unresponsive direct preview and keeps retry available after late native callbacks', async () => {
+    ready()
+    vi.useFakeTimers()
+    let report!: (value: ResourceOperationProgress) => void
+    let late!: (value: ResourceOperationPlan) => void
+    vi.mocked(resourcePrepareEntryOperation).mockImplementationOnce((...args) => {
+        report = args[6]!
+        return new Promise((resolve) => (late = resolve))
+    })
+    const wrapper = mount(ResourceOperationPreviewModal)
+    const result = wrapper.vm.show(input)
+    try {
+        await vi.advanceTimersByTimeAsync(RESOURCE_ANALYSIS_TIMEOUT_MS)
+        expect(vi.mocked(resourcePrepareEntryOperation).mock.calls[0][5]?.aborted).toBe(true)
+        expect(wrapper.find('[data-operation-skeleton]').exists()).toBe(false)
+        expect(wrapper.find('section').exists()).toBe(true)
+        expect(wrapper.text()).toContain('The request timed out. Check your connection and retry.')
+        report({ kind: 'node', node: { ...root, id: 'late' } } as ResourceOperationProgress)
+        late({ ...plan(), id: 'late-plan' })
+        await vi.advanceTimersByTimeAsync(0)
+        expect(wrapper.text()).not.toContain('late')
+        expect(wrapper.text()).not.toContain('mods/custom.jar.disabled')
+        await wrapper
+            .findAll('button')
+            .find((button) => button.text() === 'Retry')!
+            .trigger('click')
+        await vi.advanceTimersByTimeAsync(0)
+        expect(resourcePrepareEntryOperation).toHaveBeenCalledTimes(2)
+        expect(wrapper.text()).toContain('mods/custom.jar.disabled')
+        expect(wrapper.text()).not.toContain('The request timed out.')
+        expect(resourceQueuePlan).not.toHaveBeenCalled()
+        await wrapper.vm.cancel()
+        expect(await result).toBeNull()
+    } finally {
+        wrapper.unmount()
+        vi.useRealTimers()
     }
 })

@@ -55,13 +55,22 @@ pub(super) async fn existing(
     let Some(instance) = request_instance(request) else {
         return Ok(None);
     };
+    existing_for_instance(state, &instance, request, ignore).await
+}
+
+pub(super) async fn existing_for_instance(
+    state: &State,
+    instance: &str,
+    request: &InstallRequest,
+    ignore: Option<Uuid>,
+) -> crate::Result<Option<InstallJobSnapshot>> {
     let identity = request_identity(request)?;
     for job in store::list(false, state).await? {
         if Some(job.id) == ignore || job.status.is_finished() {
             continue;
         }
-        if job.instance_id.as_deref() != Some(&instance)
-            && request_instance(&job.state.request).as_ref() != Some(&instance)
+        if job.instance_id.as_deref() != Some(instance)
+            && request_instance(&job.state.request).as_deref() != Some(instance)
         {
             continue;
         }
@@ -110,25 +119,28 @@ pub(super) async fn queued_slot<'a>(
     queue::wait_for_slot(state, job, EXECUTION_WAIT).await
 }
 
-/// The slot for settling a job whose runner failed. Unlike admission, the
-/// wait does not end when the job starts canceling: finishing the
-/// cancellation rolls files back too. `None` once the job has finished.
-pub(super) async fn settlement_slot<'a>(
-    state: &'a State,
+/// The key of a job's execution lock: its instance, or the job itself when it
+/// has none. The queue and worker recovery must lock the same key.
+pub(super) fn execution_lock_key(job: &store::InstallJobRecord) -> String {
+    job.instance_id
+        .clone()
+        .or_else(|| request_instance(&job.state.request))
+        .map(|instance| format!("instance:{instance}"))
+        .unwrap_or_else(|| format!("job:{}", job.id))
+}
+
+/// The execution lock alone, waited for without a bound: worker recovery
+/// owns it to prove that no worker can still publish the job's files.
+pub(super) async fn execution_lock(
+    state: &State,
     job: &store::InstallJobRecord,
-) -> crate::Result<
-    Option<(
-        Option<tokio::sync::OwnedMutexGuard<()>>,
-        tokio::sync::SemaphorePermit<'a>,
-    )>,
-> {
-    queue::wait_for_slot_until(
-        state,
-        job,
-        EXECUTION_WAIT,
-        queue::LeaveWhen::Finished,
-    )
-    .await
+) -> Option<tokio::sync::OwnedMutexGuard<()>> {
+    let lock = state
+        .install_execution_locks
+        .entry(execution_lock_key(job))
+        .or_default()
+        .clone();
+    Some(lock.lock_owned().await)
 }
 
 /// The slot, or an error once the job leaves the queue; the admission tests

@@ -118,7 +118,7 @@ impl ContentMetadataProvider for CachedEntryContentProvider<'_> {
             &ModrinthVersionId::new(version_id.to_string())
                 .map_err(resolve_provider_error)?,
             self.cache_behaviour,
-            &self.state.pool,
+            self.state.cache_pool(),
             &self.state.api_semaphore,
         )
         .await
@@ -135,7 +135,7 @@ impl ContentMetadataProvider for CachedEntryContentProvider<'_> {
             &ModrinthProjectId::new(project_id.to_string())
                 .map_err(resolve_provider_error)?,
             self.cache_behaviour,
-            &self.state.pool,
+            self.state.cache_pool(),
             &self.state.api_semaphore,
         )
         .await
@@ -320,7 +320,7 @@ async fn resolve_install_plan_with_cache(
             let projects = CachedEntry::get_project_many(
                 &project_ids,
                 cache_behaviour,
-                &state.pool,
+                state.cache_pool(),
                 &state.api_semaphore,
             )
             .await?;
@@ -390,7 +390,7 @@ pub(crate) async fn resolve_install_plan_for_target_with_policy(
             let projects = CachedEntry::get_project_many(
                 &project_ids,
                 cache_behaviour,
-                &state.pool,
+                state.cache_pool(),
                 &state.api_semaphore,
             )
             .await?;
@@ -502,7 +502,7 @@ async fn resolved_content_file_size(
     let version = CachedEntry::get_version(
         &ModrinthVersionId::new(content.version_id.clone())?,
         None,
-        &state.pool,
+        state.cache_pool(),
         &state.api_semaphore,
     )
     .await?
@@ -531,7 +531,7 @@ pub(crate) async fn switch_project_version_with_dependencies_preserving_name(
     let version = CachedEntry::get_version(
         &ModrinthVersionId::new(version_id.to_string())?,
         Some(CacheBehaviour::MustRevalidate),
-        &state.pool,
+        state.cache_pool(),
         &state.api_semaphore,
     )
     .await?
@@ -561,7 +561,7 @@ pub(crate) async fn switch_project_version_with_dependencies_preserving_name(
         Some(current_version_id) => CachedEntry::get_version(
             &ModrinthVersionId::new(current_version_id.to_string())?,
             Some(CacheBehaviour::MustRevalidate),
-            &state.pool,
+            state.cache_pool(),
             &state.api_semaphore,
         )
         .await?
@@ -676,7 +676,7 @@ pub(crate) async fn prepare_modrinth_content_change_action(
     let version = CachedEntry::get_version(
         &ModrinthVersionId::new(action.target_release_id.clone())?,
         None,
-        &state.pool,
+        state.cache_pool(),
         &state.api_semaphore,
     )
     .await?
@@ -710,7 +710,7 @@ pub(crate) async fn prepare_modrinth_content_change_action(
         Some(version_id) => CachedEntry::get_version(
             &ModrinthVersionId::new(version_id.to_string())?,
             None,
-            &state.pool,
+            state.cache_pool(),
             &state.api_semaphore,
         )
         .await?
@@ -1512,7 +1512,7 @@ pub(crate) async fn prepare_version_download(
     let version = CachedEntry::get_version(
         &ModrinthVersionId::new(version_id.to_string())?,
         None,
-        &state.pool,
+        state.cache_pool(),
         &state.api_semaphore,
     )
     .await?
@@ -1633,7 +1633,7 @@ async fn modrinth_chinese_file_name_candidate(
     let project = CachedEntry::get_project(
         &ModrinthProjectId::new(project_id.to_string()).ok()?,
         None,
-        &state.pool,
+        state.cache_pool(),
         &state.api_semaphore,
     )
     .await
@@ -2536,7 +2536,7 @@ async fn add_project_bytes_with_provider(
         Some(&sha1),
         Some(project_type),
         None,
-        &state.data,
+        &state.cache_handle(),
     )
     .await?;
     fetch::write(&full_path, &bytes, &state.io_semaphore).await?;
@@ -3108,7 +3108,6 @@ async fn record_project_files_transaction(
             .get_entry(),
         );
     }
-    CachedEntry::upsert_many(&hash_cache_entries, &mut *tx).await?;
     if let Some(plan) = plan {
         let paths = records
             .iter()
@@ -3127,7 +3126,11 @@ async fn record_project_files_transaction(
         &mut tx,
     )
     .await?;
+    CachedEntry::forget_best_effort(&hash_cache_entries, state.cache_pool())
+        .await;
     tx.commit().await?;
+    CachedEntry::store_best_effort(&hash_cache_entries, state.cache_pool())
+        .await;
     Ok(())
 }
 
@@ -3998,14 +4001,18 @@ async fn rollback_project_inner(
                 version_id: None,
             })
             .get_entry();
-            CachedEntry::upsert_many(&[hash_cache], &mut *tx).await?;
             content_sets::bump_content_set_revision_in_transaction(
                 &scope.content_set_id,
                 &mut tx,
             )
             .await?;
             sqlx::query("DELETE FROM resource_legacy_rollback_journals WHERE instance_id = ?").bind(instance_id).execute(&mut *tx).await?;
+            // The hash cache lives in the derived database: forget the old
+            // entry before the commit, store the new one after it.
+            CachedEntry::forget_best_effort(std::slice::from_ref(&hash_cache), state.cache_pool())
+                .await;
             tx.commit().await?;
+            CachedEntry::store_best_effort(&[hash_cache], state.cache_pool()).await;
 
             Ok(final_relative_path)
             }.await;
@@ -4279,7 +4286,7 @@ async fn index_existing_file(
     let (size, sha1) = match CachedEntry::get_file_hash_many(
         &[&cache_key],
         None,
-        &state.pool,
+        state.cache_pool(),
         &state.api_semaphore,
     )
     .await?

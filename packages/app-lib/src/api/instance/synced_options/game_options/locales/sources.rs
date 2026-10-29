@@ -27,7 +27,7 @@ pub(super) async fn mod_projects(
     let files = CachedEntry::get_file_many(
         hashes,
         None,
-        &state.pool,
+        state.cache_pool(),
         &state.api_semaphore,
     )
     .await?;
@@ -40,7 +40,7 @@ pub(super) async fn mod_projects(
     let projects = CachedEntry::get_project_many(
         &project_ids.into_iter().collect::<Vec<_>>(),
         None,
-        &state.pool,
+        state.cache_pool(),
         &state.api_semaphore,
     )
     .await?;
@@ -109,7 +109,7 @@ pub(super) async fn snapshot_instance(
     let hashes = CachedEntry::get_file_hash_many(
         &keys,
         None,
-        &state.pool,
+        state.cache_pool(),
         &state.api_semaphore,
     )
     .await?;

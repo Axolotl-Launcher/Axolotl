@@ -42,10 +42,10 @@ jobs:
       SQLX_OFFLINE: true
       CARGO_PROFILE_RELEASE_LTO: 'true'
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           submodules: recursive
-      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version-file: .nvmrc
       - uses: ./.github/actions/setup-desktop-rust
@@ -58,7 +58,7 @@ jobs:
         run: |
           sudo apt-get -o Acquire::ForceIPv4=true update
           sudo apt-get -o Acquire::ForceIPv4=true install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf xdg-utils
-      - uses: cargo-bins/cargo-binstall@dc19f1e48450eefe5a29b8da6c6b00a87d730b37 # v1.18.1
+      - uses: cargo-bins/cargo-binstall@81df5c23b0dc775b009efdfc9895c5965b7a4e40 # v1.26.1
       - run: cargo binstall --no-confirm --locked cargo-chef@0.1.71
       - name: Compile release dependencies in a disposable recipe workspace
         shell: bash

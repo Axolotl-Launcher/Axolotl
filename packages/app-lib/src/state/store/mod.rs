@@ -15,6 +15,8 @@
 
 pub(crate) mod cache;
 pub(crate) mod content_dependencies;
+// Production writes the retired table through the resource layer's mirror.
+#[cfg(test)]
 pub(crate) mod content_favorites;
 pub(crate) mod content_file_fingerprints;
 pub(crate) mod content_file_operations;
@@ -25,12 +27,15 @@ pub(crate) mod content_refresh_presentations;
 pub(crate) mod content_refresh_scan_failures;
 pub(crate) mod content_snapshot;
 pub(crate) mod content_update_jobs;
+pub(crate) mod crash_analysis_mod_snapshots;
 pub(crate) mod custom_minecraft_skin_textures;
 pub(crate) mod custom_minecraft_skins;
+pub(crate) mod derived_db;
 pub(crate) mod discovered_javas;
 pub(crate) mod game_option_locale_origins;
 pub(crate) mod game_option_pack_bases;
 pub(crate) mod game_option_update_state;
+pub(crate) mod google_translate_ip_cache;
 pub(crate) mod install_jobs;
 pub(crate) mod instance_content_files;
 pub(crate) mod instance_sync_checkpoints;
@@ -57,6 +62,7 @@ pub(crate) mod synced_game_option_state;
 pub(crate) mod synced_game_option_values;
 pub(crate) mod telemetry_identity;
 pub(crate) mod telemetry_outbox;
+pub(crate) mod translation_cache;
 
 #[cfg(test)]
 mod tests;

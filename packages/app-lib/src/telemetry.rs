@@ -154,13 +154,8 @@ async fn enqueue_heartbeat(state: &State) -> crate::Result<()> {
     let event_id = Uuid::new_v4().to_string();
     let occurred_at = Utc::now().to_rfc3339_opts(SecondsFormat::Millis, true);
     let payload = heartbeat_payload(&event_id, &occurred_at, &day);
-    insert_outbox_event(
-        &mut unit,
-        &event_id,
-        &format!("heartbeat:{day}"),
-        &payload,
-    )
-    .await?;
+    let dedupe_key = format!("heartbeat:{day}");
+    insert_outbox_event(&mut unit, &event_id, &dedupe_key, &payload).await?;
     let identity = TelemetryIdentityRecord {
         last_heartbeat_day: Some(day),
         ..identity
@@ -202,37 +197,15 @@ async fn insert_outbox_event(
     TelemetryOutbox::atom_set(unit, &event_id.to_string(), Some(&record)).await
 }
 
-/// Trimming the queue keeps the newest events up to a count and a byte budget,
-/// which no record-by-record replacement can say: that part stays in SQL.
 async fn cleanup_outbox(state: &State) -> crate::Result<()> {
     let oldest = Utc::now().timestamp() - MAX_EVENT_AGE_SECONDS;
-    sqlx::query("DELETE FROM telemetry_outbox WHERE created_at < ?")
-        .bind(oldest)
-        .execute(&state.pool)
-        .await?;
-    sqlx::query(
-        "DELETE FROM telemetry_outbox WHERE event_id IN (SELECT event_id FROM telemetry_outbox ORDER BY created_at DESC LIMIT -1 OFFSET ?)",
+    TelemetryOutbox::trim(
+        &state.data,
+        oldest,
+        MAX_OUTBOX_EVENTS,
+        MAX_OUTBOX_BYTES,
     )
-    .bind(MAX_OUTBOX_EVENTS)
-    .execute(&state.pool)
-    .await?;
-    sqlx::query(
-        r#"
-        DELETE FROM telemetry_outbox
-        WHERE event_id IN (
-            SELECT event_id FROM (
-                SELECT event_id,
-                    SUM(size_bytes) OVER (ORDER BY created_at DESC, event_id DESC) AS running_bytes
-                FROM telemetry_outbox
-            )
-            WHERE running_bytes > ?
-        )
-        "#,
-    )
-    .bind(MAX_OUTBOX_BYTES)
-    .execute(&state.pool)
-    .await?;
-    Ok(())
+    .await
 }
 
 async fn upload_next_batch(

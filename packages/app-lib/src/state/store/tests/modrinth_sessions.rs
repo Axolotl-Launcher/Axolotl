@@ -101,7 +101,7 @@ async fn a_replacement_naming_two_actives_is_refused() {
 
 #[tokio::test]
 async fn a_runtime_keeps_the_distribution_it_came_from() {
-    let handle = support::handle().await;
+    let (_directory, handle) = support::derived().await;
     let path = "/runtimes/21".to_string();
 
     DiscoveredJavas::set(&handle, &path, Some(&runtime(21, Some("temurin"))))
@@ -116,7 +116,7 @@ async fn a_runtime_keeps_the_distribution_it_came_from() {
 
 #[tokio::test]
 async fn a_version_group_reads_only_its_runtimes() {
-    let handle = support::handle().await;
+    let (_directory, handle) = support::derived().await;
     for (path, major) in [("/runtimes/17", 17), ("/runtimes/21", 21)] {
         DiscoveredJavas::set(
             &handle,
@@ -135,7 +135,7 @@ async fn a_version_group_reads_only_its_runtimes() {
 
 #[tokio::test]
 async fn a_runtime_of_another_version_cannot_be_written_into_a_group() {
-    let handle = support::handle().await;
+    let (_directory, handle) = support::derived().await;
     let path = "/runtimes/17".to_string();
     DiscoveredJavas::set(&handle, &path, Some(&runtime(17, None)))
         .await

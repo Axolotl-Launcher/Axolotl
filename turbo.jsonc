@@ -98,12 +98,7 @@
         "FORCE_COLOR",
         "NEXTEST_*"
       ],
-      "passThroughEnv": [
-        "SCCACHE_*",
-        "RUSTC_WRAPPER",
-        "AWS_ACCESS_KEY_ID",
-        "AWS_SECRET_ACCESS_KEY"
-      ]
+      "passThroughEnv": ["SCCACHE_*", "RUSTC_WRAPPER", "AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY"]
     },
     "lint:ancillary": {},
     "dev": {
@@ -133,12 +128,7 @@
         "FORCE_COLOR",
         "NEXTEST_*"
       ],
-      "passThroughEnv": [
-        "SCCACHE_*",
-        "RUSTC_WRAPPER",
-        "AWS_ACCESS_KEY_ID",
-        "AWS_SECRET_ACCESS_KEY"
-      ]
+      "passThroughEnv": ["SCCACHE_*", "RUSTC_WRAPPER", "AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY"]
     },
     "test:e2e": {
       "cache": false,

@@ -7355,6 +7355,12 @@
   "app.lab.structure-finder.failed": {
     "message": "The scan failed: {reason}"
   },
+  "app.lab.structure-finder.no-results-body": {
+    "message": "This search found no structures. Try another seed, a lower Y gate, or a larger area."
+  },
+  "app.lab.structure-finder.no-results-title": {
+    "message": "Nothing matched"
+  },
   "app.lab.structure-finder.results": {
     "message": "Results"
   },

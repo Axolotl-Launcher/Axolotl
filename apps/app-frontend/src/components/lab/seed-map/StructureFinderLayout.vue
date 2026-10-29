@@ -26,6 +26,15 @@ const messages = defineMessages({
         id: 'app.lab.structure-finder.empty-body',
         defaultMessage: 'Fill in the parameters and start a scan.',
     },
+    noResultsTitle: {
+        id: 'app.lab.structure-finder.no-results-title',
+        defaultMessage: 'Nothing matched',
+    },
+    noResultsBody: {
+        id: 'app.lab.structure-finder.no-results-body',
+        defaultMessage:
+            'This search found no structures. Try another seed, a lower Y gate, or a larger area.',
+    },
     failed: {
         id: 'app.lab.structure-finder.failed',
         defaultMessage: 'The scan failed: {reason}',
@@ -46,6 +55,8 @@ const props = defineProps<{
     error: string | null
     /** Whether a scan has produced a result (even an empty one). */
     hasResult: boolean
+    /** Rows the finished scan produced; `null` before the first scan. */
+    resultCount: number | null
     canScan: boolean
 }>()
 
@@ -104,6 +115,16 @@ const blocked = computed(() => props.available === false)
                     <strong class="text-sm">{{ formatMessage(messages.emptyTitle) }}</strong>
                     <span class="text-sm text-[var(--color-text-default)]">
                         {{ formatMessage(messages.emptyBody) }}
+                    </span>
+                </div>
+
+                <div
+                    v-else-if="props.hasResult && props.resultCount === 0"
+                    class="flex flex-1 flex-col items-center justify-center gap-1 rounded-lg border border-solid border-surface-4 bg-surface-2 p-8 text-center"
+                >
+                    <strong class="text-sm">{{ formatMessage(messages.noResultsTitle) }}</strong>
+                    <span class="text-sm text-[var(--color-text-default)]">
+                        {{ formatMessage(messages.noResultsBody) }}
                     </span>
                 </div>
 

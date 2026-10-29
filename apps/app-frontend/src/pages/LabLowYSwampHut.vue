@@ -204,6 +204,7 @@ async function copyTeleport(hit: { x: number; z: number; y: number }) {
         :unavailable-body="formatMessage(messages.unavailableBody)"
         :scanning="scanning"
         :error="error"
+        :result-count="result?.hits.length ?? null"
         :has-result="!!result"
         :can-scan="canScan"
         @scan="run"
@@ -287,10 +288,10 @@ async function copyTeleport(hit: { x: number; z: number; y: number }) {
                     />
                 </label>
             </div>
-            <span class="text-xs text-[var(--color-text-tertiary)]">
-                {{ formatMessage(messages.regionsHint) }}
-                {{ formatMessage(messages.threadsHint) }}
-            </span>
+            <div class="flex flex-col gap-1 text-xs text-[var(--color-text-tertiary)]">
+                <span>{{ formatMessage(messages.regionsHint) }}</span>
+                <span>{{ formatMessage(messages.threadsHint) }}</span>
+            </div>
 
             <label class="flex flex-col gap-1">
                 <span class="text-sm font-medium">{{ formatMessage(messages.versionLabel) }}</span>

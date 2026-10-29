@@ -155,6 +155,7 @@ async function copyTeleport(hit: { centerX: number; centerZ: number }) {
         :unavailable-body="formatMessage(messages.noJavaBody)"
         :scanning="scanning"
         :error="error"
+        :result-count="result?.hits.length ?? null"
         :has-result="!!result"
         :can-scan="canScan"
         @scan="run"

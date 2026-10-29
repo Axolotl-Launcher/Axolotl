@@ -10556,6 +10556,12 @@
   "app.lab.structure-finder.failed": {
     "message": "扫描失败：{reason}"
   },
+  "app.lab.structure-finder.no-results-body": {
+    "message": "当前参数下没有找到符合条件的结构。可以换一个种子、放低高度阈值，或扩大区域数。"
+  },
+  "app.lab.structure-finder.no-results-title": {
+    "message": "没有匹配的结果"
+  },
   "app.lab.structure-finder.results": {
     "message": "结果"
   },

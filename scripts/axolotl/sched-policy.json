@@ -167,9 +167,9 @@
     {
       "name": "L0 private queue lock",
       "ident": null,
-      "planned": "T3.3",
       "bounded": true,
-      "note": "L0 dispatch queue, not built until phase 3"
+      "note": "tokio bounded mpsc in scheduler::l0::queue (lock-free try_send path); no managed lock to register",
+      "lockFree": true
     },
     {
       "name": "ProcessManager.processes",
@@ -482,7 +482,20 @@
       "backfilled": true,
       "basis": "production std thread; JoinHandle bound (T0.10), signal-driven, bounded exit",
       "signal": true,
-      "boundedExit": true
+      "boundedExit": true,
+      "form": "production thread"
+    },
+    {
+      "id": "L0DRIVER",
+      "file": "packages/app-lib/src/scheduler/l0/executor.rs",
+      "business": "L0 executor driver thread (current_thread runtime)",
+      "level": "L0",
+      "locks": [],
+      "backfilled": true,
+      "basis": "runs the L0 runtime; quiesce flag ends it within the 5 s exit window",
+      "signal": true,
+      "boundedExit": true,
+      "form": "production thread"
     }
   ],
   "governanceRemoved": {
@@ -539,5 +552,27 @@
       "file": "packages/app-lib/src/state/instances/commands/content_file_operations.rs",
       "fn": "rollback_error"
     }
+  ],
+  "l0Functions": [
+    {
+      "file": "packages/app-lib/src/state/process.rs",
+      "fn": "detect_process_exit",
+      "allowedAwaits": [
+        "State::get\\(\\)",
+        "tokio::time::sleep\\("
+      ]
+    }
+  ],
+  "l0ForbiddenPatterns": [
+    "\\.pool\\b",
+    "\\bemit_\\w+\\(",
+    "tokio::spawn\\(",
+    "spawn_blocking\\(",
+    "std::fs::",
+    "Command::new",
+    "\\.remove\\(",
+    "crate::api::",
+    "\\.send\\(",
+    "\\.lock\\(\\)"
   ]
 }

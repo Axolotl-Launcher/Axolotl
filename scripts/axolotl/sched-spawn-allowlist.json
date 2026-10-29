@@ -973,6 +973,36 @@
       "reason": "phase-0 baseline: synchronous file I/O; must not appear in L0 or inside a critical section (D17)"
     },
     {
+      "file": "packages/app-lib/src/scheduler/l0/executor.rs",
+      "form": "spawn_blocking",
+      "count": 1,
+      "reason": "L0 executor: its driver thread, and spawns onto the L0 runtime and its own blocking pool (T3.6)"
+    },
+    {
+      "file": "packages/app-lib/src/scheduler/l0/executor.rs",
+      "form": "std::thread::sleep",
+      "count": 1,
+      "reason": "bounded poll for the L0 driver thread to exit within its 5 s window"
+    },
+    {
+      "file": "packages/app-lib/src/scheduler/l0/executor.rs",
+      "form": "thread::Builder",
+      "count": 1,
+      "reason": "L0 executor: its driver thread, and spawns onto the L0 runtime and its own blocking pool (T3.6)"
+    },
+    {
+      "file": "packages/app-lib/src/scheduler/l0/executor.rs",
+      "form": "thread::Builder spawn",
+      "count": 2,
+      "reason": "L0 executor: its driver thread, and spawns onto the L0 runtime and its own blocking pool (T3.6)"
+    },
+    {
+      "file": "packages/app-lib/src/scheduler/l0/mod.rs",
+      "form": "tokio::spawn",
+      "count": 1,
+      "reason": "fallback onto the current runtime when the L0 executor cannot start"
+    },
+    {
       "file": "packages/app-lib/src/scheduler/panic.rs",
       "form": "std::fs",
       "count": 4,

@@ -2,6 +2,7 @@ use crate::event::emit::{emit_instance, emit_process};
 use crate::event::{InstancePayloadType, ProcessPayloadType};
 #[cfg(feature = "tauri")]
 use crate::event::{LogEvent, LogPayload};
+use crate::scheduler::l0::queue::{Delivery, L0Queue, L0QueueReceiver};
 use crate::state::store::Collection as _;
 use crate::state::store::join_log::{JoinLog, JoinLogEntry, JoinLogKey};
 use crate::util::io::IOError;
@@ -541,7 +542,8 @@ impl ProcessManager {
 
         self.processes.insert(process.metadata.uuid, process);
 
-        tokio::spawn(Process::sequential_process_manager(
+        let (events, reactions) = L0Queue::channel(1, PROCESS_EVENT_CAPACITY);
+        tokio::spawn(Process::react_to_process(
             instance_id.to_string(),
             instance_path.to_string(),
             game_dir,
@@ -549,8 +551,12 @@ impl ProcessManager {
             post_exit_command,
             metadata.uuid,
             metadata.pid,
-            metadata.maximize_window,
             crash_reports_before,
+            reactions,
+        ));
+        crate::scheduler::l0::spawn(Process::detect_process_exit(
+            metadata.uuid,
+            events,
         ));
 
         emit_process(
@@ -1200,10 +1206,47 @@ impl Process {
         Ok(())
     }
 
-    // Spawns a new child process and inserts it into the hashmap
-    // Also, as the process ends, it spawns the follow-up process if it exists
-    // By convention, ExitStatus is last command's exit status, and we exit on the first non-zero exit status
-    async fn sequential_process_manager(
+    /// L0 side of a running game (L0-1): it only detects. It polls the child,
+    /// times playtime and posts what it saw; every reaction that writes the
+    /// database, emits events, spawns or waits on other tasks runs in
+    /// [`Self::react_to_process`] on the main runtime.
+    async fn detect_process_exit(
+        uuid: Uuid,
+        events: L0Queue<ProcessEvent>,
+    ) -> crate::Result<()> {
+        let state = crate::State::get().await?;
+        let mut last_tick = Instant::now();
+        let (status, missing) = loop {
+            if let Some(process) = state.process_manager.try_wait(uuid)? {
+                if let Some(status) = process {
+                    break (status, false);
+                }
+            } else {
+                break (ExitStatus::default(), true);
+            }
+            tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
+            if let Some(tick) = PlaytimeTick::take(&mut last_tick, false) {
+                events.post(ProcessEvent::Playtime(tick), Delivery::Reserved);
+            }
+        };
+        let manually_killed = state.process_manager.was_manually_killed(uuid);
+        events.post(
+            ProcessEvent::Exited {
+                status,
+                missing,
+                manually_killed,
+                final_playtime: PlaytimeTick::take(&mut last_tick, true),
+            },
+            Delivery::Reserved,
+        );
+        Ok(())
+    }
+
+    /// Main-runtime side of a running game: everything the detector posts is
+    /// handled here in order, so the output pumps still finish before the
+    /// `Finished` event, as before the split.
+    #[allow(clippy::too_many_arguments)]
+    async fn react_to_process(
         instance_id: String,
         instance_path: String,
         game_dir: PathBuf,
@@ -1211,71 +1254,9 @@ impl Process {
         post_exit_command: Option<String>,
         uuid: Uuid,
         pid: u32,
-        _maximize_window: bool,
         crash_reports_before: Option<CrashReportSnapshot>,
+        mut events: L0QueueReceiver<ProcessEvent>,
     ) -> crate::Result<()> {
-        async fn update_playtime(
-            last_updated_playtime: &mut Instant,
-            instance_id: &str,
-            force_update: bool,
-        ) {
-            let elapsed = last_updated_playtime.elapsed().as_secs();
-            if elapsed == 0 || (!force_update && elapsed < 60) {
-                return;
-            }
-
-            let state = match crate::State::get().await {
-                Ok(state) => state,
-                Err(e) => {
-                    tracing::warn!(
-                        "Failed to get state for playtime update on instance {}: {}",
-                        instance_id,
-                        e
-                    );
-                    return;
-                }
-            };
-            let ended_at = Utc::now();
-            let elapsed_duration =
-                Duration::seconds(elapsed.min(i64::MAX as u64) as i64);
-            let started_at = ended_at - elapsed_duration;
-            if let Err(e) =
-                crate::state::instances::commands::add_instance_recent_playtime(
-                    instance_id,
-                    elapsed,
-                    &state.pool,
-                )
-                .await
-            {
-                tracing::warn!(
-                    "Failed to update playtime for instance {}: {}",
-                    instance_id,
-                    e
-                );
-            }
-            if let Err(e) =
-                crate::state::instances::commands::record_instance_daily_playtime(
-                    instance_id,
-                    started_at,
-                    ended_at,
-                    &state.pool,
-                )
-                .await
-            {
-                tracing::warn!(
-                    "Failed to record daily playtime for instance {}: {}",
-                    instance_id,
-                    e
-                );
-            }
-            *last_updated_playtime = Instant::now();
-        }
-
-        // Wait on current Minecraft Child
-        let mc_exit_status;
-        let mut process_missing = false;
-        let mut last_updated_playtime = Instant::now();
-
         let state = crate::State::get().await?;
         if let Err(e) =
             crate::state::instances::commands::record_instance_play_session(
@@ -1290,27 +1271,21 @@ impl Process {
                 e
             );
         }
-        loop {
-            if let Some(process) = state.process_manager.try_wait(uuid)? {
-                if let Some(t) = process {
-                    mc_exit_status = t;
-                    break;
+        let (mc_exit_status, process_missing, manually_killed, final_playtime) = loop {
+            match events.recv().await {
+                Some(ProcessEvent::Playtime(tick)) => {
+                    record_playtime(&instance_id, tick).await;
                 }
-            } else {
-                mc_exit_status = ExitStatus::default();
-                process_missing = true;
-                break;
+                Some(ProcessEvent::Exited {
+                    status,
+                    missing,
+                    manually_killed,
+                    final_playtime,
+                }) => break (status, missing, manually_killed, final_playtime),
+                // The detector failed before the game exited; it reported nothing.
+                None => return Ok(()),
             }
-
-            // sleep for 10ms
-            tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
-
-            // Auto-update playtime every minute
-            update_playtime(&mut last_updated_playtime, &instance_id, false)
-                .await;
-        }
-
-        let manually_killed = state.process_manager.was_manually_killed(uuid);
+        };
         if let Some(mut process) = state.process_manager.remove(uuid) {
             for output_task in process.output_tasks.drain(..) {
                 if let Err(error) = output_task.await {
@@ -1320,8 +1295,10 @@ impl Process {
         }
         crate::api::multiplayer::minecraft_process_finished(&instance_id).await;
 
-        // Now fully complete- update playtime one last time
-        update_playtime(&mut last_updated_playtime, &instance_id, true).await;
+        // Now fully complete- record the last stretch of playtime
+        if let Some(tick) = final_playtime {
+            record_playtime(&instance_id, tick).await;
+        }
 
         let crash_reports_after = snapshot_crash_reports(
             &state.directories.game_crash_reports_dir(&game_dir),
@@ -1455,6 +1432,89 @@ impl Process {
         }
 
         Ok(())
+    }
+}
+
+/// Reserved slots for one game's events: a playtime tick per minute and the
+/// exit, so a stalled reaction task loses nothing for about an hour.
+const PROCESS_EVENT_CAPACITY: usize = 64;
+
+/// What the L0 process detector tells its reaction task.
+enum ProcessEvent {
+    Playtime(PlaytimeTick),
+    Exited {
+        status: ExitStatus,
+        missing: bool,
+        manually_killed: bool,
+        final_playtime: Option<PlaytimeTick>,
+    },
+}
+
+/// A stretch of playtime ending at `ended_at`.
+struct PlaytimeTick {
+    elapsed: u64,
+    ended_at: DateTime<Utc>,
+}
+
+impl PlaytimeTick {
+    /// The time since `last` once a minute has passed, or whenever `force`d;
+    /// `last` restarts from now.
+    fn take(last: &mut Instant, force: bool) -> Option<Self> {
+        let elapsed = last.elapsed().as_secs();
+        if elapsed == 0 || (!force && elapsed < 60) {
+            return None;
+        }
+        *last = Instant::now();
+        Some(Self {
+            elapsed,
+            ended_at: Utc::now(),
+        })
+    }
+}
+
+/// Writes one playtime tick to the recent and daily playtime records.
+async fn record_playtime(instance_id: &str, tick: PlaytimeTick) {
+    let state = match crate::State::get().await {
+        Ok(state) => state,
+        Err(e) => {
+            tracing::warn!(
+                "Failed to get state for playtime update on instance {}: {}",
+                instance_id,
+                e
+            );
+            return;
+        }
+    };
+    let started_at = tick.ended_at
+        - Duration::seconds(tick.elapsed.min(i64::MAX as u64) as i64);
+    if let Err(e) =
+        crate::state::instances::commands::add_instance_recent_playtime(
+            instance_id,
+            tick.elapsed,
+            &state.pool,
+        )
+        .await
+    {
+        tracing::warn!(
+            "Failed to update playtime for instance {}: {}",
+            instance_id,
+            e
+        );
+    }
+    if let Err(e) =
+        crate::state::instances::commands::record_instance_daily_playtime(
+            instance_id,
+            started_at,
+            tick.ended_at,
+            &state.pool,
+        )
+        .await
+    {
+        tracing::warn!(
+            "Failed to record daily playtime for instance {}: {}",
+            instance_id,
+            e
+        );
     }
 }
 

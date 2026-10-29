@@ -117,6 +117,7 @@ jobs:
           node scripts/axolotl/sched-whitelist-check.mjs
           node scripts/axolotl/sched-enter-ban-check.mjs
           node scripts/axolotl/sched-tag-check.mjs
+          node scripts/axolotl/sched-unbounded-sender-check.mjs
           # Exit 1 from these two means the design falls back to per-family
           # orders (an accepted outcome); only other codes fail the job.
           for gate in sched-recall-gap-gate sched-order-annotation-check; do

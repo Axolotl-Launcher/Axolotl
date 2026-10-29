@@ -30,7 +30,7 @@ export function checkLeaves(policy, inventory, sources) {
     if (policy.leafPrimitives.length !== 6) failures.push(`leaf table must list the 6 leaves of spec §5.2, found ${policy.leafPrimitives.length}`)
     for (const leaf of policy.leafPrimitives) {
         if (leaf.ident && !generated.has(leaf.ident)) failures.push(`leaf ${leaf.name}: ${leaf.ident} is not in the inventory`)
-        if (!leaf.ident && !leaf.planned) failures.push(`leaf ${leaf.name}: neither present nor planned`)
+        if (!leaf.ident && !leaf.planned && !leaf.lockFree) failures.push(`leaf ${leaf.name}: neither present, planned nor lock-free`)
         if (leaf.bounded === false && !(leaf.worstCaseMs > 0)) failures.push(`leaf ${leaf.name}: unbounded leaf needs its worst-case critical section`)
     }
     const leafNames = new Set(policy.leafPrimitives.filter((leaf) => leaf.ident).map((leaf) => leaf.ident.split(/::|\./).at(-1)))
@@ -51,7 +51,8 @@ if (isMain(import.meta.url)) {
     const { failures } = checkLeaves(policy, inventory, sourcesOf(workspaceCrates()))
     for (const leaf of policy.leafPrimitives) {
         const bound = leaf.bounded ? 'bounded' : `unbounded, worst case <= ${leaf.worstCaseMs} ms`
-        console.log(`leaf: ${leaf.name} -> ${leaf.ident ?? `planned in ${leaf.planned}`} (${bound})`)
+        const where = leaf.ident ?? (leaf.lockFree ? 'lock-free' : `planned in ${leaf.planned}`)
+        console.log(`leaf: ${leaf.name} -> ${where} (${bound})`)
     }
     if (failures.length > 0) {
         for (const failure of failures) console.error(failure)

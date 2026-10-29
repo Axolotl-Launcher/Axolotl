@@ -5,13 +5,14 @@ import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { checkSpawns, countForms } from './sched-bare-spawn-check.mjs'
 import { enterBanViolations } from './sched-enter-ban-check.mjs'
-import { l0Violations } from './sched-l0-resource-check.mjs'
+import { l0FunctionViolations, l0Violations } from './sched-l0-resource-check.mjs'
 import { checkLeaves } from './sched-leaf-primitive-check.mjs'
 import { checkGovernance } from './sched-level-predicate-check.mjs'
 import { evaluateOrder } from './sched-order-annotation-check.mjs'
 import { evaluateGap } from './sched-recall-gap-gate.mjs'
 import { checkConsistency } from './sched-resource-consistency-check.mjs'
 import { tagViolations } from './sched-tag-check.mjs'
+import { awaitedSendsInL0 } from './sched-unbounded-sender-check.mjs'
 import { checkWhitelist } from './sched-whitelist-check.mjs'
 import { missingGolden } from './sched-resource-golden-check.mjs'
 import { buildInventory } from './sched-resource-inventory.mjs'
@@ -167,4 +168,25 @@ test('tag check rejects a forgeable tag (K2.1, K2.3)', () => {
     const violations = tagViolations([...sources.filter((candidate) => candidate.rel !== tag.rel), convertible, forged])
     assert.ok(violations.some((violation) => violation.includes('implements From for Tag')))
     assert.ok(violations.some((violation) => violation.includes('builds a Tag outside tag.rs')))
+})
+
+test('the L0 process detector keeps its reactions dispatched (K3.3)', () => {
+    assert.deepEqual(l0FunctionViolations(sources, policy), [])
+    const detector = sources.find((candidate) => candidate.rel === 'packages/app-lib/src/state/process.rs')
+    const leaky = source(
+        detector.rel,
+        detector.raw.replace(
+            'let manually_killed = state.process_manager.was_manually_killed(uuid);',
+            'let manually_killed = state.process_manager.was_manually_killed(uuid);\n        sqlx::query("SELECT 1").execute(&state.pool).await?;',
+        ),
+    )
+    const violations = l0FunctionViolations([...sources.filter((candidate) => candidate.rel !== detector.rel), leaky], policy)
+    assert.ok(violations.some((violation) => violation.includes('uses .pool')))
+    assert.ok(violations.some((violation) => violation.includes('awaits')))
+})
+
+test('L0 never awaits a send (K3.4)', () => {
+    const awaited = source('packages/app-lib/src/scheduler/l0/x.rs', 'async fn f(tx: Sender<u8>) {\n    tx.send(1).await.unwrap();\n}\n')
+    assert.equal(awaitedSendsInL0([awaited], policy.l0Module).length, 1)
+    assert.deepEqual(awaitedSendsInL0(sources, policy.l0Module), [])
 })

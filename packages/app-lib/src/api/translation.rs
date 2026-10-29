@@ -13,6 +13,11 @@ use sha2::{Digest, Sha256};
 use sqlx::{Row, SqlitePool};
 use tokio::time::sleep;
 
+use crate::state::store::Collection as _;
+use crate::state::store::derived_db::DerivedDb;
+use crate::state::store::translation_cache::{
+    TranslationCache, TranslationCacheRecord,
+};
 use crate::{ErrorKind, State, ai};
 
 const CACHE_MAX_AGE_SECONDS: i64 = 7 * 24 * 60 * 60;
@@ -957,13 +962,13 @@ fn cache_key(
     format!("{:x}", hasher.finalize())
 }
 
-async fn cleanup_expired_cache(pool: &SqlitePool) -> crate::Result<()> {
+async fn cleanup_expired_cache(derived: &DerivedDb) -> crate::Result<()> {
     let cutoff = chrono::Utc::now().timestamp() - CACHE_MAX_AGE_SECONDS;
-    sqlx::query("DELETE FROM translation_cache WHERE created_at < ?")
-        .bind(cutoff)
-        .execute(pool)
-        .await?;
-    Ok(())
+    derived
+        .write(async |handle| {
+            TranslationCache::delete_created_before(handle, cutoff).await
+        })
+        .await
 }
 
 async fn translate_uncached(
@@ -1080,7 +1085,7 @@ pub async fn translate(
         .into());
     }
     let state = State::get().await?;
-    cleanup_expired_cache(&state.pool).await?;
+    cleanup_expired_cache(&state.derived).await?;
     let settings = load_settings(&state.pool).await?;
 
     let mut results = HashMap::new();
@@ -1092,12 +1097,11 @@ pub async fn translate(
             continue;
         }
         let key = cache_key(segment, &settings, &request);
-        let cached = sqlx::query_scalar::<_, String>(
-            "SELECT translation FROM translation_cache WHERE key = ?",
-        )
-        .bind(&key)
-        .fetch_optional(&state.pool)
-        .await?;
+        let cached = state
+            .derived
+            .read(async |handle| TranslationCache::get(handle, &key).await)
+            .await?
+            .map(|record| record.translation);
         if let Some(cached) = cached {
             results.insert(segment.id.clone(), cached);
         } else {
@@ -1115,16 +1119,16 @@ pub async fn translate(
             let Some(key) = keys.get(&segment.id) else {
                 continue;
             };
-            sqlx::query(
-                "INSERT INTO translation_cache (key, translation, created_at) \
-                 VALUES (?, ?, ?) ON CONFLICT(key) DO UPDATE SET \
-                 translation = excluded.translation, created_at = excluded.created_at",
-            )
-            .bind(key)
-            .bind(&segment.text)
-            .bind(now)
-            .execute(&state.pool)
-            .await?;
+            let record = TranslationCacheRecord {
+                translation: segment.text.clone(),
+                created_at: now,
+            };
+            state
+                .derived
+                .write(async |handle| {
+                    TranslationCache::set(handle, key, Some(&record)).await
+                })
+                .await?;
             results.insert(segment.id, segment.text);
         }
     }
@@ -1249,10 +1253,10 @@ pub async fn test_provider(
 #[tracing::instrument]
 pub async fn clear_cache() -> crate::Result<()> {
     let state = State::get().await?;
-    sqlx::query("DELETE FROM translation_cache")
-        .execute(&state.pool)
-        .await?;
-    Ok(())
+    state
+        .derived
+        .write(async |handle| TranslationCache::set_all(handle, &[]).await)
+        .await
 }
 
 #[cfg(test)]

@@ -125,6 +125,69 @@ pub fn exact_integrity(
     strong
 }
 
+/// A byte match alone does not establish that two projects are the same resource.
+pub(crate) fn project_confirmation_rejection(
+    left: &SourceProjectMetadata,
+    right: &SourceProjectMetadata,
+    left_artifact: &ResourceArtifact,
+    right_artifact: &ResourceArtifact,
+) -> Option<&'static str> {
+    if left_artifact.reference.release.project != left.project
+        || right_artifact.reference.release.project != right.project
+    {
+        Some("artifact belongs to a different project")
+    } else if !left.types.iter().any(|kind| right.types.contains(kind)) {
+        Some("project resource types do not overlap")
+    } else if !super::valid_artifact(left_artifact)
+        || !super::valid_artifact(right_artifact)
+    {
+        Some("artifact metadata is incomplete or invalid")
+    } else if verify_artifact_pair(left_artifact, right_artifact).is_none() {
+        Some("primary artifacts lack matching strong byte evidence")
+    } else {
+        None
+    }
+}
+
+/// Optional discovery may retain a valid primary source without linking a
+/// counterpart. Persistence failures and cancellation still fail the operation.
+pub(crate) async fn try_confirm_projects(
+    store: &crate::state::resources::ResourceStore,
+    left: &SourceProjectMetadata,
+    right: &SourceProjectMetadata,
+    left_artifact: &ResourceArtifact,
+    right_artifact: &ResourceArtifact,
+    cancel: &CancellationToken,
+) -> ResourceResult<Option<ResourceId>> {
+    if cancel.is_cancelled() {
+        return Err(ResourceError::Canceled);
+    }
+    if let Some(reason) = project_confirmation_rejection(
+        left,
+        right,
+        left_artifact,
+        right_artifact,
+    ) {
+        tracing::info!(
+            left = ?left.project,
+            right = ?right.project,
+            left_types = ?left.types,
+            right_types = ?right.types,
+            left_role = ?left_artifact.role,
+            right_role = ?right_artifact.role,
+            left_size = ?left_artifact.integrity.size,
+            right_size = ?right_artifact.integrity.size,
+            reason,
+            "Skipped optional resource project association"
+        );
+        return Ok(None);
+    }
+    store
+        .confirm_projects(left, right, left_artifact, right_artifact)
+        .await
+        .map(Some)
+}
+
 pub fn verify_artifact_pair(
     left: &ResourceArtifact,
     right: &ResourceArtifact,

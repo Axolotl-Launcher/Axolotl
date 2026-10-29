@@ -9,6 +9,10 @@
 //! - B-3: the holder is [`HolderState::StalledWhileRunning`], not paused by design;
 //! - B-4: every decision leaves an [`AuditRecord`] (tag id, condition,
 //!   timestamp), and a request initiated by the waiter itself is refused.
+//!   Who initiates is never a value a caller fills in: the scheduler grants
+//!   through [`ReclaimBypass::grant`], visible only inside the scheduler, and a
+//!   task asks through [`ReclaimBypass::request`] with its own tag. A tag
+//!   cannot be cloned, so asking with the waiter's tag is asking for itself.
 //!
 //! The audit trail is kept in [`ReclaimBypass::audit`] and logged under the
 //! `theseus::scheduler::bypass` target, which lands in the launcher log.
@@ -39,21 +43,11 @@ pub enum HolderState {
     StalledWhileRunning,
 }
 
-/// Who asks for the bypass.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Initiator {
-    /// The scheduler, from what it observed.
-    Scheduler,
-    /// A task, by its tag id.
-    Tag(u64),
-}
-
 pub struct BypassRequest<'a> {
     pub waiter: &'a Tag,
     pub resource: &'static str,
     pub waited: Duration,
     pub holder: HolderState,
-    pub initiator: Initiator,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
@@ -138,13 +132,35 @@ impl ReclaimBypass {
         Self::default()
     }
 
-    pub fn request(
+    /// A grant the scheduler decides from what it observed.
+    pub(in crate::scheduler) fn grant(
         &mut self,
         request: BypassRequest<'_>,
         now: Instant,
     ) -> Result<Lease, Denial> {
+        self.settle(request, false, now)
+    }
+
+    /// A grant a task asks for on the waiter's behalf, proving who it is
+    /// with its own tag. The waiter's own tag is refused (B-4).
+    pub fn request(
+        &mut self,
+        asker: &Tag,
+        request: BypassRequest<'_>,
+        now: Instant,
+    ) -> Result<Lease, Denial> {
+        let self_initiated = std::ptr::eq(asker, request.waiter);
+        self.settle(request, self_initiated, now)
+    }
+
+    fn settle(
+        &mut self,
+        request: BypassRequest<'_>,
+        self_initiated: bool,
+        now: Instant,
+    ) -> Result<Lease, Denial> {
         let tag = request.waiter.id();
-        let decision = self.decide(&request, tag, now);
+        let decision = self.decide(&request, self_initiated, tag, now);
         let condition = match decision {
             Ok(()) => "B-1..B-4 met",
             Err(denial) => denial.condition(),
@@ -169,10 +185,11 @@ impl ReclaimBypass {
     fn decide(
         &self,
         request: &BypassRequest<'_>,
+        self_initiated: bool,
         tag: u64,
         now: Instant,
     ) -> Result<(), Denial> {
-        if request.initiator == Initiator::Tag(tag) {
+        if self_initiated {
             return Err(Denial::SelfInitiated);
         }
         if request.waited <= BYPASS_MIN_WAIT {
@@ -235,7 +252,6 @@ mod tests {
             resource: RESOURCE,
             waited: BYPASS_MIN_WAIT + Duration::from_millis(1),
             holder: HolderState::StalledWhileRunning,
-            initiator: Initiator::Scheduler,
         }
     }
 
@@ -245,7 +261,7 @@ mod tests {
         let waiter = registry.mint(Level::L4, "reclaim");
         let mut bypass = ReclaimBypass::new();
         let now = Instant::now();
-        let lease = bypass.request(request(&waiter), now).unwrap();
+        let lease = bypass.grant(request(&waiter), now).unwrap();
         assert_eq!(lease.tag(), waiter.id());
         assert!(
             lease.valid_at(now + BYPASS_LEASE_TTL - Duration::from_millis(1))
@@ -259,7 +275,7 @@ mod tests {
         let waiter = registry.mint(Level::L4, "reclaim");
         let mut bypass = ReclaimBypass::new();
         let now = Instant::now();
-        let lease = bypass.request(request(&waiter), now).unwrap();
+        let lease = bypass.grant(request(&waiter), now).unwrap();
         assert!(lease.reaches(Level::L0, now));
         assert!(!crate::scheduler::bands::preempts(Level::L4, Level::L0));
         assert_eq!(lease.level(), Level::L4);
@@ -280,7 +296,7 @@ mod tests {
             ..request(&waiter)
         };
         assert_eq!(
-            bypass.request(short, Instant::now()),
+            bypass.grant(short, Instant::now()),
             Err(Denial::WaitTooShort)
         );
     }
@@ -292,20 +308,20 @@ mod tests {
         let other = registry.mint(Level::L4, "reclaim");
         let mut bypass = ReclaimBypass::new();
         let now = Instant::now();
-        bypass.request(request(&waiter), now).unwrap();
+        bypass.grant(request(&waiter), now).unwrap();
         assert_eq!(
-            bypass.request(request(&waiter), now + Duration::from_secs(59)),
+            bypass.grant(request(&waiter), now + Duration::from_secs(59)),
             Err(Denial::GrantedRecently)
         );
         assert!(
             bypass
-                .request(request(&other), now + Duration::from_secs(59))
+                .grant(request(&other), now + Duration::from_secs(59))
                 .is_ok(),
             "the limit is per tag"
         );
         assert!(
             bypass
-                .request(request(&waiter), now + BYPASS_GRANT_INTERVAL)
+                .grant(request(&waiter), now + BYPASS_GRANT_INTERVAL)
                 .is_ok()
         );
     }
@@ -321,7 +337,7 @@ mod tests {
                 ..request(&waiter)
             };
             assert_eq!(
-                bypass.request(blocked, Instant::now()),
+                bypass.grant(blocked, Instant::now()),
                 Err(Denial::HolderNotStalled(holder))
             );
         }
@@ -331,16 +347,15 @@ mod tests {
     fn b4_a_waiter_cannot_grant_itself_and_every_decision_is_audited() {
         let registry = TagRegistry::new(1);
         let waiter = registry.mint(Level::L4, "reclaim");
+        let asker = registry.mint(Level::L4, "reclaim");
         let mut bypass = ReclaimBypass::new();
-        let own = BypassRequest {
-            initiator: Initiator::Tag(waiter.id()),
-            ..request(&waiter)
-        };
         assert_eq!(
-            bypass.request(own, Instant::now()),
+            bypass.request(&waiter, request(&waiter), Instant::now()),
             Err(Denial::SelfInitiated)
         );
-        bypass.request(request(&waiter), Instant::now()).unwrap();
+        bypass
+            .request(&asker, request(&waiter), Instant::now())
+            .expect("another task may ask on the waiter's behalf");
         let audit: Vec<_> = bypass.audit().collect();
         assert_eq!(audit.len(), 2);
         assert!(!audit[0].granted);

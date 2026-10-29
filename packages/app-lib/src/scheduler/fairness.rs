@@ -3,7 +3,10 @@
 //! cannot keep another waiting. For L0–L2 the wait is bounded by
 //! `queue_max_wait_upper_bound = QUEUE_MAX_DEPTH × T_MAX_SERVICE` (8 s with
 //! the defaults, spec §11.6 N12). L3 has no such bound: it keeps queueing when
-//! the queue is full instead of being refused (spec §11.2 item 23).
+//! the queue is full instead of being refused (spec §11.2 item 23), and it
+//! never ages. An L3 unit's service is long and not preemptible, so letting
+//! aged L3 work overtake bounded units would void their bound; L3 is served
+//! in its own band, after the bounded bands that have work.
 
 use std::collections::VecDeque;
 use std::time::{Duration, Instant};
@@ -94,11 +97,12 @@ impl<T> FairQueue<T> {
     /// The next unit to serve: the most privileged effective band, then the
     /// instance after the one served last, then that instance's oldest unit.
     pub fn next(&mut self, now: Instant) -> Option<Unit<T>> {
-        let band_of = |unit: &Unit<T>| {
-            effective_band(
-                unit.level,
+        let band_of = |unit: &Unit<T>| match unit.level {
+            Level::L3 => Level::L3 as u32,
+            level => effective_band(
+                level,
                 now.saturating_duration_since(unit.enqueued),
-            )
+            ),
         };
         let band = self.units.iter().map(band_of).min()?;
         let mut instances: Vec<&str> = self
@@ -200,6 +204,27 @@ mod tests {
             assert!(now - start <= Duration::from_secs(60), "L2 was starved");
         };
         assert!(served_at - start <= super::super::aging::max_wait_bound());
+    }
+
+    /// Aged L3 work never overtakes a bounded unit, or the bound would not
+    /// hold: L3 service is long and cannot be preempted.
+    #[test]
+    fn aged_l3_work_does_not_overtake_bounded_units() {
+        let start = Instant::now();
+        let mut queue = FairQueue::new();
+        for i in 0..20 {
+            queue.push("install", Level::L3, start, i).unwrap();
+        }
+        let now = start + Duration::from_secs(600);
+        // An L4 unit that has aged to the top band, and a fresh L2 unit.
+        queue
+            .push("bulk", Level::L4, now - Duration::from_secs(1), 100)
+            .unwrap();
+        queue.push("view", Level::L2, now, 200).unwrap();
+        let first: Vec<_> =
+            (0..2).map(|_| queue.next(now).unwrap().item).collect();
+        assert!(first.contains(&100) && first.contains(&200), "{first:?}");
+        assert!(queue.next(now).is_some_and(|unit| unit.level == Level::L3));
     }
 
     /// The other reading of the same guarantee: the most privileged band is

@@ -54,6 +54,11 @@ const CHANNELS = ['release', 'beta']
 const REVERTIBLE_SCHEMA = {
     20261029160000: { tables: ['scheduler_restart_budget', 'scheduler_tags'] },
     20261029140000: { columns: [{ table: 'install_jobs', column: 'level' }] },
+    // Derived records moved to derived.db: crash_analysis_mod_snapshots,
+    // discovered_javas, google_translate_ip_cache and translation_cache are
+    // dropped, so the record is all a downgrade removes. telemetry_outbox stays
+    // in app.db.
+    20261029120000: {},
     20261028110000: { tables: ['content_refresh_packs'] },
     20261028120000: { tables: ['content_refresh_scan_failures'] },
     20261028100000: { tables: ['content_refresh_presentations'] },

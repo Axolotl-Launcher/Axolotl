@@ -325,6 +325,9 @@ pub(super) async fn install_manual_download(
         )
         .await?;
         let state = State::get().await?;
+        // Held through the import and the record that completes it (the lock
+        // is reentrant), so no content change or deletion runs in between.
+        let _instance_lock = state.lock_instance_content(instance_id).await;
         let world_name = crate::state::instances::commands::import_world_save(
             &state,
             instance_id,

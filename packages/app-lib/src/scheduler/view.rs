@@ -98,7 +98,7 @@ pub fn snapshot(sources: &Sources<'_>) -> SchedulerView {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::scheduler::bypass::{BypassRequest, HolderState, Initiator};
+    use crate::scheduler::bypass::{BypassRequest, HolderState};
     use std::time::{Duration, Instant};
 
     #[test]
@@ -110,13 +110,12 @@ mod tests {
         let mut bypass = ReclaimBypass::new();
         let now = Instant::now();
         for waited in [Duration::from_millis(10), Duration::from_secs(1)] {
-            let _ = bypass.request(
+            let _ = bypass.grant(
                 BypassRequest {
                     waiter: &waiter,
                     resource: "theseus::state::State.install_db_semaphore",
                     waited,
                     holder: HolderState::StalledWhileRunning,
-                    initiator: Initiator::Scheduler,
                 },
                 now,
             );

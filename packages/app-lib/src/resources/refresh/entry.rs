@@ -15,6 +15,7 @@ pub(super) struct EntryWork {
     pub check_due: bool,
     pub presentation_due: bool,
     pub origin: Option<SourceId>,
+    pub mode: RefreshMode,
 }
 
 pub(super) fn work<'a>(
@@ -229,6 +230,7 @@ pub(super) fn work<'a>(
                     .origins
                     .get(&entry.id)
                     .and_then(|origin| SourceId::new(origin.as_str()).ok()),
+                mode,
             })
         })
         .collect()
@@ -298,7 +300,11 @@ pub(super) async fn run(
     // unrecognized, so without a wait it is re-fingerprinted on every refresh
     // pass; a failed identify was observed to repeat for minutes on end.
     if work.entry.artifact.is_none() {
-        if recognition_is_due(&work) {
+        if recognition_is_due(
+            work.mode,
+            work.previous.as_ref(),
+            chrono::Utc::now().timestamp(),
+        ) {
             let recognition =
                 recognize(state, &service, &root, &mut work, policy, cancel)
                     .await;
@@ -500,8 +506,19 @@ const RECOGNITION_RETRY_SECS: i64 = 5 * 60;
 /// repeats that work on every refresh; one instance was observed re-running the
 /// whole batch dozens of times in a row. Waiting keeps that bounded while still
 /// picking up a file that appears later.
-fn recognition_is_due(work: &EntryWork) -> bool {
-    let Some(previous) = work.previous.as_ref() else {
+///
+/// A forced refresh is an explicit request for a fresh answer, so the wait does
+/// not apply to it: the user pressed the button now and would otherwise see
+/// nothing happen for up to five minutes.
+fn recognition_is_due(
+    mode: RefreshMode,
+    previous: Option<&RefreshCheckRecord>,
+    now: i64,
+) -> bool {
+    if mode == RefreshMode::ForceRemote {
+        return true;
+    }
+    let Some(previous) = previous else {
         return true;
     };
     // Any other outcome means the file changed or was never tried, so the entry
@@ -509,8 +526,7 @@ fn recognition_is_due(work: &EntryWork) -> bool {
     if previous.attempt != CheckAttempt::Unrecognized {
         return true;
     }
-    chrono::Utc::now().timestamp() - previous.attempted_at
-        >= RECOGNITION_RETRY_SECS
+    now.saturating_sub(previous.attempted_at) >= RECOGNITION_RETRY_SECS
 }
 
 pub(super) async fn bytes_still_current(
@@ -810,5 +826,32 @@ mod tests {
         ));
         assert!(due(Some(&check), 200, RefreshMode::ForceRemote));
         assert!(due(Some(&check), 200, RefreshMode::RetryFailed));
+    }
+
+    #[test]
+    fn forced_refresh_recognizes_inside_the_retry_window() {
+        let check: RefreshCheckRecord = serde_json::from_value(serde_json::json!({
+            "file_id": "file", "context": { "location_key": "location", "content_root": "root", "sha1": "a".repeat(40), "size": 1, "current_release": null,
+                "target": { "gameVersions": ["1.21"], "loaders": ["fabric"], "channels": [] }, "preferred_source": "modrinth" },
+            "last_success": null, "attempted_at": 100, "attempt": "unrecognized", "error": null
+        }))
+        .unwrap();
+
+        assert!(!recognition_is_due(
+            RefreshMode::Normal,
+            Some(&check),
+            100 + RECOGNITION_RETRY_SECS - 1
+        ));
+        assert!(recognition_is_due(
+            RefreshMode::Normal,
+            Some(&check),
+            100 + RECOGNITION_RETRY_SECS
+        ));
+        // The button the user just pressed must not be swallowed by that wait.
+        assert!(recognition_is_due(
+            RefreshMode::ForceRemote,
+            Some(&check),
+            100
+        ));
     }
 }

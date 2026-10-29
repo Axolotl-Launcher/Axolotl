@@ -2026,8 +2026,8 @@ pub(crate) async fn install_zipped_mrpack_files_with_reporter(
                             // attribution (#984).
                             if let Err(error) = &extract_result {
                                 tracing::warn!(
-                                    entry = %spec.entry_name,
-                                    target = %spec.target_path.display(),
+                                    entry = ?spec.entry_name,
+                                    target = ?spec.target_path,
                                     error = %error,
                                     chain = ?error,
                                     "Extracting a modpack override failed"

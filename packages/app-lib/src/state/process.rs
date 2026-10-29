@@ -1518,6 +1518,22 @@ async fn record_playtime(instance_id: &str, tick: PlaytimeTick) {
     }
 }
 
+/// A log ring buffer filled to its byte capacity, for the swap-out gain
+/// measurement (`scheduler::budget`).
+#[cfg(test)]
+pub(crate) fn filled_log_ring_buffer() -> Box<dyn std::any::Any + Send> {
+    let mut buffer = LogRingBuffer::new();
+    let line = "x".repeat(MAX_LIVE_LOG_LINE_BYTES);
+    while buffer.byte_len + line.len() <= LOG_BUFFER_BYTE_CAPACITY {
+        buffer.push(format!("{}{line}", buffer.sequence));
+    }
+    Box::new(buffer)
+}
+
+#[cfg(test)]
+pub(crate) const LOG_RING_BUFFER_BYTE_CAPACITY: usize =
+    LOG_BUFFER_BYTE_CAPACITY;
+
 #[cfg(test)]
 mod post_upgrade_tests {
     use super::*;

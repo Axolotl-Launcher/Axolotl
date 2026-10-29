@@ -210,6 +210,13 @@ pub async fn low_y_swamp_hut_scan<R: tauri::Runtime>(
 
     // A scan runs for minutes; blocking the runtime thread for that long would
     // stall every other command in the launcher.
+    // Windows attaches a console window to console programs; a launcher must not
+    // flash one at the user, so every helper here is spawned without it.
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        command.as_std_mut().creation_flags(0x0800_0000);
+    }
     let output = command.output().await.map_err(|error| {
         format!("cannot run {}: {error}", program.display())
     })?;
@@ -259,7 +266,14 @@ fn find_java() -> Option<PathBuf> {
 
 /// Whether `java -version` reports [`JAVA_MAJOR`] or newer.
 fn java_is_new_enough(java: &Path) -> bool {
-    let output = match Command::new(java).arg("-version").output() {
+    let mut probe = Command::new(java);
+    probe.arg("-version");
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        probe.creation_flags(0x0800_0000);
+    }
+    let output = match probe.output() {
         Ok(output) => output,
         Err(_) => return false,
     };
@@ -405,7 +419,8 @@ pub async fn trial_chamber_find<R: tauri::Runtime>(
     }
 
     let started = Instant::now();
-    let output = tokio::process::Command::new(&java)
+    let mut java_command = tokio::process::Command::new(&java);
+    java_command
         .arg("-cp")
         .arg(&classpath)
         .arg("cn.minecraftfinder.runtime.Main")
@@ -416,7 +431,13 @@ pub async fn trial_chamber_find<R: tauri::Runtime>(
         .arg("--scan-threads")
         .arg(threads.clamp(1, 64).to_string())
         .arg("--no-progress")
-        .current_dir(&program)
+        .current_dir(&program);
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        java_command.as_std_mut().creation_flags(0x0800_0000);
+    }
+    let output = java_command
         .output()
         .await
         .map_err(|error| format!("cannot run the search program: {error}"))?;

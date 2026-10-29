@@ -330,7 +330,7 @@ pub(crate) async fn install_local_manifest_files(
 ) -> crate::Result<CurseForgeInstallResult> {
     let reporter = &reporter.clone().with_pipeline_cancellation();
     let state = State::get().await?;
-    let content_set = crate::state::instances::adapters::sqlite::content_rows::get_applied_content_set(
+    let content_set = crate::state::instances::adapters::sqlite::content_sets::get_applied_content_set(
         instance_id,
         &state.pool,
     )
@@ -340,7 +340,7 @@ pub(crate) async fn install_local_manifest_files(
             "Instance has no applied content set".to_string(),
         )
     })?;
-    let installed_releases = crate::state::instances::adapters::sqlite::content_rows::get_pack_members(
+    let installed_releases = crate::state::instances::adapters::sqlite::pack_members::get_pack_members(
         &content_set.id,
         &state.pool,
     )
@@ -378,7 +378,7 @@ pub(crate) async fn install_local_manifest_files(
         .collect::<Vec<_>>();
     let file_meta = get_modpack_files(file_ids).await?;
     let existing_relative_paths = Arc::new(
-        crate::state::instances::adapters::sqlite::content_rows::get_instance_files(
+        crate::state::instances::adapters::sqlite::files::get_instance_files(
             instance_id,
             &state.pool,
         )

@@ -3,7 +3,7 @@ use crate::state::instances::{
     ContentSet, ContentSetStatus, ContentSourceKind, Instance,
     InstanceLaunchOverrides, InstanceLink, LoaderComponent,
     adapters::sqlite::{
-        config_sync_rows, content_rows, instance_rows, loader_component_rows,
+        config_sync_rows, instance_rows, loader_component_rows,
     },
     config_sync,
 };
@@ -18,6 +18,8 @@ use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 use tracing::{info, trace};
 use uuid::Uuid;
+
+use crate::state::instances::adapters::sqlite::{content_sets, links};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct CreateInstance {
@@ -136,21 +138,19 @@ pub(crate) async fn create_instance(
 
         let mut tx = state.pool.begin().await?;
         instance_rows::insert_instance(&instance, &mut tx).await?;
-        sqlx::query(
-            "INSERT INTO instance_sync_preferences (instance_id, feature, enabled) SELECT ?, feature, new_instance_default FROM sync_feature_settings",
+        instance_rows::insert_default_sync_preferences_in_transaction(
+            &instance_id,
+            &mut tx,
         )
-        .bind(&instance_id)
-        .execute(&mut *tx)
         .await?;
-        content_rows::insert_content_set(&content_set, &mut tx).await?;
+        content_sets::insert_content_set(&content_set, &mut tx).await?;
         loader_component_rows::replace_loader_components(
             &instance_id,
             &loader_components,
             &mut tx,
         )
         .await?;
-        instance_rows::upsert_instance_link(&instance_id, &input.link, &mut tx)
-            .await?;
+        links::upsert_instance_link(&instance_id, &input.link, &mut tx).await?;
         instance_rows::replace_instance_groups(&instance_id, &[], &mut tx)
             .await?;
         instance_rows::upsert_instance_launch_overrides(
@@ -164,10 +164,11 @@ pub(crate) async fn create_instance(
 
         config_sync::mark_dirty(&instance_id);
 
-        let content_root = crate::state::instances::commands::instance_content_root(
-            &state.directories,
-            &instance,
-        )?;
+        let content_root =
+            crate::state::instances::commands::instance_content_root(
+                &state.directories,
+                &instance,
+            )?;
         crate::state::instances::watcher::watch_instance_folder(
             &instance.id,
             &instance.path,

@@ -11,12 +11,15 @@ use super::model::{
 use super::store;
 use crate::event::InstancePayloadType;
 use crate::event::emit::emit_instance;
-use crate::state::instances::adapters::sqlite::content_rows;
 use crate::state::{ContentOwnershipKind, State};
 use path_util::SafeRelativeUtf8UnixPathBuf;
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use uuid::Uuid;
+
+use crate::state::instances::adapters::sqlite::{
+    content_entries, files, pack_members,
+};
 
 pub async fn recover_interrupted_jobs(state: &State) -> crate::Result<()> {
     crate::state::instances::commands::recover_legacy_rollbacks(state).await?;
@@ -369,7 +372,8 @@ async fn prepare_existing_content_rollback_with_scope(
     let _instance_lock = state.lock_instance_content(&instance_id).await;
 
     let all_entries =
-        content_rows::get_content_entries(&content_set_id, &state.pool).await?;
+        content_entries::get_content_entries(&content_set_id, &state.pool)
+            .await?;
     let selected_entries = all_entries
         .into_iter()
         .filter(|entry| {
@@ -378,7 +382,7 @@ async fn prepare_existing_content_rollback_with_scope(
         })
         .collect::<Vec<_>>();
     let instance_files =
-        content_rows::get_instance_files(&instance_id, &state.pool).await?;
+        files::get_instance_files(&instance_id, &state.pool).await?;
     let files_by_id = instance_files
         .iter()
         .map(|file| (file.id.clone(), file.clone()))
@@ -399,7 +403,7 @@ async fn prepare_existing_content_rollback_with_scope(
     let mut entry_snapshots = Vec::with_capacity(selected_entries.len());
     for entry in &selected_entries {
         let provider_refs =
-            content_rows::get_content_provider_refs_with_origin(
+            content_entries::get_content_provider_refs_with_origin(
                 &entry.id,
                 &state.pool,
             )
@@ -411,7 +415,7 @@ async fn prepare_existing_content_rollback_with_scope(
             })
             .collect();
         let update_check =
-            content_rows::get_content_update_check(&entry.id, &state.pool)
+            content_entries::get_content_update_check(&entry.id, &state.pool)
                 .await?;
         entry_snapshots.push(InstallRollbackContentEntry {
             entry: entry.clone(),
@@ -482,12 +486,12 @@ async fn prepare_existing_content_rollback_with_scope(
         scope,
         files: file_snapshots,
         entries: entry_snapshots,
-        dependency_edges: content_rows::get_content_dependency_edges(
+        dependency_edges: content_entries::get_content_dependency_edges(
             &content_set_id,
             &state.pool,
         )
         .await?,
-        pack_members: content_rows::get_pack_members(
+        pack_members: pack_members::get_pack_members(
             &content_set_id,
             &state.pool,
         )
@@ -631,7 +635,7 @@ async fn user_owned_paths(
         .iter()
         .map(|file| (file.id.as_str(), file.relative_path.clone()))
         .collect::<HashMap<_, _>>();
-    Ok(content_rows::get_content_entries(content_set_id, pool)
+    Ok(content_entries::get_content_entries(content_set_id, pool)
         .await?
         .into_iter()
         .filter(|entry| !managed_ids.contains(entry.id.as_str()))
@@ -881,16 +885,14 @@ async fn clean_replacement_files(
 ) -> crate::Result<()> {
     let rollback = job_state.rollback.as_ref().unwrap();
     let snapshot = rollback.content.as_ref().unwrap();
-    let current_entries = content_rows::get_content_entries(
+    let current_entries = content_entries::get_content_entries(
         &rollback.instance.applied_content_set.id,
         &state.pool,
     )
     .await?;
-    let current_files = content_rows::get_instance_files(
-        &rollback.instance.instance.id,
-        &state.pool,
-    )
-    .await?;
+    let current_files =
+        files::get_instance_files(&rollback.instance.instance.id, &state.pool)
+            .await?;
     let paths_by_id = current_files
         .iter()
         .map(|file| (file.id.as_str(), file.relative_path.as_str()))
@@ -955,7 +957,8 @@ async fn restore_snapshotted_db_state(
     let content_set_id = &rollback.instance.applied_content_set.id;
     let instance_id = &rollback.instance.instance.id;
     let current_entries =
-        content_rows::get_content_entries(content_set_id, &state.pool).await?;
+        content_entries::get_content_entries(content_set_id, &state.pool)
+            .await?;
     let current_file_ids = current_entries
         .iter()
         .filter(|entry| {
@@ -1008,16 +1011,16 @@ async fn restore_snapshotted_db_state(
         .iter()
         .filter_map(|file| file.instance_file.as_ref())
     {
-        content_rows::upsert_instance_file(file, &mut tx).await?;
+        files::upsert_instance_file(file, &mut tx).await?;
     }
     for entry in &snapshot.entries {
-        content_rows::restore_content_entry_in_transaction(
+        content_entries::restore_content_entry_in_transaction(
             &entry.entry,
             &mut tx,
         )
         .await?;
         for provider in &entry.provider_refs {
-            content_rows::upsert_content_provider_ref_in_transaction(
+            content_entries::upsert_content_provider_ref_in_transaction(
                 &entry.entry.id,
                 &provider.provider_ref,
                 provider.origin,
@@ -1026,20 +1029,20 @@ async fn restore_snapshotted_db_state(
             .await?;
         }
         if let Some(check) = &entry.update_check {
-            content_rows::restore_content_update_check_in_transaction(
+            content_entries::restore_content_update_check_in_transaction(
                 check, &mut tx,
             )
             .await?;
         }
     }
     for edge in &snapshot.dependency_edges {
-        content_rows::upsert_content_dependency_edge_in_transaction(
+        content_entries::upsert_content_dependency_edge_in_transaction(
             edge, &mut tx,
         )
         .await?;
     }
     for member in &snapshot.pack_members {
-        content_rows::upsert_pack_member_in_transaction(member, &mut tx)
+        pack_members::upsert_pack_member_in_transaction(member, &mut tx)
             .await?;
     }
     tx.commit().await?;
@@ -1063,7 +1066,7 @@ async fn verify_restored_snapshot(
         verify_file(&path, file).await?;
     }
     let rollback = job_state.rollback.as_ref().unwrap();
-    let entries = content_rows::get_content_entries(
+    let entries = content_entries::get_content_entries(
         &rollback.instance.applied_content_set.id,
         &state.pool,
     )
@@ -1091,6 +1094,9 @@ mod tests {
     use super::*;
     use crate::api::pack::install_from::CreatePackLocation;
     use crate::install::model::{InstallRollbackState, InstallTarget};
+    use crate::state::instances::adapters::sqlite::{
+        content_entries, files, pack_members,
+    };
     use crate::state::{
         AppliedContentSetPatch, ContentProviderRef, ContentSourceKind,
         EditInstance, InstanceInstallStage, InstanceLink, ModLoader,
@@ -1209,13 +1215,13 @@ mod tests {
             .await
             .unwrap()
             .unwrap();
-        let original_entries = content_rows::get_content_entries(
+        let original_entries = content_entries::get_content_entries(
             &original.applied_content_set.id,
             &state.pool,
         )
         .await
         .unwrap();
-        let original_members = content_rows::get_pack_members(
+        let original_members = pack_members::get_pack_members(
             &original.applied_content_set.id,
             &state.pool,
         )
@@ -1279,7 +1285,7 @@ mod tests {
         assert!(!instance_base.join("mods/old-a.jar").exists());
         assert!(!instance_base.join("mods/old-b.jar").exists());
         assert!(instance_base.join("B10_KEEP_ME.txt").exists());
-        let entries_after_remove = content_rows::get_content_entries(
+        let entries_after_remove = content_entries::get_content_entries(
             &original.applied_content_set.id,
             &state.pool,
         )
@@ -1407,7 +1413,7 @@ mod tests {
             restored.applied_content_set.game_version,
             original.applied_content_set.game_version
         );
-        let restored_entries = content_rows::get_content_entries(
+        let restored_entries = content_entries::get_content_entries(
             &original.applied_content_set.id,
             &state.pool,
         )
@@ -1425,7 +1431,7 @@ mod tests {
             entry.source_kind == ContentSourceKind::ImportedModpack
         }));
         for entry in restored_pack_entries {
-            let refs = content_rows::get_content_provider_refs_with_origin(
+            let refs = content_entries::get_content_provider_refs_with_origin(
                 &entry.id,
                 &state.pool,
             )
@@ -1435,7 +1441,7 @@ mod tests {
             assert!(refs[0].1);
         }
         assert_eq!(
-            content_rows::get_pack_members(
+            pack_members::get_pack_members(
                 &original.applied_content_set.id,
                 &state.pool,
             )

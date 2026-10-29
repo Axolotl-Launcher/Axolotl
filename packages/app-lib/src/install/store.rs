@@ -121,8 +121,38 @@ pub async fn get(
 ) -> crate::Result<Option<InstallJobRecord>> {
     let key = id.to_string();
     let row = InstallJobs::get(&app_state.data, &key).await?;
-
     row.map(|row| row_to_record(&key, row)).transpose()
+}
+
+/// Whether the instance still has a job that occupies it, read inside the
+/// caller's transaction so the answer cannot go stale before its write lands.
+pub(crate) async fn has_unfinished_job_in_transaction(
+    instance_id: &str,
+    tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>,
+) -> crate::Result<bool> {
+    let statuses = InstallJobStatus::unfinished_sql();
+    let busy: i64 = sqlx::query_scalar(&format!(
+        "SELECT EXISTS(SELECT 1 FROM install_jobs WHERE instance_id = ? AND status IN ({statuses}))"
+    ))
+    .bind(instance_id)
+    .fetch_one(&mut **tx)
+    .await?;
+
+    Ok(busy != 0)
+}
+
+/// Whether any job still occupies an instance, or still holds a rollback.
+pub(crate) async fn has_any_unfinished_job(
+    pool: &sqlx::SqlitePool,
+) -> crate::Result<bool> {
+    let statuses = InstallJobStatus::unfinished_sql();
+    let busy: i64 = sqlx::query_scalar(&format!(
+        "SELECT COUNT(*) FROM install_jobs WHERE status IN ({statuses}) OR json_extract(state, '$.rollback') IS NOT NULL"
+    ))
+    .fetch_one(pool)
+    .await?;
+
+    Ok(busy > 0)
 }
 
 pub async fn list(
@@ -134,14 +164,10 @@ pub async fn list(
     } else {
         let mut unit = atom(&app_state.data).await?;
         let mut rows = Vec::new();
-        for status in [
-            InstallJobStatus::Queued,
-            InstallJobStatus::Running,
-            InstallJobStatus::Failed,
-            InstallJobStatus::Interrupted,
-            InstallJobStatus::Canceling,
-            InstallJobStatus::WaitingForUser,
-        ] {
+        for status in InstallJobStatus::ALL
+            .into_iter()
+            .filter(|status| !status.is_resolved())
+        {
             let scope = InstallJobScope::Status(status.as_str().to_string());
             rows.extend(InstallJobs::atom_get_scoped(&mut unit, &scope).await?);
         }

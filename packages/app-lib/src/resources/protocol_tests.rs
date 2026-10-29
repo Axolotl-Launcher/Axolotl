@@ -1,6 +1,10 @@
 use super::*;
 use crate::state::{CacheBehaviour, CacheValueType};
 
+use crate::state::instances::adapters::sqlite::{
+    content_entries, pack_members,
+};
+
 fn project_protocol(id: &str) -> Value {
     json!({
         "id": id, "slug": id, "project_type": "mod", "team": "team0000", "organization": null,
@@ -629,7 +633,8 @@ async fn pack_artifact_snapshot_requires_exact_size_and_hash() {
 async fn imported_pack_member_persists_exact_artifact_and_identity_after_cache_clear()
  {
     use crate::state::instances::{
-        ContentOwnershipKind, adapters::sqlite::content_rows,
+        ContentOwnershipKind,
+        adapters::sqlite::{content_entries, pack_members},
         commands::ProjectFileRecord,
     };
     use crate::state::{
@@ -708,7 +713,7 @@ async fn imported_pack_member_persists_exact_artifact_and_identity_after_cache_c
     .await
     .unwrap();
     service.cache().clear().await.unwrap();
-    let entries = content_rows::get_content_entries("set", &pool)
+    let entries = content_entries::get_content_entries("set", &pool)
         .await
         .unwrap();
     assert_eq!(entries.len(), 1);
@@ -725,7 +730,7 @@ async fn imported_pack_member_persists_exact_artifact_and_identity_after_cache_c
     );
     let links: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM resource_entry_links WHERE entry_id = ? AND source = 'modrinth' AND project_id = 'YL57xq9U'").bind(&entries[0].id).fetch_one(&pool).await.unwrap();
     assert_eq!(links, 1);
-    let members = content_rows::get_pack_members("set", &pool).await.unwrap();
+    let members = pack_members::get_pack_members("set", &pool).await.unwrap();
     assert_eq!(members.len(), 1);
     assert_eq!(
         members[0].content_entry_id.as_deref(),

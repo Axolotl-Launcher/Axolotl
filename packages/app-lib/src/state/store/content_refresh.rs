@@ -9,7 +9,8 @@ use super::content_refresh_presentations::{
 };
 use super::{Collection as _, Handle, atom};
 use crate::resources::*;
-use crate::state::instances::adapters::sqlite::content_rows;
+
+use crate::state::instances::adapters::sqlite::content_sets;
 
 #[derive(Clone)]
 pub(crate) struct RefreshWrite {
@@ -46,7 +47,7 @@ pub(crate) async fn set_results(
         Err(error) => return Err(error),
     };
     let Some(content_set) =
-        content_rows::get_applied_content_set(instance_id, unit.connection())
+        content_sets::get_applied_content_set(instance_id, unit.connection())
             .await?
     else {
         return Ok(vec![]);
@@ -128,8 +129,13 @@ pub(crate) async fn set_results(
                 } else {
                     InstallScope::Instance
                 };
-            sqlx::query("INSERT INTO resource_installed_artifacts(entry_id, artifact, scope) VALUES (?, ?, ?) ON CONFLICT(entry_id) DO UPDATE SET artifact = excluded.artifact, scope = excluded.scope")
-                .bind(&write.entry_id).bind(serde_json::to_string(artifact)?).bind(serde_json::to_string(&scope)?).execute(unit.connection()).await?;
+            installed::set_installed_artifact(
+                &write.entry_id,
+                artifact,
+                &scope,
+                unit.connection(),
+            )
+            .await?;
         }
         if let Some(check) = &write.check {
             ContentRefreshChecks::atom_set(

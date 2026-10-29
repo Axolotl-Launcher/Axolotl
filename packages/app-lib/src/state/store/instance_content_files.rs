@@ -17,7 +17,7 @@ pub(crate) async fn get_content_set(
     handle: &Handle,
     instance_id: &str,
 ) -> crate::Result<Option<ContentSet>> {
-    sqlite::content_rows::get_applied_content_set(instance_id, handle.pool())
+    sqlite::content_sets::get_applied_content_set(instance_id, handle.pool())
         .await
 }
 
@@ -25,23 +25,21 @@ pub(crate) async fn get_files(
     handle: &Handle,
     instance_id: &str,
 ) -> crate::Result<Vec<InstanceFile>> {
-    sqlite::content_rows::get_instance_files(instance_id, handle.pool()).await
+    sqlite::files::get_instance_files(instance_id, handle.pool()).await
 }
 
 pub(crate) async fn get_entry_file_ids(
     handle: &Handle,
     content_set_id: &str,
 ) -> crate::Result<HashSet<String>> {
-    Ok(
-        sqlite::content_rows::get_content_entries(
-            content_set_id,
-            handle.pool(),
-        )
-        .await?
-        .into_iter()
-        .filter_map(|entry| entry.file_id)
-        .collect(),
+    Ok(sqlite::content_entries::get_content_entries(
+        content_set_id,
+        handle.pool(),
     )
+    .await?
+    .into_iter()
+    .filter_map(|entry| entry.file_id)
+    .collect())
 }
 
 pub(crate) struct ScannedFiles<'a> {
@@ -79,9 +77,9 @@ where
         fingerprints,
     } = scan;
     let mut tx = handle.pool().begin_with("BEGIN IMMEDIATE").await?;
-    sqlite::content_rows::ensure_instance_exists(instance_id, &mut tx).await?;
+    sqlite::write_guards::ensure_instance_exists(instance_id, &mut tx).await?;
     if complete {
-        sqlite::content_rows::mark_instance_files_missing(instance_id, &mut tx)
+        sqlite::files::mark_instance_files_missing(instance_id, &mut tx)
             .await?;
     }
     let mut invalidated_provider_identity =
@@ -110,7 +108,7 @@ where
             invalidated_provider_identity |= removed.rows_affected() > 0;
         }
         for file_id in externally_changed_file_ids {
-            invalidated_provider_identity |= sqlite::content_rows::invalidate_exact_provider_refs_for_file_in_transaction(
+            invalidated_provider_identity |= sqlite::content_entries::invalidate_exact_provider_refs_for_file_in_transaction(
                 &content_set.id,
                 file_id,
                 &mut tx,
@@ -129,7 +127,7 @@ where
         let synced = if let Some(tracked_file_id) =
             merges.get(&file.relative_path)
         {
-            sqlite::content_rows::adopt_untracked_file_in_transaction(
+            sqlite::files::adopt_untracked_file_in_transaction(
                 instance_id,
                 &file.relative_path,
                 tracked_file_id,
@@ -140,7 +138,7 @@ where
         } else if let Some(old_relative_path) =
             reclaims.get(&file.relative_path)
         {
-            match sqlite::content_rows::move_instance_file_in_transaction(
+            match sqlite::files::move_instance_file_in_transaction(
                 instance_id,
                 old_relative_path,
                 &file.relative_path,
@@ -171,8 +169,8 @@ where
                 continue;
             }
             let Some(kind) = crate::state::instances::adapters::filesystem::project_type_from_relative_path(&file.relative_path) else { continue; };
-            sqlite::content_rows::upsert_content_entry_from_parts_in_transaction(
-                sqlite::content_rows::UpsertContentEntry {
+            sqlite::content_entries::upsert_content_entry_from_parts_in_transaction(
+                sqlite::content_entries::UpsertContentEntry {
                     instance_id, content_set_id: &content_set.id, file_id: Some(&file.id), project_type: kind,
                     source_kind: crate::state::ContentSourceKind::Local,
                     ownership_kind: crate::state::ContentOwnershipKind::UserAdded, auto_dependency: false,
@@ -186,7 +184,7 @@ where
     if invalidated_provider_identity
         && let Some(content_set) = content_set.as_ref()
     {
-        sqlite::content_rows::bump_content_set_revision_in_transaction(
+        sqlite::content_sets::bump_content_set_revision_in_transaction(
             &content_set.id,
             &mut tx,
         )
@@ -235,8 +233,8 @@ async fn upsert_scanned_file(
     file: &InstanceFile,
     tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>,
 ) -> crate::Result<InstanceFile> {
-    sqlite::content_rows::upsert_instance_file_from_parts_in_transaction(
-        sqlite::content_rows::UpsertInstanceFile {
+    sqlite::files::upsert_instance_file_from_parts_in_transaction(
+        sqlite::files::UpsertInstanceFile {
             instance_id,
             relative_path: &file.relative_path,
             file_name: &file.file_name,
@@ -261,7 +259,7 @@ pub(crate) async fn set_discovered_entries(
     };
     let mut tx = handle.pool().begin_with("BEGIN IMMEDIATE").await?;
     let content_set =
-        sqlite::content_rows::get_applied_content_set(instance_id, &mut *tx)
+        sqlite::content_sets::get_applied_content_set(instance_id, &mut *tx)
             .await?
             .ok_or_else(|| {
                 crate::ErrorKind::InputError(
@@ -283,8 +281,8 @@ pub(crate) async fn set_discovered_entries(
         ) {
             continue;
         }
-        sqlite::content_rows::upsert_content_entry_from_parts_in_transaction(
-            sqlite::content_rows::UpsertContentEntry {
+        sqlite::content_entries::upsert_content_entry_from_parts_in_transaction(
+            sqlite::content_entries::UpsertContentEntry {
                 instance_id,
                 content_set_id: &content_set.id,
                 file_id: Some(&id),
@@ -301,13 +299,13 @@ pub(crate) async fn set_discovered_entries(
         .await?;
         changed = true;
     }
-    changed |= sqlite::content_rows::repair_pack_members_in_transaction(
+    changed |= sqlite::pack_members::repair_pack_members_in_transaction(
         &content_set.id,
         &mut tx,
     )
     .await?;
     if changed {
-        sqlite::content_rows::bump_content_set_revision_in_transaction(
+        sqlite::content_sets::bump_content_set_revision_in_transaction(
             &content_set.id,
             &mut tx,
         )

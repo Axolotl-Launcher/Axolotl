@@ -55,15 +55,7 @@ pub(super) async fn existing(
     };
     let identity = request_identity(request)?;
     for job in store::list(false, state).await? {
-        if Some(job.id) == ignore
-            || !matches!(
-                job.status,
-                InstallJobStatus::Queued
-                    | InstallJobStatus::Running
-                    | InstallJobStatus::WaitingForUser
-                    | InstallJobStatus::Canceling
-            )
-        {
+        if Some(job.id) == ignore || job.status.is_finished() {
             continue;
         }
         if job.instance_id.as_deref() != Some(&instance)

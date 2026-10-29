@@ -1,4 +1,6 @@
-# Axolotl Launcher
+// Served as a Nitro route so the repository link follows runtimeConfig.public.githubUrl
+// instead of duplicating the default that nuxt.config.ts owns.
+const LLMS_TXT = `# Axolotl Launcher
 
 > Axolotl Launcher 是一款免费、开源、无广告的 Minecraft Java 版启动器，支持 Windows、macOS 和 Linux。它将游戏内容的发现、安装、更新与实例管理放在同一个客户端中，方便新玩家开始游戏，也方便已有玩家继续使用熟悉的配置。
 
@@ -49,8 +51,15 @@ Axolotl Launcher 基于 Modrinth App 开发，以 GPL-3.0 发布，是独立的�
 
 文档核对日期：2026-10-16。具体功能以安装版本及发布通道为准；部分功能可能需要测试版。各已发布版本的变更请查阅官方更新日志。
 
-- [官方网站与下载 / Website and downloads](https://axlmc.org/)
-- [已发布版本的更新日志 / Published release notes](https://axlmc.org/changelog)
-- [源代码 / Source code](https://github.com/Mystic-Stars/Axolotl)
-- [隐私政策 / Privacy policy](https://axlmc.org/privacy)
-- [服务条款 / Terms](https://axlmc.org/terms)
+- [官方网站与下载 / Website and downloads]({{SITE_URL}}/)
+- [已发布版本的更新日志 / Published release notes]({{SITE_URL}}/changelog)
+- [源代码 / Source code]({{GITHUB_URL}})
+- [隐私政策 / Privacy policy]({{SITE_URL}}/privacy)
+- [服务条款 / Terms]({{SITE_URL}}/terms)
+`
+
+export default defineEventHandler((event) => {
+    setHeader(event, 'content-type', 'text/plain; charset=utf-8')
+    const { githubUrl, siteUrl } = useRuntimeConfig(event).public
+    return LLMS_TXT.replaceAll('{{SITE_URL}}', siteUrl).replace('{{GITHUB_URL}}', githubUrl)
+})

@@ -95,7 +95,7 @@ pub(crate) async fn import_pending_manual_download_from_path(
     source_path: &Path,
 ) -> crate::Result<Option<String>> {
     let state = State::get().await?;
-    let pending = crate::state::instances::adapters::sqlite::content_rows::get_pending_manual_downloads(
+    let pending = crate::state::instances::adapters::sqlite::pack_members::get_pending_manual_downloads(
         instance_id,
         &state.pool,
     )
@@ -275,7 +275,7 @@ pub(super) async fn install_manual_download(
         )
         .await?;
         let state = State::get().await?;
-        let content_set = crate::state::instances::adapters::sqlite::content_rows::get_applied_content_set(
+        let content_set = crate::state::instances::adapters::sqlite::content_sets::get_applied_content_set(
             instance_id,
             &state.pool,
         )
@@ -287,7 +287,7 @@ pub(super) async fn install_manual_download(
         })?;
         let _instance_lock = state.lock_instance_content(instance_id).await;
         let mut tx = state.pool.begin_with("BEGIN IMMEDIATE").await?;
-        crate::state::instances::adapters::sqlite::content_rows::complete_pending_manual_download(
+        crate::state::instances::adapters::sqlite::pack_members::complete_pending_manual_download(
             instance_id,
             &download.project_id.to_string(),
             &download.file_id.to_string(),
@@ -295,7 +295,7 @@ pub(super) async fn install_manual_download(
             &mut tx,
         )
         .await?;
-        crate::state::instances::adapters::sqlite::content_rows::bump_content_set_revision_in_transaction(
+        crate::state::instances::adapters::sqlite::content_sets::bump_content_set_revision_in_transaction(
             &content_set.id,
             &mut tx,
         )
@@ -439,7 +439,7 @@ pub(crate) async fn mark_pack_member_version_override(
 ) -> crate::Result<()> {
     let state = State::get().await?;
     let _instance_lock = state.lock_instance_content(instance_id).await;
-    let content_set = crate::state::instances::adapters::sqlite::content_rows::get_applied_content_set(
+    let content_set = crate::state::instances::adapters::sqlite::content_sets::get_applied_content_set(
         instance_id,
         &state.pool,
     )
@@ -466,7 +466,7 @@ pub(crate) async fn mark_pack_member_version_override(
     .execute(&mut *tx)
     .await?;
     if updated.rows_affected() > 0 {
-        crate::state::instances::adapters::sqlite::content_rows::bump_content_set_revision_in_transaction(
+        crate::state::instances::adapters::sqlite::content_sets::bump_content_set_revision_in_transaction(
             &content_set.id,
             &mut tx,
         )

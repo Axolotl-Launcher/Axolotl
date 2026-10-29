@@ -1,6 +1,6 @@
 use crate::event::InstancePayloadType;
 use crate::event::emit::emit_instance;
-use crate::state::instances::adapters::sqlite::{content_rows, instance_rows};
+use crate::state::instances::adapters::sqlite::instance_rows;
 use crate::state::instances::{
     ContentOwnershipKind, PackMemberMaterializationState,
     PackMemberOverrideKind,
@@ -8,6 +8,8 @@ use crate::state::instances::{
 use crate::state::{ContentProvider, ContentSourceKind, ProjectType, State};
 use crate::util::fetch;
 use std::path::Path;
+
+use crate::state::instances::adapters::sqlite::{content_sets, pack_members};
 
 #[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -345,7 +347,7 @@ pub async fn restore_pack_member_default(
     let _operation =
         crate::install::runner::interactive_content_guard(&state, instance_id)
             .await?;
-    let target = content_rows::get_content_mutation_target(
+    let target = pack_members::get_content_mutation_target(
         instance_id,
         member_id,
         &state.pool,
@@ -363,8 +365,8 @@ pub async fn restore_pack_member_default(
         .into());
     }
 
-    let member = content_rows::get_pack_members(
-        &content_rows::get_applied_content_set(instance_id, &state.pool)
+    let member = pack_members::get_pack_members(
+        &content_sets::get_applied_content_set(instance_id, &state.pool)
             .await?
             .ok_or_else(|| {
                 crate::ErrorKind::InputError(
@@ -437,7 +439,7 @@ pub async fn restore_pack_member_default(
         ),
         Some(ContentProvider::CurseForge) => {
             let content_set =
-                content_rows::get_applied_content_set(instance_id, &state.pool)
+                content_sets::get_applied_content_set(instance_id, &state.pool)
                     .await?
                     .ok_or_else(|| {
                         crate::ErrorKind::InputError(
@@ -537,7 +539,7 @@ pub async fn restore_pack_member_default(
     }
 
     let content_set =
-        content_rows::get_applied_content_set(instance_id, &state.pool)
+        content_sets::get_applied_content_set(instance_id, &state.pool)
             .await?
             .ok_or_else(|| {
                 crate::ErrorKind::InputError(
@@ -546,7 +548,7 @@ pub async fn restore_pack_member_default(
             })?;
     let _instance_lock = state.lock_instance_content(instance_id).await;
     let mut tx = state.pool.begin_with("BEGIN IMMEDIATE").await?;
-    content_rows::set_pack_member_override_in_transaction(
+    pack_members::set_pack_member_override_in_transaction(
         member_id,
         if pending_manual {
             PackMemberMaterializationState::PendingManual
@@ -557,7 +559,7 @@ pub async fn restore_pack_member_default(
         &mut tx,
     )
     .await?;
-    content_rows::bump_content_set_revision_in_transaction(
+    content_sets::bump_content_set_revision_in_transaction(
         &content_set.id,
         &mut tx,
     )
@@ -572,7 +574,7 @@ pub(crate) async fn emit_content_changed(
 ) -> crate::Result<()> {
     let state = State::get().await?;
     let content_set =
-        content_rows::get_applied_content_set(instance_id, &state.pool)
+        content_sets::get_applied_content_set(instance_id, &state.pool)
             .await?
             .ok_or_else(|| {
                 crate::ErrorKind::InputError(
@@ -591,9 +593,9 @@ pub(crate) async fn emit_content_changed(
 pub(crate) async fn content_mutation_target(
     instance_id: &str,
     content_id: &str,
-) -> crate::Result<content_rows::ContentMutationTarget> {
+) -> crate::Result<pack_members::ContentMutationTarget> {
     let state = State::get().await?;
-    content_rows::get_content_mutation_target(
+    pack_members::get_content_mutation_target(
         instance_id,
         content_id,
         &state.pool,

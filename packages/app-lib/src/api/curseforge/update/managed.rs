@@ -53,7 +53,7 @@ pub(crate) async fn update_managed_modpack_with_reporter(
             .into());
         }
     };
-    let members = crate::state::instances::adapters::sqlite::content_rows::get_pack_members(
+    let members = crate::state::instances::adapters::sqlite::pack_members::get_pack_members(
         &metadata.applied_content_set.id,
         &state.pool,
     )
@@ -140,7 +140,7 @@ pub(crate) async fn update_managed_modpack_with_reporter(
         });
     }
 
-    let entries = crate::state::instances::adapters::sqlite::content_rows::get_content_entries(
+    let entries = crate::state::instances::adapters::sqlite::content_entries::get_content_entries(
         &metadata.applied_content_set.id,
         &state.pool,
     )
@@ -148,14 +148,15 @@ pub(crate) async fn update_managed_modpack_with_reporter(
     .into_iter()
     .filter_map(|entry| entry.file_id.map(|file_id| (entry.id, file_id)))
     .collect::<HashMap<_, _>>();
-    let files = crate::state::instances::adapters::sqlite::content_rows::get_instance_files(
-        instance_id,
-        &state.pool,
-    )
-    .await?
-    .into_iter()
-    .map(|file| (file.id.clone(), file.relative_path))
-    .collect::<HashMap<_, _>>();
+    let files =
+        crate::state::instances::adapters::sqlite::files::get_instance_files(
+            instance_id,
+            &state.pool,
+        )
+        .await?
+        .into_iter()
+        .map(|file| (file.id.clone(), file.relative_path))
+        .collect::<HashMap<_, _>>();
     let backup = create_curseforge_update_backup(
         &metadata, &members, &entries, &files, &state,
     )
@@ -206,7 +207,7 @@ pub(crate) async fn update_managed_modpack_with_reporter(
     // committed content set so the reconciliation edit cannot overwrite a
     // newly selected loader version with the pre-update instance metadata.
     let updated_content_set =
-        crate::state::instances::adapters::sqlite::content_rows::get_applied_content_set(
+        crate::state::instances::adapters::sqlite::content_sets::get_applied_content_set(
             instance_id,
             &state.pool,
         )
@@ -405,7 +406,7 @@ pub(super) async fn rollback_curseforge_update(
         .await?;
     }
 
-    let current_members = crate::state::instances::adapters::sqlite::content_rows::get_pack_members(
+    let current_members = crate::state::instances::adapters::sqlite::pack_members::get_pack_members(
         &metadata.applied_content_set.id,
         &state.pool,
     )
@@ -438,13 +439,13 @@ pub(super) async fn rollback_curseforge_update(
         if current_entry_id.is_some() {
             restored_member.content_entry_id = current_entry_id;
         }
-        crate::state::instances::adapters::sqlite::content_rows::upsert_pack_member_in_transaction(
+        crate::state::instances::adapters::sqlite::pack_members::upsert_pack_member_in_transaction(
             &restored_member,
             &mut tx,
         )
         .await?;
     }
-    crate::state::instances::adapters::sqlite::content_rows::bump_content_set_revision_in_transaction(
+    crate::state::instances::adapters::sqlite::content_sets::bump_content_set_revision_in_transaction(
         &metadata.applied_content_set.id,
         &mut tx,
     )

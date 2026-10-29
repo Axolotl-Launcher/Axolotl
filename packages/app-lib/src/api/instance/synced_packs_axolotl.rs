@@ -403,8 +403,8 @@ async fn materialize(
     if !destination_matches {
         tokio::fs::write(&destination, &bytes).await?;
     }
-    let file = crate::state::instances::adapters::sqlite::content_rows::upsert_instance_file_from_parts(
-        crate::state::instances::adapters::sqlite::content_rows::UpsertInstanceFile {
+    let file = crate::state::instances::adapters::sqlite::files::upsert_instance_file_from_parts(
+        crate::state::instances::adapters::sqlite::files::UpsertInstanceFile {
             instance_id,
             relative_path: &relative_path,
             file_name: &row.file_name,
@@ -418,8 +418,8 @@ async fn materialize(
         &state.pool,
     )
     .await?;
-    let entry = crate::state::instances::adapters::sqlite::content_rows::upsert_content_entry_from_parts(
-        crate::state::instances::adapters::sqlite::content_rows::UpsertContentEntry {
+    let entry = crate::state::instances::adapters::sqlite::content_entries::upsert_content_entry_from_parts(
+        crate::state::instances::adapters::sqlite::content_entries::UpsertContentEntry {
             instance_id,
             content_set_id: &metadata.applied_content_set.id,
             file_id: Some(&file.id),

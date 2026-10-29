@@ -3,6 +3,10 @@ use crate::state::{DirectoryInfo, ModrinthProjectId, ModrinthVersionId};
 use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
 use std::sync::Arc;
 
+use crate::state::instances::adapters::sqlite::{
+    content_entries, files, pack_members,
+};
+
 #[tokio::test]
 async fn pack_overrides_keep_membership_across_reconciliation() {
     use crate::api::curseforge::{
@@ -12,7 +16,7 @@ async fn pack_overrides_keep_membership_across_reconciliation() {
 
     let (_temp, state, original, _, _) = fixture().await;
     let mut tx = state.pool.begin().await.unwrap();
-    crate::state::instances::adapters::sqlite::instance_rows::upsert_instance_link(
+    crate::state::instances::adapters::sqlite::links::upsert_instance_link(
         "instance",
         &crate::state::InstanceLink::CurseForgeModpack {
             project_id: "1".into(),
@@ -103,7 +107,7 @@ async fn content_operation_repairs_legacy_pack_entries_without_members() {
         entries[0].ownership,
         ResourceOwnership::PackManaged { .. }
     ));
-    let member = content_rows::get_pack_members("set", &state.pool)
+    let member = pack_members::get_pack_members("set", &state.pool)
         .await
         .unwrap()
         .remove(0);
@@ -141,8 +145,8 @@ async fn legacy_pack_path_collisions_keep_all_members_and_stable_revisions() {
         sqlx::query("UPDATE instance_content_entries SET ownership_kind = 'pack_managed' WHERE id = ?")
             .bind(original.entry_id.as_str()).execute(&state.pool).await.unwrap();
         let missing_path = original.relative_path.trim_end_matches(".disabled");
-        let file = content_rows::upsert_instance_file_from_parts(
-            content_rows::UpsertInstanceFile {
+        let file = files::upsert_instance_file_from_parts(
+            files::UpsertInstanceFile {
                 instance_id: "instance",
                 relative_path: missing_path,
                 file_name: "prefix-old.zip",
@@ -157,8 +161,8 @@ async fn legacy_pack_path_collisions_keep_all_members_and_stable_revisions() {
         )
         .await
         .unwrap();
-        let missing = content_rows::upsert_content_entry_from_parts(
-            content_rows::UpsertContentEntry {
+        let missing = content_entries::upsert_content_entry_from_parts(
+            content_entries::UpsertContentEntry {
                 instance_id: "instance",
                 content_set_id: "set",
                 file_id: Some(&file.id),
@@ -186,7 +190,7 @@ async fn legacy_pack_path_collisions_keep_all_members_and_stable_revisions() {
         super::installed::refresh_install_snapshot(&state, "instance", &cancel)
             .await
             .unwrap();
-        let members = content_rows::get_pack_members("set", &state.pool)
+        let members = pack_members::get_pack_members("set", &state.pool)
             .await
             .unwrap();
         assert_eq!(members.len(), 2);
@@ -233,7 +237,7 @@ async fn legacy_pack_path_collisions_keep_all_members_and_stable_revisions() {
                 ResourceOwnership::PackManaged { .. }
             )));
             let current: std::collections::HashMap<_, _> =
-                content_rows::get_pack_members("set", &state.pool)
+                pack_members::get_pack_members("set", &state.pool)
                     .await
                     .unwrap()
                     .into_iter()
@@ -1510,7 +1514,7 @@ fn artifact(
     }
 }
 
-async fn fixture() -> (
+pub(crate) async fn fixture() -> (
     tempfile::TempDir,
     std::sync::Arc<crate::State>,
     InstalledResource,
@@ -1543,8 +1547,8 @@ async fn fixture() -> (
     let old = artifact(SourceId::modrinth(), "root0000", "old", b"old bytes");
     let current_path = "resourcepacks/prefix-old.zip.disabled";
     std::fs::write(root.join(current_path), b"old bytes").unwrap();
-    let file = content_rows::upsert_instance_file_from_parts(
-        content_rows::UpsertInstanceFile {
+    let file = files::upsert_instance_file_from_parts(
+        files::UpsertInstanceFile {
             instance_id: "instance",
             relative_path: current_path,
             file_name: "prefix-old.zip.disabled",
@@ -1559,8 +1563,8 @@ async fn fixture() -> (
     )
     .await
     .unwrap();
-    let entry = content_rows::upsert_content_entry_from_parts(
-        content_rows::UpsertContentEntry {
+    let entry = content_entries::upsert_content_entry_from_parts(
+        content_entries::UpsertContentEntry {
             instance_id: "instance",
             content_set_id: "set",
             file_id: Some(&file.id),
@@ -1580,7 +1584,7 @@ async fn fixture() -> (
         project_id: ModrinthProjectId::new("root0000").unwrap(),
         version_id: Some(ModrinthVersionId::new("old").unwrap()),
     };
-    content_rows::upsert_content_provider_ref(
+    content_entries::upsert_content_provider_ref(
         &entry.id, &reference, true, &pool,
     )
     .await
@@ -1866,6 +1870,10 @@ async fn exact_cross_source_replace_and_rollback_preserve_entry_disabled_path_an
     let mut target =
         artifact(SourceId::curseforge(), "123", "456", b"new bytes");
     use sha2::Digest;
+
+    use crate::state::instances::adapters::sqlite::{
+        content_entries, files, pack_members,
+    };
     target.integrity.hashes = vec![ContentHash {
         algorithm: HashAlgorithm::Sha512,
         value: format!("{:x}", sha2::Sha512::digest(b"new bytes")),
@@ -2169,7 +2177,7 @@ async fn exact_cross_source_replace_and_rollback_preserve_entry_disabled_path_an
         std::fs::read(root.join(&original.relative_path)).unwrap(),
         b"old bytes"
     );
-    let entry = content_rows::get_content_entry_by_id(
+    let entry = content_entries::get_content_entry_by_id(
         original.entry_id.as_str(),
         &state.pool,
     )
@@ -2905,7 +2913,11 @@ async fn local_pack_without_unlink_history_stays_managed_without_a_warning() {
         },
     ] {
         let mut tx = state.pool.begin().await.unwrap();
-        crate::state::instances::adapters::sqlite::instance_rows::upsert_instance_link("instance", &link, &mut tx).await.unwrap();
+        crate::state::instances::adapters::sqlite::links::upsert_instance_link(
+            "instance", &link, &mut tx,
+        )
+        .await
+        .unwrap();
         tx.commit().await.unwrap();
         for _ in 0..2 {
             let snapshot =
@@ -3127,7 +3139,19 @@ async fn rollback_after_unlink_does_not_restore_pack_ownership_or_missing_member
         0
     );
     let mut tx = state.pool.begin().await.unwrap();
-    crate::state::instances::adapters::sqlite::instance_rows::upsert_instance_link("instance", &crate::state::InstanceLink::ImportedModpack { project_id: None, version_id: None, name: Some("Local".into()), version_number: None, filename: None }, &mut tx).await.unwrap();
+    crate::state::instances::adapters::sqlite::links::upsert_instance_link(
+        "instance",
+        &crate::state::InstanceLink::ImportedModpack {
+            project_id: None,
+            version_id: None,
+            name: Some("Local".into()),
+            version_number: None,
+            filename: None,
+        },
+        &mut tx,
+    )
+    .await
+    .unwrap();
     tx.commit().await.unwrap();
     assert_eq!(
         sqlx::query_scalar::<_, i64>(
@@ -3288,8 +3312,8 @@ async fn a_satisfied_filename_dependency_is_rechecked_before_any_file_is_replace
     let local =
         artifact(SourceId::modrinth(), "local000", "localver", b"local bytes");
     std::fs::write(root.join("mods/local.jar"), b"local bytes").unwrap();
-    let file = content_rows::upsert_instance_file_from_parts(
-        content_rows::UpsertInstanceFile {
+    let file = files::upsert_instance_file_from_parts(
+        files::UpsertInstanceFile {
             instance_id: "instance",
             relative_path: "mods/local.jar",
             file_name: "local.jar",
@@ -3304,8 +3328,8 @@ async fn a_satisfied_filename_dependency_is_rechecked_before_any_file_is_replace
     )
     .await
     .unwrap();
-    let entry = content_rows::upsert_content_entry_from_parts(
-        content_rows::UpsertContentEntry {
+    let entry = content_entries::upsert_content_entry_from_parts(
+        content_entries::UpsertContentEntry {
             instance_id: "instance",
             content_set_id: "set",
             file_id: Some(&file.id),

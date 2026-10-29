@@ -339,7 +339,7 @@ pub(super) async fn stage8_pending_keys(
     state: &State,
     instance_id: &str,
 ) -> HashSet<(String, String)> {
-    crate::state::instances::adapters::sqlite::content_rows::get_pending_manual_downloads(
+    crate::state::instances::adapters::sqlite::pack_members::get_pending_manual_downloads(
         instance_id,
         &state.pool,
     )

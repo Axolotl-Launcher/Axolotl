@@ -5,14 +5,15 @@ use dependencies::backfill_dependency_edges_from_metadata;
 
 use std::collections::{HashMap, HashSet};
 
-use sqlx::Row;
-
 use super::list_content::list_all_content_from_files;
 use super::sync_content_files::project_type_for_file;
 use crate::State;
 use crate::state::instances::adapters::{
     filesystem,
-    sqlite::{content_rows, instance_rows},
+    sqlite::{
+        content_entries, content_sets, files, instance_rows, links,
+        pack_members,
+    },
 };
 use crate::state::instances::{
     ContentDependencyInfo, ContentDependencyRef, ContentItemCapabilities,
@@ -68,53 +69,46 @@ async fn get_content_snapshot_inner(
             crate::ErrorKind::InputError("Unknown instance".to_string())
         })?;
     let content_set =
-        content_rows::get_applied_content_set(instance_id, &state.pool)
+        content_sets::get_applied_content_set(instance_id, &state.pool)
             .await?
             .ok_or_else(|| {
                 crate::ErrorKind::InputError(
                     "Instance has no applied content set".to_string(),
                 )
             })?;
-    let link =
-        instance_rows::get_instance_link(instance_id, &state.pool).await?;
+    let link = links::get_instance_link(instance_id, &state.pool).await?;
     // Managed instances keep their cached database snapshot on first open.
     // Directly associated instances have no install pipeline to seed that
     // snapshot, so their first content-page load must scan the external game
     // directory. Later loads reuse the populated rows unless explicitly
     // refreshed.
     let cached_files =
-        content_rows::get_instance_files(&instance.id, &state.pool).await?;
+        files::get_instance_files(&instance.id, &state.pool).await?;
     let files = if refresh_remote
         || (sync_direct_instance
             && instance.is_direct_linked()
             && cached_files.is_empty())
     {
         let cancel = tokio_util::sync::CancellationToken::new();
-        let refreshed = if refresh_remote {
-            crate::resources::installed::refresh_snapshot(
-                state,
-                instance_id,
-                &cancel,
-            )
-            .await
-        } else {
-            crate::resources::installed::refresh_install_snapshot(
-                state,
-                instance_id,
-                &cancel,
-            )
-            .await
-        };
-        refreshed
+        let refreshed = crate::resources::installed::refresh_snapshot(
+            state,
+            instance_id,
+            &cancel,
+        )
+        .await;
+        let stable = refreshed
             .map_err(|error| crate::ErrorKind::OtherError(error.to_string()))?;
-        content_rows::get_instance_files(&instance.id, &state.pool).await?
+        if !stable {
+            return local::get(instance_id, state).await;
+        }
+        files::get_instance_files(&instance.id, &state.pool).await?
     } else {
         cached_files
     };
     let content_set = if refresh_remote
         || sync_direct_instance && instance.is_direct_linked()
     {
-        content_rows::get_applied_content_set(instance_id, &state.pool)
+        content_sets::get_applied_content_set(instance_id, &state.pool)
             .await?
             .ok_or_else(|| {
                 crate::ErrorKind::InputError(
@@ -131,44 +125,24 @@ async fn get_content_snapshot_inner(
             version_id,
         } = &link
     {
-        let needs_reconciliation = sqlx::query_scalar::<_, i64>(
-            "SELECT EXISTS(
-                SELECT 1 FROM instance_pack_members
-                WHERE content_set_id = ? AND reconciled = 0
-            )",
+        let needs_reconciliation = pack_members::has_unreconciled_members(
+            &content_set.id,
+            &state.pool,
         )
-        .bind(&content_set.id)
-        .fetch_one(&state.pool)
-        .await?
-            != 0;
-        let needs_manual_recovery = sqlx::query_scalar::<_, i64>(
-            "SELECT EXISTS(
-                SELECT 1 FROM instance_pack_members member
-                WHERE member.content_set_id = ?
-                    AND member.provider = 'curseforge'
-                    AND member.required = 1
-                    AND member.materialization_state = 'missing'
-            )",
+        .await?;
+        let needs_manual_recovery =
+            pack_members::has_missing_required_curseforge_member(
+                &content_set.id,
+                &state.pool,
+            )
+            .await?;
+        let needs_local_classification = files::has_unclassified_present_file(
+            instance_id,
+            &content_set.id,
+            &state.pool,
         )
-        .bind(&content_set.id)
-        .fetch_one(&state.pool)
-        .await?
-            != 0;
-        let needs_local_classification = sqlx::query_scalar::<_, i64>(
-            "SELECT EXISTS(
-                SELECT 1
-                FROM instance_files file
-                LEFT JOIN instance_content_entries entry
-                    ON entry.content_set_id = ? AND entry.file_id = file.id
-                WHERE file.instance_id = ? AND file.missing = 0
-                    AND entry.id IS NULL
-            )",
-        )
-        .bind(&content_set.id)
-        .bind(instance_id)
-        .fetch_one(&state.pool)
-        .await?
-            != 0;
+        .await?;
+
         let parsed_ids = project_id
             .parse::<u32>()
             .ok()
@@ -225,53 +199,29 @@ async fn get_content_snapshot_inner(
     }
 
     let entries =
-        content_rows::get_content_entries(&content_set.id, &state.pool).await?;
+        content_entries::get_content_entries(&content_set.id, &state.pool)
+            .await?;
     let members =
-        content_rows::get_pack_members(&content_set.id, &state.pool).await?;
+        pack_members::get_pack_members(&content_set.id, &state.pool).await?;
     let pending_manual_downloads =
-        content_rows::get_pending_manual_downloads(instance_id, &state.pool)
+        pack_members::get_pending_manual_downloads(instance_id, &state.pool)
             .await?;
 
     let mut refs_by_entry = HashMap::new();
     let mut origin_by_entry = HashMap::new();
-    let provider_rows = sqlx::query(
-        "SELECT ref.content_entry_id, ref.provider,
-                ref.provider_project_id, ref.provider_release_id,
-                ref.provider_file_id,
-                ref.is_origin
-         FROM instance_content_provider_refs ref
-         INNER JOIN instance_content_entries entry
-            ON entry.id = ref.content_entry_id
-         WHERE entry.content_set_id = ?
-         ORDER BY ref.content_entry_id, ref.is_origin DESC, ref.provider,
-            ref.provider_project_id, ref.provider_release_id IS NULL,
-            ref.provider_release_id",
-    )
-    .bind(&content_set.id)
-    .fetch_all(&state.pool)
-    .await?;
-    for row in provider_rows {
-        let entry_id = row.try_get::<String, _>("content_entry_id")?;
-        let provider = row.try_get::<String, _>("provider")?;
-        let provider_project_id =
-            row.try_get::<String, _>("provider_project_id")?;
-        let provider_release_id =
-            row.try_get::<Option<String>, _>("provider_release_id")?;
-        let provider_file_id =
-            row.try_get::<Option<String>, _>("provider_file_id")?;
-        let reference = ContentProviderRef::from_database(
-            &provider,
-            &provider_project_id,
-            provider_release_id.as_deref(),
-            provider_file_id.as_deref(),
-        )?;
+    let provider_rows =
+        content_entries::get_provider_refs_with_origin_for_content_set(
+            &content_set.id,
+            &state.pool,
+        )
+        .await?;
+    for (entry_id, reference, origin) in provider_rows {
         refs_by_entry
             .entry(entry_id.clone())
             .or_insert_with(Vec::new)
             .push(reference);
-        if row.try_get::<i64, _>("is_origin")? != 0 {
-            origin_by_entry
-                .insert(entry_id, ContentProvider::from_str(&provider)?);
+        if let Some(provider) = origin {
+            origin_by_entry.insert(entry_id, provider);
         }
     }
 
@@ -467,8 +417,12 @@ async fn get_content_snapshot_inner(
                     return;
                 }
             };
-            let current: Option<(String, i64)> = match sqlx::query_as("SELECT content.id, content.revision FROM instances instance JOIN instance_content_sets content ON content.id = instance.applied_content_set_id WHERE instance.id = ?")
-                .bind(&instance_id).fetch_optional(&mut *tx).await {
+            let current = match content_sets::get_applied_content_set_revision(
+                &instance_id,
+                &mut *tx,
+            )
+            .await
+            {
                 Ok(current) => current,
                 Err(error) => {
                     tracing::warn!(%error, "Content dependency backfill snapshot check failed");
@@ -493,7 +447,7 @@ async fn get_content_snapshot_inner(
                 return;
             }
             let revision =
-                match content_rows::bump_content_set_revision_in_transaction(
+                match content_sets::bump_content_set_revision_in_transaction(
                     &content_set.id,
                     &mut tx,
                 )
@@ -682,16 +636,6 @@ async fn get_content_snapshot_inner(
     })
 }
 
-#[derive(Clone)]
-struct CurseForgeReconciliationCandidate {
-    entry_id: String,
-    relative_path: String,
-    enabled: bool,
-    missing: bool,
-    provider_project_id: Option<String>,
-    provider_release_id: Option<String>,
-}
-
 pub(crate) async fn reconcile_curseforge_members(
     instance_id: &str,
     content_set_id: &str,
@@ -702,86 +646,28 @@ pub(crate) async fn reconcile_curseforge_members(
 
     let _instance_lock = state.lock_instance_content(instance_id).await;
     let mut tx = state.pool.begin_with("BEGIN IMMEDIATE").await?;
-    let rows = sqlx::query(
-        "SELECT entry.id AS entry_id, file.relative_path, entry.enabled,
-            file.missing, ref.provider_project_id, ref.provider_release_id
-         FROM instance_content_entries entry
-         INNER JOIN instance_files file ON file.id = entry.file_id
-         LEFT JOIN instance_content_provider_refs ref
-            ON ref.content_entry_id = entry.id AND ref.provider = 'curseforge'
-         WHERE entry.content_set_id = ?
-         ORDER BY entry.modified_at DESC",
+    let candidates = pack_members::get_curseforge_reconciliation_candidates(
+        content_set_id,
+        &mut *tx,
     )
-    .bind(content_set_id)
-    .fetch_all(&mut *tx)
     .await?;
-    let candidates = rows
-        .into_iter()
-        .map(|row| {
-            Ok(CurseForgeReconciliationCandidate {
-                entry_id: row.try_get("entry_id")?,
-                relative_path: row.try_get("relative_path")?,
-                enabled: row.try_get::<i64, _>("enabled")? != 0,
-                missing: row.try_get::<i64, _>("missing")? != 0,
-                provider_project_id: row.try_get("provider_project_id")?,
-                provider_release_id: row.try_get("provider_release_id")?,
-            })
-        })
-        .collect::<crate::Result<Vec<_>>>()?;
-    let member_rows = sqlx::query(
-        "SELECT id, member_key, override_kind, materialization_state,
-            CASE WHEN provider IS NULL THEN expected_relative_path END AS override_path
-         FROM instance_pack_members WHERE content_set_id = ?",
-    )
-    .bind(content_set_id)
-    .fetch_all(&mut *tx)
-    .await?;
-    let mut existing_members = member_rows
-        .into_iter()
-        .map(|row| {
-            let key = row.try_get::<String, _>("member_key")?;
-            Ok((
-                key,
-                (
-                    row.try_get::<String, _>("id")?,
-                    PackMemberOverrideKind::from_str(
-                        &row.try_get::<String, _>("override_kind")?,
-                    )?,
-                    PackMemberMaterializationState::from_str(
-                        &row.try_get::<String, _>("materialization_state")?,
-                    )?,
-                    row.try_get::<Option<String>, _>("override_path")?,
-                ),
-            ))
-        })
-        .collect::<crate::Result<HashMap<_, _>>>()?;
-    let pending_rows = sqlx::query(
-        "SELECT provider_project_id, provider_release_id
-         FROM instance_pending_manual_downloads
-         WHERE instance_id = ? AND provider = 'curseforge'
-            AND state IN ('waiting', 'matched', 'error')",
-    )
-    .bind(instance_id)
-    .fetch_all(&mut *tx)
-    .await?;
-    let pending = pending_rows
-        .into_iter()
-        .map(|row| {
-            Ok((
-                row.try_get::<String, _>("provider_project_id")?,
-                row.try_get::<String, _>("provider_release_id")?,
-            ))
-        })
-        .collect::<crate::Result<HashSet<_>>>()?;
+    let mut existing_members =
+        pack_members::get_reconciliation_members(content_set_id, &mut *tx)
+            .await?
+            .into_iter()
+            .map(|(key, id, kind, state, path)| (key, (id, kind, state, path)))
+            .collect::<HashMap<_, _>>();
+    let pending: HashSet<(String, String)> =
+        pack_members::get_curseforge_pending_downloads(instance_id, &mut *tx)
+            .await?
+            .into_iter()
+            .collect();
 
-    sqlx::query(
-        "UPDATE instance_content_entries
-         SET ownership_kind = 'user_added', modified_at = ?
-         WHERE content_set_id = ? AND ownership_kind = 'pack_managed'",
+    content_entries::release_pack_managed_entries_in_transaction(
+        content_set_id,
+        Utc::now().timestamp(),
+        &mut tx,
     )
-    .bind(Utc::now().timestamp())
-    .bind(content_set_id)
-    .execute(&mut *tx)
     .await?;
 
     let mut claimed_entries = HashSet::new();
@@ -815,14 +701,11 @@ pub(crate) async fn reconcile_curseforge_members(
             });
         if let Some(candidate) = candidate {
             claimed_entries.insert(candidate.entry_id.clone());
-            sqlx::query(
-                "UPDATE instance_content_entries
-                 SET ownership_kind = 'pack_managed', modified_at = ?
-                 WHERE id = ?",
+            content_entries::claim_entry_for_pack_in_transaction(
+                &candidate.entry_id,
+                Utc::now().timestamp(),
+                &mut tx,
             )
-            .bind(Utc::now().timestamp())
-            .bind(&candidate.entry_id)
-            .execute(&mut *tx)
             .await?;
         }
 
@@ -866,7 +749,7 @@ pub(crate) async fn reconcile_curseforge_members(
         let member_id = existing
             .map(|(id, _, _, _)| id)
             .unwrap_or_else(|| format!("pack-member:{}", uuid::Uuid::new_v4()));
-        content_rows::upsert_pack_member_in_transaction(
+        pack_members::upsert_pack_member_in_transaction(
             &crate::state::instances::PackMember {
                 id: member_id.clone(),
                 content_set_id: content_set_id.to_string(),
@@ -893,13 +776,11 @@ pub(crate) async fn reconcile_curseforge_members(
             &mut tx,
         )
         .await?;
-        sqlx::query(
-            "UPDATE instance_pack_members
-             SET required = ?, reconciled = 1 WHERE id = ?",
+        pack_members::set_pack_member_required_in_transaction(
+            &member_id,
+            expected_member.required,
+            &mut tx,
         )
-        .bind(i64::from(expected_member.required))
-        .bind(member_id)
-        .execute(&mut *tx)
         .await?;
     }
 
@@ -913,9 +794,7 @@ pub(crate) async fn reconcile_curseforge_members(
         });
     }
     for (_, (member_id, _, _, _)) in existing_members {
-        sqlx::query("DELETE FROM instance_pack_members WHERE id = ?")
-            .bind(member_id)
-            .execute(&mut *tx)
+        pack_members::delete_pack_member_in_transaction(&member_id, &mut tx)
             .await?;
     }
     reconcile_curseforge_override_entries_in_transaction(
@@ -925,31 +804,25 @@ pub(crate) async fn reconcile_curseforge_members(
         &mut tx,
     )
     .await?;
-    content_rows::repair_pack_members_in_transaction(content_set_id, &mut tx)
+    pack_members::repair_pack_members_in_transaction(content_set_id, &mut tx)
         .await?;
     let override_paths: HashSet<_> = expected
         .overrides
         .iter()
         .map(|item| normalized_content_path(&item.expected_relative_path))
         .collect();
-    let unreconciled: Vec<(String, String)> = sqlx::query_as(
-        "SELECT id, expected_relative_path FROM instance_pack_members
-         WHERE content_set_id = ? AND provider IS NULL AND reconciled = 0",
-    )
-    .bind(content_set_id)
-    .fetch_all(&mut *tx)
-    .await?;
+    let unreconciled =
+        pack_members::get_unreconciled_local_members(content_set_id, &mut *tx)
+            .await?;
     for (member_id, path) in unreconciled {
         if override_paths.contains(&normalized_content_path(&path)) {
-            sqlx::query(
-                "UPDATE instance_pack_members SET reconciled = 1 WHERE id = ?",
+            pack_members::mark_pack_member_reconciled_in_transaction(
+                &member_id, &mut tx,
             )
-            .bind(member_id)
-            .execute(&mut *tx)
             .await?;
         }
     }
-    content_rows::bump_content_set_revision_in_transaction(
+    content_sets::bump_content_set_revision_in_transaction(
         content_set_id,
         &mut tx,
     )
@@ -964,36 +837,21 @@ async fn reconcile_curseforge_override_entries_in_transaction(
     expected: &[crate::api::curseforge::CurseForgePackExpectedOverride],
     tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>,
 ) -> crate::Result<()> {
-    let rows = sqlx::query(
-        "SELECT file.id AS file_id, file.relative_path, file.enabled,
-            (
-                SELECT entry.id
-                FROM instance_content_entries entry
-                WHERE entry.content_set_id = ? AND entry.file_id = file.id
-                ORDER BY entry.modified_at DESC
-                LIMIT 1
-            ) AS entry_id
-         FROM instance_files file
-         WHERE file.instance_id = ? AND file.missing = 0",
+    let rows = files::get_present_files_with_entry(
+        instance_id,
+        content_set_id,
+        &mut **tx,
     )
-    .bind(content_set_id)
-    .bind(instance_id)
-    .fetch_all(&mut **tx)
     .await?;
     let files = rows
         .into_iter()
-        .map(|row| {
-            let relative_path = row.try_get::<String, _>("relative_path")?;
-            Ok((
+        .map(|(relative_path, file_id, enabled, entry_id)| {
+            (
                 normalized_content_path(&relative_path),
-                (
-                    row.try_get::<String, _>("file_id")?,
-                    row.try_get::<i64, _>("enabled")? != 0,
-                    row.try_get::<Option<String>, _>("entry_id")?,
-                ),
-            ))
+                (file_id, enabled, entry_id),
+            )
         })
-        .collect::<crate::Result<HashMap<_, _>>>()?;
+        .collect::<HashMap<_, _>>();
     let expected = expected
         .iter()
         .map(|item| {
@@ -1014,8 +872,8 @@ async fn reconcile_curseforge_override_entries_in_transaction(
             continue;
         };
         let is_pack_override = override_content.is_some();
-        content_rows::upsert_content_entry_from_parts_in_transaction(
-            content_rows::UpsertContentEntry {
+        content_entries::upsert_content_entry_from_parts_in_transaction(
+            content_entries::UpsertContentEntry {
                 instance_id,
                 content_set_id,
                 file_id: Some(&file_id),
@@ -1058,54 +916,19 @@ async fn reconcile_curseforge_manual_downloads(
 
     let _instance_lock = state.lock_instance_content(instance_id).await;
     let mut tx = state.pool.begin_with("BEGIN IMMEDIATE").await?;
-    let member_rows = sqlx::query(
-        "SELECT id, content_entry_id, provider_project_id,
-                provider_release_id, materialization_state, override_kind
-         FROM instance_pack_members
-         WHERE content_set_id = ? AND provider = 'curseforge'",
-    )
-    .bind(content_set_id)
-    .fetch_all(&mut *tx)
-    .await?;
-    let members = member_rows
-        .into_iter()
-        .map(|row| {
-            Ok((
-                (
-                    row.try_get::<Option<String>, _>("provider_project_id")?,
-                    row.try_get::<Option<String>, _>("provider_release_id")?,
-                ),
-                (
-                    row.try_get::<String, _>("id")?,
-                    row.try_get::<Option<String>, _>("content_entry_id")?,
-                    PackMemberMaterializationState::from_str(
-                        &row.try_get::<String, _>("materialization_state")?,
-                    )?,
-                    PackMemberOverrideKind::from_str(
-                        &row.try_get::<String, _>("override_kind")?,
-                    )?,
-                ),
-            ))
-        })
-        .collect::<crate::Result<HashMap<_, _>>>()?;
-    let pending_rows = sqlx::query(
-        "SELECT provider_project_id, provider_release_id
-         FROM instance_pending_manual_downloads
-         WHERE instance_id = ? AND provider = 'curseforge'
-            AND state IN ('waiting', 'matched', 'error')",
-    )
-    .bind(instance_id)
-    .fetch_all(&mut *tx)
-    .await?;
-    let mut pending = pending_rows
-        .into_iter()
-        .map(|row| {
-            Ok((
-                row.try_get::<String, _>("provider_project_id")?,
-                row.try_get::<String, _>("provider_release_id")?,
-            ))
-        })
-        .collect::<crate::Result<HashSet<_>>>()?;
+    let members =
+        pack_members::get_curseforge_member_rows(content_set_id, &mut *tx)
+            .await?
+            .into_iter()
+            .map(|(key, id, entry_id, state, kind)| {
+                (key, (id, entry_id, state, kind))
+            })
+            .collect::<HashMap<_, _>>();
+    let mut pending: HashSet<(String, String)> =
+        pack_members::get_curseforge_pending_downloads(instance_id, &mut *tx)
+            .await?
+            .into_iter()
+            .collect();
     let mut changed = false;
 
     for expected_member in restricted {
@@ -1141,7 +964,7 @@ async fn reconcile_curseforge_manual_downloads(
             manual_download.operation_kind =
                 ManualDownloadOperationKind::PackInstall;
             let now = chrono::Utc::now();
-            content_rows::upsert_pending_manual_download_in_transaction(
+            pack_members::upsert_pending_manual_download_in_transaction(
                 &PendingManualDownload {
                     id: format!("manual-download:{}", uuid::Uuid::new_v4()),
                     instance_id: instance_id.to_string(),
@@ -1176,7 +999,7 @@ async fn reconcile_curseforge_manual_downloads(
         if *materialization_state
             != PackMemberMaterializationState::PendingManual
         {
-            content_rows::set_pack_member_override_in_transaction(
+            pack_members::set_pack_member_override_in_transaction(
                 member_id,
                 PackMemberMaterializationState::PendingManual,
                 *override_kind,
@@ -1188,7 +1011,7 @@ async fn reconcile_curseforge_manual_downloads(
     }
 
     if changed {
-        content_rows::bump_content_set_revision_in_transaction(
+        content_sets::bump_content_set_revision_in_transaction(
             content_set_id,
             &mut tx,
         )
@@ -1210,9 +1033,11 @@ async fn attach_dependency_info(
     content_set_id: &str,
     state: &State,
 ) -> crate::Result<()> {
-    let edges =
-        content_rows::get_content_dependency_edges(content_set_id, &state.pool)
-            .await?;
+    let edges = content_entries::get_content_dependency_edges(
+        content_set_id,
+        &state.pool,
+    )
+    .await?;
     let mut required_by: HashMap<String, Vec<ContentDependencyRef>> =
         HashMap::new();
     let mut requires: HashMap<String, Vec<ContentDependencyRef>> =
@@ -1437,6 +1262,10 @@ fn pack_provider(link: &InstanceLink) -> Option<ContentProvider> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    use crate::state::instances::adapters::sqlite::{
+        content_entries, content_sets, pack_members,
+    };
 
     fn content_with_refs(
         provider_refs: Vec<ContentProviderRef>,

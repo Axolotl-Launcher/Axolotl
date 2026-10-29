@@ -61,21 +61,49 @@ pub(crate) async fn sync_content_files(
     instance_id: &str,
     state: &State,
 ) -> crate::Result<Vec<InstanceFile>> {
-    sync_content_files_with_verification(instance_id, state, false).await
+    sync_content_files_with_verification(
+        instance_id,
+        state,
+        false,
+        ScanConsistency::RequireStable,
+    )
+    .await
+    .map(|outcome| outcome.files)
+}
+
+pub(crate) async fn sync_content_files_for_display(
+    instance_id: &str,
+    state: &State,
+) -> crate::Result<ScanOutcome> {
+    sync_content_files_with_verification(
+        instance_id,
+        state,
+        false,
+        ScanConsistency::AllowCommittedSnapshot,
+    )
+    .await
 }
 
 pub(crate) async fn sync_content_files_for_operation(
     instance_id: &str,
     state: &State,
 ) -> crate::Result<Vec<InstanceFile>> {
-    sync_content_files_with_verification(instance_id, state, true).await
+    sync_content_files_with_verification(
+        instance_id,
+        state,
+        true,
+        ScanConsistency::RequireStable,
+    )
+    .await
+    .map(|outcome| outcome.files)
 }
 
 async fn sync_content_files_with_verification(
     instance_id: &str,
     state: &State,
     verify_all: bool,
-) -> crate::Result<Vec<InstanceFile>> {
+    consistency: ScanConsistency,
+) -> crate::Result<ScanOutcome> {
     let instance =
         instance_content_files::get_instance(&state.data, instance_id)
             .await?
@@ -83,25 +111,43 @@ async fn sync_content_files_with_verification(
                 crate::ErrorKind::InputError("Unknown instance".to_string())
             })?;
 
-    sync_instance_content_files_with_verification(&instance, state, verify_all)
-        .await
+    sync_instance_content_files_with_verification(
+        &instance,
+        state,
+        verify_all,
+        consistency,
+    )
+    .await
 }
 
 pub(crate) async fn sync_instance_content_files(
     instance: &Instance,
     state: &State,
 ) -> crate::Result<Vec<InstanceFile>> {
-    sync_instance_content_files_with_verification(instance, state, false).await
+    sync_instance_content_files_with_verification(
+        instance,
+        state,
+        false,
+        ScanConsistency::RequireStable,
+    )
+    .await
+    .map(|outcome| outcome.files)
 }
 
 async fn sync_instance_content_files_with_verification(
     instance: &Instance,
     state: &State,
     verify_all: bool,
-) -> crate::Result<Vec<InstanceFile>> {
-    Box::pin(sync_with_retry(instance, state, verify_all, || {
-        std::future::ready(())
-    }))
+    consistency: ScanConsistency,
+) -> crate::Result<ScanOutcome> {
+    Box::pin(sync_with_retry_progress(
+        instance,
+        state,
+        verify_all,
+        consistency,
+        || std::future::ready(()),
+        None,
+    ))
     .await
 }
 
@@ -110,6 +156,19 @@ enum ScanAttempt {
     Retry(HashSet<String>),
 }
 
+#[derive(Debug)]
+pub(crate) struct ScanOutcome {
+    pub files: Vec<InstanceFile>,
+    pub stable: bool,
+}
+
+#[derive(Clone, Copy, Eq, PartialEq)]
+enum ScanConsistency {
+    RequireStable,
+    AllowCommittedSnapshot,
+}
+
+#[cfg(test)]
 async fn sync_with_retry<F, Fut>(
     instance: &Instance,
     state: &State,
@@ -120,8 +179,16 @@ where
     F: FnMut() -> Fut,
     Fut: std::future::Future<Output = ()>,
 {
-    sync_with_retry_progress(instance, state, verify_all, before_commit, None)
-        .await
+    sync_with_retry_progress(
+        instance,
+        state,
+        verify_all,
+        ScanConsistency::RequireStable,
+        before_commit,
+        None,
+    )
+    .await
+    .map(|outcome| outcome.files)
 }
 
 #[derive(Clone, Debug)]
@@ -142,7 +209,7 @@ pub(crate) async fn sync_content_files_progressively(
     sender: &tokio::sync::mpsc::Sender<ScanProgress>,
     cancel: &tokio_util::sync::CancellationToken,
     mode: crate::resources::refresh::RefreshMode,
-) -> crate::Result<Vec<InstanceFile>> {
+) -> crate::Result<ScanOutcome> {
     let instance =
         instance_content_files::get_instance(&state.data, instance_id)
             .await?
@@ -153,6 +220,7 @@ pub(crate) async fn sync_content_files_progressively(
         &instance,
         state,
         false,
+        ScanConsistency::AllowCommittedSnapshot,
         || std::future::ready(()),
         Some(ScanPublication {
             sender,
@@ -167,9 +235,10 @@ async fn sync_with_retry_progress<F, Fut>(
     instance: &Instance,
     state: &State,
     verify_all: bool,
+    consistency: ScanConsistency,
     mut before_commit: F,
     publication: Option<ScanPublication<'_>>,
-) -> crate::Result<Vec<InstanceFile>>
+) -> crate::Result<ScanOutcome>
 where
     F: FnMut() -> Fut,
     Fut: std::future::Future<Output = ()>,
@@ -197,9 +266,38 @@ where
         )
         .await?
         {
-            ScanAttempt::Committed(files) => return Ok(files),
+            ScanAttempt::Committed(files) => {
+                return Ok(ScanOutcome {
+                    files,
+                    stable: true,
+                });
+            }
             ScanAttempt::Retry(paths) => changed.extend(paths),
         }
+    }
+    if publication
+        .as_ref()
+        .is_some_and(|publication| publication.cancel.is_cancelled())
+    {
+        return Err(crate::resources::ResourceError::Canceled.into());
+    }
+    if consistency == ScanConsistency::AllowCommittedSnapshot {
+        ensure_scan_location(instance, state).await?;
+        let files =
+            instance_content_files::get_files(&state.data, &instance.id)
+                .await?
+                .into_iter()
+                .filter(|file| !file.missing)
+                .collect::<Vec<_>>();
+        tracing::warn!(instance_id = %instance.id, files = files.len(),
+            "Content remained unstable after three scans; using the last committed snapshot");
+        // The coordinator already has the last committed snapshot. Do not
+        // publish the fallback file list: doing so would schedule recognition
+        // against stale hashes while the physical directory is still changing.
+        return Ok(ScanOutcome {
+            files,
+            stable: false,
+        });
     }
     Err(crate::ErrorKind::InputError(
         "Content changed repeatedly during scanning; retry after file operations finish".into(),
@@ -1415,10 +1513,9 @@ mod tests {
     async fn repeatedly_changing_scan_leaves_database_untouched_and_is_retryable()
      {
         let (_temp, state, instance, root) = isolated_scan_fixture().await;
-        let before =
-            sqlite::content_rows::get_instance_files("instance", &state.pool)
-                .await
-                .unwrap();
+        let before = sqlite::files::get_instance_files("instance", &state.pool)
+            .await
+            .unwrap();
         let mut count = 0;
         let result = sync_with_retry(&instance, &state, false, || {
             count += 1;
@@ -1429,15 +1526,231 @@ mod tests {
         .await;
         assert!(result.is_err());
         assert_eq!(count, 3);
-        let after =
-            sqlite::content_rows::get_instance_files("instance", &state.pool)
-                .await
-                .unwrap();
+        let after = sqlite::files::get_instance_files("instance", &state.pool)
+            .await
+            .unwrap();
         assert_eq!(after[0].sha1, before[0].sha1);
         let retried = sync_instance_content_files(&instance, &state)
             .await
             .unwrap();
         assert_eq!(retried[0].size, 23);
+        state.pool.close().await;
+    }
+
+    #[tokio::test]
+    async fn display_scan_falls_back_to_committed_files_and_preserves_pending_changes()
+     {
+        let (_temp, state, instance, root) = isolated_scan_fixture().await;
+        let before = instance_content_files::get_files(&state.data, "instance")
+            .await
+            .unwrap();
+        crate::state::instances::watcher::watch_instance_folder(
+            "instance",
+            "example",
+            &root,
+            &state.file_watcher,
+        )
+        .await;
+        let mut count = 0;
+        let outcome = sync_with_retry_progress(
+            &instance,
+            &state,
+            false,
+            ScanConsistency::AllowCommittedSnapshot,
+            || {
+                count += 1;
+                fs::write(
+                    root.join("mods/example.jar"),
+                    vec![b'x'; 20 + count],
+                )
+                .unwrap();
+                state.file_watcher.record_upgrade_content_change(
+                    "instance",
+                    "mods/example.jar",
+                )
+            },
+            None,
+        )
+        .await
+        .unwrap();
+        assert!(!outcome.stable);
+        assert_eq!(count, 3);
+        assert_eq!(outcome.files[0].sha1, before[0].sha1);
+        assert_eq!(outcome.files[0].size, before[0].size);
+        let after = instance_content_files::get_files(&state.data, "instance")
+            .await
+            .unwrap();
+        assert_eq!(after[0].sha1, before[0].sha1);
+        let watch = state
+            .file_watcher
+            .content_watch_snapshot("instance")
+            .await
+            .unwrap();
+        assert!(watch.dirty_paths.contains("mods/example.jar"));
+        crate::state::instances::watcher::unwatch_instance_folder(
+            "example",
+            &root,
+            &state.file_watcher,
+        )
+        .await;
+        let stable = sync_content_files_for_display("instance", &state)
+            .await
+            .unwrap();
+        assert!(stable.stable);
+        assert_eq!(stable.files[0].size, 23);
+        assert_ne!(stable.files[0].sha1, before[0].sha1);
+        state.pool.close().await;
+    }
+
+    #[tokio::test]
+    async fn progressive_fallback_does_not_publish_stale_files_and_cancellation_is_an_error()
+     {
+        let (_temp, state, instance, root) = isolated_scan_fixture().await;
+        let (sender, mut receiver) = tokio::sync::mpsc::channel(32);
+        let cancel = tokio_util::sync::CancellationToken::new();
+        let mut count = 0;
+        let result = sync_with_retry_progress(
+            &instance,
+            &state,
+            false,
+            ScanConsistency::AllowCommittedSnapshot,
+            || {
+                count += 1;
+                fs::write(
+                    root.join("mods/example.jar"),
+                    vec![b'x'; 20 + count],
+                )
+                .unwrap();
+                std::future::ready(())
+            },
+            Some(ScanPublication {
+                sender: &sender,
+                cancel: &cancel,
+                mode: crate::resources::refresh::RefreshMode::Normal,
+            }),
+        )
+        .await
+        .unwrap();
+        assert!(!result.stable);
+        assert_eq!(count, 3);
+        let mut published = Vec::new();
+        while let Ok(event) = receiver.try_recv() {
+            if let ScanProgress::Files(files) = event {
+                published.push(files);
+            }
+        }
+        // Each attempt published its verified partial batch. The fallback
+        // itself must not schedule an additional batch against old hashes.
+        assert_eq!(published.len(), 3);
+        assert_eq!(result.files[0].sha1, published.last().unwrap()[0].sha1);
+        cancel.cancel();
+        let error = sync_with_retry_progress(
+            &instance,
+            &state,
+            false,
+            ScanConsistency::AllowCommittedSnapshot,
+            || std::future::ready(()),
+            Some(ScanPublication {
+                sender: &sender,
+                cancel: &cancel,
+                mode: crate::resources::refresh::RefreshMode::Normal,
+            }),
+        )
+        .await;
+        assert!(matches!(
+            error.unwrap_err().raw.as_ref(),
+            crate::ErrorKind::ResourceError(
+                crate::resources::ResourceError::Canceled
+            )
+        ));
+        state.pool.close().await;
+    }
+
+    #[tokio::test]
+    async fn display_scan_does_not_hide_io_or_database_errors() {
+        let (_temp, state, _instance, root) = isolated_scan_fixture().await;
+        fs::rename(&root, root.with_file_name("moved")).unwrap();
+        let result = sync_content_files_for_display("instance", &state).await;
+        assert!(result.is_err());
+        state.pool.close().await;
+        let result = sync_content_files_for_display("instance", &state).await;
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn display_fallback_can_return_an_empty_committed_snapshot() {
+        let (_temp, state, instance, root) = isolated_scan_fixture().await;
+        fs::remove_file(root.join("mods/example.jar")).unwrap();
+        sync_instance_content_files(&instance, &state)
+            .await
+            .unwrap();
+        let mut count = 0;
+        let outcome = sync_with_retry_progress(
+            &instance,
+            &state,
+            false,
+            ScanConsistency::AllowCommittedSnapshot,
+            || {
+                count += 1;
+                fs::write(root.join("mods/new.jar"), vec![b'x'; 20 + count])
+                    .unwrap();
+                std::future::ready(())
+            },
+            None,
+        )
+        .await
+        .unwrap();
+        assert!(!outcome.stable);
+        assert_eq!(count, 3);
+        assert!(outcome.files.is_empty());
+        assert!(
+            instance_content_files::get_files(&state.data, "instance")
+                .await
+                .unwrap()
+                .into_iter()
+                .all(|file| file.missing)
+        );
+        state.pool.close().await;
+    }
+
+    #[tokio::test]
+    async fn cancellation_after_the_last_unstable_attempt_does_not_return_cached_files()
+     {
+        let (_temp, state, instance, root) = isolated_scan_fixture().await;
+        let (sender, _receiver) = tokio::sync::mpsc::channel(32);
+        let cancel = tokio_util::sync::CancellationToken::new();
+        let mut count = 0;
+        let outcome = sync_with_retry_progress(
+            &instance,
+            &state,
+            false,
+            ScanConsistency::AllowCommittedSnapshot,
+            || {
+                count += 1;
+                fs::write(
+                    root.join("mods/example.jar"),
+                    vec![b'x'; 20 + count],
+                )
+                .unwrap();
+                if count == 3 {
+                    cancel.cancel();
+                }
+                std::future::ready(())
+            },
+            Some(ScanPublication {
+                sender: &sender,
+                cancel: &cancel,
+                mode: crate::resources::refresh::RefreshMode::Normal,
+            }),
+        )
+        .await;
+        assert_eq!(count, 3);
+        assert!(matches!(
+            outcome.unwrap_err().raw.as_ref(),
+            crate::ErrorKind::ResourceError(
+                crate::resources::ResourceError::Canceled
+            )
+        ));
         state.pool.close().await;
     }
 }

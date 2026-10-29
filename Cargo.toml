@@ -14,7 +14,7 @@ members = [
 [workspace.package]
 edition = "2024"
 rust-version = "1.90.0"
-repository = "https://github.com/Mystic-Stars/Axolotl"
+repository = "https://github.com/Axolotl-Launcher/Axolotl"
 
 [workspace.dependencies]
 ariadne = { path = "packages/ariadne" }
@@ -225,6 +225,7 @@ tauri-plugin-window-state = { git = "https://github.com/Lintern/plugins-workspac
 [profile.dev]
 # Keep incremental on (Cargo default). Disabling it forces full crate rebuilds
 # of ~170k-line app-lib on every touch and made local app:dev unusably slow.
+debug = 1
 
 # Unoptimized hash compression makes export verification stall on large files.
 [profile.dev.package.sha2]

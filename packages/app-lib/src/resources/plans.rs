@@ -617,8 +617,8 @@ pub(crate) async fn installed(
                     .or(resource_id);
         }
         if resource_id.is_none() {
-            let refs = crate::state::instances::adapters::sqlite::content_rows::get_content_provider_refs(&entry_id, pool).await?;
-            let origin = crate::state::instances::adapters::sqlite::content_rows::get_content_origin_provider(&entry_id, pool).await?;
+            let refs = crate::state::instances::adapters::sqlite::content_entries::get_content_provider_refs(&entry_id, pool).await?;
+            let origin = crate::state::instances::adapters::sqlite::content_entries::get_content_origin_provider(&entry_id, pool).await?;
             if let Some(reference) = refs
                 .iter()
                 .find(|reference| Some(reference.provider()) == origin)
@@ -2011,28 +2011,52 @@ impl ResourceService {
                 {
                     for other in &matches.matches {
                         if let Some(store) = self.store() {
-                            let left = self
-                                .project_document(
+                            let left = if metadata.project
+                                == artifact.reference.release.project
+                            {
+                                metadata.clone()
+                            } else {
+                                self.project_document(
                                     &artifact.reference.release.project,
                                     None,
                                     cancel,
                                 )
-                                .await?;
-                            let right = self
+                                .await?
+                                .metadata
+                            };
+                            let right = match self
                                 .project_document(
                                     &other.reference.release.project,
                                     None,
                                     cancel,
                                 )
-                                .await?;
-                            store
-                                .confirm_projects(
-                                    &left.metadata,
-                                    &right.metadata,
-                                    &artifact,
-                                    other,
-                                )
-                                .await?;
+                                .await
+                            {
+                                Ok(document) => document,
+                                Err(
+                                    error @ (ResourceError::Network { .. }
+                                    | ResourceError::Unavailable
+                                    | ResourceError::InvalidResponse(_)),
+                                ) => {
+                                    tracing::info!(
+                                        primary = ?artifact.reference.release.project,
+                                        counterpart = ?other.reference.release.project,
+                                        %error,
+                                        "Skipped unavailable optional resource project association"
+                                    );
+                                    continue;
+                                }
+                                Err(error) => return Err(error),
+                            };
+                            identity::try_confirm_projects(
+                                store,
+                                &left,
+                                &right.metadata,
+                                &artifact,
+                                other,
+                                cancel,
+                            )
+                            .await?;
                         }
                     }
                 }
@@ -3437,8 +3461,12 @@ async fn initialize_operation(
             )
             .await?;
         } else {
-            super::installed::refresh_snapshot(&state, &instance_id, cancel)
-                .await?;
+            super::installed::refresh_operation_snapshot(
+                &state,
+                &instance_id,
+                cancel,
+            )
+            .await?;
         }
     }
     let revision = instance_revision(&state.pool, &instance_id).await?;

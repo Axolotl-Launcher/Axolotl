@@ -586,10 +586,10 @@ async fn run_round(
                 }
             }
             result = &mut scan, if !scan_done => {
-                result.map_err(|error| ResourceError::InvalidRequest(error.to_string()))??; scan_done = true;
+                let outcome = result.map_err(|error| ResourceError::InvalidRequest(error.to_string()))??; scan_done = true;
                 let retry_background = state.content_refresh.slots.lock().await
                     .get(instance_id).is_some_and(|slot| slot.background_failed);
-                if (mode != RefreshMode::RetryFailed || retry_background)
+                if outcome.stable && (mode != RefreshMode::RetryFailed || retry_background)
                     && (mode != RefreshMode::Normal || !scheduled.is_empty() || pack_due)
                 {
                     let state = state.clone(); let instance_id = instance_id.to_owned(); let task_id = task_id.to_owned(); let cancel = scan_cancel.clone();

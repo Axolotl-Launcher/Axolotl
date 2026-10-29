@@ -96,7 +96,7 @@ pub async fn list_pending_manual_downloads(
     instance_id: &str,
 ) -> crate::Result<Vec<CurseForgeManualDownload>> {
     let state = State::get().await?;
-    Ok(crate::state::instances::adapters::sqlite::content_rows::get_pending_manual_downloads(
+    Ok(crate::state::instances::adapters::sqlite::pack_members::get_pending_manual_downloads(
         instance_id,
         &state.pool,
     )

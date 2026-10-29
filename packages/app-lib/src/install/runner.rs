@@ -93,13 +93,7 @@ pub(crate) async fn interactive_content_guard(
         (job.instance_id.as_deref() == Some(instance_id)
             || admission::request_instance(&job.state.request).as_deref()
                 == Some(instance_id))
-            && matches!(
-                job.status,
-                InstallJobStatus::Queued
-                    | InstallJobStatus::Running
-                    | InstallJobStatus::Canceling
-                    | InstallJobStatus::WaitingForUser
-            )
+            && !job.status.is_finished()
     }) {
         return Err(ErrorKind::InputError(
             "Another task is changing this instance; retry when it finishes"
@@ -356,8 +350,9 @@ pub async fn queue_resource_plan(
         )
         .into());
     }
-    let overlapping: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM install_jobs WHERE instance_id = ? AND status IN ('queued', 'running', 'canceling', 'waiting_for_user')").bind(&plan.instance_id).fetch_one(&mut *tx).await?;
-    if overlapping != 0 {
+    if store::has_unfinished_job_in_transaction(&plan.instance_id, &mut tx)
+        .await?
+    {
         return Err(crate::ErrorKind::InputError(
             "another task is changing this instance".into(),
         )
@@ -405,6 +400,7 @@ pub async fn queue_resource_plan(
     let record = store::get(id, &state).await?.ok_or_else(|| {
         crate::ErrorKind::InputError("resource job was not created".into())
     })?;
+    tracing::info!(job_id = %id, plan_id = plan_id.as_str(), revision, instance_id = %plan.instance_id, actions = plan.actions.len(), "Resource execution queued");
     lifecycle::spawn_job(id);
     if let Err(error) = emit_install_job(&record.snapshot()).await {
         tracing::warn!(%error, "Could not emit queued resource job");
@@ -807,11 +803,22 @@ pub async fn retry_job_as_new(
 
 pub async fn cancel_job(job_id: Uuid) -> crate::Result<InstallJobSnapshot> {
     let state = State::get().await?;
+    cancel_job_with_state(job_id, state).await
+}
+
+pub(super) async fn cancel_job_with_state(
+    job_id: Uuid,
+    state: std::sync::Arc<State>,
+) -> crate::Result<InstallJobSnapshot> {
+    let started = std::time::Instant::now();
+    let mut signaled = false;
     if let Some(token) = state.install_job_cancellations.get(&job_id) {
         token.value().cancel();
+        signaled = true;
     }
-    let mut job = loop {
+    loop {
         let mut job = store::get_required(job_id, &state).await?;
+        tracing::info!(%job_id, status = job.status.as_str(), phase = ?job.state.progress.phase, signaled, "Install cancellation requested");
         match job.status {
             InstallJobStatus::Running => {
                 // Cancellation must not wait behind SQLite. Stop transfers,
@@ -821,29 +828,59 @@ pub async fn cancel_job(job_id: Uuid) -> crate::Result<InstallJobSnapshot> {
                     state.install_job_cancellations.get(&job_id)
                 {
                     token.value().cancel();
+                    signaled = true;
                 }
                 // Preserve the newest runtime events in the canceling
                 // checkpoint instead of reverting to the last database copy.
-                let live_reporter =
-                    InstallProgressReporter::new(job_id, job.state.clone());
-                if let Ok(live_state) = live_reporter.current_state().await {
-                    job.state = live_state;
-                }
-                let Some(record) = store::update_status_if(
-                    job_id,
-                    InstallJobStatus::Running,
-                    InstallJobStatus::Canceling,
-                    &job.state,
-                    &state,
-                )
-                .await?
-                else {
+                let checkpoint = async {
+                    let live_reporter =
+                        InstallProgressReporter::new(job_id, job.state.clone());
+                    if let Ok(live_state) = live_reporter.current_state().await
+                    {
+                        job.state = live_state;
+                    }
+                    store::update_status_if(
+                        job_id,
+                        InstallJobStatus::Running,
+                        InstallJobStatus::Canceling,
+                        &job.state,
+                        &state,
+                    )
+                    .await
+                };
+                let record = if signaled {
+                    match tokio::time::timeout(
+                        std::time::Duration::from_secs(2),
+                        checkpoint,
+                    )
+                    .await
+                    {
+                        Ok(result) => result?,
+                        Err(_) => {
+                            let current =
+                                store::get_required(job_id, &state).await?;
+                            tracing::warn!(%job_id, status = current.status.as_str(), phase = ?current.state.progress.phase,
+                                elapsed_ms = started.elapsed().as_millis() as u64,
+                                "Install cancellation signaled; checkpoint is still waiting for progress or database access");
+                            return Ok(current.snapshot());
+                        }
+                    }
+                } else {
+                    tokio::time::timeout(std::time::Duration::from_secs(20), checkpoint)
+                        .await
+                        .map_err(|_| crate::ErrorKind::InputError("Timed out accepting install cancellation before its worker registered; retry cancellation".into()))??
+                };
+                let Some(record) = record else {
                     continue;
                 };
-                emit_install_job(&record.snapshot()).await?;
+                if let Err(error) = emit_install_job(&record.snapshot()).await {
+                    tracing::warn!(%job_id, %error, "Could not emit accepted install cancellation");
+                }
+                tracing::info!(%job_id, status = record.status.as_str(), elapsed_ms = started.elapsed().as_millis() as u64, "Install cancellation accepted");
                 return Ok(record.snapshot());
             }
             InstallJobStatus::Canceling | InstallJobStatus::Canceled => {
+                tracing::info!(%job_id, status = job.status.as_str(), "Install cancellation already accepted");
                 return Ok(job.snapshot());
             }
             InstallJobStatus::Queued | InstallJobStatus::WaitingForUser => {
@@ -860,21 +897,38 @@ pub async fn cancel_job(job_id: Uuid) -> crate::Result<InstallJobSnapshot> {
                 else {
                     continue;
                 };
-                emit_install_job(&record.snapshot()).await?;
-                break record;
+                let snapshot = record.snapshot();
+                if let Err(error) = emit_install_job(&snapshot).await {
+                    tracing::warn!(%job_id, %error, "Could not emit accepted install cancellation");
+                }
+                tracing::info!(%job_id, status = record.status.as_str(), elapsed_ms = started.elapsed().as_millis() as u64, "Install cancellation accepted; cleanup continues in background");
+                tokio::spawn(async move {
+                    if let Err(error) =
+                        finish_canceling_job(record, &state).await
+                    {
+                        tracing::error!(%job_id, %error, "Canceled install cleanup could not finish; durable canceling state remains recoverable");
+                    }
+                });
+                return Ok(snapshot);
             }
             _ => {
-                return Err(crate::ErrorKind::InputError(
-                    "Only queued, running, or waiting install jobs can be canceled"
-                        .to_string(),
-                )
-                .into());
+                tracing::info!(%job_id, status = job.status.as_str(), "Install cancellation found an already finished job");
+                return Ok(job.snapshot());
             }
         }
-    };
+    }
+}
 
+async fn finish_canceling_job(
+    mut job: store::InstallJobRecord,
+    state: &State,
+) -> crate::Result<()> {
+    let _metadata_usage = crate::storage::usage::lease().await?;
+    let job_id = job.id;
+    let started = std::time::Instant::now();
+    tracing::info!(%job_id, phase = ?job.state.progress.phase, "Canceled install cleanup started");
     let cleanup_succeeded =
-        match recovery::apply_cleanup(&mut job.state, &state).await {
+        match recovery::apply_cleanup(&mut job.state, state).await {
             Ok(()) => true,
             Err(error) => {
                 job.state.rollback_error = Some(InstallErrorView::from_error(
@@ -897,12 +951,14 @@ pub async fn cancel_job(job_id: Uuid) -> crate::Result<InstallJobSnapshot> {
         job_id,
         InstallJobStatus::Canceled,
         &job.state,
-        &state,
+        state,
     )
     .await?;
-    emit_install_job(&record.snapshot()).await?;
-
-    Ok(record.snapshot())
+    if let Err(error) = emit_install_job(&record.snapshot()).await {
+        tracing::warn!(%job_id, %error, "Canceled install was persisted but its terminal event could not be emitted");
+    }
+    tracing::info!(%job_id, cleanup_succeeded, elapsed_ms = started.elapsed().as_millis() as u64, "Canceled install cleanup finished");
+    Ok(())
 }
 
 fn begin_canceling_job(job_state: &mut InstallJobState) {

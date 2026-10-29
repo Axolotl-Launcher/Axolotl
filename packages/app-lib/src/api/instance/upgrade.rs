@@ -4,7 +4,6 @@ use std::sync::{Arc, LazyLock};
 use tokio::sync::Mutex;
 use tokio_util::sync::CancellationToken;
 
-use crate::state::instances::adapters::sqlite::content_rows;
 use crate::state::{
     ContentSourceKind, InstanceLink, InstanceUpgradeAction,
     InstanceUpgradeFixedConstraint, InstanceUpgradePlan,
@@ -18,6 +17,8 @@ use crate::install::{
     InstallJobSnapshot, InstanceUpgradeExecution, InstanceUpgradeWatchBaseline,
     SharedUpgradeMode,
 };
+
+use crate::state::instances::adapters::sqlite::content_sets;
 
 struct StoredUpgradePlanState {
     plan: InstanceUpgradePlan,
@@ -437,7 +438,7 @@ pub async fn execute_instance_upgrade(
     }
     let _execution_guard =
         state.lock_instance_content(&stored.plan.instance_id).await;
-    let current_revision = content_rows::get_applied_content_set(
+    let current_revision = content_sets::get_applied_content_set(
         &stored.plan.instance_id,
         &state.pool,
     )
@@ -684,7 +685,7 @@ async fn ensure_current_revision(
     stored: &mut StoredUpgradePlanState,
     state: &State,
 ) -> crate::Result<crate::state::instances::commands::ReadOnlyUpgradeSource> {
-    let current_revision = content_rows::get_applied_content_set(
+    let current_revision = content_sets::get_applied_content_set(
         &stored.plan.instance_id,
         &state.pool,
     )
@@ -774,6 +775,8 @@ fn validate_fixed_constraints(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    use crate::state::instances::adapters::sqlite::content_sets;
 
     #[test]
     fn custom_fixed_constraint_preserves_content_id_through_serde() {

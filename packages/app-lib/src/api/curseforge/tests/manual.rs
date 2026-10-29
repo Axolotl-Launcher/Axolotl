@@ -306,13 +306,13 @@ async fn curseforge_pending_is_scoped_by_instance() {
     )
     .await;
 
-    let pending_a = crate::state::instances::adapters::sqlite::content_rows::get_pending_manual_downloads(
+    let pending_a = crate::state::instances::adapters::sqlite::pack_members::get_pending_manual_downloads(
         &instance_a,
         &state.pool,
     )
     .await
     .unwrap();
-    let pending_b = crate::state::instances::adapters::sqlite::content_rows::get_pending_manual_downloads(
+    let pending_b = crate::state::instances::adapters::sqlite::pack_members::get_pending_manual_downloads(
         &instance_b,
         &state.pool,
     )
@@ -810,7 +810,7 @@ async fn curseforge_legacy_pending_imports_after_exact_metadata_hydration() {
     assert!(source.exists());
     assert_eq!(imported.relative_path, "mods/legacy-hydration.jar");
     assert!(
-        crate::state::instances::adapters::sqlite::content_rows::get_pending_manual_downloads(
+        crate::state::instances::adapters::sqlite::pack_members::get_pending_manual_downloads(
             &instance_id,
             &state.pool,
         )
@@ -899,7 +899,7 @@ async fn curseforge_missing_integrity_after_hydration_keeps_pending_unresolved()
     ));
     assert!(source.exists());
     assert_eq!(
-        crate::state::instances::adapters::sqlite::content_rows::get_pending_manual_downloads(
+        crate::state::instances::adapters::sqlite::pack_members::get_pending_manual_downloads(
             &instance_id,
             &state.pool,
         )
@@ -1388,7 +1388,7 @@ async fn curseforge_non_pending_import_fails_before_verification() {
     ));
     assert!(source.exists());
     assert!(
-        crate::state::instances::adapters::sqlite::content_rows::get_pending_manual_downloads(
+        crate::state::instances::adapters::sqlite::pack_members::get_pending_manual_downloads(
             &instance_id,
             &state.pool,
         )
@@ -1440,7 +1440,7 @@ async fn curseforge_wrong_pending_file_fails_integrity() {
                 == "The selected file does not match the required CurseForge file"
     ));
     assert!(source.exists());
-    let pending = crate::state::instances::adapters::sqlite::content_rows::get_pending_manual_downloads(
+    let pending = crate::state::instances::adapters::sqlite::pack_members::get_pending_manual_downloads(
         &instance_id,
         &state.pool,
     )
@@ -1522,7 +1522,7 @@ async fn manual_import_completes_persisted_pack_member() {
         .is_err()
     );
     assert_eq!(
-        crate::state::instances::adapters::sqlite::content_rows::get_pending_manual_downloads(
+        crate::state::instances::adapters::sqlite::pack_members::get_pending_manual_downloads(
             &created.instance.id,
             &state.pool,
         )

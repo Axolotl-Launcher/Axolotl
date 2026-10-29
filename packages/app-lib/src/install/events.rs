@@ -1680,6 +1680,71 @@ mod tests {
 
     #[cfg(not(feature = "tauri"))]
     #[tokio::test]
+    async fn cancellation_acknowledgement_does_not_wait_indefinitely_for_the_live_reporter()
+     {
+        let (app_state, job_id, reporter) =
+            stored_minecraft_progress_job(0, 1).await;
+        let cancellation = CancellationToken::new();
+        app_state
+            .install_job_cancellations
+            .insert(job_id, cancellation.clone());
+        let reporter_guard = reporter.state.lock().await;
+        let snapshot = tokio::time::timeout(Duration::from_secs(3), super::super::runner::cancel_job_with_state(job_id, app_state.clone()))
+            .await.expect("a signaled worker must not leave the cancel command waiting on the reporter mutex").unwrap();
+        assert!(cancellation.is_cancelled());
+        assert_eq!(snapshot.status, InstallJobStatus::Running);
+        assert_eq!(
+            store::get_required(job_id, &app_state)
+                .await
+                .unwrap()
+                .status,
+            InstallJobStatus::Running
+        );
+        drop(reporter_guard);
+        let snapshot = super::super::runner::cancel_job_with_state(
+            job_id,
+            app_state.clone(),
+        )
+        .await
+        .unwrap();
+        assert_eq!(snapshot.status, InstallJobStatus::Canceling);
+        app_state.install_job_cancellations.remove(&job_id);
+        InstallProgressReporter::reset_job(job_id);
+    }
+
+    #[cfg(not(feature = "tauri"))]
+    #[tokio::test]
+    async fn cancellation_acknowledgement_is_bounded_when_the_database_writer_is_busy()
+     {
+        let (app_state, job_id, _reporter) =
+            stored_minecraft_progress_job(0, 1).await;
+        let cancellation = CancellationToken::new();
+        app_state
+            .install_job_cancellations
+            .insert(job_id, cancellation.clone());
+        let database_permit =
+            app_state.install_db_semaphore.acquire().await.unwrap();
+        let snapshot = tokio::time::timeout(Duration::from_secs(3), super::super::runner::cancel_job_with_state(job_id, app_state.clone()))
+            .await.expect("a signaled worker must not leave the cancel command waiting indefinitely for the database writer").unwrap();
+        assert!(cancellation.is_cancelled());
+        assert_eq!(snapshot.status, InstallJobStatus::Running);
+        drop(database_permit);
+        assert_eq!(
+            super::super::runner::cancel_job_with_state(
+                job_id,
+                app_state.clone()
+            )
+            .await
+            .unwrap()
+            .status,
+            InstallJobStatus::Canceling
+        );
+        app_state.install_job_cancellations.remove(&job_id);
+        InstallProgressReporter::reset_job(job_id);
+    }
+
+    #[cfg(not(feature = "tauri"))]
+    #[tokio::test]
     async fn archive_tracking_updates_phase_bytes_even_when_live_events_are_throttled()
      {
         for (phase, parallel, phase_updates, expected) in [

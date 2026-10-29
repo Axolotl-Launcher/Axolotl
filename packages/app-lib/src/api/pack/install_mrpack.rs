@@ -16,7 +16,6 @@ use crate::pack::install_from::{
     EnvType, PackFile, PackFileHash, set_instance_information,
 };
 use crate::state::instances::ContentSourceKind;
-use crate::state::instances::adapters::sqlite::content_rows;
 use crate::state::{
     CachedEntry, ContentProviderRef, ModrinthHashMatch, ModrinthProjectId,
     ModrinthVersionId, Settings, SideType,
@@ -63,6 +62,8 @@ use std::io::{Cursor, ErrorKind};
 use std::path::{Path, PathBuf};
 use tokio::io::AsyncWriteExt;
 use tokio::sync::{Mutex, Semaphore, mpsc};
+
+use crate::state::instances::adapters::sqlite::files;
 
 type ExtractProgressFn<'a> = dyn FnMut(u64) -> Pin<Box<dyn Future<Output = crate::Result<()>> + Send + 'a>>
     + Send
@@ -1111,7 +1112,7 @@ pub(crate) async fn install_zipped_mrpack_files_with_reporter(
     )
     .await;
     let existing_paths_by_original = Arc::new(
-        content_rows::get_instance_files(&instance_id, &state.pool)
+        files::get_instance_files(&instance_id, &state.pool)
             .await?
             .into_iter()
             .map(|file| {
@@ -2350,6 +2351,8 @@ mod tests {
     use async_zip::tokio::write::ZipFileWriter;
     use async_zip::{Compression, ZipEntryBuilder};
     use std::sync::Mutex as StdMutex;
+
+    use crate::state::instances::adapters::sqlite::files;
 
     #[test]
     fn override_paths_reject_portable_traversal_and_windows_aliases() {

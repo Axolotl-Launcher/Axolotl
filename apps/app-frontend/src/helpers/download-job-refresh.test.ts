@@ -89,10 +89,11 @@ it('a supplemental read cannot replace events received while it was in flight', 
     expect(current.status).toBe('succeeded')
 })
 
-it('allows a queued snapshot when the job is not already active', () => {
+it('rejects same-second active snapshots after a terminal event', () => {
     const succeeded = job('a', 'succeeded', 100)
     const queued = job('a', 'queued', 0)
-    expect(isRegressiveActiveJobSnapshot(succeeded, queued, active)).toBe(false)
+    expect(isRegressiveActiveJobSnapshot(succeeded, queued, active)).toBe(true)
+    expect(isRegressiveActiveJobSnapshot(succeeded, job('a', 'running', 20), active)).toBe(true)
 })
 
 it('preserves realtime progress received while an active refresh was in flight', () => {
@@ -109,18 +110,31 @@ it('preserves realtime progress received while an active refresh was in flight',
     expect(merged[0]).toBe(live)
 })
 
-it('accepts an authoritative terminal refresh result', () => {
+it('accepts an authoritative terminal refresh result when nothing changed since dispatch', () => {
     const live = job('a', 'running', 20)
     const succeeded = job('a', 'succeeded', 100)
     const merged = mergeRefreshedDownloadJobs(
         [succeeded],
         [live],
         new Map([['a', 1]]),
-        new Map([['a', 2]]),
+        new Map([['a', 1]]),
         new Set(),
         active,
     )
     expect(merged[0]).toBe(succeeded)
+})
+
+it('does not overwrite a newly retried job with an older terminal list response', () => {
+    const running = job('a', 'running', 10)
+    const merged = mergeRefreshedDownloadJobs(
+        [job('a', 'failed', 0)],
+        [running],
+        new Map([['a', 1]]),
+        new Map([['a', 2]]),
+        new Set(),
+        active,
+    )
+    expect(merged[0]).toBe(running)
 })
 
 it('keeps a newly announced active job missing from the older response', () => {

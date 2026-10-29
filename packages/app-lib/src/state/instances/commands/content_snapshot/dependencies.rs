@@ -5,6 +5,8 @@ use crate::state::instances::{
     ContentDependencyEdge, ContentDependencyKind, ContentEntry, ContentSet,
 };
 
+use crate::state::instances::adapters::sqlite::content_entries;
+
 #[derive(Default)]
 pub(crate) struct DependencyBackfill {
     pub(crate) edges: Vec<ContentDependencyEdge>,
@@ -335,7 +337,7 @@ pub(crate) async fn backfill_dependency_edges_from_metadata(
     local: &HashMap<String, LocalModMetadata>,
     state: &State,
 ) -> crate::Result<DependencyBackfill> {
-    let existing = content_rows::get_content_dependency_edges(
+    let existing = content_entries::get_content_dependency_edges(
         &content_set.id,
         &state.pool,
     )
@@ -448,6 +450,8 @@ pub(crate) async fn backfill_dependency_edges_from_metadata(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    use crate::state::instances::adapters::sqlite::content_entries;
     fn entry(id: &str) -> ContentEntry {
         ContentEntry {
             id: id.into(),
@@ -708,9 +712,10 @@ mod tests {
         let mut tx = pool.begin().await.unwrap();
         persist_backfill(&first, "set", &mut tx).await.unwrap();
         tx.commit().await.unwrap();
-        let initial = content_rows::get_content_dependency_edges("set", &pool)
-            .await
-            .unwrap();
+        let initial =
+            content_entries::get_content_dependency_edges("set", &pool)
+                .await
+                .unwrap();
         assert_eq!(initial.len(), 1);
         refs.insert("c".into(), vec![mr("child100", "child101")]);
         let mut second = DependencyBackfill::default();
@@ -729,7 +734,7 @@ mod tests {
         persist_backfill(&second, "set", &mut tx).await.unwrap();
         tx.commit().await.unwrap();
         assert_eq!(
-            content_rows::get_content_dependency_edges("set", &pool)
+            content_entries::get_content_dependency_edges("set", &pool)
                 .await
                 .unwrap()
                 .len(),
@@ -740,7 +745,7 @@ mod tests {
         persist_backfill(&failed, "set", &mut tx).await.unwrap();
         tx.commit().await.unwrap();
         assert_eq!(
-            content_rows::get_content_dependency_edges("set", &pool)
+            content_entries::get_content_dependency_edges("set", &pool)
                 .await
                 .unwrap()
                 .len(),
@@ -761,7 +766,7 @@ mod tests {
         persist_backfill(&removal, "set", &mut tx).await.unwrap();
         tx.commit().await.unwrap();
         assert!(
-            content_rows::get_content_dependency_edges("set", &pool)
+            content_entries::get_content_dependency_edges("set", &pool)
                 .await
                 .unwrap()
                 .is_empty()

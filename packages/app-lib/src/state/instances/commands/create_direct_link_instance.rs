@@ -6,7 +6,7 @@ use crate::launcher::ExternalGameDirMode;
 use crate::state::instances::{
     ContentSet, ContentSetStatus, ContentSourceKind, Instance,
     InstanceLaunchOverrides, InstanceLink, LoaderComponent,
-    adapters::sqlite::{content_rows, instance_rows, loader_component_rows},
+    adapters::sqlite::{instance_rows, loader_component_rows},
 };
 use crate::state::{
     InstanceInstallStage, LauncherFeatureVersion, ReleaseChannel, State,
@@ -17,6 +17,8 @@ use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use tracing::info;
 use uuid::Uuid;
+
+use crate::state::instances::adapters::sqlite::{content_sets, links};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct CreateDirectLinkInstance {
@@ -128,12 +130,10 @@ pub(crate) async fn create_direct_link_instance(
 
     let mut tx = state.pool.begin().await?;
     instance_rows::insert_instance(&instance, &mut tx).await?;
-    sqlx::query(
-        "INSERT INTO instance_sync_preferences (instance_id, feature, enabled)
-         SELECT ?, feature, new_instance_default FROM sync_feature_settings",
+    instance_rows::insert_default_sync_preferences_in_transaction(
+        &instance_id,
+        &mut tx,
     )
-    .bind(&instance_id)
-    .execute(&mut *tx)
     .await?;
     instance_rows::set_direct_link_fields(
         &instance.id,
@@ -148,7 +148,7 @@ pub(crate) async fn create_direct_link_instance(
         &mut tx,
     )
     .await?;
-    content_rows::insert_content_set(&content_set, &mut tx).await?;
+    content_sets::insert_content_set(&content_set, &mut tx).await?;
     loader_component_rows::replace_loader_components(
         &instance_id,
         &LoaderComponent::from_legacy_projection(
@@ -159,7 +159,7 @@ pub(crate) async fn create_direct_link_instance(
         &mut tx,
     )
     .await?;
-    instance_rows::upsert_instance_link(
+    links::upsert_instance_link(
         &instance_id,
         &InstanceLink::Unmanaged,
         &mut tx,
@@ -206,6 +206,10 @@ mod tests {
     use std::path::Path;
     use std::sync::Arc;
     use tempfile::TempDir;
+
+    use crate::state::instances::adapters::sqlite::{
+        content_sets, files, links,
+    };
 
     fn write_version(
         root: &Path,

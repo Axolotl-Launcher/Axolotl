@@ -11,7 +11,7 @@ use sqlx::Row;
 use sqlx::SqliteConnection;
 use sqlx::sqlite::SqliteRow;
 
-use super::Collection;
+use super::{Collection, Handle};
 
 /// The queued events.
 pub(crate) struct TelemetryOutbox;
@@ -202,6 +202,45 @@ impl Collection for TelemetryOutbox {
             write_row(conn, key, record).await?;
         }
 
+        Ok(())
+    }
+}
+
+impl TelemetryOutbox {
+    /// Trimming keeps the newest events within an age, a count and a byte
+    /// budget, which no record-by-record replacement can say.
+    pub(crate) async fn trim(
+        handle: &Handle,
+        oldest: i64,
+        max_events: i64,
+        max_bytes: i64,
+    ) -> crate::Result<()> {
+        sqlx::query("DELETE FROM telemetry_outbox WHERE created_at < ?")
+            .bind(oldest)
+            .execute(handle.pool())
+            .await?;
+        sqlx::query(
+            "DELETE FROM telemetry_outbox WHERE event_id IN (SELECT event_id FROM telemetry_outbox ORDER BY created_at DESC LIMIT -1 OFFSET ?)",
+        )
+        .bind(max_events)
+        .execute(handle.pool())
+        .await?;
+        sqlx::query(
+            r#"
+            DELETE FROM telemetry_outbox
+            WHERE event_id IN (
+                SELECT event_id FROM (
+                    SELECT event_id,
+                        SUM(size_bytes) OVER (ORDER BY created_at DESC, event_id DESC) AS running_bytes
+                    FROM telemetry_outbox
+                )
+                WHERE running_bytes > ?
+            )
+            "#,
+        )
+        .bind(max_bytes)
+        .execute(handle.pool())
+        .await?;
         Ok(())
     }
 }

@@ -30,6 +30,181 @@ export const ANNOUNCEMENT_CHANGE_TYPES: readonly AnnouncementChangeType[] = [
 
 export const launcherAnnouncements: readonly LauncherAnnouncement[] = [
     {
+        id: 'launcher-1.10.3',
+        version: '1.10.3',
+        publishedAt: '2026-10-28',
+        title: {
+            'en-US': 'Axolotl Launcher 1.10.3',
+            'zh-CN': 'Axolotl Launcher 1.10.3',
+        },
+        changes: {
+            added: [
+                {
+                    'en-US':
+                        'Added persistent content refresh results with progress counts and targeted retries for failed checks.',
+                    'zh-CN': '新增内容刷新结果持久保存、进度计数和失败项单独重试。',
+                },
+                {
+                    'en-US':
+                        'Added detailed instance upgrade analysis progress, including per-file compatibility results and a Stop analysis control.',
+                    'zh-CN': '实例升级分析新增详细进度、逐文件兼容性结果和停止分析按钮。',
+                },
+                {
+                    'en-US':
+                        'Added progressive ore and loot results to Seed Map area analysis, with incomplete results clearly marked after cancellation.',
+                    'zh-CN':
+                        '种子地图区域分析新增矿物与战利品结果逐步显示，并在取消后明确标注结果尚不完整。',
+                },
+                {
+                    'en-US':
+                        'Added a saved cards-per-page preference for Discover that persists across launcher restarts.',
+                    'zh-CN': '新增发现页面每页卡片数量记忆，重启启动器后仍保留所选设置。',
+                },
+            ],
+            changed: [
+                {
+                    'en-US':
+                        'Improved content refresh by displaying local files first, then progressively filling in project details and available updates.',
+                    'zh-CN': '优化内容刷新，优先显示本地文件，再逐步补充项目信息和可用更新。',
+                },
+                {
+                    'en-US':
+                        'Improved repeated content scans by persistently caching file fingerprints and reusing verified installation results.',
+                    'zh-CN': '优化重复内容扫描，持久缓存文件指纹，并复用已校验的安装结果。',
+                },
+                {
+                    'en-US':
+                        'Improved large mod list responsiveness by batching refresh requests, metadata lookups, and incremental display updates.',
+                    'zh-CN':
+                        '优化大型模组列表的响应，合并刷新请求、批量获取信息并分批更新显示结果。',
+                },
+                {
+                    'en-US':
+                        'Improved version pickers by showing each page as it arrives and retaining loaded versions when later pages need retrying.',
+                    'zh-CN':
+                        '优化版本选择器，逐页显示已加载版本，并在后续页面加载失败时保留已有结果供重试。',
+                },
+                {
+                    'en-US':
+                        'Improved Java selection, project version pages, and Worlds loading by displaying them before supplementary lookups finish.',
+                    'zh-CN':
+                        '优化 Java 选择器、项目版本页和世界页面加载，无需等待补充信息全部查询完成即可显示。',
+                },
+                {
+                    'en-US':
+                        'Improved launcher import detection by checking multiple launchers concurrently and displaying each result as it becomes available.',
+                    'zh-CN': '优化启动器导入检测，并行检查多个启动器，发现可导入实例后立即显示。',
+                },
+                {
+                    'en-US':
+                        'Improved dependency previews with stage-specific progress and removal of dependencies discarded during later analysis rounds.',
+                    'zh-CN': '优化依赖预览，显示当前分析阶段，并及时移除后续分析中不再需要的依赖。',
+                },
+                {
+                    'en-US':
+                        "Expanded CodeFlow's built-in model list to include all models listed in its Model Square.",
+                    'zh-CN': '扩充 CodeFlow 内置模型列表，收录其模型广场中列出的全部模型。',
+                },
+            ],
+            fixed: [
+                {
+                    'en-US':
+                        'Fixed mod lists reordering while scrolling and completed refresh results disappearing during unstable scans or online failures.',
+                    'zh-CN':
+                        '修复模组列表滚动时重新排序，以及扫描不稳定或在线查询失败时已完成的刷新结果丢失的问题。',
+                },
+                {
+                    'en-US':
+                        'Fixed repeated direct updates conflicting with each other by queueing updates sequentially within the same instance.',
+                    'zh-CN': '修复重复直接更新相互冲突的问题，同一实例的更新现在按顺序执行。',
+                },
+                {
+                    'en-US':
+                        'Fixed choosing another version of installed content being treated as a new installation instead of replacing the existing entry.',
+                    'zh-CN':
+                        '修复为已安装内容选择其他版本时，被当作全新安装而非替换现有条目的问题。',
+                },
+                {
+                    'en-US':
+                        'Fixed false dependency conflicts caused by mod version ranges and compatibility constraints that could not be conclusively evaluated.',
+                    'zh-CN': '修复模组版本范围解析和无法确定的兼容性约束导致的依赖冲突误报。',
+                },
+                {
+                    'en-US':
+                        'Fixed Update all using stale candidates from failed checks and modpack downgrade decisions being made before the installed version was known.',
+                    'zh-CN':
+                        '修复全部更新使用检查失败条目的旧候选版本，以及尚未确认已安装版本就判断整合包降级的问题。',
+                },
+                {
+                    'en-US':
+                        'Fixed dependency preview cancellation leaving analysis running, including repeated analysis after selections or instance content changed.',
+                    'zh-CN':
+                        '修复取消依赖预览后分析仍继续运行的问题，包括更改选择或实例内容后的重新分析。',
+                },
+                {
+                    'en-US':
+                        'Fixed canceled mod analysis publishing stale results and Seed Map ore scans continuing inside native processing loops.',
+                    'zh-CN':
+                        '修复已取消的模组分析仍提交过期结果，以及种子地图矿物扫描取消后仍在原生计算循环中继续运行的问题。',
+                },
+                {
+                    'en-US':
+                        'Fixed download tasks remaining in stale states and cancellation appearing unresponsive while progress checkpoints or cleanup were pending.',
+                    'zh-CN':
+                        '修复下载任务状态长时间未更新，以及等待进度保存或清理时取消操作看似无响应的问题。',
+                },
+                {
+                    'en-US':
+                        'Fixed CurseForge metadata requests waiting indefinitely for request slots, response bodies, or retry delays.',
+                    'zh-CN':
+                        '修复 CurseForge 信息请求因等待请求名额、响应内容或重试延迟而长时间无法结束的问题。',
+                },
+                {
+                    'en-US':
+                        'Fixed file saves marking edits made during the write as saved and navigation discarding changes after a failed save.',
+                    'zh-CN':
+                        '修复文件保存期间的新输入被误标为已保存，以及保存失败后离开页面丢弃修改的问题。',
+                },
+                {
+                    'en-US':
+                        'Fixed older file reads overwriting the editor after switching files and overlapping saves failing to preserve the latest edits.',
+                    'zh-CN':
+                        '修复切换文件后旧读取结果覆盖当前编辑器，以及连续保存未正确保留最新修改的问题。',
+                },
+                {
+                    'en-US':
+                        'Fixed log list refreshes and log text requests interfering with each other, including sharing the previous log while another was loading.',
+                    'zh-CN':
+                        '修复日志列表刷新与日志正文请求相互干扰，以及加载另一份日志时误分享上一份日志的问题。',
+                },
+                {
+                    'en-US':
+                        'Fixed background Java discovery replacing a user-started lookup and losing its results or errors.',
+                    'zh-CN':
+                        '修复后台 Java 检测替换用户主动发起的查询，导致查询结果或错误丢失的问题。',
+                },
+                {
+                    'en-US':
+                        'Fixed requested versions being selected incorrectly when version lists opened early, loaded slowly, or failed partway through.',
+                    'zh-CN':
+                        '修复版本列表提前打开、加载缓慢或中途失败时，未正确保留所请求版本选择的问题。',
+                },
+                {
+                    'en-US':
+                        'Fixed server status and Quick Play showing unavailable states before the Worlds page finished loading their required information.',
+                    'zh-CN':
+                        '修复世界页面尚未加载必要信息时，服务器状态和快速游玩被提前显示为不可用的问题。',
+                },
+            ],
+            security: [
+                {
+                    'en-US': 'Fixed a known security vulnerability in the qs dependency.',
+                    'zh-CN': '更新 qs 依赖，修复已知安全漏洞。',
+                },
+            ],
+        },
+    },
+    {
         id: 'launcher-1.10.2',
         version: '1.10.2',
         publishedAt: '2026-10-27',

@@ -1187,6 +1187,44 @@ mod tests {
     }
 
     #[test]
+    fn every_status_is_listed_once() {
+        let mut seen = Vec::new();
+        for status in InstallJobStatus::ALL {
+            assert!(!seen.contains(&status), "{status:?} is listed twice");
+            seen.push(status);
+        }
+        assert_eq!(seen.len(), 8, "a new status must be added to ALL");
+    }
+
+    #[test]
+    fn the_guards_ask_for_the_statuses_that_still_occupy_an_instance() {
+        assert_eq!(
+            InstallJobStatus::unfinished_sql(),
+            "'queued', 'running', 'canceling', 'waiting_for_user'"
+        );
+    }
+
+    #[test]
+    fn listing_open_jobs_keeps_failed_and_interrupted_ones() {
+        let open: Vec<_> = InstallJobStatus::ALL
+            .into_iter()
+            .filter(|status| !status.is_resolved())
+            .collect();
+
+        assert_eq!(
+            open,
+            [
+                InstallJobStatus::Queued,
+                InstallJobStatus::Running,
+                InstallJobStatus::Canceling,
+                InstallJobStatus::WaitingForUser,
+                InstallJobStatus::Failed,
+                InstallJobStatus::Interrupted,
+            ]
+        );
+    }
+
+    #[test]
     fn waiting_job_state_round_trip_preserves_pause_and_file_items() {
         let mut job = job_state();
         for path in ["mods/complete.jar", "mods/missing.jar"] {
@@ -2335,11 +2373,60 @@ impl InstallJobStatus {
         }
     }
 
-    pub fn is_finished(self) -> bool {
-        matches!(
-            self,
-            Self::Succeeded | Self::Failed | Self::Interrupted | Self::Canceled
-        )
+    /// Whether the job has stopped for good: a finished job no longer occupies
+    /// its instance and does not resume on its own.
+    ///
+    /// The match is exhaustive so a new status has to say which side it is on.
+    pub const fn is_finished(self) -> bool {
+        match self {
+            Self::Queued
+            | Self::Running
+            | Self::Canceling
+            | Self::WaitingForUser => false,
+            Self::Succeeded
+            | Self::Failed
+            | Self::Interrupted
+            | Self::Canceled => true,
+        }
+    }
+
+    /// Whether the job ended in a state that leaves nothing behind: no work in
+    /// flight, and nothing a user still has to see or dismiss.
+    ///
+    /// The match is exhaustive for the same reason as [`Self::is_finished`].
+    pub const fn is_resolved(self) -> bool {
+        match self {
+            Self::Succeeded | Self::Canceled => true,
+            Self::Queued
+            | Self::Running
+            | Self::Canceling
+            | Self::WaitingForUser
+            | Self::Failed
+            | Self::Interrupted => false,
+        }
+    }
+
+    /// Every status, in the order it is declared.
+    pub const ALL: [Self; 8] = [
+        Self::Queued,
+        Self::Running,
+        Self::Canceling,
+        Self::WaitingForUser,
+        Self::Succeeded,
+        Self::Failed,
+        Self::Interrupted,
+        Self::Canceled,
+    ];
+
+    /// The statuses that still occupy their instance, quoted for an SQL `IN`
+    /// clause. Derived from [`Self::is_finished`] so the two cannot disagree.
+    pub fn unfinished_sql() -> String {
+        Self::ALL
+            .into_iter()
+            .filter(|status| !status.is_finished())
+            .map(|status| format!("'{}'", status.as_str()))
+            .collect::<Vec<_>>()
+            .join(", ")
     }
 }
 

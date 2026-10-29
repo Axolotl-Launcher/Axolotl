@@ -1283,10 +1283,25 @@ async fn frozen_export_job_survives_session_close_and_preserves_instance_stage()
     let queued = crate::install::runner::export_resource(plan, output.clone())
         .await
         .unwrap();
-    let canceled = crate::install::runner::cancel_job(queued.job_id)
+    let accepted = crate::install::runner::cancel_job(queued.job_id)
         .await
         .unwrap();
+    assert_eq!(accepted.status, InstallJobStatus::Canceling);
     drop(permit);
+    let canceled =
+        tokio::time::timeout(std::time::Duration::from_secs(10), async {
+            loop {
+                let job = crate::install::runner::get_job(queued.job_id)
+                    .await
+                    .unwrap();
+                if job.status.is_finished() {
+                    break job;
+                }
+                tokio::task::yield_now().await;
+            }
+        })
+        .await
+        .expect("accepted export cancellation must finish background cleanup");
     assert_eq!(canceled.status, InstallJobStatus::Canceled);
     assert_eq!(std::fs::read(output).unwrap(), existing);
     let mut pending = self::draft(vec![file("settings.txt")]);

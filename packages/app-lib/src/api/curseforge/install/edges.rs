@@ -36,7 +36,7 @@ pub(crate) async fn persist_resolution_plan_dependency_edges(
         ) else {
             continue;
         };
-        let Some(parent_entry) = crate::state::instances::adapters::sqlite::content_rows::get_content_entry_by_provider_ref(
+        let Some(parent_entry) = crate::state::instances::adapters::sqlite::content_entries::get_content_entry_by_provider_ref(
             &scope.content_set_id,
             edge.parent.provider(),
             &edge.parent.database_project_id(),
@@ -47,7 +47,7 @@ pub(crate) async fn persist_resolution_plan_dependency_edges(
         else {
             continue;
         };
-        let Some(child_entry) = crate::state::instances::adapters::sqlite::content_rows::get_content_entry_by_provider_ref(
+        let Some(child_entry) = crate::state::instances::adapters::sqlite::content_entries::get_content_entry_by_provider_ref(
             &scope.content_set_id,
             edge.child.provider(),
             &edge.child.database_project_id(),
@@ -59,7 +59,7 @@ pub(crate) async fn persist_resolution_plan_dependency_edges(
             continue;
         };
         let now = chrono::Utc::now();
-        crate::state::instances::adapters::sqlite::content_rows::upsert_content_dependency_edge_in_transaction(
+        crate::state::instances::adapters::sqlite::content_entries::upsert_content_dependency_edge_in_transaction(
             &crate::state::instances::ContentDependencyEdge {
                 id: format!("content-dependency:{}", uuid::Uuid::new_v4()),
                 content_set_id: scope.content_set_id.clone(),
@@ -104,7 +104,7 @@ pub(crate) async fn persist_curseforge_dependency_edges(
     let mut tx = state.pool.begin().await?;
     for candidate in candidates {
         let Some(parent_entry) =
-            crate::state::instances::adapters::sqlite::content_rows::get_content_entry_by_provider_ref(
+            crate::state::instances::adapters::sqlite::content_entries::get_content_entry_by_provider_ref(
                 &scope.content_set_id,
                 ContentProvider::CurseForge,
                 &candidate.parent_project_id.to_string(),
@@ -116,7 +116,7 @@ pub(crate) async fn persist_curseforge_dependency_edges(
             continue;
         };
         let Some(child_entry) =
-            crate::state::instances::adapters::sqlite::content_rows::get_content_entry_by_provider_ref(
+            crate::state::instances::adapters::sqlite::content_entries::get_content_entry_by_provider_ref(
                 &scope.content_set_id,
                 ContentProvider::CurseForge,
                 &candidate.child_project_id.to_string(),
@@ -127,14 +127,14 @@ pub(crate) async fn persist_curseforge_dependency_edges(
         else {
             continue;
         };
-        crate::state::instances::adapters::sqlite::content_rows::set_content_entry_auto_dependency_in_transaction(
+        crate::state::instances::adapters::sqlite::content_entries::set_content_entry_auto_dependency_in_transaction(
             &child_entry.id,
             true,
             &mut tx,
         )
         .await?;
         let now = chrono::Utc::now();
-        crate::state::instances::adapters::sqlite::content_rows::upsert_content_dependency_edge_in_transaction(
+        crate::state::instances::adapters::sqlite::content_entries::upsert_content_dependency_edge_in_transaction(
             &crate::state::instances::ContentDependencyEdge {
                 id: format!("content-dependency:{}", uuid::Uuid::new_v4()),
                 content_set_id: scope.content_set_id.clone(),
@@ -191,7 +191,7 @@ pub(crate) async fn persist_modrinth_fallback_dependency_edges(
             let parent = if parent_version_id
                 == fallback.plan.primary.version_id
             {
-                crate::state::instances::adapters::sqlite::content_rows::get_content_entry_by_provider_ref(
+                crate::state::instances::adapters::sqlite::content_entries::get_content_entry_by_provider_ref(
                     &scope.content_set_id,
                     ContentProvider::CurseForge,
                     &fallback.parent_project_id.to_string(),
@@ -211,7 +211,7 @@ pub(crate) async fn persist_modrinth_fallback_dependency_edges(
                 .iter()
                 .find(|content| content.version_id == parent_version_id)
             {
-                crate::state::instances::adapters::sqlite::content_rows::get_content_entry_by_provider_ref(
+                crate::state::instances::adapters::sqlite::content_entries::get_content_entry_by_provider_ref(
                     &scope.content_set_id,
                     ContentProvider::Modrinth,
                     &parent_content.project_id,
@@ -237,7 +237,7 @@ pub(crate) async fn persist_modrinth_fallback_dependency_edges(
             else {
                 continue;
             };
-            let Some(child_entry) = crate::state::instances::adapters::sqlite::content_rows::get_content_entry_by_provider_ref(
+            let Some(child_entry) = crate::state::instances::adapters::sqlite::content_entries::get_content_entry_by_provider_ref(
                 &scope.content_set_id,
                 ContentProvider::Modrinth,
                 &dependency.project_id,
@@ -249,7 +249,7 @@ pub(crate) async fn persist_modrinth_fallback_dependency_edges(
                 continue;
             };
             let now = chrono::Utc::now();
-            crate::state::instances::adapters::sqlite::content_rows::upsert_content_dependency_edge_in_transaction(
+            crate::state::instances::adapters::sqlite::content_entries::upsert_content_dependency_edge_in_transaction(
                 &crate::state::instances::ContentDependencyEdge {
                     id: format!("content-dependency:{}", uuid::Uuid::new_v4()),
                     content_set_id: scope.content_set_id.clone(),

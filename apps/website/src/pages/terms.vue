@@ -4,6 +4,9 @@ import { useVIntl } from '@modrinth/ui'
 import LegalDocument from '~/components/ui/LegalDocument.vue'
 
 const { locale } = useVIntl()
+const config = useRuntimeConfig()
+const githubUrl = config.public.githubUrl
+const siteUrl = config.public.siteUrl
 const isChinese = computed(() => locale.value === 'zh-CN')
 
 const seoTitle = computed(() =>
@@ -21,12 +24,12 @@ useSeoMeta({
     ogTitle: () => seoTitle.value,
     ogDescription: () => seoDescription.value,
     ogType: 'website',
-    ogUrl: 'https://axlmc.org/terms',
+    ogUrl: `${siteUrl}/terms`,
     robots: 'index, follow',
 })
 
 useHead({
-    link: [{ rel: 'canonical', href: 'https://axlmc.org/terms' }],
+    link: [{ rel: 'canonical', href: `${siteUrl}/terms` }],
 })
 </script>
 
@@ -56,7 +59,7 @@ useHead({
             <li>
                 官方网站源代码采用
                 <a
-                    href="https://github.com/Mystic-Stars/Axolotl/blob/main/apps/website/LICENSE"
+                    :href="`${githubUrl}/blob/main/apps/website/LICENSE`"
                     target="_blank"
                     rel="noopener"
                     >GNU Affero General Public License Version 3 only（AGPL-3.0-only）</a
@@ -65,7 +68,7 @@ useHead({
             <li>
                 桌面应用相关 package 采用
                 <a
-                    href="https://github.com/Mystic-Stars/Axolotl/blob/main/apps/app-frontend/LICENSE"
+                    :href="`${githubUrl}/blob/main/apps/app-frontend/LICENSE`"
                     target="_blank"
                     rel="noopener"
                     >GNU General Public License Version 3 only（GPL-3.0-only）</a
@@ -155,9 +158,7 @@ useHead({
                 >LICENSE</code
             >
             和源码声明。如需进一步确认，请通过
-            <a href="https://github.com/Mystic-Stars/Axolotl/issues" target="_blank" rel="noopener"
-                >GitHub Issues</a
-            >
+            <a :href="`${githubUrl}/issues`" target="_blank" rel="noopener">GitHub Issues</a>
             联系项目维护者，或加入官方 QQ 群 830619067。本页面不是法律意见。
         </p>
     </LegalDocument>
@@ -194,7 +195,7 @@ useHead({
             <li>
                 The official website source code is licensed under the
                 <a
-                    href="https://github.com/Mystic-Stars/Axolotl/blob/main/apps/website/LICENSE"
+                    :href="`${githubUrl}/blob/main/apps/website/LICENSE`"
                     target="_blank"
                     rel="noopener"
                     >GNU Affero General Public License Version 3 only (AGPL-3.0-only)</a
@@ -203,7 +204,7 @@ useHead({
             <li>
                 The desktop application packages are licensed under the
                 <a
-                    href="https://github.com/Mystic-Stars/Axolotl/blob/main/apps/app-frontend/LICENSE"
+                    :href="`${githubUrl}/blob/main/apps/app-frontend/LICENSE`"
                     target="_blank"
                     rel="noopener"
                     >GNU General Public License Version 3 only (GPL-3.0-only)</a
@@ -319,9 +320,8 @@ useHead({
             If you have questions about license scope, first check the <code>COPYING.md</code>,
             <code>LICENSE</code>, and source-code notices in the repository root and the
             corresponding packages. For further confirmation, contact the project maintainers via
-            <a href="https://github.com/Mystic-Stars/Axolotl/issues" target="_blank" rel="noopener"
-                >GitHub Issues</a
-            >, or join the official QQ group 830619067. This page is not legal advice.
+            <a :href="`${githubUrl}/issues`" target="_blank" rel="noopener">GitHub Issues</a>, or
+            join the official QQ group 830619067. This page is not legal advice.
         </p>
     </LegalDocument>
 </template>

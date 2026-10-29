@@ -291,7 +291,7 @@ pub async fn apply_content_update_plan(
         return Ok(ContentUpdateApplyResult::Queued { job });
     }
 
-    let current_revision = crate::state::instances::adapters::sqlite::content_rows::get_applied_content_set(
+    let current_revision = crate::state::instances::adapters::sqlite::content_sets::get_applied_content_set(
         &plan.instance_id,
         &state.pool,
     )

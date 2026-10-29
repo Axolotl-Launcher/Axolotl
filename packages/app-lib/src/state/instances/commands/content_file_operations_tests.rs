@@ -1,12 +1,14 @@
 use super::*;
 use crate::state::DirectoryInfo;
-use crate::state::instances::adapters::sqlite::{content_rows, instance_rows};
+use crate::state::instances::adapters::sqlite::instance_rows;
 use crate::state::instances::commands::{
     remove_project, sync_content_files, toggle_content_entries,
     toggle_disable_project,
 };
 use std::path::PathBuf;
 use std::sync::Arc;
+
+use crate::state::instances::adapters::sqlite::{content_sets, files};
 
 async fn fixture() -> (tempfile::TempDir, Arc<State>, PathBuf, Vec<String>) {
     let temp = tempfile::tempdir().unwrap();
@@ -54,6 +56,8 @@ async fn journal_count(state: &State) -> i64 {
 #[tokio::test]
 async fn toggles_and_ten_remote_refreshes_reuse_the_same_byte_evidence() {
     use crate::util::download::verified_file::track_scans;
+
+    use crate::state::instances::adapters::sqlite::{content_sets, files};
     let (_temp, state, _root, ids) = fixture().await;
     let cancel = tokio_util::sync::CancellationToken::new();
     for enabled in [false, true] {
@@ -94,7 +98,7 @@ async fn direct_and_batch_toggle_restore_files_after_database_failure() {
     for single in [true, false] {
         let (_temp, state, root, ids) = fixture().await;
         let revision =
-            content_rows::get_applied_content_set("instance", &state.pool)
+            content_sets::get_applied_content_set("instance", &state.pool)
                 .await
                 .unwrap()
                 .unwrap()
@@ -126,7 +130,7 @@ async fn direct_and_batch_toggle_restore_files_after_database_failure() {
         }
         assert_eq!(journal_count(&state).await, 0);
         assert_eq!(
-            content_rows::get_applied_content_set("instance", &state.pool)
+            content_sets::get_applied_content_set("instance", &state.pool)
                 .await
                 .unwrap()
                 .unwrap()
@@ -134,7 +138,7 @@ async fn direct_and_batch_toggle_restore_files_after_database_failure() {
             revision
         );
         assert!(
-            content_rows::get_instance_files("instance", &state.pool)
+            files::get_instance_files("instance", &state.pool)
                 .await
                 .unwrap()
                 .iter()
@@ -148,7 +152,7 @@ async fn direct_and_batch_toggle_restore_files_after_database_failure() {
             .await
             .unwrap();
         assert!(
-            content_rows::get_instance_files("instance", &state.pool)
+            files::get_instance_files("instance", &state.pool)
                 .await
                 .unwrap()
                 .iter()
@@ -172,7 +176,7 @@ async fn deletion_database_failure_restores_the_original_file() {
     assert_eq!(std::fs::read(root.join("mods/a.jar")).unwrap(), b"a bytes");
     assert_eq!(journal_count(&state).await, 0);
     assert!(
-        content_rows::get_instance_file_by_relative_path(
+        files::get_instance_file_by_relative_path(
             "instance",
             "mods/a.jar",
             &state.pool
@@ -208,7 +212,7 @@ async fn restarted_recovery_restores_uncommitted_files_and_finishes_committed_de
             .execute(&mut *tx)
             .await
             .unwrap();
-            content_rows::bump_content_set_revision_in_transaction(
+            content_sets::bump_content_set_revision_in_transaction(
                 "set", &mut tx,
             )
             .await
@@ -240,7 +244,7 @@ async fn restarted_recovery_restores_uncommitted_files_and_finishes_committed_de
         assert!(!root.join("mods/a.removing").exists());
         assert_eq!(journal_count(&reopened).await, 0);
         assert_eq!(
-            content_rows::get_instance_file_by_relative_path(
+            files::get_instance_file_by_relative_path(
                 "instance",
                 "mods/a.jar",
                 &reopened.pool
@@ -394,7 +398,7 @@ async fn committed_toggle_is_not_rolled_back_when_journal_cleanup_fails() {
             .unwrap();
     assert_eq!(path, "mods/a.jar.disabled");
     assert_eq!(journal_count(&state).await, 1);
-    let file = content_rows::get_instance_file_by_relative_path(
+    let file = files::get_instance_file_by_relative_path(
         "instance",
         &path,
         &state.pool,

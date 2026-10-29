@@ -386,7 +386,15 @@ pub(crate) async fn resource_request(
     query: Vec<(String, String)>,
     body: Option<Value>,
 ) -> crate::Result<Value> {
-    request_json(method, path, query, body, MirrorPolicy::MirrorFirst).await
+    super::transport::request_json_with_origin(
+        method,
+        path,
+        query,
+        body,
+        MirrorPolicy::MirrorFirst,
+        super::transport::RequestOrigin::Resource,
+    )
+    .await
 }
 
 impl From<CurseForgeProject> for UnifiedSearchHit {

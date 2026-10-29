@@ -2,9 +2,10 @@ use crate::state::InstanceInstallStage;
 use crate::state::instances::{
     InstanceLaunchContext, LoaderComponent,
     adapters::sqlite::{
-        config_sync_rows, instance_rows, loader_component_rows,
+        config_sync_rows, content_sets, instance_rows, loader_component_rows,
+        playtime,
     },
-    config_sync, playtime_to_storage,
+    config_sync,
 };
 use chrono::{DateTime, Local, NaiveDate, TimeZone, Utc};
 use sqlx::SqlitePool;
@@ -32,18 +33,13 @@ pub(crate) async fn replace_instance_loader_components(
         &mut tx,
     )
     .await?;
-    sqlx::query(
-        "UPDATE instance_content_sets
-         SET loader = ?, loader_version = ?, modified = ?
-         WHERE id = (
-            SELECT applied_content_set_id FROM instances WHERE id = ?
-         )",
+    content_sets::set_applied_loader_in_transaction(
+        instance_id,
+        loader,
+        loader_version.as_deref(),
+        Utc::now().timestamp(),
+        &mut tx,
     )
-    .bind(loader.as_str())
-    .bind(loader_version)
-    .bind(Utc::now().timestamp())
-    .bind(instance_id)
-    .execute(&mut *tx)
     .await?;
     config_sync_rows::upsert_config_updated_at(instance_id, &mut *tx).await?;
     tx.commit().await?;
@@ -56,23 +52,10 @@ pub(crate) async fn set_instance_install_stage(
     install_stage: InstanceInstallStage,
     pool: &SqlitePool,
 ) -> crate::Result<()> {
-    let install_stage = install_stage.as_str();
     let modified = Utc::now().timestamp();
 
-    sqlx::query!(
-        "
-        UPDATE instances
-        SET install_stage = ?, modified = ?
-        WHERE id = ?
-        ",
-        install_stage,
-        modified,
-        instance_id,
-    )
-    .execute(pool)
-    .await?;
-
-    Ok(())
+    instance_rows::set_install_stage(instance_id, install_stage, modified, pool)
+        .await
 }
 
 pub(crate) async fn set_applied_content_set_loader_version(
@@ -83,21 +66,12 @@ pub(crate) async fn set_applied_content_set_loader_version(
     let modified = Utc::now().timestamp();
     let mut tx = pool.begin().await?;
 
-    sqlx::query!(
-        "
-        UPDATE instance_content_sets
-        SET loader_version = ?, modified = ?
-        WHERE id = (
-            SELECT applied_content_set_id
-            FROM instances
-            WHERE id = ?
-        )
-        ",
+    content_sets::set_applied_loader_version_in_transaction(
+        instance_id,
         loader_version,
         modified,
-        instance_id,
+        &mut tx,
     )
-    .execute(&mut *tx)
     .await?;
     config_sync_rows::upsert_config_updated_at(instance_id, &mut *tx).await?;
     tx.commit().await?;
@@ -112,25 +86,15 @@ pub(crate) async fn set_applied_content_set_protocol_version(
     protocol_version: Option<u32>,
     pool: &SqlitePool,
 ) -> crate::Result<()> {
-    let protocol_version = protocol_version.map(i64::from);
     let modified = Utc::now().timestamp();
     let mut tx = pool.begin().await?;
 
-    sqlx::query!(
-        "
-        UPDATE instance_content_sets
-        SET protocol_version = ?, modified = ?
-        WHERE id = (
-            SELECT applied_content_set_id
-            FROM instances
-            WHERE id = ?
-        )
-        ",
+    content_sets::set_applied_protocol_version_in_transaction(
+        instance_id,
         protocol_version,
         modified,
-        instance_id,
+        &mut tx,
     )
-    .execute(&mut *tx)
     .await?;
     config_sync_rows::upsert_config_updated_at(instance_id, &mut *tx).await?;
     tx.commit().await?;
@@ -145,23 +109,10 @@ pub(crate) async fn set_instance_last_played(
     last_played: DateTime<Utc>,
     pool: &SqlitePool,
 ) -> crate::Result<()> {
-    let last_played = last_played.timestamp();
     let modified = Utc::now().timestamp();
 
-    sqlx::query!(
-        "
-        UPDATE instances
-        SET last_played = ?, modified = ?
-        WHERE id = ?
-        ",
-        last_played,
-        modified,
-        instance_id,
-    )
-    .execute(pool)
-    .await?;
-
-    Ok(())
+    instance_rows::set_last_played(instance_id, last_played, modified, pool)
+        .await
 }
 
 pub(crate) async fn set_instance_pinned(
@@ -171,27 +122,8 @@ pub(crate) async fn set_instance_pinned(
 ) -> crate::Result<()> {
     let pinned_at = pinned.then(|| Utc::now().timestamp());
     let modified = Utc::now().timestamp();
-    let result = sqlx::query!(
-        "
-        UPDATE instances
-        SET pinned_at = ?, modified = ?
-        WHERE id = ?
-        ",
-        pinned_at,
-        modified,
-        instance_id,
-    )
-    .execute(pool)
-    .await?;
 
-    if result.rows_affected() == 0 {
-        return Err(crate::ErrorKind::InputError(
-            "Unknown instance".to_string(),
-        )
-        .into());
-    }
-
-    Ok(())
+    instance_rows::set_pinned(instance_id, pinned_at, modified, pool).await
 }
 
 pub(crate) async fn record_instance_play_session(
@@ -199,8 +131,9 @@ pub(crate) async fn record_instance_play_session(
     pool: &SqlitePool,
 ) -> crate::Result<()> {
     let now = Utc::now();
-    let instance_name = get_instance_name(instance_id, pool).await?;
-    upsert_daily_playtime(
+    let instance_name =
+        instance_rows::get_instance_name(instance_id, pool).await?;
+    playtime::upsert_daily_playtime(
         instance_id,
         &instance_name,
         now.with_timezone(&Local).date_naive(),
@@ -221,11 +154,12 @@ pub(crate) async fn record_instance_daily_playtime(
         return Ok(());
     }
 
-    let instance_name = get_instance_name(instance_id, pool).await?;
+    let instance_name =
+        instance_rows::get_instance_name(instance_id, pool).await?;
     for (played_on, elapsed) in
         split_daily_playtime(started_at, ended_at, &Local)?
     {
-        upsert_daily_playtime(
+        playtime::upsert_daily_playtime(
             instance_id,
             &instance_name,
             played_on,
@@ -301,171 +235,14 @@ pub(crate) async fn get_daily_playtime(
         .into());
     }
 
-    let start_date = start_date.format("%Y-%m-%d").to_string();
-    let end_date = end_date.format("%Y-%m-%d").to_string();
-    let rows = sqlx::query!(
-        r#"
-        SELECT
-            daily.played_on AS "date!: String",
-            SUM(daily.played_seconds) AS "played_seconds!: i64",
-            SUM(daily.session_count) AS "session_count!: i64",
-            (
-                SELECT candidate.instance_name
-                FROM instance_daily_playtime candidate
-                WHERE candidate.played_on = daily.played_on
-                    AND candidate.played_seconds > 0
-                ORDER BY candidate.played_seconds DESC, candidate.instance_name ASC
-                LIMIT 1
-            ) AS "top_instance_name?: String"
-        FROM instance_daily_playtime daily
-        WHERE daily.played_on BETWEEN ? AND ?
-        GROUP BY daily.played_on
-        ORDER BY daily.played_on
-        "#,
-        start_date,
-        end_date,
-    )
-    .fetch_all(pool)
-    .await?;
-
-    rows.into_iter()
-        .map(|row| {
-            Ok(DailyPlaytime {
-                date: row.date,
-                played_seconds: u64::try_from(row.played_seconds).map_err(
-                    |_| {
-                        crate::ErrorKind::InputError(
-                            "Invalid daily playtime value".to_string(),
-                        )
-                    },
-                )?,
-                session_count: u64::try_from(row.session_count).map_err(
-                    |_| {
-                        crate::ErrorKind::InputError(
-                            "Invalid daily session count".to_string(),
-                        )
-                    },
-                )?,
-                top_instance_name: row.top_instance_name,
-            })
-        })
-        .collect()
+    playtime::get_daily_playtime(start_date, end_date, pool).await
 }
 
 pub(crate) async fn get_daily_playtime_details(
     date: NaiveDate,
     pool: &SqlitePool,
 ) -> crate::Result<Vec<DailyPlaytimeEntry>> {
-    let date = date.format("%Y-%m-%d").to_string();
-    let rows = sqlx::query!(
-        r#"
-        SELECT
-            daily.instance_id AS "instance_id!: String",
-            daily.instance_name AS "instance_name!: String",
-            daily.played_seconds AS "played_seconds!: i64",
-            daily.session_count AS "session_count!: i64"
-        FROM instance_daily_playtime daily
-        WHERE daily.played_on = ?
-            AND daily.played_seconds > 0
-        ORDER BY daily.played_seconds DESC, daily.instance_name ASC
-        "#,
-        date,
-    )
-    .fetch_all(pool)
-    .await?;
-
-    rows.into_iter()
-        .map(|row| {
-            Ok(DailyPlaytimeEntry {
-                instance_id: row.instance_id,
-                instance_name: row.instance_name,
-                played_seconds: u64::try_from(row.played_seconds).map_err(
-                    |_| {
-                        crate::ErrorKind::InputError(
-                            "Invalid daily playtime value".to_string(),
-                        )
-                    },
-                )?,
-                session_count: u64::try_from(row.session_count).map_err(
-                    |_| {
-                        crate::ErrorKind::InputError(
-                            "Invalid daily session count".to_string(),
-                        )
-                    },
-                )?,
-            })
-        })
-        .collect()
-}
-
-async fn get_instance_name(
-    instance_id: &str,
-    pool: &SqlitePool,
-) -> crate::Result<String> {
-    sqlx::query_scalar!(
-        "
-        SELECT name
-        FROM instances
-        WHERE id = ?
-        ",
-        instance_id,
-    )
-    .fetch_optional(pool)
-    .await?
-    .ok_or_else(|| {
-        crate::ErrorKind::InputError("Unknown instance".to_string()).into()
-    })
-}
-
-async fn upsert_daily_playtime(
-    instance_id: &str,
-    instance_name: &str,
-    played_on: NaiveDate,
-    played_seconds: u64,
-    session_count: u64,
-    pool: &SqlitePool,
-) -> crate::Result<()> {
-    let played_seconds = playtime_to_storage(played_seconds, "played_seconds")?;
-    let session_count = playtime_to_storage(session_count, "session_count")?;
-    let played_on = played_on.format("%Y-%m-%d").to_string();
-    let max_played_seconds_before_increment = i64::MAX - played_seconds;
-    let max_session_count_before_increment = i64::MAX - session_count;
-
-    sqlx::query!(
-        "
-        INSERT INTO instance_daily_playtime (
-            played_on,
-            instance_id,
-            instance_name,
-            played_seconds,
-            session_count
-        )
-        VALUES (?, ?, ?, ?, ?)
-        ON CONFLICT(played_on, instance_id) DO UPDATE SET
-            instance_name = excluded.instance_name,
-            played_seconds = CASE
-                WHEN instance_daily_playtime.played_seconds > ? THEN ?
-                ELSE instance_daily_playtime.played_seconds + excluded.played_seconds
-            END,
-            session_count = CASE
-                WHEN instance_daily_playtime.session_count > ? THEN ?
-                ELSE instance_daily_playtime.session_count + excluded.session_count
-            END
-        ",
-        played_on,
-        instance_id,
-        instance_name,
-        played_seconds,
-        session_count,
-        max_played_seconds_before_increment,
-        i64::MAX,
-        max_session_count_before_increment,
-        i64::MAX,
-    )
-    .execute(pool)
-    .await?;
-
-    Ok(())
+    playtime::get_daily_playtime_details(date, pool).await
 }
 
 pub(crate) async fn add_instance_recent_playtime(
@@ -473,38 +250,7 @@ pub(crate) async fn add_instance_recent_playtime(
     seconds: u64,
     pool: &SqlitePool,
 ) -> crate::Result<()> {
-    if seconds == 0 {
-        return Ok(());
-    }
-
-    let seconds = playtime_to_storage(seconds, "recent_time_played")?;
-    let max_playtime = i64::MAX;
-    let max_playtime_before_increment = max_playtime - seconds;
-    let modified = Utc::now().timestamp();
-
-    sqlx::query!(
-        "
-        UPDATE instances
-        SET
-            recent_time_played = CASE
-                WHEN recent_time_played < 0 THEN ?
-                WHEN recent_time_played > ? THEN ?
-                ELSE recent_time_played + ?
-            END,
-            modified = ?
-        WHERE id = ?
-        ",
-        seconds,
-        max_playtime_before_increment,
-        max_playtime,
-        seconds,
-        modified,
-        instance_id,
-    )
-    .execute(pool)
-    .await?;
-
-    Ok(())
+    playtime::add_recent_playtime(instance_id, seconds, pool).await
 }
 
 pub(crate) async fn mark_instance_playtime_submitted(
@@ -512,40 +258,8 @@ pub(crate) async fn mark_instance_playtime_submitted(
     recent_time_played: u64,
     pool: &SqlitePool,
 ) -> crate::Result<()> {
-    if recent_time_played == 0 {
-        return Ok(());
-    }
-
-    let recent_time_played =
-        playtime_to_storage(recent_time_played, "recent_time_played")?;
-    let max_playtime = i64::MAX;
-    let max_playtime_before_increment = max_playtime - recent_time_played;
-    let modified = Utc::now().timestamp();
-
-    sqlx::query!(
-        "
-        UPDATE instances
-        SET
-            submitted_time_played = CASE
-                WHEN submitted_time_played < 0 THEN ?
-                WHEN submitted_time_played > ? THEN ?
-                ELSE submitted_time_played + ?
-            END,
-            recent_time_played = 0,
-            modified = ?
-        WHERE id = ?
-        ",
-        recent_time_played,
-        max_playtime_before_increment,
-        max_playtime,
-        recent_time_played,
-        modified,
-        instance_id,
-    )
-    .execute(pool)
-    .await?;
-
-    Ok(())
+    playtime::mark_playtime_submitted(instance_id, recent_time_played, pool)
+        .await
 }
 
 #[cfg(test)]
@@ -556,8 +270,8 @@ mod tests {
 
     use super::{
         get_daily_playtime, set_instance_pinned, split_daily_playtime,
-        upsert_daily_playtime,
     };
+    use crate::state::instances::adapters::sqlite::playtime;
 
     fn to_utc(
         year: i32,
@@ -633,7 +347,7 @@ mod tests {
     #[tokio::test]
     async fn aggregates_sessions_and_selects_the_top_instance() {
         let pool = test_pool().await;
-        upsert_daily_playtime(
+        playtime::upsert_daily_playtime(
             "first",
             "First instance",
             "2026-07-25".parse().unwrap(),
@@ -643,7 +357,7 @@ mod tests {
         )
         .await
         .unwrap();
-        upsert_daily_playtime(
+        playtime::upsert_daily_playtime(
             "second",
             "Second instance",
             "2026-07-25".parse().unwrap(),
@@ -653,7 +367,7 @@ mod tests {
         )
         .await
         .unwrap();
-        upsert_daily_playtime(
+        playtime::upsert_daily_playtime(
             "first",
             "First instance",
             "2026-07-25".parse().unwrap(),
@@ -686,7 +400,7 @@ mod tests {
             .execute(&pool)
             .await
             .unwrap();
-        upsert_daily_playtime(
+        playtime::upsert_daily_playtime(
             "instance",
             "Instance",
             "2026-07-25".parse().unwrap(),

@@ -106,7 +106,8 @@
       "nitropack>esbuild": ">=0.28.2 <0.29.0",
       "srvx": ">=0.11.13 <0.12.0",
       "serialize-javascript": ">=7.0.5 <8.0.0",
-      "postcss-selector-parser": ">=7.1.6 <8.0.0"
+      "postcss-selector-parser": ">=7.1.6 <8.0.0",
+      "qs": "6.16.1"
     },
     "patchedDependencies": {
       "readable-stream@2.3.8": "patches/readable-stream@2.3.8.patch"

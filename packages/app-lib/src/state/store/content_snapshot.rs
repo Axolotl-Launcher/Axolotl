@@ -2,7 +2,7 @@
 
 use super::Handle;
 use crate::resources::{ResourceId, SourceId};
-use crate::state::instances::adapters::sqlite::{content_rows, instance_rows};
+use crate::state::instances::adapters::sqlite::{instance_rows, links};
 use crate::state::instances::{
     ContentEntry, ContentSet, Instance, InstanceFile, InstanceLink, PackMember,
     PendingManualDownload,
@@ -10,6 +10,10 @@ use crate::state::instances::{
 use crate::state::{ContentProvider, ContentProviderRef};
 use sqlx::Row;
 use std::collections::HashMap;
+
+use crate::state::instances::adapters::sqlite::{
+    content_entries, content_sets, files, pack_members,
+};
 
 pub(crate) struct SnapshotRecords {
     pub pack_presentation: Option<super::content_refresh_pack::PackRecord>,
@@ -61,10 +65,14 @@ where
     Fut: std::future::Future<Output = ()>,
 {
     use super::Collection as _;
+
+    use crate::state::instances::adapters::sqlite::{
+        content_entries, content_sets, files, pack_members,
+    };
     let mut tx = handle.pool().begin().await?;
     let instance = get_instance(&mut tx, instance_id).await?;
     let content_set =
-        content_rows::get_applied_content_set(instance_id, &mut *tx)
+        content_sets::get_applied_content_set(instance_id, &mut *tx)
             .await?
             .ok_or_else(|| {
                 crate::ErrorKind::InputError(
@@ -72,17 +80,17 @@ where
                 )
             })?;
     after_revision().await;
-    let link = instance_rows::get_instance_link(instance_id, &mut *tx).await?;
-    let files = content_rows::get_instance_files(instance_id, &mut *tx).await?;
+    let link = links::get_instance_link(instance_id, &mut *tx).await?;
+    let files = files::get_instance_files(instance_id, &mut *tx).await?;
     let entries =
-        content_rows::get_content_entries(&content_set.id, &mut *tx).await?;
-    let rows: Vec<content_rows::PackMemberRow> = sqlx::query_as("SELECT * FROM instance_pack_members WHERE content_set_id = ? ORDER BY created_at, id")
+        content_entries::get_content_entries(&content_set.id, &mut *tx).await?;
+    let rows: Vec<pack_members::PackMemberRow> = sqlx::query_as("SELECT * FROM instance_pack_members WHERE content_set_id = ? ORDER BY created_at, id")
         .bind(&content_set.id).fetch_all(&mut *tx).await?;
     let members = rows
         .into_iter()
         .map(TryInto::try_into)
         .collect::<crate::Result<Vec<_>>>()?;
-    let rows: Vec<content_rows::PendingManualDownloadRow> = sqlx::query_as("SELECT * FROM instance_pending_manual_downloads WHERE instance_id = ? AND state IN ('waiting', 'matched', 'error') ORDER BY created_at, id")
+    let rows: Vec<pack_members::PendingManualDownloadRow> = sqlx::query_as("SELECT * FROM instance_pending_manual_downloads WHERE instance_id = ? AND state IN ('waiting', 'matched', 'error') ORDER BY created_at, id")
         .bind(instance_id).fetch_all(&mut *tx).await?;
     let pending = rows
         .into_iter()

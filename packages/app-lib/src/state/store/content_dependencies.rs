@@ -1,6 +1,9 @@
 use super::Handle;
-use crate::state::instances::adapters::sqlite::content_rows;
 use crate::state::instances::commands::content_snapshot::dependencies::DependencyBackfill;
+
+use crate::state::instances::adapters::sqlite::{
+    content_entries, content_sets,
+};
 pub(crate) async fn persist_backfill(
     backfill: &DependencyBackfill,
     content_set_id: &str,
@@ -15,8 +18,10 @@ pub(crate) async fn persist_backfill(
             .bind(content_set_id).bind(parent).bind(child).execute(&mut **tx).await?;
     }
     for edge in &backfill.edges {
-        content_rows::upsert_content_dependency_edge_in_transaction(edge, tx)
-            .await?;
+        content_entries::upsert_content_dependency_edge_in_transaction(
+            edge, tx,
+        )
+        .await?;
     }
     Ok(())
 }
@@ -30,7 +35,7 @@ pub(crate) async fn set_backfill(
 ) -> crate::Result<()> {
     let mut tx = handle.pool().begin_with("BEGIN IMMEDIATE").await?;
     let current =
-        content_rows::get_applied_content_set(instance_id, &mut *tx).await?;
+        content_sets::get_applied_content_set(instance_id, &mut *tx).await?;
     if !current.is_some_and(|set| set.id == set_id && set.revision == revision)
     {
         return Ok(());

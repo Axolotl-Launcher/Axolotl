@@ -4,6 +4,9 @@ import { useVIntl } from '@modrinth/ui'
 import LegalDocument from '~/components/ui/LegalDocument.vue'
 
 const { locale } = useVIntl()
+const config = useRuntimeConfig()
+const githubUrl = config.public.githubUrl
+const siteUrl = config.public.siteUrl
 const isChinese = computed(() => locale.value === 'zh-CN')
 
 const seoTitle = computed(() =>
@@ -21,12 +24,12 @@ useSeoMeta({
     ogTitle: () => seoTitle.value,
     ogDescription: () => seoDescription.value,
     ogType: 'website',
-    ogUrl: 'https://axlmc.org/privacy',
+    ogUrl: `${siteUrl}/privacy`,
     robots: 'index, follow',
 })
 
 useHead({
-    link: [{ rel: 'canonical', href: 'https://axlmc.org/privacy' }],
+    link: [{ rel: 'canonical', href: `${siteUrl}/privacy` }],
 })
 </script>
 
@@ -136,9 +139,7 @@ useHead({
         <h2>9. 联系方式</h2>
         <p>
             如有隐私问题或发现安全风险，请通过
-            <a href="https://github.com/Mystic-Stars/Axolotl/issues" target="_blank" rel="noopener"
-                >GitHub Issues</a
-            >
+            <a :href="`${githubUrl}/issues`" target="_blank" rel="noopener">GitHub Issues</a>
             联系项目维护者。请勿在公开 Issue
             中提交账户令牌、密码、完整日志或其他敏感信息。也可加入官方 QQ 群 830619067
             咨询一般问题。
@@ -297,9 +298,8 @@ useHead({
         <h2>9. Contact</h2>
         <p>
             For privacy questions or security concerns, contact the project maintainers via
-            <a href="https://github.com/Mystic-Stars/Axolotl/issues" target="_blank" rel="noopener"
-                >GitHub Issues</a
-            >. Do not submit account tokens, passwords, full logs, or other sensitive information in
+            <a :href="`${githubUrl}/issues`" target="_blank" rel="noopener">GitHub Issues</a>. Do
+            not submit account tokens, passwords, full logs, or other sensitive information in
             public issues. You may also join the official QQ group 830619067 for general questions.
         </p>
     </LegalDocument>

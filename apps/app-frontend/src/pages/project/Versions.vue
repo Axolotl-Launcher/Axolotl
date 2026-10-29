@@ -31,13 +31,13 @@
                     <CheckIcon v-else />
                 </Button>
                 <!-- 开服功能暂有问题，隐藏该按钮
-				<Button v-if="serverCapable && startServer" circular icon-only type="quiet"
-						v-tooltip="formatMessage(messages.startServer)"
-						@click.stop="() => startServer(version)"
-					>
-						<ServerIcon />
-					</Button>
-				-->
+                <Button v-if="serverCapable && startServer" circular icon-only type="quiet"
+                        v-tooltip="formatMessage(messages.startServer)"
+                        @click.stop="() => startServer(version)"
+                    >
+                        <ServerIcon />
+                    </Button>
+                -->
                 <ButtonLink
                     v-tooltip="formatMessage(commonMessages.openInBrowserButton)"
                     :href="`https://modrinth.com/${project.project_type}/${project.slug}/version/${version.id}`"
@@ -153,10 +153,16 @@ function buildProjectHref(path) {
     return qs ? `${path}?${qs}` : path
 }
 
-const [loaders, gameVersions] = await Promise.all([
-    get_loaders().catch(handleError).then(ref),
-    get_game_versions().catch(handleError).then(ref),
-])
+// The tags only label versions and fill the filters, so the list shows
+// without waiting for them to revalidate over the network.
+const loaders = ref([])
+const gameVersions = ref([])
+void Promise.all([get_loaders().catch(handleError), get_game_versions().catch(handleError)]).then(
+    ([loaderTags, gameVersionTags]) => {
+        loaders.value = loaderTags ?? []
+        gameVersions.value = gameVersionTags ?? []
+    },
+)
 </script>
 
 <style scoped lang="scss">

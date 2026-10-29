@@ -54,35 +54,35 @@ fn sockets() -> Vec<(Ipv4Addr, Socket)> {
     addresses.dedup();
 
     addresses
-		.into_iter()
-		.filter_map(|address| {
-			let socket = (|| -> std::io::Result<Socket> {
-				let socket = Socket::new(
-					Domain::IPV4,
-					Type::DGRAM,
-					Some(Protocol::UDP),
-				)?;
-				socket.set_multicast_if_v4(&address)?;
-				socket.set_multicast_loop_v4(true)?;
-				socket.set_multicast_ttl_v4(4)?;
-				socket.bind(&SockAddr::from(SocketAddrV4::new(
-					Ipv4Addr::UNSPECIFIED,
-					0,
-				)))?;
-				Ok(socket)
-			})();
+        .into_iter()
+        .filter_map(|address| {
+            let socket = (|| -> std::io::Result<Socket> {
+                let socket = Socket::new(
+                    Domain::IPV4,
+                    Type::DGRAM,
+                    Some(Protocol::UDP),
+                )?;
+                socket.set_multicast_if_v4(&address)?;
+                socket.set_multicast_loop_v4(true)?;
+                socket.set_multicast_ttl_v4(4)?;
+                socket.bind(&SockAddr::from(SocketAddrV4::new(
+                    Ipv4Addr::UNSPECIFIED,
+                    0,
+                )))?;
+                Ok(socket)
+            })();
 
-			match socket {
-				Ok(socket) => Some((address, socket)),
-				Err(error) => {
-					warn!(
-						"failed to create Minecraft LAN announcer for {address}: {error}"
-					);
-					None
-				}
-			}
-		})
-		.collect()
+            match socket {
+                Ok(socket) => Some((address, socket)),
+                Err(error) => {
+                    warn!(
+                        "failed to create Minecraft LAN announcer for {address}: {error}"
+                    );
+                    None
+                }
+            }
+        })
+        .collect()
 }
 
 async fn run(port: u16) {

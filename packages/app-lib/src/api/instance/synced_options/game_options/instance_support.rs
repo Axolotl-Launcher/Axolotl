@@ -30,7 +30,7 @@ pub(super) struct ParticipatingInstance {
 pub(super) async fn load_participating_instances(
     state: &State,
 ) -> crate::Result<Vec<ParticipatingInstance>> {
-    if !game_options_sync_is_enabled(&state.pool).await? {
+    if !game_options_sync_is_enabled(&state.data).await? {
         return Ok(Vec::new());
     }
     let instances = crate::state::list_instances(&state.pool).await?;
@@ -175,11 +175,11 @@ pub(super) fn describe_instance_support(
                         && matches!(value, Some(CanonicalValue::ExternalRaw(_)))
                     {
                         (
-						GameOptionCompatibilityStatus::WaitingForFile,
-						stored.raw_key.clone(),
-						Some(GameOptionMappingKind::Direct),
-						Some(GameOptionCompatibilityReason::WaitingForOptionsFile),
-					)
+                        GameOptionCompatibilityStatus::WaitingForFile,
+                        stored.raw_key.clone(),
+                        Some(GameOptionMappingKind::Direct),
+                        Some(GameOptionCompatibilityReason::WaitingForOptionsFile),
+                    )
                     } else if let Some((key, mapping)) =
                         definition.and_then(|definition| {
                             target_key_for_version(definition, &version).map(
@@ -204,18 +204,18 @@ pub(super) fn describe_instance_support(
                         });
                         if representable {
                             (
-							GameOptionCompatibilityStatus::WaitingForFile,
-							Some(key.to_string()),
-							Some(mapping),
-							Some(GameOptionCompatibilityReason::WaitingForOptionsFile),
-						)
+                            GameOptionCompatibilityStatus::WaitingForFile,
+                            Some(key.to_string()),
+                            Some(mapping),
+                            Some(GameOptionCompatibilityReason::WaitingForOptionsFile),
+                        )
                         } else {
                             (
-							GameOptionCompatibilityStatus::UnsupportedValue,
-							Some(key.to_string()),
-							None,
-							Some(GameOptionCompatibilityReason::UnsupportedValue),
-						)
+                            GameOptionCompatibilityStatus::UnsupportedValue,
+                            Some(key.to_string()),
+                            None,
+                            Some(GameOptionCompatibilityReason::UnsupportedValue),
+                        )
                         }
                     } else {
                         (
@@ -256,11 +256,11 @@ pub(super) fn describe_instance_support(
                             });
                         if !representable {
                             (
-							GameOptionCompatibilityStatus::UnsupportedValue,
-							Some(key.to_string()),
-							None,
-							Some(GameOptionCompatibilityReason::UnsupportedValue),
-						)
+                            GameOptionCompatibilityStatus::UnsupportedValue,
+                            Some(key.to_string()),
+                            None,
+                            Some(GameOptionCompatibilityReason::UnsupportedValue),
+                        )
                         } else {
                             let mapped = if needs_alias_migration {
                                 Some(GameOptionMappingKind::Migrated)
@@ -293,20 +293,20 @@ pub(super) fn describe_instance_support(
                                     != Some(key.as_str())
                             });
                             (
-							if participant.deferred {
-								GameOptionCompatibilityStatus::Deferred
-							} else {
-								GameOptionCompatibilityStatus::Ready
-							},
-							Some(key.to_string()),
-							Some(mapped.unwrap_or(if legacy {
-								GameOptionMappingKind::Legacy
-							} else {
-								GameOptionMappingKind::Direct
-							})),
-							needs_alias_migration
-								.then_some(GameOptionCompatibilityReason::MigratesOnWrite),
-						)
+                            if participant.deferred {
+                                GameOptionCompatibilityStatus::Deferred
+                            } else {
+                                GameOptionCompatibilityStatus::Ready
+                            },
+                            Some(key.to_string()),
+                            Some(mapped.unwrap_or(if legacy {
+                                GameOptionMappingKind::Legacy
+                            } else {
+                                GameOptionMappingKind::Direct
+                            })),
+                            needs_alias_migration
+                                .then_some(GameOptionCompatibilityReason::MigratesOnWrite),
+                        )
                         }
                     } else if let Some(definition) =
                         definition.filter(|definition| {
@@ -331,18 +331,18 @@ pub(super) fn describe_instance_support(
                             });
                         if representable {
                             (
-							GameOptionCompatibilityStatus::WaitingForBase,
-							eventual_key,
-							Some(GameOptionMappingKind::Migrated),
-							Some(GameOptionCompatibilityReason::WaitingForCompatibleBase),
-						)
+                            GameOptionCompatibilityStatus::WaitingForBase,
+                            eventual_key,
+                            Some(GameOptionMappingKind::Migrated),
+                            Some(GameOptionCompatibilityReason::WaitingForCompatibleBase),
+                        )
                         } else {
                             (
-							GameOptionCompatibilityStatus::UnsupportedValue,
-							eventual_key,
-							None,
-							Some(GameOptionCompatibilityReason::UnsupportedValue),
-						)
+                            GameOptionCompatibilityStatus::UnsupportedValue,
+                            eventual_key,
+                            None,
+                            Some(GameOptionCompatibilityReason::UnsupportedValue),
+                        )
                         }
                     } else {
                         (

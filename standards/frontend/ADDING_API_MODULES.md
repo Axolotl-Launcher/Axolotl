@@ -104,25 +104,25 @@ Return an `UploadHandle` instead of a `Promise`:
 
 ```ts
 public uploadThing(id: string, file: File): UploadHandle<void> {
-	return this.client.upload<void>(`/thing/${id}/file`, {
-		api: 'labrinth',
-		version: 3,
-		file,
-	})
+  return this.client.upload<void>(`/thing/${id}/file`, {
+    api: 'labrinth',
+    version: 3,
+    file,
+  })
 }
 
 // Or with FormData for multipart:
 public createWithFiles(data: CreateRequest, files: File[]): UploadHandle<Thing> {
-	const formData = new FormData()
-	formData.append('data', JSON.stringify(data))
-	files.forEach((f, i) => formData.append(`file-${i}`, f, f.name))
+  const formData = new FormData()
+  formData.append('data', JSON.stringify(data))
+  files.forEach((f, i) => formData.append(`file-${i}`, f, f.name))
 
-	return this.client.upload<Thing>(`/thing`, {
-		api: 'labrinth',
-		version: 3,
-		formData,
-		timeout: 60 * 5 * 1000,  // longer timeout for uploads
-	})
+  return this.client.upload<Thing>(`/thing`, {
+    api: 'labrinth',
+    version: 3,
+    formData,
+    timeout: 60 * 5 * 1000,  // longer timeout for uploads
+  })
 }
 ```
 

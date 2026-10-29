@@ -1,14 +1,16 @@
-import { useDebugLogger } from '@modrinth/ui/src/composables/debug-logger.ts'
 import {
     type CrowdinMessages,
+    I18N_INJECTION_KEY,
+    type I18nContext,
     LOCALES,
     transformCrowdinMessages,
-} from '@modrinth/ui/src/composables/i18n.ts'
-import { uiLocaleModules } from '@modrinth/ui/src/locales.ts'
-import { I18N_INJECTION_KEY, type I18nContext } from '@modrinth/ui/src/providers/i18n.ts'
+    uiLocaleModules,
+    useDebugLogger,
+} from '@modrinth/ui'
 import IntlMessageFormat from 'intl-messageformat'
 import { LRUCache } from 'lru-cache'
 
+import { resolveInitialLocale } from '~/i18n/resolve-locale'
 import { siteLocaleMessages, SUPPORTED_SITE_LOCALES } from '~/locales/site'
 
 const debug = useDebugLogger('i18n')
@@ -16,40 +18,16 @@ const DEFAULT_LOCALE = 'zh-CN'
 const supportedLocales = LOCALES.filter((locale) =>
     SUPPORTED_SITE_LOCALES.includes(locale.code as (typeof SUPPORTED_SITE_LOCALES)[number]),
 )
+const supportedLocaleCodes = supportedLocales.map((locale) => locale.code)
 
 function isSupportedLocale(locale: string): boolean {
-    return supportedLocales.some((item) => item.code === locale)
+    return supportedLocaleCodes.includes(locale)
 }
 
-// 解析 Accept-Language 头：取第一个可支持的语言，zh* 归一为 zh-CN，en* 归一为 en-US
-function parseAcceptLanguage(header: string): string {
-    for (const part of header.split(',')) {
-        const [code] = part.trim().split(';')
-        if (!code) continue
-        if (isSupportedLocale(code)) return code
+function getBrowserLanguages(): readonly string[] {
+    if (!import.meta.client) return []
 
-        const language = code.toLowerCase()
-        if (language.startsWith('zh')) return 'zh-CN'
-        if (language.startsWith('en')) return 'en-US'
-    }
-
-    return DEFAULT_LOCALE
-}
-
-function getBrowserLocale(): string {
-    if (!import.meta.client) return DEFAULT_LOCALE
-
-    const browserLocales = navigator.languages?.length ? navigator.languages : [navigator.language]
-
-    for (const browserLocale of browserLocales) {
-        if (isSupportedLocale(browserLocale)) return browserLocale
-
-        const language = browserLocale.toLowerCase()
-        if (language.startsWith('zh')) return 'zh-CN'
-        if (language.startsWith('en')) return DEFAULT_LOCALE
-    }
-
-    return DEFAULT_LOCALE
+    return navigator.languages?.length ? navigator.languages : [navigator.language]
 }
 
 const messageCache = new LRUCache<string, Record<string, string>>({ max: 10 })
@@ -61,7 +39,7 @@ type LocaleModules = Record<string, () => Promise<{ default: CrowdinMessages }>>
 // Find the loader for a locale code in a glob result (paths end with /{code}/index.json)
 function findLocaleLoader(modules: LocaleModules, code: string) {
     for (const [path, loader] of Object.entries(modules)) {
-        if (path.endsWith(`/${code}/index.json`)) {
+        if (path.endsWith('/' + code + '/index.json')) {
             return loader
         }
     }
@@ -69,7 +47,7 @@ function findLocaleLoader(modules: LocaleModules, code: string) {
 }
 
 function formatIcuMessage(msg: string, locale: string, values: Record<string, unknown>) {
-    const cacheKey = `${locale}:${msg}`
+    const cacheKey = locale + ':' + msg
     let formatter = formatterCache.get(cacheKey)
 
     try {
@@ -148,13 +126,14 @@ export default defineNuxtPlugin({
 
         // 首屏语言优先级：cookie > Accept-Language（SSR）> 默认中文。
         // SSR 阶段就决定语言，避免客户端挂载后整页跳变。
-        let initialLocale = DEFAULT_LOCALE
-        if (savedLocale && isSupportedLocale(savedLocale)) {
-            initialLocale = savedLocale
-        } else if (import.meta.server) {
-            const acceptLanguage = useRequestHeaders(['accept-language'])['accept-language']
-            if (acceptLanguage) initialLocale = parseAcceptLanguage(acceptLanguage)
-        }
+        const initialLocale = resolveInitialLocale({
+            cookieLocale: savedLocale,
+            acceptLanguage: import.meta.server
+                ? useRequestHeaders(['accept-language'])['accept-language']
+                : null,
+            supported: supportedLocaleCodes,
+            defaultLocale: DEFAULT_LOCALE,
+        })
 
         function t(key: string, values?: Record<string, unknown>): string {
             const currentLocale = locale.value
@@ -225,11 +204,25 @@ export default defineNuxtPlugin({
         })
 
         const context: I18nContext = { locale, t, setLocale }
+        // 共享层 `provideI18n` 包的是 Vue `provide()`，只在组件 `setup()` 内生效；
+        // Nuxt 插件运行在组件之外，因此改为在 app 实例上注册，`inject()` 会按
+        // app 级 provide 回落读取。
         nuxtApp.vueApp.provide(I18N_INJECTION_KEY, context)
 
         nuxtApp.hook('app:mounted', async () => {
-            const preferredLocale =
-                savedLocale && isSupportedLocale(savedLocale) ? savedLocale : getBrowserLocale()
+            // The client re-resolves with the browser's own preferences, but only
+            // gets to override the server when the server had nothing to go on --
+            // see resolveInitialLocale. Re-deciding here regardless is what made a
+            // page switch language right after the first paint.
+            const preferredLocale = resolveInitialLocale({
+                cookieLocale: savedLocale,
+                acceptLanguage: import.meta.server
+                    ? useRequestHeaders(['accept-language'])['accept-language']
+                    : null,
+                browserLanguages: getBrowserLanguages(),
+                supported: supportedLocaleCodes,
+                defaultLocale: DEFAULT_LOCALE,
+            })
             if (preferredLocale !== locale.value) await setLocale(preferredLocale)
         })
     },

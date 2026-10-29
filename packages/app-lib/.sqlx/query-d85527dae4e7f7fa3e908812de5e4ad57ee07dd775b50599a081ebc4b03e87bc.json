@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "\n            INSERT INTO screenshot_group_memberships (screenshot_id, group_id)\n            VALUES (?, ?)\n            ON CONFLICT(screenshot_id) DO UPDATE SET group_id = excluded.group_id\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": []
+  },
+  "hash": "d85527dae4e7f7fa3e908812de5e4ad57ee07dd775b50599a081ebc4b03e87bc"
+}

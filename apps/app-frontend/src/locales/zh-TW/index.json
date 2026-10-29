@@ -5750,9 +5750,6 @@
   "app.project.mcarchive.installed": {
     "message": "已安裝 {fileName}"
   },
-  "app.project.mcarchive.loading": {
-    "message": "正在載入 MCArchive 專案..."
-  },
   "app.project.mcarchive.manual.archive-filter": {
     "message": "Minecraft 壓縮檔"
   },
@@ -5791,9 +5788,6 @@
   },
   "app.project.planet-minecraft.installed": {
     "message": "已安裝 {fileName}"
-  },
-  "app.project.planet-minecraft.loading": {
-    "message": "正在載入 Planet Minecraft 專案..."
   },
   "app.project.planet-minecraft.manual.archive-filter": {
     "message": "Minecraft 壓縮檔"
@@ -6302,14 +6296,8 @@
   "app.servers.status.downloading": {
     "message": "下載中"
   },
-  "app.servers.status.created": {
-    "message": "未設定"
-  },
   "app.servers.status.eula-pending": {
     "message": "待同意 EULA"
-  },
-  "app.servers.status.ready": {
-    "message": "就緒"
   },
   "app.servers.status.running": {
     "message": "執行中"

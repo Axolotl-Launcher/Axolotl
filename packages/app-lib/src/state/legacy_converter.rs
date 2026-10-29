@@ -11,7 +11,7 @@ use crate::state::{
     FileType, Hooks, InstanceInstallStage, LauncherFeatureVersion,
     MemorySettings, MinecraftAccountType, ModrinthCredentials,
     ModrinthHashMatch, ReleaseChannel, TeamMember, Theme, VersionFile,
-    WindowSize,
+    WindowSize, local_id,
 };
 use crate::util::fetch::{IoSemaphore, read_json};
 use chrono::{DateTime, Utc};
@@ -24,21 +24,28 @@ use tokio::sync::Semaphore;
 use uuid::Uuid;
 
 use super::MinecraftProfile;
+use crate::state::store::Handle;
 
-pub async fn migrate_legacy_data<'a, E>(exec: E) -> crate::Result<()>
+/// Imports what the previous launcher left behind. The fetched responses it
+/// finds are returned rather than written: they belong to the derived
+/// database, which does not exist yet at this point of startup.
+pub async fn migrate_legacy_data<'a, E>(
+    handle: &Handle,
+    exec: E,
+) -> crate::Result<Vec<CachedEntry>>
 where
     E: sqlx::Executor<'a, Database = sqlx::Sqlite>
         + sqlx::Acquire<'a, Database = sqlx::Sqlite>
         + Copy,
 {
-    let mut settings = state::Settings::get(exec).await?;
+    let mut settings = state::Settings::get(handle).await?;
 
     if settings.migrated {
-        return Ok(());
+        return Ok(Vec::new());
     };
 
     let Some(old_launcher_root) = default_settings_dir() else {
-        return Ok(());
+        return Ok(Vec::new());
     };
     let old_launcher_root_str = old_launcher_root.to_string_lossy().to_string();
 
@@ -102,7 +109,7 @@ where
             if let Ok(java_version) =
                 check_jre(PathBuf::from(legacy_version.path)).await
             {
-                java_version.upsert(exec).await?;
+                java_version.upsert(handle).await?;
             }
         }
 
@@ -120,7 +127,7 @@ where
                 user_id: creds.user.id,
                 active: true,
             }
-            .upsert(exec)
+            .upsert(handle)
             .await?;
         }
 
@@ -149,7 +156,7 @@ where
                         || minecraft_users_len == 1,
                     yggdrasil: None,
                 }
-                .upsert(exec)
+                .upsert(handle)
                 .await?;
             }
 
@@ -172,7 +179,7 @@ where
                         y: device_token.y,
                     },
                 }
-                .upsert(exec)
+                .upsert(handle)
                 .await?;
             }
         }
@@ -393,25 +400,22 @@ where
             }
         }
 
-        CachedEntry::upsert_many(
-            &cached_entries
-                .into_iter()
-                .map(|x| {
-                    let mut entry = x.get_entry();
-                    entry.expires =
-                        Utc::now().timestamp() - entry.type_.expiry();
-                    entry
-                })
-                .collect::<Vec<_>>(),
-            exec,
-        )
-        .await?;
-
         settings.migrated = true;
-        settings.update(exec).await?;
+        settings.update(handle).await?;
+
+        // The cache lives in the derived database, which is opened after this
+        // runs, so the caller writes these once it exists.
+        return Ok(cached_entries
+            .into_iter()
+            .map(|x| {
+                let mut entry = x.get_entry();
+                entry.expires = Utc::now().timestamp() - entry.type_.expiry();
+                entry
+            })
+            .collect());
     }
 
-    Ok(())
+    Ok(Vec::new())
 }
 
 struct LegacyInstanceUpsert {
@@ -446,7 +450,8 @@ async fn upsert_legacy_instance<'a, E>(
 where
     E: sqlx::Executor<'a, Database = sqlx::Sqlite> + Copy,
 {
-    let instance_id = format!("local:{}", Uuid::new_v4());
+    // An instance id, unrelated to how content projects are identified.
+    let instance_id = local_id(Uuid::new_v4());
     let content_set_id = format!("content-set:{}", Uuid::new_v4());
     let instance_id_str = instance_id.as_str();
     let content_set_id_str = content_set_id.as_str();

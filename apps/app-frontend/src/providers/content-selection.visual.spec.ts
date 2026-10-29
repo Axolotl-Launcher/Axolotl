@@ -4,7 +4,7 @@ import { ref } from 'vue'
 import { get_version_many } from '@/helpers/cache.js'
 import { compareContentIdentities } from '@/helpers/content-identity'
 import { getCurseForgeFiles } from '@/helpers/curseforge'
-import { queue_content_batch } from '@/helpers/instance'
+import { list as listInstances, queue_content_batch } from '@/helpers/instance'
 import type { GameInstance } from '@/helpers/types'
 
 import { createContentSelection } from './content-selection'
@@ -165,6 +165,10 @@ vi.mock('@/helpers/instance', () => ({
     queue_content_batch: vi.fn(),
 }))
 vi.mock('@/helpers/resources', () => ({
+    resourceAnalysisOpen: vi.fn().mockResolvedValue('analysis'),
+    resourceAnalysisClose: vi.fn().mockResolvedValue(undefined),
+    resourceAnalysisUpdate: vi.fn().mockResolvedValue({ nodes: [] }),
+    resourcePrepareOperation: vi.fn(),
     resourceProjectDocuments: vi.fn().mockResolvedValue([]),
     sourceResource: (provider: string, projectId: string) => ({
         kind: 'source',
@@ -210,6 +214,7 @@ it('routes pending-version cart items into the resource preview as automatic rel
     await expect(selection.installSelected()).resolves.toBe(true)
     expect(showInstall).toHaveBeenCalledTimes(1)
     expect(showInstall).toHaveBeenCalledWith({
+        analysis: expect.objectContaining({ prepare: expect.any(Function) }),
         instanceId: 'instance-1',
         instanceName: 'Example',
         selections: [
@@ -323,6 +328,58 @@ it('queues only confirmed roots in a mixed batch and clears excluded worlds', as
     )
 })
 
+it('changing the cart during world review cannot install an unrelated resource snapshot', async () => {
+    let finish!: (value: { primaryKeys: string[] }) => void
+    const showBatch = vi.fn(
+        () =>
+            new Promise((resolve) => {
+                finish = resolve
+            }),
+    )
+    const showInstallSelection = vi.fn()
+    const selection = createContentSelection({
+        addNotification: vi.fn(),
+        handleError: vi.fn(),
+        downloadManager: { jobs: ref([]) } as never,
+    })
+    selection.setTarget(instance)
+    selection.setPreviewModal({ showBatch } as never)
+    selection.setResourceInstallPreview({ showInstallSelection } as never)
+    await selection.add({
+        key: 'curseforge:world',
+        provider: 'curseforge',
+        projectId: '42',
+        providerProjectId: '42',
+        contentType: 'world',
+        title: 'World',
+        versionId: '123',
+        sha1: 'a'.repeat(40),
+    })
+    await selection.add({
+        key: 'modrinth:first',
+        provider: 'modrinth',
+        projectId: 'first',
+        providerProjectId: 'first',
+        contentType: 'mod',
+        title: 'First',
+    })
+    const pending = selection.installSelected()
+    await vi.waitFor(() => expect(showBatch).toHaveBeenCalled())
+    await selection.add({
+        key: 'modrinth:late',
+        provider: 'modrinth',
+        projectId: 'late',
+        providerProjectId: 'late',
+        contentType: 'mod',
+        title: 'Late addition',
+    })
+    finish({ primaryKeys: ['curseforge:world'] })
+    await expect(pending).resolves.toBe(false)
+    expect(showInstallSelection).not.toHaveBeenCalled()
+    expect(selection.items.value.size).toBe(3)
+    selection.clear()
+})
+
 it('preserves the unqueued world when its batch fails after resource queue acceptance', async () => {
     const selection = createContentSelection({
         addNotification: vi.fn(),
@@ -391,4 +448,27 @@ it('reports accepted jobs even when only a newly added optional root remains', a
     await expect(selection.installSelected()).resolves.toBe(true)
     expect(selection.items.value.size).toBe(0)
     expect(selection.isInstalling('modrinth:a')).toBe(false)
+})
+
+it('ignores instance refreshes whose page context expired before the response', async () => {
+    let resolve!: (value: GameInstance[]) => void
+    vi.mocked(listInstances).mockImplementationOnce(
+        () =>
+            new Promise((done) => {
+                resolve = done
+            }),
+    )
+    const selection = createContentSelection({
+        addNotification: vi.fn(),
+        handleError: vi.fn(),
+        downloadManager: { jobs: ref([]) } as never,
+    })
+    selection.setTarget(instance)
+    let current = true
+    const pending = selection.refreshInstances('late-target', () => current)
+    current = false
+    resolve([{ ...instance, id: 'late-target', install_stage: 'installed' }])
+    await pending
+    expect(selection.targetInstance.value?.id).toBe(instance.id)
+    expect(selection.instances.value).toEqual([])
 })

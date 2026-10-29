@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "\n            DELETE FROM attached_world_data\n            WHERE instance_id = ? and world_type = ? and world_id = ?\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 3
+    },
+    "nullable": []
+  },
+  "hash": "311f99ad95c1215caa043a304fbe6524eb291a003293aa441137498715cf68e2"
+}

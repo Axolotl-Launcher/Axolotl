@@ -99,16 +99,16 @@ Render with the `<IntlFormatted>` component using named slots:
 
 ```vue
 <IntlFormatted :message-id="messages.tosLabel">
-	<template #terms-link="{ children }">
-		<NuxtLink to="/terms">
-			<component :is="() => children" />
-		</NuxtLink>
-	</template>
-	<template #privacy-link="{ children }">
-		<NuxtLink to="/privacy">
-			<component :is="() => children" />
-		</NuxtLink>
-	</template>
+  <template #terms-link="{ children }">
+    <NuxtLink to="/terms">
+      <component :is="() => children" />
+    </NuxtLink>
+  </template>
+  <template #privacy-link="{ children }">
+    <NuxtLink to="/privacy">
+      <component :is="() => children" />
+    </NuxtLink>
+  </template>
 </IntlFormatted>
 ```
 

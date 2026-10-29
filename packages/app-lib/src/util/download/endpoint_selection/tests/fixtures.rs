@@ -39,6 +39,7 @@ pub(super) struct SocketStats {
     pub(super) peak: AtomicUsize,
     pub(super) opened: AtomicUsize,
     pub(super) requests: AtomicU64,
+    pub(super) requested_ranges: Mutex<Vec<(u64, u64)>>,
     pub(super) server_payload: AtomicU64,
     pub(super) body_elapsed_us: AtomicU64,
     pub(super) send_us: AtomicU64,
@@ -160,6 +161,7 @@ impl EndpointFixture {
                                 }).unwrap_or((0, size - 1));
                                 assert!(start <= end && end < size);
                                 stats.requests.fetch_add(1, Ordering::Relaxed);
+                                stats.requested_ranges.lock().push((start, end));
                                 let length = end + 1 - start;
                                 let range_header = if range.is_some() {
                                     format!("Content-Range: bytes {}-{end}/{size}\r\n", if profile.wrong_range { start + 1 } else { start })

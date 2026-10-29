@@ -1,12 +1,11 @@
-import assert from 'node:assert/strict'
-import test from 'node:test'
+import { expect, it } from 'vitest'
 
 import { shouldShowMinecraftCrash } from './process.js'
 
-test('only shows the crash dialog for an explicitly crashed process', () => {
-    assert.equal(shouldShowMinecraftCrash(true), true)
-    assert.equal(shouldShowMinecraftCrash(false), false)
-    assert.equal(shouldShowMinecraftCrash(undefined), false)
-    assert.equal(shouldShowMinecraftCrash(null), false)
-    assert.equal(shouldShowMinecraftCrash(1), false)
+it('only shows the crash dialog for an explicitly crashed process', () => {
+    expect(shouldShowMinecraftCrash(true)).toBe(true)
+    expect(shouldShowMinecraftCrash(false)).toBe(false)
+    expect(shouldShowMinecraftCrash(undefined)).toBe(false)
+    expect(shouldShowMinecraftCrash(null)).toBe(false)
+    expect(shouldShowMinecraftCrash(1)).toBe(false)
 })

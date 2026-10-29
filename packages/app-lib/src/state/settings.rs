@@ -1,10 +1,15 @@
 //! Theseus settings file
 
+use crate::state::store::Collection as _;
+use crate::state::store::settings::{
+    DownloadSource as StoredDownloadSource, HomeLayout as StoredHomeLayout,
+    Settings as StoredSettings, SettingsRecord, Singleton,
+};
+use crate::state::store::{Atom, Handle};
 use crate::util::download::constants::{
     AUTO_DOWNLOAD_CONCURRENCY_INITIAL, DOWNLOAD_CONCURRENCY_HARD_MAX,
 };
 use serde::{Deserialize, Serialize};
-use sqlx::{Pool, Sqlite};
 use std::collections::HashMap;
 
 // Types
@@ -139,6 +144,7 @@ pub struct Settings {
     pub default_page: DefaultPage,
     pub collapsed_navigation: bool,
     pub hide_nametag_skins_page: bool,
+    pub nametag_uses_app_font: bool,
     pub advanced_rendering: bool,
     pub native_decorations: bool,
     pub toggle_sidebar: bool,
@@ -309,595 +315,300 @@ pub enum FeatureFlag {
 impl Settings {
     const CURRENT_VERSION: usize = 3;
 
-    pub async fn get<'a, E>(exec: E) -> crate::Result<Self>
-    where
-        E: sqlx::Acquire<'a, Database = sqlx::Sqlite>,
-    {
-        let mut connection = exec.acquire().await?;
-        Self::get_with_connection(&mut connection).await
+    pub async fn get(handle: &Handle) -> crate::Result<Self> {
+        let Some(record) = StoredSettings::get(handle, &Singleton).await?
+        else {
+            return Err(crate::ErrorKind::OtherError(
+                "The launcher settings are missing from the database"
+                    .to_string(),
+            )
+            .into());
+        };
+        Ok(Self::from_record(record))
     }
 
-    pub(crate) async fn get_with_connection(
-        connection: &mut sqlx::SqliteConnection,
-    ) -> crate::Result<Self> {
-        let res = sqlx::query!(
-            "
-            SELECT
-                max_concurrent_writes, max_concurrent_downloads,
-                auto_concurrent_downloads, minecraft_metadata_source,
-                minecraft_file_source, modrinth_source, curseforge_source, mojang_auth_source,
-                theme, locale, default_page, collapsed_navigation, hide_nametag_skins_page, advanced_rendering, native_decorations,
-				discord_rpc, developer_mode, telemetry, telemetry_consent_version, personalized_ads,
-                onboarded, onboarding_version, onboarding_instance_tour_completed,
-                json(extra_launch_args) extra_launch_args, json(custom_env_vars) custom_env_vars,
-                mc_memory_max, mc_memory_auto, mc_force_fullscreen, mc_maximize_window, mc_game_resolution_x, mc_game_resolution_y, hide_on_process_start, enter_lightweight_mode_on_game_launch,
-                auto_set_java_high_performance_mode,
-                hook_pre_launch, hook_wrapper, hook_post_exit,
-                custom_dir, prev_custom_dir, migrated, json(feature_flags) feature_flags, toggle_sidebar,
-                skipped_update, pending_update_toast_for_version, auto_download_updates, accent_color,
-                custom_background_path, custom_background_blur, custom_background_opacity,
-                transparent_background, transparent_background_opacity, transparent_background_blur,
-                sidebar_instance_count, home_layout, minimal_home_instance_id,
-                json(home_widgets) as \"home_widgets?: String\", auto_hide_downloads_button,
-                json(terracotta_public_nodes) terracotta_public_nodes,
-                version
-            FROM settings
-            "
-        )
-            .fetch_one(&mut *connection)
-            .await?;
-
-        let close_behavior: String = sqlx::query_scalar(
-            "SELECT close_behavior FROM settings WHERE id = 0",
-        )
-        .fetch_one(&mut *connection)
-        .await?;
-
-        let home_widget_background_opacity: i64 = sqlx::query_scalar(
-            "SELECT home_widget_background_opacity FROM settings WHERE id = 0",
-        )
-        .fetch_one(&mut *connection)
-        .await?;
-
-        let custom_background_component_opacity: i64 = sqlx::query_scalar(
-            "SELECT custom_background_component_opacity FROM settings WHERE id = 0",
-        )
-        .fetch_one(&mut *connection)
-        .await?;
-
-        let ui_font: Option<String> =
-            sqlx::query_scalar("SELECT ui_font FROM settings WHERE id = 0")
-                .fetch_one(&mut *connection)
-                .await?;
-
-        let mono_font: Option<String> =
-            sqlx::query_scalar("SELECT mono_font FROM settings WHERE id = 0")
-                .fetch_one(&mut *connection)
-                .await?;
-
-        let hidden_nav_items_json: String = sqlx::query_scalar(
-            "SELECT hidden_nav_items FROM settings WHERE id = 0",
-        )
-        .fetch_one(&mut *connection)
-        .await?;
+    fn from_record(record: SettingsRecord) -> Self {
         let mut hidden_nav_items: Vec<String> =
-            serde_json::from_str(&hidden_nav_items_json).unwrap_or_default();
+            serde_json::from_str(&record.hidden_nav_items).unwrap_or_default();
         // Home and Library must stay reachable from the nav rail.
         hidden_nav_items.retain(|id| id != "home" && id != "library");
 
-        let custom_window_title_enabled: bool = sqlx::query_scalar(
-            "SELECT custom_window_title_enabled FROM settings WHERE id = 0",
-        )
-        .fetch_one(&mut *connection)
-        .await?;
-        let default_window_title: String = sqlx::query_scalar(
-            "SELECT default_window_title FROM settings WHERE id = 0",
-        )
-        .fetch_one(&mut *connection)
-        .await?;
-        let backup_repository_path: Option<String> = sqlx::query_scalar(
-            "SELECT backup_repository_path FROM settings WHERE id = 0",
-        )
-        .fetch_one(&mut *connection)
-        .await?;
-
-        let log_level: String =
-            sqlx::query_scalar("SELECT log_level FROM settings WHERE id = 0")
-                .fetch_one(&mut *connection)
-                .await?;
-
-        let (
-            sync_features_across_devices,
-            show_files_tab_in_instances,
-            show_worlds_tab_in_instances,
-            show_screenshots_tab_in_instances,
-            show_skin_selector_in_sidebar,
-        ): (bool, bool, bool, bool, bool) = sqlx::query_as(
-            "SELECT sync_features_across_devices, show_files_tab_in_instances, show_worlds_tab_in_instances, show_screenshots_tab_in_instances, show_skin_selector_in_sidebar FROM settings WHERE id = 0",
-        )
-        .fetch_one(&mut *connection)
-        .await?;
-
-        let bypass_curseforge_download_restrictions: bool = sqlx::query_scalar(
-            "SELECT bypass_curseforge_download_restrictions FROM settings WHERE id = 0",
-        )
-        .fetch_one(&mut *connection)
-        .await?;
-        let ignore_ssl_errors: bool = sqlx::query_scalar(
-            "SELECT ignore_ssl_errors FROM settings WHERE id = 0",
-        )
-        .fetch_one(&mut *connection)
-        .await?;
-        let doh_enabled: bool =
-            sqlx::query_scalar("SELECT doh_enabled FROM settings WHERE id = 0")
-                .fetch_one(&mut *connection)
-                .await?;
-        let settings = Self {
-            resource_chinese_filenames: sqlx::query_scalar(
-                "SELECT resource_chinese_filenames FROM settings WHERE id = 0",
-            )
-            .fetch_one(&mut *connection)
-            .await?,
-            resource_preserve_filenames: sqlx::query_scalar(
-                "SELECT resource_preserve_filenames FROM settings WHERE id = 0",
-            )
-            .fetch_one(&mut *connection)
-            .await?,
-            max_concurrent_downloads: res.max_concurrent_downloads as usize,
-            max_concurrent_writes: res.max_concurrent_writes as usize,
-            auto_concurrent_downloads: res.auto_concurrent_downloads == 1,
-            minecraft_metadata_source: DownloadSourceMode::from_string(
-                &res.minecraft_metadata_source,
+        Self {
+            resource_chinese_filenames: record.resource_chinese_filenames,
+            resource_preserve_filenames: record.resource_preserve_filenames,
+            max_concurrent_downloads: record.max_concurrent_downloads as usize,
+            max_concurrent_writes: record.max_concurrent_writes as usize,
+            auto_concurrent_downloads: record.auto_concurrent_downloads,
+            minecraft_metadata_source: to_source_mode(
+                record.minecraft_metadata_source,
             ),
-            minecraft_file_source: DownloadSourceMode::from_string(
-                &res.minecraft_file_source,
-            ),
-            modrinth_source: DownloadSourceMode::from_string(
-                &res.modrinth_source,
-            ),
-            curseforge_source: DownloadSourceMode::from_string(
-                &res.curseforge_source,
-            ),
-            bypass_curseforge_download_restrictions,
-            ignore_ssl_errors,
-            doh_enabled,
-            mojang_auth_source: DownloadSourceMode::from_string(
-                &res.mojang_auth_source,
-            ),
+            minecraft_file_source: to_source_mode(record.minecraft_file_source),
+            modrinth_source: to_source_mode(record.modrinth_source),
+            curseforge_source: to_source_mode(record.curseforge_source),
+            bypass_curseforge_download_restrictions: record
+                .bypass_curseforge_download_restrictions,
+            ignore_ssl_errors: record.ignore_ssl_errors,
+            doh_enabled: record.doh_enabled,
+            mojang_auth_source: to_source_mode(record.mojang_auth_source),
             legacy_use_minecraft_mirror: None,
             legacy_use_modrinth_mirror: None,
             legacy_use_curseforge_mirror: None,
-            theme: Theme::from_string(&res.theme),
-            accent_color: AccentColor::from_string(&res.accent_color),
-            locale: res.locale,
-            default_page: DefaultPage::from_string(&res.default_page),
-            collapsed_navigation: res.collapsed_navigation == 1,
-            hide_nametag_skins_page: res.hide_nametag_skins_page == 1,
-            advanced_rendering: res.advanced_rendering == 1,
-            native_decorations: res.native_decorations == 1,
-            toggle_sidebar: res.toggle_sidebar == 1,
-            custom_background_path: res.custom_background_path,
-            custom_background_blur: res.custom_background_blur as u32,
-            custom_background_opacity: res.custom_background_opacity as u32,
-            custom_background_component_opacity:
-                custom_background_component_opacity.clamp(0, 100) as u32,
-            ui_font: sanitize_font_family(ui_font),
-            mono_font: sanitize_font_family(mono_font),
-            transparent_background: res.transparent_background == 1,
-            transparent_background_opacity: res.transparent_background_opacity
+            theme: Theme::from_string(&record.theme),
+            accent_color: AccentColor::from_string(&record.accent_color),
+            locale: record.locale,
+            default_page: DefaultPage::from_string(&record.default_page),
+            collapsed_navigation: record.collapsed_navigation,
+            hide_nametag_skins_page: record.hide_nametag_skins_page,
+            nametag_uses_app_font: record.nametag_uses_app_font,
+            advanced_rendering: record.advanced_rendering,
+            native_decorations: record.native_decorations,
+            toggle_sidebar: record.toggle_sidebar,
+            custom_background_path: record.custom_background_path,
+            custom_background_blur: record.custom_background_blur as u32,
+            custom_background_opacity: record.custom_background_opacity as u32,
+            custom_background_component_opacity: record
+                .custom_background_component_opacity
+                .clamp(0, 100)
                 as u32,
-            transparent_background_blur: res.transparent_background_blur == 1,
-            sidebar_instance_count: res.sidebar_instance_count as u32,
-            close_behavior,
-            log_level,
-            auto_hide_downloads_button: res.auto_hide_downloads_button == 1,
-            home_layout: HomeLayout::from_string(&res.home_layout),
-            minimal_home_instance_id: res.minimal_home_instance_id,
-            home_widgets: res
+            ui_font: sanitize_font_family(record.ui_font),
+            mono_font: sanitize_font_family(record.mono_font),
+            transparent_background: record.transparent_background,
+            transparent_background_opacity: record
+                .transparent_background_opacity
+                as u32,
+            transparent_background_blur: record.transparent_background_blur,
+            sidebar_instance_count: record.sidebar_instance_count as u32,
+            close_behavior: record.close_behavior,
+            log_level: record.log_level,
+            auto_hide_downloads_button: record.auto_hide_downloads_button,
+            home_layout: to_home_layout(record.home_layout),
+            minimal_home_instance_id: record.minimal_home_instance_id,
+            home_widgets: record
                 .home_widgets
-                .as_ref()
+                .as_deref()
                 .and_then(|value| serde_json::from_str(value).ok()),
-            home_widget_background_opacity: home_widget_background_opacity
+            home_widget_background_opacity: record
+                .home_widget_background_opacity
                 .clamp(0, 100)
                 as u32,
             hidden_nav_items,
-            custom_window_title_enabled,
-            default_window_title,
-            terracotta_public_nodes: res
-                .terracotta_public_nodes
-                .as_ref()
-                .and_then(|value| serde_json::from_str(value).ok())
-                .unwrap_or_else(default_terracotta_public_nodes),
-            telemetry: res.telemetry == 1,
-            telemetry_consent_version: res.telemetry_consent_version as u32,
-            discord_rpc: res.discord_rpc == 1,
-            developer_mode: res.developer_mode == 1,
-            personalized_ads: res.personalized_ads == 1,
-            onboarded: res.onboarded == 1,
-            onboarding_version: res.onboarding_version as usize,
-            onboarding_instance_tour_completed: res
-                .onboarding_instance_tour_completed
-                == 1,
-            extra_launch_args: res
-                .extra_launch_args
-                .as_ref()
-                .and_then(|x| serde_json::from_str(x).ok())
+            custom_window_title_enabled: record.custom_window_title_enabled,
+            default_window_title: record.default_window_title,
+            terracotta_public_nodes: serde_json::from_str(
+                &record.terracotta_public_nodes,
+            )
+            .ok()
+            .unwrap_or_else(default_terracotta_public_nodes),
+            telemetry: record.telemetry,
+            telemetry_consent_version: record.telemetry_consent_version as u32,
+            discord_rpc: record.discord_rpc,
+            developer_mode: record.developer_mode,
+            personalized_ads: record.personalized_ads,
+            onboarded: record.onboarded,
+            onboarding_version: record.onboarding_version as usize,
+            onboarding_instance_tour_completed: record
+                .onboarding_instance_tour_completed,
+            extra_launch_args: serde_json::from_str(&record.extra_launch_args)
+                .ok()
                 .unwrap_or_default(),
-            custom_env_vars: res
-                .custom_env_vars
-                .as_ref()
-                .and_then(|x| serde_json::from_str(x).ok())
+            custom_env_vars: serde_json::from_str(&record.custom_env_vars)
+                .ok()
                 .unwrap_or_default(),
             memory: MemorySettings {
-                maximum: res.mc_memory_max as u32,
-                automatic: res.mc_memory_auto == 1,
-                optimize_before_launch: sqlx::query_scalar(
-                    "SELECT mc_memory_optimize FROM settings WHERE id = 0",
-                )
-                .fetch_one(&mut *connection)
-                .await?,
+                maximum: record.mc_memory_max as u32,
+                automatic: record.mc_memory_auto,
+                optimize_before_launch: record.mc_memory_optimize,
             },
-            force_fullscreen: res.mc_force_fullscreen == 1,
-            maximize_window: res.mc_maximize_window == 1,
+            force_fullscreen: record.mc_force_fullscreen,
+            maximize_window: record.mc_maximize_window,
             game_resolution: WindowSize(
-                res.mc_game_resolution_x as u16,
-                res.mc_game_resolution_y as u16,
+                record.mc_game_resolution_x as u16,
+                record.mc_game_resolution_y as u16,
             ),
-            hide_on_process_start: res.hide_on_process_start == 1,
-            enter_lightweight_mode_on_game_launch: res
-                .enter_lightweight_mode_on_game_launch
-                == 1,
-            auto_set_java_high_performance_mode: res
-                .auto_set_java_high_performance_mode
-                == 1,
+            hide_on_process_start: record.hide_on_process_start,
+            enter_lightweight_mode_on_game_launch: record
+                .enter_lightweight_mode_on_game_launch,
+            auto_set_java_high_performance_mode: record
+                .auto_set_java_high_performance_mode,
             hooks: Hooks {
-                pre_launch: res.hook_pre_launch,
-                wrapper: res.hook_wrapper,
-                post_exit: res.hook_post_exit,
+                pre_launch: record.hook_pre_launch,
+                wrapper: record.hook_wrapper,
+                post_exit: record.hook_post_exit,
             },
-            custom_dir: res.custom_dir,
-            prev_custom_dir: res.prev_custom_dir,
-            backup_repository_path,
-            migrated: res.migrated == 1,
-            feature_flags: res
-                .feature_flags
-                .as_ref()
-                .and_then(|x| serde_json::from_str(x).ok())
+            custom_dir: record.custom_dir,
+            prev_custom_dir: record.prev_custom_dir,
+            backup_repository_path: record.backup_repository_path,
+            migrated: record.migrated,
+            feature_flags: serde_json::from_str(&record.feature_flags)
+                .ok()
                 .unwrap_or_default(),
-            sync_features_across_devices,
-            show_files_tab_in_instances,
-            show_worlds_tab_in_instances,
-            show_screenshots_tab_in_instances,
-            show_skin_selector_in_sidebar,
-            skipped_update: res.skipped_update,
-            pending_update_toast_for_version: res
+            sync_features_across_devices: record.sync_features_across_devices,
+            show_files_tab_in_instances: record.show_files_tab_in_instances,
+            show_worlds_tab_in_instances: record.show_worlds_tab_in_instances,
+            show_screenshots_tab_in_instances: record
+                .show_screenshots_tab_in_instances,
+            show_skin_selector_in_sidebar: record.show_skin_selector_in_sidebar,
+            skipped_update: record.skipped_update,
+            pending_update_toast_for_version: record
                 .pending_update_toast_for_version,
-            auto_download_updates: res.auto_download_updates.map(|x| x == 1),
-            allow_external_scheme: sqlx::query_scalar(
-                "SELECT allow_external_scheme FROM settings WHERE id = 0",
-            )
-            .fetch_one(&mut *connection)
-            .await
-            .unwrap_or(true),
-            allow_privileged_scheme: sqlx::query_scalar(
-                "SELECT allow_privileged_scheme FROM settings WHERE id = 0",
-            )
-            .fetch_one(&mut *connection)
-            .await
-            .unwrap_or(false),
-            version: res.version as usize,
-        };
-        Ok(settings)
+            auto_download_updates: record.auto_download_updates,
+            allow_external_scheme: record.allow_external_scheme,
+            allow_privileged_scheme: record.allow_privileged_scheme,
+            version: record.version as usize,
+        }
     }
 
-    pub async fn update<'a, E>(&self, exec: E) -> crate::Result<()>
-    where
-        E: sqlx::Acquire<'a, Database = sqlx::Sqlite>,
-    {
-        let mut connection = exec.acquire().await?;
-        self.update_with_connection(&mut connection).await
+    pub async fn update(&self, handle: &Handle) -> crate::Result<()> {
+        StoredSettings::set(handle, &Singleton, Some(&self.to_record()?)).await
     }
 
-    pub(crate) async fn update_with_connection(
-        &self,
-        connection: &mut sqlx::SqliteConnection,
-    ) -> crate::Result<()> {
-        let max_concurrent_writes = self.max_concurrent_writes as i32;
-        let max_concurrent_downloads =
-            self.max_concurrent_downloads
-                .clamp(1, DOWNLOAD_CONCURRENCY_HARD_MAX) as i32;
-        let theme = self.theme.as_str();
-        let accent_color = self.accent_color.as_str();
-        let default_page = self.default_page.as_str();
-        let extra_launch_args = serde_json::to_string(&self.extra_launch_args)?;
-        let custom_env_vars = serde_json::to_string(&self.custom_env_vars)?;
-        let feature_flags = serde_json::to_string(&self.feature_flags)?;
-        let custom_background_blur = self.custom_background_blur.min(40) as i32;
-        let custom_background_opacity =
-            self.custom_background_opacity.clamp(10, 100) as i32;
-        let transparent_background_opacity =
-            self.transparent_background_opacity.min(100) as i32;
-        let sidebar_instance_count = self.sidebar_instance_count.min(50) as i32;
-        let home_layout = self.home_layout.as_str();
-        let home_widgets = self
-            .home_widgets
-            .as_ref()
-            .map(serde_json::to_string)
-            .transpose()?;
-        let terracotta_public_nodes =
-            serde_json::to_string(&self.terracotta_public_nodes)?;
-        let version = self.version as i64;
-        let onboarding_version = self.onboarding_version as i64;
-        let minecraft_metadata_source = self.minecraft_metadata_source.as_str();
-        let minecraft_file_source = self.minecraft_file_source.as_str();
-        let modrinth_source = self.modrinth_source.as_str();
-        let curseforge_source = self.curseforge_source.as_str();
-        let mojang_auth_source = self.mojang_auth_source.as_str();
+    fn to_record(&self) -> crate::Result<SettingsRecord> {
         let auto_prefers_mirror = self.auto_prefers_mirror();
-        let use_minecraft_mirror = self
-            .minecraft_file_source
-            .prefers_mirror(auto_prefers_mirror);
-        let use_modrinth_mirror =
-            self.modrinth_source.prefers_mirror(auto_prefers_mirror);
-        let use_curseforge_mirror =
-            self.curseforge_source.prefers_mirror(auto_prefers_mirror);
+        Ok(SettingsRecord {
+            max_concurrent_downloads: self
+                .max_concurrent_downloads
+                .clamp(1, DOWNLOAD_CONCURRENCY_HARD_MAX)
+                as i64,
+            max_concurrent_writes: self.max_concurrent_writes as i64,
+            theme: self.theme.as_str().to_string(),
+            default_page: self.default_page.as_str().to_string(),
+            collapsed_navigation: self.collapsed_navigation,
+            advanced_rendering: self.advanced_rendering,
+            native_decorations: self.native_decorations,
+            telemetry: self.telemetry,
+            discord_rpc: self.discord_rpc,
+            developer_mode: self.developer_mode,
+            onboarded: self.onboarded,
+            extra_launch_args: serde_json::to_string(&self.extra_launch_args)?,
+            custom_env_vars: serde_json::to_string(&self.custom_env_vars)?,
+            mc_memory_max: self.memory.maximum as i64,
+            mc_force_fullscreen: self.force_fullscreen,
+            mc_game_resolution_x: self.game_resolution.0 as i64,
+            mc_game_resolution_y: self.game_resolution.1 as i64,
+            hide_on_process_start: self.hide_on_process_start,
+            hook_pre_launch: self.hooks.pre_launch.clone(),
+            hook_wrapper: self.hooks.wrapper.clone(),
+            hook_post_exit: self.hooks.post_exit.clone(),
+            custom_dir: self.custom_dir.clone(),
+            prev_custom_dir: self.prev_custom_dir.clone(),
+            migrated: self.migrated,
+            personalized_ads: self.personalized_ads,
+            toggle_sidebar: self.toggle_sidebar,
+            feature_flags: serde_json::to_string(&self.feature_flags)?,
+            hide_nametag_skins_page: self.hide_nametag_skins_page,
+            nametag_uses_app_font: self.nametag_uses_app_font,
+            skipped_update: self.skipped_update.clone(),
+            pending_update_toast_for_version: self
+                .pending_update_toast_for_version
+                .clone(),
+            auto_download_updates: self.auto_download_updates,
+            version: self.version as i64,
+            locale: self.locale.clone(),
+            accent_color: self.accent_color.as_str().to_string(),
+            custom_background_path: self.custom_background_path.clone(),
+            custom_background_blur: self.custom_background_blur.min(40) as i64,
+            custom_background_opacity: self
+                .custom_background_opacity
+                .clamp(10, 100) as i64,
+            use_minecraft_mirror: self
+                .minecraft_file_source
+                .prefers_mirror(auto_prefers_mirror),
+            use_modrinth_mirror: self
+                .modrinth_source
+                .prefers_mirror(auto_prefers_mirror),
+            use_curseforge_mirror: self
+                .curseforge_source
+                .prefers_mirror(auto_prefers_mirror),
+            auto_concurrent_downloads: self.auto_concurrent_downloads,
+            minecraft_metadata_source: from_source_mode(
+                self.minecraft_metadata_source,
+            ),
+            minecraft_file_source: from_source_mode(self.minecraft_file_source),
+            modrinth_source: from_source_mode(self.modrinth_source),
+            curseforge_source: from_source_mode(self.curseforge_source),
+            onboarding_version: self.onboarding_version as i64,
+            onboarding_instance_tour_completed: self
+                .onboarding_instance_tour_completed,
+            sidebar_instance_count: self.sidebar_instance_count.min(50) as i64,
+            mc_memory_auto: self.memory.automatic,
+            mc_memory_optimize: self.memory.optimize_before_launch,
+            auto_set_java_high_performance_mode: self
+                .auto_set_java_high_performance_mode,
+            transparent_background: self.transparent_background,
+            transparent_background_opacity: self
+                .transparent_background_opacity
+                .min(100) as i64,
+            transparent_background_blur: self.transparent_background_blur,
+            home_layout: from_home_layout(self.home_layout),
+            minimal_home_instance_id: self.minimal_home_instance_id.clone(),
+            auto_hide_downloads_button: self.auto_hide_downloads_button,
+            home_widgets: self
+                .home_widgets
+                .as_ref()
+                .map(serde_json::to_string)
+                .transpose()?,
+            mojang_auth_source: from_source_mode(self.mojang_auth_source),
+            terracotta_public_nodes: serde_json::to_string(
+                &self.terracotta_public_nodes,
+            )?,
+            telemetry_consent_version: self.telemetry_consent_version as i64,
+            bypass_curseforge_download_restrictions: self
+                .bypass_curseforge_download_restrictions,
+            enter_lightweight_mode_on_game_launch: self
+                .enter_lightweight_mode_on_game_launch,
+            close_behavior: self.close_behavior.clone(),
+            mc_maximize_window: self.maximize_window,
+            log_level: self.log_level.clone(),
+            sync_features_across_devices: self.sync_features_across_devices,
+            show_files_tab_in_instances: self.show_files_tab_in_instances,
+            show_worlds_tab_in_instances: self.show_worlds_tab_in_instances,
+            show_screenshots_tab_in_instances: self
+                .show_screenshots_tab_in_instances,
+            show_skin_selector_in_sidebar: self.show_skin_selector_in_sidebar,
+            ignore_ssl_errors: self.ignore_ssl_errors,
+            home_widget_background_opacity: self
+                .home_widget_background_opacity
+                .clamp(0, 100)
+                as i64,
+            hidden_nav_items: {
+                let mut hidden_nav_items = self.hidden_nav_items.clone();
+                // Boundary guard: never persist core nav items as hidden.
+                hidden_nav_items.retain(|id| id != "home" && id != "library");
+                serde_json::to_string(&hidden_nav_items)?
+            },
+            custom_window_title_enabled: self.custom_window_title_enabled,
+            default_window_title: self.default_window_title.trim().to_string(),
+            custom_background_component_opacity: self
+                .custom_background_component_opacity
+                .clamp(0, 100)
+                as i64,
+            ui_font: sanitize_font_family(self.ui_font.clone()),
+            mono_font: sanitize_font_family(self.mono_font.clone()),
+            backup_repository_path: self.backup_repository_path.clone(),
+            allow_external_scheme: self.allow_external_scheme,
+            allow_privileged_scheme: self.allow_privileged_scheme,
+            doh_enabled: self.doh_enabled,
+            resource_chinese_filenames: self.resource_chinese_filenames,
+            resource_preserve_filenames: self.resource_preserve_filenames,
+        })
+    }
+    /// The settings as they stand inside `unit`, for a caller that means to
+    /// change some of them and write them back.
+    pub(crate) async fn load_in(unit: &mut Atom) -> crate::Result<Self> {
+        match StoredSettings::atom_get(unit, &Singleton).await? {
+            Some(record) => Ok(Self::from_record(record)),
+            None => Err(crate::ErrorKind::OtherError(
+                "The launcher settings are missing from the database"
+                    .to_string(),
+            )
+            .into()),
+        }
+    }
 
-        sqlx::query!(
-            "
-            UPDATE settings
-            SET
-                max_concurrent_writes = $1,
-                max_concurrent_downloads = $2,
-
-                theme = $3,
-                locale = $4,
-                default_page = $5,
-                collapsed_navigation = $6,
-                advanced_rendering = $7,
-                native_decorations = $8,
-
-                discord_rpc = $9,
-                developer_mode = $10,
-                telemetry = $11,
-                personalized_ads = $12,
-
-                onboarded = $13,
-
-                extra_launch_args = jsonb($14),
-                custom_env_vars = jsonb($15),
-                mc_memory_max = $16,
-                mc_memory_auto = $17,
-                 mc_force_fullscreen = $18,
-                 mc_maximize_window = $19,
-                 mc_game_resolution_x = $20,
-                 mc_game_resolution_y = $21,
-                 hide_on_process_start = $22,
-                 auto_set_java_high_performance_mode = $23,
-
-                 hook_pre_launch = $24,
-                 hook_wrapper = $25,
-                 hook_post_exit = $26,
-
-                 custom_dir = $27,
-                 prev_custom_dir = $28,
-                 migrated = $29,
-
-                 toggle_sidebar = $30,
-                 feature_flags = $31,
-                 hide_nametag_skins_page = $32,
-
-                 skipped_update = $33,
-                 pending_update_toast_for_version = $34,
-                 auto_download_updates = $35,
-                 accent_color = $36,
-                 custom_background_path = $37,
-                 custom_background_blur = $38,
-                 custom_background_opacity = $39,
-
-                 version = $40,
-                 auto_concurrent_downloads = $41,
-                 minecraft_metadata_source = $42,
-                 minecraft_file_source = $43,
-                 modrinth_source = $44,
-                 curseforge_source = $45,
-                 use_minecraft_mirror = $46,
-                 use_modrinth_mirror = $47,
-                 use_curseforge_mirror = $48,
-                 onboarding_version = $49,
-                 onboarding_instance_tour_completed = $50,
-                 sidebar_instance_count = $51,
-                 transparent_background = $52,
-                 transparent_background_opacity = $53,
-                 transparent_background_blur = $54,
-                 home_layout = $55,
-                 minimal_home_instance_id = $56,
-                 auto_hide_downloads_button = $57,
-                 home_widgets = jsonb($58),
-                 mojang_auth_source = $59,
-				terracotta_public_nodes = jsonb($60),
-				telemetry_consent_version = $61
-            ",
-            max_concurrent_writes,
-            max_concurrent_downloads,
-            theme,
-            self.locale,
-            default_page,
-            self.collapsed_navigation,
-            self.advanced_rendering,
-            self.native_decorations,
-            self.discord_rpc,
-            self.developer_mode,
-            self.telemetry,
-            self.personalized_ads,
-            self.onboarded,
-            extra_launch_args,
-            custom_env_vars,
-            self.memory.maximum,
-            self.memory.automatic,
-            self.force_fullscreen,
-            self.maximize_window,
-            self.game_resolution.0,
-            self.game_resolution.1,
-            self.hide_on_process_start,
-            self.auto_set_java_high_performance_mode,
-            self.hooks.pre_launch,
-            self.hooks.wrapper,
-            self.hooks.post_exit,
-            self.custom_dir,
-            self.prev_custom_dir,
-            self.migrated,
-            self.toggle_sidebar,
-            feature_flags,
-            self.hide_nametag_skins_page,
-            self.skipped_update,
-            self.pending_update_toast_for_version,
-            self.auto_download_updates,
-            accent_color,
-            self.custom_background_path,
-            custom_background_blur,
-            custom_background_opacity,
-            version,
-            self.auto_concurrent_downloads,
-            minecraft_metadata_source,
-            minecraft_file_source,
-            modrinth_source,
-            curseforge_source,
-            use_minecraft_mirror,
-            use_modrinth_mirror,
-            use_curseforge_mirror,
-            onboarding_version,
-            self.onboarding_instance_tour_completed,
-            sidebar_instance_count,
-            self.transparent_background,
-            transparent_background_opacity,
-            self.transparent_background_blur,
-            home_layout,
-            self.minimal_home_instance_id,
-            self.auto_hide_downloads_button,
-            home_widgets,
-            mojang_auth_source,
-            terracotta_public_nodes,
-            self.telemetry_consent_version,
-        )
-        .execute(&mut *connection)
-        .await?;
-
-        sqlx::query(
-			"UPDATE settings SET enter_lightweight_mode_on_game_launch = ? WHERE id = 0",
-		)
-		.bind(self.enter_lightweight_mode_on_game_launch)
-		.execute(&mut *connection)
-		.await?;
-
-        sqlx::query("UPDATE settings SET close_behavior = ? WHERE id = 0")
-            .bind(&self.close_behavior)
-            .execute(&mut *connection)
-            .await?;
-
-        sqlx::query("UPDATE settings SET log_level = ? WHERE id = 0")
-            .bind(&self.log_level)
-            .execute(&mut *connection)
-            .await?;
-
-        sqlx::query(
-            "UPDATE settings SET home_widget_background_opacity = ? WHERE id = 0",
-        )
-        .bind(self.home_widget_background_opacity.clamp(0, 100) as i64)
-        .execute(&mut *connection)
-        .await?;
-
-        sqlx::query(
-            "UPDATE settings SET custom_background_component_opacity = ? WHERE id = 0",
-        )
-        .bind(self.custom_background_component_opacity.clamp(0, 100) as i64)
-        .execute(&mut *connection)
-        .await?;
-
-        sqlx::query(
-            "UPDATE settings SET ui_font = ?, mono_font = ? WHERE id = 0",
-        )
-        .bind(sanitize_font_family(self.ui_font.clone()))
-        .bind(sanitize_font_family(self.mono_font.clone()))
-        .execute(&mut *connection)
-        .await?;
-
-        let mut hidden_nav_items = self.hidden_nav_items.clone();
-        // Boundary guard: never persist core nav items as hidden.
-        hidden_nav_items.retain(|id| id != "home" && id != "library");
-
-        sqlx::query("UPDATE settings SET hidden_nav_items = ? WHERE id = 0")
-            .bind(serde_json::to_string(&hidden_nav_items)?)
-            .execute(&mut *connection)
-            .await?;
-
-        sqlx::query(
-            "UPDATE settings SET custom_window_title_enabled = ? WHERE id = 0",
-        )
-        .bind(self.custom_window_title_enabled)
-        .execute(&mut *connection)
-        .await?;
-
-        sqlx::query(
-            "UPDATE settings SET default_window_title = ? WHERE id = 0",
-        )
-        .bind(self.default_window_title.trim())
-        .execute(&mut *connection)
-        .await?;
-
-        sqlx::query(
-            "UPDATE settings SET backup_repository_path = ? WHERE id = 0",
-        )
-        .bind(self.backup_repository_path.as_deref())
-        .execute(&mut *connection)
-        .await?;
-
-        sqlx::query(
-            "UPDATE settings SET bypass_curseforge_download_restrictions = ? WHERE id = 0",
-        )
-        .bind(self.bypass_curseforge_download_restrictions)
-        .execute(&mut *connection)
-        .await?;
-        sqlx::query("UPDATE settings SET resource_chinese_filenames = ?, resource_preserve_filenames = ? WHERE id = 0")
-            .bind(self.resource_chinese_filenames)
-            .bind(self.resource_preserve_filenames)
-            .execute(&mut *connection).await?;
-        sqlx::query("UPDATE settings SET ignore_ssl_errors = ? WHERE id = 0")
-            .bind(self.ignore_ssl_errors)
-            .execute(&mut *connection)
-            .await?;
-        sqlx::query("UPDATE settings SET mc_memory_optimize = ? WHERE id = 0")
-            .bind(self.memory.optimize_before_launch)
-            .execute(&mut *connection)
-            .await?;
-        sqlx::query(
-            "UPDATE settings SET sync_features_across_devices = ?, show_files_tab_in_instances = ?, show_worlds_tab_in_instances = ?, show_screenshots_tab_in_instances = ?, show_skin_selector_in_sidebar = ? WHERE id = 0",
-        )
-        .bind(self.sync_features_across_devices)
-        .bind(self.show_files_tab_in_instances)
-        .bind(self.show_worlds_tab_in_instances)
-        .bind(self.show_screenshots_tab_in_instances)
-        .bind(self.show_skin_selector_in_sidebar)
-        .execute(&mut *connection)
-        .await?;
-        sqlx::query(
-            "UPDATE settings SET allow_external_scheme = ? WHERE id = 0",
-        )
-        .bind(self.allow_external_scheme)
-        .execute(&mut *connection)
-        .await?;
-        sqlx::query(
-            "UPDATE settings SET allow_privileged_scheme = ? WHERE id = 0",
-        )
-        .bind(self.allow_privileged_scheme)
-        .execute(&mut *connection)
-        .await?;
-
-        sqlx::query("UPDATE settings SET doh_enabled = ? WHERE id = 0")
-            .bind(self.doh_enabled)
-            .execute(&mut *connection)
-            .await?;
-
-        Ok(())
+    /// Writes these settings inside `unit`.
+    pub(crate) async fn save_in(&self, unit: &mut Atom) -> crate::Result<()> {
+        StoredSettings::atom_set(unit, &Singleton, Some(&self.to_record()?))
+            .await
     }
 
     pub fn effective_max_concurrent_downloads(&self) -> usize {
@@ -964,8 +675,8 @@ impl Settings {
                 .any(|value| locale_prefers_mirror(&value))
     }
 
-    pub async fn migrate(exec: &Pool<Sqlite>) -> crate::Result<()> {
-        let mut settings = Self::get(exec).await?;
+    pub async fn migrate(handle: &Handle) -> crate::Result<()> {
+        let mut settings = Self::get(handle).await?;
 
         if settings.version < Settings::CURRENT_VERSION {
             tracing::info!(
@@ -985,7 +696,7 @@ impl Settings {
             }
         }
 
-        settings.update(exec).await?;
+        settings.update(handle).await?;
 
         Ok(())
     }
@@ -1226,6 +937,46 @@ impl DefaultPage {
     }
 }
 
+fn to_source_mode(source: StoredDownloadSource) -> DownloadSourceMode {
+    match source {
+        StoredDownloadSource::Auto => DownloadSourceMode::Auto,
+        StoredDownloadSource::OfficialOnly => DownloadSourceMode::OfficialOnly,
+        StoredDownloadSource::MirrorPreferred => {
+            DownloadSourceMode::MirrorPreferred
+        }
+        StoredDownloadSource::OfficialPreferred => {
+            DownloadSourceMode::OfficialPreferred
+        }
+    }
+}
+
+fn from_source_mode(mode: DownloadSourceMode) -> StoredDownloadSource {
+    match mode {
+        DownloadSourceMode::Auto => StoredDownloadSource::Auto,
+        DownloadSourceMode::OfficialOnly => StoredDownloadSource::OfficialOnly,
+        DownloadSourceMode::MirrorPreferred => {
+            StoredDownloadSource::MirrorPreferred
+        }
+        DownloadSourceMode::OfficialPreferred => {
+            StoredDownloadSource::OfficialPreferred
+        }
+    }
+}
+
+fn to_home_layout(layout: StoredHomeLayout) -> HomeLayout {
+    match layout {
+        StoredHomeLayout::Standard => HomeLayout::Standard,
+        StoredHomeLayout::Minimal => HomeLayout::Minimal,
+    }
+}
+
+fn from_home_layout(layout: HomeLayout) -> StoredHomeLayout {
+    match layout {
+        HomeLayout::Standard => StoredHomeLayout::Standard,
+        HomeLayout::Minimal => StoredHomeLayout::Minimal,
+    }
+}
+#[cfg(test)]
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1338,312 +1089,6 @@ mod tests {
         );
     }
 
-    #[tokio::test]
-    async fn official_preferred_sources_round_trip_in_a_fresh_database() {
-        let pool = sqlx::sqlite::SqlitePoolOptions::new()
-            .max_connections(1)
-            .connect("sqlite::memory:")
-            .await
-            .unwrap();
-        sqlx::migrate!().run(&pool).await.unwrap();
-        sqlx::query(
-            "
-            UPDATE settings
-            SET
-                minecraft_metadata_source = 'official_preferred',
-                minecraft_file_source = 'official_preferred',
-                modrinth_source = 'official_preferred',
-                curseforge_source = 'official_preferred'
-            WHERE id = 0
-            ",
-        )
-        .execute(&pool)
-        .await
-        .unwrap();
-
-        let settings = Settings::get(&pool).await.unwrap();
-        assert_eq!(
-            settings.minecraft_metadata_source,
-            DownloadSourceMode::OfficialPreferred
-        );
-        assert_eq!(
-            settings.minecraft_file_source,
-            DownloadSourceMode::OfficialPreferred
-        );
-        assert_eq!(
-            settings.modrinth_source,
-            DownloadSourceMode::OfficialPreferred
-        );
-        assert_eq!(
-            settings.curseforge_source,
-            DownloadSourceMode::OfficialPreferred
-        );
-    }
-
-    #[tokio::test]
-    async fn curseforge_bypass_defaults_on_and_round_trips() {
-        let pool = sqlx::sqlite::SqlitePoolOptions::new()
-            .max_connections(1)
-            .connect("sqlite::memory:")
-            .await
-            .unwrap();
-        sqlx::migrate!().run(&pool).await.unwrap();
-
-        let mut settings = Settings::get(&pool).await.unwrap();
-        assert!(settings.resource_chinese_filenames);
-        assert!(settings.resource_preserve_filenames);
-        settings.resource_chinese_filenames = false;
-        settings.resource_preserve_filenames = false;
-        assert!(settings.bypass_curseforge_download_restrictions);
-
-        settings.bypass_curseforge_download_restrictions = false;
-        settings.update(&pool).await.unwrap();
-
-        let reloaded = Settings::get(&pool).await.unwrap();
-        assert!(!reloaded.resource_chinese_filenames);
-        assert!(!reloaded.resource_preserve_filenames);
-        assert!(!reloaded.bypass_curseforge_download_restrictions);
-    }
-
-    #[tokio::test]
-    async fn ignore_ssl_errors_defaults_off_and_round_trips() {
-        let pool = sqlx::sqlite::SqlitePoolOptions::new()
-            .max_connections(1)
-            .connect("sqlite::memory:")
-            .await
-            .unwrap();
-        sqlx::migrate!().run(&pool).await.unwrap();
-
-        let mut settings = Settings::get(&pool).await.unwrap();
-        assert!(!settings.ignore_ssl_errors);
-
-        settings.ignore_ssl_errors = true;
-        settings.update(&pool).await.unwrap();
-
-        let reloaded = Settings::get(&pool).await.unwrap();
-        assert!(reloaded.ignore_ssl_errors);
-    }
-
-    #[tokio::test]
-    async fn memory_optimization_round_trips_in_a_fresh_database() {
-        let pool = sqlx::sqlite::SqlitePoolOptions::new()
-            .max_connections(1)
-            .connect("sqlite::memory:")
-            .await
-            .unwrap();
-        sqlx::migrate!().run(&pool).await.unwrap();
-
-        let mut settings = Settings::get(&pool).await.unwrap();
-        assert!(!settings.memory.optimize_before_launch);
-
-        settings.memory.optimize_before_launch = true;
-        settings.update(&pool).await.unwrap();
-
-        let reloaded = Settings::get(&pool).await.unwrap();
-        assert!(reloaded.memory.optimize_before_launch);
-    }
-
-    #[tokio::test]
-    async fn lightweight_mode_setting_defaults_off_and_round_trips() {
-        let pool = sqlx::sqlite::SqlitePoolOptions::new()
-            .max_connections(1)
-            .connect("sqlite::memory:")
-            .await
-            .unwrap();
-        sqlx::migrate!().run(&pool).await.unwrap();
-
-        let mut settings = Settings::get(&pool).await.unwrap();
-        assert!(!settings.enter_lightweight_mode_on_game_launch);
-
-        settings.enter_lightweight_mode_on_game_launch = true;
-        settings.update(&pool).await.unwrap();
-
-        let reloaded = Settings::get(&pool).await.unwrap();
-        assert!(reloaded.enter_lightweight_mode_on_game_launch);
-    }
-
-    #[tokio::test]
-    async fn lightweight_mode_migration_upgrades_existing_settings_database() {
-        let pool = sqlx::sqlite::SqlitePoolOptions::new()
-            .max_connections(1)
-            .connect("sqlite::memory:")
-            .await
-            .unwrap();
-        sqlx::query(
-            "CREATE TABLE settings (id INTEGER PRIMARY KEY CHECK (id = 0))",
-        )
-        .execute(&pool)
-        .await
-        .unwrap();
-        sqlx::query("INSERT INTO settings (id) VALUES (0)")
-            .execute(&pool)
-            .await
-            .unwrap();
-
-        sqlx::raw_sql(include_str!(concat!(
-            env!("CARGO_MANIFEST_DIR"),
-            "/migrations/20260821120001_lightweight-mode.sql"
-        )))
-        .execute(&pool)
-        .await
-        .unwrap();
-
-        let enabled: i64 = sqlx::query_scalar(
-            "SELECT enter_lightweight_mode_on_game_launch FROM settings WHERE id = 0",
-        )
-        .fetch_one(&pool)
-        .await
-        .unwrap();
-        assert_eq!(enabled, 0);
-        assert!(
-            sqlx::query("PRAGMA foreign_key_check")
-                .fetch_all(&pool)
-                .await
-                .unwrap()
-                .is_empty()
-        );
-    }
-
-    #[tokio::test]
-    async fn home_widgets_round_trip_in_a_fresh_database() {
-        let pool = sqlx::sqlite::SqlitePoolOptions::new()
-            .max_connections(1)
-            .connect("sqlite::memory:")
-            .await
-            .unwrap();
-        sqlx::migrate!().run(&pool).await.unwrap();
-
-        let expected = serde_json::json!({
-            "version": 1,
-            "widgets": [
-                {
-                    "id": "calendar-one",
-                    "kind": "calendar",
-                    "size": "2x2"
-                }
-            ]
-        });
-        let mut settings = Settings::get(&pool).await.unwrap();
-        settings.home_widgets = Some(expected.clone());
-        settings.update(&pool).await.unwrap();
-
-        let reloaded = Settings::get(&pool).await.unwrap();
-        assert_eq!(reloaded.home_widgets, Some(expected));
-    }
-
-    #[tokio::test]
-    async fn font_columns_upgrade_an_existing_settings_database() {
-        let pool = sqlx::sqlite::SqlitePoolOptions::new()
-            .max_connections(1)
-            .connect("sqlite::memory:")
-            .await
-            .unwrap();
-        sqlx::query(
-            "CREATE TABLE settings (id INTEGER PRIMARY KEY CHECK (id = 0))",
-        )
-        .execute(&pool)
-        .await
-        .unwrap();
-        sqlx::query("INSERT INTO settings (id) VALUES (0)")
-            .execute(&pool)
-            .await
-            .unwrap();
-
-        sqlx::raw_sql(include_str!(concat!(
-            env!("CARGO_MANIFEST_DIR"),
-            "/migrations/20260919120000_custom-fonts.sql"
-        )))
-        .execute(&pool)
-        .await
-        .unwrap();
-
-        let fonts: (Option<String>, Option<String>) = sqlx::query_as(
-            "SELECT ui_font, mono_font FROM settings WHERE id = 0",
-        )
-        .fetch_one(&pool)
-        .await
-        .unwrap();
-        assert_eq!(fonts, (None, None));
-        assert!(
-            sqlx::query("PRAGMA foreign_key_check")
-                .fetch_all(&pool)
-                .await
-                .unwrap()
-                .is_empty()
-        );
-    }
-
-    #[tokio::test]
-    async fn fonts_default_to_none_and_round_trip_in_a_fresh_database() {
-        let pool = sqlx::sqlite::SqlitePoolOptions::new()
-            .max_connections(1)
-            .connect("sqlite::memory:")
-            .await
-            .unwrap();
-        sqlx::migrate!().run(&pool).await.unwrap();
-
-        let mut settings = Settings::get(&pool).await.unwrap();
-        assert_eq!(settings.ui_font, None);
-        assert_eq!(settings.mono_font, None);
-
-        settings.ui_font = Some("  Microsoft YaHei  ".to_string());
-        settings.mono_font = Some("JetBrains Mono".to_string());
-        settings.update(&pool).await.unwrap();
-
-        let reloaded = Settings::get(&pool).await.unwrap();
-        assert_eq!(reloaded.ui_font.as_deref(), Some("Microsoft YaHei"));
-        assert_eq!(reloaded.mono_font.as_deref(), Some("JetBrains Mono"));
-
-        settings.mono_font = Some("   ".to_string());
-        settings.update(&pool).await.unwrap();
-
-        let cleared = Settings::get(&pool).await.unwrap();
-        assert_eq!(cleared.mono_font, None);
-    }
-
-    #[tokio::test]
-    async fn terracotta_public_nodes_default_and_empty_list_round_trip() {
-        let pool = sqlx::sqlite::SqlitePoolOptions::new()
-            .max_connections(1)
-            .connect("sqlite::memory:")
-            .await
-            .unwrap();
-        sqlx::migrate!().run(&pool).await.unwrap();
-
-        let mut settings = Settings::get(&pool).await.unwrap();
-        assert_eq!(
-            settings.terracotta_public_nodes,
-            default_terracotta_public_nodes()
-        );
-
-        settings.terracotta_public_nodes.clear();
-        settings.update(&pool).await.unwrap();
-
-        let reloaded = Settings::get(&pool).await.unwrap();
-        assert!(reloaded.terracotta_public_nodes.is_empty());
-    }
-
-    #[tokio::test]
-    async fn mojang_auth_source_round_trip_in_a_fresh_database() {
-        let pool = sqlx::sqlite::SqlitePoolOptions::new()
-            .max_connections(1)
-            .connect("sqlite::memory:")
-            .await
-            .unwrap();
-        sqlx::migrate!().run(&pool).await.unwrap();
-
-        let mut settings = Settings::get(&pool).await.unwrap();
-        assert_eq!(settings.mojang_auth_source, DownloadSourceMode::Auto);
-        settings.mojang_auth_source = DownloadSourceMode::MirrorPreferred;
-        settings.update(&pool).await.unwrap();
-
-        let reloaded = Settings::get(&pool).await.unwrap();
-        assert_eq!(
-            reloaded.mojang_auth_source,
-            DownloadSourceMode::MirrorPreferred
-        );
-    }
-
     #[test]
     fn auto_source_detection_distinguishes_mainland_locales() {
         assert!(locale_prefers_mirror("zh-CN"));
@@ -1651,153 +1096,5 @@ mod tests {
         assert!(locale_prefers_mirror("Asia/Shanghai"));
         assert!(!locale_prefers_mirror("zh-TW"));
         assert!(!locale_prefers_mirror("en-US"));
-    }
-
-    #[tokio::test]
-    async fn legacy_mirror_settings_keep_their_previous_intent() {
-        let pool = sqlx::sqlite::SqlitePoolOptions::new()
-            .max_connections(1)
-            .connect("sqlite::memory:")
-            .await
-            .unwrap();
-        sqlx::migrate!().run(&pool).await.unwrap();
-        let settings = Settings::get(&pool).await.unwrap();
-        assert!(settings.auto_concurrent_downloads);
-        assert!(settings.auto_set_java_high_performance_mode);
-        assert!(!settings.auto_hide_downloads_button);
-        assert_eq!(settings.home_layout, HomeLayout::Standard);
-        assert_eq!(settings.minimal_home_instance_id, None);
-        assert_eq!(settings.home_widgets, None);
-        assert_eq!(
-            settings.minecraft_metadata_source,
-            DownloadSourceMode::Auto
-        );
-        assert_eq!(settings.minecraft_file_source, DownloadSourceMode::Auto);
-        assert_eq!(settings.modrinth_source, DownloadSourceMode::Auto);
-        assert_eq!(settings.curseforge_source, DownloadSourceMode::Auto);
-        let mut legacy = serde_json::to_value(settings).unwrap();
-        let object = legacy.as_object_mut().unwrap();
-        object.remove("minecraft_metadata_source");
-        object.remove("minecraft_file_source");
-        object.remove("modrinth_source");
-        object.remove("curseforge_source");
-        object.insert("use_minecraft_mirror".to_string(), true.into());
-        object.insert("use_modrinth_mirror".to_string(), false.into());
-        object.insert("use_curseforge_mirror".to_string(), false.into());
-
-        let mut migrated: Settings = serde_json::from_value(legacy).unwrap();
-        migrated.apply_legacy_download_source_settings();
-
-        assert_eq!(
-            migrated.minecraft_metadata_source,
-            DownloadSourceMode::MirrorPreferred
-        );
-        assert_eq!(
-            migrated.minecraft_file_source,
-            DownloadSourceMode::MirrorPreferred
-        );
-        assert_eq!(migrated.modrinth_source, DownloadSourceMode::OfficialOnly);
-        assert_eq!(
-            migrated.curseforge_source,
-            DownloadSourceMode::OfficialOnly
-        );
-    }
-
-    #[tokio::test]
-    async fn download_source_reset_migration_sets_all_sources_to_auto() {
-        let pool = sqlx::sqlite::SqlitePoolOptions::new()
-            .max_connections(1)
-            .connect("sqlite::memory:")
-            .await
-            .unwrap();
-        sqlx::migrate!().run(&pool).await.unwrap();
-        sqlx::query(
-            "
-            UPDATE settings
-            SET
-                minecraft_metadata_source = 'official_only',
-                minecraft_file_source = 'mirror_preferred',
-                modrinth_source = 'official_only',
-                curseforge_source = 'mirror_preferred'
-            ",
-        )
-        .execute(&pool)
-        .await
-        .unwrap();
-        sqlx::query(include_str!(concat!(
-            env!("CARGO_MANIFEST_DIR"),
-            "/migrations/20260721120000_reset-download-sources-to-auto.sql"
-        )))
-        .execute(&pool)
-        .await
-        .unwrap();
-
-        let settings = Settings::get(&pool).await.unwrap();
-        assert_eq!(
-            settings.minecraft_metadata_source,
-            DownloadSourceMode::Auto
-        );
-        assert_eq!(settings.minecraft_file_source, DownloadSourceMode::Auto);
-        assert_eq!(settings.modrinth_source, DownloadSourceMode::Auto);
-        assert_eq!(settings.curseforge_source, DownloadSourceMode::Auto);
-    }
-
-    #[tokio::test]
-    async fn telemetry_schema_migrates_fresh_and_existing_settings_databases() {
-        let fresh = sqlx::sqlite::SqlitePoolOptions::new()
-            .max_connections(1)
-            .connect("sqlite::memory:")
-            .await
-            .unwrap();
-        sqlx::migrate!().run(&fresh).await.unwrap();
-        let settings = Settings::get(&fresh).await.unwrap();
-        assert!(!settings.telemetry);
-        assert_eq!(settings.telemetry_consent_version, 0);
-        assert!(
-            sqlx::query("PRAGMA foreign_key_check")
-                .fetch_all(&fresh)
-                .await
-                .unwrap()
-                .is_empty()
-        );
-
-        let upgrade = sqlx::sqlite::SqlitePoolOptions::new()
-            .max_connections(1)
-            .connect("sqlite::memory:")
-            .await
-            .unwrap();
-        sqlx::query(
-            "CREATE TABLE settings (id INTEGER PRIMARY KEY CHECK (id = 0), telemetry INTEGER NOT NULL DEFAULT 0, discord_rpc INTEGER NOT NULL DEFAULT 1)",
-        )
-        .execute(&upgrade)
-        .await
-        .unwrap();
-        sqlx::query(
-            "INSERT INTO settings (id, telemetry, discord_rpc) VALUES (0, 0, 1)",
-        )
-        .execute(&upgrade)
-        .await
-        .unwrap();
-        sqlx::raw_sql(include_str!(concat!(
-            env!("CARGO_MANIFEST_DIR"),
-            "/migrations/20260814120000_telemetry.sql"
-        )))
-        .execute(&upgrade)
-        .await
-        .unwrap();
-        let consent_version = sqlx::query_scalar::<_, i64>(
-            "SELECT telemetry_consent_version FROM settings WHERE id = 0",
-        )
-        .fetch_one(&upgrade)
-        .await
-        .unwrap();
-        assert_eq!(consent_version, 0);
-        assert!(
-            sqlx::query("PRAGMA foreign_key_check")
-                .fetch_all(&upgrade)
-                .await
-                .unwrap()
-                .is_empty()
-        );
     }
 }

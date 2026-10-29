@@ -51,6 +51,10 @@ export async function prefetchContentFavorites(
     favorites: ContentFavorite[],
     signal?: AbortSignal,
     cachePolicy: ResourceCachePolicy = 'useFresh',
+    onSourceSettled?: (
+        source: FavoriteProvider,
+        metadata: ReadonlyMap<string, SourceProjectMetadata>,
+    ) => void,
 ) {
     const metadata = new Map<string, SourceProjectMetadata>()
     const projects = favorites.flatMap(
@@ -67,42 +71,46 @@ export async function prefetchContentFavorites(
                     source === 'curseforge',
             )
             .map(async (source) => {
-                const ids = [
-                    ...new Set(
-                        projects
-                            .filter((project) => project.source === source)
-                            .map((project) => project.projectId),
-                    ),
-                ]
-                let documents
                 try {
-                    documents = await resourceProjectDocuments(source, ids, signal, cachePolicy)
-                } catch {
-                    signal?.throwIfAborted()
-                    if (cachePolicy === 'onlyCached') {
-                        if (ids.length === 1) return
-                        const cached = await Promise.allSettled(
-                            ids.map((id) =>
-                                resourceProjectDocuments(source, [id], signal, 'onlyCached'),
-                            ),
-                        )
-                        documents = cached.flatMap((result) =>
-                            result.status === 'fulfilled' ? result.value : [],
-                        )
-                    } else {
-                        documents = await resourceProjectDocuments(
-                            source,
-                            ids,
-                            signal,
-                            'onlyCached',
-                        )
+                    const ids = [
+                        ...new Set(
+                            projects
+                                .filter((project) => project.source === source)
+                                .map((project) => project.projectId),
+                        ),
+                    ]
+                    let documents
+                    try {
+                        documents = await resourceProjectDocuments(source, ids, signal, cachePolicy)
+                    } catch {
+                        signal?.throwIfAborted()
+                        if (cachePolicy === 'onlyCached') {
+                            if (ids.length === 1) return
+                            const cached = await Promise.allSettled(
+                                ids.map((id) =>
+                                    resourceProjectDocuments(source, [id], signal, 'onlyCached'),
+                                ),
+                            )
+                            documents = cached.flatMap((result) =>
+                                result.status === 'fulfilled' ? result.value : [],
+                            )
+                        } else {
+                            documents = await resourceProjectDocuments(
+                                source,
+                                ids,
+                                signal,
+                                'onlyCached',
+                            )
+                        }
                     }
+                    for (const document of documents)
+                        metadata.set(
+                            `${source}:${document.metadata.project.projectId}`,
+                            document.metadata,
+                        )
+                } finally {
+                    if (!signal?.aborted) onSourceSettled?.(source, metadata)
                 }
-                for (const document of documents)
-                    metadata.set(
-                        `${source}:${document.metadata.project.projectId}`,
-                        document.metadata,
-                    )
             }),
     )
     signal?.throwIfAborted()

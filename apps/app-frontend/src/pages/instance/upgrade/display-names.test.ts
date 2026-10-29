@@ -1,5 +1,4 @@
-import assert from 'node:assert/strict'
-import test from 'node:test'
+import { expect, it } from 'vitest'
 
 import { buildUpgradeDisplayNames } from '../../../../../../packages/ui/src/utils/loaders.ts'
 
@@ -15,8 +14,8 @@ const input = {
     customCopyName: '1.21.8-Fabric 0.18.4（升级副本）',
 }
 
-test('default source name renames direct target and names copy for target environment', () => {
-    assert.deepEqual(buildUpgradeDisplayNames(input), {
+it('default source name renames direct target and names copy for target environment', () => {
+    expect(buildUpgradeDisplayNames(input)).toEqual({
         backup: input.backupName,
         copy: '1.21.9-Fabric 0.18.5',
         upgradedTarget: '1.21.9-Fabric 0.18.5',
@@ -24,8 +23,8 @@ test('default source name renames direct target and names copy for target enviro
     })
 })
 
-test('custom source name stays unchanged while copy receives localized suffix', () => {
-    assert.deepEqual(buildUpgradeDisplayNames({ ...input, sourceName: 'My survival instance' }), {
+it('custom source name stays unchanged while copy receives localized suffix', () => {
+    expect(buildUpgradeDisplayNames({ ...input, sourceName: 'My survival instance' })).toEqual({
         backup: input.backupName,
         copy: input.customCopyName,
         upgradedTarget: null,

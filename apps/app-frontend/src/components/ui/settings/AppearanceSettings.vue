@@ -284,6 +284,15 @@ const messages = defineMessages({
         id: 'app.appearance-settings.hide-nametag.description',
         defaultMessage: 'Disables the nametag above your player on the skins page.',
     },
+    nametagUsesAppFontTitle: {
+        id: 'app.appearance-settings.nametag-uses-app-font.title',
+        defaultMessage: 'Role name tag uses the app font',
+    },
+    nametagUsesAppFontDescription: {
+        id: 'app.appearance-settings.nametag-uses-app-font.description',
+        defaultMessage:
+            'Shows your role name tag on the skins page in your interface font instead of the Minecraft pixel font.',
+    },
     nativeDecorationsTitle: {
         id: 'app.appearance-settings.native-decorations.title',
         defaultMessage: 'Native decorations',
@@ -1738,6 +1747,28 @@ watch(
                             (e) => {
                                 themeStore.hideNametagSkinsPage = !!e
                                 settings.hide_nametag_skins_page = themeStore.hideNametagSkinsPage
+                            }
+                        "
+                    />
+                </template>
+            </SettingsRow>
+            <SettingsRow>
+                <template #label>
+                    <span id="settings-target-appearance-nametag-uses-app-font" tabindex="-1">
+                        {{ formatMessage(messages.nametagUsesAppFontTitle) }}
+                    </span>
+                </template>
+                <template #description>{{
+                    formatMessage(messages.nametagUsesAppFontDescription)
+                }}</template>
+                <template #control>
+                    <Toggle
+                        id="nametag-uses-app-font"
+                        :model-value="themeStore.nametagUsesAppFont"
+                        @update:model-value="
+                            (e) => {
+                                themeStore.nametagUsesAppFont = !!e
+                                settings.nametag_uses_app_font = themeStore.nametagUsesAppFont
                             }
                         "
                     />

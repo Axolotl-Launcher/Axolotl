@@ -1,27 +1,26 @@
-import assert from 'node:assert/strict'
-import test from 'node:test'
+import { expect, it } from 'vitest'
 
 import { createRequestGeneration } from './request-generation.ts'
 
-test('only the latest request for the current key can publish', () => {
+it('only the latest request for the current key can publish', () => {
     const requests = createRequestGeneration()
     const first = requests.begin('instance-a:/')
     const second = requests.begin('instance-a:mods')
 
-    assert.equal(requests.isCurrent(first, 'instance-a:/'), false)
-    assert.equal(requests.isCurrent(second, 'instance-a:mods'), true)
-    assert.equal(requests.isCurrent(second, 'instance-a:/'), false)
+    expect(requests.isCurrent(first, 'instance-a:/')).toBe(false)
+    expect(requests.isCurrent(second, 'instance-a:mods')).toBe(true)
+    expect(requests.isCurrent(second, 'instance-a:/')).toBe(false)
 })
 
-test('invalidating a workspace makes an in-flight request stale', () => {
+it('invalidating a workspace makes an in-flight request stale', () => {
     const requests = createRequestGeneration()
     const token = requests.begin('server-a:/')
     requests.invalidate()
 
-    assert.equal(requests.isCurrent(token, 'server-a:/'), false)
+    expect(requests.isCurrent(token, 'server-a:/')).toBe(false)
 })
 
-test('a delayed instance event cannot replace a newer read of the same instance', async () => {
+it('a delayed instance event cannot replace a newer read of the same instance', async () => {
     const requests = createRequestGeneration()
     let finish!: (value: string) => void
     const response = new Promise<string>((resolve) => {
@@ -36,5 +35,5 @@ test('a delayed instance event cannot replace a newer read of the same instance'
     if (requests.isCurrent(latest, 'instance-a')) displayed = 'new state'
     finish('old state')
     await pending
-    assert.equal(displayed, 'new state')
+    expect(displayed).toBe('new state')
 })

@@ -5,9 +5,9 @@ use crate::launcher::get_loader_version_from_profile;
 use crate::launcher::instance_runtime::InstanceRuntimeAdapter;
 use crate::server_address::{parse_server_address, resolve_server_address};
 use crate::state::attached_world_data::AttachedWorldData;
-use crate::state::{
-    InstanceInstallStage, attached_world_data, server_join_log,
-};
+use crate::state::store::Collection as _;
+use crate::state::store::join_log::{InstanceJoins, JoinLog};
+use crate::state::{InstanceInstallStage, attached_world_data};
 use crate::util::protocol_version::OLD_PROTOCOL_VERSIONS;
 pub use crate::util::protocol_version::ProtocolVersion;
 
@@ -33,6 +33,7 @@ use regex::{Regex, RegexBuilder};
 use serde::{Deserialize, Serialize};
 use serde_json::value::RawValue;
 use std::cmp::Reverse;
+use std::collections::HashMap;
 use std::io::Cursor;
 use std::path::{Path, PathBuf};
 use std::sync::LazyLock;
@@ -215,6 +216,11 @@ pub async fn get_recent_worlds(
         let instance_worlds =
             get_worlds_for_instance(&instance.instance, &state).await;
         if let Err(e) = instance_worlds {
+            if matches!(e.raw.as_ref(), ErrorKind::IOError(error)
+                if error.kind() == std::io::ErrorKind::NotFound)
+            {
+                continue;
+            }
             tracing::error!(
                 "Failed to get worlds for instance {}: {}",
                 instance_id,
@@ -276,12 +282,12 @@ async fn resolve_instance_identity(
 ) -> Result<(String, String, Option<String>)> {
     let row = sqlx::query!(
         "
-		SELECT id, path, game_dir_override
-		FROM instances
-		WHERE id = ? OR path = ?
-		ORDER BY CASE WHEN id = ? THEN 0 ELSE 1 END
-		LIMIT 1
-		",
+        SELECT id, path, game_dir_override
+        FROM instances
+        WHERE id = ? OR path = ?
+        ORDER BY CASE WHEN id = ? THEN 0 ELSE 1 END
+        LIMIT 1
+        ",
         instance,
         instance,
         instance,
@@ -547,9 +553,20 @@ async fn get_server_worlds_in_instance(
     }
 
     let state = State::get().await?;
-    let join_log = server_join_log::get_joins(instance_id, &state.pool)
-        .await
-        .ok();
+    let join_log = JoinLog::get_scoped(
+        &state.data,
+        &InstanceJoins {
+            instance_id: instance_id.to_string(),
+        },
+    )
+    .await
+    .ok()
+    .map(|records| {
+        records
+            .into_iter()
+            .map(|(key, entry)| ((key.host, key.port), entry.join_time))
+            .collect::<HashMap<_, _>>()
+    });
 
     for (index, server) in servers.into_iter().enumerate() {
         if server.hidden {
@@ -839,19 +856,19 @@ async fn get_world_session_lock(world: &Path) -> Result<tokio::fs::File> {
         .truncate(false)
         .open(&lock_path)
         .await?;
-    file.write_all("☃".as_bytes()).await?;
-    file.sync_all().await?;
-    let locked = file.try_lock_exclusive()?;
-    locked.then_some(file).ok_or_else(|| {
-        io::IOError::IOPathError {
+    if !file.try_lock_exclusive()? {
+        return Err(io::IOError::IOPathError {
             source: std::io::Error::new(
                 std::io::ErrorKind::ResourceBusy,
                 "already locked by Minecraft",
             ),
             path: lock_path.to_string_lossy().into_owned(),
         }
-        .into()
-    })
+        .into());
+    }
+    file.write_all("☃".as_bytes()).await?;
+    file.sync_all().await?;
+    Ok(file)
 }
 
 async fn try_get_world_session_lock(

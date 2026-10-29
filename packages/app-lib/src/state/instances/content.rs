@@ -43,6 +43,15 @@ pub struct ContentItemRollback {
     pub file_name: String,
 }
 
+/// Prefix marking an id the launcher synthesised because no online identity
+/// was resolved. It is neither a provider id nor a URL segment.
+pub const LOCAL_ID_PREFIX: &str = "local:";
+
+/// Builds a synthesised id from a stable local discriminator.
+pub fn local_id(discriminator: impl std::fmt::Display) -> String {
+    format!("{LOCAL_ID_PREFIX}{discriminator}")
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ContentItemProject {
     pub id: String,
@@ -83,4 +92,24 @@ pub struct LinkedModpackInfo {
     pub owner: Option<ContentItemOwner>,
     pub update: Option<ContentItemUpdate>,
     pub update_version: Option<Version>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{LOCAL_ID_PREFIX, local_id};
+
+    #[test]
+    fn local_id_prefixes_a_string_discriminator() {
+        assert_eq!(local_id("x"), "local:x");
+    }
+
+    #[test]
+    fn local_id_formats_a_numeric_discriminator() {
+        assert_eq!(local_id(42), "local:42");
+    }
+
+    #[test]
+    fn local_id_starts_with_the_shared_prefix() {
+        assert!(local_id("anything").starts_with(LOCAL_ID_PREFIX));
+    }
 }

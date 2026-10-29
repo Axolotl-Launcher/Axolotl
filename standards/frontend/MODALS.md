@@ -38,11 +38,11 @@ const modal = ref<InstanceType<typeof NewModal> | null>(null)
 </script>
 
 <template>
-	<button @click="modal?.show($event)">Open</button>
+  <button @click="modal?.show($event)">Open</button>
 
-	<NewModal ref="modal" header="My Modal">
-		<p>Modal content here.</p>
-	</NewModal>
+  <NewModal ref="modal" header="My Modal">
+    <p>Modal content here.</p>
+  </NewModal>
 </template>
 ```
 
@@ -78,7 +78,7 @@ The main content area. Rendered inside a padded, optionally scrollable container
 
 ```vue
 <NewModal ref="modal" header="Confirm">
-	<p>Are you sure you want to proceed?</p>
+  <p>Are you sure you want to proceed?</p>
 </NewModal>
 ```
 
@@ -88,11 +88,11 @@ Replaces the default header text. Use this when you need custom markup in the he
 
 ```vue
 <NewModal ref="modal">
-	<template #title>
-		<AlertIcon />
-		<span class="text-2xl font-semibold text-[var(--color-text-primary)]">Custom Title</span>
-	</template>
-	<p>Content here.</p>
+  <template #title>
+    <AlertIcon />
+    <span class="text-2xl font-semibold text-[var(--color-text-primary)]">Custom Title</span>
+  </template>
+  <p>Content here.</p>
 </NewModal>
 ```
 
@@ -102,11 +102,11 @@ Renders a bottom action bar below the content area (with `p-4 pt-0` padding). Us
 
 ```vue
 <NewModal ref="modal" header="Delete Item" fade="danger">
-	<p>This action cannot be undone.</p>
-	<template #actions>
-		<Button type="colored" color="red" @click="handleDelete">Delete</Button>
-		<Button @click="modal?.hide()">Cancel</Button>
-	</template>
+  <p>This action cannot be undone.</p>
+  <template #actions>
+    <Button type="colored" color="red" @click="handleDelete">Delete</Button>
+    <Button @click="modal?.hide()">Cancel</Button>
+  </template>
 </NewModal>
 ```
 
@@ -116,7 +116,7 @@ Set `scrollable` to enable scroll tracking. The modal renders animated fade grad
 
 ```vue
 <NewModal ref="modal" header="Long Content" scrollable max-content-height="60vh">
-	<!-- Long content that may overflow -->
+  <!-- Long content that may overflow -->
 </NewModal>
 ```
 
@@ -130,10 +130,10 @@ When `mergeHeader` is set, the header bar is hidden and a floating close button 
 
 ```vue
 <NewModal ref="modal" merge-header no-padding>
-	<img src="..." class="w-full" />
-	<div class="p-6">
-		<p>Content below the image.</p>
-	</div>
+  <img src="..." class="w-full" />
+  <div class="p-6">
+    <p>Content below the image.</p>
+  </div>
 </NewModal>
 ```
 
@@ -175,38 +175,38 @@ import type { MultiStageModal, StageConfigInput } from '@modrinth/ui'
 import { createContext } from '@modrinth/ui'
 
 export interface MyModalContext {
-	// State
-	formData: Ref<MyFormData>
-	isSubmitting: Ref<boolean>
+  // State
+  formData: Ref<MyFormData>
+  isSubmitting: Ref<boolean>
 
-	// Modal control
-	modal: ShallowRef<ComponentExposed<typeof MultiStageModal> | null>
-	stageConfigs: StageConfigInput<MyModalContext>[]
+  // Modal control
+  modal: ShallowRef<ComponentExposed<typeof MultiStageModal> | null>
+  stageConfigs: StageConfigInput<MyModalContext>[]
 
-	// Business logic
-	handleSubmit: () => Promise<void>
+  // Business logic
+  handleSubmit: () => Promise<void>
 }
 
 export const [injectMyModalContext, provideMyModalContext] =
-	createContext<MyModalContext>('MyModal')
+  createContext<MyModalContext>('MyModal')
 
 export function createMyModalContext(
-	modal: ShallowRef<ComponentExposed<typeof MultiStageModal> | null>,
+  modal: ShallowRef<ComponentExposed<typeof MultiStageModal> | null>,
 ): MyModalContext {
-	const formData = ref<MyFormData>({ ... })
-	const isSubmitting = ref(false)
+  const formData = ref<MyFormData>({ ... })
+  const isSubmitting = ref(false)
 
-	async function handleSubmit() {
-		isSubmitting.value = true
-		try {
-			await saveData(formData.value)
-			modal.value?.hide()
-		} finally {
-			isSubmitting.value = false
-		}
-	}
+  async function handleSubmit() {
+    isSubmitting.value = true
+    try {
+      await saveData(formData.value)
+      modal.value?.hide()
+    } finally {
+      isSubmitting.value = false
+    }
+  }
 
-	return { formData, isSubmitting, modal, stageConfigs, handleSubmit }
+  return { formData, isSubmitting, modal, stageConfigs, handleSubmit }
 }
 ```
 
@@ -223,27 +223,27 @@ import DetailsStage from './DetailsStage.vue'
 import { RightArrowIcon, SaveIcon } from '@modrinth/assets'
 
 export const detailsStageConfig: StageConfigInput<MyModalContext> = {
-	id: 'details',
-	stageContent: markRaw(DetailsStage),
-	title: 'Details',
+  id: 'details',
+  stageContent: markRaw(DetailsStage),
+  title: 'Details',
 
-	// Conditional behavior based on context
-	skip: (ctx) => ctx.shouldSkipDetails.value,
-	cannotNavigateForward: (ctx) => !ctx.formData.value.name,
-	disableClose: (ctx) => ctx.isSubmitting.value,
+  // Conditional behavior based on context
+  skip: (ctx) => ctx.shouldSkipDetails.value,
+  cannotNavigateForward: (ctx) => !ctx.formData.value.name,
+  disableClose: (ctx) => ctx.isSubmitting.value,
 
-	leftButtonConfig: (ctx) => ({
-		label: 'Cancel',
-		onClick: () => ctx.modal.value?.hide(),
-	}),
+  leftButtonConfig: (ctx) => ({
+    label: 'Cancel',
+    onClick: () => ctx.modal.value?.hide(),
+  }),
 
-	rightButtonConfig: (ctx) => ({
-		label: 'Next',
-		icon: RightArrowIcon,
-		iconPosition: 'after',
-		disabled: !ctx.formData.value.name,
-		onClick: () => ctx.modal.value?.nextStage(),
-	}),
+  rightButtonConfig: (ctx) => ({
+    label: 'Next',
+    icon: RightArrowIcon,
+    iconPosition: 'after',
+    disabled: !ctx.formData.value.name,
+    onClick: () => ctx.modal.value?.nextStage(),
+  }),
 }
 ```
 
@@ -287,10 +287,10 @@ const { formData } = injectMyModalContext()
 </script>
 
 <template>
-	<div class="flex flex-col gap-4">
-		<StyledInput v-model="formData.name" label="Name" />
-		<StyledInput v-model="formData.description" label="Description" />
-	</div>
+  <div class="flex flex-col gap-4">
+    <StyledInput v-model="formData.name" label="Name" />
+    <StyledInput v-model="formData.description" label="Description" />
+  </div>
 </template>
 ```
 
@@ -313,7 +313,7 @@ defineExpose({ show: () => modal.value?.show() })
 </script>
 
 <template>
-	<MultiStageModal ref="modal" :stages="ctx.stageConfigs" :context="ctx" />
+  <MultiStageModal ref="modal" :stages="ctx.stageConfigs" :context="ctx" />
 </template>
 ```
 
@@ -340,18 +340,18 @@ For stages that shouldn't appear in the progress bar (e.g. editing a specific fi
 
 ```ts
 export const editLoadersStageConfig: StageConfigInput<MyContext> = {
-	id: 'edit-loaders',
-	nonProgressStage: true,
-	stageContent: markRaw(EditLoadersStage),
-	title: 'Edit loaders',
-	leftButtonConfig: (ctx) => ({
-		label: 'Back',
-		onClick: () => ctx.modal.value?.setStage('summary'),
-	}),
-	rightButtonConfig: (ctx) => ({
-		...ctx.saveButtonConfig(),
-		label: 'Save',
-	}),
+  id: 'edit-loaders',
+  nonProgressStage: true,
+  stageContent: markRaw(EditLoadersStage),
+  title: 'Edit loaders',
+  leftButtonConfig: (ctx) => ({
+    label: 'Back',
+    onClick: () => ctx.modal.value?.setStage('summary'),
+  }),
+  rightButtonConfig: (ctx) => ({
+    ...ctx.saveButtonConfig(),
+    label: 'Save',
+  }),
 }
 ```
 

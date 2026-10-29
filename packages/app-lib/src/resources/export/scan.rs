@@ -20,23 +20,43 @@ pub async fn scan(
         .ok_or_else(|| {
             ResourceError::InvalidRequest("unknown instance".into())
         })?;
-    if metadata.instance.is_direct_linked() {
-        return Err(ResourceError::Unsupported(
-            "directly associated instances cannot be exported".into(),
-        ));
-    }
     let revision =
         crate::resources::plans::instance_revision(&state.pool, &instance_id)
             .await?;
     let root = crate::api::instance::get_full_path(&instance_id).await?;
-    let requirements = ExportGameRequirements {
-        game_version: metadata.applied_content_set.game_version,
-        loader: (metadata.applied_content_set.loader
-            != crate::state::ModLoader::Vanilla)
-            .then(|| metadata.applied_content_set.loader.as_str().to_string()),
-        loader_version: metadata.applied_content_set.loader_version,
-    };
+    let requirements = game_requirements(&metadata, &state.directories)?;
+    let runtime = crate::launcher::instance_runtime::InstanceRuntimeAdapter::for_instance(
+        &metadata.instance,
+        &state.directories,
+    )?;
+    let direct = runtime.direct_link();
     let mut scan = scan_directory(&root, cancel).await?;
+    if let Some(direct) = direct {
+        let version_dir =
+            crate::util::io::canonicalize(direct.version_dir())
+                .map_err(|error| filesystem(&direct.version_dir(), error))?;
+        if root == version_dir {
+            // In isolated layouts the version JSON and client JAR sit beside
+            // game content instead of beneath the excluded versions directory.
+            let mut stems = vec![direct.version_id.as_str()];
+            if let Some(folder) =
+                version_dir.file_name().and_then(|name| name.to_str())
+            {
+                stems.push(folder);
+            }
+            scan.files.retain(|file| {
+                let runtime_file = stems.iter().any(|stem| {
+                    file.relative_path == format!("{stem}.json")
+                        || file.relative_path == format!("{stem}.jar")
+                });
+                if runtime_file {
+                    scan.excluded_paths.push(file.relative_path.clone());
+                }
+                !runtime_file
+            });
+            scan.excluded_paths.sort();
+        }
+    }
     if crate::resources::plans::instance_revision(&state.pool, &instance_id)
         .await?
         != revision
@@ -51,6 +71,41 @@ pub async fn scan(
     })?;
     scan.requirements = requirements;
     Ok(scan)
+}
+
+pub(crate) fn game_requirements(
+    metadata: &crate::state::InstanceMetadata,
+    directories: &crate::state::DirectoryInfo,
+) -> ResourceResult<ExportGameRequirements> {
+    let mut requirements = ExportGameRequirements {
+        game_version: metadata.applied_content_set.game_version.clone(),
+        loader: (metadata.applied_content_set.loader
+            != crate::state::ModLoader::Vanilla)
+            .then(|| metadata.applied_content_set.loader.as_str().to_string()),
+        loader_version: metadata.applied_content_set.loader_version.clone(),
+    };
+    let runtime = crate::launcher::instance_runtime::InstanceRuntimeAdapter::for_instance(
+        &metadata.instance,
+        directories,
+    )?;
+    if let Some(direct) = runtime.direct_link() {
+        // Linked instances intentionally omit the loader version in stored
+        // display metadata; portable packs need the actual local version.
+        let info = crate::api::pack::import::instance_json::detect(
+            &direct.version_dir(),
+        )
+        .ok_or_else(|| {
+            ResourceError::InvalidRequest(
+                "cannot detect the linked instance's game requirements".into(),
+            )
+        })?;
+        requirements = ExportGameRequirements {
+            game_version: info.vanilla_name,
+            loader: info.loader,
+            loader_version: info.loader_version,
+        };
+    }
+    Ok(requirements)
 }
 
 fn filesystem(path: &Path, error: impl std::fmt::Display) -> ResourceError {

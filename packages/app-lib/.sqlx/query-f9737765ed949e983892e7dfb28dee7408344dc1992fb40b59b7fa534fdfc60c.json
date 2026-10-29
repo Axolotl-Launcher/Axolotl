@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "\n            UPDATE synced_game_option_state\n            SET revision = ?, catalog_revision = ?\n            WHERE singleton = 1\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": []
+  },
+  "hash": "f9737765ed949e983892e7dfb28dee7408344dc1992fb40b59b7fa534fdfc60c"
+}

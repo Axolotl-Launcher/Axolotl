@@ -7,12 +7,12 @@ it('lets explicit button widths fill a grid column while defaults remain compact
     host.className = 'universal-body'
     host.style.width = '600px'
     host.innerHTML = `
-		<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px">
-			<a href="#">Community</a>
-			<button class="w-full">QQ</button>
-		</div>
-		<button>Default</button>
-	`
+        <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px">
+            <a href="#">Community</a>
+            <button class="w-full">QQ</button>
+        </div>
+        <button>Default</button>
+    `
     document.body.appendChild(host)
     try {
         const link = host.querySelector('a')!

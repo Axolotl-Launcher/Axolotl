@@ -1,8 +1,6 @@
 <script setup lang="ts">
 import { CalendarIcon, HistoryIcon } from '@modrinth/assets'
-import Accordion from '@modrinth/ui/src/components/base/Accordion.vue'
-import TagItem from '@modrinth/ui/src/components/base/TagItem.vue'
-import { defineMessages, useVIntl } from '@modrinth/ui/src/composables/i18n.ts'
+import { Accordion, defineMessages, TagItem, useVIntl } from '@modrinth/ui'
 
 import releaseCatalog from '../../releases/catalog.json'
 
@@ -30,6 +28,9 @@ const CHANGE_TYPES: readonly AnnouncementChangeType[] = [
 ]
 
 const { formatMessage, locale } = useVIntl()
+const config = useRuntimeConfig()
+const githubUrl = config.public.githubUrl
+const siteUrl = config.public.siteUrl
 
 const messages = defineMessages({
     seoTitle: {
@@ -94,12 +95,12 @@ useSeoMeta({
     ogTitle: () => seoTitle.value,
     ogDescription: () => seoDescription.value,
     ogType: 'website',
-    ogUrl: 'https://axlmc.org/changelog',
+    ogUrl: `${siteUrl}/changelog`,
     robots: 'index, follow',
 })
 
 useHead({
-    link: [{ rel: 'canonical', href: 'https://axlmc.org/changelog' }],
+    link: [{ rel: 'canonical', href: `${siteUrl}/changelog` }],
 })
 </script>
 
@@ -179,13 +180,7 @@ useHead({
             class="mt-8 flex items-center justify-center gap-2 text-sm text-[var(--color-secondary)]"
         >
             <HistoryIcon aria-hidden="true" />
-            <a
-                href="https://github.com/Mystic-Stars/Axolotl/releases"
-                target="_blank"
-                rel="noopener"
-            >
-                GitHub Releases
-            </a>
+            <a :href="`${githubUrl}/releases`" target="_blank" rel="noopener"> GitHub Releases </a>
         </div>
     </section>
 </template>

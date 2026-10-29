@@ -1,20 +1,18 @@
-import assert from 'node:assert/strict'
-import test from 'node:test'
+import { expect, it } from 'vitest'
 
 import { contentFavoriteKey, isFavoriteContentType } from './content-favorites.ts'
 
-test('content favorites keep provider-qualified identities separate', () => {
-    assert.notEqual(
-        contentFavoriteKey('modrinth', 'same-id'),
+it('content favorites keep provider-qualified identities separate', () => {
+    expect(contentFavoriteKey('modrinth', 'same-id')).not.toBe(
         contentFavoriteKey('curseforge', 'same-id'),
     )
 })
 
-test('content favorites only accept installable content types', () => {
-    assert.equal(isFavoriteContentType('mod'), true)
-    assert.equal(isFavoriteContentType('resourcepack'), true)
-    assert.equal(isFavoriteContentType('datapack'), true)
-    assert.equal(isFavoriteContentType('shader'), true)
-    assert.equal(isFavoriteContentType('modpack'), false)
-    assert.equal(isFavoriteContentType('world'), false)
+it('content favorites only accept installable content types', () => {
+    expect(isFavoriteContentType('mod')).toBe(true)
+    expect(isFavoriteContentType('resourcepack')).toBe(true)
+    expect(isFavoriteContentType('datapack')).toBe(true)
+    expect(isFavoriteContentType('shader')).toBe(true)
+    expect(isFavoriteContentType('modpack')).toBe(false)
+    expect(isFavoriteContentType('world')).toBe(false)
 })

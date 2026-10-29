@@ -3,6 +3,8 @@
 **/.output
 **/.data
 **/.wrangler
+**/test-results
+**/playwright-report
 src/generated/**
 src/locales/**
 src/public/news/feed

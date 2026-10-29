@@ -1,5 +1,7 @@
 use super::*;
 
+use crate::state::instances::adapters::sqlite::{content_entries, files};
+
 pub(super) enum StagedUpgradeDownload {
     Modrinth(crate::state::instances::commands::DownloadedProjectVersion),
     CurseForge(crate::api::curseforge::StagedCurseForgeUpgrade),
@@ -613,24 +615,24 @@ async fn clone_upgrade_backup_content_metadata(
     target_content_set_id: &str,
     state: &State,
 ) -> crate::Result<()> {
-    use crate::state::instances::adapters::sqlite::content_rows;
+    use crate::state::instances::adapters::sqlite::{content_entries, files};
 
     let source_files =
-        content_rows::get_instance_files(source_instance_id, &state.pool)
-            .await?;
+        files::get_instance_files(source_instance_id, &state.pool).await?;
     let target_files =
-        content_rows::get_instance_files(target_instance_id, &state.pool)
-            .await?;
-    let source_entries =
-        content_rows::get_content_entries(source_content_set_id, &state.pool)
-            .await?;
-    let source_edges = content_rows::get_content_dependency_edges(
+        files::get_instance_files(target_instance_id, &state.pool).await?;
+    let source_entries = content_entries::get_content_entries(
+        source_content_set_id,
+        &state.pool,
+    )
+    .await?;
+    let source_edges = content_entries::get_content_dependency_edges(
         source_content_set_id,
         &state.pool,
     )
     .await?;
     let dependency_backfilled =
-        content_rows::get_dependency_backfilled_entry_ids(
+        content_entries::get_dependency_backfilled_entry_ids(
             source_content_set_id,
             &state.pool,
         )
@@ -647,7 +649,7 @@ async fn clone_upgrade_backup_content_metadata(
     for entry in &source_entries {
         provider_refs.insert(
             entry.id.as_str(),
-            content_rows::get_content_provider_refs_with_origin(
+            content_entries::get_content_provider_refs_with_origin(
                 &entry.id,
                 &state.pool,
             )
@@ -683,8 +685,8 @@ async fn clone_upgrade_backup_content_metadata(
             None => None,
         };
         let target_entry =
-            content_rows::upsert_content_entry_from_parts_in_transaction(
-                content_rows::UpsertContentEntry {
+            content_entries::upsert_content_entry_from_parts_in_transaction(
+                content_entries::UpsertContentEntry {
                     instance_id: target_instance_id,
                     content_set_id: target_content_set_id,
                     file_id: target_file_id,
@@ -706,7 +708,7 @@ async fn clone_upgrade_backup_content_metadata(
         .execute(&mut *tx)
         .await?;
         for (provider_ref, origin) in &provider_refs[source_entry.id.as_str()] {
-            content_rows::upsert_content_provider_ref_in_transaction(
+            content_entries::upsert_content_provider_ref_in_transaction(
                 &target_entry.id,
                 provider_ref,
                 *origin,
@@ -715,7 +717,7 @@ async fn clone_upgrade_backup_content_metadata(
             .await?;
         }
         if dependency_backfilled.contains(&source_entry.id) {
-            content_rows::set_content_entry_dependency_backfilled_in_transaction(
+            content_entries::set_content_entry_dependency_backfilled_in_transaction(
                 &target_entry.id,
                 &mut tx,
             )
@@ -741,7 +743,7 @@ async fn clone_upgrade_backup_content_metadata(
                 ))
             })?;
         let now = chrono::Utc::now();
-        content_rows::upsert_content_dependency_edge_in_transaction(
+        content_entries::upsert_content_dependency_edge_in_transaction(
             &crate::state::instances::ContentDependencyEdge {
                 id: format!("content-dependency:{}", Uuid::new_v4()),
                 content_set_id: target_content_set_id.to_string(),
@@ -791,16 +793,17 @@ async fn stage_upgrade_content(
         .ok_or_else(|| {
             crate::ErrorKind::InputError("Unknown upgrade target".to_string())
         })?;
-    let entries = crate::state::instances::adapters::sqlite::content_rows::get_content_entries(
+    let entries = crate::state::instances::adapters::sqlite::content_entries::get_content_entries(
         &metadata.applied_content_set.id,
         &state.pool,
     )
     .await?;
-    let files = crate::state::instances::adapters::sqlite::content_rows::get_instance_files(
-        instance_id,
-        &state.pool,
-    )
-    .await?;
+    let files =
+        crate::state::instances::adapters::sqlite::files::get_instance_files(
+            instance_id,
+            &state.pool,
+        )
+        .await?;
     let files_by_id = files
         .iter()
         .map(|file| (file.id.as_str(), file.relative_path.as_str()))
@@ -1174,7 +1177,7 @@ pub(super) async fn apply_upgrade_content(
         )
         .await?;
         let mut final_relative_path = relative_path.clone();
-        if let Some(entry) = crate::state::instances::adapters::sqlite::content_rows::get_content_entry_by_relative_path(
+        if let Some(entry) = crate::state::instances::adapters::sqlite::content_entries::get_content_entry_by_relative_path(
             &scope.content_set_id,
             &relative_path,
             &state.pool,
@@ -1182,7 +1185,7 @@ pub(super) async fn apply_upgrade_content(
         .await?
         {
             if mutation.auto_dependency {
-                crate::state::instances::adapters::sqlite::content_rows::set_content_entry_auto_dependency(
+                crate::state::instances::adapters::sqlite::content_entries::set_content_entry_auto_dependency(
                     &entry.id,
                     true,
                     &state.pool,
@@ -1335,7 +1338,7 @@ async fn set_upgrade_path_enabled(
         state,
     )
     .await?;
-    if let Some(entry) = crate::state::instances::adapters::sqlite::content_rows::get_content_entry_by_relative_path(
+    if let Some(entry) = crate::state::instances::adapters::sqlite::content_entries::get_content_entry_by_relative_path(
         &scope.content_set_id,
         relative_path,
         &state.pool,

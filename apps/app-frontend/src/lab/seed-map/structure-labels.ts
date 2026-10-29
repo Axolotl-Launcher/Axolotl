@@ -4,7 +4,7 @@ import {
     minecraftEnchantmentLevel,
     resolveMinecraftAttributeName,
     resolveRecipeItemName,
-} from '../recipe-generator/item-names.ts'
+} from '../shared/minecraft/item-names.ts'
 import type { SeedMapStructureDetails, SeedMapStructurePiece } from './advanced.ts'
 import { SEED_MAP_BIOME_NAMES, seedMapBiomeMessage } from './biomes.ts'
 import type { SeedMapFeatureKind } from './features.ts'

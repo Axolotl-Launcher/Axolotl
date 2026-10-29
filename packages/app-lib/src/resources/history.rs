@@ -1,7 +1,13 @@
 use chrono::Utc;
-use sqlx::Row;
 
 use super::*;
+use crate::state::store::Collection as _;
+use crate::state::store::resource_history::{
+    ResourceHistory, ResourceHistoryScope,
+};
+use crate::state::store::resource_operation_plans::{
+    ResourceOperationPlanRecord, ResourceOperationPlans,
+};
 
 fn db(error: sqlx::Error) -> ResourceError {
     ResourceError::Database(error.to_string())
@@ -29,20 +35,14 @@ async fn read_history(
     state: &crate::State,
     verify_backups: bool,
 ) -> ResourceResult<Vec<ResourceHistoryEntry>> {
-    let rows = if let Some(entry_id) = entry_id {
-        sqlx::query("SELECT payload, backup_available FROM resource_history WHERE instance_id = ? AND entry_id = ? ORDER BY recorded_at DESC, rowid DESC")
-            .bind(instance_id)
-            .bind(entry_id.as_str())
-            .fetch_all(&state.pool)
-            .await
-            .map_err(db)?
-    } else {
-        sqlx::query("SELECT payload, backup_available FROM resource_history WHERE instance_id = ? ORDER BY recorded_at DESC, rowid DESC")
-            .bind(instance_id)
-            .fetch_all(&state.pool)
-            .await
-            .map_err(db)?
+    let history_scope = match entry_id {
+        Some(entry_id) => ResourceHistoryScope::Entry {
+            instance_id: instance_id.to_string(),
+            entry_id: entry_id.as_str().to_string(),
+        },
+        None => ResourceHistoryScope::Instance(instance_id.to_string()),
     };
+    let rows = ResourceHistory::get_scoped(&state.data, &history_scope).await?;
     let scope = crate::state::instances::commands::resolve_content_scope(
         instance_id,
         None,
@@ -55,18 +55,17 @@ async fn read_history(
     )
     .map_err(|error| ResourceError::InvalidRequest(error.to_string()))?;
     let mut entries = Vec::new();
-    for row in rows {
+    for (_, record) in rows {
         let Ok(mut entry) =
-            serde_json::from_str::<ResourceHistoryEntry>(row.get("payload"))
+            serde_json::from_str::<ResourceHistoryEntry>(&record.payload)
         else {
             continue;
         };
-        entry.backup_retired = row.get::<i64, _>("backup_available") == 0;
+        entry.backup_retired = !record.backup_available;
         entry.backup_available =
             match (&entry.backup_relative_path, &entry.backup_integrity) {
                 (Some(path), Some(integrity))
-                    if entry.backup_available
-                        && row.get::<i64, _>("backup_available") != 0 =>
+                    if entry.backup_available && record.backup_available =>
                 {
                     if !verify_backups {
                         true
@@ -189,7 +188,16 @@ pub async fn rollback(
         prepare_rollback(instance_id.clone(), entry_id, history_id, &state)
             .await?;
     let id = draft.plan.id.clone();
-    sqlx::query("INSERT INTO resource_operation_plans(id, instance_id, revision, payload) VALUES (?, ?, 1, ?)").bind(id.as_str()).bind(&instance_id).bind(serde_json::to_string(&draft)?).execute(&state.pool).await.map_err(db)?;
+    let key = id.as_str().to_owned();
+    let record = ResourceOperationPlanRecord {
+        instance_id,
+        revision: 1,
+        payload: serde_json::to_string(&draft)?,
+        job_id: None,
+        queued: false,
+        completed: false,
+    };
+    ResourceOperationPlans::set(&state.data, &key, Some(&record)).await?;
     plans::queue(id, 1).await
 }
 
@@ -209,13 +217,13 @@ pub(crate) async fn prepare_rollback(
                 "verified rollback backup not available".into(),
             )
         })?;
-    let payload: String =
-        sqlx::query_scalar("SELECT payload FROM resource_history WHERE id = ?")
-            .bind(history_id.as_str())
-            .fetch_one(&state.pool)
-            .await
-            .map_err(db)?;
-    let payload: serde_json::Value = serde_json::from_str(&payload)?;
+    let history_key = history_id.as_str().to_owned();
+    let stored = ResourceHistory::get(&state.data, &history_key)
+        .await?
+        .ok_or_else(|| {
+            ResourceError::Database("history entry disappeared".into())
+        })?;
+    let payload: serde_json::Value = serde_json::from_str(&stored.payload)?;
     let record: super::installed::InstalledArtifactRecord =
         serde_json::from_value(
             payload.get("previousArtifact").cloned().ok_or_else(|| {

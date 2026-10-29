@@ -4,6 +4,7 @@ import { computed, toValue } from 'vue'
 
 import Button from '#ui/components/base/buttons/Button.vue'
 import Toggle from '#ui/components/base/Toggle.vue'
+import ProjectPageSkeleton from '#ui/components/project/ProjectPageSkeleton.vue'
 import SearchSidebarFilter from '#ui/components/search/SearchSidebarFilter.vue'
 import { useVIntl } from '#ui/composables/i18n'
 import { commonMessages } from '#ui/utils/common-messages'
@@ -96,7 +97,9 @@ function getFilterOpenByDefault(filterId: string): boolean {
 
     <div v-if="ctx.filtersMenuOpen?.value" class="fixed inset-0 z-40 bg-bg" />
 
+    <ProjectPageSkeleton v-if="ctx.filtersReady?.value === false" variant="sidebar" />
     <div
+        v-else
         class="flex flex-col"
         :class="{
             'gap-3': !isApp,

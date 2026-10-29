@@ -1,0 +1,20 @@
+{
+  "db_name": "SQLite",
+  "query": "\n        SELECT DISTINCT screenshots.instance_id\n        FROM screenshot_group_memberships memberships\n        INNER JOIN screenshots ON screenshots.id = memberships.screenshot_id\n        WHERE memberships.group_id = ?\n        ",
+  "describe": {
+    "columns": [
+      {
+        "name": "instance_id",
+        "ordinal": 0,
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "7e39a7cc7e62a86138692e1035c70740cfa89eb8edc9535e3974705f9bde2745"
+}

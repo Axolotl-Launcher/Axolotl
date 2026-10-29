@@ -134,45 +134,45 @@ pub struct AiProviderDefinition {
 }
 
 macro_rules! provider {
-	($id:literal, $name:literal, $protocol:ident, $endpoint:literal, $model:literal, $fetch:literal) => {
-		AiProviderDefinition {
-			id: $id,
-			name: $name,
-			protocol: AiProtocol::$protocol,
-			auth_type: AiAuthType::ApiKey,
-			default_endpoint: $endpoint,
-			check_model: $model,
-			show_model_fetcher: $fetch,
-			required_settings: &[],
-			sponsored: false,
-		}
-	};
-	($id:literal, $name:literal, $protocol:ident, $endpoint:literal, $model:literal, $fetch:literal, $auth:ident) => {
-		AiProviderDefinition {
-			id: $id,
-			name: $name,
-			protocol: AiProtocol::$protocol,
-			auth_type: AiAuthType::$auth,
-			default_endpoint: $endpoint,
-			check_model: $model,
-			show_model_fetcher: $fetch,
-			required_settings: &[],
-			sponsored: false,
-		}
-	};
-	($id:literal, $name:literal, $protocol:ident, $endpoint:literal, $model:literal, $fetch:literal, [$($setting:literal),*]) => {
-		AiProviderDefinition {
-			id: $id,
-			name: $name,
-			protocol: AiProtocol::$protocol,
-			auth_type: AiAuthType::ApiKey,
-			default_endpoint: $endpoint,
-			check_model: $model,
-			show_model_fetcher: $fetch,
-			required_settings: &[$($setting),*],
-			sponsored: false,
-		}
-	};
+    ($id:literal, $name:literal, $protocol:ident, $endpoint:literal, $model:literal, $fetch:literal) => {
+        AiProviderDefinition {
+            id: $id,
+            name: $name,
+            protocol: AiProtocol::$protocol,
+            auth_type: AiAuthType::ApiKey,
+            default_endpoint: $endpoint,
+            check_model: $model,
+            show_model_fetcher: $fetch,
+            required_settings: &[],
+            sponsored: false,
+        }
+    };
+    ($id:literal, $name:literal, $protocol:ident, $endpoint:literal, $model:literal, $fetch:literal, $auth:ident) => {
+        AiProviderDefinition {
+            id: $id,
+            name: $name,
+            protocol: AiProtocol::$protocol,
+            auth_type: AiAuthType::$auth,
+            default_endpoint: $endpoint,
+            check_model: $model,
+            show_model_fetcher: $fetch,
+            required_settings: &[],
+            sponsored: false,
+        }
+    };
+    ($id:literal, $name:literal, $protocol:ident, $endpoint:literal, $model:literal, $fetch:literal, [$($setting:literal),*]) => {
+        AiProviderDefinition {
+            id: $id,
+            name: $name,
+            protocol: AiProtocol::$protocol,
+            auth_type: AiAuthType::ApiKey,
+            default_endpoint: $endpoint,
+            check_model: $model,
+            show_model_fetcher: $fetch,
+            required_settings: &[$($setting),*],
+            sponsored: false,
+        }
+    };
 }
 
 // Text-capable providers from LobeHub's model bank. Image-only providers and
@@ -302,6 +302,14 @@ const PROVIDERS: &[AiProviderDefinition] = &[
         "CodeFlow",
         Openai,
         "https://codeflow.sh/v1",
+        "gpt-6.1-sol",
+        true
+    ),
+    provider!(
+        "fastai",
+        "FastAI",
+        Openai,
+        "https://api.fastaitoken.com/v1",
         "gpt-6.1-sol",
         true
     ),
@@ -822,7 +830,7 @@ const PROVIDERS: &[AiProviderDefinition] = &[
 /// Sponsored provider ids. These listings are part of paid partnerships and
 /// must survive LobeHub model syncing; scripts/axolotl/sync-lobehub-models.mjs
 /// refuses to rewrite ai.rs when any of them is missing.
-const SPONSORED_PROVIDERS: &[&str] = &["codeflow"];
+const SPONSORED_PROVIDERS: &[&str] = &["codeflow", "fastai"];
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AiSettings {
@@ -923,6 +931,19 @@ fn text_client(request: &AiTextRequest) -> &'static reqwest::Client {
     match request.mode {
         AiTextMode::Default => &AI_CLIENT,
         AiTextMode::Translation => &AI_TRANSLATION_CLIENT,
+    }
+}
+
+// OpenCode routes and caches requests by conversation, not by API key.
+fn opencode_headers(
+    builder: reqwest::RequestBuilder,
+    provider_id: &str,
+    session_id: Uuid,
+) -> reqwest::RequestBuilder {
+    if matches!(provider_id, "opencodecodingplan" | "opencodezen") {
+        builder.header("x-opencode-session", session_id.to_string())
+    } else {
+        builder
     }
 }
 
@@ -1435,10 +1456,10 @@ fn read_oauth_credentials(
         .map(|value| {
             serde_json::from_str(&value).map_err(|_| {
                 ErrorKind::OtherError(
-					"Stored AI OAuth credentials are invalid; reconnect the provider"
-						.to_string(),
-				)
-				.as_error()
+                    "Stored AI OAuth credentials are invalid; reconnect the provider"
+                        .to_string(),
+                )
+                .as_error()
             })
         })
         .transpose()
@@ -1513,11 +1534,11 @@ async fn load_provider_models(
 ) -> crate::Result<Vec<AiProviderModel>> {
     let state = State::get().await?;
     let rows = sqlx::query(
-		"SELECT model_id, display_name, enabled, source FROM ai_provider_models WHERE provider_id = ? ORDER BY display_name, model_id",
-	)
-	.bind(provider_id)
-	.fetch_all(&state.pool)
-	.await?;
+        "SELECT model_id, display_name, enabled, source FROM ai_provider_models WHERE provider_id = ? ORDER BY display_name, model_id",
+    )
+    .bind(provider_id)
+    .fetch_all(&state.pool)
+    .await?;
     let mut stored = rows
         .into_iter()
         .map(|row| {
@@ -1571,11 +1592,11 @@ async fn load_provider_config(
 ) -> crate::Result<AiProviderConfig> {
     let state = State::get().await?;
     let row = sqlx::query(
-		"SELECT custom_name, protocol, enabled, endpoint, settings FROM ai_provider_configs WHERE provider_id = ?",
-	)
-	.bind(definition.id)
-	.fetch_optional(&state.pool)
-	.await?;
+        "SELECT custom_name, protocol, enabled, endpoint, settings FROM ai_provider_configs WHERE provider_id = ?",
+    )
+    .bind(definition.id)
+    .fetch_optional(&state.pool)
+    .await?;
     let (custom_name, protocol, enabled, endpoint, settings) = match row {
         Some(row) => {
             let settings = serde_json::from_str::<HashMap<String, String>>(
@@ -1682,16 +1703,16 @@ pub async fn update_provider(
         .map_err(|error| ErrorKind::OtherError(error.to_string()))?;
     let state = State::get().await?;
     sqlx::query(
-		"INSERT INTO ai_provider_configs (provider_id, custom_name, protocol, enabled, endpoint, settings) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(provider_id) DO UPDATE SET custom_name = excluded.custom_name, protocol = excluded.protocol, enabled = excluded.enabled, endpoint = excluded.endpoint, settings = excluded.settings",
-	)
-	.bind(definition.id)
-	.bind(update.custom_name.map(|value| value.trim().to_string()))
-	.bind(definition.protocol.as_str())
-	.bind(update.enabled)
-	.bind(endpoint)
-	.bind(settings)
-	.execute(&state.pool)
-	.await?;
+        "INSERT INTO ai_provider_configs (provider_id, custom_name, protocol, enabled, endpoint, settings) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(provider_id) DO UPDATE SET custom_name = excluded.custom_name, protocol = excluded.protocol, enabled = excluded.enabled, endpoint = excluded.endpoint, settings = excluded.settings",
+    )
+    .bind(definition.id)
+    .bind(update.custom_name.map(|value| value.trim().to_string()))
+    .bind(definition.protocol.as_str())
+    .bind(update.enabled)
+    .bind(endpoint)
+    .bind(settings)
+    .execute(&state.pool)
+    .await?;
     Ok(())
 }
 
@@ -1743,15 +1764,15 @@ pub async fn update_model(update: AiModelUpdate) -> crate::Result<()> {
     };
     let state = State::get().await?;
     sqlx::query(
-		"INSERT INTO ai_provider_models (provider_id, model_id, display_name, enabled, source) VALUES (?, ?, ?, ?, ?) ON CONFLICT(provider_id, model_id) DO UPDATE SET display_name = excluded.display_name, enabled = excluded.enabled, source = CASE WHEN excluded.source = 'builtin' THEN 'builtin' ELSE ai_provider_models.source END",
-	)
-	.bind(&update.provider_id)
-	.bind(model_id)
-	.bind(display_name)
-	.bind(update.enabled)
-	.bind(source)
-	.execute(&state.pool)
-	.await?;
+        "INSERT INTO ai_provider_models (provider_id, model_id, display_name, enabled, source) VALUES (?, ?, ?, ?, ?) ON CONFLICT(provider_id, model_id) DO UPDATE SET display_name = excluded.display_name, enabled = excluded.enabled, source = CASE WHEN excluded.source = 'builtin' THEN 'builtin' ELSE ai_provider_models.source END",
+    )
+    .bind(&update.provider_id)
+    .bind(model_id)
+    .bind(display_name)
+    .bind(update.enabled)
+    .bind(source)
+    .execute(&state.pool)
+    .await?;
     Ok(())
 }
 
@@ -2380,7 +2401,11 @@ async fn complete_openai(
     });
     apply_openai_translation_options(&mut body, request);
     apply_openai_response_format(&mut body, request);
-    let mut builder = text_client(request).post(endpoint).json(&body);
+    let mut builder = opencode_headers(
+        text_client(request).post(endpoint).json(&body),
+        definition.id,
+        Uuid::new_v4(),
+    );
     if !token.is_empty() {
         builder = if config.protocol == AiProtocol::Azure {
             builder.header("api-key", token)
@@ -2439,14 +2464,18 @@ async fn complete_anthropic(
         );
     }
     let value = checked_json(
-        text_client(request)
-            .post(endpoint_with_path(&config.endpoint, "/v1/messages"))
-            .header("x-api-key", api_key)
-            .header("anthropic-version", "2023-06-01")
-            .json(&body)
-            .send()
-            .await
-            .map_err(|error| ai_network_error(definition.name, error))?,
+        opencode_headers(
+            text_client(request)
+                .post(endpoint_with_path(&config.endpoint, "/v1/messages")),
+            definition.id,
+            Uuid::new_v4(),
+        )
+        .header("x-api-key", api_key)
+        .header("anthropic-version", "2023-06-01")
+        .json(&body)
+        .send()
+        .await
+        .map_err(|error| ai_network_error(definition.name, error))?,
         definition.name,
     )
     .await?;
@@ -3242,13 +3271,13 @@ pub async fn fetch_models(
     let state = State::get().await?;
     for (id, name) in &models {
         sqlx::query(
-			"INSERT INTO ai_provider_models (provider_id, model_id, display_name, enabled, source) VALUES (?, ?, ?, TRUE, 'remote') ON CONFLICT(provider_id, model_id) DO UPDATE SET display_name = CASE WHEN ai_provider_models.source = 'custom' THEN ai_provider_models.display_name ELSE excluded.display_name END",
-		)
-		.bind(&provider_id)
-		.bind(id)
-		.bind(name)
-		.execute(&state.pool)
-		.await?;
+            "INSERT INTO ai_provider_models (provider_id, model_id, display_name, enabled, source) VALUES (?, ?, ?, TRUE, 'remote') ON CONFLICT(provider_id, model_id) DO UPDATE SET display_name = CASE WHEN ai_provider_models.source = 'custom' THEN ai_provider_models.display_name ELSE excluded.display_name END",
+        )
+        .bind(&provider_id)
+        .bind(id)
+        .bind(name)
+        .execute(&state.pool)
+        .await?;
     }
     load_provider_models(&provider_id).await
 }
@@ -3636,6 +3665,55 @@ pub fn disconnect_oauth(provider_id: String) -> crate::Result<()> {
 mod tests {
     use super::*;
 
+    #[test]
+    fn opencode_session_headers_are_stable_and_provider_scoped() {
+        let client = reqwest::Client::builder()
+            .user_agent(crate::launcher_user_agent())
+            .build()
+            .unwrap();
+        let session = Uuid::new_v4();
+        for provider in ["opencodecodingplan", "opencodezen"] {
+            for _ in 0..2 {
+                let request = opencode_headers(
+                    client
+                        .post("https://opencode.ai/zen/go/v1/chat/completions"),
+                    provider,
+                    session,
+                )
+                .build()
+                .unwrap();
+                assert_eq!(
+                    request.headers()["x-opencode-session"],
+                    session.to_string()
+                );
+            }
+        }
+        let other_session = Uuid::new_v4();
+        let other_request = opencode_headers(
+            client.post("https://opencode.ai/zen/go/v1/chat/completions"),
+            "opencodecodingplan",
+            other_session,
+        )
+        .build()
+        .unwrap();
+        assert_eq!(
+            other_request.headers()["x-opencode-session"],
+            other_session.to_string()
+        );
+        assert_ne!(
+            other_request.headers()["x-opencode-session"],
+            session.to_string()
+        );
+        let request = opencode_headers(
+            client.post("https://example.com/v1/chat/completions"),
+            "openai",
+            session,
+        )
+        .build()
+        .unwrap();
+        assert!(!request.headers().contains_key("x-opencode-session"));
+    }
+
     #[tokio::test]
     async fn retries_persistence_without_redeeming_the_authorization_code() {
         let flow_id = Uuid::new_v4();
@@ -3746,7 +3824,7 @@ mod tests {
 
     #[test]
     fn catalog_matches_lobehub_text_provider_scope() {
-        assert_eq!(PROVIDERS.len(), 80);
+        assert_eq!(PROVIDERS.len(), 81);
         for excluded in ["bfl", "comfyui", "fal", "replicate", "lobehub"] {
             assert!(!PROVIDERS.iter().any(|provider| provider.id == excluded));
         }
@@ -3773,10 +3851,13 @@ mod tests {
                 .filter(|provider| SPONSORED_PROVIDERS.contains(&provider.id))
                 .all(|provider| provider.sponsored)
         );
-        assert!(
+        assert_eq!(
             catalog
                 .iter()
-                .any(|provider| provider.id == "codeflow" && provider.sponsored)
+                .filter(|provider| provider.sponsored)
+                .map(|provider| provider.id)
+                .collect::<Vec<_>>(),
+            ["codeflow", "fastai"]
         );
     }
 

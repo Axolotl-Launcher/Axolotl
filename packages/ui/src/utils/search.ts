@@ -1,10 +1,15 @@
 import type { Labrinth } from '@modrinth/api-client'
 import { ClientIcon, getCategoryIcon, getLoaderIcon, ServerIcon } from '@modrinth/assets'
 import { sortedCategories } from '@modrinth/utils'
-import { type Component, computed, readonly, type Ref, ref } from 'vue'
+import { type Component, computed, readonly, type Ref, ref, watch } from 'vue'
 import { type LocationQueryRaw, type LocationQueryValue, useRoute } from 'vue-router'
 
 import { defineMessage, useVIntl } from '../composables/i18n'
+import {
+    MAX_RESULTS_LIMIT,
+    persistMaxResults,
+    readPersistedMaxResults,
+} from './browse-max-results.ts'
 import {
     DEFAULT_MOD_LOADERS,
     DEFAULT_PLUGIN_LOADERS,
@@ -162,9 +167,43 @@ export function useSearch(
     providedFilters: Ref<FilterValue[]>,
     environmentOverride: Ref<EnvironmentSearchOverride | undefined> = ref(undefined),
     sortOptions?: readonly SortType[],
+    deferInitialization = false,
 ) {
     const query = ref('')
-    const maxResults = ref(20)
+    const maxResults = ref(readPersistedMaxResults())
+
+    /**
+     * Whether a value change came from the user.
+     *
+     * The browse layout clamps the value to the options a tab supports. That
+     * clamp must not overwrite a preference the user set on a tab with more
+     * options, so callers can mark such writes as automatic.
+     */
+    let persistMaxResultsAutomatically = false
+
+    // Persist every user change so the choice survives closing the launcher, not
+    // just a route change. `flush: 'sync'` is required here: an automatic clamp marks
+    // only its own synchronous assignment, so a pre-flush watcher would run once the
+    // mark is already cleared and write the clamped value over the preference the
+    // user saved on a tab that offered more options.
+    watch(
+        maxResults,
+        (value) => {
+            if (persistMaxResultsAutomatically) return
+            persistMaxResults(value)
+        },
+        { flush: 'sync' },
+    )
+
+    /**
+     * Let the layout tell this composable that the next change is an automatic
+     * clamp rather than a user choice.
+     */
+    const setMaxResultsProgrammatically = (value: number) => {
+        persistMaxResultsAutomatically = true
+        maxResults.value = value
+        persistMaxResultsAutomatically = false
+    }
 
     const sortTypes: readonly SortType[] = readonly(
         sortOptions ?? [
@@ -761,7 +800,13 @@ export function useSearch(
         return `?${params.join('&')}`
     })
 
-    readQueryParams()
+    let initialized = false
+    function initializeQueryParams() {
+        if (initialized) return
+        initialized = true
+        readQueryParams()
+    }
+    if (!deferInitialization) initializeQueryParams()
 
     function readQueryParams() {
         const readParams = new Set<string>()
@@ -816,7 +861,15 @@ export function useSearch(
             readParams.add('s')
         })
         loadQueryParam(['m'], (count) => {
-            maxResults.value = Number(count)
+            // A hand-edited or malformed `?m=` must not overwrite the stored
+            // preference: `?m=0` would otherwise persist 0 and reset the user to
+            // the default on the next visit.
+            const parsed = Number(count)
+            if (!Number.isFinite(parsed) || parsed <= 0) return
+            // A URL parameter only affects this session, but an absurd `?m=` must
+            // not reach `limit=` on callers that bypass the browse layout's
+            // options — clamp it to the same ceiling as the stored preference.
+            setMaxResultsProgrammatically(Math.min(parsed, MAX_RESULTS_LIMIT))
             readParams.add('m')
         })
         loadQueryParam(['o'], (offset) => {
@@ -966,6 +1019,7 @@ export function useSearch(
         toggledGroups,
         currentPage,
         maxResults,
+        setMaxResultsProgrammatically,
         overriddenProvidedFilterTypes,
 
         // Lists
@@ -977,6 +1031,7 @@ export function useSearch(
         requestParams,
 
         // Functions
+        initializeQueryParams,
         createPageParams,
         createPageParamsString,
     }

@@ -42,7 +42,7 @@ impl OriginResolver {
                     }
                     Err(error) => {
                         tracing::warn!(hash = source.hash, %error,
-							"Game setting locales: origin archive unavailable");
+                            "Game setting locales: origin archive unavailable");
                         continue;
                     }
                 }
@@ -138,7 +138,7 @@ async fn load_archive_keys(
     .map_err(|error| super::input_error(error.to_string()))?;
     if let Err(error) = sources::write_json(&path, &keys).await {
         tracing::warn!(hash = source.hash, %error,
-			"Game setting locales: could not cache origin keys");
+            "Game setting locales: could not cache origin keys");
     }
     Ok(keys)
 }

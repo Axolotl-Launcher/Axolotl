@@ -379,7 +379,6 @@ async fn ensure_file(st: &State, plan: &LinkedFilePlan) -> crate::Result<bool> {
         request,
         &plan.destination,
         &st.download_semaphore,
-        &st.pool,
         None,
     )
     .await
@@ -491,7 +490,6 @@ async fn ensure_linked_assets_from_with_progress(
             request,
             &index_path,
             &st.download_semaphore,
-            &st.pool,
             None,
         )
         .await
@@ -583,7 +581,6 @@ async fn ensure_linked_assets_from_with_progress(
                         request,
                         &destination,
                         &st.download_semaphore,
-                        &st.pool,
                         None,
                     )
                     .await
@@ -675,7 +672,6 @@ pub(crate) async fn ensure_linked_log_config(
         request,
         &destination,
         &st.download_semaphore,
-        &st.pool,
         None,
     )
     .await

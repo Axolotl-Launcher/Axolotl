@@ -8474,6 +8474,11 @@
         "enabled": true
       },
       {
+        "id": "gpt-6.1-terra",
+        "name": "GPT-6.1 Terra",
+        "enabled": true
+      },
+      {
         "id": "gpt-6-astra",
         "name": "GPT-6 Astra",
         "enabled": true
@@ -8502,6 +8507,288 @@
         "id": "gpt-5.6-luna",
         "name": "GPT-5.6 Luna",
         "enabled": true
+      },
+      {
+        "id": "claude-fable-5-1",
+        "name": "Claude Fable 5.1",
+        "enabled": true
+      },
+      {
+        "id": "claude-fable-5",
+        "name": "Claude Fable 5",
+        "enabled": true
+      },
+      {
+        "id": "claude-opus-5-5",
+        "name": "Claude Opus 5.5",
+        "enabled": true
+      },
+      {
+        "id": "claude-opus-5",
+        "name": "Claude Opus 5",
+        "enabled": true
+      },
+      {
+        "id": "claude-opus-4-8",
+        "name": "Claude Opus 4.8",
+        "enabled": true
+      },
+      {
+        "id": "claude-opus-4-7",
+        "name": "Claude Opus 4.7",
+        "enabled": true
+      },
+      {
+        "id": "claude-opus-4-6",
+        "name": "Claude Opus 4.6",
+        "enabled": true
+      },
+      {
+        "id": "claude-sonnet-5-5",
+        "name": "Claude Sonnet 5.5",
+        "enabled": true
+      },
+      {
+        "id": "claude-sonnet-5",
+        "name": "Claude Sonnet 5",
+        "enabled": true
+      },
+      {
+        "id": "claude-sonnet-4-6",
+        "name": "Claude Sonnet 4.6",
+        "enabled": true
+      },
+      {
+        "id": "claude-haiku-5-5",
+        "name": "Claude Haiku 5.5",
+        "enabled": true
+      },
+      {
+        "id": "claude-haiku-4-5-20251001",
+        "name": "Claude Haiku 4.5",
+        "enabled": true
+      },
+      {
+        "id": "grok-4.7",
+        "name": "Grok 4.7",
+        "enabled": true
+      },
+      {
+        "id": "grok-4.6",
+        "name": "Grok 4.6",
+        "enabled": true
+      },
+      {
+        "id": "grok-4.5",
+        "name": "Grok 4.5",
+        "enabled": true
+      }
+    ],
+    "fastai": [
+      {
+        "id": "gpt-6.1-sol",
+        "name": "GPT-6.1 Sol",
+        "enabled": true
+      },
+      {
+        "id": "gpt-6-sol",
+        "name": "GPT-6 Sol",
+        "enabled": true
+      },
+      {
+        "id": "gpt-6-astra",
+        "name": "GPT-6 Astra",
+        "enabled": true
+      },
+      {
+        "id": "gpt-5.6-sol",
+        "name": "GPT-5.6 Sol",
+        "enabled": true
+      },
+      {
+        "id": "gpt-5.6-terra",
+        "name": "GPT-5.6 Terra",
+        "enabled": true
+      },
+      {
+        "id": "gpt-5.6-luna",
+        "name": "GPT-5.6 Luna",
+        "enabled": true
+      },
+      {
+        "id": "gpt-5.5",
+        "name": "GPT-5.5",
+        "enabled": true
+      },
+      {
+        "id": "gpt-5.4",
+        "name": "GPT-5.4",
+        "enabled": true
+      },
+      {
+        "id": "gpt-5.4-mini",
+        "name": "GPT-5.4 Mini",
+        "enabled": true
+      },
+      {
+        "id": "claude-fable-5",
+        "name": "Claude Fable 5",
+        "enabled": true
+      },
+      {
+        "id": "claude-fable-5-1",
+        "name": "Claude Fable 5.1",
+        "enabled": true
+      },
+      {
+        "id": "claude-haiku-4-5",
+        "name": "Claude Haiku 4.5",
+        "enabled": true
+      },
+      {
+        "id": "claude-haiku-4-6",
+        "name": "Claude Haiku 4.6",
+        "enabled": true
+      },
+      {
+        "id": "claude-haiku-5-5",
+        "name": "Claude Haiku 5.5",
+        "enabled": true
+      },
+      {
+        "id": "claude-opus-4-6",
+        "name": "Claude Opus 4.6",
+        "enabled": true
+      },
+      {
+        "id": "claude-opus-4-7",
+        "name": "Claude Opus 4.7",
+        "enabled": true
+      },
+      {
+        "id": "claude-opus-4-8",
+        "name": "Claude Opus 4.8",
+        "enabled": true
+      },
+      {
+        "id": "claude-opus-5",
+        "name": "Claude Opus 5",
+        "enabled": true
+      },
+      {
+        "id": "claude-opus-5-5",
+        "name": "Claude Opus 5.5",
+        "enabled": true
+      },
+      {
+        "id": "claude-sonnet-4-5",
+        "name": "Claude Sonnet 4.5",
+        "enabled": true
+      },
+      {
+        "id": "claude-sonnet-4-6",
+        "name": "Claude Sonnet 4.6",
+        "enabled": true
+      },
+      {
+        "id": "claude-sonnet-5",
+        "name": "Claude Sonnet 5",
+        "enabled": true
+      },
+      {
+        "id": "claude-sonnet-5-5",
+        "name": "Claude Sonnet 5.5",
+        "enabled": true
+      },
+      {
+        "id": "gemini-3.8-flash",
+        "name": "Gemini 3.8 Flash",
+        "enabled": true
+      },
+      {
+        "id": "gemini-4-argon",
+        "name": "Gemini 4 Argon",
+        "enabled": true
+      },
+      {
+        "id": "deepseek-v4-flash",
+        "name": "DeepSeek V4 Flash",
+        "enabled": true
+      },
+      {
+        "id": "deepseek-v4-pro",
+        "name": "DeepSeek V4 Pro",
+        "enabled": true
+      },
+      {
+        "id": "deepseek-v4.1-flash",
+        "name": "DeepSeek V4.1 Flash",
+        "enabled": true
+      },
+      {
+        "id": "deepseek-v4.1-flash-1017",
+        "name": "DeepSeek V4.1 Flash 1017",
+        "enabled": true
+      },
+      {
+        "id": "deepseek/deepseek-flash",
+        "name": "DeepSeek Flash",
+        "enabled": true
+      },
+      {
+        "id": "glm-5",
+        "name": "GLM-5",
+        "enabled": true
+      },
+      {
+        "id": "glm-5-turbo",
+        "name": "GLM-5 Turbo",
+        "enabled": true
+      },
+      {
+        "id": "glm-5.1",
+        "name": "GLM-5.1",
+        "enabled": true
+      },
+      {
+        "id": "glm-5.2",
+        "name": "GLM-5.2",
+        "enabled": true
+      },
+      {
+        "id": "glm-5.3",
+        "name": "GLM-5.3",
+        "enabled": true
+      },
+      {
+        "id": "glm-5.3-flash",
+        "name": "GLM-5.3 Flash",
+        "enabled": true
+      },
+      {
+        "id": "kimi-k3",
+        "name": "Kimi K3",
+        "enabled": true
+      },
+      {
+        "id": "claude-haiku-4.5",
+        "name": "Claude Haiku 4.5",
+        "enabled": false
+      },
+      {
+        "id": "claude-opus-4-6-thinking",
+        "name": "Claude Opus 4.6 Thinking",
+        "enabled": false
+      },
+      {
+        "id": "claude-opus-4-7-thinking",
+        "name": "Claude Opus 4.7 Thinking",
+        "enabled": false
+      },
+      {
+        "id": "claude-opus-4-8-thinking",
+        "name": "Claude Opus 4.8 Thinking",
+        "enabled": false
       }
     ]
   }

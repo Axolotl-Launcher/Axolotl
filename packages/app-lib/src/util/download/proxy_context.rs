@@ -233,16 +233,16 @@ mod tests {
             )
             .unwrap();
             keys.push(with_snapshot(clients, async {
-				assert_eq!(super::super::native::h2_ineligible_reason(&route), Some(super::super::native::NativeH2IneligibleReason::ConfiguredProxy));
-				super::super::native_reputation::record_success("other", "proxy-isolation.invalid:443", ProxyPolicy::System, 1.0, None);
-				let mut permits = Vec::new();
-				let capacity = super::super::native_budget::available(&route);
-				for _ in 0..capacity { permits.push(super::super::native_budget::acquire(&route).await.unwrap()); }
-				assert_eq!(super::super::native_budget::available(&route), 0);
-				let key = super::super::route_health::route_health_key(&route, crate::util::fetch::ResourceClass::Other).unwrap();
-				drop(permits);
-				key
-			}).await);
+                assert_eq!(super::super::native::h2_ineligible_reason(&route), Some(super::super::native::NativeH2IneligibleReason::ConfiguredProxy));
+                super::super::native_reputation::record_success("other", "proxy-isolation.invalid:443", ProxyPolicy::System, 1.0, None);
+                let mut permits = Vec::new();
+                let capacity = super::super::native_budget::available(&route);
+                for _ in 0..capacity { permits.push(super::super::native_budget::acquire(&route).await.unwrap()); }
+                assert_eq!(super::super::native_budget::available(&route), 0);
+                let key = super::super::route_health::route_health_key(&route, crate::util::fetch::ResourceClass::Other).unwrap();
+                drop(permits);
+                key
+            }).await);
         }
         assert_ne!(keys[0], keys[1]);
     }

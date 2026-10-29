@@ -33,12 +33,12 @@ async fn resolve_instance_id_with_state(
 ) -> crate::Result<Option<String>> {
     sqlx::query_scalar!(
         "
-		SELECT id
-		FROM instances
-		WHERE id = ? OR path = ?
-		ORDER BY CASE WHEN id = ? THEN 0 ELSE 1 END
-		LIMIT 1
-		",
+        SELECT id
+        FROM instances
+        WHERE id = ? OR path = ?
+        ORDER BY CASE WHEN id = ? THEN 0 ELSE 1 END
+        LIMIT 1
+        ",
         instance,
         instance,
         instance,

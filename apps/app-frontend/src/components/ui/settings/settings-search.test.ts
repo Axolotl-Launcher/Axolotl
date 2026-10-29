@@ -1,6 +1,6 @@
-import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
-import test from 'node:test'
+
+import { expect, it } from 'vitest'
 
 import {
     getVisibleSettingsCategoryDefinitions,
@@ -23,6 +23,7 @@ const settingsComponentFiles = {
     'home-navigation': ['./AppearanceSettings.vue'],
     'language-translation': ['./LanguageSettings.vue', './TranslationSettings.vue'],
     ai: ['./AISettings.vue'],
+    mcp: ['./McpSettings.vue'],
     'shortcut-settings': ['./KeybindSettings.vue'],
     'java-performance': ['./JavaSettings.vue'],
     'launch-defaults': [
@@ -50,25 +51,21 @@ const chineseLocale = JSON.parse(
     readFileSync(new URL('../../../locales/zh-CN/index.json', import.meta.url), 'utf8'),
 ) as Record<string, { message?: string }>
 
-test('normalizes settings search text before matching', () => {
-    assert.equal(normalizeSettingsSearchText('  Proxy\nSettings  '), 'proxy settings')
-    assert.deepEqual(
+it('normalizes settings search text before matching', () => {
+    expect(normalizeSettingsSearchText('  Proxy\nSettings  ')).toBe('proxy settings')
+    expect(
         filterSettingsSearchDocuments('proxy settings', [
             { item: 'proxy', text: 'Resource management Proxy settings Custom proxy' },
             { item: 'theme', text: 'Appearance Color theme' },
         ]).map(({ item }) => item),
-        ['proxy'],
-    )
+    ).toEqual(['proxy'])
 })
 
-test('returns no documents for an empty settings search', () => {
-    assert.deepEqual(
-        filterSettingsSearchDocuments('', [{ item: 'theme', text: 'Color theme' }]),
-        [],
-    )
+it('returns no documents for an empty settings search', () => {
+    expect(filterSettingsSearchDocuments('', [{ item: 'theme', text: 'Color theme' }])).toEqual([])
 })
 
-test('matches setting categories, titles, descriptions, and static option keywords', () => {
+it('matches setting categories, titles, descriptions, and static option keywords', () => {
     const documents = [
         { item: 'category', text: 'Resource management' },
         { item: 'title', text: 'Appearance Color theme' },
@@ -79,67 +76,61 @@ test('matches setting categories, titles, descriptions, and static option keywor
         { item: 'keyword', text: 'Resource management Proxy settings SOCKS5' },
     ]
 
-    assert.deepEqual(
+    expect(
         filterSettingsSearchDocuments('resource management', documents).map(({ item }) => item),
-        ['category', 'keyword', 'description'],
-    )
-    assert.deepEqual(
-        filterSettingsSearchDocuments('color theme', documents).map(({ item }) => item),
+    ).toEqual(['category', 'keyword', 'description'])
+    expect(filterSettingsSearchDocuments('color theme', documents).map(({ item }) => item)).toEqual(
         ['title'],
     )
-    assert.deepEqual(
+    expect(
         filterSettingsSearchDocuments('network proxy', documents).map(({ item }) => item),
-        ['description'],
-    )
-    assert.deepEqual(
-        filterSettingsSearchDocuments('socks5', documents).map(({ item }) => item),
-        ['keyword'],
-    )
+    ).toEqual(['description'])
+    expect(filterSettingsSearchDocuments('socks5', documents).map(({ item }) => item)).toEqual([
+        'keyword',
+    ])
 })
 
-test('tolerates small spelling errors and limits the result set', () => {
-    assert.deepEqual(
+it('tolerates small spelling errors and limits the result set', () => {
+    expect(
         filterSettingsSearchDocuments('colur them', [
             { item: 'theme', text: 'Appearance Color theme' },
             { item: 'proxy', text: 'Network proxy' },
         ]).map(({ item }) => item),
-        ['theme'],
-    )
+    ).toEqual(['theme'])
 
     const documents = Array.from({ length: MAX_SETTINGS_SEARCH_RESULTS + 3 }, (_, index) => ({
         item: index,
         text: `Setting ${index}`,
     }))
-    assert.equal(
-        filterSettingsSearchDocuments('setting', documents).length,
+    expect(filterSettingsSearchDocuments('setting', documents).length).toBe(
         MAX_SETTINGS_SEARCH_RESULTS,
     )
 })
 
-test('settings search index has unique entries with categories', () => {
-    assert.deepEqual(validateSettingsSearchEntries(), [])
+it('settings search index has unique entries with categories', () => {
+    expect(validateSettingsSearchEntries()).toEqual([])
 })
 
-test('settings search keywords are valid message descriptors', () => {
+it('settings search keywords are valid message descriptors', () => {
     for (const entry of settingsSearchEntries) {
         for (const keyword of entry.keywords ?? []) {
-            assert.equal(typeof keyword.id, 'string', entry.id)
-            assert.equal(typeof keyword.defaultMessage, 'string', entry.id)
+            expect(typeof keyword.id, entry.id).toBe('string')
+            expect(typeof keyword.defaultMessage, entry.id).toBe('string')
         }
     }
 })
 
-test('legacy category names remain searchable after the taxonomy change', () => {
+it('legacy category names remain searchable after the taxonomy change', () => {
     const keywordText = settingsSearchEntries
         .flatMap((entry) => entry.keywords ?? [])
         .map((keyword) => keyword.defaultMessage)
         .join(' ')
 
-    assert.equal(keywordText.includes('Resource management'), true)
-    assert.equal(keywordText.includes('Default instance options'), true)
+    expect(keywordText.includes('Resource management')).toBe(true)
+    expect(keywordText.includes('Default instance options')).toBe(true)
 })
 
-test('developer-only settings stay out of the normal search categories', () => {
+it('developer-only settings stay out of the normal search categories', () => {
     const visibleCategoryIds = new Set(
         getVisibleSettingsCategoryDefinitions(false).map((category) => category.id),
     )
@@ -147,24 +138,17 @@ test('developer-only settings stay out of the normal search categories', () => {
         visibleCategoryIds.has(entry.categoryId),
     )
 
-    assert.equal(visibleCategoryIds.has('feature-flags'), false)
-    assert.equal(
-        visibleEntries.some((entry) => entry.categoryId === 'feature-flags'),
-        false,
-    )
-    assert.equal(
-        settingsSearchEntries.some((entry) => entry.categoryId === 'feature-flags'),
-        true,
-    )
-    assert.equal(
+    expect(visibleCategoryIds.has('feature-flags')).toBe(false)
+    expect(visibleEntries.some((entry) => entry.categoryId === 'feature-flags')).toBe(false)
+    expect(settingsSearchEntries.some((entry) => entry.categoryId === 'feature-flags')).toBe(true)
+    expect(
         getVisibleSettingsCategoryDefinitions(true).some(
             (category) => category.id === 'feature-flags',
         ),
-        true,
-    )
+    ).toBe(true)
 })
 
-test('settings navigation groups preserve the intended Axolotl information architecture', () => {
+it('settings navigation groups preserve the intended Axolotl information architecture', () => {
     const categoriesForGroup = (
         group: 'launcher' | 'game' | 'data-privacy' | 'support' | 'developer',
         developerMode = false,
@@ -173,49 +157,50 @@ test('settings navigation groups preserve the intended Axolotl information archi
             .filter((category) => category.group === group)
             .map((category) => category.id)
 
-    assert.deepEqual(categoriesForGroup('launcher'), [
+    expect(categoriesForGroup('launcher')).toEqual([
         'interface',
         'home-navigation',
         'shortcut-settings',
         'language-translation',
         'ai',
+        'mcp',
     ])
-    assert.deepEqual(categoriesForGroup('game'), [
+    expect(categoriesForGroup('game')).toEqual([
         'launch-defaults',
         'instance-sync',
         'java-performance',
         'content-downloads',
         'network-multiplayer',
     ])
-    assert.deepEqual(categoriesForGroup('data-privacy'), ['storage-backups', 'privacy-data'])
-    assert.deepEqual(categoriesForGroup('support'), [
+    expect(categoriesForGroup('data-privacy')).toEqual(['storage-backups', 'privacy-data'])
+    expect(categoriesForGroup('support')).toEqual([
         'updates',
         'about',
         'network-connection',
         'logs',
     ])
-    assert.deepEqual(categoriesForGroup('developer'), [])
-    assert.deepEqual(categoriesForGroup('developer', true), ['feature-flags'])
+    expect(categoriesForGroup('developer')).toEqual([])
+    expect(categoriesForGroup('developer', true)).toEqual(['feature-flags'])
 })
 
-test('Chinese contains every user-facing settings category label', () => {
+it('Chinese contains every user-facing settings category label', () => {
     for (const category of settingsCategoryDefinitions) {
         if (category.id === 'feature-flags') continue
 
-        assert.equal(typeof chineseLocale[category.name.id]?.message, 'string', category.name.id)
+        expect(typeof chineseLocale[category.name.id]?.message, category.name.id).toBe('string')
     }
 })
 
-test('every settings search result resolves to a category and a scroll target', () => {
-    assert.deepEqual(validateSettingsSearchMappings(), [])
+it('every settings search result resolves to a category and a scroll target', () => {
+    expect(validateSettingsSearchMappings()).toEqual([])
 
     const categoryIds = new Set(settingsCategoryDefinitions.map((category) => category.id))
     for (const entry of settingsSearchEntries) {
-        assert.equal(categoryIds.has(entry.categoryId), true)
+        expect(categoryIds.has(entry.categoryId)).toBe(true)
 
         const targetId = getSettingsSearchTargetId(entry)
         if (!entry.targetId) {
-            assert.equal(targetId, `settings-category-${entry.categoryId}`)
+            expect(targetId).toBe(`settings-category-${entry.categoryId}`)
             continue
         }
 
@@ -239,17 +224,16 @@ test('every settings search result resolves to a category and a scroll target', 
         const interpolated = interpolations.some(
             ({ prefix, pattern }) => targetId.startsWith(prefix) && template.includes(pattern),
         )
-        assert.equal(
+        expect(
             literal || interpolated,
-            true,
             `${entry.id}: no anchor for ${targetId} in ${entry.categoryId}`,
-        )
+        ).toBe(true)
     }
 })
 
-test('storage analysis search targets its inline section', () => {
+it('storage analysis search targets its inline section', () => {
     const entry = settingsSearchEntries.find((entry) => entry.id === 'storage-overview')!
-    assert.equal(entry.categoryId, 'storage-backups')
-    assert.equal('page' in entry, false)
-    assert.equal(getSettingsSearchTargetId(entry), 'settings-target-storage-overview')
+    expect(entry.categoryId).toBe('storage-backups')
+    expect('page' in entry).toBe(false)
+    expect(getSettingsSearchTargetId(entry)).toBe('settings-target-storage-overview')
 })

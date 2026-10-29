@@ -1,7 +1,8 @@
 <script setup lang="ts">
 withDefaults(
     defineProps<{
-        variant?: 'content' | 'sidebar' | 'versions'
+        variant?: 'content' | 'sidebar' | 'versions' | 'description'
+        title?: string
     }>(),
     {
         variant: 'content',
@@ -43,13 +44,28 @@ withDefaults(
         </div>
     </div>
 
-    <div v-else class="flex flex-col gap-4 p-6" aria-hidden="true">
+    <div v-else-if="variant === 'description'" class="flex flex-col gap-3" aria-hidden="true">
+        <div
+            v-for="line in 8"
+            :key="line"
+            class="h-4 animate-pulse rounded bg-surface-2"
+            :class="line % 3 === 0 ? 'w-3/4' : 'w-full'"
+        />
+    </div>
+
+    <div v-else class="flex flex-col gap-4 p-6" :aria-hidden="title ? undefined : true">
         <div
             class="flex flex-wrap items-start gap-4 border-0 border-b border-solid border-divider pb-4"
         >
             <div class="size-24 shrink-0 animate-pulse rounded-lg bg-surface-3" />
             <div class="flex min-w-0 flex-1 flex-col gap-3 py-1">
-                <div class="h-7 w-2/5 animate-pulse rounded bg-surface-3" />
+                <h1
+                    v-if="title"
+                    class="m-0 text-2xl font-semibold leading-none text-[var(--color-text-primary)]"
+                >
+                    {{ title }}
+                </h1>
+                <div v-else class="h-7 w-2/5 animate-pulse rounded bg-surface-3" />
                 <div class="h-4 w-4/5 animate-pulse rounded bg-surface-2" />
                 <div class="h-4 w-3/5 animate-pulse rounded bg-surface-2" />
                 <div class="mt-1 flex gap-3">

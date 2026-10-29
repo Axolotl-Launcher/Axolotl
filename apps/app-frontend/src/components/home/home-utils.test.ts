@@ -1,5 +1,4 @@
-import assert from 'node:assert/strict'
-import test from 'node:test'
+import { expect, it } from 'vitest'
 
 import {
     buildHeatmapDays,
@@ -11,7 +10,7 @@ import {
     toDateKey,
 } from './home-utils.ts'
 
-test('resolves the greeting account only when it can carry a name', () => {
+it('resolves the greeting account only when it can carry a name', () => {
     const accounts = [
         { account_id: 'ms', account_type: 'microsoft', profile: { id: 'p1', name: 'Alex' } },
         { account_id: 'yg', account_type: 'yggdrasil', profile: { id: 'p2', name: 'Yin' } },
@@ -19,55 +18,53 @@ test('resolves the greeting account only when it can carry a name', () => {
         { account_id: 'noname', account_type: 'microsoft', profile: { id: 'p4' } },
     ]
 
-    assert.deepEqual(getActivePlayerAccount('ms', accounts), { id: 'ms', name: 'Alex' })
-    assert.deepEqual(getActivePlayerAccount('yg', accounts), { id: 'yg', name: 'Yin' })
+    expect(getActivePlayerAccount('ms', accounts)).toEqual({ id: 'ms', name: 'Alex' })
+    expect(getActivePlayerAccount('yg', accounts)).toEqual({ id: 'yg', name: 'Yin' })
     // An offline account is selected the same way but has no profile name to greet.
-    assert.equal(getActivePlayerAccount('off', accounts), null)
-    assert.equal(getActivePlayerAccount('noname', accounts), null)
-    assert.equal(getActivePlayerAccount('gone', accounts), null)
-    assert.equal(getActivePlayerAccount(undefined, accounts), null)
-    assert.equal(getActivePlayerName('ms', accounts), 'Alex')
+    expect(getActivePlayerAccount('off', accounts)).toBe(null)
+    expect(getActivePlayerAccount('noname', accounts)).toBe(null)
+    expect(getActivePlayerAccount('gone', accounts)).toBe(null)
+    expect(getActivePlayerAccount(undefined, accounts)).toBe(null)
+    expect(getActivePlayerName('ms', accounts)).toBe('Alex')
 })
 
-test('uses the six local greeting time buckets', () => {
+it('uses the six local greeting time buckets', () => {
     const hour = (value: number) => new Date(2026, 6, 25, value, 0)
-    assert.equal(getTimeBucket(hour(0)), 'late-night')
-    assert.equal(getTimeBucket(hour(5)), 'dawn')
-    assert.equal(getTimeBucket(hour(8)), 'morning')
-    assert.equal(getTimeBucket(hour(12)), 'afternoon')
-    assert.equal(getTimeBucket(hour(17)), 'evening')
-    assert.equal(getTimeBucket(hour(21)), 'night')
-    assert.equal(
-        stableGreetingIndex('2026-07-25:morning', 16),
+    expect(getTimeBucket(hour(0))).toBe('late-night')
+    expect(getTimeBucket(hour(5))).toBe('dawn')
+    expect(getTimeBucket(hour(8))).toBe('morning')
+    expect(getTimeBucket(hour(12))).toBe('afternoon')
+    expect(getTimeBucket(hour(17))).toBe('evening')
+    expect(getTimeBucket(hour(21))).toBe('night')
+    expect(stableGreetingIndex('2026-07-25:morning', 16)).toBe(
         stableGreetingIndex('2026-07-25:morning', 16),
     )
-    assert.equal(stableGreetingIndex('any', 0), 0)
+    expect(stableGreetingIndex('any', 0)).toBe(0)
 })
 
-test('builds Monday-first month and year heatmap grids', () => {
+it('builds Monday-first month and year heatmap grids', () => {
     const month = buildHeatmapDays(new Date(2026, 1, 17, 12), 'month')
-    assert.equal(month[0]?.date.getDay(), 1)
-    assert.equal(month.at(-1)?.date.getDay(), 0)
-    assert.equal(month.filter((day) => day.inPeriod).length, 28)
-    assert.equal(month.find((day) => day.inPeriod)?.dateKey, '2026-02-01')
+    expect(month[0]?.date.getDay()).toBe(1)
+    expect(month.at(-1)?.date.getDay()).toBe(0)
+    expect(month.filter((day) => day.inPeriod).length).toBe(28)
+    expect(month.find((day) => day.inPeriod)?.dateKey).toBe('2026-02-01')
 
     const year = buildHeatmapDays(new Date(2024, 6, 1, 12), 'year')
-    assert.equal(year[0]?.date.getDay(), 1)
-    assert.equal(year.at(-1)?.date.getDay(), 0)
-    assert.equal(year.filter((day) => day.inPeriod).length, 366)
+    expect(year[0]?.date.getDay()).toBe(1)
+    expect(year.at(-1)?.date.getDay()).toBe(0)
+    expect(year.filter((day) => day.inPeriod).length).toBe(366)
 })
 
-test('maps playtime thresholds and missing days deterministically', () => {
-    assert.deepEqual(
+it('maps playtime thresholds and missing days deterministically', () => {
+    expect(
         [0, 1, 30 * 60, 30 * 60 + 1, 90 * 60, 90 * 60 + 1, 180 * 60, 180 * 60 + 1].map(
             getPlaytimeLevel,
         ),
-        [0, 1, 1, 2, 2, 3, 3, 4],
-    )
-    assert.equal(toDateKey(new Date(2026, 6, 25, 12)), '2026-07-25')
+    ).toEqual([0, 1, 1, 2, 2, 3, 3, 4])
+    expect(toDateKey(new Date(2026, 6, 25, 12))).toBe('2026-07-25')
 })
 
-test('uses only active online accounts for player greetings', () => {
+it('uses only active online accounts for player greetings', () => {
     const accounts = [
         {
             account_id: 'offline',
@@ -85,9 +82,9 @@ test('uses only active online accounts for player greetings', () => {
             profile: { id: 'shared', name: 'Steve' },
         },
     ]
-    assert.equal(getActivePlayerName('microsoft', accounts), 'Alex')
-    assert.equal(getActivePlayerName('yggdrasil', accounts), 'Steve')
-    assert.equal(getActivePlayerName('offline', accounts), null)
-    assert.equal(getActivePlayerName(undefined, accounts), null)
-    assert.equal(getActivePlayerName('missing', accounts), null)
+    expect(getActivePlayerName('microsoft', accounts)).toBe('Alex')
+    expect(getActivePlayerName('yggdrasil', accounts)).toBe('Steve')
+    expect(getActivePlayerName('offline', accounts)).toBe(null)
+    expect(getActivePlayerName(undefined, accounts)).toBe(null)
+    expect(getActivePlayerName('missing', accounts)).toBe(null)
 })

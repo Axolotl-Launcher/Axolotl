@@ -1,0 +1,20 @@
+{
+  "db_name": "SQLite",
+  "query": "\n        SELECT version_id\n        FROM instance_server_pack_state\n        WHERE instance_id = ?\n        ",
+  "describe": {
+    "columns": [
+      {
+        "name": "version_id",
+        "ordinal": 0,
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      true
+    ]
+  },
+  "hash": "5d39ce3862b36a664e41a6bc1f505575ca3471a1bd04b28c3c67869bdc574a2a"
+}

@@ -1,5 +1,4 @@
-import assert from 'node:assert/strict'
-import test from 'node:test'
+import { expect, it } from 'vitest'
 
 import type { InstallJobSnapshot, InstallJobStatus } from '@/helpers/install'
 import type { InstanceUpgradeResult } from '@/helpers/instance-upgrade'
@@ -41,48 +40,44 @@ const result = { planId: 'plan-a' } as InstanceUpgradeResult
 const instanceIdOf = (candidate: InstallJobSnapshot) =>
     candidate.instance_id ?? candidate.target.instance_id ?? null
 
-test('upgrade job ownership requires matching kind and instance identity', () => {
-    assert.equal(
-        isInstanceUpgradeJobWith(job('correct', 'running'), 'instance-a', instanceIdOf),
+it('upgrade job ownership requires matching kind and instance identity', () => {
+    expect(isInstanceUpgradeJobWith(job('correct', 'running'), 'instance-a', instanceIdOf)).toBe(
         true,
     )
-    assert.equal(
+    expect(
         isInstanceUpgradeJobWith(
             job('wrong-kind', 'running', { kind: 'install_content' }),
             'instance-a',
             instanceIdOf,
         ),
-        false,
-    )
-    assert.equal(
+    ).toBe(false)
+    expect(
         isInstanceUpgradeJobWith(
             job('wrong-instance', 'running', { instanceId: 'instance-b' }),
             'instance-a',
             instanceIdOf,
         ),
-        false,
-    )
+    ).toBe(false)
 })
 
-test('copy upgrade ownership follows source instance, not target instance', () => {
+it('copy upgrade ownership follows source instance, not target instance', () => {
     const copy = job('copy', 'queued', {
         instanceId: 'copy-target',
         sourceInstanceId: 'instance-a',
     })
-    assert.equal(isInstanceUpgradeJobWith(copy, 'instance-a', instanceIdOf), true)
-    assert.equal(isInstanceUpgradeJobWith(copy, 'copy-target', instanceIdOf), false)
-    assert.equal(
+    expect(isInstanceUpgradeJobWith(copy, 'instance-a', instanceIdOf)).toBe(true)
+    expect(isInstanceUpgradeJobWith(copy, 'copy-target', instanceIdOf)).toBe(false)
+    expect(
         isInstanceUpgradeJobWith(
             job('unrelated', 'queued', { sourceInstanceId: 'instance-c' }),
             'instance-a',
             instanceIdOf,
         ),
-        false,
-    )
+    ).toBe(false)
 })
 
-test('active recovery includes waiting and recovery validation and chooses freshest job', () => {
-    assert.equal(isRecoverableUpgradeStatus('waiting_for_user'), true)
+it('active recovery includes waiting and recovery validation and chooses freshest job', () => {
+    expect(isRecoverableUpgradeStatus('waiting_for_user')).toBe(true)
     const selected = selectRecoverableUpgradeJobWith(
         [
             job('older', 'running', { modified: '2026-08-22T10:00:00Z' }),
@@ -95,34 +90,32 @@ test('active recovery includes waiting and recovery validation and chooses fresh
         {},
         instanceIdOf,
     )
-    assert.equal(selected?.job_id, 'newer')
+    expect(selected?.job_id).toBe('newer')
 })
 
-test('ordinary entry ignores old success while continuation recovers backend result', () => {
+it('ordinary entry ignores old success while continuation recovers backend result', () => {
     const succeeded = job('succeeded', 'succeeded', { result })
-    assert.equal(selectRecoverableUpgradeJobWith([succeeded], 'instance-a', {}, instanceIdOf), null)
-    assert.equal(
+    expect(selectRecoverableUpgradeJobWith([succeeded], 'instance-a', {}, instanceIdOf)).toBe(null)
+    expect(
         selectRecoverableUpgradeJobWith(
             [succeeded],
             'instance-a',
             { continuation: true },
             instanceIdOf,
         )?.upgrade_result,
-        result,
-    )
+    ).toBe(result)
 })
 
-test('known terminal job preserves flow ownership', () => {
+it('known terminal job preserves flow ownership', () => {
     const failed = job('known', 'failed')
-    assert.equal(
+    expect(
         selectRecoverableUpgradeJobWith(
             [failed],
             'instance-a',
             { knownJobId: 'known' },
             instanceIdOf,
         )?.job_id,
-        'known',
-    )
+    ).toBe('known')
 })
 
 function submissionDependencies(calls: unknown[][], jobs: InstallJobSnapshot[] = []) {
@@ -148,7 +141,7 @@ const displayNames = {
     shouldAutoRename: false,
 }
 
-test('normal, shared direct, and copy submissions pass exact execution parameters', async () => {
+it('normal, shared direct, and copy submissions pass exact execution parameters', async () => {
     const calls: unknown[][] = []
     const dependencies = submissionDependencies(calls)
     for (const request of [
@@ -176,14 +169,14 @@ test('normal, shared direct, and copy submissions pass exact execution parameter
     ]) {
         await submitInstanceUpgradeWith(request, { value: false }, dependencies)
     }
-    assert.deepEqual(calls, [
+    expect(calls).toEqual([
         ['normal', true, 'direct', displayNames],
         ['shared-direct', false, 'direct', displayNames],
         ['copy', false, 'copy_and_upgrade', displayNames],
     ])
 })
 
-test('synchronous lock prevents double submission', async () => {
+it('synchronous lock prevents double submission', async () => {
     let releaseList: (() => void) | undefined
     let executeCalls = 0
     const lock = { value: false }
@@ -207,13 +200,13 @@ test('synchronous lock prevents double submission', async () => {
     }
     const first = submitInstanceUpgradeWith(request, lock, dependencies)
     const second = submitInstanceUpgradeWith(request, lock, dependencies)
-    assert.equal(await second, null)
+    expect(await second).toBe(null)
     releaseList?.()
     await first
-    assert.equal(executeCalls, 1)
+    expect(executeCalls).toBe(1)
 })
 
-test('active preflight attaches without a second execution', async () => {
+it('active preflight attaches without a second execution', async () => {
     const calls: unknown[][] = []
     const submitted = await submitInstanceUpgradeWith(
         {
@@ -226,12 +219,12 @@ test('active preflight attaches without a second execution', async () => {
         { value: false },
         submissionDependencies(calls, [job('existing', 'running')]),
     )
-    assert.equal(submitted?.attached, true)
-    assert.equal(submitted?.job.job_id, 'existing')
-    assert.equal(calls.length, 0)
+    expect(submitted?.attached).toBe(true)
+    expect(submitted?.job.job_id).toBe('existing')
+    expect(calls.length).toBe(0)
 })
 
-test('copy execution result attaches by source identity despite different target', async () => {
+it('copy execution result attaches by source identity despite different target', async () => {
     const submitted = await submitInstanceUpgradeWith(
         {
             instanceId: 'instance-a',
@@ -251,13 +244,13 @@ test('copy execution result attaches by source identity despite different target
                 }),
         },
     )
-    assert.equal(submitted?.job.job_id, 'copy-job')
-    assert.equal(submitted?.attached, false)
+    expect(submitted?.job.job_id).toBe('copy-job')
+    expect(submitted?.attached).toBe(false)
 })
 
-test('submission failure releases lock', async () => {
+it('submission failure releases lock', async () => {
     const lock = { value: false }
-    await assert.rejects(
+    await expect(
         submitInstanceUpgradeWith(
             {
                 instanceId: 'instance-a',
@@ -275,7 +268,6 @@ test('submission failure releases lock', async () => {
                 },
             },
         ),
-        /stale plan/,
-    )
-    assert.equal(lock.value, false)
+    ).rejects.toThrow(/stale plan/)
+    expect(lock.value).toBe(false)
 })

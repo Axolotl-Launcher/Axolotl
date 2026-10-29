@@ -68,9 +68,9 @@ async fn join_payload(
 ) -> crate::Result<CommandPayload> {
     if server.is_none() && singleplayer_world.is_none() {
         return Err(crate::ErrorKind::InputError(
-			"Join command requires a server or singleplayer_world query parameter".to_string(),
-		)
-		.into());
+            "Join command requires a server or singleplayer_world query parameter".to_string(),
+        )
+        .into());
     }
     launch_payload(id, server, singleplayer_world).await
 }
@@ -411,7 +411,7 @@ fn settings_params(
 // 特权双闸：两开关均开启才放行，取不到状态时拒绝
 async fn require_privileged() -> crate::Result<()> {
     let allowed = match crate::State::get().await {
-        Ok(state) => match Settings::get(&state.pool).await {
+        Ok(state) => match Settings::get(&state.data).await {
             Ok(settings) => {
                 settings.allow_external_scheme
                     && settings.allow_privileged_scheme
@@ -454,6 +454,7 @@ fn valid_privileged_setting(key: &str, value: &str) -> bool {
         "collapsed_navigation"
         | "toggle_sidebar"
         | "hide_nametag_skins_page"
+        | "nametag_uses_app_font"
         | "advanced_rendering"
         | "native_decorations"
         | "auto_hide_downloads_button"
@@ -585,7 +586,7 @@ fn decoded(raw: &str) -> String {
 
 async fn external_scheme_allowed() -> bool {
     match crate::State::get().await {
-        Ok(state) => match Settings::get(&state.pool).await {
+        Ok(state) => match Settings::get(&state.data).await {
             Ok(settings) => settings.allow_external_scheme,
             Err(_) => true,
         },
@@ -640,11 +641,11 @@ mod tests {
     #[tokio::test]
     async fn parses_launch_query_command() {
         let command =
-			parse_command(
-				"axolotl://launch?instance_id=example%20instance&server=example.org%3A25565",
-			)
-			.await
-			.unwrap();
+            parse_command(
+                "axolotl://launch?instance_id=example%20instance&server=example.org%3A25565",
+            )
+            .await
+            .unwrap();
         assert!(matches!(
             command,
             CommandPayload::LaunchInstance { id, server: Some(server), singleplayer_world: None }

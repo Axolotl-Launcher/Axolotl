@@ -105,6 +105,7 @@
                     :highlighted="highlightedWorld === getWorldIdentifier(world)"
                     :supports-server-quick-play="supportsServerQuickPlay"
                     :supports-world-quick-play="supportsWorldQuickPlay"
+                    :quick-play-pending="!gameVersionsReady"
                     :current-protocol="protocolVersion"
                     :playing-instance="playing"
                     :playing-world="worldsMatch(world, worldPlaying)"
@@ -221,6 +222,7 @@ import { useMinecraftLaunchError } from '@/composables/useMinecraftLaunchError'
 import { trackEvent } from '@/helpers/analytics'
 import { get_project, get_project_v3 } from '@/helpers/cache.js'
 import { instance_listener } from '@/helpers/events'
+import { instanceServerProjectId } from '@/helpers/instance-project'
 import { get_game_versions } from '@/helpers/tags'
 import type { GameInstance } from '@/helpers/types'
 import { ensureManagedServerWorldExists, getServerAddress } from '@/helpers/worlds'
@@ -389,6 +391,7 @@ const protocolVersion = ref<ProtocolVersion | null>(null)
 const protocolVersionReady = ref(false)
 
 const gameVersions = ref<GameVersion[]>([])
+const gameVersionsReady = ref(false)
 const supportsServerQuickPlay = computed(() =>
     hasServerQuickPlaySupport(gameVersions.value, instance.value.game_version),
 )
@@ -402,9 +405,14 @@ watch(
         if (data) {
             worlds.value = [...data]
             hadNoWorlds.value = worlds.value.length === 0
-            if (!refreshingAll.value && !hasInitialRefreshed.value && protocolVersionReady.value) {
-                hasInitialRefreshed.value = true
-                void refreshServers(worlds.value, serverData.value, protocolVersion.value)
+            if (!refreshingAll.value && !hasInitialRefreshed.value) {
+                if (protocolVersionReady.value) {
+                    hasInitialRefreshed.value = true
+                    void refreshServers(worlds.value, serverData.value, protocolVersion.value)
+                } else {
+                    // Shown as refreshing until the protocol arrives and they are pinged.
+                    void refreshServers(worlds.value, serverData.value, null, false)
+                }
             }
         }
     },
@@ -421,14 +429,17 @@ function isManagedServerWorld(world: World): world is ServerWorld {
     return world.type === 'server' && managedServerWorld.value?.index === world.index
 }
 
+let managedServerMetadataGeneration = 0
 async function refreshManagedServerMetadata() {
-    await ensureManagedServerWorldExists(
-        instance.value.id,
-        managedServerName.value,
-        managedServerAddress.value,
-    )
-
-    const projectId = instance.value.link?.project_id
+    const generation = ++managedServerMetadataGeneration
+    const instanceId = instance.value.id
+    const projectId = instanceServerProjectId(instance.value.link)
+    const isCurrent = () =>
+        generation === managedServerMetadataGeneration &&
+        instance.value.id === instanceId &&
+        instanceServerProjectId(instance.value.link) === projectId
+    managedServerName.value = null
+    managedServerAddress.value = null
     if (!projectId) {
         managedServerName.value = null
         managedServerAddress.value = null
@@ -440,6 +451,7 @@ async function refreshManagedServerMetadata() {
             get_project(projectId),
             get_project_v3(projectId),
         ])
+        if (!isCurrent()) return
 
         if (projectV3?.minecraft_server == null) {
             managedServerName.value = null
@@ -456,7 +468,9 @@ async function refreshManagedServerMetadata() {
 
         managedServerName.value = project.title
         managedServerAddress.value = serverAddress
+        await ensureManagedServerWorldExists(instanceId, project.title, serverAddress)
     } catch (err) {
+        if (!isCurrent()) return
         console.error(
             `Failed to resolve managed server metadata for instance: ${instance.value.id}`,
             err,
@@ -467,7 +481,7 @@ async function refreshManagedServerMetadata() {
 }
 
 watch(
-    () => instance.value.link?.project_id,
+    () => [instance.value.id, instanceServerProjectId(instance.value.link)],
     async () => {
         await refreshManagedServerMetadata()
     },
@@ -478,33 +492,42 @@ let unlistenInstance: (() => void) | null = null
 let worldsTabAlive = true
 
 async function initWorldsTab() {
-    const [_unlistenInstance, resolvedProtocolVersion, resolvedGameVersions] = await Promise.all([
-        instance_listener(async (e: InstanceEvent) => {
-            if (e.instance_id !== instance.value.id) return
+    const listening = instance_listener(async (e: InstanceEvent) => {
+        if (e.instance_id !== instance.value.id) return
 
-            console.info(`Handling instance event '${e.event}' for instance: ${e.instance_id}`)
+        console.info(`Handling instance event '${e.event}' for instance: ${e.instance_id}`)
 
-            if (e.event === 'servers_updated') {
-                if (isLinux && linuxRefreshCount.value >= MAX_LINUX_REFRESHES) return
-                if (isLinux) linuxRefreshCount.value++
+        if (e.event === 'servers_updated') {
+            if (isLinux && linuxRefreshCount.value >= MAX_LINUX_REFRESHES) return
+            if (isLinux) linuxRefreshCount.value++
 
-                await refreshAllWorlds()
-            }
+            await refreshAllWorlds()
+        }
 
-            await handleDefaultInstanceUpdateEvent(worlds.value, instance.value.id, e)
-        }),
-        get_instance_protocol_version(instance.value.id).catch(() => null),
-        get_game_versions().catch(() => [] as GameVersion[]),
-    ])
-
+        await handleDefaultInstanceUpdateEvent(worlds.value, instance.value.id, e)
+    })
+    // The protocol and game versions only feed server pings and the quick play
+    // flags, and resolving them can reach the network or read the client JAR,
+    // so the tab renders without them. Registering the listener is local.
+    void loadServerContext()
+    const _unlistenInstance = await listening
     if (!worldsTabAlive) {
         _unlistenInstance()
         return
     }
-
     unlistenInstance = _unlistenInstance
+}
+
+async function loadServerContext() {
+    const [resolvedProtocolVersion, resolvedGameVersions] = await Promise.all([
+        get_instance_protocol_version(instance.value.id).catch(() => null),
+        get_game_versions().catch(() => [] as GameVersion[]),
+    ])
+    if (!worldsTabAlive) return
+
     protocolVersion.value = resolvedProtocolVersion
     gameVersions.value = resolvedGameVersions
+    gameVersionsReady.value = true
     protocolVersionReady.value = true
 
     if (worlds.value.length > 0) {
@@ -607,7 +630,7 @@ async function joinWorld(world: World) {
     startingInstance.value = true
     worldPlaying.value = world
     if (world.type === 'server') {
-        const managedProjectId = instance.value.link?.project_id
+        const managedProjectId = instanceServerProjectId(instance.value.link)
         if (managedProjectId && isManagedServerWorld(world)) {
             await playServerProject(managedProjectId).catch(handleJoinError)
             trackEvent('InstanceStart', {

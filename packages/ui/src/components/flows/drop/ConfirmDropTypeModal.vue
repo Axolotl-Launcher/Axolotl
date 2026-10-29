@@ -8,14 +8,19 @@
     >
         <template #title>
             <span class="text-[var(--color-text-primary)]">{{
-                formatMessage(messages.title)
+                formatMessage(isMinecraftRoot ? messages.addMinecraftTitle : messages.title)
             }}</span>
         </template>
 
         <div class="flex flex-col gap-4">
-            <span class="text-[var(--color-text-tertiary)] text-sm">{{ props.fileName }}</span>
+            <p v-if="isMinecraftRoot" class="m-0">
+                {{ formatMessage(messages.addMinecraftPrompt) }}
+            </p>
+            <span class="text-[var(--color-text-tertiary)] text-sm break-all">{{
+                isMinecraftRoot ? minecraftRootPath : props.fileName
+            }}</span>
 
-            <div class="grid grid-cols-2 gap-3">
+            <div v-if="!isMinecraftRoot" class="grid grid-cols-2 gap-3">
                 <BigOptionButton
                     v-for="option in visibleOptions"
                     :key="`${option.type}-${option.innerBase ?? ''}`"
@@ -29,7 +34,15 @@
         </div>
 
         <template #actions>
-            <div class="flex w-full items-center justify-between">
+            <div v-if="isMinecraftRoot" class="flex w-full justify-end gap-2">
+                <Button type="outlined" @click="emit('confirm', 'instance')">
+                    {{ formatMessage(messages.importMinecraftInstances) }}
+                </Button>
+                <Button color="brand" type="colored" @click="emit('confirm', 'dot_minecraft')">
+                    {{ formatMessage(messages.addMinecraftConfirm) }}
+                </Button>
+            </div>
+            <div v-else class="flex w-full items-center justify-between">
                 <button
                     class="group/help flex items-center gap-2 transition-colors hover:cursor-pointer"
                     @click="emit('help')"
@@ -83,6 +96,23 @@ const messages = defineMessages({
     title: {
         id: 'drop.confirm.title',
         defaultMessage: 'What would you like to import this as?',
+    },
+    addMinecraftTitle: {
+        id: 'drop.confirm.minecraft-root.title',
+        defaultMessage: 'Add .minecraft folder',
+    },
+    addMinecraftPrompt: {
+        id: 'drop.confirm.minecraft-root.prompt',
+        defaultMessage:
+            'This looks like a .minecraft folder. Would you like to add it directly to the launcher?',
+    },
+    addMinecraftConfirm: {
+        id: 'drop.confirm.minecraft-root.add',
+        defaultMessage: 'Yes, add folder',
+    },
+    importMinecraftInstances: {
+        id: 'drop.confirm.minecraft-root.import',
+        defaultMessage: 'No, import instances',
     },
     cancel: {
         id: 'drop.confirm.cancel',
@@ -254,6 +284,19 @@ const emit = defineEmits<{
 }>()
 
 const modal = ref<InstanceType<typeof NewModal> | null>(null)
+
+const minecraftRootPath = computed(
+    () => props.classification?.base_path ?? props.classification?.file_path ?? '',
+)
+const isMinecraftRoot = computed(() => {
+    const classification = props.classification
+    return (
+        classification?.item_type === 'launcher' &&
+        classification.launcher_type === 'Generic' &&
+        minecraftRootPath.value.split(/[\\/]/).filter(Boolean).at(-1)?.toLowerCase() ===
+            '.minecraft'
+    )
+})
 
 function handleCancel() {
     if (props.classification) {

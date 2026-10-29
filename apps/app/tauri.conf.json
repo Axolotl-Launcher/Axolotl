@@ -1,135 +1,135 @@
 {
-	"$schema": "https://schema.tauri.app/config/2",
-	"build": {
-		"beforeDevCommand": "pnpm turbo run dev --filter=@modrinth/app-frontend",
-		"beforeBuildCommand": "pnpm turbo run build --filter=@modrinth/app-frontend",
-		"frontendDist": "../app-frontend/dist",
-		"devUrl": "http://localhost:5201"
-	},
-	"bundle": {
-		"active": true,
-		"category": "Game",
-		"copyright": "",
-		"targets": "all",
-		"externalBin": [],
-		"resources": ["resources/blockbench-skin"],
-		"icon": [
-			"icons/128x128.png",
-			"icons/128x128@2x.png",
-			"icons/icon.icns",
-			"icons/icon.ico",
-			"icons/AxolotlAssets.car"
-		],
-		"windows": {
-			"nsis": {
-				"installMode": "currentUser",
-				"installerHooks": "./nsis/hooks.nsi"
-			}
-		},
-		"longDescription": "",
-		"macOS": {
-			"entitlements": "App.entitlements",
-			"exceptionDomain": "",
-			"frameworks": [],
-			"providerShortName": null,
-			"signingIdentity": null,
-			"dmg": {
-				"windowSize": {
-					"width": 661,
-					"height": 432
-				},
-				"appPosition": {
-					"x": 188,
-					"y": 212
-				},
-				"applicationFolderPosition": {
-					"x": 475,
-					"y": 212
-				}
-			}
-		},
-		"shortDescription": "",
-		"linux": {
-			"deb": {
-				"depends": ["libwebkit2gtk-4.1-0", "libgtk-3-0", "libayatana-appindicator3-1"]
-			}
-		},
-		"fileAssociations": [
-			{
-				"ext": ["mrpack"],
-				"mimeType": "application/x-modrinth-modpack+zip"
-			}
-		]
-	},
-	"productName": "Axolotl Launcher",
-	"version": "../app-frontend/package.json",
-	"mainBinaryName": "Axolotl Launcher",
-	"identifier": "red.ghs.axolotl",
-	"plugins": {
-		"deep-link": {
-			"desktop": {
-				"schemes": ["axolotl"]
-			},
-			"mobile": []
-		}
-	},
-	"app": {
-		"withGlobalTauri": false,
-		"macOSPrivateApi": true,
-		"windows": [
-			{
-				"titleBarStyle": "Overlay",
-				"hiddenTitle": true,
-				"fullscreen": false,
-				"height": 800,
-				"resizable": true,
-				"title": "Axolotl Launcher",
-				"label": "main",
-				"width": 1280,
-				"minHeight": 700,
-				"minWidth": 1100,
-				"visible": false,
-				"zoomHotkeysEnabled": false,
-				"decorations": false,
-				"transparent": true
-			}
-		],
-		"security": {
-			"assetProtocol": {
-				"scope": [
-					"$APPDATA/backgrounds/*",
-					"$APPDATA/caches/icons/*",
-					"$APPCONFIG/caches/icons/*",
-					"$CONFIG/caches/icons/*",
-					"$APPDATA/profiles/*/saves/*/icon.png",
-					"$APPCONFIG/profiles/*/saves/*/icon.png",
-					"$CONFIG/profiles/*/saves/*/icon.png"
-				],
-				"enable": true
-			},
-			"capabilities": ["core", "plugins"],
-			"devCsp": {
-				"default-src": "'self' customprotocol: asset:",
-				"connect-src": "ipc: http://ipc.localhost http://localhost:5201 ws://localhost:5201 https://modrinth.com https://*.modrinth.com https://api.mclo.gs http://textures.minecraft.net https://textures.minecraft.net https://fill.papermc.io https://api.papermc.io https://piston-meta.mojang.com https://launchermeta.mojang.com https://meta.fabricmc.net https://files.minecraftforge.net https://maven.minecraftforge.net https://api.purpurmc.org https://mod.mcimirror.top https://admin.axlmc.org 'self' data: blob:",
-				"font-src": ["'self'", "data:", "https://cdn-raw.modrinth.com/fonts/"],
-				"img-src": "https: 'unsafe-inline' 'self' asset: http://asset.localhost http://textures.minecraft.net blob: data:",
-				"style-src": "'unsafe-inline' 'self'",
-				"script-src": "'self' 'unsafe-eval' 'wasm-unsafe-eval'",
-				"worker-src": "'self' blob:",
-				"frame-src": "https://www.youtube.com https://www.youtube-nocookie.com https://discord.com 'self' http://axolotl-skin.localhost axolotl-skin://localhost",
-				"media-src": "'self' data: https://*.githubusercontent.com"
-			},
-			"csp": {
-				"default-src": "'self' customprotocol: asset:",
-				"connect-src": "ipc: http://ipc.localhost https://modrinth.com https://*.modrinth.com https://api.mclo.gs http://textures.minecraft.net https://textures.minecraft.net https://fill.papermc.io https://api.papermc.io https://piston-meta.mojang.com https://launchermeta.mojang.com https://meta.fabricmc.net https://files.minecraftforge.net https://maven.minecraftforge.net https://api.purpurmc.org https://mod.mcimirror.top https://admin.axlmc.org 'self' data: blob:",
-				"font-src": ["'self'", "data:", "https://cdn-raw.modrinth.com/fonts/"],
-				"img-src": "https: 'unsafe-inline' 'self' asset: http://asset.localhost http://textures.minecraft.net blob: data:",
-				"style-src": "'unsafe-inline' 'self'",
-				"script-src": "'self' 'unsafe-eval' 'wasm-unsafe-eval'",
-				"worker-src": "'self' blob:",
-				"frame-src": "https://www.youtube.com https://www.youtube-nocookie.com https://discord.com 'self' axolotl-skin://localhost http://axolotl-skin.localhost",
-				"media-src": "'self' data: https://*.githubusercontent.com"
-			}
-		}
-	}
+  "$schema": "https://schema.tauri.app/config/2",
+  "build": {
+    "beforeDevCommand": "pnpm --filter @modrinth/app-frontend dev",
+    "beforeBuildCommand": "pnpm turbo run build --filter=@modrinth/app-frontend",
+    "frontendDist": "../app-frontend/dist",
+    "devUrl": "http://127.0.0.1:5201"
+  },
+  "bundle": {
+    "active": true,
+    "category": "Game",
+    "copyright": "",
+    "targets": "all",
+    "externalBin": [],
+    "resources": ["resources/blockbench-skin"],
+    "icon": [
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico",
+      "icons/AxolotlAssets.car"
+    ],
+    "windows": {
+      "nsis": {
+        "installMode": "currentUser",
+        "installerHooks": "./nsis/hooks.nsi"
+      }
+    },
+    "longDescription": "",
+    "macOS": {
+      "entitlements": "App.entitlements",
+      "exceptionDomain": "",
+      "frameworks": [],
+      "providerShortName": null,
+      "signingIdentity": null,
+      "dmg": {
+        "windowSize": {
+          "width": 661,
+          "height": 432
+        },
+        "appPosition": {
+          "x": 188,
+          "y": 212
+        },
+        "applicationFolderPosition": {
+          "x": 475,
+          "y": 212
+        }
+      }
+    },
+    "shortDescription": "",
+    "linux": {
+      "deb": {
+        "depends": ["libwebkit2gtk-4.1-0", "libgtk-3-0", "libayatana-appindicator3-1"]
+      }
+    },
+    "fileAssociations": [
+      {
+        "ext": ["mrpack"],
+        "mimeType": "application/x-modrinth-modpack+zip"
+      }
+    ]
+  },
+  "productName": "Axolotl Launcher",
+  "version": "../app-frontend/package.json",
+  "mainBinaryName": "Axolotl Launcher",
+  "identifier": "red.ghs.axolotl",
+  "plugins": {
+    "deep-link": {
+      "desktop": {
+        "schemes": ["axolotl"]
+      },
+      "mobile": []
+    }
+  },
+  "app": {
+    "withGlobalTauri": false,
+    "macOSPrivateApi": true,
+    "windows": [
+      {
+        "titleBarStyle": "Overlay",
+        "hiddenTitle": true,
+        "fullscreen": false,
+        "height": 800,
+        "resizable": true,
+        "title": "Axolotl Launcher",
+        "label": "main",
+        "width": 1280,
+        "minHeight": 700,
+        "minWidth": 1100,
+        "visible": false,
+        "zoomHotkeysEnabled": false,
+        "decorations": false,
+        "transparent": true
+      }
+    ],
+    "security": {
+      "assetProtocol": {
+        "scope": [
+          "$APPDATA/backgrounds/*",
+          "$APPDATA/caches/icons/*",
+          "$APPCONFIG/caches/icons/*",
+          "$CONFIG/caches/icons/*",
+          "$APPDATA/profiles/*/saves/*/icon.png",
+          "$APPCONFIG/profiles/*/saves/*/icon.png",
+          "$CONFIG/profiles/*/saves/*/icon.png"
+        ],
+        "enable": true
+      },
+      "capabilities": ["core", "plugins"],
+      "devCsp": {
+        "default-src": "'self' customprotocol: asset:",
+        "connect-src": "ipc: http://ipc.localhost http://127.0.0.1:5201 ws://127.0.0.1:5201 https://modrinth.com https://*.modrinth.com https://api.mclo.gs http://textures.minecraft.net https://textures.minecraft.net https://fill.papermc.io https://api.papermc.io https://piston-meta.mojang.com https://launchermeta.mojang.com https://meta.fabricmc.net https://files.minecraftforge.net https://maven.minecraftforge.net https://api.purpurmc.org https://mod.mcimirror.top https://admin.axlmc.org 'self' data: blob:",
+        "font-src": ["'self'", "data:", "https://cdn-raw.modrinth.com/fonts/"],
+        "img-src": "https: 'unsafe-inline' 'self' asset: http://asset.localhost http://textures.minecraft.net blob: data:",
+        "style-src": "'unsafe-inline' 'self'",
+        "script-src": "'self' 'unsafe-eval' 'wasm-unsafe-eval'",
+        "worker-src": "'self' blob:",
+        "frame-src": "https://www.youtube.com https://www.youtube-nocookie.com https://discord.com 'self' http://axolotl-skin.localhost axolotl-skin://localhost",
+        "media-src": "'self' data: https://*.githubusercontent.com"
+      },
+      "csp": {
+        "default-src": "'self' customprotocol: asset:",
+        "connect-src": "ipc: http://ipc.localhost https://modrinth.com https://*.modrinth.com https://api.mclo.gs http://textures.minecraft.net https://textures.minecraft.net https://fill.papermc.io https://api.papermc.io https://piston-meta.mojang.com https://launchermeta.mojang.com https://meta.fabricmc.net https://files.minecraftforge.net https://maven.minecraftforge.net https://api.purpurmc.org https://mod.mcimirror.top https://admin.axlmc.org 'self' data: blob:",
+        "font-src": ["'self'", "data:", "https://cdn-raw.modrinth.com/fonts/"],
+        "img-src": "https: 'unsafe-inline' 'self' asset: http://asset.localhost http://textures.minecraft.net blob: data:",
+        "style-src": "'unsafe-inline' 'self'",
+        "script-src": "'self' 'unsafe-eval' 'wasm-unsafe-eval'",
+        "worker-src": "'self' blob:",
+        "frame-src": "https://www.youtube.com https://www.youtube-nocookie.com https://discord.com 'self' axolotl-skin://localhost http://axolotl-skin.localhost",
+        "media-src": "'self' data: https://*.githubusercontent.com"
+      }
+    }
+  }
 }

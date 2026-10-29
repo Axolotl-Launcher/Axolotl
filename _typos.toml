@@ -5,7 +5,7 @@ extend-exclude = [
   "packages/utils/",
   "packages/ui/",
   # Generated recipe data contains texture hashes that look like words.
-  "apps/app-frontend/src/lab/recipe-generator/assets/",
+  "apps/app-frontend/src/lab/shared/minecraft/assets/",
   # Generated contributor list contains usernames that look like typos.
   "apps/app-frontend/src/data/about/contributors.json",
   # Vendored upstream submodule, not checked out by CI.
@@ -15,6 +15,10 @@ extend-exclude = [
   # Bundled Monaco editor runtime contains upstream generated assets.
   "apps/app-frontend/public/monaco/",
 ]
+
+[default]
+# Historical MultiMC JSON key retained for compatibility with upstream.
+extend-ignore-re = ['"MMC-absulute_url"']
 
 [default.extend-words]
 # Terms Of Use in `tou-link`
@@ -41,6 +45,8 @@ Nam = "Nam"
 PN = "PN"
 # ID for stronghold-straight
 SHS = "SHS"
+# Correct for cancell?ed (means canceled or cancelled)
+cancell = "cancell"
 
 [default.extend-identifiers]
 # Minecraft locale identifiers containing the ISO 3166-1 code for Bosnia and

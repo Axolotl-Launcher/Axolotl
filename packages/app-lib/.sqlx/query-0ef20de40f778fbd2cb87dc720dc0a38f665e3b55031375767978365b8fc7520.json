@@ -1,0 +1,20 @@
+{
+  "db_name": "SQLite",
+  "query": "\n        SELECT COUNT(*)\n        FROM sqlite_master\n        WHERE type = 'table'\n            AND name NOT LIKE 'sqlite_%'\n            AND name NOT IN ('_sqlx_migrations', 'app_metadata')\n        ",
+  "describe": {
+    "columns": [
+      {
+        "name": "COUNT(*)",
+        "ordinal": 0,
+        "type_info": "Integer"
+      }
+    ],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "0ef20de40f778fbd2cb87dc720dc0a38f665e3b55031375767978365b8fc7520"
+}

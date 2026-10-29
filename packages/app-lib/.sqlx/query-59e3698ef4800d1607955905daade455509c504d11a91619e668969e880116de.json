@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "\n        UPDATE install_jobs\n        SET dismissed = 1, modified = ?\n        WHERE id = ?\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": []
+  },
+  "hash": "59e3698ef4800d1607955905daade455509c504d11a91619e668969e880116de"
+}

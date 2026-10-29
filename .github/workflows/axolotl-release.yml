@@ -1,6 +1,26 @@
 name: Axolotl release
 
 on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Existing release tag to resume (no compilation)'
+        required: true
+        type: string
+      target:
+        description: 'Publication tasks to run using existing release assets'
+        required: true
+        default: all
+        type: choice
+        options:
+          - all
+          - github
+          - update-server
+          - website
+          - cnb
+          - gitlink
+          - aliyunoss
+          - discord
   push:
     tags:
       - 'v*'
@@ -10,32 +30,36 @@ permissions:
   contents: write
 
 concurrency:
-  group: axolotl-release-${{ github.ref }}
+  group: axolotl-release-${{ inputs.tag || github.ref_name }}
   cancel-in-progress: false
+
+env:
+  RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
 
 jobs:
   preflight:
     name: Release preflight
+    if: github.event_name == 'push'
     runs-on: ubuntu-24.04
     env:
       SQLX_OFFLINE: true
     steps:
-      - name: Check out source
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
           submodules: recursive
 
-      - name: Set up pnpm
-        uses: pnpm/action-setup@008330803749db0355799c700092d9a85fd074e9 # v6.0.9
+      - name: Setup pnpm
+        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
 
-      - name: Set up Node.js
-        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+      - name: Setup Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version-file: .nvmrc
           cache: pnpm
 
-      - name: Install pinned formatting toolchain
+      - name: Setup Rustfmt
         run: rustup component add rustfmt
 
       - name: Install dependencies
@@ -46,46 +70,51 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           node --test scripts/axolotl/release-policy.test.mjs
+          node --test scripts/axolotl/aliyunoss-release.test.mjs
           node --test scripts/axolotl/set-version.test.mjs
+          node --test scripts/axolotl/update-manifest.test.mjs scripts/axolotl/finalize-github-release.test.mjs scripts/axolotl/publish-update-server.test.mjs scripts/axolotl/cnb-release.test.mjs scripts/axolotl/gitlink-release.test.mjs scripts/axolotl/create-website-release-metadata.test.mjs
+          node scripts/axolotl/create-update-server-catalog.test.mjs
           node scripts/axolotl/check-migrations.mjs --release
           node scripts/axolotl/brand-guard.mjs
           node scripts/axolotl/i18n-check.mjs
           node --test scripts/axolotl/create-release-notes.test.mjs
+          node --test scripts/axolotl/publish-discord-release.test.mjs
           cargo fmt --all --check
 
       - name: Prepare draft release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          node --input-type=module -e 'import { releaseVersion } from "./scripts/axolotl/release-utils.mjs"; releaseVersion(process.env.RELEASE_TAG)'
           release_notes="${RUNNER_TEMP}/axolotl-release-notes.md"
-          node scripts/axolotl/create-release-notes.mjs "${GITHUB_REF_NAME}" "$release_notes"
-          existing_release="$(
-            gh release list --limit 100 --json tagName \
-              --jq ".[] | select(.tagName == \"${GITHUB_REF_NAME}\") | .tagName"
-          )"
-          if [[ -n "$existing_release" ]]; then
-            echo "Release ${GITHUB_REF_NAME} already exists"
-            gh release edit "${GITHUB_REF_NAME}" --notes-file "$release_notes"
+          node scripts/axolotl/create-release-notes.mjs "${RELEASE_TAG}" "$release_notes"
+          if existing_draft="$(gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json isDraft --jq .isDraft)"; then
+            if [[ "$existing_draft" != true ]]; then
+              echo '::error::Release is already public. Use workflow_dispatch to resume publication without rebuilding.'
+              exit 1
+            fi
+            gh release edit "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --notes-file "$release_notes"
             exit 0
           fi
 
           release_args=(
             --draft
             --notes-file "$release_notes"
-            --title "Axolotl Launcher ${GITHUB_REF_NAME}"
+            --title "Axolotl Launcher ${RELEASE_TAG}"
           )
-          if [[ "${GITHUB_REF_NAME}" == *-* ]]; then
+          if [[ "${RELEASE_TAG}" == *-* ]]; then
             release_args+=(--prerelease)
           fi
-          gh release create "${GITHUB_REF_NAME}" "${release_args[@]}"
+          gh release create "${RELEASE_TAG}" "${release_args[@]}"
 
-      - name: Prepare shared build resources
+      - name: Prepare build resources
         env:
           AXOLOTL_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           node scripts/axolotl/sync-contributors.mjs
           node scripts/axolotl/prepare-build-resources.mjs
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+      - name: Upload build resources
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: desktop-resources
           path: target/build-resources/
@@ -114,10 +143,12 @@ jobs:
       SQLX_OFFLINE: true
       CARGO_PROFILE_RELEASE_LTO: 'true'
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           submodules: recursive
-      - uses: ./.github/actions/setup-desktop-build
+      - name: Setup desktop build
+        uses: ./.github/actions/setup-desktop-build
         with:
           profile: release
       - name: Reserve Linux ARM64 swap for full LTO
@@ -169,7 +200,7 @@ jobs:
       fail-fast: true
       matrix:
         include:
-          - runner: macos-15
+          - runner: macos-26
             target: aarch64-apple-darwin
           - runner: macos-15-intel
             target: x86_64-apple-darwin
@@ -178,19 +209,23 @@ jobs:
       SQLX_OFFLINE: true
       CARGO_PROFILE_RELEASE_LTO: 'true'
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           submodules: recursive
-      - uses: ./.github/actions/setup-desktop-build
+      - name: Setup desktop build
+        uses: ./.github/actions/setup-desktop-build
         with:
           profile: release
           target: ${{ matrix.target }}
-      - run: node scripts/axolotl/set-version.mjs "${{ github.ref_name }}"
+      - name: Set release version
+        run: node scripts/axolotl/set-version.mjs "${{ github.ref_name }}"
       - name: Compile native macOS binary with full LTO
         env:
           CURSEFORGE_API_KEY: ${{ secrets.CURSEFORGE_API_KEY }}
         run: node scripts/axolotl/build-desktop.mjs --profile release --target "${{ matrix.target }}"
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+      - name: Upload macOS build artifacts
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: macos-${{ matrix.target }}
           overwrite: true
@@ -203,28 +238,33 @@ jobs:
   macos-universal:
     name: Package macOS universal
     needs: [preflight, macos-build]
-    runs-on: macos-15
+    runs-on: macos-26
     env:
       SQLX_OFFLINE: true
       CARGO_PROFILE_RELEASE_LTO: 'true'
       TAURI_BUNDLER_DMG_IGNORE_CI: 'true'
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           submodules: recursive
-      - uses: ./.github/actions/setup-desktop-build
+      - name: Setup desktop build
+        uses: ./.github/actions/setup-desktop-build
         with:
           profile: release
           package-only: 'true'
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+      - name: Download macOS ARM64 build artifacts
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: macos-aarch64-apple-darwin
           path: target/macos-input/aarch64-apple-darwin
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+      - name: Download macOS x64 build artifacts
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: macos-x86_64-apple-darwin
           path: target/macos-input/x86_64-apple-darwin
-      - run: node scripts/axolotl/set-version.mjs "${{ github.ref_name }}"
+      - name: Set release version
+        run: node scripts/axolotl/set-version.mjs "${{ github.ref_name }}"
       - name: Merge architectures and package signed updater
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
@@ -238,81 +278,60 @@ jobs:
         run: node scripts/axolotl/upload-release-assets.mjs "$GITHUB_REF_NAME" target/release-assets/upload
 
   verify-and-publish:
-    name: Verify and publish
+    name: Verify and publish existing assets
     needs: [build, macos-universal]
+    if: >-
+      ${{ !cancelled() &&
+          (github.event_name == 'workflow_dispatch' ||
+           (github.event_name == 'push' && needs.build.result == 'success' && needs.macos-universal.result == 'success')) }}
     runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    outputs:
+      release-sha: ${{ steps.release-ref.outputs.sha }}
     steps:
-      - name: Check out source
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
           ref: ${{ github.sha }}
-
-      - name: Download updater signatures
+      - name: Setup Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+      - name: Validate requested release tag
+        id: release-ref
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh release download "${GITHUB_REF_NAME}" --pattern '*.sig' --dir release-check/signatures
-
-      - name: Download release metadata
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          MANUAL_REF: ${{ github.ref }}
+          EVENT_NAME: ${{ github.event_name }}
         run: |
-          release_id="$(
-            gh api "repos/${GITHUB_REPOSITORY}/releases" \
-              --paginate \
-              --jq ".[] | select(.tag_name == \"${GITHUB_REF_NAME}\") | .id"
-          )"
-          if [[ -z "$release_id" ]]; then
-            echo "Release ${GITHUB_REF_NAME} was not found"
+          if [[ "$EVENT_NAME" == workflow_dispatch && "$MANUAL_REF" != refs/heads/main ]]; then
+            echo '::error::Resume releases from main so publication uses the current scripts.'
             exit 1
           fi
-          gh api "repos/${GITHUB_REPOSITORY}/releases/${release_id}" > release-check/release.json
-
-      - name: Generate update manifest
-        run: node scripts/axolotl/create-update-manifest.mjs release-check/release.json release-check/signatures "${GITHUB_REF_NAME}" release-check/latest.json
-
-      - name: Verify update manifest
-        run: node scripts/axolotl/verify-update-manifest.mjs release-check/latest.json "${GITHUB_REF_NAME}"
-
-      - name: Upload update manifest
+          node --input-type=module -e 'import { releaseVersion } from "./scripts/axolotl/release-utils.mjs"; releaseVersion(process.env.RELEASE_TAG)'
+          release_sha="$(git rev-parse --verify "refs/tags/${RELEASE_TAG}^{commit}")"
+          echo "sha=$release_sha" >> "$GITHUB_OUTPUT"
+      - name: Verify and finalize GitHub release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh release upload "${GITHUB_REF_NAME}" release-check/latest.json --clobber
-
-      - name: Publish release
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TARGET: ${{ inputs.target || 'all' }}
         run: |
-          if [[ "${GITHUB_REF_NAME}" == *-* ]]; then
-            gh release edit "${GITHUB_REF_NAME}" --draft=false --prerelease
-          else
-            gh release edit "${GITHUB_REF_NAME}" --draft=false --latest
+          args=()
+          if [[ "$RELEASE_TARGET" != all && "$RELEASE_TARGET" != github ]]; then
+            args+=(--published-only)
           fi
-
-      - name: Refresh published GitHub release metadata
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          release_id="$(
-            gh api "repos/${GITHUB_REPOSITORY}/releases" \
-              --paginate \
-              --jq ".[] | select(.tag_name == \"${GITHUB_REF_NAME}\") | .id"
-          )"
-          if [[ -z "$release_id" ]]; then
-            echo "Published release ${GITHUB_REF_NAME} was not found"
-            exit 1
-          fi
-          gh api "repos/${GITHUB_REPOSITORY}/releases/${release_id}" > release-check/release.json
+          node scripts/axolotl/finalize-github-release.mjs "$RELEASE_TAG" release-check "${args[@]}"
 
       - name: Build Update Server artifact catalog
         run: |
           node scripts/axolotl/create-update-server-catalog.mjs \
             release-check/release.json \
-            "${GITHUB_REF_NAME}" \
+            "${RELEASE_TAG}" \
             release-check/update-server-catalog.json
           node scripts/axolotl/create-update-server-catalog.test.mjs
 
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+      - name: Upload published release metadata
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: published-release-metadata
           path: release-check/
@@ -320,17 +339,35 @@ jobs:
           retention-days: 7
           if-no-files-found: error
 
+  notify-discord:
+    name: Notify Discord
+    needs: [verify-and-publish, notify-update-server]
+    if: ${{ !cancelled() && needs.verify-and-publish.result == 'success' && (github.event_name == 'push' || inputs.target == 'all' || inputs.target == 'discord') }}
+    permissions:
+      contents: read
+    uses: ./.github/workflows/discord-release.yml
+    with:
+      tag: ${{ inputs.tag || github.ref_name }}
+    secrets:
+      DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
+
   notify-update-server:
+    name: Notify Update Server
     needs: verify-and-publish
+    timeout-minutes: 45
+    if: ${{ !cancelled() && needs.verify-and-publish.result == 'success' && (github.event_name == 'push' || inputs.target == 'all' || inputs.target == 'update-server') }}
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ github.sha }}
-      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+      - name: Setup Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version-file: .nvmrc
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+      - name: Download published release metadata
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: published-release-metadata
           path: release-check
@@ -343,57 +380,65 @@ jobs:
           node scripts/axolotl/publish-update-server.mjs \
             release-check/update-server-catalog.json \
             release-check/release.json \
-            "${GITHUB_REF_NAME}"
+            "${RELEASE_TAG}"
 
   publish-website:
-    name: Build and deploy website to Netlify
+    name: Build and deploy website to Cloudflare Pages
     needs: verify-and-publish
+    if: ${{ !cancelled() && needs.verify-and-publish.result == 'success' && (github.event_name == 'push' || inputs.target == 'all' || inputs.target == 'website') }}
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     concurrency:
       group: website-production
       cancel-in-progress: false
+    env:
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      CLOUDFLARE_PAGES_PROJECT_NAME: ${{ vars.CLOUDFLARE_PAGES_PROJECT_NAME }}
     steps:
-      - name: Check Netlify deployment credentials
+      - name: Check Cloudflare Pages deployment configuration
         env:
-          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
-          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
         run: |
-          if [[ -z "$NETLIFY_AUTH_TOKEN" || -z "$NETLIFY_SITE_ID" ]]; then
-            echo '::error::Configure NETLIFY_AUTH_TOKEN and NETLIFY_SITE_ID repository secrets. See apps/website/README.md.'
+          if [[ -z "$CLOUDFLARE_API_TOKEN" || -z "$CLOUDFLARE_ACCOUNT_ID" || -z "$CLOUDFLARE_PAGES_PROJECT_NAME" ]]; then
+            echo '::error::Configure the CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID secrets and the CLOUDFLARE_PAGES_PROJECT_NAME variable. See apps/website/README.md.'
             exit 1
           fi
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ github.sha }}
-      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+      - name: Setup Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version-file: .nvmrc
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+      - name: Download published release metadata
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: published-release-metadata
           path: release-check
-      - name: Check out website publication branch
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Checkout website publication branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: main
           path: website-publish
-      - uses: pnpm/action-setup@008330803749db0355799c700092d9a85fd074e9 # v6.0.9
+      - name: Setup pnpm
+        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
       - name: Generate website release data from the release tag
         run: |
-          if [[ "${GITHUB_REF_NAME}" != *-* ]]; then
+          if [[ "${RELEASE_TAG}" != *-* ]]; then
             node scripts/axolotl/create-website-release-metadata.mjs \
               release-check/release.json \
               website-publish/apps/website/releases/latest.json
           fi
 
           node scripts/axolotl/create-website-release-catalog.mjs \
-            website-publish/apps/website/releases/catalog.json
+            website-publish/apps/website/releases/catalog.json \
+            website-publish/apps/app-frontend/src/announcements/catalog.ts
 
       - name: Install website dependencies
         working-directory: website-publish
         run: pnpm install --frozen-lockfile --filter @axolotl/website...
-      - name: Generate static website on GitHub
+      - name: Build website
         working-directory: website-publish
         run: pnpm --filter @axolotl/website build
       - name: Verify prerendered release notes
@@ -402,7 +447,7 @@ jobs:
           node --input-type=module <<'NODE'
           import assert from 'node:assert/strict'
           import fs from 'node:fs'
-          const version = process.env.GITHUB_REF_NAME.replace(/^v/, '')
+          const version = process.env.RELEASE_TAG.replace(/^v/, '')
           const catalog = JSON.parse(fs.readFileSync('apps/website/releases/catalog.json', 'utf8'))
           assert(catalog.announcements.some((entry) => entry.version === version), `Missing catalog entry: ${version}`)
           const html = fs.readFileSync('apps/website/.output/public/changelog/index.html', 'utf8')
@@ -410,9 +455,9 @@ jobs:
           assert(fs.existsSync('apps/website/.output/public/index.html'), 'Missing website homepage')
           NODE
       - name: Save static website artifact
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: website-static-${{ github.ref_name }}
+          name: website-static-${{ env.RELEASE_TAG }}
           path: website-publish/apps/website/.output/public/
           retention-days: 7
           if-no-files-found: error
@@ -424,36 +469,36 @@ jobs:
           if git -C website-publish diff --cached --quiet; then
             echo "Website release data is unchanged"
           else
-            git -C website-publish commit -m "chore(website): update release data for ${GITHUB_REF_NAME} [skip ci]"
+            git -C website-publish commit -m "chore(website): update release data for ${RELEASE_TAG} [skip ci]"
             git -C website-publish push origin main
           fi
-      - name: Deploy prebuilt website and functions to Netlify
+      - name: Deploy prebuilt website to Cloudflare Pages
         working-directory: website-publish
         env:
-          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
-          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
         run: |
-          pnpm --package=netlify-cli@27.13.0 dlx netlify deploy \
-            --prod \
-            --no-build \
-            --filter @axolotl/website \
-            --dir "$PWD/apps/website/.output/public" \
-            --functions "$PWD/netlify/functions" \
-            --site "$NETLIFY_SITE_ID" \
-            --message "Launcher ${GITHUB_REF_NAME} (GitHub Actions ${GITHUB_RUN_ID})" \
-            --timeout 600
+          pnpm --package=wrangler@4.152.0 dlx wrangler pages deploy \
+            apps/website/.output/public \
+            --project-name "$CLOUDFLARE_PAGES_PROJECT_NAME" \
+            --branch main \
+            --commit-message "Launcher ${RELEASE_TAG} (GitHub Actions ${GITHUB_RUN_ID})"
 
   mirror-cnb:
+    name: Mirror release to CNB
     needs: verify-and-publish
+    if: ${{ !cancelled() && needs.verify-and-publish.result == 'success' && (github.event_name == 'push' || inputs.target == 'all' || inputs.target == 'cnb') }}
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ github.sha }}
-      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+      - name: Setup Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version-file: .nvmrc
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+      - name: Download published release metadata
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: published-release-metadata
           path: release-check
@@ -463,6 +508,7 @@ jobs:
           CNB_TOKEN: ${{ secrets.CNB_TOKEN }}
           CNB_TOKEN_USER_NAME: ${{ secrets.CNB_TOKEN_USER_NAME }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_SHA: ${{ needs.verify-and-publish.outputs.release-sha }}
         run: |
           set -euo pipefail
           if [[ -z "${CNB_TOKEN:-}" ]]; then
@@ -477,10 +523,88 @@ jobs:
             git -c "http.extraHeader=Authorization: Basic $auth" "$@"
           }
 
-          git fetch origin "refs/tags/${GITHUB_REF_NAME}:refs/tags/${GITHUB_REF_NAME}"
+          git fetch origin "refs/tags/${RELEASE_TAG}:refs/tags/${RELEASE_TAG}"
+          test "$(git rev-parse "refs/tags/${RELEASE_TAG}^{commit}")" = "$RELEASE_SHA"
           git_cnb push --force "$cnb_url" \
-            "refs/tags/${GITHUB_REF_NAME}:refs/tags/${GITHUB_REF_NAME}"
+            "refs/tags/${RELEASE_TAG}:refs/tags/${RELEASE_TAG}"
 
-          node scripts/axolotl/cnb-release.mjs finalize "${GITHUB_REF_NAME}" cnb-release/final
+          node scripts/axolotl/cnb-release.mjs finalize "${RELEASE_TAG}" cnb-release/final
           node scripts/axolotl/verify-update-manifest.mjs \
-            cnb-release/final/latest.json "${GITHUB_REF_NAME}" cnb
+            cnb-release/final/latest.json "${RELEASE_TAG}" cnb
+
+  mirror-aliyunoss:
+    name: Mirror release to Aliyun OSS
+    needs: verify-and-publish
+    if: ${{ !cancelled() && needs.verify-and-publish.result == 'success' && (github.event_name == 'push' || inputs.target == 'all' || inputs.target == 'aliyunoss') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    concurrency:
+      group: aliyunoss-release-mirror
+      cancel-in-progress: false
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+      - name: Setup Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+      - name: Install OSS SDK
+        run: npm install --prefix "$RUNNER_TEMP/aliyunoss-sdk" --ignore-scripts --no-audit --no-fund ali-oss@6.23.0
+      - name: Download published release metadata
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: published-release-metadata
+          path: release-check
+      - name: Upload all release assets and prune expired versions
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ALIYUN_OSS_SDK_DIR: ${{ runner.temp }}/aliyunoss-sdk
+          ALIYUN_OSS_REGION: ${{ secrets.ALIYUN_OSS_REGION }}
+          ALIYUN_OSS_BUCKET: ${{ secrets.ALIYUN_OSS_BUCKET }}
+          ALIYUN_OSS_ACCESS_KEY_ID: ${{ secrets.ALIYUN_OSS_ACCESS_KEY_ID }}
+          ALIYUN_OSS_ACCESS_KEY_SECRET: ${{ secrets.ALIYUN_OSS_ACCESS_KEY_SECRET }}
+          ALIYUN_OSS_STS_TOKEN: ${{ secrets.ALIYUN_OSS_STS_TOKEN }}
+          RELEASE_RETENTION_COUNT: ${{ vars.RELEASE_RETENTION_COUNT || '3' }}
+          BETA_RETENTION_COUNT: ${{ vars.BETA_RETENTION_COUNT || '3' }}
+        run: node scripts/axolotl/aliyunoss-release.mjs release-check/release.json "${RELEASE_TAG}"
+
+  mirror-gitlink:
+    name: Mirror release to GitLink
+    needs: verify-and-publish
+    if: ${{ !cancelled() && needs.verify-and-publish.result == 'success' && (github.event_name == 'push' || inputs.target == 'all' || inputs.target == 'gitlink') }}
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+      - name: Setup Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+      - name: Download published release metadata
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: published-release-metadata
+          path: release-check
+      - name: Mirror published release to GitLink
+        env:
+          GITLINK_TOKEN: ${{ secrets.GITLINK_TOKEN }}
+          GITLINK_REPO_SLUG: ${{ vars.GITLINK_REPO_SLUG }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [[ -z "${GITLINK_TOKEN:-}" ]]; then
+            echo "GITLINK_TOKEN is not configured"
+            exit 1
+          fi
+
+          node scripts/axolotl/gitlink-release.mjs finalize "${RELEASE_TAG}" gitlink-release/final
+      - name: Verify mirrored GitLink release without a token
+        env:
+          GITLINK_REPO_SLUG: ${{ vars.GITLINK_REPO_SLUG }}
+        run: node scripts/axolotl/gitlink-release.mjs verify "${RELEASE_TAG}"

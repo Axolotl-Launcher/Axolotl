@@ -60,6 +60,35 @@ pub(crate) fn io_error_with_lock_info(
     io_error_with_lock_info_for_paths(source, path, &[path])
 }
 
+/// Makes a remote file name portable while rejecting paths and traversal.
+pub(crate) fn sanitize_download_file_name(name: &str) -> crate::Result<String> {
+    if name.is_empty()
+        || matches!(name, "." | "..")
+        || name.contains(['/', '\\'])
+    {
+        return Err(crate::ErrorKind::InputError(
+            "Invalid download file name".to_string(),
+        )
+        .into());
+    }
+    let trimmed_len = name.trim_end_matches(['.', ' ']).len();
+    let name: String = name
+        .char_indices()
+        .map(|(index, character)| {
+            if index >= trimmed_len
+                || character.is_control()
+                || matches!(character, '<' | '>' | ':' | '"' | '|' | '?' | '*')
+            {
+                '_'
+            } else {
+                character
+            }
+        })
+        .collect();
+    safe_relative_join(Path::new(""), &name)?;
+    Ok(name)
+}
+
 /// Joins an untrusted Unix-style relative file path, rejecting traversal and
 /// Windows aliases on every platform. This is a lexical check, not a symlink
 /// sandbox.
@@ -1011,6 +1040,39 @@ mod windows_sharing_violation_tests {
 mod atomic_replace_tests {
     use super::*;
     use tempfile::tempdir;
+
+    #[test]
+    fn download_file_names_replace_invalid_characters() {
+        for (original, expected) in [
+            (
+                "Yet Another Bingo: Ultimate-214.0.mrpack",
+                "Yet Another Bingo_ Ultimate-214.0.mrpack",
+            ),
+            ("mod<>:\"|?*\0\n.jar", "mod_________.jar"),
+            ("[中文] mod-1.2+forge.jar", "[中文] mod-1.2+forge.jar"),
+            ("pack.zip. ", "pack.zip__"),
+        ] {
+            assert_eq!(
+                sanitize_download_file_name(original).unwrap(),
+                expected
+            );
+        }
+        for invalid in [
+            "",
+            ".",
+            "..",
+            "../mod.jar",
+            "nested/mod.jar",
+            r"..\mod.jar",
+            "C:/mod.jar",
+            "NUL.jar",
+        ] {
+            assert!(
+                sanitize_download_file_name(invalid).is_err(),
+                "{invalid:?}"
+            );
+        }
+    }
 
     #[test]
     fn join_within_root_uses_portable_path_validation() {

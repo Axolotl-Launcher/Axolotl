@@ -1,7 +1,7 @@
-import IntlMessageFormat from 'intl-messageformat'
 import { afterEach, expect, it, vi } from 'vitest'
 import { ref } from 'vue'
 
+import chineseMessages from '@/locales/zh-CN/index.json'
 import { mountThemed, waitFor } from '@/test/visual-harness'
 
 import { I18N_INJECTION_KEY } from '../../../../../../packages/ui/src/providers/i18n'
@@ -20,13 +20,13 @@ vi.mock('@modrinth/ui', async () => ({
     ).default,
     Collapsible: (await import('../../../../../../packages/ui/src/components/base/Collapsible.vue'))
         .default,
+    IntlFormatted: (
+        await import('../../../../../../packages/ui/src/components/base/IntlFormatted.vue')
+    ).default,
     NewModal: (await import('../../../../../../packages/ui/src/components/modal/NewModal.vue'))
         .default,
     defineMessages: (messages: unknown) => messages,
-    useVIntl: () => ({
-        formatMessage: (message: { defaultMessage: string }) =>
-            new IntlMessageFormat(message.defaultMessage, 'en-US').format(),
-    }),
+    useVIntl: (await import('../../../../../../packages/ui/src/composables/i18n')).useVIntl,
 }))
 
 const cleanup: (() => void)[] = []
@@ -35,6 +35,66 @@ afterEach(() =>
         .splice(0)
         .reverse()
         .forEach((stop) => stop()),
+)
+
+it.each(['en-US', 'zh-CN'])(
+    'offers purchase and profile setup help for missing Java ownership in %s and resets for other errors',
+    async (locale) => {
+        const translations: Record<string, { message: string }> =
+            locale === 'zh-CN' ? chineseMessages : {}
+        const wrapper = await mountThemed(MinecraftAuthErrorModal, {}, 'dark', {
+            global: {
+                directives: { tooltip: {} },
+                provide: {
+                    [I18N_INJECTION_KEY as symbol]: {
+                        locale: ref(locale),
+                        t: (key: string) => translations[key]?.message ?? key,
+                        setLocale: () => {},
+                    },
+                },
+            },
+        })
+        cleanup.push(() => wrapper.unmount())
+        const message =
+            'Minecraft authentication error: The Microsoft account does not own Minecraft: Java Edition'
+        wrapper.vm.show({ message })
+        await waitFor(() => !!document.querySelector('.modal-container.shown'))
+        const body = document.querySelector<HTMLElement>('.modal-body')!
+        expect(body.textContent).toContain(
+            locale === 'zh-CN'
+                ? '我们无法从该微软账户中寻找到 Minecraft Java 正版档案：'
+                : "We couldn't find a Minecraft: Java Edition profile for this Microsoft account.",
+        )
+        expect(body.querySelectorAll('ul li')).toHaveLength(2)
+        const storeLink = body.querySelector<HTMLAnchorElement>('a[href*="/games/store/"]')!
+        expect(storeLink.href).toBe(
+            'https://www.xbox.com/zh-CN/games/store/minecraft-java-bedrock-edition-for-pc/9nxp44l49shj',
+        )
+        expect(storeLink.textContent?.trim()).toBe(locale === 'zh-CN' ? '这里' : 'here')
+        const profileLink = body.querySelector<HTMLAnchorElement>(
+            'a[href="https://minecraft.net"]',
+        )!
+        expect(profileLink.textContent?.trim()).toBe(
+            locale === 'zh-CN' ? 'Minecraft 官网' : 'official Minecraft website',
+        )
+        expect(body.textContent).not.toContain(
+            locale === 'zh-CN'
+                ? '账号限制或地区限制'
+                : 'account restrictions or regional limitations',
+        )
+        expect(body.textContent).not.toContain(locale === 'zh-CN' ? '未知错误' : 'Unknown error')
+        const debugButton = [...body.querySelectorAll('button')].find((button) =>
+            button.textContent?.includes(locale === 'zh-CN' ? '调试信息' : 'Debug information'),
+        )!
+        debugButton.click()
+        await wrapper.vm.$nextTick()
+        expect(body.textContent).toContain(message)
+
+        wrapper.vm.show({ message: 'Minecraft authentication error: unrecognized failure' })
+        await wrapper.vm.$nextTick()
+        expect(body.textContent).toContain(locale === 'zh-CN' ? '未知错误' : 'Unknown error')
+        expect(body.querySelector('a[href*="/games/store/"]')).toBeNull()
+    },
 )
 
 it('keeps both sign-in recovery actions compact and inside the modal at normal and narrow widths', async () => {

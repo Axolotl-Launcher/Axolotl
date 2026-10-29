@@ -14,7 +14,9 @@ max_line_length = 100
 indent_size = 2
 max_line_length = off
 
-[*.{toml,json}]
+# Prettier maps this block to `tabWidth`, so it also decides how the JSON and
+# JSONC config files are laid out.
+[*.{toml,json,jsonc}]
 indent_size = 2
 indent_style = space
 

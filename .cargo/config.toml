@@ -1,3 +1,17 @@
+[env]
+# The linker flag above only covers the main thread, and the launcher raises
+# the stack again for its tokio runtime (apps/app/src/main.rs). Test threads
+# get neither, so the heaviest tests abort with STATUS_STACK_OVERFLOW
+# (0xc00000fd) on their deep async chains instead of reporting a real result.
+# This gives them the same headroom as the app. Cargo applies [env] to every
+# process it launches, so a dev run gets it too, which only repeats the stack
+# the launcher already gives its own runtime. It is a runtime variable that the
+# standard library reads when it sizes a thread, so the shipped binary is
+# unaffected unless something sets it. The value is fixed here rather than read
+# from the environment so the fingerprint is identical on every machine; a value
+# that varies would keep build scripts permanently dirty.
+RUST_MIN_STACK = "16777216"
+
 # Windows has stack overflows when calling from Tauri, so we increase the default stack size used by the compiler
 [target."cfg(windows)"]
 rustflags = ["-C", "link-args=/STACK:16777220"]

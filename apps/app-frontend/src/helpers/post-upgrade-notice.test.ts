@@ -1,6 +1,6 @@
-import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
-import test from 'node:test'
+
+import { expect, it } from 'vitest'
 
 import {
     postUpgradeWarningForContent,
@@ -13,65 +13,61 @@ const warning = {
     relativePath: 'mods/example.jar',
 }
 
-test('matches post-upgrade warnings by exact content id or normalized relative path', () => {
-    assert.equal(postUpgradeWarningForContent([warning], 'content-a', null), warning)
-    assert.equal(postUpgradeWarningForContent([warning], null, 'mods\\example.jar'), warning)
-    assert.equal(postUpgradeWarningForContent([warning], null, '././mods/example.jar'), warning)
-    assert.equal(postUpgradeWarningForContent([warning], null, 'mods/other.jar'), null)
+it('matches post-upgrade warnings by exact content id or normalized relative path', () => {
+    expect(postUpgradeWarningForContent([warning], 'content-a', null)).toBe(warning)
+    expect(postUpgradeWarningForContent([warning], null, 'mods\\example.jar')).toBe(warning)
+    expect(postUpgradeWarningForContent([warning], null, '././mods/example.jar')).toBe(warning)
+    expect(postUpgradeWarningForContent([warning], null, 'mods/other.jar')).toBe(null)
 })
 
-test('matches local preserved resource packs using only their exact normalized path', () => {
+it('matches local preserved resource packs using only their exact normalized path', () => {
     const localWarning = {
         code: 'keep_incompatible' as const,
         contentId: null,
         relativePath: 'resourcepacks/foo.zip',
     }
-    assert.equal(
-        postUpgradeWarningForContent([localWarning], null, 'resourcepacks/foo.zip'),
+    expect(postUpgradeWarningForContent([localWarning], null, 'resourcepacks/foo.zip')).toBe(
         localWarning,
     )
-    assert.equal(
-        postUpgradeWarningForContent([localWarning], null, 'resourcepacks\\foo.zip'),
+    expect(postUpgradeWarningForContent([localWarning], null, 'resourcepacks\\foo.zip')).toBe(
         localWarning,
     )
 })
 
-test('content id match takes priority over an earlier path-only match', () => {
+it('content id match takes priority over an earlier path-only match', () => {
     const pathMatch = { ...warning, contentId: null }
     const contentMatch = {
         ...warning,
         contentId: 'content-a',
         relativePath: 'resourcepacks/foo.zip',
     }
-    assert.equal(
+    expect(
         postUpgradeWarningForContent([pathMatch, contentMatch], 'content-a', 'mods/example.jar'),
-        contentMatch,
-    )
+    ).toBe(contentMatch)
 })
 
-test('large warning collections default to collapsed', () => {
-    assert.equal(shouldExpandUpgradeWarningsByDefault(5), true)
-    assert.equal(shouldExpandUpgradeWarningsByDefault(30), false)
+it('large warning collections default to collapsed', () => {
+    expect(shouldExpandUpgradeWarningsByDefault(5)).toBe(true)
+    expect(shouldExpandUpgradeWarningsByDefault(30)).toBe(false)
 })
 
-test('instance header and content page consume persisted target notice', () => {
+it('instance header and content page consume persisted target notice', () => {
     const indexSource = readFileSync(
         new URL('../pages/instance/Index.vue', import.meta.url),
         'utf8',
     )
     const modsSource = readFileSync(new URL('../pages/instance/Mods.vue', import.meta.url), 'utf8')
-    assert.match(indexSource, /v-if="postUpgradeNotice"/)
-    assert.match(indexSource, /postUpgradeNotice\.targetGameVersion/)
-    assert.match(
-        indexSource,
+    expect(indexSource).toMatch(/v-if="postUpgradeNotice"/)
+    expect(indexSource).toMatch(/postUpgradeNotice\.targetGameVersion/)
+    expect(indexSource).toMatch(
         /usePostUpgradeNotice\(\(\) => instance\.value\?\.id \?\? props\.id\)/,
     )
-    assert.match(modsSource, /usePostUpgradeNotice\(\(\) => props\.instance\.id\)/)
-    assert.match(modsSource, /item\.instanceEntryId,[\s\S]*item\.file_path/)
-    assert.match(modsSource, /postUpgradeWarningTooltip/)
+    expect(modsSource).toMatch(/usePostUpgradeNotice\(\(\) => props\.instance\.id\)/)
+    expect(modsSource).toMatch(/item\.instanceEntryId,[\s\S]*item\.file_path/)
+    expect(modsSource).toMatch(/postUpgradeWarningTooltip/)
 })
 
-test('notice query uses the target instance value and registered Tauri command', () => {
+it('notice query uses the target instance value and registered Tauri command', () => {
     const querySource = readFileSync(
         new URL('../composables/usePostUpgradeNotice.ts', import.meta.url),
         'utf8',
@@ -81,24 +77,24 @@ test('notice query uses the target instance value and registered Tauri command',
         new URL('../../../app/src/api/instance.rs', import.meta.url),
         'utf8',
     )
-    assert.match(querySource, /\['post-upgrade-notice', instanceId\]/)
-    assert.match(querySource, /enabled: computed\(\(\) => toValue\(instanceId\)\.length > 0\)/)
-    assert.match(querySource, /throw error/)
-    assert.match(helperSource, /plugin:instance\|instance_get_post_upgrade_notice/)
-    assert.match(tauriSource, /tauri::generate_handler!\[[\s\S]*instance_get_post_upgrade_notice/)
+    expect(querySource).toMatch(/\['post-upgrade-notice', instanceId\]/)
+    expect(querySource).toMatch(/enabled: computed\(\(\) => toValue\(instanceId\)\.length > 0\)/)
+    expect(querySource).toMatch(/throw error/)
+    expect(helperSource).toMatch(/plugin:instance\|instance_get_post_upgrade_notice/)
+    expect(tauriSource).toMatch(/tauri::generate_handler!\[[\s\S]*instance_get_post_upgrade_notice/)
 })
 
-test('result uses Modrinth Card and Accordion for collapsed compatibility warnings', () => {
+it('result uses Modrinth Card and Accordion for collapsed compatibility warnings', () => {
     const source = readFileSync(
         new URL('../pages/instance/upgrade/UpgradeResultCollections.vue', import.meta.url),
         'utf8',
     )
-    assert.match(source, /<Card v-if="warnings\.length"/)
-    assert.match(source, /<Accordion[\s\S]*:open-by-default="warningsDefaultOpen"/)
-    assert.match(source, /<TriangleAlertIcon/)
+    expect(source).toMatch(/<Card v-if="warnings\.length"/)
+    expect(source).toMatch(/<Accordion[\s\S]*:open-by-default="warningsDefaultOpen"/)
+    expect(source).toMatch(/<TriangleAlertIcon/)
 })
 
-test('runtime icon references use names exported by the assets package', () => {
+it('runtime icon references use names exported by the assets package', () => {
     const downloadsSource = readFileSync(new URL('../pages/Downloads.vue', import.meta.url), 'utf8')
     const resultSource = readFileSync(
         new URL('../pages/instance/upgrade/UpgradeResultCollections.vue', import.meta.url),
@@ -108,10 +104,10 @@ test('runtime icon references use names exported by the assets package', () => {
         new URL('../../../../packages/assets/generated-icons.ts', import.meta.url),
         'utf8',
     )
-    assert.match(downloadsSource, /upgrade_unmanaged_instance' \|\|[\s\S]*RefreshCwIcon/)
-    assert.doesNotMatch(downloadsSource, /UpdatedIcon/)
-    assert.match(resultSource, /import \{[^}]*TriangleAlertIcon[^}]*\} from '@modrinth\/assets'/)
-    assert.doesNotMatch(resultSource, /WarningIcon/)
-    assert.match(assetsSource, /export const RefreshCwIcon = _RefreshCwIcon/)
-    assert.match(assetsSource, /export const TriangleAlertIcon = _TriangleAlertIcon/)
+    expect(downloadsSource).toMatch(/upgrade_unmanaged_instance' \|\|[\s\S]*RefreshCwIcon/)
+    expect(downloadsSource).not.toMatch(/UpdatedIcon/)
+    expect(resultSource).toMatch(/import \{[^}]*TriangleAlertIcon[^}]*\} from '@modrinth\/assets'/)
+    expect(resultSource).not.toMatch(/WarningIcon/)
+    expect(assetsSource).toMatch(/export const RefreshCwIcon = _RefreshCwIcon/)
+    expect(assetsSource).toMatch(/export const TriangleAlertIcon = _TriangleAlertIcon/)
 })

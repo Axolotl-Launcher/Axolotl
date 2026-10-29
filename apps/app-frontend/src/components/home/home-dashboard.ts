@@ -1,7 +1,7 @@
 export const HOME_DASHBOARD_VERSION = 1 as const
 export const HOME_WIDGET_LAYOUTS = ['grid', 'free'] as const
 export const HOME_WIDGET_STANDARD_SIZES = ['1x1', '2x1', '1x2', '2x2'] as const
-export const HOME_WIDGET_SIZES = [...HOME_WIDGET_STANDARD_SIZES, '3x1', '3x2'] as const
+export const HOME_WIDGET_SIZES = [...HOME_WIDGET_STANDARD_SIZES, '2x3', '3x1', '3x2'] as const
 export const HOME_WIDGET_GRID_GAP = 16
 export const HOME_WIDGET_GRID_ROW_HEIGHT = 160
 export const HOME_RECENT_LIMIT_OPTIONS = [2, 4, 6, 8] as const
@@ -99,7 +99,7 @@ export type HomeDashboardSaveQueue = {
 
 export const HOME_WIDGET_SIZE_OPTIONS: Record<HomeWidgetKind, readonly HomeWidgetSize[]> = {
     greeting: ['2x1'],
-    recent: ['2x1', '2x2', '3x1', '3x2'],
+    recent: ['2x1', '2x2', '2x3', '3x1', '3x2'],
     calendar: ['1x2'],
     'pinned-instances': HOME_WIDGET_STANDARD_SIZES,
     'pinned-worlds': HOME_WIDGET_STANDARD_SIZES,

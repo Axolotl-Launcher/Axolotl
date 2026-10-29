@@ -77,6 +77,8 @@ const props = withDefaults(
         startingInstance?: boolean
         supportsServerQuickPlay?: boolean
         supportsWorldQuickPlay?: boolean
+        /** Quick play support is not known yet; Play stays disabled without a reason. */
+        quickPlayPending?: boolean
         currentProtocol?: ProtocolVersion | null
         highlighted?: boolean
 
@@ -108,6 +110,7 @@ const props = withDefaults(
         startingInstance: false,
         supportsServerQuickPlay: true,
         supportsWorldQuickPlay: false,
+        quickPlayPending: false,
         currentProtocol: null,
 
         refreshing: false,
@@ -488,11 +491,13 @@ const messages = defineMessages({
                                         : serverIncompatible
                                           ? formatMessage(messages.incompatibleServer)
                                           : null
-                                : !supportsWorldQuickPlay
-                                  ? formatMessage(messages.noSingleplayerQuickPlay)
-                                  : playingOtherWorld || locked
-                                    ? formatMessage(messages.gameAlreadyOpen)
-                                    : null
+                                : quickPlayPending
+                                  ? null
+                                  : !supportsWorldQuickPlay
+                                    ? formatMessage(messages.noSingleplayerQuickPlay)
+                                    : playingOtherWorld || locked
+                                      ? formatMessage(messages.gameAlreadyOpen)
+                                      : null
                         "
                         :disabled="
                             playingOtherWorld ||

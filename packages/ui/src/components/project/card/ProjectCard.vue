@@ -16,7 +16,14 @@
                 { 'project-card--compact-server': isServerProject },
             ]"
         >
-            <Avatar :src="iconUrl" size="48px" class="ease-brightness" no-shadow />
+            <Avatar
+                loading="lazy"
+                decoding="async"
+                :src="iconUrl"
+                size="48px"
+                class="ease-brightness"
+                no-shadow
+            />
             <div class="project-card--compact__identity flex min-w-0 flex-col justify-center gap-1">
                 <div class="flex min-w-0 items-center gap-2">
                     <ProjectCardTitle :title="title" dense />
@@ -99,12 +106,16 @@
             >
                 <img
                     v-if="banner"
+                    loading="lazy"
+                    decoding="async"
                     :src="banner"
                     alt=""
                     class="absolute w-full h-full inset-0 object-cover object-center"
                 />
                 <img
                     v-else
+                    loading="lazy"
+                    decoding="async"
                     src="https://cdn-raw.modrinth.com/landing-new/landing.webp"
                     alt=""
                     class="absolute w-full h-full inset-0 object-cover object-center opacity-70 scale-[200%]"
@@ -113,6 +124,8 @@
             <div class="p-4 flex flex-col gap-3 grow">
                 <div class="flex gap-3">
                     <Avatar
+                        loading="lazy"
+                        decoding="async"
                         :src="iconUrl"
                         size="96px"
                         class="project-card__icon ease-brightness"
@@ -221,6 +234,8 @@
             ]"
         >
             <Avatar
+                loading="lazy"
+                decoding="async"
                 :src="iconUrl"
                 size="100px"
                 class="project-card__icon grid-project-card-list__icon ease-brightness"

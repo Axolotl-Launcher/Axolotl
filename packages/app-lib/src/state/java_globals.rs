@@ -1,5 +1,10 @@
 use serde::{Deserialize, Serialize};
-use sqlx::Row;
+
+use crate::state::store::java_default_versions::{
+    JavaDefaultVersionRecord, JavaDefaultVersions,
+};
+use crate::state::store::java_versions::{JavaVersionRecord, JavaVersions};
+use crate::state::store::{Atom, Collection as _, Handle, atom};
 
 #[derive(Debug, PartialEq, Eq, Hash, Serialize, Deserialize, Clone)]
 pub struct JavaVersion {
@@ -11,199 +16,213 @@ pub struct JavaVersion {
 }
 
 impl JavaVersion {
+    /// The default runtime of `major_version`, or nothing when that version has
+    /// no default or its default is not installed.
     pub async fn get(
         major_version: u32,
-        exec: impl sqlx::Executor<'_, Database = sqlx::Sqlite>,
+        handle: &Handle,
     ) -> crate::Result<Option<JavaVersion>> {
-        let row = sqlx::query(
-            "
-            SELECT
-                java_versions.major_version,
-                java_versions.full_version,
-                java_versions.architecture,
-                java_versions.path,
-                java_versions.distribution
-            FROM java_default_versions
-            INNER JOIN java_versions
-                ON java_versions.major_version = java_default_versions.major_version
-                AND java_versions.path = java_default_versions.path
-            WHERE java_default_versions.major_version = $1
-            ",
-        )
-        .bind(major_version as i64)
-        .fetch_optional(exec)
-        .await?;
+        let mut unit = atom(handle).await?;
+        let Some(default) =
+            JavaDefaultVersions::atom_get(&mut unit, &major_version).await?
+        else {
+            return Ok(None);
+        };
+        let Some(record) =
+            JavaVersions::atom_get(&mut unit, &default.path).await?
+        else {
+            return Ok(None);
+        };
 
-        Ok(row.map(|row| JavaVersion {
-            parsed_version: row.get::<i64, _>("major_version") as u32,
-            version: row.get("full_version"),
-            architecture: row.get("architecture"),
-            path: row.get("path"),
-            distribution: row.get("distribution"),
-        }))
+        Ok(Some(Self::from_record(default.path, record)))
     }
 
-    pub async fn get_all_defaults(
-        exec: impl sqlx::Executor<'_, Database = sqlx::Sqlite>,
+    /// Every default runtime the launcher holds, the highest version first.
+    pub(crate) async fn get_all_defaults(
+        handle: &Handle,
     ) -> crate::Result<Vec<Self>> {
-        let rows = sqlx::query(
-            "
-            SELECT
-                java_versions.major_version,
-                java_versions.full_version,
-                java_versions.architecture,
-                java_versions.path,
-                java_versions.distribution
-            FROM java_default_versions
-            INNER JOIN java_versions
-                ON java_versions.major_version = java_default_versions.major_version
-                AND java_versions.path = java_default_versions.path
-            ORDER BY java_versions.major_version DESC
-            ",
-        )
-        .fetch_all(exec)
-        .await?;
+        let mut unit = atom(handle).await?;
+        let mut versions = Vec::new();
+        for (_, default) in JavaDefaultVersions::atom_get_all(&mut unit).await?
+        {
+            let Some(record) =
+                JavaVersions::atom_get(&mut unit, &default.path).await?
+            else {
+                continue;
+            };
+            versions.push(Self::from_record(default.path, record));
+        }
+        versions.sort_by(|left, right| {
+            right.parsed_version.cmp(&left.parsed_version)
+        });
 
-        Ok(rows
-            .into_iter()
-            .map(|row| JavaVersion {
-                parsed_version: row.get::<i64, _>("major_version") as u32,
-                version: row.get("full_version"),
-                architecture: row.get("architecture"),
-                path: row.get("path"),
-                distribution: row.get("distribution"),
-            })
-            .collect())
+        Ok(versions)
     }
 
-    pub async fn get_all(
-        exec: impl sqlx::Executor<'_, Database = sqlx::Sqlite>,
+    pub(crate) async fn get_all(handle: &Handle) -> crate::Result<Vec<Self>> {
+        Ok(Self::from_records(JavaVersions::get_all(handle).await?))
+    }
+
+    pub(crate) async fn get_all_in(
+        unit: &mut Atom,
     ) -> crate::Result<Vec<Self>> {
-        let rows = sqlx::query!(
-            r#"SELECT major_version, full_version, architecture, path, distribution as "distribution?: String" FROM java_versions"#
-        )
-        .fetch_all(exec)
-        .await?;
-
-        Ok(rows
-            .into_iter()
-            .map(|x| JavaVersion {
-                parsed_version: x.major_version as u32,
-                version: x.full_version,
-                architecture: x.architecture,
-                path: x.path,
-                distribution: x.distribution,
-            })
-            .collect())
+        Ok(Self::from_records(JavaVersions::atom_get_all(unit).await?))
     }
 
-    pub async fn upsert(
-        &self,
-        exec: impl sqlx::Executor<'_, Database = sqlx::Sqlite>,
-    ) -> crate::Result<()> {
-        let major_version = self.parsed_version as i32;
+    pub(crate) async fn upsert(&self, handle: &Handle) -> crate::Result<()> {
+        let mut unit = atom(handle).await?;
+        self.upsert_in(&mut unit).await?;
+        unit.commit().await
+    }
 
-        sqlx::query!(
-            "
-            INSERT INTO java_versions (major_version, full_version, architecture, path, distribution)
-            VALUES ($1, $2, $3, $4, $5)
-            ON CONFLICT (path) DO UPDATE SET
-                major_version = $1,
-                full_version = $2,
-                architecture = $3,
-                distribution = $5
-            ",
-            major_version,
-            self.version,
-            self.architecture,
-            self.path,
-            self.distribution,
-        )
-            .execute(exec)
-            .await?;
-
-        Ok(())
+    pub(crate) async fn upsert_in(&self, unit: &mut Atom) -> crate::Result<()> {
+        JavaVersions::atom_set(unit, &self.path, Some(&self.to_record())).await
     }
 
     pub async fn set_default(
         major_version: u32,
         path: &str,
-        exec: impl sqlx::Executor<'_, Database = sqlx::Sqlite>,
+        handle: &Handle,
     ) -> crate::Result<()> {
-        sqlx::query(
-            "
-            INSERT INTO java_default_versions (major_version, path)
-            VALUES ($1, $2)
-            ON CONFLICT (major_version) DO UPDATE SET path = $2
-            ",
-        )
-        .bind(major_version as i64)
-        .bind(path)
-        .execute(exec)
-        .await?;
+        let mut unit = atom(handle).await?;
+        Self::set_default_in(&mut unit, major_version, path).await?;
+        unit.commit().await
+    }
 
-        Ok(())
+    pub(crate) async fn set_default_in(
+        unit: &mut Atom,
+        major_version: u32,
+        path: &str,
+    ) -> crate::Result<()> {
+        JavaDefaultVersions::atom_set(
+            unit,
+            &major_version,
+            Some(&JavaDefaultVersionRecord {
+                path: path.to_string(),
+            }),
+        )
+        .await
     }
 
     pub async fn remove_default(
         major_version: u32,
-        exec: impl sqlx::Executor<'_, Database = sqlx::Sqlite>,
+        handle: &Handle,
     ) -> crate::Result<()> {
-        sqlx::query(
-            "DELETE FROM java_default_versions WHERE major_version = $1",
-        )
-        .bind(major_version as i64)
-        .execute(exec)
-        .await?;
-
-        Ok(())
+        JavaDefaultVersions::set(handle, &major_version, None).await
     }
 
     pub async fn remove_default_for_path(
         path: &str,
-        exec: impl sqlx::Executor<'_, Database = sqlx::Sqlite>,
+        handle: &Handle,
     ) -> crate::Result<()> {
-        sqlx::query("DELETE FROM java_default_versions WHERE path = $1")
-            .bind(path)
-            .execute(exec)
-            .await?;
+        let mut unit = atom(handle).await?;
+        Self::remove_default_for_path_in(&mut unit, path).await?;
+        unit.commit().await
+    }
+
+    /// Removes every default naming `path`. The defaults are one per major
+    /// version, so they are read as a whole and filtered: no key leads from a
+    /// path to the versions that name it.
+    pub(crate) async fn remove_default_for_path_in(
+        unit: &mut Atom,
+        path: &str,
+    ) -> crate::Result<()> {
+        for (major_version, default) in
+            JavaDefaultVersions::atom_get_all(unit).await?
+        {
+            if default.path == path {
+                JavaDefaultVersions::atom_set(unit, &major_version, None)
+                    .await?;
+            }
+        }
 
         Ok(())
     }
 
-    pub async fn delete(
+    pub(crate) async fn delete(
         path: &str,
-        exec: impl sqlx::Executor<'_, Database = sqlx::Sqlite>,
+        handle: &Handle,
     ) -> crate::Result<()> {
-        sqlx::query!("DELETE FROM java_versions WHERE path = $1", path)
-            .execute(exec)
-            .await?;
-        Ok(())
+        JavaVersions::set(handle, &path.to_string(), None).await
+    }
+
+    pub(crate) async fn delete_in(
+        unit: &mut Atom,
+        path: &str,
+    ) -> crate::Result<()> {
+        JavaVersions::atom_set(unit, &path.to_string(), None).await
     }
 
     pub async fn update_path(
         old_path: &str,
         new_path: &str,
-        exec: impl sqlx::Executor<'_, Database = sqlx::Sqlite>,
+        handle: &Handle,
     ) -> crate::Result<()> {
-        sqlx::query("UPDATE java_versions SET path = $1 WHERE path = $2")
-            .bind(new_path)
-            .bind(old_path)
-            .execute(exec)
-            .await?;
-
-        Ok(())
+        let mut unit = atom(handle).await?;
+        Self::update_path_in(&mut unit, old_path, new_path).await?;
+        unit.commit().await
     }
 
-    pub async fn remove(
-        major_version: u32,
-        exec: impl sqlx::Executor<'_, Database = sqlx::Sqlite>,
+    /// Moves the runtime stored under `old_path` to `new_path`, and the default
+    /// naming it along, so both keep pointing at the same runtime.
+    pub(crate) async fn update_path_in(
+        unit: &mut Atom,
+        old_path: &str,
+        new_path: &str,
     ) -> crate::Result<()> {
-        let version = major_version as i32;
-        sqlx::query("DELETE FROM java_versions WHERE major_version = $1")
-            .bind(version)
-            .execute(exec)
+        if old_path == new_path {
+            return Ok(());
+        }
+        let Some(record) =
+            JavaVersions::atom_get(unit, &old_path.to_string()).await?
+        else {
+            return Ok(());
+        };
+        if JavaVersions::atom_get(unit, &new_path.to_string())
+            .await?
+            .is_some()
+        {
+            return Err(crate::ErrorKind::InputError(format!(
+                "A Java runtime is already recorded at {new_path}"
+            ))
+            .into());
+        }
+
+        JavaVersions::atom_set(unit, &new_path.to_string(), Some(&record))
             .await?;
-        Ok(())
+        if let Some(default) =
+            JavaDefaultVersions::atom_get(unit, &record.major_version).await?
+            && default.path == old_path
+        {
+            Self::set_default_in(unit, record.major_version, new_path).await?;
+        }
+
+        JavaVersions::atom_set(unit, &old_path.to_string(), None).await
+    }
+
+    fn from_records(records: Vec<(String, JavaVersionRecord)>) -> Vec<Self> {
+        records
+            .into_iter()
+            .map(|(path, record)| Self::from_record(path, record))
+            .collect()
+    }
+
+    fn from_record(path: String, record: JavaVersionRecord) -> Self {
+        Self {
+            parsed_version: record.major_version,
+            version: record.full_version,
+            architecture: record.architecture,
+            path,
+            distribution: record.distribution,
+        }
+    }
+
+    fn to_record(&self) -> JavaVersionRecord {
+        JavaVersionRecord {
+            major_version: self.parsed_version,
+            full_version: self.version.clone(),
+            architecture: self.architecture.clone(),
+            distribution: self.distribution.clone(),
+        }
     }
 }

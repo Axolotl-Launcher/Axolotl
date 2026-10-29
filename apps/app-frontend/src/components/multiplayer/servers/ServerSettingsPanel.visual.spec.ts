@@ -1,3 +1,5 @@
+import '@modrinth/ui/directives/tooltip-styles.ts'
+
 import { I18N_INJECTION_KEY } from '@modrinth/ui'
 import { tooltipDirective } from '@modrinth/ui/directives/tooltip.ts'
 import { afterEach, expect, it, vi } from 'vitest'

@@ -1,4 +1,19 @@
 {
+  "drop.instance-import.title": {
+    "defaultMessage": "Import instances"
+  },
+  "drop.confirm.minecraft-root.title": {
+    "defaultMessage": "Add .minecraft folder"
+  },
+  "drop.confirm.minecraft-root.prompt": {
+    "defaultMessage": "This looks like a .minecraft folder. Would you like to add it directly to the launcher?"
+  },
+  "drop.confirm.minecraft-root.add": {
+    "defaultMessage": "Yes, add folder"
+  },
+  "drop.confirm.minecraft-root.import": {
+    "defaultMessage": "No, import instances"
+  },
   "action.no-permission": {
     "defaultMessage": "You do not have permission."
   },
@@ -340,12 +355,6 @@
   },
   "console.action.share": {
     "defaultMessage": "Share"
-  },
-  "console.command-completions.no-results": {
-    "defaultMessage": "No matching completions"
-  },
-  "console.command-completions.search": {
-    "defaultMessage": "Search command completions"
   },
   "console.command.disabled-placeholder": {
     "defaultMessage": "Command input disabled"
@@ -804,7 +813,7 @@
     "defaultMessage": "Update {count, plural, one {# project} other {# projects}}"
   },
   "content.confirm-deletion.admonition-body": {
-    "defaultMessage": "Deleting a mod can permanently affect your world and may cause missing content or unexpected issues when it loads again."
+    "defaultMessage": "Deleting {contentType, select, mod {a mod} resourcepack {a resource pack} shader {a shader} datapack {a data pack} other {content}} can permanently affect your world and may cause missing content or unexpected issues when it loads again."
   },
   "content.confirm-deletion.admonition-header": {
     "defaultMessage": "Deletion warning"
@@ -2494,6 +2503,9 @@
   },
   "instances.updater-modal.loading-changelog": {
     "defaultMessage": "Loading changelog..."
+  },
+  "instances.updater-modal.loading-more-versions": {
+    "message": "Loading more versions…"
   },
   "instances.updater-modal.loading-versions": {
     "defaultMessage": "Loading versions..."

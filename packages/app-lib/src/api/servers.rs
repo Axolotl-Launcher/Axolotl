@@ -17,8 +17,9 @@ mod ports;
 pub use self::console::{ConsoleDelta, get_console_delta};
 pub use self::files::{download_file, read_file, write_file};
 pub use self::forge::{install_forge, install_neoforge};
+pub(crate) use self::lifecycle::running_server_ids;
 pub use self::lifecycle::{
-    kill, resize_console, send_console_input, start, stop,
+    kill, resize_console, send_console_input, shutdown_all, start, stop,
 };
 pub use self::link::{
     DEFAULT_READY_TIMEOUT_MS, is_local_address, wait_until_ready,

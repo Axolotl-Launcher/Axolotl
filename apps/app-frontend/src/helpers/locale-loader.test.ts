@@ -1,9 +1,8 @@
-import assert from 'node:assert/strict'
-import test from 'node:test'
+import { expect, it } from 'vitest'
 
 import { createLocaleLoader } from './locale-loader.ts'
 
-test('loads only requested languages, shares concurrent loads and reuses loaded messages', async () => {
+it('loads only requested languages, shares concurrent loads and reuses loaded messages', async () => {
     const loaded: string[] = []
     const active: string[] = []
     const loader = createLocaleLoader(
@@ -15,11 +14,11 @@ test('loads only requested languages, shares concurrent loads and reuses loaded 
     await Promise.all([loader.ensure('en-US'), loader.ensure('en-US')])
     await loader.select('zh-CN')
     await loader.select('en-US')
-    assert.deepEqual(loaded, ['en-US', 'zh-CN'])
-    assert.deepEqual(active, ['zh-CN', 'en-US'])
+    expect(loaded).toEqual(['en-US', 'zh-CN'])
+    expect(active).toEqual(['zh-CN', 'en-US'])
 })
 
-test('slow locale loads cannot override a later selection', async () => {
+it('slow locale loads cannot override a later selection', async () => {
     let finish!: () => void
     const active: string[] = []
     const loader = createLocaleLoader(
@@ -36,10 +35,10 @@ test('slow locale loads cannot override a later selection', async () => {
     await loader.select('en-US')
     finish()
     await slow
-    assert.deepEqual(active, ['en-US'])
+    expect(active).toEqual(['en-US'])
 })
 
-test('failed language loads preserve the active language and can be retried', async () => {
+it('failed language loads preserve the active language and can be retried', async () => {
     let attempts = 0
     const active: string[] = []
     const loader = createLocaleLoader(
@@ -48,13 +47,13 @@ test('failed language loads preserve the active language and can be retried', as
         },
         (locale) => active.push(locale),
     )
-    await assert.rejects(loader.select('zh-CN'), /chunk unavailable/)
-    assert.deepEqual(active, [])
+    await expect(loader.select('zh-CN')).rejects.toThrow(/chunk unavailable/)
+    expect(active).toEqual([])
     await loader.select('zh-CN')
-    assert.deepEqual(active, ['zh-CN'])
+    expect(active).toEqual(['zh-CN'])
 })
 
-test('an eager fallback is reused without dispatching a language request', async () => {
+it('an eager fallback is reused without dispatching a language request', async () => {
     const loaded: string[] = []
     const active: string[] = []
     const loader = createLocaleLoader(
@@ -66,6 +65,6 @@ test('an eager fallback is reused without dispatching a language request', async
     )
     await loader.select('en-US')
     await loader.select('zh-CN')
-    assert.deepEqual(loaded, ['zh-CN'])
-    assert.deepEqual(active, ['en-US', 'zh-CN'])
+    expect(loaded).toEqual(['zh-CN'])
+    expect(active).toEqual(['en-US', 'zh-CN'])
 })

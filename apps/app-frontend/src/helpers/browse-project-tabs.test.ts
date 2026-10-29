@@ -1,5 +1,4 @@
-import assert from 'node:assert/strict'
-import test from 'node:test'
+import { expect, it } from 'vitest'
 
 import {
     createBrowseProjectTabs,
@@ -18,27 +17,24 @@ const labels = {
     favorites: 'Favorites',
 }
 
-test('browse project tabs keep favorites after servers and preserve the route context', () => {
+it('browse project tabs keep favorites after servers and preserve the route context', () => {
     const tabs = createBrowseProjectTabs(labels, '?i=instance-id')
 
-    assert.deepEqual(
-        tabs.map((tab) => tab.label),
-        [
-            'Modpacks',
-            'Mods',
-            'Resource Packs',
-            'Data Packs',
-            'Maps',
-            'Shaders',
-            'Servers',
-            'Favorites',
-        ],
-    )
-    assert.equal(tabs.at(-1)?.href, '/browse/favorites?i=instance-id')
-    assert.equal(tabs.at(-1)?.onboardingId, 'browse-favorites-tab')
+    expect(tabs.map((tab) => tab.label)).toEqual([
+        'Modpacks',
+        'Mods',
+        'Resource Packs',
+        'Data Packs',
+        'Maps',
+        'Shaders',
+        'Servers',
+        'Favorites',
+    ])
+    expect(tabs.at(-1)?.href).toBe('/browse/favorites?i=instance-id')
+    expect(tabs.at(-1)?.onboardingId).toBe('browse-favorites-tab')
 })
 
-test('browse project tabs preserve content-context visibility while keeping favorites available', () => {
+it('browse project tabs preserve content-context visibility while keeping favorites available', () => {
     const tabs = createBrowseProjectTabs(labels, '', {
         modpacks: false,
         mods: false,
@@ -46,30 +42,28 @@ test('browse project tabs preserve content-context visibility while keeping favo
         servers: false,
     })
 
-    assert.equal(tabs.find((tab) => tab.label === 'Modpacks')?.shown, false)
-    assert.equal(tabs.find((tab) => tab.label === 'Mods')?.shown, false)
-    assert.equal(tabs.find((tab) => tab.label === 'Data Packs')?.shown, false)
-    assert.equal(tabs.find((tab) => tab.label === 'Servers')?.shown, false)
-    assert.equal(tabs.find((tab) => tab.label === 'Favorites')?.shown, true)
+    expect(tabs.find((tab) => tab.label === 'Modpacks')?.shown).toBe(false)
+    expect(tabs.find((tab) => tab.label === 'Mods')?.shown).toBe(false)
+    expect(tabs.find((tab) => tab.label === 'Data Packs')?.shown).toBe(false)
+    expect(tabs.find((tab) => tab.label === 'Servers')?.shown).toBe(false)
+    expect(tabs.find((tab) => tab.label === 'Favorites')?.shown).toBe(true)
 })
 
-test('browse project tab visibility follows the selected instance capabilities', () => {
-    assert.equal(supportsDataPacks('1.12.2'), false)
-    assert.equal(supportsDataPacks('1.13'), true)
+it('browse project tab visibility follows the selected instance capabilities', () => {
+    expect(supportsDataPacks('1.12.2')).toBe(false)
+    expect(supportsDataPacks('1.13')).toBe(true)
 
-    assert.deepEqual(
+    expect(
         getBrowseProjectTabOptions({
             instance: { game_version: '1.12.2', loader: 'vanilla' },
             hasInstanceContext: true,
         }),
-        { modpacks: false, mods: false, datapacks: false, servers: false },
-    )
-    assert.deepEqual(
+    ).toEqual({ modpacks: false, mods: false, datapacks: false, servers: false })
+    expect(
         getBrowseProjectTabOptions({
             instance: { game_version: '1.20.1', loader: 'fabric' },
             hasInstanceContext: true,
             isServerInstance: true,
         }),
-        { modpacks: false, mods: true, datapacks: false, servers: false },
-    )
+    ).toEqual({ modpacks: false, mods: true, datapacks: false, servers: false })
 })

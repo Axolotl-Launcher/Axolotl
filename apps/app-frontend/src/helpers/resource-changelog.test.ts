@@ -1,18 +1,16 @@
-import assert from 'node:assert/strict'
-import test from 'node:test'
+import { expect, it } from 'vitest'
 
 import { changelogTranslationRequest } from './resource-changelog.ts'
 import type { ResourceText, SourceReleaseRef } from './resources.ts'
 
-test('changelog translations isolate source, project, release, body format and target language', () => {
+it('changelog translations isolate source, project, release, body format and target language', () => {
     const reference: SourceReleaseRef = {
         project: { source: 'modrinth', projectId: 'project' },
         releaseId: 'release',
     }
     const text: ResourceText = { source: 'modrinth', format: 'markdown', body: 'Changes' }
     const request = changelogTranslationRequest(reference, text, 'zh-CN', [])
-    assert.notDeepEqual(
-        request.context,
+    expect(request.context).not.toEqual(
         changelogTranslationRequest(
             { ...reference, project: { source: 'curseforge', projectId: 'project' } },
             text,
@@ -20,22 +18,18 @@ test('changelog translations isolate source, project, release, body format and t
             [],
         ).context,
     )
-    assert.notDeepEqual(
-        request.context,
+    expect(request.context).not.toEqual(
         changelogTranslationRequest({ ...reference, releaseId: 'another' }, text, 'zh-CN', [])
             .context,
     )
-    assert.notDeepEqual(
-        request.context,
+    expect(request.context).not.toEqual(
         changelogTranslationRequest(reference, { ...text, body: 'New changes' }, 'zh-CN', [])
             .context,
     )
-    assert.notDeepEqual(
-        request.context,
+    expect(request.context).not.toEqual(
         changelogTranslationRequest(reference, { ...text, format: 'html' }, 'zh-CN', []).context,
     )
-    assert.notEqual(
-        request.target_language,
+    expect(request.target_language).not.toBe(
         changelogTranslationRequest(reference, text, 'ja-JP', []).target_language,
     )
 })

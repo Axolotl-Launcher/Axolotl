@@ -221,6 +221,51 @@ afterEach(() => {
     fixture.notify.mockReset()
 })
 
+it('mounts only visible screenshots plus two below the viewport in a large collection', async () => {
+    const createdAt = new Date().toISOString()
+    fixture.screenshots = Array.from({ length: 1000 }, (_, index) => ({
+        id: `large-${index}`,
+        instance_id: 'instance',
+        instance_name: 'Test instance',
+        file_name: `large-${String(index).padStart(4, '0')}.png`,
+        created_at: createdAt,
+        modified_at: 1,
+        group_id: null,
+        path: '',
+        url: '',
+    }))
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    cleanup.push(() => client.clear())
+    const host = document.createElement('div')
+    host.style.cssText = 'width:600px;height:600px;overflow:auto'
+    document.body.append(host)
+    cleanup.push(() => host.remove())
+    const wrapper = await mountThemed(ScreenshotsPage, {}, 'dark', {
+        attachTo: host,
+        global: {
+            plugins: [[VueQueryPlugin, { queryClient: client }]],
+            directives: { tooltip: {} },
+        },
+    })
+    cleanup.push(() => wrapper.unmount())
+    const cards = () => wrapper.findAll('[data-screenshot-card]')
+    const belowViewport = () =>
+        cards().filter(
+            (card) =>
+                card.element.getBoundingClientRect().top >= host.getBoundingClientRect().bottom,
+        )
+    await waitFor(() => cards().length > 2 && belowViewport().length === 2)
+    expect(cards().length).toBeLessThan(30)
+    const firstId = cards()[0].attributes('data-screenshot-id')
+    host.scrollTop = 30000
+    host.dispatchEvent(new Event('scroll'))
+    await waitFor(
+        () => cards().length > 2 && cards()[0].attributes('data-screenshot-id') !== firstId,
+    )
+    expect(cards().length).toBeLessThan(30)
+    expect(belowViewport()).toHaveLength(2)
+})
+
 it('renders healthy screenshots and reports one warning after a partial scan completes', async () => {
     fixture.skipped = ['missing', 'denied']
     fixture.screenshots = [

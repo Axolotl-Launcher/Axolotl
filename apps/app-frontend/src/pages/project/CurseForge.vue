@@ -3,7 +3,7 @@
         <Teleport to="#sidebar-teleport-target">
             <ProjectPageSkeleton variant="sidebar" />
         </Teleport>
-        <ProjectPageSkeleton />
+        <ProjectPageSkeleton :title="previewTitle" />
     </template>
     <div v-else-if="data">
         <UpgradeProjectReturnBar />
@@ -69,7 +69,7 @@
                     <Button
                         type="quiet"
                         size="xl"
-                        :disabled="translationLoading"
+                        :disabled="translationLoading || !descriptionReady"
                         @click="toggleTranslation"
                         ><SpinnerIcon v-if="translationLoading" class="animate-spin" />
                         <LanguagesIcon v-else />
@@ -88,7 +88,7 @@
                         type="colored"
                         color="brand"
                         size="xl"
-                        :disabled="installing || cartProjectInstalling"
+                        :disabled="installing || cartProjectInstalling || !filesReady"
                         @click="installSelected(null)"
                         ><SpinnerIcon v-if="installing" class="animate-spin" />
                         <PlusIcon v-else-if="isWorldMap || cartProjectSelected" />
@@ -182,6 +182,12 @@
                 @select="contentSelection.setTarget"
             />
 
+            <div v-if="filesFailed || tagsFailed" role="alert" class="flex items-center gap-3">
+                <span>{{ formatMessage(messages.additionalDetailsFailed) }}</span>
+                <Button @click="retrySupplementalData">{{
+                    formatMessage(commonMessages.retryButton)
+                }}</Button>
+            </div>
             <NavTabs
                 :links="[
                     {
@@ -218,7 +224,7 @@
                 variant="versions"
             />
             <ProjectPageVersions
-                v-else-if="activeTab === 'versions'"
+                v-else-if="activeTab === 'versions' && !filesFailed"
                 :loaders="allLoaders"
                 :game-versions="allGameVersions"
                 :versions="versions"
@@ -246,10 +252,18 @@
                     </Button>
                 </template>
             </ProjectPageVersions>
-            <Card v-else>
+            <Card v-else-if="activeTab === 'description'">
                 <ResourceDescription source="curseforge" :project-id="String(data.id)">
+                    <ProjectPageSkeleton v-if="descriptionLoading" variant="description" />
+                    <div v-else-if="descriptionFailed" role="alert" class="flex items-center gap-3">
+                        <span>{{ formatMessage(messages.descriptionFailed) }}</span>
+                        <Button
+                            @click="loadDescription(Number(route.params.id), projectRequestVersion)"
+                            >{{ formatMessage(commonMessages.retryButton) }}</Button
+                        >
+                    </div>
                     <TranslatedProjectDescription
-                        v-if="data.body"
+                        v-else-if="data.body"
                         :description="data.body"
                         :active="translationActive"
                         :translations="translations"
@@ -265,7 +279,10 @@
     <div v-else class="p-6">
         <Card>
             <h2>{{ formatMessage(messages.unavailableTitle) }}</h2>
-            <p class="mb-0">{{ formatMessage(messages.unavailableDescription) }}</p>
+            <p>{{ formatMessage(messages.unavailableDescription) }}</p>
+            <Button @click="loadProject(Number(route.params.id))">{{
+                formatMessage(commonMessages.retryButton)
+            }}</Button>
         </Card>
     </div>
 </template>
@@ -304,7 +321,7 @@ import {
     usesTargetGameVersion,
     useVIntl,
 } from '@modrinth/ui'
-import { computed, ref, shallowRef, watch } from 'vue'
+import { computed, onScopeDispose, ref, shallowRef, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import BrowseInstanceSelector from '@/components/browse/BrowseInstanceSelector.vue'
@@ -322,8 +339,10 @@ import {
     getCurseForgeImageUrl,
     getCurseForgeProject,
 } from '@/helpers/curseforge'
+import { runAfterPageTransitionSettle } from '@/helpers/page-transition'
 import { projectGalleryTranslationSegments } from '@/helpers/project-gallery'
 import { createProjectBrowseLocation, type ProjectBrowseFilter } from '@/helpers/project-links'
+import { readProjectPreviewTitle } from '@/helpers/project-preview'
 import { get_game_versions, get_loaders } from '@/helpers/tags'
 import {
     autoTranslateHintMessages,
@@ -347,6 +366,7 @@ import Gallery from './Gallery.vue'
 import UpgradeProjectReturnBar from './UpgradeProjectReturnBar.vue'
 
 const route = useRoute()
+const previewTitle = computed(() => readProjectPreviewTitle(route.path))
 const router = useRouter()
 const breadcrumbs = useBreadcrumbs()
 const themeStore = useTheming()
@@ -359,6 +379,14 @@ const contentFavorites = useContentFavorites()
 void contentFavorites.load().catch(handleError)
 
 const messages = defineMessages({
+    additionalDetailsFailed: {
+        id: 'app.project.additional-details-failed',
+        defaultMessage: 'Some project details could not be loaded.',
+    },
+    descriptionFailed: {
+        id: 'app.resources.description.failed',
+        defaultMessage: 'The description could not be loaded.',
+    },
     openInMcmod: {
         id: 'app.project.open-in-mcmod',
         defaultMessage: 'Open in MC Mod',
@@ -455,6 +483,12 @@ const browseInstanceSelector = ref()
 const project = shallowRef<CurseForgeProject | null>(null)
 const mcmodUrl = ref<string | null>(null)
 const description = ref('')
+const descriptionLoading = ref(false)
+const descriptionReady = ref(false)
+const descriptionFailed = ref(false)
+const filesReady = ref(false)
+const filesFailed = ref(false)
+const tagsFailed = ref(false)
 const files = shallowRef<CurseForgeFile[]>([])
 const allLoaders = ref([])
 const allGameVersions = ref([])
@@ -762,7 +796,8 @@ async function loadProject(projectId: number) {
     translationLoading.value = false
     translations.value = {}
     loading.value = true
-    versionsLoading.value = false
+    versionsLoading.value = true
+    descriptionLoading.value = true
     filesComplete.value = false
     project.value = null
     mcmodUrl.value = null
@@ -771,27 +806,17 @@ async function loadProject(projectId: number) {
     allLoaders.value = []
     allGameVersions.value = []
 
+    filesReady.value = false
+    filesFailed.value = false
+    tagsFailed.value = false
+    descriptionReady.value = false
+    const projectRequest = getCurseForgeProject(projectId)
+    void loadDescription(projectId, requestVersion)
+    void loadInitialFiles(projectId, requestVersion)
+    void loadProjectTags(requestVersion)
     try {
-        const [projectResult, projectDescription, projectFiles, loaders, gameVersions] =
-            await Promise.allSettled([
-                getCurseForgeProject(projectId),
-                getCurseForgeDescription(projectId),
-                getCurseForgeFilesPage(projectId, { index: 0, pageSize: 50 }),
-                get_loaders(),
-                get_game_versions(),
-            ])
+        const projectData = await projectRequest
         if (requestVersion !== projectRequestVersion) return
-        if (projectResult.status === 'rejected') throw projectResult.reason
-        if (projectDescription.status === 'rejected') throw projectDescription.reason
-
-        const projectData = projectResult.value
-        description.value = projectDescription.value
-        files.value = projectFiles.status === 'fulfilled' ? projectFiles.value.files : []
-        filesComplete.value =
-            projectFiles.status === 'fulfilled' &&
-            projectFiles.value.files.length >= projectFiles.value.pagination.totalCount
-        allLoaders.value = loaders.status === 'fulfilled' ? loaders.value : []
-        allGameVersions.value = gameVersions.status === 'fulfilled' ? gameVersions.value : []
         project.value = projectData
         breadcrumbs.setName('Project', projectData.name)
         breadcrumbs.setNameIcon(
@@ -801,9 +826,6 @@ async function loadProject(projectId: number) {
         void resolveMcmodUrl(projectData.slug, 'curseforge').then((url) => {
             if (requestVersion === projectRequestVersion) mcmodUrl.value = url
         })
-
-        if (projectFiles.status === 'rejected') handleError(projectFiles.reason)
-        void maybeAutoTranslate()
     } catch (error) {
         if (requestVersion === projectRequestVersion) handleError(error)
     } finally {
@@ -811,11 +833,70 @@ async function loadProject(projectId: number) {
     }
 }
 
+let descriptionRequestVersion = 0
+async function loadDescription(projectId: number, projectVersion: number) {
+    const requestVersion = ++descriptionRequestVersion
+    descriptionLoading.value = true
+    descriptionReady.value = false
+    descriptionFailed.value = false
+    const isCurrent = () =>
+        projectVersion === projectRequestVersion && requestVersion === descriptionRequestVersion
+    try {
+        const result = await getCurseForgeDescription(projectId)
+        if (!isCurrent()) return
+        description.value = result
+        descriptionReady.value = true
+    } catch {
+        if (isCurrent()) descriptionFailed.value = true
+    } finally {
+        if (isCurrent()) descriptionLoading.value = false
+    }
+}
+
+async function loadInitialFiles(projectId: number, projectVersion: number) {
+    const requestVersion = ++filesRequestVersion
+    versionsLoading.value = true
+    filesFailed.value = false
+    try {
+        const result = await getCurseForgeFilesPage(projectId, { index: 0, pageSize: 50 })
+        if (projectVersion !== projectRequestVersion || requestVersion !== filesRequestVersion)
+            return
+        files.value = result.files
+        filesComplete.value = result.files.length >= result.pagination.totalCount
+        filesReady.value = true
+    } catch {
+        if (projectVersion === projectRequestVersion && requestVersion === filesRequestVersion)
+            filesFailed.value = true
+    } finally {
+        if (projectVersion === projectRequestVersion && requestVersion === filesRequestVersion)
+            versionsLoading.value = false
+    }
+}
+
+let tagsRequestVersion = 0
+async function loadProjectTags(projectVersion: number) {
+    const requestVersion = ++tagsRequestVersion
+    tagsFailed.value = false
+    const result = await Promise.allSettled([get_loaders(), get_game_versions()])
+    if (projectVersion !== projectRequestVersion || requestVersion !== tagsRequestVersion) return
+    if (result[0].status === 'fulfilled') allLoaders.value = result[0].value
+    if (result[1].status === 'fulfilled') allGameVersions.value = result[1].value
+    tagsFailed.value = result.some((entry) => entry.status === 'rejected')
+}
+function retrySupplementalData() {
+    if (filesFailed.value) {
+        if (filesReady.value) void loadAllProjectFiles(Number(route.params.id))
+        else void loadInitialFiles(Number(route.params.id), projectRequestVersion)
+    }
+    if (tagsFailed.value) void loadProjectTags(projectRequestVersion)
+}
+
 async function loadAllProjectFiles(projectId: number) {
     if (versionsLoading.value) return
     const projectVersion = projectRequestVersion
     const requestVersion = ++filesRequestVersion
     versionsLoading.value = true
+    filesFailed.value = false
 
     try {
         const response = await getCurseForgeFiles(projectId, { index: 0, pageSize: 50 })
@@ -825,6 +906,7 @@ async function loadAllProjectFiles(projectId: number) {
         filesComplete.value = true
     } catch (error) {
         if (projectVersion === projectRequestVersion && requestVersion === filesRequestVersion) {
+            filesFailed.value = true
             handleError(error)
         }
     } finally {
@@ -841,9 +923,14 @@ watch(
     },
     { immediate: true },
 )
+onScopeDispose(() => {
+    projectRequestVersion++
+    filesRequestVersion++
+    translationRequestVersion++
+})
 
-watch([activeTab, () => project.value?.id], ([tab, projectId]) => {
-    if (tab === 'versions' && projectId && !filesComplete.value) {
+watch([activeTab, () => project.value?.id, filesReady], ([tab, projectId, ready]) => {
+    if (tab === 'versions' && projectId && ready && !filesComplete.value) {
         void loadAllProjectFiles(projectId)
     }
 })
@@ -852,7 +939,11 @@ watch(
     [fromBrowse, fromInstanceContent, instanceId],
     async ([fromBrowseEnabled, fromInstanceContentEnabled, preferredInstanceId]) => {
         if (fromBrowseEnabled || fromInstanceContentEnabled) {
-            await contentSelection.refreshInstances(preferredInstanceId)
+            const version = projectRequestVersion
+            const isCurrent = () =>
+                version === projectRequestVersion && instanceId.value === preferredInstanceId
+            await contentSelection.refreshInstances(preferredInstanceId, isCurrent)
+            if (!isCurrent()) return
             if (fromInstanceContentEnabled && preferredInstanceId) {
                 const preferredInstance = contentSelection.instances.value.find(
                     (instance) => instance.id === preferredInstanceId,
@@ -865,7 +956,7 @@ watch(
 )
 
 async function installSelected(fileId: string | null) {
-    if (!project.value) return
+    if (!project.value || !filesReady.value) return
     if (cartEligible.value && !contentSelection.targetInstance.value) {
         await contentSelection.refreshInstances()
         browseInstanceSelector.value?.show()
@@ -996,6 +1087,7 @@ async function translateProject() {
 
     try {
         const settings = await getTranslationSettings()
+        if (requestVersion !== translationRequestVersion) return
         translationMode.value = settings.mode
         translationStyle.value = settings.style
         const prepared = prepareDescription(data.value.body ?? '', 'html')
@@ -1040,10 +1132,24 @@ async function translateProject() {
     }
 }
 
+watch([() => project.value?.id, descriptionReady], ([projectId, ready]) => {
+    const requestVersion = projectRequestVersion
+    if (projectId && ready)
+        runAfterPageTransitionSettle(() => {
+            if (requestVersion === projectRequestVersion) void maybeAutoTranslate()
+        })
+})
+
 async function maybeAutoTranslate() {
+    const requestVersion = projectRequestVersion
     try {
         const settings = await getTranslationSettings()
-        if (settings.auto_translate) await translateProject()
+        if (
+            requestVersion === projectRequestVersion &&
+            settings.auto_translate &&
+            descriptionReady.value
+        )
+            await translateProject()
     } catch (error) {
         handleError(error)
     }
@@ -1068,6 +1174,13 @@ function toggleTranslation() {
     void maybeHintAutoTranslate()
     void translateProject()
 }
+onScopeDispose(() => {
+    projectRequestVersion++
+    filesRequestVersion++
+    descriptionRequestVersion++
+    tagsRequestVersion++
+    translationRequestVersion++
+})
 </script>
 
 <style scoped>

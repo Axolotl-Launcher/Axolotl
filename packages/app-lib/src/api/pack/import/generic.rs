@@ -29,6 +29,28 @@ pub async fn import_generic(
     overrides: &ImportOverrides,
     instance_path: Option<PathBuf>, // For compatible mode: path to versions/<version>/
 ) -> crate::Result<()> {
+    let (name, dotminecraft, json_path) = resolve_source_paths(
+        &instance_folder,
+        instance_path.as_deref(),
+        symlink,
+    );
+
+    let info = detect_instance_info(&json_path, overrides).await?;
+    tracing::debug!(
+        source = %dotminecraft.display(),
+        metadata = %json_path.display(),
+        "Resolved generic import content and version paths"
+    );
+    register_instance(instance_id, &name, &info).await?;
+    copy_instance_files(instance_id, &dotminecraft, reporter, details, symlink)
+        .await
+}
+
+fn resolve_source_paths(
+    instance_folder: &Path,
+    instance_path: Option<&Path>,
+    symlink: bool,
+) -> (String, PathBuf, PathBuf) {
     let (name, dotminecraft, json_path) = if let Some(ref inst_path) =
         instance_path
     {
@@ -41,17 +63,19 @@ pub async fn import_generic(
             instance_folder.display(),
             inst_path.display()
         );
-        (name, instance_folder.to_path_buf(), inst_path.to_path_buf())
+        let content_root = if symlink {
+            instance_folder.to_path_buf()
+        } else {
+            super::resolve_import_game_root(inst_path)
+        };
+        (name, content_root, inst_path.to_path_buf())
     } else {
-        let (name, dotminecraft) = resolve_dotminecraft(&instance_folder);
+        let (name, dotminecraft) = resolve_dotminecraft(instance_folder);
         let json_path = dotminecraft.clone(); // JSON detection will scan dotminecraft
         (name, dotminecraft, json_path)
     };
 
-    let info = detect_instance_info(&json_path, overrides).await?;
-    register_instance(instance_id, &name, &info).await?;
-    copy_instance_files(instance_id, &dotminecraft, reporter, details, symlink)
-        .await
+    (name, dotminecraft, json_path)
 }
 
 /// Stage 1 — resolve the name and the `.minecraft` directory of an imported
@@ -351,6 +375,103 @@ async fn copy_instance_files(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[tokio::test]
+    async fn isolated_copy_import_preserves_mods_config_and_scripts_at_the_profile_root()
+     {
+        let temp = tempfile::tempdir().unwrap();
+        let minecraft = temp.path().join(".minecraft");
+        let version = minecraft.join("versions/RLCraft");
+        let destination = temp.path().join("profiles/RLCraft");
+        for (path, bytes) in [
+            ("mods/example.jar", "rlcraft mod"),
+            ("config/example.cfg", "rlcraft config"),
+            ("scripts/recipes.zs", "rlcraft scripts"),
+            ("options.txt", "rlcraft options"),
+            (
+                "RLCraft.json",
+                r#"{"id":"RLCraft","inheritsFrom":"1.12.2"}"#,
+            ),
+            ("RLCraft.jar", "client jar"),
+        ] {
+            let path = version.join(path);
+            std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+            std::fs::write(path, bytes).unwrap();
+        }
+        std::fs::create_dir_all(minecraft.join("mods")).unwrap();
+        std::fs::write(minecraft.join("mods/unrelated.jar"), "shared mod")
+            .unwrap();
+        let (_, content, metadata) =
+            resolve_source_paths(&minecraft, Some(&version), false);
+        assert_eq!(content, version);
+        assert_eq!(metadata, version);
+        assert_eq!(
+            detect_instance_info(&metadata, &ImportOverrides::default())
+                .await
+                .unwrap()
+                .vanilla_name,
+            "1.12.2"
+        );
+        let files = super::super::collect_dotminecraft_files(&content)
+            .await
+            .unwrap();
+        assert_eq!(files.len(), 4);
+        let semaphore =
+            crate::util::fetch::IoSemaphore(tokio::sync::Semaphore::new(1));
+        for (source, relative) in files {
+            super::super::copy_import_file_atomically(
+                &source,
+                &destination.join(relative),
+                &semaphore,
+            )
+            .await
+            .unwrap();
+        }
+        for (path, bytes) in [
+            ("mods/example.jar", "rlcraft mod"),
+            ("config/example.cfg", "rlcraft config"),
+            ("scripts/recipes.zs", "rlcraft scripts"),
+            ("options.txt", "rlcraft options"),
+        ] {
+            assert_eq!(
+                std::fs::read_to_string(destination.join(path)).unwrap(),
+                bytes
+            );
+            assert_eq!(
+                std::fs::read_to_string(version.join(path)).unwrap(),
+                bytes
+            );
+        }
+        assert!(!destination.join("mods/unrelated.jar").exists());
+        assert!(!destination.join("versions").exists());
+        assert!(!destination.join("RLCraft.json").exists());
+        assert!(!destination.join("RLCraft.jar").exists());
+    }
+
+    #[test]
+    fn shared_copy_import_keeps_metadata_in_the_selected_version() {
+        let temp = tempfile::tempdir().unwrap();
+        let minecraft = temp.path().join(".minecraft");
+        let version = minecraft.join("versions/Shared");
+        std::fs::create_dir_all(&version).unwrap();
+        std::fs::create_dir_all(minecraft.join("mods")).unwrap();
+        let (_, content, metadata) =
+            resolve_source_paths(&minecraft, Some(&version), false);
+        assert_eq!(content, minecraft);
+        assert_eq!(metadata, version);
+    }
+
+    #[test]
+    fn existing_symbolic_link_import_path_selection_is_unchanged() {
+        let temp = tempfile::tempdir().unwrap();
+        let minecraft = temp.path().join(".minecraft");
+        let version = minecraft.join("versions/Linked");
+        std::fs::create_dir_all(version.join("mods")).unwrap();
+        let (_, content, metadata) =
+            resolve_source_paths(&minecraft, Some(&version), true);
+        assert_eq!(content, minecraft);
+        assert_eq!(metadata, version);
+    }
 
     #[test]
     fn loader_dependency_maps_supported_loaders() {

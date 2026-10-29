@@ -145,9 +145,9 @@ async fn get_global_options_with_state(
     let mut options = GlobalSyncedOptions::default();
     let rows = sqlx::query!(
         r#"
-		SELECT feature, globally_enabled AS "globally_enabled!: bool"
-		FROM sync_feature_settings
-		"#,
+        SELECT feature, globally_enabled AS "globally_enabled!: bool"
+        FROM sync_feature_settings
+        "#,
     )
     .fetch_all(&state.pool)
     .await?;
@@ -232,9 +232,9 @@ async fn capability_status(
         && is_linked_server_project(&metadata.link)
     {
         return CapabilityStatus::Unsupported(
-			"Multiplayer server syncing is unavailable for linked server-project instances."
-				.to_string(),
-		);
+            "Multiplayer server syncing is unavailable for linked server-project instances."
+                .to_string(),
+        );
     }
     match version_capability(metadata, option, state).await {
         CapabilityStatus::Supported => CapabilityStatus::Supported,
@@ -280,9 +280,9 @@ async fn version_capability(
         crate::launcher::resolve_minecraft_manifest(game_version, state).await
     else {
         return CapabilityStatus::Indeterminate(
-			"This instance’s Minecraft version could not be verified, so syncing is unavailable."
-				.to_string(),
-		);
+            "This instance’s Minecraft version could not be verified, so syncing is unavailable."
+                .to_string(),
+        );
     };
     let cutoff_id = match option {
         SyncedOption::GameOptions
@@ -300,9 +300,9 @@ async fn version_capability(
         manifest.versions.iter().find(|item| item.id == cutoff_id)
     else {
         return CapabilityStatus::Indeterminate(
-			"This instance’s Minecraft version could not be verified, so syncing is unavailable."
-				.to_string(),
-		);
+            "This instance’s Minecraft version could not be verified, so syncing is unavailable."
+                .to_string(),
+        );
     };
 
     let version = &manifest.versions[version_index];
@@ -320,21 +320,21 @@ async fn version_capability(
     }
 
     CapabilityStatus::Unsupported(
-		match option {
-			SyncedOption::GameOptions | SyncedOption::ResourcePacks | SyncedOption::DataPacks => unreachable!(),
-			SyncedOption::MultiplayerServers => {
-				"Multiplayer server syncing requires Minecraft Beta 1.8 Pre-release or newer."
-			}
-			SyncedOption::CreativeHotbars => {
-				"Saved creative hotbars require Minecraft 1.12 or newer."
-			}
-			SyncedOption::CommandHistory => {
-				"Command history syncing requires Minecraft 1.20.2 or newer."
-			}
-			SyncedOption::Screenshots => unreachable!(),
-		}
-		.to_string(),
-	)
+        match option {
+            SyncedOption::GameOptions | SyncedOption::ResourcePacks | SyncedOption::DataPacks => unreachable!(),
+            SyncedOption::MultiplayerServers => {
+                "Multiplayer server syncing requires Minecraft Beta 1.8 Pre-release or newer."
+            }
+            SyncedOption::CreativeHotbars => {
+                "Saved creative hotbars require Minecraft 1.12 or newer."
+            }
+            SyncedOption::CommandHistory => {
+                "Command history syncing requires Minecraft 1.20.2 or newer."
+            }
+            SyncedOption::Screenshots => unreachable!(),
+        }
+        .to_string(),
+    )
 }
 
 pub async fn set_global_option(
@@ -448,6 +448,11 @@ async fn set_global_option_with_state(
             }
         };
         if let Err(error) = result {
+            if option == SyncedOption::MultiplayerServers {
+                tracing::warn!(instance_id = %metadata.instance.id, %error,
+                    "Multiplayer sync preference saved; continuing after an instance projection failure");
+                continue;
+            }
             if option == SyncedOption::GameOptions {
                 tracing::warn!(
                     "Game-settings sync changed, but {} could not be reconciled yet: {error}",
@@ -479,13 +484,13 @@ async fn set_global_option_enabled_in_pool(
     let mut transaction = pool.begin().await?;
     sqlx::query(
         "
-		INSERT INTO sync_feature_settings
-			(feature, globally_enabled, new_instance_default)
-		VALUES (?, ?, ?)
-		ON CONFLICT(feature) DO UPDATE SET
-			globally_enabled = excluded.globally_enabled,
-			new_instance_default = excluded.new_instance_default
-		",
+        INSERT INTO sync_feature_settings
+            (feature, globally_enabled, new_instance_default)
+        VALUES (?, ?, ?)
+        ON CONFLICT(feature) DO UPDATE SET
+            globally_enabled = excluded.globally_enabled,
+            new_instance_default = excluded.new_instance_default
+        ",
     )
     .bind(option_name)
     .bind(enabled)

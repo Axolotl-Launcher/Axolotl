@@ -3,6 +3,10 @@ use crate::util::download::constants::INSTALL_FILE_REPORTED_ATTEMPTS;
 use std::collections::{HashMap, HashSet};
 use std::time::Duration;
 
+use crate::state::instances::adapters::sqlite::{
+    content_entries, pack_members,
+};
+
 #[derive(Clone)]
 enum DownloadedContent {
     Modrinth(crate::state::instances::commands::DownloadedProjectVersion),
@@ -294,49 +298,49 @@ async fn download_prepared_files(
                     );
                 }
                 let result = match file.provider {
-				ContentProvider::Modrinth => {
-					crate::state::instances::commands::download_project_version_with_reporter(
-						&instance_id,
-						&file.release_id,
-						if file.role == crate::install::ContentChangeFileRole::Primary {
-							DownloadReason::Update
-						} else {
-							DownloadReason::Dependency
-						},
-						None,
-						reporter,
-						&state,
-					)
-					.await
-					.map(DownloadedContent::Modrinth)
-				}
-				ContentProvider::CurseForge => {
-					match (
-						file.project_id.parse::<u32>(),
-						file.release_id.parse::<u32>(),
-					) {
-						(Ok(project_id), Ok(file_id)) => {
-							crate::api::curseforge::stage_curseforge_upgrade_file(
-								project_id,
-								file_id,
-								None,
-								Some(&reporter),
-							)
-							.await
-								.map(DownloadedContent::CurseForge)
-						}
-						_ => Err(crate::ErrorKind::InputError(
-							"Invalid CurseForge project or file ID".to_string(),
-						)
-						.into()),
-					}
-				}
-				provider => Err(crate::ErrorKind::InputError(format!(
-					"Provider {} cannot be downloaded automatically",
-					provider.as_str()
-				))
-				.into()),
-			};
+                ContentProvider::Modrinth => {
+                    crate::state::instances::commands::download_project_version_with_reporter(
+                        &instance_id,
+                        &file.release_id,
+                        if file.role == crate::install::ContentChangeFileRole::Primary {
+                            DownloadReason::Update
+                        } else {
+                            DownloadReason::Dependency
+                        },
+                        None,
+                        reporter,
+                        &state,
+                    )
+                    .await
+                    .map(DownloadedContent::Modrinth)
+                }
+                ContentProvider::CurseForge => {
+                    match (
+                        file.project_id.parse::<u32>(),
+                        file.release_id.parse::<u32>(),
+                    ) {
+                        (Ok(project_id), Ok(file_id)) => {
+                            crate::api::curseforge::stage_curseforge_upgrade_file(
+                                project_id,
+                                file_id,
+                                None,
+                                Some(&reporter),
+                            )
+                            .await
+                                .map(DownloadedContent::CurseForge)
+                        }
+                        _ => Err(crate::ErrorKind::InputError(
+                            "Invalid CurseForge project or file ID".to_string(),
+                        )
+                        .into()),
+                    }
+                }
+                provider => Err(crate::ErrorKind::InputError(format!(
+                    "Provider {} cannot be downloaded automatically",
+                    provider.as_str()
+                ))
+                .into()),
+            };
                 (file, result)
             }
         }),
@@ -570,7 +574,6 @@ async fn publish_downloaded_action(
     downloaded: &HashMap<String, DownloadedContent>,
     state: &State,
 ) -> crate::Result<()> {
-    use crate::state::instances::adapters::sqlite::content_rows;
     use crate::state::instances::commands as content;
     use crate::state::instances::{ContentOwnershipKind, ContentSourceKind};
 
@@ -615,7 +618,7 @@ async fn publish_downloaded_action(
             file.role == crate::install::ContentChangeFileRole::Primary;
         if !primary
             && let Some(entry) =
-                content_rows::get_content_entry_by_provider_ref(
+                content_entries::get_content_entry_by_provider_ref(
                     &scope.content_set_id,
                     file.provider,
                     &file.project_id,
@@ -624,7 +627,7 @@ async fn publish_downloaded_action(
                 )
                 .await?
         {
-            let target = content_rows::get_content_mutation_target(
+            let target = pack_members::get_content_mutation_target(
                 instance_id,
                 &entry.id,
                 &state.pool,
@@ -659,7 +662,10 @@ async fn publish_downloaded_action(
                     staged.project_type.get_folder()
                 }
             };
-            format!("{folder}/{}", file.file_name)
+            format!(
+                "{folder}/{}",
+                crate::util::io::sanitize_download_file_name(&file.file_name)?
+            )
         };
         path_util::SafeRelativeUtf8UnixPathBuf::try_from(install_path.clone())?;
         if (!primary || install_path != old_path)
@@ -695,14 +701,14 @@ async fn publish_downloaded_action(
         };
         if !primary
             && let Some(entry) =
-                content_rows::get_content_entry_by_relative_path(
+                content_entries::get_content_entry_by_relative_path(
                     &scope.content_set_id,
                     &path,
                     &state.pool,
                 )
                 .await?
         {
-            content_rows::set_content_entry_auto_dependency(
+            content_entries::set_content_entry_auto_dependency(
                 &entry.id,
                 true,
                 &state.pool,
@@ -750,7 +756,6 @@ async fn persist_prepared_dependency_edges(
     downloaded: &HashMap<String, DownloadedContent>,
     state: &State,
 ) -> crate::Result<()> {
-    use crate::state::instances::adapters::sqlite::content_rows;
     let mut edges = Vec::new();
     for dependency in &action.dependencies {
         let parent_index = action.files.iter().position(|file| {
@@ -770,13 +775,13 @@ async fn persist_prepared_dependency_edges(
         };
         let parent = &action.files[parent_index];
         let child = &action.files[child_index];
-        let parent_entry = content_rows::get_content_entry_by_relative_path(
+        let parent_entry = content_entries::get_content_entry_by_relative_path(
             content_set_id,
             &paths[parent_index],
             &state.pool,
         )
         .await?;
-        let child_entry = content_rows::get_content_entry_by_relative_path(
+        let child_entry = content_entries::get_content_entry_by_relative_path(
             content_set_id,
             &paths[child_index],
             &state.pool,
@@ -799,7 +804,7 @@ async fn persist_prepared_dependency_edges(
             dependency_kind: match downloaded.get(&parent.id) {
                 Some(DownloadedContent::CurseForge(staged)) if child.provider == ContentProvider::CurseForge => {
                     staged.file.dependencies.iter().find(|reference| reference.mod_id.to_string() == child.project_id)
-                        .map(|reference| if reference.relation_type == crate::api::curseforge::DEPENDENCY_RELATION_REQUIRED {
+                        .map(|reference| if reference.relation().is_required() {
                             crate::state::instances::ContentDependencyKind::Required
                         } else {
                             crate::state::instances::ContentDependencyKind::Include
@@ -818,7 +823,7 @@ async fn persist_prepared_dependency_edges(
     if !edges.is_empty() {
         let mut tx = state.pool.begin().await?;
         for edge in edges {
-            content_rows::upsert_content_dependency_edge_in_transaction(
+            content_entries::upsert_content_dependency_edge_in_transaction(
                 &edge, &mut tx,
             )
             .await?;
@@ -1183,7 +1188,6 @@ mod tests {
     #[tokio::test]
     async fn publish_downloaded_content_is_offline_and_preserves_custom_disabled_name()
      {
-        use crate::state::instances::adapters::sqlite::content_rows;
         use crate::state::instances::commands as content;
         let (temp, state, instance_id) = publish_fixture().await;
         let scope = content::resolve_content_scope(&instance_id, None, &state)
@@ -1242,7 +1246,7 @@ mod tests {
         );
         assert!(!base.join(old_path).exists());
         assert!(!base.join("mods/new.jar").exists());
-        let entry = content_rows::get_content_entry_by_relative_path(
+        let entry = content_entries::get_content_entry_by_relative_path(
             &scope.content_set_id,
             final_path,
             &state.pool,
@@ -1252,7 +1256,7 @@ mod tests {
         .unwrap();
         assert!(!entry.enabled);
         let refs =
-            content_rows::get_content_provider_refs(&entry.id, &state.pool)
+            content_entries::get_content_provider_refs(&entry.id, &state.pool)
                 .await
                 .unwrap();
         assert!(
@@ -1284,6 +1288,10 @@ mod tests {
     async fn publish_curseforge_content_is_offline_and_restores_file_on_index_failure()
      {
         use crate::state::instances::commands as content;
+
+        use crate::state::instances::adapters::sqlite::{
+            content_entries, pack_members,
+        };
         let (temp, state, instance_id) = publish_fixture().await;
         let scope = content::resolve_content_scope(&instance_id, None, &state)
             .await

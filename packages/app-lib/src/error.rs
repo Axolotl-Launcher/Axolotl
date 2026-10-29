@@ -88,6 +88,9 @@ pub enum ErrorKind {
     #[error("download {context} stream receive timed out")]
     DownloadStreamStalled { context: String },
 
+    #[error("{0}")]
+    DownloadResourceWaitTimeout(String),
+
     #[error("HTTP/2 transport error: {0}")]
     DownloadH2Error(#[from] h2::Error),
 
@@ -176,6 +179,9 @@ pub enum ErrorKind {
     #[error("Error stripping prefix: {0}")]
     StripPrefixError(#[from] std::path::StripPrefixError),
 
+    #[error("{0}")]
+    StateNotInitialized(String),
+
     #[error("Error: {0}")]
     OtherError(String),
 
@@ -199,8 +205,10 @@ pub enum ErrorKind {
     #[error("Move directory error: {0}")]
     DirectoryMoveError(String),
 
+    /// Carries the resolver's message rather than the upstream error type so a
+    /// hickory-resolver minor bump cannot change this crate's public API.
     #[error("Error resolving DNS: {0}")]
-    DNSError(#[from] hickory_resolver::ResolveError),
+    DNSError(String),
 
     #[error("An online profile for {user_name} is not available")]
     OnlineMinecraftProfileUnavailable { user_name: String },
@@ -311,6 +319,12 @@ impl Error {
             );
         }
         self.to_string()
+    }
+}
+
+impl From<hickory_resolver::net::NetError> for ErrorKind {
+    fn from(source: hickory_resolver::net::NetError) -> Self {
+        Self::DNSError(source.to_string())
     }
 }
 

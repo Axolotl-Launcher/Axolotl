@@ -1,6 +1,26 @@
 use super::*;
 
 #[test]
+fn multimc_component_errors_are_pack_errors_during_import() {
+    let error = crate::ErrorKind::InputError(
+        "Invalid MultiMC jarMods list".to_string(),
+    )
+    .into();
+    assert_eq!(
+        install_error_code(InstallPhaseId::ExtractingOverrides, &error),
+        "pack_error"
+    );
+    let error = crate::ErrorKind::InputError(
+        "Inner path escapes the source root".to_string(),
+    )
+    .into();
+    assert_eq!(
+        install_error_code(InstallPhaseId::ExtractingOverrides, &error),
+        "path_error"
+    );
+}
+
+#[test]
 fn historical_content_recovery_requires_its_saved_release() {
     assert_eq!(
         request::require_historical_release(Some("original".into())).unwrap(),
@@ -15,27 +35,6 @@ fn update_one(content_id: &str) -> crate::install::ContentChangeIntent {
         content_id: content_id.to_string(),
         target_release_id: Some(format!("target-{content_id}")),
     }
-}
-
-#[test]
-fn content_change_conflicts_only_for_overlapping_scopes() {
-    use crate::install::{ContentChangeIntent, ContentChangeTarget};
-
-    let first = update_one("first");
-    let second = update_one("second");
-    let selected = ContentChangeIntent::UpdateSelected {
-        targets: vec![ContentChangeTarget {
-            content_id: "first".to_string(),
-            target_release_id: "target-first".to_string(),
-        }],
-    };
-
-    assert!(!content_change_intents_overlap(&first, &second));
-    assert!(content_change_intents_overlap(&first, &selected));
-    assert!(content_change_intents_overlap(
-        &ContentChangeIntent::UpdateAllUserAdded,
-        &second
-    ));
 }
 
 fn physical_test_item(
@@ -1033,18 +1032,19 @@ async fn upgrade_backup_clones_authoritative_content_metadata() {
         .await
         .unwrap();
     }
-    let source_entries = crate::state::instances::adapters::sqlite::content_rows::get_content_entries(
+    let source_entries = crate::state::instances::adapters::sqlite::content_entries::get_content_entries(
         &source.applied_content_set.id,
         &state.pool,
     )
     .await
     .unwrap();
-    let source_files = crate::state::instances::adapters::sqlite::content_rows::get_instance_files(
-        &source_id,
-        &state.pool,
-    )
-    .await
-    .unwrap();
+    let source_files =
+        crate::state::instances::adapters::sqlite::files::get_instance_files(
+            &source_id,
+            &state.pool,
+        )
+        .await
+        .unwrap();
     let paths_by_file = source_files
         .iter()
         .map(|file| (file.id.as_str(), file.relative_path.as_str()))
@@ -1055,7 +1055,7 @@ async fn upgrade_backup_clones_authoritative_content_metadata() {
         .collect::<HashMap<_, _>>();
     let sodium = entry_by_path["mods/sodium.jar"];
     let lithium = entry_by_path["mods/lithium.jar"];
-    crate::state::instances::adapters::sqlite::content_rows::upsert_content_provider_ref(
+    crate::state::instances::adapters::sqlite::content_entries::upsert_content_provider_ref(
         &sodium.id,
         &ContentProviderRef::CurseForge {
             project_id: crate::state::CurseForgeProjectId::new(394468)
@@ -1069,7 +1069,7 @@ async fn upgrade_backup_clones_authoritative_content_metadata() {
     )
     .await
     .unwrap();
-    crate::state::instances::adapters::sqlite::content_rows::set_content_entry_auto_dependency(
+    crate::state::instances::adapters::sqlite::content_entries::set_content_entry_auto_dependency(
         &lithium.id,
         true,
         &state.pool,
@@ -1086,7 +1086,7 @@ async fn upgrade_backup_clones_authoritative_content_metadata() {
     .unwrap();
     let mut tx = state.pool.begin().await.unwrap();
     let now = chrono::Utc::now();
-    crate::state::instances::adapters::sqlite::content_rows::upsert_content_dependency_edge_in_transaction(
+    crate::state::instances::adapters::sqlite::content_entries::upsert_content_dependency_edge_in_transaction(
         &crate::state::instances::ContentDependencyEdge {
             id: format!("content-dependency:{}", Uuid::new_v4()),
             content_set_id: source.applied_content_set.id.clone(),
@@ -1167,18 +1167,19 @@ async fn upgrade_backup_clones_authoritative_content_metadata() {
         .await
         .unwrap()
         .unwrap();
-    let backup_entries = crate::state::instances::adapters::sqlite::content_rows::get_content_entries(
+    let backup_entries = crate::state::instances::adapters::sqlite::content_entries::get_content_entries(
         &backup.applied_content_set.id,
         &state.pool,
     )
     .await
     .unwrap();
-    let backup_files = crate::state::instances::adapters::sqlite::content_rows::get_instance_files(
-        &backup_id,
-        &state.pool,
-    )
-    .await
-    .unwrap();
+    let backup_files =
+        crate::state::instances::adapters::sqlite::files::get_instance_files(
+            &backup_id,
+            &state.pool,
+        )
+        .await
+        .unwrap();
     let backup_paths = backup_files
         .iter()
         .map(|file| (file.id.as_str(), file.relative_path.as_str()))
@@ -1193,7 +1194,7 @@ async fn upgrade_backup_clones_authoritative_content_metadata() {
     let backup_sodium = backup_by_project["mods/sodium.jar"];
     let backup_lithium = backup_by_project["mods/lithium.jar.disabled"];
     assert!(!backup_lithium.enabled);
-    let refs = crate::state::instances::adapters::sqlite::content_rows::get_content_provider_refs_with_origin(
+    let refs = crate::state::instances::adapters::sqlite::content_entries::get_content_provider_refs_with_origin(
         &backup_sodium.id,
         &state.pool,
     )
@@ -1221,7 +1222,7 @@ async fn upgrade_backup_clones_authoritative_content_metadata() {
                     && file_id.as_ref().is_some_and(|id| id.get() == 6853381)
             )
     }));
-    let edges = crate::state::instances::adapters::sqlite::content_rows::get_content_dependency_edges(
+    let edges = crate::state::instances::adapters::sqlite::content_entries::get_content_dependency_edges(
         &backup.applied_content_set.id,
         &state.pool,
     )
@@ -1331,18 +1332,19 @@ async fn upgrade_applies_solver_and_non_solver_physical_actions() {
             .unwrap();
     }
 
-    let entries = crate::state::instances::adapters::sqlite::content_rows::get_content_entries(
+    let entries = crate::state::instances::adapters::sqlite::content_entries::get_content_entries(
         &instance.applied_content_set.id,
         &state.pool,
     )
     .await
     .unwrap();
-    let files = crate::state::instances::adapters::sqlite::content_rows::get_instance_files(
-        &instance_id,
-        &state.pool,
-    )
-    .await
-    .unwrap();
+    let files =
+        crate::state::instances::adapters::sqlite::files::get_instance_files(
+            &instance_id,
+            &state.pool,
+        )
+        .await
+        .unwrap();
     let paths = files
         .iter()
         .map(|file| (file.id.as_str(), file.relative_path.as_str()))

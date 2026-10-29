@@ -105,52 +105,52 @@ static WRITE_SCHEDULED: AtomicBool = AtomicBool::new(false);
 
 pub(crate) async fn load_if_needed() {
     LOAD.get_or_init(|| async {
-		let Some(path) = reputation_path() else {
-			return;
-		};
-		let _ = PATH.set(path.clone());
-		let Ok(contents) = tokio::fs::read(&path).await else {
-			return;
-		};
-		let Ok(store) = serde_json::from_slice::<PersistedStore>(&contents) else {
-			tracing::warn!(path = %path.display(), "Ignoring invalid native download reputation");
-			return;
-		};
-		if store.version != SCHEMA_VERSION {
-			return;
-		}
-		let cutoff = now_secs().saturating_sub(MAX_AGE_SECS);
-		let mut reputation = REPUTATION.lock();
-		for route in store.routes.into_iter().take(MAX_ENTRIES) {
-			if route.health.updated_at < cutoff {
-				continue;
-			}
-			reputation.insert(
-				ReputationKey {
-					family: route.family,
-					authority: route.authority,
-					proxy: route.proxy,
-				},
-				route.health,
-			);
-		}
-		drop(reputation);
-		let mut transports = TRANSPORT_REPUTATION.lock();
-		for transport in store.transports.into_iter().take(MAX_ENTRIES) {
-			if transport.health.updated_at < cutoff {
-				continue;
-			}
-			transports.insert(
-				TransportKey {
-					authority: transport.authority,
-					proxy: transport.proxy,
-					transport: transport.transport,
-				},
-				transport.health,
-			);
-		}
-	})
-	.await;
+        let Some(path) = reputation_path() else {
+            return;
+        };
+        let _ = PATH.set(path.clone());
+        let Ok(contents) = tokio::fs::read(&path).await else {
+            return;
+        };
+        let Ok(store) = serde_json::from_slice::<PersistedStore>(&contents) else {
+            tracing::warn!(path = %path.display(), "Ignoring invalid native download reputation");
+            return;
+        };
+        if store.version != SCHEMA_VERSION {
+            return;
+        }
+        let cutoff = now_secs().saturating_sub(MAX_AGE_SECS);
+        let mut reputation = REPUTATION.lock();
+        for route in store.routes.into_iter().take(MAX_ENTRIES) {
+            if route.health.updated_at < cutoff {
+                continue;
+            }
+            reputation.insert(
+                ReputationKey {
+                    family: route.family,
+                    authority: route.authority,
+                    proxy: route.proxy,
+                },
+                route.health,
+            );
+        }
+        drop(reputation);
+        let mut transports = TRANSPORT_REPUTATION.lock();
+        for transport in store.transports.into_iter().take(MAX_ENTRIES) {
+            if transport.health.updated_at < cutoff {
+                continue;
+            }
+            transports.insert(
+                TransportKey {
+                    authority: transport.authority,
+                    proxy: transport.proxy,
+                    transport: transport.transport,
+                },
+                transport.health,
+            );
+        }
+    })
+    .await;
 }
 
 pub(crate) fn get_transport(
@@ -332,22 +332,22 @@ fn schedule_write() {
         return;
     }
     runtime.spawn(async {
-		loop {
-			let generation = GENERATION.load(Ordering::Acquire);
-			tokio::time::sleep(WRITE_DELAY).await;
-			if let Err(error) = write_snapshot().await {
-				tracing::warn!(%error, "Failed to persist native download reputation");
-			}
-			if GENERATION.load(Ordering::Acquire) == generation {
-				WRITE_SCHEDULED.store(false, Ordering::Release);
-				if GENERATION.load(Ordering::Acquire) == generation
-					|| WRITE_SCHEDULED.swap(true, Ordering::AcqRel)
-				{
-					break;
-				}
-			}
-		}
-	});
+        loop {
+            let generation = GENERATION.load(Ordering::Acquire);
+            tokio::time::sleep(WRITE_DELAY).await;
+            if let Err(error) = write_snapshot().await {
+                tracing::warn!(%error, "Failed to persist native download reputation");
+            }
+            if GENERATION.load(Ordering::Acquire) == generation {
+                WRITE_SCHEDULED.store(false, Ordering::Release);
+                if GENERATION.load(Ordering::Acquire) == generation
+                    || WRITE_SCHEDULED.swap(true, Ordering::AcqRel)
+                {
+                    break;
+                }
+            }
+        }
+    });
 }
 
 async fn write_snapshot() -> std::io::Result<()> {

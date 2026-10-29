@@ -110,12 +110,12 @@ export function filterDefaultSkins(list: Skin[]) {
         })
 }
 
-export async function get_available_capes(): Promise<Cape[]> {
-    return invoke('plugin:minecraft-skins|get_available_capes', {})
+export async function get_available_capes(cachedOnly = false): Promise<Cape[]> {
+    return invoke('plugin:minecraft-skins|get_available_capes', { cachedOnly })
 }
 
-export async function get_available_skins(): Promise<Skin[]> {
-    return invoke('plugin:minecraft-skins|get_available_skins', {})
+export async function get_available_skins(cachedOnly = false): Promise<Skin[]> {
+    return invoke('plugin:minecraft-skins|get_available_skins', { cachedOnly })
 }
 
 export async function add_and_equip_custom_skin(

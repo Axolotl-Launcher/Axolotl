@@ -65,6 +65,14 @@ impl TrialRegistry {
         Self::expire(&mut state, now);
         (state.revision, state.active.map(|(_, kind, _)| kind))
     }
+
+    /// Production tail recovery takes priority over throughput experiments.
+    /// Invalidate their baselines when replacing completed range connections.
+    pub(crate) fn invalidate_for_range_recovery(&self) {
+        let mut state = self.0.lock();
+        state.active = None;
+        state.revision += 1;
+    }
 }
 
 impl TrialLease {
@@ -110,6 +118,24 @@ mod tests {
             drop(lease);
             assert!(registry.snapshot(now).1.is_none());
         }
+    }
+
+    #[test]
+    fn range_recovery_invalidates_experiments_without_releasing_a_successor() {
+        let registry = Arc::new(TrialRegistry::default());
+        let now = Instant::now();
+        let old = registry
+            .acquire(TrialKind::Endpoint, now, Duration::from_secs(20))
+            .unwrap();
+        let revision = registry.snapshot(now).0;
+        registry.invalidate_for_range_recovery();
+        assert!(!old.valid(now));
+        assert!(registry.snapshot(now).0 > revision);
+        let next = registry
+            .acquire(TrialKind::Ranges, now, Duration::from_secs(2))
+            .unwrap();
+        drop(old);
+        assert!(next.valid(now));
     }
 
     #[test]

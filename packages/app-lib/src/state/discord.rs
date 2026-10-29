@@ -108,7 +108,7 @@ impl DiscordGuard {
     ) -> crate::Result<()> {
         // Check if discord is disabled, and if so, clear the activity instead
         let state = State::get().await?;
-        let settings = crate::state::Settings::get(&state.pool).await?;
+        let settings = crate::state::Settings::get(&state.data).await?;
         if !settings.discord_rpc {
             Ok(self.clear_activity(true).await?)
         } else {
@@ -186,7 +186,7 @@ impl DiscordGuard {
     ) -> crate::Result<()> {
         let state = State::get().await?;
 
-        let settings = crate::state::Settings::get(&state.pool).await?;
+        let settings = crate::state::Settings::get(&state.data).await?;
         if !settings.discord_rpc {
             println!("Discord is disabled, clearing activity");
             return self.clear_activity(true).await;
@@ -205,6 +205,17 @@ impl DiscordGuard {
                 .await?;
         }
         Ok(())
+    }
+
+    /// Closes the Discord IPC connection; used when rich presence is
+    /// disabled or the launcher is shutting down.
+    pub async fn disconnect(&self) {
+        self.run_ipc("disconnect", false, |client| {
+            let _ = client.close();
+            Ok(())
+        })
+        .await;
+        self.connected.store(false, Ordering::Relaxed);
     }
 }
 

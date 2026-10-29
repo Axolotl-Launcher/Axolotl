@@ -1,5 +1,4 @@
-import assert from 'node:assert/strict'
-import test from 'node:test'
+import { afterEach, expect, it, onTestFinished, vi } from 'vitest'
 
 import {
     createDirectLinkSyncController,
@@ -7,6 +6,10 @@ import {
     startDirectLinkSyncOnFocus,
 } from './direct-link-sync-controller.ts'
 import type { DirectLinkSyncReport, ExternalMinecraftRoot } from './instance'
+
+afterEach(() => {
+    vi.useRealTimers()
+})
 
 const report = (changes: Partial<DirectLinkSyncReport> = {}): DirectLinkSyncReport => ({
     imported: 0,
@@ -25,7 +28,7 @@ const deferred = <T>() => {
     return { promise, resolve }
 }
 
-test('focus during an existing scan shares its result without a trailing duplicate', async () => {
+it('focus during an existing scan shares its result without a trailing duplicate', async () => {
     const response = deferred<DirectLinkSyncReport>()
     let calls = 0
     const sync = createDirectLinkSyncController(
@@ -38,16 +41,16 @@ test('focus during an existing scan shares its result without a trailing duplica
     const first = sync(roots('a'), true)
     await Promise.resolve()
     const focused = sync(roots('a'), true)
-    assert.equal(focused, first)
+    expect(focused).toBe(first)
     response.resolve(report())
     await focused
-    assert.equal(calls, 1)
+    expect(calls).toBe(1)
 
     await sync(roots('a'), true)
-    assert.equal(calls, 2)
+    expect(calls).toBe(2)
 })
 
-test('configuration changes during a scan serialize the latest roots, including removal of all roots', async () => {
+it('configuration changes during a scan serialize the latest roots, including removal of all roots', async () => {
     const response = deferred<DirectLinkSyncReport>()
     const scanned: ExternalMinecraftRoot[][] = []
     const published: DirectLinkSyncReport[] = []
@@ -64,20 +67,17 @@ test('configuration changes during a scan serialize the latest roots, including 
     await Promise.resolve()
     sync(roots('b'))
     const last = sync([])
-    assert.equal(last, first)
+    expect(last).toBe(first)
     response.resolve(report({ imported: 1 }))
-    assert.equal((await last).removed, 1)
-    assert.deepEqual(scanned, [roots('a'), []])
-    assert.deepEqual(
-        published.map((value) => [value.imported, value.removed]),
-        [
-            [1, 0],
-            [0, 1],
-        ],
-    )
+    expect((await last).removed).toBe(1)
+    expect(scanned).toEqual([roots('a'), []])
+    expect(published.map((value) => [value.imported, value.removed])).toEqual([
+        [1, 0],
+        [0, 1],
+    ])
 })
 
-test('explicit same-root requests still reconcile changes made during an active scan', async () => {
+it('explicit same-root requests still reconcile changes made during an active scan', async () => {
     const response = deferred<DirectLinkSyncReport>()
     let calls = 0
     const sync = createDirectLinkSyncController(
@@ -92,10 +92,10 @@ test('explicit same-root requests still reconcile changes made during an active 
     sync(roots('a'))
     response.resolve(report())
     await first
-    assert.equal(calls, 2)
+    expect(calls).toBe(2)
 })
 
-test('a request queued as the previous scan settles is not lost', async () => {
+it('a request queued as the previous scan settles is not lost', async () => {
     const response = deferred<DirectLinkSyncReport>()
     const scanned: string[] = []
     const sync = createDirectLinkSyncController(
@@ -114,10 +114,10 @@ test('a request queued as the previous scan settles is not lost', async () => {
     })
     await first
     await last
-    assert.deepEqual(scanned, ['a', 'b'])
+    expect(scanned).toEqual(['a', 'b'])
 })
 
-test('failed scans release the worker so the next focus can retry', async () => {
+it('failed scans release the worker so the next focus can retry', async () => {
     let calls = 0
     const sync = createDirectLinkSyncController(
         async () => {
@@ -126,55 +126,55 @@ test('failed scans release the worker so the next focus can retry', async () => 
         },
         () => {},
     )
-    await assert.rejects(sync(roots('a'), true), /scan failed/)
+    await expect(sync(roots('a'), true)).rejects.toThrow(/scan failed/)
     await sync(roots('a'), true)
-    assert.equal(calls, 2)
+    expect(calls).toBe(2)
 })
 
-test('only instance changes require a list refresh; missing roots and errors remain completion reports', () => {
-    assert.equal(directLinkSyncChanged(report()), false)
-    assert.equal(directLinkSyncChanged(report({ missing: 1, errors: ['unavailable'] })), false)
+it('only instance changes require a list refresh; missing roots and errors remain completion reports', () => {
+    expect(directLinkSyncChanged(report())).toBe(false)
+    expect(directLinkSyncChanged(report({ missing: 1, errors: ['unavailable'] }))).toBe(false)
     for (const change of [{ imported: 1 }, { updated: 1 }, { removed: 1 }]) {
-        assert.equal(directLinkSyncChanged(report(change)), true)
+        expect(directLinkSyncChanged(report(change))).toBe(true)
     }
 })
 
-test('scans on startup and settled focus, coalesces focus bursts, and cancels on blur or teardown', (t) => {
-    t.mock.timers.enable({ apis: ['setTimeout'] })
+it('scans on startup and settled focus, coalesces focus bursts, and cancels on blur or teardown', () => {
+    vi.useFakeTimers()
     const target = new EventTarget()
     let calls = 0
     const stop = startDirectLinkSyncOnFocus(
         async () => {
             calls++
         },
-        assert.fail,
+        expect.fail,
         target,
     )
-    t.after(stop)
-    assert.equal(calls, 1)
+    onTestFinished(stop)
+    expect(calls).toBe(1)
     target.dispatchEvent(new Event('focus'))
-    t.mock.timers.tick(200)
+    vi.advanceTimersByTime(200)
     target.dispatchEvent(new Event('focus'))
-    t.mock.timers.tick(299)
-    assert.equal(calls, 1)
-    t.mock.timers.tick(1)
-    assert.equal(calls, 2)
+    vi.advanceTimersByTime(299)
+    expect(calls).toBe(1)
+    vi.advanceTimersByTime(1)
+    expect(calls).toBe(2)
 
     target.dispatchEvent(new Event('focus'))
     target.dispatchEvent(new Event('blur'))
-    t.mock.timers.tick(300)
-    assert.equal(calls, 2)
+    vi.advanceTimersByTime(300)
+    expect(calls).toBe(2)
 
     target.dispatchEvent(new Event('focus'))
     stop()
-    t.mock.timers.tick(300)
+    vi.advanceTimersByTime(300)
     target.dispatchEvent(new Event('focus'))
-    t.mock.timers.tick(300)
-    assert.equal(calls, 2)
+    vi.advanceTimersByTime(300)
+    expect(calls).toBe(2)
 })
 
-test('a later focus reads current configuration and recovers after a background scan error', async (t) => {
-    t.mock.timers.enable({ apis: ['setTimeout'] })
+it('a later focus reads current configuration and recovers after a background scan error', async () => {
+    vi.useFakeTimers()
     const target = new EventTarget()
     const errors: unknown[] = []
     const scanned: string[] = []
@@ -187,13 +187,13 @@ test('a later focus reads current configuration and recovers after a background 
         (error) => errors.push(error),
         target,
     )
-    t.after(stop)
+    onTestFinished(stop)
     await Promise.resolve()
-    assert.equal(errors.length, 1)
+    expect(errors.length).toBe(1)
     configuration = 'b'
     target.dispatchEvent(new Event('focus'))
-    t.mock.timers.tick(300)
+    vi.advanceTimersByTime(300)
     await Promise.resolve()
-    assert.deepEqual(scanned, ['a', 'b'])
-    assert.equal(errors.length, 1)
+    expect(scanned).toEqual(['a', 'b'])
+    expect(errors.length).toBe(1)
 })

@@ -61,7 +61,7 @@ defineExpose({ show })
         :on-hide="() => answer(false)"
     >
         <div class="flex flex-col gap-4">
-            <p class="m-0 text-sm text-secondary">
+            <p class="m-0 text-sm text-[var(--color-text-tertiary)]">
                 {{
                     formatMessage(messages.body, {
                         server: serverName,

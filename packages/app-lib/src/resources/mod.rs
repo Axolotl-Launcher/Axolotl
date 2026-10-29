@@ -7,6 +7,7 @@ pub mod catalog;
 pub(crate) mod execution;
 pub mod export;
 pub mod favorites;
+pub(crate) mod fingerprints;
 pub mod history;
 pub mod history_cleanup;
 pub mod identity;
@@ -17,6 +18,7 @@ pub(crate) mod packs;
 pub mod plans;
 pub(crate) mod protocol;
 pub mod providers;
+pub mod refresh;
 pub mod search;
 mod service;
 pub mod updates;
@@ -88,6 +90,9 @@ impl From<crate::Error> for ResourceError {
             crate::ErrorKind::NetworkError(_)
             | crate::ErrorKind::ApiIsDownError(_) => {
                 Self::Network { status: None }
+            }
+            crate::ErrorKind::DownloadResourceWaitTimeout(_) => {
+                Self::Unavailable
             }
             crate::ErrorKind::InputError(_) => {
                 Self::InvalidRequest(error.to_string())

@@ -16,16 +16,18 @@ use crate::pack::install_from::{
     EnvType, PackFile, PackFileHash, set_instance_information,
 };
 use crate::state::instances::ContentSourceKind;
-use crate::state::instances::adapters::sqlite::content_rows;
 use crate::state::{
     CachedEntry, ContentProviderRef, ModrinthHashMatch, ModrinthProjectId,
     ModrinthVersionId, Settings, SideType,
 };
 use crate::util::download::constants::AGGREGATE_FAILURE_PATH_CHAR_LIMIT;
 use crate::util::download::constants::AGGREGATE_FAILURE_PATH_LIMIT;
+use crate::util::download::constants::AUTO_RETRY_BACKOFF_DELAYS;
 use crate::util::download::constants::AUTO_RETRY_PASSES;
 use crate::util::download::constants::CONTENT_DATABASE_BATCH_SIZE;
 use crate::util::download::constants::CONTENT_DATABASE_FLUSH_INTERVAL;
+use crate::util::download::constants::FETCH_RETRY_JITTER_MAX;
+use crate::util::download::constants::FETCH_RETRY_JITTER_MIN;
 use crate::util::download::constants::FINALIZE_WAIT_TIMEOUT;
 use crate::util::download::constants::ITEM_FAILURE_REASON_CHAR_LIMIT;
 use crate::util::download::constants::NATIVE_CONTENT_FINALIZE_CONCURRENCY;
@@ -40,6 +42,7 @@ use async_zip::base::read::{WithEntry, ZipEntryReader};
 use async_zip::tokio::read::fs::ZipFileReader as FsZipFileReader;
 use futures::StreamExt;
 use path_util::SafeRelativeUtf8UnixPathBuf;
+use rand::Rng;
 use std::collections::{HashMap, HashSet, VecDeque};
 #[cfg(test)]
 use std::fmt;
@@ -59,6 +62,8 @@ use std::io::{Cursor, ErrorKind};
 use std::path::{Path, PathBuf};
 use tokio::io::AsyncWriteExt;
 use tokio::sync::{Mutex, Semaphore, mpsc};
+
+use crate::state::instances::adapters::sqlite::files;
 
 type ExtractProgressFn<'a> = dyn FnMut(u64) -> Pin<Box<dyn Future<Output = crate::Result<()>> + Send + 'a>>
     + Send
@@ -362,6 +367,19 @@ fn estimated_file_max_attempts(file: &PackFile) -> usize {
     file.downloads.len().saturating_mul(2).max(1)
 }
 
+/// Delay before an automatic retry pass. Retried files re-enter the same
+/// native download pool, so a bounded, jittered wait keeps a saturated pool
+/// from being queued behind itself.
+fn retry_pass_delay(pass: usize) -> std::time::Duration {
+    let base = AUTO_RETRY_BACKOFF_DELAYS
+        .get(pass)
+        .copied()
+        .unwrap_or(*AUTO_RETRY_BACKOFF_DELAYS.last().unwrap());
+    let jitter = rand::thread_rng()
+        .gen_range(FETCH_RETRY_JITTER_MIN..=FETCH_RETRY_JITTER_MAX);
+    std::time::Duration::from_secs_f64(base.as_secs_f64() * jitter)
+}
+
 async fn collect_required_file_failures_concurrently<T, F, Fut>(
     items: Vec<T>,
     limit: Option<usize>,
@@ -491,7 +509,7 @@ async fn resolve_chinese_titles_by_sha1(
     let projects = match CachedEntry::get_project_many(
         &project_ids,
         None,
-        &state.pool,
+        state.cache_pool(),
         &state.api_semaphore,
     )
     .await
@@ -1064,7 +1082,7 @@ pub(crate) async fn install_zipped_mrpack_files_with_reporter(
         Arc::new(Mutex::new(None::<HashMap<String, ModrinthHashMatch>>));
     let file_infos_loading = Arc::new(Mutex::new(()));
     let chinese_naming_enabled =
-        Settings::get(&state.pool).await?.locale == "zh-CN";
+        Settings::get(&state.data).await?.locale == "zh-CN";
     let chinese_titles_by_sha1 = Arc::new(if chinese_naming_enabled {
         // Chinese titles shape the on-disk file names, so they must be known
         // before any download starts. All other installs resolve them lazily
@@ -1073,7 +1091,7 @@ pub(crate) async fn install_zipped_mrpack_files_with_reporter(
             &file_infos_by_hash,
             &file_infos_loading,
             &file_info_hashes,
-            &state.pool,
+            state.cache_pool(),
             &state.api_semaphore,
         )
         .await;
@@ -1089,12 +1107,12 @@ pub(crate) async fn install_zipped_mrpack_files_with_reporter(
         &file_infos_by_hash,
         &file_infos_loading,
         &file_info_hashes,
-        &state.pool,
+        state.cache_pool(),
         &state.api_semaphore,
     )
     .await;
     let existing_paths_by_original = Arc::new(
-        content_rows::get_instance_files(&instance_id, &state.pool)
+        files::get_instance_files(&instance_id, &state.pool)
             .await?
             .into_iter()
             .map(|file| {
@@ -1675,8 +1693,7 @@ pub(crate) async fn install_zipped_mrpack_files_with_reporter(
                         .with_download_meta(
                             content_context.download_meta.clone(),
                         )
-                        .with_segmented_download(true)
-                        .with_http1_segmented_download(false)
+                        .with_batch_download_policy()
                         .with_install_tracking(
                             content_context.reporter.clone(),
                             project_path.clone(),
@@ -1684,7 +1701,6 @@ pub(crate) async fn install_zipped_mrpack_files_with_reporter(
                         ),
                     &download_path,
                     &state.download_semaphore,
-                    &state.pool,
                     None,
                 )
                 .await
@@ -1821,6 +1837,19 @@ pub(crate) async fn install_zipped_mrpack_files_with_reporter(
             .iter()
             .map(|failure| failure.manifest_index)
             .collect();
+        // Retried files re-enter the same native download pool. Waiting before
+        // the next pass gives a saturated pool time to drain instead of
+        // queueing the retries behind the backlog again. The last pass has no
+        // successor, so it reports its failures without waiting.
+        if pass < AUTO_RETRY_PASSES {
+            let delay = retry_pass_delay(pass);
+            tracing::debug!(
+                files = retry_indices.len(),
+                delay_ms = delay.as_millis(),
+                "Waiting before the next modpack retry pass"
+            );
+            tokio::time::sleep(delay).await;
+        }
     }
     content_context.finish_download_metrics().await?;
     if let Some(reason) =
@@ -2031,7 +2060,7 @@ pub(crate) async fn install_zipped_mrpack_files_with_reporter(
         }
     };
     let materialization_result =
-		crate::api::pack::archive_util::run_cancellable_blocking_instance_write(
+        crate::api::pack::archive_util::run_cancellable_blocking_instance_write(
         instance_id.clone(),
         reporter.cancellation_token(),
         {
@@ -2044,7 +2073,7 @@ pub(crate) async fn install_zipped_mrpack_files_with_reporter(
             }
         },
     )
-	.await;
+    .await;
     let override_replacements = match materialization_result {
         Ok(replacements) => replacements,
         Err(error) => {
@@ -2179,7 +2208,6 @@ pub(crate) async fn install_zipped_mrpack_files_with_reporter(
             version_id,
             cached_pack_hashes,
             cached_pack_project_ids,
-            &state.pool,
         )
         .await;
     } else {
@@ -2323,6 +2351,8 @@ mod tests {
     use async_zip::tokio::write::ZipFileWriter;
     use async_zip::{Compression, ZipEntryBuilder};
     use std::sync::Mutex as StdMutex;
+
+    use crate::state::instances::adapters::sqlite::files;
 
     #[test]
     fn override_paths_reject_portable_traversal_and_windows_aliases() {

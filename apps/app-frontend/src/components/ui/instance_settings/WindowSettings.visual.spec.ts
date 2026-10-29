@@ -44,20 +44,34 @@ vi.mock('@modrinth/ui', async () => {
         Toggle: toggle,
         StyledInput: defineComponent({
             props: ['modelValue', 'type'],
-            setup:
-                (props, { emit }) =>
-                () =>
+            setup(props, { emit, expose }) {
+                const input = ref<HTMLInputElement>()
+                // The real StyledInput exposes both, and the component uses them to put
+                // the caret back into a field it had to re-mount.
+                expose({
+                    focus: () => input.value?.focus(),
+                    select: () => input.value?.select(),
+                })
+                return () =>
                     h('input', {
+                        ref: input,
                         value: props.modelValue,
                         type: props.type,
+                        // Mirrors the real StyledInput: a cleared number field reports
+                        // `undefined`, unparsable text reports `NaN`.
                         onInput: (event: Event) => {
-                            const input = event.target as HTMLInputElement
+                            const element = event.target as HTMLInputElement
                             emit(
                                 'update:modelValue',
-                                props.type === 'number' ? input.valueAsNumber : input.value,
+                                props.type === 'number'
+                                    ? element.value === ''
+                                        ? undefined
+                                        : Number(element.value)
+                                    : element.value,
                             )
                         },
-                    }),
+                    })
+            },
         }),
         defineMessages: (messages: unknown) => messages,
         injectNotificationManager: () => ({ handleError: vi.fn() }),
@@ -187,4 +201,40 @@ it('serializes rapid edits so the last title remains persisted', async () => {
     release()
     await flushPromises()
     expect(backend.persisted).toMatchObject({ window_title: 'Last', force_fullscreen: false })
+})
+
+it('never persists a cleared window size', async () => {
+    const wrapper = await settings({ force_fullscreen: false, game_resolution: [1920, 1080] })
+    // A cleared `<input type="number">` reports `undefined`, which serializes to JSON
+    // `null`; `game_resolution` is a `WindowSize(u16, u16)`, so the command would fail
+    // with `invalid type: null, expected u16` and drop the edit.
+    await wrapper.get('#width').setValue('')
+    await flushPromises()
+    expect(backend.edit).not.toHaveBeenCalled()
+    expect(backend.persisted.game_resolution).toEqual([1920, 1080])
+    expect(wrapper.get<HTMLInputElement>('#width').element.value).toBe('1920')
+    await wrapper.get('#height').setValue('')
+    await flushPromises()
+    expect(backend.edit).not.toHaveBeenCalled()
+    expect(backend.persisted.game_resolution).toEqual([1920, 1080])
+    expect(wrapper.get<HTMLInputElement>('#height').element.value).toBe('1080')
+})
+
+it('never persists a size the u16 field cannot hold', async () => {
+    const wrapper = await settings({ force_fullscreen: false, game_resolution: [1920, 1080] })
+    // Decimals and out-of-range numbers fail `WindowSize(u16, u16)` deserialization too,
+    // and `0` is below the `1` lower bound the backend enforces (`in_range(value, 1, 65535)`).
+    for (const invalid of ['1920.5', '-1', '0', '65536']) {
+        await wrapper.get('#width').setValue(invalid)
+        await flushPromises()
+    }
+    expect(backend.edit).not.toHaveBeenCalled()
+    expect(backend.persisted.game_resolution).toEqual([1920, 1080])
+})
+
+it('persists a single dimension edit as a number', async () => {
+    const wrapper = await settings({ force_fullscreen: false, game_resolution: [1920, 1080] })
+    await wrapper.get('#width').setValue('1280')
+    await flushPromises()
+    expect(backend.persisted.game_resolution).toEqual([1280, 1080])
 })

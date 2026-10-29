@@ -69,7 +69,6 @@ async fn list_entries(
         None,
         None,
         &state.api_semaphore,
-        &state.pool,
     )
     .await?;
     Ok(entries
@@ -247,7 +246,6 @@ async fn ensure_installer(
             }),
         &path,
         &state.download_semaphore,
-        &state.pool,
         None,
     )
     .await?;

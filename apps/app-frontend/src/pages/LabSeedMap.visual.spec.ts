@@ -50,7 +50,7 @@ vi.mock('vue-router', async (importOriginal) => ({
     ...(await importOriginal<typeof import('vue-router')>()),
     useRoute: () => ({ query: {} }),
 }))
-vi.mock('@/lab/recipe-generator/item-images', () => ({
+vi.mock('@/lab/shared/minecraft/item-images', () => ({
     loadMinecraftItemImage: () => Promise.resolve({ src: '' }),
 }))
 vi.mock('@/components/lab/seed-map/SeedMapBiomePicker.vue', () => ({
@@ -667,8 +667,9 @@ it('automatically paints visible layouts without a selection, shares requests wi
     await divider.trigger('dblclick')
     await vi.waitFor(() => expect(Number(divider.attributes('aria-valuenow'))).toBe(62))
     await wrapper!.findAll('[role="tab"]')[1].trigger('click')
-    await vi.waitFor(() =>
-        expect(wrapper!.get('aside canvas').attributes('data-ready')).toBe('true'),
+    await vi.waitFor(
+        () => expect(wrapper!.get('aside canvas').attributes('data-ready')).toBe('true'),
+        { timeout: 10000 },
     )
     if (import.meta.env.VITE_AXOLOTL_VISUAL_EVIDENCE)
         await page.screenshot({

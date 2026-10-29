@@ -1,5 +1,3 @@
-import '../styles/overlays.css'
-
 import type { Placement } from '@floating-ui/vue'
 import type { ObjectDirective } from 'vue'
 

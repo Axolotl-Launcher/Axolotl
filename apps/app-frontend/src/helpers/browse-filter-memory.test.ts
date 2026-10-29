@@ -1,5 +1,4 @@
-import assert from 'node:assert/strict'
-import test from 'node:test'
+import { expect, it } from 'vitest'
 
 import { getBrowseFilterMemory, setBrowseFilterMemory } from './browse-filter-memory.ts'
 
@@ -26,7 +25,7 @@ function restoreStorage() {
     }
 }
 
-test('browse filters are remembered independently for each project type', () => {
+it('browse filters are remembered independently for each project type', () => {
     installMemoryStorage()
 
     try {
@@ -41,28 +40,28 @@ test('browse filters are remembered independently for each project type', () => 
             overriddenProvidedFilterTypes: [],
         })
 
-        assert.deepEqual(getBrowseFilterMemory('mod'), {
+        expect(getBrowseFilterMemory('mod')).toEqual({
             filters: [{ type: 'game_version', option: '1.21.1' }],
             toggledGroups: ['all_versions'],
             overriddenProvidedFilterTypes: ['game_version'],
         })
-        assert.deepEqual(getBrowseFilterMemory('modpack'), {
+        expect(getBrowseFilterMemory('modpack')).toEqual({
             filters: [{ type: 'modpack_loader', option: 'neoforge' }],
             toggledGroups: [],
             overriddenProvidedFilterTypes: [],
         })
-        assert.equal(getBrowseFilterMemory('server'), null)
+        expect(getBrowseFilterMemory('server')).toBe(null)
     } finally {
         restoreStorage()
     }
 })
 
-test('invalid browse filter memory is ignored', () => {
+it('invalid browse filter memory is ignored', () => {
     const values = installMemoryStorage()
 
     try {
         values.set(storageKey, '{invalid json')
-        assert.equal(getBrowseFilterMemory('mod'), null)
+        expect(getBrowseFilterMemory('mod')).toBe(null)
 
         values.set(
             storageKey,
@@ -74,7 +73,7 @@ test('invalid browse filter memory is ignored', () => {
                 },
             }),
         )
-        assert.equal(getBrowseFilterMemory('mod'), null)
+        expect(getBrowseFilterMemory('mod')).toBe(null)
     } finally {
         restoreStorage()
     }

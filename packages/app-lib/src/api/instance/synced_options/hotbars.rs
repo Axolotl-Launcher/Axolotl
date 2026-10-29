@@ -475,11 +475,11 @@ async fn remove_other_hotbar_checkpoint(
     let variant = family.as_str();
     sqlx::query!(
         "
-		DELETE FROM instance_sync_checkpoints
-		WHERE instance_id = ?
-			AND feature = 'creative_hotbars'
-			AND variant != ?
-		",
+        DELETE FROM instance_sync_checkpoints
+        WHERE instance_id = ?
+            AND feature = 'creative_hotbars'
+            AND variant != ?
+        ",
         instance_id,
         variant,
     )
@@ -505,10 +505,10 @@ pub(super) async fn read_hotbar_state(
 ) -> crate::Result<HotbarState> {
     let row = sqlx::query!(
         r#"
-		SELECT schema_version AS "schema_version!: i64",
-			revision AS "revision!: i64", nbt
-		FROM synced_hotbar_state
-		WHERE singleton = 1
+        SELECT schema_version AS "schema_version!: i64",
+            revision AS "revision!: i64", nbt
+        FROM synced_hotbar_state
+        WHERE singleton = 1
         "#,
     )
     .fetch_optional(&state.pool)
@@ -530,10 +530,10 @@ pub(super) async fn read_hotbar_state(
 pub(super) async fn hotbar_state_exists(state: &State) -> crate::Result<bool> {
     Ok(sqlx::query_scalar!(
         r#"
-		SELECT EXISTS(
-			SELECT 1 FROM synced_hotbar_state WHERE singleton = 1
-		) AS "exists!: bool"
-		"#,
+        SELECT EXISTS(
+            SELECT 1 FROM synced_hotbar_state WHERE singleton = 1
+        ) AS "exists!: bool"
+        "#,
     )
     .fetch_one(&state.pool)
     .await?)
@@ -570,14 +570,14 @@ pub(super) async fn write_hotbar_state(
     let bytes = nbt_to_bytes(&hotbar_state.nbt)?;
     sqlx::query!(
         "
-		INSERT INTO synced_hotbar_state
-			(singleton, schema_version, revision, nbt)
-		VALUES (1, ?, ?, ?)
-		ON CONFLICT(singleton) DO UPDATE SET
-			schema_version = excluded.schema_version,
-			revision = excluded.revision,
-			nbt = excluded.nbt
-		",
+        INSERT INTO synced_hotbar_state
+            (singleton, schema_version, revision, nbt)
+        VALUES (1, ?, ?, ?)
+        ON CONFLICT(singleton) DO UPDATE SET
+            schema_version = excluded.schema_version,
+            revision = excluded.revision,
+            nbt = excluded.nbt
+        ",
         hotbar_state.schema_version,
         hotbar_state.revision,
         bytes,

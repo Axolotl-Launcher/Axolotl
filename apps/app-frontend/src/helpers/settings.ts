@@ -155,6 +155,7 @@ export type AppSettings = DohSettings & {
     default_page: 'Home' | 'DiscoverContent' | 'Library'
     collapsed_navigation: boolean
     hide_nametag_skins_page: boolean
+    nametag_uses_app_font: boolean
     advanced_rendering: boolean
     native_decorations: boolean
     toggle_sidebar: boolean
@@ -278,6 +279,7 @@ function normalizeDownloadSettings(settings: AppSettings & LegacyMirrorSettings)
     settings.custom_background_component_opacity ??= 100
     settings.ui_font ??= null
     settings.mono_font ??= null
+    settings.nametag_uses_app_font ??= false
     settings.feature_flags ??= { ...DEFAULT_FEATURE_FLAGS }
     settings.sync_features_across_devices ??= false
     settings.show_files_tab_in_instances ??= true

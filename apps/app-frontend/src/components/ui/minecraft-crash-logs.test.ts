@@ -1,5 +1,4 @@
-import assert from 'node:assert/strict'
-import { describe, test } from 'node:test'
+import { describe, expect, it } from 'vitest'
 
 import {
     combineCrashLogs,
@@ -20,53 +19,51 @@ const files: CrashLogFile[] = [
 ]
 
 describe('Minecraft crash log selection', () => {
-    test('enables automatic LogShare analysis only from source and auto-upload settings', () => {
-        assert.equal(
+    it('enables automatic LogShare analysis only from source and auto-upload settings', () => {
+        expect(
             shouldUseLogShareAutoAnalysis({
                 ai_source: 'logshare',
                 auto_upload: true,
                 no_storage: true,
             }),
-            true,
-        )
-        assert.equal(
-            shouldUseLogShareAutoAnalysis({ ai_source: 'logshare', auto_upload: false }),
+        ).toBe(true)
+        expect(shouldUseLogShareAutoAnalysis({ ai_source: 'logshare', auto_upload: false })).toBe(
             false,
         )
-        assert.equal(
-            shouldUseLogShareAutoAnalysis({ ai_source: 'custom', auto_upload: true }),
+        expect(shouldUseLogShareAutoAnalysis({ ai_source: 'custom', auto_upload: true })).toBe(
             false,
         )
     })
 
-    test('keeps current-run diagnostic files and one crash report per singleton type', () => {
+    it('keeps current-run diagnostic files and one crash report per singleton type', () => {
         const selected = selectCrashLogFiles(files)
-        assert.deepEqual(
-            selected.map((file) => file.filename),
-            ['crash-new.txt', 'hs_err_pid10.log', 'launcher_log.txt', 'latest.log'],
-        )
+        expect(selected.map((file) => file.filename)).toEqual([
+            'crash-new.txt',
+            'hs_err_pid10.log',
+            'launcher_log.txt',
+            'latest.log',
+        ])
     })
 
-    test('prefers the crash report and formats its relative path', () => {
+    it('prefers the crash report and formats its relative path', () => {
         const selected = selectCrashLogFiles(files)
-        assert.equal(preferredCrashLogKey(selected), 'CrashReport:crash-new.txt')
-        assert.equal(crashLogLabel(selected[0]!), 'crash-reports/crash-new.txt')
+        expect(preferredCrashLogKey(selected)).toBe('CrashReport:crash-new.txt')
+        expect(crashLogLabel(selected[0]!)).toBe('crash-reports/crash-new.txt')
     })
 
-    test('falls back to a JVM crash and then latest.log', () => {
-        assert.equal(
-            preferredCrashLogKey(files.filter((file) => file.log_type !== 'CrashReport')),
+    it('falls back to a JVM crash and then latest.log', () => {
+        expect(preferredCrashLogKey(files.filter((file) => file.log_type !== 'CrashReport'))).toBe(
             'JvmCrash:hs_err_pid10.log',
         )
-        assert.equal(preferredCrashLogKey([files[0]!]), 'InfoLog:latest.log')
+        expect(preferredCrashLogKey([files[0]!])).toBe('InfoLog:latest.log')
     })
 
-    test('combines loaded files for non-LogShare fallback sharing', () => {
+    it('combines loaded files for non-LogShare fallback sharing', () => {
         const content = combineCrashLogs([
             { ...files[0]!, output: 'latest output' },
             { ...files[1]!, output: 'crash output' },
         ])
-        assert.match(content, /===== latest\.log =====\nlatest output/)
-        assert.match(content, /===== crash-reports\/crash-new\.txt =====\ncrash output/)
+        expect(content).toMatch(/===== latest\.log =====\nlatest output/)
+        expect(content).toMatch(/===== crash-reports\/crash-new\.txt =====\ncrash output/)
     })
 })

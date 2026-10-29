@@ -8,6 +8,7 @@ vi.mock('vue-router', () => ({ useRoute: () => ({ params: { version: 'version-a'
 vi.mock('@/store/breadcrumbs', () => ({ useBreadcrumbs: () => ({ setName: vi.fn() }) }))
 vi.mock('@/helpers/cache.js', () => ({ get_project_many: vi.fn(), get_version_many: vi.fn() }))
 vi.mock('@modrinth/ui', () => ({
+    ProjectPageSkeleton: { render: () => null },
     injectNotificationManager: () => ({ handleError: vi.fn() }),
     Button: { render: () => null },
     OverflowMenu: { render: () => null },

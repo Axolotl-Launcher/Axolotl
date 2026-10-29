@@ -215,7 +215,6 @@ pub(super) async fn prepare(
         None,
         None,
         &state.api_semaphore,
-        &state.pool,
     )
     .await?;
     let mut libraries = Vec::new();

@@ -1,0 +1,20 @@
+{
+  "db_name": "SQLite",
+  "query": "\n        SELECT COUNT(*)\n        FROM sqlite_master\n        WHERE type = 'table' AND name = ?\n        ",
+  "describe": {
+    "columns": [
+      {
+        "name": "COUNT(*)",
+        "ordinal": 0,
+        "type_info": "Integer"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "1121f62cdf18e865f5a65796a9c80dd3e810f0de90c2197a37dea822b3c5f7d3"
+}

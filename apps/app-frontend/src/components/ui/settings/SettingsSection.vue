@@ -57,10 +57,10 @@ withDefaults(
     margin: 0;
     padding: 0;
     /* One step above the shell panels (`surface-2`) so a section still reads as
-	   raised once it sits on them -- at the same level the card would be
-	   invisible against its own panel. This also matches `.base-card`, the
-	   shared card class used elsewhere. The border matters in the light theme,
-	   where `surface-2` and `surface-3` differ by only ~1.03:1. */
+                raised once it sits on them -- at the same level the card would be
+                invisible against its own panel. This also matches `.base-card`, the
+                shared card class used elsewhere. The border matters in the light theme,
+                where `surface-2` and `surface-3` differ by only ~1.03:1. */
     background: var(--surface-3);
     border-color: var(--surface-4);
     border-radius: var(--radius-md);

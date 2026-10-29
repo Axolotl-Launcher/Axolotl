@@ -1,8 +1,8 @@
-import assert from 'node:assert/strict'
 import { readdirSync, readFileSync } from 'node:fs'
 import path from 'node:path'
-import test from 'node:test'
 import { fileURLToPath } from 'node:url'
+
+import { expect, it } from 'vitest'
 
 /**
  * Guards the invariants of the signed-ratio opacity model (see
@@ -101,25 +101,34 @@ function capture(source: string, pattern: RegExp): string[] {
     return values
 }
 
-test('the scan sees both stylesheet directories', () => {
+it('the scan sees both stylesheet directories', () => {
     const names = stylesheets.map((sheet) => sheet.name)
-    assert.ok(names.includes('opacity.scss'), `opacity.scss not found in ${names.join(', ')}`)
-    assert.ok(names.includes('global.scss'), `global.scss not found in ${names.join(', ')}`)
-    assert.ok(names.includes('variables.scss'), `variables.scss not found in ${names.join(', ')}`)
+    expect(
+        names.includes('opacity.scss'),
+        `opacity.scss not found in ${names.join(', ')}`,
+    ).toBeTruthy()
+    expect(
+        names.includes('global.scss'),
+        `global.scss not found in ${names.join(', ')}`,
+    ).toBeTruthy()
+    expect(
+        names.includes('variables.scss'),
+        `variables.scss not found in ${names.join(', ')}`,
+    ).toBeTruthy()
 })
 
-test('no color-mix() percentage is built from a calc()', () => {
+it('no color-mix() percentage is built from a calc()', () => {
     for (const sheet of stylesheets) {
         for (const argument of colorMixArguments(stripComments(sheet.text))) {
-            assert.ok(
+            expect(
                 !argument.includes('calc('),
                 `${sheet.name}: calc() inside color-mix() -> color-mix(${argument})`,
-            )
+            ).toBeTruthy()
         }
     }
 })
 
-test('every rule that declares a baseline also publishes the scale', () => {
+it('every rule that declares a baseline also publishes the scale', () => {
     let declarations = 0
     for (const sheet of stylesheets) {
         for (const block of ruleBlocks(stripComments(sheet.text))) {
@@ -129,22 +138,24 @@ test('every rule that declares a baseline also publishes the scale', () => {
             // (`var(--opacity-ratio-3)`): only the declaration publishes the rung in
             // this rule, which is what `var()` substitution at the declaring element
             // requires. Matching the reference form let a removed `@include` pass.
-            assert.match(
+            expect(
                 block,
-                /--opacity-ratio-[a-z0-9-]+\s*:|@include\s+opacity-scale/,
                 `${sheet.name}: a rule declares --opacity-baseline without publishing the scale`,
-            )
+            ).toMatch(/--opacity-ratio-[a-z0-9-]+\s*:|@include\s+opacity-scale/)
         }
     }
-    assert.ok(declarations > 0, 'expected at least one --opacity-baseline declaration')
+    expect(declarations > 0, 'expected at least one --opacity-baseline declaration').toBeTruthy()
 })
 
-test('every keep-NN rung a stylesheet references is declared by opacity-scale', () => {
-    assert.ok(opacitySheet, 'opacity.scss must be part of the scan')
+it('every keep-NN rung a stylesheet references is declared by opacity-scale', () => {
+    expect(opacitySheet, 'opacity.scss must be part of the scan').toBeTruthy()
     const declared = new Set(
         capture(stripComments(opacitySheet.text), /--opacity-ratio-keep-(\d+)\s*:/g),
     )
-    assert.ok(declared.size > 0, 'expected opacity-scale to declare at least one keep-NN rung')
+    expect(
+        declared.size > 0,
+        'expected opacity-scale to declare at least one keep-NN rung',
+    ).toBeTruthy()
 
     const missing = new Set<string>()
     for (const sheet of stylesheets) {
@@ -153,9 +164,8 @@ test('every keep-NN rung a stylesheet references is declared by opacity-scale', 
         }
     }
 
-    assert.deepEqual(
+    expect(
         [...missing].sort(),
-        [],
         `keep-NN rungs referenced but not declared in opacity-scale: ${[...missing].sort().join(', ')}`,
-    )
+    ).toEqual([])
 })

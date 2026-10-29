@@ -6,6 +6,16 @@ use super::write_shared_settings::{
     apply_shared_settings_to_instance, capture_instance_options,
     sync_is_active_for_instance,
 };
+use crate::state::store::Collection as _;
+use crate::state::store::game_option_pack_bases::{
+    GameOptionPackBases, PackBaseKey, PackBaseRecord, PackBaseSource,
+};
+use crate::state::store::game_option_update_state::{
+    GameOptionUpdateState, UpdateStateKey, UpdateStateRecord,
+};
+use crate::state::store::instance_sync_checkpoints::{
+    CheckpointScope, InstanceSyncCheckpoints,
+};
 use crate::state::{InstanceLink, InstanceMetadata, State, SyncedOption};
 use crate::util::io;
 use encoding_rs::{UTF_8, UTF_16BE, UTF_16LE};
@@ -130,15 +140,14 @@ pub(in crate::api::instance) async fn detach_instance(
     state: &State,
 ) -> crate::Result<()> {
     let feature = SyncedOption::GameOptions.as_str();
-    sqlx::query!(
-        "
-		DELETE FROM instance_sync_checkpoints
-		WHERE instance_id = ? AND feature = ?
-		",
-        metadata.instance.id,
-        feature,
+    InstanceSyncCheckpoints::set_scoped(
+        &state.data,
+        &CheckpointScope {
+            instance_id: metadata.instance.id.clone(),
+            feature: feature.to_string(),
+        },
+        &[],
     )
-    .execute(&state.pool)
     .await?;
     Ok(())
 }
@@ -149,17 +158,15 @@ pub(in crate::api::instance) async fn prepare_instance_update_with_state(
     metadata: &InstanceMetadata,
     state: &State,
 ) -> crate::Result<()> {
-    sqlx::query!(
-        "DELETE FROM instance_game_option_update_state WHERE instance_id = ?",
-        metadata.instance.id,
-    )
-    .execute(&state.pool)
-    .await?;
+    let update_state = UpdateStateKey {
+        instance_id: metadata.instance.id.clone(),
+    };
+    GameOptionUpdateState::set(&state.data, &update_state, None).await?;
     if sync_is_active_for_instance(metadata, state).await? {
         let _ = capture_instance_options(metadata, state, true).await?;
     }
     let path = options_path(metadata, state)?;
-    let (had_file, bytes, sha1) = if path.exists() {
+    let record = if path.exists() {
         let file_metadata = tokio::fs::symlink_metadata(&path)
             .await
             .map_err(|error| io::IOError::with_path(error, &path))?;
@@ -174,26 +181,15 @@ pub(in crate::api::instance) async fn prepare_instance_update_with_state(
             ));
         }
         let bytes = io::read(&path).await?;
-        (true, Some(bytes.clone()), Some(sha1_bytes(&bytes)))
+        UpdateStateRecord::Replaced {
+            sha1: sha1_bytes(&bytes),
+            document: bytes,
+        }
     } else {
-        (false, None, None)
+        UpdateStateRecord::Absent
     };
-    sqlx::query!(
-        "
-		INSERT INTO instance_game_option_update_state
-			(instance_id, had_file, sha1, document)
-		VALUES (?, ?, ?, ?)
-		ON CONFLICT(instance_id) DO UPDATE SET
-			had_file = excluded.had_file, sha1 = excluded.sha1,
-			document = excluded.document
-		",
-        metadata.instance.id,
-        had_file,
-        sha1,
-        bytes,
-    )
-    .execute(&state.pool)
-    .await?;
+    GameOptionUpdateState::set(&state.data, &update_state, Some(&record))
+        .await?;
     Ok(())
 }
 
@@ -210,35 +206,34 @@ pub async fn capture_pack_base(
         .ok_or_else(|| input_error("Unknown instance"))?;
     let path = options_path(&metadata, &state)?;
     let feature = SyncedOption::GameOptions.as_str();
-    sqlx::query!(
-        "
-		DELETE FROM instance_sync_checkpoints
-		WHERE instance_id = ? AND feature = ?
-		",
-        instance_id,
-        feature,
+    InstanceSyncCheckpoints::set_scoped(
+        &state.data,
+        &CheckpointScope {
+            instance_id: instance_id.to_string(),
+            feature: feature.to_string(),
+        },
+        &[],
     )
-    .execute(&state.pool)
     .await?;
 
     if source.is_none() {
-        let pending = sqlx::query!(
-            r#"
-			SELECT had_file AS "had_file!: bool", document
-			FROM instance_game_option_update_state
-			WHERE instance_id = ?
-			"#,
-            instance_id,
+        let pending = GameOptionUpdateState::get(
+            &state.data,
+            &UpdateStateKey {
+                instance_id: instance_id.to_string(),
+            },
         )
-        .fetch_optional(&state.pool)
         .await?;
         if let Some(pending) = pending {
-            if pending.had_file {
-                if let Some(document) = pending.document {
+            match pending {
+                UpdateStateRecord::Replaced { document, .. } => {
                     io::write(&path, document).await?;
                 }
-            } else if path.exists() {
-                io::remove_file(&path).await?;
+                UpdateStateRecord::Absent => {
+                    if path.exists() {
+                        io::remove_file(&path).await?;
+                    }
+                }
             }
         }
     }
@@ -267,33 +262,39 @@ pub async fn capture_pack_base(
             (Some(document), Some(sha1), Some(encoding))
         })
         .unwrap_or((None, None, None));
-    let source_name =
-        source.map(GameOptionsPackSource::as_str).unwrap_or("none");
+    let source = match source {
+        Some(
+            GameOptionsPackSource::ClientOverrides
+            | GameOptionsPackSource::ClientOverridesYosbr,
+        ) => PackBaseSource::ClientOverrides,
+        Some(
+            GameOptionsPackSource::Overrides
+            | GameOptionsPackSource::OverridesYosbr,
+        ) => PackBaseSource::Overrides,
+        None => PackBaseSource::None,
+    };
     let version_id = pack_version_id(&metadata);
-    sqlx::query!(
-        "
-		INSERT INTO instance_game_option_pack_bases
-			(instance_id, pack_version_id, source, sha1, encoding, document)
-		VALUES (?, ?, ?, ?, ?, ?)
-		ON CONFLICT(instance_id) DO UPDATE SET
-			pack_version_id = excluded.pack_version_id,
-			source = excluded.source, sha1 = excluded.sha1,
-			encoding = excluded.encoding, document = excluded.document
-		",
-        instance_id,
-        version_id,
-        source_name,
-        sha1,
-        encoding,
-        document_bytes,
+    GameOptionPackBases::set(
+        &state.data,
+        &PackBaseKey {
+            instance_id: instance_id.to_string(),
+        },
+        Some(&PackBaseRecord {
+            pack_version_id: version_id.map(str::to_string),
+            source,
+            sha1,
+            encoding,
+            document: document_bytes,
+        }),
     )
-    .execute(&state.pool)
     .await?;
-    sqlx::query!(
-        "DELETE FROM instance_game_option_update_state WHERE instance_id = ?",
-        instance_id,
+    GameOptionUpdateState::set(
+        &state.data,
+        &UpdateStateKey {
+            instance_id: instance_id.to_string(),
+        },
+        None,
     )
-    .execute(&state.pool)
     .await?;
 
     if sync_is_active_for_instance(&metadata, &state).await?

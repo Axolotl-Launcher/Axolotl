@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "UPDATE synced_game_option_values\n         SET seeded = 0, revision = revision + 1, updated_at = ?",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": []
+  },
+  "hash": "16132fc30e481a2c4b6e480425730731a33eb45478a5b3f9c2fe1f1bc2fa9583"
+}

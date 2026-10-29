@@ -3,7 +3,7 @@ import { computed, ref, watch } from 'vue'
 
 import { countFontSize, countInset, countShadow } from '@/lab/recipe-generator/count-display'
 import type { SlotDisplay } from '@/lab/recipe-generator/display'
-import type { TextureAtlas } from '@/lab/recipe-generator/resources'
+import type { TextureAtlas } from '@/lab/shared/minecraft/resources'
 
 const props = withDefaults(
     defineProps<{

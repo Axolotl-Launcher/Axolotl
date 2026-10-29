@@ -2,12 +2,14 @@ use crate::event::emit::{emit_instance, emit_process};
 use crate::event::{InstancePayloadType, ProcessPayloadType};
 #[cfg(feature = "tauri")]
 use crate::event::{LogEvent, LogPayload};
+use crate::state::store::Collection as _;
+use crate::state::store::join_log::{JoinLog, JoinLogEntry, JoinLogKey};
 use crate::util::io::IOError;
 use crate::util::rpc::RpcServer;
 use chrono::{DateTime, Duration, NaiveDateTime, TimeZone, Utc};
 use dashmap::DashMap;
-use quick_xml::Reader;
 use quick_xml::events::Event;
+use quick_xml::{Reader, XmlVersion};
 use serde::Deserialize;
 use serde::Serialize;
 use std::collections::{BTreeMap, HashMap, VecDeque};
@@ -312,6 +314,14 @@ pub fn get_log_delta(instance_id: &str, cursor: Option<LogCursor>) -> LogDelta {
 
 pub fn remove_log_buffer(instance_id: &str) {
     LOG_BUFFERS.remove(instance_id);
+}
+
+/// Drops buffered logs for every instance or dedicated server that no longer
+/// has a running process.
+pub(crate) fn remove_inactive_log_buffers(active_log_ids: &[String]) {
+    let active: std::collections::HashSet<&str> =
+        active_log_ids.iter().map(String::as_str).collect();
+    LOG_BUFFERS.retain(|log_id, _| active.contains(log_id.as_str()));
 }
 
 pub struct ProcessManager {
@@ -898,9 +908,9 @@ impl Process {
                                     )
                                     .await;
                                         if let Err(e) = Self::maybe_handle_server_join_logging(
-											instance_id,
-											&timestamp,
-											message,
+                                            instance_id,
+                                            &timestamp,
+                                            message,
                                         ).await {
                                             tracing::error!("Failed to handle server join logging: {e}");
                                         }
@@ -917,7 +927,9 @@ impl Process {
                     }
                     Ok(Event::Text(mut e)) => {
                         if in_message || in_throwable {
-                            if let Ok(text) = e.xml_content() {
+                            if let Ok(text) =
+                                e.xml_content(XmlVersion::Explicit1_1)
+                            {
                                 append_bounded_log4j_content(
                                     &mut current_content,
                                     &text,
@@ -926,7 +938,8 @@ impl Process {
                         } else if !in_event
                             && !e.inplace_trim_end()
                             && !e.inplace_trim_start()
-                            && let Ok(text) = e.xml_content()
+                            && let Ok(text) =
+                                e.xml_content(XmlVersion::Explicit1_1)
                         {
                             if let Err(e) = Process::append_to_log_file(
                                 &log_path,
@@ -942,7 +955,8 @@ impl Process {
                     }
                     Ok(Event::CData(e)) => {
                         if (in_message || in_throwable)
-                            && let Ok(text) = e.xml_content()
+                            && let Ok(text) =
+                                e.xml_content(XmlVersion::Explicit1_1)
                         {
                             append_bounded_log4j_content(
                                 &mut current_content,
@@ -1155,13 +1169,17 @@ impl Process {
         };
 
         let state = crate::State::get().await?;
-        crate::state::server_join_log::JoinLogEntry {
-            instance_id: instance_id.to_owned(),
-            host: host.to_string(),
-            port,
-            join_time: timestamp,
-        }
-        .upsert(&state.pool)
+        JoinLog::set(
+            &state.data,
+            &JoinLogKey {
+                instance_id: instance_id.to_owned(),
+                host: host.to_string(),
+                port,
+            },
+            Some(&JoinLogEntry {
+                join_time: timestamp,
+            }),
+        )
         .await?;
         {
             let instance_id = instance_id.to_owned();
@@ -1236,20 +1254,20 @@ impl Process {
                 );
             }
             if let Err(e) =
-				crate::state::instances::commands::record_instance_daily_playtime(
-					instance_id,
-					started_at,
-					ended_at,
-					&state.pool,
-				)
-				.await
-			{
-				tracing::warn!(
-					"Failed to record daily playtime for instance {}: {}",
-					instance_id,
-					e
-				);
-			}
+                crate::state::instances::commands::record_instance_daily_playtime(
+                    instance_id,
+                    started_at,
+                    ended_at,
+                    &state.pool,
+                )
+                .await
+            {
+                tracing::warn!(
+                    "Failed to record daily playtime for instance {}: {}",
+                    instance_id,
+                    e
+                );
+            }
             *last_updated_playtime = Instant::now();
         }
 
@@ -1547,6 +1565,19 @@ mod post_upgrade_tests {
         assert!(!crash_reports_changed(&before, &unchanged));
         assert!(crash_reports_changed(&before, &added));
         assert!(crash_reports_changed(&before, &modified));
+    }
+
+    #[test]
+    fn remove_inactive_log_buffers_keeps_active_log_ids() {
+        push_log_line("remove_inactive_keep_test", "kept".to_string());
+        push_log_line("remove_inactive_drop_test", "dropped".to_string());
+
+        remove_inactive_log_buffers(&["remove_inactive_keep_test".to_string()]);
+
+        assert!(!get_log_buffer("remove_inactive_keep_test").is_empty());
+        assert!(get_log_buffer("remove_inactive_drop_test").is_empty());
+
+        remove_log_buffer("remove_inactive_keep_test");
     }
 }
 

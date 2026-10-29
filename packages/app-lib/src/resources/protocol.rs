@@ -241,8 +241,19 @@ pub(crate) async fn many(
             continue;
         }
         let value = value.map_err(error)?.value;
-        if let Some(value) = project(kind, key, value)? {
-            output.push(value.get_entry());
+        match project(kind, key, value) {
+            Ok(Some(value)) => output.push(value.get_entry()),
+            Ok(None) => {}
+            Err(error)
+                if kind == CacheValueType::Project
+                    && matches!(
+                        &*error.raw,
+                        crate::ErrorKind::JSONError(_)
+                    ) =>
+            {
+                tracing::warn!(project_id = *key, error = %error, "Skipping malformed Modrinth project metadata");
+            }
+            Err(error) => return Err(error),
         }
     }
     Ok(output)

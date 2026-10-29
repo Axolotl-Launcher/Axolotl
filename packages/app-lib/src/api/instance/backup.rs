@@ -293,7 +293,7 @@ fn default_repository_path(state: &State) -> PathBuf {
 }
 
 async fn repository_path(state: &State) -> crate::Result<PathBuf> {
-    let settings = Settings::get(&state.pool).await?;
+    let settings = Settings::get(&state.data).await?;
     Ok(settings
         .backup_repository_path
         .filter(|path| !path.trim().is_empty())
@@ -433,34 +433,34 @@ async fn create_persisted_operation(
     }
     let now = Utc::now().timestamp_millis();
     let persist_result: crate::Result<()> = async {
-		let active_count: i64 = sqlx::query_scalar(
-			"SELECT COUNT(*) FROM backup_operations WHERE instance_id = ?
-			 AND state NOT IN ('completed', 'cancelled', 'failed', 'interrupted')",
-		)
-		.bind(instance_id)
-		.fetch_one(&pool)
-		.await?;
-		if active_count > 0 {
-			return Err(crate::ErrorKind::InputError(
-				"Another backup operation is already running for this instance".to_string(),
-			)
-			.into());
-		}
-		sqlx::query(
-			"INSERT INTO backup_operations
-			 (id, operation_type, instance_id, snapshot_id, state, created_at, updated_at)
-			 VALUES (?, ?, ?, ?, 'queued', ?, ?)",
-		)
-		.bind(id.to_string())
-		.bind(operation_type.as_str())
-		.bind(instance_id)
-		.bind(snapshot_id)
-		.bind(now)
-		.bind(now)
-		.execute(&pool)
-		.await?;
-		Ok(())
-	}.await;
+        let active_count: i64 = sqlx::query_scalar(
+            "SELECT COUNT(*) FROM backup_operations WHERE instance_id = ?
+             AND state NOT IN ('completed', 'cancelled', 'failed', 'interrupted')",
+        )
+        .bind(instance_id)
+        .fetch_one(&pool)
+        .await?;
+        if active_count > 0 {
+            return Err(crate::ErrorKind::InputError(
+                "Another backup operation is already running for this instance".to_string(),
+            )
+            .into());
+        }
+        sqlx::query(
+            "INSERT INTO backup_operations
+             (id, operation_type, instance_id, snapshot_id, state, created_at, updated_at)
+             VALUES (?, ?, ?, ?, 'queued', ?, ?)",
+        )
+        .bind(id.to_string())
+        .bind(operation_type.as_str())
+        .bind(instance_id)
+        .bind(snapshot_id)
+        .bind(now)
+        .bind(now)
+        .execute(&pool)
+        .await?;
+        Ok(())
+    }.await;
     pool.close().await;
     if persist_result.is_err() {
         ACTIVE_INSTANCE_OPERATIONS.remove(instance_id);
@@ -509,22 +509,22 @@ async fn update_persisted_operation(
     let now = Utc::now().timestamp_millis();
     let finished_at = state.is_terminal().then_some(now);
     let _ = sqlx::query(
-		"UPDATE backup_operations SET state = ?, processed_bytes = COALESCE(?, processed_bytes),
-		 total_bytes = COALESCE(?, total_bytes), cancellable = COALESCE(?, cancellable),
-		 error = COALESCE(?, error), snapshot_id = COALESCE(?, snapshot_id),
-		 updated_at = ?, finished_at = COALESCE(?, finished_at) WHERE id = ?",
-	)
-	.bind(state.as_str())
-	.bind(processed_bytes.map(|value| value as i64))
-	.bind(total_bytes.map(|value| value as i64))
-	.bind(cancellable.map(i64::from))
-	.bind(error)
-	.bind(snapshot_id)
-	.bind(now)
-	.bind(finished_at)
-	.bind(operation_id.to_string())
-	.execute(&pool)
-	.await;
+        "UPDATE backup_operations SET state = ?, processed_bytes = COALESCE(?, processed_bytes),
+         total_bytes = COALESCE(?, total_bytes), cancellable = COALESCE(?, cancellable),
+         error = COALESCE(?, error), snapshot_id = COALESCE(?, snapshot_id),
+         updated_at = ?, finished_at = COALESCE(?, finished_at) WHERE id = ?",
+    )
+    .bind(state.as_str())
+    .bind(processed_bytes.map(|value| value as i64))
+    .bind(total_bytes.map(|value| value as i64))
+    .bind(cancellable.map(i64::from))
+    .bind(error)
+    .bind(snapshot_id)
+    .bind(now)
+    .bind(finished_at)
+    .bind(operation_id.to_string())
+    .execute(&pool)
+    .await;
     pool.close().await;
 }
 
@@ -566,10 +566,10 @@ pub async fn list_operations(
     };
     let mut query = String::from(
         "SELECT id, operation_type, instance_id, snapshot_id, state,
-		 processed_bytes, total_bytes, cancellable, cancel_requested, error,
-		 created_at, updated_at, finished_at, preview_added_files,
-		 preview_modified_files, preview_deleted_files, preview_plan_token
-		 FROM backup_operations WHERE 1 = 1",
+         processed_bytes, total_bytes, cancellable, cancel_requested, error,
+         created_at, updated_at, finished_at, preview_added_files,
+         preview_modified_files, preview_deleted_files, preview_plan_token
+         FROM backup_operations WHERE 1 = 1",
     );
     if instance_id.is_some() {
         query.push_str(" AND instance_id = ?");
@@ -611,9 +611,9 @@ pub async fn interrupt_active_operations() -> crate::Result<u64> {
     let now = Utc::now().timestamp_millis();
     let result = sqlx::query(
         "UPDATE backup_operations SET state = 'interrupted', cancellable = 0,
-		 error = COALESCE(error, 'The launcher exited while the operation was running'),
-		 updated_at = ?, finished_at = ?
-		 WHERE state NOT IN ('completed', 'cancelled', 'failed', 'interrupted')",
+         error = COALESCE(error, 'The launcher exited while the operation was running'),
+         updated_at = ?, finished_at = ?
+         WHERE state NOT IN ('completed', 'cancelled', 'failed', 'interrupted')",
     )
     .bind(now)
     .bind(now)
@@ -1001,11 +1001,11 @@ pub async fn instance_config(
     .await?;
     let excluded_paths = if enabled {
         let rows: Vec<(String, String)> = sqlx::query_as(
-			"SELECT path, kind FROM backup_exclusions WHERE instance_id = ? ORDER BY path",
-		)
-		.bind(instance_id)
-		.fetch_all(&pool)
-		.await?;
+            "SELECT path, kind FROM backup_exclusions WHERE instance_id = ? ORDER BY path",
+        )
+        .bind(instance_id)
+        .fetch_all(&pool)
+        .await?;
         rows.into_iter()
             .map(|(path, kind)| {
                 Ok(BackupExclusion {
@@ -1081,13 +1081,13 @@ pub async fn enable(
         .await?;
     for exclusion in &excluded_paths {
         sqlx::query(
-			"INSERT INTO backup_exclusions (instance_id, path, kind) VALUES (?, ?, ?)",
-		)
-		.bind(instance_id)
-		.bind(&exclusion.path)
-		.bind(exclusion.kind.as_str())
-		.execute(&mut *tx)
-		.await?;
+            "INSERT INTO backup_exclusions (instance_id, path, kind) VALUES (?, ?, ?)",
+        )
+        .bind(instance_id)
+        .bind(&exclusion.path)
+        .bind(exclusion.kind.as_str())
+        .execute(&mut *tx)
+        .await?;
     }
     tx.commit().await?;
     pool.close().await;
@@ -1130,13 +1130,13 @@ pub async fn update_exclusions(
         .await?;
     for exclusion in &excluded_paths {
         sqlx::query(
-			"INSERT INTO backup_exclusions (instance_id, path, kind) VALUES (?, ?, ?)",
-		)
-		.bind(instance_id)
-		.bind(&exclusion.path)
-		.bind(exclusion.kind.as_str())
-		.execute(&mut *tx)
-		.await?;
+            "INSERT INTO backup_exclusions (instance_id, path, kind) VALUES (?, ?, ?)",
+        )
+        .bind(instance_id)
+        .bind(&exclusion.path)
+        .bind(exclusion.kind.as_str())
+        .execute(&mut *tx)
+        .await?;
     }
     tx.commit().await?;
     pool.close().await;
@@ -1413,12 +1413,12 @@ async fn update_cancel_requested(operation_id: Uuid) -> crate::Result<()> {
         .into());
     };
     sqlx::query(
-		"UPDATE backup_operations SET cancel_requested = 1, updated_at = ? WHERE id = ?",
-	)
-	.bind(Utc::now().timestamp_millis())
-	.bind(operation_id.to_string())
-	.execute(&pool)
-	.await?;
+        "UPDATE backup_operations SET cancel_requested = 1, updated_at = ? WHERE id = ?",
+    )
+    .bind(Utc::now().timestamp_millis())
+    .bind(operation_id.to_string())
+    .execute(&pool)
+    .await?;
     pool.close().await;
     Ok(())
 }
@@ -1464,11 +1464,11 @@ async fn create_snapshot_inner(
         .into());
     };
     let enabled: bool = sqlx::query_scalar(
-		"SELECT EXISTS(SELECT 1 FROM instance_backup_configs WHERE instance_id = ?)",
-	)
-	.bind(instance_id)
-	.fetch_one(&pool)
-	.await?;
+        "SELECT EXISTS(SELECT 1 FROM instance_backup_configs WHERE instance_id = ?)",
+    )
+    .bind(instance_id)
+    .fetch_one(&pool)
+    .await?;
     if !enabled {
         return Err(crate::ErrorKind::InputError(
             "Backups are not enabled for this instance".to_string(),
@@ -1476,11 +1476,11 @@ async fn create_snapshot_inner(
         .into());
     }
     let exclusion_rows: Vec<(String, String)> = sqlx::query_as(
-		"SELECT path, kind FROM backup_exclusions WHERE instance_id = ? ORDER BY path",
-	)
-	.bind(instance_id)
-	.fetch_all(&pool)
-	.await?;
+        "SELECT path, kind FROM backup_exclusions WHERE instance_id = ? ORDER BY path",
+    )
+    .bind(instance_id)
+    .fetch_all(&pool)
+    .await?;
     let exclusions = exclusion_rows
         .into_iter()
         .map(|(path, kind)| {
@@ -1578,9 +1578,9 @@ async fn create_snapshot_inner(
         let mut tx = pool.begin().await?;
         sqlx::query(
             "INSERT INTO backup_snapshots
-		 (id, instance_id, instance_name, created_at, file_count,
-		  symlink_count, logical_size, added_size, scope_mode)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'excluded_paths')",
+         (id, instance_id, instance_name, created_at, file_count,
+          symlink_count, logical_size, added_size, scope_mode)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'excluded_paths')",
         )
         .bind(&snapshot_id)
         .bind(instance_id)
@@ -1595,7 +1595,7 @@ async fn create_snapshot_inner(
         for exclusion in &exclusions {
             sqlx::query(
                 "INSERT INTO snapshot_exclusions (snapshot_id, path, kind)
-			 VALUES (?, ?, ?)",
+             VALUES (?, ?, ?)",
             )
             .bind(&snapshot_id)
             .bind(&exclusion.path)
@@ -2240,9 +2240,9 @@ pub async fn recover_repository() -> crate::Result<()> {
     let now = Utc::now().timestamp_millis();
     sqlx::query(
         "UPDATE backup_operations SET state = 'interrupted', cancellable = 0,
-		 error = COALESCE(error, 'The launcher exited while the operation was running'),
-		 updated_at = ?, finished_at = ?
-		 WHERE state NOT IN ('completed', 'cancelled', 'failed', 'interrupted')",
+         error = COALESCE(error, 'The launcher exited while the operation was running'),
+         updated_at = ?, finished_at = ?
+         WHERE state NOT IN ('completed', 'cancelled', 'failed', 'interrupted')",
     )
     .bind(now)
     .bind(now)
@@ -3572,8 +3572,8 @@ async fn restore_snapshot_inner(
         pool.close().await;
         if let Err(recovery_error) = recovery {
             return Err(crate::ErrorKind::OtherError(format!(
-				"Backup restore failed: {error}; rollback failed: {recovery_error}"
-			))
+                "Backup restore failed: {error}; rollback failed: {recovery_error}"
+            ))
             .into());
         }
         return Err(error);
@@ -3585,9 +3585,9 @@ async fn restore_snapshot_inner(
         pool.close().await;
         if let Err(recovery_error) = recovery {
             return Err(crate::ErrorKind::OtherError(format!(
-				"Backup restore could not be committed: {error}; rollback failed: {recovery_error}"
-			))
-			.into());
+                "Backup restore could not be committed: {error}; rollback failed: {recovery_error}"
+            ))
+            .into());
         }
         return Err(error);
     }
@@ -4420,11 +4420,11 @@ mod tests {
         assert!(tables.contains(&"backup_operations".to_string()));
         assert!(!tables.contains(&"backup_selections".to_string()));
         let operation_columns: Vec<String> = sqlx::query_scalar(
-			"SELECT name FROM pragma_table_info('backup_operations') ORDER BY cid",
-		)
-		.fetch_all(&pool)
-		.await
-		.unwrap();
+            "SELECT name FROM pragma_table_info('backup_operations') ORDER BY cid",
+        )
+        .fetch_all(&pool)
+        .await
+        .unwrap();
         assert!(operation_columns.contains(&"cancellable".to_string()));
         assert!(operation_columns.contains(&"cancel_requested".to_string()));
         let foreign_key_errors: Vec<(String, i64, String, i64)> =
@@ -4455,25 +4455,25 @@ mod tests {
         .unwrap();
         sqlx::query(
             "INSERT INTO backup_operations
-			 (id, operation_type, instance_id, state, created_at, updated_at)
-			 VALUES ('operation', 'create', 'instance', 'hashing', 1, 1)",
+             (id, operation_type, instance_id, state, created_at, updated_at)
+             VALUES ('operation', 'create', 'instance', 'hashing', 1, 1)",
         )
         .execute(&pool)
         .await
         .unwrap();
         sqlx::raw_sql(include_str!(
-			"../../../backup_migrations/20260920210000_operation_cancellation.sql"
-		))
+            "../../../backup_migrations/20260920210000_operation_cancellation.sql"
+        ))
         .execute(&pool)
         .await
         .unwrap();
 
         let row: (String, i64) = sqlx::query_as(
-			"SELECT state, cancel_requested FROM backup_operations WHERE id = 'operation'",
-		)
-		.fetch_one(&pool)
-		.await
-		.unwrap();
+            "SELECT state, cancel_requested FROM backup_operations WHERE id = 'operation'",
+        )
+        .fetch_one(&pool)
+        .await
+        .unwrap();
         assert_eq!(row, ("hashing".to_string(), 0));
         let foreign_key_errors: Vec<(String, i64, String, i64)> =
             sqlx::query_as("PRAGMA foreign_key_check")

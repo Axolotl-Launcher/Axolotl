@@ -13,7 +13,7 @@ impl Drop for CancellationRegistration<'_> {
 
 pub(super) fn spawn_job(job_id: Uuid) {
     tokio::spawn(async move {
-        if let Err(error) = run_job(job_id).await {
+        if let Err(error) = EXECUTING_JOB.scope(job_id, run_job(job_id)).await {
             tracing::error!("Install job {job_id} failed: {error}");
         }
     });
@@ -88,7 +88,8 @@ async fn run_job(job_id: Uuid) -> crate::Result<()> {
         return Ok(());
     }
 
-    let _install_permit = state.install_job_semaphore.acquire().await?;
+    let (_execution, _install_permit) =
+        admission::execution_slot(&state, &job).await?;
     job = store::get_required(job_id, &state).await?;
 
     if job.status != InstallJobStatus::Queued {
@@ -108,6 +109,7 @@ async fn run_job(job_id: Uuid) -> crate::Result<()> {
     else {
         return Ok(());
     };
+    tracing::info!(%job_id, status = record.status.as_str(), phase = ?job_state.progress.phase, "Install job execution started");
     let cancellation = tokio_util::sync::CancellationToken::new();
     state
         .install_job_cancellations
@@ -158,7 +160,7 @@ async fn run_job(job_id: Uuid) -> crate::Result<()> {
         };
     let committed = crate::resources::plans::frozen_request_completed(
         &job_state.request,
-        &state.pool,
+        &state.data,
     )
     .await;
     let resource_committed = match committed {
@@ -250,6 +252,7 @@ async fn run_job(job_id: Uuid) -> crate::Result<()> {
                 }
                 return Ok(());
             };
+            tracing::info!(%job_id, status = record.status.as_str(), phase = ?completed_state.progress.phase, "Install job execution completed");
             if let Some(instance_id) = instance_id.as_ref()
                 && let Err(error) =
                     emit_instance(instance_id, InstancePayloadType::Edited)
@@ -358,6 +361,7 @@ async fn run_job(job_id: Uuid) -> crate::Result<()> {
                 &state,
             )
             .await?;
+            tracing::info!(%job_id, status = record.status.as_str(), phase = ?job_state.progress.phase, "Install job execution failed after rollback");
             emit_install_job(&record.snapshot()).await?;
             return Err(error);
         }
@@ -371,6 +375,8 @@ async fn finish_canceled_job(
     job_state: &mut InstallJobState,
     state: &State,
 ) -> crate::Result<()> {
+    let started = std::time::Instant::now();
+    tracing::info!(%job_id, phase = ?job_state.progress.phase, "Install cancellation cleanup started after execution stopped");
     let canceled_phase = job_state.progress.phase;
     job_state.error = Some(InstallErrorView::from_message(
         "canceled",
@@ -413,6 +419,7 @@ async fn finish_canceled_job(
         state,
     )
     .await?;
+    tracing::info!(%job_id, cleanup_succeeded, elapsed_ms = started.elapsed().as_millis() as u64, "Install cancellation cleanup completed");
     emit_install_job(&record.snapshot()).await
 }
 

@@ -37,12 +37,17 @@ export function isRegressiveActiveJobSnapshot<T extends RefreshableDownloadJob>(
     activeStatuses: ReadonlySet<string>,
 ): boolean {
     return (
-        current.modified !== undefined &&
-        current.modified === next.modified &&
-        activeStatuses.has(current.status) &&
-        activeStatuses.has(next.status) &&
-        current.status !== 'queued' &&
-        next.status === 'queued'
+        (!activeStatuses.has(current.status) &&
+            activeStatuses.has(next.status) &&
+            current.modified !== undefined &&
+            next.modified !== undefined &&
+            current.modified >= next.modified) ||
+        (current.modified !== undefined &&
+            current.modified === next.modified &&
+            activeStatuses.has(current.status) &&
+            activeStatuses.has(next.status) &&
+            current.status !== 'queued' &&
+            next.status === 'queued')
     )
 }
 
@@ -64,9 +69,9 @@ export function mergeRefreshedDownloadJobs<T extends RefreshableDownloadJob>(
         const local = currentById.get(job.job_id)
         const changedDuringRefresh =
             (currentRevisions.get(job.job_id) ?? 0) !== (revisionsAtDispatch.get(job.job_id) ?? 0)
-        // A terminal database result is authoritative. Active snapshots can be
-        // older than realtime events received while the list call was in flight.
-        return local && changedDuringRefresh && activeStatuses.has(job.status) ? local : job
+        // An operation or event received after dispatch can belong to a newer
+        // execution, including a retry in the same timestamp second.
+        return local && changedDuringRefresh ? local : job
     })
     const changedActiveJobsMissingFromResponse = current.filter((job) => {
         if (syntheticIds.has(job.job_id) || refreshedIds.has(job.job_id)) return false

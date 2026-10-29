@@ -91,6 +91,7 @@ const abilities: Record<string, SettingAbility> = {
     collapsed_navigation: bool('collapsed_navigation'),
     toggle_sidebar: bool('toggle_sidebar'),
     hide_nametag_skins_page: bool('hide_nametag_skins_page'),
+    nametag_uses_app_font: bool('nametag_uses_app_font'),
     advanced_rendering: bool('advanced_rendering'),
     native_decorations: bool('native_decorations'),
     auto_hide_downloads_button: bool('auto_hide_downloads_button'),

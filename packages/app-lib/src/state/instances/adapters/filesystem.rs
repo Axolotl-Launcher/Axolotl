@@ -130,6 +130,30 @@ fn for_each_content_folder(
         walk_content_folder(&folder_path, folder, project_type, &mut visit)?;
     }
 
+    let saves = instance_dir.join("saves");
+    if saves.is_dir() {
+        for world in std::fs::read_dir(&saves)
+            .map_err(|error| IOError::with_path(error, &saves))?
+        {
+            let world = world.map_err(IOError::from)?;
+            if !world.file_type().map_err(IOError::from)?.is_dir() {
+                continue;
+            }
+            let Some(name) = world.file_name().to_str().map(str::to_owned)
+            else {
+                continue;
+            };
+            let datapacks = world.path().join("datapacks");
+            if datapacks.is_dir() {
+                visit(
+                    &datapacks,
+                    &format!("saves/{name}/datapacks"),
+                    ProjectType::DataPack,
+                )?;
+            }
+        }
+    }
+
     Ok(())
 }
 
@@ -259,6 +283,32 @@ mod tests {
     use super::*;
     use std::fs;
     use tempfile::tempdir;
+
+    #[test]
+    fn scan_world_datapack_archives_without_recursing_through_world_data() {
+        let root = tempdir().unwrap();
+        let packs = root.path().join("saves/World One/datapacks");
+        fs::create_dir_all(packs.join("folder-pack/data")).unwrap();
+        fs::create_dir_all(root.path().join("saves/World One/region")).unwrap();
+        fs::write(packs.join("one.zip"), b"one").unwrap();
+        fs::write(packs.join("two.zip.disabled"), b"two").unwrap();
+        fs::write(packs.join("ignored.txt"), b"text").unwrap();
+        fs::write(packs.join("folder-pack/data/ignored.zip"), b"nested")
+            .unwrap();
+        fs::write(
+            root.path().join("saves/World One/region/ignored.zip"),
+            b"region",
+        )
+        .unwrap();
+        let files = scan_content_files_from(root.path(), "").unwrap();
+        assert_eq!(files.len(), 2);
+        assert!(files.iter().any(|file| file.relative_path
+            == "saves/World One/datapacks/one.zip"
+            && file.enabled));
+        assert!(files.iter().any(|file| file.relative_path
+            == "saves/World One/datapacks/two.zip.disabled"
+            && !file.enabled));
+    }
 
     #[test]
     fn scan_content_files_finds_nested_schematics() {

@@ -54,6 +54,11 @@ impl McArchiveProvider {
         query: &ProviderQuery,
     ) -> ResourceResult<ProviderValue> {
         match query {
+            ProviderQuery::UpdateCandidates { .. } => {
+                Err(ResourceError::Unsupported(
+                    "MCArchive has no batch update index".into(),
+                ))
+            }
             ProviderQuery::ProjectProtocol { .. }
             | ProviderQuery::ReleaseProtocol { .. }
             | ProviderQuery::ReleasesProtocol { .. }
@@ -350,6 +355,7 @@ impl RemoteProject {
     fn document(self) -> ResourceResult<ProjectDocument> {
         let protocol = Some(protocol_projection(serde_json::to_value(&self)?));
         Ok(ProjectDocument {
+            owner: None,
             protocol,
             metadata: SourceProjectMetadata {
                 environments: vec![],

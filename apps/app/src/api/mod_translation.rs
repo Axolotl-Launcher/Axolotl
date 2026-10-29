@@ -42,6 +42,49 @@ static TASKS: OnceLock<Mutex<HashMap<String, Arc<TaskHandle>>>> =
 static ACTIVE_LOCKS: OnceLock<Mutex<HashMap<String, String>>> = OnceLock::new();
 static ANALYSES: OnceLock<Mutex<HashMap<String, PreparedAnalysis>>> =
     OnceLock::new();
+/// Running analyses by the request ID their caller chose, and cancels that
+/// arrived before their analysis was registered.
+static ANALYSIS_REQUESTS: OnceLock<Mutex<AnalysisRequests>> = OnceLock::new();
+
+#[derive(Default)]
+struct AnalysisRequests {
+    running: HashMap<String, Arc<AtomicBool>>,
+    early: HashMap<String, SystemTime>,
+    /// Analyses registered for a request, so a cancel that arrives after the
+    /// result was produced can still discard it.
+    finished: HashMap<String, (String, SystemTime)>,
+}
+
+const EARLY_ANALYSIS_CANCEL_TTL: Duration = Duration::from_secs(30);
+
+fn analysis_requests() -> &'static Mutex<AnalysisRequests> {
+    ANALYSIS_REQUESTS.get_or_init(Mutex::default)
+}
+
+struct AnalysisRequest(String);
+
+impl AnalysisRequest {
+    fn register(id: String, cancel: &Arc<AtomicBool>) -> Self {
+        if let Ok(mut requests) = analysis_requests().lock() {
+            if requests.early.remove(&id).is_some_and(|at| {
+                at.elapsed()
+                    .is_ok_and(|elapsed| elapsed < EARLY_ANALYSIS_CANCEL_TTL)
+            }) {
+                cancel.store(true, Ordering::Relaxed);
+            }
+            requests.running.insert(id.clone(), Arc::clone(cancel));
+        }
+        Self(id)
+    }
+}
+
+impl Drop for AnalysisRequest {
+    fn drop(&mut self) {
+        if let Ok(mut requests) = analysis_requests().lock() {
+            requests.running.remove(&self.0);
+        }
+    }
+}
 
 fn tasks() -> &'static Mutex<HashMap<String, Arc<TaskHandle>>> {
     TASKS.get_or_init(|| Mutex::new(HashMap::new()))
@@ -61,6 +104,7 @@ pub fn init<R: Runtime>() -> tauri::plugin::TauriPlugin<R> {
             mod_translation_analyze,
             mod_translation_translate,
             mod_translation_cancel,
+            mod_translation_cancel_analysis,
             mod_translation_list_tasks,
             mod_translation_get_task,
             mod_translation_dismiss_task,
@@ -193,28 +237,43 @@ fn to_command_error(error: mod_translation::error::TranslateError) -> String {
 #[tauri::command]
 pub async fn mod_translation_analyze(
     input_path: String,
+    request_id: Option<String>,
 ) -> Result<ModTranslationAnalysis, String> {
+    let cancel = Arc::new(AtomicBool::new(false));
+    let finished_request = request_id.clone();
+    let _request = request_id.map(|id| AnalysisRequest::register(id, &cancel));
     let root = workspace_root().await.map_err(|error| error.to_string())?;
     let input = PathBuf::from(&input_path);
     if !input.is_file() {
         return Err("找不到输入 JAR 文件".to_string());
     }
     let input_for_analysis = input.clone();
+    let blocking_cancel = Arc::clone(&cancel);
     let (directory, inspection, input_hash) =
         tauri::async_runtime::spawn_blocking(move || {
             let input_hash =
-                mod_translation::analyze::input_file_hash(&input_for_analysis)
-                    .map_err(to_command_error)?;
+                mod_translation::analyze::input_file_hash_cancellable(
+                    &input_for_analysis,
+                    &blocking_cancel,
+                )
+                .map_err(to_command_error)?;
             let (directory, inspection) =
-                mod_translation::analyze::extract_and_inspect(
+                mod_translation::analyze::extract_and_inspect_cancellable(
                     &input_for_analysis,
                     &root,
+                    &blocking_cancel,
                 )
                 .map_err(to_command_error)?;
             Ok::<_, String>((directory, inspection, input_hash))
         })
         .await
         .map_err(|error| error.to_string())??;
+    // A cancel that arrived after the last checkpoint still discards the
+    // workspace instead of registering an analysis nobody waits for.
+    if cancel.load(Ordering::Relaxed) {
+        let _ = std::fs::remove_dir_all(&directory);
+        return Err(TranslateErrorCode::Cancelled.as_str().to_string());
+    }
     let analysis_id = format!("ANALYSIS-{}", uuid::Uuid::new_v4());
     let summary = mod_translation::translate::analysis_summary(&inspection);
     let mut registry = analyses()
@@ -231,11 +290,52 @@ pub async fn mod_translation_analyze(
             inspection,
         },
     );
+    drop(registry);
+    // Decide under the request lock whether a cancel already arrived; a cancel
+    // after this point finds the analysis among the finished requests instead.
+    if let Some(request_id) = finished_request {
+        let canceled = {
+            let mut requests = analysis_requests()
+                .lock()
+                .map_err(|_| "分析注册表不可用".to_string())?;
+            if cancel.load(Ordering::Relaxed) {
+                true
+            } else {
+                requests.finished.retain(|_, (_, at)| {
+                    at.elapsed().is_ok_and(|elapsed| {
+                        elapsed < EARLY_ANALYSIS_CANCEL_TTL
+                    })
+                });
+                if requests.finished.len() < 64 {
+                    requests.finished.insert(
+                        request_id,
+                        (analysis_id.clone(), SystemTime::now()),
+                    );
+                }
+                false
+            }
+        };
+        if canceled {
+            discard_analysis(&analysis_id);
+            return Err(TranslateErrorCode::Cancelled.as_str().to_string());
+        }
+    }
     Ok(ModTranslationAnalysis {
         analysis_id,
         input_hash,
         summary,
     })
+}
+
+/// Removes a registered analysis and its unpacked workspace.
+fn discard_analysis(analysis_id: &str) {
+    let prepared = analyses()
+        .lock()
+        .ok()
+        .and_then(|mut registry| registry.remove(analysis_id));
+    if let Some(prepared) = prepared {
+        let _ = std::fs::remove_dir_all(prepared.workspace);
+    }
 }
 
 async fn validate_ai_config(
@@ -401,6 +501,33 @@ pub fn mod_translation_cancel(task_id: String) -> Result<(), String> {
         .get(&task_id)
     {
         handle.cancel.store(true, Ordering::Relaxed);
+    }
+    Ok(())
+}
+
+/// Stops a running analysis at its next checkpoint.
+#[tauri::command]
+pub fn mod_translation_cancel_analysis(
+    request_id: String,
+) -> Result<(), String> {
+    let mut requests = analysis_requests()
+        .lock()
+        .map_err(|_| "分析注册表不可用".to_string())?;
+    if let Some(cancel) = requests.running.get(&request_id) {
+        cancel.store(true, Ordering::Relaxed);
+        return Ok(());
+    }
+    if let Some((analysis_id, _)) = requests.finished.remove(&request_id) {
+        drop(requests);
+        discard_analysis(&analysis_id);
+        return Ok(());
+    }
+    requests.early.retain(|_, at| {
+        at.elapsed()
+            .is_ok_and(|elapsed| elapsed < EARLY_ANALYSIS_CANCEL_TTL)
+    });
+    if requests.early.len() < 64 {
+        requests.early.insert(request_id, SystemTime::now());
     }
     Ok(())
 }

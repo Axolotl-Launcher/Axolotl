@@ -885,7 +885,7 @@ pub async fn get_meta() -> eyre::Result<TerracottaMeta> {
 
 pub async fn get_player_name() -> String {
     match crate::State::get_if_initialized() {
-        Some(state_ref) => match Credentials::get_active(&state_ref.pool).await
+        Some(state_ref) => match Credentials::get_active(&state_ref.data).await
         {
             Ok(Some(creds)) => creds.offline_profile.name,
             _ => "Anonymous".to_string(),

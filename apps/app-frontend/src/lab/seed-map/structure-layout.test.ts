@@ -1,5 +1,4 @@
-import assert from 'node:assert/strict'
-import test from 'node:test'
+import { expect, it } from 'vitest'
 
 import type {
     SeedMapStructureDetails,
@@ -16,7 +15,7 @@ import {
     seedMapStructureCapabilities,
 } from './structure-layout.ts'
 
-test('structure labels stay visible when an origin is offscreen and avoid each other', () => {
+it('structure labels stay visible when an origin is offscreen and avoid each other', () => {
     const badges = seedMapStructureBadgePositions(
         [
             { id: 'end-city', minX: -300, minY: -200, maxX: 250, maxY: 180 },
@@ -25,11 +24,13 @@ test('structure labels stay visible when an origin is offscreen and avoid each o
         ],
         { width: 640, height: 480 },
     )
-    assert.equal(badges.length, 2)
-    assert.equal(badges[0].x, 56)
-    assert.equal(badges[0].y, 32)
-    assert.ok(Math.abs(badges[0].y - badges[1].y) >= 36)
-    assert.ok(badges.every((badge) => badge.x + badge.width <= 640 && badge.y + 32 <= 480))
+    expect(badges.length).toBe(2)
+    expect(badges[0].x).toBe(56)
+    expect(badges[0].y).toBe(32)
+    expect(Math.abs(badges[0].y - badges[1].y) >= 36).toBeTruthy()
+    expect(
+        badges.every((badge) => badge.x + badge.width <= 640 && badge.y + 32 <= 480),
+    ).toBeTruthy()
 })
 
 const piece: SeedMapStructurePiece = {
@@ -58,7 +59,7 @@ const query: SeedMapStructureQuery = {
     featureMask: 512,
 }
 
-test('End City template chests match Cubiomes loot coordinates across the shifted origin', () => {
+it('End City template chests match Cubiomes loot coordinates across the shifted origin', () => {
     const chest = {
         pieceId: 4,
         position: [19, 51, -29] as [number, number, number],
@@ -66,31 +67,28 @@ test('End City template chests match Cubiomes loot coordinates across the shifte
     }
     const containers = [{ id: 12, piece: 4, x: 18, z: -30, table: 'chests/end_city_treasure' }]
 
-    assert.equal(seedMapLootContainerForChest(chest, containers, 'end-city')?.id, 12)
-    assert.equal(seedMapLootContainerForChest(chest, containers, 'stronghold'), undefined)
+    expect(seedMapLootContainerForChest(chest, containers, 'end-city')?.id).toBe(12)
+    expect(seedMapLootContainerForChest(chest, containers, 'stronghold')).toBe(undefined)
 })
 
-test('End portal room projections use a distinct color while selection keeps priority', () => {
+it('End portal room projections use a distinct color while selection keeps priority', () => {
     const palette = { normal: '#4b83c3', selected: '#e28b38', portal: '#18a765' }
     const portalRoom = { ...piece, endPortalRoom: true }
 
-    assert.deepEqual(seedMapLayoutPieceStyle(portalRoom, undefined, palette), {
+    expect(seedMapLayoutPieceStyle(portalRoom, undefined, palette)).toEqual({
         color: palette.portal,
         fillAlpha: 0.3,
         lineWidth: 2,
     })
-    assert.deepEqual(seedMapLayoutPieceStyle(piece, undefined, palette), {
+    expect(seedMapLayoutPieceStyle(piece, undefined, palette)).toEqual({
         color: palette.normal,
         fillAlpha: 0.2,
         lineWidth: 1,
     })
-    assert.equal(
-        seedMapLayoutPieceStyle(portalRoom, portalRoom.id, palette).color,
-        palette.selected,
-    )
+    expect(seedMapLayoutPieceStyle(portalRoom, portalRoom.id, palette).color).toBe(palette.selected)
 })
 
-test('only real horizontal bounds become projections, including negative coordinates', () => {
+it('only real horizontal bounds become projections, including negative coordinates', () => {
     const result = {
         ...details,
         pieces: [
@@ -100,37 +98,36 @@ test('only real horizontal bounds become projections, including negative coordin
             { ...piece, id: 4, min: { x: NaN, y: 0, z: 0 } },
         ],
     }
-    assert.deepEqual(seedMapLayoutPieces(result), [piece])
-    assert.equal(seedMapStructureCapabilities(result).complete, false)
-    assert.equal(hitSeedMapLayout([piece], -10.1, 23.9), piece)
-    assert.equal(hitSeedMapLayout([piece], -9, 24), undefined)
+    expect(seedMapLayoutPieces(result)).toEqual([piece])
+    expect(seedMapStructureCapabilities(result).complete).toBe(false)
+    expect(hitSeedMapLayout([piece], -10.1, 23.9)).toBe(piece)
+    expect(hitSeedMapLayout([piece], -9, 24)).toBe(undefined)
 })
 
-test('relative and partial layouts never advertise absolute world heights or blocks', () => {
+it('relative and partial layouts never advertise absolute world heights or blocks', () => {
     const result = seedMapStructureCapabilities({
         ...details,
         limits: ['partial_layout', 'height_placeholder'],
     })
-    assert.equal(result.projection, true)
-    assert.equal(result.volume, true)
-    assert.equal(result.complete, false)
-    assert.equal(result.absoluteHeight, false)
-    assert.equal(result.blocks, false)
-    assert.equal(seedMapStructureCapabilities({ ...details, pieces: [] }).volume, false)
-    assert.equal(
+    expect(result.projection).toBe(true)
+    expect(result.volume).toBe(true)
+    expect(result.complete).toBe(false)
+    expect(result.absoluteHeight).toBe(false)
+    expect(result.blocks).toBe(false)
+    expect(seedMapStructureCapabilities({ ...details, pieces: [] }).volume).toBe(false)
+    expect(
         seedMapStructureCapabilities({
             ...details,
             containers: [],
             capabilities: { variant: true, containers: true },
         }).containers,
-        true,
-    )
+    ).toBe(true)
 })
 
-test('overlapping projected pieces cycle without losing the containing structure', () => {
+it('overlapping projected pieces cycle without losing the containing structure', () => {
     const small = { ...piece, id: 2, max: { x: -16, y: 72, z: 12 } }
-    assert.equal(hitSeedMapLayout([piece, small], -18, 10)?.id, 2)
-    assert.equal(hitSeedMapLayout([piece, small], -18, 10, 2)?.id, 1)
+    expect(hitSeedMapLayout([piece, small], -18, 10)?.id).toBe(2)
+    expect(hitSeedMapLayout([piece, small], -18, 10, 2)?.id).toBe(1)
 })
 
 function harness() {
@@ -148,62 +145,62 @@ function harness() {
 }
 const settle = () => new Promise((resolve) => setTimeout(resolve, 0))
 
-test('visible and selected queries share native work and reuse completed layouts', async () => {
+it('visible and selected queries share native work and reuse completed layouts', async () => {
     const { layer, pending } = harness()
     layer.update([query])
     const selected = layer.load(query)
-    assert.equal(pending.length, 1)
+    expect(pending.length).toBe(1)
     pending[0].resolve(details)
-    assert.equal(await selected, details)
+    expect(await selected).toBe(details)
     await settle()
-    assert.equal(await layer.load(query), details)
-    assert.equal(pending.length, 1)
+    expect(await layer.load(query)).toBe(details)
+    expect(pending.length).toBe(1)
     layer.dispose()
 })
 
-test('native queue is bounded and cancels obsolete queued work after seed changes', async () => {
+it('native queue is bounded and cancels obsolete queued work after seed changes', async () => {
     const { layer, pending, updates } = harness()
     layer.update([query, { ...query, x: 10 }, { ...query, x: 20 }, { ...query, x: 30 }])
-    assert.equal(pending.length, 2)
+    expect(pending.length).toBe(2)
     const next = { ...query, seed: '2' }
     layer.update([next])
     pending[0].resolve(details)
     pending[1].resolve(details)
     await settle()
-    assert.equal(pending.length, 3)
-    assert.equal(pending[2].query.seed, '2')
-    assert.equal(updates(), 0)
-    assert.equal(layer.peek(query), undefined)
+    expect(pending.length).toBe(3)
+    expect(pending[2].query.seed).toBe('2')
+    expect(updates()).toBe(0)
+    expect(layer.peek(query)).toBe(undefined)
     pending[2].resolve(details)
     await settle()
-    assert.equal(updates(), 1)
+    expect(updates()).toBe(1)
     layer.dispose()
 })
 
-test('failed native queries release their queue slot and remain retryable', async () => {
+it('failed native queries release their queue slot and remain retryable', async () => {
     const { layer, pending } = harness()
     const first = layer.load(query)
     pending[0].reject(new Error('retry'))
-    await assert.rejects(first, /retry/)
+    await expect(first).rejects.toThrow(/retry/)
     await settle()
     const second = layer.load(query)
     pending[1].resolve(details)
-    assert.equal(await second, details)
+    expect(await second).toBe(details)
     layer.dispose()
 })
 
-test('rapid selection changes remove obsolete selected queries from the queue', async () => {
+it('rapid selection changes remove obsolete selected queries from the queue', async () => {
     const { layer, pending } = harness()
     layer.update([query, { ...query, x: 10 }])
     const old = layer.load({ ...query, x: 20 })
-    const rejected = assert.rejects(old, /no longer visible/)
+    const rejected = expect(old).rejects.toThrow(/no longer visible/)
     const latest = layer.load({ ...query, x: 30 })
     await rejected
     pending[0].resolve(details)
     await settle()
-    assert.equal(pending[2].query.x, 30)
+    expect(pending[2].query.x).toBe(30)
     pending[1].resolve(details)
     pending[2].resolve(details)
-    assert.equal(await latest, details)
+    expect(await latest).toBe(details)
     layer.dispose()
 })

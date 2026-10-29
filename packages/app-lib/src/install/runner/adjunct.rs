@@ -39,31 +39,31 @@ pub(super) async fn resolve_required_adjuncts(
         match adjunct.kind {
             LoaderComponentKind::OptiFine => {
                 let resolved =
-					crate::launcher::optifine::resolve_loader_version(
-						game_version,
-						adjunct.version.as_deref(),
-					)
-					.await?
-					.ok_or_else(|| {
-						ErrorKind::InputError(format!(
-							"No OptiFine version supports Minecraft {game_version}"
-						))
-					})?;
+                    crate::launcher::optifine::resolve_loader_version(
+                        game_version,
+                        adjunct.version.as_deref(),
+                    )
+                    .await?
+                    .ok_or_else(|| {
+                        ErrorKind::InputError(format!(
+                            "No OptiFine version supports Minecraft {game_version}"
+                        ))
+                    })?;
                 adjunct.version = Some(resolved.id);
             }
             LoaderComponentKind::LiteLoader => {
                 let resolved =
-					crate::launcher::get_loader_version_from_profile(
-						game_version,
-						ModLoader::LiteLoader,
-						adjunct.version.as_deref(),
-					)
-					.await?
-					.ok_or_else(|| {
-						ErrorKind::InputError(format!(
-							"No LiteLoader version supports Minecraft {game_version}"
-						))
-					})?;
+                    crate::launcher::get_loader_version_from_profile(
+                        game_version,
+                        ModLoader::LiteLoader,
+                        adjunct.version.as_deref(),
+                    )
+                    .await?
+                    .ok_or_else(|| {
+                        ErrorKind::InputError(format!(
+                            "No LiteLoader version supports Minecraft {game_version}"
+                        ))
+                    })?;
                 adjunct.version = Some(resolved.id);
             }
             _ => {}
@@ -316,15 +316,15 @@ pub(super) async fn install_adjunct_components(
         match adjunct.kind {
             LoaderComponentKind::OptiFine => {
                 let version = crate::launcher::optifine::resolve_loader_version(
-					game_version,
-					adjunct.version.as_deref(),
-				)
-				.await?
-				.ok_or_else(|| {
-					ErrorKind::InputError(format!(
-						"No OptiFine version supports Minecraft {game_version}"
-					))
-				})?;
+                    game_version,
+                    adjunct.version.as_deref(),
+                )
+                .await?
+                .ok_or_else(|| {
+                    ErrorKind::InputError(format!(
+                        "No OptiFine version supports Minecraft {game_version}"
+                    ))
+                })?;
                 crate::api::pack::install_mcbbs::install_optifine_mod(
                     state,
                     instance_id,

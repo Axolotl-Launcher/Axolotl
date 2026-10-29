@@ -145,6 +145,9 @@ async fn presentation_failure_uses_expired_metadata_without_masking_force_refres
 #[path = "../../../content-management/tests/fixtures/mod.rs"]
 mod fixtures;
 
+#[path = "update_batches.rs"]
+mod update_batches;
+
 #[tokio::test]
 async fn presentation_keeps_incomplete_protocol_cache_when_offline_without_retrying_twice()
  {
@@ -400,6 +403,7 @@ async fn installed_compatibility_uses_cached_exact_bytes_without_network_or_name
             .await
             .unwrap();
         items.push(crate::state::InstanceContentSnapshotItem {
+            resource_update: None,
             artifact_ref: None,
             resource_id: None,
             pack_resource_id: None,
@@ -627,7 +631,7 @@ async fn changelog_curseforge_uses_release_html_and_rejects_other_projects() {
                 Ok(json!({"data": file}))
             }
         });
-        let provider = CurseForgeProvider::new(transport.clone());
+        let provider = CurseForgeProvider::for_tests(transport.clone());
         let query = ProviderQuery::Changelog {
             project_id: SourceProjectId::new(project).unwrap(),
             release_id: SourceReleaseId::new(&id).unwrap(),
@@ -862,6 +866,7 @@ fn project_query(id: &str) -> ProviderQuery {
 
 fn project_value(source: SourceId, id: &str, title: &str) -> ProviderValue {
     ProviderValue::Project(ProjectDocument {
+        owner: None,
         protocol: None,
         metadata: SourceProjectMetadata {
             environments: vec![],
@@ -1034,7 +1039,13 @@ async fn cache_survives_close_and_reopen_with_a_separate_wal_database() {
     .unwrap();
     let value = project_value(SourceId::modrinth(), "project", "persistent");
     first
-        .put(&key, &value, 1800, first.generation().await, 1)
+        .put(
+            &key,
+            &value,
+            1800,
+            first.generation().await,
+            chrono::Utc::now().timestamp_micros(),
+        )
         .await;
     assert!(first.info().await.unwrap().size_bytes > 0);
     let path = first.path().to_path_buf();
@@ -1142,15 +1153,16 @@ async fn cache_clear_rejects_old_generation_and_late_older_responses() {
         &project_query("project"),
     )
     .unwrap();
+    let now = chrono::Utc::now().timestamp_micros();
     let old_generation = cache.generation().await;
     cache.clear().await.unwrap();
     cache
-        .put(&key, &ProviderValue::NotFound, 100, old_generation, 1)
+        .put(&key, &ProviderValue::NotFound, 100, old_generation, now)
         .await;
     assert!(cache.get(&key).await.is_none());
     let new = project_value(SourceId::modrinth(), "project", "new");
     cache
-        .put(&key, &new, 100, cache.generation().await, 3)
+        .put(&key, &new, 100, cache.generation().await, now + 2)
         .await;
     cache
         .put(
@@ -1158,7 +1170,7 @@ async fn cache_clear_rejects_old_generation_and_late_older_responses() {
             &ProviderValue::NotFound,
             100,
             cache.generation().await,
-            2,
+            now + 1,
         )
         .await;
     assert_eq!(cache.get(&key).await, Some(new));
@@ -1281,6 +1293,80 @@ async fn service_uses_hot_cache_and_force_refresh_ignores_positive_and_negative_
             .value,
         ProviderValue::Project(_)
     ));
+    cache.close().await;
+}
+
+#[tokio::test]
+async fn refresh_round_revalidates_old_cache_but_reuses_its_own_results() {
+    let (_temp, cache) = cache().await;
+    let provider = MockProvider::new(100, None);
+    let service =
+        ResourceService::new(cache.clone(), vec![provider.clone()]).unwrap();
+    let token = CancellationToken::new();
+    let source = SourceId::modrinth();
+    let query = project_query("project");
+    service
+        .query(&source, query.clone(), CachePolicy::UseFresh, &token)
+        .await
+        .unwrap();
+    let policy =
+        CachePolicy::RefreshSince(chrono::Utc::now().timestamp_micros());
+    assert!(
+        !service
+            .query(&source, query.clone(), policy, &token)
+            .await
+            .unwrap()
+            .from_cache
+    );
+    assert!(
+        service
+            .query(&source, query.clone(), policy, &token)
+            .await
+            .unwrap()
+            .from_cache
+    );
+    assert_eq!(provider.calls(), 2);
+
+    // A new round must neither retain a previous success on error nor turn
+    // a cached negative result into a permanent failure to recognize content.
+    provider.fail.store(true, Ordering::Release);
+    let policy =
+        CachePolicy::RefreshSince(chrono::Utc::now().timestamp_micros());
+    assert!(
+        service
+            .query(&source, query.clone(), policy, &token)
+            .await
+            .is_err()
+    );
+    provider.fail.store(false, Ordering::Release);
+    provider.missing.store(true, Ordering::Release);
+    assert_eq!(
+        service
+            .query(&source, query.clone(), policy, &token)
+            .await
+            .unwrap()
+            .value,
+        ProviderValue::NotFound
+    );
+    assert!(
+        service
+            .query(&source, query.clone(), policy, &token)
+            .await
+            .unwrap()
+            .from_cache
+    );
+    provider.missing.store(false, Ordering::Release);
+    let policy =
+        CachePolicy::RefreshSince(chrono::Utc::now().timestamp_micros());
+    assert!(matches!(
+        service
+            .query(&source, query, policy, &token)
+            .await
+            .unwrap()
+            .value,
+        ProviderValue::Project(_)
+    ));
+    assert_eq!(provider.calls(), 5);
     cache.close().await;
 }
 
@@ -1481,7 +1567,9 @@ async fn export_identification_reuses_fresh_multifile_release_and_rejects_finger
     let (_temp, cache) = cache().await;
     let service = ResourceService::new(
         cache,
-        vec![Arc::new(Available(Arc::new(CurseForgeProvider::new(cf))))],
+        vec![Arc::new(Available(Arc::new(
+            CurseForgeProvider::for_tests(cf),
+        )))],
     )
     .unwrap();
     let mut draft = crate::resources::export::refresh::ExportDraft::new(
@@ -1578,7 +1666,7 @@ async fn adapters_normalize_real_iris_and_balm_without_merging_different_bytes()
         slug: None,
     };
     let mr = ModrinthProvider::new(mr_transport);
-    let cf = CurseForgeProvider::new(cf_transport);
+    let cf = CurseForgeProvider::for_tests(cf_transport);
     let mr_results = mr
         .fetch_many(&[
             release_query("G5dd9TM4"),
@@ -1677,9 +1765,9 @@ async fn fingerprint_collision_and_unknown_size_do_not_confirm_identity() {
     let (_temp, cache) = cache().await;
     let service = ResourceService::new(
         cache.clone(),
-        vec![Arc::new(Available(Arc::new(CurseForgeProvider::new(
-            transport,
-        ))))],
+        vec![Arc::new(Available(Arc::new(
+            CurseForgeProvider::for_tests(transport),
+        )))],
     )
     .unwrap();
     let local = LocalArtifactIdentity {
@@ -1861,6 +1949,27 @@ async fn concurrent_cache_initialization_does_not_block_the_runtime() {
 }
 
 #[tokio::test]
+async fn modrinth_author_failure_does_not_discard_valid_project_metadata() {
+    let transport = FixtureTransport::new(|_, request| {
+        match request.path.as_str() {
+            "/projects" => Ok(
+                json!([{"id":"YL57xq9U","slug":"iris","title":"Iris","description":"","project_type":"mod","team":"team0001"}]),
+            ),
+            "/teams" => Err(ResourceError::Unavailable),
+            _ => panic!("unexpected endpoint"),
+        }
+    });
+    let results = ModrinthProvider::new(transport)
+        .fetch_many(&[project_query("YL57xq9U")])
+        .await;
+    let ProviderValue::Project(document) = results[0].as_ref().unwrap() else {
+        panic!("wrong project");
+    };
+    assert_eq!(document.metadata.title, "Iris");
+    assert!(document.metadata.authors.is_empty());
+}
+
+#[tokio::test]
 async fn modrinth_project_batches_keep_public_team_members_and_ignore_pending_invites()
  {
     let transport = FixtureTransport::new(|_, request| {
@@ -1869,7 +1978,7 @@ async fn modrinth_project_batches_keep_public_team_members_and_ignore_pending_in
                 json!([{"id":"YL57xq9U","slug":"iris","title":"Iris","description":"","project_type":"mod","team":"team0001"}]),
             ),
             "/teams" => Ok(
-                json!([[{"team_id":"team0001","accepted":true,"user":{"username":"public-author"}}, {"team_id":"team0001","accepted":false,"user":{"username":"pending-invite"}}]]),
+                json!([[{"team_id":"team0001","accepted":true,"is_owner":true,"user":{"id":"author000","username":"public-author","avatar_url":"https://cdn.modrinth.com/avatars/author.png"}}, {"team_id":"team0001","accepted":false,"user":{"username":"pending-invite"}}]]),
             ),
             _ => panic!("unexpected endpoint"),
         }
@@ -1881,7 +1990,290 @@ async fn modrinth_project_batches_keep_public_team_members_and_ignore_pending_in
         panic!("wrong project");
     };
     assert_eq!(document.metadata.authors, ["public-author"]);
+    assert_eq!(document.owner.as_ref().unwrap().id, "author000");
+    assert_eq!(
+        document.owner.as_ref().unwrap().avatar_url.as_deref(),
+        Some("https://cdn.modrinth.com/avatars/author.png")
+    );
     assert_eq!(transport.requests.lock().unwrap().len(), 2);
+}
+
+#[tokio::test]
+async fn modrinth_owner_avatars_use_one_team_batch_for_multiple_projects() {
+    let transport = FixtureTransport::new(|_, request| {
+        match request.path.as_str() {
+            "/projects" => Ok(json!([
+                {"id":"project1","title":"First","description":"","project_type":"mod","team":"team0001"},
+                {"id":"project2","title":"Second","description":"","project_type":"mod","team":"team0002"}
+            ])),
+            "/teams" => {
+                let ids: Vec<String> = serde_json::from_str(
+                    &request
+                        .query
+                        .iter()
+                        .find(|(key, _)| key == "ids")
+                        .unwrap()
+                        .1,
+                )
+                .unwrap();
+                assert_eq!(ids, ["team0001", "team0002"]);
+                Ok(json!([
+                    [{"team_id":"team0001","accepted":true,"is_owner":false,"user":{"id":"member01","username":"Member"}},
+                     {"team_id":"team0001","accepted":true,"is_owner":true,"user":{"id":"owner001","username":"FirstOwner","avatar_url":"https://cdn.modrinth.com/avatars/first.png"}}],
+                    [{"team_id":"team0002","accepted":true,"role":"Owner","user":{"id":"owner002","username":"SecondOwner","avatar_url":"https://cdn.modrinth.com/avatars/second.png"}}]
+                ]))
+            }
+            _ => panic!("unexpected endpoint"),
+        }
+    });
+    let results = ModrinthProvider::new(transport.clone())
+        .fetch_many(&[project_query("project1"), project_query("project2")])
+        .await;
+    for (result, id, avatar) in [
+        (&results[0], "owner001", "first"),
+        (&results[1], "owner002", "second"),
+    ] {
+        let ProviderValue::Project(document) = result.as_ref().unwrap() else {
+            panic!("wrong response");
+        };
+        let owner = document.owner.as_ref().unwrap();
+        assert_eq!(owner.id, id);
+        assert_eq!(
+            owner.avatar_url,
+            Some(format!("https://cdn.modrinth.com/avatars/{avatar}.png"))
+        );
+    }
+    assert_eq!(transport.requests.lock().unwrap().len(), 2);
+}
+
+#[tokio::test]
+async fn curseforge_auto_download_derives_missing_urls_but_keeps_public_and_unavailable_files()
+ {
+    let transport = FixtureTransport::new(|_, request| {
+        assert_eq!(request.path, "/v1/mods/files");
+        let files: Vec<_> = [
+            Value::Null,
+            json!(""),
+            json!("  "),
+            json!("https://example.com/original.jar"),
+            Value::Null,
+        ]
+        .into_iter()
+        .enumerate()
+        .map(|(index, url)| {
+            let mut file: Value =
+                serde_json::from_str(fixtures::CF_IRIS).unwrap();
+            file["id"] = json!(5425378 + index);
+            file["downloadUrl"] = url;
+            file["fileName"] = json!("chest dna: 1.jar");
+            file["isAvailable"] = json!(index != 4);
+            file
+        })
+        .collect();
+        Ok(json!({"data": files}))
+    });
+    let provider = CurseForgeProvider::with_download_restriction_policy(
+        transport.clone(),
+        Arc::new(|| true),
+    );
+    let queries = (5425378..=5425382)
+        .map(|id| ProviderQuery::Release {
+            project_id: None,
+            release_id: SourceReleaseId::new(id.to_string()).unwrap(),
+            slug: None,
+        })
+        .collect::<Vec<_>>();
+    let results = provider.fetch_many(&queries).await;
+    for (index, result) in results.into_iter().enumerate() {
+        let ProviderValue::Release(document) = result.unwrap() else {
+            panic!("wrong release");
+        };
+        let acquisition = &document.release.artifacts[0].acquisition;
+        let expected = match index {
+            0..=2 => ArtifactAcquisition::PublicDownload {
+                urls: vec![format!(
+                    "https://edge.forgecdn.net/files/5425/{}/chest%20dna%3A%201.jar",
+                    378 + index
+                )],
+            },
+            3 => ArtifactAcquisition::PublicDownload {
+                urls: vec!["https://example.com/original.jar".into()],
+            },
+            _ => ArtifactAcquisition::Unavailable,
+        };
+        assert_eq!(acquisition, &expected);
+    }
+    assert_eq!(transport.requests.lock().unwrap().len(), 1);
+}
+
+#[tokio::test]
+async fn curseforge_auto_download_applies_to_automatic_release_catalogs() {
+    let transport = FixtureTransport::new(|_, request| {
+        assert_eq!(request.path, "/v1/mods/455508/files");
+        let mut file: Value = serde_json::from_str(fixtures::CF_IRIS).unwrap();
+        file["downloadUrl"] = Value::Null;
+        Ok(
+            json!({"data": [file], "pagination": {"index":0,"pageSize":50,"resultCount":1,"totalCount":1}}),
+        )
+    });
+    let provider = CurseForgeProvider::with_download_restriction_policy(
+        transport,
+        Arc::new(|| true),
+    );
+    let results = provider
+        .fetch_many(&[ProviderQuery::Releases {
+            project_id: SourceProjectId::new("455508").unwrap(),
+            slug: None,
+            target: ipc::ResourceTarget {
+                game_versions: vec![],
+                loaders: vec![],
+                channels: vec![],
+            },
+            cursor: None,
+            page_size: 50,
+        }])
+        .await;
+    let ProviderValue::Releases(page) = results[0].as_ref().unwrap() else {
+        panic!("wrong catalog");
+    };
+    assert!(matches!(
+        page.entries[0].artifacts[0].acquisition,
+        ArtifactAcquisition::PublicDownload { .. }
+    ));
+}
+
+#[tokio::test]
+async fn curseforge_download_policy_changes_do_not_reuse_the_other_policy_cache()
+ {
+    let transport = FixtureTransport::new(|_, request| {
+        match request.path.as_str() {
+            "/v1/mods/files" => {
+                let mut file: Value =
+                    serde_json::from_str(fixtures::CF_IRIS).unwrap();
+                file["downloadUrl"] = Value::Null;
+                Ok(json!({"data": [file]}))
+            }
+            "/v1/mods" => Ok(
+                json!({"data":[{"id":455508,"slug":"irisshaders","name":"Iris","classId":6,"links":{"websiteUrl":"https://www.curseforge.com/minecraft/mc-mods/irisshaders"}}]}),
+            ),
+            _ => panic!("unexpected endpoint"),
+        }
+    });
+    let enabled = Arc::new(AtomicBool::new(false));
+    let setting = Arc::clone(&enabled);
+    let provider = CurseForgeProvider::with_download_restriction_policy(
+        transport.clone(),
+        Arc::new(move || setting.load(Ordering::Relaxed)),
+    );
+    let (_directory, cache) = cache().await;
+    let service = ResourceService::new(
+        cache,
+        vec![Arc::new(Available(Arc::new(provider)))],
+    )
+    .unwrap();
+    let query = ProviderQuery::Release {
+        project_id: None,
+        release_id: SourceReleaseId::new("5425378").unwrap(),
+        slug: None,
+    };
+    for (bypass, cached) in
+        [(false, false), (true, false), (false, true), (true, true)]
+    {
+        enabled.store(bypass, Ordering::Relaxed);
+        let result = service
+            .query(
+                &SourceId::curseforge(),
+                query.clone(),
+                CachePolicy::UseFresh,
+                &CancellationToken::new(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(result.from_cache, cached);
+        let ProviderValue::Release(document) = result.value else {
+            panic!("wrong release");
+        };
+        assert_eq!(
+            matches!(
+                document.release.artifacts[0].acquisition,
+                ArtifactAcquisition::PublicDownload { .. }
+            ),
+            bypass
+        );
+        assert_eq!(
+            matches!(
+                document.release.artifacts[0].acquisition,
+                ArtifactAcquisition::ManualDownload { .. }
+            ),
+            !bypass
+        );
+    }
+    assert_eq!(transport.requests.lock().unwrap().len(), 3);
+    service.cache().close().await;
+}
+
+#[tokio::test]
+async fn curseforge_policy_change_during_a_request_cannot_poison_the_cache() {
+    let enabled = Arc::new(AtomicBool::new(false));
+    let setting = Arc::clone(&enabled);
+    let transport = FixtureTransport::new(move |_, request| {
+        match request.path.as_str() {
+            "/v1/mods/files" => {
+                setting.store(true, Ordering::Relaxed);
+                let mut file: Value =
+                    serde_json::from_str(fixtures::CF_IRIS).unwrap();
+                file["downloadUrl"] = Value::Null;
+                Ok(json!({"data": [file]}))
+            }
+            "/v1/mods" => Ok(
+                json!({"data":[{"id":455508,"slug":"irisshaders","name":"Iris","classId":6,"links":{"websiteUrl":"https://www.curseforge.com/minecraft/mc-mods/irisshaders"}}]}),
+            ),
+            _ => panic!("unexpected endpoint"),
+        }
+    });
+    let setting = Arc::clone(&enabled);
+    let provider = CurseForgeProvider::with_download_restriction_policy(
+        transport,
+        Arc::new(move || setting.load(Ordering::Relaxed)),
+    );
+    let (_directory, cache) = cache().await;
+    let service = ResourceService::new(
+        cache,
+        vec![Arc::new(Available(Arc::new(provider)))],
+    )
+    .unwrap();
+    let query = ProviderQuery::Release {
+        project_id: None,
+        release_id: SourceReleaseId::new("5425378").unwrap(),
+        slug: None,
+    };
+    let cancel = CancellationToken::new();
+    assert_eq!(
+        service
+            .query(
+                &SourceId::curseforge(),
+                query.clone(),
+                CachePolicy::UseFresh,
+                &cancel
+            )
+            .await
+            .unwrap_err(),
+        ResourceError::Canceled
+    );
+    enabled.store(false, Ordering::Relaxed);
+    assert_eq!(
+        service
+            .query(
+                &SourceId::curseforge(),
+                query,
+                CachePolicy::OnlyCached,
+                &cancel
+            )
+            .await
+            .unwrap_err(),
+        ResourceError::Unavailable
+    );
+    service.cache().close().await;
 }
 
 #[tokio::test]
@@ -1910,7 +2302,7 @@ async fn curseforge_manual_links_use_project_urls_and_unavailable_files_remain_u
         release_id: SourceReleaseId::new(id.to_string()).unwrap(),
         slug: None,
     });
-    let results = CurseForgeProvider::new(transport.clone())
+    let results = CurseForgeProvider::for_tests(transport.clone())
         .fetch_many(&queries)
         .await;
     let ProviderValue::Release(document) = results[0].as_ref().unwrap() else {
@@ -1961,7 +2353,7 @@ async fn source_search_projections_preserve_variants_and_date_semantics() {
         cursor: None,
     };
     let mr = ModrinthProvider::new(mr_transport);
-    let cf = CurseForgeProvider::new(cf_transport);
+    let cf = CurseForgeProvider::for_tests(cf_transport);
     let mr_result = mr
         .fetch_many(std::slice::from_ref(&query))
         .await
@@ -2099,7 +2491,7 @@ async fn curseforge_last_window_page_is_bounded_and_does_not_claim_a_complete_to
         },
         cursor: Some("9990".into()),
     };
-    let result = CurseForgeProvider::new(transport)
+    let result = CurseForgeProvider::for_tests(transport)
         .fetch_many(&[query])
         .await
         .remove(0)
@@ -2132,7 +2524,7 @@ async fn curseforge_search_never_uses_game_version_sort_for_publication_dates()
             json!({"data":[{"id":238222,"name":"Sample","slug":"sample","classId":6,"dateCreated":"2015-11-23T23:00:41.923Z","dateReleased":"2026-10-12T14:05:52.453Z"}],"pagination":{"index":0,"resultCount":1,"totalCount":1}}),
         )
     });
-    let provider = CurseForgeProvider::new(transport);
+    let provider = CurseForgeProvider::for_tests(transport);
     let mut query = ipc::ResourceSearchQuery {
         filter: None,
         text: String::new(),
@@ -2203,7 +2595,7 @@ async fn curseforge_release_pages_filter_channels_client_side_without_losing_the
         cursor: None,
         page_size: 50,
     };
-    let provider = CurseForgeProvider::new(transport);
+    let provider = CurseForgeProvider::for_tests(transport);
     let results = provider
         .fetch_many(&[query(vec![ReleaseChannel::Release])])
         .await;
@@ -2299,9 +2691,9 @@ async fn source_validation_rejects_one_bad_id_without_poisoning_peer_results() {
     let (_temp, cache) = cache().await;
     let service = ResourceService::new(
         cache.clone(),
-        vec![Arc::new(Available(Arc::new(CurseForgeProvider::new(
-            transport.clone(),
-        ))))],
+        vec![Arc::new(Available(Arc::new(
+            CurseForgeProvider::for_tests(transport.clone()),
+        )))],
     )
     .unwrap();
     let results = service
@@ -2375,7 +2767,7 @@ async fn project_probe_persists_historical_balm_confirmation_with_a_bounded_budg
         cache.clone(),
         vec![
             Arc::new(ModrinthProvider::new(mr_transport.clone())),
-            Arc::new(Available(Arc::new(CurseForgeProvider::new(
+            Arc::new(Available(Arc::new(CurseForgeProvider::for_tests(
                 cf_transport.clone(),
             )))),
         ],
@@ -2914,4 +3306,164 @@ async fn curated_project_confirmation_rejects_different_mcmod_subvariants() {
     assert!(evidence.contains("mcmod-source-pair"));
     assert!(!evidence.contains("leftArtifact"));
     pool.close().await;
+}
+
+#[test]
+fn launcher_cache_behaviour_maps_onto_the_service_policies() {
+    use crate::resources::legacy_catalog::policy;
+    use crate::state::CacheBehaviour;
+
+    // Expired entries are served immediately and refreshed in the background,
+    // which is what the resource service does for StaleWhileRevalidate.
+    assert_eq!(policy(None), CachePolicy::StaleWhileRevalidate);
+    assert_eq!(
+        policy(Some(CacheBehaviour::StaleWhileRevalidateSkipOffline)),
+        CachePolicy::StaleWhileRevalidate
+    );
+    assert_eq!(
+        policy(Some(CacheBehaviour::StaleWhileRevalidate)),
+        CachePolicy::StaleWhileRevalidate
+    );
+    assert_eq!(
+        policy(Some(CacheBehaviour::CacheOnly)),
+        CachePolicy::OnlyCached
+    );
+    // Valid entries come from the cache, expired ones are refetched.
+    assert_eq!(
+        policy(Some(CacheBehaviour::MustRevalidate)),
+        CachePolicy::UseFresh
+    );
+    assert_eq!(
+        policy(Some(CacheBehaviour::Bypass)),
+        CachePolicy::ForceRefresh
+    );
+}
+
+#[tokio::test]
+async fn legacy_long_lived_cache_is_revalidated_after_one_hour() {
+    let (_temp, cache) = cache().await;
+    let provider = MockProvider::new(100, None);
+    let service =
+        ResourceService::new(cache.clone(), vec![provider.clone()]).unwrap();
+    let query = project_query("project");
+    let key =
+        CacheKey::new("mock-v1".into(), SourceId::modrinth(), &query).unwrap();
+    let token = CancellationToken::new();
+    for value in [
+        ProviderValue::NotFound,
+        project_value(SourceId::modrinth(), "project", "cached"),
+    ] {
+        cache.clear().await.unwrap();
+        let started = chrono::Utc::now().timestamp_micros();
+        cache
+            .put(&key, &value, 86400, cache.generation().await, started)
+            .await;
+        assert_eq!(cache.get(&key).await, Some(value.clone()));
+        let probe = sqlx::SqlitePool::connect_with(
+            sqlx::sqlite::SqliteConnectOptions::new().filename(cache.path()),
+        )
+        .await
+        .unwrap();
+        sqlx::query("UPDATE resource_cache_entries SET retrieved_at = ?")
+            .bind(started - 3601 * 1_000_000)
+            .execute(&probe)
+            .await
+            .unwrap();
+        assert!(cache.get(&key).await.is_none());
+        assert_eq!(cache.get_with_freshness(&key).await, Some((value, false)));
+        provider.fail.store(true, Ordering::Release);
+        assert!(
+            service
+                .query(
+                    &SourceId::modrinth(),
+                    query.clone(),
+                    CachePolicy::UseFresh,
+                    &token
+                )
+                .await
+                .is_err()
+        );
+        provider.fail.store(false, Ordering::Release);
+        assert!(
+            !service
+                .query(
+                    &SourceId::modrinth(),
+                    query.clone(),
+                    CachePolicy::UseFresh,
+                    &token
+                )
+                .await
+                .unwrap()
+                .from_cache
+        );
+        assert!(
+            service
+                .query(
+                    &SourceId::modrinth(),
+                    query.clone(),
+                    CachePolicy::UseFresh,
+                    &token
+                )
+                .await
+                .unwrap()
+                .from_cache
+        );
+        probe.close().await;
+    }
+    cache.close().await;
+}
+
+#[test]
+fn update_query_positive_and_negative_ttls_are_at_most_one_hour() {
+    let project = SourceProjectId::new("project").unwrap();
+    let release = SourceReleaseId::new("release").unwrap();
+    let queries = [
+        ProviderQuery::Release {
+            project_id: Some(project.clone()),
+            release_id: release.clone(),
+            slug: None,
+        },
+        ProviderQuery::ReleaseProtocol {
+            release_id: release,
+            version: "v2".into(),
+        },
+        ProviderQuery::Identify {
+            integrity: ArtifactIntegrity {
+                size: None,
+                hashes: vec![],
+            },
+            fingerprint: None,
+        },
+        ProviderQuery::IdentifyExport {
+            integrity: ArtifactIntegrity {
+                size: None,
+                hashes: vec![],
+            },
+            fingerprint: None,
+        },
+        ProviderQuery::Project {
+            id: project.clone(),
+            slug: None,
+        },
+        ProviderQuery::ReleasesProtocol {
+            project_id: project,
+        },
+    ];
+    for query in queries {
+        for value in [
+            ProviderValue::NotFound,
+            ProviderValue::Matches(vec![]),
+            ProviderValue::Identified(vec![]),
+            ProviderValue::Protocol(serde_json::Value::Null),
+        ] {
+            assert!(query.ttl(&value) <= 3600);
+        }
+    }
+    assert_eq!(
+        ProviderQuery::ReleasesProtocol {
+            project_id: SourceProjectId::new("project").unwrap()
+        }
+        .ttl(&ProviderValue::Protocol(serde_json::Value::Null)),
+        300
+    );
 }

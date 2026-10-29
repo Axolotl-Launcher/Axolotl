@@ -1,7 +1,7 @@
 [package]
 name = "theseus_gui"
 # The actual version is set by the theseus-build workflow on tagging
-version = "1.10.0-beta.5"
+version = "1.10.3"
 edition.workspace = true
 description = "Axolotl Launcher is a cross-platform Minecraft launcher"
 homepage = "https://www.ghs.red"
@@ -22,6 +22,7 @@ hyper = { workspace = true, features = ["server"] }
 hyper-util = { workspace = true }
 image = { workspace = true }
 keyring = { workspace = true }
+launcher-mcp = { workspace = true }
 libc = { workspace = true }
 native-dialog = { workspace = true }
 notify = { workspace = true }
@@ -77,14 +78,23 @@ tauri-plugin-updater = { workspace = true, optional = true }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 block2 = "0.6.2"
+objc2 = "0.6.2"
 objc2-app-kit = { version = "0.3.2", default-features = false, features = [
+  "NSButton",
   "NSColor",
   "NSColorSpace",
+  "NSControl",
+  "NSResponder",
+  "NSView",
+  "NSWindow",
   "objc2-core-foundation",
 ] }
 objc2-foundation = { version = "0.3.2", default-features = false, features = [
+  "NSArray",
   "NSNotification",
+  "NSObjCRuntime",
   "NSOperation",
+  "NSRunLoop",
   "NSString",
   "block2",
 ] }

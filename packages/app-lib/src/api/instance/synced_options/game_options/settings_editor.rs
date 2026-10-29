@@ -10,6 +10,18 @@ use super::instance_support::{
 };
 use super::options_file::input_error;
 use super::write_shared_settings::sync_all_participating_instances;
+use crate::state::store::synced_game_option_preferences::{
+    GameOptionPreferenceRecord, GameOptionPreferenceSource,
+    SyncedGameOptionPreferences,
+};
+use crate::state::store::synced_game_option_state::{
+    GameOptionStateRecord, Singleton, SyncedGameOptionState,
+};
+use crate::state::store::synced_game_option_values::{
+    GameOptionValueKind, GameOptionValueOrigin, GameOptionValueRecord,
+    SyncedGameOptionValues,
+};
+use crate::state::store::{Collection as _, atom};
 use crate::state::{
     CanonicalValue, GameOptionKind, State, StoredOption,
     game_options_sync_is_enabled, load_game_option_preferences,
@@ -43,9 +55,9 @@ pub(super) async fn load_settings_editor(
     state: &State,
 ) -> crate::Result<GameSettingsEditorState> {
     let (canonical_revision, catalog_revision) =
-        load_game_options_sync_state(&state.pool, CATALOG_REVISION).await?;
-    let values = load_shared_game_options(&state.pool).await?;
-    let preferences = load_game_option_preferences(&state.pool).await?;
+        load_game_options_sync_state(&state.data, CATALOG_REVISION).await?;
+    let values = load_shared_game_options(&state.data).await?;
+    let preferences = load_game_option_preferences(&state.data).await?;
     let participants = load_participating_instances(state).await?;
     let mut settings = Vec::new();
 
@@ -277,7 +289,7 @@ pub async fn save_changes(
 ) -> crate::Result<SaveGameSettingsResult> {
     let state = State::get().await?;
     let _guard = state.lock_synced_options().await;
-    if !game_options_sync_is_enabled(&state.pool).await? {
+    if !game_options_sync_is_enabled(&state.data).await? {
         return Err(input_error(
             "Turn on game-settings sync before editing shared values.",
         ));
@@ -302,7 +314,7 @@ pub async fn save_changes(
             ..SaveGameSettingsResult::default()
         });
     }
-    let stored_values = load_shared_game_options(&state.pool).await?;
+    let stored_values = load_shared_game_options(&state.data).await?;
     let participants = load_participating_instances(&state).await?;
     let mut conflicts = Vec::new();
     let mut accepted = Vec::new();
@@ -376,7 +388,7 @@ pub async fn save_changes(
 
     let mut changed = false;
     let mut fullscreen_value = None;
-    let mut tx = state.pool.begin().await?;
+    let mut unit = atom(&state.data).await?;
     for (setting, change) in accepted {
         let resulting_enabled =
             change.sync_enabled.unwrap_or(setting.sync_enabled);
@@ -409,104 +421,85 @@ pub async fn save_changes(
                 let value_json = serde_json::to_string(&value)?;
                 let canonical_type = value.type_name();
                 let kind = if matches!(setting.kind, GameOptionKind::External) {
-                    "external"
+                    GameOptionValueKind::External
                 } else {
-                    "vanilla"
+                    GameOptionValueKind::Vanilla
                 };
-                let raw_key = setting.raw_key.as_deref();
                 let value_codec = if setting_by_id(&setting.option_id).is_some()
                 {
                     "catalog"
                 } else {
                     "exact_raw"
                 };
-                let source_game_version: Option<&str> = None;
-                sqlx::query!(
-                    "
-				INSERT INTO synced_game_option_values
-					(option_id, kind, raw_key, canonical_type,
-					 canonical_value_json, value_codec, seeded, revision, origin,
-					 source_game_version, source_instance_id, updated_at)
-				VALUES (?, ?, ?, ?, ?, ?, 1, ?, 'app_editor', ?, NULL, ?)
-				ON CONFLICT(option_id) DO UPDATE SET
-					kind = excluded.kind, raw_key = excluded.raw_key,
-					canonical_type = excluded.canonical_type,
-					canonical_value_json = excluded.canonical_value_json,
-					value_codec = excluded.value_codec, seeded = 1,
-					revision = excluded.revision, origin = 'app_editor',
-					source_game_version = NULL, source_instance_id = NULL,
-					updated_at = excluded.updated_at
-				",
-                    setting.option_id,
+                let record = GameOptionValueRecord {
                     kind,
-                    raw_key,
-                    canonical_type,
-                    value_json,
-                    value_codec,
+                    raw_key: setting.raw_key.clone(),
+                    canonical_type: canonical_type.to_string(),
+                    canonical_value: Some(value_json),
+                    value_codec: value_codec.to_string(),
+                    seeded: true,
                     revision,
-                    source_game_version,
-                    now,
+                    origin: GameOptionValueOrigin::AppEditor,
+                    source_game_version: None,
+                    source_instance_id: None,
+                    updated_at: now,
+                };
+                SyncedGameOptionValues::atom_set(
+                    &mut unit,
+                    &setting.option_id,
+                    Some(&record),
                 )
-                .execute(&mut *tx)
                 .await?;
-            } else {
-                sqlx::query!(
-                    "
-					UPDATE synced_game_option_values
-					SET canonical_value_json = NULL, seeded = 0, revision = ?,
-						origin = 'app_editor', source_game_version = NULL,
-						source_instance_id = NULL, updated_at = ?
-					WHERE option_id = ?
-					",
+            } else if let Some(stored) =
+                SyncedGameOptionValues::atom_get(&mut unit, &setting.option_id)
+                    .await?
+            {
+                let record = GameOptionValueRecord {
+                    canonical_value: None,
+                    seeded: false,
                     revision,
-                    now,
-                    setting.option_id,
+                    origin: GameOptionValueOrigin::AppEditor,
+                    source_game_version: None,
+                    source_instance_id: None,
+                    updated_at: now,
+                    ..stored
+                };
+                SyncedGameOptionValues::atom_set(
+                    &mut unit,
+                    &setting.option_id,
+                    Some(&record),
                 )
-                .execute(&mut *tx)
                 .await?;
             }
         }
         if let Some(enabled) = change.sync_enabled {
-            sqlx::query!(
-                "
-				INSERT INTO synced_game_option_preferences
-					(option_id, enabled, source, revision)
-				VALUES (?, ?, ?, ?)
-				ON CONFLICT(option_id) DO UPDATE SET
-					enabled = excluded.enabled, source = 'user',
-					revision = excluded.revision
-				",
-                setting.option_id,
+            let record = GameOptionPreferenceRecord {
                 enabled,
-                "user",
+                source: GameOptionPreferenceSource::User,
                 revision,
+            };
+            SyncedGameOptionPreferences::atom_set(
+                &mut unit,
+                &setting.option_id,
+                Some(&record),
             )
-            .execute(&mut *tx)
             .await?;
         }
     }
     if changed {
         let next_revision =
             current_editor.canonical_revision.saturating_add(1) as i64;
-        let catalog_revision = CATALOG_REVISION as i64;
-        sqlx::query!(
-            "
-			INSERT INTO synced_game_option_state (singleton, revision, catalog_revision)
-			VALUES (1, ?, ?)
-			ON CONFLICT(singleton) DO UPDATE SET
-				revision = excluded.revision,
-				catalog_revision = excluded.catalog_revision
-			",
-            next_revision,
-            catalog_revision,
-        )
-        .execute(&mut *tx)
-        .await?;
+        let record = GameOptionStateRecord {
+            revision: next_revision,
+            catalog_revision: CATALOG_REVISION as i64,
+        };
+        SyncedGameOptionState::atom_set(&mut unit, &Singleton, Some(&record))
+            .await?;
     }
     if let Some(value) = fullscreen_value.as_ref() {
-        update_app_fullscreen_setting(&mut tx, value, true).await?;
+        update_app_fullscreen_setting(&mut unit, value, true).await?;
     }
-    tx.commit().await?;
+    unit.commit().await?;
 
     let write_result = if changed {
         sync_all_participating_instances(&state).await

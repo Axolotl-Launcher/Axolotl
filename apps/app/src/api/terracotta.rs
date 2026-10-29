@@ -156,11 +156,11 @@ pub async fn terracotta_download(version: Option<String>) -> Result<()> {
 pub async fn terracotta_update() -> Result<theseus::terracotta::TerracottaUpdate>
 {
     Ok(theseus::terracotta::update_terracotta()
-		.await
-		.map_err(|error| {
-			tracing::error!(target: "theseus::terracotta", action = "update", error = %error);
-			theseus::Error::from(error)
-		})?)
+        .await
+        .map_err(|error| {
+            tracing::error!(target: "theseus::terracotta", action = "update", error = %error);
+            theseus::Error::from(error)
+        })?)
 }
 
 #[tauri::command]

@@ -9,6 +9,7 @@ use super::catalog::{is_never_sync_key, setting_by_file_key};
 use super::options_file::{
     GameOptionsDocument, input_error, options_path, read_document,
 };
+use crate::state::store::{Handle, atom};
 use crate::state::{InstanceMetadata, State};
 use archive::{ArchiveIndex, Translations};
 use serde::{Deserialize, Serialize};
@@ -156,14 +157,14 @@ pub(super) async fn capture_observation(
         Ok(id) => Some(id),
         Err(error) => {
             tracing::warn!(%error, instance_id = metadata.instance.id,
-				"Game setting locales: snapshot capture failed");
+                "Game setting locales: snapshot capture failed");
             None
         }
     }
 }
 
 pub(super) async fn record_observations(
-    tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>,
+    handle: &Handle,
     metadata: &InstanceMetadata,
     document: &GameOptionsDocument,
     snapshot: Option<&str>,
@@ -171,13 +172,20 @@ pub(super) async fn record_observations(
     let Some(snapshot) = snapshot else {
         return;
     };
+    let mut unit = match atom(handle).await {
+        Ok(unit) => unit,
+        Err(error) => {
+            tracing::warn!(%error, "Could not record game-setting translation provenance");
+            return;
+        }
+    };
     for (id, raw_key) in document_keys(document) {
         let observation = Observation {
             snapshot: snapshot.to_owned(),
             raw_key,
         };
         if let Err(error) = storage::observe(
-            tx,
+            &mut unit,
             "",
             &id,
             &metadata.instance.id,
@@ -188,6 +196,9 @@ pub(super) async fn record_observations(
         {
             tracing::warn!(%error, "Could not record game-setting translation provenance");
         }
+    }
+    if let Err(error) = unit.commit().await {
+        tracing::warn!(%error, "Could not record game-setting translation provenance");
     }
 }
 
@@ -251,24 +262,24 @@ async fn index_installed_sources(state: &State) -> crate::Result<()> {
             Ok(snapshot) => snapshot,
             Err(error) => {
                 tracing::warn!(%error, instance_id = metadata.instance.id, %snapshot_id,
-					"Could not load game-setting locale snapshot");
+                    "Could not load game-setting locale snapshot");
                 continue;
             }
         };
         tracing::info!(instance_id = metadata.instance.id, %snapshot_id, game_version = snapshot.game_version,
-			mods = snapshot.mods.len(),
-			"Game setting locales: snapshot loaded");
+            mods = snapshot.mods.len(),
+            "Game setting locales: snapshot loaded");
         resolver
             .index_snapshot(state, &snapshot_id, snapshot.clone())
             .await?;
-        let mut tx = state.pool.begin().await?;
+        let mut unit = atom(&state.data).await?;
         for (id, key) in &keys {
             let observation = Observation {
                 snapshot: snapshot_id.clone(),
                 raw_key: key.clone(),
             };
             storage::observe(
-                &mut tx,
+                &mut unit,
                 &metadata.instance.id,
                 id,
                 &metadata.instance.id,
@@ -277,7 +288,7 @@ async fn index_installed_sources(state: &State) -> crate::Result<()> {
             )
             .await?;
         }
-        tx.commit().await?;
+        unit.commit().await?;
         tracing::info!(
             instance_id = metadata.instance.id,
             options = keys.len(),
@@ -289,7 +300,7 @@ async fn index_installed_sources(state: &State) -> crate::Result<()> {
             keys,
         });
     }
-    let rows = storage::load(&state.pool, None).await?;
+    let rows = storage::load(&state.data, None).await?;
     tracing::info!(
         candidates = candidates.len(),
         rows = rows.len(),
@@ -341,7 +352,7 @@ async fn index_installed_sources(state: &State) -> crate::Result<()> {
         for observation in observations {
             match resolver.resolve(state, &observation).await {
                 Ok(Some(origin)) => {
-                    storage::pin(&state.pool, &row, &origin).await?;
+                    storage::pin(&state.data, &row, &origin).await?;
                     resolved = true;
                     pinned += 1;
                     break;
@@ -349,7 +360,7 @@ async fn index_installed_sources(state: &State) -> crate::Result<()> {
                 Ok(None) => {}
                 Err(error) => {
                     tracing::warn!(%error, scope = row.scope, option_id = row.option_id,
-					snapshot_id = observation.snapshot, "Game setting locales: origin resolution failed")
+                    snapshot_id = observation.snapshot, "Game setting locales: origin resolution failed")
                 }
             }
         }
@@ -423,7 +434,7 @@ pub async fn get_game_setting_locale_labels(
         queue_game_locale_index();
     }
     let scope = instance_id.unwrap_or("");
-    let mut rows = storage::load(&state.pool, Some(scope)).await?;
+    let mut rows = storage::load(&state.data, Some(scope)).await?;
     tracing::info!(
         scope,
         rows = rows.len(),
@@ -434,7 +445,7 @@ pub async fn get_game_setting_locale_labels(
         let mut sourced: std::collections::HashSet<_> =
             rows.iter().map(|row| row.option_id.clone()).collect();
         // Unsaved global options have no provenance row; use an indexed local label until saved.
-        for row in storage::load(&state.pool, None).await? {
+        for row in storage::load(&state.data, None).await? {
             if !row.scope.is_empty()
                 && requested.contains(&row.option_id)
                 && row.origin.is_some()
@@ -460,10 +471,10 @@ pub async fn get_game_setting_locale_labels(
         .map(|origin| origin.archive.hash.as_str())
         .collect();
     let projects = sources::mod_projects(&state, &hashes.into_iter().collect::<Vec<_>>()).await
-		.unwrap_or_else(|error| {
-			tracing::warn!(%error, "Game setting locales: mod project metadata unavailable");
-			HashMap::new()
-		});
+        .unwrap_or_else(|error| {
+            tracing::warn!(%error, "Game setting locales: mod project metadata unavailable");
+            HashMap::new()
+        });
     let mut result = GameSettingLocaleLabels::default();
     let mut archives = HashMap::new();
     let mut dictionaries: HashMap<String, Translations> = HashMap::new();
@@ -494,7 +505,7 @@ pub async fn get_game_setting_locale_labels(
                 Ok(index) => index,
                 Err(error) => {
                     tracing::warn!(%error, option_id = row.option_id, hash = origin.archive.hash,
-						"Game setting locales: label archive unavailable");
+                        "Game setting locales: label archive unavailable");
                     continue;
                 }
             };
@@ -517,7 +528,7 @@ pub async fn get_game_setting_locale_labels(
             }
             bundle.deprecated.apply(&mut translations);
             tracing::info!(%dictionary_id, %locale, translations = translations.len(),
-				"Game setting locales: dictionary loaded");
+                "Game setting locales: dictionary loaded");
             dictionaries.insert(dictionary_id.clone(), translations);
         }
         let translations = &dictionaries[&dictionary_id];

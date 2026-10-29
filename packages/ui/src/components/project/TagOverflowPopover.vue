@@ -22,11 +22,11 @@ const portalTarget = computed(() =>
     <PopoverRoot :modal="false">
         <PopoverTrigger as-child>
             <!--
-				A real button, not the div this started as: the trigger has to be
-				reachable and openable from the keyboard, and a div is neither
-				focusable nor activatable. The class carries the tag styling so the
-				trigger keeps looking like the `+N` tag it replaces.
-			-->
+                A real button, not the div this started as: the trigger has to be
+                reachable and openable from the keyboard, and a div is neither
+                focusable nor activatable. The class carries the tag styling so the
+                trigger keeps looking like the `+N` tag it replaces.
+            -->
             <button
                 v-bind="$attrs"
                 type="button"

@@ -3,9 +3,13 @@ import { NbtTag } from 'deepslate/nbt'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { defineComponent, h, ref } from 'vue'
 
+import CommandGeneratorArgument from '@/components/lab/command-generator/CommandGeneratorArgument.vue'
 import CommandGeneratorItemNbt from '@/components/lab/command-generator/CommandGeneratorItemNbt.vue'
 import CommandGeneratorNbtAdvanced from '@/components/lab/command-generator/CommandGeneratorNbtAdvanced.vue'
 import CommandGeneratorNbtEditor from '@/components/lab/command-generator/CommandGeneratorNbtEditor.vue'
+import { initializeRegistry } from '@/lab/command-generator/commands/registry.ts'
+import { buildCommand } from '@/lab/command-generator/generator.ts'
+import { loadCommandsForVersion } from '@/lab/command-generator/loader.ts'
 import { parseNbt } from '@/lab/command-generator/nbt-tree.ts'
 import { saveUserPreset } from '@/lab/command-generator/presets.ts'
 
@@ -17,6 +21,7 @@ vi.mock('@/components/lab/command-generator/CommandGeneratorItemPickerModal.vue'
 vi.mock('@modrinth/ui', async () => {
     const { defineComponent, h } = await import('vue')
     return {
+        commonMessages: { clearButton: { id: 'button.clear', defaultMessage: 'Clear' } },
         Button: defineComponent({
             props: { label: String, iconOnly: Boolean, nativeType: String },
             setup:
@@ -79,6 +84,101 @@ beforeEach(() => {
     config.global.directives.tooltip = () => {}
 })
 afterEach(() => wrappers.splice(0).forEach((wrapper) => wrapper.unmount()))
+
+function mountCoordinates(commandId: string, name: string, initial?: string) {
+    const arg = loadCommandsForVersion('1.16')
+        .find((command) => command.id === commandId)!
+        .arguments.find((argument) => argument.name === name)!
+    const value = ref<string | number | boolean | undefined>(initial)
+    const wrapper = mount(
+        defineComponent({
+            setup: () => () =>
+                h(CommandGeneratorArgument, {
+                    arg,
+                    modelValue: value.value,
+                    'onUpdate:modelValue': (next: string | number | boolean) => {
+                        value.value = next
+                    },
+                }),
+        }),
+    )
+    wrappers.push(wrapper)
+    return { wrapper, value }
+}
+
+it('sets all three axes to absolute coordinates without resetting previous axes', async () => {
+    const { wrapper, value } = mountCoordinates('setblock', 'pos', '~ ~ ~')
+    for (const [index, coordinate] of ['10', '64', '-20'].entries()) {
+        await wrapper.findAll('.coordinate-mode')[index].trigger('click')
+        await wrapper.findAll('input')[index].setValue(coordinate)
+    }
+    expect(value.value).toBe('10 64 -20')
+})
+
+it('enters and leaves local coordinates as a complete tuple', async () => {
+    const { wrapper, value } = mountCoordinates('setblock', 'pos', '~1 64 ~-2')
+    await wrapper.findAll('.coordinate-mode')[1].trigger('click')
+    expect(value.value).toBe('^1 ^64 ^-2')
+    await wrapper.findAll('.coordinate-mode')[0].trigger('click')
+    expect(value.value).toBe('~1 ~64 ~-2')
+})
+
+it('omits untouched optional coordinates and can clear them after editing', async () => {
+    const { wrapper, value } = mountCoordinates('forceload', 'to')
+    initializeRegistry('1.16')
+    const command = () =>
+        buildCommand('forceload', { action: 'query', from: '0 0', to: value.value ?? '' })
+    expect(command()).toBe('/forceload query 0 0')
+    await wrapper.findAll('input')[0].setValue('16')
+    expect(value.value).toBe('~16 ~')
+    await wrapper
+        .findAll('button')
+        .find((button) => button.text() === 'Clear')!
+        .trigger('click')
+    expect(command()).toBe('/forceload query 0 0')
+    expect(
+        wrapper.findAll('input').map((input) => (input.element as HTMLInputElement).value),
+    ).toEqual(['', ''])
+    await wrapper.findAll('input')[1].setValue('32')
+    expect(value.value).toBe('~ ~32')
+})
+
+it('restores both entity and coordinate destinations in an already mounted editor', async () => {
+    const { wrapper, value } = mountCoordinates('teleport', 'destination', '~ ~ ~')
+    value.value = '@p'
+    await flushPromises()
+    expect(wrapper.find('.coordinate-mode').exists()).toBe(false)
+    expect((wrapper.get('input').element as HTMLInputElement).value).toBe('@p')
+    await wrapper.get('input').setValue('')
+    expect(wrapper.find('.coordinate-mode').exists()).toBe(false)
+    await wrapper.get('input').setValue('1')
+    expect(wrapper.find('.coordinate-mode').exists()).toBe(false)
+    await wrapper.get('input').setValue('123Alex')
+    expect((wrapper.get('input').element as HTMLInputElement).value).toBe('123Alex')
+    expect(wrapper.find('.coordinate-mode').exists()).toBe(false)
+    value.value = '10 64 -20'
+    await flushPromises()
+    expect(wrapper.findAll('.coordinate-mode').map((button) => button.text())).toEqual([
+        '=',
+        '=',
+        '=',
+    ])
+    await wrapper.findAll('input')[1].setValue('70')
+    expect(value.value).toBe('10 70 -20')
+})
+
+it.each([
+    ['forceload', 'from'],
+    ['spreadplayers', 'center'],
+])('offers only world coordinate modes for %s', async (commandId, name) => {
+    const { wrapper, value } = mountCoordinates(commandId, name, '~1 ~2')
+    await wrapper.findAll('.coordinate-mode')[0].trigger('click')
+    await wrapper.findAll('.coordinate-mode')[1].trigger('click')
+    expect(value.value).toBe('1 2')
+    await wrapper.findAll('.coordinate-mode')[0].trigger('click')
+    await wrapper.findAll('.coordinate-mode')[1].trigger('click')
+    expect(value.value).toBe('~1 ~2')
+})
 
 it('loads and edits advanced NBT without emitting an empty or wrapped replacement on load', async () => {
     const wrapper = mount(CommandGeneratorNbtAdvanced, { props: { modelValue: '{Health:20f}' } })
@@ -184,15 +284,31 @@ it.each(['give', 'execute'])(
     },
 )
 
+it('loads and edits an entity destination from a saved teleport preset', async () => {
+    saveUserPreset('Entity destination', 'teleport', '1.16', {
+        target: '@s',
+        destination: '@p',
+    })
+    const wrapper = mount(LabCommandGenerator)
+    wrappers.push(wrapper)
+    await flushPromises()
+    await wrapper.get('.global-presets-button').trigger('click')
+    await wrapper.get('.global-preset-item').trigger('click')
+    await flushPromises()
+    const destination = wrapper.get('[data-testid="arg-card-destination"]')
+    expect(destination.find('.coordinate-mode').exists()).toBe(false)
+    expect((destination.get('input').element as HTMLInputElement).value).toBe('@p')
+    await destination.get('input').setValue('Steve')
+    await wrapper.get('.action-bar button').trigger('click')
+    expect(wrapper.get('.result-code').text()).toBe('/teleport @s Steve')
+})
+
 it('updates effect fields and output when switching from give to clear', async () => {
     const wrapper = mount(LabCommandGenerator)
     wrappers.push(wrapper)
     await flushPromises()
     await wrapper.findAll('select')[3].setValue('effect')
-    const card = (name: string) =>
-        wrapper
-            .findAll('.argument-card')
-            .find((item) => item.text().includes(`arg.effect.${name}.display`))!
+    const card = (name: string) => wrapper.findAll(`[data-testid="arg-card-${name}"]`)[0]!
     await card('target').get('input').setValue('@s')
     await card('effect').get('input').setValue('minecraft:speed')
     expect(card('duration')).toBeDefined()

@@ -1,5 +1,4 @@
-import assert from 'node:assert/strict'
-import test from 'node:test'
+import { expect, it } from 'vitest'
 
 import {
     clearBrowseReturnSnapshot,
@@ -12,49 +11,49 @@ import {
     saveBrowseReturnSnapshot,
 } from './browse-return-state.ts'
 
-test('consumes a matching browse snapshot only once', () => {
+it('consumes a matching browse snapshot only once', () => {
     const url = '/browse/mod?m=100&o=100'
     saveBrowseReturnSnapshot({ url, scrollTop: 480, state: { currentPage: 2, hits: ['a'] } })
-    assert.equal(prepareBrowseReturnNavigation(url, '/project/sodium'), true)
+    expect(prepareBrowseReturnNavigation(url, '/project/sodium')).toBe(true)
 
-    assert.deepEqual(consumeBrowseReturnSnapshot(url), {
+    expect(consumeBrowseReturnSnapshot(url)).toEqual({
         url,
         scrollTop: 480,
         state: { currentPage: 2, hits: ['a'] },
     })
-    assert.equal(consumeBrowseReturnSnapshot(url), null)
-    assert.equal(isBrowseReturnNavigation(url), true)
+    expect(consumeBrowseReturnSnapshot(url)).toBe(null)
+    expect(isBrowseReturnNavigation(url)).toBe(true)
     completeBrowseReturnNavigation(url)
-    assert.equal(isBrowseReturnNavigation(url), false)
+    expect(isBrowseReturnNavigation(url)).toBe(false)
 })
 
-test('does not consume a snapshot for a different browse URL', () => {
+it('does not consume a snapshot for a different browse URL', () => {
     saveBrowseReturnSnapshot({ url: '/browse/mod?page=2', scrollTop: 480, state: {} })
 
-    assert.equal(consumeBrowseReturnSnapshot('/browse/mod?page=3'), null)
-    assert.equal(hasBrowseReturnSnapshot('/browse/mod?page=2'), true)
+    expect(consumeBrowseReturnSnapshot('/browse/mod?page=3')).toBe(null)
+    expect(hasBrowseReturnSnapshot('/browse/mod?page=2')).toBe(true)
     clearBrowseReturnSnapshot()
 })
 
-test('consumes a matching snapshot without a route guard marker', () => {
+it('consumes a matching snapshot without a route guard marker', () => {
     const url = '/browse/mod?source=modrinth'
     saveBrowseReturnSnapshot({ url, scrollTop: 480, state: {} })
 
-    assert.deepEqual(consumeBrowseReturnSnapshot(url), { url, scrollTop: 480, state: {} })
+    expect(consumeBrowseReturnSnapshot(url)).toEqual({ url, scrollTop: 480, state: {} })
 })
 
-test('clears snapshots for ordinary Browse navigation', () => {
+it('clears snapshots for ordinary Browse navigation', () => {
     const url = '/browse/mod?page=2'
     saveBrowseReturnSnapshot({ url, scrollTop: 480, state: {} })
 
-    assert.equal(prepareBrowseReturnNavigation(url, '/library'), false)
-    assert.equal(hasBrowseReturnSnapshot(url), false)
+    expect(prepareBrowseReturnNavigation(url, '/library')).toBe(false)
+    expect(hasBrowseReturnSnapshot(url)).toBe(false)
 })
 
-test('recognizes only project, download, and instance return routes', () => {
-    assert.equal(isBrowseReturnSourcePath('/project/sodium'), true)
-    assert.equal(isBrowseReturnSourcePath('/project/sodium/versions'), true)
-    assert.equal(isBrowseReturnSourcePath('/downloads'), true)
-    assert.equal(isBrowseReturnSourcePath('/instance/example'), true)
-    assert.equal(isBrowseReturnSourcePath('/library'), false)
+it('recognizes only project, download, and instance return routes', () => {
+    expect(isBrowseReturnSourcePath('/project/sodium')).toBe(true)
+    expect(isBrowseReturnSourcePath('/project/sodium/versions')).toBe(true)
+    expect(isBrowseReturnSourcePath('/downloads')).toBe(true)
+    expect(isBrowseReturnSourcePath('/instance/example')).toBe(true)
+    expect(isBrowseReturnSourcePath('/library')).toBe(false)
 })

@@ -15,10 +15,65 @@ pub const INITIAL_ARTIFACT_PROBE_LIMIT: usize = 3;
 pub const HISTORY_PAGE_LIMIT: usize = 2;
 pub const HISTORY_ARTIFACT_PROBE_LIMIT: usize = 10;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct LocalArtifactIdentity {
     pub integrity: ArtifactIntegrity,
     pub fingerprint: Option<u32>,
+}
+
+fn local_identity_key(integrity: &ArtifactIntegrity) -> Option<String> {
+    // The scanner's current SHA-1 and size address the bytes, independently
+    // of their path, provider recognition, or a cart's instance revision.
+    let sha1 = integrity.hashes.iter().find(|hash| {
+        hash.algorithm == HashAlgorithm::Sha1
+            && hash.value.len() == 40
+            && hash.value.bytes().all(|byte| byte.is_ascii_hexdigit())
+    })?;
+    Some(format!(
+        "local-identity-v1:{}:{}",
+        integrity.size?,
+        sha1.value.to_ascii_lowercase()
+    ))
+}
+
+impl super::cache::ResourceCache {
+    pub(crate) async fn local_identity(
+        &self,
+        integrity: &ArtifactIntegrity,
+    ) -> Option<LocalArtifactIdentity> {
+        let cached: LocalArtifactIdentity =
+            self.evidence(&local_identity_key(integrity)?).await?;
+        (exact_integrity(integrity, &cached.integrity)
+            && cached.fingerprint.is_some()
+            && [HashAlgorithm::Sha256, HashAlgorithm::Sha512].iter().all(
+                |algorithm| {
+                    cached.integrity.hashes.iter().any(|hash| {
+                        &hash.algorithm == algorithm
+                            && hash.value.len()
+                                == if *algorithm == HashAlgorithm::Sha256 {
+                                    64
+                                } else {
+                                    128
+                                }
+                            && hash
+                                .value
+                                .bytes()
+                                .all(|byte| byte.is_ascii_hexdigit())
+                    })
+                },
+            ))
+        .then_some(cached)
+    }
+
+    pub(crate) async fn store_local_identity(
+        &self,
+        identity: &LocalArtifactIdentity,
+        generation: i64,
+    ) {
+        if let Some(key) = local_identity_key(&identity.integrity) {
+            self.store_evidence(&key, identity, generation).await;
+        }
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -68,6 +123,69 @@ pub fn exact_integrity(
         }
     }
     strong
+}
+
+/// A byte match alone does not establish that two projects are the same resource.
+pub(crate) fn project_confirmation_rejection(
+    left: &SourceProjectMetadata,
+    right: &SourceProjectMetadata,
+    left_artifact: &ResourceArtifact,
+    right_artifact: &ResourceArtifact,
+) -> Option<&'static str> {
+    if left_artifact.reference.release.project != left.project
+        || right_artifact.reference.release.project != right.project
+    {
+        Some("artifact belongs to a different project")
+    } else if !left.types.iter().any(|kind| right.types.contains(kind)) {
+        Some("project resource types do not overlap")
+    } else if !super::valid_artifact(left_artifact)
+        || !super::valid_artifact(right_artifact)
+    {
+        Some("artifact metadata is incomplete or invalid")
+    } else if verify_artifact_pair(left_artifact, right_artifact).is_none() {
+        Some("primary artifacts lack matching strong byte evidence")
+    } else {
+        None
+    }
+}
+
+/// Optional discovery may retain a valid primary source without linking a
+/// counterpart. Persistence failures and cancellation still fail the operation.
+pub(crate) async fn try_confirm_projects(
+    store: &crate::state::resources::ResourceStore,
+    left: &SourceProjectMetadata,
+    right: &SourceProjectMetadata,
+    left_artifact: &ResourceArtifact,
+    right_artifact: &ResourceArtifact,
+    cancel: &CancellationToken,
+) -> ResourceResult<Option<ResourceId>> {
+    if cancel.is_cancelled() {
+        return Err(ResourceError::Canceled);
+    }
+    if let Some(reason) = project_confirmation_rejection(
+        left,
+        right,
+        left_artifact,
+        right_artifact,
+    ) {
+        tracing::info!(
+            left = ?left.project,
+            right = ?right.project,
+            left_types = ?left.types,
+            right_types = ?right.types,
+            left_role = ?left_artifact.role,
+            right_role = ?right_artifact.role,
+            left_size = ?left_artifact.integrity.size,
+            right_size = ?right_artifact.integrity.size,
+            reason,
+            "Skipped optional resource project association"
+        );
+        return Ok(None);
+    }
+    store
+        .confirm_projects(left, right, left_artifact, right_artifact)
+        .await
+        .map(Some)
 }
 
 pub fn verify_artifact_pair(

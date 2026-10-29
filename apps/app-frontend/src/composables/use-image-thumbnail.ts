@@ -1,4 +1,4 @@
-import { convertFileSrc, invoke } from '@tauri-apps/api/core'
+import { invoke } from '@tauri-apps/api/core'
 import { type MaybeRefOrGetter, ref, toValue, watch } from 'vue'
 
 import { createThumbnailQueue } from './thumbnail-queue'
@@ -113,7 +113,6 @@ export function useImageThumbnail(
             if (!currentSource) return
 
             let active = true
-            const fallbackUrl = convertFileSrc(currentSource.path)
             const acquired = acquireThumbnail(
                 currentSource,
                 Math.max(1, Math.round(currentMaxDimension)),
@@ -131,7 +130,6 @@ export function useImageThumbnail(
                 (error) => {
                     if (!active) return
                     console.warn('Could not create image thumbnail', error)
-                    if (active) thumbnail.value = fallbackUrl
                 },
             )
         },

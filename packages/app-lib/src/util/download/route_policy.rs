@@ -30,12 +30,8 @@ pub(crate) fn is_official_version_manifest_url(url: &str) -> bool {
     })
 }
 
-/// Loader Maven repositories served mirror-first while retaining an official
-/// fallback for content the mirrors have not synced yet.
-pub(crate) fn uses_mirror_first_loader_routes(
-    url: &str,
-    resource: ResourceClass,
-) -> bool {
+/// Identifies loader artifacts for route health and download diagnostics.
+pub(crate) fn is_loader_repository(url: &str, resource: ResourceClass) -> bool {
     if !matches!(
         resource,
         ResourceClass::MinecraftLibrary | ResourceClass::Loader

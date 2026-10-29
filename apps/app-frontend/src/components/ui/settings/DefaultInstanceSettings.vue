@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import { defineMessages, StyledInput, Toggle, useVIntl } from '@modrinth/ui'
 import { platform } from '@tauri-apps/plugin-os'
-import { ref, watch } from 'vue'
+import { nextTick, ref, watch } from 'vue'
 
 import EnvironmentVariablesInput from '@/components/ui/EnvironmentVariablesInput.vue'
 import { get, update } from '@/helpers/settings.ts'
 import { createSettingsPatchSaver } from '@/helpers/settings-patch'
+import { usableU16 } from '@/helpers/usable-u16'
 
 import LogShareSettings from './LogShareSettings.vue'
 import SettingsRow from './SettingsRow.vue'
@@ -147,6 +148,30 @@ const fetchSettings = await get()
 const saveDraft = createSettingsPatchSaver(fetchSettings, update)
 const supportsMaximizeWindow = (await platform()) === 'windows'
 const settings = ref(fetchSettings)
+// Bumped when an unusable size edit is discarded so both fields re-mount and show the
+// stored pair again instead of the text the user cleared.
+const dimensionResetToken = ref(0)
+
+const widthInput = ref<InstanceType<typeof StyledInput>>()
+const heightInput = ref<InstanceType<typeof StyledInput>>()
+
+function setResolutionDimension(index: 0 | 1, value: unknown) {
+    const current = settings.value.game_resolution
+    const usable = usableU16(value)
+    if (usable === null) {
+        // Re-mount the field so it shows the value that is still stored, then put the
+        // caret back in the field the user was editing.
+        dimensionResetToken.value += 1
+        return nextTick().then(() => {
+            const field = index === 0 ? widthInput.value : heightInput.value
+            field?.focus()
+            field?.select()
+        })
+    }
+    const next: [number, number] = [...current]
+    next[index] = usable
+    settings.value.game_resolution = next
+}
 
 watch(
     settings,
@@ -215,11 +240,17 @@ watch(
                 <template #control>
                     <StyledInput
                         id="width"
-                        v-model="settings.game_resolution[0]"
+                        ref="widthInput"
+                        :key="`width-${dimensionResetToken}`"
+                        :model-value="settings.game_resolution[0]"
                         :disabled="settings.force_fullscreen"
                         autocomplete="off"
                         type="number"
+                        min="1"
+                        max="65535"
+                        step="1"
                         :placeholder="formatMessage(messages.widthPlaceholder)"
+                        @update:model-value="(value: unknown) => setResolutionDimension(0, value)"
                     />
                 </template>
             </SettingsRow>
@@ -229,11 +260,17 @@ watch(
                 <template #control>
                     <StyledInput
                         id="height"
-                        v-model="settings.game_resolution[1]"
+                        ref="heightInput"
+                        :key="`height-${dimensionResetToken}`"
+                        :model-value="settings.game_resolution[1]"
                         :disabled="settings.force_fullscreen"
                         autocomplete="off"
                         type="number"
+                        min="1"
+                        max="65535"
+                        step="1"
                         :placeholder="formatMessage(messages.heightPlaceholder)"
+                        @update:model-value="(value: unknown) => setResolutionDimension(1, value)"
                     />
                 </template>
             </SettingsRow>

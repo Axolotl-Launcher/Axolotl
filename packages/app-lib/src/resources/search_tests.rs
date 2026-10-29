@@ -130,6 +130,7 @@ impl ResourceProvider for SearchProvider {
                         .find(|entry| entry.project.project_id == *id)
                         .map(|metadata| {
                             ProviderValue::Project(ProjectDocument {
+                                owner: None,
                                 metadata: metadata.clone(),
                                 description: ResourceText {
                                     source: self.source.clone(),
@@ -957,7 +958,7 @@ async fn modrinth_boolean_filters_preserve_live_v3_shapes_and_unsupported_source
     assert_eq!(page.entries[0].environments, vec!["server_only"]);
     assert_eq!(page.entries[0].types, vec![ResourceType::Mod]);
     assert_eq!(page.entries[0].loaders, vec!["neoforge"]);
-    let cf = CurseForgeProvider::new(FixtureTransport::new(|_, _| {
+    let cf = CurseForgeProvider::for_tests(FixtureTransport::new(|_, _| {
         panic!("unsupported filters must not request a broadened search")
     }));
     assert!(matches!(

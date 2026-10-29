@@ -1,7 +1,5 @@
-import assert from 'node:assert/strict'
-import test from 'node:test'
-
 import { Cull, type Identifier, Mesh, Quad, Vector } from 'deepslate'
+import { expect, it } from 'vitest'
 
 import {
     applySeamlessSchematicGlassUvs,
@@ -24,18 +22,18 @@ const palette = [
     { name: 'minecraft:observer', properties: { facing: 'north', powered: 'false' } },
 ]
 
-test('seamless glass only removes faces shared by the same full glass block', () => {
-    assert.equal(isSeamlessSchematicGlassPair(palette[1].name, palette[1].name), true)
-    assert.equal(isSeamlessSchematicGlassPair(palette[1].name, palette[2].name), false)
-    assert.equal(isSeamlessSchematicGlassPair('minecraft:glass', 'minecraft:glass_pane'), false)
-    assert.equal(shouldCullSchematicFace(1, 1, palette), true)
-    assert.equal(shouldCullSchematicFace(1, 1, palette, false), false)
-    assert.equal(shouldCullSchematicFace(1, 2, palette), false)
-    assert.equal(shouldCullSchematicFace(1, 3, palette), true)
-    assert.equal(shouldCullSchematicFace(1, 3, palette, false), true)
-    assert.equal(isSchematicOccluding(4, palette), false)
-    assert.equal(isSchematicOccluding(5, palette), false)
-    assert.equal(isSchematicOccluding(6, palette), false)
+it('seamless glass only removes faces shared by the same full glass block', () => {
+    expect(isSeamlessSchematicGlassPair(palette[1].name, palette[1].name)).toBe(true)
+    expect(isSeamlessSchematicGlassPair(palette[1].name, palette[2].name)).toBe(false)
+    expect(isSeamlessSchematicGlassPair('minecraft:glass', 'minecraft:glass_pane')).toBe(false)
+    expect(shouldCullSchematicFace(1, 1, palette)).toBe(true)
+    expect(shouldCullSchematicFace(1, 1, palette, false)).toBe(false)
+    expect(shouldCullSchematicFace(1, 2, palette)).toBe(false)
+    expect(shouldCullSchematicFace(1, 3, palette)).toBe(true)
+    expect(shouldCullSchematicFace(1, 3, palette, false)).toBe(true)
+    expect(isSchematicOccluding(4, palette)).toBe(false)
+    expect(isSchematicOccluding(5, palette)).toBe(false)
+    expect(isSchematicOccluding(6, palette)).toBe(false)
 })
 
 function addNorthFace(mesh: Mesh, x0: number, y0: number, x1: number, y1: number) {
@@ -49,34 +47,34 @@ function addNorthFace(mesh: Mesh, x0: number, y0: number, x1: number, y1: number
     )
 }
 
-test('mesh occlusion requires complete coverage of each individual boundary face', () => {
+it('mesh occlusion requires complete coverage of each individual boundary face', () => {
     const partial = new Mesh()
     addNorthFace(partial, 0, 0, 1, 0.5)
-    assert.deepEqual(getSchematicMeshOcclusionFaces(partial), {})
+    expect(getSchematicMeshOcclusionFaces(partial)).toEqual({})
 
     const tiled = new Mesh()
     addNorthFace(tiled, 0, 0, 1, 0.5)
     addNorthFace(tiled, 0, 0.5, 1, 1)
-    assert.deepEqual(getSchematicMeshOcclusionFaces(tiled), { north: true })
+    expect(getSchematicMeshOcclusionFaces(tiled)).toEqual({ north: true })
 })
 
-test('neighbor faces preserve seamless glass culling across chunk boundaries', () => {
+it('neighbor faces preserve seamless glass culling across chunk boundaries', () => {
     const current = new Uint32Array(4096)
     const eastNeighbor = new Uint32Array(4096)
     current[15] = 1
     eastNeighbor[0] = 1
     const east = extractSchematicNeighborFace(eastNeighbor, 'east')
     const neighbor = schematicBlockAt(current, { east }, 16, 0, 0)
-    assert.equal(neighbor, 1)
-    assert.equal(shouldCullSchematicFace(current[15], neighbor, palette), true)
+    expect(neighbor).toBe(1)
+    expect(shouldCullSchematicFace(current[15], neighbor, palette)).toBe(true)
 
     eastNeighbor[0] = 2
     const differentGlass = extractSchematicNeighborFace(eastNeighbor, 'east')
-    assert.equal(schematicBlockAt(current, { east: differentGlass }, 16, 0, 0), 2)
-    assert.equal(shouldCullSchematicFace(1, 2, palette), false)
+    expect(schematicBlockAt(current, { east: differentGlass }, 16, 0, 0)).toBe(2)
+    expect(shouldCullSchematicFace(1, 2, palette)).toBe(false)
 })
 
-test('connected glass crops only the joined texture borders', () => {
+it('connected glass crops only the joined texture borders', () => {
     const blocks = new Uint32Array(4096)
     blocks[0] = 1
     blocks[1] = 1
@@ -87,18 +85,15 @@ test('connected glass crops only the joined texture borders', () => {
         { pos: { x: 0, y: 1, z: 0 }, texture: [0, 0] as [number, number] },
     ]
     applySeamlessSchematicGlassUvs(vertices, [0, 0, 0], 1, blocks, {}, palette)
-    assert.deepEqual(
-        vertices.map((vertex) => vertex.texture),
-        [
-            [0, 1],
-            [15 / 16, 1],
-            [15 / 16, 0],
-            [0, 0],
-        ],
-    )
+    expect(vertices.map((vertex) => vertex.texture)).toEqual([
+        [0, 1],
+        [15 / 16, 1],
+        [15 / 16, 0],
+        [0, 0],
+    ])
 })
 
-test('disabled seamless glass preserves the original texture coordinates', () => {
+it('disabled seamless glass preserves the original texture coordinates', () => {
     const blocks = new Uint32Array(4096)
     blocks[0] = 1
     blocks[1] = 1
@@ -109,18 +104,15 @@ test('disabled seamless glass preserves the original texture coordinates', () =>
         { pos: { x: 0, y: 1, z: 0 }, texture: [0, 0] as [number, number] },
     ]
     applySeamlessSchematicGlassUvs(vertices, [0, 0, 0], 1, blocks, {}, palette, false)
-    assert.deepEqual(
-        vertices.map((vertex) => vertex.texture),
-        [
-            [0, 1],
-            [1, 1],
-            [1, 0],
-            [0, 0],
-        ],
-    )
+    expect(vertices.map((vertex) => vertex.texture)).toEqual([
+        [0, 1],
+        [1, 1],
+        [1, 0],
+        [0, 0],
+    ])
 })
 
-test('chests use Minecraft special geometry and entity textures', () => {
+it('chests use Minecraft special geometry and entity textures', () => {
     for (const [name, texture] of [
         ['minecraft:chest', 'minecraft:entity/chest/normal'],
         ['minecraft:trapped_chest', 'minecraft:entity/chest/trapped'],
@@ -139,12 +131,12 @@ test('chests use Minecraft special geometry and entity textures', () => {
             Cull.none(),
         )
 
-        assert.ok(mesh.quads.length > 0, `${name} generated no special mesh`)
-        assert.ok(requestedTextures.has(texture), `${name} did not request ${texture}`)
+        expect(mesh.quads.length > 0, `${name} generated no special mesh`).toBeTruthy()
+        expect(requestedTextures.has(texture), `${name} did not request ${texture}`).toBeTruthy()
     }
 })
 
-test('double chests use the matching left and right entity textures', () => {
+it('double chests use the matching left and right entity textures', () => {
     for (const [name, texture] of [
         ['minecraft:chest', 'normal'],
         ['minecraft:trapped_chest', 'trapped'],
@@ -171,16 +163,15 @@ test('double chests use the matching left and right entity textures', () => {
                 Cull.none(),
             )
 
-            assert.ok(mesh.quads.length > 0, `${name}[type=${type}] generated no mesh`)
-            assert.deepEqual(
-                requestedTextures,
+            expect(mesh.quads.length > 0, `${name}[type=${type}] generated no mesh`).toBeTruthy()
+            expect(requestedTextures).toEqual(
                 new Set([`minecraft:entity/chest/${texture}_${type}`]),
             )
         }
     }
 })
 
-test('double chest halves meet across every facing direction', () => {
+it('double chest halves meet across every facing direction', () => {
     const atlas = {
         getTextureAtlas: () => ({}) as ImageData,
         getTextureUV: () => [0, 0, 1, 1] as [number, number, number, number],
@@ -214,15 +205,18 @@ test('double chest halves meet across every facing direction', () => {
         const rightEdge = positive ? Math.min(...rightCoordinates) : Math.max(...rightCoordinates)
         const combined = [...leftCoordinates, ...rightCoordinates]
 
-        assert.ok(Math.abs(leftEdge - rightEdge) < 1e-6, `${facing} chest halves have a gap`)
-        assert.ok(
+        expect(
+            Math.abs(leftEdge - rightEdge) < 1e-6,
+            `${facing} chest halves have a gap`,
+        ).toBeTruthy()
+        expect(
             Math.abs(Math.max(...combined) - Math.min(...combined) - 30 / 16) < 1e-6,
             `${facing} double chest is not 30 pixels wide`,
-        )
+        ).toBeTruthy()
     }
 })
 
-test('ender chests remain single even with an invalid double-chest type', () => {
+it('ender chests remain single even with an invalid double-chest type', () => {
     const requestedTextures = new Set<string>()
     getSchematicSpecialBlockMesh(
         { name: 'minecraft:ender_chest', properties: { facing: 'north', type: 'left' } },
@@ -236,6 +230,6 @@ test('ender chests remain single even with an invalid double-chest type', () => 
         Cull.none(),
     )
 
-    assert.ok(requestedTextures.has('minecraft:entity/chest/ender'))
-    assert.ok(!requestedTextures.has('minecraft:entity/chest/ender_left'))
+    expect(requestedTextures.has('minecraft:entity/chest/ender')).toBeTruthy()
+    expect(!requestedTextures.has('minecraft:entity/chest/ender_left')).toBeTruthy()
 })

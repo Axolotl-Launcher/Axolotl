@@ -27,7 +27,7 @@ pub(super) async fn mod_projects(
     let files = CachedEntry::get_file_many(
         hashes,
         None,
-        &state.pool,
+        state.cache_pool(),
         &state.api_semaphore,
     )
     .await?;
@@ -40,7 +40,7 @@ pub(super) async fn mod_projects(
     let projects = CachedEntry::get_project_many(
         &project_ids.into_iter().collect::<Vec<_>>(),
         None,
-        &state.pool,
+        state.cache_pool(),
         &state.api_semaphore,
     )
     .await?;
@@ -109,7 +109,7 @@ pub(super) async fn snapshot_instance(
     let hashes = CachedEntry::get_file_hash_many(
         &keys,
         None,
-        &state.pool,
+        state.cache_pool(),
         &state.api_semaphore,
     )
     .await?;
@@ -157,9 +157,9 @@ pub(super) async fn load_snapshot(
         io::read(root(state).join("snapshots").join(format!("{id}.json")))
             .await?;
     archive::checked_bytes(bytes.clone(), id).inspect_err(|error| {
-		tracing::warn!(%error, expected_hash = id, actual_hash = sha1_bytes(&bytes),
-			"Game setting locales: snapshot checksum mismatch");
-	})?;
+        tracing::warn!(%error, expected_hash = id, actual_hash = sha1_bytes(&bytes),
+            "Game setting locales: snapshot checksum mismatch");
+    })?;
     Ok(serde_json::from_slice(&bytes)?)
 }
 

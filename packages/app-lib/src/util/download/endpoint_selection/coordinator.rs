@@ -48,9 +48,8 @@ impl SelectionMode {
     pub(crate) fn parse(value: Option<&str>) -> Self {
         match value {
             Some(SELECTION_MODE_OBSERVE) => Self::Observe,
-            Some(SELECTION_MODE_AUTO) => Self::Auto,
-            // Enable by default only after the full recovery regression gate.
-            None | Some(SELECTION_MODE_OFF) => Self::Off,
+            None | Some(SELECTION_MODE_AUTO) => Self::Auto,
+            Some(SELECTION_MODE_OFF) => Self::Off,
             Some(_) => Self::Off,
         }
     }
@@ -1083,15 +1082,43 @@ impl EndpointSelector {
             .map(|(candidate, _)| candidate.clone())
             .collect();
         tokio::spawn(super::store::save(hints));
-        // Sample the incumbent and distinct seed/family paths before filling
-        // remaining slots with the ordinary anycast pool.
+        // Keep a DNS candidate from each family in the measured set. A seed
+        // catalog must not crowd out a faster answer from another DoH provider.
+        let dns_family = [false, true].map(|ipv4| {
+            validated.iter().find_map(|(candidate, _)| {
+                (candidate.ip.is_ipv4() == ipv4
+                    && matches!(
+                        candidate.source,
+                        super::model::CandidateSource::Dns(_)
+                    ))
+                .then_some(candidate.ip)
+            })
+        });
+        let seed = validated
+            .iter()
+            .filter_map(|(candidate, _)| {
+                matches!(
+                    candidate.source,
+                    super::model::CandidateSource::FastlyRule(_)
+                )
+                .then_some(candidate.ip)
+            })
+            .min();
         validated.sort_by_key(|(candidate, _)| {
             (
                 Some(candidate.ip) != incumbent,
-                !matches!(
+                if dns_family.contains(&Some(candidate.ip)) {
+                    0
+                } else if Some(candidate.ip) == seed {
+                    1
+                } else if matches!(
                     candidate.source,
-                    super::model::CandidateSource::FastlyRule(_)
-                ),
+                    super::model::CandidateSource::Dns(_)
+                ) {
+                    2
+                } else {
+                    3
+                },
                 candidate.ip.is_ipv4(),
                 candidate.ip,
             )

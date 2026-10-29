@@ -41,6 +41,8 @@ const search = ref('')
 const category = ref<LabCategoryFilter>(getLabCategoryFilter())
 const favoriteFilter = ref<LabFavoriteFilter>(getLabFavoriteFilter())
 const favoriteToolIds = ref<string[]>(getLabFavoriteToolIds())
+// Temporarily hide the mod translation entry while retaining its route and implementation.
+const availableTools = labTools.filter((tool) => tool.id !== 'mod-translation')
 const toolCoverImages: Record<string, string> = {
     stronghold: strongholdToolCover,
     'gradient-text': gradientTextToolCover,
@@ -152,7 +154,7 @@ const visibleTools = computed(() => {
     const normalizedSearch = search.value.trim().toLocaleLowerCase()
     const favoriteSet = new Set(favoriteToolIds.value)
 
-    const filtered = labTools.filter((tool) => {
+    const filtered = availableTools.filter((tool) => {
         const matchingCategory = category.value === 'all' || tool.category === category.value
         const matchingFavorite =
             favoriteFilter.value === 'all' ||
@@ -237,9 +239,11 @@ function favoriteFilterLabel(value: LabFavoriteFilter) {
                 <p class="m-0 mt-1 text-sm text-[var(--color-text-tertiary)]">
                     {{
                         formatMessage(
-                            labTools.length === 1 ? messages.toolCount : messages.toolCountPlural,
+                            availableTools.length === 1
+                                ? messages.toolCount
+                                : messages.toolCountPlural,
                             {
-                                count: labTools.length,
+                                count: availableTools.length,
                             },
                         )
                     }}

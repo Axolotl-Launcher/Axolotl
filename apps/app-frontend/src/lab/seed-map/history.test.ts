@@ -1,5 +1,4 @@
-import assert from 'node:assert/strict'
-import test from 'node:test'
+import { expect, it } from 'vitest'
 
 import {
     clearSeedMapHistory,
@@ -20,7 +19,7 @@ function memoryStorage(): Pick<Storage, 'getItem' | 'setItem'> {
     }
 }
 
-test('recording keeps newest entries first and dedupes revisits', () => {
+it('recording keeps newest entries first and dedupes revisits', () => {
     const storage = memoryStorage()
     recordSeedMapHistory(
         { seed: '111', edition: 'java', gameVersion: '26.2', source: 'manual' },
@@ -37,15 +36,15 @@ test('recording keeps newest entries first and dedupes revisits', () => {
         3_000,
         storage,
     )
-    assert.equal(entries.length, 2)
-    assert.equal(entries[0].seed, '111')
-    assert.equal(entries[0].gameVersion, '1.21.3')
-    assert.equal(entries[0].firstViewedAt, 1_000)
-    assert.equal(entries[0].lastViewedAt, 3_000)
-    assert.equal(entries[1].seed, '222')
+    expect(entries.length).toBe(2)
+    expect(entries[0].seed).toBe('111')
+    expect(entries[0].gameVersion).toBe('1.21.3')
+    expect(entries[0].firstViewedAt).toBe(1_000)
+    expect(entries[0].lastViewedAt).toBe(3_000)
+    expect(entries[1].seed).toBe('222')
 })
 
-test('instance attribution survives a later manual revisit', () => {
+it('instance attribution survives a later manual revisit', () => {
     const storage = memoryStorage()
     recordSeedMapHistory(
         {
@@ -64,13 +63,13 @@ test('instance attribution survives a later manual revisit', () => {
         2_000,
         storage,
     )
-    assert.equal(entries[0].source, 'instance')
-    assert.equal(entries[0].instanceName, 'Fabric 26.2')
-    assert.equal(entries[0].worldName, '生存世界')
-    assert.equal(entries[0].lastViewedAt, 2_000)
+    expect(entries[0].source).toBe('instance')
+    expect(entries[0].instanceName).toBe('Fabric 26.2')
+    expect(entries[0].worldName).toBe('生存世界')
+    expect(entries[0].lastViewedAt).toBe(2_000)
 })
 
-test('the same seed in different editions stays as separate entries', () => {
+it('the same seed in different editions stays as separate entries', () => {
     const storage = memoryStorage()
     recordSeedMapHistory(
         { seed: '7', edition: 'java', gameVersion: '26.2', source: 'manual' },
@@ -82,12 +81,12 @@ test('the same seed in different editions stays as separate entries', () => {
         2_000,
         storage,
     )
-    assert.equal(entries.length, 2)
-    assert.notEqual(entries[0].id, entries[1].id)
-    assert.equal(seedMapHistoryId('7', 'java'), 'java:7')
+    expect(entries.length).toBe(2)
+    expect(entries[0].id).not.toBe(entries[1].id)
+    expect(seedMapHistoryId('7', 'java')).toBe('java:7')
 })
 
-test('history is capped and blank seeds are ignored', () => {
+it('history is capped and blank seeds are ignored', () => {
     const storage = memoryStorage()
     for (let index = 0; index < SEED_MAP_HISTORY_LIMIT + 10; index++) {
         recordSeedMapHistory(
@@ -102,11 +101,11 @@ test('history is capped and blank seeds are ignored', () => {
         storage,
     )
     const entries = loadSeedMapHistory(storage)
-    assert.equal(entries.length, SEED_MAP_HISTORY_LIMIT)
-    assert.equal(entries[0].seed, `seed-${SEED_MAP_HISTORY_LIMIT + 9}`)
+    expect(entries.length).toBe(SEED_MAP_HISTORY_LIMIT)
+    expect(entries[0].seed).toBe(`seed-${SEED_MAP_HISTORY_LIMIT + 9}`)
 })
 
-test('remove and clear update the persisted list', () => {
+it('remove and clear update the persisted list', () => {
     const storage = memoryStorage()
     recordSeedMapHistory(
         { seed: 'a', edition: 'java', gameVersion: '26.2', source: 'manual' },
@@ -119,15 +118,12 @@ test('remove and clear update the persisted list', () => {
         storage,
     )
     const afterRemove = removeSeedMapHistoryEntry(seedMapHistoryId('a', 'java'), storage)
-    assert.deepEqual(
-        afterRemove.map((entry) => entry.seed),
-        ['b'],
-    )
-    assert.deepEqual(clearSeedMapHistory(storage), [])
-    assert.deepEqual(loadSeedMapHistory(storage), [])
+    expect(afterRemove.map((entry) => entry.seed)).toEqual(['b'])
+    expect(clearSeedMapHistory(storage)).toEqual([])
+    expect(loadSeedMapHistory(storage)).toEqual([])
 })
 
-test('exploration progress is stored per seed and survives revisits', () => {
+it('exploration progress is stored per seed and survives revisits', () => {
     const storage = memoryStorage()
     recordSeedMapHistory(
         { seed: 'base', edition: 'java', gameVersion: '26.2', source: 'manual' },
@@ -137,15 +133,15 @@ test('exploration progress is stored per seed and survives revisits', () => {
     const id = seedMapHistoryId('base', 'java')
     updateSeedMapHistoryProgress(id, ['village:0:0'], ['diamond:1:2:3'], storage)
     let entries = loadSeedMapHistory(storage)
-    assert.deepEqual(entries[0].completedFeatures, ['village:0:0'])
-    assert.deepEqual(entries[0].completedOres, ['diamond:1:2:3'])
+    expect(entries[0].completedFeatures).toEqual(['village:0:0'])
+    expect(entries[0].completedOres).toEqual(['diamond:1:2:3'])
 
     entries = recordSeedMapHistory(
         { seed: 'base', edition: 'java', gameVersion: '26.2', source: 'manual' },
         2_000,
         storage,
     )
-    assert.deepEqual(entries[0].completedFeatures, ['village:0:0'])
+    expect(entries[0].completedFeatures).toEqual(['village:0:0'])
 
     entries = recordSeedMapHistory(
         {
@@ -159,17 +155,16 @@ test('exploration progress is stored per seed and survives revisits', () => {
         3_000,
         storage,
     )
-    assert.deepEqual(entries[0].completedFeatures, ['village:0:0', 'monument:5:5'])
-    assert.deepEqual(entries[0].completedOres, [])
-    assert.deepEqual(
+    expect(entries[0].completedFeatures).toEqual(['village:0:0', 'monument:5:5'])
+    expect(entries[0].completedOres).toEqual([])
+    expect(
         updateSeedMapHistoryProgress(seedMapHistoryId('missing', 'java'), ['x'], [], storage).map(
             (entry) => entry.seed,
         ),
-        ['base'],
-    )
+    ).toEqual(['base'])
 })
 
-test('sanitizing drops malformed entries and duplicate ids', () => {
+it('sanitizing drops malformed entries and duplicate ids', () => {
     const entries = sanitizeSeedMapHistory([
         { seed: 'ok', edition: 'java', gameVersion: '26.2', source: 'share', lastViewedAt: 10 },
         { seed: 'ok', edition: 'java', gameVersion: '26.2', source: 'manual', lastViewedAt: 20 },
@@ -179,10 +174,7 @@ test('sanitizing drops malformed entries and duplicate ids', () => {
         'nonsense',
         { seed: 'weird-source', edition: 'java', gameVersion: '26.2', source: 'nope' },
     ])
-    assert.deepEqual(
-        entries.map((entry) => entry.seed),
-        ['ok', 'weird-source'],
-    )
-    assert.equal(entries[0].source, 'share')
-    assert.equal(entries[1].source, 'manual')
+    expect(entries.map((entry) => entry.seed)).toEqual(['ok', 'weird-source'])
+    expect(entries[0].source).toBe('share')
+    expect(entries[1].source).toBe('manual')
 })

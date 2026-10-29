@@ -36,7 +36,7 @@ pub async fn get_minecraft_versions_with_cache(
     let state = State::get().await?;
     let minecraft_versions = CachedEntry::get_minecraft_manifest(
         cache_behaviour,
-        &state.pool,
+        state.cache_pool(),
         &state.api_semaphore,
     )
     .await?
@@ -51,7 +51,7 @@ pub async fn get_minecraft_versions_with_cache(
 pub async fn get_loader_versions(loader: &str) -> crate::Result<Manifest> {
     match get_loader_versions_with_cache(
         loader,
-        Some(CacheBehaviour::MustRevalidate),
+        Some(CacheBehaviour::StaleWhileRevalidate),
     )
     .await
     {
@@ -87,7 +87,7 @@ pub async fn get_loader_versions_with_cache(
     let loaders = CachedEntry::get_loader_manifest(
         &cache_key,
         cache_behaviour,
-        &state.pool,
+        state.cache_pool(),
         &state.api_semaphore,
     )
     .await?
@@ -105,7 +105,7 @@ pub async fn get_loader_versions_for_game(
     match get_loader_versions_for_game_with_cache(
         loader,
         game_version,
-        Some(CacheBehaviour::MustRevalidate),
+        Some(CacheBehaviour::StaleWhileRevalidate),
     )
     .await
     {
@@ -147,7 +147,7 @@ pub async fn get_loader_versions_for_game_with_cache(
     let loaders = CachedEntry::get_loader_manifest(
         &cache_key,
         cache_behaviour,
-        &state.pool,
+        state.cache_pool(),
         &state.api_semaphore,
     )
     .await?

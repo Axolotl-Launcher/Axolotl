@@ -805,9 +805,16 @@ defineExpose({ openWidgetPicker, setLayout })
     right: 0.5rem;
     z-index: 12;
     display: flex;
+    /* The bar is sized by its content and anchored to the right edge, so
+       revealing the size label and options menu widens it leftwards past the
+       card border. Reserving the full width up front keeps the hit area stable:
+       otherwise the growing bar moves out from under the pointer, the hover
+       ends, the bar collapses, and the widget flickers. */
+    width: calc(2rem + 2.25rem + 0.25rem + 2rem + 0.25rem);
     max-width: calc(100% - 1rem);
     height: 2.25rem;
     align-items: center;
+    justify-content: flex-end;
     gap: 0;
     padding: 0.125rem;
     border: 1px solid var(--color-divider);
@@ -840,31 +847,28 @@ defineExpose({ openWidgetPicker, setLayout })
 }
 
 .home-widget-size-label {
-    width: 0;
+    width: 2.25rem;
+    margin-left: 0.25rem;
     overflow: hidden;
     color: var(--color-text-tertiary);
     font-size: 0.75rem;
     font-weight: 600;
     line-height: 1;
+    text-align: center;
     opacity: 0;
     white-space: nowrap;
-    transition:
-        width 120ms ease,
-        margin 120ms ease,
-        opacity 120ms ease;
+    transition: opacity 120ms ease;
 }
 
 .home-widget-options {
     display: flex;
     min-width: 0;
-    width: 0;
+    width: 2rem;
     flex: 0 0 auto;
     overflow: hidden;
     opacity: 0;
     pointer-events: none;
-    transition:
-        width 120ms ease,
-        opacity 120ms ease;
+    transition: opacity 120ms ease;
 }
 
 .home-widget:hover .home-widget-edit-bar,
@@ -875,14 +879,11 @@ defineExpose({ openWidgetPicker, setLayout })
 
 .home-widget:hover .home-widget-size-label,
 .home-widget:focus-within .home-widget-size-label {
-    width: 2.25rem;
-    margin-left: 0.25rem;
     opacity: 1;
 }
 
 .home-widget:hover .home-widget-options,
 .home-widget:focus-within .home-widget-options {
-    width: 2rem;
     opacity: 1;
     pointer-events: auto;
 }

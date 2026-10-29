@@ -1,118 +1,118 @@
 <!doctype html>
 <html class="dark-mode" lang=en>
-	<head>
-		<meta charset="utf-8" />
-		<meta content="width=device-width,initial-scale=1" name="viewport" />
-		<title>Sign In - Axolotl Launcher</title>
-		<style>
-			/* Self-contained on purpose. This page is served by a loopback HTTP
-			   server during the OAuth dance, so it cannot reach the app's
-			   stylesheets or its runtime: everything it needs is inlined here.
-			   The only dynamic parts are the three tokens the Rust side
-			   substitutes: the html lang attribute, the title, and the body
-			   message. */
-			/* Note: do not write the lang attribute's literal text anywhere else
-			   in this file. The substitution is a plain string replace with no
-			   anchor, so a stray copy in a comment would be rewritten too. */
-			:root {
-				color-scheme: dark;
-				--color-bg: #16181c;
-				--color-raised-bg: #26292f;
-				--color-divider: #434956;
-				--color-contrast: #ecf9fb;
-				--color-base: #b0bac5;
-				--gap-lg: 1rem;
-				--radius-lg: 1rem;
-			}
+    <head>
+        <meta charset="utf-8" />
+        <meta content="width=device-width,initial-scale=1" name="viewport" />
+        <title>Sign In - Axolotl Launcher</title>
+        <style>
+            /* Self-contained on purpose. This page is served by a loopback HTTP
+                        server during the OAuth dance, so it cannot reach the app's
+                        stylesheets or its runtime: everything it needs is inlined here.
+                        The only dynamic parts are the three tokens the Rust side
+                        substitutes: the html lang attribute, the title, and the body
+                        message. */
+            /* Note: do not write the lang attribute's literal text anywhere else
+                        in this file. The substitution is a plain string replace with no
+                        anchor, so a stray copy in a comment would be rewritten too. */
+            :root {
+                color-scheme: dark;
+                --color-bg: #16181c;
+                --color-raised-bg: #26292f;
+                --color-divider: #434956;
+                --color-contrast: #ecf9fb;
+                --color-base: #b0bac5;
+                --gap-lg: 1rem;
+                --radius-lg: 1rem;
+            }
 
-			* {
-				box-sizing: border-box;
-			}
+            * {
+                box-sizing: border-box;
+            }
 
-			body {
-				margin: 0;
-				height: 100vh;
-				overflow: hidden;
-				background: var(--color-bg);
-				color: var(--color-base);
-				font-family:
-					-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-			}
+            body {
+                margin: 0;
+                height: 100vh;
+                overflow: hidden;
+                background: var(--color-bg);
+                color: var(--color-base);
+                font-family:
+                    -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            }
 
-			.modal-container {
-				display: flex;
-				width: 100%;
-				height: 100%;
-				align-items: center;
-				justify-content: center;
-				padding: var(--gap-lg);
-			}
+            .modal-container {
+                display: flex;
+                width: 100%;
+                height: 100%;
+                align-items: center;
+                justify-content: center;
+                padding: var(--gap-lg);
+            }
 
-			.modal-body {
-				display: flex;
-				width: 100%;
-				/* Matches the previous sheet's `min(60rem, 100% - 2 * gap-lg)`. */
-				max-width: min(60rem, 100% - 2 * var(--gap-lg));
-				max-height: calc(100% - 2 * var(--gap-lg));
-				flex-direction: column;
-				overflow: hidden;
-				border: 1px solid var(--color-divider);
-				border-radius: var(--radius-lg);
-				background: var(--color-raised-bg);
-				box-shadow: 0 24px 48px rgba(0, 0, 0, 0.3);
-			}
+            .modal-body {
+                display: flex;
+                width: 100%;
+                /* Matches the previous sheet's `min(60rem, 100% - 2 * gap-lg)`. */
+                max-width: min(60rem, 100% - 2 * var(--gap-lg));
+                max-height: calc(100% - 2 * var(--gap-lg));
+                flex-direction: column;
+                overflow: hidden;
+                border: 1px solid var(--color-divider);
+                border-radius: var(--radius-lg);
+                background: var(--color-raised-bg);
+                box-shadow: 0 24px 48px rgba(0, 0, 0, 0.3);
+            }
 
-			.modal-header {
-				display: grid;
-				grid-template-columns: auto min-content;
-				align-items: center;
-				gap: 3rem;
-				max-width: 100%;
-				border-bottom: 1px solid var(--color-divider);
-				padding: 1.5rem;
-			}
+            .modal-header {
+                display: grid;
+                grid-template-columns: auto min-content;
+                align-items: center;
+                gap: 3rem;
+                max-width: 100%;
+                border-bottom: 1px solid var(--color-divider);
+                padding: 1.5rem;
+            }
 
-			.modal-title {
-				min-width: 0;
-				overflow-wrap: break-word;
-				color: var(--color-contrast);
-				font-size: 1.125rem;
-				font-weight: 800;
-				line-height: 1.75rem;
-			}
+            .modal-title {
+                min-width: 0;
+                overflow-wrap: break-word;
+                color: var(--color-contrast);
+                font-size: 1.125rem;
+                font-weight: 800;
+                line-height: 1.75rem;
+            }
 
-			.modal-content {
-				overflow-y: auto;
-				padding: 1.5rem;
-			}
+            .modal-content {
+                overflow-y: auto;
+                padding: 1.5rem;
+            }
 
-			.markdown-body {
-				margin: 0;
-				line-height: 1.6;
-			}
+            .markdown-body {
+                margin: 0;
+                line-height: 1.6;
+            }
 
-			.markdown-body p {
-				margin: 0;
-			}
-		</style>
-	</head>
-	<body>
-		<div id="app">
-			<div class="modal-container">
-				<div class="modal-body">
-					<div class="modal-header">
-						<div class="modal-title">{{title}}</div>
-					</div>
-					<div class="modal-content">
-						<div class="markdown-body">
-							<p>{{message}}</p>
-						</div>
-					</div>
-				</div>
-			</div>
-		</div>
-		<script>
-			window.close()
-		</script>
-	</body>
+            .markdown-body p {
+                margin: 0;
+            }
+        </style>
+    </head>
+    <body>
+        <div id="app">
+            <div class="modal-container">
+                <div class="modal-body">
+                    <div class="modal-header">
+                        <div class="modal-title">{{title}}</div>
+                    </div>
+                    <div class="modal-content">
+                        <div class="markdown-body">
+                            <p>{{message}}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <script>
+            window.close()
+        </script>
+    </body>
 </html>

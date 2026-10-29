@@ -1,5 +1,4 @@
-import assert from 'node:assert/strict'
-import test from 'node:test'
+import { expect, it } from 'vitest'
 
 import {
     clearRecentSchematics,
@@ -23,7 +22,7 @@ function createStorage() {
     }
 }
 
-test('recent schematics deduplicate sources and retain at most five entries', () => {
+it('recent schematics deduplicate sources and retain at most five entries', () => {
     Object.defineProperty(globalThis, 'localStorage', {
         value: createStorage(),
         configurable: true,
@@ -36,18 +35,17 @@ test('recent schematics deduplicate sources and retain at most five entries', ()
     }
     recordRecentSchematic({ kind: 'external', path: '/tmp/5.litematic' }, 'renamed.litematic')
     const records = loadRecentSchematics()
-    assert.equal(records.length, 5)
-    assert.equal(records[0].fileName, 'renamed.litematic')
-    assert.equal(
+    expect(records.length).toBe(5)
+    expect(records[0].fileName).toBe('renamed.litematic')
+    expect(
         records.filter(
             (record) =>
                 record.source.kind === 'external' && record.source.path === '/tmp/5.litematic',
         ).length,
-        1,
-    )
+    ).toBe(1)
 })
 
-test('recent schematics can be removed individually or cleared', () => {
+it('recent schematics can be removed individually or cleared', () => {
     Object.defineProperty(globalThis, 'localStorage', {
         value: createStorage(),
         configurable: true,
@@ -56,13 +54,13 @@ test('recent schematics can be removed individually or cleared', () => {
         { kind: 'instance', instanceId: 'demo', relativePath: 'house.schem' },
         'house.schem',
     )
-    assert.equal(removeRecentSchematic(records[0].id).length, 0)
+    expect(removeRecentSchematic(records[0].id).length).toBe(0)
     recordRecentSchematic({ kind: 'external', path: '/tmp/house.schem' }, 'house.schem')
-    assert.deepEqual(clearRecentSchematics(), [])
-    assert.deepEqual(loadRecentSchematics(), [])
+    expect(clearRecentSchematics()).toEqual([])
+    expect(loadRecentSchematics()).toEqual([])
 })
 
-test('recent schematics retain instance-root file sources', () => {
+it('recent schematics retain instance-root file sources', () => {
     Object.defineProperty(globalThis, 'localStorage', {
         value: createStorage(),
         configurable: true,
@@ -73,10 +71,10 @@ test('recent schematics retain instance-root file sources', () => {
         relativePath: 'config/worldedit/schematics/house.schem',
     }
     recordRecentSchematic(source, 'house.schem')
-    assert.deepEqual(loadRecentSchematics()[0].source, source)
+    expect(loadRecentSchematics()[0].source).toEqual(source)
     recordRecentSchematic(
         { kind: 'instance', instanceId: 'demo', relativePath: source.relativePath },
         'house.schem',
     )
-    assert.equal(loadRecentSchematics().length, 2)
+    expect(loadRecentSchematics().length).toBe(2)
 })

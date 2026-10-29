@@ -10,6 +10,7 @@ use super::constants::{
     H2_RANGE_FILE_THRESHOLD, MAX_H2_RANGES_PER_FILE,
 };
 use super::h2_pool::{H2ConnectFailureKind, SharedH2Connection};
+use super::retired_sources;
 use crate::util::download::constants::{
     API_KEY_HEADER, CURSEFORGE_API_HOST, DOWNLOAD_FAIR_SHARE_DIVISOR,
     DOWNLOAD_META_HEADER, DOWNLOAD_SCHEDULER_INTERVAL, H2_DOWNLOAD_ASSET,
@@ -21,7 +22,8 @@ use crate::util::download::constants::{
     H2_DOWNLOAD_RANGE_STREAM, H2_DOWNLOAD_SEGMENT,
     H2_DOWNLOAD_TIMED_OUT_WAITING_FOR_ASSET_DESTINATION_LOCK,
     H2_DOWNLOAD_TIMED_OUT_WAITING_FOR_ASSET_HTTP_2_STREAM_PERMIT,
-    IDENTITY_ENCODING, PARTIAL_FILE_SUFFIX,
+    IDENTITY_ENCODING, MAX_DOWNLOAD_REDIRECTS, MAX_REDIRECT_LOCATION_BYTES,
+    PARTIAL_FILE_SUFFIX,
 };
 use crate::util::fetch;
 use crate::util::fetch::{
@@ -29,7 +31,7 @@ use crate::util::fetch::{
     Integrity,
 };
 use futures::StreamExt;
-use http::header::{ACCEPT_ENCODING, RANGE, USER_AGENT};
+use http::header::{ACCEPT_ENCODING, LOCATION, RANGE, USER_AGENT};
 use http::{HeaderMap, HeaderValue, Method, StatusCode, Uri};
 use std::path::Path;
 use std::pin::Pin;
@@ -65,6 +67,7 @@ pub(crate) enum H2DownloadFailure {
     StreamReset,
     Http,
     RangeUnsupported,
+    IndependentRanges(u64),
     Integrity,
     Content,
     Io,
@@ -198,6 +201,14 @@ pub(crate) async fn try_download_via_h2(
         );
         let total_size = parse_content_range_total(headers)
             .or_else(|| parse_content_length(headers));
+        if status != StatusCode::PARTIAL_CONTENT {
+            // A server ignoring the probe may send the whole Java archive.
+            // Cancel that body before the fallback downloads it again.
+            return H2DownloadOutcome::Fallback {
+                failure: H2DownloadFailure::Http,
+                preserve_partial: false,
+            };
+        }
         // Drain the probe body so the stream slot is released.
         drain_body(&mut probe_body).await;
         drop(probe_body);
@@ -214,15 +225,23 @@ pub(crate) async fn try_download_via_h2(
                 preserve_partial: false,
             };
         }
-        if status != StatusCode::PARTIAL_CONTENT {
-            return H2DownloadOutcome::Fallback {
-                failure: H2DownloadFailure::Http,
-                preserve_partial: false,
-            };
-        }
         total_size
     };
 
+    if request.prefers_independent_ranges(total_size)
+        && route.supports_range
+        && fetch::range_splitting_allowed(route)
+    {
+        tracing::debug!(
+            url = %fetch::sanitize_url_for_log(&route.url),
+            total_size,
+            "Moving verified large file from HTTP/2 probe to independent ranges"
+        );
+        return H2DownloadOutcome::Fallback {
+            failure: H2DownloadFailure::IndependentRanges(total_size),
+            preserve_partial: false,
+        };
+    }
     if let Some(concurrency) = request.h2_range_concurrency {
         drop(connection_activity);
         let configured = fetch::configured_semaphore_limit(semaphore);
@@ -298,6 +317,7 @@ pub(crate) async fn try_download_via_h2(
         policy,
         _stream_permit,
         connection_activity,
+        semaphore,
     )
     .await;
     match result {
@@ -367,7 +387,7 @@ mod range_policy_tests {
 
     #[test]
     fn large_ranges_reserve_global_capacity_and_respect_disk_limit() {
-        assert_eq!(h2_range_limit(128 * 1024 * 1024, 16, 64, 8), 4);
+        assert_eq!(h2_range_limit(128 * 1024 * 1024, 16, 64, 8), 8);
         assert_eq!(h2_range_limit(128 * 1024 * 1024, 16, 4, 8), 2);
         assert_eq!(h2_range_limit(128 * 1024 * 1024, 16, 64, 1), 1);
         assert_eq!(h2_range_limit(1024 * 1024, 16, 64, 8), 1);
@@ -386,10 +406,7 @@ async fn connect_authority(
         route,
         reserve_native_budget,
         allow_cold_connection,
-        matches!(
-            resource,
-            fetch::ResourceClass::Modrinth | fetch::ResourceClass::Modpack
-        ),
+        resource != fetch::ResourceClass::Metadata,
     )
     .await
     {
@@ -578,6 +595,7 @@ async fn single_stream(
     policy: super::native::NativeH2Policy,
     permit: super::h2_stream_budget::H2DownloadPermit<'_>,
     connection_activity: super::h2_pool::H2StreamActivity,
+    semaphore: &fetch::FetchSemaphore,
 ) -> crate::Result<DownloadResult> {
     let mut headers = request_headers(request, route);
     headers
@@ -617,6 +635,8 @@ async fn single_stream(
     );
     let mut timer = tokio::time::interval(DOWNLOAD_SCHEDULER_INTERVAL);
     let mut last_endpoint_speed = 0;
+    let mut batch_tail =
+        super::h2_receive::BatchTailWindow::new(transfer_started);
     timer.tick().await;
     loop {
         let chunk = tokio::select! {
@@ -634,6 +654,25 @@ async fn single_stream(
                 }
                 let aggregate = aggregate_window.observe(connection.bytes_transferred_for_scheduler(), Instant::now());
                 let pressure = super::local_resources::pressure(part_path);
+                let can_recover_batch = request.supports_range_recovery()
+                    && !pressure.blocks_expansion()
+                    && semaphore.0.available_permits() >= super::constants::BATCH_DOWNLOAD_CONNECTION_FLOOR
+                    && super::native_budget::available(route) >= super::constants::BATCH_DOWNLOAD_CONNECTION_FLOOR;
+                if batch_tail.observe(downloaded, can_recover_batch, Instant::now())
+                    && downloaded < total_size
+                {
+                    tracing::debug!(
+                        url = %fetch::sanitize_url_for_log(&route.url),
+                        physical_connections = super::native_budget::in_use(route),
+                        active_streams = connection.active_streams(),
+                        remaining_bytes = total_size - downloaded,
+                        "Moving slow batch tail from shared HTTP/2 to an independent connection"
+                    );
+                    drop(stream);
+                    file.flush().await?;
+                    request.transfer_counters.commit(0, downloaded);
+                    return Err(crate::ErrorKind::DownloadTransferSlow.into());
+                }
                 let mut decision = slow_policy.observe_with_pressure(
                     downloaded,
                     total_size.saturating_sub(downloaded),
@@ -799,8 +838,6 @@ async fn verify_and_finalize(
 /// A single small file (a Minecraft asset object) to download over a shared
 /// HTTP/2 connection. All items in one batch must share the same authority.
 pub(crate) struct H2BatchAsset {
-    /// Canonical asset URL used to rebuild routes after batch failure.
-    pub original_url: String,
     /// Route-resolved URL for the asset.
     pub url: String,
     /// Destination for the object (`assets/objects/<hh>/<hash>`).
@@ -832,18 +869,11 @@ enum AssetBatchItemOutcome {
     LocalObjectFailed {
         error: crate::Error,
     },
-    /// The server answered with a redirect status that only the regular
-    /// per-file download layer can explain: it owns Location following, hop
-    /// limits and route selection. The item is handed straight back to that
-    /// layer, never counted as a line-level transfer failure and never
-    /// retried inside the batch.
-    RedirectFallback,
 }
 
 impl Clone for H2BatchAsset {
     fn clone(&self) -> Self {
         Self {
-            original_url: self.original_url.clone(),
             url: self.url.clone(),
             destination: self.destination.clone(),
             legacy_destinations: self.legacy_destinations.clone(),
@@ -874,9 +904,13 @@ impl AssetBatchConnectionGroup {
         }
     }
 
-    async fn connection(&self, rescue: bool) -> Arc<SharedH2Connection> {
+    async fn connection_for(
+        &self,
+        route: &DownloadRoute,
+        rescue: bool,
+    ) -> Arc<SharedH2Connection> {
         match super::h2_pool::shared_batch_connection(
-            &self.route,
+            route,
             self.reserve_native_budget,
         )
         .await
@@ -891,6 +925,10 @@ impl AssetBatchConnectionGroup {
                 Arc::clone(&self.primary)
             }
         }
+    }
+
+    async fn connection(&self, rescue: bool) -> Arc<SharedH2Connection> {
+        self.connection_for(&self.route, rescue).await
     }
 }
 
@@ -948,7 +986,7 @@ mod tests {
         let server = tokio::spawn(async move {
             let (mut stream, _) = listener.accept().await.unwrap();
             let mut request = [0; 4096];
-            stream.read(&mut request).await.unwrap();
+            let _bytes_read = stream.read(&mut request).await.unwrap();
             stream.write_all(b"HTTP/1.1 206 Partial Content\r\nContent-Length: 65536\r\nContent-Range: bytes 0-65535/65536\r\n\r\nx").await.unwrap();
             std::future::pending::<()>().await;
         });
@@ -994,8 +1032,6 @@ mod tests {
             .unwrap();
         let legacy = blocked_parent.join("resource");
         let item = H2BatchAsset {
-            original_url: "https://resources.download.minecraft.net/aa/object"
-                .into(),
             url: "https://resources.download.minecraft.net/aa/object".into(),
             destination: destination.clone(),
             legacy_destinations: vec![legacy.clone()],
@@ -1037,21 +1073,18 @@ mod tests {
 
 /// Downloads a batch of small files over a shared HTTP/2 connection group,
 /// multiplexing up to `concurrency` logical workers. Physical H2 streams are
-/// governed by the shared authority stream and global transfer budgets. The group begins with one
-/// connection and may add one sibling only for a sustained saturated batch;
-/// it never creates one connection per file. Items that cannot be downloaded
-/// after internal retries are returned so the caller can retry them through
-/// the regular per-file path (which performs route fallback).
-/// Returned items have exhausted every batch pass, so downstream can treat
-/// them as persistently failing against the chosen route.
+/// governed by the shared authority stream budget. The group begins with one
+/// connection and expands the shared authority pool under sustained load.
+/// Items that cannot be downloaded
+/// after internal retries fail the batch instead of switching to per-file
+/// network downloads.
 pub(crate) async fn download_asset_batch_via_h2<F>(
     route: &DownloadRoute,
     items: Vec<H2BatchAsset>,
     concurrency: usize,
     apply_native_policy: bool,
-    native_semaphore: Option<&fetch::FetchSemaphore>,
     on_completed: F,
-) -> crate::Result<Vec<H2BatchAsset>>
+) -> crate::Result<()>
 where
     F: Fn(H2BatchAsset) -> Pin<Box<dyn Future<Output = ()> + Send>>
         + Send
@@ -1063,7 +1096,6 @@ where
         items,
         concurrency,
         apply_native_policy,
-        native_semaphore,
         on_completed,
     ))
     .await
@@ -1074,9 +1106,8 @@ async fn download_asset_batch_inner<F>(
     items: Vec<H2BatchAsset>,
     concurrency: usize,
     apply_native_policy: bool,
-    native_semaphore: Option<&fetch::FetchSemaphore>,
     on_completed: F,
-) -> crate::Result<Vec<H2BatchAsset>>
+) -> crate::Result<()>
 where
     F: Fn(H2BatchAsset) -> Pin<Box<dyn Future<Output = ()> + Send>>
         + Send
@@ -1085,9 +1116,12 @@ where
 {
     let concurrency = concurrency.max(1);
     if apply_native_policy
-        && super::native::h2_ineligible_reason(route).is_some()
+        && let Some(reason) = super::native::h2_ineligible_reason(route)
     {
-        return Ok(items);
+        return Err(crate::ErrorKind::NetworkError(format!(
+            "Minecraft asset route cannot use HTTP/2 batching: {reason:?}"
+        ))
+        .into());
     }
     // Local object I/O failures are deterministic per destination; remember the
     // first one and keep draining the batch so siblings already in flight or
@@ -1117,7 +1151,10 @@ where
                     None,
                 );
             }
-            return Ok(items);
+            return Err(crate::ErrorKind::NetworkError(format!(
+                "Could not establish an HTTP/2 asset batch connection: {failure:?}"
+            ))
+            .into());
         }
     };
     let connections = Arc::new(AssetBatchConnectionGroup::new(
@@ -1167,7 +1204,6 @@ where
                         &item,
                         route,
                         apply_native_policy,
-                        native_semaphore,
                         pass > 0,
                     )
                     .await;
@@ -1222,18 +1258,6 @@ where
                         local_object_error = Some(error);
                     }
                 }
-                Ok(AssetBatchItemOutcome::RedirectFallback) => {
-                    tracing::debug!(
-                        url = %fetch::sanitize_url_for_log(&item.url),
-                        "Asset batch received a redirect status; deferring to the regular download path"
-                    );
-                    // Redirect responses are explained by the regular per-file
-                    // layer (Location following, hop limit, route fallback).
-                    // Do not spend another batch pass on them and do not count
-                    // them as transfer failures: #487 keeps original_url so the
-                    // ordinary path can rebuild official and mirror candidates.
-                    failed.push(item);
-                }
                 Err(error) => {
                     network_failures = network_failures.saturating_add(1);
                     tracing::debug!(
@@ -1280,8 +1304,14 @@ where
             failed.len(),
             route.source.as_str(),
         );
+        return Err(crate::ErrorKind::NetworkError(format!(
+            "{} Minecraft assets failed in the HTTP/2 batch on route {}",
+            failed.len(),
+            route.source.as_str(),
+        ))
+        .into());
     }
-    Ok(failed)
+    Ok(())
 }
 
 async fn prepare_asset_part_path(
@@ -1300,7 +1330,6 @@ async fn download_asset_item(
     item: &H2BatchAsset,
     route: &DownloadRoute,
     apply_native_policy: bool,
-    native_semaphore: Option<&fetch::FetchSemaphore>,
     rescue: bool,
 ) -> crate::Result<AssetBatchItemOutcome> {
     let integrity = Integrity {
@@ -1358,53 +1387,118 @@ async fn download_asset_item(
             return Ok(AssetBatchItemOutcome::LocalObjectFailed { error });
         }
     };
-    let _stream_permit = if apply_native_policy {
-        Some(
-            tokio::time::timeout(
-                ASSET_RESOURCE_WAIT_TIMEOUT,
-                super::h2_stream_budget::acquire_download(
-                    route,
-                    native_semaphore,
-                    true,
-                ),
-            )
-            .await
-            .map_err(|_| {
-                crate::ErrorKind::NetworkError(
-                    H2_DOWNLOAD_TIMED_OUT_WAITING_FOR_ASSET_HTTP_2_STREAM_PERMIT
-                        .to_string(),
+    let mut current_uri = uri.clone();
+    let mut current_route = route.clone();
+    let mut redirect_count = 0;
+    let (connection, _stream_permit, _connection_stream, response, mut stream) = loop {
+        let _stream_permit = if apply_native_policy {
+            Some(
+                tokio::time::timeout(
+                    ASSET_RESOURCE_WAIT_TIMEOUT,
+                    super::h2_stream_budget::acquire_download(
+                        &current_route,
+                        None,
+                        true,
+                    ),
                 )
-            })??,
-        )
-    } else {
-        None
-    };
-    let connection = connections.connection(rescue).await;
-    let _connection_stream = connection.track_stream();
-    let mut headers = HeaderMap::new();
-    headers.insert(
-        USER_AGENT,
-        HeaderValue::from_str(&crate::launcher_user_agent()).unwrap_or_else(
-            |_| HeaderValue::from_static(H2_DOWNLOAD_AXOLOTL_LAUNCHER),
-        ),
-    );
-    headers
-        .insert(ACCEPT_ENCODING, HeaderValue::from_static(IDENTITY_ENCODING));
+                .await
+                .map_err(|_| {
+                    crate::ErrorKind::NetworkError(
+                        H2_DOWNLOAD_TIMED_OUT_WAITING_FOR_ASSET_HTTP_2_STREAM_PERMIT
+                            .to_string(),
+                    )
+                })??,
+            )
+        } else {
+            None
+        };
+        let connection =
+            connections.connection_for(&current_route, rescue).await;
+        let connection_stream = connection.track_stream();
+        let mut headers = HeaderMap::new();
+        headers.insert(
+            USER_AGENT,
+            HeaderValue::from_str(&crate::launcher_user_agent())
+                .unwrap_or_else(|_| {
+                    HeaderValue::from_static(H2_DOWNLOAD_AXOLOTL_LAUNCHER)
+                }),
+        );
+        headers.insert(
+            ACCEPT_ENCODING,
+            HeaderValue::from_static(IDENTITY_ENCODING),
+        );
 
-    let (response, mut stream) = open_stream(&connection, uri, headers).await?;
+        let (response, mut stream) =
+            open_stream(&connection, &current_uri, headers).await?;
+        super::native_breaker::record_response_status_failure(
+            &current_route,
+            response.status().as_u16(),
+            fetch::retry_after_headers(response.headers()),
+        );
+        if !response.status().is_redirection() {
+            break (
+                connection,
+                _stream_permit,
+                connection_stream,
+                response,
+                stream,
+            );
+        }
+        if !matches!(response.status().as_u16(), 301 | 302 | 303 | 307 | 308) {
+            return Err(crate::ErrorKind::OtherError(format!(
+                "HTTP/2 GET failed with status {}",
+                response.status()
+            ))
+            .into());
+        }
+        let location = response
+            .headers()
+            .get(LOCATION)
+            .and_then(|value| value.to_str().ok())
+            .ok_or_else(|| {
+                crate::ErrorKind::OtherError(format!(
+                    "Redirect from {current_uri} did not include a valid Location header"
+                ))
+            })?;
+        if location.len() > MAX_REDIRECT_LOCATION_BYTES
+            || location.chars().any(char::is_control)
+        {
+            return Err(crate::ErrorKind::OtherError(format!(
+                "Redirect from {current_uri} included an unsafe Location header"
+            ))
+            .into());
+        }
+        let current_url = Url::parse(&current_uri.to_string())?;
+        let next_url =
+            retired_sources::normalize_parsed(current_url.join(location)?)?;
+        if !fetch::is_allowed_download_redirect(&next_url) {
+            return Err(crate::ErrorKind::OtherError(format!(
+                "Refusing insecure redirect from {current_url} to {next_url}"
+            ))
+            .into());
+        }
+        if redirect_count >= MAX_DOWNLOAD_REDIRECTS {
+            return Err(crate::ErrorKind::OtherError(format!(
+                "Too many redirects while downloading {}",
+                route.url
+            ))
+            .into());
+        }
+        drain_body(&mut stream).await;
+        current_uri = next_url.as_str().parse().map_err(|error| {
+            crate::ErrorKind::OtherError(format!(
+                "Invalid redirect target {next_url}: {error}"
+            ))
+        })?;
+        current_route.url = next_url.into();
+        redirect_count += 1;
+    };
     super::native_breaker::record_response_status_failure(
-        route,
+        &current_route,
         response.status().as_u16(),
         fetch::retry_after_headers(response.headers()),
     );
     if !response.status().is_success() {
-        // 301/302/303/307/308 are redirect responses that must be interpreted
-        // by the redirect-handling layer, not treated as line-level transfer
-        // failures. 304 is deliberately excluded: it is not a downloadable
-        // redirect for these objects.
-        if matches!(response.status().as_u16(), 301 | 302 | 303 | 307 | 308) {
-            return Ok(AssetBatchItemOutcome::RedirectFallback);
-        }
         return Err(crate::ErrorKind::OtherError(format!(
             "HTTP/2 GET failed with status {}",
             response.status()

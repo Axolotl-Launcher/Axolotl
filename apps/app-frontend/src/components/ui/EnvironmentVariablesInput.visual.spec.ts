@@ -1,7 +1,9 @@
+import { QueryClient, VueQueryPlugin } from '@tanstack/vue-query'
 import { flushPromises, mount } from '@vue/test-utils'
 import { afterEach, expect, it, vi } from 'vitest'
 import { defineComponent, h, ref, Suspense } from 'vue'
 
+import { get_content_snapshot, get_optimal_jre_key } from '@/helpers/instance'
 import { parseEnvVars, serializeEnvVars } from '@/helpers/settings'
 import type { GameInstance } from '@/helpers/types'
 
@@ -28,8 +30,8 @@ vi.mock('@/helpers/instance', () => ({
         expect(id).toBe('instance-a')
         Object.assign(backend.instance, JSON.parse(JSON.stringify(patch)))
     },
-    get_content_snapshot: async () => ({ items: [] }),
-    get_optimal_jre_key: async () => ({ path: 'java', parsed_version: '21' }),
+    get_content_snapshot: vi.fn(async () => ({ items: [] })),
+    get_optimal_jre_key: vi.fn(async () => ({ path: 'java', parsed_version: '21' })),
 }))
 vi.mock('@/providers/instance-settings', () => ({
     injectInstanceSettings: () => ({ instance: backend.instanceRef }),
@@ -38,7 +40,9 @@ vi.mock('@tauri-apps/plugin-os', () => ({ platform: () => 'windows' }))
 vi.mock('@/composables/useMemorySlider', () => ({
     default: () => ({ maxMemory: 8192, snapPoints: [] }),
 }))
-vi.mock('@/components/ui/JavaArgumentsInput.vue', () => ({ default: { render: () => null } }))
+vi.mock('@/components/ui/JavaArgumentsInput.vue', () => ({
+    default: { props: ['gcContext'], render: () => null },
+}))
 vi.mock('@/components/ui/JavaSelector.vue', () => ({ default: { render: () => null } }))
 vi.mock('@/components/ui/MemoryAllocationDisplay.vue', () => ({ default: { render: () => null } }))
 vi.mock('@/components/ui/settings/LogShareSettings.vue', () => ({
@@ -72,7 +76,7 @@ vi.mock('@modrinth/ui', async () => {
         Card: card,
         Checkbox: toggle,
         Toggle: toggle,
-        Slider: { render: () => null },
+        Slider: { name: 'Slider', render: () => null },
         StyledInput: defineComponent({
             props: ['modelValue', 'type', 'inputAttrs'],
             setup:
@@ -174,11 +178,30 @@ async function openSettings(scope: 'instance' | 'defaults') {
     const component = scope === 'instance' ? InstanceJavaSettings : DefaultInstanceSettings
     const wrapper = mount(
         defineComponent({ setup: () => () => h(Suspense, {}, { default: () => h(component) }) }),
+        { global: { plugins: [[VueQueryPlugin, { queryClient: new QueryClient() }]] } },
     )
     mounted.push(wrapper)
     await flushPromises()
     return wrapper
 }
+
+it('opens Java settings without waiting for Java metadata or content enrichment', async () => {
+    initialize()
+    vi.mocked(get_content_snapshot)
+        .mockClear()
+        .mockImplementationOnce(() => new Promise(() => {}))
+    vi.mocked(get_optimal_jre_key).mockImplementationOnce(() => new Promise(() => {}))
+    const wrapper = await openSettings('instance')
+    expect(wrapper.text()).toContain('Java installation')
+    expect(wrapper.get('#env-vars').exists()).toBe(true)
+    expect(get_content_snapshot).toHaveBeenCalledExactlyOnceWith('instance-a', true)
+    await wrapper.get('input[aria-label="Custom memory allocation"]').setValue(true)
+    wrapper.findComponent({ name: 'Slider' }).vm.$emit('update:modelValue', 4096)
+    await flushPromises()
+    wrapper.findComponent({ name: 'Slider' }).vm.$emit('update:modelValue', 6144)
+    await flushPromises()
+    expect(get_content_snapshot).toHaveBeenCalledTimes(1)
+})
 
 it.each(['instance', 'defaults'] as const)(
     'saves and reloads equals signs and empty values in %s settings',

@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "\n                DELETE FROM instance_content_entries\n                WHERE id IN (\n                    SELECT target_entry.id\n                    FROM instance_content_entries target_entry\n                    WHERE target_entry.instance_id = ?\n                        AND target_entry.file_id = ?\n                        AND EXISTS (\n                            SELECT 1\n                            FROM instance_content_entries source_entry\n                            WHERE source_entry.instance_id = target_entry.instance_id\n                                AND source_entry.content_set_id = target_entry.content_set_id\n                                AND source_entry.file_id = ?\n                        )\n                )\n                ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 3
+    },
+    "nullable": []
+  },
+  "hash": "7119cdf18d9dc0d177272443ea0417d5f87712a094cdbc97ea177c9321b575fd"
+}

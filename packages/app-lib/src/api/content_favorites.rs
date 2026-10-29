@@ -6,7 +6,7 @@ pub use crate::state::content_favorites::{
 #[tracing::instrument]
 pub async fn list() -> crate::Result<Vec<ContentFavorite>> {
     let state = crate::State::get().await?;
-    crate::state::content_favorites::list(&state.pool).await
+    crate::state::content_favorites::list(&state.data).await
 }
 
 #[tracing::instrument]
@@ -14,7 +14,7 @@ pub async fn add(
     favorite: ContentFavoriteInput,
 ) -> crate::Result<ContentFavorite> {
     let state = crate::State::get().await?;
-    crate::state::content_favorites::add(favorite, &state.pool).await
+    crate::state::content_favorites::add(favorite, &state.data).await
 }
 
 #[tracing::instrument]
@@ -23,6 +23,6 @@ pub async fn remove(
     project_id: &str,
 ) -> crate::Result<()> {
     let state = crate::State::get().await?;
-    crate::state::content_favorites::remove(provider, project_id, &state.pool)
+    crate::state::content_favorites::remove(provider, project_id, &state.data)
         .await
 }

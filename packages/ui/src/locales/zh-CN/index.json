@@ -1,4 +1,19 @@
 {
+  "drop.instance-import.title": {
+    "defaultMessage": "导入实例"
+  },
+  "drop.confirm.minecraft-root.title": {
+    "defaultMessage": "添加 .minecraft 文件夹"
+  },
+  "drop.confirm.minecraft-root.prompt": {
+    "defaultMessage": "看起来这是一个 .minecraft 文件夹，是否直接将其添加至启动器？"
+  },
+  "drop.confirm.minecraft-root.add": {
+    "defaultMessage": "是，直接添加"
+  },
+  "drop.confirm.minecraft-root.import": {
+    "defaultMessage": "否，导入其中的实例"
+  },
   "content.page-layout.dependency-disable-failed": {
     "defaultMessage": "无法禁用依赖这些内容的项目。请重试以完成删除。"
   },
@@ -310,12 +325,6 @@
   },
   "console.command.server-not-running-placeholder": {
     "defaultMessage": "服务器未运行"
-  },
-  "console.command-completions.no-results": {
-    "defaultMessage": "没有匹配的补全项"
-  },
-  "console.command-completions.search": {
-    "defaultMessage": "搜索命令补全项"
   },
   "console.crash.export-context": {
     "defaultMessage": "导出崩溃上下文"
@@ -762,7 +771,7 @@
     "defaultMessage": "更新 {count, plural, other {# 个项目}}"
   },
   "content.confirm-deletion.admonition-body": {
-    "defaultMessage": "删除模组可能会对你的游戏世界造成永久性影响，并可能导致再次加载时出现内容缺失或意外问题。"
+    "defaultMessage": "删除{contentType, select, mod {模组} resourcepack {资源包} shader {光影} datapack {数据包} other {内容}}可能会对你的游戏世界造成永久性影响，并可能导致再次加载时出现内容缺失或意外问题。"
   },
   "content.confirm-deletion.admonition-header": {
     "defaultMessage": "删除警告"
@@ -2023,6 +2032,9 @@
   },
   "instances.updater-modal.loading-changelog": {
     "defaultMessage": "正在加载更新日志..."
+  },
+  "instances.updater-modal.loading-more-versions": {
+    "message": "正在加载更多版本……"
   },
   "instances.updater-modal.loading-versions": {
     "defaultMessage": "版本加载中……"

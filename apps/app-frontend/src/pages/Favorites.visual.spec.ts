@@ -14,17 +14,21 @@ const fixture = vi.hoisted(() => ({
     metadata: vi.fn(),
     prefetch: vi.fn(),
     resetStore: () => {},
+    setFavorites: (_values: ContentFavorite[]) => {},
     refresh: null as null | (() => void),
 }))
-vi.mock('vue-router', () => ({
-    useRoute: () => ({
-        query: fixture.query,
-        fullPath: '/browse/favorites',
-        path: '/browse/favorites',
-    }),
-    useRouter: () => ({ replace: fixture.replace, push: fixture.push }),
-    onBeforeRouteLeave: () => {},
-}))
+vi.mock('vue-router', async () => {
+    const { reactive } = await import('vue')
+    return {
+        useRoute: () => ({
+            query: reactive(fixture.query),
+            fullPath: '/browse/favorites',
+            path: '/browse/favorites',
+        }),
+        useRouter: () => ({ replace: fixture.replace, push: fixture.push }),
+        onBeforeRouteLeave: () => {},
+    }
+})
 vi.mock('@/store/breadcrumbs', () => ({
     useBreadcrumbs: () => ({ setName: vi.fn(), setContext: vi.fn() }),
 }))
@@ -54,6 +58,9 @@ vi.mock('@/composables/useContentFavorites', async () => {
     const favorites = ref<ContentFavorite[]>([])
     const loaded = ref(false)
     const metadata = new Map<string, SourceProjectMetadata>()
+    fixture.setFavorites = (values) => {
+        favorites.value = values
+    }
     fixture.resetStore = () => {
         favorites.value = []
         loaded.value = false
@@ -121,6 +128,11 @@ vi.mock('@modrinth/ui', async () => {
                 'StyledInput',
             ].map((name) => [name, container]),
         ),
+        Pagination: defineComponent({
+            props: ['page', 'count'],
+            setup: (props) => () =>
+                h('nav', { 'data-page': props.page, 'data-count': props.count }),
+        }),
         ProjectCardSkeleton: defineComponent({
             setup: () => () => h('div', { 'data-skeleton': '' }),
         }),
@@ -145,7 +157,7 @@ vi.mock('@modrinth/ui', async () => {
                     h('section', [props.heading, slots.actions?.()]),
         }),
         ProjectCard: defineComponent({
-            props: ['title'],
+            props: ['title', 'link'],
             setup: (props) => () => h('article', { 'data-favorite': '' }, props.title),
         }),
         getLatestMatchingInstallVersion: vi.fn(),
@@ -339,4 +351,192 @@ it('clears search and filters together without deleting favorites or losing the 
         query: { i: 'selected-instance', q: undefined, kind: undefined, page: undefined },
     })
     expect(fixture.push).not.toHaveBeenCalled()
+})
+
+it.each([
+    ['mcarchive', undefined, '/project/mcarchive/one'],
+    ['planet_minecraft', undefined, '/project/planet-minecraft/one'],
+    ['modrinth', 'confirmed', '/resource/confirmed'],
+] as const)('passes a navigation title for %s favorites', async (provider, resourceId, path) => {
+    fixture.load.mockResolvedValue([{ ...savedFavorite, provider, resource_id: resourceId }])
+    fixture.metadata.mockResolvedValue({
+        ...savedMetadata,
+        project: { source: provider, projectId: 'one' },
+    })
+    const wrapper = render()
+    await vi.waitFor(() => expect(wrapper.find('[data-favorite]').exists()).toBe(true))
+    const card = wrapper.findComponent('[data-favorite]')
+    expect(card.props('link')).toEqual({
+        path,
+        query: expect.objectContaining({ b: '/browse/favorites' }),
+        state: { projectPreview: { targetPath: path, title: 'Saved mod' } },
+    })
+})
+
+const archiveFavorite: ContentFavorite = { ...savedFavorite, provider: 'mcarchive' }
+const planetFavorite: ContentFavorite = {
+    ...savedFavorite,
+    provider: 'planet_minecraft',
+    project_id: 'two',
+    saved_at: 2,
+}
+function metadataFor(favorite: ContentFavorite, title: string): SourceProjectMetadata {
+    return {
+        ...savedMetadata,
+        project: { source: favorite.provider, projectId: favorite.project_id },
+        title,
+    }
+}
+
+it('publishes archive projects while unrelated batched sources and other items are pending', async () => {
+    const modrinth = { ...savedFavorite, project_id: 'three' }
+    fixture.load.mockResolvedValue([archiveFavorite, planetFavorite, modrinth])
+    let finishPlanet!: (value: SourceProjectMetadata) => void
+    let finishBatch!: (value: Map<string, SourceProjectMetadata>) => void
+    fixture.prefetch.mockImplementation(async (_, __, policy) =>
+        policy === 'onlyCached'
+            ? new Map()
+            : new Promise((resolve) => {
+                  finishBatch = resolve
+              }),
+    )
+    fixture.metadata.mockImplementation(async (favorite: ContentFavorite) =>
+        favorite.provider === 'mcarchive'
+            ? metadataFor(favorite, 'Archive ready')
+            : new Promise((resolve) => {
+                  finishPlanet = resolve
+              }),
+    )
+    const wrapper = render()
+    await vi.waitFor(() => expect(wrapper.text()).toContain('Archive ready'))
+    expect(wrapper.findAll('[data-skeleton]')).toHaveLength(2)
+    expect(wrapper.findAll('[data-favorite], [data-skeleton]').map((row) => row.text())).toEqual([
+        'Archive ready',
+        '',
+        '',
+    ])
+    finishBatch(new Map([['modrinth:three', metadataFor(modrinth, 'Batched ready')]]))
+    await flushPromises()
+    expect(wrapper.text()).toContain('Batched ready')
+    expect(wrapper.findAll('[data-skeleton]')).toHaveLength(1)
+    finishPlanet(metadataFor(planetFavorite, 'Planet ready'))
+    await vi.waitFor(() => expect(wrapper.findAll('[data-favorite]')).toHaveLength(3))
+    expect(wrapper.findAll('[data-favorite]').map((row) => row.text())).toEqual([
+        'Archive ready',
+        'Planet ready',
+        'Batched ready',
+    ])
+})
+
+it('keeps the complete filtered view until the latest filter and metadata can commit together', async () => {
+    fixture.query = { q: 'Saved' }
+    fixture.load.mockResolvedValue([archiveFavorite, planetFavorite])
+    fixture.metadata.mockImplementation(async (favorite: ContentFavorite) =>
+        metadataFor(favorite, `Saved ${favorite.project_id}`),
+    )
+    const wrapper = render()
+    await vi.waitFor(() => expect(wrapper.findAll('[data-favorite]')).toHaveLength(2))
+    let finish!: (value: SourceProjectMetadata) => void
+    fixture.metadata.mockImplementation(async (favorite: ContentFavorite) =>
+        favorite.provider === 'mcarchive'
+            ? metadataFor(favorite, 'New one')
+            : new Promise((resolve) => {
+                  finish = resolve
+              }),
+    )
+    fixture.refresh!()
+    const { useRoute } = await import('vue-router')
+    useRoute().query.q = 'New'
+    await flushPromises()
+    expect(wrapper.text()).toContain('Saved one')
+    expect(wrapper.text()).not.toContain('New one')
+    expect(wrapper.text()).toContain('Updating favorites')
+    useRoute().query.q = 'New two'
+    finish(metadataFor(planetFavorite, 'New two'))
+    await vi.waitFor(() => expect(wrapper.findAll('[data-favorite]')).toHaveLength(1))
+    expect(wrapper.find('[data-favorite]').text()).toBe('New two')
+    expect(wrapper.text()).not.toContain('Saved one')
+})
+
+it('does not publish partial matches or an empty state on a cold filtered visit', async () => {
+    fixture.query = { q: 'Saved' }
+    fixture.load.mockResolvedValue([archiveFavorite, planetFavorite])
+    let fail!: (reason: Error) => void
+    fixture.metadata.mockImplementation(async (favorite: ContentFavorite) =>
+        favorite.provider === 'mcarchive'
+            ? metadataFor(favorite, 'Saved archive')
+            : new Promise((_, reject) => {
+                  fail = reject
+              }),
+    )
+    const wrapper = render()
+    await vi.waitFor(() => expect(fixture.metadata).toHaveBeenCalled())
+    await flushPromises()
+    expect(wrapper.find('[data-skeleton]').exists()).toBe(true)
+    expect(wrapper.find('[data-favorite]').exists()).toBe(false)
+    expect(wrapper.text()).not.toContain('No matching favorites')
+    fail(new Error('unavailable'))
+    await vi.waitFor(() => expect(wrapper.text()).toContain('Saved archive'))
+    expect(wrapper.findAll('[data-favorite]')).toHaveLength(1)
+})
+
+it('keeps pagination based on the saved collection while page metadata is pending', async () => {
+    fixture.query = { page: '2' }
+    const favorites = Array.from({ length: 25 }, (_, index) => ({
+        ...archiveFavorite,
+        project_id: String(index),
+    }))
+    fixture.load.mockResolvedValue(favorites)
+    fixture.metadata.mockImplementation(() => new Promise(() => {}))
+    const wrapper = render()
+    await vi.waitFor(() => expect(wrapper.find('[data-count="2"]').exists()).toBe(true))
+    expect(wrapper.find('[data-page="2"]').exists()).toBe(true)
+    expect(wrapper.findAll('[data-skeleton]')).toHaveLength(5)
+    expect(fixture.replace).not.toHaveBeenCalled()
+})
+
+it('discards a removed favorite and its late metadata response', async () => {
+    fixture.load.mockResolvedValue([archiveFavorite])
+    let finish!: (value: SourceProjectMetadata) => void
+    let oldSignal!: AbortSignal
+    fixture.metadata.mockImplementationOnce((_favorite, signal) => {
+        oldSignal = signal
+        return new Promise((resolve) => {
+            finish = resolve
+        })
+    })
+    const wrapper = render()
+    await vi.waitFor(() => expect(finish).toBeDefined())
+    fixture.load.mockResolvedValue([])
+    fixture.setFavorites([])
+    await flushPromises()
+    expect(oldSignal.aborted).toBe(true)
+    finish(metadataFor(archiveFavorite, 'Late archive'))
+    await flushPromises()
+    expect(wrapper.text()).not.toContain('Late archive')
+    expect(wrapper.text()).toContain('No favorites yet')
+})
+
+it('continues local search and type filtering after a collection refresh fails', async () => {
+    fixture.load.mockResolvedValue([archiveFavorite])
+    fixture.metadata.mockResolvedValue(metadataFor(archiveFavorite, 'Saved archive'))
+    const wrapper = render()
+    await vi.waitFor(() => expect(wrapper.text()).toContain('Saved archive'))
+    await flushPromises()
+    fixture.load.mockRejectedValue(new Error('offline'))
+    fixture.refresh!()
+    await vi.waitFor(() => expect(wrapper.text()).toContain('Failed to load favorites'))
+    const { useRoute } = await import('vue-router')
+    const query = useRoute().query
+    query.q = 'does not match'
+    await flushPromises()
+    expect(wrapper.text()).toContain('No matching favorites')
+    expect(wrapper.find('[data-favorite]').exists()).toBe(false)
+    query.q = ''
+    query.kind = 'shader'
+    await flushPromises()
+    expect(wrapper.find('[data-favorite]').exists()).toBe(false)
+    query.kind = 'all'
+    await flushPromises()
+    expect(wrapper.text()).toContain('Saved archive')
 })

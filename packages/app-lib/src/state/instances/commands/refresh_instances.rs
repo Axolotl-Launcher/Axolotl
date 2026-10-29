@@ -6,9 +6,9 @@ use super::edit_instance::EditInstance;
 pub(crate) async fn refresh_all_instances() -> crate::Result<()> {
     let state = State::get().await?;
     let instances = crate::state::instances::adapters::sqlite::instance_rows::list_instances(
-		&state.pool,
-	)
-	.await?;
+        &state.pool,
+    )
+    .await?;
 
     for instance in instances {
         let launcher_feature_version = (instance.launcher_feature_version

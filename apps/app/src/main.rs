@@ -130,7 +130,7 @@ fn is_allowed_blockbench_skin_request(
     }
 
     const ALLOWED_ORIGINS: [&str; 6] = [
-        "http://localhost:5201",
+        "http://127.0.0.1:5201",
         "http://tauri.localhost",
         "https://tauri.localhost",
         "tauri://localhost",
@@ -206,6 +206,8 @@ async fn initialize_state(app: tauri::AppHandle) -> api::Result<()> {
 
     tracing::info!("Initializing app state...");
     State::init(app.config().identifier.clone()).await?;
+    api::resources::initialize_content_refresh_events(&app).await?;
+    api::mcp::initialize(&app).await;
     let anti_piracy_app = app.clone();
     tauri::async_runtime::spawn(async move {
         let status = theseus::anti_piracy::check_region().await;
@@ -802,6 +804,11 @@ fn main() {
         })
         .setup(|app| {
             lightweight_mode::init(app.handle());
+            #[cfg(target_os = "macos")]
+            if let Some(window) = app.get_webview_window("main") {
+                macos::traffic_lights::install(&window)?;
+            }
+
             let app_handle = app.handle().clone();
             tauri::async_runtime::spawn(async move {
                 tokio::time::sleep(std::time::Duration::from_secs(4)).await;
@@ -876,6 +883,7 @@ fn main() {
         .plugin(api::process::init())
         .plugin(api::planet_minecraft::init())
         .plugin(api::settings::init())
+        .plugin(api::mcp::init())
         .plugin(api::storage::init())
         .plugin(api::system_accent::init())
         .plugin(api::seed_map::init())
@@ -933,6 +941,8 @@ fn main() {
             lightweight_mode::lightweight_mode_frontend_ready,
             lightweight_mode::lightweight_mode_set_route,
             lightweight_mode::lightweight_mode_enter,
+            #[cfg(target_os = "macos")]
+            macos::traffic_lights::update_traffic_lights_anchor,
         ]);
 
     tracing::info!("Initializing app...");
@@ -962,6 +972,21 @@ fn main() {
                     tracing::warn!(
                         "Failed to stop multiplayer services before exit: {error}"
                     );
+                }
+
+                if matches!(&event, tauri::RunEvent::ExitRequested { .. }) {
+                    tauri::async_runtime::block_on(async {
+                        api::mcp::shutdown(app).await;
+                        let killed = theseus::servers::shutdown_all().await;
+                        if killed > 0 {
+                            tracing::info!(
+                                "Killed {killed} dedicated server process(es) after the shutdown budget"
+                            );
+                        }
+                        if let Some(state) = State::get_if_initialized() {
+                            state.shutdown().await;
+                        }
+                    });
                 }
 
                 #[cfg(feature = "updater")]

@@ -39,7 +39,6 @@ import RecipeSlotGrid from '@/components/lab/recipe-generator/RecipeSlotGrid.vue
 import TagPalette from '@/components/lab/recipe-generator/TagPalette.vue'
 import { useResultCountWheel } from '@/composables/lab/useResultCountWheel'
 import { createRequestGeneration } from '@/helpers/request-generation'
-import potionItems from '@/lab/recipe-generator/assets/vanilla/potion-items.json'
 import { drawCountOnCanvas } from '@/lab/recipe-generator/count-display'
 import {
     createDatapackDescription,
@@ -53,7 +52,6 @@ import {
 import { getSlotDisplay, type SlotDisplay } from '@/lab/recipe-generator/display'
 import { parseIdentifier } from '@/lab/recipe-generator/identifier'
 import { exportDatapackToWorld } from '@/lab/recipe-generator/instance-export'
-import { resolveRecipeItemName } from '@/lab/recipe-generator/item-names'
 import { categoryMessages, recipeTypeMessages } from '@/lab/recipe-generator/messages'
 import { getCurrentRecipeName } from '@/lab/recipe-generator/naming'
 import {
@@ -69,12 +67,7 @@ import {
     RECIPE_IMAGE_WIDTH,
     type RecipeLayoutSlotBox,
 } from '@/lab/recipe-generator/recipe-layouts'
-import {
-    buildSlotContext,
-    type LoadedVersionResources,
-    loadVersionResources,
-    TEXTURE_ATLAS,
-} from '@/lab/recipe-generator/resources'
+import { buildSlotContext } from '@/lab/recipe-generator/slot-context'
 import type {
     CustomItem,
     CustomTag,
@@ -98,6 +91,13 @@ import {
     supportsSmithingTrimPattern,
     supportsVanillaTagList,
 } from '@/lab/recipe-generator/versions'
+import potionItems from '@/lab/shared/minecraft/assets/vanilla/potion-items.json'
+import { resolveRecipeItemName } from '@/lab/shared/minecraft/item-names'
+import {
+    type LoadedVersionResources,
+    loadVersionResources,
+    TEXTURE_ATLAS,
+} from '@/lab/shared/minecraft/resources'
 
 const { addNotification, handleError } = injectNotificationManager()
 const { formatMessage, locale } = useVIntl()

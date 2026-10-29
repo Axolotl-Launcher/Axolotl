@@ -70,6 +70,7 @@ const allowedUntranslatedMessages = new Set([
     '{name} {number} · {x}, {z}',
     '{biome} · {name}',
     '{degrees}°',
+    'MCP',
 ])
 
 function messageText(value) {

@@ -4,8 +4,8 @@ import Fuse from 'fuse.js'
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 
 import type { SlotDisplay } from '@/lab/recipe-generator/display'
-import type { TextureAtlas } from '@/lab/recipe-generator/resources'
 import type { SlotValue } from '@/lab/recipe-generator/types'
+import type { TextureAtlas } from '@/lab/shared/minecraft/resources'
 
 import RecipeItemIcon from './RecipeItemIcon.vue'
 import RecipeSlotDragLayer from './RecipeSlotDragLayer.vue'

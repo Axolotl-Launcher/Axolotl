@@ -10,6 +10,7 @@ pub mod instance;
 pub mod jre;
 pub mod logs;
 pub mod mcarchive;
+pub mod mcp;
 pub mod metadata;
 pub mod minecraft_skins;
 pub mod mod_translation;

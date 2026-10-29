@@ -1,0 +1,20 @@
+{
+  "db_name": "SQLite",
+  "query": "\n        SELECT EXISTS(\n            SELECT 1 FROM sync_feature_settings\n            WHERE feature = 'multiplayer_servers' AND globally_enabled = 1\n        ) AS \"enabled!: bool\"\n        ",
+  "describe": {
+    "columns": [
+      {
+        "name": "enabled!: bool",
+        "ordinal": 0,
+        "type_info": "Integer"
+      }
+    ],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "607d65c2bd8f432b8f11172de19d5eea4b446dbc7df973fa375d60e923ffdd04"
+}

@@ -1,6 +1,6 @@
 //! Authentication flow interface
 
-mod profile_cache;
+pub(super) mod profile_cache;
 
 use chrono::{DateTime, Utc};
 use reqwest::StatusCode;
@@ -150,15 +150,14 @@ async fn probe_mojang_services(
 
 #[tracing::instrument]
 pub async fn begin_login() -> crate::Result<MinecraftLoginFlow> {
-    let state = State::get().await?;
-
-    crate::state::login_begin(&state.pool).await
+    State::get().await?;
+    crate::state::login_begin().await
 }
 
 #[tracing::instrument]
 pub async fn begin_browser_login() -> crate::Result<MinecraftLoginFlow> {
-    let state = State::get().await?;
-    crate::state::browser_login_begin(&state.pool).await
+    State::get().await?;
+    crate::state::browser_login_begin().await
 }
 
 #[tracing::instrument]
@@ -171,7 +170,7 @@ pub async fn poll_device_login(
     device_code: &str,
 ) -> crate::Result<MinecraftDeviceLoginPoll> {
     let state = State::get().await?;
-    crate::state::device_login_poll(device_code, &state.pool).await
+    crate::state::device_login_poll(device_code, &state.data).await
 }
 
 #[tracing::instrument]
@@ -182,7 +181,7 @@ pub async fn finish_login(
 ) -> crate::Result<Credentials> {
     let app_state = State::get().await?;
 
-    crate::state::login_finish(code, state, flow, &app_state.pool).await
+    crate::state::login_finish(code, state, flow, &app_state.data).await
 }
 
 #[tracing::instrument]
@@ -198,7 +197,7 @@ pub async fn add_offline_user(
     };
 
     if uuid.is_some() {
-        let users = Credentials::get_all_without_refresh(&state.pool).await?;
+        let users = Credentials::get_all_without_refresh(&state.data).await?;
         if users
             .iter()
             .any(|user| user.account_id() == credentials.account_id())
@@ -211,7 +210,7 @@ pub async fn add_offline_user(
     }
 
     let _eligibility = crate::anti_piracy::offline_action_guard().await?;
-    credentials.upsert(&state.pool).await?;
+    credentials.upsert(&state.data).await?;
     Ok(credentials)
 }
 
@@ -222,7 +221,7 @@ pub async fn begin_yggdrasil_login(
     password: &str,
 ) -> crate::Result<YggdrasilLoginResult> {
     let state = State::get().await?;
-    crate::state::begin_yggdrasil_login(api_root, login, password, &state.pool)
+    crate::state::begin_yggdrasil_login(api_root, login, password, &state.data)
         .await
 }
 
@@ -232,7 +231,7 @@ pub async fn finish_yggdrasil_login(
     profile_id: uuid::Uuid,
 ) -> crate::Result<Credentials> {
     let state = State::get().await?;
-    crate::state::finish_yggdrasil_login(flow_id, profile_id, &state.pool).await
+    crate::state::finish_yggdrasil_login(flow_id, profile_id, &state.data).await
 }
 
 pub fn normalize_yggdrasil_api_root(api_root: &str) -> crate::Result<String> {
@@ -245,9 +244,9 @@ pub async fn get_default_user(
 ) -> crate::Result<Option<String>> {
     let state = State::get().await?;
     let user = if offline_mode {
-        Credentials::get_offline_credential(&state.pool).await?
+        Credentials::get_offline_credential(&state.data).await?
     } else {
-        Credentials::get_active_without_refresh(&state.pool).await?
+        Credentials::get_active_without_refresh(&state.data).await?
     };
     Ok(user.map(|user| user.account_id()))
 }
@@ -255,7 +254,7 @@ pub async fn get_default_user(
 #[tracing::instrument]
 pub async fn set_default_user(account_id: &str) -> crate::Result<()> {
     let state = State::get().await?;
-    let users = Credentials::get_all_without_refresh(&state.pool).await?;
+    let users = Credentials::get_all_without_refresh(&state.data).await?;
     let mut user = users
         .into_iter()
         .find(|user| user.account_id() == account_id)
@@ -273,7 +272,7 @@ pub async fn set_default_user(account_id: &str) -> crate::Result<()> {
     };
 
     user.active = true;
-    user.upsert(&state.pool).await?;
+    user.upsert(&state.data).await?;
 
     Ok(())
 }
@@ -283,14 +282,14 @@ pub async fn set_default_user(account_id: &str) -> crate::Result<()> {
 pub async fn remove_user(account_id: &str) -> crate::Result<()> {
     let state = State::get().await?;
 
-    let mut users = Credentials::get_all_without_refresh(&state.pool).await?;
+    let mut users = Credentials::get_all_without_refresh(&state.data).await?;
 
     if let Some(index) = users
         .iter()
         .position(|user| user.account_id() == account_id)
     {
         let user = users.remove(index);
-        Credentials::remove(account_id, &state.pool).await?;
+        Credentials::remove(account_id, &state.data).await?;
         profile_cache::remove(
             &state.directories.caches_dir().join("minecraft-profiles"),
             &user,
@@ -301,7 +300,7 @@ pub async fn remove_user(account_id: &str) -> crate::Result<()> {
             && let Some(mut user) = users.into_iter().next()
         {
             user.active = true;
-            user.upsert(&state.pool).await?;
+            user.upsert(&state.data).await?;
         }
     }
 
@@ -366,9 +365,9 @@ pub async fn users_with_cache(
 ) -> crate::Result<Vec<MinecraftUser>> {
     let state = State::get().await?;
     let users = if offline_mode || cached_only {
-        Credentials::get_all_without_refresh(&state.pool).await?
+        Credentials::get_all_without_refresh(&state.data).await?
     } else {
-        Credentials::get_all(&state.pool).await?
+        Credentials::get_all(&state.data).await?
     };
     let credentials = users
         .into_iter()

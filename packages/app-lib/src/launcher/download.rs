@@ -359,6 +359,35 @@ async fn download_minecraft_file(
     progress: Option<MinecraftDownloadProgress>,
     context: InstallErrorContext,
 ) -> crate::Result<DownloadResult> {
+    download_minecraft_file_with_semaphore(
+        st,
+        url,
+        sha1,
+        expected_size,
+        destination,
+        resource,
+        content_validation,
+        force,
+        progress,
+        context,
+        &st.download_semaphore,
+    )
+    .await
+}
+
+async fn download_minecraft_file_with_semaphore(
+    st: &State,
+    url: &str,
+    sha1: Option<&str>,
+    expected_size: Option<u64>,
+    destination: &std::path::Path,
+    resource: ResourceClass,
+    content_validation: ContentValidation,
+    force: bool,
+    progress: Option<MinecraftDownloadProgress>,
+    context: InstallErrorContext,
+    semaphore: &FetchSemaphore,
+) -> crate::Result<DownloadResult> {
     let urls = minecraft_library_mirrors(url);
     download_minecraft_file_with_candidates(
         st,
@@ -371,6 +400,7 @@ async fn download_minecraft_file(
         force,
         progress,
         context,
+        semaphore,
     )
     .await
 }
@@ -386,6 +416,7 @@ async fn download_minecraft_file_with_candidates(
     force: bool,
     progress: Option<MinecraftDownloadProgress>,
     context: InstallErrorContext,
+    semaphore: &FetchSemaphore,
 ) -> crate::Result<DownloadResult> {
     let Some(url) = urls.first() else {
         return Err(crate::ErrorKind::LauncherError(
@@ -424,14 +455,7 @@ async fn download_minecraft_file_with_candidates(
         );
     }
     let Some(progress) = progress else {
-        return download_to_path(
-            request,
-            destination,
-            &st.download_semaphore,
-            &st.pool,
-            None,
-        )
-        .await;
+        return download_to_path(request, destination, semaphore, None).await;
     };
 
     let last_downloaded = Arc::new(AtomicU64::new(0));
@@ -459,8 +483,7 @@ async fn download_minecraft_file_with_candidates(
     let result = match download_to_path(
         request,
         destination,
-        &st.download_semaphore,
-        &st.pool,
+        semaphore,
         Some(&mut progress_fn as &mut FetchProgressFn<'_>),
     )
     .await
@@ -1162,7 +1185,6 @@ pub async fn download_version_info(
             None,
             None,
             &st.api_semaphore,
-            &st.pool,
         )
         .await
         {
@@ -1181,7 +1203,6 @@ pub async fn download_version_info(
                     None,
                     None,
                     &st.api_semaphore,
-                    &st.pool,
                 )
                 .await
                 {
@@ -1228,7 +1249,6 @@ pub async fn download_version_info(
                     None,
                     None,
                     &st.api_semaphore,
-                    &st.pool,
                 )
                 .await?
             }
@@ -1324,6 +1344,68 @@ pub async fn load_local_version_info(
         write_version_info(&path, serde_json::to_vec(&info)?).await?;
     }
     Ok(info)
+}
+
+/// Only reusable, fully merged profiles may bypass loader catalog resolution.
+pub(super) async fn try_load_launch_version_info(
+    st: &State,
+    version: &GameVersion,
+    mod_loader: ModLoader,
+    loader: Option<&LoaderVersion>,
+) -> Option<GameVersionInfo> {
+    let version_id = loader.map_or_else(
+        || version.id.clone(),
+        |it| format!("{}-{}", version.id, it.id),
+    );
+    let path = st
+        .directories
+        .version_dir(&version_id)
+        .join(format!("{version_id}.json"));
+    let info =
+        read_launch_profile(&path, &version_id, loader.is_some()).await?;
+    if mod_loader == ModLoader::Forge
+        && let Some(loader) = loader
+    {
+        let coordinate = format!("{}-{}", version.id, loader.id);
+        let legacy_coordinate = format!("{coordinate}-{}", version.id);
+        if !info.libraries.iter().any(|library| {
+            let mut parts = library.name.split(':');
+            parts.next() == Some("net.minecraftforge")
+                && matches!(parts.next(), Some("forge" | "fmlloader"))
+                && parts.next().is_some_and(|value| {
+                    value == coordinate || value == legacy_coordinate
+                })
+        }) {
+            tracing::warn!(%version_id, "Local Forge profile does not match the requested loader");
+            return None;
+        }
+    }
+    match load_local_version_info(st, version, mod_loader, loader).await {
+        Ok(info) => Some(info),
+        Err(error) => {
+            tracing::warn!(%version_id, %error, "Local launch profile could not be loaded; resolving metadata online");
+            None
+        }
+    }
+}
+
+async fn read_launch_profile(
+    path: &Path,
+    version_id: &str,
+    derived: bool,
+) -> Option<GameVersionInfo> {
+    if derived && !derived_version_cache_is_current(path).await {
+        return None;
+    }
+    let bytes = tokio::fs::read(path).await.ok()?;
+    let info: GameVersionInfo = serde_json::from_slice(&bytes).ok()?;
+    if info.id != version_id
+        || info.main_class.trim().is_empty()
+        || info.asset_index.id.is_empty()
+    {
+        return None;
+    }
+    Some(info)
 }
 
 async fn write_version_info(path: &Path, data: Vec<u8>) -> crate::Result<()> {
@@ -1819,18 +1901,6 @@ fn build_fallback_asset(
     }
 }
 
-fn build_fallback_asset_from_batch(item: H2BatchAsset) -> FallbackAsset {
-    FallbackAsset {
-        name: item.sha1.clone(),
-        hash: item.sha1,
-        size: item.size,
-        url: item.original_url,
-        resource_path: item.destination,
-        legacy_resource_paths: item.legacy_destinations,
-        logical_items: item.logical_items,
-    }
-}
-
 /// Coalesce every fallback that writes the same physical object. This is
 /// especially important for legacy indexes, where several logical names can
 /// share one hash: concurrent local-reuse tasks would otherwise race on the
@@ -1896,6 +1966,8 @@ pub async fn download_assets(
     progress: Option<MinecraftDownloadProgress>,
 ) -> crate::Result<()> {
     tracing::debug!("Loading assets");
+    let asset_download_semaphore =
+        FetchSemaphore(tokio::sync::Semaphore::new(ASSET_BATCH_CONCURRENCY));
     let num_futs = index.objects.len();
     let per_file_fraction = if num_futs > 0 {
         loading_amount / num_futs as f64
@@ -1904,8 +1976,7 @@ pub async fn download_assets(
     };
 
     // Partition assets: batch downloads (object missing), legacy-only copies
-    // (object present, legacy missing), and per-file fallbacks (local reuse,
-    // no batch route, or failed batch items).
+    // (object present, legacy missing), and local reuse fallbacks.
     let mut batch_items = Vec::new();
     let mut legacy_copies = Vec::new();
     let mut fallback_assets = Vec::new();
@@ -1942,7 +2013,6 @@ pub async fn download_assets(
                     sub_hash = &hash[..2]
                 );
                 batch_items.push(H2BatchAsset {
-                    original_url: url.clone(),
                     url,
                     destination: resource_path,
                     legacy_destinations: should_fetch_legacy
@@ -1985,7 +2055,7 @@ pub async fn download_assets(
             prepare_native_download_routes(
                 &probe_request,
                 &mut routes,
-                &st.download_semaphore,
+                &asset_download_semaphore,
             )
             .await;
         }
@@ -2016,11 +2086,13 @@ pub async fn download_assets(
             let (batch_items, rerouted_items): (Vec<_>, Vec<_>) = batch_items
                 .into_iter()
                 .partition(|item| url_authority(&item.url) == route_authority);
-            fallback_assets.extend(
-                rerouted_items
-                    .into_iter()
-                    .map(build_fallback_asset_from_batch),
-            );
+            if !rerouted_items.is_empty() {
+                return Err(crate::ErrorKind::NetworkError(format!(
+                    "{} Minecraft assets resolved to a different batch authority",
+                    rerouted_items.len(),
+                ))
+                .into());
+            }
             let callback = {
                 let progress = progress.clone();
                 let loading_bar = loading_bar.cloned();
@@ -2043,78 +2115,61 @@ pub async fn download_assets(
                     })
                 }
             };
-            let failed = download_asset_batch_via_h2(
+            download_asset_batch_via_h2(
                 &route,
                 batch_items,
-                ASSET_BATCH_CONCURRENCY.min(st.download_concurrency()),
+                ASSET_BATCH_CONCURRENCY,
                 apply_native_policy,
-                apply_native_policy.then_some(&st.download_semaphore),
                 callback,
             )
             .await?;
-            if !failed.is_empty() {
-                tracing::warn!(
-                    items = failed.len(),
-                    source = route.source.as_str(),
-                    "Falling back to per-file downloads for {} batch-failed Minecraft assets on route {}",
-                    failed.len(),
-                    route.source.as_str(),
-                );
-                fallback_assets.extend(
-                    failed.into_iter().map(build_fallback_asset_from_batch),
-                );
-            }
         } else {
-            // No route could be resolved; fall back to per-file for all.
-            fallback_assets.extend(
-                batch_items.into_iter().map(build_fallback_asset_from_batch),
-            );
+            return Err(crate::ErrorKind::NetworkError(
+                "No download route could be resolved for Minecraft assets"
+                    .to_string(),
+            )
+            .into());
         }
     }
 
     // Legacy copies for assets whose object is already on disk.
     futures::stream::iter(legacy_copies)
         .map(Ok::<_, crate::Error>)
-        .try_for_each_concurrent(
-            crate::util::download::task_concurrency_limit(st),
-            |(name, asset)| {
-                let progress = progress.clone();
-                async move {
-                    let resource_path = st.directories.object_dir(&asset.hash);
-                    let legacy_resource_path =
-                        st.directories.legacy_assets_dir().join(name.replace(
-                            '/',
-                            &String::from(std::path::MAIN_SEPARATOR),
-                        ));
-                    crate::util::fetch::copy(
-                        &resource_path,
-                        &legacy_resource_path,
-                        &st.io_semaphore,
-                    )
-                    .await?;
-                    if let Some(progress) = &progress {
-                        progress.add_bytes(asset.size as u64).await?;
-                    }
-                    if let Some(loading_bar) = loading_bar {
-                        emit_loading(loading_bar, per_file_fraction, None)?;
-                    }
-                    Ok::<_, crate::Error>(())
+        .try_for_each_concurrent(ASSET_BATCH_CONCURRENCY, |(name, asset)| {
+            let progress = progress.clone();
+            async move {
+                let resource_path = st.directories.object_dir(&asset.hash);
+                let legacy_resource_path =
+                    st.directories.legacy_assets_dir().join(name.replace(
+                        '/',
+                        &String::from(std::path::MAIN_SEPARATOR),
+                    ));
+                crate::util::fetch::copy(
+                    &resource_path,
+                    &legacy_resource_path,
+                    &st.io_semaphore,
+                )
+                .await?;
+                if let Some(progress) = &progress {
+                    progress.add_bytes(asset.size as u64).await?;
                 }
-            },
-        )
+                if let Some(loading_bar) = loading_bar {
+                    emit_loading(loading_bar, per_file_fraction, None)?;
+                }
+                Ok::<_, crate::Error>(())
+            }
+        })
         .await?;
 
-    // Per-file fallback path: local runtime reuse, no batch route, or batch
-    // failures. Runs concurrently (same budget as the original scheduler) so
-    // import flows are not serialised.
+    // Local runtime reuse may still need a regular download when its source
+    // file is unavailable. Batch failures are surfaced instead of retried here.
     let fallback_assets = coalesce_fallback_assets(fallback_assets);
     if !fallback_assets.is_empty() {
-        let limit = crate::util::download::task_concurrency_limit(st)
-            .unwrap_or(ASSET_BATCH_CONCURRENCY);
         futures::stream::iter(fallback_assets)
             .map(Ok::<FallbackAsset, crate::Error>)
-            .try_for_each_concurrent(limit, |item| {
+            .try_for_each_concurrent(ASSET_BATCH_CONCURRENCY, |item| {
                 let progress = progress.clone();
+                let semaphore = &asset_download_semaphore;
                 async move {
                     let resource_path = &item.resource_path;
                     let hash = &item.hash;
@@ -2155,7 +2210,7 @@ pub async fn download_assets(
                             context.clone(),
                             force,
                             || {
-                                download_minecraft_file(
+                                download_minecraft_file_with_semaphore(
                                     st,
                                     &item.url,
                                     Some(hash),
@@ -2166,6 +2221,7 @@ pub async fn download_assets(
                                     force,
                                     fetch_progress.clone(),
                                     context,
+                                    semaphore,
                                 )
                             },
                         )
@@ -2283,8 +2339,8 @@ pub async fn download_libraries(
 
     let num_files = tasks.len();
     loading_try_for_each_concurrent(
-		stream::iter(tasks).map(Ok::<LibraryDownloadTask<'_>, crate::Error>),
-		crate::util::download::task_concurrency_limit(st),
+        stream::iter(tasks).map(Ok::<LibraryDownloadTask<'_>, crate::Error>),
+        crate::util::download::task_concurrency_limit(st),
         loading_bar,
         loading_amount,
         num_files,
@@ -2419,6 +2475,7 @@ pub async fn download_libraries(
                                     force,
                                     progress.clone(),
                                     context,
+                                    &st.download_semaphore,
                                 )
                             },
                         )
@@ -2596,6 +2653,7 @@ pub async fn download_libraries(
                                         force,
                                         progress.clone(),
                                         context,
+                                        &st.download_semaphore,
                                     )
                                 },
                             )
@@ -2887,10 +2945,10 @@ mod tests {
         sqlx::migrate!().run(&pool).await.unwrap();
         let state = crate::state::test_state(directories, pool).await.unwrap();
         let version: GameVersion = serde_json::from_value(serde_json::json!({
-			"id": "1.12.2", "type": "release", "url": "invalid://no-network",
-			"releaseTime": "2017-09-18T08:39:46Z", "time": "2021-12-15T15:04:05Z",
-			"sha1": "", "complianceLevel": 0
-		})).unwrap();
+            "id": "1.12.2", "type": "release", "url": "invalid://no-network",
+            "releaseTime": "2017-09-18T08:39:46Z", "time": "2021-12-15T15:04:05Z",
+            "sha1": "", "complianceLevel": 0
+        })).unwrap();
         let loader: LoaderVersion = serde_json::from_value(serde_json::json!({
             "id": "test-loader", "stable": true, "url": "invalid://no-network"
         }))
@@ -2945,6 +3003,138 @@ mod tests {
         }
     }
 
+    #[tokio::test]
+    async fn installed_forge_profile_is_validated_without_loader_catalogs() {
+        let temp = tempfile::tempdir().unwrap();
+        let directories = crate::state::DirectoryInfo {
+            settings_dir: temp.path().join("settings"),
+            config_dir: temp.path().join("config"),
+            app_identifier: "test".into(),
+        };
+        std::fs::create_dir_all(directories.instances_dir()).unwrap();
+        let pool = sqlx::sqlite::SqlitePoolOptions::new()
+            .max_connections(1)
+            .connect("sqlite::memory:")
+            .await
+            .unwrap();
+        sqlx::migrate!().run(&pool).await.unwrap();
+        let state = crate::state::test_state(directories, pool).await.unwrap();
+        let version: GameVersion = serde_json::from_value(serde_json::json!({
+            "id":"1.20.1", "type":"release", "url":"invalid://no-network",
+            "releaseTime":"2023-06-12T13:25:51Z", "time":"2023-06-12T13:25:51Z",
+            "sha1":"", "complianceLevel":1
+        }))
+        .unwrap();
+        let loader: LoaderVersion = serde_json::from_value(serde_json::json!({
+            "id":"47.4.28", "stable":false, "url":""
+        }))
+        .unwrap();
+        let path = state
+            .directories
+            .version_dir("1.20.1-47.4.28")
+            .join("1.20.1-47.4.28.json");
+        let mut info = version_info_with_java(None);
+        info.id = "1.20.1-47.4.28".into();
+        info.main_class = "cpw.mods.bootstraplauncher.BootstrapLauncher".into();
+        info.libraries = vec![
+            serde_json::from_value(serde_json::json!({
+                "name":"net.minecraftforge:forge:1.20.1-47.4.28:universal"
+            }))
+            .unwrap(),
+        ];
+        assert!(
+            try_load_launch_version_info(
+                &state,
+                &version,
+                ModLoader::Forge,
+                Some(&loader)
+            )
+            .await
+            .is_none()
+        );
+        write_version_info(&path, serde_json::to_vec(&info).unwrap())
+            .await
+            .unwrap();
+        assert!(
+            try_load_launch_version_info(
+                &state,
+                &version,
+                ModLoader::Forge,
+                Some(&loader)
+            )
+            .await
+            .is_none()
+        );
+        write_derived_version_cache_marker(&path).await.unwrap();
+        let loaded = try_load_launch_version_info(
+            &state,
+            &version,
+            ModLoader::Forge,
+            Some(&loader),
+        )
+        .await
+        .unwrap();
+        assert_eq!(loaded.id, "1.20.1-47.4.28");
+        assert_eq!(loaded.main_class, info.main_class);
+        assert_eq!(loaded.release_time, version.release_time);
+        let (selected, launch_info) =
+            crate::launcher::load_managed_launch_profile(
+                &state,
+                &version,
+                ModLoader::Forge,
+                Some("47.4.28"),
+                false,
+            )
+            .await
+            .unwrap();
+        assert_eq!(selected.unwrap().id, "47.4.28");
+        assert_eq!(launch_info.id, "1.20.1-47.4.28");
+        for bad in ["{", "{}"] {
+            write_version_info(&path, bad.as_bytes().to_vec())
+                .await
+                .unwrap();
+            assert!(
+                try_load_launch_version_info(
+                    &state,
+                    &version,
+                    ModLoader::Forge,
+                    Some(&loader)
+                )
+                .await
+                .is_none()
+            );
+        }
+        for variant in 0..4 {
+            let mut invalid: GameVersionInfo =
+                serde_json::from_value(serde_json::to_value(&info).unwrap())
+                    .unwrap();
+            match variant {
+                0 => invalid.id = "1.20.1-47.4.22".into(),
+                1 => invalid.main_class.clear(),
+                2 => invalid.libraries.clear(),
+                _ => {
+                    invalid.libraries[0].name =
+                        "net.minecraftforge:forge:1.20.1-47.4.22:universal"
+                            .into()
+                }
+            }
+            write_version_info(&path, serde_json::to_vec(&invalid).unwrap())
+                .await
+                .unwrap();
+            assert!(
+                try_load_launch_version_info(
+                    &state,
+                    &version,
+                    ModLoader::Forge,
+                    Some(&loader)
+                )
+                .await
+                .is_none(),
+                "variant {variant}"
+            );
+        }
+    }
+
     #[test]
     fn cleanroom_installer_declared_java_is_preserved() {
         let mut info =
@@ -2982,8 +3172,6 @@ mod tests {
         let first_legacy = PathBuf::from("resources/first");
         let second_legacy = PathBuf::from("resources/second");
         let make_item = |legacy_destinations| H2BatchAsset {
-            original_url: "https://resources.download.minecraft.net/ab/abcdef"
-                .into(),
             url: "https://resources.download.minecraft.net/ab/abcdef".into(),
             destination: destination.clone(),
             legacy_destinations,
@@ -3009,9 +3197,6 @@ mod tests {
     fn batch_assets_do_not_coalesce_different_integrity_contracts() {
         let destination = PathBuf::from("assets/objects/ab/object");
         let make_item = |sha1: &str, size| H2BatchAsset {
-            original_url: format!(
-                "https://resources.download.minecraft.net/ab/{sha1}"
-            ),
             url: format!("https://resources.download.minecraft.net/ab/{sha1}"),
             destination: destination.clone(),
             legacy_destinations: Vec::new(),
@@ -3087,31 +3272,6 @@ mod tests {
             .len(),
             3
         );
-    }
-
-    #[test]
-    fn batch_fallback_restores_official_asset_route_after_mirror_failure() {
-        let official = "https://resources.download.minecraft.net/14/14b3534e2622470a71dbe69474c15e6a233cc1c6";
-        let item = H2BatchAsset {
-            original_url: official.into(),
-            url: "https://bmclapi2.bangbang93.com/assets/14/14b3534e2622470a71dbe69474c15e6a233cc1c6"
-                .into(),
-            destination: PathBuf::from("assets/objects/14/hash"),
-            legacy_destinations: Vec::new(),
-            sha1: "14b3534e2622470a71dbe69474c15e6a233cc1c6".into(),
-            size: 42,
-            logical_items: 1,
-        };
-
-        let fallback = build_fallback_asset_from_batch(item);
-        let routes = resolve_download_routes_for(
-            &fallback.url,
-            ResourceClass::MinecraftAsset,
-            crate::state::DownloadSourceMode::MirrorPreferred,
-        );
-
-        assert_eq!(fallback.url, official);
-        assert!(routes.iter().any(|route| route.url == official));
     }
 
     #[test]

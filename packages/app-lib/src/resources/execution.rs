@@ -1,5 +1,4 @@
 use super::*;
-use crate::state::instances::adapters::sqlite::content_rows;
 use crate::state::instances::commands::{
     instance_content_root, materialize_verified_project_download_copy,
     resolve_content_scope, restore_project_materialization,
@@ -19,6 +18,10 @@ use std::{
     path::{Path, PathBuf},
 };
 use tokio_util::sync::CancellationToken;
+
+use crate::state::instances::adapters::sqlite::{
+    content_entries, content_sets, files, pack_members,
+};
 
 fn input(message: impl Into<String>) -> crate::Error {
     crate::ErrorKind::InputError(message.into()).into()
@@ -454,7 +457,6 @@ pub(crate) async fn execute(
                 request,
                 &path,
                 &state.download_semaphore,
-                &state.pool,
                 None,
             )
             .await?;
@@ -515,9 +517,14 @@ pub(crate) async fn execute(
         )
         .await?;
     }
-    let service = state.resources().await?;
     let mut retained_parents = HashMap::new();
-    for (action, (path, kind, _, _, _)) in plan.actions.iter().zip(&downloads) {
+    for (action, (path, kind, _, _, _)) in plan
+        .actions
+        .iter()
+        .zip(&downloads)
+        .filter(|_| draft.resolve_dependencies)
+    {
+        let service = state.resources().await?;
         let node = plan
             .nodes
             .iter()
@@ -542,18 +549,18 @@ pub(crate) async fn execute(
             .any(|requirement| requirement.local_mod_id.is_some())
         {
             let bytes = bytes::Bytes::from(tokio::fs::read(path).await?);
-            Some(crate::mod_metadata::extract_mod_metadata(&bytes)
-                .ok_or_else(|| input("cannot verify the updated mod's dependency version"))?)
+            crate::mod_metadata::extract_mod_metadata(&bytes)
         } else {
             None
         };
         for requirement in requirements {
-            if let Some(id) = &requirement.local_mod_id {
-                let metadata = metadata.as_ref().unwrap();
+            if let Some(id) = &requirement.local_mod_id
+                && let Some(metadata) = &metadata
+            {
                 if &metadata.mod_id != id
                     || !requirement.version_constraint.as_ref().is_none_or(
                         |constraint| {
-                            metadata.version.as_ref().is_some_and(|version| {
+                            metadata.version.as_ref().is_none_or(|version| {
                                 plans::requirements::mod_version_matches(
                                     constraint, version,
                                 )
@@ -574,8 +581,27 @@ pub(crate) async fn execute(
         }
     }
     canceled(&cancel)?;
+    let write_started = std::time::Instant::now();
+    tracing::info!(
+        plan_id = plan.id.as_str(),
+        instance_id,
+        actions = plan.actions.len(),
+        "Resource execution waiting for database writer"
+    );
     let _writer = state.acquire_install_db_permit().await?;
+    tracing::info!(
+        plan_id = plan.id.as_str(),
+        instance_id,
+        elapsed_ms = write_started.elapsed().as_millis() as u64,
+        "Resource execution waiting for instance lock"
+    );
     let _lock = state.lock_instance_content_exclusive(instance_id).await;
+    tracing::info!(
+        plan_id = plan.id.as_str(),
+        instance_id,
+        elapsed_ms = write_started.elapsed().as_millis() as u64,
+        "Resource execution acquired write access"
+    );
     let scope = resolve_content_scope(instance_id, None, state).await?;
     if scope.instance.install_stage
         != crate::state::InstanceInstallStage::Installed
@@ -761,6 +787,12 @@ pub(crate) async fn execute(
     canceled(&cancel)?;
     sqlx::query("INSERT INTO resource_execution_journals(plan_id, payload) VALUES (?, ?) ON CONFLICT(plan_id) DO UPDATE SET payload = excluded.payload").bind(plan.id.as_str()).bind(serde_json::to_string(&journal)?).execute(&state.pool).await?;
     let _critical = crate::install::critical_section::enter();
+    tracing::info!(
+        plan_id = plan.id.as_str(),
+        instance_id,
+        "Resource execution publishing verified files"
+    );
+    let mut installed_fingerprints = Vec::new();
     let result: crate::Result<()> = async {
         for ((file, (source, _, size, sha1, _)), _) in
             journal.iter().zip(&downloads).zip(&plan.actions)
@@ -776,21 +808,28 @@ pub(crate) async fn execute(
                 )
                 .await?;
             }
-            materialize_verified_project_download_copy(
+            let (_, modified) = materialize_verified_project_download_copy(
                 source,
                 &destination,
                 *size,
                 sha1,
             )
             .await?;
+            installed_fingerprints.push((
+                file.path.clone(),
+                *size,
+                sha1.clone(),
+                modified,
+            ));
         }
         persist_plan(
             &state.pool,
+            state.cache_pool(),
             &scope.content_set_id,
             plan,
             &downloads,
             &journal,
-            &draft,
+            draft,
         )
         .await
     }
@@ -813,9 +852,37 @@ pub(crate) async fn execute(
         }
         return Err(error);
     }
+    for (path, size, sha1, modified) in installed_fingerprints {
+        if let Err(error) = state
+            .file_fingerprints
+            .seed_verified(
+                state,
+                &plan.instance_id,
+                &root,
+                &path,
+                ArtifactIntegrity {
+                    size: Some(size),
+                    hashes: vec![ContentHash {
+                        algorithm: HashAlgorithm::Sha1,
+                        value: sha1,
+                    }],
+                },
+                modified,
+            )
+            .await
+        {
+            tracing::warn!(%error, "Could not save verified installed fingerprint");
+        }
+    }
     drop(_critical);
     drop(_lock);
     drop(_writer);
+    tracing::info!(
+        plan_id = plan.id.as_str(),
+        instance_id,
+        elapsed_ms = write_started.elapsed().as_millis() as u64,
+        "Resource execution committed files and database"
+    );
     if let Some(reporter) = reporter {
         reporter
             .update(
@@ -863,6 +930,7 @@ pub(crate) async fn recover_plan(
 
 async fn persist_plan(
     pool: &SqlitePool,
+    cache_pool: &SqlitePool,
     set_id: &str,
     plan: &ResourceOperationPlan,
     downloads: &[(PathBuf, ResourceType, u64, String, String)],
@@ -870,13 +938,13 @@ async fn persist_plan(
     draft: &plans::OperationDraft,
 ) -> crate::Result<()> {
     let old_dependencies =
-        content_rows::get_content_dependency_edges(set_id, pool).await?;
-    let old_members = content_rows::get_pack_members(set_id, pool).await?;
+        content_entries::get_content_dependency_edges(set_id, pool).await?;
+    let old_members = pack_members::get_pack_members(set_id, pool).await?;
     let mut prior = HashMap::new();
     for action in &plan.actions {
         let id = action.entry_id.as_str();
         let refs =
-            content_rows::get_content_provider_refs_with_origin(id, pool)
+            content_entries::get_content_provider_refs_with_origin(id, pool)
                 .await?;
         let graph: Option<(String, String)> = sqlx::query_as(
             "SELECT nodes, edges FROM resource_entry_graphs WHERE entry_id = ?",
@@ -884,7 +952,7 @@ async fn persist_plan(
         .bind(id)
         .fetch_optional(pool)
         .await?;
-        let entry = content_rows::get_content_entry_by_id(id, pool).await?;
+        let entry = content_entries::get_content_entry_by_id(id, pool).await?;
         prior.insert(action.entry_id.clone(), (refs, graph, entry));
     }
     let instance_path: String =
@@ -914,6 +982,7 @@ async fn persist_plan(
         .map(|node| (node.id.clone(), node.installed_entries.clone()))
         .collect();
     let now = chrono::Utc::now();
+    let mut cache_entries = Vec::new();
     let restore: Option<serde_json::Value> = if let Some(id) =
         &draft.restore_history
     {
@@ -930,7 +999,8 @@ async fn persist_plan(
             .remove(&action.entry_id)
             .ok_or_else(|| input("entry snapshot missing"))?;
         let old_entry = existing.clone();
-        let previous_artifact: Option<String> = sqlx::query_scalar("SELECT artifact FROM resource_installed_artifacts WHERE entry_id = ?").bind(id).fetch_optional(&mut *tx).await?;
+        let previous_artifact: Option<String> =
+            super::installed::installed_artifact_payload(id, &mut *tx).await?;
         let file_name = action
             .target_relative_path
             .rsplit('/')
@@ -951,25 +1021,24 @@ async fn persist_plan(
             sqlx::query("UPDATE instance_files SET relative_path = ?, file_name = ? WHERE id = (SELECT file_id FROM instance_content_entries WHERE id = ?) AND instance_id = ? AND relative_path = ?")
                 .bind(&action.target_relative_path).bind(file_name).bind(id).bind(&plan.instance_id).bind(&current.relative_path).execute(&mut *tx).await?;
         }
-        let disk_file =
-            content_rows::upsert_instance_file_from_parts_in_transaction(
-                content_rows::UpsertInstanceFile {
-                    instance_id: &plan.instance_id,
-                    relative_path: &action.target_relative_path,
-                    file_name,
-                    enabled: action
-                        .current
-                        .as_ref()
-                        .is_none_or(|current| current.enabled),
-                    sha1,
-                    size: *size,
-                    missing: false,
-                    local_mod_data: local_mod_data.as_deref(),
-                    icon_path: None,
-                },
-                &mut tx,
-            )
-            .await?;
+        let disk_file = files::upsert_instance_file_from_parts_in_transaction(
+            files::UpsertInstanceFile {
+                instance_id: &plan.instance_id,
+                relative_path: &action.target_relative_path,
+                file_name,
+                enabled: action
+                    .current
+                    .as_ref()
+                    .is_none_or(|current| current.enabled),
+                sha1,
+                size: *size,
+                missing: false,
+                local_mod_data: local_mod_data.as_deref(),
+                icon_path: None,
+            },
+            &mut tx,
+        )
+        .await?;
         let cache =
             crate::state::CacheValue::FileHash(crate::state::CachedFileHash {
                 path: format!(
@@ -998,7 +1067,7 @@ async fn persist_plan(
                 }),
             })
             .get_entry();
-        crate::state::CachedEntry::upsert_many(&[cache], &mut *tx).await?;
+        cache_entries.push(cache);
         sqlx::query("UPDATE instance_files SET local_mod_data = ?, icon_path = NULL WHERE id = ?").bind(&local_mod_data).bind(&disk_file.id).execute(&mut *tx).await?;
         let old_path = action
             .current
@@ -1019,8 +1088,8 @@ async fn persist_plan(
             sqlx::query("UPDATE instance_content_entries SET enabled = ?, modified_at = ? WHERE id = ?").bind(disk_file.enabled as i64).bind(now.timestamp()).bind(id).execute(&mut *tx).await?;
         } else {
             let entry =
-                content_rows::upsert_content_entry_from_parts_in_transaction(
-                    content_rows::UpsertContentEntry {
+                content_entries::upsert_content_entry_from_parts_in_transaction(
+                    content_entries::UpsertContentEntry {
                         instance_id: &plan.instance_id,
                         content_set_id: set_id,
                         file_id: Some(&disk_file.id),
@@ -1053,7 +1122,7 @@ async fn persist_plan(
             != "planet_minecraft"
         {
             let reference = provider_ref(&action.target)?;
-            content_rows::upsert_content_provider_ref_in_transaction(
+            content_entries::upsert_content_provider_ref_in_transaction(
                 id, &reference, true, &mut tx,
             )
             .await?;
@@ -1063,7 +1132,7 @@ async fn persist_plan(
                 serde_json::from_value(restore["restoreProviderRefs"].clone())?;
             sqlx::query("DELETE FROM instance_content_provider_refs WHERE content_entry_id = ?").bind(id).execute(&mut *tx).await?;
             for (previous, origin) in previous_refs {
-                content_rows::upsert_content_provider_ref_in_transaction(
+                content_entries::upsert_content_provider_ref_in_transaction(
                     id, &previous, origin, &mut tx,
                 )
                 .await?;
@@ -1108,7 +1177,13 @@ async fn persist_plan(
             artifact: verified_artifact,
             declared_compatibility: node.declared_compatibility.clone(),
         };
-        sqlx::query("INSERT INTO resource_installed_artifacts(entry_id, artifact, scope) VALUES (?, ?, ?) ON CONFLICT(entry_id) DO UPDATE SET artifact = excluded.artifact, scope = excluded.scope").bind(id).bind(serde_json::to_string(&record)?).bind(serde_json::to_string(&node.scope)?).execute(&mut *tx).await?;
+        super::installed::set_installed_artifact(
+            id,
+            &record,
+            &node.scope,
+            &mut *tx,
+        )
+        .await?;
         sqlx::query("DELETE FROM instance_content_update_checks WHERE content_entry_id = ?").bind(id).execute(&mut *tx).await?;
         sqlx::query("UPDATE instance_pack_members SET override_kind = 'version' WHERE content_entry_id = ?").bind(id).execute(&mut *tx).await?;
         node_entries
@@ -1203,7 +1278,7 @@ async fn persist_plan(
             edges =
                 serde_json::from_value(restore["restoreDependencies"].clone())?;
         }
-        content_rows::replace_content_dependency_edges_for_parent(
+        content_entries::replace_content_dependency_edges_for_parent(
             set_id,
             action.entry_id.as_str(),
             &edges,
@@ -1224,7 +1299,7 @@ async fn persist_plan(
                 serde_json::from_value(member.clone())?;
             let unlinked: i64 = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM resource_pack_unlinks WHERE instance_id = ? AND content_set_id = ?)").bind(&plan.instance_id).bind(set_id).fetch_one(&mut *tx).await?;
             if unlinked == 0 {
-                content_rows::upsert_pack_member_in_transaction(
+                pack_members::upsert_pack_member_in_transaction(
                     &member, &mut tx,
                 )
                 .await?;
@@ -1233,17 +1308,24 @@ async fn persist_plan(
         sqlx::query("UPDATE resource_entry_graphs SET nodes = ?, edges = ? WHERE entry_id = ?").bind(serde_json::to_string(&previous.previous_nodes)?).bind(serde_json::to_string(&previous.previous_dependencies)?).bind(previous.entry_id.as_str()).execute(&mut *tx).await?;
         sqlx::query("UPDATE resource_history SET backup_available = 0, payload = ? WHERE id = ?").bind(payload.to_string()).bind(id.as_str()).execute(&mut *tx).await?;
     }
-    content_rows::bump_content_set_revision_in_transaction(set_id, &mut tx)
+    content_sets::bump_content_set_revision_in_transaction(set_id, &mut tx)
         .await?;
     sqlx::query("UPDATE resource_operation_plans SET completed = 1 WHERE id = ? AND revision = ?").bind(plan.id.as_str()).bind(plan.revision).execute(&mut *tx).await?;
     sqlx::query("DELETE FROM resource_execution_journals WHERE plan_id = ?")
         .bind(plan.id.as_str())
         .execute(&mut *tx)
         .await?;
+    // The hash cache lives in the derived database. Dropping the entries the
+    // commit is about to replace keeps a run that stops before the write below
+    // from trusting metadata of the file that was just replaced.
+    crate::state::CachedEntry::forget_best_effort(&cache_entries, cache_pool)
+        .await;
     tx.commit().await?;
+    crate::state::CachedEntry::store_best_effort(&cache_entries, cache_pool)
+        .await;
     Ok(())
 }
 
 #[cfg(test)]
 #[path = "execution_tests.rs"]
-mod tests;
+pub(crate) mod tests;

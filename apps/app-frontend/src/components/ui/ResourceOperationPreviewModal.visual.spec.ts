@@ -13,10 +13,15 @@ import {
     resourceRevisePlan,
 } from '@/helpers/resources'
 import { get_instance_worlds } from '@/helpers/worlds'
+import zhMessages from '@/locales/zh-CN/index.json'
 
 import ResourceOperationPreviewModal from './ResourceOperationPreviewModal.vue'
 
 const closeTransition = vi.fn().mockResolvedValue(undefined)
+const testLocale: { language: string; messages: Record<string, { message: string }> | null } = {
+    language: 'en',
+    messages: null,
+}
 config.global.directives.tooltip = {}
 
 vi.mock('@/helpers/resources', () => ({
@@ -30,6 +35,13 @@ vi.mock('@/helpers/resources', () => ({
 vi.mock('@/helpers/instance', () => ({ refresh_content: vi.fn() }))
 vi.mock('@/helpers/worlds', () => ({ get_instance_worlds: vi.fn().mockResolvedValue([]) }))
 vi.mock('@modrinth/ui', () => ({
+    Admonition: defineComponent({
+        props: ['header', 'type'],
+        setup:
+            (props, { slots }) =>
+            () =>
+                h('aside', [h('h2', props.header), slots.default?.(), slots.actions?.()]),
+    }),
     Avatar: defineComponent({ setup: () => () => h('span') }),
     Combobox: defineComponent({
         props: ['modelValue', 'options', 'disabled'],
@@ -81,9 +93,13 @@ vi.mock('@modrinth/ui', () => ({
     defineMessages: (messages: unknown) => messages,
     useVIntl: () => ({
         formatMessage: (
-            message: { defaultMessage: string },
+            message: { id?: string; defaultMessage: string },
             values?: Record<string, string | number>,
-        ) => new IntlMessageFormat(message.defaultMessage, 'en').format(values),
+        ) =>
+            new IntlMessageFormat(
+                testLocale.messages?.[message.id ?? '']?.message ?? message.defaultMessage,
+                testLocale.language,
+            ).format(values),
     }),
 }))
 
@@ -103,7 +119,7 @@ const node = (id: string, state: string, artifact: unknown = null) => ({
 const root = node('root', 'update', { reference, fileName: 'Root.jar' })
 const optional = node('optional', 'optionalCandidate')
 
-it('omits compatibility exceptions for local filename matches but keeps real unknown release warnings', async () => {
+it('keeps unknown compatibility visible and queues without requiring exceptions', async () => {
     ready()
     const local = node('local-file', 'satisfied')
     local.compatibility = { gameVersion: 'unknown', loader: 'unknown', reasons: [] }
@@ -113,6 +129,7 @@ it('omits compatibility exceptions for local filename matches but keeps real unk
         ...plan(),
         nodes: [local, remote],
     } as unknown as ResourceOperationPlan)
+    vi.mocked(resourceQueuePlan).mockResolvedValueOnce({ job_id: 'unknown-job' } as never)
     const wrapper = mount(ResourceOperationPreviewModal)
     const result = wrapper.vm.show(input)
     try {
@@ -125,18 +142,21 @@ it('omits compatibility exceptions for local filename matches but keeps real unk
             wrapper
                 .findAll('button')
                 .filter((button) => button.text() === 'Accept Minecraft compatibility exception'),
-        ).toHaveLength(1)
+        ).toHaveLength(0)
         expect(
             wrapper
                 .findAll('button')
                 .filter((button) => button.text() === 'Accept loader compatibility exception'),
-        ).toHaveLength(1)
+        ).toHaveLength(0)
         expect(wrapper.text()).toContain('Already satisfied')
         await wrapper
             .findAll('button')
-            .find((button) => button.text() === 'Cancel')!
+            .find((button) => button.text() === 'Queue changes')!
             .trigger('click')
-        expect(await result).toBeNull()
+        await flushPromises()
+        expect(resourceRevisePlan).not.toHaveBeenCalled()
+        expect(resourceQueuePlan).toHaveBeenCalledExactlyOnceWith('plan', 1)
+        expect(await result).toEqual({ job_id: 'unknown-job' })
     } finally {
         wrapper.unmount()
     }
@@ -166,6 +186,8 @@ function plan(revision = 1): ResourceOperationPlan {
 }
 function ready() {
     vi.clearAllMocks()
+    testLocale.language = 'en'
+    testLocale.messages = null
     closeTransition.mockReset().mockResolvedValue(undefined)
     vi.mocked(resourcePrepareEntryOperation).mockResolvedValue(plan())
     vi.mocked(resourceGet).mockImplementation(
@@ -188,7 +210,276 @@ function ready() {
     )
 }
 
-it('requires an explicit roots-only preview after dependency analysis fails', async () => {
+it.each(['en', 'zh-CN'])(
+    'shows distinct localized conflict details at the top and a brief install tooltip (%s)',
+    async (language) => {
+        ready()
+        testLocale.language = language
+        testLocale.messages = language === 'zh-CN' ? zhMessages : null
+        const sodium = node('sodium', 'selectedRoot', { reference, fileName: 'Sodium.jar' })
+        vi.mocked(resourcePrepareEntryOperation).mockResolvedValue({
+            ...plan(),
+            nodes: [root, sodium],
+            issues: [
+                {
+                    code: 'versionConflict',
+                    selectionId: 'root',
+                    blocking: true,
+                    message: 'incompatible resource is active',
+                    conflict: {
+                        reason: 'incompatibleResource',
+                        subject: 'Canvas Renderer',
+                        related: 'Sodium.jar',
+                        required: '*',
+                        actual: null,
+                    },
+                },
+                {
+                    code: 'versionConflict',
+                    selectionId: 'root',
+                    blocking: true,
+                    message:
+                        'parent dependency requirement is not satisfied by the selected artifact',
+                    conflict: {
+                        reason: 'dependencyVersion',
+                        subject: 'Canvas Renderer',
+                        related: 'Sodium.jar',
+                        required: '>=0.6',
+                        actual: '0.5.13',
+                    },
+                },
+            ],
+        } as ResourceOperationPlan)
+        vi.mocked(resourceGet).mockImplementation(
+            async (reference) =>
+                ({
+                    projects: [
+                        {
+                            project:
+                                reference.kind === 'source'
+                                    ? reference.project
+                                    : { source: 'modrinth', projectId: reference.id },
+                            title:
+                                reference.kind === 'source' &&
+                                reference.project.projectId === 'sodium'
+                                    ? 'Sodium'
+                                    : 'Canvas Renderer',
+                            iconUrl: null,
+                        },
+                    ],
+                }) as Awaited<ReturnType<typeof resourceGet>>,
+        )
+        const wrapper = mount(ResourceOperationPreviewModal, {
+            global: {
+                directives: {
+                    tooltip: {
+                        mounted: (element, binding) => {
+                            element.dataset.tooltip = binding.value ?? ''
+                        },
+                        updated: (element, binding) => {
+                            element.dataset.tooltip = binding.value ?? ''
+                        },
+                    },
+                },
+            },
+        })
+        const result = wrapper.vm.show(input)
+        try {
+            await flushPromises()
+            const expected =
+                language === 'zh-CN'
+                    ? [
+                          'Canvas Renderer 声明与 Sodium 不兼容（冲突范围：所有版本）。',
+                          'Canvas Renderer 要求 Sodium 满足 >=0.6，当前所选版本或文件为 0.5.13。',
+                      ]
+                    : [
+                          'Canvas Renderer declares an incompatibility with Sodium (all versions).',
+                          'Canvas Renderer requires Sodium to match >=0.6; the selected version or file is 0.5.13.',
+                      ]
+            const queueLabel =
+                language === 'zh-CN'
+                    ? zhMessages['app.resources.operation.apply'].message
+                    : 'Queue changes'
+            const button = wrapper.findAll('button').find((button) => button.text() === queueLabel)!
+            const details = wrapper.find('[data-resource-conflicts]')
+            expect(details.exists()).toBe(true)
+            expect(details.element.parentElement?.firstElementChild).toBe(details.element)
+            expect(details.findAll('li')).toHaveLength(2)
+            for (const text of expected) {
+                expect(details.text()).toContain(text)
+                expect(button.attributes('data-tooltip')).not.toContain(text)
+            }
+            expect(button.attributes('data-tooltip')).toBe(
+                language === 'zh-CN' ? '检测到版本冲突。' : 'A version conflict was detected.',
+            )
+            expect(button.attributes('data-tooltip')).not.toContain('0.5.13')
+            expect(wrapper.text()).not.toContain('incompatible resource is active')
+            expect(wrapper.text()).not.toContain('parent dependency requirement is not satisfied')
+            expect(button.attributes('disabled')).toBeUndefined()
+            await wrapper.vm.cancel()
+            expect(await result).toBeNull()
+        } finally {
+            wrapper.unmount()
+        }
+    },
+)
+
+it('explains a selected mod resolution failure at the top without calling it a dependency failure', async () => {
+    ready()
+    testLocale.language = 'zh-CN'
+    testLocale.messages = zhMessages
+    const failed = {
+        ...plan(),
+        nodes: [],
+        actions: [],
+        issues: [
+            {
+                code: 'missingDependency',
+                selectionId: 'root',
+                blocking: true,
+                message: 'opaque selected release diagnostic',
+                context: { dependency: false, subject: 'Example Mod', source: 'modrinth' },
+            },
+        ],
+    } as ResourceOperationPlan
+    vi.mocked(resourcePrepareEntryOperation).mockResolvedValue(failed)
+    vi.mocked(resourceRevisePlan).mockResolvedValue({ ...failed, revision: 2 })
+    const wrapper = mount(ResourceOperationPreviewModal, {
+        global: {
+            directives: {
+                tooltip: {
+                    mounted: (element, binding) => {
+                        element.dataset.tooltip = binding.value ?? ''
+                    },
+                    updated: (element, binding) => {
+                        element.dataset.tooltip = binding.value ?? ''
+                    },
+                },
+            },
+        },
+    })
+    const result = wrapper.vm.show(input)
+    try {
+        await flushPromises()
+        const details = wrapper.find('[data-resource-conflicts]')
+        expect(details.element.parentElement?.firstElementChild).toBe(details.element)
+        expect(details.text()).toContain('Example Mod（Modrinth）')
+        expect(details.text()).toContain('无法准备所选内容')
+        expect(details.text()).toContain('跳过依赖检查无法解决此问题')
+        expect(details.text()).not.toContain('无法解析所需的依赖')
+        expect(details.text()).not.toContain('opaque selected release diagnostic')
+        const button = wrapper
+            .findAll('button')
+            .find(
+                (button) => button.text() === zhMessages['app.resources.operation.apply'].message,
+            )!
+        expect(button.attributes('data-tooltip')).toBe('无法准备所选内容。')
+        expect(button.attributes('disabled')).toBeUndefined()
+        await button.trigger('click')
+        await flushPromises()
+        expect(resourceQueuePlan).not.toHaveBeenCalled()
+        expect(wrapper.find('[data-resource-conflicts]').findAll('li')).toHaveLength(1)
+        await wrapper.vm.cancel()
+        expect(await result).toBeNull()
+    } finally {
+        wrapper.unmount()
+    }
+})
+
+it('uses the cart analysis and closes its preview when that cart snapshot is invalidated', async () => {
+    ready()
+    const controller = new AbortController()
+    const prepare = vi.fn().mockResolvedValue(plan())
+    const wrapper = mount(ResourceOperationPreviewModal)
+    const result = wrapper.vm.showInstallSelection({
+        instanceId: 'instance',
+        instanceName: 'Instance',
+        selections: [],
+        installDependencies: true,
+        analysis: { signal: controller.signal, prepare, cancel: vi.fn() },
+    })
+    try {
+        await flushPromises()
+        expect(prepare).toHaveBeenCalledTimes(1)
+        expect(resourcePrepareOperation).not.toHaveBeenCalled()
+        controller.abort()
+        await expect(result).resolves.toBeNull()
+        expect(resourceQueuePlan).not.toHaveBeenCalled()
+    } finally {
+        wrapper.unmount()
+    }
+})
+
+it('cancels a dependency analysis that never finishes from the Cancel button and stops the cart analysis', async () => {
+    ready()
+    const controller = new AbortController()
+    let analysisSignal: AbortSignal | undefined
+    let late!: (value: ResourceOperationPlan) => void
+    const prepare = vi.fn(
+        (signal: AbortSignal) =>
+            new Promise<ResourceOperationPlan>((resolve) => {
+                analysisSignal = signal
+                late = resolve
+            }),
+    )
+    const cancelAnalysis = vi.fn(() => controller.abort())
+    const wrapper = mount(ResourceOperationPreviewModal)
+    const result = wrapper.vm.showInstallSelection({
+        instanceId: 'instance',
+        instanceName: 'Instance',
+        selections: [],
+        installDependencies: true,
+        analysis: { signal: controller.signal, prepare, cancel: cancelAnalysis },
+    })
+    try {
+        await flushPromises()
+        expect(wrapper.find('[data-operation-skeleton]').exists()).toBe(true)
+        const cancel = wrapper.findAll('button').find((button) => button.text() === 'Cancel')!
+        expect(cancel.attributes('disabled')).toBeUndefined()
+        await cancel.trigger('click')
+        await flushPromises()
+        expect(analysisSignal?.aborted).toBe(true)
+        expect(cancelAnalysis).toHaveBeenCalledOnce()
+        expect(await result).toBeNull()
+        expect(wrapper.find('section').exists()).toBe(false)
+        late(plan())
+        await flushPromises()
+        expect(wrapper.find('section').exists()).toBe(false)
+        expect(resourceQueuePlan).not.toHaveBeenCalled()
+    } finally {
+        wrapper.unmount()
+    }
+})
+
+it('keeps a finished cart analysis when its reviewed preview is closed', async () => {
+    ready()
+    const cancelAnalysis = vi.fn()
+    const wrapper = mount(ResourceOperationPreviewModal)
+    const result = wrapper.vm.showInstallSelection({
+        instanceId: 'instance',
+        instanceName: 'Instance',
+        selections: [],
+        installDependencies: true,
+        analysis: {
+            signal: new AbortController().signal,
+            prepare: vi.fn().mockResolvedValue(plan()),
+            cancel: cancelAnalysis,
+        },
+    })
+    try {
+        await flushPromises()
+        await wrapper
+            .findAll('button')
+            .find((button) => button.text() === 'Cancel')!
+            .trigger('click')
+        expect(await result).toBeNull()
+        expect(cancelAnalysis).not.toHaveBeenCalled()
+    } finally {
+        wrapper.unmount()
+    }
+})
+
+it('uses a warning tooltip and queues selected content in one click after dependency analysis fails', async () => {
     ready()
     const reviewed = {
         ...plan(),
@@ -235,14 +526,12 @@ it('requires an explicit roots-only preview after dependency analysis fails', as
         const button = wrapper
             .findAll('button')
             .find((button) => button.text() === 'Queue changes')!
-        expect(button.attributes('disabled')).toBeDefined()
-        expect(button.attributes('data-tooltip')).toBe(
-            'Dependency analysis failed. The instance may not work correctly.',
-        )
-        await wrapper
-            .findAll('button')
-            .find((button) => button.text() === 'Force install selected content only')!
-            .trigger('click')
+        expect(button.attributes('disabled')).toBeUndefined()
+        expect(button.attributes('color')).toBe('orange')
+        expect(button.attributes('type')).toBe('colored')
+        expect(button.attributes('data-tooltip')).toBe('Could not connect to the content source.')
+        expect(wrapper.text()).not.toContain('Force install selected content only')
+        await button.trigger('click')
         await flushPromises()
         expect(resourceRevisePlan).toHaveBeenCalledWith(
             reviewed.id,
@@ -251,11 +540,6 @@ it('requires an explicit roots-only preview after dependency analysis fails', as
             expect.any(AbortSignal),
             expect.any(Function),
         )
-        expect(resourceQueuePlan).not.toHaveBeenCalled()
-        expect(wrapper.text()).toContain('Dependencies will not be checked or installed')
-        expect(button.attributes('disabled')).toBeUndefined()
-        await button.trigger('click')
-        await flushPromises()
         expect(resourceQueuePlan).toHaveBeenCalledExactlyOnceWith(reviewed.id, 2)
         expect((await result)?.job_id).toBe('queued')
     } finally {
@@ -263,9 +547,76 @@ it('requires an explicit roots-only preview after dependency analysis fails', as
     }
 })
 
-it('does not bypass blocking file validation when dependency analysis also failed', async () => {
+it('queues selected content in one click when dependency conflicts have other blocking issues', async () => {
     ready()
-    vi.mocked(resourcePrepareOperation).mockResolvedValue({
+    const dependency = {
+        ...node('dependency', 'conflict', { reference, fileName: 'Dependency.jar' }),
+        compatibility: { gameVersion: 'incompatible', loader: 'compatible', reasons: [] },
+    }
+    const reviewed = {
+        ...plan(),
+        nodes: [root, dependency],
+        issues: [
+            {
+                code: 'versionConflict',
+                selectionId: 'root',
+                blocking: true,
+                message: 'required dependency conflicts with an active root release or artifact',
+            },
+            {
+                code: 'compatibilityMismatch',
+                selectionId: 'dependency',
+                blocking: true,
+                message: 'game version mismatch',
+            },
+            {
+                code: 'sourceUnavailable',
+                selectionId: 'other-dependency',
+                blocking: true,
+                message: 'source offline',
+            },
+        ],
+    } as ResourceOperationPlan
+    vi.mocked(resourcePrepareEntryOperation).mockResolvedValue(reviewed)
+    vi.mocked(resourceRevisePlan).mockResolvedValue({
+        ...plan(2),
+        nodes: [root],
+    })
+    vi.mocked(resourceQueuePlan).mockResolvedValue({ job_id: 'queued' } as never)
+    const wrapper = mount(ResourceOperationPreviewModal)
+    const result = wrapper.vm.show(input)
+    try {
+        await flushPromises()
+        const queue = () =>
+            wrapper.findAll('button').find((button) => button.text() === 'Queue changes')!
+        expect(queue().attributes('disabled')).toBeUndefined()
+        expect(queue().attributes('color')).toBe('orange')
+        await queue().trigger('click')
+        await flushPromises()
+        expect(resourceRevisePlan).toHaveBeenCalledExactlyOnceWith(
+            reviewed.id,
+            reviewed.revision,
+            [{ kind: 'ignoreDependencies' }],
+            expect.any(AbortSignal),
+            expect.any(Function),
+        )
+        expect(resourceQueuePlan).toHaveBeenCalledExactlyOnceWith(reviewed.id, 2)
+        expect((await result)?.job_id).toBe('queued')
+    } finally {
+        wrapper.unmount()
+    }
+})
+
+it('preserves blocking root file validation after preparing a roots-only preview', async () => {
+    ready()
+    const invalidPath = {
+        code: 'invalidPath' as const,
+        selectionId: 'root',
+        entryId: null,
+        blocking: true,
+        message: 'invalid filename',
+    }
+    const reviewed = {
         ...plan(),
         intent: 'install',
         issues: [
@@ -275,14 +626,15 @@ it('does not bypass blocking file validation when dependency analysis also faile
                 blocking: false,
                 message: 'source offline',
             },
-            {
-                code: 'invalidPath',
-                selectionId: 'root',
-                blocking: true,
-                message: 'invalid filename',
-            },
+            invalidPath,
         ],
-    } as ResourceOperationPlan)
+    } as ResourceOperationPlan
+    vi.mocked(resourcePrepareOperation).mockResolvedValue(reviewed)
+    vi.mocked(resourceRevisePlan).mockResolvedValue({
+        ...reviewed,
+        revision: 2,
+        issues: [invalidPath],
+    })
     const wrapper = mount(ResourceOperationPreviewModal, {
         global: { directives: { tooltip: {} } },
     })
@@ -297,7 +649,19 @@ it('does not bypass blocking file validation when dependency analysis also faile
         const button = wrapper
             .findAll('button')
             .find((button) => button.text() === 'Queue changes')!
-        expect(button.attributes('disabled')).toBeDefined()
+        expect(button.attributes('disabled')).toBeUndefined()
+        await button.trigger('click')
+        await flushPromises()
+        expect(resourceRevisePlan).toHaveBeenCalledWith(
+            reviewed.id,
+            reviewed.revision,
+            [{ kind: 'ignoreDependencies' }],
+            expect.any(AbortSignal),
+            expect.any(Function),
+        )
+        expect(wrapper.text()).toContain('The installation path is invalid')
+        expect(button.attributes('disabled')).toBeUndefined()
+        expect(button.attributes('color')).toBe('orange')
         await button.trigger('click')
         expect(resourceQueuePlan).not.toHaveBeenCalled()
         expect(
@@ -372,13 +736,10 @@ it('combines dependency fallback with skipped files and submits only the writabl
         await flushPromises()
         const queue = () =>
             wrapper.findAll('button').find((button) => button.text() === 'Queue changes')!
-        expect(queue().attributes('disabled')).toBeDefined()
-        await wrapper
-            .findAll('button')
-            .find((button) => button.text() === 'Force install selected content only')!
-            .trigger('click')
+        expect(queue().attributes('disabled')).toBeUndefined()
+        await queue().trigger('click')
         await flushPromises()
-        expect(wrapper.text()).toContain('Dependencies will not be checked or installed')
+        expect(resourceQueuePlan).not.toHaveBeenCalled()
         await wrapper
             .findAll('button')
             .find((button) => button.text() === 'Force install writable files')!
@@ -403,12 +764,13 @@ it('combines dependency fallback with skipped files and submits only the writabl
     }
 })
 
-it('can prepare selected content without dependencies after analysis rejects the entire preview', async () => {
+it('retries the one-click install without dependencies after analysis rejects the entire preview', async () => {
     ready()
     vi.mocked(resourcePrepareOperation)
         .mockRejectedValueOnce(new Error('dependency analysis failed'))
         .mockRejectedValueOnce(new Error('temporary failure'))
         .mockResolvedValueOnce({ ...plan(), intent: 'install' })
+    vi.mocked(resourceQueuePlan).mockResolvedValue({ job_id: 'queued' } as never)
     const wrapper = mount(ResourceOperationPreviewModal)
     const result = wrapper.vm.showInstall({
         instanceId: 'instance',
@@ -420,7 +782,7 @@ it('can prepare selected content without dependencies after analysis rejects the
         await flushPromises()
         await wrapper
             .findAll('button')
-            .find((button) => button.text() === 'Force install selected content only')!
+            .find((button) => button.text() === 'Queue changes')!
             .trigger('click')
         await flushPromises()
         await wrapper
@@ -439,30 +801,121 @@ it('can prepare selected content without dependencies after analysis rejects the
             expect.any(Function),
             false,
         )
-        expect(wrapper.text()).toContain('Dependencies will not be checked or installed')
-        expect(resourceQueuePlan).not.toHaveBeenCalled()
-        vi.mocked(resourceQueuePlan).mockRejectedValueOnce(
-            new Error('instance changed after review'),
-        )
-        await wrapper
+        expect(resourceQueuePlan).toHaveBeenCalledExactlyOnceWith('plan', 1)
+        expect((await result)?.job_id).toBe('queued')
+    } finally {
+        wrapper.unmount()
+    }
+})
+
+it('accepts the selected release compatibility exceptions and queues it in the same click', async () => {
+    ready()
+    const incompatible = {
+        ...root,
+        compatibility: { gameVersion: 'incompatible', loader: 'unknown', reasons: [] },
+    }
+    const issues = [
+        {
+            code: 'compatibilityMismatch',
+            selectionId: 'root',
+            blocking: true,
+            message: 'game version mismatch',
+        },
+    ]
+    vi.mocked(resourcePrepareEntryOperation).mockResolvedValue({
+        ...plan(),
+        nodes: [incompatible],
+        issues,
+    } as ResourceOperationPlan)
+    vi.mocked(resourceRevisePlan)
+        .mockResolvedValueOnce({
+            ...plan(2),
+            nodes: [incompatible],
+            issues,
+        } as ResourceOperationPlan)
+        .mockResolvedValueOnce(plan(3))
+    vi.mocked(resourceQueuePlan).mockResolvedValueOnce({ job_id: 'forced-job' } as never)
+    const wrapper = mount(ResourceOperationPreviewModal)
+    const result = wrapper.vm.show(input)
+    try {
+        await flushPromises()
+        const button = wrapper
             .findAll('button')
             .find((button) => button.text() === 'Queue changes')!
-            .trigger('click')
+        expect(button.attributes('color')).toBe('orange')
+        expect(button.attributes('disabled')).toBeUndefined()
+        await button.trigger('click')
         await flushPromises()
-        expect(resourcePrepareOperation).toHaveBeenLastCalledWith(
-            'instance',
-            'install',
-            [],
-            true,
+        expect(resourceRevisePlan).toHaveBeenNthCalledWith(
+            1,
+            'plan',
+            1,
+            [{ kind: 'ignoreDependencies' }],
             expect.any(AbortSignal),
-            undefined,
-            undefined,
             expect.any(Function),
-            false,
         )
-        expect(wrapper.text()).toContain('Dependencies will not be checked or installed')
-        await wrapper.vm.cancel()
+        expect(resourceRevisePlan).toHaveBeenNthCalledWith(
+            2,
+            'plan',
+            2,
+            [
+                {
+                    kind: 'acceptCompatibility',
+                    exception: {
+                        selectionId: 'root',
+                        release: reference.release,
+                        dimensions: ['gameVersion'],
+                    },
+                },
+            ],
+            expect.any(AbortSignal),
+            expect.any(Function),
+        )
+        expect(resourceQueuePlan).toHaveBeenCalledExactlyOnceWith('plan', 3)
+        expect((await result)?.job_id).toBe('forced-job')
+        expect(wrapper.find('section').exists()).toBe(false)
+    } finally {
+        wrapper.unmount()
+    }
+})
+
+it('locks the one-click fallback against duplicate submission and reopening but lets its revision be canceled', async () => {
+    ready()
+    vi.mocked(resourcePrepareEntryOperation).mockResolvedValue({
+        ...plan(),
+        issues: [
+            { code: 'versionConflict', selectionId: 'root', blocking: true, message: 'conflict' },
+        ],
+    } as ResourceOperationPlan)
+    let finish!: (value: ResourceOperationPlan) => void
+    vi.mocked(resourceRevisePlan).mockImplementationOnce(
+        () =>
+            new Promise((resolve) => {
+                finish = resolve
+            }),
+    )
+    const wrapper = mount(ResourceOperationPreviewModal)
+    const result = wrapper.vm.show(input)
+    try {
+        await flushPromises()
+        const button = wrapper
+            .findAll('button')
+            .find((button) => button.text() === 'Queue changes')!
+        await button.trigger('click')
+        await flushPromises()
+        expect(button.attributes('disabled')).toBeDefined()
+        await button.trigger('click')
+        expect(await wrapper.vm.show({ ...input, instanceId: 'other' })).toBeNull()
+        expect(resourceRevisePlan).toHaveBeenCalledOnce()
+        const cancel = wrapper.findAll('button').find((button) => button.text() === 'Cancel')!
+        expect(cancel.attributes('disabled')).toBeUndefined()
+        await cancel.trigger('click')
+        await flushPromises()
+        expect(wrapper.find('section').exists()).toBe(false)
         expect(await result).toBeNull()
+        finish(plan(2))
+        await flushPromises()
+        expect(resourceQueuePlan).not.toHaveBeenCalled()
     } finally {
         wrapper.unmount()
     }
@@ -550,7 +1003,7 @@ const input = {
     installDependencies: true,
 }
 
-it('shows blocking compatibility and exception controls for byte-matched installed dependencies', async () => {
+it('keeps compatibility exception controls and an enabled warning install button for installed dependencies', async () => {
     ready()
     const dependency = {
         ...node('installed', 'satisfied', { reference, fileName: 'Installed.jar' }),
@@ -582,7 +1035,7 @@ it('shows blocking compatibility and exception controls for byte-matched install
                 .findAll('button')
                 .find((button) => button.text() === 'Queue changes')!
                 .attributes('disabled'),
-        ).toBeDefined()
+        ).toBeUndefined()
         await wrapper.vm.cancel()
         expect(await result).toBeNull()
     } finally {
@@ -590,7 +1043,7 @@ it('shows blocking compatibility and exception controls for byte-matched install
     }
 })
 
-it('shows each parsed item while retaining the skeleton and locking every button until the final plan arrives', async () => {
+it('shows each parsed item while retaining the skeleton and locking every button except Cancel until the final plan arrives', async () => {
     ready()
     let progress!: (value: ResourceOperationProgress) => void
     let complete!: (value: ResourceOperationPlan) => void
@@ -604,6 +1057,7 @@ it('shows each parsed item while retaining the skeleton and locking every button
     const result = wrapper.vm.show(input)
     const emit = (value: ReturnType<typeof node>, title: string) =>
         progress({
+            kind: 'node',
             planId: 'plan',
             revision: 1,
             node: value,
@@ -626,7 +1080,11 @@ it('shows each parsed item while retaining the skeleton and locking every button
         expect(
             wrapper
                 .findAll('button')
-                .every((button) => button.attributes('disabled') !== undefined),
+                .every(
+                    (button) =>
+                        (button.attributes('disabled') === undefined) ===
+                        (button.text() === 'Cancel'),
+                ),
         ).toBe(true)
         expect(resourceQueuePlan).not.toHaveBeenCalled()
         complete({ ...plan(), nodes: [root, child] } as ResourceOperationPlan)
@@ -645,6 +1103,89 @@ it('shows each parsed item while retaining the skeleton and locking every button
             .find((button) => button.text() === 'Cancel')!
             .trigger('click')
         expect(await result).toBeNull()
+    } finally {
+        wrapper.unmount()
+    }
+})
+
+it('shows what the analysis is doing and drops nodes a later resolution round removed', async () => {
+    ready()
+    let progress!: (value: ResourceOperationProgress) => void
+    let complete!: (value: ResourceOperationPlan) => void
+    vi.mocked(resourcePrepareEntryOperation).mockImplementationOnce((...args) => {
+        progress = args[6]!
+        return new Promise((resolve) => {
+            complete = resolve
+        })
+    })
+    const wrapper = mount(ResourceOperationPreviewModal)
+    const result = wrapper.vm.show(input)
+    const stage = () => wrapper.get('[data-operation-phase]').text()
+    const update = (value: object) => progress(value as ResourceOperationProgress)
+    const emit = (value: ReturnType<typeof node>, title: string, round: number) =>
+        update({
+            kind: 'node',
+            planId: 'plan',
+            revision: 1,
+            round,
+            node: value,
+            metadata: { title, iconUrl: null, summary: '' },
+        })
+    try {
+        await flushPromises()
+        expect(stage()).toBe('Resolving releases and dependencies…')
+        update({ kind: 'phase', phase: 'collectingConstraints' })
+        await flushPromises()
+        expect(stage()).toBe('Collecting the version requirements of installed content…')
+
+        update({ kind: 'roundStarted', planId: 'plan', revision: 1, round: 0 })
+        await flushPromises()
+        expect(stage()).toBe('Resolving releases and dependencies…')
+        emit(root, 'Parsed root', 0)
+        emit(node('stale', 'install', { reference, fileName: 'Stale.jar' }), 'Stale dependency', 0)
+        await flushPromises()
+        expect(stage()).toBe('Resolving releases and dependencies…')
+        expect(wrapper.text()).toContain('Stale dependency')
+
+        update({ kind: 'roundStarted', planId: 'plan', revision: 1, round: 1 })
+        update({ kind: 'nodeRemoved', planId: 'plan', revision: 1, round: 1, nodeId: 'stale' })
+        await flushPromises()
+        expect(stage()).toBe('Resolving dependencies again to settle version conflicts…')
+        expect(wrapper.text()).not.toContain('Stale dependency')
+        expect(wrapper.text()).toContain('Parsed root')
+
+        update({ kind: 'phase', phase: 'validating' })
+        await flushPromises()
+        expect(stage()).toBe('Checking that the files can be written…')
+        // Closing the window releases the run without going through cancel().
+        await (wrapper.vm as unknown as { modal: { hide: () => Promise<void> } }).modal.hide()
+        expect(await result).toBeNull()
+        complete({ ...plan(), nodes: [root] } as ResourceOperationPlan)
+
+        // A data pack preview waits for the world list before it analyzes; its
+        // skeleton starts from the default text, not the closed run's stage.
+        vi.mocked(get_instance_worlds).mockReturnValueOnce(new Promise(() => {}))
+        const next = wrapper.vm.showInstall({
+            instanceId: 'instance',
+            instanceName: 'Example',
+            installDependencies: true,
+            selections: [
+                {
+                    id: 'pack',
+                    resourceType: 'dataPack',
+                    scope: { kind: 'instance' },
+                    release: { kind: 'automatic' },
+                    resource: {
+                        kind: 'source',
+                        project: { source: 'modrinth', projectId: 'pack0000' },
+                    },
+                },
+            ],
+        })
+        await flushPromises()
+        expect(stage()).toBe('Resolving releases and dependencies…')
+        await wrapper.vm.cancel()
+        expect(await next).toBeNull()
     } finally {
         wrapper.unmount()
     }
@@ -669,6 +1210,7 @@ it('discards partial revision items after failure and keeps the previously revie
             .find((button) => button.text() === '＋')!
             .trigger('click')
         progress({
+            kind: 'node',
             planId: 'plan',
             revision: 2,
             node: node('partial', 'install'),
@@ -731,6 +1273,13 @@ it('data packs require a real world and a failed world switch cannot queue the p
         expect(resourcePrepareOperation).not.toHaveBeenCalled()
         await wrapper
             .findAll('button')
+            .find((button) => button.text() === 'Queue changes')!
+            .trigger('click')
+        await flushPromises()
+        expect(resourcePrepareOperation).not.toHaveBeenCalled()
+        expect(resourceQueuePlan).not.toHaveBeenCalled()
+        await wrapper
+            .findAll('button')
             .find((button) => button.text() === 'Retry')!
             .trigger('click')
         await flushPromises()
@@ -747,28 +1296,26 @@ it('data packs require a real world and a failed world switch cannot queue the p
                 .findAll('button')
                 .find((button) => button.text() === 'Queue changes')
                 ?.attributes('disabled'),
-        ).toBeDefined()
+        ).toBeUndefined()
         expect(resourceQueuePlan).not.toHaveBeenCalled()
         vi.mocked(resourcePrepareOperation).mockResolvedValueOnce(plan())
+        vi.mocked(resourceQueuePlan).mockResolvedValueOnce({ job_id: 'world-job' } as never)
         await wrapper
             .findAll('button')
-            .find((button) => button.text() === 'Force install selected content only')!
+            .find((button) => button.text() === 'Queue changes')!
             .trigger('click')
         await flushPromises()
         const forcedWorld = vi.mocked(resourcePrepareOperation).mock.lastCall!
         expect(forcedWorld[2][0].scope).toEqual({ kind: 'world', relativePath: 'saves/two' })
         expect(forcedWorld[8]).toBe(false)
-        await wrapper
-            .findAll('button')
-            .find((button) => button.text() === 'Cancel')!
-            .trigger('click')
-        expect(await result).toBeNull()
+        expect((await result)?.job_id).toBe('world-job')
+        expect(resourceQueuePlan).toHaveBeenCalledExactlyOnceWith('plan', 1)
     } finally {
         wrapper.unmount()
     }
 })
 
-it('requires explicit addition of a missing dependency when automatic installation is off', async () => {
+it('allows adding a missing dependency or using the warning install button when automatic installation is off', async () => {
     ready()
     const missing = node('required', 'missing', { reference, fileName: 'Required.jar' })
     vi.mocked(resourcePrepareEntryOperation).mockResolvedValue({
@@ -802,7 +1349,7 @@ it('requires explicit addition of a missing dependency when automatic installati
                 .findAll('button')
                 .find((button) => button.text() === 'Queue changes')!
                 .attributes('disabled'),
-        ).toBeDefined()
+        ).toBeUndefined()
         vi.mocked(resourceRevisePlan).mockResolvedValue({
             ...plan(2),
             nodes: [root, { ...missing, state: 'selectedRoot' }],
@@ -848,7 +1395,7 @@ it('previews an exact path, retains the previous revision on optional failure, a
             .trigger('click')
         await flushPromises()
         expect(wrapper.text()).toContain(
-            'Could not complete the content operation. Refresh and try again.',
+            'The content source is unavailable. Check the connection and source settings, then retry.',
         )
         expect(wrapper.text()).toContain('mods/custom.jar.disabled')
         vi.mocked(resourceRevisePlan).mockResolvedValueOnce({
@@ -884,13 +1431,13 @@ it('previews an exact path, retains the previous revision on optional failure, a
     }
 })
 
-it('blocks unaccepted compatibility and binds an exception to exactly one release', async () => {
+it('warns about unaccepted compatibility and binds manual exceptions to exactly one release', async () => {
     ready()
     const incompatible = {
         ...root,
         compatibility: {
             gameVersion: 'incompatible',
-            loader: 'unknown',
+            loader: 'incompatible',
             reasons: ['gameVersion', 'loader'],
         },
     }
@@ -915,7 +1462,7 @@ it('blocks unaccepted compatibility and binds an exception to exactly one releas
                 .findAll('button')
                 .find((button) => button.text() === 'Queue changes')!
                 .attributes('disabled'),
-        ).toBeDefined()
+        ).toBeUndefined()
         vi.mocked(resourceRevisePlan).mockResolvedValue({
             ...plan(2),
             nodes: [incompatible],
@@ -925,9 +1472,9 @@ it('blocks unaccepted compatibility and binds an exception to exactly one releas
             issues: [
                 {
                     selectionId: 'root',
-                    code: 'compatibilityUnknown',
+                    code: 'compatibilityMismatch',
                     blocking: true,
-                    message: 'unknown loader',
+                    message: 'incompatible loader',
                 },
             ],
         } as ResourceOperationPlan)
@@ -957,7 +1504,7 @@ it('blocks unaccepted compatibility and binds an exception to exactly one releas
                 .findAll('button')
                 .find((button) => button.text() === 'Queue changes')!
                 .attributes('disabled'),
-        ).toBeDefined()
+        ).toBeUndefined()
         expect(
             wrapper
                 .findAll('button')
@@ -996,7 +1543,7 @@ it('blocks unaccepted compatibility and binds an exception to exactly one releas
     }
 })
 
-it('locks preparation controls and cancels an obsolete session without allowing old responses to replace it', async () => {
+it('locks preparation controls except Cancel and cancels an obsolete session without allowing old responses to replace it', async () => {
     ready()
     let signal: AbortSignal | undefined
     let oldProgress: ((value: ResourceOperationProgress) => void) | undefined
@@ -1015,7 +1562,11 @@ it('locks preparation controls and cancels an obsolete session without allowing 
         expect(
             wrapper
                 .findAll('button')
-                .every((button) => button.attributes('disabled') !== undefined),
+                .every(
+                    (button) =>
+                        (button.attributes('disabled') === undefined) ===
+                        (button.text() === 'Cancel'),
+                ),
         ).toBe(true)
         const current = wrapper.vm.show({ ...input, instanceId: 'other' })
         expect(await old).toBeNull()
@@ -1023,6 +1574,7 @@ it('locks preparation controls and cancels an obsolete session without allowing 
         await flushPromises()
         resolveOld({ ...plan(9), actions: [] })
         oldProgress?.({
+            kind: 'node',
             planId: 'old',
             revision: 9,
             node: node('obsolete-progress', 'install'),
@@ -1042,7 +1594,7 @@ it('locks preparation controls and cancels an obsolete session without allowing 
     }
 })
 
-it('refreshes a stale reviewed plan before queueing and keeps the selected root draft', async () => {
+it('refreshes a stale reviewed plan and queues the selected root draft without another click', async () => {
     ready()
     const wrapper = mount(ResourceOperationPreviewModal)
     const importFiles = { root: 'C:/Downloads/exact.jar' }
@@ -1053,6 +1605,9 @@ it('refreshes a stale reviewed plan before queueing and keeps the selected root 
         vi.mocked(resourceQueuePlan).mockRejectedValueOnce({
             message: 'instance changed after review',
         })
+        vi.mocked(resourceQueuePlan).mockResolvedValueOnce({ job_id: 'refreshed-job' } as Awaited<
+            ReturnType<typeof resourceQueuePlan>
+        >)
         vi.mocked(resourcePrepareOperation).mockResolvedValueOnce({ ...plan(7), id: 'refreshed' })
         await wrapper
             .findAll('button')
@@ -1071,16 +1626,42 @@ it('refreshes a stale reviewed plan before queueing and keeps the selected root 
             expect.any(Function),
             true,
         )
-        vi.mocked(resourceQueuePlan).mockResolvedValueOnce({ job_id: 'refreshed-job' } as Awaited<
-            ReturnType<typeof resourceQueuePlan>
-        >)
+        expect(resourceQueuePlan).toHaveBeenCalledTimes(2)
+        expect(resourceQueuePlan).toHaveBeenLastCalledWith('refreshed', 7)
+        expect(await result).toEqual({ job_id: 'refreshed-job' })
+    } finally {
+        wrapper.unmount()
+    }
+})
+
+it('lets the user cancel the re-analysis that follows a stale queue attempt', async () => {
+    ready()
+    const wrapper = mount(ResourceOperationPreviewModal)
+    const result = wrapper.vm.show(input)
+    try {
+        await flushPromises()
+        vi.mocked(resourceQueuePlan).mockRejectedValueOnce({
+            message: 'instance changed after review',
+        })
+        let refreshSignal: AbortSignal | undefined
+        vi.mocked(resourcePrepareOperation).mockImplementationOnce((...args) => {
+            refreshSignal = args[4]
+            return new Promise(() => {})
+        })
         await wrapper
             .findAll('button')
             .find((button) => button.text() === 'Queue changes')!
             .trigger('click')
         await flushPromises()
-        expect(resourceQueuePlan).toHaveBeenLastCalledWith('refreshed', 7)
-        expect(await result).toEqual({ job_id: 'refreshed-job' })
+        expect(refreshSignal).toBeDefined()
+        const cancel = wrapper.findAll('button').find((button) => button.text() === 'Cancel')!
+        expect(cancel.attributes('disabled')).toBeUndefined()
+        await cancel.trigger('click')
+        await flushPromises()
+        expect(refreshSignal!.aborted).toBe(true)
+        expect(await result).toBeNull()
+        expect(wrapper.find('section').exists()).toBe(false)
+        expect(resourceQueuePlan).toHaveBeenCalledOnce()
     } finally {
         wrapper.unmount()
     }
@@ -1195,8 +1776,9 @@ it('shows satisfied entries, labels activated optionals, and phrases blocking is
         expect(wrapper.text()).toContain('Already satisfied')
         expect(wrapper.text()).not.toContain('source requires an exact manual download')
         expect(wrapper.text()).not.toContain('target already exists')
-        expect(wrapper.text()).toContain('requires a manual download')
-        expect(wrapper.text()).toContain('mods/conflict.jar is already used by another file')
+        expect(wrapper.text()).toContain('The source requires a manual download')
+        expect(wrapper.text()).toContain('Another file already occupies the destination')
+        expect(wrapper.text()).toContain('mods/conflict.jar')
         expect(wrapper.text()).toContain('Optional dependency of dependency')
         await wrapper
             .findAll('button')
@@ -1228,7 +1810,11 @@ it('ignores repeated optional activation and late revisions after cancellation',
         expect(
             wrapper
                 .findAll('button')
-                .every((button) => button.attributes('disabled') !== undefined),
+                .every(
+                    (button) =>
+                        (button.attributes('disabled') === undefined) ===
+                        (button.text() === 'Cancel'),
+                ),
         ).toBe(true)
         wrapper.unmount()
         expect(await result).toBeNull()

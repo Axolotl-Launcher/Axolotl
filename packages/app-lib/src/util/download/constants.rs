@@ -6,8 +6,8 @@
 use std::time::Duration;
 
 /// Automatic file concurrency; the user-adjusted limits are retained.
-pub(crate) const AUTO_DOWNLOAD_CONCURRENCY_INITIAL: usize = 64;
-pub(crate) const AUTO_DOWNLOAD_CONCURRENCY_MAX: usize = 128;
+pub(crate) const AUTO_DOWNLOAD_CONCURRENCY_INITIAL: usize = 96;
+pub(crate) const AUTO_DOWNLOAD_CONCURRENCY_MAX: usize = 256;
 pub(crate) const AUTO_DOWNLOAD_CONCURRENCY_MIN: usize = 32;
 pub(crate) const AUTO_DOWNLOAD_CONCURRENCY_STEP: usize = 8;
 pub(crate) const AUTO_DOWNLOAD_EXPANSION_ERROR_RATE: f64 = 0.1;
@@ -25,10 +25,21 @@ pub(crate) const DOWNLOAD_CONCURRENCY_HARD_MAX: usize = 256;
 
 /// Per-file Range splitting, retry and tail recovery.
 pub(crate) const ADAPTIVE_RANGE_BYTES: u64 = 4 * 1024 * 1024;
+pub(crate) const BULK_ADAPTIVE_RANGE_BYTES: u64 = 1024 * 1024;
+pub(crate) const BULK_SEGMENTED_DOWNLOAD_THRESHOLD: u64 = 10_000_000;
+pub(crate) const DOWNLOAD_RANGE_TARGET_TIME: Duration = Duration::from_secs(35);
+pub(crate) const DOWNLOAD_RANGE_CONNECTION_FLOOR: usize = 16;
+pub(crate) const DOWNLOAD_RANGE_RECOVERY_INTERVAL: Duration =
+    Duration::from_millis(500);
+pub(crate) const BATCH_DOWNLOAD_CONNECTION_FLOOR: usize = 8;
+pub(crate) const BATCH_TAIL_RECOVERY_WINDOW: Duration = Duration::from_secs(3);
+pub(crate) const BULK_DOWNLOAD_RESERVED_PERMITS: usize = 8;
+pub(crate) const INITIAL_BULK_SEGMENT_CONCURRENCY: usize = 16;
 pub(crate) const DOWNLOAD_FAIR_SHARE_DIVISOR: usize = 2;
 pub(crate) const INITIAL_SEGMENT_CONCURRENCY: usize = 4;
+pub(crate) const LARGE_FILE_RANGE_CONNECTION_FLOOR: usize = 32;
 pub(crate) const MAX_GLOBAL_TAIL_HEDGES: usize = 8;
-pub(crate) const MAX_SEGMENT_CONCURRENCY: usize = 16;
+pub(crate) const MAX_SEGMENT_CONCURRENCY: usize = 64;
 pub(crate) const MAX_TAIL_HEDGES_PER_FILE: usize = 2;
 pub(crate) const MIN_PARALLEL_RANGES: usize = 2;
 pub(crate) const MIN_SEGMENT_SIZE: u64 = 256 * 1024;
@@ -45,6 +56,8 @@ pub(crate) const SEGMENTED_DOWNLOAD_THRESHOLD: u64 = 4 * 1024 * 1024;
 pub(crate) const SEGMENT_EXPANSION_INTERVAL: Duration =
     Duration::from_millis(1500);
 pub(crate) const SEGMENT_EXPANSION_SAMPLE_COUNT: usize = 3;
+pub(crate) const SEGMENT_EXPANSION_GAIN_PERCENT: u128 = 115;
+pub(crate) const SEGMENT_EXPANSION_RETRY_SPEED_PERCENT: u128 = 50;
 pub(crate) const SEGMENT_RETRY_ATTEMPTS: usize = 3;
 #[cfg(not(test))]
 pub(crate) const TAIL_HEDGE_IDLE_TIMEOUT: Duration = Duration::from_secs(5);
@@ -68,14 +81,14 @@ pub(crate) const CONNECTION_GROWTH_FACTOR: usize = 2;
 pub(crate) const CONNECTION_STABILITY_WINDOW: Duration =
     Duration::from_millis(500);
 pub(crate) const INITIAL_CONNECTION_TARGET: usize = 4;
-pub(crate) const MAX_ASSET_H2_STREAMS_PER_AUTHORITY: usize = 24;
-pub(crate) const MAX_CONNECTIONS_PER_AUTHORITY: usize = 32;
+pub(crate) const MAX_ASSET_H2_STREAMS_PER_AUTHORITY: usize = 32;
+pub(crate) const MAX_CONNECTIONS_PER_AUTHORITY: usize = 64;
 pub(crate) const MAX_CONNECTION_TARGET: usize = 64;
 pub(crate) const MAX_H2_STREAMS_PER_AUTHORITY: usize = 256;
 pub(crate) const MAX_PHYSICAL_DOWNLOAD_CONNECTIONS: usize = 256;
 
 /// HTTP/2 transport, receive flow control and asset batches.
-pub(crate) const ASSET_BATCH_CONCURRENCY: usize = 128;
+pub(crate) const ASSET_BATCH_CONCURRENCY: usize = 512;
 pub(crate) const ASSET_BATCH_RETRY_PASSES: usize = 3;
 pub(crate) const ASSET_RESOURCE_WAIT_TIMEOUT: Duration =
     Duration::from_secs(30);
@@ -100,7 +113,7 @@ pub(crate) const H2_LARGE_PREFERRED_SPEED_RATIO: f64 = 1.25;
 pub(crate) const H2_MEDIUM_FILE_LIMIT: u64 = 4 * 1024 * 1024;
 pub(crate) const H2_MIN_SUCCESS_SAMPLES: u32 = 2;
 pub(crate) const H2_PREFERRED_SPEED_RATIO: f64 = 1.1;
-pub(crate) const H2_RANGE_FILE_THRESHOLD: u64 = 4 * 1024 * 1024;
+pub(crate) const H2_RANGE_FILE_THRESHOLD: u64 = 2 * 1024 * 1024;
 pub(crate) const H2_RANGE_MAX_WORKERS: usize = 8;
 pub(crate) const H2_RANGE_RETRY_ATTEMPTS: usize = 4;
 pub(crate) const H2_RANGE_RETRY_DELAY_MS: u64 = 100;
@@ -113,6 +126,8 @@ pub(crate) const STREAM_RECV_TIMEOUT: Duration = Duration::from_secs(30);
 
 /// Disk admission, pressure sampling and output buffering.
 pub(crate) const HDD_RANGE_CONCURRENCY: usize = 1;
+pub(crate) const HTTP1_SSD_RANGE_CONCURRENCY: usize = 64;
+pub(crate) const HTTP1_UNKNOWN_DISK_RANGE_CONCURRENCY: usize = 32;
 pub(crate) const LOCAL_CPU_PRESSURE_PERCENT: u32 = 95;
 pub(crate) const LOCAL_FALLBACK_WRITE_CONCURRENCY: usize = 4;
 pub(crate) const LOCAL_PRESSURE_SAMPLE_TTL: Duration = Duration::from_secs(10);
@@ -166,7 +181,7 @@ pub(crate) const FILE_TRANSFER_FIRST_BYTE_TIMEOUT: Duration =
     Duration::from_secs(20);
 #[cfg(not(test))]
 pub(crate) const FILE_TRANSFER_READ_TIMEOUT: Duration = Duration::from_secs(60);
-pub(crate) const FILE_VALIDATION_CONCURRENCY: usize = 4;
+pub(crate) const FILE_VALIDATION_CONCURRENCY: usize = 8;
 pub(crate) const HTTPS_PORT: u16 = 443;
 #[cfg(not(test))]
 pub(crate) const JOB_PROBE_WINDOW: Duration = Duration::from_secs(5 * 60);
@@ -179,6 +194,7 @@ pub(crate) const MAX_H2_RANGES_PER_FILE: usize = 16;
 pub(crate) const MAX_REDIRECT_LOCATION_BYTES: usize = 8 * 1024;
 pub(crate) const MAX_TASK_PROBE_STATES: usize = 64;
 pub(crate) const METADATA_ATTEMPT_BUDGET: usize = 4;
+pub(crate) const METADATA_REQUEST_TIMEOUT: Duration = Duration::from_secs(10);
 #[cfg(not(test))]
 pub(crate) const METADATA_HEDGE_DELAY: Duration = Duration::from_secs(2);
 pub(crate) const MINECRAFT_DOWNLOAD_PROGRESS_MIN_BYTES: u64 = 256 * 1024;
@@ -295,7 +311,9 @@ pub(crate) const ENDPOINT_VALIDATION_CONCURRENCY: usize = 3;
 pub(crate) const ENDPOINT_VALIDATION_TIMEOUT: Duration = Duration::from_secs(3);
 pub(crate) const FASTLY_CATALOG_LIFETIME: Duration =
     Duration::from_secs(90 * 24 * 60 * 60);
-pub(crate) const FASTLY_CATALOG_VERSION: u32 = 1;
+pub(crate) const FASTLY_CATALOG_VERSION: u32 = 2;
+pub(crate) const FASTLY_ATLAS_SEED_PREFIXES: [[u8; 3]; 3] =
+    [[146, 75, 21], [146, 75, 49], [146, 75, 25]];
 pub(crate) const FASTLY_POOL_THIRD_OCTETS: [u8; 4] = [1, 65, 129, 193];
 pub(crate) const FASTLY_REVIEWED_UNIX_SECONDS: u64 = 1_792_540_800;
 pub(crate) const FASTLY_SEED_PREFIXES: [[u8; 3]; 3] =
@@ -304,6 +322,8 @@ pub(crate) const FASTLY_SEED_PREFIXES: [[u8; 3]; 3] =
 /// Installation download pipelines and content finalization.
 pub(crate) const AGGREGATE_FAILURE_PATH_CHAR_LIMIT: usize = 160;
 pub(crate) const AGGREGATE_FAILURE_PATH_LIMIT: usize = 3;
+pub(crate) const AUTO_RETRY_BACKOFF_DELAYS: [Duration; 2] =
+    [Duration::from_secs(1), Duration::from_secs(2)];
 pub(crate) const AUTO_RETRY_PASSES: usize = 2;
 pub(crate) const CONTENT_CHECKPOINT_FILE_COUNT: usize = 25;
 pub(crate) const CONTENT_CHECKPOINT_INTERVAL: Duration = Duration::from_secs(2);
@@ -321,7 +341,7 @@ pub(crate) const LIVE_PROGRESS_EMIT_INTERVAL: Duration =
     Duration::from_millis(100);
 pub(crate) const LIVE_PROGRESS_MAX_WAIT: Duration = Duration::from_secs(1);
 pub(crate) const LIVE_PROGRESS_MIN_BYTES: u64 = 64 * 1024;
-pub(crate) const MAX_CONCURRENT_INSTALL_JOBS: usize = 1;
+pub(crate) const MAX_CONCURRENT_INSTALL_JOBS: usize = 2;
 pub(crate) const MAX_PACK_FILE_DOWNLOAD_CONCURRENCY: usize = 4;
 pub(crate) const MODPACK_DATABASE_BATCH_SIZE: usize = 25;
 pub(crate) const MODPACK_DATABASE_FLUSH_INTERVAL: Duration =
@@ -411,6 +431,7 @@ pub(crate) const DIAGNOSTICS_PROXY_INELIGIBLE: &str = "proxy_ineligible";
 pub(crate) const DIAGNOSTICS_RANGE: &str = "range";
 pub(crate) const DIAGNOSTICS_RANGE_UNSUPPORTED: &str = "range_unsupported";
 pub(crate) const DIAGNOSTICS_RESOLVE: &str = "resolve";
+pub(crate) const DIAGNOSTICS_RESOURCE_WAIT: &str = "resource_wait";
 pub(crate) const DIAGNOSTICS_ROLLBACK: &str = "rollback";
 pub(crate) const DIAGNOSTICS_RULE_INELIGIBLE: &str = "rule_ineligible";
 pub(crate) const DIAGNOSTICS_SELECTED: &str = "selected";

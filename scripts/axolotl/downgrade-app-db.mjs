@@ -52,6 +52,27 @@ const CHANNELS = ['release', 'beta']
 // Only recent migrations are listed. Dropping to a threshold before them is
 // refused rather than guessed at; --allow-unmapped accepts the risk explicitly.
 const REVERTIBLE_SCHEMA = {
+    // Derived records moved to derived.db: crash_analysis_mod_snapshots,
+    // discovered_javas, google_translate_ip_cache and translation_cache are
+    // dropped, so the record is all a downgrade removes. telemetry_outbox stays
+    // in app.db.
+    20261029120000: {},
+    20261028110000: { tables: ['content_refresh_packs'] },
+    20261028120000: { tables: ['content_refresh_scan_failures'] },
+    20261028100000: { tables: ['content_refresh_presentations'] },
+    20261027120000: {
+        tables: ['content_refresh_checks', 'content_file_fingerprints'],
+        objects: [
+            { type: 'index', name: 'instance_content_entries_instance_identity' },
+            { type: 'index', name: 'instance_files_instance_identity' },
+        ],
+    },
+    // settings.nametag_uses_app_font
+    20261026130000: {
+        columns: [{ table: 'settings', column: 'nametag_uses_app_font' }],
+    },
+    20261026123000: { tables: ['content_update_jobs'] },
+    20261026120000: { tables: ['content_file_operations'] },
     20261022120000: { columns: [{ table: 'settings', column: 'curseforge_api_key' }] },
     // CodeFlow endpoint domain move; data only
     20261021120000: {},
@@ -98,215 +119,215 @@ const REVERTIBLE_SCHEMA = {
         ],
         tables: ['resource_identity_evidence', 'resource_aliases', 'resource_source_types', 'resource_source_projects', 'resource_preferences', 'resources'],
     },
-	20261004140000: {
-		columns: [
-			{ table: 'settings', column: 'doh_enabled' },
-			{ table: 'settings', column: 'doh_server' },
-		],
-	},
-	20261004120001: {
-		tables: ['store_operations', 'store_retained_refs', 'store_instance_files', 'store_blobs'],
-	},
-	// XMCL removal only normalizes data; keep the legacy column as a rollback tombstone.
-	20261004130000: {},
-	20261002120000: { tables: ['official_login_proof'] },
-	// settings.close_behavior
-	20260903120000: { columns: [{ table: 'settings', column: 'close_behavior' }] },
-	// instances: the direct link columns
-	20260904120000: {
-		columns: [
-			{ table: 'instances', column: 'linked_launcher' },
-			{ table: 'instances', column: 'linked_launcher_root' },
-			{ table: 'instances', column: 'linked_dot_minecraft' },
-			{ table: 'instances', column: 'linked_version_id' },
-			{ table: 'instances', column: 'linked_version_json_path' },
-		],
-	},
-	// telemetry samples; the tables stay, so nothing to drop
-	20260905000000: {},
-	// settings.mc_maximize_window
-	20260908000000: { columns: [{ table: 'settings', column: 'mc_maximize_window' }] },
-	// instances.linked_game_dir_mode
-	20260908010000: { columns: [{ table: 'instances', column: 'linked_game_dir_mode' }] },
-	// crash_analysis_ai_settings.ai_source
-	20260911120000: {
-		columns: [{ table: 'crash_analysis_ai_settings', column: 'ai_source' }],
-	},
-	// settings.log_level
-	20260912120000: { columns: [{ table: 'settings', column: 'log_level' }] },
-	// log level default normalization; data only
-	20260913170000: {},
-	// instance synchronization and screenshot center
-	20260914090000: {
-		columns: [
-			{ table: 'settings', column: 'sync_features_across_devices' },
-			{ table: 'settings', column: 'show_files_tab_in_instances' },
-			{ table: 'settings', column: 'show_worlds_tab_in_instances' },
-			{ table: 'settings', column: 'show_screenshots_tab_in_instances' },
-			{ table: 'settings', column: 'show_skin_selector_in_sidebar' },
-		],
-		// Reverse creation order keeps dependent tables ahead of their parents.
-		tables: [
-			'synced_pack_instances',
-			'synced_pack_catalog',
-			'screenshot_group_memberships',
-			'screenshot_groups',
-			'screenshots',
-			'instance_server_pack_state',
-			'instance_server_projection_entries',
-			'instance_servers',
-			'synced_servers',
-			'synced_server_state',
-			'synced_hotbar_state',
-			'instance_sync_checkpoints',
-			'game_option_locale_origins',
-			'instance_game_option_update_state',
-			'instance_game_option_pack_bases',
-			'synced_game_option_preferences',
-			'synced_game_option_values',
-			'synced_game_option_state',
-			'instance_sync_preferences',
-			'sync_feature_settings',
-		],
-	},
-	// linked server project sync source; data only
-	20260915090000: {},
-	// minecraft_users_with_identity table; trigger drops are not reversible
-	20260916090000: {
-		tables: ['minecraft_users_with_identity'],
-	},
-	// settings.ignore_ssl_errors
-	20260917120000: {
-		columns: [{ table: 'settings', column: 'ignore_ssl_errors' }],
-	},
-	// settings.home_widget_background_opacity
-	20260917130000: {
-		columns: [{ table: 'settings', column: 'home_widget_background_opacity' }],
-	},
-	// settings.hidden_nav_items
-	20260917131000: {
-		columns: [{ table: 'settings', column: 'hidden_nav_items' }],
-	},
-	// settings.custom_window_title_enabled / default_window_title
-	20260917140000: {
-		columns: [
-			{ table: 'settings', column: 'custom_window_title_enabled' },
-			{ table: 'settings', column: 'default_window_title' },
-		],
-	},
-	// settings.custom_background_component_opacity
-	20260917150000: {
-		columns: [{ table: 'settings', column: 'custom_background_component_opacity' }],
-	},
-	// settings.backup_repository_path
-	20260920130000: {
-		columns: [{ table: 'settings', column: 'backup_repository_path' }],
-	},
-	// old backup repository paths awaiting cleanup
-	20260920160000: {
-		tables: ['pending_backup_repository_cleanups'],
-	},
-	// synced pack selection state
-	20260922110000: {
-		columns: [
-			{ table: 'synced_pack_catalog', column: 'selected' },
-			{ table: 'synced_pack_catalog', column: 'selection_order' },
-		],
-	},
-	// settings.allow_external_scheme
-	20260922120000: {
-		columns: [{ table: 'settings', column: 'allow_external_scheme' }],
-	},
-	// settings.ui_font / mono_font
-	20260919120000: {
-		columns: [
-			{ table: 'settings', column: 'ui_font' },
-			{ table: 'settings', column: 'mono_font' },
-		],
-	},
-	// settings.allow_privileged_scheme
-	20261004120000: {
-		columns: [{ table: 'settings', column: 'allow_privileged_scheme' }],
-	},
+    20261004140000: {
+        columns: [
+            { table: 'settings', column: 'doh_enabled' },
+            { table: 'settings', column: 'doh_server' },
+        ],
+    },
+    20261004120001: {
+        tables: ['store_operations', 'store_retained_refs', 'store_instance_files', 'store_blobs'],
+    },
+    // XMCL removal only normalizes data; keep the legacy column as a rollback tombstone.
+    20261004130000: {},
+    20261002120000: { tables: ['official_login_proof'] },
+    // settings.close_behavior
+    20260903120000: { columns: [{ table: 'settings', column: 'close_behavior' }] },
+    // instances: the direct link columns
+    20260904120000: {
+        columns: [
+            { table: 'instances', column: 'linked_launcher' },
+            { table: 'instances', column: 'linked_launcher_root' },
+            { table: 'instances', column: 'linked_dot_minecraft' },
+            { table: 'instances', column: 'linked_version_id' },
+            { table: 'instances', column: 'linked_version_json_path' },
+        ],
+    },
+    // telemetry samples; the tables stay, so nothing to drop
+    20260905000000: {},
+    // settings.mc_maximize_window
+    20260908000000: { columns: [{ table: 'settings', column: 'mc_maximize_window' }] },
+    // instances.linked_game_dir_mode
+    20260908010000: { columns: [{ table: 'instances', column: 'linked_game_dir_mode' }] },
+    // crash_analysis_ai_settings.ai_source
+    20260911120000: {
+        columns: [{ table: 'crash_analysis_ai_settings', column: 'ai_source' }],
+    },
+    // settings.log_level
+    20260912120000: { columns: [{ table: 'settings', column: 'log_level' }] },
+    // log level default normalization; data only
+    20260913170000: {},
+    // instance synchronization and screenshot center
+    20260914090000: {
+        columns: [
+            { table: 'settings', column: 'sync_features_across_devices' },
+            { table: 'settings', column: 'show_files_tab_in_instances' },
+            { table: 'settings', column: 'show_worlds_tab_in_instances' },
+            { table: 'settings', column: 'show_screenshots_tab_in_instances' },
+            { table: 'settings', column: 'show_skin_selector_in_sidebar' },
+        ],
+        // Reverse creation order keeps dependent tables ahead of their parents.
+        tables: [
+            'synced_pack_instances',
+            'synced_pack_catalog',
+            'screenshot_group_memberships',
+            'screenshot_groups',
+            'screenshots',
+            'instance_server_pack_state',
+            'instance_server_projection_entries',
+            'instance_servers',
+            'synced_servers',
+            'synced_server_state',
+            'synced_hotbar_state',
+            'instance_sync_checkpoints',
+            'game_option_locale_origins',
+            'instance_game_option_update_state',
+            'instance_game_option_pack_bases',
+            'synced_game_option_preferences',
+            'synced_game_option_values',
+            'synced_game_option_state',
+            'instance_sync_preferences',
+            'sync_feature_settings',
+        ],
+    },
+    // linked server project sync source; data only
+    20260915090000: {},
+    // minecraft_users_with_identity table; trigger drops are not reversible
+    20260916090000: {
+        tables: ['minecraft_users_with_identity'],
+    },
+    // settings.ignore_ssl_errors
+    20260917120000: {
+        columns: [{ table: 'settings', column: 'ignore_ssl_errors' }],
+    },
+    // settings.home_widget_background_opacity
+    20260917130000: {
+        columns: [{ table: 'settings', column: 'home_widget_background_opacity' }],
+    },
+    // settings.hidden_nav_items
+    20260917131000: {
+        columns: [{ table: 'settings', column: 'hidden_nav_items' }],
+    },
+    // settings.custom_window_title_enabled / default_window_title
+    20260917140000: {
+        columns: [
+            { table: 'settings', column: 'custom_window_title_enabled' },
+            { table: 'settings', column: 'default_window_title' },
+        ],
+    },
+    // settings.custom_background_component_opacity
+    20260917150000: {
+        columns: [{ table: 'settings', column: 'custom_background_component_opacity' }],
+    },
+    // settings.backup_repository_path
+    20260920130000: {
+        columns: [{ table: 'settings', column: 'backup_repository_path' }],
+    },
+    // old backup repository paths awaiting cleanup
+    20260920160000: {
+        tables: ['pending_backup_repository_cleanups'],
+    },
+    // synced pack selection state
+    20260922110000: {
+        columns: [
+            { table: 'synced_pack_catalog', column: 'selected' },
+            { table: 'synced_pack_catalog', column: 'selection_order' },
+        ],
+    },
+    // settings.allow_external_scheme
+    20260922120000: {
+        columns: [{ table: 'settings', column: 'allow_external_scheme' }],
+    },
+    // settings.ui_font / mono_font
+    20260919120000: {
+        columns: [
+            { table: 'settings', column: 'ui_font' },
+            { table: 'settings', column: 'mono_font' },
+        ],
+    },
+    // settings.allow_privileged_scheme
+    20261004120000: {
+        columns: [{ table: 'settings', column: 'allow_privileged_scheme' }],
+    },
 }
 
 function fail(message) {
-	console.error(`error: ${message}`)
-	process.exit(1)
+    console.error(`error: ${message}`)
+    process.exit(1)
 }
 
 function note(message) {
-	console.log(message)
+    console.log(message)
 }
 
 function parseArgs(argv) {
-	const args = {}
-	const takeValue = (index, token) => {
-		const value = argv[index + 1]
-		if (value === undefined || value.startsWith('--')) fail(`${token} needs a value`)
-		return value
-	}
+    const args = {}
+    const takeValue = (index, token) => {
+        const value = argv[index + 1]
+        if (value === undefined || value.startsWith('--')) fail(`${token} needs a value`)
+        return value
+    }
 
-	for (let index = 0; index < argv.length; index += 1) {
-		const token = argv[index]
-		switch (token) {
-			case '--to': {
-				const value = takeValue(index, token)
-				if (!/^\d{14}$/.test(value)) {
-					fail(`--to expects a 14 digit migration version, got ${value}`)
-				}
-				args.to = Number(value)
-				index += 1
-				break
-			}
-			case '--db':
-				args.db = takeValue(index, token)
-				index += 1
-				break
-			case '--channel':
-				args.channel = takeValue(index, token)
-				index += 1
-				break
-			case '--suffix':
-				args.suffix = takeValue(index, token)
-				index += 1
-				break
-			case '--apply':
-				args.apply = true
-				break
-			case '--allow-unmapped':
-				args.allowUnmapped = true
-				break
-			case '--list':
-				args.list = true
-				break
-			default:
-				fail(`unknown argument: ${token}`)
-		}
-	}
+    for (let index = 0; index < argv.length; index += 1) {
+        const token = argv[index]
+        switch (token) {
+            case '--to': {
+                const value = takeValue(index, token)
+                if (!/^\d{14}$/.test(value)) {
+                    fail(`--to expects a 14 digit migration version, got ${value}`)
+                }
+                args.to = Number(value)
+                index += 1
+                break
+            }
+            case '--db':
+                args.db = takeValue(index, token)
+                index += 1
+                break
+            case '--channel':
+                args.channel = takeValue(index, token)
+                index += 1
+                break
+            case '--suffix':
+                args.suffix = takeValue(index, token)
+                index += 1
+                break
+            case '--apply':
+                args.apply = true
+                break
+            case '--allow-unmapped':
+                args.allowUnmapped = true
+                break
+            case '--list':
+                args.list = true
+                break
+            default:
+                fail(`unknown argument: ${token}`)
+        }
+    }
 
-	return args
+    return args
 }
 
 function printUsage() {
-	console.log(
-		[
-			'Downgrade the launcher app database so an older build can open it.',
-			'',
-			'  node scripts/axolotl/downgrade-app-db.mjs --list',
-			'  node scripts/axolotl/downgrade-app-db.mjs --to <version> [--apply]',
-			'',
-			'  --to <version>    remove every applied migration at or after this version',
-			'  --db <path>       target app.db, when it is not in the default location',
-			'  --channel <name>  release or beta; defaults to the active channel',
-			'  --suffix <name>   settings directory of a suffixed build',
-			'  --apply           perform the downgrade; without it nothing is written',
-			'  --allow-unmapped  continue although a migration has no known schema here',
-			'',
-			'Without --apply the script only reports what it would change.',
-			'Undo an accidental change with the backup it writes.',
-		].join('\n'),
-	)
+    console.log(
+        [
+            'Downgrade the launcher app database so an older build can open it.',
+            '',
+            '  node scripts/axolotl/downgrade-app-db.mjs --list',
+            '  node scripts/axolotl/downgrade-app-db.mjs --to <version> [--apply]',
+            '',
+            '  --to <version>    remove every applied migration at or after this version',
+            '  --db <path>       target app.db, when it is not in the default location',
+            '  --channel <name>  release or beta; defaults to the active channel',
+            '  --suffix <name>   settings directory of a suffixed build',
+            '  --apply           perform the downgrade; without it nothing is written',
+            '  --allow-unmapped  continue although a migration has no known schema here',
+            '',
+            'Without --apply the script only reports what it would change.',
+            'Undo an accidental change with the backup it writes.',
+        ].join('\n'),
+    )
 }
 
 // Mirrors the sanitizing in packages/app-lib/src/brand.rs so a suffix typed here
@@ -314,37 +335,37 @@ function printUsage() {
 // trims the dots and dashes off both ends *before* the length cap, so a run of
 // them cannot spend the allowance and hide the characters after it.
 function sanitizeSuffix(suffix) {
-	return suffix
-		.replace(/[^A-Za-z0-9._-]/g, '')
-		.replace(/^[.-]+|[.-]+$/g, '')
-		.slice(0, 32)
-		.replace(/^[.-]+|[.-]+$/g, '')
+    return suffix
+        .replace(/[^A-Za-z0-9._-]/g, '')
+        .replace(/^[.-]+|[.-]+$/g, '')
+        .slice(0, 32)
+        .replace(/^[.-]+|[.-]+$/g, '')
 }
 
 function baseSettingsDir() {
-	const override = process.env.THESEUS_CONFIG_DIR
-	if (override) return override
+    const override = process.env.THESEUS_CONFIG_DIR
+    if (override) return override
 
-	if (process.platform !== 'win32') {
-		const supportDir =
-			process.platform === 'darwin' ? '~/Library/Application Support' : '~/.local/share'
-		fail(
-			`resolving the default settings directory needs Windows; pass --db with the path under ${supportDir}/${SETTINGS_DIR_NAME}`,
-		)
-	}
+    if (process.platform !== 'win32') {
+        const supportDir =
+            process.platform === 'darwin' ? '~/Library/Application Support' : '~/.local/share'
+        fail(
+            `resolving the default settings directory needs Windows; pass --db with the path under ${supportDir}/${SETTINGS_DIR_NAME}`,
+        )
+    }
 
-	const appData = process.env.APPDATA
-	if (!appData) fail('APPDATA is not set; pass --db explicitly')
-	return join(appData, SETTINGS_DIR_NAME)
+    const appData = process.env.APPDATA
+    if (!appData) fail('APPDATA is not set; pass --db explicitly')
+    return join(appData, SETTINGS_DIR_NAME)
 }
 
 function settingsBaseDir(args) {
-	const base = baseSettingsDir()
-	if (!args.suffix) return base
+    const base = baseSettingsDir()
+    if (!args.suffix) return base
 
-	const suffix = sanitizeSuffix(args.suffix)
-	if (suffix === '') fail(`--suffix ${args.suffix} leaves no usable directory name`)
-	return `${base}-${suffix}`
+    const suffix = sanitizeSuffix(args.suffix)
+    if (suffix === '') fail(`--suffix ${args.suffix} leaves no usable directory name`)
+    return `${base}-${suffix}`
 }
 
 // The launcher records the channel it uses next to its settings; a build with a
@@ -353,30 +374,30 @@ function settingsBaseDir(args) {
 // one it used. Both or neither would mean guessing, and a guess here writes to
 // the wrong database, so it returns null and the caller explains.
 function resolveChannel(args, settingsDir) {
-	if (args.channel) {
-		if (!CHANNELS.includes(args.channel)) {
-			fail(`--channel must be one of ${CHANNELS.join(', ')}, got ${args.channel}`)
-		}
-		return args.channel
-	}
+    if (args.channel) {
+        if (!CHANNELS.includes(args.channel)) {
+            fail(`--channel must be one of ${CHANNELS.join(', ')}, got ${args.channel}`)
+        }
+        return args.channel
+    }
 
-	const statePath = join(settingsDir, 'update-channel.json')
-	if (existsSync(statePath)) {
-		let channel
-		try {
-			channel = JSON.parse(readFileSync(statePath, 'utf8')).active_channel
-		} catch (error) {
-			fail(`could not read ${statePath}: ${error.message}`)
-		}
+    const statePath = join(settingsDir, 'update-channel.json')
+    if (existsSync(statePath)) {
+        let channel
+        try {
+            channel = JSON.parse(readFileSync(statePath, 'utf8')).active_channel
+        } catch (error) {
+            fail(`could not read ${statePath}: ${error.message}`)
+        }
 
-		if (!CHANNELS.includes(channel)) {
-			fail(`${statePath} does not name a usable channel (${channel}); pass --channel`)
-		}
-		return channel
-	}
+        if (!CHANNELS.includes(channel)) {
+            fail(`${statePath} does not name a usable channel (${channel}); pass --channel`)
+        }
+        return channel
+    }
 
-	const present = CHANNELS.filter((channel) => existsSync(join(settingsDir, channel, APP_DB)))
-	return present.length === 1 ? present[0] : null
+    const present = CHANNELS.filter((channel) => existsSync(join(settingsDir, channel, APP_DB)))
+    return present.length === 1 ? present[0] : null
 }
 
 // Other builds - suffixed ones in particular - keep their own settings directory
@@ -385,124 +406,124 @@ function resolveChannel(args, settingsDir) {
 // follows the directory actually in use, so a custom THESEUS_CONFIG_DIR (portable
 // mode included) finds its own siblings.
 function otherDatabases(base) {
-	const parent = dirname(base)
-	if (!existsSync(parent)) return []
+    const parent = dirname(base)
+    if (!existsSync(parent)) return []
 
-	let entries
-	try {
-		entries = readdirSync(parent, { withFileTypes: true })
-	} catch {
-		return []
-	}
+    let entries
+    try {
+        entries = readdirSync(parent, { withFileTypes: true })
+    } catch {
+        return []
+    }
 
-	return entries
-		.filter(
-			(entry) =>
-				entry.isDirectory() &&
-				entry.name !== basename(base) &&
-				entry.name.startsWith(`${basename(base)}-`),
-		)
-		.flatMap((entry) => CHANNELS.map((channel) => join(parent, entry.name, channel, APP_DB)))
-		.filter((candidate) => existsSync(candidate))
+    return entries
+        .filter(
+            (entry) =>
+                entry.isDirectory() &&
+                entry.name !== basename(base) &&
+                entry.name.startsWith(`${basename(base)}-`),
+        )
+        .flatMap((entry) => CHANNELS.map((channel) => join(parent, entry.name, channel, APP_DB)))
+        .filter((candidate) => existsSync(candidate))
 }
 
 function elsewhereHint(args) {
-	if (args.suffix) return ''
+    if (args.suffix) return ''
 
-	const others = otherDatabases(baseSettingsDir())
-	if (others.length === 0) return ''
+    const others = otherDatabases(baseSettingsDir())
+    if (others.length === 0) return ''
 
-	return `\n\nOther builds keep their own directories, and these databases exist:\n  ${others.join(
-		'\n  ',
-	)}\nSelect one with --db, or --suffix for a suffixed build. Only the database named here is ever written to.`
+    return `\n\nOther builds keep their own directories, and these databases exist:\n  ${others.join(
+        '\n  ',
+    )}\nSelect one with --db, or --suffix for a suffixed build. Only the database named here is ever written to.`
 }
 
 function resolveDatabase(args) {
-	if (args.db) return args.db
+    if (args.db) return args.db
 
-	const settingsDir = settingsBaseDir(args)
-	const channel = resolveChannel(args, settingsDir)
+    const settingsDir = settingsBaseDir(args)
+    const channel = resolveChannel(args, settingsDir)
 
-	if (channel === null) {
-		fail(
-			`could not tell which update channel ${settingsDir} uses; pass --channel release or --channel beta${elsewhereHint(args)}`,
-		)
-	}
+    if (channel === null) {
+        fail(
+            `could not tell which update channel ${settingsDir} uses; pass --channel release or --channel beta${elsewhereHint(args)}`,
+        )
+    }
 
-	const db = join(settingsDir, channel, APP_DB)
-	if (!existsSync(db)) fail(`no database at ${db}${elsewhereHint(args)}`)
+    const db = join(settingsDir, channel, APP_DB)
+    if (!existsSync(db)) fail(`no database at ${db}${elsewhereHint(args)}`)
 
-	return db
+    return db
 }
 
 function openReadOnly(db) {
-	try {
-		return new DatabaseSync(db, { readOnly: true })
-	} catch (error) {
-		fail(`could not open ${db}: ${error.message}`)
-	}
+    try {
+        return new DatabaseSync(db, { readOnly: true })
+    } catch (error) {
+        fail(`could not open ${db}: ${error.message}`)
+    }
 }
 
 // Guards against pointing the script at something that is not a launcher
 // database at all, which the missing-table errors of the queries below would
 // otherwise report much less clearly.
 function assertLauncherDatabase(database, db) {
-	const tables = database
-		.prepare("SELECT name FROM sqlite_master WHERE type = 'table'")
-		.all()
-		.map((row) => row.name)
+    const tables = database
+        .prepare("SELECT name FROM sqlite_master WHERE type = 'table'")
+        .all()
+        .map((row) => row.name)
 
-	for (const table of ['_sqlx_migrations', 'settings']) {
-		if (!tables.includes(table)) {
-			fail(`${db} has no ${table} table, so it is not a launcher database`)
-		}
-	}
+    for (const table of ['_sqlx_migrations', 'settings']) {
+        if (!tables.includes(table)) {
+            fail(`${db} has no ${table} table, so it is not a launcher database`)
+        }
+    }
 }
 
 function listMigrations(db) {
-	const database = openReadOnly(db)
-	assertLauncherDatabase(database, db)
-	const rows = database
-		.prepare('SELECT version, description, success FROM _sqlx_migrations ORDER BY version')
-		.all()
-	database.close()
+    const database = openReadOnly(db)
+    assertLauncherDatabase(database, db)
+    const rows = database
+        .prepare('SELECT version, description, success FROM _sqlx_migrations ORDER BY version')
+        .all()
+    database.close()
 
-	note(`database: ${db}`)
-	note(`${rows.length} applied migrations`)
-	for (const row of rows) {
-		const state = row.success ? '' : '  FAILED'
-		note(`  ${row.version}  ${row.description}${state}`)
-	}
+    note(`database: ${db}`)
+    note(`${rows.length} applied migrations`)
+    for (const row of rows) {
+        const state = row.success ? '' : '  FAILED'
+        note(`  ${row.version}  ${row.description}${state}`)
+    }
 }
 
 function columnsPresent(db, columns) {
-	if (columns.length === 0) return []
+    if (columns.length === 0) return []
 
-	const database = openReadOnly(db)
-	const present = columns.map(({ table, column }) => {
-		const names = database
-			.prepare('SELECT name FROM pragma_table_info(?)')
-			.all(table)
-			.map((row) => row.name)
-		return { table, column, present: names.includes(column) }
-	})
-	database.close()
-	return present
+    const database = openReadOnly(db)
+    const present = columns.map(({ table, column }) => {
+        const names = database
+            .prepare('SELECT name FROM pragma_table_info(?)')
+            .all(table)
+            .map((row) => row.name)
+        return { table, column, present: names.includes(column) }
+    })
+    database.close()
+    return present
 }
 
 function tablesPresent(db, tables) {
-	if (tables.length === 0) return []
+    if (tables.length === 0) return []
 
-	const database = openReadOnly(db)
-	const present = tables.map((table) => ({
-		table,
-		present:
-			database
-				.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?")
-				.get(table) !== undefined,
-	}))
-	database.close()
-	return present
+    const database = openReadOnly(db)
+    const present = tables.map((table) => ({
+        table,
+        present:
+            database
+                .prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?")
+                .get(table) !== undefined,
+    }))
+    database.close()
+    return present
 }
 
 function objectsPresent(db, objects) {
@@ -526,44 +547,44 @@ function objectsPresent(db, objects) {
 const LAUNCHER_IMAGES = ['Axolotl Launcher.exe', 'theseus_gui.exe']
 
 function launcherImages() {
-	const configured = process.env.AXOLOTL_LAUNCHER_IMAGES
-	if (configured === undefined) return LAUNCHER_IMAGES
+    const configured = process.env.AXOLOTL_LAUNCHER_IMAGES
+    if (configured === undefined) return LAUNCHER_IMAGES
 
-	const images = configured
-		.split(',')
-		.map((image) => image.trim())
-		.filter((image) => image !== '')
-	if (images.length === 0) fail('AXOLOTL_LAUNCHER_IMAGES names no process')
+    const images = configured
+        .split(',')
+        .map((image) => image.trim())
+        .filter((image) => image !== '')
+    if (images.length === 0) fail('AXOLOTL_LAUNCHER_IMAGES names no process')
 
-	return images
+    return images
 }
 
 // The name a running launcher answers to, or null when none is running. Its
 // database must not be touched: the running process would carry on with the
 // schema it read at startup.
 function runningLauncher() {
-	if (process.platform !== 'win32') {
-		note('warning: cannot check whether the launcher is running on this platform')
-		return null
-	}
+    if (process.platform !== 'win32') {
+        note('warning: cannot check whether the launcher is running on this platform')
+        return null
+    }
 
-	// tasklist takes a single image name per filter, so every candidate needs its
-	// own query. One filter hides all the other names, and a launcher running
-	// under one of them would be missed while its database is rewritten.
-	return (
-		launcherImages().find((image) => {
-			const result = spawnSync('tasklist', ['/NH', '/FI', `IMAGENAME eq ${image}`], {
-				encoding: 'utf8',
-			})
+    // tasklist takes a single image name per filter, so every candidate needs its
+    // own query. One filter hides all the other names, and a launcher running
+    // under one of them would be missed while its database is rewritten.
+    return (
+        launcherImages().find((image) => {
+            const result = spawnSync('tasklist', ['/NH', '/FI', `IMAGENAME eq ${image}`], {
+                encoding: 'utf8',
+            })
 
-			if (result.error) {
-				fail(`could not run tasklist to check for a running launcher: ${result.error.message}`)
-			}
+            if (result.error) {
+                fail(`could not run tasklist to check for a running launcher: ${result.error.message}`)
+            }
 
-			const output = `${result.stdout ?? ''}${result.stderr ?? ''}`
-			return output.includes(image)
-		}) ?? null
-	)
+            const output = `${result.stdout ?? ''}${result.stderr ?? ''}`
+            return output.includes(image)
+        }) ?? null
+    )
 }
 
 // A file copy of a live database can capture the main file and its -wal at
@@ -571,86 +592,86 @@ function runningLauncher() {
 // VACUUM INTO writes a complete, self-consistent database instead - the same
 // thing the launcher itself does before risky operations.
 function writeBackup(db, backup) {
-	const database = openReadOnly(db)
-	try {
-		database.prepare('VACUUM INTO ?').run(backup)
-	} catch (error) {
-		database.close()
-		fail(`could not write the backup to ${backup}: ${error.message}`)
-	}
-	database.close()
+    const database = openReadOnly(db)
+    try {
+        database.prepare('VACUUM INTO ?').run(backup)
+    } catch (error) {
+        database.close()
+        fail(`could not write the backup to ${backup}: ${error.message}`)
+    }
+    database.close()
 
-	const verification = openReadOnly(backup)
-	const integrity = verification.prepare('PRAGMA integrity_check').get().integrity_check
-	const count = verification.prepare('SELECT COUNT(*) AS count FROM _sqlx_migrations').get().count
-	verification.close()
+    const verification = openReadOnly(backup)
+    const integrity = verification.prepare('PRAGMA integrity_check').get().integrity_check
+    const count = verification.prepare('SELECT COUNT(*) AS count FROM _sqlx_migrations').get().count
+    verification.close()
 
-	if (integrity !== 'ok') {
-		fail(`the backup at ${backup} failed its integrity check (${integrity})`)
-	}
+    if (integrity !== 'ok') {
+        fail(`the backup at ${backup} failed its integrity check (${integrity})`)
+    }
 
-	return count
+    return count
 }
 
 function backupPath(db) {
-	const stamp = new Date().toISOString().replace(/[:.]/g, '-')
-	return `${db}.before-downgrade-${stamp}`
+    const stamp = new Date().toISOString().replace(/[:.]/g, '-')
+    return `${db}.before-downgrade-${stamp}`
 }
 
 function planDowngrade(db, target) {
-	const database = openReadOnly(db)
-	assertLauncherDatabase(database, db)
+    const database = openReadOnly(db)
+    assertLauncherDatabase(database, db)
 
-	const rows = database
-		.prepare('SELECT version, success FROM _sqlx_migrations WHERE version >= ? ORDER BY version')
-		.all(target)
-	database.close()
+    const rows = database
+        .prepare('SELECT version, success FROM _sqlx_migrations WHERE version >= ? ORDER BY version')
+        .all(target)
+    database.close()
 
-	const applied = rows.filter((row) => row.success).map((row) => Number(row.version))
-	const failed = rows.filter((row) => !row.success).map((row) => Number(row.version))
+    const applied = rows.filter((row) => row.success).map((row) => Number(row.version))
+    const failed = rows.filter((row) => !row.success).map((row) => Number(row.version))
 
-	const plan = applied.map((version) => ({
-		version,
-		mapped: REVERTIBLE_SCHEMA[version] !== undefined,
-		columns: columnsPresent(db, REVERTIBLE_SCHEMA[version]?.columns ?? []),
-		tables: tablesPresent(db, REVERTIBLE_SCHEMA[version]?.tables ?? []),
+    const plan = applied.map((version) => ({
+        version,
+        mapped: REVERTIBLE_SCHEMA[version] !== undefined,
+        columns: columnsPresent(db, REVERTIBLE_SCHEMA[version]?.columns ?? []),
+        tables: tablesPresent(db, REVERTIBLE_SCHEMA[version]?.tables ?? []),
         objects: objectsPresent(db, REVERTIBLE_SCHEMA[version]?.objects ?? []),
-	}))
+    }))
 
-	return { applied, failed, plan }
+    return { applied, failed, plan }
 }
 
 function reportPlan({ applied, failed, plan }) {
-	note(`migrations to remove: ${applied.join(', ')}`)
+    note(`migrations to remove: ${applied.join(', ')}`)
     for (const { version, mapped, columns, tables, objects } of plan) {
-		if (!mapped) {
-			note(`  ${version}: no known schema for this migration, removing its record only`)
-			continue
-		}
-		for (const { table, column, present } of columns) {
-			note(
-				present
-					? `  ${version}: drop ${table}.${column}`
-					: `  ${version}: ${table}.${column} is NOT in the database`,
-			)
-		}
-		for (const { table, present } of tables) {
-			note(
-				present ? `  ${version}: drop table ${table}` : `  ${version}: table ${table} is MISSING`,
-			)
-		}
+        if (!mapped) {
+            note(`  ${version}: no known schema for this migration, removing its record only`)
+            continue
+        }
+        for (const { table, column, present } of columns) {
+            note(
+                present
+                    ? `  ${version}: drop ${table}.${column}`
+                    : `  ${version}: ${table}.${column} is NOT in the database`,
+            )
+        }
+        for (const { table, present } of tables) {
+            note(
+                present ? `  ${version}: drop table ${table}` : `  ${version}: table ${table} is MISSING`,
+            )
+        }
         for (const { type, name, present } of objects) {
             note(present ? `  ${version}: drop ${type} ${name}` : `  ${version}: ${type} ${name} is MISSING`)
         }
-	}
+    }
 
-	if (failed.length > 0) {
-		note(
-			`\nwarning: ${failed.join(', ')} are recorded as FAILED migrations. Removing their\n` +
-				'records lets a build that carries them try again, but a half-applied migration\n' +
-				'may have left the schema in a state neither build expects.',
-		)
-	}
+    if (failed.length > 0) {
+        note(
+            `\nwarning: ${failed.join(', ')} are recorded as FAILED migrations. Removing their\n` +
+                'records lets a build that carries them try again, but a half-applied migration\n' +
+                'may have left the schema in a state neither build expects.',
+        )
+    }
 }
 
 // A mapped migration whose column is absent means this script's idea of the
@@ -659,128 +680,144 @@ function reportPlan({ applied, failed, plan }) {
 // database that no build can open, which is the exact state this script exists
 // to repair, so stop instead.
 function checkMappings(plan) {
-	const mismatched = plan
-		.filter(
+    const mismatched = plan
+        .filter(
             ({ mapped, columns, tables, objects }) =>
-				mapped &&
+                mapped &&
                 (columns.some((column) => !column.present) || tables.some((table) => !table.present) || objects.some((object) => !object.present)),
-		)
-		.map(({ version }) => version)
+        )
+        .map(({ version }) => version)
 
-	if (mismatched.length > 0) {
-		fail(
-			`the schema recorded here for ${mismatched.join(', ')} does not match this database.\nRefusing to remove the records: reinstalling that build would then fail on a duplicate\nschema object, and neither build could open the database. Check REVERTIBLE_SCHEMA against\npackages/app-lib/migrations, and use --list to inspect the database.`,
-		)
-	}
+    if (mismatched.length > 0) {
+        fail(
+            `the schema recorded here for ${mismatched.join(', ')} does not match this database.\nRefusing to remove the records: reinstalling that build would then fail on a duplicate\nschema object, and neither build could open the database. Check REVERTIBLE_SCHEMA against\npackages/app-lib/migrations, and use --list to inspect the database.`,
+        )
+    }
 }
 
 function unmappedVersions(plan) {
-	return plan.filter(({ mapped }) => !mapped).map(({ version }) => version)
+    return plan.filter(({ mapped }) => !mapped).map(({ version }) => version)
+}
+
+function checkPendingContentRecovery(database, plan) {
+    if (plan.some(({ tables }) => tables.some(({ table, present }) => table === 'content_file_operations' && present)) &&
+        database.prepare('SELECT COUNT(*) AS count FROM content_file_operations').get().count > 0) {
+        throw new Error('content file recovery is pending; start the current launcher to finish recovery before downgrading')
+    }
 }
 
 function main() {
-	const args = parseArgs(process.argv.slice(2))
-	if (!args.list && args.to === undefined) {
-		printUsage()
-		return
-	}
+    const args = parseArgs(process.argv.slice(2))
+    if (!args.list && args.to === undefined) {
+        printUsage()
+        return
+    }
 
-	const db = resolveDatabase(args)
-	if (!existsSync(db)) fail(`no database at ${db}`)
+    const db = resolveDatabase(args)
+    if (!existsSync(db)) fail(`no database at ${db}`)
 
-	if (args.list) {
-		listMigrations(db)
-		return
-	}
+    if (args.list) {
+        listMigrations(db)
+        return
+    }
 
-	const state = planDowngrade(db, args.to)
-	note(`database: ${db}`)
+    const state = planDowngrade(db, args.to)
+    note(`database: ${db}`)
 
-	if (state.applied.length === 0) {
-		note(`nothing to do: no applied migration at or after ${args.to}`)
-		if (state.failed.length > 0) reportPlan(state)
-		return
-	}
+    if (state.applied.length === 0) {
+        note(`nothing to do: no applied migration at or after ${args.to}`)
+        if (state.failed.length > 0) reportPlan(state)
+        return
+    }
 
-	reportPlan(state)
-	checkMappings(state.plan)
+    reportPlan(state)
+    checkMappings(state.plan)
+    const recoveryCheck = openReadOnly(db)
+    try {
+        checkPendingContentRecovery(recoveryCheck, state.plan)
+    } catch (error) {
+        fail(error.message)
+    } finally {
+        recoveryCheck.close()
+    }
 
-	const unmapped = unmappedVersions(state.plan)
-	if (unmapped.length > 0) {
-		const message =
-			`${unmapped.join(', ')} have no known schema in this script, so any columns or\n` +
-			'tables they added stay in place. Reinstalling a build that carries them will then\n' +
-			'fail on the duplicate object.'
-		if (!args.allowUnmapped) {
-			fail(`${message}\n\nPass --allow-unmapped to remove their records anyway.`)
-		}
-		note(`\nwarning: ${message}`)
-	}
+    const unmapped = unmappedVersions(state.plan)
+    if (unmapped.length > 0) {
+        const message =
+            `${unmapped.join(', ')} have no known schema in this script, so any columns or\n` +
+            'tables they added stay in place. Reinstalling a build that carries them will then\n' +
+            'fail on the duplicate object.'
+        if (!args.allowUnmapped) {
+            fail(`${message}\n\nPass --allow-unmapped to remove their records anyway.`)
+        }
+        note(`\nwarning: ${message}`)
+    }
 
-	if (!args.apply) {
-		note('\ndry run: rerun with --apply to perform the downgrade')
-		return
-	}
+    if (!args.apply) {
+        note('\ndry run: rerun with --apply to perform the downgrade')
+        return
+    }
 
-	const running = runningLauncher()
-	if (running) {
-		fail(`${running} is running; close the launcher before downgrading the database`)
-	}
+    const running = runningLauncher()
+    if (running) {
+        fail(`${running} is running; close the launcher before downgrading the database`)
+    }
 
-	const backup = backupPath(db)
-	const backedUp = writeBackup(db, backup)
-	note(`\nbackup: ${backup} (${backedUp} migration records)`)
+    const backup = backupPath(db)
+    const backedUp = writeBackup(db, backup)
+    note(`\nbackup: ${backup} (${backedUp} migration records)`)
 
-	const writable = new DatabaseSync(db)
-	try {
-		// The connection defaults to enforcing foreign keys, and the pragma is a
-		// no-op inside a transaction. Nothing being dropped here is referenced by
-		// a foreign key, but the checks below run regardless.
-		writable.exec('PRAGMA foreign_keys = OFF')
-		writable.exec('BEGIN')
-		try {
+    const writable = new DatabaseSync(db)
+    try {
+        // The connection defaults to enforcing foreign keys, and the pragma is a
+        // no-op inside a transaction. Nothing being dropped here is referenced by
+        // a foreign key, but the checks below run regardless.
+        writable.exec('PRAGMA foreign_keys = OFF')
+        writable.exec('BEGIN')
+        try {
+            checkPendingContentRecovery(writable, state.plan)
             for (const { columns, tables, objects } of [...state.plan].reverse()) {
                 for (const { type, name, present } of objects) {
                     if (present) writable.exec(`DROP ${type.toUpperCase()} ${name}`)
                 }
-				for (const { table, present } of tables) {
-					if (present) writable.exec(`DROP TABLE ${table}`)
-				}
-				for (const { table, column, present } of columns) {
-					if (present) writable.exec(`ALTER TABLE ${table} DROP COLUMN ${column}`)
-				}
-			}
-			writable
-				.prepare(`DELETE FROM _sqlx_migrations WHERE version IN (${state.applied.join(', ')})`)
-				.run()
-			writable.exec('COMMIT')
-		} catch (error) {
-			writable.exec('ROLLBACK')
-			fail(
-				`downgrade failed and was rolled back, so the database is unchanged (backup: ${backup}): ${error.message}`,
-			)
-		}
+                for (const { table, present } of tables) {
+                    if (present) writable.exec(`DROP TABLE ${table}`)
+                }
+                for (const { table, column, present } of columns) {
+                    if (present) writable.exec(`ALTER TABLE ${table} DROP COLUMN ${column}`)
+                }
+            }
+            writable
+                .prepare(`DELETE FROM _sqlx_migrations WHERE version IN (${state.applied.join(', ')})`)
+                .run()
+            writable.exec('COMMIT')
+        } catch (error) {
+            writable.exec('ROLLBACK')
+            fail(
+                `downgrade failed and was rolled back, so the database is unchanged (backup: ${backup}): ${error.message}`,
+            )
+        }
 
-		const remaining = writable.prepare('SELECT COUNT(*) AS count FROM _sqlx_migrations').get().count
-		const integrity = writable.prepare('PRAGMA integrity_check').get().integrity_check
-		const brokenReferences = writable.prepare('PRAGMA foreign_key_check').all()
+        const remaining = writable.prepare('SELECT COUNT(*) AS count FROM _sqlx_migrations').get().count
+        const integrity = writable.prepare('PRAGMA integrity_check').get().integrity_check
+        const brokenReferences = writable.prepare('PRAGMA foreign_key_check').all()
 
-		if (integrity !== 'ok') fail(`integrity check failed after the downgrade: ${integrity}`)
-		if (brokenReferences.length > 0) {
-			fail(`the downgrade left ${brokenReferences.length} broken foreign key references`)
-		}
+        if (integrity !== 'ok') fail(`integrity check failed after the downgrade: ${integrity}`)
+        if (brokenReferences.length > 0) {
+            fail(`the downgrade left ${brokenReferences.length} broken foreign key references`)
+        }
 
-		note(`migration records remaining: ${remaining}`)
-	} finally {
-		writable.close()
-	}
+        note(`migration records remaining: ${remaining}`)
+    } finally {
+        writable.close()
+    }
 
-	note(
-		'\nDone. An older build can open this database again. Reinstalling a build that\n' +
-			`carries the removed migrations applies them anew and restores what was dropped.\n` +
-			`Restore the backup by deleting ${APP_DB} and its -wal/-shm sidecars, then renaming\n` +
-			`${backup} back to ${APP_DB}.`,
-	)
+    note(
+        '\nDone. An older build can open this database again. Reinstalling a build that\n' +
+            `carries the removed migrations applies them anew and restores what was dropped.\n` +
+            `Restore the backup by deleting ${APP_DB} and its -wal/-shm sidecars, then renaming\n` +
+            `${backup} back to ${APP_DB}.`,
+    )
 }
 
 main()

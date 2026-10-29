@@ -26,6 +26,15 @@ static LOCAL_ICON_CACHE: LazyLock<
     Mutex<VecDeque<(LocalIconCacheKey, String)>>,
 > = LazyLock::new(|| Mutex::new(VecDeque::new()));
 
+// Limit native decoding as well as the webview queue: old in-flight requests
+// can outlive their cards, and each decoded original may occupy hundreds of MB.
+static SCREENSHOT_DECODER: tokio::sync::Semaphore =
+    tokio::sync::Semaphore::const_new(1);
+static SCREENSHOT_THUMBNAILS: LazyLock<
+    Mutex<VecDeque<(LocalIconCacheKey, Vec<u8>)>>,
+> = LazyLock::new(|| Mutex::new(VecDeque::new()));
+const SCREENSHOT_THUMBNAIL_CACHE_BYTES: usize = 32 * 1024 * 1024;
+
 fn safe_extract_relative_path(name: &str) -> Option<std::path::PathBuf> {
     let path = std::path::Path::new(name);
     if name.is_empty()
@@ -338,8 +347,27 @@ pub async fn screenshot_thumbnail(
         .into());
     }
 
+    let max_dimension = max_dimension.clamp(1, 1024);
+    let metadata = tokio::fs::metadata(&canonical_source).await?;
+    let key = LocalIconCacheKey {
+        source: canonical_source.clone(),
+        size: metadata.len(),
+        modified: metadata.modified()?,
+        max_dimension,
+    };
+    let _permit = SCREENSHOT_DECODER.acquire().await.map_err(|error| {
+        theseus::Error::from(theseus::ErrorKind::OtherError(error.to_string()))
+    })?;
+    if let Ok(mut cache) = SCREENSHOT_THUMBNAILS.lock() {
+        if let Some(index) = cache.iter().position(|(cached, _)| cached == &key)
+        {
+            let entry = cache.remove(index).unwrap();
+            let bytes = entry.1.clone();
+            cache.push_back(entry);
+            return Ok(tauri::ipc::Response::new(bytes));
+        }
+    }
     let bytes = tokio::fs::read(&canonical_source).await?;
-    let max_dimension = max_dimension.max(1);
     let thumbnail = tokio::task::spawn_blocking(move || -> Result<Vec<u8>> {
         let (width, height) =
             image::ImageReader::new(Cursor::new(bytes.as_slice()))
@@ -388,6 +416,24 @@ pub async fn screenshot_thumbnail(
         )))
     })??;
 
+    if thumbnail.len() <= SCREENSHOT_THUMBNAIL_CACHE_BYTES {
+        if let Ok(mut cache) = SCREENSHOT_THUMBNAILS.lock() {
+            cache.retain(|(cached, _)| {
+                cached.source != key.source
+                    || cached.max_dimension != key.max_dimension
+            });
+            let mut size =
+                cache.iter().map(|(_, bytes)| bytes.len()).sum::<usize>();
+            while size + thumbnail.len() > SCREENSHOT_THUMBNAIL_CACHE_BYTES {
+                if let Some((_, bytes)) = cache.pop_front() {
+                    size -= bytes.len();
+                } else {
+                    break;
+                }
+            }
+            cache.push_back((key, thumbnail.clone()));
+        }
+    }
     Ok(tauri::ipc::Response::new(thumbnail))
 }
 

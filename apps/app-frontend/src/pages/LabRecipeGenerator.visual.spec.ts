@@ -27,8 +27,8 @@ vi.mock('@/components/lab/recipe-generator/TagPalette.vue', () => ({
     default: { render: () => null },
 }))
 
-vi.mock('@/lab/recipe-generator/resources', async (importOriginal) => ({
-    ...(await importOriginal<typeof import('@/lab/recipe-generator/resources')>()),
+vi.mock('@/lab/shared/minecraft/resources', async (importOriginal) => ({
+    ...(await importOriginal<typeof import('@/lab/shared/minecraft/resources')>()),
     loadVersionResources: (version: string) => {
         const result = { version, items: [], itemsById: {}, vanillaTags: {} }
         if (!resourceLoads.deferred) return Promise.resolve(result)

@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
-import test from 'node:test'
+
+import { test } from 'vitest'
 
 import { calculate, generationBands, isGenerationChunk } from './core.ts'
 import { chunkGridStep, direction, fitView, packHeatmap, worldAt, zoomAt } from './plot.ts'

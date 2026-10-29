@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "\n        INSERT INTO instance_files (\n            id,\n            instance_id,\n            relative_path,\n            file_name,\n            enabled,\n            sha1,\n            size,\n            missing,\n            added_at,\n            modified_at,\n            local_mod_data,\n            icon_path\n        )\n        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)\n        ON CONFLICT (instance_id, relative_path) DO UPDATE SET\n            file_name = excluded.file_name,\n            enabled = excluded.enabled,\n            sha1 = excluded.sha1,\n            size = excluded.size,\n            missing = excluded.missing,\n            modified_at = excluded.modified_at,\n            local_mod_data = COALESCE(excluded.local_mod_data, instance_files.local_mod_data),\n            icon_path = COALESCE(excluded.icon_path, instance_files.icon_path)\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 12
+    },
+    "nullable": []
+  },
+  "hash": "fbc6e95d7fb624e8756415a3db461da9a9d16eaaebd53ed50672ba42d7db637c"
+}

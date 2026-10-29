@@ -426,12 +426,12 @@ async function confirmDatabaseOperation() {
             title: formatMessage(messages.databaseOperationSuccess, {
                 source:
                     sourceChannel === 'release'
-                        ? formatMessage(messages.releaseDatabase)
-                        : formatMessage(messages.betaDatabase),
+                        ? formatMessage(messages.release)
+                        : formatMessage(messages.beta),
                 target:
                     targetChannel === 'release'
-                        ? formatMessage(messages.releaseDatabase)
-                        : formatMessage(messages.betaDatabase),
+                        ? formatMessage(messages.release)
+                        : formatMessage(messages.beta),
             }),
         })
     } catch {
@@ -730,12 +730,12 @@ function onDatabaseOperationModalHide() {
                 formatMessage(messages.databaseOperationDescription, {
                     source:
                         databaseOperation === 'release-to-beta'
-                            ? formatMessage(messages.releaseDatabase)
-                            : formatMessage(messages.betaDatabase),
+                            ? formatMessage(messages.release)
+                            : formatMessage(messages.beta),
                     target:
                         databaseOperation === 'release-to-beta'
-                            ? formatMessage(messages.betaDatabase)
-                            : formatMessage(messages.releaseDatabase),
+                            ? formatMessage(messages.beta)
+                            : formatMessage(messages.release),
                 })
             }}
         </p>

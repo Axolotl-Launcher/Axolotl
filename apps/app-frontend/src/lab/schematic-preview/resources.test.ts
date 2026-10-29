@@ -1,7 +1,5 @@
-import assert from 'node:assert/strict'
-import { test } from 'node:test'
-
 import { CanvasTexture, LinearFilter, NearestFilter } from 'three'
+import { expect, it } from 'vitest'
 
 import {
     configureSchematicTexture,
@@ -10,7 +8,7 @@ import {
     resolveSchematicMaterialTexture,
 } from './resources.ts'
 
-test('block names follow the current locale and fall back without exposing internal IDs', () => {
+it('block names follow the current locale and fall back without exposing internal IDs', () => {
     const names = {
         en_us: {
             'block.minecraft.stone': 'Stone',
@@ -19,18 +17,12 @@ test('block names follow the current locale and fall back without exposing inter
         zh_cn: { 'block.minecraft.stone': '\u77f3\u5934' },
     }
 
-    assert.equal(resolveSchematicBlockName('minecraft:stone', names, 'zh-CN'), '\u77f3\u5934')
-    assert.equal(
-        resolveSchematicBlockName('example:machine/frame', names, 'zh-CN'),
-        'Machine Frame',
-    )
-    assert.equal(
-        resolveSchematicBlockName('example:polished_tile', names, 'zh-CN'),
-        'Polished Tile',
-    )
+    expect(resolveSchematicBlockName('minecraft:stone', names, 'zh-CN')).toBe('\u77f3\u5934')
+    expect(resolveSchematicBlockName('example:machine/frame', names, 'zh-CN')).toBe('Machine Frame')
+    expect(resolveSchematicBlockName('example:polished_tile', names, 'zh-CN')).toBe('Polished Tile')
 })
 
-test('schematic textures preserve Deepslate atlas row coordinates', () => {
+it('schematic textures preserve Deepslate atlas row coordinates', () => {
     const texture = new CanvasTexture({} as HTMLCanvasElement)
     texture.flipY = true
     texture.magFilter = LinearFilter
@@ -40,14 +32,14 @@ test('schematic textures preserve Deepslate atlas row coordinates', () => {
 
     configureSchematicTexture(texture)
 
-    assert.equal(texture.flipY, false)
-    assert.equal(texture.magFilter, NearestFilter)
-    assert.equal(texture.minFilter, NearestFilter)
-    assert.equal(texture.generateMipmaps, false)
-    assert.ok(texture.version > previousVersion)
+    expect(texture.flipY).toBe(false)
+    expect(texture.magFilter).toBe(NearestFilter)
+    expect(texture.minFilter).toBe(NearestFilter)
+    expect(texture.generateMipmaps).toBe(false)
+    expect(texture.version > previousVersion).toBeTruthy()
 })
 
-test('material previews resolve blockstate models and texture variables', () => {
+it('material previews resolve blockstate models and texture variables', () => {
     const sideUv: [number, number, number, number] = [0.25, 0.5, 0.5, 0.75]
     const resources = {
         blockDefinitions: {
@@ -82,10 +74,10 @@ test('material previews resolve blockstate models and texture variables', () => 
         missingTextureUv: [0, 0, 0.1, 0.1] as [number, number, number, number],
     }
 
-    assert.deepEqual(resolveSchematicMaterialTexture('minecraft:grass_block', resources), sideUv)
+    expect(resolveSchematicMaterialTexture('minecraft:grass_block', resources)).toEqual(sideUv)
 })
 
-test('material previews fall back to conventional texture names', () => {
+it('material previews fall back to conventional texture names', () => {
     const uv: [number, number, number, number] = [0, 0.25, 0.25, 0.5]
     const resources = {
         blockDefinitions: {},
@@ -95,12 +87,12 @@ test('material previews fall back to conventional texture names', () => {
         missingTextureUv: [0, 0, 0.1, 0.1] as [number, number, number, number],
     }
 
-    assert.deepEqual(resolveSchematicMaterialTexture('example:polished_tile', resources), uv)
+    expect(resolveSchematicMaterialTexture('example:polished_tile', resources)).toEqual(uv)
 })
 
-test('26.3 DataVersion is recognized without promoting snapshot or future worlds', () => {
-    assert.equal(minecraftVersionFromDataVersion(5023), '26.3')
-    assert.equal(minecraftVersionFromDataVersion(4903), '26.2')
-    assert.equal(minecraftVersionFromDataVersion(5005), undefined)
-    assert.equal(minecraftVersionFromDataVersion(9999), undefined)
+it('26.3 DataVersion is recognized without promoting snapshot or future worlds', () => {
+    expect(minecraftVersionFromDataVersion(5023)).toBe('26.3')
+    expect(minecraftVersionFromDataVersion(4903)).toBe('26.2')
+    expect(minecraftVersionFromDataVersion(5005)).toBe(undefined)
+    expect(minecraftVersionFromDataVersion(9999)).toBe(undefined)
 })

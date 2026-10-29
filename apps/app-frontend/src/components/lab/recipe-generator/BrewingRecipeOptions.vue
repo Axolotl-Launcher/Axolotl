@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import { Button, Combobox, defineMessages, useVIntl } from '@modrinth/ui'
 
-import potionIds from '@/lab/recipe-generator/assets/vanilla/potions.json'
-import { resolveRecipePotionName } from '@/lab/recipe-generator/item-names'
 import { parseRecipeJsonObject } from '@/lab/recipe-generator/recipe-engine'
 import type { BrewingState } from '@/lab/recipe-generator/types'
+import potionIds from '@/lab/shared/minecraft/assets/vanilla/potions.json'
+import { resolveRecipePotionName } from '@/lab/shared/minecraft/item-names'
 
 const model = defineModel<BrewingState>({ required: true })
 const emit = defineEmits<{ guide: [] }>()

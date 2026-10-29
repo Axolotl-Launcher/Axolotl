@@ -250,5 +250,6 @@ watch(
     },
 )
 
-await refreshEnrichment()
+// Dependency names are auxiliary metadata; the version itself renders without waiting for them.
+void refreshEnrichment()
 </script>

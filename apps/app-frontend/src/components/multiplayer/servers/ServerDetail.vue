@@ -468,15 +468,27 @@ async function shareOnline() {
                 @tab-click="tabIndex = $event"
             />
 
-            <div v-if="tabIndex === 0" class="min-h-0 flex-1">
+            <div
+                v-if="tabIndex === 0"
+                role="tabpanel"
+                aria-labelledby="nav-tab-console"
+                class="min-h-0 flex-1"
+            >
                 <ServerConsole :server="server" />
             </div>
-            <div v-else-if="tabIndex === 1" class="min-h-0 flex-1 overflow-y-auto pr-1">
+            <div
+                v-else-if="tabIndex === 1"
+                role="tabpanel"
+                aria-labelledby="nav-tab-files"
+                class="min-h-0 flex-1 overflow-y-auto pr-1"
+            >
                 <ServerFilesPanel :server="server" />
             </div>
             <div
                 v-if="settingsVisited"
                 v-show="tabIndex === 2"
+                role="tabpanel"
+                aria-labelledby="nav-tab-settings"
                 class="min-h-0 flex-1 overflow-y-auto pr-1"
             >
                 <ServerSettingsPanel

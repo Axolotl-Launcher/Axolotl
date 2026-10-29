@@ -7,7 +7,7 @@ import {
     installJobInstanceId,
     wait_for_install_job,
 } from '@/helpers/install'
-import { get, get_install_candidates } from '@/helpers/instance'
+import { get, get_content_snapshot, get_install_candidates } from '@/helpers/instance'
 import { resourceReleaseDocuments, resourceReleases } from '@/helpers/resources'
 
 import { createContentInstall } from './content-install'
@@ -38,6 +38,7 @@ vi.mock('@/helpers/cache.js', () => ({
 vi.mock('@/helpers/instance', () => ({
     get_install_candidates: vi.fn(),
     get: vi.fn(),
+    get_content_snapshot: vi.fn().mockResolvedValue({ items: [] }),
     list: vi.fn(),
     edit: vi.fn(),
 }))
@@ -88,6 +89,174 @@ function release(id: string) {
         loaders: ['fabric'],
     } as never
 }
+
+function switchTarget(source: 'modrinth' | 'curseforge', overrides: Record<string, unknown> = {}) {
+    return {
+        entryId: 'existing-entry',
+        projectType: 'mod',
+        expectedRelativePath: 'mods/original.jar.disabled',
+        materializationState: 'present',
+        capabilities: { canChangeVersion: true },
+        artifactRef: {
+            release: { project: { source, projectId: source === 'modrinth' ? 'example' : '42' } },
+        },
+        ...overrides,
+    }
+}
+
+function setupVersionSwitch(source: 'modrinth' | 'curseforge') {
+    vi.clearAllMocks()
+    vi.mocked(get_project).mockResolvedValue(project('example'))
+    vi.mocked(get_version_many).mockResolvedValue([release('example')])
+    vi.mocked(getCurseForgeProject).mockResolvedValue({
+        id: 42,
+        name: 'Example',
+        classId: 6,
+        slug: 'example',
+        authors: [],
+    } as never)
+    vi.mocked(getCurseForgeFile).mockResolvedValue({
+        id: 7,
+        displayName: 'Release',
+        fileName: 'example.jar',
+        fileDate: '2025-01-01',
+        gameVersions: ['1.20.1', 'Fabric'],
+        isAvailable: true,
+        hashes: [],
+    } as never)
+    vi.mocked(get).mockResolvedValue({
+        id: 'instance',
+        name: 'Target',
+        loader: 'fabric',
+        game_version: '1.20.1',
+    } as never)
+    const { context } = installationContext()
+    const show = vi.fn().mockResolvedValue({ job_id: 'switch-job' })
+    const showInstallSelection = vi.fn().mockResolvedValue(null)
+    context.setResourceInstallPreview({ show, showInstallSelection } as never)
+    const callback = vi.fn()
+    const install = () =>
+        source === 'modrinth'
+            ? context.install('example', 'example-release', 'instance', 'test', callback)
+            : context.installCurseForge('42', '7', 'instance', 'test', callback)
+    return { show, showInstallSelection, callback, install }
+}
+
+it.each(['modrinth', 'curseforge'] as const)(
+    'switches the exact installed %s entry and keeps disabled filenames bound to that entry',
+    async (source) => {
+        const { show, showInstallSelection, callback, install } = setupVersionSwitch(source)
+        vi.mocked(get_content_snapshot).mockResolvedValue({
+            items: [
+                switchTarget(source),
+                switchTarget(source, {
+                    entryId: 'other-scope',
+                    expectedRelativePath: 'saves/world/datapacks/example.zip',
+                    projectType: 'datapack',
+                }),
+            ],
+        } as never)
+        await install()
+        expect(get_content_snapshot).toHaveBeenCalledExactlyOnceWith('instance', true)
+        expect(show).toHaveBeenCalledExactlyOnceWith({
+            instanceId: 'instance',
+            instanceName: 'Target',
+            intent: 'switchVersion',
+            entryIds: ['existing-entry'],
+            release: {
+                project: { source, projectId: source === 'modrinth' ? 'example' : '42' },
+                releaseId: source === 'modrinth' ? 'example-release' : '7',
+            },
+            installDependencies: false,
+        })
+        expect(showInstallSelection).not.toHaveBeenCalled()
+        expect(callback).toHaveBeenCalledExactlyOnceWith(
+            source === 'modrinth' ? 'example-release' : '7',
+            [source === 'modrinth' ? 'example' : 'curseforge:42'],
+        )
+    },
+)
+
+it('matches confirmed secondary source references instead of the origin provider', async () => {
+    const { show, install } = setupVersionSwitch('modrinth')
+    vi.mocked(get_content_snapshot).mockResolvedValue({
+        items: [
+            switchTarget('curseforge', {
+                provider: 'curseforge',
+                providerProjectId: '42',
+                content: { provider_refs: [{ provider: 'modrinth', project_id: 'example' }] },
+            }),
+        ],
+    } as never)
+    await install()
+    expect(show).toHaveBeenCalledWith(expect.objectContaining({ entryIds: ['existing-entry'] }))
+})
+
+it.each([
+    ['resourcepack', 'resourcepack', 'resourcepacks/example.zip'],
+    ['shader', 'shaderpack', 'shaderpacks/example.zip'],
+])(
+    'switches installed %s files using the native snapshot type',
+    async (type, snapshotType, path) => {
+        const { show, showInstallSelection, install } = setupVersionSwitch('modrinth')
+        vi.mocked(get_project).mockResolvedValue({
+            id: 'example',
+            title: 'Example',
+            project_type: type,
+            versions: ['example-release'],
+        } as never)
+        vi.mocked(get_content_snapshot).mockResolvedValue({
+            items: [
+                switchTarget('modrinth', {
+                    projectType: snapshotType,
+                    expectedRelativePath: path,
+                }),
+            ],
+        } as never)
+        await install()
+        expect(show).toHaveBeenCalledWith(
+            expect.objectContaining({ intent: 'switchVersion', entryIds: ['existing-entry'] }),
+        )
+        expect(showInstallSelection).not.toHaveBeenCalled()
+    },
+)
+
+it.each(['duplicate', 'missing', 'forbidden'] as const)(
+    'does not choose or overwrite an unsafe installed target: %s',
+    async (condition) => {
+        const { show, showInstallSelection, install } = setupVersionSwitch('modrinth')
+        const items =
+            condition === 'duplicate'
+                ? [switchTarget('modrinth'), switchTarget('modrinth', { entryId: 'second-entry' })]
+                : [
+                      switchTarget(
+                          'modrinth',
+                          condition === 'missing'
+                              ? { materializationState: 'missing' }
+                              : { capabilities: { canChangeVersion: false } },
+                      ),
+                  ]
+        vi.mocked(get_content_snapshot).mockResolvedValue({ items } as never)
+        await expect(install()).rejects.toThrow()
+        expect(show).not.toHaveBeenCalled()
+        expect(showInstallSelection).not.toHaveBeenCalled()
+    },
+)
+
+it('keeps a new installation independent from different source, type and world entries', async () => {
+    const { show, showInstallSelection, install } = setupVersionSwitch('modrinth')
+    vi.mocked(get_content_snapshot).mockResolvedValue({
+        items: [
+            switchTarget('curseforge'),
+            switchTarget('modrinth', { projectType: 'resourcepack' }),
+            switchTarget('modrinth', { expectedRelativePath: 'saves/world/mods/example.jar' }),
+        ],
+    } as never)
+    await install()
+    expect(show).not.toHaveBeenCalled()
+    expect(showInstallSelection).toHaveBeenCalledOnce()
+    vi.mocked(get_content_snapshot).mockResolvedValue({ items: [] } as never)
+})
 
 it('version loading failure closes and settles its own session once', async () => {
     vi.clearAllMocks()

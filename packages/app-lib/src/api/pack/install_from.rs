@@ -12,7 +12,8 @@ use crate::state::{
     ModrinthVersionId, SideType,
 };
 use crate::util::download::constants::{
-    INSTALL_FILE_REPORTED_ATTEMPTS, MODPACK_REQUESTED_H2_RANGES,
+    INSTALL_FILE_REPORTED_ATTEMPTS, LARGE_FILE_RANGE_CONNECTION_FLOOR,
+    MODPACK_REQUESTED_H2_RANGES,
 };
 use crate::util::fetch::{
     ContentValidation, DownloadMeta, DownloadReason, DownloadRequest,
@@ -266,7 +267,7 @@ pub(crate) async fn generate_pack_from_version_id_with_reporter(
     let version_query = CachedEntry::get_version(
         &version_id_ref,
         Some(CacheBehaviour::Bypass),
-        &state.pool,
+        state.cache_pool(),
         &state.api_semaphore,
     );
     let version = tokio::select! {
@@ -422,6 +423,7 @@ pub(crate) async fn generate_pack_from_version_id_with_reporter(
                 ..Integrity::default()
             })
             .with_h2_range_concurrency(MODPACK_REQUESTED_H2_RANGES)
+            .with_range_connection_floor(LARGE_FILE_RANGE_CONNECTION_FLOOR)
             .with_download_meta(download_meta)
             .with_install_tracking(
                 reporter.clone(),
@@ -430,7 +432,6 @@ pub(crate) async fn generate_pack_from_version_id_with_reporter(
             ),
         &pack_path,
         &state.download_semaphore,
-        &state.pool,
         progress,
     )
     .await?;
@@ -450,7 +451,7 @@ pub(crate) async fn generate_pack_from_version_id_with_reporter(
     let project = CachedEntry::get_project(
         &ModrinthProjectId::new(version.project_id.clone())?,
         None,
-        &state.pool,
+        state.cache_pool(),
         &state.api_semaphore,
     )
     .await?
@@ -475,15 +476,9 @@ pub(crate) async fn generate_pack_from_version_id_with_reporter(
                         .build(),
                 )
                 .await?;
-            let icon_bytes = fetch(
-                &icon_url,
-                None,
-                None,
-                None,
-                &state.fetch_semaphore,
-                &state.pool,
-            )
-            .await?;
+            let icon_bytes =
+                fetch(&icon_url, None, None, None, &state.fetch_semaphore)
+                    .await?;
 
             let filename = icon_url.rsplit('/').next();
 
@@ -536,7 +531,7 @@ fn modpack_cache_path(
     filename: &str,
 ) -> crate::Result<PathBuf> {
     let mut path = root.to_path_buf();
-    for segment in [project_id, version_id, filename] {
+    for segment in [project_id, version_id] {
         if segment.contains('/') {
             return Err(crate::ErrorKind::InputError(
                 "Invalid modpack cache path component".to_string(),
@@ -545,7 +540,8 @@ fn modpack_cache_path(
         }
         path = crate::util::io::safe_relative_join(&path, segment)?;
     }
-    Ok(path)
+    let filename = crate::util::io::sanitize_download_file_name(filename)?;
+    crate::util::io::safe_relative_join(&path, &filename)
 }
 
 #[tracing::instrument]
@@ -826,13 +822,10 @@ mod cache_path_tests {
             "nested/name",
             r"..\outside",
             "C:/outside",
-            "C:outside",
             r"\\server\share",
             ".",
             "",
             "NUL",
-            "pack.mrpack:stream",
-            ".. ",
         ] {
             for position in 0..3 {
                 let mut components = ["project", "version", "pack.mrpack"];
@@ -849,5 +842,37 @@ mod cache_path_tests {
                 );
             }
         }
+        for invalid_id in ["C:outside", "pack.mrpack:stream", ".. "] {
+            assert!(
+                modpack_cache_path(root, invalid_id, "version", "pack.mrpack")
+                    .is_err()
+            );
+            assert!(
+                modpack_cache_path(root, "project", invalid_id, "pack.mrpack")
+                    .is_err()
+            );
+        }
+    }
+
+    #[test]
+    fn remote_modpack_filename_replaces_invalid_characters() {
+        let root = Path::new("modpacks");
+        let path = modpack_cache_path(
+            root,
+            "oMMOxJjh",
+            "RRYxMDqj",
+            "Yet Another Bingo: Ultimate-214.0.mrpack",
+        )
+        .unwrap();
+        assert_eq!(
+            path,
+            root.join(
+                "oMMOxJjh/RRYxMDqj/Yet Another Bingo_ Ultimate-214.0.mrpack"
+            )
+        );
+        let directory = tempfile::tempdir().unwrap();
+        let target = directory.path().join(path.file_name().unwrap());
+        std::fs::write(&target, b"pack").unwrap();
+        assert_eq!(std::fs::read(target).unwrap(), b"pack");
     }
 }

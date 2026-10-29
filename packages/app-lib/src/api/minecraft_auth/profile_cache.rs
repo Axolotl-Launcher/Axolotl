@@ -13,7 +13,7 @@ fn path(directory: &Path, credentials: &Credentials) -> PathBuf {
     directory.join(format!("{key:x}.json"))
 }
 
-pub(super) async fn read(
+pub(in crate::api) async fn read(
     directory: &Path,
     credentials: &Credentials,
 ) -> Option<MinecraftProfile> {
@@ -22,7 +22,7 @@ pub(super) async fn read(
     (profile.id == credentials.offline_profile.id).then_some(profile)
 }
 
-pub(super) async fn write(
+pub(in crate::api) async fn write(
     directory: &Path,
     credentials: &Credentials,
     profile: &MinecraftProfile,

@@ -1,4 +1,6 @@
 import fs from 'node:fs/promises'
+import path from 'node:path'
+import { pathToFileURL } from 'node:url'
 
 // 从 app 前端的公告 catalog（apps/app-frontend/src/announcements/catalog.ts，
 // 发布时人工维护的唯一数据源）导出网站 changelog 数据。
@@ -6,14 +8,18 @@ import fs from 'node:fs/promises'
 // 能够生成包含完整更新记录的静态 HTML。
 // catalog.ts 只使用可擦除语法（无 enum/namespace），直接由 Node 原生类型剥离导入，
 // 无需 typescript 依赖（verify-and-publish job 不安装依赖）。
-const [outputPath] = process.argv.slice(2)
+const [outputPath, sourcePath] = process.argv.slice(2)
 
 if (!outputPath) {
-    throw new Error('Usage: node create-website-release-catalog.mjs <output.json>')
+    throw new Error(
+        'Usage: node create-website-release-catalog.mjs <output.json> [announcement-catalog.ts]',
+    )
 }
 
 const catalogModule = await import(
-    new URL('../../apps/app-frontend/src/announcements/catalog.ts', import.meta.url)
+    sourcePath
+        ? pathToFileURL(path.resolve(sourcePath))
+        : new URL('../../apps/app-frontend/src/announcements/catalog.ts', import.meta.url)
 )
 
 const announcements = catalogModule.launcherAnnouncements

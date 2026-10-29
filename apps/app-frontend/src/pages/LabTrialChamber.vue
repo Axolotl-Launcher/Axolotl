@@ -100,7 +100,9 @@ onMounted(async () => {
     }
 })
 
-const canScan = computed(() => !!seed.value.trim() && !scanning.value && available.value !== false)
+const canScan = computed(
+    () => !!seed.value.trim() && !scanning.value && available.value === true,
+)
 
 // A finished scan describes the inputs it ran with, so changing one of them must
 // drop the old table instead of letting its coordinates pass for the new search.

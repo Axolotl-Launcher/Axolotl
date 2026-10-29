@@ -139,7 +139,9 @@ onMounted(async () => {
     }
 })
 
-const canScan = computed(() => !!seed.value.trim() && !scanning.value && available.value !== false)
+const canScan = computed(
+    () => !!seed.value.trim() && !scanning.value && available.value === true,
+)
 
 async function run() {
     if (!canScan.value) return

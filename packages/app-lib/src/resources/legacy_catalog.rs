@@ -6,6 +6,56 @@ use serde::de::DeserializeOwned;
 use serde_json::Value;
 use tokio_util::sync::CancellationToken;
 
+pub(crate) async fn curseforge_files_page(
+    project_id: u32,
+    request: crate::api::curseforge::CurseForgeFilesRequest,
+    service: &std::sync::Arc<ResourceService>,
+    cancel: &CancellationToken,
+) -> crate::Result<crate::api::curseforge::CurseForgeFilesResponse> {
+    curseforge_files_page_with_policy(
+        project_id,
+        request,
+        service,
+        cancel,
+        CachePolicy::UseFresh,
+    )
+    .await
+}
+
+pub(crate) async fn curseforge_files_page_with_policy(
+    project_id: u32,
+    request: crate::api::curseforge::CurseForgeFilesRequest,
+    service: &std::sync::Arc<ResourceService>,
+    cancel: &CancellationToken,
+    policy: CachePolicy,
+) -> crate::Result<crate::api::curseforge::CurseForgeFilesResponse> {
+    let outcome = service
+        .query(
+            &SourceId::curseforge(),
+            ProviderQuery::CurseForgeFilesProtocol {
+                project_id,
+                game_version: request.game_version,
+                mod_loader_type: request.mod_loader_type,
+                game_version_type_id: request.game_version_type_id,
+                index: request.index,
+                page_size: request.page_size.clamp(1, 50),
+            },
+            policy,
+            cancel,
+        )
+        .await
+        .map_err(crate::ErrorKind::ResourceError)?;
+    match outcome.value {
+        ProviderValue::Protocol(value) => {
+            serde_json::from_value(value).map_err(Into::into)
+        }
+        _ => Err(crate::ErrorKind::InputError(
+            "unexpected CurseForge files response".into(),
+        )
+        .into()),
+    }
+}
+
 fn error(error: ResourceError) -> crate::Error {
     crate::ErrorKind::InputError(error.to_string()).into()
 }

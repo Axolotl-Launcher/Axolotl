@@ -381,3 +381,156 @@ async fn unrelated_installed_counterpart_mismatch_does_not_block_new_or_forced_i
     cache.close().await;
     state.pool.close().await;
 }
+
+#[tokio::test]
+async fn recognition_falls_back_by_type_without_replacing_a_recorded_identity()
+{
+    let mut cf = release("123", "1", 'a');
+    cf.reference.project.source = SourceId::curseforge();
+    cf.reference.release_id = SourceReleaseId::new("101").unwrap();
+    cf.artifacts[0].reference.release = cf.reference.clone();
+    let mr = release("other000", "1", 'a');
+    let (_temp, cache) = cache().await;
+    let service = ResourceService::new(
+        cache.clone(),
+        vec![
+            Arc::new(ProjectTypeProvider {
+                inner: PlanProvider {
+                    source: SourceId::curseforge(),
+                    releases: vec![cf.clone()],
+                    requests: Mutex::new(vec![]),
+                },
+                types: vec![ResourceType::World],
+                project_error: None,
+            }),
+            Arc::new(ProjectTypeProvider {
+                inner: PlanProvider {
+                    source: SourceId::modrinth(),
+                    releases: vec![mr.clone()],
+                    requests: Mutex::new(vec![]),
+                },
+                types: vec![ResourceType::Mod],
+                project_error: None,
+            }),
+        ],
+    )
+    .unwrap();
+    let matches = vec![cf.artifacts[0].clone(), mr.artifacts[0].clone()];
+    let cancel = CancellationToken::new();
+    let selected = service
+        .select_recognized_artifact(
+            &matches,
+            None,
+            None,
+            &SourceId::curseforge(),
+            ResourceType::Mod,
+            false,
+            CachePolicy::UseFresh,
+            &cancel,
+        )
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(selected.0.reference, mr.artifacts[0].reference);
+    for (existing, origin) in [
+        (Some(&cf.artifacts[0].reference), None),
+        (None, Some(SourceId::curseforge())),
+    ] {
+        assert!(
+            service
+                .select_recognized_artifact(
+                    &matches,
+                    existing,
+                    origin.as_ref(),
+                    &SourceId::modrinth(),
+                    ResourceType::Mod,
+                    false,
+                    CachePolicy::UseFresh,
+                    &cancel
+                )
+                .await
+                .unwrap()
+                .is_none()
+        );
+    }
+    cache.close().await;
+}
+
+struct FailedProjectProvider(PlanProvider, ResourceError);
+#[async_trait]
+impl ResourceProvider for FailedProjectProvider {
+    fn source(&self) -> ResourceSource {
+        self.0.source()
+    }
+    fn namespace(&self) -> String {
+        self.0.namespace()
+    }
+    fn batch_limit(&self, query: &ProviderQuery) -> usize {
+        self.0.batch_limit(query)
+    }
+    async fn fetch_many(
+        &self,
+        queries: &[ProviderQuery],
+    ) -> Vec<ResourceResult<ProviderValue>> {
+        vec![Err(self.1.clone()); queries.len()]
+    }
+}
+
+#[tokio::test]
+async fn recognition_falls_back_only_after_expected_source_failures() {
+    let mut cf = release("123", "1", 'a');
+    cf.reference.project.source = SourceId::curseforge();
+    cf.reference.release_id = SourceReleaseId::new("101").unwrap();
+    cf.artifacts[0].reference.release = cf.reference.clone();
+    let mr = release("other000", "1", 'a');
+    let matches = vec![cf.artifacts[0].clone(), mr.artifacts[0].clone()];
+    for error in [
+        ResourceError::Unavailable,
+        ResourceError::Cache("cache failed".into()),
+        ResourceError::InvalidRequest("invalid caller".into()),
+        ResourceError::Database("db failed".into()),
+        ResourceError::Canceled,
+    ] {
+        let (_temp, cache) = cache().await;
+        let service = ResourceService::new(
+            cache.clone(),
+            vec![
+                Arc::new(FailedProjectProvider(
+                    PlanProvider {
+                        source: SourceId::curseforge(),
+                        releases: vec![],
+                        requests: Mutex::new(vec![]),
+                    },
+                    error.clone(),
+                )),
+                Arc::new(PlanProvider {
+                    source: SourceId::modrinth(),
+                    releases: vec![mr.clone()],
+                    requests: Mutex::new(vec![]),
+                }),
+            ],
+        )
+        .unwrap();
+        let result = service
+            .select_recognized_artifact(
+                &matches,
+                None,
+                None,
+                &SourceId::curseforge(),
+                ResourceType::Mod,
+                false,
+                CachePolicy::UseFresh,
+                &CancellationToken::new(),
+            )
+            .await;
+        if error == ResourceError::Unavailable {
+            assert_eq!(
+                result.unwrap().unwrap().0.reference,
+                mr.artifacts[0].reference
+            );
+        } else {
+            assert!(matches!(result, Err(actual) if actual == error));
+        }
+        cache.close().await;
+    }
+}

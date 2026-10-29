@@ -272,6 +272,17 @@ impl State {
         db_backup::mark_clean_shutdown(&database).await
     }
 
+    /// Where the cache table lives: the derived database, which is a memory
+    /// database while the file is unavailable, so callers always have a pool.
+    pub(crate) fn cache_pool(&self) -> &SqlitePool {
+        self.derived.pool()
+    }
+
+    /// The same database, as the handle its collections are read through.
+    pub(crate) fn cache_handle(&self) -> store::Handle {
+        self.derived.handle()
+    }
+
     pub async fn resources(
         &self,
     ) -> crate::resources::ResourceResult<&Arc<crate::resources::ResourceService>>
@@ -1260,7 +1271,8 @@ impl State {
         let pool = db::connect(&app_identifier).await?;
         let data = store::Handle::new(pool.clone());
 
-        legacy_converter::migrate_legacy_data(&data, &pool).await?;
+        let legacy_cache =
+            legacy_converter::migrate_legacy_data(&data, &pool).await?;
 
         tracing::info!("Fetching app settings");
         let mut settings = Settings::get(&data).await?;
@@ -1307,6 +1319,7 @@ impl State {
             directories.caches_dir().join(store::derived_db::FILE_NAME),
         )
         .await;
+        CachedEntry::store_best_effort(&legacy_cache, derived.pool()).await;
 
         let discord_rpc = DiscordGuard::init()?;
 

@@ -2476,7 +2476,7 @@ pub async fn lookup_mod_hash(
     let files = crate::state::CachedEntry::get_file_many(
         &[&hash],
         Some(crate::state::CacheBehaviour::StaleWhileRevalidateSkipOffline),
-        &state.pool,
+        state.cache_pool(),
         &state.api_semaphore,
     )
     .await?;
@@ -2489,7 +2489,7 @@ pub async fn lookup_mod_hash(
     let version = crate::state::CachedEntry::get_version(
         &ModrinthVersionId::new(file.version_id.clone())?,
         Some(crate::state::CacheBehaviour::StaleWhileRevalidateSkipOffline),
-        &state.pool,
+        state.cache_pool(),
         &state.api_semaphore,
     )
     .await?;
@@ -2498,7 +2498,7 @@ pub async fn lookup_mod_hash(
         crate::state::CachedEntry::get_project(
             &ModrinthProjectId::new(v.project_id.clone())?,
             Some(crate::state::CacheBehaviour::StaleWhileRevalidateSkipOffline),
-            &state.pool,
+            state.cache_pool(),
             &state.api_semaphore,
         )
         .await?

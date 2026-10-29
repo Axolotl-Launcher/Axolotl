@@ -7,6 +7,297 @@ use std::collections::HashMap;
 #[path = "../state/store/tests/content_identity_confirmation.rs"]
 mod content_identity_confirmation;
 
+struct MissingReleaseProvider(PlanProvider, Option<ResourceError>);
+
+#[async_trait]
+impl ResourceProvider for MissingReleaseProvider {
+    fn source(&self) -> ResourceSource {
+        self.0.source()
+    }
+    fn namespace(&self) -> String {
+        self.0.namespace()
+    }
+    fn batch_limit(&self, query: &ProviderQuery) -> usize {
+        self.0.batch_limit(query)
+    }
+    async fn fetch_many(
+        &self,
+        queries: &[ProviderQuery],
+    ) -> Vec<ResourceResult<ProviderValue>> {
+        self.0
+            .fetch_many(queries)
+            .await
+            .into_iter()
+            .zip(queries)
+            .map(|(result, query)| {
+                if matches!(query, ProviderQuery::Release { .. })
+                    && matches!(result, Err(ResourceError::Unavailable))
+                {
+                    self.1.clone().map_or(Ok(ProviderValue::NotFound), Err)
+                } else {
+                    result
+                }
+            })
+            .collect()
+    }
+}
+
+async fn missing_release_service(
+    releases: Vec<ResourceRelease>,
+) -> (tempfile::TempDir, Arc<ResourceService>) {
+    let (directory, cache) = cache().await;
+    let service = ResourceService::new(
+        cache,
+        vec![Arc::new(MissingReleaseProvider(
+            PlanProvider {
+                source: SourceId::modrinth(),
+                releases,
+                requests: Mutex::new(vec![]),
+            },
+            None,
+        ))],
+    )
+    .unwrap();
+    (directory, service)
+}
+
+#[tokio::test]
+async fn actual_metadata_timeout_downgrades_dependency_lookup_but_keeps_internal_errors_blocking()
+ {
+    let timeout: crate::Result<()> = crate::api::curseforge::metadata_deadline(
+        tokio::time::Instant::now(),
+        std::future::pending(),
+    )
+    .await;
+    let timeout = ResourceError::from(timeout.unwrap_err());
+    assert_eq!(timeout, ResourceError::Unavailable);
+    for error in [
+        timeout,
+        ResourceError::Database("broken store".into()),
+        ResourceError::Canceled,
+    ] {
+        let mut root = release("root0000", "1", 'a');
+        root.artifacts[0].dependencies.push(ArtifactDependency {
+            target: DependencyTarget::SourceRelease {
+                source: SourceId::modrinth(),
+                release_id: SourceReleaseId::new("missing1").unwrap(),
+            },
+            kind: ResourceDependencyKind::Required,
+            version_constraint: None,
+        });
+        let (_temp, cache) = cache().await;
+        let service = ResourceService::new(
+            cache.clone(),
+            vec![Arc::new(MissingReleaseProvider(
+                PlanProvider {
+                    source: SourceId::modrinth(),
+                    releases: vec![root.clone()],
+                    requests: Mutex::new(vec![]),
+                },
+                Some(error.clone()),
+            ))],
+        )
+        .unwrap();
+        let built = service
+            .build_operation(
+                draft(
+                    vec![selection("root", &root, None)],
+                    ResourceOperationIntent::Install,
+                ),
+                &target(),
+                &[],
+                &CancellationToken::new(),
+            )
+            .await;
+        match error {
+            ResourceError::Unavailable => {
+                let built = built.unwrap();
+                assert_eq!(built.plan.actions.len(), 1);
+                assert!(!built.plan.issues.iter().any(|issue| issue.blocking));
+                assert!(built.plan.issues.iter().any(|issue| issue.code
+                    == ResourceIssueCode::DependencyAnalysisFailed));
+            }
+            ResourceError::Canceled => {
+                assert!(matches!(built, Err(ResourceError::Canceled)))
+            }
+            _ => {
+                if let Ok(built) = built {
+                    assert!(
+                        built.plan.issues.iter().any(|issue| issue.blocking)
+                    );
+                }
+            }
+        }
+        cache.close().await;
+    }
+}
+
+#[tokio::test]
+async fn real_not_found_dependencies_warn_without_discarding_known_parent_constraints()
+ {
+    let mut root = release("root0000", "1", 'a');
+    let missing = release("missing0", "1", 'b');
+    root.artifacts[0].dependencies.push(ArtifactDependency {
+        target: DependencyTarget::SourceRelease {
+            source: SourceId::modrinth(),
+            release_id: missing.reference.release_id.clone(),
+        },
+        kind: ResourceDependencyKind::Required,
+        version_constraint: None,
+    });
+    let mut parent = release("parent00", "1", 'c');
+    parent.artifacts[0].dependencies.push(ArtifactDependency {
+        target: DependencyTarget::Resource {
+            reference: ResourceRef::Source {
+                project: root.reference.project.clone(),
+            },
+        },
+        kind: ResourceDependencyKind::Required,
+        version_constraint: Some("[2,)".into()),
+    });
+    let (_temp, service) =
+        missing_release_service(vec![root.clone(), parent.clone()]).await;
+    for known_parent in [false, true] {
+        let mut entries =
+            vec![installed(&missing, "missing", "mods/missing.jar")];
+        if known_parent {
+            entries.push(installed(&parent, "parent", "mods/parent.jar"));
+        }
+        let built = service
+            .build_operation(
+                draft(
+                    vec![selection("root", &root, None)],
+                    ResourceOperationIntent::Install,
+                ),
+                &target(),
+                &entries,
+                &CancellationToken::new(),
+            )
+            .await
+            .unwrap();
+        assert!(
+            built.plan.issues.iter().any(|issue| issue.code
+                == ResourceIssueCode::DependencyAnalysisFailed)
+        );
+        assert_eq!(
+            built.plan.issues.iter().any(|issue| issue.blocking),
+            known_parent
+        );
+        if !known_parent {
+            assert_eq!(built.plan.actions.len(), 1);
+        } else {
+            assert!(!built.retained_requirements.is_empty());
+        }
+    }
+    service.cache().close().await;
+}
+
+#[tokio::test]
+async fn a_missing_sibling_keeps_the_same_parents_known_constraints_in_either_order()
+ {
+    for missing_first in [false, true] {
+        for exact_missing in [false, true] {
+            let root = release("root0000", "1", 'a');
+            let missing = release("missing0", "1", 'b');
+            let mut parent = release("parent00", "1", 'c');
+            let known = ArtifactDependency {
+                target: DependencyTarget::Resource {
+                    reference: ResourceRef::Source {
+                        project: root.reference.project.clone(),
+                    },
+                },
+                kind: ResourceDependencyKind::Required,
+                version_constraint: Some("[2,)".into()),
+            };
+            let unknown = ArtifactDependency {
+                target: if exact_missing {
+                    DependencyTarget::Release {
+                        reference: missing.reference.clone(),
+                    }
+                } else {
+                    DependencyTarget::SourceRelease {
+                        source: SourceId::modrinth(),
+                        release_id: missing.reference.release_id.clone(),
+                    }
+                },
+                kind: ResourceDependencyKind::Required,
+                version_constraint: None,
+            };
+            parent.artifacts[0].dependencies = if missing_first {
+                vec![unknown, known]
+            } else {
+                vec![known, unknown]
+            };
+            let (_temp, service) =
+                missing_release_service(vec![root.clone(), parent.clone()])
+                    .await;
+            let built = service
+                .build_operation(
+                    draft(
+                        vec![selection("root", &root, None)],
+                        ResourceOperationIntent::Install,
+                    ),
+                    &target(),
+                    &[installed(&parent, "parent", "mods/parent.jar")],
+                    &CancellationToken::new(),
+                )
+                .await
+                .unwrap();
+            assert!(built.plan.issues.iter().any(|issue| issue.code
+                == ResourceIssueCode::DependencyAnalysisFailed));
+            assert!(built.plan.issues.iter().any(|issue| issue.blocking
+                && issue.code == ResourceIssueCode::VersionConflict));
+            assert!(built.plan.actions.is_empty());
+            assert_eq!(built.retained_requirements.len(), 1);
+            assert_eq!(
+                built.retained_requirements[0].version_constraint.as_deref(),
+                Some("[2,)")
+            );
+            service.cache().close().await;
+        }
+    }
+}
+
+#[tokio::test]
+async fn unavailable_installed_incompatible_version_is_unknown_in_the_final_plan()
+ {
+    let mut root = release("root0000", "1", 'a');
+    let missing = release("missing0", "1", 'b');
+    root.artifacts[0].dependencies.push(ArtifactDependency {
+        target: DependencyTarget::Resource {
+            reference: ResourceRef::Source {
+                project: missing.reference.project.clone(),
+            },
+        },
+        kind: ResourceDependencyKind::Incompatible,
+        version_constraint: Some("[1,)".into()),
+    });
+    let (_temp, service) = missing_release_service(vec![root.clone()]).await;
+    let built = service
+        .build_operation(
+            draft(
+                vec![selection("root", &root, None)],
+                ResourceOperationIntent::Install,
+            ),
+            &target(),
+            &[installed(&missing, "missing", "mods/missing.jar")],
+            &CancellationToken::new(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(built.plan.actions.len(), 1);
+    assert!(!built.plan.issues.iter().any(|issue| issue.blocking));
+    assert!(
+        built
+            .plan
+            .issues
+            .iter()
+            .any(|issue| issue.code
+                == ResourceIssueCode::DependencyAnalysisFailed)
+    );
+    service.cache().close().await;
+}
+
 #[tokio::test]
 async fn resource_operation_futures_can_cross_runtime_threads() {
     fn require_send<T: Send>(value: T) -> T {

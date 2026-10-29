@@ -244,6 +244,12 @@ pub struct InstallJobState {
     pub error: Option<InstallErrorView>,
     #[serde(default)]
     pub rollback_error: Option<InstallErrorView>,
+    /// A recoverable new-pack download failure retains its original instance
+    /// and verified files. Retry must reuse that target rather than create one.
+    #[serde(default)]
+    pub retry_from_checkpoint: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub local_pack_retry_identity: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub pause_reason: Option<InstallPauseReason>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -279,6 +285,8 @@ impl Clone for InstallJobState {
             rollback: self.rollback.clone(),
             error: self.error.clone(),
             rollback_error: self.rollback_error.clone(),
+            retry_from_checkpoint: self.retry_from_checkpoint,
+            local_pack_retry_identity: self.local_pack_retry_identity.clone(),
             pause_reason: self.pause_reason.clone(),
             continuation: self.continuation.clone(),
             missing_content: self.missing_content.clone(),
@@ -293,6 +301,20 @@ impl Clone for InstallJobState {
 }
 
 impl InstallJobState {
+    pub(crate) fn is_new_pack_checkpoint(&self) -> bool {
+        matches!(
+            &self.request,
+            InstallRequest::CreateModpackInstance { .. }
+                | InstallRequest::CreateInstance {
+                    link: InstanceLink::CurseForgeModpack { .. },
+                    ..
+                }
+        ) && matches!((&self.target, &self.cleanup),
+                (InstallTarget::NewInstance { instance_id: Some(target) }, InstallCleanup::DeleteNewInstance { instance_id: Some(cleanup) }) if target == cleanup)
+            && self.rollback.is_none()
+            && !self.instance_deleted()
+    }
+
     pub fn new(request: InstallRequest) -> Self {
         let target = request.target();
         let cleanup = request.cleanup();
@@ -324,6 +346,8 @@ impl InstallJobState {
             rollback: None,
             error: None,
             rollback_error: None,
+            retry_from_checkpoint: false,
+            local_pack_retry_identity: None,
             pause_reason: None,
             continuation: None,
             missing_content: None,

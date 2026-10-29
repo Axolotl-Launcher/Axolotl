@@ -288,21 +288,34 @@ pub(super) async fn run(
     )?;
     work.context.content_root = root.to_string_lossy().into_owned();
     let mut artifact_write = None;
+    // Set when this pass deliberately skipped recognition because the previous
+    // attempt is still inside the retry window. The timestamp written below then
+    // has to stay at that attempt, or every refresh would push the deadline out
+    // and the entry would never be recognized again.
+    let mut skipped_recognition = false;
     // Recognition reads every untracked file in the instance and batches its
     // fingerprints to the provider. A file the provider does not know stays
     // unrecognized, so without a wait it is re-fingerprinted on every refresh
     // pass; a failed identify was observed to repeat for minutes on end.
-    if work.entry.artifact.is_none() && recognition_is_due(&work) {
-        let recognition =
-            recognize(state, &service, &root, &mut work, policy, cancel).await;
-        match recognition {
-            Ok(artifact) => artifact_write = artifact,
-            Err(error) => {
-                let mut check = record(&work);
-                check.failed(chrono::Utc::now().timestamp(), error.to_string());
-                send(&tx, &work, Some(check), None, None).await?;
-                return Ok(());
+    if work.entry.artifact.is_none() {
+        if recognition_is_due(&work) {
+            let recognition =
+                recognize(state, &service, &root, &mut work, policy, cancel)
+                    .await;
+            match recognition {
+                Ok(artifact) => artifact_write = artifact,
+                Err(error) => {
+                    let mut check = record(&work);
+                    check.failed(
+                        chrono::Utc::now().timestamp(),
+                        error.to_string(),
+                    );
+                    send(&tx, &work, Some(check), None, None).await?;
+                    return Ok(());
+                }
             }
+        } else {
+            skipped_recognition = true;
         }
     }
     if cancel.is_cancelled() {
@@ -315,7 +328,15 @@ pub(super) async fn run(
     let Some(reference) = work.entry.artifact.as_ref() else {
         let mut check = record(&work);
         check.attempt = CheckAttempt::Unrecognized;
-        check.attempted_at = chrono::Utc::now().timestamp();
+        // A skipped pass must not look like a fresh attempt.
+        check.attempted_at = if skipped_recognition {
+            work.previous.as_ref().map_or_else(
+                || chrono::Utc::now().timestamp(),
+                |previous| previous.attempted_at,
+            )
+        } else {
+            chrono::Utc::now().timestamp()
+        };
         check.error = None;
         send(&tx, &work, Some(check), None, None).await?;
         return Ok(());

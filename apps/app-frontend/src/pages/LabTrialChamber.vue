@@ -108,7 +108,7 @@ async function run() {
                 seed: scanned.seed,
             }),
             type: 'success',
-        }).catch(() => {})
+        })
     } catch (cause) {
         error.value = String(cause)
         result.value = null
@@ -116,7 +116,7 @@ async function run() {
             title: formatMessage(messages.failedTitle),
             text: String(cause),
             type: 'error',
-        }).catch(() => {})
+        })
     } finally {
         scanning.value = false
     }

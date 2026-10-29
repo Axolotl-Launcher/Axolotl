@@ -155,7 +155,7 @@ async function run() {
                 seed: scanned.seed,
             }),
             type: 'success',
-        }).catch(() => {})
+        })
     } catch (cause) {
         error.value = String(cause)
         result.value = null
@@ -163,7 +163,7 @@ async function run() {
             title: formatMessage(messages.scanFailedTitle),
             text: String(cause),
             type: 'error',
-        }).catch(() => {})
+        })
     } finally {
         scanning.value = false
     }
@@ -263,12 +263,12 @@ async function copyTeleport(hit: { x: number; z: number; y: number }) {
                     <span class="text-sm font-medium">
                         {{ formatMessage(messages.regionsLabel) }}
                     </span>
-                    <input
+                    <StyledInput
                         v-model.number="regions"
                         type="number"
-                        min="1"
-                        max="4096"
-                        class="rounded-md border border-solid border-surface-5 bg-surface-3 px-3 py-2 text-sm"
+                        :min="1"
+                        :max="4096"
+                        wrapper-class="w-full"
                         :disabled="scanning || available === false"
                     />
                 </label>
@@ -276,12 +276,12 @@ async function copyTeleport(hit: { x: number; z: number; y: number }) {
                     <span class="text-sm font-medium">
                         {{ formatMessage(messages.threadsLabel) }}
                     </span>
-                    <input
+                    <StyledInput
                         v-model.number="threads"
                         type="number"
-                        min="0"
-                        max="64"
-                        class="rounded-md border border-solid border-surface-5 bg-surface-3 px-3 py-2 text-sm"
+                        :min="0"
+                        :max="64"
+                        wrapper-class="w-full"
                         :disabled="scanning || available === false"
                     />
                 </label>
@@ -318,12 +318,12 @@ async function copyTeleport(hit: { x: number; z: number; y: number }) {
                     <span class="text-sm font-medium">
                         {{ formatMessage(messages.maxYLabel) }}
                     </span>
-                    <input
+                    <StyledInput
                         v-model.number="maxY"
                         type="number"
-                        min="-64"
-                        max="320"
-                        class="rounded-md border border-solid border-surface-5 bg-surface-3 px-3 py-2 text-sm"
+                        :min="-64"
+                        :max="320"
+                        wrapper-class="w-full"
                         :disabled="scanning || available === false"
                     />
                 </label>
@@ -331,12 +331,12 @@ async function copyTeleport(hit: { x: number; z: number; y: number }) {
                     <span class="text-sm font-medium">
                         {{ formatMessage(messages.phase2Label) }}
                     </span>
-                    <input
+                    <StyledInput
                         v-model.number="phase2MaxY"
                         type="number"
-                        min="-64"
-                        max="320"
-                        class="rounded-md border border-solid border-surface-5 bg-surface-3 px-3 py-2 text-sm"
+                        :min="-64"
+                        :max="320"
+                        wrapper-class="w-full"
                         :disabled="scanning || available === false"
                     />
                 </label>

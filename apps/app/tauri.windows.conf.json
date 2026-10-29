@@ -1,7 +1,12 @@
 {
   "bundle": {
     "targets": ["nsis"],
-    "resources": ["resources/blockbench-skin", "resources/seed-map"],
+    "resources": [
+      "resources/blockbench-skin",
+      "resources/seed-map",
+      "resources/trial-spawner-finder",
+      "resources/lysh"
+    ],
     "windows": {
       "nsis": {
         "installMode": "currentUser",

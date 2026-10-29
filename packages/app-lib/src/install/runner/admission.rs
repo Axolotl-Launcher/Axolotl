@@ -110,6 +110,27 @@ pub(super) async fn queued_slot<'a>(
     queue::wait_for_slot(state, job, EXECUTION_WAIT).await
 }
 
+/// The slot for settling a job whose runner failed. Unlike admission, the
+/// wait does not end when the job starts canceling: finishing the
+/// cancellation rolls files back too. `None` once the job has finished.
+pub(super) async fn settlement_slot<'a>(
+    state: &'a State,
+    job: &store::InstallJobRecord,
+) -> crate::Result<
+    Option<(
+        Option<tokio::sync::OwnedMutexGuard<()>>,
+        tokio::sync::SemaphorePermit<'a>,
+    )>,
+> {
+    queue::wait_for_slot_until(
+        state,
+        job,
+        EXECUTION_WAIT,
+        queue::LeaveWhen::Finished,
+    )
+    .await
+}
+
 /// The slot, or an error once the job leaves the queue; the admission tests
 /// use this shape.
 #[cfg(test)]

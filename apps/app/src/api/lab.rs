@@ -7,7 +7,6 @@
 
 use std::ffi::{OsStr, OsString};
 use std::path::{Path, PathBuf};
-use std::process::Command;
 use std::time::Instant;
 
 use serde::Serialize;
@@ -346,13 +345,15 @@ pub async fn low_y_swamp_hut_scan<R: tauri::Runtime>(
 /// Minimum Java major version the trial-chamber program needs.
 const JAVA_MAJOR: u32 = 25;
 
-/// Locate `java`: a JDK the launcher already manages, then `JAVA_HOME`, then
-/// `PATH`.
+/// Locate `java` and, when the launcher already knows which runtime it is, its
+/// major version.
 ///
 /// The launcher keeps its own list of runtimes, and someone who installed JDK 25
 /// through it never set `JAVA_HOME`; checking that list first is what makes this
 /// tool agree with the Java page instead of claiming no runtime is installed.
-async fn find_java() -> Option<PathBuf> {
+/// It also means the version is already known, so the caller does not have to
+/// start the runtime just to parse `-version` again.
+async fn find_java() -> Option<(PathBuf, Option<u32>)> {
     let binary = if cfg!(windows) { "java.exe" } else { "java" };
     if let Ok(versions) = crate::api::jre::get_java_versions().await {
         let mut best: Option<(u32, PathBuf)> = None;
@@ -371,43 +372,61 @@ async fn find_java() -> Option<PathBuf> {
                 best = Some((version.parsed_version, candidate));
             }
         }
-        if let Some((_, path)) = best {
-            return Some(path);
+        if let Some((major, path)) = best {
+            return Some((path, Some(major)));
         }
     }
     if let Some(home) = std::env::var_os("JAVA_HOME") {
         let candidate = PathBuf::from(home).join("bin").join(binary);
         if candidate.is_file() {
-            return Some(candidate);
+            return Some((candidate, None));
         }
     }
     let path = std::env::var_os("PATH")?;
     std::env::split_paths(&path)
         .map(|dir| dir.join(binary))
         .find(|candidate| candidate.is_file())
+        .map(|candidate| (candidate, None))
 }
 
 /// Whether `java -version` reports [`JAVA_MAJOR`] or newer.
-fn java_is_new_enough(java: &Path) -> bool {
-    let mut probe = Command::new(java);
-    probe.arg("-version");
+///
+/// Probing starts a process and the page asks on every mount, so the answer is
+/// remembered per executable: the same JDK keeps the same path, and a stale
+/// entry only costs a restart rather than a wrong answer.
+async fn java_is_new_enough(java: &Path) -> bool {
+    type Probes = std::sync::Mutex<std::collections::HashMap<PathBuf, bool>>;
+    static PROBES: std::sync::OnceLock<Probes> = std::sync::OnceLock::new();
+
+    let probes = PROBES.get_or_init(Default::default);
+    let known = probes.lock().ok().and_then(|map| map.get(java).copied());
+    if let Some(answer) = known {
+        return answer;
+    }
+
+    let mut command = tokio::process::Command::new(java);
+    command.arg("-version");
     #[cfg(windows)]
     {
         use std::os::windows::process::CommandExt;
-        probe.creation_flags(0x0800_0000);
+        command.as_std_mut().creation_flags(0x0800_0000);
     }
-    let output = match probe.output() {
-        Ok(output) => output,
-        Err(_) => return false,
-    };
     // `-version` writes to stderr.
-    let text = String::from_utf8_lossy(&output.stderr);
-    let major = text
-        .split('"')
-        .nth(1)
-        .and_then(|version| version.split('.').next())
-        .and_then(|first| first.parse::<u32>().ok());
-    major.map(|value| value >= JAVA_MAJOR).unwrap_or(false)
+    let answer = match command.output().await {
+        Ok(output) => {
+            let text = String::from_utf8_lossy(&output.stderr);
+            text.split('"')
+                .nth(1)
+                .and_then(|version| version.split('.').next())
+                .and_then(|first| first.parse::<u32>().ok())
+                .is_some_and(|major| major >= JAVA_MAJOR)
+        }
+        Err(_) => false,
+    };
+    if let Ok(mut map) = probes.lock() {
+        map.insert(java.to_path_buf(), answer);
+    }
+    answer
 }
 
 /// Directory holding the trial-chamber program, if it is installed.
@@ -490,11 +509,18 @@ fn parse_trial_csv(text: &str) -> Vec<TrialChamberHit> {
 pub async fn trial_chamber_available<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
 ) -> bool {
-    let has_java = find_java()
-        .await
-        .map(|java| java_is_new_enough(&java))
-        .unwrap_or(false);
-    has_java && trial_program_dir(&app).is_some()
+    // The program directory is a cheap check and its absence decides the answer,
+    // so it runs before the runtime probe instead of after it.
+    if trial_program_dir(&app).is_none() {
+        return false;
+    }
+    match find_java().await {
+        Some((java, known_major)) => match known_major {
+            Some(major) => major >= JAVA_MAJOR,
+            None => java_is_new_enough(&java).await,
+        },
+        None => false,
+    }
 }
 
 #[tauri::command]
@@ -504,17 +530,25 @@ pub async fn trial_chamber_find<R: tauri::Runtime>(
     radius: u32,
     threads: u32,
 ) -> Result<TrialChamberScan, String> {
-    let java = find_java().await.ok_or_else(|| {
+    // The program directory decides whether this tool can run here at all and
+    // costs one directory lookup, so it is settled before resolving a runtime.
+    // Reporting a missing JDK for a build that ships no program sends the user
+    // off installing something that was never the problem.
+    let program = trial_program_dir(&app).ok_or_else(|| {
+        "the trial-chamber program is missing from this build".to_string()
+    })?;
+    let (java, known_major) = find_java().await.ok_or_else(|| {
         "no Java runtime found; install JDK 25 or let the launcher download one".to_string()
     })?;
-    if !java_is_new_enough(&java) {
+    let java_is_usable = match known_major {
+        Some(major) => major >= JAVA_MAJOR,
+        None => java_is_new_enough(&java).await,
+    };
+    if !java_is_usable {
         return Err(format!(
             "the installed Java is older than {JAVA_MAJOR}; install JDK {JAVA_MAJOR} or newer"
         ));
     }
-    let program = trial_program_dir(&app).ok_or_else(|| {
-        "the trial-chamber program is missing from this build".to_string()
-    })?;
     // The program ships as several jars (engine, runtime, CLI) and only the
     // runtime jar carries a main class, so it is launched through the classpath
     // rather than `-jar`.

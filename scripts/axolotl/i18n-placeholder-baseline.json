@@ -1,0 +1,575 @@
+{
+  "_comment": "Placeholder mismatches that already existed when the check was introduced. They are translations missing a placeholder, so the message renders braces literally. Fix them by editing the locale file and removing the entry here; new mismatches fail the check immediately.",
+  "entries": [
+    {
+      "locale": "apps/app-frontend/src/locales/nl-NL",
+      "key": "app.instance.worlds.search-worlds-placeholder",
+      "expected": "count",
+      "got": "none"
+    },
+    {
+      "locale": "packages/ui/src/locales/ar-SA",
+      "key": "content.confirm-deletion.admonition-body",
+      "expected": "contentType",
+      "got": "none"
+    },
+    {
+      "locale": "packages/ui/src/locales/cs-CZ",
+      "key": "content.confirm-deletion.admonition-body",
+      "expected": "contentType",
+      "got": "none"
+    },
+    {
+      "locale": "packages/ui/src/locales/da-DK",
+      "key": "content.confirm-deletion.admonition-body",
+      "expected": "contentType",
+      "got": "none"
+    },
+    {
+      "locale": "packages/ui/src/locales/de-CH",
+      "key": "content.confirm-deletion.admonition-body",
+      "expected": "contentType",
+      "got": "none"
+    },
+    {
+      "locale": "packages/ui/src/locales/de-DE",
+      "key": "content.confirm-deletion.admonition-body",
+      "expected": "contentType",
+      "got": "none"
+    },
+    {
+      "locale": "packages/ui/src/locales/es-419",
+      "key": "content.confirm-deletion.admonition-body",
+      "expected": "contentType",
+      "got": "none"
+    },
+    {
+      "locale": "packages/ui/src/locales/es-ES",
+      "key": "content.confirm-deletion.admonition-body",
+      "expected": "contentType",
+      "got": "none"
+    },
+    {
+      "locale": "packages/ui/src/locales/fr-FR",
+      "key": "content.confirm-deletion.admonition-body",
+      "expected": "contentType",
+      "got": "none"
+    },
+    {
+      "locale": "packages/ui/src/locales/he-IL",
+      "key": "content.confirm-deletion.admonition-body",
+      "expected": "contentType",
+      "got": "none"
+    },
+    {
+      "locale": "packages/ui/src/locales/hu-HU",
+      "key": "content.confirm-deletion.admonition-body",
+      "expected": "contentType",
+      "got": "none"
+    },
+    {
+      "locale": "packages/ui/src/locales/hu-HU",
+      "key": "content.page-layout.empty.hint",
+      "expected": "contentType",
+      "got": "none"
+    },
+    {
+      "locale": "packages/ui/src/locales/hu-HU",
+      "key": "project-type.datapack.lowercase",
+      "expected": "count",
+      "got": "none"
+    },
+    {
+      "locale": "packages/ui/src/locales/hu-HU",
+      "key": "project-type.mod.lowercase",
+      "expected": "count",
+      "got": "none"
+    },
+    {
+      "locale": "packages/ui/src/locales/hu-HU",
+      "key": "project-type.modpack.lowercase",
+      "expected": "count",
+      "got": "none"
+    },
+    {
+      "locale": "packages/ui/src/locales/hu-HU",
+      "key": "project-type.plugin.lowercase",
+      "expected": "count",
+      "got": "none"
+    },
+    {
+      "locale": "packages/ui/src/locales/hu-HU",
+      "key": "project-type.project.lowercase",
+      "expected": "count",
+      "got": "none"
+    },
+    {
+      "locale": "packages/ui/src/locales/hu-HU",
+      "key": "project-type.resourcepack.lowercase",
+      "expected": "count",
+      "got": "none"
+    },
+    {
+      "locale": "packages/ui/src/locales/hu-HU",
+      "key": "project-type.server.lowercase",
+      "expected": "count",
+      "got": "none"
+    },
+    {
+      "locale": "packages/ui/src/locales/hu-HU",
+      "key": "project-type.shader.lowercase",
+      "expected": "count",
+      "got": "none"
+    },
+    {
+      "locale": "packages/ui/src/locales/hu-HU",
+      "key": "project.online-player-count.tooltip",
+      "expected": "count,countPlural",
+      "got": "count"
+    },
+    {
+      "locale": "packages/ui/src/locales/id-ID",
+      "key": "content.confirm-deletion.admonition-body",
+      "expected": "contentType",
+      "got": "none"
+    },
+    {
+      "locale": "packages/ui/src/locales/it-IT",
+      "key": "content.confirm-deletion.admonition-body",
+      "expected": "contentType",
+      "got": "none"
+    },
+    {
+      "locale": "packages/ui/src/locales/it-IT",
+      "key": "project-type.mod.capital",
+      "expected": "count",
+      "got": "none"
+    },
+    {
+      "locale": "packages/ui/src/locales/it-IT",
+      "key": "project-type.mod.lowercase",
+      "expected": "count",
+      "got": "none"
+    },
+    {
+      "locale": "packages/ui/src/locales/it-IT",
+      "key": "project-type.plugin.capital",
+      "expected": "count",
+      "got": "none"
+    },
+    {
+      "locale": "packages/ui/src/locales/it-IT",
+      "key": "project-type.plugin.lowercase",
+      "expected": "count",
+      "got": "none"
+    },
+    {
+      "locale": "packages/ui/src/locales/it-IT",
+      "key": "project-type.server.capital",
+      "expected": "count",
+      "got": "none"
+    },
+    {
+      "locale": "packages/ui/src/locales/it-IT",
+      "key": "project-type.server.lowercase",
+      "expected": "count",
+      "got": "none"
+    },
+    {
+      "locale": "packages/ui/src/locales/it-IT",
+      "key": "project-type.shader.capital",
+      "expected": "count",
+      "got": "none"
+    },
+    {
+      "locale": "packages/ui/src/locales/it-IT",
+      "key": "project-type.shader.lowercase",
+      "expected": "count",
+      "got": "none"
+    },
+    {
+      "locale": "packages/ui/src/locales/it-IT",
+      "key": "settings.language.description",
+      "expected": "platform",
+      "got": "none"
+    },
+    {
+      "locale": "packages/ui/src/locales/it-IT",
+      "key": "settings.language.warning",
+      "expected": "platform",
+      "got": "none"
+    },
+    {
+      "locale": "packages/ui/src/locales/ja-JP",
+      "key": "content.confirm-bulk-update.admonition-body",
+      "expected": "count",
+      "got": "none"
+    },
+    {
+      "locale": "packages/ui/src/locales/ja-JP",
+      "key": "content.confirm-bulk-update.update-button",
+      "expected": "count",
+      "got": "none"
+    },
+    {
+      "locale": "packages/ui/src/locales/ja-JP",
+      "key": "content.confirm-deletion.admonition-body",
+      "expected": "contentType",
+      "got": "none"
+    },
+    {
+      "locale": "packages/ui/src/locales/ja-JP",
+      "key": "content.page-layout.search-placeholder",
+      "expected": "contentType,count",
+      "got": "contentType"
+    },
+    {
+      "locale": "packages/ui/src/locales/ja-JP",
+      "key": "project-type.datapack.capital",
+      "expected": "count",
+      "got": "none"
+    },
+    {
+      "locale": "packages/ui/src/locales/ja-JP",
+      "key": "project-type.datapack.lowercase",
+      "expected": "count",
+      "got": "none"
+    },
+    {
+      "locale": "packages/ui/src/locales/ja-JP",
+      "key": "project-type.plugin.capital",
+      "expected": "count",
+      "got": "none"
+    },
+    {
+      "locale": "packages/ui/src/locales/ja-JP",
+      "key": "project-type.resourcepack.capital",
+      "expected": "count",
+      "got": "none"
+    },
+    {
+      "locale": "packages/ui/src/locales/ja-JP",
+      "key": "project-type.resourcepack.lowercase",
+      "expected": "count",
+      "got": "none"
+    },
+    {
+      "locale": "packages/ui/src/locales/ja-JP",
+      "key": "project-type.shader.capital",
+      "expected": "count",
+      "got": "none"
+    },
+    {
+      "locale": "packages/ui/src/locales/ja-JP",
+      "key": "project-type.shader.lowercase",
+      "expected": "count",
+      "got": "none"
+    },
+    {
+      "locale": "packages/ui/src/locales/ja-JP",
+      "key": "project.online-player-count.tooltip",
+      "expected": "count,countPlural",
+      "got": "count"
+    },
+    {
+      "locale": "packages/ui/src/locales/ja-JP",
+      "key": "project.recent-plays",
+      "expected": "count,countPlural",
+      "got": "count"
+    },
+    {
+      "locale": "packages/ui/src/locales/ja-JP",
+      "key": "project.recent-plays.tooltip",
+      "expected": "count,countPlural",
+      "got": "count"
+    },
+    {
+      "locale": "packages/ui/src/locales/ko-KR",
+      "key": "content.confirm-deletion.admonition-body",
+      "expected": "contentType",
+      "got": "none"
+    },
+    {
+      "locale": "packages/ui/src/locales/ko-KR",
+      "key": "project-type.project.capital",
+      "expected": "count",
+      "got": "none"
+    },
+    {
+      "locale": "packages/ui/src/locales/ko-KR",
+      "key": "project.recent-plays.tooltip",
+      "expected": "count,countPlural",
+      "got": "count"
+    },
+    {
+      "locale": "packages/ui/src/locales/ms-MY",
+      "key": "content.confirm-deletion.admonition-body",
+      "expected": "contentType",
+      "got": "none"
+    },
+    {
+      "locale": "packages/ui/src/locales/nl-NL",
+      "key": "content.confirm-deletion.admonition-body",
+      "expected": "contentType",
+      "got": "none"
+    },
+    {
+      "locale": "packages/ui/src/locales/nl-NL",
+      "key": "files.conflict-modal.overwrite-warning",
+      "expected": "count",
+      "got": "none"
+    },
+    {
+      "locale": "packages/ui/src/locales/no-NO",
+      "key": "content.confirm-deletion.admonition-body",
+      "expected": "contentType",
+      "got": "none"
+    },
+    {
+      "locale": "packages/ui/src/locales/pl-PL",
+      "key": "content.confirm-deletion.admonition-body",
+      "expected": "contentType",
+      "got": "none"
+    },
+    {
+      "locale": "packages/ui/src/locales/pl-PL",
+      "key": "installation-settings.unlink.description",
+      "expected": "projectType,type",
+      "got": "type"
+    },
+    {
+      "locale": "packages/ui/src/locales/pt-BR",
+      "key": "content.confirm-deletion.admonition-body",
+      "expected": "contentType",
+      "got": "none"
+    },
+    {
+      "locale": "packages/ui/src/locales/pt-PT",
+      "key": "content.confirm-deletion.admonition-body",
+      "expected": "contentType",
+      "got": "none"
+    },
+    {
+      "locale": "packages/ui/src/locales/ro-RO",
+      "key": "content.confirm-deletion.admonition-body",
+      "expected": "contentType",
+      "got": "none"
+    },
+    {
+      "locale": "packages/ui/src/locales/ru-RU",
+      "key": "content.confirm-deletion.admonition-body",
+      "expected": "contentType",
+      "got": "none"
+    },
+    {
+      "locale": "packages/ui/src/locales/ru-RU",
+      "key": "content.dependency-warning.delete-many-anyway-button",
+      "expected": "count,itemType",
+      "got": "count"
+    },
+    {
+      "locale": "packages/ui/src/locales/ru-RU",
+      "key": "content.page-layout.empty.hint",
+      "expected": "contentType",
+      "got": "none"
+    },
+    {
+      "locale": "packages/ui/src/locales/ru-RU",
+      "key": "content.selection-bar.bulk.deleting-waiting",
+      "expected": "contentType",
+      "got": "none"
+    },
+    {
+      "locale": "packages/ui/src/locales/ru-RU",
+      "key": "content.selection-bar.bulk.disabling-waiting",
+      "expected": "contentType",
+      "got": "none"
+    },
+    {
+      "locale": "packages/ui/src/locales/ru-RU",
+      "key": "content.selection-bar.bulk.enabling-waiting",
+      "expected": "contentType",
+      "got": "none"
+    },
+    {
+      "locale": "packages/ui/src/locales/ru-RU",
+      "key": "content.selection-bar.bulk.updating-waiting",
+      "expected": "contentType",
+      "got": "none"
+    },
+    {
+      "locale": "packages/ui/src/locales/ru-RU",
+      "key": "search.filter.locked.default.title",
+      "expected": "type",
+      "got": "none"
+    },
+    {
+      "locale": "packages/ui/src/locales/sr-CS",
+      "key": "content.confirm-deletion.admonition-body",
+      "expected": "contentType",
+      "got": "none"
+    },
+    {
+      "locale": "packages/ui/src/locales/sv-SE",
+      "key": "content.confirm-deletion.admonition-body",
+      "expected": "contentType",
+      "got": "none"
+    },
+    {
+      "locale": "packages/ui/src/locales/sv-SE",
+      "key": "project.online-player-count.tooltip",
+      "expected": "count,countPlural",
+      "got": "count"
+    },
+    {
+      "locale": "packages/ui/src/locales/tr-TR",
+      "key": "content.confirm-deletion.admonition-body",
+      "expected": "contentType",
+      "got": "none"
+    },
+    {
+      "locale": "packages/ui/src/locales/tr-TR",
+      "key": "content.page-layout.search-placeholder",
+      "expected": "contentType,count",
+      "got": "count"
+    },
+    {
+      "locale": "packages/ui/src/locales/tr-TR",
+      "key": "payment-method.card_display",
+      "expected": "card_brand,last_four",
+      "got": "none"
+    },
+    {
+      "locale": "packages/ui/src/locales/tr-TR",
+      "key": "project-type.datapack.capital",
+      "expected": "count",
+      "got": "none"
+    },
+    {
+      "locale": "packages/ui/src/locales/tr-TR",
+      "key": "project-type.datapack.lowercase",
+      "expected": "count",
+      "got": "none"
+    },
+    {
+      "locale": "packages/ui/src/locales/tr-TR",
+      "key": "project-type.mod.capital",
+      "expected": "count",
+      "got": "none"
+    },
+    {
+      "locale": "packages/ui/src/locales/tr-TR",
+      "key": "project-type.mod.lowercase",
+      "expected": "count",
+      "got": "none"
+    },
+    {
+      "locale": "packages/ui/src/locales/tr-TR",
+      "key": "project-type.modpack.capital",
+      "expected": "count",
+      "got": "none"
+    },
+    {
+      "locale": "packages/ui/src/locales/tr-TR",
+      "key": "project-type.modpack.lowercase",
+      "expected": "count",
+      "got": "none"
+    },
+    {
+      "locale": "packages/ui/src/locales/tr-TR",
+      "key": "project-type.plugin.capital",
+      "expected": "count",
+      "got": "none"
+    },
+    {
+      "locale": "packages/ui/src/locales/tr-TR",
+      "key": "project-type.plugin.lowercase",
+      "expected": "count",
+      "got": "none"
+    },
+    {
+      "locale": "packages/ui/src/locales/tr-TR",
+      "key": "project-type.project.lowercase",
+      "expected": "count",
+      "got": "none"
+    },
+    {
+      "locale": "packages/ui/src/locales/tr-TR",
+      "key": "project-type.resourcepack.capital",
+      "expected": "count",
+      "got": "none"
+    },
+    {
+      "locale": "packages/ui/src/locales/tr-TR",
+      "key": "project-type.resourcepack.lowercase",
+      "expected": "count",
+      "got": "none"
+    },
+    {
+      "locale": "packages/ui/src/locales/tr-TR",
+      "key": "project-type.server.capital",
+      "expected": "count",
+      "got": "none"
+    },
+    {
+      "locale": "packages/ui/src/locales/tr-TR",
+      "key": "project-type.server.lowercase",
+      "expected": "count",
+      "got": "none"
+    },
+    {
+      "locale": "packages/ui/src/locales/tr-TR",
+      "key": "project-type.shader.capital",
+      "expected": "count",
+      "got": "none"
+    },
+    {
+      "locale": "packages/ui/src/locales/tr-TR",
+      "key": "project.online-player-count.tooltip",
+      "expected": "count,countPlural",
+      "got": "count"
+    },
+    {
+      "locale": "packages/ui/src/locales/tr-TR",
+      "key": "project.recent-plays",
+      "expected": "count,countPlural",
+      "got": "count"
+    },
+    {
+      "locale": "packages/ui/src/locales/tr-TR",
+      "key": "project.recent-plays.tooltip",
+      "expected": "count,countPlural",
+      "got": "count"
+    },
+    {
+      "locale": "packages/ui/src/locales/uk-UA",
+      "key": "content.confirm-deletion.admonition-body",
+      "expected": "contentType",
+      "got": "none"
+    },
+    {
+      "locale": "packages/ui/src/locales/vi-VN",
+      "key": "content.confirm-deletion.admonition-body",
+      "expected": "contentType",
+      "got": "none"
+    },
+    {
+      "locale": "packages/ui/src/locales/zh-TW",
+      "key": "app.symlink-warning.write.body",
+      "expected": "path",
+      "got": "none"
+    },
+    {
+      "locale": "packages/ui/src/locales/zh-TW",
+      "key": "content.confirm-deletion.admonition-body",
+      "expected": "contentType",
+      "got": "none"
+    },
+    {
+      "locale": "packages/ui/src/locales/zh-TW",
+      "key": "files.delete-modal.symlink-warning-body",
+      "expected": "path",
+      "got": "none"
+    }
+  ]
+}

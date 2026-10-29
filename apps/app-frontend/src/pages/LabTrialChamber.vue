@@ -7,7 +7,7 @@ import {
     StyledInput,
     useVIntl,
 } from '@modrinth/ui'
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 
 import StructureFinderLayout from '@/components/lab/seed-map/StructureFinderLayout.vue'
 import {
@@ -93,6 +93,12 @@ onMounted(async () => {
 })
 
 const canScan = computed(() => !!seed.value.trim() && !scanning.value && available.value !== false)
+
+// A finished scan describes the inputs it ran with, so changing one of them must
+// drop the old table instead of letting its coordinates pass for the new search.
+watch([seed, radius, threads], () => {
+    result.value = null
+})
 
 async function run() {
     if (!canScan.value) return

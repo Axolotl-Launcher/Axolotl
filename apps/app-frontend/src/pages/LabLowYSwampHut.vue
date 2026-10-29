@@ -171,8 +171,9 @@ async function run() {
 
 // A finished scan describes the inputs it ran with. Changing any of them makes
 // the table describe a search the user is no longer looking at, so drop it
-// rather than let old coordinates pass for the new ones.
-watch([seed, regions, threads], () => {
+// rather than let old coordinates pass for the new ones. The version, preset and
+// Y gates change the terrain the program reproduces, so they count as well.
+watch([seed, regions, threads, version, preset, maxY, phase2MaxY], () => {
     result.value = null
 })
 

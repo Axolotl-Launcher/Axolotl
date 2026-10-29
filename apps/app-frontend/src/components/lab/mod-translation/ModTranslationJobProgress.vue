@@ -27,6 +27,10 @@ const messages = defineMessages({
         id: 'app.lab.mod-translation.progress.recently-written',
         defaultMessage: 'Recently written',
     },
+    progressAriaLabel: {
+        id: 'app.lab.mod-translation.progress.aria-label',
+        defaultMessage: 'Task progress',
+    },
 })
 
 const activeIndex = computed(() => phaseIndex(props.job.phase))
@@ -61,7 +65,7 @@ function formatWeight(value: number): string {
 </script>
 
 <template>
-    <section class="progress-section" aria-label="Task progress">
+    <section class="progress-section" :aria-label="formatMessage(messages.progressAriaLabel)">
         <div class="stepper">
             <template v-for="(step, index) in modTranslationPhaseSteps" :key="step.id">
                 <span

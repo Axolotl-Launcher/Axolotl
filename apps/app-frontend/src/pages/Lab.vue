@@ -81,6 +81,11 @@ const messages = defineMessages({
         id: 'app.lab.no-favorites',
         defaultMessage: 'You have not favorited any tools yet.',
     },
+    toolFiltersLabel: {
+        id: 'app.lab.tool-filters-label',
+        defaultMessage: 'Lab tool filters',
+    },
+    toolsLabel: { id: 'app.lab.tools-label', defaultMessage: 'Lab tools' },
     gradientTextTitle: {
         id: 'app.lab.gradient-text.title',
         defaultMessage: 'Gradient text generator',
@@ -260,7 +265,7 @@ function favoriteFilterLabel(value: LabFavoriteFilter) {
             </div>
         </header>
 
-        <div class="flex flex-wrap gap-2" aria-label="Lab tool filters">
+        <div class="flex flex-wrap gap-2" :aria-label="formatMessage(messages.toolFiltersLabel)">
             <StyledInput
                 v-model="search"
                 :icon="SearchIcon"
@@ -289,7 +294,7 @@ function favoriteFilterLabel(value: LabFavoriteFilter) {
 
         <section
             v-if="visibleTools.length"
-            aria-label="Lab tools"
+            :aria-label="formatMessage(messages.toolsLabel)"
             data-onboarding-id="lab-tools"
             class="flex flex-col gap-3"
         >

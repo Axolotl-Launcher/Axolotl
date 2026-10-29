@@ -18,13 +18,21 @@ const messages = defineMessages({
         id: 'app.lab.mod-translation.select-file',
         defaultMessage: 'Choose a mod JAR',
     },
+    dialogTitle: {
+        id: 'app.lab.mod-translation.dialog-title',
+        defaultMessage: 'Choose a Minecraft mod JAR',
+    },
+    fileFilterMod: {
+        id: 'app.lab.mod-translation.file-filter.mod',
+        defaultMessage: 'Minecraft mod',
+    },
 })
 
 async function pickFile() {
     const path = await open({
         multiple: false,
-        title: 'Choose a Minecraft mod JAR',
-        filters: [{ name: 'Minecraft mod', extensions: ['jar'] }],
+        title: formatMessage(messages.dialogTitle),
+        filters: [{ name: formatMessage(messages.fileFilterMod), extensions: ['jar'] }],
     })
     if (typeof path === 'string') emit('update:path', path)
 }

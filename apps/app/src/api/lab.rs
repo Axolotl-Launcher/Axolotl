@@ -346,9 +346,35 @@ pub async fn low_y_swamp_hut_scan<R: tauri::Runtime>(
 /// Minimum Java major version the trial-chamber program needs.
 const JAVA_MAJOR: u32 = 25;
 
-/// Locate `java`: `JAVA_HOME` first, then `PATH`.
-fn find_java() -> Option<PathBuf> {
+/// Locate `java`: a JDK the launcher already manages, then `JAVA_HOME`, then
+/// `PATH`.
+///
+/// The launcher keeps its own list of runtimes, and someone who installed JDK 25
+/// through it never set `JAVA_HOME`; checking that list first is what makes this
+/// tool agree with the Java page instead of claiming no runtime is installed.
+async fn find_java() -> Option<PathBuf> {
     let binary = if cfg!(windows) { "java.exe" } else { "java" };
+    if let Ok(versions) = crate::api::jre::get_java_versions().await {
+        let mut best: Option<(u32, PathBuf)> = None;
+        for version in versions {
+            if version.parsed_version < JAVA_MAJOR {
+                continue;
+            }
+            let candidate = PathBuf::from(&version.path);
+            if !candidate.is_file() {
+                continue;
+            }
+            if best
+                .as_ref()
+                .is_none_or(|(major, _)| version.parsed_version > *major)
+            {
+                best = Some((version.parsed_version, candidate));
+            }
+        }
+        if let Some((_, path)) = best {
+            return Some(path);
+        }
+    }
     if let Some(home) = std::env::var_os("JAVA_HOME") {
         let candidate = PathBuf::from(home).join("bin").join(binary);
         if candidate.is_file() {
@@ -461,10 +487,11 @@ fn parse_trial_csv(text: &str) -> Vec<TrialChamberHit> {
 }
 
 #[tauri::command]
-pub fn trial_chamber_available<R: tauri::Runtime>(
+pub async fn trial_chamber_available<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
 ) -> bool {
     let has_java = find_java()
+        .await
         .map(|java| java_is_new_enough(&java))
         .unwrap_or(false);
     has_java && trial_program_dir(&app).is_some()
@@ -477,7 +504,7 @@ pub async fn trial_chamber_find<R: tauri::Runtime>(
     radius: u32,
     threads: u32,
 ) -> Result<TrialChamberScan, String> {
-    let java = find_java().ok_or_else(|| {
+    let java = find_java().await.ok_or_else(|| {
         "no Java runtime found; install JDK 25 or let the launcher download one".to_string()
     })?;
     if !java_is_new_enough(&java) {

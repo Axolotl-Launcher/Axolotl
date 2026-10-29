@@ -79,7 +79,7 @@ export const labTools: readonly LabToolDefinition[] = [
     {
         id: 'low-y-swamp-hut',
         category: 'world',
-        route: '/lab/low-y-swamp-hut',
+        route: '/lab/seed-map/witch-hut',
         icon: LandmarkIcon,
         title: 'Low-Y swamp hut',
         description: 'Find the swamp hut that generates lowest for a given world seed.',

@@ -1279,6 +1279,9 @@ function startFinderPress(kind: SeedMapFeatureKind) {
     }, FINDER_HOLD_MS)
 }
 
+// Leaving the page while a press is still counting down must not navigate later.
+onUnmounted(cancelFinderPress)
+
 function featureResultLabel(feature: SeedMapFeature) {
     if (feature.kind !== 'end-city' || feature.endShip === undefined) {
         return featureLabel(feature.kind)

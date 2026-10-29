@@ -837,7 +837,6 @@ async fn verify_and_finalize(
 
 /// A single small file (a Minecraft asset object) to download over a shared
 /// HTTP/2 connection. All items in one batch must share the same authority.
-#[derive(Clone)]
 pub(crate) struct H2BatchAsset {
     /// Route-resolved URL for the asset.
     pub url: String,
@@ -1006,7 +1005,7 @@ mod tests {
         assert_eq!(reported.load(std::sync::atomic::Ordering::Relaxed), 3);
         // Only the unresolved transport item is sent to ordinary download;
         // its completion adds its logical aliases, not the successful sibling.
-        complete_asset_attempt(
+        let _ = complete_asset_attempt(
             item,
             Ok(AssetBatchItemOutcome::Completed { downloaded: true }),
             &callback,

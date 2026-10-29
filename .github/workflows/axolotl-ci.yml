@@ -259,6 +259,14 @@ jobs:
       - name: Test settings documents
         if: runner.os == 'Linux'
         run: cargo test --package theseus state::documents
+      # The account secrets: a row keeps a secret the credential store will not
+      # take, and moving the rows into the store keeps the rows it already moved.
+      # Hermetic (in-memory sqlite, and a store substituted for the platform's).
+      - name: Test account secrets
+        if: runner.os == 'Linux'
+        run: |
+          cargo test --package theseus store::tests::secrets
+          cargo test --package theseus marks_whose_account_secrets_were_moved
       # The refresh state lives in the derived database now, so deleting an
       # instance has to take its rows with it: the guard is the deletion step.
       - name: Test refresh state

@@ -532,6 +532,41 @@ console.log('a table a newer migration dropped is not demanded back')
     old.close()
 }
 
+// --- the account secret marks -------------------------------------------------
+
+console.log('the account secret marks: added forward, dropped by a downgrade')
+{
+    const EXTERNALIZE_SECRETS = 20261102120000
+    const file = path.join(directory, 'secrets', 'beta', 'app.db')
+    const files = fs.readdirSync(migrationsDir).filter((name) => name.endsWith('.sql')).sort()
+    const { database, apply } = migratedDatabase(file, files.filter((name) => Number(name.slice(0, 14)) < EXTERNALIZE_SECRETS))
+    database.exec(`
+        INSERT INTO minecraft_users (account_id, uuid, active, username, access_token, refresh_token, expires)
+            VALUES ('microsoft:sample', 'uuid', 1, 'Player', 'access', 'refresh', 20);
+        INSERT INTO modrinth_users (id, active, session_id, expires)
+            VALUES ('account', 1, 'session', 30);
+    `)
+    apply(files.find((name) => Number(name.slice(0, 14)) === EXTERNALIZE_SECRETS))
+    check('the marks arrive with the migration', ['minecraft_users', 'minecraft_device_tokens', 'modrinth_users'].every((table) => columns(file, table).includes('secrets_externalized')))
+    check('and a row written before them reads as not moved', database.prepare('SELECT secrets_externalized AS mark FROM minecraft_users').get().mark === 0)
+    database.close()
+
+    // The mark column is the only schema this migration adds, so a downgrade
+    // drops it and leaves the rows an older build writes untouched.
+    const downgrade = run(['--db', file, '--to', String(EXTERNALIZE_SECRETS), '--apply'])
+    check('a downgrade past the move succeeds', downgrade.status === 0, downgrade.output)
+    const old = new DatabaseSync(file)
+    check('the marks leave the app database', ['minecraft_users', 'minecraft_device_tokens', 'modrinth_users'].every((table) => !columns(file, table).includes('secrets_externalized')))
+    check('and the account rows stay', old.prepare('SELECT access_token, refresh_token FROM minecraft_users').get().access_token === 'access' && old.prepare('SELECT COUNT(*) AS count FROM modrinth_users').get().count === 1)
+    old.exec('BEGIN')
+    const sql = fs.readFileSync(path.join(migrationsDir, files.find((name) => Number(name.slice(0, 14)) === EXTERNALIZE_SECRETS)))
+    old.exec(sql.toString())
+    old.exec('COMMIT')
+    check('re-upgrading adds the marks back', ['minecraft_users', 'minecraft_device_tokens', 'modrinth_users'].every((table) => columns(file, table).includes('secrets_externalized')))
+    check('and leaves every row unmoved', old.prepare('SELECT COUNT(*) AS count FROM minecraft_users WHERE secrets_externalized <> 0').get().count === 0)
+    old.close()
+}
+
 // --- the scheduling level of install jobs -------------------------------------
 
 console.log('install jobs gain a scheduling level and lose it on downgrade')

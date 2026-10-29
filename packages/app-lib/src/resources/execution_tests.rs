@@ -653,11 +653,21 @@ async fn missing_backup_is_only_idempotent_when_original_bytes_are_restored() {
         old: Some(old),
         target,
     };
-    assert!(recover_files(temp.path(), &[file.clone()]).await.is_err());
+    assert!(
+        recover_files(temp.path(), &[file.clone()], test_access())
+            .await
+            .is_err()
+    );
     std::fs::write(temp.path().join("new.jar"), b"new bytes").unwrap();
-    assert!(recover_files(temp.path(), &[file.clone()]).await.is_err());
+    assert!(
+        recover_files(temp.path(), &[file.clone()], test_access())
+            .await
+            .is_err()
+    );
     std::fs::write(temp.path().join("old.jar"), b"old bytes").unwrap();
-    recover_files(temp.path(), &[file]).await.unwrap();
+    recover_files(temp.path(), &[file], test_access())
+        .await
+        .unwrap();
     assert!(!temp.path().join("new.jar").exists());
 }
 
@@ -2303,14 +2313,20 @@ async fn interrupted_materialization_recovers_exact_backup_and_rejects_external_
         old: Some(old.integrity),
         target: new.integrity,
     }];
-    recover_files(temp.path(), &journal).await.unwrap();
+    recover_files(temp.path(), &journal, test_access())
+        .await
+        .unwrap();
     assert_eq!(
         std::fs::read(temp.path().join("active.zip")).unwrap(),
         b"old bytes"
     );
     std::fs::write(temp.path().join("backup.old"), b"old bytes").unwrap();
     std::fs::write(temp.path().join("active.zip"), b"user changes").unwrap();
-    assert!(recover_files(temp.path(), &journal).await.is_err());
+    assert!(
+        recover_files(temp.path(), &journal, test_access())
+            .await
+            .is_err()
+    );
     assert_eq!(
         std::fs::read(temp.path().join("active.zip")).unwrap(),
         b"user changes"
@@ -3413,4 +3429,8 @@ async fn a_satisfied_filename_dependency_is_rechecked_before_any_file_is_replace
         b"local bytes"
     );
     state.pool.close().await;
+}
+
+fn test_access() -> WriteAccess<'static> {
+    critical_section::whitelisted(critical_section::WhitelistSite::Tests).into()
 }

@@ -1,4 +1,7 @@
 use super::*;
+use crate::install::critical_section::{
+    self, SharedWork, WriteAccess, with_critical_section,
+};
 use crate::state::instances::commands::{
     instance_content_root, materialize_verified_project_download_copy,
     resolve_content_scope, restore_project_materialization,
@@ -71,6 +74,7 @@ fn staging_prefix(plan: &ResourceOperationPlan) -> crate::Result<String> {
 async fn clear_staging(
     plan: &ResourceOperationPlan,
     state: &crate::State,
+    _access: WriteAccess<'_>,
 ) -> crate::Result<()> {
     let base = state.directories.caches_dir().join("resource-staging");
     if !base.exists() {
@@ -223,6 +227,7 @@ pub(crate) fn checked_path(
 async fn recover_files(
     root: &Path,
     files: &[JournalFile],
+    _access: WriteAccess<'_>,
 ) -> crate::Result<()> {
     for file in files.iter().rev() {
         let path = checked_path(root, &file.path)?;
@@ -324,7 +329,12 @@ pub(crate) async fn execute(
         .map(|reporter| reporter.cancellation_token())
         .unwrap_or_default();
     canceled(&cancel)?;
-    clear_staging(plan, state).await?;
+    with_critical_section(
+        async |guard| clear_staging(plan, state, guard.into()).await,
+        async |unscoped| clear_staging(plan, state, unscoped.into()).await,
+        async |_closing| Err(critical_section::closing_error()),
+    )
+    .await?;
     let staging = state.directories.caches_dir().join("resource-staging");
     tokio::fs::create_dir_all(&staging).await?;
     let temporary = tempfile::Builder::new()
@@ -626,10 +636,13 @@ pub(crate) async fn execute(
     .fetch_optional(&state.pool)
     .await?;
     if let Some(journal) = previous_journal {
-        let _critical = crate::install::critical_section::enter();
-        recover_files(
-            &root,
-            &serde_json::from_str::<Vec<JournalFile>>(&journal)?,
+        let journal = serde_json::from_str::<Vec<JournalFile>>(&journal)?;
+        with_critical_section(
+            async |guard| recover_files(&root, &journal, guard.into()).await,
+            async |unscoped| {
+                recover_files(&root, &journal, unscoped.into()).await
+            },
+            async |_closing| Err(critical_section::closing_error()),
         )
         .await?;
     }
@@ -786,94 +799,108 @@ pub(crate) async fn execute(
     }
     canceled(&cancel)?;
     sqlx::query("INSERT INTO resource_execution_journals(plan_id, payload) VALUES (?, ?) ON CONFLICT(plan_id) DO UPDATE SET payload = excluded.payload").bind(plan.id.as_str()).bind(serde_json::to_string(&journal)?).execute(&state.pool).await?;
-    let _critical = crate::install::critical_section::enter();
-    tracing::info!(
-        plan_id = plan.id.as_str(),
-        instance_id,
-        "Resource execution publishing verified files"
-    );
-    let mut installed_fingerprints = Vec::new();
-    let result: crate::Result<()> = async {
-        for ((file, (source, _, size, sha1, _)), _) in
-            journal.iter().zip(&downloads).zip(&plan.actions)
-        {
-            let destination = checked_path(&root, &file.path)?;
-            if let Some(backup) = &file.backup {
-                tokio::fs::rename(
-                    checked_path(
-                        &root,
-                        file.previous_path.as_deref().unwrap_or(&file.path),
-                    )?,
-                    checked_path(&root, backup)?,
-                )
-                .await?;
-            }
-            let (_, modified) = materialize_verified_project_download_copy(
-                source,
-                &destination,
-                *size,
-                sha1,
-            )
-            .await?;
-            installed_fingerprints.push((
-                file.path.clone(),
-                *size,
-                sha1.clone(),
-                modified,
-            ));
-        }
-        persist_plan(
-            &state.pool,
-            &scope.content_set_id,
-            plan,
-            &downloads,
-            &journal,
-            draft,
+    {
+        let work = SharedWork::new(
+            async |access: WriteAccess<'_>| -> crate::Result<()> {
+                tracing::info!(
+                    plan_id = plan.id.as_str(),
+                    instance_id,
+                    "Resource execution publishing verified files"
+                );
+                let mut installed_fingerprints = Vec::new();
+                let result: crate::Result<()> = async {
+                    for ((file, (source, _, size, sha1, _)), _) in
+                        journal.iter().zip(&downloads).zip(&plan.actions)
+                    {
+                        let destination = checked_path(&root, &file.path)?;
+                        if let Some(backup) = &file.backup {
+                            tokio::fs::rename(
+                                checked_path(
+                                    &root,
+                                    file.previous_path
+                                        .as_deref()
+                                        .unwrap_or(&file.path),
+                                )?,
+                                checked_path(&root, backup)?,
+                            )
+                            .await?;
+                        }
+                        let (_, modified) =
+                            materialize_verified_project_download_copy(
+                                source,
+                                &destination,
+                                *size,
+                                sha1,
+                            )
+                            .await?;
+                        installed_fingerprints.push((
+                            file.path.clone(),
+                            *size,
+                            sha1.clone(),
+                            modified,
+                        ));
+                    }
+                    persist_plan(
+                        &state.pool,
+                        &scope.content_set_id,
+                        plan,
+                        &downloads,
+                        &journal,
+                        draft,
+                    )
+                    .await
+                }
+                .await;
+                if let Err(error) = result {
+                    match recover_files(&root, &journal, access).await {
+                        Ok(()) => {
+                            sqlx::query(
+                            "DELETE FROM resource_execution_journals WHERE plan_id = ?",
+                        )
+                        .bind(plan.id.as_str())
+                        .execute(&state.pool)
+                        .await?;
+                        }
+                        Err(recovery) => {
+                            return Err(input(format!(
+                                "{error}; resource recovery requires retry: {recovery}"
+                            )));
+                        }
+                    }
+                    return Err(error);
+                }
+                for (path, size, sha1, modified) in installed_fingerprints {
+                    if let Err(error) = state
+                        .file_fingerprints
+                        .seed_verified(
+                            state,
+                            &plan.instance_id,
+                            &root,
+                            &path,
+                            ArtifactIntegrity {
+                                size: Some(size),
+                                hashes: vec![ContentHash {
+                                    algorithm: HashAlgorithm::Sha1,
+                                    value: sha1,
+                                }],
+                            },
+                            modified,
+                        )
+                        .await
+                    {
+                        tracing::warn!(%error, "Could not save verified installed fingerprint");
+                    }
+                }
+                Ok(())
+            },
+        );
+        with_critical_section(
+            async |guard| work.run(guard.into()).await,
+            async |unscoped| work.run(unscoped.into()).await,
+            async |_closing| Err(critical_section::closing_error()),
         )
-        .await
+        .await?;
     }
-    .await;
-    if let Err(error) = result {
-        match recover_files(&root, &journal).await {
-            Ok(()) => {
-                sqlx::query(
-                    "DELETE FROM resource_execution_journals WHERE plan_id = ?",
-                )
-                .bind(plan.id.as_str())
-                .execute(&state.pool)
-                .await?;
-            }
-            Err(recovery) => {
-                return Err(input(format!(
-                    "{error}; resource recovery requires retry: {recovery}"
-                )));
-            }
-        }
-        return Err(error);
-    }
-    for (path, size, sha1, modified) in installed_fingerprints {
-        if let Err(error) = state
-            .file_fingerprints
-            .seed_verified(
-                state,
-                &plan.instance_id,
-                &root,
-                &path,
-                ArtifactIntegrity {
-                    size: Some(size),
-                    hashes: vec![ContentHash {
-                        algorithm: HashAlgorithm::Sha1,
-                        value: sha1,
-                    }],
-                },
-                modified,
-            )
-            .await
-        {
-            tracing::warn!(%error, "Could not save verified installed fingerprint");
-        }
-    }
-    drop(_critical);
     drop(_lock);
     drop(_writer);
     tracing::info!(
@@ -907,24 +934,35 @@ pub(crate) async fn recover_plan(
         .lock_instance_content_exclusive(&plan.instance_id)
         .await;
     let payload: Option<String> = sqlx::query_scalar("SELECT journal.payload FROM resource_execution_journals journal JOIN resource_operation_plans plan ON plan.id = journal.plan_id WHERE journal.plan_id = ? AND plan.completed = 0").bind(plan.id.as_str()).fetch_optional(&state.pool).await?;
-    let _critical = crate::install::critical_section::enter();
-    if let Some(payload) = payload {
-        let scope =
-            resolve_content_scope(&plan.instance_id, None, state).await?;
-        let root = instance_content_root(&state.directories, &scope.instance)?;
-        recover_files(
-            &root,
-            &serde_json::from_str::<Vec<JournalFile>>(&payload)?,
-        )
-        .await?;
-        sqlx::query(
-            "DELETE FROM resource_execution_journals WHERE plan_id = ?",
-        )
-        .bind(plan.id.as_str())
-        .execute(&state.pool)
-        .await?;
-    }
-    clear_staging(plan, state).await
+    let work =
+        SharedWork::new(async |access: WriteAccess<'_>| -> crate::Result<()> {
+            if let Some(payload) = payload {
+                let scope =
+                    resolve_content_scope(&plan.instance_id, None, state)
+                        .await?;
+                let root =
+                    instance_content_root(&state.directories, &scope.instance)?;
+                recover_files(
+                    &root,
+                    &serde_json::from_str::<Vec<JournalFile>>(&payload)?,
+                    access,
+                )
+                .await?;
+                sqlx::query(
+                    "DELETE FROM resource_execution_journals WHERE plan_id = ?",
+                )
+                .bind(plan.id.as_str())
+                .execute(&state.pool)
+                .await?;
+            }
+            clear_staging(plan, state, access).await
+        });
+    with_critical_section(
+        async |guard| work.run(guard.into()).await,
+        async |unscoped| work.run(unscoped.into()).await,
+        async |_closing| Err(critical_section::closing_error()),
+    )
+    .await
 }
 
 async fn persist_plan(

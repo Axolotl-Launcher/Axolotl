@@ -16,6 +16,7 @@ pub async fn import_world_save(
     instance_id: &str,
     source_path: &Path,
     inner_base: Option<&str>,
+    _access: crate::install::critical_section::WriteAccess<'_>,
 ) -> Result<String> {
     let instance_id_str = instance_id.to_string();
     let resolved_source = if source_path.is_dir() {

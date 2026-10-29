@@ -330,6 +330,10 @@ pub(super) async fn install_manual_download(
             instance_id,
             &verified_source,
             None,
+            crate::install::critical_section::whitelisted(
+                crate::install::critical_section::WhitelistSite::CurseForgeManualWorldImport,
+            )
+            .into(),
         )
         .await?;
         complete_manual_world_download(instance_id, download).await?;

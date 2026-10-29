@@ -6,6 +6,8 @@ use std::future::Future;
 
 use tokio::task::{Id, JoinSet};
 
+use super::tag::{Level, Tag, TagRegistry};
+
 /// How a supervised task ended.
 #[derive(Debug, PartialEq, Eq)]
 pub enum Exit {
@@ -14,15 +16,40 @@ pub enum Exit {
     Cancelled(&'static str),
 }
 
-#[derive(Default)]
 pub struct Supervisor {
     tasks: JoinSet<()>,
     names: HashMap<Id, &'static str>,
+    tags: TagRegistry,
+}
+
+impl Default for Supervisor {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl Supervisor {
     pub fn new() -> Self {
-        Self::default()
+        Self::with_generation(1)
+    }
+
+    /// A supervisor whose tags belong to `generation`; a restart uses a new
+    /// generation so tags minted before it are recognisably stale.
+    pub fn with_generation(generation: u64) -> Self {
+        Self {
+            tasks: JoinSet::new(),
+            names: HashMap::new(),
+            tags: TagRegistry::new(generation),
+        }
+    }
+
+    /// The only public way to obtain a [`Tag`].
+    pub fn mint(&self, level: Level, origin: &str) -> Tag {
+        self.tags.mint(level, origin)
+    }
+
+    pub fn tags(&self) -> &TagRegistry {
+        &self.tags
     }
 
     pub fn spawn<F>(&mut self, name: &'static str, task: F)

@@ -53,6 +53,16 @@
       "ident": "theseus::logger::RotatingLogWriter.state",
       "rule": "D4",
       "reason": "log write lock: leaf primitive only (spec §5.2 leaf table), held for one bounded write"
+    },
+    {
+      "ident": "theseus::scheduler::tag::TagRegistry.live",
+      "rule": "D4",
+      "reason": "registry shard lock: leaf primitive only (spec §5.2 leaf table), one shard per mint or release"
+    },
+    {
+      "ident": "theseus::scheduler::tag::TagRegistry.mints",
+      "rule": "D4",
+      "reason": "mint counter shard of the same registry: leaf primitive only, one shard per mint"
     }
   ],
   "recallGap": {
@@ -145,10 +155,9 @@
     },
     {
       "name": "registry shard lock",
-      "ident": null,
-      "planned": "T3.1",
+      "ident": "theseus::scheduler::tag::TagRegistry.live",
       "bounded": true,
-      "note": "scheduler registry, not built until phase 3"
+      "note": "DashMap shard access per mint, derive or release"
     },
     {
       "name": "L0 private queue lock",
@@ -475,5 +484,55 @@
     "R7": "friends socket loop deleted (no callers)",
     "R29": "test-only thread item of the t12 list",
     "R30": "test-only thread item of the t12 list"
-  }
+  },
+  "whitelist": [
+    {
+      "site": "CurseForgeManualWorldImport",
+      "file": "packages/app-lib/src/api/curseforge/manual/import.rs",
+      "variant": "import_world_save",
+      "bearer": "theseus::state::InstanceLockManager.locks",
+      "worstCase": "the app exits mid-copy and leaves a partial world folder under saves/, which then shows in the world list",
+      "limitation": 7
+    },
+    {
+      "site": "InstanceWorldImport",
+      "file": "packages/app-lib/src/api/instance/projects.rs",
+      "variant": "import_world_save",
+      "bearer": "theseus::state::InstanceLockManager.locks",
+      "worstCase": "the app exits mid-copy and leaves a partial world folder under saves/, which then shows in the world list",
+      "limitation": 7
+    }
+  ],
+  "whitelistVariants": [
+    "recover_files",
+    "clear_staging",
+    "import_world_save",
+    "content_file_operations::recover"
+  ],
+  "guardedWrites": [
+    {
+      "file": "packages/app-lib/src/resources/execution.rs",
+      "fn": "recover_files"
+    },
+    {
+      "file": "packages/app-lib/src/resources/execution.rs",
+      "fn": "clear_staging"
+    },
+    {
+      "file": "packages/app-lib/src/state/instances/commands/import_world_save.rs",
+      "fn": "import_world_save"
+    },
+    {
+      "file": "packages/app-lib/src/state/instances/commands/content_file_operations.rs",
+      "fn": "prepare"
+    },
+    {
+      "file": "packages/app-lib/src/state/instances/commands/content_file_operations.rs",
+      "fn": "publish"
+    },
+    {
+      "file": "packages/app-lib/src/state/instances/commands/content_file_operations.rs",
+      "fn": "rollback_error"
+    }
+  ]
 }

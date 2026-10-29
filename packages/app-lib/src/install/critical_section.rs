@@ -112,11 +112,15 @@ pub(crate) async fn with_critical_section<R>(
     let Ok(sections) = SECTIONS.try_with(Arc::clone) else {
         return unprotected(Unscoped { _priv: () }).await;
     };
-    if sections.closing.load(Ordering::Acquire) {
+    // Count the section first, then look for closing; cancellation stores
+    // closing first, then reads the count. With both sequentially consistent,
+    // either the canceller sees this section or this section sees closing.
+    sections.active.fetch_add(1, Ordering::SeqCst);
+    let guard = CriticalSectionGuard { sections };
+    if guard.sections.closing.load(Ordering::SeqCst) {
+        drop(guard);
         return closing(ClosingToken { _priv: () }).await;
     }
-    sections.active.fetch_add(1, Ordering::AcqRel);
-    let guard = CriticalSectionGuard { sections };
     protected(&guard).await
 }
 
@@ -157,10 +161,10 @@ pub(crate) async fn run_cancelable<F: Future>(
         tokio::select! {
             biased;
             _ = cancellation.cancelled() => {
-                sections.closing.store(true, Ordering::Release);
+                sections.closing.store(true, Ordering::SeqCst);
                 loop {
                     let finished = sections.finished.notified();
-                    if sections.active.load(Ordering::Acquire) == 0 { return None; }
+                    if sections.active.load(Ordering::SeqCst) == 0 { return None; }
                     tokio::select! {
                         result = &mut work => return Some(result),
                         _ = finished => {},

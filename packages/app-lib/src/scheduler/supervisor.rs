@@ -48,10 +48,6 @@ impl Supervisor {
         self.tags.mint(level, origin)
     }
 
-    pub fn tags(&self) -> &TagRegistry {
-        &self.tags
-    }
-
     pub fn spawn<F>(&mut self, name: &'static str, task: F)
     where
         F: Future<Output = ()> + Send + 'static,

@@ -63,6 +63,11 @@
       "ident": "theseus::scheduler::tag::TagRegistry.mints",
       "rule": "D4",
       "reason": "mint counter shard of the same registry: leaf primitive only, one shard per mint"
+    },
+    {
+      "ident": "theseus::scheduler::panic::PANIC_LOG_LOCK",
+      "rule": "D4",
+      "reason": "panic-log append lock: synchronous, held for one bounded append, takes no other lock"
     }
   ],
   "recallGap": {

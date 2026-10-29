@@ -13,6 +13,9 @@ pub const PANIC_LOG_FILE: &str = "panic.log";
 pub const PANIC_LOG_MAX_BYTES: u64 = 1024 * 1024;
 const PANIC_LOG_PREVIOUS_FILE: &str = "panic.old.log";
 const TRUNCATED: &str = " [truncated]\n";
+/// Serializes the size check, rotation and append of threads that panic at
+/// the same time.
+static PANIC_LOG_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
 /// Installs the hook; call it once, as early in `main` as the log folder is known.
 pub fn install_panic_hook(app_identifier: &str) {
@@ -51,6 +54,9 @@ pub(crate) fn append_panic_record(
     location: &str,
     message: &str,
 ) -> std::io::Result<PathBuf> {
+    let _serial = PANIC_LOG_LOCK
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
     std::fs::create_dir_all(dir)?;
     let path = dir.join(PANIC_LOG_FILE);
     let mut line = format!(

@@ -10,7 +10,10 @@ use crate::state::instances::{
     PackMemberOverrideKind,
     adapters::{
         filesystem::project_type_from_relative_path,
-        sqlite::{content_entries, files, instance_rows, pack_members},
+        sqlite::{
+            content_entries, content_store_files, files, instance_rows,
+            pack_members, rollback_journals,
+        },
     },
 };
 use crate::state::{
@@ -3895,7 +3898,12 @@ async fn rollback_project_inner(
         backup_size: restored_size,
         backup_sha1: restored_sha1.clone(),
     };
-    sqlx::query("INSERT INTO resource_legacy_rollback_journals(instance_id, payload) VALUES (?, ?)").bind(instance_id).bind(serde_json::to_string(&journal)?).execute(&state.pool).await?;
+    rollback_journals::set_journal(
+        instance_id,
+        &serde_json::to_string(&journal)?,
+        &state.pool,
+    )
+    .await?;
     let work = critical_section::SharedWork::new(
         async |access: critical_section::WriteAccess<'_>| -> crate::Result<String> {
             let result: crate::Result<String> = async {
@@ -3991,7 +3999,7 @@ async fn rollback_project_inner(
                 )
                 .await?;
             }
-            sqlx::query("DELETE FROM store_instance_files WHERE instance_id = ? AND relative_path IN (?, ?)").bind(instance_id).bind(project_path).bind(&final_relative_path).execute(&mut *tx).await?;
+            content_store_files::remove_instance_files(&mut tx, instance_id, &[project_path, final_relative_path.as_str()]).await?;
             let hash_cache = CacheValue::FileHash(CachedFileHash {
                 path: format!("{}/{}", scope.instance.path, final_relative_path),
                 size: restored_size,
@@ -4006,7 +4014,7 @@ async fn rollback_project_inner(
                 &mut tx,
             )
             .await?;
-            sqlx::query("DELETE FROM resource_legacy_rollback_journals WHERE instance_id = ?").bind(instance_id).execute(&mut *tx).await?;
+            rollback_journals::delete_journal(instance_id, &mut *tx).await?;
             // The hash cache lives in the derived database: forget the old
             // entry before the commit, store the new one after it.
             CachedEntry::forget_best_effort(std::slice::from_ref(&hash_cache), state.cache_pool())
@@ -4079,7 +4087,8 @@ async fn recover_legacy_rollback_with(
     state: &State,
     _access: critical_section::WriteAccess<'_>,
 ) -> crate::Result<()> {
-    let payload: Option<String> = sqlx::query_scalar("SELECT payload FROM resource_legacy_rollback_journals WHERE instance_id = ?").bind(instance_id).fetch_optional(&state.pool).await?;
+    let payload =
+        rollback_journals::get_journal(instance_id, &state.pool).await?;
     let Some(payload) = payload else {
         return Ok(());
     };
@@ -4152,18 +4161,18 @@ async fn recover_legacy_rollback_with(
         )
         .into());
     }
-    sqlx::query("DELETE FROM resource_legacy_rollback_journals WHERE instance_id = ? AND payload = ?").bind(instance_id).bind(payload).execute(&state.pool).await?;
+    let mut tx = state.pool.begin().await?;
+    rollback_journals::delete_journal_matching(&mut tx, instance_id, &payload)
+        .await?;
+    tx.commit().await?;
     Ok(())
 }
 
 pub(crate) async fn recover_legacy_rollbacks(
     state: &State,
 ) -> crate::Result<()> {
-    let instances: Vec<String> = sqlx::query_scalar(
-        "SELECT instance_id FROM resource_legacy_rollback_journals",
-    )
-    .fetch_all(&state.pool)
-    .await?;
+    let instances =
+        rollback_journals::get_journal_instance_ids(&state.pool).await?;
     for instance_id in instances {
         let _writer = state.acquire_install_db_permit().await?;
         let _lock = state.lock_instance_content_exclusive(&instance_id).await;

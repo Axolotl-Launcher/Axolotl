@@ -374,3 +374,25 @@ where
 
     Ok(current)
 }
+
+/// Reads the game version and loader the content set an instance applies runs.
+pub(crate) async fn get_applied_content_set_target<'e, E>(
+    instance_id: &str,
+    exec: E,
+) -> crate::Result<Option<(String, String)>>
+where
+    E: Executor<'e, Database = Sqlite>,
+{
+    let target = sqlx::query_as(
+        "SELECT content_set.game_version, content_set.loader
+         FROM instances instance
+         INNER JOIN instance_content_sets content_set
+            ON content_set.id = instance.applied_content_set_id
+         WHERE instance.id = ?",
+    )
+    .bind(instance_id)
+    .fetch_optional(exec)
+    .await?;
+
+    Ok(target)
+}

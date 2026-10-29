@@ -31,6 +31,22 @@ pub(super) async fn derived() -> (tempfile::TempDir, Handle) {
     (directory, handle)
 }
 
+/// The same database, reached the way the collections that live there are.
+pub(super) async fn derived_db() -> (tempfile::TempDir, DerivedDb) {
+    let directory = tempfile::tempdir().unwrap();
+    let db = DerivedDb::open(directory.path().join(FILE_NAME)).await;
+    (directory, db)
+}
+
+/// A derived database this build cannot open, which stays disabled for the run.
+pub(super) async fn disabled_derived() -> (tempfile::TempDir, DerivedDb) {
+    let directory = tempfile::tempdir().unwrap();
+    let path = directory.path().join(FILE_NAME);
+    tokio::fs::write(&path, b"not a database").await.unwrap();
+    let db = DerivedDb::open(path).await;
+    (directory, db)
+}
+
 /// A handle on a database of its own, with `instances` already there.
 pub(super) async fn handle_with_instances(instances: &[&str]) -> Handle {
     let pool = pool().await;

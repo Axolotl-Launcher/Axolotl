@@ -47,9 +47,9 @@ pub(crate) async fn local_metadata(
     pool: &SqlitePool,
     instance_id: &str,
 ) -> ResourceResult<HashMap<InstalledEntryId, LocalModMetadata>> {
-    let rows: Vec<(String, String)> = sqlx::query_as(
-        "SELECT entry.id, file.local_mod_data FROM instance_content_entries entry JOIN instance_files file ON file.id = entry.file_id WHERE entry.instance_id = ? AND file.missing = 0 AND file.local_mod_data IS NOT NULL"
-    ).bind(instance_id).fetch_all(pool).await.map_err(db)?;
+    let rows = crate::state::instances::adapters::sqlite::content_entries::get_local_mod_data_by_entry(instance_id, pool)
+        .await
+        .map_err(|error| ResourceError::Database(error.to_string()))?;
     rows.into_iter()
         .filter_map(|(id, value)| {
             serde_json::from_str(&value).ok().map(|metadata| {

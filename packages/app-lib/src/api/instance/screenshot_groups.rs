@@ -1,7 +1,9 @@
 use crate::State;
 use crate::event::InstancePayloadType;
 use crate::event::emit::emit_instance;
-use crate::state::instances::adapters::sqlite::screenshot_rows;
+use crate::state::instances::adapters::sqlite::{
+    screenshot_groups, screenshot_rows,
+};
 use serde::{Deserialize, Serialize};
 use sqlx::{Sqlite, Transaction};
 use std::collections::HashSet;
@@ -66,18 +68,7 @@ pub async fn create_screenshot_group(
     let id = Uuid::new_v4().to_string();
     let mut tx = state.pool.begin().await?;
 
-    sqlx::query!(
-        "UPDATE screenshot_groups SET display_order = display_order + 1",
-    )
-    .execute(&mut *tx)
-    .await?;
-    sqlx::query!(
-        "INSERT INTO screenshot_groups (id, name, display_order) VALUES (?, ?, 0)",
-        id,
-        name,
-    )
-    .execute(&mut *tx)
-    .await?;
+    screenshot_groups::create_group(&mut tx, &id, name).await?;
 
     let instance_ids = set_group_members(
         &id,
@@ -100,19 +91,14 @@ pub async fn rename_screenshot_group(
 ) -> crate::Result<ScreenshotGroup> {
     let new_name = validate_group_name(&new_name)?;
     let state = State::get().await?;
-    let result = sqlx::query!(
-        "UPDATE screenshot_groups SET name = ? WHERE id = ?",
-        new_name,
-        id,
-    )
-    .execute(&state.pool)
-    .await?;
-    if result.rows_affected() == 0 {
+    let mut tx = state.pool.begin().await?;
+    if !screenshot_groups::rename_group(&mut tx, &id, new_name).await? {
         return Err(crate::ErrorKind::InputError(format!(
             "Unknown screenshot group {id}"
         ))
         .into());
     }
+    tx.commit().await?;
 
     Ok(ScreenshotGroup {
         id,
@@ -122,27 +108,16 @@ pub async fn rename_screenshot_group(
 
 pub async fn delete_screenshot_group(id: String) -> crate::Result<()> {
     let state = State::get().await?;
-    let instance_ids = sqlx::query_scalar!(
-        "
-        SELECT DISTINCT screenshots.instance_id
-        FROM screenshot_group_memberships memberships
-        INNER JOIN screenshots ON screenshots.id = memberships.screenshot_id
-        WHERE memberships.group_id = ?
-        ",
-        id,
-    )
-    .fetch_all(&state.pool)
-    .await?;
-    let result =
-        sqlx::query!("DELETE FROM screenshot_groups WHERE id = ?", id,)
-            .execute(&state.pool)
-            .await?;
-    if result.rows_affected() == 0 {
+    let mut tx = state.pool.begin().await?;
+    let instance_ids =
+        screenshot_groups::get_group_instance_ids(&id, &mut *tx).await?;
+    if !screenshot_groups::delete_group(&mut tx, &id).await? {
         return Err(crate::ErrorKind::InputError(format!(
             "Unknown screenshot group {id}"
         ))
         .into());
     }
+    tx.commit().await?;
     emit_screenshot_updates(instance_ids).await;
     Ok(())
 }
@@ -170,21 +145,12 @@ pub async fn set_screenshot_group_memberships(
         let instance_id =
             screenshot_instance_id(&update.screenshot_id, &mut tx).await?;
         instance_ids.insert(instance_id);
-        sqlx::query!(
-            "DELETE FROM screenshot_group_memberships WHERE screenshot_id = ?",
-            update.screenshot_id,
+        screenshot_groups::set_membership(
+            &mut tx,
+            &update.screenshot_id,
+            update.group_id.as_deref(),
         )
-        .execute(&mut *tx)
         .await?;
-        if let Some(group_id) = update.group_id {
-            sqlx::query!(
-                "INSERT INTO screenshot_group_memberships (screenshot_id, group_id) VALUES (?, ?)",
-                update.screenshot_id,
-                group_id,
-            )
-            .execute(&mut *tx)
-            .await?;
-        }
     }
     tx.commit().await?;
     emit_screenshot_updates(instance_ids).await;
@@ -200,11 +166,8 @@ pub async fn import_screenshot_groups(
 
     let state = State::get().await?;
     let mut tx = state.pool.begin().await?;
-    let base_order = sqlx::query_scalar!(
-        "SELECT COALESCE(MAX(display_order) + 1, 0) AS 'display_order!: i64' FROM screenshot_groups",
-    )
-    .fetch_one(&mut *tx)
-    .await?;
+    let base_order =
+        screenshot_groups::get_next_display_order(&mut *tx).await?;
     let mut group_ids = HashSet::new();
     let mut affected_instance_ids = HashSet::new();
 
@@ -218,17 +181,12 @@ pub async fn import_screenshot_groups(
         }
         let name = validate_group_name(&group.name)?;
         let display_order = base_order + index as i64;
-        sqlx::query!(
-            "
-            INSERT INTO screenshot_groups (id, name, display_order)
-            VALUES (?, ?, ?)
-            ON CONFLICT(id) DO UPDATE SET name = excluded.name
-            ",
-            group.id,
+        screenshot_groups::upsert_imported_group(
+            &mut tx,
+            &group.id,
             name,
             display_order,
         )
-        .execute(&mut *tx)
         .await?;
         affected_instance_ids.extend(
             set_group_members(
@@ -285,17 +243,8 @@ async fn set_group_members(
     let mut instance_ids = HashSet::new();
     for screenshot_id in screenshot_ids {
         instance_ids.insert(screenshot_instance_id(&screenshot_id, tx).await?);
-        sqlx::query!(
-            "
-            INSERT INTO screenshot_group_memberships (screenshot_id, group_id)
-            VALUES (?, ?)
-            ON CONFLICT(screenshot_id) DO UPDATE SET group_id = excluded.group_id
-            ",
-            screenshot_id,
-            group_id,
-        )
-        .execute(&mut **tx)
-        .await?;
+        screenshot_groups::upsert_membership(tx, &screenshot_id, group_id)
+            .await?;
     }
     Ok(instance_ids)
 }
@@ -304,13 +253,7 @@ async fn ensure_group_exists(
     group_id: &str,
     tx: &mut Transaction<'_, Sqlite>,
 ) -> crate::Result<()> {
-    let exists = sqlx::query_scalar!(
-        r#"SELECT EXISTS(SELECT 1 FROM screenshot_groups WHERE id = ?) AS "exists!: bool""#,
-        group_id,
-    )
-    .fetch_one(&mut **tx)
-    .await?;
-    if !exists {
+    if !screenshot_groups::group_exists(group_id, &mut **tx).await? {
         return Err(crate::ErrorKind::InputError(format!(
             "Unknown screenshot group {group_id}"
         ))
@@ -323,18 +266,14 @@ async fn screenshot_instance_id(
     screenshot_id: &str,
     tx: &mut Transaction<'_, Sqlite>,
 ) -> crate::Result<String> {
-    sqlx::query_scalar!(
-        "SELECT instance_id FROM screenshots WHERE id = ?",
-        screenshot_id,
-    )
-    .fetch_optional(&mut **tx)
-    .await?
-    .ok_or_else(|| {
-        crate::ErrorKind::InputError(format!(
-            "Unknown screenshot {screenshot_id}"
-        ))
-    })
-    .map_err(Into::into)
+    screenshot_groups::get_screenshot_instance_id(screenshot_id, &mut **tx)
+        .await?
+        .ok_or_else(|| {
+            crate::ErrorKind::InputError(format!(
+                "Unknown screenshot {screenshot_id}"
+            ))
+        })
+        .map_err(Into::into)
 }
 
 async fn emit_screenshot_updates(

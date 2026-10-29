@@ -1,4 +1,10 @@
 use super::{identity::LocalArtifactIdentity, *};
+use crate::state::store::Collection as _;
+use crate::state::store::Handle;
+use crate::state::store::resource_entry_graphs::ResourceEntryGraphs;
+use crate::state::store::resource_installed_artifacts::{
+    ResourceInstalledArtifactRecord, ResourceInstalledArtifacts,
+};
 use tokio_util::sync::CancellationToken;
 
 #[derive(Clone, serde::Serialize, serde::Deserialize)]
@@ -12,56 +18,42 @@ pub(crate) struct InstalledArtifactRecord {
 
 /// The artifact payload stored for an entry, as written, so a caller can
 /// compare integrity before replacing it.
-pub(crate) async fn installed_artifact_payload<'e, E>(
+pub(crate) async fn installed_artifact_payload(
     entry_id: &str,
-    exec: E,
-) -> crate::Result<Option<String>>
-where
-    E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
-{
-    Ok(sqlx::query_scalar(
-        "SELECT artifact FROM resource_installed_artifacts WHERE entry_id = ?",
-    )
-    .bind(entry_id)
-    .fetch_optional(exec)
-    .await?)
+    conn: &mut sqlx::SqliteConnection,
+) -> crate::Result<Option<String>> {
+    let key = entry_id.to_owned();
+    Ok(ResourceInstalledArtifacts::read(conn, &key)
+        .await?
+        .map(|record| record.artifact))
 }
 
 /// Records the artifact an entry installs, replacing what it held before.
-pub(crate) async fn set_installed_artifact<'e, E, T>(
+pub(crate) async fn set_installed_artifact<T>(
     entry_id: &str,
     payload: &T,
     scope: &InstallScope,
-    exec: E,
+    conn: &mut sqlx::SqliteConnection,
 ) -> crate::Result<()>
 where
-    E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
     T: serde::Serialize + ?Sized,
 {
-    sqlx::query("INSERT INTO resource_installed_artifacts(entry_id, artifact, scope) VALUES (?, ?, ?) ON CONFLICT(entry_id) DO UPDATE SET artifact = excluded.artifact, scope = excluded.scope")
-        .bind(entry_id)
-        .bind(serde_json::to_string(payload)?)
-        .bind(serde_json::to_string(scope)?)
-        .execute(exec)
-        .await?;
+    let record = ResourceInstalledArtifactRecord {
+        artifact: serde_json::to_string(payload)?,
+        scope: serde_json::to_string(scope)?,
+    };
 
-    Ok(())
+    let key = entry_id.to_owned();
+    ResourceInstalledArtifacts::write(conn, &key, Some(&record)).await
 }
 
 /// Drops the artifact an entry no longer installs.
-pub(crate) async fn delete_installed_artifact<'e, E>(
+pub(crate) async fn delete_installed_artifact(
     entry_id: &str,
-    exec: E,
-) -> crate::Result<()>
-where
-    E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
-{
-    sqlx::query("DELETE FROM resource_installed_artifacts WHERE entry_id = ?")
-        .bind(entry_id)
-        .execute(exec)
-        .await?;
-
-    Ok(())
+    conn: &mut sqlx::SqliteConnection,
+) -> crate::Result<()> {
+    let key = entry_id.to_owned();
+    ResourceInstalledArtifacts::write(conn, &key, None).await
 }
 
 /// Drops every resource row an entry leaves behind when it goes away.
@@ -70,12 +62,8 @@ pub(crate) async fn delete_entry_resource_traces(
     tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>,
 ) -> crate::Result<()> {
     delete_installed_artifact(entry_id, &mut **tx).await?;
-    sqlx::query("DELETE FROM resource_entry_graphs WHERE entry_id = ?")
-        .bind(entry_id)
-        .execute(&mut **tx)
-        .await?;
-
-    Ok(())
+    let key = entry_id.to_owned();
+    ResourceEntryGraphs::delete_in(&mut **tx, &key).await
 }
 
 pub(crate) async fn attach_compatibility(
@@ -86,9 +74,11 @@ pub(crate) async fn attach_compatibility(
     items: &mut [crate::state::instances::InstanceContentSnapshotItem],
     service: Option<&std::sync::Arc<ResourceService>>,
 ) -> crate::Result<()> {
-    let rows: Vec<(String, String, i64, Option<String>, Option<String>)> = sqlx::query_as(
-        "SELECT entry.id, file.sha1, file.size, file.local_mod_data, exact.artifact FROM instance_content_entries entry JOIN instance_files file ON file.id = entry.file_id LEFT JOIN resource_installed_artifacts exact ON exact.entry_id = entry.id WHERE entry.instance_id = ? AND file.missing = 0"
-    ).bind(instance_id).fetch_all(pool).await?;
+    let rows = ResourceInstalledArtifacts::with_file_state(
+        &Handle::new(pool.clone()),
+        instance_id,
+    )
+    .await?;
     let target = ipc::ResourceTarget {
         game_versions: vec![game_version.into()],
         loaders: vec![loader.into()],
@@ -628,8 +618,14 @@ async fn hydrate_entries_with_service(
     let mut failures = Vec::new();
     let mut persisted = Vec::new();
     let mut verified = std::collections::HashMap::new();
-    let saved_records: std::collections::HashMap<String, String> = sqlx::query_as::<_, (String, String)>("SELECT exact.entry_id, exact.artifact FROM resource_installed_artifacts exact JOIN instance_content_entries entry ON entry.id = exact.entry_id WHERE entry.instance_id = ?")
-        .bind(instance_id).fetch_all(&state.pool).await.map_err(plans::db)?.into_iter().collect();
+    let saved_records: std::collections::HashMap<String, String> =
+        ResourceInstalledArtifacts::payloads_for_instance(
+            &state.data,
+            instance_id,
+        )
+        .await?
+        .into_iter()
+        .collect();
     for (index, entry) in entries
         .iter()
         .enumerate()

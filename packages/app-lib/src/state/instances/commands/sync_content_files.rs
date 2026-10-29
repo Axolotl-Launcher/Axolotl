@@ -346,13 +346,13 @@ where
     let mut saved_failures = HashMap::new();
     if publication.is_some() {
         for (key, record) in
-            ContentRefreshScanFailures::get_scoped(&state.data, &instance.id)
+            ContentRefreshScanFailures::failed(&state.derived, &instance.id)
                 .await?
         {
             if key.location_key != failure_location
                 || !scanned_paths.contains(&key.relative_path)
             {
-                ContentRefreshScanFailures::set(&state.data, &key, None)
+                ContentRefreshScanFailures::remove(&state.derived, &key)
                     .await?;
             } else {
                 saved_failures.insert(key.relative_path, record);
@@ -474,13 +474,13 @@ where
                 if publication.is_some()
                     && error != crate::resources::ResourceError::Canceled =>
             {
-                ContentRefreshScanFailures::set(
-                    &state.data,
+                ContentRefreshScanFailures::upsert(
+                    &state.derived,
                     &failure_key,
-                    Some(&ScanFailureRecord {
+                    &ScanFailureRecord {
                         attempted_at: Utc::now().timestamp(),
                         error: error.to_string(),
-                    }),
+                    },
                 )
                 .await?;
                 let _ = publication
@@ -503,7 +503,7 @@ where
         if publication.is_some()
             && saved_failures.contains_key(&file.relative_path)
         {
-            ContentRefreshScanFailures::set(&state.data, &failure_key, None)
+            ContentRefreshScanFailures::remove(&state.derived, &failure_key)
                 .await?;
         }
         let scanned_size =

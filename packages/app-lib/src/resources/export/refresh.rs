@@ -941,37 +941,26 @@ pub(crate) async fn known_references(
     instance_id: &str,
 ) -> ResourceResult<HashMap<String, Vec<SourceArtifactRef>>> {
     let mut known: HashMap<String, Vec<SourceArtifactRef>> = HashMap::new();
-    use sqlx::Row;
-    let rows = sqlx::query("SELECT file.relative_path, link.source, link.project_id, link.release_id, link.artifact_id FROM resource_entry_links link JOIN instance_content_entries entry ON entry.id = link.entry_id JOIN instance_files file ON file.id = entry.file_id JOIN instances instance ON instance.id = entry.instance_id AND instance.applied_content_set_id = entry.content_set_id WHERE entry.instance_id = ? UNION ALL SELECT file.relative_path, ref.provider AS source, ref.provider_project_id AS project_id, COALESCE(ref.provider_release_id, ref.provider_file_id) AS release_id, ref.provider_file_id AS artifact_id FROM instance_content_provider_refs ref JOIN instance_content_entries entry ON entry.id = ref.content_entry_id JOIN instance_files file ON file.id = entry.file_id JOIN instances instance ON instance.id = entry.instance_id AND instance.applied_content_set_id = entry.content_set_id WHERE entry.instance_id = ?").bind(instance_id).bind(instance_id).fetch_all(pool).await.map_err(crate::resources::plans::db)?;
-    for row in rows {
-        let path: String = row.get("relative_path");
+    let rows = crate::state::store::resource_entry_links::known_references(
+        &crate::state::store::Handle::new(pool.clone()),
+        instance_id,
+    )
+    .await?;
+    for (path, source, project_id, release_id, artifact_id) in rows {
         let reference = (|| {
             let project = SourceProjectRef {
-                source: SourceId::new(row.get::<String, _>("source")).ok()?,
-                project_id: SourceProjectId::new(
-                    row.get::<String, _>("project_id"),
-                )
-                .ok()?,
+                source: SourceId::new(source).ok()?,
+                project_id: SourceProjectId::new(project_id).ok()?,
             };
             crate::state::instances::adapters::sqlite::resource_rows::validate_project(&project).ok()?;
             Some(SourceArtifactRef {
                 release: SourceReleaseRef {
                     project,
-                    release_id: SourceReleaseId::new(
-                        row.get::<Option<String>, _>("release_id")?,
-                    )
-                    .ok()?,
+                    release_id: SourceReleaseId::new(release_id?).ok()?,
                 },
-                artifact_id: SourceArtifactId::new(
-                    row.get::<Option<String>, _>("artifact_id").unwrap_or_else(
-                        || {
-                            path.rsplit('/')
-                                .next()
-                                .unwrap_or("file")
-                                .to_string()
-                        },
-                    ),
-                )
+                artifact_id: SourceArtifactId::new(artifact_id.unwrap_or_else(
+                    || path.rsplit('/').next().unwrap_or("file").to_string(),
+                ))
                 .ok()?,
             })
         })();

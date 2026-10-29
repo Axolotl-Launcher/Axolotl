@@ -280,19 +280,10 @@ async fn resolve_instance_identity(
     instance: &str,
     state: &State,
 ) -> Result<(String, String, Option<String>)> {
-    let row = sqlx::query!(
-        "
-        SELECT id, path, game_dir_override
-        FROM instances
-        WHERE id = ? OR path = ?
-        ORDER BY CASE WHEN id = ? THEN 0 ELSE 1 END
-        LIMIT 1
-        ",
+    let row = crate::state::instances::adapters::sqlite::instance_rows::find_identity_by_id_or_path(
         instance,
-        instance,
-        instance,
+        &state.pool,
     )
-    .fetch_optional(&state.pool)
     .await?
     .ok_or_else(|| {
         ErrorKind::InputError(format!(

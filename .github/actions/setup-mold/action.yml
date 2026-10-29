@@ -1,0 +1,36 @@
+name: Set up mold
+description: Install the pinned mold linker that .cargo/config.toml selects for Linux builds (no-op elsewhere)
+runs:
+  using: composite
+  steps:
+    - name: Install pinned mold linker
+      if: runner.os == 'Linux'
+      shell: bash
+      env:
+        MOLD_VERSION: 3.0.0
+      run: |
+        set -euo pipefail
+        arch="$(uname -m)"
+        # Digests of the upstream release archives for MOLD_VERSION.
+        case "$arch" in
+          x86_64) sha256=6c90d4a474c7c0409dfb575be03a5345878ac14fdba18de8b40fa58c60121189 ;;
+          aarch64) sha256=52c759d3689babaea4c42af2f31062a74ab83e17ffb5a8090232534c67b70577 ;;
+          *) echo "No pinned mold build for $arch" >&2; exit 1 ;;
+        esac
+        archive="$RUNNER_TEMP/mold-$MOLD_VERSION-$arch-linux.tar.gz"
+        curl --fail --silent --show-error --location --retry 3 --output "$archive" \
+          "https://github.com/rui314/mold/releases/download/v$MOLD_VERSION/mold-$MOLD_VERSION-$arch-linux.tar.gz"
+        echo "$sha256  $archive" | sha256sum --check --strict -
+        install_dir="$RUNNER_TEMP/mold"
+        rm -rf "$install_dir"
+        mkdir -p "$install_dir"
+        tar -C "$install_dir" --strip-components=1 -xzf "$archive"
+        rm -f "$archive"
+        installed="$("$install_dir/bin/ld.mold" --version)"
+        echo "$installed"
+        case "$installed" in
+          "mold $MOLD_VERSION "*) ;;
+          *) echo "Expected mold $MOLD_VERSION" >&2; exit 1 ;;
+        esac
+        # GCC and Clang look up ld.mold on PATH for -fuse-ld=mold.
+        echo "$install_dir/bin" >> "$GITHUB_PATH"

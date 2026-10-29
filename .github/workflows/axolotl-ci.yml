@@ -253,6 +253,26 @@ jobs:
         if: runner.os == 'Linux'
         run: cargo test --package theseus --test java_build_cache
       - run: cargo check --package theseus_gui --features updater
+      # .cargo/config.toml links Linux builds with mold, and mold stamps its
+      # version into .comment. This fails if another linker made the binaries.
+      - name: Verify mold linked the Linux test binaries
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          mapfile -t binaries < <(find target/debug/deps -maxdepth 1 -type f -executable -name 'theseus-*')
+          if [ "${#binaries[@]}" -eq 0 ]; then
+            echo 'No theseus test binaries to inspect' >&2
+            exit 1
+          fi
+          for binary in "${binaries[@]}"; do
+            comment="$(readelf --string-dump=.comment "$binary")"
+            if [[ "$comment" != *'mold '* ]]; then
+              echo "$binary was not linked by mold:" >&2
+              echo "$comment" >&2
+              exit 1
+            fi
+          done
+          echo "mold linked ${#binaries[@]} theseus test binaries"
       - name: Test Windows installer UI and core
         if: runner.os == 'Windows'
         run: |

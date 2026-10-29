@@ -11,6 +11,7 @@
   gradle_9,
   jdk17,
   makeRustPlatform,
+  mold,
   nodejs_24,
   pkg-config,
   pnpmConfigHook,
@@ -105,6 +106,9 @@ in
       gradle_9_j17
       jdk17
       makeShellWrapper
+      # .cargo/config.toml links Linux builds with -fuse-ld=mold. nixpkgs'
+      # mold is the wrapped one, so library rpaths are set as with ld.
+      mold
       nodejs_24
       pkg-config
       pnpmConfigHook

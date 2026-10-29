@@ -2,7 +2,7 @@
 
 use sqlx::SqliteConnection;
 
-use super::Collection;
+use super::{Collection, Handle};
 
 /// The recorded operations, one per replaced artifact.
 pub(crate) struct ResourceHistory;
@@ -175,6 +175,146 @@ impl Collection for ResourceHistory {
         for (key, record) in records {
             write_row(conn, key, record).await?;
         }
+        Ok(())
+    }
+}
+
+impl ResourceHistory {
+    /// The payload of a backup that is still on disk, read before a rollback
+    /// restores it.
+    pub(crate) async fn backup_payload(
+        conn: &mut SqliteConnection,
+        key: &str,
+    ) -> crate::Result<String> {
+        let payload: String = sqlx::query_scalar(
+            "
+            SELECT payload
+            FROM resource_history
+            WHERE id = ? AND backup_available = 1
+            ",
+        )
+        .bind(key)
+        .fetch_one(&mut *conn)
+        .await?;
+
+        Ok(payload)
+    }
+
+    /// Saves a history entry under its own id.
+    pub(crate) async fn insert(
+        conn: &mut SqliteConnection,
+        key: &str,
+        record: &ResourceHistoryRecord,
+    ) -> crate::Result<()> {
+        sqlx::query(
+            "
+            INSERT INTO resource_history
+                (id, instance_id, entry_id, recorded_at, payload,
+                 backup_relative_path, backup_size, backup_sha1,
+                 backup_available)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ",
+        )
+        .bind(key)
+        .bind(&record.instance_id)
+        .bind(&record.entry_id)
+        .bind(record.recorded_at)
+        .bind(&record.payload)
+        .bind(&record.backup_relative_path)
+        .bind(record.backup_size)
+        .bind(&record.backup_sha1)
+        .bind(record.backup_available)
+        .execute(&mut *conn)
+        .await?;
+
+        Ok(())
+    }
+
+    /// The newest entry of every content entry of the instance, read for a
+    /// snapshot.
+    pub(crate) async fn latest_per_entry(
+        handle: &Handle,
+        instance_id: &str,
+    ) -> crate::Result<Vec<(String, i64)>> {
+        let rows: Vec<(String, i64)> = sqlx::query_as(
+            "
+            SELECT payload, backup_available
+            FROM (
+                SELECT payload, backup_available,
+                    ROW_NUMBER() OVER (
+                        PARTITION BY entry_id
+                        ORDER BY recorded_at DESC, rowid DESC) AS rank
+                FROM resource_history
+                WHERE instance_id = ?)
+            WHERE rank = 1
+            ",
+        )
+        .bind(instance_id)
+        .fetch_all(handle.pool())
+        .await?;
+
+        Ok(rows)
+    }
+
+    /// The backups of the instance that are still on disk.
+    pub(crate) async fn backups_for_instance(
+        handle: &Handle,
+        instance_id: &str,
+    ) -> crate::Result<Vec<(String, Option<String>)>> {
+        let rows: Vec<(String, Option<String>)> = sqlx::query_as(
+            "
+            SELECT id, backup_relative_path
+            FROM resource_history
+            WHERE instance_id = ? AND backup_available = 1
+            ",
+        )
+        .bind(instance_id)
+        .fetch_all(handle.pool())
+        .await?;
+
+        Ok(rows)
+    }
+
+    /// Marks the backup of an entry retired, inside the unit that removes it.
+    pub(crate) async fn retire_backup_in(
+        conn: &mut SqliteConnection,
+        key: &str,
+        instance_id: &str,
+    ) -> crate::Result<()> {
+        sqlx::query(
+            "
+            UPDATE resource_history
+            SET backup_available = 0
+            WHERE id = ? AND instance_id = ?
+            ",
+        )
+        .bind(key)
+        .bind(instance_id)
+        .execute(&mut *conn)
+        .await?;
+
+        Ok(())
+    }
+
+    /// Retires a backup and records the payload that says it is gone, inside
+    /// the unit that restores it.
+    pub(crate) async fn retire_with_payload_in(
+        conn: &mut SqliteConnection,
+        key: &str,
+        payload: &str,
+    ) -> crate::Result<()> {
+        sqlx::query(
+            "
+            UPDATE resource_history
+            SET backup_available = 0, payload = ?
+            WHERE id = ?
+            ",
+        )
+        .bind(payload)
+        .bind(key)
+        .execute(&mut *conn)
+        .await?;
+
         Ok(())
     }
 }

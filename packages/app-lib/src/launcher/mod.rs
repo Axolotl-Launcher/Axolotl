@@ -1457,10 +1457,11 @@ async fn install_minecraft_with_local_source(
         validate_loader_java_version(&version_info, &java_version)?;
 
         if set_java {
+            let documents = crate::state::documents::Documents::new(&state);
             run_install_database_write(
                 &state.install_db_semaphore,
                 &database_cancellation,
-                java_version.upsert(&state.data),
+                java_version.upsert(&documents),
             )
             .await?;
         }

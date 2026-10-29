@@ -1,3 +1,4 @@
+use crate::state::instances::adapters::sqlite::attached_world_data as rows;
 use crate::worlds::{DisplayStatus, WorldType};
 use std::collections::HashMap;
 
@@ -15,22 +16,15 @@ impl AttachedWorldData {
         world_id: &str,
         exec: impl sqlx::Executor<'_, Database = sqlx::Sqlite>,
     ) -> crate::Result<Option<Self>> {
-        let world_type = world_type.as_str();
-
-        let attached_data = sqlx::query!(
-            "
-            SELECT display_status, project_id, content_kind
-            FROM attached_world_data
-            WHERE instance_id = ? and world_type = ? and world_id = ?
-            ",
+        let row = rows::get_for_world(
             instance_id,
-            world_type,
+            world_type.as_str(),
             world_id,
+            exec,
         )
-        .fetch_optional(exec)
         .await?;
 
-        Ok(attached_data.map(|row| AttachedWorldData {
+        Ok(row.map(|row| Self {
             display_status: DisplayStatus::from_string(&row.display_status),
             project_id: row.project_id,
             content_kind: row.content_kind,
@@ -41,27 +35,17 @@ impl AttachedWorldData {
         instance_id: &str,
         exec: impl sqlx::Executor<'_, Database = sqlx::Sqlite>,
     ) -> crate::Result<HashMap<(WorldType, String), Self>> {
-        let attached_data = sqlx::query!(
-            "
-            SELECT world_type, world_id, display_status, project_id, content_kind
-            FROM attached_world_data
-            WHERE instance_id = ?
-            ",
-            instance_id,
-        )
-        .fetch_all(exec)
-        .await?;
+        let rows = rows::get_all_for_instance(instance_id, exec).await?;
 
-        Ok(attached_data
+        Ok(rows
             .into_iter()
             .map(|row| {
-                let world_type = WorldType::from_string(&row.world_type);
-                let display_status =
-                    DisplayStatus::from_string(&row.display_status);
                 (
-                    (world_type, row.world_id),
-                    AttachedWorldData {
-                        display_status,
+                    (WorldType::from_string(&row.world_type), row.world_id),
+                    Self {
+                        display_status: DisplayStatus::from_string(
+                            &row.display_status,
+                        ),
                         project_id: row.project_id,
                         content_kind: row.content_kind,
                     },
@@ -76,21 +60,8 @@ impl AttachedWorldData {
         world_id: &str,
         exec: impl sqlx::Executor<'_, Database = sqlx::Sqlite>,
     ) -> crate::Result<()> {
-        let world_type = world_type.as_str();
-
-        sqlx::query!(
-            "
-            DELETE FROM attached_world_data
-            WHERE instance_id = ? and world_type = ? and world_id = ?
-            ",
-            instance_id,
-            world_type,
-            world_id,
-        )
-        .execute(exec)
-        .await?;
-
-        Ok(())
+        rows::remove_for_world(instance_id, world_type.as_str(), world_id, exec)
+            .await
     }
 }
 
@@ -101,25 +72,14 @@ pub async fn set_display_status(
     display_status: DisplayStatus,
     exec: impl sqlx::Executor<'_, Database = sqlx::Sqlite>,
 ) -> crate::Result<()> {
-    let world_type = world_type.as_str();
-    let display_status = display_status.as_str();
-
-    sqlx::query!(
-        "
-        INSERT INTO attached_world_data (instance_id, world_type, world_id, display_status)
-        VALUES (?, ?, ?, ?)
-        ON CONFLICT (instance_id, world_type, world_id) DO UPDATE
-            SET display_status = excluded.display_status
-        ",
+    rows::set_display_status(
         instance_id,
-        world_type,
+        world_type.as_str(),
         world_id,
-        display_status,
+        display_status.as_str(),
+        exec,
     )
-    .execute(exec)
-    .await?;
-
-    Ok(())
+    .await
 }
 
 pub async fn set_project_id(
@@ -129,24 +89,14 @@ pub async fn set_project_id(
     project_id: &str,
     exec: impl sqlx::Executor<'_, Database = sqlx::Sqlite>,
 ) -> crate::Result<()> {
-    let world_type = world_type.as_str();
-
-    sqlx::query!(
-        "
-        INSERT INTO attached_world_data (instance_id, world_type, world_id, project_id)
-        VALUES (?, ?, ?, ?)
-        ON CONFLICT (instance_id, world_type, world_id) DO UPDATE
-            SET project_id = excluded.project_id
-        ",
+    rows::set_project_id(
         instance_id,
-        world_type,
+        world_type.as_str(),
         world_id,
         project_id,
+        exec,
     )
-    .execute(exec)
-    .await?;
-
-    Ok(())
+    .await
 }
 
 pub async fn set_content_kind(
@@ -156,22 +106,12 @@ pub async fn set_content_kind(
     content_kind: &str,
     exec: impl sqlx::Executor<'_, Database = sqlx::Sqlite>,
 ) -> crate::Result<()> {
-    let world_type = world_type.as_str();
-
-    sqlx::query!(
-        "
-        INSERT INTO attached_world_data (instance_id, world_type, world_id, content_kind)
-        VALUES (?, ?, ?, ?)
-        ON CONFLICT (instance_id, world_type, world_id) DO UPDATE
-            SET content_kind = excluded.content_kind
-        ",
+    rows::set_content_kind(
         instance_id,
-        world_type,
+        world_type.as_str(),
         world_id,
         content_kind,
+        exec,
     )
-    .execute(exec)
-    .await?;
-
-    Ok(())
+    .await
 }

@@ -15,8 +15,6 @@ pub(crate) async fn prepare_curseforge_content_change_action(
     instance_id: &str,
     action: &mut crate::install::ContentChangeAction,
 ) -> crate::Result<()> {
-    use sqlx::Row;
-
     let state = State::get().await?;
     let relative_path = action.relative_path.as_deref().ok_or_else(|| {
         ErrorKind::InputError(format!(
@@ -24,22 +22,11 @@ pub(crate) async fn prepare_curseforge_content_change_action(
             action.content_id
         ))
     })?;
-    let row = sqlx::query(
-        "SELECT entry.project_type, entry.ownership_kind,
-                content_set.game_version, content_set.loader
-         FROM instance_files file
-         INNER JOIN instance_content_entries entry ON entry.file_id = file.id
-         INNER JOIN instances instance ON instance.id = entry.instance_id
-         INNER JOIN instance_content_sets content_set
-            ON content_set.id = entry.content_set_id
-         WHERE file.instance_id = ? AND file.relative_path = ?
-            AND entry.content_set_id = instance.applied_content_set_id
-         ORDER BY entry.modified_at DESC
-         LIMIT 1",
+    let row = crate::state::instances::adapters::sqlite::content_entries::get_applied_content_target(
+        instance_id,
+        relative_path,
+        &state.pool,
     )
-    .bind(instance_id)
-    .bind(relative_path)
-    .fetch_optional(&state.pool)
     .await?
     .ok_or_else(|| {
         ErrorKind::InputError(
@@ -60,12 +47,12 @@ pub(crate) async fn prepare_curseforge_content_change_action(
     let file_id = action.target_release_id.parse::<u32>().map_err(|_| {
         ErrorKind::InputError("Invalid CurseForge file ID".to_string())
     })?;
-    let project_type = row.try_get::<String, _>("project_type")?;
+    let project_type = row.project_type;
     let ownership_kind =
         crate::state::instances::ContentOwnershipKind::from_str(
-            &row.try_get::<String, _>("ownership_kind")?,
+            &row.ownership_kind,
         )?;
-    let loader = row.try_get::<String, _>("loader")?;
+    let loader = row.loader;
     let mod_loader_type = match loader.as_str() {
         "forge" => Some(1),
         "fabric" => Some(4),
@@ -81,7 +68,7 @@ pub(crate) async fn prepare_curseforge_content_change_action(
         ownership_kind,
         manual_operation_kind:
             crate::state::instances::ManualDownloadOperationKind::ContentUpdate,
-        game_version: Some(row.try_get::<String, _>("game_version")?),
+        game_version: Some(row.game_version),
         mod_loader_type,
         world_name: None,
         install_dependencies: true,

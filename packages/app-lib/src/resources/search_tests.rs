@@ -712,7 +712,7 @@ async fn confirmed_favorites_preferences_and_descriptions_survive_cache_clear()
         .unwrap();
     assert!(service.favorites(&pool).await.unwrap().is_empty());
     assert_eq!(
-        sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM content_favorites")
+        sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM resource_favorites")
             .fetch_one(&pool)
             .await
             .unwrap(),

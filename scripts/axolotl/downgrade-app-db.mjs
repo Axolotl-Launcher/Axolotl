@@ -57,7 +57,17 @@ const CHANNELS = ['release', 'beta']
 // refused rather than guessed at; --allow-unmapped accepts the risk explicitly.
 const REVERTIBLE_SCHEMA = {
     20261103140000: { tables: ['scheduler_restart_budget', 'scheduler_tags'] },
-    20261102120000: { columns: [{ table: 'install_jobs', column: 'level' }] },
+    20261103120000: { columns: [{ table: 'install_jobs', column: 'level' }] },
+    // Account secrets move into the system credential store. Each table gains a
+    // mark column saying which of its secret columns the store holds; dropping
+    // it leaves the rows as an older build writes them.
+    20261102120000: {
+        columns: [
+            { table: 'minecraft_users', column: 'secrets_externalized' },
+            { table: 'minecraft_device_tokens', column: 'secrets_externalized' },
+            { table: 'modrinth_users', column: 'secrets_externalized' },
+        ],
+    },
     // Moves content_refresh_packs and content_refresh_scan_failures to
     // derived.db: the rows are rebuildable, so the record is all a downgrade
     // removes. The tables it drops are named in `drops` instead of `tables`,

@@ -193,6 +193,25 @@ pub fn low_y_swamp_hut_available<R: tauri::Runtime>(
 /// The README calls this the only format the CLI emits (the older four-column
 /// form was retired), so a line that does not match is skipped rather than
 /// guessed at.
+/// The numeric seed a world is generated from.
+///
+/// Both programs take a signed 64-bit seed, while vanilla also accepts text and
+/// runs it through Java's `String.hashCode` first. Doing the same here means a
+/// word typed into the seed box searches the world the game would have built,
+/// instead of failing to parse.
+fn world_seed(seed: &str) -> i64 {
+    match seed.parse::<i64>() {
+        Ok(parsed) => parsed,
+        Err(_) => {
+            let mut hash: i32 = 0;
+            for unit in seed.encode_utf16() {
+                hash = hash.wrapping_mul(31).wrapping_add(unit as i32);
+            }
+            hash as i64
+        }
+    }
+}
+
 fn parse_hit_line(line: &str) -> Option<SwampHutHit> {
     let mut parts = line.split_whitespace();
     if parts.next()? != "hit" {
@@ -234,20 +253,7 @@ pub async fn low_y_swamp_hut_scan<R: tauri::Runtime>(
     }
 
     let started = Instant::now();
-    // The program takes a signed 64-bit seed, but vanilla also accepts text.
-    // A non-numeric seed goes through Java's `String.hashCode` before it reaches
-    // the terrain generator, so reproduce that rather than rejecting the input
-    // the page advertises.
-    let numeric_seed: i64 = match seed.parse::<i64>() {
-        Ok(parsed) => parsed,
-        Err(_) => {
-            let mut hash: i32 = 0;
-            for unit in seed.encode_utf16() {
-                hash = hash.wrapping_mul(31).wrapping_add(unit as i32);
-            }
-            hash as i64
-        }
-    };
+    let numeric_seed = world_seed(&seed);
 
     // The limits the UI offers are advisory: this command is reachable over IPC
     // directly, and the scan is CPU-bound for as long as it runs, so clamp here
@@ -583,7 +589,7 @@ pub async fn trial_chamber_find<R: tauri::Runtime>(
         .arg(&classpath)
         .arg("cn.minecraftfinder.runtime.Main")
         .arg("--seed")
-        .arg(&seed)
+        .arg(world_seed(&seed).to_string())
         .arg("--search-radius-blocks")
         .arg(radius.clamp(128, 1_000_000).to_string())
         .arg("--scan-threads")

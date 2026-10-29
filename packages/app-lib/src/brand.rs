@@ -4,6 +4,23 @@ pub const WEBSITE: &str = "https://www.ghs.red";
 pub const BUNDLE_IDENTIFIER: &str = "red.ghs.axolotl";
 pub const DEEP_LINK_SCHEME: &str = "axolotl";
 
+/// Whether this binary was built as a development or test build.
+///
+/// Such a build keeps its data under the temporary directory (see
+/// [`development_data_root_path`]), so it can be thrown away without touching an
+/// installed launcher. Release and beta builds are `false` and keep their normal
+/// paths and behaviour.
+pub const fn is_development_build() -> bool {
+    option_env!("AXOLOTL_DEV_DATA_ROOT").is_some()
+}
+
+/// Directory a development build keeps its settings, database and instances in.
+///
+/// `None` for release and beta builds, which use the platform data directory.
+pub fn development_data_root_path() -> Option<std::path::PathBuf> {
+    is_development_build().then(|| std::env::temp_dir().join("axel"))
+}
+
 /// Longest accepted data directory suffix; enough to name a branch or a build.
 const MAX_DATA_DIR_SUFFIX_LEN: usize = 32;
 

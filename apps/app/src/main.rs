@@ -27,6 +27,11 @@ mod portable;
 mod seed_map;
 mod window_frame;
 
+/// Set once the exit prompt about test-build data has been shown, so exiting
+/// from that prompt does not ask again.
+static DEV_DATA_PROMPTED: std::sync::atomic::AtomicBool =
+    std::sync::atomic::AtomicBool::new(false);
+
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 struct UpdatePreferences {
@@ -987,6 +992,43 @@ fn main() {
                         if let Some(state) = State::get_if_initialized() {
                             state.shutdown().await;
                         }
+                    });
+                }
+
+                // A development build keeps its data in the temporary directory.
+                // Ask before leaving whether that data should survive, so the
+                // next run can either resume the same database or start clean.
+                // Asked once: exiting from the prompt below must not ask again.
+                if let tauri::RunEvent::ExitRequested { api, .. } = &event
+                    && theseus::brand::is_development_build()
+                    && !DEV_DATA_PROMPTED.swap(true, Ordering::SeqCst)
+                {
+                    api.prevent_exit();
+                    let handle = app.clone();
+                    tauri::async_runtime::spawn(async move {
+                        let root = theseus::brand::development_data_root_path();
+                        let keep = root.as_ref().is_none_or(|root| {
+                            DialogBuilder::message()
+                                .set_title("Axolotl test build")
+                                .set_text(format!(
+                                    "Keep the data this test run created?\n\n{}\n\n\
+                                     Yes: the next launch resumes with the same database.\n\
+                                     No: the next launch starts from a clean install.",
+                                    root.display()
+                                ))
+                                .confirm()
+                                .show()
+                                .unwrap_or(true)
+                        });
+                        if !keep && let Some(root) = root {
+                            if let Err(error) = std::fs::remove_dir_all(&root) {
+                                tracing::warn!(
+                                    "Failed to remove test data at {}: {error}",
+                                    root.display()
+                                );
+                            }
+                        }
+                        handle.exit(0);
                     });
                 }
 

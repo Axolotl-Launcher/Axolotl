@@ -42,13 +42,27 @@ impl DirectoryInfo {
     // Get the settings directory
     // init() is not needed for this function
     pub fn initial_settings_dir_path(app_identifier: &str) -> Option<PathBuf> {
-        Self::env_path("THESEUS_CONFIG_DIR").or_else(|| {
-            Some(
-                dirs::data_dir()?.join(crate::brand::app_data_dir_identifier(
-                    app_identifier,
-                )),
-            )
-        })
+        Self::env_path("THESEUS_CONFIG_DIR")
+            .or_else(Self::development_data_root)
+            .or_else(|| {
+                Some(dirs::data_dir()?.join(
+                    crate::brand::app_data_dir_identifier(app_identifier),
+                ))
+            })
+    }
+
+    /// Data root for a development build.
+    ///
+    /// Such a build shares the installed launcher's identifier, so without this
+    /// it would open — and migrate — the user's real database, which is several
+    /// gigabytes of instances that the released build then has to keep working
+    /// with. A build made with `AXOLOTL_DEV_DATA_ROOT` set keeps everything
+    /// under the temporary directory instead, where it is disposable and
+    /// cannot collide with a release or beta installation.
+    ///
+    /// Returns `None` for release and beta builds, which keep their own paths.
+    fn development_data_root() -> Option<PathBuf> {
+        crate::brand::development_data_root_path()
     }
 
     /// Get all paths needed for Theseus to operate properly

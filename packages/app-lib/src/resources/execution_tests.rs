@@ -638,6 +638,147 @@ async fn unchanged_installed_artifacts_do_not_fetch_project_presentations() {
 }
 
 #[tokio::test]
+async fn installed_file_matched_by_a_project_of_another_type_still_hydrates() {
+    use crate::resources::providers::*;
+
+    struct MatchingProvider {
+        source: SourceId,
+        artifact: ResourceArtifact,
+        types: Vec<ResourceType>,
+    }
+    #[async_trait::async_trait]
+    impl ResourceProvider for MatchingProvider {
+        fn source(&self) -> ResourceSource {
+            ResourceSource {
+                id: self.source.clone(),
+                types: vec![ResourceType::ResourcePack],
+                capabilities: vec![
+                    SourceCapability::Project,
+                    SourceCapability::IdentifyHash,
+                ],
+                available: true,
+                supported_search_sorts: vec![],
+            }
+        }
+        fn namespace(&self) -> String {
+            format!("cross-type-hydration-{}", self.source.as_str())
+        }
+        fn batch_limit(&self, _: &ProviderQuery) -> usize {
+            100
+        }
+        async fn fetch_many(
+            &self,
+            queries: &[ProviderQuery],
+        ) -> Vec<ResourceResult<ProviderValue>> {
+            queries
+                .iter()
+                .map(|query| match query {
+                    ProviderQuery::Identify { .. } => {
+                        Ok(ProviderValue::Matches(vec![self.artifact.clone()]))
+                    }
+                    ProviderQuery::Project { id, .. } => {
+                        Ok(ProviderValue::Project(ProjectDocument {
+                            owner: None,
+                            protocol: None,
+                            metadata: SourceProjectMetadata {
+                                environments: vec![],
+                                categories: vec![],
+                                game_versions: vec![],
+                                loaders: vec![],
+                                gallery: vec![],
+                                project: SourceProjectRef {
+                                    source: self.source.clone(),
+                                    project_id: id.clone(),
+                                },
+                                slug: None,
+                                title: id.as_str().into(),
+                                summary: String::new(),
+                                icon_url: None,
+                                types: self.types.clone(),
+                                authors: vec![],
+                                license: None,
+                                downloads: None,
+                                followers: None,
+                                created_at: None,
+                                project_published_at: None,
+                                updated_at: None,
+                                first_published_at: None,
+                                latest_published_at: None,
+                            },
+                            description: ResourceText {
+                                source: self.source.clone(),
+                                format: TextFormat::Plain,
+                                body: String::new(),
+                            },
+                        }))
+                    }
+                    _ => {
+                        Err(ResourceError::Unsupported("fixture query".into()))
+                    }
+                })
+                .collect()
+        }
+    }
+
+    // CurseForge lists the same bytes under a class with no resource type,
+    // so the two projects cannot be confirmed as one resource.
+    let (_temp, state, original, _, _) = fixture().await;
+    sqlx::query("DELETE FROM resource_installed_artifacts WHERE entry_id = ?")
+        .bind(original.entry_id.as_str())
+        .execute(&state.pool)
+        .await
+        .unwrap();
+    let file =
+        artifact(SourceId::modrinth(), "root0000", "version1", b"old bytes");
+    let copy = artifact(SourceId::curseforge(), "123", "456", b"old bytes");
+    let cache = Arc::new(
+        cache::ResourceCache::open(
+            state.directories.caches_dir().join("test-resources.db"),
+        )
+        .await,
+    );
+    let service = ResourceService::with_store(
+        cache,
+        vec![
+            Arc::new(MatchingProvider {
+                source: SourceId::modrinth(),
+                artifact: file.clone(),
+                types: vec![ResourceType::ResourcePack],
+            }),
+            Arc::new(MatchingProvider {
+                source: SourceId::curseforge(),
+                artifact: copy,
+                types: vec![],
+            }),
+        ],
+        crate::state::resources::ResourceStore::new(state.pool.clone()),
+    )
+    .unwrap();
+    let result = super::installed::hydrate_selected_with_service(
+        &state,
+        "instance",
+        &CancellationToken::new(),
+        None,
+        &service,
+    )
+    .await
+    .unwrap();
+    assert!(result.failures.is_empty(), "{:?}", result.failures);
+    assert_eq!(result.entries[0].artifact, Some(file.reference));
+    assert_eq!(
+        sqlx::query_scalar::<_, i64>(
+            "SELECT COUNT(*) FROM resource_identity_evidence"
+        )
+        .fetch_one(&state.pool)
+        .await
+        .unwrap(),
+        0
+    );
+    service.cache().close().await;
+    state.pool.close().await;
+}
+
+#[tokio::test]
 async fn missing_backup_is_only_idempotent_when_original_bytes_are_restored() {
     let temp = tempfile::tempdir().unwrap();
     let old =

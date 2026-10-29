@@ -2026,7 +2026,7 @@ impl ResourceService {
                                 )
                                 .await?;
                             store
-                                .confirm_projects(
+                                .confirm_matched_projects(
                                     &left.metadata,
                                     &right.metadata,
                                     &artifact,

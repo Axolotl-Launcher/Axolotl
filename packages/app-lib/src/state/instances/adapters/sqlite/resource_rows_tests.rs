@@ -414,6 +414,13 @@ async fn confirmed_merges_keep_old_ids_alias_ambiguity_favorites_and_cache_indep
     let b = artifact(right.project.clone(), "a");
     a.role = ArtifactRole::Attachment;
     assert!(store.confirm_projects(&left, &right, &a, &b).await.is_err());
+    assert_eq!(
+        store
+            .confirm_matched_projects(&left, &right, &a, &b)
+            .await
+            .unwrap(),
+        None
+    );
     a.role = ArtifactRole::Primary;
     a.integrity.size = None;
     assert!(store.confirm_projects(&left, &right, &a, &b).await.is_err());
@@ -429,8 +436,25 @@ async fn confirmed_merges_keep_old_ids_alias_ambiguity_favorites_and_cache_indep
             .await
             .is_err()
     );
+    assert_eq!(
+        store
+            .confirm_matched_projects(&left, &incompatible, &a, &b)
+            .await
+            .unwrap(),
+        None
+    );
+    assert_ne!(
+        store.lookup(&left.project).await.unwrap(),
+        store.lookup(&right.project).await.unwrap()
+    );
     let winner = store.confirm_projects(&left, &right, &a, &b).await.unwrap();
-    store.confirm_projects(&left, &right, &a, &b).await.unwrap();
+    assert_eq!(
+        store
+            .confirm_matched_projects(&left, &right, &a, &b)
+            .await
+            .unwrap(),
+        Some(winner.clone())
+    );
     assert_eq!(
         sqlx::query_scalar::<_, i64>(
             "SELECT COUNT(*) FROM resource_identity_evidence"

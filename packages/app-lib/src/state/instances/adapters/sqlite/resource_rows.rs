@@ -4,7 +4,7 @@ use sqlx::{Row, SqlitePool};
 use crate::resources::{
     ResourceArtifact, ResourceError, ResourceId, ResourceResult, ResourceType,
     SourceId, SourceProjectId, SourceProjectMetadata, SourceProjectRef,
-    identity::verify_artifact_pair,
+    identity::confirms_projects,
 };
 
 #[derive(Clone)]
@@ -280,13 +280,7 @@ impl ResourceStore {
                 artifact.reference.release.release_id.as_str(),
             )?;
         }
-        if left_artifact.reference.release.project != left.project
-            || right_artifact.reference.release.project != right.project
-            || !left.types.iter().any(|kind| right.types.contains(kind))
-            || !crate::resources::valid_artifact(left_artifact)
-            || !crate::resources::valid_artifact(right_artifact)
-            || verify_artifact_pair(left_artifact, right_artifact).is_none()
-        {
+        if !confirms_projects(left, right, left_artifact, right_artifact) {
             return Err(ResourceError::InvalidRequest("project confirmation requires compatible types and matching primary artifacts".into()));
         }
         #[derive(Serialize)]
@@ -321,6 +315,35 @@ impl ResourceStore {
         );
         self.confirm_identity(left, right, &evidence_id, &payload)
             .await
+    }
+
+    /// Confirms a cross-source hash match only when it proves one resource.
+    /// Other matches leave both projects apart; they end the link, not the
+    /// operation that found them.
+    pub async fn confirm_matched_projects(
+        &self,
+        left: &SourceProjectMetadata,
+        right: &SourceProjectMetadata,
+        left_artifact: &ResourceArtifact,
+        right_artifact: &ResourceArtifact,
+    ) -> ResourceResult<Option<ResourceId>> {
+        if !confirms_projects(left, right, left_artifact, right_artifact) {
+            tracing::info!(
+                left_source = left.project.source.as_str(),
+                left_project = left.project.project_id.as_str(),
+                right_source = right.project.source.as_str(),
+                right_project = right.project.project_id.as_str(),
+                left_types = ?left.types,
+                right_types = ?right.types,
+                left_role = ?left_artifact.role,
+                right_role = ?right_artifact.role,
+                "Kept cross-source projects apart: their types or matched files do not confirm one resource"
+            );
+            return Ok(None);
+        }
+        self.confirm_projects(left, right, left_artifact, right_artifact)
+            .await
+            .map(Some)
     }
 
     /// Trust the bundled MCMOD source pair only within one exact subvariant.

@@ -900,7 +900,9 @@ async fn hydrate_entries_with_service(
                         Err(_) => continue,
                     };
                     store
-                        .confirm_projects(&metadata, &other, &selected, matched)
+                        .confirm_matched_projects(
+                            &metadata, &other, &selected, matched,
+                        )
                         .await?;
                 }
             }

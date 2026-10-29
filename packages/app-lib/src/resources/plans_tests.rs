@@ -1235,6 +1235,103 @@ async fn confirmed_cross_source_dependency_with_different_required_bytes_is_a_co
     cross_source_dependency_plan(true, true, None).await;
 }
 
+/// Serves a fixture source whose projects all carry one other type.
+struct RetypedProvider(PlanProvider, ResourceType);
+
+#[async_trait::async_trait]
+impl ResourceProvider for RetypedProvider {
+    fn source(&self) -> ResourceSource {
+        self.0.source()
+    }
+    fn namespace(&self) -> String {
+        "retyped-plan-fixture".into()
+    }
+    fn batch_limit(&self, query: &ProviderQuery) -> usize {
+        self.0.batch_limit(query)
+    }
+    async fn fetch_many(
+        &self,
+        queries: &[ProviderQuery],
+    ) -> Vec<ResourceResult<ProviderValue>> {
+        let mut values = self.0.fetch_many(queries).await;
+        for value in &mut values {
+            if let Ok(ProviderValue::Project(document)) = value {
+                document.metadata.types = vec![self.1];
+            }
+        }
+        values
+    }
+}
+
+#[tokio::test]
+async fn curseforge_root_whose_bytes_match_a_modrinth_project_of_another_type_still_plans()
+ {
+    let mut cf_root = release("456", "1", 'd');
+    cf_root.reference.project.source = SourceId::curseforge();
+    cf_root.reference.release_id = SourceReleaseId::new("102").unwrap();
+    cf_root.artifacts[0].reference.release = cf_root.reference.clone();
+    let mut mr_copy = release("root0000", "1", 'd');
+    mr_copy.reference.release_id = SourceReleaseId::new("copyver1").unwrap();
+    mr_copy.artifacts[0].reference.release = mr_copy.reference.clone();
+    let pool = sqlx::sqlite::SqlitePoolOptions::new()
+        .max_connections(1)
+        .connect("sqlite::memory:")
+        .await
+        .unwrap();
+    sqlx::migrate!().run(&pool).await.unwrap();
+    let store = crate::state::resources::ResourceStore::new(pool.clone());
+    let (directory, cache) = cache().await;
+    let service = ResourceService::with_store(
+        cache.clone(),
+        vec![
+            Arc::new(RetypedProvider(
+                PlanProvider {
+                    source: SourceId::modrinth(),
+                    releases: vec![mr_copy],
+                    requests: Mutex::new(vec![]),
+                },
+                ResourceType::World,
+            )),
+            Arc::new(PlanProvider {
+                source: SourceId::curseforge(),
+                releases: vec![cf_root.clone()],
+                requests: Mutex::new(vec![]),
+            }),
+        ],
+        store,
+    )
+    .unwrap();
+    // A shared hash with a project of another type cannot confirm one
+    // resource, so the CurseForge root plans alone instead of failing.
+    let plan = service
+        .build_operation(
+            draft(
+                vec![selection("cf", &cf_root, None)],
+                ResourceOperationIntent::Install,
+            ),
+            &target(),
+            &[],
+            &CancellationToken::new(),
+        )
+        .await
+        .unwrap()
+        .plan;
+    assert!(plan.issues.is_empty(), "{:?}", plan.issues);
+    assert_eq!(plan.actions.len(), 1);
+    assert_eq!(
+        sqlx::query_scalar::<_, i64>(
+            "SELECT COUNT(*) FROM resource_identity_evidence"
+        )
+        .fetch_one(&pool)
+        .await
+        .unwrap(),
+        0
+    );
+    cache.close().await;
+    pool.close().await;
+    drop(directory);
+}
+
 #[tokio::test]
 async fn curseforge_requirement_reuses_the_confirmed_modrinth_installed_file_and_rejects_disabled_copy()
  {

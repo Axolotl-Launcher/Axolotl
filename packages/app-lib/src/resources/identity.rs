@@ -143,6 +143,24 @@ pub fn verify_artifact_pair(
     })
 }
 
+/// Whether two artifacts prove that their projects are one resource: the
+/// projects share a type and the artifacts are byte-identical primaries of
+/// those projects. A hash match on another source can fall short of this,
+/// for instance when the two sources file the project under different types.
+pub fn confirms_projects(
+    left: &SourceProjectMetadata,
+    right: &SourceProjectMetadata,
+    left_artifact: &ResourceArtifact,
+    right_artifact: &ResourceArtifact,
+) -> bool {
+    left_artifact.reference.release.project == left.project
+        && right_artifact.reference.release.project == right.project
+        && left.types.iter().any(|kind| right.types.contains(kind))
+        && valid_artifact(left_artifact)
+        && valid_artifact(right_artifact)
+        && verify_artifact_pair(left_artifact, right_artifact).is_some()
+}
+
 impl ResourceService {
     /// Uses metadata hashes and at most two release pages. Sources requiring
     /// a local fingerprint are probed by the opposing hash-capable source,

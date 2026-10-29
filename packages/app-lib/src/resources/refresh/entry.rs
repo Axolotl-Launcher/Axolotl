@@ -695,7 +695,7 @@ async fn recognize(
                 .await
             {
                 store
-                    .confirm_projects(
+                    .confirm_matched_projects(
                         &project,
                         &other.metadata,
                         &artifact,

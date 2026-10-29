@@ -2,6 +2,7 @@
 import { ClipboardCopyIcon } from '@modrinth/assets'
 import {
     Button,
+    Combobox,
     defineMessages,
     injectNotificationManager,
     StyledInput,
@@ -78,10 +79,36 @@ const messages = defineMessages({
         id: 'app.lab.low-y-swamp-hut.scan-failed-title',
         defaultMessage: 'Swamp hut scan failed',
     },
+    presetNormal: {
+        id: 'app.lab.low-y-swamp-hut.preset-normal',
+        defaultMessage: 'Default',
+    },
+    presetLargeBiomes: {
+        id: 'app.lab.low-y-swamp-hut.preset-large-biomes',
+        defaultMessage: 'Large biomes',
+    },
+    presetSingleBiome: {
+        id: 'app.lab.low-y-swamp-hut.preset-single-biome',
+        defaultMessage: 'Single biome',
+    },
 })
 
 const VERSION_OPTIONS = ['26.2', '1.21', '1.20.1', '1.19.2', '1.18.2'] as const
 const PRESET_OPTIONS = ['NORMAL', 'LARGE_BIOMES', 'SINGLE_BIOME'] as const
+
+const versionOptions = computed(() =>
+    VERSION_OPTIONS.map((value) => ({ value, label: value })),
+)
+
+function presetLabel(value: (typeof PRESET_OPTIONS)[number]) {
+    if (value === 'LARGE_BIOMES') return formatMessage(messages.presetLargeBiomes)
+    if (value === 'SINGLE_BIOME') return formatMessage(messages.presetSingleBiome)
+    return formatMessage(messages.presetNormal)
+}
+
+const presetOptions = computed(() =>
+    PRESET_OPTIONS.map((value) => ({ value, label: presetLabel(value) })),
+)
 
 const seed = ref('')
 const regions = ref(16)
@@ -266,28 +293,24 @@ async function copyTeleport(hit: { x: number; z: number; y: number }) {
 
             <label class="flex flex-col gap-1">
                 <span class="text-sm font-medium">{{ formatMessage(messages.versionLabel) }}</span>
-                <select
+                <Combobox
                     v-model="version"
-                    class="rounded-md border border-solid border-surface-5 bg-surface-3 px-3 py-2 text-sm"
+                    :options="versionOptions"
+                    width="custom"
+                    class="w-full"
                     :disabled="scanning || available === false"
-                >
-                    <option v-for="option in VERSION_OPTIONS" :key="option" :value="option">
-                        {{ option }}
-                    </option>
-                </select>
+                />
             </label>
 
             <label class="flex flex-col gap-1">
                 <span class="text-sm font-medium">{{ formatMessage(messages.presetLabel) }}</span>
-                <select
+                <Combobox
                     v-model="preset"
-                    class="rounded-md border border-solid border-surface-5 bg-surface-3 px-3 py-2 text-sm"
+                    :options="presetOptions"
+                    width="custom"
+                    class="w-full"
                     :disabled="scanning || available === false"
-                >
-                    <option v-for="option in PRESET_OPTIONS" :key="option" :value="option">
-                        {{ option }}
-                    </option>
-                </select>
+                />
             </label>
 
             <div class="flex gap-2">

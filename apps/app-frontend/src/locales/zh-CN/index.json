@@ -7937,6 +7937,15 @@
   "app.lab.low-y-swamp-hut.preset": {
     "message": "世界预设"
   },
+  "app.lab.low-y-swamp-hut.preset-large-biomes": {
+    "message": "大型生物群系"
+  },
+  "app.lab.low-y-swamp-hut.preset-normal": {
+    "message": "默认"
+  },
+  "app.lab.low-y-swamp-hut.preset-single-biome": {
+    "message": "单一生物群系"
+  },
   "app.lab.low-y-swamp-hut.regions": {
     "message": "区域数"
   },

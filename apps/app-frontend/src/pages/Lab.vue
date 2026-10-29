@@ -39,7 +39,11 @@ const category = ref<LabCategoryFilter>(getLabCategoryFilter())
 const favoriteFilter = ref<LabFavoriteFilter>(getLabFavoriteFilter())
 const favoriteToolIds = ref<string[]>(getLabFavoriteToolIds())
 // Temporarily hide the mod translation entry while retaining its route and implementation.
-const availableTools = labTools.filter((tool) => tool.id !== 'mod-translation')
+// The low-Y swamp hut page is reached by long-pressing a witch hut on the seed map,
+// so it keeps its route but must not appear as an entry of its own here.
+const availableTools = labTools.filter(
+    (tool) => tool.id !== 'mod-translation' && tool.id !== 'low-y-swamp-hut',
+)
 const toolCoverImages: Record<string, string> = {
     'gradient-text': gradientTextToolCover,
     'recipe-generator': recipeGeneratorToolCover,

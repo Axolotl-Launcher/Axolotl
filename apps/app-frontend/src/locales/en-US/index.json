@@ -4736,6 +4736,15 @@
   "app.lab.low-y-swamp-hut.preset": {
     "message": "World preset"
   },
+  "app.lab.low-y-swamp-hut.preset-large-biomes": {
+    "message": "Large biomes"
+  },
+  "app.lab.low-y-swamp-hut.preset-normal": {
+    "message": "Default"
+  },
+  "app.lab.low-y-swamp-hut.preset-single-biome": {
+    "message": "Single biome"
+  },
   "app.lab.low-y-swamp-hut.regions": {
     "message": "Regions"
   },

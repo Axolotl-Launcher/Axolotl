@@ -52,39 +52,6 @@ pub(crate) async fn get(
     handle: &Handle,
     instance_id: &str,
 ) -> crate::Result<SnapshotRecords> {
-    get_inner(handle, instance_id, || std::future::ready(())).await
-}
-
-/// The same snapshot with the saved pack metadata, which lives in the derived
-/// database: those rows left this one, so they are read beside the transaction
-/// that reads the rest instead of inside it.
-pub(crate) async fn get_with_saved_pack(
-    handle: &Handle,
-    derived: &super::derived_db::DerivedDb,
-    instance_id: &str,
-) -> crate::Result<SnapshotRecords> {
-    let mut records = get(handle, instance_id).await?;
-    records.pack_presentation =
-        super::content_refresh_pack::ContentRefreshPacks::saved(
-            derived,
-            &super::content_refresh_pack::PackKey {
-                instance_id: instance_id.to_string(),
-                content_set_id: records.content_set.id.clone(),
-            },
-        )
-        .await?;
-    Ok(records)
-}
-
-async fn get_inner<F, Fut>(
-    handle: &Handle,
-    instance_id: &str,
-    after_revision: F,
-) -> crate::Result<SnapshotRecords>
-where
-    F: FnOnce() -> Fut,
-    Fut: std::future::Future<Output = ()>,
-{
     use super::Collection as _;
 
     use crate::state::instances::adapters::sqlite::{
@@ -100,7 +67,8 @@ where
                     "Instance has no applied content set".into(),
                 )
             })?;
-    after_revision().await;
+    #[cfg(test)]
+    pause::between_reads().await;
     let link = links::get_instance_link(instance_id, &mut *tx).await?;
     let files = files::get_instance_files(instance_id, &mut *tx).await?;
     let entries =
@@ -282,16 +250,33 @@ where
     })
 }
 
+/// The same snapshot with the saved pack metadata, which lives in the derived
+/// database: those rows left this one, so they are read beside the transaction
+/// that reads the rest instead of inside it.
+pub(crate) async fn get_with_saved_pack(
+    handle: &Handle,
+    derived: &super::derived_db::DerivedDb,
+    instance_id: &str,
+) -> crate::Result<SnapshotRecords> {
+    let mut records = get(handle, instance_id).await?;
+    records.pack_presentation =
+        super::content_refresh_pack::ContentRefreshPacks::saved(
+            derived,
+            &super::content_refresh_pack::PackKey {
+                instance_id: instance_id.to_string(),
+                content_set_id: records.content_set.id.clone(),
+            },
+        )
+        .await?;
+    Ok(records)
+}
+
 fn resource_ids(rows: Vec<(String, String)>) -> HashMap<String, ResourceId> {
     rows.into_iter().filter_map(|(key, value)| match ResourceId::new(value) {
         Ok(id) => Some((key, id)),
         Err(error) => { tracing::warn!(%key, %error, "Skipping invalid resource identity"); None }
     }).collect()
 }
-
-#[cfg(test)]
-#[path = "tests/content_snapshot.rs"]
-mod tests;
 
 pub(crate) async fn get_instance(
     conn: &mut sqlx::SqliteConnection,
@@ -315,4 +300,50 @@ pub(crate) async fn get_instance(
     instance.linked_version_json_path = direct.version_json_path;
     instance.linked_game_dir_mode = direct.game_dir_mode;
     Ok(instance)
+}
+
+/// A point a test can pause the snapshot at, between the read of its revision
+/// and the read of everything else.
+///
+/// A test build only: the snapshot has no way to stop partway otherwise.
+#[cfg(test)]
+pub(crate) mod pause {
+    use std::cell::RefCell;
+    use std::future::Future;
+    use std::pin::Pin;
+
+    /// What a test wants to happen in the gap.
+    ///
+    /// `Send` so a caller that reads a snapshot from a spawned task still has a
+    /// `Send` future while the pause is in place.
+    pub(crate) type Between = Pin<Box<dyn Future<Output = ()> + Send>>;
+
+    thread_local! {
+        /// The pause this thread put in place, if any.
+        static PAUSED: RefCell<Option<Between>> = const { RefCell::new(None) };
+    }
+
+    /// Waits for whatever a test put in place, once.
+    pub(crate) async fn between_reads() {
+        let paused = PAUSED.with_borrow_mut(Option::take);
+        if let Some(paused) = paused {
+            paused.await;
+        }
+    }
+
+    /// Puts a pause in place for as long as the guard lives.
+    pub(crate) fn pause(between: Between) -> Pause {
+        PAUSED.with_borrow_mut(|slot| *slot = Some(between));
+        Pause
+    }
+
+    /// Takes the pause back, so a test that ends early leaves none behind for
+    /// the next test on this thread.
+    pub(crate) struct Pause;
+
+    impl Drop for Pause {
+        fn drop(&mut self) {
+            PAUSED.with_borrow_mut(|slot| *slot = None);
+        }
+    }
 }

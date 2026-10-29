@@ -7,6 +7,7 @@
 mod atom;
 mod cache;
 mod content_refresh;
+mod content_snapshot;
 mod crash_analysis_mod_snapshots;
 mod credentials;
 mod favorites;
@@ -26,6 +27,7 @@ mod resource_cache;
 mod resource_favorites;
 mod resource_plans;
 mod resource_source_projects;
+mod secrets;
 mod settings;
 mod settings_api;
 mod settings_db;

@@ -1,6 +1,7 @@
 import { invoke } from '@tauri-apps/api/core'
 import { expect, it, vi } from 'vitest'
 
+import { RESOURCE_ANALYSIS_TIMEOUT_MS, resourceAnalysisRequest } from './resource-analysis-request'
 import {
     resourceExportScan,
     resourceGet,
@@ -84,4 +85,49 @@ it('closes the session of an export scan that finishes after it was aborted', as
             { sessionId: 'late-session' },
         ),
     )
+})
+
+it('a deadline asks native analysis to stop and ignores progress and results arriving later', async () => {
+    vi.useFakeTimers()
+    vi.mocked(invoke).mockReset()
+    const request = pending<unknown>()
+    vi.mocked(invoke).mockImplementation((command) =>
+        command === 'plugin:axolotl-resources|resource_revise_plan'
+            ? request.promise
+            : Promise.resolve(undefined),
+    )
+    const controller = new AbortController()
+    const progress = vi.fn()
+    try {
+        const result = resourceAnalysisRequest(controller, (signal) =>
+            resourceRevisePlan('plan', 1, [], signal, progress),
+        )
+        const finished = expect(result).rejects.toMatchObject({ name: 'TimeoutError' })
+        const args = vi.mocked(invoke).mock.calls[0][1] as {
+            requestId: string
+            onProgress: { onmessage: (value: ResourceOperationProgress) => void }
+        }
+        const report = (sequence: number) =>
+            args.onProgress.onmessage({
+                requestId: args.requestId,
+                sequence,
+                kind: 'phase',
+                phase: 'validating',
+            } as ResourceOperationProgress)
+        await vi.advanceTimersByTimeAsync(RESOURCE_ANALYSIS_TIMEOUT_MS - 1)
+        report(1)
+        expect(progress).toHaveBeenCalledOnce()
+        await vi.advanceTimersByTimeAsync(1)
+        await finished
+        expect(invoke).toHaveBeenCalledWith('plugin:axolotl-resources|resource_cancel', {
+            requestId: args.requestId,
+        })
+        report(2)
+        request.resolve({ id: 'late-plan' })
+        await vi.advanceTimersByTimeAsync(0)
+        expect(progress).toHaveBeenCalledOnce()
+        expect(vi.getTimerCount()).toBe(0)
+    } finally {
+        vi.useRealTimers()
+    }
 })

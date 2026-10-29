@@ -134,7 +134,7 @@ pub(super) async fn reconstruct_modpack_servers(
     let version = CachedEntry::get_version(
         &typed_version_id,
         None,
-        &state.pool,
+        state.cache_pool(),
         &state.api_semaphore,
     )
     .await?

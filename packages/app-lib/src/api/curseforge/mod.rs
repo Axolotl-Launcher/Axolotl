@@ -16,6 +16,8 @@ mod plans;
 mod preview;
 mod selection;
 mod transport;
+#[cfg(test)]
+pub(crate) use transport::metadata_deadline;
 mod update;
 mod validation;
 mod verify;
@@ -53,6 +55,7 @@ pub(crate) use self::modpack::{
     install_local_manifest_files,
 };
 pub(crate) use self::transport::api_key;
+pub(crate) use self::transport::metadata_cache_scope;
 pub(crate) use self::update::{
     StagedCurseForgeUpgrade, apply_staged_curseforge_upgrade_file,
     apply_staged_curseforge_upgrade_file_with_state,

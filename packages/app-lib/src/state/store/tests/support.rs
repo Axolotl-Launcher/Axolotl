@@ -27,7 +27,7 @@ pub(super) async fn handle() -> Handle {
 pub(super) async fn derived() -> (tempfile::TempDir, Handle) {
     let directory = tempfile::tempdir().unwrap();
     let db = DerivedDb::open(directory.path().join(FILE_NAME)).await;
-    let handle = db.handle().expect("a fresh derived database opens");
+    let handle = db.handle();
     (directory, handle)
 }
 

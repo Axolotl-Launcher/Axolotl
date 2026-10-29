@@ -494,6 +494,69 @@ impl CurseForgeProvider {
         bypass_restrictions: bool,
     ) -> ResourceResult<ProviderValue> {
         match query {
+            ProviderQuery::CurseForgeFilesProtocol {
+                project_id,
+                game_version,
+                mod_loader_type,
+                game_version_type_id,
+                index,
+                page_size,
+            } => {
+                let mut request = ProtocolRequest::get(format!(
+                    "/v1/mods/{project_id}/files"
+                ));
+                request.query = vec![
+                    ("index".into(), index.to_string()),
+                    ("pageSize".into(), page_size.to_string()),
+                ];
+                for (key, value) in [
+                    ("gameVersion", game_version.clone()),
+                    (
+                        "modLoaderType",
+                        mod_loader_type.map(|value| value.to_string()),
+                    ),
+                    (
+                        "gameVersionTypeId",
+                        game_version_type_id.map(|value| value.to_string()),
+                    ),
+                ] {
+                    if let Some(value) = value {
+                        request.query.push((key.into(), value));
+                    }
+                }
+                let response = self.request(request).await?;
+                let files: Vec<crate::api::curseforge::CurseForgeFile> =
+                    serde_json::from_value(response["data"].clone())?;
+                let count = u32::try_from(files.len()).map_err(|_| {
+                    ResourceError::InvalidResponse(
+                        "file page is too large".into(),
+                    )
+                })?;
+                let pagination = match response
+                    .get("pagination")
+                    .filter(|value| !value.is_null())
+                {
+                    Some(value) => serde_json::from_value(value.clone())?,
+                    None => crate::api::curseforge::CurseForgePagination {
+                        index: *index,
+                        page_size: *page_size,
+                        result_count: count,
+                        total_count: index.checked_add(count).ok_or_else(
+                            || {
+                                ResourceError::InvalidResponse(
+                                    "file pagination overflow".into(),
+                                )
+                            },
+                        )?,
+                    },
+                };
+                Ok(ProviderValue::Protocol(serde_json::to_value(
+                    crate::api::curseforge::CurseForgeFilesResponse {
+                        files,
+                        pagination,
+                    },
+                )?))
+            }
             ProviderQuery::Description { id, .. } => {
                 let id = positive_id(id.as_str())?;
                 let response = self
@@ -700,10 +763,16 @@ impl ResourceProvider for CurseForgeProvider {
         }
     }
     fn namespace(&self) -> String {
-        if (self.download_restriction_bypass)() {
+        let base: String = if (self.download_restriction_bypass)() {
             "curseforge-v1-dates-auto-download".into()
         } else {
             "curseforge-v1-dates".into()
+        };
+        let scope = self.transport.cache_namespace(&SourceId::curseforge());
+        if scope.is_empty() {
+            base
+        } else {
+            format!("{base}:{scope}")
         }
     }
     fn batch_limit(&self, query: &ProviderQuery) -> usize {
@@ -714,6 +783,17 @@ impl ResourceProvider for CurseForgeProvider {
     }
     fn validate_query(&self, query: &ProviderQuery) -> ResourceResult<()> {
         match query {
+            ProviderQuery::CurseForgeFilesProtocol {
+                project_id,
+                page_size,
+                ..
+            } => {
+                if *project_id == 0 || !(1..=50).contains(page_size) {
+                    return Err(ResourceError::InvalidRequest(
+                        "invalid CurseForge file page".into(),
+                    ));
+                }
+            }
             ProviderQuery::UpdateCandidates {
                 project_id,
                 sha1,

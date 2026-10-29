@@ -22,6 +22,7 @@ mod modrinth_sessions;
 mod official_login_proof;
 mod resource_cache;
 mod resource_source_projects;
+mod scheduler;
 mod settings;
 mod settings_api;
 mod settings_db;

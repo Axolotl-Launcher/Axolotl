@@ -1769,6 +1769,48 @@ mod tests {
         source.close().await;
     }
 
+    const SCHEDULER_TAGS_MIGRATION_VERSION: i64 = 20261029160000;
+
+    /// An older build opening a database that has the scheduler collections
+    /// must refuse it as a downgrade, with the message the frontend expects.
+    #[tokio::test]
+    async fn an_older_build_refuses_the_scheduler_schema_as_a_downgrade() {
+        let pool = SqlitePoolOptions::new()
+            .max_connections(1)
+            .connect("sqlite::memory:")
+            .await
+            .unwrap();
+        MIGRATOR.run(&pool).await.unwrap();
+
+        let older = tempfile::tempdir().unwrap();
+        let migrations =
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("migrations");
+        for entry in std::fs::read_dir(migrations).unwrap() {
+            let path = entry.unwrap().path();
+            let name = path.file_name().unwrap().to_string_lossy().to_string();
+            let version: i64 = name[..14].parse().unwrap();
+            if version < SCHEDULER_TAGS_MIGRATION_VERSION {
+                std::fs::copy(&path, older.path().join(&name)).unwrap();
+            }
+        }
+        let older_build = Migrator::new(older.path()).await.unwrap();
+
+        let error: crate::Error =
+            older_build.run(&pool).await.unwrap_err().into();
+        assert!(matches!(
+            error.raw.as_ref(),
+            crate::ErrorKind::SqlxMigrate(
+                sqlx::migrate::MigrateError::VersionMissing(
+                    SCHEDULER_TAGS_MIGRATION_VERSION
+                )
+            )
+        ));
+        let message = error.user_facing_message();
+        assert!(message.contains("was created by a newer Axolotl build"));
+        assert!(message.contains("20261029160000"));
+        pool.close().await;
+    }
+
     const TERRACOTTA_PUBLIC_NODES_MIGRATION_VERSION: i64 = 20260812120000;
     const INSTANCE_LOADER_COMPONENTS_MIGRATION_VERSION: i64 = 20260819120000;
     const INSTANCE_POST_UPGRADE_NOTICES_MIGRATION_VERSION: i64 = 20260824000000;

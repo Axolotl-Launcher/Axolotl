@@ -50,6 +50,8 @@ pub(crate) mod resource_history;
 pub(crate) mod resource_legacy_import;
 pub(crate) mod resource_operation_plans;
 pub(crate) mod resource_source_projects;
+pub(crate) mod scheduler_restart_budget;
+pub(crate) mod scheduler_tags;
 pub(crate) mod settings;
 pub(crate) mod sync_feature_settings;
 pub(crate) mod synced_game_option_preferences;

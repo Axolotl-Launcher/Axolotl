@@ -52,6 +52,7 @@ const CHANNELS = ['release', 'beta']
 // Only recent migrations are listed. Dropping to a threshold before them is
 // refused rather than guessed at; --allow-unmapped accepts the risk explicitly.
 const REVERTIBLE_SCHEMA = {
+    20261029160000: { tables: ['scheduler_restart_budget', 'scheduler_tags'] },
     20261029140000: { columns: [{ table: 'install_jobs', column: 'level' }] },
     20261028110000: { tables: ['content_refresh_packs'] },
     20261028120000: { tables: ['content_refresh_scan_failures'] },

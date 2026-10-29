@@ -4,6 +4,7 @@
 use sqlx::SqlitePool;
 
 use crate::state::store::Handle;
+use crate::state::store::derived_db::{DerivedDb, FILE_NAME};
 
 /// A database of its own, with every migration applied.
 pub(super) async fn pool() -> SqlitePool {
@@ -19,6 +20,15 @@ pub(super) async fn pool() -> SqlitePool {
 /// A handle on a database of its own.
 pub(super) async fn handle() -> Handle {
     Handle::new(pool().await)
+}
+
+/// A handle on a derived database of its own, with every derived migration
+/// applied, and the directory that holds it.
+pub(super) async fn derived() -> (tempfile::TempDir, Handle) {
+    let directory = tempfile::tempdir().unwrap();
+    let db = DerivedDb::open(directory.path().join(FILE_NAME)).await;
+    let handle = db.handle().expect("a fresh derived database opens");
+    (directory, handle)
 }
 
 /// A handle on a database of its own, with `instances` already there.

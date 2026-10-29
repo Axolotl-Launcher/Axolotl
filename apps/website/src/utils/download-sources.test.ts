@@ -3,12 +3,24 @@ import { test } from 'node:test'
 
 import { siteLocaleMessages } from '../locales/site.ts'
 import {
-    downloadSources,
+    createDownloadSources,
     getDownloadCatalogUrl,
     getDownloadSource,
     isDownloadSource,
     normalizeDownloadCatalog,
 } from './download-sources.ts'
+
+const TEST_GITHUB_URL = 'https://example.test/repo'
+const TEST_ENDPOINTS = {
+    updateServerUrl: 'https://update.test',
+    updateArtifactUrl: 'https://dist.test',
+    gitlinkReleasesUrl: 'https://gitlink.test/mirror/releases/download',
+}
+const downloadSources = createDownloadSources({ githubUrl: TEST_GITHUB_URL, ...TEST_ENDPOINTS })
+
+function normalizeCatalog(payload: unknown) {
+    return normalizeDownloadCatalog(payload, TEST_ENDPOINTS)
+}
 
 function catalog(overrides: Record<string, unknown> = {}) {
     return {
@@ -26,10 +38,10 @@ function catalog(overrides: Record<string, unknown> = {}) {
 }
 
 test('registered source identities drive preference validation and the recommended default', () => {
-    assert.equal(getDownloadSource('auto'), downloadSources[0])
+    assert.equal(getDownloadSource('auto', downloadSources), downloadSources[0])
     for (const source of downloadSources) {
         assert(isDownloadSource(source.id))
-        assert.equal(getDownloadSource(source.id), source)
+        assert.equal(getDownloadSource(source.id, downloadSources), source)
         assert(source.label.id && source.description.id)
     }
     for (const value of [null, undefined, '', 'cnb', {}, 'AUTO'])
@@ -39,18 +51,21 @@ test('registered source identities drive preference validation and the recommend
 
 test('every source uses the same Update Server catalog for either channel', () => {
     assert.equal(
-        getDownloadCatalogUrl('release'),
-        'https://update.axlmc.org/api/downloads/latest?channel=release',
+        getDownloadCatalogUrl('release', TEST_ENDPOINTS),
+        `${TEST_ENDPOINTS.updateServerUrl}/api/downloads/latest?channel=release`,
     )
     assert.equal(
-        getDownloadCatalogUrl('beta'),
-        'https://update.axlmc.org/api/downloads/latest?channel=beta',
+        getDownloadCatalogUrl('beta', TEST_ENDPOINTS),
+        `${TEST_ENDPOINTS.updateServerUrl}/api/downloads/latest?channel=beta`,
     )
-    assert.throws(() => getDownloadCatalogUrl('invalid' as 'release'), /Unknown release channel/)
+    assert.throws(
+        () => getDownloadCatalogUrl('invalid' as 'release', TEST_ENDPOINTS),
+        /Unknown release channel/,
+    )
 })
 
 test('normalize the authoritative attachment names, version tag, relative paths and checksums', () => {
-    const release = normalizeDownloadCatalog(catalog())!
+    const release = normalizeCatalog(catalog())!
     assert.equal(release.version, '1.10.0-beta.5')
     assert.equal(release.tag_name, 'v1.10.0-beta.5')
     assert.deepEqual(release.assets, [
@@ -62,18 +77,18 @@ test('normalize the authoritative attachment names, version tag, relative paths 
     ])
     for (const key of ['tag', 'tag_name']) {
         const payload = catalog({ release_tag: undefined, [key]: 'v1.10.0-beta.5' })
-        assert.equal(normalizeDownloadCatalog(payload)!.tag_name, 'v1.10.0-beta.5')
+        assert.equal(normalizeCatalog(payload)!.tag_name, 'v1.10.0-beta.5')
     }
 })
 
 test('support the deployed catalog shape by reading its authoritative absolute download URL', () => {
-    const release = normalizeDownloadCatalog(
+    const release = normalizeCatalog(
         catalog({
             release_tag: undefined,
             downloads: [
                 {
                     filename: 'Axolotl x64-setup.exe',
-                    url: 'https://update.axlmc.org/dist/1.10.0-beta.5/Axolotl%20x64-setup.exe',
+                    url: `${TEST_ENDPOINTS.updateServerUrl}/dist/1.10.0-beta.5/Axolotl%20x64-setup.exe`,
                 },
             ],
         }),
@@ -83,17 +98,16 @@ test('support the deployed catalog shape by reading its authoritative absolute d
 })
 
 test('registered URL builders use catalog fields and encode each path segment exactly once', () => {
-    const release = normalizeDownloadCatalog(catalog())!
+    const release = normalizeCatalog(catalog())!
     const urls = Object.fromEntries(
         downloadSources.map((source) => [source.id, source.assetUrl(release, release.assets[0])]),
     )
     assert.deepEqual(urls, {
-        'update-server': 'https://dist.axlmc.org/dist/1.10.0-beta.5/Axolotl%20x64-setup.exe',
-        github: 'https://github.com/Mystic-Stars/Axolotl/releases/download/v1.10.0-beta.5/Axolotl%20x64-setup.exe',
-        gitlink:
-            'https://www.gitlink.org.cn/xinvxueyuan/Axolotl/releases/download/v1.10.0-beta.5/Axolotl%20x64-setup.exe',
+        'update-server': `${TEST_ENDPOINTS.updateArtifactUrl}/dist/1.10.0-beta.5/Axolotl%20x64-setup.exe`,
+        github: `${TEST_GITHUB_URL}/releases/download/v1.10.0-beta.5/Axolotl%20x64-setup.exe`,
+        gitlink: `${TEST_ENDPOINTS.gitlinkReleasesUrl}/v1.10.0-beta.5/Axolotl%20x64-setup.exe`,
     })
-    const nested = normalizeDownloadCatalog(
+    const nested = normalizeCatalog(
         catalog({
             downloads: [
                 {
@@ -104,36 +118,36 @@ test('registered URL builders use catalog fields and encode each path segment ex
         }),
     )!
     assert.equal(
-        getDownloadSource('update-server').assetUrl(nested, nested.assets[0]),
-        'https://dist.axlmc.org/dist/1.10.0-beta.5/windows/file%25name.exe',
+        getDownloadSource('update-server', downloadSources).assetUrl(nested, nested.assets[0]),
+        `${TEST_ENDPOINTS.updateArtifactUrl}/dist/1.10.0-beta.5/windows/file%25name.exe`,
     )
 })
 
 test('catalog download URLs may already use the official distribution origin', () => {
-    const release = normalizeDownloadCatalog(
+    const release = normalizeCatalog(
         catalog({
             downloads: [
                 {
                     filename: 'Axolotl x64-setup.exe',
-                    url: 'https://dist.axlmc.org/dist/1.10.0-beta.5/Axolotl%20x64-setup.exe',
+                    url: `${TEST_ENDPOINTS.updateArtifactUrl}/dist/1.10.0-beta.5/Axolotl%20x64-setup.exe`,
                 },
             ],
         }),
     )!
     assert.equal(release.assets[0].relative_path, 'dist/1.10.0-beta.5/Axolotl x64-setup.exe')
     assert.equal(
-        getDownloadSource('update-server').assetUrl(release, release.assets[0]),
-        'https://dist.axlmc.org/dist/1.10.0-beta.5/Axolotl%20x64-setup.exe',
+        getDownloadSource('update-server', downloadSources).assetUrl(release, release.assets[0]),
+        `${TEST_ENDPOINTS.updateArtifactUrl}/dist/1.10.0-beta.5/Axolotl%20x64-setup.exe`,
     )
     assert.equal(
-        getDownloadCatalogUrl('release'),
-        'https://update.axlmc.org/api/downloads/latest?channel=release',
+        getDownloadCatalogUrl('release', TEST_ENDPOINTS),
+        `${TEST_ENDPOINTS.updateServerUrl}/api/downloads/latest?channel=release`,
     )
 })
 
 test('no release and an empty catalog remain distinct from a malformed response', () => {
-    for (const value of [undefined, null, '']) assert.equal(normalizeDownloadCatalog(value), null)
-    assert.deepEqual(normalizeDownloadCatalog(catalog({ downloads: [] }))!.assets, [])
+    for (const value of [undefined, null, '']) assert.equal(normalizeCatalog(value), null)
+    assert.deepEqual(normalizeCatalog(catalog({ downloads: [] }))!.assets, [])
     for (const value of [
         {},
         [],
@@ -142,7 +156,7 @@ test('no release and an empty catalog remain distinct from a malformed response'
         catalog({ downloads: null }),
         catalog({ release_tag: 'v1.9.0' }),
     ])
-        assert.throws(() => normalizeDownloadCatalog(value))
+        assert.throws(() => normalizeCatalog(value))
 })
 
 test('reject unsafe or mismatched paths, external URL fallbacks and duplicate attachment names', () => {
@@ -157,35 +171,31 @@ test('reject unsafe or mismatched paths, external URL fallbacks and duplicate at
     ]) {
         assert.throws(
             () =>
-                normalizeDownloadCatalog(
-                    catalog({ downloads: [{ filename: 'file.exe', relative_path }] }),
-                ),
+                normalizeCatalog(catalog({ downloads: [{ filename: 'file.exe', relative_path }] })),
             /relative_path/,
         )
     }
     for (const url of [
         'https://evil.example/dist/1.10.0-beta.5/file.exe',
+        // A host that only ends with a whitelisted host must not pass the origin check.
+        `${TEST_ENDPOINTS.updateServerUrl}.evil.example/dist/1.10.0-beta.5/file.exe`,
         'javascript:alert(1)',
-        'https://update.axlmc.org/dist/1.10.0-beta.5/file.exe?download=1',
-        'https://user@update.axlmc.org/dist/1.10.0-beta.5/file.exe',
+        `${TEST_ENDPOINTS.updateServerUrl}/dist/1.10.0-beta.5/file.exe?download=1`,
+        `${TEST_ENDPOINTS.updateServerUrl.replace('https://', 'https://user@')}/dist/1.10.0-beta.5/file.exe`,
     ]) {
         assert.throws(() =>
-            normalizeDownloadCatalog(catalog({ downloads: [{ filename: 'file.exe', url }] })),
+            normalizeCatalog(catalog({ downloads: [{ filename: 'file.exe', url }] })),
         )
     }
     const download = { filename: 'file.exe', relative_path: 'dist/1.10.0-beta.5/file.exe' }
+    assert.throws(() => normalizeCatalog(catalog({ downloads: [download, download] })), /duplicate/)
     assert.throws(
-        () => normalizeDownloadCatalog(catalog({ downloads: [download, download] })),
-        /duplicate/,
-    )
-    assert.throws(
-        () =>
-            normalizeDownloadCatalog(catalog({ downloads: [{ ...download, sha256: 'invalid' }] })),
+        () => normalizeCatalog(catalog({ downloads: [{ ...download, sha256: 'invalid' }] })),
         /SHA-256/,
     )
     assert.throws(
         () =>
-            normalizeDownloadCatalog(
+            normalizeCatalog(
                 catalog({
                     downloads: [
                         {
@@ -198,7 +208,7 @@ test('reject unsafe or mismatched paths, external URL fallbacks and duplicate at
         /attachment name/,
     )
     assert.throws(
-        () => normalizeDownloadCatalog(catalog({ downloads: [{ filename: 'file.exe' }] })),
+        () => normalizeCatalog(catalog({ downloads: [{ filename: 'file.exe' }] })),
         /relative_path/,
     )
 })

@@ -1,9 +1,6 @@
 //! What the favorites collection promises.
 
 use super::support;
-use crate::state::content_favorites::{
-    ContentFavoriteInput, add, list, remove,
-};
 use crate::state::content_types::{
     ContentFavoriteProvider, ContentFavoriteType,
 };
@@ -11,6 +8,7 @@ use crate::state::store::Collection as _;
 use crate::state::store::content_favorites::{
     ContentFavoriteKey, ContentFavoriteRecord, ContentFavorites,
 };
+use chrono::Utc;
 use std::time::Duration;
 
 fn key(
@@ -251,45 +249,43 @@ async fn a_scoped_replace_refuses_a_key_outside_its_scope() {
 #[tokio::test]
 async fn content_favorites_are_provider_qualified_and_idempotent() {
     let handle = support::handle().await;
-    let modrinth = add(
-        ContentFavoriteInput {
-            provider: ContentFavoriteProvider::Modrinth,
-            project_id: "same-id".to_string(),
-            content_type: ContentFavoriteType::Mod,
-        },
+    let modrinth = key(ContentFavoriteProvider::Modrinth, "same-id");
+    let saved_at = Utc::now().timestamp_millis();
+    ContentFavorites::set(&handle, &modrinth, Some(&record(saved_at)))
+        .await
+        .expect("add Modrinth favorite");
+    let first = ContentFavorites::get(&handle, &modrinth)
+        .await
+        .expect("read Modrinth favorite")
+        .expect("Modrinth favorite is stored");
+    ContentFavorites::set(&handle, &modrinth, Some(&record(saved_at + 1)))
+        .await
+        .expect("add duplicate favorite");
+    let duplicate = ContentFavorites::get(&handle, &modrinth)
+        .await
+        .expect("read duplicate favorite")
+        .expect("duplicate favorite is stored");
+    ContentFavorites::set(
         &handle,
-    )
-    .await
-    .expect("add Modrinth favorite");
-    let duplicate = add(
-        ContentFavoriteInput {
-            provider: ContentFavoriteProvider::Modrinth,
-            project_id: "same-id".to_string(),
-            content_type: ContentFavoriteType::Mod,
-        },
-        &handle,
-    )
-    .await
-    .expect("add duplicate favorite");
-    add(
-        ContentFavoriteInput {
-            provider: ContentFavoriteProvider::Curseforge,
-            project_id: "same-id".to_string(),
+        &key(ContentFavoriteProvider::Curseforge, "same-id"),
+        Some(&ContentFavoriteRecord {
             content_type: ContentFavoriteType::Shader,
-        },
-        &handle,
+            saved_at,
+        }),
     )
     .await
     .expect("add CurseForge favorite");
 
-    let favorites = list(&handle).await.expect("list favorites");
+    let favorites = ContentFavorites::get_all(&handle)
+        .await
+        .expect("read favorites");
     assert_eq!(favorites.len(), 2);
-    assert_eq!(duplicate.saved_at, modrinth.saved_at);
-    assert!(favorites.iter().any(|favorite| {
+    assert_eq!(duplicate.saved_at, first.saved_at);
+    assert!(favorites.iter().any(|(favorite, _)| {
         favorite.provider == ContentFavoriteProvider::Modrinth
             && favorite.project_id == "same-id"
     }));
-    assert!(favorites.iter().any(|favorite| {
+    assert!(favorites.iter().any(|(favorite, _)| {
         favorite.provider == ContentFavoriteProvider::Curseforge
             && favorite.project_id == "same-id"
     }));
@@ -298,39 +294,51 @@ async fn content_favorites_are_provider_qualified_and_idempotent() {
 #[tokio::test]
 async fn removing_a_content_favorite_is_idempotent() {
     let handle = support::handle().await;
-    remove(ContentFavoriteProvider::Modrinth, "missing", &handle)
-        .await
-        .expect("remove missing favorite");
-    assert!(list(&handle).await.expect("list favorites").is_empty());
+    ContentFavorites::set(
+        &handle,
+        &key(ContentFavoriteProvider::Modrinth, "missing"),
+        None,
+    )
+    .await
+    .expect("remove missing favorite");
+    assert!(
+        ContentFavorites::get_all(&handle)
+            .await
+            .expect("read favorites")
+            .is_empty()
+    );
 }
 
 #[tokio::test]
 async fn readding_after_remove_gets_a_new_saved_time() {
     let handle = support::handle().await;
-    let first = add(
-        ContentFavoriteInput {
-            provider: ContentFavoriteProvider::Modrinth,
-            project_id: "sodium".to_string(),
-            content_type: ContentFavoriteType::Mod,
-        },
+    let favorite = key(ContentFavoriteProvider::Modrinth, "sodium");
+    ContentFavorites::set(
         &handle,
+        &favorite,
+        Some(&record(Utc::now().timestamp_millis())),
     )
     .await
     .expect("add favorite");
-    remove(ContentFavoriteProvider::Modrinth, "sodium", &handle)
+    let first = ContentFavorites::get(&handle, &favorite)
+        .await
+        .expect("read favorite")
+        .expect("favorite is stored");
+    ContentFavorites::set(&handle, &favorite, None)
         .await
         .expect("remove favorite");
     tokio::time::sleep(Duration::from_millis(2)).await;
-    let second = add(
-        ContentFavoriteInput {
-            provider: ContentFavoriteProvider::Modrinth,
-            project_id: "sodium".to_string(),
-            content_type: ContentFavoriteType::Mod,
-        },
+    ContentFavorites::set(
         &handle,
+        &favorite,
+        Some(&record(Utc::now().timestamp_millis())),
     )
     .await
     .expect("re-add favorite");
+    let second = ContentFavorites::get(&handle, &favorite)
+        .await
+        .expect("read favorite")
+        .expect("favorite is stored again");
 
     assert!(second.saved_at > first.saved_at);
 }
@@ -357,11 +365,15 @@ async fn favorites_are_ordered_by_when_they_were_saved() {
         .expect("seed favorite");
     }
 
-    let favorites = list(&handle).await.expect("list favorites");
+    let mut favorites = ContentFavorites::get_all(&handle)
+        .await
+        .expect("read favorites");
+    favorites
+        .sort_by(|(_, left), (_, right)| right.saved_at.cmp(&left.saved_at));
     assert_eq!(
         favorites
             .iter()
-            .map(|favorite| favorite.project_id.as_str())
+            .map(|(favorite, _)| favorite.project_id.as_str())
             .collect::<Vec<_>>(),
         vec!["newer", "older"]
     );

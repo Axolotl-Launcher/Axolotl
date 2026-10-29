@@ -2,6 +2,7 @@
 use crate::LoadingBarType;
 use crate::event::emit::{emit_loading, init_loading};
 use crate::state::LAUNCHER_STATE;
+use crate::state::store::derived_db::{DerivedDb, FILE_NAME};
 use crate::state::store::discovered_javas::{
     DiscoveredJavaRecord, DiscoveredJavas,
 };
@@ -618,30 +619,50 @@ impl DirectoryInfo {
                     .await;
                 }
 
-                let mut unit = atom(handle).await?;
                 let new_root =
                     new_dir.trim_end_matches('/').trim_end_matches('\\');
-                // A runtime is keyed by its path, so a moved install is a new
-                // key: the old ones go first, so two that trade places do not
-                // collide on the way.
-                let moved: Vec<(String, String, DiscoveredJavaRecord)> =
-                    DiscoveredJavas::atom_get_all(&mut unit)
-                        .await?
-                        .into_iter()
-                        .filter(|(path, _)| path.starts_with(prev_custom_dir))
-                        .map(|(path, record)| {
-                            let target =
-                                path.replace(prev_custom_dir, new_root);
-                            (path, target, record)
-                        })
-                        .collect();
-                for (old, _, _) in &moved {
-                    DiscoveredJavas::atom_set(&mut unit, old, None).await?;
-                }
-                for (_, target, record) in &moved {
-                    DiscoveredJavas::atom_set(&mut unit, target, Some(record))
-                        .await?;
-                }
+                // The runtimes live in the derived database, which the move has
+                // just carried to its new directory.
+                let derived = DerivedDb::open(
+                    move_dir.join(CACHES_FOLDER_NAME).join(FILE_NAME),
+                )
+                .await;
+                derived
+                    .write(async |derived_handle| {
+                        let mut unit = atom(derived_handle).await?;
+                        // A runtime is keyed by its path, so a moved install is
+                        // a new key: the old ones go first, so two that trade
+                        // places do not collide on the way.
+                        let moved: Vec<(String, String, DiscoveredJavaRecord)> =
+                            DiscoveredJavas::atom_get_all(&mut unit)
+                                .await?
+                                .into_iter()
+                                .filter(|(path, _)| {
+                                    path.starts_with(prev_custom_dir)
+                                })
+                                .map(|(path, record)| {
+                                    let target =
+                                        path.replace(prev_custom_dir, new_root);
+                                    (path, target, record)
+                                })
+                                .collect();
+                        for (old, _, _) in &moved {
+                            DiscoveredJavas::atom_set(&mut unit, old, None)
+                                .await?;
+                        }
+                        for (_, target, record) in &moved {
+                            DiscoveredJavas::atom_set(
+                                &mut unit,
+                                target,
+                                Some(record),
+                            )
+                            .await?;
+                        }
+                        unit.commit().await
+                    })
+                    .await?;
+
+                let mut unit = atom(handle).await?;
                 let java_versions = JavaVersion::get_all_in(&mut unit).await?;
                 for java_version in java_versions {
                     let new_java_path = java_version.path.replace(

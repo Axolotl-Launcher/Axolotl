@@ -2,12 +2,14 @@
 //! favorites read makes of it.
 
 use super::support;
-use crate::state::content_favorites::{
-    ContentFavoriteInput, ContentFavoriteProvider, ContentFavoriteType, add,
-    list,
+use crate::state::content_types::{
+    ContentFavoriteProvider, ContentFavoriteType,
 };
 use crate::state::store::Collection as _;
 use crate::state::store::Handle;
+use crate::state::store::content_favorites::{
+    ContentFavoriteKey, ContentFavoriteRecord, ContentFavorites,
+};
 use crate::state::store::resource_source_projects::{
     ResourceSourceProjectKey, ResourceSourceProjectRecord,
     ResourceSourceProjects,
@@ -70,20 +72,37 @@ async fn a_mapping_round_trips_and_removes() {
 async fn a_favorite_carries_the_resource_its_project_maps_to() {
     let handle = seeded().await;
 
-    let favorite = add(
-        ContentFavoriteInput {
-            provider: ContentFavoriteProvider::Modrinth,
-            project_id: "sodium".to_string(),
-            content_type: ContentFavoriteType::Mod,
-        },
+    let favorite = ContentFavoriteKey {
+        provider: ContentFavoriteProvider::Modrinth,
+        project_id: "sodium".to_string(),
+    };
+    ContentFavorites::set(
         &handle,
+        &favorite,
+        Some(&ContentFavoriteRecord {
+            content_type: ContentFavoriteType::Mod,
+            saved_at: 1,
+        }),
     )
     .await
-    .unwrap();
+    .expect("save favorite");
 
-    assert_eq!(favorite.resource_id.as_deref(), Some("resource"));
+    let favorites = ContentFavorites::get_all(&handle)
+        .await
+        .expect("read favorites");
+    assert_eq!(favorites.len(), 1);
+    let (favorite, _) = &favorites[0];
+    let project = ResourceSourceProjects::get(
+        &handle,
+        &ResourceSourceProjectKey {
+            source: favorite.provider.as_str().to_string(),
+            project_id: favorite.project_id.clone(),
+        },
+    )
+    .await
+    .expect("read the project the favorite maps to");
     assert_eq!(
-        list(&handle).await.unwrap()[0].resource_id.as_deref(),
-        Some("resource")
+        project.map(|project| project.resource_id),
+        Some("resource".to_string())
     );
 }

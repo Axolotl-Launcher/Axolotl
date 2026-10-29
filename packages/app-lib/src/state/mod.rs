@@ -226,6 +226,10 @@ pub struct State {
     /// What the collections of [`store`] are read and written through.
     pub(crate) data: store::Handle,
 
+    /// The rebuildable records, in a database of their own. Disabled, not
+    /// fatal, when it cannot be opened.
+    pub(crate) derived: store::derived_db::DerivedDb,
+
     resource_service: OnceCell<Arc<crate::resources::ResourceService>>,
     pub(crate) file_fingerprints: crate::resources::fingerprints::FileFingerprints,
     pub(crate) content_refresh: crate::resources::refresh::RefreshCoordinator,
@@ -1314,6 +1318,11 @@ impl State {
         let directories =
             DirectoryInfo::init(settings.custom_dir, &app_identifier).await?;
 
+        let derived = store::derived_db::DerivedDb::open(
+            directories.caches_dir().join(store::derived_db::FILE_NAME),
+        )
+        .await;
+
         let discord_rpc = DiscordGuard::init()?;
 
         tracing::info!("Initializing file watcher");
@@ -1379,6 +1388,7 @@ impl State {
             restart_after_pending_update: AtomicBool::new(false),
             instance_locks: Arc::new(InstanceLockManager::default()),
             data,
+            derived,
             pool,
             resource_service: OnceCell::new(),
             file_fingerprints: Default::default(),
@@ -1466,6 +1476,10 @@ pub(crate) async fn test_state(
         settings.ignore_ssl_errors,
         settings.doh_enabled,
     )?;
+    let derived = store::derived_db::DerivedDb::open(
+        directories.caches_dir().join(store::derived_db::FILE_NAME),
+    )
+    .await;
 
     Ok(Arc::new(State {
         directories,
@@ -1506,6 +1520,7 @@ pub(crate) async fn test_state(
         restart_after_pending_update: AtomicBool::new(false),
         instance_locks: Arc::new(InstanceLockManager::default()),
         data: store::Handle::new(pool.clone()),
+        derived,
         pool,
         resource_service: OnceCell::new(),
         file_fingerprints: Default::default(),

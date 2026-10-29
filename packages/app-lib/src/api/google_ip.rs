@@ -10,14 +10,17 @@ use std::net::{IpAddr, SocketAddr};
 use std::sync::{Arc, LazyLock};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
+use crate::state::store::Collection as _;
+use crate::state::store::derived_db::DerivedDb;
+use crate::state::store::google_translate_ip_cache::{
+    GoogleTranslateIpCache, GoogleTranslateIpCacheRecord,
+};
+use crate::util::proxy::ProxyConfig;
+use crate::{ErrorKind, State};
 use futures::{StreamExt, stream};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
-use sqlx::{Row, SqlitePool};
 use tokio::sync::Mutex;
-
-use crate::util::proxy::ProxyConfig;
-use crate::{ErrorKind, State};
 
 // IP list source: Ponderfly/GoogleTranslateIpCheck, MIT License.
 // https://github.com/Ponderfly/GoogleTranslateIpCheck
@@ -140,9 +143,9 @@ pub async fn ip_pool_size() -> usize {
         );
         return 0;
     };
-    let pool = &state.pool;
-    let stale = cache_is_stale(pool).await;
-    let cached = load_cache(pool).await;
+    let derived = &state.derived;
+    let stale = cache_is_stale(derived).await;
+    let cached = load_cache(derived).await;
     let size = cached.len();
     if cached.is_empty() {
         tracing::warn!(
@@ -212,9 +215,9 @@ pub async fn preload() {
         );
         return;
     };
-    let pool = &state.pool;
-    let candidates = load_cache(pool).await;
-    let stale = cache_is_stale(pool).await;
+    let derived = &state.derived;
+    let candidates = load_cache(derived).await;
+    let stale = cache_is_stale(derived).await;
     tracing::info!(
         cached = candidates.len(),
         "Preloading Google Translate IP pool"
@@ -578,7 +581,7 @@ async fn refresh_in_background() {
         }
 
         let state = State::get().await?;
-        if let Err(error) = save_cache(&state.pool, &candidates).await {
+        if let Err(error) = save_cache(&state.derived, &candidates).await {
             tracing::warn!(%error, "Unable to persist Google Translate IP cache");
         }
         Ok(())
@@ -620,14 +623,10 @@ async fn wait_for_refresh(handle: &RefreshHandle) {
     let _ = done.wait_for(|done| *done).await;
 }
 
-async fn load_cache(pool: &SqlitePool) -> Vec<GoogleTranslateIp> {
-    let rows = match sqlx::query(
-        "SELECT ip, latency_ms FROM google_translate_ip_cache \
-         ORDER BY latency_ms ASC, ip ASC LIMIT ?",
-    )
-    .bind(TOP_IPS as i32)
-    .fetch_all(pool)
-    .await
+async fn load_cache(derived: &DerivedDb) -> Vec<GoogleTranslateIp> {
+    let rows = match derived
+        .read(async |handle| GoogleTranslateIpCache::get_all(handle).await)
+        .await
     {
         Ok(rows) => rows,
         Err(error) => {
@@ -640,42 +639,40 @@ async fn load_cache(pool: &SqlitePool) -> Vec<GoogleTranslateIp> {
     };
     let candidates = rows
         .into_iter()
-        .filter_map(|row| {
-            let ip: String = row.try_get("ip").ok()?;
-            let latency_ms: i64 = row.try_get("latency_ms").ok()?;
-            Some(GoogleTranslateIp {
-                ip,
-                latency_ms: latency_ms.max(0) as u64,
-            })
+        .take(TOP_IPS)
+        .map(|(ip, record)| GoogleTranslateIp {
+            ip,
+            latency_ms: record.latency_ms.max(0) as u64,
         })
         .collect();
     rank_candidates(candidates)
 }
 
 async fn save_cache(
-    pool: &SqlitePool,
+    derived: &DerivedDb,
     candidates: &[GoogleTranslateIp],
 ) -> crate::Result<()> {
     let created_at = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map(|duration| duration.as_secs() as i64)
         .unwrap_or(0);
-    let mut transaction = pool.begin().await?;
-    sqlx::query("DELETE FROM google_translate_ip_cache")
-        .execute(&mut *transaction)
+    let records = candidates
+        .iter()
+        .map(|candidate| {
+            (
+                candidate.ip.clone(),
+                GoogleTranslateIpCacheRecord {
+                    latency_ms: candidate.latency_ms as i64,
+                    created_at,
+                },
+            )
+        })
+        .collect::<Vec<_>>();
+    derived
+        .write(async |handle| {
+            GoogleTranslateIpCache::set_all(handle, &records).await
+        })
         .await?;
-    for candidate in candidates {
-        sqlx::query(
-            "INSERT INTO google_translate_ip_cache (ip, latency_ms, created_at) \
-             VALUES (?, ?, ?)",
-        )
-        .bind(&candidate.ip)
-        .bind(candidate.latency_ms as i64)
-        .bind(created_at)
-        .execute(&mut *transaction)
-        .await?;
-    }
-    transaction.commit().await?;
     tracing::info!(
         count = candidates.len(),
         "Google Translate IP cache saved to database"
@@ -683,16 +680,16 @@ async fn save_cache(
     Ok(())
 }
 
-async fn cache_is_stale(pool: &SqlitePool) -> bool {
-    let Ok(created_at) = sqlx::query_scalar::<_, Option<i64>>(
-        "SELECT MAX(created_at) FROM google_translate_ip_cache",
-    )
-    .fetch_one(pool)
-    .await
+async fn cache_is_stale(derived: &DerivedDb) -> bool {
+    let Ok(rows) = derived
+        .read(async |handle| GoogleTranslateIpCache::get_all(handle).await)
+        .await
     else {
         return true;
     };
-    let Some(created_at) = created_at else {
+    let Some(created_at) =
+        rows.into_iter().map(|(_, record)| record.created_at).max()
+    else {
         return true;
     };
     let now = SystemTime::now()
@@ -799,22 +796,10 @@ mod tests {
 
     #[tokio::test]
     async fn cache_round_trip() {
-        use sqlx::sqlite::SqlitePoolOptions;
+        use crate::state::store::derived_db::FILE_NAME;
 
-        let pool = SqlitePoolOptions::new()
-            .connect("sqlite::memory:")
-            .await
-            .unwrap();
-        sqlx::query(
-            "CREATE TABLE google_translate_ip_cache (
-                ip TEXT NOT NULL PRIMARY KEY,
-                latency_ms INTEGER NOT NULL,
-                created_at INTEGER NOT NULL
-            )",
-        )
-        .execute(&pool)
-        .await
-        .unwrap();
+        let directory = tempfile::tempdir().unwrap();
+        let derived = DerivedDb::open(directory.path().join(FILE_NAME)).await;
         let candidates = vec![
             GoogleTranslateIp {
                 ip: "1.1.1.1".to_string(),
@@ -825,7 +810,7 @@ mod tests {
                 latency_ms: 20,
             },
         ];
-        save_cache(&pool, &candidates).await.unwrap();
-        assert_eq!(load_cache(&pool).await, candidates);
+        save_cache(&derived, &candidates).await.unwrap();
+        assert_eq!(load_cache(&derived).await, candidates);
     }
 }

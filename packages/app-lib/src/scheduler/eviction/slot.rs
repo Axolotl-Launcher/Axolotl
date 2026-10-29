@@ -100,19 +100,15 @@ impl<S> EvictionSlot<S> {
         self.inner.lock().await.service.as_ref().map(f)
     }
 
-    /// Steps 1–6. Returns whether a live service was evicted.
+    /// Steps 1–6. Returns whether a live service was evicted. An eviction
+    /// that was cut short (its future dropped while draining) is finished
+    /// here too.
     pub async fn evict(&self) -> bool {
         let mut inner = self.inner.lock().await;
-        if inner.state != SlotState::Live {
+        if !matches!(inner.state, SlotState::Live | SlotState::Evicting) {
             return false;
         }
-        inner.state = SlotState::Evicting;
-        inner.tasks.abort_all();
-        // A panicked or aborted task has terminated as much as a finished one.
-        while inner.tasks.join_next().await.is_some() {}
-        debug_assert_eq!(inner.tasks.len(), 0);
-        inner.service = None;
-        inner.state = SlotState::Evicted;
+        drain(&mut inner).await;
         true
     }
 
@@ -131,7 +127,17 @@ impl<S> EvictionSlot<S> {
         match inner.state {
             SlotState::Live => return RebuildOutcome::AlreadyLive,
             SlotState::Revoked => return RebuildOutcome::Revoked,
-            _ => {}
+            // An eviction cut short: the old tasks drain to zero before a
+            // new instance may start.
+            SlotState::Evicting => drain(&mut inner).await,
+            SlotState::Evicted | SlotState::Rebuilding => {}
+        }
+        // The give-up deadline holds whether or not this attempt would work.
+        if let Some(first) = inner.first_failure
+            && now.saturating_duration_since(first) >= REBUILD_GIVE_UP_AFTER
+        {
+            revoke(&mut inner, "the rebuild deadline passed");
+            return RebuildOutcome::Revoked;
         }
         if let Some(retry_at) = inner.retry_at
             && now < retry_at
@@ -156,13 +162,7 @@ impl<S> EvictionSlot<S> {
                     || now.saturating_duration_since(first)
                         >= REBUILD_GIVE_UP_AFTER
                 {
-                    tracing::warn!(
-                        failures = inner.failures,
-                        %error,
-                        "An evicted service could not be rebuilt; it stays degraded"
-                    );
-                    inner.state = SlotState::Revoked;
-                    inner.level = Level::L2;
+                    revoke(&mut inner, &error.to_string());
                     return RebuildOutcome::Revoked;
                 }
                 let wait = REBUILD_BACKOFF[(inner.failures as usize - 1)
@@ -173,6 +173,29 @@ impl<S> EvictionSlot<S> {
             }
         }
     }
+}
+
+/// Steps 3–6: aborts the slot's tasks, drains them to zero and drops the
+/// service. A panicked or aborted task has terminated as much as a finished
+/// one. Draining is safe to resume: cut short, it leaves the slot
+/// `Evicting` with the remaining tasks still in its `JoinSet`.
+async fn drain<S>(inner: &mut Inner<S>) {
+    inner.state = SlotState::Evicting;
+    inner.tasks.abort_all();
+    while inner.tasks.join_next().await.is_some() {}
+    debug_assert_eq!(inner.tasks.len(), 0);
+    inner.service = None;
+    inner.state = SlotState::Evicted;
+}
+
+fn revoke<S>(inner: &mut Inner<S>, reason: &str) {
+    tracing::warn!(
+        failures = inner.failures,
+        reason,
+        "An evicted service could not be rebuilt; it stays degraded"
+    );
+    inner.state = SlotState::Revoked;
+    inner.level = Level::L2;
 }
 
 #[cfg(test)]
@@ -277,5 +300,76 @@ mod tests {
             RebuildOutcome::RetryAfter(REBUILD_BACKOFF[0]),
             "the count starts over after success"
         );
+    }
+
+    #[tokio::test]
+    async fn a_rebuild_after_the_deadline_is_revoked_even_if_it_would_work() {
+        let slot = EvictionSlot::live(built(1));
+        slot.evict().await;
+        let first = Instant::now();
+        slot.rebuild(first, failing).await;
+        let called = std::sync::atomic::AtomicBool::new(false);
+        let outcome = slot
+            .rebuild(first + REBUILD_GIVE_UP_AFTER, || async {
+                called.store(true, std::sync::atomic::Ordering::SeqCst);
+                Ok::<_, String>(built(2))
+            })
+            .await;
+        assert_eq!(outcome, RebuildOutcome::Revoked);
+        assert!(!called.load(std::sync::atomic::Ordering::SeqCst));
+        assert_eq!(slot.level().await, Level::L2);
+    }
+
+    /// An eviction whose future is dropped while it drains leaves the old
+    /// tasks running; a rebuild must finish draining them before it builds.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn an_eviction_cut_short_is_finished_before_a_rebuild() {
+        use std::sync::Arc;
+        use std::sync::atomic::{AtomicBool, Ordering};
+
+        let (release, wait) = std::sync::mpsc::channel::<()>();
+        let (started_tx, started) = std::sync::mpsc::channel::<()>();
+        let old_done = Arc::new(AtomicBool::new(false));
+        let mut tasks = JoinSet::new();
+        {
+            let old_done = Arc::clone(&old_done);
+            // A blocking task cannot be aborted, so draining waits for it.
+            tasks.spawn_blocking(move || {
+                let _ = started_tx.send(());
+                let _ = wait.recv();
+                old_done.store(true, Ordering::SeqCst);
+            });
+        }
+        // Abort reaches a blocking task only before it starts; wait until
+        // it runs, so the drain really has to wait for it.
+        started.recv().unwrap();
+        let slot = Arc::new(EvictionSlot::live(Built { service: 1, tasks }));
+        assert!(
+            tokio::time::timeout(Duration::from_millis(50), slot.evict())
+                .await
+                .is_err(),
+            "the eviction is cut short while it drains"
+        );
+        assert_eq!(slot.state().await, SlotState::Evicting);
+
+        let rebuild = {
+            let slot = Arc::clone(&slot);
+            let old_done = Arc::clone(&old_done);
+            tokio::spawn(async move {
+                slot.rebuild(Instant::now(), || async move {
+                    assert!(
+                        old_done.load(Ordering::SeqCst),
+                        "the old instance's task ended first"
+                    );
+                    Ok::<_, String>(built(2))
+                })
+                .await
+            })
+        };
+        tokio::time::sleep(Duration::from_millis(100)).await;
+        assert!(!rebuild.is_finished(), "the rebuild waits for the drain");
+        release.send(()).unwrap();
+        assert_eq!(rebuild.await.unwrap(), RebuildOutcome::Live);
+        assert_eq!(slot.with_service(|value| *value).await, Some(2));
     }
 }

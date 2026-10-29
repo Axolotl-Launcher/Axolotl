@@ -45,6 +45,7 @@ const toolCoverImages: Record<string, string> = {
     'recipe-generator': recipeGeneratorToolCover,
     'schematic-preview': schematicPreviewToolCover,
     'seed-map': seedMapToolCover,
+    'low-y-swamp-hut': seedMapToolCover,
     'mod-translation': modTranslationCover,
     'skin-editor': skinEditorToolCover,
     'command-generator': commandGeneratorToolCover,
@@ -97,6 +98,14 @@ const messages = defineMessages({
         id: 'app.lab.seed-map.description',
         defaultMessage:
             'Explore a Minecraft seed locally with biomes, structures, and saved markers.',
+    },
+    lowYSwampHutTitle: {
+        id: 'app.lab.low-y-swamp-hut.title',
+        defaultMessage: 'Low-Y swamp hut',
+    },
+    lowYSwampHutDescription: {
+        id: 'app.lab.low-y-swamp-hut.description',
+        defaultMessage: 'Find the swamp hut that generates lowest for a given world seed.',
     },
     schematicPreviewTitle: {
         id: 'app.lab.schematic-preview.title',
@@ -186,6 +195,7 @@ function toolTitle(toolId: string, fallback: string) {
     if (toolId === 'schematic-preview') return formatMessage(messages.schematicPreviewTitle)
     if (toolId === 'mod-translation') return formatMessage(messages.modTranslationTitle)
     if (toolId === 'command-generator') return formatMessage(messages.commandGeneratorTitle)
+    if (toolId === 'low-y-swamp-hut') return formatMessage(messages.lowYSwampHutTitle)
     return fallback
 }
 
@@ -197,6 +207,7 @@ function toolDescription(toolId: string, fallback: string) {
     if (toolId === 'schematic-preview') return formatMessage(messages.schematicPreviewDescription)
     if (toolId === 'mod-translation') return formatMessage(messages.modTranslationDescription)
     if (toolId === 'command-generator') return formatMessage(messages.commandGeneratorDescription)
+    if (toolId === 'low-y-swamp-hut') return formatMessage(messages.lowYSwampHutDescription)
     return fallback
 }
 

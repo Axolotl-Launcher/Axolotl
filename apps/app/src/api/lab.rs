@@ -252,6 +252,10 @@ pub async fn low_y_swamp_hut_scan<R: tauri::Runtime>(
         return Err("a world seed is required".to_string());
     }
 
+    let Some(_scan_slot) = ScanSlot::acquire(&SWAMP_HUT_SCANNING) else {
+        return Err("a swamp hut scan is already running".to_string());
+    };
+
     let started = Instant::now();
     let numeric_seed = world_seed(&seed);
 
@@ -350,6 +354,35 @@ pub async fn low_y_swamp_hut_scan<R: tauri::Runtime>(
 
 /// Minimum Java major version the trial-chamber program needs.
 const JAVA_MAJOR: u32 = 25;
+
+/// A running scan keeps the CPU busy for as long as it lasts, so a second one
+/// started before the first finishes only makes both slower. One at a time per
+/// tool, released however the command ends.
+struct ScanSlot(&'static std::sync::atomic::AtomicBool);
+
+impl ScanSlot {
+    fn acquire(flag: &'static std::sync::atomic::AtomicBool) -> Option<Self> {
+        flag.compare_exchange(
+            false,
+            true,
+            std::sync::atomic::Ordering::SeqCst,
+            std::sync::atomic::Ordering::SeqCst,
+        )
+        .ok()
+        .map(|_| Self(flag))
+    }
+}
+
+impl Drop for ScanSlot {
+    fn drop(&mut self) {
+        self.0.store(false, std::sync::atomic::Ordering::SeqCst);
+    }
+}
+
+static SWAMP_HUT_SCANNING: std::sync::atomic::AtomicBool =
+    std::sync::atomic::AtomicBool::new(false);
+static TRIAL_CHAMBER_SCANNING: std::sync::atomic::AtomicBool =
+    std::sync::atomic::AtomicBool::new(false);
 
 /// Locate `java` and, when the launcher already knows which runtime it is, its
 /// major version.
@@ -581,6 +614,10 @@ pub async fn trial_chamber_find<R: tauri::Runtime>(
     if seed.is_empty() {
         return Err("a world seed is required".to_string());
     }
+
+    let Some(_scan_slot) = ScanSlot::acquire(&TRIAL_CHAMBER_SCANNING) else {
+        return Err("a trial chamber scan is already running".to_string());
+    };
 
     let started = Instant::now();
     let mut java_command = tokio::process::Command::new(&java);

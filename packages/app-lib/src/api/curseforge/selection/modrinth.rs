@@ -39,7 +39,7 @@ pub(crate) async fn resolve_modrinth_fallback_plan(
     let matches = CachedEntry::get_file_many(
         &[sha1],
         Some(CacheBehaviour::MustRevalidate),
-        &state.pool,
+        state.cache_pool(),
         &state.api_semaphore,
     )
     .await?;
@@ -49,7 +49,7 @@ pub(crate) async fn resolve_modrinth_fallback_plan(
     let version = CachedEntry::get_version(
         &ModrinthVersionId::new(file_match.version_id)?,
         Some(CacheBehaviour::MustRevalidate),
-        &state.pool,
+        state.cache_pool(),
         &state.api_semaphore,
     )
     .await?;
@@ -113,7 +113,7 @@ pub(crate) async fn preview_modrinth_fallbacks(
         let version = CachedEntry::get_version(
             &ModrinthVersionId::new(dependency.version_id.clone())?,
             Some(CacheBehaviour::MustRevalidate),
-            &state.pool,
+            state.cache_pool(),
             &state.api_semaphore,
         )
         .await?;
@@ -123,7 +123,7 @@ pub(crate) async fn preview_modrinth_fallbacks(
         let project = CachedEntry::get_project(
             &ModrinthProjectId::new(dependency.project_id.clone())?,
             Some(CacheBehaviour::MustRevalidate),
-            &state.pool,
+            state.cache_pool(),
             &state.api_semaphore,
         )
         .await?;
@@ -193,7 +193,7 @@ pub(crate) async fn append_modrinth_fallback_plan(
         let version = CachedEntry::get_version(
             &ModrinthVersionId::new(dependency.version_id.clone())?,
             Some(CacheBehaviour::MustRevalidate),
-            &state.pool,
+            state.cache_pool(),
             &state.api_semaphore,
         )
         .await?;

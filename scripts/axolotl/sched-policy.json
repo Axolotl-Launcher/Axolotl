@@ -68,6 +68,16 @@
       "ident": "theseus::scheduler::panic::PANIC_LOG_LOCK",
       "rule": "D4",
       "reason": "panic-log append lock: synchronous, held for one bounded append, takes no other lock"
+    },
+    {
+      "ident": "theseus::install::runner::CLEANUPS",
+      "rule": "D4",
+      "reason": "cancel-cleanup dedup set (upstream schedule_cancel_cleanup): leaf primitive only, one shard lock per insert or remove, takes no other lock"
+    },
+    {
+      "ident": "theseus::install::events::InstallProgressReporter.parallel_context",
+      "rule": "D2",
+      "reason": "per-job reporter, unreachable from statics, State fields and Tauri-managed state; its only construction is inside InstallProgressReporter::new (install/events.rs:243, fn body). The generator also counts four -> Self { signatures as construction outside functions (a known false positive), so it cannot apply D2 itself"
     }
   ],
   "recallGap": {

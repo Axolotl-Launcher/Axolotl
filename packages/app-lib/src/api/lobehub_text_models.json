@@ -1,5 +1,5 @@
 {
-  "source": "LobeHub 49204982cab98bfa2f2fb6831a34d5018a2af6be model-bank chat models",
+  "source": "LobeHub 483c4a343e437bf6e812b5f71a9a47ce7b5c7be4 model-bank chat models",
   "providers": {
     "ai21": [
       {
@@ -3530,6 +3530,11 @@
       }
     ],
     "minimax": [
+      {
+        "id": "MiniMax-M3.1-Flash",
+        "name": "MiniMax M3.1 Flash",
+        "enabled": true
+      },
       {
         "id": "MiniMax-M3",
         "name": "MiniMax M3",

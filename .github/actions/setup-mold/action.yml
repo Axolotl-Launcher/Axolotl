@@ -18,7 +18,9 @@ runs:
           *) echo "No pinned mold build for $arch" >&2; exit 1 ;;
         esac
         archive="$RUNNER_TEMP/mold-$MOLD_VERSION-$arch-linux.tar.gz"
-        curl --fail --silent --show-error --location --retry 3 --output "$archive" \
+        # The archive is ~14 MB. Time out a stalled attempt so --retry gets another try.
+        curl --fail --silent --show-error --location --retry 3 \
+          --connect-timeout 20 --max-time 300 --output "$archive" \
           "https://github.com/rui314/mold/releases/download/v$MOLD_VERSION/mold-$MOLD_VERSION-$arch-linux.tar.gz"
         echo "$sha256  $archive" | sha256sum --check --strict -
         install_dir="$RUNNER_TEMP/mold"

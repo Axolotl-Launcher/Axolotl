@@ -395,13 +395,6 @@ console.log('resource identities: real upgrade, downgrade and re-upgrade')
     check('resource naming preferences default on when upgrading', database.prepare('SELECT resource_chinese_filenames, resource_preserve_filenames FROM settings WHERE id = 0').get().resource_chinese_filenames === 1 && database.prepare('SELECT resource_preserve_filenames FROM settings WHERE id = 0').get().resource_preserve_filenames === 1)
     database.exec("INSERT INTO resource_pack_unlinks(instance_id, content_set_id, unlinked_at) VALUES ('sample', 'set', 42)")
     assert.deepEqual(businessTables.map((table) => database.prepare(`SELECT * FROM ${table}`).all()), original)
-    const schedulerTables = "SELECT COUNT(*) AS count FROM sqlite_master WHERE type = 'table' AND name IN ('scheduler_tags', 'scheduler_restart_budget')"
-    check('an upgraded database gains the scheduler collections', database.prepare(schedulerTables).get().count === 2)
-    database.exec(`
-        INSERT INTO scheduler_tags(id, generation, level, origin, owner, created_at) VALUES (1, 1, 'l3', 'install', 'frozen', 10);
-        INSERT INTO scheduler_restart_budget(scope, failures, first_failure_at, revoked, updated_at) VALUES ('l1:config_sync', 2, 5, 0, 6);
-    `)
-    assert.throws(() => database.exec("INSERT INTO scheduler_tags(id, generation, level, origin, owner, created_at) VALUES (2, 1, 'l9', 'x', 'y', 0)"), /CHECK/)
     check('provider-qualified IDs remain separate', database.prepare("SELECT COUNT(DISTINCT resource_id) AS count FROM resource_source_projects WHERE project_id = '12345678'").get().count === 2)
     check('malformed cache and slug do not become business identities', database.prepare("SELECT COUNT(*) AS count FROM resource_source_projects WHERE project_id IN ('old-slug', '000123', 'malformed')").get().count === 0)
     check('online pack has a durable identity', database.prepare('SELECT COUNT(*) AS count FROM resource_instance_pack_links').get().count === 1)
@@ -460,8 +453,6 @@ console.log('resource identities: real upgrade, downgrade and re-upgrade')
     check('downgrade removes accepted pack receipts', old.prepare("SELECT COUNT(*) AS count FROM sqlite_master WHERE name = 'content_update_jobs'").get().count === 0)
     check('downgrade removes refresh tables and identity indexes', old.prepare("SELECT COUNT(*) AS count FROM sqlite_master WHERE name IN ('content_file_fingerprints', 'content_refresh_checks', 'instance_files_instance_identity', 'instance_content_entries_instance_identity')").get().count === 0)
     check('downgrade removes saved content presentations', old.prepare("SELECT COUNT(*) AS count FROM sqlite_master WHERE name = 'content_refresh_presentations'").get().count === 0)
-    check('downgrade removes the scheduler collections and their index', old.prepare("SELECT COUNT(*) AS count FROM sqlite_master WHERE name LIKE 'scheduler_%'").get().count === 0)
-    check('downgrade leaves no record of the scheduler migration', !old.prepare('SELECT version FROM _sqlx_migrations').all().some((row) => row.version === 20261029160000))
     old.exec('BEGIN')
     for (const name of files.filter((name) => Number(name.slice(0, 14)) >= version)) {
         const sql = fs.readFileSync(path.join(migrationsDir, name))
@@ -478,7 +469,6 @@ console.log('resource identities: real upgrade, downgrade and re-upgrade')
     check('re-upgrade restores naming defaults without duplicate schema', old.prepare('SELECT resource_chinese_filenames, resource_preserve_filenames FROM settings WHERE id = 0').get().resource_preserve_filenames === 1)
     check('resource favorites are re-seeded with their original timestamps', old.prepare('SELECT saved_at FROM resource_favorites ORDER BY saved_at').all().map((row) => row.saved_at).join(',') === old.prepare("SELECT saved_at FROM content_favorites WHERE project_id = '12345678' ORDER BY saved_at").all().map((row) => row.saved_at).join(','))
     assert.deepEqual(businessTables.map((table) => old.prepare(`SELECT * FROM ${table}`).all()), original)
-    check('re-upgrade recreates empty scheduler collections', old.prepare(schedulerTables).get().count === 2 && old.prepare('SELECT COUNT(*) AS count FROM scheduler_tags').get().count === 0 && old.prepare('SELECT COUNT(*) AS count FROM scheduler_restart_budget').get().count === 0)
     old.exec('DROP TRIGGER resource_content_favorites_insert')
     old.close()
     const refused = run(['--db', file, '--to', String(version), '--apply'])
@@ -542,11 +532,12 @@ console.log('a table a newer migration dropped is not demanded back')
     old.close()
 }
 
-// --- the scheduling level of install jobs -------------------------------------
+// --- the scheduler schema -----------------------------------------------------
 
-console.log('install jobs gain a scheduling level and lose it on downgrade')
+console.log('the scheduler schema: upgrade, downgrade and re-upgrade')
 {
     const LEVEL = 20261102120000
+    const SCHEDULER_TAGS = 20261102140000
     const file = path.join(directory, 'level', 'beta', 'app.db')
     const files = fs.readdirSync(migrationsDir).filter((name) => name.endsWith('.sql')).sort()
     const later = files.filter((name) => Number(name.slice(0, 14)) >= LEVEL)
@@ -560,11 +551,20 @@ console.log('install jobs gain a scheduling level and lose it on downgrade')
     const original = database.prepare('SELECT * FROM install_jobs').all()
     for (const name of later) apply(name)
     check('existing install jobs start at scheduling level L3', database.prepare("SELECT level FROM install_jobs WHERE id = 'frozen'").get().level === 'l3')
+    const schedulerTables = "SELECT COUNT(*) AS count FROM sqlite_master WHERE type = 'table' AND name IN ('scheduler_tags', 'scheduler_restart_budget')"
+    check('an upgraded database gains the scheduler collections', database.prepare(schedulerTables).get().count === 2)
+    database.exec(`
+        INSERT INTO scheduler_tags(id, generation, level, origin, owner, created_at) VALUES (1, 1, 'l3', 'install', 'frozen', 10);
+        INSERT INTO scheduler_restart_budget(scope, failures, first_failure_at, revoked, updated_at) VALUES ('l1:config_sync', 2, 5, 0, 6);
+    `)
+    assert.throws(() => database.exec("INSERT INTO scheduler_tags(id, generation, level, origin, owner, created_at) VALUES (2, 1, 'l9', 'x', 'y', 0)"), /CHECK/)
     database.close()
     const downgrade = run(['--db', file, '--to', String(LEVEL), '--apply'])
     check('a downgrade removes the level column', downgrade.status === 0 && !columns(file, 'install_jobs').includes('level'), downgrade.output)
+    check('downgrade leaves no record of the scheduler migration', !migrations(file).includes(SCHEDULER_TAGS))
     const old = new DatabaseSync(file)
     assert.deepEqual(old.prepare('SELECT * FROM install_jobs').all(), original)
+    check('downgrade removes the scheduler collections and their index', old.prepare("SELECT COUNT(*) AS count FROM sqlite_master WHERE name LIKE 'scheduler_%'").get().count === 0)
     old.exec('BEGIN')
     for (const name of later) {
         const sql = fs.readFileSync(path.join(migrationsDir, name))
@@ -574,6 +574,7 @@ console.log('install jobs gain a scheduling level and lose it on downgrade')
     }
     old.exec('COMMIT')
     check('re-upgraded install jobs start at scheduling level L3 again', old.prepare("SELECT level FROM install_jobs WHERE id = 'frozen'").get().level === 'l3')
+    check('re-upgrade recreates empty scheduler collections', old.prepare(schedulerTables).get().count === 2 && old.prepare('SELECT COUNT(*) AS count FROM scheduler_tags').get().count === 0 && old.prepare('SELECT COUNT(*) AS count FROM scheduler_restart_budget').get().count === 0)
     old.close()
 }
 

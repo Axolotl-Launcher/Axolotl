@@ -447,13 +447,15 @@ async fn confirmed_merges_keep_old_ids_alias_ambiguity_favorites_and_cache_indep
         store.lookup(&left.project).await.unwrap(),
         store.lookup(&right.project).await.unwrap()
     );
-    let winner = store.confirm_projects(&left, &right, &a, &b).await.unwrap();
+    // The tolerant path makes the first confirmation of this pair itself.
+    let winner = store
+        .confirm_matched_projects(&left, &right, &a, &b)
+        .await
+        .unwrap()
+        .unwrap();
     assert_eq!(
-        store
-            .confirm_matched_projects(&left, &right, &a, &b)
-            .await
-            .unwrap(),
-        Some(winner.clone())
+        store.confirm_projects(&left, &right, &a, &b).await.unwrap(),
+        winner
     );
     assert_eq!(
         sqlx::query_scalar::<_, i64>(

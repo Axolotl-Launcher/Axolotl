@@ -103,6 +103,18 @@ fn build_blockbench_skin_editor() {
         println!(
             "cargo:warning=AXOLOTL_SKIP_BLOCKBENCH_BUILD set; skipping Blockbench skin editor build"
         );
+        // `tauri-build` refuses a bundle resource whose path is missing, and the
+        // skipped stages are exactly the ones that produce these directories. An
+        // empty directory keeps `cargo check` usable on a machine without the
+        // submodules; a packaged build never sets this variable, so it is
+        // unaffected.
+        for dir in [
+            "resources/blockbench-skin",
+            "resources/trial-spawner-finder",
+            "resources/lysh",
+        ] {
+            let _ = std::fs::create_dir_all(dir);
+        }
         return;
     }
 

@@ -390,15 +390,11 @@ console.log('resource identities: real upgrade, downgrade and re-upgrade')
     // `cache` stays in the app database: the resource cache still imports the
     // rows a previous launcher left there, so the table is read, never written.
     const businessTables = ['content_favorites', 'instance_files', 'instance_content_entries', 'instance_content_provider_refs', 'instance_pack_members', 'instance_links', 'install_jobs', 'cache']
-    // Later migrations may add columns; the rows must keep every value they had.
-    const snapshotColumns = businessTables.map((table) => database.prepare(`PRAGMA table_info(${table})`).all().map((column) => column.name))
-    const snapshot = (db) => businessTables.map((table, index) => db.prepare(`SELECT ${snapshotColumns[index].join(', ')} FROM ${table}`).all())
-    const original = snapshot(database)
+    const original = businessTables.map((table) => database.prepare(`SELECT * FROM ${table}`).all())
     for (const name of files.filter((name) => Number(name.slice(0, 14)) >= version)) apply(name)
     check('resource naming preferences default on when upgrading', database.prepare('SELECT resource_chinese_filenames, resource_preserve_filenames FROM settings WHERE id = 0').get().resource_chinese_filenames === 1 && database.prepare('SELECT resource_preserve_filenames FROM settings WHERE id = 0').get().resource_preserve_filenames === 1)
     database.exec("INSERT INTO resource_pack_unlinks(instance_id, content_set_id, unlinked_at) VALUES ('sample', 'set', 42)")
-    assert.deepEqual(snapshot(database), original)
-    check('existing install jobs start at scheduling level L3', database.prepare("SELECT level FROM install_jobs WHERE id = 'frozen'").get().level === 'l3')
+    assert.deepEqual(businessTables.map((table) => database.prepare(`SELECT * FROM ${table}`).all()), original)
     check('provider-qualified IDs remain separate', database.prepare("SELECT COUNT(DISTINCT resource_id) AS count FROM resource_source_projects WHERE project_id = '12345678'").get().count === 2)
     check('malformed cache and slug do not become business identities', database.prepare("SELECT COUNT(*) AS count FROM resource_source_projects WHERE project_id IN ('old-slug', '000123', 'malformed')").get().count === 0)
     check('online pack has a durable identity', database.prepare('SELECT COUNT(*) AS count FROM resource_instance_pack_links').get().count === 1)
@@ -472,8 +468,7 @@ console.log('resource identities: real upgrade, downgrade and re-upgrade')
     check('re-upgrade recreates empty content presentations', old.prepare('SELECT COUNT(*) AS count FROM content_refresh_presentations').get().count === 0)
     check('re-upgrade restores naming defaults without duplicate schema', old.prepare('SELECT resource_chinese_filenames, resource_preserve_filenames FROM settings WHERE id = 0').get().resource_preserve_filenames === 1)
     check('resource favorites are re-seeded with their original timestamps', old.prepare('SELECT saved_at FROM resource_favorites ORDER BY saved_at').all().map((row) => row.saved_at).join(',') === old.prepare("SELECT saved_at FROM content_favorites WHERE project_id = '12345678' ORDER BY saved_at").all().map((row) => row.saved_at).join(','))
-    assert.deepEqual(snapshot(old), original)
-    check('re-upgraded install jobs start at scheduling level L3 again', old.prepare("SELECT level FROM install_jobs WHERE id = 'frozen'").get().level === 'l3')
+    assert.deepEqual(businessTables.map((table) => old.prepare(`SELECT * FROM ${table}`).all()), original)
     old.exec('DROP TRIGGER resource_content_favorites_insert')
     old.close()
     const refused = run(['--db', file, '--to', String(version), '--apply'])
@@ -534,6 +529,41 @@ console.log('a table a newer migration dropped is not demanded back')
     const old = new DatabaseSync(file)
     check('the removed records go', !migrations(file).includes(MOVE_REFRESH_STATE))
     check('and the tables stay gone', old.prepare("SELECT COUNT(*) AS count FROM sqlite_master WHERE type = 'table' AND name IN ('content_refresh_packs', 'content_refresh_scan_failures')").get().count === 0)
+    old.close()
+}
+
+// --- the scheduling level of install jobs -------------------------------------
+
+console.log('install jobs gain a scheduling level and lose it on downgrade')
+{
+    const LEVEL = 20261102120000
+    const file = path.join(directory, 'level', 'beta', 'app.db')
+    const files = fs.readdirSync(migrationsDir).filter((name) => name.endsWith('.sql')).sort()
+    const later = files.filter((name) => Number(name.slice(0, 14)) >= LEVEL)
+    const { database, apply } = migratedDatabase(file, files.filter((name) => Number(name.slice(0, 14)) < LEVEL))
+    database.exec(`
+        INSERT INTO instances(id, path, install_stage, launcher_feature_version, name, created, modified)
+            VALUES ('sample', '/sample', 'installed', '1', 'Sample', 10, 20);
+        INSERT INTO install_jobs(id, instance_id, kind, status, state, created, modified)
+            VALUES ('frozen', 'sample', 'install_content', 'queued', '{}', 1, 2);
+    `)
+    const original = database.prepare('SELECT * FROM install_jobs').all()
+    for (const name of later) apply(name)
+    check('existing install jobs start at scheduling level L3', database.prepare("SELECT level FROM install_jobs WHERE id = 'frozen'").get().level === 'l3')
+    database.close()
+    const downgrade = run(['--db', file, '--to', String(LEVEL), '--apply'])
+    check('a downgrade removes the level column', downgrade.status === 0 && !columns(file, 'install_jobs').includes('level'), downgrade.output)
+    const old = new DatabaseSync(file)
+    assert.deepEqual(old.prepare('SELECT * FROM install_jobs').all(), original)
+    old.exec('BEGIN')
+    for (const name of later) {
+        const sql = fs.readFileSync(path.join(migrationsDir, name))
+        old.exec(sql.toString())
+        old.prepare('INSERT INTO _sqlx_migrations(version, description, success, checksum, execution_time) VALUES (?, ?, 1, ?, 0)')
+            .run(Number(name.slice(0, 14)), name, createHash('sha384').update(sql).digest())
+    }
+    old.exec('COMMIT')
+    check('re-upgraded install jobs start at scheduling level L3 again', old.prepare("SELECT level FROM install_jobs WHERE id = 'frozen'").get().level === 'l3')
     old.close()
 }
 

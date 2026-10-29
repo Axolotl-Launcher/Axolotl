@@ -76,8 +76,15 @@ const allowedUntranslatedMessages = new Set([
     'MCP',
 ])
 
+// An empty `message` is what Crowdin writes for a key it has not translated, and
+// the runtime falls back to `defaultMessage` in that case. Reading the empty
+// string as the translation would then report every argument of the source as
+// missing, so treat it the same way the runtime does.
 function messageText(value) {
-    return typeof value === 'string' ? value : (value?.message ?? value?.defaultMessage ?? '')
+    if (typeof value === 'string') return value
+    const message = value?.message
+    if (typeof message === 'string' && message.trim() !== '') return message
+    return value?.defaultMessage ?? ''
 }
 
 function hasExplicitTranslation(value) {
@@ -150,15 +157,19 @@ for (const [sourcePath, translationPath] of localePairs) {
 // required — most locales are still partial — so only the keys a locale does
 // provide are compared.
 //
-// Mismatches that already existed are listed in `i18n-placeholder-baseline.json`.
-// They stay reported below but do not fail the check, so the backlog can be
-// worked down without blocking every unrelated change; anything new fails.
+// Mismatches that already existed are listed in `i18n-placeholder-baseline.json`,
+// together with the argument sets they were recorded with. They stay reported
+// below but do not fail the check, so the backlog can be worked down without
+// blocking every unrelated change; anything new fails.
 const baselinePath = 'scripts/axolotl/i18n-placeholder-baseline.json'
 let baseline = new Set()
 try {
     const recorded = JSON.parse(await readFile(baselinePath, 'utf8'))
     baseline = new Set(
-        (recorded.entries ?? []).map((entry) => `${entry.locale}\u0000${entry.key}`),
+        (recorded.entries ?? []).map(
+            (entry) =>
+                `${entry.locale}\u0000${entry.key}\u0000${entry.expected}\u0000${entry.got}`,
+        ),
     )
 } catch {
     // No baseline yet: every mismatch counts as new.
@@ -184,7 +195,12 @@ for (const root of localeRoots) {
                     const detail =
                         `${root}/${locale}: placeholders differ in ${key}` +
                         ` (expected ${expected.join(',') || 'none'}, got ${actual.join(',') || 'none'})`
-                    const id = `${root}/${locale}\u0000${key}`
+                    // The baseline pins the exact argument sets, not just the
+                    // key: a baselined mismatch that gets worse (or changes
+                    // shape) is a regression and has to fail like a new one.
+                    const id =
+                        `${root}/${locale}\u0000${key}\u0000` +
+                        `${expected.join(',') || 'none'}\u0000${actual.join(',') || 'none'}`
                     if (baseline.has(id)) knownMismatches.push(detail)
                     else failures.push(detail)
                 }

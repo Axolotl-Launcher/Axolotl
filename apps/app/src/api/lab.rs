@@ -5,11 +5,90 @@
 //! something to reimplement here, so the launcher runs it and reads its output.
 //! When it is missing the UI says so rather than pretending to have searched.
 
+use std::ffi::{OsStr, OsString};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::time::Instant;
 
 use serde::Serialize;
+
+/// Writes everything about a failed lab scan to a `.log` file on the user's
+/// desktop (falling back to the home directory) and returns the message shown
+/// to the UI: the original failure next to the saved file's path. A scan takes
+/// minutes and its stderr is the only way to diagnose it afterwards, so a
+/// failure the user cannot read is a failure nobody can fix.
+///
+/// The log is best-effort: when the file cannot be written the original error
+/// still returns unchanged, because a missing log must not mask the failure
+/// that produced it.
+fn scan_log_path<R: tauri::Runtime>(
+    app: &tauri::AppHandle<R>,
+) -> Option<PathBuf> {
+    use tauri::Manager;
+
+    let stamp = chrono::Local::now().format("%Y%m%d-%H%M%S");
+    let name = format!("axolotl-lab-scan-{stamp}.log");
+    let fallback = std::env::var_os("USERPROFILE")
+        .map(PathBuf::from)
+        .or_else(|| std::env::var_os("HOME").map(PathBuf::from));
+    let base = app.path().desktop_dir().ok().or(fallback);
+    base.map(|base| base.join(name))
+}
+
+fn write_scan_log<R: tauri::Runtime>(
+    app: &tauri::AppHandle<R>,
+    label: &str,
+    program: &Path,
+    args: &[OsString],
+    status: Option<String>,
+    stdout: &str,
+    stderr: &str,
+) -> String {
+    let reason = match &status {
+        Some(code) => format!("the search program exited with {code}"),
+        None => "the search program could not be started".to_string(),
+    };
+    let quoted = |value: &OsString| {
+        let text = value.to_string_lossy().into_owned();
+        if text.contains(' ') {
+            format!("\"{text}\"")
+        } else {
+            text
+        }
+    };
+    let body = format!(
+        "axolotl lab scan failure log\n\
+         time: {}\n\
+         tool: {label}\n\
+         program: {}\n\
+         arguments: {}\n\
+         status: {}\n\n\
+         --- stderr ---\n{stderr}\n\n\
+         --- stdout ---\n{stdout}\n",
+        chrono::Local::now().to_rfc3339(),
+        program.display(),
+        args.iter().map(quoted).collect::<Vec<_>>().join(" "),
+        status.as_deref().unwrap_or("(not started)"),
+    );
+    if let Some(path) = scan_log_path(app) {
+        let outcome =
+            std::fs::create_dir_all(path.parent().unwrap_or(path.as_path()))
+                .and_then(|_| std::fs::write(&path, body.as_bytes()))
+                .and_then(|_| path.canonicalize());
+        if let Ok(resolved) = outcome {
+            return format!(
+                "{reason}: the full log was saved to {}",
+                resolved.display()
+            );
+        }
+    }
+    let detail = stderr.trim();
+    if detail.is_empty() {
+        reason
+    } else {
+        format!("{reason}: {detail}")
+    }
+}
 
 /// One hut the search accepted.
 #[derive(Clone, Debug, Serialize)]
@@ -208,6 +287,11 @@ pub async fn low_y_swamp_hut_scan<R: tauri::Runtime>(
         command.arg("--phase2-max-y").arg(phase2.to_string());
     }
 
+    let args: Vec<OsString> = command
+        .as_std()
+        .get_args()
+        .map(OsStr::to_os_string)
+        .collect();
     // A scan runs for minutes; blocking the runtime thread for that long would
     // stall every other command in the launcher.
     // Windows attaches a console window to console programs; a launcher must not
@@ -218,16 +302,29 @@ pub async fn low_y_swamp_hut_scan<R: tauri::Runtime>(
         command.as_std_mut().creation_flags(0x0800_0000);
     }
     let output = command.output().await.map_err(|error| {
-        format!("cannot run {}: {error}", program.display())
+        write_scan_log(
+            &app,
+            "low_y_swamp_hut_scan",
+            &program,
+            &args,
+            None,
+            "",
+            &error.to_string(),
+        )
     })?;
     let elapsed_ms = started.elapsed().as_millis() as u64;
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(format!(
-            "the search program exited with {}: {}",
-            output.status,
-            stderr.trim()
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        return Err(write_scan_log(
+            &app,
+            "low_y_swamp_hut_scan",
+            &program,
+            &args,
+            Some(output.status.to_string()),
+            &stdout,
+            &stderr,
         ));
     }
 
@@ -437,18 +534,35 @@ pub async fn trial_chamber_find<R: tauri::Runtime>(
         use std::os::windows::process::CommandExt;
         java_command.as_std_mut().creation_flags(0x0800_0000);
     }
-    let output = java_command
-        .output()
-        .await
-        .map_err(|error| format!("cannot run the search program: {error}"))?;
+    let args: Vec<OsString> = java_command
+        .as_std()
+        .get_args()
+        .map(OsStr::to_os_string)
+        .collect();
+    let output = java_command.output().await.map_err(|error| {
+        write_scan_log(
+            &app,
+            "trial_chamber_find",
+            &java,
+            &args,
+            None,
+            "",
+            &error.to_string(),
+        )
+    })?;
     let elapsed_ms = started.elapsed().as_millis() as u64;
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(format!(
-            "the search program exited with {}: {}",
-            output.status,
-            stderr.trim()
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        return Err(write_scan_log(
+            &app,
+            "trial_chamber_find",
+            &java,
+            &args,
+            Some(output.status.to_string()),
+            &stdout,
+            &stderr,
         ));
     }
 

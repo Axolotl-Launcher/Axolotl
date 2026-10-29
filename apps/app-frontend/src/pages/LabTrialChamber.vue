@@ -208,13 +208,13 @@ async function copyTeleport(hit: { centerX: number; centerZ: number }) {
 
             <label class="flex flex-col gap-1">
                 <span class="text-sm font-medium">{{ formatMessage(messages.radiusLabel) }}</span>
-                <input
+                <StyledInput
                     v-model.number="radius"
                     type="number"
-                    min="128"
-                    max="1000000"
-                    step="1000"
-                    class="rounded-md border border-solid border-surface-5 bg-surface-1 px-3 py-2 text-sm"
+                    :min="128"
+                    :max="1000000"
+                    :step="1000"
+                    wrapper-class="w-full"
                     :disabled="scanning || available === false"
                 />
             </label>
@@ -224,12 +224,12 @@ async function copyTeleport(hit: { centerX: number; centerZ: number }) {
 
             <label class="flex flex-col gap-1">
                 <span class="text-sm font-medium">{{ formatMessage(messages.threadsLabel) }}</span>
-                <input
+                <StyledInput
                     v-model.number="threads"
                     type="number"
-                    min="1"
-                    max="64"
-                    class="rounded-md border border-solid border-surface-5 bg-surface-1 px-3 py-2 text-sm"
+                    :min="1"
+                    :max="64"
+                    wrapper-class="w-full"
                     :disabled="scanning || available === false"
                 />
             </label>

@@ -122,7 +122,7 @@ const blocked = computed(() => props.available === false)
             </section>
 
             <aside
-                class="flex w-80 shrink-0 flex-col gap-3 self-start rounded-lg border border-solid border-surface-4 bg-surface-2 p-4"
+                class="flex w-96 shrink-0 flex-col gap-3 self-start rounded-lg border border-solid border-surface-4 bg-surface-2 p-4"
             >
                 <slot name="parameters" />
 

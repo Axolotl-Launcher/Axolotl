@@ -103,6 +103,9 @@ target/*
 
 plugins-workspace/*
 apps/app/resources/blockbench-skin/
+# Produced by the packaging build; the skip path leaves empty placeholders.
+apps/app/resources/trial-spawner-finder/
+apps/app/resources/lysh/
 
 # Oh My OpenCode
 .omo/

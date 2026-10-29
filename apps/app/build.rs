@@ -97,6 +97,12 @@ fn build_blockbench_skin_editor() {
         return;
     }
 
+    // Cargo does not track this variable on its own: without the line below a
+    // later build in the same target directory reuses the successful "skipped"
+    // result and never runs the real Blockbench build, leaving the later
+    // packages without the editor resources.
+    println!("cargo:rerun-if-env-changed=AXOLOTL_SKIP_BLOCKBENCH_BUILD");
+
     if std::env::var_os("AXOLOTL_SKIP_BLOCKBENCH_BUILD").is_some_and(|value| {
         !value.is_empty() && value != "0" && value != "false"
     }) {

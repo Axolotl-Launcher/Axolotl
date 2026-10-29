@@ -15,9 +15,6 @@
 
 pub(crate) mod cache;
 pub(crate) mod content_dependencies;
-// Production writes the retired table through the resource layer's mirror.
-#[cfg(test)]
-pub(crate) mod content_favorites;
 pub(crate) mod content_file_fingerprints;
 pub(crate) mod content_file_operations;
 pub(crate) mod content_refresh;
@@ -48,20 +45,36 @@ pub(crate) mod minecraft_users;
 pub(crate) mod modrinth_users;
 pub(crate) mod official_login_proof;
 pub(crate) mod offline_minecraft_skins;
+pub(crate) mod pending_backup_repository_cleanups;
 pub(crate) mod resource_artifact_evidence;
 pub(crate) mod resource_cache_entries;
 pub(crate) mod resource_cache_state;
+pub(crate) mod resource_entry_graphs;
+pub(crate) mod resource_entry_links;
+pub(crate) mod resource_execution_journals;
+pub(crate) mod resource_favorites;
 pub(crate) mod resource_history;
+pub(crate) mod resource_history_cleanup_plans;
+pub(crate) mod resource_installed_artifacts;
 pub(crate) mod resource_legacy_import;
 pub(crate) mod resource_operation_plans;
+pub(crate) mod resource_pack_unlinks;
 pub(crate) mod resource_source_projects;
 pub(crate) mod scheduler_restart_budget;
 pub(crate) mod scheduler_tags;
 pub(crate) mod settings;
+pub(crate) mod shared_logs;
+pub(crate) mod store_blobs;
+pub(crate) mod store_retained_refs;
 pub(crate) mod sync_feature_settings;
 pub(crate) mod synced_game_option_preferences;
 pub(crate) mod synced_game_option_state;
 pub(crate) mod synced_game_option_values;
+pub(crate) mod synced_hotbar_state;
+pub(crate) mod synced_pack_catalog;
+pub(crate) mod synced_pack_instances;
+pub(crate) mod synced_server_state;
+pub(crate) mod synced_servers;
 pub(crate) mod telemetry_identity;
 pub(crate) mod telemetry_outbox;
 pub(crate) mod translation_cache;

@@ -2,7 +2,7 @@
 
 use sqlx::SqliteConnection;
 
-use super::Collection;
+use super::{Collection, Handle};
 
 /// The checkpoints, one per instance, feature and variant.
 pub(crate) struct InstanceSyncCheckpoints;
@@ -295,6 +295,33 @@ impl Collection for InstanceSyncCheckpoints {
             write_row(conn, key, record).await?;
         }
         Ok(())
+    }
+}
+
+impl InstanceSyncCheckpoints {
+    /// The instances whose checkpoint of `feature` recorded the same expected
+    /// bytes, leaving out `except`.
+    pub(crate) async fn instances_with_expected_sha1(
+        handle: &Handle,
+        feature: &str,
+        expected_sha1: &str,
+        except: &str,
+    ) -> crate::Result<Vec<String>> {
+        let mut connection = handle.connection().await?;
+        let rows: Vec<String> = sqlx::query_scalar(
+            "
+            SELECT instance_id FROM instance_sync_checkpoints
+            WHERE feature = ? AND expected_sha1 = ?
+              AND instance_id != ?
+            ",
+        )
+        .bind(feature)
+        .bind(expected_sha1)
+        .bind(except)
+        .fetch_all(&mut *connection)
+        .await?;
+
+        Ok(rows)
     }
 }
 

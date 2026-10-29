@@ -1,41 +1,34 @@
 //! Persistence for the user-configurable proxy settings.
 
-use sqlx::{Executor, Row, Sqlite};
+use sqlx::SqlitePool;
 
+use crate::state::store::settings::Settings;
+use crate::state::store::{Handle, atom};
 use crate::util::proxy::{ProxyConfig, ProxyMode};
 
-const PROXY_COLUMNS_QUERY: &str = "\
-    SELECT proxy_mode, proxy_url, proxy_username, proxy_password \
-    FROM settings WHERE id = 0";
+pub async fn get(pool: &SqlitePool) -> crate::Result<ProxyConfig> {
+    let columns = Settings::owned_columns(&Handle::new(pool.clone())).await?;
 
-pub async fn get<'a, E>(exec: E) -> crate::Result<ProxyConfig>
-where
-    E: Executor<'a, Database = Sqlite> + Copy,
-{
-    let row = sqlx::query(PROXY_COLUMNS_QUERY).fetch_one(exec).await?;
     Ok(ProxyConfig {
-        mode: ProxyMode::from_string(&row.get::<String, _>("proxy_mode")),
-        url: row.get::<String, _>("proxy_url"),
-        username: row.get::<String, _>("proxy_username"),
-        password: row.get::<String, _>("proxy_password"),
+        mode: ProxyMode::from_string(&columns.proxy_mode),
+        url: columns.proxy_url,
+        username: columns.proxy_username,
+        password: columns.proxy_password,
     })
 }
 
-pub async fn set<'a, E>(exec: E, config: &ProxyConfig) -> crate::Result<()>
-where
-    E: Executor<'a, Database = Sqlite> + Copy,
-{
+pub async fn set(pool: &SqlitePool, config: &ProxyConfig) -> crate::Result<()> {
     config.validate()?;
-    sqlx::query(
-        "UPDATE settings \
-         SET proxy_mode = ?, proxy_url = ?, proxy_username = ?, proxy_password = ? \
-         WHERE id = 0",
-    )
-    .bind(config.mode.as_str())
-    .bind(config.url.trim())
-    .bind(config.username.trim())
-    .bind(config.password.clone())
-    .execute(exec)
+
+    let handle = Handle::new(pool.clone());
+    let mut unit = atom(&handle).await?;
+    Settings::update_owned_in(&mut unit, |columns| {
+        columns.proxy_mode = config.mode.as_str().to_string();
+        columns.proxy_url = config.url.trim().to_string();
+        columns.proxy_username = config.username.trim().to_string();
+        columns.proxy_password = config.password.clone();
+    })
     .await?;
-    Ok(())
+
+    unit.commit().await
 }

@@ -21,6 +21,7 @@ const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'axolotl-downgrade-'))
 
 const CLOSE_BEHAVIOR = 20260903120000
 const OFFICIAL_LOGIN_PROOF = 20261002120000
+const RETIRE = 20261031120000
 const UNMAPPED = 20260101000000
 
 // THESEUS_CONFIG_DIR takes priority over the platform directories, so the tests
@@ -104,6 +105,34 @@ function backupsOf(file) {
 function check(name, condition, detail) {
     assert.ok(condition, detail ? `${name}: ${detail}` : name)
     console.log(`  ok  ${name}`)
+}
+
+// A database built by the real migration files, with the records an installed
+// launcher leaves. `apply` runs one more migration file the way sqlx does.
+function migratedDatabase(file, files) {
+    fs.mkdirSync(path.dirname(file), { recursive: true })
+    const database = new DatabaseSync(file)
+    database.exec('PRAGMA foreign_keys = ON')
+    database.exec(`CREATE TABLE _sqlx_migrations (
+        version BIGINT PRIMARY KEY, description TEXT NOT NULL,
+        installed_on TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        success BOOLEAN NOT NULL, checksum BLOB NOT NULL, execution_time BIGINT NOT NULL
+    )`)
+    const apply = (name) => {
+        const sql = fs.readFileSync(path.join(migrationsDir, name), 'utf8')
+        database.exec('BEGIN')
+        try {
+            database.exec(sql)
+            database.prepare('INSERT INTO _sqlx_migrations(version, description, success, checksum, execution_time) VALUES (?, ?, 1, ?, 0)')
+                .run(Number(name.slice(0, 14)), name, createHash('sha384').update(sql).digest())
+            database.exec('COMMIT')
+        } catch (error) {
+            database.exec('ROLLBACK')
+            throw error
+        }
+    }
+    for (const name of files) apply(name)
+    return { database, apply }
 }
 
 // --- a database with an applied, revertible migration -------------------------
@@ -332,29 +361,10 @@ console.log('resource identities: real upgrade, downgrade and re-upgrade')
 {
     const version = 20261011120000
     const file = path.join(directory, 'resources', 'beta', 'app.db')
-    fs.mkdirSync(path.dirname(file), { recursive: true })
-    const database = new DatabaseSync(file)
-    database.exec('PRAGMA foreign_keys = ON')
-    database.exec(`CREATE TABLE _sqlx_migrations (
-        version BIGINT PRIMARY KEY, description TEXT NOT NULL,
-        installed_on TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        success BOOLEAN NOT NULL, checksum BLOB NOT NULL, execution_time BIGINT NOT NULL
-    )`)
-    const files = fs.readdirSync(migrationsDir).filter((name) => name.endsWith('.sql')).sort()
-    function apply(name) {
-        const sql = fs.readFileSync(path.join(migrationsDir, name), 'utf8')
-        database.exec('BEGIN')
-        try {
-            database.exec(sql)
-            database.prepare('INSERT INTO _sqlx_migrations(version, description, success, checksum, execution_time) VALUES (?, ?, 1, ?, 0)')
-                .run(Number(name.slice(0, 14)), name, createHash('sha384').update(sql).digest())
-            database.exec('COMMIT')
-        } catch (error) {
-            database.exec('ROLLBACK')
-            throw error
-        }
-    }
-    for (const name of files.filter((name) => Number(name.slice(0, 14)) < version)) apply(name)
+    // A database from before the retirement migration: the tables it drops are
+    // still here, which is the schema an older build reads.
+    const files = fs.readdirSync(migrationsDir).filter((name) => name.endsWith('.sql') && Number(name.slice(0, 14)) < RETIRE).sort()
+    const { database, apply } = migratedDatabase(file, files.filter((name) => Number(name.slice(0, 14)) < version))
     database.exec(`
         INSERT INTO content_favorites VALUES ('modrinth', '12345678', 'mod', 123), ('curseforge', '12345678', 'mod', 456),
             ('modrinth', 'old-slug', 'mod', 789), ('curseforge', '000123', 'shader', 800);
@@ -380,22 +390,11 @@ console.log('resource identities: real upgrade, downgrade and re-upgrade')
     // `cache` stays in the app database: the resource cache still imports the
     // rows a previous launcher left there, so the table is read, never written.
     const businessTables = ['content_favorites', 'instance_files', 'instance_content_entries', 'instance_content_provider_refs', 'instance_pack_members', 'instance_links', 'install_jobs', 'cache']
-    // Later migrations may add columns; the rows must keep every value they had.
-    const snapshotColumns = businessTables.map((table) => database.prepare(`PRAGMA table_info(${table})`).all().map((column) => column.name))
-    const snapshot = (db) => businessTables.map((table, index) => db.prepare(`SELECT ${snapshotColumns[index].join(', ')} FROM ${table}`).all())
-    const original = snapshot(database)
+    const original = businessTables.map((table) => database.prepare(`SELECT * FROM ${table}`).all())
     for (const name of files.filter((name) => Number(name.slice(0, 14)) >= version)) apply(name)
     check('resource naming preferences default on when upgrading', database.prepare('SELECT resource_chinese_filenames, resource_preserve_filenames FROM settings WHERE id = 0').get().resource_chinese_filenames === 1 && database.prepare('SELECT resource_preserve_filenames FROM settings WHERE id = 0').get().resource_preserve_filenames === 1)
     database.exec("INSERT INTO resource_pack_unlinks(instance_id, content_set_id, unlinked_at) VALUES ('sample', 'set', 42)")
-    assert.deepEqual(snapshot(database), original)
-    check('existing install jobs start at scheduling level L3', database.prepare("SELECT level FROM install_jobs WHERE id = 'frozen'").get().level === 'l3')
-    const schedulerTables = "SELECT COUNT(*) AS count FROM sqlite_master WHERE type = 'table' AND name IN ('scheduler_tags', 'scheduler_restart_budget')"
-    check('an upgraded database gains the scheduler collections', database.prepare(schedulerTables).get().count === 2)
-    database.exec(`
-        INSERT INTO scheduler_tags(id, generation, level, origin, owner, created_at) VALUES (1, 1, 'l3', 'install', 'frozen', 10);
-        INSERT INTO scheduler_restart_budget(scope, failures, first_failure_at, revoked, updated_at) VALUES ('l1:config_sync', 2, 5, 0, 6);
-    `)
-    assert.throws(() => database.exec("INSERT INTO scheduler_tags(id, generation, level, origin, owner, created_at) VALUES (2, 1, 'l9', 'x', 'y', 0)"), /CHECK/)
+    assert.deepEqual(businessTables.map((table) => database.prepare(`SELECT * FROM ${table}`).all()), original)
     check('provider-qualified IDs remain separate', database.prepare("SELECT COUNT(DISTINCT resource_id) AS count FROM resource_source_projects WHERE project_id = '12345678'").get().count === 2)
     check('malformed cache and slug do not become business identities', database.prepare("SELECT COUNT(*) AS count FROM resource_source_projects WHERE project_id IN ('old-slug', '000123', 'malformed')").get().count === 0)
     check('online pack has a durable identity', database.prepare('SELECT COUNT(*) AS count FROM resource_instance_pack_links').get().count === 1)
@@ -454,8 +453,6 @@ console.log('resource identities: real upgrade, downgrade and re-upgrade')
     check('downgrade removes accepted pack receipts', old.prepare("SELECT COUNT(*) AS count FROM sqlite_master WHERE name = 'content_update_jobs'").get().count === 0)
     check('downgrade removes refresh tables and identity indexes', old.prepare("SELECT COUNT(*) AS count FROM sqlite_master WHERE name IN ('content_file_fingerprints', 'content_refresh_checks', 'instance_files_instance_identity', 'instance_content_entries_instance_identity')").get().count === 0)
     check('downgrade removes saved content presentations', old.prepare("SELECT COUNT(*) AS count FROM sqlite_master WHERE name = 'content_refresh_presentations'").get().count === 0)
-    check('downgrade removes the scheduler collections and their index', old.prepare("SELECT COUNT(*) AS count FROM sqlite_master WHERE name LIKE 'scheduler_%'").get().count === 0)
-    check('downgrade leaves no record of the scheduler migration', !old.prepare('SELECT version FROM _sqlx_migrations').all().some((row) => row.version === 20261029160000))
     old.exec('BEGIN')
     for (const name of files.filter((name) => Number(name.slice(0, 14)) >= version)) {
         const sql = fs.readFileSync(path.join(migrationsDir, name))
@@ -471,13 +468,114 @@ console.log('resource identities: real upgrade, downgrade and re-upgrade')
     check('re-upgrade recreates empty content presentations', old.prepare('SELECT COUNT(*) AS count FROM content_refresh_presentations').get().count === 0)
     check('re-upgrade restores naming defaults without duplicate schema', old.prepare('SELECT resource_chinese_filenames, resource_preserve_filenames FROM settings WHERE id = 0').get().resource_preserve_filenames === 1)
     check('resource favorites are re-seeded with their original timestamps', old.prepare('SELECT saved_at FROM resource_favorites ORDER BY saved_at').all().map((row) => row.saved_at).join(',') === old.prepare("SELECT saved_at FROM content_favorites WHERE project_id = '12345678' ORDER BY saved_at").all().map((row) => row.saved_at).join(','))
-    assert.deepEqual(snapshot(old), original)
-    check('re-upgraded install jobs start at scheduling level L3 again', old.prepare("SELECT level FROM install_jobs WHERE id = 'frozen'").get().level === 'l3')
-    check('re-upgrade recreates empty scheduler collections', old.prepare(schedulerTables).get().count === 2 && old.prepare('SELECT COUNT(*) AS count FROM scheduler_tags').get().count === 0 && old.prepare('SELECT COUNT(*) AS count FROM scheduler_restart_budget').get().count === 0)
+    assert.deepEqual(businessTables.map((table) => old.prepare(`SELECT * FROM ${table}`).all()), original)
     old.exec('DROP TRIGGER resource_content_favorites_insert')
     old.close()
     const refused = run(['--db', file, '--to', String(version), '--apply'])
     check('missing mapped trigger prevents unsafe downgrade', refused.status === 1 && refused.output.includes('does not match'))
+}
+
+// --- retiring the legacy tables ----------------------------------------------
+
+console.log('retiring the legacy tables: the drop outlives the downgrade')
+{
+    const file = path.join(directory, 'retired', 'beta', 'app.db')
+    const files = fs.readdirSync(migrationsDir).filter((name) => name.endsWith('.sql')).sort()
+    const { database, apply } = migratedDatabase(file, files.filter((name) => Number(name.slice(0, 14)) < RETIRE))
+    database.exec(`
+        INSERT INTO content_favorites VALUES ('modrinth', '12345678', 'mod', 123);
+        INSERT INTO instances(id, path, install_stage, launcher_feature_version, name, created, modified)
+            VALUES ('sample', '/sample', 'installed', '1', 'Sample', 10, 20);
+        INSERT INTO instance_content_sets(id, instance_id, name, source_kind, status, game_version, loader, created, modified)
+            VALUES ('set', 'sample', 'Root', 'local', 'applied', '1.20.1', 'fabric', 10, 20);
+    `)
+    for (const name of files.filter((name) => Number(name.slice(0, 14)) >= RETIRE)) apply(name)
+    check('the retired tables leave the app database', database.prepare("SELECT COUNT(*) AS count FROM sqlite_master WHERE type = 'table' AND name IN ('content_favorites', 'processes', 'telemetry_error_daily')").get().count === 0)
+    check('the rebuilt views no longer name the retired table', database.prepare("SELECT COUNT(*) AS count FROM sqlite_master WHERE type = 'view' AND sql LIKE '%content_favorites%'").get().count === 0)
+    // Every content write maintains its identity through this view.
+    database.exec(`
+        INSERT INTO instance_pack_members(id, content_set_id, content_entry_id, member_key, project_type, expected_relative_path, provider, provider_project_id, provider_release_id, created_at, modified_at)
+            VALUES ('member', 'set', NULL, 'key', 'mod', 'mods/custom.jar', 'modrinth', 'abcdefgh', 'release1', 30, 40);
+    `)
+    check('the identity triggers still find projects through the rebuilt view', database.prepare("SELECT COUNT(*) AS count FROM resource_source_projects WHERE source = 'modrinth' AND project_id = 'abcdefgh'").get().count === 1)
+    database.close()
+    const downgrade = run(['--db', file, '--to', String(RETIRE), '--apply'])
+    check('the retirement record is all a downgrade removes', downgrade.status === 0, downgrade.output)
+    const old = new DatabaseSync(file)
+    check('the dropped tables do not come back', old.prepare("SELECT COUNT(*) AS count FROM sqlite_master WHERE type = 'table' AND name IN ('content_favorites', 'processes', 'telemetry_error_daily')").get().count === 0)
+    check('and the business rows stay', old.prepare('SELECT COUNT(*) AS count FROM instances').get().count === 1)
+    old.close()
+    // The legacy table went with its triggers, so the schema 20261011120000
+    // records for itself no longer matches and going below it is refused.
+    const below = run(['--db', file, '--to', '20261011120000', '--apply'])
+    check('a downgrade below the retirement is refused', below.status === 1 && below.output.includes('does not match'), below.output)
+}
+
+// --- a table a newer migration dropped ----------------------------------------
+
+console.log('a table a newer migration dropped is not demanded back')
+{
+    const MOVE_REFRESH_STATE = 20261101120000
+    const file = path.join(directory, 'moved', 'beta', 'app.db')
+    const files = fs.readdirSync(migrationsDir).filter((name) => name.endsWith('.sql')).sort()
+    const { database, apply } = migratedDatabase(file, files.filter((name) => Number(name.slice(0, 14)) < MOVE_REFRESH_STATE))
+    for (const name of files.filter((name) => Number(name.slice(0, 14)) >= MOVE_REFRESH_STATE)) apply(name)
+    check('the refresh tables leave the app database', database.prepare("SELECT COUNT(*) AS count FROM sqlite_master WHERE type = 'table' AND name IN ('content_refresh_packs', 'content_refresh_scan_failures')").get().count === 0)
+    database.close()
+    // The migration that created those tables is still being passed, and it
+    // cannot drop what a newer migration already removed.
+    const result = run(['--db', file, '--to', '20261028110000', '--apply'])
+    check('a downgrade passes the migration that dropped them', result.status === 0, result.output)
+    const old = new DatabaseSync(file)
+    check('the removed records go', !migrations(file).includes(MOVE_REFRESH_STATE))
+    check('and the tables stay gone', old.prepare("SELECT COUNT(*) AS count FROM sqlite_master WHERE type = 'table' AND name IN ('content_refresh_packs', 'content_refresh_scan_failures')").get().count === 0)
+    old.close()
+}
+
+// --- the scheduler schema -----------------------------------------------------
+
+console.log('the scheduler schema: upgrade, downgrade and re-upgrade')
+{
+    const LEVEL = 20261102120000
+    const SCHEDULER_TAGS = 20261102140000
+    const file = path.join(directory, 'level', 'beta', 'app.db')
+    const files = fs.readdirSync(migrationsDir).filter((name) => name.endsWith('.sql')).sort()
+    const later = files.filter((name) => Number(name.slice(0, 14)) >= LEVEL)
+    const { database, apply } = migratedDatabase(file, files.filter((name) => Number(name.slice(0, 14)) < LEVEL))
+    database.exec(`
+        INSERT INTO instances(id, path, install_stage, launcher_feature_version, name, created, modified)
+            VALUES ('sample', '/sample', 'installed', '1', 'Sample', 10, 20);
+        INSERT INTO install_jobs(id, instance_id, kind, status, state, created, modified)
+            VALUES ('frozen', 'sample', 'install_content', 'queued', '{}', 1, 2);
+    `)
+    const original = database.prepare('SELECT * FROM install_jobs').all()
+    for (const name of later) apply(name)
+    check('existing install jobs start at scheduling level L3', database.prepare("SELECT level FROM install_jobs WHERE id = 'frozen'").get().level === 'l3')
+    const schedulerTables = "SELECT COUNT(*) AS count FROM sqlite_master WHERE type = 'table' AND name IN ('scheduler_tags', 'scheduler_restart_budget')"
+    check('an upgraded database gains the scheduler collections', database.prepare(schedulerTables).get().count === 2)
+    database.exec(`
+        INSERT INTO scheduler_tags(id, generation, level, origin, owner, created_at) VALUES (1, 1, 'l3', 'install', 'frozen', 10);
+        INSERT INTO scheduler_restart_budget(scope, failures, first_failure_at, revoked, updated_at) VALUES ('l1:config_sync', 2, 5, 0, 6);
+    `)
+    assert.throws(() => database.exec("INSERT INTO scheduler_tags(id, generation, level, origin, owner, created_at) VALUES (2, 1, 'l9', 'x', 'y', 0)"), /CHECK/)
+    database.close()
+    const downgrade = run(['--db', file, '--to', String(LEVEL), '--apply'])
+    check('a downgrade removes the level column', downgrade.status === 0 && !columns(file, 'install_jobs').includes('level'), downgrade.output)
+    check('downgrade leaves no record of the scheduler migration', !migrations(file).includes(SCHEDULER_TAGS))
+    const old = new DatabaseSync(file)
+    assert.deepEqual(old.prepare('SELECT * FROM install_jobs').all(), original)
+    check('downgrade removes the scheduler collections and their index', old.prepare("SELECT COUNT(*) AS count FROM sqlite_master WHERE name LIKE 'scheduler_%'").get().count === 0)
+    old.exec('BEGIN')
+    for (const name of later) {
+        const sql = fs.readFileSync(path.join(migrationsDir, name))
+        old.exec(sql.toString())
+        old.prepare('INSERT INTO _sqlx_migrations(version, description, success, checksum, execution_time) VALUES (?, ?, 1, ?, 0)')
+            .run(Number(name.slice(0, 14)), name, createHash('sha384').update(sql).digest())
+    }
+    old.exec('COMMIT')
+    check('re-upgraded install jobs start at scheduling level L3 again', old.prepare("SELECT level FROM install_jobs WHERE id = 'frozen'").get().level === 'l3')
+    check('re-upgrade recreates empty scheduler collections', old.prepare(schedulerTables).get().count === 2 && old.prepare('SELECT COUNT(*) AS count FROM scheduler_tags').get().count === 0 && old.prepare('SELECT COUNT(*) AS count FROM scheduler_restart_budget').get().count === 0)
+    old.close()
 }
 
 if (process.platform !== 'win32') {

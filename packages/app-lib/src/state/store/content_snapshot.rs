@@ -55,6 +55,27 @@ pub(crate) async fn get(
     get_inner(handle, instance_id, || std::future::ready(())).await
 }
 
+/// The same snapshot with the saved pack metadata, which lives in the derived
+/// database: those rows left this one, so they are read beside the transaction
+/// that reads the rest instead of inside it.
+pub(crate) async fn get_with_saved_pack(
+    handle: &Handle,
+    derived: &super::derived_db::DerivedDb,
+    instance_id: &str,
+) -> crate::Result<SnapshotRecords> {
+    let mut records = get(handle, instance_id).await?;
+    records.pack_presentation =
+        super::content_refresh_pack::ContentRefreshPacks::saved(
+            derived,
+            &super::content_refresh_pack::PackKey {
+                instance_id: instance_id.to_string(),
+                content_set_id: records.content_set.id.clone(),
+            },
+        )
+        .await?;
+    Ok(records)
+}
+
 async fn get_inner<F, Fut>(
     handle: &Handle,
     instance_id: &str,
@@ -237,18 +258,9 @@ where
         .collect();
     let presentations = super::content_refresh_presentations::ContentRefreshPresentations::read_scoped(&mut tx, &instance_id.to_owned()).await?
         .into_iter().map(|(key, record)| (key.file_id, record)).collect();
-    let pack_presentation =
-        super::content_refresh_pack::ContentRefreshPacks::read(
-            &mut tx,
-            &super::content_refresh_pack::PackKey {
-                instance_id: instance_id.into(),
-                content_set_id: content_set.id.clone(),
-            },
-        )
-        .await?;
     tx.commit().await?;
     Ok(SnapshotRecords {
-        pack_presentation,
+        pack_presentation: None,
         fingerprints,
         presentations,
         instance,

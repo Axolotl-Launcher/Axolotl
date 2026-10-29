@@ -1308,3 +1308,251 @@ pub(crate) async fn get_provider_project_keys_for_present_files(
         })
         .collect()
 }
+
+/// Forgets the entries a shared pack left in `instance_id` for one path.
+pub(crate) async fn delete_shared_entries_for_path_in_transaction(
+    instance_id: &str,
+    relative_path: &str,
+    tx: &mut Transaction<'_, Sqlite>,
+) -> crate::Result<()> {
+    sqlx::query(
+        "DELETE FROM instance_content_entries
+         WHERE instance_id = ?
+           AND source_kind = 'shared_instance'
+           AND file_id IN (
+             SELECT id FROM instance_files
+             WHERE instance_id = ? AND relative_path = ?
+           )",
+    )
+    .bind(instance_id)
+    .bind(instance_id)
+    .bind(relative_path)
+    .execute(&mut **tx)
+    .await?;
+
+    Ok(())
+}
+
+/// Records whether one entry is enabled.
+pub(crate) async fn set_entry_enabled_in_transaction(
+    entry_id: &str,
+    enabled: bool,
+    modified_at: i64,
+    tx: &mut Transaction<'_, Sqlite>,
+) -> crate::Result<()> {
+    sqlx::query(
+        "UPDATE instance_content_entries SET enabled = ?, modified_at = ? WHERE id = ?",
+    )
+    .bind(i64::from(enabled))
+    .bind(modified_at)
+    .bind(entry_id)
+    .execute(&mut **tx)
+    .await?;
+
+    Ok(())
+}
+
+/// Gives one entry the id the caller minted for it.
+pub(crate) async fn rewrite_entry_id_in_transaction(
+    entry_id: &str,
+    new_entry_id: &str,
+    tx: &mut Transaction<'_, Sqlite>,
+) -> crate::Result<()> {
+    sqlx::query("UPDATE instance_content_entries SET id = ? WHERE id = ?")
+        .bind(new_entry_id)
+        .bind(entry_id)
+        .execute(&mut **tx)
+        .await?;
+
+    Ok(())
+}
+
+/// Restores what an entry says about where it came from and who owns it.
+pub(crate) async fn set_entry_provenance_in_transaction(
+    entry_id: &str,
+    ownership_kind: ContentOwnershipKind,
+    source_kind: ContentSourceKind,
+    auto_dependency: bool,
+    server_requirement: ContentRequirement,
+    client_requirement: ContentRequirement,
+    tx: &mut Transaction<'_, Sqlite>,
+) -> crate::Result<()> {
+    sqlx::query(
+        "UPDATE instance_content_entries SET ownership_kind = ?, source_kind = ?, auto_dependency = ?, server_requirement = ?, client_requirement = ? WHERE id = ?",
+    )
+    .bind(ownership_kind.as_str())
+    .bind(source_kind.as_str())
+    .bind(i64::from(auto_dependency))
+    .bind(server_requirement.as_str())
+    .bind(client_requirement.as_str())
+    .bind(entry_id)
+    .execute(&mut **tx)
+    .await?;
+
+    Ok(())
+}
+
+/// Drops every entry a content set holds.
+pub(crate) async fn delete_entries_for_set_in_transaction(
+    content_set_id: &str,
+    tx: &mut Transaction<'_, Sqlite>,
+) -> crate::Result<()> {
+    sqlx::query(
+        "DELETE FROM instance_content_entries WHERE content_set_id = ?",
+    )
+    .bind(content_set_id)
+    .execute(&mut **tx)
+    .await?;
+
+    Ok(())
+}
+
+/// Drops only the entries a content set holds because a pack owns them.
+pub(crate) async fn delete_pack_managed_entries_for_set_in_transaction(
+    content_set_id: &str,
+    tx: &mut Transaction<'_, Sqlite>,
+) -> crate::Result<()> {
+    sqlx::query(
+        "DELETE FROM instance_content_entries
+         WHERE content_set_id = ? AND ownership_kind = 'pack_managed'",
+    )
+    .bind(content_set_id)
+    .execute(&mut **tx)
+    .await?;
+
+    Ok(())
+}
+
+/// Drops every dependency edge a content set holds.
+pub(crate) async fn delete_dependency_edges_for_set_in_transaction(
+    content_set_id: &str,
+    tx: &mut Transaction<'_, Sqlite>,
+) -> crate::Result<()> {
+    sqlx::query(
+        "DELETE FROM instance_content_dependencies WHERE content_set_id = ?",
+    )
+    .bind(content_set_id)
+    .execute(&mut **tx)
+    .await?;
+
+    Ok(())
+}
+
+/// Reads the module metadata an instance's present entries carry, as the entry
+/// each belongs to and the text it is stored as.
+pub(crate) async fn get_local_mod_data_by_entry<'e, E>(
+    instance_id: &str,
+    exec: E,
+) -> crate::Result<Vec<(String, String)>>
+where
+    E: Executor<'e, Database = Sqlite>,
+{
+    let rows = sqlx::query_as(
+        "SELECT entry.id, file.local_mod_data FROM instance_content_entries entry JOIN instance_files file ON file.id = entry.file_id WHERE entry.instance_id = ? AND file.missing = 0 AND file.local_mod_data IS NOT NULL",
+    )
+    .bind(instance_id)
+    .fetch_all(exec)
+    .await?;
+
+    Ok(rows)
+}
+
+/// What an entry says about one CurseForge-linked path of an instance.
+pub(crate) struct CurseForgeLinkedFile {
+    pub provider_project_id: String,
+    pub provider_release_id: Option<String>,
+    pub project_type: String,
+    pub ownership_kind: String,
+    pub game_version: String,
+    pub loader: String,
+}
+
+/// Reads the newest entry behind one path of an instance that carries a
+/// CurseForge reference.
+pub(crate) async fn get_curseforge_linked_file<'e, E>(
+    instance_id: &str,
+    relative_path: &str,
+    exec: E,
+) -> crate::Result<Option<CurseForgeLinkedFile>>
+where
+    E: Executor<'e, Database = Sqlite>,
+{
+    let row = sqlx::query(
+        "SELECT ref.provider_project_id, ref.provider_release_id, entry.project_type,
+                entry.ownership_kind,
+                content_set.game_version, content_set.loader
+         FROM instance_files file
+         INNER JOIN instance_content_entries entry ON entry.file_id = file.id
+         INNER JOIN instance_content_provider_refs ref
+            ON ref.content_entry_id = entry.id AND ref.provider = 'curseforge'
+         INNER JOIN instance_content_sets content_set
+            ON content_set.id = entry.content_set_id
+         WHERE file.instance_id = ? AND file.relative_path = ?
+         ORDER BY entry.modified_at DESC
+         LIMIT 1",
+    )
+    .bind(instance_id)
+    .bind(relative_path)
+    .fetch_optional(exec)
+    .await?;
+
+    let Some(row) = row else {
+        return Ok(None);
+    };
+
+    Ok(Some(CurseForgeLinkedFile {
+        provider_project_id: row.try_get("provider_project_id")?,
+        provider_release_id: row.try_get("provider_release_id")?,
+        project_type: row.try_get("project_type")?,
+        ownership_kind: row.try_get("ownership_kind")?,
+        game_version: row.try_get("game_version")?,
+        loader: row.try_get("loader")?,
+    }))
+}
+/// What an entry says about one path of the content set an instance applies.
+pub(crate) struct AppliedContentTarget {
+    pub project_type: String,
+    pub ownership_kind: String,
+    pub game_version: String,
+    pub loader: String,
+}
+
+/// Reads the newest entry behind one path whose content set the instance still
+/// applies.
+pub(crate) async fn get_applied_content_target<'e, E>(
+    instance_id: &str,
+    relative_path: &str,
+    exec: E,
+) -> crate::Result<Option<AppliedContentTarget>>
+where
+    E: Executor<'e, Database = Sqlite>,
+{
+    let row = sqlx::query(
+        "SELECT entry.project_type, entry.ownership_kind,
+                content_set.game_version, content_set.loader
+         FROM instance_files file
+         INNER JOIN instance_content_entries entry ON entry.file_id = file.id
+         INNER JOIN instances instance ON instance.id = entry.instance_id
+         INNER JOIN instance_content_sets content_set
+            ON content_set.id = entry.content_set_id
+         WHERE file.instance_id = ? AND file.relative_path = ?
+            AND entry.content_set_id = instance.applied_content_set_id
+         ORDER BY entry.modified_at DESC
+         LIMIT 1",
+    )
+    .bind(instance_id)
+    .bind(relative_path)
+    .fetch_optional(exec)
+    .await?;
+
+    let Some(row) = row else {
+        return Ok(None);
+    };
+
+    Ok(Some(AppliedContentTarget {
+        project_type: row.try_get("project_type")?,
+        ownership_kind: row.try_get("ownership_kind")?,
+        game_version: row.try_get("game_version")?,
+        loader: row.try_get("loader")?,
+    }))
+}

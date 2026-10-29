@@ -1,5 +1,6 @@
 //! Cancellable, in-memory cart analysis. Only reviewed plans are persisted.
 use super::*;
+use crate::state::store::resource_operation_plans::ResourceOperationPlans;
 use dashmap::DashMap;
 use futures::{StreamExt, stream};
 use std::time::{Duration, Instant};
@@ -521,7 +522,14 @@ async fn update_data(
         if context(state, instance_id).await? != data.context {
             return Err(invalid("instance changed while preparing the plan"));
         }
-        sqlx::query("INSERT INTO resource_operation_plans(id, instance_id, revision, payload) VALUES (?, ?, ?, ?)").bind(draft.plan.id.as_str()).bind(instance_id).bind(draft.plan.revision).bind(serde_json::to_string(&draft)?).execute(&state.pool).await.map_err(db)?;
+        ResourceOperationPlans::insert_prepared(
+            &state.data,
+            draft.plan.id.as_str(),
+            instance_id,
+            draft.plan.revision,
+            &serde_json::to_string(&draft)?,
+        )
+        .await?;
     }
     Ok(draft.plan)
 }

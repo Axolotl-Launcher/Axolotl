@@ -10,9 +10,9 @@ use reqwest::{RequestBuilder, Response, StatusCode};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
-use sqlx::{Row, SqlitePool};
 use tokio::time::sleep;
 
+use crate::state::documents;
 use crate::state::store::Collection as _;
 use crate::state::store::derived_db::DerivedDb;
 use crate::state::store::translation_cache::{
@@ -214,49 +214,64 @@ fn default_source_language() -> String {
 }
 
 async fn load_settings(
-    pool: &SqlitePool,
+    documents: &documents::Documents<'_>,
 ) -> crate::Result<StoredTranslationSettings> {
-    sqlx::query(
-        "UPDATE translation_settings SET provider = 'google', deeplx_api_key = NULL \
-         WHERE id = 0 AND provider NOT IN ('google', 'ai', 'deepl')",
-    )
-    .execute(pool)
-    .await?;
-    let row = sqlx::query(
-        "SELECT provider, target_language, mode, auto_translate, style, \
-         ai_provider_id, ai_model_id, openai_system_prompt, \
-         deepl_api_endpoint, deepl_api_key \
-         FROM translation_settings WHERE id = 0",
-    )
-    .fetch_one(pool)
-    .await?;
+    let document = documents::translation::read(documents).await?;
 
     Ok(StoredTranslationSettings {
         settings: TranslationSettings {
-            provider: TranslationProvider::from_str(
-                row.try_get::<String, _>("provider")?.as_str(),
-            )?,
-            target_language: row.try_get("target_language")?,
-            mode: TranslationMode::from_str(
-                row.try_get::<String, _>("mode")?.as_str(),
-            )?,
-            auto_translate: row.try_get::<i64, _>("auto_translate")? == 1,
-            style: TranslationStyle::from_str(
-                row.try_get::<String, _>("style")?.as_str(),
-            )?,
-            ai_provider_id: row.try_get("ai_provider_id")?,
-            ai_model_id: row.try_get("ai_model_id")?,
-            ai_system_prompt: row.try_get("openai_system_prompt")?,
-            deepl_api_endpoint: row.try_get("deepl_api_endpoint")?,
-            deepl_api_key: row.try_get("deepl_api_key")?,
+            provider: to_provider(&document.provider),
+            target_language: document.target_language,
+            mode: to_mode(&document.mode),
+            auto_translate: document.auto_translate,
+            style: to_style(&document.style),
+            ai_provider_id: document.ai_provider_id,
+            ai_model_id: document.ai_model_id,
+            ai_system_prompt: document.ai_system_prompt,
+            deepl_api_endpoint: document.deepl_api_endpoint,
+            deepl_api_key: document.deepl_api_key,
         },
+    })
+}
+
+/// The words a document this build does not know carries read the way the row
+/// has always read them: as the provider the launcher falls back to.
+fn to_provider(value: &str) -> TranslationProvider {
+    TranslationProvider::from_str(value).unwrap_or_else(|_| {
+        tracing::warn!(
+            %value,
+            "Reading a translation provider this build does not know as google"
+        );
+        TranslationProvider::Google
+    })
+}
+
+fn to_mode(value: &str) -> TranslationMode {
+    TranslationMode::from_str(value).unwrap_or_else(|_| {
+        tracing::warn!(
+            %value,
+            "Reading a translation mode this build does not know as bilingual"
+        );
+        TranslationMode::Bilingual
+    })
+}
+
+fn to_style(value: &str) -> TranslationStyle {
+    TranslationStyle::from_str(value).unwrap_or_else(|_| {
+        tracing::warn!(
+            %value,
+            "Reading a translation style this build does not know as weakened"
+        );
+        TranslationStyle::Weakened
     })
 }
 
 #[tracing::instrument]
 pub async fn get_settings() -> crate::Result<TranslationSettings> {
     let state = State::get().await?;
-    Ok(load_settings(&state.pool).await?.settings)
+    Ok(load_settings(&documents::Documents::new(&state))
+        .await?
+        .settings)
 }
 
 #[tracing::instrument(skip(settings))]
@@ -316,23 +331,27 @@ pub async fn update_settings(
 
     tracing::debug!(endpoint = %endpoint, "Saving DeepL endpoint");
 
-    sqlx::query(
-        "UPDATE translation_settings SET provider = ?, target_language = ?, \
-         mode = ?, auto_translate = ?, style = ?, ai_provider_id = ?, \
-         ai_model_id = ?, openai_system_prompt = ?, \
-         deepl_api_endpoint = ?, deepl_api_key = ? WHERE id = 0",
+    documents::translation::update(
+        &documents::Documents::new(&state),
+        |document| {
+            document.provider = settings.provider.as_str().to_string();
+            document.target_language =
+                settings.target_language.trim().to_string();
+            document.mode = settings.mode.as_str().to_string();
+            document.auto_translate = settings.auto_translate;
+            document.style = settings.style.as_str().to_string();
+            document.ai_provider_id =
+                settings.ai_provider_id.trim().to_string();
+            document.ai_model_id = settings.ai_model_id.trim().to_string();
+            document.ai_system_prompt = settings.ai_system_prompt;
+            document.deepl_api_endpoint = endpoint.to_string();
+            document.deepl_api_key = settings
+                .deepl_api_key
+                .as_deref()
+                .map(str::trim)
+                .map(str::to_string);
+        },
     )
-    .bind(settings.provider.as_str())
-    .bind(settings.target_language.trim())
-    .bind(settings.mode.as_str())
-    .bind(settings.auto_translate)
-    .bind(settings.style.as_str())
-    .bind(settings.ai_provider_id.trim())
-    .bind(settings.ai_model_id.trim())
-    .bind(settings.ai_system_prompt)
-    .bind(endpoint)
-    .bind(settings.deepl_api_key.as_deref().map(str::trim))
-    .execute(&state.pool)
     .await?;
 
     tracing::info!(
@@ -1086,7 +1105,7 @@ pub async fn translate(
     }
     let state = State::get().await?;
     cleanup_expired_cache(&state.derived).await?;
-    let settings = load_settings(&state.pool).await?;
+    let settings = load_settings(&documents::Documents::new(&state)).await?;
 
     let mut results = HashMap::new();
     let mut missing = Vec::new();
@@ -1159,7 +1178,8 @@ pub async fn test_provider(
     tracing::info!(provider = ?provider, "Starting translation provider test");
 
     let state = State::get().await?;
-    let mut settings = load_settings(&state.pool).await?;
+    let mut settings =
+        load_settings(&documents::Documents::new(&state)).await?;
 
     tracing::debug!(
         loaded_provider = ?settings.settings.provider,

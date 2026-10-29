@@ -2,7 +2,7 @@
 
 use sqlx::SqliteConnection;
 
-use super::Collection;
+use super::{Collection, Handle};
 
 /// The preferences, one per instance and feature.
 pub(crate) struct InstanceSyncPreferences;
@@ -146,6 +146,49 @@ impl Collection for InstanceSyncPreferences {
         }
         Ok(())
     }
+}
+
+impl InstanceSyncPreferences {
+    /// The instances that take part in `feature`.
+    pub(crate) async fn instances_with_feature_enabled(
+        handle: &Handle,
+        feature: &str,
+    ) -> crate::Result<Vec<String>> {
+        let mut connection = handle.connection().await?;
+        let rows: Vec<String> = sqlx::query_scalar(
+            "
+            SELECT instance_id
+            FROM instance_sync_preferences
+            WHERE feature = ? AND enabled = 1
+            ",
+        )
+        .bind(feature)
+        .fetch_all(&mut *connection)
+        .await?;
+
+        Ok(rows)
+    }
+}
+
+/// Turns `feature` on or off for every instance at once, adding a row to the
+/// instances that had none.
+pub(in crate::state::store) async fn set_feature_for_every_instance(
+    conn: &mut SqliteConnection,
+    feature: &str,
+    enabled: bool,
+) -> crate::Result<()> {
+    sqlx::query(
+        "INSERT INTO instance_sync_preferences (instance_id, feature, enabled)
+         SELECT id, ?, ? FROM instances
+         WHERE 1
+         ON CONFLICT(instance_id, feature) DO UPDATE SET enabled = excluded.enabled",
+    )
+    .bind(feature)
+    .bind(enabled)
+    .execute(&mut *conn)
+    .await?;
+
+    Ok(())
 }
 
 async fn write_row(

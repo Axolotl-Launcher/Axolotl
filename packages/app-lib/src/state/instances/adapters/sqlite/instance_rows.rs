@@ -1739,3 +1739,87 @@ pub(crate) async fn get_install_candidates(
 
     Ok(rows)
 }
+
+/// Marks the install stage an instance reached inside the caller's unit,
+/// answering how many rows it reached so an unknown instance is visible.
+pub(crate) async fn set_install_stage_in_transaction(
+    instance_id: &str,
+    install_stage: InstanceInstallStage,
+    modified: i64,
+    tx: &mut Transaction<'_, Sqlite>,
+) -> crate::Result<u64> {
+    let result = sqlx::query(
+        "
+        UPDATE instances
+        SET install_stage = ?, modified = ?
+        WHERE id = ?
+        ",
+    )
+    .bind(install_stage.as_str())
+    .bind(modified)
+    .bind(instance_id)
+    .execute(&mut **tx)
+    .await?;
+
+    Ok(result.rows_affected())
+}
+
+/// The instance an id or a path names, preferring the id it matches.
+pub(crate) async fn find_id_by_id_or_path<'e, E>(
+    instance: &str,
+    exec: E,
+) -> crate::Result<Option<String>>
+where
+    E: Executor<'e, Database = Sqlite>,
+{
+    let id = sqlx::query_scalar(
+        "
+        SELECT id
+        FROM instances
+        WHERE id = ? OR path = ?
+        ORDER BY CASE WHEN id = ? THEN 0 ELSE 1 END
+        LIMIT 1
+        ",
+    )
+    .bind(instance)
+    .bind(instance)
+    .bind(instance)
+    .fetch_optional(exec)
+    .await?;
+
+    Ok(id)
+}
+
+/// What an instance id or path names, preferring the id it matches.
+#[derive(Debug, sqlx::FromRow)]
+pub(crate) struct InstanceIdentityRow {
+    pub id: String,
+    pub path: String,
+    pub game_dir_override: Option<String>,
+}
+
+/// Reads the instance an id or a path names, preferring the id it matches.
+pub(crate) async fn find_identity_by_id_or_path<'e, E>(
+    instance: &str,
+    exec: E,
+) -> crate::Result<Option<InstanceIdentityRow>>
+where
+    E: Executor<'e, Database = Sqlite>,
+{
+    let row = sqlx::query_as::<_, InstanceIdentityRow>(
+        "
+        SELECT id, path, game_dir_override
+        FROM instances
+        WHERE id = ? OR path = ?
+        ORDER BY CASE WHEN id = ? THEN 0 ELSE 1 END
+        LIMIT 1
+        ",
+    )
+    .bind(instance)
+    .bind(instance)
+    .bind(instance)
+    .fetch_optional(exec)
+    .await?;
+
+    Ok(row)
+}

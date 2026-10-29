@@ -98,6 +98,7 @@ mod legacy_converter;
 pub mod attached_world_data;
 pub(crate) mod content_store;
 pub(crate) mod content_types;
+pub(crate) mod documents;
 pub mod instance_groups;
 pub(crate) mod store;
 
@@ -1273,7 +1274,7 @@ impl State {
         let pool = db::connect(&app_identifier).await?;
         let data = store::Handle::new(pool.clone());
 
-        let legacy_cache =
+        let legacy =
             legacy_converter::migrate_legacy_data(&data, &pool).await?;
 
         tracing::info!("Fetching app settings");
@@ -1317,11 +1318,30 @@ impl State {
         let directories =
             DirectoryInfo::init(settings.custom_dir, &app_identifier).await?;
 
+        documents::hand_over(&pool, &directories.settings_dir).await;
+
+        if !legacy.java_versions.is_empty() {
+            let documents = documents::Documents::at(
+                directories.settings_dir.join(documents::DIR_NAME),
+                &pool,
+            );
+            if let Err(error) =
+                JavaVersion::save_all(&documents, &legacy.java_versions).await
+            {
+                tracing::warn!(
+                    %error,
+                    "Failed to record the imported Java runtimes"
+                );
+            }
+        }
+
         let derived = store::derived_db::DerivedDb::open(
             directories.caches_dir().join(store::derived_db::FILE_NAME),
         )
         .await;
-        CachedEntry::store_best_effort(&legacy_cache, derived.pool()).await;
+        CachedEntry::store_best_effort(&legacy.cached_entries, derived.pool())
+            .await;
+        forget_removed_instances(&pool, &derived).await;
 
         let discord_rpc = DiscordGuard::init()?;
 
@@ -1459,6 +1479,70 @@ impl State {
         instance_id: &str,
     ) -> InstanceLockGuard {
         self.instance_locks.lock_exclusive(instance_id).await
+    }
+}
+
+/// Drops the derived rows whose instance is gone. They left the database that
+/// owns `instances`, so no foreign key removes them: the deletion path does,
+/// and this pass at startup catches what a deletion that never finished left
+/// behind. It reads the two derived tables once and asks about the instances
+/// they name, so a database with no left-over rows costs two reads.
+async fn forget_removed_instances(
+    pool: &SqlitePool,
+    derived: &store::derived_db::DerivedDb,
+) {
+    let mut instance_ids =
+        match store::content_refresh_pack::ContentRefreshPacks::instance_ids(
+            derived,
+        )
+        .await
+        {
+            Ok(instance_ids) => instance_ids,
+            Err(error) => {
+                tracing::warn!(
+                    %error,
+                    "Failed to read the instances the saved pack metadata names"
+                );
+                return;
+            }
+        };
+    match store::content_refresh_scan_failures::ContentRefreshScanFailures::instance_ids(
+        derived,
+    )
+    .await
+    {
+        Ok(failures) => instance_ids.extend(failures),
+        Err(error) => {
+            tracing::warn!(
+                %error,
+                "Failed to read the instances the scan failures name"
+            );
+        }
+    }
+    instance_ids.sort();
+    instance_ids.dedup();
+    for instance_id in instance_ids {
+        match instances::adapters::sqlite::instance_rows::get_instance_path_by_id(
+            &instance_id,
+            pool,
+        )
+        .await
+        {
+            Ok(Some(_)) => continue,
+            Ok(None) => tracing::debug!(
+                instance_id,
+                "Dropping the derived records of a removed instance"
+            ),
+            Err(error) => {
+                tracing::warn!(
+                    %error,
+                    instance_id,
+                    "Failed to check whether a derived record's instance exists"
+                );
+                continue;
+            }
+        }
+        instances::commands::forget_derived_rows(&instance_id, derived).await;
     }
 }
 

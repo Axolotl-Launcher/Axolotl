@@ -1,6 +1,14 @@
 use super::super::types::{ProjectionEntry, ProjectionOwner};
 use super::super::{codec, limits, projection, reconciliation, storage};
 use super::*;
+use crate::state::store::Collection as _;
+use crate::state::store::instance_sync_preferences::{
+    InstancePreferenceKey, InstanceSyncPreferences,
+};
+use crate::state::store::sync_feature_settings::{
+    FeatureSettingsKey, SyncFeatureSettings,
+};
+use crate::state::store::synced_servers::{SyncedServerRecord, SyncedServers};
 use std::sync::Arc;
 
 fn server(id: &str) -> CanonicalServer {
@@ -99,10 +107,14 @@ async fn capture_and_pending_checkpoint_roll_back_together() {
     commit_server_state(Some(&[server("original")]), None, &state)
         .await
         .unwrap();
-    sqlx::query(
-        "DELETE FROM instance_sync_preferences WHERE instance_id = 'a'",
+    InstanceSyncPreferences::set(
+        &state.data,
+        &InstancePreferenceKey {
+            instance_id: "a".to_string(),
+            feature: "multiplayer_servers".to_string(),
+        },
+        None,
     )
-    .execute(&state.pool)
     .await
     .unwrap();
     assert!(
@@ -170,15 +182,19 @@ async fn generated_file_provenance_requires_the_same_physical_directory() {
 #[tokio::test]
 async fn oversized_database_list_is_preserved_and_rejected_before_decoding() {
     let (_temp, state, _) = fixture().await;
-    sqlx::query("INSERT INTO synced_servers(id, position, nbt) VALUES ('oversized', 0, zeroblob(?))")
-        .bind(limits::MAX_SERVER_BYTES as i64 + 1).execute(&state.pool).await.unwrap();
+    SyncedServers::set(
+        &state.data,
+        &"oversized".to_string(),
+        Some(&SyncedServerRecord {
+            position: 0,
+            nbt: vec![0; limits::MAX_SERVER_BYTES + 1],
+        }),
+    )
+    .await
+    .unwrap();
     let error = read_canonical(&state).await.err().unwrap();
     assert!(matches!(error.raw.as_ref(), ErrorKind::InputError(_)));
-    let count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM synced_servers")
-        .fetch_one(&state.pool)
-        .await
-        .unwrap();
-    assert_eq!(count, 1);
+    assert_eq!(SyncedServers::get_all(&state.data).await.unwrap().len(), 1);
 }
 
 #[test]
@@ -246,8 +262,17 @@ async fn missing_directory_and_disabled_sync_do_not_create_projection() {
             .is_none()
     );
     std::fs::create_dir(&root).unwrap();
-    sqlx::query("UPDATE sync_feature_settings SET globally_enabled = 0 WHERE feature = 'multiplayer_servers'")
-        .execute(&state.pool).await.unwrap();
+    let key = FeatureSettingsKey {
+        feature: "multiplayer_servers".to_string(),
+    };
+    let mut settings = SyncFeatureSettings::get(&state.data, &key)
+        .await
+        .unwrap()
+        .unwrap();
+    settings.globally_enabled = false;
+    SyncFeatureSettings::set(&state.data, &key, Some(&settings))
+        .await
+        .unwrap();
     compose_instance(&metadata, &state).await.unwrap();
     reconcile_servers(&metadata, &state).await.unwrap();
     assert!(!root.join(SERVERS_FILE).exists());

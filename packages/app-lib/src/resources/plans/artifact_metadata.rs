@@ -31,9 +31,13 @@ impl ArtifactMetadataReader for RuntimeArtifactMetadataReader {
             .find(|hash| hash.algorithm == HashAlgorithm::Sha1)
             && let Some(size) = artifact.integrity.size
         {
-            let cached: Vec<String> = sqlx::query_scalar(
-                "SELECT local_mod_data FROM instance_files WHERE missing = 0 AND local_mod_data IS NOT NULL AND sha1 = ? COLLATE NOCASE AND size = ?"
-            ).bind(&sha1.value).bind(size as i64).fetch_all(&state.pool).await.map_err(db)?;
+            let cached = crate::state::instances::adapters::sqlite::files::get_local_mod_data_for_artifact(
+                &sha1.value,
+                size as i64,
+                &state.pool,
+            )
+            .await
+            .map_err(|error| ResourceError::Database(error.to_string()))?;
             for json in cached {
                 if let Ok(metadata) = serde_json::from_str(&json) {
                     return Ok(Some(metadata));

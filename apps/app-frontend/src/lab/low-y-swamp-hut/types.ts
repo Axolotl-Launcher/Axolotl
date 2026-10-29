@@ -1,8 +1,10 @@
 /**
  * One swamp hut the search found, in world coordinates.
  *
- * `y` is the lowest block of the hut's platform: the whole point of the tool is
- * finding the hut that sits lowest for a given seed.
+ * `y` is the average height of the hut's footprint, which is what the search
+ * program reports. The whole point of the tool is finding the hut that sits
+ * lowest for a given seed, so compare huts rather than treating `y` as a block
+ * coordinate.
  */
 export interface SwampHutHit {
     x: number

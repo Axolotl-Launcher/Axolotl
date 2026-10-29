@@ -156,12 +156,20 @@ pub async fn low_y_swamp_hut_scan<R: tauri::Runtime>(
     }
 
     let started = Instant::now();
-    // The program takes a signed 64-bit seed. A textual seed is hashed the same
-    // way vanilla does before it reaches the terrain generator, which the
-    // program cannot do itself, so reject rather than silently scanning 0.
-    let numeric_seed: i64 = seed
-        .parse()
-        .map_err(|_| "the seed must be a whole number; textual seeds are not supported yet".to_string())?;
+    // The program takes a signed 64-bit seed, but vanilla also accepts text.
+    // A non-numeric seed goes through Java's `String.hashCode` before it reaches
+    // the terrain generator, so reproduce that rather than rejecting the input
+    // the page advertises.
+    let numeric_seed: i64 = match seed.parse::<i64>() {
+        Ok(parsed) => parsed,
+        Err(_) => {
+            let mut hash: i32 = 0;
+            for unit in seed.encode_utf16() {
+                hash = hash.wrapping_mul(31).wrapping_add(unit as i32);
+            }
+            hash as i64
+        }
+    };
 
     // The limits the UI offers are advisory: this command is reachable over IPC
     // directly, and the scan is CPU-bound for as long as it runs, so clamp here

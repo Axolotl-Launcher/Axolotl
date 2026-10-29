@@ -7,7 +7,7 @@ import {
     StyledInput,
     useVIntl,
 } from '@modrinth/ui'
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 
 import StructureFinderLayout from '@/components/lab/seed-map/StructureFinderLayout.vue'
 import { lowYSwampHutAvailable, scanLowYSwampHut } from '@/lab/low-y-swamp-hut/client'
@@ -142,6 +142,13 @@ async function run() {
     }
 }
 
+// A finished scan describes the inputs it ran with. Changing any of them makes
+// the table describe a search the user is no longer looking at, so drop it
+// rather than let old coordinates pass for the new ones.
+watch([seed, regions, threads], () => {
+    result.value = null
+})
+
 const rows = computed(() => {
     const hits = result.value?.hits ?? []
     return [...hits].sort((a, b) => a.y - b.y)
@@ -234,7 +241,7 @@ async function copyTeleport(hit: { x: number; z: number; y: number }) {
                         type="number"
                         min="1"
                         max="4096"
-                        class="rounded-md border border-solid border-surface-5 bg-surface-1 px-3 py-2 text-sm"
+                        class="rounded-md border border-solid border-surface-5 bg-surface-3 px-3 py-2 text-sm"
                         :disabled="scanning || available === false"
                     />
                 </label>
@@ -247,7 +254,7 @@ async function copyTeleport(hit: { x: number; z: number; y: number }) {
                         type="number"
                         min="0"
                         max="64"
-                        class="rounded-md border border-solid border-surface-5 bg-surface-1 px-3 py-2 text-sm"
+                        class="rounded-md border border-solid border-surface-5 bg-surface-3 px-3 py-2 text-sm"
                         :disabled="scanning || available === false"
                     />
                 </label>
@@ -261,7 +268,7 @@ async function copyTeleport(hit: { x: number; z: number; y: number }) {
                 <span class="text-sm font-medium">{{ formatMessage(messages.versionLabel) }}</span>
                 <select
                     v-model="version"
-                    class="rounded-md border border-solid border-surface-5 bg-surface-1 px-3 py-2 text-sm"
+                    class="rounded-md border border-solid border-surface-5 bg-surface-3 px-3 py-2 text-sm"
                     :disabled="scanning || available === false"
                 >
                     <option v-for="option in VERSION_OPTIONS" :key="option" :value="option">
@@ -274,7 +281,7 @@ async function copyTeleport(hit: { x: number; z: number; y: number }) {
                 <span class="text-sm font-medium">{{ formatMessage(messages.presetLabel) }}</span>
                 <select
                     v-model="preset"
-                    class="rounded-md border border-solid border-surface-5 bg-surface-1 px-3 py-2 text-sm"
+                    class="rounded-md border border-solid border-surface-5 bg-surface-3 px-3 py-2 text-sm"
                     :disabled="scanning || available === false"
                 >
                     <option v-for="option in PRESET_OPTIONS" :key="option" :value="option">
@@ -293,7 +300,7 @@ async function copyTeleport(hit: { x: number; z: number; y: number }) {
                         type="number"
                         min="-64"
                         max="320"
-                        class="rounded-md border border-solid border-surface-5 bg-surface-1 px-3 py-2 text-sm"
+                        class="rounded-md border border-solid border-surface-5 bg-surface-3 px-3 py-2 text-sm"
                         :disabled="scanning || available === false"
                     />
                 </label>
@@ -306,7 +313,7 @@ async function copyTeleport(hit: { x: number; z: number; y: number }) {
                         type="number"
                         min="-64"
                         max="320"
-                        class="rounded-md border border-solid border-surface-5 bg-surface-1 px-3 py-2 text-sm"
+                        class="rounded-md border border-solid border-surface-5 bg-surface-3 px-3 py-2 text-sm"
                         :disabled="scanning || available === false"
                     />
                 </label>

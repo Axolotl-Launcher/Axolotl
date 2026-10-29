@@ -4713,7 +4713,7 @@
     "message": "Find the swamp hut that generates lowest for a given world seed. The scan replays vanilla terrain generation, so it runs for the regions you ask for rather than the whole world."
   },
   "app.lab.low-y-swamp-hut.elapsed": {
-    "message": "Scanned in {ms} ms"
+    "message": "Scanned in {seconds} s"
   },
   "app.lab.low-y-swamp-hut.empty-body": {
     "message": "Enter a seed and run a scan to see where the swamp huts land."
@@ -7422,7 +7422,7 @@
     "message": "Trial chamber scan finished"
   },
   "app.lab.trial-chamber.elapsed": {
-    "message": "Scanned in {ms} ms"
+    "message": "Scanned in {seconds} s"
   },
   "app.lab.trial-chamber.empty-body": {
     "message": "Enter a seed and run a scan to see where the trial chambers land."

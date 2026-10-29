@@ -64,7 +64,7 @@ const messages = defineMessages({
         defaultMessage: 'Distance',
     },
     lowest: { id: 'app.lab.low-y-swamp-hut.lowest', defaultMessage: 'Lowest Y: {y}' },
-    elapsed: { id: 'app.lab.low-y-swamp-hut.elapsed', defaultMessage: 'Scanned in {ms} ms' },
+    elapsed: { id: 'app.lab.low-y-swamp-hut.elapsed', defaultMessage: 'Scanned in {seconds} s' },
     copyTp: { id: 'app.lab.low-y-swamp-hut.copy-tp', defaultMessage: 'Copy /tp' },
     copied: { id: 'app.lab.low-y-swamp-hut.copied', defaultMessage: 'Copied' },
     scanDoneTitle: {
@@ -214,7 +214,7 @@ async function copyTeleport(hit: { x: number; z: number; y: number }) {
                 <template v-if="result.lowestY !== null">
                     {{ formatMessage(messages.lowest, { y: result.lowestY }) }} ·
                 </template>
-                {{ formatMessage(messages.elapsed, { ms: result.elapsedMs }) }}
+                {{ formatMessage(messages.elapsed, { seconds: (result.elapsedMs / 1000).toFixed(1) }) }}
             </span>
         </template>
 

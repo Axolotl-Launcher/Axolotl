@@ -60,7 +60,7 @@ const messages = defineMessages({
     copyTp: { id: 'app.lab.trial-chamber.copy-tp', defaultMessage: 'Copy /tp' },
     copied: { id: 'app.lab.trial-chamber.copied', defaultMessage: 'Copied' },
     best: { id: 'app.lab.trial-chamber.best', defaultMessage: 'Most spawners: {count}' },
-    elapsed: { id: 'app.lab.trial-chamber.elapsed', defaultMessage: 'Scanned in {ms} ms' },
+    elapsed: { id: 'app.lab.trial-chamber.elapsed', defaultMessage: 'Scanned in {seconds} s' },
     doneTitle: {
         id: 'app.lab.trial-chamber.done-title',
         defaultMessage: 'Trial chamber scan finished',
@@ -165,7 +165,7 @@ async function copyTeleport(hit: { centerX: number; centerZ: number }) {
                 <template v-if="result.bestSpawners !== null">
                     {{ formatMessage(messages.best, { count: result.bestSpawners }) }} ·
                 </template>
-                {{ formatMessage(messages.elapsed, { ms: result.elapsedMs }) }}
+                {{ formatMessage(messages.elapsed, { seconds: (result.elapsedMs / 1000).toFixed(1) }) }}
             </span>
         </template>
 

@@ -7914,7 +7914,7 @@
     "message": "为指定种子找出 Y 坐标最低的女巫小屋。扫描会重演原版地形生成，因此只跑你指定的区域数量。"
   },
   "app.lab.low-y-swamp-hut.elapsed": {
-    "message": "耗时 {ms} 毫秒"
+    "message": "耗时 {seconds} 秒"
   },
   "app.lab.low-y-swamp-hut.empty-body": {
     "message": "输入种子并开始扫描，即可看到女巫小屋的位置。"
@@ -10623,7 +10623,7 @@
     "message": "试炼密室扫描完成"
   },
   "app.lab.trial-chamber.elapsed": {
-    "message": "耗时 {ms} 毫秒"
+    "message": "耗时 {seconds} 秒"
   },
   "app.lab.trial-chamber.empty-body": {
     "message": "输入种子并开始扫描，即可看到试炼密室的位置。"

@@ -212,7 +212,7 @@ async function copyTeleport(hit: { x: number; z: number; y: number }) {
         <template #summary>
             <span v-if="result" class="text-xs text-[var(--color-text-tertiary)]">
                 <template v-if="result.lowestY !== null">
-                    {{ formatMessage(messages.lowest, { y: result.lowestY }) }} ·
+                    {{ formatMessage(messages.lowest, { y: result.lowestY.toFixed(1) }) }} ·
                 </template>
                 {{ formatMessage(messages.elapsed, { seconds: (result.elapsedMs / 1000).toFixed(1) }) }}
             </span>
@@ -234,7 +234,7 @@ async function copyTeleport(hit: { x: number; z: number; y: number }) {
             >
                 <td class="py-1 pr-3">{{ hit.x }}</td>
                 <td class="py-1 pr-3">{{ hit.z }}</td>
-                <td class="py-1 pr-3 font-semibold">{{ hit.y }}</td>
+                <td class="py-1 pr-3 font-semibold">{{ hit.y.toFixed(1) }}</td>
                 <td class="py-1 pr-3">{{ Math.round(hit.distance) }}</td>
                 <td class="py-1">
                     <Button size="2xs" type="quiet" @click="copyTeleport(hit)">

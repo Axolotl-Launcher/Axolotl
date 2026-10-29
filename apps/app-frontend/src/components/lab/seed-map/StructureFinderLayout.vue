@@ -60,7 +60,7 @@ const blocked = computed(() => props.available === false)
             <h1 class="m-0 text-2xl font-bold text-[var(--color-text-primary)]">
                 {{ props.title }}
             </h1>
-            <p class="m-0 max-w-3xl text-sm text-[var(--color-text-secondary)]">
+            <p class="m-0 max-w-3xl text-sm text-[var(--color-text-default)]">
                 {{ props.description }}
             </p>
         </header>
@@ -72,7 +72,7 @@ const blocked = computed(() => props.available === false)
             <AlertCircleIcon class="mt-0.5 size-5 shrink-0 text-[var(--color-orange)]" />
             <div class="flex flex-col gap-1">
                 <strong class="text-sm">{{ formatMessage(messages.unavailableTitle) }}</strong>
-                <span class="text-sm text-[var(--color-text-secondary)]">
+                <span class="text-sm text-[var(--color-text-default)]">
                     {{ props.unavailableBody }}
                 </span>
             </div>
@@ -102,7 +102,7 @@ const blocked = computed(() => props.available === false)
                     class="flex flex-1 flex-col items-center justify-center gap-1 rounded-lg border border-solid border-surface-4 bg-surface-2 p-8 text-center"
                 >
                     <strong class="text-sm">{{ formatMessage(messages.emptyTitle) }}</strong>
-                    <span class="text-sm text-[var(--color-text-secondary)]">
+                    <span class="text-sm text-[var(--color-text-default)]">
                         {{ formatMessage(messages.emptyBody) }}
                     </span>
                 </div>

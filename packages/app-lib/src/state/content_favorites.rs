@@ -1,16 +1,13 @@
-use chrono::Utc;
 use serde::{Deserialize, Serialize};
 
+use crate::resources::favorites as resource_favorites;
+use crate::resources::{
+    ResourceType, SourceId, SourceProjectId, SourceProjectRef,
+};
 pub use crate::state::content_types::{
     ContentFavoriteProvider, ContentFavoriteType,
 };
-use crate::state::store::content_favorites::{
-    ContentFavoriteKey, ContentFavoriteRecord, ContentFavorites,
-};
-use crate::state::store::resource_source_projects::{
-    ResourceSourceProjectKey, ResourceSourceProjects,
-};
-use crate::state::store::{Collection as _, Handle};
+use crate::state::store::Handle;
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct ContentFavorite {
@@ -29,24 +26,71 @@ pub struct ContentFavoriteInput {
     pub content_type: ContentFavoriteType,
 }
 
-impl ContentFavoriteInput {
-    fn validate(&self) -> crate::Result<()> {
-        if self.project_id.trim().is_empty() {
-            return Err(crate::ErrorKind::InputError(
-                "A content favorite must have a project ID".to_string(),
-            )
-            .into());
-        }
-        Ok(())
+fn source_project(
+    provider: ContentFavoriteProvider,
+    project_id: &str,
+) -> crate::Result<SourceProjectRef> {
+    if project_id.trim().is_empty() {
+        return Err(crate::ErrorKind::InputError(
+            "A content favorite must have a project ID".to_string(),
+        )
+        .into());
+    }
+    Ok(SourceProjectRef {
+        source: SourceId::new(provider.as_str())
+            .map_err(|error| crate::ErrorKind::InputError(error.to_string()))?,
+        project_id: SourceProjectId::new(project_id.trim())
+            .map_err(|error| crate::ErrorKind::InputError(error.to_string()))?,
+    })
+}
+
+fn favorite_type(value: ResourceType) -> Option<ContentFavoriteType> {
+    match value {
+        ResourceType::Mod => Some(ContentFavoriteType::Mod),
+        ResourceType::ResourcePack => Some(ContentFavoriteType::Resourcepack),
+        ResourceType::DataPack => Some(ContentFavoriteType::Datapack),
+        ResourceType::Shader => Some(ContentFavoriteType::Shader),
+        _ => None,
     }
 }
 
+fn resource_type(value: ContentFavoriteType) -> ResourceType {
+    match value {
+        ContentFavoriteType::Mod => ResourceType::Mod,
+        ContentFavoriteType::Resourcepack => ResourceType::ResourcePack,
+        ContentFavoriteType::Datapack => ResourceType::DataPack,
+        ContentFavoriteType::Shader => ResourceType::Shader,
+    }
+}
+
+/// A source or content type this vocabulary does not name is left out. That is
+/// the same set the retired table holds today, because the resource layer only
+/// mirrors modrinth, curseforge and mcarchive into it; the filter and this
+/// module retire with that table.
+fn content_favorite(
+    favorite: resource_favorites::SavedFavorite,
+) -> Option<ContentFavorite> {
+    let provider =
+        ContentFavoriteProvider::parse(favorite.project.source.as_str())
+            .ok()?;
+    Some(ContentFavorite {
+        resource_id: favorite.resource_id.map(|id| id.as_str().to_string()),
+        provider,
+        project_id: favorite.project.project_id.as_str().to_string(),
+        content_type: favorite_type(favorite.content_type)?,
+        saved_at: favorite.saved_at,
+    })
+}
+
 pub(crate) async fn list(
-    handle: &Handle,
+    _handle: &Handle,
 ) -> crate::Result<Vec<ContentFavorite>> {
+    let state = crate::State::get().await?;
     let mut favorites = Vec::new();
-    for (key, record) in ContentFavorites::get_all(handle).await? {
-        favorites.push(with_resource(handle, key, record).await?);
+    for favorite in resource_favorites::saved(&state.pool).await? {
+        if let Some(favorite) = content_favorite(favorite) {
+            favorites.push(favorite);
+        }
     }
 
     favorites.sort_by(|left, right| {
@@ -61,73 +105,43 @@ pub(crate) async fn list(
 
 pub(crate) async fn add(
     favorite: ContentFavoriteInput,
-    handle: &Handle,
+    _handle: &Handle,
 ) -> crate::Result<ContentFavorite> {
-    favorite.validate()?;
-    let key = ContentFavoriteKey {
-        provider: favorite.provider,
-        project_id: favorite.project_id.trim().to_string(),
-    };
-    // The write keeps the moment an existing favorite was first saved, so the
-    // record the collection hands back is the one the list is ordered by.
-    ContentFavorites::set(
-        handle,
-        &key,
-        Some(&ContentFavoriteRecord {
-            content_type: favorite.content_type,
-            saved_at: Utc::now().timestamp_millis(),
-        }),
+    let project = source_project(favorite.provider, &favorite.project_id)?;
+    resource_favorites::add(
+        project.clone(),
+        resource_type(favorite.content_type),
+        None,
     )
     .await?;
-    let stored = ContentFavorites::get(handle, &key).await?;
-    match stored {
-        Some(record) => with_resource(handle, key, record).await,
-        None => Err(crate::ErrorKind::OtherError(
-            "The favorite was removed while it was being saved".to_string(),
-        )
-        .into()),
-    }
+    // The write reports nothing, and reading the row back keeps the moment an
+    // existing favorite was first saved.
+    let state = crate::State::get().await?;
+    let saved = resource_favorites::saved(&state.pool)
+        .await?
+        .into_iter()
+        .find(|saved| saved.project == project)
+        .ok_or_else(|| {
+            crate::ErrorKind::OtherError(
+                "The favorite was removed while it was being saved".to_string(),
+            )
+        })?;
+    Ok(ContentFavorite {
+        resource_id: saved.resource_id.map(|id| id.as_str().to_string()),
+        provider: favorite.provider,
+        project_id: project.project_id.as_str().to_string(),
+        content_type: favorite.content_type,
+        saved_at: saved.saved_at,
+    })
 }
 
 pub(crate) async fn remove(
     provider: ContentFavoriteProvider,
     project_id: &str,
-    handle: &Handle,
+    _handle: &Handle,
 ) -> crate::Result<()> {
-    if project_id.trim().is_empty() {
-        return Err(crate::ErrorKind::InputError(
-            "A content favorite must have a project ID".to_string(),
-        )
-        .into());
-    }
-
-    let key = ContentFavoriteKey {
-        provider,
-        project_id: project_id.trim().to_string(),
-    };
-    ContentFavorites::set(handle, &key, None).await
-}
-
-async fn with_resource(
-    handle: &Handle,
-    key: ContentFavoriteKey,
-    record: ContentFavoriteRecord,
-) -> crate::Result<ContentFavorite> {
-    let resource_id = ResourceSourceProjects::get(
-        handle,
-        &ResourceSourceProjectKey {
-            source: key.provider.as_str().to_string(),
-            project_id: key.project_id.clone(),
-        },
-    )
-    .await?
-    .map(|project| project.resource_id);
-
-    Ok(ContentFavorite {
-        resource_id,
-        provider: key.provider,
-        project_id: key.project_id,
-        content_type: record.content_type,
-        saved_at: record.saved_at,
-    })
+    let project = source_project(provider, project_id)?;
+    let state = crate::State::get().await?;
+    resource_favorites::remove_project(&state.pool, &project).await?;
+    Ok(())
 }

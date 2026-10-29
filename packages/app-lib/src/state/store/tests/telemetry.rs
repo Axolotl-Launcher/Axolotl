@@ -3,7 +3,6 @@
 
 use super::support;
 use crate::state::store::Collection as _;
-use crate::state::store::Handle;
 use crate::state::store::telemetry_identity::{
     Installation, TelemetryIdentity, TelemetryIdentityRecord,
 };
@@ -11,10 +10,6 @@ use crate::state::store::telemetry_outbox::{
     TelemetryEventType, TelemetryOutbox, TelemetryOutboxRecord,
     TelemetryOutboxScope,
 };
-
-fn handle_of(pool: &sqlx::SqlitePool) -> Handle {
-    Handle::new(pool.clone())
-}
 
 fn identity(day: Option<&str>) -> TelemetryIdentityRecord {
     TelemetryIdentityRecord {
@@ -247,8 +242,7 @@ async fn an_event_outside_the_scope_is_refused() {
 
 #[tokio::test]
 async fn an_event_kind_the_table_does_not_trust_is_no_event() {
-    let pool = support::pool().await;
-    let handle = handle_of(&pool);
+    let handle = support::handle().await;
     sqlx::raw_sql(
         "PRAGMA ignore_check_constraints = ON;
          INSERT INTO telemetry_outbox (
@@ -260,7 +254,7 @@ async fn an_event_kind_the_table_does_not_trust_is_no_event() {
          );
          PRAGMA ignore_check_constraints = OFF;",
     )
-    .execute(&pool)
+    .execute(handle.pool())
     .await
     .unwrap();
 
@@ -273,8 +267,7 @@ async fn an_event_kind_the_table_does_not_trust_is_no_event() {
 
 #[tokio::test]
 async fn a_row_another_part_of_the_queue_owns_is_refused() {
-    let pool = support::pool().await;
-    let handle = handle_of(&pool);
+    let handle = support::handle().await;
     // An error event under one id, and one this build cannot read under another.
     sqlx::raw_sql(
         "PRAGMA ignore_check_constraints = ON;
@@ -287,7 +280,7 @@ async fn a_row_another_part_of_the_queue_owns_is_refused() {
              ('legacy', 'legacy', jsonb('{\"type\":\"legacy\"}'), 1, 100, 0,
               19, 'legacy')",
     )
-    .execute(&pool)
+    .execute(handle.pool())
     .await
     .unwrap();
 

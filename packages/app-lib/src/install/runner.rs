@@ -843,7 +843,10 @@ pub async fn cancel_job(job_id: Uuid) -> crate::Result<InstallJobSnapshot> {
                 emit_install_job(&record.snapshot()).await?;
                 return Ok(record.snapshot());
             }
-            InstallJobStatus::Canceling | InstallJobStatus::Canceled => {
+            // Only Canceled is final: its cleanup already ran, so there is
+            // nothing left to retry. Canceling falls through to the arm below,
+            // which retries the cleanup instead of leaving the job stuck.
+            InstallJobStatus::Canceled => {
                 return Ok(job.snapshot());
             }
             InstallJobStatus::Queued | InstallJobStatus::WaitingForUser => {

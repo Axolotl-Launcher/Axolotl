@@ -38,6 +38,7 @@ pub const MAX_MINTS_PER_OPERATION: usize = 10;
 /// A live scheduling tag. Not `Clone`: whoever holds it holds the level.
 #[derive(Debug)]
 pub struct Tag {
+    registry: u64,
     id: u64,
     generation: u64,
     level: Level,
@@ -80,12 +81,17 @@ pub struct TagRecord {
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum TagError {
-    /// The tag was minted by an earlier supervisor generation.
+    /// The tag was minted by another registry or an earlier generation.
     Stale { tag: u64, generation: u64 },
 }
 
+/// Distinguishes registries within one process, so a tag minted by one is
+/// never accepted by another even when their generations and ids match.
+static NEXT_REGISTRY: AtomicU64 = AtomicU64::new(1);
+
 /// Live tags of one supervisor generation.
 pub struct TagRegistry {
+    id: u64,
     generation: u64,
     next: AtomicU64,
     live: DashMap<u64, TagRecord>,
@@ -95,6 +101,7 @@ pub struct TagRegistry {
 impl TagRegistry {
     pub(crate) fn new(generation: u64) -> Self {
         Self {
+            id: NEXT_REGISTRY.fetch_add(1, Ordering::Relaxed),
             generation,
             next: AtomicU64::new(1),
             live: DashMap::new(),
@@ -106,10 +113,12 @@ impl TagRegistry {
         self.generation
     }
 
-    /// The only way to obtain a [`Tag`].
-    pub(crate) fn mint(&self, level: Level, origin: &str) -> Tag {
+    /// The only way to obtain a [`Tag`]; scheduler code reaches it through
+    /// `Supervisor::mint`.
+    pub(super) fn mint(&self, level: Level, origin: &str) -> Tag {
         let id = self.next.fetch_add(1, Ordering::Relaxed);
         let tag = Tag {
+            registry: self.id,
             id,
             generation: self.generation,
             level,
@@ -132,9 +141,7 @@ impl TagRegistry {
     /// A child tag for work spawned by `parent`. Derivation never raises the
     /// privilege: asking for a more privileged level keeps the parent's.
     pub fn derive(&self, parent: &Tag, level: Level) -> Result<Tag, TagError> {
-        if parent.generation != self.generation
-            || !self.live.contains_key(&parent.id)
-        {
+        if !self.is_live(parent) {
             return Err(TagError::Stale {
                 tag: parent.id,
                 generation: parent.generation,
@@ -145,11 +152,17 @@ impl TagRegistry {
 
     /// Ends a tag's life; its record leaves the registry.
     pub fn release(&self, tag: Tag) {
-        self.live.remove(&tag.id);
+        if self.owns(&tag) {
+            self.live.remove(&tag.id);
+        }
     }
 
     pub fn is_live(&self, tag: &Tag) -> bool {
-        tag.generation == self.generation && self.live.contains_key(&tag.id)
+        self.owns(tag) && self.live.contains_key(&tag.id)
+    }
+
+    fn owns(&self, tag: &Tag) -> bool {
+        tag.registry == self.id && tag.generation == self.generation
     }
 
     /// `mint_count_per_user_operation` for one origin.
@@ -159,8 +172,12 @@ impl TagRegistry {
 
     /// Restart reconciliation: every surviving record gets a fresh tag of this
     /// generation, keyed by the record's old id. The level comes from
-    /// `level_of` — the persisted level is never trusted.
-    pub fn reconcile(
+    /// `level_of` — the persisted level is never trusted. Only scheduler code
+    /// reconciles: a record is data, and minting from one is a trusted act.
+    // No tags are persisted yet, so only the tests call this until the
+    // supervisor gains a restart path.
+    #[cfg_attr(not(test), allow(dead_code))]
+    pub(super) fn reconcile(
         &self,
         records: impl IntoIterator<Item = TagRecord>,
         level_of: impl Fn(&TagRecord) -> Level,
@@ -259,6 +276,19 @@ mod tests {
             }
         );
         assert!(!after.is_live(&tag));
+    }
+
+    #[test]
+    fn a_tag_from_another_registry_is_never_accepted() {
+        let first = TagRegistry::new(1);
+        let second = TagRegistry::new(1);
+        let foreign = first.mint(Level::L0, "a");
+        let own = second.mint(Level::L3, "b");
+        assert_eq!(foreign.id(), own.id(), "same generation and id");
+        assert!(!second.is_live(&foreign));
+        assert!(second.derive(&foreign, Level::L0).is_err());
+        second.release(foreign);
+        assert!(second.is_live(&own), "releasing a foreign tag keeps ours");
     }
 
     #[test]

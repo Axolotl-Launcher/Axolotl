@@ -511,6 +511,10 @@ const messages = defineMessages({
         defaultMessage: 'End city (without ship)',
     },
     endGateway: { id: 'app.lab.seed-map.feature.end-gateway', defaultMessage: 'End gateway' },
+    finderHint: {
+        id: 'app.lab.seed-map.finder-hint',
+        defaultMessage: 'Hold to open the {name} finder',
+    },
     oreEmerald: { id: 'app.lab.seed-map.ore.emerald', defaultMessage: 'Emerald ore' },
     oreQuartz: { id: 'app.lab.seed-map.ore.quartz', defaultMessage: 'Nether quartz ore' },
     oreNetherGold: { id: 'app.lab.seed-map.ore.nether_gold', defaultMessage: 'Nether gold ore' },
@@ -3130,6 +3134,13 @@ function selectDimension(dimension: SeedMapDimension) {
                                 named: showLayerNames,
                             }"
                             :aria-pressed="workspace.visibleFeatures.includes(feature.kind)"
+                            :title="
+                                FINDER_ROUTES[feature.kind]
+                                    ? formatMessage(messages.finderHint, {
+                                          name: featureLabel(feature.kind),
+                                      })
+                                    : undefined
+                            "
                             @click="toggleFeature(feature.kind)"
                             @pointerdown="startFinderPress(feature.kind)"
                             @pointerup="cancelFinderPress"

@@ -6512,6 +6512,9 @@
   "app.lab.seed-map.feature.village": {
     "message": "Village"
   },
+  "app.lab.seed-map.finder-hint": {
+    "message": "Hold to open the {name} finder"
+  },
   "app.lab.seed-map.fullscreen": {
     "message": "Fullscreen"
   },

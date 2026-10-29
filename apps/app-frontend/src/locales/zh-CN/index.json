@@ -9713,6 +9713,9 @@
   "app.lab.seed-map.feature.village": {
     "message": "村庄"
   },
+  "app.lab.seed-map.finder-hint": {
+    "message": "长按打开{name}查找器"
+  },
   "app.lab.seed-map.fullscreen": {
     "message": "全屏"
   },

@@ -1,3 +1,4 @@
+import { resourceAnalysisRequest } from '@/helpers/resource-analysis-request'
 import {
     resourceAnalysisClose,
     resourceAnalysisOpen,
@@ -73,31 +74,100 @@ const selectionKey = (input: ContentAnalysisInput) =>
  * analyzed again until the selection changes or a review asks for it.
  */
 export function createContentAnalysis() {
-    let current: {
+    type Analysis = {
         key: string
         input: ContentAnalysisInput
         controller: AbortController
+        /** Only cart changes and user cancellation invalidate an open review. */
+        invalidation: AbortController
         session: Promise<string>
         pending: Promise<ResourceOperationPlan>
         settled: boolean
+        failed: boolean
         revision: number
         progress: ProgressReplay
         listeners: Set<(progress: ResourceOperationProgress) => void>
-    } | null = null
+    }
+    let current: Analysis | null = null
     let session: { context: string; id: Promise<string> } | null = null
     let revision = 0
     let latest: ContentAnalysisInput | null = null
     let canceledSelection: string | null = null
+
+    function closeSession() {
+        const previous = session
+        session = null
+        if (previous) void previous.id.then(resourceAnalysisClose).catch(() => {})
+    }
 
     function clear() {
         // Detach before aborting: abort listeners may call back into cancel(),
         // which must not mistake this replacement for a user cancel.
         const replaced = current
         current = null
+        replaced?.invalidation.abort()
         replaced?.controller.abort()
-        const previous = session
-        session = null
-        if (previous) void previous.id.then(resourceAnalysisClose).catch(() => {})
+        closeSession()
+    }
+
+    function fail(analysis: Analysis, failure: unknown) {
+        if (analysis.failed) return
+        analysis.failed = true
+        analysis.controller.abort(failure)
+        if (session?.id === analysis.session) closeSession()
+    }
+
+    function start(input: ContentAnalysisInput, invalidation = new AbortController()): Analysis {
+        const context = JSON.stringify([input.instanceId, input.context])
+        if (session?.context !== context) {
+            closeSession()
+            session = { context, id: resourceAnalysisOpen(input.instanceId) }
+        }
+        const id = session!.id
+        const controller = new AbortController()
+        const progress: ProgressReplay = { round: null, nodes: new Map(), phase: null }
+        const listeners = new Set<(progress: ResourceOperationProgress) => void>()
+        const selectionRevision = ++revision
+        const pending = resourceAnalysisRequest(controller, async (signal) => {
+            const sessionId = await id
+            signal.throwIfAborted()
+            return resourceAnalysisUpdate(
+                sessionId,
+                selectionRevision,
+                input.selections,
+                input.installDependencies,
+                signal,
+                (value) => {
+                    if (signal.aborted || value.selectionRevision !== selectionRevision) return
+                    remember(progress, value)
+                    for (const listener of listeners) listener(value)
+                },
+            )
+        })
+        const analysis: Analysis = {
+            key: JSON.stringify(input),
+            input,
+            controller,
+            invalidation,
+            session: id,
+            pending,
+            settled: false,
+            failed: false,
+            revision: selectionRevision,
+            progress,
+            listeners,
+        }
+        // A failure retires the native session, but keeps the review and selection
+        // available for an explicit retry with a fresh session.
+        void pending
+            .catch((failure) => {
+                if (!invalidation.signal.aborted) fail(analysis, failure)
+            })
+            .finally(() => {
+                analysis.settled = true
+            })
+        current = analysis
+        return analysis
     }
 
     function update(input: ContentAnalysisInput | null) {
@@ -109,55 +179,12 @@ export function createContentAnalysis() {
         }
         if (canceledSelection === selectionKey(input)) return
         canceledSelection = null
-        const key = JSON.stringify(input)
-        if (current?.key === key) return
+        if (current?.key === JSON.stringify(input)) return
         const replaced = current
         current = null
+        replaced?.invalidation.abort()
         replaced?.controller.abort()
-        const context = JSON.stringify([input.instanceId, input.context])
-        if (session?.context !== context) {
-            clear()
-            session = { context, id: resourceAnalysisOpen(input.instanceId) }
-        }
-        const id = session!.id
-        const controller = new AbortController()
-        const progress: ProgressReplay = { round: null, nodes: new Map(), phase: null }
-        const listeners = new Set<(progress: ResourceOperationProgress) => void>()
-        const selectionRevision = ++revision
-        const pending = id.then((sessionId) => {
-            controller.signal.throwIfAborted()
-            return resourceAnalysisUpdate(
-                sessionId,
-                selectionRevision,
-                input.selections,
-                input.installDependencies,
-                controller.signal,
-                (value) => {
-                    if (controller.signal.aborted || value.selectionRevision !== selectionRevision)
-                        return
-                    remember(progress, value)
-                    for (const listener of listeners) listener(value)
-                },
-            )
-        })
-        const analysis = {
-            key,
-            input,
-            controller,
-            session: id,
-            pending,
-            settled: false,
-            revision: selectionRevision,
-            progress,
-            listeners,
-        }
-        // Errors stay with this analysis and are retried by the review action.
-        void pending
-            .catch(() => {})
-            .finally(() => {
-                analysis.settled = true
-            })
-        current = analysis
+        start(input)
     }
 
     /** Stops the running analysis and keeps the selection out of automatic restarts. */
@@ -173,71 +200,85 @@ export function createContentAnalysis() {
             canceledSelection = null
             update(latest)
         }
-        const analysis = current
-        if (!analysis) return
+        if (!current) return
+        let analysis: Analysis = current
+        const invalidation = analysis.invalidation.signal
         return {
-            signal: analysis.controller.signal,
+            signal: invalidation,
             cancel() {
                 if (current === analysis && !analysis.settled) cancel()
             },
             async prepare(signal, onProgress, selections) {
                 signal.throwIfAborted()
-                analysis.controller.signal.throwIfAborted()
-                for (const value of replayed(analysis.progress)) onProgress(value)
-                analysis.listeners.add(onProgress)
-                let stopWaiting = () => {}
-                const canceled = new Promise<never>((_, reject) => {
-                    const abort = () => reject(new DOMException('Analysis canceled', 'AbortError'))
-                    signal.addEventListener('abort', abort, { once: true })
-                    analysis.controller.signal.addEventListener('abort', abort, { once: true })
-                    stopWaiting = () => {
-                        signal.removeEventListener('abort', abort)
-                        analysis.controller.signal.removeEventListener('abort', abort)
-                    }
-                })
+                invalidation.throwIfAborted()
+                if (current !== analysis) throw new DOMException('Cart changed', 'AbortError')
+                if (analysis.failed) analysis = start(analysis.input, analysis.invalidation)
+                const attempt = analysis
+                const controller = new AbortController()
+                const abort = () => controller.abort(signal.reason)
+                const invalidate = () => controller.abort(invalidation.reason)
+                signal.addEventListener('abort', abort, { once: true })
+                invalidation.addEventListener('abort', invalidate, { once: true })
+                let acceptingProgress = true
+                const report = (value: ResourceOperationProgress) => {
+                    if (acceptingProgress && !controller.signal.aborted && current === attempt)
+                        onProgress(value)
+                }
+                for (const value of replayed(attempt.progress)) report(value)
+                attempt.listeners.add(report)
                 const check = () => {
-                    signal.throwIfAborted()
-                    analysis.controller.signal.throwIfAborted()
-                    if (current !== analysis) throw new DOMException('Cart changed', 'AbortError')
+                    controller.signal.throwIfAborted()
+                    if (current !== attempt) throw new DOMException('Cart changed', 'AbortError')
                 }
                 try {
-                    // Reuse in-flight work. Closing the review does not cancel
-                    // the cart's independent subscription.
-                    await Promise.race([analysis.pending.catch(() => {}), canceled])
-                    check()
-                    const sessionId = await analysis.session.catch(() => undefined)
-                    check()
-                    const prepare = (analysisSession?: {
-                        sessionId: string
-                        selectionRevision: number
-                    }) =>
-                        resourcePrepareOperation(
-                            analysis.input.instanceId,
-                            'install',
-                            selections ?? analysis.input.selections,
-                            analysis.input.installDependencies,
-                            signal,
-                            undefined,
-                            undefined,
-                            onProgress,
-                            true,
-                            analysisSession,
-                        )
-                    try {
-                        return await prepare(
-                            sessionId
-                                ? { sessionId, selectionRevision: analysis.revision }
-                                : undefined,
-                        )
-                    } catch (error) {
+                    return await resourceAnalysisRequest(controller, async (signal) => {
+                        // Reuse healthy in-flight work. A review's own cancel only
+                        // stops waiting; the cart retains its independent request.
+                        await attempt.pending
                         check()
-                        if (String(error).includes('analysis session expired'))
-                            return await prepare()
-                        throw error
-                    }
+                        const sessionId = await attempt.session
+                        check()
+                        const prepare = (analysisSession?: {
+                            sessionId: string
+                            selectionRevision: number
+                        }) =>
+                            resourcePrepareOperation(
+                                attempt.input.instanceId,
+                                'install',
+                                selections ?? attempt.input.selections,
+                                attempt.input.installDependencies,
+                                signal,
+                                undefined,
+                                undefined,
+                                report,
+                                true,
+                                analysisSession,
+                            )
+                        try {
+                            return await prepare({
+                                sessionId,
+                                selectionRevision: attempt.revision,
+                            })
+                        } catch (error) {
+                            check()
+                            if (String(error).includes('analysis session expired'))
+                                return await prepare()
+                            throw error
+                        }
+                    })
+                } catch (failure) {
+                    controller.abort(failure)
+                    if (
+                        !invalidation.aborted &&
+                        (!signal.aborted || signal.reason?.name === 'TimeoutError')
+                    )
+                        fail(attempt, failure)
+                    throw failure
                 } finally {
-                    stopWaiting()
-                    analysis.listeners.delete(onProgress)
+                    acceptingProgress = false
+                    signal.removeEventListener('abort', abort)
+                    invalidation.removeEventListener('abort', invalidate)
+                    attempt.listeners.delete(report)
                 }
             },
         }

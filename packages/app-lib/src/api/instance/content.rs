@@ -628,7 +628,7 @@ pub async fn get_dependencies_as_content_items(
     crate::state::dependencies_to_content_items(
         &dependencies,
         cache_behaviour,
-        &state.pool,
+        state.cache_pool(),
         &state.api_semaphore,
     )
     .await

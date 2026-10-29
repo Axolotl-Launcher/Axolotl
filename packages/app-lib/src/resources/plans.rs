@@ -1362,8 +1362,16 @@ impl ResourceService {
                         cancel,
                     )
                     .await?;
-                let ProviderValue::Release(document) = value.value else {
-                    return Err(invalid("dependency release not found"));
+                let document = match value.value {
+                    ProviderValue::Release(document) => document,
+                    ProviderValue::NotFound => {
+                        return Err(ResourceError::Unavailable);
+                    }
+                    _ => {
+                        return Err(invalid(
+                            "source returned no dependency release",
+                        ));
+                    }
                 };
                 let reference = document.release.reference;
                 (
@@ -1481,22 +1489,20 @@ impl ResourceService {
                 memo.retained_requirements(self, &draft, installed, cancel)
                     .await
             } else {
-                self.retained_requirements(
+                self.retained_requirements_with_failures(
                     &draft.plan.selections,
                     installed,
                     &draft.local_metadata,
                     cancel,
+                    draft.plan.intent == ResourceOperationIntent::Install,
                 )
                 .await
             } {
-                Ok(requirements) => requirements,
-                Err(error)
-                    if draft.plan.intent
-                        == ResourceOperationIntent::Install
-                        && dependency_source_failed(&error) =>
-                {
-                    retained_warning = Some(error.to_string());
-                    Vec::new()
+                Ok((requirements, failures)) => {
+                    if !failures.is_empty() {
+                        retained_warning = Some(failures.join("; "));
+                    }
+                    requirements
                 }
                 Err(error) => return Err(error),
             }
@@ -1597,6 +1603,8 @@ impl ResourceService {
         draft.candidates.clear();
         let mut queue: VecDeque<_> = draft.plan.selections.clone().into();
         let mut resolved: HashMap<SelectionKey, SelectionId> = HashMap::new();
+        let mut selected_releases =
+            HashMap::<SourceReleaseRef, ResourceRelease>::new();
         let mut incompatible = Vec::new();
         let mut seen = HashSet::new();
         if let Some(memo) = memo {
@@ -1906,27 +1914,32 @@ impl ResourceService {
                     continue;
                 }
             };
+            selected_releases
+                .insert(release.reference.clone(), release.clone());
             let local_requirements_match = if locally_satisfied_dependency {
                 true
             } else {
                 match self
-                    .local_requirements_accept(&release, &requirements, cancel)
+                    .local_requirements_assessment(
+                        &release,
+                        &requirements,
+                        cancel,
+                    )
                     .await
                 {
-                    Ok(matches) => matches,
-                    Err(ResourceError::Canceled) => {
-                        return Err(ResourceError::Canceled);
-                    }
-                    Err(error)
-                        if draft.plan.intent
-                            == ResourceOperationIntent::Install =>
-                    {
-                        dependency_analysis_issue(
+                    Ok(CompatibilityState::Unknown) => {
+                        issue(
                             &mut draft.plan,
+                            ResourceIssueCode::DependencyAnalysisFailed,
                             &selection.id,
-                            error.to_string(),
+                            false,
+                            "local dependency metadata is unavailable",
                         );
                         true
+                    }
+                    Ok(state) => state != CompatibilityState::Incompatible,
+                    Err(ResourceError::Canceled) => {
+                        return Err(ResourceError::Canceled);
                     }
                     Err(error) => return Err(error),
                 }
@@ -3022,7 +3035,33 @@ impl ResourceService {
                     let Some(reference) = reference else {
                         continue;
                     };
-                    let release = self.release(reference, None, cancel).await?;
+                    let fetched = if let Some(release) =
+                        selected_releases.get(reference)
+                    {
+                        Ok(release.clone())
+                    } else {
+                        self.release(reference, None, cancel).await
+                    };
+                    let release = match fetched {
+                        Ok(release) => release,
+                        Err(error)
+                            if matches!(
+                                error,
+                                ResourceError::Network { .. }
+                                    | ResourceError::Unavailable
+                            ) =>
+                        {
+                            issue(
+                                &mut draft.plan,
+                                ResourceIssueCode::DependencyAnalysisFailed,
+                                &parent,
+                                false,
+                                error.to_string(),
+                            );
+                            continue;
+                        }
+                        Err(error) => return Err(error),
+                    };
                     if assess_release_constraint(constraint, &release.version)
                         != CompatibilityState::Compatible
                     {
@@ -3073,10 +3112,24 @@ impl ResourceService {
             let version_matches = if locally_satisfied {
                 true
             } else if let Some(constraint) = &edge.version_constraint {
-                let release = self
-                    .release(&artifact.reference.release, None, cancel)
-                    .await?;
-                matches_release_constraint(constraint, &release.version)
+                let release = if let Some(release) =
+                    selected_releases.get(&artifact.reference.release)
+                {
+                    Ok(release.clone())
+                } else {
+                    self.release(&artifact.reference.release, None, cancel)
+                        .await
+                };
+                match release {
+                    Ok(release) => {
+                        matches_release_constraint(constraint, &release.version)
+                    }
+                    Err(
+                        ResourceError::Network { .. }
+                        | ResourceError::Unavailable,
+                    ) => true,
+                    Err(error) => return Err(error),
+                }
             } else {
                 true
             };
@@ -3349,6 +3402,54 @@ pub async fn prepare_with_progress(
 }
 
 pub(crate) async fn prepare_with_installed(
+    instance_id: String,
+    intent: ResourceOperationIntent,
+    selections: Vec<ResourceSelection>,
+    install_dependencies: bool,
+    cancel: &CancellationToken,
+    verified: Option<&[InstalledResource]>,
+    progress: OperationProgress<'_>,
+    resolve_dependencies: bool,
+) -> ResourceResult<ResourceOperationPlan> {
+    bounded_preparation(
+        cancel,
+        std::time::Duration::from_secs(15 * 60),
+        |cancel| async move {
+            prepare_with_installed_inner(
+                instance_id,
+                intent,
+                selections,
+                install_dependencies,
+                &cancel,
+                verified,
+                progress,
+                resolve_dependencies,
+            )
+            .await
+        },
+    )
+    .await
+}
+
+pub(super) async fn bounded_preparation<T, F, Fut>(
+    cancel: &CancellationToken,
+    budget: std::time::Duration,
+    operation: F,
+) -> ResourceResult<T>
+where
+    F: FnOnce(CancellationToken) -> Fut,
+    Fut: std::future::Future<Output = ResourceResult<T>>,
+{
+    let scoped = cancel.child_token();
+    let _cancel_on_exit = scoped.clone().drop_guard();
+    tokio::select! {
+        biased;
+        _ = cancel.cancelled() => Err(ResourceError::Canceled),
+        result = tokio::time::timeout(budget, operation(scoped)) => result.unwrap_or(Err(ResourceError::Network { status: Some(408) })),
+    }
+}
+
+async fn prepare_with_installed_inner(
     instance_id: String,
     intent: ResourceOperationIntent,
     selections: Vec<ResourceSelection>,
@@ -3722,6 +3823,23 @@ pub async fn revise(
 }
 
 pub async fn revise_with_progress(
+    id: PlanId,
+    revision: u32,
+    decisions: Vec<ResourcePlanDecision>,
+    cancel: &CancellationToken,
+    progress: OperationProgress<'_>,
+) -> ResourceResult<ResourceOperationPlan> {
+    bounded_preparation(
+        cancel,
+        std::time::Duration::from_secs(15 * 60),
+        |cancel| async move {
+            revise_inner(id, revision, decisions, &cancel, progress).await
+        },
+    )
+    .await
+}
+
+async fn revise_inner(
     id: PlanId,
     revision: u32,
     decisions: Vec<ResourcePlanDecision>,

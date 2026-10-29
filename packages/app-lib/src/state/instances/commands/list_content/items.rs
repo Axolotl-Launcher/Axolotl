@@ -147,7 +147,7 @@ pub(super) async fn content_projects_for_files(
     let file_info = CachedEntry::get_file_many(
         &hashes,
         cache_behaviour,
-        &state.pool,
+        state.cache_pool(),
         &state.api_semaphore,
     )
     .await?;
@@ -451,7 +451,7 @@ pub(super) async fn content_files_to_content_items(
         &project_ids,
         &version_ids,
         cache_behaviour,
-        &state.pool,
+        state.cache_pool(),
         &state.api_semaphore,
     )
     .await?;

@@ -896,7 +896,7 @@ pub async fn resolve_minecraft_manifest_with_cache(
         } else {
             Some(CacheBehaviour::MustRevalidate)
         },
-        &state.pool,
+        state.cache_pool(),
         &state.api_semaphore,
     )
     .await?

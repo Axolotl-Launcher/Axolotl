@@ -2232,7 +2232,7 @@ impl CachedEntry {
                         type_,
                         expired_keys,
                         &state.api_semaphore,
-                        &state.pool,
+                        state.cache_pool(),
                         false,
                     )
                     .await?
@@ -2243,7 +2243,7 @@ impl CachedEntry {
                     Self::persist_fetched_cache_best_effort(
                         type_,
                         &values,
-                        &state.pool,
+                        state.cache_pool(),
                         CacheRefreshSource::Background,
                     )
                     .await;
@@ -2875,6 +2875,44 @@ impl CachedEntry {
         };
 
         Ok(value)
+    }
+
+    /// Writes entries outside any open unit. A cache is derived data, so a
+    /// failure here is logged rather than carried to a caller whose own
+    /// transaction has already committed.
+    pub(crate) async fn store_best_effort(items: &[Self], pool: &SqlitePool) {
+        if items.is_empty() {
+            return;
+        }
+        if let Err(error) = Self::upsert_many(items, pool).await {
+            tracing::warn!(
+                error = %error,
+                entry_count = items.len(),
+                "Failed to persist cache entries; continuing without them"
+            );
+        }
+    }
+
+    /// Drops entries outside any open unit. A hash entry is dropped before the
+    /// write that replaces it commits, so a run stopping between the two reads
+    /// a miss instead of the metadata of the file it replaced.
+    pub(crate) async fn forget_best_effort(items: &[Self], pool: &SqlitePool) {
+        if items.is_empty() {
+            return;
+        }
+        let handle = Handle::new(pool.clone());
+        for item in items {
+            let key = CacheKey {
+                data_type: item.type_.as_str().to_string(),
+                id: item.id.clone(),
+            };
+            if let Err(error) = Cache::set(&handle, &key, None).await {
+                tracing::warn!(
+                    error = %error,
+                    "Failed to drop a cache entry; continuing without it"
+                );
+            }
+        }
     }
 
     pub(crate) async fn upsert_many(

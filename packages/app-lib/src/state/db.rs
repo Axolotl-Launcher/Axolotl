@@ -1772,7 +1772,7 @@ mod tests {
         source.close().await;
     }
 
-    const SCHEDULER_TAGS_MIGRATION_VERSION: i64 = 20261102140000;
+    const SCHEDULER_TAGS_MIGRATION_VERSION: i64 = 20261103140000;
 
     /// An older build opening a database that has the scheduler collections
     /// must refuse it as a downgrade, with the message the frontend expects.
@@ -1810,7 +1810,7 @@ mod tests {
         ));
         let message = error.user_facing_message();
         assert!(message.contains("was created by a newer Axolotl build"));
-        assert!(message.contains("20261102140000"));
+        assert!(message.contains("20261103140000"));
         pool.close().await;
     }
 
@@ -4766,6 +4766,82 @@ mod tests {
                 .await
                 .unwrap();
         assert_eq!(queued, 1);
+    }
+
+    #[tokio::test]
+    async fn marks_whose_account_secrets_were_moved_from_a_fresh_and_an_upgraded_database()
+     {
+        const EXTERNALIZE_SECRETS_VERSION: i64 = 20261102120000;
+        const MARKED: [&str; 3] = [
+            "minecraft_users",
+            "minecraft_device_tokens",
+            "modrinth_users",
+        ];
+
+        let upgrade = SqlitePoolOptions::new()
+            .max_connections(1)
+            .connect("sqlite::memory:")
+            .await
+            .unwrap();
+        let previous_migrator = Migrator {
+            migrations: std::borrow::Cow::Owned(
+                MIGRATOR
+                    .iter()
+                    .filter(|migration| {
+                        migration.version < EXTERNALIZE_SECRETS_VERSION
+                    })
+                    .cloned()
+                    .collect(),
+            ),
+            ..Migrator::DEFAULT
+        };
+        previous_migrator.run(&upgrade).await.unwrap();
+        sqlx::raw_sql(
+            "INSERT INTO minecraft_users
+                (account_id, uuid, active, username, access_token,
+                 refresh_token, expires)
+             VALUES ('microsoft:example', 'uuid', 1, 'Player', 'access',
+                     'refresh', 20);
+             INSERT INTO modrinth_users (id, active, session_id, expires)
+             VALUES ('account', 1, 'session', 30);",
+        )
+        .execute(&upgrade)
+        .await
+        .unwrap();
+
+        MIGRATOR.run(&upgrade).await.unwrap();
+
+        let fresh = SqlitePoolOptions::new()
+            .max_connections(1)
+            .connect("sqlite::memory:")
+            .await
+            .unwrap();
+        MIGRATOR.run(&fresh).await.unwrap();
+
+        for pool in [&upgrade, &fresh] {
+            for table in MARKED {
+                let sql = format!(
+                    "SELECT COUNT(*) FROM pragma_table_info('{table}')
+                     WHERE name = 'secrets_externalized'
+                       AND \"notnull\" = 1 AND dflt_value = '0'"
+                );
+                let marks: i64 =
+                    sqlx::query_scalar(&sql).fetch_one(pool).await.unwrap();
+                assert_eq!(marks, 1, "{table} has no mark column");
+            }
+        }
+
+        // A row written before the move keeps its tokens and says nothing was
+        // moved out of it.
+        let (access, refresh, marks): (String, String, i64) = sqlx::query_as(
+            "SELECT access_token, refresh_token, secrets_externalized
+             FROM minecraft_users WHERE account_id = 'microsoft:example'",
+        )
+        .fetch_one(&upgrade)
+        .await
+        .unwrap();
+        assert_eq!((access.as_str(), refresh.as_str()), ("access", "refresh"));
+        assert_eq!(marks, 0);
     }
 
     #[tokio::test]

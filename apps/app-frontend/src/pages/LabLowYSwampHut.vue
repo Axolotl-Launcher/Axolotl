@@ -9,6 +9,7 @@ import {
     useVIntl,
 } from '@modrinth/ui'
 import { computed, onMounted, ref, watch } from 'vue'
+import { useRoute } from 'vue-router'
 
 import StructureFinderLayout from '@/components/lab/seed-map/StructureFinderLayout.vue'
 import { lowYSwampHutAvailable, scanLowYSwampHut } from '@/lab/low-y-swamp-hut/client'
@@ -118,7 +119,8 @@ const presetOptions = computed(() =>
     PRESET_OPTIONS.map((value) => ({ value, label: presetLabel(value) })),
 )
 
-const seed = ref('')
+const route = useRoute()
+const seed = ref(typeof route.query.seed === 'string' ? route.query.seed : '')
 const regions = ref(16)
 const threads = ref(0)
 const version = ref<(typeof VERSION_OPTIONS)[number]>('26.2')

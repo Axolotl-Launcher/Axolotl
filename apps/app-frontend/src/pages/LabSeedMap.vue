@@ -1279,7 +1279,12 @@ function startFinderPress(kind: SeedMapFeatureKind) {
     cancelFinderPress()
     finderTimer = window.setTimeout(() => {
         finderTimer = null
-        void router.push(route)
+        // Carry the seed over: the finder searches the world this map is already
+        // showing, and retyping it there would make the two disagree by accident.
+        void router.push({
+            path: route,
+            query: { seed: workspace.seed.trim() },
+        })
     }, FINDER_HOLD_MS)
 }
 

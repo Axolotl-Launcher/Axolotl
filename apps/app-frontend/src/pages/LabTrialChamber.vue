@@ -8,6 +8,7 @@ import {
     useVIntl,
 } from '@modrinth/ui'
 import { computed, onMounted, ref, watch } from 'vue'
+import { useRoute } from 'vue-router'
 
 import StructureFinderLayout from '@/components/lab/seed-map/StructureFinderLayout.vue'
 import {
@@ -83,7 +84,8 @@ const messages = defineMessages({
     },
 })
 
-const seed = ref('')
+const route = useRoute()
+const seed = ref(typeof route.query.seed === 'string' ? route.query.seed : '')
 const radius = ref(30000)
 const threads = ref(8)
 const scanning = ref(false)

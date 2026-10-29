@@ -681,6 +681,13 @@ pub async fn trial_chamber_find<R: tauri::Runtime>(
     };
     let best_spawners = hits.iter().map(|hit| hit.spawner_count).max();
 
+    // The program writes one file per run and never removes the earlier ones, so
+    // the directory would grow with every scan and make each later lookup walk a
+    // longer list. The run has already been read, so the older copies are spent.
+    for path in &existing_results {
+        let _ = std::fs::remove_file(path);
+    }
+
     Ok(TrialChamberScan {
         seed,
         radius,

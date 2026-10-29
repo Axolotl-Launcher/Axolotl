@@ -19,6 +19,8 @@ const mobileMenuOpen = ref(false)
 const mobileMenuRef = ref<HTMLElement | null>(null)
 const mobileMenuButtonRef = ref<ComponentPublicInstance | null>(null)
 const { formatMessage } = useVIntl()
+const config = useRuntimeConfig()
+const githubUrl = config.public.githubUrl
 
 // 点击菜单与开关之外的区域时收起移动端菜单
 function handleOutsideClick(event: MouseEvent) {
@@ -90,12 +92,7 @@ function openSettings() {
                 <ButtonLink :as="NuxtLink" to="/#community" type="quiet">
                     {{ formatMessage(messages.community) }}
                 </ButtonLink>
-                <ButtonLink
-                    href="https://github.com/Mystic-Stars/Axolotl"
-                    target="_blank"
-                    rel="noopener"
-                    type="quiet"
-                >
+                <ButtonLink :href="githubUrl" target="_blank" rel="noopener" type="quiet">
                     <GithubIcon aria-hidden="true" />
                     {{ formatMessage(messages.openSource) }}
                 </ButtonLink>
@@ -150,12 +147,7 @@ function openSettings() {
                 <NuxtLink to="/#community" @click="mobileMenuOpen = false">
                     {{ formatMessage(messages.community) }}
                 </NuxtLink>
-                <a
-                    href="https://github.com/Mystic-Stars/Axolotl"
-                    target="_blank"
-                    rel="noopener"
-                    @click="mobileMenuOpen = false"
-                >
+                <a :href="githubUrl" target="_blank" rel="noopener" @click="mobileMenuOpen = false">
                     {{ formatMessage(messages.openSource) }}
                 </a>
                 <a class="mobile-download" href="#download" @click="mobileMenuOpen = false">

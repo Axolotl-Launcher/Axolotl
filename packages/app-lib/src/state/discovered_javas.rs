@@ -1,9 +1,8 @@
 use std::path::Path;
 use std::time::UNIX_EPOCH;
 
-use crate::state::store::Atom;
 use crate::state::store::Collection as _;
-use crate::state::store::Handle;
+use crate::state::store::derived_db::DerivedDb;
 use crate::state::store::discovered_javas::{
     DiscoveredJavaRecord, DiscoveredJavas,
 };
@@ -74,8 +73,9 @@ impl DiscoveredJava {
         }
     }
 
-    pub async fn get_all(handle: &Handle) -> crate::Result<Vec<Self>> {
-        let mut entries = DiscoveredJavas::get_all(handle)
+    pub async fn get_all(derived: &DerivedDb) -> crate::Result<Vec<Self>> {
+        let mut entries = derived
+            .read(async |handle| DiscoveredJavas::get_all(handle).await)
             .await?
             .into_iter()
             .map(|(path, record)| Self::from_record(path, record))
@@ -90,27 +90,28 @@ impl DiscoveredJava {
         Ok(entries)
     }
 
-    pub async fn upsert(&self, handle: &Handle) -> crate::Result<()> {
-        DiscoveredJavas::set(handle, &self.java.path, Some(&self.to_record()))
+    pub async fn upsert(&self, derived: &DerivedDb) -> crate::Result<()> {
+        let path = self.java.path.clone();
+        let record = self.to_record();
+        derived
+            .write(async |handle| {
+                DiscoveredJavas::set(handle, &path, Some(&record)).await
+            })
             .await
     }
 
-    pub(crate) async fn upsert_in(&self, unit: &mut Atom) -> crate::Result<()> {
-        DiscoveredJavas::atom_set(
-            unit,
-            &self.java.path,
-            Some(&self.to_record()),
-        )
-        .await
-    }
-
-    pub async fn remove(path: &str, handle: &Handle) -> crate::Result<()> {
-        DiscoveredJavas::set(handle, &path.to_string(), None).await
+    pub async fn remove(path: &str, derived: &DerivedDb) -> crate::Result<()> {
+        let path = path.to_string();
+        derived
+            .write(async |handle| {
+                DiscoveredJavas::set(handle, &path, None).await
+            })
+            .await
     }
 
     /// Replaces the entire cache with the results of a fresh scan.
     pub async fn replace_all(
-        handle: &Handle,
+        derived: &DerivedDb,
         entries: &[Self],
     ) -> crate::Result<()> {
         let records = entries
@@ -118,6 +119,10 @@ impl DiscoveredJava {
             .map(|entry| (entry.java.path.clone(), entry.to_record()))
             .collect::<Vec<_>>();
 
-        DiscoveredJavas::set_all(handle, &records).await
+        derived
+            .write(async |handle| {
+                DiscoveredJavas::set_all(handle, &records).await
+            })
+            .await
     }
 }

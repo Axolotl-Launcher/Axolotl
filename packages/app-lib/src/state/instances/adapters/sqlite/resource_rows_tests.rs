@@ -1,5 +1,15 @@
 use super::*;
 use crate::resources::*;
+use crate::state::content_types::{
+    ContentFavoriteProvider, ContentFavoriteType,
+};
+use crate::state::store::Collection as _;
+use crate::state::store::content_favorites::{
+    ContentFavoriteKey, ContentFavoriteRecord, ContentFavorites,
+};
+use crate::state::store::resource_source_projects::{
+    ResourceSourceProjectKey, ResourceSourceProjects,
+};
 use sqlx::{migrate::Migrator, sqlite::SqlitePoolOptions};
 use std::borrow::Cow;
 
@@ -229,25 +239,32 @@ async fn fresh_identity_database_and_exact_previous_upgrade_preserve_business_fa
         store.pack_resources("instance").await.unwrap()["member"],
         mr
     );
-    let rows = crate::state::content_favorites::list(&handle(&pool))
-        .await
+    let rows = ContentFavorites::get_all(&handle(&pool)).await.unwrap();
+    let (_, favorite) = rows
+        .iter()
+        .find(|(key, _)| {
+            key.project_id == "12345678" && key.provider.as_str() == "modrinth"
+        })
         .unwrap();
-    assert_eq!(
-        rows.iter()
-            .find(|row| row.project_id == "12345678"
-                && row.provider.as_str() == "modrinth")
+    assert_eq!(favorite.saved_at, 123);
+    for project_id in ["slug-is-not-an-id", "000123", "not-a-uuid"] {
+        let (key, _) = rows
+            .iter()
+            .find(|(key, _)| key.project_id == project_id)
+            .unwrap();
+        assert!(
+            ResourceSourceProjects::get(
+                &handle(&pool),
+                &ResourceSourceProjectKey {
+                    source: key.provider.as_str().to_string(),
+                    project_id: key.project_id.clone(),
+                },
+            )
+            .await
             .unwrap()
-            .saved_at,
-        123
-    );
-    assert!(
-        rows.iter()
-            .filter(|row| matches!(
-                row.project_id.as_str(),
-                "slug-is-not-an-id" | "000123" | "not-a-uuid"
-            ))
-            .all(|row| row.resource_id.is_none())
-    );
+            .is_none()
+        );
+    }
     assert_eq!(
         sqlx::query_scalar::<_, String>(
             "SELECT state FROM install_jobs WHERE id = 'frozen'"
@@ -279,18 +296,37 @@ async fn legacy_writes_are_atomic_and_follow_origin_changes_and_deletion() {
     business_rows(&pool).await;
     let store = ResourceStore::new(pool.clone());
     for _ in 0..2 {
-        let favorite = crate::state::content_favorites::add(
-            crate::state::ContentFavoriteInput {
-                provider: crate::state::ContentFavoriteProvider::Modrinth,
-                project_id: "12345678".into(),
-                content_type: crate::state::ContentFavoriteType::Mod,
-            },
+        let favorite = ContentFavoriteKey {
+            provider: ContentFavoriteProvider::Modrinth,
+            project_id: "12345678".into(),
+        };
+        ContentFavorites::set(
             &handle(&pool),
+            &favorite,
+            Some(&ContentFavoriteRecord {
+                content_type: ContentFavoriteType::Mod,
+                saved_at: 999,
+            }),
         )
         .await
         .unwrap();
-        assert_eq!(favorite.saved_at, 123);
-        assert!(favorite.resource_id.is_some());
+        let stored = ContentFavorites::get(&handle(&pool), &favorite)
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(stored.saved_at, 123);
+        assert!(
+            ResourceSourceProjects::get(
+                &handle(&pool),
+                &ResourceSourceProjectKey {
+                    source: "modrinth".into(),
+                    project_id: "12345678".into(),
+                },
+            )
+            .await
+            .unwrap()
+            .is_some()
+        );
     }
     assert_eq!(store.entry_resources("instance").await.unwrap().len(), 2);
     let before: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM resources")
@@ -400,6 +436,79 @@ async fn stable_catalog_survives_main_database_reopen_and_repeated_migration() {
 }
 
 #[tokio::test]
+async fn optional_project_confirmation_only_skips_insufficient_evidence() {
+    use crate::resources::identity::try_confirm_projects;
+    use tokio_util::sync::CancellationToken;
+
+    let pool = previous_database().await;
+    upgrade(&pool).await;
+    let store = ResourceStore::new(pool.clone());
+    let left = metadata(project(SourceId::modrinth(), "12345678"));
+    let right = metadata(project(SourceId::curseforge(), "123"));
+    let a = artifact(left.project.clone(), "a");
+    let b = artifact(right.project.clone(), "a");
+    let cancel = CancellationToken::new();
+    let mut incompatible = right.clone();
+    incompatible.types = vec![ResourceType::Shader];
+    let mut invalid_hash = b.clone();
+    invalid_hash.integrity.hashes[0].value = "bad hash".into();
+    let mut wrong_hash = b.clone();
+    wrong_hash.integrity.hashes[0].value = "b".repeat(64);
+    let mut weak = b.clone();
+    weak.integrity.hashes = vec![ContentHash {
+        algorithm: HashAlgorithm::Md5,
+        value: "a".repeat(32),
+    }];
+    let mut attachment = b.clone();
+    attachment.role = ArtifactRole::Attachment;
+    let mut wrong_project = right.clone();
+    wrong_project.project.project_id = SourceProjectId::new("456").unwrap();
+    for (metadata, artifact) in [
+        (&incompatible, &b),
+        (&right, &invalid_hash),
+        (&right, &wrong_hash),
+        (&right, &weak),
+        (&right, &attachment),
+        (&wrong_project, &b),
+    ] {
+        assert!(
+            try_confirm_projects(
+                &store, &left, metadata, &a, artifact, &cancel
+            )
+            .await
+            .unwrap()
+            .is_none()
+        );
+        assert!(
+            store
+                .confirm_projects(&left, metadata, &a, artifact)
+                .await
+                .is_err()
+        );
+        assert!(store.lookup(&left.project).await.unwrap().is_none());
+        assert!(store.lookup(&right.project).await.unwrap().is_none());
+    }
+    let canceled = CancellationToken::new();
+    canceled.cancel();
+    assert!(matches!(
+        try_confirm_projects(&store, &left, &incompatible, &a, &b, &canceled)
+            .await,
+        Err(ResourceError::Canceled)
+    ));
+    let id = try_confirm_projects(&store, &left, &right, &a, &b, &cancel)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(store.lookup(&left.project).await.unwrap(), Some(id.clone()));
+    assert_eq!(store.lookup(&right.project).await.unwrap(), Some(id));
+    pool.close().await;
+    assert!(matches!(
+        try_confirm_projects(&store, &left, &right, &a, &b, &cancel).await,
+        Err(ResourceError::Database(_))
+    ));
+}
+
+#[tokio::test]
 async fn confirmed_merges_keep_old_ids_alias_ambiguity_favorites_and_cache_independence()
  {
     let pool = previous_database().await;
@@ -469,22 +578,41 @@ async fn confirmed_merges_keep_old_ids_alias_ambiguity_favorites_and_cache_indep
             .len(),
         2
     );
-    let favorites = crate::state::content_favorites::list(&handle(&pool))
+    let mut favorites = Vec::new();
+    for (key, record) in
+        ContentFavorites::get_all(&handle(&pool)).await.unwrap()
+    {
+        let resource = ResourceSourceProjects::get(
+            &handle(&pool),
+            &ResourceSourceProjectKey {
+                source: key.provider.as_str().to_string(),
+                project_id: key.project_id.clone(),
+            },
+        )
         .await
         .unwrap();
+        favorites.push((
+            key,
+            record,
+            resource.map(|project| project.resource_id),
+        ));
+    }
+    favorites.sort_by(|(_, left, _), (_, right, _)| {
+        right.saved_at.cmp(&left.saved_at)
+    });
     assert_eq!(
         favorites
             .iter()
-            .filter(|row| row.project_id == "12345678")
-            .map(|row| row.resource_id.as_deref())
+            .filter(|(key, _, _)| key.project_id == "12345678")
+            .map(|(_, _, resource_id)| resource_id.as_deref())
             .collect::<Vec<_>>(),
         vec![Some(winner.as_str()), Some(winner.as_str())]
     );
     assert_eq!(
         favorites
             .iter()
-            .filter(|row| row.project_id == "12345678")
-            .map(|row| row.saved_at)
+            .filter(|(key, _, _)| key.project_id == "12345678")
+            .map(|(_, record, _)| record.saved_at)
             .collect::<Vec<_>>(),
         vec![456, 123]
     );

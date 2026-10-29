@@ -3894,7 +3894,7 @@ async fn rollback_project_inner(
     };
     sqlx::query("INSERT INTO resource_legacy_rollback_journals(instance_id, payload) VALUES (?, ?)").bind(instance_id).bind(serde_json::to_string(&journal)?).execute(&state.pool).await?;
     let work = critical_section::SharedWork::new(
-        async |_access: critical_section::WriteAccess<'_>| -> crate::Result<String> {
+        async |access: critical_section::WriteAccess<'_>| -> crate::Result<String> {
             let result: crate::Result<String> = async {
             io::rename_or_move(&full_active, &full_archive).await?;
             touch_file_modified_time(&full_archive);
@@ -4010,7 +4010,11 @@ async fn rollback_project_inner(
             Ok(final_relative_path)
             }.await;
             if result.is_err() {
-                recover_legacy_rollback_for_instance(instance_id, &base, state).await?;
+                // Recover inside this section with its access: entering a
+                // second one would take the closing branch once the job is
+                // canceled and leave the files half moved.
+                recover_legacy_rollback_with(instance_id, &base, state, access)
+                    .await?;
             }
             result
         },
@@ -4041,6 +4045,33 @@ async fn recover_legacy_rollback_for_instance(
     root: &Path,
     state: &State,
 ) -> crate::Result<()> {
+    critical_section::with_critical_section(
+        async |guard| {
+            recover_legacy_rollback_with(instance_id, root, state, guard.into())
+                .await
+        },
+        async |unscoped| {
+            recover_legacy_rollback_with(
+                instance_id,
+                root,
+                state,
+                unscoped.into(),
+            )
+            .await
+        },
+        async |_closing| Err(critical_section::closing_error()),
+    )
+    .await
+}
+
+/// Puts a half-finished legacy rollback back, for a caller that already
+/// holds write access.
+async fn recover_legacy_rollback_with(
+    instance_id: &str,
+    root: &Path,
+    state: &State,
+    _access: critical_section::WriteAccess<'_>,
+) -> crate::Result<()> {
     let payload: Option<String> = sqlx::query_scalar("SELECT payload FROM resource_legacy_rollback_journals WHERE instance_id = ?").bind(instance_id).fetch_optional(&state.pool).await?;
     let Some(payload) = payload else {
         return Ok(());
@@ -4061,71 +4092,61 @@ async fn recover_legacy_rollback_for_instance(
             value: hash.into(),
         }],
     };
-    let work = critical_section::SharedWork::new(
-        async |_access: critical_section::WriteAccess<'_>| -> crate::Result<()> {
-            if !backup.exists() {
-                let candidate = if final_path.exists() {
-                    &final_path
-                } else {
-                    &restored
-                };
-                if !crate::resources::execution::matches_file(
-                    candidate,
-                    &matches(journal.backup_size, &journal.backup_sha1),
-                )
-                .await?
-                {
-                    return Err(crate::ErrorKind::InputError(
-                        "Rollback backup could not be recovered".into(),
-                    )
-                    .into());
-                }
-                io::rename_or_move(candidate, &backup).await?;
-            } else if !crate::resources::execution::matches_file(
-                &backup,
-                &matches(journal.backup_size, &journal.backup_sha1),
+    if !backup.exists() {
+        let candidate = if final_path.exists() {
+            &final_path
+        } else {
+            &restored
+        };
+        if !crate::resources::execution::matches_file(
+            candidate,
+            &matches(journal.backup_size, &journal.backup_sha1),
+        )
+        .await?
+        {
+            return Err(crate::ErrorKind::InputError(
+                "Rollback backup could not be recovered".into(),
             )
-            .await?
-            {
-                return Err(crate::ErrorKind::InputError(
-                    "Rollback backup changed during recovery".into(),
-                )
-                .into());
-            }
-            if !active.exists() {
-                if !crate::resources::execution::matches_file(
-                    &archive,
-                    &matches(journal.active_size, &journal.active_sha1),
-                )
-                .await?
-                {
-                    return Err(crate::ErrorKind::InputError(
-                        "Rollback active file could not be recovered".into(),
-                    )
-                    .into());
-                }
-                io::rename_or_move(&archive, &active).await?;
-            } else if !crate::resources::execution::matches_file(
-                &active,
-                &matches(journal.active_size, &journal.active_sha1),
-            )
-            .await?
-            {
-                return Err(crate::ErrorKind::InputError(
-                    "Rollback active file changed during recovery".into(),
-                )
-                .into());
-            }
-            sqlx::query("DELETE FROM resource_legacy_rollback_journals WHERE instance_id = ? AND payload = ?").bind(instance_id).bind(payload).execute(&state.pool).await?;
-            Ok(())
-        },
-    );
-    critical_section::with_critical_section(
-        async |guard| work.run(guard.into()).await,
-        async |unscoped| work.run(unscoped.into()).await,
-        async |_closing| Err(critical_section::closing_error()),
+            .into());
+        }
+        io::rename_or_move(candidate, &backup).await?;
+    } else if !crate::resources::execution::matches_file(
+        &backup,
+        &matches(journal.backup_size, &journal.backup_sha1),
     )
-    .await
+    .await?
+    {
+        return Err(crate::ErrorKind::InputError(
+            "Rollback backup changed during recovery".into(),
+        )
+        .into());
+    }
+    if !active.exists() {
+        if !crate::resources::execution::matches_file(
+            &archive,
+            &matches(journal.active_size, &journal.active_sha1),
+        )
+        .await?
+        {
+            return Err(crate::ErrorKind::InputError(
+                "Rollback active file could not be recovered".into(),
+            )
+            .into());
+        }
+        io::rename_or_move(&archive, &active).await?;
+    } else if !crate::resources::execution::matches_file(
+        &active,
+        &matches(journal.active_size, &journal.active_sha1),
+    )
+    .await?
+    {
+        return Err(crate::ErrorKind::InputError(
+            "Rollback active file changed during recovery".into(),
+        )
+        .into());
+    }
+    sqlx::query("DELETE FROM resource_legacy_rollback_journals WHERE instance_id = ? AND payload = ?").bind(instance_id).bind(payload).execute(&state.pool).await?;
+    Ok(())
 }
 
 pub(crate) async fn recover_legacy_rollbacks(

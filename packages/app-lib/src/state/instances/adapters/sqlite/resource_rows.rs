@@ -4,7 +4,7 @@ use sqlx::{Row, SqlitePool};
 use crate::resources::{
     ResourceArtifact, ResourceError, ResourceId, ResourceResult, ResourceType,
     SourceId, SourceProjectId, SourceProjectMetadata, SourceProjectRef,
-    identity::verify_artifact_pair,
+    identity::project_confirmation_rejection,
 };
 
 #[derive(Clone)]
@@ -280,12 +280,13 @@ impl ResourceStore {
                 artifact.reference.release.release_id.as_str(),
             )?;
         }
-        if left_artifact.reference.release.project != left.project
-            || right_artifact.reference.release.project != right.project
-            || !left.types.iter().any(|kind| right.types.contains(kind))
-            || !crate::resources::valid_artifact(left_artifact)
-            || !crate::resources::valid_artifact(right_artifact)
-            || verify_artifact_pair(left_artifact, right_artifact).is_none()
+        if project_confirmation_rejection(
+            left,
+            right,
+            left_artifact,
+            right_artifact,
+        )
+        .is_some()
         {
             return Err(ResourceError::InvalidRequest("project confirmation requires compatible types and matching primary artifacts".into()));
         }

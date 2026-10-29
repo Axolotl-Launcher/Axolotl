@@ -2,7 +2,7 @@ use crate::event::emit::{emit_instance, emit_process};
 use crate::event::{InstancePayloadType, ProcessPayloadType};
 #[cfg(feature = "tauri")]
 use crate::event::{LogEvent, LogPayload};
-use crate::scheduler::l0::queue::{Delivery, L0Queue, L0QueueReceiver};
+use crate::scheduler::l0::queue::{Delivery, L0Queue, L0QueueReceiver, Posted};
 use crate::state::store::Collection as _;
 use crate::state::store::join_log::{JoinLog, JoinLogEntry, JoinLogKey};
 use crate::util::io::IOError;
@@ -1215,7 +1215,7 @@ impl Process {
         events: L0Queue<ProcessEvent>,
     ) -> crate::Result<()> {
         let state = crate::State::get().await?;
-        let mut last_tick = Instant::now();
+        let mut clock = PlaytimeClock::new();
         let (status, missing) = loop {
             if let Some(process) = state.process_manager.try_wait(uuid)? {
                 if let Some(status) = process {
@@ -1225,8 +1225,13 @@ impl Process {
                 break (ExitStatus::default(), true);
             }
             tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
-            if let Some(tick) = PlaytimeTick::take(&mut last_tick, false) {
-                events.post(ProcessEvent::Playtime(tick), Delivery::Reserved);
+            if let Some(tick) = clock.take(false) {
+                let elapsed = tick.elapsed;
+                if events.post(ProcessEvent::Playtime(tick), Delivery::Reserved)
+                    != Posted::Queued
+                {
+                    clock.carry(elapsed);
+                }
             }
         };
         let manually_killed = state.process_manager.was_manually_killed(uuid);
@@ -1235,7 +1240,7 @@ impl Process {
                 status,
                 missing,
                 manually_killed,
-                final_playtime: PlaytimeTick::take(&mut last_tick, true),
+                final_playtime: clock.take(true),
             },
             Delivery::Reserved,
         );
@@ -1456,19 +1461,40 @@ struct PlaytimeTick {
     ended_at: DateTime<Utc>,
 }
 
-impl PlaytimeTick {
-    /// The time since `last` once a minute has passed, or whenever `force`d;
-    /// `last` restarts from now.
-    fn take(last: &mut Instant, force: bool) -> Option<Self> {
-        let elapsed = last.elapsed().as_secs();
+/// Playtime the detector has measured but not yet handed over.
+struct PlaytimeClock {
+    last: Instant,
+    /// Seconds of ticks the queue refused, added to the next tick.
+    carried: u64,
+}
+
+impl PlaytimeClock {
+    fn new() -> Self {
+        Self {
+            last: Instant::now(),
+            carried: 0,
+        }
+    }
+
+    /// The time since the last tick plus any carried time, once a minute
+    /// has gathered or whenever `force`d; the clock restarts from now.
+    fn take(&mut self, force: bool) -> Option<PlaytimeTick> {
+        let elapsed = self.carried + self.last.elapsed().as_secs();
         if elapsed == 0 || (!force && elapsed < 60) {
             return None;
         }
-        *last = Instant::now();
-        Some(Self {
+        self.last = Instant::now();
+        self.carried = 0;
+        Some(PlaytimeTick {
             elapsed,
             ended_at: Utc::now(),
         })
+    }
+
+    /// Keeps the time of a tick the queue refused, so the next tick that is
+    /// accepted carries it and no playtime is lost.
+    fn carry(&mut self, elapsed: u64) {
+        self.carried += elapsed;
     }
 }
 
@@ -1719,5 +1745,44 @@ mod process_wait_tests {
         polling.await.unwrap();
         manager.remove(id);
         manager.wait_for(id).await.unwrap();
+    }
+}
+
+#[cfg(test)]
+mod playtime_clock_tests {
+    use super::*;
+
+    fn started(seconds_ago: u64) -> PlaytimeClock {
+        PlaytimeClock {
+            last: Instant::now() - std::time::Duration::from_secs(seconds_ago),
+            carried: 0,
+        }
+    }
+
+    #[test]
+    fn a_minute_makes_a_tick_and_restarts_the_clock() {
+        let mut clock = started(61);
+        assert!(clock.take(false).is_some_and(|tick| tick.elapsed >= 61));
+        assert!(clock.take(false).is_none());
+    }
+
+    #[test]
+    fn a_refused_tick_is_carried_into_the_next_one() {
+        let mut clock = started(61);
+        let refused = clock.take(false).unwrap().elapsed;
+        clock.carry(refused);
+        let next = clock.take(false).expect("carried time alone fills a tick");
+        assert!(next.elapsed >= refused, "the refused time is not lost");
+        assert!(
+            clock.take(false).is_none(),
+            "carried time is handed over once"
+        );
+    }
+
+    #[test]
+    fn the_final_tick_includes_carried_time() {
+        let mut clock = PlaytimeClock::new();
+        clock.carry(30);
+        assert!(clock.take(true).is_some_and(|tick| tick.elapsed >= 30));
     }
 }

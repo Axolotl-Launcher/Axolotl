@@ -12,10 +12,37 @@ type Slot<'a> = (
     tokio::sync::SemaphorePermit<'a>,
 );
 
+/// When a job waiting in line gives up its place.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(super) enum LeaveWhen {
+    /// Admission: the job finished or started canceling.
+    FinishedOrCanceling,
+    /// Settling after a runner failure: only once the job finished, since
+    /// finishing a cancellation needs the slot as much as an interruption.
+    Finished,
+}
+
+impl LeaveWhen {
+    fn leaves(self, status: InstallJobStatus) -> bool {
+        status.is_finished()
+            || (self == Self::FinishedOrCanceling
+                && status == InstallJobStatus::Canceling)
+    }
+}
+
 pub(super) async fn wait_for_slot<'a>(
     state: &'a State,
     job: &store::InstallJobRecord,
     step: Duration,
+) -> crate::Result<Option<Slot<'a>>> {
+    wait_for_slot_until(state, job, step, LeaveWhen::FinishedOrCanceling).await
+}
+
+pub(super) async fn wait_for_slot_until<'a>(
+    state: &'a State,
+    job: &store::InstallJobRecord,
+    step: Duration,
+    leave: LeaveWhen,
 ) -> crate::Result<Option<Slot<'a>>> {
     let instance = job
         .instance_id
@@ -29,7 +56,8 @@ pub(super) async fn wait_for_slot<'a>(
                 .or_default()
                 .clone();
             let Some(guard) =
-                wait_in_line(state, job.id, step, lock.lock_owned()).await?
+                wait_in_line(state, job.id, step, leave, lock.lock_owned())
+                    .await?
             else {
                 return Ok(None);
             };
@@ -41,6 +69,7 @@ pub(super) async fn wait_for_slot<'a>(
         state,
         job.id,
         step,
+        leave,
         state.install_job_semaphore.acquire(),
     )
     .await?
@@ -51,11 +80,12 @@ pub(super) async fn wait_for_slot<'a>(
 }
 
 /// Awaits `acquire` without dropping it. Every `step` the job is read again;
-/// once it has finished or started canceling the wait ends with `None`.
+/// once `leave` says it gives up its place the wait ends with `None`.
 async fn wait_in_line<T>(
     state: &State,
     job_id: Uuid,
     step: Duration,
+    leave: LeaveWhen,
     acquire: impl Future<Output = T>,
 ) -> crate::Result<Option<T>> {
     tokio::pin!(acquire);
@@ -66,7 +96,7 @@ async fn wait_in_line<T>(
         }
         steps += 1;
         let status = store::get_required(job_id, state).await?.status;
-        if status.is_finished() || status == InstallJobStatus::Canceling {
+        if leave.leaves(status) {
             tracing::info!(%job_id, status = status.as_str(), "Install job left the queue before getting a slot");
             return Ok(None);
         }
@@ -214,6 +244,42 @@ mod tests {
             .expect("a canceled job stops waiting at its next step")
             .unwrap();
         assert!(left.is_none());
+        state.pool.close().await;
+    }
+
+    #[tokio::test]
+    async fn a_canceling_job_keeps_its_place_when_settling() {
+        let (_temp, state) = fixture().await;
+        let mut records = Vec::new();
+        for instance in ["first", "second", "third"] {
+            let job = enqueue(request(instance), &state).await.unwrap();
+            records
+                .push(store::get_required(job.job_id, &state).await.unwrap());
+        }
+        let first = wait_for_slot(&state, &records[0], STEP).await.unwrap();
+        let _second = wait_for_slot(&state, &records[1], STEP).await.unwrap();
+        store::update_status(
+            records[2].id,
+            InstallJobStatus::Canceling,
+            &records[2].state,
+            &state,
+        )
+        .await
+        .unwrap();
+
+        let third =
+            wait_for_slot_until(&state, &records[2], STEP, LeaveWhen::Finished);
+        tokio::pin!(third);
+        assert!(
+            tokio::time::timeout(STEP * 3, &mut third).await.is_err(),
+            "canceling alone does not give up a settlement slot"
+        );
+        drop(first);
+        let slot = tokio::time::timeout(Duration::from_secs(5), third)
+            .await
+            .expect("the slot comes once another job releases it")
+            .unwrap();
+        assert!(slot.is_some());
         state.pool.close().await;
     }
 }

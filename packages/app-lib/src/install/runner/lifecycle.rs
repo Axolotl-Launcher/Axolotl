@@ -115,18 +115,32 @@ async fn settle_once(job_id: Uuid, attempt: u32) -> crate::Result<Settled> {
         AfterRunnerError::Leave => Ok(Settled::Done),
         AfterRunnerError::Interrupt | AfterRunnerError::FinishCanceled => {
             // Settle under the job's own slot, so nothing else can start on
-            // the instance while its files are rolled back.
-            let _slot = admission::queued_slot(&state, &record).await?;
-            if decision == AfterRunnerError::Interrupt {
-                recovery::settle_interrupted_job(
-                    record,
-                    recovery::Interruption::RunnerFailed,
-                    &state,
-                )
-                .await?;
-            } else {
-                let mut job_state = record.state;
-                finish_canceled_job(job_id, &mut job_state, &state).await?;
+            // the instance while its files are rolled back. Without a slot
+            // the job has finished, and there is nothing left to settle.
+            let Some(_slot) =
+                admission::settlement_slot(&state, &record).await?
+            else {
+                return Ok(Settled::Done);
+            };
+            // The job may have started canceling or finished while it
+            // waited; settle what is stored now, not the record read before.
+            let Some(record) = store::get(job_id, &state).await? else {
+                return Ok(Settled::Done);
+            };
+            match after_runner_error(Some(record.status), RUNNER_RETRIES) {
+                AfterRunnerError::Interrupt => {
+                    recovery::settle_interrupted_job(
+                        record,
+                        recovery::Interruption::RunnerFailed,
+                        &state,
+                    )
+                    .await?;
+                }
+                AfterRunnerError::FinishCanceled => {
+                    let mut job_state = record.state;
+                    finish_canceled_job(job_id, &mut job_state, &state).await?;
+                }
+                AfterRunnerError::Retry | AfterRunnerError::Leave => {}
             }
             Ok(Settled::Done)
         }

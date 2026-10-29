@@ -56,6 +56,7 @@ const CHANNELS = ['release', 'beta']
 // Only recent migrations are listed. Dropping to a threshold before them is
 // refused rather than guessed at; --allow-unmapped accepts the risk explicitly.
 const REVERTIBLE_SCHEMA = {
+    20261102120000: { columns: [{ table: 'install_jobs', column: 'level' }] },
     // Moves content_refresh_packs and content_refresh_scan_failures to
     // derived.db: the rows are rebuildable, so the record is all a downgrade
     // removes. The tables it drops are named in `drops` instead of `tables`,
@@ -68,7 +69,6 @@ const REVERTIBLE_SCHEMA = {
     // table cannot be recreated, so the record is all a downgrade removes.
     20261031120000: {},
     20261029160000: { tables: ['scheduler_restart_budget', 'scheduler_tags'] },
-    20261029140000: { columns: [{ table: 'install_jobs', column: 'level' }] },
     // Derived records moved to derived.db: crash_analysis_mod_snapshots,
     // discovered_javas, google_translate_ip_cache and translation_cache are
     // dropped, so the record is all a downgrade removes. telemetry_outbox stays

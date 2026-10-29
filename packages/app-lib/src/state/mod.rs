@@ -697,6 +697,7 @@ impl State {
             );
         }
         crate::scheduler::reconcile::at_startup(state).await;
+        crate::scheduler::quota::check_at_startup();
 
         state.spawn_background({
             let state = Arc::clone(state);

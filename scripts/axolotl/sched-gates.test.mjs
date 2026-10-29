@@ -16,7 +16,7 @@ import { awaitedSendsInL0 } from './sched-unbounded-sender-check.mjs'
 import { checkWhitelist } from './sched-whitelist-check.mjs'
 import { missingGolden } from './sched-resource-golden-check.mjs'
 import { buildInventory } from './sched-resource-inventory.mjs'
-import { loadPolicy, maskRust, rankFingerprint, sourcesOf, stripTestItems, workspaceCrates } from './sched-utils.mjs'
+import { loadPolicy, maskRust, orderCoverage, rankFingerprint, scanOrderAnnotations, sourcesOf, stripTestItems, workspaceCrates } from './sched-utils.mjs'
 
 const policy = loadPolicy()
 const crates = workspaceCrates()
@@ -99,6 +99,60 @@ test('order check reports a descending pair inside one function (K0.25)', () => 
     const result = evaluateOrder(files.registry, policy, annotations)
     assert.equal(result.errors.length, 0)
     assert.equal(result.descending.length, 1)
+})
+
+// A registry of three S8 resources (a < b < c) and one S5 permit, with the
+// reviewed fingerprint swapped for this table's own.
+const familyRegistry = {
+    items: [
+        { ident: 't::a', rank: 1, scopeClass: 'S8' },
+        { ident: 't::b', rank: 2, scopeClass: 'S8' },
+        { ident: 't::c', rank: 3, scopeClass: 'S8' },
+        { ident: 't::permit', rank: 4, scopeClass: 'S5' },
+    ],
+}
+const familyPolicy = (exceptions = []) => ({ ...clone(policy), rankFingerprint: rankFingerprint(familyRegistry.items), orderViolations: [], orderExceptions: exceptions })
+const annotated = (body) => scanOrderAnnotations([source('packages/app-lib/src/x.rs', `fn f() {\n${body}\n}\n`)])
+
+test('order check compares ranks only within one family (K4.1, R5)', () => {
+    const result = evaluateOrder(familyRegistry, familyPolicy(), annotated('    // sched-order: t::permit\n    let p = permit.acquire();\n    // sched-order: t::a\n    let a = a.lock();'))
+    assert.deepEqual(result.descending, [])
+    assert.equal(result.crossFamily, 1)
+})
+
+test('order check ends a hold at its block, its release, or its statement (K4.1)', () => {
+    const block = annotated('    {\n        // sched-order: t::b\n        let b = b.lock();\n    }\n    // sched-order: t::a\n    let a = a.lock();')
+    assert.deepEqual(evaluateOrder(familyRegistry, familyPolicy(), block).descending, [])
+    const released = annotated('    // sched-order: t::b\n    let b = b.lock();\n    // sched-order-release: t::b\n    drop(b);\n    // sched-order: t::a\n    let a = a.lock();')
+    assert.deepEqual(evaluateOrder(familyRegistry, familyPolicy(), released).descending, [])
+    const temporary = annotated('    // sched-order: t::b temporary\n    b.lock().clear();\n    // sched-order: t::a\n    let a = a.lock();')
+    assert.deepEqual(evaluateOrder(familyRegistry, familyPolicy(), temporary).descending, [])
+    const nested = annotated('    // sched-order: t::b\n    let b = b.lock();\n    // sched-order: t::a\n    let a = a.lock();')
+    assert.equal(evaluateOrder(familyRegistry, familyPolicy(), nested).descending.length, 1)
+})
+
+test('order check accepts a listed exception but not a cycle through it (K4.11)', () => {
+    const exception = [{ held: 't::b', acquired: 't::a' }]
+    const once = annotated('    // sched-order: t::b\n    let b = b.lock();\n    // sched-order: t::a\n    let a = a.lock();')
+    const accepted = evaluateOrder(familyRegistry, familyPolicy(exception), once)
+    assert.deepEqual([accepted.descending, accepted.errors], [[], []])
+    assert.equal(accepted.exempted.length, 1)
+    const cycle = annotated('    // sched-order: t::b\n    let b = b.lock();\n    // sched-order: t::a\n    let a = a.lock();\n    // sched-order: t::c\n    let c = c.lock();\n}\nfn g() {\n    // sched-order: t::a\n    let a = a.lock();\n    // sched-order: t::b\n    let b = b.lock();')
+    assert.ok(evaluateOrder(familyRegistry, familyPolicy(exception), cycle).errors.some((error) => error.includes('cycle')))
+})
+
+test('order coverage asks for annotations only where a family has two resources (K4.1)', () => {
+    const code = source('packages/app-lib/src/x.rs', 'fn one() {\n    let a = a.lock();\n}\nfn two() {\n    // sched-order: t::a\n    let a = a.lock();\n    let b = b.lock();\n}\n')
+    const getpoints = {
+        items: [
+            { file: 'packages/app-lib/src/x.rs', line: 2, method: 'lock', idents: ['t::a'] },
+            { file: 'packages/app-lib/src/x.rs', line: 6, method: 'lock', idents: ['t::a'] },
+            { file: 'packages/app-lib/src/x.rs', line: 7, method: 'lock', idents: ['t::b'] },
+        ],
+    }
+    const coverage = orderCoverage(getpoints, familyRegistry, scanOrderAnnotations([code]), [code])
+    assert.deepEqual(coverage.exempt.map((point) => [point.line, point.rule]), [[2, 'F1']])
+    assert.deepEqual(coverage.uncovered.map((point) => point.line), [7])
 })
 
 test('L0 check rejects a total-order acquisition inside the L0 module (K0.14)', () => {

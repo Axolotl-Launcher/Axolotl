@@ -165,6 +165,15 @@ impl TagRegistry {
         tag.registry == self.id && tag.generation == self.generation
     }
 
+    /// Live tags per level, for the read-only scheduler view.
+    pub fn live_by_level(&self) -> std::collections::BTreeMap<Level, usize> {
+        let mut counts = std::collections::BTreeMap::new();
+        for record in self.live.iter() {
+            *counts.entry(record.level).or_default() += 1;
+        }
+        counts
+    }
+
     /// `mint_count_per_user_operation` for one origin.
     pub fn mint_count(&self, origin: &str) -> usize {
         self.mints.get(origin).map(|count| *count).unwrap_or(0)

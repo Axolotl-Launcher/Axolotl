@@ -68,6 +68,11 @@
       "ident": "theseus::scheduler::panic::PANIC_LOG_LOCK",
       "rule": "D4",
       "reason": "panic-log append lock: synchronous, held for one bounded append, takes no other lock"
+    },
+    {
+      "ident": "theseus::scheduler::order::instrument::TRACKING",
+      "rule": "D4",
+      "reason": "order instrumentation bookkeeping: leaf primitive only, held for one map update in debug test runs with SCHED_ORDER_GUARD=1, takes no other lock"
     }
   ],
   "recallGap": {
@@ -117,6 +122,45 @@
     }
   },
   "orderViolations": [],
+  "orderScope": "family",
+  "orderScopeBasis": "The recall-gap gate (K0.27) holds an S5 item, so per spec §6.3.4 and §11.8 R5 ranks are compared only within one scope class; pairs across classes are unordered and only the 20 s admission timeout bounds a deadlock between them.",
+  "orderExceptions": [
+    {
+      "held": "theseus::api::loader_metadata::MetadataCache.value",
+      "acquired": "theseus::api::loader_metadata::MetadataCache.failure",
+      "sites": [
+        "packages/app-lib/src/api/loader_metadata.rs::get_or_fetch_with_refresh"
+      ],
+      "reason": "failure is read and written only while value is held, which keeps one fetch per cache; no path takes value while holding failure"
+    },
+    {
+      "held": "theseus::api::loader_metadata::MetadataCache.value",
+      "acquired": "theseus::api::loader_metadata::MetadataCache.value",
+      "observedBy": "instrumented run",
+      "sites": [
+        "packages/app-lib/src/api/loader_metadata.rs::LoaderManifestCache::get_or_fetch_with_refresh",
+        "packages/app-lib/src/api/loader_metadata.rs::fetch_neoforge_manifest"
+      ],
+      "reason": "two instances of one cache type, found by the instrumented run: a loader-manifest entry holds its value across its fetch, the NeoForge fetch inside it takes the two Maven-metadata caches, and their fetches take no cache, so no path nests them the other way"
+    },
+    {
+      "held": "theseus::state::instances::watcher::FileWatcher.watcher",
+      "acquired": "theseus::state::instances::watcher::FileWatcher.instance_ids",
+      "sites": [
+        "packages/app-lib/src/state/instances/watcher.rs::watch_instance_folder",
+        "packages/app-lib/src/state/instances/watcher.rs::unwatch_instance_folder"
+      ],
+      "reason": "the debouncer lock is taken first on every path that also changes the instance mapping; the event loop takes instance_ids without the debouncer, so no path takes them the other way round"
+    },
+    {
+      "held": "theseus::state::instances::watcher::FileWatcher.watcher",
+      "acquired": "theseus::state::instances::watcher::FileWatcher.manual_import_directory",
+      "sites": [
+        "packages/app-lib/src/state/instances/watcher.rs::configure_manual_import_directory"
+      ],
+      "reason": "the directory is swapped while the debouncer lock is held so the watch and the stored directory change together; the event loop reads the directory without the debouncer"
+    }
+  ],
   "l0Module": "packages/app-lib/src/scheduler/l0",
   "l0Members": [
     {

@@ -344,11 +344,13 @@ impl SharedH2Connection {
         request: http::Request<()>,
     ) -> crate::Result<http::Response<h2::RecvStream>> {
         let ready_started = std::time::Instant::now();
+        // sched-order: theseus::util::download::h2_pool::SharedH2Connection.sender temporary
         let sender = self
             .sender
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner())
             .clone();
+        // sched-order: theseus::util::download::h2_pool::SharedH2Connection.last_activity temporary
         *self
             .last_activity
             .lock()
@@ -370,6 +372,7 @@ impl SharedH2Connection {
             );
         }
         let (response, _) = {
+            // sched-order: theseus::util::download::h2_pool::SharedH2Connection.sender
             let _admission =
                 self.sender.lock().unwrap_or_else(|p| p.into_inner());
             if self.is_retiring() || self.is_dead() {
@@ -988,6 +991,7 @@ async fn wait_for_idle(
 }
 
 pub(crate) async fn evict_idle_connections(scope: Option<&str>) {
+    // sched-order: theseus::util::download::h2_pool::CONNECTIONS temporary
     let slots = CONNECTIONS
         .lock()
         .await
@@ -1003,6 +1007,7 @@ pub(crate) async fn evict_idle_connections(scope: Option<&str>) {
             connection.evict();
         }
     }
+    // sched-order: theseus::util::download::h2_pool::PARALLEL_CONNECTIONS temporary
     let pools = PARALLEL_CONNECTIONS
         .lock()
         .await
@@ -1043,6 +1048,7 @@ pub(crate) async fn observe_adaptive_connections() {
 }
 
 async fn retire_obsolete_connections(current: &ConnectionPoolKey) {
+    // sched-order: theseus::util::download::h2_pool::CONNECTIONS temporary
     let slots = CONNECTIONS
         .lock()
         .await
@@ -1061,6 +1067,7 @@ async fn retire_obsolete_connections(current: &ConnectionPoolKey) {
             connection.retire();
         }
     }
+    // sched-order: theseus::util::download::h2_pool::PARALLEL_CONNECTIONS temporary
     let pools = PARALLEL_CONNECTIONS
         .lock()
         .await
@@ -1078,11 +1085,13 @@ async fn retire_obsolete_connections(current: &ConnectionPoolKey) {
             state.prune();
         }
     }
+    // sched-order: theseus::util::download::h2_pool::CONNECTIONS temporary
     CONNECTIONS.lock().await.retain(|key, slot| {
         key == current
             || key.budget_scope != current.budget_scope
             || Arc::strong_count(slot) > 1
     });
+    // sched-order: theseus::util::download::h2_pool::PARALLEL_CONNECTIONS temporary
     PARALLEL_CONNECTIONS.lock().await.retain(|key, pool| {
         key == current
             || key.budget_scope != current.budget_scope

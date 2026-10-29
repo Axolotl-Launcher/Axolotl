@@ -1,4 +1,5 @@
 use crate::State;
+use crate::scheduler::order::instrument;
 use crate::state::CachedLoaderManifest;
 use crate::util::fetch::{
     FetchSemaphore, fetch, fetch_json, fetch_metadata, fetch_official,
@@ -174,6 +175,10 @@ impl<T: Clone> MetadataCache<T> {
         let requested_at = Instant::now();
         // Keep the lock through the fetch so full and scoped
         // requests share one download, including during background refresh.
+        let _order_value = instrument::hold(
+            "theseus::api::loader_metadata::MetadataCache.value",
+        );
+        // sched-order: theseus::api::loader_metadata::MetadataCache.value
         let mut cached = self.value.lock().await;
         if let Some((fetched_at, metadata)) = cached.as_ref()
             && if force_refresh {
@@ -185,6 +190,10 @@ impl<T: Clone> MetadataCache<T> {
             return Ok(metadata.clone());
         }
 
+        instrument::touch(
+            "theseus::api::loader_metadata::MetadataCache.failure",
+        );
+        // sched-order: theseus::api::loader_metadata::MetadataCache.failure temporary
         if let Some((failed_at, error)) = self.failure.lock().await.as_ref()
             && failed_at.elapsed() < LOADER_METADATA_RETRY_DELAY
         {
@@ -197,10 +206,18 @@ impl<T: Clone> MetadataCache<T> {
         match fetch().await {
             Ok(metadata) => {
                 *cached = Some((Instant::now(), metadata.clone()));
+                instrument::touch(
+                    "theseus::api::loader_metadata::MetadataCache.failure",
+                );
+                // sched-order: theseus::api::loader_metadata::MetadataCache.failure temporary
                 *self.failure.lock().await = None;
                 Ok(metadata)
             }
             Err(error) => {
+                instrument::touch(
+                    "theseus::api::loader_metadata::MetadataCache.failure",
+                );
+                // sched-order: theseus::api::loader_metadata::MetadataCache.failure temporary
                 *self.failure.lock().await =
                     Some((Instant::now(), Arc::clone(&error.raw)));
                 if !force_refresh && let Some((_, metadata)) = cached.as_ref() {

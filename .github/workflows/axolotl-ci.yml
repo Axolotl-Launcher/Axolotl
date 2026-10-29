@@ -118,13 +118,14 @@ jobs:
           node scripts/axolotl/sched-enter-ban-check.mjs
           node scripts/axolotl/sched-tag-check.mjs
           node scripts/axolotl/sched-unbounded-sender-check.mjs
-          # Exit 1 from these two means the design falls back to per-family
-          # orders (an accepted outcome); only other codes fail the job.
-          for gate in sched-recall-gap-gate sched-order-annotation-check; do
-            status=0
-            node "scripts/axolotl/$gate.mjs" || status=$?
-            if [ "$status" -gt 1 ]; then exit "$status"; fi
-          done
+          # Exit 1 here means the design falls back to per-family orders (an
+          # accepted outcome, spec §11.8 R5); only other codes fail the job.
+          status=0
+          node scripts/axolotl/sched-recall-gap-gate.mjs || status=$?
+          if [ "$status" -gt 1 ]; then exit "$status"; fi
+          # Within each family the order is enforced: every acquisition point
+          # the per-family order can judge must carry an annotation.
+          node scripts/axolotl/sched-order-annotation-check.mjs --require-annotations
       - name: Check formatting of Rust code
         run: cargo fmt --all --check
 

@@ -284,7 +284,9 @@ pub async fn update(
             "analysis session belongs to a different instance",
         ));
     }
+    // sched-order: theseus::resources::plans::analysis::AnalysisSession.touched temporary
     *session.touched.lock().unwrap() = Instant::now();
+    // sched-order: theseus::resources::plans::analysis::AnalysisSession.data
     let mut data = tokio::select! {
         biased;
         _ = session.cancel.cancelled() => return Err(ResourceError::Canceled),

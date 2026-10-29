@@ -1003,6 +1003,12 @@
       "reason": "fallback onto the current runtime when the L0 executor cannot start"
     },
     {
+      "file": "packages/app-lib/src/scheduler/order/instrument.rs",
+      "form": "std::fs",
+      "count": 3,
+      "reason": "order instrumentation reads the generated registry and appends to the violation list; debug test runs with SCHED_ORDER_GUARD=1 only, never in L0 or a critical section"
+    },
+    {
       "file": "packages/app-lib/src/scheduler/panic.rs",
       "form": "std::fs",
       "count": 4,

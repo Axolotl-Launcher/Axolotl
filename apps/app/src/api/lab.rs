@@ -539,6 +539,22 @@ pub async fn trial_chamber_find<R: tauri::Runtime>(
         .get_args()
         .map(OsStr::to_os_string)
         .collect();
+    // The program names its CSV after the start time and leaves older runs in
+    // place, so "the newest file" would report a previous search's coordinates
+    // when this run writes nothing at all. Remember what already exists and only
+    // read a file this run created.
+    let existing_results: Vec<PathBuf> = std::fs::read_dir(&program)
+        .ok()
+        .into_iter()
+        .flatten()
+        .flatten()
+        .map(|entry| entry.path())
+        .filter(|path| {
+            path.file_name().is_some_and(|name| {
+                name.to_string_lossy().starts_with("results-trial-spawner-")
+            })
+        })
+        .collect();
     let output = java_command.output().await.map_err(|error| {
         write_scan_log(
             &app,
@@ -566,22 +582,23 @@ pub async fn trial_chamber_find<R: tauri::Runtime>(
         ));
     }
 
-    // The program writes its CSV next to itself; read the newest one rather than
+    // The program writes its CSV next to itself; read this run's file rather than
     // parsing stdout, which also carries progress output.
     let newest = std::fs::read_dir(&program)
         .ok()
         .into_iter()
         .flatten()
         .flatten()
-        .filter(|entry| {
-            entry
-                .file_name()
-                .to_string_lossy()
-                .starts_with("results-trial-spawner-")
+        .map(|entry| entry.path())
+        .filter(|path| {
+            path.file_name().is_some_and(|name| {
+                name.to_string_lossy().starts_with("results-trial-spawner-")
+            })
         })
-        .filter_map(|entry| {
-            let modified = entry.metadata().ok()?.modified().ok()?;
-            Some((modified, entry.path()))
+        .filter(|path| !existing_results.contains(path))
+        .filter_map(|path| {
+            let modified = std::fs::metadata(&path).ok()?.modified().ok()?;
+            Some((modified, path))
         })
         .max_by_key(|(modified, _)| *modified)
         .map(|(_, path)| path);

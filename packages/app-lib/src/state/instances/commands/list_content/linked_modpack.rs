@@ -41,19 +41,19 @@ pub(crate) async fn get_linked_modpack_info(
         CachedEntry::get_project(
             &project_id_ref,
             cache_behaviour,
-            &state.pool,
+            state.cache_pool(),
             &state.api_semaphore,
         ),
         CachedEntry::get_version(
             &version_id_ref,
             cache_behaviour,
-            &state.pool,
+            state.cache_pool(),
             &state.api_semaphore,
         ),
         CachedEntry::get_project_versions(
             &project_id_ref,
             cache_behaviour,
-            &state.pool,
+            state.cache_pool(),
             &state.api_semaphore,
         ),
     )?;
@@ -76,13 +76,13 @@ pub(crate) async fn get_linked_modpack_info(
             CachedEntry::get_project(
                 &modpack_project_id_ref,
                 cache_behaviour,
-                &state.pool,
+                state.cache_pool(),
                 &state.api_semaphore,
             ),
             CachedEntry::get_project_versions(
                 &modpack_project_id_ref,
                 cache_behaviour,
-                &state.pool,
+                state.cache_pool(),
                 &state.api_semaphore,
             ),
         )?;
@@ -99,7 +99,7 @@ pub(crate) async fn get_linked_modpack_info(
         let org = CachedEntry::get_organization(
             org_id,
             cache_behaviour,
-            &state.pool,
+            state.cache_pool(),
             &state.api_semaphore,
         )
         .await?;
@@ -113,7 +113,7 @@ pub(crate) async fn get_linked_modpack_info(
         let team = CachedEntry::get_team(
             &project.team,
             cache_behaviour,
-            &state.pool,
+            state.cache_pool(),
             &state.api_semaphore,
         )
         .await?;
@@ -776,7 +776,8 @@ pub(super) async fn get_modpack_identifiers(
 ) -> crate::Result<ModpackIdentifiers> {
     let _cache_usage = crate::storage::usage::lease().await?;
     if let Some(cached) =
-        CachedEntry::get_modpack_files(version_id, &state.data).await?
+        CachedEntry::get_modpack_files(version_id, &state.cache_handle())
+            .await?
     {
         if !cached.project_ids.is_empty() {
             return Ok(ModpackIdentifiers {
@@ -793,7 +794,7 @@ pub(super) async fn get_modpack_identifiers(
         let files = CachedEntry::get_file_many(
             &hash_refs,
             None,
-            &state.pool,
+            state.cache_pool(),
             fetch_semaphore,
         )
         .await?;
@@ -819,7 +820,7 @@ pub(super) async fn get_modpack_identifiers(
     let version = CachedEntry::get_version(
         &ModrinthVersionId::new(version_id.to_string())?,
         None,
-        &state.pool,
+        state.cache_pool(),
         fetch_semaphore,
     )
     .await?

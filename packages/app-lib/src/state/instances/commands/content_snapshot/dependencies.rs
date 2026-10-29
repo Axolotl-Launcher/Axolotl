@@ -360,7 +360,7 @@ pub(crate) async fn backfill_dependency_edges_from_metadata(
         match CachedEntry::get_version_many(
             &version_ids,
             None,
-            &state.pool,
+            state.cache_pool(),
             &state.api_semaphore,
         )
         .await

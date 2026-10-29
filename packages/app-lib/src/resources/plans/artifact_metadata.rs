@@ -43,9 +43,7 @@ impl ArtifactMetadataReader for RuntimeArtifactMetadataReader {
         let ArtifactAcquisition::PublicDownload { urls } =
             &artifact.acquisition
         else {
-            return Err(invalid(
-                "a local dependency version cannot be verified without the exact download",
-            ));
+            return Ok(None);
         };
         let Some(url) = urls.first() else {
             return Err(invalid("artifact has no download URL"));
@@ -98,12 +96,27 @@ impl ResourceService {
         requirements: &[requirements::RetainedRequirement],
         cancel: &CancellationToken,
     ) -> ResourceResult<bool> {
+        Ok(self
+            .local_requirements_assessment(release, requirements, cancel)
+            .await?
+            != CompatibilityState::Incompatible)
+    }
+
+    pub(crate) async fn local_requirements_assessment(
+        &self,
+        release: &ResourceRelease,
+        requirements: &[requirements::RetainedRequirement],
+        cancel: &CancellationToken,
+    ) -> ResourceResult<CompatibilityState> {
+        if cancel.is_cancelled() {
+            return Err(ResourceError::Canceled);
+        }
         let local: Vec<_> = requirements
             .iter()
             .filter(|requirement| requirement.local_mod_id.is_some())
             .collect();
         if local.is_empty() {
-            return Ok(true);
+            return Ok(CompatibilityState::Compatible);
         }
         let artifacts: Vec<_> = release
             .artifacts
@@ -111,7 +124,7 @@ impl ResourceService {
             .filter(|artifact| artifact.role == ArtifactRole::Primary)
             .collect();
         if artifacts.len() != 1 {
-            return Ok(false);
+            return Ok(CompatibilityState::Incompatible);
         }
         let artifact = artifacts[0];
         let cached = self
@@ -124,10 +137,19 @@ impl ResourceService {
         let metadata = if let Some(metadata) = cached {
             metadata
         } else {
-            let Some(metadata) =
-                self.artifact_metadata_reader.read(artifact, cancel).await?
-            else {
-                return Ok(true);
+            let metadata = match self
+                .artifact_metadata_reader
+                .read(artifact, cancel)
+                .await
+            {
+                Ok(Some(metadata)) => metadata,
+                Ok(None)
+                | Err(
+                    ResourceError::Network { .. } | ResourceError::Unavailable,
+                ) => {
+                    return Ok(CompatibilityState::Unknown);
+                }
+                Err(error) => return Err(error),
             };
             if self.artifact_metadata.len() >= 256 {
                 self.artifact_metadata.clear();
@@ -138,17 +160,28 @@ impl ResourceService {
             );
             metadata
         };
-        Ok(local.iter().all(|requirement| {
-            requirement.local_mod_id.as_ref() == Some(&metadata.mod_id)
-                && requirement.version_constraint.as_ref().is_none_or(
-                    |constraint| {
-                        metadata.version.as_ref().is_none_or(|version| {
-                            requirements::mod_version_matches(
-                                constraint, version,
-                            )
-                        })
-                    },
-                )
-        }))
+        let mut assessment = CompatibilityState::Compatible;
+        for requirement in local {
+            if requirement.local_mod_id.as_ref() != Some(&metadata.mod_id) {
+                return Ok(CompatibilityState::Incompatible);
+            }
+            if let Some(constraint) = &requirement.version_constraint {
+                match metadata
+                    .version
+                    .as_ref()
+                    .map_or(CompatibilityState::Unknown, |version| {
+                        assess_release_constraint(constraint, version)
+                    }) {
+                    CompatibilityState::Incompatible => {
+                        return Ok(CompatibilityState::Incompatible);
+                    }
+                    CompatibilityState::Unknown => {
+                        assessment = CompatibilityState::Unknown
+                    }
+                    CompatibilityState::Compatible => {}
+                }
+            }
+        }
+        Ok(assessment)
     }
 }

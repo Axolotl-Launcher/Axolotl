@@ -26,10 +26,13 @@ use uuid::Uuid;
 use super::MinecraftProfile;
 use crate::state::store::Handle;
 
+/// Imports what the previous launcher left behind. The fetched responses it
+/// finds are returned rather than written: they belong to the derived
+/// database, which does not exist yet at this point of startup.
 pub async fn migrate_legacy_data<'a, E>(
     handle: &Handle,
     exec: E,
-) -> crate::Result<()>
+) -> crate::Result<Vec<CachedEntry>>
 where
     E: sqlx::Executor<'a, Database = sqlx::Sqlite>
         + sqlx::Acquire<'a, Database = sqlx::Sqlite>
@@ -38,11 +41,11 @@ where
     let mut settings = state::Settings::get(handle).await?;
 
     if settings.migrated {
-        return Ok(());
+        return Ok(Vec::new());
     };
 
     let Some(old_launcher_root) = default_settings_dir() else {
-        return Ok(());
+        return Ok(Vec::new());
     };
     let old_launcher_root_str = old_launcher_root.to_string_lossy().to_string();
 
@@ -397,25 +400,22 @@ where
             }
         }
 
-        CachedEntry::upsert_many(
-            &cached_entries
-                .into_iter()
-                .map(|x| {
-                    let mut entry = x.get_entry();
-                    entry.expires =
-                        Utc::now().timestamp() - entry.type_.expiry();
-                    entry
-                })
-                .collect::<Vec<_>>(),
-            exec,
-        )
-        .await?;
-
         settings.migrated = true;
         settings.update(handle).await?;
+
+        // The cache lives in the derived database, which is opened after this
+        // runs, so the caller writes these once it exists.
+        return Ok(cached_entries
+            .into_iter()
+            .map(|x| {
+                let mut entry = x.get_entry();
+                entry.expires = Utc::now().timestamp() - entry.type_.expiry();
+                entry
+            })
+            .collect());
     }
 
-    Ok(())
+    Ok(Vec::new())
 }
 
 struct LegacyInstanceUpsert {

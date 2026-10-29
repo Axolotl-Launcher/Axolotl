@@ -12,6 +12,23 @@ use crate::state::{InstanceInstallStage, State};
 use chrono::{DateTime, TimeZone, Utc};
 use uuid::Uuid;
 
+fn same_execution(
+    stored: &str,
+    incoming: &InstallJobState,
+) -> crate::Result<bool> {
+    fn queued(state: &InstallJobState) -> Option<chrono::DateTime<Utc>> {
+        state.events.iter().rev().find_map(|event| {
+            matches!(
+                event.kind,
+                super::model::InstallJobEventKind::JobQueued { .. }
+            )
+            .then_some(event.at)
+        })
+    }
+    let stored: InstallJobState = serde_json::from_str(stored)?;
+    Ok(queued(&stored) == queued(incoming))
+}
+
 #[derive(Clone, Debug)]
 pub struct InstallJobRecord {
     pub id: Uuid,
@@ -211,6 +228,10 @@ pub async fn update_state(
 
     let mut unit = atom(&app_state.data).await?;
     if let Some(mut row) = InstallJobs::atom_get(&mut unit, &key).await? {
+        if !same_execution(&row.state, state)? {
+            drop(unit);
+            return get_required(id, app_state).await;
+        }
         row.instance_id = instance_id(state);
         row.state = json;
         row.modified = modified;
@@ -240,7 +261,9 @@ pub async fn checkpoint_running_state(
     let Some(mut row) = InstallJobs::atom_get(&mut unit, &key).await? else {
         return Ok(None);
     };
-    if row.status.as_str() != InstallJobStatus::Running.as_str() {
+    if row.status.as_str() != InstallJobStatus::Running.as_str()
+        || !same_execution(&row.state, state)?
+    {
         return Ok(None);
     }
     row.instance_id = instance_id(state);

@@ -582,6 +582,109 @@ fn missing_required_content_pauses_without_starting_rollback() {
     )));
 }
 
+fn partial_pack_download() -> InstallJobState {
+    let mut job = InstallJobState::new(InstallRequest::CreateModpackInstance {
+        location: CreatePackLocation::FromFile {
+            path: "pack.mrpack".into(),
+        },
+        post_install_edit: None,
+    });
+    job.target = InstallTarget::NewInstance {
+        instance_id: Some("partial".into()),
+    };
+    job.cleanup = InstallCleanup::DeleteNewInstance {
+        instance_id: Some("partial".into()),
+    };
+    job.progress.phase = InstallPhaseId::DownloadingMinecraft;
+    job
+}
+
+#[test]
+fn recoverable_pack_network_failures_keep_the_instance_and_persist_retry_state()
+{
+    for error in [
+        ErrorKind::NetworkError("connection lost".into()).into(),
+        ErrorKind::HttpError {
+            status: 503,
+            method: "GET".into(),
+            url: "https://assets.example".into(),
+        }
+        .into(),
+        ErrorKind::DownloadResourceWaitTimeout("request slot timed out".into())
+            .into(),
+    ] {
+        let mut job = partial_pack_download();
+        assert!(retain_pack_download(&mut job, &error));
+        assert_eq!(current_instance_id(&job).as_deref(), Some("partial"));
+        assert!(job.retry_from_checkpoint);
+        assert!(job.error.is_some());
+        assert!(!job.events.iter().any(|event| matches!(
+            event.kind,
+            InstallJobEventKind::RollbackStarted { .. }
+                | InstallJobEventKind::TargetInstanceDeleted { .. }
+        )));
+        let restored: InstallJobState =
+            serde_json::from_str(&serde_json::to_string(&job).unwrap())
+                .unwrap();
+        assert!(restored.retry_from_checkpoint);
+        assert!(restored.clone().retry_from_checkpoint);
+    }
+    let mut value = serde_json::to_value(partial_pack_download()).unwrap();
+    value
+        .as_object_mut()
+        .unwrap()
+        .remove("retry_from_checkpoint");
+    assert!(
+        !serde_json::from_value::<InstallJobState>(value)
+            .unwrap()
+            .retry_from_checkpoint
+    );
+}
+
+#[test]
+fn unsafe_pack_failures_and_existing_instance_updates_keep_the_rollback_policy()
+{
+    for error in [
+        ErrorKind::HashError("expected".into(), "actual".into()).into(),
+        ErrorKind::InputError("archive path escapes root".into()).into(),
+        crate::Error::from(std::io::Error::new(
+            std::io::ErrorKind::PermissionDenied,
+            "read only",
+        )),
+        ErrorKind::ResourceError(crate::resources::ResourceError::Database(
+            "broken database".into(),
+        ))
+        .into(),
+        ErrorKind::ResourceError(crate::resources::ResourceError::Canceled)
+            .into(),
+    ] {
+        let mut job = partial_pack_download();
+        assert!(!retain_pack_download(&mut job, &error));
+        job.retry_from_checkpoint = true;
+        begin_failed_job_rollback(&mut job, &error);
+        assert!(!job.retry_from_checkpoint);
+        assert_eq!(job.progress.phase, InstallPhaseId::RollingBack);
+    }
+    let mut existing = partial_pack_download();
+    existing.target = InstallTarget::ExistingInstance {
+        instance_id: "existing".into(),
+    };
+    assert!(!retain_pack_download(
+        &mut existing,
+        &ErrorKind::NetworkError("offline".into()).into()
+    ));
+    let mut canceled = partial_pack_download();
+    canceled.retry_from_checkpoint = true;
+    begin_canceling_job(&mut canceled);
+    assert!(!canceled.retry_from_checkpoint);
+    assert_eq!(
+        canceled.cleanup,
+        InstallCleanup::DeleteNewInstance {
+            instance_id: Some("partial".into())
+        }
+    );
+}
+
 #[test]
 fn curseforge_manual_downloads_create_a_recoverable_pause() {
     let manual_download = crate::api::curseforge::CurseForgeManualDownload {

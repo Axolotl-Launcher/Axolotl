@@ -537,7 +537,7 @@ console.log('a table a newer migration dropped is not demanded back')
 console.log('the scheduler schema: upgrade, downgrade and re-upgrade')
 {
     const LEVEL = 20261102120000
-    const SCHEDULER_TAGS = 20261102140000
+    const SCHEDULER_TAGS = 20261103140000
     const file = path.join(directory, 'level', 'beta', 'app.db')
     const files = fs.readdirSync(migrationsDir).filter((name) => name.endsWith('.sql')).sort()
     const later = files.filter((name) => Number(name.slice(0, 14)) >= LEVEL)

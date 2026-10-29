@@ -1772,7 +1772,7 @@ mod tests {
         source.close().await;
     }
 
-    const SCHEDULER_TAGS_MIGRATION_VERSION: i64 = 20261102140000;
+    const SCHEDULER_TAGS_MIGRATION_VERSION: i64 = 20261103140000;
 
     /// An older build opening a database that has the scheduler collections
     /// must refuse it as a downgrade, with the message the frontend expects.
@@ -1810,7 +1810,7 @@ mod tests {
         ));
         let message = error.user_facing_message();
         assert!(message.contains("was created by a newer Axolotl build"));
-        assert!(message.contains("20261102140000"));
+        assert!(message.contains("20261103140000"));
         pool.close().await;
     }
 

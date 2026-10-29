@@ -2,7 +2,7 @@
 
 use sqlx::SqliteConnection;
 
-use super::Collection;
+use super::{Collection, Handle};
 
 /// The feature settings, one per sync feature.
 pub(crate) struct SyncFeatureSettings;
@@ -125,6 +125,52 @@ impl Collection for SyncFeatureSettings {
     ) -> crate::Result<()> {
         Self::write(conn, scope, records.first().map(|(_, record)| record))
             .await
+    }
+}
+
+impl SyncFeatureSettings {
+    /// Turns `feature` on or off for the launcher, and for every instance with
+    /// it: an instance without a preference row would otherwise keep the old
+    /// answer forever, because there is no row to update.
+    pub(crate) async fn set_globally_enabled(
+        handle: &Handle,
+        feature: &str,
+        enabled: bool,
+    ) -> crate::Result<()> {
+        let mut unit = super::atom(handle).await?;
+        <Self as Collection>::atom_set(
+            &mut unit,
+            &FeatureSettingsKey {
+                feature: feature.to_string(),
+            },
+            Some(&FeatureSettingsRecord {
+                globally_enabled: enabled,
+                new_instance_default: enabled,
+            }),
+        )
+        .await?;
+        super::instance_sync_preferences::set_feature_for_every_instance(
+            unit.connection(),
+            feature,
+            enabled,
+        )
+        .await?;
+        unit.commit().await
+    }
+
+    /// Whether `feature` is on for the launcher.
+    pub(crate) async fn globally_enabled(
+        handle: &Handle,
+        feature: &str,
+    ) -> crate::Result<bool> {
+        Ok(Self::get(
+            handle,
+            &FeatureSettingsKey {
+                feature: feature.to_string(),
+            },
+        )
+        .await?
+        .is_some_and(|record| record.globally_enabled))
     }
 }
 

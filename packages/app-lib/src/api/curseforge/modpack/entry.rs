@@ -330,26 +330,18 @@ pub async fn install_modpack_with_reporter(
     .await?;
 
     let state = State::get().await?;
-    use sqlx::Row;
-    let instance_target = sqlx::query(
-        "SELECT content_set.game_version, content_set.loader
-         FROM instances instance
-         INNER JOIN instance_content_sets content_set
-            ON content_set.id = instance.applied_content_set_id
-         WHERE instance.id = ?",
-    )
-    .bind(&request.instance_id)
-    .fetch_optional(&state.pool)
-    .await?
-    .ok_or_else(|| {
-        ErrorKind::InputError(
-            "The selected instance has no active Minecraft installation"
-                .to_string(),
+    let (instance_game_version, instance_loader) =
+        crate::state::instances::adapters::sqlite::content_sets::get_applied_content_set_target(
+            &request.instance_id,
+            &state.pool,
         )
-    })?;
-    let instance_game_version =
-        instance_target.try_get::<String, _>("game_version")?;
-    let instance_loader = instance_target.try_get::<String, _>("loader")?;
+        .await?
+        .ok_or_else(|| {
+            ErrorKind::InputError(
+                "The selected instance has no active Minecraft installation"
+                    .to_string(),
+            )
+        })?;
     let target = modpack_target(&manifest)?;
     let loader = (target.loader != ModLoader::Vanilla)
         .then(|| target.loader.as_str().to_string());

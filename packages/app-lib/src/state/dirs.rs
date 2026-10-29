@@ -7,9 +7,10 @@ use crate::state::store::discovered_javas::{
     DiscoveredJavaRecord, DiscoveredJavas,
 };
 use crate::state::store::{Collection as _, Handle, atom};
-use crate::state::{JavaVersion, Settings};
+use crate::state::{Settings, documents};
 use crate::util::fetch::IoSemaphore;
 use dashmap::DashSet;
+use sqlx::SqlitePool;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tokio::fs;
@@ -321,19 +322,14 @@ impl DirectoryInfo {
         std::env::var_os(name).map(PathBuf::from)
     }
 
-    #[tracing::instrument(skip(settings, handle, exec, io_semaphore))]
-    pub async fn move_launcher_directory<'a, E>(
+    #[tracing::instrument(skip(settings, handle, pool, io_semaphore))]
+    pub async fn move_launcher_directory(
         settings: &mut Settings,
         handle: &Handle,
-        exec: E,
+        pool: &SqlitePool,
         io_semaphore: &IoSemaphore,
         app_identifier: &str,
-    ) -> crate::Result<()>
-    where
-        E: sqlx::Executor<'a, Database = sqlx::Sqlite>
-            + sqlx::Acquire<'a, Database = sqlx::Sqlite>
-            + Copy,
-    {
+    ) -> crate::Result<()> {
         let app_dir = DirectoryInfo::initial_settings_dir_path(app_identifier)
             .ok_or(crate::ErrorKind::FSError(
                 "Could not find valid config dir".to_string(),
@@ -414,7 +410,7 @@ impl DirectoryInfo {
                              ON CONFLICT(path) DO UPDATE SET created_at = excluded.created_at",
                         )
                         .bind(path.to_string_lossy().to_string())
-                        .execute(exec)
+                        .execute(pool)
                         .await?;
                     }
                 }
@@ -662,34 +658,26 @@ impl DirectoryInfo {
                     })
                     .await?;
 
-                let mut unit = atom(handle).await?;
-                let java_versions = JavaVersion::get_all_in(&mut unit).await?;
-                for java_version in java_versions {
-                    let new_java_path = java_version.path.replace(
-                        prev_custom_dir,
-                        new_dir.trim_end_matches('/').trim_end_matches('\\'),
-                    );
-                    if crate::util::jre::is_java_install_staging_path(
-                        Path::new(&new_java_path),
-                    ) {
-                        tracing::warn!(
-                            java = %new_java_path,
-                            "Dropping incomplete Java installation during directory migration"
-                        );
-                        JavaVersion::delete_in(&mut unit, &java_version.path)
-                            .await?;
-                        continue;
-                    }
-                    if new_java_path != java_version.path {
-                        JavaVersion::update_path_in(
-                            &mut unit,
-                            &java_version.path,
-                            &new_java_path,
+                let moved = documents::java::move_installations(
+                    &documents::Documents::at(
+                        app_dir.join(documents::DIR_NAME),
+                        pool,
+                    ),
+                    prev_custom_dir,
+                    new_root,
+                    |path| {
+                        crate::util::jre::is_java_install_staging_path(
+                            Path::new(path),
                         )
-                        .await?;
-                    }
+                    },
+                )
+                .await?;
+                for path in moved {
+                    tracing::warn!(
+                        java = %path,
+                        "Dropping incomplete Java installation during directory migration"
+                    );
                 }
-                unit.commit().await?;
 
                 let new_dir = new_dir
                     .trim_end_matches('/')
@@ -705,7 +693,7 @@ impl DirectoryInfo {
                     prev_custom_dir,
                     new_dir,
                 )
-                .execute(exec)
+                .execute(pool)
                 .await?;
                 sqlx::query!(
                     "
@@ -716,7 +704,7 @@ impl DirectoryInfo {
                     prev_custom_dir,
                     new_dir,
                 )
-                .execute(exec)
+                .execute(pool)
                 .await?;
                 sqlx::query!(
                     "
@@ -731,10 +719,10 @@ impl DirectoryInfo {
                     prev_custom_dir,
                     new_dir,
                 )
-                .execute(exec)
+                .execute(pool)
                 .await?;
                 crate::state::instances::adapters::sqlite::config_sync_rows::mark_all_config_dirty(
-                    exec,
+                    pool,
                 )
                 .await?;
             }

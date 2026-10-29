@@ -29,6 +29,17 @@ async fn handle() -> Handle {
     Handle::new(pool)
 }
 
+/// The same instance, with the content set it applied and a second one it can
+/// switch to.
+async fn seed_with_second_set(pool: &sqlx::SqlitePool) {
+    seed(pool).await;
+    sqlx::raw_sql(
+        "INSERT INTO instance_content_sets (id, instance_id, name, source_kind, status, game_version, loader, created, modified)
+         VALUES ('second', 'instance', 'Second', 'local', 'available', '1.21', 'fabric', 1, 1);
+         UPDATE instances SET applied_content_set_id = 'set' WHERE id = 'instance';"
+    ).execute(pool).await.unwrap();
+}
+
 fn fingerprint_key() -> FingerprintKey {
     FingerprintKey {
         instance_id: "instance".into(),
@@ -385,93 +396,220 @@ fn fingerprint_attributes_require_precise_time_path_and_root() {
 }
 
 #[tokio::test]
-async fn pack_and_scan_failure_migrations_preserve_old_data_and_cascade() {
+async fn saved_packs_and_scan_failures_answer_on_the_derived_database() {
+    use crate::state::store::content_refresh_pack::*;
     use crate::state::store::content_refresh_scan_failures::*;
-    for boundary in [20261028110000, 20261028120000] {
-        let migrations = sqlx::migrate!();
-        let pool = sqlx::sqlite::SqlitePoolOptions::new()
-            .max_connections(1)
-            .connect_with(
-                sqlx::sqlite::SqliteConnectOptions::new()
-                    .in_memory(true)
-                    .foreign_keys(true),
-            )
+    let (_directory, derived) = support::derived_db().await;
+    let key = ScanFailureKey {
+        instance_id: "instance".into(),
+        location_key: "root".into(),
+        relative_path: "mods/new.jar".into(),
+    };
+    ContentRefreshScanFailures::upsert(
+        &derived,
+        &key,
+        &ScanFailureRecord {
+            attempted_at: 42,
+            error: "locked".into(),
+        },
+    )
+    .await
+    .unwrap();
+    assert_eq!(
+        ContentRefreshScanFailures::failed(&derived, "instance")
             .await
-            .unwrap();
-        let previous = sqlx::migrate::Migrator {
-            migrations: std::borrow::Cow::Owned(
-                migrations
-                    .iter()
-                    .filter(|migration| migration.version < boundary)
-                    .cloned()
-                    .collect(),
-            ),
-            ..sqlx::migrate::Migrator::DEFAULT
-        };
-        previous.run(&pool).await.unwrap();
-        seed(&pool).await;
-        migrations.run(&pool).await.unwrap();
-        let handle = Handle::new(pool);
-        let key = ScanFailureKey {
-            instance_id: "instance".into(),
-            location_key: "root".into(),
-            relative_path: "mods/new.jar".into(),
-        };
-        ContentRefreshScanFailures::set(
-            &handle,
-            &key,
-            Some(&ScanFailureRecord {
-                attempted_at: 42,
-                error: "locked".into(),
-            }),
-        )
+            .unwrap()
+            .len(),
+        1
+    );
+    assert!(
+        ContentRefreshScanFailures::failed(&derived, "other")
+            .await
+            .unwrap()
+            .is_empty()
+    );
+    ContentRefreshScanFailures::remove(&derived, &key)
         .await
         .unwrap();
-        assert_eq!(
-            ContentRefreshScanFailures::get_scoped(&handle, &"instance".into())
-                .await
-                .unwrap()
-                .len(),
-            1
-        );
-        assert!(
-            ContentRefreshScanFailures::get_scoped(&handle, &"other".into())
-                .await
-                .unwrap()
-                .is_empty()
-        );
-        sqlx::query("INSERT INTO content_refresh_scan_failures (instance_id, location_key, relative_path, payload) VALUES ('instance', 'root', 'mods/bad.jar', 'not json')").execute(handle.pool()).await.unwrap();
-        assert_eq!(
-            ContentRefreshScanFailures::get_all(&handle)
-                .await
-                .unwrap()
-                .len(),
-            1
-        );
-        let files: i64 =
-            sqlx::query_scalar("SELECT COUNT(*) FROM instance_files")
-                .fetch_one(handle.pool())
-                .await
-                .unwrap();
-        assert_eq!(files, 1);
-        sqlx::query("DELETE FROM instances WHERE id = 'instance'")
-            .execute(handle.pool())
+    assert!(
+        ContentRefreshScanFailures::failed(&derived, "instance")
             .await
-            .unwrap();
-        assert!(
-            ContentRefreshScanFailures::get_all(&handle)
-                .await
-                .unwrap()
-                .is_empty()
-        );
-        let violations: Vec<(String, i64, String, i64)> =
-            sqlx::query_as("PRAGMA foreign_key_check")
-                .fetch_all(handle.pool())
-                .await
-                .unwrap();
-        assert!(violations.is_empty());
-        handle.pool().close().await;
-    }
+            .unwrap()
+            .is_empty()
+    );
+
+    let pack = PackKey {
+        instance_id: "instance".into(),
+        content_set_id: "set".into(),
+    };
+    ContentRefreshPacks::upsert(
+        &derived,
+        &pack,
+        &PackRecord {
+            location_key: "root".into(),
+            link_key: "link".into(),
+            saved_at: 10,
+            pack: None,
+            attempted_at: 10,
+            last_error: None,
+        },
+    )
+    .await
+    .unwrap();
+    assert!(
+        ContentRefreshPacks::saved(&derived, &pack)
+            .await
+            .unwrap()
+            .is_some()
+    );
+    ContentRefreshPacks::forget_instance(&derived, "instance")
+        .await
+        .unwrap();
+    assert!(
+        ContentRefreshPacks::saved(&derived, &pack)
+            .await
+            .unwrap()
+            .is_none()
+    );
+    derived.pool().close().await;
+}
+
+/// The old schema removed a saved pack in two cases: the instance went away, or
+/// the content set it named did. A switch between content sets was neither, so
+/// it left the row alone; the rows now live in another database, and a switch
+/// still leaves them alone while the deletion of the instance removes them.
+#[tokio::test]
+async fn a_content_set_switch_keeps_the_saved_pack_of_the_set_it_left() {
+    use crate::state::store::content_refresh_pack::*;
+    let pool = support::pool().await;
+    seed_with_second_set(&pool).await;
+    let (_directory, derived) = support::derived_db().await;
+    let handle = Handle::new(pool.clone());
+    let left = PackKey {
+        instance_id: "instance".into(),
+        content_set_id: "set".into(),
+    };
+    ContentRefreshPacks::upsert(
+        &derived,
+        &left,
+        &PackRecord {
+            location_key: "root".into(),
+            link_key: "link".into(),
+            saved_at: 10,
+            pack: None,
+            attempted_at: 10,
+            last_error: None,
+        },
+    )
+    .await
+    .unwrap();
+    assert!(
+        crate::state::store::content_snapshot::get_with_saved_pack(
+            &handle, &derived, "instance"
+        )
+        .await
+        .unwrap()
+        .pack_presentation
+        .is_some()
+    );
+
+    sqlx::query(
+        "UPDATE instances SET applied_content_set_id = 'second'
+         WHERE id = 'instance'",
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+
+    let switched = crate::state::store::content_snapshot::get_with_saved_pack(
+        &handle, &derived, "instance",
+    )
+    .await
+    .unwrap();
+    assert_eq!(switched.content_set.id, "second");
+    assert!(
+        switched.pack_presentation.is_none(),
+        "the set the instance switched to saved no pack of its own"
+    );
+    assert!(
+        ContentRefreshPacks::saved(&derived, &left)
+            .await
+            .unwrap()
+            .is_some(),
+        "a switch is not a deletion, so the row of the set it left stays"
+    );
+    assert_eq!(
+        ContentRefreshPacks::instance_ids(&derived).await.unwrap(),
+        vec!["instance".to_string()]
+    );
+    pool.close().await;
+    derived.pool().close().await;
+}
+
+/// A database this build cannot open keeps answering: the caller reads nothing
+/// and its write is dropped rather than reported as a failure.
+#[tokio::test]
+async fn a_disabled_derived_database_holds_no_refresh_state() {
+    use crate::state::store::content_refresh_pack::*;
+    use crate::state::store::content_refresh_scan_failures::*;
+    let (_directory, derived) = support::disabled_derived().await;
+    assert!(derived.is_disabled());
+    let pack = PackKey {
+        instance_id: "instance".into(),
+        content_set_id: "set".into(),
+    };
+    let failure = ScanFailureKey {
+        instance_id: "instance".into(),
+        location_key: "root".into(),
+        relative_path: "mods/new.jar".into(),
+    };
+
+    ContentRefreshPacks::upsert(
+        &derived,
+        &pack,
+        &PackRecord {
+            location_key: "root".into(),
+            link_key: "link".into(),
+            saved_at: 10,
+            pack: None,
+            attempted_at: 10,
+            last_error: None,
+        },
+    )
+    .await
+    .unwrap();
+    ContentRefreshScanFailures::upsert(
+        &derived,
+        &failure,
+        &ScanFailureRecord {
+            attempted_at: 42,
+            error: "locked".into(),
+        },
+    )
+    .await
+    .unwrap();
+    ContentRefreshPacks::forget_instance(&derived, "instance")
+        .await
+        .unwrap();
+
+    assert!(
+        ContentRefreshPacks::saved(&derived, &pack)
+            .await
+            .unwrap()
+            .is_none()
+    );
+    assert!(
+        ContentRefreshScanFailures::failed(&derived, "instance")
+            .await
+            .unwrap()
+            .is_empty()
+    );
+    assert!(
+        ContentRefreshPacks::instance_ids(&derived)
+            .await
+            .unwrap()
+            .is_empty()
+    );
 }
 
 #[test]

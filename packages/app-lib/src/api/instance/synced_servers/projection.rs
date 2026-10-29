@@ -1,5 +1,6 @@
 use super::super::synced_options::instance_game_dir;
 use crate::state::InstanceMetadata;
+use crate::state::store::instance_sync_checkpoints::InstanceSyncCheckpoints;
 use crate::{ErrorKind, State};
 use std::path::{Path, PathBuf};
 
@@ -27,14 +28,12 @@ pub(super) async fn sibling_wrote_file(
     actual_sha1: &str,
     state: &State,
 ) -> crate::Result<bool> {
-    let ids: Vec<String> = sqlx::query_scalar(
-        "SELECT instance_id FROM instance_sync_checkpoints
-         WHERE feature = 'multiplayer_servers' AND expected_sha1 = ?
-           AND instance_id != ?",
+    let ids = InstanceSyncCheckpoints::instances_with_expected_sha1(
+        &state.data,
+        "multiplayer_servers",
+        actual_sha1,
+        instance_id,
     )
-    .bind(actual_sha1)
-    .bind(instance_id)
-    .fetch_all(&state.pool)
     .await?;
     for id in ids {
         if let Some(metadata) =

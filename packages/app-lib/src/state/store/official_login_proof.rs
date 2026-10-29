@@ -121,3 +121,20 @@ async fn write_row(
 
     Ok(())
 }
+
+/// The proof as the row holds it, for the document handover and for the
+/// fallback the domain answers with while it has no document.
+///
+/// Only a row this build counts as a proof is read: one that is verified and
+/// carries the format this build knows.
+pub(crate) async fn read_legacy_official_login_proof(
+    pool: &sqlx::SqlitePool,
+) -> crate::Result<Option<String>> {
+    let mac: Option<String> = sqlx::query_scalar(
+        "SELECT mac FROM official_login_proof WHERE id = 0 AND verified = 1 AND version = 1",
+    )
+    .fetch_optional(pool)
+    .await?;
+
+    Ok(mac)
+}

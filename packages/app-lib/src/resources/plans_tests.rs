@@ -4,6 +4,9 @@ use crate::resources::plans::{
 };
 use std::collections::HashMap;
 
+#[path = "../state/store/tests/content_identity_confirmation.rs"]
+mod content_identity_confirmation;
+
 #[tokio::test]
 async fn resource_operation_futures_can_cross_runtime_threads() {
     fn require_send<T: Send>(value: T) -> T {

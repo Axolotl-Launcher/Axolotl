@@ -685,7 +685,7 @@ async fn recognize(
             {
                 continue;
             }
-            if let Ok(other) = service
+            let other = match service
                 .project_document_with_policy(
                     &matched.reference.release.project,
                     None,
@@ -694,15 +694,22 @@ async fn recognize(
                 )
                 .await
             {
-                store
-                    .confirm_matched_projects(
-                        &project,
-                        &other.metadata,
-                        &artifact,
-                        matched,
-                    )
-                    .await?;
-            }
+                Ok(other) => other,
+                Err(
+                    error @ (ResourceError::Canceled
+                    | ResourceError::Database(_)),
+                ) => return Err(error),
+                Err(_) => continue,
+            };
+            identity::try_confirm_projects(
+                store,
+                &project,
+                &other.metadata,
+                &artifact,
+                matched,
+                cancel,
+            )
+            .await?;
         }
     }
     work.entry.artifact = Some(artifact.reference.clone());

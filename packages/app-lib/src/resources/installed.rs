@@ -894,29 +894,42 @@ async fn hydrate_entries_with_service(
                         .await
                     {
                         Ok(document) => document.metadata,
-                        Err(ResourceError::Canceled) => {
-                            return Err(ResourceError::Canceled);
-                        }
+                        Err(
+                            error @ (ResourceError::Canceled
+                            | ResourceError::Database(_)),
+                        ) => return Err(error),
                         Err(_) => continue,
                     };
-                    store
-                        .confirm_matched_projects(
-                            &metadata, &other, &selected, matched,
-                        )
-                        .await?;
+                    identity::try_confirm_projects(
+                        store, &metadata, &other, &selected, matched, cancel,
+                    )
+                    .await?;
                 }
             }
             entry.resource_id = store.lookup(&metadata.project).await?;
         }
         entry.artifact = Some(selected.reference.clone());
-        entry.known_artifacts = matches
-            .iter()
-            .filter(|artifact| {
-                !recognition.ambiguous
-                    || artifact.reference == selected.reference
-            })
-            .map(|artifact| artifact.reference.clone())
-            .collect();
+        // Planning uses known artifacts as project identity, not just byte
+        // evidence. An unconfirmed counterpart must not satisfy dependencies.
+        entry.known_artifacts = vec![selected.reference.clone()];
+        for artifact in &matches {
+            if recognition.ambiguous || artifact.reference == selected.reference
+            {
+                continue;
+            }
+            let same_project =
+                artifact.reference.release.project == metadata.project;
+            let confirmed = if let Some(store) = service.store() {
+                entry.resource_id.is_some()
+                    && store.lookup(&artifact.reference.release.project).await?
+                        == entry.resource_id
+            } else {
+                false
+            };
+            if same_project || confirmed {
+                entry.known_artifacts.push(artifact.reference.clone());
+            }
+        }
         entry.integrity = local.integrity;
         entry.original_file_name = selected.file_name.clone();
         persisted.push((entry.entry_id.clone(), selected, entry.scope.clone()));

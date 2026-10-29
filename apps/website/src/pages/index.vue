@@ -31,7 +31,7 @@ import MultiplayerIcon from '~/components/landing/MultiplayerIcon.vue'
 import OfflineModeIcon from '~/components/landing/OfflineModeIcon.vue'
 import ProjectsShowcase from '~/components/landing/ProjectsShowcase.vue'
 import WindowsLogo from '~/components/landing/WindowsLogo.vue'
-import type { ReleaseChannel } from '~/utils/download-sources'
+import { createDownloadSources, type ReleaseChannel } from '~/utils/download-sources'
 import { trackHeroGlow } from '~/utils/hero-glow'
 import {
     getDownloadAvailability,
@@ -52,6 +52,16 @@ onMounted(() => {
     if (hero.value) stopHeroGlow = trackHeroGlow(hero.value, window)
 })
 onBeforeUnmount(() => stopHeroGlow?.())
+
+const config = useRuntimeConfig()
+const siteUrl = config.public.siteUrl
+const githubUrl = config.public.githubUrl
+const downloadSources = createDownloadSources({
+    githubUrl,
+    updateServerUrl: config.public.updateServerUrl,
+    updateArtifactUrl: config.public.updateArtifactUrl,
+    gitlinkReleasesUrl: config.public.gitlinkReleasesUrl,
+})
 
 const releaseChannel = ref<ReleaseChannel>('release')
 const {
@@ -80,11 +90,14 @@ const releasePage = computed(() =>
     getReleasePage(
         releaseChannel.value,
         launcherReleaseStatus.value === 'success' ? launcherRelease.value : null,
+        `${githubUrl}/releases`,
     ),
 )
 // A valid catalog may have no packages for this channel or platform.
 const releaseUnavailable = computed(
-    () => downloadState.value === 'ready' && !hasLauncherDownloads(launcherRelease.value),
+    () =>
+        downloadState.value === 'ready' &&
+        !hasLauncherDownloads(launcherRelease.value, downloadSources),
 )
 const linkUnavailableLabel = computed(() =>
     formatMessage(
@@ -898,11 +911,8 @@ const releaseChannelComboboxOptions = computed<ComboboxOption<ReleaseChannel>[]>
     },
 ])
 
-const config = useRuntimeConfig()
-const siteUrl = config.public.siteUrl
 const canonicalUrl = `${siteUrl}/`
 const socialImageUrl = `${siteUrl}/showcase/launcher-home.webp`
-const githubUrl = 'https://github.com/Mystic-Stars/Axolotl'
 const licenseUrl = `${githubUrl}/blob/main/LICENSE`
 
 const title = computed(() => formatMessage(messages.seoTitle))
@@ -1619,7 +1629,7 @@ useHead(() => ({
                     <template #prism-link="{ children }">
                         <a
                             class="underline hover:brightness-[--hover-brightness]"
-                            href="https://github.com/Mystic-Stars/Axolotl/issues"
+                            :href="`${githubUrl}/issues`"
                             target="_blank"
                             rel="noopener"
                         >

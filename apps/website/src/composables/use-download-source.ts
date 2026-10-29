@@ -1,4 +1,5 @@
 import {
+    createDownloadSources,
     type DownloadSource,
     getDownloadSource,
     isDownloadSource,
@@ -6,9 +7,17 @@ import {
 
 const DOWNLOAD_SOURCE_STORAGE_KEY = 'axolotl-download-source'
 export function useDownloadSource() {
+    const config = useRuntimeConfig()
+    const sources = createDownloadSources({
+        githubUrl: config.public.githubUrl,
+        updateServerUrl: config.public.updateServerUrl,
+        updateArtifactUrl: config.public.updateArtifactUrl,
+        gitlinkReleasesUrl: config.public.gitlinkReleasesUrl,
+    })
+
     const selectedSource = useState<DownloadSource>('axolotl-download-source', () => 'auto')
 
-    const resolvedSource = computed(() => getDownloadSource(selectedSource.value))
+    const resolvedSource = computed(() => getDownloadSource(selectedSource.value, sources))
 
     function setDownloadSource(source: DownloadSource) {
         selectedSource.value = source
@@ -34,5 +43,6 @@ export function useDownloadSource() {
         selectedSource,
         resolvedSource,
         setDownloadSource,
+        sources,
     }
 }

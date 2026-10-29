@@ -2,16 +2,15 @@ use crate::data::{Dependency, ProjectType, User, Version};
 use crate::jre::check_jre;
 use crate::prelude::ModLoader;
 use crate::state;
-use crate::state::instances::{
-    InstanceLaunchOverrides, InstanceLaunchOverridesData, playtime_to_storage,
+use crate::state::instances::adapters::sqlite::legacy_import::{
+    self, LegacyLink, LegacyProfile,
 };
 use crate::state::{
     CacheValue, CachedEntry, CachedFileHash, CachedFileUpdate, Credentials,
     DefaultPage, DependencyType, DeviceToken, DeviceTokenKey, DeviceTokenPair,
-    FileType, Hooks, InstanceInstallStage, LauncherFeatureVersion,
-    MemorySettings, MinecraftAccountType, ModrinthCredentials,
-    ModrinthHashMatch, ReleaseChannel, TeamMember, Theme, VersionFile,
-    WindowSize, local_id,
+    FileType, Hooks, InstanceInstallStage, JavaVersion, MemorySettings,
+    MinecraftAccountType, ModrinthCredentials, ModrinthHashMatch,
+    ReleaseChannel, TeamMember, Theme, VersionFile, WindowSize,
 };
 use crate::util::fetch::{IoSemaphore, read_json};
 use chrono::{DateTime, Utc};
@@ -26,26 +25,35 @@ use uuid::Uuid;
 use super::MinecraftProfile;
 use crate::state::store::Handle;
 
+/// What the previous launcher left behind and this one has taken over.
+///
+/// The Java runtimes are returned rather than written: their document is
+/// written once the settings directory is in place, next to the cache entries
+/// that wait for the derived database.
+#[derive(Default)]
+pub struct LegacyMigration {
+    pub java_versions: Vec<JavaVersion>,
+    pub cached_entries: Vec<CachedEntry>,
+}
+
 /// Imports what the previous launcher left behind. The fetched responses it
 /// finds are returned rather than written: they belong to the derived
 /// database, which does not exist yet at this point of startup.
 pub async fn migrate_legacy_data<'a, E>(
     handle: &Handle,
     exec: E,
-) -> crate::Result<Vec<CachedEntry>>
+) -> crate::Result<LegacyMigration>
 where
-    E: sqlx::Executor<'a, Database = sqlx::Sqlite>
-        + sqlx::Acquire<'a, Database = sqlx::Sqlite>
-        + Copy,
+    E: sqlx::Acquire<'a, Database = sqlx::Sqlite> + Copy,
 {
     let mut settings = state::Settings::get(handle).await?;
 
     if settings.migrated {
-        return Ok(Vec::new());
+        return Ok(LegacyMigration::default());
     };
 
     let Some(old_launcher_root) = default_settings_dir() else {
-        return Ok(Vec::new());
+        return Ok(LegacyMigration::default());
     };
     let old_launcher_root_str = old_launcher_root.to_string_lossy().to_string();
 
@@ -96,6 +104,7 @@ where
 
         settings.prev_custom_dir = Some(old_launcher_root_str.clone());
 
+        let mut java_versions = Vec::new();
         for (_, legacy_version) in legacy_settings.java_globals.0 {
             if crate::util::jre::is_java_install_staging_path(
                 std::path::Path::new(&legacy_version.path),
@@ -109,7 +118,7 @@ where
             if let Ok(java_version) =
                 check_jre(PathBuf::from(legacy_version.path)).await
             {
-                java_version.upsert(handle).await?;
+                java_versions.push(java_version);
             }
         }
 
@@ -346,7 +355,6 @@ where
                                 InstanceInstallStage::NotInstalled
                             }
                         },
-                        launcher_feature_version: LauncherFeatureVersion::None,
                         name: profile.metadata.name,
                         icon_path: profile.metadata.icon,
                         game_version: profile.metadata.game_version,
@@ -405,23 +413,26 @@ where
 
         // The cache lives in the derived database, which is opened after this
         // runs, so the caller writes these once it exists.
-        return Ok(cached_entries
-            .into_iter()
-            .map(|x| {
-                let mut entry = x.get_entry();
-                entry.expires = Utc::now().timestamp() - entry.type_.expiry();
-                entry
-            })
-            .collect());
+        return Ok(LegacyMigration {
+            java_versions,
+            cached_entries: cached_entries
+                .into_iter()
+                .map(|x| {
+                    let mut entry = x.get_entry();
+                    entry.expires =
+                        Utc::now().timestamp() - entry.type_.expiry();
+                    entry
+                })
+                .collect(),
+        });
     }
 
-    Ok(Vec::new())
+    Ok(LegacyMigration::default())
 }
 
 struct LegacyInstanceUpsert {
     path: String,
     install_stage: InstanceInstallStage,
-    launcher_feature_version: LauncherFeatureVersion,
     name: String,
     icon_path: Option<String>,
     game_version: String,
@@ -443,213 +454,66 @@ struct LegacyInstanceUpsert {
     hooks: Hooks,
 }
 
+impl LegacyInstanceUpsert {
+    fn into_profile(self) -> LegacyProfile {
+        let link = match self.linked_data {
+            Some(linked_data) => {
+                match (linked_data.project_id, linked_data.version_id) {
+                    (Some(project_id), Some(version_id))
+                        if version_id.is_empty() =>
+                    {
+                        LegacyLink::ServerProject { project_id }
+                    }
+                    (Some(project_id), Some(version_id)) => {
+                        LegacyLink::ModrinthModpack {
+                            project_id,
+                            version_id,
+                        }
+                    }
+                    _ => LegacyLink::Unmanaged,
+                }
+            }
+            None => LegacyLink::Unmanaged,
+        };
+
+        LegacyProfile {
+            path: self.path,
+            install_stage: self.install_stage,
+            name: self.name,
+            icon_path: self.icon_path,
+            game_version: self.game_version,
+            loader: self.loader,
+            loader_version: self.loader_version,
+            groups: self.groups,
+            link,
+            created: self.created,
+            modified: self.modified,
+            last_played: self.last_played,
+            submitted_time_played: self.submitted_time_played,
+            recent_time_played: self.recent_time_played,
+            java_path: self.java_path,
+            extra_launch_args: self.extra_launch_args,
+            custom_env_vars: self.custom_env_vars,
+            memory: self.memory,
+            force_fullscreen: self.force_fullscreen,
+            game_resolution: self.game_resolution,
+            hooks: self.hooks,
+        }
+    }
+}
+
 async fn upsert_legacy_instance<'a, E>(
     exec: E,
     input: LegacyInstanceUpsert,
 ) -> crate::Result<()>
 where
-    E: sqlx::Executor<'a, Database = sqlx::Sqlite> + Copy,
+    E: sqlx::Acquire<'a, Database = sqlx::Sqlite> + Copy,
 {
-    // An instance id, unrelated to how content projects are identified.
-    let instance_id = local_id(Uuid::new_v4());
-    let content_set_id = format!("content-set:{}", Uuid::new_v4());
-    let instance_id_str = instance_id.as_str();
-    let content_set_id_str = content_set_id.as_str();
-    let path = input.path.as_str();
-    let install_stage = input.install_stage.as_str();
-    let launcher_feature_version = input.launcher_feature_version.as_str();
-    let update_channel = ReleaseChannel::Release.key();
-    let name = input.name.as_str();
-    let icon_path = input.icon_path.as_deref();
-    let game_version = input.game_version.as_str();
-    let loader = input.loader.as_str();
-    let loader_version = input.loader_version.as_deref();
-    let created = input.created.timestamp();
-    let modified = input.modified.timestamp();
-    let last_played = input.last_played.map(|value| value.timestamp());
-    let submitted_time_played = playtime_to_storage(
-        input.submitted_time_played,
-        "submitted_time_played",
-    )?;
-    let recent_time_played =
-        playtime_to_storage(input.recent_time_played, "recent_time_played")?;
+    let profile = input.into_profile();
 
-    sqlx::query!(
-        "
-        INSERT OR REPLACE INTO instances (
-            id,
-            path,
-            applied_content_set_id,
-            install_stage,
-            launcher_feature_version,
-            update_channel,
-            name,
-            icon_path,
-            created,
-            modified,
-            last_played,
-            submitted_time_played,
-            recent_time_played
-        )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ",
-        instance_id_str,
-        path,
-        content_set_id_str,
-        install_stage,
-        launcher_feature_version,
-        update_channel,
-        name,
-        icon_path,
-        created,
-        modified,
-        last_played,
-        submitted_time_played,
-        recent_time_played,
-    )
-    .execute(exec)
-    .await?;
-
-    let (
-        source_kind,
-        link_kind,
-        modrinth_project_id,
-        modrinth_version_id,
-        server_project_id,
-    ) = match input.linked_data {
-        Some(linked_data) => {
-            match (linked_data.project_id, linked_data.version_id) {
-                (Some(project_id), Some(version_id))
-                    if version_id.is_empty() =>
-                {
-                    (
-                        "server_project",
-                        "server_project",
-                        None,
-                        None,
-                        Some(project_id),
-                    )
-                }
-                (Some(project_id), Some(version_id)) => (
-                    "modrinth_modpack",
-                    "modrinth_modpack",
-                    Some(project_id),
-                    Some(version_id),
-                    None,
-                ),
-                _ => ("local", "unmanaged", None, None, None),
-            }
-        }
-        None => ("local", "unmanaged", None, None, None),
-    };
-
-    sqlx::query!(
-        "
-        INSERT OR REPLACE INTO instance_content_sets (
-            id,
-            instance_id,
-            name,
-            source_kind,
-            status,
-            game_version,
-            protocol_version,
-            loader,
-            loader_version,
-            created,
-            modified
-        )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ",
-        content_set_id_str,
-        instance_id_str,
-        "Default",
-        source_kind,
-        "available",
-        game_version,
-        None::<i64>,
-        loader,
-        loader_version,
-        created,
-        modified,
-    )
-    .execute(exec)
-    .await?;
-
-    sqlx::query!(
-        "
-        INSERT OR REPLACE INTO instance_links (
-            instance_id,
-            link_kind,
-            modrinth_project_id,
-            modrinth_version_id,
-            server_project_id,
-            content_project_id,
-            content_version_id,
-            hosting_server_id,
-            hosting_instance_ids,
-            hosting_active_instance_id,
-            shared_instance_id
-        )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, jsonb(?), ?, ?)
-        ",
-        instance_id_str,
-        link_kind,
-        modrinth_project_id,
-        modrinth_version_id,
-        server_project_id,
-        None::<&str>,
-        None::<&str>,
-        None::<&str>,
-        "[]",
-        None::<&str>,
-        None::<&str>,
-    )
-    .execute(exec)
-    .await?;
-
-    for group in input.groups {
-        sqlx::query!(
-            "
-            INSERT OR IGNORE INTO instance_groups (instance_id, group_name)
-            VALUES (?, ?)
-            ",
-            instance_id_str,
-            group,
-        )
-        .execute(exec)
-        .await?;
-    }
-
-    let launch_overrides = InstanceLaunchOverrides {
-        instance_id: instance_id.clone(),
-        java_path: input.java_path,
-        extra_launch_args: input.extra_launch_args,
-        custom_env_vars: input.custom_env_vars,
-        memory: input.memory,
-        force_fullscreen: input.force_fullscreen,
-        maximize_window: None,
-        game_resolution: input.game_resolution,
-        window_title: None,
-        launch_preparation_timeout: None,
-        hooks: input.hooks,
-    };
-    let launch_overrides_data = serde_json::to_string(
-        &InstanceLaunchOverridesData::from(&launch_overrides),
-    )?;
-
-    sqlx::query!(
-        "
-        INSERT OR REPLACE INTO instance_launch_overrides (
-            instance_id,
-            overrides
-        )
-        VALUES (?, jsonb(?))
-        ",
-        instance_id_str,
-        launch_overrides_data,
-    )
-    .execute(exec)
-    .await?;
+    let mut unit = exec.begin().await?;
+    legacy_import::import_profile(&profile, &mut unit).await?;
+    unit.commit().await?;
 
     Ok(())
 }

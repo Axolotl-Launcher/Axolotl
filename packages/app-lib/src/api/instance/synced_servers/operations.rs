@@ -3,6 +3,12 @@ use super::super::synced_options::{
     instance_game_dir, instance_is_running, instance_option_enabled,
     instance_option_supported, sha1_bytes, sync_files_are_protected,
 };
+use crate::state::instances::adapters::sqlite::projection_entries;
+use crate::state::store::Collection as _;
+use crate::state::store::instance_sync_checkpoints::{
+    CheckpointScope, InstanceSyncCheckpoints,
+};
+use crate::state::store::sync_feature_settings::SyncFeatureSettings;
 use crate::state::{InstanceMetadata, SyncedOption};
 use crate::{ErrorKind, State};
 use quartz_nbt::NbtCompound;
@@ -195,15 +201,14 @@ pub(in crate::api::instance) async fn detach_servers(
     if let Some(root) = existing_game_dir(metadata, state)? {
         detach_existing_file(&root.join(SERVERS_FILE)).await?;
     }
+    let scope = CheckpointScope {
+        instance_id: metadata.instance.id.clone(),
+        feature: "multiplayer_servers".to_string(),
+    };
+    InstanceSyncCheckpoints::set_scoped(&state.data, &scope, &[]).await?;
     let mut tx = state.pool.begin().await?;
-    sqlx::query("DELETE FROM instance_sync_checkpoints WHERE instance_id = ? AND feature = 'multiplayer_servers'")
-        .bind(&metadata.instance.id).execute(&mut *tx).await?;
-    sqlx::query(
-        "DELETE FROM instance_server_projection_entries WHERE instance_id = ?",
-    )
-    .bind(&metadata.instance.id)
-    .execute(&mut *tx)
-    .await?;
+    projection_entries::clear_projection(&mut tx, &metadata.instance.id)
+        .await?;
     tx.commit().await?;
     Ok(())
 }
@@ -829,15 +834,10 @@ async fn participating(
     if !instance_option_enabled(metadata, SyncedOption::MultiplayerServers) {
         return Ok(false);
     }
-    let global_enabled = sqlx::query_scalar!(
-        r#"
-        SELECT EXISTS(
-            SELECT 1 FROM sync_feature_settings
-            WHERE feature = 'multiplayer_servers' AND globally_enabled = 1
-        ) AS "enabled!: bool"
-        "#,
+    let global_enabled = SyncFeatureSettings::globally_enabled(
+        &state.data,
+        "multiplayer_servers",
     )
-    .fetch_one(&state.pool)
     .await?;
 
     Ok(instance_option_supported(

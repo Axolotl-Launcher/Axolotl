@@ -1,6 +1,6 @@
 //! The install job a content update plan was started as.
 
-use sqlx::SqliteConnection;
+use sqlx::{Executor, Sqlite, SqliteConnection};
 
 use super::Collection;
 
@@ -100,6 +100,29 @@ impl Collection for ContentUpdateJobs {
     ) -> crate::Result<()> {
         Self::write(conn, scope, records.first().map(|(_, record)| record))
             .await
+    }
+}
+
+impl ContentUpdateJobs {
+    /// Links a job to the plan it was queued for, refusing a plan that already
+    /// carries one: a plan is queued once.
+    pub(crate) async fn insert_in<'e, E>(
+        exec: E,
+        key: &ContentUpdateJobKey,
+        record: &ContentUpdateJobRecord,
+    ) -> crate::Result<()>
+    where
+        E: Executor<'e, Database = Sqlite>,
+    {
+        sqlx::query(
+            "INSERT INTO content_update_jobs(plan_id, job_id) VALUES (?, ?)",
+        )
+        .bind(key)
+        .bind(&record.job_id)
+        .execute(exec)
+        .await?;
+
+        Ok(())
     }
 }
 

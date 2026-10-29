@@ -254,6 +254,20 @@ jobs:
       - name: Test derived database
         if: runner.os == 'Linux'
         run: cargo test --package theseus derived_db
+      # The settings documents: a document answers for its domain, and a key it
+      # leaves out stays at its default instead of returning to the row.
+      # Hermetic (in-memory sqlite + temp dirs).
+      - name: Test settings documents
+        if: runner.os == 'Linux'
+        run: cargo test --package theseus state::documents
+      # The refresh state lives in the derived database now, so deleting an
+      # instance has to take its rows with it: the guard is the deletion step.
+      - name: Test refresh state
+        if: runner.os == 'Linux'
+        run: cargo test --package theseus content_refresh
+      - name: Test instance deletion
+        if: runner.os == 'Linux'
+        run: cargo test --package theseus remove_instance
       # Provider-neutral resource layer: catalog, plans, execution, providers.
       # Hermetic (in-memory sqlite + temp dirs); Linux only for matrix cost.
       - name: Test provider-neutral resource layer

@@ -1223,8 +1223,8 @@ mod tests {
     #[test]
     fn the_guards_ask_for_the_statuses_that_still_occupy_an_instance() {
         assert_eq!(
-            InstallJobStatus::unfinished_sql(),
-            "'queued', 'running', 'canceling', 'waiting_for_user'"
+            InstallJobStatus::unfinished(),
+            ["queued", "running", "canceling", "waiting_for_user"]
         );
     }
 
@@ -2442,15 +2442,14 @@ impl InstallJobStatus {
         Self::Canceled,
     ];
 
-    /// The statuses that still occupy their instance, quoted for an SQL `IN`
-    /// clause. Derived from [`Self::is_finished`] so the two cannot disagree.
-    pub fn unfinished_sql() -> String {
+    /// The statuses that still occupy their instance. Derived from
+    /// [`Self::is_finished`] so the two cannot disagree.
+    pub fn unfinished() -> Vec<&'static str> {
         Self::ALL
             .into_iter()
             .filter(|status| !status.is_finished())
-            .map(|status| format!("'{}'", status.as_str()))
-            .collect::<Vec<_>>()
-            .join(", ")
+            .map(Self::as_str)
+            .collect()
     }
 }
 

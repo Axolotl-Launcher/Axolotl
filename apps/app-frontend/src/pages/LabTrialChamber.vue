@@ -59,6 +59,14 @@ const messages = defineMessages({
     },
     copyTp: { id: 'app.lab.trial-chamber.copy-tp', defaultMessage: 'Copy /tp' },
     copied: { id: 'app.lab.trial-chamber.copied', defaultMessage: 'Copied' },
+    copyFailedTitle: {
+        id: 'app.lab.structure-finder.copy-failed-title',
+        defaultMessage: 'Could not copy',
+    },
+    copyFailedBody: {
+        id: 'app.lab.structure-finder.copy-failed-body',
+        defaultMessage: 'The clipboard is unavailable. Select the coordinates manually.',
+    },
     best: { id: 'app.lab.trial-chamber.best', defaultMessage: 'Most spawners: {count}' },
     elapsed: { id: 'app.lab.trial-chamber.elapsed', defaultMessage: 'Scanned in {seconds} s' },
     doneTitle: {
@@ -142,7 +150,13 @@ async function copyTeleport(hit: { centerX: number; centerZ: number }) {
             if (copiedKey.value === `${hit.centerX}:${hit.centerZ}`) copiedKey.value = null
         }, 1500)
     } catch {
-        // Clipboard access can be refused; the coordinates stay selectable.
+        // Clipboard access can be refused; say so instead of appearing to do
+        // nothing, and leave the coordinates selectable as the fallback.
+        addNotification({
+            title: formatMessage(messages.copyFailedTitle),
+            text: formatMessage(messages.copyFailedBody),
+            type: 'error',
+        })
     }
 }
 </script>

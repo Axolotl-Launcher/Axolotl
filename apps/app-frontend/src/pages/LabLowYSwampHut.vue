@@ -79,6 +79,14 @@ const messages = defineMessages({
         id: 'app.lab.low-y-swamp-hut.scan-failed-title',
         defaultMessage: 'Swamp hut scan failed',
     },
+    copyFailedTitle: {
+        id: 'app.lab.structure-finder.copy-failed-title',
+        defaultMessage: 'Could not copy',
+    },
+    copyFailedBody: {
+        id: 'app.lab.structure-finder.copy-failed-body',
+        defaultMessage: 'The clipboard is unavailable. Select the coordinates manually.',
+    },
     presetNormal: {
         id: 'app.lab.low-y-swamp-hut.preset-normal',
         defaultMessage: 'Default',
@@ -191,7 +199,13 @@ async function copyTeleport(hit: { x: number; z: number; y: number }) {
             if (copiedKey.value === `${hit.x}:${hit.z}`) copiedKey.value = null
         }, 1500)
     } catch {
-        // Clipboard access can be refused; the coordinates stay selectable.
+        // Clipboard access can be refused; say so instead of appearing to do
+        // nothing, and leave the coordinates selectable as the fallback.
+        addNotification({
+            title: formatMessage(messages.copyFailedTitle),
+            text: formatMessage(messages.copyFailedBody),
+            type: 'error',
+        })
     }
 }
 </script>

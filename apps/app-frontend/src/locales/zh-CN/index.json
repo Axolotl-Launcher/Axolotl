@@ -10550,6 +10550,12 @@
   "app.lab.skin-editor.title": {
     "message": "皮肤编辑器"
   },
+  "app.lab.structure-finder.copy-failed-body": {
+    "message": "剪贴板不可用，请手动选中坐标。"
+  },
+  "app.lab.structure-finder.copy-failed-title": {
+    "message": "无法复制"
+  },
   "app.lab.structure-finder.empty-body": {
     "message": "填好参数后开始扫描。"
   },

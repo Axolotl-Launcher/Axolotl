@@ -7349,6 +7349,12 @@
   "app.lab.skin-editor.title": {
     "message": "Skin editor"
   },
+  "app.lab.structure-finder.copy-failed-body": {
+    "message": "The clipboard is unavailable. Select the coordinates manually."
+  },
+  "app.lab.structure-finder.copy-failed-title": {
+    "message": "Could not copy"
+  },
   "app.lab.structure-finder.empty-body": {
     "message": "Fill in the parameters and start a scan."
   },

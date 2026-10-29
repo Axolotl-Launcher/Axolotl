@@ -161,6 +161,11 @@ impl TagRegistry {
         self.owns(tag) && self.live.contains_key(&tag.id)
     }
 
+    /// Tags minted and not yet released.
+    pub fn live_count(&self) -> usize {
+        self.live.len()
+    }
+
     fn owns(&self, tag: &Tag) -> bool {
         tag.registry == self.id && tag.generation == self.generation
     }

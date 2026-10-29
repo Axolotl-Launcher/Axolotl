@@ -2011,28 +2011,52 @@ impl ResourceService {
                 {
                     for other in &matches.matches {
                         if let Some(store) = self.store() {
-                            let left = self
-                                .project_document(
+                            let left = if metadata.project
+                                == artifact.reference.release.project
+                            {
+                                metadata.clone()
+                            } else {
+                                self.project_document(
                                     &artifact.reference.release.project,
                                     None,
                                     cancel,
                                 )
-                                .await?;
-                            let right = self
+                                .await?
+                                .metadata
+                            };
+                            let right = match self
                                 .project_document(
                                     &other.reference.release.project,
                                     None,
                                     cancel,
                                 )
-                                .await?;
-                            store
-                                .confirm_projects(
-                                    &left.metadata,
-                                    &right.metadata,
-                                    &artifact,
-                                    other,
-                                )
-                                .await?;
+                                .await
+                            {
+                                Ok(document) => document,
+                                Err(
+                                    error @ (ResourceError::Network { .. }
+                                    | ResourceError::Unavailable
+                                    | ResourceError::InvalidResponse(_)),
+                                ) => {
+                                    tracing::info!(
+                                        primary = ?artifact.reference.release.project,
+                                        counterpart = ?other.reference.release.project,
+                                        %error,
+                                        "Skipped unavailable optional resource project association"
+                                    );
+                                    continue;
+                                }
+                                Err(error) => return Err(error),
+                            };
+                            identity::try_confirm_projects(
+                                store,
+                                &left,
+                                &right.metadata,
+                                &artifact,
+                                other,
+                                cancel,
+                            )
+                            .await?;
                         }
                     }
                 }

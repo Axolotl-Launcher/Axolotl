@@ -14,7 +14,7 @@ members = [
 [workspace.package]
 edition = "2024"
 rust-version = "1.90.0"
-repository = "https://github.com/Mystic-Stars/Axolotl"
+repository = "https://github.com/Axolotl-Launcher/Axolotl"
 
 [workspace.dependencies]
 ariadne = { path = "packages/ariadne" }

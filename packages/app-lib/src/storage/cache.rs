@@ -1,6 +1,7 @@
 //! Clear rebuildable downloads without removing installed content or recovery data.
 
 use super::*;
+use crate::state::store::derived_db::FILE_NAME as DERIVED_DB_FILE;
 use cap_fs_ext::{DirExt, FollowSymlinks, OpenOptionsFollowExt};
 use cap_std::fs::{Dir, OpenOptions};
 use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
@@ -89,6 +90,16 @@ fn disposable(path: &str, retained: &HashSet<String>) -> bool {
     }
 }
 
+/// The database holding the rebuildable records, and the sidecars SQLite keeps
+/// beside it. Rebuilding it is an explicit action, so a cache sweep leaves the
+/// files alone and does not count them as cleared space.
+fn derived_db_file(path: &str) -> bool {
+    path.rsplit('/')
+        .next()
+        .and_then(|name| name.strip_prefix(DERIVED_DB_FILE))
+        .is_some_and(|suffix| matches!(suffix, "" | "-wal" | "-shm"))
+}
+
 fn cache_root(directories: &DirectoryInfo) -> std::io::Result<Dir> {
     Dir::open_ambient_dir(
         &directories.config_dir,
@@ -174,6 +185,9 @@ fn walk(
                 return walk(&child, &path, retained, failures);
             }
             if !kind.is_file() {
+                return Ok(0);
+            }
+            if derived_db_file(&path) {
                 return Ok(0);
             }
             let mut options = OpenOptions::new();

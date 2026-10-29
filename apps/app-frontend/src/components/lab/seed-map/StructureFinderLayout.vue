@@ -8,7 +8,7 @@
  * (results left, controls right) — is the same. Keeping one copy means a change
  * to that shell cannot drift between the two tools.
  */
-import { AlertCircleIcon, SearchIcon, SpinnerIcon } from '@modrinth/assets'
+import { CircleAlertIcon, SearchIcon, SpinnerIcon } from '@modrinth/assets'
 import { Button, defineMessages, useVIntl } from '@modrinth/ui'
 import { computed } from 'vue'
 
@@ -69,7 +69,7 @@ const blocked = computed(() => props.available === false)
             v-if="blocked"
             class="flex items-start gap-3 rounded-lg border border-solid border-surface-4 bg-surface-2 p-4"
         >
-            <AlertCircleIcon class="mt-0.5 size-5 shrink-0 text-[var(--color-orange)]" />
+            <CircleAlertIcon class="mt-0.5 size-5 shrink-0 text-[var(--color-orange)]" />
             <div class="flex flex-col gap-1">
                 <strong class="text-sm">{{ formatMessage(messages.unavailableTitle) }}</strong>
                 <span class="text-sm text-[var(--color-text-default)]">

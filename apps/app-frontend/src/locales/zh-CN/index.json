@@ -7977,7 +7977,7 @@
     "message": "低洼女巫小屋"
   },
   "app.lab.low-y-swamp-hut.unavailable-body": {
-    "message": "该工具需要 LowYSwampHut 搜索程序，当前未安装。请把 `lysh` 放到 PATH 后重载页面。"
+    "message": "该工具需要随本构建安装的 `lysh` 搜索程序，当前构建里没有找到它。请安装完整版本后重载页面。"
   },
   "app.lab.low-y-swamp-hut.unavailable-title": {
     "message": "未找到搜索程序"
@@ -10590,10 +10590,10 @@
     "message": "试炼密室扫描失败"
   },
   "app.lab.trial-chamber.no-java-body": {
-    "message": "该工具需要 Java 25 运行时。请安装 JDK 25，或把 JAVA_HOME 指向它，然后重载页面。"
+    "message": "该工具需要 Java 25 运行时，以及随本构建安装的试验密室搜索程序，两者缺一都不能扫描。请确认已安装 JDK 25（或把 JAVA_HOME 指向它），然后重载页面。"
   },
   "app.lab.trial-chamber.no-java-title": {
-    "message": "未找到 Java"
+    "message": "无法运行"
   },
   "app.lab.trial-chamber.radius": {
     "message": "搜索半径"

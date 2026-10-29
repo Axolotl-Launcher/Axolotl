@@ -4776,7 +4776,7 @@
     "message": "Low-Y swamp hut"
   },
   "app.lab.low-y-swamp-hut.unavailable-body": {
-    "message": "This tool calls the LowYSwampHut search program, which is not installed here. Place `lysh` on your PATH and reload this page."
+    "message": "This tool needs the `lysh` search program that ships with this build, and it is missing here. Reinstall the full build, then reload this page."
   },
   "app.lab.low-y-swamp-hut.unavailable-title": {
     "message": "Search program not found"
@@ -7389,10 +7389,10 @@
     "message": "Trial chamber scan failed"
   },
   "app.lab.trial-chamber.no-java-body": {
-    "message": "This tool needs a Java 25 runtime. Install JDK 25, or point JAVA_HOME at one, then reload this page."
+    "message": "This tool needs both a Java 25 runtime and the trial-chamber search program installed with this build; either one missing stops it. Install JDK 25 (or point JAVA_HOME at one), then reload this page."
   },
   "app.lab.trial-chamber.no-java-title": {
-    "message": "Java not found"
+    "message": "Cannot run"
   },
   "app.lab.trial-chamber.radius": {
     "message": "Search radius"

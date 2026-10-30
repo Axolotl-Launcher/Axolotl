@@ -1178,7 +1178,10 @@ fn validate_zip_extraction_budget<R: std::io::Read + std::io::Seek>(
         let entry = archive.by_index_raw(index).map_err(|error| {
             format!("Cannot inspect ZIP entry {index}: {error}")
         })?;
-        if entry.name().is_empty() {
+        let name = entry.name().map_err(|error| {
+            format!("Cannot read ZIP entry name {index}: {error}")
+        })?;
+        if name.is_empty() {
             continue;
         }
         entries += 1;
@@ -1224,17 +1227,19 @@ fn extract_all_with_cancellation(
     }
 
     // First pass: collect entry metadata while the archive is mutable-borrowed.
-    let entries: Vec<(usize, String, bool)> = (0..archive.len())
-        .filter_map(|i| {
-            let entry = archive.by_index_raw(i).ok()?;
-            let name = entry.name().to_string();
-            if name.is_empty() {
-                None
-            } else {
-                Some((i, name.clone(), name.ends_with('/')))
-            }
-        })
-        .collect();
+    let mut entries: Vec<(usize, String, bool)> =
+        Vec::with_capacity(archive.len());
+    for index in 0..archive.len() {
+        let entry = archive.by_index_raw(index).map_err(|error| {
+            format!("Cannot inspect ZIP entry {index}: {error}")
+        })?;
+        let name = entry.name().map_err(|error| {
+            format!("Cannot read ZIP entry name {index}: {error}")
+        })?;
+        if !name.is_empty() {
+            entries.push((index, name.to_string(), name.ends_with('/')));
+        }
+    }
 
     // Second pass: extract. The collect() above has released the mutable
     // borrow, so we can call by_index() here.

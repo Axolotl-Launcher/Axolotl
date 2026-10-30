@@ -71,6 +71,7 @@ const allowedUntranslatedMessages = new Set([
     '{biome} · {name}',
     '{degrees}°',
     'MCP',
+    '/give @p minecraft:white_banner[minecraft:banner_patterns=[…]] 1',
 ])
 
 function messageText(value) {

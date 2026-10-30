@@ -5921,6 +5921,9 @@
   "app.lab.schematic-preview.block-picker.title": {
     "message": "Replace blocks"
   },
+  "app.lab.schematic-preview.block-state": {
+    "message": "Block state"
+  },
   "app.lab.schematic-preview.blocks": {
     "message": "Blocks"
   },
@@ -6163,6 +6166,258 @@
   },
   "app.lab.schematic-preview.selection.single": {
     "message": "Select"
+  },
+  "app.lab.schematic-preview.state.empty": {
+    "message": "This block has no state properties."
+  },
+  "app.lab.schematic-preview.state.property.age": {
+    "message": "Age"
+  },
+  "app.lab.schematic-preview.state.property.attached": {
+    "message": "Attached"
+  },
+  "app.lab.schematic-preview.state.property.attachment": {
+    "message": "Attachment"
+  },
+  "app.lab.schematic-preview.state.property.axis": {
+    "message": "Axis"
+  },
+  "app.lab.schematic-preview.state.property.bites": {
+    "message": "Bites"
+  },
+  "app.lab.schematic-preview.state.property.conditional": {
+    "message": "Conditional"
+  },
+  "app.lab.schematic-preview.state.property.delay": {
+    "message": "Delay"
+  },
+  "app.lab.schematic-preview.state.property.disarmed": {
+    "message": "Disarmed"
+  },
+  "app.lab.schematic-preview.state.property.distance": {
+    "message": "Distance"
+  },
+  "app.lab.schematic-preview.state.property.down": {
+    "message": "Connects down"
+  },
+  "app.lab.schematic-preview.state.property.east": {
+    "message": "Connects east"
+  },
+  "app.lab.schematic-preview.state.property.extended": {
+    "message": "Extended"
+  },
+  "app.lab.schematic-preview.state.property.eye": {
+    "message": "Eye"
+  },
+  "app.lab.schematic-preview.state.property.face": {
+    "message": "Face"
+  },
+  "app.lab.schematic-preview.state.property.facing": {
+    "message": "Facing"
+  },
+  "app.lab.schematic-preview.state.property.half": {
+    "message": "Half"
+  },
+  "app.lab.schematic-preview.state.property.hanging": {
+    "message": "Hanging"
+  },
+  "app.lab.schematic-preview.state.property.has_book": {
+    "message": "Has book"
+  },
+  "app.lab.schematic-preview.state.property.has_record": {
+    "message": "Has record"
+  },
+  "app.lab.schematic-preview.state.property.hinge": {
+    "message": "Hinge"
+  },
+  "app.lab.schematic-preview.state.property.in_wall": {
+    "message": "In wall"
+  },
+  "app.lab.schematic-preview.state.property.instrument": {
+    "message": "Instrument"
+  },
+  "app.lab.schematic-preview.state.property.level": {
+    "message": "Level"
+  },
+  "app.lab.schematic-preview.state.property.lit": {
+    "message": "Lit"
+  },
+  "app.lab.schematic-preview.state.property.locked": {
+    "message": "Locked"
+  },
+  "app.lab.schematic-preview.state.property.north": {
+    "message": "Connects north"
+  },
+  "app.lab.schematic-preview.state.property.note": {
+    "message": "Note"
+  },
+  "app.lab.schematic-preview.state.property.occupied": {
+    "message": "Occupied"
+  },
+  "app.lab.schematic-preview.state.property.open": {
+    "message": "Open"
+  },
+  "app.lab.schematic-preview.state.property.orientation": {
+    "message": "Orientation"
+  },
+  "app.lab.schematic-preview.state.property.part": {
+    "message": "Part"
+  },
+  "app.lab.schematic-preview.state.property.persistent": {
+    "message": "Persistent"
+  },
+  "app.lab.schematic-preview.state.property.power": {
+    "message": "Power"
+  },
+  "app.lab.schematic-preview.state.property.powered": {
+    "message": "Powered"
+  },
+  "app.lab.schematic-preview.state.property.rotation": {
+    "message": "Rotation"
+  },
+  "app.lab.schematic-preview.state.property.shape": {
+    "message": "Shape"
+  },
+  "app.lab.schematic-preview.state.property.signal_fire": {
+    "message": "Signal fire"
+  },
+  "app.lab.schematic-preview.state.property.snowy": {
+    "message": "Snowy"
+  },
+  "app.lab.schematic-preview.state.property.south": {
+    "message": "Connects south"
+  },
+  "app.lab.schematic-preview.state.property.stage": {
+    "message": "Stage"
+  },
+  "app.lab.schematic-preview.state.property.tilt": {
+    "message": "Tilt"
+  },
+  "app.lab.schematic-preview.state.property.type": {
+    "message": "Type"
+  },
+  "app.lab.schematic-preview.state.property.up": {
+    "message": "Connects up"
+  },
+  "app.lab.schematic-preview.state.property.vertical_direction": {
+    "message": "Vertical direction"
+  },
+  "app.lab.schematic-preview.state.property.waterlogged": {
+    "message": "Waterlogged"
+  },
+  "app.lab.schematic-preview.state.property.west": {
+    "message": "Connects west"
+  },
+  "app.lab.schematic-preview.state.readonly": {
+    "message": "Some properties cannot be changed here."
+  },
+  "app.lab.schematic-preview.state.value.base": {
+    "message": "Base"
+  },
+  "app.lab.schematic-preview.state.value.bottom": {
+    "message": "Bottom"
+  },
+  "app.lab.schematic-preview.state.value.ceiling": {
+    "message": "Ceiling"
+  },
+  "app.lab.schematic-preview.state.value.double": {
+    "message": "Double"
+  },
+  "app.lab.schematic-preview.state.value.double_wall": {
+    "message": "Double wall"
+  },
+  "app.lab.schematic-preview.state.value.down": {
+    "message": "Down"
+  },
+  "app.lab.schematic-preview.state.value.east": {
+    "message": "East"
+  },
+  "app.lab.schematic-preview.state.value.floor": {
+    "message": "Floor"
+  },
+  "app.lab.schematic-preview.state.value.foot": {
+    "message": "Foot"
+  },
+  "app.lab.schematic-preview.state.value.frustum": {
+    "message": "Frustum"
+  },
+  "app.lab.schematic-preview.state.value.full": {
+    "message": "Full"
+  },
+  "app.lab.schematic-preview.state.value.head": {
+    "message": "Head"
+  },
+  "app.lab.schematic-preview.state.value.inner_left": {
+    "message": "Inner left"
+  },
+  "app.lab.schematic-preview.state.value.inner_right": {
+    "message": "Inner right"
+  },
+  "app.lab.schematic-preview.state.value.left": {
+    "message": "Left"
+  },
+  "app.lab.schematic-preview.state.value.lower": {
+    "message": "Lower"
+  },
+  "app.lab.schematic-preview.state.value.middle": {
+    "message": "Middle"
+  },
+  "app.lab.schematic-preview.state.value.middle_wall": {
+    "message": "Middle wall"
+  },
+  "app.lab.schematic-preview.state.value.none": {
+    "message": "None"
+  },
+  "app.lab.schematic-preview.state.value.north": {
+    "message": "North"
+  },
+  "app.lab.schematic-preview.state.value.outer_left": {
+    "message": "Outer left"
+  },
+  "app.lab.schematic-preview.state.value.outer_right": {
+    "message": "Outer right"
+  },
+  "app.lab.schematic-preview.state.value.partial": {
+    "message": "Partial"
+  },
+  "app.lab.schematic-preview.state.value.right": {
+    "message": "Right"
+  },
+  "app.lab.schematic-preview.state.value.side": {
+    "message": "Side"
+  },
+  "app.lab.schematic-preview.state.value.single": {
+    "message": "Single"
+  },
+  "app.lab.schematic-preview.state.value.single_wall": {
+    "message": "Single wall"
+  },
+  "app.lab.schematic-preview.state.value.south": {
+    "message": "South"
+  },
+  "app.lab.schematic-preview.state.value.straight": {
+    "message": "Straight"
+  },
+  "app.lab.schematic-preview.state.value.tip": {
+    "message": "Tip"
+  },
+  "app.lab.schematic-preview.state.value.top": {
+    "message": "Top"
+  },
+  "app.lab.schematic-preview.state.value.unstable": {
+    "message": "Unstable"
+  },
+  "app.lab.schematic-preview.state.value.up": {
+    "message": "Up"
+  },
+  "app.lab.schematic-preview.state.value.upper": {
+    "message": "Upper"
+  },
+  "app.lab.schematic-preview.state.value.wall": {
+    "message": "Wall"
+  },
+  "app.lab.schematic-preview.state.value.west": {
+    "message": "West"
   },
   "app.lab.schematic-preview.tab.edit": {
     "message": "Edit"

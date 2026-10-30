@@ -578,6 +578,261 @@
   "app.java.searching": {
     "message": "正在查找 Java 安装……"
   },
+  "app.lab.schematic-preview.block-state": {
+    "message": "方块状态"
+  },
+  "app.lab.schematic-preview.state.empty": {
+    "message": "该方块没有可修改的状态。"
+  },
+  "app.lab.schematic-preview.state.property.age": {
+    "message": "生长阶段"
+  },
+  "app.lab.schematic-preview.state.property.attached": {
+    "message": "依附"
+  },
+  "app.lab.schematic-preview.state.property.attachment": {
+    "message": "附着方式"
+  },
+  "app.lab.schematic-preview.state.property.axis": {
+    "message": "轴向"
+  },
+  "app.lab.schematic-preview.state.property.bites": {
+    "message": "已食用"
+  },
+  "app.lab.schematic-preview.state.property.conditional": {
+    "message": "条件触发"
+  },
+  "app.lab.schematic-preview.state.property.delay": {
+    "message": "延迟"
+  },
+  "app.lab.schematic-preview.state.property.disarmed": {
+    "message": "已拆除"
+  },
+  "app.lab.schematic-preview.state.property.distance": {
+    "message": "距离"
+  },
+  "app.lab.schematic-preview.state.property.down": {
+    "message": "下方连接"
+  },
+  "app.lab.schematic-preview.state.property.east": {
+    "message": "东侧连接"
+  },
+  "app.lab.schematic-preview.state.property.extended": {
+    "message": "伸出"
+  },
+  "app.lab.schematic-preview.state.property.eye": {
+    "message": "末影之眼"
+  },
+  "app.lab.schematic-preview.state.property.face": {
+    "message": "附着面"
+  },
+  "app.lab.schematic-preview.state.property.facing": {
+    "message": "朝向"
+  },
+  "app.lab.schematic-preview.state.property.half": {
+    "message": "上下半"
+  },
+  "app.lab.schematic-preview.state.property.hanging": {
+    "message": "悬挂"
+  },
+  "app.lab.schematic-preview.state.property.has_book": {
+    "message": "含书"
+  },
+  "app.lab.schematic-preview.state.property.has_record": {
+    "message": "含唱片"
+  },
+  "app.lab.schematic-preview.state.property.hinge": {
+    "message": "铰链"
+  },
+  "app.lab.schematic-preview.state.property.in_wall": {
+    "message": "嵌入墙体"
+  },
+  "app.lab.schematic-preview.state.property.instrument": {
+    "message": "乐器"
+  },
+  "app.lab.schematic-preview.state.property.level": {
+    "message": "等级"
+  },
+  "app.lab.schematic-preview.state.property.lit": {
+    "message": "点亮"
+  },
+  "app.lab.schematic-preview.state.property.locked": {
+    "message": "锁定"
+  },
+  "app.lab.schematic-preview.state.property.north": {
+    "message": "北侧连接"
+  },
+  "app.lab.schematic-preview.state.property.note": {
+    "message": "音符"
+  },
+  "app.lab.schematic-preview.state.property.occupied": {
+    "message": "已占用"
+  },
+  "app.lab.schematic-preview.state.property.open": {
+    "message": "开启"
+  },
+  "app.lab.schematic-preview.state.property.orientation": {
+    "message": "拼接朝向"
+  },
+  "app.lab.schematic-preview.state.property.part": {
+    "message": "部件"
+  },
+  "app.lab.schematic-preview.state.property.persistent": {
+    "message": "持久"
+  },
+  "app.lab.schematic-preview.state.property.power": {
+    "message": "信号强度"
+  },
+  "app.lab.schematic-preview.state.property.powered": {
+    "message": "供能"
+  },
+  "app.lab.schematic-preview.state.property.rotation": {
+    "message": "旋转"
+  },
+  "app.lab.schematic-preview.state.property.shape": {
+    "message": "形状"
+  },
+  "app.lab.schematic-preview.state.property.signal_fire": {
+    "message": "信号火"
+  },
+  "app.lab.schematic-preview.state.property.snowy": {
+    "message": "积雪"
+  },
+  "app.lab.schematic-preview.state.property.south": {
+    "message": "南侧连接"
+  },
+  "app.lab.schematic-preview.state.property.stage": {
+    "message": "阶段"
+  },
+  "app.lab.schematic-preview.state.property.tilt": {
+    "message": "倾斜"
+  },
+  "app.lab.schematic-preview.state.property.type": {
+    "message": "类型"
+  },
+  "app.lab.schematic-preview.state.property.up": {
+    "message": "上方连接"
+  },
+  "app.lab.schematic-preview.state.property.vertical_direction": {
+    "message": "垂直朝向"
+  },
+  "app.lab.schematic-preview.state.property.waterlogged": {
+    "message": "含水"
+  },
+  "app.lab.schematic-preview.state.property.west": {
+    "message": "西侧连接"
+  },
+  "app.lab.schematic-preview.state.readonly": {
+    "message": "部分属性暂不支持在此修改。"
+  },
+  "app.lab.schematic-preview.state.value.base": {
+    "message": "基部"
+  },
+  "app.lab.schematic-preview.state.value.bottom": {
+    "message": "下半"
+  },
+  "app.lab.schematic-preview.state.value.ceiling": {
+    "message": "天花板"
+  },
+  "app.lab.schematic-preview.state.value.double": {
+    "message": "双层"
+  },
+  "app.lab.schematic-preview.state.value.double_wall": {
+    "message": "双墙"
+  },
+  "app.lab.schematic-preview.state.value.down": {
+    "message": "下"
+  },
+  "app.lab.schematic-preview.state.value.east": {
+    "message": "东"
+  },
+  "app.lab.schematic-preview.state.value.floor": {
+    "message": "地面"
+  },
+  "app.lab.schematic-preview.state.value.foot": {
+    "message": "脚"
+  },
+  "app.lab.schematic-preview.state.value.frustum": {
+    "message": "中段"
+  },
+  "app.lab.schematic-preview.state.value.full": {
+    "message": "完整"
+  },
+  "app.lab.schematic-preview.state.value.head": {
+    "message": "头"
+  },
+  "app.lab.schematic-preview.state.value.inner_left": {
+    "message": "内左"
+  },
+  "app.lab.schematic-preview.state.value.inner_right": {
+    "message": "内右"
+  },
+  "app.lab.schematic-preview.state.value.left": {
+    "message": "左"
+  },
+  "app.lab.schematic-preview.state.value.lower": {
+    "message": "下半"
+  },
+  "app.lab.schematic-preview.state.value.middle": {
+    "message": "中段"
+  },
+  "app.lab.schematic-preview.state.value.middle_wall": {
+    "message": "中墙"
+  },
+  "app.lab.schematic-preview.state.value.none": {
+    "message": "无"
+  },
+  "app.lab.schematic-preview.state.value.north": {
+    "message": "北"
+  },
+  "app.lab.schematic-preview.state.value.outer_left": {
+    "message": "外左"
+  },
+  "app.lab.schematic-preview.state.value.outer_right": {
+    "message": "外右"
+  },
+  "app.lab.schematic-preview.state.value.partial": {
+    "message": "部分"
+  },
+  "app.lab.schematic-preview.state.value.right": {
+    "message": "右"
+  },
+  "app.lab.schematic-preview.state.value.side": {
+    "message": "侧"
+  },
+  "app.lab.schematic-preview.state.value.single": {
+    "message": "单个"
+  },
+  "app.lab.schematic-preview.state.value.single_wall": {
+    "message": "单墙"
+  },
+  "app.lab.schematic-preview.state.value.south": {
+    "message": "南"
+  },
+  "app.lab.schematic-preview.state.value.straight": {
+    "message": "直"
+  },
+  "app.lab.schematic-preview.state.value.tip": {
+    "message": "尖端"
+  },
+  "app.lab.schematic-preview.state.value.top": {
+    "message": "上半"
+  },
+  "app.lab.schematic-preview.state.value.unstable": {
+    "message": "不稳定"
+  },
+  "app.lab.schematic-preview.state.value.up": {
+    "message": "上"
+  },
+  "app.lab.schematic-preview.state.value.upper": {
+    "message": "上半"
+  },
+  "app.lab.schematic-preview.state.value.wall": {
+    "message": "墙面"
+  },
+  "app.lab.schematic-preview.state.value.west": {
+    "message": "西"
+  },
   "app.lab.seed-map.area.incomplete": {
     "message": "这些结果只覆盖停止前已搜索的那部分区域。"
   },

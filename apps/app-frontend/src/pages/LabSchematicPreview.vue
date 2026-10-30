@@ -30,6 +30,7 @@ import {
     SaveIcon,
     ScanEyeIcon,
     SearchIcon,
+    SettingsIcon,
     SpinnerIcon,
     TrashIcon,
     TriangleAlertIcon,
@@ -74,6 +75,7 @@ import SchematicBlockPickerModal from '@/components/lab/schematic-preview/Schema
 import SchematicInfoModal from '@/components/lab/schematic-preview/SchematicInfoModal.vue'
 import SchematicInstancePickerModal from '@/components/lab/schematic-preview/SchematicInstancePickerModal.vue'
 import SchematicMaterialSwatch from '@/components/lab/schematic-preview/SchematicMaterialSwatch.vue'
+import SchematicStateCard from '@/components/lab/schematic-preview/SchematicStateCard.vue'
 import { list } from '@/helpers/instance'
 import type { GameInstance } from '@/helpers/types.d.ts'
 import {
@@ -91,6 +93,7 @@ import {
     type SchematicTransform,
     transformSchematic,
 } from '@/lab/schematic-preview/backend'
+import { schematicStateProperties } from '@/lab/schematic-preview/block-state'
 import {
     filterSchematicAirGeometry,
     isSchematicAir,
@@ -350,6 +353,10 @@ const messages = defineMessages({
         id: 'app.lab.schematic-preview.selection.count',
         defaultMessage: '{count} selected',
     },
+    blockState: {
+        id: 'app.lab.schematic-preview.block-state',
+        defaultMessage: 'Block state',
+    },
     singleSelect: {
         id: 'app.lab.schematic-preview.selection.single',
         defaultMessage: 'Select',
@@ -550,6 +557,14 @@ const warnings = computed(() => {
         items.push(formatMessage(messages.missingModels, { count: missingBlocks.size }))
     }
     return [...new Set(items)]
+})
+const selectedStateProperties = computed(() => {
+    const state = selectedBlock.value
+    if (!state) return []
+    return schematicStateProperties(
+        state,
+        resources.value?.workerResources.blockDefinitions[state.name],
+    )
 })
 const selectedStateText = computed(() => {
     if (!selectedBlock.value) return ''
@@ -1059,11 +1074,21 @@ function showAllBlocks() {
     rebuildMeshes()
 }
 
-async function commitSelectionEdit(
-    paletteIndex: number,
-    label: string,
-    targetState?: SchematicBlockState,
-) {
+type BlockEditRequest = {
+    locations: SchematicBlockLocation[]
+    label: string
+    targetState?: SchematicBlockState
+    paletteIndex?: number
+    overrideSourceProperties?: boolean
+}
+
+async function commitBlockEdits({
+    locations,
+    label,
+    targetState,
+    paletteIndex = -1,
+    overrideSourceProperties = false,
+}: BlockEditRequest) {
     if (!manifest.value || !canEditSelection.value || (!targetState && paletteIndex < 0)) return
     const session = captureSession(manifest.value)
     const targetKey = targetState ? schematicBlockStateKey(targetState) : undefined
@@ -1072,7 +1097,7 @@ async function commitSelectionEdit(
         : paletteIndex
     const requestedPaletteIndex =
         existingTargetIndex >= 0 ? existingTargetIndex : Math.max(0, paletteIndex)
-    const changes = selectedBlocks.value
+    const changes = locations
         .map((location) => ({
             ...location,
             paletteIndex: requestedPaletteIndex,
@@ -1089,7 +1114,12 @@ async function commitSelectionEdit(
         const needsResourceReload = Boolean(
             targetState && !resources.value?.workerResources.blockDefinitions[targetState.name],
         )
-        const result = await applySchematicEdits(session.sessionId, changes, targetState)
+        const result = await applySchematicEdits(
+            session.sessionId,
+            changes,
+            targetState,
+            overrideSourceProperties,
+        )
         if (!isCurrentSession(session)) return
         manifest.value = result.manifest
         const appliedChanges = changes.map((change, index) => ({
@@ -1111,6 +1141,29 @@ async function commitSelectionEdit(
     } finally {
         if (isCurrentSession(session)) applyingEdit.value = false
     }
+}
+
+function commitSelectionEdit(
+    paletteIndex: number,
+    label: string,
+    targetState?: SchematicBlockState,
+) {
+    return commitBlockEdits({ locations: selectedBlocks.value, paletteIndex, label, targetState })
+}
+
+function commitStateProperty(key: string, value: string) {
+    const state = selectedBlock.value
+    const location = selected.value
+    if (!state || !location || state.properties[key] === value) return
+    return commitBlockEdits({
+        locations: [location],
+        label: formatMessage(messages.blockState),
+        targetState: {
+            name: state.name,
+            properties: { ...state.properties, [key]: value },
+        },
+        overrideSourceProperties: true,
+    })
 }
 
 async function applyHistory(entry: EditHistoryEntry, undo: boolean) {
@@ -2113,6 +2166,18 @@ onBeforeUnmount(() => {
                                         ><XIcon />{{ formatMessage(messages.clearSelection) }}
                                     </Button>
                                 </div>
+                            </section>
+
+                            <section
+                                v-if="selected && selectedBlock"
+                                class="inspector-section flex flex-col gap-2 border-t border-surface-5 pt-3"
+                            >
+                                <h2><SettingsIcon />{{ formatMessage(messages.blockState) }}</h2>
+                                <SchematicStateCard
+                                    :properties="selectedStateProperties"
+                                    :disabled="!canEditSelection"
+                                    @change="commitStateProperty"
+                                />
                             </section>
 
                             <section

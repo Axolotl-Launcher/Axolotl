@@ -80,6 +80,19 @@ vi.mock('@modrinth/ui', async () => {
                 () =>
                     h('button', slots.default?.()),
         }),
+        Toggle: defineComponent({
+            props: ['modelValue', 'disabled'],
+            emits: ['update:modelValue'],
+            setup:
+                (props, { emit }) =>
+                () =>
+                    h('button', {
+                        role: 'switch',
+                        'aria-checked': String(Boolean(props.modelValue)),
+                        disabled: Boolean(props.disabled),
+                        onClick: () => emit('update:modelValue', !props.modelValue),
+                    }),
+        }),
         EmptyState: control,
         Slider: control,
         StyledInput: control,
@@ -158,10 +171,54 @@ function deferred<T>() {
 function resources() {
     return {
         texture: { dispose: vi.fn() },
-        workerResources: { blockDefinitions: {}, blockModels: {}, textureUvs: {} },
+        workerResources: {
+            blockDefinitions: {
+                'minecraft:oak_stairs': {
+                    variants: {
+                        'facing=north,half=bottom,shape=straight': {
+                            model: 'minecraft:block/oak_stairs',
+                        },
+                        'facing=east,half=bottom,shape=straight': {
+                            model: 'minecraft:block/oak_stairs',
+                        },
+                        'facing=south,half=bottom,shape=straight': {
+                            model: 'minecraft:block/oak_stairs',
+                        },
+                        'facing=west,half=bottom,shape=straight': {
+                            model: 'minecraft:block/oak_stairs',
+                        },
+                    },
+                },
+            },
+            blockModels: {},
+            textureUvs: {},
+        },
         blockNames: { en_us: {}, zh_cn: {} },
         availableBlockStates: [],
         atlas: document.createElement('canvas'),
+    }
+}
+
+function stairsManifest(id: string, facing = 'north'): SchematicPreviewManifest {
+    const base = manifest(id)
+    return {
+        ...base,
+        palette: [
+            { name: 'minecraft:air', properties: {} },
+            {
+                name: 'minecraft:oak_stairs',
+                properties: {
+                    facing: 'north',
+                    half: 'bottom',
+                    shape: 'straight',
+                    waterlogged: 'false',
+                },
+            },
+            {
+                name: 'minecraft:oak_stairs',
+                properties: { facing, half: 'bottom', shape: 'straight', waterlogged: 'false' },
+            },
+        ],
     }
 }
 
@@ -394,4 +451,53 @@ it('changing glass rendering while B loads resources preserves B resource owners
     expect(fixture.scene.setTexture).toHaveBeenLastCalledWith(loaded.texture)
     expect(wrapper.find('[role="progressbar"]').exists()).toBe(false)
     expect(button('Rotate clockwise').attributes('disabled')).toBeUndefined()
+})
+
+it('a state change edits only the selected block and overrides its own properties', async () => {
+    fixture.open.mockImplementation(async (source: { path: string }) => stairsManifest(source.path))
+    await openFile('A')
+    fixture.select?.({ regionId: 'region', position: [0, 0, 0] })
+    await nextTick()
+    fixture.edit.mockImplementationOnce(async (id: string) => ({
+        manifest: stairsManifest(id, 'west'),
+        changedChunks: [],
+        appliedPaletteIndices: [2],
+    }))
+
+    const west = wrapper.findAll('button').find((chip) => chip.text() === 'West')
+    expect(west).toBeDefined()
+    await west!.trigger('click')
+    await flushPromises()
+
+    expect(fixture.edit).toHaveBeenCalledTimes(1)
+    const [sessionId, edits, targetState, override] = fixture.edit.mock.calls[0]
+    expect(sessionId).toBe('A')
+    expect(edits).toEqual([{ regionId: 'region', position: [0, 0, 0], paletteIndex: 0, before: 1 }])
+    expect(targetState).toEqual({
+        name: 'minecraft:oak_stairs',
+        properties: { facing: 'west', half: 'bottom', shape: 'straight', waterlogged: 'false' },
+    })
+    expect(override).toBe(true)
+    expect(
+        wrapper
+            .findAll('button')
+            .find((chip) => chip.text() === 'West')
+            ?.attributes('aria-pressed'),
+    ).toBe('true')
+})
+
+it('the state card is hidden while nothing is selected', async () => {
+    fixture.open.mockImplementation(async (source: { path: string }) => stairsManifest(source.path))
+    await openFile('A')
+
+    expect(wrapper.findAll('button').some((chip) => chip.text() === 'West')).toBe(false)
+    expect(wrapper.text()).not.toContain('Block state')
+
+    fixture.select?.({ regionId: 'region', position: [0, 0, 0] })
+    await nextTick()
+    expect(wrapper.findAll('button').some((chip) => chip.text() === 'West')).toBe(true)
+
+    await button('Clear selection').trigger('click')
+    await nextTick()
+    expect(wrapper.findAll('button').some((chip) => chip.text() === 'West')).toBe(false)
 })

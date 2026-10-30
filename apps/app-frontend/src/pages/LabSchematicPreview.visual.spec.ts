@@ -222,6 +222,42 @@ function stairsManifest(id: string, facing = 'north'): SchematicPreviewManifest 
     }
 }
 
+function stairState(facing: string, half: string) {
+    return {
+        name: 'minecraft:oak_stairs',
+        properties: { facing, half, shape: 'straight', waterlogged: 'false' },
+    }
+}
+
+function pairStairsManifest(
+    id: string,
+    palette: SchematicPreviewManifest['palette'] = [
+        { name: 'minecraft:air', properties: {} },
+        stairState('north', 'bottom'),
+        stairState('south', 'top'),
+    ],
+): SchematicPreviewManifest {
+    const base = manifest(id)
+    return {
+        ...base,
+        palette,
+        blockCount: 2,
+        materials: [{ name: 'minecraft:oak_stairs', count: 2 }],
+        regions: [
+            {
+                id: 'region',
+                name: 'region',
+                origin: [0, 0, 0],
+                min: [0, 0, 0],
+                max: [1, 0, 0],
+                size: [2, 1, 1],
+                blockCount: 2,
+                chunks: [{ position: [0, 0, 0], nonAirBlocks: 2 }],
+            },
+        ],
+    }
+}
+
 class MeshWorker {
     onmessage?: (event: { data: unknown }) => void
     onerror?: (event: { message: string }) => void
@@ -310,6 +346,14 @@ function button(label: string) {
     return wrapper
         .findAll('button')
         .find((button) => button.text() === label || button.attributes('aria-label') === label)!
+}
+
+function chip(label: string) {
+    return wrapper
+        .findAll('button')
+        .find(
+            (button) => button.text() === label && button.attributes('aria-pressed') !== undefined,
+        )!
 }
 
 it('old edit completion cannot overwrite B or clear B busy state', async () => {
@@ -484,6 +528,59 @@ it('a state change edits only the selected block and overrides its own propertie
             .find((chip) => chip.text() === 'West')
             ?.attributes('aria-pressed'),
     ).toBe('true')
+})
+
+it('a finished state edit cannot retarget the inspector to another block', async () => {
+    fixture.open.mockImplementation(async (source: { path: string }) =>
+        pairStairsManifest(source.path),
+    )
+    fixture.read.mockImplementation(async () => {
+        const blocks = new Uint32Array(4096)
+        blocks[0] = 1
+        blocks[1] = 2
+        return blocks
+    })
+    await openFile('A')
+    fixture.select?.({ regionId: 'region', position: [0, 0, 0] })
+    await nextTick()
+    expect(chip('North').attributes('aria-pressed')).toBe('true')
+
+    const pending = deferred<SchematicEditResult>()
+    fixture.edit.mockReturnValueOnce(pending.promise)
+    await chip('West').trigger('click')
+    await nextTick()
+
+    fixture.select?.({ regionId: 'region', position: [1, 0, 0] })
+    await nextTick()
+    expect(chip('South').attributes('aria-pressed')).toBe('true')
+
+    pending.resolve({
+        manifest: pairStairsManifest('A', [
+            { name: 'minecraft:air', properties: {} },
+            stairState('north', 'bottom'),
+            stairState('south', 'top'),
+            stairState('west', 'bottom'),
+        ]),
+        changedChunks: [],
+        appliedPaletteIndices: [3],
+    })
+    await flushPromises()
+
+    expect(chip('South').attributes('aria-pressed')).toBe('true')
+    expect(chip('Top').attributes('aria-pressed')).toBe('true')
+
+    fixture.edit.mockResolvedValueOnce({
+        manifest: pairStairsManifest('A'),
+        changedChunks: [],
+        appliedPaletteIndices: [2],
+    })
+    await chip('East').trigger('click')
+    await flushPromises()
+
+    expect(fixture.edit).toHaveBeenCalledTimes(2)
+    const [, edits, targetState] = fixture.edit.mock.calls[1]
+    expect(edits).toEqual([{ regionId: 'region', position: [1, 0, 0], paletteIndex: 0, before: 2 }])
+    expect(targetState).toEqual(stairState('east', 'top'))
 })
 
 it('the state card is hidden while nothing is selected', async () => {

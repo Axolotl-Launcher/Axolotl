@@ -1082,6 +1082,13 @@ type BlockEditRequest = {
     overrideSourceProperties?: boolean
 }
 
+function inspectorShowsEditedBlock(locations: SchematicBlockLocation[]) {
+    const current = selected.value
+    if (!current) return false
+    const key = schematicBlockKey(current)
+    return locations.some((location) => schematicBlockKey(location) === key)
+}
+
 async function commitBlockEdits({
     locations,
     label,
@@ -1132,8 +1139,10 @@ async function commitBlockEdits({
         ]
         redoHistory.value = []
         const firstAppliedPaletteIndex = appliedChanges[0]?.paletteIndex ?? 0
-        if (firstAppliedPaletteIndex === 0) clearBlockSelection()
-        else selectedBlock.value = result.manifest.palette[firstAppliedPaletteIndex]
+        if (inspectorShowsEditedBlock(locations)) {
+            if (firstAppliedPaletteIndex === 0) clearBlockSelection()
+            else selectedBlock.value = result.manifest.palette[firstAppliedPaletteIndex]
+        }
         if (needsResourceReload) await applyResources(session.epoch)
         else rebuildMeshes()
     } catch (caught) {

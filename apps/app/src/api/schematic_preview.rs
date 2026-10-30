@@ -362,6 +362,11 @@ pub fn schematic_preview_apply_edits(
             "A single edit cannot change more than {MAX_EDIT_BLOCKS} blocks"
         ));
     }
+    if override_source_properties.unwrap_or(false) && target_state.is_none() {
+        return Err(
+            "Property overrides require a target block state".to_string()
+        );
+    }
     let mut active = sessions()
         .lock()
         .map_err(|_| "Session storage is unavailable".to_string())?;
@@ -2158,6 +2163,19 @@ mod tests {
             .lock()
             .unwrap()
             .retain(|session| session.manifest.session_id != session_id);
+    }
+
+    #[test]
+    fn state_property_overrides_require_a_target_state() {
+        let error = schematic_preview_apply_edits(
+            "expired".to_string(),
+            Vec::new(),
+            None,
+            Some(true),
+        )
+        .expect_err("a flag without a target state is a misuse");
+
+        assert!(error.contains("target block state"), "{error}");
     }
 
     #[test]

@@ -92,7 +92,7 @@ mod tests {
             .await
             .unwrap();
         sqlx::migrate!().run(&pool).await.unwrap();
-        for id in ["first", "second", "third"] {
+        for id in ["first", "second", "third", "fourth"] {
             sqlx::query("INSERT INTO instances(id, path, install_stage, launcher_feature_version, name, created, modified) VALUES (?, ?, 'installed', '1', ?, 1, 1)").bind(id).bind(id).bind(id).execute(&pool).await.unwrap();
             sqlx::query("INSERT INTO instance_content_sets(id, instance_id, name, source_kind, status, game_version, loader, created, modified) VALUES (?, ?, 'content', 'local', 'available', '1.20.1', 'fabric', 1, 1)").bind(format!("set-{id}")).bind(id).execute(&pool).await.unwrap();
             sqlx::query(
@@ -207,6 +207,90 @@ mod tests {
             .expect("a canceled job stops waiting at its next step")
             .unwrap();
         assert!(left.is_none());
+        state.pool.close().await;
+    }
+
+    #[tokio::test]
+    async fn canceling_job_leaves_the_queue() {
+        let (_temp, state) = fixture().await;
+        let mut records = Vec::new();
+        for instance in ["first", "second", "third"] {
+            let job = enqueue(request(instance), &state).await.unwrap();
+            records
+                .push(store::get_required(job.job_id, &state).await.unwrap());
+        }
+        let _first = wait_for_slot(&state, &records[0], STEP).await.unwrap();
+        let _second = wait_for_slot(&state, &records[1], STEP).await.unwrap();
+
+        let third = wait_for_slot(&state, &records[2], STEP);
+        tokio::pin!(third);
+        assert!(tokio::time::timeout(STEP * 2, &mut third).await.is_err());
+        // Canceling is not finished, so this takes the dedicated branch.
+        store::update_status(
+            records[2].id,
+            InstallJobStatus::Canceling,
+            &records[2].state,
+            &state,
+        )
+        .await
+        .unwrap();
+        let left = tokio::time::timeout(Duration::from_secs(5), third)
+            .await
+            .expect("a canceling job stops waiting at its next step")
+            .unwrap();
+        assert!(left.is_none());
+        assert_eq!(
+            store::get_required(records[2].id, &state)
+                .await
+                .unwrap()
+                .status,
+            InstallJobStatus::Canceling
+        );
+        state.pool.close().await;
+    }
+
+    #[tokio::test]
+    async fn queued_jobs_get_freed_slots_in_arrival_order() {
+        let (_temp, state) = fixture().await;
+        let mut records = Vec::new();
+        for instance in ["first", "second", "third", "fourth"] {
+            let job = enqueue(request(instance), &state).await.unwrap();
+            records
+                .push(store::get_required(job.job_id, &state).await.unwrap());
+        }
+        let first = wait_for_slot(&state, &records[0], STEP).await.unwrap();
+        let second = wait_for_slot(&state, &records[1], STEP).await.unwrap();
+        assert!(first.is_some() && second.is_some());
+
+        let third = wait_for_slot(&state, &records[2], STEP);
+        tokio::pin!(third);
+        assert!(tokio::time::timeout(STEP * 2, &mut third).await.is_err());
+        let fourth = wait_for_slot(&state, &records[3], STEP);
+        tokio::pin!(fourth);
+        // Both wait through several steps together, the later one in line
+        // polled first each time.
+        for _ in 0..3 {
+            assert!(tokio::time::timeout(STEP, &mut fourth).await.is_err());
+            assert!(tokio::time::timeout(STEP, &mut third).await.is_err());
+        }
+
+        drop(first);
+        assert!(
+            tokio::time::timeout(STEP * 4, &mut fourth).await.is_err(),
+            "the later waiter must not take the first freed slot"
+        );
+        let third = tokio::time::timeout(Duration::from_secs(5), third)
+            .await
+            .expect("the earlier waiter gets the first freed slot")
+            .unwrap();
+        assert!(third.is_some());
+
+        drop(second);
+        let fourth = tokio::time::timeout(Duration::from_secs(5), fourth)
+            .await
+            .expect("the later waiter gets the next freed slot")
+            .unwrap();
+        assert!(fourth.is_some());
         state.pool.close().await;
     }
 }

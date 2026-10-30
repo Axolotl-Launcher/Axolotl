@@ -57,6 +57,10 @@ const CHANNELS = ['release', 'beta']
 // refused rather than guessed at; --allow-unmapped accepts the risk explicitly.
 const REVERTIBLE_SCHEMA = {
     20261103130000: { columns: [{ table: 'install_jobs', column: 'level' }] },
+    // settings.default_game_language
+    20261103120000: {
+        columns: [{ table: 'settings', column: 'default_game_language' }],
+    },
     // Account secrets move into the system credential store. Each table gains a
     // mark column saying which of its secret columns the store holds; dropping
     // it leaves the rows as an older build writes them.

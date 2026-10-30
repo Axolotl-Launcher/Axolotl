@@ -11,10 +11,6 @@ use crate::state::{ContentProvider, ContentProviderRef};
 use sqlx::Row;
 use std::collections::HashMap;
 
-use crate::state::instances::adapters::sqlite::{
-    content_entries, content_sets, files, pack_members,
-};
-
 pub(crate) struct SnapshotRecords {
     pub pack_presentation: Option<super::content_refresh_pack::PackRecord>,
     pub fingerprints: HashMap<

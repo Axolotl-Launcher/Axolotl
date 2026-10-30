@@ -44,6 +44,15 @@ fn merge_settings(
     }
 }
 
+fn valid_game_language(value: &str) -> bool {
+    let value = value.trim();
+    value.is_empty()
+        || (value.len() <= 32
+            && value.bytes().all(|byte| {
+                byte.is_ascii_alphanumeric() || byte == b'_' || byte == b'-'
+            }))
+}
+
 pub(crate) async fn patch_with(
     handle: &Handle,
     patch: serde_json::Value,
@@ -53,6 +62,12 @@ pub(crate) async fn patch_with(
     let mut value = serde_json::to_value(&current)?;
     merge_settings(&mut value, patch)?;
     let mut settings: Settings = serde_json::from_value(value)?;
+    if !valid_game_language(&settings.default_game_language) {
+        return Err(crate::ErrorKind::InputError(
+            "Default game language must be a Minecraft locale code".to_string(),
+        )
+        .into());
+    }
     settings.telemetry = current.telemetry;
     settings.telemetry_consent_version = current.telemetry_consent_version;
     settings.discord_rpc = current.discord_rpc;

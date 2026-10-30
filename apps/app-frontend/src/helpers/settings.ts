@@ -152,6 +152,7 @@ export type AppSettings = DohSettings & {
     theme: ColorTheme
     accent_color: AccentColorSetting
     locale: string
+    default_game_language: string
     default_page: 'Home' | 'DiscoverContent' | 'Library'
     collapsed_navigation: boolean
     hide_nametag_skins_page: boolean
@@ -235,6 +236,7 @@ type LegacyMirrorSettings = {
 function normalizeDownloadSettings(settings: AppSettings & LegacyMirrorSettings): AppSettings {
     settings.close_behavior ??= 'ask'
     settings.log_level ??= 'info'
+    settings.default_game_language ??= ''
     const hasLegacySettings =
         typeof settings.use_minecraft_mirror === 'boolean' &&
         typeof settings.use_modrinth_mirror === 'boolean' &&

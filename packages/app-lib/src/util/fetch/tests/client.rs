@@ -2,6 +2,7 @@
 
 use super::super::*;
 use super::fixtures::*;
+use std::sync::atomic::Ordering;
 
 #[tokio::test]
 async fn tianpao_metadata_redirects_are_blocked_before_following() {

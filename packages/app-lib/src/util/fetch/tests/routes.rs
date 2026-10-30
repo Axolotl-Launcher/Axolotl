@@ -2,6 +2,12 @@
 
 use super::super::*;
 use super::fixtures;
+use crate::util::download::retired_sources;
+use crate::util::download::route_health::{
+    ROUTE_HEALTH, ResourceFamily, RouteHealth,
+};
+use crate::util::fetch::transfer::build_download_routes;
+use url::Url;
 
 #[test]
 fn modrinth_requests_are_classified_for_logging() {

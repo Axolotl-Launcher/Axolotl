@@ -165,14 +165,13 @@ impl RefreshCoordinator {
             && slot.task.running
             && !slot.cancel.is_cancelled()
         {
-            if (mode == RefreshMode::ForceRemote
+            if ((mode == RefreshMode::ForceRemote
                 && slot.task.mode != RefreshMode::ForceRemote)
                 || (mode == RefreshMode::RetryFailed
-                    && slot.task.mode == RefreshMode::Normal)
+                    && slot.task.mode == RefreshMode::Normal))
+                && slot.pending_mode != Some(RefreshMode::ForceRemote)
             {
-                if slot.pending_mode != Some(RefreshMode::ForceRemote) {
-                    slot.pending_mode = Some(mode);
-                }
+                slot.pending_mode = Some(mode);
             }
             return Ok(slot.task.clone());
         }

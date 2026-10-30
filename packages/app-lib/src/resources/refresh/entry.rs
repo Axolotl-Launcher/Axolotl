@@ -726,6 +726,10 @@ mod tests {
             RefreshMode::Normal
         ));
         check.failed(200, "offline".into());
+        // A failed source response must not restart on each page visit or tick.
+        for seconds in [0, 1, 2, 30, 60] {
+            assert!(!due(Some(&check), 200 + seconds, RefreshMode::Normal));
+        }
         assert!(!due(
             Some(&check),
             200 + REMOTE_CACHE_SECONDS - 1,

@@ -567,6 +567,41 @@ console.log('the account secret marks: added forward, dropped by a downgrade')
     old.close()
 }
 
+// --- the scheduling level of install jobs -------------------------------------
+
+console.log('install jobs gain a scheduling level and lose it on downgrade')
+{
+    const LEVEL = 20261103130000
+    const file = path.join(directory, 'level', 'beta', 'app.db')
+    const files = fs.readdirSync(migrationsDir).filter((name) => name.endsWith('.sql')).sort()
+    const later = files.filter((name) => Number(name.slice(0, 14)) >= LEVEL)
+    const { database, apply } = migratedDatabase(file, files.filter((name) => Number(name.slice(0, 14)) < LEVEL))
+    database.exec(`
+        INSERT INTO instances(id, path, install_stage, launcher_feature_version, name, created, modified)
+            VALUES ('sample', '/sample', 'installed', '1', 'Sample', 10, 20);
+        INSERT INTO install_jobs(id, instance_id, kind, status, state, created, modified)
+            VALUES ('frozen', 'sample', 'install_content', 'queued', '{}', 1, 2);
+    `)
+    const original = database.prepare('SELECT * FROM install_jobs').all()
+    for (const name of later) apply(name)
+    check('existing install jobs start at scheduling level L3', database.prepare("SELECT level FROM install_jobs WHERE id = 'frozen'").get().level === 'l3')
+    database.close()
+    const downgrade = run(['--db', file, '--to', String(LEVEL), '--apply'])
+    check('a downgrade removes the level column', downgrade.status === 0 && !columns(file, 'install_jobs').includes('level'), downgrade.output)
+    const old = new DatabaseSync(file)
+    assert.deepEqual(old.prepare('SELECT * FROM install_jobs').all(), original)
+    old.exec('BEGIN')
+    for (const name of later) {
+        const sql = fs.readFileSync(path.join(migrationsDir, name))
+        old.exec(sql.toString())
+        old.prepare('INSERT INTO _sqlx_migrations(version, description, success, checksum, execution_time) VALUES (?, ?, 1, ?, 0)')
+            .run(Number(name.slice(0, 14)), name, createHash('sha384').update(sql).digest())
+    }
+    old.exec('COMMIT')
+    check('re-upgraded install jobs start at scheduling level L3 again', old.prepare("SELECT level FROM install_jobs WHERE id = 'frozen'").get().level === 'l3')
+    old.close()
+}
+
 if (process.platform !== 'win32') {
     console.log('skipping the running launcher checks outside Windows')
 } else {

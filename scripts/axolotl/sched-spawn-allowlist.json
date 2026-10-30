@@ -1856,6 +1856,63 @@
       ]
     },
     {
+      "file": "packages/app-lib/src/scheduler/l0/executor.rs",
+      "form": "spawn_blocking",
+      "count": 1,
+      "reason": "L0 executor: its driver thread, and spawns onto the L0 runtime and its own blocking pool (T3.6)",
+      "sites": [
+        "spawn_blocking: self.handle.spawn_blocking(work)"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/scheduler/l0/executor.rs",
+      "form": "std::thread::sleep",
+      "count": 1,
+      "reason": "bounded poll for the L0 driver thread to exit within its 5 s window",
+      "sites": [
+        "shutdown: std::thread::sleep(Duration::from_millis(10));"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/scheduler/l0/executor.rs",
+      "form": "thread::Builder",
+      "count": 1,
+      "reason": "L0 executor: its driver thread, and spawns onto the L0 runtime and its own blocking pool (T3.6)",
+      "sites": [
+        "start: let thread = std::thread::Builder::new()"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/scheduler/l0/executor.rs",
+      "form": "thread::Builder spawn",
+      "count": 2,
+      "reason": "L0 executor: its driver thread, and spawns onto the L0 runtime and its own blocking pool (T3.6)",
+      "sites": [
+        "spawn: self.handle.spawn(task)",
+        "start: .spawn(move || {"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/scheduler/l0/mod.rs",
+      "form": "tokio::spawn",
+      "count": 1,
+      "reason": "fallback onto the current runtime when the L0 executor cannot start",
+      "sites": [
+        "spawn: None => tokio::spawn(task),"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/scheduler/order/instrument.rs",
+      "form": "std::fs",
+      "count": 3,
+      "reason": "order instrumentation reads the generated registry and appends to the violation list; debug test runs with SCHED_ORDER_GUARD=1 only, never in L0 or a critical section",
+      "sites": [
+        "append: if let Ok(mut file) = std::fs::OpenOptions::new()",
+        "append: let _ = std::fs::create_dir_all(parent);",
+        "load: serde_json::from_str(&std::fs::read_to_string(&file).ok()?).ok()"
+      ]
+    },
+    {
       "file": "packages/app-lib/src/scheduler/panic.rs",
       "form": "std::fs",
       "count": 4,
@@ -2116,10 +2173,10 @@
       "sites": [
         "insert_new_process: process.output_tasks.push(tokio::spawn(async move {",
         "insert_new_process: process.output_tasks.push(tokio::spawn(async move {",
-        "insert_new_process: tokio::spawn(Process::sequential_process_manager(",
+        "insert_new_process: tokio::spawn(Process::react_to_process(",
         "parse_and_insert_server_join: tokio::spawn(async move {",
-        "sequential_process_manager: tokio::spawn(async move {",
-        "sequential_process_manager: tokio::spawn(async move {"
+        "react_to_process: tokio::spawn(async move {",
+        "react_to_process: tokio::spawn(async move {"
       ]
     },
     {

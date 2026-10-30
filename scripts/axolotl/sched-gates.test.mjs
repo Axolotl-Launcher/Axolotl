@@ -2,17 +2,26 @@
 // exists to reject.
 
 import assert from 'node:assert/strict'
+import { spawnSync } from 'node:child_process'
+import { existsSync, mkdtempSync, rmSync } from 'node:fs'
+import os from 'node:os'
+import path from 'node:path'
 import { test } from 'node:test'
+import { fileURLToPath } from 'node:url'
 import { checkSpawns, countForms, unboundedInL0 } from './sched-bare-spawn-check.mjs'
-import { l0Violations } from './sched-l0-resource-check.mjs'
+import { enterBanViolations } from './sched-enter-ban-check.mjs'
+import { l0FunctionViolations, l0Violations } from './sched-l0-resource-check.mjs'
 import { checkLeaves } from './sched-leaf-primitive-check.mjs'
 import { checkGovernance } from './sched-level-predicate-check.mjs'
 import { evaluateOrder } from './sched-order-annotation-check.mjs'
 import { evaluateGap } from './sched-recall-gap-gate.mjs'
 import { checkConsistency } from './sched-resource-consistency-check.mjs'
+import { tagViolations } from './sched-tag-check.mjs'
+import { awaitedSendsInL0 } from './sched-unbounded-sender-check.mjs'
+import { checkWhitelist } from './sched-whitelist-check.mjs'
 import { missingGolden } from './sched-resource-golden-check.mjs'
 import { buildInventory } from './sched-resource-inventory.mjs'
-import { loadPolicy, maskRust, rankFingerprint, scanMethodHits, sourcesOf, stripTestItems, workspaceCrates } from './sched-utils.mjs'
+import { loadPolicy, maskRust, orderCoverage, rankFingerprint, scanMethodHits, scanOrderAnnotations, sourcesOf, stripTestItems, workspaceCrates } from './sched-utils.mjs'
 
 const policy = loadPolicy()
 const crates = workspaceCrates()
@@ -97,6 +106,60 @@ test('order check reports a descending pair inside one function (K0.25)', () => 
     assert.equal(result.descending.length, 1)
 })
 
+// A registry of three S8 resources (a < b < c) and one S5 permit, with the
+// reviewed fingerprint swapped for this table's own.
+const familyRegistry = {
+    items: [
+        { ident: 't::a', rank: 1, scopeClass: 'S8' },
+        { ident: 't::b', rank: 2, scopeClass: 'S8' },
+        { ident: 't::c', rank: 3, scopeClass: 'S8' },
+        { ident: 't::permit', rank: 4, scopeClass: 'S5' },
+    ],
+}
+const familyPolicy = (exceptions = []) => ({ ...clone(policy), rankFingerprint: rankFingerprint(familyRegistry.items), orderViolations: [], orderExceptions: exceptions })
+const annotated = (body) => scanOrderAnnotations([source('packages/app-lib/src/x.rs', `fn f() {\n${body}\n}\n`)])
+
+test('order check compares ranks only within one family (K4.1, R5)', () => {
+    const result = evaluateOrder(familyRegistry, familyPolicy(), annotated('    // sched-order: t::permit\n    let p = permit.acquire();\n    // sched-order: t::a\n    let a = a.lock();'))
+    assert.deepEqual(result.descending, [])
+    assert.equal(result.crossFamily, 1)
+})
+
+test('order check ends a hold at its block, its release, or its statement (K4.1)', () => {
+    const block = annotated('    {\n        // sched-order: t::b\n        let b = b.lock();\n    }\n    // sched-order: t::a\n    let a = a.lock();')
+    assert.deepEqual(evaluateOrder(familyRegistry, familyPolicy(), block).descending, [])
+    const released = annotated('    // sched-order: t::b\n    let b = b.lock();\n    // sched-order-release: t::b\n    drop(b);\n    // sched-order: t::a\n    let a = a.lock();')
+    assert.deepEqual(evaluateOrder(familyRegistry, familyPolicy(), released).descending, [])
+    const temporary = annotated('    // sched-order: t::b temporary\n    b.lock().clear();\n    // sched-order: t::a\n    let a = a.lock();')
+    assert.deepEqual(evaluateOrder(familyRegistry, familyPolicy(), temporary).descending, [])
+    const nested = annotated('    // sched-order: t::b\n    let b = b.lock();\n    // sched-order: t::a\n    let a = a.lock();')
+    assert.equal(evaluateOrder(familyRegistry, familyPolicy(), nested).descending.length, 1)
+})
+
+test('order check accepts a listed exception but not a cycle through it (K4.11)', () => {
+    const exception = [{ held: 't::b', acquired: 't::a' }]
+    const once = annotated('    // sched-order: t::b\n    let b = b.lock();\n    // sched-order: t::a\n    let a = a.lock();')
+    const accepted = evaluateOrder(familyRegistry, familyPolicy(exception), once)
+    assert.deepEqual([accepted.descending, accepted.errors], [[], []])
+    assert.equal(accepted.exempted.length, 1)
+    const cycle = annotated('    // sched-order: t::b\n    let b = b.lock();\n    // sched-order: t::a\n    let a = a.lock();\n    // sched-order: t::c\n    let c = c.lock();\n}\nfn g() {\n    // sched-order: t::a\n    let a = a.lock();\n    // sched-order: t::b\n    let b = b.lock();')
+    assert.ok(evaluateOrder(familyRegistry, familyPolicy(exception), cycle).errors.some((error) => error.includes('cycle')))
+})
+
+test('order coverage asks for annotations only where a family has two resources (K4.1)', () => {
+    const code = source('packages/app-lib/src/x.rs', 'fn one() {\n    let a = a.lock();\n}\nfn two() {\n    // sched-order: t::a\n    let a = a.lock();\n    let b = b.lock();\n}\n')
+    const getpoints = {
+        items: [
+            { file: 'packages/app-lib/src/x.rs', line: 2, method: 'lock', idents: ['t::a'] },
+            { file: 'packages/app-lib/src/x.rs', line: 6, method: 'lock', idents: ['t::a'] },
+            { file: 'packages/app-lib/src/x.rs', line: 7, method: 'lock', idents: ['t::b'] },
+        ],
+    }
+    const coverage = orderCoverage(getpoints, familyRegistry, scanOrderAnnotations([code]), [code])
+    assert.deepEqual(coverage.exempt.map((point) => [point.line, point.rule]), [[2, 'F1']])
+    assert.deepEqual(coverage.uncovered.map((point) => point.line), [7])
+})
+
 test('L0 check rejects a total-order acquisition inside the L0 module (K0.14)', () => {
     const l0 = source('packages/app-lib/src/scheduler/l0/probe.rs', 'async fn probe(state: &State) {\n    let _permit = state.install_db_semaphore.acquire().await;\n}\n')
     assert.equal(l0Violations([l0], files.registry, policy).length, 1)
@@ -172,4 +235,83 @@ test('acquisition scan sees owned lock guards', () => {
             [3, 'read_owned', 'CACHE', 'static'],
         ],
     )
+})
+
+test('enter-ban rules 7 and 8 reject a restored gate (K2.9)', () => {
+    const restored = source('packages/app-lib/src/install/critical_section.rs', 'pub fn enter() -> Gate { todo!() }\n')
+    const wildcard = source('packages/app-lib/src/x.rs', 'fn f() {\n    match critical_section::enter() {\n        Gate::Protected(g) => {}\n        _ => {}\n    }\n}\n')
+    const violations = enterBanViolations([restored, wildcard])
+    assert.ok(violations.some((violation) => violation.includes('rule 7: fn enter')))
+    assert.ok(violations.some((violation) => violation.includes('rule 7: critical_section::enter(')))
+    assert.ok(violations.some((violation) => violation.includes('rule 8')))
+    assert.deepEqual(enterBanViolations(sources), [])
+})
+
+test('whitelist check enforces the cap and the six criteria (K2.11, K2.12)', () => {
+    assert.deepEqual(checkWhitelist(sources, policy, files.registry), [])
+    const unprotected = clone(policy)
+    unprotected.whitelist[0].bearer = 'theseus::nowhere::LOCK'
+    unprotected.whitelist[1].worstCase = ''
+    const failures = checkWhitelist(sources, unprotected, files.registry)
+    assert.ok(failures.some((failure) => failure.includes('criterion 3')))
+    assert.ok(failures.some((failure) => failure.includes('criterion 5')))
+    const unguarded = clone(policy)
+    unguarded.guardedWrites.push({ file: 'packages/app-lib/src/resources/execution.rs', fn: 'staging_prefix' })
+    assert.ok(checkWhitelist(sources, unguarded, files.registry).some((failure) => failure.includes('without asking for WriteAccess')))
+})
+
+test('tag check rejects a forgeable tag (K2.1, K2.3)', () => {
+    assert.deepEqual(tagViolations(sources), [])
+    const tag = sources.find((candidate) => candidate.rel === 'packages/app-lib/src/scheduler/tag.rs')
+    const convertible = source(tag.rel, `${tag.raw}\nimpl From<TagRecord> for Tag { fn from(r: TagRecord) -> Self { todo!() } }\n`)
+    const forged = source('packages/app-lib/src/x.rs', 'fn f() { let _t = crate::scheduler::tag::Tag { id: 1, generation: 1, level: Level::L0, origin: String::new() }; }\n')
+    const violations = tagViolations([...sources.filter((candidate) => candidate.rel !== tag.rel), convertible, forged])
+    assert.ok(violations.some((violation) => violation.includes('implements From for Tag')))
+    assert.ok(violations.some((violation) => violation.includes('builds a Tag outside tag.rs')))
+})
+
+test('the L0 process detector keeps its reactions dispatched (K3.3)', () => {
+    assert.deepEqual(l0FunctionViolations(sources, policy), [])
+    const detector = sources.find((candidate) => candidate.rel === 'packages/app-lib/src/state/process.rs')
+    const leaky = source(
+        detector.rel,
+        detector.raw.replace(
+            'let manually_killed = state.process_manager.was_manually_killed(uuid);',
+            'let manually_killed = state.process_manager.was_manually_killed(uuid);\n        sqlx::query("SELECT 1").execute(&state.pool).await?;',
+        ),
+    )
+    const violations = l0FunctionViolations([...sources.filter((candidate) => candidate.rel !== detector.rel), leaky], policy)
+    assert.ok(violations.some((violation) => violation.includes('uses .pool')))
+    assert.ok(violations.some((violation) => violation.includes('awaits')))
+})
+
+test('L0 never awaits a send (K3.4)', () => {
+    const awaited = source('packages/app-lib/src/scheduler/l0/x.rs', 'async fn f(tx: Sender<u8>) {\n    tx.send(1).await.unwrap();\n}\n')
+    assert.equal(awaitedSendsInL0([awaited], policy.l0Module).length, 1)
+    assert.deepEqual(awaitedSendsInL0(sources, policy.l0Module), [])
+})
+
+const here = path.dirname(fileURLToPath(import.meta.url))
+const runScript = (name, args) => spawnSync(process.execPath, [path.join(here, name), ...args], { encoding: 'utf8' })
+
+test('inventory runs when started by its absolute path', () => {
+    const out = mkdtempSync(path.join(os.tmpdir(), 'sched-inventory-'))
+    try {
+        const run = runScript('sched-resource-inventory.mjs', ['--out', out])
+        assert.equal(run.status, 0, run.stderr)
+        assert.ok(existsSync(path.join(out, 'sched-resource-registry.json')), 'the registry was not written')
+    } finally {
+        rmSync(out, { recursive: true, force: true })
+    }
+})
+
+test('order check fails, rather than falls back, without an inventory', () => {
+    const empty = mkdtempSync(path.join(os.tmpdir(), 'sched-missing-'))
+    try {
+        const run = runScript('sched-order-annotation-check.mjs', ['--dir', empty])
+        assert.equal(run.status, 2, run.stderr)
+        assert.match(run.stderr, /sched-order-annotation-check:/)
+    } finally {
+        rmSync(empty, { recursive: true, force: true })
+    }
 })

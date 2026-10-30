@@ -360,7 +360,9 @@ impl InstallJobState {
 
     /// Invalidates the lazily built download item and summary caches.
     pub(crate) fn invalidate_download_caches(&mut self) {
+        // sched-order: theseus::install::model::InstallJobState.download_items_cache temporary
         *self.download_items_cache.lock().unwrap() = None;
+        // sched-order: theseus::install::model::InstallJobState.summary_cache temporary
         *self.summary_cache.lock().unwrap() = None;
     }
 

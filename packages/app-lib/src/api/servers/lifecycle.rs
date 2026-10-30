@@ -485,6 +485,7 @@ pub async fn stop(server_id: &str) -> Result<()> {
         return Err(ErrorKind::InputError("Server is not running".to_string())
             .as_error());
     };
+    // sched-order: theseus::api::servers::lifecycle::ServerProcess.stop_command temporary
     let command = process.stop_command.read().clone();
     let bytes = stop_command_bytes(&command)?;
     if process.stop_requested.swap(true, Ordering::SeqCst) {
@@ -495,6 +496,7 @@ pub async fn stop(server_id: &str) -> Result<()> {
         .ok();
     if !process.ready.load(Ordering::SeqCst) && command == "stop" {
         // A bootstrapper cannot read Minecraft commands before the server starts.
+        // sched-order: theseus::api::servers::lifecycle::ServerProcess.child temporary
         process.child.lock().await.kill()?;
         return Ok(());
     }
@@ -510,12 +512,14 @@ pub async fn stop(server_id: &str) -> Result<()> {
             .as_ref()
             .is_some_and(|current| Arc::ptr_eq(current, &watchdog))
         {
+            // sched-order: theseus::api::servers::lifecycle::ServerProcess.child temporary
             let _ = watchdog.child.lock().await.kill();
         }
     });
     tokio::spawn(async move {
         // Raw editing controls (such as Ctrl+U) become literal input on cooked consoles.
         if write_console(process.clone(), bytes).await.is_err() {
+            // sched-order: theseus::api::servers::lifecycle::ServerProcess.child temporary
             let _ = process.child.lock().await.kill();
         }
     });

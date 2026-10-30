@@ -70,9 +70,9 @@
       "reason": "panic-log append lock: synchronous, held for one bounded append, takes no other lock"
     },
     {
-      "ident": "theseus::install::runner::CLEANUPS",
+      "ident": "theseus::install::runner::CANCEL_CLEANUPS",
       "rule": "D4",
-      "reason": "cancel-cleanup dedup set (upstream schedule_cancel_cleanup): leaf primitive only, one shard lock per insert or remove, takes no other lock"
+      "reason": "cancel-cleanup dedup map (upstream CancelCleanupRegistration, renamed from CLEANUPS): leaf primitive only, one shard lock per request, retry check or drop, takes no other lock"
     },
     {
       "ident": "theseus::install::events::InstallProgressReporter.parallel_context",

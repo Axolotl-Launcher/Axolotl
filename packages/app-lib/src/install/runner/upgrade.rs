@@ -1,7 +1,5 @@
 use super::*;
 
-use crate::state::instances::adapters::sqlite::{content_entries, files};
-
 pub(super) enum StagedUpgradeDownload {
     Modrinth(crate::state::instances::commands::DownloadedProjectVersion),
     CurseForge(crate::api::curseforge::StagedCurseForgeUpgrade),

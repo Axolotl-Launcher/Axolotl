@@ -502,7 +502,7 @@ pub(crate) async fn execute_with_state(
         for entry in &plan.entries {
             let history_id = &entry.id;
             ResourceHistory::retire_backup_in(
-                &mut *tx,
+                &mut tx,
                 history_id.as_str(),
                 &plan.instance_id,
             )
@@ -515,7 +515,7 @@ pub(crate) async fn execute_with_state(
         }
         draft.committed = true;
         ResourceHistoryCleanupPlans::consume_in(
-            &mut *tx,
+            &mut tx,
             id.as_str(),
             &serde_json::to_string(&draft)?,
         )

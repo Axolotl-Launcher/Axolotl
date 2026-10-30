@@ -1,6 +1,8 @@
 //! Fetch file tests.
 
 use super::super::*;
+use crate::ErrorKind;
+use crate::util::fetch::model::attach_verified_integrity;
 
 #[tokio::test]
 async fn post_verification_path_replacement_never_receives_a_trusted_proof() {

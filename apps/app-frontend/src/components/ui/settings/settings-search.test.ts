@@ -130,6 +130,36 @@ it('legacy category names remain searchable after the taxonomy change', () => {
     expect(keywordText.includes('Default instance options')).toBe(true)
 })
 
+it('finds the default game language setting in English and Chinese', () => {
+    const entry = settingsSearchEntries.find((item) => item.id === 'defaults-game-language')!
+    const text = [
+        entry.label.defaultMessage,
+        entry.description?.defaultMessage,
+        ...(entry.keywords?.map((keyword) => keyword.defaultMessage) ?? []),
+    ]
+        .filter(Boolean)
+        .join(' ')
+    const chineseText = [
+        entry.label.id,
+        entry.description?.id,
+        ...(entry.keywords?.map((keyword) => keyword.id) ?? []),
+    ]
+        .map((id) => (id ? chineseLocale[id]?.message : undefined))
+        .filter(Boolean)
+        .join(' ')
+
+    expect(
+        filterSettingsSearchDocuments('game language', [{ item: entry.id, text }]).map(
+            ({ item }) => item,
+        ),
+    ).toEqual([entry.id])
+    expect(
+        filterSettingsSearchDocuments('游戏语言', [{ item: entry.id, text: chineseText }]).map(
+            ({ item }) => item,
+        ),
+    ).toEqual([entry.id])
+})
+
 it('developer-only settings stay out of the normal search categories', () => {
     const visibleCategoryIds = new Set(
         getVisibleSettingsCategoryDefinitions(false).map((category) => category.id),

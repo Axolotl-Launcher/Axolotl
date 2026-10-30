@@ -513,6 +513,16 @@ fn valid_privileged_setting(key: &str, value: &str) -> bool {
         "locale" | "default_window_title" => {
             !value.trim().is_empty() && value.len() <= 128 && no_control(value)
         }
+        "default_game_language" => {
+            value.len() <= 32
+                && no_control(value)
+                && (value.trim().is_empty()
+                    || value.bytes().all(|byte| {
+                        byte.is_ascii_alphanumeric()
+                            || byte == b'_'
+                            || byte == b'-'
+                    }))
+        }
         // 空串表示清空
         "hooks_pre_launch"
         | "hooks_wrapper"

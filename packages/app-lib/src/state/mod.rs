@@ -815,8 +815,7 @@ impl State {
                         MAX_WAIT
                     );
                     return Err(crate::ErrorKind::StateNotInitialized(format!(
-                        "The launcher state was not initialized within {:?}. Something must call State::init before commands are served; commands cannot run against an uninitialized state.",
-                        MAX_WAIT
+                        "The launcher state was not initialized within {MAX_WAIT:?}. Something must call State::init before commands are served; commands cannot run against an uninitialized state."
                     ))
                     .into());
                 }

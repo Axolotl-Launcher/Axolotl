@@ -1,6 +1,15 @@
 //! Fetch segmented tests.
 
+use crate::util::download::constants::{
+    FILE_VALIDATION_CONCURRENCY, MAX_SEGMENT_CONCURRENCY,
+    SEGMENTED_DOWNLOAD_THRESHOLD,
+};
+use crate::util::download_manager::DownloadSpeedTracker;
+use parking_lot::Mutex;
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::time::Duration;
+use tokio::sync::Semaphore;
 
 use super::super::*;
 use super::fixtures;

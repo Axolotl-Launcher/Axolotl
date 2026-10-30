@@ -153,8 +153,13 @@ fn inspect_archive<R: Read + Seek>(
         return Err(input_error("Too many entries in locale archive"));
     }
     *entries -= archive.len();
-    let names: BTreeSet<String> =
-        archive.file_names().map(str::to_owned).collect();
+    let names: BTreeSet<String> = archive
+        .file_names()
+        .map(|name| {
+            name.map(|name| name.into_owned())
+                .map_err(|error| input_error(error.to_string()))
+        })
+        .collect::<crate::Result<_>>()?;
     let mut bundle = LanguageBundle {
         nested_path: nested_path.to_owned(),
         ..Default::default()

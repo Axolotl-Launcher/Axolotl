@@ -4361,13 +4361,10 @@ fn infer_project_type(bytes: &Bytes) -> crate::Result<ProjectType> {
     if archive.by_name("pack.mcmeta").is_ok() {
         return classify_pack_archive(&mut archive);
     }
-    if archive
-        .file_names()
-        .any(|name| name.starts_with("shaders/"))
-    {
+    if archive_has_name(&mut archive, |name| name.starts_with("shaders/"))? {
         return Ok(ProjectType::ShaderPack);
     }
-    if archive.file_names().any(|name| name == "Metadata") {
+    if archive_has_name(&mut archive, |name| name == "Metadata")? {
         // .litematic files (Litematica schematic format) contain a root-level
         // "Metadata" NBT entry, which is unique among Minecraft content types.
         return Ok(ProjectType::Schematic);
@@ -4391,11 +4388,28 @@ fn has_any_entry(
 fn classify_pack_archive(
     archive: &mut zip::ZipArchive<std::io::Cursor<&[u8]>>,
 ) -> crate::Result<ProjectType> {
-    if archive.file_names().any(|name| name.starts_with("data/")) {
+    if archive_has_name(archive, |name| name.starts_with("data/"))? {
         Ok(ProjectType::DataPack)
     } else {
         Ok(ProjectType::ResourcePack)
     }
+}
+
+fn archive_has_name(
+    archive: &mut zip::ZipArchive<std::io::Cursor<&[u8]>>,
+    predicate: impl Fn(&str) -> bool,
+) -> crate::Result<bool> {
+    for name in archive.file_names() {
+        let name = name.map_err(|error| {
+            crate::ErrorKind::InputError(format!(
+                "Unable to read archive entry name: {error}"
+            ))
+        })?;
+        if predicate(&name) {
+            return Ok(true);
+        }
+    }
+    Ok(false)
 }
 
 #[cfg(test)]

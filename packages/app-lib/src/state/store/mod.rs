@@ -60,6 +60,7 @@ pub(crate) mod resource_legacy_import;
 pub(crate) mod resource_operation_plans;
 pub(crate) mod resource_pack_unlinks;
 pub(crate) mod resource_source_projects;
+pub(crate) mod secrets;
 pub(crate) mod settings;
 pub(crate) mod shared_logs;
 pub(crate) mod store_blobs;

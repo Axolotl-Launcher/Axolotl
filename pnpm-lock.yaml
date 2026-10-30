@@ -44,7 +44,7 @@ overrides:
   '@jimp/types>zod': '>=4.6.6 <5.0.0'
   get-uri>basic-ftp: '>=6.2.1 <7.0.0'
   yaml: '>=2.8.3 <2.9.0'
-  node-forge: '>=1.4.0 <2.0.0'
+  node-forge: '>=1.4.2 <2.0.0'
   lodash: '>=4.18.0 <5.0.0'
   source-map-js: '>=1.2.2 <2.0.0'
   browserslist: '>=4.28.7 <5.0.0'
@@ -6869,8 +6869,8 @@ packages:
       encoding:
         optional: true
 
-  node-forge@1.4.0:
-    resolution: {integrity: sha512-LarFH0+6VfriEhqMMcLX2F7SwSXeWwnEAJEsYm5QKWchiVYVvJyV9v7UDvUv+w5HO23ZpQTXDv/GxdDdMyOuoQ==}
+  node-forge@1.4.2:
+    resolution: {integrity: sha512-rRtAR5XLJ8gCKd9du4qrKAsgCG1ObGP4gLeNJMa4vYSeq4bmBMOJk5IHkrviBV0q7uoAJlVd8HEQYQSVUb4FGQ==}
     engines: {node: '>= 6.13.0'}
 
   node-gyp-build@4.8.4:
@@ -15840,7 +15840,7 @@ snapshots:
       h3: 1.15.11
       http-shutdown: 1.2.2
       jiti: 2.7.0
-      node-forge: 1.4.0
+      node-forge: 1.4.2
       pathe: 2.0.3
       std-env: 4.3.0
       tinyclip: 0.1.15
@@ -16300,7 +16300,7 @@ snapshots:
     dependencies:
       whatwg-url: 5.0.0
 
-  node-forge@1.4.0: {}
+  node-forge@1.4.2: {}
 
   node-gyp-build@4.8.4: {}
 

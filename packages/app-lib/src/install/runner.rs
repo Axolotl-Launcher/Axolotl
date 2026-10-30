@@ -1029,25 +1029,87 @@ pub(super) async fn cancel_job_with_state(
     }
 }
 
-fn schedule_cancel_cleanup(job_id: Uuid, state: std::sync::Arc<State>) {
-    static CLEANUPS: std::sync::LazyLock<dashmap::DashSet<Uuid>> =
-        std::sync::LazyLock::new(dashmap::DashSet::new);
-    struct Registration(Uuid);
-    impl Drop for Registration {
-        fn drop(&mut self) {
-            CLEANUPS.remove(&self.0);
+static CANCEL_CLEANUPS: std::sync::LazyLock<dashmap::DashMap<Uuid, bool>> =
+    std::sync::LazyLock::new(dashmap::DashMap::new);
+
+struct CancelCleanupRegistration {
+    job_id: Uuid,
+    active: bool,
+}
+
+impl CancelCleanupRegistration {
+    fn request(job_id: Uuid) -> Option<Self> {
+        match CANCEL_CLEANUPS.entry(job_id) {
+            dashmap::mapref::entry::Entry::Occupied(mut entry) => {
+                *entry.get_mut() = true;
+                None
+            }
+            dashmap::mapref::entry::Entry::Vacant(entry) => {
+                entry.insert(false);
+                Some(Self {
+                    job_id,
+                    active: true,
+                })
+            }
         }
     }
-    if !CLEANUPS.insert(job_id) {
-        return;
+
+    fn retry_requested(&mut self) -> bool {
+        match CANCEL_CLEANUPS.entry(self.job_id) {
+            dashmap::mapref::entry::Entry::Occupied(mut entry)
+                if *entry.get() =>
+            {
+                *entry.get_mut() = false;
+                true
+            }
+            dashmap::mapref::entry::Entry::Occupied(entry) => {
+                entry.remove();
+                self.active = false;
+                false
+            }
+            dashmap::mapref::entry::Entry::Vacant(_) => unreachable!(),
+        }
     }
-    let registration = Registration(job_id);
+}
+
+impl Drop for CancelCleanupRegistration {
+    fn drop(&mut self) {
+        if self.active {
+            CANCEL_CLEANUPS.remove(&self.job_id);
+        }
+    }
+}
+
+fn schedule_cancel_cleanup(job_id: Uuid, state: std::sync::Arc<State>) {
+    let Some(registration) = CancelCleanupRegistration::request(job_id) else {
+        return;
+    };
     tokio::spawn(async move {
-        let _registration = registration;
-        if let Err(error) = finish_canceling_job(job_id, &state).await {
+        run_cancel_cleanup(registration, || {
+            finish_canceling_job(job_id, &state)
+        })
+        .await;
+    });
+}
+
+async fn run_cancel_cleanup<F, Fut>(
+    mut registration: CancelCleanupRegistration,
+    mut cleanup: F,
+) where
+    F: FnMut() -> Fut,
+    Fut: Future<Output = crate::Result<()>>,
+{
+    loop {
+        if let Err(error) = cleanup().await {
+            let job_id = registration.job_id;
             tracing::error!(%job_id, %error, "Canceled install cleanup could not finish; durable canceling state remains recoverable");
         }
-    });
+        // Consume a pending request or release ownership under the same entry
+        // lock, so a request arriving during cleanup cannot be stranded.
+        if !registration.retry_requested() {
+            break;
+        }
+    }
 }
 
 async fn finish_canceling_job(

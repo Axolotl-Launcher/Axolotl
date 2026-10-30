@@ -207,7 +207,14 @@ fn extract_world_zip_sync(zip_path: &Path, target_dir: &Path) -> Result<()> {
             ErrorKind::InputError(format!("Failed to read ZIP entry: {e}"))
         })?;
 
-        let raw_name = entry.name().to_string();
+        let raw_name = entry
+            .name()
+            .map_err(|e| {
+                ErrorKind::InputError(format!(
+                    "Failed to read ZIP entry name: {e}"
+                ))
+            })?
+            .to_string();
         if raw_name.starts_with("__MACOSX") {
             continue;
         }

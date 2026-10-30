@@ -419,7 +419,8 @@ function resolveReceiver(before) {
 }
 
 /** Method-name hits (search ①), with the receiver identifier where it is a static or a field access. */
-export const METHOD_PATTERN = /\.(acquire|acquire_many|try_acquire|acquire_owned|acquire_many_owned|try_acquire_owned|lock|read|write)\(|\b(const_new|Semaphore::new)\(/g
+export const METHOD_PATTERN =
+    /\.(acquire|acquire_many|try_acquire|acquire_owned|acquire_many_owned|try_acquire_owned|lock|read|write|lock_owned|read_owned|write_owned|try_lock_owned|try_read_owned|try_write_owned)\(|\b(const_new|Semaphore::new)\(/g
 
 export function scanMethodHits(sources) {
     const hits = []

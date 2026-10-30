@@ -283,10 +283,16 @@ impl SchematicBrowseSource for BuildSchematicsSource {
         _cancel: &CancellationToken,
     ) -> SourceResult<DownloadPlan> {
         let slug = id.strip_prefix("buildschematics:").unwrap_or(id);
-        // Most presets are `.litematic`; a few are `.nbt`. The downloader falls
-        // back to the other extension when the first probe 404s.
-        Ok(DownloadPlan::direct(cdn_url_for(slug, "litematic"))
-            .with_file_name(format!("{slug}.litematic")))
+        // Most presets are `.litematic`; a few are `.nbt`. Probe the
+        // litematic URL first; if it 404s, fall back to nbt.
+        let litematic_url = cdn_url_for(slug, "litematic");
+        let nbt_url = cdn_url_for(slug, "nbt");
+        match http::get_text(&litematic_url, &RequestHeaders::default(), _cancel).await {
+            Ok(_) => Ok(DownloadPlan::direct(litematic_url)
+                .with_file_name(format!("{slug}.litematic"))),
+            Err(_) => Ok(DownloadPlan::direct(nbt_url)
+                .with_file_name(format!("{slug}.nbt"))),
+        }
     }
 
     async fn health_check(&self) -> SourceStatus {

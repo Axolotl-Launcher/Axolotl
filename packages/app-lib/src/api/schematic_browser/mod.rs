@@ -82,14 +82,27 @@ pub async fn list_many(
     query: &ListQuery,
     cancel: &CancellationToken,
 ) -> (Vec<ListResult>, Vec<SourceFailure>) {
+    // Fetch every source concurrently: a slow or unresponsive one must not
+    // delay the others, since the "all sources" tab promises one ordered page
+    // drawn from whatever did answer.
+    let handles = source_ids.iter().map(|&id| {
+        let cancel = cancel.clone();
+        let query = query.clone();
+        tokio::spawn(async move { list(id, &query, &cancel).await })
+    });
+
     let mut results = Vec::new();
     let mut failures = Vec::new();
 
-    for source_id in source_ids {
-        match list(*source_id, query, cancel).await {
-            Ok(result) => results.push(result),
-            Err(SchematicSourceError::Canceled) => break,
-            Err(error) => failures.push(failure_of(*source_id, &error)),
+    for (id, handle) in source_ids.iter().zip(handles) {
+        match handle.await {
+            Ok(Ok(result)) => results.push(result),
+            Ok(Err(SchematicSourceError::Canceled)) => break,
+            Ok(Err(error)) => failures.push(failure_of(*id, &error)),
+            Err(_) => failures.push(failure_of(
+                *id,
+                &SchematicSourceError::unsupported("source task panicked"),
+            )),
         }
     }
 

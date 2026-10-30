@@ -39,10 +39,7 @@ fn destination_folder(
         ContentKind::World => Err(SchematicSourceError::unsupported(
             "world downloads need unpacking; open the source page",
         )),
-        ContentKind::Schematic => Ok(match format {
-            SchematicFormat::Nbt => "structures",
-            _ => "schematics",
-        }),
+        ContentKind::Schematic => Ok("schematics"),
     }
 }
 

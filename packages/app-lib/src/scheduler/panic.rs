@@ -134,6 +134,47 @@ mod tests {
     }
 
     #[test]
+    fn concurrent_records_rotate_without_failing() {
+        // Each record is about 60 bytes, so the log rotates every few writes.
+        const CAP: u64 = 200;
+        let dir = tempfile::tempdir().unwrap();
+        let failures: usize = std::thread::scope(|scope| {
+            let workers: Vec<_> = (0..8)
+                .map(|worker| {
+                    let dir = dir.path();
+                    scope.spawn(move || {
+                        (0..40)
+                            .filter(|record| {
+                                append_panic_record(
+                                    dir,
+                                    CAP,
+                                    &format!("w{worker}"),
+                                    "src/a.rs:1",
+                                    &format!("r{record}"),
+                                )
+                                .is_err()
+                            })
+                            .count()
+                    })
+                })
+                .collect();
+            workers
+                .into_iter()
+                .map(|worker| worker.join().unwrap())
+                .sum()
+        });
+        assert_eq!(failures, 0, "no record may be dropped by a rotation race");
+        for file in [PANIC_LOG_FILE, PANIC_LOG_PREVIOUS_FILE] {
+            let log = std::fs::read_to_string(dir.path().join(file)).unwrap();
+            assert!(log.len() as u64 <= CAP, "{file} outgrew the cap");
+            assert!(
+                log.lines().all(|line| line.contains(" panic thread=w")),
+                "{file} holds a torn record: {log:?}"
+            );
+        }
+    }
+
+    #[test]
     fn an_oversized_record_is_cut_to_the_cap() {
         const CAP: u64 = 512;
         let dir = tempfile::tempdir().unwrap();

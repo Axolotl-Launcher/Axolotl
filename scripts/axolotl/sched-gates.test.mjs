@@ -3,7 +3,7 @@
 
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { checkSpawns, countForms } from './sched-bare-spawn-check.mjs'
+import { checkSpawns, countForms, unboundedInL0 } from './sched-bare-spawn-check.mjs'
 import { enterBanViolations } from './sched-enter-ban-check.mjs'
 import { l0FunctionViolations, l0Violations } from './sched-l0-resource-check.mjs'
 import { checkLeaves } from './sched-leaf-primitive-check.mjs'
@@ -16,7 +16,7 @@ import { awaitedSendsInL0 } from './sched-unbounded-sender-check.mjs'
 import { checkWhitelist } from './sched-whitelist-check.mjs'
 import { missingGolden } from './sched-resource-golden-check.mjs'
 import { buildInventory } from './sched-resource-inventory.mjs'
-import { loadPolicy, maskRust, rankFingerprint, sourcesOf, stripTestItems, workspaceCrates } from './sched-utils.mjs'
+import { loadPolicy, maskRust, rankFingerprint, scanMethodHits, sourcesOf, stripTestItems, workspaceCrates } from './sched-utils.mjs'
 
 const policy = loadPolicy()
 const crates = workspaceCrates()
@@ -134,7 +134,48 @@ test('level check rejects a predicate lock below L3 and a missing item (K0.15)',
 test('spawn check rejects an unregistered spawn (K0.20)', () => {
     const counts = countForms([source('packages/app-lib/src/new.rs', 'fn go() {\n    tokio::spawn(async {});\n}\n')])
     assert.ok(checkSpawns(counts, { entries: [] }).failures.some((failure) => failure.includes('unregistered tokio::spawn')))
-    assert.deepEqual(checkSpawns(counts, { entries: [{ file: 'packages/app-lib/src/new.rs', form: 'tokio::spawn', count: 1, reason: 'test' }] }).failures, [])
+    const entry = { file: 'packages/app-lib/src/new.rs', form: 'tokio::spawn', count: 1, reason: 'test' }
+    assert.ok(checkSpawns(counts, { entries: [entry] }).failures.some((failure) => failure.includes('records no sites')))
+    assert.deepEqual(checkSpawns(counts, { entries: [{ ...entry, sites: ['go: tokio::spawn(async {});'] }] }).failures, [])
+})
+
+test('spawn check rejects a replaced site even when the count holds (K0.20)', () => {
+    const allowed = { file: 'packages/app-lib/src/new.rs', form: 'tokio::spawn', count: 1, reason: 'test', sites: ['go: tokio::spawn(async {});'] }
+    const counts = countForms([source('packages/app-lib/src/new.rs', 'fn go() {}\nfn other() {\n    tokio::spawn(async { work().await });\n}\n')])
+    assert.ok(checkSpawns(counts, { entries: [allowed] }).failures.some((failure) => failure.includes('site not on the allowlist: other: tokio::spawn')))
+})
+
+test('spawn check counts scoped thread spawns (K0.20)', () => {
+    const counts = countForms([source('packages/app-lib/src/scoped.rs', 'fn go() {\n    std::thread::scope(|scope| {\n        scope.spawn(|| work());\n    });\n}\n')])
+    assert.deepEqual(counts.get('packages/app-lib/src/scoped.rs\0thread::scope spawn')?.lines, [3])
+    assert.ok(checkSpawns(counts, { entries: [] }).failures.some((failure) => failure.includes('unregistered thread::scope spawn')))
+})
+
+test('spawn check counts calls through imported std::fs names (K0.20)', () => {
+    const text = 'use std::fs::OpenOptions;\nuse std::{fs, io};\nfn go() {\n    OpenOptions::new().open("a");\n    fs::write("b", "")?;\n    tokio::fs::write("c", "");\n}\n'
+    const counts = countForms([source('packages/app-lib/src/files.rs', text)])
+    assert.deepEqual(counts.get('packages/app-lib/src/files.rs\0std::fs import')?.lines, [4, 5])
+    const allowed = { file: 'packages/app-lib/src/files.rs', form: 'std::fs import', count: 1, reason: 'test', sites: ['go: OpenOptions::new().open("a");'] }
+    assert.ok(checkSpawns(counts, { entries: [allowed] }).failures.some((failure) => failure.includes('site not on the allowlist: go: fs::write')))
+})
+
+test('spawn check rejects an unbounded channel inside the L0 module (K0.20)', () => {
+    const text = 'fn queue() {\n    let (tx, rx) = tokio::sync::mpsc::unbounded_channel::<u8>();\n}\n'
+    const inside = unboundedInL0([source(`${policy.l0Module}/queue.rs`, text)], policy.l0Module)
+    assert.deepEqual(inside.map((hit) => [hit.line, hit.form]), [[2, 'unbounded_channel']])
+    assert.deepEqual(unboundedInL0([source('packages/app-lib/src/queue.rs', text)], policy.l0Module), [])
+})
+
+test('acquisition scan sees owned lock guards', () => {
+    const text = 'async fn go(state: &State) {\n    let _guard = state.synced_options_lock.clone().lock_owned().await;\n    let _read = CACHE.clone().read_owned().await;\n}\n'
+    const hits = scanMethodHits([source('packages/app-lib/src/owned.rs', text)])
+    assert.deepEqual(
+        hits.map((hit) => [hit.line, hit.method, hit.receiver, hit.via]),
+        [
+            [2, 'lock_owned', 'synced_options_lock', 'field'],
+            [3, 'read_owned', 'CACHE', 'static'],
+        ],
+    )
 })
 
 test('enter-ban rules 7 and 8 reject a restored gate (K2.9)', () => {

@@ -75,9 +75,9 @@
       "reason": "order instrumentation bookkeeping: leaf primitive only, held for one map update in debug test runs with SCHED_ORDER_GUARD=1, takes no other lock"
     },
     {
-      "ident": "theseus::install::runner::CLEANUPS",
+      "ident": "theseus::install::runner::CANCEL_CLEANUPS",
       "rule": "D4",
-      "reason": "cancel-cleanup dedup set (upstream schedule_cancel_cleanup): leaf primitive only, one shard lock per insert or remove, takes no other lock"
+      "reason": "cancel-cleanup dedup map (upstream CancelCleanupRegistration, renamed from CLEANUPS): leaf primitive only, one shard lock per request, retry check or drop, takes no other lock"
     },
     {
       "ident": "theseus::install::events::InstallProgressReporter.parallel_context",

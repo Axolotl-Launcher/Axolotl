@@ -352,8 +352,11 @@ watch(pageSize, () => {
 })
 
 async function loadPage(targetPage: number) {
-    requestSeq += 1
-    const seq = requestSeq
+    // Only bump the sequence when starting from page one or switching queries;
+    // paging forward must not discard an in-flight page, otherwise skipping
+    // pages leaves gaps in the list.
+    const isNewSearch = targetPage === 1
+    const seq = isNewSearch ? ++requestSeq : requestSeq
     loading.value = true
     searchError.value = null
     try {
@@ -454,7 +457,7 @@ const projectHits = computed(() =>
             author_url: item.detailUrl,
             organization: null,
             organization_id: null,
-            icon_url: thumbOverrides.value[item.id] ?? item.images[0] ?? '',
+            icon_url: thumbOverrides.value[item.id] ?? '',
             categories: item.versions,
             display_categories: [item.format.toUpperCase()],
             versions: item.versions,

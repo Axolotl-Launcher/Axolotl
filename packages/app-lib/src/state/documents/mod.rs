@@ -310,6 +310,13 @@ pub(crate) mod test_support {
         .await
         .expect("java_versions table");
         sqlx::query(
+            "CREATE UNIQUE INDEX java_versions_major_version_path
+             ON java_versions(major_version, path)",
+        )
+        .execute(pool)
+        .await
+        .expect("java_versions major version path index");
+        sqlx::query(
             "CREATE TABLE java_default_versions (major_version INTEGER NOT NULL PRIMARY KEY, path TEXT NOT NULL, FOREIGN KEY (major_version, path) REFERENCES java_versions(major_version, path) ON DELETE CASCADE ON UPDATE CASCADE)",
         )
         .execute(pool)

@@ -314,9 +314,11 @@ function chosenValues(filterId: string): string[] {
 type SchematicSourceSelection = SchematicSourceId | 'all'
 
 const chosenSource = computed<SchematicSourceSelection>(() => {
-    const picked = chosenValues('schematic_source')[0]
-    if (picked === 'all') return 'all'
-    return (picked as SchematicSourceId | undefined) ?? 'all'
+    const picked = chosenValues('schematic_source')
+    if (picked.length === 0 || picked.includes('all') || picked.length > 1) {
+        return 'all'
+    }
+    return (picked[0] as SchematicSourceId) ?? 'all'
 })
 
 const chosenFormats = computed(() => chosenValues('schematic_format'))

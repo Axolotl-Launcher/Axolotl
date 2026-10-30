@@ -103,7 +103,7 @@ const messages = defineMessages({
 })
 
 async function applyDownload() {
-    const item = props.item
+    const item = resolvedItem.value
     if (!item || item.download.delivery !== 'direct') return
     if (!props.instanceId) {
         downloadError.value = formatMessage(messages.noInstance)

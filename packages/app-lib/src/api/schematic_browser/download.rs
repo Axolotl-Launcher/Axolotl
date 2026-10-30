@@ -80,7 +80,21 @@ fn safe_file_name(
         other => other.as_str(),
     };
     let base = if stem.is_empty() {
-        id.replace(':', "-")
+        id.replace(['/', '\\', ':'], "-")
+            .chars()
+            .map(|c| {
+                if c.is_ascii_alphanumeric()
+                    || matches!(c, '.' | '_' | '-' | ' ')
+                {
+                    c
+                } else {
+                    '_'
+                }
+            })
+            .collect::<String>()
+            .trim()
+            .trim_matches('.')
+            .to_string()
     } else if suffix.is_empty() || stem.to_ascii_lowercase().ends_with(suffix) {
         stem
     } else {

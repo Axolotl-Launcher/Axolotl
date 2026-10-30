@@ -6,6 +6,9 @@
 
 use std::time::Duration;
 
+use crate::util::fetch::reqwest_client_builder;
+use crate::util::download::retired_sources;
+
 use tokio_util::sync::CancellationToken;
 
 use super::error::{NetworkKind, SchematicSourceError, SourceResult};
@@ -32,19 +35,16 @@ impl HttpResponse {
 }
 
 fn client() -> SourceResult<reqwest::Client> {
-    // `State` may not be initialized in unit tests; fall back to a plain client
-    // so parsing tests never depend on launcher startup.
-    if let Some(state) = crate::State::get_if_initialized() {
-        return Ok(state.configured_http_client());
-    }
-
-    reqwest::Client::builder()
-        .timeout(REQUEST_TIMEOUT)
-        .user_agent(crate::launcher_user_agent())
-        // A redirected request can land anywhere, including a service on the
-        // user's own machine. Only http(s) to a public host is allowed.
+    // Build on the launcher's standard client builder so proxy, DNS, TLS and
+    // user-agent settings apply, then replace the redirect policy: the default
+    // follows redirects anywhere, and a redirected request can land on a
+    // service on the user's own machine. Only http(s) to a public host is
+    // allowed, and retired download hosts are rejected outright.
+    reqwest_client_builder()
         .redirect(reqwest::redirect::Policy::custom(|attempt| {
-            if attempt.previous().len() >= MAX_REDIRECTS {
+            if retired_sources::is_retired(attempt.url()) {
+                attempt.error("retired download source")
+            } else if attempt.previous().len() >= MAX_REDIRECTS {
                 attempt.error("too many redirects")
             } else if !is_public_http_url(attempt.url()) {
                 attempt.error("redirect target is not a public http(s) host")

@@ -353,6 +353,7 @@ async function loadPage(targetPage: number) {
             page: targetPage,
             pageSize: pageSize.value,
             query: query.value || undefined,
+            versions: chosenVersions.value.length ? chosenVersions.value : undefined,
         }
         // "All sources" is a backend call: merging three pages here would order
         // them differently on every render.
@@ -431,6 +432,7 @@ const projectHits = computed(() =>
         .filter(
             (item) =>
                 !chosenVersions.value.length ||
+                item.versions.length === 0 ||
                 item.versions.some((version) => chosenVersions.value.includes(version)),
         )
         .map((item) => ({

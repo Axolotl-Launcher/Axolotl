@@ -134,6 +134,19 @@ pub async fn list_all(
             .then_with(|| a.title.cmp(&b.title))
     });
 
+    // Each source returned its own page, so the merged list can be larger than
+    // the requested page size. Trim to the requested slice; the caller shows
+    // exactly  items per page.
+    let page_size = query.page_size.max(1);
+    let start = query.page.saturating_sub(1).saturating_mul(page_size);
+    if start >= items.len() {
+        items.clear();
+    } else {
+        let end = (start + page_size).min(items.len());
+        items = items.split_off(end);
+        items.drain(..start);
+    }
+
     let total_value: u64 =
         results.iter().filter_map(|result| result.total.value).sum();
     let any_estimated = results
@@ -143,7 +156,7 @@ pub async fn list_all(
     let status = results[0].source_status.clone();
     Ok(ListResult {
         page: query.page,
-        has_more: results.iter().any(|result| result.has_more),
+        has_more: items.len() == page_size,
         total: if any_estimated {
             types::ResourceTotal::estimated(total_value)
         } else if total_value > 0 {

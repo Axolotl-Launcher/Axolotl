@@ -325,11 +325,18 @@ pub(super) async fn install_manual_download(
         )
         .await?;
         let state = State::get().await?;
+        // Held through the import and the record that completes it (the lock
+        // is reentrant), so no content change or deletion runs in between.
+        let _instance_lock = state.lock_instance_content(instance_id).await;
         let world_name = crate::state::instances::commands::import_world_save(
             &state,
             instance_id,
             &verified_source,
             None,
+            crate::install::critical_section::whitelisted(
+                crate::install::critical_section::WhitelistSite::CurseForgeManualWorldImport,
+            )
+            .into(),
         )
         .await?;
         complete_manual_world_download(instance_id, download).await?;

@@ -4,6 +4,7 @@ use super::model::{DownloadRoute, ProxyPolicy, ResourceClass};
 #[cfg(test)]
 use super::routes::route;
 use super::routes::{effective_route_authority, route_host};
+use crate::scheduler::order::instrument;
 use crate::util::download::constants::{
     API_KEY_HEADER, FETCH_AUTHORIZATION, FETCH_COOKIE, FETCH_GITHUB_COM,
     FETCH_MELOONG_COM, FETCH_MOMOT_RS, FETCH_OPTIFINE_NET,
@@ -322,10 +323,18 @@ pub(crate) fn disable_range_splitting(route: &DownloadRoute) {
         &authority,
         route.proxy,
     );
+    let _order_failures = instrument::hold(
+        "theseus::util::fetch::policy::RANGE_SPLITTING_PROTOCOL_FAILURES",
+    );
+    // sched-order: theseus::util::fetch::policy::RANGE_SPLITTING_PROTOCOL_FAILURES
     let mut failures = RANGE_SPLITTING_PROTOCOL_FAILURES.lock();
     let count = failures.entry(authority.clone()).or_insert(0);
     *count += 1;
     if *count == RANGE_SPLITTING_DISABLE_THRESHOLD {
+        instrument::touch(
+            "theseus::util::fetch::policy::RANGE_SPLITTING_SUPPORTED",
+        );
+        // sched-order: theseus::util::fetch::policy::RANGE_SPLITTING_SUPPORTED temporary
         RANGE_SPLITTING_SUPPORTED.lock().remove(&authority);
         tracing::info!(
             authority,

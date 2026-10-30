@@ -23,7 +23,8 @@ export const PREDICATE_RESOURCES = [
 
 export function expectedGovernanceIds(policy) {
     const resident = Array.from({ length: 30 }, (_, index) => `R${index + 1}`).filter((id) => !(id in policy.governanceRemoved))
-    return [...resident, 'ACCENT']
+    // Production threads governed alongside the resident tasks.
+    return [...resident, 'ACCENT', 'L0DRIVER']
 }
 
 export function checkGovernance(policy, inventory) {
@@ -45,6 +46,8 @@ export function checkGovernance(policy, inventory) {
     if (!telemetry?.limitation?.startsWith('partial fix + declared limitation')) failures.push('R3 must stay recorded as a partial fix with a declared limitation')
     const accent = policy.governance.find((entry) => entry.id === 'ACCENT')
     if (accent && !(accent.level === 'L2' && accent.signal && accent.boundedExit)) failures.push('ACCENT must be L2, signal-driven, with a bounded exit')
+    const driver = policy.governance.find((entry) => entry.id === 'L0DRIVER')
+    if (driver && !(driver.level === 'L0' && driver.signal && driver.boundedExit)) failures.push('L0DRIVER must be L0, signal-driven, with a bounded exit')
     return failures
 }
 
@@ -74,9 +77,9 @@ function renderGovernance(policy) {
         '',
         'Shared by T0.5, T0.10 and T3.4. Generated from `scripts/axolotl/sched-policy.json` (`governance`).',
         '',
-        '| ID | Business | Level | Signal-driven | Bounded exit |',
-        '| --- | --- | --- | --- | --- |',
-        ...policy.governance.map((entry) => `| ${entry.id} | ${entry.business} | ${entry.level} | ${entry.signal ? 'yes' : '—'} | ${entry.boundedExit ? 'yes' : '—'} |`),
+        '| ID | Business | 形态 | Level | Signal-driven | Bounded exit |',
+        '| --- | --- | --- | --- | --- | --- |',
+        ...policy.governance.map((entry) => `| ${entry.id} | ${entry.business} | ${entry.form === 'production thread' ? '生产线程' : '常驻任务'} | ${entry.level} | ${entry.signal ? 'yes' : '—'} | ${entry.boundedExit ? 'yes' : '—'} |`),
         '',
         `Removed from the t12 list: ${Object.entries(policy.governanceRemoved).map(([id, reason]) => `${id} (${reason})`).join('; ')}.`,
         '',

@@ -155,6 +155,8 @@ export type ThemeStore = {
 
     /** Whether the floating "back to top" button is shown on scrollable pages. */
     showScrollTop: boolean
+    /** Whether the name tag uses the app font instead of the instance's font. */
+    nametagUsesAppFont: boolean
     /** Whether quick scrolling shortcuts (Home/End/PageUp/PageDown) are active. */
     quickScrollEnabled: boolean
     /** Per-nav-item quick jump shortcuts (Ctrl/Cmd + number), off by default. */
@@ -187,6 +189,7 @@ export const DEFAULT_THEME_STORE: ThemeStore = {
     systemAccentSupported: null,
     advancedRendering: true,
     hideNametagSkinsPage: false,
+    nametagUsesAppFont: false,
     toggleSidebar: false,
     customBackgroundPath: null,
     customBackgroundBlur: 12,

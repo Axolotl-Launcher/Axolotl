@@ -74,6 +74,14 @@ const messages = defineMessages({
         id: 'app.schematic.card.version-newer',
         defaultMessage: 'Made for {version}; newer blocks will not exist in this instance',
     },
+    sourceFailed: {
+        id: 'app.schematic.source-failed',
+        defaultMessage: '{count, plural, one {# source failed} other {# sources failed}}',
+    },
+    batchFailed: {
+        id: 'app.schematic.batch-failed',
+        defaultMessage: 'Failed to download: {names}',
+    },
 })
 
 /** Fallback page size; the layout's own selector wins once it has a value. */
@@ -482,7 +490,6 @@ const manager: BrowseManagerContext = {
     searchError,
     effectiveSortTypes: computed(() => [sortType.value]) as never,
     effectiveCurrentSortType: sortType as never,
-    installContext: ref(null) as never,
     // The layout hands this to `ProjectCard` as its link; returning a callback
     // makes the card open the detail modal instead of navigating.
     getProjectLink: (result: { project_id: string }) => () => {
@@ -524,7 +531,6 @@ const manager: BrowseManagerContext = {
                 label: formatMessage(messages.download),
                 compactLabel: formatMessage(messages.download),
                 icon: DownloadIcon,
-                type: 'colored' as const,
                 color: 'green' as const,
                 disabled: !props.instanceId || downloadingId.value === item.id,
                 tooltip: !props.instanceId

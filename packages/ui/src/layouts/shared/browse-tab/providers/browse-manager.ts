@@ -48,7 +48,8 @@ export interface BrowseManagerContext {
     clearSearch: () => void
     onFilterChange: () => void
 
-    getProjectLink: (result: Labrinth.Search.v2.ResultSearchProject) => string | RouteLocationRaw
+    getProjectLink: (result: Labrinth.Search.v2.ResultSearchProject) =>
+        string | RouteLocationRaw | (() => void)
     getServerProjectLink: (
         result: Labrinth.Search.v3.ResultSearchProject,
     ) => string | RouteLocationRaw

@@ -159,7 +159,7 @@ function handleItemUpdate(id: string) {
             v-if="!hideHeader"
             ref="stickyHeaderRef"
             role="rowgroup"
-            class="sticky top-0 z-10 flex h-12 items-center justify-between gap-4 bg-surface-3 px-3"
+            class="sticky top-0 z-10 bg-surface-3"
             :class="[
                 flat || isStuck ? 'rounded-none' : 'rounded-t-[20px]',
                 isStuck
@@ -167,91 +167,94 @@ function handleItemUpdate(id: string) {
                     : '',
             ]"
         >
-            <div
-                role="row"
-                class="flex min-w-0 items-center gap-4"
-                :class="hasAnyActions ? 'flex-1 min-w-0' : 'flex-1'"
-            >
-                <Checkbox
-                    v-if="showSelection"
-                    :model-value="allSelected"
-                    :indeterminate="someSelected"
-                    :aria-label="formatMessage(commonMessages.selectAllLabel)"
-                    class="shrink-0"
-                    @update:model-value="toggleSelectAll"
-                />
-
-                <template v-if="$slots['header-project']">
-                    <slot name="header-project" />
-                </template>
-                <button
-                    v-else-if="sortable"
-                    role="columnheader"
-                    :aria-sort="
-                        sortBy === 'project'
-                            ? sortDirection === 'asc'
-                                ? 'ascending'
-                                : 'descending'
-                            : 'none'
-                    "
-                    class="flex items-center gap-1.5 font-semibold text-[var(--color-text-tertiary)]"
-                    @click="handleSort('project')"
+            <div class="flex h-12 items-center justify-between gap-4 px-3">
+                <div
+                    role="row"
+                    class="flex min-w-0 items-center gap-4"
+                    :class="hasAnyActions ? 'flex-1 min-w-0' : 'flex-1'"
                 >
-                    {{ formatMessage(commonMessages.projectLabel) }}
-                    <ChevronUpIcon
-                        v-if="sortBy === 'project' && sortDirection === 'asc'"
-                        class="size-4"
+                    <Checkbox
+                        v-if="showSelection"
+                        :model-value="allSelected"
+                        :indeterminate="someSelected"
+                        :aria-label="formatMessage(commonMessages.selectAllLabel)"
+                        class="shrink-0"
+                        @update:model-value="toggleSelectAll"
                     />
-                    <ChevronDownIcon
-                        v-else-if="sortBy === 'project' && sortDirection === 'desc'"
-                        class="size-4"
-                    />
-                </button>
-                <span
-                    v-else
-                    role="columnheader"
-                    class="font-semibold text-[var(--color-text-tertiary)]"
-                    >{{ formatMessage(commonMessages.projectLabel) }}</span
-                >
-            </div>
 
-            <div v-if="!$slots['header-project']" class="hidden @[800px]:flex flex-none">
-                <button
-                    v-if="sortable"
-                    role="columnheader"
-                    :aria-sort="
-                        sortBy === 'version'
-                            ? sortDirection === 'asc'
-                                ? 'ascending'
-                                : 'descending'
-                            : 'none'
-                    "
-                    class="flex items-center gap-1.5 font-semibold text-[var(--color-text-tertiary)]"
-                    @click="handleSort('version')"
-                >
-                    <ChevronUpIcon
-                        v-if="sortBy === 'version' && sortDirection === 'asc'"
-                        class="size-4"
-                    />
-                    <ChevronDownIcon
-                        v-else-if="sortBy === 'version' && sortDirection === 'desc'"
-                        class="size-4"
-                    />
-                </button>
-                <span
-                    v-else
-                    role="columnheader"
-                    class="font-semibold text-[var(--color-text-tertiary)]"
-                ></span>
-            </div>
+                    <template v-if="$slots['header-project']">
+                        <slot name="header-project" />
+                    </template>
+                    <button
+                        v-else-if="sortable"
+                        role="columnheader"
+                        :aria-sort="
+                            sortBy === 'project'
+                                ? sortDirection === 'asc'
+                                    ? 'ascending'
+                                    : 'descending'
+                                : 'none'
+                        "
+                        class="flex items-center gap-1.5 font-semibold text-[var(--color-text-tertiary)]"
+                        @click="handleSort('project')"
+                    >
+                        {{ formatMessage(commonMessages.projectLabel) }}
+                        <ChevronUpIcon
+                            v-if="sortBy === 'project' && sortDirection === 'asc'"
+                            class="size-4"
+                        />
+                        <ChevronDownIcon
+                            v-else-if="sortBy === 'project' && sortDirection === 'desc'"
+                            class="size-4"
+                        />
+                    </button>
+                    <span
+                        v-else
+                        role="columnheader"
+                        class="font-semibold text-[var(--color-text-tertiary)]"
+                        >{{ formatMessage(commonMessages.projectLabel) }}</span
+                    >
+                </div>
 
-            <div
-                v-if="hasAnyActions || $slots['header-actions']"
-                role="columnheader"
-                :class="$slots['header-project'] ? 'shrink-0' : 'min-w-[160px] shrink-0'"
-            >
-                <slot name="header-actions" />
+                <div v-if="!$slots['header-project']" class="hidden @[800px]:flex flex-none">
+                    <button
+                        v-if="sortable"
+                        role="columnheader"
+                        :aria-sort="
+                            sortBy === 'version'
+                                ? sortDirection === 'asc'
+                                    ? 'ascending'
+                                    : 'descending'
+                                : 'none'
+                        "
+                        class="flex items-center gap-1.5 font-semibold text-[var(--color-text-tertiary)]"
+                        @click="handleSort('version')"
+                    >
+                        <ChevronUpIcon
+                            v-if="sortBy === 'version' && sortDirection === 'asc'"
+                            class="size-4"
+                        />
+                        <ChevronDownIcon
+                            v-else-if="sortBy === 'version' && sortDirection === 'desc'"
+                            class="size-4"
+                        />
+                    </button>
+                    <span
+                        v-else
+                        role="columnheader"
+                        class="font-semibold text-[var(--color-text-tertiary)]"
+                    ></span>
+                </div>
+
+                <div
+                    v-if="hasAnyActions || $slots['header-actions']"
+                    role="columnheader"
+                    :class="$slots['header-project'] ? 'shrink-0' : 'min-w-[160px] shrink-0'"
+                >
+                    <slot name="header-actions" />
+                </div>
             </div>
+            <slot name="header-status" />
         </div>
 
         <div

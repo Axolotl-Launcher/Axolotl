@@ -2,6 +2,9 @@ use std::path::PathBuf;
 use std::process::{Command, exit};
 use std::{env, fs};
 
+#[path = "build_support/java_cache.rs"]
+mod java_cache;
+
 /// Build-time opt-in to a private launcher data directory. Read by
 /// `theseus::brand::app_data_dir_identifier`, which appends it to the directory
 /// name.
@@ -31,11 +34,9 @@ fn main() {
     for (name, _) in MODRINTH_ENV_DEFAULTS {
         println!("cargo::rerun-if-env-changed={name}");
     }
-    println!("cargo::rerun-if-changed=java/gradle");
-    println!("cargo::rerun-if-changed=java/src");
-    println!("cargo::rerun-if-changed=java/build.gradle.kts");
-    println!("cargo::rerun-if-changed=java/settings.gradle.kts");
-    println!("cargo::rerun-if-changed=java/gradle.properties");
+    for input in java_cache::INPUTS {
+        println!("cargo::rerun-if-changed={input}");
+    }
 
     #[cfg(target_os = "windows")]
     if env::var_os("CARGO_FEATURE_TAURI").is_some() {
@@ -149,51 +150,6 @@ fn read_dotenv_literal(name: &str) -> Option<String> {
     })
 }
 
-fn newest_mtime(path: &PathBuf) -> Option<std::time::SystemTime> {
-    let mut newest: Option<std::time::SystemTime> = None;
-    if path.is_file() {
-        return path.metadata().and_then(|m| m.modified()).ok();
-    }
-    if path.is_dir()
-        && let Ok(entries) = fs::read_dir(path)
-    {
-        for entry in entries.flatten() {
-            if let Some(time) = newest_mtime(&entry.path().to_path_buf()) {
-                newest = Some(newest.map_or(time, |current| current.max(time)));
-            }
-        }
-    }
-    newest
-}
-
-fn java_jars_are_fresh(out_dir: &PathBuf) -> bool {
-    let theseus_jar = out_dir.join("java/libs/theseus.jar");
-    let authlib_jar = out_dir.join("java/libs/authlib-injector.jar");
-    let Ok(theseus_time) = theseus_jar.metadata().and_then(|m| m.modified())
-    else {
-        return false;
-    };
-    let Ok(authlib_time) = authlib_jar.metadata().and_then(|m| m.modified())
-    else {
-        return false;
-    };
-
-    let input_paths = [
-        PathBuf::from("java/src"),
-        PathBuf::from("java/build.gradle.kts"),
-        PathBuf::from("java/settings.gradle.kts"),
-        PathBuf::from("java/gradle.properties"),
-        PathBuf::from("java/gradle"),
-    ];
-    input_paths.iter().all(|input| {
-        newest_mtime(input)
-            .map(|input_time| {
-                input_time <= theseus_time && input_time <= authlib_time
-            })
-            .unwrap_or(true)
-    })
-}
-
 fn build_java_jars() {
     println!("cargo::rerun-if-env-changed=AXOLOTL_BUILD_RESOURCES");
     if let Some(resources) = env::var_os("AXOLOTL_BUILD_RESOURCES") {
@@ -227,9 +183,16 @@ fn build_java_jars() {
         out_dir.join("java/libs").display()
     );
 
-    if java_jars_are_fresh(&out_dir) {
+    let input_fingerprint = java_cache::input_fingerprint(".".as_ref())
+        .expect("Failed to fingerprint Java build inputs");
+    for jar in java_cache::JARS {
+        println!("cargo::rerun-if-changed={}", out_dir.join(jar).display());
+    }
+    if java_cache::is_fresh(&out_dir, &input_fingerprint) {
         return;
     }
+    java_cache::invalidate(&out_dir)
+        .expect("Failed to invalidate Java build fingerprint");
 
     let gradle_path = fs::canonicalize(
         #[cfg(target_os = "windows")]
@@ -262,4 +225,13 @@ fn build_java_jars() {
         println!("cargo::error=Gradle build failed with {exit_status}");
         exit(exit_status.code().unwrap_or(1));
     }
+
+    assert_eq!(
+        input_fingerprint,
+        java_cache::input_fingerprint(".".as_ref())
+            .expect("Failed to fingerprint Java build inputs"),
+        "Java inputs changed during the build; run the build again"
+    );
+    java_cache::record_success(&out_dir, &input_fingerprint)
+        .expect("Failed to record Java build fingerprint");
 }

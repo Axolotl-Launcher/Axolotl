@@ -1,18 +1,18 @@
 - [Dependency Injection](#dependency-injection)
-	- [The `createContext` Factory](#the-createcontext-factory)
-	- [When to Use DI](#when-to-use-di)
-		- [Platform Abstraction (Primary Use Case)](#platform-abstraction-primary-use-case)
-		- [Page-Level Context](#page-level-context)
-	- [Creating a New Provider](#creating-a-new-provider)
-		- [1. Define the interface in `packages/ui/src/providers/`](#1-define-the-interface-in-packagesuisrcproviders)
-		- [2. For complex platform-specific logic, use an abstract class](#2-for-complex-platform-specific-logic-use-an-abstract-class)
-	- [Wiring Up Providers](#wiring-up-providers)
-		- [App Frontend (Tauri)](#app-frontend-tauri)
-		- [Website Frontend (Nuxt)](#website-frontend-nuxt)
-	- [Consuming Providers](#consuming-providers)
-	- [When NOT to Use DI](#when-not-to-use-di)
-	- [Existing Providers](#existing-providers)
-	- [Key Files](#key-files)
+  - [The `createContext` Factory](#the-createcontext-factory)
+  - [When to Use DI](#when-to-use-di)
+    - [Platform Abstraction (Primary Use Case)](#platform-abstraction-primary-use-case)
+    - [Page-Level Context](#page-level-context)
+  - [Creating a New Provider](#creating-a-new-provider)
+    - [1. Define the interface in `packages/ui/src/providers/`](#1-define-the-interface-in-packagesuisrcproviders)
+    - [2. For complex platform-specific logic, use an abstract class](#2-for-complex-platform-specific-logic-use-an-abstract-class)
+  - [Wiring Up Providers](#wiring-up-providers)
+    - [App Frontend (Tauri)](#app-frontend-tauri)
+    - [Website Frontend (Nuxt)](#website-frontend-nuxt)
+  - [Consuming Providers](#consuming-providers)
+  - [When NOT to Use DI](#when-not-to-use-di)
+  - [Existing Providers](#existing-providers)
+  - [Key Files](#key-files)
 
 # Dependency Injection
 
@@ -26,8 +26,8 @@ All providers are defined using `createContext` from `packages/ui/src/providers/
 import { createContext } from '@modrinth/ui'
 
 interface MyContext {
-	someValue: Ref<string>
-	doSomething: () => void
+  someValue: Ref<string>
+  doSomething: () => void
 }
 
 export const [injectMyContext, provideMyContext] = createContext<MyContext>('MyComponent')
@@ -69,9 +69,9 @@ import type { Ref } from 'vue'
 import { createContext } from '.'
 
 export interface MyFeatureContext {
-	items: Ref<Item[]>
-	addItem: (item: Item) => Promise<void>
-	removeItem: (id: string) => Promise<void>
+  items: Ref<Item[]>
+  addItem: (item: Item) => Promise<void>
+  removeItem: (id: string) => Promise<void>
 }
 
 export const [injectMyFeature, provideMyFeature] = createContext<MyFeatureContext>('MyFeature')
@@ -83,17 +83,17 @@ Re-export from the barrel file (`packages/ui/src/providers/index.ts`).
 
 ```ts
 export abstract class AbstractMyFeatureManager {
-	abstract items: Ref<Item[]>
-	abstract addItem(item: Item): Promise<void>
+  abstract items: Ref<Item[]>
+  abstract addItem(item: Item): Promise<void>
 
-	// Shared logic lives on the base class
-	handleError(err: unknown) {
-		console.error(err)
-	}
+  // Shared logic lives on the base class
+  handleError(err: unknown) {
+    console.error(err)
+  }
 }
 
 export const [injectMyFeature, provideMyFeature] =
-	createContext<AbstractMyFeatureManager>('MyFeature')
+  createContext<AbstractMyFeatureManager>('MyFeature')
 ```
 
 See `AbstractWebNotificationManager` in `packages/ui/src/providers/web-notifications.ts` for a real example.
@@ -110,19 +110,19 @@ import { ref } from 'vue'
 import { provideMyFeature } from '@modrinth/ui'
 
 export function setupMyFeatureProvider() {
-	const items = ref<Item[]>([])
+  const items = ref<Item[]>([])
 
-	provideMyFeature({
-		items,
-		addItem: async (item) => {
-			await invoke('add_item', { item })
-			items.value.push(item)
-		},
-		removeItem: async (id) => {
-			await invoke('remove_item', { id })
-			items.value = items.value.filter(i => i.id !== id)
-		},
-	})
+  provideMyFeature({
+    items,
+    addItem: async (item) => {
+      await invoke('add_item', { item })
+      items.value.push(item)
+    },
+    removeItem: async (id) => {
+      await invoke('remove_item', { id })
+      items.value = items.value.filter(i => i.id !== id)
+    },
+  })
 }
 ```
 
@@ -134,13 +134,13 @@ Provide directly in `apps/website/src/app.vue` when the website needs a shared c
 
 ```ts
 provideMyFeature({
-	items: useState<Item[]>('my-feature-items', () => []),
-	addItem: async (item) => {
-		await $fetch('/api/items', { method: 'POST', body: item })
-	},
-	removeItem: async (id) => {
-		await $fetch(`/api/items/${id}`, { method: 'DELETE' })
-	},
+  items: useState<Item[]>('my-feature-items', () => []),
+  addItem: async (item) => {
+    await $fetch('/api/items', { method: 'POST', body: item })
+  },
+  removeItem: async (id) => {
+    await $fetch(`/api/items/${id}`, { method: 'DELETE' })
+  },
 })
 ```
 
@@ -156,8 +156,8 @@ const { items, addItem } = injectMyFeature()
 </script>
 
 <template>
-	<div v-for="item in items" :key="item.id">{{ item.name }}</div>
-	<button @click="addItem({ id: '1', name: 'New' })">Add</button>
+  <div v-for="item in items" :key="item.id">{{ item.name }}</div>
+  <button @click="addItem({ id: '1', name: 'New' })">Add</button>
 </template>
 ```
 

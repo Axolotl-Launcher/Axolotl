@@ -6,11 +6,8 @@ use crate::util::download::constants::{
     H2_PREFERRED_SPEED_RATIO, HTTP_PROXY_ENV_LOWER, HTTP_PROXY_ENV_UPPER,
     HTTPS_PROXY_ENV_LOWER, HTTPS_PROXY_ENV_UPPER,
     NATIVE_AUTHORITY_IS_TEMPORARILY_USING_HTTP_1_1, NATIVE_AUTOCONFIGURL,
-    NATIVE_CERTIFICATE_POLICY_REQUIRES_THE_REQWEST_TRANSPORT,
-    NATIVE_CONFIGURED_PROXY_REQUIRES_THE_REQWEST_TRANSPORT,
     NATIVE_DOWNLOAD_SOURCE_HAS_BEEN_RETIRED, NATIVE_PROXYENABLE,
     NATIVE_SOFTWARE_MICROSOFT_WINDOWS_CURRENTVERSION_INTERNET_SETTINGS,
-    NATIVE_SYSTEM_PROXY_REQUIRES_THE_REQWEST_TRANSPORT,
 };
 
 use crate::util::fetch::{DownloadRoute, ProxyPolicy};
@@ -33,9 +30,6 @@ pub(crate) struct NativeH2Policy {
 pub(crate) enum NativeH2IneligibleReason {
     RetiredSource,
     Http1Fallback,
-    SystemProxy,
-    ConfiguredProxy,
-    CertificatePolicy,
 }
 
 impl NativeH2IneligibleReason {
@@ -44,15 +38,6 @@ impl NativeH2IneligibleReason {
             Self::RetiredSource => NATIVE_DOWNLOAD_SOURCE_HAS_BEEN_RETIRED,
             Self::Http1Fallback => {
                 NATIVE_AUTHORITY_IS_TEMPORARILY_USING_HTTP_1_1
-            }
-            Self::SystemProxy => {
-                NATIVE_SYSTEM_PROXY_REQUIRES_THE_REQWEST_TRANSPORT
-            }
-            Self::ConfiguredProxy => {
-                NATIVE_CONFIGURED_PROXY_REQUIRES_THE_REQWEST_TRANSPORT
-            }
-            Self::CertificatePolicy => {
-                NATIVE_CERTIFICATE_POLICY_REQUIRES_THE_REQWEST_TRANSPORT
             }
         }
     }
@@ -73,25 +58,10 @@ pub(crate) fn h2_ineligible_reason(
     ) {
         return Some(NativeH2IneligibleReason::Http1Fallback);
     }
-    if let Some(clients) = super::proxy_context::clients() {
-        if clients.force_http1 {
-            return Some(NativeH2IneligibleReason::Http1Fallback);
-        }
-        if clients.ignore_ssl_errors {
-            return Some(NativeH2IneligibleReason::CertificatePolicy);
-        }
-        if route.proxy == ProxyPolicy::System {
-            match clients.proxy.mode {
-                crate::util::proxy::ProxyMode::None => return None,
-                crate::util::proxy::ProxyMode::Custom => {
-                    return Some(NativeH2IneligibleReason::ConfiguredProxy);
-                }
-                crate::util::proxy::ProxyMode::System => {}
-            }
-        }
-    }
-    if route.proxy == ProxyPolicy::System && system_proxy_configured() {
-        return Some(NativeH2IneligibleReason::SystemProxy);
+    if super::proxy_context::clients()
+        .is_some_and(|clients| clients.force_http1)
+    {
+        return Some(NativeH2IneligibleReason::Http1Fallback);
     }
     None
 }
@@ -239,12 +209,72 @@ mod tests {
         }
     }
 
-    #[test]
-    fn direct_routes_ignore_system_proxy_environment() {
-        assert_ne!(
-            h2_ineligible_reason(&route(ProxyPolicy::Direct)),
-            Some(NativeH2IneligibleReason::SystemProxy)
-        );
+    #[tokio::test]
+    async fn tls_and_proxy_settings_preserve_h2_eligibility() {
+        use crate::util::fetch::DownloadClients;
+        use crate::util::proxy::{ProxyConfig, ProxyMode};
+
+        for mode in [ProxyMode::None, ProxyMode::System, ProxyMode::Custom] {
+            for ignore_ssl_errors in [false, true] {
+                let clients = DownloadClients::build(
+                    &ProxyConfig {
+                        mode,
+                        url: "http://127.0.0.1:7890".into(),
+                        ..Default::default()
+                    },
+                    ignore_ssl_errors,
+                    false,
+                )
+                .unwrap();
+                super::super::proxy_context::with_snapshot(clients, async {
+                    for proxy in [ProxyPolicy::System, ProxyPolicy::Direct] {
+                        let route = route(proxy);
+                        assert_eq!(h2_ineligible_reason(&route), None);
+                        assert!(h2_policy(&route, Some(1024)).await.is_some());
+                    }
+                })
+                .await;
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn explicit_and_learned_http1_fallback_still_disable_h2() {
+        use crate::util::fetch::DownloadClients;
+        use crate::util::proxy::{ProxyConfig, ProxyMode};
+
+        let mut clients = DownloadClients::build(
+            &ProxyConfig {
+                mode: ProxyMode::None,
+                ..Default::default()
+            },
+            true,
+            false,
+        )
+        .unwrap();
+        clients.scope = "native-h2-http1-policy-test".into();
+        clients.force_http1 = true;
+        super::super::proxy_context::with_snapshot(clients.clone(), async {
+            assert_eq!(
+                h2_ineligible_reason(&route(ProxyPolicy::System)),
+                Some(NativeH2IneligibleReason::Http1Fallback)
+            );
+        })
+        .await;
+        clients.force_http1 = false;
+        super::super::proxy_context::with_snapshot(clients, async {
+            let route = route(ProxyPolicy::System);
+            assert_eq!(h2_ineligible_reason(&route), None);
+            crate::util::fetch::record_authority_h2_failure_for(
+                "native-policy.example:443",
+                route.proxy,
+            );
+            assert_eq!(
+                h2_ineligible_reason(&route),
+                Some(NativeH2IneligibleReason::Http1Fallback)
+            );
+        })
+        .await;
     }
 
     #[test]
@@ -256,7 +286,7 @@ mod tests {
     #[tokio::test]
     async fn medium_file_can_establish_a_cold_h2_connection() {
         assert_eq!(
-            h2_policy(&route(ProxyPolicy::Direct), Some(8 * 1024 * 1024),)
+            h2_policy(&route(ProxyPolicy::Direct), Some(2 * 1024 * 1024),)
                 .await,
             Some(NativeH2Policy {
                 allow_cold_connection: true,

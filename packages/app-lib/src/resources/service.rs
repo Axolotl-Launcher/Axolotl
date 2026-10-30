@@ -36,6 +36,9 @@ pub enum CachePolicy {
     /// Ignore positive, negative, and expired cache entries. A source error
     /// never becomes success by falling back to an old cached response.
     ForceRefresh,
+    /// Revalidate data from before this refresh round, reusing responses
+    /// already fetched during the round (including batched release aliases).
+    RefreshSince(i64),
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -45,6 +48,7 @@ pub struct QueryOutcome {
 }
 
 struct SourceRuntime {
+    pending: parking_lot::Mutex<Vec<Arc<Flight>>>,
     provider: Arc<dyn ResourceProvider>,
     semaphore: Arc<Semaphore>,
 }
@@ -63,6 +67,7 @@ struct Flight {
     result: watch::Sender<Option<ResourceResult<QueryOutcome>>>,
     changed: Arc<Notify>,
     started_at: i64,
+    deadline: tokio::time::Instant,
     owner: std::sync::Weak<ResourceService>,
 }
 
@@ -103,12 +108,16 @@ impl Subscription {
             if cancel.is_cancelled() {
                 return Err(ResourceError::Canceled);
             }
+            if tokio::time::Instant::now() >= self.0.deadline {
+                return Err(ResourceError::Network { status: Some(408) });
+            }
             if let Some(value) = receiver.borrow_and_update().clone() {
                 return value;
             }
             tokio::select! {
                 biased;
                 _ = cancel.cancelled() => return Err(ResourceError::Canceled),
+                _ = tokio::time::sleep_until(self.0.deadline) => return Err(ResourceError::Network { status: Some(408) }),
                 result = receiver.changed() => if result.is_err() { return Err(ResourceError::Canceled); },
             }
         }
@@ -116,6 +125,8 @@ impl Subscription {
 }
 
 pub struct ResourceService {
+    flight_timeout: std::time::Duration,
+    admission_timeout: std::time::Duration,
     pub(crate) analysis_sessions:
         DashMap<SessionId, Arc<super::plans::analysis::AnalysisSession>>,
     pub(crate) artifact_metadata_reader:
@@ -142,6 +153,25 @@ pub struct ResourceService {
 }
 
 impl ResourceService {
+    pub(crate) fn source_namespace(
+        &self,
+        source: &SourceId,
+    ) -> ResourceResult<String> {
+        self.sources
+            .get(source)
+            .map(|runtime| runtime.provider.namespace())
+            .ok_or(ResourceError::Unavailable)
+    }
+    #[cfg(test)]
+    pub(crate) fn set_wait_budgets(
+        &mut self,
+        admission: std::time::Duration,
+        flight: std::time::Duration,
+    ) {
+        self.admission_timeout = admission;
+        self.flight_timeout = flight;
+    }
+
     pub(crate) fn search_applicable(
         &self,
         source: &SourceId,
@@ -185,6 +215,7 @@ impl ResourceService {
                 .insert(
                     id,
                     SourceRuntime {
+                        pending: Default::default(),
                         provider,
                         semaphore: Arc::new(Semaphore::new(3)),
                     },
@@ -197,6 +228,8 @@ impl ResourceService {
             }
         }
         Ok(Arc::new(Self {
+            flight_timeout: std::time::Duration::from_secs(120),
+            admission_timeout: std::time::Duration::from_secs(20),
             analysis_sessions: DashMap::new(),
             artifact_metadata_reader: Arc::new(
                 super::plans::artifact_metadata::RuntimeArtifactMetadataReader,
@@ -377,6 +410,8 @@ impl ResourceService {
                             .await
                             .map(|(value, fresh)| (Some(value), !fresh))
                             .unwrap_or((None, false))
+                    } else if let CachePolicy::RefreshSince(since) = policy {
+                        (self.cache.get_since(&cache_key, since).await, false)
                     } else if policy == CachePolicy::OnlyCached {
                         (self.cache.get_any(&cache_key).await, false)
                     } else {
@@ -410,7 +445,8 @@ impl ResourceService {
             };
             let flight = match self.flights.entry(key.clone()) {
                 Entry::Occupied(entry)
-                    if try_subscribe(&entry.get().subscribers) =>
+                    if entry.get().deadline > tokio::time::Instant::now()
+                        && try_subscribe(&entry.get().subscribers) =>
                 {
                     entry.get().clone()
                 }
@@ -422,6 +458,8 @@ impl ResourceService {
                         result: watch::channel(None).0,
                         changed: self.changed.clone(),
                         started_at: Utc::now().timestamp_micros(),
+                        deadline: tokio::time::Instant::now()
+                            + self.flight_timeout,
                         owner: Arc::downgrade(self),
                     });
                     match entry {
@@ -441,29 +479,7 @@ impl ResourceService {
         if !background.is_empty() {
             self.refresh_background(source.clone(), background, generation);
         }
-        let mut groups: HashMap<u8, Vec<Arc<Flight>>> = HashMap::new();
-        for flight in fresh {
-            groups
-                .entry(flight.query.batch_group())
-                .or_default()
-                .push(flight);
-        }
-        for group in groups.into_values() {
-            let limit = group
-                .first()
-                .map(|flight| runtime.provider.batch_limit(&flight.query))
-                .unwrap_or(1)
-                .max(1);
-            for batch in group.chunks(limit) {
-                let service = self.clone();
-                let provider = runtime.provider.clone();
-                let semaphore = runtime.semaphore.clone();
-                let batch = batch.to_vec();
-                tokio::spawn(async move {
-                    service.fetch_batch(provider, semaphore, batch).await;
-                });
-            }
-        }
+        self.dispatch(source, fresh);
         let results = join_all(subscriptions.into_iter().map(
             |subscription| async move {
                 match subscription {
@@ -505,17 +521,100 @@ impl ResourceService {
         }
     }
 
+    fn dispatch(self: &Arc<Self>, source: &SourceId, fresh: Vec<Arc<Flight>>) {
+        if fresh.is_empty() {
+            return;
+        }
+        let Some(runtime) = self.sources.get(source) else {
+            return;
+        };
+        let mut queued = runtime.pending.lock();
+        let start = queued.is_empty();
+        queued.extend(fresh);
+        drop(queued);
+        if !start {
+            return;
+        }
+        let service = self.clone();
+        let source = source.clone();
+        tokio::spawn(async move {
+            // A bounded collection window combines independent row requests.
+            tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+            let runtime = &service.sources[&source];
+            loop {
+                if runtime.pending.lock().is_empty() {
+                    return;
+                }
+                // Form the batch only when it can run. Requests arriving while
+                // the source is busy must not become queued one-item batches.
+                let permit = match tokio::time::timeout(
+                    service.admission_timeout,
+                    runtime.semaphore.clone().acquire_owned(),
+                )
+                .await
+                {
+                    Ok(Ok(permit)) => permit,
+                    _ => {
+                        let pending =
+                            std::mem::take(&mut *runtime.pending.lock());
+                        for flight in pending {
+                            flight.result.send_replace(Some(Err(
+                                ResourceError::Network { status: Some(408) },
+                            )));
+                            service
+                                .flights
+                                .remove_if(&flight.key, |_, current| {
+                                    Arc::ptr_eq(current, &flight)
+                                });
+                        }
+                        return;
+                    }
+                };
+                let batch = {
+                    let mut queued = runtime.pending.lock();
+                    let Some(first) = queued.first() else {
+                        return;
+                    };
+                    let group = (
+                        first.query.batch_group(),
+                        first.key.policy,
+                        first.key.generation,
+                    );
+                    let limit =
+                        runtime.provider.batch_limit(&first.query).max(1);
+                    let mut batch = Vec::new();
+                    queued.retain(|flight| {
+                        if batch.len() < limit
+                            && (
+                                flight.query.batch_group(),
+                                flight.key.policy,
+                                flight.key.generation,
+                            ) == group
+                        {
+                            batch.push(flight.clone());
+                            false
+                        } else {
+                            true
+                        }
+                    });
+                    batch
+                };
+                let service = service.clone();
+                let provider = runtime.provider.clone();
+                tokio::spawn(async move {
+                    service.fetch_batch(provider, permit, batch).await;
+                });
+            }
+        });
+    }
+
     async fn fetch_batch(
         self: Arc<Self>,
         provider: Arc<dyn ResourceProvider>,
-        semaphore: Arc<Semaphore>,
+        _permit: tokio::sync::OwnedSemaphorePermit,
         batch: Vec<Arc<Flight>>,
     ) {
         let operation = async {
-            let _permit = semaphore
-                .acquire()
-                .await
-                .map_err(|_| ResourceError::Canceled)?;
             let active: Vec<_> = batch
                 .iter()
                 .filter(|flight| flight.subscribers.load(Ordering::Acquire) > 0)
@@ -526,6 +625,11 @@ impl ResourceService {
             }
             let queries: Vec<_> =
                 active.iter().map(|flight| flight.query.clone()).collect();
+            if active.iter().any(|flight| {
+                provider.namespace() != flight.key.cache.namespace
+            }) {
+                return Err(ResourceError::Canceled);
+            }
             let responses = provider.fetch_many(&queries).await;
             if responses.len() != active.len() {
                 return Err(ResourceError::InvalidResponse(
@@ -589,7 +693,9 @@ impl ResourceService {
                                 .await;
                         }
                     }
-                    if let ProviderValue::Identified(documents) = value {
+                    if let ProviderValue::Identified(documents)
+                    | ProviderValue::UpdateCandidates(documents) = value
+                    {
                         for document in documents {
                             for project_id in [
                                 None,
@@ -722,6 +828,18 @@ pub(crate) fn validate_value(
     value: &ProviderValue,
 ) -> ResourceResult<()> {
     let valid = match (query, value) {
+        (ProviderQuery::CurseForgeFilesProtocol { project_id, index, page_size, .. }, ProviderValue::Protocol(value)) => {
+            *source == SourceId::curseforge() &&
+                serde_json::from_value::<crate::api::curseforge::CurseForgeFilesResponse>(value.clone()).is_ok_and(|page| {
+                    page.pagination.index == *index
+                        && page.pagination.page_size == *page_size
+                        && page.files.len() <= *page_size as usize
+                        && page.pagination.result_count as usize == page.files.len()
+                        && index.checked_add(page.pagination.result_count).is_some_and(|end| page.pagination.result_count == 0 || end <= page.pagination.total_count)
+                        && page.files.iter().all(|file| file.mod_id == *project_id && file.id > 0)
+                        && page.files.iter().map(|file| file.id).collect::<std::collections::HashSet<_>>().len() == page.files.len()
+                })
+        }
         (ProviderQuery::ReleasesProtocol { project_id }, ProviderValue::Protocol(value)) => {
             *source == SourceId::modrinth() && value.as_array().is_some_and(|values| values.iter().all(|value| value["project_id"].as_str() == Some(project_id.as_str()) && serde_json::from_value::<crate::state::Version>(value.clone()).is_ok()))
         }
@@ -736,7 +854,7 @@ pub(crate) fn validate_value(
         (ProviderQuery::Locate { .. }, ProviderValue::Project(document)) => document.metadata.project.source == *source && document.description.source == *source && crate::state::instances::adapters::sqlite::resource_rows::validate_project(&document.metadata.project).is_ok(),
         (_, ProviderValue::NotFound) => !matches!(
             query,
-            ProviderQuery::Search { .. } | ProviderQuery::Releases { .. }
+            ProviderQuery::Search { .. } | ProviderQuery::Releases { .. } | ProviderQuery::CurseForgeFilesProtocol { .. }
         ),
         (
             ProviderQuery::Project { id, .. },
@@ -771,6 +889,10 @@ pub(crate) fn validate_value(
                         && valid_artifact(artifact)
                 })
         }
+        (ProviderQuery::UpdateCandidates { project_id, .. }, ProviderValue::UpdateCandidates(documents)) => documents.iter().all(|document| {
+            document.release.reference.project.source == *source && document.release.reference.project.project_id == *project_id
+                && document.release.artifacts.iter().all(|artifact| artifact.reference.release == document.release.reference && valid_artifact(artifact))
+        }),
         (
             ProviderQuery::Releases { project_id, .. },
             ProviderValue::Releases(page),

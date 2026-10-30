@@ -29,6 +29,7 @@ const props = withDefaults(
         busy?: boolean
         busyTooltip?: string | null
         refreshing?: boolean
+        refreshStatus?: string | null
         disableAddContent?: boolean
         disableAddContentTooltip?: string
     }>(),
@@ -36,6 +37,7 @@ const props = withDefaults(
         busy: false,
         busyTooltip: null,
         refreshing: false,
+        refreshStatus: null,
         disableAddContent: false,
         disableAddContentTooltip: undefined,
     },
@@ -71,9 +73,12 @@ const emit = defineEmits<{
                 type="outlined"
                 :disabled="props.refreshing"
                 class="!h-10"
+                :aria-busy="props.refreshing"
                 @click="emit('refresh')"
-                ><RefreshCwIcon :class="['size-5', { 'animate-spin': props.refreshing }]" />
-                {{ formatMessage(commonMessages.refreshButton) }}
+                ><RefreshCwIcon class="size-5" />
+                <span aria-live="polite">{{
+                    props.refreshStatus ?? formatMessage(commonMessages.refreshButton)
+                }}</span>
             </Button>
             <Button
                 v-tooltip="

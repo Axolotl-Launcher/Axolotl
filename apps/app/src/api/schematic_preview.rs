@@ -210,6 +210,129 @@ struct PreviewSession {
     regions: Vec<SessionRegion>,
 }
 
+/// An MCP-owned document is separate from the two UI preview slots. Dropping
+/// this object releases its chunks without evicting the user's editor.
+#[derive(Clone)]
+pub(crate) struct DetachedSchematic(PreviewSession);
+impl DetachedSchematic {
+    pub(crate) fn open(path: &Path) -> Result<Self, String> {
+        let bytes = std::fs::read(path).map_err(|e| e.to_string())?;
+        if bytes.len() > 2 * 1024 * 1024 {
+            return Err("MCP schematic source exceeds 2 MiB".into());
+        }
+        let root = read_root(&bytes)?;
+        let mut declared = 0_u64;
+        if let Ok(regions) = root.get::<_, &NbtCompound>("Regions") {
+            if regions.inner().len() > 32 {
+                return Err("Too many schematic regions".into());
+            }
+            for tag in regions.inner().values() {
+                if let NbtTag::Compound(region) = tag {
+                    let size = compound_vec3(
+                        region
+                            .get::<_, &NbtCompound>("Size")
+                            .map_err(|_| "Missing region size")?,
+                    )?
+                    .map(i32::unsigned_abs);
+                    let region_volume = size
+                        .iter()
+                        .try_fold(1_u64, |v, n| v.checked_mul(u64::from(*n)))
+                        .filter(|v| *v <= 1_048_576)
+                        .ok_or("Schematic exceeds MCP block limit")?;
+                    declared = declared
+                        .checked_add(region_volume)
+                        .ok_or("Schematic volume overflow")?;
+                }
+            }
+        } else {
+            let schematic =
+                root.get::<_, &NbtCompound>("Schematic").unwrap_or(&root);
+            let mut size = [0_u32; 3];
+            for (i, key) in ["Width", "Height", "Length"].iter().enumerate() {
+                let n = schematic
+                    .get::<_, i16>(*key)
+                    .map_err(|_| "Missing schematic dimension")?;
+                if n <= 0 {
+                    return Err("Invalid schematic dimensions".into());
+                }
+                size[i] = n as u32;
+            }
+            declared = volume(size);
+        }
+        if declared > 1_048_576 {
+            return Err("Schematic exceeds MCP block limit".into());
+        }
+        let document = parse_schematic(path, None, None)?;
+        let volume = document
+            .manifest
+            .size
+            .iter()
+            .try_fold(1_u64, |v, n| v.checked_mul(u64::from(*n)))
+            .unwrap_or(u64::MAX);
+        if volume > 1_048_576
+            || document.manifest.palette.len() > 16384
+            || document.regions.len() > 32
+        {
+            return Err("Schematic exceeds MCP document limits".into());
+        }
+        Ok(Self(document))
+    }
+    pub(crate) fn manifest(&self) -> &PreviewManifest {
+        &self.0.manifest
+    }
+    pub(crate) fn block(
+        &self,
+        region_id: &str,
+        position: [i32; 3],
+    ) -> Result<Option<PreviewBlockState>, String> {
+        let region = self
+            .0
+            .regions
+            .iter()
+            .find(|r| r.manifest.id == region_id)
+            .ok_or("Unknown schematic region")?;
+        if position.iter().enumerate().any(|(i, p)| {
+            *p < region.manifest.min[i] || *p > region.manifest.max[i]
+        }) {
+            return Err("Position is outside schematic region".into());
+        }
+        let chunk = position.map(|p| p.div_euclid(CHUNK_SIZE));
+        let local = position.map(|p| p.rem_euclid(CHUNK_SIZE) as usize);
+        let index = region
+            .chunks
+            .get(&chunk)
+            .map(|c| c.blocks[local[1] * 256 + local[2] * 16 + local[0]])
+            .unwrap_or(0);
+        Ok(self.0.manifest.palette.get(index as usize).cloned())
+    }
+    pub(crate) fn edit(
+        &mut self,
+        edits: Vec<PreviewBlockEdit>,
+        target: Option<PreviewBlockState>,
+    ) -> Result<(), String> {
+        let mut next = self.0.clone();
+        apply_session_edits(&mut next, edits, target)?;
+        self.0 = next;
+        Ok(())
+    }
+    pub(crate) fn transform(
+        &mut self,
+        transform: PreviewTransform,
+    ) -> Result<(), String> {
+        let mut next = self.0.clone();
+        next.apply_transform(transform)?;
+        self.0 = next;
+        Ok(())
+    }
+    pub(crate) fn export(&self, format: &str) -> Result<Vec<u8>, String> {
+        match format {
+            "sponge" => export_sponge_v3(&self.0),
+            "litematic" => export_litematic(&self.0),
+            _ => Err("Unknown schematic export format".into()),
+        }
+    }
+}
+
 static SESSIONS: OnceLock<Mutex<VecDeque<Arc<PreviewSession>>>> =
     OnceLock::new();
 static REQUEST_CANCELLATIONS: OnceLock<
@@ -362,6 +485,16 @@ pub fn schematic_preview_apply_edits(
             "The schematic preview session has expired".to_string()
         })?;
     let mut session = (*active[session_index]).clone();
+    let result = apply_session_edits(&mut session, edits, target_state)?;
+    active[session_index] = Arc::new(session);
+    Ok(result)
+}
+
+fn apply_session_edits(
+    session: &mut PreviewSession,
+    edits: Vec<PreviewBlockEdit>,
+    target_state: Option<PreviewBlockState>,
+) -> Result<PreviewEditResult, String> {
     let target_state = target_state.map(|mut state| {
         state.name = normalize_block_name(&state.name);
         state
@@ -463,7 +596,6 @@ pub fn schematic_preview_apply_edits(
             .collect(),
         applied_palette_indices,
     };
-    active[session_index] = Arc::new(session);
     Ok(result)
 }
 
@@ -1986,6 +2118,67 @@ mod tests {
     use super::*;
 
     #[test]
+    fn detached_mcp_documents_are_isolated_transactional_and_exportable() {
+        let original = parse_sponge(
+            sponge_fixture(3),
+            "fixture.schem".into(),
+            "fixture.schem".into(),
+            None,
+            None,
+        )
+        .unwrap();
+        let mut document = DetachedSchematic(original.clone());
+        let region = original.manifest.regions[0].id.clone();
+        let position = original.manifest.regions[0].min;
+        let before = document.block(&region, position).unwrap().unwrap();
+        document
+            .edit(
+                vec![PreviewBlockEdit {
+                    region_id: region.clone(),
+                    position,
+                    palette_index: 0,
+                }],
+                None,
+            )
+            .unwrap();
+        assert_eq!(
+            document.block(&region, position).unwrap().unwrap().name,
+            "minecraft:air"
+        );
+        assert_eq!(palette_at(&original, 0, position).name, before.name);
+        let summary = document.manifest().block_count;
+        assert!(
+            document
+                .edit(
+                    vec![PreviewBlockEdit {
+                        region_id: region.clone(),
+                        position,
+                        palette_index: u32::MAX
+                    }],
+                    None
+                )
+                .is_err()
+        );
+        assert_eq!(document.manifest().block_count, summary);
+        for format in ["sponge", "litematic"] {
+            let bytes = document.export(format).unwrap();
+            let root = read_root(&bytes).unwrap();
+            assert!(!root.inner().is_empty());
+            let temporary = tempfile::NamedTempFile::new().unwrap();
+            std::fs::write(temporary.path(), &bytes).unwrap();
+            let reopened = DetachedSchematic::open(temporary.path()).unwrap();
+            assert_eq!(reopened.manifest().size, document.manifest().size);
+        }
+        document
+            .transform(PreviewTransform::RotateClockwise)
+            .unwrap();
+        document
+            .transform(PreviewTransform::RotateCounterClockwise)
+            .unwrap();
+        assert_eq!(document.manifest().size, original.manifest.size);
+    }
+
+    #[test]
     fn instance_file_sources_accept_frontend_field_names() {
         let source: SchematicSource =
             serde_json::from_value(serde_json::json!({
@@ -2485,5 +2678,22 @@ mod tests {
             regions.insert(name, region);
         }
         assert!(validate_litematic_regions(&regions).is_err());
+        let mut region = NbtCompound::new();
+        region.insert("Size", vec3(i32::MAX, i32::MAX, i32::MAX));
+        let mut regions = NbtCompound::new();
+        regions.insert("huge", region);
+        let mut root = NbtCompound::new();
+        root.insert("Regions", regions);
+        let mut bytes = Vec::new();
+        quartz_nbt::io::write_nbt(
+            &mut bytes,
+            None,
+            &root,
+            Flavor::Uncompressed,
+        )
+        .unwrap();
+        let temp = tempfile::NamedTempFile::new().unwrap();
+        std::fs::write(temp.path(), bytes).unwrap();
+        assert!(DetachedSchematic::open(temp.path()).is_err());
     }
 }

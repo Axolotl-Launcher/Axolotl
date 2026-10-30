@@ -44,9 +44,9 @@ pub(crate) async fn list_loader_components(
 ) -> crate::Result<Vec<LoaderComponent>> {
     let rows = sqlx::query_as::<_, LoaderComponentRow>(
         "SELECT instance_id, kind, version, role, provider_metadata
-		 FROM instance_loader_components
-		 WHERE instance_id = ?
-		 ORDER BY CASE role WHEN 'primary' THEN 0 ELSE 1 END, kind",
+         FROM instance_loader_components
+         WHERE instance_id = ?
+         ORDER BY CASE role WHEN 'primary' THEN 0 ELSE 1 END, kind",
     )
     .bind(instance_id)
     .fetch_all(pool)
@@ -104,8 +104,8 @@ pub(crate) async fn replace_loader_components(
             .transpose()?;
         sqlx::query(
             "INSERT INTO instance_loader_components (
-				instance_id, kind, version, role, provider_metadata
-			 ) VALUES (?, ?, ?, ?, ?)",
+                instance_id, kind, version, role, provider_metadata
+             ) VALUES (?, ?, ?, ?, ?)",
         )
         .bind(instance_id)
         .bind(component.kind.as_str())
@@ -138,14 +138,14 @@ mod tests {
             .unwrap();
         sqlx::raw_sql(
             "CREATE TABLE instances (id TEXT PRIMARY KEY);
-			 CREATE TABLE instance_loader_components (
-				instance_id TEXT NOT NULL REFERENCES instances(id) ON DELETE CASCADE,
-				kind TEXT NOT NULL,
-				version TEXT,
-				role TEXT NOT NULL,
-				provider_metadata TEXT,
-				PRIMARY KEY(instance_id, kind)
-			 );",
+             CREATE TABLE instance_loader_components (
+                instance_id TEXT NOT NULL REFERENCES instances(id) ON DELETE CASCADE,
+                kind TEXT NOT NULL,
+                version TEXT,
+                role TEXT NOT NULL,
+                provider_metadata TEXT,
+                PRIMARY KEY(instance_id, kind)
+             );",
         )
         .execute(&pool)
         .await

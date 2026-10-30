@@ -1,5 +1,6 @@
-import { invoke } from '@tauri-apps/api/core'
+import { Channel, invoke } from '@tauri-apps/api/core'
 
+import { abortable } from './abortable.ts'
 import type { InstallJobSnapshot } from './install'
 import type { InstanceLoader } from './types'
 
@@ -169,6 +170,31 @@ export interface InstanceUpgradePlan {
     customConstraints: InstanceUpgradeFixedConstraint[]
 }
 
+export type InstanceUpgradePlanningPhase =
+    'reading_content' | 'checking_candidates' | 'solving' | 'validating'
+
+export interface InstanceUpgradeItemProgress {
+    contentId: string
+    relativePath: string
+    projectType: InstanceUpgradeProjectType
+    provider: ContentProvider | null
+    projectId: string | null
+    /** Absent until the item has been checked against its candidate releases. */
+    status: InstanceUpgradeItemStatus | null
+}
+
+/** Progress of a plan being created; only the finished plan may be acted on. */
+export type InstanceUpgradePlanningProgress =
+    | {
+          kind: 'phase'
+          phase: InstanceUpgradePlanningPhase
+          completed: number
+          total: number
+      }
+    | { kind: 'items'; items: InstanceUpgradeItemProgress[] }
+    /** `stable` counts compatible releases on the stable channel. */
+    | { kind: 'candidates'; provider: ContentProvider; projectId: string; stable: number }
+
 export interface InstanceUpgradeExternalChange {
     relativePath: string
     kind: InstanceUpgradeExternalChangeKind
@@ -295,12 +321,48 @@ if (import.meta.env.DEV) {
     })
 }
 
+/**
+ * Creates an upgrade plan. Aborting rejects at once and stops the planner at
+ * its next checkpoint; a plan that still arrives afterwards is discarded.
+ */
 export async function plan_instance_upgrade(
     instanceId: string,
     targetEnvironment: InstanceUpgradeTargetEnvironment,
+    options: {
+        signal?: AbortSignal
+        onProgress?: (progress: InstanceUpgradePlanningProgress) => void
+        /** Receives the planner's acknowledgement of the stop sent on abort. */
+        onStop?: (confirmation: Promise<unknown>) => void
+    } = {},
 ): Promise<InstanceUpgradePlan> {
+    const { signal, onProgress, onStop } = options
+    signal?.throwIfAborted()
+    const requestId = crypto.randomUUID()
+    let channel: Channel<InstanceUpgradePlanningProgress> | null = null
+    if (onProgress) {
+        channel = new Channel<InstanceUpgradePlanningProgress>()
+        channel.onmessage = (progress) => {
+            if (!signal?.aborted) onProgress(progress)
+        }
+    }
+    const request = invoke<InstanceUpgradePlan>('plugin:instance|instance_plan_upgrade', {
+        instanceId,
+        targetEnvironment,
+        requestId,
+        onProgress: channel,
+    })
     return await benchmark_upgrade_plan('plan', () =>
-        invoke('plugin:instance|instance_plan_upgrade', { instanceId, targetEnvironment }),
+        abortable(request, signal, (late) => {
+            const stopped = invoke('plugin:instance|instance_cancel_upgrade_planning', {
+                requestId,
+            })
+            onStop?.(stopped)
+            void stopped.catch(() => {})
+            void late.then(
+                (plan) => discard_instance_upgrade_plan(plan.id).catch(() => {}),
+                () => {},
+            )
+        }),
     )
 }
 

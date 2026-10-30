@@ -6,6 +6,17 @@
 //! lets the normal instance watcher materialize ownership in each content set.
 
 use crate::api::instance::synced_servers::DesyncServerMode;
+use crate::state::instances::adapters::sqlite::{
+    content_entries, files, pack_members,
+};
+use crate::state::store::Collection as _;
+use crate::state::store::atom;
+use crate::state::store::synced_pack_catalog::{
+    SyncedPackCatalog, SyncedPackRecord,
+};
+use crate::state::store::synced_pack_instances::{
+    SyncedPackInstanceKey, SyncedPackInstanceRecord, SyncedPackInstances,
+};
 use crate::state::{
     ContentItem, ContentItemOwner, ContentItemProject, ContentItemRollback,
     ContentItemVersion, ContentOwnershipKind, ContentProvider,
@@ -15,7 +26,6 @@ use crate::state::{
 use bytes::Bytes;
 use chrono::Utc;
 use serde::Serialize;
-use sqlx::Row;
 use std::collections::{BTreeSet, HashSet};
 use std::path::{Component, Path, PathBuf};
 
@@ -34,7 +44,7 @@ pub struct PackSyncPreview {
     pub instances: Vec<PackSyncTarget>,
 }
 
-#[derive(Clone, Debug, sqlx::FromRow)]
+#[derive(Clone, Debug)]
 struct PackRow {
     id: String,
     project_type: String,
@@ -43,6 +53,19 @@ struct PackRow {
     size: i64,
     game_versions_json: String,
     enabled: i64,
+}
+
+/// The row shape the catalog's callers work with.
+fn pack_row(id: &str, record: &SyncedPackRecord) -> PackRow {
+    PackRow {
+        id: id.to_string(),
+        project_type: record.project_type.clone(),
+        file_name: record.file_name.clone(),
+        sha1: record.sha1.clone(),
+        size: record.size,
+        game_versions_json: record.game_versions_json.clone(),
+        enabled: i64::from(record.enabled),
+    }
 }
 
 fn parse_type(value: &str) -> crate::Result<ProjectType> {
@@ -166,15 +189,15 @@ async fn tracked_materialized_path(
     pack_id: &str,
     instance_id: &str,
 ) -> crate::Result<Option<String>> {
-    Ok(sqlx::query_scalar::<_, Option<String>>(
-        "SELECT materialized_path FROM synced_pack_instances
-         WHERE pack_id = ? AND instance_id = ?",
+    Ok(SyncedPackInstances::get(
+        &state.data,
+        &SyncedPackInstanceKey {
+            pack_id: pack_id.to_string(),
+            instance_id: instance_id.to_string(),
+        },
     )
-    .bind(pack_id)
-    .bind(instance_id)
-    .fetch_optional(&state.pool)
     .await?
-    .flatten())
+    .and_then(|record| record.materialized_path))
 }
 
 fn normalize_tracked_path(
@@ -227,42 +250,23 @@ async fn cleanup_materialization(
     }
 
     let mut transaction = state.pool.begin().await?;
-    sqlx::query(
-        "DELETE FROM instance_pack_members
-         WHERE member_key = ?
-           AND content_set_id IN (
-             SELECT id FROM instance_content_sets WHERE instance_id = ?
-           )",
+    pack_members::delete_shared_member_in_transaction(
+        &row.id,
+        &metadata.instance.id,
+        &mut transaction,
     )
-    .bind(format!("shared:{}", row.id))
-    .bind(&metadata.instance.id)
-    .execute(&mut *transaction)
     .await?;
-    sqlx::query(
-        "DELETE FROM instance_content_entries
-         WHERE instance_id = ?
-           AND source_kind = 'shared_instance'
-           AND file_id IN (
-             SELECT id FROM instance_files
-             WHERE instance_id = ? AND relative_path = ?
-           )",
+    content_entries::delete_shared_entries_for_path_in_transaction(
+        &metadata.instance.id,
+        &relative_path,
+        &mut transaction,
     )
-    .bind(&metadata.instance.id)
-    .bind(&metadata.instance.id)
-    .bind(&relative_path)
-    .execute(&mut *transaction)
     .await?;
-    sqlx::query(
-        "DELETE FROM instance_files
-         WHERE instance_id = ? AND relative_path = ?
-           AND NOT EXISTS (
-             SELECT 1 FROM instance_content_entries
-             WHERE file_id = instance_files.id
-           )",
+    files::delete_unreferenced_file_in_transaction(
+        &metadata.instance.id,
+        &relative_path,
+        &mut transaction,
     )
-    .bind(&metadata.instance.id)
-    .bind(&relative_path)
-    .execute(&mut *transaction)
     .await?;
     transaction.commit().await?;
     Ok(())
@@ -275,21 +279,18 @@ async fn record_materialization(
     excluded: bool,
     materialized_path: Option<&str>,
 ) -> crate::Result<()> {
-    sqlx::query(
-        "INSERT INTO synced_pack_instances
-         (pack_id, instance_id, excluded, materialized_path, modified_at)
-         VALUES (?, ?, ?, ?, ?)
-         ON CONFLICT(pack_id, instance_id) DO UPDATE SET
-           excluded=excluded.excluded,
-           materialized_path=excluded.materialized_path,
-           modified_at=excluded.modified_at",
+    SyncedPackInstances::set(
+        &state.data,
+        &SyncedPackInstanceKey {
+            pack_id: pack_id.to_string(),
+            instance_id: instance_id.to_string(),
+        },
+        Some(&SyncedPackInstanceRecord {
+            excluded,
+            materialized_path: materialized_path.map(ToString::to_string),
+            modified_at: Utc::now().timestamp(),
+        }),
     )
-    .bind(pack_id)
-    .bind(instance_id)
-    .bind(i64::from(excluded))
-    .bind(materialized_path)
-    .bind(Utc::now().timestamp())
-    .execute(&state.pool)
     .await?;
     Ok(())
 }
@@ -320,14 +321,13 @@ fn row_item(row: &PackRow) -> crate::Result<ContentItem> {
 }
 
 async fn load_row(id: &str, state: &State) -> crate::Result<PackRow> {
-    sqlx::query_as::<_, PackRow>(
-        "SELECT id, project_type, file_name, sha1, size, game_versions_json, enabled
-         FROM synced_pack_catalog WHERE id = ?",
-    )
-    .bind(id)
-    .fetch_optional(&state.pool)
-    .await?
-    .ok_or_else(|| crate::ErrorKind::InputError("Unknown synced pack".to_string()).into())
+    SyncedPackCatalog::get(&state.data, &id.to_string())
+        .await?
+        .map(|record| pack_row(id, &record))
+        .ok_or_else(|| {
+            crate::ErrorKind::InputError("Unknown synced pack".to_string())
+                .into()
+        })
 }
 
 async fn write_cache(
@@ -403,8 +403,8 @@ async fn materialize(
     if !destination_matches {
         tokio::fs::write(&destination, &bytes).await?;
     }
-    let file = crate::state::instances::adapters::sqlite::content_rows::upsert_instance_file_from_parts(
-        crate::state::instances::adapters::sqlite::content_rows::UpsertInstanceFile {
+    let file = files::upsert_instance_file_from_parts(
+        crate::state::instances::adapters::sqlite::files::UpsertInstanceFile {
             instance_id,
             relative_path: &relative_path,
             file_name: &row.file_name,
@@ -418,8 +418,8 @@ async fn materialize(
         &state.pool,
     )
     .await?;
-    let entry = crate::state::instances::adapters::sqlite::content_rows::upsert_content_entry_from_parts(
-        crate::state::instances::adapters::sqlite::content_rows::UpsertContentEntry {
+    let entry = content_entries::upsert_content_entry_from_parts(
+        content_entries::UpsertContentEntry {
             instance_id,
             content_set_id: &metadata.applied_content_set.id,
             file_id: Some(&file.id),
@@ -434,30 +434,20 @@ async fn materialize(
         &state.pool,
     )
     .await?;
-    sqlx::query(
-        "INSERT INTO instance_pack_members
-         (id, content_set_id, content_entry_id, member_key, project_type,
-          expected_relative_path, required, expected_sha1, expected_size,
-          materialization_state, override_kind, reconciled, created_at, modified_at)
-         VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?, 'present', 'none', 1, ?, ?)
-         ON CONFLICT(content_set_id, member_key) DO UPDATE SET
-           content_entry_id=excluded.content_entry_id,
-           expected_sha1=excluded.expected_sha1, expected_size=excluded.expected_size,
-           materialization_state='present', override_kind='none',
-           reconciled=1, modified_at=excluded.modified_at",
+    let mut transaction = state.pool.begin().await?;
+    pack_members::upsert_shared_pack_member_in_transaction(
+        &row.id,
+        &metadata.applied_content_set.id,
+        &entry.id,
+        project_type.get_name(),
+        &relative_path,
+        &row.sha1,
+        row.size,
+        Utc::now().timestamp(),
+        &mut transaction,
     )
-    .bind(format!("pack-member:{}", row.id))
-    .bind(&metadata.applied_content_set.id)
-    .bind(&entry.id)
-    .bind(format!("shared:{}", row.id))
-    .bind(project_type.get_name())
-    .bind(&relative_path)
-    .bind(&row.sha1)
-    .bind(row.size)
-    .bind(Utc::now().timestamp())
-    .bind(Utc::now().timestamp())
-    .execute(&state.pool)
     .await?;
+    transaction.commit().await?;
     record_materialization(
         state,
         &row.id,
@@ -488,14 +478,14 @@ pub async fn list_synced_packs(
 ) -> crate::Result<Vec<ContentItem>> {
     validate_type(project_type)?;
     let state = State::get().await?;
-    let rows = sqlx::query_as::<_, PackRow>(
-        "SELECT id, project_type, file_name, sha1, size, game_versions_json, enabled
-         FROM synced_pack_catalog WHERE project_type = ? ORDER BY modified_at DESC",
+    let rows = SyncedPackCatalog::list_of_project_type(
+        &state.data,
+        project_type.get_name(),
     )
-    .bind(project_type.get_name())
-    .fetch_all(&state.pool)
     .await?;
-    rows.iter().map(row_item).collect()
+    rows.iter()
+        .map(|(id, record)| row_item(&pack_row(id, record)))
+        .collect()
 }
 
 pub async fn get_pack_sync_preview(
@@ -524,10 +514,9 @@ pub async fn get_pack_sync_preview(
     let source = content_root(&state, &metadata)?.join(project_path);
     let bytes = Bytes::from(tokio::fs::read(&source).await?);
     let sha1 = crate::util::fetch::sha1_async(bytes.clone()).await?;
-    let row = sqlx::query_as::<_, PackRow>(
-        "SELECT id, project_type, file_name, sha1, size, game_versions_json, enabled
-         FROM synced_pack_catalog WHERE sha1 = ?",
-    ).bind(&sha1).fetch_optional(&state.pool).await?;
+    let row = SyncedPackCatalog::get_by_sha1(&state.data, &sha1)
+        .await?
+        .map(|(id, record)| pack_row(&id, &record));
     let preview_row = row.unwrap_or(PackRow {
         id: format!("synced-pack:{sha1}"),
         project_type: project_type.get_name().to_string(),
@@ -597,16 +586,24 @@ pub async fn sync_pack(
     let sha1 = crate::util::fetch::sha1_async(bytes.clone()).await?;
     write_cache(&state, &bytes, &sha1).await?;
     let now = Utc::now().timestamp();
-    let row = sqlx::query("INSERT INTO synced_pack_catalog(id, project_type, file_name, sha1, size, game_versions_json, enabled, created_at, modified_at) VALUES (?, ?, ?, ?, ?, '[]', 1, ?, ?) ON CONFLICT(sha1) DO UPDATE SET modified_at=excluded.modified_at RETURNING id, project_type, file_name, sha1, size, game_versions_json, enabled").bind(&preview.pack.id).bind(preview.pack.project_type.get_name()).bind(&preview.pack.file_name).bind(&sha1).bind(bytes.len() as i64).bind(now).bind(now).fetch_one(&state.pool).await?;
-    let catalog = PackRow {
-        id: row.try_get("id")?,
-        project_type: row.try_get("project_type")?,
-        file_name: row.try_get("file_name")?,
-        sha1: row.try_get("sha1")?,
-        size: row.try_get("size")?,
-        game_versions_json: row.try_get("game_versions_json")?,
-        enabled: row.try_get("enabled")?,
-    };
+    let (catalog_id, catalog) = SyncedPackCatalog::record_upload(
+        &state.data,
+        &preview.pack.id,
+        &SyncedPackRecord {
+            project_type: preview.pack.project_type.get_name().to_string(),
+            file_name: preview.pack.file_name.clone(),
+            sha1: sha1.clone(),
+            size: bytes.len() as i64,
+            game_versions_json: "[]".to_string(),
+            enabled: true,
+            selected: true,
+            selection_order: None,
+            created_at: now,
+            modified_at: now,
+        },
+    )
+    .await?;
+    let catalog = pack_row(&catalog_id, &catalog);
     for target in preview
         .instances
         .into_iter()
@@ -641,10 +638,23 @@ pub async fn upload_synced_pack(
         })?
         .to_string();
     let now = Utc::now().timestamp();
-    sqlx::query("INSERT INTO synced_pack_catalog(id, project_type, file_name, sha1, size, game_versions_json, enabled, created_at, modified_at) VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?) ON CONFLICT(sha1) DO UPDATE SET file_name=excluded.file_name, game_versions_json=excluded.game_versions_json, modified_at=excluded.modified_at")
-        .bind(format!("synced-pack:{sha1}"))
-        .bind(project_type.get_name()).bind(name).bind(&sha1).bind(bytes.len() as i64)
-        .bind(serde_json::to_string(&game_versions)?).bind(now).bind(now).execute(&state.pool).await?;
+    SyncedPackCatalog::record_shared_upload(
+        &state.data,
+        &format!("synced-pack:{sha1}"),
+        &SyncedPackRecord {
+            project_type: project_type.get_name().to_string(),
+            file_name: name,
+            sha1: sha1.clone(),
+            size: bytes.len() as i64,
+            game_versions_json: serde_json::to_string(&game_versions)?,
+            enabled: true,
+            selected: true,
+            selection_order: None,
+            created_at: now,
+            modified_at: now,
+        },
+    )
+    .await?;
     Ok(())
 }
 
@@ -660,9 +670,23 @@ pub async fn set_synced_pack_enabled(
         )
         .into());
     }
-    sqlx::query("UPDATE synced_pack_catalog SET enabled = ?, modified_at = ? WHERE id = ?").bind(i64::from(enabled)).bind(Utc::now().timestamp()).bind(pack_id).execute(&state.pool).await?;
+    SyncedPackCatalog::set_enabled(
+        &state.data,
+        pack_id,
+        enabled,
+        Utc::now().timestamp(),
+    )
+    .await?;
     row.enabled = i64::from(enabled);
-    for target in sqlx::query("SELECT instance_id FROM synced_pack_instances WHERE pack_id = ? AND excluded = 0").bind(pack_id).fetch_all(&state.pool).await? { materialize(&state, &row, target.try_get("instance_id")?, false).await?; }
+    for (key, record) in
+        SyncedPackInstances::get_scoped(&state.data, &pack_id.to_string())
+            .await?
+    {
+        if record.excluded {
+            continue;
+        }
+        materialize(&state, &row, &key.instance_id, false).await?;
+    }
     Ok(())
 }
 
@@ -675,28 +699,27 @@ pub async fn desync_pack(
     let row = load_row(pack_id, &state).await?;
     materialize(&state, &row, instance_id, true).await?;
     if mode == DesyncServerMode::RemoveFromOtherInstances {
-        let targets = sqlx::query(
-            "SELECT instance_id FROM synced_pack_instances
-             WHERE pack_id = ? AND instance_id != ?",
-        )
-        .bind(pack_id)
-        .bind(instance_id)
-        .fetch_all(&state.pool)
-        .await?;
-        for target in targets {
-            let target_id: String = target.try_get("instance_id")?;
+        let links =
+            SyncedPackInstances::get_scoped(&state.data, &pack_id.to_string())
+                .await?;
+        let mut kept = Vec::new();
+        for (key, record) in links {
+            if key.instance_id == instance_id {
+                kept.push((key, record));
+                continue;
+            }
             if let Some(metadata) =
-                crate::state::get_instance(&target_id, &state.pool).await?
+                crate::state::get_instance(&key.instance_id, &state.pool)
+                    .await?
             {
                 cleanup_materialization(&state, &row, &metadata).await?;
             }
         }
-        sqlx::query(
-            "DELETE FROM synced_pack_instances WHERE pack_id = ? AND instance_id != ?",
+        SyncedPackInstances::set_scoped(
+            &state.data,
+            &pack_id.to_string(),
+            &kept,
         )
-        .bind(pack_id)
-        .bind(instance_id)
-        .execute(&state.pool)
         .await?;
     }
     Ok(())
@@ -705,24 +728,17 @@ pub async fn desync_pack(
 pub async fn remove_synced_pack(pack_id: &str) -> crate::Result<()> {
     let state = State::get().await?;
     let row = load_row(pack_id, &state).await?;
-    let targets = sqlx::query(
-        "SELECT instance_id FROM synced_pack_instances WHERE pack_id = ?",
-    )
-    .bind(pack_id)
-    .fetch_all(&state.pool)
-    .await?;
-    for target in targets {
-        let target_id: String = target.try_get("instance_id")?;
+    let links =
+        SyncedPackInstances::get_scoped(&state.data, &pack_id.to_string())
+            .await?;
+    for (key, _) in links {
         if let Some(metadata) =
-            crate::state::get_instance(&target_id, &state.pool).await?
+            crate::state::get_instance(&key.instance_id, &state.pool).await?
         {
             cleanup_materialization(&state, &row, &metadata).await?;
         }
     }
-    sqlx::query("DELETE FROM synced_pack_catalog WHERE id = ?")
-        .bind(pack_id)
-        .execute(&state.pool)
-        .await?;
+    SyncedPackCatalog::set(&state.data, &pack_id.to_string(), None).await?;
     Ok(())
 }
 
@@ -736,24 +752,22 @@ pub(crate) async fn detach(
         crate::state::SyncedOption::DataPacks => ProjectType::DataPack,
         _ => return Ok(()),
     };
-    let rows = sqlx::query_as::<_, PackRow>(
-        "SELECT id, project_type, file_name, sha1, size, game_versions_json, enabled
-         FROM synced_pack_catalog WHERE project_type = ?",
+    let rows = SyncedPackCatalog::list_of_project_type(
+        &state.data,
+        project_type.get_name(),
     )
-    .bind(project_type.get_name())
-    .fetch_all(&state.pool)
     .await?;
-    for row in rows {
-        let excluded = sqlx::query_scalar::<_, i64>(
-            "SELECT excluded FROM synced_pack_instances
-             WHERE pack_id = ? AND instance_id = ?",
+    for (id, record) in rows {
+        let row = pack_row(&id, &record);
+        let excluded = SyncedPackInstances::get(
+            &state.data,
+            &SyncedPackInstanceKey {
+                pack_id: row.id.clone(),
+                instance_id: metadata.instance.id.clone(),
+            },
         )
-        .bind(&row.id)
-        .bind(&metadata.instance.id)
-        .fetch_optional(&state.pool)
         .await?
-        .unwrap_or(0)
-            != 0;
+        .is_some_and(|record| record.excluded);
         cleanup_materialization(state, &row, metadata).await?;
         record_materialization(
             state,
@@ -778,24 +792,22 @@ pub(crate) async fn prepare_instance_update(
         if !metadata.synced_options_for(project_type) {
             continue;
         }
-        let rows = sqlx::query_as::<_, PackRow>(
-            "SELECT id, project_type, file_name, sha1, size, game_versions_json, enabled
-             FROM synced_pack_catalog WHERE project_type = ?",
+        let rows = SyncedPackCatalog::list_of_project_type(
+            &state.data,
+            project_type.get_name(),
         )
-        .bind(project_type.get_name())
-        .fetch_all(&state.pool)
         .await?;
-        for row in rows {
-            let excluded = sqlx::query_scalar::<_, i64>(
-                "SELECT excluded FROM synced_pack_instances
-                 WHERE pack_id = ? AND instance_id = ?",
+        for (id, record) in rows {
+            let row = pack_row(&id, &record);
+            let excluded = SyncedPackInstances::get(
+                &state.data,
+                &SyncedPackInstanceKey {
+                    pack_id: row.id.clone(),
+                    instance_id: metadata.instance.id.clone(),
+                },
             )
-            .bind(&row.id)
-            .bind(&metadata.instance.id)
-            .fetch_optional(&state.pool)
             .await?
-            .unwrap_or(0)
-                != 0;
+            .is_some_and(|record| record.excluded);
             cleanup_materialization(state, &row, metadata).await?;
             record_materialization(
                 state,
@@ -820,23 +832,22 @@ pub(crate) async fn reconcile(
         crate::state::SyncedOption::DataPacks => ProjectType::DataPack,
         _ => return Ok(()),
     };
-    let rows = sqlx::query_as::<_, PackRow>(
-        "SELECT id, project_type, file_name, sha1, size, game_versions_json, enabled
-         FROM synced_pack_catalog WHERE project_type = ?",
+    let rows = SyncedPackCatalog::list_of_project_type(
+        &state.data,
+        project_type.get_name(),
     )
-    .bind(project_type.get_name())
-    .fetch_all(&state.pool)
     .await?;
-    for row in rows {
-        let excluded = sqlx::query_scalar::<_, i64>(
-            "SELECT excluded FROM synced_pack_instances WHERE pack_id = ? AND instance_id = ?",
+    for (id, record) in rows {
+        let row = pack_row(&id, &record);
+        let excluded = SyncedPackInstances::get(
+            &state.data,
+            &SyncedPackInstanceKey {
+                pack_id: row.id.clone(),
+                instance_id: metadata.instance.id.clone(),
+            },
         )
-        .bind(&row.id)
-        .bind(&metadata.instance.id)
-        .fetch_optional(&state.pool)
         .await?
-        .unwrap_or(0)
-            != 0;
+        .is_some_and(|record| record.excluded);
         materialize(state, &row, &metadata.instance.id, excluded).await?;
     }
     Ok(())
@@ -853,18 +864,16 @@ pub(crate) async fn capture_resource_pack_selection_change(
     if !global_enabled || !metadata.synced_options.resource_packs {
         return Ok(());
     }
-    let rows = sqlx::query(
-        "SELECT id, file_name, selected FROM synced_pack_catalog
-         WHERE project_type = 'resourcepack'",
+    let rows = SyncedPackCatalog::list_of_project_type(
+        &state.data,
+        ProjectType::ResourcePack.get_name(),
     )
-    .fetch_all(&state.pool)
     .await?;
     let mut managed = BTreeSet::new();
     let mut selected_names = BTreeSet::new();
-    let mut transaction = state.pool.begin().await?;
-    for (order, row) in rows.iter().enumerate() {
-        let id: String = row.try_get("id")?;
-        let file_name: String = row.try_get("file_name")?;
+    let mut unit = atom(&state.data).await?;
+    for (order, (id, record)) in rows.iter().enumerate() {
+        let file_name = record.file_name.clone();
         let entry = format!("file/{file_name}");
         let legacy = file_name.clone();
         let is_selected = options
@@ -873,13 +882,10 @@ pub(crate) async fn capture_resource_pack_selection_change(
             .any(|candidate| candidate == &entry || candidate == &legacy);
         managed.insert(entry.clone());
         managed.insert(legacy);
-        sqlx::query(
-            "UPDATE synced_pack_catalog
-             SET selected = ?, selection_order = ?
-             WHERE id = ?",
-        )
-        .bind(i64::from(is_selected))
-        .bind(
+        SyncedPackCatalog::set_selection_in(
+            &mut unit,
+            id,
+            is_selected,
             options
                 .entries
                 .iter()
@@ -889,14 +895,12 @@ pub(crate) async fn capture_resource_pack_selection_change(
                 .map(|value| value as i64)
                 .or(Some(order as i64)),
         )
-        .bind(id)
-        .execute(&mut *transaction)
         .await?;
         if is_selected {
             selected_names.insert(entry);
         }
     }
-    transaction.commit().await?;
+    unit.commit().await?;
     let selected = options
         .entries
         .iter()
@@ -969,99 +973,71 @@ pub(crate) async fn seed_from_instance(
         let enabled = !file_name.ends_with(".disabled");
         let file_name = file_name.trim_end_matches(".disabled");
         let now = Utc::now().timestamp();
-        let replaced_rows = sqlx::query_as::<_, PackRow>(
-            "SELECT id, project_type, file_name, sha1, size, game_versions_json, enabled
-             FROM synced_pack_catalog
-             WHERE project_type = ? AND file_name = ? AND sha1 != ?",
+        let catalog = SyncedPackCatalog::list_of_project_type(
+            &state.data,
+            project_type.get_name(),
         )
-        .bind(project_type.get_name())
-        .bind(file_name)
-        .bind(&sha1)
-        .fetch_all(&state.pool)
         .await?;
-        for replaced in replaced_rows {
-            let targets = sqlx::query(
-                "SELECT instance_id FROM synced_pack_instances WHERE pack_id = ?",
-            )
-            .bind(&replaced.id)
-            .fetch_all(&state.pool)
-            .await?;
-            for target in targets {
-                let target_id: String = target.try_get("instance_id")?;
+        let mut replaced_rows = Vec::new();
+        for (id, record) in catalog {
+            if record.file_name == file_name && record.sha1 != sha1 {
+                replaced_rows.push(pack_row(&id, &record));
+            }
+        }
+        for replaced in &replaced_rows {
+            for (key, _) in
+                SyncedPackInstances::get_scoped(&state.data, &replaced.id)
+                    .await?
+            {
                 if let Some(target_metadata) =
-                    crate::state::get_instance(&target_id, &state.pool).await?
+                    crate::state::get_instance(&key.instance_id, &state.pool)
+                        .await?
                 {
-                    cleanup_materialization(state, &replaced, &target_metadata)
+                    cleanup_materialization(state, replaced, &target_metadata)
                         .await?;
                 }
             }
         }
-        let mut transaction = state.pool.begin().await?;
-        sqlx::query(
-            "DELETE FROM synced_pack_catalog
-             WHERE project_type = ? AND file_name = ? AND sha1 != ?",
+        let mut unit = atom(&state.data).await?;
+        SyncedPackCatalog::replace_seeded_in(
+            &mut unit,
+            &replaced_rows
+                .iter()
+                .map(|row| row.id.clone())
+                .collect::<Vec<_>>(),
+            &format!("synced-pack:{sha1}"),
+            &SyncedPackRecord {
+                project_type: project_type.get_name().to_string(),
+                file_name: file_name.to_string(),
+                sha1: sha1.clone(),
+                size: bytes.len() as i64,
+                game_versions_json: game_versions_json.clone(),
+                enabled,
+                selected: true,
+                selection_order: None,
+                created_at: now,
+                modified_at: now,
+            },
         )
-        .bind(project_type.get_name())
-        .bind(file_name)
-        .bind(&sha1)
-        .execute(&mut *transaction)
         .await?;
-        sqlx::query(
-            "INSERT INTO synced_pack_catalog
-             (id, project_type, file_name, sha1, size, game_versions_json,
-              enabled, created_at, modified_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-             ON CONFLICT(sha1) DO UPDATE SET
-               file_name=excluded.file_name,
-               game_versions_json=excluded.game_versions_json,
-               enabled=excluded.enabled,
-               modified_at=excluded.modified_at",
-        )
-        .bind(format!("synced-pack:{sha1}"))
-        .bind(project_type.get_name())
-        .bind(file_name)
-        .bind(&sha1)
-        .bind(bytes.len() as i64)
-        .bind(&game_versions_json)
-        .bind(i64::from(enabled))
-        .bind(now)
-        .bind(now)
-        .execute(&mut *transaction)
-        .await?;
-        transaction.commit().await?;
+        unit.commit().await?;
     }
 
     // A watcher event can report a directory after a file was removed. Reconcile
     // catalog entries materialized in this source instance so stale files do not
     // remain in other participating instances.
-    let tracked = sqlx::query(
-        "SELECT c.id, c.project_type, c.file_name, c.sha1, c.size,
-                c.game_versions_json, c.enabled, i.materialized_path
-         FROM synced_pack_catalog c
-         JOIN synced_pack_instances i ON i.pack_id = c.id
-         WHERE c.project_type = ? AND i.instance_id = ?
-           AND i.materialized_path IS NOT NULL",
+    let tracked = SyncedPackCatalog::materialized_for_instance(
+        &state.data,
+        project_type.get_name(),
+        &metadata.instance.id,
     )
-    .bind(project_type.get_name())
-    .bind(&metadata.instance.id)
-    .fetch_all(&state.pool)
     .await?;
-    for tracked_row in tracked {
-        let row = PackRow {
-            id: tracked_row.try_get("id")?,
-            project_type: tracked_row.try_get("project_type")?,
-            file_name: tracked_row.try_get("file_name")?,
-            sha1: tracked_row.try_get("sha1")?,
-            size: tracked_row.try_get("size")?,
-            game_versions_json: tracked_row.try_get("game_versions_json")?,
-            enabled: tracked_row.try_get("enabled")?,
-        };
+    for (id, record, materialized_path) in tracked {
+        let row = pack_row(&id, &record);
         if seen_sha1.contains(&row.sha1) {
             continue;
         }
-        let Some(path) = tracked_row
-            .try_get::<Option<String>, _>("materialized_path")?
-            .and_then(|path| normalize_tracked_path(metadata, &path))
+        let Some(path) = normalize_tracked_path(metadata, &materialized_path)
         else {
             continue;
         };
@@ -1070,24 +1046,17 @@ pub(crate) async fn seed_from_instance(
         {
             continue;
         }
-        let targets = sqlx::query(
-            "SELECT instance_id FROM synced_pack_instances WHERE pack_id = ?",
-        )
-        .bind(&row.id)
-        .fetch_all(&state.pool)
-        .await?;
-        for target in targets {
-            let target_id: String = target.try_get("instance_id")?;
+        for (key, _) in
+            SyncedPackInstances::get_scoped(&state.data, &row.id).await?
+        {
             if let Some(target_metadata) =
-                crate::state::get_instance(&target_id, &state.pool).await?
+                crate::state::get_instance(&key.instance_id, &state.pool)
+                    .await?
             {
                 cleanup_materialization(state, &row, &target_metadata).await?;
             }
         }
-        sqlx::query("DELETE FROM synced_pack_catalog WHERE id = ?")
-            .bind(&row.id)
-            .execute(&state.pool)
-            .await?;
+        SyncedPackCatalog::set(&state.data, &row.id, None).await?;
     }
 
     Ok(())

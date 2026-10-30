@@ -130,7 +130,7 @@ impl TlsFixture {
                                     counted.fetch_add(1, Ordering::SeqCst);
                                     assert_eq!(request.uri().host(), Some("cdn.modrinth.com"));
                                     assert!(request.headers().get(header::AUTHORIZATION).is_none());
-                                    assert!(request.headers().get(crate::util::fetch::DOWNLOAD_META_HEADER).is_none());
+                                    assert!(request.headers().get(crate::util::download::constants::DOWNLOAD_META_HEADER).is_none());
                                     if matches!(kind, ResponseKind::RateLimited) {
                                         let response = http::Response::builder().status(429)
                                             .header(header::RETRY_AFTER, "30").header(header::CONTENT_LENGTH, 0)
@@ -191,7 +191,7 @@ impl TlsFixture {
                                 || line.starts_with(&format!("host: {expected_host}:"))));
                             if !matches!(kind, ResponseKind::Redirect) {
                                 assert!(!request.contains("authorization:"));
-                                assert!(!request.contains(crate::util::fetch::DOWNLOAD_META_HEADER));
+                                assert!(!request.contains(crate::util::download::constants::DOWNLOAD_META_HEADER));
                             }
                             if matches!(kind, ResponseKind::SlowFile | ResponseKind::File) {
                                 let range = request.lines().find_map(|line| line.strip_prefix("range: bytes="));
@@ -488,7 +488,9 @@ async fn automatic_trial_measures_candidates_with_only_one_recovery_slot_and_res
     let transfer = proxy_context::with_snapshot(clients, async {
         let mut occupied_route = fixture_route();
         occupied_route.proxy = ProxyPolicy::System;
-        let _occupied: Vec<_> = (0..30)
+        let limit =
+            crate::util::download::constants::MAX_CONNECTIONS_PER_AUTHORITY;
+        let _occupied: Vec<_> = (0..limit - 2)
             .map(|_| {
                 crate::util::download::native_budget::try_acquire(
                     &occupied_route,
@@ -599,7 +601,11 @@ async fn production_reqwest_requests_and_retries_follow_new_selection_without_dn
         )
         .await
         .unwrap();
-    assert_eq!(crate::util::download::native_budget::available(&route), 31);
+    let limit = crate::util::download::constants::MAX_CONNECTIONS_PER_AUTHORITY;
+    assert_eq!(
+        crate::util::download::native_budget::available(&route),
+        limit - 1
+    );
     let budget = response
         .extensions()
         .get::<crate::util::download::native_request::ResponseBudget>()
@@ -607,9 +613,15 @@ async fn production_reqwest_requests_and_retries_follow_new_selection_without_dn
         .unwrap();
     assert_eq!(response.remote_addr(), Some(second.address));
     assert_eq!(response.bytes().await.unwrap().len(), 65536);
-    assert_eq!(crate::util::download::native_budget::available(&route), 31);
+    assert_eq!(
+        crate::util::download::native_budget::available(&route),
+        limit - 1
+    );
     drop(budget);
-    assert_eq!(crate::util::download::native_budget::available(&route), 32);
+    assert_eq!(
+        crate::util::download::native_budget::available(&route),
+        limit
+    );
 }
 
 #[tokio::test]
@@ -709,7 +721,7 @@ async fn legacy_memory_cdn_fetch_holds_physical_budget_until_body_or_cancellatio
         let mut route = route;
         route.proxy = ProxyPolicy::System;
         let initial = native_budget::available(&route);
-        let fetch = crate::util::fetch::fetch_official(&route.url, None, None, None, &semaphore, &pool);
+        let fetch = crate::util::fetch::fetch_official(&route.url, None, None, None, &semaphore, );
         tokio::pin!(fetch);
         tokio::select! {
             result = &mut fetch => panic!("slow body completed before cancellation: {result:?}"),
@@ -730,7 +742,10 @@ async fn legacy_memory_cdn_fetch_holds_physical_budget_until_body_or_cancellatio
     proxy_context::with_snapshot(audit_clients, async {
         let mut route = fixture_route();
         route.proxy = ProxyPolicy::System;
-        assert_eq!(native_budget::available(&route), 32);
+        assert_eq!(
+            native_budget::available(&route),
+            crate::util::download::constants::MAX_CONNECTIONS_PER_AUTHORITY
+        );
     })
     .await;
 }

@@ -1,0 +1,26 @@
+{
+  "db_name": "SQLite",
+  "query": "\n            SELECT had_file AS \"had_file!: bool\", document\n            FROM instance_game_option_update_state\n            WHERE instance_id = ?\n            ",
+  "describe": {
+    "columns": [
+      {
+        "name": "had_file!: bool",
+        "ordinal": 0,
+        "type_info": "Integer"
+      },
+      {
+        "name": "document",
+        "ordinal": 1,
+        "type_info": "Blob"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false,
+      true
+    ]
+  },
+  "hash": "cce5e8e38abd30f0743082ac7638005f4ad798cc7f372a158a16d593ff63f858"
+}

@@ -32,10 +32,10 @@ jobs:
       frontend: ${{ steps.scope.outputs.frontend }}
       website: ${{ steps.scope.outputs.website }}
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
-      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version-file: .nvmrc
       - name: Determine checks since the last successful CI
@@ -50,13 +50,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
       - name: Setup pnpm
-        uses: pnpm/action-setup@008330803749db0355799c700092d9a85fd074e9 # v6.0.9
+        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
       - name: Setup Node.js
-        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version-file: .nvmrc
           cache: pnpm
@@ -71,8 +71,9 @@ jobs:
         run: |
           node --test scripts/axolotl/ci-changes.test.mjs
           node --test scripts/axolotl/release-policy.test.mjs
+          node --test scripts/axolotl/aliyunoss-release.test.mjs
           node --test scripts/axolotl/set-version.test.mjs
-          node --test scripts/axolotl/update-manifest.test.mjs scripts/axolotl/finalize-github-release.test.mjs scripts/axolotl/publish-update-server.test.mjs scripts/axolotl/cnb-release.test.mjs scripts/axolotl/create-website-release-metadata.test.mjs
+          node --test scripts/axolotl/update-manifest.test.mjs scripts/axolotl/finalize-github-release.test.mjs scripts/axolotl/publish-update-server.test.mjs scripts/axolotl/cnb-release.test.mjs scripts/axolotl/gitlink-release.test.mjs scripts/axolotl/create-website-release-metadata.test.mjs
           node scripts/axolotl/create-update-server-catalog.test.mjs
           node scripts/axolotl/check-migrations.mjs --base "${MIGRATION_BASE_REF:-HEAD^}"
           node scripts/axolotl/check-migrations.mjs --release
@@ -100,6 +101,41 @@ jobs:
         run: node --test scripts/axolotl/create-release-notes.test.mjs
       - name: Check Discord release notifications
         run: node --test scripts/axolotl/publish-discord-release.test.mjs
+      - name: Check scheduler resource gates
+        # Advisory until the team adopts the scheduler policy: these gates fail
+        # on any new lock, spawn or std::fs site until its policy entry lands.
+        continue-on-error: true
+        # Every gate runs even after one fails; the step fails at the end and
+        # names each failed gate.
+        run: |
+          failed=()
+          # Usage: gate <highest accepted exit code> <command...>
+          gate() {
+            local accepted=$1 status=0
+            shift
+            "$@" || status=$?
+            if [ "$status" -gt "$accepted" ]; then
+              failed+=("$* (exit $status)")
+              echo "::error::scheduler gate failed: $* (exit $status)"
+            fi
+          }
+          gate 0 node scripts/axolotl/sched-resource-inventory.mjs
+          gate 0 node scripts/axolotl/sched-resource-golden-check.mjs
+          gate 0 node --test scripts/axolotl/sched-resource-fixtures.test.mjs scripts/axolotl/sched-gates.test.mjs
+          gate 0 node scripts/axolotl/sched-resource-consistency-check.mjs
+          gate 0 node scripts/axolotl/sched-leaf-primitive-check.mjs
+          gate 0 node scripts/axolotl/sched-l0-resource-check.mjs
+          gate 0 node scripts/axolotl/sched-level-predicate-check.mjs
+          gate 0 node scripts/axolotl/sched-bare-spawn-check.mjs
+          # Exit 1 from these two means the design falls back to per-family
+          # orders (an accepted outcome); only other codes fail.
+          gate 1 node scripts/axolotl/sched-recall-gap-gate.mjs
+          gate 1 node scripts/axolotl/sched-order-annotation-check.mjs
+          if [ "${#failed[@]}" -gt 0 ]; then
+            printf 'failed scheduler gates:\n'
+            printf '  %s\n' "${failed[@]}"
+            exit 1
+          fi
       - name: Check formatting of Rust code
         run: cargo fmt --all --check
 
@@ -113,13 +149,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           submodules: recursive
       - name: Setup pnpm
-        uses: pnpm/action-setup@008330803749db0355799c700092d9a85fd074e9 # v6.0.9
+        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
       - name: Setup Node.js
-        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version-file: .nvmrc
           cache: pnpm
@@ -151,13 +187,13 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout code
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           submodules: recursive
       - name: Setup pnpm
-        uses: pnpm/action-setup@008330803749db0355799c700092d9a85fd074e9 # v6.0.9
+        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
       - name: Setup Node.js
-        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version-file: .nvmrc
           cache: pnpm
@@ -165,8 +201,10 @@ jobs:
         run: pnpm install --frozen-lockfile
       - name: Prepare build resources
         run: node scripts/axolotl/prepare-build-resources.mjs
+      - name: Test Java agent cache and offline behavior
+        run: node --test scripts/axolotl/java-build.test.mjs
       - name: Upload build resources
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: desktop-resources
           path: target/build-resources/
@@ -185,9 +223,13 @@ jobs:
     runs-on: ${{ matrix.os }}
     env:
       SQLX_OFFLINE: true
+      # The desktop app runs its async workload on 16 MiB worker stacks
+      # (see apps/app/src/main.rs), while the resource export tests need more
+      # than that in the debug test harness.
+      RUST_MIN_STACK: 67108864
     steps:
       - name: Checkout code
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           submodules: recursive
       - name: Setup desktop build
@@ -210,6 +252,49 @@ jobs:
         run: node scripts/axolotl/check-dead-utilities.mjs
       - name: Test version metadata writes
         run: cargo test --package theseus writing_version_info_creates_missing_parent_directory
+      # Runs the CurseForge content pipeline suites (recognition, dependency
+      # selection, install, verification, manual downloads, reconciliation).
+      # Linux only: the code is platform independent and this keeps the matrix
+      # cost to one extra test binary run.
+      - name: Test CurseForge content pipeline
+        if: runner.os == 'Linux'
+        run: cargo test --package theseus curseforge
+      # The rebuildable database: an unknown migration version and an
+      # unreadable file both leave it disabled, keeping the file, without
+      # failing startup. Hermetic (temp dirs + sqlite).
+      - name: Test derived database
+        if: runner.os == 'Linux'
+        run: cargo test --package theseus derived_db
+      # The settings documents: a document answers for its domain, and a key it
+      # leaves out stays at its default instead of returning to the row.
+      # Hermetic (in-memory sqlite + temp dirs).
+      - name: Test settings documents
+        if: runner.os == 'Linux'
+        run: cargo test --package theseus state::documents
+      # The account secrets: a row keeps a secret the credential store will not
+      # take, and moving the rows into the store keeps the rows it already moved.
+      # Hermetic (in-memory sqlite, and a store substituted for the platform's).
+      - name: Test account secrets
+        if: runner.os == 'Linux'
+        run: |
+          cargo test --package theseus store::tests::secrets
+          cargo test --package theseus marks_whose_account_secrets_were_moved
+      # The refresh state lives in the derived database now, so deleting an
+      # instance has to take its rows with it: the guard is the deletion step.
+      - name: Test refresh state
+        if: runner.os == 'Linux'
+        run: cargo test --package theseus content_refresh
+      - name: Test instance deletion
+        if: runner.os == 'Linux'
+        run: cargo test --package theseus remove_instance
+      # Provider-neutral resource layer: catalog, plans, execution, providers.
+      # Hermetic (in-memory sqlite + temp dirs); Linux only for matrix cost.
+      - name: Test provider-neutral resource layer
+        if: runner.os == 'Linux'
+        run: cargo test --package theseus resources
+      - name: Test Java build fingerprints
+        if: runner.os == 'Linux'
+        run: cargo test --package theseus --test java_build_cache
       - run: cargo check --package theseus_gui --features updater
       - name: Test Windows installer UI and core
         if: runner.os == 'Windows'
@@ -235,35 +320,44 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "Failed to compile NSIS uninstall fixture" }
           & apps/installer-ui/tests/uninstall-smoke.ps1
   website:
-    name: Build website
+    name: Build website (${{ matrix.nitro-preset }})
     needs: [changes, guardrails]
     if: needs.changes.outputs.website == 'true'
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        nitro-preset: [static, cloudflare-module]
     steps:
       - name: Checkout code
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Setup pnpm
-        uses: pnpm/action-setup@008330803749db0355799c700092d9a85fd074e9 # v6.0.9
+        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
       - name: Setup Node.js
-        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version-file: .nvmrc
           cache: pnpm
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+      - name: Test website
+        run: pnpm --filter @axolotl/website test
       - name: Build website
+        env:
+          NITRO_PRESET: ${{ matrix.nitro-preset }}
         run: pnpm --filter @axolotl/website build
 
   desktop-ci-result:
     name: Desktop CI result
-    if: always()
+    # Report failed checks, but skip the gate when a newer run cancels this workflow.
+    if: ${{ !cancelled() }}
     needs: [changes, guardrails, frontend, resources, desktop, website]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Setup Node.js
-        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version-file: .nvmrc
       - name: Require all selected checks to pass

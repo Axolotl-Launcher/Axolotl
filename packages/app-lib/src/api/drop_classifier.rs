@@ -1178,7 +1178,10 @@ fn validate_zip_extraction_budget<R: std::io::Read + std::io::Seek>(
         let entry = archive.by_index_raw(index).map_err(|error| {
             format!("Cannot inspect ZIP entry {index}: {error}")
         })?;
-        if entry.name().is_empty() {
+        let name = entry.name().map_err(|error| {
+            format!("Cannot read ZIP entry name {index}: {error}")
+        })?;
+        if name.is_empty() {
             continue;
         }
         entries += 1;
@@ -1224,17 +1227,19 @@ fn extract_all_with_cancellation(
     }
 
     // First pass: collect entry metadata while the archive is mutable-borrowed.
-    let entries: Vec<(usize, String, bool)> = (0..archive.len())
-        .filter_map(|i| {
-            let entry = archive.by_index_raw(i).ok()?;
-            let name = entry.name().to_string();
-            if name.is_empty() {
-                None
-            } else {
-                Some((i, name.clone(), name.ends_with('/')))
-            }
-        })
-        .collect();
+    let mut entries: Vec<(usize, String, bool)> =
+        Vec::with_capacity(archive.len());
+    for index in 0..archive.len() {
+        let entry = archive.by_index_raw(index).map_err(|error| {
+            format!("Cannot inspect ZIP entry {index}: {error}")
+        })?;
+        let name = entry.name().map_err(|error| {
+            format!("Cannot read ZIP entry name {index}: {error}")
+        })?;
+        if !name.is_empty() {
+            entries.push((index, name.to_string(), name.ends_with('/')));
+        }
+    }
 
     // Second pass: extract. The collect() above has released the mutable
     // borrow, so we can call by_index() here.
@@ -1634,6 +1639,22 @@ fn classify_folder_content_inner(
     if is_cancelled(cancellation) {
         return cancelled_result();
     }
+
+    // A directory explicitly named `.minecraft` is the selected game root.
+    // Resolve it before launcher markers so embedded configuration files do
+    // not redirect scanning to a launcher root or a configured parent path.
+    if path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .is_some_and(|name| name.eq_ignore_ascii_case(".minecraft"))
+    {
+        return DroppedItemType::Launcher {
+            launcher_type: ImportLauncherType::Generic,
+            base_path: path.to_path_buf(),
+            inner_base: None,
+        };
+    }
+
     // Check launcher signatures in priority order.
     if is_axolotl_folder(path) {
         return DroppedItemType::Launcher {
@@ -1687,22 +1708,6 @@ fn classify_folder_content_inner(
         return DroppedItemType::HmclLauncher {
             launcher_dir: path.to_path_buf(),
             data_dir,
-        };
-    }
-
-    // A directly dropped `.minecraft` directory is an external game
-    // directory, even when it does not contain a complete launcher instance
-    // manifest yet. Route it through the GameDir import flow so it is not
-    // mistaken for a normal instance folder.
-    if path
-        .file_name()
-        .and_then(|name| name.to_str())
-        .is_some_and(|name| name.eq_ignore_ascii_case(".minecraft"))
-    {
-        return DroppedItemType::Launcher {
-            launcher_type: ImportLauncherType::Generic,
-            base_path: path.to_path_buf(),
-            inner_base: None,
         };
     }
 
@@ -2476,7 +2481,7 @@ pub async fn lookup_mod_hash(
     let files = crate::state::CachedEntry::get_file_many(
         &[&hash],
         Some(crate::state::CacheBehaviour::StaleWhileRevalidateSkipOffline),
-        &state.pool,
+        state.cache_pool(),
         &state.api_semaphore,
     )
     .await?;
@@ -2489,7 +2494,7 @@ pub async fn lookup_mod_hash(
     let version = crate::state::CachedEntry::get_version(
         &ModrinthVersionId::new(file.version_id.clone())?,
         Some(crate::state::CacheBehaviour::StaleWhileRevalidateSkipOffline),
-        &state.pool,
+        state.cache_pool(),
         &state.api_semaphore,
     )
     .await?;
@@ -2498,7 +2503,7 @@ pub async fn lookup_mod_hash(
         crate::state::CachedEntry::get_project(
             &ModrinthProjectId::new(v.project_id.clone())?,
             Some(crate::state::CacheBehaviour::StaleWhileRevalidateSkipOffline),
-            &state.pool,
+            state.cache_pool(),
             &state.api_semaphore,
         )
         .await?
@@ -2654,6 +2659,29 @@ mod tests {
         assert!(
             matches!(result, DroppedItemType::Launcher { launcher_type, .. } if launcher_type == ImportLauncherType::MultiMC),
             "folder with multimc.cfg should be MultiMC launcher"
+        );
+    }
+
+    #[test]
+    fn selected_dot_minecraft_folder_is_not_misclassified_as_hmcl_root() {
+        let dir = tempdir().expect("temp dir");
+        let minecraft = dir.path().join(".minecraft");
+        let hmcl_config = minecraft.join(".hmcl/config/launcher-settings.json");
+        std::fs::create_dir_all(hmcl_config.parent().unwrap())
+            .expect("create HMCL config directory");
+        std::fs::write(&hmcl_config, "{}").expect("write HMCL config");
+
+        let result = classify_dropped_item(&minecraft);
+        assert!(
+            matches!(
+                result,
+                DroppedItemType::Launcher {
+                    launcher_type: ImportLauncherType::Generic,
+                    ref base_path,
+                    ..
+                } if base_path == &minecraft
+            ),
+            "a selected .minecraft directory should remain the game root: {result:?}"
         );
     }
 

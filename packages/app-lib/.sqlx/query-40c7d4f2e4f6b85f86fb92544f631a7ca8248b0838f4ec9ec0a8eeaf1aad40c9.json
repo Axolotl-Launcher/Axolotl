@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "\n        UPDATE instances\n        SET pinned_at = ?, modified = ?\n        WHERE id = ?\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 3
+    },
+    "nullable": []
+  },
+  "hash": "40c7d4f2e4f6b85f86fb92544f631a7ca8248b0838f4ec9ec0a8eeaf1aad40c9"
+}

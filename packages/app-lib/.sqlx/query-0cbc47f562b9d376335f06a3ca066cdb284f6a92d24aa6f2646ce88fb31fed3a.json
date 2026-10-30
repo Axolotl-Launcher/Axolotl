@@ -1,0 +1,20 @@
+{
+  "db_name": "SQLite",
+  "query": "\n        SELECT EXISTS(\n            SELECT 1 FROM instance_server_pack_state WHERE instance_id = ?\n        ) AS \"exists!: bool\"\n        ",
+  "describe": {
+    "columns": [
+      {
+        "name": "exists!: bool",
+        "ordinal": 0,
+        "type_info": "Integer"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "0cbc47f562b9d376335f06a3ca066cdb284f6a92d24aa6f2646ce88fb31fed3a"
+}

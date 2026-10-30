@@ -1,3 +1,5 @@
+import '@modrinth/ui/directives/tooltip-styles.ts'
+
 import { I18N_INJECTION_KEY } from '@modrinth/ui'
 import { tooltipDirective } from '@modrinth/ui/directives/tooltip.ts'
 import { flushPromises, type VueWrapper } from '@vue/test-utils'
@@ -23,6 +25,27 @@ const backend = vi.hoisted(() => ({
     notify: undefined as (() => void) | undefined,
     terminal: undefined as Terminal | undefined,
 }))
+// Keep the real controls and providers without loading the entire UI barrel
+// (editors, maps and other unrelated dependency graphs) in this terminal suite.
+vi.mock('@modrinth/ui', async () => {
+    const [button, input, intl, i18n, notifications, messages] = await Promise.all([
+        import('@modrinth/ui/src/components/base/buttons/Button.vue'),
+        import('@modrinth/ui/src/components/base/StyledInput.vue'),
+        import('@modrinth/ui/src/composables/i18n'),
+        import('@modrinth/ui/src/providers/i18n'),
+        import('@modrinth/ui/src/providers/web-notifications'),
+        import('@modrinth/ui/src/utils/common-messages'),
+    ])
+    return {
+        Button: button.default,
+        StyledInput: input.default,
+        defineMessages: intl.defineMessages,
+        useVIntl: intl.useVIntl,
+        I18N_INJECTION_KEY: i18n.I18N_INJECTION_KEY,
+        injectNotificationManager: notifications.injectNotificationManager,
+        commonMessages: messages.commonMessages,
+    }
+})
 vi.mock('@tauri-apps/plugin-dialog', () => ({ save: backend.save }))
 vi.mock('@tauri-apps/plugin-fs', () => ({ writeTextFile: backend.write }))
 vi.mock('@/helpers/servers', () => ({

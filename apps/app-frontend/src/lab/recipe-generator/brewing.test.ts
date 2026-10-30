@@ -1,5 +1,4 @@
-import assert from 'node:assert/strict'
-import test from 'node:test'
+import { expect, it } from 'vitest'
 
 import { createDatapackFiles } from './datapack.ts'
 import {
@@ -21,7 +20,7 @@ const ctx: RecipeSlotContext = {
     customTagsByUid: {},
 }
 
-test('brewing matches vanilla 26.3 input predicate and output component shapes', () => {
+it('brewing matches vanilla 26.3 input predicate and output component shapes', () => {
     const state = createDefaultRecipeState('brewing')
     state.slots = {
         'brewing.input': { kind: 'item', id: 'minecraft:potion' },
@@ -33,7 +32,7 @@ test('brewing matches vanilla 26.3 input predicate and output component shapes',
         inputPotion: 'minecraft:water',
         outputPotion: 'minecraft:awkward',
     }
-    assert.deepEqual(generateJavaRecipe(state, '26.3', ctx), {
+    expect(generateJavaRecipe(state, '26.3', ctx)).toEqual({
         type: 'minecraft:brewing',
         input: { item: 'minecraft:potion', potion_contents: { potions: 'minecraft:water' } },
         reagent: { item: 'minecraft:nether_wart' },
@@ -42,12 +41,14 @@ test('brewing matches vanilla 26.3 input predicate and output component shapes',
             components: { 'minecraft:potion_contents': { potion: 'minecraft:awkward' } },
         },
     })
-    assert.deepEqual(validateRecipe(state, '26.3', ctx), [])
-    assert.throws(() => generateJavaRecipe(state, '26.2', ctx))
-    assert.ok(validateRecipe(state, '26.2', ctx).some((issue) => issue.code === 'unsupported-type'))
+    expect(validateRecipe(state, '26.3', ctx)).toEqual([])
+    expect(() => generateJavaRecipe(state, '26.2', ctx)).toThrow()
+    expect(
+        validateRecipe(state, '26.2', ctx).some((issue) => issue.code === 'unsupported-type'),
+    ).toBeTruthy()
 })
 
-test('brewing supports arbitrary items, counts, predicates and components', () => {
+it('brewing supports arbitrary items, counts, predicates and components', () => {
     const state = createDefaultRecipeState('brewing')
     state.slots = {
         'brewing.input': { kind: 'item', id: 'minecraft:bucket' },
@@ -57,27 +58,27 @@ test('brewing supports arbitrary items, counts, predicates and components', () =
     state.brewing!.reagentPredicate = '{"components":{"minecraft:custom_data":{"quality":1}}}'
     state.brewing!.outputComponents = '{"minecraft:custom_name":"Custom bucket"}'
     const output = generateJavaRecipe(state, '26.3', ctx)
-    assert.deepEqual(output.output, {
+    expect(output.output).toEqual({
         id: 'minecraft:sulfur_cube_bucket',
         count: 2,
         components: { 'minecraft:custom_name': 'Custom bucket' },
     })
-    assert.deepEqual(output.reagent, {
+    expect(output.reagent).toEqual({
         item: 'minecraft:potent_sulfur',
         components: { 'minecraft:custom_data': { quality: 1 } },
     })
     for (const invalid of ['{', '[]', 'null', '"value"']) {
         state.brewing!.outputComponents = invalid
-        assert.ok(
+        expect(
             validateRecipe(state, '26.3', ctx).some(
                 (issue) => issue.code === 'invalid-brewing-json',
             ),
-        )
-        assert.throws(() => generateJavaRecipe(state, '26.3', ctx))
+        ).toBeTruthy()
+        expect(() => generateJavaRecipe(state, '26.3', ctx)).toThrow()
     }
 })
 
-test('v1 projects migrate without changing game version, recipe data or custom resources', () => {
+it('v1 projects migrate without changing game version, recipe data or custom resources', () => {
     const old = createDefaultRecipeGeneratorStore()
     old.selectedVersion = '26.2'
     old.recipes[0].cooking.time = 73
@@ -91,13 +92,13 @@ test('v1 projects migrate without changing game version, recipe data or custom r
         },
     ]
     const migrated = migrateRecipeProject({ ...old, version: 1 })
-    assert.equal(migrated.version, 2)
-    assert.equal(migrated.selectedVersion, '26.2')
-    assert.equal(migrated.recipes[0].cooking.time, 73)
-    assert.deepEqual(migrated.customItems, old.customItems)
+    expect(migrated.version).toBe(2)
+    expect(migrated.selectedVersion).toBe('26.2')
+    expect(migrated.recipes[0].cooking.time).toBe(73)
+    expect(migrated.customItems).toEqual(old.customItems)
 })
 
-test('version switching preserves brewing fields and actual blast/smoker processing ticks', () => {
+it('version switching preserves brewing fields and actual blast/smoker processing ticks', () => {
     const project = createDefaultRecipeGeneratorStore()
     project.selectedVersion = '26.2'
     const blast = createDefaultRecipeState('blasting')
@@ -106,25 +107,25 @@ test('version switching preserves brewing fields and actual blast/smoker process
     brew.brewing!.outputPotion = 'minecraft:strength'
     project.recipes = [blast, brew]
     switchRecipeProjectVersion(project, '26.3')
-    assert.equal(blast.cooking.time, 202)
-    assert.equal(defaultCookingTime('blasting', '26.3'), 200)
-    assert.equal(defaultCookingTime('smoking', '26.2'), 100)
+    expect(blast.cooking.time).toBe(202)
+    expect(defaultCookingTime('blasting', '26.3')).toBe(200)
+    expect(defaultCookingTime('smoking', '26.2')).toBe(100)
     blast.cooking.time = 201
     switchRecipeProjectVersion(project, '26.2')
-    assert.equal(blast.cooking.time, 101)
-    assert.equal(brew.recipeType, 'brewing')
-    assert.equal(brew.brewing!.outputPotion, 'minecraft:strength')
-    assert.equal(defaultCookingTime('smelting', '26.3'), 200)
-    assert.equal(defaultCookingTime('campfire_cooking', '26.3'), 100)
+    expect(blast.cooking.time).toBe(101)
+    expect(brew.recipeType).toBe('brewing')
+    expect(brew.brewing!.outputPotion).toBe('minecraft:strength')
+    expect(defaultCookingTime('smelting', '26.3')).toBe(200)
+    expect(defaultCookingTime('campfire_cooking', '26.3')).toBe(100)
 })
 
-test('26.3 datapack exports brewing recipes with the exact format range', () => {
+it('26.3 datapack exports brewing recipes with the exact format range', () => {
     const files = createDatapackFiles(
         '26.3',
         [{ name: 'test_brew', json: { type: 'minecraft:brewing' } }],
         [],
     )
     const metadata = files.find((file) => file.path === 'pack.mcmeta')!
-    assert.deepEqual(JSON.parse(metadata.content as string).pack.min_format, [121, 0])
-    assert.ok(files.some((file) => file.path.endsWith('/recipe/test_brew.json')))
+    expect(JSON.parse(metadata.content as string).pack.min_format).toEqual([121, 0])
+    expect(files.some((file) => file.path.endsWith('/recipe/test_brew.json'))).toBeTruthy()
 })

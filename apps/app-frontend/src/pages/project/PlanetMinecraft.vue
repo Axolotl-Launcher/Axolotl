@@ -1,6 +1,13 @@
 <script setup lang="ts">
 import { DownloadIcon, ExternalIcon, FileArchiveIcon, SpinnerIcon } from '@modrinth/assets'
-import { Button, Card, defineMessages, injectNotificationManager, useVIntl } from '@modrinth/ui'
+import {
+    Button,
+    Card,
+    commonMessages,
+    defineMessages,
+    injectNotificationManager,
+    useVIntl,
+} from '@modrinth/ui'
 import { open } from '@tauri-apps/plugin-dialog'
 import { openUrl } from '@tauri-apps/plugin-opener'
 import { computed, onScopeDispose, ref, watch } from 'vue'
@@ -11,9 +18,12 @@ import InstanceIcon from '@/components/ui/InstanceIcon.vue'
 import ResourceDescription from '@/components/ui/ResourceDescription.vue'
 import ResourceOperationPreviewModal from '@/components/ui/ResourceOperationPreviewModal.vue'
 import { getPlanetMinecraftProject, type PlanetMinecraftVersion } from '@/helpers/planet-minecraft'
+import { readProjectPreviewTitle } from '@/helpers/project-preview'
 import { injectContentSelection } from '@/providers/content-selection'
 import { injectDownloadManager } from '@/providers/download-manager'
 import { useBreadcrumbs } from '@/store/breadcrumbs'
+
+import SourceProjectSkeleton from './SourceProjectSkeleton.vue'
 
 type PlanetMinecraftContentInstallRequest = {
     projectId: string
@@ -22,6 +32,7 @@ type PlanetMinecraftContentInstallRequest = {
 }
 
 const route = useRoute()
+const previewTitle = computed(() => readProjectPreviewTitle(route.path))
 const { formatMessage } = useVIntl()
 const { handleError } = injectNotificationManager()
 const contentSelection = injectContentSelection()
@@ -47,10 +58,6 @@ const messages = defineMessages({
         id: 'app.project.planet-minecraft.unavailable',
         defaultMessage:
             'This Planet Minecraft project is unavailable. Reopen the project and try again.',
-    },
-    loading: {
-        id: 'app.project.planet-minecraft.loading',
-        defaultMessage: 'Loading Planet Minecraft project…',
     },
     chooseInstance: { id: 'app.browse.choose-instance', defaultMessage: 'Choose instance' },
     versions: { id: 'app.project.planet-minecraft.versions', defaultMessage: 'Downloads' },
@@ -208,34 +215,32 @@ async function importDownloadedFile() {
     }
 }
 
+async function loadProject(id = route.params.id) {
+    if (typeof id !== 'string' || !id) return
+    projectRequest?.abort()
+    const request = new AbortController()
+    projectRequest = request
+    operationGeneration++
+    void preview.value?.cancel()
+    busyVersionId.value = null
+    project.value = null
+    manualDownload.value = null
+    loading.value = true
+    try {
+        const result = await getPlanetMinecraftProject(id, request.signal)
+        request.signal.throwIfAborted()
+        project.value = result
+        breadcrumbs.setName('Project', project.value.title)
+        breadcrumbs.setNameIcon('Project', project.value.icon_url ?? project.value.iconUrl ?? null)
+    } catch (error) {
+        if (!request.signal.aborted) handleError(error)
+    } finally {
+        if (projectRequest === request) loading.value = false
+    }
+}
 watch(
     () => route.params.id,
-    async (id) => {
-        if (typeof id !== 'string' || !id) return
-        projectRequest?.abort()
-        const request = new AbortController()
-        projectRequest = request
-        operationGeneration++
-        void preview.value?.cancel()
-        busyVersionId.value = null
-        project.value = null
-        manualDownload.value = null
-        loading.value = true
-        try {
-            const result = await getPlanetMinecraftProject(id, request.signal)
-            request.signal.throwIfAborted()
-            project.value = result
-            breadcrumbs.setName('Project', project.value.title)
-            breadcrumbs.setNameIcon(
-                'Project',
-                project.value.icon_url ?? project.value.iconUrl ?? null,
-            )
-        } catch (error) {
-            if (!request.signal.aborted) handleError(error)
-        } finally {
-            if (projectRequest === request) loading.value = false
-        }
-    },
+    (id) => void loadProject(id),
     { immediate: true },
 )
 
@@ -252,12 +257,7 @@ void contentSelection
 </script>
 
 <template>
-    <div
-        v-if="loading"
-        class="flex min-h-64 items-center justify-center gap-3 p-6 text-[var(--color-text-tertiary)]"
-    >
-        <SpinnerIcon class="animate-spin" /> {{ formatMessage(messages.loading) }}
-    </div>
+    <SourceProjectSkeleton v-if="loading" :title="previewTitle" />
     <div v-else-if="project" class="mx-auto flex w-full max-w-5xl flex-col gap-5 p-6">
         <section class="flex flex-wrap items-start justify-between gap-3">
             <div class="min-w-0">
@@ -335,6 +335,15 @@ void contentSelection
                 </Button>
             </Card>
         </section>
+    </div>
+    <div v-else class="mx-auto flex w-full max-w-5xl flex-col gap-5 p-6">
+        <h1 v-if="previewTitle" class="m-0 text-2xl font-bold text-[var(--color-text-primary)]">
+            {{ previewTitle }}
+        </h1>
+        <Card class="flex flex-wrap items-center gap-3" role="alert">
+            <span>{{ formatMessage(messages.unavailable) }}</span>
+            <Button @click="loadProject()">{{ formatMessage(commonMessages.retryButton) }}</Button>
+        </Card>
     </div>
     <ResourceOperationPreviewModal ref="preview" />
     <BrowseInstanceSelector

@@ -140,7 +140,6 @@ pub(super) async fn download_server_file(
         request,
         &destination,
         &state.download_semaphore,
-        &state.pool,
         Some(progress.as_mut()),
     )
     .await?;

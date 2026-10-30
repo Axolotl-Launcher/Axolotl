@@ -1,7 +1,13 @@
 import fs from 'node:fs'
 import path from 'node:path'
 
-import { assetDownloadUrl, isMain, releaseVersion, verifyRelease } from './release-utils.mjs'
+import {
+    assetDownloadUrl,
+    assetSha256,
+    isMain,
+    releaseVersion,
+    verifyRelease,
+} from './release-utils.mjs'
 
 export const updaterTargets = [
     { platforms: ['darwin-aarch64', 'darwin-x86_64'], assetSuffix: '_universal.app.tar.gz' },
@@ -31,9 +37,10 @@ export function createUpdateManifest(release, signaturesPath, tag) {
         const signature = fs.readFileSync(signaturePath, 'utf8')
         if (signature.trim().length < 32)
             throw new Error(`Invalid updater signature ${asset.name}.sig`)
+        const sha256 = assetSha256(asset)
         // Draft release metadata can contain temporary untagged download URLs.
         const url = assetDownloadUrl(tag, asset.name)
-        for (const platform of target.platforms) platforms[platform] = { signature, url }
+        for (const platform of target.platforms) platforms[platform] = { signature, url, sha256 }
     }
     return {
         version: releaseVersion(tag),

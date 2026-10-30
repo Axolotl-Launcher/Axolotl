@@ -152,9 +152,11 @@ export type AppSettings = DohSettings & {
     theme: ColorTheme
     accent_color: AccentColorSetting
     locale: string
+    default_game_language: string
     default_page: 'Home' | 'DiscoverContent' | 'Library'
     collapsed_navigation: boolean
     hide_nametag_skins_page: boolean
+    nametag_uses_app_font: boolean
     advanced_rendering: boolean
     native_decorations: boolean
     toggle_sidebar: boolean
@@ -234,6 +236,7 @@ type LegacyMirrorSettings = {
 function normalizeDownloadSettings(settings: AppSettings & LegacyMirrorSettings): AppSettings {
     settings.close_behavior ??= 'ask'
     settings.log_level ??= 'info'
+    settings.default_game_language ??= ''
     const hasLegacySettings =
         typeof settings.use_minecraft_mirror === 'boolean' &&
         typeof settings.use_modrinth_mirror === 'boolean' &&
@@ -278,6 +281,7 @@ function normalizeDownloadSettings(settings: AppSettings & LegacyMirrorSettings)
     settings.custom_background_component_opacity ??= 100
     settings.ui_font ??= null
     settings.mono_font ??= null
+    settings.nametag_uses_app_font ??= false
     settings.feature_flags ??= { ...DEFAULT_FEATURE_FLAGS }
     settings.sync_features_across_devices ??= false
     settings.show_files_tab_in_instances ??= true

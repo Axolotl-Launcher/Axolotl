@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "UPDATE game_option_locale_origins SET origin_json = ?\n        WHERE scope = ? AND option_id = ? AND origin_json IS NULL",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 3
+    },
+    "nullable": []
+  },
+  "hash": "8db6782c15e413885100e94f86da78365a974049e0ab4e68bd91701d3b6bd89a"
+}

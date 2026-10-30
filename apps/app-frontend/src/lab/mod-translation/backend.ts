@@ -1,6 +1,7 @@
 import { invoke } from '@tauri-apps/api/core'
 import { listen, type UnlistenFn } from '@tauri-apps/api/event'
 
+import { abortable } from '../../helpers/abortable.ts'
 import type {
     ModTranslationAnalysis,
     ModTranslationOptions,
@@ -11,9 +12,27 @@ export { modTranslationPercent } from './job-state.ts'
 
 const TASK_EVENT = 'mod-translation-task-event'
 
-export async function analyzeMod(inputPath: string): Promise<ModTranslationAnalysis> {
-    return await invoke<ModTranslationAnalysis>('plugin:mod-translation|mod_translation_analyze', {
-        inputPath,
+/**
+ * Analyzes a mod JAR. Aborting stops the native analysis at its next
+ * checkpoint; `onStop` receives the acknowledgement of that stop request.
+ */
+export async function analyzeMod(
+    inputPath: string,
+    signal?: AbortSignal,
+    onStop?: (confirmation: Promise<unknown>) => void,
+): Promise<ModTranslationAnalysis> {
+    signal?.throwIfAborted()
+    const requestId = crypto.randomUUID()
+    const request = invoke<ModTranslationAnalysis>(
+        'plugin:mod-translation|mod_translation_analyze',
+        { inputPath, requestId },
+    )
+    return await abortable(request, signal, () => {
+        const stopped = invoke('plugin:mod-translation|mod_translation_cancel_analysis', {
+            requestId,
+        })
+        onStop?.(stopped)
+        void stopped.catch(() => {})
     })
 }
 

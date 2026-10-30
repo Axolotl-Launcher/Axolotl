@@ -1,5 +1,4 @@
-import assert from 'node:assert/strict'
-import test from 'node:test'
+import { expect, it } from 'vitest'
 
 import {
     effectiveInstallProgress,
@@ -27,7 +26,7 @@ function progressJob(overrides: Record<string, unknown> = {}) {
     }
 }
 
-test('content snapshots preserve displayed bytes without losing new item state', () => {
+it('content snapshots preserve displayed bytes without losing new item state', () => {
     const before = {
         ...progressJob(),
         kind: 'change_content',
@@ -41,23 +40,23 @@ test('content snapshots preserve displayed bytes without losing new item state',
         items: [{ status: 'completed' }],
     }
     const merged = preserveMonotonicProgress(before, next)
-    assert.equal(installProgressFraction(merged), 0.8)
-    assert.equal(merged.summary.files_completed, 1)
-    assert.equal(merged.items[0].status, 'completed')
-    assert.equal(next.summary.bytes_downloaded, 60)
+    expect(installProgressFraction(merged)).toBe(0.8)
+    expect(merged.summary.files_completed).toBe(1)
+    expect(merged.items[0].status).toBe('completed')
+    expect(next.summary.bytes_downloaded).toBe(60)
 })
 
-test('new phases, retries and terminal results retain authoritative progress', () => {
+it('new phases, retries and terminal results retain authoritative progress', () => {
     const before = { ...progressJob(), progress: { current: 80, total: 100 } }
     for (const next of [
         { ...before, phase: 'applying_content', progress: { current: 0, total: 100 } },
         { ...before, status: 'queued', progress: { current: 0, total: 100 } },
         { ...before, status: 'failed', progress: { current: 60, total: 100 } },
     ])
-        assert.equal(preserveMonotonicProgress(before, next), next)
+        expect(preserveMonotonicProgress(before, next)).toBe(next)
 })
 
-test('modpack secondary byte progress remains monotonic', () => {
+it('modpack secondary byte progress remains monotonic', () => {
     const before = {
         ...progressJob(),
         phase: 'downloading_content',
@@ -68,11 +67,11 @@ test('modpack secondary byte progress remains monotonic', () => {
         progress: { current: 2, total: 3, secondary: { current: 60, total: 100 } },
     }
     const merged = preserveMonotonicProgress(before, next)
-    assert.equal(installProgressFraction(merged), 0.8)
-    assert.equal(merged.progress.current, 2)
+    expect(installProgressFraction(merged)).toBe(0.8)
+    expect(merged.progress.current).toBe(2)
 })
 
-test('CurseForge modpacks use settled file progress for completion', () => {
+it('CurseForge modpacks use settled file progress for completion', () => {
     const job = {
         ...progressJob(),
         provider: 'curse_forge',
@@ -80,11 +79,11 @@ test('CurseForge modpacks use settled file progress for completion', () => {
         progress: { current: 3, total: 3, secondary: { current: 900, total: 1000 } },
     }
 
-    assert.equal(installProgressFraction(job), 1)
-    assert.deepEqual(installProgressTextSource(job), { type: 'items', current: 3, total: 3 })
+    expect(installProgressFraction(job)).toBe(1)
+    expect(installProgressTextSource(job)).toEqual({ type: 'items', current: 3, total: 3 })
 })
 
-test('CurseForge file progress remains monotonic while byte samples change', () => {
+it('CurseForge file progress remains monotonic while byte samples change', () => {
     const before = {
         ...progressJob(),
         provider: 'curse_forge',
@@ -97,11 +96,11 @@ test('CurseForge file progress remains monotonic while byte samples change', () 
     }
     const merged = preserveMonotonicProgress(before, next)
 
-    assert.equal(merged.progress?.current, 8)
-    assert.equal(installProgressFraction(merged), 0.8)
+    expect(merged.progress?.current).toBe(8)
+    expect(installProgressFraction(merged)).toBe(0.8)
 })
 
-test('CurseForge completion switches from byte progress to settled files', () => {
+it('CurseForge completion switches from byte progress to settled files', () => {
     const before = {
         ...progressJob(),
         provider: 'curse_forge',
@@ -114,26 +113,26 @@ test('CurseForge completion switches from byte progress to settled files', () =>
     }
 
     const merged = preserveMonotonicProgress(before, completed)
-    assert.equal(merged.progress?.current, 10)
-    assert.equal(installProgressFraction(merged), 1)
+    expect(merged.progress?.current).toBe(10)
+    expect(installProgressFraction(merged)).toBe(1)
 })
 
-test('clears completed content progress when the next phase has no progress', () => {
+it('clears completed content progress when the next phase has no progress', () => {
     const completed = {
         phase: 'downloading_content',
         progress: { current: 10, total: 10 },
     }
-    assert.equal(installProgressFraction(completed), 1)
+    expect(installProgressFraction(completed)).toBe(1)
 
     const nextPhase = {
         phase: 'downloading_minecraft',
         progress: null,
     }
-    assert.equal(effectiveInstallProgress(nextPhase), null)
-    assert.equal(installProgressFraction(nextPhase), null)
+    expect(effectiveInstallProgress(nextPhase)).toBe(null)
+    expect(installProgressFraction(nextPhase)).toBe(null)
 })
 
-test('CurseForge extraction does not inherit completed download bytes through the monotonic guard', () => {
+it('CurseForge extraction does not inherit completed download bytes through the monotonic guard', () => {
     const downloaded: ProgressTextSnapshot = {
         ...progressJob(),
         provider: 'curse_forge',
@@ -150,14 +149,14 @@ test('CurseForge extraction does not inherit completed download bytes through th
         const next = { ...downloaded, phase, progress: null }
         const merged = preserveMonotonicProgress(downloaded, next)
 
-        assert.equal(merged, next)
-        assert.equal(installProgressFraction(merged), null)
-        assert.equal(hasDeterminateInstallProgress(effectiveInstallProgress(merged)), false)
-        assert.deepEqual(installProgressTextSource(merged), { type: 'phase' })
+        expect(merged).toBe(next)
+        expect(installProgressFraction(merged)).toBe(null)
+        expect(hasDeterminateInstallProgress(effectiveInstallProgress(merged))).toBe(false)
+        expect(installProgressTextSource(merged)).toEqual({ type: 'phase' })
     }
 })
 
-test('CurseForge phase changes can restart progress even with the same total', () => {
+it('CurseForge phase changes can restart progress even with the same total', () => {
     const before = {
         ...progressJob(),
         provider: 'curse_forge',
@@ -166,11 +165,11 @@ test('CurseForge phase changes can restart progress even with the same total', (
     }
     for (const phase of ['extracting_overrides', 'downloading_minecraft']) {
         const next = { ...before, phase, progress: { current: 1, total: 100 } }
-        assert.equal(installProgressFraction(preserveMonotonicProgress(before, next)), 0.01)
+        expect(installProgressFraction(preserveMonotonicProgress(before, next))).toBe(0.01)
     }
 })
 
-test('parallel track exposes its own progress', () => {
+it('parallel track exposes its own progress', () => {
     const job = {
         phase: 'downloading_content',
         progress: { current: 2, total: 3, secondary: { current: 220, total: 300 } },
@@ -180,25 +179,22 @@ test('parallel track exposes its own progress', () => {
             total: 300,
         },
     }
-    assert.deepEqual(effectiveInstallProgress(job), { current: 220, total: 300 })
-    assert.deepEqual(effectiveParallelProgress(job), { current: 120, total: 300 })
-    assert.equal(installProgressFraction(job), 220 / 300)
+    expect(effectiveInstallProgress(job)).toEqual({ current: 220, total: 300 })
+    expect(effectiveParallelProgress(job)).toEqual({ current: 120, total: 300 })
+    expect(installProgressFraction(job)).toBe(220 / 300)
 
-    assert.equal(
-        effectiveParallelProgress({ phase: 'downloading_minecraft', progress: null }),
-        null,
-    )
+    expect(effectiveParallelProgress({ phase: 'downloading_minecraft', progress: null })).toBe(null)
 })
 
-test('treats zero and non-finite totals as indeterminate', () => {
+it('treats zero and non-finite totals as indeterminate', () => {
     for (const total of [0, Number.NaN, Number.POSITIVE_INFINITY]) {
         const progress = { current: 1, total }
-        assert.equal(hasDeterminateInstallProgress(progress), false)
-        assert.equal(installProgressFraction({ phase: 'downloading_minecraft', progress }), null)
+        expect(hasDeterminateInstallProgress(progress)).toBe(false)
+        expect(installProgressFraction({ phase: 'downloading_minecraft', progress })).toBe(null)
     }
 })
 
-test('non-download phase ignores historical byte and file summary', () => {
+it('non-download phase ignores historical byte and file summary', () => {
     const source = installProgressTextSource(
         progressJob({
             phase: 'resolving_loader',
@@ -211,12 +207,12 @@ test('non-download phase ignores historical byte and file summary', () => {
         }),
     )
 
-    assert.deepEqual(source, { type: 'phase' })
-    assert.doesNotMatch(JSON.stringify(source), /268|18 MiB/)
+    expect(source).toEqual({ type: 'phase' })
+    expect(JSON.stringify(source)).not.toMatch(/268|18 MiB/)
 })
 
-test('non-download phase ignores historical file counter', () => {
-    assert.deepEqual(
+it('non-download phase ignores historical file counter', () => {
+    expect(
         installProgressTextSource(
             progressJob({
                 phase: 'resolving_loader',
@@ -228,12 +224,11 @@ test('non-download phase ignores historical file counter', () => {
                 },
             }),
         ),
-        { type: 'phase' },
-    )
+    ).toEqual({ type: 'phase' })
 })
 
-test('pack download uses current progress instead of stale summary', () => {
-    assert.deepEqual(
+it('pack download uses current progress instead of stale summary', () => {
+    expect(
         installProgressTextSource(
             progressJob({
                 phase: 'downloading_pack_file',
@@ -246,12 +241,11 @@ test('pack download uses current progress instead of stale summary', () => {
                 },
             }),
         ),
-        { type: 'bytes', current: 0, total: 51 },
-    )
+    ).toEqual({ type: 'bytes', current: 0, total: 51 })
 })
 
-test('minecraft download uses current progress instead of content summary', () => {
-    assert.deepEqual(
+it('minecraft download uses current progress instead of content summary', () => {
+    expect(
         installProgressTextSource(
             progressJob({
                 phase: 'downloading_minecraft',
@@ -264,12 +258,11 @@ test('minecraft download uses current progress instead of content summary', () =
                 },
             }),
         ),
-        { type: 'bytes', current: 0, total: 18 },
-    )
+    ).toEqual({ type: 'bytes', current: 0, total: 18 })
 })
 
-test('content download uses current secondary bytes', () => {
-    assert.deepEqual(
+it('content download uses current secondary bytes', () => {
+    expect(
         installProgressTextSource(
             progressJob({
                 phase: 'downloading_content',
@@ -280,29 +273,27 @@ test('content download uses current secondary bytes', () => {
                 },
             }),
         ),
-        { type: 'bytes', current: 220, total: 300 },
-    )
+    ).toEqual({ type: 'bytes', current: 220, total: 300 })
 })
 
-test('content download without secondary uses current file counter', () => {
-    assert.deepEqual(
+it('content download without secondary uses current file counter', () => {
+    expect(
         installProgressTextSource(
             progressJob({
                 phase: 'downloading_content',
                 progress: { current: 2, total: 3 },
             }),
         ),
-        { type: 'items', current: 2, total: 3 },
-    )
+    ).toEqual({ type: 'items', current: 2, total: 3 })
 })
 
-test('content change uses aggregate live download bytes without losing its queued counter', () => {
+it('content change uses aggregate live download bytes without losing its queued counter', () => {
     const preparing = progressJob({
         kind: 'change_content',
         phase: 'downloading_content',
         progress: { current: 0, total: 3 },
     })
-    assert.deepEqual(effectiveInstallProgress(preparing), { current: 0, total: 3 })
+    expect(effectiveInstallProgress(preparing)).toEqual({ current: 0, total: 3 })
 
     const downloading = progressJob({
         kind: 'change_content',
@@ -315,16 +306,16 @@ test('content change uses aggregate live download bytes without losing its queue
             bytes_total: 800,
         },
     })
-    assert.deepEqual(effectiveInstallProgress(downloading), { current: 200, total: 800 })
-    assert.deepEqual(installProgressTextSource(downloading), {
+    expect(effectiveInstallProgress(downloading)).toEqual({ current: 200, total: 800 })
+    expect(installProgressTextSource(downloading)).toEqual({
         type: 'bytes',
         current: 200,
         total: 800,
     })
 })
 
-test('Java downloading uses current byte progress', () => {
-    assert.deepEqual(
+it('Java downloading uses current byte progress', () => {
+    expect(
         installProgressTextSource(
             progressJob({
                 phase: 'preparing_java',
@@ -332,12 +323,11 @@ test('Java downloading uses current byte progress', () => {
                 details: { type: 'java', major_version: 21, step: 'downloading' },
             }),
         ),
-        { type: 'bytes', current: 4, total: 12 },
-    )
+    ).toEqual({ type: 'bytes', current: 4, total: 12 })
 })
 
-test('waiting job preserves required-file progress policy', () => {
-    assert.deepEqual(
+it('waiting job preserves required-file progress policy', () => {
+    expect(
         installProgressTextSource(
             progressJob({
                 status: 'waiting_for_user',
@@ -345,6 +335,5 @@ test('waiting job preserves required-file progress policy', () => {
                 progress: { current: 2, total: 3 },
             }),
         ),
-        { type: 'required_files' },
-    )
+    ).toEqual({ type: 'required_files' })
 })

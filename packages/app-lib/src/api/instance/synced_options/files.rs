@@ -1,6 +1,12 @@
+use crate::State;
+use crate::state::store::Collection as _;
+use crate::state::store::atom;
+use crate::state::store::instance_sync_checkpoints::{
+    CheckpointKey, CheckpointLinkMode as StoredLinkMode, CheckpointRecord,
+    CheckpointStatus as StoredStatus, InstanceSyncCheckpoints,
+};
 use crate::state::{InstanceInstallStage, InstanceMetadata, SyncedOption};
 use crate::util::io;
-use crate::{ErrorKind, State};
 use quartz_nbt::NbtCompound;
 use sha1_smol::Sha1;
 use std::io::Cursor;
@@ -19,16 +25,6 @@ pub(in crate::api::instance) enum CheckpointStatus {
     Ready,
 }
 
-impl CheckpointStatus {
-    fn from_str(value: &str) -> Option<Self> {
-        match value {
-            "pending" => Some(Self::Pending),
-            "ready" => Some(Self::Ready),
-            _ => None,
-        }
-    }
-}
-
 #[derive(Clone, Copy, Debug)]
 pub(in crate::api::instance) enum LinkMode {
     Symbolic,
@@ -39,13 +35,13 @@ pub(in crate::api::instance) enum LinkMode {
 }
 
 impl LinkMode {
-    fn as_str(self) -> &'static str {
+    fn stored(self) -> StoredLinkMode {
         match self {
-            Self::Symbolic => "symbolic",
+            Self::Symbolic => StoredLinkMode::Symbolic,
             #[cfg(windows)]
-            Self::Hard => "hard",
+            Self::Hard => StoredLinkMode::Hard,
             #[cfg(windows)]
-            Self::Copy => "copy",
+            Self::Copy => StoredLinkMode::Copy,
         }
     }
 }
@@ -171,6 +167,18 @@ pub(in crate::api::instance) async fn detach_link(
     Ok(())
 }
 
+fn checkpoint_key(
+    instance_id: &str,
+    option: SyncedOption,
+    variant: &str,
+) -> CheckpointKey {
+    CheckpointKey {
+        instance_id: instance_id.to_string(),
+        feature: option.as_str().to_string(),
+        variant: variant.to_string(),
+    }
+}
+
 pub(in crate::api::instance) async fn begin_checkpoint(
     instance_id: &str,
     option: SyncedOption,
@@ -180,30 +188,15 @@ pub(in crate::api::instance) async fn begin_checkpoint(
     source_revision: i64,
     state: &State,
 ) -> crate::Result<()> {
-    let option_name = option.as_str();
-    sqlx::query!(
-        "
-		INSERT INTO instance_sync_checkpoints
-			(instance_id, feature, variant, expected_sha1, merge_base,
-			 source_revision, status, link_mode)
-		VALUES (?, ?, ?, ?, ?, ?, 'pending', NULL)
-		ON CONFLICT(instance_id, feature, variant) DO UPDATE SET
-			expected_sha1 = excluded.expected_sha1,
-			merge_base = excluded.merge_base,
-			source_revision = excluded.source_revision,
-			status = 'pending',
-			link_mode = NULL
-		",
-        instance_id,
-        option_name,
-        variant,
-        expected_sha1,
-        merge_base,
+    let key = checkpoint_key(instance_id, option, variant);
+    let record = CheckpointRecord {
+        expected_sha1: expected_sha1.to_string(),
+        merge_base: merge_base.map(|bytes| bytes.to_vec()),
         source_revision,
-    )
-    .execute(&state.pool)
-    .await?;
-    Ok(())
+        status: StoredStatus::Pending,
+        link_mode: None,
+    };
+    InstanceSyncCheckpoints::set(&state.data, &key, Some(&record)).await
 }
 
 pub(in crate::api::instance) async fn finish_checkpoint(
@@ -213,22 +206,17 @@ pub(in crate::api::instance) async fn finish_checkpoint(
     mode: LinkMode,
     state: &State,
 ) -> crate::Result<()> {
-    let option_name = option.as_str();
-    let link_mode = mode.as_str();
-    sqlx::query!(
-        "
-		UPDATE instance_sync_checkpoints
-		SET status = 'ready', link_mode = ?
-		WHERE instance_id = ? AND feature = ? AND variant = ?
-		",
-        link_mode,
-        instance_id,
-        option_name,
-        variant,
-    )
-    .execute(&state.pool)
-    .await?;
-    Ok(())
+    let key = checkpoint_key(instance_id, option, variant);
+    let mut unit = atom(&state.data).await?;
+    if let Some(mut record) =
+        InstanceSyncCheckpoints::atom_get(&mut unit, &key).await?
+    {
+        record.status = StoredStatus::Ready;
+        record.link_mode = Some(mode.stored());
+        InstanceSyncCheckpoints::atom_set(&mut unit, &key, Some(&record))
+            .await?;
+    }
+    unit.commit().await
 }
 
 pub(in crate::api::instance) async fn finish_plain_checkpoint(
@@ -237,20 +225,17 @@ pub(in crate::api::instance) async fn finish_plain_checkpoint(
     variant: &str,
     state: &State,
 ) -> crate::Result<()> {
-    let option_name = option.as_str();
-    sqlx::query!(
-        "
-		UPDATE instance_sync_checkpoints
-		SET status = 'ready', link_mode = NULL
-		WHERE instance_id = ? AND feature = ? AND variant = ?
-		",
-        instance_id,
-        option_name,
-        variant,
-    )
-    .execute(&state.pool)
-    .await?;
-    Ok(())
+    let key = checkpoint_key(instance_id, option, variant);
+    let mut unit = atom(&state.data).await?;
+    if let Some(mut record) =
+        InstanceSyncCheckpoints::atom_get(&mut unit, &key).await?
+    {
+        record.status = StoredStatus::Ready;
+        record.link_mode = None;
+        InstanceSyncCheckpoints::atom_set(&mut unit, &key, Some(&record))
+            .await?;
+    }
+    unit.commit().await
 }
 
 pub(in crate::api::instance) async fn checkpoint(
@@ -259,36 +244,20 @@ pub(in crate::api::instance) async fn checkpoint(
     variant: &str,
     state: &State,
 ) -> crate::Result<Option<SyncCheckpoint>> {
-    let option_name = option.as_str();
-    let row = sqlx::query!(
-        r#"
-		SELECT expected_sha1, merge_base,
-			source_revision AS "source_revision!: i64", status
-		FROM instance_sync_checkpoints
-		WHERE instance_id = ? AND feature = ? AND variant = ?
-		"#,
-        instance_id,
-        option_name,
-        variant,
-    )
-    .fetch_optional(&state.pool)
-    .await?;
-    row.map(|row| {
-        Ok(SyncCheckpoint {
-            expected_sha1: row.expected_sha1,
-            merge_base: row.merge_base,
-            source_revision: row.source_revision,
-            status: CheckpointStatus::from_str(&row.status).ok_or_else(
-                || {
-                    ErrorKind::InputError(format!(
-                        "Unknown sync checkpoint status {}",
-                        row.status
-                    ))
-                },
-            )?,
-        })
-    })
-    .transpose()
+    let key = checkpoint_key(instance_id, option, variant);
+    let Some(record) = InstanceSyncCheckpoints::get(&state.data, &key).await?
+    else {
+        return Ok(None);
+    };
+    Ok(Some(SyncCheckpoint {
+        expected_sha1: record.expected_sha1,
+        merge_base: record.merge_base,
+        source_revision: record.source_revision,
+        status: match record.status {
+            StoredStatus::Pending => CheckpointStatus::Pending,
+            StoredStatus::Ready => CheckpointStatus::Ready,
+        },
+    }))
 }
 
 pub(in crate::api::instance) async fn sha1_file(

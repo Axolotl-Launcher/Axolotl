@@ -1637,9 +1637,9 @@ onMounted(async () => {
 
 .ai-provider-item.selected {
     /* The same pair the settings sidebar uses for its active category, so the
-	   two selection surfaces agree. Deliberately a brand token rather than a
-	   surface: a selected item should stay emphasised over the background
-	   image instead of fading with the panel behind it. */
+                two selection surfaces agree. Deliberately a brand token rather than a
+                surface: a selected item should stay emphasised over the background
+                image instead of fading with the panel behind it. */
     background: var(--color-button-bg-selected);
     color: var(--color-button-text-selected);
 }
@@ -1709,8 +1709,8 @@ onMounted(async () => {
     border: 1px solid var(--surface-4);
     border-radius: var(--radius-md);
     /* One rung above the settings content panel this sits on, matching
-	   `SettingsSection`; at `surface-2` the card would match the panel exactly
-	   and disappear. */
+                `SettingsSection`; at `surface-2` the card would match the panel exactly
+                and disappear. */
     background: var(--surface-3);
     transition:
         border-color 150ms ease,

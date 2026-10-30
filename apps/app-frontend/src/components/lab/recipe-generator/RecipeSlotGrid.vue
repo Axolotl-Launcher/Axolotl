@@ -3,8 +3,8 @@
 import { computed } from 'vue'
 
 import { getSlotDisplay } from '@/lab/recipe-generator/display'
-import type { TextureAtlas } from '@/lab/recipe-generator/resources'
 import type { RecipeSlot, RecipeSlotContext, SlotValue } from '@/lab/recipe-generator/types'
+import type { TextureAtlas } from '@/lab/shared/minecraft/resources'
 
 import RecipeSlotCell from './RecipeSlotCell.vue'
 

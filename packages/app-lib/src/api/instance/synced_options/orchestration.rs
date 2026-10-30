@@ -1,10 +1,11 @@
 use crate::state::instances::adapters::sqlite::instance_rows;
+use crate::state::store::Collection as _;
+use crate::state::store::sync_feature_settings::SyncFeatureSettings;
 use crate::state::{InstanceLink, InstanceMetadata, SyncedOption};
 use crate::util::io;
 use crate::{ErrorKind, State};
 use quartz_nbt::NbtCompound;
 use serde::{Deserialize, Serialize};
-use sqlx::SqlitePool;
 use std::future::Future;
 use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -143,18 +144,11 @@ async fn get_global_options_with_state(
     state: &State,
 ) -> crate::Result<GlobalSyncedOptions> {
     let mut options = GlobalSyncedOptions::default();
-    let rows = sqlx::query!(
-        r#"
-		SELECT feature, globally_enabled AS "globally_enabled!: bool"
-		FROM sync_feature_settings
-		"#,
-    )
-    .fetch_all(&state.pool)
-    .await?;
-
-    for row in rows {
-        if let Some(option) = option_from_str(&row.feature) {
-            options.set(option, row.globally_enabled);
+    for (key, record) in
+        SyncFeatureSettings::get_all(&state.data).await?.into_iter()
+    {
+        if let Some(option) = option_from_str(&key.feature) {
+            options.set(option, record.globally_enabled);
         }
     }
 
@@ -232,9 +226,9 @@ async fn capability_status(
         && is_linked_server_project(&metadata.link)
     {
         return CapabilityStatus::Unsupported(
-			"Multiplayer server syncing is unavailable for linked server-project instances."
-				.to_string(),
-		);
+            "Multiplayer server syncing is unavailable for linked server-project instances."
+                .to_string(),
+        );
     }
     match version_capability(metadata, option, state).await {
         CapabilityStatus::Supported => CapabilityStatus::Supported,
@@ -280,9 +274,9 @@ async fn version_capability(
         crate::launcher::resolve_minecraft_manifest(game_version, state).await
     else {
         return CapabilityStatus::Indeterminate(
-			"This instance’s Minecraft version could not be verified, so syncing is unavailable."
-				.to_string(),
-		);
+            "This instance’s Minecraft version could not be verified, so syncing is unavailable."
+                .to_string(),
+        );
     };
     let cutoff_id = match option {
         SyncedOption::GameOptions
@@ -300,9 +294,9 @@ async fn version_capability(
         manifest.versions.iter().find(|item| item.id == cutoff_id)
     else {
         return CapabilityStatus::Indeterminate(
-			"This instance’s Minecraft version could not be verified, so syncing is unavailable."
-				.to_string(),
-		);
+            "This instance’s Minecraft version could not be verified, so syncing is unavailable."
+                .to_string(),
+        );
     };
 
     let version = &manifest.versions[version_index];
@@ -320,21 +314,21 @@ async fn version_capability(
     }
 
     CapabilityStatus::Unsupported(
-		match option {
-			SyncedOption::GameOptions | SyncedOption::ResourcePacks | SyncedOption::DataPacks => unreachable!(),
-			SyncedOption::MultiplayerServers => {
-				"Multiplayer server syncing requires Minecraft Beta 1.8 Pre-release or newer."
-			}
-			SyncedOption::CreativeHotbars => {
-				"Saved creative hotbars require Minecraft 1.12 or newer."
-			}
-			SyncedOption::CommandHistory => {
-				"Command history syncing requires Minecraft 1.20.2 or newer."
-			}
-			SyncedOption::Screenshots => unreachable!(),
-		}
-		.to_string(),
-	)
+        match option {
+            SyncedOption::GameOptions | SyncedOption::ResourcePacks | SyncedOption::DataPacks => unreachable!(),
+            SyncedOption::MultiplayerServers => {
+                "Multiplayer server syncing requires Minecraft Beta 1.8 Pre-release or newer."
+            }
+            SyncedOption::CreativeHotbars => {
+                "Saved creative hotbars require Minecraft 1.12 or newer."
+            }
+            SyncedOption::CommandHistory => {
+                "Command history syncing requires Minecraft 1.20.2 or newer."
+            }
+            SyncedOption::Screenshots => unreachable!(),
+        }
+        .to_string(),
+    )
 }
 
 pub async fn set_global_option(
@@ -448,6 +442,11 @@ async fn set_global_option_with_state(
             }
         };
         if let Err(error) = result {
+            if option == SyncedOption::MultiplayerServers {
+                tracing::warn!(instance_id = %metadata.instance.id, %error,
+                    "Multiplayer sync preference saved; continuing after an instance projection failure");
+                continue;
+            }
             if option == SyncedOption::GameOptions {
                 tracing::warn!(
                     "Game-settings sync changed, but {} could not be reconciled yet: {error}",
@@ -467,46 +466,12 @@ async fn set_global_option_enabled(
     enabled: bool,
     state: &State,
 ) -> crate::Result<()> {
-    set_global_option_enabled_in_pool(option, enabled, &state.pool).await
-}
-
-async fn set_global_option_enabled_in_pool(
-    option: SyncedOption,
-    enabled: bool,
-    pool: &SqlitePool,
-) -> crate::Result<()> {
-    let option_name = option.as_str();
-    let mut transaction = pool.begin().await?;
-    sqlx::query(
-        "
-		INSERT INTO sync_feature_settings
-			(feature, globally_enabled, new_instance_default)
-		VALUES (?, ?, ?)
-		ON CONFLICT(feature) DO UPDATE SET
-			globally_enabled = excluded.globally_enabled,
-			new_instance_default = excluded.new_instance_default
-		",
+    SyncFeatureSettings::set_globally_enabled(
+        &state.data,
+        option.as_str(),
+        enabled,
     )
-    .bind(option_name)
-    .bind(enabled)
-    .bind(enabled)
-    .execute(&mut *transaction)
-    .await?;
-    // Upsert every current instance instead of assuming an older migration or
-    // import populated the complete instance/feature matrix. An UPDATE alone
-    // silently leaves instances without a preference row disabled.
-    sqlx::query(
-        "INSERT INTO instance_sync_preferences (instance_id, feature, enabled)
-         SELECT id, ?, ? FROM instances
-         WHERE 1
-         ON CONFLICT(instance_id, feature) DO UPDATE SET enabled = excluded.enabled",
-    )
-    .bind(option_name)
-    .bind(enabled)
-    .execute(&mut *transaction)
-    .await?;
-    transaction.commit().await?;
-    Ok(())
+    .await
 }
 async fn enable_global_option_from_base(
     option: SyncedOption,
@@ -981,52 +946,6 @@ pub async fn reconcile_all() -> crate::Result<()> {
                 metadata.instance.id
             );
         }
-    }
-    Ok(())
-}
-
-pub(crate) async fn monitor_persisted_processes() -> crate::Result<()> {
-    let state = State::get().await?;
-    let instance_ids =
-        sqlx::query_scalar!("SELECT DISTINCT instance_id FROM processes",)
-            .fetch_all(&state.pool)
-            .await?;
-    for instance_id in instance_ids {
-        tokio::spawn(async move {
-            loop {
-                let Ok(state) = State::get().await else {
-                    break;
-                };
-                let Ok(Some(metadata)) =
-                    crate::state::get_instance(&instance_id, &state.pool).await
-                else {
-                    break;
-                };
-                match instance_is_running(&metadata, &state).await {
-                    Ok(true) => {
-                        tokio::time::sleep(std::time::Duration::from_secs(5))
-                            .await;
-                    }
-                    Ok(false) => {
-                        if let Err(error) =
-                            reconcile_instance(&instance_id).await
-                        {
-                            tracing::warn!(
-                                "Failed to reconcile synced options after closing {instance_id}: {error}"
-                            );
-                        }
-                        break;
-                    }
-                    Err(error) => {
-                        tracing::warn!(
-                            "Failed to inspect the persisted process for {instance_id}: {error}"
-                        );
-                        tokio::time::sleep(std::time::Duration::from_secs(5))
-                            .await;
-                    }
-                }
-            }
-        });
     }
     Ok(())
 }
@@ -1541,91 +1460,5 @@ fn option_from_str(value: &str) -> Option<SyncedOption> {
         "resource_packs" => Some(SyncedOption::ResourcePacks),
         "data_packs" => Some(SyncedOption::DataPacks),
         _ => None,
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use sqlx::sqlite::SqlitePoolOptions;
-
-    #[tokio::test]
-    async fn global_toggle_upserts_every_instance_preference() {
-        let pool = SqlitePoolOptions::new()
-            .max_connections(1)
-            .connect("sqlite::memory:")
-            .await
-            .unwrap();
-        sqlx::raw_sql(
-            r#"
-            CREATE TABLE instances (id TEXT PRIMARY KEY NOT NULL);
-            CREATE TABLE sync_feature_settings (
-                feature TEXT PRIMARY KEY NOT NULL,
-                globally_enabled INTEGER NOT NULL,
-                new_instance_default INTEGER NOT NULL
-            );
-            CREATE TABLE instance_sync_preferences (
-                instance_id TEXT NOT NULL,
-                feature TEXT NOT NULL,
-                enabled INTEGER NOT NULL,
-                PRIMARY KEY (instance_id, feature)
-            );
-            INSERT INTO instances (id) VALUES ('one'), ('two');
-            INSERT INTO sync_feature_settings
-                (feature, globally_enabled, new_instance_default)
-            VALUES ('multiplayer_servers', 0, 0);
-            INSERT INTO instance_sync_preferences
-                (instance_id, feature, enabled)
-            VALUES ('one', 'multiplayer_servers', 0);
-            "#,
-        )
-        .execute(&pool)
-        .await
-        .unwrap();
-
-        set_global_option_enabled_in_pool(
-            SyncedOption::MultiplayerServers,
-            true,
-            &pool,
-        )
-        .await
-        .unwrap();
-
-        let global: (bool, bool) = sqlx::query_as(
-            "SELECT globally_enabled, new_instance_default
-             FROM sync_feature_settings WHERE feature = 'multiplayer_servers'",
-        )
-        .fetch_one(&pool)
-        .await
-        .unwrap();
-        assert_eq!(global, (true, true));
-
-        let preferences: Vec<(String, bool)> = sqlx::query_as(
-            "SELECT instance_id, enabled FROM instance_sync_preferences
-             WHERE feature = 'multiplayer_servers' ORDER BY instance_id",
-        )
-        .fetch_all(&pool)
-        .await
-        .unwrap();
-        assert_eq!(
-            preferences,
-            vec![("one".to_string(), true), ("two".to_string(), true)]
-        );
-
-        set_global_option_enabled_in_pool(
-            SyncedOption::MultiplayerServers,
-            false,
-            &pool,
-        )
-        .await
-        .unwrap();
-        let enabled_count: i64 = sqlx::query_scalar(
-            "SELECT COUNT(*) FROM instance_sync_preferences
-             WHERE feature = 'multiplayer_servers' AND enabled = 1",
-        )
-        .fetch_one(&pool)
-        .await
-        .unwrap();
-        assert_eq!(enabled_count, 0);
     }
 }

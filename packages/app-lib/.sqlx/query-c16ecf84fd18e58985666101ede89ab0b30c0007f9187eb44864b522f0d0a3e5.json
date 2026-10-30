@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "\n                    UPDATE synced_game_option_values\n                    SET canonical_value_json = NULL, seeded = 0, revision = ?,\n                        origin = 'app_editor', source_game_version = NULL,\n                        source_instance_id = NULL, updated_at = ?\n                    WHERE option_id = ?\n                    ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 3
+    },
+    "nullable": []
+  },
+  "hash": "c16ecf84fd18e58985666101ede89ab0b30c0007f9187eb44864b522f0d0a3e5"
+}

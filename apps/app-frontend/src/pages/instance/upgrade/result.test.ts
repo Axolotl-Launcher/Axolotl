@@ -1,5 +1,4 @@
-import assert from 'node:assert/strict'
-import test from 'node:test'
+import { expect, it } from 'vitest'
 
 import type { InstallJobSnapshot, InstallJobStatus } from '@/helpers/install'
 import type { InstanceUpgradeResult, InstanceUpgradeSolution } from '@/helpers/instance-upgrade'
@@ -38,21 +37,21 @@ function job(
     } as InstallJobSnapshot
 }
 
-test('successful upgrade result identifies copy and direct modes', () => {
+it('successful upgrade result identifies copy and direct modes', () => {
     const copyJob = job('succeeded', result('source/a', 'target/b'))
-    assert.equal(isSuccessfulUpgradeJob(copyJob), true)
-    assert.equal(upgradeResultMode(copyJob.upgrade_result!), 'copy_and_upgrade')
-    assert.equal(upgradeResultMode(result('same', 'same')), 'direct')
+    expect(isSuccessfulUpgradeJob(copyJob)).toBe(true)
+    expect(upgradeResultMode(copyJob.upgrade_result!)).toBe('copy_and_upgrade')
+    expect(upgradeResultMode(result('same', 'same'))).toBe('direct')
 })
 
-test('successful result links to persisted standalone source-instance page', () => {
-    assert.deepEqual(upgradeResultLocation(job('succeeded', result('source/a', 'target/b'))), {
+it('successful result links to persisted standalone source-instance page', () => {
+    expect(upgradeResultLocation(job('succeeded', result('source/a', 'target/b')))).toEqual({
         path: '/instance/source%2Fa/upgrade/result',
         query: { job: 'job/a' },
     })
 })
 
-test('result summary follows executed selection actions and dependency kinds', () => {
+it('result summary follows executed selection actions and dependency kinds', () => {
     const solution = {
         selections: [
             ...Array.from({ length: 3 }, () => ({ action: 'upgrade' })),
@@ -67,7 +66,7 @@ test('result summary follows executed selection actions and dependency kinds', (
         ],
     } as InstanceUpgradeSolution
 
-    assert.deepEqual(summarizeUpgradeResult(solution), {
+    expect(summarizeUpgradeResult(solution)).toEqual({
         updated: 3,
         kept: 2,
         disabled: 1,

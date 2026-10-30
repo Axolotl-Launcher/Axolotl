@@ -1,5 +1,4 @@
-import assert from 'node:assert/strict'
-import test from 'node:test'
+import { expect, it } from 'vitest'
 
 import { ResourceSearchPages } from './resource-search-pages.ts'
 import type { ResourcePage, ResourceSearchQuery, ResourceSearchResult } from './resources.ts'
@@ -23,7 +22,7 @@ const page = (index: number, hasMore = true): ResourcePage<ResourceSearchResult>
     exhaustedSources: [],
 })
 
-test('deep pages use successive opaque cursors and navigating back retains the same page', async () => {
+it('deep pages use successive opaque cursors and navigating back retains the same page', async () => {
     const cursors: (string | null)[] = []
     const pager = new ResourceSearchPages(async (_query, cursor) => {
         cursors.push(cursor)
@@ -31,13 +30,13 @@ test('deep pages use successive opaque cursors and navigating back retains the s
     })
     const signal = new AbortController().signal
     const third = await pager.get(query(), 2, signal)
-    assert.deepEqual(cursors, [null, 'cursor-0', 'cursor-1'])
+    expect(cursors).toEqual([null, 'cursor-0', 'cursor-1'])
     await pager.get(query(), 0, signal)
-    assert.equal(await pager.get(query(), 2, signal), third)
-    assert.equal(cursors.length, 3)
+    expect(await pager.get(query(), 2, signal)).toBe(third)
+    expect(cursors.length).toBe(3)
 })
 
-test('a new query starts a new cursor chain and stale responses cannot replace it', async () => {
+it('a new query starts a new cursor chain and stale responses cannot replace it', async () => {
     let resolveOld!: (value: ResourcePage<ResourceSearchResult>) => void
     const oldResponse = new Promise<ResourcePage<ResourceSearchResult>>((resolve) => {
         resolveOld = resolve
@@ -49,11 +48,11 @@ test('a new query starts a new cursor chain and stale responses cannot replace i
     const old = pager.get(query('old'), 0, signal)
     const latest = await pager.get(query('new'), 0, signal)
     resolveOld(page(1))
-    await assert.rejects(old, { name: 'AbortError' })
-    assert.equal(await pager.get(query('new'), 0, signal), latest)
+    await expect(old).rejects.toMatchObject({ name: 'AbortError' })
+    expect(await pager.get(query('new'), 0, signal)).toBe(latest)
 })
 
-test('failure and cancellation retain the last complete page and retry its cursor', async () => {
+it('failure and cancellation retain the last complete page and retry its cursor', async () => {
     let fail = true
     const cursors: (string | null)[] = []
     const pager = new ResourceSearchPages(async (_request, cursor) => {
@@ -63,17 +62,19 @@ test('failure and cancellation retain the last complete page and retry its curso
     })
     const controller = new AbortController()
     const first = await pager.get(query(), 0, controller.signal)
-    await assert.rejects(pager.get(query(), 1, controller.signal))
-    assert.equal(await pager.get(query(), 0, controller.signal), first)
+    await expect(pager.get(query(), 1, controller.signal)).rejects.toThrow()
+    expect(await pager.get(query(), 0, controller.signal)).toBe(first)
     fail = false
     await pager.get(query(), 1, controller.signal)
-    assert.deepEqual(cursors, [null, 'cursor-0', 'cursor-0'])
+    expect(cursors).toEqual([null, 'cursor-0', 'cursor-0'])
     controller.abort()
-    await assert.rejects(pager.get(query(), 2, controller.signal), { name: 'AbortError' })
-    assert.equal(cursors.length, 3)
+    await expect(pager.get(query(), 2, controller.signal)).rejects.toMatchObject({
+        name: 'AbortError',
+    })
+    expect(cursors.length).toBe(3)
 })
 
-test('a failed page is requested again and an expired cursor rebuilds the query once', async () => {
+it('a failed page is requested again and an expired cursor rebuilds the query once', async () => {
     let calls = 0
     let expired = true
     const pager = new ResourceSearchPages(async (_request, cursor) => {
@@ -99,13 +100,13 @@ test('a failed page is requested again and an expired cursor rebuilds the query 
     const signal = new AbortController().signal
     await pager.get(query(), 0, signal)
     await pager.get(query(), 0, signal)
-    assert.equal(calls, 2)
+    expect(calls).toBe(2)
     const second = await pager.get(query(), 1, signal)
-    assert.equal(second.requestId, '1')
-    assert.equal(calls, 5)
+    expect(second.requestId).toBe('1')
+    expect(calls).toBe(5)
 })
 
-test('permanent source capability notices do not restart successful cursor pages', async () => {
+it('permanent source capability notices do not restart successful cursor pages', async () => {
     let calls = 0
     const pager = new ResourceSearchPages(async () => ({
         ...page(calls++),
@@ -120,12 +121,12 @@ test('permanent source capability notices do not restart successful cursor pages
     }))
     const signal = new AbortController().signal
     const first = await pager.get(query(), 0, signal)
-    assert.equal(await pager.get(query(), 0, signal), first)
+    expect(await pager.get(query(), 0, signal)).toBe(first)
     await pager.get(query(), 1, signal)
-    assert.equal(calls, 2)
+    expect(calls).toBe(2)
 })
 
-test('explicit retry invalidates permanent failures and refreshing a deep page retains earlier cursors', async () => {
+it('explicit retry invalidates permanent failures and refreshing a deep page retains earlier cursors', async () => {
     const cursors: (string | null)[] = []
     const pager = new ResourceSearchPages(async (_query, cursor) => {
         cursors.push(cursor)
@@ -144,9 +145,9 @@ test('explicit retry invalidates permanent failures and refreshing a deep page r
     const signal = new AbortController().signal
     const first = await pager.get(query(), 0, signal)
     pager.invalidate()
-    assert.notEqual(await pager.get(query(), 0, signal), first)
+    expect(await pager.get(query(), 0, signal)).not.toBe(first)
     await pager.get(query(), 2, signal)
     pager.invalidate(2)
     await pager.get(query(), 2, signal)
-    assert.deepEqual(cursors, [null, null, 'cursor-2', 'cursor-3', 'cursor-3'])
+    expect(cursors).toEqual([null, null, 'cursor-2', 'cursor-3', 'cursor-3'])
 })

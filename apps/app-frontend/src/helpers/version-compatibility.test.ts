@@ -1,5 +1,4 @@
-import assert from 'node:assert/strict'
-import test from 'node:test'
+import { expect, it } from 'vitest'
 
 import {
     assessLocalModCompatibility,
@@ -7,21 +6,21 @@ import {
     isVersionInRange,
 } from './version-compatibility.ts'
 
-test('wildcards retain the declared numeric prefix', () => {
+it('wildcards retain the declared numeric prefix', () => {
     for (const range of ['1.20.x', '1.20.X', '1.20.*']) {
         for (const version of ['1.20.0', '1.20.4'])
-            assert.equal(isVersionInRange(version, range), true)
+            expect(isVersionInRange(version, range)).toBe(true)
         for (const version of ['1.12', '1.21.0', '2.20.0'])
-            assert.equal(isVersionInRange(version, range), false)
+            expect(isVersionInRange(version, range)).toBe(false)
     }
     for (const range of ['1.x', '1.X', '1.*']) {
-        assert.equal(isVersionInRange('1.12', range), true)
-        assert.equal(isVersionInRange('1.21.4', range), true)
-        assert.equal(isVersionInRange('2.20.0', range), false)
+        expect(isVersionInRange('1.12', range)).toBe(true)
+        expect(isVersionInRange('1.21.4', range)).toBe(true)
+        expect(isVersionInRange('2.20.0', range)).toBe(false)
     }
 })
 
-test('exact versions and open or closed bounds compare whole versions', () => {
+it('exact versions and open or closed bounds compare whole versions', () => {
     const cases: Array<[string, string, boolean]> = [
         ['1.20', '1.20.0', true],
         ['1.20.1', '1.20', false],
@@ -43,46 +42,42 @@ test('exact versions and open or closed bounds compare whole versions', () => {
         ['1.21', '1.20 - 1.21', true],
     ]
     for (const [version, range, expected] of cases)
-        assert.equal(isVersionInRange(version, range), expected, `${version}: ${range}`)
+        expect(isVersionInRange(version, range), `${version}: ${range}`).toBe(expected)
 })
 
-test('Maven single-version brackets are exact declarations', () => {
-    assert.equal(assessVersionRange('1.21.1', '[1.21.1]'), 'compatible')
-    assert.equal(assessVersionRange('1.21.0', '[1.21.1]'), 'incompatible')
+it('Maven single-version brackets are exact declarations', () => {
+    expect(assessVersionRange('1.21.1', '[1.21.1]')).toBe('compatible')
+    expect(assessVersionRange('1.21.0', '[1.21.1]')).toBe('incompatible')
 })
 
-test('unsupported declarations remain unknown without substring matching', () => {
-    assert.equal(assessVersionRange('1.20.4', '>=1.20 <1.21'), 'compatible')
-    assert.equal(assessVersionRange('1.21', '>=1.20 <1.21'), 'incompatible')
-    assert.equal(assessVersionRange('1.21', '1.20.x || 1.21'), 'compatible')
+it('unsupported declarations remain unknown without substring matching', () => {
+    expect(assessVersionRange('1.20.4', '>=1.20 <1.21')).toBe('compatible')
+    expect(assessVersionRange('1.21', '>=1.20 <1.21')).toBe('incompatible')
+    expect(assessVersionRange('1.21', '1.20.x || 1.21')).toBe('compatible')
     for (const range of ['1.2', '1.20.x.1', 'supports 1.20.4', '>=unknown', '[1.21,1.20]']) {
-        if (range === '1.2') assert.equal(assessVersionRange('1.20.4', range), 'incompatible')
-        else assert.equal(assessVersionRange('1.20.4', range), 'unknown')
+        if (range === '1.2') expect(assessVersionRange('1.20.4', range)).toBe('incompatible')
+        else expect(assessVersionRange('1.20.4', range)).toBe('unknown')
     }
-    assert.equal(assessVersionRange('snapshot', '1.x'), 'unknown')
+    expect(assessVersionRange('snapshot', '1.x')).toBe('unknown')
 })
 
-test('drop assessment checks loader-only metadata and reports missing dimensions as unknown', () => {
-    assert.deepEqual(
+it('drop assessment checks loader-only metadata and reports missing dimensions as unknown', () => {
+    expect(
         assessLocalModCompatibility(
             { loader: 'forge' },
             { game_version: '1.20.4', loader: 'fabric' },
         ),
-        { gameVersion: 'unknown', loader: 'incompatible' },
-    )
-    assert.deepEqual(
+    ).toEqual({ gameVersion: 'unknown', loader: 'incompatible' })
+    expect(
         assessLocalModCompatibility(
             { minecraft_version: '1.20.x', loader: 'fabric' },
             { game_version: '1.12', loader: 'fabric' },
         ),
-        { gameVersion: 'incompatible', loader: 'compatible' },
-    )
-    assert.equal(
-        assessLocalModCompatibility({ loader: 'quilt' }, { loader: 'fabric' }).loader,
+    ).toEqual({ gameVersion: 'incompatible', loader: 'compatible' })
+    expect(assessLocalModCompatibility({ loader: 'quilt' }, { loader: 'fabric' }).loader).toBe(
         'incompatible',
     )
-    assert.equal(
-        assessLocalModCompatibility({ loader: 'fabric' }, { loader: 'quilt' }).loader,
+    expect(assessLocalModCompatibility({ loader: 'fabric' }, { loader: 'quilt' }).loader).toBe(
         'compatible',
     )
 })

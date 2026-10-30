@@ -1,12 +1,14 @@
 use std::collections::HashSet;
 use std::fs::File;
-use std::io::Write;
+use std::io::{Read, Write};
 use std::path::{Component, Path, PathBuf};
+use std::sync::atomic::AtomicBool;
 
 use serde::{Deserialize, Serialize};
 use zip::ZipArchive;
 use zip::write::SimpleFileOptions;
 
+use crate::mod_translation::analyze::check_analysis_cancel;
 use crate::mod_translation::error::{
     Result, TranslateError, TranslateErrorCode,
 };
@@ -200,10 +202,13 @@ pub struct ExtractionResult {
 }
 
 /// 把 input_path 里每个条目解到 workspace（目录需已存在）。
+/// 每个条目开始前、每写入一块数据前检查 `cancel`，单个大条目也能中途停止；
+/// 取消时不写清单。
 pub fn extract_archive(
     input_path: &Path,
     workspace: &Path,
     limits: &ExtractionLimits,
+    cancel: &AtomicBool,
 ) -> Result<ExtractionResult> {
     let metadata = std::fs::metadata(input_path).map_err(|error| {
         TranslateError::io("unable to stat input JAR", error)
@@ -241,8 +246,12 @@ pub fn extract_archive(
     };
     let mut seen: HashSet<String> = HashSet::new();
     let mut portable_seen: HashSet<String> = HashSet::new();
+    let mut buffer = vec![0; 1 << 20];
+    #[cfg(test)]
+    let mut written_chunks = 0usize;
 
     for index in 0..archive.len() {
+        check_analysis_cancel(cancel)?;
         let mut entry = archive.by_index(index).map_err(|error| {
             TranslateError::with_source(
                 TranslateErrorCode::InvalidArchive,
@@ -250,7 +259,16 @@ pub fn extract_archive(
                 error,
             )
         })?;
-        let raw_name = entry.name().to_string();
+        let raw_name = entry
+            .name()
+            .map_err(|error| {
+                TranslateError::with_source(
+                    TranslateErrorCode::InvalidArchive,
+                    format!("unable to read archive entry name {index}"),
+                    error,
+                )
+            })?
+            .to_string();
         let name = PathPolicy::safe_entry_name(&raw_name)?;
         if !seen.insert(name.clone()) {
             return Err(TranslateError::new(
@@ -328,9 +346,34 @@ pub fn extract_archive(
                 error,
             )
         })?;
-        std::io::copy(&mut entry, &mut output).map_err(|error| {
-            TranslateError::io(format!("unable to extract {name}"), error)
-        })?;
+        loop {
+            check_analysis_cancel(cancel)?;
+            let read = match entry.read(&mut buffer) {
+                Ok(read) => read,
+                Err(error)
+                    if error.kind() == std::io::ErrorKind::Interrupted =>
+                {
+                    continue;
+                }
+                Err(error) => {
+                    return Err(TranslateError::io(
+                        format!("unable to extract {name}"),
+                        error,
+                    ));
+                }
+            };
+            if read == 0 {
+                break;
+            }
+            output.write_all(&buffer[..read]).map_err(|error| {
+                TranslateError::io(format!("unable to extract {name}"), error)
+            })?;
+            #[cfg(test)]
+            {
+                written_chunks += 1;
+                cancel_after_chunks(written_chunks, cancel);
+            }
+        }
         manifest.entries.push(ArchiveEntry {
             archive_path: name,
             workspace_path: workspace_name,
@@ -345,8 +388,30 @@ pub fn extract_archive(
     })
 }
 
+#[cfg(test)]
+thread_local! {
+    /// 测试用：写入这么多块数据后置位取消标志，用来取消正在进行的解包。
+    pub(crate) static CANCEL_AFTER_CHUNKS: std::cell::Cell<Option<usize>> =
+        const { std::cell::Cell::new(None) };
+}
+
+#[cfg(test)]
+fn cancel_after_chunks(written: usize, cancel: &AtomicBool) {
+    if CANCEL_AFTER_CHUNKS.with(std::cell::Cell::get) == Some(written) {
+        cancel.store(true, std::sync::atomic::Ordering::Relaxed);
+    }
+}
+
 /// 递归收集工作区相对路径。
 pub fn collect_files(root: &Path) -> Result<Vec<String>> {
+    collect_files_cancellable(root, &AtomicBool::new(false))
+}
+
+/// 同 [`collect_files`]，每个条目检查一次 `cancel`。
+pub fn collect_files_cancellable(
+    root: &Path,
+    cancel: &AtomicBool,
+) -> Result<Vec<String>> {
     let mut result = Vec::new();
     let mut pending = vec![root.to_path_buf()];
     while let Some(directory) = pending.pop() {
@@ -357,6 +422,7 @@ pub fn collect_files(root: &Path) -> Result<Vec<String>> {
             )
         })?;
         for entry in entries {
+            check_analysis_cancel(cancel)?;
             let entry = entry.map_err(|error| {
                 TranslateError::io(
                     format!("unable to read workspace entry in {directory:?}"),
@@ -531,7 +597,7 @@ pub fn is_clean_absolute_path(path: &Path) -> bool {
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
 
     fn build_zip(
@@ -568,9 +634,13 @@ mod tests {
         );
         let workspace = dir.path().join("workspace");
         std::fs::create_dir_all(&workspace).unwrap();
-        let error =
-            extract_archive(&input, &workspace, &ExtractionLimits::default())
-                .expect_err("malicious archive must be rejected");
+        let error = extract_archive(
+            &input,
+            &workspace,
+            &ExtractionLimits::default(),
+            &AtomicBool::new(false),
+        )
+        .expect_err("malicious archive must be rejected");
         assert_eq!(error.code, TranslateErrorCode::UnsafeArchivePath);
     }
 
@@ -603,13 +673,93 @@ mod tests {
         );
         let workspace = dir.path().join("workspace");
         std::fs::create_dir_all(&workspace).unwrap();
-        let result =
-            extract_archive(&input, &workspace, &ExtractionLimits::default())
-                .unwrap();
+        let result = extract_archive(
+            &input,
+            &workspace,
+            &ExtractionLimits::default(),
+            &AtomicBool::new(false),
+        )
+        .unwrap();
         assert!(result.signed);
         // 打包本身不拒绝签名模组，拒绝发生在编排层（SignedModRefused）。
         let manifest = ArchiveManifest::read(&workspace).unwrap();
         assert_eq!(manifest.entries.len(), 3);
+    }
+
+    /// 不可压缩的数据，免得触发压缩比限制。
+    pub(crate) fn noise(length: usize) -> Vec<u8> {
+        let mut state = 0x2545_f491_4f6c_dd1d_u64;
+        (0..length)
+            .map(|_| {
+                state ^= state << 13;
+                state ^= state >> 7;
+                state ^= state << 17;
+                state as u8
+            })
+            .collect()
+    }
+
+    #[test]
+    fn canceled_extraction_writes_nothing() {
+        let dir = tempfile::tempdir().unwrap();
+        let input = build_zip(
+            dir.path(),
+            "mod.jar",
+            &[("a.txt", b"a", None), ("b.txt", b"b", None)],
+        );
+        let workspace = dir.path().join("workspace");
+        std::fs::create_dir_all(&workspace).unwrap();
+        let error = extract_archive(
+            &input,
+            &workspace,
+            &ExtractionLimits::default(),
+            &AtomicBool::new(true),
+        )
+        .expect_err("a canceled extraction must stop");
+        assert_eq!(error.code, TranslateErrorCode::Cancelled);
+        assert!(ArchiveManifest::read(&workspace).is_none());
+        assert_eq!(std::fs::read_dir(&workspace).unwrap().count(), 0);
+    }
+
+    #[test]
+    fn extraction_stops_inside_a_large_entry_once_canceled() {
+        let dir = tempfile::tempdir().unwrap();
+        let large = noise(3 << 20);
+        let input = build_zip(
+            dir.path(),
+            "mod.jar",
+            &[("large.bin", &large, None), ("after.txt", b"after", None)],
+        );
+        let workspace = dir.path().join("workspace");
+        std::fs::create_dir_all(&workspace).unwrap();
+        CANCEL_AFTER_CHUNKS.with(|chunks| chunks.set(Some(1)));
+        let cancel = AtomicBool::new(false);
+        let result = extract_archive(
+            &input,
+            &workspace,
+            &ExtractionLimits::default(),
+            &cancel,
+        );
+        CANCEL_AFTER_CHUNKS.with(|chunks| chunks.set(None));
+        let error = result.expect_err("the extraction must stop mid-entry");
+        assert_eq!(error.code, TranslateErrorCode::Cancelled);
+        let written = std::fs::metadata(workspace.join("large.bin"))
+            .unwrap()
+            .len();
+        assert!(written < large.len() as u64, "wrote {written} bytes");
+        assert!(!workspace.join("after.txt").exists());
+        assert!(ArchiveManifest::read(&workspace).is_none());
+    }
+
+    #[test]
+    fn canceled_workspace_walk_stops() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("a.txt"), "a").unwrap();
+        let error =
+            collect_files_cancellable(dir.path(), &AtomicBool::new(true))
+                .expect_err("a canceled walk must stop");
+        assert_eq!(error.code, TranslateErrorCode::Cancelled);
+        assert_eq!(collect_files(dir.path()).unwrap(), vec!["a.txt"]);
     }
 
     #[test]
@@ -625,9 +775,13 @@ mod tests {
         );
         let workspace = dir.path().join("workspace");
         std::fs::create_dir_all(&workspace).unwrap();
-        let result =
-            extract_archive(&input, &workspace, &ExtractionLimits::default())
-                .unwrap();
+        let result = extract_archive(
+            &input,
+            &workspace,
+            &ExtractionLimits::default(),
+            &AtomicBool::new(false),
+        )
+        .unwrap();
         let _ = result;
         // 模拟翻译产物 + 内部文件
         std::fs::write(

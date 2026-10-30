@@ -6,6 +6,7 @@ import { defineMessages, useVIntl } from '#ui/composables/i18n'
 import type { ContentItem } from '../types'
 import { pruneMetadataFilterSelections } from './content-filter-state'
 import { contentOwnership, installedSource } from './content-provenance'
+import { getContentTabMap } from './content-tab-memory'
 
 export interface MetadataFilterOption {
     value: string
@@ -202,16 +203,6 @@ const messages = defineMessages({
         defaultMessage: 'Closed source',
     },
 })
-
-// ---- window 级内存持久化（导航切换保留，关软件丢弃） ----
-
-const memory: Record<string, Map<string, unknown>> = ((
-    window as unknown as { __ctMemory?: Record<string, Map<string, unknown>> }
-).__ctMemory ??= {})
-function getMap<K, V>(namespace: string): Map<K, V> {
-    if (!memory[namespace]) memory[namespace] = new Map<string, unknown>()
-    return memory[namespace] as Map<K, V>
-}
 
 export function useContentMetadataFilters(
     items: Ref<ContentItem[]> | ComputedRef<ContentItem[]>,
@@ -421,9 +412,11 @@ export function useContentMetadataFilters(
 
     // ---- 选择状态（排除式：勾选 = 显示，取消勾选 = 隐藏；默认全部勾选） ----
 
-    const memory = getMap<string, Record<string, string[]>>('metadataFilters')
+    const metadataFilterMemory = getContentTabMap<string, Record<string, string[]>>(
+        'metadataFilters',
+    )
     const excluded = ref<Record<string, string[]>>(
-        initialExcluded ?? (persistKey ? (memory.get(persistKey) ?? {}) : {}),
+        initialExcluded ?? (persistKey ? (metadataFilterMemory.get(persistKey) ?? {}) : {}),
     )
 
     function optionsByKey(key: string): MetadataFilterOption[] {
@@ -486,7 +479,7 @@ export function useContentMetadataFilters(
     watch(
         excluded,
         (value) => {
-            if (persistKey) memory.set(persistKey, value)
+            if (persistKey) metadataFilterMemory.set(persistKey, value)
         },
         { deep: true },
     )

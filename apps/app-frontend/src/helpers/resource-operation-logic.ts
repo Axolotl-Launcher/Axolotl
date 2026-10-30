@@ -1,5 +1,8 @@
 import { defineMessages, type useVIntl } from '@modrinth/ui'
 
+import { resourceFailureFeedback, resourceFailureKind } from './resource-operation-feedback'
+import type { ResourcePage, ResourceSearchExpression, ResourceSearchQuery } from './resources'
+
 export function resourceSourceName(source: string): string {
     switch (source) {
         case 'modrinth':
@@ -78,9 +81,70 @@ const errorMessages = defineMessages({
         id: 'app.resources.error.failed',
         defaultMessage: 'Could not complete the content operation. Refresh and try again.',
     },
+    searchEnvironment: {
+        id: 'app.resources.search.failure.environment',
+        defaultMessage:
+            '{source} does not support filtering by client or server. Remove the environment filter to include its results.',
+    },
+    searchSort: {
+        id: 'app.resources.search.failure.sort',
+        defaultMessage:
+            '{source} does not support this sort order. Choose Relevance or Downloads to include its results.',
+    },
+    searchFilters: {
+        id: 'app.resources.search.failure.filters',
+        defaultMessage:
+            '{source} does not support this combination of filters. Remove some filters or choose another source.',
+    },
+    searchReason: {
+        id: 'app.resources.search.failure.reason',
+        defaultMessage: '{source}: {reason}',
+    },
+    searchFailed: {
+        id: 'app.resources.search.failure.unknown',
+        defaultMessage: '{source} could not load search results. Try again later.',
+    },
 })
 
 type FormatMessage = ReturnType<typeof useVIntl>['formatMessage']
+
+export function resourceSearchFailure(
+    failure: ResourcePage<unknown>['sourceFailures'][number],
+    query: ResourceSearchQuery,
+    formatMessage: FormatMessage,
+): string {
+    const source = resourceSourceName(failure.source)
+    const message = failure.message
+    if (/^unsupported resource operation:/i.test(message)) {
+        if (
+            failure.source === 'curseforge' &&
+            /source cannot provide .* ordering|cannot provide requested sort semantics/i.test(
+                message,
+            )
+        )
+            return formatMessage(errorMessages.searchSort, { source })
+        if (
+            failure.source === 'curseforge' &&
+            message.includes('CurseForge cannot express these search filters') &&
+            hasEnvironmentFilter(query.filter)
+        )
+            return formatMessage(errorMessages.searchEnvironment, { source })
+        return formatMessage(errorMessages.searchFilters, { source })
+    }
+    if (isResourceOperationError(message))
+        return formatMessage(errorMessages.searchReason, {
+            source,
+            reason: resourceOperationError(message, formatMessage),
+        })
+    return formatMessage(errorMessages.searchFailed, { source })
+}
+
+function hasEnvironmentFilter(expression?: ResourceSearchExpression | null): boolean {
+    if (!expression) return false
+    return expression.kind === 'predicate'
+        ? expression.field === 'environment'
+        : expression.terms.some(hasEnvironmentFilter)
+}
 
 export function isResourceOperationError(error: unknown): boolean {
     return (
@@ -130,6 +194,7 @@ export function resourceOperationError(error: unknown, formatMessage?: FormatMes
     if (/invalid source response/i.test(message)) return formatMessage(errorMessages.sourceResponse)
     if (/resource cache unavailable/i.test(message)) return formatMessage(errorMessages.cache)
     if (/resource database unavailable/i.test(message)) return formatMessage(errorMessages.database)
+    if (resourceFailureKind(error)) return resourceFailureFeedback(error, formatMessage).detail
     return formatMessage(errorMessages.failed)
 }
 

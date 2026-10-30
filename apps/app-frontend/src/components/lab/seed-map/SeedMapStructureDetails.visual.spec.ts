@@ -22,7 +22,7 @@ vi.mock('@/lab/seed-map/advanced', () => ({
     getSeedMapStructureDetails: calls.details,
     getSeedMapContainerLoot: calls.loot,
 }))
-vi.mock('@/lab/recipe-generator/item-images', () => ({ loadMinecraftItemImage: vi.fn() }))
+vi.mock('@/lab/shared/minecraft/item-images', () => ({ loadMinecraftItemImage: vi.fn() }))
 vi.mock('@modrinth/ui', async () => {
     const { ref } = await import('vue')
     const { IntlMessageFormat } = await import('intl-messageformat')
@@ -229,8 +229,11 @@ it('loads original End city and ship geometry on demand and switches modes witho
     ;(wrapper.element as HTMLElement).style.cssText =
         'width: 430px; background: var(--surface-2); color: var(--color-text-primary); padding: 12px'
     const canvas = wrapper.get('canvas').element as HTMLCanvasElement
-    await vi.waitFor(() => expect(canvas.dataset.ready).toBe('true'))
-    await vi.waitFor(() => expect(Number(canvas.dataset.chestCount)).toBeGreaterThan(0))
+    // The first preview also imports Three.js and initializes WebGL on the CI runner.
+    await vi.waitFor(() => expect(canvas.dataset.ready).toBe('true'), { timeout: 10000 })
+    await vi.waitFor(() => expect(Number(canvas.dataset.chestCount)).toBeGreaterThan(0), {
+        timeout: 10000,
+    })
     expect(canvas.dataset.renderMode).toBe('frames')
     const gl = canvas.getContext('webgl2')!
     const pixels = () => {
@@ -238,7 +241,9 @@ it('loads original End city and ship geometry on demand and switches modes witho
         gl.readPixels(0, 0, canvas.width, canvas.height, gl.RGBA, gl.UNSIGNED_BYTE, result)
         return result
     }
-    await vi.waitFor(() => expect(pixels().some((value) => value > 0)).toBe(true))
+    await vi.waitFor(() => expect(pixels().some((value) => value > 0)).toBe(true), {
+        timeout: 10000,
+    })
     const initialFrame = pixels()
     const rect = canvas.getBoundingClientRect()
     canvas.dispatchEvent(
@@ -250,16 +255,16 @@ it('loads original End city and ship geometry on demand and switches modes witho
             cancelable: true,
         }),
     )
-    await vi.waitFor(() => expect(pixels()).not.toEqual(initialFrame))
+    await vi.waitFor(() => expect(pixels()).not.toEqual(initialFrame), { timeout: 10000 })
     const zoomedFrame = pixels()
     await wrapper.get('[data-testid="seed-map-blocks-mode"]').trigger('click')
     await vi.waitFor(() => expect(canvas.dataset.renderMode).toBe('blocks'), { timeout: 20000 })
     expect(wrapper.find('[role="alert"]').exists()).toBe(false)
-    await vi.waitFor(() => expect(pixels()).not.toEqual(zoomedFrame))
+    await vi.waitFor(() => expect(pixels()).not.toEqual(zoomedFrame), { timeout: 10000 })
     await wrapper.setProps({ selected: 4 })
     const selected = pixels()
     await wrapper.setProps({ selected: 0 })
-    await vi.waitFor(() => expect(pixels()).not.toEqual(selected))
+    await vi.waitFor(() => expect(pixels()).not.toEqual(selected), { timeout: 10000 })
     await wrapper.setProps({ selected: undefined })
     if (import.meta.env.VITE_AXOLOTL_VISUAL_EVIDENCE) {
         await page.screenshot({
@@ -269,19 +274,19 @@ it('loads original End city and ship geometry on demand and switches modes witho
     const blocksImage = pixels()
     await wrapper.get('[data-testid="seed-map-frames-mode"]').trigger('click')
     expect(canvas.dataset.renderMode).toBe('frames')
-    await vi.waitFor(() => expect(pixels()).not.toEqual(blocksImage))
+    await vi.waitFor(() => expect(pixels()).not.toEqual(blocksImage), { timeout: 10000 })
     const frames = pixels()
     expect(frames).toEqual(zoomedFrame)
     await wrapper.get('[data-testid="seed-map-blocks-mode"]').trigger('click')
     expect(canvas.dataset.renderMode).toBe('blocks')
     expect(wrapper.get('canvas').element).toBe(canvas)
-    await vi.waitFor(() => expect(pixels()).not.toEqual(frames))
+    await vi.waitFor(() => expect(pixels()).not.toEqual(frames), { timeout: 10000 })
     await wrapper.get('[data-testid="seed-map-frames-mode"]').trigger('click')
-    await vi.waitFor(() => expect(pixels()).toEqual(frames))
+    await vi.waitFor(() => expect(pixels()).toEqual(frames), { timeout: 10000 })
     await wrapper.setProps({ version: '26.2' })
     expect(wrapper.find('[data-testid="seed-map-blocks-mode"]').exists()).toBe(true)
     expect(canvas.dataset.renderMode).toBe('frames')
-}, 30000)
+})
 
 it.each([
     'shipwreck',
@@ -376,16 +381,19 @@ it.each([
         await flushPromises()
         await wrapper.findAll('[role="tab"]')[1].trigger('click')
         const canvas = wrapper.get('canvas').element as HTMLCanvasElement
-        await vi.waitFor(() => expect(canvas.dataset.ready).toBe('true'))
+        await vi.waitFor(() => expect(canvas.dataset.ready).toBe('true'), { timeout: 10000 })
         await wrapper.get('[data-testid="seed-map-blocks-mode"]').trigger('click')
         await vi.waitFor(() => expect(canvas.dataset.renderMode).toBe('blocks'), { timeout: 20000 })
         expect(wrapper.find('[role="alert"]').exists()).toBe(false)
         const gl = canvas.getContext('webgl2')!
-        await vi.waitFor(() => {
-            const pixels = new Uint8Array(canvas.width * canvas.height * 4)
-            gl.readPixels(0, 0, canvas.width, canvas.height, gl.RGBA, gl.UNSIGNED_BYTE, pixels)
-            expect(pixels.some((value, index) => index % 4 === 3 && value > 0)).toBe(true)
-        })
+        await vi.waitFor(
+            () => {
+                const pixels = new Uint8Array(canvas.width * canvas.height * 4)
+                gl.readPixels(0, 0, canvas.width, canvas.height, gl.RGBA, gl.UNSIGNED_BYTE, pixels)
+                expect(pixels.some((value, index) => index % 4 === 3 && value > 0)).toBe(true)
+            },
+            { timeout: 10000 },
+        )
         if (source.limits.includes('height_placeholder'))
             expect(wrapper.text()).toContain('Some Y coordinates are placeholders')
         if (source.limits.includes('partial_layout'))
@@ -398,7 +406,6 @@ it.each([
         await wrapper.get('[data-testid="seed-map-frames-mode"]').trigger('click')
         expect(canvas.dataset.renderMode).toBe('frames')
     },
-    30000,
 )
 
 it('assigns texture-derived colors to individual model faces and preserves them through rotation', () => {
@@ -505,7 +512,7 @@ it('meshes every enabled template variant with original resources and bounded wo
     } finally {
         worker.terminate()
     }
-}, 30000)
+})
 
 it('cancels pending block work when switching back to frames or leaving the preview', async () => {
     const terminate = vi.fn()
@@ -538,7 +545,10 @@ it('cancels pending block work when switching back to frames or leaving the prev
             attachTo: document.body,
         })
         wrappers.push(wrapper)
-        await vi.waitFor(() => expect(wrapper.get('canvas').attributes('data-ready')).toBe('true'))
+        await vi.waitFor(
+            () => expect(wrapper.get('canvas').attributes('data-ready')).toBe('true'),
+            { timeout: 10000 },
+        )
         await wrapper.get('[data-testid="seed-map-blocks-mode"]').trigger('click')
         expect(
             postMessage.mock.calls.filter(([message]) => message.mode !== 'chests'),
@@ -597,7 +607,7 @@ it('shows camera-relative positive axes and toggles depth-independent chest high
     ;(wrapper.element as HTMLElement).style.cssText =
         'width: 430px; background: var(--surface-2); color: var(--color-text-primary); padding: 12px'
     const canvas = wrapper.get('canvas').element as HTMLCanvasElement
-    await vi.waitFor(() => expect(canvas.dataset.ready).toBe('true'))
+    await vi.waitFor(() => expect(canvas.dataset.ready).toBe('true'), { timeout: 10000 })
     const canvasRect = canvas.getBoundingClientRect()
     canvas.dispatchEvent(
         new PointerEvent('pointermove', {
@@ -606,7 +616,9 @@ it('shows camera-relative positive axes and toggles depth-independent chest high
             bubbles: true,
         }),
     )
-    await vi.waitFor(() => expect(wrapper.emitted('chestHover')?.[0]).toEqual([4]))
+    await vi.waitFor(() => expect(wrapper.emitted('chestHover')?.[0]).toEqual([4]), {
+        timeout: 10000,
+    })
     expect(wrapper.find('[data-testid="seed-map-chest-loot-preview"]').exists()).toBe(true)
     expect(wrapper.get('[data-testid="seed-map-chest-loot-preview"]').text()).toContain('3')
     const axis = wrapper.get('[data-testid="seed-map-axis-indicator"]')
@@ -621,11 +633,13 @@ it('shows camera-relative positive axes and toggles depth-independent chest high
         gl.readPixels(0, 0, canvas.width, canvas.height, gl.RGBA, gl.UNSIGNED_BYTE, value)
         return value
     }
-    await vi.waitFor(() => expect(pixels().some((value) => value > 0)).toBe(true))
+    await vi.waitFor(() => expect(pixels().some((value) => value > 0)).toBe(true), {
+        timeout: 10000,
+    })
     const visible = pixels()
     await wrapper.get('[data-testid="seed-map-chest-xray"]').trigger('click')
     expect(canvas.dataset.chestXray).toBe('false')
-    await vi.waitFor(() => expect(pixels()).not.toEqual(visible))
+    await vi.waitFor(() => expect(pixels()).not.toEqual(visible), { timeout: 10000 })
     const axisX = axis.get('[data-testid="seed-map-axis-X"] line').attributes('x2')
     const rect = canvas.getBoundingClientRect()
     canvas.dispatchEvent(
@@ -637,8 +651,12 @@ it('shows camera-relative positive axes and toggles depth-independent chest high
             cancelable: true,
         }),
     )
-    await vi.waitFor(() =>
-        expect(axis.get('[data-testid="seed-map-axis-X"] line').attributes('x2')).not.toBe(axisX),
+    await vi.waitFor(
+        () =>
+            expect(axis.get('[data-testid="seed-map-axis-X"] line').attributes('x2')).not.toBe(
+                axisX,
+            ),
+        { timeout: 10000 },
     )
     await wrapper.get('[data-testid="seed-map-chest-xray"]').trigger('click')
     expect(canvas.dataset.chestXray).toBe('true')
@@ -683,7 +701,10 @@ it('recovers from a block worker failure without losing frames or the selection'
             attachTo: document.body,
         })
         wrappers.push(wrapper)
-        await vi.waitFor(() => expect(wrapper.get('canvas').attributes('data-ready')).toBe('true'))
+        await vi.waitFor(
+            () => expect(wrapper.get('canvas').attributes('data-ready')).toBe('true'),
+            { timeout: 10000 },
+        )
         expect(wrapper.text()).toContain('真实结构')
         await wrapper.get('[data-testid="seed-map-blocks-mode"]').trigger('click')
         await vi.waitFor(() =>
@@ -716,7 +737,7 @@ it('keeps a newer structure selection when an older calculation finishes later',
         })
     const wrapper = render()
     await wrapper.setProps({ query: { ...query, x: 128 } })
-    await vi.waitFor(() => expect(wrapper.text()).toContain('90°'))
+    await vi.waitFor(() => expect(wrapper.text()).toContain('90°'), { timeout: 10000 })
     resolveOld({
         supported: true,
         pieces: [],
@@ -777,14 +798,18 @@ it('renders interactive 3D bounds and keeps map selection synchronized without i
     expect(card.find('[data-testid="seed-map-capability-list"]').exists()).toBe(false)
     await wrapper.findAll('[role="tab"]')[1].trigger('click')
     const canvas = wrapper.get('canvas').element as HTMLCanvasElement
-    await vi.waitFor(() => expect(wrapper.get('canvas').attributes('data-ready')).toBe('true'))
+    await vi.waitFor(() => expect(wrapper.get('canvas').attributes('data-ready')).toBe('true'), {
+        timeout: 10000,
+    })
     const gl = canvas.getContext('webgl2')!
     const pixels = () => {
         const data = new Uint8Array(canvas.width * canvas.height * 4)
         gl.readPixels(0, 0, canvas.width, canvas.height, gl.RGBA, gl.UNSIGNED_BYTE, data)
         return data
     }
-    await vi.waitFor(() => expect(pixels().some((value) => value > 0)).toBe(true))
+    await vi.waitFor(() => expect(pixels().some((value) => value > 0)).toBe(true), {
+        timeout: 10000,
+    })
     expect(wrapper.get('[data-piece-id="1"]').attributes('aria-pressed')).toBe('true')
     const before = pixels()
     canvas.dispatchEvent(
@@ -796,13 +821,13 @@ it('renders interactive 3D bounds and keeps map selection synchronized without i
             cancelable: true,
         }),
     )
-    await vi.waitFor(() => expect(pixels()).not.toEqual(before))
+    await vi.waitFor(() => expect(pixels()).not.toEqual(before), { timeout: 10000 })
     const zoomed = pixels()
     await userEvent.dragAndDrop(
         canvas,
         wrapper.get('[data-testid="seed-map-layout-preview"] strong').element,
     )
-    await vi.waitFor(() => expect(pixels()).not.toEqual(zoomed))
+    await vi.waitFor(() => expect(pixels()).not.toEqual(zoomed), { timeout: 10000 })
     await wrapper.get('[data-piece-id="0"]').trigger('click')
     expect(wrapper.emitted('focus')?.at(-1)?.[0]).toMatchObject({ id: 0 })
     expect(wrapper.text()).toContain('Vertical relationships are relative')
@@ -835,7 +860,9 @@ it('retains a selectable horizontal fallback after a WebGL context loss', async 
     await wrapper.setProps({ kind: 'stronghold' })
     await flushPromises()
     await wrapper.findAll('[role="tab"]')[1].trigger('click')
-    await vi.waitFor(() => expect(wrapper.get('canvas').attributes('data-ready')).toBe('true'))
+    await vi.waitFor(() => expect(wrapper.get('canvas').attributes('data-ready')).toBe('true'), {
+        timeout: 10000,
+    })
     await wrapper.get('canvas').trigger('webglcontextlost')
     expect(wrapper.text()).toContain('3D rendering is unavailable')
     await wrapper.get('svg[aria-label] rect').trigger('click')

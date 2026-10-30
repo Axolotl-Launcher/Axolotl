@@ -1,5 +1,4 @@
-import assert from 'node:assert/strict'
-import test from 'node:test'
+import { expect, it } from 'vitest'
 
 import {
     compareContentIdentities,
@@ -17,57 +16,55 @@ function identity(
     return contentIdentityFromInput({ provider, projectId, contentType, ...values })
 }
 
-test('normalizes platform suffixes and versions', () => {
-    assert.equal(normalizeContentIdentityText('Sodium-Fabric-0.5.8.jar'), 'sodium')
-    assert.equal(normalizeContentIdentityText('sodium_forge_1.20.1'), 'sodium')
+it('normalizes platform suffixes and versions', () => {
+    expect(normalizeContentIdentityText('Sodium-Fabric-0.5.8.jar')).toBe('sodium')
+    expect(normalizeContentIdentityText('sodium_forge_1.20.1')).toBe('sodium')
 })
 
-test('same provider never creates a cross-platform conflict', () => {
-    assert.equal(
+it('same provider never creates a cross-platform conflict', () => {
+    expect(
         compareContentIdentities(
             identity('modrinth', 'a', 'mod', { title: 'Sodium' }),
             identity('modrinth', 'b', 'mod', { title: 'Sodium' }),
         ),
-        null,
-    )
+    ).toBe(null)
 })
 
-test('different content types never conflict', () => {
-    assert.equal(
+it('different content types never conflict', () => {
+    expect(
         compareContentIdentities(
             identity('modrinth', 'a', 'mod', { title: 'Sodium' }),
             identity('curseforge', 'b', 'resourcepack', { title: 'Sodium' }),
         ),
-        null,
-    )
+    ).toBe(null)
 })
 
-test('matching sha1 is an exact cross-platform conflict', () => {
+it('matching sha1 is an exact cross-platform conflict', () => {
     const result = compareContentIdentities(
         identity('modrinth', 'a', 'mod', { sha1: 'ABC123', title: 'First' }),
         identity('curseforge', 'b', 'mod', { sha1: 'abc123', title: 'Second' }),
     )
-    assert.equal(result?.source, 'sha1')
-    assert.equal(result?.confidence, 'exact')
+    expect(result?.source).toBe('sha1')
+    expect(result?.confidence).toBe('exact')
 })
 
-test('matching names are heuristic conflicts', () => {
+it('matching names are heuristic conflicts', () => {
     const result = compareContentIdentities(
         identity('modrinth', 'a', 'mod', { title: 'Example Mod' }),
         identity('curseforge', 'b', 'mod', { title: 'example-mod' }),
     )
-    assert.equal(result?.source, 'heuristic')
+    expect(result?.source).toBe('heuristic')
 })
 
-test('curated mapping conflicts are exact', () => {
+it('curated mapping conflicts are exact', () => {
     const left = { ...identity('modrinth', 'a'), key: 'mapping:1', ambiguous: false }
     const right = { ...identity('curseforge', 'b'), key: 'mapping:1', ambiguous: false }
     const result = compareContentIdentities(left, right)
-    assert.equal(result?.source, 'curated_mapping')
-    assert.equal(result?.confidence, 'exact')
+    expect(result?.source).toBe('curated_mapping')
+    expect(result?.confidence).toBe('exact')
 })
 
-test('pack-managed snapshot members participate in cross-platform conflicts', () => {
+it('pack-managed snapshot members participate in cross-platform conflicts', () => {
     const [installedInput] = contentIdentityInputsFromSnapshot(
         [
             {
@@ -89,6 +86,6 @@ test('pack-managed snapshot members participate in cross-platform conflicts', ()
     }
 
     const result = compareContentIdentities(candidate, installed)
-    assert.equal(result?.source, 'curated_mapping')
-    assert.equal(result?.confidence, 'exact')
+    expect(result?.source).toBe('curated_mapping')
+    expect(result?.confidence).toBe('exact')
 })

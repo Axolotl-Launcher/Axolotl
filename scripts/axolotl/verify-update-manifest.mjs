@@ -18,6 +18,10 @@ export function verifyUpdateManifest(manifest, tag, source = 'github') {
             ) {
                 throw new Error(`Missing signed update for ${platform}`)
             }
+            // Manifests published before SHA-256 support omit the field and must stay verifiable.
+            if (update.sha256 !== undefined && !/^[a-f0-9]{64}$/.test(update.sha256)) {
+                throw new Error(`Invalid SHA-256 digest for ${platform}: ${update.sha256}`)
+            }
             const filename = decodeURIComponent(new URL(update.url).pathname.split('/').at(-1))
             verifyAssetUrl(update.url, tag, filename, source)
             if (!filename.endsWith(target.assetSuffix)) {

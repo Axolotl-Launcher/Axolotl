@@ -21,63 +21,27 @@ const settingsOpen = ref(false)
 @import '~/assets/styles/global.scss';
 
 html.accent-pink.light-mode {
-    --surface-1: #f8f4f7;
-    --surface-2: #fcf8fb;
-    --surface-3: #fffafd;
-    --surface-4: #ffffff;
-    --surface-5: #eadde5;
-    --color-text-primary: #2e2029;
-    --color-text-default: #493944;
-    --color-text-tertiary: #75616e;
-    --color-pink: #c72f6c;
-    --color-pink-highlight-opaque: rgb(199 47 108);
-    --color-pink-highlight: color-mix(in srgb, var(--color-pink-highlight-opaque) 14%, transparent);
-    --color-brand-highlight: color-mix(
-        in srgb,
-        var(--color-pink-highlight-opaque) 14%,
-        transparent
-    );
-    --color-brand-shadow: rgb(199 47 108 / 30%);
+    --color-on-brand: #ffffff;
     --landing-color-heading: #281b24;
     --landing-color-subheading: #65515e;
-    --landing-transition-gradient-end: #f8f4f7;
+    --landing-transition-gradient-end: var(--surface-1);
     --landing-border-color: rgb(166 107 138 / 32%);
 }
 
 html.accent-pink.dark-mode {
-    --surface-1: #101018;
-    --surface-2: #15151f;
-    --surface-3: #1b1b27;
-    --surface-4: #242432;
-    --surface-5: #343446;
-    --color-text-primary: #fff7fb;
-    --color-text-default: #ddd3da;
-    --color-text-tertiary: #aa9ca6;
-    --color-pink: #ff82b2;
-    --color-pink-highlight-opaque: rgb(255 130 178);
-    --color-pink-highlight: color-mix(in srgb, var(--color-pink-highlight-opaque) 18%, transparent);
-    --color-brand-highlight: color-mix(
-        in srgb,
-        var(--color-pink-highlight-opaque) 18%,
-        transparent
-    );
-    --color-brand-shadow: rgb(255 130 178 / 30%);
+    --color-on-brand: #1a1018;
     --landing-color-heading: #fff8fc;
     --landing-color-subheading: #bdb0ba;
-    --landing-transition-gradient-end: #101018;
+    --landing-transition-gradient-end: var(--surface-1);
     --landing-border-color: rgb(230 170 204 / 24%);
 }
 
+// OLED 把 html 的类切成 `accent-pink oled-mode`，既不是 light-mode 也不是 dark-mode。
+// `.oled-mode` 在共享变量里 `@extend .dark-mode`，品牌色仍是粉，遮罩文字沿用深色值；
+// `--surface-1` 在 OLED 下是纯黑，过渡带末端因此也要跟着走变量而不是写死。
 html.accent-pink.oled-mode {
-    --color-pink: #ff82b2;
-    --color-pink-highlight-opaque: rgb(255 130 178);
-    --color-pink-highlight: color-mix(in srgb, var(--color-pink-highlight-opaque) 18%, transparent);
-    --color-brand-highlight: color-mix(
-        in srgb,
-        var(--color-pink-highlight-opaque) 18%,
-        transparent
-    );
-    --color-brand-shadow: rgb(255 130 178 / 30%);
+    --color-on-brand: #1a1018;
+    --landing-transition-gradient-end: var(--surface-1);
 }
 
 html {

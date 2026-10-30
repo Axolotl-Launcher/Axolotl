@@ -4,8 +4,8 @@ import Fuse from 'fuse.js'
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 
 import type { SlotDisplay } from '@/lab/recipe-generator/display'
-import type { TextureAtlas } from '@/lab/recipe-generator/resources'
 import type { SlotValue } from '@/lab/recipe-generator/types'
+import type { TextureAtlas } from '@/lab/shared/minecraft/resources'
 
 import RecipeItemIcon from './RecipeItemIcon.vue'
 import RecipeSlotDragLayer from './RecipeSlotDragLayer.vue'
@@ -225,12 +225,12 @@ function startPointerDrag(event: PointerEvent, entry: PaletteEntry, startDrag: S
                             <button
                                 v-for="entry in row"
                                 :key="entry.key"
+                                v-tooltip="`${formatMessage(messages.addItem)}: ${entry.name}`"
                                 type="button"
                                 :draggable="!isTauriRuntime"
                                 class="recipe-palette-item"
                                 :class="{ 'is-dragging': draggingKey === entry.key }"
                                 :style="{ touchAction: isTauriRuntime ? 'none' : undefined }"
-                                :title="`${formatMessage(messages.addItem)}: ${entry.name}`"
                                 :aria-label="`${formatMessage(messages.addItem)}: ${entry.name}`"
                                 @click="pickFromClick($event, entry.value)"
                                 @pointerdown="startPointerDrag($event, entry, startDrag)"

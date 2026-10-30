@@ -3,9 +3,8 @@ use super::operations::{
     source_screenshots_dir,
 };
 use crate::State;
-use crate::state::instances::adapters::sqlite::{
-    instance_rows::{self, InstanceScreenshotSource},
-    screenshot_rows::{self, ScreenshotRow},
+use crate::state::instances::adapters::sqlite::screenshot_rows::{
+    self, InstanceScreenshotSource, ScreenshotRow,
 };
 use crate::util::fetch::sha1_file_async;
 use crate::util::io::IOError;
@@ -95,9 +94,11 @@ pub(crate) async fn reconcile_screenshots_with_state(
     instance_id: &str,
     state: &State,
 ) -> crate::Result<()> {
-    let Some(source) =
-        instance_rows::get_instance_screenshot_source(instance_id, &state.pool)
-            .await?
+    let Some(source) = screenshot_rows::get_instance_screenshot_source(
+        instance_id,
+        &state.pool,
+    )
+    .await?
     else {
         return Ok(());
     };

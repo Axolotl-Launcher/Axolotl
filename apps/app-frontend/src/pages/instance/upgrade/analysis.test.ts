@@ -1,5 +1,4 @@
-import assert from 'node:assert/strict'
-import test from 'node:test'
+import { expect, it } from 'vitest'
 
 import type {
     InstanceUpgradePlan,
@@ -73,7 +72,7 @@ function planItem(contentId: string, projectId: string | null = contentId) {
     }
 }
 
-test('newer stable versions follow metadata order without numeric parsing', () => {
+it('newer stable versions follow metadata order without numeric parsing', () => {
     const result = newerStableGameVersions(
         [
             { version: '26.1.2', version_type: 'release', date: '', major: false },
@@ -85,22 +84,22 @@ test('newer stable versions follow metadata order without numeric parsing', () =
         '1.21.8',
     )
 
-    assert.deepEqual(result, { currentFound: true, versions: ['26.1.2', '26.1'] })
+    expect(result).toEqual({ currentFound: true, versions: ['26.1.2', '26.1'] })
 })
 
-test('upgrade target equality uses semantic environment fields', () => {
+it('upgrade target equality uses semantic environment fields', () => {
     const target = {
         gameVersion: '26.2',
         modLoader: 'fabric',
         modLoaderVersion: '0.18.4',
         shaderRuntime: 'iris',
     } as const
-    assert.equal(upgradeTargetsEqual(target, { ...target }), true)
-    assert.equal(upgradeTargetsEqual(target, { ...target, gameVersion: '26.1' }), false)
-    assert.equal(upgradeTargetsEqual(target, { ...target, modLoaderVersion: '1' }), false)
+    expect(upgradeTargetsEqual(target, { ...target })).toBe(true)
+    expect(upgradeTargetsEqual(target, { ...target, gameVersion: '26.1' })).toBe(false)
+    expect(upgradeTargetsEqual(target, { ...target, modLoaderVersion: '1' })).toBe(false)
 })
 
-test('matching instance and semantic target reuse existing plan without replacing state', () => {
+it('matching instance and semantic target reuse existing plan without replacing state', () => {
     const target = {
         gameVersion: '26.2',
         modLoader: 'fabric',
@@ -115,19 +114,18 @@ test('matching instance and semantic target reuse existing plan without replacin
         customConstraints: [{ contentId: 'root', versionId: 'fixed' }],
     } as InstanceUpgradePlan
 
-    assert.equal(shouldReuseUpgradePlan('instance-one', plan, { ...target }), true)
-    assert.equal(plan.id, 'plan-one')
-    assert.equal(plan.items[0].resolution.action, 'keep')
-    assert.equal(plan.customConstraints[0].versionId, 'fixed')
-    assert.equal(
-        shouldReuseUpgradePlan('instance-one', plan, { ...target, gameVersion: '26.1' }),
+    expect(shouldReuseUpgradePlan('instance-one', plan, { ...target })).toBe(true)
+    expect(plan.id).toBe('plan-one')
+    expect(plan.items[0].resolution.action).toBe('keep')
+    expect(plan.customConstraints[0].versionId).toBe('fixed')
+    expect(shouldReuseUpgradePlan('instance-one', plan, { ...target, gameVersion: '26.1' })).toBe(
         false,
     )
-    assert.equal(shouldReuseUpgradePlan('instance-two', plan, target), false)
-    assert.equal(shouldReuseUpgradePlan('instance-one', null, target), false)
+    expect(shouldReuseUpgradePlan('instance-two', plan, target)).toBe(false)
+    expect(shouldReuseUpgradePlan('instance-one', null, target)).toBe(false)
 })
 
-test('plan selection skips planner for matching target and calls it once for a confirmed change', async () => {
+it('plan selection skips planner for matching target and calls it once for a confirmed change', async () => {
     const target: InstanceUpgradeTargetEnvironment = {
         gameVersion: '26.2',
         modLoader: 'fabric',
@@ -155,9 +153,9 @@ test('plan selection skips planner for matching target and calls it once for a c
         { ...target },
         planner,
     )
-    assert.equal(calls, 0)
-    assert.equal(reused.plan, existing)
-    assert.equal(reused.reused, true)
+    expect(calls).toBe(0)
+    expect(reused.plan).toBe(existing)
+    expect(reused.reused).toBe(true)
 
     const replanned = await resolveUpgradePlanSelection(
         'instance-one',
@@ -165,12 +163,12 @@ test('plan selection skips planner for matching target and calls it once for a c
         { ...target, modLoaderVersion: '0.18.5' },
         planner,
     )
-    assert.equal(calls, 1)
-    assert.equal(replanned.plan.id, 'plan-two')
-    assert.equal(replanned.reused, false)
+    expect(calls).toBe(1)
+    expect(replanned.plan.id).toBe('plan-two')
+    expect(replanned.reused).toBe(false)
 })
 
-test('failed replan preserves existing plan and authoritative target', async () => {
+it('failed replan preserves existing plan and authoritative target', async () => {
     const oldTarget = {
         gameVersion: '26.1',
         modLoader: 'fabric',
@@ -186,7 +184,7 @@ test('failed replan preserves existing plan and authoritative target', async () 
     let authoritativePlan = oldPlan
     let authoritativeTarget = oldTarget
 
-    await assert.rejects(
+    await expect(
         commitUpgradePlanSelection(
             'instance-one',
             oldPlan,
@@ -197,53 +195,48 @@ test('failed replan preserves existing plan and authoritative target', async () 
             (plan) => (authoritativePlan = plan),
             (target) => (authoritativeTarget = target as typeof oldTarget),
         ),
-        /planning failed/,
-    )
-    assert.equal(authoritativePlan, oldPlan)
-    assert.equal(authoritativeTarget, oldTarget)
+    ).rejects.toThrow(/planning failed/)
+    expect(authoritativePlan).toBe(oldPlan)
+    expect(authoritativeTarget).toBe(oldTarget)
 })
 
-test('Fabric loader choices exclude downgrades using numeric semantic comparison', () => {
-    assert.deepEqual(
-        fabricUpgradeLoaderVersions('0.18.4', ['0.18.6', '0.18.5', '0.18.4', '0.18.3']),
+it('Fabric loader choices exclude downgrades using numeric semantic comparison', () => {
+    expect(fabricUpgradeLoaderVersions('0.18.4', ['0.18.6', '0.18.5', '0.18.4', '0.18.3'])).toEqual(
         ['0.18.6', '0.18.5', '0.18.4'],
     )
-    assert.deepEqual(fabricUpgradeLoaderVersions('0.18.9', ['0.18.10', '0.18.9']), [
+    expect(fabricUpgradeLoaderVersions('0.18.9', ['0.18.10', '0.18.9'])).toEqual([
         '0.18.10',
         '0.18.9',
     ])
-    assert.deepEqual(fabricUpgradeLoaderVersions('custom', ['0.19.0']), [])
+    expect(fabricUpgradeLoaderVersions('custom', ['0.19.0'])).toEqual([])
 })
 
-test('Fabric loader pending selection preserves valid exact values and maps target values', () => {
-    assert.equal(preserveFabricLoaderSelection('0.18.5', ['0.18.5']), '0.18.5')
-    assert.equal(
-        preserveFabricLoaderSelection('0.18.5', ['0.18.6']),
+it('Fabric loader pending selection preserves valid exact values and maps target values', () => {
+    expect(preserveFabricLoaderSelection('0.18.5', ['0.18.5'])).toBe('0.18.5')
+    expect(preserveFabricLoaderSelection('0.18.5', ['0.18.6'])).toBe(
         AUTOMATIC_FABRIC_LOADER_VERSION,
     )
-    assert.equal(
-        preserveFabricLoaderSelection(AUTOMATIC_FABRIC_LOADER_VERSION, []),
+    expect(preserveFabricLoaderSelection(AUTOMATIC_FABRIC_LOADER_VERSION, [])).toBe(
         AUTOMATIC_FABRIC_LOADER_VERSION,
     )
-    assert.equal(fabricLoaderVersionForTarget(AUTOMATIC_FABRIC_LOADER_VERSION), null)
-    assert.equal(fabricLoaderVersionForTarget('0.18.5'), '0.18.5')
-    assert.equal(automaticFabricLoaderTargetAvailable(true, true, []), false)
-    assert.equal(automaticFabricLoaderTargetAvailable(true, true, ['0.18.5']), true)
-    assert.equal(automaticFabricLoaderTargetAvailable(false, true, []), true)
-    assert.equal(automaticFabricLoaderTargetAvailable(true, false, []), true)
+    expect(fabricLoaderVersionForTarget(AUTOMATIC_FABRIC_LOADER_VERSION)).toBe(null)
+    expect(fabricLoaderVersionForTarget('0.18.5')).toBe('0.18.5')
+    expect(automaticFabricLoaderTargetAvailable(true, true, [])).toBe(false)
+    expect(automaticFabricLoaderTargetAvailable(true, true, ['0.18.5'])).toBe(true)
+    expect(automaticFabricLoaderTargetAvailable(false, true, [])).toBe(true)
+    expect(automaticFabricLoaderTargetAvailable(true, false, [])).toBe(true)
 })
 
-test('shared upgrade detection uses established link or external target metadata', () => {
-    assert.equal(isSharedUpgradeInstance({ link: { type: 'shared_instance' } } as never), true)
-    assert.equal(isSharedUpgradeInstance({ symlink_target: 'D:/Minecraft' } as never), true)
-    assert.equal(
+it('shared upgrade detection uses established link or external target metadata', () => {
+    expect(isSharedUpgradeInstance({ link: { type: 'shared_instance' } } as never)).toBe(true)
+    expect(isSharedUpgradeInstance({ symlink_target: 'D:/Minecraft' } as never)).toBe(true)
+    expect(
         isSharedUpgradeInstance({ linked_dot_minecraft: 'D:/Minecraft/.minecraft' } as never),
-        true,
-    )
-    assert.equal(isSharedUpgradeInstance({ link: null, symlink_target: null } as never), false)
+    ).toBe(true)
+    expect(isSharedUpgradeInstance({ link: null, symlink_target: null } as never)).toBe(false)
 })
 
-test('unknown current version exposes stable releases conservatively', () => {
+it('unknown current version exposes stable releases conservatively', () => {
     const result = newerStableGameVersions(
         [
             { version: '26.1', version_type: 'release', date: '', major: true },
@@ -252,10 +245,10 @@ test('unknown current version exposes stable releases conservatively', () => {
         'custom',
     )
 
-    assert.deepEqual(result, { currentFound: false, versions: ['26.1'] })
+    expect(result).toEqual({ currentFound: false, versions: ['26.1'] })
 })
 
-test('compatibility summary uses selected solution and changed dependencies', () => {
+it('compatibility summary uses selected solution and changed dependencies', () => {
     const plan = {
         blockingIssues: [{ code: 'dependency_conflict' }, { code: 'prerelease_only' }],
         selectedSolution: {
@@ -268,7 +261,7 @@ test('compatibility summary uses selected solution and changed dependencies', ()
         },
     } as InstanceUpgradePlan
 
-    assert.deepEqual(compatibilitySummary(plan), {
+    expect(compatibilitySummary(plan)).toEqual({
         updates: 1,
         keptOrCompatible: 1,
         disabled: 1,
@@ -277,7 +270,7 @@ test('compatibility summary uses selected solution and changed dependencies', ()
     })
 })
 
-test('shader runtime inference uses exact loader component and provider identity', () => {
+it('shader runtime inference uses exact loader component and provider identity', () => {
     const instance = {
         loader: 'fabric',
         loader_components: [],
@@ -293,15 +286,14 @@ test('shader runtime inference uses exact loader component and provider identity
         ],
     } as never
 
-    assert.equal(inferShaderRuntime(instance, snapshot), 'iris')
-    assert.equal(
+    expect(inferShaderRuntime(instance, snapshot)).toBe('iris')
+    expect(
         inferShaderRuntime({ ...instance, loader_components: [{ kind: 'optifine' }] }, undefined),
-        'opti_fine',
-    )
-    assert.equal(inferShaderRuntime(instance, undefined), 'unknown')
+    ).toBe('opti_fine')
+    expect(inferShaderRuntime(instance, undefined)).toBe('unknown')
 })
 
-test('solution summary separates root and dependency changes', () => {
+it('solution summary separates root and dependency changes', () => {
     const summary = solutionSummary({
         kind: 'newest',
         selections: [
@@ -364,7 +356,7 @@ test('solution summary separates root and dependency changes', () => {
         ],
         warnings: [],
     })
-    assert.deepEqual(summary, {
+    expect(summary).toEqual({
         upgraded: 1,
         kept: 1,
         disabled: 1,
@@ -374,7 +366,7 @@ test('solution summary separates root and dependency changes', () => {
     })
 })
 
-test('confirm detail groups follow authoritative selection actions', () => {
+it('confirm detail groups follow authoritative selection actions', () => {
     const solution = {
         kind: 'custom',
         selections: [
@@ -398,74 +390,59 @@ test('confirm detail groups follow authoritative selection actions', () => {
     } as never
     const groups = confirmSolutionGroups(solution)
 
-    assert.deepEqual(
-        groups.updated.map((item) => item.contentId),
-        ['update'],
-    )
-    assert.deepEqual(
-        groups.kept.map((item) => item.contentId),
-        ['same', 'keep'],
-    )
-    assert.deepEqual(
-        groups.disabled.map((item) => item.contentId),
-        ['disable'],
-    )
-    assert.deepEqual(
-        groups.dependencyChanges.map((item) => item.kind),
-        ['add', 'upgrade', 'remove'],
-    )
+    expect(groups.updated.map((item) => item.contentId)).toEqual(['update'])
+    expect(groups.kept.map((item) => item.contentId)).toEqual(['same', 'keep'])
+    expect(groups.disabled.map((item) => item.contentId)).toEqual(['disable'])
+    expect(groups.dependencyChanges.map((item) => item.kind)).toEqual(['add', 'upgrade', 'remove'])
 })
 
-test('confirm upgrade options require shared mode and suppress redundant copy backup', () => {
-    assert.deepEqual(confirmUpgradeOptions(false, null, true), {
+it('confirm upgrade options require shared mode and suppress redundant copy backup', () => {
+    expect(confirmUpgradeOptions(false, null, true)).toEqual({
         effectiveMode: 'direct',
         createFullBackup: true,
         canStart: true,
     })
-    assert.deepEqual(confirmUpgradeOptions(true, null, true), {
+    expect(confirmUpgradeOptions(true, null, true)).toEqual({
         effectiveMode: null,
         createFullBackup: true,
         canStart: false,
     })
-    assert.deepEqual(confirmUpgradeOptions(true, 'direct', false), {
+    expect(confirmUpgradeOptions(true, 'direct', false)).toEqual({
         effectiveMode: 'direct',
         createFullBackup: false,
         canStart: true,
     })
-    assert.deepEqual(confirmUpgradeOptions(true, 'copy_and_upgrade', true), {
+    expect(confirmUpgradeOptions(true, 'copy_and_upgrade', true)).toEqual({
         effectiveMode: 'copy_and_upgrade',
         createFullBackup: false,
         canStart: true,
     })
 })
 
-test('confirm release slots keep current and target changelogs independent', () => {
-    assert.deepEqual(
+it('confirm release slots keep current and target changelogs independent', () => {
+    expect(
         confirmSelectionReleaseSlots({
             action: 'upgrade',
             currentReleaseId: 'current',
             targetReleaseId: 'target',
         } as never),
-        { currentReleaseId: 'current', targetReleaseId: 'target' },
-    )
-    assert.deepEqual(
+    ).toEqual({ currentReleaseId: 'current', targetReleaseId: 'target' })
+    expect(
         confirmSelectionReleaseSlots({
             action: 'keep',
             currentReleaseId: 'current',
             targetReleaseId: 'current',
         } as never),
-        { currentReleaseId: 'current', targetReleaseId: null },
-    )
-    assert.deepEqual(
+    ).toEqual({ currentReleaseId: 'current', targetReleaseId: null })
+    expect(
         confirmDependencyReleaseSlots({
             currentReleaseId: 'current',
             targetReleaseId: 'target',
         } as never),
-        { currentReleaseId: 'current', targetReleaseId: 'target' },
-    )
+    ).toEqual({ currentReleaseId: 'current', targetReleaseId: 'target' })
 })
 
-test('dependency detail resolves deterministic current and target release slots', () => {
+it('dependency detail resolves deterministic current and target release slots', () => {
     const cases = [
         {
             change: { kind: 'upgrade', currentReleaseId: 'old', targetReleaseId: 'new' },
@@ -496,28 +473,25 @@ test('dependency detail resolves deterministic current and target release slots'
         },
     ]
     for (const { change, expected } of cases) {
-        assert.deepEqual(
+        expect(
             resolveConfirmDependencyReleases(change as never, (releaseId) =>
                 releaseId ? `${releaseId}-label` : null,
             ),
-            expected,
-        )
+        ).toEqual(expected)
     }
 })
 
-test('confirm target loader label shows explicit version or honest automatic policy', () => {
-    assert.equal(
-        confirmTargetLoaderLabel('Fabric', 'fabric', '0.18.4', 'automatic'),
+it('confirm target loader label shows explicit version or honest automatic policy', () => {
+    expect(confirmTargetLoaderLabel('Fabric', 'fabric', '0.18.4', 'automatic')).toBe(
         'Fabric 0.18.4',
     )
-    assert.equal(
-        confirmTargetLoaderLabel('Fabric', 'fabric', null, 'automatic'),
+    expect(confirmTargetLoaderLabel('Fabric', 'fabric', null, 'automatic')).toBe(
         'Fabric (automatic)',
     )
-    assert.equal(confirmTargetLoaderLabel('Vanilla', 'vanilla', null, 'automatic'), 'Vanilla')
+    expect(confirmTargetLoaderLabel('Vanilla', 'vanilla', null, 'automatic')).toBe('Vanilla')
 })
 
-test('fixed constraints replace and remove by physical content without duplicates', () => {
+it('fixed constraints replace and remove by physical content without duplicates', () => {
     const first = {
         contentId: 'a',
         provider: 'modrinth' as const,
@@ -525,12 +499,12 @@ test('fixed constraints replace and remove by physical content without duplicate
         versionId: 'one',
     }
     const replaced = setFixedConstraint([first], { ...first, versionId: 'two' }, 'a')
-    assert.deepEqual(replaced, [{ ...first, versionId: 'two' }])
-    assert.deepEqual(setFixedConstraint(replaced, null, 'a'), [])
-    assert.equal(customConstraintsEqual(replaced, [{ ...first, versionId: 'two' }]), true)
+    expect(replaced).toEqual([{ ...first, versionId: 'two' }])
+    expect(setFixedConstraint(replaced, null, 'a')).toEqual([])
+    expect(customConstraintsEqual(replaced, [{ ...first, versionId: 'two' }])).toBe(true)
 })
 
-test('editable roots exclude automatic dependencies', () => {
+it('editable roots exclude automatic dependencies', () => {
     const root = {
         contentId: 'root',
         autoDependency: false,
@@ -540,24 +514,20 @@ test('editable roots exclude automatic dependencies', () => {
     }
     const dependency = { ...root, contentId: 'dependency', autoDependency: true }
     const plan = { items: [root, dependency], customConstraints: [] } as InstanceUpgradePlan
-    assert.deepEqual(
-        editableUpgradeRoots(plan).map((item) => item.contentId),
-        ['root'],
-    )
+    expect(editableUpgradeRoots(plan).map((item) => item.contentId)).toEqual(['root'])
 })
 
-test('unavailable minimal solution is not selectable', () => {
+it('unavailable minimal solution is not selectable', () => {
     const newestSolution = { kind: 'newest', selections: [], dependencyChanges: [], warnings: [] }
-    assert.deepEqual(
+    expect(
         availablePredefinedStrategies({
             newestSolution,
             minimalChangeSolution: null,
         } as InstanceUpgradePlan),
-        ['newest'],
-    )
+    ).toEqual(['newest'])
 })
 
-test('issue grouping gives blocking precedence and includes every content once', () => {
+it('issue grouping gives blocking precedence and includes every content once', () => {
     const plan = {
         items: [planItem('blocked'), planItem('warned'), planItem('clear')],
         blockingIssues: [issue('dependency_conflict', 'blocked', 'blocked')],
@@ -568,29 +538,19 @@ test('issue grouping gives blocking precedence and includes every content once',
     } as InstanceUpgradePlan
     const groups = groupUpgradeIssues(plan)
 
-    assert.deepEqual(
-        groups.blocking.map((group) => group.item.contentId),
-        ['blocked'],
-    )
-    assert.deepEqual(
-        groups.warnings.map((group) => group.item.contentId),
-        ['warned'],
-    )
-    assert.deepEqual(
-        groups.noIssues.map((group) => group.item.contentId),
-        ['clear'],
-    )
-    assert.equal(
+    expect(groups.blocking.map((group) => group.item.contentId)).toEqual(['blocked'])
+    expect(groups.warnings.map((group) => group.item.contentId)).toEqual(['warned'])
+    expect(groups.noIssues.map((group) => group.item.contentId)).toEqual(['clear'])
+    expect(
         new Set(
             [...groups.blocking, ...groups.warnings, ...groups.noIssues].map(
                 (group) => group.item.contentId,
             ),
         ).size,
-        3,
-    )
+    ).toBe(3)
 })
 
-test('initial blockers stay in blocking presentation without duplication after resolution', () => {
+it('initial blockers stay in blocking presentation without duplication after resolution', () => {
     const initialPlan = {
         items: [planItem('voxy'), planItem('clear')],
         blockingIssues: [issue('prerelease_only', 'voxy', 'voxy')],
@@ -604,50 +564,39 @@ test('initial blockers stay in blocking presentation without duplication after r
     } as InstanceUpgradePlan
     const groups = groupUpgradeIssues(resolvedPlan, initial)
 
-    assert.deepEqual(
-        groups.blocking.map((group) => group.item.contentId),
-        ['voxy'],
-    )
-    assert.equal(groups.blocking[0].currentlyBlocking, false)
-    assert.equal(groups.blocking[0].warnings.length, 2)
-    assert.equal(groups.warnings.length, 0)
-    assert.deepEqual(
-        groups.noIssues.map((group) => group.item.contentId),
-        ['clear'],
-    )
+    expect(groups.blocking.map((group) => group.item.contentId)).toEqual(['voxy'])
+    expect(groups.blocking[0].currentlyBlocking).toBe(false)
+    expect(groups.blocking[0].warnings.length).toBe(2)
+    expect(groups.warnings.length).toBe(0)
+    expect(groups.noIssues.map((group) => group.item.contentId)).toEqual(['clear'])
 })
 
-test('resolution presentation follows authoritative plan resolution rules', () => {
+it('resolution presentation follows authoritative plan resolution rules', () => {
     const resolution = planItem('item').resolution
-    assert.deepEqual(upgradeResolutionPresentation('two-option', resolution), {
+    expect(upgradeResolutionPresentation('two-option', resolution)).toEqual({
         selectedAction: null,
         showUndo: false,
     })
-    assert.deepEqual(
-        upgradeResolutionPresentation('two-option', { ...resolution, action: 'keep' }),
-        {
-            selectedAction: 'keep',
-            showUndo: false,
-        },
-    )
-    assert.deepEqual(
+    expect(upgradeResolutionPresentation('two-option', { ...resolution, action: 'keep' })).toEqual({
+        selectedAction: 'keep',
+        showUndo: false,
+    })
+    expect(
         upgradeResolutionPresentation('two-option', { ...resolution, action: 'disable' }),
-        { selectedAction: 'disable', showUndo: false },
-    )
-    assert.deepEqual(upgradeResolutionPresentation('single-prerelease', resolution), {
+    ).toEqual({ selectedAction: 'disable', showUndo: false })
+    expect(upgradeResolutionPresentation('single-prerelease', resolution)).toEqual({
         selectedAction: null,
         showUndo: false,
     })
-    assert.deepEqual(
+    expect(
         upgradeResolutionPresentation('single-prerelease', {
             ...resolution,
             allowPrerelease: true,
         }),
-        { selectedAction: 'upgrade', showUndo: true },
-    )
+    ).toEqual({ selectedAction: 'upgrade', showUndo: true })
 })
 
-test('root and content forms of one issue coalesce on exact project identity', () => {
+it('root and content forms of one issue coalesce on exact project identity', () => {
     const plan = {
         items: [planItem('content', 'project')],
         blockingIssues: [
@@ -658,11 +607,11 @@ test('root and content forms of one issue coalesce on exact project identity', (
     } as InstanceUpgradePlan
     const groups = groupUpgradeIssues(plan)
 
-    assert.equal(groups.blocking[0].blockingIssues.length, 1)
-    assert.equal(groups.blocking[0].blockingIssues[0].message, 'content form')
+    expect(groups.blocking[0].blockingIssues.length).toBe(1)
+    expect(groups.blocking[0].blockingIssues[0].message).toBe('content form')
 })
 
-test('unmapped and ambiguous project issues remain global', () => {
+it('unmapped and ambiguous project issues remain global', () => {
     const duplicate = planItem('duplicate-b', 'duplicate')
     const plan = {
         items: [planItem('duplicate-a', 'duplicate'), duplicate],
@@ -671,12 +620,12 @@ test('unmapped and ambiguous project issues remain global', () => {
     } as InstanceUpgradePlan
     const groups = groupUpgradeIssues(plan)
 
-    assert.equal(groups.globalBlockingIssues.length, 1)
-    assert.equal(groups.globalWarnings.length, 1)
-    assert.equal(groups.noIssues.length, 2)
+    expect(groups.globalBlockingIssues.length).toBe(1)
+    expect(groups.globalWarnings.length).toBe(1)
+    expect(groups.noIssues.length).toBe(2)
 })
 
-test('actionable warning filtering excludes global and informational conflicts', () => {
+it('actionable warning filtering excludes global and informational conflicts', () => {
     const plan = {
         items: [planItem('actionable'), planItem('conflict')],
         blockingIssues: [],
@@ -687,10 +636,10 @@ test('actionable warning filtering excludes global and informational conflicts',
         ],
     } as InstanceUpgradePlan
 
-    assert.deepEqual(actionableWarningContentIds(groupUpgradeIssues(plan)), ['actionable'])
+    expect(actionableWarningContentIds(groupUpgradeIssues(plan))).toEqual(['actionable'])
 })
 
-test('actionable warning count uses unique content rows', () => {
+it('actionable warning count uses unique content rows', () => {
     const plan = {
         items: [planItem('one'), planItem('two')],
         blockingIssues: [],
@@ -701,10 +650,10 @@ test('actionable warning count uses unique content rows', () => {
         ],
     } as InstanceUpgradePlan
 
-    assert.equal(actionableWarningContentIds(groupUpgradeIssues(plan)).length, 2)
+    expect(actionableWarningContentIds(groupUpgradeIssues(plan)).length).toBe(2)
 })
 
-test('content display metadata prefers normalized content then snapshot then plan fallback', () => {
+it('content display metadata prefers normalized content then snapshot then plan fallback', () => {
     const item = planItem('entry', 'plan-project') as never
     const snapshot = {
         expectedRelativePath: 'resourcepacks/file.zip',
@@ -718,35 +667,34 @@ test('content display metadata prefers normalized content then snapshot then pla
         version: { version_number: 'resolved-version' },
     } as never
 
-    assert.deepEqual(upgradeContentDisplayMetadata(item, content, snapshot), {
+    expect(upgradeContentDisplayMetadata(item, content, snapshot)).toEqual({
         title: 'Resolved title',
         iconUrl: 'resolved.png',
         currentVersion: 'resolved-version',
     })
-    assert.deepEqual(upgradeContentDisplayMetadata(item, undefined, snapshot), {
+    expect(upgradeContentDisplayMetadata(item, undefined, snapshot)).toEqual({
         title: 'Snapshot title',
         iconUrl: 'snapshot.png',
         currentVersion: 'snapshot-version',
     })
-    assert.equal(upgradeContentDisplayMetadata(item).title, 'entry.jar')
+    expect(upgradeContentDisplayMetadata(item).title).toBe('entry.jar')
 })
 
-test('local content identity joins by normalized path when entry ids are absent', () => {
-    assert.deepEqual(contentIdentityKeys({ relativePath: 'resourcepacks\\pack.zip' }), [
+it('local content identity joins by normalized path when entry ids are absent', () => {
+    expect(contentIdentityKeys({ relativePath: 'resourcepacks\\pack.zip' })).toEqual([
         'resourcepacks/pack.zip',
     ])
-    assert.deepEqual(
+    expect(
         contentIdentityKeys({ instanceEntryId: 'entry', relativePath: 'resourcepacks/pack.zip' }),
-        ['entry', 'resourcepacks/pack.zip'],
-    )
+    ).toEqual(['entry', 'resourcepacks/pack.zip'])
 })
 
-test('Minecraft formatting codes are removed from display title only', () => {
+it('Minecraft formatting codes are removed from display title only', () => {
     const item = planItem('identity')
     item.relativePath = 'resourcepacks/§9§lExample §rPack.zip'
     const originalPath = item.relativePath
-    assert.equal(sanitizeMinecraftDisplayTitle('§9§lExample §rPack'), 'Example Pack')
-    assert.equal(upgradeContentDisplayMetadata(item).title, 'Example Pack.zip')
-    assert.equal(item.relativePath, originalPath)
-    assert.equal(item.contentId, 'identity')
+    expect(sanitizeMinecraftDisplayTitle('§9§lExample §rPack')).toBe('Example Pack')
+    expect(upgradeContentDisplayMetadata(item).title).toBe('Example Pack.zip')
+    expect(item.relativePath).toBe(originalPath)
+    expect(item.contentId).toBe('identity')
 })

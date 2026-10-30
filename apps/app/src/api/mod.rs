@@ -10,6 +10,7 @@ pub mod instance;
 pub mod jre;
 pub mod logs;
 pub mod mcarchive;
+pub mod mcp;
 pub mod metadata;
 pub mod minecraft_skins;
 pub mod mod_translation;
@@ -27,6 +28,7 @@ pub mod system_accent;
 pub mod tags;
 pub mod telemetry;
 pub mod terracotta;
+pub(crate) mod tools;
 pub mod translation;
 pub mod utils;
 

@@ -71,7 +71,7 @@ in
     cargoLock = {
       lockFile = ../Cargo.lock;
       outputHashes = {
-        "tauri-plugin-updater-2.10.1" = "sha256-NiORbFiK91SGrAIfQtUCLwomKO5ZIX+nvW8/8ZODaB4=";
+        "tauri-plugin-updater-2.10.1" = "sha256-LcnavYjT6nK0fQ/Gtb5HnkVzUuFuIL/9ewUq3PaTJTo=";
         "tauri-plugin-window-state-2.4.1" = "sha256-WPZ5HvSY5NCwjHXVgovBK4Xvf8Zl4Z8vJinKZvRJPhQ=";
       };
     };
@@ -83,7 +83,7 @@ in
       inherit pname version src;
       pnpm = pnpm_10_33_2;
       fetcherVersion = 4;
-      hash = "sha256-dIdtH8qUxKWgZEyWAkkp5AWaklIpK2w+LEuMUQyjG/M=";
+      hash = "sha256-0n9R5WGotwKva650WC39aICVcoVz2EoO3VHAse40BXI=";
     };
     # Gradle
     gradleFlags = [

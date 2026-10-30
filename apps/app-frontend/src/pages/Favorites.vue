@@ -54,6 +54,7 @@ import { getCurseForgeFiles } from '@/helpers/curseforge'
 import { getDisplayInstanceIcon } from '@/helpers/instance-icons'
 import { runAfterPageTransitionSettle } from '@/helpers/page-transition'
 import { createProjectDetailsQuery } from '@/helpers/project-links'
+import { createProjectPreviewState } from '@/helpers/project-preview'
 import type { SourceProjectMetadata } from '@/helpers/resources'
 import {
     getLastBrowseContentDisplayMode,
@@ -86,6 +87,14 @@ type FavoriteProject = {
         serverSide: Labrinth.Projects.v2.Environment
     }
     unavailable: boolean
+}
+
+type FavoriteRow = { favorite: ContentFavorite; project?: FavoriteProject }
+type FavoritesView = {
+    search: string
+    filter: FavoriteFilter
+    page: number
+    projects: FavoriteProject[]
 }
 
 type FavoritesReturnState = {
@@ -124,8 +133,14 @@ const browseReturnSnapshot = navReturn.consumeBrowseReturnSnapshot<FavoritesRetu
 if (browseReturnSnapshot) projects.value = browseReturnSnapshot.state.projects
 const projectsLoadFailed = ref(false)
 const hasProjectsSnapshot = ref(!!browseReturnSnapshot)
+const metadataComplete = ref(false)
+const committedView = shallowRef<FavoritesView | null>(null)
 
 const messages = defineMessages({
+    refreshing: {
+        id: 'app.content-favorites.refreshing',
+        defaultMessage: 'Updating favorites…',
+    },
     browseResources: {
         id: 'app.content-favorites.browse-resources',
         defaultMessage: 'Browse resources',
@@ -427,6 +442,13 @@ function restoreCachedProjects() {
 }
 
 if (!browseReturnSnapshot) restoreCachedProjects()
+metadataComplete.value =
+    contentFavorites.loaded.value &&
+    contentFavorites.favorites.value.every((favorite) =>
+        projects.value.some(
+            (project) => JSON.stringify(project.favorite) === JSON.stringify(favorite),
+        ),
+    )
 
 async function refreshProjects() {
     if (disposed) return
@@ -436,49 +458,113 @@ async function refreshProjects() {
     const signal = projectsController.signal
     loadingProjects.value = true
     projectsLoadFailed.value = false
+    const isCurrent = () => requestId === projectRequestId && !signal.aborted && !disposed
     try {
         await contentFavorites.load(true)
-        if (requestId !== projectRequestId || signal.aborted) return
+        if (!isCurrent()) return
+        metadataComplete.value = false
         const favorites = [...contentFavorites.favorites.value]
-        const local = await prefetchContentFavorites(favorites, signal, 'onlyCached')
-        if (requestId !== projectRequestId || signal.aborted) return
-        for (const favorite of favorites) {
-            const candidates = [
-                { source: favorite.provider, projectId: favorite.project_id },
-                ...(favorite.projects ?? []),
-            ]
-            const metadata = candidates
-                .map((project) => local.get(`${project.source}:${project.projectId}`))
-                .find(Boolean)
-            if (metadata && !contentFavorites.getMetadata(favorite))
-                contentFavorites.setMetadata(favorite, metadata)
+        hasProjectsSnapshot.value = true
+        const candidates = (favorite: ContentFavorite) => [
+            { source: favorite.provider, projectId: favorite.project_id },
+            ...(favorite.projects ?? []),
+        ]
+        const restoreLocal = (local: ReadonlyMap<string, SourceProjectMetadata>) => {
+            if (!isCurrent()) return
+            for (const favorite of favorites) {
+                const metadata = candidates(favorite)
+                    .map((project) => local.get(`${project.source}:${project.projectId}`))
+                    .find(Boolean)
+                if (metadata && !contentFavorites.getMetadata(favorite))
+                    contentFavorites.setMetadata(favorite, metadata)
+            }
+            restoreCachedProjects()
         }
-        restoreCachedProjects()
-        const cached = await prefetchContentFavorites(favorites, signal)
-        if (requestId !== projectRequestId || signal.aborted) return
-        const resolved = await Promise.all(
-            favorites.map(async (favorite): Promise<FavoriteProject> => {
-                try {
-                    const candidates = [
-                        { source: favorite.provider, projectId: favorite.project_id },
-                        ...(favorite.projects ?? []),
-                    ]
-                    const metadata =
-                        candidates
-                            .map((project) => cached.get(`${project.source}:${project.projectId}`))
-                            .find(Boolean) ?? (await resolveContentFavorite(favorite, signal))
-                    if (requestId === projectRequestId && !signal.aborted)
-                        contentFavorites.setMetadata(favorite, metadata)
-                    return toProject(favorite, metadata)
-                } catch {
-                    const metadata = contentFavorites.getMetadata(favorite)
-                    return metadata ? toProject(favorite, metadata) : toUnavailable(favorite)
-                }
-            }),
+        const local = await prefetchContentFavorites(
+            favorites,
+            signal,
+            'onlyCached',
+            (_source, metadata) => restoreLocal(metadata),
         )
-        if (requestId === projectRequestId && !signal.aborted) {
+        if (!isCurrent()) return
+        restoreLocal(local)
+
+        const settledSources = new Set<FavoriteProvider>()
+        const resolutions = new Map<string, Promise<FavoriteProject>>()
+        const publish = (project: FavoriteProject) => {
+            if (
+                !isCurrent() ||
+                !contentFavorites.favorites.value.some(
+                    (favorite) => JSON.stringify(favorite) === JSON.stringify(project.favorite),
+                )
+            )
+                return
+            const key = contentFavoriteKey(project.favorite.provider, project.favorite.project_id)
+            projects.value = [
+                ...projects.value.filter(
+                    (previous) =>
+                        contentFavoriteKey(
+                            previous.favorite.provider,
+                            previous.favorite.project_id,
+                        ) !== key,
+                ),
+                project,
+            ]
+        }
+        const schedule = (cached: ReadonlyMap<string, SourceProjectMetadata>) => {
+            if (!isCurrent()) return
+            for (const favorite of favorites) {
+                const key = contentFavoriteKey(favorite.provider, favorite.project_id)
+                const references = candidates(favorite)
+                if (
+                    resolutions.has(key) ||
+                    references.some(
+                        (project) =>
+                            (project.source === 'modrinth' || project.source === 'curseforge') &&
+                            !settledSources.has(project.source),
+                    )
+                )
+                    continue
+                const resolution = (async (): Promise<FavoriteProject> => {
+                    try {
+                        const metadata =
+                            references
+                                .map((project) =>
+                                    cached.get(`${project.source}:${project.projectId}`),
+                                )
+                                .find(Boolean) ?? (await resolveContentFavorite(favorite, signal))
+                        if (isCurrent()) contentFavorites.setMetadata(favorite, metadata)
+                        return toProject(favorite, metadata)
+                    } catch {
+                        const metadata = contentFavorites.getMetadata(favorite)
+                        return metadata ? toProject(favorite, metadata) : toUnavailable(favorite)
+                    }
+                })().then((project) => {
+                    publish(project)
+                    return project
+                })
+                resolutions.set(key, resolution)
+            }
+        }
+        schedule(new Map())
+        const cached = await prefetchContentFavorites(
+            favorites,
+            signal,
+            'useFresh',
+            (source, metadata) => {
+                settledSources.add(source)
+                schedule(metadata)
+            },
+        )
+        if (!isCurrent()) return
+        // A source can be absent from the prefetch batch for historical favorites.
+        settledSources.add('modrinth')
+        settledSources.add('curseforge')
+        schedule(cached)
+        const resolved = await Promise.all(resolutions.values())
+        if (isCurrent()) {
             projects.value = resolved
-            hasProjectsSnapshot.value = true
+            metadataComplete.value = true
         }
     } catch {
         if (requestId === projectRequestId && !signal.aborted) projectsLoadFailed.value = true
@@ -492,46 +578,89 @@ onBeforeUnmount(() => {
     projectsController?.abort()
 })
 
-const activeFavoriteKeys = computed(
-    () =>
-        new Set(
-            contentFavorites.favorites.value.map((favorite) =>
-                contentFavoriteKey(favorite.provider, favorite.project_id),
-            ),
-        ),
+const activeFavoriteIdentities = computed(
+    () => new Set(contentFavorites.favorites.value.map((favorite) => JSON.stringify(favorite))),
 )
 
 const availableProjects = computed(() =>
     projects.value
-        .filter((project) =>
-            activeFavoriteKeys.value.has(
-                contentFavoriteKey(project.favorite.provider, project.favorite.project_id),
-            ),
-        )
+        .filter((project) => activeFavoriteIdentities.value.has(JSON.stringify(project.favorite)))
         .sort((left, right) => right.favorite.saved_at - left.favorite.saved_at),
 )
 
-const filteredProjects = computed(() => {
-    const normalizedSearch = search.value.trim().toLocaleLowerCase()
-    return availableProjects.value.filter((project) => {
-        if (filter.value !== 'all' && project.favorite.content_type !== filter.value) return false
-        if (!normalizedSearch) return true
-        return [project.title, project.description, project.provider, project.projectId]
+function matchesFilter(project: FavoriteProject, query: string, kind: FavoriteFilter) {
+    if (kind !== 'all' && project.favorite.content_type !== kind) return false
+    const normalizedSearch = query.trim().toLocaleLowerCase()
+    return (
+        !normalizedSearch ||
+        [project.title, project.description, project.provider, project.projectId]
             .join('\n')
             .toLocaleLowerCase()
             .includes(normalizedSearch)
-    })
-})
+    )
+}
 
-const pageCount = computed(() => Math.max(1, Math.ceil(filteredProjects.value.length / PAGE_SIZE)))
-const pagedProjects = computed(() => {
-    const page = Math.min(currentPage.value, pageCount.value)
-    const offset = (page - 1) * PAGE_SIZE
-    return filteredProjects.value.slice(offset, offset + PAGE_SIZE)
+watch(
+    [search, filter, currentPage, loadingProjects],
+    () => {
+        if (!loadingProjects.value && metadataComplete.value) {
+            const matching = availableProjects.value.filter((project) =>
+                matchesFilter(project, search.value, filter.value),
+            )
+            committedView.value = {
+                search: search.value,
+                filter: filter.value,
+                page: Math.min(
+                    currentPage.value,
+                    Math.max(1, Math.ceil(matching.length / PAGE_SIZE)),
+                ),
+                projects: matching,
+            }
+        } else if (
+            !search.value.trim() &&
+            filter.value === 'all' &&
+            (!committedView.value ||
+                (!committedView.value.search.trim() && committedView.value.filter === 'all'))
+        ) {
+            committedView.value = {
+                search: '',
+                filter: 'all',
+                page: currentPage.value,
+                projects: [],
+            }
+        }
+    },
+    { immediate: true },
+)
+
+const displayRows = computed<FavoriteRow[]>(() => {
+    const view = committedView.value
+    if (!view) return []
+    if (view.search.trim() || view.filter !== 'all')
+        return view.projects
+            .filter((project) =>
+                activeFavoriteIdentities.value.has(JSON.stringify(project.favorite)),
+            )
+            .map((project) => ({ favorite: project.favorite, project }))
+    const known = new Map(
+        availableProjects.value.map((project) => [JSON.stringify(project.favorite), project]),
+    )
+    return contentFavorites.favorites.value.map((favorite) => ({
+        favorite,
+        project: known.get(JSON.stringify(favorite)),
+    }))
+})
+const pageCount = computed(() => Math.max(1, Math.ceil(displayRows.value.length / PAGE_SIZE)))
+const displayedPage = computed(() =>
+    Math.min(committedView.value?.page ?? currentPage.value, pageCount.value),
+)
+const pagedRows = computed(() => {
+    const offset = (displayedPage.value - 1) * PAGE_SIZE
+    return displayRows.value.slice(offset, offset + PAGE_SIZE)
 })
 
 watch([pageCount, loadingProjects], ([count, loading]) => {
-    if (!loading && currentPage.value > count) currentPage.value = count
+    if (!loading && metadataComplete.value && currentPage.value > count) currentPage.value = count
 })
 
 const installContext = computed<BrowseInstallContext | null>(() => {
@@ -689,21 +818,19 @@ function setDisplayMode(mode: FavoriteDisplayMode) {
 
 function getProjectLink(project: FavoriteProject) {
     if (project.unavailable) return undefined
-    if (project.favorite.resource_id)
-        return {
-            path: `/resource/${project.favorite.resource_id}`,
-            query: createProjectDetailsQuery(route.query, route.fullPath),
-        }
+    const path = project.favorite.resource_id
+        ? `/resource/${project.favorite.resource_id}`
+        : project.provider === 'curseforge'
+          ? `/project/curseforge/${project.projectId}`
+          : project.provider === 'mcarchive'
+            ? `/project/mcarchive/${project.slug ?? project.projectId}`
+            : project.provider === 'planet_minecraft'
+              ? `/project/planet-minecraft/${project.projectId}`
+              : `/project/${project.slug ?? project.projectId}`
     return {
-        path:
-            project.provider === 'curseforge'
-                ? `/project/curseforge/${project.projectId}`
-                : project.provider === 'mcarchive'
-                  ? `/project/mcarchive/${project.slug ?? project.projectId}`
-                  : project.provider === 'planet_minecraft'
-                    ? `/project/planet-minecraft/${project.projectId}`
-                    : `/project/${project.slug ?? project.projectId}`,
+        path,
         query: createProjectDetailsQuery(route.query, route.fullPath),
+        state: createProjectPreviewState(path, project.title),
     }
 }
 
@@ -870,7 +997,7 @@ onMounted(() => {
                         </template>
                     </PopoutMenu>
                     <Pagination
-                        :page="currentPage"
+                        :page="displayedPage"
                         :count="pageCount"
                         @switch-page="currentPage = $event"
                     />
@@ -878,6 +1005,13 @@ onMounted(() => {
             </div>
         </div>
 
+        <p
+            v-if="loadingProjects && committedView"
+            role="status"
+            class="m-0 text-sm text-[var(--color-text-tertiary)]"
+        >
+            {{ formatMessage(messages.refreshing) }}
+        </p>
         <Admonition
             v-if="projectsLoadFailed && hasProjectsSnapshot"
             type="warning"
@@ -899,12 +1033,7 @@ onMounted(() => {
             </template>
         </EmptyState>
         <section
-            v-else-if="
-                (!hasProjectsSnapshot && !projectsLoadFailed) ||
-                (loadingProjects &&
-                    filteredProjects.length === 0 &&
-                    contentFavorites.favorites.value.length > 0)
-            "
+            v-else-if="!committedView || (!contentFavorites.loaded.value && !hasProjectsSnapshot)"
             aria-busy="true"
         >
             <ProjectCardList :layout="displayMode">
@@ -926,7 +1055,7 @@ onMounted(() => {
             </template>
         </EmptyState>
         <EmptyState
-            v-else-if="filteredProjects.length === 0"
+            v-else-if="displayRows.length === 0"
             type="no-search-result"
             :heading="formatMessage(messages.noMatchesTitle)"
             :description="formatMessage(messages.noMatchesDescription)"
@@ -938,67 +1067,81 @@ onMounted(() => {
             </template>
         </EmptyState>
         <ProjectCardList v-else :layout="displayMode" :aria-busy="loadingProjects">
-            <ProjectCard
-                v-for="project in pagedProjects"
-                :key="`${project.provider}:${project.projectId}`"
-                :layout="displayMode"
-                :link="getProjectLink(project)"
-                :title="project.title"
-                :summary="project.description"
-                :icon-url="project.iconUrl"
-                :downloads="project.downloads"
-                :tags="project.categories"
-                :date-published="project.dateCreated"
-                :date-updated="project.dateModified"
-                :banner="project.banner"
-                :color="project.color"
-                :environment="project.environment"
-                :provider="project.provider"
+            <template
+                v-for="row in pagedRows"
+                :key="contentFavoriteKey(row.favorite.provider, row.favorite.project_id)"
             >
-                <template #actions>
-                    <div class="flex gap-2">
-                        <Button
-                            v-if="!project.unavailable"
-                            color="brand"
-                            type="outlined"
-                            :size="displayMode === 'compact' ? '2xs' : 'md'"
-                            :disabled="isInstalling(project)"
-                            @click.stop="toggleProjectSelection(project)"
-                        >
-                            <SpinnerIcon v-if="isInstalling(project)" class="animate-spin" />
-                            <CheckIcon v-else-if="isSelected(project)" />
-                            <PlusIcon v-else />
-                            {{ installLabel(project) }}
-                        </Button>
-                        <Button
-                            v-tooltip="formatMessage(messages.remove)"
-                            circular
-                            icon-only
-                            color="brand"
-                            type="quiet"
-                            :size="displayMode === 'compact' ? '2xs' : 'md'"
-                            :disabled="
-                                contentFavorites.isPending(project.provider, project.projectId)
-                            "
-                            :label="formatMessage(messages.remove)"
-                            @click.stop="removeFavorite(project)"
-                        >
-                            <SpinnerIcon
-                                v-if="
-                                    contentFavorites.isPending(project.provider, project.projectId)
+                <ProjectCardSkeleton v-if="!row.project" :layout="displayMode" />
+                <ProjectCard
+                    v-else
+                    :layout="displayMode"
+                    :link="getProjectLink(row.project)"
+                    :title="row.project.title"
+                    :summary="row.project.description"
+                    :icon-url="row.project.iconUrl"
+                    :downloads="row.project.downloads"
+                    :tags="row.project.categories"
+                    :date-published="row.project.dateCreated"
+                    :date-updated="row.project.dateModified"
+                    :banner="row.project.banner"
+                    :color="row.project.color"
+                    :environment="row.project.environment"
+                    :provider="row.project.provider"
+                >
+                    <template #actions>
+                        <div class="flex gap-2">
+                            <Button
+                                v-if="!row.project.unavailable"
+                                color="brand"
+                                type="outlined"
+                                :size="displayMode === 'compact' ? '2xs' : 'md'"
+                                :disabled="isInstalling(row.project)"
+                                @click.stop="toggleProjectSelection(row.project)"
+                            >
+                                <SpinnerIcon
+                                    v-if="isInstalling(row.project)"
+                                    class="animate-spin"
+                                />
+                                <CheckIcon v-else-if="isSelected(row.project)" />
+                                <PlusIcon v-else />
+                                {{ installLabel(row.project) }}
+                            </Button>
+                            <Button
+                                v-tooltip="formatMessage(messages.remove)"
+                                circular
+                                icon-only
+                                color="brand"
+                                type="quiet"
+                                :size="displayMode === 'compact' ? '2xs' : 'md'"
+                                :disabled="
+                                    contentFavorites.isPending(
+                                        row.project.provider,
+                                        row.project.projectId,
+                                    )
                                 "
-                                class="animate-spin"
-                            />
-                            <BookmarkFilledIcon v-else />
-                        </Button>
-                    </div>
-                </template>
-            </ProjectCard>
+                                :label="formatMessage(messages.remove)"
+                                @click.stop="removeFavorite(row.project)"
+                            >
+                                <SpinnerIcon
+                                    v-if="
+                                        contentFavorites.isPending(
+                                            row.project.provider,
+                                            row.project.projectId,
+                                        )
+                                    "
+                                    class="animate-spin"
+                                />
+                                <BookmarkFilledIcon v-else />
+                            </Button>
+                        </div>
+                    </template>
+                </ProjectCard>
+            </template>
         </ProjectCardList>
 
         <div class="flex justify-end">
             <Pagination
-                :page="currentPage"
+                :page="displayedPage"
                 :count="pageCount"
                 @switch-page="currentPage = $event"
             />

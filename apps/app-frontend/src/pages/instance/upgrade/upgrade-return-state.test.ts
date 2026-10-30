@@ -1,6 +1,4 @@
-import assert from 'node:assert/strict'
-import test from 'node:test'
-
+import { expect, it } from 'vitest'
 import { reactive } from 'vue'
 
 import {
@@ -12,7 +10,7 @@ import {
     upgradeProjectPath,
 } from '../../../helpers/upgrade-return-state.ts'
 
-test('upgrade return snapshot is one-shot and instance-scoped', () => {
+it('upgrade return snapshot is one-shot and instance-scoped', () => {
     clearUpgradeFlow()
     const snapshot = {
         instanceId: 'instance-a',
@@ -25,13 +23,13 @@ test('upgrade return snapshot is one-shot and instance-scoped', () => {
         result: null,
     }
     parkUpgradeFlow(snapshot)
-    assert.equal(consumeUpgradeFlow('instance-b', snapshot.returnFullPath), null)
-    assert.deepEqual(consumeUpgradeFlow('instance-a', snapshot.returnFullPath), snapshot)
-    assert.equal(consumeUpgradeFlow('instance-a', snapshot.returnFullPath), null)
+    expect(consumeUpgradeFlow('instance-b', snapshot.returnFullPath)).toBe(null)
+    expect(consumeUpgradeFlow('instance-a', snapshot.returnFullPath)).toEqual(snapshot)
+    expect(consumeUpgradeFlow('instance-a', snapshot.returnFullPath)).toBe(null)
 })
 
 for (const route of ['compatibility', 'customize', 'confirm']) {
-    test(`${route} return hydrates the parked plan before consuming it`, () => {
+    it(`${route} return hydrates the parked plan before consuming it`, () => {
         clearUpgradeFlow()
         const snapshot = {
             instanceId: 'instance-a',
@@ -48,13 +46,13 @@ for (const route of ['compatibility', 'customize', 'confirm']) {
         const restored = restoreUpgradeFlow('instance-a', snapshot.returnFullPath, (value) => {
             hydratedPlanId = value.plan?.id
         })
-        assert.equal(hydratedPlanId, 'same-plan')
-        assert.equal(restored?.plan?.id, 'same-plan')
-        assert.equal(peekUpgradeFlow('instance-a'), null)
+        expect(hydratedPlanId).toBe('same-plan')
+        expect(restored?.plan?.id).toBe('same-plan')
+        expect(peekUpgradeFlow('instance-a')).toBe(null)
     })
 }
 
-test('confirm project return restores plan and confirm choices without replanning', () => {
+it('confirm project return restores plan and confirm choices without replanning', () => {
     clearUpgradeFlow()
     const snapshot = {
         instanceId: 'instance-a',
@@ -77,15 +75,15 @@ test('confirm project return restores plan and confirm choices without replannin
         restoredSnapshot = value as typeof snapshot
     })
 
-    assert.equal(restoredSnapshot?.plan.id, 'same-plan')
-    assert.deepEqual(restoredSnapshot?.targetEnvironment, snapshot.targetEnvironment)
-    assert.deepEqual(restoredSnapshot?.plan.selectedSolution, snapshot.plan.selectedSolution)
-    assert.deepEqual(restoredSnapshot?.plan.customConstraints, snapshot.plan.customConstraints)
-    assert.equal(restoredSnapshot?.createFullBackup, false)
-    assert.equal(restoredSnapshot?.sharedUpgradeMode, 'direct')
+    expect(restoredSnapshot?.plan.id).toBe('same-plan')
+    expect(restoredSnapshot?.targetEnvironment).toEqual(snapshot.targetEnvironment)
+    expect(restoredSnapshot?.plan.selectedSolution).toEqual(snapshot.plan.selectedSolution)
+    expect(restoredSnapshot?.plan.customConstraints).toEqual(snapshot.plan.customConstraints)
+    expect(restoredSnapshot?.createFullBackup).toBe(false)
+    expect(restoredSnapshot?.sharedUpgradeMode).toBe('direct')
 })
 
-test('failed hydration leaves the parked snapshot available', () => {
+it('failed hydration leaves the parked snapshot available', () => {
     clearUpgradeFlow()
     const snapshot = {
         instanceId: 'instance-a',
@@ -98,22 +96,22 @@ test('failed hydration leaves the parked snapshot available', () => {
         result: null,
     }
     parkUpgradeFlow(snapshot)
-    assert.throws(() =>
+    expect(() =>
         restoreUpgradeFlow('instance-a', snapshot.returnFullPath, () => {
             throw new Error('hydrate failed')
         }),
-    )
-    assert.deepEqual(peekUpgradeFlow('instance-a'), snapshot)
+    ).toThrow()
+    expect(peekUpgradeFlow('instance-a')).toEqual(snapshot)
 })
 
-test('confirm project title routes match trusted provider routes only', () => {
-    assert.equal(upgradeProjectPath('modrinth', 'P7dR8mSH'), '/project/P7dR8mSH')
-    assert.equal(upgradeProjectPath('curseforge', '123'), '/project/curseforge/123')
-    assert.equal(upgradeProjectPath('local', 'pack'), null)
-    assert.equal(upgradeProjectPath(null, 'unidentified'), null)
+it('confirm project title routes match trusted provider routes only', () => {
+    expect(upgradeProjectPath('modrinth', 'P7dR8mSH')).toBe('/project/P7dR8mSH')
+    expect(upgradeProjectPath('curseforge', '123')).toBe('/project/curseforge/123')
+    expect(upgradeProjectPath('local', 'pack')).toBe(null)
+    expect(upgradeProjectPath(null, 'unidentified')).toBe(null)
 })
 
-test('upgrade return snapshot detaches reactive flow DTOs', () => {
+it('upgrade return snapshot detaches reactive flow DTOs', () => {
     clearUpgradeFlow()
     const snapshot = reactive({
         instanceId: 'reactive-instance',
@@ -127,6 +125,6 @@ test('upgrade return snapshot detaches reactive flow DTOs', () => {
     })
     parkUpgradeFlow(snapshot)
     snapshot.createFullBackup = false
-    assert.equal(peekUpgradeFlow('reactive-instance')?.createFullBackup, true)
-    assert.equal(consumeUpgradeFlow('wrong-instance', snapshot.returnFullPath), null)
+    expect(peekUpgradeFlow('reactive-instance')?.createFullBackup).toBe(true)
+    expect(consumeUpgradeFlow('wrong-instance', snapshot.returnFullPath)).toBe(null)
 })

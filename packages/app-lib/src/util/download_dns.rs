@@ -956,11 +956,10 @@ impl DownloadDnsResolver {
 fn doh_query(host: &str, record_type: RecordType) -> std::io::Result<Message> {
     let mut name = DnsName::from_ascii(host).map_err(std::io::Error::other)?;
     name.set_fqdn(true);
-    let mut message = Message::new();
-    message
-        .set_id(rand::random())
-        .set_recursion_desired(true)
-        .add_query(Query::query(name, record_type));
+    let mut message = Message::query();
+    message.metadata.id = rand::random();
+    message.metadata.recursion_desired = true;
+    message.add_query(Query::query(name, record_type));
     Ok(message)
 }
 
@@ -984,17 +983,17 @@ fn parse_doh_metadata(
         ));
     }
     let response = Message::from_vec(bytes).map_err(std::io::Error::other)?;
-    if response.id() != query.id()
-        || response.message_type() != MessageType::Response
-        || response.queries() != query.queries()
-        || response.truncated()
-        || response.response_code() != ResponseCode::NoError
+    if response.metadata.id != query.metadata.id
+        || response.metadata.message_type != MessageType::Response
+        || response.queries != query.queries
+        || response.metadata.truncation
+        || response.metadata.response_code != ResponseCode::NoError
     {
         return Err(std::io::Error::other(
             DOWNLOAD_DNS_INVALID_OR_UNSUCCESSFUL_DOH_DNS_RESPONSE,
         ));
     }
-    let question = query.query().ok_or_else(|| {
+    let question = query.queries.first().ok_or_else(|| {
         std::io::Error::other(DOWNLOAD_DNS_MISSING_DNS_QUESTION)
     })?;
     let now = Instant::now();
@@ -1009,27 +1008,26 @@ fn parse_doh_metadata(
             ));
         }
         let mut next = None;
-        for answer in response.answers().iter().filter(|answer| {
-            answer.name() == &name
-                && answer.dns_class() == question.query_class()
+        for answer in response.answers.iter().filter(|answer| {
+            answer.name == name && answer.dns_class == question.query_class()
         }) {
-            if let RData::CNAME(alias) = answer.data() {
+            if let RData::CNAME(alias) = &answer.data {
                 if next.as_ref().is_some_and(|target| target != &alias.0) {
                     return Err(std::io::Error::other(
                         DOWNLOAD_DNS_CONFLICTING_DOH_CNAME_ANSWERS,
                     ));
                 }
                 next = Some(alias.0.clone());
-                chain_ttl = chain_ttl.min(answer.ttl());
+                chain_ttl = chain_ttl.min(answer.ttl);
             }
         }
         let Some(next) = next else {
             break;
         };
-        if response.answers().iter().any(|record| {
-            record.name() == &name
-                && record.dns_class() == question.query_class()
-                && matches!(record.data(), RData::A(_) | RData::AAAA(_))
+        if response.answers.iter().any(|record| {
+            record.name == name
+                && record.dns_class == question.query_class()
+                && matches!(record.data, RData::A(_) | RData::AAAA(_))
         }) {
             return Err(std::io::Error::other(
                 DOWNLOAD_DNS_DOH_CNAME_OWNER_ALSO_CONTAINS_ADDRESS_RECORDS,
@@ -1039,15 +1037,15 @@ fn parse_doh_metadata(
         name = next;
     }
     let mut addresses = response
-        .answers()
+        .answers
         .iter()
         .filter(|record| {
-            record.name() == &name
+            record.name == name
                 && record.record_type() == question.query_type()
-                && record.dns_class() == question.query_class()
+                && record.dns_class == question.query_class()
         })
         .filter_map(|record| {
-            let ip = match record.data() {
+            let ip = match &record.data {
                 RData::A(address) => IpAddr::V4(address.0),
                 RData::AAAA(address) => IpAddr::V6(address.0),
                 _ => return None,
@@ -1055,7 +1053,7 @@ fn parse_doh_metadata(
             Some(DnsAddress {
                 ip,
                 expires_at: now
-                    + Duration::from_secs(record.ttl().min(chain_ttl) as u64),
+                    + Duration::from_secs(record.ttl.min(chain_ttl) as u64),
             })
         })
         .collect::<Vec<_>>();
@@ -1320,8 +1318,8 @@ mod tests {
         for record_type in [RecordType::A, RecordType::AAAA] {
             let query = doh_query("cdn.example", record_type).unwrap();
             let decoded = Message::from_vec(&query.to_vec().unwrap()).unwrap();
-            assert_eq!(decoded.queries(), query.queries());
-            assert!(decoded.recursion_desired());
+            assert_eq!(decoded.queries, query.queries);
+            assert!(decoded.metadata.recursion_desired);
             let alias = DnsName::from_ascii("edge.example").unwrap();
             let ip = if record_type == RecordType::A {
                 IpAddr::V4(Ipv4Addr::new(192, 0, 2, 1))
@@ -1333,10 +1331,10 @@ mod tests {
                 IpAddr::V6(ip) => RData::AAAA(AAAA(ip)),
             };
             let mut response = query.clone();
+            response.metadata.message_type = MessageType::Response;
             response
-                .set_message_type(MessageType::Response)
                 .add_answer(Record::from_rdata(
-                    query.query().unwrap().name().clone(),
+                    query.queries.first().unwrap().name().clone(),
                     60,
                     RData::CNAME(CNAME(alias.clone())),
                 ))
@@ -1346,7 +1344,7 @@ mod tests {
                     .unwrap(),
                 vec![SocketAddr::new(ip, 0)]
             );
-            response.set_id(query.id().wrapping_add(1));
+            response.metadata.id = query.metadata.id.wrapping_add(1);
             assert!(
                 parse_doh_response(&response.to_vec().unwrap(), &query)
                     .is_err()

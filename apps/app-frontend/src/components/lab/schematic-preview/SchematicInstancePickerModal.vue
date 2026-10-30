@@ -336,12 +336,12 @@ defineExpose({ show })
             <template v-else>
                 <div class="flex min-w-0 items-center gap-3">
                     <Button
+                        v-tooltip="formatMessage(messages.back)"
                         type="quiet"
                         size="2xs"
                         circular
                         icon-only
                         :aria-label="formatMessage(messages.back)"
-                        :title="formatMessage(messages.back)"
                         @click="backToInstances"
                         ><ChevronLeftIcon />
                     </Button>
@@ -406,11 +406,11 @@ defineExpose({ show })
                             <template v-for="row in visibleItems" :key="rowKey(row)">
                                 <button
                                     v-if="row.kind === 'folder'"
+                                    v-tooltip="row.path"
                                     type="button"
                                     role="listitem"
                                     class="flex h-16 w-full cursor-pointer items-center gap-3 border-0 border-b border-solid border-surface-5 bg-transparent py-2 pr-3 text-left text-[var(--color-text-default)] transition-colors last:border-b-0 hover:bg-surface-4 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-shadow"
                                     :style="rowPadding(row.depth)"
-                                    :title="row.path"
                                     :aria-expanded="row.expanded"
                                     :aria-label="
                                         formatMessage(
@@ -451,11 +451,11 @@ defineExpose({ show })
                                 </button>
                                 <button
                                     v-else
+                                    v-tooltip="row.file.relativePath"
                                     type="button"
                                     role="listitem"
                                     class="flex h-16 w-full cursor-pointer items-center gap-3 border-0 border-b border-solid border-surface-5 bg-transparent py-2 pr-3 text-left text-[var(--color-text-default)] transition-colors last:border-b-0 hover:bg-surface-4 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-shadow"
                                     :style="rowPadding(row.depth)"
-                                    :title="row.file.relativePath"
                                     :aria-label="
                                         formatMessage(messages.openSchematic, {
                                             name: row.file.relativePath,

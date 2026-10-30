@@ -198,7 +198,11 @@ async fn install_local_pack_file_recursive(
                 let mut entry = archive
                     .by_index(i)
                     .map_err(|e| ErrorKind::OtherError(e.to_string()))?;
-                let sub_path = scratch.join(entry.mangled_name());
+                let sub_path = scratch.join(
+                    entry
+                        .mangled_name()
+                        .map_err(|e| ErrorKind::OtherError(e.to_string()))?,
+                );
 
                 if let Some(parent) = sub_path.parent() {
                     std::fs::create_dir_all(parent)?;

@@ -96,6 +96,12 @@ export interface QueueContentChangeRequest {
     displayIcon?: string
 }
 
+function errorText(error: unknown): string {
+    if (typeof error !== 'object' || error === null) return String(error)
+    if ('message' in error) return String(error.message)
+    return 'error' in error ? errorText(error.error) : String(error)
+}
+
 export function createDownloadManager(handleError: (error: unknown) => void): DownloadManager {
     const jobs = ref<InstallJobSnapshot[]>([])
     const initializationState = ref<'loading' | 'ready' | 'error'>('loading')
@@ -119,6 +125,12 @@ export function createDownloadManager(handleError: (error: unknown) => void): Do
     let requestFlushTimer: ReturnType<typeof setTimeout> | null = null
     let legacyRefreshTimer: ReturnType<typeof setTimeout> | null = null
     let pendingContentChangeId = 0
+    let staleRefreshTimer: ReturnType<typeof setTimeout> | null = null
+    const lastJobActivity = new Map<string, number>()
+    const cancellationRequests = new Map<string, 'pending' | 'accepted'>()
+    const cancellationsInFlight = new Set<string>()
+    const reopenedJobs = new Map<string, string>()
+    const confirmingJobs = new Set<string>()
 
     function bumpJobRevision(jobId: string) {
         jobRevisions.set(jobId, (jobRevisions.get(jobId) ?? 0) + 1)
@@ -146,7 +158,7 @@ export function createDownloadManager(handleError: (error: unknown) => void): Do
         setCurseForgeManualDownloads(instanceId, manualItems)
     }
 
-    function setJob(job: InstallJobSnapshot, force = false) {
+    function setJob(job: InstallJobSnapshot, force = false, authoritative = false) {
         if (disposed) return
         if (initializing && !force) {
             pendingInitialUpdates.push({ kind: 'job', job })
@@ -157,10 +169,34 @@ export function createDownloadManager(handleError: (error: unknown) => void): Do
         // flush can regress a completed item back to downloading.
         flushRequestUpdates()
         const current = jobs.value.find((candidate) => candidate.job_id === job.job_id)
-        if (current && isRegressiveActiveJobSnapshot(current, job, ACTIVE_INSTALL_JOB_STATUSES)) {
+        if (
+            !authoritative &&
+            current &&
+            isActiveInstallJobStatus(current.status) &&
+            !isActiveInstallJobStatus(job.status) &&
+            reopenedJobs.get(job.job_id) === job.modified
+        ) {
+            if (!confirmingJobs.has(job.job_id)) {
+                confirmingJobs.add(job.job_id)
+                void readCurrentJob(job.job_id)
+                    .catch(handleError)
+                    .finally(() => confirmingJobs.delete(job.job_id))
+            }
+            return
+        }
+        if (
+            !authoritative &&
+            current &&
+            isRegressiveActiveJobSnapshot(current, job, ACTIVE_INSTALL_JOB_STATUSES)
+        ) {
             return
         }
         if (current && current.modified.localeCompare(job.modified) > 0) return
+        if (!isActiveInstallJobStatus(job.status)) cancellationRequests.delete(job.job_id)
+        else if (cancellationRequests.has(job.job_id)) {
+            if (job.status === 'canceling') cancellationRequests.set(job.job_id, 'accepted')
+            job = { ...job, status: 'canceling' }
+        }
         const currentIndex = jobs.value.findIndex((candidate) => candidate.job_id === job.job_id)
         if (currentIndex !== -1) {
             job = preserveMonotonicProgress(jobs.value[currentIndex], job)
@@ -176,6 +212,8 @@ export function createDownloadManager(handleError: (error: unknown) => void): Do
             jobs.value = [job, ...jobs.value].sort((a, b) => b.created.localeCompare(a.created))
         }
         bumpJobRevision(job.job_id)
+        lastJobActivity.set(job.job_id, Date.now())
+        if (!isActiveInstallJobStatus(job.status)) reopenedJobs.delete(job.job_id)
         const pending = pendingRequestUpdatesByJob.get(job.job_id)
         if (pending) {
             pendingRequestUpdatesByJob.delete(job.job_id)
@@ -270,6 +308,7 @@ export function createDownloadManager(handleError: (error: unknown) => void): Do
         }
         for (const job of mutableJobs.values()) syncLiveByteProgress(job)
         for (const job of mutableJobs.values()) bumpJobRevision(job.job_id)
+        for (const job of mutableJobs.values()) lastJobActivity.set(job.job_id, Date.now())
         jobs.value = next
     }
 
@@ -384,9 +423,18 @@ export function createDownloadManager(handleError: (error: unknown) => void): Do
                 ACTIVE_INSTALL_JOB_STATUSES,
             )
             jobs.value = refreshedJobs.map((job) => {
+                if (!isActiveInstallJobStatus(job.status)) cancellationRequests.delete(job.job_id)
+                else if (cancellationRequests.has(job.job_id)) {
+                    if (job.status === 'canceling') cancellationRequests.set(job.job_id, 'accepted')
+                    job = { ...job, status: 'canceling' }
+                }
                 const current = jobs.value.find((candidate) => candidate.job_id === job.job_id)
                 return current ? preserveMonotonicProgress(current, job) : job
             })
+            for (const job of jobs.value) {
+                bumpJobRevision(job.job_id)
+                lastJobActivity.set(job.job_id, Date.now())
+            }
             const seenInstances = new Set<string>()
             for (const job of page.jobs) {
                 if (job.status !== 'succeeded') continue
@@ -432,6 +480,67 @@ export function createDownloadManager(handleError: (error: unknown) => void): Do
         unlistenRequests = unlistenJobs = unlistenLoading = null
     }
 
+    async function queryCurrentJob(jobId: string) {
+        let timeout: ReturnType<typeof setTimeout> | undefined
+        try {
+            return await Promise.race([
+                download_job_get(jobId),
+                new Promise<never>((_, reject) => {
+                    timeout = setTimeout(
+                        () => reject(new Error('Download task status query timed out')),
+                        10_000,
+                    )
+                }),
+            ])
+        } finally {
+            if (timeout !== undefined) clearTimeout(timeout)
+        }
+    }
+
+    async function readCurrentJob(jobId: string) {
+        const revision = jobRevisions.get(jobId) ?? 0
+        const job = await queryCurrentJob(jobId)
+        if (disposed || (jobRevisions.get(jobId) ?? 0) !== revision) return undefined
+        if (job) setJob(job, false, true)
+        else {
+            jobs.value = jobs.value.filter((candidate) => candidate.job_id !== jobId)
+            bumpJobRevision(jobId)
+            lastJobActivity.delete(jobId)
+            cancellationRequests.delete(jobId)
+            reopenedJobs.delete(jobId)
+        }
+        return job
+    }
+
+    function scheduleStaleRefresh() {
+        if (disposed || staleRefreshTimer !== null) return
+        staleRefreshTimer = setTimeout(async () => {
+            staleRefreshTimer = null
+            try {
+                const stale = jobs.value
+                    .filter(
+                        (job) =>
+                            !syntheticIds.has(job.job_id) &&
+                            isActiveInstallJobStatus(job.status) &&
+                            Date.now() - (lastJobActivity.get(job.job_id) ?? 0) >= 30_000,
+                    )
+                    .sort(
+                        (a, b) =>
+                            (lastJobActivity.get(a.job_id) ?? 0) -
+                            (lastJobActivity.get(b.job_id) ?? 0),
+                    )
+                    .slice(0, 8)
+                for (const job of stale) {
+                    if (disposed) break
+                    lastJobActivity.set(job.job_id, Date.now())
+                    await readCurrentJob(job.job_id).catch(handleError)
+                }
+            } finally {
+                scheduleStaleRefresh()
+            }
+        }, 30_000)
+    }
+
     function start(): Promise<void> {
         if (startPromise) return startPromise
         if (started || disposed) return Promise.resolve()
@@ -471,7 +580,10 @@ export function createDownloadManager(handleError: (error: unknown) => void): Do
             ])
             const snapshotFailure = snapshots.find((result) => result.status === 'rejected')
             if (snapshotFailure) throw snapshotFailure.reason
-            if (!disposed) initializationState.value = 'ready'
+            if (!disposed) {
+                initializationState.value = 'ready'
+                scheduleStaleRefresh()
+            }
         })()
             .catch((error) => {
                 stopSubscriptions()
@@ -508,20 +620,79 @@ export function createDownloadManager(handleError: (error: unknown) => void): Do
             jobs.value = jobs.value.filter((job) => job.job_id !== jobId)
             return
         }
+        if (cancellationsInFlight.has(jobId) || cancellationRequests.get(jobId) === 'pending')
+            return
+        cancellationsInFlight.add(jobId)
+        const before = jobs.value.find((current) => current.job_id === jobId)
+        // A running acknowledgement only confirms the cancellation signal. Once
+        // Canceling is persisted, another request can retry failed cleanup.
+        cancellationRequests.set(jobId, cancellationRequests.get(jobId) ?? 'pending')
+        jobs.value = jobs.value.map((current) =>
+            current.job_id === jobId && isActiveInstallJobStatus(current.status)
+                ? { ...current, status: 'canceling' }
+                : current,
+        )
         const revision = jobRevisions.get(jobId) ?? 0
-        const job = await download_job_cancel(jobId)
-        await reconcileJob(job, revision)
+        try {
+            let job
+            try {
+                job = await download_job_cancel(jobId)
+                if (job.status === 'canceling' && cancellationRequests.has(jobId)) {
+                    cancellationRequests.set(jobId, 'accepted')
+                }
+            } catch (error) {
+                if (cancellationRequests.get(jobId) === 'pending')
+                    cancellationRequests.delete(jobId)
+                const current = await readCurrentJob(jobId).catch(handleError)
+                if (
+                    current === undefined &&
+                    before &&
+                    (jobRevisions.get(jobId) ?? 0) === revision
+                ) {
+                    jobs.value = jobs.value.map((candidate) =>
+                        candidate.job_id === jobId ? before : candidate,
+                    )
+                }
+                if (
+                    (current === null || (current && !isActiveInstallJobStatus(current.status))) &&
+                    errorText(error).includes(
+                        'Only queued, running, or waiting install jobs can be canceled',
+                    )
+                )
+                    return
+                throw error
+            }
+            await reconcileJob(job, revision)
+        } finally {
+            cancellationsInFlight.delete(jobId)
+        }
     }
 
     async function retry(jobId: string) {
         const revision = jobRevisions.get(jobId) ?? 0
-        const job = await download_job_retry(jobId)
+        let job
+        try {
+            job = await download_job_retry(jobId)
+            cancellationRequests.delete(jobId)
+            if (job.job_id === jobId && isActiveInstallJobStatus(job.status))
+                reopenedJobs.set(jobId, job.modified)
+        } catch (error) {
+            await readCurrentJob(jobId).catch(handleError)
+            throw error
+        }
         await reconcileJob(job, revision)
     }
 
     async function resume(jobId: string) {
         const revision = jobRevisions.get(jobId) ?? 0
-        const job = await download_job_resume(jobId)
+        let job
+        try {
+            job = await download_job_resume(jobId)
+            if (isActiveInstallJobStatus(job.status)) reopenedJobs.set(jobId, job.modified)
+        } catch (error) {
+            await readCurrentJob(jobId).catch(handleError)
+            throw error
+        }
         await reconcileJob(job, revision)
     }
 
@@ -540,8 +711,8 @@ export function createDownloadManager(handleError: (error: unknown) => void): Do
     async function reconcileJob(job: InstallJobSnapshot, revision: number) {
         await reconcileAcceptedDownloadJob(
             job,
-            download_job_get,
-            setJob,
+            queryCurrentJob,
+            (current) => setJob(current, false, true),
             (id) => {
                 jobs.value = jobs.value.filter((candidate) => candidate.job_id !== id)
             },
@@ -619,6 +790,13 @@ export function createDownloadManager(handleError: (error: unknown) => void): Do
         offSyntheticCancel,
         dispose() {
             disposed = true
+            if (staleRefreshTimer !== null) clearTimeout(staleRefreshTimer)
+            staleRefreshTimer = null
+            lastJobActivity.clear()
+            cancellationRequests.clear()
+            cancellationsInFlight.clear()
+            reopenedJobs.clear()
+            confirmingJobs.clear()
             pendingContentChanges.value = []
             initializing = false
             pendingInitialUpdates.length = 0

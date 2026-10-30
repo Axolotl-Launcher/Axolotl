@@ -1,0 +1,38 @@
+{
+  "db_name": "SQLite",
+  "query": "\n        SELECT\n            daily.played_on AS \"date!: String\",\n            SUM(daily.played_seconds) AS \"played_seconds!: i64\",\n            SUM(daily.session_count) AS \"session_count!: i64\",\n            (\n                SELECT candidate.instance_name\n                FROM instance_daily_playtime candidate\n                WHERE candidate.played_on = daily.played_on\n                    AND candidate.played_seconds > 0\n                ORDER BY candidate.played_seconds DESC, candidate.instance_name ASC\n                LIMIT 1\n            ) AS \"top_instance_name?: String\"\n        FROM instance_daily_playtime daily\n        WHERE daily.played_on BETWEEN ? AND ?\n        GROUP BY daily.played_on\n        ORDER BY daily.played_on\n        ",
+  "describe": {
+    "columns": [
+      {
+        "name": "date!: String",
+        "ordinal": 0,
+        "type_info": "Text"
+      },
+      {
+        "name": "played_seconds!: i64",
+        "ordinal": 1,
+        "type_info": "Null"
+      },
+      {
+        "name": "session_count!: i64",
+        "ordinal": 2,
+        "type_info": "Null"
+      },
+      {
+        "name": "top_instance_name?: String",
+        "ordinal": 3,
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": [
+      false,
+      null,
+      null,
+      false
+    ]
+  },
+  "hash": "ff19b8ff20f9442df1d51669f6b9c4f35a26edfbeba750b397f2bc537e8e37ea"
+}

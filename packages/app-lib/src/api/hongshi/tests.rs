@@ -395,15 +395,15 @@ async fn download_size_header_is_rejected_before_a_file_is_installed() {
         let mut request = [0; 2048];
         let _bytes_read = stream.read(&mut request).await.unwrap();
         stream
-			.write_all(
-				format!(
-					"HTTP/1.1 200 OK\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
-					MAX_BINARY_SIZE + 1
-				)
-				.as_bytes(),
-			)
-			.await
-			.unwrap();
+            .write_all(
+                format!(
+                    "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+                    MAX_BINARY_SIZE + 1
+                )
+                .as_bytes(),
+            )
+            .await
+            .unwrap();
     });
     let path = directory.path().join(binary_name());
     std::fs::write(&path, b"existing file").unwrap();

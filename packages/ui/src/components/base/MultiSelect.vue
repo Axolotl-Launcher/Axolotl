@@ -57,10 +57,10 @@
                     >
                         <PopoverTrigger as-child>
                             <!--
-								A button, so the overflow is reachable and openable from the
-								keyboard. It reads as a tag rather than a control, hence the
-								transparent reset below.
-							-->
+                                A button, so the overflow is reachable and openable from the
+                                keyboard. It reads as a tag rather than a control, hence the
+                                transparent reset below.
+                            -->
                             <button
                                 type="button"
                                 class="inline-flex cursor-pointer select-none items-center rounded-full border border-solid border-surface-5 bg-surface-4 px-2 py-1 text-sm font-medium text-[var(--color-text-tertiary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"

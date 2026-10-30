@@ -1,0 +1,2489 @@
+{
+  "entries": [
+    {
+      "file": "apps/app/src/api/auth.rs",
+      "form": "tokio::spawn",
+      "count": 1,
+      "reason": "phase-0 baseline: existing task spawn; moves to scheduler dispatch with the governed items (spec §5.6) or stays operation-scoped",
+      "sites": [
+        "browser_login: let auth_code = tokio::spawn(oauth_utils::auth_code_reply::listen_fixed("
+      ]
+    },
+    {
+      "file": "apps/app/src/api/cache.rs",
+      "form": "tauri::async_runtime::spawn",
+      "count": 1,
+      "reason": "phase-0 baseline: existing Tauri runtime spawn; moves to scheduler dispatch with the governed items (spec §5.6) or stays operation-scoped",
+      "sites": [
+        "cancel_search_request: tauri::async_runtime::spawn(async move {"
+      ]
+    },
+    {
+      "file": "apps/app/src/api/drop.rs",
+      "form": "spawn_blocking",
+      "count": 1,
+      "reason": "phase-0 baseline: blocking work on the shared blocking pool, which L0 must stop using (T3.6)",
+      "sites": [
+        "run_cancellable_blocking: tokio::task::spawn_blocking(move || operation_fn(worker_cancellation));"
+      ]
+    },
+    {
+      "file": "apps/app/src/api/drop.rs",
+      "form": "std::fs",
+      "count": 15,
+      "reason": "phase-0 baseline: synchronous file I/O; must not appear in L0 or inside a critical section (D17)",
+      "sites": [
+        "drop_extract_zip_to_temp: std::fs::create_dir(&dir)",
+        "drop_extract_zip_to_temp: std::fs::create_dir_all(&base).map_err(|e| {",
+        "drop_remove_temp_dir: let base = std::fs::canonicalize(&base)",
+        "drop_remove_temp_dir: let target = std::fs::canonicalize(&path)",
+        "read_file_cancellable: let mut file = std::fs::File::open(path).map_err(|error| {",
+        "remove_dir_all: let entries = std::fs::read_dir(path).map_err(|error| {",
+        "remove_dir_all: let metadata = std::fs::symlink_metadata(path).map_err(|error| {",
+        "remove_dir_all: std::fs::remove_dir(path).map_err(|error| {",
+        "remove_dir_all: std::fs::remove_file(path).map_err(|error| {",
+        "remove_dir_all_cancellable: let entries = std::fs::read_dir(path).map_err(|error| {",
+        "remove_dir_all_cancellable: let metadata = std::fs::symlink_metadata(path).map_err(|error| {",
+        "remove_dir_all_cancellable: std::fs::remove_dir(path).map_err(|error| {",
+        "remove_dir_all_cancellable: std::fs::remove_file(path).map_err(|error| {",
+        "sweep_stale_launcher_import_dirs: let Ok(entries) = std::fs::read_dir(base) else {",
+        "sweep_stale_launcher_import_dirs: let _ = std::fs::remove_dir_all(&path);"
+      ]
+    },
+    {
+      "file": "apps/app/src/api/files.rs",
+      "form": "spawn_blocking",
+      "count": 3,
+      "reason": "phase-0 baseline: blocking work on the shared blocking pool, which L0 must stop using (T3.6)",
+      "sites": [
+        "local_instance_icon_path: let (processed, cache_name) = tokio::task::spawn_blocking(",
+        "screenshot_thumbnail: let thumbnail = tokio::task::spawn_blocking(move || -> Result<Vec<u8>> {",
+        "studio_trash: tokio::task::spawn_blocking(move || trash::delete(source))"
+      ]
+    },
+    {
+      "file": "apps/app/src/api/fonts.rs",
+      "form": "spawn_blocking",
+      "count": 1,
+      "reason": "phase-0 baseline: blocking work on the shared blocking pool, which L0 must stop using (T3.6)",
+      "sites": [
+        "fonts_get_system_fonts: let fonts = tauri::async_runtime::spawn_blocking(collect_system_fonts)"
+      ]
+    },
+    {
+      "file": "apps/app/src/api/mcp/config.rs",
+      "form": "std::fs",
+      "count": 1,
+      "reason": "phase-0 baseline: synchronous file I/O; must not appear in L0 or inside a critical section (D17)",
+      "sites": [
+        "save_preferences: std::fs::create_dir_all(parent).map_err(|error| error.to_string())?;"
+      ]
+    },
+    {
+      "file": "apps/app/src/api/mcp/service.rs",
+      "form": "std::fs",
+      "count": 1,
+      "reason": "phase-0 baseline: synchronous file I/O; must not appear in L0 or inside a critical section (D17)",
+      "sites": [
+        "initialize: let result = (|| match std::fs::read(config_path(app)?) {"
+      ]
+    },
+    {
+      "file": "apps/app/src/api/mod_translation.rs",
+      "form": "spawn_blocking",
+      "count": 2,
+      "reason": "phase-0 baseline: blocking work on the shared blocking pool, which L0 must stop using (T3.6)",
+      "sites": [
+        "mod_translation_analyze: tauri::async_runtime::spawn_blocking(move || {",
+        "mod_translation_translate: tauri::async_runtime::spawn_blocking(move || {"
+      ]
+    },
+    {
+      "file": "apps/app/src/api/mod_translation.rs",
+      "form": "std::fs",
+      "count": 5,
+      "reason": "phase-0 baseline: synchronous file I/O; must not appear in L0 or inside a critical section (D17)",
+      "sites": [
+        "discard_analysis: let _ = std::fs::remove_dir_all(prepared.workspace);",
+        "mod_translation_analyze: let _ = std::fs::remove_dir_all(&directory);",
+        "mod_translation_translate: let _ = std::fs::remove_dir_all(&prepared.workspace);",
+        "prune_analyses: let _ = std::fs::remove_dir_all(prepared.workspace);",
+        "take_prepared_analysis: let _ = std::fs::remove_dir_all(prepared.workspace);"
+      ]
+    },
+    {
+      "file": "apps/app/src/api/mod_translation.rs",
+      "form": "tauri::async_runtime::spawn",
+      "count": 1,
+      "reason": "phase-0 baseline: existing Tauri runtime spawn; moves to scheduler dispatch with the governed items (spec §5.6) or stays operation-scoped",
+      "sites": [
+        "mod_translation_translate: tauri::async_runtime::spawn(async move {"
+      ]
+    },
+    {
+      "file": "apps/app/src/api/mr_auth.rs",
+      "form": "tokio::spawn",
+      "count": 1,
+      "reason": "phase-0 baseline: existing task spawn; moves to scheduler dispatch with the governed items (spec §5.6) or stays operation-scoped",
+      "sites": [
+        "modrinth_login: let auth_code = tokio::spawn(oauth_utils::auth_code_reply::listen("
+      ]
+    },
+    {
+      "file": "apps/app/src/api/resources.rs",
+      "form": "tauri::async_runtime::spawn",
+      "count": 1,
+      "reason": "phase-0 baseline: existing Tauri runtime spawn; moves to scheduler dispatch with the governed items (spec §5.6) or stays operation-scoped",
+      "sites": [
+        "initialize_content_refresh_events: tauri::async_runtime::spawn(async move {"
+      ]
+    },
+    {
+      "file": "apps/app/src/api/schematic_preview.rs",
+      "form": "spawn_blocking",
+      "count": 2,
+      "reason": "phase-0 baseline: blocking work on the shared blocking pool, which L0 must stop using (T3.6)",
+      "sites": [
+        "schematic_preview_list_instance_files: tauri::async_runtime::spawn_blocking(move || {",
+        "schematic_preview_open: tauri::async_runtime::spawn_blocking(move || {"
+      ]
+    },
+    {
+      "file": "apps/app/src/api/schematic_preview.rs",
+      "form": "std::fs",
+      "count": 7,
+      "reason": "phase-0 baseline: synchronous file I/O; must not appear in L0 or inside a critical section (D17)",
+      "sites": [
+        "list_instance_schematics: std::fs::read_dir(&directory).map_err(|error| error.to_string())?",
+        "parse_schematic: let bytes = std::fs::read(path).map_err(|error| error.to_string())?;",
+        "parse_schematic: std::fs::metadata(path).map_err(|error| error.to_string())?;",
+        "resolve_source: let canonical = std::fs::canonicalize(&candidate)",
+        "resolve_source: let canonical_root = std::fs::canonicalize(&instance_path)",
+        "resolve_source: std::fs::canonicalize(&candidate).map_err(|_| {",
+        "resolve_source: std::fs::canonicalize(&schematics).map_err(|_| {"
+      ]
+    },
+    {
+      "file": "apps/app/src/api/seed_map.rs",
+      "form": "spawn_blocking",
+      "count": 10,
+      "reason": "phase-0 baseline: blocking work on the shared blocking pool, which L0 must stop using (T3.6)",
+      "sites": [
+        "seed_map_biome_at: Ok(tauri::async_runtime::spawn_blocking(move || {",
+        "seed_map_container_loot: Ok(tauri::async_runtime::spawn_blocking(move || {",
+        "seed_map_find_features: Ok(tauri::async_runtime::spawn_blocking(move || {",
+        "seed_map_read_level_dat: Ok(tauri::async_runtime::spawn_blocking(move || {",
+        "seed_map_render_tile: let pixels = tauri::async_runtime::spawn_blocking(move || {",
+        "seed_map_scan_ores: Ok(tauri::async_runtime::spawn_blocking(move || {",
+        "seed_map_spawn: Ok(tauri::async_runtime::spawn_blocking(move || {",
+        "seed_map_structure_details: Ok(tauri::async_runtime::spawn_blocking(move || {",
+        "seed_map_underground_tile: let pixels = tauri::async_runtime::spawn_blocking(move || {",
+        "seed_map_underground_volume: let bytes = tauri::async_runtime::spawn_blocking(move || {"
+      ]
+    },
+    {
+      "file": "apps/app/src/api/settings.rs",
+      "form": "tauri::async_runtime::spawn",
+      "count": 1,
+      "reason": "phase-0 baseline: existing Tauri runtime spawn; moves to scheduler dispatch with the governed items (spec §5.6) or stays operation-scoped",
+      "sites": [
+        "network_test_cancel: tauri::async_runtime::spawn(async move {"
+      ]
+    },
+    {
+      "file": "apps/app/src/api/shortcuts/mod.rs",
+      "form": "spawn_blocking",
+      "count": 1,
+      "reason": "phase-0 baseline: blocking work on the shared blocking pool, which L0 must stop using (T3.6)",
+      "sites": [
+        "sync_instance_shortcut_icon: let encoded = tokio::task::spawn_blocking(move || {"
+      ]
+    },
+    {
+      "file": "apps/app/src/api/shortcuts/windows.rs",
+      "form": "spawn_blocking",
+      "count": 1,
+      "reason": "phase-0 baseline: blocking work on the shared blocking pool, which L0 must stop using (T3.6)",
+      "sites": [
+        "create_shortcut: tokio::task::spawn_blocking(move || {"
+      ]
+    },
+    {
+      "file": "apps/app/src/api/system_accent.rs",
+      "form": "std::thread::spawn",
+      "count": 1,
+      "reason": "phase-0 baseline: production OS thread, governed with a bound JoinHandle (T0.10, T3.4)",
+      "sites": [
+        "start_accent_color_watcher: let watcher = std::thread::spawn(move || {"
+      ]
+    },
+    {
+      "file": "apps/app/src/api/system_accent.rs",
+      "form": "tauri::async_runtime::spawn",
+      "count": 1,
+      "reason": "phase-0 baseline: existing Tauri runtime spawn; moves to scheduler dispatch with the governed items (spec §5.6) or stays operation-scoped",
+      "sites": [
+        "start_accent_color_watcher: tauri::async_runtime::spawn(async move {"
+      ]
+    },
+    {
+      "file": "apps/app/src/api/utils.rs",
+      "form": "spawn_blocking",
+      "count": 2,
+      "reason": "phase-0 baseline: blocking work on the shared blocking pool, which L0 must stop using (T3.6)",
+      "sites": [
+        "highlight_in_folder: tauri::async_runtime::spawn_blocking(move || {",
+        "open_path: tauri::async_runtime::spawn_blocking(move || {"
+      ]
+    },
+    {
+      "file": "apps/app/src/api/utils.rs",
+      "form": "std::fs",
+      "count": 1,
+      "reason": "phase-0 baseline: synchronous file I/O; must not appear in L0 or inside a critical section (D17)",
+      "sites": [
+        "read_file_tail: let mut file = std::fs::File::open(path)?;"
+      ]
+    },
+    {
+      "file": "apps/app/src/lightweight_mode.rs",
+      "form": "tauri::async_runtime::spawn",
+      "count": 10,
+      "reason": "phase-0 baseline: existing Tauri runtime spawn; moves to scheduler dispatch with the governed items (spec §5.6) or stays operation-scoped",
+      "sites": [
+        "handle_menu_event: tauri::async_runtime::spawn(async move {",
+        "handle_menu_event: tauri::async_runtime::spawn(async move {",
+        "handle_menu_event: tauri::async_runtime::spawn(async move {",
+        "init: tauri::async_runtime::spawn(async move {",
+        "init: tauri::async_runtime::spawn(async move {",
+        "lightweight_mode_enter: tauri::async_runtime::spawn(async move {",
+        "process_event: tauri::async_runtime::spawn(async move {",
+        "process_event: tauri::async_runtime::spawn(async move {",
+        "schedule_lightweight_maintenance: tauri::async_runtime::spawn(async move {",
+        "schedule_tray_menu_update: tauri::async_runtime::spawn(async move {"
+      ]
+    },
+    {
+      "file": "apps/app/src/main.rs",
+      "form": "std::fs",
+      "count": 3,
+      "reason": "phase-0 baseline: synchronous file I/O; must not appear in L0 or inside a critical section (D17)",
+      "sites": [
+        "write_update_channel_state: std::fs::create_dir_all(&settings_dir)?;",
+        "write_update_channel_state: std::fs::rename(temporary_path, path)?;",
+        "write_update_channel_state: std::fs::write(&temporary_path, contents)?;"
+      ]
+    },
+    {
+      "file": "apps/app/src/main.rs",
+      "form": "std::fs import",
+      "count": 1,
+      "reason": "phase-0 baseline: synchronous file I/O through an imported std::fs name; must not appear in L0 or inside a critical section (D17)",
+      "sites": [
+        "blockbench_skin_response: let contents = match fs::read(file_path) {"
+      ]
+    },
+    {
+      "file": "apps/app/src/main.rs",
+      "form": "tauri::async_runtime::spawn",
+      "count": 8,
+      "reason": "phase-0 baseline: existing Tauri runtime spawn; moves to scheduler dispatch with the governed items (spec §5.6) or stays operation-scoped",
+      "sites": [
+        "initialize_state: tauri::async_runtime::spawn(async move {",
+        "initialize_state: tauri::async_runtime::spawn(async {",
+        "main: tauri::async_runtime::spawn(api::utils::handle_command(",
+        "main: tauri::async_runtime::spawn(api::utils::handle_command(",
+        "main: tauri::async_runtime::spawn(async move {",
+        "main: tauri::async_runtime::spawn(async move {",
+        "main: tauri::async_runtime::spawn(async move {",
+        "main: tauri::async_runtime::spawn(async move {"
+      ]
+    },
+    {
+      "file": "apps/app/src/mod_translation/analyze.rs",
+      "form": "std::fs",
+      "count": 16,
+      "reason": "phase-0 baseline: synchronous file I/O; must not appear in L0 or inside a critical section (D17)",
+      "sites": [
+        "build_resource_coverage: let sample = std::fs::read_to_string(directory.join(&relative))",
+        "detect_metadata: && let Ok(text) = std::fs::read_to_string(&path)",
+        "detect_metadata: if let Ok(content) = std::fs::read_to_string(&fabric_path)",
+        "discover_class_candidates: std::fs::read(directory.join(&relative)).map_err(|error| {",
+        "discover_external_ui_warnings: std::fs::read(directory.join(&relative)).map_err(|error| {",
+        "discover_localized_text_sources: let content = std::fs::read_to_string(directory.join(&relative))",
+        "discover_localized_text_sources: let existing = std::fs::read_to_string(directory.join(&target_path))",
+        "discover_structured_sources: &std::fs::read_to_string(directory.join(&target_path))",
+        "discover_structured_sources: let raw = std::fs::read_to_string(directory.join(&relative))",
+        "extract_and_inspect_cancellable: let _ = std::fs::remove_dir_all(directory);",
+        "extract_and_inspect_inner: std::fs::create_dir_all(workspace_root).map_err(|error| {",
+        "find_standard_language_sources: let entries = std::fs::read_dir(&assets_root).map_err(|error| {",
+        "find_standard_language_sources: std::fs::read_to_string(&source_file).map_err(|error| {",
+        "find_standard_language_sources: std::fs::read_to_string(directory.join(&target_path))",
+        "input_file_hash_cancellable: let mut file = std::fs::File::open(path).map_err(|error| {",
+        "reload_structured_templates: std::fs::read_to_string(workspace.join(&source.source_path))"
+      ]
+    },
+    {
+      "file": "apps/app/src/mod_translation/jar.rs",
+      "form": "std::fs",
+      "count": 11,
+      "reason": "phase-0 baseline: synchronous file I/O; must not appear in L0 or inside a critical section (D17)",
+      "sites": [
+        "<module>: use std::fs::File;",
+        "collect_files_cancellable: let entries = std::fs::read_dir(&directory).map_err(|error| {",
+        "extract_archive: let metadata = std::fs::metadata(input_path).map_err(|error| {",
+        "extract_archive: std::fs::create_dir_all(parent).map_err(|error| {",
+        "package_archive: let _ = std::fs::remove_file(&temporary);",
+        "package_archive: let bytes = std::fs::read(&source).map_err(|error| {",
+        "package_archive: std::fs::create_dir_all(parent).map_err(|error| {",
+        "package_archive: std::fs::read(workspace.join(&relative)).map_err(|error| {",
+        "package_archive: std::fs::rename(&temporary, output_path).map_err(|error| {",
+        "read: let content = std::fs::read_to_string(path).ok()?;",
+        "write: std::fs::write(directory.join(ARCHIVE_MANIFEST), content).map_err("
+      ]
+    },
+    {
+      "file": "apps/app/src/mod_translation/jar.rs",
+      "form": "std::fs import",
+      "count": 3,
+      "reason": "phase-0 baseline: synchronous file I/O through an imported std::fs name; must not appear in L0 or inside a critical section (D17)",
+      "sites": [
+        "extract_archive: let file = File::open(input_path).map_err(|error| {",
+        "extract_archive: let mut output = File::create(&output_path).map_err(|error| {",
+        "package_archive: let file = File::create(&temporary).map_err(|error| {"
+      ]
+    },
+    {
+      "file": "apps/app/src/mod_translation/memory.rs",
+      "form": "spawn_blocking",
+      "count": 2,
+      "reason": "phase-0 baseline: blocking work on the shared blocking pool, which L0 must stop using (T3.6)",
+      "sites": [
+        "flush: tokio::task::spawn_blocking(move || {",
+        "load: let entries = tokio::task::spawn_blocking(move || {"
+      ]
+    },
+    {
+      "file": "apps/app/src/mod_translation/memory.rs",
+      "form": "std::fs",
+      "count": 4,
+      "reason": "phase-0 baseline: synchronous file I/O; must not appear in L0 or inside a critical section (D17)",
+      "sites": [
+        "flush: std::fs::create_dir_all(parent).map_err(|error| {",
+        "flush: std::fs::rename(&temporary, &path).map_err(|error| {",
+        "flush: std::fs::write(&temporary, content).map_err(|error| {",
+        "load: let Ok(content) = std::fs::read_to_string(&read_path) else {"
+      ]
+    },
+    {
+      "file": "apps/app/src/mod_translation/resume.rs",
+      "form": "std::fs",
+      "count": 8,
+      "reason": "phase-0 baseline: synchronous file I/O; must not appear in L0 or inside a critical section (D17)",
+      "sites": [
+        "find_resumable_workspace: let Ok(content) = std::fs::read_to_string(&marker_path) else {",
+        "find_resumable_workspace: let entries = std::fs::read_dir(workspace_root).map_err(|error| {",
+        "prepare_resumed_inspection: let content = std::fs::read_to_string(&target).unwrap_or_default();",
+        "read_checkpoint: std::fs::read_to_string(directory.join(CHECKPOINT_FILE)).ok()?;",
+        "read_resume_marker: let content = std::fs::read_to_string(directory.join(RESUME_FILE)).ok()?;",
+        "save_checkpoint: std::fs::rename(&temporary, &path).map_err(|error| {",
+        "save_checkpoint: std::fs::write(&temporary, content).map_err(|error| {",
+        "write_resume_marker: std::fs::write(directory.join(RESUME_FILE), content).map_err(|error| {"
+      ]
+    },
+    {
+      "file": "apps/app/src/mod_translation/translate.rs",
+      "form": "std::fs",
+      "count": 27,
+      "reason": "phase-0 baseline: synchronous file I/O; must not appear in L0 or inside a critical section (D17)",
+      "sites": [
+        "apply_class_replacement: if let Err(error) = std::fs::rename(&temporary, target_path) {",
+        "apply_class_replacement: if let Err(error) = std::fs::rename(target_path, &backup) {",
+        "apply_class_replacement: let _ = std::fs::remove_file(&backup);",
+        "apply_class_replacement: let _ = std::fs::remove_file(&temporary);",
+        "apply_class_replacement: let _ = std::fs::remove_file(backup);",
+        "apply_class_replacement: let _ = std::fs::rename(&backup, target_path);",
+        "apply_class_replacement: let original = std::fs::read(&target_path).map_err(|error| {",
+        "apply_class_replacement: std::fs::write(&temporary, rewritten).map_err(|error| {",
+        "atomic_replace_file: if let Err(error) = std::fs::rename(temporary, target) {",
+        "atomic_replace_file: let _ = std::fs::remove_file(&backup);",
+        "atomic_replace_file: let _ = std::fs::remove_file(&backup);",
+        "atomic_replace_file: let _ = std::fs::rename(&backup, target);",
+        "atomic_replace_file: return std::fs::rename(temporary, target).map_err(|error| {",
+        "atomic_replace_file: std::fs::rename(target, &backup).map_err(|error| {",
+        "class_context: let Ok(bytes) = std::fs::read(&path) else {",
+        "read_target_map: let content = std::fs::read_to_string(&target).unwrap_or_default();",
+        "rollback_class_replacements: let _ = std::fs::remove_file(target);",
+        "rollback_class_replacements: let _ = std::fs::rename(backup, target);",
+        "run_translation_task: let _ = std::fs::remove_dir_all(&workspace);",
+        "run_translation_task: std::fs::create_dir_all(&workspace_root).map_err(|error| {",
+        "run_translation_task: std::fs::read(workspace.join(relative))",
+        "write_target_map: let original = std::fs::read(&target_path).ok();",
+        "write_target_map: let written = std::fs::read_to_string(&target_path).map_err(|error| {",
+        "write_target_map: std::fs::create_dir_all(parent).map_err(|error| {",
+        "write_target_map: std::fs::remove_file(&target_path).map_err(|error| {",
+        "write_target_map: std::fs::write(&rollback, original)",
+        "write_target_map: std::fs::write(&temporary, content).map_err(|error| {"
+      ]
+    },
+    {
+      "file": "apps/app/src/portable.rs",
+      "form": "std::fs",
+      "count": 3,
+      "reason": "phase-0 baseline: synchronous file I/O; must not appear in L0 or inside a critical section (D17)",
+      "sites": [
+        "try_write_test: let _ = std::fs::remove_file(&test_file);",
+        "try_write_test: let _ = std::fs::remove_file(&test_file);",
+        "try_write_test: match std::fs::File::create(&test_file) {"
+      ]
+    },
+    {
+      "file": "apps/app/src/seed_map/mod.rs",
+      "form": "std::fs",
+      "count": 1,
+      "reason": "phase-0 baseline: synchronous file I/O; must not appear in L0 or inside a critical section (D17)",
+      "sites": [
+        "read_nbt_file: let raw = std::fs::read(path)?;"
+      ]
+    },
+    {
+      "file": "apps/app/src/updater_impl.rs",
+      "form": "spawn_blocking",
+      "count": 1,
+      "reason": "phase-0 baseline: blocking work on the shared blocking pool, which L0 must stop using (T3.6)",
+      "sites": [
+        "install_apt_package: let output = tokio::task::spawn_blocking(move || {"
+      ]
+    },
+    {
+      "file": "apps/app/src/updater_impl.rs",
+      "form": "std::fs",
+      "count": 2,
+      "reason": "phase-0 baseline: synchronous file I/O; must not appear in L0 or inside a critical section (D17)",
+      "sites": [
+        "drop: if let Err(error) = std::fs::remove_file(&self.0)",
+        "install_apt_package: std::fs::write(&deb_path, data).map_err(|io| {"
+      ]
+    },
+    {
+      "file": "apps/installer-ui/src/windows.rs",
+      "form": "std::fs import",
+      "count": 11,
+      "reason": "phase-0 baseline: synchronous file I/O through an imported std::fs name; must not appear in L0 or inside a critical section (D17)",
+      "sites": [
+        "install_dir_requires_elevation: let can_write = fs::OpenOptions::new()",
+        "install_dir_requires_elevation: let removed = fs::remove_file(&write_test).is_ok();",
+        "read_installer_status: let bytes = fs::read(status_path)?;",
+        "start_install: let _ = fs::remove_file(&status_path);",
+        "start_install: let _ = fs::remove_file(status_path);",
+        "start_uninstall: let _ = fs::remove_file(&status_path);",
+        "start_uninstall: let _ = fs::remove_file(status_path);",
+        "validate_request: if fs::create_dir_all(&resource_dir).is_err() {",
+        "validate_request: if fs::write(&write_test, b\"Axolotl Launcher\").is_err() {",
+        "validate_request: let _ = fs::remove_file(write_test);",
+        "webview_data_directory: fs::create_dir_all(&directory).map_err(|error| {"
+      ]
+    },
+    {
+      "file": "apps/installer-ui/src/windows.rs",
+      "form": "std::thread::sleep",
+      "count": 1,
+      "reason": "phase-0 baseline: blocking sleep outside async code",
+      "sites": [
+        "wait_for_installer: Ok(None) => thread::sleep(Duration::from_millis(120)),"
+      ]
+    },
+    {
+      "file": "apps/installer-ui/src/windows.rs",
+      "form": "std::thread::spawn",
+      "count": 2,
+      "reason": "phase-0 baseline: production OS thread, governed with a bound JoinHandle (T0.10, T3.4)",
+      "sites": [
+        "start_install: thread::spawn(move || {",
+        "start_uninstall: thread::spawn(move || {"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/api/anti_piracy.rs",
+      "form": "spawn_blocking",
+      "count": 4,
+      "reason": "phase-0 baseline: blocking work on the shared blocking pool, which L0 must stop using (T3.6)",
+      "sites": [
+        "check_region: let region = match tokio::task::spawn_blocking(iana_time_zone::get_timezone)",
+        "clear_official_login: tokio::task::spawn_blocking(|| proof_entry()?.delete_credential())",
+        "has_proof: tokio::task::spawn_blocking(|| proof_entry()?.get_password()).await;",
+        "mark_official_login: let key = tokio::task::spawn_blocking(|| {"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/api/curseforge/archive.rs",
+      "form": "spawn_blocking",
+      "count": 1,
+      "reason": "phase-0 baseline: blocking work on the shared blocking pool, which L0 must stop using (T3.6)",
+      "sites": [
+        "get_local_modpack_target: tokio::task::spawn_blocking(move || {"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/api/curseforge/archive.rs",
+      "form": "std::fs",
+      "count": 3,
+      "reason": "phase-0 baseline: synchronous file I/O; must not appear in L0 or inside a critical section (D17)",
+      "sites": [
+        "get_local_modpack_target: let file = std::fs::File::open(path)?;",
+        "materialize_modpack_overrides: let file = std::fs::File::open(archive_path).map_err(|error| {",
+        "materialize_modpack_overrides: let file = std::fs::File::open(archive_path)?;"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/api/curseforge/archive.rs",
+      "form": "thread::scope spawn",
+      "count": 1,
+      "reason": "phase-0 baseline: scoped worker threads for override extraction, joined before std::thread::scope returns; blocking work outside the shared pool that L0 must not wait on (D25)",
+      "sites": [
+        "materialize_modpack_overrides: workers.push(scope.spawn(move || -> crate::Result<u32> {"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/api/curseforge/modpack/entry.rs",
+      "form": "spawn_blocking",
+      "count": 2,
+      "reason": "phase-0 baseline: blocking work on the shared blocking pool, which L0 must stop using (T3.6)",
+      "sites": [
+        "download_modpack_archive_with_reporter: let manifest = tokio::task::spawn_blocking(move || {",
+        "get_modpack_target: let target = tokio::task::spawn_blocking(move || {"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/api/curseforge/modpack/entry.rs",
+      "form": "std::fs",
+      "count": 2,
+      "reason": "phase-0 baseline: synchronous file I/O; must not appear in L0 or inside a critical section (D17)",
+      "sites": [
+        "download_modpack_archive_with_reporter: let file = std::fs::File::open(&pack_path_for_manifest)?;",
+        "get_modpack_target: let file = std::fs::File::open(&pack_path)?;"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/api/curseforge/modpack/expected.rs",
+      "form": "spawn_blocking",
+      "count": 1,
+      "reason": "phase-0 baseline: blocking work on the shared blocking pool, which L0 must stop using (T3.6)",
+      "sites": [
+        "get_modpack_expected_members_with_reporter: let (manifest, overrides) = tokio::task::spawn_blocking(move || {"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/api/curseforge/modpack/expected.rs",
+      "form": "std::fs",
+      "count": 1,
+      "reason": "phase-0 baseline: synchronous file I/O; must not appear in L0 or inside a critical section (D17)",
+      "sites": [
+        "get_modpack_expected_members_with_reporter: let file = std::fs::File::open(archive_path)?;"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/api/curseforge/modpack/local.rs",
+      "form": "spawn_blocking",
+      "count": 1,
+      "reason": "phase-0 baseline: blocking work on the shared blocking pool, which L0 must stop using (T3.6)",
+      "sites": [
+        "install_modpack_from_local_archive_with_reporter: let manifest = tokio::task::spawn_blocking(move || {"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/api/curseforge/modpack/local.rs",
+      "form": "std::fs",
+      "count": 1,
+      "reason": "phase-0 baseline: synchronous file I/O; must not appear in L0 or inside a critical section (D17)",
+      "sites": [
+        "install_modpack_from_local_archive_with_reporter: let file = std::fs::File::open(&manifest_archive_path)?;"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/api/curseforge/verify/worker.rs",
+      "form": "std::fs",
+      "count": 1,
+      "reason": "phase-0 baseline: synchronous file I/O; must not appear in L0 or inside a critical section (D17)",
+      "sites": [
+        "drop: let _ = std::fs::remove_file(&self.download_path);"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/api/curseforge/verify/worker.rs",
+      "form": "tokio::spawn",
+      "count": 2,
+      "reason": "phase-0 baseline: existing task spawn; moves to scheduler dispatch with the governed items (spec §5.6) or stays operation-scoped",
+      "sites": [
+        "spawn_curseforge_database_worker: tokio::spawn(async move {",
+        "spawn_curseforge_verification_worker: tokio::spawn(async move {"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/api/drop_classifier.rs",
+      "form": "std::fs",
+      "count": 21,
+      "reason": "phase-0 baseline: synchronous file I/O; must not appear in L0 or inside a critical section (D17)",
+      "sites": [
+        "<module>: archive: &mut zip::ZipArchive<std::fs::File>,",
+        "<module>: archive: &mut zip::ZipArchive<std::fs::File>,",
+        "classify_folder_content_inner: if let Ok(mut dir) = std::fs::read_dir(path.join(\"instances\"))",
+        "classify_nested_zip: let mut output = match std::fs::File::create(&nested_path) {",
+        "classify_shader_pack_folder: let has_any_entry = std::fs::read_dir(&shaders).ok()?.next().is_some();",
+        "classify_zip_file_at_depth: let Ok(file) = std::fs::File::open(path) else {",
+        "classify_zip_with_extraction_inner: let Ok(file) = std::fs::File::open(path) else {",
+        "collect_zip_candidates: let Ok(file) = std::fs::File::open(path) else {",
+        "dir_has_extension: match std::fs::read_dir(dir) {",
+        "extract_all_with_cancellation: std::fs::File::create(&out_path).map_err(|error| {",
+        "extract_all_with_cancellation: std::fs::create_dir_all(&out_path).map_err(|error| {",
+        "extract_all_with_cancellation: std::fs::create_dir_all(parent).map_err(|error| {",
+        "extract_zip_to_dir_with_cancellation: let file = std::fs::File::open(zip_path).map_err(|e| {",
+        "extract_zip_to_dir_with_cancellation: let mut writer = std::fs::File::create(&out_path)?;",
+        "extract_zip_to_dir_with_cancellation: std::fs::create_dir_all(&out_path).map(|_| ())",
+        "extract_zip_to_dir_with_cancellation: std::fs::create_dir_all(parent).and_then(|_| {",
+        "has_child_dir: std::fs::read_dir(path).ok().is_some_and(|entries| {",
+        "has_direct_axolotl_config: let Ok(entries) = std::fs::read_dir(path) else {",
+        "has_direct_version_json: let Ok(entries) = std::fs::read_dir(path) else {",
+        "has_version_json: match std::fs::read_dir(&versions_dir) {",
+        "sorted_folder_children: if let Ok(entries) = std::fs::read_dir(path) {"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/api/google_ip.rs",
+      "form": "tokio::spawn",
+      "count": 1,
+      "reason": "phase-0 baseline: existing task spawn; moves to scheduler dispatch with the governed items (spec §5.6) or stays operation-scoped",
+      "sites": [
+        "start_refresh: let task = tokio::spawn(async move {"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/api/hongshi.rs",
+      "form": "std::fs",
+      "count": 2,
+      "reason": "phase-0 baseline: synchronous file I/O; must not appear in L0 or inside a critical section (D17)",
+      "sites": [
+        "<module>: permissions: std::fs::Permissions,",
+        "install_from: std::fs::Permissions::from_mode(0o755),"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/api/hongshi.rs",
+      "form": "tokio::spawn",
+      "count": 4,
+      "reason": "phase-0 baseline: existing task spawn; moves to scheduler dispatch with the governed items (spec §5.6) or stays operation-scoped",
+      "sites": [
+        "begin_start: tokio::spawn(async move {",
+        "download: tokio::spawn(async move {",
+        "spawn_kernel: tokio::spawn(read_output(stderr, false, log, sender)),",
+        "spawn_kernel: tokio::spawn(read_output(stdout, true, log.clone(), sender.clone())),"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/api/instance/backup.rs",
+      "form": "spawn_blocking",
+      "count": 1,
+      "reason": "phase-0 baseline: blocking work on the shared blocking pool, which L0 must stop using (T3.6)",
+      "sites": [
+        "create_recorded_symlink: tokio::task::spawn_blocking(move || {"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/api/instance/backup.rs",
+      "form": "std::fs",
+      "count": 6,
+      "reason": "phase-0 baseline: synchronous file I/O; must not appear in L0 or inside a critical section (D17)",
+      "sites": [
+        "<module>: before: &std::fs::Metadata,",
+        "<module>: before: &std::fs::Metadata,",
+        "apply_unix_mode: std::fs::Permissions::from_mode(mode as u32),",
+        "modified_millis: fn modified_millis(metadata: &std::fs::Metadata) -> Option<i64> {",
+        "unix_mode: fn unix_mode(_metadata: &std::fs::Metadata) -> Option<u32> {",
+        "unix_mode: fn unix_mode(metadata: &std::fs::Metadata) -> Option<u32> {"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/api/instance/backup.rs",
+      "form": "tokio::spawn",
+      "count": 4,
+      "reason": "phase-0 baseline: existing task spawn; moves to scheduler dispatch with the governed items (spec §5.6) or stays operation-scoped",
+      "sites": [
+        "restore_snapshot: tokio::spawn(async move {",
+        "start_repository_move: tokio::spawn(async move {",
+        "start_restore_preview: tokio::spawn(async move {",
+        "start_snapshot: tokio::spawn(async move {"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/api/instance/core_components.rs",
+      "form": "spawn_blocking",
+      "count": 4,
+      "reason": "phase-0 baseline: blocking work on the shared blocking pool, which L0 must stop using (T3.6)",
+      "sites": [
+        "assemble_for_launch: tokio::task::spawn_blocking(move || -> crate::Result<()> {",
+        "inspect_assembled: tokio::task::spawn_blocking(move || {",
+        "sha256_file: tokio::task::spawn_blocking(move || {",
+        "validate_archive: tokio::task::spawn_blocking(move || -> crate::Result<()> {"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/api/instance/core_components.rs",
+      "form": "std::fs",
+      "count": 8,
+      "reason": "phase-0 baseline: synchronous file I/O; must not appear in L0 or inside a critical section (D17)",
+      "sites": [
+        "assemble_archive: let _ = std::fs::remove_file(&temporary);",
+        "assemble_archive: let _ = std::fs::remove_file(&temporary);",
+        "assemble_archive: let file = std::fs::File::create(&temporary)?;",
+        "assemble_archive: let file = std::fs::File::open(&input).map_err(|error| {",
+        "assemble_archive: std::fs::create_dir_all(parent)?;",
+        "inspect_assembled: let file = std::fs::File::open(&path)?;",
+        "sha256_file: let mut file = std::fs::File::open(&path).map_err(|error| {",
+        "validate_archive: let file = std::fs::File::open(&path).map_err(|error| {"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/api/instance/screenshots/operations.rs",
+      "form": "spawn_blocking",
+      "count": 2,
+      "reason": "phase-0 baseline: blocking work on the shared blocking pool, which L0 must stop using (T3.6)",
+      "sites": [
+        "export_screenshots: tokio::task::spawn_blocking(move || -> crate::Result<()> {",
+        "save_edited_screenshot: let png_bytes = tokio::task::spawn_blocking(move || {"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/api/instance/screenshots/operations.rs",
+      "form": "std::fs",
+      "count": 2,
+      "reason": "phase-0 baseline: synchronous file I/O; must not appear in L0 or inside a critical section (D17)",
+      "sites": [
+        "export_screenshots: let file = std::fs::File::create(&export_path)",
+        "export_screenshots: let mut source = std::fs::File::open(&path)"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/api/instance/screenshots/reconciliation.rs",
+      "form": "spawn_blocking",
+      "count": 1,
+      "reason": "phase-0 baseline: blocking work on the shared blocking pool, which L0 must stop using (T3.6)",
+      "sites": [
+        "scan_source_screenshots: tokio::task::spawn_blocking(move || scan_screenshots_dir(&screenshots_dir))"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/api/instance/screenshots/reconciliation.rs",
+      "form": "std::fs",
+      "count": 1,
+      "reason": "phase-0 baseline: synchronous file I/O; must not appear in L0 or inside a critical section (D17)",
+      "sites": [
+        "scan_screenshots_dir: let entries = match std::fs::read_dir(screenshots_dir) {"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/api/instance/synced_options/game_options/locales/archive.rs",
+      "form": "std::fs",
+      "count": 1,
+      "reason": "phase-0 baseline: synchronous file I/O; must not appear in L0 or inside a critical section (D17)",
+      "sites": [
+        "inspect: std::fs::File::open(path).map_err(crate::util::io::IOError::from)?;"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/api/instance/synced_options/game_options/locales/mod.rs",
+      "form": "tokio::spawn",
+      "count": 1,
+      "reason": "phase-0 baseline: existing task spawn; moves to scheduler dispatch with the governed items (spec §5.6) or stays operation-scoped",
+      "sites": [
+        "start_game_locale_indexer: tokio::spawn(async move {"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/api/instance/synced_options/game_options/locales/origins.rs",
+      "form": "spawn_blocking",
+      "count": 3,
+      "reason": "phase-0 baseline: blocking work on the shared blocking pool, which L0 must stop using (T3.6)",
+      "sites": [
+        "index_snapshot: let index = tokio::task::spawn_blocking(move || {",
+        "load_archive_keys: let cached = tokio::task::spawn_blocking(move || {",
+        "load_archive_keys: let keys = tokio::task::spawn_blocking(move || {"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/api/instance/synced_options/game_options/locales/sources.rs",
+      "form": "spawn_blocking",
+      "count": 2,
+      "reason": "phase-0 baseline: blocking work on the shared blocking pool, which L0 must stop using (T3.6)",
+      "sites": [
+        "archive_index: let cached = tokio::task::spawn_blocking(move || {",
+        "archive_index: let index = tokio::task::spawn_blocking(move || {"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/api/instance/synced_servers/projection.rs",
+      "form": "spawn_blocking",
+      "count": 1,
+      "reason": "phase-0 baseline: blocking work on the shared blocking pool, which L0 must stop using (T3.6)",
+      "sites": [
+        "detach_existing_file: tokio::task::spawn_blocking(move || -> crate::Result<()> {"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/api/instance/synced_servers/projection.rs",
+      "form": "std::fs",
+      "count": 2,
+      "reason": "phase-0 baseline: synchronous file I/O; must not appear in L0 or inside a critical section (D17)",
+      "sites": [
+        "detach_existing_file: match std::fs::metadata(&target) {",
+        "detach_existing_file: std::fs::copy(&target, temporary.path())?;"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/api/instance/upgrade.rs",
+      "form": "tokio::spawn",
+      "count": 1,
+      "reason": "phase-0 baseline: existing task spawn; moves to scheduler dispatch with the governed items (spec §5.6) or stays operation-scoped",
+      "sites": [
+        "start_plan_cleanup: tokio::spawn(async {"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/api/jre.rs",
+      "form": "spawn_blocking",
+      "count": 3,
+      "reason": "phase-0 baseline: blocking work on the shared blocking pool, which L0 must stop using (T3.6)",
+      "sites": [
+        "create_runtime_link: tokio::task::spawn_blocking(move || {",
+        "download_java_from_feed_inner: tokio::task::spawn_blocking(move || {",
+        "install_azul_runtime: let extracted_root = tokio::task::spawn_blocking(move || {"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/api/jre.rs",
+      "form": "std::fs",
+      "count": 5,
+      "reason": "phase-0 baseline: synchronous file I/O; must not appear in L0 or inside a critical section (D17)",
+      "sites": [
+        "count_mods: std::fs::read_dir(instance_path.join(\"mods\"))",
+        "download_java_from_feed_inner: let mut entries = std::fs::read_dir(&staging_root)?;",
+        "extract_archive: let file = std::fs::File::open(archive_path)?;",
+        "extract_archive: let file = std::fs::File::open(archive_path)?;",
+        "extract_azul_archive: let file = std::fs::File::open(archive_path)?;"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/api/jre.rs",
+      "form": "tokio::spawn",
+      "count": 1,
+      "reason": "phase-0 baseline: existing task spawn; moves to scheduler dispatch with the governed items (spec §5.6) or stays operation-scoped",
+      "sites": [
+        "schedule_background_java_rescan: tokio::spawn(async {"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/api/loader_metadata.rs",
+      "form": "spawn_blocking",
+      "count": 2,
+      "reason": "phase-0 baseline: blocking work on the shared blocking pool, which L0 must stop using (T3.6)",
+      "sites": [
+        "ensure_installer_artifacts: let artifacts = tokio::task::spawn_blocking(move || {",
+        "resolve_installer_profile: let parsed = tokio::task::spawn_blocking(move || {"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/api/logs.rs",
+      "form": "std::fs",
+      "count": 6,
+      "reason": "phase-0 baseline: synchronous file I/O; must not appear in L0 or inside a critical section (D17)",
+      "sites": [
+        "delete_logs: for entry in std::fs::read_dir(&logs_folder)",
+        "get_logs_by_filename: let metadata = std::fs::metadata(&path)?;",
+        "get_logs_from_type: for entry in std::fs::read_dir(&logs_folder)",
+        "get_logs_from_type: let entry: std::fs::DirEntry =",
+        "get_output_by_filename_from_path: let file = std::fs::File::open(&path)",
+        "get_output_by_filename_from_path: let file = std::fs::File::open(&path)"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/api/logs/crash_analysis.rs",
+      "form": "spawn_blocking",
+      "count": 1,
+      "reason": "phase-0 baseline: blocking work on the shared blocking pool, which L0 must stop using (T3.6)",
+      "sites": [
+        "analyze_crash: let mods = tokio::task::spawn_blocking(move || {"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/api/logs/crash_analysis.rs",
+      "form": "std::fs",
+      "count": 2,
+      "reason": "phase-0 baseline: synchronous file I/O; must not appear in L0 or inside a critical section (D17)",
+      "sites": [
+        "inspect_mod_jars: let Ok(entries) = std::fs::read_dir(mods_path) else {",
+        "inspect_mod_jars: let Ok(file) = std::fs::File::open(&path) else {"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/api/memory.rs",
+      "form": "spawn_blocking",
+      "count": 2,
+      "reason": "phase-0 baseline: blocking work on the shared blocking pool, which L0 must stop using (T3.6)",
+      "sites": [
+        "optimize: tokio::task::spawn_blocking(optimize_blocking)",
+        "trim_launcher_working_set: tokio::task::spawn_blocking(|| {"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/api/minecraft_skins.rs",
+      "form": "tokio::spawn",
+      "count": 1,
+      "reason": "phase-0 baseline: existing task spawn; moves to scheduler dispatch with the governed items (spec §5.6) or stays operation-scoped",
+      "sites": [
+        "schedule_pending_skin_change_flush: tokio::spawn(async move {"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/api/minecraft_skins/offline.rs",
+      "form": "spawn_blocking",
+      "count": 1,
+      "reason": "phase-0 baseline: blocking work on the shared blocking pool, which L0 must stop using (T3.6)",
+      "sites": [
+        "prepare_offline_skin_resource_pack: let format = tokio::task::spawn_blocking(move || {"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/api/minecraft_skins/offline.rs",
+      "form": "std::fs",
+      "count": 1,
+      "reason": "phase-0 baseline: synchronous file I/O; must not appear in L0 or inside a critical section (D17)",
+      "sites": [
+        "<module>: let file = std::fs::File::open(path).ok()?;"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/api/pack/archive_util.rs",
+      "form": "spawn_blocking",
+      "count": 4,
+      "reason": "phase-0 baseline: blocking work on the shared blocking pool, which L0 must stop using (T3.6)",
+      "sites": [
+        "extract_archive_entry_to_file: tokio::task::spawn_blocking(move || {",
+        "extract_archive_subdir: tokio::task::spawn_blocking(move || {",
+        "read_archive_entry_to_string: tokio::task::spawn_blocking(move || {",
+        "run_blocking_instance_write_inner: tokio::task::spawn_blocking(move || {"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/api/pack/archive_util.rs",
+      "form": "std::fs",
+      "count": 20,
+      "reason": "phase-0 baseline: synchronous file I/O; must not appear in L0 or inside a critical section (D17)",
+      "sites": [
+        "collect_files: let entries = match std::fs::read_dir(directory) {",
+        "collect_files: let metadata = std::fs::symlink_metadata(&path)",
+        "extract_archive_entry_to_file: let file = std::fs::File::open(&archive_path)",
+        "extract_archive_entry_to_file: let mut output = std::fs::File::create(&target)",
+        "extract_archive_entry_to_file: std::fs::create_dir_all(parent)",
+        "extract_archive_subdir_entries_sync: let file = std::fs::File::open(archive_path)",
+        "extract_archive_subdir_entries_sync: std::fs::create_dir_all(parent)",
+        "materialize_staged_archive_entry: && std::fs::canonicalize(target).ok().is_some_and(|canonical| {",
+        "materialize_staged_archive_entry: if let Err(error) = std::fs::rename(&temporary, target) {",
+        "materialize_staged_archive_entry: if let Err(error) = std::fs::rename(&temporary, target) {",
+        "materialize_staged_archive_entry: let _ = std::fs::rename(previous, target);",
+        "materialize_staged_archive_entry: std::fs::OpenOptions::new()",
+        "materialize_staged_archive_entry: std::fs::canonicalize(previous)",
+        "materialize_staged_archive_entry: std::fs::rename(target, &backup)",
+        "read_archive_entry_to_string: let file = std::fs::File::open(&archive_path)",
+        "recover_interrupted_archive_replacements: std::fs::rename(previous, &target)",
+        "remove_file_if_exists: match std::fs::remove_file(path) {",
+        "rollback_archive_replacements: std::fs::rename(previous, target)",
+        "write_archive_entry_to_staging: let mut output = std::fs::File::create(&temporary)",
+        "write_archive_entry_to_staging: std::fs::create_dir_all(parent)"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/api/pack/detect.rs",
+      "form": "spawn_blocking",
+      "count": 1,
+      "reason": "phase-0 baseline: blocking work on the shared blocking pool, which L0 must stop using (T3.6)",
+      "sites": [
+        "detect_local_pack: tokio::task::spawn_blocking(move || detect_local_pack_sync(&path)).await?"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/api/pack/detect.rs",
+      "form": "std::fs",
+      "count": 1,
+      "reason": "phase-0 baseline: synchronous file I/O; must not appear in L0 or inside a critical section (D17)",
+      "sites": [
+        "detect_local_pack_sync: std::fs::File::open(path).map_err(|error| open_error(path, error))?;"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/api/pack/import/direct_link.rs",
+      "form": "std::fs",
+      "count": 3,
+      "reason": "phase-0 baseline: synchronous file I/O; must not appear in L0 or inside a critical section (D17)",
+      "sites": [
+        "discover_version_json: let mut json_files = std::fs::read_dir(version_dir)",
+        "has_minecraft_version_manifest: std::fs::read_dir(version_dir).is_ok_and(|entries| {",
+        "is_minecraft_version_manifest: let Ok(contents) = std::fs::read_to_string(path) else {"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/api/pack/import/gamedir_resolve.rs",
+      "form": "std::fs",
+      "count": 1,
+      "reason": "phase-0 baseline: synchronous file I/O; must not appear in L0 or inside a critical section (D17)",
+      "sites": [
+        "has_version_manifest: std::fs::read_dir(root.join(\"versions\")).is_ok_and(|entries| {"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/api/pack/import/hmcl.rs",
+      "form": "std::fs",
+      "count": 1,
+      "reason": "phase-0 baseline: synchronous file I/O; must not appear in L0 or inside a critical section (D17)",
+      "sites": [
+        "get_instances: let Ok(content) = std::fs::read_to_string(&config_path) else {"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/api/pack/import/instance_json.rs",
+      "form": "std::fs",
+      "count": 4,
+      "reason": "phase-0 baseline: synchronous file I/O; must not appear in L0 or inside a critical section (D17)",
+      "sites": [
+        "find_json: if let Ok(dir) = std::fs::read_dir(path) {",
+        "find_json: let Ok(content) = std::fs::read_to_string(jf) else {",
+        "find_json: let content = std::fs::read_to_string(&json_files[0]).ok()?;",
+        "find_json: let content = std::fs::read_to_string(&primary).ok()?;"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/api/pack/import/mod.rs",
+      "form": "spawn_blocking",
+      "count": 1,
+      "reason": "phase-0 baseline: blocking work on the shared blocking pool, which L0 must stop using (T3.6)",
+      "sites": [
+        "create_import_temp_path: Ok(tokio::task::spawn_blocking(move || {"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/api/pack/import/mod.rs",
+      "form": "std::fs",
+      "count": 2,
+      "reason": "phase-0 baseline: synchronous file I/O; must not appear in L0 or inside a critical section (D17)",
+      "sites": [
+        "dir_has_game_body: let Ok(entries) = std::fs::read_dir(&versions) else {",
+        "dir_has_game_body: let Ok(version_files) = std::fs::read_dir(version_entry.path()) else {"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/api/pack/import/mod.rs",
+      "form": "tokio::spawn",
+      "count": 1,
+      "reason": "phase-0 baseline: existing task spawn; moves to scheduler dispatch with the governed items (spec §5.6) or stays operation-scoped",
+      "sites": [
+        "finish_import: tokio::spawn(async move {"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/api/pack/import/pcl.rs",
+      "form": "std::fs",
+      "count": 1,
+      "reason": "phase-0 baseline: synchronous file I/O; must not appear in L0 or inside a critical section (D17)",
+      "sites": [
+        "read_pclce_config: let content = std::fs::read_to_string(&path).inspect_err(|e| {"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/api/pack/import/pe_info.rs",
+      "form": "std::fs",
+      "count": 1,
+      "reason": "phase-0 baseline: synchronous file I/O; must not appear in L0 or inside a critical section (D17)",
+      "sites": [
+        "folder_has_product: let Ok(read_dir) = std::fs::read_dir(base_path) else {"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/api/pack/install_from.rs",
+      "form": "spawn_blocking",
+      "count": 1,
+      "reason": "upstream baseline (merged from main 99422786d): blocking file hashing on the shared blocking pool, which L0 must stop using (T3.6)",
+      "sites": [
+        "local_pack_retry_identity: tokio::task::spawn_blocking(move || {"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/api/pack/install_from.rs",
+      "form": "std::fs",
+      "count": 2,
+      "reason": "phase-0 baseline: synchronous file I/O; must not appear in L0 or inside a critical section (D17); the second site came with upstream main 99422786d",
+      "sites": [
+        "get_instance_from_pack: let file = std::fs::File::open(&path)",
+        "local_pack_retry_identity: let file = std::fs::File::open(&path)?;"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/api/pack/install_mrpack.rs",
+      "form": "spawn_blocking",
+      "count": 2,
+      "reason": "phase-0 baseline: blocking work on the shared blocking pool, which L0 must stop using (T3.6)",
+      "sites": [
+        "install_zipped_mrpack_files_with_reporter: let cleanup_result = tokio::task::spawn_blocking(move || {",
+        "install_zipped_mrpack_files_with_reporter: let cleanup_result = tokio::task::spawn_blocking(move || {"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/api/pack/install_mrpack.rs",
+      "form": "std::fs",
+      "count": 1,
+      "reason": "phase-0 baseline: synchronous file I/O; must not appear in L0 or inside a critical section (D17)",
+      "sites": [
+        "drop: let _ = std::fs::remove_file(&self.download_path);"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/api/pack/install_mrpack.rs",
+      "form": "tokio::spawn",
+      "count": 2,
+      "reason": "phase-0 baseline: existing task spawn; moves to scheduler dispatch with the governed items (spec §5.6) or stays operation-scoped",
+      "sites": [
+        "install_zipped_mrpack_files_with_reporter: let completion_worker = tokio::spawn(async move {",
+        "install_zipped_mrpack_files_with_reporter: let verification_worker = tokio::spawn(async move {"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/api/pack/install_plain_archive.rs",
+      "form": "spawn_blocking",
+      "count": 1,
+      "reason": "phase-0 baseline: blocking work on the shared blocking pool, which L0 must stop using (T3.6)",
+      "sites": [
+        "read_version_candidates: tokio::task::spawn_blocking(move || {"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/api/pack/install_plain_archive.rs",
+      "form": "std::fs",
+      "count": 1,
+      "reason": "phase-0 baseline: synchronous file I/O; must not appear in L0 or inside a critical section (D17)",
+      "sites": [
+        "read_version_candidates: let file = std::fs::File::open(&archive_path).map_err(|error| {"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/api/pack/parallel_minecraft_install.rs",
+      "form": "tokio::spawn",
+      "count": 1,
+      "reason": "phase-0 baseline: existing task spawn; moves to scheduler dispatch with the governed items (spec §5.6) or stays operation-scoped",
+      "sites": [
+        "start: let task = tokio::spawn(async move {"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/api/servers/fabric.rs",
+      "form": "spawn_blocking",
+      "count": 2,
+      "reason": "phase-0 baseline: blocking work on the shared blocking pool, which L0 must stop using (T3.6)",
+      "sites": [
+        "prepare: tokio::task::spawn_blocking(move || -> Result<bool> {",
+        "prepare: tokio::task::spawn_blocking(move || {"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/api/servers/fabric.rs",
+      "form": "std::fs",
+      "count": 5,
+      "reason": "phase-0 baseline: synchronous file I/O; must not appear in L0 or inside a critical section (D17)",
+      "sites": [
+        "installed: zip::ZipArchive::new(std::fs::File::open(&launch).ok()?).ok()?;",
+        "installed: zip::ZipArchive::new(std::fs::File::open(game).ok()?).ok()?;",
+        "installed: zip::ZipArchive::new(std::fs::File::open(path).ok()?).ok()?;",
+        "write_launch_jar: std::fs::File::open(&library)",
+        "write_launch_jar: std::fs::create_dir_all(parent)"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/api/servers/lifecycle.rs",
+      "form": "spawn_blocking",
+      "count": 1,
+      "reason": "phase-0 baseline: blocking work on the shared blocking pool, which L0 must stop using (T3.6)",
+      "sites": [
+        "write_console: tokio::task::spawn_blocking(move || {"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/api/servers/lifecycle.rs",
+      "form": "std::fs",
+      "count": 2,
+      "reason": "phase-0 baseline: synchronous file I/O; must not appear in L0 or inside a critical section (D17)",
+      "sites": [
+        "find_forge_jar: let entry = std::fs::read_dir(dir).ok()?.flatten().find(|e| {",
+        "forge_launch_args: if let Ok(entries) = std::fs::read_dir(&forge_dir) {"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/api/servers/lifecycle.rs",
+      "form": "tokio::spawn",
+      "count": 5,
+      "reason": "phase-0 baseline: existing task spawn; moves to scheduler dispatch with the governed items (spec §5.6) or stays operation-scoped",
+      "sites": [
+        "start_inner: tokio::spawn(monitor_server_process(",
+        "start_inner: tokio::spawn(stream_server_pty_output(server_id.to_string(), reader));",
+        "start_inner: tokio::spawn(tail_server_log_file(server_id.to_string(), dir.clone()));",
+        "stop: tokio::spawn(async move {",
+        "stop: tokio::spawn(async move {"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/api/servers/logs.rs",
+      "form": "spawn_blocking",
+      "count": 1,
+      "reason": "phase-0 baseline: blocking work on the shared blocking pool, which L0 must stop using (T3.6)",
+      "sites": [
+        "stream_server_pty_output: tokio::task::spawn_blocking(move || {"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/api/servers/modpack.rs",
+      "form": "spawn_blocking",
+      "count": 2,
+      "reason": "phase-0 baseline: blocking work on the shared blocking pool, which L0 must stop using (T3.6)",
+      "sites": [
+        "collect_mod_metadata: tokio::task::spawn_blocking(move || {",
+        "find_manifest_entry: tokio::task::spawn_blocking(move || {"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/api/servers/modpack.rs",
+      "form": "std::fs",
+      "count": 3,
+      "reason": "phase-0 baseline: synchronous file I/O; must not appear in L0 or inside a critical section (D17)",
+      "sites": [
+        "collect_mod_metadata: let Ok(entries) = std::fs::read_dir(&current) else {",
+        "find_manifest_entry: let file = std::fs::File::open(&archive_path)",
+        "read_mod_metadata: let file = std::fs::File::open(path).ok()?;"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/api/terracotta.rs",
+      "form": "spawn_blocking",
+      "count": 1,
+      "reason": "phase-0 baseline: blocking work on the shared blocking pool, which L0 must stop using (T3.6)",
+      "sites": [
+        "download_terracotta_inner: tokio::task::spawn_blocking(move || -> eyre::Result<()> {"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/api/terracotta.rs",
+      "form": "std::fs",
+      "count": 22,
+      "reason": "phase-0 baseline: synchronous file I/O; must not appear in L0 or inside a critical section (D17)",
+      "sites": [
+        "binary_install_replaces_existing_file_and_removes_backup: assert_eq!(std::fs::read(&destination).unwrap(), b\"new\");",
+        "binary_install_replaces_existing_file_and_removes_backup: std::fs::write(&candidate, b\"new\").unwrap();",
+        "binary_install_replaces_existing_file_and_removes_backup: std::fs::write(&destination, b\"old\").unwrap();",
+        "binary_install_restores_existing_file_when_replacement_fails: assert_eq!(std::fs::read(&destination).unwrap(), b\"old\");",
+        "binary_install_restores_existing_file_when_replacement_fails: std::fs::write(&destination, b\"old\").unwrap();",
+        "download_terracotta_inner: let metadata = std::fs::metadata(&candidate)?;",
+        "download_terracotta_inner: std::fs::set_permissions(&candidate, permissions)?;",
+        "executable_search_prefers_requested_version: std::fs::write(&old, executable_magic()).unwrap();",
+        "executable_search_prefers_requested_version: std::fs::write(&preferred, executable_magic()).unwrap();",
+        "executable_validation_rejects_symbolic_links: std::fs::write(&target, executable_magic()).unwrap();",
+        "installed_binary_resolution_falls_back_to_the_legacy_location: std::fs::create_dir_all(installed.parent().unwrap()).unwrap();",
+        "installed_binary_resolution_falls_back_to_the_legacy_location: std::fs::create_dir_all(legacy.parent().unwrap()).unwrap();",
+        "installed_binary_resolution_falls_back_to_the_legacy_location: std::fs::write(&legacy, executable_magic()).unwrap();",
+        "installed_terracotta_version: let bytes = std::fs::read(terracotta_version_file()).ok()?;",
+        "resolver_ignores_installer_package_and_finds_executable: std::fs::write(&canonical, b\"xar!\").unwrap();",
+        "resolver_ignores_installer_package_and_finds_executable: std::fs::write(&versioned, executable_magic()).unwrap();",
+        "start_terracotta: if let Ok(contents) = std::fs::read_to_string(&port_file)",
+        "start_terracotta: let _ = std::fs::remove_file(&port_file);",
+        "start_terracotta: let _ = std::fs::remove_file(&port_file);",
+        "start_terracotta: let _ = std::fs::remove_file(&port_file);",
+        "start_terracotta: match std::fs::read_to_string(&port_file) {",
+        "stop_terracotta: std::fs::read_to_string(terracotta_port_file())"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/api/terracotta.rs",
+      "form": "tokio::spawn",
+      "count": 2,
+      "reason": "phase-0 baseline: existing task spawn; moves to scheduler dispatch with the governed items (spec §5.6) or stays operation-scoped",
+      "sites": [
+        "capture_terracotta_output: tokio::spawn(async move {",
+        "spawn_terracotta_state_poller: runtime.state_poller = Some(tokio::spawn(poll_terracotta_state(port)));"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/api/terracotta/binary.rs",
+      "form": "std::fs",
+      "count": 3,
+      "reason": "phase-0 baseline: synchronous file I/O; must not appear in L0 or inside a critical section (D17)",
+      "sites": [
+        "find_terracotta_executable: let entries = match std::fs::read_dir(current) {",
+        "is_terracotta_executable: if std::fs::File::open(path)",
+        "is_terracotta_executable: let Ok(metadata) = std::fs::symlink_metadata(path) else {"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/api/terracotta/lan.rs",
+      "form": "tokio::spawn",
+      "count": 1,
+      "reason": "phase-0 baseline: existing task spawn; moves to scheduler dispatch with the governed items (spec §5.6) or stays operation-scoped",
+      "sites": [
+        "sync: task: tokio::spawn(run(port)),"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/api/worlds/datapacks.rs",
+      "form": "spawn_blocking",
+      "count": 2,
+      "reason": "phase-0 baseline: blocking work on the shared blocking pool, which L0 must stop using (T3.6)",
+      "sites": [
+        "read_zip_datapack: tokio::task::spawn_blocking(move || read_zip_pack_meta(&zip_path))",
+        "set_world_datapack_enabled_at: let updated = tokio::task::spawn_blocking(move || {"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/api/worlds/datapacks.rs",
+      "form": "std::fs",
+      "count": 3,
+      "reason": "phase-0 baseline: synchronous file I/O; must not appear in L0 or inside a critical section (D17)",
+      "sites": [
+        "<module>: archive: &mut zip::ZipArchive<std::fs::File>,",
+        "read_zip_pack_meta: let metadata = std::fs::metadata(path)?;",
+        "read_zip_pack_meta_uncached: let file = std::fs::File::open(path)?;"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/api/worlds/mod.rs",
+      "form": "spawn_blocking",
+      "count": 1,
+      "reason": "phase-0 baseline: blocking work on the shared blocking pool, which L0 must stop using (T3.6)",
+      "sites": [
+        "read_world_datapack_state: tokio::task::spawn_blocking(move || {"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/api/worlds/mod.rs",
+      "form": "std::fs",
+      "count": 1,
+      "reason": "phase-0 baseline: synchronous file I/O; must not appear in L0 or inside a critical section (D17)",
+      "sites": [
+        "read_world_datapack_state: std::fs::read(world_path.join(\"level.dat\")).map_err(|error| {"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/event/mod.rs",
+      "form": "tokio::spawn",
+      "count": 1,
+      "reason": "phase-0 baseline: existing task spawn; moves to scheduler dispatch with the governed items (spec §5.6) or stays operation-scoped",
+      "sites": [
+        "drop: tokio::spawn(async move {"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/install/diagnostics.rs",
+      "form": "std::fs",
+      "count": 2,
+      "reason": "phase-0 baseline: synchronous file I/O; must not appear in L0 or inside a critical section (D17)",
+      "sites": [
+        "latest_launcher_log_tail: let entries = match std::fs::read_dir(&logs_dir) {",
+        "read_file_tail: let mut file = std::fs::File::open(path)?;"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/install/events.rs",
+      "form": "tokio::spawn",
+      "count": 2,
+      "reason": "phase-0 baseline: existing task spawn; moves to scheduler dispatch with the governed items (spec §5.6) or stays operation-scoped",
+      "sites": [
+        "record_download_progress: tokio::spawn(async move {",
+        "schedule_content_checkpoint: tokio::spawn(async move {"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/install/import_plan.rs",
+      "form": "std::fs",
+      "count": 1,
+      "reason": "phase-0 baseline: synchronous file I/O; must not appear in L0 or inside a critical section (D17)",
+      "sites": [
+        "read_axolotl_config: let content = std::fs::read_to_string(&path).ok()?;"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/install/import_plan.rs",
+      "form": "tokio::spawn",
+      "count": 1,
+      "reason": "phase-0 baseline: existing task spawn; moves to scheduler dispatch with the governed items (spec §5.6) or stays operation-scoped",
+      "sites": [
+        "start_import_plan: tokio::spawn(async move {"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/install/missing_content.rs",
+      "form": "std::fs",
+      "count": 2,
+      "reason": "phase-0 baseline: synchronous file I/O; must not appear in L0 or inside a critical section (D17)",
+      "sites": [
+        "<module>: metadata: &std::fs::Metadata,",
+        "candidate_file_identity: let file = std::fs::File::open(path).ok()?;"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/install/recovery.rs",
+      "form": "spawn_blocking",
+      "count": 1,
+      "reason": "phase-0 baseline: blocking work on the shared blocking pool, which L0 must stop using (T3.6)",
+      "sites": [
+        "restore_existing_instance: tokio::task::spawn_blocking(move || {"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/install/recovery.rs",
+      "form": "std::fs",
+      "count": 1,
+      "reason": "phase-0 baseline: synchronous file I/O; must not appear in L0 or inside a critical section (D17)",
+      "sites": [
+        "checked_instance_path: match std::fs::symlink_metadata(&current) {"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/install/runner.rs",
+      "form": "tokio::spawn",
+      "count": 1,
+      "reason": "phase-0 baseline: existing task spawn; moves to scheduler dispatch with the governed items (spec §5.6) or stays operation-scoped",
+      "sites": [
+        "schedule_cancel_cleanup: tokio::spawn(async move {"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/install/runner/lifecycle.rs",
+      "form": "tokio::spawn",
+      "count": 1,
+      "reason": "phase-0 baseline: existing task spawn; moves to scheduler dispatch with the governed items (spec §5.6) or stays operation-scoped",
+      "sites": [
+        "spawn_job: tokio::spawn(async move {"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/install/runner/pack.rs",
+      "form": "std::fs",
+      "count": 3,
+      "reason": "phase-0 baseline: synchronous file I/O; must not appear in L0 or inside a critical section (D17)",
+      "sites": [
+        "install_local_pack_file_recursive: let file = std::fs::File::open(&path)?;",
+        "install_local_pack_file_recursive: let mut out = std::fs::File::create(&sub_path)?;",
+        "install_local_pack_file_recursive: std::fs::create_dir_all(parent)?;"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/launcher/args.rs",
+      "form": "spawn_blocking",
+      "count": 1,
+      "reason": "phase-0 baseline: blocking work on the shared blocking pool, which L0 must stop using (T3.6)",
+      "sites": [
+        "get_processor_main_class: let main_class = tokio::task::spawn_blocking(move || {"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/launcher/args.rs",
+      "form": "std::fs",
+      "count": 1,
+      "reason": "phase-0 baseline: synchronous file I/O; must not appear in L0 or inside a critical section (D17)",
+      "sites": [
+        "get_processor_main_class: let zipfile = std::fs::File::open(&path)"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/launcher/direct_ensure.rs",
+      "form": "std::fs",
+      "count": 1,
+      "reason": "phase-0 baseline: synchronous file I/O; must not appear in L0 or inside a critical section (D17)",
+      "sites": [
+        "file_is_current: && std::fs::metadata(path)"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/launcher/direct_link.rs",
+      "form": "std::fs",
+      "count": 12,
+      "reason": "phase-0 baseline: synchronous file I/O; must not appear in L0 or inside a critical section (D17)",
+      "sites": [
+        "<module>: predicate: impl Fn(&std::fs::DirEntry) -> bool,",
+        "directory_has: match std::fs::read_dir(path) {",
+        "extract_linked_natives: std::fs::create_dir_all(target).map_err(|error| {",
+        "extract_native_archive: let file = std::fs::File::open(archive_path).map_err(|error| {",
+        "extract_native_archive: let mut output = std::fs::File::create(&destination)?;",
+        "extract_native_archive: std::fs::create_dir_all(&destination)?;",
+        "extract_native_archive: std::fs::create_dir_all(parent)?;",
+        "hmcl_global_game_settings: let default_id = std::fs::read_to_string(",
+        "hmcl_global_game_settings: let presets_raw = std::fs::read_to_string(",
+        "pcl_bundled_java_candidates: let Ok(entries) = std::fs::read_dir(&directory) else {",
+        "pcl_mod_count: std::fs::read_dir(game_dir.join(\"mods\"))",
+        "read_flat_config: let content = match std::fs::read_to_string(path) {"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/launcher/download.rs",
+      "form": "std::fs",
+      "count": 2,
+      "reason": "phase-0 baseline: synchronous file I/O; must not appear in L0 or inside a critical section (D17)",
+      "sites": [
+        "asset_file_is_usable: std::fs::metadata(path).is_ok_and(|metadata| {",
+        "classify_local_artifact: let cached = std::fs::metadata(destination).is_ok_and(|metadata| {"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/launcher/local_version.rs",
+      "form": "std::fs",
+      "count": 4,
+      "reason": "phase-0 baseline: synchronous file I/O; must not appear in L0 or inside a critical section (D17)",
+      "sites": [
+        "discover_version_json: let mut json_files = std::fs::read_dir(&version_dir)",
+        "is_minecraft_version_document: std::fs::read_to_string(path)",
+        "read_document_path: let content = std::fs::read_to_string(path).map_err(|error| {",
+        "resolve_pcl_json: &std::fs::read_to_string(&path).map_err(|error| {"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/launcher/mod.rs",
+      "form": "spawn_blocking",
+      "count": 1,
+      "reason": "phase-0 baseline: blocking work on the shared blocking pool, which L0 must stop using (T3.6)",
+      "sites": [
+        "launch_minecraft: tokio::task::spawn_blocking(move || {"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/launcher/mod.rs",
+      "form": "tokio::spawn",
+      "count": 3,
+      "reason": "phase-0 baseline: existing task spawn; moves to scheduler dispatch with the governed items (spec §5.6) or stays operation-scoped",
+      "sites": [
+        "run_instance_install_command: let stderr_task = tokio::spawn(async move {",
+        "run_instance_install_command: let stdout_task = tokio::spawn(async move {",
+        "run_instance_install_command: let task = tokio::spawn(async move {"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/launcher/multimc/jarmod.rs",
+      "form": "spawn_blocking",
+      "count": 2,
+      "reason": "phase-0 baseline: blocking work on the shared blocking pool, which L0 must stop using (T3.6)",
+      "sites": [
+        "artifact_is_current: tokio::task::spawn_blocking(move || -> crate::Result<bool> {",
+        "assemble: tokio::task::spawn_blocking(move || {"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/launcher/multimc/jarmod.rs",
+      "form": "std::fs",
+      "count": 12,
+      "reason": "phase-0 baseline: synchronous file I/O; must not appear in L0 or inside a critical section (D17)",
+      "sites": [
+        "<module>: writer: &mut zip::ZipWriter<std::fs::File>,",
+        "<module>: writer: &mut zip::ZipWriter<std::fs::File>,",
+        "<module>: writer: &mut zip::ZipWriter<std::fs::File>,",
+        "artifact_is_current: let mut file = std::fs::File::open(&path)?;",
+        "assemble_archive: let _ = std::fs::remove_file(&temporary);",
+        "assemble_archive: std::fs::create_dir_all(",
+        "assemble_archive: zip::ZipWriter::new(std::fs::File::create(&temporary)?);",
+        "merge_directory: &mut std::fs::File::open(&path)?,",
+        "merge_directory: for entry in std::fs::read_dir(directory)? {",
+        "merge_directory: let metadata = std::fs::symlink_metadata(&path)?;",
+        "merge_input: &mut std::fs::File::open(input)?,",
+        "merge_input: let mut archive = zip::ZipArchive::new(std::fs::File::open(input)?)"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/launcher/natives.rs",
+      "form": "spawn_blocking",
+      "count": 1,
+      "reason": "phase-0 baseline: blocking work on the shared blocking pool, which L0 must stop using (T3.6)",
+      "sites": [
+        "materialize_native_directory: let report = tokio::task::spawn_blocking(move || {"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/launcher/natives.rs",
+      "form": "std::fs",
+      "count": 9,
+      "reason": "phase-0 baseline: synchronous file I/O; must not appear in L0 or inside a critical section (D17)",
+      "sites": [
+        "build_manifest: let file = std::fs::File::open(&archive.archive_path)?;",
+        "file_matches: let Ok(metadata) = std::fs::symlink_metadata(path) else {",
+        "file_matches: let mut file = std::fs::File::open(path)?;",
+        "materialize_entry: if let Ok(metadata) = std::fs::symlink_metadata(target) {",
+        "materialize_entry: let file = std::fs::File::open(&entry.archive_path)?;",
+        "materialize_entry: std::fs::create_dir_all(parent)?;",
+        "materialize_entry: std::fs::remove_dir_all(target)?;",
+        "materialize_entry: std::fs::remove_file(target)?;",
+        "sha1_file: let mut file = std::fs::File::open(path)?;"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/launcher/optifine.rs",
+      "form": "spawn_blocking",
+      "count": 5,
+      "reason": "phase-0 baseline: blocking work on the shared blocking pool, which L0 must stop using (T3.6)",
+      "sites": [
+        "build_partial_version_info: let info = tokio::task::spawn_blocking(move || {",
+        "install_optifine_as_mod: let info = tokio::task::spawn_blocking(move || {",
+        "install_optifine_libraries: let info = tokio::task::spawn_blocking(move || {",
+        "install_optifine_libraries: tokio::task::spawn_blocking(move || {",
+        "validate_runtime_jar: tokio::task::spawn_blocking(move || -> crate::Result<()> {"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/launcher/optifine.rs",
+      "form": "std::fs",
+      "count": 5,
+      "reason": "phase-0 baseline: synchronous file I/O; must not appear in L0 or inside a critical section (D17)",
+      "sites": [
+        "extract_installer_entry: let file = std::fs::File::open(installer)",
+        "extract_installer_entry: let mut output = std::fs::File::create(target)",
+        "extract_installer_entry: std::fs::create_dir_all(parent)",
+        "inspect_installer: let file = std::fs::File::open(path)",
+        "validate_runtime_jar: let file = std::fs::File::open(&path)"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/logger.rs",
+      "form": "std::fs",
+      "count": 19,
+      "reason": "phase-0 baseline: synchronous file I/O; must not appear in L0 or inside a critical section (D17)",
+      "sites": [
+        "<module>: file: std::fs::File,",
+        "cleanup_launcher_logs_at: let Ok(entries) = std::fs::read_dir(logs_dir) else {",
+        "cleanup_launcher_logs_at: let _ = std::fs::remove_file(path);",
+        "cleanup_launcher_logs_at: return std::fs::remove_file(path).is_err();",
+        "new: std::fs::create_dir_all(&logs_dir)?;",
+        "open_log_file: fn open_log_file(path: &std::path::Path) -> std::io::Result<std::fs::File> {",
+        "open_log_file: std::fs::OpenOptions::new()",
+        "prune_active_log_file: if let Err(error) = std::fs::rename(&temporary, path) {",
+        "prune_active_log_file: let _ = std::fs::remove_file(&temporary);",
+        "prune_active_log_file: let _ = std::fs::remove_file(&temporary);",
+        "prune_active_log_file: let _ = std::fs::remove_file(&temporary);",
+        "prune_active_log_file: let contents = std::fs::read(path)?;",
+        "prune_inactive_log_file: if let Err(error) = std::fs::rename(&temporary, path) {",
+        "prune_inactive_log_file: let _ = std::fs::remove_file(&temporary);",
+        "prune_inactive_log_file: let _ = std::fs::remove_file(&temporary);",
+        "prune_inactive_log_file: let contents = std::fs::read(path)?;",
+        "prune_launcher_logs: let Ok(entries) = std::fs::read_dir(&state.logs_dir) else {",
+        "prune_launcher_logs: let _ = std::fs::remove_file(&path);",
+        "write_file_durably: let mut file = std::fs::File::create(path)?;"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/logger.rs",
+      "form": "std::thread::sleep",
+      "count": 2,
+      "reason": "phase-0 baseline: blocking sleep outside async code",
+      "sites": [
+        "start_logger: std::thread::sleep(LAUNCHER_LOG_PRUNE_INTERVAL);",
+        "start_logger: std::thread::sleep(std::time::Duration::from_secs(2));"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/logger.rs",
+      "form": "thread::Builder",
+      "count": 1,
+      "reason": "phase-0 baseline: production OS thread, governed with a bound JoinHandle (T3.4)",
+      "sites": [
+        "start_logger: std::thread::Builder::new()"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/logger.rs",
+      "form": "thread::Builder spawn",
+      "count": 1,
+      "reason": "phase-0 baseline: .spawn( calls in a file that builds a std::thread::Builder (threads governed with a bound JoinHandle, T3.4)",
+      "sites": [
+        "start_logger: .spawn(move || {"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/mod_metadata/icon.rs",
+      "form": "std::fs",
+      "count": 1,
+      "reason": "phase-0 baseline: synchronous file I/O; must not appear in L0 or inside a critical section (D17)",
+      "sites": [
+        "extract_resource_pack_icon: let file = std::fs::File::open(path).ok()?;"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/mod_metadata/manifest.rs",
+      "form": "std::fs",
+      "count": 1,
+      "reason": "phase-0 baseline: synchronous file I/O; must not appear in L0 or inside a critical section (D17)",
+      "sites": [
+        "read_jar_manifest: let file = std::fs::File::open(path).ok()?;"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/resources/execution.rs",
+      "form": "spawn_blocking",
+      "count": 1,
+      "reason": "phase-0 baseline: blocking work on the shared blocking pool, which L0 must stop using (T3.6)",
+      "sites": [
+        "persist_plan: let metadata = tokio::task::spawn_blocking(move || {"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/resources/execution.rs",
+      "form": "std::fs",
+      "count": 5,
+      "reason": "phase-0 baseline: synchronous file I/O; must not appear in L0 or inside a critical section (D17)",
+      "sites": [
+        "checked_path: && !std::fs::canonicalize(&probe)?",
+        "checked_path: let canonical_root = std::fs::canonicalize(root)?;",
+        "checked_path: match std::fs::symlink_metadata(&probe) {",
+        "clear_staging: let canonical = std::fs::canonicalize(&base)?;",
+        "clear_staging: let path = std::fs::canonicalize(entry.path())?;"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/resources/export/files.rs",
+      "form": "spawn_blocking",
+      "count": 1,
+      "reason": "phase-0 baseline: blocking work on the shared blocking pool, which L0 must stop using (T3.6)",
+      "sites": [
+        "open_async: tokio::task::spawn_blocking(move || open(&self::root(&root)?, &relative))"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/resources/export/files.rs",
+      "form": "std::fs",
+      "count": 1,
+      "reason": "phase-0 baseline: synchronous file I/O; must not appear in L0 or inside a critical section (D17)",
+      "sites": [
+        "open: pub fn open(root: &Dir, relative: &str) -> std::io::Result<std::fs::File> {"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/resources/export/scan.rs",
+      "form": "spawn_blocking",
+      "count": 1,
+      "reason": "phase-0 baseline: blocking work on the shared blocking pool, which L0 must stop using (T3.6)",
+      "sites": [
+        "scan_directory: tokio::task::spawn_blocking(move || scan_directory_blocking(&root, &cancel))"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/resources/export/scan.rs",
+      "form": "std::fs",
+      "count": 3,
+      "reason": "phase-0 baseline: synchronous file I/O; must not appear in L0 or inside a critical section (D17)",
+      "sites": [
+        "linked: pub(crate) fn linked(metadata: &std::fs::Metadata) -> bool {",
+        "modified: fn modified(metadata: &std::fs::Metadata) -> Option<u64> {",
+        "world_name_from_file: fn world_name_from_file(file: std::fs::File) -> Option<String> {"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/resources/export/writer.rs",
+      "form": "std::fs",
+      "count": 4,
+      "reason": "phase-0 baseline: synchronous file I/O; must not appear in L0 or inside a critical section (D17)",
+      "sites": [
+        "<module>: initial: &[std::fs::Metadata],",
+        "checked_metadata: ) -> ResourceResult<std::fs::Metadata> {",
+        "same_metadata: fn same_metadata(left: &std::fs::Metadata, right: &std::fs::Metadata) -> bool {",
+        "same_metadata: fn same_metadata(left: &std::fs::Metadata, right: &std::fs::Metadata) -> bool {"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/resources/fingerprints.rs",
+      "form": "spawn_blocking",
+      "count": 1,
+      "reason": "phase-0 baseline: blocking work on the shared blocking pool, which L0 must stop using (T3.6)",
+      "sites": [
+        "resolve_inner: let result = tokio::task::spawn_blocking(move || {"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/resources/fingerprints.rs",
+      "form": "std::fs",
+      "count": 1,
+      "reason": "phase-0 baseline: synchronous file I/O; must not appear in L0 or inside a critical section (D17)",
+      "sites": [
+        "hash_file: let mut file = std::fs::File::open(path)"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/resources/plans/artifact_metadata.rs",
+      "form": "spawn_blocking",
+      "count": 1,
+      "reason": "phase-0 baseline: blocking work on the shared blocking pool, which L0 must stop using (T3.6)",
+      "sites": [
+        "read: tokio::task::spawn_blocking(move || {"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/resources/refresh.rs",
+      "form": "tokio::spawn",
+      "count": 5,
+      "reason": "phase-0 baseline: existing task spawn; moves to scheduler dispatch with the governed items (spec §5.6) or stays operation-scoped",
+      "sites": [
+        "run_round: tokio::spawn(async move {",
+        "run_round: tokio_util::task::AbortOnDropHandle::new(tokio::spawn(async move {",
+        "run_round: workers.push(tokio_util::task::AbortOnDropHandle::new(tokio::spawn(",
+        "run_round: workers.push(tokio_util::task::AbortOnDropHandle::new(tokio::spawn(async move {",
+        "start: let handle = tokio::spawn(async move {"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/resources/service.rs",
+      "form": "tokio::spawn",
+      "count": 3,
+      "reason": "phase-0 baseline: existing task spawn; moves to scheduler dispatch with the governed items (spec §5.6) or stays operation-scoped",
+      "sites": [
+        "dispatch: tokio::spawn(async move {",
+        "dispatch: tokio::spawn(async move {",
+        "refresh_background: tokio::spawn(async move {"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/resources/write_access.rs",
+      "form": "std::fs",
+      "count": 3,
+      "reason": "phase-0 baseline: synchronous file I/O; must not appear in L0 or inside a critical section (D17)",
+      "sites": [
+        "probe: let metadata = std::fs::metadata(&previous)?;",
+        "probe: let mut options = std::fs::OpenOptions::new();",
+        "probe_parent: let metadata = std::fs::metadata(parent)?;"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/scheduler/panic.rs",
+      "form": "std::fs",
+      "count": 4,
+      "reason": "panic hook appends to panic.log directly, bypassing the log writer lock it could be holding (D15)",
+      "sites": [
+        "append_panic_record: let current = std::fs::metadata(&path).map_or(0, |meta| meta.len());",
+        "append_panic_record: std::fs::OpenOptions::new()",
+        "append_panic_record: std::fs::create_dir_all(dir)?;",
+        "append_panic_record: std::fs::rename(&path, dir.join(PANIC_LOG_PREVIOUS_FILE))?;"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/state/cache.rs",
+      "form": "tokio::spawn",
+      "count": 1,
+      "reason": "phase-0 baseline: existing task spawn; moves to scheduler dispatch with the governed items (spec §5.6) or stays operation-scoped",
+      "sites": [
+        "get_many: tokio::task::spawn(async move {"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/state/discord.rs",
+      "form": "spawn_blocking",
+      "count": 1,
+      "reason": "phase-0 baseline: blocking work on the shared blocking pool, which L0 must stop using (T3.6)",
+      "sites": [
+        "run_ipc: let task = tokio::task::spawn_blocking(move || {"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/state/discovered_javas.rs",
+      "form": "std::fs",
+      "count": 1,
+      "reason": "phase-0 baseline: synchronous file I/O; must not appear in L0 or inside a critical section (D17)",
+      "sites": [
+        "java_file_signature: let metadata = std::fs::metadata(path).ok()?;"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/state/friends.rs",
+      "form": "tokio::spawn",
+      "count": 3,
+      "reason": "phase-0 baseline: existing task spawn; moves to scheduler dispatch with the governed items (spec §5.6) or stays operation-scoped",
+      "sites": [
+        "connect: tokio::spawn(async move {",
+        "socket_loop: tokio::task::spawn(async move {",
+        "socket_read_loop: tokio::spawn(async move {"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/state/instance_groups.rs",
+      "form": "std::fs import",
+      "count": 2,
+      "reason": "phase-0 baseline: synchronous file I/O through an imported std::fs name; must not appear in L0 or inside a critical section (D17)",
+      "sites": [
+        "read_from_disk: match fs::read_to_string(&path)",
+        "write_to_disk: fs::write(path, serde_json::to_string_pretty(file)?)?;"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/state/instances/adapters/filesystem.rs",
+      "form": "std::fs",
+      "count": 4,
+      "reason": "phase-0 baseline: synchronous file I/O; must not appear in L0 or inside a critical section (D17)",
+      "sites": [
+        "for_each_content_folder: for world in std::fs::read_dir(&saves)",
+        "scan_content_backups_from: for entry in std::fs::read_dir(folder_path)",
+        "scan_content_folder: for entry in std::fs::read_dir(folder_path)",
+        "walk_content_folder: for entry in std::fs::read_dir(folder_path)"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/state/instances/commands/apply_content_install.rs",
+      "form": "spawn_blocking",
+      "count": 1,
+      "reason": "phase-0 baseline: blocking work on the shared blocking pool, which L0 must stop using (T3.6)",
+      "sites": [
+        "extract_zip_to_dir_async: tokio::task::spawn_blocking(move || {"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/state/instances/commands/apply_content_install.rs",
+      "form": "std::fs",
+      "count": 5,
+      "reason": "phase-0 baseline: synchronous file I/O; must not appear in L0 or inside a critical section (D17)",
+      "sites": [
+        "collect_zip_files: let Ok(metadata) = std::fs::symlink_metadata(&path) else {",
+        "collect_zip_files: let entries = std::fs::read_dir(dir).map_err(|e| {",
+        "scan_folder_backups: for entry in std::fs::read_dir(folder)",
+        "touch_file_modified_time: let Ok(file) = std::fs::File::options().write(true).open(path) else {",
+        "zip_directory: let bytes = std::fs::read(&absolute).map_err(|e| {"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/state/instances/commands/apply_content_install.rs",
+      "form": "tokio::spawn",
+      "count": 1,
+      "reason": "phase-0 baseline: existing task spawn; moves to scheduler dispatch with the governed items (spec §5.6) or stays operation-scoped",
+      "sites": [
+        "rollback_project: tokio::spawn(async move {"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/state/instances/commands/content_snapshot.rs",
+      "form": "tokio::spawn",
+      "count": 1,
+      "reason": "phase-0 baseline: existing task spawn; moves to scheduler dispatch with the governed items (spec §5.6) or stays operation-scoped",
+      "sites": [
+        "get_content_snapshot_inner: tokio::spawn(async move {"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/state/instances/commands/import_world_save.rs",
+      "form": "spawn_blocking",
+      "count": 2,
+      "reason": "phase-0 baseline: blocking work on the shared blocking pool, which L0 must stop using (T3.6)",
+      "sites": [
+        "extract_world_zip: tokio::task::spawn_blocking(move || {",
+        "import_world_save: tokio::task::spawn_blocking(move || {"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/state/instances/commands/import_world_save.rs",
+      "form": "std::fs",
+      "count": 12,
+      "reason": "phase-0 baseline: synchronous file I/O; must not appear in L0 or inside a critical section (D17)",
+      "sites": [
+        "extract_world_zip_sync: let file = std::fs::File::open(zip_path)",
+        "extract_world_zip_sync: let mut output = std::fs::File::create(&output_path)",
+        "extract_world_zip_sync: std::fs::create_dir_all(&output_path)",
+        "extract_world_zip_sync: std::fs::create_dir_all(parent)",
+        "find_level_dat_folder: entries.sort_by_key(std::fs::DirEntry::file_name);",
+        "find_level_dat_folder: let mut entries = std::fs::read_dir(dir)",
+        "find_nested_archive: entries.sort_by_key(std::fs::DirEntry::file_name);",
+        "find_nested_archive: let mut entries = std::fs::read_dir(dir)",
+        "hoist_contents_sync: let _ = std::fs::remove_dir(world_folder);",
+        "hoist_contents_sync: let entries = std::fs::read_dir(world_folder)?;",
+        "hoist_contents_sync: std::fs::rename(entry.path(), &dest)?;",
+        "locate_world_root_sync: let _ = std::fs::remove_file(&nested_zip);"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/state/instances/commands/instance_upgrade/solver.rs",
+      "form": "spawn_blocking",
+      "count": 1,
+      "reason": "phase-0 baseline: blocking work on the shared blocking pool, which L0 must stop using (T3.6)",
+      "sites": [
+        "solve_upgrade_off_thread: let solve = tokio::task::spawn_blocking(move || {"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/state/instances/commands/list_content/items.rs",
+      "form": "spawn_blocking",
+      "count": 1,
+      "reason": "phase-0 baseline: blocking work on the shared blocking pool, which L0 must stop using (T3.6)",
+      "sites": [
+        "content_files_to_content_items: tokio::task::spawn_blocking(move || {"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/state/instances/commands/list_content/items.rs",
+      "form": "std::fs",
+      "count": 1,
+      "reason": "phase-0 baseline: synchronous file I/O; must not appear in L0 or inside a critical section (D17)",
+      "sites": [
+        "content_files_to_content_items: std::fs::metadata(path)"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/state/instances/commands/sync_content_files.rs",
+      "form": "spawn_blocking",
+      "count": 2,
+      "reason": "phase-0 baseline: blocking work on the shared blocking pool, which L0 must stop using (T3.6)",
+      "sites": [
+        "scan_and_commit: let latest_files = tokio::task::spawn_blocking(move || {",
+        "scan_and_commit: let scanned = tokio::task::spawn_blocking(move || {"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/state/instances/commands/sync_content_files.rs",
+      "form": "std::fs",
+      "count": 1,
+      "reason": "phase-0 baseline: synchronous file I/O; must not appear in L0 or inside a critical section (D17)",
+      "sites": [
+        "scan_and_commit: std::fs::metadata(path).ok().is_some_and(|metadata| {"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/state/instances/commands/sync_direct_link_instances.rs",
+      "form": "std::fs",
+      "count": 1,
+      "reason": "phase-0 baseline: synchronous file I/O; must not appear in L0 or inside a critical section (D17)",
+      "sites": [
+        "sync_direct_link_instances: let entries = match std::fs::read_dir(&versions) {"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/state/instances/watcher.rs",
+      "form": "tokio::spawn",
+      "count": 9,
+      "reason": "phase-0 baseline: existing task spawn; moves to scheduler dispatch with the governed items (spec §5.6) or stays operation-scoped",
+      "sites": [
+        "configure_manual_import_directory: tokio::spawn(async move {",
+        "crash_task: tokio::task::spawn(async move {",
+        "init_watcher: tokio::spawn(async move {",
+        "init_watcher: tokio::spawn(async move {",
+        "init_watcher: tokio::spawn(async move {",
+        "init_watcher: tokio::spawn(async move {",
+        "init_watcher: tokio::spawn(async move {",
+        "init_watcher: tokio::task::spawn(async move {",
+        "watch_instances_init: tokio::spawn(async move {"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/state/legacy_converter.rs",
+      "form": "std::fs",
+      "count": 1,
+      "reason": "phase-0 baseline: synchronous file I/O; must not appear in L0 or inside a critical section (D17)",
+      "sites": [
+        "migrate_legacy_data: if let Ok(legacy_instances_dir) = std::fs::read_dir("
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/state/mod.rs",
+      "form": "tokio::spawn",
+      "count": 3,
+      "reason": "phase-0 baseline: existing task spawn; moves to scheduler dispatch with the governed items (spec §5.6) or stays operation-scoped",
+      "sites": [
+        "resize_download_concurrency: tokio::spawn(async move {",
+        "resize_download_concurrency: tokio::spawn(async move {",
+        "resize_download_concurrency: tokio::spawn(async move {"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/state/process.rs",
+      "form": "std::fs",
+      "count": 1,
+      "reason": "phase-0 baseline: synchronous file I/O; must not appear in L0 or inside a critical section (D17)",
+      "sites": [
+        "<module>: use std::fs::OpenOptions;"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/state/process.rs",
+      "form": "std::fs import",
+      "count": 2,
+      "reason": "phase-0 baseline: synchronous file I/O through an imported std::fs name; must not appear in L0 or inside a critical section (D17)",
+      "sites": [
+        "append_to_log_file: OpenOptions::new().append(true).create(true).open(path)?;",
+        "insert_new_process: let mut log_file = OpenOptions::new()"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/state/process.rs",
+      "form": "tokio::spawn",
+      "count": 6,
+      "reason": "phase-0 baseline: existing task spawn; moves to scheduler dispatch with the governed items (spec §5.6) or stays operation-scoped",
+      "sites": [
+        "insert_new_process: process.output_tasks.push(tokio::spawn(async move {",
+        "insert_new_process: process.output_tasks.push(tokio::spawn(async move {",
+        "insert_new_process: tokio::spawn(Process::sequential_process_manager(",
+        "parse_and_insert_server_join: tokio::spawn(async move {",
+        "sequential_process_manager: tokio::spawn(async move {",
+        "sequential_process_manager: tokio::spawn(async move {"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/state/settings.rs",
+      "form": "std::fs",
+      "count": 1,
+      "reason": "phase-0 baseline: synchronous file I/O; must not appear in L0 or inside a critical section (D17)",
+      "sites": [
+        "auto_prefers_mirror: std::fs::read_link(\"/etc/localtime\")"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/state/tunnel.rs",
+      "form": "tokio::spawn",
+      "count": 2,
+      "reason": "phase-0 baseline: existing task spawn; moves to scheduler dispatch with the governed items (spec §5.6) or stays operation-scoped",
+      "sites": [
+        "drop: tokio::spawn(close_sockets(self.write.clone(), sockets));",
+        "shutdown: tokio::spawn(close_sockets(self.write.clone(), sockets)).await?"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/storage/cache.rs",
+      "form": "spawn_blocking",
+      "count": 2,
+      "reason": "phase-0 baseline: blocking work on the shared blocking pool, which L0 must stop using (T3.6)",
+      "sites": [
+        "clear_cache: let (before, mut failures) = tokio::task::spawn_blocking(move || {",
+        "clear_cache: let result = tokio::task::spawn_blocking(move || {"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/storage/meta.rs",
+      "form": "spawn_blocking",
+      "count": 2,
+      "reason": "phase-0 baseline: blocking work on the shared blocking pool, which L0 must stop using (T3.6)",
+      "sites": [
+        "analyze_meta: let result = tokio::task::spawn_blocking(move || {",
+        "clean_meta: let result = tokio::task::spawn_blocking(move || {"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/storage/usage.rs",
+      "form": "spawn_blocking",
+      "count": 1,
+      "reason": "phase-0 baseline: blocking work on the shared blocking pool, which L0 must stop using (T3.6)",
+      "sites": [
+        "lease: let file = tokio::task::spawn_blocking(move || {"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/util/download/endpoint_selection/coordinator.rs",
+      "form": "tokio::spawn",
+      "count": 2,
+      "reason": "phase-0 baseline: existing task spawn; moves to scheduler dispatch with the governed items (spec §5.6) or stays operation-scoped",
+      "sites": [
+        "on_slow_region: tokio::spawn(async move {",
+        "run_round: tokio::spawn(super::store::save(hints));"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/util/download/endpoint_selection/store.rs",
+      "form": "spawn_blocking",
+      "count": 1,
+      "reason": "phase-0 baseline: blocking work on the shared blocking pool, which L0 must stop using (T3.6)",
+      "sites": [
+        "save_path: tokio::task::spawn_blocking(move || {"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/util/download/endpoint_selection/store.rs",
+      "form": "std::fs",
+      "count": 1,
+      "reason": "phase-0 baseline: synchronous file I/O; must not appear in L0 or inside a critical section (D17)",
+      "sites": [
+        "save_path: std::fs::create_dir_all(parent)?;"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/util/download/h2_pool.rs",
+      "form": "tokio::spawn",
+      "count": 2,
+      "reason": "phase-0 baseline: existing task spawn; moves to scheduler dispatch with the governed items (spec §5.6) or stays operation-scoped",
+      "sites": [
+        "select_parallel_connection: tokio::spawn(async move {",
+        "spawn_connection_driver: tokio::spawn(async move {"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/util/download/h2_range.rs",
+      "form": "std::fs",
+      "count": 2,
+      "reason": "phase-0 baseline: synchronous file I/O; must not appear in L0 or inside a critical section (D17)",
+      "sites": [
+        "drop: let _ = std::fs::remove_file(&self.path);",
+        "drop: std::fs::remove_file(super::range_journal::path(&self.path));"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/util/download/integrity.rs",
+      "form": "spawn_blocking",
+      "count": 1,
+      "reason": "phase-0 baseline: blocking work on the shared blocking pool, which L0 must stop using (T3.6)",
+      "sites": [
+        "validate_file_content: tokio::task::spawn_blocking(move || -> crate::Result<()> {"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/util/download/integrity.rs",
+      "form": "std::fs",
+      "count": 1,
+      "reason": "phase-0 baseline: synchronous file I/O; must not appear in L0 or inside a critical section (D17)",
+      "sites": [
+        "validate_file_content: let file = std::fs::File::open(&path)"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/util/download/local_resources.rs",
+      "form": "spawn_blocking",
+      "count": 2,
+      "reason": "phase-0 baseline: blocking work on the shared blocking pool, which L0 must stop using (T3.6)",
+      "sites": [
+        "initialize_disks: let disks = tokio::task::spawn_blocking(|| {",
+        "sample_cpu: let _ = tokio::task::spawn_blocking(|| {"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/util/download/verified_file.rs",
+      "form": "spawn_blocking",
+      "count": 1,
+      "reason": "phase-0 baseline: blocking work on the shared blocking pool, which L0 must stop using (T3.6)",
+      "sites": [
+        "capture: tokio::task::spawn_blocking(move || {"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/util/download/verified_file.rs",
+      "form": "std::fs",
+      "count": 7,
+      "reason": "phase-0 baseline: synchronous file I/O; must not appear in L0 or inside a critical section (D17)",
+      "sites": [
+        "<module>: _file: &std::fs::File,",
+        "<module>: _file: &std::fs::File,",
+        "<module>: _metadata: &std::fs::Metadata,",
+        "<module>: _metadata: &std::fs::Metadata,",
+        "<module>: file: &std::fs::File,",
+        "<module>: metadata: &std::fs::Metadata,",
+        "capture: let file = std::fs::File::open(&path).ok()?;"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/util/fetch/file.rs",
+      "form": "spawn_blocking",
+      "count": 2,
+      "reason": "phase-0 baseline: blocking work on the shared blocking pool, which L0 must stop using (T3.6)",
+      "sites": [
+        "cleanup_stale_partial_downloads: tokio::task::spawn_blocking(move || {",
+        "sha1_async: let hash = tokio::task::spawn_blocking(move || {"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/util/fetch/file.rs",
+      "form": "std::fs",
+      "count": 2,
+      "reason": "phase-0 baseline: synchronous file I/O; must not appear in L0 or inside a critical section (D17)",
+      "sites": [
+        "cleanup_stale_partial_downloads: if stale && std::fs::remove_file(entry.path()).is_ok() {",
+        "cleanup_stale_partial_downloads: let Ok(entries) = std::fs::read_dir(&directory) else {"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/util/fetch/probe.rs",
+      "form": "tokio::spawn",
+      "count": 1,
+      "reason": "phase-0 baseline: existing task spawn; moves to scheduler dispatch with the governed items (spec §5.6) or stays operation-scoped",
+      "sites": [
+        "ensure_task_routes_probed: tokio::spawn(async move {"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/util/fetch/progress.rs",
+      "form": "tokio::spawn",
+      "count": 1,
+      "reason": "phase-0 baseline: existing task spawn; moves to scheduler dispatch with the governed items (spec §5.6) or stays operation-scoped",
+      "sites": [
+        "prewarm_download_dns_for: tokio::spawn(async move {"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/util/fetch/segment.rs",
+      "form": "std::fs",
+      "count": 4,
+      "reason": "phase-0 baseline: synchronous file I/O; must not appear in L0 or inside a critical section (D17)",
+      "sites": [
+        "drop: if let Ok(file) = std::fs::OpenOptions::new()",
+        "drop: let _ = std::fs::remove_file(&self.part_path);",
+        "drop: let _ = std::fs::remove_file(segment_path(&self.part_path, index));",
+        "drop: let _ = std::fs::remove_file(tail_candidate_path("
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/util/fetch/tail.rs",
+      "form": "std::fs",
+      "count": 2,
+      "reason": "phase-0 baseline: synchronous file I/O; must not appear in L0 or inside a critical section (D17)",
+      "sites": [
+        "drop: let _ = std::fs::remove_file(&self.path);",
+        "drop: let _ = std::fs::remove_file(&self.path);"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/util/file_lock.rs",
+      "form": "std::fs",
+      "count": 3,
+      "reason": "phase-0 baseline: synchronous file I/O; must not appear in L0 or inside a critical section (D17)",
+      "sites": [
+        "read_proc_name: let content = std::fs::read_to_string(&cmdline_path).ok()?;",
+        "read_proc_start_time: let content = std::fs::read_to_string(&stat_path).ok()?;",
+        "read_proc_start_time: let stat_content = std::fs::read_to_string(\"/proc/stat\").ok()?;"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/util/io.rs",
+      "form": "spawn_blocking",
+      "count": 3,
+      "reason": "phase-0 baseline: blocking work on the shared blocking pool, which L0 must stop using (T3.6)",
+      "sites": [
+        "create_symlink: let result = spawn_blocking(move || {",
+        "remove_dir_all: tokio::task::spawn_blocking(move || {",
+        "write: spawn_blocking(move || {"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/util/io.rs",
+      "form": "std::fs",
+      "count": 11,
+      "reason": "phase-0 baseline: synchronous file I/O; must not appear in L0 or inside a critical section (D17)",
+      "sites": [
+        "atomically_replace_file: std::fs::rename(source, destination)",
+        "is_same_disk: let new_meta = std::fs::symlink_metadata(new_dir)",
+        "is_same_disk: let old_meta = std::fs::symlink_metadata(old_dir)",
+        "is_symlink_or_reparse: pub(crate) fn is_symlink_or_reparse(meta: &std::fs::Metadata) -> bool {",
+        "metadata: ) -> Result<std::fs::Metadata, IOError> {",
+        "remove_safe: .or_else(|_| std::fs::remove_dir(path))",
+        "remove_safe: let meta = match std::fs::symlink_metadata(path) {",
+        "remove_safe: let rd = match std::fs::read_dir(path) {",
+        "remove_safe: return std::fs::remove_file(path)",
+        "remove_safe: return std::fs::remove_file(path)",
+        "remove_safe: std::fs::remove_dir(path)"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/util/jre.rs",
+      "form": "spawn_blocking",
+      "count": 4,
+      "reason": "phase-0 baseline: blocking work on the shared blocking pool, which L0 must stop using (T3.6)",
+      "sites": [
+        "collect_candidate_paths: let common_paths = tokio::task::spawn_blocking(get_common_install_paths);",
+        "collect_candidate_paths: let registry_paths = tokio::task::spawn_blocking(get_registry_paths);",
+        "collect_candidate_paths: tokio::task::spawn_blocking(get_official_launcher_runtime_paths);",
+        "collect_candidate_paths: tokio::task::spawn_blocking(move || {"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/util/jre.rs",
+      "form": "std::fs",
+      "count": 22,
+      "reason": "phase-0 baseline: synchronous file I/O; must not appear in L0 or inside a critical section (D17)",
+      "sites": [
+        "bfs_exhaustive_scan: let Ok(entries) = std::fs::read_dir(&dir) else {",
+        "bfs_keyword_scan: let Ok(entries) = std::fs::read_dir(&dir) else {",
+        "bfs_search_roots: if let Ok(entries) = std::fs::read_dir(common) {",
+        "get_all_autoinstalled_jre_path: && let Ok(dir) = std::fs::read_dir(base_path)",
+        "get_all_autoinstalled_jre_path: if let Ok(contents) = std::fs::read_to_string(bin.clone()) {",
+        "get_common_install_paths: && let Ok(dir) = std::fs::read_dir(app_data)",
+        "get_common_install_paths: && let Ok(dir) = std::fs::read_dir(programs)",
+        "get_common_install_paths: if let Ok(dir) = std::fs::read_dir(asdf_path) {",
+        "get_common_install_paths: if let Ok(dir) = std::fs::read_dir(base_path) {",
+        "get_common_install_paths: if let Ok(dir) = std::fs::read_dir(jabba_path) {",
+        "get_common_install_paths: if let Ok(dir) = std::fs::read_dir(path) {",
+        "get_common_install_paths: if let Ok(dir) = std::fs::read_dir(sdkman_path) {",
+        "get_common_install_paths: if let Ok(dir) = std::fs::read_dir(sdkman_path) {",
+        "get_common_install_paths: if let Ok(dir) = std::fs::read_dir(snap_path) {",
+        "get_common_install_paths: if let Ok(dir) = std::fs::read_dir(user_jvm) {",
+        "get_common_install_paths: let Ok(java_subpaths) = std::fs::read_dir(java_path) else {",
+        "get_common_install_paths: let Ok(subdirs) = std::fs::read_dir(pf_dir) else {",
+        "get_java_home_paths: && let Ok(siblings) = std::fs::read_dir(parent)",
+        "get_official_launcher_runtime_paths: let Ok(components) = std::fs::read_dir(root) else {",
+        "get_official_launcher_runtime_paths: let Ok(installs) = std::fs::read_dir(platform.path()) else {",
+        "get_official_launcher_runtime_paths: let Ok(platforms) = std::fs::read_dir(component.path()) else {",
+        "java_version_from_release_file: let contents = std::fs::read_to_string(root.join(\"release\")).ok()?;"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/util/jre.rs",
+      "form": "tokio::spawn",
+      "count": 1,
+      "reason": "phase-0 baseline: existing task spawn; moves to scheduler dispatch with the governed items (spec §5.6) or stays operation-scoped",
+      "sites": [
+        "check_java_at_filepaths: tokio::task::spawn(async move { check_java_at_filepath(&p).await })"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/util/resolve_shortcut.rs",
+      "form": "std::fs",
+      "count": 3,
+      "reason": "phase-0 baseline: synchronous file I/O; must not appear in L0 or inside a critical section (D17)",
+      "sites": [
+        "resolve_linux_desktop: let content = std::fs::read_to_string(path).ok()?;",
+        "resolve_macos_app: let content = std::fs::read_to_string(&plist_path).ok()?;",
+        "resolve_shortcut: if let Ok(target) = std::fs::read_link(path) {"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/util/rpc.rs",
+      "form": "tokio::spawn",
+      "count": 1,
+      "reason": "phase-0 baseline: existing task spawn; moves to scheduler dispatch with the governed items (spec §5.6) or stays operation-scoped",
+      "sites": [
+        "launch: tokio::spawn(async move {"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/util/symlink.rs",
+      "form": "spawn_blocking",
+      "count": 4,
+      "reason": "phase-0 baseline: blocking work on the shared blocking pool, which L0 must stop using (T3.6)",
+      "sites": [
+        "check_symlink_capability_internal: let junction_result = tokio::task::spawn_blocking(move || {",
+        "check_symlink_capability_internal: let result = tokio::task::spawn_blocking(move || {",
+        "check_symlink_capability_internal: let symlink_result = tokio::task::spawn_blocking(move || {",
+        "create_link_elevated: tokio::task::spawn_blocking(move || {"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/util/symlink.rs",
+      "form": "std::fs",
+      "count": 4,
+      "reason": "phase-0 baseline: synchronous file I/O; must not appear in L0 or inside a critical section (D17)",
+      "sites": [
+        "create_link_blocking: std::fs::create_dir_all(parent)?;",
+        "create_link_elevated_blocking: let _ = std::fs::remove_file(&result_file);",
+        "create_link_elevated_blocking: let raw_result = std::fs::read_to_string(&result_file).map_err(|_| {",
+        "create_link_elevated_helper: if let Err(write_error) = std::fs::write(&request.result_file, serialized) {"
+      ]
+    },
+    {
+      "file": "packages/launcher-mcp/src/protocol.rs",
+      "form": "tokio::spawn",
+      "count": 2,
+      "reason": "phase-0 baseline: existing task spawn; moves to scheduler dispatch with the governed items (spec §5.6) or stays operation-scoped",
+      "sites": [
+        "initialize: tokio::spawn(async move {",
+        "on_initialized: tokio::spawn(async move {"
+      ]
+    },
+    {
+      "file": "packages/launcher-mcp/src/server.rs",
+      "form": "tokio::spawn",
+      "count": 1,
+      "reason": "phase-0 baseline: existing task spawn; moves to scheduler dispatch with the governed items (spec §5.6) or stays operation-scoped",
+      "sites": [
+        "start: let task = tokio::spawn(async move {"
+      ]
+    }
+  ]
+}

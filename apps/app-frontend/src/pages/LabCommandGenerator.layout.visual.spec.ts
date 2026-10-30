@@ -1,3 +1,4 @@
+import '@modrinth/ui/directives/tooltip-styles.ts'
 import '@/test/visual-styles.scss'
 
 import { Combobox, provideI18n } from '@modrinth/ui'

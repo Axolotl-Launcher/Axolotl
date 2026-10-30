@@ -1,6 +1,6 @@
 import '@/test/visual-styles.scss'
 
-import { mount } from '@vue/test-utils'
+import { flushPromises, mount } from '@vue/test-utils'
 import { expect, it, vi } from 'vitest'
 import { nextTick, reactive, ref } from 'vue'
 
@@ -133,6 +133,39 @@ function downloadingJob(provider: InstallJobSnapshot['provider']): InstallJobSna
         items: [],
     }
 }
+
+it('keeps cancellation available for a canceling job and disables it while the request is pending', async () => {
+    const jobs = ref<InstallJobSnapshot[]>([{ ...downloadingJob('modrinth'), status: 'canceling' }])
+    let finishCancellation!: () => void
+    const cancellation = new Promise<void>((resolve) => {
+        finishCancellation = resolve
+    })
+    const cancel = vi.fn().mockReturnValue(cancellation)
+    fixture.manager = {
+        initializationState: ref('ready'),
+        jobs,
+        activeJobs: jobs,
+        historyJobs: ref([]),
+        legacyDownloads: ref([]),
+        cancel,
+    }
+    const wrapper = mount(Downloads, { global: { directives: { tooltip: () => {} } } })
+    try {
+        const button = wrapper.findAll('button').find((candidate) => candidate.text() === 'Cancel')
+        expect(button).toBeDefined()
+        await button!.trigger('click')
+        expect(cancel).toHaveBeenCalledWith(jobs.value[0].job_id)
+        expect(button!.attributes('disabled')).toBeDefined()
+        finishCancellation()
+        await flushPromises()
+        expect(button!.attributes('disabled')).toBeUndefined()
+        await button!.trigger('click')
+        expect(cancel).toHaveBeenCalledTimes(2)
+    } finally {
+        finishCancellation()
+        wrapper.unmount()
+    }
+})
 
 it('renders archive byte progress and aligns source and status with manual download actions', async () => {
     const pack: InstallJobSnapshot = {

@@ -156,10 +156,14 @@ export function createContentSelection({
     )
     const selectedCount = computed(() => items.value.size)
 
-    async function refreshInstances(preferredId?: string | null) {
+    async function refreshInstances(
+        preferredId?: string | null,
+        isCurrent: () => boolean = () => true,
+    ) {
         const available = (await listInstances()).filter(
             (instance) => instance.install_stage === 'installed',
         )
+        if (!isCurrent()) return targetInstance.value
         instances.value = available
         const requestedId = preferredId ?? targetInstance.value?.id ?? getBrowseDefaultInstanceId()
         const current =

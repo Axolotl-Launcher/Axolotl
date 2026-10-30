@@ -1,11 +1,10 @@
-import assert from 'node:assert/strict'
-import test from 'node:test'
+import { expect, it } from 'vitest'
 
 import { applySettingChanges } from './deep-link-settings.ts'
 import type { AppSettings } from './settings.ts'
 import { createSettingsPatchSaver, diffSettings } from './settings-patch.ts'
 
-test('stale drafts save only edits and preserve changes from another settings region', async () => {
+it('stale drafts save only edits and preserve changes from another settings region', async () => {
     const original = { theme: 'dark', developer_mode: false, feature_flags: { a: false, b: false } }
     const backend = structuredClone(original)
     const patches: Record<string, unknown>[] = []
@@ -17,16 +16,15 @@ test('stale drafts save only edits and preserve changes from another settings re
     const developer = createSettingsPatchSaver(original, save)
     await appearance({ ...original, theme: 'light' })
     await developer({ ...original, developer_mode: true })
-    assert.equal(backend.theme, 'light')
-    assert.equal(backend.developer_mode, true)
-    assert.deepEqual(patches, [{ theme: 'light' }, { developer_mode: true }])
-    assert.deepEqual(
-        diffSettings(original, { ...original, feature_flags: { a: true, b: false } }),
-        { feature_flags: { a: true } },
-    )
+    expect(backend.theme).toBe('light')
+    expect(backend.developer_mode).toBe(true)
+    expect(patches).toEqual([{ theme: 'light' }, { developer_mode: true }])
+    expect(diffSettings(original, { ...original, feature_flags: { a: true, b: false } })).toEqual({
+        feature_flags: { a: true },
+    })
 })
 
-test('captures rapid saves and retries failed edits without advancing the baseline', async () => {
+it('captures rapid saves and retries failed edits without advancing the baseline', async () => {
     let release!: () => void
     const pending = new Promise<void>((resolve) => {
         release = resolve
@@ -46,30 +44,40 @@ test('captures rapid saves and retries failed edits without advancing the baseli
     const second = saver(draft)
     draft.theme = 'oled'
     release()
-    await assert.rejects(first, /write failed/)
+    await expect(first).rejects.toThrow(/write failed/)
     await second
-    assert.deepEqual(patches, [{ theme: 'light' }, { theme: 'light', locale: 'zh-CN' }])
+    expect(patches).toEqual([{ theme: 'light' }, { theme: 'light', locale: 'zh-CN' }])
     await saver(draft)
-    assert.deepEqual(patches[2], { theme: 'oled' })
+    expect(patches[2]).toEqual({ theme: 'oled' })
 })
 
-test('replaces structured configuration when keys are removed and supports clearing values', () => {
-    assert.deepEqual(
+it('replaces structured configuration when keys are removed and supports clearing values', () => {
+    expect(
         diffSettings(
             { home_widgets: { a: 1, b: 2 }, ui_font: 'Font' },
             { home_widgets: { b: 2 }, ui_font: null },
         ),
-        { home_widgets: { b: 2 }, ui_font: null },
-    )
+    ).toEqual({ home_widgets: { b: 2 }, ui_font: null })
 })
 
-test('clearing a privileged launch hook survives JSON patch serialization', () => {
+it('clearing a privileged launch hook survives JSON patch serialization', () => {
     const settings = {
         hooks: { pre_launch: 'old command', wrapper: 'keep wrapper' },
     } as AppSettings
     const before = structuredClone(settings)
-    assert.equal(applySettingChanges(settings, [{ key: 'hooks_pre_launch', value: '' }]), true)
+    expect(applySettingChanges(settings, [{ key: 'hooks_pre_launch', value: '' }])).toBe(true)
     const patch = JSON.parse(JSON.stringify(diffSettings(before, settings)))
-    assert.deepEqual(patch, { hooks: { pre_launch: null } })
-    assert.equal(settings.hooks.wrapper, 'keep wrapper')
+    expect(patch).toEqual({ hooks: { pre_launch: null } })
+    expect(settings.hooks.wrapper).toBe('keep wrapper')
+})
+
+it('applies a privileged default game language change', () => {
+    const settings = {
+        default_game_language: '',
+    } as AppSettings
+
+    expect(applySettingChanges(settings, [{ key: 'default_game_language', value: 'en_us' }])).toBe(
+        true,
+    )
+    expect(settings.default_game_language).toBe('en_us')
 })

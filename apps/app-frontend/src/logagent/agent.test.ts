@@ -1,7 +1,5 @@
-import assert from 'node:assert/strict'
-import { test } from 'node:test'
-
 import { AIMessage, ToolMessage } from '@langchain/core/messages'
+import { expect, it, vi } from 'vitest'
 
 import { diagnosticText, runLocalAgent } from './agent.ts'
 import { LogAgentModel } from './model.ts'
@@ -15,7 +13,7 @@ const session = {
     context: 'A crash occurred.',
 }
 
-test('executes three grep calls from the first model turn before requesting a diagnosis', async () => {
+it('executes three grep calls from the first model turn before requesting a diagnosis', async () => {
     let turns = 0
     const queries: string[] = []
     const output = await runLocalAgent(
@@ -32,7 +30,7 @@ test('executes three grep calls from the first model turn before requesting a di
                             args: { file_id: 'log-1', query },
                         })),
                     }
-                assert.equal(turn.messages.filter((message) => message.role === 'tool').length, 3)
+                expect(turn.messages.filter((message) => message.role === 'tool').length).toBe(3)
                 return { role: 'assistant', content: 'Diagnosis after three searches.' }
             },
             tool: async (request) => {
@@ -43,12 +41,12 @@ test('executes three grep calls from the first model turn before requesting a di
         new AbortController().signal,
         () => {},
     )
-    assert.deepEqual(queries.sort(), ['caused by', 'error', 'exception'])
-    assert.equal(turns, 2)
-    assert.match(output, /Diagnosis/)
+    expect(queries.sort()).toEqual(['caused by', 'error', 'exception'])
+    expect(turns).toBe(2)
+    expect(output).toMatch(/Diagnosis/)
 })
 
-test('forwards live text and factual tool progress while keeping private protocol data hidden', async () => {
+it('forwards live text and factual tool progress while keeping private protocol data hidden', async () => {
     const events: import('./types.ts').LocalProgress[] = []
     let turns = 0
     const output = await runLocalAgent(
@@ -61,7 +59,7 @@ test('forwards live text and factual tool progress while keeping private protoco
                         event_type: 'delta',
                         data: { content: 'Checking the crash context.' },
                     })
-                    assert.equal(events.at(-1)?.data.content, 'Checking the crash context.')
+                    expect(events.at(-1)?.data.content).toBe('Checking the crash context.')
                     return {
                         role: 'assistant',
                         content: 'Checking the crash context.',
@@ -84,26 +82,23 @@ test('forwards live text and factual tool progress while keeping private protoco
         () => {},
         (event) => events.push(event),
     )
-    assert.equal(output, 'Final diagnosis.')
-    assert.deepEqual(
-        events.map((event) => event.event_type),
-        [
-            'model_start',
-            'thinking',
-            'delta',
-            'model_end',
-            'tool',
-            'tool_result',
-            'model_start',
-            'delta',
-            'model_end',
-        ],
-    )
-    assert.equal(events.find((event) => event.event_type === 'tool_result')?.data.lines, 1)
-    assert.doesNotMatch(JSON.stringify(events), /private|evidence/)
+    expect(output).toBe('Final diagnosis.')
+    expect(events.map((event) => event.event_type)).toEqual([
+        'model_start',
+        'thinking',
+        'delta',
+        'model_end',
+        'tool',
+        'tool_result',
+        'model_start',
+        'delta',
+        'model_end',
+    ])
+    expect(events.find((event) => event.event_type === 'tool_result')?.data.lines).toBe(1)
+    expect(JSON.stringify(events)).not.toMatch(/private|evidence/)
 })
 
-test('repeated provider tool-call IDs still execute every investigation round', async () => {
+it('repeated provider tool-call IDs still execute every investigation round', async () => {
     let turns = 0
     const reads: string[] = []
     const output = await runLocalAgent(
@@ -133,12 +128,12 @@ test('repeated provider tool-call IDs still execute every investigation round', 
         new AbortController().signal,
         () => {},
     )
-    assert.deepEqual(reads, ['log-1', 'log-2'])
-    assert.equal(turns, 3)
-    assert.match(output, /Final diagnosis/)
+    expect(reads).toEqual(['log-1', 'log-2'])
+    expect(turns).toBe(3)
+    expect(output).toMatch(/Final diagnosis/)
 })
 
-test('an unsupported extraction tool is returned to the model as an error instead of ending analysis', async () => {
+it('an unsupported extraction tool is returned to the model as an error instead of ending analysis', async () => {
     let turns = 0
     const output = await runLocalAgent(
         session,
@@ -151,7 +146,7 @@ test('an unsupported extraction tool is returned to the model as an error instea
                         tool_calls: [{ id: 'extract-1', name: 'extract-diagnosis', args: {} }],
                     }
                 const error = turn.messages.find((message) => message.role === 'tool')
-                assert.match(error?.content ?? '', /not available/)
+                expect(error?.content ?? '').toMatch(/not available/)
                 return { role: 'assistant', content: 'Final diagnosis.' }
             },
             tool: async () => {
@@ -161,13 +156,13 @@ test('an unsupported extraction tool is returned to the model as an error instea
         new AbortController().signal,
         () => {},
     )
-    assert.equal(output, 'Final diagnosis.')
-    assert.equal(turns, 2)
+    expect(output).toBe('Final diagnosis.')
+    expect(turns).toBe(2)
 })
 
-test('repeated unavailable tools stop with the tool name and do not execute', async () => {
+it('repeated unavailable tools stop with the tool name and do not execute', async () => {
     let turns = 0
-    await assert.rejects(
+    await expect(
         runLocalAgent(
             session,
             {
@@ -183,12 +178,11 @@ test('repeated unavailable tools stop with the tool name and do not execute', as
             new AbortController().signal,
             () => {},
         ),
-        /repeatedly requested unavailable tools: extract-diagnosis/,
-    )
-    assert.equal(turns, 3)
+    ).rejects.toThrow(/repeatedly requested unavailable tools: extract-diagnosis/)
+    expect(turns).toBe(3)
 })
 
-test('the full 16-turn budget supports multiple investigation rounds before finalizing', async () => {
+it('the full 16-turn budget supports multiple investigation rounds before finalizing', async () => {
     let turns = 0
     const output = await runLocalAgent(
         session,
@@ -212,20 +206,19 @@ test('the full 16-turn budget supports multiple investigation rounds before fina
         new AbortController().signal,
         () => {},
     )
-    assert.equal(turns, 16)
-    assert.match(output, /Diagnosis/)
+    expect(turns).toBe(16)
+    expect(output).toMatch(/Diagnosis/)
 })
 
-test('Deep Agents uses only diagnostic tools and preserves tool IDs and opaque protocol state', async () => {
+it('Deep Agents uses only diagnostic tools and preserves tool IDs and opaque protocol state', async () => {
     const turns: ModelTurn[] = []
     const used: string[] = []
     const gateway: AgentGateway = {
         async modelTurn(turn) {
             turns.push(turn)
-            assert.deepEqual(
+            expect(
                 turn.tools.map((tool) => (tool.function as { name: string }).name).sort(),
-                ['grep_log_file', 'list_log_files', 'read_log_file'],
-            )
+            ).toEqual(['grep_log_file', 'list_log_files', 'read_log_file'])
             if (turns.length === 1)
                 return {
                     role: 'assistant',
@@ -239,33 +232,31 @@ test('Deep Agents uses only diagnostic tools and preserves tool IDs and opaque p
                     ],
                     opaque: { signature: 'provider-required' },
                 }
-            assert.equal(
-                turn.messages.find((message) => message.role === 'tool')?.tool_call_id,
+            expect(turn.messages.find((message) => message.role === 'tool')?.tool_call_id).toBe(
                 'call-123',
             )
-            assert.deepEqual(
-                turn.messages.find((message) => message.role === 'assistant')?.opaque,
-                { signature: 'provider-required' },
-            )
+            expect(turn.messages.find((message) => message.role === 'assistant')?.opaque).toEqual({
+                signature: 'provider-required',
+            })
             return {
                 role: 'assistant',
                 content: 'The log identifies an incompatible Java version.',
             }
         },
         async tool(request) {
-            assert.equal(request.file_id, 'log-1')
+            expect(request.file_id).toBe('log-1')
             return { line: 200, text: 'UnsupportedClassVersionError' }
         },
     }
     const output = await runLocalAgent(session, gateway, new AbortController().signal, (tool) =>
         used.push(tool),
     )
-    assert.equal(turns.length, 2)
-    assert.deepEqual(used, ['read_log_file'])
-    assert.match(output, /Java/)
+    expect(turns.length).toBe(2)
+    expect(used).toEqual(['read_log_file'])
+    expect(output).toMatch(/Java/)
 })
 
-test('an aborted run does not call the model', async () => {
+it('an aborted run does not call the model', async () => {
     const controller = new AbortController()
     controller.abort()
     const gateway: AgentGateway = {
@@ -276,10 +267,10 @@ test('an aborted run does not call the model', async () => {
             throw new Error('must not run')
         },
     }
-    await assert.rejects(runLocalAgent(session, gateway, controller.signal, () => {}))
+    await expect(runLocalAgent(session, gateway, controller.signal, () => {})).rejects.toThrow()
 })
 
-test('accepts standard content blocks without displaying reasoning blocks', () => {
+it('accepts standard content blocks without displaying reasoning blocks', () => {
     const message = new AIMessage({
         contentBlocks: [
             { type: 'reasoning', reasoning: 'Internal reasoning' },
@@ -287,12 +278,12 @@ test('accepts standard content blocks without displaying reasoning blocks', () =
             { type: 'text', text: 'Select a supported Java version.' },
         ],
     })
-    assert.equal(diagnosticText(message), 'Java is incompatible.\nSelect a supported Java version.')
+    expect(diagnosticText(message)).toBe('Java is incompatible.\nSelect a supported Java version.')
 })
 
-test('the complete agent loop accepts a final response normalized into content blocks', async (context) => {
+it('the complete agent loop accepts a final response normalized into content blocks', async () => {
     const generate = LogAgentModel.prototype._generate
-    context.mock.method(
+    vi.spyOn(
         LogAgentModel.prototype,
         '_generate',
         async function (this: LogAgentModel, ...args: Parameters<typeof generate>) {
@@ -321,31 +312,26 @@ test('the complete agent loop accepts a final response normalized into content b
         new AbortController().signal,
         () => {},
     )
-    assert.equal(output, '诊断结果：Java 版本不兼容。')
+    expect(output).toBe('诊断结果：Java 版本不兼容。')
 })
 
-test('does not treat tool output or unfinished tool calls as a final diagnosis', () => {
-    assert.throws(
-        () => diagnosticText(new ToolMessage({ content: 'log evidence', tool_call_id: 'call-1' })),
-        /without a final assistant reply/,
-    )
-    assert.throws(
-        () =>
-            diagnosticText(
-                new AIMessage({
-                    content: 'Checking logs',
-                    tool_calls: [{ id: 'call-1', name: 'list_log_files', args: {} }],
-                }),
-            ),
-        /unresolved tool calls/,
-    )
-    assert.throws(
-        () =>
-            diagnosticText(
-                new AIMessage({
-                    contentBlocks: [{ type: 'reasoning', reasoning: 'Internal reasoning' }],
-                }),
-            ),
-        /content: reasoning/,
-    )
+it('does not treat tool output or unfinished tool calls as a final diagnosis', () => {
+    expect(() =>
+        diagnosticText(new ToolMessage({ content: 'log evidence', tool_call_id: 'call-1' })),
+    ).toThrow(/without a final assistant reply/)
+    expect(() =>
+        diagnosticText(
+            new AIMessage({
+                content: 'Checking logs',
+                tool_calls: [{ id: 'call-1', name: 'list_log_files', args: {} }],
+            }),
+        ),
+    ).toThrow(/unresolved tool calls/)
+    expect(() =>
+        diagnosticText(
+            new AIMessage({
+                contentBlocks: [{ type: 'reasoning', reasoning: 'Internal reasoning' }],
+            }),
+        ),
+    ).toThrow(/content: reasoning/)
 })

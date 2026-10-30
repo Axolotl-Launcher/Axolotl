@@ -1,14 +1,17 @@
 use super::*;
 use crate::mod_metadata::LocalModMetadata;
+use crate::state::instances::DependencyRelation;
 use crate::state::instances::{
     ContentDependencyEdge, ContentDependencyKind, ContentEntry, ContentSet,
 };
 
+use crate::state::instances::adapters::sqlite::content_entries;
+
 #[derive(Default)]
-pub(super) struct DependencyBackfill {
-    pub(super) edges: Vec<ContentDependencyEdge>,
-    reconciled: HashSet<(String, ContentProvider)>,
-    rejected: HashSet<(String, String)>,
+pub(crate) struct DependencyBackfill {
+    pub(crate) edges: Vec<ContentDependencyEdge>,
+    pub(crate) reconciled: HashSet<(String, ContentProvider)>,
+    pub(crate) rejected: HashSet<(String, String)>,
 }
 
 fn edge_fact(edge: &ContentDependencyEdge) -> String {
@@ -28,7 +31,7 @@ fn edge_fact(edge: &ContentDependencyEdge) -> String {
 }
 
 impl DependencyBackfill {
-    pub(super) fn is_empty(&self) -> bool {
+    pub(crate) fn is_empty(&self) -> bool {
         self.reconciled.is_empty() && self.rejected.is_empty()
     }
 
@@ -65,25 +68,7 @@ impl DependencyBackfill {
     }
 }
 
-pub(super) async fn persist_backfill(
-    backfill: &DependencyBackfill,
-    content_set_id: &str,
-    tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>,
-) -> crate::Result<()> {
-    for (parent, provider) in &backfill.reconciled {
-        sqlx::query("DELETE FROM instance_content_dependencies WHERE content_set_id = ? AND parent_entry_id = ? AND evidence_provider = ?")
-            .bind(content_set_id).bind(parent).bind(provider.as_str()).execute(&mut **tx).await?;
-    }
-    for (parent, child) in &backfill.rejected {
-        sqlx::query("DELETE FROM instance_content_dependencies WHERE content_set_id = ? AND parent_entry_id = ? AND child_entry_id = ? AND dependency_kind = 'required'")
-            .bind(content_set_id).bind(parent).bind(child).execute(&mut **tx).await?;
-    }
-    for edge in &backfill.edges {
-        content_rows::upsert_content_dependency_edge_in_transaction(edge, tx)
-            .await?;
-    }
-    Ok(())
-}
+pub(crate) use crate::state::store::content_dependencies::persist_backfill;
 
 fn provider_ref(
     references: &[ContentProviderRef],
@@ -223,24 +208,16 @@ fn append_curseforge_edges(
         .reconciled
         .insert((parent.id.clone(), ContentProvider::CurseForge));
     for dependency in dependencies {
-        let kind = match dependency.relation_type {
-            crate::api::curseforge::DEPENDENCY_RELATION_REQUIRED => {
-                ContentDependencyKind::Required
-            }
-            crate::api::curseforge::DEPENDENCY_RELATION_INCLUDE => {
-                ContentDependencyKind::Include
-            }
+        let kind = match dependency.relation() {
+            DependencyRelation::Required => ContentDependencyKind::Required,
+            DependencyRelation::Include => ContentDependencyKind::Include,
             _ => continue,
         };
-        let project = if content_set.loader == crate::state::ModLoader::Quilt
-            && dependency.mod_id
-                == crate::api::curseforge::FABRIC_API_CURSEFORGE_PROJECT_ID
-        {
-            crate::api::curseforge::QUILTED_FABRIC_API_CURSEFORGE_PROJECT_ID
-        } else {
-            dependency.mod_id
-        }
-        .to_string();
+        let project = dependency
+            .target_project_id(
+                content_set.loader == crate::state::ModLoader::Quilt,
+            )
+            .to_string();
         for (child, reference) in remote_children(
             entries,
             refs,
@@ -287,7 +264,7 @@ fn local_endpoint(
     } else {
         (
             ContentProvider::Local,
-            format!("local:{}", metadata.mod_id),
+            local_id(&metadata.mod_id),
             metadata.version.clone().unwrap_or_default(),
         )
     }
@@ -353,14 +330,14 @@ fn append_local_edges(
     }
 }
 
-pub(super) async fn backfill_dependency_edges_from_metadata(
+pub(crate) async fn backfill_dependency_edges_from_metadata(
     entries: &[ContentEntry],
     refs: &HashMap<String, Vec<ContentProviderRef>>,
     content_set: &ContentSet,
     local: &HashMap<String, LocalModMetadata>,
     state: &State,
 ) -> crate::Result<DependencyBackfill> {
-    let existing = content_rows::get_content_dependency_edges(
+    let existing = content_entries::get_content_dependency_edges(
         &content_set.id,
         &state.pool,
     )
@@ -383,7 +360,7 @@ pub(super) async fn backfill_dependency_edges_from_metadata(
         match CachedEntry::get_version_many(
             &version_ids,
             None,
-            &state.pool,
+            state.cache_pool(),
             &state.api_semaphore,
         )
         .await
@@ -473,6 +450,8 @@ pub(super) async fn backfill_dependency_edges_from_metadata(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    use crate::state::instances::adapters::sqlite::content_entries;
     fn entry(id: &str) -> ContentEntry {
         ContentEntry {
             id: id.into(),
@@ -599,14 +578,14 @@ mod tests {
             ("b".into(), vec![cf("200", "2001")]),
         ]);
         let dependencies = [
-            crate::api::curseforge::CurseForgeFileDependency {
-                mod_id: 200,
-                relation_type: 3,
-            },
-            crate::api::curseforge::CurseForgeFileDependency {
-                mod_id: 300,
-                relation_type: 3,
-            },
+            crate::api::curseforge::CurseForgeFileDependency::new(
+                200,
+                crate::state::instances::DependencyRelation::Required,
+            ),
+            crate::api::curseforge::CurseForgeFileDependency::new(
+                300,
+                crate::state::instances::DependencyRelation::Required,
+            ),
         ];
         let mut first = DependencyBackfill::default();
         append_curseforge_edges(
@@ -733,9 +712,10 @@ mod tests {
         let mut tx = pool.begin().await.unwrap();
         persist_backfill(&first, "set", &mut tx).await.unwrap();
         tx.commit().await.unwrap();
-        let initial = content_rows::get_content_dependency_edges("set", &pool)
-            .await
-            .unwrap();
+        let initial =
+            content_entries::get_content_dependency_edges("set", &pool)
+                .await
+                .unwrap();
         assert_eq!(initial.len(), 1);
         refs.insert("c".into(), vec![mr("child100", "child101")]);
         let mut second = DependencyBackfill::default();
@@ -754,7 +734,7 @@ mod tests {
         persist_backfill(&second, "set", &mut tx).await.unwrap();
         tx.commit().await.unwrap();
         assert_eq!(
-            content_rows::get_content_dependency_edges("set", &pool)
+            content_entries::get_content_dependency_edges("set", &pool)
                 .await
                 .unwrap()
                 .len(),
@@ -765,7 +745,7 @@ mod tests {
         persist_backfill(&failed, "set", &mut tx).await.unwrap();
         tx.commit().await.unwrap();
         assert_eq!(
-            content_rows::get_content_dependency_edges("set", &pool)
+            content_entries::get_content_dependency_edges("set", &pool)
                 .await
                 .unwrap()
                 .len(),
@@ -786,7 +766,7 @@ mod tests {
         persist_backfill(&removal, "set", &mut tx).await.unwrap();
         tx.commit().await.unwrap();
         assert!(
-            content_rows::get_content_dependency_edges("set", &pool)
+            content_entries::get_content_dependency_edges("set", &pool)
                 .await
                 .unwrap()
                 .is_empty()

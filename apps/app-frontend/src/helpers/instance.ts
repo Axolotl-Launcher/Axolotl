@@ -402,6 +402,7 @@ export type PackMemberMaterializationState = 'present' | 'pending_manual' | 'mis
 export type PackMemberOverrideKind = 'none' | 'disabled' | 'removed' | 'version'
 
 export interface InstanceContentSnapshotItem {
+    resourceUpdate?: import('./resources').SourceReleaseRef | null
     artifactRef?: import('./resources').ResourceArtifact['reference'] | null
     resourceId?: string | null
     packResourceId?: string | null
@@ -481,6 +482,7 @@ export interface InstanceContentSnapshot {
     items: InstanceContentSnapshotItem[]
     pendingManualDownloads: PendingManualDownload[]
     warnings: Array<{
+        entryId?: string
         code: string
         message: string
         provider: 'modrinth' | 'curseforge' | 'mcarchive' | null
@@ -539,7 +541,10 @@ export async function plan_content_updates(
 export async function apply_content_update_plan(
     planId: string,
     resolutions: ContentUpdateResolution[] = [],
-): Promise<InstanceContentSnapshot> {
+): Promise<
+    | { status: 'queued'; job: InstallJobSnapshot }
+    | { status: 'completed'; snapshot: InstanceContentSnapshot }
+> {
     return await invoke('plugin:instance|instance_apply_content_update_plan', {
         planId,
         resolutions,

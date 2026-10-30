@@ -6,16 +6,25 @@ use std::time::Duration;
 use chrono::{SecondsFormat, Utc};
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
-use sqlx::Row;
 use uuid::Uuid;
 
 use crate::State;
+use crate::state::Settings;
+use crate::state::store::Collection as _;
+use crate::state::store::telemetry_identity::{
+    Installation, TelemetryIdentity, TelemetryIdentityRecord,
+};
+use crate::state::store::telemetry_outbox::{
+    TelemetryEventType, TelemetryOutbox, TelemetryOutboxRecord,
+    TelemetryOutboxScope,
+};
+use crate::state::store::{Atom, atom};
 
 const ENDPOINT: &str = "https://telemetry.axlmc.org/v1/batch";
 const MAX_OUTBOX_EVENTS: i64 = 100;
 const MAX_OUTBOX_BYTES: i64 = 2 * 1024 * 1024;
 const MAX_EVENT_AGE_SECONDS: i64 = 7 * 24 * 60 * 60;
-const MAX_BATCH_EVENTS: i64 = 10;
+const MAX_BATCH_EVENTS: usize = 10;
 const MAX_BATCH_BYTES: usize = 60 * 1024;
 
 static STARTED: AtomicBool = AtomicBool::new(false);
@@ -28,7 +37,7 @@ pub(crate) fn start(state: Arc<State>) {
 
     let (wake_tx, mut wake_rx) = tokio::sync::mpsc::channel(1);
     let _ = WAKE_TX.set(wake_tx);
-    let task = tokio::spawn({
+    state.spawn_background({
         let state = Arc::clone(&state);
         async move {
             loop {
@@ -53,17 +62,14 @@ pub(crate) fn start(state: Arc<State>) {
             }
         }
     });
-    state.background_tasks.lock().push(task);
 }
 
 pub async fn set_enabled(state: &State, enabled: bool) -> crate::Result<()> {
     let _database_permit = state.acquire_install_db_permit().await?;
-    sqlx::query("DELETE FROM telemetry_outbox")
-        .execute(&state.pool)
-        .await?;
+    TelemetryOutbox::set_all(&state.data, &[]).await?;
 
     if enabled {
-        ensure_identity(&state.pool).await?;
+        ensure_identity(state).await?;
         enqueue_heartbeat(state).await?;
         wake();
     }
@@ -80,21 +86,19 @@ async fn run_cycle(
 ) -> crate::Result<()> {
     if !is_enabled(state).await? {
         let _database_permit = state.acquire_install_db_permit().await?;
-        sqlx::query("DELETE FROM telemetry_outbox")
-            .execute(&state.pool)
-            .await?;
+        TelemetryOutbox::set_all(&state.data, &[]).await?;
         return Ok(());
     }
 
     {
         let _database_permit = state.acquire_install_db_permit().await?;
-        ensure_identity(&state.pool).await?;
-        // Error events were supported by older clients. Drop any that remain
-        // in the local queue before selecting uploadable events.
-        sqlx::query(
-            "DELETE FROM telemetry_outbox WHERE event_type <> 'heartbeat'",
+        ensure_identity(state).await?;
+        // Older clients queued error events this build never sends.
+        TelemetryOutbox::set_scoped(
+            &state.data,
+            &TelemetryOutboxScope::Kind(TelemetryEventType::Error),
+            &[],
         )
-        .execute(&state.pool)
         .await?;
         enqueue_heartbeat(state).await?;
         cleanup_outbox(state).await?;
@@ -104,71 +108,61 @@ async fn run_cycle(
 }
 
 async fn is_enabled(state: &State) -> crate::Result<bool> {
-    let row = sqlx::query(
-		"SELECT telemetry, telemetry_consent_version FROM settings WHERE id = 0",
-	)
-	.fetch_one(&state.pool)
-	.await?;
-    Ok(row.get::<i64, _>("telemetry") == 1
-        && row.get::<i64, _>("telemetry_consent_version") > 0)
+    let settings = Settings::get(&state.data).await?;
+    Ok(settings.telemetry && settings.telemetry_consent_version > 0)
 }
 
-async fn ensure_identity(pool: &sqlx::SqlitePool) -> crate::Result<String> {
-    if let Some(row) = sqlx::query(
-        "SELECT installation_id FROM telemetry_identity WHERE id = 0",
-    )
-    .fetch_optional(pool)
-    .await?
+async fn ensure_identity(state: &State) -> crate::Result<String> {
+    if let Some(record) =
+        TelemetryIdentity::get(&state.data, &Installation).await?
     {
-        return Ok(row.get("installation_id"));
+        return Ok(record.installation_id);
     }
 
-    let installation_id = Uuid::new_v4().to_string();
-    sqlx::query(
-		"INSERT OR IGNORE INTO telemetry_identity (id, installation_id) VALUES (0, ?)",
-	)
-	.bind(&installation_id)
-	.execute(pool)
-	.await?;
-    let row = sqlx::query(
-        "SELECT installation_id FROM telemetry_identity WHERE id = 0",
-    )
-    .fetch_one(pool)
-    .await?;
-    Ok(row.get("installation_id"))
+    let mut unit = atom(&state.data).await?;
+    if let Some(record) =
+        TelemetryIdentity::atom_get(&mut unit, &Installation).await?
+    {
+        return Ok(record.installation_id);
+    }
+
+    let record = TelemetryIdentityRecord {
+        installation_id: Uuid::new_v4().to_string(),
+        last_heartbeat_day: None,
+    };
+    TelemetryIdentity::atom_set(&mut unit, &Installation, Some(&record))
+        .await?;
+    unit.commit().await?;
+    Ok(record.installation_id)
 }
 
 async fn enqueue_heartbeat(state: &State) -> crate::Result<()> {
     let day = Utc::now().format("%Y-%m-%d").to_string();
-    let row = sqlx::query(
-        "SELECT last_heartbeat_day FROM telemetry_identity WHERE id = 0",
-    )
-    .fetch_one(&state.pool)
-    .await?;
-    if row
-        .get::<Option<String>, _>("last_heartbeat_day")
-        .as_deref()
-        == Some(&day)
-    {
+    let mut unit = atom(&state.data).await?;
+    let Some(identity) =
+        TelemetryIdentity::atom_get(&mut unit, &Installation).await?
+    else {
+        return Err(crate::ErrorKind::OtherError(
+            "The telemetry installation identity is missing".to_string(),
+        )
+        .into());
+    };
+    if identity.last_heartbeat_day.as_deref() == Some(&day) {
         return Ok(());
     }
 
     let event_id = Uuid::new_v4().to_string();
     let occurred_at = Utc::now().to_rfc3339_opts(SecondsFormat::Millis, true);
     let payload = heartbeat_payload(&event_id, &occurred_at, &day);
-    insert_outbox_event(
-        state,
-        &event_id,
-        &format!("heartbeat:{day}"),
-        &payload,
-    )
-    .await?;
-    sqlx::query(
-        "UPDATE telemetry_identity SET last_heartbeat_day = ? WHERE id = 0",
-    )
-    .bind(day)
-    .execute(&state.pool)
-    .await?;
+    let dedupe_key = format!("heartbeat:{day}");
+    insert_outbox_event(&mut unit, &event_id, &dedupe_key, &payload).await?;
+    let identity = TelemetryIdentityRecord {
+        last_heartbeat_day: Some(day),
+        ..identity
+    };
+    TelemetryIdentity::atom_set(&mut unit, &Installation, Some(&identity))
+        .await?;
+    unit.commit().await?;
     Ok(())
 }
 
@@ -182,99 +176,69 @@ fn heartbeat_payload(event_id: &str, occurred_at: &str, day: &str) -> Value {
 }
 
 async fn insert_outbox_event(
-    state: &State,
+    unit: &mut Atom,
     event_id: &str,
     dedupe_key: &str,
     payload: &Value,
 ) -> crate::Result<()> {
     let payload = serde_json::to_string(payload)?;
+    let size_bytes = payload.len() as i64;
     let now = Utc::now().timestamp();
-    sqlx::query(
-        r#"
-		INSERT INTO telemetry_outbox (
-			event_id, event_type, payload, created_at, next_attempt_at,
-			size_bytes, dedupe_key
-		) VALUES (?, 'heartbeat', jsonb(?), ?, ?, ?, ?)
-		ON CONFLICT(dedupe_key) DO NOTHING
-		"#,
-    )
-    .bind(event_id)
-    .bind(&payload)
-    .bind(now)
-    .bind(now)
-    .bind(payload.len() as i64)
-    .bind(dedupe_key)
-    .execute(&state.pool)
-    .await?;
-    cleanup_outbox(state).await
+    let record = TelemetryOutboxRecord {
+        event_type: TelemetryEventType::Heartbeat,
+        payload,
+        created_at: now,
+        next_attempt_at: now,
+        attempts: 0,
+        size_bytes,
+        dedupe_key: dedupe_key.to_string(),
+        occurrence_count: 1,
+    };
+    TelemetryOutbox::atom_set(unit, &event_id.to_string(), Some(&record)).await
 }
 
 async fn cleanup_outbox(state: &State) -> crate::Result<()> {
     let oldest = Utc::now().timestamp() - MAX_EVENT_AGE_SECONDS;
-    sqlx::query("DELETE FROM telemetry_outbox WHERE created_at < ?")
-        .bind(oldest)
-        .execute(&state.pool)
-        .await?;
-    sqlx::query(
-		"DELETE FROM telemetry_outbox WHERE event_id IN (SELECT event_id FROM telemetry_outbox ORDER BY created_at DESC LIMIT -1 OFFSET ?)",
-	)
-	.bind(MAX_OUTBOX_EVENTS)
-	.execute(&state.pool)
-	.await?;
-    sqlx::query(
-		r#"
-		DELETE FROM telemetry_outbox
-		WHERE event_id IN (
-			SELECT event_id FROM (
-				SELECT event_id,
-					SUM(size_bytes) OVER (ORDER BY created_at DESC, event_id DESC) AS running_bytes
-				FROM telemetry_outbox
-			)
-			WHERE running_bytes > ?
-		)
-		"#,
-	)
-	.bind(MAX_OUTBOX_BYTES)
-	.execute(&state.pool)
-	.await?;
-    Ok(())
+    TelemetryOutbox::trim(
+        &state.data,
+        oldest,
+        MAX_OUTBOX_EVENTS,
+        MAX_OUTBOX_BYTES,
+    )
+    .await
 }
 
 async fn upload_next_batch(
     state: &State,
     client: &reqwest::Client,
 ) -> crate::Result<()> {
-    let now = Utc::now().timestamp();
-    let rows = sqlx::query(
-		"SELECT event_id, json(payload) AS payload FROM telemetry_outbox WHERE event_type = 'heartbeat' AND next_attempt_at <= ? ORDER BY created_at LIMIT ?",
-	)
-	.bind(now)
-	.bind(MAX_BATCH_EVENTS)
-	.fetch_all(&state.pool)
-	.await?;
-    if rows.is_empty() {
+    let scope = TelemetryOutboxScope::Due {
+        kind: TelemetryEventType::Heartbeat,
+        at: Utc::now().timestamp(),
+    };
+    let queued = TelemetryOutbox::get_scoped(&state.data, &scope).await?;
+    if queued.is_empty() {
         return Ok(());
     }
 
     let mut events = Vec::new();
     let mut event_ids = Vec::new();
     let mut approximate_size = 0;
-    for row in rows {
-        let payload: String = row.get("payload");
-        if approximate_size + payload.len() > MAX_BATCH_BYTES
+    for (event_id, record) in queued.into_iter().take(MAX_BATCH_EVENTS) {
+        if approximate_size + record.payload.len() > MAX_BATCH_BYTES
             && !events.is_empty()
         {
             break;
         }
-        let event: Value = serde_json::from_str(&payload)?;
-        approximate_size += payload.len();
+        let event: Value = serde_json::from_str(&record.payload)?;
+        approximate_size += record.payload.len();
         events.push(event);
-        event_ids.push(row.get::<String, _>("event_id"));
+        event_ids.push(event_id);
     }
 
     let installation_id = {
         let _database_permit = state.acquire_install_db_permit().await?;
-        ensure_identity(&state.pool).await?
+        ensure_identity(state).await?
     };
     let batch_id = stable_batch_id(&event_ids);
     let body = json!({
@@ -312,12 +276,11 @@ async fn delete_events(
     event_ids: &[String],
 ) -> crate::Result<()> {
     let _database_permit = state.acquire_install_db_permit().await?;
+    let mut unit = atom(&state.data).await?;
     for event_id in event_ids {
-        sqlx::query("DELETE FROM telemetry_outbox WHERE event_id = ?")
-            .bind(event_id)
-            .execute(&state.pool)
-            .await?;
+        TelemetryOutbox::atom_set(&mut unit, event_id, None).await?;
     }
+    unit.commit().await?;
     Ok(())
 }
 
@@ -326,30 +289,29 @@ async fn schedule_retry(
     event_ids: &[String],
 ) -> crate::Result<()> {
     let _database_permit = state.acquire_install_db_permit().await?;
+    let now = Utc::now().timestamp();
+    let mut unit = atom(&state.data).await?;
     for event_id in event_ids {
-        let row = sqlx::query(
-            "SELECT attempts FROM telemetry_outbox WHERE event_id = ?",
-        )
-        .bind(event_id)
-        .fetch_optional(&state.pool)
-        .await?;
-        let Some(row) = row else { continue };
-        let attempts = row.get::<i64, _>("attempts") + 1;
+        let Some(stored) =
+            TelemetryOutbox::atom_get(&mut unit, event_id).await?
+        else {
+            continue;
+        };
+        let attempts = stored.attempts + 1;
         let delay = match attempts {
             1 => 60,
             2 => 5 * 60,
             3 => 30 * 60,
             _ => 6 * 60 * 60,
         };
-        sqlx::query(
-			"UPDATE telemetry_outbox SET attempts = ?, next_attempt_at = ? WHERE event_id = ?",
-		)
-		.bind(attempts)
-		.bind(Utc::now().timestamp() + delay)
-		.bind(event_id)
-		.execute(&state.pool)
-		.await?;
+        let record = TelemetryOutboxRecord {
+            next_attempt_at: now + delay,
+            attempts,
+            ..stored
+        };
+        TelemetryOutbox::atom_set(&mut unit, event_id, Some(&record)).await?;
     }
+    unit.commit().await?;
     Ok(())
 }
 

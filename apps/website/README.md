@@ -2,6 +2,23 @@
 
 The official website for Axolotl Launcher.
 
+## Download sources
+
+The browser reads release metadata only from
+`https://update.axlmc.org/api/downloads/latest?channel=release|beta`. Switching
+download sources keeps that catalog and its version tag, attachment names and
+relative paths; it only changes the generated file URLs. No Pages Functions or
+GitHub/GitLink release-list requests are used.
+The Update Server download source serves files from
+`https://dist.axlmc.org/<relative_path>` while keeping metadata on Update Server.
+
+Sources are registered in `src/utils/download-sources.ts` with an identity,
+localized label and description, and an asset URL builder. The settings list and
+preference validation derive from that registry; its first entry is the
+recommended source used by Automatic. `use-launcher-downloads.ts` owns the single
+browser request, loading/error state, timeout and retry. Add a registry entry and
+its Chinese translations to introduce a new file source.
+
 ## Development
 
 From the repository root:
@@ -12,6 +29,47 @@ pnpm website:dev
 ```
 
 Create the static production output with `pnpm website:build`.
+
+## Page-level tests
+
+```sh
+pnpm --filter @axolotl/website test:e2e
+```
+
+This builds the site, serves `apps/website/.output/public` through
+`e2e/static-server.mjs`, and drives it with Playwright. The tests run against the
+build output rather than a dev server, because a dev server renders unminified
+styles, injects its own client, and a stale one is indistinguishable from a real
+regression.
+
+- `e2e/theme.spec.ts` asserts theme resolution across a real page load.
+- `e2e/landing.visual.spec.ts` compares full-page screenshots of the landing page
+  in all three themes. The clock, the update server catalogue, third-party imagery
+  and scripts, the design font and lazy images are all pinned in the spec, so a
+  run that differs means the design changed.
+
+### Visual baselines are recorded per platform
+
+Baselines live in `e2e/__visual__/`, with the platform in the file name
+(`landing-light-win32.png`). Glyph rasterisation differs between operating
+systems, so a baseline recorded on one platform cannot be compared on another.
+Only the Windows set is committed today.
+
+On a platform without a baseline the visual tests **fail** rather than skip, and
+the failure names the missing file and the command that records it:
+
+```sh
+pnpm --filter @axolotl/website test:e2e:update
+```
+
+Review the new PNGs before committing them: `--update-snapshots` rewrites a
+baseline from whatever the current build renders, including a regression.
+
+No workflow runs the website end-to-end suite yet. If you add one on
+`ubuntu-latest`, record the Linux baselines on Linux first, using the Playwright
+version pinned in `package.json` so the recording machine and the runner agree
+(`mcr.microsoft.com/playwright:v<version>-noble` is the matching image). Never
+share one `node_modules` between a Linux and a Windows checkout.
 
 ## Release deployment
 
@@ -26,39 +84,50 @@ verified, and published. The job:
    that the released version appears in the prerendered changelog HTML.
 4. Saves the static output as a GitHub artifact and commits the generated release
    data to `main` with `[skip ci]`.
-5. Uploads `apps/website/.output/public` and `netlify/functions` directly to the
-   existing production site using pinned Netlify CLI with `--prod --no-build`.
+5. Uploads `apps/website/.output/public` directly to Cloudflare Pages using pinned
+   Wrangler CLI with `--branch main`.
 
-Netlify hosts the uploaded output without running a hosted build. Deployment,
-bandwidth, and Functions usage remain subject to the site's plan.
+Pages serves only static assets; no Worker adapter or Pages Functions are needed.
+GitHub Actions owns the build and publication order. Pages does not run a hosted build.
 
 ### One-time setup
 
-- Add repository Actions secrets `NETLIFY_AUTH_TOKEN` (a Netlify access token
-  with deployment access) and `NETLIFY_SITE_ID` (the existing site's Project ID).
-- In Netlify, open **Project configuration > Developer settings > Continuous
-  deployment > Build settings**, then set **Build status** to **Stopped builds**.
-  This stops Git-triggered builds while still allowing CLI uploads. Do not lock
-  production publishing. See [Netlify's build-status documentation](https://docs.netlify.com/build/configure-builds/stop-or-activate-builds/).
+- Create a **Pages Direct Upload** project named `axolotl-website` in the account
+  that owns `axlmc.org`. Set its production branch to `main`. This is a Pages
+  project, separate from the existing `axolotl` Worker. Direct Upload projects
+  cannot later switch to Pages Git integration without creating a new project.
+- Reuse the repository Actions secret `CLOUDFLARE_API_TOKEN`, shared with the
+  Telemetry Worker. Include **Account > Cloudflare Pages > Edit** permission
+  for the owning account alongside its existing service permissions.
+- Add the repository Actions secret `CLOUDFLARE_ACCOUNT_ID` (the owning
+  Cloudflare account ID) and the variable `CLOUDFLARE_PAGES_PROJECT_NAME` (`axolotl-website`).
+  The workflow maps the shared token and account secrets to Wrangler's
+  `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` environment variables.
+- After the first successful upload, associate `axlmc.org` and `www.axlmc.org`
+  under **Pages > Custom domains**, then confirm the DNS changes. Keep the
+  canonical origin `https://axlmc.org` and redirect `www` to the apex using a
+  Cloudflare Redirect Rule. Check HTTPS, all four pages and a missing path before
+  retiring the previous host. Domain routing changes do not belong in the CI token.
 - Ensure repository branch rules permit the release workflow's `GITHUB_TOKEN`
   to push generated release data to `main`.
-- Any website build-time environment variables previously configured only in
-  Netlify must also be provided to the GitHub build step. Runtime Functions
-  variables stay configured on Netlify.
+- Any website build-time environment variables must be provided to the GitHub
+  build step; runtime Pages variables cannot change already generated HTML.
+
+See Cloudflare's [Direct Upload CI guide](https://developers.cloudflare.com/pages/how-to/use-direct-upload-with-continuous-integration/)
+and [custom domain setup](https://developers.cloudflare.com/pages/configuration/custom-domains/).
 
 Push these workflow changes before creating the next release tag. No credentials
 belong in source control. A missing secret or failed website build fails the
 website job without replacing the live site. After correcting a failure, rerun
 the failed job in GitHub Actions; rebuilding installers is unnecessary.
 
-With Netlify builds stopped, ordinary website commits no longer deploy through
-Netlify's Git integration. They go live with the next launcher release, or can be
-built and uploaded using the manual workflow below.
+Ordinary website commits go live with the next launcher release, or can be built
+and uploaded using the manual workflow below.
 
 ## Manual website deployment
 
 Push `.github/workflows/deploy-website.yml` to `main` first. In the GitHub
-repository, open **Actions > Deploy website to Netlify > Run workflow**, select
+repository, open **Actions > Deploy website to Cloudflare Pages > Run workflow**, select
 **main**, and click **Run workflow**. Alternatively, run:
 
 ```sh
@@ -70,5 +139,9 @@ deployment concurrency lock used by the release workflow. Other branches are
 skipped. It uses the existing `apps/website/releases/catalog.json` synchronized
 by successful releases; it does not regenerate announcements from potentially
 unreleased `catalog.ts` entries or build launcher installers. It requires the
-same two Netlify secrets and deploys directly to production with `--no-build`.
+same Pages secret and two Actions variables, and uploads to the production branch `main`.
 If installation, building, or static output verification fails, upload is skipped.
+
+To roll back site content, select a previous successful production deployment in
+Pages and choose **Rollback**. This does not roll back GitHub's generated release
+catalog; the next workflow run publishes the current `main` again.

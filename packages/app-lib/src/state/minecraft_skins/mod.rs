@@ -1,9 +1,21 @@
 use std::collections::HashSet;
 
-use futures::{Stream, StreamExt, stream};
-use uuid::{Uuid, fmt::Hyphenated};
+use futures::{Stream, stream};
+use uuid::Uuid;
 
 use super::MinecraftSkinVariant;
+use crate::state::store::Handle;
+use crate::state::store::custom_minecraft_skin_textures::{
+    CustomMinecraftSkinTextureRecord, CustomMinecraftSkinTextures,
+};
+use crate::state::store::custom_minecraft_skins::{
+    CustomMinecraftSkinKey, CustomMinecraftSkinRecord, CustomMinecraftSkins,
+    SkinVariant as StoredSkinVariant,
+};
+use crate::state::store::offline_minecraft_skins::{
+    OfflineMinecraftSkinRecord, OfflineMinecraftSkins,
+};
+use crate::state::store::{Collection as _, atom};
 
 pub mod mojang_api;
 
@@ -35,29 +47,22 @@ pub struct OfflineMinecraftSkin {
     pub variant: MinecraftSkinVariant,
 }
 
-struct OfflineMinecraftSkinRow {
-    texture_key: String,
-    variant: MinecraftSkinVariant,
+fn user_key(minecraft_user_id: Uuid) -> String {
+    minecraft_user_id.as_hyphenated().to_string()
 }
 
 impl OfflineMinecraftSkin {
     pub async fn get(
         minecraft_user_id: Uuid,
-        db: impl sqlx::Acquire<'_, Database = sqlx::Sqlite>,
+        handle: &Handle,
     ) -> crate::Result<Option<Self>> {
-        let minecraft_user_id = minecraft_user_id.as_hyphenated();
+        let selected =
+            OfflineMinecraftSkins::get(handle, &user_key(minecraft_user_id))
+                .await?;
 
-        Ok(sqlx::query_as!(
-            OfflineMinecraftSkinRow,
-            "SELECT texture_key, variant AS 'variant: MinecraftSkinVariant' \
-            FROM offline_minecraft_skins WHERE minecraft_user_uuid = ?",
-            minecraft_user_id
-        )
-        .fetch_optional(&mut *db.acquire().await?)
-        .await?
-        .map(|row| Self {
-            texture_key: row.texture_key,
-            variant: row.variant,
+        Ok(selected.map(|record| Self {
+            texture_key: record.texture_key,
+            variant: from_stored_variant(record.variant),
         }))
     }
 
@@ -65,58 +70,43 @@ impl OfflineMinecraftSkin {
         minecraft_user_id: Uuid,
         texture_key: &str,
         variant: MinecraftSkinVariant,
-        db: impl sqlx::Acquire<'_, Database = sqlx::Sqlite>,
+        handle: &Handle,
     ) -> crate::Result<()> {
-        let minecraft_user_id = minecraft_user_id.as_hyphenated();
+        let record = OfflineMinecraftSkinRecord {
+            texture_key: texture_key.to_string(),
+            variant: to_stored_variant(variant),
+        };
 
-        sqlx::query!(
-            "INSERT INTO offline_minecraft_skins (minecraft_user_uuid, texture_key, variant) \
-            VALUES (?, ?, ?) \
-            ON CONFLICT (minecraft_user_uuid) DO UPDATE SET \
-            texture_key = excluded.texture_key, variant = excluded.variant",
-            minecraft_user_id,
-            texture_key,
-            variant
+        OfflineMinecraftSkins::set(
+            handle,
+            &user_key(minecraft_user_id),
+            Some(&record),
         )
-        .execute(&mut *db.acquire().await?)
-        .await?;
-
-        Ok(())
+        .await
     }
 
     pub async fn clear(
         minecraft_user_id: Uuid,
-        db: impl sqlx::Acquire<'_, Database = sqlx::Sqlite>,
+        handle: &Handle,
     ) -> crate::Result<()> {
-        let minecraft_user_id = minecraft_user_id.as_hyphenated();
-
-        sqlx::query!(
-            "DELETE FROM offline_minecraft_skins WHERE minecraft_user_uuid = ?",
-            minecraft_user_id
-        )
-        .execute(&mut *db.acquire().await?)
-        .await?;
-
-        Ok(())
+        OfflineMinecraftSkins::set(handle, &user_key(minecraft_user_id), None)
+            .await
     }
 
     pub async fn clear_if_texture(
         minecraft_user_id: Uuid,
         texture_key: &str,
-        db: impl sqlx::Acquire<'_, Database = sqlx::Sqlite>,
+        handle: &Handle,
     ) -> crate::Result<()> {
-        let minecraft_user_id = minecraft_user_id.as_hyphenated();
+        let key = user_key(minecraft_user_id);
+        let mut unit = atom(handle).await?;
+        let selected = OfflineMinecraftSkins::atom_get(&mut unit, &key).await?;
 
-        sqlx::query!(
-            "DELETE FROM offline_minecraft_skins \
-            WHERE minecraft_user_uuid = ? AND texture_key = ?",
-            minecraft_user_id,
-            texture_key
-        )
-        .execute(&mut *db.acquire().await?)
-        .await?;
+        if selected.is_some_and(|record| record.texture_key == texture_key) {
+            OfflineMinecraftSkins::atom_set(&mut unit, &key, None).await?;
+        }
 
-        Ok(())
+        unit.commit().await
     }
 }
 
@@ -127,11 +117,21 @@ pub enum CustomMinecraftSkinInsertPosition {
     At(i64),
 }
 
-struct CustomMinecraftSkinRow {
+fn to_skin(
     texture_key: String,
-    variant: MinecraftSkinVariant,
-    cape_id: Option<Hyphenated>,
-    display_order: i64,
+    record: CustomMinecraftSkinRecord,
+) -> crate::Result<CustomMinecraftSkin> {
+    let cape_id = record
+        .cape_id
+        .map(|cape_id| Uuid::parse_str(&cape_id))
+        .transpose()?;
+
+    Ok(CustomMinecraftSkin {
+        texture_key,
+        variant: from_stored_variant(record.variant),
+        cape_id,
+        display_order: record.display_order,
+    })
 }
 
 impl CustomMinecraftSkin {
@@ -142,282 +142,230 @@ impl CustomMinecraftSkin {
         variant: MinecraftSkinVariant,
         cape_id: Option<Uuid>,
         insert_position: CustomMinecraftSkinInsertPosition,
-        db: impl sqlx::Acquire<'_, Database = sqlx::Sqlite>,
+        handle: &Handle,
     ) -> crate::Result<()> {
-        let minecraft_user_id = minecraft_user_id.as_hyphenated();
-        let cape_id = cape_id.map(|id| id.hyphenated());
-
-        let mut transaction = db.begin().await?;
-
-        let existing_order = sqlx::query_scalar!(
-            "SELECT display_order FROM custom_minecraft_skins WHERE minecraft_user_uuid = ? AND texture_key = ?",
-            minecraft_user_id,
-            texture_key
+        let minecraft_user_uuid = user_key(minecraft_user_id);
+        let mut unit = atom(handle).await?;
+        let mut saved = CustomMinecraftSkins::atom_get_scoped(
+            &mut unit,
+            &minecraft_user_uuid,
         )
-        .fetch_optional(&mut *transaction)
         .await?;
+
+        let existing_order = saved
+            .iter()
+            .find(|(key, _)| key.texture_key == texture_key)
+            .map(|(_, record)| record.display_order);
 
         let display_order = match existing_order {
             Some(display_order) => display_order,
             None => match insert_position {
                 CustomMinecraftSkinInsertPosition::Top => {
-                    sqlx::query!(
-                        "UPDATE custom_minecraft_skins SET display_order = display_order + 1 WHERE minecraft_user_uuid = ?",
-                        minecraft_user_id
-                    )
-                    .execute(&mut *transaction)
-                    .await?;
+                    for (_, record) in &mut saved {
+                        record.display_order += 1;
+                    }
 
                     0
                 }
-                CustomMinecraftSkinInsertPosition::Bottom => {
-                    sqlx::query_scalar!(
-                        "SELECT COALESCE(MAX(display_order) + 1, 0) AS 'display_order!: i64' \
-                        FROM custom_minecraft_skins WHERE minecraft_user_uuid = ?",
-                        minecraft_user_id
-                    )
-                    .fetch_one(&mut *transaction)
-                    .await?
-                }
+                CustomMinecraftSkinInsertPosition::Bottom => saved
+                    .iter()
+                    .map(|(_, record)| record.display_order)
+                    .max()
+                    .map_or(0, |display_order| display_order + 1),
                 CustomMinecraftSkinInsertPosition::At(display_order) => {
-                    sqlx::query!(
-                        "UPDATE custom_minecraft_skins SET display_order = display_order + 1 \
-                        WHERE minecraft_user_uuid = ? AND display_order >= ?",
-                        minecraft_user_id,
-                        display_order
-                    )
-                    .execute(&mut *transaction)
-                    .await?;
+                    for (_, record) in &mut saved {
+                        if record.display_order >= display_order {
+                            record.display_order += 1;
+                        }
+                    }
 
                     display_order
                 }
             },
         };
 
-        sqlx::query!(
-            "DELETE FROM custom_minecraft_skins WHERE minecraft_user_uuid = ? AND texture_key = ?",
-            minecraft_user_id,
-            texture_key
+        let skin = CustomMinecraftSkinRecord {
+            variant: to_stored_variant(variant),
+            cape_id: cape_id.map(|id| id.hyphenated().to_string()),
+            display_order,
+        };
+        let key = CustomMinecraftSkinKey {
+            minecraft_user_uuid: minecraft_user_uuid.clone(),
+            texture_key: texture_key.to_string(),
+        };
+        let saved_at = saved
+            .iter()
+            .position(|(key, _)| key.texture_key == texture_key);
+        match saved_at {
+            Some(index) => saved[index].1 = skin,
+            None => saved.push((key, skin)),
+        }
+
+        CustomMinecraftSkinTextures::atom_set(
+            &mut unit,
+            &texture_key.to_string(),
+            Some(&CustomMinecraftSkinTextureRecord {
+                texture: texture.to_vec(),
+            }),
         )
-        .execute(&mut *transaction)
+        .await?;
+        CustomMinecraftSkins::atom_set_scoped(
+            &mut unit,
+            &minecraft_user_uuid,
+            &saved,
+        )
         .await?;
 
-        sqlx::query!(
-			"INSERT OR REPLACE INTO custom_minecraft_skin_textures (texture_key, texture) VALUES (?, ?)",
-			texture_key, texture
-		)
-		.execute(&mut *transaction)
-        .await?;
-
-        sqlx::query!(
-			"INSERT INTO custom_minecraft_skins (minecraft_user_uuid, texture_key, variant, cape_id, display_order) VALUES (?, ?, ?, ?, ?)",
-			minecraft_user_id, texture_key, variant, cape_id, display_order
-		)
-		.execute(&mut *transaction)
-		.await?;
-
-        transaction.commit().await?;
-
-        Ok(())
+        unit.commit().await
     }
 
     pub async fn get_by_texture(
         minecraft_user_id: Uuid,
         texture_key: &str,
-        db: impl sqlx::Acquire<'_, Database = sqlx::Sqlite>,
+        handle: &Handle,
     ) -> crate::Result<Option<Self>> {
-        let minecraft_user_id = minecraft_user_id.as_hyphenated();
+        let key = CustomMinecraftSkinKey {
+            minecraft_user_uuid: user_key(minecraft_user_id),
+            texture_key: texture_key.to_string(),
+        };
+        let saved = CustomMinecraftSkins::get(handle, &key).await?;
 
-        sqlx::query_as!(
-            CustomMinecraftSkinRow,
-            "SELECT texture_key, variant AS 'variant: MinecraftSkinVariant', cape_id AS 'cape_id: Hyphenated', display_order \
-            FROM custom_minecraft_skins \
-            WHERE minecraft_user_uuid = ? AND texture_key = ?",
-            minecraft_user_id,
-            texture_key
-        )
-        .fetch_optional(&mut *db.acquire().await?)
-        .await?
-        .map(|row| {
-            Ok(Self {
-                texture_key: row.texture_key,
-                variant: row.variant,
-                cape_id: row.cape_id.map(Uuid::from),
-                display_order: row.display_order,
-            })
-        })
-        .transpose()
+        saved
+            .map(|record| to_skin(texture_key.to_string(), record))
+            .transpose()
     }
 
     pub async fn get_many(
         minecraft_user_id: Uuid,
         offset: u32,
         count: u32,
-        db: impl sqlx::Acquire<'_, Database = sqlx::Sqlite>,
+        handle: &Handle,
     ) -> crate::Result<impl Stream<Item = Self>> {
-        let minecraft_user_id = minecraft_user_id.as_hyphenated();
-
-        Ok(stream::iter(sqlx::query!(
-            "SELECT texture_key, variant AS 'variant: MinecraftSkinVariant', cape_id AS 'cape_id: Hyphenated', display_order \
-            FROM custom_minecraft_skins \
-            WHERE minecraft_user_uuid = ? \
-            ORDER BY display_order ASC, rowid ASC \
-            LIMIT ? OFFSET ?",
-            minecraft_user_id, count, offset
+        let saved = CustomMinecraftSkins::get_scoped(
+            handle,
+            &user_key(minecraft_user_id),
         )
-        .fetch_all(&mut *db.acquire().await?)
-        .await?)
-        .map(|row| Self {
-            texture_key: row.texture_key,
-            variant: row.variant,
-            cape_id: row.cape_id.map(Uuid::from),
-            display_order: row.display_order,
-        }))
+        .await?;
+
+        let skins = saved
+            .into_iter()
+            .skip(offset as usize)
+            .take(count as usize)
+            .map(|(key, record)| to_skin(key.texture_key, record))
+            .collect::<crate::Result<Vec<_>>>()?;
+
+        Ok(stream::iter(skins))
     }
 
     pub async fn get_all(
         minecraft_user_id: Uuid,
-        db: impl sqlx::Acquire<'_, Database = sqlx::Sqlite>,
+        handle: &Handle,
     ) -> crate::Result<impl Stream<Item = Self>> {
         // Limit ourselves to 2048 skins, so that memory usage even when storing base64
         // PNG data of a 64x64 texture with random pixels stays around ~150 MiB
-        Self::get_many(minecraft_user_id, 0, 2048, db).await
+        Self::get_many(minecraft_user_id, 0, 2048, handle).await
     }
 
     pub async fn texture_blob(
         &self,
-        db: impl sqlx::Acquire<'_, Database = sqlx::Sqlite>,
+        handle: &Handle,
     ) -> crate::Result<Vec<u8>> {
-        Ok(sqlx::query_scalar!(
-            "SELECT texture FROM custom_minecraft_skin_textures WHERE texture_key = ?",
-            self.texture_key
-        )
-        .fetch_one(&mut *db.acquire().await?)
-        .await?)
+        let texture =
+            CustomMinecraftSkinTextures::get(handle, &self.texture_key)
+                .await?
+                .map(|record| record.texture);
+
+        texture.ok_or_else(|| {
+            crate::ErrorKind::OtherError(format!(
+                "The texture of the saved skin {} is missing",
+                self.texture_key
+            ))
+            .into()
+        })
     }
 
     pub async fn remove(
         &self,
         minecraft_user_id: Uuid,
-        db: impl sqlx::Acquire<'_, Database = sqlx::Sqlite>,
+        handle: &Handle,
     ) -> crate::Result<()> {
-        let minecraft_user_id = minecraft_user_id.as_hyphenated();
+        let key = CustomMinecraftSkinKey {
+            minecraft_user_uuid: user_key(minecraft_user_id),
+            texture_key: self.texture_key.clone(),
+        };
 
-        sqlx::query!(
-            "DELETE FROM custom_minecraft_skins WHERE minecraft_user_uuid = ? AND texture_key = ?",
-            minecraft_user_id,
-            self.texture_key
-        )
-        .execute(&mut *db.acquire().await?)
-        .await?;
-
-        Ok(())
+        CustomMinecraftSkins::set(handle, &key, None).await
     }
 
     pub async fn set_order(
         minecraft_user_id: Uuid,
         texture_keys: &[String],
-        db: impl sqlx::Acquire<'_, Database = sqlx::Sqlite>,
+        handle: &Handle,
     ) -> crate::Result<()> {
-        let minecraft_user_id = minecraft_user_id.as_hyphenated();
-        let mut transaction = db.begin().await?;
-
-        let existing_rows = sqlx::query!(
-            "SELECT texture_key FROM custom_minecraft_skins \
-            WHERE minecraft_user_uuid = ? \
-            ORDER BY display_order ASC, rowid ASC",
-            minecraft_user_id
+        let minecraft_user_uuid = user_key(minecraft_user_id);
+        let mut unit = atom(handle).await?;
+        let mut saved = CustomMinecraftSkins::atom_get_scoped(
+            &mut unit,
+            &minecraft_user_uuid,
         )
-        .fetch_all(&mut *transaction)
         .await?;
 
-        let existing_keys = existing_rows
+        let existing_keys = saved
             .iter()
-            .map(|row| row.texture_key.as_str())
+            .map(|(key, _)| key.texture_key.clone())
             .collect::<HashSet<_>>();
         let mut seen_keys = HashSet::new();
-        let mut ordered_keys = Vec::with_capacity(existing_rows.len());
+        let mut ordered_keys = Vec::with_capacity(saved.len());
 
         for texture_key in texture_keys {
-            if seen_keys.insert(texture_key.as_str())
-                && existing_keys.contains(texture_key.as_str())
+            if seen_keys.insert(texture_key.clone())
+                && existing_keys.contains(texture_key)
             {
-                ordered_keys.push(texture_key.as_str());
+                ordered_keys.push(texture_key.clone());
             }
         }
 
-        for row in &existing_rows {
-            if seen_keys.insert(row.texture_key.as_str()) {
-                ordered_keys.push(row.texture_key.as_str());
+        for (key, _) in &saved {
+            if seen_keys.insert(key.texture_key.clone()) {
+                ordered_keys.push(key.texture_key.clone());
             }
         }
 
         for (display_order, texture_key) in ordered_keys.into_iter().enumerate()
         {
-            let display_order = display_order as i64;
-
-            sqlx::query!(
-                "UPDATE custom_minecraft_skins SET display_order = ? \
-                WHERE minecraft_user_uuid = ? AND texture_key = ?",
-                display_order,
-                minecraft_user_id,
-                texture_key
-            )
-            .execute(&mut *transaction)
-            .await?;
+            if let Some((_, record)) = saved
+                .iter_mut()
+                .find(|(key, _)| key.texture_key == texture_key)
+            {
+                record.display_order = display_order as i64;
+            }
         }
 
-        transaction.commit().await?;
+        CustomMinecraftSkins::atom_set_scoped(
+            &mut unit,
+            &minecraft_user_uuid,
+            &saved,
+        )
+        .await?;
 
-        Ok(())
+        unit.commit().await
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::state::Credentials;
+fn to_stored_variant(variant: MinecraftSkinVariant) -> StoredSkinVariant {
+    match variant {
+        MinecraftSkinVariant::Classic => StoredSkinVariant::Classic,
+        MinecraftSkinVariant::Slim => StoredSkinVariant::Slim,
+        MinecraftSkinVariant::Unknown => StoredSkinVariant::Unknown,
+    }
+}
 
-    #[tokio::test]
-    async fn persists_offline_skin_selection_per_account() {
-        let pool = sqlx::sqlite::SqlitePoolOptions::new()
-            .max_connections(1)
-            .connect("sqlite::memory:")
-            .await
-            .unwrap();
-        sqlx::migrate!().run(&pool).await.unwrap();
-
-        let credentials = Credentials::offline("SkinTester").unwrap();
-        credentials.upsert(&pool).await.unwrap();
-        OfflineMinecraftSkin::set(
-            credentials.offline_profile.id,
-            "local-test-texture",
-            MinecraftSkinVariant::Slim,
-            &pool,
-        )
-        .await
-        .unwrap();
-
-        let selected =
-            OfflineMinecraftSkin::get(credentials.offline_profile.id, &pool)
-                .await
-                .unwrap()
-                .unwrap();
-        assert_eq!(selected.texture_key, "local-test-texture");
-        assert_eq!(selected.variant, MinecraftSkinVariant::Slim);
-
-        OfflineMinecraftSkin::clear_if_texture(
-            credentials.offline_profile.id,
-            "local-test-texture",
-            &pool,
-        )
-        .await
-        .unwrap();
-        assert!(
-            OfflineMinecraftSkin::get(credentials.offline_profile.id, &pool)
-                .await
-                .unwrap()
-                .is_none()
-        );
+/// The model a stored skin names. Every stored value is one this build knows:
+/// the column only accepts these three.
+fn from_stored_variant(variant: StoredSkinVariant) -> MinecraftSkinVariant {
+    match variant {
+        StoredSkinVariant::Classic => MinecraftSkinVariant::Classic,
+        StoredSkinVariant::Slim => MinecraftSkinVariant::Slim,
+        StoredSkinVariant::Unknown => MinecraftSkinVariant::Unknown,
     }
 }

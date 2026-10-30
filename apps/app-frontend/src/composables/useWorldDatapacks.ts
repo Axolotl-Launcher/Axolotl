@@ -1,4 +1,4 @@
-import { type ContentItem, useDebugLogger } from '@modrinth/ui'
+import { type ContentItem, defineMessage, useDebugLogger, useVIntl } from '@modrinth/ui'
 import { computed, ref } from 'vue'
 
 import {
@@ -29,15 +29,36 @@ function datapackDescription(description: unknown): string | undefined {
 
 export function useWorldDatapacks(getInstanceId: () => string) {
     const debugState = useDebugLogger('Mods:world-datapacks')
+    const { formatMessage } = useVIntl()
     const worldDatapacks = ref<WorldWithDatapacks[]>([])
+    const worldDatapackErrors = ref<string[]>([])
+    let loadedInstanceId: string | undefined
     let worldDatapackRequest = 0
 
     async function loadWorldDatapacks() {
+        const instanceId = getInstanceId()
         const request = ++worldDatapackRequest
+        if (loadedInstanceId !== instanceId) {
+            worldDatapacks.value = []
+            worldDatapackErrors.value = []
+            loadedInstanceId = instanceId
+        }
+        const isCurrent = () => request === worldDatapackRequest && instanceId === getInstanceId()
         try {
-            const data = await listDatapacks(getInstanceId())
-            if (request !== worldDatapackRequest) return
-            worldDatapacks.value = data ?? []
+            const data = await listDatapacks(instanceId)
+            if (!isCurrent()) return
+            const previous = new Map(worldDatapacks.value.map((world) => [world.path, world]))
+            worldDatapackErrors.value = data.flatMap((world) =>
+                [world.read_error, world.state_error]
+                    .filter(Boolean)
+                    .map((error) => `${world.name}: ${error}`),
+            )
+            worldDatapacks.value = data.map((world) => {
+                const old = previous.get(world.path)
+                return world.read_error && old
+                    ? { ...old, read_error: world.read_error, state_error: world.state_error }
+                    : world
+            })
             debugState('world datapacks loaded', {
                 worlds: worldDatapacks.value.length,
                 datapacks: worldDatapacks.value.reduce(
@@ -46,8 +67,8 @@ export function useWorldDatapacks(getInstanceId: () => string) {
                 ),
             })
         } catch (error) {
-            if (request !== worldDatapackRequest) return
-            worldDatapacks.value = []
+            if (!isCurrent()) return
+            worldDatapackErrors.value = [error instanceof Error ? error.message : String(error)]
             console.warn('Could not load world datapacks:', error)
         }
     }
@@ -71,20 +92,23 @@ export function useWorldDatapacks(getInstanceId: () => string) {
                     project_type: 'datapack',
                     update: null,
                     origin_provider: null,
-                    enabled: datapack.enabled !== false,
+                    enabled: entry.state_error ? undefined : datapack.enabled,
                     external: true,
                     source_kind: 'world_datapack',
                     groupMeta: {
                         icon_url: entry.icon,
                         title: entry.name,
                         last_played: entry.last_played,
-                        game_mode: entry.game_mode,
-                        hardcore: entry.hardcore,
+                        game_mode: entry.state_error ? undefined : entry.game_mode,
+                        hardcore: entry.state_error ? undefined : entry.hardcore,
                     },
                     instanceOwnershipKind: 'local_discovered',
                     instanceMaterializationState: 'present',
                     instanceCapabilities: {
-                        canToggle: true,
+                        canToggle:
+                            datapack.enabled !== undefined &&
+                            !entry.read_error &&
+                            !entry.state_error,
                         canDelete: true,
                         canUpdate: false,
                         canChangeVersion: false,
@@ -133,7 +157,22 @@ export function useWorldDatapacks(getInstanceId: () => string) {
 
         const world = worldDatapacks.value.find((entry) => entry.path === worldPath)
         const datapack = world?.datapacks.find((entry) => entry.file_name === fileName)
-        const previousEnabled = datapack?.enabled
+        if (
+            !datapack ||
+            datapack.enabled === undefined ||
+            world?.read_error ||
+            world?.state_error
+        ) {
+            throw new Error(
+                formatMessage(
+                    defineMessage({
+                        id: 'app.instance.content.datapack-state-unavailable',
+                        defaultMessage: 'Datapack state is unavailable. Refresh and retry.',
+                    }),
+                ),
+            )
+        }
+        const previousEnabled = datapack.enabled
         if (datapack) {
             datapack.enabled = enabled
         }
@@ -150,6 +189,7 @@ export function useWorldDatapacks(getInstanceId: () => string) {
 
     return {
         worldDatapacks,
+        worldDatapackErrors,
         loadWorldDatapacks,
         worldDatapackItems,
         isWorldDatapackItem,

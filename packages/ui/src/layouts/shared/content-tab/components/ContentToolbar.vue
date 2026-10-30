@@ -34,6 +34,7 @@ const props = withDefaults(
         disableAddContent?: boolean
         disableAddContentTooltip?: string
         refreshing?: boolean
+        refreshStatus?: string | null
         viewDependencies?: boolean
     }>(),
     {
@@ -42,6 +43,7 @@ const props = withDefaults(
         disableAddContent: false,
         disableAddContentTooltip: undefined,
         refreshing: false,
+        refreshStatus: null,
         viewDependencies: false,
     },
 )
@@ -92,7 +94,6 @@ const emit = defineEmits<{
             </Button>
             <Button
                 v-if="props.viewDependencies"
-                v-tooltip="formatMessage(messages.viewDependencies)"
                 type="outlined"
                 :disabled="props.busy"
                 class="!h-10 flex items-center gap-2"
@@ -105,9 +106,12 @@ const emit = defineEmits<{
                 type="outlined"
                 :disabled="props.refreshing"
                 class="!h-10"
+                :aria-busy="props.refreshing"
                 @click="emit('refresh')"
-                ><RefreshCwIcon :class="['size-5', { 'animate-spin': props.refreshing }]" />
-                {{ formatMessage(commonMessages.refreshButton) }}
+                ><RefreshCwIcon class="size-5" />
+                <span aria-live="polite">{{
+                    props.refreshStatus ?? formatMessage(commonMessages.refreshButton)
+                }}</span>
             </Button>
         </div>
         <slot name="actions" />

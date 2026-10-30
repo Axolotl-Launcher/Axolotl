@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "\n        INSERT INTO instances (\n            id,\n            path,\n            applied_content_set_id,\n            install_stage,\n            launcher_feature_version,\n            update_channel,\n            name,\n            icon_path,\n            symlink_target,\n            game_dir_override,\n            created,\n            modified,\n            last_played,\n            pinned_at,\n            submitted_time_played,\n            recent_time_played\n        )\n        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 16
+    },
+    "nullable": []
+  },
+  "hash": "c6dc452af75ae263976e7acdbda4d2372d18a8255df8e2930f6617067bd5edb5"
+}

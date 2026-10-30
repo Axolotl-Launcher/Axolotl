@@ -35,7 +35,7 @@ export interface TranslatableHit {
     /** Server search hits use `name` / `summary` instead of `title` / `description`. */
     name?: string
     summary?: string
-    provider?: 'modrinth' | 'curseforge'
+    provider?: 'modrinth' | 'curseforge' | 'mcarchive' | 'planet_minecraft'
     provider_project_id?: string
 }
 

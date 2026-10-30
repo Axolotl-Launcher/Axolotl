@@ -130,7 +130,7 @@ fn is_allowed_blockbench_skin_request(
     }
 
     const ALLOWED_ORIGINS: [&str; 6] = [
-        "http://localhost:5201",
+        "http://127.0.0.1:5201",
         "http://tauri.localhost",
         "https://tauri.localhost",
         "tauri://localhost",
@@ -206,6 +206,8 @@ async fn initialize_state(app: tauri::AppHandle) -> api::Result<()> {
 
     tracing::info!("Initializing app state...");
     State::init(app.config().identifier.clone()).await?;
+    api::resources::initialize_content_refresh_events(&app).await?;
+    api::mcp::initialize(&app).await;
     let anti_piracy_app = app.clone();
     tauri::async_runtime::spawn(async move {
         let status = theseus::anti_piracy::check_region().await;
@@ -717,6 +719,9 @@ fn main() {
     let tauri_context = tauri::tauri_build_context!();
 
     let _log_guard = theseus::start_logger(&tauri_context.config().identifier);
+    theseus::scheduler::panic::install_panic_hook(
+        &tauri_context.config().identifier,
+    );
 
     tracing::info!("Initialized tracing subscriber. Loading Axolotl Launcher!");
 
@@ -881,6 +886,7 @@ fn main() {
         .plugin(api::process::init())
         .plugin(api::planet_minecraft::init())
         .plugin(api::settings::init())
+        .plugin(api::mcp::init())
         .plugin(api::storage::init())
         .plugin(api::system_accent::init())
         .plugin(api::seed_map::init())
@@ -973,6 +979,7 @@ fn main() {
 
                 if matches!(&event, tauri::RunEvent::ExitRequested { .. }) {
                     tauri::async_runtime::block_on(async {
+                        api::mcp::shutdown(app).await;
                         let killed = theseus::servers::shutdown_all().await;
                         if killed > 0 {
                             tracing::info!(

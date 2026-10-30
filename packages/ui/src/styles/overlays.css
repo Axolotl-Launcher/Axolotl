@@ -51,8 +51,8 @@
     z-index: 10000;
 
     /* Opaque on purpose: the translucency palette pins the tooltip tokens to
-	   the opaque surface snapshot so a tooltip stays readable over a custom
-	   background image. */
+                the opaque surface snapshot so a tooltip stays readable over a custom
+                background image. */
     background: var(--color-tooltip-bg, var(--surface-3));
     color: var(--color-tooltip-text, var(--color-text-primary));
     padding: 0.625rem 0.75rem;
@@ -63,7 +63,7 @@
     font-weight: 500;
     line-height: 1;
     /* A tooltip must never intercept the pointer: it would flicker as the
-	   pointer crosses it and steal hover from the element it describes. */
+                pointer crosses it and steal hover from the element it describes. */
     pointer-events: none;
     max-width: min(28rem, calc(100vw - 2rem));
     overflow-wrap: anywhere;

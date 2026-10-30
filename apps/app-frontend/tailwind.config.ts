@@ -6,6 +6,7 @@ import { DEFAULT_MONO_FONT_STACK, DEFAULT_UI_FONT_STACK } from './src/helpers/fo
 const config: Config = {
     content: [
         './src/components/**/*.{js,vue,ts}',
+        './src/features/**/*.{js,vue,ts}',
         './src/layouts/**/*.vue',
         './src/pages/**/*.vue',
         './src/plugins/**/*.{js,ts}',

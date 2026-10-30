@@ -1,11 +1,10 @@
-import assert from 'node:assert/strict'
-import test from 'node:test'
+import { expect, it } from 'vitest'
 
 import { filterNativeWalkMouseDelta } from './scene.ts'
 
-test('native walk mouse input ignores cursor-wrap spikes', () => {
-    assert.equal(filterNativeWalkMouseDelta(24), 24)
-    assert.equal(filterNativeWalkMouseDelta(-128), -128)
-    assert.equal(filterNativeWalkMouseDelta(129), 0)
-    assert.equal(filterNativeWalkMouseDelta(Number.POSITIVE_INFINITY), 0)
+it('native walk mouse input ignores cursor-wrap spikes', () => {
+    expect(filterNativeWalkMouseDelta(24)).toBe(24)
+    expect(filterNativeWalkMouseDelta(-128)).toBe(-128)
+    expect(filterNativeWalkMouseDelta(129)).toBe(0)
+    expect(filterNativeWalkMouseDelta(Number.POSITIVE_INFINITY)).toBe(0)
 })

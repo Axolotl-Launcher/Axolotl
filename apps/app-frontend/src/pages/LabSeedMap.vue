@@ -65,7 +65,6 @@ import SeedMapStructureDetails from '@/components/lab/seed-map/SeedMapStructureD
 import SeedMapWorldImportModal, {
     type SeedMapWorldImport,
 } from '@/components/lab/seed-map/SeedMapWorldImportModal.vue'
-import { loadMinecraftItemImage } from '@/lab/recipe-generator/item-images'
 import {
     applyShareQuery,
     clearSeedMapHistory,
@@ -145,6 +144,7 @@ import {
     seedMapTileLevel,
     type SeedMapTileView,
 } from '@/lab/seed-map/tile-layer'
+import { loadMinecraftItemImage } from '@/lab/shared/minecraft/item-images'
 
 const SeedMapUndergroundPreview = defineAsyncComponent(
     () => import('@/components/lab/seed-map/SeedMapUndergroundPreview.vue'),
@@ -170,6 +170,11 @@ type Selection = {
 type ActivePointer = {
     x: number
     y: number
+}
+
+type DimensionView = {
+    center: { x: number; z: number }
+    selection: Selection | null
 }
 
 type SeedMapElevation = (typeof SEED_MAP_ELEVATIONS)[number]
@@ -271,6 +276,13 @@ let historyTimer: ReturnType<typeof window.setTimeout> | undefined
 let progressTimer: ReturnType<typeof window.setTimeout> | undefined
 let applyingSharedState = false
 let biomeLookupToken = 0
+const dimensionViews = new Map<SeedMapDimension, DimensionView>()
+let dimensionViewAfterSwitch: DimensionView | null = null
+let linkedDimensionView: {
+    dimension: SeedMapDimension
+    convertedSelection: Selection | null
+    original: DimensionView
+} | null = null
 
 const formatRelativeTime = useRelativeTime()
 
@@ -949,6 +961,8 @@ watch(
     (seed, previousSeed) => {
         if (seed === previousSeed) return
         stashActiveProgress()
+        dimensionViews.clear()
+        linkedDimensionView = null
         activeHistoryId = seedMapHistoryId(seed.trim().slice(0, 256), workspace.edition)
         const entry = historyEntries.value.find((item) => item.id === activeHistoryId)
         workspace.completedFeatures = entry ? [...entry.completedFeatures] : []
@@ -1129,7 +1143,15 @@ watch(
         if (dimension === 'nether') workspace.contourLines = false
         ensureDimensionOreSelection()
         resetOreYRange()
-        selection.value = null
+        const view = dimensionViewAfterSwitch
+        dimensionViewAfterSwitch = null
+        if (!view) {
+            linkedDimensionView = null
+            selection.value = null
+            return
+        }
+        workspace.center = { ...view.center }
+        selection.value = view.selection ? { ...view.selection } : null
     },
 )
 
@@ -2610,6 +2632,69 @@ function onFullscreenChange() {
 function clampWorldCoordinate(value: number) {
     return Math.min(Math.max(value, -30_000_000), 30_000_000)
 }
+
+function currentDimensionView(): DimensionView {
+    return {
+        center: { x: workspace.center.x, z: workspace.center.z },
+        selection: selection.value ? { ...selection.value } : null,
+    }
+}
+
+function sameSelectedPoint(current: Selection | null, converted: Selection | null) {
+    if (!current) return true
+    if (!converted) return false
+    return current.x === converted.x && current.z === converted.z
+}
+
+function areLinkedDimensions(from: SeedMapDimension, to: SeedMapDimension) {
+    return (from === 'overworld' || from === 'nether') && (to === 'overworld' || to === 'nether')
+}
+
+function linkedCoordinate(value: number, from: SeedMapDimension) {
+    return clampWorldCoordinate(from === 'nether' ? value * 8 : Math.floor(value / 8))
+}
+
+function linkedView(view: DimensionView, from: SeedMapDimension): DimensionView {
+    if (!view.selection) return { center: { ...view.center }, selection: null }
+    const selection = {
+        x: Math.round(linkedCoordinate(view.selection.x, from)),
+        z: Math.round(linkedCoordinate(view.selection.z, from)),
+    }
+    return { center: { ...selection }, selection }
+}
+
+function selectDimension(dimension: SeedMapDimension) {
+    const previous = workspace.dimension
+    if (dimension === previous) return
+    const current = currentDimensionView()
+    dimensionViews.set(previous, current)
+    if (areLinkedDimensions(previous, dimension)) {
+        const visited = linkedDimensionView
+        if (
+            visited &&
+            visited.dimension === previous &&
+            sameSelectedPoint(current.selection, visited.convertedSelection)
+        ) {
+            dimensionViewAfterSwitch = {
+                center: visited.original.center,
+                selection: current.selection ? visited.original.selection : null,
+            }
+            linkedDimensionView = null
+        } else {
+            const converted = linkedView(current, previous)
+            dimensionViewAfterSwitch = converted
+            linkedDimensionView = {
+                dimension,
+                convertedSelection: converted.selection,
+                original: current,
+            }
+        }
+    } else {
+        linkedDimensionView = null
+        dimensionViewAfterSwitch = dimensionViews.get(dimension) ?? null
+    }
+    workspace.dimension = dimension
+}
 </script>
 
 <template>
@@ -2807,7 +2892,7 @@ function clampWorldCoordinate(value: number) {
                             :color="workspace.dimension === dimension ? 'brand' : undefined"
                             class="dimension-option"
                             :aria-pressed="workspace.dimension === dimension"
-                            @click="workspace.dimension = dimension"
+                            @click="selectDimension(dimension)"
                         >
                             {{ dimensionLabel(dimension) }}
                         </Button>
@@ -3628,7 +3713,7 @@ function clampWorldCoordinate(value: number) {
                                 :available-biome-ids="selectedProfile?.biomes"
                                 :available-dimensions="dimensions"
                                 :container="isFullscreen ? fullscreenContainer : undefined"
-                                @update:dimension="workspace.dimension = $event"
+                                @update:dimension="selectDimension($event)"
                                 @update:enabled="workspace.highlightBiomeEnabled = $event"
                                 @update:highlighted-biomes="workspace.highlightedBiomes = $event"
                             />
@@ -4053,7 +4138,7 @@ function clampWorldCoordinate(value: number) {
 
 .seed-map-experience:fullscreen .seed-map-workspace-panes {
     /* The normal map has a 32rem minimum for usability; fullscreen must be able
-	 * to shrink so the toolbar and canvas do not push the surface past the viewport. */
+        * to shrink so the toolbar and canvas do not push the surface past the viewport. */
     min-height: 0;
 }
 

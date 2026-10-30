@@ -1,13 +1,69 @@
 use super::{identity::LocalArtifactIdentity, *};
+use crate::state::store::Collection as _;
+use crate::state::store::Handle;
+use crate::state::store::resource_entry_graphs::ResourceEntryGraphs;
+use crate::state::store::resource_installed_artifacts::{
+    ResourceInstalledArtifactRecord, ResourceInstalledArtifacts,
+};
 use tokio_util::sync::CancellationToken;
 
-#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct InstalledArtifactRecord {
     #[serde(flatten)]
     pub artifact: ResourceArtifact,
     #[serde(default)]
     pub declared_compatibility: Option<ReleaseCompatibility>,
+}
+
+/// The artifact payload stored for an entry, as written, so a caller can
+/// compare integrity before replacing it.
+pub(crate) async fn installed_artifact_payload(
+    entry_id: &str,
+    conn: &mut sqlx::SqliteConnection,
+) -> crate::Result<Option<String>> {
+    let key = entry_id.to_owned();
+    Ok(ResourceInstalledArtifacts::read(conn, &key)
+        .await?
+        .map(|record| record.artifact))
+}
+
+/// Records the artifact an entry installs, replacing what it held before.
+pub(crate) async fn set_installed_artifact<T>(
+    entry_id: &str,
+    payload: &T,
+    scope: &InstallScope,
+    conn: &mut sqlx::SqliteConnection,
+) -> crate::Result<()>
+where
+    T: serde::Serialize + ?Sized,
+{
+    let record = ResourceInstalledArtifactRecord {
+        artifact: serde_json::to_string(payload)?,
+        scope: serde_json::to_string(scope)?,
+    };
+
+    let key = entry_id.to_owned();
+    ResourceInstalledArtifacts::write(conn, &key, Some(&record)).await
+}
+
+/// Drops the artifact an entry no longer installs.
+pub(crate) async fn delete_installed_artifact(
+    entry_id: &str,
+    conn: &mut sqlx::SqliteConnection,
+) -> crate::Result<()> {
+    let key = entry_id.to_owned();
+    ResourceInstalledArtifacts::write(conn, &key, None).await
+}
+
+/// Drops every resource row an entry leaves behind when it goes away.
+pub(crate) async fn delete_entry_resource_traces(
+    entry_id: &str,
+    tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>,
+) -> crate::Result<()> {
+    delete_installed_artifact(entry_id, tx).await?;
+    let key = entry_id.to_owned();
+    ResourceEntryGraphs::delete_in(tx, &key).await
 }
 
 pub(crate) async fn attach_compatibility(
@@ -18,9 +74,11 @@ pub(crate) async fn attach_compatibility(
     items: &mut [crate::state::instances::InstanceContentSnapshotItem],
     service: Option<&std::sync::Arc<ResourceService>>,
 ) -> crate::Result<()> {
-    let rows: Vec<(String, String, i64, Option<String>, Option<String>)> = sqlx::query_as(
-        "SELECT entry.id, file.sha1, file.size, file.local_mod_data, exact.artifact FROM instance_content_entries entry JOIN instance_files file ON file.id = entry.file_id LEFT JOIN resource_installed_artifacts exact ON exact.entry_id = entry.id WHERE entry.instance_id = ? AND file.missing = 0"
-    ).bind(instance_id).fetch_all(pool).await?;
+    let rows = ResourceInstalledArtifacts::with_file_state(
+        &Handle::new(pool.clone()),
+        instance_id,
+    )
+    .await?;
     let target = ipc::ResourceTarget {
         game_versions: vec![game_version.into()],
         loaders: vec![loader.into()],
@@ -353,8 +411,18 @@ pub(crate) async fn refresh_snapshot(
     state: &crate::State,
     instance_id: &str,
     cancel: &CancellationToken,
+) -> ResourceResult<bool> {
+    refresh_snapshot_with_consistency(state, instance_id, cancel, true).await
+}
+
+pub(crate) async fn refresh_operation_snapshot(
+    state: &crate::State,
+    instance_id: &str,
+    cancel: &CancellationToken,
 ) -> ResourceResult<()> {
-    refresh_snapshot_with_verification(state, instance_id, cancel, true).await
+    refresh_snapshot_with_consistency(state, instance_id, cancel, false)
+        .await
+        .map(|_| ())
 }
 
 pub(crate) async fn refresh_install_snapshot(
@@ -362,28 +430,30 @@ pub(crate) async fn refresh_install_snapshot(
     instance_id: &str,
     cancel: &CancellationToken,
 ) -> ResourceResult<()> {
-    refresh_snapshot_with_verification(state, instance_id, cancel, false).await
+    refresh_snapshot_with_consistency(state, instance_id, cancel, false)
+        .await
+        .map(|_| ())
 }
 
-async fn refresh_snapshot_with_verification(
+async fn refresh_snapshot_with_consistency(
     state: &crate::State,
     instance_id: &str,
     cancel: &CancellationToken,
-    verify_all: bool,
-) -> ResourceResult<()> {
-    use crate::state::instances::adapters::sqlite::content_rows;
-    use crate::state::{
-        ContentOwnershipKind, ContentRequirement, ContentSourceKind,
-    };
+    allow_committed_snapshot: bool,
+) -> ResourceResult<bool> {
     if cancel.is_cancelled() {
         return Err(ResourceError::Canceled);
     }
-    if verify_all {
-        crate::state::instances::commands::sync_content_files_for_operation(
-            instance_id,
-            state,
-        )
-        .await?;
+    if allow_committed_snapshot {
+        let outcome =
+            crate::state::instances::commands::sync_content_files_for_display(
+                instance_id,
+                state,
+            )
+            .await?;
+        if !outcome.stable {
+            return Ok(false);
+        }
     } else {
         crate::state::instances::commands::sync_content_files(
             instance_id,
@@ -393,60 +463,12 @@ async fn refresh_snapshot_with_verification(
     }
     let _writer = state.acquire_install_db_permit().await?;
     let _lock = state.lock_instance_content_exclusive(instance_id).await;
-    let scope = crate::state::instances::commands::resolve_content_scope(
+    crate::state::store::instance_content_files::set_discovered_entries(
+        &state.data,
         instance_id,
-        None,
-        state,
     )
     .await?;
-    let mut tx = state.pool.begin().await.map_err(plans::db)?;
-    let rows: Vec<(String, String, i64)> = sqlx::query_as(
-        "SELECT file.id, file.relative_path, file.enabled FROM instance_files file WHERE file.instance_id = ? AND file.missing = 0 AND NOT EXISTS (SELECT 1 FROM instance_content_entries entry WHERE entry.content_set_id = ? AND entry.file_id = file.id)"
-    ).bind(instance_id).bind(&scope.content_set_id).fetch_all(&mut *tx).await.map_err(plans::db)?;
-    let mut changed = false;
-    for (id, path, enabled) in rows {
-        let Some(kind) = crate::state::instances::adapters::filesystem::project_type_from_relative_path(&path) else { continue };
-        if !matches!(
-            kind,
-            crate::state::ProjectType::Mod
-                | crate::state::ProjectType::ResourcePack
-                | crate::state::ProjectType::ShaderPack
-                | crate::state::ProjectType::DataPack
-        ) {
-            continue;
-        }
-        content_rows::upsert_content_entry_from_parts_in_transaction(
-            content_rows::UpsertContentEntry {
-                instance_id,
-                content_set_id: &scope.content_set_id,
-                file_id: Some(&id),
-                project_type: kind,
-                source_kind: ContentSourceKind::Local,
-                ownership_kind: ContentOwnershipKind::UserAdded,
-                auto_dependency: false,
-                server_requirement: ContentRequirement::Unknown,
-                client_requirement: ContentRequirement::Unknown,
-                enabled: enabled != 0,
-            },
-            &mut tx,
-        )
-        .await?;
-        changed = true;
-    }
-    changed |= content_rows::repair_pack_members_in_transaction(
-        &scope.content_set_id,
-        &mut tx,
-    )
-    .await?;
-    if changed {
-        content_rows::bump_content_set_revision_in_transaction(
-            &scope.content_set_id,
-            &mut tx,
-        )
-        .await?;
-    }
-    tx.commit().await.map_err(plans::db)?;
-    Ok(())
+    Ok(true)
 }
 
 pub(crate) async fn hydrate(
@@ -469,7 +491,7 @@ pub(crate) async fn hydrate_with_failures(
     instance_id: &str,
     cancel: &CancellationToken,
 ) -> ResourceResult<HydratedInstalled> {
-    refresh_snapshot(state, instance_id, cancel).await?;
+    refresh_operation_snapshot(state, instance_id, cancel).await?;
     hydrate_selected(state, instance_id, cancel, None).await
 }
 
@@ -491,6 +513,88 @@ pub(crate) async fn hydrate_selected_with_service(
     selected: Option<&[InstalledEntryId]>,
     service: &std::sync::Arc<ResourceService>,
 ) -> ResourceResult<HydratedInstalled> {
+    hydrate_entries_with_service(
+        state,
+        instance_id,
+        cancel,
+        selected,
+        false,
+        service,
+    )
+    .await
+}
+
+pub(crate) async fn hydrate_update_batch_with_service(
+    state: &crate::State,
+    instance_id: &str,
+    cancel: &CancellationToken,
+    entry_ids: &[InstalledEntryId],
+    service: &std::sync::Arc<ResourceService>,
+) -> ResourceResult<HydratedInstalled> {
+    hydrate_entries_with_service(
+        state,
+        instance_id,
+        cancel,
+        Some(entry_ids),
+        true,
+        service,
+    )
+    .await
+}
+
+pub(super) async fn installed_file_identity(
+    state: &crate::State,
+    instance_id: &str,
+    root: &std::path::Path,
+    entry: &InstalledResource,
+    cache: &super::cache::ResourceCache,
+    reuse: bool,
+    cancel: &CancellationToken,
+) -> ResourceResult<LocalArtifactIdentity> {
+    use crate::state::store::content_file_fingerprints::ContentFileFingerprints;
+
+    let previous = ContentFileFingerprints::get_current(
+        &state.data,
+        instance_id,
+        &entry.relative_path,
+    )
+    .await?;
+    let result = state
+        .file_fingerprints
+        .resolve(
+            root,
+            &entry.relative_path,
+            previous.as_ref(),
+            !reuse,
+            cancel,
+        )
+        .await?;
+    if !identity::exact_integrity(&entry.integrity, &result.identity.integrity)
+    {
+        return Err(ResourceError::InvalidRequest(format!(
+            "{}: installed files changed; refresh content first",
+            entry.relative_path
+        )));
+    }
+    if let Some(record) = &result.record {
+        ContentFileFingerprints::set_current(&state.data, instance_id, record)
+            .await?;
+    }
+    let generation = cache.generation().await;
+    cache
+        .store_local_identity(&result.identity, generation)
+        .await;
+    Ok(result.identity)
+}
+
+async fn hydrate_entries_with_service(
+    state: &crate::State,
+    instance_id: &str,
+    cancel: &CancellationToken,
+    selected: Option<&[InstalledEntryId]>,
+    only_selected: bool,
+    service: &std::sync::Arc<ResourceService>,
+) -> ResourceResult<HydratedInstalled> {
     let revision = plans::instance_revision(&state.pool, instance_id).await?;
     let scope = crate::state::instances::commands::resolve_content_scope(
         instance_id,
@@ -504,13 +608,24 @@ pub(crate) async fn hydrate_selected_with_service(
     )
     .map_err(|error| ResourceError::InvalidRequest(error.to_string()))?;
     let mut entries = plans::installed(&state.pool, instance_id).await?;
+    if only_selected {
+        entries.retain(|entry| {
+            selected.is_some_and(|ids| ids.contains(&entry.entry_id))
+        });
+    }
     let mut identities = Vec::new();
     let mut indices = Vec::new();
     let mut failures = Vec::new();
     let mut persisted = Vec::new();
     let mut verified = std::collections::HashMap::new();
-    let saved_records: std::collections::HashMap<String, String> = sqlx::query_as::<_, (String, String)>("SELECT exact.entry_id, exact.artifact FROM resource_installed_artifacts exact JOIN instance_content_entries entry ON entry.id = exact.entry_id WHERE entry.instance_id = ?")
-        .bind(instance_id).fetch_all(&state.pool).await.map_err(plans::db)?.into_iter().collect();
+    let saved_records: std::collections::HashMap<String, String> =
+        ResourceInstalledArtifacts::payloads_for_instance(
+            &state.data,
+            instance_id,
+        )
+        .await?
+        .into_iter()
+        .collect();
     for (index, entry) in entries
         .iter()
         .enumerate()
@@ -519,7 +634,8 @@ pub(crate) async fn hydrate_selected_with_service(
         if cancel.is_cancelled() {
             return Err(ResourceError::Canceled);
         }
-        if selected.is_none_or(|ids| !ids.contains(&entry.entry_id))
+        if (only_selected
+            || selected.is_none_or(|ids| !ids.contains(&entry.entry_id)))
             && saved_records
                 .get(entry.entry_id.as_str())
                 .and_then(|payload| {
@@ -539,78 +655,26 @@ pub(crate) async fn hydrate_selected_with_service(
             // probe its counterpart on another source.
             continue;
         }
-        let bytes =
-            match super::execution::checked_path(&root, &entry.relative_path) {
-                Ok(path) => tokio::select! { biased; _ = cancel.cancelled() => return Err(ResourceError::Canceled), bytes = tokio::fs::read(path) => bytes }
-                    .map(bytes::Bytes::from)
-                    .map_err(|error| error.to_string()),
-                Err(error) => Err(error.to_string()),
-            };
-        let bytes = match bytes {
-            Ok(bytes) => bytes,
+        let local = match installed_file_identity(
+            state,
+            instance_id,
+            &root,
+            entry,
+            service.cache(),
+            true,
+            cancel,
+        )
+        .await
+        {
+            Ok(identity) => identity,
+            Err(ResourceError::Canceled) => {
+                return Err(ResourceError::Canceled);
+            }
             Err(error) => {
-                failures.push((
-                    entry.entry_id.clone(),
-                    format!("{}: {error}", entry.relative_path),
-                ));
+                failures.push((entry.entry_id.clone(), error.to_string()));
                 continue;
             }
         };
-        let hash_bytes = bytes.clone();
-        let hash_cancel = cancel.clone();
-        let (mut hashes, sha1, fingerprint) =
-            tokio::task::spawn_blocking(move || {
-                use sha2::Digest;
-                let mut sha512 = sha2::Sha512::new();
-                let mut sha256 = sha2::Sha256::new();
-                let mut sha1 = sha1_smol::Sha1::new();
-                for part in hash_bytes.chunks(256 * 1024) {
-                    if hash_cancel.is_cancelled() {
-                        return Err(ResourceError::Canceled);
-                    }
-                    sha512.update(part);
-                    sha256.update(part);
-                    sha1.update(part);
-                }
-                let hashes = vec![
-                    ContentHash {
-                        algorithm: HashAlgorithm::Sha512,
-                        value: format!("{:x}", sha512.finalize()),
-                    },
-                    ContentHash {
-                        algorithm: HashAlgorithm::Sha256,
-                        value: format!("{:x}", sha256.finalize()),
-                    },
-                ];
-                Ok((
-                    hashes,
-                    sha1.digest().to_string(),
-                    crate::api::curseforge::compute_fingerprint(&hash_bytes),
-                ))
-            })
-            .await
-            .map_err(|error| {
-                ResourceError::InvalidRequest(error.to_string())
-            })??;
-        if entry.integrity.size != Some(bytes.len() as u64)
-            || !entry.integrity.hashes.iter().any(|hash| {
-                hash.algorithm == HashAlgorithm::Sha1
-                    && hash.value.eq_ignore_ascii_case(&sha1)
-            })
-        {
-            failures.push((
-                entry.entry_id.clone(),
-                format!(
-                    "{}: installed files changed; refresh content first",
-                    entry.relative_path
-                ),
-            ));
-            continue;
-        }
-        hashes.push(ContentHash {
-            algorithm: HashAlgorithm::Sha1,
-            value: sha1,
-        });
         let saved = saved_records.get(entry.entry_id.as_str()).cloned();
         if let Some(artifact) = saved
             .and_then(|value| {
@@ -619,23 +683,14 @@ pub(crate) async fn hydrate_selected_with_service(
             .filter(|artifact| {
                 super::valid_artifact(artifact)
                     && identity::exact_integrity(
-                        &ArtifactIntegrity {
-                            size: Some(bytes.len() as u64),
-                            hashes: hashes.clone(),
-                        },
+                        &local.integrity,
                         &artifact.integrity,
                     )
             })
         {
             verified.insert(index, artifact);
         }
-        identities.push(LocalArtifactIdentity {
-            integrity: ArtifactIntegrity {
-                size: Some(bytes.len() as u64),
-                hashes,
-            },
-            fingerprint: Some(fingerprint),
-        });
+        identities.push(local);
         indices.push(index);
     }
     let sources: Vec<_> = service
@@ -677,12 +732,13 @@ pub(crate) async fn hydrate_selected_with_service(
             .query_many(source, queries, CachePolicy::UseFresh, cancel)
             .await;
     }
+    let preferred = service.preferred_source().await?;
     for ((index, local), recognition) in
         indices.into_iter().zip(identities).zip(recognized)
     {
         let entry = &mut entries[index];
-        let refs = crate::state::instances::adapters::sqlite::content_rows::get_content_provider_refs(entry.entry_id.as_str(), &state.pool).await?;
-        let origin = crate::state::instances::adapters::sqlite::content_rows::get_content_origin_provider(entry.entry_id.as_str(), &state.pool).await?;
+        let refs = crate::state::instances::adapters::sqlite::content_entries::get_content_provider_refs(entry.entry_id.as_str(), &state.pool).await?;
+        let origin = crate::state::instances::adapters::sqlite::content_entries::get_content_origin_provider(entry.entry_id.as_str(), &state.pool).await?;
         let mut matches = recognition.matches;
         if let Some(artifact) = verified.remove(&index)
             && !matches
@@ -735,33 +791,33 @@ pub(crate) async fn hydrate_selected_with_service(
         if cancel.is_cancelled() {
             return Err(ResourceError::Canceled);
         }
-        let selected = entry
-            .artifact
+        let origin = origin
             .as_ref()
-            .and_then(|reference| {
-                matches
-                    .iter()
-                    .find(|artifact| &artifact.reference == reference)
-            })
-            .or_else(|| {
-                let origin_matches: Vec<_> = matches
-                    .iter()
-                    .filter(|artifact| {
-                        origin.is_some_and(|origin| {
-                            artifact.reference.release.project.source.as_str()
-                                == origin.as_str()
-                        })
-                    })
-                    .collect();
-                if origin_matches.len() == 1 {
-                    Some(origin_matches[0])
-                } else if origin.is_none() && !recognition.ambiguous {
-                    matches.first()
-                } else {
-                    None
-                }
-            })
-            .cloned();
+            .map(|origin| SourceId::new(origin.as_str()))
+            .transpose()?;
+        let selected = match service
+            .select_recognized_artifact(
+                &matches,
+                entry.artifact.as_ref(),
+                origin.as_ref(),
+                &preferred,
+                entry.resource_type,
+                recognition.ambiguous,
+                CachePolicy::UseFresh,
+                cancel,
+            )
+            .await
+        {
+            Ok(selected) => selected,
+            Err(error) if identity::recognition_source_failure(&error) => {
+                failures.push((
+                    entry.entry_id.clone(),
+                    format!("{}: {error}", entry.relative_path),
+                ));
+                None
+            }
+            Err(error) => return Err(error),
+        };
         if selected.is_none() {
             entry.artifact = None;
             entry.known_artifacts.clear();
@@ -777,7 +833,7 @@ pub(crate) async fn hydrate_selected_with_service(
             }
             continue;
         }
-        let mut selected = selected.unwrap();
+        let (mut selected, metadata) = selected.unwrap();
         if !selected
             .integrity
             .hashes
@@ -792,29 +848,6 @@ pub(crate) async fn hydrate_selected_with_service(
                     .filter(|hash| hash.algorithm == HashAlgorithm::Sha1)
                     .cloned(),
             );
-        }
-        let metadata = match service
-            .project_document(&selected.reference.release.project, None, cancel)
-            .await
-        {
-            Ok(document) => document.metadata,
-            Err(ResourceError::Canceled) => {
-                return Err(ResourceError::Canceled);
-            }
-            Err(error) => {
-                failures.push((
-                    entry.entry_id.clone(),
-                    format!("{}: {error}", entry.relative_path),
-                ));
-                entry.artifact = None;
-                continue;
-            }
-        };
-        // Hash matches below can confirm counterparts without a separate
-        // project-history probe for every file in the instance.
-        if !metadata.types.contains(&entry.resource_type) {
-            entry.artifact = None;
-            continue;
         }
         if let Some(store) = service.store() {
             let id = store
@@ -835,27 +868,42 @@ pub(crate) async fn hydrate_selected_with_service(
                         .await
                     {
                         Ok(document) => document.metadata,
-                        Err(ResourceError::Canceled) => {
-                            return Err(ResourceError::Canceled);
-                        }
+                        Err(
+                            error @ (ResourceError::Canceled
+                            | ResourceError::Database(_)),
+                        ) => return Err(error),
                         Err(_) => continue,
                     };
-                    store
-                        .confirm_projects(&metadata, &other, &selected, matched)
-                        .await?;
+                    identity::try_confirm_projects(
+                        store, &metadata, &other, &selected, matched, cancel,
+                    )
+                    .await?;
                 }
             }
             entry.resource_id = store.lookup(&metadata.project).await?;
         }
         entry.artifact = Some(selected.reference.clone());
-        entry.known_artifacts = matches
-            .iter()
-            .filter(|artifact| {
-                !recognition.ambiguous
-                    || artifact.reference == selected.reference
-            })
-            .map(|artifact| artifact.reference.clone())
-            .collect();
+        // Planning uses known artifacts as project identity, not just byte
+        // evidence. An unconfirmed counterpart must not satisfy dependencies.
+        entry.known_artifacts = vec![selected.reference.clone()];
+        for artifact in &matches {
+            if recognition.ambiguous || artifact.reference == selected.reference
+            {
+                continue;
+            }
+            let same_project =
+                artifact.reference.release.project == metadata.project;
+            let confirmed = if let Some(store) = service.store() {
+                entry.resource_id.is_some()
+                    && store.lookup(&artifact.reference.release.project).await?
+                        == entry.resource_id
+            } else {
+                false
+            };
+            if same_project || confirmed {
+                entry.known_artifacts.push(artifact.reference.clone());
+            }
+        }
         entry.integrity = local.integrity;
         entry.original_file_name = selected.file_name.clone();
         persisted.push((entry.entry_id.clone(), selected, entry.scope.clone()));
@@ -880,7 +928,7 @@ pub(crate) async fn hydrate_selected_with_service(
     }
     let mut tx = state.pool.begin().await.map_err(plans::db)?;
     for (id, artifact, scope) in persisted {
-        let previous: Option<String> = sqlx::query_scalar("SELECT artifact FROM resource_installed_artifacts WHERE entry_id = ?").bind(id.as_str()).fetch_optional(&mut *tx).await.map_err(plans::db)?;
+        let previous = installed_artifact_payload(id.as_str(), &mut tx).await?;
         let declared_compatibility = previous
             .and_then(|payload| {
                 serde_json::from_str::<InstalledArtifactRecord>(&payload).ok()
@@ -897,7 +945,7 @@ pub(crate) async fn hydrate_selected_with_service(
             artifact,
             declared_compatibility,
         };
-        sqlx::query("INSERT INTO resource_installed_artifacts(entry_id, artifact, scope) VALUES (?, ?, ?) ON CONFLICT(entry_id) DO UPDATE SET artifact = excluded.artifact, scope = excluded.scope").bind(id.as_str()).bind(serde_json::to_string(&record)?).bind(serde_json::to_string(&scope)?).execute(&mut *tx).await.map_err(plans::db)?;
+        set_installed_artifact(id.as_str(), &record, &scope, &mut tx).await?;
     }
     tx.commit().await.map_err(plans::db)?;
     Ok(HydratedInstalled { entries, failures })
@@ -942,13 +990,51 @@ pub async fn prepare_entries_with_progress(
     progress: plans::OperationProgress<'_>,
     resolve_dependencies: bool,
 ) -> ResourceResult<ResourceOperationPlan> {
+    plans::bounded_preparation(
+        cancel,
+        std::time::Duration::from_secs(15 * 60),
+        |cancel| async move {
+            prepare_entries_inner(
+                instance_id,
+                intent,
+                entry_ids,
+                release,
+                install_dependencies,
+                &cancel,
+                progress,
+                resolve_dependencies,
+            )
+            .await
+        },
+    )
+    .await
+}
+
+async fn prepare_entries_inner(
+    instance_id: String,
+    intent: ResourceOperationIntent,
+    entry_ids: Vec<InstalledEntryId>,
+    release: Option<SourceReleaseRef>,
+    install_dependencies: bool,
+    cancel: &CancellationToken,
+    progress: plans::OperationProgress<'_>,
+    resolve_dependencies: bool,
+) -> ResourceResult<ResourceOperationPlan> {
     if intent == ResourceOperationIntent::Install || entry_ids.is_empty() {
         return Err(ResourceError::InvalidRequest(
             "select installed entries to change".into(),
         ));
     }
     let state = crate::State::get().await?;
-    refresh_snapshot(&state, &instance_id, cancel).await?;
+    plans::report_phase(
+        progress,
+        plans::ResourceOperationPhase::RefreshingContent,
+    );
+    refresh_operation_snapshot(&state, &instance_id, cancel).await?;
+    plans::report_phase(
+        progress,
+        plans::ResourceOperationPhase::IdentifyingInstalled,
+    );
     let hydrated =
         hydrate_selected(&state, &instance_id, cancel, Some(&entry_ids))
             .await?;

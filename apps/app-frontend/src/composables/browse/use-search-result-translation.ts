@@ -12,11 +12,13 @@ export function useSearchResultTranslation<
     projectType: Ref<string>
     locale: Ref<string>
     onError: (error: unknown) => void
+    enrichTitles?: (hits: T[], locale: string) => Promise<T[]>
     translate?: typeof translateSearchDescriptions
 }) {
     const control = useTranslationToggle()
     const originalProjects = shallowRef<T[]>([])
     const originalServers = shallowRef<S[]>([])
+    const enrichedProjects = shallowRef<T[]>([])
     const execute = options.translate ?? translateSearchDescriptions
     let applying = false
 
@@ -27,8 +29,22 @@ export function useSearchResultTranslation<
         force: boolean,
         server: boolean,
     ) {
-        const snapshot = original.value
+        let snapshot = original.value
         if (!snapshot.length) return
+        if (!server && options.enrichTitles) {
+            snapshot = (await options.enrichTitles(
+                snapshot as unknown as T[],
+                options.locale.value,
+            )) as unknown as H[]
+            if (control.isStale(version)) return
+            enrichedProjects.value = snapshot as unknown as T[]
+            applying = true
+            try {
+                hits.value = snapshot
+            } finally {
+                applying = false
+            }
+        }
         const translated = await execute(snapshot, options.locale.value, force, server)
         if (control.isStale(version)) return
         applying = true
@@ -56,7 +72,10 @@ export function useSearchResultTranslation<
         [options.projectHits, options.serverHits, options.projectType, options.locale],
         ([projects, servers], [previousProjects, previousServers]) => {
             if (applying) return
-            if (projects !== previousProjects) originalProjects.value = projects
+            if (projects !== previousProjects) {
+                originalProjects.value = projects
+                enrichedProjects.value = projects
+            }
             if (servers !== previousServers) originalServers.value = servers
             const version = control.cancel()
             void translate(false, version)
@@ -72,7 +91,7 @@ export function useSearchResultTranslation<
                 try {
                     if (options.projectType.value === 'server')
                         options.serverHits.value = originalServers.value
-                    else options.projectHits.value = originalProjects.value
+                    else options.projectHits.value = enrichedProjects.value
                 } finally {
                     applying = false
                 }

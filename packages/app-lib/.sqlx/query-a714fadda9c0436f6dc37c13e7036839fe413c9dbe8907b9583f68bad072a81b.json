@@ -1,0 +1,32 @@
+{
+  "db_name": "SQLite",
+  "query": "\n        SELECT id, path, game_dir_override\n        FROM instances\n        WHERE id = ? OR path = ?\n        ORDER BY CASE WHEN id = ? THEN 0 ELSE 1 END\n        LIMIT 1\n        ",
+  "describe": {
+    "columns": [
+      {
+        "name": "id",
+        "ordinal": 0,
+        "type_info": "Text"
+      },
+      {
+        "name": "path",
+        "ordinal": 1,
+        "type_info": "Text"
+      },
+      {
+        "name": "game_dir_override",
+        "ordinal": 2,
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Right": 3
+    },
+    "nullable": [
+      false,
+      false,
+      true
+    ]
+  },
+  "hash": "a714fadda9c0436f6dc37c13e7036839fe413c9dbe8907b9583f68bad072a81b"
+}

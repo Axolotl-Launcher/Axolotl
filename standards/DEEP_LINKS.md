@@ -127,7 +127,7 @@ axolotl://<命名空间>[/<动作>/<标识>][?<参数>]
 | `accent_color` | `pink/orange/green/blue/purple/system` 或 `custom:#rrggbb` | 强调色 |
 | `locale` | 非空文本 ≤128 | 界面语言 |
 | `default_page` | `Home/DiscoverContent/Library` | 默认主页 |
-| `collapsed_navigation` `toggle_sidebar` `hide_nametag_skins_page` `advanced_rendering` `native_decorations` `auto_hide_downloads_button` `show_files_tab_in_instances` `show_worlds_tab_in_instances` `show_screenshots_tab_in_instances` `show_skin_selector_in_sidebar` `custom_window_title_enabled` `transparent_background` `transparent_background_blur` | 布尔 | 界面开关 |
+| `collapsed_navigation` `toggle_sidebar` `hide_nametag_skins_page` `nametag_uses_app_font` `advanced_rendering` `native_decorations` `auto_hide_downloads_button` `show_files_tab_in_instances` `show_worlds_tab_in_instances` `show_screenshots_tab_in_instances` `show_skin_selector_in_sidebar` `custom_window_title_enabled` `transparent_background` `transparent_background_blur` | 布尔 | 界面开关 |
 | `close_behavior` | `ask/close/lightweight` | 关闭行为 |
 | `log_level` | `error/warn/info/debug/trace` | 日志级别 |
 | `home_layout` | `standard/minimal` | 主页布局 |

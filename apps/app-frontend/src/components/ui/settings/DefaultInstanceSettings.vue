@@ -1,11 +1,20 @@
 <script setup lang="ts">
-import { defineMessages, StyledInput, Toggle, useVIntl } from '@modrinth/ui'
+import {
+    Combobox,
+    type ComboboxOption,
+    defineMessages,
+    StyledInput,
+    Toggle,
+    useVIntl,
+} from '@modrinth/ui'
 import { platform } from '@tauri-apps/plugin-os'
-import { ref, watch } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
 
 import EnvironmentVariablesInput from '@/components/ui/EnvironmentVariablesInput.vue'
+import { minecraftLanguageOptions } from '@/helpers/minecraft-languages'
 import { get, update } from '@/helpers/settings.ts'
 import { createSettingsPatchSaver } from '@/helpers/settings-patch'
+import { usableU16 } from '@/helpers/usable-u16'
 
 import LogShareSettings from './LogShareSettings.vue'
 import SettingsRow from './SettingsRow.vue'
@@ -15,6 +24,23 @@ import SharedLogsSettings from './SharedLogsSettings.vue'
 const { formatMessage } = useVIntl()
 
 const messages = defineMessages({
+    gameLanguageSectionTitle: {
+        id: 'app.settings.defaults.sections.game-language',
+        defaultMessage: 'Game language',
+    },
+    defaultGameLanguage: {
+        id: 'app.settings.defaults.game-language.title',
+        defaultMessage: 'Default game language',
+    },
+    defaultGameLanguageDescription: {
+        id: 'app.settings.defaults.game-language.description',
+        defaultMessage:
+            'Used the first time an instance launches. Instances that have already been played keep their in-game language.',
+    },
+    followLauncherLanguage: {
+        id: 'app.settings.defaults.game-language.follow-launcher',
+        defaultMessage: 'Follow launcher language',
+    },
     windowBehaviorSectionTitle: {
         id: 'app.settings.defaults.sections.window-behavior',
         defaultMessage: 'Window behavior',
@@ -147,6 +173,60 @@ const fetchSettings = await get()
 const saveDraft = createSettingsPatchSaver(fetchSettings, update)
 const supportsMaximizeWindow = (await platform()) === 'windows'
 const settings = ref(fetchSettings)
+const FOLLOW_LAUNCHER_LANGUAGE = 'follow-launcher'
+const gameLanguageOptions = computed<ComboboxOption<string>[]>(() => {
+    const current = settings.value.default_game_language
+    const options = [...minecraftLanguageOptions]
+
+    if (
+        current &&
+        current !== FOLLOW_LAUNCHER_LANGUAGE &&
+        !options.some((option) => option.value === current)
+    ) {
+        options.unshift({ value: current, label: current, searchTerms: [current] })
+    }
+
+    return [
+        {
+            value: FOLLOW_LAUNCHER_LANGUAGE,
+            label: formatMessage(messages.followLauncherLanguage),
+            searchTerms: ['follow', 'launcher', 'language', 'locale'],
+        },
+        ...options,
+    ]
+})
+const selectedGameLanguage = computed(
+    () => settings.value.default_game_language || FOLLOW_LAUNCHER_LANGUAGE,
+)
+
+function updateDefaultGameLanguage(value: string) {
+    settings.value.default_game_language = value === FOLLOW_LAUNCHER_LANGUAGE ? '' : value
+}
+
+// Bumped when an unusable size edit is discarded so both fields re-mount and show the
+// stored pair again instead of the text the user cleared.
+const dimensionResetToken = ref(0)
+
+const widthInput = ref<InstanceType<typeof StyledInput>>()
+const heightInput = ref<InstanceType<typeof StyledInput>>()
+
+function setResolutionDimension(index: 0 | 1, value: unknown) {
+    const current = settings.value.game_resolution
+    const usable = usableU16(value)
+    if (usable === null) {
+        // Re-mount the field so it shows the value that is still stored, then put the
+        // caret back in the field the user was editing.
+        dimensionResetToken.value += 1
+        return nextTick().then(() => {
+            const field = index === 0 ? widthInput.value : heightInput.value
+            field?.focus()
+            field?.select()
+        })
+    }
+    const next: [number, number] = [...current]
+    next[index] = usable
+    settings.value.game_resolution = next
+}
 
 watch(
     settings,
@@ -175,6 +255,34 @@ watch(
 
 <template>
     <div class="flex flex-col gap-6">
+        <SettingsSection
+            :title="formatMessage(messages.gameLanguageSectionTitle)"
+            title-id="settings-target-defaults-game-language"
+        >
+            <SettingsRow stacked>
+                <template #label>{{ formatMessage(messages.defaultGameLanguage) }}</template>
+                <template #description>{{
+                    formatMessage(messages.defaultGameLanguageDescription)
+                }}</template>
+                <template #control>
+                    <Combobox
+                        id="default-game-language"
+                        :model-value="selectedGameLanguage"
+                        :options="gameLanguageOptions"
+                        :aria-label="formatMessage(messages.defaultGameLanguage)"
+                        :search-input-attrs="{
+                            'aria-label': formatMessage(messages.defaultGameLanguage),
+                        }"
+                        searchable
+                        select-search-text-on-focus
+                        show-search-icon
+                        trigger-class="w-full"
+                        @update:model-value="updateDefaultGameLanguage"
+                    />
+                </template>
+            </SettingsRow>
+        </SettingsSection>
+
         <SettingsSection
             :title="formatMessage(messages.windowBehaviorSectionTitle)"
             title-id="settings-target-defaults-window"
@@ -215,11 +323,17 @@ watch(
                 <template #control>
                     <StyledInput
                         id="width"
-                        v-model="settings.game_resolution[0]"
+                        ref="widthInput"
+                        :key="`width-${dimensionResetToken}`"
+                        :model-value="settings.game_resolution[0]"
                         :disabled="settings.force_fullscreen"
                         autocomplete="off"
                         type="number"
+                        min="1"
+                        max="65535"
+                        step="1"
                         :placeholder="formatMessage(messages.widthPlaceholder)"
+                        @update:model-value="(value: unknown) => setResolutionDimension(0, value)"
                     />
                 </template>
             </SettingsRow>
@@ -229,11 +343,17 @@ watch(
                 <template #control>
                     <StyledInput
                         id="height"
-                        v-model="settings.game_resolution[1]"
+                        ref="heightInput"
+                        :key="`height-${dimensionResetToken}`"
+                        :model-value="settings.game_resolution[1]"
                         :disabled="settings.force_fullscreen"
                         autocomplete="off"
                         type="number"
+                        min="1"
+                        max="65535"
+                        step="1"
                         :placeholder="formatMessage(messages.heightPlaceholder)"
+                        @update:model-value="(value: unknown) => setResolutionDimension(1, value)"
                     />
                 </template>
             </SettingsRow>

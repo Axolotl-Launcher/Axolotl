@@ -23,7 +23,9 @@ pub use analysis_settings::{
     update_crash_analysis_ai_settings,
 };
 
+mod document;
 pub mod logagent;
+pub use document::{LogDocument, read_log_document};
 
 mod crash_analysis;
 pub use crash_analysis::{
@@ -631,7 +633,7 @@ async fn get_output_by_filename_from_path(
             ))
         })?;
 
-    let credentials = Credentials::get_all(&state.pool)
+    let credentials = Credentials::get_all(&state.data)
         .await?
         .into_iter()
         .collect::<Vec<_>>();
@@ -748,7 +750,7 @@ pub async fn get_live_log_buffer(
     let compacted =
         cap_log_for_display(compact_duplicate_lines(&joined), false);
 
-    let credentials = Credentials::get_all(&state.pool)
+    let credentials = Credentials::get_all(&state.data)
         .await?
         .into_iter()
         .collect::<Vec<_>>();
@@ -833,7 +835,7 @@ pub async fn get_generic_live_log_cursor(
         cap_log_for_display(compact_duplicate_lines(&output), source_truncated);
     let cursor = metadata.len(); // Consume skipped output as well as the display window.
 
-    let credentials = Credentials::get_all(&state.pool)
+    let credentials = Credentials::get_all(&state.data)
         .await?
         .into_iter()
         .collect::<Vec<_>>();

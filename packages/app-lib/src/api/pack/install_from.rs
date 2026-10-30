@@ -12,7 +12,8 @@ use crate::state::{
     ModrinthVersionId, SideType,
 };
 use crate::util::download::constants::{
-    INSTALL_FILE_REPORTED_ATTEMPTS, MODPACK_REQUESTED_H2_RANGES,
+    INSTALL_FILE_REPORTED_ATTEMPTS, LARGE_FILE_RANGE_CONNECTION_FLOOR,
+    MODPACK_REQUESTED_H2_RANGES,
 };
 use crate::util::fetch::{
     ContentValidation, DownloadMeta, DownloadReason, DownloadRequest,
@@ -182,6 +183,45 @@ pub struct CreatePackDescription {
     pub source_filename: Option<String>,
 }
 
+/// Detect changes to a local pack before reusing its partial installation.
+/// Reads archive metadata rather than hashing every bundled JAR again; normal
+/// installation still verifies each extracted or downloaded file separately.
+pub(crate) async fn local_pack_retry_identity(
+    path: &Path,
+) -> crate::Result<String> {
+    let path = path.to_owned();
+    tokio::task::spawn_blocking(move || {
+        use sha2::{Digest, Sha256};
+        let file = std::fs::File::open(&path)?;
+        let metadata = file.metadata()?;
+        let mut digest = Sha256::new();
+        digest.update(metadata.len().to_le_bytes());
+        if let Ok(modified) = metadata.modified()
+            && let Ok(modified) = modified.duration_since(std::time::UNIX_EPOCH)
+        {
+            digest.update(modified.as_secs().to_le_bytes());
+            digest.update(modified.subsec_nanos().to_le_bytes());
+        }
+        let invalid_archive = |error| {
+            crate::ErrorKind::InputError(format!(
+                "Cannot read the original modpack archive: {error}"
+            ))
+        };
+        let mut archive = ZipArchive::new(file).map_err(invalid_archive)?;
+        for index in 0..archive.len() {
+            let entry = archive.by_index_raw(index).map_err(invalid_archive)?;
+            let name = entry.name_raw();
+            digest.update((name.len() as u64).to_le_bytes());
+            digest.update(name);
+            digest.update(entry.crc32().to_le_bytes());
+            digest.update(entry.size().to_le_bytes());
+            digest.update(entry.compressed_size().to_le_bytes());
+        }
+        Ok::<_, crate::Error>(format!("{:x}", digest.finalize()))
+    })
+    .await?
+}
+
 pub async fn get_instance_from_pack(
     location: CreatePackLocation,
 ) -> crate::Result<CreatePackInstance> {
@@ -266,7 +306,7 @@ pub(crate) async fn generate_pack_from_version_id_with_reporter(
     let version_query = CachedEntry::get_version(
         &version_id_ref,
         Some(CacheBehaviour::Bypass),
-        &state.pool,
+        state.cache_pool(),
         &state.api_semaphore,
     );
     let version = tokio::select! {
@@ -422,6 +462,7 @@ pub(crate) async fn generate_pack_from_version_id_with_reporter(
                 ..Integrity::default()
             })
             .with_h2_range_concurrency(MODPACK_REQUESTED_H2_RANGES)
+            .with_range_connection_floor(LARGE_FILE_RANGE_CONNECTION_FLOOR)
             .with_download_meta(download_meta)
             .with_install_tracking(
                 reporter.clone(),
@@ -430,7 +471,6 @@ pub(crate) async fn generate_pack_from_version_id_with_reporter(
             ),
         &pack_path,
         &state.download_semaphore,
-        &state.pool,
         progress,
     )
     .await?;
@@ -450,7 +490,7 @@ pub(crate) async fn generate_pack_from_version_id_with_reporter(
     let project = CachedEntry::get_project(
         &ModrinthProjectId::new(version.project_id.clone())?,
         None,
-        &state.pool,
+        state.cache_pool(),
         &state.api_semaphore,
     )
     .await?
@@ -475,15 +515,9 @@ pub(crate) async fn generate_pack_from_version_id_with_reporter(
                         .build(),
                 )
                 .await?;
-            let icon_bytes = fetch(
-                &icon_url,
-                None,
-                None,
-                None,
-                &state.fetch_semaphore,
-                &state.pool,
-            )
-            .await?;
+            let icon_bytes =
+                fetch(&icon_url, None, None, None, &state.fetch_semaphore)
+                    .await?;
 
             let filename = icon_url.rsplit('/').next();
 

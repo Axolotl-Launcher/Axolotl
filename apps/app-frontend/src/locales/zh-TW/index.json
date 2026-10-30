@@ -5750,9 +5750,6 @@
   "app.project.mcarchive.installed": {
     "message": "已安裝 {fileName}"
   },
-  "app.project.mcarchive.loading": {
-    "message": "正在載入 MCArchive 專案..."
-  },
   "app.project.mcarchive.manual.archive-filter": {
     "message": "Minecraft 壓縮檔"
   },
@@ -5791,9 +5788,6 @@
   },
   "app.project.planet-minecraft.installed": {
     "message": "已安裝 {fileName}"
-  },
-  "app.project.planet-minecraft.loading": {
-    "message": "正在載入 Planet Minecraft 專案..."
   },
   "app.project.planet-minecraft.manual.archive-filter": {
     "message": "Minecraft 壓縮檔"
@@ -6302,14 +6296,8 @@
   "app.servers.status.downloading": {
     "message": "下載中"
   },
-  "app.servers.status.created": {
-    "message": "未設定"
-  },
   "app.servers.status.eula-pending": {
     "message": "待同意 EULA"
-  },
-  "app.servers.status.ready": {
-    "message": "就緒"
   },
   "app.servers.status.running": {
     "message": "執行中"
@@ -6526,6 +6514,18 @@
   },
   "app.settings.defaults.environment-variables-placeholder": {
     "message": "輸入環境變數..."
+  },
+  "app.settings.defaults.game-language.description": {
+    "message": "用於實例首次啟動。已遊玩過的實例會保留遊戲內語言。"
+  },
+  "app.settings.defaults.game-language.follow-launcher": {
+    "message": "跟隨啟動器語言"
+  },
+  "app.settings.defaults.game-language.search": {
+    "message": "Minecraft 遊戲語言 區域 語言 locale"
+  },
+  "app.settings.defaults.game-language.title": {
+    "message": "預設遊戲語言"
   },
   "app.settings.defaults.fullscreen": {
     "message": "全螢幕"
@@ -7456,12 +7456,6 @@
   },
   "app.splash.updating-app-directory": {
     "message": "正在更新應用程式目錄……"
-  },
-  "app.symlink-capability.unsupported": {
-    "message": "系統不支持軟連結。"
-  },
-  "app.symlink-capability.unsupported.title": {
-    "message": "軟連結不支持"
   },
   "app.symlink-warning.delete.body": {
     "message": "刪除此實例只會移除啟動器條目。「{path}」中的原始檔案將保留。"
@@ -10054,6 +10048,9 @@
   },
   "app.settings.defaults.sections.environment": {
     "message": "環境變數"
+  },
+  "app.settings.defaults.sections.game-language": {
+    "message": "遊戲語言"
   },
   "app.settings.defaults.sections.launch-hooks": {
     "message": "啟動掛鉤"

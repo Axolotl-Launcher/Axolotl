@@ -7,7 +7,10 @@ import { scanStorage, type StorageScanEvent, type StorageTree } from '@/helpers/
 import StorageSettings from '../StorageSettings.vue'
 
 vi.mock('@/helpers/storage', () => ({ scanStorage: vi.fn(), openStoragePaths: vi.fn() }))
-vi.mock('@/helpers/storage/preview-cache-usage', () => ({ previewCacheUsage: async () => null }))
+const preview = vi.hoisted(() => ({ usage: async (): Promise<number | null> => null }))
+vi.mock('@/helpers/storage/preview-cache-usage', () => ({
+    previewCacheUsage: () => preview.usage(),
+}))
 vi.mock('vue-router', () => ({ useRouter: () => ({ push: vi.fn() }) }))
 vi.mock('@modrinth/assets', () => ({
     RefreshCwIcon: defineComponent({ setup: () => () => h('svg') }),
@@ -51,6 +54,7 @@ const mounted: ReturnType<typeof mount>[] = []
 afterEach(() => {
     mounted.splice(0).forEach((wrapper) => wrapper.unmount())
     vi.resetAllMocks()
+    preview.usage = async () => null
 })
 const snapshot = (): StorageTree => ({
     scannedAt: '2026-10-15T00:00:00Z',
@@ -127,4 +131,20 @@ it('shows cached results and actual scan progress while refresh is pending', asy
     expect(wrapper.text()).toContain('20 bytes')
     expect(wrapper.find('progress').exists()).toBe(false)
     expect(wrapper.text()).not.toContain('Showing the previous scan')
+})
+
+it('shows the preview cache size without waiting for the storage scan', async () => {
+    let notify!: (event: StorageScanEvent) => void
+    vi.mocked(scanStorage).mockImplementationOnce((_force, progress) => {
+        notify = progress!
+        return new Promise(() => {})
+    })
+    preview.usage = async () => 34
+    const wrapper = mount(StorageSettings, { global: { directives: { tooltip: {} } } })
+    mounted.push(wrapper)
+    await flushPromises()
+    notify({ kind: 'cached', tree: snapshot() })
+    await flushPromises()
+    expect(wrapper.text()).toContain('34 bytes')
+    expect(wrapper.text()).toContain('Showing the previous scan')
 })

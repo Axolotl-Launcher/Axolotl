@@ -235,18 +235,18 @@ pub(crate) async fn install_hmcl_pack_with_reporter(
         lite_loader_as_adjunct
     {
         Some(
-			crate::launcher::get_loader_version_from_profile(
-				&game_version,
-				ModLoader::LiteLoader,
-				Some(&requested_version),
-			)
-			.await?
-			.ok_or_else(|| {
-				crate::ErrorKind::InputError(format!(
-					"No LiteLoader version {requested_version} supports Minecraft {game_version}"
-				))
-			})?,
-		)
+            crate::launcher::get_loader_version_from_profile(
+                &game_version,
+                ModLoader::LiteLoader,
+                Some(&requested_version),
+            )
+            .await?
+            .ok_or_else(|| {
+                crate::ErrorKind::InputError(format!(
+                    "No LiteLoader version {requested_version} supports Minecraft {game_version}"
+                ))
+            })?,
+        )
     } else {
         None
     };

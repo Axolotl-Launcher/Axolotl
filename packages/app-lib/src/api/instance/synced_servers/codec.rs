@@ -1,9 +1,9 @@
-use super::super::synced_options::{
-    nbt_from_bytes, nbt_to_bytes, read_nbt_file,
-};
+use super::super::synced_options::{nbt_from_bytes, nbt_to_bytes};
+use super::limits::{MAX_SERVER_BYTES, validate_size};
 use crate::ErrorKind;
 use quartz_nbt::{NbtCompound, NbtList, NbtTag};
 use std::path::Path;
+use tokio::io::AsyncReadExt;
 
 pub(crate) async fn read_servers(
     path: &Path,
@@ -11,12 +11,31 @@ pub(crate) async fn read_servers(
     if !path.exists() {
         return Ok(Vec::new());
     }
-    servers_from_root(read_nbt_file(path).await?)
+    servers_from_bytes(read_server_bytes(path).await?)
+}
+
+pub(super) async fn read_server_bytes(path: &Path) -> crate::Result<Vec<u8>> {
+    let file = tokio::fs::File::open(path).await?;
+    validate_size(
+        0,
+        file.metadata()
+            .await?
+            .len()
+            .try_into()
+            .unwrap_or(usize::MAX),
+    )?;
+    let mut bytes = Vec::new();
+    file.take(MAX_SERVER_BYTES as u64 + 1)
+        .read_to_end(&mut bytes)
+        .await?;
+    validate_size(0, bytes.len())?;
+    Ok(bytes)
 }
 
 pub(super) fn servers_from_bytes(
     bytes: Vec<u8>,
 ) -> crate::Result<Vec<NbtCompound>> {
+    validate_size(0, bytes.len())?;
     servers_from_root(nbt_from_bytes(bytes)?)
 }
 
@@ -26,6 +45,7 @@ fn servers_from_root(root: NbtCompound) -> crate::Result<Vec<NbtCompound>> {
             "servers.dat does not contain a valid servers list".to_string(),
         )
     })?;
+    validate_size(list.len(), 0)?;
     list.iter()
         .map(|tag| match tag {
             NbtTag::Compound(compound) => Ok(compound.clone()),
@@ -51,13 +71,19 @@ pub(crate) async fn write_servers(
 pub(super) fn servers_to_bytes(
     servers: &[NbtCompound],
 ) -> crate::Result<Vec<u8>> {
+    validate_size(servers.len(), 0)?;
+    let mut size = 0;
     let mut list = NbtList::new();
     for server in servers {
+        size += nbt_to_bytes(server)?.len();
+        validate_size(servers.len(), size)?;
         list.push(server.clone());
     }
     let mut root = NbtCompound::new();
     root.insert("servers", list);
-    nbt_to_bytes(&root)
+    let bytes = nbt_to_bytes(&root)?;
+    validate_size(servers.len(), bytes.len())?;
+    Ok(bytes)
 }
 
 pub(crate) fn server_data(

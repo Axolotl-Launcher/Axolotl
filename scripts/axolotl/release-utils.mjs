@@ -87,6 +87,13 @@ export function verifyAssetUrl(value, tag, filename, source = 'github') {
     }
 }
 
+export function assetSha256(asset) {
+    if (typeof asset?.digest !== 'string' || !/^sha256:[a-f0-9]{64}$/i.test(asset.digest)) {
+        throw new Error(`Release asset ${asset?.name} is missing a SHA-256 digest`)
+    }
+    return asset.digest.slice('sha256:'.length).toLowerCase()
+}
+
 export function verifyRelease(release, tag, { published = false } = {}) {
     releaseVersion(tag)
     if (release.tag_name !== tag)

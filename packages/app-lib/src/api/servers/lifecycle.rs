@@ -71,12 +71,11 @@ pub(super) fn has_process(server_id: &str) -> bool {
 }
 
 pub(super) fn observe_server_output(server_id: &str, line: &str) {
-    if line.contains("Starting minecraft server version")
-        || (line.contains("Done (") && line.contains("For help"))
+    if (line.contains("Starting minecraft server version")
+        || (line.contains("Done (") && line.contains("For help")))
+        && let Some(process) = SERVER_PROCESSES.get(server_id)
     {
-        if let Some(process) = SERVER_PROCESSES.get(server_id) {
-            process.ready.store(true, Ordering::SeqCst);
-        }
+        process.ready.store(true, Ordering::SeqCst);
     }
 }
 

@@ -4,14 +4,14 @@
   <p><strong>次世代 Minecraft 桌面客户端，全能、美观、全平台覆盖。</strong></p>
 
   <p>
-    <a href="https://github.com/Mystic-Stars/Axolotl/actions">
-      <img src="https://img.shields.io/github/actions/workflow/status/Mystic-Stars/Axolotl/axolotl-ci.yml?style=for-the-badge&logo=github" alt="Desktop CI" />
+    <a href="https://github.com/Axolotl-Launcher/Axolotl/actions">
+      <img src="https://img.shields.io/github/actions/workflow/status/Axolotl-Launcher/Axolotl/axolotl-ci.yml?style=for-the-badge&logo=github" alt="Desktop CI" />
     </a>
-    <a href="https://github.com/Mystic-Stars/Axolotl/releases">
-      <img src="https://img.shields.io/github/downloads/Mystic-Stars/Axolotl/total?style=for-the-badge&logo=github" alt="Downloads" />
+    <a href="https://github.com/Axolotl-Launcher/Axolotl/releases">
+      <img src="https://img.shields.io/github/downloads/Axolotl-Launcher/Axolotl/total?style=for-the-badge&logo=github" alt="Downloads" />
     </a>
-    <a href="https://github.com/Mystic-Stars/Axolotl/stargazers">
-      <img src="https://img.shields.io/github/stars/Mystic-Stars/Axolotl?style=for-the-badge&logo=github&color=ffb800" alt="Stars" />
+    <a href="https://github.com/Axolotl-Launcher/Axolotl/stargazers">
+      <img src="https://img.shields.io/github/stars/Axolotl-Launcher/Axolotl?style=for-the-badge&logo=github&color=ffb800" alt="Stars" />
     </a>
     <a href="COPYING.md">
       <img src="https://img.shields.io/badge/License-GPL_3.0-blue.svg?style=for-the-badge" alt="License" />
@@ -20,7 +20,7 @@
 
   <p>
     <a href="https://www.axlmc.org">官方网站</a> ｜
-    <a href="https://github.com/Mystic-Stars/Axolotl/releases/latest">下载最新版</a> ｜
+    <a href="https://github.com/Axolotl-Launcher/Axolotl/releases/latest">下载最新版</a> ｜
     <a href="CONTRIBUTING.md">参与贡献</a>
     ｜ <a href="CODE_OF_CONDUCT.md">行为准则</a>
   </p>
@@ -33,15 +33,16 @@
 
 <table>
   <tr>
-    <td><img src="./.github/assets/codeflow-logo.png" width="72" alt="CodeFlow Logo" /></td>
+    <td width="105"><img src="./.github/assets/codeflow-logo.png" width="72" alt="CodeFlow Logo" /></td>
     <td><strong>CodeFlow</strong><br>更稳、更省地调用顶级 AI 模型<br>原生协议转发 · 无需海外网络 · 支付宝即充即用</td>
     <td><a href="https://codeflow.sh/register?invite=4UHP2KYH">访问 CodeFlow</a></td>
   </tr>
+  <tr>
+    <td width="105"><img src="./.github/assets/fastai-logo.png" width="72" alt="FastAI Logo" /></td>
+    <td><strong>FastAI</strong><br>面向开发者的 AI API 聚合平台，支持 OpenAI、Claude、Gemini 、Grok等主流大模型，兼容 OpenAI API 协议，可无缝接入 Claude Code、Codex等各类 AI 开发工具。平台采用 充值 1:1（1 元 = 1 美元 API 额度），对公后台自助开票，企业SLA保证，微信支付宝直充。</td>
+    <td><a href="https://www.fastaitoken.com/register?aff=KBGN38QZUXNZ">访问 FastAI</a></td>
+  </tr>
 </table>
-
-<a href="https://www.netlify.com">
-  <img src="https://www.netlify.com/assets/badges/netlify-badge-color-accent.svg" alt="Deploys by Netlify" />
-</a>
 
 - [在爱发电支持 Axolotl Launcher](https://ifdian.net/a/Mystic-Stars) — 你的支持将帮助项目持续维护与改进
 
@@ -66,7 +67,7 @@ _(注：本项目是调用 Modrinth 公开 API 的独立客户端，与 Rinth, I
 
 ## 下载与安装
 
-请前往 [GitHub Releases](https://github.com/Mystic-Stars/Axolotl/releases/latest) 下载适合你操作系统的最新安装包。
+请前往 [GitHub Releases](https://github.com/Axolotl-Launcher/Axolotl/releases/latest) 下载适合你操作系统的最新安装包。
 已安装的用户每次均可通过内置的 Tauri 签名校验机制，自动在后台完成更新，无需手动下载安装更新。
 
 | 系统平台                | 推荐下载文件                              |
@@ -102,16 +103,16 @@ sudo apt install axolotl-launcher
 > 由于 Axolotl Launcher 的主分支代码更新较快，可以在下面用到的网址后面加上`/?`和参数来锁定，以免过于频繁地更新。多个参数用`&`连接。
 >
 > - 使用`shallow=1`避免克隆历史代码 \
->   `git+https://github.com/Mystic-Stars/Axolotl/?shallow=1`
+>   `git+https://github.com/Axolotl-Launcher/Axolotl/?shallow=1`
 > - 使用`ref=`指定分支（例如`experiment/linux-cef-runtime`分支）\
->   `git+https://github.com/Mystic-Stars/Axolotl/?ref=experiment/linux-cef-runtime`
+>   `git+https://github.com/Axolotl-Launcher/Axolotl/?ref=experiment/linux-cef-runtime`
 > - 使用`ref=`指定版本标签（例如`v1.9.7-beta.2`）\
->   `git+https://github.com/Mystic-Stars/Axolotl/?ref=refs/tags/v1.9.7-beta.2`
+>   `git+https://github.com/Axolotl-Launcher/Axolotl/?ref=refs/tags/v1.9.7-beta.2`
 > - 使用`rev=`指定提交（例如`10827ade74f49958cefaa6fda05961c7502741ef`）\
->   `git+https://github.com/Mystic-Stars/Axolotl/?rev=10827ade74f49958cefaa6fda05961c7502741ef`
+>   `git+https://github.com/Axolotl-Launcher/Axolotl/?rev=10827ade74f49958cefaa6fda05961c7502741ef`
 
 ```bash
-nix profile add 'git+https://github.com/Mystic-Stars/Axolotl'
+nix profile add 'git+https://github.com/Axolotl-Launcher/Axolotl'
 ```
 
 **使用 Home-Manager 的任意发行版**
@@ -135,7 +136,7 @@ nix profile add 'git+https://github.com/Mystic-Stars/Axolotl'
   inputs = {
     # nixpkgs home-manager 等其他输入...
     axolotl-launcher = {
-      url = "git+https://github.com/Mystic-Stars/Axolotl";
+      url = "git+https://github.com/Axolotl-Launcher/Axolotl";
     # inputs.nixpkgs.follows = "nixpkgs";
     # ↑ 通常不建议跟随本地nixpkgs，因为nixpkgs版本不一致会难以命中缓存、从下载缓存回退成本地编译。
     };

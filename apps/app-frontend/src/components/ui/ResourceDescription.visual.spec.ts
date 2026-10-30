@@ -26,6 +26,7 @@ vi.mock('@/components/ui/TranslatedProjectDescription.vue', () => ({
     }),
 }))
 vi.mock('@modrinth/ui', () => ({
+    ProjectPageSkeleton: defineComponent({ setup: () => () => h('div', { 'data-skeleton': '' }) }),
     Button: defineComponent({
         setup:
             (_, { attrs, slots }) =>
@@ -149,6 +150,48 @@ it('keeps a completed description on failure and aborts old subscriptions on sou
         expect(wrapper.text()).not.toContain('late response')
     } finally {
         wrapper.unmount()
+    }
+})
+
+it('shows a local skeleton only when no description is available', async () => {
+    ready()
+    vi.mocked(resourceGet).mockReturnValueOnce(new Promise(() => {}))
+    let resolve!: (value: Awaited<ReturnType<typeof resourceDescription>>) => void
+    vi.mocked(resourceDescription).mockImplementationOnce(
+        () =>
+            new Promise((done) => {
+                resolve = done
+            }),
+    )
+    const wrapper = mount(ResourceDescription, {
+        global: queryPlugin(),
+        props: { source: 'planet_minecraft', projectId: 'one' },
+    })
+    try {
+        expect(wrapper.find('[data-skeleton]').exists()).toBe(true)
+        resolve({
+            source: 'planet_minecraft',
+            format: 'plain',
+            body: 'planet_minecraft description',
+        })
+        await flushPromises()
+        expect(wrapper.text()).toContain('planet_minecraft description')
+        expect(wrapper.find('[data-skeleton]').exists()).toBe(false)
+    } finally {
+        wrapper.unmount()
+    }
+
+    vi.mocked(resourceGet).mockReturnValueOnce(new Promise(() => {}))
+    const original = mount(ResourceDescription, {
+        global: queryPlugin(),
+        props: { source: 'mcarchive', projectId: 'two' },
+        slots: { default: '<p>Existing description</p>' },
+    })
+    try {
+        expect(original.text()).toContain('Existing description')
+        expect(original.find('[data-skeleton]').exists()).toBe(false)
+    } finally {
+        original.unmount()
     }
 })
 

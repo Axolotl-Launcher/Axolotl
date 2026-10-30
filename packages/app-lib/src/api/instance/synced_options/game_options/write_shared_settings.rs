@@ -35,7 +35,7 @@ pub(super) async fn sync_is_active_for_instance(
             state,
         )
         .await?
-        && game_options_sync_is_enabled(&state.pool).await?)
+        && game_options_sync_is_enabled(&state.data).await?)
 }
 
 pub(super) async fn remember_processed_sha(
@@ -44,7 +44,7 @@ pub(super) async fn remember_processed_sha(
     state: &State,
 ) -> crate::Result<()> {
     let (canonical_revision, _) =
-        load_game_options_sync_state(&state.pool, CATALOG_REVISION).await?;
+        load_game_options_sync_state(&state.data, CATALOG_REVISION).await?;
     synced_options::begin_checkpoint(
         instance_id,
         SyncedOption::GameOptions,
@@ -69,8 +69,8 @@ async fn apply_shared_settings_to_document(
     document: &mut GameOptionsDocument,
     state: &State,
 ) -> crate::Result<AppliedSettings> {
-    let values = load_shared_game_options(&state.pool).await?;
-    let preferences = load_game_option_preferences(&state.pool).await?;
+    let values = load_shared_game_options(&state.data).await?;
+    let preferences = load_game_option_preferences(&state.data).await?;
     let mut count = 0;
     let mut used_migration = false;
 
@@ -230,7 +230,7 @@ pub(super) async fn apply_shared_settings_to_instance(
         "default",
         &output_sha1,
         None,
-        load_game_options_sync_state(&state.pool, CATALOG_REVISION)
+        load_game_options_sync_state(&state.data, CATALOG_REVISION)
             .await?
             .0 as i64,
         state,
@@ -289,7 +289,7 @@ pub(super) async fn capture_instance_options(
     }
 
     let canonical_changed =
-        if crate::state::shared_game_options_exist(&state.pool).await? {
+        if crate::state::shared_game_options_exist(&state.data).await? {
             read_instance_changes_into_shared_settings(
                 metadata, &document, state,
             )
@@ -339,7 +339,7 @@ pub(super) async fn sync_other_participating_instances(
         failed: 0,
         conflicts: Vec::new(),
     };
-    match game_options_sync_is_enabled(&state.pool).await {
+    match game_options_sync_is_enabled(&state.data).await {
         Ok(true) => {}
         Ok(false) => return result,
         Err(error) => {

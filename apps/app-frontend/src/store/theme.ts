@@ -132,6 +132,8 @@ export type ThemeStore = {
     systemAccentSupported: boolean | null
     advancedRendering: boolean
     hideNametagSkinsPage: boolean
+    /** Whether the skins-page nametag uses the launcher's UI font instead of the pixel font. */
+    nametagUsesAppFont: boolean
     toggleSidebar: boolean
     customBackgroundPath: string | null
     customBackgroundBlur: number
@@ -186,6 +188,7 @@ export const DEFAULT_THEME_STORE: ThemeStore = {
     systemAccentSupported: null,
     advancedRendering: true,
     hideNametagSkinsPage: false,
+    nametagUsesAppFont: false,
     toggleSidebar: false,
     customBackgroundPath: null,
     customBackgroundBlur: 12,

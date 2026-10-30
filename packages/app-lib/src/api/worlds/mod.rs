@@ -5,9 +5,9 @@ use crate::launcher::get_loader_version_from_profile;
 use crate::launcher::instance_runtime::InstanceRuntimeAdapter;
 use crate::server_address::{parse_server_address, resolve_server_address};
 use crate::state::attached_world_data::AttachedWorldData;
-use crate::state::{
-    InstanceInstallStage, attached_world_data, server_join_log,
-};
+use crate::state::store::Collection as _;
+use crate::state::store::join_log::{InstanceJoins, JoinLog};
+use crate::state::{InstanceInstallStage, attached_world_data};
 use crate::util::protocol_version::OLD_PROTOCOL_VERSIONS;
 pub use crate::util::protocol_version::ProtocolVersion;
 
@@ -33,6 +33,7 @@ use regex::{Regex, RegexBuilder};
 use serde::{Deserialize, Serialize};
 use serde_json::value::RawValue;
 use std::cmp::Reverse;
+use std::collections::HashMap;
 use std::io::Cursor;
 use std::path::{Path, PathBuf};
 use std::sync::LazyLock;
@@ -41,6 +42,32 @@ use tokio::io::AsyncWriteExt;
 use tokio::task::JoinSet;
 use tokio_util::compat::FuturesAsyncWriteCompatExt;
 use url::Url;
+
+static SERVER_LIST_WRITE: tokio::sync::Mutex<()> =
+    tokio::sync::Mutex::const_new(());
+
+/// The visible fields at a server-list index when the caller read it. Checked
+/// mutations reject stale indexes while holding the launcher's list-write lock.
+pub struct ServerEntryExpectation {
+    pub name: String,
+    pub address: String,
+    pub pack_status: ServerPackStatus,
+}
+
+fn check_server_entry(
+    server: &servers_data::ServerData,
+    expected: Option<&ServerEntryExpectation>,
+) -> Result<()> {
+    if expected.is_some_and(|expected| {
+        server.name != expected.name
+            || server.ip != expected.address
+            || server.accept_textures
+                != Option::<bool>::from(expected.pack_status)
+    }) {
+        return Err(ErrorKind::InputError("Server list changed; refresh the entry before editing or removing it".into()).into());
+    }
+    Ok(())
+}
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct WorldWithInstance {
@@ -215,6 +242,11 @@ pub async fn get_recent_worlds(
         let instance_worlds =
             get_worlds_for_instance(&instance.instance, &state).await;
         if let Err(e) = instance_worlds {
+            if matches!(e.raw.as_ref(), ErrorKind::IOError(error)
+                if error.kind() == std::io::ErrorKind::NotFound)
+            {
+                continue;
+            }
             tracing::error!(
                 "Failed to get worlds for instance {}: {}",
                 instance_id,
@@ -274,19 +306,10 @@ async fn resolve_instance_identity(
     instance: &str,
     state: &State,
 ) -> Result<(String, String, Option<String>)> {
-    let row = sqlx::query!(
-        "
-		SELECT id, path, game_dir_override
-		FROM instances
-		WHERE id = ? OR path = ?
-		ORDER BY CASE WHEN id = ? THEN 0 ELSE 1 END
-		LIMIT 1
-		",
+    let row = crate::state::instances::adapters::sqlite::instance_rows::find_identity_by_id_or_path(
         instance,
-        instance,
-        instance,
+        &state.pool,
     )
-    .fetch_optional(&state.pool)
     .await?
     .ok_or_else(|| {
         ErrorKind::InputError(format!(
@@ -547,9 +570,20 @@ async fn get_server_worlds_in_instance(
     }
 
     let state = State::get().await?;
-    let join_log = server_join_log::get_joins(instance_id, &state.pool)
-        .await
-        .ok();
+    let join_log = JoinLog::get_scoped(
+        &state.data,
+        &InstanceJoins {
+            instance_id: instance_id.to_string(),
+        },
+    )
+    .await
+    .ok()
+    .map(|records| {
+        records
+            .into_iter()
+            .map(|(key, entry)| ((key.host, key.port), entry.join_time))
+            .collect::<HashMap<_, _>>()
+    });
 
     for (index, server) in servers.into_iter().enumerate() {
         if server.hidden {
@@ -839,19 +873,19 @@ async fn get_world_session_lock(world: &Path) -> Result<tokio::fs::File> {
         .truncate(false)
         .open(&lock_path)
         .await?;
-    file.write_all("☃".as_bytes()).await?;
-    file.sync_all().await?;
-    let locked = file.try_lock_exclusive()?;
-    locked.then_some(file).ok_or_else(|| {
-        io::IOError::IOPathError {
+    if !file.try_lock_exclusive()? {
+        return Err(io::IOError::IOPathError {
             source: std::io::Error::new(
                 std::io::ErrorKind::ResourceBusy,
                 "already locked by Minecraft",
             ),
             path: lock_path.to_string_lossy().into_owned(),
         }
-        .into()
-    })
+        .into());
+    }
+    file.write_all("☃".as_bytes()).await?;
+    file.sync_all().await?;
+    Ok(file)
 }
 
 async fn try_get_world_session_lock(
@@ -876,6 +910,7 @@ pub async fn add_server_to_instance(
     project_id: Option<String>,
     content_kind: Option<String>,
 ) -> Result<usize> {
+    let _guard = SERVER_LIST_WRITE.lock().await;
     let state = State::get().await?;
     let (instance_id, instance_path, game_dir_override) =
         resolve_instance_identity(instance_id, &state).await?;
@@ -936,6 +971,26 @@ pub async fn edit_server_in_instance(
     address: String,
     pack_status: ServerPackStatus,
 ) -> Result<()> {
+    edit_server_in_instance_checked(
+        instance_id,
+        index,
+        None,
+        name,
+        address,
+        pack_status,
+    )
+    .await
+}
+
+pub async fn edit_server_in_instance_checked(
+    instance_id: &str,
+    index: usize,
+    expected: Option<ServerEntryExpectation>,
+    name: String,
+    address: String,
+    pack_status: ServerPackStatus,
+) -> Result<()> {
+    let _guard = SERVER_LIST_WRITE.lock().await;
     let state = State::get().await?;
     let (instance_id, instance_path, game_dir_override) =
         resolve_instance_identity(instance_id, &state).await?;
@@ -957,6 +1012,7 @@ pub async fn edit_server_in_instance(
                 ))
                 .as_error()
             })?;
+    check_server_entry(server, expected.as_ref())?;
     server.name = name;
     server.ip = address;
     server.accept_textures = pack_status.into();
@@ -968,6 +1024,15 @@ pub async fn remove_server_from_instance(
     instance_id: &str,
     index: usize,
 ) -> Result<()> {
+    remove_server_from_instance_checked(instance_id, index, None).await
+}
+
+pub async fn remove_server_from_instance_checked(
+    instance_id: &str,
+    index: usize,
+    expected: Option<ServerEntryExpectation>,
+) -> Result<()> {
+    let _guard = SERVER_LIST_WRITE.lock().await;
     let state = State::get().await?;
     let (_, instance_path, game_dir_override) =
         resolve_instance_identity(instance_id, &state).await?;
@@ -985,9 +1050,39 @@ pub async fn remove_server_from_instance(
         ))
         .into());
     }
+    check_server_entry(&servers[index], expected.as_ref())?;
     servers.remove(index);
     servers_data::write(&instance_dir, &servers).await?;
     Ok(())
+}
+
+#[cfg(test)]
+mod server_entry_tests {
+    use super::*;
+    #[test]
+    fn checked_mutations_reject_shifted_or_edited_entries() {
+        let server = servers_data::ServerData {
+            hidden: false,
+            icon: None,
+            name: "Original".into(),
+            ip: "localhost:25565".into(),
+            accept_textures: None,
+        };
+        let mut expected = ServerEntryExpectation {
+            name: server.name.clone(),
+            address: server.ip.clone(),
+            pack_status: ServerPackStatus::Prompt,
+        };
+        assert!(check_server_entry(&server, Some(&expected)).is_ok());
+        expected.name = "Changed".into();
+        assert!(check_server_entry(&server, Some(&expected)).is_err());
+        expected.name = server.name.clone();
+        expected.address = "other.example".into();
+        assert!(check_server_entry(&server, Some(&expected)).is_err());
+        expected.address = server.ip.clone();
+        expected.pack_status = ServerPackStatus::Enabled;
+        assert!(check_server_entry(&server, Some(&expected)).is_err());
+    }
 }
 
 mod servers_data {

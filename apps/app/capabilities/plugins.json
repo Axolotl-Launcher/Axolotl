@@ -159,6 +159,7 @@
     "shortcuts:default",
     "tags:default",
     "ai:default",
+    "mcp:default",
     "translation:default",
     "storage:default",
     "system-accent:default",

@@ -10,6 +10,13 @@ import { buildUndergroundMesh } from '@/lab/seed-map/underground-mesh'
 
 import SeedMapUndergroundPreview from './SeedMapUndergroundPreview.vue'
 
+/**
+ * These polls wait for a mesh worker result or for a layout change to settle.
+ * `expect.poll` only waits one second by default, which the full suite exceeds once
+ * every spec shares the browser, so they carry a budget instead of the default.
+ */
+const POLL = { timeout: 15_000, interval: 50 } as const
+
 const backend = vi.hoisted(() => ({ invoke: vi.fn(), maxChunks: 100 }))
 vi.mock('@/lab/seed-map/underground', async (original) => {
     const module = await original<typeof import('@/lab/seed-map/underground')>()
@@ -129,7 +136,7 @@ it('shows the running and completed chunk count only in the upper-right status',
             },
         },
     })
-    await expect.poll(() => resolveFirst).toBeDefined()
+    await expect.poll(() => resolveFirst, POLL).toBeDefined()
     const status = wrapper.get('[data-testid=underground-generation-status]')
     expect(status.text()).toBe('0 chunks')
     expect(status.attributes('data-generating')).toBe('true')
@@ -137,7 +144,7 @@ it('shows the running and completed chunk count only in the upper-right status',
     const settings = wrapper.get('[data-testid=underground-settings]')
     expect(settings.text()).not.toMatch(/chunks|Computing|Building/)
     resolveFirst(response())
-    await expect.poll(() => status.attributes('data-generating')).toBe('false')
+    await expect.poll(() => status.attributes('data-generating'), POLL).toBe('false')
     expect(status.text()).toBe('2 chunks')
     expect(status.find('svg.animate-spin').exists()).toBe(false)
     expect(status.find('svg').exists()).toBe(true)
@@ -286,7 +293,7 @@ it('reuses one worker and releases graphics, timers and late native results acro
         expect(scene.chunks.size).toBe(0)
         expect(scene.regions.size).toBe(0)
         expect(scene.scene.children.length).toBe(0)
-        await expect.poll(() => context.isContextLost()).toBe(true)
+        await expect.poll(() => context.isContextLost(), POLL).toBe(true)
         expect(canvas.width).toBe(1)
         expect(canvas.height).toBe(1)
         expect(scene.renderer.info.memory.geometries).toBe(0)
@@ -346,6 +353,7 @@ it('targets visible block coordinates after chunk translation and ignores hidden
 })
 
 it('loads textured cavity geometry, switches layers, keeps the view on failure and cancels pending generation on exit', async () => {
+    const cameraPosition = vi.spyOn(SchematicPreviewScene.prototype, 'getCameraPosition')
     backend.maxChunks = 2
     const volume = () => {
         const result = new ArrayBuffer(16 + 18 * 18 * 384 + 18 * 18 * 2)
@@ -411,6 +419,7 @@ it('loads textured cavity geometry, switches layers, keeps the view on failure a
                 backend.invoke.mock.calls.filter(([command]) =>
                     command.endsWith('seed_map_underground_volume'),
                 ).length,
+            { timeout: 15_000 },
         )
         .toBeGreaterThan(1)
     const requests = backend.invoke.mock.calls
@@ -421,16 +430,18 @@ it('loads textured cavity geometry, switches layers, keeps the view on failure a
         requests.length,
     )
     await expect
-        .poll(() =>
-            wrapper
-                ?.get('[data-testid=underground-generation-status]')
-                .attributes('data-generating'),
+        .poll(
+            () =>
+                wrapper
+                    ?.get('[data-testid=underground-generation-status]')
+                    .attributes('data-generating'),
+            { timeout: 15_000 },
         )
         .toBe('false')
     const canvas = wrapper.get('canvas').element as HTMLCanvasElement
     expect(canvas.width).toBeGreaterThan(1)
     await userEvent.click(page.elementLocator(canvas), { position: { x: 800, y: 500 } })
-    await expect.poll(() => document.pointerLockElement).toBe(canvas)
+    await expect.poll(() => document.pointerLockElement, POLL).toBe(canvas)
     const generationCalls = () =>
         backend.invoke.mock.calls.filter(([command]) =>
             command.endsWith('seed_map_underground_volume'),
@@ -444,13 +455,23 @@ it('loads textured cavity geometry, switches layers, keeps the view on failure a
     const beforeMove = wrapper.text().match(/X -?\d+ · Y -?\d+ · Z -?\d+ · \d+ blocks\/s/)?.[0]
     window.dispatchEvent(new KeyboardEvent('keydown', { code: 'Space' }))
     await expect
-        .poll(() => wrapper?.text().match(/X -?\d+ · Y -?\d+ · Z -?\d+ · \d+ blocks\/s/)?.[0])
+        .poll(() => wrapper?.text().match(/X -?\d+ · Y -?\d+ · Z -?\d+ · \d+ blocks\/s/)?.[0], {
+            timeout: 15_000,
+        })
         .not.toBe(beforeMove)
     document.exitPointerLock()
-    await expect.poll(() => document.pointerLockElement).toBe(null)
-    await new Promise((resolve) => setTimeout(resolve, 180))
+    await expect.poll(() => document.pointerLockElement, POLL).toBe(null)
+    await expect.poll(() => wrapper?.text(), POLL).toContain('Click the view to explore')
+    const samplesBeforeUnlock = cameraPosition.mock.calls.length
+    // The coordinate display samples the camera every 200 ms, independently of unlocking.
+    await expect
+        .poll(() => cameraPosition.mock.calls.length, POLL)
+        .toBeGreaterThan(samplesBeforeUnlock)
     const afterUnlock = wrapper.text().match(/X -?\d+ · Y -?\d+ · Z -?\d+ · \d+ blocks\/s/)?.[0]
-    await new Promise((resolve) => setTimeout(resolve, 250))
+    const samplesAfterUnlock = cameraPosition.mock.calls.length
+    await expect
+        .poll(() => cameraPosition.mock.calls.length, POLL)
+        .toBeGreaterThan(samplesAfterUnlock)
     expect(wrapper.text().match(/X -?\d+ · Y -?\d+ · Z -?\d+ · \d+ blocks\/s/)?.[0]).toBe(
         afterUnlock,
     )
@@ -458,16 +479,18 @@ it('loads textured cavity geometry, switches layers, keeps the view on failure a
     expect((wrapper.findAll('input')[0].element as HTMLInputElement).checked).toBe(false)
     fail = true
     backend.maxChunks += 2
-    await expect.poll(() => wrapper?.text()).toContain('Your previous view is kept')
+    await expect.poll(() => wrapper?.text(), POLL).toContain('Your previous view is kept')
     expect(wrapper.get('canvas').element).toBe(canvas)
     expect(wrapper.text()).toMatch(/\d+ chunks/)
     pending = true
     await userEvent.click(page.getByRole('button', { name: 'Retry region' }))
     await expect
-        .poll(() =>
-            wrapper
-                ?.get('[data-testid=underground-generation-status]')
-                .attributes('data-generating'),
+        .poll(
+            () =>
+                wrapper
+                    ?.get('[data-testid=underground-generation-status]')
+                    .attributes('data-generating'),
+            { timeout: 15_000 },
         )
         .toBe('true')
     wrapper.unmount()

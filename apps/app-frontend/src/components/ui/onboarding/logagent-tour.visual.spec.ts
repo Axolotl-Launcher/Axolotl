@@ -81,4 +81,4 @@ it('missing optional targets eventually complete instead of trapping the tour', 
         timeout: 12_000,
         interval: 100,
     })
-}, 15_000)
+})

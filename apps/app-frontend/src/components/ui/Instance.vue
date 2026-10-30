@@ -458,9 +458,9 @@ onUnmounted(() => unlisten())
                     </Button>
                 </div>
             </div>
-            <div class="flex flex-col gap-1">
+            <div class="flex w-full min-w-0 flex-col gap-1">
                 <p
-                    class="m-0 text-md font-bold text-[var(--color-text-primary)] leading-tight line-clamp-1"
+                    class="m-0 w-full min-w-0 text-md font-bold text-[var(--color-text-primary)] leading-tight line-clamp-1"
                 >
                     {{ instance.name }}
                 </p>

@@ -29,6 +29,51 @@ impl ContentDependencyKind {
     }
 }
 
+/// The `relationType` CurseForge assigns to a file dependency. Shared by the
+/// CurseForge API modules and the resource provider so neither layer has to
+/// depend on the other for it.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum DependencyRelation {
+    Embedded,
+    Optional,
+    Required,
+    Tool,
+    Incompatible,
+    Include,
+    /// A relation newer than this build; callers keep their own fallback.
+    Unknown(u32),
+}
+
+impl DependencyRelation {
+    pub fn from_raw(raw: u32) -> Self {
+        match raw {
+            1 => Self::Embedded,
+            2 => Self::Optional,
+            3 => Self::Required,
+            4 => Self::Tool,
+            5 => Self::Incompatible,
+            6 => Self::Include,
+            other => Self::Unknown(other),
+        }
+    }
+
+    pub fn is_required(self) -> bool {
+        self == Self::Required
+    }
+
+    pub fn as_raw(self) -> u32 {
+        match self {
+            Self::Embedded => 1,
+            Self::Optional => 2,
+            Self::Required => 3,
+            Self::Tool => 4,
+            Self::Incompatible => 5,
+            Self::Include => 6,
+            Self::Unknown(raw) => raw,
+        }
+    }
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ContentDependencyEdge {
     pub id: String,

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import {
+    BookIcon,
     BookmarkIcon,
     CheckIcon,
     ClipboardCopyIcon,
@@ -7,7 +8,16 @@ import {
     TrashIcon,
     XIcon,
 } from '@modrinth/assets'
-import { Button, Combobox, type ComboboxOption, StyledInput, Toggle, useVIntl } from '@modrinth/ui'
+import {
+    Button,
+    Combobox,
+    type ComboboxOption,
+    defineMessages,
+    StyledInput,
+    Toggle,
+    useVIntl,
+} from '@modrinth/ui'
+import { openUrl } from '@tauri-apps/plugin-opener'
 import { computed, nextTick, onMounted, ref, watch } from 'vue'
 
 import CommandGeneratorArgument from '@/components/lab/command-generator/CommandGeneratorArgument.vue'
@@ -19,7 +29,10 @@ import {
     getAllCommands,
     getCurrentVersion,
     initializeRegistry,
+    PERMISSION_DESC_KEYS,
+    PERMISSION_DESCRIPTIONS,
     PERMISSION_KEYS,
+    PERMISSION_LABELS,
     switchVersion,
 } from '@/lab/command-generator/commands/registry.ts'
 import type { CommandArgument, CommandCategory } from '@/lab/command-generator/commands/types.ts'
@@ -29,7 +42,6 @@ import {
     getDefaultValues,
     validateCommand,
 } from '@/lab/command-generator/generator.ts'
-import { commandGeneratorMessages as messages } from '@/lab/command-generator/i18n/messages.ts'
 import { loadManifest } from '@/lab/command-generator/loader.ts'
 import {
     applyPresetToValues,
@@ -39,15 +51,167 @@ import {
     type UserPreset,
 } from '@/lab/command-generator/presets.ts'
 
-const { formatMessage } = useVIntl()
+const { formatMessage, locale } = useVIntl()
 
-function t(key: string, fallback?: string): string {
-    return formatMessage({ id: key, defaultMessage: fallback ?? key })
+const messages = defineMessages({
+    title: { id: 'app.lab.command-generator.title', defaultMessage: 'Command generator' },
+    subtitle: {
+        id: 'app.lab.command-generator.subtitle',
+        defaultMessage: 'Build Minecraft Java Edition commands visually.',
+    },
+    globalPresets: {
+        id: 'app.lab.command-generator.preset.global',
+        defaultMessage: 'All presets',
+    },
+    globalPresetsEmpty: {
+        id: 'app.lab.command-generator.preset.global-empty',
+        defaultMessage: 'No saved presets yet.',
+    },
+    deletePreset: {
+        id: 'app.lab.command-generator.preset.delete',
+        defaultMessage: 'Delete preset',
+    },
+    close: { id: 'app.lab.command-generator.close', defaultMessage: 'Close' },
+    selectVersion: {
+        id: 'app.lab.command-generator.select-version',
+        defaultMessage: 'Game version',
+    },
+    filters: { id: 'app.lab.command-generator.filters', defaultMessage: 'Filters' },
+    filterCategory: {
+        id: 'app.lab.command-generator.filter.category',
+        defaultMessage: 'Category',
+    },
+    filterPermission: {
+        id: 'app.lab.command-generator.filter.permission',
+        defaultMessage: 'Permission level',
+    },
+    filterAll: { id: 'app.lab.command-generator.filter.all', defaultMessage: 'All' },
+    selectCommand: {
+        id: 'app.lab.command-generator.select-command',
+        defaultMessage: 'Choose a command',
+    },
+    selectPlaceholder: {
+        id: 'app.lab.command-generator.select-placeholder',
+        defaultMessage: 'Search a command…',
+    },
+    aliasOf: {
+        id: 'app.lab.command-generator.alias-of',
+        defaultMessage: "{command}'s alias",
+    },
+    useDataComponents: {
+        id: 'app.lab.command-generator.version.use-data-components',
+        defaultMessage: 'Use data components (1.20.5+)',
+    },
+    startTitle: {
+        id: 'app.lab.command-generator.start-title',
+        defaultMessage: 'Choose a command to get started',
+    },
+    startHint: {
+        id: 'app.lab.command-generator.start-hint',
+        defaultMessage: 'Search by command name, or start with a common command.',
+    },
+    optional: { id: 'app.lab.command-generator.arg.optional', defaultMessage: 'Optional' },
+    parametersEmpty: {
+        id: 'app.lab.command-generator.parameters-empty',
+        defaultMessage: 'This command takes no arguments.',
+    },
+    result: { id: 'app.lab.command-generator.result', defaultMessage: 'Generated command' },
+    resultHint: {
+        id: 'app.lab.command-generator.result-hint',
+        defaultMessage: 'Fill in the parameters, then generate a command to copy into Minecraft.',
+    },
+    generate: { id: 'app.lab.command-generator.generate', defaultMessage: 'Generate' },
+    copy: { id: 'app.lab.command-generator.copy', defaultMessage: 'Copy' },
+    copied: { id: 'app.lab.command-generator.copied', defaultMessage: 'Copied' },
+    copyFailed: {
+        id: 'app.lab.command-generator.copy-failed',
+        defaultMessage: 'Could not copy the command. Select and copy the text manually.',
+    },
+    unknownError: {
+        id: 'app.lab.command-generator.error.unknown',
+        defaultMessage: 'Unknown error',
+    },
+    requiredError: {
+        id: 'app.lab.command-generator.error.required',
+        defaultMessage: 'Enter {name}.',
+    },
+    enumError: {
+        id: 'app.lab.command-generator.error.enum',
+        defaultMessage: 'Choose a valid value for {name}.',
+    },
+    numberError: {
+        id: 'app.lab.command-generator.error.number',
+        defaultMessage: 'Enter a number for {name}.',
+    },
+    integerError: {
+        id: 'app.lab.command-generator.error.integer',
+        defaultMessage: 'Enter a whole number for {name}.',
+    },
+    rangeError: {
+        id: 'app.lab.command-generator.error.range',
+        defaultMessage: 'Enter a value within the allowed range for {name}.',
+    },
+    savePreset: {
+        id: 'app.lab.command-generator.preset.save',
+        defaultMessage: 'Save as preset',
+    },
+    presetName: {
+        id: 'app.lab.command-generator.preset.name',
+        defaultMessage: 'Preset name',
+    },
+    save: { id: 'app.lab.command-generator.save', defaultMessage: 'Save' },
+    toastPresetNameRequired: {
+        id: 'app.lab.command-generator.preset.toast.name-required',
+        defaultMessage: 'Please enter a preset name',
+    },
+    toastPresetSaved: {
+        id: 'app.lab.command-generator.preset.toast.saved',
+        defaultMessage: 'Preset "{name}" saved',
+    },
+    toastPresetLoaded: {
+        id: 'app.lab.command-generator.preset.toast.loaded',
+        defaultMessage: 'Preset "{name}" loaded',
+    },
+    toastPresetDeleted: {
+        id: 'app.lab.command-generator.preset.toast.deleted',
+        defaultMessage: 'Preset "{name}" deleted',
+    },
+    toastPresetCommandMissing: {
+        id: 'app.lab.command-generator.preset.toast.command-missing',
+        defaultMessage:
+            'Preset "{name}" uses command "{command}" which does not exist in this version',
+    },
+    executeBuildFirst: {
+        id: 'app.lab.command-generator.execute.build-first',
+        defaultMessage: 'Please build the subcommand chain first',
+    },
+    seedMultiplayerNote: {
+        id: 'app.lab.command-generator.perm.seed.multiplayer-note',
+        defaultMessage: 'In multiplayer, /seed requires permission level 2.',
+    },
+    guideTitle: {
+        id: 'app.lab.command-generator.guide-title',
+        defaultMessage: 'Guide',
+    },
+    guideExamples: {
+        id: 'app.lab.command-generator.guide-examples',
+        defaultMessage: 'Examples',
+    },
+    viewOnWiki: {
+        id: 'app.lab.command-generator.view-on-wiki',
+        defaultMessage: 'View on Wiki',
+    },
+})
+
+function formatDynamic(id: string, fallback = ''): string {
+    return formatMessage({ id, defaultMessage: fallback || id })
 }
 
 type CommandComboboxOption = ComboboxOption<string> & {
     description: string
     category: string
+    isAlias?: boolean
+    aliasOf?: string
 }
 
 function asCommandOption(item: ComboboxOption<string>): CommandComboboxOption {
@@ -58,7 +222,7 @@ const versionOptions = ref<ComboboxOption<string>[]>([])
 const selectedVersion = ref('')
 const selectedCommandId = ref('')
 const filterCategory = ref<string>('')
-const filterPermission = ref<string>('')
+const filterPermission = ref<string>('4')
 const values = ref<Record<string, string | number | boolean>>({})
 const executeChainOutput = ref('')
 const executeChainRef = ref<InstanceType<typeof CommandGeneratorExecuteChain> | null>(null)
@@ -71,11 +235,6 @@ const toast = ref('')
 const showGlobalPresets = ref(false)
 
 const userPresets = ref<UserPreset[]>([])
-
-/**
- * 1.20.x 下用户可选择是否使用 1.20.5+ 数据组件语法。
- * 其它版本不显示该开关。
- */
 const useDataComponents = ref(true)
 
 function isAtLeast(a: string, b: string): boolean {
@@ -90,7 +249,6 @@ function isAtLeast(a: string, b: string): boolean {
     return true
 }
 
-// 仅 1.20.x（不含 1.20.5+）显示切换开关
 const showDataComponentsToggle = computed(() => {
     const v = selectedVersion.value
     if (!v) return false
@@ -98,9 +256,6 @@ const showDataComponentsToggle = computed(() => {
     return !isAtLeast(v, '1.20.5')
 })
 
-// 传递给 NBT 编辑器的 forceDataComponents：
-// - 未显示开关时传 undefined，让组件根据 version 自动判定
-// - 显示开关时传用户选择
 const forceDataComponents = computed<boolean | undefined>(() => {
     if (!showDataComponentsToggle.value) return undefined
     return useDataComponents.value
@@ -110,18 +265,19 @@ const categoryOptions = computed<ComboboxOption<string>[]>(() => [
     { value: '', label: formatMessage(messages.filterAll) },
     ...(Object.keys(CATEGORY_KEYS) as CommandCategory[]).map((key) => ({
         value: key,
-        label: t(CATEGORY_KEYS[key]),
+        label: formatDynamic(CATEGORY_KEYS[key], key),
     })),
 ])
 
-const permissionOptions = computed<ComboboxOption<string>[]>(() => [
-    { value: '', label: formatMessage(messages.filterAll) },
-    { value: '0', label: `0 · ${t(PERMISSION_KEYS[0])}` },
-    { value: '1', label: `1 · ${t(PERMISSION_KEYS[1])}` },
-    { value: '2', label: `2 · ${t(PERMISSION_KEYS[2])}` },
-    { value: '3', label: `3 · ${t(PERMISSION_KEYS[3])}` },
-    { value: '4', label: `4 · ${t(PERMISSION_KEYS[4])}` },
-])
+const permissionOptions = computed<ComboboxOption<string>[]>(() =>
+    ([0, 1, 2, 3, 4] as const).map((level) => ({
+        value: String(level),
+        label: `${level} · ${formatDynamic(PERMISSION_KEYS[level], PERMISSION_LABELS[level])} — ${formatDynamic(
+            PERMISSION_DESC_KEYS[level],
+            PERMISSION_DESCRIPTIONS[level],
+        )}`,
+    })),
+)
 
 const versionLabelMap = computed<Record<string, string>>(() => {
     const map: Record<string, string> = {}
@@ -136,25 +292,41 @@ const filteredCommands = computed(() => {
     if (filterCategory.value) {
         list = list.filter((c) => c.category === filterCategory.value)
     }
-    if (filterPermission.value !== '') {
-        list = list.filter((c) => String(c.permissionLevel) === filterPermission.value)
+    const maxLevel = Number(filterPermission.value)
+    if (!Number.isNaN(maxLevel)) {
+        list = list.filter((c) => (c.permissionLevel ?? 0) <= maxLevel)
     }
     return list
 })
 
-const commandOptions = computed<CommandComboboxOption[]>(() =>
-    filteredCommands.value.map((cmd) => ({
-        value: cmd.id,
-        label: cmd.name,
-        description: t(cmd.descriptionKey),
-        category: t(CATEGORY_KEYS[cmd.category]),
-        searchTerms: [
-            t(cmd.descriptionKey),
-            t(CATEGORY_KEYS[cmd.category]),
-            ...(cmd.aliases ?? []),
-        ],
-    })),
-)
+const commandOptions = computed<CommandComboboxOption[]>(() => {
+    const list: CommandComboboxOption[] = []
+    for (const cmd of filteredCommands.value) {
+        const description = formatDynamic(cmd.descriptionKey, cmd.name)
+        const category = formatDynamic(CATEGORY_KEYS[cmd.category], cmd.category)
+
+        list.push({
+            value: cmd.id,
+            label: cmd.name,
+            description,
+            category,
+            searchTerms: [description, category],
+        })
+
+        for (const alias of cmd.aliases ?? []) {
+            list.push({
+                value: `alias:${cmd.id}:${alias}`,
+                label: alias,
+                description,
+                category,
+                isAlias: true,
+                aliasOf: cmd.name,
+                searchTerms: [cmd.name, description, category],
+            })
+        }
+    }
+    return list
+})
 
 const currentCommand = computed(() =>
     selectedCommandId.value ? (findCommand(selectedCommandId.value) ?? null) : null,
@@ -166,11 +338,13 @@ const currentGuide = computed(() =>
         : null,
 )
 
-/**
- * UI 上用于渲染的参数卡片顺序。
- * 把 nbt 类型的参数统一挪到末尾，与 JSON 中参数的位置无关。
- * 生成命令时的顺序由 generator.ts 的 orderArguments 另行处理。
- */
+const wikiUrl = computed(() => {
+    if (!currentCommand.value) return '#'
+    const isZh = locale.value.startsWith('zh')
+    const base = isZh ? 'https://zh.minecraft.wiki/w/命令/' : 'https://minecraft.wiki/w/Commands/'
+    return `${base}${currentCommand.value.id}`
+})
+
 const uiArguments = computed<CommandArgument[]>(() => {
     const args = currentCommand.value ? getActiveArguments(currentCommand.value, values.value) : []
     const nonNbt: CommandArgument[] = []
@@ -183,9 +357,22 @@ const uiArguments = computed<CommandArgument[]>(() => {
     return [...nonNbt, ...nbt]
 })
 
-const permissionName = computed(() =>
-    currentCommand.value ? t(PERMISSION_KEYS[currentCommand.value.permissionLevel]) : '',
-)
+const permissionName = computed(() => {
+    if (!currentCommand.value) return ''
+    const level = currentCommand.value.permissionLevel
+    return `${formatDynamic(PERMISSION_KEYS[level], PERMISSION_LABELS[level] ?? String(level))} (${level})`
+})
+
+const permissionTooltip = computed(() => {
+    if (!currentCommand.value) return undefined
+    if (currentCommand.value.id === 'seed') {
+        return formatMessage(messages.seedMultiplayerNote)
+    }
+    return formatDynamic(
+        PERMISSION_DESC_KEYS[currentCommand.value.permissionLevel],
+        PERMISSION_DESCRIPTIONS[currentCommand.value.permissionLevel],
+    )
+})
 
 const isChainCommand = computed(() => currentCommand.value?.isChainCommand === true)
 
@@ -212,7 +399,6 @@ watch(selectedVersion, (versionId) => {
     values.value = {}
     executeChainOutput.value = ''
     result.value = ''
-    // 切换版本时重置数据组件开关
     useDataComponents.value = true
 })
 
@@ -237,7 +423,13 @@ watch(
 )
 
 function onCommandChange(id: unknown) {
-    selectedCommandId.value = String(id)
+    const rawId = String(id)
+    let resolvedId = rawId
+    if (rawId.startsWith('alias:')) {
+        const parts = rawId.split(':')
+        resolvedId = parts[1] ?? ''
+    }
+    selectedCommandId.value = resolvedId
     copied.value = false
     executeChainOutput.value = ''
     if (!selectedCommandId.value) {
@@ -268,7 +460,9 @@ function generate() {
     }
 
     const validationErrors = validateCommand(selectedCommandId.value, values.value, (issue) =>
-        formatMessage(messages[issue.kind], { name: t(issue.argument.displayNameKey) }),
+        formatMessage(messages[issue.kind], {
+            name: formatDynamic(issue.argument.displayNameKey, issue.argument.name),
+        }),
     )
     if (validationErrors.length) {
         errors.value = validationErrors
@@ -279,7 +473,7 @@ function generate() {
     try {
         result.value = buildCommand(selectedCommandId.value, values.value)
     } catch (e) {
-        errors.value = [e instanceof Error ? e.message : 'Unknown error']
+        errors.value = [e instanceof Error ? e.message : formatMessage(messages.unknownError)]
         result.value = ''
     }
 }
@@ -330,7 +524,6 @@ function saveCurrentAsPreset() {
     }
 
     userPresets.value = getUserPresets()
-
     presetNameInput.value = ''
     showPresetInput.value = false
     showToast(formatMessage(messages.toastPresetSaved, { name }))
@@ -342,7 +535,6 @@ function removePreset(id: string) {
 
     deleteUserPreset(id)
     userPresets.value = getUserPresets()
-
     showToast(formatMessage(messages.toastPresetDeleted, { name: preset.name }))
 }
 
@@ -353,7 +545,7 @@ async function jumpToPreset(preset: UserPreset) {
     }
 
     filterCategory.value = ''
-    filterPermission.value = ''
+    filterPermission.value = '4'
 
     selectedCommandId.value = preset.commandId
     const cmd = findCommand(preset.commandId)
@@ -383,6 +575,15 @@ async function jumpToPreset(preset: UserPreset) {
 
     showGlobalPresets.value = false
     showToast(formatMessage(messages.toastPresetLoaded, { name: preset.name }))
+}
+
+async function openWiki() {
+    if (!currentCommand.value) return
+    try {
+        await openUrl(wikiUrl.value)
+    } catch (e) {
+        console.error('Failed to open wiki link:', e)
+    }
 }
 </script>
 
@@ -468,7 +669,7 @@ async function jumpToPreset(preset: UserPreset) {
                 <div
                     class="flex min-w-0 flex-col gap-4 border-0 border-b border-solid border-surface-4 p-4"
                 >
-                    <div class="flex flex-wrap items-end justify-between gap-3">
+                    <div class="flex flex-col items-start gap-3">
                         <div class="flex min-w-0 flex-col gap-2">
                             <label class="text-sm font-semibold text-[var(--color-text-primary)]">{{
                                 formatMessage(messages.selectVersion)
@@ -479,13 +680,11 @@ async function jumpToPreset(preset: UserPreset) {
                                 @update:model-value="selectedVersion = String($event)"
                             />
                         </div>
-                        <details class="min-w-0">
-                            <summary
-                                class="cursor-pointer rounded-lg p-2 text-sm text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)]"
-                            >
+                        <div class="flex min-w-0 flex-col gap-2">
+                            <span class="text-sm font-semibold text-[var(--color-text-primary)]">
                                 {{ formatMessage(messages.filters) }}
-                            </summary>
-                            <div class="mt-2 flex flex-wrap gap-3">
+                            </span>
+                            <div class="flex flex-wrap gap-3">
                                 <div class="flex min-w-0 flex-col gap-2">
                                     <label class="text-sm">{{
                                         formatMessage(messages.filterCategory)
@@ -503,11 +702,12 @@ async function jumpToPreset(preset: UserPreset) {
                                     ><Combobox
                                         :model-value="filterPermission"
                                         :options="permissionOptions"
+                                        width="full"
                                         @update:model-value="filterPermission = String($event)"
                                     />
                                 </div>
                             </div>
-                        </details>
+                        </div>
                     </div>
                     <div class="flex min-w-0 flex-col gap-2">
                         <label class="text-sm font-semibold text-[var(--color-text-primary)]">{{
@@ -521,26 +721,38 @@ async function jumpToPreset(preset: UserPreset) {
                             searchable
                             @update:model-value="onCommandChange"
                         >
-                            <template #option="{ item }"
-                                ><div class="flex min-w-0 flex-col gap-1">
-                                    <span class="font-mono font-semibold">/{{ item.value }}</span
-                                    ><span class="text-xs text-[var(--color-text-tertiary)]">{{
+                            <template #option="{ item }">
+                                <div class="flex min-w-0 flex-col gap-1">
+                                    <span class="flex flex-wrap items-baseline gap-1.5">
+                                        <span class="font-mono font-semibold"
+                                            >/{{ item.label }}</span
+                                        >
+                                        <span
+                                            v-if="asCommandOption(item).isAlias"
+                                            class="inline-flex items-center rounded bg-surface-3 px-1.5 py-0.5 text-[0.65rem] leading-none text-[var(--color-text-tertiary)]"
+                                        >
+                                            {{
+                                                formatMessage(messages.aliasOf, {
+                                                    command: asCommandOption(item).aliasOf,
+                                                })
+                                            }}
+                                        </span>
+                                    </span>
+                                    <span class="text-xs text-[var(--color-text-tertiary)]">{{
                                         asCommandOption(item).description
                                     }}</span>
-                                </div></template
-                            >
+                                </div>
+                            </template>
                         </Combobox>
                     </div>
                     <div
                         v-if="showDataComponentsToggle"
                         class="flex items-center justify-between gap-3 rounded-lg bg-surface-3 p-3 text-sm"
                     >
-                        <span>{{
-                            t('app.lab.command-generator.version.use-data-components')
-                        }}</span>
+                        <span>{{ formatMessage(messages.useDataComponents) }}</span>
                         <Toggle
                             v-model="useDataComponents"
-                            :aria-label="t('app.lab.command-generator.version.use-data-components')"
+                            :aria-label="formatMessage(messages.useDataComponents)"
                         />
                     </div>
                 </div>
@@ -574,10 +786,16 @@ async function jumpToPreset(preset: UserPreset) {
                                 /{{ currentCommand.name }}
                             </h2>
                             <p class="m-0 mt-1 text-sm leading-6 text-[var(--color-text-tertiary)]">
-                                {{ t(currentCommand.descriptionKey) }}
+                                {{
+                                    formatDynamic(
+                                        currentCommand.descriptionKey,
+                                        currentCommand.name,
+                                    )
+                                }}
                             </p>
                         </div>
                         <span
+                            v-tooltip="permissionTooltip"
                             class="rounded-md bg-surface-3 px-2 py-1 text-xs text-[var(--color-text-tertiary)]"
                             >{{ permissionName }}</span
                         >
@@ -600,7 +818,7 @@ async function jumpToPreset(preset: UserPreset) {
                                 <summary
                                     class="cursor-pointer text-sm font-semibold text-[var(--color-text-primary)]"
                                 >
-                                    {{ t(arg.displayNameKey) }}
+                                    {{ formatDynamic(arg.displayNameKey, arg.name) }}
                                     <span
                                         class="ml-2 font-normal text-[var(--color-text-tertiary)]"
                                         >{{ formatMessage(messages.optional) }}</span
@@ -672,20 +890,28 @@ async function jumpToPreset(preset: UserPreset) {
                             }}</Button
                         >
                     </div>
+
                     <div
                         v-if="currentCommand"
-                        class="mt-4 border-0 border-t border-solid border-surface-4 pt-3"
+                        class="mt-4 flex flex-wrap items-center gap-2 border-0 border-t border-solid border-surface-4 pt-3"
                     >
                         <Button
                             type="quiet"
                             size="sm"
                             :aria-expanded="showPresetInput"
                             @click="showPresetInput = !showPresetInput"
-                            ><BookmarkIcon />{{ formatMessage(messages.savePreset) }}</Button
                         >
+                            <BookmarkIcon />{{ formatMessage(messages.savePreset) }}
+                        </Button>
+
+                        <Button type="quiet" size="sm" @click="openWiki">
+                            <BookIcon class="h-4 w-4" />
+                            {{ formatMessage(messages.viewOnWiki) }}
+                        </Button>
+
                         <form
                             v-if="showPresetInput"
-                            class="mt-3 flex min-w-0 flex-wrap items-center gap-2"
+                            class="mt-3 flex w-full min-w-0 flex-wrap items-center gap-2"
                             @submit.prevent="saveCurrentAsPreset"
                         >
                             <StyledInput
@@ -699,6 +925,7 @@ async function jumpToPreset(preset: UserPreset) {
                             }}</Button>
                         </form>
                     </div>
+
                     <p
                         v-if="toast"
                         role="status"
@@ -713,14 +940,14 @@ async function jumpToPreset(preset: UserPreset) {
                     class="rounded-xl border border-solid border-surface-4 bg-surface-2 p-4"
                 >
                     <h2 class="m-0 text-base font-semibold text-[var(--color-text-primary)]">
-                        {{ t('app.lab.command-generator.guide-title') }}
+                        {{ formatMessage(messages.guideTitle) }}
                     </h2>
                     <p class="m-0 mt-2 text-sm leading-6 text-[var(--color-text-tertiary)]">
-                        {{ t(currentGuide.summaryKey) }}
+                        {{ formatDynamic(currentGuide.summaryKey, currentGuide.commandId) }}
                     </p>
                     <details class="mt-3">
                         <summary class="cursor-pointer text-sm font-medium">
-                            {{ t('app.lab.command-generator.guide-examples') }}
+                            {{ formatMessage(messages.guideExamples) }}
                         </summary>
                         <div class="mt-3 flex flex-col gap-3">
                             <div
@@ -735,7 +962,7 @@ async function jumpToPreset(preset: UserPreset) {
                                 <p
                                     class="m-0 mt-1 text-xs leading-5 text-[var(--color-text-tertiary)]"
                                 >
-                                    {{ t(ex.explanationKey) }}
+                                    {{ formatDynamic(ex.explanationKey, ex.command) }}
                                 </p>
                             </div>
                             <p
@@ -743,7 +970,7 @@ async function jumpToPreset(preset: UserPreset) {
                                 :key="tipKey"
                                 class="m-0 text-sm leading-6 text-[var(--color-text-tertiary)]"
                             >
-                                {{ t(tipKey) }}
+                                {{ formatDynamic(tipKey) }}
                             </p>
                         </div>
                     </details>

@@ -3,9 +3,8 @@
 //! `reqwest`'s connection pool opens a fresh TCP+TLS connection for every
 //! request that arrives while no idle connection is available, so a batch of
 //! concurrent downloads to one CDN costs one handshake per file. This module
-//! maintains multiplexed HTTP/2 connections per authority. The additional
-//! connection paths remain available for later re-enablement, but are
-//! temporarily disabled while their failure behavior is stabilized.
+//! maintains multiplexed HTTP/2 connections per authority and expands the
+//! pool for busy file downloads within the shared resource budgets.
 
 use crate::util::download::constants::H2_ADDITIONAL_CONNECTIONS_ENABLED as ADDITIONAL_H2_CONNECTIONS_ENABLED;
 use crate::util::download::constants::H2_CONNECTION_ATTEMPTS;
@@ -23,7 +22,6 @@ use crate::util::download::constants::{
     H2_POOL_HTTP_2_ROUTE_HAS_NO_AUTHORITY,
     H2_POOL_PINNED_TCP_CONNECTION_TIMED_OUT,
     H2_POOL_SHARED_HTTP_2_CONNECTION_IS_NOT_COVERED_BY_THE, HTTPS_PORT,
-    MODRINTH_CDN_AUTHORITY,
 };
 #[cfg(test)]
 use crate::util::download::constants::{
@@ -45,6 +43,8 @@ use tokio::sync::Mutex as AsyncMutex;
 use tokio::sync::Notify;
 use tokio_rustls::TlsConnector;
 
+mod proxy;
+
 use super::endpoint_selection::{EndpointLease, Protocol};
 use crate::util::fetch::DownloadRoute;
 
@@ -57,10 +57,6 @@ use super::constants::{
     H2_STREAM_READY_TIMEOUT as STREAM_READY_TIMEOUT,
     H2_TLS_HANDSHAKE_TIMEOUT as TLS_HANDSHAKE_TIMEOUT,
 };
-// Temporarily keep one multiplexed H2 connection per authority while the
-// additional-connection path is being stabilized. Re-enable the adaptive
-// pool and asset sibling connection together after their failure behavior is
-// verified.
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub(crate) enum H2ConnectFailureKind {
@@ -426,6 +422,9 @@ fn connection_identity(
             )
         })?;
     let lease = super::proxy_context::clients().and_then(|clients| {
+        if proxy::intercept(route).is_some() {
+            return None;
+        }
         if !super::endpoint_selection::EndpointSelector::eligible_network(
             &clients,
             route.proxy,
@@ -492,20 +491,29 @@ async fn parallel_connection_pool(
 }
 
 fn tls_config() -> Arc<ClientConfig> {
+    let ignore_ssl_errors = super::proxy_context::clients()
+        .is_some_and(|clients| clients.ignore_ssl_errors);
     #[cfg(test)]
     if let Ok(config) = TEST_TLS_CONFIG.try_with(Arc::clone) {
-        return config;
+        return if ignore_ssl_errors {
+            let mut config = (*config).clone();
+            accept_invalid_certificates(&mut config);
+            Arc::new(config)
+        } else {
+            config
+        };
     }
     static INSTALL_PROVIDER: Once = Once::new();
     INSTALL_PROVIDER.call_once(|| {
         let _ = rustls::crypto::ring::default_provider().install_default();
     });
-    static CONFIG: std::sync::LazyLock<Mutex<Option<Arc<ClientConfig>>>> =
-        std::sync::LazyLock::new(|| Mutex::new(None));
+    static CONFIG: std::sync::LazyLock<Mutex<[Option<Arc<ClientConfig>>; 2]>> =
+        std::sync::LazyLock::new(|| Mutex::new([None, None]));
     let mut guard = CONFIG
         .lock()
         .unwrap_or_else(|poisoned| poisoned.into_inner());
-    if let Some(config) = guard.as_ref() {
+    let cached = &mut guard[usize::from(ignore_ssl_errors)];
+    if let Some(config) = cached.as_ref() {
         return Arc::clone(config);
     }
     let mut config = ClientConfig::builder()
@@ -513,9 +521,78 @@ fn tls_config() -> Arc<ClientConfig> {
         .with_no_client_auth();
     config.enable_early_data = true;
     config.alpn_protocols = vec![b"h2".to_vec()];
+    if ignore_ssl_errors {
+        accept_invalid_certificates(&mut config);
+    }
     let config = Arc::new(config);
-    *guard = Some(Arc::clone(&config));
+    *cached = Some(Arc::clone(&config));
     config
+}
+
+fn accept_invalid_certificates(config: &mut ClientConfig) {
+    let algorithms = config.crypto_provider().signature_verification_algorithms;
+    config.dangerous().set_certificate_verifier(Arc::new(
+        IgnoreCertificateErrors { algorithms },
+    ));
+}
+
+struct IgnoreCertificateErrors {
+    algorithms: rustls::crypto::WebPkiSupportedAlgorithms,
+}
+
+impl std::fmt::Debug for IgnoreCertificateErrors {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter
+            .debug_struct("IgnoreCertificateErrors")
+            .finish_non_exhaustive()
+    }
+}
+
+impl rustls::client::danger::ServerCertVerifier for IgnoreCertificateErrors {
+    fn verify_server_cert(
+        &self,
+        _end_entity: &rustls_pki_types::CertificateDer<'_>,
+        _intermediates: &[rustls_pki_types::CertificateDer<'_>],
+        _server_name: &ServerName<'_>,
+        _ocsp_response: &[u8],
+        _now: rustls_pki_types::UnixTime,
+    ) -> Result<rustls::client::danger::ServerCertVerified, rustls::Error> {
+        Ok(rustls::client::danger::ServerCertVerified::assertion())
+    }
+
+    fn verify_tls12_signature(
+        &self,
+        message: &[u8],
+        cert: &rustls_pki_types::CertificateDer<'_>,
+        signature: &rustls::DigitallySignedStruct,
+    ) -> Result<rustls::client::danger::HandshakeSignatureValid, rustls::Error>
+    {
+        rustls::crypto::verify_tls12_signature(
+            message,
+            cert,
+            signature,
+            &self.algorithms,
+        )
+    }
+
+    fn verify_tls13_signature(
+        &self,
+        message: &[u8],
+        cert: &rustls_pki_types::CertificateDer<'_>,
+        signature: &rustls::DigitallySignedStruct,
+    ) -> Result<rustls::client::danger::HandshakeSignatureValid, rustls::Error>
+    {
+        rustls::crypto::verify_tls13_signature(
+            message,
+            cert,
+            signature,
+            &self.algorithms,
+        )
+    }
+
+    fn supported_verify_schemes(&self) -> Vec<rustls::SignatureScheme> {
+        self.algorithms.supported_schemes()
+    }
 }
 
 #[cfg(test)]
@@ -676,8 +753,9 @@ mod address_tests {
             proxy: ProxyPolicy::System,
         };
         super::super::proxy_context::with_snapshot(clients, async {
+            let limit = super::super::constants::MAX_CONNECTIONS_PER_AUTHORITY;
             // One of these normal permits is the caller's first socket.
-            let mut permits: Vec<_> = (0..31)
+            let mut permits: Vec<_> = (0..limit - 1)
                 .map(|_| {
                     super::super::native_budget::try_acquire(&route).unwrap()
                 })
@@ -704,7 +782,7 @@ mod address_tests {
             assert_eq!(super::super::native_budget::available(&route), 2);
             assert!(address_race_budget(&route, true, 1).is_none());
             drop(permits);
-            assert_eq!(super::super::native_budget::available(&route), 32);
+            assert_eq!(super::super::native_budget::available(&route), limit);
         })
         .await;
     }
@@ -716,6 +794,11 @@ async fn connect_tcp(
     route: &DownloadRoute,
     reserve_native_budget: bool,
 ) -> std::io::Result<TcpStream> {
+    // Proxy endpoints are commonly loopback IP literals. They must remain
+    // usable when DNS-over-HTTPS is enabled, without resolving an IP as a name.
+    if let Ok(address) = host.parse::<IpAddr>() {
+        return connect_addresses(host, port, &[address], false).await;
+    }
     // Prefer the ordered address list from the shared download resolver
     // (IPv4/IPv6 preference and per-IP reliability), falling back to the
     // system resolver when no list is cached yet.
@@ -821,12 +904,30 @@ async fn establish(
     } else {
         None
     };
-    let (host, port) = authority
-        .rsplit_once(':')
-        .map(|(host, port)| (host, port.parse::<u16>().unwrap_or(HTTPS_PORT)))
-        .unwrap_or((&authority, HTTPS_PORT));
-
-    let tcp_result = if let Some(lease) = &lease {
+    let destination = url::Url::parse(&route.url).map_err(|_| {
+        H2ConnectError::new(
+            H2ConnectFailureKind::Protocol,
+            "invalid HTTP/2 URL".into(),
+        )
+    })?;
+    let host = destination
+        .host_str()
+        .unwrap_or_default()
+        .trim_matches(['[', ']']);
+    let port = destination.port_or_known_default().unwrap_or(HTTPS_PORT);
+    let proxy = proxy::intercept(route);
+    // A selected origin endpoint cannot be used through a proxy: CONNECT and
+    // SOCKS must preserve proxy-side routing and hostname resolution.
+    let lease = if proxy.is_some() { None } else { lease };
+    let proxied = proxy.is_some();
+    let tcp_result: std::io::Result<(
+        proxy::BoxIo,
+        Option<std::net::SocketAddr>,
+    )> = if let Some(proxy) = proxy {
+        proxy::connect(route, proxy, reserve_native_budget)
+            .await
+            .map(|stream| (stream, None))
+    } else if let Some(lease) = &lease {
         tokio::time::timeout(
             CONNECT_TIMEOUT,
             TcpStream::connect(lease.pool.endpoint),
@@ -838,19 +939,27 @@ async fn establish(
                 H2_POOL_PINNED_TCP_CONNECTION_TIMED_OUT,
             ))
         })
+        .map(|tcp| {
+            let remote_addr = tcp.peer_addr().ok();
+            (Box::new(tcp) as proxy::BoxIo, remote_addr)
+        })
     } else {
-        connect_tcp(host, port, route, reserve_native_budget).await
+        connect_tcp(host, port, route, reserve_native_budget)
+            .await
+            .map(|tcp| {
+                let remote_addr = tcp.peer_addr().ok();
+                (Box::new(tcp) as proxy::BoxIo, remote_addr)
+            })
     };
-    let tcp = tcp_result.map_err(|error| {
-		H2ConnectError::new(
-			H2ConnectFailureKind::Tcp,
-			format!(
-				"failed to establish shared HTTP/2 connection to {authority}: {error}"
-			),
-		)
-	})?;
+    let (tcp, remote_addr) = tcp_result.map_err(|error| {
+        H2ConnectError::new(
+            H2ConnectFailureKind::Tcp,
+            format!(
+                "failed to establish shared HTTP/2 connection to {authority}: {error}"
+            ),
+        )
+    })?;
 
-    let remote_addr = tcp.peer_addr().ok();
     let server_name =
         ServerName::try_from(host.to_string()).map_err(|error| {
             H2ConnectError::new(
@@ -895,7 +1004,7 @@ async fn establish(
             )
         })?;
 
-    if let Some(address) = remote_addr {
+    if !proxied && let Some(address) = remote_addr {
         super::proxy_context::resolver(route.proxy)
             .record_host_success(host, address.ip());
     }
@@ -1321,14 +1430,7 @@ where
         + 'static,
 {
     let mut state = pool.lock().await;
-    if primary.authority == MODRINTH_CDN_AUTHORITY
-        && super::proxy_context::clients().is_some_and(|clients| {
-            clients.endpoints.mode()
-                == super::endpoint_selection::SelectionMode::Auto
-        })
-    {
-        state.enable_adaptive(std::time::Instant::now());
-    }
+    state.enable_adaptive(std::time::Instant::now());
     state.prune();
     state.add_connection(Arc::clone(&primary));
     if !allow_expansion {
@@ -1423,10 +1525,64 @@ mod parallel_pool_tests {
         assert_eq!(scheduler.connection_count(), 0);
         assert_eq!(scheduler.target(), 4);
     }
+
+    #[tokio::test]
+    async fn non_modrinth_pool_expands_and_failed_expansion_keeps_primary() {
+        for succeeds in [true, false] {
+            let primary = memory_connection().await;
+            let sibling = memory_connection().await;
+            let pool = Arc::new(AsyncMutex::new(AuthorityScheduler::default()));
+            let first = select_parallel_connection(
+                &pool,
+                primary.clone(),
+                true,
+                || async {
+                    panic!("one assigned stream must not expand the pool");
+                },
+            )
+            .await
+            .unwrap();
+            assert!(Arc::ptr_eq(&first, &primary));
+            assert_eq!(
+                pool.lock().await.target(),
+                super::super::constants::ADAPTIVE_CONNECTION_INITIAL_TARGET
+            );
+            let attempted = Arc::new(Notify::new());
+            let notify = attempted.clone();
+            let second = select_parallel_connection(
+                &pool,
+                primary.clone(),
+                true,
+                move || async move {
+                    notify.notify_one();
+                    if succeeds {
+                        Ok(sibling)
+                    } else {
+                        Err(H2ConnectError::new(
+                            H2ConnectFailureKind::Tcp,
+                            "injected optional expansion failure".into(),
+                        ))
+                    }
+                },
+            )
+            .await
+            .unwrap();
+            assert!(Arc::ptr_eq(&second, &primary));
+            tokio::time::timeout(Duration::from_secs(2), attempted.notified())
+                .await
+                .unwrap();
+            tokio::task::yield_now().await;
+            let mut state = pool.lock().await;
+            assert_eq!(state.connection_count(), if succeeds { 2 } else { 1 });
+            assert!(!primary.is_dead());
+            assert!(!primary.is_retiring());
+            assert!(state.select_connection().is_some());
+            primary.release_stream_reservation();
+            primary.release_stream_reservation();
+        }
+    }
 }
-/// Returns the optional second connection used exclusively by a busy asset
-/// batch. It is stored independently so ordinary file downloads retain their
-/// stable primary connection and never create extra TCP connections.
+/// Selects an asset connection through the same pool used by file downloads.
 pub(crate) async fn shared_batch_connection(
     route: &DownloadRoute,
     reserve_native_budget: bool,

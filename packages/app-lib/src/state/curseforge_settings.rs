@@ -3,10 +3,10 @@
 //! An empty value means the launcher does not override the key it was built
 //! with, which is the default for every database.
 
-use sqlx::{Executor, Sqlite};
+use sqlx::SqlitePool;
 
-const API_KEY_QUERY: &str =
-    "SELECT curseforge_api_key FROM settings WHERE id = 0";
+use crate::state::store::settings::Settings;
+use crate::state::store::{Handle, atom};
 
 pub(crate) fn normalize(api_key: Option<String>) -> Option<String> {
     api_key
@@ -14,25 +14,26 @@ pub(crate) fn normalize(api_key: Option<String>) -> Option<String> {
         .filter(|key| !key.is_empty())
 }
 
-pub async fn get<'a, E>(exec: E) -> crate::Result<Option<String>>
-where
-    E: Executor<'a, Database = Sqlite> + Copy,
-{
-    let api_key: String =
-        sqlx::query_scalar(API_KEY_QUERY).fetch_one(exec).await?;
-    Ok(normalize(Some(api_key)))
+pub async fn get(pool: &SqlitePool) -> crate::Result<Option<String>> {
+    let columns = Settings::owned_columns(&Handle::new(pool.clone())).await?;
+
+    Ok(normalize(Some(columns.curseforge_api_key)))
 }
 
-pub async fn set<'a, E>(exec: E, api_key: Option<&str>) -> crate::Result<()>
-where
-    E: Executor<'a, Database = Sqlite> + Copy,
-{
+pub async fn set(
+    pool: &SqlitePool,
+    api_key: Option<&str>,
+) -> crate::Result<()> {
     let api_key = normalize(api_key.map(str::to_string));
-    sqlx::query("UPDATE settings SET curseforge_api_key = ? WHERE id = 0")
-        .bind(api_key.unwrap_or_default())
-        .execute(exec)
-        .await?;
-    Ok(())
+
+    let handle = Handle::new(pool.clone());
+    let mut unit = atom(&handle).await?;
+    Settings::update_owned_in(&mut unit, |columns| {
+        columns.curseforge_api_key = api_key.unwrap_or_default();
+    })
+    .await?;
+
+    unit.commit().await
 }
 
 #[cfg(test)]
@@ -67,6 +68,30 @@ mod tests {
         set(&pool, Some("test-key")).await.unwrap();
         set(&pool, Some("   ")).await.unwrap();
         assert_eq!(get(&pool).await.unwrap(), None);
+    }
+
+    #[tokio::test]
+    async fn setting_the_key_leaves_the_proxy_columns_as_they_were() {
+        let pool = test_pool().await;
+        sqlx::query(
+            "UPDATE settings
+             SET proxy_mode = 'custom', proxy_url = 'http://proxy.test:8080'
+             WHERE id = 0",
+        )
+        .execute(&pool)
+        .await
+        .unwrap();
+
+        set(&pool, Some("test-key")).await.unwrap();
+
+        let (mode, url): (String, String) = sqlx::query_as(
+            "SELECT proxy_mode, proxy_url FROM settings WHERE id = 0",
+        )
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+        assert_eq!(mode, "custom");
+        assert_eq!(url, "http://proxy.test:8080");
     }
 
     #[tokio::test]

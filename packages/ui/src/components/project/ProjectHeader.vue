@@ -1,7 +1,13 @@
 <template>
     <ContentPageHeader>
         <template #icon>
-            <Avatar :src="project.icon_url" :alt="project.title" size="96px" />
+            <Avatar
+                loading="lazy"
+                decoding="async"
+                :src="project.icon_url"
+                :alt="project.title"
+                size="96px"
+            />
         </template>
         <template #title>
             <div>

@@ -16,13 +16,14 @@ use reqwest::{Response, StatusCode};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
-use sqlx::Row;
 use url::Url;
 use uuid::Uuid;
 
+use crate::state::documents;
+use crate::state::documents::ai::{AiDocument, ProviderConfig};
 use crate::{ErrorKind, State};
 
-const CATALOG_SOURCE: &str = "LobeHub 49204982cab98bfa2f2fb6831a34d5018a2af6be";
+const CATALOG_SOURCE: &str = "LobeHub 483c4a343e437bf6e812b5f71a9a47ce7b5c7be4";
 const KEYRING_PREFIX: &str = "ai-provider";
 const OAUTH_CREDENTIAL: &str = "oauth";
 const API_KEY_CREDENTIAL: &str = "api-key";
@@ -134,45 +135,45 @@ pub struct AiProviderDefinition {
 }
 
 macro_rules! provider {
-	($id:literal, $name:literal, $protocol:ident, $endpoint:literal, $model:literal, $fetch:literal) => {
-		AiProviderDefinition {
-			id: $id,
-			name: $name,
-			protocol: AiProtocol::$protocol,
-			auth_type: AiAuthType::ApiKey,
-			default_endpoint: $endpoint,
-			check_model: $model,
-			show_model_fetcher: $fetch,
-			required_settings: &[],
-			sponsored: false,
-		}
-	};
-	($id:literal, $name:literal, $protocol:ident, $endpoint:literal, $model:literal, $fetch:literal, $auth:ident) => {
-		AiProviderDefinition {
-			id: $id,
-			name: $name,
-			protocol: AiProtocol::$protocol,
-			auth_type: AiAuthType::$auth,
-			default_endpoint: $endpoint,
-			check_model: $model,
-			show_model_fetcher: $fetch,
-			required_settings: &[],
-			sponsored: false,
-		}
-	};
-	($id:literal, $name:literal, $protocol:ident, $endpoint:literal, $model:literal, $fetch:literal, [$($setting:literal),*]) => {
-		AiProviderDefinition {
-			id: $id,
-			name: $name,
-			protocol: AiProtocol::$protocol,
-			auth_type: AiAuthType::ApiKey,
-			default_endpoint: $endpoint,
-			check_model: $model,
-			show_model_fetcher: $fetch,
-			required_settings: &[$($setting),*],
-			sponsored: false,
-		}
-	};
+    ($id:literal, $name:literal, $protocol:ident, $endpoint:literal, $model:literal, $fetch:literal) => {
+        AiProviderDefinition {
+            id: $id,
+            name: $name,
+            protocol: AiProtocol::$protocol,
+            auth_type: AiAuthType::ApiKey,
+            default_endpoint: $endpoint,
+            check_model: $model,
+            show_model_fetcher: $fetch,
+            required_settings: &[],
+            sponsored: false,
+        }
+    };
+    ($id:literal, $name:literal, $protocol:ident, $endpoint:literal, $model:literal, $fetch:literal, $auth:ident) => {
+        AiProviderDefinition {
+            id: $id,
+            name: $name,
+            protocol: AiProtocol::$protocol,
+            auth_type: AiAuthType::$auth,
+            default_endpoint: $endpoint,
+            check_model: $model,
+            show_model_fetcher: $fetch,
+            required_settings: &[],
+            sponsored: false,
+        }
+    };
+    ($id:literal, $name:literal, $protocol:ident, $endpoint:literal, $model:literal, $fetch:literal, [$($setting:literal),*]) => {
+        AiProviderDefinition {
+            id: $id,
+            name: $name,
+            protocol: AiProtocol::$protocol,
+            auth_type: AiAuthType::ApiKey,
+            default_endpoint: $endpoint,
+            check_model: $model,
+            show_model_fetcher: $fetch,
+            required_settings: &[$($setting),*],
+            sponsored: false,
+        }
+    };
 }
 
 // Text-capable providers from LobeHub's model bank. Image-only providers and
@@ -295,13 +296,22 @@ const PROVIDERS: &[AiProviderDefinition] = &[
         true,
         ["account_id"]
     ),
-    // Sponsored listing; kept out of LobeHub syncs by
-    // scripts/axolotl/sync-lobehub-models.mjs. See SPONSORED_PROVIDERS.
+    // Sponsored listing; scripts/axolotl/sync-lobehub-models.mjs syncs its
+    // models from CodeFlow's public pricing API instead of LobeHub. See
+    // SPONSORED_PROVIDERS.
     provider!(
         "codeflow",
         "CodeFlow",
         Openai,
         "https://codeflow.sh/v1",
+        "gpt-6.1-sol",
+        true
+    ),
+    provider!(
+        "fastai",
+        "FastAI",
+        Openai,
+        "https://api.fastaitoken.com/v1",
         "gpt-6.1-sol",
         true
     ),
@@ -822,7 +832,7 @@ const PROVIDERS: &[AiProviderDefinition] = &[
 /// Sponsored provider ids. These listings are part of paid partnerships and
 /// must survive LobeHub model syncing; scripts/axolotl/sync-lobehub-models.mjs
 /// refuses to rewrite ai.rs when any of them is missing.
-const SPONSORED_PROVIDERS: &[&str] = &["codeflow"];
+const SPONSORED_PROVIDERS: &[&str] = &["codeflow", "fastai"];
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AiSettings {
@@ -1448,10 +1458,10 @@ fn read_oauth_credentials(
         .map(|value| {
             serde_json::from_str(&value).map_err(|_| {
                 ErrorKind::OtherError(
-					"Stored AI OAuth credentials are invalid; reconnect the provider"
-						.to_string(),
-				)
-				.as_error()
+                    "Stored AI OAuth credentials are invalid; reconnect the provider"
+                        .to_string(),
+                )
+                .as_error()
             })
         })
         .transpose()
@@ -1503,47 +1513,60 @@ pub fn catalog() -> Vec<AiProviderDefinition> {
 
 async fn discard_legacy_openai_secret() -> crate::Result<()> {
     let state = State::get().await?;
-    let cleanup = sqlx::query_scalar::<_, i64>(
-        "SELECT legacy_openai_credential_cleanup FROM ai_settings WHERE id = 0",
-    )
-    .fetch_one(&state.pool)
-    .await?
-        != 0;
-    if !cleanup {
+    let documents = documents::Documents::new(&state);
+    if !documents::ai::read(&documents)
+        .await?
+        .legacy_openai_credential_cleanup
+    {
         return Ok(());
     }
     write_credential("openai", API_KEY_CREDENTIAL, None)?;
-    sqlx::query(
-        "UPDATE ai_settings SET legacy_openai_credential_cleanup = FALSE WHERE id = 0",
-    )
-    .execute(&state.pool)
-    .await?;
-    Ok(())
+    documents::ai::set_legacy_openai_credential_cleanup(&documents, false).await
+}
+
+async fn read_ai_document(state: &State) -> crate::Result<AiDocument> {
+    documents::ai::read(&documents::Documents::new(state)).await
 }
 
 async fn load_provider_models(
     provider_id: &str,
 ) -> crate::Result<Vec<AiProviderModel>> {
     let state = State::get().await?;
-    let rows = sqlx::query(
-		"SELECT model_id, display_name, enabled, source FROM ai_provider_models WHERE provider_id = ? ORDER BY display_name, model_id",
-	)
-	.bind(provider_id)
-	.fetch_all(&state.pool)
-	.await?;
-    let mut stored = rows
-        .into_iter()
-        .map(|row| {
-            let model = AiProviderModel {
-                id: row.get("model_id"),
-                name: row.get::<String, _>("display_name"),
-                enabled: row.get::<i64, _>("enabled") != 0,
-                source: row.get("source"),
-            };
-            (model.id.clone(), model)
+    let document = read_ai_document(&state).await?;
+    Ok(models_from_document(&document, provider_id))
+}
+
+fn models_from_document(
+    document: &AiDocument,
+    provider_id: &str,
+) -> Vec<AiProviderModel> {
+    let stored = document
+        .models
+        .iter()
+        .filter(|model| model.provider_id == provider_id)
+        .map(|model| AiProviderModel {
+            id: model.model_id.clone(),
+            name: model.display_name.clone(),
+            enabled: model.enabled,
+            source: model.source.clone(),
         })
+        .collect();
+    merge_provider_models(builtin_models(provider_id), stored)
+}
+
+/// Overlays saved rows on the bundled models. A `builtin` row only records a
+/// toggle or rename of a bundled model, so once a catalog sync drops that model
+/// the row is ignored rather than resurfacing a model the provider may no
+/// longer serve. Custom and fetched rows are the user's own and are kept.
+fn merge_provider_models(
+    bundled: &[BuiltinModel],
+    stored: Vec<AiProviderModel>,
+) -> Vec<AiProviderModel> {
+    let mut stored = stored
+        .into_iter()
+        .map(|model| (model.id.clone(), model))
         .collect::<HashMap<_, _>>();
-    let mut models = builtin_models(provider_id)
+    let mut models = bundled
         .iter()
         .map(|builtin| {
             let saved = stored.remove(&builtin.id);
@@ -1561,14 +1584,17 @@ async fn load_provider_models(
             }
         })
         .collect::<Vec<_>>();
-    let mut additional = stored.into_values().collect::<Vec<_>>();
+    let mut additional = stored
+        .into_values()
+        .filter(|model| model.source != "builtin")
+        .collect::<Vec<_>>();
     additional.sort_by(|left, right| {
         left.name
             .cmp(&right.name)
             .then_with(|| left.id.cmp(&right.id))
     });
     models.extend(additional);
-    Ok(models)
+    models
 }
 
 fn builtin_models(provider_id: &str) -> &[BuiltinModel] {
@@ -1579,33 +1605,25 @@ fn builtin_models(provider_id: &str) -> &[BuiltinModel] {
         .unwrap_or_default()
 }
 
-async fn load_provider_config(
+fn load_provider_config(
+    document: &AiDocument,
     definition: &AiProviderDefinition,
 ) -> crate::Result<AiProviderConfig> {
-    let state = State::get().await?;
-    let row = sqlx::query(
-		"SELECT custom_name, protocol, enabled, endpoint, settings FROM ai_provider_configs WHERE provider_id = ?",
-	)
-	.bind(definition.id)
-	.fetch_optional(&state.pool)
-	.await?;
-    let (custom_name, protocol, enabled, endpoint, settings) = match row {
-        Some(row) => {
-            let settings = serde_json::from_str::<HashMap<String, String>>(
-                &row.get::<String, _>("settings"),
-            )
-            .unwrap_or_default();
-            (
-                row.get("custom_name"),
-                AiProtocol::from_str(&row.get::<String, _>("protocol"))?,
-                row.get::<i64, _>("enabled") != 0,
-                normalize_endpoint(
-                    &row.get::<String, _>("endpoint"),
-                    definition.default_endpoint,
-                )?,
-                settings,
-            )
-        }
+    let (custom_name, protocol, enabled, endpoint, settings) = match document
+        .providers
+        .get(definition.id)
+    {
+        Some(config) => (
+            config.custom_name.clone(),
+            AiProtocol::from_str(&config.protocol)?,
+            config.enabled,
+            normalize_endpoint(&config.endpoint, definition.default_endpoint)?,
+            config
+                .settings
+                .iter()
+                .map(|(name, value)| (name.clone(), value.clone()))
+                .collect(),
+        ),
         None => (
             None,
             definition.protocol,
@@ -1614,7 +1632,7 @@ async fn load_provider_config(
             HashMap::new(),
         ),
     };
-    let mut models = load_provider_models(definition.id).await?;
+    let mut models = models_from_document(document, definition.id);
     if models.is_empty() && !definition.check_model.is_empty() {
         models.push(AiProviderModel {
             id: definition.check_model.to_string(),
@@ -1648,18 +1666,15 @@ async fn load_provider_config(
 pub async fn get_state() -> crate::Result<AiState> {
     discard_legacy_openai_secret().await?;
     let state = State::get().await?;
-    let enabled = sqlx::query_scalar::<_, i64>(
-        "SELECT enabled FROM ai_settings WHERE id = 0",
-    )
-    .fetch_one(&state.pool)
-    .await?
-        != 0;
+    let document = read_ai_document(&state).await?;
     let mut providers = Vec::with_capacity(PROVIDERS.len());
     for definition in PROVIDERS {
-        providers.push(load_provider_config(definition).await?);
+        providers.push(load_provider_config(&document, definition)?);
     }
     Ok(AiState {
-        settings: AiSettings { enabled },
+        settings: AiSettings {
+            enabled: document.enabled,
+        },
         catalog_source: CATALOG_SOURCE,
         providers,
     })
@@ -1668,11 +1683,11 @@ pub async fn get_state() -> crate::Result<AiState> {
 #[tracing::instrument]
 pub async fn update_settings(settings: AiSettings) -> crate::Result<()> {
     let state = State::get().await?;
-    sqlx::query("UPDATE ai_settings SET enabled = ? WHERE id = 0")
-        .bind(settings.enabled)
-        .execute(&state.pool)
-        .await?;
-    Ok(())
+    documents::ai::set_enabled(
+        &documents::Documents::new(&state),
+        settings.enabled,
+    )
+    .await
 }
 
 #[tracing::instrument(skip(update))]
@@ -1691,21 +1706,21 @@ pub async fn update_provider(
             "Configure the provider endpoint before enabling it".to_string(),
         ));
     }
-    let settings = serde_json::to_string(&update.settings)
-        .map_err(|error| ErrorKind::OtherError(error.to_string()))?;
     let state = State::get().await?;
-    sqlx::query(
-		"INSERT INTO ai_provider_configs (provider_id, custom_name, protocol, enabled, endpoint, settings) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(provider_id) DO UPDATE SET custom_name = excluded.custom_name, protocol = excluded.protocol, enabled = excluded.enabled, endpoint = excluded.endpoint, settings = excluded.settings",
-	)
-	.bind(definition.id)
-	.bind(update.custom_name.map(|value| value.trim().to_string()))
-	.bind(definition.protocol.as_str())
-	.bind(update.enabled)
-	.bind(endpoint)
-	.bind(settings)
-	.execute(&state.pool)
-	.await?;
-    Ok(())
+    documents::ai::upsert_provider(
+        &documents::Documents::new(&state),
+        definition.id.to_string(),
+        ProviderConfig {
+            custom_name: update
+                .custom_name
+                .map(|value| value.trim().to_string()),
+            protocol: definition.protocol.as_str().to_string(),
+            enabled: update.enabled,
+            endpoint,
+            settings: update.settings.into_iter().collect(),
+        },
+    )
+    .await
 }
 
 #[tracing::instrument(skip(secret))]
@@ -1736,17 +1751,23 @@ pub fn set_credential(
 
 #[tracing::instrument(skip(update))]
 pub async fn update_model(update: AiModelUpdate) -> crate::Result<()> {
-    provider_definition(&update.provider_id)?;
-    let model_id = update.model_id.trim();
+    let AiModelUpdate {
+        provider_id,
+        model_id,
+        display_name,
+        enabled,
+    } = update;
+    provider_definition(&provider_id)?;
+    let model_id = model_id.trim().to_string();
     if model_id.is_empty() {
         return Err(input_error("AI model ID cannot be empty".to_string()));
     }
-    let display_name = if update.display_name.trim().is_empty() {
-        model_id
+    let display_name = if display_name.trim().is_empty() {
+        model_id.clone()
     } else {
-        update.display_name.trim()
+        display_name.trim().to_string()
     };
-    let source = if builtin_models(&update.provider_id)
+    let source = if builtin_models(&provider_id)
         .iter()
         .any(|model| model.id == model_id)
     {
@@ -1755,17 +1776,15 @@ pub async fn update_model(update: AiModelUpdate) -> crate::Result<()> {
         "custom"
     };
     let state = State::get().await?;
-    sqlx::query(
-		"INSERT INTO ai_provider_models (provider_id, model_id, display_name, enabled, source) VALUES (?, ?, ?, ?, ?) ON CONFLICT(provider_id, model_id) DO UPDATE SET display_name = excluded.display_name, enabled = excluded.enabled, source = CASE WHEN excluded.source = 'builtin' THEN 'builtin' ELSE ai_provider_models.source END",
-	)
-	.bind(&update.provider_id)
-	.bind(model_id)
-	.bind(display_name)
-	.bind(update.enabled)
-	.bind(source)
-	.execute(&state.pool)
-	.await?;
-    Ok(())
+    documents::ai::upsert_model(
+        &documents::Documents::new(&state),
+        provider_id,
+        model_id,
+        display_name,
+        enabled,
+        source.to_string(),
+    )
+    .await
 }
 
 #[tracing::instrument]
@@ -1775,14 +1794,12 @@ pub async fn remove_model(
 ) -> crate::Result<()> {
     provider_definition(&provider_id)?;
     let state = State::get().await?;
-    sqlx::query(
-        "DELETE FROM ai_provider_models WHERE provider_id = ? AND model_id = ?",
+    documents::ai::remove_model(
+        &documents::Documents::new(&state),
+        &provider_id,
+        &model_id,
     )
-    .bind(provider_id)
-    .bind(model_id)
-    .execute(&state.pool)
-    .await?;
-    Ok(())
+    .await
 }
 
 fn endpoint_with_path(base: &str, path: &str) -> String {
@@ -2987,17 +3004,12 @@ async fn complete_cloudflare(
 #[tracing::instrument(skip(request), fields(provider_id = %request.provider_id, model_id = %request.model_id))]
 pub async fn complete_text(request: AiTextRequest) -> crate::Result<String> {
     let state = State::get().await?;
-    let enabled = sqlx::query_scalar::<_, i64>(
-        "SELECT enabled FROM ai_settings WHERE id = 0",
-    )
-    .fetch_one(&state.pool)
-    .await?
-        != 0;
-    if !enabled {
+    let document = read_ai_document(&state).await?;
+    if !document.enabled {
         return Err(input_error("AI features are disabled".to_string()));
     }
     let definition = provider_definition(&request.provider_id)?;
-    let config = load_provider_config(definition).await?;
+    let config = load_provider_config(&document, definition)?;
     if !config.enabled {
         return Err(input_error(format!("{} is disabled", definition.name)));
     }
@@ -3177,7 +3189,11 @@ pub async fn fetch_models(
             definition.name
         )));
     }
-    let config = load_provider_config(definition).await?;
+    let config = {
+        let state = State::get().await?;
+        let document = read_ai_document(&state).await?;
+        load_provider_config(&document, definition)?
+    };
     let key = if definition.auth_type == AiAuthType::OAuthDeviceFlow {
         fresh_oauth_credentials(definition.id).await?.access_token
     } else {
@@ -3261,15 +3277,15 @@ pub async fn fetch_models(
         .into());
     }
     let state = State::get().await?;
+    let documents = documents::Documents::new(&state);
     for (id, name) in &models {
-        sqlx::query(
-			"INSERT INTO ai_provider_models (provider_id, model_id, display_name, enabled, source) VALUES (?, ?, ?, TRUE, 'remote') ON CONFLICT(provider_id, model_id) DO UPDATE SET display_name = CASE WHEN ai_provider_models.source = 'custom' THEN ai_provider_models.display_name ELSE excluded.display_name END",
-		)
-		.bind(&provider_id)
-		.bind(id)
-		.bind(name)
-		.execute(&state.pool)
-		.await?;
+        documents::ai::upsert_discovered_model(
+            &documents,
+            provider_id.clone(),
+            id.to_string(),
+            name.to_string(),
+        )
+        .await?;
     }
     load_provider_models(&provider_id).await
 }
@@ -3816,7 +3832,7 @@ mod tests {
 
     #[test]
     fn catalog_matches_lobehub_text_provider_scope() {
-        assert_eq!(PROVIDERS.len(), 80);
+        assert_eq!(PROVIDERS.len(), 81);
         for excluded in ["bfl", "comfyui", "fal", "replicate", "lobehub"] {
             assert!(!PROVIDERS.iter().any(|provider| provider.id == excluded));
         }
@@ -3843,11 +3859,51 @@ mod tests {
                 .filter(|provider| SPONSORED_PROVIDERS.contains(&provider.id))
                 .all(|provider| provider.sponsored)
         );
-        assert!(
+        assert_eq!(
             catalog
                 .iter()
-                .any(|provider| provider.id == "codeflow" && provider.sponsored)
+                .filter(|provider| provider.sponsored)
+                .map(|provider| provider.id)
+                .collect::<Vec<_>>(),
+            ["codeflow", "fastai"]
         );
+    }
+
+    #[test]
+    fn saved_rows_of_models_dropped_from_the_catalog_are_ignored() {
+        let builtin = [BuiltinModel {
+            id: "kept".to_string(),
+            name: "Kept".to_string(),
+            enabled: true,
+        }];
+        let saved = |id: &str, name: &str, source: &str| AiProviderModel {
+            id: id.to_string(),
+            name: name.to_string(),
+            enabled: false,
+            source: source.to_string(),
+        };
+        let models = merge_provider_models(
+            &builtin,
+            vec![
+                saved("kept", "Renamed", "builtin"),
+                saved("dropped", "Dropped", "builtin"),
+                saved("fetched", "Fetched", "remote"),
+                saved("added", "Added", "custom"),
+            ],
+        );
+        assert_eq!(
+            models
+                .iter()
+                .map(|model| (model.id.as_str(), model.source.as_str()))
+                .collect::<Vec<_>>(),
+            [
+                ("kept", "builtin"),
+                ("added", "custom"),
+                ("fetched", "remote")
+            ]
+        );
+        assert_eq!(models[0].name, "Renamed");
+        assert!(!models[0].enabled);
     }
 
     #[test]

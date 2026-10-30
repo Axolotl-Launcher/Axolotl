@@ -1,7 +1,7 @@
 [package]
 name = "theseus"
 # The actual version is set by the theseus-build workflow on tagging
-version = "1.10.0"
+version = "1.10.4"
 edition.workspace = true
 
 [dependencies]
@@ -43,6 +43,7 @@ either = { workspace = true }
 encoding_rs = { workspace = true }
 enumset = { workspace = true }
 eyre = { workspace = true }
+fast-socks5 = { workspace = true }
 flate2 = { workspace = true }
 fs4 = { workspace = true, features = ["tokio"] }
 futures = { workspace = true, features = ["alloc", "async-await"] }
@@ -52,6 +53,12 @@ heck = { workspace = true }
 hickory-resolver = { workspace = true }
 hmac = { workspace = true }
 http = { workspace = true }
+hyper-util = { workspace = true, features = [
+  "client-legacy",
+  "client-proxy",
+  "client-proxy-system",
+  "tokio",
+] }
 iana-time-zone = { workspace = true }
 indicatif = { workspace = true, optional = true }
 itertools = { workspace = true }
@@ -90,7 +97,6 @@ rgb = { workspace = true }
 rustls = { workspace = true }
 rustls-native-certs = { workspace = true }
 rustls-pki-types = { workspace = true }
-semver = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 serde_cbor = { workspace = true }
 serde_ini = { workspace = true }
@@ -132,6 +138,7 @@ tokio-util = { workspace = true, features = [
   "time"
 ] }
 toml = { workspace = true }
+tower-service = { workspace = true }
 tracing = { workspace = true }
 tracing-error = { workspace = true }
 tracing-subscriber = { workspace = true, features = ["chrono", "env-filter"] }
@@ -153,6 +160,7 @@ rcgen = { version = "0.14.7", default-features = false, features = ["ring"] }
 [build-dependencies]
 dotenvy = { workspace = true }
 dunce = { workspace = true }
+sha2 = { workspace = true }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 cidre = { workspace = true, features = ["blocks", "nw"] }

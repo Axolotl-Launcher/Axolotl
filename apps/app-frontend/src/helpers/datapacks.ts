@@ -21,6 +21,8 @@ export type WorldDatapack = {
 
 export type WorldWithDatapacks = SingleplayerWorld & {
     datapacks: WorldDatapack[]
+    read_error?: string
+    state_error?: string
 }
 
 export async function listDatapacks(instanceId: string): Promise<WorldWithDatapacks[]> {

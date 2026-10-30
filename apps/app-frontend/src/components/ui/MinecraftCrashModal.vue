@@ -1330,10 +1330,10 @@ defineExpose({
                         </p>
                     </div>
                     <!--
-						The modal has no header of its own, so the close control lives with the
-						title, in the flow: positioned against the modal body it would be laid
-						out before that body has its measured width and start off at the corner.
-					-->
+                        The modal has no header of its own, so the close control lives with the
+                        title, in the flow: positioned against the modal body it would be laid
+                        out before that body has its measured width and start off at the corner.
+                    -->
                     <Button
                         v-tooltip="formatMessage(commonMessages.closeButton)"
                         circular

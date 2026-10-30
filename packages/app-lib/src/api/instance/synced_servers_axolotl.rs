@@ -1,5 +1,14 @@
 use crate::State;
 use crate::state::InstanceMetadata;
+use crate::state::instances::adapters::sqlite::projection_entries::ProjectionEntryRow;
+use crate::state::instances::adapters::sqlite::{
+    instance_servers, projection_entries,
+};
+use crate::state::store::Collection as _;
+use crate::state::store::atom;
+use crate::state::store::instance_sync_preferences::InstanceSyncPreferences;
+use crate::state::store::synced_server_state::SyncedServerState;
+use crate::state::store::synced_servers::{SyncedServerRecord, SyncedServers};
 use quartz_nbt::{NbtCompound, NbtList, NbtTag};
 use std::path::PathBuf;
 
@@ -39,19 +48,20 @@ pub(crate) async fn reconcile_servers(
         return Ok(());
     }
     let servers = decode_servers(&bytes)?;
-    let mut tx = state.pool.begin().await?;
-    sqlx::query("DELETE FROM synced_servers")
-        .execute(&mut *tx)
-        .await?;
+    let mut records = Vec::with_capacity(servers.len());
     for (position, nbt) in servers.into_iter().enumerate() {
-        let id = server_id(&nbt);
-        let encoded = encode_server(&nbt)?;
-        sqlx::query("INSERT INTO synced_servers(id,position,nbt) VALUES(?,?,?) ON CONFLICT(id) DO UPDATE SET position=excluded.position,nbt=excluded.nbt")
-            .bind(id).bind(position as i64).bind(encoded).execute(&mut *tx).await?;
+        records.push((
+            server_id(&nbt),
+            SyncedServerRecord {
+                position: position as i64,
+                nbt: encode_server(&nbt)?,
+            },
+        ));
     }
-    sqlx::query("INSERT INTO synced_server_state(singleton,revision) VALUES(1,1) ON CONFLICT(singleton) DO UPDATE SET revision=revision+1")
-        .execute(&mut *tx).await?;
-    tx.commit().await?;
+    let mut unit = atom(&state.data).await?;
+    SyncedServers::atom_set_all(&mut unit, &records).await?;
+    SyncedServerState::bump_in(&mut unit).await?;
+    unit.commit().await?;
     write_and_project(state).await?;
     Ok(())
 }
@@ -88,19 +98,14 @@ pub(crate) async fn canonical_exists(state: &State) -> crate::Result<bool> {
 }
 pub async fn list_synced_servers() -> crate::Result<Vec<SyncedServer>> {
     let state = State::get().await?;
-    let rows = sqlx::query(
-        "SELECT id, position, nbt FROM synced_servers ORDER BY position",
-    )
-    .fetch_all(&state.pool)
-    .await?;
-    use sqlx::Row;
+    let rows = SyncedServers::get_all(&state.data).await?;
     rows.into_iter()
-        .map(|r| {
+        .map(|(id, record)| {
             let data = crate::api::instance::synced_options::nbt_from_bytes(
-                r.get("nbt"),
+                record.nbt,
             )?;
             Ok(SyncedServer {
-                id: r.get("id"),
+                id,
                 name: data
                     .get::<_, &str>("name")
                     .unwrap_or_default()
@@ -127,23 +132,25 @@ pub async fn update_synced_server(server: SyncedServer) -> crate::Result<()> {
         data.insert("acceptTextures", i8::from(value));
     }
     let nbt = encode_server(&data)?;
-    let position: i64=sqlx::query_scalar("SELECT COALESCE((SELECT position FROM synced_servers WHERE id=?),(SELECT COALESCE(MAX(position),-1)+1 FROM synced_servers))").bind(&server.id).fetch_one(&state.pool).await?;
-    let mut tx = state.pool.begin().await?;
-    sqlx::query("INSERT INTO synced_servers(id,position,nbt) VALUES(?,?,?) ON CONFLICT(id) DO UPDATE SET nbt=excluded.nbt").bind(server.id).bind(position).bind(nbt).execute(&mut *tx).await?;
-    sqlx::query("INSERT INTO synced_server_state(singleton,revision) VALUES(1,1) ON CONFLICT(singleton) DO UPDATE SET revision=revision+1").execute(&mut *tx).await?;
-    tx.commit().await?;
+    let position = SyncedServers::position_for(&state.data, &server.id).await?;
+    let mut unit = atom(&state.data).await?;
+    SyncedServers::atom_set(
+        &mut unit,
+        &server.id,
+        Some(&SyncedServerRecord { position, nbt }),
+    )
+    .await?;
+    SyncedServerState::bump_in(&mut unit).await?;
+    unit.commit().await?;
     write_and_project(&state).await?;
     Ok(())
 }
 pub async fn remove_synced_server(id: String) -> crate::Result<()> {
     let state = State::get().await?;
-    let mut tx = state.pool.begin().await?;
-    sqlx::query("DELETE FROM synced_servers WHERE id=?")
-        .bind(id)
-        .execute(&mut *tx)
-        .await?;
-    sqlx::query("INSERT INTO synced_server_state(singleton,revision) VALUES(1,1) ON CONFLICT(singleton) DO UPDATE SET revision=revision+1").execute(&mut *tx).await?;
-    tx.commit().await?;
+    let mut unit = atom(&state.data).await?;
+    SyncedServers::atom_set(&mut unit, &id, None).await?;
+    SyncedServerState::bump_in(&mut unit).await?;
+    unit.commit().await?;
     normalize_positions(&state).await?;
     write_and_project(&state).await?;
     Ok(())
@@ -189,14 +196,12 @@ fn server_id(server: &NbtCompound) -> String {
 }
 
 async fn write_canonical(state: &State) -> crate::Result<()> {
-    use sqlx::Row;
-    let rows = sqlx::query("SELECT nbt FROM synced_servers ORDER BY position")
-        .fetch_all(&state.pool)
-        .await?;
+    let rows = SyncedServers::get_all(&state.data).await?;
     let mut list = NbtList::new();
-    for row in rows {
-        let bytes: Vec<u8> = row.get("nbt");
-        list.push(crate::api::instance::synced_options::nbt_from_bytes(bytes)?);
+    for (_, record) in rows {
+        list.push(crate::api::instance::synced_options::nbt_from_bytes(
+            record.nbt,
+        )?);
     }
     let mut root = NbtCompound::new();
     root.insert("servers", list);
@@ -213,74 +218,50 @@ async fn write_canonical(state: &State) -> crate::Result<()> {
 }
 
 async fn normalize_positions(state: &State) -> crate::Result<()> {
-    use sqlx::Row;
-    let rows =
-        sqlx::query("SELECT id FROM synced_servers ORDER BY position, id")
-            .fetch_all(&state.pool)
-            .await?;
-    let mut tx = state.pool.begin().await?;
-    sqlx::query("UPDATE synced_servers SET position=position+2000000")
-        .execute(&mut *tx)
-        .await?;
-    for (position, row) in rows.into_iter().enumerate() {
-        let id: String = row.get("id");
-        sqlx::query("UPDATE synced_servers SET position=? WHERE id=?")
-            .bind(position as i64)
-            .bind(id)
-            .execute(&mut *tx)
-            .await?;
+    let rows = SyncedServers::get_all(&state.data).await?;
+    let mut unit = atom(&state.data).await?;
+    SyncedServers::shift_positions_in(&mut unit, 2_000_000).await?;
+    for (position, (id, mut record)) in rows.into_iter().enumerate() {
+        record.position = position as i64;
+        SyncedServers::atom_set(&mut unit, &id, Some(&record)).await?;
     }
-    tx.commit().await?;
+    unit.commit().await?;
     Ok(())
 }
 
 async fn write_and_project(state: &State) -> crate::Result<()> {
-    use sqlx::Row;
     write_canonical(state).await?;
     let canonical = canonical_path(state);
-    let rows = sqlx::query("SELECT instance_id FROM instance_sync_preferences WHERE feature='multiplayer_servers' AND enabled=1").fetch_all(&state.pool).await?;
-    for row in rows {
-        let id: String = row.get("instance_id");
+    let rows = InstanceSyncPreferences::instances_with_feature_enabled(
+        &state.data,
+        "multiplayer_servers",
+    )
+    .await?;
+    for id in rows {
         if let Some(metadata) =
             crate::state::get_instance(&id, &state.pool).await?
         {
             let target = crate::api::instance::synced_options::instance_dir(
                 &metadata, state,
             )
-                .join("servers.dat");
-            let excluded = sqlx::query_scalar::<_, i64>(
-                "SELECT COUNT(*) FROM instance_servers
-                 WHERE instance_id = ? AND source = 'local_desynced'
-                   AND excluded_synced_server_id IS NOT NULL",
-            )
-            .bind(&id)
-            .fetch_one(&state.pool)
-            .await?
-                > 0;
-            sqlx::query("DELETE FROM instance_server_projection_entries WHERE instance_id = ?")
-                .bind(&id)
-                .execute(&state.pool)
+            .join("servers.dat");
+            let excluded =
+                instance_servers::has_desynced_synced_server(&id, &state.pool)
+                    .await?;
+            let canonical_rows = SyncedServers::get_all(&state.data).await?;
+            let entries = canonical_rows
+                .into_iter()
+                .map(|(server_id, record)| ProjectionEntryRow {
+                    owner: "synced".to_string(),
+                    server_id,
+                    nbt: record.nbt,
+                    position: record.position,
+                })
+                .collect::<Vec<_>>();
+            let mut tx = state.pool.begin().await?;
+            projection_entries::replace_projection(&mut tx, &id, &entries)
                 .await?;
-            let canonical_rows = sqlx::query(
-                "SELECT id, nbt, position FROM synced_servers ORDER BY position",
-            )
-            .fetch_all(&state.pool)
-            .await?;
-            for canonical_row in canonical_rows {
-                sqlx::query(
-                    "INSERT INTO instance_server_projection_entries
-                     (instance_id, owner, server_id, nbt, position)
-                     VALUES (?, 'synced', ?, ?, ?)
-                     ON CONFLICT(instance_id, owner, server_id) DO UPDATE SET
-                       nbt=excluded.nbt, position=excluded.position",
-                )
-                .bind(&id)
-                .bind(canonical_row.get::<String, _>("id"))
-                .bind(canonical_row.get::<Vec<u8>, _>("nbt"))
-                .bind(canonical_row.get::<i64, _>("position"))
-                .execute(&state.pool)
-                .await?;
-            }
+            tx.commit().await?;
             if excluded {
                 continue;
             }

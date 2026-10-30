@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "\n        UPDATE instances\n        SET\n            path = ?,\n            applied_content_set_id = ?,\n            install_stage = ?,\n            launcher_feature_version = ?,\n            update_channel = ?,\n            name = ?,\n            icon_path = ?,\n            symlink_target = ?,\n            game_dir_override = ?,\n            modified = ?,\n            last_played = ?,\n            pinned_at = ?,\n            submitted_time_played = ?,\n            recent_time_played = ?\n        WHERE id = ?\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 15
+    },
+    "nullable": []
+  },
+  "hash": "2bff58a8104f42f65c1baaa2128a9942b65f138697bcc7bae60a40238ed93fde"
+}

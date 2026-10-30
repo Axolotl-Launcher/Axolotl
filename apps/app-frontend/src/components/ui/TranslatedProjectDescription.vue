@@ -1,7 +1,9 @@
 <script setup lang="ts">
+import { ProjectPageSkeleton } from '@modrinth/ui'
 import { configuredXss, renderHighlightedString } from '@modrinth/utils'
-import { computed } from 'vue'
+import { computed, onScopeDispose, ref, watch } from 'vue'
 
+import { runAfterPageTransitionSettle } from '@/helpers/page-transition'
 import {
     prepareDescription,
     renderTranslatedDescription,
@@ -18,18 +20,47 @@ const props = defineProps<{
     format?: 'markdown' | 'html'
 }>()
 
-const renderedDescription = computed(() => {
-    if (!props.active) {
-        return props.format === 'html'
-            ? configuredXss.process(props.description ?? '')
-            : renderHighlightedString(props.description ?? '')
-    }
-    return renderTranslatedDescription(
-        prepareDescription(props.description, props.format),
+const renderedDescription = ref<string | null>(null)
+let renderVersion = 0
+watch(
+    () => [
+        props.description,
+        props.format,
+        props.active,
         props.translations,
         props.mode,
         props.style,
-    )
+    ],
+    (values, previous) => {
+        const version = ++renderVersion
+        if (!previous || values[0] !== previous[0] || values[1] !== previous[1])
+            renderedDescription.value = null
+        const { description, format, active, translations, mode, style } = props
+        runAfterPageTransitionSettle(() => {
+            if (version !== renderVersion) return
+            const rendered = !active
+                ? format === 'html'
+                    ? configuredXss.process(description ?? '')
+                    : renderHighlightedString(description ?? '')
+                : renderTranslatedDescription(
+                      prepareDescription(description, format),
+                      translations,
+                      mode,
+                      style,
+                  )
+            const template = document.createElement('template')
+            template.innerHTML = rendered
+            for (const image of template.content.querySelectorAll('img')) {
+                image.loading = 'lazy'
+                image.decoding = 'async'
+            }
+            renderedDescription.value = template.innerHTML
+        })
+    },
+    { immediate: true, deep: true },
+)
+onScopeDispose(() => {
+    renderVersion++
 })
 
 const translationOnlyClass = computed(() =>
@@ -40,8 +71,9 @@ const translationOnlyClass = computed(() =>
 </script>
 
 <template>
+    <ProjectPageSkeleton v-if="renderedDescription === null" variant="description" />
     <!-- eslint-disable-next-line vue/no-v-html -->
-    <div class="markdown-body" :class="translationOnlyClass" v-html="renderedDescription" />
+    <div v-else class="markdown-body" :class="translationOnlyClass" v-html="renderedDescription" />
 </template>
 
 <style scoped>

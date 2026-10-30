@@ -437,6 +437,8 @@ fn main() {
                         "resource_prepare_entry_operation",
                         "resource_list_installed",
                         "resource_check_updates",
+                        "resource_start_content_refresh",
+                        "resource_get_content_refresh_state",
                         "resource_revise_plan",
                         "resource_queue_plan",
                         "resource_list_history",
@@ -478,17 +480,8 @@ fn main() {
                         "curseforge_set_api_key",
                         "curseforge_validate_credentials",
                         "curseforge_search_projects",
-                        "curseforge_get_project",
-                        "curseforge_get_projects",
-                        "curseforge_get_description",
-                        "curseforge_get_files",
-                        "curseforge_get_files_page",
-                        "curseforge_get_file",
-                        "curseforge_get_files_many",
-                        "curseforge_get_changelog",
                         "curseforge_get_download_url",
                         "curseforge_get_categories",
-                        "curseforge_match_fingerprints",
                         "curseforge_recognize_instance_files",
                         "curseforge_import_manual_downloads",
                         "curseforge_list_pending_manual_downloads",
@@ -610,6 +603,7 @@ fn main() {
                     .commands(&[
                         "get_available_capes",
                         "get_available_skins",
+                        "lookup_player_skin",
                         "add_and_equip_custom_skin",
                         "equip_skin",
                         "remove_custom_skin",
@@ -737,6 +731,7 @@ fn main() {
                         "instance_plan_content_updates",
                         "instance_apply_content_update_plan",
                         "instance_plan_upgrade",
+                        "instance_cancel_upgrade_planning",
                         "instance_get_upgrade_plan",
                         "instance_discard_upgrade_plan",
                         "instance_update_upgrade_resolution",
@@ -873,6 +868,7 @@ fn main() {
                         "seed_map_spawn",
                         "seed_map_biome_at",
                         "seed_map_scan_ores",
+                        "seed_map_cancel_ore_scan",
                         "seed_map_read_level_dat",
                         "seed_map_structure_details",
                         "seed_map_container_loot",
@@ -914,6 +910,21 @@ fn main() {
                         "tags_get_loaders",
                         "tags_get_game_versions",
                         "tags_get_donation_platforms",
+                    ])
+                    .default_permission(
+                        DefaultPermissionRule::AllowAllCommands,
+                    ),
+            )
+            .plugin(
+                "mcp",
+                InlinedPlugin::new()
+                    .commands(&[
+                        "mcp_get_state",
+                        "mcp_configure",
+                        "mcp_respond",
+                        "mcp_disconnect",
+                        "mcp_ui_claim",
+                        "mcp_ui_respond",
                     ])
                     .default_permission(
                         DefaultPermissionRule::AllowAllCommands,
@@ -1185,6 +1196,7 @@ fn main() {
                         "mod_translation_analyze",
                         "mod_translation_translate",
                         "mod_translation_cancel",
+                        "mod_translation_cancel_analysis",
                         "mod_translation_list_tasks",
                         "mod_translation_get_task",
                         "mod_translation_dismiss_task",

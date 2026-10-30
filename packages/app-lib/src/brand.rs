@@ -8,7 +8,7 @@ pub const DEEP_LINK_SCHEME: &str = "axolotl";
 const MAX_DATA_DIR_SUFFIX_LEN: usize = 32;
 
 pub fn user_agent(version: &str, os: &str) -> String {
-    format!("garbage-human-studio/axolotl/{version} ({os})")
+    format!("Axolotl-Launcher/{version} ({os})")
 }
 
 /// Name of the directory the launcher keeps its settings, databases and logs in.
@@ -64,7 +64,7 @@ mod tests {
     fn user_agent_is_unique_and_contains_no_contact_information() {
         let user_agent = user_agent("1.2.3", "windows");
 
-        assert_eq!(user_agent, "garbage-human-studio/axolotl/1.2.3 (windows)");
+        assert_eq!(user_agent, "Axolotl-Launcher/1.2.3 (windows)");
         assert!(!user_agent.contains("ghs.red"));
         assert!(!user_agent.contains("http"));
         assert!(!user_agent.contains('@'));

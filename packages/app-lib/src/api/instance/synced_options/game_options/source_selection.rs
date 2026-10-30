@@ -10,11 +10,32 @@ use super::options_file::{
     input_error, options_path, read_document, validate_raw_key_value,
 };
 use super::read_instance_changes::custom_setting_id;
+use crate::state::store::Collection as _;
+use crate::state::store::atom;
+use crate::state::store::instance_sync_preferences::{
+    InstancePreferenceKey, InstancePreferenceRecord, InstanceSyncPreferences,
+};
+use crate::state::store::sync_feature_settings::{
+    FeatureSettingsKey, FeatureSettingsRecord, SyncFeatureSettings,
+};
+use crate::state::store::synced_game_option_preferences::{
+    GameOptionPreferenceRecord, GameOptionPreferenceSource,
+    SyncedGameOptionPreferences,
+};
+use crate::state::store::synced_game_option_state::{
+    GameOptionStateRecord, Singleton, SyncedGameOptionState,
+};
+use crate::state::store::synced_game_option_values::{
+    GameOptionValueKind, GameOptionValueOrigin, GameOptionValueRecord,
+    SyncedGameOptionValues,
+};
 use crate::state::{
     CanonicalValue, InstanceMetadata, State, load_game_option_preferences,
     load_game_options_sync_state, load_shared_game_options,
 };
 use chrono::Utc;
+
+const SYNC_FEATURE: &str = "game_options";
 
 /// Uses the selected instance's `options.txt` as the initial shared settings.
 pub(in crate::api::instance) async fn initialize_from_source_instance(
@@ -30,10 +51,10 @@ pub(in crate::api::instance) async fn initialize_from_source_instance(
     let (document, _) = read_document(&path).await?;
     let launcher_keys = currently_launcher_owned_keys(metadata);
     let entries = document.effective_entries();
-    let current_values = load_shared_game_options(&state.pool).await?;
-    let current_preferences = load_game_option_preferences(&state.pool).await?;
+    let current_values = load_shared_game_options(&state.data).await?;
+    let current_preferences = load_game_option_preferences(&state.data).await?;
     let (current_revision, _) =
-        load_game_options_sync_state(&state.pool, CATALOG_REVISION).await?;
+        load_game_options_sync_state(&state.data, CATALOG_REVISION).await?;
     let now = Utc::now().timestamp();
     let source_version = metadata.applied_content_set.game_version.as_str();
     let source_id = metadata.instance.id.as_str();
@@ -43,47 +64,48 @@ pub(in crate::api::instance) async fn initialize_from_source_instance(
         } else {
             None
         };
-    let mut tx = state.pool.begin().await?;
+    let mut unit = atom(&state.data).await?;
     let catalog_revision = CATALOG_REVISION as i64;
 
-    sqlx::query!(
-        "
-		INSERT INTO sync_feature_settings
-			(feature, globally_enabled, new_instance_default)
-		VALUES ('game_options', 1, 1)
-		ON CONFLICT(feature) DO UPDATE SET globally_enabled = 1
-		",
+    let feature_key = FeatureSettingsKey {
+        feature: SYNC_FEATURE.to_string(),
+    };
+    let stored_feature =
+        SyncFeatureSettings::atom_get(&mut unit, &feature_key).await?;
+    SyncFeatureSettings::atom_set(
+        &mut unit,
+        &feature_key,
+        Some(&FeatureSettingsRecord {
+            globally_enabled: true,
+            new_instance_default: stored_feature
+                .is_none_or(|stored| stored.new_instance_default),
+        }),
     )
-    .execute(&mut *tx)
     .await?;
-    sqlx::query!(
-        "
-		INSERT INTO instance_sync_preferences (instance_id, feature, enabled)
-		VALUES (?, 'game_options', 1)
-		ON CONFLICT(instance_id, feature) DO UPDATE SET enabled = 1
-		",
-        source_id,
+    let instance_key = InstancePreferenceKey {
+        instance_id: source_id.to_string(),
+        feature: SYNC_FEATURE.to_string(),
+    };
+    InstanceSyncPreferences::atom_set(
+        &mut unit,
+        &instance_key,
+        Some(&InstancePreferenceRecord { enabled: true }),
     )
-    .execute(&mut *tx)
     .await?;
-    sqlx::query!(
-        "
-		INSERT INTO synced_game_option_state (singleton, revision, catalog_revision)
-		VALUES (1, 0, ?)
-		ON CONFLICT(singleton) DO UPDATE SET
-			catalog_revision = excluded.catalog_revision
-		",
-        catalog_revision,
-    )
-    .execute(&mut *tx)
-    .await?;
-    sqlx::query!(
-        "UPDATE synced_game_option_values
-		 SET seeded = 0, revision = revision + 1, updated_at = ?",
-        now,
-    )
-    .execute(&mut *tx)
-    .await?;
+    let stored_values = SyncedGameOptionValues::atom_get_all(&mut unit).await?;
+    for (option_id, stored) in stored_values {
+        SyncedGameOptionValues::atom_set(
+            &mut unit,
+            &option_id,
+            Some(&GameOptionValueRecord {
+                seeded: false,
+                revision: stored.revision.saturating_add(1),
+                updated_at: now,
+                ..stored
+            }),
+        )
+        .await?;
+    }
     for definition in all_supported_settings() {
         for key in definition.keys {
             let custom_id = custom_setting_id(key);
@@ -99,29 +121,36 @@ pub(in crate::api::instance) async fn initialize_from_source_instance(
                         .unwrap_or(0),
                 )
                 .saturating_add(1) as i64;
-            sqlx::query!(
-                "
-				UPDATE synced_game_option_values
-				SET seeded = 0, revision = ?, updated_at = ?
-				WHERE option_id = ?
-				",
-                revision,
-                now,
-                custom_id,
-            )
-            .execute(&mut *tx)
-            .await?;
-            sqlx::query!(
-                "
-				UPDATE synced_game_option_preferences
-				SET enabled = 0, source = 'catalog_default', revision = ?
-				WHERE option_id = ?
-				",
-                revision,
-                custom_id,
-            )
-            .execute(&mut *tx)
-            .await?;
+            if let Some(stored) =
+                SyncedGameOptionValues::atom_get(&mut unit, &custom_id).await?
+            {
+                SyncedGameOptionValues::atom_set(
+                    &mut unit,
+                    &custom_id,
+                    Some(&GameOptionValueRecord {
+                        seeded: false,
+                        revision,
+                        updated_at: now,
+                        ..stored
+                    }),
+                )
+                .await?;
+            }
+            if SyncedGameOptionPreferences::atom_get(&mut unit, &custom_id)
+                .await?
+                .is_some()
+            {
+                SyncedGameOptionPreferences::atom_set(
+                    &mut unit,
+                    &custom_id,
+                    Some(&GameOptionPreferenceRecord {
+                        enabled: false,
+                        source: GameOptionPreferenceSource::CatalogDefault,
+                        revision,
+                    }),
+                )
+                .await?;
+            }
         }
     }
     let mut seeded_any = false;
@@ -170,48 +199,40 @@ pub(in crate::api::instance) async fn initialize_from_source_instance(
             .saturating_add(1) as i64;
         let value_json = serde_json::to_string(&value)?;
         let canonical_type = value.type_name();
-        sqlx::query!(
-            "
-			INSERT INTO synced_game_option_values
-				(option_id, kind, raw_key, canonical_type,
-				 canonical_value_json, value_codec, seeded, revision, origin,
-				 source_game_version, source_instance_id, updated_at)
-			VALUES (?, 'vanilla', NULL, ?, ?, 'catalog', 1, ?,
-				'source_seed', ?, ?, ?)
-			ON CONFLICT(option_id) DO UPDATE SET
-				kind = 'vanilla', raw_key = NULL,
-				canonical_type = excluded.canonical_type,
-				canonical_value_json = excluded.canonical_value_json,
-				value_codec = excluded.value_codec, seeded = 1,
-				revision = excluded.revision, origin = 'source_seed',
-				source_game_version = excluded.source_game_version,
-				source_instance_id = excluded.source_instance_id,
-				updated_at = excluded.updated_at
-			",
-            definition.id,
-            canonical_type,
-            value_json,
-            option_revision,
-            source_version,
-            source_id,
-            now,
+        let option_id = definition.id.to_string();
+        SyncedGameOptionValues::atom_set(
+            &mut unit,
+            &option_id,
+            Some(&GameOptionValueRecord {
+                kind: GameOptionValueKind::Vanilla,
+                raw_key: None,
+                canonical_type: canonical_type.to_string(),
+                canonical_value: Some(value_json),
+                value_codec: "catalog".to_string(),
+                seeded: true,
+                revision: option_revision,
+                origin: GameOptionValueOrigin::SourceSeed,
+                source_game_version: Some(source_version.to_string()),
+                source_instance_id: Some(source_id.to_string()),
+                updated_at: now,
+            }),
         )
-        .execute(&mut *tx)
         .await?;
-        let default_enabled = definition.default_on;
-        sqlx::query!(
-            "
-			INSERT INTO synced_game_option_preferences
-				(option_id, enabled, source, revision)
-			VALUES (?, ?, 'catalog_default', ?)
-			ON CONFLICT(option_id) DO NOTHING
-			",
-            definition.id,
-            default_enabled,
-            option_revision,
-        )
-        .execute(&mut *tx)
-        .await?;
+        if SyncedGameOptionPreferences::atom_get(&mut unit, &option_id)
+            .await?
+            .is_none()
+        {
+            SyncedGameOptionPreferences::atom_set(
+                &mut unit,
+                &option_id,
+                Some(&GameOptionPreferenceRecord {
+                    enabled: definition.default_on,
+                    source: GameOptionPreferenceSource::CatalogDefault,
+                    revision: option_revision,
+                }),
+            )
+            .await?;
+        }
     }
 
     for (key, (index, _)) in entries {
@@ -242,45 +263,51 @@ pub(in crate::api::instance) async fn initialize_from_source_instance(
             )
             .saturating_add(1) as i64;
         let value_json = serde_json::to_string(&value)?;
-        sqlx::query!(
-            "
-			INSERT INTO synced_game_option_values
-				(option_id, kind, raw_key, canonical_type,
-				 canonical_value_json, value_codec, seeded, revision, origin,
-				 source_game_version, source_instance_id, updated_at)
-			VALUES (?, 'external', ?, 'external_raw', ?, 'exact_raw',
-				1, ?, 'source_seed', ?, ?, ?)
-			ON CONFLICT(option_id) DO UPDATE SET
-				raw_key = excluded.raw_key,
-				canonical_value_json = excluded.canonical_value_json,
-				seeded = 1, revision = excluded.revision,
-				origin = 'source_seed',
-				source_game_version = excluded.source_game_version,
-				source_instance_id = excluded.source_instance_id,
-				updated_at = excluded.updated_at
-			",
-            option_id,
-            key,
-            value_json,
-            option_revision,
-            source_version,
-            source_id,
-            now,
-        )
-        .execute(&mut *tx)
-        .await?;
-        sqlx::query(
-            "
-			INSERT INTO synced_game_option_preferences
-				(option_id, enabled, source, revision)
-			VALUES (?, 0, 'discovery_default', ?)
-			ON CONFLICT(option_id) DO NOTHING
-			",
-        )
-        .bind(option_id)
-        .bind(option_revision)
-        .execute(&mut *tx)
-        .await?;
+        let stored =
+            SyncedGameOptionValues::atom_get(&mut unit, &option_id).await?;
+        let record = match stored {
+            Some(stored) => GameOptionValueRecord {
+                raw_key: Some(key.to_string()),
+                canonical_value: Some(value_json),
+                seeded: true,
+                revision: option_revision,
+                origin: GameOptionValueOrigin::SourceSeed,
+                source_game_version: Some(source_version.to_string()),
+                source_instance_id: Some(source_id.to_string()),
+                updated_at: now,
+                ..stored
+            },
+            None => GameOptionValueRecord {
+                kind: GameOptionValueKind::External,
+                raw_key: Some(key.to_string()),
+                canonical_type: "external_raw".to_string(),
+                canonical_value: Some(value_json),
+                value_codec: "exact_raw".to_string(),
+                seeded: true,
+                revision: option_revision,
+                origin: GameOptionValueOrigin::SourceSeed,
+                source_game_version: Some(source_version.to_string()),
+                source_instance_id: Some(source_id.to_string()),
+                updated_at: now,
+            },
+        };
+        SyncedGameOptionValues::atom_set(&mut unit, &option_id, Some(&record))
+            .await?;
+        if SyncedGameOptionPreferences::atom_get(&mut unit, &option_id)
+            .await?
+            .is_none()
+        {
+            SyncedGameOptionPreferences::atom_set(
+                &mut unit,
+                &option_id,
+                Some(&GameOptionPreferenceRecord {
+                    enabled: false,
+                    source: GameOptionPreferenceSource::DiscoveryDefault,
+                    revision: option_revision,
+                }),
+            )
+            .await?;
+        }
     }
     if !seeded_any {
         return Err(input_error(
@@ -289,29 +316,31 @@ pub(in crate::api::instance) async fn initialize_from_source_instance(
     }
 
     let next_revision = current_revision.saturating_add(1) as i64;
-    sqlx::query!(
-        "
-		UPDATE synced_game_option_state
-		SET revision = ?, catalog_revision = ?
-		WHERE singleton = 1
-		",
-        next_revision,
-        catalog_revision,
+    SyncedGameOptionState::atom_set(
+        &mut unit,
+        &Singleton,
+        Some(&GameOptionStateRecord {
+            revision: next_revision,
+            catalog_revision,
+        }),
     )
-    .execute(&mut *tx)
     .await?;
     if let Some(value) = fullscreen_value.as_ref() {
-        update_app_fullscreen_setting(&mut tx, value, fullscreen_sync_enabled)
-            .await?;
+        update_app_fullscreen_setting(
+            &mut unit,
+            value,
+            fullscreen_sync_enabled,
+        )
+        .await?;
     }
+    unit.commit().await?;
     super::locales::record_observations(
-        &mut tx,
+        &state.data,
         metadata,
         &document,
         locale_snapshot.as_deref(),
     )
     .await;
-    tx.commit().await?;
     super::locales::queue_game_locale_index();
     Ok(())
 }

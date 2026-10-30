@@ -8,10 +8,11 @@ import {
     useVIntl,
 } from '@modrinth/ui'
 import { platform } from '@tauri-apps/plugin-os'
-import { type Ref, ref, watch } from 'vue'
+import { nextTick, type Ref, ref, watch } from 'vue'
 
 import { edit } from '@/helpers/instance'
 import { get } from '@/helpers/settings.ts'
+import { usableU16 } from '@/helpers/usable-u16'
 import { injectInstanceSettings } from '@/providers/instance-settings'
 
 import type { AppSettings, GameInstance } from '../../../helpers/types'
@@ -38,7 +39,30 @@ const fullscreenSetting: Ref<boolean> = ref(
 )
 const maximizeWindowSetting = ref(initialInstance.maximize_window ?? globalSettings.maximize_window)
 const windowTitle = ref(initialInstance.window_title ?? '')
+// Incremented when an unusable size edit is discarded, so both number fields re-mount
+// and show the stored value again instead of the text the user cleared.
+const dimensionResetToken = ref(0)
 let saveQueue = Promise.resolve()
+
+const widthInput = ref<InstanceType<typeof StyledInput>>()
+const heightInput = ref<InstanceType<typeof StyledInput>>()
+
+function setDimension(index: 0 | 1, value: unknown) {
+    const usable = usableU16(value)
+    if (usable === null) {
+        // Re-mount the field so it shows the value that is still stored: re-assigning an
+        // equal number does not change the bound prop, so Vue would leave the cleared
+        // text in place. Focus the field the user was editing again, so discarding the
+        // update does not cost them a click.
+        dimensionResetToken.value += 1
+        return nextTick().then(() => {
+            const field = index === 0 ? widthInput.value : heightInput.value
+            field?.focus()
+            field?.select()
+        })
+    }
+    resolution.value = index === 0 ? [usable, resolution.value[1]] : [resolution.value[0], usable]
+}
 
 watch(
     [
@@ -201,11 +225,17 @@ const messages = defineMessages({
             </div>
             <StyledInput
                 id="width"
-                v-model="resolution[0]"
+                ref="widthInput"
+                :key="`width-${dimensionResetToken}`"
+                :model-value="resolution[0]"
                 autocomplete="off"
                 :disabled="!overrideWindowSettings || fullscreenSetting"
                 type="number"
+                min="1"
+                max="65535"
+                step="1"
                 :placeholder="formatMessage(messages.enterWidth)"
+                @update:model-value="(value: unknown) => setDimension(0, value)"
             />
         </div>
 
@@ -220,11 +250,17 @@ const messages = defineMessages({
             </div>
             <StyledInput
                 id="height"
-                v-model="resolution[1]"
+                ref="heightInput"
+                :key="`height-${dimensionResetToken}`"
+                :model-value="resolution[1]"
                 autocomplete="off"
                 :disabled="!overrideWindowSettings || fullscreenSetting"
                 type="number"
+                min="1"
+                max="65535"
+                step="1"
                 :placeholder="formatMessage(messages.enterHeight)"
+                @update:model-value="(value: unknown) => setDimension(1, value)"
             />
         </div>
         <div

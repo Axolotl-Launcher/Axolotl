@@ -3,6 +3,7 @@
 mod backup;
 mod content;
 mod core_components;
+
 mod get;
 mod groups;
 mod home;
@@ -23,6 +24,19 @@ pub(crate) mod synced_packs {
 mod synced_packs_axolotl;
 pub(crate) mod synced_servers;
 mod upgrade;
+
+/// Coordinate direct file edits with installation admission and content writers.
+/// Keep the opaque guard alive until the filesystem operation has finished.
+pub async fn lock_content_file_edit(
+    instance_id: &str,
+) -> crate::Result<impl Send + use<>> {
+    let state = crate::State::get().await?;
+    let admission =
+        crate::install::runner::interactive_content_guard(&state, instance_id)
+            .await?;
+    let content = state.lock_instance_content_exclusive(instance_id).await;
+    Ok((admission, content))
+}
 
 pub use self::backup::{
     BackupDeleteSummary, BackupExclusion, BackupExclusionKind, BackupOperation,
@@ -54,12 +68,13 @@ pub(crate) use self::backup::{
 };
 pub(crate) use self::content::resolve_content_change_actions;
 pub use self::content::{
-    apply_content_update_plan, get_content_items, get_content_items_by_paths,
-    get_content_snapshot, get_content_snapshot_for_display,
-    get_dependencies_as_content_items, get_install_candidates,
-    get_installed_project_ids, get_linked_modpack_content,
-    get_linked_modpack_info, get_projects, list_content_sets,
-    plan_content_updates, refresh_content, sync_content_files,
+    ContentUpdateApplyResult, apply_content_update_plan, get_content_items,
+    get_content_items_by_paths, get_content_snapshot,
+    get_content_snapshot_for_display, get_dependencies_as_content_items,
+    get_install_candidates, get_installed_project_ids,
+    get_linked_modpack_content, get_linked_modpack_info, get_projects,
+    list_content_sets, plan_content_updates, refresh_content,
+    sync_content_files,
 };
 pub(crate) use self::core_components::assemble_for_launch;
 pub use self::core_components::{

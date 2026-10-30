@@ -151,3 +151,33 @@ it('retains a source-only historical locator and reports failure when the resour
         'all sources unavailable',
     )
 })
+
+it('reports each settled source before unrelated batches complete', async () => {
+    vi.clearAllMocks()
+    let finish!: (value: Awaited<ReturnType<typeof resourceProjectDocuments>>) => void
+    const metadata = { project: { source: 'curseforge', projectId: 'two' }, title: 'Fast project' }
+    vi.mocked(resourceProjectDocuments).mockImplementation(async (source) =>
+        source === 'modrinth'
+            ? new Promise((resolve) => {
+                  finish = resolve
+              })
+            : ([{ metadata }] as Awaited<ReturnType<typeof resourceProjectDocuments>>),
+    )
+    const progress = vi.fn()
+    const pending = prefetchContentFavorites(
+        [
+            { provider: 'modrinth', project_id: 'one', content_type: 'mod', saved_at: 1 },
+            { provider: 'curseforge', project_id: 'two', content_type: 'mod', saved_at: 2 },
+        ],
+        undefined,
+        'useFresh',
+        progress,
+    )
+    await vi.waitFor(() => expect(progress).toHaveBeenCalledTimes(1))
+    expect(progress).toHaveBeenCalledWith('curseforge', expect.any(Map))
+    expect(progress.mock.calls[0][1].get('curseforge:two')).toEqual(metadata)
+    finish([])
+    const complete = await pending
+    expect(progress).toHaveBeenCalledTimes(2)
+    expect(complete.get('curseforge:two')).toEqual(metadata)
+})

@@ -3656,29 +3656,8 @@
   "drop.launcher_import.no_instances": {
     "message": "找不到實例"
   },
-  "drop.symlink_method.title": {
-    "message": "選擇匯入方式"
-  },
   "drop.symlink_method.subtitle": {
     "message": "正在匯入 {n} 個實例"
-  },
-  "drop.symlink_method.copy_title": {
-    "message": "複製檔案"
-  },
-  "drop.symlink_method.copy_desc": {
-    "message": "複製到 Axolotl 目錄"
-  },
-  "drop.symlink_method.symlink_title": {
-    "message": "符號連結"
-  },
-  "drop.symlink_method.symlink_desc": {
-    "message": "引用原始位置"
-  },
-  "drop.symlink_method.requires_admin": {
-    "message": "建立連結時將要求一次系統管理員授權（UAC）"
-  },
-  "drop.symlink_method.unsupported_warning": {
-    "message": "此系統不支援符號連結"
   },
   "drop.symlink_method.cancel": {
     "message": "取消"
@@ -4213,9 +4192,6 @@
   },
   "drop.symlink_method.latest": {
     "message": "最新"
-  },
-  "drop.symlink_method.method": {
-    "message": "导入方式"
   },
   "drop.symlink_method.missing": {
     "message": "缺失"

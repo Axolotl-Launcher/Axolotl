@@ -130,6 +130,30 @@ fn for_each_content_folder(
         walk_content_folder(&folder_path, folder, project_type, &mut visit)?;
     }
 
+    let saves = instance_dir.join("saves");
+    if saves.is_dir() {
+        for world in std::fs::read_dir(&saves)
+            .map_err(|error| IOError::with_path(error, &saves))?
+        {
+            let world = world.map_err(IOError::from)?;
+            if !world.file_type().map_err(IOError::from)?.is_dir() {
+                continue;
+            }
+            let Some(name) = world.file_name().to_str().map(str::to_owned)
+            else {
+                continue;
+            };
+            let datapacks = world.path().join("datapacks");
+            if datapacks.is_dir() {
+                visit(
+                    &datapacks,
+                    &format!("saves/{name}/datapacks"),
+                    ProjectType::DataPack,
+                )?;
+            }
+        }
+    }
+
     Ok(())
 }
 
@@ -254,11 +278,92 @@ pub(crate) fn is_scannable_project_path(
     }
 }
 
+/// Whether reconciliation must retain a tracked row.
+///
+/// The scan starts at each content folder and only recurses into subfolders for
+/// schematics, so scannability has to be decided by the *root* content folder
+/// and that recursion rule. Taking the nearest ancestor content folder instead
+/// would misjudge nested paths: `schematics/mods/house.schem` is scanned under
+/// `schematics`, while `mods/subdir/example.jar` is not scanned at all.
+///
+/// The scan only reports files whose extension matches their folder's content
+/// type, so a row outside that scope can never be reported again. Iris writes
+/// shader configuration sidecars such as `shaderpacks/<pack>.zip.txt` next to
+/// the packs; a tracked row for one of them would stay marked missing forever
+/// and surface as phantom content.
+///
+/// Independently managed content is kept: worlds in `saves/` are tracked by
+/// `worlds.rs`, while `plugins/` is owned by resource installation. The scanner
+/// visits world datapack archives, but absence from that scan cannot invalidate
+/// the other world rows or independently installed plugins.
+pub(crate) fn should_retain_instance_file_path(relative_path: &str) -> bool {
+    if Path::new(relative_path)
+        .components()
+        .next()
+        .is_some_and(|component| component.as_os_str() == "plugins")
+    {
+        return true;
+    }
+    let Some((project_type, nested)) = root_content_folder_of(relative_path)
+    else {
+        return false;
+    };
+    // `worlds.rs` owns world tracking, so a world row is never stale here.
+    if project_type == ProjectType::WorldSave {
+        return true;
+    }
+    // Only schematics are scanned below their content folder; a nested file in
+    // any other content folder can never be reported again.
+    if nested && project_type != ProjectType::Schematic {
+        return false;
+    }
+    is_scannable_project_path(project_type, relative_path)
+}
+
+/// Returns the root content folder a path belongs to, together with whether the
+/// path is nested below that folder.
+fn root_content_folder_of(relative_path: &str) -> Option<(ProjectType, bool)> {
+    let mut components = Path::new(relative_path).components();
+    let folder_name = components.next()?.as_os_str().to_str()?;
+    let project_type = ProjectType::from_folder_name(folder_name)?;
+    // The component right after the folder is the file itself; only a component
+    // past it means the path sits below the scanned level, which just schematics
+    // are scanned for.
+    let nested = components.nth(1).is_some();
+    Some((project_type, nested))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use std::fs;
     use tempfile::tempdir;
+
+    #[test]
+    fn scan_world_datapack_archives_without_recursing_through_world_data() {
+        let root = tempdir().unwrap();
+        let packs = root.path().join("saves/World One/datapacks");
+        fs::create_dir_all(packs.join("folder-pack/data")).unwrap();
+        fs::create_dir_all(root.path().join("saves/World One/region")).unwrap();
+        fs::write(packs.join("one.zip"), b"one").unwrap();
+        fs::write(packs.join("two.zip.disabled"), b"two").unwrap();
+        fs::write(packs.join("ignored.txt"), b"text").unwrap();
+        fs::write(packs.join("folder-pack/data/ignored.zip"), b"nested")
+            .unwrap();
+        fs::write(
+            root.path().join("saves/World One/region/ignored.zip"),
+            b"region",
+        )
+        .unwrap();
+        let files = scan_content_files_from(root.path(), "").unwrap();
+        assert_eq!(files.len(), 2);
+        assert!(files.iter().any(|file| file.relative_path
+            == "saves/World One/datapacks/one.zip"
+            && file.enabled));
+        assert!(files.iter().any(|file| file.relative_path
+            == "saves/World One/datapacks/two.zip.disabled"
+            && !file.enabled));
+    }
 
     #[test]
     fn scan_content_files_finds_nested_schematics() {
@@ -328,6 +433,60 @@ mod tests {
             ProjectType::ShaderPack,
             "shaderpacks/ComplementaryReimagined_r5.3.txt"
         ));
+    }
+
+    #[test]
+    fn tracked_rows_outside_the_scan_scope_are_recognised() {
+        assert!(should_retain_instance_file_path("mods/example.jar"));
+        assert!(should_retain_instance_file_path(
+            "mods/example.jar.disabled"
+        ));
+        assert!(should_retain_instance_file_path(
+            "shaderpacks/BSL_v10.1.3.zip"
+        ));
+        assert!(should_retain_instance_file_path(
+            "schematics/redstone/house.litematic"
+        ));
+        assert!(!should_retain_instance_file_path(
+            "shaderpacks/BSL_v10.1.3.zip.txt"
+        ));
+        assert!(!should_retain_instance_file_path(
+            "mods/Mod-2.jar_Mod-1.jar.old"
+        ));
+        assert!(!should_retain_instance_file_path("config/example.json"));
+    }
+
+    #[test]
+    fn tracked_row_scope_follows_the_scanner_recursion_rules() {
+        // A schematic nested under a subfolder is scanned, even when an
+        // ancestor directory happens to share a content folder name.
+        assert!(should_retain_instance_file_path(
+            "schematics/mods/house.schem"
+        ));
+        // Non-schematic folders are only scanned at the top level, so a nested
+        // file there can never be reported again.
+        assert!(!should_retain_instance_file_path("mods/subdir/example.jar"));
+        // Worlds are tracked through `worlds.rs`, not by this scanner, so their
+        // rows must survive reconciliation.
+        assert!(should_retain_instance_file_path("saves/My World/level.dat"));
+        assert!(should_retain_instance_file_path(
+            "saves/My World/region/r.0.0.mca"
+        ));
+        assert!(should_retain_instance_file_path(
+            "saves/My World/datapacks/example.zip"
+        ));
+        assert!(should_retain_instance_file_path(
+            "saves/My World/datapacks/example.zip.disabled"
+        ));
+        assert!(should_retain_instance_file_path("plugins/example.jar"));
+        assert!(should_retain_instance_file_path(
+            "plugins/example.jar.disabled"
+        ));
+        assert!(should_retain_instance_file_path(
+            "plugins/nested/example.jar"
+        ));
+        // A path with no content folder is out of scope as well.
+        assert!(!should_retain_instance_file_path("options.txt"));
     }
 
     #[test]

@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "\n        DELETE FROM instance_sync_checkpoints\n        WHERE instance_id = ? AND feature = ?\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": []
+  },
+  "hash": "858867ada2ad35860f7001576b1f8e884783a2eae4fe9da8a24f5164cdd4b528"
+}

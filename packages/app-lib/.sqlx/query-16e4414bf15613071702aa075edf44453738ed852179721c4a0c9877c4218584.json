@@ -1,0 +1,20 @@
+{
+  "db_name": "SQLite",
+  "query": "\n        SELECT revision AS \"revision!: i64\"\n        FROM synced_server_state\n        WHERE singleton = 1\n        ",
+  "describe": {
+    "columns": [
+      {
+        "name": "revision!: i64",
+        "ordinal": 0,
+        "type_info": "Integer"
+      }
+    ],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "16e4414bf15613071702aa075edf44453738ed852179721c4a0c9877c4218584"
+}

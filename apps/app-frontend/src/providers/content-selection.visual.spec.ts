@@ -4,7 +4,7 @@ import { ref } from 'vue'
 import { get_version_many } from '@/helpers/cache.js'
 import { compareContentIdentities } from '@/helpers/content-identity'
 import { getCurseForgeFiles } from '@/helpers/curseforge'
-import { queue_content_batch } from '@/helpers/instance'
+import { list as listInstances, queue_content_batch } from '@/helpers/instance'
 import type { GameInstance } from '@/helpers/types'
 
 import { createContentSelection } from './content-selection'
@@ -448,4 +448,27 @@ it('reports accepted jobs even when only a newly added optional root remains', a
     await expect(selection.installSelected()).resolves.toBe(true)
     expect(selection.items.value.size).toBe(0)
     expect(selection.isInstalling('modrinth:a')).toBe(false)
+})
+
+it('ignores instance refreshes whose page context expired before the response', async () => {
+    let resolve!: (value: GameInstance[]) => void
+    vi.mocked(listInstances).mockImplementationOnce(
+        () =>
+            new Promise((done) => {
+                resolve = done
+            }),
+    )
+    const selection = createContentSelection({
+        addNotification: vi.fn(),
+        handleError: vi.fn(),
+        downloadManager: { jobs: ref([]) } as never,
+    })
+    selection.setTarget(instance)
+    let current = true
+    const pending = selection.refreshInstances('late-target', () => current)
+    current = false
+    resolve([{ ...instance, id: 'late-target', install_stage: 'installed' }])
+    await pending
+    expect(selection.targetInstance.value?.id).toBe(instance.id)
+    expect(selection.instances.value).toEqual([])
 })

@@ -113,15 +113,9 @@ pub async fn import_curseforge(
         thumbnail_url: Some(thumbnail_url),
     }) = minecraft_instance.installed_modpack.clone()
     {
-        let icon_bytes = fetch(
-            &thumbnail_url,
-            None,
-            None,
-            None,
-            &state.fetch_semaphore,
-            &state.pool,
-        )
-        .await?;
+        let icon_bytes =
+            fetch(&thumbnail_url, None, None, None, &state.fetch_semaphore)
+                .await?;
         let filename = thumbnail_url.rsplit('/').next_back();
         if let Some(filename) = filename {
             icon = Some(
@@ -143,18 +137,18 @@ pub async fn import_curseforge(
         let parsed_loader =
             parse_curseforge_loader(&instance_mod_loader.name, &game_version);
         let (mod_loader, requested_loader_version) = parsed_loader.ok_or_else(|| {
-			let loader_name = instance_mod_loader.name.trim();
-			let message = if loader_name.eq_ignore_ascii_case("labymod")
-				|| loader_name.to_ascii_lowercase().starts_with("labymod-")
-			{
-				"Unsupported loader LabyMod: Axolotl does not install, update, or repair LabyMod instances".to_string()
-			} else {
-				format!(
-					"Unsupported loader {loader_name}: the instance was not imported as Vanilla"
-				)
-			};
-			crate::ErrorKind::InputError(message)
-		})?;
+            let loader_name = instance_mod_loader.name.trim();
+            let message = if loader_name.eq_ignore_ascii_case("labymod")
+                || loader_name.to_ascii_lowercase().starts_with("labymod-")
+            {
+                "Unsupported loader LabyMod: Axolotl does not install, update, or repair LabyMod instances".to_string()
+            } else {
+                format!(
+                    "Unsupported loader {loader_name}: the instance was not imported as Vanilla"
+                )
+            };
+            crate::ErrorKind::InputError(message)
+        })?;
 
         let loader_version = crate::launcher::get_loader_version_from_profile(
             &game_version,
@@ -164,10 +158,10 @@ pub async fn import_curseforge(
         .await?;
         if loader_version.is_none() {
             return Err(crate::ErrorKind::InputError(format!(
-				"CurseForge instance loader version {requested_loader_version} is not available for {} {game_version}",
-				mod_loader.as_str(),
-			))
-			.into());
+                "CurseForge instance loader version {requested_loader_version} is not available for {} {game_version}",
+                mod_loader.as_str(),
+            ))
+            .into());
         }
 
         crate::api::instance::edit(

@@ -17,12 +17,12 @@ pub(super) async fn create_shortcut(
         output_path,
         format!(
             "[Desktop Entry]\n\
-			Type=Application\n\
-			Name={}\n\
-			Exec={} {}\n\
-			Icon={}\n\
-			Terminal=false\n\
-			Categories=Game;\n",
+            Type=Application\n\
+            Name={}\n\
+            Exec={} {}\n\
+            Icon={}\n\
+            Terminal=false\n\
+            Categories=Game;\n",
             escape_desktop_entry_value(&format!("Launch {profile_name}")),
             quote_desktop_exec_arg(&target_path.to_string_lossy()),
             quote_desktop_exec_arg(launch_url.as_str()),

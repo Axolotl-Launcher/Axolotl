@@ -1,5 +1,4 @@
-import assert from 'node:assert/strict'
-import test from 'node:test'
+import { expect, it } from 'vitest'
 
 import { generateJavaRecipe } from './recipe-engine.ts'
 import type { RecipeSlotContext, RecipeState } from './types.ts'
@@ -73,7 +72,7 @@ function recipe(overrides: Partial<RecipeState> = {}): RecipeState {
 
 const ctx = context()
 
-test('builds shaped crafting patterns and keys', () => {
+it('builds shaped crafting patterns and keys', () => {
     const state = recipe({
         slots: {
             'crafting.1': { kind: 'item', id: 'minecraft:iron_ingot' },
@@ -84,16 +83,16 @@ test('builds shaped crafting patterns and keys', () => {
         },
     })
     const output = generateJavaRecipe(state, '1.21.2', ctx)
-    assert.deepEqual(output.pattern, ['###', '/  '])
-    assert.deepEqual(output.key, {
+    expect(output.pattern).toEqual(['###', '/  '])
+    expect(output.key).toEqual({
         '#': 'minecraft:iron_ingot',
         '/': 'minecraft:stick',
     })
-    assert.deepEqual(output.result, { id: 'minecraft:iron_bars', count: 16 })
-    assert.equal(output.type, 'minecraft:crafting_shaped')
+    expect(output.result).toEqual({ id: 'minecraft:iron_bars', count: 16 })
+    expect(output.type).toBe('minecraft:crafting_shaped')
 })
 
-test('builds shapeless crafting with tag ingredients', () => {
+it('builds shapeless crafting with tag ingredients', () => {
     const state = recipe({
         crafting: { shapeless: true, keepWhitespace: false, twoByTwo: false },
         slots: {
@@ -103,11 +102,11 @@ test('builds shapeless crafting with tag ingredients', () => {
         },
     })
     const output = generateJavaRecipe(state, '1.21.2', ctx)
-    assert.deepEqual(output.ingredients, ['#minecraft:planks', '#minecraft:planks'])
-    assert.equal(output.type, 'minecraft:crafting_shapeless')
+    expect(output.ingredients).toEqual(['#minecraft:planks', '#minecraft:planks'])
+    expect(output.type).toBe('minecraft:crafting_shapeless')
 })
 
-test('two by two crafting only keeps the 2x2 grid', () => {
+it('two by two crafting only keeps the 2x2 grid', () => {
     const state = recipe({
         crafting: { shapeless: false, keepWhitespace: false, twoByTwo: true },
         slots: {
@@ -119,10 +118,10 @@ test('two by two crafting only keeps the 2x2 grid', () => {
         },
     })
     const output = generateJavaRecipe(state, '1.21', ctx)
-    assert.deepEqual(output.pattern, ['##', '##'])
+    expect(output.pattern).toEqual(['##', '##'])
 })
 
-test('formats smelting across version boundaries', () => {
+it('formats smelting across version boundaries', () => {
     const state = recipe({
         recipeType: 'smelting',
         slots: {
@@ -132,15 +131,15 @@ test('formats smelting across version boundaries', () => {
         cooking: { time: null, experience: 0.35 },
     })
     const legacy = generateJavaRecipe(state, '1.14', ctx)
-    assert.equal(legacy.type, 'minecraft:smelting')
-    assert.equal(legacy.cookingtime, 200)
-    assert.equal(legacy.result, 'minecraft:cooked_beef')
+    expect(legacy.type).toBe('minecraft:smelting')
+    expect(legacy.cookingtime).toBe(200)
+    expect(legacy.result).toBe('minecraft:cooked_beef')
 
     const modern = generateJavaRecipe(state, '1.20', ctx)
-    assert.deepEqual(modern.result, { id: 'minecraft:cooked_beef' })
+    expect(modern.result).toEqual({ id: 'minecraft:cooked_beef' })
 })
 
-test('formats stonecutting result and count', () => {
+it('formats stonecutting result and count', () => {
     const state = recipe({
         recipeType: 'stonecutter',
         slots: {
@@ -149,14 +148,14 @@ test('formats stonecutting result and count', () => {
         },
     })
     const legacy = generateJavaRecipe(state, '1.14', ctx)
-    assert.equal(legacy.result, 'minecraft:stone_bricks')
-    assert.equal(legacy.count, 2)
+    expect(legacy.result).toBe('minecraft:stone_bricks')
+    expect(legacy.count).toBe(2)
 
     const modern = generateJavaRecipe(state, '1.20', ctx)
-    assert.deepEqual(modern.result, { id: 'minecraft:stone_bricks', count: 2 })
+    expect(modern.result).toEqual({ id: 'minecraft:stone_bricks', count: 2 })
 })
 
-test('formats legacy smithing, trim, and transform recipes', () => {
+it('formats legacy smithing, trim, and transform recipes', () => {
     const smithing = recipe({
         recipeType: 'smithing',
         slots: {
@@ -166,9 +165,9 @@ test('formats legacy smithing, trim, and transform recipes', () => {
         },
     })
     const legacy = generateJavaRecipe(smithing, '1.16', ctx)
-    assert.equal(legacy.type, 'minecraft:smithing')
-    assert.deepEqual(legacy.base, { item: 'minecraft:iron_bars' })
-    assert.deepEqual(legacy.result, { item: 'minecraft:diamond_sword' })
+    expect(legacy.type).toBe('minecraft:smithing')
+    expect(legacy.base).toEqual({ item: 'minecraft:iron_bars' })
+    expect(legacy.result).toEqual({ item: 'minecraft:diamond_sword' })
 
     const trim = recipe({
         recipeType: 'smithing_trim',
@@ -180,8 +179,8 @@ test('formats legacy smithing, trim, and transform recipes', () => {
         },
     })
     const trimOutput = generateJavaRecipe(trim, '1.21.5', ctx)
-    assert.equal(trimOutput.type, 'minecraft:smithing_trim')
-    assert.equal(trimOutput.pattern, 'minecraft:coast')
+    expect(trimOutput.type).toBe('minecraft:smithing_trim')
+    expect(trimOutput.pattern).toBe('minecraft:coast')
 
     const transform = recipe({
         recipeType: 'smithing_transform',
@@ -193,11 +192,11 @@ test('formats legacy smithing, trim, and transform recipes', () => {
         },
     })
     const transformOutput = generateJavaRecipe(transform, '1.19', ctx)
-    assert.equal(transformOutput.type, 'minecraft:smithing_transform')
-    assert.deepEqual(transformOutput.template, { item: 'minecraft:iron_bars' })
+    expect(transformOutput.type).toBe('minecraft:smithing_transform')
+    expect(transformOutput.template).toEqual({ item: 'minecraft:iron_bars' })
 })
 
-test('gates category, show_notification, and stonecutter group by version', () => {
+it('gates category, show_notification, and stonecutter group by version', () => {
     const shaped = recipe({
         category: 'building',
         showNotification: false,
@@ -206,10 +205,10 @@ test('gates category, show_notification, and stonecutter group by version', () =
             'crafting.result': { kind: 'item', id: 'minecraft:stick' },
         },
     })
-    assert.equal(generateJavaRecipe(shaped, '1.18', ctx).category, undefined)
-    assert.equal(generateJavaRecipe(shaped, '1.18', ctx).show_notification, undefined)
-    assert.equal(generateJavaRecipe(shaped, '1.19', ctx).category, 'building')
-    assert.equal(generateJavaRecipe(shaped, '1.19', ctx).show_notification, false)
+    expect(generateJavaRecipe(shaped, '1.18', ctx).category).toBe(undefined)
+    expect(generateJavaRecipe(shaped, '1.18', ctx).show_notification).toBe(undefined)
+    expect(generateJavaRecipe(shaped, '1.19', ctx).category).toBe('building')
+    expect(generateJavaRecipe(shaped, '1.19', ctx).show_notification).toBe(false)
 
     const stonecutter = recipe({
         recipeType: 'stonecutter',
@@ -219,6 +218,6 @@ test('gates category, show_notification, and stonecutter group by version', () =
             'stonecutter.result': { kind: 'item', id: 'minecraft:stone_bricks' },
         },
     })
-    assert.equal(generateJavaRecipe(stonecutter, '1.20', ctx).group, 'stone')
-    assert.equal(generateJavaRecipe(stonecutter, '26.1', ctx).group, undefined)
+    expect(generateJavaRecipe(stonecutter, '1.20', ctx).group).toBe('stone')
+    expect(generateJavaRecipe(stonecutter, '26.1', ctx).group).toBe(undefined)
 })

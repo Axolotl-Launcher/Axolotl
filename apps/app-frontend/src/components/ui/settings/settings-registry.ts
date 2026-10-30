@@ -12,6 +12,7 @@ import {
     LanguagesIcon,
     LayoutTemplateIcon,
     PaintbrushIcon,
+    PlugIcon,
     RefreshCwIcon,
     ShieldIcon,
     ToggleRightIcon,
@@ -56,6 +57,7 @@ const categoryContent: Record<SettingsCategoryId, Pick<SettingsCategory, 'icon' 
         content: defineAsyncComponent(() => import('./LanguageTranslationSettings.vue')),
     },
     ai: { icon: BotIcon, content: defineAsyncComponent(() => import('./AISettings.vue')) },
+    mcp: { icon: PlugIcon, content: defineAsyncComponent(() => import('./McpSettings.vue')) },
     'shortcut-settings': {
         icon: KeyboardIcon,
         content: defineAsyncComponent(() => import('./KeybindSettings.vue')),

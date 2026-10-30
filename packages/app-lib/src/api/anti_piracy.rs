@@ -7,6 +7,7 @@ use std::sync::atomic::{AtomicBool, AtomicU8, AtomicU64, Ordering};
 use tokio::sync::{Mutex, RwLock, RwLockReadGuard};
 
 use crate::State;
+use crate::state::documents;
 
 const MAINLAND_CHINA_TIMEZONES: &[&str] = &[
     "Asia/Shanghai",
@@ -134,13 +135,10 @@ async fn has_proof() -> bool {
             return false;
         }
     };
-    let record = sqlx::query_as::<_, (i64, i64, String)>(
-        "SELECT verified, version, mac FROM official_login_proof WHERE id = 0",
-    )
-    .fetch_optional(&state.pool)
-    .await;
-    let Some((1, 1, stored_mac)) = (match record {
-        Ok(record) => record,
+    let stored =
+        documents::login_proof::read(&documents::Documents::new(&state)).await;
+    let Some(stored_mac) = (match stored {
+        Ok(mac) => mac,
         Err(error) => {
             tracing::warn!(%error, "Cannot read official login proof");
             return false;
@@ -241,9 +239,7 @@ pub async fn mark_official_login() -> crate::Result<()> {
         crate::ErrorKind::OtherError(error.to_string()).as_error()
     })?;
     let mac = proof_mac(&key);
-    sqlx::query("INSERT INTO official_login_proof (id, verified, version, mac) VALUES (0, 1, 1, ?) ON CONFLICT(id) DO UPDATE SET verified = 1, version = 1, mac = excluded.mac")
-        .bind(mac)
-        .execute(&state.pool)
+    documents::login_proof::mark(&documents::Documents::new(&state), mac)
         .await?;
     let _session_guard = SESSION_GATE.write().await;
     SESSION_OFFICIAL_LOGIN.store(true, Ordering::Release);
@@ -255,9 +251,7 @@ pub async fn clear_official_login() -> crate::Result<()> {
     let _guard = PROOF_WRITE.lock().await;
     let _session_guard = SESSION_GATE.write().await;
     let state = State::get().await?;
-    sqlx::query("DELETE FROM official_login_proof WHERE id = 0")
-        .execute(&state.pool)
-        .await?;
+    documents::login_proof::clear(&documents::Documents::new(&state)).await?;
     SESSION_OFFICIAL_LOGIN.store(false, Ordering::Release);
     STATUS_REVISION.fetch_add(1, Ordering::AcqRel);
     drop(_session_guard);
@@ -279,8 +273,6 @@ pub async fn clear_official_login() -> crate::Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use sqlx::migrate::Migrator;
-    use sqlx::sqlite::SqlitePoolOptions;
 
     #[test]
     fn allows_mainland_china_timezones_and_aliases() {
@@ -351,43 +343,5 @@ mod tests {
         assert_eq!(Region::current(), Region::NonCn);
         assert!(restricted(Region::current(), false));
         publish_region(Region::Checking).await;
-    }
-
-    #[tokio::test]
-    async fn proof_table_migrates_fresh_and_existing_databases() {
-        let migrations = sqlx::migrate!();
-        for existing in [false, true] {
-            let pool = SqlitePoolOptions::new()
-                .max_connections(1)
-                .connect("sqlite::memory:")
-                .await
-                .unwrap();
-            if existing {
-                let previous = Migrator {
-                    migrations: std::borrow::Cow::Owned(
-                        migrations
-                            .iter()
-                            .filter(|migration| {
-                                migration.version < 20261002120000
-                            })
-                            .cloned()
-                            .collect(),
-                    ),
-                    ..Migrator::DEFAULT
-                };
-                previous.run(&pool).await.unwrap();
-            }
-            migrations.run(&pool).await.unwrap();
-            sqlx::query("INSERT INTO official_login_proof (id, verified, version, mac) VALUES (0, 1, 1, 'test')")
-                .execute(&pool)
-                .await
-                .unwrap();
-            let foreign_key_errors: Vec<(String, i64, String, i64)> =
-                sqlx::query_as("PRAGMA foreign_key_check")
-                    .fetch_all(&pool)
-                    .await
-                    .unwrap();
-            assert!(foreign_key_errors.is_empty());
-        }
     }
 }

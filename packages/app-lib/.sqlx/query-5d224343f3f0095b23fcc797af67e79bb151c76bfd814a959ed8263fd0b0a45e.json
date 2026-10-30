@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "\n        DELETE FROM instance_files\n        WHERE instance_id = ? AND relative_path = ?\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": []
+  },
+  "hash": "5d224343f3f0095b23fcc797af67e79bb151c76bfd814a959ed8263fd0b0a45e"
+}

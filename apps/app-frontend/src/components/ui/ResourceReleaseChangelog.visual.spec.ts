@@ -14,6 +14,7 @@ vi.mock('@vueuse/core', async (original) => ({
     useElementVisibility: () => visible,
 }))
 vi.mock('@modrinth/ui', () => ({
+    ProjectPageSkeleton: { render: () => null },
     Button: defineComponent({
         setup:
             (_, { attrs, slots }) =>
@@ -30,6 +31,9 @@ vi.mock('@modrinth/ui', () => ({
         locale,
         formatMessage: (message: { defaultMessage: string }) => message.defaultMessage,
     }),
+}))
+vi.mock('@/helpers/page-transition', () => ({
+    runAfterPageTransitionSettle: (task: () => void) => task(),
 }))
 vi.mock('@/helpers/resources', () => ({ resourceChangelog: vi.fn() }))
 vi.mock('@/helpers/translation', async (original) => ({

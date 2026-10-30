@@ -7,6 +7,8 @@ import Project from './Index.vue'
 
 const api = vi.hoisted(() => ({
     project: vi.fn(),
+    projectV3: vi.fn().mockResolvedValue(null),
+    background: false,
     versions: vi.fn().mockResolvedValue([]),
     snapshot: vi.fn().mockResolvedValue({ items: [] }),
     instance: vi.fn().mockResolvedValue({
@@ -40,7 +42,7 @@ vi.mock('vue-router', () => ({
 }))
 vi.mock('@/helpers/cache.js', () => ({
     get_project: api.project,
-    get_project_v3: async () => null,
+    get_project_v3: api.projectV3,
     get_team: api.team,
     get_version_many: api.versions,
     get_version: vi.fn(),
@@ -100,7 +102,9 @@ vi.mock('@/helpers/translation', () => ({
 vi.mock('@/i18n.config', async () => ({
     default: { global: { locale: (await import('vue')).ref('en-US') } },
 }))
-vi.mock('@/store/state.js', () => ({ useTheming: () => ({ featureFlags: {} }) }))
+vi.mock('@/store/state.js', () => ({
+    useTheming: () => ({ featureFlags: { project_background: api.background } }),
+}))
 vi.mock('@/store/breadcrumbs', () => ({
     useBreadcrumbs: () => ({ setName: vi.fn(), setNameIcon: vi.fn(), setContext: vi.fn() }),
 }))
@@ -137,7 +141,7 @@ vi.mock('@/providers/content-selection', async () => {
 
 vi.mock('@/providers/server-install', async () => {
     const { ref } = await import('vue')
-    return { injectServerInstall: () => ({ installingServerProjects: ref({}) }) }
+    return { injectServerInstall: () => ({ installingServerProjects: ref([]) }) }
 })
 vi.mock('@/providers/setup/server-install-content', () => ({
     createServerInstallContent: () => ({
@@ -173,9 +177,7 @@ vi.mock('@modrinth/ui', async () => {
                 'NavTabs',
                 'OverflowMenu',
                 'ProjectBackgroundGradient',
-                'ProjectHeader',
                 'ProjectPageSkeleton',
-                'ProjectSidebarCompatibility',
                 'ProjectSidebarCreators',
                 'ProjectSidebarDetails',
                 'ProjectSidebarLinks',
@@ -192,6 +194,14 @@ vi.mock('@modrinth/ui', async () => {
                 },
             ]),
         ),
+        ProjectSidebarCompatibility: {
+            render: () => h('section', { 'data-testid': 'project-compatibility' }),
+        },
+        ProjectPageSkeleton: {
+            props: ['title'],
+            setup: (props: { title?: string }) => () =>
+                h('div', { 'data-testid': 'project-skeleton' }, props.title),
+        },
         commonMessages: {
             retryButton: { defaultMessage: 'Retry' },
             backButton: { defaultMessage: 'Back' },
@@ -218,6 +228,7 @@ vi.mock('@modrinth/ui', async () => {
                 () =>
                     h('header', { 'data-testid': 'project-header' }, [
                         h('h1', props.project.title),
+                        h('p', props.project.description),
                         slots.actions?.(),
                     ]),
         }),
@@ -377,7 +388,12 @@ it('keeps installation busy until the target instance has been synchronized', as
         },
     })
     try {
-        await vi.waitFor(() => expect(api.refreshInstances).toHaveBeenCalledWith('target-instance'))
+        await vi.waitFor(() =>
+            expect(api.refreshInstances).toHaveBeenCalledWith(
+                'target-instance',
+                expect.any(Function),
+            ),
+        )
         expect(api.snapshot).toHaveBeenCalledExactlyOnceWith('target-instance', true)
         await flushPromises()
         expect(wrapper.findComponent({ name: 'TargetProjectDetails' }).props('installing')).toBe(
@@ -442,7 +458,10 @@ it.each(['cross-provider version', 'snapshot failure'])(
         })
         try {
             await vi.waitFor(() =>
-                expect(api.refreshInstances).toHaveBeenCalledWith('target-instance'),
+                expect(api.refreshInstances).toHaveBeenCalledWith(
+                    'target-instance',
+                    expect.any(Function),
+                ),
             )
             await flushPromises()
             const details = wrapper.findComponent({ name: 'TargetProjectDetails' })
@@ -483,12 +502,105 @@ it('shows the project while release data is still loading', async () => {
     })
     try {
         await vi.waitFor(() =>
-            expect(wrapper.find('[data-testid="project-header"]').exists()).toBe(true),
+            expect(wrapper.get('[data-testid="project-header"] h1').text()).toBe('Pack'),
         )
         expect(wrapper.find('[data-testid="project-skeleton"]').exists()).toBe(false)
         resolveVersions([])
         await flushPromises()
     } finally {
         wrapper.unmount()
+    }
+})
+
+it('shows the header before v3 classification even with the project background enabled', async () => {
+    api.background = true
+    api.project.mockReset().mockResolvedValue({
+        id: 'one',
+        slug: 'one',
+        title: 'Pack',
+        project_type: 'modpack',
+        versions: [],
+        team: 'team',
+        categories: [],
+        game_versions: [],
+        loaders: [],
+        gallery: [],
+    })
+    let resolve!: (value: unknown) => void
+    api.projectV3.mockImplementationOnce(
+        () =>
+            new Promise((done) => {
+                resolve = done
+            }),
+    )
+    const wrapper = mount(Project, {
+        global: { stubs: { Teleport: true, RouterView: true }, directives: { tooltip: {} } },
+    })
+    try {
+        await vi.waitFor(() =>
+            expect(wrapper.get('[data-testid="project-header"] h1').text()).toBe('Pack'),
+        )
+        expect(wrapper.find('[data-testid="project-skeleton"]').exists()).toBe(false)
+        resolve({ minecraft_server: { region: 'asia' } })
+        await flushPromises()
+        expect(wrapper.get('[data-testid="project-header"] h1').text()).toBe('Pack')
+    } finally {
+        wrapper.unmount()
+        api.background = false
+    }
+})
+
+it('keeps the title and offers local recovery when v3 details fail', async () => {
+    api.projectV3
+        .mockReset()
+        .mockRejectedValueOnce(new Error('v3 unavailable'))
+        .mockResolvedValueOnce({ minecraft_server: null })
+    const wrapper = mount(Project, {
+        global: { stubs: { Teleport: true, RouterView: true }, directives: { tooltip: {} } },
+    })
+    try {
+        await vi.waitFor(() =>
+            expect(wrapper.text()).toContain('Some project details could not be loaded.'),
+        )
+        expect(wrapper.get('[data-testid="project-header"] h1').text()).toBe('Pack')
+        expect(api.projectV3).toHaveBeenCalledTimes(1)
+        expect(wrapper.find('[data-testid="project-compatibility"]').exists()).toBe(false)
+        await wrapper
+            .findAll('button')
+            .find((button) => button.text() === 'Retry')!
+            .trigger('click')
+        await flushPromises()
+        expect(api.projectV3).toHaveBeenCalledTimes(2)
+        expect(api.projectV3).toHaveBeenLastCalledWith('one', 'revalidate')
+        expect(wrapper.find('[data-testid="project-compatibility"]').exists()).toBe(true)
+        expect(wrapper.text()).not.toContain('Some project details could not be loaded.')
+    } finally {
+        wrapper.unmount()
+    }
+})
+
+it('shows the navigation title before the main project request completes', async () => {
+    let resolve!: (value: unknown) => void
+    api.project.mockReset().mockImplementationOnce(
+        () =>
+            new Promise((done) => {
+                resolve = done
+            }),
+    )
+    window.history.replaceState(
+        { projectPreview: { targetPath: '/project/one', title: 'Known title' } },
+        '',
+    )
+    const wrapper = mount(Project, {
+        global: { stubs: { Teleport: true, RouterView: true }, directives: { tooltip: {} } },
+    })
+    try {
+        expect(wrapper.text()).toContain('Known title')
+        wrapper.unmount()
+        resolve({ id: 'one', title: 'Late project' })
+        await flushPromises()
+    } finally {
+        wrapper.unmount()
+        window.history.replaceState({}, '')
     }
 })

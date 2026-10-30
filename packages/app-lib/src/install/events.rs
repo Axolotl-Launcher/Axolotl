@@ -34,6 +34,7 @@ pub struct InstallProgressReporter {
     /// the modpack installer to report the concurrent Minecraft core download
     /// while content installation remains the main phase.
     parallel_output: bool,
+    parallel_context: Option<Arc<Mutex<ParallelErrorContext>>>,
     /// Provider-specific content installers report their own phases and
     /// counters. Batch runners disable those updates so concurrent actions
     /// cannot overwrite the job-level aggregate, while download events and
@@ -46,6 +47,16 @@ pub struct InstallProgressReporter {
 struct InstallPipelineState {
     cancellation: CancellationToken,
     failure: std::sync::Mutex<Option<crate::Error>>,
+}
+
+#[derive(Debug, Default)]
+struct ParallelErrorContext {
+    current: Option<InstallErrorContext>,
+    failure: Option<InstallErrorContext>,
+    phase:
+        Option<(InstallPhaseId, Option<InstallProgress>, InstallPhaseDetails)>,
+    failure_phase:
+        Option<(InstallPhaseId, Option<InstallProgress>, InstallPhaseDetails)>,
 }
 
 #[derive(Debug)]
@@ -154,6 +165,11 @@ impl InstallProgressReporter {
         self.job_id
     }
 
+    #[cfg(test)]
+    pub(crate) async fn in_memory_state(&self) -> InstallJobState {
+        self.state.lock().await.job.clone()
+    }
+
     /// Overlays the in-memory reporter state on a database snapshot. Progress
     /// and active download details are intentionally runtime state and can be
     /// newer than the last checkpoint written to SQLite.
@@ -228,6 +244,7 @@ impl InstallProgressReporter {
             job_id,
             state: shared_state,
             parallel_output: false,
+            parallel_context: None,
             phase_updates_enabled: true,
             pipeline: None,
         }
@@ -238,7 +255,47 @@ impl InstallProgressReporter {
     /// state is shared, so both tracks still persist to the same job.
     pub fn with_parallel_output(mut self) -> Self {
         self.parallel_output = true;
+        self.parallel_context.get_or_insert_with(|| {
+            Arc::new(Mutex::new(ParallelErrorContext::default()))
+        });
         self
+    }
+
+    /// Promote the failing branch even if it finished before pack extraction.
+    /// Context is branch-owned until this point, so successful foreground work
+    /// cannot overwrite it and parallel failures cannot blame a local override.
+    pub(crate) async fn foreground_parallel_failure(
+        &self,
+    ) -> crate::Result<()> {
+        let (context, phase) = match &self.parallel_context {
+            Some(context) => {
+                let context = context.lock().await;
+                (
+                    context.failure.clone().or_else(|| context.current.clone()),
+                    context
+                        .failure_phase
+                        .clone()
+                        .or_else(|| context.phase.clone()),
+                )
+            }
+            None => (None, None),
+        };
+        let mut state = self.state.lock().await;
+        state.parallel_is_foreground = true;
+        state.job.set_context(context);
+        let (phase, progress, details) = phase.unwrap_or((
+            InstallPhaseId::ResolvingMinecraft,
+            None,
+            InstallPhaseDetails::Empty,
+        ));
+        state.job.set_progress(phase, progress, details);
+        state.job.progress.parallel = None;
+        let snapshot = runtime_snapshot(&state);
+        drop(state);
+        if let Some(snapshot) = snapshot {
+            emit_install_job(&snapshot).await?;
+        }
+        Ok(())
     }
 
     /// Makes the remaining core installation visible after pack content finishes.
@@ -301,6 +358,10 @@ impl InstallProgressReporter {
         progress: Option<InstallProgress>,
         details: InstallPhaseDetails,
     ) -> crate::Result<()> {
+        if let Some(branch) = &self.parallel_context {
+            branch.lock().await.phase =
+                Some((phase, progress.clone(), details.clone()));
+        }
         let app_state = match crate::State::get().await {
             Ok(app_state) => app_state,
             Err(error) => {
@@ -394,6 +455,10 @@ impl InstallProgressReporter {
         context: Option<InstallErrorContext>,
         persist: bool,
     ) -> crate::Result<()> {
+        if let Some(branch) = &self.parallel_context {
+            branch.lock().await.current = context;
+            return Ok(());
+        }
         let app_state = if persist {
             Some(crate::State::get().await?)
         } else {
@@ -599,6 +664,14 @@ impl InstallProgressReporter {
     }
 
     pub async fn persist_failure_context(&self, context: InstallErrorContext) {
+        if let Some(branch) = &self.parallel_context {
+            let mut branch = branch.lock().await;
+            if branch.failure.is_none() {
+                branch.failure = Some(context);
+                branch.failure_phase = branch.phase.clone();
+            }
+            return;
+        }
         if let Err(error) = self.update_context(Some(context), true).await {
             tracing::warn!(
                 "Failed to persist install context for failed operation: {error}"
@@ -1223,12 +1296,17 @@ pub async fn emit_install_job(
     #[cfg(feature = "tauri")]
     {
         use tauri::Emitter;
-
-        let event_state = crate::EventState::get()?;
-        event_state
-            .app
-            .emit("install_job", snapshot)
-            .map_err(crate::event::EventError::from)?;
+        let result: crate::Result<()> = (|| {
+            let event_state = crate::EventState::get()?;
+            event_state
+                .app
+                .emit("install_job", snapshot)
+                .map_err(crate::event::EventError::from)?;
+            Ok(())
+        })();
+        if let Err(error) = result {
+            tracing::warn!(job_id = %snapshot.job_id, %error, "Install task notification failed; persisted task remains authoritative");
+        }
     }
 
     Ok(())
@@ -1673,6 +1751,71 @@ mod tests {
                 .unwrap()
                 .status,
             InstallJobStatus::Canceled
+        );
+        app_state.install_job_cancellations.remove(&job_id);
+        InstallProgressReporter::reset_job(job_id);
+    }
+
+    #[cfg(not(feature = "tauri"))]
+    #[tokio::test]
+    async fn cancellation_acknowledgement_does_not_wait_indefinitely_for_the_live_reporter()
+     {
+        let (app_state, job_id, reporter) =
+            stored_minecraft_progress_job(0, 1).await;
+        let cancellation = CancellationToken::new();
+        app_state
+            .install_job_cancellations
+            .insert(job_id, cancellation.clone());
+        let reporter_guard = reporter.state.lock().await;
+        let snapshot = tokio::time::timeout(Duration::from_secs(3), super::super::runner::cancel_job_with_state(job_id, app_state.clone()))
+            .await.expect("a signaled worker must not leave the cancel command waiting on the reporter mutex").unwrap();
+        assert!(cancellation.is_cancelled());
+        assert_eq!(snapshot.status, InstallJobStatus::Running);
+        assert_eq!(
+            store::get_required(job_id, &app_state)
+                .await
+                .unwrap()
+                .status,
+            InstallJobStatus::Running
+        );
+        drop(reporter_guard);
+        let snapshot = super::super::runner::cancel_job_with_state(
+            job_id,
+            app_state.clone(),
+        )
+        .await
+        .unwrap();
+        assert_eq!(snapshot.status, InstallJobStatus::Canceling);
+        app_state.install_job_cancellations.remove(&job_id);
+        InstallProgressReporter::reset_job(job_id);
+    }
+
+    #[cfg(not(feature = "tauri"))]
+    #[tokio::test]
+    async fn cancellation_acknowledgement_is_bounded_when_the_database_writer_is_busy()
+     {
+        let (app_state, job_id, _reporter) =
+            stored_minecraft_progress_job(0, 1).await;
+        let cancellation = CancellationToken::new();
+        app_state
+            .install_job_cancellations
+            .insert(job_id, cancellation.clone());
+        let database_permit =
+            app_state.install_db_semaphore.acquire().await.unwrap();
+        let snapshot = tokio::time::timeout(Duration::from_secs(3), super::super::runner::cancel_job_with_state(job_id, app_state.clone()))
+            .await.expect("a signaled worker must not leave the cancel command waiting indefinitely for the database writer").unwrap();
+        assert!(cancellation.is_cancelled());
+        assert_eq!(snapshot.status, InstallJobStatus::Running);
+        drop(database_permit);
+        assert_eq!(
+            super::super::runner::cancel_job_with_state(
+                job_id,
+                app_state.clone()
+            )
+            .await
+            .unwrap()
+            .status,
+            InstallJobStatus::Canceling
         );
         app_state.install_job_cancellations.remove(&job_id);
         InstallProgressReporter::reset_job(job_id);

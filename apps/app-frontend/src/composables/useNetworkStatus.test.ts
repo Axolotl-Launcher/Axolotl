@@ -1,18 +1,17 @@
-import assert from 'node:assert/strict'
-import test from 'node:test'
+import { expect, it } from 'vitest'
 
 import { createNetworkStatus } from './useNetworkStatus.ts'
 
-test('starts online unless the browser reports being offline', () => {
-    assert.equal(createNetworkStatus().offline.value, false)
-    assert.equal(createNetworkStatus(true).offline.value, true)
+it('starts online unless the browser reports being offline', () => {
+    expect(createNetworkStatus().offline.value).toBe(false)
+    expect(createNetworkStatus(true).offline.value).toBe(true)
 })
 
-test('browser connectivity changes update global offline mode', () => {
+it('browser connectivity changes update global offline mode', () => {
     const status = createNetworkStatus()
     status.setBrowserOffline(true)
-    assert.equal(status.offline.value, true)
+    expect(status.offline.value).toBe(true)
     status.markBrowserOnline()
-    assert.equal(status.browserOffline.value, false)
-    assert.equal(status.offline.value, false)
+    expect(status.browserOffline.value).toBe(false)
+    expect(status.offline.value).toBe(false)
 })

@@ -1,0 +1,50 @@
+{
+  "db_name": "SQLite",
+  "query": "\n        SELECT *\n        FROM instance_content_set_sync_state\n        WHERE content_set_id = ?\n        ",
+  "describe": {
+    "columns": [
+      {
+        "name": "content_set_id",
+        "ordinal": 0,
+        "type_info": "Text"
+      },
+      {
+        "name": "provider",
+        "ordinal": 1,
+        "type_info": "Text"
+      },
+      {
+        "name": "applied_update_id",
+        "ordinal": 2,
+        "type_info": "Text"
+      },
+      {
+        "name": "latest_available_update_id",
+        "ordinal": 3,
+        "type_info": "Text"
+      },
+      {
+        "name": "checked_at",
+        "ordinal": 4,
+        "type_info": "Integer"
+      },
+      {
+        "name": "status",
+        "ordinal": 5,
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      true,
+      true,
+      false
+    ]
+  },
+  "hash": "c9dc2dfb41f6e487aaab5d98313c9ca9b5271c1a8f816267dd1b35fd8d6eea23"
+}

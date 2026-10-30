@@ -1,9 +1,60 @@
 //! Protocol projections at the boundary of the existing environment solver.
 
 use super::{providers::*, *};
+use crate::state::CacheBehaviour;
 use serde::de::DeserializeOwned;
 use serde_json::Value;
 use tokio_util::sync::CancellationToken;
+
+pub(crate) async fn curseforge_files_page(
+    project_id: u32,
+    request: crate::api::curseforge::CurseForgeFilesRequest,
+    service: &std::sync::Arc<ResourceService>,
+    cancel: &CancellationToken,
+) -> crate::Result<crate::api::curseforge::CurseForgeFilesResponse> {
+    curseforge_files_page_with_policy(
+        project_id,
+        request,
+        service,
+        cancel,
+        CachePolicy::UseFresh,
+    )
+    .await
+}
+
+pub(crate) async fn curseforge_files_page_with_policy(
+    project_id: u32,
+    request: crate::api::curseforge::CurseForgeFilesRequest,
+    service: &std::sync::Arc<ResourceService>,
+    cancel: &CancellationToken,
+    policy: CachePolicy,
+) -> crate::Result<crate::api::curseforge::CurseForgeFilesResponse> {
+    let outcome = service
+        .query(
+            &SourceId::curseforge(),
+            ProviderQuery::CurseForgeFilesProtocol {
+                project_id,
+                game_version: request.game_version,
+                mod_loader_type: request.mod_loader_type,
+                game_version_type_id: request.game_version_type_id,
+                index: request.index,
+                page_size: request.page_size.clamp(1, 50),
+            },
+            policy,
+            cancel,
+        )
+        .await
+        .map_err(crate::ErrorKind::ResourceError)?;
+    match outcome.value {
+        ProviderValue::Protocol(value) => {
+            serde_json::from_value(value).map_err(Into::into)
+        }
+        _ => Err(crate::ErrorKind::InputError(
+            "unexpected CurseForge files response".into(),
+        )
+        .into()),
+    }
+}
 
 fn error(error: ResourceError) -> crate::Error {
     crate::ErrorKind::InputError(error.to_string()).into()
@@ -47,6 +98,156 @@ pub(crate) async fn exact<T: DeserializeOwned>(
         )
         .into()),
     }
+}
+
+/// Project projections for a batch of ids, in the order the ids were given.
+/// Missing projects are skipped.
+pub(crate) async fn projects_exact<T: DeserializeOwned>(
+    source: SourceId,
+    project_ids: Vec<String>,
+    state: &crate::State,
+) -> crate::Result<Vec<T>> {
+    projects_exact_with_policy(
+        source,
+        project_ids,
+        state,
+        CachePolicy::UseFresh,
+    )
+    .await
+}
+
+pub(crate) async fn projects_exact_with_policy<T: DeserializeOwned>(
+    source: SourceId,
+    project_ids: Vec<String>,
+    state: &crate::State,
+    policy: CachePolicy,
+) -> crate::Result<Vec<T>> {
+    let service = state.resources().await.map_err(error)?;
+    let queries = project_ids
+        .into_iter()
+        .map(|project_id| {
+            Ok(ProviderQuery::Project {
+                id: SourceProjectId::new(project_id).map_err(|error| {
+                    crate::ErrorKind::InputError(error.to_string())
+                })?,
+                slug: None,
+            })
+        })
+        .collect::<crate::Result<Vec<_>>>()?;
+    let values = service
+        .presentation_many_with_policy(
+            &source,
+            queries,
+            &CancellationToken::new(),
+            policy,
+        )
+        .await;
+    let mut projects = Vec::new();
+    for value in values {
+        let value = match value {
+            Ok(value) => value.value,
+            // A cached-only batch reports every miss as Unavailable; keep the
+            // cached subset instead of failing the whole batch.
+            Err(ResourceError::Unavailable)
+                if policy == CachePolicy::OnlyCached =>
+            {
+                continue;
+            }
+            Err(failure) => return Err(error(failure)),
+        };
+        match value {
+            ProviderValue::Project(document) => {
+                projects.push(serde_json::from_value(
+                    document.protocol.ok_or_else(|| {
+                        crate::ErrorKind::InputError(
+                            "project protocol projection missing".into(),
+                        )
+                    })?,
+                )?)
+            }
+            ProviderValue::NotFound => {}
+            _ => {
+                return Err(crate::ErrorKind::InputError(
+                    "unexpected project catalog response".into(),
+                )
+                .into());
+            }
+        }
+    }
+    Ok(projects)
+}
+
+/// Maps the launcher cache behaviour onto the resource service policy.
+///
+/// `StaleWhileRevalidateSkipOffline` serves expired entries immediately and
+/// refreshes them in the background, exactly like the legacy cache did; the
+/// remaining difference is that a key with no cached entry now surfaces the
+/// source error instead of being silently absent.
+///
+/// `MustRevalidate` has no exact counterpart: the service only refuses to fall
+/// back to an expired entry under `ForceRefresh`, which also ignores valid
+/// entries. `UseFresh` therefore keeps the "valid entry is served without a
+/// request, expired entry is refetched" halves, and still falls back to the
+/// expired entry when the refresh fails.
+pub(crate) fn policy(behaviour: Option<CacheBehaviour>) -> CachePolicy {
+    match behaviour.unwrap_or_default() {
+        CacheBehaviour::StaleWhileRevalidateSkipOffline => {
+            CachePolicy::StaleWhileRevalidate
+        }
+        CacheBehaviour::StaleWhileRevalidate => {
+            CachePolicy::StaleWhileRevalidate
+        }
+        CacheBehaviour::CacheOnly => CachePolicy::OnlyCached,
+        CacheBehaviour::MustRevalidate => CachePolicy::UseFresh,
+        CacheBehaviour::Bypass => CachePolicy::ForceRefresh,
+    }
+}
+
+/// Release projections for a batch of ids, in the order the ids were given.
+/// Missing releases are skipped.
+pub(crate) async fn releases_exact<T: DeserializeOwned>(
+    source: SourceId,
+    release_ids: Vec<String>,
+    state: &crate::State,
+) -> crate::Result<Vec<T>> {
+    let service = state.resources().await.map_err(error)?;
+    let queries = release_ids
+        .into_iter()
+        .map(|release_id| {
+            Ok(ProviderQuery::Release {
+                project_id: None,
+                release_id: SourceReleaseId::new(release_id).map_err(
+                    |error| crate::ErrorKind::InputError(error.to_string()),
+                )?,
+                slug: None,
+            })
+        })
+        .collect::<crate::Result<Vec<_>>>()?;
+    let values = service
+        .presentation_many(&source, queries, &CancellationToken::new())
+        .await;
+    let mut releases = Vec::new();
+    for value in values {
+        match value.map_err(error)?.value {
+            ProviderValue::Release(document) => {
+                releases.push(serde_json::from_value(
+                    document.protocol.ok_or_else(|| {
+                        crate::ErrorKind::InputError(
+                            "release protocol projection missing".into(),
+                        )
+                    })?,
+                )?)
+            }
+            ProviderValue::NotFound => {}
+            _ => {
+                return Err(crate::ErrorKind::InputError(
+                    "unexpected release catalog response".into(),
+                )
+                .into());
+            }
+        }
+    }
+    Ok(releases)
 }
 
 pub(crate) async fn page<T: DeserializeOwned>(

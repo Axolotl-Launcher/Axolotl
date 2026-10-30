@@ -10,6 +10,7 @@ pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
         .invoke_handler(tauri::generate_handler![
             get_available_capes,
             get_available_skins,
+            lookup_player_skin,
             add_and_equip_custom_skin,
             equip_skin,
             remove_custom_skin,
@@ -24,20 +25,37 @@ pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
         .build()
 }
 
+#[tauri::command]
+pub async fn lookup_player_skin(
+    input: String,
+) -> minecraft_skins::PlayerSkinLookup {
+    minecraft_skins::lookup_player_skin(&input).await
+}
+
 /// `invoke('plugin:minecraft-skins|get_available_capes')`
 ///
 /// See also: [minecraft_skins::get_available_capes]
 #[tauri::command]
-pub async fn get_available_capes() -> Result<Vec<Cape>> {
-    Ok(minecraft_skins::get_available_capes().await?)
+pub async fn get_available_capes(
+    cached_only: Option<bool>,
+) -> Result<Vec<Cape>> {
+    Ok(minecraft_skins::get_available_capes_with_cache(
+        cached_only.unwrap_or(false),
+    )
+    .await?)
 }
 
 /// `invoke('plugin:minecraft-skins|get_available_skins')`
 ///
 /// See also: [minecraft_skins::get_available_skins]
 #[tauri::command]
-pub async fn get_available_skins() -> Result<Vec<Skin>> {
-    Ok(minecraft_skins::get_available_skins().await?)
+pub async fn get_available_skins(
+    cached_only: Option<bool>,
+) -> Result<Vec<Skin>> {
+    Ok(minecraft_skins::get_available_skins_with_cache(
+        cached_only.unwrap_or(false),
+    )
+    .await?)
 }
 
 /// `invoke('plugin:minecraft-skins|add_and_equip_custom_skin', texture_blob, variant, cape)`

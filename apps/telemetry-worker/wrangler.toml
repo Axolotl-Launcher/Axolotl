@@ -8,6 +8,7 @@ routes = [{ pattern = "telemetry.axlmc.org", custom_domain = true }]
 INGEST_ENABLED = "true"
 MAX_BATCHES_PER_INSTALLATION_PER_DAY = "25"
 MAX_ACCEPTED_BATCHES_PER_DAY = "100000"
+MAX_RESERVED_WRITES_PER_DAY = "60000"
 
 [[d1_databases]]
 binding = "DB"

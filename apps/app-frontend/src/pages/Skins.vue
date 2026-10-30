@@ -6,6 +6,7 @@ import {
     LogInIcon,
     PlusIcon,
     RotateCounterClockwiseIcon,
+    SearchIcon,
     SpinnerIcon,
 } from '@modrinth/assets'
 import {
@@ -34,12 +35,14 @@ import { onBeforeRouteLeave, useRouter } from 'vue-router'
 import type AccountsCard from '@/components/ui/AccountsCard.vue'
 import ArmorTrimTab from '@/components/ui/skin/ArmorTrimTab.vue'
 import EditSkinModal from '@/components/ui/skin/EditSkinModal.vue'
+import PlayerSkinModal from '@/components/ui/skin/PlayerSkinModal.vue'
 import SkinListSkeleton from '@/components/ui/skin/SkinListSkeleton.vue'
 import VirtualSkinSectionList from '@/components/ui/skin/VirtualSkinSectionList.vue'
 import { useMojangAuthStatus } from '@/composables/useMojangAuth'
 import { useNetworkStatus } from '@/composables/useNetworkStatus'
 import { accountSelectionRevision } from '@/helpers/account-state'
 import { get_default_user, users } from '@/helpers/auth'
+import { DEFAULT_UI_FONT_STACK, resolveFontFamily } from '@/helpers/font-family.ts'
 import type { RenderResult } from '@/helpers/rendering/batch-skin-renderer.ts'
 import { setActiveSkinPreviews, skinBlobUrlMap } from '@/helpers/rendering/batch-skin-renderer.ts'
 import { createSkinAccountSession } from '@/helpers/skin-account-session'
@@ -77,6 +80,10 @@ type VirtualSkinSectionListExpose = {
 const PENDING_SKIN_REFRESH_DELAY_MS = 11_000
 const DEFAULT_SKIN_SECTION_SORT_ORDER = ['Default skins']
 const messages = defineMessages({
+    findPlayerSkin: {
+        id: 'app.skins.player.title',
+        defaultMessage: 'Find player skin',
+    },
     skinSelectorTitle: {
         id: 'app.skins.title',
         defaultMessage: 'Skin selector',
@@ -226,6 +233,7 @@ const messages = defineMessages({
  */
 const ARMOR_TRIM_PANEL_ID = 'skins-armor-trim-panel'
 const editSkinModal = useTemplateRef('editSkinModal')
+const playerSkinModal = useTemplateRef('playerSkinModal')
 const addSkinFileInput = useTemplateRef<HTMLInputElement>('addSkinFileInput')
 const skinSectionList = useTemplateRef<VirtualSkinSectionListExpose>('skinSectionList')
 const skinPreviewArea = useTemplateRef<HTMLElement>('skinPreviewArea')
@@ -309,7 +317,10 @@ const mojangAuth = useMojangAuthStatus()
 const accountsCard = inject('accountsCard') as Ref<typeof AccountsCard>
 const currentUser = ref(undefined)
 const currentUserId = ref<string | undefined>(undefined)
+watch(currentUserId, () => playerSkinModal.value?.hide())
 const currentAccountType = ref<'microsoft' | 'offline' | 'yggdrasil' | undefined>(undefined)
+const isAccountLoading = ref(true)
+const isSkinLibraryLoading = ref(true)
 
 const username = computed(() => currentUser.value?.profile?.name ?? undefined)
 const selectedSkin = ref<Skin | null>(null)
@@ -380,6 +391,13 @@ const skinTexture = computedAsync(async () => {
 const capeTexture = computed(() => currentCape.value?.texture)
 const skinVariant = computed(() => selectedSkin.value?.variant)
 const skinNametag = computed(() => (themeStore.hideNametagSkinsPage ? undefined : username.value))
+// Uses the interface's custom font when the setting is on; without one it falls
+// back to the default UI font stack. Undefined keeps the pixel font.
+const nametagFontFamily = computed(() =>
+    themeStore.nametagUsesAppFont
+        ? resolveFontFamily(themeStore.uiFont, DEFAULT_UI_FONT_STACK)
+        : undefined,
+)
 const isSkinManagementReadOnly = computed(
     () =>
         currentAccountType.value === 'yggdrasil' ||
@@ -459,9 +477,9 @@ async function deleteSkin() {
     }
 }
 
-async function loadCapes(generation = skinAccountGeneration) {
+async function loadCapes(generation = skinAccountGeneration, cachedOnly = false) {
     try {
-        const loadedCapes = (await get_available_capes()) ?? []
+        const loadedCapes = (await get_available_capes(cachedOnly)) ?? []
         if (generation === skinAccountGeneration) capes.value = loadedCapes
     } catch (error) {
         if (generation === skinAccountGeneration && currentUser.value && error instanceof Error) {
@@ -470,10 +488,18 @@ async function loadCapes(generation = skinAccountGeneration) {
     }
 }
 
-async function loadSkins(generation = skinAccountGeneration) {
+async function loadSkins(
+    generation = skinAccountGeneration,
+    cachedOnly = false,
+    preserveSelection = false,
+) {
+    const previousSkins = skins.value
+    const previousSelection = selectedSkin.value
     try {
-        const loadedSkins = (await get_available_skins()) ?? []
+        const loadedSkins = (await get_available_skins(cachedOnly)) ?? []
         if (generation !== skinAccountGeneration) return
+        // A background response must not overwrite a save, reorder or apply.
+        if (preserveSelection && skins.value !== previousSkins) return
         const loadedEquippedSkin = loadedSkins.find((s) => s.is_equipped)
         const locallyKnownEquippedSkin =
             originalSelectedSkin.value &&
@@ -493,8 +519,14 @@ async function loadSkins(generation = skinAccountGeneration) {
         if (generation !== skinAccountGeneration) return
         skins.value = nextSkins
         void generateSkinPreviews(nextSkins, capes.value)
-        selectedSkin.value = nextSkins.find((s) => s.is_equipped) ?? null
-        originalSelectedSkin.value = selectedSkin.value
+        const equippedSkin = nextSkins.find((s) => s.is_equipped) ?? null
+        const preview = selectedSkin.value
+        const keepPreview =
+            preserveSelection && (preview !== previousSelection || hasPendingSkinChange.value)
+        selectedSkin.value = keepPreview
+            ? (nextSkins.find((skin) => skinsMatch(skin, preview)) ?? preview)
+            : equippedSkin
+        originalSelectedSkin.value = equippedSkin
     } catch (error) {
         if (generation === skinAccountGeneration && currentUser.value && error instanceof Error) {
             handleError(error)
@@ -867,8 +899,10 @@ async function onSkinSaved(options: { applied: boolean; skin?: Skin; previousSki
 
 async function loadCurrentUser(generation = skinAccountGeneration) {
     try {
-        const defaultId = await get_default_user(offline.value)
-        const allAccounts = await users(offline.value)
+        const [defaultId, allAccounts] = await Promise.all([
+            get_default_user(offline.value),
+            users(offline.value, true),
+        ])
         if (generation !== skinAccountGeneration) return false
         const selectedAccount = allAccounts.find((acc) => acc.account_id === defaultId)
         currentAccountType.value = selectedAccount?.account_type
@@ -888,13 +922,36 @@ async function loadCurrentUser(generation = skinAccountGeneration) {
 async function refreshSelectedAccount() {
     const session = skinAccountSessions.begin()
     const generation = ++skinAccountGeneration
+    isAccountLoading.value = true
+    isSkinLibraryLoading.value = true
+    currentUser.value = undefined
+    currentUserId.value = undefined
+    currentAccountType.value = undefined
     skins.value = []
     capes.value = []
     selectedSkin.value = null
     originalSelectedSkin.value = null
     isApplyingSkin.value = false
-    if (!(await loadCurrentUser(generation)) || !skinAccountSessions.isCurrent(session)) return
-    await Promise.all([loadCapes(generation), loadSkins(generation)])
+    const loaded = await loadCurrentUser(generation)
+    if (!skinAccountSessions.isCurrent(session)) return
+    isAccountLoading.value = false
+    if (!loaded || !currentUser.value) {
+        isSkinLibraryLoading.value = false
+        return
+    }
+    await Promise.all([loadCapes(generation, true), loadSkins(generation, true)])
+    if (!skinAccountSessions.isCurrent(session)) return
+    isSkinLibraryLoading.value = false
+    if (!offline.value && currentAccountType.value !== 'offline') {
+        void refreshOnlineSkinLibrary(generation)
+    }
+}
+
+async function refreshOnlineSkinLibrary(generation: number) {
+    // The skin read reuses the profile fetched for capes instead of racing it.
+    await loadCapes(generation)
+    if (generation !== skinAccountGeneration) return
+    await loadSkins(generation, false, true)
 }
 
 watch(accountSelectionRevision, () => {
@@ -1069,10 +1126,13 @@ onBeforeRouteLeave(async (to) => {
 
 onMounted(() => {
     void setupNativeDropHandler()
+    void refreshSelectedAccount()
 })
 
 onUnmounted(() => {
     isUnmounted = true
+    skinAccountSessions.begin()
+    skinAccountGeneration += 1
     cancelSkinPreviews?.()
     setActiveSkinPreviews([])
     removeNavigationFailureHandler()
@@ -1091,11 +1151,15 @@ onUnmounted(() => {
 watch(offline, () => {
     void refreshSelectedAccount()
 })
-
-await refreshSelectedAccount()
 </script>
 
 <template>
+    <PlayerSkinModal
+        ref="playerSkinModal"
+        :read-only="isSkinManagementReadOnly"
+        :saved-skins="skins"
+        @saved="onSkinSaved"
+    />
     <EditSkinModal
         ref="editSkinModal"
         :capes="capes"
@@ -1144,7 +1208,7 @@ await refreshSelectedAccount()
     </Teleport>
 
     <div
-        v-if="currentUser"
+        v-if="currentUser || isAccountLoading"
         data-onboarding-id="skins-page"
         class="skin-layout box-border min-h-full p-4"
     >
@@ -1153,17 +1217,18 @@ await refreshSelectedAccount()
                 {{ formatMessage(messages.skinSelectorTitle) }}
             </h1>
             <!--
-				The preview's height, strictly: the area the app gives the page
-				(100vh less the top bar) minus the title, the action row below it and
-				the page's own padding. It keeps that height whether or not actions are
-				showing -- when one appears the column grows downwards instead, so the
-				model never moves and the actions never sit on the canvas.
-			-->
+                The preview's height, strictly: the area the app gives the page
+                (100vh less the top bar) minus the title, the action row below it and
+                the page's own padding. It keeps that height whether or not actions are
+                showing -- when one appears the column grows downwards instead, so the
+                model never moves and the actions never sit on the canvas.
+            -->
             <div
                 ref="skinPreviewArea"
                 class="ml-5 mt-4 flex h-[calc(100vh_-_var(--top-bar-height)_-_11rem)] min-h-[14rem] items-center justify-center"
             >
                 <SkinPreviewRenderer
+                    v-if="selectedSkin"
                     v-model:armor-config="armorPreviewConfig"
                     armor-preview
                     :armor-controls="false"
@@ -1171,6 +1236,7 @@ await refreshSelectedAccount()
                     :texture-src="skinTexture || ''"
                     :variant="skinVariant"
                     :nametag="skinNametag"
+                    :nametag-font-family="nametagFontFamily"
                     :initial-rotation="Math.PI / 8"
                 >
                     <template v-if="hasPendingSkinChange" #nametag-badge>
@@ -1185,10 +1251,10 @@ await refreshSelectedAccount()
             </div>
 
             <!--
-				The preview's actions belong to the column, not to the canvas: in the
-				flow they always get their own height, they never sit on the model, and
-				the preview above them does not move when one of them appears.
-			-->
+                The preview's actions belong to the column, not to the canvas: in the
+                flow they always get their own height, they never sit on the model, and
+                the preview above them does not move when one of them appears.
+            -->
             <div class="ml-5 mt-3 flex flex-wrap items-center justify-center gap-2">
                 <template v-if="hasPendingSkinChange">
                     <button
@@ -1240,10 +1306,15 @@ await refreshSelectedAccount()
                     mode="local"
                     @tab-click="selectSkinListTab"
                 />
-                <Button type="colored" color="brand" @click="router.push('/lab/skin-editor')"
-                    ><PlusIcon />
-                    {{ formatMessage(messages.createSkinButton) }}
-                </Button>
+                <div class="flex flex-wrap gap-2">
+                    <Button @click="playerSkinModal?.show($event)">
+                        <SearchIcon />{{ formatMessage(messages.findPlayerSkin) }}
+                    </Button>
+                    <Button type="colored" color="brand" @click="router.push('/lab/skin-editor')"
+                        ><PlusIcon />
+                        {{ formatMessage(messages.createSkinButton) }}
+                    </Button>
+                </div>
             </div>
             <Transition name="armor-tab" mode="out-in">
                 <div
@@ -1252,9 +1323,9 @@ await refreshSelectedAccount()
                     role="tabpanel"
                     :aria-labelledby="'nav-tab-' + lastSkinListTab"
                 >
-                    <SkinListSkeleton v-if="isSkinListBuffering" />
+                    <SkinListSkeleton v-if="isSkinListBuffering || isSkinLibraryLoading" />
                     <VirtualSkinSectionList
-                        v-show="!isSkinListBuffering"
+                        v-show="!isSkinListBuffering && !isSkinLibraryLoading"
                         ref="skinSectionList"
                         :active-tab="lastSkinListTab"
                         :saved-skins="savedSkins"

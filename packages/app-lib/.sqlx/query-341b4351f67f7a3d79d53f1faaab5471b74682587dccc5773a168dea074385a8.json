@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "\n        INSERT INTO sync_feature_settings\n            (feature, globally_enabled, new_instance_default)\n        VALUES ('game_options', 1, 1)\n        ON CONFLICT(feature) DO UPDATE SET globally_enabled = 1\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": []
+  },
+  "hash": "341b4351f67f7a3d79d53f1faaab5471b74682587dccc5773a168dea074385a8"
+}

@@ -329,8 +329,8 @@ const projectLinks = [
 <template>
     <div class="about-page flex flex-col gap-6">
         <!-- The hero carries the 3D experience host and has no heading, so it
-		     stays its own panel rather than a `SettingsSection` (which would
-		     render no anchor without a title). -->
+                            stays its own panel rather than a `SettingsSection` (which would
+                            render no anchor without a title). -->
         <section id="settings-target-about-product" tabindex="-1" class="about-panel">
             <div class="flex flex-col items-center gap-4">
                 <div

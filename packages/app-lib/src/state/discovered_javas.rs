@@ -1,7 +1,11 @@
 use std::path::Path;
 use std::time::UNIX_EPOCH;
 
-use sqlx::Row;
+use crate::state::store::Collection as _;
+use crate::state::store::derived_db::DerivedDb;
+use crate::state::store::discovered_javas::{
+    DiscoveredJavaRecord, DiscoveredJavas,
+};
 
 use super::JavaVersion;
 
@@ -44,122 +48,81 @@ impl DiscoveredJava {
         })
     }
 
-    pub async fn get_all(
-        exec: impl sqlx::Executor<'_, Database = sqlx::Sqlite>,
-    ) -> crate::Result<Vec<Self>> {
-        let rows = sqlx::query(
-            "
-            SELECT path, major_version, full_version, architecture,
-                file_size, file_mtime_ms, distribution
-            FROM discovered_javas
-            ORDER BY major_version, path
-            ",
-        )
-        .fetch_all(exec)
-        .await?;
+    fn from_record(path: String, record: DiscoveredJavaRecord) -> Self {
+        Self {
+            java: JavaVersion {
+                parsed_version: record.major_version,
+                version: record.full_version,
+                architecture: record.architecture,
+                path,
+                distribution: record.distribution,
+            },
+            file_size: record.file_size,
+            file_mtime_ms: record.file_mtime_ms,
+        }
+    }
 
-        Ok(rows
+    fn to_record(&self) -> DiscoveredJavaRecord {
+        DiscoveredJavaRecord {
+            major_version: self.java.parsed_version,
+            full_version: self.java.version.clone(),
+            architecture: self.java.architecture.clone(),
+            distribution: self.java.distribution.clone(),
+            file_size: self.file_size,
+            file_mtime_ms: self.file_mtime_ms,
+        }
+    }
+
+    pub async fn get_all(derived: &DerivedDb) -> crate::Result<Vec<Self>> {
+        let mut entries = derived
+            .read(async |handle| DiscoveredJavas::get_all(handle).await)
+            .await?
             .into_iter()
-            .map(|row| Self {
-                java: JavaVersion {
-                    parsed_version: row.get::<i64, _>("major_version") as u32,
-                    version: row.get("full_version"),
-                    architecture: row.get("architecture"),
-                    path: row.get("path"),
-                    distribution: row.get("distribution"),
-                },
-                file_size: row.get("file_size"),
-                file_mtime_ms: row.get("file_mtime_ms"),
+            .map(|(path, record)| Self::from_record(path, record))
+            .collect::<Vec<_>>();
+        entries.sort_by(|left, right| {
+            left.java
+                .parsed_version
+                .cmp(&right.java.parsed_version)
+                .then_with(|| left.java.path.cmp(&right.java.path))
+        });
+
+        Ok(entries)
+    }
+
+    pub async fn upsert(&self, derived: &DerivedDb) -> crate::Result<()> {
+        let path = self.java.path.clone();
+        let record = self.to_record();
+        derived
+            .write(async |handle| {
+                DiscoveredJavas::set(handle, &path, Some(&record)).await
             })
-            .collect())
+            .await
     }
 
-    pub async fn upsert(
-        &self,
-        exec: impl sqlx::Executor<'_, Database = sqlx::Sqlite>,
-    ) -> crate::Result<()> {
-        sqlx::query(
-            "
-            INSERT INTO discovered_javas (
-                path, major_version, full_version, architecture,
-                file_size, file_mtime_ms, distribution
-            )
-            VALUES ($1, $2, $3, $4, $5, $6, $7)
-            ON CONFLICT (path) DO UPDATE SET
-                major_version = $2,
-                full_version = $3,
-                architecture = $4,
-                file_size = $5,
-                file_mtime_ms = $6,
-                distribution = $7
-            ",
-        )
-        .bind(&self.java.path)
-        .bind(self.java.parsed_version as i64)
-        .bind(&self.java.version)
-        .bind(&self.java.architecture)
-        .bind(self.file_size)
-        .bind(self.file_mtime_ms)
-        .bind(&self.java.distribution)
-        .execute(exec)
-        .await?;
-
-        Ok(())
-    }
-
-    pub async fn remove(
-        path: &str,
-        exec: impl sqlx::Executor<'_, Database = sqlx::Sqlite>,
-    ) -> crate::Result<()> {
-        sqlx::query("DELETE FROM discovered_javas WHERE path = $1")
-            .bind(path)
-            .execute(exec)
-            .await?;
-
-        Ok(())
+    pub async fn remove(path: &str, derived: &DerivedDb) -> crate::Result<()> {
+        let path = path.to_string();
+        derived
+            .write(async |handle| {
+                DiscoveredJavas::set(handle, &path, None).await
+            })
+            .await
     }
 
     /// Replaces the entire cache with the results of a fresh scan.
     pub async fn replace_all(
-        pool: &sqlx::SqlitePool,
+        derived: &DerivedDb,
         entries: &[Self],
     ) -> crate::Result<()> {
-        let mut transaction = pool.begin().await?;
+        let records = entries
+            .iter()
+            .map(|entry| (entry.java.path.clone(), entry.to_record()))
+            .collect::<Vec<_>>();
 
-        sqlx::query("DELETE FROM discovered_javas")
-            .execute(&mut *transaction)
-            .await?;
-
-        for entry in entries {
-            sqlx::query(
-                "
-                INSERT INTO discovered_javas (
-                    path, major_version, full_version, architecture,
-                    file_size, file_mtime_ms, distribution
-                )
-                VALUES ($1, $2, $3, $4, $5, $6, $7)
-                ON CONFLICT (path) DO UPDATE SET
-                    major_version = $2,
-                    full_version = $3,
-                    architecture = $4,
-                    file_size = $5,
-                    file_mtime_ms = $6,
-                    distribution = $7
-                ",
-            )
-            .bind(&entry.java.path)
-            .bind(entry.java.parsed_version as i64)
-            .bind(&entry.java.version)
-            .bind(&entry.java.architecture)
-            .bind(entry.file_size)
-            .bind(entry.file_mtime_ms)
-            .bind(&entry.java.distribution)
-            .execute(&mut *transaction)
-            .await?;
-        }
-
-        transaction.commit().await?;
-
-        Ok(())
+        derived
+            .write(async |handle| {
+                DiscoveredJavas::set_all(handle, &records).await
+            })
+            .await
     }
 }

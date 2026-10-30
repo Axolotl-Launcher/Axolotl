@@ -538,11 +538,11 @@ pub(super) async fn run_request(
             if let Some(manual_download) = result.manual_download {
                 let path = format!("saves/{}", manual_download.file_name);
                 let manual_url = manual_download.website_url.clone().or_else(|| {
-					Some(format!(
-						"https://www.curseforge.com/minecraft/worlds/{}/download/{}",
-						manual_download.project_slug, manual_download.file_id
-					))
-				});
+                    Some(format!(
+                        "https://www.curseforge.com/minecraft/worlds/{}/download/{}",
+                        manual_download.project_slug, manual_download.file_id
+                    ))
+                });
                 reporter
                     .record_events(vec![
                         InstallJobEventKind::ContentFileSkipped {

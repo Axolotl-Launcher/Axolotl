@@ -462,20 +462,20 @@ fn resolve_modloader_file<'a>(
     &'a crate::mcarchive::McArchiveFile,
 )> {
     let version = modloader
-		.mod_versions
-		.iter()
-		.find(|version| {
-			version.name == game_version
-				|| version
-					.game_versions
-					.iter()
-					.any(|candidate| candidate.name == game_version)
-		})
-		.ok_or_else(|| {
-			crate::ErrorKind::InputError(format!(
-				"MCArchive has no ModLoader release for Minecraft {game_version}"
-			))
-		})?;
+        .mod_versions
+        .iter()
+        .find(|version| {
+            version.name == game_version
+                || version
+                    .game_versions
+                    .iter()
+                    .any(|candidate| candidate.name == game_version)
+        })
+        .ok_or_else(|| {
+            crate::ErrorKind::InputError(format!(
+                "MCArchive has no ModLoader release for Minecraft {game_version}"
+            ))
+        })?;
     let file = version
         .files
         .iter()
@@ -549,10 +549,10 @@ async fn add_component(
         })?;
     if instance.applied_content_set.game_version != target_game_version {
         return Err(crate::ErrorKind::InputError(format!(
-			"Core component targets Minecraft {target_game_version}, but this instance uses {}",
-			instance.applied_content_set.game_version
-		))
-		.into());
+            "Core component targets Minecraft {target_game_version}, but this instance uses {}",
+            instance.applied_content_set.game_version
+        ))
+        .into());
     }
     let metadata = tokio::fs::metadata(&source_path).await?;
     if !metadata.is_file() {
@@ -711,7 +711,12 @@ async fn validate_archive(path: &Path) -> crate::Result<()> {
                     "Core component ZIP entry cannot be read: {error}"
                 ))
             })?;
-            validate_archive_entry(entry.name())?;
+            let name = entry.name().map_err(|error| {
+                crate::ErrorKind::InputError(format!(
+                    "Core component ZIP entry name cannot be read: {error}"
+                ))
+            })?;
+            validate_archive_entry(&name)?;
         }
         Ok(())
     })
@@ -785,7 +790,12 @@ fn assemble_archive(
                         "Cannot read core component ZIP entry: {error}"
                     ))
                 })?;
-                let name = validate_archive_entry(entry.name())?;
+                let name = entry.name().map_err(|error| {
+                    crate::ErrorKind::InputError(format!(
+                        "Cannot read core component ZIP entry name: {error}"
+                    ))
+                })?;
+                let name = validate_archive_entry(&name)?;
                 let Some(name) = name else {
                     continue;
                 };

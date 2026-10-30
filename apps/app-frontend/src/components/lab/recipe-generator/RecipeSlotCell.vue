@@ -5,8 +5,8 @@ import { computed, ref } from 'vue'
 
 import { useResultCountWheel } from '@/composables/lab/useResultCountWheel'
 import type { SlotDisplay } from '@/lab/recipe-generator/display'
-import type { TextureAtlas } from '@/lab/recipe-generator/resources'
 import type { RecipeSlot, SlotValue } from '@/lab/recipe-generator/types'
+import type { TextureAtlas } from '@/lab/shared/minecraft/resources'
 
 import RecipeItemIcon from './RecipeItemIcon.vue'
 
@@ -137,11 +137,10 @@ function onDrop(event: DragEvent) {
         @drop="onDrop"
     >
         <button
-            v-tooltip="wheelHint"
+            v-tooltip="wheelHint ?? display?.label ?? slotLabel"
             type="button"
             class="recipe-slot-button"
             :class="{ 'recipe-result-button': result }"
-            :title="wheelHint ?? slotLabel"
             :aria-label="wheelHint ?? slotLabel"
             @click="emit('clear')"
             @wheel="onResultWheel(recipeSlot, $event)"

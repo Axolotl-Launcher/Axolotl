@@ -2,12 +2,14 @@ use crate::event::emit::{emit_instance, emit_process};
 use crate::event::{InstancePayloadType, ProcessPayloadType};
 #[cfg(feature = "tauri")]
 use crate::event::{LogEvent, LogPayload};
+use crate::state::store::Collection as _;
+use crate::state::store::join_log::{JoinLog, JoinLogEntry, JoinLogKey};
 use crate::util::io::IOError;
 use crate::util::rpc::RpcServer;
 use chrono::{DateTime, Duration, NaiveDateTime, TimeZone, Utc};
 use dashmap::DashMap;
-use quick_xml::Reader;
 use quick_xml::events::Event;
+use quick_xml::{Reader, XmlVersion};
 use serde::Deserialize;
 use serde::Serialize;
 use std::collections::{BTreeMap, HashMap, VecDeque};
@@ -906,9 +908,9 @@ impl Process {
                                     )
                                     .await;
                                         if let Err(e) = Self::maybe_handle_server_join_logging(
-											instance_id,
-											&timestamp,
-											message,
+                                            instance_id,
+                                            &timestamp,
+                                            message,
                                         ).await {
                                             tracing::error!("Failed to handle server join logging: {e}");
                                         }
@@ -925,7 +927,9 @@ impl Process {
                     }
                     Ok(Event::Text(mut e)) => {
                         if in_message || in_throwable {
-                            if let Ok(text) = e.xml_content() {
+                            if let Ok(text) =
+                                e.xml_content(XmlVersion::Explicit1_1)
+                            {
                                 append_bounded_log4j_content(
                                     &mut current_content,
                                     &text,
@@ -934,7 +938,8 @@ impl Process {
                         } else if !in_event
                             && !e.inplace_trim_end()
                             && !e.inplace_trim_start()
-                            && let Ok(text) = e.xml_content()
+                            && let Ok(text) =
+                                e.xml_content(XmlVersion::Explicit1_1)
                         {
                             if let Err(e) = Process::append_to_log_file(
                                 &log_path,
@@ -950,7 +955,8 @@ impl Process {
                     }
                     Ok(Event::CData(e)) => {
                         if (in_message || in_throwable)
-                            && let Ok(text) = e.xml_content()
+                            && let Ok(text) =
+                                e.xml_content(XmlVersion::Explicit1_1)
                         {
                             append_bounded_log4j_content(
                                 &mut current_content,
@@ -1163,13 +1169,17 @@ impl Process {
         };
 
         let state = crate::State::get().await?;
-        crate::state::server_join_log::JoinLogEntry {
-            instance_id: instance_id.to_owned(),
-            host: host.to_string(),
-            port,
-            join_time: timestamp,
-        }
-        .upsert(&state.pool)
+        JoinLog::set(
+            &state.data,
+            &JoinLogKey {
+                instance_id: instance_id.to_owned(),
+                host: host.to_string(),
+                port,
+            },
+            Some(&JoinLogEntry {
+                join_time: timestamp,
+            }),
+        )
         .await?;
         {
             let instance_id = instance_id.to_owned();
@@ -1244,20 +1254,20 @@ impl Process {
                 );
             }
             if let Err(e) =
-				crate::state::instances::commands::record_instance_daily_playtime(
-					instance_id,
-					started_at,
-					ended_at,
-					&state.pool,
-				)
-				.await
-			{
-				tracing::warn!(
-					"Failed to record daily playtime for instance {}: {}",
-					instance_id,
-					e
-				);
-			}
+                crate::state::instances::commands::record_instance_daily_playtime(
+                    instance_id,
+                    started_at,
+                    ended_at,
+                    &state.pool,
+                )
+                .await
+            {
+                tracing::warn!(
+                    "Failed to record daily playtime for instance {}: {}",
+                    instance_id,
+                    e
+                );
+            }
             *last_updated_playtime = Instant::now();
         }
 

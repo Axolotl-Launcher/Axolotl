@@ -1,148 +1,181 @@
 import assert from 'node:assert/strict'
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { test } from 'node:test'
 
 import {
-	contractFromMessage,
-	contractsEqual,
-	sourceContractChanged,
-	translationCompatibleWithSource,
+    collectSourceMessageReferences,
+    contractFromMessage,
+    contractsEqual,
+    sourceContractChanged,
+    translationCompatibleWithSource,
 } from './i18n-icu-contract'
 
+test('retains messages referenced by JSON data without treating locale dictionaries as source', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'axolotl-i18n-references-'))
+    try {
+        await mkdir(join(root, 'data'))
+        await mkdir(join(root, 'locales', 'zh-CN'), { recursive: true })
+        await writeFile(
+            join(root, 'data', 'commands.json'),
+            JSON.stringify({
+                displayNameKey: 'app.lab.command-generator.arg.give.target.display',
+            }),
+        )
+        await writeFile(join(root, 'page.vue'), `<script>const id = 'app.page.title'</script>`)
+        await writeFile(
+            join(root, 'locales', 'zh-CN', 'index.json'),
+            JSON.stringify({
+                'app.deleted': { message: 'Removed' },
+            }),
+        )
+        await writeFile(join(root, 'notes.md'), '"app.documentation.only"')
+        const references = await collectSourceMessageReferences(root)
+        assert.ok(references.has('app.lab.command-generator.arg.give.target.display'))
+        assert.ok(references.has('app.page.title'))
+        assert.ok(!references.has('app.deleted'))
+        assert.ok(!references.has('app.documentation.only'))
+    } finally {
+        await rm(root, { recursive: true, force: true })
+    }
+})
+
 test('same plain text contract is equal', () => {
-	assert.equal(
-		contractsEqual(contractFromMessage('Hello', 'a'), contractFromMessage('Goodbye', 'b')),
-		true,
-	)
+    assert.equal(
+        contractsEqual(contractFromMessage('Hello', 'a'), contractFromMessage('Goodbye', 'b')),
+        true,
+    )
 })
 
 test('variable rename changes contract', () => {
-	assert.equal(
-		contractsEqual(
-			contractFromMessage('Hello {name}', 'a'),
-			contractFromMessage('Hello {username}', 'b'),
-		),
-		false,
-	)
+    assert.equal(
+        contractsEqual(
+            contractFromMessage('Hello {name}', 'a'),
+            contractFromMessage('Hello {username}', 'b'),
+        ),
+        false,
+    )
 })
 
 test('variable removal changes contract', () => {
-	assert.equal(
-		contractsEqual(contractFromMessage('Created by {user}', 'a'), contractFromMessage('Created', 'b')),
-		false,
-	)
+    assert.equal(
+        contractsEqual(contractFromMessage('Created by {user}', 'a'), contractFromMessage('Created', 'b')),
+        false,
+    )
 })
 
 test('rich text tag rename changes contract', () => {
-	assert.equal(
-		contractsEqual(
-			contractFromMessage('Read <link>docs</link>', 'a'),
-			contractFromMessage('Read <docs-link>docs</docs-link>', 'b'),
-		),
-		false,
-	)
+    assert.equal(
+        contractsEqual(
+            contractFromMessage('Read <link>docs</link>', 'a'),
+            contractFromMessage('Read <docs-link>docs</docs-link>', 'b'),
+        ),
+        false,
+    )
 })
 
 test('literal html-like tags are treated as plain text', () => {
-	assert.equal(
-		contractsEqual(
-			contractFromMessage('Line one<br><br>Line two', 'a'),
-			contractFromMessage('Zeile eins<br><br>Zeile zwei', 'b'),
-		),
-		true,
-	)
+    assert.equal(
+        contractsEqual(
+            contractFromMessage('Line one<br><br>Line two', 'a'),
+            contractFromMessage('Zeile eins<br><br>Zeile zwei', 'b'),
+        ),
+        true,
+    )
 })
 
 test('select branch changes contract', () => {
-	assert.equal(
-		contractsEqual(
-			contractFromMessage('{type, select, mod {mod} other {project}}', 'a'),
-			contractFromMessage('{type, select, plugin {plugin} other {project}}', 'b'),
-		),
-		false,
-	)
+    assert.equal(
+        contractsEqual(
+            contractFromMessage('{type, select, mod {mod} other {project}}', 'a'),
+            contractFromMessage('{type, select, plugin {plugin} other {project}}', 'b'),
+        ),
+        false,
+    )
 })
 
 test('translation can move phrase inside ICU branches', () => {
-	const source = contractFromMessage(
-		'In the last {amount} {unit, select, hours {{amount, plural, one {hour} other {hours}}} days {{amount, plural, one {day} other {days}}} other {days}}',
-		'source',
-	)
-	const translation = contractFromMessage(
-		"{unit, select, hours {{amount, plural, one {Nell'ultima ora} other {Nelle ultime # ore}}} days {{amount, plural, one {Nell'ultimo giorno} other {Negli ultimi # giorni}}} other {Negli ultimi {amount} giorni}}",
-		'translation',
-	)
+    const source = contractFromMessage(
+        'In the last {amount} {unit, select, hours {{amount, plural, one {hour} other {hours}}} days {{amount, plural, one {day} other {days}}} other {days}}',
+        'source',
+    )
+    const translation = contractFromMessage(
+        "{unit, select, hours {{amount, plural, one {Nell'ultima ora} other {Nelle ultime # ore}}} days {{amount, plural, one {Nell'ultimo giorno} other {Negli ultimi # giorni}}} other {Negli ultimi {amount} giorni}}",
+        'translation',
+    )
 
-	assert.equal(translationCompatibleWithSource(source, translation), true)
+    assert.equal(translationCompatibleWithSource(source, translation), true)
 })
 
 test('translation can use locale-specific plural categories', () => {
-	const source = contractFromMessage('{count, plural, one {# file} other {# files}}', 'source')
-	const translation = contractFromMessage(
-		'{count, plural, one {# файл} few {# файла} many {# файлов} other {# файла}}',
-		'translation',
-	)
+    const source = contractFromMessage('{count, plural, one {# file} other {# files}}', 'source')
+    const translation = contractFromMessage(
+        '{count, plural, one {# файл} few {# файла} many {# файлов} other {# файла}}',
+        'translation',
+    )
 
-	assert.equal(translationCompatibleWithSource(source, translation), true)
+    assert.equal(translationCompatibleWithSource(source, translation), true)
 })
 
 test('translation can simplify plural when wording does not vary', () => {
-	const source = contractFromMessage('{count, plural, one {# server} other {# servers}}', 'source')
-	const translation = contractFromMessage('{count} Server', 'translation')
+    const source = contractFromMessage('{count, plural, one {# server} other {# servers}}', 'source')
+    const translation = contractFromMessage('{count} Server', 'translation')
 
-	assert.equal(translationCompatibleWithSource(source, translation), true)
+    assert.equal(translationCompatibleWithSource(source, translation), true)
 })
 
 test('translation cannot invent app select values', () => {
-	const source = contractFromMessage(
-		'{unit, select, hours {hours} days {days} other {days}}',
-		'source',
-	)
-	const translation = contractFromMessage(
-		'{unit, select, years {years} other {days}}',
-		'translation',
-	)
+    const source = contractFromMessage(
+        '{unit, select, hours {hours} days {days} other {days}}',
+        'source',
+    )
+    const translation = contractFromMessage(
+        '{unit, select, years {years} other {days}}',
+        'translation',
+    )
 
-	assert.equal(translationCompatibleWithSource(source, translation), false)
+    assert.equal(translationCompatibleWithSource(source, translation), false)
 })
 
 test('translation cannot invent variables', () => {
-	const source = contractFromMessage('Created by {user}', 'source')
-	const translation = contractFromMessage('Created by {username}', 'translation')
+    const source = contractFromMessage('Created by {user}', 'source')
+    const translation = contractFromMessage('Created by {username}', 'translation')
 
-	assert.equal(translationCompatibleWithSource(source, translation), false)
+    assert.equal(translationCompatibleWithSource(source, translation), false)
 })
 
 test('source shape rewrite with same runtime interface is not a contract change', () => {
-	assert.equal(
-		sourceContractChanged(
-			'In the last {amount} {unit, select, hours {{amount, plural, one {hour} other {hours}}} days {{amount, plural, one {day} other {days}}} other {days}}',
-			'{unit, select, hours {{amount, plural, one {In the last hour} other {In the last # hours}}} days {{amount, plural, one {In the last day} other {In the last # days}}} other {In the last {amount} days}}',
-			'previous',
-			'current',
-		),
-		false,
-	)
+    assert.equal(
+        sourceContractChanged(
+            'In the last {amount} {unit, select, hours {{amount, plural, one {hour} other {hours}}} days {{amount, plural, one {day} other {days}}} other {days}}',
+            '{unit, select, hours {{amount, plural, one {In the last hour} other {In the last # hours}}} days {{amount, plural, one {In the last day} other {In the last # days}}} other {In the last {amount} days}}',
+            'previous',
+            'current',
+        ),
+        false,
+    )
 })
 
 test('invalid previous source message is treated as changed', () => {
-	assert.equal(
-		sourceContractChanged(
-			'Get support at {support-link}',
-			'Get support at <support-link></support-link>',
-			'previous',
-			'current',
-		),
-		true,
-	)
+    assert.equal(
+        sourceContractChanged(
+            'Get support at {support-link}',
+            'Get support at <support-link></support-link>',
+            'previous',
+            'current',
+        ),
+        true,
+    )
 })
 
 test('invalid current source message is rejected', () => {
-	assert.throws(() =>
-		sourceContractChanged(
-			'Get support at <support-link></support-link>',
-			'Get support at {support-link}',
-			'previous',
-			'current',
-		),
-	)
+    assert.throws(() =>
+        sourceContractChanged(
+            'Get support at <support-link></support-link>',
+            'Get support at {support-link}',
+            'previous',
+            'current',
+        ),
+    )
 })

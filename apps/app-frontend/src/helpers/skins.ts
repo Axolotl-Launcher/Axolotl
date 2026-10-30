@@ -9,6 +9,25 @@ export interface Cape {
 }
 
 export type SkinModel = 'CLASSIC' | 'SLIM' | 'UNKNOWN'
+
+export interface PlayerSkin {
+    status: 'found'
+    name: string
+    uuid: string
+    variant: 'CLASSIC' | 'SLIM'
+    texture: string
+    preview_texture: string
+}
+
+export type PlayerSkinLookup =
+    | PlayerSkin
+    | {
+          status: 'invalid_input' | 'not_found' | 'no_custom_skin' | 'rate_limited' | 'unavailable'
+      }
+
+export async function lookup_player_skin(input: string): Promise<PlayerSkinLookup> {
+    return invoke('plugin:minecraft-skins|lookup_player_skin', { input })
+}
 export type SkinSource = 'default' | 'custom_external' | 'custom'
 
 export interface Skin {
@@ -110,12 +129,12 @@ export function filterDefaultSkins(list: Skin[]) {
         })
 }
 
-export async function get_available_capes(): Promise<Cape[]> {
-    return invoke('plugin:minecraft-skins|get_available_capes', {})
+export async function get_available_capes(cachedOnly = false): Promise<Cape[]> {
+    return invoke('plugin:minecraft-skins|get_available_capes', { cachedOnly })
 }
 
-export async function get_available_skins(): Promise<Skin[]> {
-    return invoke('plugin:minecraft-skins|get_available_skins', {})
+export async function get_available_skins(cachedOnly = false): Promise<Skin[]> {
+    return invoke('plugin:minecraft-skins|get_available_skins', { cachedOnly })
 }
 
 export async function add_and_equip_custom_skin(

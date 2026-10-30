@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "\n                INSERT INTO synced_game_option_preferences\n                    (option_id, enabled, source, revision)\n                VALUES (?, ?, ?, ?)\n                ON CONFLICT(option_id) DO UPDATE SET\n                    enabled = excluded.enabled, source = 'user',\n                    revision = excluded.revision\n                ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 4
+    },
+    "nullable": []
+  },
+  "hash": "9b50c6503a14a07a2cb39ea501606e8b359f90e590b9f47bfa9c03403cc10f7e"
+}

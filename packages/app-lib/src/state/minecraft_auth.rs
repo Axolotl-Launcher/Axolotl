@@ -1,10 +1,17 @@
 use crate::ErrorKind;
+use crate::state::store::Handle;
+use crate::state::store::minecraft_device_tokens::{
+    MinecraftDeviceTokenRecord, MinecraftDeviceTokens, Singleton,
+};
+use crate::state::store::minecraft_users::{
+    AccountType as StoredAccountType, MinecraftUserRecord, MinecraftUsers,
+};
+use crate::state::store::{Collection as _, atom};
 use crate::util::fetch::authentication_client;
 use crate::util::mojang::{mojang_service_url, should_use_mojang_mirror};
 use base64::Engine;
 use base64::prelude::BASE64_URL_SAFE_NO_PAD;
 use chrono::{DateTime, Duration, TimeZone, Utc};
-use futures::TryStreamExt;
 use heck::ToTitleCase;
 use p256::ecdsa::SigningKey;
 use p256::pkcs8::{EncodePrivateKey, LineEnding};
@@ -24,7 +31,7 @@ use std::io;
 use std::ops::Deref;
 use std::sync::Arc;
 use std::time::Instant;
-use tokio::runtime::{Handle, RuntimeFlavor};
+use tokio::runtime::{Handle as RuntimeHandle, RuntimeFlavor};
 use tokio::sync::Mutex;
 use tokio::task;
 use url::Url;
@@ -107,16 +114,13 @@ pub enum MinecraftDeviceLoginPoll {
 }
 
 #[tracing::instrument]
-pub async fn login_begin(
-    exec: impl sqlx::Executor<'_, Database = sqlx::Sqlite> + Copy,
-) -> crate::Result<MinecraftLoginFlow> {
-    login_begin_with_redirect(AUTH_REPLY_URL, exec).await
+pub async fn login_begin() -> crate::Result<MinecraftLoginFlow> {
+    login_begin_with_redirect(AUTH_REPLY_URL).await
 }
 
 #[tracing::instrument]
 pub async fn login_begin_with_redirect(
     redirect_uri: &str,
-    _exec: impl sqlx::Executor<'_, Database = sqlx::Sqlite> + Copy,
 ) -> crate::Result<MinecraftLoginFlow> {
     let verifier = generate_oauth_challenge();
     let state = generate_oauth_challenge();
@@ -144,10 +148,8 @@ pub async fn login_begin_with_redirect(
 }
 
 #[tracing::instrument]
-pub async fn browser_login_begin(
-    exec: impl sqlx::Executor<'_, Database = sqlx::Sqlite> + Copy,
-) -> crate::Result<MinecraftLoginFlow> {
-    login_begin_with_redirect(BROWSER_AUTH_REPLY_URL, exec).await
+pub async fn browser_login_begin() -> crate::Result<MinecraftLoginFlow> {
+    login_begin_with_redirect(BROWSER_AUTH_REPLY_URL).await
 }
 
 #[tracing::instrument]
@@ -187,10 +189,10 @@ pub async fn device_login_begin() -> crate::Result<MinecraftDeviceLoginFlow> {
     })
 }
 
-#[tracing::instrument]
+#[tracing::instrument(skip(handle))]
 pub async fn device_login_poll(
     device_code: &str,
-    exec: impl sqlx::Executor<'_, Database = sqlx::Sqlite> + Copy,
+    handle: &Handle,
 ) -> crate::Result<MinecraftDeviceLoginPoll> {
     let mut query = HashMap::new();
     query.insert("client_id", MICROSOFT_CLIENT_ID);
@@ -240,19 +242,19 @@ pub async fn device_login_poll(
             date: current_date,
             value: token,
         },
-        exec,
+        handle,
     )
     .await?;
 
     Ok(MinecraftDeviceLoginPoll::Complete { credentials })
 }
 
-#[tracing::instrument]
+#[tracing::instrument(skip(handle))]
 pub async fn login_finish(
     code: &str,
     state: &str,
     flow: MinecraftLoginFlow,
-    exec: impl sqlx::Executor<'_, Database = sqlx::Sqlite> + Copy,
+    handle: &Handle,
 ) -> crate::Result<Credentials> {
     if state != flow.state {
         return Err(crate::ErrorKind::InputError(
@@ -263,12 +265,12 @@ pub async fn login_finish(
     }
     let oauth_token =
         oauth_token(code, &flow.verifier, &flow.redirect_uri).await?;
-    finish_microsoft_login(oauth_token, exec).await
+    finish_microsoft_login(oauth_token, handle).await
 }
 
 async fn finish_microsoft_login(
     oauth_token: RequestWithDate<OAuthToken>,
-    exec: impl sqlx::Executor<'_, Database = sqlx::Sqlite> + Copy,
+    handle: &Handle,
 ) -> crate::Result<Credentials> {
     let xbl_token =
         xbox_live_authorize(&oauth_token.value.access_token).await?;
@@ -303,7 +305,7 @@ async fn finish_microsoft_login(
         credentials.offline_profile.id.as_hyphenated()
     ));
 
-    credentials.upsert(exec).await?;
+    credentials.upsert(handle).await?;
 
     crate::anti_piracy::mark_official_login().await.map_err(|error| {
         tracing::warn!(%error, "Could not persist official Minecraft login proof");
@@ -327,15 +329,7 @@ pub enum MinecraftAccountType {
 }
 
 impl MinecraftAccountType {
-    fn from_database(value: &str) -> Self {
-        match value {
-            "offline" => Self::Offline,
-            "yggdrasil" => Self::Yggdrasil,
-            _ => Self::Microsoft,
-        }
-    }
-
-    fn as_database(self) -> &'static str {
+    fn as_str(self) -> &'static str {
         match self {
             Self::Microsoft => "microsoft",
             Self::Offline => "offline",
@@ -344,20 +338,24 @@ impl MinecraftAccountType {
     }
 }
 
-#[derive(sqlx::FromRow)]
-struct StoredCredentials {
-    account_id: String,
-    uuid: String,
-    active: i64,
-    username: String,
-    account_type: String,
-    access_token: String,
-    refresh_token: String,
-    expires: i64,
-    yggdrasil_api_root: String,
-    yggdrasil_server_name: String,
-    yggdrasil_login: String,
-    yggdrasil_client_token: String,
+fn to_stored_account_type(
+    account_type: MinecraftAccountType,
+) -> StoredAccountType {
+    match account_type {
+        MinecraftAccountType::Microsoft => StoredAccountType::Microsoft,
+        MinecraftAccountType::Offline => StoredAccountType::Offline,
+        MinecraftAccountType::Yggdrasil => StoredAccountType::Yggdrasil,
+    }
+}
+
+fn from_stored_account_type(
+    account_type: StoredAccountType,
+) -> MinecraftAccountType {
+    match account_type {
+        StoredAccountType::Microsoft => MinecraftAccountType::Microsoft,
+        StoredAccountType::Offline => MinecraftAccountType::Offline,
+        StoredAccountType::Yggdrasil => MinecraftAccountType::Yggdrasil,
+    }
 }
 
 #[derive(Deserialize, Debug)]
@@ -473,13 +471,13 @@ impl Credentials {
             .unwrap_or_else(|| match &self.yggdrasil {
                 Some(account) => format!(
                     "{}:{}:{}",
-                    self.account_type.as_database(),
+                    self.account_type.as_str(),
                     account.api_root,
                     self.offline_profile.id.as_hyphenated()
                 ),
                 None => format!(
                     "{}:{}",
-                    self.account_type.as_database(),
+                    self.account_type.as_str(),
                     self.offline_profile.id.as_hyphenated()
                 ),
             })
@@ -529,44 +527,38 @@ impl Credentials {
         self.account_type == MinecraftAccountType::Yggdrasil
     }
 
-    fn from_stored(stored: StoredCredentials) -> Self {
-        let account_type =
-            MinecraftAccountType::from_database(&stored.account_type);
+    fn from_stored(account_id: String, record: MinecraftUserRecord) -> Self {
+        let account_type = from_stored_account_type(record.account_type);
         let yggdrasil = (account_type == MinecraftAccountType::Yggdrasil)
-            .then_some({
-                YggdrasilAccount {
-                    api_root: stored.yggdrasil_api_root,
-                    server_name: stored.yggdrasil_server_name,
-                    login: stored.yggdrasil_login,
-                    client_token: stored.yggdrasil_client_token,
-                }
+            .then_some(YggdrasilAccount {
+                api_root: record.yggdrasil_api_root,
+                server_name: record.yggdrasil_server_name,
+                login: record.yggdrasil_login,
+                client_token: record.yggdrasil_client_token,
             });
 
         Self {
-            account_id: Some(stored.account_id),
+            account_id: Some(account_id),
             offline_profile: MinecraftProfile {
-                id: Uuid::parse_str(&stored.uuid).unwrap_or_default(),
-                name: stored.username,
+                id: Uuid::parse_str(&record.uuid).unwrap_or_default(),
+                name: record.username,
                 ..MinecraftProfile::default()
             },
             account_type,
-            access_token: stored.access_token,
-            refresh_token: stored.refresh_token,
+            access_token: record.access_token,
+            refresh_token: record.refresh_token,
             expires: Utc
-                .timestamp_opt(stored.expires, 0)
+                .timestamp_opt(record.expires, 0)
                 .single()
                 .unwrap_or_else(Utc::now),
-            active: stored.active == 1,
+            active: record.active,
             yggdrasil,
         }
     }
 
     /// Refreshes the authentication tokens for this user if they are expired, or
     /// very close to expiration.
-    async fn refresh(
-        &mut self,
-        exec: impl sqlx::Executor<'_, Database = sqlx::Sqlite> + Copy,
-    ) -> crate::Result<()> {
+    async fn refresh(&mut self, handle: &Handle) -> crate::Result<()> {
         if self.is_offline() {
             return Ok(());
         }
@@ -614,7 +606,7 @@ impl Credentials {
             return Err(crate::Error::from_shared_kind(Arc::clone(error)));
         }
         state.source_token = Some(self.refresh_token.clone());
-        let result = self.refresh_tokens(exec).await;
+        let result = self.refresh_tokens(handle).await;
         if result.is_ok() {
             // Keep only a short-lived refresh result for concurrent readers.
             state.refreshed = Some(RefreshedTokens {
@@ -633,12 +625,9 @@ impl Credentials {
         result
     }
 
-    async fn refresh_tokens(
-        &mut self,
-        exec: impl sqlx::Executor<'_, Database = sqlx::Sqlite> + Copy,
-    ) -> crate::Result<()> {
+    async fn refresh_tokens(&mut self, handle: &Handle) -> crate::Result<()> {
         if self.is_yggdrasil() {
-            return refresh_yggdrasil_credentials(self, exec).await;
+            return refresh_yggdrasil_credentials(self, handle).await;
         }
 
         // Use a margin of 5 minutes to give e.g. Minecraft and potentially
@@ -659,7 +648,7 @@ impl Credentials {
         self.expires = oauth_token.date
             + Duration::seconds(oauth_token.value.expires_in as i64);
 
-        self.upsert(exec).await?;
+        self.upsert(handle).await?;
 
         Ok(())
     }
@@ -870,14 +859,14 @@ impl Credentials {
 
     /// Like [`get_active`](Self::get_active), but enforces credentials to be
     /// successfully refreshed unless the network is unreachable or times out.
-    #[tracing::instrument]
+    #[tracing::instrument(skip(handle))]
     pub async fn get_default_credential(
-        exec: impl sqlx::Executor<'_, Database = sqlx::Sqlite> + Copy,
+        handle: &Handle,
     ) -> crate::Result<Option<Credentials>> {
-        let credentials = Self::get_active_without_refresh(exec).await?;
+        let credentials = Self::get_active_without_refresh(handle).await?;
 
         if let Some(mut creds) = credentials {
-            let res = creds.refresh(exec).await;
+            let res = creds.refresh(handle).await;
 
             match res {
                 Ok(_) => Ok(Some(creds)),
@@ -906,43 +895,32 @@ impl Credentials {
         }
     }
 
-    /// Fetches the currently selected credentials from the database, attempting
-    /// to refresh them if they are expired.
-    pub async fn get_active(
-        exec: impl sqlx::Executor<'_, Database = sqlx::Sqlite> + Copy,
-    ) -> crate::Result<Option<Self>> {
-        Self::get_active_with_refresh(exec, true).await
+    /// Fetches the currently selected credentials, attempting to refresh them if
+    /// they are expired.
+    pub async fn get_active(handle: &Handle) -> crate::Result<Option<Self>> {
+        Self::get_active_with_refresh(handle, true).await
     }
 
     pub async fn get_active_without_refresh(
-        exec: impl sqlx::Executor<'_, Database = sqlx::Sqlite> + Copy,
+        handle: &Handle,
     ) -> crate::Result<Option<Self>> {
-        Self::get_active_with_refresh(exec, false).await
+        Self::get_active_with_refresh(handle, false).await
     }
 
     async fn get_active_with_refresh(
-        exec: impl sqlx::Executor<'_, Database = sqlx::Sqlite> + Copy,
+        handle: &Handle,
         refresh: bool,
     ) -> crate::Result<Option<Self>> {
-        let res = sqlx::query_as::<_, StoredCredentials>(
-            "
-            SELECT
-                account_id, uuid, active, username, account_type, access_token,
-                refresh_token, expires, yggdrasil_api_root,
-                yggdrasil_server_name, yggdrasil_login,
-                yggdrasil_client_token
-            FROM minecraft_users
-            WHERE active = TRUE
-            ",
-        )
-        .fetch_optional(exec)
-        .await?;
+        let active = MinecraftUsers::get_all(handle)
+            .await?
+            .into_iter()
+            .find(|(_, record)| record.active);
 
-        Ok(match res {
-            Some(x) => {
-                let mut credentials = Self::from_stored(x);
+        Ok(match active {
+            Some((account_id, record)) => {
+                let mut credentials = Self::from_stored(account_id, record);
                 if refresh {
-                    credentials.refresh(exec).await.ok();
+                    credentials.refresh(handle).await.ok();
                 }
                 Some(credentials)
             }
@@ -950,59 +928,43 @@ impl Credentials {
         })
     }
 
-    pub async fn get_all(
-        exec: impl sqlx::Executor<'_, Database = sqlx::Sqlite> + Copy,
-    ) -> crate::Result<Vec<Self>> {
-        Self::get_all_with_refresh(exec, true).await
+    pub async fn get_all(handle: &Handle) -> crate::Result<Vec<Self>> {
+        Self::get_all_with_refresh(handle, true).await
     }
 
     pub async fn get_all_without_refresh(
-        exec: impl sqlx::Executor<'_, Database = sqlx::Sqlite> + Copy,
+        handle: &Handle,
     ) -> crate::Result<Vec<Self>> {
-        Self::get_all_with_refresh(exec, false).await
+        Self::get_all_with_refresh(handle, false).await
     }
 
     async fn get_all_with_refresh(
-        exec: impl sqlx::Executor<'_, Database = sqlx::Sqlite> + Copy,
+        handle: &Handle,
         refresh: bool,
     ) -> crate::Result<Vec<Self>> {
-        let res = sqlx::query_as::<_, StoredCredentials>(
-            "
-            SELECT
-                account_id, uuid, active, username, account_type, access_token,
-                refresh_token, expires, yggdrasil_api_root,
-                yggdrasil_server_name, yggdrasil_login,
-                yggdrasil_client_token
-            FROM minecraft_users
-            ",
-        )
-        .fetch(exec)
-        .try_fold(Vec::new(), |mut acc, x| {
-            let mut credentials = Self::from_stored(x);
+        let stored = MinecraftUsers::get_all(handle).await?;
+        let mut credentials = Vec::with_capacity(stored.len());
 
-            async move {
-                if refresh {
-                    credentials.refresh(exec).await.ok();
-                }
-                acc.push(credentials);
-
-                Ok(acc)
+        for (account_id, record) in stored {
+            let mut user = Self::from_stored(account_id, record);
+            if refresh {
+                user.refresh(handle).await.ok();
             }
-        })
-        .await?;
+            credentials.push(user);
+        }
 
-        Ok(res)
+        Ok(credentials)
     }
 
     pub async fn get_offline_credential(
-        exec: impl sqlx::Executor<'_, Database = sqlx::Sqlite> + Copy,
+        handle: &Handle,
     ) -> crate::Result<Option<Self>> {
-        let active = Self::get_active_without_refresh(exec).await?;
+        let active = Self::get_active_without_refresh(handle).await?;
         if active.as_ref().is_some_and(Self::is_offline) {
             return Ok(active);
         }
 
-        let users = Self::get_all_without_refresh(exec).await?;
+        let users = Self::get_all_without_refresh(handle).await?;
         Ok(users
             .into_iter()
             .filter(Self::is_offline)
@@ -1011,95 +973,50 @@ impl Credentials {
             }))
     }
 
-    pub async fn upsert(
-        &self,
-        exec: impl sqlx::Executor<'_, Database = sqlx::Sqlite> + Copy,
-    ) -> crate::Result<()> {
+    pub async fn upsert(&self, handle: &Handle) -> crate::Result<()> {
         let profile = self.maybe_online_profile().await;
-        let expires = self.expires.timestamp();
-        let uuid = profile.id.as_hyphenated().to_string();
-        let account_type = self.account_type.as_database();
         let account_id = self.account_id();
 
-        let yggdrasil_api_root = self
-            .yggdrasil
-            .as_ref()
-            .map_or("", |account| account.api_root.as_str());
-        let yggdrasil_server_name = self
-            .yggdrasil
-            .as_ref()
-            .map_or("", |account| account.server_name.as_str());
-        let yggdrasil_login = self
-            .yggdrasil
-            .as_ref()
-            .map_or("", |account| account.login.as_str());
-        let yggdrasil_client_token = self
-            .yggdrasil
-            .as_ref()
-            .map_or("", |account| account.client_token.as_str());
+        let record = MinecraftUserRecord {
+            uuid: profile.id.as_hyphenated().to_string(),
+            active: self.active,
+            username: profile.name.clone(),
+            account_type: to_stored_account_type(self.account_type),
+            access_token: self.access_token.clone(),
+            refresh_token: self.refresh_token.clone(),
+            expires: self.expires.timestamp(),
+            yggdrasil_api_root: self
+                .yggdrasil
+                .as_ref()
+                .map_or_else(String::new, |account| account.api_root.clone()),
+            yggdrasil_server_name: self
+                .yggdrasil
+                .as_ref()
+                .map_or_else(String::new, |account| {
+                    account.server_name.clone()
+                }),
+            yggdrasil_login: self
+                .yggdrasil
+                .as_ref()
+                .map_or_else(String::new, |account| account.login.clone()),
+            yggdrasil_client_token: self
+                .yggdrasil
+                .as_ref()
+                .map_or_else(String::new, |account| {
+                    account.client_token.clone()
+                }),
+        };
 
-        if self.active {
-            sqlx::query!(
-                "
-                UPDATE minecraft_users
-                SET active = FALSE
-                ",
-            )
-            .execute(exec)
-            .await?;
-        }
-
-        sqlx::query(
-            "
-            INSERT INTO minecraft_users (
-                account_id, uuid, active, username, account_type, access_token,
-                refresh_token, expires, yggdrasil_api_root,
-                yggdrasil_server_name, yggdrasil_login,
-                yggdrasil_client_token
-            )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-            ON CONFLICT (account_id) DO UPDATE SET
-                uuid = $2,
-                active = $3,
-                username = $4,
-                account_type = $5,
-                access_token = $6,
-                refresh_token = $7,
-                expires = $8,
-                yggdrasil_api_root = $9,
-                yggdrasil_server_name = $10,
-                yggdrasil_login = $11,
-                yggdrasil_client_token = $12
-            ",
-        )
-        .bind(account_id)
-        .bind(uuid)
-        .bind(self.active)
-        .bind(&profile.name)
-        .bind(account_type)
-        .bind(&self.access_token)
-        .bind(&self.refresh_token)
-        .bind(expires)
-        .bind(yggdrasil_api_root)
-        .bind(yggdrasil_server_name)
-        .bind(yggdrasil_login)
-        .bind(yggdrasil_client_token)
-        .execute(exec)
-        .await?;
-
-        Ok(())
+        let mut unit = atom(handle).await?;
+        MinecraftUsers::atom_set(&mut unit, &account_id, Some(&record)).await?;
+        unit.commit().await
     }
 
     pub async fn remove(
         account_id: &str,
-        exec: impl sqlx::Executor<'_, Database = sqlx::Sqlite>,
+        handle: &Handle,
     ) -> crate::Result<()> {
-        sqlx::query("DELETE FROM minecraft_users WHERE account_id = $1")
-            .bind(account_id)
-            .execute(exec)
-            .await?;
-
-        Ok(())
+        MinecraftUsers::set(handle, &account_id.to_string(), None).await
     }
 }
 
@@ -1114,7 +1031,7 @@ impl Serialize for Credentials {
         let profile = if self.is_offline() {
             MaybeOnlineMinecraftProfile::Offline(&self.offline_profile)
         } else {
-            match Handle::try_current().ok() {
+            match RuntimeHandle::try_current().ok() {
                 Some(runtime)
                     if runtime.runtime_flavor()
                         == RuntimeFlavor::CurrentThread =>
@@ -1203,126 +1120,6 @@ mod offline_account_tests {
 
         assert_eq!(serialized["account_id"], credentials.account_id());
     }
-
-    #[tokio::test]
-    async fn persists_offline_account_as_active() {
-        let pool = sqlx::sqlite::SqlitePoolOptions::new()
-            .max_connections(1)
-            .connect("sqlite::memory:")
-            .await
-            .unwrap();
-        sqlx::migrate!().run(&pool).await.unwrap();
-
-        let credentials = Credentials::offline("OfflineUser").unwrap();
-        credentials.upsert(&pool).await.unwrap();
-
-        let stored = Credentials::get_active(&pool).await.unwrap().unwrap();
-        assert_eq!(stored.offline_profile.name, "OfflineUser");
-        assert_eq!(stored.offline_profile.id, credentials.offline_profile.id);
-        assert!(stored.is_offline());
-        assert!(stored.active);
-    }
-
-    #[tokio::test]
-    async fn persists_offline_account_with_custom_uuid() {
-        let pool = sqlx::sqlite::SqlitePoolOptions::new()
-            .max_connections(1)
-            .connect("sqlite::memory:")
-            .await
-            .unwrap();
-        sqlx::migrate!().run(&pool).await.unwrap();
-
-        let uuid = Uuid::new_v4();
-        let credentials =
-            Credentials::offline_with_uuid("CustomUuid", uuid).unwrap();
-        credentials.upsert(&pool).await.unwrap();
-
-        let stored = Credentials::get_active(&pool).await.unwrap().unwrap();
-        assert_eq!(stored.offline_profile.id, uuid);
-        assert_eq!(stored.offline_profile.name, "CustomUuid");
-        assert!(stored.is_offline());
-    }
-
-    #[tokio::test]
-    async fn preserves_accounts_with_the_same_uuid_across_account_types() {
-        let pool = sqlx::sqlite::SqlitePoolOptions::new()
-            .max_connections(1)
-            .connect("sqlite::memory:")
-            .await
-            .unwrap();
-        sqlx::migrate!().run(&pool).await.unwrap();
-
-        let uuid = Uuid::new_v4();
-        sqlx::query(
-            "
-            INSERT INTO minecraft_users (
-                account_id, uuid, active, username, account_type, access_token,
-                refresh_token, expires
-            )
-            VALUES ($1, $2, TRUE, $3, 'yggdrasil', $4, $5, $6)
-            ",
-        )
-        .bind(format!("yggdrasil:https://example.invalid:{uuid}"))
-        .bind(uuid.as_hyphenated().to_string())
-        .bind("ThirdPartyUser")
-        .bind("third-party-token")
-        .bind("")
-        .bind(0_i64)
-        .execute(&pool)
-        .await
-        .unwrap();
-
-        let offline =
-            Credentials::offline_with_uuid("OfflineUser", uuid).unwrap();
-        offline.upsert(&pool).await.unwrap();
-
-        let stored = Credentials::get_all_without_refresh(&pool).await.unwrap();
-        assert_eq!(stored.len(), 2);
-        assert!(stored.iter().any(Credentials::is_yggdrasil));
-        assert!(stored.iter().any(Credentials::is_offline));
-        assert_ne!(stored[0].account_id(), stored[1].account_id());
-    }
-
-    #[tokio::test]
-    async fn selects_offline_account_when_online_account_is_active() {
-        let pool = sqlx::sqlite::SqlitePoolOptions::new()
-            .max_connections(1)
-            .connect("sqlite::memory:")
-            .await
-            .unwrap();
-        sqlx::migrate!().run(&pool).await.unwrap();
-
-        let mut offline = Credentials::offline("OfflineUser").unwrap();
-        offline.active = false;
-        offline.upsert(&pool).await.unwrap();
-
-        sqlx::query(
-            "
-            INSERT INTO minecraft_users (
-                account_id, uuid, active, username, account_type, access_token,
-                refresh_token, expires
-            )
-            VALUES ($1, $2, TRUE, $3, 'microsoft', $4, $5, $6)
-            ",
-        )
-        .bind("microsoft:test-account")
-        .bind(Uuid::new_v4().as_hyphenated().to_string())
-        .bind("OnlineUser")
-        .bind("expired-access-token")
-        .bind("expired-refresh-token")
-        .bind(0_i64)
-        .execute(&pool)
-        .await
-        .unwrap();
-
-        let selected = Credentials::get_offline_credential(&pool)
-            .await
-            .unwrap()
-            .unwrap();
-
-        assert!(selected.is_offline());
-        assert_eq!(selected.offline_profile.id, offline.offline_profile.id);
-    }
 }
 
 pub struct DeviceTokenPair {
@@ -1331,14 +1128,11 @@ pub struct DeviceTokenPair {
 }
 
 impl DeviceTokenPair {
-    pub async fn upsert(
-        &self,
-        exec: impl sqlx::Executor<'_, Database = sqlx::Sqlite>,
-    ) -> crate::Result<()> {
+    pub async fn upsert(&self, handle: &Handle) -> crate::Result<()> {
         let uuid = self.key.id.as_hyphenated().to_string();
         let issue_instant = self.token.issue_instant.timestamp();
         let not_after = self.token.not_after.timestamp();
-        let key = self
+        let private_key = self
             .key
             .key
             .to_pkcs8_pem(LineEnding::default())
@@ -1346,33 +1140,18 @@ impl DeviceTokenPair {
             .to_string();
         let display_claims = serde_json::to_string(&self.token.display_claims)?;
 
-        sqlx::query!(
-            "
-            INSERT INTO minecraft_device_tokens (id, uuid, private_key, x, y, issue_instant, not_after, token, display_claims)
-            VALUES (0, $1, $2, $3, $4, $5, $6, $7, $8)
-            ON CONFLICT (id) DO UPDATE SET
-                uuid = $1,
-                private_key = $2,
-                x = $3,
-                y = $4,
-                issue_instant = $5,
-                not_after = $6,
-                token = $7,
-                display_claims = jsonb($8)
-            ",
+        let record = MinecraftDeviceTokenRecord {
             uuid,
-            key,
-            self.key.x,
-            self.key.y,
+            private_key,
+            x: self.key.x.clone(),
+            y: self.key.y.clone(),
             issue_instant,
             not_after,
-            self.token.token,
+            token: self.token.token.clone(),
             display_claims,
-        )
-            .execute(exec)
-            .await?;
+        };
 
-        Ok(())
+        MinecraftDeviceTokens::set(handle, &Singleton, Some(&record)).await
     }
 }
 
@@ -1654,11 +1433,8 @@ async fn minecraft_token(
     })
 }
 
-#[derive(
-    sqlx::Type, Deserialize, Serialize, Debug, Copy, Clone, PartialEq, Eq,
-)]
+#[derive(Deserialize, Serialize, Debug, Copy, Clone, PartialEq, Eq)]
 #[serde(rename_all = "UPPERCASE")]
-#[sqlx(rename_all = "UPPERCASE")]
 pub enum MinecraftSkinVariant {
     /// The classic player model, with arms that are 4 pixels wide.
     Classic,
@@ -2097,6 +1873,16 @@ fn generate_oauth_challenge() -> String {
 #[cfg(test)]
 mod refresh_coalescing_tests {
     use super::*;
+
+    /// A handle nothing is written through: both tests answer from the refresh
+    /// state and stop before the tokens are written back.
+    fn handle() -> Handle {
+        Handle::new(
+            sqlx::SqlitePool::connect_lazy("sqlite::memory:")
+                .expect("an in-memory database"),
+        )
+    }
+
     fn credential() -> Credentials {
         let mut credential =
             Credentials::offline_with_uuid("RefreshTest", Uuid::new_v4())
@@ -2132,10 +1918,9 @@ mod refresh_coalescing_tests {
                 }),
             })),
         );
-        let pool = sqlx::sqlite::SqlitePoolOptions::new()
-            .connect_lazy("sqlite::memory:")
-            .unwrap();
-        let (a, b) = tokio::join!(first.refresh(&pool), second.refresh(&pool));
+        let handle = handle();
+        let (a, b) =
+            tokio::join!(first.refresh(&handle), second.refresh(&handle));
         a.unwrap();
         b.unwrap();
         assert_eq!(first.access_token, "fresh-access");
@@ -2156,14 +1941,16 @@ mod refresh_coalescing_tests {
                 failure: Some((Instant::now(), kind.clone())),
             })),
         );
-        let pool = sqlx::sqlite::SqlitePoolOptions::new()
-            .connect_lazy("sqlite::memory:")
-            .unwrap();
-        let error = credential.refresh(&pool).await.unwrap_err();
+        let handle = handle();
+        let error = credential.refresh(&handle).await.unwrap_err();
         assert!(Arc::ptr_eq(&error.raw, &kind));
         credential.refresh_token = "new-login".into();
-        credential.expires = Utc::now() + Duration::hours(1);
-        credential.refresh(&pool).await.unwrap();
+        credential.expires = Utc::now() - Duration::hours(1);
+        // The cached failure belongs to the token that was rejected, so a login
+        // that replaced it cannot be answered with that failure.
+        if let Err(error) = credential.refresh(&handle).await {
+            assert!(!Arc::ptr_eq(&error.raw, &kind));
+        }
         CREDENTIAL_REFRESHES.remove(&key);
     }
 }

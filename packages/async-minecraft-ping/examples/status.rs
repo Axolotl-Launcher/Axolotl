@@ -1,28 +1,27 @@
 use anyhow::Result;
-use structopt::StructOpt;
+use clap::Parser;
 
 use async_minecraft_ping::ConnectionConfig;
 
-#[derive(Debug, StructOpt)]
-#[structopt(name = "example")]
+#[derive(Debug, Parser)]
+#[command(name = "example")]
 struct Args {
     /// Server to connect to
-    #[structopt()]
     address: String,
 
     /// Port to connect to
-    #[structopt(short = "p", long = "port")]
+    #[arg(short = 'p', long = "port")]
     port: Option<u16>,
 
     /// Enable SRV record lookup (requires 'srv' feature)
     #[cfg(feature = "srv")]
-    #[structopt(long = "srv")]
+    #[arg(long = "srv")]
     srv_lookup: bool,
 }
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    let args = Args::from_args();
+    let args = Args::parse();
 
     let mut config = ConnectionConfig::build(args.address);
     if let Some(port) = args.port {

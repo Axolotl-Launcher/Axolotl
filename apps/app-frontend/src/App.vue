@@ -108,6 +108,9 @@ import { minecraftLaunchErrorKey } from '@/composables/useMinecraftLaunchError'
 import { setupMojangAuthMonitor, useMojangAuthStatus } from '@/composables/useMojangAuth'
 import { useNetworkStatus } from '@/composables/useNetworkStatus'
 import { AxolotlBrandConfig, config, getOfficialLabrinthBaseUrl } from '@/config'
+import { startMcpUiBridge } from '@/features/mcp/interface'
+import McpConnectionOverlay from '@/features/mcp/McpConnectionOverlay.vue'
+import { startMcpStateSync } from '@/features/mcp/runtime'
 import { trackEvent } from '@/helpers/analytics'
 import { get_user, get_version } from '@/helpers/cache.js'
 import { configureCurseForgeManualDownloadWatcher } from '@/helpers/curseforge'
@@ -370,6 +373,8 @@ const {
 
 const { offline } = useNetworkStatus()
 
+// Temporarily pause automatic tours while keeping manual replay available.
+const autoStartOnboarding = false
 const showOnboarding = ref(false)
 const onboardingMode = ref('main')
 const onboardingSettings = ref(null)
@@ -424,6 +429,7 @@ watch(
 )
 
 const stateInitialized = ref(false)
+let stopMcpStateSync: (() => void) | undefined
 const privacyConsentModal = ref<InstanceType<typeof PrivacyConsentModal>>()
 const privacyConsentPending = ref(false)
 const titlebar = ref<InstanceType<typeof AppTitlebar>>()
@@ -874,6 +880,7 @@ function startDirectLinkSync() {
 }
 
 onUnmounted(async () => {
+    stopMcpStateSync?.()
     appUnmounted = true
     windowAppearance.dispose()
     stopNativeEditMenu?.()
@@ -1418,6 +1425,7 @@ async function applyThemeFromSettings(s: Awaited<ReturnType<typeof getSettings>>
     themeStore.collapsedNavigation = s.collapsed_navigation
     themeStore.advancedRendering = s.advanced_rendering
     themeStore.hideNametagSkinsPage = s.hide_nametag_skins_page
+    themeStore.nametagUsesAppFont = s.nametag_uses_app_font
     themeStore.toggleSidebar = s.toggle_sidebar
     themeStore.customBackgroundPath = s.custom_background_path
     themeStore.customBackgroundBlur = s.custom_background_blur
@@ -1451,6 +1459,7 @@ async function setupApp() {
         discord_rpc,
         collapsed_navigation,
         hide_nametag_skins_page,
+        nametag_uses_app_font,
         advanced_rendering,
         onboarded,
         default_page,
@@ -1501,7 +1510,7 @@ async function setupApp() {
     const dev = await isDev()
     isDevEnvironment.value = dev
     pendingUpdateAnnouncementVersion.value = pending_update_toast_for_version
-    if (!onboarded && route.path !== '/') await router.replace('/')
+    if (autoStartOnboarding && !onboarded && route.path !== '/') await router.replace('/')
     privacyConsentPending.value = telemetry_consent_version < 1
     showOnboarding.value = false
     onboardingSettings.value = initialSettings
@@ -1515,6 +1524,7 @@ async function setupApp() {
     themeStore.collapsedNavigation = collapsed_navigation
     themeStore.advancedRendering = advanced_rendering
     themeStore.hideNametagSkinsPage = hide_nametag_skins_page
+    themeStore.nametagUsesAppFont = nametag_uses_app_font
     themeStore.toggleSidebar = toggle_sidebar
     themeStore.customBackgroundPath = custom_background_path
     themeStore.customBackgroundBlur = custom_background_blur
@@ -1552,6 +1562,14 @@ async function setupApp() {
     themeStore.shortcutBindings = resolveAllBindings()
     await localePreparation
     stateInitialized.value = true
+    const stopMcpSync = await startMcpStateSync()
+    const stopMcpUi = await startMcpUiBridge(router)
+    const stopMcp = () => {
+        stopMcpUi()
+        stopMcpSync()
+    }
+    if (appUnmounted) stopMcp()
+    else stopMcpStateSync = stopMcp
     if (privacyConsentPending.value) {
         await nextTick()
         privacyConsentModal.value?.show({
@@ -1560,7 +1578,7 @@ async function setupApp() {
             consent_version: telemetry_consent_version,
         })
     } else {
-        showOnboarding.value = !onboarded
+        showOnboarding.value = autoStartOnboarding && !onboarded
     }
 
     unlistenWindowResize = await getCurrentWindow().onResized(() => {
@@ -1728,7 +1746,7 @@ async function handlePrivacyConsentSaved(privacy: PrivacySettings) {
         onboardingSettings.value.discord_rpc = privacy.discord_rpc
         onboardingSettings.value.telemetry_consent_version = privacy.consent_version
     }
-    if (!onboardingSettings.value?.onboarded) {
+    if (autoStartOnboarding && !onboardingSettings.value?.onboarded) {
         startOnboarding('main')
     } else {
         await scheduleStartupDialogs()
@@ -2076,6 +2094,7 @@ watch(
     () => route.path,
     (path) => {
         if (
+            autoStartOnboarding &&
             path.startsWith('/instance/') &&
             onboardingSettings.value?.onboarded &&
             !onboardingSettings.value?.onboarding_instance_tour_completed &&
@@ -2873,11 +2892,11 @@ provideAppUpdateDownloadProgress(appUpdateDownload)
 <template>
     <SplashScreen v-if="!stateFailed" ref="splashScreen" data-tauri-drag-region />
     <!--
-		A failed initialization never renders the app shell, so this framed window
-		ends up with no title bar and no controls at all. This strip keeps the
-		window draggable and offers a way to quit that does not depend on the
-		parts which failed to load.
-	-->
+        A failed initialization never renders the app shell, so this framed window
+        ends up with no title bar and no controls at all. This strip keeps the
+        window draggable and offers a way to quit that does not depend on the
+        parts which failed to load.
+    -->
     <div
         v-if="stateFailed && !stateInitialized"
         data-tauri-drag-region
@@ -2916,6 +2935,15 @@ provideAppUpdateDownloadProgress(appUpdateDownload)
             'has-css-window-border': cssWindowBorder,
         }"
     >
+        <McpConnectionOverlay
+            :rounded="
+                !isMaximized &&
+                !!(
+                    (themeStore.customBackgroundPath && !themeStore.transparentBackground) ||
+                    (themeStore.transparentBackground && !nativeDecorations)
+                )
+            "
+        />
         <Transition name="fade">
             <div
                 v-if="restarting"
@@ -3170,10 +3198,10 @@ provideAppUpdateDownloadProgress(appUpdateDownload)
             <div class="page-transition-grid grid min-h-full">
                 <RouterView v-slot="{ Component, route: pageRoute }">
                     <!--
-						Enter animation is keyed only on the route (see getPageTransitionKey).
-						The layer mounts as soon as the URL changes — not when the async page
-						Suspense resolves — so nav switches stay smooth while data loads.
-					-->
+                        Enter animation is keyed only on the route (see getPageTransitionKey).
+                        The layer mounts as soon as the URL changes — not when the async page
+                        Suspense resolves — so nav switches stay smooth while data loads.
+                    -->
                     <Transition
                         name="page-slide"
                         :css="themeStore.getFeatureFlag('page_transitions') && !onSettingsPage"

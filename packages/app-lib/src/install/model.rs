@@ -244,6 +244,12 @@ pub struct InstallJobState {
     pub error: Option<InstallErrorView>,
     #[serde(default)]
     pub rollback_error: Option<InstallErrorView>,
+    /// A recoverable new-pack download failure retains its original instance
+    /// and verified files. Retry must reuse that target rather than create one.
+    #[serde(default)]
+    pub retry_from_checkpoint: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub local_pack_retry_identity: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub pause_reason: Option<InstallPauseReason>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -279,6 +285,8 @@ impl Clone for InstallJobState {
             rollback: self.rollback.clone(),
             error: self.error.clone(),
             rollback_error: self.rollback_error.clone(),
+            retry_from_checkpoint: self.retry_from_checkpoint,
+            local_pack_retry_identity: self.local_pack_retry_identity.clone(),
             pause_reason: self.pause_reason.clone(),
             continuation: self.continuation.clone(),
             missing_content: self.missing_content.clone(),
@@ -293,6 +301,20 @@ impl Clone for InstallJobState {
 }
 
 impl InstallJobState {
+    pub(crate) fn is_new_pack_checkpoint(&self) -> bool {
+        matches!(
+            &self.request,
+            InstallRequest::CreateModpackInstance { .. }
+                | InstallRequest::CreateInstance {
+                    link: InstanceLink::CurseForgeModpack { .. },
+                    ..
+                }
+        ) && matches!((&self.target, &self.cleanup),
+                (InstallTarget::NewInstance { instance_id: Some(target) }, InstallCleanup::DeleteNewInstance { instance_id: Some(cleanup) }) if target == cleanup)
+            && self.rollback.is_none()
+            && !self.instance_deleted()
+    }
+
     pub fn new(request: InstallRequest) -> Self {
         let target = request.target();
         let cleanup = request.cleanup();
@@ -324,6 +346,8 @@ impl InstallJobState {
             rollback: None,
             error: None,
             rollback_error: None,
+            retry_from_checkpoint: false,
+            local_pack_retry_identity: None,
             pause_reason: None,
             continuation: None,
             missing_content: None,
@@ -1184,6 +1208,44 @@ mod tests {
             );
             assert!(!status.is_finished());
         }
+    }
+
+    #[test]
+    fn every_status_is_listed_once() {
+        let mut seen = Vec::new();
+        for status in InstallJobStatus::ALL {
+            assert!(!seen.contains(&status), "{status:?} is listed twice");
+            seen.push(status);
+        }
+        assert_eq!(seen.len(), 8, "a new status must be added to ALL");
+    }
+
+    #[test]
+    fn the_guards_ask_for_the_statuses_that_still_occupy_an_instance() {
+        assert_eq!(
+            InstallJobStatus::unfinished(),
+            ["queued", "running", "canceling", "waiting_for_user"]
+        );
+    }
+
+    #[test]
+    fn listing_open_jobs_keeps_failed_and_interrupted_ones() {
+        let open: Vec<_> = InstallJobStatus::ALL
+            .into_iter()
+            .filter(|status| !status.is_resolved())
+            .collect();
+
+        assert_eq!(
+            open,
+            [
+                InstallJobStatus::Queued,
+                InstallJobStatus::Running,
+                InstallJobStatus::Canceling,
+                InstallJobStatus::WaitingForUser,
+                InstallJobStatus::Failed,
+                InstallJobStatus::Interrupted,
+            ]
+        );
     }
 
     #[test]
@@ -2335,11 +2397,59 @@ impl InstallJobStatus {
         }
     }
 
-    pub fn is_finished(self) -> bool {
-        matches!(
-            self,
-            Self::Succeeded | Self::Failed | Self::Interrupted | Self::Canceled
-        )
+    /// Whether the job has stopped for good: a finished job no longer occupies
+    /// its instance and does not resume on its own.
+    ///
+    /// The match is exhaustive so a new status has to say which side it is on.
+    pub const fn is_finished(self) -> bool {
+        match self {
+            Self::Queued
+            | Self::Running
+            | Self::Canceling
+            | Self::WaitingForUser => false,
+            Self::Succeeded
+            | Self::Failed
+            | Self::Interrupted
+            | Self::Canceled => true,
+        }
+    }
+
+    /// Whether the job ended in a state that leaves nothing behind: no work in
+    /// flight, and nothing a user still has to see or dismiss.
+    ///
+    /// The match is exhaustive for the same reason as [`Self::is_finished`].
+    pub const fn is_resolved(self) -> bool {
+        match self {
+            Self::Succeeded | Self::Canceled => true,
+            Self::Queued
+            | Self::Running
+            | Self::Canceling
+            | Self::WaitingForUser
+            | Self::Failed
+            | Self::Interrupted => false,
+        }
+    }
+
+    /// Every status, in the order it is declared.
+    pub const ALL: [Self; 8] = [
+        Self::Queued,
+        Self::Running,
+        Self::Canceling,
+        Self::WaitingForUser,
+        Self::Succeeded,
+        Self::Failed,
+        Self::Interrupted,
+        Self::Canceled,
+    ];
+
+    /// The statuses that still occupy their instance. Derived from
+    /// [`Self::is_finished`] so the two cannot disagree.
+    pub fn unfinished() -> Vec<&'static str> {
+        Self::ALL
+            .into_iter()
+            .filter(|status| !status.is_finished())
+            .map(Self::as_str)
+            .collect()
     }
 }
 

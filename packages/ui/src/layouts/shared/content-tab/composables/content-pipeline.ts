@@ -15,19 +15,10 @@ import {
 } from './content-filter-state'
 import type { ContentFilterOption } from './content-filtering'
 import { hasContentUpdate, isDisabledContentItem, isEnabledContentItem } from './content-filtering'
+import { getContentTabMap } from './content-tab-memory'
 
 // Re-export utility functions and types for convenience
 export type { ContentFilterOption } from './content-filtering'
-
-// ---- window 级内存持久化（导航切换保留，关软件丢弃） ----
-
-const memory: Record<string, Map<string, unknown>> = ((
-    window as unknown as { __ctMemory?: Record<string, Map<string, unknown>> }
-).__ctMemory ??= {})
-function getMap<K, V>(namespace: string): Map<K, V> {
-    if (!memory[namespace]) memory[namespace] = new Map<string, unknown>()
-    return memory[namespace] as Map<K, V>
-}
 
 // ---- types ----
 
@@ -36,6 +27,8 @@ export interface ContentPipelineConfig {
     modpackItems?: Ref<ContentItem[] | undefined>
     duplicateItems?: Ref<ContentItem[] | undefined>
     sortItems: (items: ContentItem[]) => ContentItem[]
+    /** An explicit sort/locale change starts a new order; enrichment keeps row positions. */
+    sortKey?: Ref<string> | ComputedRef<string>
     getItemId: (item: ContentItem) => string
     showTypeFilters?: boolean
     showUpdateFilter?: boolean
@@ -101,7 +94,7 @@ export function useContentPipeline(config: ContentPipelineConfig) {
         return Array.isArray(value) ? value : [value]
     }
 
-    const filterMemory = getMap<string, { type: string[]; status: string[] }>('filter')
+    const filterMemory = getContentTabMap<string, { type: string[]; status: string[] }>('filter')
     const savedFilters = memoryKey ? filterMemory.get(memoryKey) : undefined
     const selectedTypeFilter = ref<string[]>(
         normalizeTypeFilters(initialFilters?.typeFilters ?? savedFilters?.type),
@@ -133,7 +126,7 @@ export function useContentPipeline(config: ContentPipelineConfig) {
 
     // ---- search state ----
 
-    const searchMemory = getMap<string, string>('search')
+    const searchMemory = getContentTabMap<string, string>('search')
     const searchKey = memoryKey ? `${memoryKey}:search` : ''
     const searchQuery = ref(searchKey ? (searchMemory.get(searchKey) ?? '') : '')
 
@@ -149,23 +142,46 @@ export function useContentPipeline(config: ContentPipelineConfig) {
         distance: 100,
     })
 
-    // ---- sorted items (computed because they only depend on items + sortMode) ----
+    function orderedItems(source: () => ContentItem[]) {
+        let previousKey: string | undefined
+        let order: string[] = []
+        return computed(() => {
+            const raw = source()
+            const key = config.sortKey?.value
+            if (key === undefined) return sortItems(raw)
+            const remaining = new Map(raw.map((item) => [getItemId(item), item]))
+            const next: ContentItem[] = []
+            if (key === previousKey) {
+                for (const id of order) {
+                    const item = remaining.get(id)
+                    if (!item) continue
+                    next.push(item)
+                    remaining.delete(id)
+                }
+            }
+            // Only new rows need sorting during enrichment. Always return the
+            // current row objects so updates and filters remain progressive.
+            if (remaining.size) next.push(...sortItems([...remaining.values()]))
+            previousKey = key
+            order = next.map(getItemId)
+            return next
+        })
+    }
 
-    const sortedItems = computed(() => sortItems(items.value))
+    const sortedItems = orderedItems(() => items.value)
 
-    const modpackItemsNoUpdate = computed(() => {
+    const modpackItemsNoUpdate = orderedItems(() => {
         const raw = modpackItems?.value ?? []
-        return sortItems(
-            raw.map((item) => ({
-                ...item,
-                update: null,
-            })),
-        )
+        return raw.map((item) => ({
+            ...item,
+            update: null,
+        }))
     })
 
     const filterValidationOptions = computed(() => {
         const type = new Set<string>()
         const status = new Set<string>()
+        if (showUpdateFilter) status.add('updates')
         const allItems = [...modpackItemsNoUpdate.value, ...sortedItems.value]
         const duplicateItemIds = new Set(
             (duplicateItems?.value ?? []).map((item) => getItemId(item)),
@@ -173,7 +189,6 @@ export function useContentPipeline(config: ContentPipelineConfig) {
 
         for (const item of allItems) {
             type.add(normalizeProjectType(item.project_type))
-            if (showUpdateFilter && hasContentUpdate(item)) status.add('updates')
             if (isEnabledContentItem(item)) status.add('enabled')
             if (isDisabledContentItem(item)) status.add('disabled')
         }
@@ -256,7 +271,7 @@ export function useContentPipeline(config: ContentPipelineConfig) {
         const hasEnabled = typeFiltered.some(isEnabledContentItem)
         const hasDisabled = typeFiltered.some(isDisabledContentItem)
         const availableStatusFilters = new Set<string>()
-        if (showUpdateFilter && typeFiltered.some((item) => hasContentUpdate(item))) {
+        if (showUpdateFilter) {
             availableStatusFilters.add('updates')
         }
         if (hasEnabled) availableStatusFilters.add('enabled')
@@ -323,7 +338,10 @@ export function useContentPipeline(config: ContentPipelineConfig) {
 
         // Step 6: Build row2FilterOptions from typeFiltered (same as old code)
         const row2: ContentFilterOption[] = []
-        if (showUpdateFilter && typeFiltered.some((m) => hasContentUpdate(m))) {
+        if (
+            showUpdateFilter &&
+            (statusFilters.includes('updates') || typeFiltered.some((m) => hasContentUpdate(m)))
+        ) {
             row2.push({ id: 'updates', label: formatMessage(filterMessages.updates) })
         }
         if (hasEnabled && hasDisabled) {
@@ -374,19 +392,20 @@ export function useContentPipeline(config: ContentPipelineConfig) {
         }
     }
 
-    // Trigger pipeline when any dependency changes (debounced)
+    // Bound recomputation without postponing it indefinitely during a stream of patches.
     watch(
         [
             sortedItems,
             modpackItemsNoUpdate,
-            duplicateItems,
+            () => duplicateItems?.value,
             searchQuery,
             selectedTypeFilter,
             selectedStatusFilters,
         ],
         () => {
-            if (pipelineTimer) clearTimeout(pipelineTimer)
+            if (pipelineTimer) return
             pipelineTimer = setTimeout(() => {
+                pipelineTimer = null
                 result.value = runPipeline()
             }, 100)
         },
@@ -519,6 +538,7 @@ export function useContentPipeline(config: ContentPipelineConfig) {
     )
 
     onBeforeUnmount(() => {
+        if (pipelineTimer) clearTimeout(pipelineTimer)
         if (pruneTimer) clearTimeout(pruneTimer)
     })
 

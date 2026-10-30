@@ -1,0 +1,20 @@
+{
+  "db_name": "SQLite",
+  "query": "\n        SELECT group_name\n        FROM instance_groups\n        WHERE instance_id = ?\n        ORDER BY group_name\n        ",
+  "describe": {
+    "columns": [
+      {
+        "name": "group_name",
+        "ordinal": 0,
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "dc5c4ce91384887da3422b1139faefa4cb0bb75bd71bd6322a26b3433cb0ebfc"
+}

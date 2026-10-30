@@ -171,7 +171,7 @@
                     v-tooltip="isBusy ? busyTooltip : undefined"
                     type="colored"
                     color="brand"
-                    :disabled="isBusy"
+                    :disabled="isBusy || fileEditorRef?.saving"
                     @click="fileEditorRef?.saveFileContent(false)"
                     ><SaveIcon /> {{ formatMessage(commonMessages.saveButton) }}
                 </Button>
@@ -384,15 +384,18 @@ const unsavedChangesModal = ref<InstanceType<typeof FileUnsavedChangesModal>>()
 
 const hasUnsavedChanges = computed(() => fileEditorRef.value?.hasUnsavedChanges ?? false)
 
+/**
+ * Leaves only after the edits are discarded, or saved with nothing typed while
+ * the save ran. A failed save asks again and keeps the edits.
+ */
 async function confirmDiscardChanges(): Promise<boolean> {
-    if (!hasUnsavedChanges.value) return true
-    const result = await unsavedChangesModal.value?.prompt()
-    if (result === 'save') {
-        if (isBusy.value) return false
+    while (hasUnsavedChanges.value) {
+        const result = await unsavedChangesModal.value?.prompt()
+        if (result === 'discard') return true
+        if (result !== 'save' || isBusy.value) return false
         await fileEditorRef.value?.saveFileContent(false)
-        return true
     }
-    return result === 'discard'
+    return true
 }
 
 // Navigation

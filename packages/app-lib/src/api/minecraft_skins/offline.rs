@@ -136,7 +136,7 @@ pub(crate) async fn prepare_offline_skin_resource_pack(
 
     let state = State::get().await?;
     let Some(offline_skin) =
-        OfflineMinecraftSkin::get(credentials.offline_profile.id, &state.pool)
+        OfflineMinecraftSkin::get(credentials.offline_profile.id, &state.data)
             .await?
     else {
         remove_pack_if_present(&resource_pack_path).await?;
@@ -148,13 +148,13 @@ pub(crate) async fn prepare_offline_skin_resource_pack(
     let Some(saved_skin) = CustomMinecraftSkin::get_by_texture(
         credentials.offline_profile.id,
         &offline_skin.texture_key,
-        &state.pool,
+        &state.data,
     )
     .await?
     else {
         OfflineMinecraftSkin::clear(
             credentials.offline_profile.id,
-            &state.pool,
+            &state.data,
         )
         .await?;
         remove_pack_if_present(&resource_pack_path).await?;
@@ -163,7 +163,7 @@ pub(crate) async fn prepare_offline_skin_resource_pack(
         });
     };
 
-    let mut texture = saved_skin.texture_blob(&state.pool).await?;
+    let mut texture = saved_skin.texture_blob(&state.data).await?;
     if version.needs_legacy_skin_height()
         && png_util::dimensions(&texture)?.1 == 64
     {

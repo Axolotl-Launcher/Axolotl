@@ -1,5 +1,4 @@
-import assert from 'node:assert/strict'
-import test from 'node:test'
+import { expect, it } from 'vitest'
 
 import {
     getLastBrowseContentDisplayMode,
@@ -36,74 +35,74 @@ function restoreStorage() {
     }
 }
 
-test('browse display mode persists valid values and falls back to the list', () => {
+it('browse display mode persists valid values and falls back to the list', () => {
     const values = installMemoryStorage()
 
     try {
-        assert.equal(getLastBrowseContentDisplayMode(), 'list')
+        expect(getLastBrowseContentDisplayMode()).toBe('list')
 
         setLastBrowseContentDisplayMode('compact')
-        assert.equal(getLastBrowseContentDisplayMode(), 'compact')
+        expect(getLastBrowseContentDisplayMode()).toBe('compact')
 
         setLastBrowseContentDisplayMode('grid')
-        assert.equal(getLastBrowseContentDisplayMode(), 'grid')
+        expect(getLastBrowseContentDisplayMode()).toBe('grid')
 
         values.set(storageKey, 'invalid')
-        assert.equal(getLastBrowseContentDisplayMode(), 'list')
+        expect(getLastBrowseContentDisplayMode()).toBe('list')
     } finally {
         restoreStorage()
     }
 })
 
-test('browse project type persists content types and rejects non-content routes', () => {
+it('browse project type persists content types and rejects non-content routes', () => {
     const values = installMemoryStorage()
 
     try {
-        assert.equal(getLastBrowseContentProjectType(), 'modpack')
+        expect(getLastBrowseContentProjectType()).toBe('modpack')
 
         setLastBrowseContentProjectType('mod')
-        assert.equal(getLastBrowseContentProjectType(), 'mod')
+        expect(getLastBrowseContentProjectType()).toBe('mod')
 
         setLastBrowseContentProjectType('world')
-        assert.equal(getLastBrowseContentProjectType(), 'world')
+        expect(getLastBrowseContentProjectType()).toBe('world')
 
         values.set(projectTypeStorageKey, 'server')
-        assert.equal(getLastBrowseContentProjectType(), 'modpack')
+        expect(getLastBrowseContentProjectType()).toBe('modpack')
     } finally {
         restoreStorage()
     }
 })
 
-test('library display mode persists cards and falls back to the standard grid', () => {
+it('library display mode persists cards and falls back to the standard grid', () => {
     const values = installMemoryStorage()
 
     try {
-        assert.equal(getLastLibraryDisplayMode(), 'standard')
+        expect(getLastLibraryDisplayMode()).toBe('standard')
 
         setLastLibraryDisplayMode('cards')
-        assert.equal(getLastLibraryDisplayMode(), 'cards')
+        expect(getLastLibraryDisplayMode()).toBe('cards')
 
         values.set(libraryDisplayModeStorageKey, 'invalid')
-        assert.equal(getLastLibraryDisplayMode(), 'standard')
+        expect(getLastLibraryDisplayMode()).toBe('standard')
     } finally {
         restoreStorage()
     }
 })
 
-test('right sidebar expansion persists and defaults to expanded', () => {
+it('right sidebar expansion persists and defaults to expanded', () => {
     const values = installMemoryStorage()
 
     try {
-        assert.equal(getSidebarExpanded(), true)
+        expect(getSidebarExpanded()).toBe(true)
 
         setSidebarExpanded(false)
-        assert.equal(getSidebarExpanded(), false)
+        expect(getSidebarExpanded()).toBe(false)
 
         setSidebarExpanded(true)
-        assert.equal(getSidebarExpanded(), true)
+        expect(getSidebarExpanded()).toBe(true)
 
         values.set(sidebarStorageKey, 'invalid')
-        assert.equal(getSidebarExpanded(), true)
+        expect(getSidebarExpanded()).toBe(true)
     } finally {
         restoreStorage()
     }

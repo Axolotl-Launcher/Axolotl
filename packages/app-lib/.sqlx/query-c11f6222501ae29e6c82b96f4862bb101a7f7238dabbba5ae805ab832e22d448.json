@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "\n            INSERT INTO synced_game_option_values\n                (option_id, kind, raw_key, canonical_type,\n                 canonical_value_json, value_codec, seeded, revision, origin,\n                 source_game_version, source_instance_id, updated_at)\n            VALUES (?, 'external', ?, 'external_raw', ?, 'exact_raw',\n                1, ?, 'source_seed', ?, ?, ?)\n            ON CONFLICT(option_id) DO UPDATE SET\n                raw_key = excluded.raw_key,\n                canonical_value_json = excluded.canonical_value_json,\n                seeded = 1, revision = excluded.revision,\n                origin = 'source_seed',\n                source_game_version = excluded.source_game_version,\n                source_instance_id = excluded.source_instance_id,\n                updated_at = excluded.updated_at\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 7
+    },
+    "nullable": []
+  },
+  "hash": "c11f6222501ae29e6c82b96f4862bb101a7f7238dabbba5ae805ab832e22d448"
+}

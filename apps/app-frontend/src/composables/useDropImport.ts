@@ -11,6 +11,7 @@ import type {
     BatchDropPhase,
     ClassificationResult,
     SymlinkMethodChoice,
+    SymlinkMethodInstance,
 } from '@modrinth/ui'
 import { useDebugLogger, useGlobalDrop, useInstanceContext, useVIntl } from '@modrinth/ui'
 import { join } from '@tauri-apps/api/path'
@@ -27,7 +28,6 @@ import {
     lookupModHash,
     type ModrinthLookupResult,
     removeTempDir,
-    resolveGamedirs,
     scanLauncherInstances,
     type ScanResult,
 } from '@/helpers/drop'
@@ -39,7 +39,7 @@ import {
 } from '@/helpers/install'
 import {
     add_project_from_path,
-    check_symlink_capability,
+    type ExternalMinecraftRoot,
     get as getInstance,
     import_world_save,
     install_datapack_to_world,
@@ -196,7 +196,6 @@ export function useDropImport(options: DropImportOptions) {
                 basePath?: string
                 compatibleMode?: boolean
             }>
-            symlinkCapable: string
         }) => void
         hide: () => void
     } | null>(null)
@@ -378,6 +377,10 @@ export function useDropImport(options: DropImportOptions) {
         dropNoInstances: {
             id: 'app.drop.no-instances',
             defaultMessage: 'No instances found',
+        },
+        dropMinecraftAdded: {
+            id: 'app.drop.minecraft-root-added',
+            defaultMessage: 'Minecraft folder added',
         },
         dropScanning: {
             id: 'app.drop.scanning',
@@ -638,7 +641,6 @@ export function useDropImport(options: DropImportOptions) {
                     versionPath: single.versionPath,
                 },
             ]
-            const cap = await check_symlink_capability()
             symlinkCardsModal.value?.show({
                 instances: [
                     {
@@ -650,7 +652,6 @@ export function useDropImport(options: DropImportOptions) {
                         versionPath: single.versionPath,
                     },
                 ],
-                symlinkCapable: cap,
             })
         } else if (choice === 'old-way') {
             const single = scanResults![0].instances[0]
@@ -662,7 +663,6 @@ export function useDropImport(options: DropImportOptions) {
                     path: single.path,
                 },
             ]
-            const cap = await check_symlink_capability()
             symlinkCardsModal.value?.show({
                 instances: [
                     {
@@ -672,7 +672,6 @@ export function useDropImport(options: DropImportOptions) {
                         basePath: gameDir,
                     },
                 ],
-                symlinkCapable: cap,
             })
         }
     }
@@ -713,39 +712,6 @@ export function useDropImport(options: DropImportOptions) {
         await handleDropHelp()
     }
 
-    async function routeToGamedirFlow(paths: string[]) {
-        dropDebug('gamedir flow: attempting direct-link sync', { paths })
-        const roots = paths
-            .filter((path) => path.trim())
-            .map((path) => ({ path: path.trim(), mode: 'automatic' as const }))
-        if (roots.length === 0) return false
-        try {
-            const raw = localStorage.getItem('axolotl-minecraft-directories')
-            const existing = raw ? JSON.parse(raw) : []
-            const merged = [...(Array.isArray(existing) ? existing : []), ...roots]
-            const unique = [...new Map(merged.map((root) => [root.path, root])).values()]
-            localStorage.setItem('axolotl-minecraft-directories', JSON.stringify(unique))
-            const report = await syncConfiguredDirectLinks(unique)
-            dropDebug('gamedir flow: direct-link sync completed', { roots: unique, report })
-            if (report.errors.length > 0) {
-                throw new Error(report.errors.join('\n'))
-            }
-            addNotification({
-                title: formatMessage(messages.dropInstanceImportedTitle),
-                text: formatMessage(messages.dropInstanceImportedText, { name: paths.join(', ') }),
-                type: 'success',
-            })
-            return true
-        } catch (error) {
-            addNotification({
-                title: formatMessage(messages.dropScanFailed),
-                text: error instanceof Error ? error.message : String(error),
-                type: 'error',
-            })
-            return false
-        }
-    }
-
     async function handleDropConfirm(type: string, innerBase?: string) {
         const classification = dropClassification.value
         dropClassification.value = null
@@ -780,51 +746,65 @@ export function useDropImport(options: DropImportOptions) {
         })
 
         if (type === 'dot_minecraft') {
-            await routeToGamedirFlow([dropFilePath.value ?? ''])
+            clearDropProcessingNotification()
+            scanningInstances.value = true
+            try {
+                const path = (classification?.base_path ?? filePath).trim()
+                const raw = localStorage.getItem('axolotl-minecraft-directories')
+                const stored: unknown = raw ? JSON.parse(raw) : []
+                const roots: ExternalMinecraftRoot[] = (
+                    Array.isArray(stored) ? stored : []
+                ).flatMap((value) => {
+                    if (typeof value === 'string')
+                        return [{ path: value, mode: 'automatic' as const }]
+                    if (!value || typeof value.path !== 'string') return []
+                    return [
+                        {
+                            path: value.path,
+                            mode:
+                                value.mode === 'shared'
+                                    ? ('shared' as const)
+                                    : value.mode === 'automatic'
+                                      ? ('automatic' as const)
+                                      : ('isolated' as const),
+                        },
+                    ]
+                })
+                const existing = roots.find((root) => root.path === path)
+                if (!existing) roots.push({ path, mode: 'automatic' })
+                const report = await syncConfiguredDirectLinks(roots)
+                if (report.errors.length || report.missing) {
+                    throw new Error(
+                        report.errors.join('\n') || formatMessage(messages.dropNoInstances),
+                    )
+                }
+                localStorage.setItem('axolotl-minecraft-directories', JSON.stringify(roots))
+                addNotification({
+                    title: formatMessage(messages.dropMinecraftAdded),
+                    type: 'success',
+                })
+            } catch (error) {
+                addNotification({
+                    title: formatMessage(messages.dropScanFailed),
+                    text: error instanceof Error ? error.message : String(error),
+                    type: 'error',
+                })
+            } finally {
+                scanningInstances.value = false
+            }
             return
         }
 
-        if (isLauncherImport && type === 'instance') {
+        if (type === 'instance') {
             const launcherType =
-                classification!.item_type === 'hmcl_launcher'
+                classification?.item_type === 'hmcl_launcher'
                     ? 'HMCL'
-                    : classification!.launcher_type!
+                    : (classification?.launcher_type ?? 'Generic')
             const basePath =
-                classification!.item_type === 'hmcl_launcher'
+                classification?.item_type === 'hmcl_launcher'
                     ? classification!.launcher_dir!
-                    : classification!.base_path!
+                    : (classification?.base_path ?? filePath!)
             dropDebug('handleDropConfirm: launcher import branch', { launcherType, basePath })
-            dropDebug('handleDropConfirm: launcher classified for gamedir routing', {
-                launcherType,
-                basePath,
-                configPath:
-                    launcherType === 'HMCL'
-                        ? `${basePath}/.hmcl/hmcl.json`
-                        : 'PCL global registry / PCL-CE config',
-            })
-            if (['Generic', 'PCL2', 'PCL2CE', 'HMCL'].includes(launcherType)) {
-                try {
-                    const resolved = await resolveGamedirs(
-                        launcherType,
-                        classification!.base_path ?? classification!.launcher_dir ?? filePath!,
-                    )
-                    dropDebug('handleDropConfirm: resolved launcher gamedirs', {
-                        launcherType,
-                        resolved,
-                    })
-                    if (resolved.length === 0) {
-                        throw new Error(formatMessage(messages.dropNoInstances))
-                    }
-                    await routeToGamedirFlow(resolved.map((entry) => entry.path))
-                } catch (error) {
-                    addNotification({
-                        title: formatMessage(messages.dropScanFailed),
-                        text: error instanceof Error ? error.message : String(error),
-                        type: 'error',
-                    })
-                }
-                return
-            }
 
             let scanBasePath = basePath
             if (isZipPath(basePath)) {
@@ -832,12 +812,12 @@ export function useDropImport(options: DropImportOptions) {
                 try {
                     const tempDir = await extractZipToTemp(basePath)
                     launcherZipTempDir.value = tempDir
-                    scanBasePath = classification!.innerBase
-                        ? await join(tempDir, classification!.innerBase)
+                    scanBasePath = classification?.innerBase
+                        ? await join(tempDir, classification.innerBase)
                         : tempDir
                     dropDebug('handleDropConfirm: extracted launcher zip', {
                         tempDir,
-                        innerBase: classification!.innerBase,
+                        innerBase: classification?.innerBase,
                         scanBasePath,
                     })
                 } catch (error) {
@@ -868,7 +848,11 @@ export function useDropImport(options: DropImportOptions) {
             } catch (error) {
                 currentImportContext.value = null
                 dropDebug('handleDropConfirm: launcher scan failed', error)
-                addNotification({ title: formatMessage(messages.dropScanFailed), type: 'error' })
+                addNotification({
+                    title: formatMessage(messages.dropScanFailed),
+                    text: error instanceof Error ? error.message : String(error),
+                    type: 'error',
+                })
                 cleanupLauncherZipTemp()
                 return
             } finally {
@@ -908,7 +892,6 @@ export function useDropImport(options: DropImportOptions) {
                     await onSymlinkMethodConfirmed(false)
                     return
                 }
-                const cap = await check_symlink_capability()
                 symlinkCardsModal.value?.show({
                     instances: [
                         {
@@ -922,7 +905,6 @@ export function useDropImport(options: DropImportOptions) {
                             versionPath: single.versionPath,
                         },
                     ],
-                    symlinkCapable: cap,
                 })
                 return
             }
@@ -1094,8 +1076,8 @@ export function useDropImport(options: DropImportOptions) {
                     const modLoader = meta?.loader
 
                     const assessment = assessLocalModCompatibility(meta, inst)
-                    const versionMismatch = assessment.gameVersion !== 'compatible'
-                    const loaderMismatch = assessment.loader !== 'compatible'
+                    const versionMismatch = assessment.gameVersion === 'incompatible'
+                    const loaderMismatch = assessment.loader === 'incompatible'
 
                     dropDebug('installContentDirectly: compatibility check', {
                         versionMismatch,
@@ -1273,6 +1255,18 @@ export function useDropImport(options: DropImportOptions) {
                 break
             case 'launcher':
             case 'hmcl_launcher':
+                if (
+                    result.item_type === 'launcher' &&
+                    result.launcher_type === 'Generic' &&
+                    (result.base_path ?? result.file_path ?? '')
+                        .split(/[\\/]/)
+                        .filter(Boolean)
+                        .at(-1)
+                        ?.toLowerCase() === '.minecraft'
+                ) {
+                    confirmDropModal.value?.show()
+                    return
+                }
                 await handleDropConfirm('instance')
                 break
             default:
@@ -1407,14 +1401,12 @@ export function useDropImport(options: DropImportOptions) {
     }
 
     function chooseImportMethod(options: {
-        instanceNames: string[]
-        symlinkCapable: 'supported' | 'requires_admin' | 'unsupported'
+        instances: SymlinkMethodInstance[]
     }): Promise<SymlinkMethodChoice[]> {
         return new Promise((resolve) => {
             symlinkChoiceResolve = resolve
             symlinkCardsModal.value?.show({
-                instances: options.instanceNames.map((name) => ({ name })),
-                symlinkCapable: options.symlinkCapable,
+                instances: options.instances,
             })
         })
     }
@@ -1454,8 +1446,6 @@ export function useDropImport(options: DropImportOptions) {
             await onSymlinkMethodConfirmed(false)
             return
         }
-
-        const cap = await check_symlink_capability()
         symlinkCardsModal.value?.show({
             instances: allSelected.map((i) => ({
                 name: i.name,
@@ -1465,7 +1455,6 @@ export function useDropImport(options: DropImportOptions) {
                 compatibleMode: i.compatibleMode,
                 versionPath: i.versionPath,
             })),
-            symlinkCapable: cap,
         })
     }
 
@@ -1511,11 +1500,11 @@ export function useDropImport(options: DropImportOptions) {
                             (c.instancePath ?? undefined) === (item.instancePath ?? undefined),
                     )
                     if (choice) {
-                        item.symlink = choice.symlink
+                        item.symlink = false
                         item.gameVersion = choice.gameVersion
                         item.loader = choice.loader
                         item.loaderVersion = choice.loaderVersion
-                        item.gameDirOverride = choice.gameDirOverride
+                        item.gameDirOverride = null
                     }
                 }
             }
@@ -1547,12 +1536,12 @@ export function useDropImport(options: DropImportOptions) {
                     ctx?.launcherType ?? inst.launcherType,
                     inst.compatibleMode ? inst.basePath : (ctx?.basePath ?? inst.path),
                     inst.name,
-                    choice?.symlink ?? (Array.isArray(choices) ? false : choices),
+                    false,
                     resolvedInstancePath(inst),
                     inst.compatibleMode ? undefined : (choice?.gameVersion ?? undefined),
                     inst.compatibleMode ? undefined : (choice?.loader ?? undefined),
                     inst.compatibleMode ? undefined : (choice?.loaderVersion ?? undefined),
-                    choice?.gameDirOverride ?? null,
+                    null,
                 )
                 await wait_for_install_job(job.job_id)
                 addNotification({
@@ -1612,12 +1601,12 @@ export function useDropImport(options: DropImportOptions) {
                     ctx?.launcherType ?? inst.launcherType,
                     inst.compatibleMode ? inst.basePath : (ctx?.basePath ?? inst.path),
                     inst.name,
-                    choice?.symlink ?? (Array.isArray(choices) ? false : choices),
+                    false,
                     resolvedInstancePath(inst),
                     inst.compatibleMode ? undefined : (choice?.gameVersion ?? undefined),
                     inst.compatibleMode ? undefined : (choice?.loader ?? undefined),
                     inst.compatibleMode ? undefined : (choice?.loaderVersion ?? undefined),
-                    choice?.gameDirOverride ?? null,
+                    null,
                 )
                 await wait_for_install_job(job.job_id)
                 completed++
@@ -1745,22 +1734,6 @@ export function useDropImport(options: DropImportOptions) {
         }
 
         if (resolved.item_type === 'launcher' || resolved.item_type === 'hmcl_launcher') {
-            const launcherType =
-                resolved.item_type === 'hmcl_launcher'
-                    ? 'HMCL'
-                    : ((resolved as { launcher_type?: string }).launcher_type ?? 'Generic')
-            if (['Generic', 'PCL2', 'PCL2CE', 'HMCL'].includes(launcherType)) {
-                const basePath =
-                    resolved.item_type === 'hmcl_launcher'
-                        ? ((resolved as { launcher_dir?: string }).launcher_dir ?? '')
-                        : ((resolved as { base_path?: string }).base_path ?? '')
-                const resolvedDirs = await resolveGamedirs(launcherType, basePath)
-                item.scanState = 'done'
-                item.itemType = 'gamedir'
-                item.basePath = resolvedDirs.map((entry) => entry.path).join('|')
-                if (resolvedDirs.length === 0) item.reason = 'No game directories found'
-                return
-            }
             await expandBatchLauncher(item, resolved)
             return
         }
@@ -1999,7 +1972,6 @@ export function useDropImport(options: DropImportOptions) {
             'litematic',
             'data_pack',
             'instance',
-            'gamedir',
         ]
         const byType = new Map<string, BatchDropItem[]>()
         for (const item of batchItems.value) {
@@ -2059,7 +2031,6 @@ export function useDropImport(options: DropImportOptions) {
                     await showNextBatchGroup()
                     return
                 }
-                const cap = await check_symlink_capability()
                 batchSymlinkMode = true
                 symlinkCardsModal.value?.show({
                     instances: group.items.map((item) => ({
@@ -2068,14 +2039,7 @@ export function useDropImport(options: DropImportOptions) {
                         launcherType: item.launcherType,
                         basePath: item.basePath,
                     })),
-                    symlinkCapable: cap,
                 })
-            } else if (group.type === 'gamedir') {
-                await routeToGamedirFlow(
-                    group.items.flatMap((item) => (item.basePath ?? '').split('|')),
-                )
-                batchConfirmIndex++
-                await showNextBatchGroup()
             } else {
                 await showBatchGroupConfirmModal(group)
             }
@@ -2368,12 +2332,12 @@ export function useDropImport(options: DropImportOptions) {
                     item.launcherType,
                     item.basePath,
                     item.instanceFolder,
-                    item.symlink ?? false,
+                    false,
                     item.instancePath,
                     item.gameVersion ?? undefined,
                     item.loader ?? undefined,
                     item.loaderVersion ?? undefined,
-                    item.gameDirOverride ?? null,
+                    null,
                 )
                 batchCurrentInstallJobId = job.job_id
                 try {

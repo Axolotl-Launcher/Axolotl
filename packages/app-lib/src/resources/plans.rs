@@ -2,42 +2,182 @@ pub mod analysis;
 pub(crate) mod artifact_metadata;
 pub(crate) mod requirements;
 
+use crate::state::store::Collection as _;
+use crate::state::store::Handle;
+use crate::state::store::atom;
+use crate::state::store::resource_entry_links;
+use crate::state::store::resource_installed_artifacts::ResourceInstalledArtifacts;
+use crate::state::store::resource_operation_plans::{
+    ResourceOperationPlanRecord, ResourceOperationPlans,
+};
 use futures::StreamExt;
 use requirements::RetainedRequirement;
 
 use super::{ipc::ResourceTarget, providers::*, *};
 use serde::{Deserialize, Serialize};
-use sqlx::{Row, SqlitePool};
+use sqlx::SqlitePool;
 use std::{
     collections::{HashMap, HashSet, VecDeque},
     sync::Arc,
 };
 use tokio_util::sync::CancellationToken;
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+/// What a dependency analysis is doing before and after it resolves nodes.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct ResourceOperationProgress {
-    pub plan_id: PlanId,
-    pub revision: u32,
-    pub node: ResourceDependencyNode,
-    pub metadata: Option<SourceProjectMetadata>,
+pub enum ResourceOperationPhase {
+    RefreshingContent,
+    IdentifyingInstalled,
+    CollectingConstraints,
+    Prefetching,
+    Validating,
+}
+
+/// One update from a dependency analysis that is still running. Resolution
+/// can take several rounds: each starts with `RoundStarted`, sends `Node` for
+/// every node it resolves or changes, and ends with `NodeRemoved` for each
+/// node that an earlier round, or the plan being revised, had and it no longer
+/// has. The finished plan stays authoritative.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(
+    tag = "kind",
+    rename_all = "camelCase",
+    rename_all_fields = "camelCase"
+)]
+pub enum ResourceOperationProgress {
+    Phase {
+        phase: ResourceOperationPhase,
+    },
+    RoundStarted {
+        plan_id: PlanId,
+        revision: u32,
+        round: u32,
+    },
+    Node {
+        plan_id: PlanId,
+        revision: u32,
+        round: u32,
+        node: Box<ResourceDependencyNode>,
+        metadata: Option<Box<SourceProjectMetadata>>,
+    },
+    NodeRemoved {
+        plan_id: PlanId,
+        revision: u32,
+        round: u32,
+        node_id: SelectionId,
+    },
 }
 
 pub type OperationProgress<'a> =
     Option<&'a (dyn Fn(ResourceOperationProgress) + Send + Sync)>;
 
-fn report_node(
-    plan: &ResourceOperationPlan,
-    metadata: Option<SourceProjectMetadata>,
+pub(crate) fn report_phase(
     progress: OperationProgress<'_>,
+    phase: ResourceOperationPhase,
 ) {
-    if let (Some(progress), Some(node)) = (progress, plan.nodes.last()) {
-        progress(ResourceOperationProgress {
+    if let Some(progress) = progress {
+        progress(ResourceOperationProgress::Phase { phase });
+    }
+}
+
+/// Sends the node events of one analysis and remembers the last version of
+/// each node it sent, so the end of a round can retract the nodes that are
+/// gone and re-send the ones a later step changed.
+pub(crate) struct OperationReporter<'a> {
+    sink: OperationProgress<'a>,
+    round: u32,
+    sent: HashMap<SelectionId, ResourceDependencyNode>,
+}
+
+impl<'a> OperationReporter<'a> {
+    /// `shown` are the nodes the caller already displays, such as those of
+    /// the plan being revised, so a round can remove them too.
+    pub(crate) fn new(
+        sink: OperationProgress<'a>,
+        shown: &[ResourceDependencyNode],
+    ) -> Self {
+        let sent = if sink.is_some() {
+            shown
+                .iter()
+                .map(|node| (node.id.clone(), node.clone()))
+                .collect()
+        } else {
+            HashMap::new()
+        };
+        Self {
+            sink,
+            round: 0,
+            sent,
+        }
+    }
+
+    pub(crate) fn phase(&self, phase: ResourceOperationPhase) {
+        report_phase(self.sink, phase);
+    }
+
+    pub(crate) fn round_started(
+        &mut self,
+        plan: &ResourceOperationPlan,
+        round: u32,
+    ) {
+        self.round = round;
+        if let Some(sink) = self.sink {
+            sink(ResourceOperationProgress::RoundStarted {
+                plan_id: plan.id.clone(),
+                revision: plan.revision,
+                round,
+            });
+        }
+    }
+
+    pub(crate) fn node(
+        &mut self,
+        plan: &ResourceOperationPlan,
+        node: &ResourceDependencyNode,
+        metadata: Option<SourceProjectMetadata>,
+    ) {
+        let Some(sink) = self.sink else {
+            return;
+        };
+        self.sent.insert(node.id.clone(), node.clone());
+        sink(ResourceOperationProgress::Node {
             plan_id: plan.id.clone(),
             revision: plan.revision,
-            node: node.clone(),
-            metadata,
+            round: self.round,
+            node: Box::new(node.clone()),
+            metadata: metadata.map(Box::new),
         });
+    }
+
+    /// Brings what was sent in line with `plan`: nodes that are gone are
+    /// removed and nodes that changed since they were sent are sent again.
+    pub(crate) fn reconcile(&mut self, plan: &ResourceOperationPlan) {
+        let Some(sink) = self.sink else {
+            return;
+        };
+        let current: HashSet<&SelectionId> =
+            plan.nodes.iter().map(|node| &node.id).collect();
+        let mut removed: Vec<SelectionId> = self
+            .sent
+            .keys()
+            .filter(|id| !current.contains(id))
+            .cloned()
+            .collect();
+        removed.sort_by(|left, right| left.as_str().cmp(right.as_str()));
+        for node_id in removed {
+            self.sent.remove(&node_id);
+            sink(ResourceOperationProgress::NodeRemoved {
+                plan_id: plan.id.clone(),
+                revision: plan.revision,
+                round: self.round,
+                node_id,
+            });
+        }
+        for node in &plan.nodes {
+            if self.sent.get(&node.id) != Some(node) {
+                self.node(plan, node, None);
+            }
+        }
     }
 }
 
@@ -82,13 +222,110 @@ fn issue(
     blocking: bool,
     message: impl Into<String>,
 ) {
+    let selection = plan
+        .selections
+        .iter()
+        .find(|selection| &selection.id == node);
+    let context = ResourceIssueContext {
+        dependency: selection.is_none(),
+        subject: plan
+            .nodes
+            .iter()
+            .find(|candidate| &candidate.id == node)
+            .and_then(|node| node.artifact.as_ref())
+            .and_then(|artifact| artifact.file_name.clone()),
+        source: selection
+            .and_then(|selection| match &selection.resource {
+                ResourceRef::Source { project } => Some(project.source.clone()),
+                _ => match &selection.release {
+                    ReleaseSelection::Release { reference } => {
+                        Some(reference.project.source.clone())
+                    }
+                    ReleaseSelection::Artifact { reference } => {
+                        Some(reference.release.project.source.clone())
+                    }
+                    ReleaseSelection::Automatic => None,
+                },
+            })
+            .or_else(|| {
+                plan.nodes
+                    .iter()
+                    .find(|candidate| &candidate.id == node)
+                    .and_then(|node| node.artifact.as_ref())
+                    .map(|artifact| {
+                        artifact.reference.release.project.source.clone()
+                    })
+            }),
+    };
     plan.issues.push(ResourcePlanIssue {
         code,
         selection_id: Some(node.clone()),
         entry_id: None,
         blocking,
         message: message.into(),
+        conflict: None,
+        context: Some(context),
     });
+}
+
+fn conflict_issue(
+    plan: &mut ResourceOperationPlan,
+    node: &SelectionId,
+    blocking: bool,
+    message: impl Into<String>,
+    conflict: ResourceConflictDetails,
+) {
+    plan.issues.push(ResourcePlanIssue {
+        code: ResourceIssueCode::VersionConflict,
+        selection_id: Some(node.clone()),
+        entry_id: None,
+        blocking,
+        message: message.into(),
+        conflict: Some(conflict),
+        context: None,
+    });
+}
+
+fn selection_failure(
+    plan: &mut ResourceOperationPlan,
+    selection: &ResourceSelection,
+    code: ResourceIssueCode,
+    message: impl Into<String>,
+    subject: Option<String>,
+) {
+    issue(plan, code, &selection.id, true, message);
+    if let Some(context) = plan
+        .issues
+        .last_mut()
+        .and_then(|issue| issue.context.as_mut())
+    {
+        context.subject = subject;
+        context.source = match &selection.resource {
+            ResourceRef::Source { project } => Some(project.source.clone()),
+            _ => match &selection.release {
+                ReleaseSelection::Release { reference } => {
+                    Some(reference.project.source.clone())
+                }
+                ReleaseSelection::Artifact { reference } => {
+                    Some(reference.release.project.source.clone())
+                }
+                ReleaseSelection::Automatic => None,
+            },
+        };
+    }
+}
+
+fn artifact_file(artifact: &ResourceArtifact) -> String {
+    artifact.file_name.clone().unwrap_or_default()
+}
+
+fn installed_file(entry: &InstalledResource) -> String {
+    entry
+        .relative_path
+        .rsplit('/')
+        .next()
+        .unwrap_or(&entry.relative_path)
+        .to_owned()
 }
 
 fn dependency_analysis_issue(
@@ -295,8 +532,11 @@ pub(crate) async fn instance_revision(
     pool: &SqlitePool,
     instance_id: &str,
 ) -> ResourceResult<u64> {
-    let value: Option<i64> = sqlx::query_scalar("SELECT content.revision FROM instances instance JOIN instance_content_sets content ON content.id = instance.applied_content_set_id WHERE instance.id = ?").bind(instance_id).fetch_optional(pool).await.map_err(db)?;
+    let value = crate::state::instances::adapters::sqlite::content_sets::get_applied_content_set_revision(instance_id, pool)
+        .await
+        .map_err(|error| ResourceError::Database(error.to_string()))?;
     value
+        .map(|(_, revision)| revision)
         .and_then(|value| u64::try_from(value).ok())
         .ok_or_else(|| invalid("instance has no applied content set"))
 }
@@ -305,20 +545,36 @@ pub(crate) async fn installed(
     pool: &SqlitePool,
     instance_id: &str,
 ) -> ResourceResult<Vec<InstalledResource>> {
-    let rows = sqlx::query("SELECT entry.id, entry.project_type, entry.ownership_kind, (SELECT member.id FROM instance_pack_members member WHERE member.content_entry_id = entry.id LIMIT 1) AS member_id, file.relative_path, file.enabled, file.missing, file.sha1, file.size, exact.artifact, exact.scope FROM instance_content_entries entry JOIN instance_content_sets content ON content.id = entry.content_set_id JOIN instance_files file ON file.id = entry.file_id LEFT JOIN resource_installed_artifacts exact ON exact.entry_id = entry.id WHERE entry.instance_id = ? AND content.id = (SELECT applied_content_set_id FROM instances WHERE id = entry.instance_id)").bind(instance_id).fetch_all(pool).await.map_err(db)?;
+    let handle = Handle::new(pool.clone());
+    let rows = ResourceInstalledArtifacts::installed_rows(&handle, instance_id)
+        .await?;
     let mut result = vec![];
-    let all_links = sqlx::query("SELECT link.* FROM resource_entry_links link JOIN instance_content_entries entry ON entry.id = link.entry_id WHERE entry.instance_id = ? ORDER BY link.is_origin DESC").bind(instance_id).fetch_all(pool).await.map_err(db)?;
-    let mut links_by_entry: HashMap<String, Vec<sqlx::sqlite::SqliteRow>> =
-        HashMap::new();
+    let all_links =
+        resource_entry_links::for_instance(&handle, instance_id).await?;
+    let mut links_by_entry: HashMap<
+        String,
+        Vec<resource_entry_links::EntryLinkRow>,
+    > = HashMap::new();
     for link in all_links {
         links_by_entry
-            .entry(link.get("entry_id"))
+            .entry(link.entry_id.clone())
             .or_default()
             .push(link);
     }
     for row in rows {
-        let entry_id: String = row.get("id");
-        let kind: String = row.get("project_type");
+        let (
+            entry_id,
+            kind,
+            ownership,
+            member_id,
+            path,
+            enabled,
+            missing,
+            sha1,
+            size,
+            exact_payload,
+            scope_payload,
+        ) = row;
         let resource_type = match kind.as_str() {
             "mod" => ResourceType::Mod,
             "plugin" => ResourceType::Plugin,
@@ -327,7 +583,6 @@ pub(crate) async fn installed(
             "datapack" => ResourceType::DataPack,
             _ => continue,
         };
-        let path: String = row.get("relative_path");
         let resource_type = if resource_type == ResourceType::Mod
             && path.starts_with("plugins/")
         {
@@ -335,8 +590,6 @@ pub(crate) async fn installed(
         } else {
             resource_type
         };
-        let sha1: String = row.get("sha1");
-        let size: i64 = row.get("size");
         let local_integrity = ArtifactIntegrity {
             size: u64::try_from(size).ok(),
             hashes: vec![ContentHash {
@@ -344,16 +597,14 @@ pub(crate) async fn installed(
                 value: sha1,
             }],
         };
-        let exact = row
-            .get::<Option<String>, _>("artifact")
+        let exact = exact_payload
             .and_then(|value| {
                 serde_json::from_str::<ResourceArtifact>(&value).ok()
             })
             .filter(|artifact| {
                 identity::exact_integrity(&local_integrity, &artifact.integrity)
             });
-        let scope = row
-            .get::<Option<String>, _>("scope")
+        let scope = scope_payload
             .and_then(|value| serde_json::from_str(&value).ok())
             .unwrap_or_else(|| {
                 if resource_type == ResourceType::DataPack
@@ -371,9 +622,9 @@ pub(crate) async fn installed(
                 }
             });
         let links = links_by_entry.remove(&entry_id).unwrap_or_default();
-        let mut resource_id = links.first().and_then(|row| {
-            ResourceId::new(row.get::<String, _>("resource_id")).ok()
-        });
+        let mut resource_id = links
+            .first()
+            .and_then(|link| ResourceId::new(link.resource_id.as_str()).ok());
         if let Some(artifact) = &exact {
             resource_id =
                 crate::state::resources::ResourceStore::new(pool.clone())
@@ -382,8 +633,8 @@ pub(crate) async fn installed(
                     .or(resource_id);
         }
         if resource_id.is_none() {
-            let refs = crate::state::instances::adapters::sqlite::content_rows::get_content_provider_refs(&entry_id, pool).await?;
-            let origin = crate::state::instances::adapters::sqlite::content_rows::get_content_origin_provider(&entry_id, pool).await?;
+            let refs = crate::state::instances::adapters::sqlite::content_entries::get_content_provider_refs(&entry_id, pool).await?;
+            let origin = crate::state::instances::adapters::sqlite::content_entries::get_content_origin_provider(&entry_id, pool).await?;
             if let Some(reference) = refs
                 .iter()
                 .find(|reference| Some(reference.provider()) == origin)
@@ -405,29 +656,24 @@ pub(crate) async fn installed(
             .map(|file| file.reference.clone())
             .or_else(|| {
                 let link = links.first()?;
-                let artifact_id =
-                    link.get::<Option<String>, _>("artifact_id")?;
+                let artifact_id = link.artifact_id.clone()?;
                 Some(SourceArtifactRef {
                     release: SourceReleaseRef {
                         project: SourceProjectRef {
-                            source: SourceId::new(
-                                link.get::<String, _>("source"),
-                            )
-                            .ok()?,
+                            source: SourceId::new(link.source.as_str()).ok()?,
                             project_id: SourceProjectId::new(
-                                link.get::<String, _>("project_id"),
+                                link.project_id.as_str(),
                             )
                             .ok()?,
                         },
                         release_id: SourceReleaseId::new(
-                            link.get::<Option<String>, _>("release_id")?,
+                            link.release_id.clone()?,
                         )
                         .ok()?,
                     },
                     artifact_id: SourceArtifactId::new(artifact_id).ok()?,
                 })
             });
-        let ownership: String = row.get("ownership_kind");
         result.push(InstalledResource {
             entry_id: InstalledEntryId::new(entry_id)?,
             instance_id: instance_id.into(),
@@ -439,13 +685,11 @@ pub(crate) async fn installed(
             original_file_name: exact.and_then(|file| file.file_name),
             resource_type,
             scope,
-            enabled: row.get::<i64, _>("enabled") != 0,
-            missing: row.get::<i64, _>("missing") != 0,
+            enabled: enabled != 0,
+            missing: missing != 0,
             ownership: if ownership == "pack_managed" {
                 ResourceOwnership::PackManaged {
-                    pack_member_id: row
-                        .get::<Option<String>, _>("member_id")
-                        .ok_or_else(|| {
+                    pack_member_id: member_id.ok_or_else(|| {
                         invalid(
                             "pack-managed entry has no persistent pack member",
                         )
@@ -469,6 +713,7 @@ impl ResourceService {
         installed: &[InstalledResource],
         cancel: &CancellationToken,
         constraints: &[String],
+        ignore_version_constraints: bool,
     ) -> ResourceResult<
         Option<(ResourceRelease, ResourceArtifact, ReleaseSelectionBasis)>,
     > {
@@ -499,59 +744,94 @@ impl ResourceService {
             if !same_resource {
                 continue;
             }
-            let selected =
-                if matches!(selection.release, ReleaseSelection::Automatic) {
-                    let Some(reference) = &entry.artifact else {
-                        continue;
-                    };
-                    let release =
-                        self.release(&reference.release, None, cancel).await?;
-                    let assessment = assess_compatibility(
-                        &release,
-                        target,
-                        selection.resource_type,
-                    );
-                    if assessment.game_version != CompatibilityState::Compatible
-                        || assessment.loader != CompatibilityState::Compatible
-                        || !constraints.iter().all(|constraint| {
-                            matches_release_constraint(
-                                constraint,
-                                &release.version,
-                            )
-                        })
-                    {
-                        continue;
-                    }
-                    let Some(artifact) = release
-                        .artifacts
-                        .iter()
-                        .find(|artifact| {
-                            &artifact.reference == reference
-                                && identity::exact_integrity(
-                                    &entry.integrity,
-                                    &artifact.integrity,
-                                )
-                        })
-                        .cloned()
-                    else {
-                        continue;
-                    };
-                    (
-                        release,
-                        artifact,
-                        ReleaseSelectionBasis::InstalledCompatible,
-                    )
-                } else {
-                    self.selected_release_with_constraints(
-                        selection,
-                        target,
-                        &self.preferred_source().await?,
-                        cancel,
-                        None,
-                        constraints,
-                    )
-                    .await?
+            let selected = if ignore_version_constraints {
+                let Some(reference) = &entry.artifact else {
+                    continue;
                 };
+                let release =
+                    self.release(&reference.release, None, cancel).await?;
+                let assessment = assess_compatibility(
+                    &release,
+                    target,
+                    selection.resource_type,
+                );
+                if assessment.game_version == CompatibilityState::Incompatible
+                    || assessment.loader == CompatibilityState::Incompatible
+                {
+                    continue;
+                }
+                let Some(artifact) = release
+                    .artifacts
+                    .iter()
+                    .find(|artifact| {
+                        &artifact.reference == reference
+                            && identity::exact_integrity(
+                                &entry.integrity,
+                                &artifact.integrity,
+                            )
+                    })
+                    .cloned()
+                else {
+                    continue;
+                };
+                // An enabled local dependency is usable even when its release
+                // differs from the dependency metadata requested by newly
+                // selected content. Explicit compatibility mismatches remain
+                // blocking; missing compatibility metadata does not.
+                (
+                    release,
+                    artifact,
+                    ReleaseSelectionBasis::InstalledCompatible,
+                )
+            } else if matches!(selection.release, ReleaseSelection::Automatic) {
+                let Some(reference) = &entry.artifact else {
+                    continue;
+                };
+                let release =
+                    self.release(&reference.release, None, cancel).await?;
+                let assessment = assess_compatibility(
+                    &release,
+                    target,
+                    selection.resource_type,
+                );
+                if assessment.game_version == CompatibilityState::Incompatible
+                    || assessment.loader == CompatibilityState::Incompatible
+                    || !constraints.iter().all(|constraint| {
+                        matches_release_constraint(constraint, &release.version)
+                    })
+                {
+                    continue;
+                }
+                let Some(artifact) = release
+                    .artifacts
+                    .iter()
+                    .find(|artifact| {
+                        &artifact.reference == reference
+                            && identity::exact_integrity(
+                                &entry.integrity,
+                                &artifact.integrity,
+                            )
+                    })
+                    .cloned()
+                else {
+                    continue;
+                };
+                (
+                    release,
+                    artifact,
+                    ReleaseSelectionBasis::InstalledCompatible,
+                )
+            } else {
+                self.selected_release_with_constraints(
+                    selection,
+                    target,
+                    &self.preferred_source().await?,
+                    cancel,
+                    None,
+                    constraints,
+                )
+                .await?
+            };
             if identity::exact_integrity(
                 &entry.integrity,
                 &selected.1.integrity,
@@ -608,12 +888,24 @@ impl ResourceService {
                     })
                 {
                     existing.state = DependencyNodeState::Conflict;
-                    issue(
+                    conflict_issue(
                         &mut draft.plan,
-                        ResourceIssueCode::VersionConflict,
                         previous,
                         true,
                         "confirmed resource requires conflicting artifacts",
+                        ResourceConflictDetails {
+                            reason: ResourceConflictReason::ConflictingReleases,
+                            subject: existing
+                                .artifact
+                                .as_ref()
+                                .map(artifact_file),
+                            related: node.artifact.as_ref().map(artifact_file),
+                            required: node.artifact.as_ref().map(artifact_file),
+                            actual: existing
+                                .artifact
+                                .as_ref()
+                                .map(artifact_file),
+                        },
                     );
                 }
                 existing.root_selection_ids.extend(node.root_selection_ids);
@@ -760,6 +1052,36 @@ impl ResourceService {
         ResourceArtifact,
         ReleaseSelectionBasis,
     )> {
+        self.selected_release_with_requirements_policy(
+            selection,
+            target,
+            preferred,
+            cancel,
+            current,
+            constraints,
+            requirements,
+            CachePolicy::UseFresh,
+            false,
+        )
+        .await
+    }
+
+    pub(crate) async fn selected_release_with_requirements_policy(
+        self: &Arc<Self>,
+        selection: &ResourceSelection,
+        target: &ResourceTarget,
+        preferred: &SourceId,
+        cancel: &CancellationToken,
+        current: Option<&ResourceRelease>,
+        constraints: &[String],
+        requirements: &[RetainedRequirement],
+        policy: CachePolicy,
+        require_complete: bool,
+    ) -> ResourceResult<(
+        ResourceRelease,
+        ResourceArtifact,
+        ReleaseSelectionBasis,
+    )> {
         let mut dependency_target;
         let target = if selection.id.as_str().starts_with("dependency:") {
             dependency_target = target.clone();
@@ -775,7 +1097,8 @@ impl ResourceService {
                     return Err(invalid("release belongs to another resource"));
                 }
                 (
-                    self.release(reference, None, cancel).await?,
+                    self.release_with_policy(reference, None, cancel, policy)
+                        .await?,
                     ReleaseSelectionBasis::FixedByUser,
                 )
             }
@@ -786,7 +1109,13 @@ impl ResourceService {
                     ));
                 }
                 (
-                    self.release(&reference.release, None, cancel).await?,
+                    self.release_with_policy(
+                        &reference.release,
+                        None,
+                        cancel,
+                        policy,
+                    )
+                    .await?,
                     ReleaseSelectionBasis::FixedByUser,
                 )
             }
@@ -825,7 +1154,7 @@ impl ResourceService {
                                     cursor: cursor.clone(),
                                     page_size: 50,
                                 },
-                                CachePolicy::UseFresh,
+                                policy,
                                 cancel,
                             )
                             .await;
@@ -857,9 +1186,9 @@ impl ResourceService {
                                 requirements.iter().all(|requirement| {
                                     requirement.accepts(release)
                                 }) && compatibility.game_version
-                                    == CompatibilityState::Compatible
+                                    != CompatibilityState::Incompatible
                                     && compatibility.loader
-                                        == CompatibilityState::Compatible
+                                        != CompatibilityState::Incompatible
                                     && constraints.iter().all(|constraint| {
                                         matches_release_constraint(
                                             constraint,
@@ -889,6 +1218,12 @@ impl ResourceService {
                             }
                         }
                     }
+                }
+                if require_complete && !failures.is_empty() {
+                    return Err(invalid(format!(
+                        "Update discovery is incomplete: {}",
+                        failures.join("; ")
+                    )));
                 }
                 let preferred_channels: Vec<_> = releases
                     .iter()
@@ -1036,8 +1371,16 @@ impl ResourceService {
                         cancel,
                     )
                     .await?;
-                let ProviderValue::Release(document) = value.value else {
-                    return Err(invalid("dependency release not found"));
+                let document = match value.value {
+                    ProviderValue::Release(document) => document,
+                    ProviderValue::NotFound => {
+                        return Err(ResourceError::Unavailable);
+                    }
+                    _ => {
+                        return Err(invalid(
+                            "source returned no dependency release",
+                        ));
+                    }
                 };
                 let reference = document.release.reference;
                 (
@@ -1145,30 +1488,30 @@ impl ResourceService {
         memo: Option<&analysis::AnalysisMemo>,
     ) -> ResourceResult<OperationDraft> {
         let mut draft = draft;
+        let mut reporter = OperationReporter::new(progress, &draft.plan.nodes);
         let mut retained_warning = None;
         draft.retained_requirements = if !draft.resolve_dependencies {
             Vec::new()
         } else {
+            reporter.phase(ResourceOperationPhase::CollectingConstraints);
             match if let Some(memo) = memo {
                 memo.retained_requirements(self, &draft, installed, cancel)
                     .await
             } else {
-                self.retained_requirements(
+                self.retained_requirements_with_failures(
                     &draft.plan.selections,
                     installed,
                     &draft.local_metadata,
                     cancel,
+                    draft.plan.intent == ResourceOperationIntent::Install,
                 )
                 .await
             } {
-                Ok(requirements) => requirements,
-                Err(error)
-                    if draft.plan.intent
-                        == ResourceOperationIntent::Install
-                        && dependency_source_failed(&error) =>
-                {
-                    retained_warning = Some(error.to_string());
-                    Vec::new()
+                Ok((requirements, failures)) => {
+                    if !failures.is_empty() {
+                        retained_warning = Some(failures.join("; "));
+                    }
+                    requirements
                 }
                 Err(error) => return Err(error),
             }
@@ -1181,13 +1524,14 @@ impl ResourceService {
                 pass = pass + 1,
                 "Resolving resource dependency constraints"
             );
+            reporter.round_started(&original.plan, pass);
             let mut result = self
                 .build_operation_pass(
                     original.clone(),
                     target,
                     installed,
                     cancel,
-                    progress,
+                    &mut reporter,
                     &seeded,
                     memo,
                 )
@@ -1197,6 +1541,7 @@ impl ResourceService {
                     dependency_analysis_issue(&mut result.plan, &root, message);
                 }
             }
+            reporter.reconcile(&result.plan);
             if !result
                 .plan
                 .issues
@@ -1254,7 +1599,7 @@ impl ResourceService {
         target: &ResourceTarget,
         installed: &[InstalledResource],
         cancel: &CancellationToken,
-        progress: OperationProgress<'_>,
+        reporter: &mut OperationReporter<'_>,
         seeded: &HashMap<SelectionKey, Vec<String>>,
         memo: Option<&analysis::AnalysisMemo>,
     ) -> ResourceResult<OperationDraft> {
@@ -1267,9 +1612,12 @@ impl ResourceService {
         draft.candidates.clear();
         let mut queue: VecDeque<_> = draft.plan.selections.clone().into();
         let mut resolved: HashMap<SelectionKey, SelectionId> = HashMap::new();
+        let mut selected_releases =
+            HashMap::<SourceReleaseRef, ResourceRelease>::new();
         let mut incompatible = Vec::new();
         let mut seen = HashSet::new();
         if let Some(memo) = memo {
+            reporter.phase(ResourceOperationPhase::Prefetching);
             memo.prefetch(
                 self,
                 &queue,
@@ -1294,7 +1642,14 @@ impl ResourceService {
                 if let Some(previous) =
                     draft.plan.nodes.iter().find(|node| node.id == selection.id)
                 {
+                    if draft.plan.intent == ResourceOperationIntent::Install
+                        && previous.state == DependencyNodeState::Satisfied
+                        && !previous.installed_entries.is_empty()
+                    {
+                        continue;
+                    }
                     let selected = previous.artifact.clone();
+                    let mut expected_file = None;
                     let matches = if selection_matches_artifact(
                         &selection.release,
                         selected.as_ref(),
@@ -1306,6 +1661,7 @@ impl ResourceService {
                                 &selection, target, &preferred, cancel, None,
                             )
                             .await?;
+                        expected_file = Some(artifact_file(&expected));
                         selected.as_ref().is_some_and(|selected| {
                             identity::exact_integrity(
                                 &selected.integrity,
@@ -1314,12 +1670,19 @@ impl ResourceService {
                         })
                     };
                     if !matches {
-                        issue(
+                        conflict_issue(
                             &mut draft.plan,
-                            ResourceIssueCode::VersionConflict,
                             &selection.id,
                             true,
                             "multiple parents require different dependency releases",
+                            ResourceConflictDetails {
+                                reason:
+                                    ResourceConflictReason::ConflictingReleases,
+                                subject: selected.as_ref().map(artifact_file),
+                                related: expected_file.clone(),
+                                required: expected_file,
+                                actual: selected.as_ref().map(artifact_file),
+                            },
                         );
                     }
                 }
@@ -1344,12 +1707,12 @@ impl ResourceService {
                             );
                             continue;
                         }
-                        issue(
+                        selection_failure(
                             &mut draft.plan,
+                            &selection,
                             ResourceIssueCode::SourceUnavailable,
-                            &selection.id,
-                            true,
                             error.to_string(),
+                            None,
                         );
                         continue;
                     }
@@ -1404,6 +1767,13 @@ impl ResourceService {
             let requirements = self
                 .requirements_for(&selection, &draft.retained_requirements)
                 .await?;
+            let ignore_local_version_constraints = draft.plan.intent
+                == ResourceOperationIntent::Install
+                && !draft.plan.active_roots.contains(&selection.id)
+                && draft.plan.edges.iter().any(|edge| {
+                    edge.child == selection.id
+                        && edge.kind == ResourceDependencyKind::Required
+                });
             let satisfied_dependency =
                 if selection.id.as_str().starts_with("dependency:")
                     && selection.entry_id.is_none()
@@ -1415,6 +1785,7 @@ impl ResourceService {
                             installed,
                             cancel,
                             &constraints,
+                            ignore_local_version_constraints,
                         )
                         .await
                     {
@@ -1446,6 +1817,8 @@ impl ResourceService {
                 } else {
                     None
                 };
+            let locally_satisfied_dependency = ignore_local_version_constraints
+                && satisfied_dependency.is_some();
             let (release, artifact, basis) = match if let Some(selected) =
                 satisfied_dependency
             {
@@ -1484,61 +1857,158 @@ impl ResourceService {
                         );
                         continue;
                     }
-                    issue(
-                        &mut draft.plan,
-                        if matches!(
-                            error,
-                            ResourceError::Network { .. }
-                                | ResourceError::Unavailable
-                        ) {
-                            ResourceIssueCode::SourceUnavailable
-                        } else if constraints.is_empty()
-                            && requirements.is_empty()
+                    let code = if matches!(
+                        error,
+                        ResourceError::Network { .. }
+                            | ResourceError::Unavailable
+                    ) {
+                        ResourceIssueCode::SourceUnavailable
+                    } else if constraints.is_empty() && requirements.is_empty()
+                    {
+                        ResourceIssueCode::MissingDependency
+                    } else {
+                        ResourceIssueCode::VersionConflict
+                    };
+                    if code == ResourceIssueCode::VersionConflict {
+                        let mut required = constraints.clone();
+                        required.extend(requirements.iter().filter_map(
+                            |requirement| {
+                                requirement.version_constraint.clone()
+                            },
+                        ));
+                        required.sort();
+                        required.dedup();
+                        let related = (!requirements.is_empty()).then(|| {
+                            requirements
+                                .iter()
+                                .map(|requirement| {
+                                    installed_file(&requirement.parent)
+                                })
+                                .collect::<Vec<_>>()
+                                .join(", ")
+                        });
+                        conflict_issue(
+                            &mut draft.plan,
+                            &selection.id,
+                            true,
+                            error.to_string(),
+                            ResourceConflictDetails {
+                                reason:
+                                    ResourceConflictReason::VersionConstraints,
+                                subject: Some(metadata.title.clone()),
+                                related,
+                                required: (!required.is_empty())
+                                    .then(|| required.join(", ")),
+                                actual: None,
+                            },
+                        );
+                    } else {
+                        selection_failure(
+                            &mut draft.plan,
+                            &selection,
+                            code,
+                            error.to_string(),
+                            Some(metadata.title.clone()),
+                        );
+                        if let Some(context) = draft
+                            .plan
+                            .issues
+                            .last_mut()
+                            .and_then(|issue| issue.context.as_mut())
                         {
-                            ResourceIssueCode::MissingDependency
-                        } else {
-                            ResourceIssueCode::VersionConflict
-                        },
-                        &selection.id,
-                        true,
-                        error.to_string(),
-                    );
+                            context.source =
+                                Some(metadata.project.source.clone());
+                        }
+                    }
                     continue;
                 }
             };
-            let local_requirements_match = match self
-                .local_requirements_accept(&release, &requirements, cancel)
-                .await
-            {
-                Ok(matches) => matches,
-                Err(ResourceError::Canceled) => {
-                    return Err(ResourceError::Canceled);
-                }
-                Err(error)
-                    if draft.plan.intent
-                        == ResourceOperationIntent::Install =>
+            selected_releases
+                .insert(release.reference.clone(), release.clone());
+            let local_requirements_match = if locally_satisfied_dependency {
+                true
+            } else {
+                match self
+                    .local_requirements_assessment(
+                        &release,
+                        &requirements,
+                        cancel,
+                    )
+                    .await
                 {
-                    dependency_analysis_issue(
+                    Ok(CompatibilityState::Unknown) => {
+                        issue(
+                            &mut draft.plan,
+                            ResourceIssueCode::DependencyAnalysisFailed,
+                            &selection.id,
+                            false,
+                            "local dependency metadata is unavailable",
+                        );
+                        true
+                    }
+                    Ok(state) => state != CompatibilityState::Incompatible,
+                    Err(ResourceError::Canceled) => {
+                        return Err(ResourceError::Canceled);
+                    }
+                    Err(error) => return Err(error),
+                }
+            };
+            let retained_requirements_match =
+                requirements.iter().all(|requirement| {
+                    if locally_satisfied_dependency {
+                        !requirement.incompatible
+                            || requirement.accepts(&release)
+                    } else {
+                        requirement.accepts(&release)
+                    }
+                });
+            if !retained_requirements_match
+                || (!locally_satisfied_dependency && !local_requirements_match)
+            {
+                for requirement in &requirements {
+                    let accepts = if locally_satisfied_dependency {
+                        !requirement.incompatible
+                            || requirement.accepts(&release)
+                    } else {
+                        requirement.accepts(&release)
+                    };
+                    let local_accepts = locally_satisfied_dependency
+                        || local_requirements_match
+                        || requirement.local_mod_id.is_none()
+                        || self
+                            .local_requirements_accept(
+                                &release,
+                                std::slice::from_ref(requirement),
+                                cancel,
+                            )
+                            .await?;
+                    if accepts && local_accepts {
+                        continue;
+                    }
+                    conflict_issue(
                         &mut draft.plan,
                         &selection.id,
-                        error.to_string(),
+                        true,
+                        "dependency release conflicts with an installed dependent",
+                        ResourceConflictDetails {
+                            reason: if requirement.incompatible {
+                                ResourceConflictReason::IncompatibleInstalledDependent
+                            } else {
+                                ResourceConflictReason::InstalledDependent
+                            },
+                            subject: Some(metadata.title.clone()),
+                            related: Some(installed_file(&requirement.parent)),
+                            required: requirement.version_constraint.clone(),
+                            actual: if requirement.local_mod_id.is_some() {
+                                self.artifact_metadata
+                                    .get(&artifact.reference)
+                                    .and_then(|cached| cached.1.version.clone())
+                            } else {
+                                Some(release.version.clone())
+                            },
+                        },
                     );
-                    true
                 }
-                Err(error) => return Err(error),
-            };
-            if !requirements
-                .iter()
-                .all(|requirement| requirement.accepts(&release))
-                || !local_requirements_match
-            {
-                issue(
-                    &mut draft.plan,
-                    ResourceIssueCode::VersionConflict,
-                    &selection.id,
-                    true,
-                    "dependency release conflicts with an installed dependent",
-                );
                 continue;
             }
             if artifact.reference.release.project.source
@@ -1563,28 +2033,52 @@ impl ResourceService {
                 {
                     for other in &matches.matches {
                         if let Some(store) = self.store() {
-                            let left = self
-                                .project_document(
+                            let left = if metadata.project
+                                == artifact.reference.release.project
+                            {
+                                metadata.clone()
+                            } else {
+                                self.project_document(
                                     &artifact.reference.release.project,
                                     None,
                                     cancel,
                                 )
-                                .await?;
-                            let right = self
+                                .await?
+                                .metadata
+                            };
+                            let right = match self
                                 .project_document(
                                     &other.reference.release.project,
                                     None,
                                     cancel,
                                 )
-                                .await?;
-                            store
-                                .confirm_projects(
-                                    &left.metadata,
-                                    &right.metadata,
-                                    &artifact,
-                                    other,
-                                )
-                                .await?;
+                                .await
+                            {
+                                Ok(document) => document,
+                                Err(
+                                    error @ (ResourceError::Network { .. }
+                                    | ResourceError::Unavailable
+                                    | ResourceError::InvalidResponse(_)),
+                                ) => {
+                                    tracing::info!(
+                                        primary = ?artifact.reference.release.project,
+                                        counterpart = ?other.reference.release.project,
+                                        %error,
+                                        "Skipped unavailable optional resource project association"
+                                    );
+                                    continue;
+                                }
+                                Err(error) => return Err(error),
+                            };
+                            identity::try_confirm_projects(
+                                store,
+                                &left,
+                                &right.metadata,
+                                &artifact,
+                                other,
+                                cancel,
+                            )
+                            .await?;
                         }
                     }
                 }
@@ -1666,12 +2160,19 @@ impl ResourceService {
                         &artifact.integrity,
                     )
                 }) {
-                    issue(
+                    let details = ResourceConflictDetails {
+                        reason: ResourceConflictReason::ConflictingReleases,
+                        subject: Some(metadata.title.clone()),
+                        related: node.artifact.as_ref().map(artifact_file),
+                        required: Some(artifact_file(&artifact)),
+                        actual: node.artifact.as_ref().map(artifact_file),
+                    };
+                    conflict_issue(
                         &mut draft.plan,
-                        ResourceIssueCode::VersionConflict,
                         &selection.id,
                         true,
                         "different releases required for the same resource",
+                        details,
                     );
                 }
                 for edge in &mut draft.plan.edges {
@@ -1712,7 +2213,7 @@ impl ResourceService {
                 (CompatibilityDimension::GameVersion, assessment.game_version),
                 (CompatibilityDimension::Loader, assessment.loader),
             ] {
-                if value == CompatibilityState::Compatible {
+                if value != CompatibilityState::Incompatible {
                     continue;
                 }
                 let accepted = draft.plan.exceptions.iter().any(|exception| {
@@ -1723,11 +2224,7 @@ impl ResourceService {
                 if !accepted {
                     issue(
                         &mut draft.plan,
-                        if value == CompatibilityState::Unknown {
-                            ResourceIssueCode::CompatibilityUnknown
-                        } else {
-                            ResourceIssueCode::CompatibilityMismatch
-                        },
+                        ResourceIssueCode::CompatibilityMismatch,
                         &selection.id,
                         true,
                         format!("{dimension:?}: {value:?}"),
@@ -1784,12 +2281,20 @@ impl ResourceService {
                             &artifact.integrity,
                         )
                     {
-                        issue(
+                        conflict_issue(
                             &mut draft.plan,
-                            ResourceIssueCode::VersionConflict,
                             &selection.id,
                             true,
                             "target is not a newer release; use switch version for an explicit downgrade",
+                            ResourceConflictDetails {
+                                reason: ResourceConflictReason::NotNewerRelease,
+                                subject: Some(metadata.title.clone()),
+                                related: Some(installed_file(current)),
+                                required: previous_release
+                                    .as_ref()
+                                    .map(|release| release.version.clone()),
+                                actual: Some(release.version.clone()),
+                            },
                         );
                     }
                 }
@@ -1897,12 +2402,28 @@ impl ResourceService {
             );
             match path {
                 Ok(_) if obstructed_dependency.is_some() => {
-                    issue(
+                    let entry = obstructed_dependency.as_ref().unwrap();
+                    conflict_issue(
                         &mut draft.plan,
-                        ResourceIssueCode::VersionConflict,
                         &selection.id,
                         true,
                         "installed dependency is disabled, missing or does not satisfy this release; review the installed entry",
+                        ResourceConflictDetails {
+                            reason: if entry.missing {
+                                ResourceConflictReason::InstalledDependencyMissing
+                            } else if !entry.enabled {
+                                ResourceConflictReason::InstalledDependencyDisabled
+                            } else {
+                                ResourceConflictReason::InstalledDependencyVersion
+                            },
+                            subject: Some(metadata.title.clone()),
+                            related: Some(installed_file(entry)),
+                            required: Some(release.version.clone()),
+                            actual: draft
+                                .local_metadata
+                                .get(&entry.entry_id)
+                                .and_then(|meta| meta.version.clone()),
+                        },
                     );
                 }
                 Ok(_) if needs_confirmation => {
@@ -2065,7 +2586,10 @@ impl ResourceService {
                 node_id: selection.id.clone(),
                 basis,
             });
-            report_node(&draft.plan, Some(metadata), progress);
+            let selection_title = metadata.title.clone();
+            if let Some(node) = draft.plan.nodes.last() {
+                reporter.node(&draft.plan, node, Some(metadata));
+            }
             if let Some(root) = draft
                 .plan
                 .selections
@@ -2080,7 +2604,10 @@ impl ResourceService {
             if !draft.resolve_dependencies {
                 continue;
             }
-            let dependencies =
+            // Dependencies resolve six at a time and are applied in declaration
+            // order as soon as each one and those before it are known, so the
+            // plan never depends on which request finished first.
+            let mut dependencies = std::pin::pin!(
                 futures::stream::iter(artifact.dependencies.clone())
                     .map(|dependency| {
                         let parent = selection.clone();
@@ -2102,13 +2629,28 @@ impl ResourceService {
                                 )
                                 .await
                             };
+                            // Look a required child up while its siblings still
+                            // resolve, so reaching it in the queue costs no further
+                            // round trip. Only required children are queued and
+                            // looked up later; the result is unused here.
+                            if dependency.kind
+                                == ResourceDependencyKind::Required
+                                && let Ok(Some(child)) = &child
+                            {
+                                let _ = analysis::canonical(
+                                    &service,
+                                    &mut child.clone(),
+                                    &cancel,
+                                    memo,
+                                )
+                                .await;
+                            }
                             (dependency, child)
                         }
                     })
                     .buffered(6)
-                    .collect::<Vec<_>>()
-                    .await;
-            for (dependency, child) in dependencies {
+            );
+            while let Some((dependency, child)) = dependencies.next().await {
                 if dependency.kind == ResourceDependencyKind::Embedded {
                     continue;
                 }
@@ -2168,7 +2710,11 @@ impl ResourceService {
                     .unwrap_or_else(|| child.id.clone());
                 if let Some(existing) = resolved.get(&key).and_then(|id| {
                     draft.plan.nodes.iter().find(|node| &node.id == id)
-                }) && dependency.kind == ResourceDependencyKind::Required
+                }) && !(draft.plan.intent
+                    == ResourceOperationIntent::Install
+                    && existing.state == DependencyNodeState::Satisfied
+                    && !existing.installed_entries.is_empty())
+                    && dependency.kind == ResourceDependencyKind::Required
                     && !selection_matches_artifact(
                         &child.release,
                         existing.artifact.as_ref(),
@@ -2186,12 +2732,22 @@ impl ResourceService {
                             &expected.integrity,
                         )
                     }) {
-                        issue(
+                        conflict_issue(
                             &mut draft.plan,
-                            ResourceIssueCode::VersionConflict,
                             &selection.id,
                             true,
                             "required dependency conflicts with an active root release or artifact",
+                            ResourceConflictDetails {
+                                reason:
+                                    ResourceConflictReason::DependencyVersion,
+                                subject: Some(selection_title.clone()),
+                                related: Some(artifact_file(&expected)),
+                                required: dependency
+                                    .version_constraint
+                                    .clone()
+                                    .or_else(|| Some(artifact_file(&expected))),
+                                actual: existing.as_ref().map(artifact_file),
+                            },
                         );
                     }
                 }
@@ -2287,6 +2843,13 @@ impl ResourceService {
                 .filter(|edge| edge.child == candidate.id)
                 .filter_map(|edge| edge.version_constraint.clone())
                 .collect();
+            let ignore_local_version_constraints = draft.plan.intent
+                == ResourceOperationIntent::Install
+                && !draft.plan.active_roots.contains(&candidate.id)
+                && draft.plan.edges.iter().any(|edge| {
+                    edge.child == candidate.id
+                        && edge.kind == ResourceDependencyKind::Required
+                });
             let satisfied_artifact = match self
                 .installed_dependency(
                     &candidate,
@@ -2294,6 +2857,7 @@ impl ResourceService {
                     &installed,
                     cancel,
                     &constraints,
+                    ignore_local_version_constraints,
                 )
                 .await
             {
@@ -2373,7 +2937,9 @@ impl ResourceService {
                 compatibility,
                 declared_compatibility,
             });
-            report_node(&draft.plan, None, progress);
+            if let Some(node) = draft.plan.nodes.last() {
+                reporter.node(&draft.plan, node, None);
+            }
             if satisfied.is_empty() {
                 candidates.push(candidate);
             }
@@ -2407,7 +2973,7 @@ impl ResourceService {
                         node.artifact.as_ref(),
                     )
             });
-            let installed_conflict = installed.iter().any(|item| {
+            let installed_conflict = installed.iter().find(|item| {
                 !item.missing
                     && item.enabled
                     && item.scope == child.scope
@@ -2449,13 +3015,83 @@ impl ResourceService {
                     }
                 }
             }
-            if active.is_some() || installed_conflict {
-                issue(
+            let conflict_file = active
+                .and_then(|node| node.artifact.as_ref())
+                .map(artifact_file)
+                .or_else(|| installed_conflict.map(installed_file));
+            if let Some(conflict_file) = conflict_file {
+                let required = draft
+                    .plan
+                    .edges
+                    .iter()
+                    .find(|edge| {
+                        edge.parent == parent
+                            && edge.kind == ResourceDependencyKind::Incompatible
+                            && (edge.child == child.id
+                                || active
+                                    .is_some_and(|node| edge.child == node.id))
+                    })
+                    .and_then(|edge| edge.version_constraint.clone());
+                let reference = active
+                    .and_then(|node| node.artifact.as_ref())
+                    .map(|artifact| &artifact.reference.release)
+                    .or_else(|| {
+                        installed_conflict
+                            .and_then(|entry| entry.artifact.as_ref())
+                            .map(|artifact| &artifact.release)
+                    });
+                let actual = if let Some(constraint) = &required {
+                    let Some(reference) = reference else {
+                        continue;
+                    };
+                    let fetched = if let Some(release) =
+                        selected_releases.get(reference)
+                    {
+                        Ok(release.clone())
+                    } else {
+                        self.release(reference, None, cancel).await
+                    };
+                    let release = match fetched {
+                        Ok(release) => release,
+                        Err(error)
+                            if matches!(
+                                error,
+                                ResourceError::Network { .. }
+                                    | ResourceError::Unavailable
+                            ) =>
+                        {
+                            issue(
+                                &mut draft.plan,
+                                ResourceIssueCode::DependencyAnalysisFailed,
+                                &parent,
+                                false,
+                                error.to_string(),
+                            );
+                            continue;
+                        }
+                        Err(error) => return Err(error),
+                    };
+                    if assess_release_constraint(constraint, &release.version)
+                        != CompatibilityState::Compatible
+                    {
+                        continue;
+                    }
+                    Some(release.version)
+                } else {
+                    None
+                };
+                conflict_issue(
                     &mut draft.plan,
-                    ResourceIssueCode::VersionConflict,
                     &parent,
                     true,
                     "incompatible resource is active",
+                    ResourceConflictDetails {
+                        reason: ResourceConflictReason::IncompatibleResource,
+                        subject: None,
+                        related: Some(conflict_file),
+                        required,
+                        actual,
+                    },
                 );
             }
         }
@@ -2476,18 +3112,43 @@ impl ResourceService {
             let Some(artifact) = &node.artifact else {
                 continue;
             };
-            let version_matches =
-                if let Some(constraint) = &edge.version_constraint {
-                    let release = self
-                        .release(&artifact.reference.release, None, cancel)
-                        .await?;
-                    matches_release_constraint(constraint, &release.version)
+            let locally_satisfied = draft.plan.intent
+                == ResourceOperationIntent::Install
+                && edge.kind == ResourceDependencyKind::Required
+                && node.state == DependencyNodeState::Satisfied
+                && !node.installed_entries.is_empty();
+            let mut required = edge.version_constraint.clone();
+            let version_matches = if locally_satisfied {
+                true
+            } else if let Some(constraint) = &edge.version_constraint {
+                let release = if let Some(release) =
+                    selected_releases.get(&artifact.reference.release)
+                {
+                    Ok(release.clone())
                 } else {
-                    true
+                    self.release(&artifact.reference.release, None, cancel)
+                        .await
                 };
-            let mut selection_matches = true;
-            if let Some(selection) = &edge.release_selection
-                && !selection_matches_artifact(selection, Some(artifact))
+                match release {
+                    Ok(release) => {
+                        matches_release_constraint(constraint, &release.version)
+                    }
+                    Err(
+                        ResourceError::Network { .. }
+                        | ResourceError::Unavailable,
+                    ) => true,
+                    Err(error) => return Err(error),
+                }
+            } else {
+                true
+            };
+            let mut selection_matches = locally_satisfied
+                || edge.release_selection.as_ref().is_none_or(|selection| {
+                    selection_matches_artifact(selection, Some(artifact))
+                });
+            if !locally_satisfied
+                && !selection_matches
+                && let Some(selection) = &edge.release_selection
             {
                 let release_ref = match selection {
                     ReleaseSelection::Release { reference } => reference,
@@ -2497,6 +3158,9 @@ impl ResourceService {
                     ReleaseSelection::Automatic => unreachable!(),
                 };
                 let release = self.release(release_ref, None, cancel).await?;
+                if required.is_none() {
+                    required = Some(release.version.clone());
+                }
                 selection_matches = release
                     .artifacts
                     .iter()
@@ -2528,16 +3192,27 @@ impl ResourceService {
                     edge.parent.clone(),
                     edge.kind == ResourceDependencyKind::Required
                         || !node.root_selection_ids.is_empty(),
+                    ResourceConflictDetails {
+                        reason: if enabled_requirement {
+                            ResourceConflictReason::DependencyVersion
+                        } else {
+                            ResourceConflictReason::InstalledDependencyDisabled
+                        },
+                        subject: None,
+                        related: Some(artifact_file(artifact)),
+                        required,
+                        actual: Some(artifact_file(artifact)),
+                    },
                 ));
             }
         }
-        for (parent, blocking) in constraint_issues {
-            issue(
+        for (parent, blocking, details) in constraint_issues {
+            conflict_issue(
                 &mut draft.plan,
-                ResourceIssueCode::VersionConflict,
                 &parent,
                 blocking,
                 "parent dependency requirement is not satisfied by the selected artifact",
+                details,
             );
         }
         verify_import_files(&mut draft).await?;
@@ -2619,11 +3294,11 @@ pub async fn prepare_import_files(
         return Err(invalid("local imports must belong to selected roots"));
     }
     let state = crate::State::get().await?;
-    prepare_import_files_with_pool(&state.pool, plan, files, cancel).await
+    prepare_import_files_with_pool(&state.data, plan, files, cancel).await
 }
 
 pub(crate) async fn prepare_import_files_with_pool(
-    pool: &SqlitePool,
+    handle: &Handle,
     plan: ResourceOperationPlan,
     files: HashMap<SelectionId, String>,
     cancel: &CancellationToken,
@@ -2634,7 +3309,7 @@ pub(crate) async fn prepare_import_files_with_pool(
     {
         return Err(invalid("local imports must belong to selected roots"));
     }
-    let mut draft = load(pool, &plan.id, plan.revision).await?;
+    let mut draft = load(handle, &plan.id, plan.revision).await?;
     if files.keys().any(|id| {
         !draft
             .plan
@@ -2654,10 +3329,20 @@ pub(crate) async fn prepare_import_files_with_pool(
         .revision
         .checked_add(1)
         .ok_or_else(|| invalid("plan revision exhausted"))?;
-    let updated = sqlx::query("UPDATE resource_operation_plans SET payload = ?, revision = ? WHERE id = ? AND revision = ? AND job_id IS NULL AND queued = 0").bind(serde_json::to_string(&draft)?).bind(draft.plan.revision).bind(plan.id.as_str()).bind(plan.revision).execute(pool).await.map_err(db)?;
-    if updated.rows_affected() != 1 {
-        return Err(invalid("plan was revised or already queued"));
-    }
+    let key = plan.id.as_str().to_owned();
+    let mut unit = atom(handle).await?;
+    let mut record = ResourceOperationPlans::atom_get(&mut unit, &key)
+        .await?
+        .filter(|record| {
+            record.revision == i64::from(plan.revision)
+                && record.job_id.is_none()
+                && !record.queued
+        })
+        .ok_or_else(|| invalid("plan was revised or already queued"))?;
+    record.revision = i64::from(draft.plan.revision);
+    record.payload = serde_json::to_string(&draft)?;
+    ResourceOperationPlans::atom_set(&mut unit, &key, Some(&record)).await?;
+    unit.commit().await?;
     Ok(draft.plan)
 }
 
@@ -2735,6 +3420,54 @@ pub(crate) async fn prepare_with_installed(
     progress: OperationProgress<'_>,
     resolve_dependencies: bool,
 ) -> ResourceResult<ResourceOperationPlan> {
+    bounded_preparation(
+        cancel,
+        std::time::Duration::from_secs(15 * 60),
+        |cancel| async move {
+            prepare_with_installed_inner(
+                instance_id,
+                intent,
+                selections,
+                install_dependencies,
+                &cancel,
+                verified,
+                progress,
+                resolve_dependencies,
+            )
+            .await
+        },
+    )
+    .await
+}
+
+pub(super) async fn bounded_preparation<T, F, Fut>(
+    cancel: &CancellationToken,
+    budget: std::time::Duration,
+    operation: F,
+) -> ResourceResult<T>
+where
+    F: FnOnce(CancellationToken) -> Fut,
+    Fut: std::future::Future<Output = ResourceResult<T>>,
+{
+    let scoped = cancel.child_token();
+    let _cancel_on_exit = scoped.clone().drop_guard();
+    tokio::select! {
+        biased;
+        _ = cancel.cancelled() => Err(ResourceError::Canceled),
+        result = tokio::time::timeout(budget, operation(scoped)) => result.unwrap_or(Err(ResourceError::Network { status: Some(408) })),
+    }
+}
+
+async fn prepare_with_installed_inner(
+    instance_id: String,
+    intent: ResourceOperationIntent,
+    selections: Vec<ResourceSelection>,
+    install_dependencies: bool,
+    cancel: &CancellationToken,
+    verified: Option<&[InstalledResource]>,
+    progress: OperationProgress<'_>,
+    resolve_dependencies: bool,
+) -> ResourceResult<ResourceOperationPlan> {
     let (draft, target, installed) = initialize_operation(
         instance_id,
         intent,
@@ -2743,6 +3476,7 @@ pub(crate) async fn prepare_with_installed(
         cancel,
         verified,
         resolve_dependencies,
+        progress,
     )
     .await?;
     let state = crate::State::get().await?;
@@ -2754,6 +3488,7 @@ pub(crate) async fn prepare_with_installed(
             draft, &target, &installed, cancel, progress,
         )
         .await?;
+    report_phase(progress, ResourceOperationPhase::Validating);
     super::write_access::review(&mut draft, &state).await?;
     if cancel.is_cancelled() {
         return Err(ResourceError::Canceled);
@@ -2763,7 +3498,16 @@ pub(crate) async fn prepare_with_installed(
     {
         return Err(invalid("instance changed while preparing the plan"));
     }
-    sqlx::query("INSERT INTO resource_operation_plans(id, instance_id, revision, payload) VALUES (?, ?, ?, ?)").bind(draft.plan.id.as_str()).bind(&draft.plan.instance_id).bind(draft.plan.revision).bind(serde_json::to_string(&draft)?).execute(&state.pool).await.map_err(db)?;
+    let record = ResourceOperationPlanRecord {
+        instance_id: draft.plan.instance_id.clone(),
+        revision: i64::from(draft.plan.revision),
+        payload: serde_json::to_string(&draft)?,
+        job_id: None,
+        queued: false,
+        completed: false,
+    };
+    let key = draft.plan.id.as_str().to_owned();
+    ResourceOperationPlans::set(&state.data, &key, Some(&record)).await?;
     Ok(draft.plan)
 }
 
@@ -2775,6 +3519,7 @@ async fn initialize_operation(
     cancel: &CancellationToken,
     verified: Option<&[InstalledResource]>,
     resolve_dependencies: bool,
+    progress: OperationProgress<'_>,
 ) -> ResourceResult<(OperationDraft, ResourceTarget, Vec<InstalledResource>)> {
     match intent {
         ResourceOperationIntent::Install
@@ -2817,6 +3562,7 @@ async fn initialize_operation(
         return Err(invalid("instance is not ready for resource changes"));
     }
     if verified.is_none() {
+        report_phase(progress, ResourceOperationPhase::RefreshingContent);
         if intent == ResourceOperationIntent::Install {
             super::installed::refresh_install_snapshot(
                 &state,
@@ -2825,8 +3571,12 @@ async fn initialize_operation(
             )
             .await?;
         } else {
-            super::installed::refresh_snapshot(&state, &instance_id, cancel)
-                .await?;
+            super::installed::refresh_operation_snapshot(
+                &state,
+                &instance_id,
+                cancel,
+            )
+            .await?;
         }
     }
     let revision = instance_revision(&state.pool, &instance_id).await?;
@@ -2835,14 +3585,17 @@ async fn initialize_operation(
         .map(|selection| selection.id.clone())
         .collect();
     let draft = OperationDraft {
-        local_metadata: requirements::local_metadata(&state.pool, &instance_id)
-            .await?,
+        local_metadata: if resolve_dependencies {
+            requirements::local_metadata(&state.pool, &instance_id).await?
+        } else {
+            HashMap::new()
+        },
         retained_requirements: Vec::new(),
         resolve_dependencies,
         skip_unwritable_files: false,
         import_files: Default::default(),
         naming: {
-            let settings = crate::state::Settings::get(&state.pool).await?;
+            let settings = crate::state::Settings::get(&state.data).await?;
             super::naming::NamingPreferences {
                 chinese: settings.resource_chinese_filenames,
                 preserve: settings.resource_preserve_filenames,
@@ -2877,6 +3630,7 @@ async fn initialize_operation(
     let installed = if let Some(verified) = verified {
         verified.to_vec()
     } else {
+        report_phase(progress, ResourceOperationPhase::IdentifyingInstalled);
         super::installed::hydrate_selected(
             &state,
             &draft.plan.instance_id,
@@ -2890,16 +3644,20 @@ async fn initialize_operation(
 }
 
 pub(crate) async fn load(
-    pool: &SqlitePool,
+    handle: &Handle,
     id: &PlanId,
     revision: u32,
 ) -> ResourceResult<OperationDraft> {
-    let payload: Option<String> = sqlx::query_scalar("SELECT payload FROM resource_operation_plans WHERE id = ? AND revision = ? AND job_id IS NULL AND queued = 0").bind(id.as_str()).bind(revision).fetch_optional(pool).await.map_err(db)?;
-    serde_json::from_str(
-        &payload
-            .ok_or_else(|| invalid("plan was revised or already queued"))?,
-    )
-    .map_err(Into::into)
+    let key = id.as_str().to_owned();
+    let record = ResourceOperationPlans::get(handle, &key)
+        .await?
+        .filter(|record| {
+            record.revision == i64::from(revision)
+                && record.job_id.is_none()
+                && !record.queued
+        })
+        .ok_or_else(|| invalid("plan was revised or already queued"))?;
+    serde_json::from_str(&record.payload).map_err(Into::into)
 }
 
 impl ResourceService {
@@ -3080,8 +3838,25 @@ pub async fn revise_with_progress(
     cancel: &CancellationToken,
     progress: OperationProgress<'_>,
 ) -> ResourceResult<ResourceOperationPlan> {
+    bounded_preparation(
+        cancel,
+        std::time::Duration::from_secs(15 * 60),
+        |cancel| async move {
+            revise_inner(id, revision, decisions, &cancel, progress).await
+        },
+    )
+    .await
+}
+
+async fn revise_inner(
+    id: PlanId,
+    revision: u32,
+    decisions: Vec<ResourcePlanDecision>,
+    cancel: &CancellationToken,
+    progress: OperationProgress<'_>,
+) -> ResourceResult<ResourceOperationPlan> {
     let state = crate::State::get().await?;
-    let draft = load(&state.pool, &id, revision).await?;
+    let draft = load(&state.data, &id, revision).await?;
     if instance_revision(&state.pool, &draft.plan.instance_id).await?
         != draft.plan.instance_revision
     {
@@ -3104,6 +3879,7 @@ pub async fn revise_with_progress(
             draft, decisions, &target, &installed, cancel, progress,
         )
         .await?;
+    report_phase(progress, ResourceOperationPhase::Validating);
     super::write_access::review(&mut draft, &state).await?;
     if cancel.is_cancelled() {
         return Err(ResourceError::Canceled);
@@ -3113,10 +3889,20 @@ pub async fn revise_with_progress(
     {
         return Err(invalid("instance changed while revising the plan"));
     }
-    let result = sqlx::query("UPDATE resource_operation_plans SET revision = ?, payload = ? WHERE id = ? AND revision = ? AND job_id IS NULL AND queued = 0").bind(draft.plan.revision).bind(serde_json::to_string(&draft)?).bind(id.as_str()).bind(revision).execute(&state.pool).await.map_err(db)?;
-    if result.rows_affected() != 1 {
-        return Err(invalid("plan changed concurrently"));
-    }
+    let key = id.as_str().to_owned();
+    let mut unit = atom(&state.data).await?;
+    let mut record = ResourceOperationPlans::atom_get(&mut unit, &key)
+        .await?
+        .filter(|record| {
+            record.revision == i64::from(revision)
+                && record.job_id.is_none()
+                && !record.queued
+        })
+        .ok_or_else(|| invalid("plan changed concurrently"))?;
+    record.revision = i64::from(draft.plan.revision);
+    record.payload = serde_json::to_string(&draft)?;
+    ResourceOperationPlans::atom_set(&mut unit, &key, Some(&record)).await?;
+    unit.commit().await?;
     Ok(draft.plan)
 }
 
@@ -3140,7 +3926,7 @@ pub(crate) async fn execute_frozen_plan(
 
 pub(crate) async fn frozen_request_completed(
     request: &crate::install::InstallRequest,
-    pool: &SqlitePool,
+    handle: &Handle,
 ) -> crate::Result<bool> {
     let crate::install::InstallRequest::InstallContentBatch { items, .. } =
         request
@@ -3156,9 +3942,12 @@ pub(crate) async fn frozen_request_completed(
         else {
             return Ok(false);
         };
-        let completed: Option<i64> = sqlx::query_scalar("SELECT completed FROM resource_operation_plans WHERE id = ? AND revision = ?")
-            .bind(plan.id.as_str()).bind(plan.revision).fetch_optional(pool).await?;
-        if completed != Some(1) {
+        let key = plan.id.as_str().to_owned();
+        let completed = ResourceOperationPlans::get(handle, &key)
+            .await?
+            .filter(|record| record.revision == i64::from(plan.revision))
+            .is_some_and(|record| record.completed);
+        if !completed {
             return Ok(false);
         }
     }

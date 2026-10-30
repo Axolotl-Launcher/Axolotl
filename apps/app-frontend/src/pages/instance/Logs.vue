@@ -113,21 +113,29 @@ function buildLogList(rawLogs) {
 const logs = ref(buildLogList([]))
 const logsLoading = ref(true)
 const historicalLoading = ref(false)
-const historyRequests = createRequestGeneration()
+// The list and the selected log's text load independently, so neither request
+// may make the other's result or its loading state look stale.
+const listRequests = createRequestGeneration()
+const contentRequests = createRequestGeneration()
 
 async function loadHistoricalLogs() {
-    const request = historyRequests.begin(`${props.instance.id}:list`)
+    const key = `${props.instance.id}:list`
+    const request = listRequests.begin(key)
     logsLoading.value = true
     try {
         const allLogs = await getHistoricalLogs()
-        if (!historyRequests.isCurrent(request, `${props.instance.id}:list`)) return
+        if (!listRequests.isCurrent(request, key)) return
         logs.value = buildLogList(allLogs)
     } catch (error) {
-        if (historyRequests.isCurrent(request, `${props.instance.id}:list`)) handleError(error)
+        if (listRequests.isCurrent(request, key)) handleError(error)
     } finally {
-        if (historyRequests.isCurrent(request, `${props.instance.id}:list`))
-            logsLoading.value = false
+        if (listRequests.isCurrent(request, key)) logsLoading.value = false
     }
+}
+
+function stopContentRequest() {
+    contentRequests.invalidate()
+    historicalLoading.value = false
 }
 
 void loadHistoricalLogs()
@@ -195,34 +203,49 @@ provideConsoleManager({
     onDelete: deleteSelectedLog,
     deleteDisabled,
     deleteDisabledTooltip: computed(() => formatMessage(messages.cannotDeleteLatest)),
-    shareDisabled: computed(() => props.offline),
+    // The previous log stays on screen while the next one loads; sharing it
+    // then would upload a log other than the one selected.
+    shareDisabled: computed(() => props.offline || (!isLive.value && historicalLoading.value)),
     emptyStateType: 'instance',
     localCrashAnalysis,
     crashAnalysisLoading,
     onExportCrashContext: exportCrashContext,
 })
 
-watch(selectedLogIndex, async (newIndex) => {
-    if (newIndex === 0) return
-    const log = filteredLogs.value[newIndex]
-    if (!log) return
+const selectedLogKey = computed(() => {
+    if (selectedLogIndex.value === 0) return null
+    const log = filteredLogs.value[selectedLogIndex.value]
+    return log ? `${log.log_type}:${log.filename}` : null
+})
+
+// A list refresh can put another log at the selected index, so the text
+// follows the selected log itself rather than its position.
+watch(selectedLogKey, async (key) => {
+    const log = key === null ? undefined : filteredLogs.value[selectedLogIndex.value]
+    if (!log) {
+        stopContentRequest()
+        return
+    }
 
     const requestKey = `${props.instance.id}:${log.log_type}:${log.filename}`
-    const request = historyRequests.begin(requestKey)
+    const request = contentRequests.begin(requestKey)
+    // The previous text stays visible behind the loading state until this one arrives.
     historicalLoading.value = true
-    historicalConsole.clear()
     const cached = getHistoricalContent(log.filename)
     try {
         const output =
             cached !== undefined
                 ? cached
                 : await get_output_by_filename(props.instance.id, log.log_type, log.filename)
-        if (!historyRequests.isCurrent(request, requestKey)) return
+        if (!contentRequests.isCurrent(request, requestKey)) return
+        historicalConsole.clear()
         if (output) await historicalConsole.addLegacyLog(output)
     } catch (error) {
-        if (historyRequests.isCurrent(request, requestKey)) handleError(error)
+        if (!contentRequests.isCurrent(request, requestKey)) return
+        historicalConsole.clear()
+        handleError(error)
     } finally {
-        if (historyRequests.isCurrent(request, requestKey)) historicalLoading.value = false
+        if (contentRequests.isCurrent(request, requestKey)) historicalLoading.value = false
     }
 })
 

@@ -1,7 +1,5 @@
-import assert from 'node:assert/strict'
-import test from 'node:test'
-
 import type { ContentItem } from '@modrinth/ui'
+import { expect, it } from 'vitest'
 
 import type { PendingContentChange } from '@/providers/download-manager.ts'
 
@@ -37,7 +35,7 @@ const packItem = {
     instanceOwnershipKind: 'pack_managed',
 } as ContentItem
 
-test('active content jobs are restored by kind, instance, and active status', () => {
+it('active content jobs are restored by kind, instance, and active status', () => {
     const active = job('running', { type: 'update_one', content_id: 'entry-a' }, ['entry-a'])
     const paused = job('waiting_for_user', { type: 'update_one', content_id: 'entry-a' }, [
         'entry-a',
@@ -51,26 +49,25 @@ test('active content jobs are restored by kind, instance, and active status', ()
     } as InstallJobSnapshot
     const install = { ...active, job_id: 'install', kind: 'install_content' } as InstallJobSnapshot
 
-    assert.deepEqual(
+    expect(
         activeContentChangeJobs([active, paused, finished, otherInstance, install], 'instance-a'),
-        [active, paused],
-    )
+    ).toEqual([active, paused])
 })
 
-test('resolved jobs affect only their persisted stable content IDs', () => {
+it('resolved jobs affect only their persisted stable content IDs', () => {
     const update = job('queued', { type: 'update_one', content_id: 'entry-a' }, ['entry-a'])
-    assert.equal(contentChangeAffectsItem(update, userItem), true)
-    assert.equal(contentChangeAffectsItem(update, packItem), false)
-    assert.equal(hasActiveContentChange([update], userItem), true)
+    expect(contentChangeAffectsItem(update, userItem)).toBe(true)
+    expect(contentChangeAffectsItem(update, packItem)).toBe(false)
+    expect(hasActiveContentChange([update], userItem)).toBe(true)
 })
 
-test('unresolved update-all marks user-added content without blocking pack content', () => {
+it('unresolved update-all marks user-added content without blocking pack content', () => {
     const updateAll = job('queued', { type: 'update_all_user_added' })
-    assert.equal(contentChangeAffectsItem(updateAll, userItem), true)
-    assert.equal(contentChangeAffectsItem(updateAll, packItem), false)
+    expect(contentChangeAffectsItem(updateAll, userItem)).toBe(true)
+    expect(contentChangeAffectsItem(updateAll, packItem)).toBe(false)
 })
 
-test('submission reservations synchronously cover their exact content scope', () => {
+it('submission reservations synchronously cover their exact content scope', () => {
     const selected: PendingContentChange = {
         id: 'pending-selected',
         instanceId: 'instance-a',
@@ -89,8 +86,8 @@ test('submission reservations synchronously cover their exact content scope', ()
         updateAll: true,
     }
 
-    assert.equal(pendingContentChangeAffectsItem(selected, userItem), true)
-    assert.equal(pendingContentChangeAffectsItem(selected, packItem), false)
-    assert.equal(pendingContentChangeAffectsItem(updateAll, userItem), true)
-    assert.equal(pendingContentChangeAffectsItem(updateAll, packItem), false)
+    expect(pendingContentChangeAffectsItem(selected, userItem)).toBe(true)
+    expect(pendingContentChangeAffectsItem(selected, packItem)).toBe(false)
+    expect(pendingContentChangeAffectsItem(updateAll, userItem)).toBe(true)
+    expect(pendingContentChangeAffectsItem(updateAll, packItem)).toBe(false)
 })

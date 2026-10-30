@@ -50,6 +50,8 @@ pub(crate) fn review_at_root(
             entry_id: Some(action.entry_id.clone()),
             blocking: !skip,
             message: action.target_relative_path.clone(),
+            conflict: None,
+            context: None,
         });
         if skip {
             skipped.insert(action.entry_id.clone());

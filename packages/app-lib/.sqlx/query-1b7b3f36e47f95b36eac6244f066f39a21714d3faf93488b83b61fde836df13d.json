@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "\n                INSERT INTO synced_game_option_preferences\n                    (option_id, enabled, source, revision)\n                VALUES (?, ?, 'catalog_default', 1)\n                ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": []
+  },
+  "hash": "1b7b3f36e47f95b36eac6244f066f39a21714d3faf93488b83b61fde836df13d"
+}

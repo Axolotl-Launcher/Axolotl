@@ -1,5 +1,81 @@
 use super::*;
 
+#[tokio::test]
+async fn cancel_cleanup_retries_a_request_received_during_a_failed_attempt() {
+    use std::sync::Arc;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    let job_id = Uuid::new_v4();
+    let registration = CancelCleanupRegistration::request(job_id).unwrap();
+    let attempts = Arc::new(AtomicUsize::new(0));
+    let started = Arc::new(tokio::sync::Notify::new());
+    let release = Arc::new(tokio::sync::Notify::new());
+    let worker = tokio::spawn({
+        let attempts = attempts.clone();
+        let started = started.clone();
+        let release = release.clone();
+        run_cancel_cleanup(registration, move || {
+            let attempts = attempts.clone();
+            let started = started.clone();
+            let release = release.clone();
+            async move {
+                if attempts.fetch_add(1, Ordering::SeqCst) == 0 {
+                    started.notify_one();
+                    release.notified().await;
+                    return Err(ErrorKind::OtherError(
+                        "transient cleanup failure".into(),
+                    )
+                    .into());
+                }
+                Ok(())
+            }
+        })
+    });
+    started.notified().await;
+    assert!(CancelCleanupRegistration::request(job_id).is_none());
+    assert!(CancelCleanupRegistration::request(job_id).is_none());
+    release.notify_one();
+    tokio::time::timeout(std::time::Duration::from_secs(2), worker)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(attempts.load(Ordering::SeqCst), 2);
+    assert!(!CANCEL_CLEANUPS.contains_key(&job_id));
+}
+
+#[test]
+fn cancel_cleanup_registration_does_not_remove_a_successor_on_drop() {
+    let job_id = Uuid::new_v4();
+    let mut completed = CancelCleanupRegistration::request(job_id).unwrap();
+    assert!(!completed.retry_requested());
+    let successor = CancelCleanupRegistration::request(job_id).unwrap();
+    drop(completed);
+    assert!(CancelCleanupRegistration::request(job_id).is_none());
+    drop(successor);
+    assert!(!CANCEL_CLEANUPS.contains_key(&job_id));
+}
+
+#[tokio::test]
+async fn cancel_cleanup_registration_is_released_when_the_worker_is_aborted() {
+    let job_id = Uuid::new_v4();
+    let registration = CancelCleanupRegistration::request(job_id).unwrap();
+    let started = std::sync::Arc::new(tokio::sync::Notify::new());
+    let worker = tokio::spawn({
+        let started = started.clone();
+        run_cancel_cleanup(registration, move || {
+            started.notify_one();
+            std::future::pending::<crate::Result<()>>()
+        })
+    });
+    started.notified().await;
+    assert!(CancelCleanupRegistration::request(job_id).is_none());
+    worker.abort();
+    assert!(worker.await.unwrap_err().is_cancelled());
+    let successor = CancelCleanupRegistration::request(job_id).unwrap();
+    drop(successor);
+    assert!(!CANCEL_CLEANUPS.contains_key(&job_id));
+}
+
 #[test]
 fn multimc_component_errors_are_pack_errors_during_import() {
     let error = crate::ErrorKind::InputError(

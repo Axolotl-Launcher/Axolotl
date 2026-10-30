@@ -56,7 +56,7 @@ const CHANNELS = ['release', 'beta']
 // Only recent migrations are listed. Dropping to a threshold before them is
 // refused rather than guessed at; --allow-unmapped accepts the risk explicitly.
 const REVERTIBLE_SCHEMA = {
-    20261103120000: { columns: [{ table: 'install_jobs', column: 'level' }] },
+    20261103130000: { columns: [{ table: 'install_jobs', column: 'level' }] },
     // Account secrets move into the system credential store. Each table gains a
     // mark column saying which of its secret columns the store holds; dropping
     // it leaves the rows as an older build writes them.

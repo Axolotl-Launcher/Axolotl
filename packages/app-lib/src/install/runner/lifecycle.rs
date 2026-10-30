@@ -367,10 +367,14 @@ async fn run_owned_job(job_id: Uuid, state: &State) -> crate::Result<()> {
         Canceled,
     }
 
+    // The request future holds every kind of install, about 2 MB in debug
+    // builds. Boxed here, the worker's enclosing futures stay small instead of
+    // each carrying a copy of it on the stack.
     let result =
         if matches!(job_state.request, InstallRequest::ExportResource { .. }) {
             let result =
-                request::run_request(job_id, &mut job_state, &state).await;
+                Box::pin(request::run_request(job_id, &mut job_state, &state))
+                    .await;
             if result.is_err() && cancellation.is_cancelled() {
                 RunResult::Canceled
             } else {
@@ -381,12 +385,13 @@ async fn run_owned_job(job_id: Uuid, state: &State) -> crate::Result<()> {
             InstallRequest::ChangeContent { .. }
         ) {
             RunResult::Completed(
-                request::run_request(job_id, &mut job_state, &state).await,
+                Box::pin(request::run_request(job_id, &mut job_state, &state))
+                    .await,
             )
         } else {
             match crate::install::critical_section::run_cancelable(
                 &cancellation,
-                request::run_request(job_id, &mut job_state, &state),
+                Box::pin(request::run_request(job_id, &mut job_state, &state)),
             )
             .await
             {

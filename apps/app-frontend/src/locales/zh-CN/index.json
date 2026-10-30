@@ -9368,6 +9368,18 @@
   "app.settings.defaults.environment-variables-placeholder": {
     "message": "输入环境变量……"
   },
+  "app.settings.defaults.game-language.description": {
+    "message": "用于实例首次启动。已经游玩过的实例会保留游戏内语言。"
+  },
+  "app.settings.defaults.game-language.follow-launcher": {
+    "message": "跟随启动器语言"
+  },
+  "app.settings.defaults.game-language.search": {
+    "message": "Minecraft 游戏语言 区域 语言 locale"
+  },
+  "app.settings.defaults.game-language.title": {
+    "message": "默认游戏语言"
+  },
   "app.settings.defaults.fullscreen": {
     "message": "全屏"
   },
@@ -11881,12 +11893,6 @@
   },
   "app.splash.updating-app-directory": {
     "message": "正在更新应用目录……"
-  },
-  "app.symlink-capability.unsupported": {
-    "message": "系统不支持软链接。"
-  },
-  "app.symlink-capability.unsupported.title": {
-    "message": "软链接不支持"
   },
   "app.symlink-warning.delete.body": {
     "message": "此实例为共享实例。当前操作将删除共享的 {path}。"
@@ -14651,6 +14657,9 @@
   "app.settings.defaults.sections.environment": {
     "message": "环境变量"
   },
+  "app.settings.defaults.sections.game-language": {
+    "message": "游戏语言"
+  },
   "app.settings.defaults.sections.launch-hooks": {
     "message": "启动钩子"
   },
@@ -15256,9 +15265,6 @@
   },
   "app.instance.mods.manage-backups": {
     "message": "旧文件与备份"
-  },
-  "app.instance.mods.loading-online-information": {
-    "message": "正在加载在线信息，请稍后"
   },
   "app.resources.backups.back": {
     "message": "返回选择"
@@ -19747,8 +19753,5 @@
   },
   "app.instance.content.check-failures": {
     "message": "{count} 项检查失败"
-  },
-  "app.instance.content.unrecognized": {
-    "message": "{count} 个文件未能识别"
   }
 }

@@ -588,8 +588,7 @@ pub(crate) async fn execute(
         for requirement in requirements {
             if let Some(id) = &requirement.local_mod_id
                 && let Some(metadata) = &metadata
-            {
-                if &metadata.mod_id != id
+                && (&metadata.mod_id != id
                     || !requirement.version_constraint.as_ref().is_none_or(
                         |constraint| {
                             metadata.version.as_ref().is_none_or(|version| {
@@ -598,13 +597,12 @@ pub(crate) async fn execute(
                                 )
                             })
                         },
-                    )
-                {
-                    return Err(input(format!(
-                        "updated mod does not satisfy {}'s requirement for {id}",
-                        requirement.parent.relative_path
-                    )));
-                }
+                    ))
+            {
+                return Err(input(format!(
+                    "updated mod does not satisfy {}'s requirement for {id}",
+                    requirement.parent.relative_path
+                )));
             }
             retained_parents.insert(
                 requirement.parent.entry_id.clone(),
@@ -1048,7 +1046,7 @@ async fn persist_plan(
     let restore: Option<serde_json::Value> =
         if let Some(id) = &draft.restore_history {
             let payload =
-                ResourceHistory::backup_payload(&mut *tx, id.as_str()).await?;
+                ResourceHistory::backup_payload(&mut tx, id.as_str()).await?;
             Some(serde_json::from_str(&payload)?)
         } else {
             None
@@ -1062,7 +1060,7 @@ async fn persist_plan(
             .ok_or_else(|| input("entry snapshot missing"))?;
         let old_entry = existing.clone();
         let previous_artifact: Option<String> =
-            super::installed::installed_artifact_payload(id, &mut *tx).await?;
+            super::installed::installed_artifact_payload(id, &mut tx).await?;
         let file_name = action
             .target_relative_path
             .rsplit('/')
@@ -1242,7 +1240,7 @@ async fn persist_plan(
                 restore["restoreEntryMetadata"].clone(),
             )?;
             let unlinked = resource_pack_unlinks::marked(
-                &mut *tx,
+                &mut tx,
                 &plan.instance_id,
                 set_id,
             )
@@ -1296,7 +1294,7 @@ async fn persist_plan(
             id,
             &record,
             &node.scope,
-            &mut *tx,
+            &mut tx,
         )
         .await?;
         content_entries::delete_update_check_for_entry_in_transaction(
@@ -1372,7 +1370,7 @@ async fn persist_plan(
                     .collect::<Vec<_>>(),
             )?;
             ResourceHistory::insert(
-                &mut *tx,
+                &mut tx,
                 history.id.as_str(),
                 &ResourceHistoryRecord {
                     instance_id: plan.instance_id.clone(),
@@ -1398,7 +1396,7 @@ async fn persist_plan(
             edges: serde_json::to_string(&edges)?,
         };
         let key = id.to_owned();
-        ResourceEntryGraphs::write(&mut *tx, &key, Some(&graph)).await?;
+        ResourceEntryGraphs::write(&mut tx, &key, Some(&graph)).await?;
     }
     for action in &plan.actions {
         let mut edges = Vec::new();
@@ -1447,7 +1445,7 @@ async fn persist_plan(
             let member: crate::state::PackMember =
                 serde_json::from_value(member.clone())?;
             let unlinked = resource_pack_unlinks::marked(
-                &mut *tx,
+                &mut tx,
                 &plan.instance_id,
                 set_id,
             )
@@ -1460,7 +1458,7 @@ async fn persist_plan(
             }
         }
         ResourceEntryGraphs::restore_in(
-            &mut *tx,
+            &mut tx,
             previous.entry_id.as_str(),
             &EntryGraphRecord {
                 nodes: serde_json::to_string(&previous.previous_nodes)?,
@@ -1469,22 +1467,18 @@ async fn persist_plan(
         )
         .await?;
         let payload = payload.to_string();
-        ResourceHistory::retire_with_payload_in(
-            &mut *tx,
-            id.as_str(),
-            &payload,
-        )
-        .await?;
+        ResourceHistory::retire_with_payload_in(&mut tx, id.as_str(), &payload)
+            .await?;
     }
     content_sets::bump_content_set_revision_in_transaction(set_id, &mut tx)
         .await?;
     ResourceOperationPlans::mark_completed_in(
-        &mut *tx,
+        &mut tx,
         plan.id.as_str(),
         plan.revision,
     )
     .await?;
-    ResourceExecutionJournals::delete_in(&mut *tx, plan.id.as_str()).await?;
+    ResourceExecutionJournals::delete_in(&mut tx, plan.id.as_str()).await?;
     // The hash cache lives in the derived database. Dropping the entries the
     // commit is about to replace keeps a run that stops before the write below
     // from trusting metadata of the file that was just replaced.

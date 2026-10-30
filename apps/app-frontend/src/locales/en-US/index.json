@@ -1,7 +1,4 @@
 {
-  "app.drop.minecraft-root-added": {
-    "message": "Minecraft folder added"
-  },
   "app.account.modrinth-account": {
     "message": "Modrinth account"
   },
@@ -1958,6 +1955,9 @@
   "app.drop.instance-imported-title": {
     "message": "Instance imported"
   },
+  "app.drop.minecraft-root-added": {
+    "message": "Minecraft folder added"
+  },
   "app.drop.mod-compatibility-title": {
     "message": "Version Mismatch"
   },
@@ -3044,6 +3044,12 @@
   "app.instance.confirm-delete.symlink-warning": {
     "message": "This is a shared instance linked to \"{path}\". Only the link will be removed; the original files will not be deleted."
   },
+  "app.instance.content.check-failures": {
+    "message": "{count, plural, one {# check failed} other {# checks failed}}"
+  },
+  "app.instance.content.checking": {
+    "message": "Refreshing… {current}/{total}"
+  },
   "app.instance.content.datapack-state-unavailable": {
     "message": "Datapack state is unavailable. Refresh and retry."
   },
@@ -3535,9 +3541,6 @@
   },
   "app.instance.mods.file-already-exists": {
     "message": "Failed to add. The file may already exist"
-  },
-  "app.instance.mods.loading-online-information": {
-    "message": "Loading online information, please wait"
   },
   "app.instance.mods.manage-backups": {
     "message": "Old files and backups"
@@ -10682,6 +10685,18 @@
   "app.settings.defaults.fullscreen-description": {
     "message": "Overwrites the options.txt file to start in full screen when launched."
   },
+  "app.settings.defaults.game-language.description": {
+    "message": "Used the first time an instance launches. Instances that have already been played keep their in-game language."
+  },
+  "app.settings.defaults.game-language.follow-launcher": {
+    "message": "Follow launcher language"
+  },
+  "app.settings.defaults.game-language.search": {
+    "message": "Minecraft game language locale language region"
+  },
+  "app.settings.defaults.game-language.title": {
+    "message": "Default game language"
+  },
   "app.settings.defaults.height": {
     "message": "Height"
   },
@@ -10741,6 +10756,9 @@
   },
   "app.settings.defaults.sections.environment": {
     "message": "Environment variables"
+  },
+  "app.settings.defaults.sections.game-language": {
+    "message": "Game language"
   },
   "app.settings.defaults.sections.launch-hooks": {
     "message": "Launch hooks"
@@ -13736,12 +13754,6 @@
   "app.splash.updating-app-directory": {
     "message": "Updating app directory..."
   },
-  "app.symlink-capability.unsupported": {
-    "message": "This system does not support creating symbolic links."
-  },
-  "app.symlink-capability.unsupported.title": {
-    "message": "Shared instances are unavailable"
-  },
   "app.symlink-warning.delete.body": {
     "message": "Deleting this instance removes only the launcher entry. The original files at \"{path}\" will remain."
   },
@@ -16522,14 +16534,5 @@
   },
   "unknown-pack-warning-modal.warning.title": {
     "message": "Unknown file warning"
-  },
-  "app.instance.content.checking": {
-    "message": "Refreshing… {current}/{total}"
-  },
-  "app.instance.content.check-failures": {
-    "message": "{count, plural, one {# check failed} other {# checks failed}}"
-  },
-  "app.instance.content.unrecognized": {
-    "message": "{count, plural, one {# file could not be identified} other {# files could not be identified}}"
   }
 }

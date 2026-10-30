@@ -1,8 +1,22 @@
 //! Fetch transfer tests.
 
+use super::super::transfer::{
+    H2AttemptResult, resume_checkpointed_download_with,
+    select_h2_download_route, try_h2_download,
+};
 use super::super::*;
 use super::fixtures;
 use super::fixtures::*;
+use crate::ErrorKind;
+use crate::util::download::constants::{
+    MAX_SEGMENT_CONCURRENCY, ROUTE_PROBE_CONCURRENCY,
+    SEGMENTED_DOWNLOAD_THRESHOLD,
+};
+use bytes::Bytes;
+use reqwest::{StatusCode, header};
+use std::sync::Arc;
+use std::time::Instant;
+use tokio::sync::Semaphore;
 
 #[tokio::test]
 async fn failed_checkpoint_ranges_restart_full_download_but_io_and_cancel_keep_checkpoints()

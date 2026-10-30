@@ -186,27 +186,27 @@ const messages = defineMessages({
     },
     propertyUp: {
         id: 'app.lab.schematic-preview.state.property.up',
-        defaultMessage: 'Connects up',
+        defaultMessage: 'Up',
     },
     propertyDown: {
         id: 'app.lab.schematic-preview.state.property.down',
-        defaultMessage: 'Connects down',
+        defaultMessage: 'Down',
     },
     propertyNorth: {
         id: 'app.lab.schematic-preview.state.property.north',
-        defaultMessage: 'Connects north',
+        defaultMessage: 'North',
     },
     propertyEast: {
         id: 'app.lab.schematic-preview.state.property.east',
-        defaultMessage: 'Connects east',
+        defaultMessage: 'East',
     },
     propertySouth: {
         id: 'app.lab.schematic-preview.state.property.south',
-        defaultMessage: 'Connects south',
+        defaultMessage: 'South',
     },
     propertyWest: {
         id: 'app.lab.schematic-preview.state.property.west',
-        defaultMessage: 'Connects west',
+        defaultMessage: 'West',
     },
     valueNorth: {
         id: 'app.lab.schematic-preview.state.value.north',
@@ -458,7 +458,7 @@ function valueLabel(value: string) {
 
 function chipClass(active: boolean) {
     return [
-        'cursor-pointer rounded-[var(--radius-sm)] border border-solid px-2 py-0.5 text-xs transition-colors',
+        'cursor-pointer rounded-[var(--radius-sm)] border border-solid px-2 py-1 text-base transition-colors',
         active
             ? 'border-brand bg-brand-highlight text-brand'
             : 'border-surface-5 bg-surface-3 text-[var(--color-text-primary)] hover:bg-surface-4',
@@ -473,23 +473,22 @@ function selectProperty(key: string, event: Event) {
 
 <template>
     <div class="flex flex-col gap-2">
-        <p v-if="properties.length === 0" class="m-0 text-xs text-[var(--color-text-tertiary)]">
+        <p v-if="properties.length === 0" class="m-0 text-base text-[var(--color-text-tertiary)]">
             {{ formatMessage(messages.empty) }}
         </p>
         <div
             v-for="property in properties"
             :key="property.key"
-            class="grid grid-cols-[minmax(0,4.5rem)_minmax(0,1fr)] items-center gap-2"
+            class="grid grid-cols-[minmax(0,5rem)_minmax(0,1fr)] items-center gap-2"
         >
             <span
-                class="truncate text-xs text-[var(--color-text-tertiary)]"
-                :title="property.key"
+                v-tooltip="property.key"
+                class="truncate text-base text-[var(--color-text-tertiary)]"
                 >{{ propertyLabel(property.key) }}</span
             >
             <Toggle
                 v-if="property.boolean"
                 class="justify-self-start"
-                small
                 :model-value="property.value === 'true'"
                 :disabled="disabled"
                 @update:model-value="(value) => emit('change', property.key, String(value))"
@@ -503,11 +502,11 @@ function selectProperty(key: string, event: Event) {
                 <button
                     v-for="value in property.values"
                     :key="value"
+                    v-tooltip="value"
                     type="button"
                     :class="chipClass(value === property.value)"
                     :aria-pressed="value === property.value"
                     :disabled="disabled || property.values.length <= 1"
-                    :title="value"
                     @click="emit('change', property.key, value)"
                 >
                     {{ valueLabel(value) }}
@@ -515,7 +514,7 @@ function selectProperty(key: string, event: Event) {
             </div>
             <select
                 v-else
-                class="w-full cursor-pointer rounded-[var(--radius-sm)] border border-surface-5 bg-surface-3 px-2 py-1 text-xs text-[var(--color-text-primary)] disabled:cursor-not-allowed disabled:opacity-50"
+                class="w-full cursor-pointer rounded-[var(--radius-sm)] border border-surface-5 bg-surface-3 px-2 py-1 text-base text-[var(--color-text-primary)] disabled:cursor-not-allowed disabled:opacity-50"
                 :value="property.value"
                 :disabled="disabled"
                 :aria-label="propertyLabel(property.key)"
@@ -526,7 +525,7 @@ function selectProperty(key: string, event: Event) {
                 </option>
             </select>
         </div>
-        <p v-if="hasReadOnly" class="m-0 text-xs text-[var(--color-text-tertiary)]">
+        <p v-if="hasReadOnly" class="m-0 text-base text-[var(--color-text-tertiary)]">
             {{ formatMessage(messages.readonly) }}
         </p>
     </div>

@@ -6198,10 +6198,10 @@
     "message": "Distance"
   },
   "app.lab.schematic-preview.state.property.down": {
-    "message": "Connects down"
+    "message": "Down"
   },
   "app.lab.schematic-preview.state.property.east": {
-    "message": "Connects east"
+    "message": "East"
   },
   "app.lab.schematic-preview.state.property.extended": {
     "message": "Extended"
@@ -6246,7 +6246,7 @@
     "message": "Locked"
   },
   "app.lab.schematic-preview.state.property.north": {
-    "message": "Connects north"
+    "message": "North"
   },
   "app.lab.schematic-preview.state.property.note": {
     "message": "Note"
@@ -6285,7 +6285,7 @@
     "message": "Snowy"
   },
   "app.lab.schematic-preview.state.property.south": {
-    "message": "Connects south"
+    "message": "South"
   },
   "app.lab.schematic-preview.state.property.stage": {
     "message": "Stage"
@@ -6297,7 +6297,7 @@
     "message": "Type"
   },
   "app.lab.schematic-preview.state.property.up": {
-    "message": "Connects up"
+    "message": "Up"
   },
   "app.lab.schematic-preview.state.property.vertical_direction": {
     "message": "Vertical direction"
@@ -6306,7 +6306,7 @@
     "message": "Waterlogged"
   },
   "app.lab.schematic-preview.state.property.west": {
-    "message": "Connects west"
+    "message": "West"
   },
   "app.lab.schematic-preview.state.readonly": {
     "message": "Some properties cannot be changed here."

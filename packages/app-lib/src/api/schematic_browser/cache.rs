@@ -151,6 +151,12 @@ pub async fn write<T: Serialize>(
         })?;
     }
 
+    // `rename` replaces the target on Unix but fails when it exists on
+    // Windows, so drop the old index first. A concurrent writer could recreate
+    // it in the gap; the newer snapshot always wins on the next refresh.
+    if path.exists() {
+        let _ = std::fs::remove_file(&path);
+    }
     std::fs::rename(&temp, &path).map_err(|error| {
         let _ = std::fs::remove_file(&temp);
         SchematicSourceError::storage(

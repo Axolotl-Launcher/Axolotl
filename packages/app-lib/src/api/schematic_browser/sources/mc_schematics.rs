@@ -258,12 +258,18 @@ impl SchematicBrowseSource for McSchematicsSource {
                     )
                     .await?;
                     let index = parse_sitemap(&response.body)?;
-                    super::super::cache::write(
+                    if let Err(error) = super::super::cache::write(
                         SourceId::McSchematics,
                         &index,
                         now,
                     )
-                    .await?;
+                    .await
+                    {
+                        tracing::warn!(
+                            "Failed to cache MCSchematics index: {}",
+                            error
+                        );
+                    }
                     (index, false, Some(now))
                 }
             };

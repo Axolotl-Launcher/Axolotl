@@ -157,12 +157,18 @@ impl SchematicBrowseSource for BuildSchematicsSource {
                     )
                     .await?;
                     let index = parse_sitemap(&response.body)?;
-                    super::super::cache::write(
+                    if let Err(error) = super::super::cache::write(
                         SourceId::BuildSchematics,
                         &index,
                         now,
                     )
-                    .await?;
+                    .await
+                    {
+                        tracing::warn!(
+                            "Failed to cache BuildSchematics index: {}",
+                            error
+                        );
+                    }
                     (index, false, Some(now))
                 }
             };

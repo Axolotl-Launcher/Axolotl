@@ -137,7 +137,6 @@ pub async fn acquire(
     // Concurrency says how many run at once; the quota says how many may be sent
     // inside the host's window. Both have to hold.
     check_quota(key)?;
-    record_request(key);
 
     let semaphore = limiter_for(key);
 
@@ -169,6 +168,12 @@ pub async fn acquire(
         )),
     };
     drop(guard);
+    // Only count the request once the caller actually holds a permit. A
+    // rejected or cancelled acquire never sends anything, so charging the
+    // quota for it would let local exhaustion starve the host.
+    if result.is_ok() {
+        record_request(key);
+    }
     result
 }
 

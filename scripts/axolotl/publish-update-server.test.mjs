@@ -47,6 +47,18 @@ test('webhook retries stay byte-identical despite volatile metadata and asset or
     assert.equal(JSON.parse(original).event_id, `github-${tag}-123-v2`)
 })
 
+test('preserve multi-platform updater targets in the webhook payload', () => {
+    const { catalog, release } = fixture()
+    catalog.artifacts[0].targetPlatforms = ['darwin-aarch64', 'darwin-x86_64']
+
+    const payload = createUpdateServerPayload(catalog, release, tag)
+
+    assert.deepEqual(payload.catalog.artifacts[0].targetPlatforms, [
+        'darwin-aarch64',
+        'darwin-x86_64',
+    ])
+})
+
 test('reject draft metadata, temporary URLs and mismatched checksums before notifying', () => {
     const { catalog, release } = fixture()
     assert.throws(

@@ -91,7 +91,9 @@ pub(crate) use offline::{
     OfflineSkinPackOptions, prepare_offline_skin_resource_pack,
 };
 
+mod player_lookup;
 mod png_util;
+pub use player_lookup::{PlayerSkinLookup, lookup_player_skin};
 
 const SKIN_CHANGE_DEBOUNCE: Duration = Duration::from_secs(10);
 

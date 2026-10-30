@@ -16,6 +16,7 @@ import Button from '#ui/components/base/buttons/Button.vue'
 import type { Option as OverflowMenuOption } from '#ui/components/base/OverflowMenu.vue'
 import PopoutMenu from '#ui/components/base/PopoutMenu.vue'
 import { defineMessages, useVIntl } from '#ui/composables/i18n'
+import { useScrollToTopVisibility } from '#ui/composables/scroll-to-top-visibility'
 import { commonMessages, normalizeProjectType } from '#ui/utils/common-messages'
 
 import ContentCardTable from './components/ContentCardTable.vue'
@@ -443,12 +444,12 @@ watch(
     { deep: true },
 )
 
-const showScrollToTop = ref(false)
-const SCROLL_THRESHOLD = 300
-
 function getScrollContainer(): Element | null {
     return document.querySelector('.app-viewport')
 }
+
+const { visible: showScrollToTop, update: updateScrollToTopVisibility } =
+    useScrollToTopVisibility(getScrollContainer)
 
 function captureContentViewScroll() {
     if (!ctx.instanceId) return
@@ -501,10 +502,7 @@ function restoreContentViewScroll() {
 }
 
 function handleScroll() {
-    const container = getScrollContainer()
-    if (container) {
-        showScrollToTop.value = container.scrollTop > SCROLL_THRESHOLD
-    }
+    updateScrollToTopVisibility()
 }
 
 function scrollToTop() {
@@ -1445,7 +1443,11 @@ const confirmUnlinkModal = ref<InstanceType<typeof ConfirmUnlinkModal>>()
 
 <style scoped>
 .scroll-to-top-btn {
-    @apply fixed bottom-10 left-24 z-50 flex items-center justify-center rounded-full bg-brand p-3 text-brand-inverted shadow-lg transition-all duration-200 hover:brightness-110 hover:shadow-xl active:scale-95;
+    @apply flex items-center justify-center rounded-full bg-brand p-3 text-brand-inverted shadow-lg transition-all duration-200 hover:brightness-110 hover:shadow-xl active:scale-95;
+    position: fixed;
+    right: calc(var(--right-bar-width, 0px) + 1.5rem);
+    bottom: calc(max(4rem, 4dvh) + var(--floating-action-bar-clearance, 0px));
+    z-index: 60;
 }
 
 .scroll-to-top-enter-active,

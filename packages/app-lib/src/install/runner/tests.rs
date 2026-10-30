@@ -76,6 +76,83 @@ async fn cancel_cleanup_registration_is_released_when_the_worker_is_aborted() {
     assert!(!CANCEL_CLEANUPS.contains_key(&job_id));
 }
 
+fn writer_timeout() -> crate::Error {
+    ErrorKind::InputError(
+        "Timed out waiting for the install database writer".into(),
+    )
+    .into()
+}
+
+#[tokio::test]
+async fn cancel_cleanup_retries_a_failed_final_write_without_a_new_request() {
+    use std::sync::atomic::{AtomicU32, Ordering};
+
+    let job_id = Uuid::new_v4();
+    let registration = CancelCleanupRegistration::request(job_id).unwrap();
+    let attempts = AtomicU32::new(0);
+    run_cancel_cleanup(registration, || async {
+        // The rollback finished, but the Canceling -> Canceled write timed
+        // out waiting for the writer once.
+        if attempts.fetch_add(1, Ordering::SeqCst) == 0 {
+            return Err(writer_timeout());
+        }
+        Ok(())
+    })
+    .await;
+    assert_eq!(attempts.load(Ordering::SeqCst), 2);
+    assert!(!CANCEL_CLEANUPS.contains_key(&job_id));
+}
+
+#[tokio::test]
+async fn cancel_cleanup_gives_up_after_bounded_attempts() {
+    use std::sync::atomic::{AtomicU32, Ordering};
+
+    let job_id = Uuid::new_v4();
+    let registration = CancelCleanupRegistration::request(job_id).unwrap();
+    let attempts = AtomicU32::new(0);
+    run_cancel_cleanup(registration, || async {
+        attempts.fetch_add(1, Ordering::SeqCst);
+        Err(writer_timeout())
+    })
+    .await;
+    assert_eq!(attempts.load(Ordering::SeqCst), RECOVERY_ATTEMPTS);
+    assert!(
+        CancelCleanupRegistration::request(job_id).is_some(),
+        "a later cancel request can start a fresh cleanup"
+    );
+}
+
+#[tokio::test]
+async fn recovery_is_retried_when_its_write_also_times_out() {
+    use std::sync::atomic::{AtomicU32, Ordering};
+
+    let attempts = AtomicU32::new(0);
+    let result = retry_recovery(Uuid::new_v4(), || async {
+        // The worker already failed; the first recovery write times out too.
+        if attempts.fetch_add(1, Ordering::SeqCst) == 0 {
+            return Err(writer_timeout());
+        }
+        Ok(())
+    })
+    .await;
+    assert!(result.is_ok());
+    assert_eq!(attempts.load(Ordering::SeqCst), 2);
+
+    let attempts = AtomicU32::new(0);
+    let result = retry_recovery(Uuid::new_v4(), || async {
+        attempts.fetch_add(1, Ordering::SeqCst);
+        Err(writer_timeout())
+    })
+    .await;
+    assert!(
+        result
+            .unwrap_err()
+            .to_string()
+            .contains("install database writer")
+    );
+    assert_eq!(attempts.load(Ordering::SeqCst), RECOVERY_ATTEMPTS);
+}
+
 #[test]
 fn multimc_component_errors_are_pack_errors_during_import() {
     let error = crate::ErrorKind::InputError(

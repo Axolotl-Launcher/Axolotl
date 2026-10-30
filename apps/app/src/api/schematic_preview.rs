@@ -2121,10 +2121,7 @@ mod tests {
         session.refresh_manifest();
 
         let session_id = session.manifest.session_id.clone();
-        sessions()
-            .lock()
-            .unwrap()
-            .push_back(Arc::new(session));
+        sessions().lock().unwrap().push_back(Arc::new(session));
 
         let edit = |position: [i32; 3], override_source: Option<bool>| {
             schematic_preview_apply_edits(

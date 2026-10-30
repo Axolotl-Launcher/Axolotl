@@ -304,7 +304,7 @@ pub(crate) mod test_support {
     /// runtime through the pair the foreign key covers.
     pub(crate) async fn create_java_tables(pool: &SqlitePool) {
         sqlx::query(
-            "CREATE TABLE java_versions (major_version INTEGER NOT NULL, full_version TEXT NOT NULL, architecture TEXT NOT NULL, path TEXT NOT NULL PRIMARY KEY, distribution TEXT)",
+            "CREATE TABLE java_versions (major_version INTEGER NOT NULL, full_version TEXT NOT NULL, architecture TEXT NOT NULL, path TEXT NOT NULL PRIMARY KEY, distribution TEXT, UNIQUE (major_version, path))",
         )
         .execute(pool)
         .await

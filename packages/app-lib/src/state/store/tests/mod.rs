@@ -17,6 +17,7 @@ mod game_option_update_state;
 mod google_translate_ip_cache;
 mod install_jobs;
 mod install_store;
+mod instance_content_files;
 mod instance_sync_checkpoints;
 mod instance_sync_preferences;
 mod java_globals;

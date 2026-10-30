@@ -8679,7 +8679,7 @@
     "message": "Possible issue: OpenJ9 is not compatible with this instance"
   },
   "app.minecraft-crash.diagnosis.out-of-memory.action": {
-    "message": "You can try increasing the instance memory allocation, or removing memory-heavy Mods and resource packs."
+    "message": "You can try increasing the instance memory allocation, or removing memory-heavy Mods and resource packs. If the log reports that the system is out of physical RAM or swap space, lower the allocation or close other programs instead."
   },
   "app.minecraft-crash.diagnosis.out-of-memory.title": {
     "message": "Possible issue: Minecraft ran out of memory"
@@ -17362,5 +17362,41 @@
   },
   "unknown-pack-warning-modal.warning.title": {
     "message": "Unknown file warning"
+  },
+  "app.skins.player.title": {
+    "message": "Find player skin"
+  },
+  "app.skins.player.input": {
+    "message": "Player name or UUID"
+  },
+  "app.skins.player.search": {
+    "message": "Search"
+  },
+  "app.skins.player.download": {
+    "message": "Download PNG"
+  },
+  "app.skins.player.import": {
+    "message": "Add to saved skins"
+  },
+  "app.skins.player.imported": {
+    "message": "Added to saved skins"
+  },
+  "app.skins.player.invalid-input": {
+    "message": "Enter a valid Java player name or UUID."
+  },
+  "app.skins.player.not-found": {
+    "message": "Player not found. Check the name or UUID."
+  },
+  "app.skins.player.no-custom-skin": {
+    "message": "This player has no custom skin."
+  },
+  "app.skins.player.rate-limited": {
+    "message": "Too many requests. Please wait before trying again."
+  },
+  "app.skins.player.unavailable": {
+    "message": "Could not load this skin. Check your connection and try again."
+  },
+  "app.skins.player.save-failed": {
+    "message": "Could not save the skin. Please try again."
   }
 }

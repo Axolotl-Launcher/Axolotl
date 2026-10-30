@@ -1005,12 +1005,16 @@ mod tests {
         assert_eq!(reported.load(std::sync::atomic::Ordering::Relaxed), 3);
         // Only the unresolved transport item is sent to ordinary download;
         // its completion adds its logical aliases, not the successful sibling.
-        let _ = complete_asset_attempt(
+        let (_, completed) = complete_asset_attempt(
             item,
             Ok(AssetBatchItemOutcome::Completed { downloaded: true }),
             &callback,
         )
         .await;
+        assert!(matches!(
+            completed,
+            Ok(AssetBatchItemOutcome::Completed { .. })
+        ));
         assert_eq!(reported.load(std::sync::atomic::Ordering::Relaxed), 6);
     }
 

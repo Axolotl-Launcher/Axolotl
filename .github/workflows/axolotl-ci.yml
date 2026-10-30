@@ -224,9 +224,9 @@ jobs:
     env:
       SQLX_OFFLINE: true
       # The desktop app runs its async workload on 16 MiB worker stacks
-      # (see apps/app/src/main.rs); test threads default to 2 MiB and the
-      # CurseForge install pipeline is deep enough to overflow that.
-      RUST_MIN_STACK: 16777216
+      # (see apps/app/src/main.rs), while the resource export tests need more
+      # than that in the debug test harness.
+      RUST_MIN_STACK: 67108864
     steps:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

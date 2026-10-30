@@ -71,6 +71,17 @@ vi.mock('@/helpers/rendering/skin-preview-renderer', () => ({
     cancelSkinPreviews: vi.fn(),
 }))
 vi.mock('@/components/ui/skin/EditSkinModal.vue', () => ({ default: { render: () => null } }))
+vi.mock('@/components/ui/skin/PlayerSkinModal.vue', async () => {
+    const { defineComponent } = await import('vue')
+    return {
+        default: defineComponent({
+            setup(_, { expose }) {
+                expose({ show: vi.fn(), hide: vi.fn() })
+                return () => null
+            },
+        }),
+    }
+})
 vi.mock('@/components/ui/skin/ArmorTrimTab.vue', () => ({ default: { render: () => null } }))
 vi.mock('@/components/ui/skin/VirtualSkinSectionList.vue', async () => {
     const { defineComponent, h } = await import('vue')

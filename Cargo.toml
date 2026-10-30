@@ -56,6 +56,7 @@ either = "1.15.0"
 encoding_rs = "0.8.35"
 enumset = "1.1.10"
 eyre = "0.6.12"
+fast-socks5 = "1.0.0"
 flate2 = "1.1.4"
 fontdb = "0.24.0"
 fs4 = { version = "0.13.1", default-features = false }
@@ -153,6 +154,7 @@ tokio-rustls = { version = "0.26.4", default-features = false, features = [
 ] }
 tokio-util = "0.7.16"
 toml = "0.8.19"
+tower-service = "0.3.3"
 tracing = "0.1.41"
 tracing-error = "0.2.1"
 tracing-subscriber = "0.3.20"

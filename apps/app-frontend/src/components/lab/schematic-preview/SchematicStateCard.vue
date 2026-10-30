@@ -491,6 +491,7 @@ function selectProperty(key: string, event: Event) {
                 class="justify-self-start"
                 :model-value="property.value === 'true'"
                 :disabled="disabled"
+                :aria-label="propertyLabel(property.key)"
                 @update:model-value="(value) => emit('change', property.key, String(value))"
             />
             <div

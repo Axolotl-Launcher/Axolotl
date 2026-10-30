@@ -638,6 +638,17 @@ it('a failed resource reload after a committed edit leaves the workshop editable
     expect(button('Rotate clockwise').attributes('disabled')).toBeUndefined()
 })
 
+it('names a boolean state switch after the property it controls', async () => {
+    fixture.open.mockImplementation(async (source: { path: string }) => stairsManifest(source.path))
+    await openFile('A')
+    fixture.select?.({ regionId: 'region', position: [0, 0, 0] })
+    await nextTick()
+
+    const switches = wrapper.findAll('[role="switch"]')
+    expect(switches).toHaveLength(1)
+    expect(switches[0].attributes('aria-label')).toBe('Waterlogged')
+})
+
 it('the state card is hidden while nothing is selected', async () => {
     fixture.open.mockImplementation(async (source: { path: string }) => stairsManifest(source.path))
     await openFile('A')

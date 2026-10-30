@@ -75,12 +75,14 @@ pub(crate) fn authority_uses_http1_fallback_for(
     let authority =
         crate::util::download::proxy_context::authority_key(authority, proxy);
     {
+        // sched-order: theseus::util::fetch::throttle::HTTP1_PREFERENCE_AUTHORITIES
         let mut preferences = HTTP1_PREFERENCE_AUTHORITIES.lock();
         preferences.retain(|_, until| *until > Instant::now());
         if preferences.contains_key(&authority) {
             return true;
         }
     }
+    // sched-order: theseus::util::fetch::throttle::H2_FALLBACK_AUTHORITIES
     let mut fallbacks = H2_FALLBACK_AUTHORITIES.lock();
     match fallbacks.get(&authority) {
         Some(until) if *until > Instant::now() => true,

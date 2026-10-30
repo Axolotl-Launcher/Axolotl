@@ -2,6 +2,7 @@ use crate::event::emit::{emit_instance, emit_process};
 use crate::event::{InstancePayloadType, ProcessPayloadType};
 #[cfg(feature = "tauri")]
 use crate::event::{LogEvent, LogPayload};
+use crate::scheduler::l0::queue::{Delivery, L0Queue, L0QueueReceiver, Posted};
 use crate::state::store::Collection as _;
 use crate::state::store::join_log::{JoinLog, JoinLogEntry, JoinLogKey};
 use crate::util::io::IOError;
@@ -541,7 +542,8 @@ impl ProcessManager {
 
         self.processes.insert(process.metadata.uuid, process);
 
-        tokio::spawn(Process::sequential_process_manager(
+        let (events, reactions) = L0Queue::channel(1, PROCESS_EVENT_CAPACITY);
+        tokio::spawn(Process::react_to_process(
             instance_id.to_string(),
             instance_path.to_string(),
             game_dir,
@@ -549,8 +551,12 @@ impl ProcessManager {
             post_exit_command,
             metadata.uuid,
             metadata.pid,
-            metadata.maximize_window,
             crash_reports_before,
+            reactions,
+        ));
+        crate::scheduler::l0::spawn(Process::detect_process_exit(
+            metadata.uuid,
+            events,
         ));
 
         emit_process(
@@ -1200,10 +1206,52 @@ impl Process {
         Ok(())
     }
 
-    // Spawns a new child process and inserts it into the hashmap
-    // Also, as the process ends, it spawns the follow-up process if it exists
-    // By convention, ExitStatus is last command's exit status, and we exit on the first non-zero exit status
-    async fn sequential_process_manager(
+    /// L0 side of a running game (L0-1): it only detects. It polls the child,
+    /// times playtime and posts what it saw; every reaction that writes the
+    /// database, emits events, spawns or waits on other tasks runs in
+    /// [`Self::react_to_process`] on the main runtime.
+    async fn detect_process_exit(
+        uuid: Uuid,
+        events: L0Queue<ProcessEvent>,
+    ) -> crate::Result<()> {
+        let state = crate::State::get().await?;
+        let mut clock = PlaytimeClock::new();
+        let (status, missing) = loop {
+            if let Some(process) = state.process_manager.try_wait(uuid)? {
+                if let Some(status) = process {
+                    break (status, false);
+                }
+            } else {
+                break (ExitStatus::default(), true);
+            }
+            tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
+            if let Some(tick) = clock.take(false) {
+                let elapsed = tick.elapsed;
+                if events.post(ProcessEvent::Playtime(tick), Delivery::Reserved)
+                    != Posted::Queued
+                {
+                    clock.carry(elapsed);
+                }
+            }
+        };
+        let manually_killed = state.process_manager.was_manually_killed(uuid);
+        events.post(
+            ProcessEvent::Exited {
+                status,
+                missing,
+                manually_killed,
+                final_playtime: clock.take(true),
+            },
+            Delivery::Reserved,
+        );
+        Ok(())
+    }
+
+    /// Main-runtime side of a running game: everything the detector posts is
+    /// handled here in order, so the output pumps still finish before the
+    /// `Finished` event, as before the split.
+    #[allow(clippy::too_many_arguments)]
+    async fn react_to_process(
         instance_id: String,
         instance_path: String,
         game_dir: PathBuf,
@@ -1211,71 +1259,9 @@ impl Process {
         post_exit_command: Option<String>,
         uuid: Uuid,
         pid: u32,
-        _maximize_window: bool,
         crash_reports_before: Option<CrashReportSnapshot>,
+        mut events: L0QueueReceiver<ProcessEvent>,
     ) -> crate::Result<()> {
-        async fn update_playtime(
-            last_updated_playtime: &mut Instant,
-            instance_id: &str,
-            force_update: bool,
-        ) {
-            let elapsed = last_updated_playtime.elapsed().as_secs();
-            if elapsed == 0 || (!force_update && elapsed < 60) {
-                return;
-            }
-
-            let state = match crate::State::get().await {
-                Ok(state) => state,
-                Err(e) => {
-                    tracing::warn!(
-                        "Failed to get state for playtime update on instance {}: {}",
-                        instance_id,
-                        e
-                    );
-                    return;
-                }
-            };
-            let ended_at = Utc::now();
-            let elapsed_duration =
-                Duration::seconds(elapsed.min(i64::MAX as u64) as i64);
-            let started_at = ended_at - elapsed_duration;
-            if let Err(e) =
-                crate::state::instances::commands::add_instance_recent_playtime(
-                    instance_id,
-                    elapsed,
-                    &state.pool,
-                )
-                .await
-            {
-                tracing::warn!(
-                    "Failed to update playtime for instance {}: {}",
-                    instance_id,
-                    e
-                );
-            }
-            if let Err(e) =
-                crate::state::instances::commands::record_instance_daily_playtime(
-                    instance_id,
-                    started_at,
-                    ended_at,
-                    &state.pool,
-                )
-                .await
-            {
-                tracing::warn!(
-                    "Failed to record daily playtime for instance {}: {}",
-                    instance_id,
-                    e
-                );
-            }
-            *last_updated_playtime = Instant::now();
-        }
-
-        // Wait on current Minecraft Child
-        let mc_exit_status;
-        let mut process_missing = false;
-        let mut last_updated_playtime = Instant::now();
-
         let state = crate::State::get().await?;
         if let Err(e) =
             crate::state::instances::commands::record_instance_play_session(
@@ -1290,27 +1276,21 @@ impl Process {
                 e
             );
         }
-        loop {
-            if let Some(process) = state.process_manager.try_wait(uuid)? {
-                if let Some(t) = process {
-                    mc_exit_status = t;
-                    break;
+        let (mc_exit_status, process_missing, manually_killed, final_playtime) = loop {
+            match events.recv().await {
+                Some(ProcessEvent::Playtime(tick)) => {
+                    record_playtime(&instance_id, tick).await;
                 }
-            } else {
-                mc_exit_status = ExitStatus::default();
-                process_missing = true;
-                break;
+                Some(ProcessEvent::Exited {
+                    status,
+                    missing,
+                    manually_killed,
+                    final_playtime,
+                }) => break (status, missing, manually_killed, final_playtime),
+                // The detector failed before the game exited; it reported nothing.
+                None => return Ok(()),
             }
-
-            // sleep for 10ms
-            tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
-
-            // Auto-update playtime every minute
-            update_playtime(&mut last_updated_playtime, &instance_id, false)
-                .await;
-        }
-
-        let manually_killed = state.process_manager.was_manually_killed(uuid);
+        };
         if let Some(mut process) = state.process_manager.remove(uuid) {
             for output_task in process.output_tasks.drain(..) {
                 if let Err(error) = output_task.await {
@@ -1320,8 +1300,10 @@ impl Process {
         }
         crate::api::multiplayer::minecraft_process_finished(&instance_id).await;
 
-        // Now fully complete- update playtime one last time
-        update_playtime(&mut last_updated_playtime, &instance_id, true).await;
+        // Now fully complete- record the last stretch of playtime
+        if let Some(tick) = final_playtime {
+            record_playtime(&instance_id, tick).await;
+        }
 
         let crash_reports_after = snapshot_crash_reports(
             &state.directories.game_crash_reports_dir(&game_dir),
@@ -1457,6 +1439,126 @@ impl Process {
         Ok(())
     }
 }
+
+/// Reserved slots for one game's events: a playtime tick per minute and the
+/// exit, so a stalled reaction task loses nothing for about an hour.
+const PROCESS_EVENT_CAPACITY: usize = 64;
+
+/// What the L0 process detector tells its reaction task.
+enum ProcessEvent {
+    Playtime(PlaytimeTick),
+    Exited {
+        status: ExitStatus,
+        missing: bool,
+        manually_killed: bool,
+        final_playtime: Option<PlaytimeTick>,
+    },
+}
+
+/// A stretch of playtime ending at `ended_at`.
+struct PlaytimeTick {
+    elapsed: u64,
+    ended_at: DateTime<Utc>,
+}
+
+/// Playtime the detector has measured but not yet handed over.
+struct PlaytimeClock {
+    last: Instant,
+    /// Seconds of ticks the queue refused, added to the next tick.
+    carried: u64,
+}
+
+impl PlaytimeClock {
+    fn new() -> Self {
+        Self {
+            last: Instant::now(),
+            carried: 0,
+        }
+    }
+
+    /// The time since the last tick plus any carried time, once a minute
+    /// has gathered or whenever `force`d; the clock restarts from now.
+    fn take(&mut self, force: bool) -> Option<PlaytimeTick> {
+        let elapsed = self.carried + self.last.elapsed().as_secs();
+        if elapsed == 0 || (!force && elapsed < 60) {
+            return None;
+        }
+        self.last = Instant::now();
+        self.carried = 0;
+        Some(PlaytimeTick {
+            elapsed,
+            ended_at: Utc::now(),
+        })
+    }
+
+    /// Keeps the time of a tick the queue refused, so the next tick that is
+    /// accepted carries it and no playtime is lost.
+    fn carry(&mut self, elapsed: u64) {
+        self.carried += elapsed;
+    }
+}
+
+/// Writes one playtime tick to the recent and daily playtime records.
+async fn record_playtime(instance_id: &str, tick: PlaytimeTick) {
+    let state = match crate::State::get().await {
+        Ok(state) => state,
+        Err(e) => {
+            tracing::warn!(
+                "Failed to get state for playtime update on instance {}: {}",
+                instance_id,
+                e
+            );
+            return;
+        }
+    };
+    let started_at = tick.ended_at
+        - Duration::seconds(tick.elapsed.min(i64::MAX as u64) as i64);
+    if let Err(e) =
+        crate::state::instances::commands::add_instance_recent_playtime(
+            instance_id,
+            tick.elapsed,
+            &state.pool,
+        )
+        .await
+    {
+        tracing::warn!(
+            "Failed to update playtime for instance {}: {}",
+            instance_id,
+            e
+        );
+    }
+    if let Err(e) =
+        crate::state::instances::commands::record_instance_daily_playtime(
+            instance_id,
+            started_at,
+            tick.ended_at,
+            &state.pool,
+        )
+        .await
+    {
+        tracing::warn!(
+            "Failed to record daily playtime for instance {}: {}",
+            instance_id,
+            e
+        );
+    }
+}
+
+/// A log ring buffer filled to its byte capacity, for the swap-out gain
+/// measurement (`scheduler::budget`).
+#[cfg(test)]
+pub(crate) fn filled_log_ring_buffer() -> Box<dyn std::any::Any + Send> {
+    let mut buffer = LogRingBuffer::new();
+    let line = "x".repeat(MAX_LIVE_LOG_LINE_BYTES);
+    while buffer.byte_len + line.len() <= LOG_BUFFER_BYTE_CAPACITY {
+        buffer.push(format!("{}{line}", buffer.sequence));
+    }
+    Box::new(buffer)
+}
+
+#[cfg(test)]
+pub(crate) const LOG_RING_BUFFER_BYTE_CAPACITY: usize =
+    LOG_BUFFER_BYTE_CAPACITY;
 
 #[cfg(test)]
 mod post_upgrade_tests {
@@ -1659,5 +1761,44 @@ mod process_wait_tests {
         polling.await.unwrap();
         manager.remove(id);
         manager.wait_for(id).await.unwrap();
+    }
+}
+
+#[cfg(test)]
+mod playtime_clock_tests {
+    use super::*;
+
+    fn started(seconds_ago: u64) -> PlaytimeClock {
+        PlaytimeClock {
+            last: Instant::now() - std::time::Duration::from_secs(seconds_ago),
+            carried: 0,
+        }
+    }
+
+    #[test]
+    fn a_minute_makes_a_tick_and_restarts_the_clock() {
+        let mut clock = started(61);
+        assert!(clock.take(false).is_some_and(|tick| tick.elapsed >= 61));
+        assert!(clock.take(false).is_none());
+    }
+
+    #[test]
+    fn a_refused_tick_is_carried_into_the_next_one() {
+        let mut clock = started(61);
+        let refused = clock.take(false).unwrap().elapsed;
+        clock.carry(refused);
+        let next = clock.take(false).expect("carried time alone fills a tick");
+        assert!(next.elapsed >= refused, "the refused time is not lost");
+        assert!(
+            clock.take(false).is_none(),
+            "carried time is handed over once"
+        );
+    }
+
+    #[test]
+    fn the_final_tick_includes_carried_time() {
+        let mut clock = PlaytimeClock::new();
+        clock.carry(30);
+        assert!(clock.take(true).is_some_and(|tick| tick.elapsed >= 30));
     }
 }

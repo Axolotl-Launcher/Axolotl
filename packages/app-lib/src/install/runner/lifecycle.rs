@@ -305,19 +305,28 @@ async fn run_job(job_id: Uuid) -> crate::Result<()> {
         return Ok(());
     }
 
+    // The wait runs in bounded steps that re-read the job, so it keeps its
+    // place in line and leaves only once the job finished or is canceling.
     let (_execution, _install_permit) =
-        match admission::execution_slot(&state, &job).await {
-            Ok(slot) => slot,
+        match admission::queued_slot(&state, &job).await {
+            Ok(Some(slot)) => slot,
+            Ok(None) => return Ok(()),
             Err(error) => {
                 drop(_metadata_usage);
-                recover_stopped_job(job_id, &state, None, &error).await?;
+                retry_recovery(job_id, || {
+                    recover_stopped_job(job_id, &state, None, &error)
+                })
+                .await?;
                 return Err(error);
             }
         };
     let reporter = InstallProgressReporter::new(job_id, job.state.clone());
     let result = worker_result(run_owned_job(job_id, &state)).await;
     if let Err(error) = &result {
-        recover_owned_job(job_id, &state, Some(&reporter), error).await?;
+        retry_recovery(job_id, || {
+            recover_owned_job(job_id, &state, Some(&reporter), error)
+        })
+        .await?;
     }
     result
 }

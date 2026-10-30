@@ -127,10 +127,16 @@ jobs:
           gate 0 node scripts/axolotl/sched-l0-resource-check.mjs
           gate 0 node scripts/axolotl/sched-level-predicate-check.mjs
           gate 0 node scripts/axolotl/sched-bare-spawn-check.mjs
-          # Exit 1 from these two means the design falls back to per-family
-          # orders (an accepted outcome); only other codes fail.
+          gate 0 node scripts/axolotl/sched-whitelist-check.mjs
+          gate 0 node scripts/axolotl/sched-enter-ban-check.mjs
+          gate 0 node scripts/axolotl/sched-tag-check.mjs
+          gate 0 node scripts/axolotl/sched-unbounded-sender-check.mjs
+          # Exit 1 here means the design falls back to per-family orders (an
+          # accepted outcome, spec §11.8 R5); only other codes fail.
           gate 1 node scripts/axolotl/sched-recall-gap-gate.mjs
-          gate 1 node scripts/axolotl/sched-order-annotation-check.mjs
+          # Within each family the order is enforced: every acquisition point
+          # the per-family order can judge must carry an annotation.
+          gate 0 node scripts/axolotl/sched-order-annotation-check.mjs --require-annotations
           if [ "${#failed[@]}" -gt 0 ]; then
             printf 'failed scheduler gates:\n'
             printf '  %s\n' "${failed[@]}"

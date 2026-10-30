@@ -143,12 +143,21 @@ pub(crate) async fn install_world_file(
         true,
     )
     .await?;
-    let _critical = crate::install::critical_section::enter();
-    let world_name = crate::state::instances::commands::import_world_save(
-        &state,
-        instance_id,
-        &staging_path,
-        None,
+    let import =
+        async |access: crate::install::critical_section::WriteAccess<'_>| {
+            crate::state::instances::commands::import_world_save(
+                &state,
+                instance_id,
+                &staging_path,
+                None,
+                access,
+            )
+            .await
+        };
+    let world_name = crate::install::critical_section::with_critical_section(
+        async |guard| import(guard.into()).await,
+        async |unscoped| import(unscoped.into()).await,
+        async |_closing| Err(crate::install::critical_section::closing_error()),
     )
     .await?;
 

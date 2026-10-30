@@ -567,6 +567,52 @@ console.log('the account secret marks: added forward, dropped by a downgrade')
     old.close()
 }
 
+// --- the scheduler schema -----------------------------------------------------
+
+console.log('the scheduler schema: upgrade, downgrade and re-upgrade')
+{
+    const LEVEL = 20261103130000
+    const SCHEDULER_TAGS = 20261103140000
+    const file = path.join(directory, 'level', 'beta', 'app.db')
+    const files = fs.readdirSync(migrationsDir).filter((name) => name.endsWith('.sql')).sort()
+    const later = files.filter((name) => Number(name.slice(0, 14)) >= LEVEL)
+    const { database, apply } = migratedDatabase(file, files.filter((name) => Number(name.slice(0, 14)) < LEVEL))
+    database.exec(`
+        INSERT INTO instances(id, path, install_stage, launcher_feature_version, name, created, modified)
+            VALUES ('sample', '/sample', 'installed', '1', 'Sample', 10, 20);
+        INSERT INTO install_jobs(id, instance_id, kind, status, state, created, modified)
+            VALUES ('frozen', 'sample', 'install_content', 'queued', '{}', 1, 2);
+    `)
+    const original = database.prepare('SELECT * FROM install_jobs').all()
+    for (const name of later) apply(name)
+    check('existing install jobs start at scheduling level L3', database.prepare("SELECT level FROM install_jobs WHERE id = 'frozen'").get().level === 'l3')
+    const schedulerTables = "SELECT COUNT(*) AS count FROM sqlite_master WHERE type = 'table' AND name IN ('scheduler_tags', 'scheduler_restart_budget')"
+    check('an upgraded database gains the scheduler collections', database.prepare(schedulerTables).get().count === 2)
+    database.exec(`
+        INSERT INTO scheduler_tags(id, generation, level, origin, owner, created_at) VALUES (1, 1, 'l3', 'install', 'frozen', 10);
+        INSERT INTO scheduler_restart_budget(scope, failures, first_failure_at, revoked, updated_at) VALUES ('l1:config_sync', 2, 5, 0, 6);
+    `)
+    assert.throws(() => database.exec("INSERT INTO scheduler_tags(id, generation, level, origin, owner, created_at) VALUES (2, 1, 'l9', 'x', 'y', 0)"), /CHECK/)
+    database.close()
+    const downgrade = run(['--db', file, '--to', String(LEVEL), '--apply'])
+    check('a downgrade removes the level column', downgrade.status === 0 && !columns(file, 'install_jobs').includes('level'), downgrade.output)
+    check('downgrade leaves no record of the scheduler migration', !migrations(file).includes(SCHEDULER_TAGS))
+    const old = new DatabaseSync(file)
+    assert.deepEqual(old.prepare('SELECT * FROM install_jobs').all(), original)
+    check('downgrade removes the scheduler collections and their index', old.prepare("SELECT COUNT(*) AS count FROM sqlite_master WHERE name LIKE 'scheduler_%'").get().count === 0)
+    old.exec('BEGIN')
+    for (const name of later) {
+        const sql = fs.readFileSync(path.join(migrationsDir, name))
+        old.exec(sql.toString())
+        old.prepare('INSERT INTO _sqlx_migrations(version, description, success, checksum, execution_time) VALUES (?, ?, 1, ?, 0)')
+            .run(Number(name.slice(0, 14)), name, createHash('sha384').update(sql).digest())
+    }
+    old.exec('COMMIT')
+    check('re-upgraded install jobs start at scheduling level L3 again', old.prepare("SELECT level FROM install_jobs WHERE id = 'frozen'").get().level === 'l3')
+    check('re-upgrade recreates empty scheduler collections', old.prepare(schedulerTables).get().count === 2 && old.prepare('SELECT COUNT(*) AS count FROM scheduler_tags').get().count === 0 && old.prepare('SELECT COUNT(*) AS count FROM scheduler_restart_budget').get().count === 0)
+    old.close()
+}
+
 if (process.platform !== 'win32') {
     console.log('skipping the running launcher checks outside Windows')
 } else {

@@ -52,6 +52,10 @@ mod installer_settings;
 
 mod process;
 pub use self::process::*;
+#[cfg(test)]
+pub(crate) use self::process::{
+    LOG_RING_BUFFER_BYTE_CAPACITY, filled_log_ring_buffer,
+};
 
 pub(crate) async fn instance_has_running_process(
     instance_id: &str,
@@ -712,6 +716,8 @@ impl State {
                 "Error reconciling persisted CurseForge waiting install jobs: {e}"
             );
         }
+        crate::scheduler::reconcile::at_startup(state).await;
+        crate::scheduler::quota::check_at_startup();
 
         state.spawn_background({
             let state = Arc::clone(state);
@@ -1142,6 +1148,15 @@ impl State {
                 self.resize_download_concurrency(target);
             }
         }
+    }
+
+    /// Install jobs whose runner is still alive, read from memory so the exit
+    /// barrier can list them even when the database no longer answers.
+    pub fn running_install_jobs(&self) -> Vec<Uuid> {
+        self.install_job_cancellations
+            .iter()
+            .map(|entry| *entry.key())
+            .collect()
     }
 
     fn download_work_is_idle(&self) -> bool {

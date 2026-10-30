@@ -99,6 +99,7 @@ fn record() -> SettingsRecord {
         doh_enabled: false,
         resource_chinese_filenames: false,
         resource_preserve_filenames: false,
+        default_game_language: "en_us".to_string(),
     }
 }
 
@@ -127,6 +128,7 @@ async fn the_migrated_row_reads_as_the_settings_it_holds() {
     assert_eq!(stored.home_widgets, None);
     assert_eq!(stored.auto_download_updates, None);
     assert_eq!(stored.version, 1);
+    assert_eq!(stored.default_game_language, "");
 }
 
 #[tokio::test]

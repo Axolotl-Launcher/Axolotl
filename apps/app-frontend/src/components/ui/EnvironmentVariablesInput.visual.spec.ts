@@ -75,6 +75,7 @@ vi.mock('@modrinth/ui', async () => {
     return {
         Card: card,
         Checkbox: toggle,
+        Combobox: { name: 'Combobox', render: () => null },
         Toggle: toggle,
         Slider: { name: 'Slider', render: () => null },
         StyledInput: defineComponent({

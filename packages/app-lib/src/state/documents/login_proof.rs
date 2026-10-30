@@ -6,7 +6,6 @@
 //! a proof only counts when it is verified and in the format this build knows.
 
 use serde::{Deserialize, Serialize};
-use sqlx::SqlitePool;
 
 use super::{Documents, Stored, WRITES, is_false};
 use crate::state::store;

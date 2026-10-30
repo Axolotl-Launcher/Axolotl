@@ -30,6 +30,121 @@ export const ANNOUNCEMENT_CHANGE_TYPES: readonly AnnouncementChangeType[] = [
 
 export const launcherAnnouncements: readonly LauncherAnnouncement[] = [
     {
+        id: 'launcher-1.10.4',
+        version: '1.10.4',
+        publishedAt: '2026-10-30',
+        title: {
+            'en-US': 'Axolotl Launcher 1.10.4',
+            'zh-CN': 'Axolotl Launcher 1.10.4',
+        },
+        changes: {
+            changed: [
+                {
+                    'en-US':
+                        'Improved retries after recoverable modpack download failures by retaining the original incomplete instance and reusing verified files.',
+                    'zh-CN':
+                        '优化整合包下载失败后的重试，遇到可恢复的网络错误时保留原有未完成实例，并复用已校验的文件。',
+                },
+                {
+                    'en-US':
+                        'Improved CurseForge version loading by sharing duplicate requests and isolating cached results by filters and source settings.',
+                    'zh-CN':
+                        '优化 CurseForge 版本加载，合并重复请求，并按筛选条件和内容源设置隔离缓存结果。',
+                },
+                {
+                    'en-US': 'Updated the built-in AI model catalog with MiniMax M3.1 Flash.',
+                    'zh-CN': '更新内置 AI 模型列表，加入 MiniMax M3.1 Flash。',
+                },
+            ],
+            fixed: [
+                {
+                    'en-US':
+                        'Fixed Minecraft installation failing immediately when asset batch downloads could not complete, with individual downloads used for unresolved files.',
+                    'zh-CN':
+                        '修复 Minecraft 资源批量下载未完成时直接导致安装失败的问题，未完成的文件会回退到单独下载。',
+                },
+                {
+                    'en-US':
+                        'Fixed asset fallback downloads reusing corrupted same-size files and counting download progress incorrectly.',
+                    'zh-CN':
+                        '修复资源回退下载误用大小相同但内容损坏的文件，以及下载进度重复或遗漏计数的问题。',
+                },
+                {
+                    'en-US':
+                        'Fixed installation tasks remaining active after workers stopped unexpectedly and old worker results interfering with retried tasks.',
+                    'zh-CN':
+                        '修复安装任务在执行过程意外停止后仍显示运行中，以及旧执行结果干扰重试任务的问题。',
+                },
+                {
+                    'en-US':
+                        'Fixed cancellation racing with failure cleanup and already-committed installations being incorrectly treated as failed.',
+                    'zh-CN':
+                        '修复取消操作与失败清理相互冲突，以及已完成提交的安装被错误标记为失败的问题。',
+                },
+                {
+                    'en-US':
+                        'Fixed modpack installation errors showing unrelated extraction details instead of the actual Minecraft download failure.',
+                    'zh-CN':
+                        '修复整合包安装失败时显示无关的解压信息，而非实际 Minecraft 下载错误的问题。',
+                },
+                {
+                    'en-US':
+                        'Fixed instance imports being submitted before scanning finished or using stale scan results after import options changed.',
+                    'zh-CN':
+                        '修复实例扫描完成前即可提交导入，以及修改导入选项后仍使用旧扫描结果的问题。',
+                },
+                {
+                    'en-US':
+                        'Fixed resource analysis waiting indefinitely for requests or session locks, with timeouts that release pending work and allow retrying.',
+                    'zh-CN':
+                        '修复资源分析无限等待请求或会话锁的问题，超时后会释放等待中的任务并允许重试。',
+                },
+                {
+                    'en-US':
+                        'Fixed unavailable optional source associations blocking mod analysis or replacing an explicitly recorded project identity.',
+                    'zh-CN':
+                        '修复可选内容源关联不可用时阻塞模组分析，或替换已明确记录的项目身份的问题。',
+                },
+                {
+                    'en-US':
+                        'Fixed incomplete candidate metadata being treated as a confirmed conflict while preserving known dependency requirements and verified conflicts.',
+                    'zh-CN':
+                        '修复将不完整的候选文件信息误判为确定冲突的问题，同时保留已知依赖要求和已确认的冲突。',
+                },
+                {
+                    'en-US':
+                        'Fixed repeated or non-advancing CurseForge version pages causing endless queries or inconsistent version lists.',
+                    'zh-CN':
+                        '修复 CurseForge 版本分页重复或未向后推进时，查询无法结束或版本列表不一致的问题。',
+                },
+                {
+                    'en-US':
+                        'Fixed removing a specific favorite also removing saved counterparts from other content sources.',
+                    'zh-CN': '修复取消某个项目的收藏时，同时移除其他内容源对应项目收藏的问题。',
+                },
+            ],
+            security: [
+                {
+                    'en-US':
+                        'Improved account credential protection by moving supported login secrets into the system credential store, with compatibility fallback when storage is unavailable.',
+                    'zh-CN':
+                        '加强账号凭据保护，将支持的登录凭据迁移到系统凭据库，并在无法存储时保留兼容路径。',
+                },
+                {
+                    'en-US':
+                        'Fixed an unreadable credential store being treated as empty, preventing diagnostic exports from proceeding without reliable account-secret redaction.',
+                    'zh-CN':
+                        '修复凭据库无法读取时被当作空库处理的问题，避免诊断导出在无法可靠隐藏账号凭据时继续执行。',
+                },
+                {
+                    'en-US':
+                        'Fixed known security vulnerabilities by updating zip and node-forge dependencies.',
+                    'zh-CN': '更新 zip 和 node-forge 依赖，修复已知安全漏洞。',
+                },
+            ],
+        },
+    },
+    {
         id: 'launcher-1.10.3',
         version: '1.10.3',
         publishedAt: '2026-10-28',

@@ -44,7 +44,7 @@ pub(super) async fn read_canonical(
 ) -> crate::Result<Vec<CanonicalServer>> {
     let (count, bytes) = SyncedServers::stored_size(&state.data).await?;
     validate_size(count, bytes)?;
-    Ok(SyncedServers::get_all(&state.data)
+    SyncedServers::get_all(&state.data)
         .await?
         .into_iter()
         .map(|(id, record)| {
@@ -53,7 +53,7 @@ pub(super) async fn read_canonical(
                 data: nbt_from_bytes(record.nbt)?,
             })
         })
-        .collect::<crate::Result<Vec<_>>>()?)
+        .collect::<crate::Result<Vec<_>>>()
 }
 
 /// Reads canonical servers and instance overrides.

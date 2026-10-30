@@ -259,7 +259,16 @@ pub fn extract_archive(
                 error,
             )
         })?;
-        let raw_name = entry.name().to_string();
+        let raw_name = entry
+            .name()
+            .map_err(|error| {
+                TranslateError::with_source(
+                    TranslateErrorCode::InvalidArchive,
+                    format!("unable to read archive entry name {index}"),
+                    error,
+                )
+            })?
+            .to_string();
         let name = PathPolicy::safe_entry_name(&raw_name)?;
         if !seen.insert(name.clone()) {
             return Err(TranslateError::new(

@@ -45,7 +45,7 @@ function deferred<T>() {
     })
     return { promise, resolve }
 }
-function job(status: 'running' | 'succeeded', modified: string): InstallJobSnapshot {
+function job(status: InstallJobSnapshot['status'], modified: string): InstallJobSnapshot {
     return {
         job_id: 'one',
         status,
@@ -197,6 +197,76 @@ it('keeps a fast running cancellation acknowledgement pending without repeating 
         vi.useRealTimers()
     }
 })
+
+it('retries accepted cancellation cleanup while suppressing concurrent cancellation requests', async () => {
+    const running = job('running', '2026-10-28T00:00:00Z')
+    const canceling = job('canceling', running.modified)
+    const canceled = job('canceled', running.modified)
+    backend.list.mockResolvedValue({ jobs: [running] })
+    const manager = createDownloadManager(vi.fn())
+    try {
+        await manager.start()
+        const accepted = deferred<InstallJobSnapshot>()
+        const read = deferred<InstallJobSnapshot | null>()
+        vi.mocked(download_job_cancel).mockReturnValueOnce(accepted.promise)
+        vi.mocked(download_job_get).mockReturnValueOnce(read.promise)
+        const cancellation = manager.cancel('one')
+        expect(manager.jobs.value[0].status).toBe('canceling')
+        await manager.cancel('one')
+        expect(download_job_cancel).toHaveBeenCalledOnce()
+        accepted.resolve(canceling)
+        await flushPromises()
+        await manager.cancel('one')
+        expect(download_job_cancel).toHaveBeenCalledOnce()
+        read.resolve(canceling)
+        await cancellation
+
+        // A late running event must not remove the user's cancellation intent.
+        backend.jobs.mock.calls[0][0](running)
+        expect(manager.jobs.value[0].status).toBe('canceling')
+        vi.mocked(download_job_cancel).mockRejectedValueOnce(new Error('cleanup unavailable'))
+        vi.mocked(download_job_get).mockRejectedValueOnce(new Error('read offline'))
+        await expect(manager.cancel('one')).rejects.toThrow('cleanup unavailable')
+        backend.jobs.mock.calls[0][0](running)
+        expect(manager.jobs.value[0].status).toBe('canceling')
+        vi.mocked(download_job_cancel).mockResolvedValueOnce(canceled)
+        vi.mocked(download_job_get).mockResolvedValueOnce(canceled)
+        await manager.cancel('one')
+        expect(download_job_cancel).toHaveBeenCalledTimes(3)
+        expect(manager.jobs.value[0].status).toBe('canceled')
+        expect(manager.activeJobs.value).toHaveLength(0)
+    } finally {
+        manager.dispose()
+    }
+})
+
+it.each(['event', 'refresh'])(
+    'allows cleanup retry after a %s confirms a previously signaled cancellation',
+    async (confirmation) => {
+        const running = job('running', '2026-10-28T00:00:00Z')
+        const canceling = job('canceling', running.modified)
+        backend.list.mockResolvedValue({ jobs: [running] })
+        const manager = createDownloadManager(vi.fn())
+        try {
+            await manager.start()
+            vi.mocked(download_job_cancel).mockResolvedValue(running)
+            vi.mocked(download_job_get).mockResolvedValue(running)
+            await manager.cancel('one')
+            if (confirmation === 'event') backend.jobs.mock.calls[0][0](canceling)
+            else {
+                backend.list.mockResolvedValue({ jobs: [canceling] })
+                await manager.refresh()
+            }
+            vi.mocked(download_job_cancel).mockResolvedValue(canceling)
+            vi.mocked(download_job_get).mockResolvedValue(canceling)
+            await manager.cancel('one')
+            expect(download_job_cancel).toHaveBeenCalledTimes(2)
+            expect(manager.jobs.value[0].status).toBe('canceling')
+        } finally {
+            manager.dispose()
+        }
+    },
+)
 
 it('reconciles a rejected retry and keeps real errors without reviving an old accepted response', async () => {
     backend.list.mockResolvedValue({ jobs: [job('succeeded', '2026-10-28T00:00:00Z')] })

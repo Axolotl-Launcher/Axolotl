@@ -1156,7 +1156,7 @@ function itemStatusColor(
 }
 
 function canCancel(job: InstallJobSnapshot) {
-    return ['queued', 'running', 'waiting_for_user'].includes(job.status)
+    return ['queued', 'running', 'canceling', 'waiting_for_user'].includes(job.status)
 }
 
 function canRetry(job: InstallJobSnapshot) {

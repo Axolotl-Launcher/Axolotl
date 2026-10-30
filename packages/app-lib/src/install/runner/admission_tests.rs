@@ -329,6 +329,126 @@ async fn cancellation_without_a_token_waits_for_owner_then_cleans_up_once() {
 }
 
 #[tokio::test]
+async fn repeated_cancellation_recovers_an_orphaned_canceling_job() {
+    let (_temp, state) = fixture().await;
+    let id = Uuid::new_v4();
+    let original = crate::state::get_instance("first", &state.pool)
+        .await
+        .unwrap()
+        .unwrap();
+    let mut job = InstallJobState::new(request("first", "mod"));
+    job.cleanup = InstallCleanup::RestoreExistingInstance {
+        instance_id: "first".into(),
+    };
+    job.rollback = Some(InstallRollbackState {
+        instance: original.clone(),
+        install_stage: InstanceInstallStage::Installed,
+        content: None,
+    });
+    begin_canceling_job(&mut job);
+    let mut partial = original;
+    partial.instance.name = "incomplete installation".into();
+    crate::state::restore_instance_metadata(&partial, &state.pool)
+        .await
+        .unwrap();
+    store::insert(id, &job, InstallJobStatus::Canceling, &state)
+        .await
+        .unwrap();
+    assert!(!state.install_job_cancellations.contains_key(&id));
+    assert_eq!(
+        cancel_job_with_state(id, state.clone())
+            .await
+            .unwrap()
+            .status,
+        InstallJobStatus::Canceling
+    );
+    tokio::time::timeout(std::time::Duration::from_secs(3), async {
+        loop {
+            if store::get_required(id, &state).await.unwrap().status
+                == InstallJobStatus::Canceled
+            {
+                break;
+            }
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .unwrap();
+    assert_eq!(
+        crate::state::get_instance("first", &state.pool)
+            .await
+            .unwrap()
+            .unwrap()
+            .instance
+            .name,
+        "first"
+    );
+    state.pool.close().await;
+}
+
+#[tokio::test]
+async fn cancel_cleanup_rechecks_terminal_state_after_the_execution_owner_finishes()
+ {
+    let (_temp, state) = fixture().await;
+    let id = Uuid::new_v4();
+    let original = crate::state::get_instance("first", &state.pool)
+        .await
+        .unwrap()
+        .unwrap();
+    let mut job = InstallJobState::new(request("first", "mod"));
+    job.cleanup = InstallCleanup::RestoreExistingInstance {
+        instance_id: "first".into(),
+    };
+    job.rollback = Some(InstallRollbackState {
+        instance: original.clone(),
+        install_stage: InstanceInstallStage::Installed,
+        content: None,
+    });
+    begin_canceling_job(&mut job);
+    let record = store::insert(id, &job, InstallJobStatus::Canceling, &state)
+        .await
+        .unwrap();
+    let owner = execution_lock(&state, &record).await;
+    let cleanup = finish_canceling_job(id, &state);
+    tokio::pin!(cleanup);
+    assert!(
+        tokio::time::timeout(
+            std::time::Duration::from_millis(30),
+            cleanup.as_mut()
+        )
+        .await
+        .is_err()
+    );
+    store::update_status(id, InstallJobStatus::Canceled, &job, &state)
+        .await
+        .unwrap();
+    let mut newer = original;
+    newer.instance.name = "newer operation".into();
+    crate::state::restore_instance_metadata(&newer, &state.pool)
+        .await
+        .unwrap();
+    drop(owner);
+    tokio::time::timeout(std::time::Duration::from_secs(3), cleanup)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(
+        crate::state::get_instance("first", &state.pool)
+            .await
+            .unwrap()
+            .unwrap()
+            .instance
+            .name,
+        "newer operation"
+    );
+    assert_eq!(
+        store::get_required(id, &state).await.unwrap().status,
+        InstallJobStatus::Canceled
+    );
+    state.pool.close().await;
+}
+
+#[tokio::test]
 async fn canceling_terminal_jobs_returns_the_authoritative_status_without_reopening_them()
  {
     let (_temp, state) = fixture().await;

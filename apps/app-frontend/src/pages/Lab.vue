@@ -13,6 +13,7 @@ import {
 import { computed, ref, watch } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
 
+import bannerDesignerToolCover from '@/assets/lab/banner-designer-tool-cover.png'
 import commandGeneratorToolCover from '@/assets/lab/command-generator-tool-cover.png'
 import gradientTextToolCover from '@/assets/lab/gradient-text-tool-cover.png'
 import modTranslationCover from '@/assets/lab/mod-translation-cover.png'
@@ -48,6 +49,7 @@ const toolCoverImages: Record<string, string> = {
     'mod-translation': modTranslationCover,
     'skin-editor': skinEditorToolCover,
     'command-generator': commandGeneratorToolCover,
+    'banner-designer': bannerDesignerToolCover,
 }
 
 const messages = defineMessages({
@@ -127,6 +129,14 @@ const messages = defineMessages({
         id: 'app.lab.command-generator.description',
         defaultMessage: 'Generate Minecraft Java Edition commands with visual NBT editing.',
     },
+    bannerDesignerTitle: {
+        id: 'app.lab.banner-designer.title',
+        defaultMessage: 'Banner designer',
+    },
+    bannerDesignerDescription: {
+        id: 'app.lab.banner-designer.description',
+        defaultMessage: 'Design Minecraft banners with every Java Edition pattern and dye.',
+    },
 })
 
 const categoryOptions: LabCategoryFilter[] = ['all', 'creation', 'maintenance', 'world']
@@ -186,6 +196,7 @@ function toolTitle(toolId: string, fallback: string) {
     if (toolId === 'schematic-preview') return formatMessage(messages.schematicPreviewTitle)
     if (toolId === 'mod-translation') return formatMessage(messages.modTranslationTitle)
     if (toolId === 'command-generator') return formatMessage(messages.commandGeneratorTitle)
+    if (toolId === 'banner-designer') return formatMessage(messages.bannerDesignerTitle)
     return fallback
 }
 
@@ -197,6 +208,7 @@ function toolDescription(toolId: string, fallback: string) {
     if (toolId === 'schematic-preview') return formatMessage(messages.schematicPreviewDescription)
     if (toolId === 'mod-translation') return formatMessage(messages.modTranslationDescription)
     if (toolId === 'command-generator') return formatMessage(messages.commandGeneratorDescription)
+    if (toolId === 'banner-designer') return formatMessage(messages.bannerDesignerDescription)
     return fallback
 }
 

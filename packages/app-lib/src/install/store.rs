@@ -666,17 +666,26 @@ mod tests {
         let before = insert(id, &job, InstallJobStatus::Running, &app_state)
             .await
             .unwrap();
+        // A state that differs from the stored one, so a write that slipped
+        // through would show in the comparison below.
+        let mut changed = job.clone();
+        changed.retry_from_checkpoint = !job.retry_from_checkpoint;
+        changed.record_event(crate::install::InstallJobEventKind::JobStarted);
+        assert_ne!(
+            serde_json::to_value(&changed).unwrap(),
+            serde_json::to_value(&before.state).unwrap()
+        );
 
         let writer = app_state.install_db_semaphore.acquire().await.unwrap();
         let (state, checkpoint, status, swap) = tokio::join!(
-            update_state(id, &job, &app_state),
-            checkpoint_running_state(id, &job, &app_state),
-            update_status(id, InstallJobStatus::Failed, &job, &app_state),
+            update_state(id, &changed, &app_state),
+            checkpoint_running_state(id, &changed, &app_state),
+            update_status(id, InstallJobStatus::Failed, &changed, &app_state),
             update_status_if(
                 id,
                 InstallJobStatus::Running,
                 InstallJobStatus::Succeeded,
-                &job,
+                &changed,
                 &app_state,
             ),
         );
@@ -697,6 +706,12 @@ mod tests {
             after.finished, before.finished,
             "no entry finished the job"
         );
+        assert_eq!(
+            serde_json::to_value(&after.state).unwrap(),
+            serde_json::to_value(&before.state).unwrap(),
+            "no entry wrote its state"
+        );
+        assert_eq!(after.modified, before.modified, "no entry touched the row");
         app_state.pool.close().await;
     }
 }

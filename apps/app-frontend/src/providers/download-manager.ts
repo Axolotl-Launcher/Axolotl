@@ -127,7 +127,8 @@ export function createDownloadManager(handleError: (error: unknown) => void): Do
     let pendingContentChangeId = 0
     let staleRefreshTimer: ReturnType<typeof setTimeout> | null = null
     const lastJobActivity = new Map<string, number>()
-    const cancellationRequests = new Set<string>()
+    const cancellationRequests = new Map<string, 'pending' | 'accepted'>()
+    const cancellationsInFlight = new Set<string>()
     const reopenedJobs = new Map<string, string>()
     const confirmingJobs = new Set<string>()
 
@@ -192,7 +193,10 @@ export function createDownloadManager(handleError: (error: unknown) => void): Do
         }
         if (current && current.modified.localeCompare(job.modified) > 0) return
         if (!isActiveInstallJobStatus(job.status)) cancellationRequests.delete(job.job_id)
-        else if (cancellationRequests.has(job.job_id)) job = { ...job, status: 'canceling' }
+        else if (cancellationRequests.has(job.job_id)) {
+            if (job.status === 'canceling') cancellationRequests.set(job.job_id, 'accepted')
+            job = { ...job, status: 'canceling' }
+        }
         const currentIndex = jobs.value.findIndex((candidate) => candidate.job_id === job.job_id)
         if (currentIndex !== -1) {
             job = preserveMonotonicProgress(jobs.value[currentIndex], job)
@@ -420,7 +424,10 @@ export function createDownloadManager(handleError: (error: unknown) => void): Do
             )
             jobs.value = refreshedJobs.map((job) => {
                 if (!isActiveInstallJobStatus(job.status)) cancellationRequests.delete(job.job_id)
-                else if (cancellationRequests.has(job.job_id)) job = { ...job, status: 'canceling' }
+                else if (cancellationRequests.has(job.job_id)) {
+                    if (job.status === 'canceling') cancellationRequests.set(job.job_id, 'accepted')
+                    job = { ...job, status: 'canceling' }
+                }
                 const current = jobs.value.find((candidate) => candidate.job_id === job.job_id)
                 return current ? preserveMonotonicProgress(current, job) : job
             })
@@ -613,36 +620,52 @@ export function createDownloadManager(handleError: (error: unknown) => void): Do
             jobs.value = jobs.value.filter((job) => job.job_id !== jobId)
             return
         }
-        if (cancellationRequests.has(jobId)) return
+        if (cancellationsInFlight.has(jobId) || cancellationRequests.get(jobId) === 'pending')
+            return
+        cancellationsInFlight.add(jobId)
         const before = jobs.value.find((current) => current.job_id === jobId)
-        cancellationRequests.add(jobId)
+        // A running acknowledgement only confirms the cancellation signal. Once
+        // Canceling is persisted, another request can retry failed cleanup.
+        cancellationRequests.set(jobId, cancellationRequests.get(jobId) ?? 'pending')
         jobs.value = jobs.value.map((current) =>
             current.job_id === jobId && isActiveInstallJobStatus(current.status)
                 ? { ...current, status: 'canceling' }
                 : current,
         )
         const revision = jobRevisions.get(jobId) ?? 0
-        let job
         try {
-            job = await download_job_cancel(jobId)
-        } catch (error) {
-            cancellationRequests.delete(jobId)
-            const current = await readCurrentJob(jobId).catch(handleError)
-            if (current === undefined && before && (jobRevisions.get(jobId) ?? 0) === revision) {
-                jobs.value = jobs.value.map((candidate) =>
-                    candidate.job_id === jobId ? before : candidate,
+            let job
+            try {
+                job = await download_job_cancel(jobId)
+                if (job.status === 'canceling' && cancellationRequests.has(jobId)) {
+                    cancellationRequests.set(jobId, 'accepted')
+                }
+            } catch (error) {
+                if (cancellationRequests.get(jobId) === 'pending')
+                    cancellationRequests.delete(jobId)
+                const current = await readCurrentJob(jobId).catch(handleError)
+                if (
+                    current === undefined &&
+                    before &&
+                    (jobRevisions.get(jobId) ?? 0) === revision
+                ) {
+                    jobs.value = jobs.value.map((candidate) =>
+                        candidate.job_id === jobId ? before : candidate,
+                    )
+                }
+                if (
+                    (current === null || (current && !isActiveInstallJobStatus(current.status))) &&
+                    errorText(error).includes(
+                        'Only queued, running, or waiting install jobs can be canceled',
+                    )
                 )
+                    return
+                throw error
             }
-            if (
-                (current === null || (current && !isActiveInstallJobStatus(current.status))) &&
-                errorText(error).includes(
-                    'Only queued, running, or waiting install jobs can be canceled',
-                )
-            )
-                return
-            throw error
+            await reconcileJob(job, revision)
+        } finally {
+            cancellationsInFlight.delete(jobId)
         }
-        await reconcileJob(job, revision)
     }
 
     async function retry(jobId: string) {
@@ -771,6 +794,7 @@ export function createDownloadManager(handleError: (error: unknown) => void): Do
             staleRefreshTimer = null
             lastJobActivity.clear()
             cancellationRequests.clear()
+            cancellationsInFlight.clear()
             reopenedJobs.clear()
             confirmingJobs.clear()
             pendingContentChanges.value = []

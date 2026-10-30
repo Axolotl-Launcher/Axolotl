@@ -689,7 +689,13 @@ async function applyResources(epoch = requestEpoch) {
     loadingStage.value = 'resources'
     loadingProgress.value = 0
     const builtInVersion = minecraftVersionFromDataVersion(opened.dataVersion) ?? 'latest'
-    const loaded = await createSchematicResources(builtInVersion, opened.palette, controller.signal)
+    let loaded: LoadedSchematicResources
+    try {
+        loaded = await createSchematicResources(builtInVersion, opened.palette, controller.signal)
+    } catch (caught) {
+        if (resourceRequest === resourceEpoch) loadingStage.value = undefined
+        throw caught
+    }
     if (!isCurrentSession(session) || resourceRequest !== resourceEpoch) {
         loaded.texture.dispose()
         return
@@ -1143,8 +1149,18 @@ async function commitBlockEdits({
             if (firstAppliedPaletteIndex === 0) clearBlockSelection()
             else selectedBlock.value = result.manifest.palette[firstAppliedPaletteIndex]
         }
-        if (needsResourceReload) await applyResources(session.epoch)
-        else rebuildMeshes()
+        if (needsResourceReload) {
+            try {
+                await applyResources(session.epoch)
+            } catch (caught) {
+                // The edit is already committed, so keep the workshop usable with the
+                // resources that are loaded instead of leaving it in its loading state.
+                if (isCurrentSession(session)) rebuildMeshes()
+                throw caught
+            }
+        } else {
+            rebuildMeshes()
+        }
     } catch (caught) {
         if (isCurrentSession(session)) handleError(caught)
     } finally {

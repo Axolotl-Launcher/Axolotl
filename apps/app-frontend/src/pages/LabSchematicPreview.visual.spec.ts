@@ -23,9 +23,31 @@ const fixture = vi.hoisted(() => ({
     scene: {} as Record<string, ReturnType<typeof vi.fn>>,
 }))
 
-vi.mock('@/components/lab/schematic-preview/SchematicBlockPickerModal.vue', () => ({
-    default: { render: () => null },
-}))
+vi.mock('@/components/lab/schematic-preview/SchematicBlockPickerModal.vue', async () => {
+    const { defineComponent, h } = await import('vue')
+    return {
+        default: defineComponent({
+            props: ['blocks'],
+            emits: ['replace'],
+            setup:
+                (props, { emit }) =>
+                () =>
+                    h(
+                        'div',
+                        (props.blocks as { name: string }[]).map((state) =>
+                            h(
+                                'button',
+                                {
+                                    'data-replace': state.name,
+                                    onClick: () => emit('replace', state),
+                                },
+                                state.name,
+                            ),
+                        ),
+                    ),
+        }),
+    }
+})
 vi.mock('@/components/lab/schematic-preview/SchematicInfoModal.vue', () => ({
     default: { render: () => null },
 }))
@@ -253,6 +275,18 @@ function pairStairsManifest(
                 size: [2, 1, 1],
                 blockCount: 2,
                 chunks: [{ position: [0, 0, 0], nonAirBlocks: 2 }],
+            },
+        ],
+    }
+}
+
+function resourcesWithUnloadedBlock() {
+    return {
+        ...resources(),
+        availableBlockStates: [
+            {
+                name: 'minecraft:oak_fence_gate',
+                properties: { facing: 'north', in_wall: 'false', open: 'false', powered: 'false' },
             },
         ],
     }
@@ -581,6 +615,27 @@ it('a finished state edit cannot retarget the inspector to another block', async
     const [, edits, targetState] = fixture.edit.mock.calls[1]
     expect(edits).toEqual([{ regionId: 'region', position: [1, 0, 0], paletteIndex: 0, before: 2 }])
     expect(targetState).toEqual(stairState('east', 'top'))
+})
+
+it('a failed resource reload after a committed edit leaves the workshop editable', async () => {
+    fixture.open.mockImplementation(async (source: { path: string }) => stairsManifest(source.path))
+    fixture.resources.mockResolvedValueOnce(resourcesWithUnloadedBlock())
+    await openFile('A')
+    fixture.select?.({ regionId: 'region', position: [0, 0, 0] })
+    await nextTick()
+
+    fixture.edit.mockResolvedValueOnce({
+        manifest: stairsManifest('A'),
+        changedChunks: [],
+        appliedPaletteIndices: [1],
+    })
+    fixture.resources.mockRejectedValueOnce(new Error('resource download failed'))
+    await wrapper.get('[data-replace="minecraft:oak_fence_gate"]').trigger('click')
+    await flushPromises()
+
+    expect(fixture.error).toHaveBeenCalled()
+    expect(wrapper.find('[role="progressbar"]').exists()).toBe(false)
+    expect(button('Rotate clockwise').attributes('disabled')).toBeUndefined()
 })
 
 it('the state card is hidden while nothing is selected', async () => {

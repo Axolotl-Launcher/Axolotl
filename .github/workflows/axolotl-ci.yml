@@ -101,6 +101,41 @@ jobs:
         run: node --test scripts/axolotl/create-release-notes.test.mjs
       - name: Check Discord release notifications
         run: node --test scripts/axolotl/publish-discord-release.test.mjs
+      - name: Check scheduler resource gates
+        # Advisory until the team adopts the scheduler policy: these gates fail
+        # on any new lock, spawn or std::fs site until its policy entry lands.
+        continue-on-error: true
+        # Every gate runs even after one fails; the step fails at the end and
+        # names each failed gate.
+        run: |
+          failed=()
+          # Usage: gate <highest accepted exit code> <command...>
+          gate() {
+            local accepted=$1 status=0
+            shift
+            "$@" || status=$?
+            if [ "$status" -gt "$accepted" ]; then
+              failed+=("$* (exit $status)")
+              echo "::error::scheduler gate failed: $* (exit $status)"
+            fi
+          }
+          gate 0 node scripts/axolotl/sched-resource-inventory.mjs
+          gate 0 node scripts/axolotl/sched-resource-golden-check.mjs
+          gate 0 node --test scripts/axolotl/sched-resource-fixtures.test.mjs scripts/axolotl/sched-gates.test.mjs
+          gate 0 node scripts/axolotl/sched-resource-consistency-check.mjs
+          gate 0 node scripts/axolotl/sched-leaf-primitive-check.mjs
+          gate 0 node scripts/axolotl/sched-l0-resource-check.mjs
+          gate 0 node scripts/axolotl/sched-level-predicate-check.mjs
+          gate 0 node scripts/axolotl/sched-bare-spawn-check.mjs
+          # Exit 1 from these two means the design falls back to per-family
+          # orders (an accepted outcome); only other codes fail.
+          gate 1 node scripts/axolotl/sched-recall-gap-gate.mjs
+          gate 1 node scripts/axolotl/sched-order-annotation-check.mjs
+          if [ "${#failed[@]}" -gt 0 ]; then
+            printf 'failed scheduler gates:\n'
+            printf '  %s\n' "${failed[@]}"
+            exit 1
+          fi
       - name: Check formatting of Rust code
         run: cargo fmt --all --check
 
@@ -189,9 +224,9 @@ jobs:
     env:
       SQLX_OFFLINE: true
       # The desktop app runs its async workload on 16 MiB worker stacks
-      # (see apps/app/src/main.rs); test threads default to 2 MiB and the
-      # CurseForge install pipeline is deep enough to overflow that.
-      RUST_MIN_STACK: 16777216
+      # (see apps/app/src/main.rs), while the resource export tests need more
+      # than that in the debug test harness.
+      RUST_MIN_STACK: 67108864
     steps:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

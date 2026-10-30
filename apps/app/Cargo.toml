@@ -9,7 +9,10 @@ license = "GPL-3.0-only"
 
 [dependencies]
 async_zip = { workspace = true, features = ["deflate", "tokio-fs"] }
+base64 = { workspace = true }
 bytes = { workspace = true }
+cap-fs-ext = { workspace = true }
+cap-std = { workspace = true }
 chrono = { workspace = true }
 daedalus = { workspace = true }
 dashmap = { workspace = true }
@@ -23,6 +26,7 @@ hyper-util = { workspace = true }
 image = { workspace = true }
 keyring = { workspace = true }
 launcher-mcp = { workspace = true }
+launcher-tools = { workspace = true }
 libc = { workspace = true }
 native-dialog = { workspace = true }
 notify = { workspace = true }

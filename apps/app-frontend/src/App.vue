@@ -108,6 +108,7 @@ import { minecraftLaunchErrorKey } from '@/composables/useMinecraftLaunchError'
 import { setupMojangAuthMonitor, useMojangAuthStatus } from '@/composables/useMojangAuth'
 import { useNetworkStatus } from '@/composables/useNetworkStatus'
 import { AxolotlBrandConfig, config, getOfficialLabrinthBaseUrl } from '@/config'
+import { startMcpUiBridge } from '@/features/mcp/interface'
 import McpConnectionOverlay from '@/features/mcp/McpConnectionOverlay.vue'
 import { startMcpStateSync } from '@/features/mcp/runtime'
 import { trackEvent } from '@/helpers/analytics'
@@ -1562,8 +1563,13 @@ async function setupApp() {
     await localePreparation
     stateInitialized.value = true
     const stopMcpSync = await startMcpStateSync()
-    if (appUnmounted) stopMcpSync()
-    else stopMcpStateSync = stopMcpSync
+    const stopMcpUi = await startMcpUiBridge(router)
+    const stopMcp = () => {
+        stopMcpUi()
+        stopMcpSync()
+    }
+    if (appUnmounted) stopMcp()
+    else stopMcpStateSync = stopMcp
     if (privacyConsentPending.value) {
         await nextTick()
         privacyConsentModal.value?.show({

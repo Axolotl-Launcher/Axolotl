@@ -1,0 +1,98 @@
+use super::{Access, Entry, entry};
+use serde_json::json;
+
+pub(super) fn entries() -> Vec<Entry> {
+    use Access::*;
+    vec![
+        entry(
+            "core_list_components",
+            "List core/JAR components including removed entries; omits source URLs and raw errors.",
+            Controlled,
+            true,
+            true,
+            json!({"instance_id": {"type": "string", "minLength": 1, "maxLength": 256}, "offset": {"type": "integer", "minimum": 0, "maximum": 4294967295_u64}, "limit": {"type": "integer", "minimum": 1, "maximum": 100}}),
+            &["instance_id"],
+        ),
+        entry(
+            "core_preview_jar",
+            "Assemble and inspect the current effective core JAR through native rules. Writes derived cache, not a pure read. Returns operation_id then hashes/counts; omits absolute paths. Deferred: poll operations_get. Admitted work continues after session end.",
+            Controlled,
+            false,
+            false,
+            json!({"instance_id": {"type": "string", "minLength": 1, "maxLength": 256}}),
+            &["instance_id"],
+        ),
+        entry(
+            "core_add_jar_mod",
+            "Add a local JAR Mod from an instance-relative regular file, using exact SHA-256 and current game version. Full access: executable game code. Requires stopped ordinary owned instance. Returns operation_id. Deferred: poll operations_get. Admitted work continues after session end.",
+            FullAccess,
+            false,
+            false,
+            json!({"instance_id": {"type": "string", "minLength": 1, "maxLength": 256}, "path": {"type": "string", "minLength": 1, "maxLength": 1024, "format": "relative-path"}, "expected_sha256": {"type": "string", "minLength": 1, "maxLength": 64, "format": "sha256"}}),
+            &["instance_id", "path", "expected_sha256"],
+        ),
+        entry(
+            "core_replace_jar",
+            "Replace effective core JAR using an exact instance-relative payload/hash; current game version. Requires full access and idle owned instance. Returns operation_id. Does not modify shared vanilla JAR. Deferred: poll operations_get. Admitted work continues after session end.",
+            FullAccess,
+            false,
+            false,
+            json!({"instance_id": {"type": "string", "minLength": 1, "maxLength": 256}, "path": {"type": "string", "minLength": 1, "maxLength": 1024, "format": "relative-path"}, "expected_sha256": {"type": "string", "minLength": 1, "maxLength": 64, "format": "sha256"}}),
+            &["instance_id", "path", "expected_sha256"],
+        ),
+        entry(
+            "core_set_enabled",
+            "Enable/disable exact component; enabling replacement disables other replacements. Requires idle ordinary owned instance. Returns operation_id. Deferred: poll operations_get. Admitted work continues after session end.",
+            FullAccess,
+            false,
+            false,
+            json!({"instance_id": {"type": "string", "minLength": 1, "maxLength": 256}, "component_id": {"type": "string", "minLength": 1, "maxLength": 256}, "enabled": {"type": "boolean"}}),
+            &["instance_id", "component_id", "enabled"],
+        ),
+        entry(
+            "core_move_component",
+            "Move exact active core component one place in assembly order. Requires idle ordinary owned instance. Returns operation_id. Deferred: poll operations_get. Admitted work continues after session end.",
+            FullAccess,
+            false,
+            false,
+            json!({"instance_id": {"type": "string", "minLength": 1, "maxLength": 256}, "component_id": {"type": "string", "minLength": 1, "maxLength": 256}, "direction": {"type": "string", "enum": ["up", "down"]}}),
+            &["instance_id", "component_id", "direction"],
+        ),
+        entry(
+            "core_remove_component",
+            "Soft-remove component through native component trash. Full access. No arbitrary deletion path. Requires idle ordinary owned instance. Returns operation_id. Deferred: poll operations_get. Admitted work continues after session end.",
+            FullAccess,
+            false,
+            false,
+            json!({"instance_id": {"type": "string", "minLength": 1, "maxLength": 256}, "component_id": {"type": "string", "minLength": 1, "maxLength": 256}}),
+            &["instance_id", "component_id"],
+        ),
+        entry(
+            "core_restore_component",
+            "Restore a soft-removed core component payload through native rules; does not automatically enable it. Requires idle ordinary owned instance. Returns operation_id. Deferred: poll operations_get. Admitted work continues after session end.",
+            FullAccess,
+            false,
+            false,
+            json!({"instance_id": {"type": "string", "minLength": 1, "maxLength": 256}, "component_id": {"type": "string", "minLength": 1, "maxLength": 256}}),
+            &["instance_id", "component_id"],
+        ),
+        entry(
+            "core_install_mcarchive_loader",
+            "Install native MCArchive ModLoader for the instance current game version. May require manual download; returns operation_id then installed component or manual-download summary. Full access: executable code. Deferred: poll operations_get. Admitted work continues after session end.",
+            FullAccess,
+            false,
+            false,
+            json!({"instance_id": {"type": "string", "minLength": 1, "maxLength": 256}}),
+            &["instance_id"],
+        ),
+        entry(
+            "core_import_mcarchive_loader",
+            "Import a native-verified MCArchive ModLoader payload from exact instance-relative file/hash. Requires full access and idle ordinary instance. Returns operation_id. Deferred: poll operations_get. Admitted work continues after session end.",
+            FullAccess,
+            false,
+            false,
+            json!({"instance_id": {"type": "string", "minLength": 1, "maxLength": 256}, "path": {"type": "string", "minLength": 1, "maxLength": 1024, "format": "relative-path"}, "expected_sha256": {"type": "string", "minLength": 1, "maxLength": 64, "format": "sha256"}}),
+            &["instance_id", "path", "expected_sha256"],
+        ),
+    ]
+}

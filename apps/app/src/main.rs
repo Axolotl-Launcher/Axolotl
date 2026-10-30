@@ -719,6 +719,9 @@ fn main() {
     let tauri_context = tauri::tauri_build_context!();
 
     let _log_guard = theseus::start_logger(&tauri_context.config().identifier);
+    theseus::scheduler::panic::install_panic_hook(
+        &tauri_context.config().identifier,
+    );
 
     tracing::info!("Initialized tracing subscriber. Loading Axolotl Launcher!");
 

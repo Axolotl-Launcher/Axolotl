@@ -111,17 +111,11 @@ fn is_default_source(value: &String) -> bool {
 pub(crate) async fn read(
     documents: &Documents<'_>,
 ) -> crate::Result<AiDocument> {
-    match documents.stored::<AiDocument>(DOCUMENT).await {
-        Stored::Ready {
-            schema_version,
-            document,
-        } => {
-            if schema_version > SCHEMA_VERSION {
-                tracing::debug!(
-                    schema_version,
-                    "Reading an AI settings document a newer build wrote"
-                );
-            }
+    match documents
+        .stored::<AiDocument>(DOCUMENT, SCHEMA_VERSION)
+        .await
+    {
+        Stored::Ready { document, .. } | Stored::Newer { document, .. } => {
             Ok(document)
         }
         Stored::Missing | Stored::Unreadable => {
@@ -172,10 +166,11 @@ async fn from_database(pool: &SqlitePool) -> crate::Result<AiDocument> {
 /// Writes the document the rows hand over to, unless one is already in place.
 pub(crate) async fn hand_over_if_missing(documents: &Documents<'_>) -> bool {
     let path = documents.path(DOCUMENT);
-    if matches!(
-        documents.stored::<AiDocument>(DOCUMENT).await,
-        Stored::Ready { .. }
-    ) {
+    if documents
+        .stored::<AiDocument>(DOCUMENT, SCHEMA_VERSION)
+        .await
+        .is_present()
+    {
         return true;
     }
     let document = match from_database(documents.pool()).await {
@@ -302,16 +297,13 @@ async fn update(
     apply: impl FnOnce(&mut AiDocument),
 ) -> crate::Result<()> {
     let _writing = WRITES.lock().await;
-    let mut document = match documents.stored::<AiDocument>(DOCUMENT).await {
-        Stored::Ready { schema_version, .. }
-            if schema_version > SCHEMA_VERSION =>
-        {
-            tracing::debug!(
-                schema_version,
-                "Leaving an AI settings document a newer build wrote alone"
-            );
-            return Ok(());
-        }
+    let mut document = match documents
+        .stored::<AiDocument>(DOCUMENT, SCHEMA_VERSION)
+        .await
+    {
+        // A newer build owns the shape of this document: writing it would
+        // lower it to the keys this build knows.
+        Stored::Newer { .. } => return Ok(()),
         Stored::Ready { document, .. } => document,
         Stored::Missing | Stored::Unreadable => {
             from_database(documents.pool()).await?

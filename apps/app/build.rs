@@ -603,6 +603,7 @@ fn main() {
                     .commands(&[
                         "get_available_capes",
                         "get_available_skins",
+                        "lookup_player_skin",
                         "add_and_equip_custom_skin",
                         "equip_skin",
                         "remove_custom_skin",
@@ -922,6 +923,8 @@ fn main() {
                         "mcp_configure",
                         "mcp_respond",
                         "mcp_disconnect",
+                        "mcp_ui_claim",
+                        "mcp_ui_respond",
                     ])
                     .default_permission(
                         DefaultPermissionRule::AllowAllCommands,

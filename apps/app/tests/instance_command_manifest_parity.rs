@@ -4,10 +4,12 @@ use std::collections::BTreeSet;
 fn mcp_commands_are_registered_and_limited_to_the_main_window() {
     let runtime = runtime_commands(include_str!("../src/api/mcp/mod.rs"))
         .into_iter()
-        .map(|command| command.strip_prefix("commands::").unwrap_or(command))
+        .map(|command| command.rsplit("::").next().unwrap())
         .collect::<BTreeSet<_>>();
     let manifest = manifest_commands(include_str!("../build.rs"), "mcp");
     assert_eq!(runtime, manifest);
+    assert!(runtime.contains("mcp_ui_claim"));
+    assert!(runtime.contains("mcp_ui_respond"));
     let capability: serde_json::Value =
         serde_json::from_str(include_str!("../capabilities/plugins.json"))
             .unwrap();
@@ -48,6 +50,33 @@ fn runtime_commands(source: &str) -> BTreeSet<&str> {
         .map(str::trim)
         .filter(|command| !command.is_empty())
         .collect()
+}
+
+#[test]
+fn player_skin_lookup_is_registered_and_allowed_for_main_window() {
+    let runtime =
+        runtime_commands(include_str!("../src/api/minecraft_skins.rs"));
+    let manifest =
+        manifest_commands(include_str!("../build.rs"), "minecraft-skins");
+    assert!(runtime.contains("lookup_player_skin"));
+    assert!(runtime.difference(&manifest).next().is_none());
+    let capabilities: serde_json::Value =
+        serde_json::from_str(include_str!("../capabilities/plugins.json"))
+            .unwrap();
+    assert!(
+        capabilities["windows"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|v| v == "main")
+    );
+    assert!(
+        capabilities["permissions"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|v| v == "minecraft-skins:default")
+    );
 }
 
 fn manifest_commands<'a>(source: &'a str, plugin: &str) -> BTreeSet<&'a str> {

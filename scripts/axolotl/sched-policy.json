@@ -1,0 +1,484 @@
+{
+  "classOrder": [
+    "S2",
+    "S4",
+    "S5",
+    "S7",
+    "S3",
+    "S1",
+    "S6",
+    "S8",
+    "S9",
+    "S10"
+  ],
+  "classOrderBasis": [
+    "install/runner.rs queue_resource_plan: admission (S2) -> install_db_semaphore (S5) -> instance content lock (S3)",
+    "api/instance/backup.rs *_inner: instance maintenance lock (S2) -> instance content lock (S3) -> REPOSITORY_LOCK (S1)",
+    "state/instances/commands/remove_instance.rs: instance maintenance lock (S2) -> synced_options_lock (S7) -> instance content lock (S3)",
+    "api/instance/run.rs -> launcher/mod.rs run_instance_install_command: instance maintenance lock (S2) -> instance content lock (S3)"
+  ],
+  "rankFingerprint": "feb0fe6b0fab233c5595efa8b180372bf828e69a08454288ac2a62e439cf76aa",
+  "classes": {
+    "theseus::api::instance::backup::ACTIVE_INSTANCE_OPERATIONS": "S6",
+    "theseus::api::instance::backup::BACKUP_CANCELLATIONS": "S6",
+    "theseus::api::instance::backup::INSTANCE_MAINTENANCE_LOCKS": "S2",
+    "theseus::api::instance::backup::REPOSITORY_LOCK": "S1",
+    "theseus::api::servers::lifecycle::SERVER_PROCESSES": "S10",
+    "theseus::api::servers::lifecycle::SERVER_STARTING": "S6",
+    "theseus::state::InstanceLockManager.held_by_owner": "S3",
+    "theseus::state::InstanceLockManager.locks": "S3",
+    "theseus::state::State.api_semaphore": "S9",
+    "theseus::state::State.background_tasks": "S7",
+    "theseus::state::State.download_semaphore": "S9",
+    "theseus::state::State.fetch_semaphore": "S9",
+    "theseus::state::State.install_admission_locks": "S2",
+    "theseus::state::State.install_db_semaphore": "S5",
+    "theseus::state::State.install_execution_locks": "S2",
+    "theseus::state::State.install_job_cancellations": "S6",
+    "theseus::state::State.install_job_operation_locks": "S4",
+    "theseus::state::State.install_job_semaphore": "S5",
+    "theseus::state::State.io_semaphore": "S9",
+    "theseus::state::State.screenshot_locks": "S3",
+    "theseus::state::State.synced_options_lock": "S7",
+    "theseus::state::instances::config_sync::DIRTY_INSTANCES": "S8",
+    "theseus::state::process::LOG_BUFFERS": "S8",
+    "theseus::state::process::ProcessManager.processes": "S10",
+    "theseus::util::single_flight::FLIGHTS": "S6"
+  },
+  "longLivedRoots": [
+    "InitialPayload"
+  ],
+  "exclusions": [
+    {
+      "ident": "theseus::logger::RotatingLogWriter.state",
+      "rule": "D4",
+      "reason": "log write lock: leaf primitive only (spec §5.2 leaf table), held for one bounded write"
+    },
+    {
+      "ident": "theseus::scheduler::panic::PANIC_LOG_LOCK",
+      "rule": "D4",
+      "reason": "panic-log append lock: synchronous, held for one bounded append, takes no other lock"
+    }
+  ],
+  "recallGap": {
+    "apps/app::BACKUP_STARTUP": {
+      "reason": "other",
+      "detail": "tokio OnceCell::const_new: a one-time initialization cell, not acquire-hold-release"
+    },
+    "apps/app::CONTENT_REFRESH_EVENTS": {
+      "reason": "other",
+      "detail": "tokio OnceCell::const_new: a one-time initialization cell, not acquire-hold-release"
+    },
+    "packages/app-lib::DISKS_READY": {
+      "reason": "other",
+      "detail": "tokio OnceCell::const_new: a one-time initialization cell, not acquire-hold-release"
+    },
+    "packages/app-lib::EVENT_STATE": {
+      "reason": "other",
+      "detail": "tokio OnceCell::const_new holding Arc<EventState>; EventState's own lock fields are in the inventory"
+    },
+    "packages/app-lib::LAUNCHER_STATE": {
+      "reason": "other",
+      "detail": "tokio OnceCell::const_new holding Arc<State>; State's lock fields are in the inventory"
+    },
+    "packages/app-lib::LOAD": {
+      "reason": "other",
+      "detail": "tokio OnceCell::const_new: a one-time initialization cell, not acquire-hold-release"
+    },
+    "packages/app-lib::_global": {
+      "reason": "other",
+      "detail": "SemaphorePermit guard field of the per-operation NativeConnectionPermit; the line pattern matches the Semaphore prefix"
+    },
+    "packages/app-lib::keys": {
+      "reason": "other",
+      "detail": "function parameter on its own line of a multi-line signature (a D1 binding)"
+    },
+    "packages/app-lib::log": {
+      "reason": "other",
+      "detail": "function parameter on its own line of a multi-line signature (a D1 binding)"
+    },
+    "packages/app-lib::pool": {
+      "reason": "other",
+      "detail": "sqlx SqlitePool::acquire: a bounded connection quota outside the spec §6.3.1 primitive predicate"
+    },
+    "packages/app-lib::stream": {
+      "reason": "other",
+      "detail": "Mutex field of an enum struct variant (state/tunnel.rs); the generator reads struct bodies only"
+    }
+  },
+  "orderViolations": [],
+  "l0Module": "packages/app-lib/src/scheduler/l0",
+  "l0Members": [
+    {
+      "class": "process monitoring",
+      "file": "packages/app-lib/src/state/process.rs"
+    },
+    {
+      "class": "crash and log collection",
+      "file": "packages/app-lib/src/logger.rs"
+    },
+    {
+      "class": "crash and log collection",
+      "file": "packages/app-lib/src/api/logs/crash_analysis.rs"
+    },
+    {
+      "class": "supervisor",
+      "file": "packages/app-lib/src/scheduler/supervisor.rs"
+    },
+    {
+      "class": "database session maintenance",
+      "file": "packages/app-lib/src/state/mod.rs",
+      "fn": "maintain_database_backups"
+    },
+    {
+      "class": "database session maintenance",
+      "file": "packages/app-lib/src/state/mod.rs",
+      "fn": "finish_database_session"
+    },
+    {
+      "class": "servers monitoring",
+      "file": "packages/app-lib/src/api/servers/lifecycle.rs"
+    }
+  ],
+  "leafPrimitives": [
+    {
+      "name": "log write lock",
+      "ident": "theseus::logger::RotatingLogWriter.state",
+      "bounded": false,
+      "worstCaseMs": 1,
+      "note": "known exception: holds the writer across one file write and rotation (spec §11.6 N14)"
+    },
+    {
+      "name": "registry shard lock",
+      "ident": null,
+      "planned": "T3.1",
+      "bounded": true,
+      "note": "scheduler registry, not built until phase 3"
+    },
+    {
+      "name": "L0 private queue lock",
+      "ident": null,
+      "planned": "T3.3",
+      "bounded": true,
+      "note": "L0 dispatch queue, not built until phase 3"
+    },
+    {
+      "name": "ProcessManager.processes",
+      "ident": "theseus::state::process::ProcessManager.processes",
+      "bounded": true,
+      "note": "DashMap shard access per call"
+    },
+    {
+      "name": "SERVER_PROCESSES",
+      "ident": "theseus::api::servers::lifecycle::SERVER_PROCESSES",
+      "bounded": true,
+      "note": "DashMap shard access per call"
+    },
+    {
+      "name": "LOG_BUFFERS",
+      "ident": "theseus::state::process::LOG_BUFFERS",
+      "bounded": false,
+      "worstCaseMs": 10,
+      "note": "known exception: get_log_buffer clones up to 4 MiB under the shard lock (spec §11.6 N14)"
+    }
+  ],
+  "l0PendingAccess": [
+    {
+      "file": "packages/app-lib/src/api/servers/lifecycle.rs",
+      "receiver": "child",
+      "resource": "theseus::api::servers::lifecycle::ServerProcess.child",
+      "task": "T3.2",
+      "reason": "L0-5 locks the server child handle; dispatch separation lands in phase 3"
+    },
+    {
+      "file": "packages/app-lib/src/api/servers/lifecycle.rs",
+      "receiver": "pty_master",
+      "resource": "theseus::api::servers::lifecycle::ServerProcess.pty_master",
+      "task": "T3.2",
+      "reason": "console resize locks the PTY master; dispatch separation lands in phase 3"
+    },
+    {
+      "file": "packages/app-lib/src/api/servers/lifecycle.rs",
+      "receiver": "stop_command",
+      "resource": "theseus::api::servers::lifecycle::ServerProcess.stop_command",
+      "task": "T3.2",
+      "reason": "stop command read/write under the server lock; dispatch separation lands in phase 3"
+    }
+  ],
+  "governance": [
+    {
+      "id": "R1",
+      "file": "packages/app-lib/src/state/instances/config_sync.rs",
+      "business": "instance config sync loop",
+      "level": "L1",
+      "locks": [],
+      "backfilled": true,
+      "basis": "no mutex or single-writer permit held (writes go through store); rebuildable maintenance loop"
+    },
+    {
+      "id": "R2",
+      "file": "packages/app-lib/src/state/mod.rs",
+      "business": "adaptive download concurrency controller",
+      "level": "L1",
+      "locks": [],
+      "backfilled": true,
+      "basis": "no lock held; restarts from atomics"
+    },
+    {
+      "id": "R3",
+      "file": "packages/app-lib/src/telemetry.rs",
+      "business": "telemetry flush loop",
+      "level": "L3",
+      "locks": [
+        "theseus::state::State.install_db_semaphore"
+      ],
+      "backfilled": true,
+      "basis": "holds the single-writer permit install_db_semaphore, so the predicate gives L3",
+      "limitation": "partial fix + declared limitation: telemetry never enters a critical section, so its multi-step DB write stays cancellable; compensated by startup reconciliation of telemetry_outbox (spec §5.6, §11.2 item 13)"
+    },
+    {
+      "id": "R4",
+      "file": "packages/app-lib/src/state/process.rs",
+      "business": "Minecraft process monitor",
+      "level": "L0",
+      "locks": [
+        "theseus::state::process::ProcessManager.processes",
+        "theseus::state::process::LOG_BUFFERS"
+      ],
+      "backfilled": true,
+      "basis": "L0 member (process monitoring); touches leaf primitives only under the leaf rules, 17 shared accesses separated in T3.2"
+    },
+    {
+      "id": "R5",
+      "file": "packages/app-lib/src/state/instances/watcher.rs",
+      "business": "file-system watcher event pump",
+      "level": "L1",
+      "locks": [
+        "theseus::state::instances::watcher::FileWatcher.instance_ids",
+        "theseus::state::instances::watcher::FileWatcher.content_changes"
+      ],
+      "backfilled": false,
+      "basis": "holds FileWatcher RwLocks briefly; whether they guard multi-step consistency is not established, so the stricter rebuildable level is kept"
+    },
+    {
+      "id": "R6",
+      "file": "packages/app-lib/src/state/instances/watcher.rs",
+      "business": "manual download folder poll",
+      "level": "L2",
+      "locks": [],
+      "backfilled": true,
+      "basis": "no lock; exits on generation change"
+    },
+    {
+      "id": "R8",
+      "file": "packages/app-lib/src/api/servers/lifecycle.rs",
+      "business": "server PTY output stream",
+      "level": "L0",
+      "locks": [
+        "theseus::api::servers::lifecycle::ServerProcess.child"
+      ],
+      "backfilled": true,
+      "basis": "L0 member (servers monitoring); its ServerProcess lock is a pending access for T3.2"
+    },
+    {
+      "id": "R9",
+      "file": "packages/app-lib/src/api/servers/lifecycle.rs",
+      "business": "server log tail",
+      "level": "L0",
+      "locks": [],
+      "backfilled": true,
+      "basis": "L0 member (servers monitoring); no lock"
+    },
+    {
+      "id": "R10",
+      "file": "packages/app-lib/src/api/servers/lifecycle.rs",
+      "business": "server process monitor",
+      "level": "L0",
+      "locks": [
+        "theseus::api::servers::lifecycle::ServerProcess.child"
+      ],
+      "backfilled": true,
+      "basis": "L0 member (servers monitoring); its ServerProcess lock is a pending access for T3.2"
+    },
+    {
+      "id": "R11",
+      "file": "packages/app-lib/src/api/instance/synced_options/game_options/locales/mod.rs",
+      "business": "game locale indexer",
+      "level": "L1",
+      "locks": [],
+      "backfilled": true,
+      "basis": "no lock; notify-driven and rebuildable"
+    },
+    {
+      "id": "R12",
+      "file": "packages/app-lib/src/api/terracotta.rs",
+      "business": "Terracotta state poller",
+      "level": "L2",
+      "locks": [],
+      "backfilled": true,
+      "basis": "no lock; front-end companion polling"
+    },
+    {
+      "id": "R13",
+      "file": "packages/app-lib/src/api/terracotta/lan.rs",
+      "business": "LAN broadcast and discovery",
+      "level": "L2",
+      "locks": [],
+      "backfilled": true,
+      "basis": "no lock; network companion"
+    },
+    {
+      "id": "R14",
+      "file": "packages/app-lib/src/api/hongshi.rs",
+      "business": "Hongshi server stdout/stderr reader",
+      "level": "L2",
+      "locks": [],
+      "backfilled": true,
+      "basis": "no lock; stream reader"
+    },
+    {
+      "id": "R15",
+      "file": "packages/app-lib/src/util/fetch/segmented.rs",
+      "business": "segmented download scheduler",
+      "level": "L3",
+      "locks": [],
+      "backfilled": false,
+      "basis": "operation-scoped child of an install download; its level follows the parent operation, so the stricter L3 is kept"
+    },
+    {
+      "id": "R16",
+      "file": "packages/app-lib/src/util/fetch/native.rs",
+      "business": "native download scheduler",
+      "level": "L3",
+      "locks": [],
+      "backfilled": false,
+      "basis": "operation-scoped child of an install download; stricter L3 kept"
+    },
+    {
+      "id": "R17",
+      "file": "packages/app-lib/src/util/download/h2_range.rs",
+      "business": "H2 range download scheduler",
+      "level": "L3",
+      "locks": [],
+      "backfilled": false,
+      "basis": "operation-scoped child of an install download; stricter L3 kept"
+    },
+    {
+      "id": "R18",
+      "file": "packages/app-lib/src/util/download/h2_download.rs",
+      "business": "H2 download scheduler",
+      "level": "L3",
+      "locks": [],
+      "backfilled": false,
+      "basis": "operation-scoped child of an install download; stricter L3 kept"
+    },
+    {
+      "id": "R19",
+      "file": "packages/app-lib/src/util/download/authority_scheduler.rs",
+      "business": "authority connection scheduler",
+      "level": "L3",
+      "locks": [],
+      "backfilled": false,
+      "basis": "operation-scoped child of an install download; stricter L3 kept"
+    },
+    {
+      "id": "R20",
+      "file": "packages/app-lib/src/util/download/h2_pool.rs",
+      "business": "H2 connection pool maintenance",
+      "level": "L1",
+      "locks": [],
+      "backfilled": true,
+      "basis": "no lock across awaits; pool is rebuildable"
+    },
+    {
+      "id": "R21",
+      "file": "packages/app-lib/src/util/download/h2_pool.rs",
+      "business": "H2 connection pool maintenance (second loop)",
+      "level": "L1",
+      "locks": [],
+      "backfilled": true,
+      "basis": "no lock across awaits; pool is rebuildable"
+    },
+    {
+      "id": "R22",
+      "file": "packages/app-lib/src/util/download/endpoint_selection/coordinator.rs",
+      "business": "endpoint probe rounds",
+      "level": "L2",
+      "locks": [],
+      "backfilled": true,
+      "basis": "no lock; exits when try_acquire fails"
+    },
+    {
+      "id": "R23",
+      "file": "packages/app-lib/src/launcher/mod.rs",
+      "business": "install command stdout/stderr pump",
+      "level": "L3",
+      "locks": [
+        "theseus::state::InstanceLockManager.locks"
+      ],
+      "backfilled": true,
+      "basis": "runs while the exclusive instance content lock is held"
+    },
+    {
+      "id": "R24",
+      "file": "packages/app-lib/src/api/multiplayer.rs",
+      "business": "multiplayer claim and tunnel loop",
+      "level": "L3",
+      "locks": [],
+      "backfilled": false,
+      "basis": "operation-level loop whose interruption semantics are not established; stricter L3 kept"
+    },
+    {
+      "id": "R25",
+      "file": "packages/app-lib/src/state/tunnel.rs",
+      "business": "tunnel server",
+      "level": "L2",
+      "locks": [],
+      "backfilled": true,
+      "basis": "no registered lock; shutdown future exits it"
+    },
+    {
+      "id": "R26",
+      "file": "packages/app-lib/src/util/proxy/windows.rs",
+      "business": "Windows system proxy watcher",
+      "level": "L1",
+      "locks": [],
+      "backfilled": true,
+      "basis": "no lock; rebuildable watcher"
+    },
+    {
+      "id": "R27",
+      "file": "packages/app-lib/src/util/proxy/connectivity.rs",
+      "business": "proxy connectivity probe",
+      "level": "L2",
+      "locks": [],
+      "backfilled": true,
+      "basis": "no lock; network probe"
+    },
+    {
+      "id": "R28",
+      "file": "packages/launcher-mcp/src/server.rs",
+      "business": "MCP server accept loop",
+      "level": "L1",
+      "locks": [],
+      "backfilled": true,
+      "basis": "no lock in the accept loop; restartable service"
+    },
+    {
+      "id": "ACCENT",
+      "file": "apps/app/src/api/system_accent.rs",
+      "business": "Windows accent colour watcher thread",
+      "level": "L2",
+      "locks": [],
+      "backfilled": true,
+      "basis": "production std thread; JoinHandle bound (T0.10), signal-driven, bounded exit",
+      "signal": true,
+      "boundedExit": true
+    }
+  ],
+  "governanceRemoved": {
+    "R7": "friends socket loop deleted (no callers)",
+    "R29": "test-only thread item of the t12 list",
+    "R30": "test-only thread item of the t12 list"
+  }
+}

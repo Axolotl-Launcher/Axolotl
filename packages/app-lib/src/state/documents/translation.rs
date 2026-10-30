@@ -106,17 +106,11 @@ fn is_deepl_endpoint(value: &String) -> bool {
 pub(crate) async fn read(
     documents: &Documents<'_>,
 ) -> crate::Result<TranslationDocument> {
-    match documents.stored::<TranslationDocument>(DOCUMENT).await {
-        Stored::Ready {
-            schema_version,
-            document,
-        } => {
-            if schema_version > SCHEMA_VERSION {
-                tracing::debug!(
-                    schema_version,
-                    "Reading a translation settings document a newer build wrote"
-                );
-            }
+    match documents
+        .stored::<TranslationDocument>(DOCUMENT, SCHEMA_VERSION)
+        .await
+    {
+        Stored::Ready { document, .. } | Stored::Newer { document, .. } => {
             Ok(document)
         }
         Stored::Missing | Stored::Unreadable => {
@@ -149,10 +143,11 @@ async fn from_database(
 
 /// Writes the document the row hands over to, unless one is already in place.
 pub(crate) async fn hand_over_if_missing(documents: &Documents<'_>) -> bool {
-    if matches!(
-        documents.stored::<TranslationDocument>(DOCUMENT).await,
-        Stored::Ready { .. }
-    ) {
+    if documents
+        .stored::<TranslationDocument>(DOCUMENT, SCHEMA_VERSION)
+        .await
+        .is_present()
+    {
         return true;
     }
     let document = match from_database(documents.pool()).await {
@@ -181,18 +176,12 @@ pub(crate) async fn update(
 ) -> crate::Result<()> {
     let _writing = WRITES.lock().await;
     let mut document = match documents
-        .stored::<TranslationDocument>(DOCUMENT)
+        .stored::<TranslationDocument>(DOCUMENT, SCHEMA_VERSION)
         .await
     {
-        Stored::Ready { schema_version, .. }
-            if schema_version > SCHEMA_VERSION =>
-        {
-            tracing::debug!(
-                schema_version,
-                "Leaving a translation settings document a newer build wrote alone"
-            );
-            return Ok(());
-        }
+        // A newer build owns the shape of this document: writing it would
+        // lower it to the keys this build knows.
+        Stored::Newer { .. } => return Ok(()),
         Stored::Ready { document, .. } => document,
         Stored::Missing | Stored::Unreadable => {
             from_database(documents.pool()).await?

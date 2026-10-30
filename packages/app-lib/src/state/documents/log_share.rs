@@ -81,17 +81,11 @@ fn is_logshare(value: &String) -> bool {
 pub(crate) async fn read(
     documents: &Documents<'_>,
 ) -> crate::Result<LogShareDocument> {
-    match documents.stored::<LogShareDocument>(DOCUMENT).await {
-        Stored::Ready {
-            schema_version,
-            document,
-        } => {
-            if schema_version > SCHEMA_VERSION {
-                tracing::debug!(
-                    schema_version,
-                    "Reading a log sharing document a newer build wrote"
-                );
-            }
+    match documents
+        .stored::<LogShareDocument>(DOCUMENT, SCHEMA_VERSION)
+        .await
+    {
+        Stored::Ready { document, .. } | Stored::Newer { document, .. } => {
             Ok(document)
         }
         Stored::Missing | Stored::Unreadable => {
@@ -124,10 +118,11 @@ async fn from_database(pool: &SqlitePool) -> crate::Result<LogShareDocument> {
 
 /// Writes the document the rows hand over to, unless one is already in place.
 pub(crate) async fn hand_over_if_missing(documents: &Documents<'_>) -> bool {
-    if matches!(
-        documents.stored::<LogShareDocument>(DOCUMENT).await,
-        Stored::Ready { .. }
-    ) {
+    if documents
+        .stored::<LogShareDocument>(DOCUMENT, SCHEMA_VERSION)
+        .await
+        .is_present()
+    {
         return true;
     }
     let document = match from_database(documents.pool()).await {
@@ -199,22 +194,18 @@ async fn update(
     apply: impl FnOnce(&mut LogShareDocument),
 ) -> crate::Result<()> {
     let _writing = WRITES.lock().await;
-    let mut document =
-        match documents.stored::<LogShareDocument>(DOCUMENT).await {
-            Stored::Ready { schema_version, .. }
-                if schema_version > SCHEMA_VERSION =>
-            {
-                tracing::debug!(
-                    schema_version,
-                    "Leaving a log sharing document a newer build wrote alone"
-                );
-                return Ok(());
-            }
-            Stored::Ready { document, .. } => document,
-            Stored::Missing | Stored::Unreadable => {
-                from_database(documents.pool()).await?
-            }
-        };
+    let mut document = match documents
+        .stored::<LogShareDocument>(DOCUMENT, SCHEMA_VERSION)
+        .await
+    {
+        // A newer build owns the shape of this document: writing it would
+        // lower it to the keys this build knows.
+        Stored::Newer { .. } => return Ok(()),
+        Stored::Ready { document, .. } => document,
+        Stored::Missing | Stored::Unreadable => {
+            from_database(documents.pool()).await?
+        }
+    };
     apply(&mut document);
     documents.write(DOCUMENT, SCHEMA_VERSION, &document).await
 }

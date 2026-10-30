@@ -1,5 +1,5 @@
 use super::config::{Preferences, config_path};
-use launcher_mcp::{LauncherInfo, Server, Snapshot};
+use launcher_mcp::{Server, Snapshot};
 use serde::Serialize;
 use std::sync::atomic::{AtomicU64, Ordering};
 use tauri::{Emitter, Manager};
@@ -78,14 +78,16 @@ impl Controller {
             None
         };
         let app_handle = app.clone();
+        let runtime =
+            app.state::<super::super::tools::LauncherTools>().0.clone();
         self.server =
             Some(
-                Server::start(
+                Server::start_with_runtime(
                     5219,
                     token.clone().unwrap_or_default(),
                     self.preferences.full_access,
                     self.preferences.require_auth,
-                    LauncherInfo::new(env!("CARGO_PKG_VERSION")),
+                    runtime,
                     move |mut runtime| {
                         runtime.revision += revision_base;
                         if runtime.connection.as_ref().is_some_and(

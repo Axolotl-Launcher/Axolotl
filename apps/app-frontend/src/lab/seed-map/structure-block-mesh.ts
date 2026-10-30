@@ -54,6 +54,46 @@ export function buildStructureBlockMeshes(
     const colors = new Map<number, number[]>()
     const missing = new Set<string>()
     let coordinateCount = 0
+    const appendQuads = (
+        block: StructureBlock,
+        model: NonNullable<ReturnType<typeof geometry.water>>,
+        target: number[],
+        targetColors: number[],
+    ) => {
+        for (const quad of model.quads) {
+            coordinateCount += 18
+            if (coordinateCount > 6_000_000) throw new Error('Structure mesh limit exceeded')
+            const sourceVertices = quad.vertices()
+            // Virtual UV slots carry the texture identity through Deepslate's model resolver.
+            const averageU =
+                sourceVertices.reduce((sum, vertex) => {
+                    if (!vertex.texture) throw new Error('Untextured structure face')
+                    return sum + vertex.texture[0]
+                }, 0) / sourceVertices.length
+            const textureIndex = Math.floor(averageU / textureSlotWidth)
+            const color = pack.textureColors[textureIds[textureIndex]]
+            if (!color) throw new Error('Unresolved structure face color')
+            const vertices = sourceVertices.map((vertex) => {
+                const local = transformStructurePosition(
+                    [vertex.pos.x - 0.5, vertex.pos.y, vertex.pos.z - 0.5],
+                    block.rotation,
+                    block.mirror,
+                )
+                return [
+                    block.position[0] - origin[0] + local[0] + 0.5,
+                    block.position[1] - origin[1] + local[1],
+                    block.position[2] - origin[2] + local[2] + 0.5,
+                ]
+            })
+            for (const index of block.mirror ? [0, 2, 1, 0, 3, 2] : [0, 1, 2, 0, 2, 3]) {
+                target.push(...vertices[index])
+                targetColors.push(
+                    ...color.map((channel, axis) => channel * sourceVertices[index].color[axis]),
+                )
+            }
+        }
+    }
+    const fluidModels = new Map<string, ReturnType<typeof geometry.water>>()
     const directionAfterRotation = (direction: SchematicDirection, rotation: number) => {
         const offset = rotateStructurePosition(
             [...SCHEMATIC_DIRECTION_OFFSETS[direction]],
@@ -100,7 +140,17 @@ export function buildStructureBlockMeshes(
             model = geometry.mesh(block.state, cull)
             models.set(key, model)
         }
-        if (!model.quads.length) {
+        // Waterlogged fluid is meshed apart from the host, so it needs its own quads. Versions that
+        // predate the waterlogged fluid textures have no water textures to map, hence the guard.
+        if (!fluidModels.has(key)) {
+            try {
+                fluidModels.set(key, geometry.water(block.state, cull))
+            } catch {
+                fluidModels.set(key, undefined)
+            }
+        }
+        const fluid = fluidModels.get(key)
+        if (!model.quads.length && !fluid) {
             if (!SCHEMATIC_DIRECTIONS.every((direction) => cull[direction]))
                 missing.add(block.state.name)
             continue
@@ -111,42 +161,9 @@ export function buildStructureBlockMeshes(
             positions.set(block.pieceId, target)
             colors.set(block.pieceId, [])
         }
-        for (const quad of model.quads) {
-            coordinateCount += 18
-            if (coordinateCount > 6_000_000) throw new Error('Structure mesh limit exceeded')
-            const sourceVertices = quad.vertices()
-            // Virtual UV slots carry the texture identity through Deepslate's model resolver.
-            const averageU =
-                sourceVertices.reduce((sum, vertex) => {
-                    if (!vertex.texture) throw new Error('Untextured structure face')
-                    return sum + vertex.texture[0]
-                }, 0) / sourceVertices.length
-            const textureIndex = Math.floor(averageU / textureSlotWidth)
-            const color = pack.textureColors[textureIds[textureIndex]]
-            if (!color) throw new Error('Unresolved structure face color')
-            const vertices = sourceVertices.map((vertex) => {
-                const local = transformStructurePosition(
-                    [vertex.pos.x - 0.5, vertex.pos.y, vertex.pos.z - 0.5],
-                    block.rotation,
-                    block.mirror,
-                )
-                return [
-                    block.position[0] - origin[0] + local[0] + 0.5,
-                    block.position[1] - origin[1] + local[1],
-                    block.position[2] - origin[2] + local[2] + 0.5,
-                ]
-            })
-            for (const index of block.mirror ? [0, 2, 1, 0, 3, 2] : [0, 1, 2, 0, 2, 3]) {
-                target.push(...vertices[index])
-                colors
-                    .get(block.pieceId)!
-                    .push(
-                        ...color.map(
-                            (channel, axis) => channel * sourceVertices[index].color[axis],
-                        ),
-                    )
-            }
-        }
+        const targetColors = colors.get(block.pieceId)!
+        appendQuads(block, model, target, targetColors)
+        if (fluid) appendQuads(block, fluid, target, targetColors)
     }
     return {
         meshes: [...positions].map(([pieceId, vertices]) => ({

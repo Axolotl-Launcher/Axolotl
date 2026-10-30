@@ -17,6 +17,24 @@ pub(super) async fn pool() -> SqlitePool {
     pool
 }
 
+/// The same database for a test outside this half: `sqlx` may be spelled here
+/// alone, so a module that needs a migrated database borrows one instead of
+/// opening it and running the migrations itself.
+pub(crate) async fn migrated_pool() -> SqlitePool {
+    pool().await
+}
+
+/// A database of its own with no tables, for a test that lays out the ones it
+/// needs rather than running the migrations. One connection, so every
+/// statement sees the same in-memory database.
+pub(crate) async fn empty_pool() -> SqlitePool {
+    sqlx::sqlite::SqlitePoolOptions::new()
+        .max_connections(1)
+        .connect("sqlite::memory:")
+        .await
+        .expect("in-memory SQLite pool")
+}
+
 /// A handle on a database of its own.
 pub(super) async fn handle() -> Handle {
     Handle::new(pool().await)

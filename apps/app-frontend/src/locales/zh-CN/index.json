@@ -7842,7 +7842,7 @@
     "message": "可能的问题：OpenJ9 与此实例不兼容"
   },
   "app.minecraft-crash.diagnosis.out-of-memory.action": {
-    "message": "可以尝试增加实例内存分配，或移除占用内存较多的模组与资源包。"
+    "message": "可以尝试增加实例内存分配，或移除占用内存较多的模组与资源包。若日志提示系统物理内存或交换空间不足，则应改为降低内存分配或关闭其他程序。"
   },
   "app.minecraft-crash.diagnosis.out-of-memory.title": {
     "message": "可能的问题：Minecraft 内存不足"
@@ -20512,5 +20512,41 @@
   },
   "app.lab.stronghold.results": {
     "message": "候选区块"
+  },
+  "app.skins.player.input": {
+    "message": "玩家名或 UUID"
+  },
+  "app.skins.player.unavailable": {
+    "message": "无法加载皮肤，请检查网络连接后重试。"
+  },
+  "app.skins.player.title": {
+    "message": "查找玩家皮肤"
+  },
+  "app.skins.player.imported": {
+    "message": "已加入皮肤库"
+  },
+  "app.skins.player.download": {
+    "message": "下载 PNG"
+  },
+  "app.skins.player.rate-limited": {
+    "message": "请求过于频繁，请稍后重试。"
+  },
+  "app.skins.player.import": {
+    "message": "加入皮肤库"
+  },
+  "app.skins.player.invalid-input": {
+    "message": "请输入有效的 Java 版玩家名或 UUID。"
+  },
+  "app.skins.player.no-custom-skin": {
+    "message": "该玩家没有设置自定义皮肤。"
+  },
+  "app.skins.player.search": {
+    "message": "查询"
+  },
+  "app.skins.player.save-failed": {
+    "message": "无法保存皮肤，请重试。"
+  },
+  "app.skins.player.not-found": {
+    "message": "未找到玩家，请检查玩家名或 UUID。"
   }
 }

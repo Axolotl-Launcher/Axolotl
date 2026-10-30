@@ -196,8 +196,11 @@ pub struct State {
 
     /// Gate pausing maintenance loops that only serve the launcher UI.
     pub(crate) maintenance_gate: MaintenanceGate,
-    /// Handles for the long-running maintenance loops, aborted on shutdown.
-    pub(crate) background_tasks: Mutex<Vec<tokio::task::JoinHandle<()>>>,
+    /// Abort handles of the long-running maintenance loops, used on shutdown.
+    pub(crate) background_tasks: Mutex<Vec<tokio::task::AbortHandle>>,
+    /// Tracks the same loops so shutdown can wait for them; the tracker never
+    /// aborts anything itself, so it sits beside the abort handles.
+    pub(crate) background_tracker: tokio_util::task::TaskTracker,
 
     // NOTE: we explicitly must NOT store the app identifier in the state object,
     // because creating the state object is fallible (e.g. database missing),
@@ -710,30 +713,27 @@ impl State {
             );
         }
 
-        let config_sync_task = tokio::task::spawn({
+        state.spawn_background({
             let state = Arc::clone(state);
             async move {
                 instances::config_sync::run(state).await;
             }
         });
-        state.background_tasks.lock().push(config_sync_task);
 
-        let concurrency_task = tokio::spawn({
+        state.spawn_background({
             let state = Arc::clone(state);
             async move {
                 state.run_auto_concurrency_controller().await;
             }
         });
-        state.background_tasks.lock().push(concurrency_task);
 
         crate::telemetry::start(Arc::clone(state));
 
-        let preload_task = tokio::spawn(async move {
+        state.spawn_background(async move {
             crate::google_ip::preload().await;
         });
-        state.background_tasks.lock().push(preload_task);
 
-        let maintenance_task = tokio::spawn({
+        state.spawn_background({
             let state = Arc::clone(state);
             async move {
                 crate::util::fetch::cleanup_stale_partial_downloads(vec![
@@ -762,7 +762,6 @@ impl State {
                 // Axolotl does not connect to Modrinth's private friends socket.
             }
         });
-        state.background_tasks.lock().push(maintenance_task);
 
         Ok(())
     }
@@ -1220,10 +1219,28 @@ impl State {
         self.maintenance_gate.set_paused(false);
     }
 
+    /// Runs a long-lived maintenance loop that shutdown aborts. A loop
+    /// registered after shutdown began is aborted at once, so none outlives it.
+    pub(crate) fn spawn_background(
+        &self,
+        task: impl std::future::Future<Output = ()> + Send + 'static,
+    ) {
+        let handle = self.background_tracker.spawn(task);
+        let mut tasks = self.background_tasks.lock();
+        // Shutdown closes the tracker before it drains this list, so a
+        // registration either lands before the drain or sees the close.
+        if self.background_tracker.is_closed() {
+            handle.abort();
+        } else {
+            tasks.push(handle.abort_handle());
+        }
+    }
+
     /// Aborts the maintenance loops and closes the Discord IPC connection;
     /// intended for the app-exit path.
     pub async fn shutdown(&self) {
         self.content_refresh.shutdown().await;
+        self.background_tracker.close();
         for task in self.background_tasks.lock().drain(..) {
             task.abort();
         }
@@ -1402,6 +1419,7 @@ impl State {
             process_manager,
             maintenance_gate: MaintenanceGate::new(),
             background_tasks: Mutex::new(Vec::new()),
+            background_tracker: tokio_util::task::TaskTracker::new(),
             friends_socket,
             restart_after_pending_update: AtomicBool::new(false),
             instance_locks: Arc::new(InstanceLockManager::default()),
@@ -1597,6 +1615,7 @@ pub(crate) async fn test_state(
         process_manager: ProcessManager::new(),
         maintenance_gate: MaintenanceGate::new(),
         background_tasks: Mutex::new(Vec::new()),
+        background_tracker: tokio_util::task::TaskTracker::new(),
         friends_socket: FriendsSocket::new(),
         restart_after_pending_update: AtomicBool::new(false),
         instance_locks: Arc::new(InstanceLockManager::default()),
@@ -1996,5 +2015,114 @@ mod uninitialized_state_tests {
                 );
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod shutdown_tests {
+    use super::*;
+    use std::future::Future;
+
+    async fn fixture() -> (tempfile::TempDir, Arc<State>) {
+        let temp = tempfile::tempdir().unwrap();
+        let directories = DirectoryInfo {
+            settings_dir: temp.path().into(),
+            config_dir: temp.path().into(),
+            app_identifier: "shutdown-test".into(),
+        };
+        let pool = sqlx::sqlite::SqlitePoolOptions::new()
+            .max_connections(2)
+            .connect_with(
+                sqlx::sqlite::SqliteConnectOptions::new()
+                    .filename(temp.path().join("state.db"))
+                    .create_if_missing(true)
+                    .foreign_keys(true),
+            )
+            .await
+            .unwrap();
+        sqlx::migrate!().run(&pool).await.unwrap();
+        let state = test_state(directories, pool).await.unwrap();
+        (temp, state)
+    }
+
+    fn register(
+        state: &State,
+        task: impl Future<Output = ()> + Send + 'static,
+    ) {
+        state.spawn_background(task);
+    }
+
+    /// Sets its flag when the task owning it is dropped, i.e. aborted.
+    struct DropFlag(Arc<AtomicBool>);
+
+    impl Drop for DropFlag {
+        fn drop(&mut self) {
+            self.0.store(true, Ordering::SeqCst);
+        }
+    }
+
+    fn pending_task(
+        flag: &Arc<AtomicBool>,
+    ) -> impl Future<Output = ()> + use<> {
+        let guard = DropFlag(flag.clone());
+        async move {
+            let _guard = guard;
+            std::future::pending::<()>().await;
+        }
+    }
+
+    async fn all_dropped(flags: &[Arc<AtomicBool>]) -> bool {
+        tokio::time::timeout(Duration::from_secs(2), async {
+            while !flags.iter().all(|flag| flag.load(Ordering::SeqCst)) {
+                tokio::task::yield_now().await;
+            }
+        })
+        .await
+        .is_ok()
+    }
+
+    #[tokio::test]
+    async fn shutdown_aborts_every_background_task() {
+        let (_temp, state) = fixture().await;
+        let flags: Vec<_> =
+            (0..3).map(|_| Arc::new(AtomicBool::new(false))).collect();
+        for flag in &flags {
+            register(&state, pending_task(flag));
+        }
+        state.shutdown().await;
+        assert!(all_dropped(&flags).await, "every task must be aborted");
+        assert!(state.background_tasks.lock().is_empty());
+    }
+
+    #[tokio::test]
+    async fn shutdown_does_not_wait_for_background_tasks() {
+        let (_temp, state) = fixture().await;
+        let flag = Arc::new(AtomicBool::new(false));
+        register(&state, pending_task(&flag));
+        tokio::time::timeout(Duration::from_secs(2), state.shutdown())
+            .await
+            .expect("shutdown returns while a task never finishes");
+        assert!(all_dropped(&[flag]).await);
+    }
+
+    #[tokio::test]
+    async fn loops_registered_after_shutdown_do_not_survive_it() {
+        let (_temp, state) = fixture().await;
+        state.shutdown().await;
+        let flag = Arc::new(AtomicBool::new(false));
+        register(&state, pending_task(&flag));
+        assert!(all_dropped(&[flag]).await, "a late loop is aborted at once");
+        assert!(state.background_tasks.lock().is_empty());
+    }
+
+    #[tokio::test]
+    async fn repeated_shutdown_is_harmless() {
+        let (_temp, state) = fixture().await;
+        let flag = Arc::new(AtomicBool::new(false));
+        register(&state, pending_task(&flag));
+        state.shutdown().await;
+        state.shutdown().await;
+        assert!(all_dropped(&[flag]).await);
+        assert!(state.background_tasks.lock().is_empty());
     }
 }

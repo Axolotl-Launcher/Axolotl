@@ -37,7 +37,7 @@ pub(crate) fn start(state: Arc<State>) {
 
     let (wake_tx, mut wake_rx) = tokio::sync::mpsc::channel(1);
     let _ = WAKE_TX.set(wake_tx);
-    let task = tokio::spawn({
+    state.spawn_background({
         let state = Arc::clone(&state);
         async move {
             loop {
@@ -62,7 +62,6 @@ pub(crate) fn start(state: Arc<State>) {
             }
         }
     });
-    state.background_tasks.lock().push(task);
 }
 
 pub async fn set_enabled(state: &State, enabled: bool) -> crate::Result<()> {

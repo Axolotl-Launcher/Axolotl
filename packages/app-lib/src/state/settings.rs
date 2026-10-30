@@ -320,6 +320,119 @@ pub enum FeatureFlag {
     AutoInstallDependencies,
 }
 
+/// The settings a database that has never been used holds.
+///
+/// The values are not chosen here: they are the `settings` table's column
+/// defaults, with the updates the migrations run on a fresh row already applied,
+/// so a column added with one default and then moved reads as the moved value.
+/// The test `default_matches_the_row_a_fresh_database_creates` replays the
+/// migrations into an empty database and diffs that row against this, which is
+/// what keeps the baseline from drifting away from the database it describes.
+impl Default for Settings {
+    fn default() -> Self {
+        Self {
+            resource_chinese_filenames: true,
+            resource_preserve_filenames: true,
+            max_concurrent_downloads: 10,
+            max_concurrent_writes: 10,
+            auto_concurrent_downloads: true,
+            minecraft_metadata_source: DownloadSourceMode::Auto,
+            minecraft_file_source: DownloadSourceMode::Auto,
+            modrinth_source: DownloadSourceMode::Auto,
+            curseforge_source: DownloadSourceMode::Auto,
+            bypass_curseforge_download_restrictions: true,
+            ignore_ssl_errors: false,
+            doh_enabled: default_doh_enabled(),
+            mojang_auth_source: DownloadSourceMode::Auto,
+            legacy_use_minecraft_mirror: None,
+            legacy_use_modrinth_mirror: None,
+            legacy_use_curseforge_mirror: None,
+            theme: Theme::Dark,
+            accent_color: AccentColor::Pink,
+            locale: String::new(),
+            default_page: DefaultPage::Home,
+            collapsed_navigation: true,
+            hide_nametag_skins_page: false,
+            nametag_uses_app_font: false,
+            advanced_rendering: true,
+            native_decorations: false,
+            toggle_sidebar: false,
+            custom_background_path: None,
+            custom_background_blur: 12,
+            custom_background_opacity: 65,
+            custom_background_component_opacity:
+                default_custom_background_component_opacity(),
+            ui_font: None,
+            mono_font: None,
+            transparent_background: false,
+            transparent_background_opacity: 55,
+            transparent_background_blur: false,
+            sidebar_instance_count: 0,
+            close_behavior: "ask".to_string(),
+            log_level: default_log_level(),
+            auto_hide_downloads_button: false,
+            home_layout: HomeLayout::Standard,
+            minimal_home_instance_id: None,
+            home_widgets: None,
+            home_widget_background_opacity:
+                default_home_widget_background_opacity(),
+            hidden_nav_items: Vec::new(),
+            custom_window_title_enabled: false,
+            default_window_title: default_window_title(),
+            terracotta_public_nodes: default_terracotta_public_nodes(),
+            telemetry: false,
+            telemetry_consent_version: 0,
+            discord_rpc: true,
+            // The column is added defaulting to on and a later migration turns
+            // it off, so a fresh row reads as off.
+            personalized_ads: false,
+            onboarded: false,
+            onboarding_version: 0,
+            // The column is added defaulting to on and a later migration copies
+            // `onboarded` into it, so a fresh row reads as off.
+            onboarding_instance_tour_completed: false,
+            extra_launch_args: Vec::new(),
+            custom_env_vars: Vec::new(),
+            memory: MemorySettings {
+                maximum: 2048,
+                // The column is added defaulting to off and a later migration
+                // turns it on for every row.
+                automatic: true,
+                optimize_before_launch: false,
+            },
+            force_fullscreen: false,
+            maximize_window: false,
+            game_resolution: WindowSize(854, 480),
+            hide_on_process_start: false,
+            enter_lightweight_mode_on_game_launch: false,
+            auto_set_java_high_performance_mode: true,
+            // The column is added defaulting to empty, which means the launcher
+            // picks the language rather than the user naming one.
+            default_game_language: String::new(),
+            hooks: Hooks::default(),
+            custom_dir: None,
+            prev_custom_dir: None,
+            backup_repository_path: None,
+            migrated: false,
+            developer_mode: false,
+            feature_flags: HashMap::new(),
+            sync_features_across_devices: false,
+            show_files_tab_in_instances: true,
+            show_worlds_tab_in_instances: true,
+            show_screenshots_tab_in_instances: false,
+            show_skin_selector_in_sidebar: true,
+            skipped_update: None,
+            pending_update_toast_for_version: None,
+            auto_download_updates: None,
+            allow_external_scheme: true,
+            allow_privileged_scheme: false,
+            // The version the column was added with, not `CURRENT_VERSION`: no
+            // migration has run over this row.
+            version: 1,
+        }
+    }
+}
+
 impl Settings {
     const CURRENT_VERSION: usize = 3;
 
@@ -335,17 +448,58 @@ impl Settings {
         Ok(Self::from_record(record))
     }
 
-    fn from_record(record: SettingsRecord) -> Self {
-        let mut hidden_nav_items: Vec<String> =
-            serde_json::from_str(&record.hidden_nav_items).unwrap_or_default();
+    /// The ranges and shapes a value of these settings has to hold, in the one
+    /// place they are written down.
+    ///
+    /// A settings document is text the user may edit by hand, so a number out
+    /// of range is pulled back into it here rather than trusted; the row is
+    /// read and written through the same function, so the two cannot drift
+    /// apart about what a stored value is allowed to be.
+    pub(crate) fn normalize(mut self) -> Self {
+        self.max_concurrent_downloads = self
+            .max_concurrent_downloads
+            .clamp(1, DOWNLOAD_CONCURRENCY_HARD_MAX);
+        // The upper bound above is the download engine's; how many writes run
+        // at once never had one, so a value past it keeps what the user set.
+        self.max_concurrent_writes = self.max_concurrent_writes.max(1);
+        self.custom_background_blur = self.custom_background_blur.min(40);
+        self.custom_background_opacity =
+            self.custom_background_opacity.clamp(10, 100);
+        self.custom_background_component_opacity =
+            self.custom_background_component_opacity.clamp(0, 100);
+        self.home_widget_background_opacity =
+            self.home_widget_background_opacity.clamp(0, 100);
+        self.transparent_background_opacity =
+            self.transparent_background_opacity.min(100);
+        self.sidebar_instance_count = self.sidebar_instance_count.min(50);
         // Home and Library must stay reachable from the nav rail.
-        hidden_nav_items.retain(|id| id != "home" && id != "library");
+        self.hidden_nav_items
+            .retain(|id| id != "home" && id != "library");
+        self.default_window_title =
+            self.default_window_title.trim().to_string();
+        self.default_game_language =
+            normalize_game_language(&self.default_game_language);
+        self.ui_font = sanitize_font_family(self.ui_font.take());
+        self.mono_font = sanitize_font_family(self.mono_font.take());
+        self
+    }
+
+    /// The numeric columns are `i64` where the setting they carry is unsigned,
+    /// and SQLite does not check a column's type: a negative number left by a
+    /// hand edit or an older bug would convert to a huge unsigned value, which
+    /// the range check below then reads as the upper bound. Clamping in the
+    /// column's own domain keeps such a value at the lower bound, where a
+    /// number below the range belongs; `normalize` then applies the real range.
+    fn from_record(record: SettingsRecord) -> Self {
+        let hidden_nav_items: Vec<String> =
+            serde_json::from_str(&record.hidden_nav_items).unwrap_or_default();
 
         Self {
             resource_chinese_filenames: record.resource_chinese_filenames,
             resource_preserve_filenames: record.resource_preserve_filenames,
-            max_concurrent_downloads: record.max_concurrent_downloads as usize,
-            max_concurrent_writes: record.max_concurrent_writes as usize,
+            max_concurrent_downloads: record.max_concurrent_downloads.max(0)
+                as usize,
+            max_concurrent_writes: record.max_concurrent_writes.max(1) as usize,
             auto_concurrent_downloads: record.auto_concurrent_downloads,
             minecraft_metadata_source: to_source_mode(
                 record.minecraft_metadata_source,
@@ -373,20 +527,20 @@ impl Settings {
             native_decorations: record.native_decorations,
             toggle_sidebar: record.toggle_sidebar,
             custom_background_path: record.custom_background_path,
-            custom_background_blur: record.custom_background_blur as u32,
-            custom_background_opacity: record.custom_background_opacity as u32,
+            custom_background_blur: record.custom_background_blur.max(0) as u32,
+            custom_background_opacity: record.custom_background_opacity.max(0)
+                as u32,
             custom_background_component_opacity: record
                 .custom_background_component_opacity
-                .clamp(0, 100)
-                as u32,
-            ui_font: sanitize_font_family(record.ui_font),
-            mono_font: sanitize_font_family(record.mono_font),
+                .max(0) as u32,
+            ui_font: record.ui_font,
+            mono_font: record.mono_font,
             transparent_background: record.transparent_background,
             transparent_background_opacity: record
                 .transparent_background_opacity
-                as u32,
+                .max(0) as u32,
             transparent_background_blur: record.transparent_background_blur,
-            sidebar_instance_count: record.sidebar_instance_count as u32,
+            sidebar_instance_count: record.sidebar_instance_count.max(0) as u32,
             close_behavior: record.close_behavior,
             log_level: record.log_level,
             auto_hide_downloads_button: record.auto_hide_downloads_button,
@@ -398,8 +552,7 @@ impl Settings {
                 .and_then(|value| serde_json::from_str(value).ok()),
             home_widget_background_opacity: record
                 .home_widget_background_opacity
-                .clamp(0, 100)
-                as u32,
+                .max(0) as u32,
             hidden_nav_items,
             custom_window_title_enabled: record.custom_window_title_enabled,
             default_window_title: record.default_window_title,
@@ -409,12 +562,13 @@ impl Settings {
             .ok()
             .unwrap_or_else(default_terracotta_public_nodes),
             telemetry: record.telemetry,
-            telemetry_consent_version: record.telemetry_consent_version as u32,
+            telemetry_consent_version: record.telemetry_consent_version.max(0)
+                as u32,
             discord_rpc: record.discord_rpc,
             developer_mode: record.developer_mode,
             personalized_ads: record.personalized_ads,
             onboarded: record.onboarded,
-            onboarding_version: record.onboarding_version as usize,
+            onboarding_version: record.onboarding_version.max(0) as usize,
             onboarding_instance_tour_completed: record
                 .onboarding_instance_tour_completed,
             extra_launch_args: serde_json::from_str(&record.extra_launch_args)
@@ -424,7 +578,7 @@ impl Settings {
                 .ok()
                 .unwrap_or_default(),
             memory: MemorySettings {
-                maximum: record.mc_memory_max as u32,
+                maximum: record.mc_memory_max.max(0) as u32,
                 automatic: record.mc_memory_auto,
                 optimize_before_launch: record.mc_memory_optimize,
             },
@@ -463,8 +617,9 @@ impl Settings {
             auto_download_updates: record.auto_download_updates,
             allow_external_scheme: record.allow_external_scheme,
             allow_privileged_scheme: record.allow_privileged_scheme,
-            version: record.version as usize,
+            version: record.version.max(0) as usize,
         }
+        .normalize()
     }
 
     pub async fn update(&self, handle: &Handle) -> crate::Result<()> {
@@ -472,136 +627,132 @@ impl Settings {
     }
 
     fn to_record(&self) -> crate::Result<SettingsRecord> {
-        let auto_prefers_mirror = self.auto_prefers_mirror();
+        let settings = self.clone().normalize();
+        let auto_prefers_mirror = settings.auto_prefers_mirror();
         Ok(SettingsRecord {
-            max_concurrent_downloads: self
-                .max_concurrent_downloads
-                .clamp(1, DOWNLOAD_CONCURRENCY_HARD_MAX)
-                as i64,
-            max_concurrent_writes: self.max_concurrent_writes as i64,
-            theme: self.theme.as_str().to_string(),
-            default_page: self.default_page.as_str().to_string(),
-            collapsed_navigation: self.collapsed_navigation,
-            advanced_rendering: self.advanced_rendering,
-            native_decorations: self.native_decorations,
-            telemetry: self.telemetry,
-            discord_rpc: self.discord_rpc,
-            developer_mode: self.developer_mode,
-            onboarded: self.onboarded,
-            extra_launch_args: serde_json::to_string(&self.extra_launch_args)?,
-            custom_env_vars: serde_json::to_string(&self.custom_env_vars)?,
-            mc_memory_max: self.memory.maximum as i64,
-            mc_force_fullscreen: self.force_fullscreen,
-            mc_game_resolution_x: self.game_resolution.0 as i64,
-            mc_game_resolution_y: self.game_resolution.1 as i64,
-            hide_on_process_start: self.hide_on_process_start,
-            hook_pre_launch: self.hooks.pre_launch.clone(),
-            hook_wrapper: self.hooks.wrapper.clone(),
-            hook_post_exit: self.hooks.post_exit.clone(),
-            custom_dir: self.custom_dir.clone(),
-            prev_custom_dir: self.prev_custom_dir.clone(),
-            migrated: self.migrated,
-            personalized_ads: self.personalized_ads,
-            toggle_sidebar: self.toggle_sidebar,
-            feature_flags: serde_json::to_string(&self.feature_flags)?,
-            hide_nametag_skins_page: self.hide_nametag_skins_page,
-            nametag_uses_app_font: self.nametag_uses_app_font,
-            skipped_update: self.skipped_update.clone(),
-            pending_update_toast_for_version: self
+            max_concurrent_downloads: settings.max_concurrent_downloads as i64,
+            max_concurrent_writes: settings.max_concurrent_writes as i64,
+            theme: settings.theme.as_str().to_string(),
+            default_page: settings.default_page.as_str().to_string(),
+            collapsed_navigation: settings.collapsed_navigation,
+            advanced_rendering: settings.advanced_rendering,
+            native_decorations: settings.native_decorations,
+            telemetry: settings.telemetry,
+            discord_rpc: settings.discord_rpc,
+            developer_mode: settings.developer_mode,
+            onboarded: settings.onboarded,
+            extra_launch_args: serde_json::to_string(
+                &settings.extra_launch_args,
+            )?,
+            custom_env_vars: serde_json::to_string(&settings.custom_env_vars)?,
+            mc_memory_max: settings.memory.maximum as i64,
+            mc_force_fullscreen: settings.force_fullscreen,
+            mc_game_resolution_x: settings.game_resolution.0 as i64,
+            mc_game_resolution_y: settings.game_resolution.1 as i64,
+            hide_on_process_start: settings.hide_on_process_start,
+            hook_pre_launch: settings.hooks.pre_launch.clone(),
+            hook_wrapper: settings.hooks.wrapper.clone(),
+            hook_post_exit: settings.hooks.post_exit.clone(),
+            custom_dir: settings.custom_dir.clone(),
+            prev_custom_dir: settings.prev_custom_dir.clone(),
+            migrated: settings.migrated,
+            personalized_ads: settings.personalized_ads,
+            toggle_sidebar: settings.toggle_sidebar,
+            feature_flags: serde_json::to_string(&settings.feature_flags)?,
+            hide_nametag_skins_page: settings.hide_nametag_skins_page,
+            nametag_uses_app_font: settings.nametag_uses_app_font,
+            skipped_update: settings.skipped_update.clone(),
+            pending_update_toast_for_version: settings
                 .pending_update_toast_for_version
                 .clone(),
-            auto_download_updates: self.auto_download_updates,
-            version: self.version as i64,
-            locale: self.locale.clone(),
-            default_game_language: normalize_game_language(
-                &self.default_game_language,
-            ),
-            accent_color: self.accent_color.as_str().to_string(),
-            custom_background_path: self.custom_background_path.clone(),
-            custom_background_blur: self.custom_background_blur.min(40) as i64,
-            custom_background_opacity: self
-                .custom_background_opacity
-                .clamp(10, 100) as i64,
-            use_minecraft_mirror: self
+            auto_download_updates: settings.auto_download_updates,
+            version: settings.version as i64,
+            locale: settings.locale.clone(),
+            default_game_language: settings.default_game_language.clone(),
+            accent_color: settings.accent_color.as_str().to_string(),
+            custom_background_path: settings.custom_background_path.clone(),
+            custom_background_blur: settings.custom_background_blur as i64,
+            custom_background_opacity: settings.custom_background_opacity
+                as i64,
+            use_minecraft_mirror: settings
                 .minecraft_file_source
                 .prefers_mirror(auto_prefers_mirror),
-            use_modrinth_mirror: self
+            use_modrinth_mirror: settings
                 .modrinth_source
                 .prefers_mirror(auto_prefers_mirror),
-            use_curseforge_mirror: self
+            use_curseforge_mirror: settings
                 .curseforge_source
                 .prefers_mirror(auto_prefers_mirror),
-            auto_concurrent_downloads: self.auto_concurrent_downloads,
+            auto_concurrent_downloads: settings.auto_concurrent_downloads,
             minecraft_metadata_source: from_source_mode(
-                self.minecraft_metadata_source,
+                settings.minecraft_metadata_source,
             ),
-            minecraft_file_source: from_source_mode(self.minecraft_file_source),
-            modrinth_source: from_source_mode(self.modrinth_source),
-            curseforge_source: from_source_mode(self.curseforge_source),
-            onboarding_version: self.onboarding_version as i64,
-            onboarding_instance_tour_completed: self
+            minecraft_file_source: from_source_mode(
+                settings.minecraft_file_source,
+            ),
+            modrinth_source: from_source_mode(settings.modrinth_source),
+            curseforge_source: from_source_mode(settings.curseforge_source),
+            onboarding_version: settings.onboarding_version as i64,
+            onboarding_instance_tour_completed: settings
                 .onboarding_instance_tour_completed,
-            sidebar_instance_count: self.sidebar_instance_count.min(50) as i64,
-            mc_memory_auto: self.memory.automatic,
-            mc_memory_optimize: self.memory.optimize_before_launch,
-            auto_set_java_high_performance_mode: self
+            sidebar_instance_count: settings.sidebar_instance_count as i64,
+            mc_memory_auto: settings.memory.automatic,
+            mc_memory_optimize: settings.memory.optimize_before_launch,
+            auto_set_java_high_performance_mode: settings
                 .auto_set_java_high_performance_mode,
-            transparent_background: self.transparent_background,
-            transparent_background_opacity: self
+            transparent_background: settings.transparent_background,
+            transparent_background_opacity: settings
                 .transparent_background_opacity
-                .min(100) as i64,
-            transparent_background_blur: self.transparent_background_blur,
-            home_layout: from_home_layout(self.home_layout),
-            minimal_home_instance_id: self.minimal_home_instance_id.clone(),
-            auto_hide_downloads_button: self.auto_hide_downloads_button,
-            home_widgets: self
+                as i64,
+            transparent_background_blur: settings.transparent_background_blur,
+            home_layout: from_home_layout(settings.home_layout),
+            minimal_home_instance_id: settings.minimal_home_instance_id.clone(),
+            auto_hide_downloads_button: settings.auto_hide_downloads_button,
+            home_widgets: settings
                 .home_widgets
                 .as_ref()
                 .map(serde_json::to_string)
                 .transpose()?,
-            mojang_auth_source: from_source_mode(self.mojang_auth_source),
+            mojang_auth_source: from_source_mode(settings.mojang_auth_source),
             terracotta_public_nodes: serde_json::to_string(
-                &self.terracotta_public_nodes,
+                &settings.terracotta_public_nodes,
             )?,
-            telemetry_consent_version: self.telemetry_consent_version as i64,
-            bypass_curseforge_download_restrictions: self
+            telemetry_consent_version: settings.telemetry_consent_version
+                as i64,
+            bypass_curseforge_download_restrictions: settings
                 .bypass_curseforge_download_restrictions,
-            enter_lightweight_mode_on_game_launch: self
+            enter_lightweight_mode_on_game_launch: settings
                 .enter_lightweight_mode_on_game_launch,
-            close_behavior: self.close_behavior.clone(),
-            mc_maximize_window: self.maximize_window,
-            log_level: self.log_level.clone(),
-            sync_features_across_devices: self.sync_features_across_devices,
-            show_files_tab_in_instances: self.show_files_tab_in_instances,
-            show_worlds_tab_in_instances: self.show_worlds_tab_in_instances,
-            show_screenshots_tab_in_instances: self
+            close_behavior: settings.close_behavior.clone(),
+            mc_maximize_window: settings.maximize_window,
+            log_level: settings.log_level.clone(),
+            sync_features_across_devices: settings.sync_features_across_devices,
+            show_files_tab_in_instances: settings.show_files_tab_in_instances,
+            show_worlds_tab_in_instances: settings.show_worlds_tab_in_instances,
+            show_screenshots_tab_in_instances: settings
                 .show_screenshots_tab_in_instances,
-            show_skin_selector_in_sidebar: self.show_skin_selector_in_sidebar,
-            ignore_ssl_errors: self.ignore_ssl_errors,
-            home_widget_background_opacity: self
+            show_skin_selector_in_sidebar: settings
+                .show_skin_selector_in_sidebar,
+            ignore_ssl_errors: settings.ignore_ssl_errors,
+            home_widget_background_opacity: settings
                 .home_widget_background_opacity
-                .clamp(0, 100)
                 as i64,
-            hidden_nav_items: {
-                let mut hidden_nav_items = self.hidden_nav_items.clone();
-                // Boundary guard: never persist core nav items as hidden.
-                hidden_nav_items.retain(|id| id != "home" && id != "library");
-                serde_json::to_string(&hidden_nav_items)?
-            },
-            custom_window_title_enabled: self.custom_window_title_enabled,
-            default_window_title: self.default_window_title.trim().to_string(),
-            custom_background_component_opacity: self
+            hidden_nav_items: serde_json::to_string(
+                &settings.hidden_nav_items,
+            )?,
+            custom_window_title_enabled: settings.custom_window_title_enabled,
+            default_window_title: settings.default_window_title.clone(),
+            custom_background_component_opacity: settings
                 .custom_background_component_opacity
-                .clamp(0, 100)
                 as i64,
-            ui_font: sanitize_font_family(self.ui_font.clone()),
-            mono_font: sanitize_font_family(self.mono_font.clone()),
-            backup_repository_path: self.backup_repository_path.clone(),
-            allow_external_scheme: self.allow_external_scheme,
-            allow_privileged_scheme: self.allow_privileged_scheme,
-            doh_enabled: self.doh_enabled,
-            resource_chinese_filenames: self.resource_chinese_filenames,
-            resource_preserve_filenames: self.resource_preserve_filenames,
+            ui_font: settings.ui_font.clone(),
+            mono_font: settings.mono_font.clone(),
+            backup_repository_path: settings.backup_repository_path.clone(),
+            allow_external_scheme: settings.allow_external_scheme,
+            allow_privileged_scheme: settings.allow_privileged_scheme,
+            doh_enabled: settings.doh_enabled,
+            resource_chinese_filenames: settings.resource_chinese_filenames,
+            resource_preserve_filenames: settings.resource_preserve_filenames,
         })
     }
     /// The settings as they stand inside `unit`, for a caller that means to
@@ -989,9 +1140,131 @@ fn from_home_layout(layout: HomeLayout) -> StoredHomeLayout {
     }
 }
 #[cfg(test)]
-#[cfg(test)]
 mod tests {
+    use std::collections::BTreeSet;
+
     use super::*;
+    use crate::state::store::Collection as _;
+    use crate::state::store::tests::support::migrated_pool;
+
+    /// The keys where two settings carry different values, written out so a
+    /// failure names them instead of printing two whole `Settings`.
+    fn differences(default: &Settings, row: &Settings) -> Vec<String> {
+        let default = as_map(default);
+        let row = as_map(row);
+        let keys: BTreeSet<&String> =
+            default.keys().chain(row.keys()).collect();
+        keys.into_iter()
+            .filter(|key| default.get(*key) != row.get(*key))
+            .map(|key| {
+                format!(
+                    "{key}: default {:?}, row {:?}",
+                    default.get(key),
+                    row.get(key)
+                )
+            })
+            .collect()
+    }
+
+    /// One settings as the keys a document would carry, with `personalized_ads`
+    /// added back: it is skipped when serializing, so a comparison that walked
+    /// the serialized form alone would never check it.
+    fn as_map(
+        settings: &Settings,
+    ) -> serde_json::Map<String, serde_json::Value> {
+        let serde_json::Value::Object(mut map) =
+            serde_json::to_value(settings).unwrap()
+        else {
+            panic!("the settings do not serialize as an object");
+        };
+        map.insert(
+            "personalized_ads".to_string(),
+            serde_json::Value::Bool(settings.personalized_ads),
+        );
+        map
+    }
+
+    /// `Settings::default()` describes the row a fresh database has, so the
+    /// migrations and this file cannot disagree about what an absent key reads
+    /// as.
+    #[tokio::test]
+    async fn default_matches_the_row_a_fresh_database_creates() {
+        let pool = migrated_pool().await;
+        let row = Settings::get(&Handle::new(pool)).await.unwrap();
+
+        let differing = differences(&Settings::default(), &row);
+        assert!(
+            differing.is_empty(),
+            "settings a fresh row disagrees with: {differing:#?}"
+        );
+    }
+
+    /// A row can hold a number below zero where the setting takes none: SQLite
+    /// does not check a column's type, so a hand edit or an older bug can leave
+    /// one. Converting it before bounding it would make it a huge unsigned
+    /// value, which the range check reads as the upper bound rather than the
+    /// lower one.
+    #[tokio::test]
+    async fn a_negative_row_value_reads_as_the_lower_bound() {
+        let pool = migrated_pool().await;
+        let handle = Handle::new(pool);
+        let mut record = StoredSettings::get(&handle, &Singleton)
+            .await
+            .unwrap()
+            .unwrap();
+        record.max_concurrent_downloads = -5;
+        record.custom_background_opacity = -5;
+        record.sidebar_instance_count = -5;
+
+        let settings = Settings::from_record(record);
+
+        assert_eq!(
+            settings.custom_background_opacity, 10,
+            "an opacity below its range reads as its lowest value"
+        );
+        assert_eq!(
+            settings.sidebar_instance_count, 0,
+            "a sidebar count below its range reads as its lowest value"
+        );
+        assert_eq!(
+            settings.max_concurrent_downloads, 1,
+            "a download count below its range reads as its lowest value"
+        );
+    }
+
+    /// The download limit's upper bound belongs to the download engine, not to
+    /// the write limit: how many writes run at once was never bounded above, so
+    /// a row holding more than the download limit keeps its value.
+    #[tokio::test]
+    async fn a_write_limit_above_the_download_bound_is_kept() {
+        let pool = migrated_pool().await;
+        let handle = Handle::new(pool);
+        let mut record = StoredSettings::get(&handle, &Singleton)
+            .await
+            .unwrap()
+            .unwrap();
+
+        record.max_concurrent_writes = 512;
+        assert_eq!(
+            Settings::from_record(record.clone()).max_concurrent_writes,
+            512,
+            "a write limit past the download limit keeps its value"
+        );
+
+        record.max_concurrent_writes = 0;
+        assert_eq!(
+            Settings::from_record(record.clone()).max_concurrent_writes,
+            1,
+            "a write limit of zero reads as its lowest value"
+        );
+
+        record.max_concurrent_writes = -5;
+        assert_eq!(
+            Settings::from_record(record).max_concurrent_writes,
+            1,
+            "a write limit below zero reads as its lowest value"
+        );
+    }
 
     #[test]
     fn default_game_language_normalizes_to_minecraft_code() {

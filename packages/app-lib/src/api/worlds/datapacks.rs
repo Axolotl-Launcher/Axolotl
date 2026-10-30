@@ -654,7 +654,8 @@ fn read_zip_entry(
     }
     let matching = archive
         .file_names()
-        .map(str::to_string)
+        .filter_map(|name| name.ok())
+        .map(|name| name.into_owned())
         .find(|file_name| file_name.ends_with(&format!("/{name}")));
     if let Some(matching) = matching {
         let mut entry = archive.by_name(&matching)?;

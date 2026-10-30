@@ -1,10 +1,19 @@
 //! Fixtures shared by the fetch tests.
 
 use super::super::super::download::constants::MAX_REDIRECT_LOCATION_BYTES;
+use super::super::transfer::download_to_path_inner;
 use super::super::*;
+use crate::util::download::constants::{
+    DOWNLOAD_SCHEDULING_GRACE, ROUTE_PROBE_CONCURRENCY,
+};
 use std::path::Path;
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+use std::sync::{Arc, LazyLock};
+use std::time;
 use std::time::Duration;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio::sync::Mutex as AsyncMutex;
+use tokio::sync::Semaphore;
 
 pub(super) static RANGE_SPLITTING_TEST_LOCK: LazyLock<AsyncMutex<()>> =
     LazyLock::new(|| AsyncMutex::new(()));

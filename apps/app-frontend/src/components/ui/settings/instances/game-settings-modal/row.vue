@@ -18,6 +18,7 @@ import type {
     GameOptionCanonicalValue,
     GameSettingLocaleLabel,
 } from '@/helpers/game-options'
+import { minecraftLanguageOptions } from '@/helpers/minecraft-languages'
 
 import GameSettingBooleanControl from './boolean-control.vue'
 import {
@@ -29,7 +30,6 @@ import {
     settingCanBeEnabled,
 } from './editors'
 import GameKeybindInput from './keybind-input.vue'
-import { minecraftLanguageOptions } from './languages'
 import {
     formatGameSettingChoice,
     formatGameSettingDescription,

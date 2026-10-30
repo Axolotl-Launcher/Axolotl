@@ -1,6 +1,12 @@
 //! Fetch probe tests.
 
+use crate::util::download::constants::{
+    FILE_VALIDATION_CONCURRENCY, ROUTE_PROBE_BYTES, ROUTE_PROBE_CONCURRENCY,
+};
+use std::sync::Arc;
+use std::sync::atomic::Ordering;
 use std::time::Duration;
+use tokio::sync::Semaphore;
 
 use super::super::*;
 use super::fixtures::*;

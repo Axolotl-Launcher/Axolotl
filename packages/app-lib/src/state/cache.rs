@@ -2280,7 +2280,7 @@ impl CachedEntry {
             uri_path: Option<&'static str>,
             keys: &DashSet<impl Display + Eq + Hash + Serialize>,
             fetch_semaphore: &FetchSemaphore,
-            pool: &SqlitePool,
+            _pool: &SqlitePool,
         ) -> crate::Result<Vec<T>> {
             const MAX_REQUEST_SIZE: usize = 800;
 

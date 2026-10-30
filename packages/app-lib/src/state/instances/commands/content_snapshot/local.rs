@@ -179,7 +179,7 @@ pub(crate) fn project(records: SnapshotRecords) -> InstanceContentSnapshot {
             content.version =
                 record.content.version.clone().or(content.version);
             content.owner = record.content.owner.clone().or(content.owner);
-            content.environment = record.content.environment.clone();
+            content.environment = record.content.environment;
             content.loader = record.content.loader.clone().or(content.loader);
             content.external = record.content.external;
         }

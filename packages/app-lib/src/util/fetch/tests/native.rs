@@ -1,8 +1,14 @@
 //! Fetch native tests.
 
+use crate::util::download::constants::FILE_VALIDATION_CONCURRENCY;
+use std::sync::Arc;
+use std::sync::atomic::Ordering;
 use std::time::Duration;
+use tokio::sync::Semaphore;
+use url::Url;
 
 use super::super::super::download::constants::MAX_REDIRECT_LOCATION_BYTES;
+use super::super::transfer::{H2AttemptResult, try_h2_download};
 use super::super::*;
 use super::fixtures::*;
 

@@ -1,6 +1,13 @@
 //! Fetch tail tests.
 
+use crate::util::download::constants::{
+    MAX_SEGMENT_CONCURRENCY, SEGMENTED_DOWNLOAD_THRESHOLD,
+};
+use std::sync::Arc;
+use std::sync::atomic::Ordering;
 use std::time::Duration;
+use std::time::Instant;
+use tokio::sync::Semaphore;
 
 use super::super::*;
 use super::fixtures;

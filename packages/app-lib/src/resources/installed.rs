@@ -61,9 +61,9 @@ pub(crate) async fn delete_entry_resource_traces(
     entry_id: &str,
     tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>,
 ) -> crate::Result<()> {
-    delete_installed_artifact(entry_id, &mut **tx).await?;
+    delete_installed_artifact(entry_id, tx).await?;
     let key = entry_id.to_owned();
-    ResourceEntryGraphs::delete_in(&mut **tx, &key).await
+    ResourceEntryGraphs::delete_in(tx, &key).await
 }
 
 pub(crate) async fn attach_compatibility(
@@ -928,8 +928,7 @@ async fn hydrate_entries_with_service(
     }
     let mut tx = state.pool.begin().await.map_err(plans::db)?;
     for (id, artifact, scope) in persisted {
-        let previous =
-            installed_artifact_payload(id.as_str(), &mut *tx).await?;
+        let previous = installed_artifact_payload(id.as_str(), &mut tx).await?;
         let declared_compatibility = previous
             .and_then(|payload| {
                 serde_json::from_str::<InstalledArtifactRecord>(&payload).ok()
@@ -946,7 +945,7 @@ async fn hydrate_entries_with_service(
             artifact,
             declared_compatibility,
         };
-        set_installed_artifact(id.as_str(), &record, &scope, &mut *tx).await?;
+        set_installed_artifact(id.as_str(), &record, &scope, &mut tx).await?;
     }
     tx.commit().await.map_err(plans::db)?;
     Ok(HydratedInstalled { entries, failures })

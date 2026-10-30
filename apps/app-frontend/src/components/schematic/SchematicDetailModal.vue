@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { Button, defineMessages, NewModal, useVIntl } from '@modrinth/ui'
+import { openUrl } from '@tauri-apps/plugin-opener'
 import { computed, ref, watch } from 'vue'
 
 import {
@@ -140,7 +141,7 @@ function copyLink() {
 
 function openSourcePage() {
     if (!props.item?.detailUrl) return
-    window.open(props.item.detailUrl, '_blank', 'noopener')
+    void openUrl(props.item.detailUrl)
 }
 
 const deliveryHint = computed(() => {

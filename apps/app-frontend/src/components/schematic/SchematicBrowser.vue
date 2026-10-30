@@ -343,6 +343,12 @@ async function loadGameVersions() {
 /** Page size the layout's selector currently asks for. */
 const pageSize = computed(() => base.maxResults?.value ?? DEFAULT_PAGE_SIZE)
 
+// A different page size changes how many items each page holds; re-read page one
+// so the visible list and the page count agree.
+watch(pageSize, () => {
+    if (items.value.length) reload()
+})
+
 async function loadPage(targetPage: number) {
     requestSeq += 1
     const seq = requestSeq

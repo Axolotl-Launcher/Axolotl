@@ -108,11 +108,18 @@ pub async fn import_world_save(
     inner_base: Option<&str>,
 ) -> crate::Result<String> {
     let state = State::get().await?;
+    // Serializes the import against instance deletion and other content
+    // writes; this lock is what makes the unscoped write safe.
+    let _instance_lock = state.lock_instance_content(instance_id).await;
     crate::state::instances::commands::import_world_save(
         &state,
         instance_id,
         source_path,
         inner_base,
+        crate::install::critical_section::whitelisted(
+            crate::install::critical_section::WhitelistSite::InstanceWorldImport,
+        )
+        .into(),
     )
     .await
 }

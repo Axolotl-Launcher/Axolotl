@@ -50,10 +50,20 @@ fn measured_values_are_within_bounds() {
     );
 
     // The resident set belongs to the whole test process, so tests running in
-    // parallel move it too; only "it can be measured" is this test's to assert.
+    // parallel move it too. The threshold is reported, not asserted (spec
+    // R6); what is asserted is that the readings follow the sample at all,
+    // so a reader stuck on one value fails.
     for (name, value) in
         [("before", before), ("loaded", loaded), ("after", after)]
     {
         assert!(value > 0, "resident memory {name} must be measurable");
     }
+    assert!(
+        loaded > before,
+        "touching the sample must raise the reading: {before} -> {loaded}"
+    );
+    assert!(
+        after < loaded,
+        "dropping the sample must lower the reading: {loaded} -> {after}"
+    );
 }

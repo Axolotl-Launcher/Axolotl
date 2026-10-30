@@ -1,6 +1,7 @@
 use crate::State;
 use crate::event::InstancePayloadType;
 use crate::event::emit::{emit_instance, emit_minecraft_crash_warning};
+use crate::scheduler::order::instrument;
 use crate::state::{
     DirectoryInfo, InstanceInstallStage, ProjectType, attached_world_data,
 };
@@ -77,7 +78,15 @@ pub async fn init_watcher() -> crate::Result<FileWatcher> {
 
             match res {
                 Ok(events) => {
+                    let _order_ids = instrument::hold(
+                        "theseus::state::instances::watcher::FileWatcher.instance_ids",
+                    );
+                    // sched-order: theseus::state::instances::watcher::FileWatcher.instance_ids
                     let instance_ids = event_instance_ids.read().await;
+                    instrument::touch(
+                        "theseus::state::instances::watcher::FileWatcher.manual_import_directory",
+                    );
+                    // sched-order: theseus::state::instances::watcher::FileWatcher.manual_import_directory temporary
                     let manual_import_directory =
                         event_manual_import_directory.read().await.clone();
                     let mut visited_instances = Vec::new();
@@ -410,11 +419,19 @@ impl FileWatcher {
         &self,
         directory: Option<PathBuf>,
     ) -> crate::Result<()> {
+        instrument::touch(
+            "theseus::state::instances::watcher::FileWatcher.manual_import_directory",
+        );
+        // sched-order: theseus::state::instances::watcher::FileWatcher.manual_import_directory temporary
         let current = self.manual_import_directory.read().await.clone();
         if current == directory {
             return Ok(());
         }
 
+        let _order_watcher = instrument::hold(
+            "theseus::state::instances::watcher::FileWatcher.watcher",
+        );
+        // sched-order: theseus::state::instances::watcher::FileWatcher.watcher
         let mut debouncer = self.watcher.write().await;
         if let Some(directory) = directory.as_ref() {
             debouncer
@@ -424,11 +441,19 @@ impl FileWatcher {
         if let Some(current) = current.as_ref() {
             let _ = debouncer.watcher().unwatch(current);
         }
+        instrument::touch(
+            "theseus::state::instances::watcher::FileWatcher.manual_import_directory",
+        );
+        // sched-order: theseus::state::instances::watcher::FileWatcher.manual_import_directory temporary
         *self.manual_import_directory.write().await = directory;
         let generation = self
             .manual_import_generation
             .fetch_add(1, Ordering::Relaxed)
             + 1;
+        instrument::touch(
+            "theseus::state::instances::watcher::FileWatcher.manual_import_directory",
+        );
+        // sched-order: theseus::state::instances::watcher::FileWatcher.manual_import_directory temporary
         let Some(directory) = self.manual_import_directory.read().await.clone()
         else {
             return Ok(());
@@ -546,7 +571,15 @@ pub(crate) async fn watch_instance_folder(
 
     let full_instance_path_key =
         full_instance_path.to_string_lossy().to_string();
+    let _order_watcher = instrument::hold(
+        "theseus::state::instances::watcher::FileWatcher.watcher",
+    );
+    // sched-order: theseus::state::instances::watcher::FileWatcher.watcher
     let mut debouncer = watcher.watcher.write().await;
+    instrument::touch(
+        "theseus::state::instances::watcher::FileWatcher.instance_ids",
+    );
+    // sched-order: theseus::state::instances::watcher::FileWatcher.instance_ids temporary
     let is_watched = watcher
         .instance_ids
         .read()
@@ -575,6 +608,10 @@ pub(crate) async fn watch_instance_folder(
         }
     }
 
+    let _order_ids = instrument::hold(
+        "theseus::state::instances::watcher::FileWatcher.instance_ids",
+    );
+    // sched-order: theseus::state::instances::watcher::FileWatcher.instance_ids
     let mut instance_ids = watcher.instance_ids.write().await;
     instance_ids
         .entry(instance_path.to_string())
@@ -584,8 +621,16 @@ pub(crate) async fn watch_instance_folder(
         .entry(full_instance_path_key)
         .or_default()
         .insert(instance_id.to_string());
+    // sched-order-release: theseus::state::instances::watcher::FileWatcher.instance_ids
     drop(instance_ids);
+    drop(_order_ids);
+    // sched-order-release: theseus::state::instances::watcher::FileWatcher.watcher
     drop(debouncer);
+    drop(_order_watcher);
+    instrument::touch(
+        "theseus::state::instances::watcher::FileWatcher.content_changes",
+    );
+    // sched-order: theseus::state::instances::watcher::FileWatcher.content_changes temporary
     watcher
         .content_changes
         .write()
@@ -606,8 +651,16 @@ pub(crate) async fn unwatch_instance_folder(
 ) {
     let full_instance_path_key =
         full_instance_path.to_string_lossy().to_string();
+    let _order_watcher = instrument::hold(
+        "theseus::state::instances::watcher::FileWatcher.watcher",
+    );
+    // sched-order: theseus::state::instances::watcher::FileWatcher.watcher
     let mut debouncer = watcher.watcher.write().await;
     let (removed_instance_ids, should_unwatch) = {
+        let _order_ids = instrument::hold(
+            "theseus::state::instances::watcher::FileWatcher.instance_ids",
+        );
+        // sched-order: theseus::state::instances::watcher::FileWatcher.instance_ids
         let mut mappings = watcher.instance_ids.write().await;
         let removed_instance_ids =
             mappings.remove(instance_path).unwrap_or_default();
@@ -628,8 +681,14 @@ pub(crate) async fn unwatch_instance_folder(
             let _ = debouncer.watcher().unwatch(&full_path);
         }
     }
+    // sched-order-release: theseus::state::instances::watcher::FileWatcher.watcher
     drop(debouncer);
+    drop(_order_watcher);
     for instance_id in removed_instance_ids {
+        instrument::touch(
+            "theseus::state::instances::watcher::FileWatcher.content_changes",
+        );
+        // sched-order: theseus::state::instances::watcher::FileWatcher.content_changes temporary
         watcher.content_changes.write().await.remove(&instance_id);
     }
 }

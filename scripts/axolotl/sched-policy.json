@@ -17,7 +17,7 @@
     "state/instances/commands/remove_instance.rs: instance maintenance lock (S2) -> synced_options_lock (S7) -> instance content lock (S3)",
     "api/instance/run.rs -> launcher/mod.rs run_instance_install_command: instance maintenance lock (S2) -> instance content lock (S3)"
   ],
-  "rankFingerprint": "feb0fe6b0fab233c5595efa8b180372bf828e69a08454288ac2a62e439cf76aa",
+  "rankFingerprint": "12d6d6b2343fb0bd0a685fc60c6aca412ec2b7b5f7b3126a4fcff0b954a1df15",
   "classes": {
     "theseus::api::instance::backup::ACTIVE_INSTANCE_OPERATIONS": "S6",
     "theseus::api::instance::backup::BACKUP_CANCELLATIONS": "S6",
@@ -55,9 +55,34 @@
       "reason": "log write lock: leaf primitive only (spec §5.2 leaf table), held for one bounded write"
     },
     {
+      "ident": "theseus::scheduler::tag::TagRegistry.live",
+      "rule": "D4",
+      "reason": "registry shard lock: leaf primitive only (spec §5.2 leaf table), one shard per mint or release"
+    },
+    {
+      "ident": "theseus::scheduler::tag::TagRegistry.mints",
+      "rule": "D4",
+      "reason": "mint counter shard of the same registry: leaf primitive only, one shard per mint"
+    },
+    {
       "ident": "theseus::scheduler::panic::PANIC_LOG_LOCK",
       "rule": "D4",
       "reason": "panic-log append lock: synchronous, held for one bounded append, takes no other lock"
+    },
+    {
+      "ident": "theseus::scheduler::order::instrument::TRACKING",
+      "rule": "D4",
+      "reason": "order instrumentation bookkeeping: leaf primitive only, held for one map update in debug test runs with SCHED_ORDER_GUARD=1, takes no other lock"
+    },
+    {
+      "ident": "theseus::install::runner::CANCEL_CLEANUPS",
+      "rule": "D4",
+      "reason": "cancel-cleanup dedup map (upstream CancelCleanupRegistration, renamed from CLEANUPS): leaf primitive only, one shard lock per request, retry check or drop, takes no other lock"
+    },
+    {
+      "ident": "theseus::install::events::InstallProgressReporter.parallel_context",
+      "rule": "D2",
+      "reason": "per-job reporter, unreachable from statics, State fields and Tauri-managed state; its only construction is inside InstallProgressReporter::new (install/events.rs:243, fn body). The generator also counts four -> Self { signatures as construction outside functions (a known false positive), so it cannot apply D2 itself"
     }
   ],
   "recallGap": {
@@ -107,6 +132,45 @@
     }
   },
   "orderViolations": [],
+  "orderScope": "family",
+  "orderScopeBasis": "The recall-gap gate (K0.27) holds an S5 item, so per spec §6.3.4 and §11.8 R5 ranks are compared only within one scope class; pairs across classes are unordered and only the 20 s admission timeout bounds a deadlock between them.",
+  "orderExceptions": [
+    {
+      "held": "theseus::api::loader_metadata::MetadataCache.value",
+      "acquired": "theseus::api::loader_metadata::MetadataCache.failure",
+      "sites": [
+        "packages/app-lib/src/api/loader_metadata.rs::get_or_fetch_with_refresh"
+      ],
+      "reason": "failure is read and written only while value is held, which keeps one fetch per cache; no path takes value while holding failure"
+    },
+    {
+      "held": "theseus::api::loader_metadata::MetadataCache.value",
+      "acquired": "theseus::api::loader_metadata::MetadataCache.value",
+      "observedBy": "instrumented run",
+      "sites": [
+        "packages/app-lib/src/api/loader_metadata.rs::LoaderManifestCache::get_or_fetch_with_refresh",
+        "packages/app-lib/src/api/loader_metadata.rs::fetch_neoforge_manifest"
+      ],
+      "reason": "two instances of one cache type, found by the instrumented run: a loader-manifest entry holds its value across its fetch, the NeoForge fetch inside it takes the two Maven-metadata caches, and their fetches take no cache, so no path nests them the other way"
+    },
+    {
+      "held": "theseus::state::instances::watcher::FileWatcher.watcher",
+      "acquired": "theseus::state::instances::watcher::FileWatcher.instance_ids",
+      "sites": [
+        "packages/app-lib/src/state/instances/watcher.rs::watch_instance_folder",
+        "packages/app-lib/src/state/instances/watcher.rs::unwatch_instance_folder"
+      ],
+      "reason": "the debouncer lock is taken first on every path that also changes the instance mapping; the event loop takes instance_ids without the debouncer, so no path takes them the other way round"
+    },
+    {
+      "held": "theseus::state::instances::watcher::FileWatcher.watcher",
+      "acquired": "theseus::state::instances::watcher::FileWatcher.manual_import_directory",
+      "sites": [
+        "packages/app-lib/src/state/instances/watcher.rs::configure_manual_import_directory"
+      ],
+      "reason": "the directory is swapped while the debouncer lock is held so the watch and the stored directory change together; the event loop reads the directory without the debouncer"
+    }
+  ],
   "l0Module": "packages/app-lib/src/scheduler/l0",
   "l0Members": [
     {
@@ -150,17 +214,16 @@
     },
     {
       "name": "registry shard lock",
-      "ident": null,
-      "planned": "T3.1",
+      "ident": "theseus::scheduler::tag::TagRegistry.live",
       "bounded": true,
-      "note": "scheduler registry, not built until phase 3"
+      "note": "DashMap shard access per mint, derive or release"
     },
     {
       "name": "L0 private queue lock",
       "ident": null,
-      "planned": "T3.3",
       "bounded": true,
-      "note": "L0 dispatch queue, not built until phase 3"
+      "note": "tokio bounded mpsc in scheduler::l0::queue (lock-free try_send path); no managed lock to register",
+      "lockFree": true
     },
     {
       "name": "ProcessManager.processes",
@@ -473,12 +536,97 @@
       "backfilled": true,
       "basis": "production std thread; JoinHandle bound (T0.10), signal-driven, bounded exit",
       "signal": true,
-      "boundedExit": true
+      "boundedExit": true,
+      "form": "production thread"
+    },
+    {
+      "id": "L0DRIVER",
+      "file": "packages/app-lib/src/scheduler/l0/executor.rs",
+      "business": "L0 executor driver thread (current_thread runtime)",
+      "level": "L0",
+      "locks": [],
+      "backfilled": true,
+      "basis": "runs the L0 runtime; quiesce flag ends it within the 5 s exit window",
+      "signal": true,
+      "boundedExit": true,
+      "form": "production thread"
     }
   ],
   "governanceRemoved": {
     "R7": "friends socket loop deleted (no callers)",
     "R29": "test-only thread item of the t12 list",
     "R30": "test-only thread item of the t12 list"
-  }
+  },
+  "whitelist": [
+    {
+      "site": "CurseForgeManualWorldImport",
+      "file": "packages/app-lib/src/api/curseforge/manual/import.rs",
+      "variant": "import_world_save",
+      "bearer": "theseus::state::InstanceLockManager.locks",
+      "worstCase": "the app exits mid-copy and leaves a partial world folder under saves/, which then shows in the world list",
+      "limitation": 7
+    },
+    {
+      "site": "InstanceWorldImport",
+      "file": "packages/app-lib/src/api/instance/projects.rs",
+      "variant": "import_world_save",
+      "bearer": "theseus::state::InstanceLockManager.locks",
+      "worstCase": "the app exits mid-copy and leaves a partial world folder under saves/, which then shows in the world list",
+      "limitation": 7
+    }
+  ],
+  "whitelistVariants": [
+    "recover_files",
+    "clear_staging",
+    "import_world_save",
+    "content_file_operations::recover"
+  ],
+  "guardedWrites": [
+    {
+      "file": "packages/app-lib/src/resources/execution.rs",
+      "fn": "recover_files"
+    },
+    {
+      "file": "packages/app-lib/src/resources/execution.rs",
+      "fn": "clear_staging"
+    },
+    {
+      "file": "packages/app-lib/src/state/instances/commands/import_world_save.rs",
+      "fn": "import_world_save"
+    },
+    {
+      "file": "packages/app-lib/src/state/instances/commands/content_file_operations.rs",
+      "fn": "prepare"
+    },
+    {
+      "file": "packages/app-lib/src/state/instances/commands/content_file_operations.rs",
+      "fn": "publish"
+    },
+    {
+      "file": "packages/app-lib/src/state/instances/commands/content_file_operations.rs",
+      "fn": "rollback_error"
+    }
+  ],
+  "l0Functions": [
+    {
+      "file": "packages/app-lib/src/state/process.rs",
+      "fn": "detect_process_exit",
+      "allowedAwaits": [
+        "State::get\\(\\)",
+        "tokio::time::sleep\\("
+      ]
+    }
+  ],
+  "l0ForbiddenPatterns": [
+    "\\.pool\\b",
+    "\\bemit_\\w+\\(",
+    "tokio::spawn\\(",
+    "spawn_blocking\\(",
+    "std::fs::",
+    "Command::new",
+    "\\.remove\\(",
+    "crate::api::",
+    "\\.send\\(",
+    "\\.lock\\(\\)"
+  ]
 }

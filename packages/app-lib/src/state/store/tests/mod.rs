@@ -6,8 +6,8 @@
 
 mod atom;
 mod cache;
-mod content_favorites;
 mod content_refresh;
+mod content_snapshot;
 mod crash_analysis_mod_snapshots;
 mod credentials;
 mod favorites;
@@ -24,10 +24,17 @@ mod join_log;
 mod modrinth_sessions;
 mod official_login_proof;
 mod resource_cache;
+mod resource_favorites;
+mod resource_plans;
 mod resource_source_projects;
+mod secrets;
 mod settings;
 mod settings_api;
 mod settings_db;
+mod settings_owned_columns;
+mod shared_logs;
+mod store_blobs;
+mod store_retained_refs;
 mod support;
 mod sync_feature_settings;
 mod synced_game_option_preferences;

@@ -373,14 +373,14 @@ mod tests {
         previous.run(&pool).await.unwrap();
         sqlx::query(
             "INSERT INTO translation_cache (key, translation, created_at)
-             VALUES (kept, text, 7)",
+             VALUES ('kept', 'text', 7)",
         )
         .execute(&pool)
         .await
         .unwrap();
         let cache_before: i64 = sqlx::query_scalar(
             "SELECT COUNT(*) FROM sqlite_master
-             WHERE type = table AND name = cache",
+             WHERE type = 'table' AND name = 'cache'",
         )
         .fetch_one(&pool)
         .await
@@ -393,7 +393,7 @@ mod tests {
         assert!(!db.is_disabled(), "an older file still opens");
         let kept: (String, i64) = sqlx::query_as(
             "SELECT translation, created_at FROM translation_cache
-             WHERE key = kept",
+             WHERE key = 'kept'",
         )
         .fetch_one(db.pool())
         .await
@@ -405,7 +405,7 @@ mod tests {
         );
         let cache_after: i64 = sqlx::query_scalar(
             "SELECT COUNT(*) FROM sqlite_master
-             WHERE type = table AND name = cache",
+             WHERE type = 'table' AND name = 'cache'",
         )
         .fetch_one(db.pool())
         .await

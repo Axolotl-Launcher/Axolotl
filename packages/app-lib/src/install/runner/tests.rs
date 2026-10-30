@@ -1,5 +1,81 @@
 use super::*;
 
+#[tokio::test]
+async fn cancel_cleanup_retries_a_request_received_during_a_failed_attempt() {
+    use std::sync::Arc;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    let job_id = Uuid::new_v4();
+    let registration = CancelCleanupRegistration::request(job_id).unwrap();
+    let attempts = Arc::new(AtomicUsize::new(0));
+    let started = Arc::new(tokio::sync::Notify::new());
+    let release = Arc::new(tokio::sync::Notify::new());
+    let worker = tokio::spawn({
+        let attempts = attempts.clone();
+        let started = started.clone();
+        let release = release.clone();
+        run_cancel_cleanup(registration, move || {
+            let attempts = attempts.clone();
+            let started = started.clone();
+            let release = release.clone();
+            async move {
+                if attempts.fetch_add(1, Ordering::SeqCst) == 0 {
+                    started.notify_one();
+                    release.notified().await;
+                    return Err(ErrorKind::OtherError(
+                        "transient cleanup failure".into(),
+                    )
+                    .into());
+                }
+                Ok(())
+            }
+        })
+    });
+    started.notified().await;
+    assert!(CancelCleanupRegistration::request(job_id).is_none());
+    assert!(CancelCleanupRegistration::request(job_id).is_none());
+    release.notify_one();
+    tokio::time::timeout(std::time::Duration::from_secs(2), worker)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(attempts.load(Ordering::SeqCst), 2);
+    assert!(!CANCEL_CLEANUPS.contains_key(&job_id));
+}
+
+#[test]
+fn cancel_cleanup_registration_does_not_remove_a_successor_on_drop() {
+    let job_id = Uuid::new_v4();
+    let mut completed = CancelCleanupRegistration::request(job_id).unwrap();
+    assert!(!completed.retry_requested());
+    let successor = CancelCleanupRegistration::request(job_id).unwrap();
+    drop(completed);
+    assert!(CancelCleanupRegistration::request(job_id).is_none());
+    drop(successor);
+    assert!(!CANCEL_CLEANUPS.contains_key(&job_id));
+}
+
+#[tokio::test]
+async fn cancel_cleanup_registration_is_released_when_the_worker_is_aborted() {
+    let job_id = Uuid::new_v4();
+    let registration = CancelCleanupRegistration::request(job_id).unwrap();
+    let started = std::sync::Arc::new(tokio::sync::Notify::new());
+    let worker = tokio::spawn({
+        let started = started.clone();
+        run_cancel_cleanup(registration, move || {
+            started.notify_one();
+            std::future::pending::<crate::Result<()>>()
+        })
+    });
+    started.notified().await;
+    assert!(CancelCleanupRegistration::request(job_id).is_none());
+    worker.abort();
+    assert!(worker.await.unwrap_err().is_cancelled());
+    let successor = CancelCleanupRegistration::request(job_id).unwrap();
+    drop(successor);
+    assert!(!CANCEL_CLEANUPS.contains_key(&job_id));
+}
+
 #[test]
 fn multimc_component_errors_are_pack_errors_during_import() {
     let error = crate::ErrorKind::InputError(
@@ -580,6 +656,109 @@ fn missing_required_content_pauses_without_starting_rollback() {
         &event.kind,
         InstallJobEventKind::RollbackStarted { .. }
     )));
+}
+
+fn partial_pack_download() -> InstallJobState {
+    let mut job = InstallJobState::new(InstallRequest::CreateModpackInstance {
+        location: CreatePackLocation::FromFile {
+            path: "pack.mrpack".into(),
+        },
+        post_install_edit: None,
+    });
+    job.target = InstallTarget::NewInstance {
+        instance_id: Some("partial".into()),
+    };
+    job.cleanup = InstallCleanup::DeleteNewInstance {
+        instance_id: Some("partial".into()),
+    };
+    job.progress.phase = InstallPhaseId::DownloadingMinecraft;
+    job
+}
+
+#[test]
+fn recoverable_pack_network_failures_keep_the_instance_and_persist_retry_state()
+{
+    for error in [
+        ErrorKind::NetworkError("connection lost".into()).into(),
+        ErrorKind::HttpError {
+            status: 503,
+            method: "GET".into(),
+            url: "https://assets.example".into(),
+        }
+        .into(),
+        ErrorKind::DownloadResourceWaitTimeout("request slot timed out".into())
+            .into(),
+    ] {
+        let mut job = partial_pack_download();
+        assert!(retain_pack_download(&mut job, &error));
+        assert_eq!(current_instance_id(&job).as_deref(), Some("partial"));
+        assert!(job.retry_from_checkpoint);
+        assert!(job.error.is_some());
+        assert!(!job.events.iter().any(|event| matches!(
+            event.kind,
+            InstallJobEventKind::RollbackStarted { .. }
+                | InstallJobEventKind::TargetInstanceDeleted { .. }
+        )));
+        let restored: InstallJobState =
+            serde_json::from_str(&serde_json::to_string(&job).unwrap())
+                .unwrap();
+        assert!(restored.retry_from_checkpoint);
+        assert!(restored.clone().retry_from_checkpoint);
+    }
+    let mut value = serde_json::to_value(partial_pack_download()).unwrap();
+    value
+        .as_object_mut()
+        .unwrap()
+        .remove("retry_from_checkpoint");
+    assert!(
+        !serde_json::from_value::<InstallJobState>(value)
+            .unwrap()
+            .retry_from_checkpoint
+    );
+}
+
+#[test]
+fn unsafe_pack_failures_and_existing_instance_updates_keep_the_rollback_policy()
+{
+    for error in [
+        ErrorKind::HashError("expected".into(), "actual".into()).into(),
+        ErrorKind::InputError("archive path escapes root".into()).into(),
+        crate::Error::from(std::io::Error::new(
+            std::io::ErrorKind::PermissionDenied,
+            "read only",
+        )),
+        ErrorKind::ResourceError(crate::resources::ResourceError::Database(
+            "broken database".into(),
+        ))
+        .into(),
+        ErrorKind::ResourceError(crate::resources::ResourceError::Canceled)
+            .into(),
+    ] {
+        let mut job = partial_pack_download();
+        assert!(!retain_pack_download(&mut job, &error));
+        job.retry_from_checkpoint = true;
+        begin_failed_job_rollback(&mut job, &error);
+        assert!(!job.retry_from_checkpoint);
+        assert_eq!(job.progress.phase, InstallPhaseId::RollingBack);
+    }
+    let mut existing = partial_pack_download();
+    existing.target = InstallTarget::ExistingInstance {
+        instance_id: "existing".into(),
+    };
+    assert!(!retain_pack_download(
+        &mut existing,
+        &ErrorKind::NetworkError("offline".into()).into()
+    ));
+    let mut canceled = partial_pack_download();
+    canceled.retry_from_checkpoint = true;
+    begin_canceling_job(&mut canceled);
+    assert!(!canceled.retry_from_checkpoint);
+    assert_eq!(
+        canceled.cleanup,
+        InstallCleanup::DeleteNewInstance {
+            instance_id: Some("partial".into())
+        }
+    );
 }
 
 #[test]

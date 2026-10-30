@@ -265,3 +265,17 @@ async fn ensure_keys_belong_to_scope(
 
     Ok(())
 }
+
+/// The runtimes as the rows hold them, for the document handover and for the
+/// fallback the domain answers with while it has no document.
+pub(crate) async fn read_legacy_java_versions(
+    pool: &sqlx::SqlitePool,
+) -> crate::Result<Vec<(JavaVersionKey, JavaVersionRecord)>> {
+    let rows: Vec<StoredRow> = sqlx::query_as(
+        "SELECT path, major_version, full_version, architecture, distribution FROM java_versions ORDER BY path",
+    )
+    .fetch_all(pool)
+    .await?;
+
+    Ok(rows.into_iter().filter_map(to_record).collect())
+}

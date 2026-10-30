@@ -623,46 +623,24 @@ async fn recognize(
     }
     recognition.ambiguous |=
         projects.values().any(|projects| projects.len() > 1);
-    let selected = if let Some(origin) = &work.origin {
-        let matches = recognition
-            .matches
-            .iter()
-            .filter(|artifact| {
-                &artifact.reference.release.project.source == origin
-            })
-            .collect::<Vec<_>>();
-        (matches.len() == 1).then(|| (*matches[0]).clone())
-    } else if !recognition.ambiguous {
-        recognition
-            .matches
-            .iter()
-            .find(|artifact| {
-                artifact.reference.release.project.source
-                    == work.context.preferred_source
-            })
-            .or(recognition.matches.first())
-            .cloned()
-    } else {
-        None
-    };
+    let selected = service
+        .select_recognized_artifact(
+            &recognition.matches,
+            work.entry.artifact.as_ref(),
+            work.origin.as_ref(),
+            &work.context.preferred_source,
+            work.entry.resource_type,
+            recognition.ambiguous,
+            policy,
+            cancel,
+        )
+        .await?;
     if selected.is_none() && !recognition.failures.is_empty() {
         return Err(recognition.failures[0].1.clone());
     }
-    let Some(artifact) = selected else {
+    let Some((artifact, project)) = selected else {
         return Ok(None);
     };
-    let project = service
-        .project_document_with_policy(
-            &artifact.reference.release.project,
-            None,
-            cancel,
-            policy,
-        )
-        .await?
-        .metadata;
-    if !project.types.contains(&work.entry.resource_type) {
-        return Ok(None);
-    }
     if let Some(store) = service.store() {
         work.entry.resource_id = Some(
             store
@@ -748,6 +726,10 @@ mod tests {
             RefreshMode::Normal
         ));
         check.failed(200, "offline".into());
+        // A failed source response must not restart on each page visit or tick.
+        for seconds in [0, 1, 2, 30, 60] {
+            assert!(!due(Some(&check), 200 + seconds, RefreshMode::Normal));
+        }
         assert!(!due(
             Some(&check),
             200 + REMOTE_CACHE_SECONDS - 1,

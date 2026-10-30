@@ -2,6 +2,579 @@
   "app.drop.minecraft-root-added": {
     "message": "已添加 Minecraft 文件夹"
   },
+  "app.lab.banner-designer.base-color.close": {
+    "message": "关闭"
+  },
+  "app.lab.banner-designer.base-color.description": {
+    "message": "基底颜色填充在所有图案背后的旗帜底色。"
+  },
+  "app.lab.banner-designer.base-color.title": {
+    "message": "基底颜色"
+  },
+  "app.lab.banner-designer.clear-recent": {
+    "message": "清空最近"
+  },
+  "app.lab.banner-designer.color.black": {
+    "message": "黑色"
+  },
+  "app.lab.banner-designer.color.blue": {
+    "message": "蓝色"
+  },
+  "app.lab.banner-designer.color.brown": {
+    "message": "棕色"
+  },
+  "app.lab.banner-designer.color.cyan": {
+    "message": "青色"
+  },
+  "app.lab.banner-designer.color.gray": {
+    "message": "灰色"
+  },
+  "app.lab.banner-designer.color.green": {
+    "message": "绿色"
+  },
+  "app.lab.banner-designer.color.light-blue": {
+    "message": "淡蓝色"
+  },
+  "app.lab.banner-designer.color.light-gray": {
+    "message": "淡灰色"
+  },
+  "app.lab.banner-designer.color.lime": {
+    "message": "黄绿色"
+  },
+  "app.lab.banner-designer.color.magenta": {
+    "message": "品红色"
+  },
+  "app.lab.banner-designer.color.orange": {
+    "message": "橙色"
+  },
+  "app.lab.banner-designer.color.pink": {
+    "message": "粉红色"
+  },
+  "app.lab.banner-designer.color.purple": {
+    "message": "紫色"
+  },
+  "app.lab.banner-designer.color.red": {
+    "message": "红色"
+  },
+  "app.lab.banner-designer.color.white": {
+    "message": "白色"
+  },
+  "app.lab.banner-designer.color.yellow": {
+    "message": "黄色"
+  },
+  "app.lab.banner-designer.create": {
+    "message": "创建旗帜"
+  },
+  "app.lab.banner-designer.create.base-color": {
+    "message": "基底颜色"
+  },
+  "app.lab.banner-designer.create.cancel": {
+    "message": "取消"
+  },
+  "app.lab.banner-designer.create.confirm": {
+    "message": "创建旗帜"
+  },
+  "app.lab.banner-designer.create.description": {
+    "message": "选择一种基底颜色，或从 Minecraft Wiki 记载的设计开始。"
+  },
+  "app.lab.banner-designer.create.preset-empty": {
+    "message": "没有匹配的预设。"
+  },
+  "app.lab.banner-designer.create.preset-search": {
+    "message": "搜索预设"
+  },
+  "app.lab.banner-designer.create.presets": {
+    "message": "预设"
+  },
+  "app.lab.banner-designer.create.title": {
+    "message": "创建旗帜"
+  },
+  "app.lab.banner-designer.description": {
+    "message": "使用全部 Java 版图案与染料设计 Minecraft 旗帜。"
+  },
+  "app.lab.banner-designer.empty.description": {
+    "message": "从基底颜色或预设开始，或通过 give 指令、物品数据导入一面旗帜。"
+  },
+  "app.lab.banner-designer.empty.heading": {
+    "message": "设计一面旗帜"
+  },
+  "app.lab.banner-designer.exit": {
+    "message": "退出"
+  },
+  "app.lab.banner-designer.export.close": {
+    "message": "关闭"
+  },
+  "app.lab.banner-designer.export.copied": {
+    "message": "已复制"
+  },
+  "app.lab.banner-designer.export.copy": {
+    "message": "复制"
+  },
+  "app.lab.banner-designer.export.copy-failed": {
+    "message": "无法复制这段内容，请手动选中后复制。"
+  },
+  "app.lab.banner-designer.export.data": {
+    "message": "物品数据"
+  },
+  "app.lab.banner-designer.export.dropped": {
+    "message": "该版本没有 {patterns}，游戏会跳过未知图案，旗帜会变成纯色。"
+  },
+  "app.lab.banner-designer.export.give": {
+    "message": "give 指令"
+  },
+  "app.lab.banner-designer.export.hint.classic": {
+    "message": "使用统一的旗帜物品，数据值填 0；1.13 及更新版本需要按颜色区分的物品 ID。"
+  },
+  "app.lab.banner-designer.export.hint.legacy": {
+    "message": "使用图案短代码；1.20.5 及更新版本会拒绝该物品 NBT。"
+  },
+  "app.lab.banner-designer.export.hint.modern": {
+    "message": "更早版本会拒绝组件写法。"
+  },
+  "app.lab.banner-designer.export.json": {
+    "message": "设计 JSON"
+  },
+  "app.lab.banner-designer.export.materials": {
+    "message": "材料清单"
+  },
+  "app.lab.banner-designer.export.no-dyes": {
+    "message": "没有图案的旗帜不需要染料。"
+  },
+  "app.lab.banner-designer.export.no-item-data": {
+    "message": "没有图案的旗帜没有物品数据。"
+  },
+  "app.lab.banner-designer.export.pattern-item-note": {
+    "message": "织布机不会消耗旗帜图案物品。"
+  },
+  "app.lab.banner-designer.export.pattern-items": {
+    "message": "旗帜图案物品"
+  },
+  "app.lab.banner-designer.export.save-failed": {
+    "message": "文件写入失败。"
+  },
+  "app.lab.banner-designer.export.save-file": {
+    "message": "保存到文件"
+  },
+  "app.lab.banner-designer.export.saved": {
+    "message": "已保存"
+  },
+  "app.lab.banner-designer.export.title": {
+    "message": "导出旗帜"
+  },
+  "app.lab.banner-designer.export.version": {
+    "message": "游戏版本"
+  },
+  "app.lab.banner-designer.export.version.classic": {
+    "message": "1.12.2 及更早版本"
+  },
+  "app.lab.banner-designer.export.version.legacy": {
+    "message": "1.13 – 1.20.4"
+  },
+  "app.lab.banner-designer.export.version.modern": {
+    "message": "1.20.5 及更新版本"
+  },
+  "app.lab.banner-designer.import": {
+    "message": "导入旗帜"
+  },
+  "app.lab.banner-designer.import.cancel": {
+    "message": "取消"
+  },
+  "app.lab.banner-designer.import.choose-file": {
+    "message": "打开文件"
+  },
+  "app.lab.banner-designer.import.confirm": {
+    "message": "导入"
+  },
+  "app.lab.banner-designer.import.description": {
+    "message": "粘贴 give 指令、物品数据或设计文件，也可以直接打开设计文件。"
+  },
+  "app.lab.banner-designer.import.error.color": {
+    "message": "未知染料颜色：{value}"
+  },
+  "app.lab.banner-designer.import.error.data": {
+    "message": "无法读取物品数据，请检查内容是否完整。"
+  },
+  "app.lab.banner-designer.import.error.empty": {
+    "message": "请先粘贴 give 指令、物品数据或设计 JSON。"
+  },
+  "app.lab.banner-designer.import.error.file": {
+    "message": "无法读取该文件。"
+  },
+  "app.lab.banner-designer.import.error.pattern": {
+    "message": "未知旗帜图案：{value}"
+  },
+  "app.lab.banner-designer.import.error.too-large": {
+    "message": "这个文件远大于一份旗帜设计，请确认选对了文件。"
+  },
+  "app.lab.banner-designer.import.error.unsupported": {
+    "message": "这段文本不是旗帜 give 指令、物品数据或设计文件。"
+  },
+  "app.lab.banner-designer.import.placeholder": {
+    "message": "/give @p minecraft:white_banner[minecraft:banner_patterns=[…]] 1"
+  },
+  "app.lab.banner-designer.import.title": {
+    "message": "导入旗帜"
+  },
+  "app.lab.banner-designer.layer-editor.add": {
+    "message": "添加图层"
+  },
+  "app.lab.banner-designer.layer-editor.add-title": {
+    "message": "添加图层"
+  },
+  "app.lab.banner-designer.layer-editor.cancel": {
+    "message": "取消"
+  },
+  "app.lab.banner-designer.layer-editor.description": {
+    "message": "先选择染料，再选择它绘制的图案。"
+  },
+  "app.lab.banner-designer.layer-editor.dye-color": {
+    "message": "染料颜色"
+  },
+  "app.lab.banner-designer.layer-editor.edit-title": {
+    "message": "编辑图层"
+  },
+  "app.lab.banner-designer.layer-editor.empty": {
+    "message": "没有匹配的图案。"
+  },
+  "app.lab.banner-designer.layer-editor.needs-item": {
+    "message": "需要旗帜图案物品"
+  },
+  "app.lab.banner-designer.layer-editor.pattern": {
+    "message": "图案"
+  },
+  "app.lab.banner-designer.layer-editor.preview": {
+    "message": "旗帜预览"
+  },
+  "app.lab.banner-designer.layer-editor.save": {
+    "message": "保存图层"
+  },
+  "app.lab.banner-designer.layer-editor.search": {
+    "message": "搜索图案"
+  },
+  "app.lab.banner-designer.layer.drag": {
+    "message": "拖动以排序，或按方向键"
+  },
+  "app.lab.banner-designer.layer.edit": {
+    "message": "编辑图层"
+  },
+  "app.lab.banner-designer.layer.move-down": {
+    "message": "下移"
+  },
+  "app.lab.banner-designer.layer.move-up": {
+    "message": "上移"
+  },
+  "app.lab.banner-designer.layer.remove": {
+    "message": "删除图层"
+  },
+  "app.lab.banner-designer.layers": {
+    "message": "图层"
+  },
+  "app.lab.banner-designer.layers.add": {
+    "message": "添加图层"
+  },
+  "app.lab.banner-designer.layers.count": {
+    "message": "{count} / {max} 层"
+  },
+  "app.lab.banner-designer.layers.empty": {
+    "message": "还没有图案。添加图层即可在旗帜上绘制图案。"
+  },
+  "app.lab.banner-designer.layers.hint": {
+    "message": "列表自上而下对应最上层到最下层，后添加的图案会覆盖之前的图案。"
+  },
+  "app.lab.banner-designer.layers.limit": {
+    "message": "一面旗帜最多容纳 {max} 个图案。"
+  },
+  "app.lab.banner-designer.layers.moved": {
+    "message": "图层已移动到第 {position} 层"
+  },
+  "app.lab.banner-designer.open-recent": {
+    "message": "打开旗帜"
+  },
+  "app.lab.banner-designer.pattern-category.background": {
+    "message": "背景"
+  },
+  "app.lab.banner-designer.pattern-category.base": {
+    "message": "基底"
+  },
+  "app.lab.banner-designer.pattern-category.borders": {
+    "message": "边框"
+  },
+  "app.lab.banner-designer.pattern-category.gradients": {
+    "message": "渐变"
+  },
+  "app.lab.banner-designer.pattern-category.halves": {
+    "message": "平分"
+  },
+  "app.lab.banner-designer.pattern-category.icons": {
+    "message": "图标"
+  },
+  "app.lab.banner-designer.pattern-category.shapes": {
+    "message": "形状"
+  },
+  "app.lab.banner-designer.pattern-category.stripes": {
+    "message": "条纹"
+  },
+  "app.lab.banner-designer.pattern-count": {
+    "message": "{count, plural, other {# 个图案}}"
+  },
+  "app.lab.banner-designer.pattern.base": {
+    "message": "纯色底"
+  },
+  "app.lab.banner-designer.pattern.border": {
+    "message": "方框边"
+  },
+  "app.lab.banner-designer.pattern.bricks": {
+    "message": "砖纹"
+  },
+  "app.lab.banner-designer.pattern.circle": {
+    "message": "圆形"
+  },
+  "app.lab.banner-designer.pattern.creeper": {
+    "message": "苦力怕盾徽"
+  },
+  "app.lab.banner-designer.pattern.cross": {
+    "message": "斜十字"
+  },
+  "app.lab.banner-designer.pattern.curly-border": {
+    "message": "波纹边"
+  },
+  "app.lab.banner-designer.pattern.diagonal-left": {
+    "message": "右上三角"
+  },
+  "app.lab.banner-designer.pattern.diagonal-right": {
+    "message": "左上三角"
+  },
+  "app.lab.banner-designer.pattern.diagonal-up-left": {
+    "message": "右下三角"
+  },
+  "app.lab.banner-designer.pattern.diagonal-up-right": {
+    "message": "左下三角"
+  },
+  "app.lab.banner-designer.pattern.flow": {
+    "message": "涡流"
+  },
+  "app.lab.banner-designer.pattern.flower": {
+    "message": "花朵盾徽"
+  },
+  "app.lab.banner-designer.pattern.globe": {
+    "message": "地球"
+  },
+  "app.lab.banner-designer.pattern.gradient": {
+    "message": "自上渐淡"
+  },
+  "app.lab.banner-designer.pattern.gradient-up": {
+    "message": "自下渐淡"
+  },
+  "app.lab.banner-designer.pattern.guster": {
+    "message": "旋风"
+  },
+  "app.lab.banner-designer.pattern.half-horizontal": {
+    "message": "上半方形"
+  },
+  "app.lab.banner-designer.pattern.half-horizontal-bottom": {
+    "message": "下半方形"
+  },
+  "app.lab.banner-designer.pattern.half-vertical": {
+    "message": "右半方形"
+  },
+  "app.lab.banner-designer.pattern.half-vertical-right": {
+    "message": "左半方形"
+  },
+  "app.lab.banner-designer.pattern.mojang": {
+    "message": "Mojang 徽标"
+  },
+  "app.lab.banner-designer.pattern.piglin": {
+    "message": "猪鼻"
+  },
+  "app.lab.banner-designer.pattern.rhombus": {
+    "message": "菱形"
+  },
+  "app.lab.banner-designer.pattern.skull": {
+    "message": "头颅盾徽"
+  },
+  "app.lab.banner-designer.pattern.small-stripes": {
+    "message": "竖条纹"
+  },
+  "app.lab.banner-designer.pattern.square-bottom-left": {
+    "message": "右底方"
+  },
+  "app.lab.banner-designer.pattern.square-bottom-right": {
+    "message": "左底方"
+  },
+  "app.lab.banner-designer.pattern.square-top-left": {
+    "message": "右顶方"
+  },
+  "app.lab.banner-designer.pattern.square-top-right": {
+    "message": "左顶方"
+  },
+  "app.lab.banner-designer.pattern.straight-cross": {
+    "message": "正十字"
+  },
+  "app.lab.banner-designer.pattern.stripe-bottom": {
+    "message": "底横条"
+  },
+  "app.lab.banner-designer.pattern.stripe-center": {
+    "message": "中竖条"
+  },
+  "app.lab.banner-designer.pattern.stripe-downleft": {
+    "message": "左斜条"
+  },
+  "app.lab.banner-designer.pattern.stripe-downright": {
+    "message": "右斜条"
+  },
+  "app.lab.banner-designer.pattern.stripe-left": {
+    "message": "右竖条"
+  },
+  "app.lab.banner-designer.pattern.stripe-middle": {
+    "message": "中横条"
+  },
+  "app.lab.banner-designer.pattern.stripe-right": {
+    "message": "左竖条"
+  },
+  "app.lab.banner-designer.pattern.stripe-top": {
+    "message": "顶横条"
+  },
+  "app.lab.banner-designer.pattern.triangle-bottom": {
+    "message": "底三角"
+  },
+  "app.lab.banner-designer.pattern.triangle-top": {
+    "message": "顶三角"
+  },
+  "app.lab.banner-designer.pattern.triangles-bottom": {
+    "message": "底波纹"
+  },
+  "app.lab.banner-designer.pattern.triangles-top": {
+    "message": "顶波纹"
+  },
+  "app.lab.banner-designer.preset-section.digits": {
+    "message": "数字"
+  },
+  "app.lab.banner-designer.preset-section.lowercase": {
+    "message": "小写字母"
+  },
+  "app.lab.banner-designer.preset-section.patterns": {
+    "message": "图案"
+  },
+  "app.lab.banner-designer.preset-section.suits": {
+    "message": "扑克花色"
+  },
+  "app.lab.banner-designer.preset-section.uppercase": {
+    "message": "大写字母"
+  },
+  "app.lab.banner-designer.preset.creeper": {
+    "message": "苦力怕盾徽"
+  },
+  "app.lab.banner-designer.preset.end-city": {
+    "message": "末地城旗帜"
+  },
+  "app.lab.banner-designer.preset.globe": {
+    "message": "地球"
+  },
+  "app.lab.banner-designer.preset.gradient": {
+    "message": "渐变褪色"
+  },
+  "app.lab.banner-designer.preset.mansion-bedroom": {
+    "message": "林地府邸卧室旗帜"
+  },
+  "app.lab.banner-designer.preset.mojang": {
+    "message": "Mojang 徽标"
+  },
+  "app.lab.banner-designer.preset.skull": {
+    "message": "头颅盾徽"
+  },
+  "app.lab.banner-designer.preset.snout": {
+    "message": "猪鼻"
+  },
+  "app.lab.banner-designer.preset.suit-club": {
+    "message": "梅花"
+  },
+  "app.lab.banner-designer.preset.suit-diamond": {
+    "message": "方块"
+  },
+  "app.lab.banner-designer.preset.suit-heart": {
+    "message": "红心"
+  },
+  "app.lab.banner-designer.preset.suit-spade": {
+    "message": "黑桃"
+  },
+  "app.lab.banner-designer.preview": {
+    "message": "旗帜预览"
+  },
+  "app.lab.banner-designer.recent": {
+    "message": "最近编辑"
+  },
+  "app.lab.banner-designer.recent.collapse": {
+    "message": "收起"
+  },
+  "app.lab.banner-designer.recent.expand": {
+    "message": "展开"
+  },
+  "app.lab.banner-designer.redo": {
+    "message": "重做"
+  },
+  "app.lab.banner-designer.remove-recent": {
+    "message": "从最近中移除"
+  },
+  "app.lab.banner-designer.replace-color.base-tag": {
+    "message": "底板"
+  },
+  "app.lab.banner-designer.replace-color.cancel": {
+    "message": "取消"
+  },
+  "app.lab.banner-designer.replace-color.clear": {
+    "message": "清除"
+  },
+  "app.lab.banner-designer.replace-color.colors-in-use": {
+    "message": "当前使用的颜色"
+  },
+  "app.lab.banner-designer.replace-color.confirm": {
+    "message": "替换"
+  },
+  "app.lab.banner-designer.replace-color.description": {
+    "message": "选择要替换的颜色，再选择替换成的颜色。"
+  },
+  "app.lab.banner-designer.replace-color.empty": {
+    "message": "这面旗帜还没有图案。纯色旗帜可以直接用「基底颜色」修改。"
+  },
+  "app.lab.banner-designer.replace-color.include-base": {
+    "message": "同时替换底板"
+  },
+  "app.lab.banner-designer.replace-color.layer-count": {
+    "message": "{count, plural, other {# 层}}"
+  },
+  "app.lab.banner-designer.replace-color.preview": {
+    "message": "预览"
+  },
+  "app.lab.banner-designer.replace-color.replace-with": {
+    "message": "替换为"
+  },
+  "app.lab.banner-designer.replace-color.select-all": {
+    "message": "全选"
+  },
+  "app.lab.banner-designer.replace-color.title": {
+    "message": "替换颜色"
+  },
+  "app.lab.banner-designer.title": {
+    "message": "旗帜设计师"
+  },
+  "app.lab.banner-designer.tools": {
+    "message": "工具"
+  },
+  "app.lab.banner-designer.tools.base-color": {
+    "message": "基底颜色"
+  },
+  "app.lab.banner-designer.tools.export": {
+    "message": "导出"
+  },
+  "app.lab.banner-designer.tools.import": {
+    "message": "导入"
+  },
+  "app.lab.banner-designer.tools.replace-colors": {
+    "message": "替换颜色"
+  },
+  "app.lab.banner-designer.undo": {
+    "message": "撤销"
+  },
   "app.java.searching": {
     "message": "正在查找 Java 安装……"
   },
@@ -9368,6 +9941,18 @@
   "app.settings.defaults.environment-variables-placeholder": {
     "message": "输入环境变量……"
   },
+  "app.settings.defaults.game-language.description": {
+    "message": "用于实例首次启动。已经游玩过的实例会保留游戏内语言。"
+  },
+  "app.settings.defaults.game-language.follow-launcher": {
+    "message": "跟随启动器语言"
+  },
+  "app.settings.defaults.game-language.search": {
+    "message": "Minecraft 游戏语言 区域 语言 locale"
+  },
+  "app.settings.defaults.game-language.title": {
+    "message": "默认游戏语言"
+  },
   "app.settings.defaults.fullscreen": {
     "message": "全屏"
   },
@@ -11881,12 +12466,6 @@
   },
   "app.splash.updating-app-directory": {
     "message": "正在更新应用目录……"
-  },
-  "app.symlink-capability.unsupported": {
-    "message": "系统不支持软链接。"
-  },
-  "app.symlink-capability.unsupported.title": {
-    "message": "软链接不支持"
   },
   "app.symlink-warning.delete.body": {
     "message": "此实例为共享实例。当前操作将删除共享的 {path}。"
@@ -14651,6 +15230,9 @@
   "app.settings.defaults.sections.environment": {
     "message": "环境变量"
   },
+  "app.settings.defaults.sections.game-language": {
+    "message": "游戏语言"
+  },
   "app.settings.defaults.sections.launch-hooks": {
     "message": "启动钩子"
   },
@@ -15256,9 +15838,6 @@
   },
   "app.instance.mods.manage-backups": {
     "message": "旧文件与备份"
-  },
-  "app.instance.mods.loading-online-information": {
-    "message": "正在加载在线信息，请稍后"
   },
   "app.resources.backups.back": {
     "message": "返回选择"
@@ -19747,9 +20326,6 @@
   },
   "app.instance.content.check-failures": {
     "message": "{count} 项检查失败"
-  },
-  "app.instance.content.unrecognized": {
-    "message": "{count} 个文件未能识别"
   },
   "app.lab.stronghold.manual": {
     "message": "手动录入"

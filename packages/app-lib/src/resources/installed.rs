@@ -1,4 +1,10 @@
 use super::{identity::LocalArtifactIdentity, *};
+use crate::state::store::Collection as _;
+use crate::state::store::Handle;
+use crate::state::store::resource_entry_graphs::ResourceEntryGraphs;
+use crate::state::store::resource_installed_artifacts::{
+    ResourceInstalledArtifactRecord, ResourceInstalledArtifacts,
+};
 use tokio_util::sync::CancellationToken;
 
 #[derive(Clone, serde::Serialize, serde::Deserialize)]
@@ -12,56 +18,42 @@ pub(crate) struct InstalledArtifactRecord {
 
 /// The artifact payload stored for an entry, as written, so a caller can
 /// compare integrity before replacing it.
-pub(crate) async fn installed_artifact_payload<'e, E>(
+pub(crate) async fn installed_artifact_payload(
     entry_id: &str,
-    exec: E,
-) -> crate::Result<Option<String>>
-where
-    E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
-{
-    Ok(sqlx::query_scalar(
-        "SELECT artifact FROM resource_installed_artifacts WHERE entry_id = ?",
-    )
-    .bind(entry_id)
-    .fetch_optional(exec)
-    .await?)
+    conn: &mut sqlx::SqliteConnection,
+) -> crate::Result<Option<String>> {
+    let key = entry_id.to_owned();
+    Ok(ResourceInstalledArtifacts::read(conn, &key)
+        .await?
+        .map(|record| record.artifact))
 }
 
 /// Records the artifact an entry installs, replacing what it held before.
-pub(crate) async fn set_installed_artifact<'e, E, T>(
+pub(crate) async fn set_installed_artifact<T>(
     entry_id: &str,
     payload: &T,
     scope: &InstallScope,
-    exec: E,
+    conn: &mut sqlx::SqliteConnection,
 ) -> crate::Result<()>
 where
-    E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
     T: serde::Serialize + ?Sized,
 {
-    sqlx::query("INSERT INTO resource_installed_artifacts(entry_id, artifact, scope) VALUES (?, ?, ?) ON CONFLICT(entry_id) DO UPDATE SET artifact = excluded.artifact, scope = excluded.scope")
-        .bind(entry_id)
-        .bind(serde_json::to_string(payload)?)
-        .bind(serde_json::to_string(scope)?)
-        .execute(exec)
-        .await?;
+    let record = ResourceInstalledArtifactRecord {
+        artifact: serde_json::to_string(payload)?,
+        scope: serde_json::to_string(scope)?,
+    };
 
-    Ok(())
+    let key = entry_id.to_owned();
+    ResourceInstalledArtifacts::write(conn, &key, Some(&record)).await
 }
 
 /// Drops the artifact an entry no longer installs.
-pub(crate) async fn delete_installed_artifact<'e, E>(
+pub(crate) async fn delete_installed_artifact(
     entry_id: &str,
-    exec: E,
-) -> crate::Result<()>
-where
-    E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
-{
-    sqlx::query("DELETE FROM resource_installed_artifacts WHERE entry_id = ?")
-        .bind(entry_id)
-        .execute(exec)
-        .await?;
-
-    Ok(())
+    conn: &mut sqlx::SqliteConnection,
+) -> crate::Result<()> {
+    let key = entry_id.to_owned();
+    ResourceInstalledArtifacts::write(conn, &key, None).await
 }
 
 /// Drops every resource row an entry leaves behind when it goes away.
@@ -69,13 +61,9 @@ pub(crate) async fn delete_entry_resource_traces(
     entry_id: &str,
     tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>,
 ) -> crate::Result<()> {
-    delete_installed_artifact(entry_id, &mut **tx).await?;
-    sqlx::query("DELETE FROM resource_entry_graphs WHERE entry_id = ?")
-        .bind(entry_id)
-        .execute(&mut **tx)
-        .await?;
-
-    Ok(())
+    delete_installed_artifact(entry_id, tx).await?;
+    let key = entry_id.to_owned();
+    ResourceEntryGraphs::delete_in(tx, &key).await
 }
 
 pub(crate) async fn attach_compatibility(
@@ -86,9 +74,11 @@ pub(crate) async fn attach_compatibility(
     items: &mut [crate::state::instances::InstanceContentSnapshotItem],
     service: Option<&std::sync::Arc<ResourceService>>,
 ) -> crate::Result<()> {
-    let rows: Vec<(String, String, i64, Option<String>, Option<String>)> = sqlx::query_as(
-        "SELECT entry.id, file.sha1, file.size, file.local_mod_data, exact.artifact FROM instance_content_entries entry JOIN instance_files file ON file.id = entry.file_id LEFT JOIN resource_installed_artifacts exact ON exact.entry_id = entry.id WHERE entry.instance_id = ? AND file.missing = 0"
-    ).bind(instance_id).fetch_all(pool).await?;
+    let rows = ResourceInstalledArtifacts::with_file_state(
+        &Handle::new(pool.clone()),
+        instance_id,
+    )
+    .await?;
     let target = ipc::ResourceTarget {
         game_versions: vec![game_version.into()],
         loaders: vec![loader.into()],
@@ -628,8 +618,14 @@ async fn hydrate_entries_with_service(
     let mut failures = Vec::new();
     let mut persisted = Vec::new();
     let mut verified = std::collections::HashMap::new();
-    let saved_records: std::collections::HashMap<String, String> = sqlx::query_as::<_, (String, String)>("SELECT exact.entry_id, exact.artifact FROM resource_installed_artifacts exact JOIN instance_content_entries entry ON entry.id = exact.entry_id WHERE entry.instance_id = ?")
-        .bind(instance_id).fetch_all(&state.pool).await.map_err(plans::db)?.into_iter().collect();
+    let saved_records: std::collections::HashMap<String, String> =
+        ResourceInstalledArtifacts::payloads_for_instance(
+            &state.data,
+            instance_id,
+        )
+        .await?
+        .into_iter()
+        .collect();
     for (index, entry) in entries
         .iter()
         .enumerate()
@@ -736,6 +732,7 @@ async fn hydrate_entries_with_service(
             .query_many(source, queries, CachePolicy::UseFresh, cancel)
             .await;
     }
+    let preferred = service.preferred_source().await?;
     for ((index, local), recognition) in
         indices.into_iter().zip(identities).zip(recognized)
     {
@@ -794,33 +791,33 @@ async fn hydrate_entries_with_service(
         if cancel.is_cancelled() {
             return Err(ResourceError::Canceled);
         }
-        let selected = entry
-            .artifact
+        let origin = origin
             .as_ref()
-            .and_then(|reference| {
-                matches
-                    .iter()
-                    .find(|artifact| &artifact.reference == reference)
-            })
-            .or_else(|| {
-                let origin_matches: Vec<_> = matches
-                    .iter()
-                    .filter(|artifact| {
-                        origin.is_some_and(|origin| {
-                            artifact.reference.release.project.source.as_str()
-                                == origin.as_str()
-                        })
-                    })
-                    .collect();
-                if origin_matches.len() == 1 {
-                    Some(origin_matches[0])
-                } else if origin.is_none() && !recognition.ambiguous {
-                    matches.first()
-                } else {
-                    None
-                }
-            })
-            .cloned();
+            .map(|origin| SourceId::new(origin.as_str()))
+            .transpose()?;
+        let selected = match service
+            .select_recognized_artifact(
+                &matches,
+                entry.artifact.as_ref(),
+                origin.as_ref(),
+                &preferred,
+                entry.resource_type,
+                recognition.ambiguous,
+                CachePolicy::UseFresh,
+                cancel,
+            )
+            .await
+        {
+            Ok(selected) => selected,
+            Err(error) if identity::recognition_source_failure(&error) => {
+                failures.push((
+                    entry.entry_id.clone(),
+                    format!("{}: {error}", entry.relative_path),
+                ));
+                None
+            }
+            Err(error) => return Err(error),
+        };
         if selected.is_none() {
             entry.artifact = None;
             entry.known_artifacts.clear();
@@ -836,7 +833,7 @@ async fn hydrate_entries_with_service(
             }
             continue;
         }
-        let mut selected = selected.unwrap();
+        let (mut selected, metadata) = selected.unwrap();
         if !selected
             .integrity
             .hashes
@@ -851,29 +848,6 @@ async fn hydrate_entries_with_service(
                     .filter(|hash| hash.algorithm == HashAlgorithm::Sha1)
                     .cloned(),
             );
-        }
-        let metadata = match service
-            .project_document(&selected.reference.release.project, None, cancel)
-            .await
-        {
-            Ok(document) => document.metadata,
-            Err(ResourceError::Canceled) => {
-                return Err(ResourceError::Canceled);
-            }
-            Err(error) => {
-                failures.push((
-                    entry.entry_id.clone(),
-                    format!("{}: {error}", entry.relative_path),
-                ));
-                entry.artifact = None;
-                continue;
-            }
-        };
-        // Hash matches below can confirm counterparts without a separate
-        // project-history probe for every file in the instance.
-        if !metadata.types.contains(&entry.resource_type) {
-            entry.artifact = None;
-            continue;
         }
         if let Some(store) = service.store() {
             let id = store
@@ -954,8 +928,7 @@ async fn hydrate_entries_with_service(
     }
     let mut tx = state.pool.begin().await.map_err(plans::db)?;
     for (id, artifact, scope) in persisted {
-        let previous =
-            installed_artifact_payload(id.as_str(), &mut *tx).await?;
+        let previous = installed_artifact_payload(id.as_str(), &mut tx).await?;
         let declared_compatibility = previous
             .and_then(|payload| {
                 serde_json::from_str::<InstalledArtifactRecord>(&payload).ok()
@@ -972,7 +945,7 @@ async fn hydrate_entries_with_service(
             artifact,
             declared_compatibility,
         };
-        set_installed_artifact(id.as_str(), &record, &scope, &mut *tx).await?;
+        set_installed_artifact(id.as_str(), &record, &scope, &mut tx).await?;
     }
     tx.commit().await.map_err(plans::db)?;
     Ok(HydratedInstalled { entries, failures })
@@ -1008,6 +981,36 @@ pub async fn prepare_entries(
 }
 
 pub async fn prepare_entries_with_progress(
+    instance_id: String,
+    intent: ResourceOperationIntent,
+    entry_ids: Vec<InstalledEntryId>,
+    release: Option<SourceReleaseRef>,
+    install_dependencies: bool,
+    cancel: &CancellationToken,
+    progress: plans::OperationProgress<'_>,
+    resolve_dependencies: bool,
+) -> ResourceResult<ResourceOperationPlan> {
+    plans::bounded_preparation(
+        cancel,
+        std::time::Duration::from_secs(15 * 60),
+        |cancel| async move {
+            prepare_entries_inner(
+                instance_id,
+                intent,
+                entry_ids,
+                release,
+                install_dependencies,
+                &cancel,
+                progress,
+                resolve_dependencies,
+            )
+            .await
+        },
+    )
+    .await
+}
+
+async fn prepare_entries_inner(
     instance_id: String,
     intent: ResourceOperationIntent,
     entry_ids: Vec<InstalledEntryId>,

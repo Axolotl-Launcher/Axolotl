@@ -5,12 +5,29 @@ use crate::state::store::content_update_jobs::{
     ContentUpdateJobRecord, ContentUpdateJobs,
 };
 use crate::state::store::install_jobs::{
-    InstallJobRecord as StoredJob, InstallJobScope, InstallJobs,
+    InstallJobRecord as StoredJob, InstallJobScope, InstallJobs, JobFinish,
 };
 use crate::state::store::{Atom, Collection as _, atom, names_a_missing_row};
 use crate::state::{InstanceInstallStage, State};
 use chrono::{DateTime, TimeZone, Utc};
 use uuid::Uuid;
+
+fn same_execution(
+    stored: &str,
+    incoming: &InstallJobState,
+) -> crate::Result<bool> {
+    fn queued(state: &InstallJobState) -> Option<chrono::DateTime<Utc>> {
+        state.events.iter().rev().find_map(|event| {
+            matches!(
+                event.kind,
+                super::model::InstallJobEventKind::JobQueued { .. }
+            )
+            .then_some(event.at)
+        })
+    }
+    let stored: InstallJobState = serde_json::from_str(stored)?;
+    Ok(queued(&stored) == queued(incoming))
+}
 
 #[derive(Clone, Debug)]
 pub struct InstallJobRecord {
@@ -130,29 +147,16 @@ pub(crate) async fn has_unfinished_job_in_transaction(
     instance_id: &str,
     tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>,
 ) -> crate::Result<bool> {
-    let statuses = InstallJobStatus::unfinished_sql();
-    let busy: i64 = sqlx::query_scalar(&format!(
-        "SELECT EXISTS(SELECT 1 FROM install_jobs WHERE instance_id = ? AND status IN ({statuses}))"
-    ))
-    .bind(instance_id)
-    .fetch_one(&mut **tx)
-    .await?;
-
-    Ok(busy != 0)
+    let statuses = InstallJobStatus::unfinished();
+    InstallJobs::unfinished_in(&mut **tx, instance_id, &statuses).await
 }
 
 /// Whether any job still occupies an instance, or still holds a rollback.
 pub(crate) async fn has_any_unfinished_job(
     pool: &sqlx::SqlitePool,
 ) -> crate::Result<bool> {
-    let statuses = InstallJobStatus::unfinished_sql();
-    let busy: i64 = sqlx::query_scalar(&format!(
-        "SELECT COUNT(*) FROM install_jobs WHERE status IN ({statuses}) OR json_extract(state, '$.rollback') IS NOT NULL"
-    ))
-    .fetch_one(pool)
-    .await?;
-
-    Ok(busy > 0)
+    let statuses = InstallJobStatus::unfinished();
+    InstallJobs::unfinished_or_rollback(pool, &statuses).await
 }
 
 pub async fn list(
@@ -218,6 +222,10 @@ pub async fn update_state(
 
     let mut unit = atom(&app_state.data).await?;
     if let Some(mut row) = InstallJobs::atom_get(&mut unit, &key).await? {
+        if !same_execution(&row.state, state)? {
+            drop(unit);
+            return get_required(id, app_state).await;
+        }
         row.instance_id = instance_id(state);
         row.state = json;
         row.modified = modified;
@@ -254,7 +262,9 @@ pub async fn checkpoint_running_state(
     let Some(mut row) = InstallJobs::atom_get(&mut unit, &key).await? else {
         return Ok(None);
     };
-    if row.status.as_str() != InstallJobStatus::Running.as_str() {
+    if row.status.as_str() != InstallJobStatus::Running.as_str()
+        || !same_execution(&row.state, state)?
+    {
         return Ok(None);
     }
     row.instance_id = instance_id(state);
@@ -379,17 +389,14 @@ pub async fn complete_running_job(
     if completes_instance_install_stage
         && let Some(instance_id) = instance_id.as_deref()
     {
-        let result = sqlx::query(
-            "UPDATE instances
-             SET install_stage = ?, modified = ?
-             WHERE id = ?",
+        let reached = crate::state::instances::adapters::sqlite::instance_rows::set_install_stage_in_transaction(
+            instance_id,
+            InstanceInstallStage::Installed,
+            modified,
+            &mut transaction,
         )
-        .bind(InstanceInstallStage::Installed.as_str())
-        .bind(modified)
-        .bind(instance_id)
-        .execute(&mut *transaction)
         .await?;
-        if result.rows_affected() != 1 {
+        if reached != 1 {
             return Err(crate::ErrorKind::InputError(format!(
                 "Install target instance {instance_id} no longer exists"
             ))
@@ -397,24 +404,23 @@ pub async fn complete_running_job(
         }
     }
 
-    let result = sqlx::query(
-        "UPDATE install_jobs
-         SET instance_id = (SELECT id FROM instances WHERE id = ?),
-             status = ?, state = ?, modified = ?, finished = ?
-         WHERE id = ? AND (status = ? OR (status = 'canceling' AND ?))",
+    let reached = InstallJobs::finish_in(
+        &mut transaction,
+        &JobFinish {
+            key: &id_value,
+            instance_id: instance_id.as_deref(),
+            status: InstallJobStatus::Succeeded.as_str(),
+            state: &json,
+            modified,
+            finished: now.timestamp(),
+            running_status: InstallJobStatus::Running.as_str(),
+            canceling_status: InstallJobStatus::Canceling.as_str(),
+            accept_canceling: resource_committed,
+        },
     )
-    .bind(instance_id.as_deref())
-    .bind(InstallJobStatus::Succeeded.as_str())
-    .bind(json)
-    .bind(modified)
-    .bind(now.timestamp())
-    .bind(&id_value)
-    .bind(InstallJobStatus::Running.as_str())
-    .bind(resource_committed)
-    .execute(&mut *transaction)
     .await?;
 
-    if result.rows_affected() != 1 {
+    if reached != 1 {
         transaction.rollback().await?;
         return Ok(None);
     }

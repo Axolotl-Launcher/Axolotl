@@ -9,9 +9,12 @@ pub(crate) async fn get(
     state: &State,
 ) -> crate::Result<InstanceContentSnapshot> {
     let started = std::time::Instant::now();
-    let records =
-        crate::state::store::content_snapshot::get(&state.data, instance_id)
-            .await?;
+    let records = crate::state::store::content_snapshot::get_with_saved_pack(
+        &state.data,
+        &state.derived,
+        instance_id,
+    )
+    .await?;
     let result = project(records);
     tracing::debug!(
         instance_id,
@@ -176,7 +179,7 @@ pub(crate) fn project(records: SnapshotRecords) -> InstanceContentSnapshot {
             content.version =
                 record.content.version.clone().or(content.version);
             content.owner = record.content.owner.clone().or(content.owner);
-            content.environment = record.content.environment.clone();
+            content.environment = record.content.environment;
             content.loader = record.content.loader.clone().or(content.loader);
             content.external = record.content.external;
         }

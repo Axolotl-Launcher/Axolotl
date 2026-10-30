@@ -138,7 +138,7 @@ tauri-plugin-http = "2.5.7"
 tauri-plugin-opener = "2.5.0"
 tauri-plugin-os = "2.3.1"
 tauri-plugin-single-instance = "2.3.4"
-tauri-plugin-updater = { git = "https://github.com/modrinth/plugins-workspace", rev = "0d30f2aa28ec668ce187d527da1c475da3c01cbc", default-features = false, features = [
+tauri-plugin-updater = { git = "https://github.com/modrinth/plugins-workspace", rev = "31e5bcdfdf3acb71f5162156accb8473c45a6064", default-features = false, features = [
   "rustls-tls",
   "zip",
 ] }
@@ -174,7 +174,7 @@ zhconv = { version = "0.4.1", default-features = false, features = [
   "compress",
   "opencc"
 ] }
-zip = { version = "6.0.0", default-features = false, features = [
+zip = { version = "9.0.5", default-features = false, features = [
   "bzip2",
   "deflate",
   "deflate64",

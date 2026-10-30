@@ -183,6 +183,45 @@ pub struct CreatePackDescription {
     pub source_filename: Option<String>,
 }
 
+/// Detect changes to a local pack before reusing its partial installation.
+/// Reads archive metadata rather than hashing every bundled JAR again; normal
+/// installation still verifies each extracted or downloaded file separately.
+pub(crate) async fn local_pack_retry_identity(
+    path: &Path,
+) -> crate::Result<String> {
+    let path = path.to_owned();
+    tokio::task::spawn_blocking(move || {
+        use sha2::{Digest, Sha256};
+        let file = std::fs::File::open(&path)?;
+        let metadata = file.metadata()?;
+        let mut digest = Sha256::new();
+        digest.update(metadata.len().to_le_bytes());
+        if let Ok(modified) = metadata.modified()
+            && let Ok(modified) = modified.duration_since(std::time::UNIX_EPOCH)
+        {
+            digest.update(modified.as_secs().to_le_bytes());
+            digest.update(modified.subsec_nanos().to_le_bytes());
+        }
+        let invalid_archive = |error| {
+            crate::ErrorKind::InputError(format!(
+                "Cannot read the original modpack archive: {error}"
+            ))
+        };
+        let mut archive = ZipArchive::new(file).map_err(invalid_archive)?;
+        for index in 0..archive.len() {
+            let entry = archive.by_index_raw(index).map_err(invalid_archive)?;
+            let name = entry.name_raw();
+            digest.update((name.len() as u64).to_le_bytes());
+            digest.update(name);
+            digest.update(entry.crc32().to_le_bytes());
+            digest.update(entry.size().to_le_bytes());
+            digest.update(entry.compressed_size().to_le_bytes());
+        }
+        Ok::<_, crate::Error>(format!("{:x}", digest.finalize()))
+    })
+    .await?
+}
+
 pub async fn get_instance_from_pack(
     location: CreatePackLocation,
 ) -> crate::Result<CreatePackInstance> {

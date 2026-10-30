@@ -1,7 +1,9 @@
 //! Fetch throttle tests.
 
+use crate::util::download::constants::H2_FALLBACK_TTL;
 #[cfg(test)]
 use std::time::Duration;
+use std::time::{self, Instant};
 
 use super::super::*;
 use super::fixtures;

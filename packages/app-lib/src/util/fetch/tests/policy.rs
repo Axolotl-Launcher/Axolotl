@@ -1,6 +1,8 @@
 //! Fetch policy tests.
 
+use crate::util::download::constants::RETRY_AFTER_CAP;
 use std::time::Duration;
+use url::Url;
 
 use super::super::*;
 

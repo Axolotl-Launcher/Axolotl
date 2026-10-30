@@ -860,6 +860,32 @@ mod tests {
         assert_eq!(censored, log);
     }
 
+    /// A credential store that stops answering fails the report instead of
+    /// letting its secrets through: an emptied secret is one this code no longer
+    /// knows how to hide.
+    #[tokio::test]
+    async fn an_unreadable_credential_store_fails_the_report() {
+        let pool = test_pool().await;
+        let handle = handle_of(&pool);
+        {
+            let _host = crate::state::store::secrets::testing::with_store();
+            add_online_account(
+                &handle,
+                StoredAccountType::Microsoft,
+                "ms-access",
+                "ms-refresh",
+            )
+            .await;
+        }
+        let _locked = crate::state::store::secrets::testing::without_store();
+
+        let censored =
+            censor_support_text("ms-access ms-refresh".to_string(), &handle)
+                .await;
+
+        assert!(censored.is_err(), "the report is not exported unredacted");
+    }
+
     #[tokio::test]
     async fn network_report_preserves_ips_while_censoring_credentials() {
         let pool = test_pool().await;

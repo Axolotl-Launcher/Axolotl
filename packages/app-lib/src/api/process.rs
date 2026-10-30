@@ -31,21 +31,11 @@ async fn resolve_instance_id_with_state(
     instance: &str,
     state: &State,
 ) -> crate::Result<Option<String>> {
-    sqlx::query_scalar!(
-        "
-        SELECT id
-        FROM instances
-        WHERE id = ? OR path = ?
-        ORDER BY CASE WHEN id = ? THEN 0 ELSE 1 END
-        LIMIT 1
-        ",
+    crate::state::instances::adapters::sqlite::instance_rows::find_id_by_id_or_path(
         instance,
-        instance,
-        instance,
+        &state.pool,
     )
-    .fetch_optional(&state.pool)
     .await
-    .map_err(Into::into)
 }
 
 // Gets the UUID of each stored process in the state by instance id

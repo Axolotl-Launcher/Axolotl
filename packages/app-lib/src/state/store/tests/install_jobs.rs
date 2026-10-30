@@ -7,7 +7,7 @@ use crate::state::store::content_update_jobs::{
     ContentUpdateJobRecord, ContentUpdateJobs,
 };
 use crate::state::store::install_jobs::{
-    InstallJobRecord, InstallJobScope, InstallJobs,
+    InstallJobRecord, InstallJobScope, InstallJobs, JobFinish,
 };
 
 fn handle_of(pool: &sqlx::SqlitePool) -> Handle {
@@ -189,4 +189,147 @@ async fn an_instance_scope_reads_the_jobs_of_that_instance() {
 
     assert_eq!(jobs.len(), 1);
     assert_eq!(jobs[0].0, "first");
+}
+
+#[tokio::test]
+async fn a_job_is_opened_once_and_a_second_opening_is_refused() {
+    let handle = support::handle().await;
+    let id = "job".to_string();
+    let mut connection = handle.pool().acquire().await.unwrap();
+
+    InstallJobs::insert_in(&mut *connection, &id, &job("queued"))
+        .await
+        .unwrap();
+    let refused =
+        InstallJobs::insert_in(&mut *connection, &id, &job("running")).await;
+    assert!(refused.is_err());
+    drop(connection);
+
+    assert_eq!(
+        InstallJobs::get(&handle, &id).await.unwrap(),
+        Some(job("queued"))
+    );
+}
+
+#[tokio::test]
+async fn finishing_a_job_lands_only_while_it_is_still_running() {
+    let handle = support::handle().await;
+    let id = "job".to_string();
+    let mut connection = handle.pool().acquire().await.unwrap();
+
+    InstallJobs::insert_in(&mut *connection, &id, &job("running"))
+        .await
+        .unwrap();
+    let reached =
+        InstallJobs::finish_in(&mut *connection, &finish(&id, "succeeded"))
+            .await
+            .unwrap();
+    assert_eq!(reached, 1);
+    drop(connection);
+
+    let stored = InstallJobs::get(&handle, &id).await.unwrap().unwrap();
+
+    assert_eq!(stored.status, "succeeded");
+    assert_eq!(stored.finished, Some(30));
+}
+
+#[tokio::test]
+async fn a_job_that_moved_on_is_not_finished_again() {
+    let handle = support::handle().await;
+    let id = "job".to_string();
+    let mut connection = handle.pool().acquire().await.unwrap();
+
+    InstallJobs::insert_in(&mut *connection, &id, &job("succeeded"))
+        .await
+        .unwrap();
+    let reached =
+        InstallJobs::finish_in(&mut *connection, &finish(&id, "failed"))
+            .await
+            .unwrap();
+    assert_eq!(reached, 0);
+    drop(connection);
+
+    let stored = InstallJobs::get(&handle, &id).await.unwrap().unwrap();
+
+    assert_eq!(stored.status, "succeeded");
+}
+
+#[tokio::test]
+async fn the_guards_see_the_jobs_that_still_occupy_an_instance() {
+    let pool = support::pool().await;
+    support::add_instance(&pool, "one").await;
+    let handle = handle_of(&pool);
+    let mut connection = handle.pool().acquire().await.unwrap();
+
+    let mut running = job("running");
+    running.instance_id = Some("one".to_string());
+    InstallJobs::insert_in(&mut *connection, &"running".to_string(), &running)
+        .await
+        .unwrap();
+    let mut finished = job("succeeded");
+    finished.instance_id = Some("one".to_string());
+    InstallJobs::insert_in(
+        &mut *connection,
+        &"finished".to_string(),
+        &finished,
+    )
+    .await
+    .unwrap();
+
+    assert!(
+        InstallJobs::unfinished_in(&mut *connection, "one", &["running"])
+            .await
+            .unwrap()
+    );
+    assert!(
+        !InstallJobs::unfinished_in(&mut *connection, "one", &["queued"])
+            .await
+            .unwrap()
+    );
+    assert!(
+        InstallJobs::unfinished_or_rollback(&mut *connection, &["queued"])
+            .await
+            .unwrap()
+    );
+}
+
+#[tokio::test]
+async fn a_finished_job_that_holds_a_rollback_still_occupies_the_runtime() {
+    let handle = support::handle().await;
+    let mut connection = handle.pool().acquire().await.unwrap();
+    let mut with_rollback = job("succeeded");
+    with_rollback.state = "{\"rollback\":{\"after\":true}}".to_string();
+
+    InstallJobs::insert_in(
+        &mut *connection,
+        &"job".to_string(),
+        &with_rollback,
+    )
+    .await
+    .unwrap();
+
+    assert!(
+        InstallJobs::unfinished_or_rollback(&mut *connection, &["queued"])
+            .await
+            .unwrap()
+    );
+    assert!(
+        !InstallJobs::unfinished_in(&mut *connection, "instance", &["queued"])
+            .await
+            .unwrap()
+    );
+}
+
+fn finish<'a>(key: &'a str, status: &'a str) -> JobFinish<'a> {
+    JobFinish {
+        key,
+        instance_id: None,
+        status,
+        state: "{\"progress\":{}}",
+        modified: 20,
+        finished: 30,
+        running_status: "running",
+        canceling_status: "canceling",
+        accept_canceling: false,
+    }
 }

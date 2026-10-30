@@ -64,6 +64,31 @@ pub async fn recover_interrupted_jobs(state: &State) -> crate::Result<()> {
         if job.state.display.is_none() {
             job.state.display = display_from_request(&job.state);
         }
+        if job.status != InstallJobStatus::Canceling
+            && job.state.retry_from_checkpoint
+            && job.state.is_new_pack_checkpoint()
+        {
+            let phase = job.state.progress.phase;
+            job.state.error = Some(InstallErrorView::from_message(
+                "app_closed",
+                phase,
+                "Installation was interrupted. Retry to continue with the downloaded files.",
+            ));
+            job.state.record_event(InstallJobEventKind::Interrupted {
+                reason: InstallInterruptReason::AppClosed,
+                phase,
+            });
+            job.state.progress.parallel = None;
+            let record = store::update_status(
+                job.id,
+                InstallJobStatus::Failed,
+                &job.state,
+                state,
+            )
+            .await?;
+            emit_install_job(&record.snapshot()).await?;
+            continue;
+        }
         let interrupted_phase = job.state.progress.phase;
         job.state.record_event(InstallJobEventKind::Interrupted {
             reason: InstallInterruptReason::AppClosed,
@@ -836,42 +861,33 @@ async fn remove_snapshotted_db_state(
         .map(|file| file.id.clone())
         .collect::<Vec<_>>();
     let mut tx = state.pool.begin().await?;
-    sqlx::query("DELETE FROM instance_pack_members WHERE content_set_id = ?")
-        .bind(content_set_id)
-        .execute(&mut *tx)
-        .await?;
+    pack_members::delete_pack_members_for_set_in_transaction(
+        content_set_id,
+        &mut tx,
+    )
+    .await?;
     match snapshot.scope {
         InstallContentRollbackScope::PackManaged => {
-            sqlx::query(
-                "DELETE FROM instance_content_entries
-                 WHERE content_set_id = ? AND ownership_kind = 'pack_managed'",
+            content_entries::delete_pack_managed_entries_for_set_in_transaction(
+                content_set_id,
+                &mut tx,
             )
-            .bind(content_set_id)
-            .execute(&mut *tx)
             .await?;
         }
         InstallContentRollbackScope::AllContent => {
-            sqlx::query(
-                "DELETE FROM instance_content_entries WHERE content_set_id = ?",
+            content_entries::delete_entries_for_set_in_transaction(
+                content_set_id,
+                &mut tx,
             )
-            .bind(content_set_id)
-            .execute(&mut *tx)
             .await?;
         }
     }
     for file_id in file_ids {
-        sqlx::query(
-            "DELETE FROM instance_files
-             WHERE instance_id = ? AND id = ?
-               AND NOT EXISTS (
-                   SELECT 1 FROM instance_content_entries
-                   WHERE file_id = ?
-               )",
+        files::delete_unreferenced_file_by_id_in_transaction(
+            instance_id,
+            &file_id,
+            &mut tx,
         )
-        .bind(instance_id)
-        .bind(&file_id)
-        .bind(&file_id)
-        .execute(&mut *tx)
         .await?;
     }
     tx.commit().await?;
@@ -969,41 +985,33 @@ async fn restore_snapshotted_db_state(
         .collect::<Vec<_>>();
 
     let mut tx = state.pool.begin().await?;
-    sqlx::query("DELETE FROM instance_pack_members WHERE content_set_id = ?")
-        .bind(content_set_id)
-        .execute(&mut *tx)
-        .await?;
+    pack_members::delete_pack_members_for_set_in_transaction(
+        content_set_id,
+        &mut tx,
+    )
+    .await?;
     match snapshot.scope {
         InstallContentRollbackScope::PackManaged => {
-            sqlx::query(
-                "DELETE FROM instance_content_entries
-                 WHERE content_set_id = ? AND ownership_kind = 'pack_managed'",
+            content_entries::delete_pack_managed_entries_for_set_in_transaction(
+                content_set_id,
+                &mut tx,
             )
-            .bind(content_set_id)
-            .execute(&mut *tx)
             .await?;
         }
         InstallContentRollbackScope::AllContent => {
-            sqlx::query(
-                "DELETE FROM instance_content_entries WHERE content_set_id = ?",
+            content_entries::delete_entries_for_set_in_transaction(
+                content_set_id,
+                &mut tx,
             )
-            .bind(content_set_id)
-            .execute(&mut *tx)
             .await?;
         }
     }
     for file_id in current_file_ids {
-        sqlx::query(
-            "DELETE FROM instance_files
-             WHERE instance_id = ? AND id = ?
-               AND NOT EXISTS (
-                   SELECT 1 FROM instance_content_entries WHERE file_id = ?
-               )",
+        files::delete_unreferenced_file_by_id_in_transaction(
+            instance_id,
+            &file_id,
+            &mut tx,
         )
-        .bind(instance_id)
-        .bind(&file_id)
-        .bind(&file_id)
-        .execute(&mut *tx)
         .await?;
     }
     for file in snapshot

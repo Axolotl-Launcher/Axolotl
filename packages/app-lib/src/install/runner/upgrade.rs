@@ -1,7 +1,5 @@
 use super::*;
 
-use crate::state::instances::adapters::sqlite::{content_entries, files};
-
 pub(super) enum StagedUpgradeDownload {
     Modrinth(crate::state::instances::commands::DownloadedProjectVersion),
     CurseForge(crate::api::curseforge::StagedCurseForgeUpgrade),
@@ -658,11 +656,10 @@ async fn clone_upgrade_backup_content_metadata(
     }
 
     let mut tx = state.pool.begin().await?;
-    sqlx::query(
-        "DELETE FROM instance_content_dependencies WHERE content_set_id = ?",
+    content_entries::delete_dependency_edges_for_set_in_transaction(
+        target_content_set_id,
+        &mut tx,
     )
-    .bind(target_content_set_id)
-    .execute(&mut *tx)
     .await?;
     let mut entry_ids = HashMap::new();
     for source_entry in &source_entries {
@@ -701,11 +698,10 @@ async fn clone_upgrade_backup_content_metadata(
                 &mut tx,
             )
             .await?;
-        sqlx::query(
-            "DELETE FROM instance_content_provider_refs WHERE content_entry_id = ?",
+        content_entries::delete_provider_refs_for_entry_in_transaction(
+            &target_entry.id,
+            &mut tx,
         )
-        .bind(&target_entry.id)
-        .execute(&mut *tx)
         .await?;
         for (provider_ref, origin) in &provider_refs[source_entry.id.as_str()] {
             content_entries::upsert_content_provider_ref_in_transaction(

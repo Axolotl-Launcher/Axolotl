@@ -711,7 +711,12 @@ async fn validate_archive(path: &Path) -> crate::Result<()> {
                     "Core component ZIP entry cannot be read: {error}"
                 ))
             })?;
-            validate_archive_entry(entry.name())?;
+            let name = entry.name().map_err(|error| {
+                crate::ErrorKind::InputError(format!(
+                    "Core component ZIP entry name cannot be read: {error}"
+                ))
+            })?;
+            validate_archive_entry(&name)?;
         }
         Ok(())
     })
@@ -785,7 +790,12 @@ fn assemble_archive(
                         "Cannot read core component ZIP entry: {error}"
                     ))
                 })?;
-                let name = validate_archive_entry(entry.name())?;
+                let name = entry.name().map_err(|error| {
+                    crate::ErrorKind::InputError(format!(
+                        "Cannot read core component ZIP entry name: {error}"
+                    ))
+                })?;
+                let name = validate_archive_entry(&name)?;
                 let Some(name) = name else {
                     continue;
                 };

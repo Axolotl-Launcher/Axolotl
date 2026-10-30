@@ -10,6 +10,8 @@
 //! are no longer read or written (they are only read once, at import time).
 
 use crate::state::State;
+use crate::state::instances::adapters::sqlite::instance_groups as legacy_groups;
+use crate::state::instances::adapters::sqlite::instance_groups::LegacyGroups;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::fs;
@@ -378,43 +380,20 @@ pub fn rename_instance(old_id: &str, new_id: &str) {
 async fn import_sql_groups(
     pool: &sqlx::SqlitePool,
 ) -> crate::Result<InstanceGroupsFile> {
-    let columns: Vec<String> = sqlx::query_scalar(
-        "SELECT name FROM pragma_table_info('instance_groups')",
-    )
-    .fetch_all(pool)
-    .await?;
-    let has_column = |name: &str| columns.iter().any(|column| column == name);
-
     let mut file = InstanceGroupsFile {
         schema_version: INSTANCE_GROUPS_SCHEMA_VERSION,
         groups: Vec::new(),
         memberships: HashMap::new(),
     };
 
-    if has_column("id") && has_column("name") {
-        let rows = sqlx::query_as::<_, (String, String)>(
-            "SELECT id, name FROM instance_groups ORDER BY display_order, name, id",
-        )
-        .fetch_all(pool)
-        .await?;
-        for (id, name) in rows {
-            file.groups.push(GroupDefinition { id, name });
-        }
-
-        let has_memberships: bool = sqlx::query_scalar(
-            "SELECT EXISTS(
-                SELECT 1 FROM sqlite_master
-                WHERE type = 'table' AND name = 'instance_group_memberships'
-            )",
-        )
-        .fetch_one(pool)
-        .await?;
-        if has_memberships {
-            let memberships = sqlx::query_as::<_, (String, String)>(
-                "SELECT instance_id, group_id FROM instance_group_memberships",
-            )
-            .fetch_all(pool)
-            .await?;
+    match legacy_groups::read_legacy(pool).await? {
+        LegacyGroups::Named {
+            groups,
+            memberships,
+        } => {
+            for (id, name) in groups {
+                file.groups.push(GroupDefinition { id, name });
+            }
             for (instance_id, group_id) in memberships {
                 file.memberships
                     .entry(instance_id)
@@ -422,36 +401,32 @@ async fn import_sql_groups(
                     .push(group_id);
             }
         }
-    } else if has_column("instance_id") && has_column("group_name") {
-        let rows = sqlx::query_as::<_, (String, String)>(
-            "SELECT instance_id, group_name
-             FROM instance_groups
-             ORDER BY group_name, instance_id",
-        )
-        .fetch_all(pool)
-        .await?;
-        let mut group_ids = HashMap::<String, String>::new();
-        for (instance_id, group_name) in rows {
-            let group_id = group_ids
-                .entry(group_name.clone())
-                .or_insert_with(|| uuid::Uuid::new_v4().to_string())
-                .clone();
-            file.memberships
-                .entry(instance_id)
-                .or_default()
-                .push(group_id.clone());
-            if !file.groups.iter().any(|group| group.id == group_id) {
-                file.groups.push(GroupDefinition {
-                    id: group_id,
-                    name: group_name,
-                });
+        LegacyGroups::Memberships(rows) => {
+            let mut group_ids = HashMap::<String, String>::new();
+            for (instance_id, group_name) in rows {
+                let group_id = group_ids
+                    .entry(group_name.clone())
+                    .or_insert_with(|| uuid::Uuid::new_v4().to_string())
+                    .clone();
+                file.memberships
+                    .entry(instance_id)
+                    .or_default()
+                    .push(group_id.clone());
+                if !file.groups.iter().any(|group| group.id == group_id) {
+                    file.groups.push(GroupDefinition {
+                        id: group_id,
+                        name: group_name,
+                    });
+                }
             }
         }
-    } else if !columns.is_empty() {
-        warn!(
-            columns = ?columns,
-            "Skipping instance group import from an unrecognized SQLite schema"
-        );
+        LegacyGroups::Unrecognised(columns) => {
+            warn!(
+                columns = ?columns,
+                "Skipping instance group import from an unrecognized SQLite schema"
+            );
+        }
+        LegacyGroups::Absent => {}
     }
 
     file.normalize();

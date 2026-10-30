@@ -3,13 +3,14 @@
 //! A few columns of the row belong to other readers: the proxy, the DNS server,
 //! the download engine and the CurseForge key are written by the modules that
 //! own them, so they are not part of this record and a write from here leaves
-//! them as they were.
+//! them as they were. `OwnedColumns` is how those modules reach them.
 //!
 //! The columns holding JSON are carried as the text they are stored as: what
 //! the text means is the caller's business.
 
 use sqlx::Row;
 use sqlx::SqliteConnection;
+use sqlx::SqlitePool;
 use sqlx::sqlite::SqliteRow;
 
 use super::Collection;
@@ -164,6 +165,123 @@ pub(crate) struct SettingsRecord {
     pub doh_enabled: bool,
     pub resource_chinese_filenames: bool,
     pub resource_preserve_filenames: bool,
+    pub default_game_language: String,
+}
+
+/// The settings columns their own modules write.
+///
+/// These are not part of `SettingsRecord`: the settings page writes back the
+/// record it read, and a record carrying these would put the proxy and the
+/// CurseForge key back to the values that read saw. The modules that own them
+/// change them instead, so a write from either side leaves the other's columns
+/// as they were.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct OwnedColumns {
+    pub proxy_mode: String,
+    pub proxy_url: String,
+    pub proxy_username: String,
+    pub proxy_password: String,
+    pub curseforge_api_key: String,
+}
+
+impl Settings {
+    /// Changes the settings row inside the caller's unit, so the row the
+    /// change is applied to cannot be replaced between the read and the write.
+    pub(crate) async fn update_in(
+        unit: &mut super::Atom,
+        change: impl FnOnce(&mut SettingsRecord),
+    ) -> crate::Result<()> {
+        let mut record = <Self as Collection>::atom_get(unit, &Singleton)
+            .await?
+            .ok_or_else(missing_row)?;
+        change(&mut record);
+        <Self as Collection>::atom_set(unit, &Singleton, Some(&record)).await
+    }
+
+    /// Reads the columns the proxy and the CurseForge key live in.
+    pub(crate) async fn owned_columns(
+        handle: &super::Handle,
+    ) -> crate::Result<OwnedColumns> {
+        let mut connection = handle.connection().await?;
+        read_owned_columns(&mut connection)
+            .await?
+            .ok_or_else(missing_row)
+    }
+
+    /// Changes the columns their own modules write inside the caller's unit,
+    /// so the values read back are the ones the change is applied to.
+    pub(crate) async fn update_owned_in(
+        unit: &mut super::Atom,
+        change: impl FnOnce(&mut OwnedColumns),
+    ) -> crate::Result<()> {
+        let mut columns = read_owned_columns(unit.connection())
+            .await?
+            .ok_or_else(missing_row)?;
+        change(&mut columns);
+        write_owned_columns(unit.connection(), &columns).await
+    }
+}
+
+fn missing_row() -> crate::Error {
+    crate::ErrorKind::OtherError(
+        "The launcher settings row is missing".to_string(),
+    )
+    .into()
+}
+
+async fn read_owned_columns(
+    conn: &mut SqliteConnection,
+) -> crate::Result<Option<OwnedColumns>> {
+    let row = sqlx::query(
+        "
+        SELECT
+            proxy_mode, proxy_url, proxy_username, proxy_password,
+            curseforge_api_key
+        FROM settings
+        WHERE id = 0
+        ",
+    )
+    .fetch_optional(&mut *conn)
+    .await?;
+
+    let Some(row) = row else {
+        return Ok(None);
+    };
+
+    Ok(Some(OwnedColumns {
+        proxy_mode: row.try_get("proxy_mode")?,
+        proxy_url: row.try_get("proxy_url")?,
+        proxy_username: row.try_get("proxy_username")?,
+        proxy_password: row.try_get("proxy_password")?,
+        curseforge_api_key: row.try_get("curseforge_api_key")?,
+    }))
+}
+
+async fn write_owned_columns(
+    conn: &mut SqliteConnection,
+    columns: &OwnedColumns,
+) -> crate::Result<()> {
+    sqlx::query(
+        "
+        UPDATE settings
+        SET
+            proxy_mode = ?,
+            proxy_url = ?,
+            proxy_username = ?,
+            proxy_password = ?,
+            curseforge_api_key = ?
+        WHERE id = 0
+        ",
+    )
+    .bind(&columns.proxy_mode)
+    .bind(&columns.proxy_url)
+    .bind(&columns.proxy_username)
+    .bind(&columns.proxy_password)
+    .bind(&columns.curseforge_api_key)
+    .execute(&mut *conn)
+    .await?;
+
+    Ok(())
 }
 
 impl Collection for Settings {
@@ -220,7 +338,8 @@ impl Collection for Settings {
                 custom_background_component_opacity, ui_font, mono_font,
                 backup_repository_path, allow_external_scheme,
                 allow_privileged_scheme, doh_enabled,
-                resource_chinese_filenames, resource_preserve_filenames
+                resource_chinese_filenames, resource_preserve_filenames,
+                default_game_language
             FROM settings
             WHERE id = 0
             ",
@@ -400,6 +519,7 @@ fn to_record(row: SqliteRow) -> crate::Result<SettingsRecord> {
             .try_get("resource_chinese_filenames")?,
         resource_preserve_filenames: row
             .try_get("resource_preserve_filenames")?,
+        default_game_language: row.try_get("default_game_language")?,
     })
 }
 async fn write_row(
@@ -441,7 +561,7 @@ async fn write_row(
             default_window_title, custom_background_component_opacity,
             ui_font, mono_font, backup_repository_path, allow_external_scheme,
             allow_privileged_scheme, doh_enabled, resource_chinese_filenames,
-            resource_preserve_filenames
+            resource_preserve_filenames, default_game_language
         )
         VALUES (
             0, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, jsonb(?),
@@ -451,7 +571,7 @@ async fn write_row(
             ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, jsonb(?), ?,
             jsonb(?), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
             ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-            ?, ?
+            ?, ?, ?
         )
         ON CONFLICT (id) DO UPDATE SET
             max_concurrent_downloads = excluded.max_concurrent_downloads,
@@ -554,7 +674,8 @@ async fn write_row(
             allow_privileged_scheme = excluded.allow_privileged_scheme,
             doh_enabled = excluded.doh_enabled,
             resource_chinese_filenames = excluded.resource_chinese_filenames,
-            resource_preserve_filenames = excluded.resource_preserve_filenames
+            resource_preserve_filenames = excluded.resource_preserve_filenames,
+            default_game_language = excluded.default_game_language
         ",
     )
     .bind(record.max_concurrent_downloads)
@@ -643,6 +764,7 @@ async fn write_row(
     .bind(record.doh_enabled)
     .bind(record.resource_chinese_filenames)
     .bind(record.resource_preserve_filenames)
+    .bind(&record.default_game_language)
     .execute(&mut *conn)
     .await?;
 
@@ -670,4 +792,158 @@ fn to_layout(layout: &str) -> HomeLayout {
         );
         HomeLayout::Standard
     })
+}
+
+/// The rows the settings documents hand over from.
+///
+/// These are read-only on purpose: a domain that has a document never writes
+/// its column again, and the statements below only feed the handover and the
+/// fallback a domain answers with while it has no document.
+pub(crate) struct LegacyAiSettings {
+    pub(crate) enabled: bool,
+    pub(crate) legacy_openai_credential_cleanup: bool,
+}
+
+pub(crate) async fn read_legacy_ai_settings(
+    pool: &SqlitePool,
+) -> crate::Result<Option<LegacyAiSettings>> {
+    let row = sqlx::query(
+        "SELECT enabled, legacy_openai_credential_cleanup FROM ai_settings WHERE id = 0",
+    )
+    .fetch_optional(pool)
+    .await?;
+    Ok(row.map(|row| LegacyAiSettings {
+        enabled: row.get::<i64, _>("enabled") != 0,
+        legacy_openai_credential_cleanup: row
+            .get::<i64, _>("legacy_openai_credential_cleanup")
+            != 0,
+    }))
+}
+
+pub(crate) struct LegacyAiProviderConfig {
+    pub(crate) provider_id: String,
+    pub(crate) custom_name: Option<String>,
+    pub(crate) protocol: String,
+    pub(crate) enabled: bool,
+    pub(crate) endpoint: String,
+    pub(crate) settings: String,
+}
+
+pub(crate) async fn read_legacy_ai_provider_configs(
+    pool: &SqlitePool,
+) -> crate::Result<Vec<LegacyAiProviderConfig>> {
+    let rows = sqlx::query(
+        "SELECT provider_id, custom_name, protocol, enabled, endpoint, settings FROM ai_provider_configs ORDER BY provider_id",
+    )
+    .fetch_all(pool)
+    .await?;
+    Ok(rows
+        .into_iter()
+        .map(|row| LegacyAiProviderConfig {
+            provider_id: row.get("provider_id"),
+            custom_name: row.get("custom_name"),
+            protocol: row.get("protocol"),
+            enabled: row.get::<i64, _>("enabled") != 0,
+            endpoint: row.get("endpoint"),
+            settings: row.get("settings"),
+        })
+        .collect())
+}
+
+pub(crate) struct LegacyAiProviderModel {
+    pub(crate) provider_id: String,
+    pub(crate) model_id: String,
+    pub(crate) display_name: String,
+    pub(crate) enabled: bool,
+    pub(crate) source: String,
+}
+
+pub(crate) async fn read_legacy_ai_provider_models(
+    pool: &SqlitePool,
+) -> crate::Result<Vec<LegacyAiProviderModel>> {
+    let rows = sqlx::query(
+        "SELECT provider_id, model_id, display_name, enabled, source FROM ai_provider_models ORDER BY provider_id, model_id",
+    )
+    .fetch_all(pool)
+    .await?;
+    Ok(rows
+        .into_iter()
+        .map(|row| LegacyAiProviderModel {
+            provider_id: row.get("provider_id"),
+            model_id: row.get("model_id"),
+            display_name: row.get("display_name"),
+            enabled: row.get::<i64, _>("enabled") != 0,
+            source: row.get("source"),
+        })
+        .collect())
+}
+
+pub(crate) struct LegacyTranslationSettings {
+    pub(crate) provider: String,
+    pub(crate) target_language: String,
+    pub(crate) mode: String,
+    pub(crate) auto_translate: bool,
+    pub(crate) style: String,
+    pub(crate) ai_provider_id: String,
+    pub(crate) ai_model_id: String,
+    pub(crate) ai_system_prompt: String,
+    pub(crate) deepl_api_endpoint: String,
+    pub(crate) deepl_api_key: Option<String>,
+}
+
+pub(crate) async fn read_legacy_translation_settings(
+    pool: &SqlitePool,
+) -> crate::Result<Option<LegacyTranslationSettings>> {
+    let row = sqlx::query(
+        "SELECT provider, target_language, mode, auto_translate, style, ai_provider_id, ai_model_id, openai_system_prompt, deepl_api_endpoint, deepl_api_key FROM translation_settings WHERE id = 0",
+    )
+    .fetch_optional(pool)
+    .await?;
+    Ok(row.map(|row| LegacyTranslationSettings {
+        provider: row.get("provider"),
+        target_language: row.get("target_language"),
+        mode: row.get("mode"),
+        auto_translate: row.get::<i64, _>("auto_translate") != 0,
+        style: row.get("style"),
+        ai_provider_id: row.get("ai_provider_id"),
+        ai_model_id: row.get("ai_model_id"),
+        ai_system_prompt: row.get("openai_system_prompt"),
+        deepl_api_endpoint: row.get("deepl_api_endpoint"),
+        deepl_api_key: row.get("deepl_api_key"),
+    }))
+}
+
+pub(crate) struct LegacyLogShareSettings {
+    pub(crate) share_provider: String,
+    pub(crate) ai_source: String,
+    pub(crate) auto_upload: bool,
+    pub(crate) multi_file: bool,
+    pub(crate) metadata_enabled: bool,
+    pub(crate) no_storage: bool,
+    pub(crate) show_progress: bool,
+    pub(crate) crash_enabled: bool,
+    pub(crate) crash_provider_id: String,
+    pub(crate) crash_model_id: String,
+}
+
+pub(crate) async fn read_legacy_log_share_settings(
+    pool: &SqlitePool,
+) -> crate::Result<Option<LegacyLogShareSettings>> {
+    let row = sqlx::query(
+        "SELECT s.share_provider, a.ai_source, s.auto_upload, s.multi_file, s.metadata_enabled, s.no_storage, s.show_progress, a.enabled, a.provider_id, a.model_id FROM log_share_settings s JOIN crash_analysis_ai_settings a ON a.id = s.id WHERE s.id = 0",
+    )
+    .fetch_optional(pool)
+    .await?;
+    Ok(row.map(|row| LegacyLogShareSettings {
+        share_provider: row.get("share_provider"),
+        ai_source: row.get("ai_source"),
+        auto_upload: row.get::<i64, _>("auto_upload") != 0,
+        multi_file: row.get::<i64, _>("multi_file") != 0,
+        metadata_enabled: row.get::<i64, _>("metadata_enabled") != 0,
+        no_storage: row.get::<i64, _>("no_storage") != 0,
+        show_progress: row.get::<i64, _>("show_progress") != 0,
+        crash_enabled: row.get::<i64, _>("enabled") != 0,
+        crash_provider_id: row.get("provider_id"),
+        crash_model_id: row.get("model_id"),
+    }))
 }

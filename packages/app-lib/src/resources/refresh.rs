@@ -165,14 +165,13 @@ impl RefreshCoordinator {
             && slot.task.running
             && !slot.cancel.is_cancelled()
         {
-            if (mode == RefreshMode::ForceRemote
+            if ((mode == RefreshMode::ForceRemote
                 && slot.task.mode != RefreshMode::ForceRemote)
                 || (mode == RefreshMode::RetryFailed
-                    && slot.task.mode == RefreshMode::Normal)
+                    && slot.task.mode == RefreshMode::Normal))
+                && slot.pending_mode != Some(RefreshMode::ForceRemote)
             {
-                if slot.pending_mode != Some(RefreshMode::ForceRemote) {
-                    slot.pending_mode = Some(mode);
-                }
+                slot.pending_mode = Some(mode);
             }
             return Ok(slot.task.clone());
         }
@@ -391,19 +390,13 @@ async fn run_round(
     mode: RefreshMode,
     cancel: &CancellationToken,
 ) -> ResourceResult<()> {
-    use crate::state::store::{
-        Collection as _,
-        content_refresh_scan_failures::ContentRefreshScanFailures,
-    };
+    use crate::state::store::content_refresh_scan_failures::ContentRefreshScanFailures;
     let retry_scan_paths = if mode == RefreshMode::RetryFailed {
-        ContentRefreshScanFailures::get_scoped(
-            &state.data,
-            &instance_id.to_owned(),
-        )
-        .await?
-        .into_iter()
-        .map(|(key, _)| key.relative_path)
-        .collect::<HashSet<_>>()
+        ContentRefreshScanFailures::failed(&state.derived, instance_id)
+            .await?
+            .into_iter()
+            .map(|(key, _)| key.relative_path)
+            .collect::<HashSet<_>>()
     } else {
         HashSet::new()
     };
@@ -422,9 +415,12 @@ async fn run_round(
         .map(|slot| slot.unsaved_entries.clone())
         .unwrap_or_default();
     let service = state.resources().await?.clone();
-    let initial =
-        crate::state::store::content_snapshot::get(&state.data, instance_id)
-            .await?;
+    let initial = crate::state::store::content_snapshot::get_with_saved_pack(
+        &state.data,
+        &state.derived,
+        instance_id,
+    )
+    .await?;
     let location = crate::state::store::content_refresh_checks::location_key(
         &initial.instance,
     );
@@ -559,7 +555,7 @@ async fn run_round(
                 match progress {
                     Some(crate::state::instances::commands::ScanProgress::Files(files)) => {
                         let mut slots = state.content_refresh.slots.lock().await;
-                        let records = crate::state::store::content_snapshot::get(&state.data, instance_id).await?;
+                        let records = crate::state::store::content_snapshot::get_with_saved_pack(&state.data, &state.derived, instance_id).await?;
                         let eligible = files.iter().filter(|file| !failed_paths.contains(&file.relative_path)).collect::<Vec<_>>();
                         let unsaved_file_ids = records.entries.iter().filter(|entry| unsaved_entries.contains(&entry.id))
                             .filter_map(|entry| entry.file_id.as_deref()).collect::<HashSet<_>>();
@@ -662,10 +658,13 @@ async fn refresh_pack(
     mode: RefreshMode,
     cancel: &CancellationToken,
 ) -> ResourceResult<()> {
-    use crate::state::store::{Collection as _, content_refresh_pack::*};
-    let records =
-        crate::state::store::content_snapshot::get(&state.data, instance_id)
-            .await?;
+    use crate::state::store::content_refresh_pack::*;
+    let records = crate::state::store::content_snapshot::get_with_saved_pack(
+        &state.data,
+        &state.derived,
+        instance_id,
+    )
+    .await?;
     if matches!(records.link, crate::state::InstanceLink::Unmanaged) {
         return Ok(());
     }
@@ -718,13 +717,13 @@ async fn refresh_pack(
         return Ok(());
     }
     let record = pack_attempt(saved, location_key, link_key, now, &result);
-    ContentRefreshPacks::set(
-        &state.data,
+    ContentRefreshPacks::upsert(
+        &state.derived,
         &PackKey {
             instance_id: instance_id.into(),
             content_set_id: current.content_set.id,
         },
-        Some(&record),
+        &record,
     )
     .await?;
     let pack = result?;

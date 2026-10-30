@@ -1,9 +1,36 @@
 use crate::state::instances::DependencyRelation;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet, hash_map::Entry};
 
 use super::*;
+
+/// Deduplicate the wire payload only; callers retain their original IDs to
+/// distribute each response back to every query in its original position.
+fn unique_ids(ids: &[u32]) -> Vec<u32> {
+    let mut seen = HashSet::new();
+    ids.iter().copied().filter(|id| seen.insert(*id)).collect()
+}
+
+fn insert_batch_value<T: PartialEq>(
+    values: &mut HashMap<u32, T>,
+    id: u32,
+    value: T,
+    kind: &str,
+) -> ResourceResult<()> {
+    match values.entry(id) {
+        Entry::Vacant(entry) => {
+            entry.insert(value);
+        }
+        Entry::Occupied(entry) if entry.get() == &value => {}
+        Entry::Occupied(_) => {
+            return Err(ResourceError::InvalidResponse(format!(
+                "conflicting {kind} in batch"
+            )));
+        }
+    }
+    Ok(())
+}
 
 pub struct CurseForgeProvider {
     transport: Arc<dyn ProtocolTransport>,
@@ -50,6 +77,9 @@ impl CurseForgeProvider {
         queries: &[ProviderQuery],
         bypass_restrictions: bool,
     ) -> ResourceResult<Vec<ResourceResult<ProviderValue>>> {
+        if queries.is_empty() {
+            return Ok(Vec::new());
+        }
         if queries.iter().all(|query| {
             matches!(query, ProviderQuery::UpdateCandidates { .. })
         }) {
@@ -67,20 +97,24 @@ impl CurseForgeProvider {
             let response = self
                 .request(ProtocolRequest::post(
                     "/v1/mods",
-                    json!({"modIds": projects, "filterPcOnly": true}),
+                    json!({"modIds": unique_ids(&projects), "filterPcOnly": true}),
                 ))
                 .await?;
             let values: Vec<RemoteProject> =
                 serde_json::from_value(response["data"].clone())?;
             let mut by_project = HashMap::new();
             for project in values {
-                if !projects.contains(&project.id)
-                    || by_project.insert(project.id, project).is_some()
-                {
+                if !projects.contains(&project.id) {
                     return Err(ResourceError::InvalidResponse(
-                        "unexpected or duplicate update project".into(),
+                        "unexpected update project".into(),
                     ));
                 }
+                insert_batch_value(
+                    &mut by_project,
+                    project.id,
+                    project,
+                    "update project",
+                )?;
             }
             let mut indexed = Vec::new();
             let mut file_ids = Vec::new();
@@ -134,6 +168,7 @@ impl CurseForgeProvider {
                             .collect::<Vec<_>>()
                     })
                     .unwrap_or_default();
+                let ids = unique_ids(&ids);
                 file_ids.extend(ids.iter().copied());
                 indexed.push(ids);
             }
@@ -150,17 +185,19 @@ impl CurseForgeProvider {
                 let values: Vec<RemoteFile> =
                     serde_json::from_value(response["data"].clone())?;
                 for file in values {
-                    if !ids.contains(&file.id) || files.contains_key(&file.id) {
+                    if !ids.contains(&file.id) {
                         return Err(ResourceError::InvalidResponse(
-                            "unexpected or duplicate update file".into(),
+                            "unexpected update file".into(),
                         ));
                     }
-                    files.insert(
+                    insert_batch_value(
+                        &mut files,
                         file.id,
                         file.document_with_download_policy(
                             bypass_restrictions,
                         )?,
-                    );
+                        "update file",
+                    )?;
                 }
             }
             let mut documents = files.into_values().collect::<Vec<_>>();
@@ -223,7 +260,7 @@ impl CurseForgeProvider {
             let response = self
                 .request(ProtocolRequest::post(
                     "/v1/mods",
-                    json!({"modIds": ids, "filterPcOnly": true}),
+                    json!({"modIds": unique_ids(&ids), "filterPcOnly": true}),
                 ))
                 .await?;
             let projects: Vec<RemoteProject> =
@@ -236,11 +273,12 @@ impl CurseForgeProvider {
                         "unexpected project in batch".into(),
                     ));
                 }
-                if values.insert(id, project.document()?).is_some() {
-                    return Err(ResourceError::InvalidResponse(
-                        "duplicate project in batch".into(),
-                    ));
-                }
+                insert_batch_value(
+                    &mut values,
+                    id,
+                    project.document()?,
+                    "project",
+                )?;
             }
             return Ok(ids
                 .into_iter()
@@ -278,7 +316,7 @@ impl CurseForgeProvider {
             let response = self
                 .request(ProtocolRequest::post(
                     "/v1/mods/files",
-                    json!({"fileIds": ids}),
+                    json!({"fileIds": unique_ids(&ids)}),
                 ))
                 .await?;
             let files: Vec<RemoteFile> =
@@ -291,19 +329,12 @@ impl CurseForgeProvider {
                         "unexpected file in batch".into(),
                     ));
                 }
-                if values
-                    .insert(
-                        id,
-                        file.document_with_download_policy(
-                            bypass_restrictions,
-                        )?,
-                    )
-                    .is_some()
-                {
-                    return Err(ResourceError::InvalidResponse(
-                        "duplicate file in batch".into(),
-                    ));
-                }
+                insert_batch_value(
+                    &mut values,
+                    id,
+                    file.document_with_download_policy(bypass_restrictions)?,
+                    "file",
+                )?;
             }
             let mut documents: Vec<_> = values.into_values().collect();
             self.fill_manual_links(&mut documents).await?;
@@ -316,7 +347,20 @@ impl CurseForgeProvider {
                 .collect::<ResourceResult<_>>()?;
             return Ok(ids
                 .into_iter()
-                .map(|id| {
+                .zip(queries)
+                .map(|(id, query)| {
+                    if let Some(document) = values.get(&id)
+                        && let ProviderQuery::Release {
+                            project_id: Some(expected),
+                            ..
+                        } = query
+                        && &document.release.reference.project.project_id
+                            != expected
+                    {
+                        return Err(ResourceError::InvalidResponse(
+                            "file belongs to another project".into(),
+                        ));
+                    }
                     Ok(values
                         .get(&id)
                         .cloned()
@@ -358,7 +402,7 @@ impl CurseForgeProvider {
             let response = self
                 .request(ProtocolRequest::post(
                     "/v1/fingerprints/432",
-                    json!({"fingerprints": fingerprints}),
+                    json!({"fingerprints": unique_ids(&fingerprints)}),
                 ))
                 .await?;
             let matches: FingerprintResponse =
@@ -494,6 +538,69 @@ impl CurseForgeProvider {
         bypass_restrictions: bool,
     ) -> ResourceResult<ProviderValue> {
         match query {
+            ProviderQuery::CurseForgeFilesProtocol {
+                project_id,
+                game_version,
+                mod_loader_type,
+                game_version_type_id,
+                index,
+                page_size,
+            } => {
+                let mut request = ProtocolRequest::get(format!(
+                    "/v1/mods/{project_id}/files"
+                ));
+                request.query = vec![
+                    ("index".into(), index.to_string()),
+                    ("pageSize".into(), page_size.to_string()),
+                ];
+                for (key, value) in [
+                    ("gameVersion", game_version.clone()),
+                    (
+                        "modLoaderType",
+                        mod_loader_type.map(|value| value.to_string()),
+                    ),
+                    (
+                        "gameVersionTypeId",
+                        game_version_type_id.map(|value| value.to_string()),
+                    ),
+                ] {
+                    if let Some(value) = value {
+                        request.query.push((key.into(), value));
+                    }
+                }
+                let response = self.request(request).await?;
+                let files: Vec<crate::api::curseforge::CurseForgeFile> =
+                    serde_json::from_value(response["data"].clone())?;
+                let count = u32::try_from(files.len()).map_err(|_| {
+                    ResourceError::InvalidResponse(
+                        "file page is too large".into(),
+                    )
+                })?;
+                let pagination = match response
+                    .get("pagination")
+                    .filter(|value| !value.is_null())
+                {
+                    Some(value) => serde_json::from_value(value.clone())?,
+                    None => crate::api::curseforge::CurseForgePagination {
+                        index: *index,
+                        page_size: *page_size,
+                        result_count: count,
+                        total_count: index.checked_add(count).ok_or_else(
+                            || {
+                                ResourceError::InvalidResponse(
+                                    "file pagination overflow".into(),
+                                )
+                            },
+                        )?,
+                    },
+                };
+                Ok(ProviderValue::Protocol(serde_json::to_value(
+                    crate::api::curseforge::CurseForgeFilesResponse {
+                        files,
+                        pagination,
+                    },
+                )?))
+            }
             ProviderQuery::Description { id, .. } => {
                 let id = positive_id(id.as_str())?;
                 let response = self
@@ -700,10 +807,16 @@ impl ResourceProvider for CurseForgeProvider {
         }
     }
     fn namespace(&self) -> String {
-        if (self.download_restriction_bypass)() {
+        let base: String = if (self.download_restriction_bypass)() {
             "curseforge-v1-dates-auto-download".into()
         } else {
             "curseforge-v1-dates".into()
+        };
+        let scope = self.transport.cache_namespace(&SourceId::curseforge());
+        if scope.is_empty() {
+            base
+        } else {
+            format!("{base}:{scope}")
         }
     }
     fn batch_limit(&self, query: &ProviderQuery) -> usize {
@@ -714,6 +827,15 @@ impl ResourceProvider for CurseForgeProvider {
     }
     fn validate_query(&self, query: &ProviderQuery) -> ResourceResult<()> {
         match query {
+            ProviderQuery::CurseForgeFilesProtocol {
+                project_id,
+                page_size,
+                ..
+            } if (*project_id == 0 || !(1..=50).contains(page_size)) => {
+                return Err(ResourceError::InvalidRequest(
+                    "invalid CurseForge file page".into(),
+                ));
+            }
             ProviderQuery::UpdateCandidates {
                 project_id,
                 sha1,
@@ -767,7 +889,7 @@ impl ResourceProvider for CurseForgeProvider {
     }
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize, Serialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct RemoteProject {
     #[serde(flatten)]

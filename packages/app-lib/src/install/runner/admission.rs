@@ -53,13 +53,22 @@ pub(super) async fn existing(
     let Some(instance) = request_instance(request) else {
         return Ok(None);
     };
+    existing_for_instance(state, &instance, request, ignore).await
+}
+
+pub(super) async fn existing_for_instance(
+    state: &State,
+    instance: &str,
+    request: &InstallRequest,
+    ignore: Option<Uuid>,
+) -> crate::Result<Option<InstallJobSnapshot>> {
     let identity = request_identity(request)?;
     for job in store::list(false, state).await? {
         if Some(job.id) == ignore || job.status.is_finished() {
             continue;
         }
-        if job.instance_id.as_deref() != Some(&instance)
-            && request_instance(&job.state.request).as_ref() != Some(&instance)
+        if job.instance_id.as_deref() != Some(instance)
+            && request_instance(&job.state.request).as_deref() != Some(instance)
         {
             continue;
         }
@@ -92,13 +101,15 @@ pub(super) async fn execution_lock(
     state: &State,
     job: &store::InstallJobRecord,
 ) -> Option<tokio::sync::OwnedMutexGuard<()>> {
-    let instance = job
+    let key = job
         .instance_id
         .clone()
-        .or_else(|| request_instance(&job.state.request))?;
+        .or_else(|| request_instance(&job.state.request))
+        .map(|instance| format!("instance:{instance}"))
+        .unwrap_or_else(|| format!("job:{}", job.id));
     let lock = state
         .install_execution_locks
-        .entry(instance)
+        .entry(key)
         .or_default()
         .clone();
     Some(lock.lock_owned().await)

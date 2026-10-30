@@ -186,11 +186,14 @@ fn inspect_installer(path: &Path) -> crate::Result<InstallerInfo> {
         }
     }
     if launchwrapper_version.is_none() {
-        launchwrapper_version = archive.file_names().find_map(|name| {
-            name.strip_prefix("launchwrapper-of-")
-                .and_then(|rest| rest.strip_suffix(".jar"))
-                .map(str::to_string)
-        });
+        launchwrapper_version = archive
+            .file_names()
+            .filter_map(|name| name.ok())
+            .find_map(|name| {
+                name.strip_prefix("launchwrapper-of-")
+                    .and_then(|rest| rest.strip_suffix(".jar"))
+                    .map(str::to_string)
+            });
     }
 
     let needs_patching = archive.by_name("optifine/Patcher.class").is_ok();

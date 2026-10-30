@@ -3010,12 +3010,12 @@ async fn record_project_files_transaction(
                 &entry.id,
                 artifact,
                 &resource_scope,
-                &mut *tx,
+                &mut tx,
             )
             .await?;
         } else {
             crate::resources::installed::delete_installed_artifact(
-                &entry.id, &mut *tx,
+                &entry.id, &mut tx,
             )
             .await?;
         }

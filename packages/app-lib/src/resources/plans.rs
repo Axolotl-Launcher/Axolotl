@@ -3649,7 +3649,7 @@ pub(crate) async fn load(
     revision: u32,
 ) -> ResourceResult<OperationDraft> {
     let key = id.as_str().to_owned();
-    let record = ResourceOperationPlans::get(&handle, &key)
+    let record = ResourceOperationPlans::get(handle, &key)
         .await?
         .filter(|record| {
             record.revision == i64::from(revision)
@@ -3943,7 +3943,7 @@ pub(crate) async fn frozen_request_completed(
             return Ok(false);
         };
         let key = plan.id.as_str().to_owned();
-        let completed = ResourceOperationPlans::get(&handle, &key)
+        let completed = ResourceOperationPlans::get(handle, &key)
             .await?
             .filter(|record| record.revision == i64::from(plan.revision))
             .is_some_and(|record| record.completed);

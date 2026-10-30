@@ -196,16 +196,19 @@ where
         return Ok(None);
     }
     for file in &synced_files {
-        if let Some(record) = fingerprints.get(&file.relative_path) {
-            if record.sha1().eq_ignore_ascii_case(&file.sha1)
-                && record.size == file.size
-            {
-                super::content_file_fingerprints::ContentFileFingerprints::write(
-                    &mut tx, &super::content_file_fingerprints::FingerprintKey {
-                        instance_id: instance_id.into(), file_id: file.id.clone(),
-                    }, Some(record)
-                ).await?;
-            }
+        if let Some(record) = fingerprints.get(&file.relative_path)
+            && record.sha1().eq_ignore_ascii_case(&file.sha1)
+            && record.size == file.size
+        {
+            super::content_file_fingerprints::ContentFileFingerprints::write(
+                &mut tx,
+                &super::content_file_fingerprints::FingerprintKey {
+                    instance_id: instance_id.into(),
+                    file_id: file.id.clone(),
+                },
+                Some(record),
+            )
+            .await?;
         }
     }
     if complete {

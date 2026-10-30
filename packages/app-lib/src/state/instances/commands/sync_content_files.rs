@@ -844,7 +844,7 @@ pub(crate) async fn enrich_local_file(
         return;
     }
 
-    let path = join_content_path(&instance_dir, &file.relative_path);
+    let path = join_content_path(instance_dir, &file.relative_path);
 
     // Resource packs are read entry-wise so large archives are not
     // materialized in memory just to fetch `pack.png`.

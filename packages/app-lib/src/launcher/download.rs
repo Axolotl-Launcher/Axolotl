@@ -406,7 +406,7 @@ async fn download_minecraft_file_with_semaphore(
 }
 
 async fn download_minecraft_file_with_candidates(
-    st: &State,
+    _st: &State,
     urls: &[String],
     sha1: Option<&str>,
     expected_size: Option<u64>,

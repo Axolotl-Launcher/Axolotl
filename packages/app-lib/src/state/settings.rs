@@ -141,6 +141,8 @@ pub struct Settings {
     pub theme: Theme,
     pub accent_color: AccentColor,
     pub locale: String,
+    #[serde(default)]
+    pub default_game_language: String,
     pub default_page: DefaultPage,
     pub collapsed_navigation: bool,
     pub hide_nametag_skins_page: bool,
@@ -284,6 +286,12 @@ fn sanitize_font_family(family: Option<String>) -> Option<String> {
         .filter(|value| !value.is_empty())
 }
 
+/// Minecraft language codes use lower-case names with underscores. An empty
+/// value keeps following the launcher locale.
+fn normalize_game_language(value: &str) -> String {
+    value.trim().to_ascii_lowercase().replace('-', "_")
+}
+
 /// Default log level, kept in sync with the `log_level` column default and
 /// the logger's own fallback.
 fn default_log_level() -> String {
@@ -356,6 +364,7 @@ impl Settings {
             theme: Theme::from_string(&record.theme),
             accent_color: AccentColor::from_string(&record.accent_color),
             locale: record.locale,
+            default_game_language: record.default_game_language,
             default_page: DefaultPage::from_string(&record.default_page),
             collapsed_navigation: record.collapsed_navigation,
             hide_nametag_skins_page: record.hide_nametag_skins_page,
@@ -504,6 +513,9 @@ impl Settings {
             auto_download_updates: self.auto_download_updates,
             version: self.version as i64,
             locale: self.locale.clone(),
+            default_game_language: normalize_game_language(
+                &self.default_game_language,
+            ),
             accent_color: self.accent_color.as_str().to_string(),
             custom_background_path: self.custom_background_path.clone(),
             custom_background_blur: self.custom_background_blur.min(40) as i64,
@@ -980,6 +992,13 @@ fn from_home_layout(layout: HomeLayout) -> StoredHomeLayout {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn default_game_language_normalizes_to_minecraft_code() {
+        assert_eq!(normalize_game_language("  EN-US  "), "en_us");
+        assert_eq!(normalize_game_language("zh_CN"), "zh_cn");
+        assert_eq!(normalize_game_language("   "), "");
+    }
 
     #[test]
     fn home_layout_uses_stable_wire_values() {

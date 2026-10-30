@@ -70,3 +70,14 @@ it('clearing a privileged launch hook survives JSON patch serialization', () => 
     expect(patch).toEqual({ hooks: { pre_launch: null } })
     expect(settings.hooks.wrapper).toBe('keep wrapper')
 })
+
+it('applies a privileged default game language change', () => {
+    const settings = {
+        default_game_language: '',
+    } as AppSettings
+
+    expect(applySettingChanges(settings, [{ key: 'default_game_language', value: 'en_us' }])).toBe(
+        true,
+    )
+    expect(settings.default_game_language).toBe('en_us')
+})

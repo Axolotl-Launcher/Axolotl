@@ -377,7 +377,7 @@ pub async fn complete_running_job(
     }
 
     let reached = InstallJobs::finish_in(
-        &mut *transaction,
+        &mut transaction,
         &JobFinish {
             key: &id_value,
             instance_id: instance_id.as_deref(),

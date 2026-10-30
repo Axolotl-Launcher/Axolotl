@@ -37,7 +37,28 @@ vi.mock('@modrinth/ui', async () => {
                         emit('update:modelValue', (event.target as HTMLInputElement).checked),
                 }),
     })
+    const combobox = defineComponent({
+        props: ['modelValue', 'options'],
+        setup:
+            (props, { emit }) =>
+            () =>
+                h(
+                    'select',
+                    {
+                        value: props.modelValue,
+                        onChange: (event: Event) =>
+                            emit('update:modelValue', (event.target as HTMLSelectElement).value),
+                    },
+                    (
+                        props.options as {
+                            value: string
+                            label: string
+                        }[]
+                    ).map((option) => h('option', { value: option.value }, option.label)),
+                ),
+    })
     return {
+        Combobox: combobox,
         Toggle: toggle,
         Card: defineComponent({
             setup:
@@ -86,14 +107,16 @@ vi.mock('@modrinth/ui', async () => {
 const mounted: ReturnType<typeof mount>[] = []
 afterEach(() => mounted.splice(0).forEach((wrapper) => wrapper.unmount()))
 
-async function openSettings(resolution: [number, number]) {
+async function openSettings(resolution: [number, number], overrides: Record<string, unknown> = {}) {
     backend.settings = {
+        default_game_language: '',
         force_fullscreen: false,
         maximize_window: false,
         game_resolution: [...resolution],
         custom_window_title_enabled: false,
         hooks: { pre_launch: null, wrapper: null, post_exit: null },
         custom_dir: null,
+        ...overrides,
     }
     backend.patches = []
     const wrapper = mount(
@@ -139,4 +162,38 @@ it('saves a valid window dimension change', async () => {
     await flushPromises()
     expect(backend.patches).toEqual([{ game_resolution: [1280, 1080] }])
     expect(backend.settings.game_resolution).toEqual([1280, 1080])
+})
+
+it('defaults the game language to following the launcher', async () => {
+    const wrapper = await openSettings([1920, 1080])
+    const select = wrapper.get<HTMLSelectElement>('#default-game-language')
+
+    expect(select.element.value).toBe('follow-launcher')
+    expect(select.find('option[value="follow-launcher"]').text()).toBe('Follow launcher language')
+})
+
+it('saves the selected default game language and the follow option', async () => {
+    const wrapper = await openSettings([1920, 1080])
+    const select = wrapper.get<HTMLSelectElement>('#default-game-language')
+
+    await select.setValue('en_us')
+    await flushPromises()
+    expect(backend.patches).toEqual([{ default_game_language: 'en_us' }])
+
+    await select.setValue('follow-launcher')
+    await flushPromises()
+    expect(backend.patches).toEqual([
+        { default_game_language: 'en_us' },
+        { default_game_language: '' },
+    ])
+})
+
+it('keeps an unknown stored game language selectable', async () => {
+    const wrapper = await openSettings([1920, 1080], {
+        default_game_language: 'custom_locale',
+    })
+    const select = wrapper.get<HTMLSelectElement>('#default-game-language')
+
+    expect(select.element.value).toBe('custom_locale')
+    expect(select.find('option[value="custom_locale"]').text()).toBe('custom_locale')
 })

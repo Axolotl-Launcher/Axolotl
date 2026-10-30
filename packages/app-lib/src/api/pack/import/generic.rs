@@ -51,8 +51,7 @@ fn resolve_source_paths(
     instance_path: Option<&Path>,
     symlink: bool,
 ) -> (String, PathBuf, PathBuf) {
-    let (name, dotminecraft, json_path) = if let Some(ref inst_path) =
-        instance_path
+    let (name, dotminecraft, json_path) = if let Some(inst_path) = instance_path
     {
         let name = inst_path
             .file_name()

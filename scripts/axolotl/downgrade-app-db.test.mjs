@@ -571,7 +571,7 @@ console.log('the account secret marks: added forward, dropped by a downgrade')
 
 console.log('the scheduler schema: upgrade, downgrade and re-upgrade')
 {
-    const LEVEL = 20261103120000
+    const LEVEL = 20261103130000
     const SCHEDULER_TAGS = 20261103140000
     const file = path.join(directory, 'level', 'beta', 'app.db')
     const files = fs.readdirSync(migrationsDir).filter((name) => name.endsWith('.sql')).sort()

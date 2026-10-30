@@ -196,12 +196,11 @@ pub(crate) async fn local_pack_retry_identity(
         let metadata = file.metadata()?;
         let mut digest = Sha256::new();
         digest.update(metadata.len().to_le_bytes());
-        if let Ok(modified) = metadata.modified() {
-            if let Ok(modified) = modified.duration_since(std::time::UNIX_EPOCH)
-            {
-                digest.update(modified.as_secs().to_le_bytes());
-                digest.update(modified.subsec_nanos().to_le_bytes());
-            }
+        if let Ok(modified) = metadata.modified()
+            && let Ok(modified) = modified.duration_since(std::time::UNIX_EPOCH)
+        {
+            digest.update(modified.as_secs().to_le_bytes());
+            digest.update(modified.subsec_nanos().to_le_bytes());
         }
         let invalid_archive = |error| {
             crate::ErrorKind::InputError(format!(

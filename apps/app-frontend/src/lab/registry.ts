@@ -3,6 +3,7 @@ import {
     BoxIcon,
     FlaskConicalIcon,
     LanguagesIcon,
+    LandmarkIcon,
     PaletteIcon,
     PencilIcon,
     WorldIcon,
@@ -74,6 +75,14 @@ export const labTools: readonly LabToolDefinition[] = [
         icon: FlaskConicalIcon,
         title: 'Command generator',
         description: 'Generate Minecraft Java Edition commands with visual NBT editing.',
+    },
+    {
+        id: 'low-y-swamp-hut',
+        category: 'world',
+        route: '/lab/seed-map/witch-hut',
+        icon: LandmarkIcon,
+        title: 'Low-Y swamp hut',
+        description: 'Find the swamp hut that generates lowest for a given world seed.',
     },
 ]
 

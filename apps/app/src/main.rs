@@ -27,6 +27,11 @@ mod portable;
 mod seed_map;
 mod window_frame;
 
+/// Set once the exit prompt about test-build data has been shown, so exiting
+/// from that prompt does not ask again.
+static DEV_DATA_PROMPTED: std::sync::atomic::AtomicBool =
+    std::sync::atomic::AtomicBool::new(false);
+
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 struct UpdatePreferences {
@@ -887,6 +892,7 @@ fn main() {
         .plugin(api::storage::init())
         .plugin(api::system_accent::init())
         .plugin(api::seed_map::init())
+        .plugin(api::lab::init())
         .plugin(api::schematic_preview::init())
         .plugin(api::shortcuts::init())
         .plugin(api::tags::init())
@@ -986,6 +992,43 @@ fn main() {
                         if let Some(state) = State::get_if_initialized() {
                             state.shutdown().await;
                         }
+                    });
+                }
+
+                // A development build keeps its data in the temporary directory.
+                // Ask before leaving whether that data should survive, so the
+                // next run can either resume the same database or start clean.
+                // Asked once: exiting from the prompt below must not ask again.
+                if let tauri::RunEvent::ExitRequested { api, .. } = &event
+                    && theseus::brand::is_development_build()
+                    && !DEV_DATA_PROMPTED.swap(true, Ordering::SeqCst)
+                {
+                    api.prevent_exit();
+                    let handle = app.clone();
+                    tauri::async_runtime::spawn(async move {
+                        let root = theseus::brand::development_data_root_path();
+                        let keep = root.as_ref().is_none_or(|root| {
+                            DialogBuilder::message()
+                                .set_title("Axolotl 测试版")
+                                .set_text(format!(
+                                    "要保留这次测试产生的数据吗？\n\n{}\n\n\
+                                     是：下次启动继续使用同一个数据库。\n\
+                                     否：下次启动从干净状态重新开始。",
+                                    root.display()
+                                ))
+                                .confirm()
+                                .show()
+                                .unwrap_or(true)
+                        });
+                        if !keep && let Some(root) = root {
+                            if let Err(error) = std::fs::remove_dir_all(&root) {
+                                tracing::warn!(
+                                    "Failed to remove test data at {}: {error}",
+                                    root.display()
+                                );
+                            }
+                        }
+                        handle.exit(0);
                     });
                 }
 

@@ -55,7 +55,7 @@ import {
     useTemplateRef,
     watch,
 } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 
 import SeedMapAreaAnalysis from '@/components/lab/seed-map/SeedMapAreaAnalysis.vue'
 import SeedMapBiomePicker from '@/components/lab/seed-map/SeedMapBiomePicker.vue'
@@ -182,6 +182,7 @@ type SeedMapElevation = (typeof SEED_MAP_ELEVATIONS)[number]
 const { addNotification, handleError } = injectNotificationManager()
 const { formatMessage } = useVIntl()
 const route = useRoute()
+const router = useRouter()
 const canvas = useTemplateRef<HTMLCanvasElement>('mapCanvas')
 const fullscreenContainer = useTemplateRef<HTMLElement>('fullscreenContainer')
 const workspace = reactive(applyShareQuery(route.query, loadSeedMapWorkspace()))
@@ -510,6 +511,10 @@ const messages = defineMessages({
         defaultMessage: 'End city (without ship)',
     },
     endGateway: { id: 'app.lab.seed-map.feature.end-gateway', defaultMessage: 'End gateway' },
+    finderHint: {
+        id: 'app.lab.seed-map.finder-hint',
+        defaultMessage: 'Hold to open the {name} finder',
+    },
     oreEmerald: { id: 'app.lab.seed-map.ore.emerald', defaultMessage: 'Emerald ore' },
     oreQuartz: { id: 'app.lab.seed-map.ore.quartz', defaultMessage: 'Nether quartz ore' },
     oreNetherGold: { id: 'app.lab.seed-map.ore.nether_gold', defaultMessage: 'Nether gold ore' },
@@ -1245,6 +1250,46 @@ function dimensionLabel(dimension: SeedMapDimension) {
 function featureLabel(kind: SeedMapFeatureKind) {
     return formatMessage(featureMessages[kind])
 }
+
+/**
+ * Long press on a structure toggle opens its dedicated finder.
+ *
+ * A plain click keeps toggling the overlay, which is what the button is for; the
+ * press has to be held so the two gestures cannot be confused.
+ */
+const FINDER_HOLD_MS = 500
+let finderTimer: number | null = null
+
+/** Structure toggles that own a finder page. */
+const FINDER_ROUTES: Partial<Record<SeedMapFeatureKind, string>> = {
+    'swamp-hut': '/lab/seed-map/witch-hut',
+    'trial-chambers': '/lab/seed-map/trial-chamber',
+}
+
+function cancelFinderPress() {
+    if (finderTimer !== null) {
+        window.clearTimeout(finderTimer)
+        finderTimer = null
+    }
+}
+
+function startFinderPress(kind: SeedMapFeatureKind) {
+    const route = FINDER_ROUTES[kind]
+    if (!route) return
+    cancelFinderPress()
+    finderTimer = window.setTimeout(() => {
+        finderTimer = null
+        // Carry the seed over: the finder searches the world this map is already
+        // showing, and retyping it there would make the two disagree by accident.
+        void router.push({
+            path: route,
+            query: { seed: workspace.seed.trim() },
+        })
+    }, FINDER_HOLD_MS)
+}
+
+// Leaving the page while a press is still counting down must not navigate later.
+onUnmounted(cancelFinderPress)
 
 function featureResultLabel(feature: SeedMapFeature) {
     if (feature.kind !== 'end-city' || feature.endShip === undefined) {
@@ -3094,7 +3139,18 @@ function selectDimension(dimension: SeedMapDimension) {
                                 named: showLayerNames,
                             }"
                             :aria-pressed="workspace.visibleFeatures.includes(feature.kind)"
+                            :title="
+                                FINDER_ROUTES[feature.kind]
+                                    ? formatMessage(messages.finderHint, {
+                                          name: featureLabel(feature.kind),
+                                      })
+                                    : undefined
+                            "
                             @click="toggleFeature(feature.kind)"
+                            @pointerdown="startFinderPress(feature.kind)"
+                            @pointerup="cancelFinderPress"
+                            @pointerleave="cancelFinderPress"
+                            @pointercancel="cancelFinderPress"
                         >
                             <img
                                 v-if="featureImageSource(feature.kind)"

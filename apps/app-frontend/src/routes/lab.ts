@@ -79,4 +79,33 @@ export const labRoutes: RouteRecordRaw[] = [
             discordActivity: 'Generating a command...',
         },
     },
+    {
+        // Reached by long-pressing the swamp-hut entry on the seed map, not from
+        // the Lab hub: it is a detail view of one structure search.
+        path: '/lab/seed-map/witch-hut',
+        name: 'SeedMapWitchHut',
+        component: () => import('@/pages/LabLowYSwampHut.vue'),
+        meta: {
+            breadcrumb: [
+                { name: 'Lab', link: '/lab' },
+                { name: 'Seed map', link: '/lab/seed-map' },
+                { name: 'Witch hut finder' },
+            ],
+            discordActivity: 'Searching for swamp huts...',
+        },
+    },
+    {
+        // Same entry pattern as the witch hut: long-press its structure icon.
+        path: '/lab/seed-map/trial-chamber',
+        name: 'SeedMapTrialChamber',
+        component: () => import('@/pages/LabTrialChamber.vue'),
+        meta: {
+            breadcrumb: [
+                { name: 'Lab', link: '/lab' },
+                { name: 'Seed map', link: '/lab/seed-map' },
+                { name: 'Trial chamber finder' },
+            ],
+            discordActivity: 'Searching for trial chambers...',
+        },
+    },
 ]

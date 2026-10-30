@@ -20,6 +20,7 @@ const messages = defineMessages({
     cancel: { id: 'app.lab.mod-translation.cancel', defaultMessage: 'Cancel' },
     cancelling: { id: 'app.lab.mod-translation.cancelling', defaultMessage: 'Cancelling…' },
     openOutput: { id: 'app.lab.mod-translation.open-output', defaultMessage: 'Open output folder' },
+    removeTask: { id: 'app.lab.mod-translation.remove-task', defaultMessage: 'Remove task' },
     done: { id: 'app.lab.mod-translation.done', defaultMessage: 'Done' },
     failed: { id: 'app.lab.mod-translation.failed', defaultMessage: 'Failed' },
 })
@@ -110,7 +111,7 @@ function formatDuration(seconds: number): string {
                 v-if="job.status !== 'running'"
                 type="outlined"
                 size="2xs"
-                aria-label="Remove task"
+                :aria-label="formatMessage(messages.removeTask)"
                 @click="emit('remove', job.taskId)"
                 ><XIcon
             /></Button>

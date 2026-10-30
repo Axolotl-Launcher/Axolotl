@@ -39,12 +39,17 @@ const category = ref<LabCategoryFilter>(getLabCategoryFilter())
 const favoriteFilter = ref<LabFavoriteFilter>(getLabFavoriteFilter())
 const favoriteToolIds = ref<string[]>(getLabFavoriteToolIds())
 // Temporarily hide the mod translation entry while retaining its route and implementation.
-const availableTools = labTools.filter((tool) => tool.id !== 'mod-translation')
+// The low-Y swamp hut page is reached by long-pressing a witch hut on the seed map,
+// so it keeps its route but must not appear as an entry of its own here.
+const availableTools = labTools.filter(
+    (tool) => tool.id !== 'mod-translation' && tool.id !== 'low-y-swamp-hut',
+)
 const toolCoverImages: Record<string, string> = {
     'gradient-text': gradientTextToolCover,
     'recipe-generator': recipeGeneratorToolCover,
     'schematic-preview': schematicPreviewToolCover,
     'seed-map': seedMapToolCover,
+    'low-y-swamp-hut': seedMapToolCover,
     'mod-translation': modTranslationCover,
     'skin-editor': skinEditorToolCover,
     'command-generator': commandGeneratorToolCover,
@@ -76,6 +81,11 @@ const messages = defineMessages({
         id: 'app.lab.no-favorites',
         defaultMessage: 'You have not favorited any tools yet.',
     },
+    toolFiltersLabel: {
+        id: 'app.lab.tool-filters-label',
+        defaultMessage: 'Lab tool filters',
+    },
+    toolsLabel: { id: 'app.lab.tools-label', defaultMessage: 'Lab tools' },
     gradientTextTitle: {
         id: 'app.lab.gradient-text.title',
         defaultMessage: 'Gradient text generator',
@@ -97,6 +107,14 @@ const messages = defineMessages({
         id: 'app.lab.seed-map.description',
         defaultMessage:
             'Explore a Minecraft seed locally with biomes, structures, and saved markers.',
+    },
+    lowYSwampHutTitle: {
+        id: 'app.lab.low-y-swamp-hut.title',
+        defaultMessage: 'Low-Y swamp hut',
+    },
+    lowYSwampHutDescription: {
+        id: 'app.lab.low-y-swamp-hut.description',
+        defaultMessage: 'Find the swamp hut that generates lowest for a given world seed.',
     },
     schematicPreviewTitle: {
         id: 'app.lab.schematic-preview.title',
@@ -186,6 +204,7 @@ function toolTitle(toolId: string, fallback: string) {
     if (toolId === 'schematic-preview') return formatMessage(messages.schematicPreviewTitle)
     if (toolId === 'mod-translation') return formatMessage(messages.modTranslationTitle)
     if (toolId === 'command-generator') return formatMessage(messages.commandGeneratorTitle)
+    if (toolId === 'low-y-swamp-hut') return formatMessage(messages.lowYSwampHutTitle)
     return fallback
 }
 
@@ -197,6 +216,7 @@ function toolDescription(toolId: string, fallback: string) {
     if (toolId === 'schematic-preview') return formatMessage(messages.schematicPreviewDescription)
     if (toolId === 'mod-translation') return formatMessage(messages.modTranslationDescription)
     if (toolId === 'command-generator') return formatMessage(messages.commandGeneratorDescription)
+    if (toolId === 'low-y-swamp-hut') return formatMessage(messages.lowYSwampHutDescription)
     return fallback
 }
 
@@ -245,7 +265,7 @@ function favoriteFilterLabel(value: LabFavoriteFilter) {
             </div>
         </header>
 
-        <div class="flex flex-wrap gap-2" aria-label="Lab tool filters">
+        <div class="flex flex-wrap gap-2" :aria-label="formatMessage(messages.toolFiltersLabel)">
             <StyledInput
                 v-model="search"
                 :icon="SearchIcon"
@@ -274,7 +294,7 @@ function favoriteFilterLabel(value: LabFavoriteFilter) {
 
         <section
             v-if="visibleTools.length"
-            aria-label="Lab tools"
+            :aria-label="formatMessage(messages.toolsLabel)"
             data-onboarding-id="lab-tools"
             class="flex flex-col gap-3"
         >

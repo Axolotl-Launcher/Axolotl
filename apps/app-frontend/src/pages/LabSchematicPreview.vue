@@ -286,6 +286,22 @@ const messages = defineMessages({
         id: 'app.lab.schematic-preview.materials-csv',
         defaultMessage: 'Export material CSV',
     },
+    fileFilterSchematics: {
+        id: 'app.lab.schematic-preview.file-filter.schematics',
+        defaultMessage: 'Minecraft schematics',
+    },
+    fileFilterSponge: {
+        id: 'app.lab.schematic-preview.file-filter.sponge',
+        defaultMessage: 'Sponge schematic',
+    },
+    fileFilterLitematica: {
+        id: 'app.lab.schematic-preview.file-filter.litematica',
+        defaultMessage: 'Litematica schematic',
+    },
+    previewAriaLabel: {
+        id: 'app.lab.schematic-preview.preview-aria-label',
+        defaultMessage: 'Schematic 3D preview',
+    },
     resetView: { id: 'app.lab.schematic-preview.reset-view', defaultMessage: 'Reset view' },
     projection: {
         id: 'app.lab.schematic-preview.projection',
@@ -585,7 +601,12 @@ async function loadInstances() {
 async function chooseLocalFile() {
     const path = await open({
         multiple: false,
-        filters: [{ name: 'Minecraft schematics', extensions: ['litematic', 'schem'] }],
+        filters: [
+            {
+                name: formatMessage(messages.fileFilterSchematics),
+                extensions: ['litematic', 'schem'],
+            },
+        ],
     })
     if (!disposed && typeof path === 'string') await openSource({ kind: 'external', path })
 }
@@ -1332,8 +1353,11 @@ async function exportSchematic(format: 'schem' | 'litematic') {
             defaultPath: `${opened.fileName.replace(/\.(litematic|schem)$/i, '')}-edited.${extension}`,
             filters: [
                 format === 'schem'
-                    ? { name: 'Sponge schematic', extensions: ['schem'] }
-                    : { name: 'Litematica schematic', extensions: ['litematic'] },
+                    ? { name: formatMessage(messages.fileFilterSponge), extensions: ['schem'] }
+                    : {
+                          name: formatMessage(messages.fileFilterLitematica),
+                          extensions: ['litematic'],
+                      },
             ],
         })
         if (!path || !isCurrentSession(session)) return
@@ -1777,7 +1801,7 @@ onBeforeUnmount(() => {
                                   ? 'cursor-grab'
                                   : 'cursor-crosshair'
                         "
-                        aria-label="Schematic 3D preview"
+                        :aria-label="formatMessage(messages.previewAriaLabel)"
                     ></canvas>
                     <nav
                         v-if="viewMode === 'orbit'"

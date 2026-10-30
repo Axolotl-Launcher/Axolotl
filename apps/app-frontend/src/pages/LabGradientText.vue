@@ -92,6 +92,10 @@ const messages = defineMessages({
         id: 'app.lab.gradient-text.input.placeholder',
         defaultMessage: 'Type your Minecraft text here',
     },
+    presetExample: {
+        id: 'app.lab.gradient-text.preset.example',
+        defaultMessage: 'Example',
+    },
     colorsTitle: { id: 'app.lab.gradient-text.colors.title', defaultMessage: 'Colors' },
     colorStops: { id: 'app.lab.gradient-text.colors.stops', defaultMessage: '{count} color stops' },
     addColor: { id: 'app.lab.gradient-text.colors.add', defaultMessage: 'Add color' },
@@ -526,7 +530,7 @@ async function exportPresets(template = false) {
         const exportValue = template
             ? [
                   {
-                      name: 'Example',
+                      name: formatMessage(messages.presetExample),
                       colors: DEFAULT_GRADIENT_COLORS,
                   },
               ]

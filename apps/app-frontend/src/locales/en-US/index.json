@@ -4649,6 +4649,9 @@
   "app.lab.gradient-text.output.title": {
     "message": "Output"
   },
+  "app.lab.gradient-text.preset.example": {
+    "message": "Example"
+  },
   "app.lab.gradient-text.presets.apply": {
     "message": "Apply preset"
   },
@@ -4687,6 +4690,111 @@
   },
   "app.lab.gradient-text.title": {
     "message": "Gradient text generator"
+  },
+  "app.lab.low-y-swamp-hut.column-distance": {
+    "message": "Distance"
+  },
+  "app.lab.low-y-swamp-hut.column-x": {
+    "message": "X"
+  },
+  "app.lab.low-y-swamp-hut.column-y": {
+    "message": "Y"
+  },
+  "app.lab.low-y-swamp-hut.column-z": {
+    "message": "Z"
+  },
+  "app.lab.low-y-swamp-hut.copied": {
+    "message": "Copied"
+  },
+  "app.lab.low-y-swamp-hut.copy-tp": {
+    "message": "Copy /tp"
+  },
+  "app.lab.low-y-swamp-hut.description": {
+    "message": "Find the swamp hut that generates lowest for a given world seed. The scan replays vanilla terrain generation, so it runs for the regions you ask for rather than the whole world."
+  },
+  "app.lab.low-y-swamp-hut.elapsed": {
+    "message": "Scanned in {seconds} s"
+  },
+  "app.lab.low-y-swamp-hut.empty-body": {
+    "message": "Enter a seed and run a scan to see where the swamp huts land."
+  },
+  "app.lab.low-y-swamp-hut.empty-title": {
+    "message": "No huts found yet"
+  },
+  "app.lab.low-y-swamp-hut.failed": {
+    "message": "The scan failed: {reason}"
+  },
+  "app.lab.low-y-swamp-hut.lowest": {
+    "message": "Lowest Y: {y}"
+  },
+  "app.lab.low-y-swamp-hut.max-y": {
+    "message": "Height threshold"
+  },
+  "app.lab.low-y-swamp-hut.max-y-hint": {
+    "message": "Phase one stops at this height. Lower values take longer to find candidates."
+  },
+  "app.lab.low-y-swamp-hut.phase2-max-y": {
+    "message": "Final height threshold"
+  },
+  "app.lab.low-y-swamp-hut.preset": {
+    "message": "World preset"
+  },
+  "app.lab.low-y-swamp-hut.preset-large-biomes": {
+    "message": "Large biomes"
+  },
+  "app.lab.low-y-swamp-hut.preset-normal": {
+    "message": "Default"
+  },
+  "app.lab.low-y-swamp-hut.preset-single-biome": {
+    "message": "Single biome"
+  },
+  "app.lab.low-y-swamp-hut.regions": {
+    "message": "Regions"
+  },
+  "app.lab.low-y-swamp-hut.regions-hint": {
+    "message": "One region is 512 blocks across. More regions means a longer scan."
+  },
+  "app.lab.low-y-swamp-hut.results": {
+    "message": "Huts, lowest first"
+  },
+  "app.lab.low-y-swamp-hut.scan": {
+    "message": "Scan"
+  },
+  "app.lab.low-y-swamp-hut.scan-done-body": {
+    "message": "Found {count} huts for seed {seed}."
+  },
+  "app.lab.low-y-swamp-hut.scan-done-title": {
+    "message": "Swamp hut scan finished"
+  },
+  "app.lab.low-y-swamp-hut.scan-failed-title": {
+    "message": "Swamp hut scan failed"
+  },
+  "app.lab.low-y-swamp-hut.scanning": {
+    "message": "Scanning…"
+  },
+  "app.lab.low-y-swamp-hut.seed": {
+    "message": "World seed"
+  },
+  "app.lab.low-y-swamp-hut.seed-placeholder": {
+    "message": "World seed, numeric or text"
+  },
+  "app.lab.low-y-swamp-hut.threads": {
+    "message": "Threads"
+  },
+  "app.lab.low-y-swamp-hut.threads-hint": {
+    "message": "Zero uses one worker per CPU core. Raising it can hit rate limits."
+  },
+  "app.lab.low-y-swamp-hut.title": {
+    "message": "Low-Y swamp hut"
+  },
+  "app.lab.low-y-swamp-hut.unavailable-body": {
+    "message": "This tool needs the `lysh` search program that ships with this build, and it is missing here. Reinstall the full build, then reload this page."
+  },
+  "app.lab.low-y-swamp-hut.unavailable-title": {
+    "message": "Search program not found"
+  },
+  "app.lab.low-y-swamp-hut.version": {
+    "message": "Game version"
   },
   "app.lab.mod-translation.active-count": {
     "message": "{count} running"
@@ -4748,6 +4856,9 @@
   "app.lab.mod-translation.description": {
     "message": "Translate any Minecraft mod JAR into Simplified Chinese."
   },
+  "app.lab.mod-translation.dialog-title": {
+    "message": "Choose a Minecraft mod JAR"
+  },
   "app.lab.mod-translation.done": {
     "message": "Done"
   },
@@ -4765,6 +4876,9 @@
   },
   "app.lab.mod-translation.failed-count": {
     "message": "{count} failed"
+  },
+  "app.lab.mod-translation.file-filter.mod": {
+    "message": "Minecraft mod"
   },
   "app.lab.mod-translation.generate-mod-name": {
     "message": "AI-generate a Chinese mod name"
@@ -4832,6 +4946,9 @@
   "app.lab.mod-translation.preparing": {
     "message": "Preparing…"
   },
+  "app.lab.mod-translation.progress.aria-label": {
+    "message": "Task progress"
+  },
   "app.lab.mod-translation.progress.current-batch": {
     "message": "Batch {completed} / {total}"
   },
@@ -4846,6 +4963,9 @@
   },
   "app.lab.mod-translation.provider": {
     "message": "AI provider"
+  },
+  "app.lab.mod-translation.remove-task": {
+    "message": "Remove task"
   },
   "app.lab.mod-translation.repair-enabled": {
     "message": "Repair difficult translations after verification"
@@ -5402,6 +5522,15 @@
   "app.lab.schematic-preview.export-sponge": {
     "message": "Sponge schematic (.schem)"
   },
+  "app.lab.schematic-preview.file-filter.litematica": {
+    "message": "Litematica schematic"
+  },
+  "app.lab.schematic-preview.file-filter.schematics": {
+    "message": "Minecraft schematics"
+  },
+  "app.lab.schematic-preview.file-filter.sponge": {
+    "message": "Sponge schematic"
+  },
   "app.lab.schematic-preview.focus-region": {
     "message": "Focus region"
   },
@@ -5536,6 +5665,9 @@
   },
   "app.lab.schematic-preview.orbit-view": {
     "message": "Orbit view"
+  },
+  "app.lab.schematic-preview.preview-aria-label": {
+    "message": "Schematic 3D preview"
   },
   "app.lab.schematic-preview.projection": {
     "message": "Switch camera projection"
@@ -6380,6 +6512,9 @@
   "app.lab.seed-map.feature.village": {
     "message": "Village"
   },
+  "app.lab.seed-map.finder-hint": {
+    "message": "Hold to open the {name} finder"
+  },
   "app.lab.seed-map.fullscreen": {
     "message": "Fullscreen"
   },
@@ -7214,6 +7349,39 @@
   "app.lab.skin-editor.title": {
     "message": "Skin editor"
   },
+  "app.lab.structure-finder.copy-failed-body": {
+    "message": "The clipboard is unavailable. Select the coordinates manually."
+  },
+  "app.lab.structure-finder.copy-failed-title": {
+    "message": "Could not copy"
+  },
+  "app.lab.structure-finder.empty-body": {
+    "message": "Fill in the parameters and start a scan."
+  },
+  "app.lab.structure-finder.empty-title": {
+    "message": "No results yet"
+  },
+  "app.lab.structure-finder.failed": {
+    "message": "The scan failed: {reason}"
+  },
+  "app.lab.structure-finder.no-results-body": {
+    "message": "This search found no structures. Try another seed, a lower Y gate, or a larger area."
+  },
+  "app.lab.structure-finder.no-results-title": {
+    "message": "Nothing matched"
+  },
+  "app.lab.structure-finder.results": {
+    "message": "Results"
+  },
+  "app.lab.structure-finder.scan": {
+    "message": "Scan"
+  },
+  "app.lab.structure-finder.scanning": {
+    "message": "Scanning…"
+  },
+  "app.lab.structure-finder.unavailable-title": {
+    "message": "Cannot scan"
+  },
   "app.lab.title": {
     "message": "Lab"
   },
@@ -7222,6 +7390,96 @@
   },
   "app.lab.tool-count-plural": {
     "message": "{count} tools"
+  },
+  "app.lab.tool-filters-label": {
+    "message": "Lab tool filters"
+  },
+  "app.lab.tools-label": {
+    "message": "Lab tools"
+  },
+  "app.lab.trial-chamber.best": {
+    "message": "Most spawners: {count}"
+  },
+  "app.lab.trial-chamber.column-center-x": {
+    "message": "Center X"
+  },
+  "app.lab.trial-chamber.column-center-z": {
+    "message": "Center Z"
+  },
+  "app.lab.trial-chamber.column-chambers": {
+    "message": "Chambers"
+  },
+  "app.lab.trial-chamber.column-rank": {
+    "message": "#"
+  },
+  "app.lab.trial-chamber.column-spawners": {
+    "message": "Spawners"
+  },
+  "app.lab.trial-chamber.copied": {
+    "message": "Copied"
+  },
+  "app.lab.trial-chamber.copy-tp": {
+    "message": "Copy /tp"
+  },
+  "app.lab.trial-chamber.description": {
+    "message": "Find trial chambers for a world seed and count what they contain. The search assembles each chamber from its structure data, so it reports the spawners and chambers that actually generate."
+  },
+  "app.lab.trial-chamber.done-body": {
+    "message": "Found {count} chambers for seed {seed}."
+  },
+  "app.lab.trial-chamber.done-title": {
+    "message": "Trial chamber scan finished"
+  },
+  "app.lab.trial-chamber.elapsed": {
+    "message": "Scanned in {seconds} s"
+  },
+  "app.lab.trial-chamber.empty-body": {
+    "message": "Enter a seed and run a scan to see where the trial chambers land."
+  },
+  "app.lab.trial-chamber.empty-title": {
+    "message": "No chambers found yet"
+  },
+  "app.lab.trial-chamber.failed": {
+    "message": "The scan failed: {reason}"
+  },
+  "app.lab.trial-chamber.failed-title": {
+    "message": "Trial chamber scan failed"
+  },
+  "app.lab.trial-chamber.no-java-body": {
+    "message": "This tool needs both a Java 25 runtime and the trial-chamber search program installed with this build; either one missing stops it. Install JDK 25 (or point JAVA_HOME at one), then reload this page."
+  },
+  "app.lab.trial-chamber.no-java-title": {
+    "message": "Cannot run"
+  },
+  "app.lab.trial-chamber.radius": {
+    "message": "Search radius"
+  },
+  "app.lab.trial-chamber.radius-hint": {
+    "message": "In blocks around the origin. A wider radius scans for longer."
+  },
+  "app.lab.trial-chamber.results": {
+    "message": "Chambers, most spawners first"
+  },
+  "app.lab.trial-chamber.scan": {
+    "message": "Scan"
+  },
+  "app.lab.trial-chamber.scanning": {
+    "message": "Scanning…"
+  },
+  "app.lab.trial-chamber.seed": {
+    "message": "World seed"
+  },
+  "app.lab.trial-chamber.seed-placeholder": {
+    "message": "World seed, numeric or text"
+  },
+  "app.lab.trial-chamber.threads": {
+    "message": "Threads"
+  },
+  "app.lab.trial-chamber.threads-hint": {
+    "message": "More threads scan faster but need more memory. Eight suits 4 GB."
+  },
+  "app.lab.trial-chamber.title": {
+    "message": "Trial chambers"
   },
   "app.library.context-menu.pin-instance": {
     "message": "Pin in Library"

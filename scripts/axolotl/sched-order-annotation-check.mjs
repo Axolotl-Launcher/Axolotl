@@ -51,11 +51,20 @@ if (isMain(import.meta.url)) {
     const args = parseArgs(process.argv.slice(2))
     const dir = args.dir ?? defaultOutDir
     const paths = outputPaths(dir)
-    const registry = readJson(paths.registry)
+    let registry
+    let getpoints
+    try {
+        registry = readJson(paths.registry)
+        getpoints = readJson(paths.getpoints)
+    } catch (error) {
+        // A missing inventory is an error, never the exit-1 fallback.
+        console.error(`sched-order-annotation-check: ${error.message}`)
+        process.exit(2)
+    }
     const sources = sourcesOf(workspaceCrates())
     const annotations = scanOrderAnnotations(sources)
     const result = evaluateOrder(registry, loadPolicy(), annotations)
-    const coverage = orderCoverage(readJson(paths.getpoints), registry, annotations, sources)
+    const coverage = orderCoverage(getpoints, registry, annotations, sources)
     writeJson(path.join(dir, 'sched-order-coverage.json'), {
         constrained: coverage.constrained.length,
         uncovered: coverage.uncovered,

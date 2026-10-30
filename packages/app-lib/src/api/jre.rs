@@ -1270,18 +1270,26 @@ fn extract_azul_archive(
             "Failed to read Java archive: {error}"
         ))
     })?;
-    let root = archive
-        .file_names()
-        .find_map(|name| {
-            name.split('/').find(|component| !component.is_empty())
-        })
-        .map(PathBuf::from)
-        .ok_or_else(|| {
-            crate::ErrorKind::InputError(
-                "Java archive does not contain an install directory"
-                    .to_string(),
-            )
+    let mut root = None;
+    for name in archive.file_names() {
+        let name = name.map_err(|error| {
+            crate::ErrorKind::InputError(format!(
+                "Failed to read Java archive entry name: {error}"
+            ))
         })?;
+        root = name
+            .split('/')
+            .find(|component| !component.is_empty())
+            .map(PathBuf::from);
+        if root.is_some() {
+            break;
+        }
+    }
+    let root = root.ok_or_else(|| {
+        crate::ErrorKind::InputError(
+            "Java archive does not contain an install directory".to_string(),
+        )
+    })?;
     validate_archive_file_name(&root)?;
     archive.extract(staging_root).map_err(|error| {
         crate::ErrorKind::InputError(format!(

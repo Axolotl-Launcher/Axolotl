@@ -20,10 +20,14 @@ function water(level = '0'): SchematicBlockState {
     return { name: 'minecraft:water', properties: { level } }
 }
 
+function lava(level = '0'): SchematicBlockState {
+    return { name: 'minecraft:lava', properties: { level } }
+}
+
 function atlas(): TextureAtlasProvider {
     return {
         getTextureAtlas: () => ({}) as ImageData,
-        getTextureUV: (id) => (id.toString().endsWith('water_still') ? STILL : FLOW),
+        getTextureUV: (id) => (id.toString().endsWith('still') ? STILL : FLOW),
     }
 }
 
@@ -38,10 +42,10 @@ function cells(entries: Record<string, SchematicBlockState | null>): SchematicFl
 }
 
 /** Water on its own, with every side and the floor culled so only the surface is left. */
-function surfaceOnly(neighborhood?: SchematicFluidNeighborhood) {
+function surfaceOnly(neighborhood?: SchematicFluidNeighborhood, state = water()) {
     const cull: Cull = { north: true, south: true, east: true, west: true, down: true }
     return getSchematicFluidMesh({
-        state: water(),
+        state,
         atlas: atlas(),
         cull,
         ...(neighborhood ? { neighborhood } : {}),
@@ -82,6 +86,10 @@ it('reports the vanilla surface height of a fluid level', () => {
     expect(schematicFluidHeight(water('3'))).toBeCloseTo(5 / 9, 6)
     expect(schematicFluidHeight(water('7'))).toBeCloseTo(1 / 9, 6)
     expect(schematicFluidHeight(water('8')), 'a falling column fills the cell').toBe(1)
+    // Lava is a fluid state like any other, so it shares the whole level curve.
+    expect(schematicFluidHeight(lava())).toBeCloseTo(8 / 9, 6)
+    expect(schematicFluidHeight(lava('4'))).toBeCloseTo(4 / 9, 6)
+    expect(schematicFluidHeight(lava('8')), 'a falling column fills the cell').toBe(1)
     expect(schematicFluidHeight(STONE)).toBeUndefined()
     expect(
         schematicFluidHeight({ name: 'minecraft:oak_leaves', properties: { waterlogged: 'true' } }),
@@ -103,10 +111,10 @@ it('a level pool renders one flat surface without side faces', () => {
 })
 
 /** A source block that only drains east, so the surface slopes towards positive x. */
-function slopeEast(): Record<string, SchematicBlockState> {
+function slopeEast(fluid: (level?: string) => SchematicBlockState = water) {
     return {
-        '0,0,0': water(),
-        '1,0,0': water('3'),
+        '0,0,0': fluid(),
+        '1,0,0': fluid('3'),
         '1,0,1': STONE,
         '0,0,1': STONE,
         '1,0,-1': STONE,
@@ -170,6 +178,48 @@ it('a cell with fluid above fills the block', () => {
         topFace(falling)?.vertices()[3].pos.y,
         'the north-east corner is a waterfall',
     ).toBeCloseTo(1 - 0.001, 6)
+})
+
+it('lava flows with the same slope and its own sprites', () => {
+    // Lava is the same fluid state machinery as water, so the slope, the corner averaging and the
+    // sprite rotation are shared; only the sprites and the tint differ.
+    const requested: string[] = []
+    const mesh = getSchematicFluidMesh({
+        state: lava(),
+        atlas: {
+            getTextureAtlas: () => ({}) as ImageData,
+            getTextureUV: (id) => {
+                requested.push(id.toString())
+                return id.toString().endsWith('still') ? STILL : FLOW
+            },
+        },
+        cull: { north: true, south: true, east: true, west: true, down: true },
+        neighborhood: cells(slopeEast(lava)),
+    })
+    const surface = topFace(mesh)
+    const vertices = surface?.vertices() ?? []
+    expect(vertices[0].pos.y, 'the walled corners keep the full height').toBeCloseTo(
+        8 / 9 - 0.001,
+        6,
+    )
+    expect(vertices[2].pos.y, 'the shallow lava neighbour lowers the east corners').toBeCloseTo(
+        85 / 99 - 0.001,
+        6,
+    )
+    expect(spriteOf(surface), 'flowing lava uses the flowing lava sprite').toBe('flow')
+    expect(requested).toContain('minecraft:block/lava_still')
+    expect(requested).toContain('minecraft:block/lava_flow')
+    for (const vertex of vertices) expect(vertex.color).toEqual([1, 1, 1])
+})
+
+it('water and lava stay separate surfaces', () => {
+    // Vanilla compares the two fluid states, so a cell of the other fluid is no more part of this
+    // surface than a stone is: water above lava neither fills the lava cell nor slopes it.
+    const surfaceHeight = (above: SchematicBlockState) =>
+        topFace(surfaceOnly(cells({ '0,0,0': lava(), '1,1,0': above }), lava()))?.vertices()[3].pos
+            .y
+    expect(surfaceHeight(lava()), 'lava above lava is a waterfall').toBeCloseTo(1 - 0.001, 6)
+    expect(surfaceHeight(water()), 'water above lava is a different fluid').toBeLessThan(0.8)
 })
 
 it('a neighbour without data keeps the surface where a solid neighbour keeps it', () => {

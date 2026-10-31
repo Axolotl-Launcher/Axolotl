@@ -4,7 +4,7 @@ import type { SchematicBlockState } from './backend'
 import { createBlockGeometry } from './block-geometry'
 import { isSchematicAir } from './editing'
 import type { SchematicFluidNeighborhood } from './fluid-mesh'
-import { getSchematicFluidMesh, isSchematicWaterBlock } from './fluid-mesh'
+import { getSchematicFluidMesh, isSchematicFluidBlock } from './fluid-mesh'
 import {
     applySeamlessSchematicGlassUvs,
     getSchematicFluidCull,
@@ -357,9 +357,9 @@ function buildChunk(message: WorkerMeshMessage) {
                     ),
                 }
                 const target = isSchematicTranslucent(state.name) ? translucent : opaque
-                // Water has no host geometry of its own, and its surface depends on the neighbouring
-                // cells, so it is meshed from the volume instead of the block definition.
-                if (isSchematicWaterBlock(state)) {
+                // A fluid block has no host geometry of its own, and its surface depends on the
+                // neighbouring cells, so it is meshed from the volume instead of the definition.
+                if (isSchematicFluidBlock(state)) {
                     try {
                         const fluid = getSchematicFluidMesh({
                             state,
@@ -375,7 +375,7 @@ function buildChunk(message: WorkerMeshMessage) {
                         })
                         if (fluid) appendBlockMesh(translucent, fluid, position)
                     } catch {
-                        // Water carries no other geometry, so a failed fluid only loses the water.
+                        // A fluid carries no other geometry, so a failed fluid only loses the fluid.
                     }
                     continue
                 }

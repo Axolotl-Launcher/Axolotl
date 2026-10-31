@@ -13,7 +13,6 @@ import {
 import type { SchematicBlockState } from './backend'
 import { isSchematicAir } from './editing'
 
-const WATER_BLOCK = 'minecraft:water'
 /** Vanilla fills a source cell to 8/9 of the block and lowers each flowing level by a ninth. */
 const FLUID_SOURCE_HEIGHT = 8 / 9
 const FLUID_LEVEL_COUNT = 9
@@ -24,12 +23,39 @@ const FLUID_FULL_HEIGHT = 0.8
 const FLUID_FULL_HEIGHT_WEIGHT = 10
 /** Fluid faces sit a thousandth of a cell inside the block bounds so they never z-fight. */
 const FLUID_FACE_INSET = 0.001
-const FLUID_STILL_TEXTURE = 'minecraft:block/water_still'
-const FLUID_FLOW_TEXTURE = 'minecraft:block/water_flow'
 /** Fluid sprites are 16x16, so the flow texture is mapped in sprite pixels before the atlas lookup. */
 const FLUID_SPRITE_SIZE = 16
 /** Vanilla pulls rotated flow UVs a quarter of the sprite towards their average to stay in bounds. */
 const FLUID_FLOW_UV_SHRINK = 4 / FLUID_SPRITE_SIZE
+
+export type SchematicFluidKind = 'water' | 'lava'
+
+/** Blocks that are a fluid. A waterlogged block holds water without being one. */
+const FLUID_BLOCKS: Record<string, SchematicFluidKind> = {
+    'minecraft:water': 'water',
+    'minecraft:lava': 'lava',
+}
+
+type FluidSprites = {
+    still: string
+    flow: string
+    tint: Color
+}
+
+/** Lava shares water's geometry and level curve; only the sprites and the tint differ. */
+const FLUID_SPRITES: Record<SchematicFluidKind, FluidSprites> = {
+    water: {
+        still: 'minecraft:block/water_still',
+        flow: 'minecraft:block/water_flow',
+        tint: BlockColors.water?.({}) ?? [1, 1, 1],
+    },
+    // Lava carries no block color, so the sprite already holds the colour of the fluid.
+    lava: {
+        still: 'minecraft:block/lava_still',
+        flow: 'minecraft:block/lava_flow',
+        tint: [1, 1, 1],
+    },
+}
 
 type SpritePoint = readonly [number, number]
 type Position = readonly [number, number, number]
@@ -53,17 +79,23 @@ export function isSchematicWaterlogged(state: SchematicBlockState) {
     return state.properties.waterlogged === 'true'
 }
 
-export function isSchematicWaterBlock(state: SchematicBlockState) {
-    return state.name.trim().toLowerCase() === WATER_BLOCK
+function fluidBlockKind(name: string) {
+    return FLUID_BLOCKS[name.trim().toLowerCase()]
 }
 
-export function holdsSchematicWater(state: SchematicBlockState) {
-    return isSchematicWaterlogged(state) || isSchematicWaterBlock(state)
+/** Whether the block itself is a fluid, as opposed to a block that merely holds one. */
+export function isSchematicFluidBlock(state: SchematicBlockState) {
+    return fluidBlockKind(state.name) !== undefined
 }
 
-/** Surface height of the water a cell holds, or `undefined` when the cell holds no water. */
+/** The fluid a cell holds, or `undefined` when the cell holds none. */
+export function schematicFluidKind(state: SchematicBlockState): SchematicFluidKind | undefined {
+    return fluidBlockKind(state.name) ?? (isSchematicWaterlogged(state) ? 'water' : undefined)
+}
+
+/** Surface height of the fluid a cell holds, or `undefined` when the cell holds no fluid. */
 export function schematicFluidHeight(state: SchematicBlockState) {
-    if (!holdsSchematicWater(state)) return undefined
+    if (!schematicFluidKind(state)) return undefined
     const level = Number.parseInt(state.properties.level ?? '0', 10)
     if (!Number.isFinite(level) || level <= 0) return FLUID_SOURCE_HEIGHT
     if (level >= FLUID_FALLING_LEVEL) return 1
@@ -71,16 +103,17 @@ export function schematicFluidHeight(state: SchematicBlockState) {
 }
 
 /**
- * Vanilla averages the 2x2 cells around a corner: fluid counts with its height and near-full fluid
- * counts ten times over, air counts as an empty cell, and solid or unknown cells are skipped, which
- * keeps the surface at full height against a wall. A cell whose neighbour above holds the same
- * fluid is a falling column and fills the block.
+ * Vanilla averages the 2x2 cells around a corner: the same fluid counts with its height and
+ * near-full fluid counts ten times over, air counts as an empty cell, and solid or unknown cells
+ * are skipped, which keeps the surface at full height against a wall. A cell whose neighbour above
+ * holds the same fluid is a falling column and fills the block.
  */
 function cornerHeight(
     neighborhood: SchematicFluidNeighborhood,
     cornerX: number,
     cornerZ: number,
     fallback: number,
+    kind: SchematicFluidKind,
 ) {
     let samples = 0
     let total = 0
@@ -88,10 +121,11 @@ function cornerHeight(
         const dx = cornerX - (index & 1)
         const dz = cornerZ - ((index >> 1) & 1)
         const above = neighborhood.blockAt(dx, 1, dz)
-        if (above && schematicFluidHeight(above) !== undefined) return 1
+        if (above && schematicFluidKind(above) === kind) return 1
         const state = neighborhood.blockAt(dx, 0, dz)
         if (!state) continue
-        const height = schematicFluidHeight(state)
+        // A cell of the other fluid is no more part of this surface than a stone is.
+        const height = schematicFluidKind(state) === kind ? schematicFluidHeight(state) : undefined
         if (height === undefined) {
             if (isSchematicAir(state.name)) samples += 1
             continue
@@ -165,7 +199,7 @@ function addQuad(
 
 /**
  * Vanilla fluid geometry: the top surface is a quad whose four corners come from the neighbouring
- * cells, and the side faces rise to those corners, so water flowing between two levels connects with
+ * cells, and the side faces rise to those corners, so fluid flowing between two levels connects with
  * a slope instead of one flat box per cell.
  *
  * Only the side faces are pulled inside the block bounds. The surface and the floor keep the full
@@ -175,10 +209,11 @@ function addQuad(
 export function getSchematicFluidMesh(options: SchematicFluidMeshOptions): Mesh | undefined {
     const { state, atlas, cull, neighborhood } = options
     const height = schematicFluidHeight(state)
-    if (height === undefined) return undefined
+    const kind = schematicFluidKind(state)
+    if (height === undefined || kind === undefined) return undefined
     const inset = options.inset ?? FLUID_FACE_INSET
     const corner = (x: number, z: number) =>
-        neighborhood ? cornerHeight(neighborhood, x, z, height) : height
+        neighborhood ? cornerHeight(neighborhood, x, z, height, kind) : height
     const northWest = corner(0, 0)
     const southWest = corner(0, 1)
     const southEast = corner(1, 1)
@@ -193,9 +228,10 @@ export function getSchematicFluidMesh(options: SchematicFluidMeshOptions): Mesh 
     const rimNorthEast = northEast - drop
     const floor = cull.down ? 0 : inset
 
-    const still = atlas.getTextureUV(Identifier.parse(FLUID_STILL_TEXTURE))
-    const flow = atlas.getTextureUV(Identifier.parse(FLUID_FLOW_TEXTURE))
-    const tint = BlockColors.water?.({}) ?? [1, 1, 1]
+    const sprites = FLUID_SPRITES[kind]
+    const still = atlas.getTextureUV(Identifier.parse(sprites.still))
+    const flow = atlas.getTextureUV(Identifier.parse(sprites.flow))
+    const tint = sprites.tint
     const mesh = new Mesh()
 
     if (!cull.up) {

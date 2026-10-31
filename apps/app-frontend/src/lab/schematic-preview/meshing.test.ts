@@ -420,6 +420,7 @@ it('waterlogged fluid is culled against any neighbor that holds water', () => {
     expect(fluidCull.south, 'dry leaves are not water').toBeFalsy()
     expect(fluidCull.west, 'air is not water').toBeFalsy()
     expect(fluidCull.north, 'air is not water').toBeFalsy()
+    blocks[index(15, 1, 1)] = 1
     expect(
         getSchematicFluidCull(
             [15, 1, 1],
@@ -473,6 +474,30 @@ it('a block above never hides the waterlogged surface', () => {
         up: true,
         quads: 5,
     })
+})
+
+it('water and lava do not cull each other', () => {
+    // Vanilla compares the two fluid states, so only a cell of the same fluid joins up. Water beside
+    // lava and the water inside waterlogged blocks both leave the lava faces alone.
+    const fluidPalette: SchematicBlockState[] = [
+        { name: 'minecraft:air', properties: {} },
+        { name: 'minecraft:lava', properties: { level: '0' } },
+        { name: 'minecraft:water', properties: { level: '0' } },
+        { name: 'minecraft:oak_leaves', properties: { waterlogged: 'true' } },
+    ]
+    const index = (x: number, y: number, z: number) => y * 256 + z * 16 + x
+    const blocks = new Uint32Array(16 * 16 * 16)
+    blocks[index(1, 1, 1)] = 1
+    blocks[index(2, 1, 1)] = 2
+    blocks[index(1, 2, 1)] = 1
+    blocks[index(1, 1, 2)] = 1
+    blocks[index(1, 0, 1)] = 3
+
+    const fluidCull = getSchematicFluidCull([1, 1, 1], blocks, {}, fluidPalette, Cull.none())
+    expect(fluidCull.up, 'lava above merges').toBe(true)
+    expect(fluidCull.south, 'lava next door merges').toBe(true)
+    expect(fluidCull.east, 'water does not hide the face of lava').toBeFalsy()
+    expect(fluidCull.down, 'the water in waterlogged leaves is not lava').toBeFalsy()
 })
 
 it('blocks without waterlogged fluid mesh no fluid at all', () => {

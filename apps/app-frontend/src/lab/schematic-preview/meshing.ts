@@ -12,7 +12,7 @@ import {
 import type { SchematicBlockState } from './backend.ts'
 import { isSchematicAir } from './editing.ts'
 import type { SchematicFluidNeighborhood } from './fluid-mesh.ts'
-import { getSchematicFluidMesh, holdsSchematicWater, isSchematicWaterlogged } from './fluid-mesh.ts'
+import { getSchematicFluidMesh, isSchematicWaterlogged, schematicFluidKind } from './fluid-mesh.ts'
 
 export { isSchematicWaterlogged } from './fluid-mesh.ts'
 
@@ -524,7 +524,8 @@ export function schematicBlockAt(
  * Waterlogged fluid is inset away from every block boundary so the host block's own faces stay in
  * front of it. Two adjacent waterlogged blocks would then show a seam where their fluid volumes
  * pull apart, so fluid faces shared with another water-holding block are culled the way vanilla
- * culls faces between two cells of the same fluid.
+ * culls faces between two cells of the same fluid. Only the same fluid counts: water neither hides
+ * nor merges with lava, exactly like vanilla compares the two fluid states.
  *
  * The surface is the exception to inheriting the host cull: a fluid surface sits at the fluid
  * height, not at the top of the block, so a block above it never reaches it and only another cell
@@ -540,6 +541,10 @@ export function getSchematicFluidCull(
     cull: Cull,
 ) {
     const fluidCull: Cull = { ...cull, up: false }
+    const current =
+        palette[schematicBlockAt(blocks, neighborFaces, position[0], position[1], position[2])]
+    const kind = current ? schematicFluidKind(current) : undefined
+    if (!kind) return fluidCull
     for (const direction of SCHEMATIC_DIRECTIONS) {
         if (fluidCull[direction]) continue
         const offset = SCHEMATIC_DIRECTION_OFFSETS[direction]
@@ -553,7 +558,7 @@ export function getSchematicFluidCull(
                     position[2] + offset[2],
                 )
             ]
-        if (neighbor && holdsSchematicWater(neighbor)) fluidCull[direction] = true
+        if (neighbor && schematicFluidKind(neighbor) === kind) fluidCull[direction] = true
     }
     return fluidCull
 }

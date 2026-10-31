@@ -2,6 +2,7 @@ import { Cull, type Identifier, Mesh, Quad, Vector } from 'deepslate'
 import { expect, it } from 'vitest'
 
 import type { SchematicBlockState } from './backend.ts'
+import type { SchematicFluidNeighborhood } from './fluid-mesh.ts'
 import {
     applySeamlessSchematicGlassUvs,
     extractSchematicNeighborFace,
@@ -319,6 +320,41 @@ it('adjacent waterlogged cells meet at the face they share', () => {
         Math.min(...span(meshFor(west))),
         'the western cell reaches the face it shares with its neighbour',
     ).toBeCloseTo(0, 9)
+})
+
+it('waterlogged fluid takes the surface height from its neighbours', () => {
+    const state = { name: 'minecraft:oak_leaves', properties: { waterlogged: 'true' } }
+    const surface = (neighborhood?: SchematicFluidNeighborhood) =>
+        (
+            getSchematicWaterloggedFluidMesh(
+                state,
+                trackingAtlas(new Set()),
+                Cull.none(),
+                neighborhood,
+            )?.quads[0].vertices() ?? []
+        ).map((vertex) => vertex.pos.y)
+    const flat = surface()
+    expect(flat).toHaveLength(4)
+    for (const height of flat) expect(height).toBeCloseTo(8 / 9 - 0.001, 9)
+
+    // Vanilla has no waterlogged special case: the surface samples the same 2x2 corners as any other
+    // water, so a shallow neighbour lowers the corners that face it.
+    const sloping = surface({
+        blockAt: (dx, dy, dz): SchematicBlockState => {
+            if (dx === 0 && dy === 0 && dz === 0) return { name: 'minecraft:water', properties: {} }
+            if (dx === 1 && dy === 0 && dz === 0) {
+                return { name: 'minecraft:water', properties: { level: '3' } }
+            }
+            return { name: 'minecraft:stone', properties: {} }
+        },
+    })
+    expect(sloping[0], 'the walled corners keep the full height').toBeCloseTo(8 / 9 - 0.001, 9)
+    expect(sloping[1]).toBeCloseTo(8 / 9 - 0.001, 9)
+    expect(sloping[2], 'the eastern corners drop towards the shallow neighbour').toBeCloseTo(
+        85 / 99 - 0.001,
+        9,
+    )
+    expect(sloping[3]).toBeCloseTo(85 / 99 - 0.001, 9)
 })
 
 it('waterlogged fluid follows the neighbor cull', () => {

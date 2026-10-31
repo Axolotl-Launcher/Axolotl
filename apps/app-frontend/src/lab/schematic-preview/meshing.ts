@@ -11,6 +11,7 @@ import {
 
 import type { SchematicBlockState } from './backend.ts'
 import { isSchematicAir } from './editing.ts'
+import type { SchematicFluidNeighborhood } from './fluid-mesh.ts'
 import { getSchematicFluidMesh, holdsSchematicWater, isSchematicWaterlogged } from './fluid-mesh.ts'
 
 export { isSchematicWaterlogged } from './fluid-mesh.ts'
@@ -391,6 +392,7 @@ export function getSchematicWaterloggedFluidMesh(
     state: SchematicBlockState,
     atlas: TextureAtlasProvider,
     cull: Cull,
+    neighborhood?: SchematicFluidNeighborhood,
 ) {
     if (!isSchematicWaterlogged(state)) return undefined
     return getSchematicFluidMesh({
@@ -398,6 +400,7 @@ export function getSchematicWaterloggedFluidMesh(
         atlas,
         cull,
         inset: WATERLOGGED_FLUID_INSET,
+        neighborhood,
     })
 }
 

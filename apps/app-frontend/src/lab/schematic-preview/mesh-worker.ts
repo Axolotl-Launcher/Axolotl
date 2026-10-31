@@ -3,6 +3,7 @@ import * as deepslate from 'deepslate'
 import type { SchematicBlockState } from './backend'
 import { createBlockGeometry } from './block-geometry'
 import { isSchematicAir } from './editing'
+import type { SchematicFluidNeighborhood } from './fluid-mesh'
 import { getSchematicFluidMesh, isSchematicWaterBlock } from './fluid-mesh'
 import {
     applySeamlessSchematicGlassUvs,
@@ -304,6 +305,13 @@ function buildChunk(message: WorkerMeshMessage) {
                 SCHEMATIC_OPPOSITE_DIRECTIONS[direction]
             ] ?? false,
         )
+    // Both fluid paths sample the cells around a fluid, so the closure is built once per block.
+    const fluidNeighborhood = (x: number, y: number, z: number): SchematicFluidNeighborhood => ({
+        blockAt: (dx, dy, dz) => {
+            const index = schematicBlockIndexAt(blocks, neighborFaces, x + dx, y + dy, z + dz)
+            return index === undefined ? undefined : palette[index]
+        },
+    })
 
     for (let y = 0; y < 16; y += 1) {
         for (let z = 0; z < 16; z += 1) {
@@ -363,18 +371,7 @@ function buildChunk(message: WorkerMeshMessage) {
                                 palette,
                                 cull,
                             ),
-                            neighborhood: {
-                                blockAt: (dx: number, dy: number, dz: number) => {
-                                    const index = schematicBlockIndexAt(
-                                        blocks,
-                                        neighborFaces,
-                                        x + dx,
-                                        y + dy,
-                                        z + dz,
-                                    )
-                                    return index === undefined ? undefined : palette[index]
-                                },
-                            },
+                            neighborhood: fluidNeighborhood(x, y, z),
                         })
                         if (fluid) appendBlockMesh(translucent, fluid, position)
                     } catch {
@@ -413,6 +410,7 @@ function buildChunk(message: WorkerMeshMessage) {
                     const fluid = geometry.water(
                         state,
                         getSchematicFluidCull([x, y, z], blocks, neighborFaces, palette, cull),
+                        fluidNeighborhood(x, y, z),
                     )
                     if (fluid) appendBlockMesh(translucent, fluid, position)
                 } catch {

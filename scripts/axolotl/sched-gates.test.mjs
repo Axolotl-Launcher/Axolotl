@@ -214,6 +214,10 @@ test('tag check rejects a forgeable tag (K2.1, K2.3)', () => {
     const violations = tagViolations([...sources.filter((candidate) => candidate.rel !== tag.rel), convertible, forged])
     assert.ok(violations.some((violation) => violation.includes('implements From for Tag')))
     assert.ok(violations.some((violation) => violation.includes('builds a Tag outside tag.rs')))
+    // `Default` would hand out an L0 tag with no mint.
+    const defaulted = source(tag.rel, tag.raw.replace('pub struct Tag {', '#[derive(Debug, Default)]\npub struct Tag {'))
+    const defaultViolations = tagViolations([...sources.filter((candidate) => candidate.rel !== tag.rel), defaulted])
+    assert.ok(defaultViolations.some((violation) => violation.includes('Default')))
 })
 
 test('the L0 process detector keeps its reactions dispatched (K3.3)', () => {
@@ -229,11 +233,31 @@ test('the L0 process detector keeps its reactions dispatched (K3.3)', () => {
     const violations = l0FunctionViolations([...sources.filter((candidate) => candidate.rel !== detector.rel), leaky], policy)
     assert.ok(violations.some((violation) => violation.includes('uses .pool')))
     assert.ok(violations.some((violation) => violation.includes('awaits')))
+
+    // An allowed await must not cover a second await chained after it.
+    const chainPolicy = {
+        ...policy,
+        l0ForbiddenPatterns: [],
+        l0Functions: [{ ...policy.l0Functions[0], allowedAwaits: ['State::get\\(\\)'] }],
+    }
+    const chained = source(
+        detector.rel,
+        detector.raw.replace(
+            'let manually_killed = state.process_manager.was_manually_killed(uuid);',
+            'let manually_killed = state.process_manager.was_manually_killed(uuid);\n        let _ = crate::State::get().await?.data.write().await;',
+        ),
+    )
+    const chainedViolations = l0FunctionViolations([...sources.filter((candidate) => candidate.rel !== detector.rel), chained], chainPolicy)
+    assert.ok(chainedViolations.some((violation) => violation.includes('awaits')), 'a chained write must not inherit the first await allowance')
 })
 
 test('L0 never awaits a send (K3.4)', () => {
     const awaited = source('packages/app-lib/src/scheduler/l0/x.rs', 'async fn f(tx: Sender<u8>) {\n    tx.send(1).await.unwrap();\n}\n')
     assert.equal(awaitedSendsInL0([awaited], policy.l0Module).length, 1)
+    const turbofish = source('packages/app-lib/src/scheduler/l0/x.rs', 'async fn f(tx: Sender<u8>) {\n    tx.send::<u8>(1).await.unwrap();\n}\n')
+    assert.equal(awaitedSendsInL0([turbofish], policy.l0Module).length, 1)
+    const ufcs = source('packages/app-lib/src/scheduler/l0/x.rs', 'async fn f(tx: Sender<u8>) {\n    SinkExt::send(&mut tx, 1).await.unwrap();\n}\n')
+    assert.equal(awaitedSendsInL0([ufcs], policy.l0Module).length, 1)
     assert.deepEqual(awaitedSendsInL0(sources, policy.l0Module), [])
 })
 

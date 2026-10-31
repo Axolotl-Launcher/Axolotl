@@ -2054,17 +2054,18 @@
       "count": 2,
       "reason": "L0 executor: its driver thread, and spawns onto the L0 runtime and its own blocking pool (T3.6)",
       "sites": [
-        "spawn: self.handle.spawn(task)",
+        "spawn: self.handle.spawn(async move {",
         "start: .spawn(move || {"
       ]
     },
     {
       "file": "packages/app-lib/src/scheduler/l0/mod.rs",
       "form": "tokio::spawn",
-      "count": 1,
+      "count": 2,
       "reason": "fallback onto the current runtime when the L0 executor cannot start",
       "sites": [
-        "spawn: None => tokio::spawn(task),"
+        "spawn: None => tokio::spawn(task),",
+        "spawn: tokio::spawn(task)"
       ]
     },
     {

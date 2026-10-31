@@ -490,7 +490,7 @@
       "level": "L2",
       "locks": [],
       "backfilled": true,
-      "basis": "production std thread; JoinHandle bound (T0.10), signal-driven, bounded exit",
+      "basis": "production std thread; handle bound (T0.10), stopped by an atomic flag + unpark, park_timeout bound 250 ms",
       "signal": true,
       "boundedExit": true,
       "form": "production thread"
@@ -568,7 +568,6 @@
       "file": "packages/app-lib/src/state/process.rs",
       "fn": "detect_process_exit",
       "allowedAwaits": [
-        "State::get\\(\\)",
         "tokio::time::sleep\\("
       ]
     }

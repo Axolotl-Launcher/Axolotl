@@ -13,6 +13,7 @@ use std::sync::{Arc, OnceLock};
 
 use control::ControlTable;
 use executor::L0Executor;
+use quiesce::QuiesceToken;
 
 static EXECUTOR: OnceLock<Option<L0Executor>> = OnceLock::new();
 
@@ -32,15 +33,36 @@ fn executor() -> Option<&'static L0Executor> {
 }
 
 /// Runs an L0 task on the L0 executor, or on the current runtime when the
-/// executor is unavailable.
+/// executor is unavailable or has already exited.
 pub fn spawn<F>(task: F) -> tokio::task::JoinHandle<F::Output>
 where
     F: Future + Send + 'static,
     F::Output: Send + 'static,
 {
     match executor() {
-        Some(executor) => executor.spawn(task),
+        Some(executor) if executor.is_running() => executor.spawn(task),
+        Some(_) => {
+            // A finished driver binds later tasks into a closed runtime and
+            // cancels them. Running the work on the current runtime is worse
+            // for isolation than the L0 executor, but it is not silently
+            // dropped; phase 7's exit barrier re-creates the executor.
+            tracing::warn!(
+                "The L0 executor has exited; running L0 work on the current runtime"
+            );
+            tokio::spawn(task)
+        }
         None => tokio::spawn(task),
+    }
+}
+
+/// A quiesce token over the launcher's control table, so a detector sees the
+/// same quiesce request as the executor's shutdown path.
+pub fn quiesce_token() -> QuiesceToken {
+    match executor() {
+        Some(executor) => QuiesceToken::new(Arc::clone(executor.control())),
+        // No executor: the task runs on the current runtime, where the app's
+        // own shutdown cancels it. Give it a private table nothing requests.
+        None => QuiesceToken::new(Arc::new(ControlTable::new())),
     }
 }
 

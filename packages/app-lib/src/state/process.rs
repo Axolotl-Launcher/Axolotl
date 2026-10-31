@@ -3,6 +3,7 @@ use crate::event::{InstancePayloadType, ProcessPayloadType};
 #[cfg(feature = "tauri")]
 use crate::event::{LogEvent, LogPayload};
 use crate::scheduler::l0::queue::{Delivery, L0Queue, L0QueueReceiver, Posted};
+use crate::scheduler::l0::quiesce::QuiesceToken;
 use crate::state::store::Collection as _;
 use crate::state::store::join_log::{JoinLog, JoinLogEntry, JoinLogKey};
 use crate::util::io::IOError;
@@ -542,7 +543,10 @@ impl ProcessManager {
 
         self.processes.insert(process.metadata.uuid, process);
 
-        let (events, reactions) = L0Queue::channel(1, PROCESS_EVENT_CAPACITY);
+        let (events, reactions) = L0Queue::channel(
+            PROCESS_TICK_CAPACITY,
+            PROCESS_EVENT_CAPACITY,
+        );
         tokio::spawn(Process::react_to_process(
             instance_id.to_string(),
             instance_path.to_string(),
@@ -554,9 +558,12 @@ impl ProcessManager {
             crash_reports_before,
             reactions,
         ));
+        let state = crate::State::get().await?;
         crate::scheduler::l0::spawn(Process::detect_process_exit(
+            state,
             metadata.uuid,
             events,
+            crate::scheduler::l0::quiesce_token(),
         ));
 
         emit_process(
@@ -1211,12 +1218,23 @@ impl Process {
     /// database, emits events, spawns or waits on other tasks runs in
     /// [`Self::react_to_process`] on the main runtime.
     async fn detect_process_exit(
+        state: Arc<crate::State>,
         uuid: Uuid,
         events: L0Queue<ProcessEvent>,
+        quiesce: QuiesceToken,
     ) -> crate::Result<()> {
-        let state = crate::State::get().await?;
         let mut clock = PlaytimeClock::new();
         let (status, missing) = loop {
+            // Safety point: no resource is held and the previous poll is
+            // complete. A quiesced detector returns without reporting an exit;
+            // its reaction task sees the closed queue and logs the loss.
+            if quiesce.safety_point().is_break() {
+                tracing::info!(
+                    %uuid,
+                    "L0 process detector stopped at a quiesce"
+                );
+                return Ok(());
+            }
             if let Some(process) = state.process_manager.try_wait(uuid)? {
                 if let Some(status) = process {
                     break (status, false);
@@ -1227,7 +1245,9 @@ impl Process {
             tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
             if let Some(tick) = clock.take(false) {
                 let elapsed = tick.elapsed;
-                if events.post(ProcessEvent::Playtime(tick), Delivery::Reserved)
+                // Ticks are droppable; a refused tick is carried into the
+                // next one. Only the exit below uses the reserved segment.
+                if events.post(ProcessEvent::Playtime(tick), Delivery::Lossy)
                     != Posted::Queued
                 {
                     clock.carry(elapsed);
@@ -1235,7 +1255,7 @@ impl Process {
             }
         };
         let manually_killed = state.process_manager.was_manually_killed(uuid);
-        events.post(
+        let posted = events.post(
             ProcessEvent::Exited {
                 status,
                 missing,
@@ -1244,6 +1264,13 @@ impl Process {
             },
             Delivery::Reserved,
         );
+        if posted != Posted::Queued {
+            tracing::warn!(
+                %uuid,
+                ?posted,
+                "The process-exit event was not delivered; this instance stays shown as running until a restart"
+            );
+        }
         Ok(())
     }
 
@@ -1287,8 +1314,16 @@ impl Process {
                     manually_killed,
                     final_playtime,
                 }) => break (status, missing, manually_killed, final_playtime),
-                // The detector failed before the game exited; it reported nothing.
-                None => return Ok(()),
+                // The detector stopped (quiesce, error or panic) without
+                // reporting an exit. The record cannot be cleaned up while the
+                // game may still be running; leave it and say so.
+                None => {
+                    tracing::warn!(
+                        instance = %instance_id,
+                        "The process detector stopped without reporting an exit; the instance stays shown as running"
+                    );
+                    return Ok(());
+                }
             }
         };
         if let Some(mut process) = state.process_manager.remove(uuid) {
@@ -1440,9 +1475,12 @@ impl Process {
     }
 }
 
-/// Reserved slots for one game's events: a playtime tick per minute and the
-/// exit, so a stalled reaction task loses nothing for about an hour.
-const PROCESS_EVENT_CAPACITY: usize = 64;
+/// Spec N9: droppable playtime ticks get the lossy segment (128 minutes of
+/// ticks), while the exit gets the reserved segment. A refused tick is carried
+/// into the next one, so only the exit needs to arrive without loss.
+const PROCESS_TICK_CAPACITY: usize = 128;
+/// One exit per game, with room for a retry after a detector restart.
+const PROCESS_EVENT_CAPACITY: usize = 8;
 
 /// What the L0 process detector tells its reaction task.
 enum ProcessEvent {
@@ -1478,9 +1516,16 @@ impl PlaytimeClock {
 
     /// The time since the last tick plus any carried time, once a minute
     /// has gathered or whenever `force`d; the clock restarts from now.
+    ///
+    /// The cadence uses the time since the last tick, not the carried total:
+    /// a tick the queue refused must not be retried on every 50 ms poll.
     fn take(&mut self, force: bool) -> Option<PlaytimeTick> {
-        let elapsed = self.carried + self.last.elapsed().as_secs();
-        if elapsed == 0 || (!force && elapsed < 60) {
+        let since_last = self.last.elapsed().as_secs();
+        if !force && since_last < 60 {
+            return None;
+        }
+        let elapsed = self.carried + since_last;
+        if elapsed == 0 {
             return None;
         }
         self.last = Instant::now();
@@ -1771,8 +1816,14 @@ mod playtime_clock_tests {
         let mut clock = started(61);
         let refused = clock.take(false).unwrap().elapsed;
         clock.carry(refused);
-        let next = clock.take(false).expect("carried time alone fills a tick");
-        assert!(next.elapsed >= refused, "the refused time is not lost");
+        assert!(
+            clock.take(false).is_none(),
+            "a refusal is retried at the next minute, not on every poll"
+        );
+        // The next minute's tick carries the refused one.
+        clock.last = Instant::now() - std::time::Duration::from_secs(60);
+        let next = clock.take(false).expect("a minute has gathered");
+        assert!(next.elapsed >= refused + 60, "the refused time is not lost");
         assert!(
             clock.take(false).is_none(),
             "carried time is handed over once"

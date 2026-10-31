@@ -4,6 +4,7 @@
 
 use std::future::Future;
 use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::mpsc as std_mpsc;
 use std::time::Duration;
 
@@ -13,13 +14,27 @@ use super::control::ControlTable;
 pub const HEARTBEAT_INTERVAL: Duration = Duration::from_millis(250);
 /// The bounded exit window of the driver thread after a quiesce.
 pub const EXIT_WINDOW: Duration = Duration::from_secs(5);
-const BLOCKING_THREADS: usize = 2;
+/// How long a quiesced L0 task may take to reach its next safety point. The
+/// remaining second of [`EXIT_WINDOW`] is the runtime's own shutdown.
+const DRAIN_WINDOW: Duration = Duration::from_secs(3);
+/// Spec N8: the L0 blocking pool's capacity.
+const BLOCKING_THREADS: usize = 4;
 pub const DRIVER_THREAD_NAME: &str = "theseus-l0";
 pub const BLOCKING_THREAD_NAME: &str = "theseus-l0-blocking";
+
+/// Decrements the pending count even when the task is dropped.
+struct PendingGuard(Arc<AtomicUsize>);
+
+impl Drop for PendingGuard {
+    fn drop(&mut self) {
+        self.0.fetch_sub(1, Ordering::AcqRel);
+    }
+}
 
 pub struct L0Executor {
     handle: tokio::runtime::Handle,
     control: Arc<ControlTable>,
+    pending: Arc<AtomicUsize>,
     thread: std::thread::JoinHandle<()>,
 }
 
@@ -27,6 +42,8 @@ impl L0Executor {
     pub fn start(control: Arc<ControlTable>) -> std::io::Result<Self> {
         let (handle_tx, handle_rx) = std_mpsc::channel();
         let driver_control = control.clone();
+        let pending = Arc::new(AtomicUsize::new(0));
+        let driver_pending = pending.clone();
         let thread = std::thread::Builder::new()
             .name(DRIVER_THREAD_NAME.into())
             .spawn(move || {
@@ -51,9 +68,17 @@ impl L0Executor {
                         driver_control.heartbeat();
                         tokio::time::sleep(HEARTBEAT_INTERVAL).await;
                     }
+                    // A quiesced task returns at its next safety point; keep
+                    // driving the runtime so it can, instead of dropping it
+                    // on the spot. Whatever misses the window is dropped by
+                    // the bounded runtime shutdown below.
+                    let deadline = tokio::time::Instant::now() + DRAIN_WINDOW;
+                    while driver_pending.load(Ordering::Acquire) > 0
+                        && tokio::time::Instant::now() < deadline
+                    {
+                        tokio::time::sleep(Duration::from_millis(10)).await;
+                    }
                 });
-                // L0 tasks still pending are dropped here; quiesced tasks
-                // have already returned at a safety point.
                 runtime.shutdown_timeout(Duration::from_secs(1));
             })?;
         let handle = handle_rx.recv().map_err(|_| {
@@ -62,6 +87,7 @@ impl L0Executor {
         Ok(Self {
             handle,
             control,
+            pending,
             thread,
         })
     }
@@ -70,13 +96,25 @@ impl L0Executor {
         &self.control
     }
 
+    /// Whether the driver thread is still alive. A finished driver cancels
+    /// anything spawned afterwards, so callers must not use this executor
+    /// once it is false.
+    pub fn is_running(&self) -> bool {
+        !self.thread.is_finished()
+    }
+
     /// Runs `task` on the L0 runtime.
     pub fn spawn<F>(&self, task: F) -> tokio::task::JoinHandle<F::Output>
     where
         F: Future + Send + 'static,
         F::Output: Send + 'static,
     {
-        self.handle.spawn(task)
+        self.pending.fetch_add(1, Ordering::AcqRel);
+        let pending = self.pending.clone();
+        self.handle.spawn(async move {
+            let _guard = PendingGuard(pending);
+            task.await
+        })
     }
 
     /// Runs blocking work on L0's own pool, never the shared one.
@@ -130,28 +168,71 @@ mod tests {
         assert!(executor.shutdown());
     }
 
-    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-    async fn a_saturated_shared_blocking_pool_does_not_stall_l0() {
-        let executor =
-            L0Executor::start(Arc::new(ControlTable::new())).unwrap();
+    #[test]
+    fn a_saturated_shared_blocking_pool_does_not_stall_l0() {
+        // One blocking thread, held by the occupier: if L0's blocking work
+        // went to this pool it could not run until the occupier releases.
+        let shared = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .max_blocking_threads(1)
+            .build()
+            .unwrap();
         let release = Arc::new(std::sync::Barrier::new(2));
+        let started = Arc::new(std::sync::atomic::AtomicBool::new(false));
         let occupier = {
             let release = release.clone();
-            tokio::task::spawn_blocking(move || {
+            let started = started.clone();
+            shared.spawn_blocking(move || {
+                started.store(true, std::sync::atomic::Ordering::SeqCst);
                 release.wait();
             })
         };
-        let result = tokio::time::timeout(
-            Duration::from_secs(1),
-            executor.spawn_blocking(|| 7),
-        )
-        .await
-        .expect("L0 blocking work does not queue behind the shared pool")
-        .unwrap();
-        assert_eq!(result, 7);
+        while !started.load(std::sync::atomic::Ordering::SeqCst) {
+            std::thread::yield_now();
+        }
+
+        let executor =
+            L0Executor::start(Arc::new(ControlTable::new())).unwrap();
+        let result = shared.block_on(async {
+            tokio::time::timeout(
+                Duration::from_secs(1),
+                executor.spawn_blocking(|| 7),
+            )
+            .await
+        });
+        assert_eq!(
+            result.expect("L0 does not queue behind the occupied shared pool"),
+            Ok(7)
+        );
         release.wait();
-        occupier.await.unwrap();
+        shared.block_on(occupier).unwrap();
         assert!(executor.shutdown());
+    }
+
+    #[test]
+    fn quiesce_lets_a_pending_task_reach_its_safety_point() {
+        let control = Arc::new(ControlTable::new());
+        let executor = L0Executor::start(control.clone()).unwrap();
+        let started = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let finished = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let task_started = started.clone();
+        let task_finished = finished.clone();
+        let task_control = control.clone();
+        let _task = executor.spawn(async move {
+            task_started.store(true, std::sync::atomic::Ordering::SeqCst);
+            while !task_control.quiesce_requested() {
+                tokio::time::sleep(Duration::from_millis(10)).await;
+            }
+            task_finished.store(true, std::sync::atomic::Ordering::SeqCst);
+        });
+        while !started.load(std::sync::atomic::Ordering::SeqCst) {
+            std::thread::yield_now();
+        }
+        assert!(executor.shutdown());
+        assert!(
+            finished.load(std::sync::atomic::Ordering::SeqCst),
+            "the task reached its safety point before the driver exited"
+        );
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]

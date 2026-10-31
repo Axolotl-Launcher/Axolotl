@@ -8,10 +8,14 @@
 import { unboundedInL0 } from './sched-bare-spawn-check.mjs'
 import { isMain, lineOf, loadPolicy, sourcesOf, workspaceCrates } from './sched-utils.mjs'
 
+// Method calls, turbofish (`tx.send::<u8>(..)`), and UFCS
+// (`SinkExt::send(..)`) are all awaited sends.
+const AWAITED_SEND = /(?:\b[A-Za-z_]\w*::)*\bsend\s*(?:::<[^;()]*>)?\s*\([^;]*?\)\s*\.await/g
+
 export function awaitedSendsInL0(sources, l0Module) {
     return sources
         .filter((source) => source.rel.startsWith(`${l0Module}/`))
-        .flatMap((source) => [...source.code.matchAll(/\.send\s*\([^;]*?\)\s*\.await/g)].map((match) => ({ file: source.rel, line: lineOf(source.starts, match.index) })))
+        .flatMap((source) => [...source.code.matchAll(AWAITED_SEND)].map((match) => ({ file: source.rel, line: lineOf(source.starts, match.index) })))
 }
 
 if (isMain(import.meta.url)) {

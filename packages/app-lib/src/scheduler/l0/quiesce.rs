@@ -12,27 +12,23 @@
 
 use std::ops::ControlFlow;
 use std::sync::Arc;
-use tokio::sync::Notify;
 
 use super::control::ControlTable;
 
 #[derive(Clone)]
 pub struct QuiesceToken {
     control: Arc<ControlTable>,
-    wake: Arc<Notify>,
 }
 
 impl QuiesceToken {
     pub fn new(control: Arc<ControlTable>) -> Self {
-        Self {
-            control,
-            wake: Arc::new(Notify::new()),
-        }
+        Self { control }
     }
 
+    /// Requests quiesce for every task sharing this table, not just this
+    /// token: the wake-up lives in the table.
     pub fn request(&self) {
         self.control.request_quiesce();
-        self.wake.notify_waiters();
     }
 
     pub fn is_requested(&self) -> bool {
@@ -42,7 +38,7 @@ impl QuiesceToken {
     /// Resolves once quiesce is requested, for selecting against idle waits.
     pub async fn requested(&self) {
         loop {
-            let woken = self.wake.notified();
+            let woken = self.control.quiesce_wake().notified();
             tokio::pin!(woken);
             woken.as_mut().enable();
             if self.is_requested() {
@@ -129,6 +125,20 @@ mod tests {
         // Already requested: resolves at once.
         tokio::time::timeout(Duration::from_millis(100), token.requested())
             .await
+            .unwrap();
+    }
+
+    #[tokio::test]
+    async fn a_request_wakes_every_token_over_the_same_table() {
+        let control = Arc::new(ControlTable::new());
+        let requester = QuiesceToken::new(control.clone());
+        let other = QuiesceToken::new(control);
+        let waiter = tokio::spawn(async move { other.requested().await });
+        tokio::task::yield_now().await;
+        requester.request();
+        tokio::time::timeout(Duration::from_secs(1), waiter)
+            .await
+            .expect("a token wakes on another token's request")
             .unwrap();
     }
 }

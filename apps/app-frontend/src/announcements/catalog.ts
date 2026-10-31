@@ -30,6 +30,29 @@ export const ANNOUNCEMENT_CHANGE_TYPES: readonly AnnouncementChangeType[] = [
 
 export const launcherAnnouncements: readonly LauncherAnnouncement[] = [
     {
+        id: 'launcher-1.10.5',
+        version: '1.10.5',
+        publishedAt: '2026-10-31',
+        title: {
+            'en-US': 'Axolotl Launcher 1.10.5',
+            'zh-CN': 'Axolotl Launcher 1.10.5',
+        },
+        changes: {
+            fixed: [
+                {
+                    'en-US':
+                        'Fixed log exports from Settings failing and creating empty ZIP files when an online account was saved in the launcher.',
+                    'zh-CN': '修复添加在线账号后，从设置导出日志会失败并生成空 ZIP 文件的问题。',
+                },
+                {
+                    'en-US':
+                        'Fixed failed or cancelled log exports leaving incomplete files or overwriting existing log archives.',
+                    'zh-CN': '修复日志导出失败或取消时留下不完整文件、覆盖已有日志包的问题。',
+                },
+            ],
+        },
+    },
+    {
         id: 'launcher-1.10.4',
         version: '1.10.4',
         publishedAt: '2026-10-30',

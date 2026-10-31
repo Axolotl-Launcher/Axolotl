@@ -1,5 +1,7 @@
 //! Theseus settings management interface
 
+use std::collections::BTreeSet;
+
 use crate::state::store::{Handle, atom};
 pub use crate::{
     State,
@@ -58,6 +60,13 @@ pub(crate) async fn patch_with(
     patch: serde_json::Value,
 ) -> crate::Result<Settings> {
     let mut unit = atom(handle).await?;
+    // The keys the patch names are the change it carries, and the only ones its
+    // commit states a settings document from: a domain beside them keeps what
+    // the user left there, which restating the row would undo.
+    let changed: BTreeSet<String> = patch
+        .as_object()
+        .map(|changes| changes.keys().cloned().collect())
+        .unwrap_or_default();
     let current = Settings::load_in(&mut unit).await?;
     let mut value = serde_json::to_value(&current)?;
     merge_settings(&mut value, patch)?;
@@ -77,28 +86,13 @@ pub(crate) async fn patch_with(
     crate::util::download_dns::DownloadDnsResolver::with_doh(
         settings.doh_enabled,
     )?;
+    unit.settings_changed(changed);
     settings.save_in(&mut unit).await?;
     let saved = Settings::load_in(&mut unit).await?;
+    // The domains whose writes have moved to their documents are stated by this
+    // commit, once the row has landed, and only the ones carrying a key the
+    // patch named.
     unit.commit().await?;
-    // The document is written once the unit has committed, and not before: the
-    // row is the fallback a domain with no document is answered by, so a start
-    // stopped between the two must find the document behind the row rather than
-    // ahead of it. Written after, a crash leaves the old value in the document
-    // the domain is read from; written before, it would leave a value the user
-    // never got to keep in the authority for that domain, and a unit that then
-    // fails to commit would report an error for a change that had landed.
-    //
-    // The whole domain is stated, so a patch of another domain writes the same
-    // document back and `store_domain` leaves the file alone. The row it states
-    // is read again there rather than handed over from here: a writer that
-    // committed in between is the newer of the two, and the file it wrote is
-    // the one that stands.
-    if let Some(documents) = handle.settings_documents() {
-        crate::state::documents::settings::store_domain(
-            &documents, "network", handle,
-        )
-        .await?;
-    }
     Ok(saved)
 }
 

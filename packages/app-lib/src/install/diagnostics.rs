@@ -693,19 +693,11 @@ pub(crate) async fn censor_credentials(
         );
     }
 
-    for token in minecraft_tokens(handle).await? {
+    for token in minecraft_users::tokens_for_redaction(handle).await? {
         replace_nonempty(&mut text, &token, "{MINECRAFT_TOKEN}");
     }
 
     Ok(text)
-}
-
-async fn minecraft_tokens(handle: &Handle) -> crate::Result<Vec<String>> {
-    Ok(minecraft_users::token_pairs(handle)
-        .await?
-        .into_iter()
-        .flat_map(|(access_token, refresh_token)| [access_token, refresh_token])
-        .collect())
 }
 
 fn replace_nonempty(text: &mut String, value: &str, replacement: &str) {
@@ -815,6 +807,7 @@ mod tests {
 
     #[tokio::test]
     async fn mixed_accounts_censor_online_tokens_and_preserve_numbers() {
+        let _host = crate::state::store::secrets::testing::without_store();
         let pool = test_pool().await;
         let handle = handle_of(&pool);
         Credentials::offline("OfflineUser")
@@ -860,6 +853,102 @@ mod tests {
         assert_eq!(censored, log);
     }
 
+    #[tokio::test]
+    async fn externalized_online_tokens_are_censored() {
+        let host = crate::state::store::secrets::testing::with_store();
+        let pool = test_pool().await;
+        let handle = handle_of(&pool);
+        add_online_account(
+            &handle,
+            StoredAccountType::Microsoft,
+            "ms-access",
+            "ms-refresh",
+        )
+        .await;
+        add_online_account(
+            &handle,
+            StoredAccountType::Yggdrasil,
+            "ygg-access",
+            "ygg-refresh",
+        )
+        .await;
+        assert_eq!(host.store().unwrap().keys().len(), 4);
+
+        let censored = censor_support_text(
+            "ms-access ms-refresh ygg-access ygg-refresh".to_string(),
+            &handle,
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(
+            censored,
+            "{MINECRAFT_TOKEN} {MINECRAFT_TOKEN} {MINECRAFT_TOKEN} {MINECRAFT_TOKEN}"
+        );
+    }
+
+    #[tokio::test]
+    async fn yggdrasil_client_tokens_are_censored_in_logs_and_reports() {
+        for externalized in [false, true] {
+            let host = if externalized {
+                crate::state::store::secrets::testing::with_store()
+            } else {
+                crate::state::store::secrets::testing::without_store()
+            };
+            let pool = test_pool().await;
+            let handle = handle_of(&pool);
+            MinecraftUsers::set(
+                &handle,
+                &"yggdrasil:test".to_string(),
+                Some(&MinecraftUserRecord {
+                    uuid: uuid::Uuid::new_v4().to_string(),
+                    active: false,
+                    username: "OnlineUser".to_string(),
+                    account_type: StoredAccountType::Yggdrasil,
+                    access_token: "ygg-access".to_string(),
+                    refresh_token: "ygg-refresh".to_string(),
+                    expires: 0,
+                    yggdrasil_api_root: String::new(),
+                    yggdrasil_server_name: String::new(),
+                    yggdrasil_login: String::new(),
+                    yggdrasil_client_token: "ygg-client-secret".to_string(),
+                }),
+            )
+            .await
+            .unwrap();
+            if let Some(store) = host.store() {
+                assert_eq!(store.keys().len(), 3);
+            }
+            let report = serde_json::json!({
+                "accessToken": "ygg-access",
+                "refreshToken": "ygg-refresh",
+                "clientToken": "ygg-client-secret",
+                "ip": "192.0.2.1",
+            });
+            let censored = censor_credentials(report.to_string(), &handle)
+                .await
+                .unwrap();
+            let censored: serde_json::Value =
+                serde_json::from_str(&censored).unwrap();
+            for key in ["accessToken", "refreshToken", "clientToken"] {
+                assert_eq!(censored[key], "{MINECRAFT_TOKEN}");
+            }
+            assert_eq!(censored["ip"], "192.0.2.1");
+
+            let log = censor_support_text(
+                "ygg-access ygg-refresh ygg-client-secret 192.0.2.1"
+                    .to_string(),
+                &handle,
+            )
+            .await
+            .unwrap();
+            assert_eq!(
+                log,
+                "{MINECRAFT_TOKEN} {MINECRAFT_TOKEN} {MINECRAFT_TOKEN} ..."
+            );
+        }
+    }
+
     /// A credential store that stops answering fails the report instead of
     /// letting its secrets through: an emptied secret is one this code no longer
     /// knows how to hide.
@@ -879,11 +968,16 @@ mod tests {
         }
         let _locked = crate::state::store::secrets::testing::without_store();
 
-        let censored =
+        let error =
             censor_support_text("ms-access ms-refresh".to_string(), &handle)
-                .await;
+                .await
+                .unwrap_err();
 
-        assert!(censored.is_err(), "the report is not exported unredacted");
+        assert!(matches!(
+            error.raw.as_ref(),
+            crate::ErrorKind::OtherError(message)
+                if message == "The credential store is not answering; the account cannot be read right now"
+        ));
     }
 
     #[tokio::test]

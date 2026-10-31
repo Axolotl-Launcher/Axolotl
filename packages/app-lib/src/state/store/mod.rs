@@ -82,6 +82,8 @@ pub(crate) mod translation_cache;
 #[cfg(test)]
 pub(crate) mod tests;
 
+use std::collections::BTreeSet;
+
 use sqlx::{Sqlite, SqliteConnection, SqlitePool};
 
 /// What a caller passes on instead of a storage: a handle on the launcher's
@@ -124,6 +126,15 @@ pub(crate) struct Atom {
     /// It is registered by a writer that changes the settings row, and acted on
     /// by `commit`, because a unit is not a change until it commits.
     invalidate_settings: bool,
+    /// The keys the settings write of this unit names, when it names them: what
+    /// `commit` states the domains from. Nothing means every domain, which is
+    /// what a writer that cannot say which keys it changed states.
+    changed_settings: Option<BTreeSet<String>>,
+    /// The records this unit writes, kept for what a commit has to do after it
+    /// lands: the settings documents a changed row states are reached through
+    /// the handle rather than through the unit's transaction, which is gone by
+    /// then.
+    handle: Handle,
 }
 
 impl Atom {
@@ -132,7 +143,9 @@ impl Atom {
     }
 
     /// Says that this unit changes the settings row, so a settings read
-    /// composed after it commits is the one to keep.
+    /// composed after it commits is the one to keep, and so the domains whose
+    /// writes have moved to their documents are stated from the row once it
+    /// lands.
     ///
     /// A writer registers it rather than invalidating where it writes: a read
     /// between the write and the commit composes the row this unit has not
@@ -144,16 +157,52 @@ impl Atom {
         self.invalidate_settings = true;
     }
 
+    /// Names the keys this unit's settings write carries, so the commit states
+    /// the documents of the domains holding one of them rather than all of them:
+    /// a domain the write did not touch keeps the document it has, which is what
+    /// a value edited by hand there survives.
+    ///
+    /// A unit that names none states every domain — still leaving out the keys a
+    /// deployment answers, which no local document may copy.
+    pub(crate) fn settings_changed(
+        &mut self,
+        keys: impl IntoIterator<Item = String>,
+    ) {
+        self.changed_settings
+            .get_or_insert_with(BTreeSet::new)
+            .extend(keys);
+    }
+
     pub(crate) async fn commit(self) -> crate::Result<()> {
         let Self {
             transaction,
             invalidate_settings,
+            changed_settings,
+            handle,
         } = self;
         transaction.commit().await?;
         // After the commit and not before: the row a read composes is the one
         // this commit replaced from here on, and only from here on.
         if invalidate_settings {
             crate::state::documents::settings::invalidate();
+            // The documents of the domains whose writes have moved are written
+            // after the row and never before, so a start stopped between the two
+            // finds a document behind the row rather than ahead of it. A failure
+            // here costs the domains and is reported in the log: the row is
+            // already committed, so the change has landed and the caller must
+            // not be told otherwise.
+            if let Err(error) =
+                crate::state::documents::settings::store_cut_over(
+                    &handle,
+                    changed_settings.as_ref(),
+                )
+                .await
+            {
+                tracing::warn!(
+                    %error,
+                    "Failed to state the settings documents of the domains that have moved"
+                );
+            }
         }
         Ok(())
     }
@@ -182,6 +231,8 @@ pub(crate) async fn atom(handle: &Handle) -> crate::Result<Atom> {
     Ok(Atom {
         transaction: handle.pool.begin_with("BEGIN IMMEDIATE").await?,
         invalidate_settings: false,
+        changed_settings: None,
+        handle: handle.clone(),
     })
 }
 

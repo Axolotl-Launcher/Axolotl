@@ -110,6 +110,7 @@ import {
     selectSchematicMaterial,
 } from '@/lab/schematic-preview/editing'
 import type {
+    SchematicMeshData,
     SchematicMeshWorkerRequest,
     SchematicMeshWorkerResponse,
 } from '@/lab/schematic-preview/mesh-worker'
@@ -222,6 +223,12 @@ const loadingProgress = ref(0)
 const error = ref('')
 const missingBlocks = reactive(new Set<string>())
 const transientWarnings = ref<string[]>([])
+
+/** Warnings arrive per chunk, so the same one is kept once instead of once per chunk. */
+function addWarnings(messages: string[]) {
+    if (!messages.length) return
+    transientWarnings.value = [...new Set([...transientWarnings.value, ...messages])]
+}
 
 let scene: SchematicPreviewScene | undefined
 let workers: WorkerSlot[] = []
@@ -682,7 +689,8 @@ async function applyResources(epoch = requestEpoch) {
     resources.value?.texture.dispose()
     resources.value = loaded
     materialTextureCache.clear()
-    scene?.setTexture(loaded.texture)
+    scene?.setTextures({ atlas: loaded.texture })
+    addWarnings(loaded.warnings)
     startMeshWorkers(opened, loaded, resourceRequest)
 }
 
@@ -727,7 +735,7 @@ function startMeshWorkers(
             handleWorkerMessage(slot, event.data)
         worker.onerror = (event) => {
             if (meshEpoch !== resourceEpoch) return
-            transientWarnings.value = [...transientWarnings.value, event.message]
+            addWarnings([event.message])
             slot.busy = false
             completeMeshJob()
             pumpMeshQueue()
@@ -747,30 +755,26 @@ function handleWorkerMessage(slot: WorkerSlot, message: SchematicMeshWorkerRespo
     if (message.epoch !== resourceEpoch) return
     if (message.type === 'ready') {
         slot.ready = true
-        if (message.warnings.length) {
-            transientWarnings.value = [
-                ...new Set([...transientWarnings.value, ...message.warnings]),
-            ]
-        }
+        addWarnings(message.warnings)
         pumpMeshQueue()
         return
     }
     if (message.type === 'mesh') {
         const chunk = chunkCache.get(schematicChunkKey(message.regionId, message.chunkPosition))
         const palette = manifest.value?.palette
-        scene?.setChunk(
-            message.regionId,
-            message.chunkPosition,
-            chunk && palette
-                ? filterSchematicAirGeometry(message.opaque, chunk, palette)
-                : message.opaque,
-            chunk && palette
-                ? filterSchematicAirGeometry(message.translucent, chunk, palette)
-                : message.translucent,
-        )
+        const visible = (mesh: SchematicMeshData) =>
+            chunk && palette ? filterSchematicAirGeometry(mesh, chunk, palette) : mesh
+        scene?.setChunk(message.regionId, message.chunkPosition, {
+            opaque: visible(message.opaque),
+            translucent: visible(message.translucent),
+            bubble: visible(message.bubble),
+            water: visible(message.water),
+            lava: visible(message.lava),
+        })
         for (const name of message.missing) missingBlocks.add(name)
+        addWarnings(message.warnings)
     } else {
-        transientWarnings.value = [...transientWarnings.value, message.message]
+        addWarnings([message.message])
     }
     slot.busy = false
     completeMeshJob()
@@ -819,10 +823,7 @@ function pumpMeshQueue() {
             })
             .catch((caught) => {
                 if (job.epoch !== resourceEpoch) return
-                transientWarnings.value = [
-                    ...transientWarnings.value,
-                    caught instanceof Error ? caught.message : String(caught),
-                ]
+                addWarnings([caught instanceof Error ? caught.message : String(caught)])
                 slot.busy = false
                 completeMeshJob()
                 pumpMeshQueue()

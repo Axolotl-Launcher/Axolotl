@@ -40,7 +40,16 @@
 //! it has. A read is cached, because a setting is read at every turn and
 //! composing one reads eight documents and the row: `invalidate` is what a
 //! writer says when what a read composes from has changed.
+//!
+//! A writer of the settings row calls `store_cut_over` once the row has landed,
+//! and that is the only thing it has to call: the domains whose writes have
+//! moved are stated from the row there, so a row write that reached no document
+//! cannot happen through a caller forgetting one. The domains it states are the
+//! ones carrying a key that write changed, so a domain beside it keeps the
+//! document it has, and the keys a deployment answers stay out of the local one
+//! unless the write named them.
 
+use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::sync::OnceLock;
@@ -49,7 +58,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 
 use serde_json::{Map, Value};
 
-use super::{Documents, Stored, WRITES};
+use super::{Documents, Shipped, Stored, WRITES};
 use crate::state::settings::Settings;
 use crate::state::store::Handle;
 
@@ -268,6 +277,23 @@ const DOMAINS: &[(&str, &[&str], u32)] = &[
     ),
 ];
 
+/// The domains whose writes have moved to their document.
+///
+/// A write of the row reaches the domains listed here by stating each of the
+/// ones that carries a key it changed from the row as it stands, which is what
+/// `store_cut_over` does. A domain not listed here is still answered by the row
+/// alone, so stating it would write a file nothing reads yet.
+pub(crate) const CUT_OVER: &[&str] = &[
+    "appearance",
+    "download",
+    "game",
+    "backup",
+    "state",
+    "bootstrap",
+    "privacy",
+    "network",
+];
+
 /// One document as it stands on disk. Its keys are not interpreted yet, so a
 /// value this build cannot read costs only that key.
 type Document = Map<String, Value>;
@@ -471,6 +497,112 @@ fn effective(
     normalized.remove(key).unwrap_or_else(|| value.clone())
 }
 
+/// Turns the settings row over to the documents of its domains, and reports
+/// whether the handover is done.
+///
+/// Every domain is decided on its own: one that already carries a document was
+/// handed over by a start before this one and is left as it stands, and one that
+/// carries none is written from the row. The handover is only finished when
+/// every domain has reached one of the two, so a domain a later start still has
+/// to write is not mistaken for one that is already in place.
+///
+/// The draft is the row, stated the way `store` states it: a key holding what
+/// the domain is provided with is left out, because leaving it out reads the
+/// same value and lets a later change of that value still arrive. The keys the
+/// deployment answers are left out as well and not merely compared: a local copy
+/// of one would be the last word for that key, so the deployment's own change
+/// would never reach the user. A deployment document this build cannot read
+/// leaves those keys unknown, so its domain is skipped and counts as unfinished.
+pub(crate) async fn hand_over_if_missing(documents: &Documents<'_>) -> bool {
+    // Taken before the row is read, and not after: a commit that lands between
+    // the two would otherwise be overwritten by the older row this call read.
+    // The lock order stays `WRITES → cache`, because nothing here takes the
+    // settings cache — `write` only says that it moved.
+    let _writing = WRITES.lock().await;
+    let handle = Handle::new(documents.pool().clone());
+    let row = match Settings::read_row(&handle).await {
+        Ok(row) => row,
+        // Nothing to hand over: a database whose row cannot be read has no
+        // values a document could state, and a start reaches this after the row
+        // exists.
+        Err(error) => {
+            tracing::warn!(
+                %error,
+                "Skipping the settings handover: the row cannot be read"
+            );
+            return true;
+        }
+    };
+    let values = match serde_json::to_value(row.normalize())
+        .and_then(serde_json::from_value::<Document>)
+    {
+        Ok(values) => values,
+        Err(error) => {
+            tracing::warn!(
+                %error,
+                "Skipping the settings handover: the row does not read as a document"
+            );
+            return false;
+        }
+    };
+    let defaults = match default_values() {
+        Ok(defaults) => defaults,
+        Err(error) => {
+            tracing::warn!(
+                %error,
+                "Skipping the settings handover: the defaults cannot be read"
+            );
+            return false;
+        }
+    };
+    let mut ready = true;
+    for &(name, keys, schema_version) in DOMAINS {
+        // A document of its own is the sign a start has already handed this
+        // domain over: stating the row above it would undo what the user set
+        // since.
+        if documents
+            .stored::<Document>(name, schema_version)
+            .await
+            .is_present()
+        {
+            continue;
+        }
+        let shipped = match documents.shipped_keys(name, schema_version).await {
+            Shipped::Keys(shipped) => shipped,
+            Shipped::Unreadable => {
+                tracing::warn!(
+                    document = name,
+                    "Skipping a settings domain: the deployment's own document cannot be read, so the keys it answers are unknown"
+                );
+                ready = false;
+                continue;
+            }
+            Shipped::Missing => Document::new(),
+        };
+        let mut target = domain_values(keys, &values, &shipped, &defaults);
+        target.retain(|key, _| !shipped.contains_key(key));
+        // A domain with nothing of its own to say keeps being answered by the
+        // row: an empty document would take that answer away before any writer
+        // fills it.
+        if target.is_empty() {
+            continue;
+        }
+        // A domain that cannot be written costs that domain and no other, and
+        // keeps the start from calling the handover finished.
+        if let Err(error) =
+            write(documents, name, schema_version, &target).await
+        {
+            tracing::warn!(
+                document = name,
+                %error,
+                "Failed to hand a settings domain over to its document"
+            );
+            ready = false;
+        }
+    }
+    ready
+}
+
 /// Drops what a local document repeats of a value the deployment or the build
 /// already provides. Writing a value into a deployment's own document is how
 /// its owner says a key should follow it, so the local copy stops shadowing it
@@ -642,6 +774,10 @@ pub(crate) async fn store(
 /// already holds what would be written is not touched, and a domain with
 /// nothing to say and no document of its own keeps being answered by the row.
 ///
+/// `changed` names the keys the row write carried, and a key the deployment
+/// answers is stated only when it is one of them: the user changing a key is the
+/// one way the local document may take it over.
+///
 /// A document this build cannot replace — one a newer build wrote, one it
 /// cannot read — is left as it stands and reported in the log, the way a store
 /// leaves it: what it holds is not this write's to lower.
@@ -658,6 +794,7 @@ pub(crate) async fn store_domain(
     documents: &Documents<'_>,
     name: &str,
     handle: &Handle,
+    changed: Option<&BTreeSet<String>>,
 ) -> crate::Result<()> {
     let Some(&(domain, keys, schema_version)) =
         DOMAINS.iter().find(|(domain, _, _)| *domain == name)
@@ -669,11 +806,22 @@ pub(crate) async fn store_domain(
     };
     let defaults = default_values()?;
     let _writing = WRITES.lock().await;
-    let config = documents
-        .shipped::<Document>(domain, schema_version)
-        .await
-        .unwrap_or_default();
-    let target = row_values_of_domain(handle, keys, &config, &defaults).await?;
+    let config = match documents.shipped_keys(domain, schema_version).await {
+        Shipped::Keys(config) => config,
+        // Which keys the deployment answers is unknown while its own document
+        // cannot be read, so the domain is skipped rather than stated: a copy of
+        // one of them would shadow it once the file could be read again. The
+        // failure is worth reporting, so the caller counts it as unfinished.
+        Shipped::Unreadable => {
+            return Err(crate::ErrorKind::OtherError(format!(
+                "The deployment's document for {domain} cannot be read"
+            ))
+            .into());
+        }
+        Shipped::Missing => Document::new(),
+    };
+    let target =
+        row_values_of_domain(handle, keys, &config, &defaults, changed).await?;
     let existing =
         match documents.stored::<Document>(domain, schema_version).await {
             Stored::Ready { document } => Some(document),
@@ -710,6 +858,73 @@ pub(crate) async fn store_domain(
         write(documents, domain, schema_version, &target),
     )
     .await
+}
+
+/// States the document of the domains whose writes have moved, from the row as
+/// it stands.
+///
+/// This is the one thing a writer of the settings row has to call once the row
+/// has landed: the domains in `CUT_OVER` are answered by their documents, so a
+/// row write that did not reach them would show the value before it. The row is
+/// read again by each domain rather than handed through, so a writer that
+/// committed in between is the newer of the two and the file it wrote stands.
+///
+/// `changed` names the keys the row write carried, and only the domains carrying
+/// one of them are stated: a domain a write did not touch keeps the document it
+/// has, which is what a hand edit of a value beside the one that changed
+/// survives. `None` states every domain, which is what a writer that cannot say
+/// which keys it changed states — and even then the keys a deployment answers
+/// are left out of the local documents.
+///
+/// A domain that cannot be stated costs itself and no other: the loop reaches
+/// every domain and reports the failures together at the end, so one damaged
+/// deployment document does not leave the domains after it behind. What a failed
+/// write leaves is not a stale document either — `store_domain` removes it, so
+/// the domain is answered by the row that just landed.
+pub(crate) async fn store_cut_over(
+    handle: &Handle,
+    changed: Option<&BTreeSet<String>>,
+) -> crate::Result<()> {
+    // With no document directory named, a start reads the row alone, which is
+    // what a unit test that builds its own handle does: there is no document to
+    // state and nothing is missing.
+    let Some(documents) = handle.settings_documents() else {
+        return Ok(());
+    };
+    let mut failed = false;
+    for &name in CUT_OVER {
+        if changed.is_some_and(|changed| !carries(name, changed)) {
+            continue;
+        }
+        if let Err(error) =
+            store_domain(&documents, name, handle, changed).await
+        {
+            tracing::warn!(
+                document = name,
+                %error,
+                "Failed to state the settings document of a domain whose writes have moved"
+            );
+            failed = true;
+        }
+    }
+    if failed {
+        return Err(crate::ErrorKind::OtherError(
+            "Not every settings domain whose writes have moved could be stated"
+                .to_string(),
+        )
+        .into());
+    }
+    Ok(())
+}
+
+/// Whether a domain of `CUT_OVER` carries one of the keys a row write changed.
+fn carries(name: &str, changed: &BTreeSet<String>) -> bool {
+    DOMAINS
+        .iter()
+        .find(|(domain, _, _)| *domain == name)
+        .is_some_and(|(_, keys, _)| {
+            keys.iter().any(|key| changed.contains(*key))
+        })
 }
 
 /// A domain's write along with what a failed one leaves behind.
@@ -808,8 +1023,17 @@ pub(crate) async fn store_key(
         return Ok(());
     };
     if !existed {
-        document =
-            row_values_of_domain(handle, keys, &config, &defaults).await?;
+        // The key this write names is the change it carries, so it is the one a
+        // deployment's own key may be stated for.
+        let named = BTreeSet::from([key.to_string()]);
+        document = row_values_of_domain(
+            handle,
+            keys,
+            &config,
+            &defaults,
+            Some(&named),
+        )
+        .await?;
     }
     let says_nothing = provided(key, &config, &defaults)
         .is_some_and(|provided| same_setting(key, provided, &value, &defaults));
@@ -832,16 +1056,27 @@ pub(crate) async fn store_key(
 /// It goes through `domain_values` rather than copying the row: a key holding
 /// what the domain is provided with is left out, exactly as `store` leaves it
 /// out, so the document this seeds is the one a full store would write.
+///
+/// A key the deployment answers is left out as well unless `changed` names it:
+/// the local copy would be the last word for that key, so the deployment's own
+/// later change would never arrive. A key the write does name is the user
+/// overriding the deployment, which no other path does.
 async fn row_values_of_domain(
     handle: &Handle,
     keys: &[&str],
     config: &Document,
     defaults: &Document,
+    changed: Option<&BTreeSet<String>>,
 ) -> crate::Result<Document> {
     let row: Document = serde_json::from_value(serde_json::to_value(
         Settings::read_row(handle).await?,
     )?)?;
-    Ok(domain_values(keys, &row, config, defaults))
+    let mut values = domain_values(keys, &row, config, defaults);
+    values.retain(|key, _| {
+        !config.contains_key(key)
+            || changed.is_some_and(|changed| changed.contains(key))
+    });
+    Ok(values)
 }
 
 /// Clears `key` while the document still holds exactly `expected`, which is
@@ -1048,7 +1283,7 @@ mod tests {
     use crate::api::settings::patch_with;
     use crate::state::documents::{
         DIR_NAME, ai,
-        test_support::{create_ai_tables, pool as empty_pool},
+        test_support::{create_ai_tables, deploy, pool as empty_pool},
     };
     use crate::state::settings::Theme;
     use crate::state::store::settings::Settings as StoredSettings;
@@ -2513,6 +2748,104 @@ mod tests {
         );
     }
 
+    /// A deployment pins a key, and the value the row froze before it must not
+    /// be restated into the local document: the local copy is the last word for
+    /// every key it carries, so the deployment's own later change of that key
+    /// would never arrive again.
+    ///
+    /// The patch names a key of the same domain, so the domain is stated at all:
+    /// what it must not carry is the pinned key beside it.
+    #[tokio::test]
+    async fn a_deployment_key_is_not_restated_into_the_local_document() {
+        let pool = migrated_pool().await;
+        let handle = Handle::new(pool.clone());
+        let settings_dir = tempfile::tempdir().unwrap();
+        identify(settings_dir.path());
+        let root = settings_dir.path().join(DIR_NAME);
+        let deployment = tempfile::tempdir().unwrap();
+        std::fs::write(
+            deployment.path().join("network.json"),
+            r#"{"schema_version":1,"data":{"ignore_ssl_errors":false}}"#,
+        )
+        .unwrap();
+        deploy(&deployment);
+        // The row says the opposite, as a value frozen before the deployment
+        // arrived would.
+        let mut unit = crate::state::store::atom(&handle).await.unwrap();
+        StoredSettings::update_in(&mut unit, |record| {
+            record.ignore_ssl_errors = true;
+        })
+        .await
+        .unwrap();
+        unit.commit().await.unwrap();
+        assert!(
+            Settings::read_row(&handle).await.unwrap().ignore_ssl_errors,
+            "the row holds the opposite of the value the deployment ships"
+        );
+
+        // A sibling of the pinned key, and one whose stored value differs from
+        // the build default: a patch that changed nothing would leave the
+        // domain with nothing to state.
+        patch_with(
+            &handle,
+            serde_json::json!({ "allow_privileged_scheme": true }),
+        )
+        .await
+        .unwrap();
+
+        let stored = data(&root, "network");
+        assert!(
+            !stored.contains_key("ignore_ssl_errors"),
+            "a key the deployment answers is not copied into the local document: {stored:?}"
+        );
+        assert_eq!(
+            stored.get("allow_privileged_scheme"),
+            Some(&Value::from(true)),
+            "the key the patch named is stated, so the domain was written"
+        );
+        assert!(
+            !Settings::get(&handle).await.unwrap().ignore_ssl_errors,
+            "the deployment's value is the one the key reads"
+        );
+    }
+
+    /// The key the user changes themselves is the one case the local document
+    /// takes a deployment's key over: the file is the last word from then on,
+    /// which is what makes an explicit write the only way to override it.
+    #[tokio::test]
+    async fn an_explicit_change_of_a_pinned_key_reaches_the_local_document() {
+        let pool = migrated_pool().await;
+        let handle = Handle::new(pool.clone());
+        let settings_dir = tempfile::tempdir().unwrap();
+        identify(settings_dir.path());
+        let root = settings_dir.path().join(DIR_NAME);
+        let deployment = tempfile::tempdir().unwrap();
+        std::fs::write(
+            deployment.path().join("network.json"),
+            r#"{"schema_version":1,"data":{"ignore_ssl_errors":false}}"#,
+        )
+        .unwrap();
+        deploy(&deployment);
+        assert!(
+            !Settings::get(&handle).await.unwrap().ignore_ssl_errors,
+            "the key reads the deployment's value before the patch"
+        );
+
+        patch_with(&handle, serde_json::json!({ "ignore_ssl_errors": true }))
+            .await
+            .unwrap();
+
+        assert_eq!(
+            data(&root, "network").get("ignore_ssl_errors"),
+            Some(&Value::from(true)),
+            "a key the patch names is stated although the deployment answers it"
+        );
+        assert!(
+            Settings::get(&handle).await.unwrap().ignore_ssl_errors,
+            "and the user's own document is the last word for it"
+        );
+    }
+
     /// The domain is switched to its document rather than moved: the row keeps
     /// the value, so a document that goes away gives the domain back to the row
     /// and the setting still reads as the user chose.
@@ -2619,7 +2952,9 @@ mod tests {
             .unwrap();
 
         let documents = Documents::at(root.clone(), &pool);
-        store_domain(&documents, "network", &handle).await.unwrap();
+        store_domain(&documents, "network", &handle, None)
+            .await
+            .unwrap();
 
         assert_eq!(
             data(&root, "network").get("ignore_ssl_errors"),

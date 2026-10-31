@@ -128,8 +128,11 @@ pub(crate) async fn hand_over_if_missing(documents: &Documents<'_>) -> bool {
             }
         };
     let document = from_row(mac);
-    let document =
-        without_shipped(documents, DOCUMENT, SCHEMA_VERSION, document).await;
+    let Some(document) =
+        without_shipped(documents, DOCUMENT, SCHEMA_VERSION, document).await
+    else {
+        return false;
+    };
     match documents.write(DOCUMENT, SCHEMA_VERSION, &document).await {
         Ok(()) => true,
         Err(error) => {

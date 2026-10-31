@@ -218,8 +218,11 @@ pub(crate) async fn hand_over_if_missing(documents: &Documents<'_>) -> bool {
             return false;
         }
     };
-    let document =
-        without_shipped(documents, DOCUMENT, SCHEMA_VERSION, document).await;
+    let Some(document) =
+        without_shipped(documents, DOCUMENT, SCHEMA_VERSION, document).await
+    else {
+        return false;
+    };
     match documents.write(DOCUMENT, SCHEMA_VERSION, &document).await {
         Ok(()) => true,
         Err(error) => {
@@ -295,6 +298,14 @@ pub(crate) async fn forget(
 ///
 /// A launcher that has no document yet is answered by its rows, and the move
 /// leaves the document holding their rewritten paths.
+///
+/// The draft is a composed document, so it carries the keys the deployment
+/// answers as well as the local and row ones: copied into the local document
+/// they would shadow every later change of the deployment's own, so they are
+/// dropped before the write whichever of the two the draft came from. A key the
+/// user's own document carries is not one of them and stays as it stands, and a
+/// deployment document this build cannot read leaves the local one alone: what
+/// it answers is unknown, so the move is reported without writing.
 pub(crate) async fn move_installations(
     documents: &Documents<'_>,
     from: &str,
@@ -304,6 +315,11 @@ pub(crate) async fn move_installations(
     let _writing = WRITES.lock().await;
     let mut document = read(documents).await?;
     let dropped = document.move_installations(from, to, &is_incomplete)?;
+    let Some(document) =
+        without_shipped(documents, DOCUMENT, SCHEMA_VERSION, document).await
+    else {
+        return Ok(dropped);
+    };
     documents.write(DOCUMENT, SCHEMA_VERSION, &document).await?;
 
     Ok(dropped)
@@ -324,7 +340,13 @@ async fn update(
         Stored::Ready { document, .. } => document,
         Stored::Missing | Stored::Unreadable => {
             let draft = from_database(documents.pool()).await?;
-            without_shipped(documents, DOCUMENT, SCHEMA_VERSION, draft).await
+            let Some(draft) =
+                without_shipped(documents, DOCUMENT, SCHEMA_VERSION, draft)
+                    .await
+            else {
+                return Ok(());
+            };
+            draft
         }
     };
     apply(&mut document);

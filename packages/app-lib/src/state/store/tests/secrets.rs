@@ -335,7 +335,7 @@ async fn a_store_that_does_not_answer_fails_the_read() {
     );
     assert!(MinecraftUsers::get_all(&handle).await.is_err());
     assert!(
-        crate::state::store::minecraft_users::token_pairs(&handle)
+        crate::state::store::minecraft_users::tokens_for_redaction(&handle)
             .await
             .is_err(),
         "the last read before a report is exported fails too"

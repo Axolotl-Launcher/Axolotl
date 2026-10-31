@@ -338,7 +338,10 @@ it('targets visible block coordinates after chunk translation and ignores hidden
             textureUvs: { 'minecraft:block/stone': [0, 0, 1, 1] },
         })
         scene.setRegions([{ id: 'terrain', min: [0, 0, 0], max: [5, 5, 5] }])
-        scene.setChunk('terrain', [0, 0, 0], mesh.layers.terrain, mesh.layers.water)
+        scene.setChunk('terrain', [0, 0, 0], {
+            opaque: mesh.layers.terrain,
+            water: mesh.layers.water,
+        })
         scene.setChunkOffset('terrain', [0, 0, 0], [10, 20, 30])
         scene.setCameraPosition([15, 25, 35])
         expect(scene.crosshairBlock()).toEqual([12, 22, 32])
@@ -354,6 +357,7 @@ it('targets visible block coordinates after chunk translation and ignores hidden
 
 it('loads textured cavity geometry, switches layers, keeps the view on failure and cancels pending generation on exit', async () => {
     const cameraPosition = vi.spyOn(SchematicPreviewScene.prototype, 'getCameraPosition')
+    const setChunk = vi.spyOn(SchematicPreviewScene.prototype, 'setChunk')
     backend.maxChunks = 2
     const volume = () => {
         const result = new ArrayBuffer(16 + 18 * 18 * 384 + 18 * 18 * 2)
@@ -401,6 +405,10 @@ it('loads textured cavity geometry, switches layers, keeps the view on failure a
     expect(wrapper.get('[data-testid=underground-generation-status]').text()).toMatch(
         /[1-9]\d* chunks/,
     )
+    // Lava blends in its own pass, so it keeps the lava opacity instead of being drawn opaque.
+    const lavaPasses = setChunk.mock.calls.filter(([region]) => region === 'lava')
+    expect(lavaPasses.length).toBeGreaterThan(0)
+    expect(lavaPasses.every(([, , meshes]) => Object.keys(meshes).join() === 'lava')).toBe(true)
     expect(wrapper.text()).toContain('Water (estimated)')
     expect(wrapper.text()).toContain('Lava (estimated)')
     expect(wrapper.text()).toMatch(/X -?\d+ · Y -?\d+ · Z -?\d+ · 8 blocks\/s/)

@@ -175,8 +175,11 @@ pub(crate) async fn hand_over_if_missing(documents: &Documents<'_>) -> bool {
             return false;
         }
     };
-    let document =
-        without_shipped(documents, DOCUMENT, SCHEMA_VERSION, document).await;
+    let Some(document) =
+        without_shipped(documents, DOCUMENT, SCHEMA_VERSION, document).await
+    else {
+        return false;
+    };
     match documents.write(DOCUMENT, SCHEMA_VERSION, &document).await {
         Ok(()) => true,
         Err(error) => {
@@ -304,7 +307,13 @@ async fn update(
         Stored::Ready { document, .. } => document,
         Stored::Missing | Stored::Unreadable => {
             let draft = from_database(documents.pool()).await?;
-            without_shipped(documents, DOCUMENT, SCHEMA_VERSION, draft).await
+            let Some(draft) =
+                without_shipped(documents, DOCUMENT, SCHEMA_VERSION, draft)
+                    .await
+            else {
+                return Ok(());
+            };
+            draft
         }
     };
     apply(&mut document);

@@ -71,7 +71,20 @@ static WRITES: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
 /// names one. An empty value is how a shell clears a variable rather than a
 /// directory, so it reads as no deployment at all.
 pub(crate) fn config_root() -> Option<PathBuf> {
+    #[cfg(test)]
+    if let Some(root) = TEST_CONFIG_ROOT.with(|root| root.borrow().clone()) {
+        return Some(root);
+    }
     config_root_from(std::env::var_os(CONFIG_DIR_ENV))
+}
+
+#[cfg(test)]
+thread_local! {
+    /// The deployment directory one test gives itself. The variable names one
+    /// for the whole process, and the tests of a crate share it, so a test that
+    /// set it would decide what every test running beside it deploys.
+    static TEST_CONFIG_ROOT: std::cell::RefCell<Option<PathBuf>> =
+        const { std::cell::RefCell::new(None) };
 }
 
 fn config_root_from(value: Option<std::ffi::OsString>) -> Option<PathBuf> {
@@ -210,21 +223,27 @@ impl<'a> Documents<'a> {
         }
     }
 
-    /// The keys the deployment ships for a domain, or nothing while it ships
-    /// no document for it.
+    /// The keys the deployment ships for a domain, which is not the same as the
+    /// deployment shipping no document for it: one that cannot be read answers
+    /// nothing either, but the keys it holds are unknown rather than absent,
+    /// and a writer that took the two for one would copy them into the local
+    /// document, where they would be the last word for good.
     pub(crate) async fn shipped_keys(
         &self,
         name: &str,
         schema_version: u32,
-    ) -> Option<Map<String, Value>> {
-        let path = self.config_path(name)?;
+    ) -> Shipped {
+        let Some(path) = self.config_path(name) else {
+            return Shipped::Missing;
+        };
         match read_document::<Map<String, Value>>(&path, name, schema_version)
             .await
         {
             Stored::Ready { document } | Stored::Newer { document } => {
-                Some(document)
+                Shipped::Keys(document)
             }
-            Stored::Missing | Stored::Unreadable => None,
+            Stored::Missing => Shipped::Missing,
+            Stored::Unreadable => Shipped::Unreadable,
         }
     }
 
@@ -305,7 +324,9 @@ where
         None => from_rows.await?,
     };
     let mut values = keys_of(&base)?;
-    if let Some(shipped) = documents.shipped_keys(name, schema_version).await {
+    if let Shipped::Keys(shipped) =
+        documents.shipped_keys(name, schema_version).await
+    {
         overlay::<T>(&mut values, &shipped, name, "deployment");
     }
     if let Some(local) = local {
@@ -315,7 +336,7 @@ where
 }
 
 /// The document a local write starts from, with the keys the deployment already
-/// answers left out.
+/// answers left out, or nothing when nothing may be written.
 ///
 /// A local document is the last word for every key it carries, so a copy of a
 /// value the deployment provides would shadow it: the file would go on answering
@@ -323,37 +344,46 @@ where
 /// arrive. Leaving those keys out is what keeps the deployment's answer visible
 /// until the user changes that key, which the write that changes it states.
 ///
-/// Only a draft taken from the rows is passed here: a document that already
-/// exists carries what the user chose, and stating it back is not a copy of the
-/// rows.
+/// A deployment document this build cannot read says nothing about which keys it
+/// answers, so the draft is not writable either: a copy of one of them would be
+/// just as final once the file became readable again. The write is left for a
+/// later one that can read it, which is what `None` tells the caller.
 pub(super) async fn without_shipped<T>(
     documents: &Documents<'_>,
     name: &str,
     schema_version: u32,
     draft: T,
-) -> T
+) -> Option<T>
 where
     T: Serialize + DeserializeOwned,
 {
-    let Some(shipped) = documents.shipped_keys(name, schema_version).await
-    else {
-        return draft;
+    let shipped = match documents.shipped_keys(name, schema_version).await {
+        Shipped::Keys(shipped) => shipped,
+        Shipped::Missing => return Some(draft),
+        Shipped::Unreadable => {
+            tracing::warn!(
+                document = name,
+                path = %documents.path(name).display(),
+                "Not writing a settings document: the deployment's own cannot be read, so the keys it answers are unknown"
+            );
+            return None;
+        }
     };
     let Ok(Value::Object(values)) = serde_json::to_value(&draft) else {
-        return draft;
+        return Some(draft);
     };
     let kept: Map<String, Value> = values
         .into_iter()
         .filter(|(key, _)| !shipped.contains_key(key))
         .collect();
-    serde_json::from_value(Value::Object(kept)).unwrap_or_else(|error| {
+    Some(serde_json::from_value(Value::Object(kept)).unwrap_or_else(|error| {
         tracing::warn!(
             document = name,
             %error,
             "Could not read back a settings document written without the deployment's keys"
         );
         draft
-    })
+    }))
 }
 
 /// The keys a domain's type carries, which is what the layers are laid over.
@@ -489,6 +519,23 @@ async fn written_document(path: &Path) -> Option<WrittenDocument> {
     serde_json::from_slice(&contents).ok()
 }
 
+/// What a deployment's directory holds for one domain.
+///
+/// `Missing` and `Unreadable` are not the same answer: a document this build
+/// cannot read names keys it cannot see, and a writer that took it for no
+/// document at all would fill the local one with the values the deployment
+/// answers.
+pub(crate) enum Shipped {
+    /// No document for the domain: the rows and the build's defaults answer it.
+    Missing,
+    /// A document whose keys are unknown, so nothing may be written for the
+    /// domain until it can be read again.
+    Unreadable,
+    /// The keys the deployment answers, which go over the row and under the
+    /// local document.
+    Keys(Map<String, Value>),
+}
+
 pub(crate) enum Stored<T> {
     /// No document, so the domain is still answered by its rows.
     Missing,
@@ -562,11 +609,16 @@ pub(crate) async fn hand_over(pool: &SqlitePool, settings_dir: &Path) -> bool {
     let translation_ready = translation::hand_over_if_missing(&documents).await;
     let login_proof_ready = login_proof::hand_over_if_missing(&documents).await;
     let java_ready = java::hand_over_if_missing(&documents).await;
+    // The settings go last: their domains read a document of their own rather
+    // than the rows, so the handover that fills them in is what ends the rows'
+    // answer for them.
+    let settings_ready = settings::hand_over_if_missing(&documents).await;
     if !ai_ready
         || !log_share_ready
         || !translation_ready
         || !login_proof_ready
         || !java_ready
+        || !settings_ready
     {
         tracing::warn!(
             "The settings handover is incomplete; the next start retries it"
@@ -637,6 +689,13 @@ pub(crate) mod test_support {
             format!(r#"{{"schema_version":1,"data":{data}}}"#),
         )
         .expect("a deployment document");
+    }
+
+    /// Makes `dir` the directory a deployment ships its documents in, for the
+    /// test running on this thread: what the variable does for a whole process.
+    pub(crate) fn deploy(dir: &tempfile::TempDir) {
+        super::TEST_CONFIG_ROOT
+            .with(|root| *root.borrow_mut() = Some(dir.path().to_path_buf()));
     }
 
     /// The three AI tables, as the migrations leave them.

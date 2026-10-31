@@ -119,18 +119,11 @@ fn start_accent_color_watcher<R: Runtime>(app: AppHandle<R>) {
         }
         let _ = settings.RemoveColorValuesChanged(token);
     });
-    match watcher {
-        Ok(watcher) => {
-            let thread = watcher.thread().clone();
-            let _ = ACCENT_COLOR_WATCHER.set(AccentColorWatcher {
-                thread,
-                _handle: watcher,
-            });
-        }
-        Err(error) => {
-            tracing::warn!("Could not start the accent color watcher: {error}");
-        }
-    }
+    let thread = watcher.thread().clone();
+    let _ = ACCENT_COLOR_WATCHER.set(AccentColorWatcher {
+        thread,
+        _handle: watcher,
+    });
 }
 
 #[cfg(target_os = "macos")]

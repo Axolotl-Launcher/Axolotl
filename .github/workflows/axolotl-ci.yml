@@ -127,6 +127,9 @@ jobs:
           gate 0 node scripts/axolotl/sched-l0-resource-check.mjs
           gate 0 node scripts/axolotl/sched-level-predicate-check.mjs
           gate 0 node scripts/axolotl/sched-bare-spawn-check.mjs
+          gate 0 node scripts/axolotl/sched-whitelist-check.mjs
+          gate 0 node scripts/axolotl/sched-enter-ban-check.mjs
+          gate 0 node scripts/axolotl/sched-tag-check.mjs
           # Exit 1 from these two means the design falls back to per-family
           # orders (an accepted outcome); only other codes fail.
           gate 1 node scripts/axolotl/sched-recall-gap-gate.mjs

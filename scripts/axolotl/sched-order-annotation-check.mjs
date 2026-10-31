@@ -48,10 +48,19 @@ export function unannotatedGetpoints(getpoints, registry, annotations) {
 if (isMain(import.meta.url)) {
     const args = parseArgs(process.argv.slice(2))
     const paths = outputPaths(args.dir ?? defaultOutDir)
-    const registry = readJson(paths.registry)
+    let registry
+    let getpoints
+    try {
+        registry = readJson(paths.registry)
+        getpoints = readJson(paths.getpoints)
+    } catch (error) {
+        // A missing inventory is an error, never the exit-1 fallback.
+        console.error(`sched-order-annotation-check: ${error.message}`)
+        process.exit(2)
+    }
     const annotations = scanOrderAnnotations(sourcesOf(workspaceCrates()))
     const result = evaluateOrder(registry, loadPolicy(), annotations)
-    const unannotated = unannotatedGetpoints(readJson(paths.getpoints), registry, annotations)
+    const unannotated = unannotatedGetpoints(getpoints, registry, annotations)
     console.log(`annotations: ${annotations.length}; acquisition points without one: ${unannotated.length}`)
     // Annotations arrive with the total order (scheduler phase 4); from then on
     // CI passes --require-annotations so an unannotated acquisition fails.

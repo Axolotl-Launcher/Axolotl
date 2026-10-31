@@ -2,14 +2,22 @@
 // exists to reject.
 
 import assert from 'node:assert/strict'
+import { spawnSync } from 'node:child_process'
+import { existsSync, mkdtempSync, rmSync } from 'node:fs'
+import os from 'node:os'
+import path from 'node:path'
 import { test } from 'node:test'
+import { fileURLToPath } from 'node:url'
 import { checkSpawns, countForms, unboundedInL0 } from './sched-bare-spawn-check.mjs'
+import { enterBanViolations } from './sched-enter-ban-check.mjs'
 import { l0Violations } from './sched-l0-resource-check.mjs'
 import { checkLeaves } from './sched-leaf-primitive-check.mjs'
 import { checkGovernance } from './sched-level-predicate-check.mjs'
 import { evaluateOrder } from './sched-order-annotation-check.mjs'
 import { evaluateGap } from './sched-recall-gap-gate.mjs'
 import { checkConsistency } from './sched-resource-consistency-check.mjs'
+import { tagViolations } from './sched-tag-check.mjs'
+import { checkWhitelist } from './sched-whitelist-check.mjs'
 import { missingGolden } from './sched-resource-golden-check.mjs'
 import { buildInventory } from './sched-resource-inventory.mjs'
 import { loadPolicy, maskRust, rankFingerprint, scanMethodHits, sourcesOf, stripTestItems, workspaceCrates } from './sched-utils.mjs'
@@ -172,4 +180,62 @@ test('acquisition scan sees owned lock guards', () => {
             [3, 'read_owned', 'CACHE', 'static'],
         ],
     )
+})
+
+test('enter-ban rules 7 and 8 reject a restored gate (K2.9)', () => {
+    const restored = source('packages/app-lib/src/install/critical_section.rs', 'pub fn enter() -> Gate { todo!() }\n')
+    const wildcard = source('packages/app-lib/src/x.rs', 'fn f() {\n    match critical_section::enter() {\n        Gate::Protected(g) => {}\n        _ => {}\n    }\n}\n')
+    const violations = enterBanViolations([restored, wildcard])
+    assert.ok(violations.some((violation) => violation.includes('rule 7: fn enter')))
+    assert.ok(violations.some((violation) => violation.includes('rule 7: critical_section::enter(')))
+    assert.ok(violations.some((violation) => violation.includes('rule 8')))
+    assert.deepEqual(enterBanViolations(sources), [])
+})
+
+test('whitelist check enforces the cap and the six criteria (K2.11, K2.12)', () => {
+    assert.deepEqual(checkWhitelist(sources, policy, files.registry), [])
+    const unprotected = clone(policy)
+    unprotected.whitelist[0].bearer = 'theseus::nowhere::LOCK'
+    unprotected.whitelist[1].worstCase = ''
+    const failures = checkWhitelist(sources, unprotected, files.registry)
+    assert.ok(failures.some((failure) => failure.includes('criterion 3')))
+    assert.ok(failures.some((failure) => failure.includes('criterion 5')))
+    const unguarded = clone(policy)
+    unguarded.guardedWrites.push({ file: 'packages/app-lib/src/resources/execution.rs', fn: 'staging_prefix' })
+    assert.ok(checkWhitelist(sources, unguarded, files.registry).some((failure) => failure.includes('without asking for WriteAccess')))
+})
+
+test('tag check rejects a forgeable tag (K2.1, K2.3)', () => {
+    assert.deepEqual(tagViolations(sources), [])
+    const tag = sources.find((candidate) => candidate.rel === 'packages/app-lib/src/scheduler/tag.rs')
+    const convertible = source(tag.rel, `${tag.raw}\nimpl From<TagRecord> for Tag { fn from(r: TagRecord) -> Self { todo!() } }\n`)
+    const forged = source('packages/app-lib/src/x.rs', 'fn f() { let _t = crate::scheduler::tag::Tag { id: 1, generation: 1, level: Level::L0, origin: String::new() }; }\n')
+    const violations = tagViolations([...sources.filter((candidate) => candidate.rel !== tag.rel), convertible, forged])
+    assert.ok(violations.some((violation) => violation.includes('implements From for Tag')))
+    assert.ok(violations.some((violation) => violation.includes('builds a Tag outside tag.rs')))
+})
+
+const here = path.dirname(fileURLToPath(import.meta.url))
+const runScript = (name, args) => spawnSync(process.execPath, [path.join(here, name), ...args], { encoding: 'utf8' })
+
+test('inventory runs when started by its absolute path', () => {
+    const out = mkdtempSync(path.join(os.tmpdir(), 'sched-inventory-'))
+    try {
+        const run = runScript('sched-resource-inventory.mjs', ['--out', out])
+        assert.equal(run.status, 0, run.stderr)
+        assert.ok(existsSync(path.join(out, 'sched-resource-registry.json')), 'the registry was not written')
+    } finally {
+        rmSync(out, { recursive: true, force: true })
+    }
+})
+
+test('order check fails, rather than falls back, without an inventory', () => {
+    const empty = mkdtempSync(path.join(os.tmpdir(), 'sched-missing-'))
+    try {
+        const run = runScript('sched-order-annotation-check.mjs', ['--dir', empty])
+        assert.equal(run.status, 2, run.stderr)
+        assert.match(run.stderr, /sched-order-annotation-check:/)
+    } finally {
+        rmSync(empty, { recursive: true, force: true })
+    }
 })

@@ -603,12 +603,12 @@ fn to_account_type(account_type: &str) -> Option<AccountType> {
     })
 }
 
-/// The token pairs of every account that is not offline, whether or not this
+/// All tokens of every account that is not offline, whether or not this
 /// build can read the row as an account: a token it cannot attribute is still a
 /// secret that has to be hidden.
-pub(crate) async fn token_pairs(
+pub(crate) async fn tokens_for_redaction(
     handle: &super::Handle,
-) -> crate::Result<Vec<(String, String)>> {
+) -> crate::Result<Vec<String>> {
     let mut connection = handle.connection().await?;
     let rows = sqlx::query(
         "SELECT account_id, access_token, refresh_token, yggdrasil_client_token,
@@ -619,15 +619,13 @@ pub(crate) async fn token_pairs(
     .fetch_all(&mut *connection)
     .await?;
 
-    let mut pairs = Vec::with_capacity(rows.len());
+    let mut credentials = Vec::with_capacity(rows.len() * TOKENS.len());
     for row in rows {
         let account_id: String = row.try_get("account_id")?;
-        let [access_token, refresh_token, _] =
-            tokens(&mut connection, &account_id, &row).await?;
-        pairs.push((access_token, refresh_token));
+        credentials.extend(tokens(&mut connection, &account_id, &row).await?);
     }
 
-    Ok(pairs)
+    Ok(credentials)
 }
 
 /// Moves the tokens these rows still carry into the credential store, and clears

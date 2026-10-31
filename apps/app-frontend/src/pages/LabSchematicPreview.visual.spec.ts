@@ -158,8 +158,12 @@ function deferred<T>() {
 function resources() {
     return {
         texture: { dispose: vi.fn() },
-        bubbleTexture: { dispose: vi.fn() },
-        workerResources: { blockDefinitions: {}, blockModels: {}, textureUvs: {} },
+        workerResources: {
+            blockDefinitions: {},
+            blockModels: {},
+            textureUvs: {},
+            bubbleUv: [0, 0.52, 0.004, 0.522],
+        },
         blockNames: { en_us: {}, zh_cn: {} },
         availableBlockStates: [],
         atlas: document.createElement('canvas'),
@@ -395,10 +399,20 @@ it('changing glass rendering while B loads resources preserves B resource owners
     pending.resolve(loaded)
     await flushPromises()
     expect(loaded.texture.dispose).not.toHaveBeenCalled()
-    expect(fixture.scene.setTextures).toHaveBeenLastCalledWith({
-        atlas: loaded.texture,
-        bubble: loaded.bubbleTexture,
-    })
+    expect(fixture.scene.setTextures).toHaveBeenLastCalledWith({ atlas: loaded.texture })
     expect(wrapper.find('[role="progressbar"]').exists()).toBe(false)
     expect(button('Rotate clockwise').attributes('disabled')).toBeUndefined()
+})
+
+it('every pass the worker meshes reaches the scene, bubbles included', async () => {
+    await openFile('A')
+    const calls = fixture.scene.setChunk.mock.calls
+    const [, , meshes] = calls[calls.length - 1] as [
+        string,
+        [number, number, number],
+        Record<string, unknown>,
+    ]
+    // A bubble column has no block model, so dropping its pass leaves nothing but water on screen.
+    expect(meshes.bubble).toBeDefined()
+    expect(meshes.water).toBeDefined()
 })

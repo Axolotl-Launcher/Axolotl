@@ -2,6 +2,7 @@ import * as deepslate from 'deepslate'
 
 import type { SchematicBlockState } from './backend'
 import { createBlockGeometry } from './block-geometry'
+import type { SchematicBubbleUv } from './bubble-mesh'
 import { getSchematicBubbleQuads, isSchematicBubbleColumn } from './bubble-mesh'
 import { isSchematicAir } from './editing'
 import type { SchematicFluidNeighborhood } from './fluid-mesh'
@@ -88,6 +89,7 @@ let palette: SchematicBlockState[] = []
 let geometry: ReturnType<typeof createBlockGeometry>
 let textureUvs: Record<string, [number, number, number, number]> = {}
 let missingTextureUv: [number, number, number, number] = [0, 0, 1, 1]
+let bubbleUv: SchematicBubbleUv = [0, 0, 1, 1]
 let seamlessGlass = true
 let paletteOcclusionFaces: SchematicOcclusionFaces[] = []
 
@@ -158,8 +160,12 @@ function appendQuad(
     }
 }
 
-function appendBubbles(buffers: MeshBuffers, position: [number, number, number]) {
-    for (const quad of getSchematicBubbleQuads(position)) {
+function appendBubbles(
+    buffers: MeshBuffers,
+    position: [number, number, number],
+    uv: SchematicBubbleUv,
+) {
+    for (const quad of getSchematicBubbleQuads(position, uv)) {
         appendQuad(
             buffers,
             quad.map((vertex) => ({
@@ -279,6 +285,7 @@ function initialize(message: WorkerInitMessage) {
     palette = message.palette
     textureUvs = message.resources.textureUvs
     missingTextureUv = message.resources.missingTextureUv
+    bubbleUv = message.resources.bubbleUv
     seamlessGlass = message.seamlessGlass
     geometry = createBlockGeometry(message.resources, atlasProvider)
     paletteOcclusionFaces = palette.map((state, paletteIndex) => {
@@ -381,7 +388,8 @@ function buildChunk(message: WorkerMeshMessage) {
                     ),
                 }
                 // A bubble column is water with the game's bubble particle baked in as geometry.
-                if (isSchematicBubbleColumn(state)) appendBubbles(buffers.bubble, position)
+                if (isSchematicBubbleColumn(state))
+                    appendBubbles(buffers.bubble, position, bubbleUv)
                 // A fluid block has no host geometry of its own, and its surface depends on the
                 // neighbouring cells, so it is meshed from the volume instead of the definition.
                 if (isSchematicFluidBlock(state)) {

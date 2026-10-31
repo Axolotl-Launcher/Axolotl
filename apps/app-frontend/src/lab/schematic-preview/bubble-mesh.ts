@@ -8,6 +8,11 @@ import type { SchematicBlockState } from './backend'
  */
 export const BUBBLES_PER_CELL = 5
 
+/** The rectangle the bubble sprite occupies in the atlas, as `[u0, v0, u1, v1]`. */
+export type SchematicBubbleUv = [number, number, number, number]
+
+const WHOLE_TEXTURE: SchematicBubbleUv = [0, 0, 1, 1]
+
 /** Centre range inside the cell, so no bubble pokes through a wall. */
 const BUBBLE_MARGIN = 0.25
 /** The water surface sits at 8/9, so the bubbles stay well below it. */
@@ -54,8 +59,12 @@ function createRandom(seed: number) {
     }
 }
 
-export function getSchematicBubbleQuads(position: [number, number, number]): SchematicBubbleQuad[] {
+export function getSchematicBubbleQuads(
+    position: [number, number, number],
+    uv: SchematicBubbleUv = WHOLE_TEXTURE,
+): SchematicBubbleQuad[] {
     const [cellX, cellY, cellZ] = position
+    const [left, top, right, bottom] = uv
     const random = createRandom(cellSeed(cellX, cellY, cellZ))
     const quads: SchematicBubbleQuad[] = []
     for (let bubble = 0; bubble < BUBBLES_PER_CELL; bubble += 1) {
@@ -70,10 +79,22 @@ export function getSchematicBubbleQuads(position: [number, number, number]): Sch
             const offsetX = Math.cos(angle) * radius
             const offsetZ = Math.sin(angle) * radius
             quads.push([
-                { position: [centerX - offsetX, centerY + radius, centerZ - offsetZ], uv: [0, 0] },
-                { position: [centerX + offsetX, centerY + radius, centerZ + offsetZ], uv: [1, 0] },
-                { position: [centerX + offsetX, centerY - radius, centerZ + offsetZ], uv: [1, 1] },
-                { position: [centerX - offsetX, centerY - radius, centerZ - offsetZ], uv: [0, 1] },
+                {
+                    position: [centerX - offsetX, centerY + radius, centerZ - offsetZ],
+                    uv: [left, top],
+                },
+                {
+                    position: [centerX + offsetX, centerY + radius, centerZ + offsetZ],
+                    uv: [right, top],
+                },
+                {
+                    position: [centerX + offsetX, centerY - radius, centerZ + offsetZ],
+                    uv: [right, bottom],
+                },
+                {
+                    position: [centerX - offsetX, centerY - radius, centerZ - offsetZ],
+                    uv: [left, bottom],
+                },
             ])
         }
     }

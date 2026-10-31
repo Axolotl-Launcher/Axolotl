@@ -50,7 +50,7 @@ export async function loadBuiltinAtlas(signal?: AbortSignal) {
 
 /**
  * The bubble column sprite. It is a particle in the game and never lands in the atlas, so it ships
- * on its own and the geometry samples it directly.
+ * on its own and is pasted into the atlas at `BUILTIN_BUBBLE_ORIGIN`.
  */
 export async function loadBuiltinBubbleParticle(signal?: AbortSignal) {
     const response = await fetch(bubbleParticleUrl, { signal })
@@ -66,3 +66,10 @@ export async function loadBuiltinBubbleParticle(signal?: AbortSignal) {
 export const BUILTIN_ATLAS_WIDTH = 2048
 export const BUILTIN_ATLAS_IMAGE_HEIGHT = 2128
 export const BUILTIN_ATLAS_HEIGHT = 4096
+
+/**
+ * The atlas is taller than the block textures it holds, so the bubble sprite is pasted into the
+ * empty rows below them. That keeps every pass on the one atlas texture: a pass that sampled a
+ * missing image would draw plain white quads instead of the sprite.
+ */
+export const BUILTIN_BUBBLE_ORIGIN = { x: 0, y: BUILTIN_ATLAS_IMAGE_HEIGHT } as const

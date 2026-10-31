@@ -6,7 +6,6 @@ import {
     SCHEMATIC_MATERIAL_KINDS,
     type SchematicMaterialKind,
     schematicMaterialSettings,
-    schematicMaterialTexture,
 } from './materials'
 import type { SchematicMeshData } from './mesh-worker'
 
@@ -85,7 +84,6 @@ export class SchematicPreviewScene {
     private activeCamera: THREE.Camera = this.perspectiveCamera
     private projection: Projection = 'perspective'
     private atlasTexture?: THREE.CanvasTexture
-    private bubbleTexture?: THREE.CanvasTexture
     private materials: Record<SchematicMaterialKind, THREE.Material> = {
         opaque: this.createMaterial('opaque'),
         translucent: this.createMaterial('translucent'),
@@ -242,17 +240,16 @@ export class SchematicPreviewScene {
         this.requestRender()
     }
 
-    setTextures(textures: { atlas?: THREE.CanvasTexture; bubble?: THREE.CanvasTexture }) {
-        for (const texture of [textures.atlas, textures.bubble]) {
-            if (!texture) continue
-            texture.flipY = false
-            texture.magFilter = THREE.NearestFilter
-            texture.minFilter = THREE.NearestFilter
-            texture.generateMipmaps = false
-            texture.needsUpdate = true
+    setTextures(textures: { atlas?: THREE.CanvasTexture }) {
+        const atlas = textures.atlas
+        if (atlas) {
+            atlas.flipY = false
+            atlas.magFilter = THREE.NearestFilter
+            atlas.minFilter = THREE.NearestFilter
+            atlas.generateMipmaps = false
+            atlas.needsUpdate = true
         }
-        this.atlasTexture = textures.atlas
-        this.bubbleTexture = textures.bubble
+        this.atlasTexture = atlas
         const previous = this.materials
         const materials = {} as Record<SchematicMaterialKind, THREE.Material>
         for (const kind of SCHEMATIC_MATERIAL_KINDS) {
@@ -751,15 +748,18 @@ export class SchematicPreviewScene {
     }
 
     private createMaterial(kind: SchematicMaterialKind) {
-        const map =
-            schematicMaterialTexture(kind) === 'bubble' ? this.bubbleTexture : this.atlasTexture
         const settings = schematicMaterialSettings(kind)
-        // Bubbles stand in for a particle, and particles are drawn unlit; shading them by their
-        // crossed normals would make one face of every bubble darker than the other.
+        const parameters: THREE.MeshLambertMaterialParameters = { vertexColors: true, ...settings }
+        // The scene builds its materials before any texture arrives, and three warns about an
+        // explicit `undefined` map even though a missing map is a legal state.
+        if (this.atlasTexture) parameters.map = this.atlasTexture
+        // Bubbles stand in for a particle, and particles are drawn unlit and always face the camera.
+        // Shading their crossed quads would darken one face of every bubble, and culling the back
+        // face would drop bubbles depending on which way the camera looks at the baked winding.
         if (kind === 'bubble') {
-            return new THREE.MeshBasicMaterial({ map, vertexColors: true, ...settings })
+            return new THREE.MeshBasicMaterial({ ...parameters, side: THREE.DoubleSide })
         }
-        return new THREE.MeshLambertMaterial({ map, vertexColors: true, ...settings })
+        return new THREE.MeshLambertMaterial(parameters)
     }
 
     private accentColor() {

@@ -6,7 +6,6 @@ import {
     SCHEMATIC_TRANSLUCENT_OPACITY,
     SCHEMATIC_WATER_OPACITY,
     schematicMaterialSettings,
-    schematicMaterialTexture,
 } from './materials'
 
 describe('schematic materials', () => {
@@ -40,8 +39,6 @@ describe('schematic materials', () => {
             opacity: 1,
             depthWrite: false,
         })
-        expect(schematicMaterialTexture('bubble')).toBe('bubble')
-        expect(schematicMaterialTexture('water')).toBe('atlas')
     })
 
     it('only the solid pass is opaque and clips on alpha', () => {

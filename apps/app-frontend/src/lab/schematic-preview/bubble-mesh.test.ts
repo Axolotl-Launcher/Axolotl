@@ -37,6 +37,18 @@ it('maps the whole sprite, not a corner of it', () => {
     expect([...uvs].sort()).toEqual(['0,0', '0,1', '1,0', '1,1'])
 })
 
+it('maps the rectangle the sprite occupies in the atlas', () => {
+    // The sprite lives in a small corner of the atlas, so the quads have to sample that corner and
+    // not the whole texture, which would stretch every block onto each bubble.
+    const rect: [number, number, number, number] = [0, 0.52, 0.004, 0.522]
+    const uvs = new Set(
+        getSchematicBubbleQuads(CELL, rect).flatMap((quad) =>
+            quad.map((vertex) => vertex.uv.join(',')),
+        ),
+    )
+    expect([...uvs].sort()).toEqual(['0,0.52', '0,0.522', '0.004,0.52', '0.004,0.522'])
+})
+
 it('crosses the two quads of a bubble at a right angle', () => {
     const quads = getSchematicBubbleQuads(CELL)
     for (let index = 0; index < quads.length; index += 2) {

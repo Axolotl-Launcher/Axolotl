@@ -147,6 +147,7 @@ export {
     BUILTIN_ATLAS_HEIGHT,
     BUILTIN_ATLAS_IMAGE_HEIGHT,
     BUILTIN_ATLAS_WIDTH,
+    BUILTIN_BUBBLE_ORIGIN,
     type BuiltinTextureRegion,
     builtinTextureRegion,
     builtinTextureUvs,

@@ -678,14 +678,12 @@ async function applyResources(epoch = requestEpoch) {
     const loaded = await createSchematicResources(builtInVersion, opened.palette, controller.signal)
     if (!isCurrentSession(session) || resourceRequest !== resourceEpoch) {
         loaded.texture.dispose()
-        loaded.bubbleTexture.dispose()
         return
     }
     resources.value?.texture.dispose()
-    resources.value?.bubbleTexture.dispose()
     resources.value = loaded
     materialTextureCache.clear()
-    scene?.setTextures({ atlas: loaded.texture, bubble: loaded.bubbleTexture })
+    scene?.setTextures({ atlas: loaded.texture })
     startMeshWorkers(opened, loaded, resourceRequest)
 }
 
@@ -766,6 +764,7 @@ function handleWorkerMessage(slot: WorkerSlot, message: SchematicMeshWorkerRespo
         scene?.setChunk(message.regionId, message.chunkPosition, {
             opaque: visible(message.opaque),
             translucent: visible(message.translucent),
+            bubble: visible(message.bubble),
             water: visible(message.water),
             lava: visible(message.lava),
         })

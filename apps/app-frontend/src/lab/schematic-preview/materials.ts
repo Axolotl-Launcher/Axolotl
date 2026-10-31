@@ -33,14 +33,6 @@ export type SchematicMaterialSettings = {
     depthWrite: boolean
 }
 
-/**
- * Which texture a pass samples. The bubble sprite is a particle in the game and never lands in the
- * block atlas, so it ships as its own image.
- */
-export function schematicMaterialTexture(kind: SchematicMaterialKind): 'atlas' | 'bubble' {
-    return kind === 'bubble' ? 'bubble' : 'atlas'
-}
-
 export function schematicMaterialSettings(kind: SchematicMaterialKind): SchematicMaterialSettings {
     if (kind === 'opaque') {
         return { transparent: false, alphaTest: 0.08, opacity: 1, depthWrite: true }

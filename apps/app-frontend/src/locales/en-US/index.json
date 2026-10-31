@@ -17198,6 +17198,192 @@
   "unknown-pack-warning-modal.warning.title": {
     "message": "Unknown file warning"
   },
+  "app.lab.stronghold.manual": {
+    "message": "Enter manually"
+  },
+  "app.lab.stronghold.plot.outside": {
+    "message": "Chunk {x}, {z} · outside the current candidate set"
+  },
+  "app.lab.stronghold.waiting": {
+    "message": "Start with an Eye of Ender"
+  },
+  "app.lab.stronghold.plot.zoom-out": {
+    "message": "Zoom out"
+  },
+  "app.lab.stronghold.plot.generation": {
+    "message": "Generation range · not confirmed strongholds"
+  },
+  "app.lab.stronghold.error.format": {
+    "message": "Paste a complete F3+C command, or enter X, Z and yaw manually."
+  },
+  "app.lab.stronghold.nether": {
+    "message": "Nether travel reference"
+  },
+  "app.lab.stronghold.placeholder": {
+    "message": "Paste a complete /execute command"
+  },
+  "app.lab.stronghold.paste-help": {
+    "message": "In the Overworld, aim at a thrown Eye of Ender and press F3+C. Paste the copied command here; one command per line."
+  },
+  "app.lab.stronghold.title": {
+    "message": "Stronghold locator"
+  },
+  "app.lab.stronghold.plot.help": {
+    "message": "Drag to pan; scroll to zoom. Click a chunk to select it. Arrow keys move; +/− zoom; Home fits the view."
+  },
+  "app.lab.stronghold.observations": {
+    "message": "Measurements ({count})"
+  },
+  "app.lab.stronghold.candidates": {
+    "message": "Top candidates"
+  },
+  "app.lab.stronghold.precision-help": {
+    "message": "Use a smaller value only for carefully calibrated measurements."
+  },
+  "app.lab.stronghold.copy-error": {
+    "message": "Could not copy. Select the coordinates and copy them manually."
+  },
+  "app.lab.stronghold.no-result": {
+    "message": "No supported chunks in this range"
+  },
+  "app.lab.stronghold.copied": {
+    "message": "Copied"
+  },
+  "app.lab.stronghold.selected": {
+    "message": "Selected chunk"
+  },
+  "app.lab.stronghold.one-eye": {
+    "message": "Only one measurement. Move to another position and throw another eye to narrow the search."
+  },
+  "app.lab.stronghold.plot.title": {
+    "message": "Observation map"
+  },
+  "app.lab.stronghold.yaw": {
+    "message": "Yaw (°)"
+  },
+  "app.lab.stronghold.search-radius": {
+    "message": "Search radius from world origin (blocks)"
+  },
+  "app.lab.stronghold.add": {
+    "message": "Add measurement"
+  },
+  "app.lab.stronghold.clear": {
+    "message": "Clear all"
+  },
+  "app.lab.stronghold.closest": {
+    "message": "Account for the nearest stronghold"
+  },
+  "app.lab.stronghold.precision": {
+    "message": "Sector half-angle (°)"
+  },
+  "app.lab.stronghold.plot.accessible": {
+    "message": "Overworld X/Z map with {count} observation rays and {candidates} predicted candidate chunks"
+  },
+  "app.lab.stronghold.plot.best": {
+    "message": "Top candidate"
+  },
+  "app.lab.stronghold.chunk": {
+    "message": "Chunk"
+  },
+  "app.lab.stronghold.plot.fit": {
+    "message": "Fit observations and candidates"
+  },
+  "app.lab.stronghold.error.range": {
+    "message": "Enter finite numbers. X and Z must be within the world border."
+  },
+  "app.lab.stronghold.input": {
+    "message": "Add a measurement"
+  },
+  "app.lab.stronghold.probability": {
+    "message": "Support score"
+  },
+  "app.lab.stronghold.plot.zoom-in": {
+    "message": "Zoom in"
+  },
+  "app.lab.stronghold.error.dimension": {
+    "message": "Take this measurement in the Overworld."
+  },
+  "app.lab.stronghold.copy": {
+    "message": "Copy X/Z"
+  },
+  "app.lab.stronghold.compute-error": {
+    "message": "Calculation failed. Change a measurement to try again."
+  },
+  "app.lab.stronghold.waiting-help": {
+    "message": "Add measurements to see supported chunks on the map."
+  },
+  "app.lab.stronghold.plot.heat": {
+    "message": "Support score · brighter means higher support"
+  },
+  "app.lab.stronghold.version": {
+    "message": "Minecraft version"
+  },
+  "app.lab.stronghold.overworld": {
+    "message": "Overworld"
+  },
+  "app.lab.stronghold.distance": {
+    "message": "{distance, number} blocks from your last measurement"
+  },
+  "app.lab.stronghold.no-result-help": {
+    "message": "Check the measurement directions, widen the sector, or increase the search radius."
+  },
+  "app.lab.stronghold.plot.hover": {
+    "message": "Point to inspect; click a chunk to get its coordinates."
+  },
+  "app.lab.stronghold.location-help": {
+    "message": "This points to the stronghold starting-staircase chunk. Use another eye when you arrive to confirm the location."
+  },
+  "app.lab.stronghold.remove": {
+    "message": "Remove measurement {index}"
+  },
+  "app.lab.stronghold.no-measurements": {
+    "message": "No measurements yet"
+  },
+  "app.lab.stronghold.error.sigma": {
+    "message": "Enter a half-angle greater than 0 and at most 90°, and a radius from 1000 to 26000 blocks."
+  },
+  "app.lab.stronghold.error.duplicate": {
+    "message": "This measurement has already been added."
+  },
+  "app.lab.stronghold.advanced": {
+    "message": "Measurement settings"
+  },
+  "app.lab.stronghold.copy-teleport": {
+    "message": "Copy teleport command"
+  },
+  "app.lab.stronghold.plot.chunk": {
+    "message": "Chunk {x}, {z} · support score {probability}"
+  },
+  "app.lab.stronghold.plot.generation-fit": {
+    "message": "Show generation range"
+  },
+  "app.lab.stronghold.pre119": {
+    "message": "Java 1.9–1.18.2"
+  },
+  "app.lab.stronghold.plot.generation-chunk": {
+    "message": "Chunk {x}, {z} · can generate a stronghold; not in the current candidate set"
+  },
+  "app.lab.stronghold.supporters": {
+    "message": "Supporting measurements"
+  },
+  "app.lab.stronghold.error.limit": {
+    "message": "You can add up to 100 measurements. Remove some before adding more."
+  },
+  "app.lab.stronghold.description": {
+    "message": "Locate a Java Edition stronghold using Eye of Ender measurements."
+  },
+  "app.lab.stronghold.calculating": {
+    "message": "Calculating candidates…"
+  },
+  "app.lab.stronghold.paste": {
+    "message": "Paste F3+C"
+  },
+  "app.lab.stronghold.post119": {
+    "message": "Java 1.19 and later"
+  },
+  "app.lab.stronghold.results": {
+    "message": "Candidate chunks"
+  },
   "app.skins.player.title": {
     "message": "Find player skin"
   },

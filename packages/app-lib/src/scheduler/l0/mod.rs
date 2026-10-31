@@ -55,14 +55,17 @@ where
     }
 }
 
-/// A quiesce token over the launcher's control table, so a detector sees the
-/// same quiesce request as the executor's shutdown path.
+/// A quiesce token over the live executor's control table, so a detector sees
+/// the same quiesce request as the executor's shutdown path.
 pub fn quiesce_token() -> QuiesceToken {
     match executor() {
-        Some(executor) => QuiesceToken::new(Arc::clone(executor.control())),
-        // No executor: the task runs on the current runtime, where the app's
-        // own shutdown cancels it. Give it a private table nothing requests.
-        None => QuiesceToken::new(Arc::new(ControlTable::new())),
+        Some(executor) if executor.is_running() => {
+            QuiesceToken::new(Arc::clone(executor.control()))
+        }
+        // No live executor: the task runs on the current runtime, where the
+        // app's own shutdown cancels it. A token over the dead executor's
+        // table would already be quiesced and the task would return at once.
+        _ => QuiesceToken::new(Arc::new(ControlTable::new())),
     }
 }
 

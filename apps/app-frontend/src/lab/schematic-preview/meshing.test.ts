@@ -432,6 +432,49 @@ it('waterlogged fluid is culled against any neighbor that holds water', () => {
     ).toBe(true)
 })
 
+it('a block above never hides the waterlogged surface', () => {
+    // A fluid surface sits at the fluid height, not at the top of the block, so a block above it
+    // never reaches it and only another cell of fluid can hide it. Vanilla's renderer draws the
+    // surface for the same reason and skips it only for a cell of the same fluid.
+    const fluidPalette: SchematicBlockState[] = [
+        { name: 'minecraft:air', properties: {} },
+        {
+            name: 'minecraft:oak_trapdoor',
+            properties: { facing: 'north', half: 'bottom', open: 'false', waterlogged: 'true' },
+        },
+        { name: 'minecraft:stone', properties: {} },
+        { name: 'minecraft:water', properties: { level: '0' } },
+    ]
+    const index = (x: number, y: number, z: number) => y * 256 + z * 16 + x
+    const blocks = new Uint32Array(16 * 16 * 16)
+    blocks[index(1, 1, 1)] = 1
+    // The host's own top face is hidden by whatever sits above it, so the host cull says `up`.
+    const hostCull = Cull.none()
+    hostCull.up = true
+    const surface = (above: number) => {
+        blocks[index(1, 2, 1)] = above
+        const fluidCull = getSchematicFluidCull([1, 1, 1], blocks, {}, fluidPalette, hostCull)
+        return {
+            up: fluidCull.up,
+            quads: getSchematicWaterloggedFluidMesh(
+                fluidPalette[1],
+                trackingAtlas(new Set()),
+                fluidCull,
+            )?.quads.length,
+        }
+    }
+
+    expect(surface(2), 'a block above leaves the surface visible below it').toEqual({
+        up: false,
+        quads: 6,
+    })
+    expect(surface(0), 'air above keeps the surface').toEqual({ up: false, quads: 6 })
+    expect(surface(3), 'a cell of water above still joins the two volumes').toEqual({
+        up: true,
+        quads: 5,
+    })
+})
+
 it('blocks without waterlogged fluid mesh no fluid at all', () => {
     const requested = new Set<string>()
     const atlas = trackingAtlas(requested)

@@ -525,6 +525,12 @@ export function schematicBlockAt(
  * front of it. Two adjacent waterlogged blocks would then show a seam where their fluid volumes
  * pull apart, so fluid faces shared with another water-holding block are culled the way vanilla
  * culls faces between two cells of the same fluid.
+ *
+ * The surface is the exception to inheriting the host cull: a fluid surface sits at the fluid
+ * height, not at the top of the block, so a block above it never reaches it and only another cell
+ * of fluid can hide it. Vanilla draws the surface for the same reason and skips it only when the
+ * cell above holds the same fluid (`BlockOcclusionCache#shouldDrawFullBlockFluidSide` returns
+ * early for `Direction.UP`, before it compares any block shape).
  */
 export function getSchematicFluidCull(
     position: readonly [number, number, number],
@@ -533,7 +539,7 @@ export function getSchematicFluidCull(
     palette: readonly SchematicBlockState[],
     cull: Cull,
 ) {
-    const fluidCull: Cull = { ...cull }
+    const fluidCull: Cull = { ...cull, up: false }
     for (const direction of SCHEMATIC_DIRECTIONS) {
         if (fluidCull[direction]) continue
         const offset = SCHEMATIC_DIRECTION_OFFSETS[direction]

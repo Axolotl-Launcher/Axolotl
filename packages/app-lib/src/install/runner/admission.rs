@@ -129,8 +129,9 @@ pub(super) fn execution_lock_key(job: &store::InstallJobRecord) -> String {
         .unwrap_or_else(|| format!("job:{}", job.id))
 }
 
-/// The execution lock alone, waited for without a bound: worker recovery
-/// owns it to prove that no worker can still publish the job's files.
+/// The execution lock alone, bounded like the queue wait: recovery uses it to
+/// prove that no worker can still publish the job's files, and must not wait
+/// forever behind one. `None` means the bounded wait expired.
 pub(super) async fn execution_lock(
     state: &State,
     job: &store::InstallJobRecord,
@@ -140,7 +141,17 @@ pub(super) async fn execution_lock(
         .entry(execution_lock_key(job))
         .or_default()
         .clone();
-    Some(lock.lock_owned().await)
+    match tokio::time::timeout(EXECUTION_WAIT, lock.lock_owned()).await {
+        Ok(guard) => Some(guard),
+        Err(_) => {
+            tracing::warn!(
+                job_id = %job.id,
+                wait = ?EXECUTION_WAIT,
+                "Timed out waiting for the install execution lock"
+            );
+            None
+        }
+    }
 }
 
 /// The slot, or an error once the job leaves the queue; the admission tests

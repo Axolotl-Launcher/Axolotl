@@ -53,12 +53,29 @@ async fn wait_in_line<T>(
 ) -> crate::Result<Option<T>> {
     tokio::pin!(acquire);
     let mut steps = 0u32;
+    let mut read_errors = 0u32;
     loop {
         if let Ok(value) = tokio::time::timeout(step, &mut acquire).await {
             return Ok(Some(value));
         }
         steps += 1;
-        let status = store::get_required(job_id, state).await?.status;
+        let status = match store::get_required(job_id, state).await {
+            Ok(record) => {
+                read_errors = 0;
+                record.status
+            }
+            Err(error) => {
+                // A transient read error must not turn a queued job into a
+                // failed one: retry a few times, then report it.
+                read_errors += 1;
+                if read_errors >= 3 {
+                    return Err(error);
+                }
+                tracing::warn!(%job_id, %error, read_errors, "Could not read the queued job; retrying");
+                tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+                continue;
+            }
+        };
         if status.is_finished() || status == InstallJobStatus::Canceling {
             tracing::info!(%job_id, status = status.as_str(), "Install job left the queue before getting a slot");
             return Ok(None);

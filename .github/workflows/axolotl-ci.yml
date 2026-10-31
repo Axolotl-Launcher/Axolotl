@@ -277,7 +277,7 @@ jobs:
       # Hermetic (in-memory sqlite + temp dirs); Linux only for matrix cost.
       - name: Test the store collections
         if: runner.os == 'Linux'
-        run: cargo test --package theseus state::store::tests::
+        run: cargo test --package theseus state::store::tests
       # The account secrets: a row keeps a secret the credential store will not
       # take, and moving the rows into the store keeps the rows it already moved.
       # Hermetic (in-memory sqlite, and a store substituted for the platform's).

@@ -11,6 +11,9 @@ import {
 
 import type { SchematicBlockState } from './backend.ts'
 import { isSchematicAir } from './editing.ts'
+import { getSchematicFluidMesh, holdsSchematicWater, isSchematicWaterlogged } from './fluid-mesh.ts'
+
+export { isSchematicWaterlogged } from './fluid-mesh.ts'
 
 export const SCHEMATIC_DIRECTIONS = ['west', 'east', 'down', 'up', 'north', 'south'] as const
 export type SchematicDirection = (typeof SCHEMATIC_DIRECTIONS)[number]
@@ -375,10 +378,6 @@ export function getSchematicSpecialBlockMesh(
 
 const WATERLOGGED_FLUID_INSET = 1 / 64
 
-export function isSchematicWaterlogged(state: SchematicBlockState) {
-    return state.properties.waterlogged === 'true'
-}
-
 /**
  * Vanilla keeps the fluid of a waterlogged block flush with the block bounds, where it shares
  * planes with the host block's own faces. Translucent geometry is drawn after opaque geometry with
@@ -403,12 +402,15 @@ export function getSchematicWaterloggedFluidMesh(
     cull: Cull,
 ) {
     if (!isSchematicWaterlogged(state)) return undefined
-    const fluid = getSchematicSpecialBlockMesh(
-        { name: 'minecraft:water', properties: { level: '0' } },
+    // The fluid stays flat: it is inset away from every block boundary, so sloping it towards the
+    // surrounding blocks would open a seam along the host block instead of joining them.
+    const fluid = getSchematicFluidMesh({
+        state: { name: 'minecraft:water', properties: { level: '0' } },
         atlas,
         cull,
-    )
-    return fluid.quads.length > 0 ? insetWaterloggedFluid(fluid) : undefined
+        inset: 0,
+    })
+    return fluid ? insetWaterloggedFluid(fluid) : undefined
 }
 
 function seamlessGlassId(name: string) {
@@ -483,6 +485,40 @@ export function extractSchematicNeighborFace(blocks: Uint32Array, direction: Sch
     return face
 }
 
+/**
+ * Palette index at a cell of the chunk plus its six neighbours, or `undefined` when the cell falls
+ * outside that volume. Callers that sample a neighbourhood need the difference between a cell that
+ * is known to be empty and a cell the mesh job carries no data for.
+ */
+export function schematicBlockIndexAt(
+    blocks: Uint32Array,
+    neighborFaces: SchematicNeighborFaces,
+    x: number,
+    y: number,
+    z: number,
+): number | undefined {
+    if (x === -1 && y >= 0 && y < 16 && z >= 0 && z < 16) {
+        return neighborFaces.west?.[y * 16 + z]
+    }
+    if (x === 16 && y >= 0 && y < 16 && z >= 0 && z < 16) {
+        return neighborFaces.east?.[y * 16 + z]
+    }
+    if (y === -1 && x >= 0 && x < 16 && z >= 0 && z < 16) {
+        return neighborFaces.down?.[z * 16 + x]
+    }
+    if (y === 16 && x >= 0 && x < 16 && z >= 0 && z < 16) {
+        return neighborFaces.up?.[z * 16 + x]
+    }
+    if (z === -1 && x >= 0 && x < 16 && y >= 0 && y < 16) {
+        return neighborFaces.north?.[y * 16 + x]
+    }
+    if (z === 16 && x >= 0 && x < 16 && y >= 0 && y < 16) {
+        return neighborFaces.south?.[y * 16 + x]
+    }
+    if (x < 0 || x >= 16 || y < 0 || y >= 16 || z < 0 || z >= 16) return undefined
+    return blocks[y * 256 + z * 16 + x]
+}
+
 export function schematicBlockAt(
     blocks: Uint32Array,
     neighborFaces: SchematicNeighborFaces,
@@ -490,30 +526,7 @@ export function schematicBlockAt(
     y: number,
     z: number,
 ) {
-    if (x === -1 && y >= 0 && y < 16 && z >= 0 && z < 16) {
-        return neighborFaces.west?.[y * 16 + z] ?? 0
-    }
-    if (x === 16 && y >= 0 && y < 16 && z >= 0 && z < 16) {
-        return neighborFaces.east?.[y * 16 + z] ?? 0
-    }
-    if (y === -1 && x >= 0 && x < 16 && z >= 0 && z < 16) {
-        return neighborFaces.down?.[z * 16 + x] ?? 0
-    }
-    if (y === 16 && x >= 0 && x < 16 && z >= 0 && z < 16) {
-        return neighborFaces.up?.[z * 16 + x] ?? 0
-    }
-    if (z === -1 && x >= 0 && x < 16 && y >= 0 && y < 16) {
-        return neighborFaces.north?.[y * 16 + x] ?? 0
-    }
-    if (z === 16 && x >= 0 && x < 16 && y >= 0 && y < 16) {
-        return neighborFaces.south?.[y * 16 + x] ?? 0
-    }
-    if (x < 0 || x >= 16 || y < 0 || y >= 16 || z < 0 || z >= 16) return 0
-    return blocks[y * 256 + z * 16 + x] ?? 0
-}
-
-function holdsSchematicWater(state: SchematicBlockState) {
-    return isSchematicWaterlogged(state) || normalizedBlockName(state.name) === 'minecraft:water'
+    return schematicBlockIndexAt(blocks, neighborFaces, x, y, z) ?? 0
 }
 
 /**

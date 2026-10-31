@@ -3,6 +3,7 @@ import * as deepslate from 'deepslate'
 import type { SchematicBlockState } from './backend'
 import { createBlockGeometry } from './block-geometry'
 import { isSchematicAir } from './editing'
+import { getSchematicFluidMesh, isSchematicWaterBlock } from './fluid-mesh'
 import {
     applySeamlessSchematicGlassUvs,
     getSchematicFluidCull,
@@ -12,6 +13,7 @@ import {
     SCHEMATIC_DIRECTIONS,
     SCHEMATIC_OPPOSITE_DIRECTIONS,
     schematicBlockAt,
+    schematicBlockIndexAt,
     type SchematicDirection,
     type SchematicNeighborFaces,
     type SchematicOcclusionFaces,
@@ -347,6 +349,39 @@ function buildChunk(message: WorkerMeshMessage) {
                     ),
                 }
                 const target = isSchematicTranslucent(state.name) ? translucent : opaque
+                // Water has no host geometry of its own, and its surface depends on the neighbouring
+                // cells, so it is meshed from the volume instead of the block definition.
+                if (isSchematicWaterBlock(state)) {
+                    try {
+                        const fluid = getSchematicFluidMesh({
+                            state,
+                            atlas: atlasProvider,
+                            cull: getSchematicFluidCull(
+                                [x, y, z],
+                                blocks,
+                                neighborFaces,
+                                palette,
+                                cull,
+                            ),
+                            neighborhood: {
+                                blockAt: (dx: number, dy: number, dz: number) => {
+                                    const index = schematicBlockIndexAt(
+                                        blocks,
+                                        neighborFaces,
+                                        x + dx,
+                                        y + dy,
+                                        z + dz,
+                                    )
+                                    return index === undefined ? undefined : palette[index]
+                                },
+                            },
+                        })
+                        if (fluid) appendBlockMesh(translucent, fluid, position)
+                    } catch {
+                        // Water carries no other geometry, so a failed fluid only loses the water.
+                    }
+                    continue
+                }
                 let meshed = false
                 try {
                     const mesh = createSchematicBlockMesh(state, cull)

@@ -260,7 +260,12 @@ it('waterlogged blocks mesh their fluid inside the block bounds', () => {
     )
     const vertices = fluid?.quads.flatMap((quad) => quad.vertices()) ?? []
     expect(vertices).toHaveLength(24)
-    expect(Math.max(...vertices.map((vertex) => vertex.pos.y))).toBeCloseTo(0.8875, 4)
+    const surface = 8 / 9
+    expect(Math.max(...vertices.map((vertex) => vertex.pos.y))).toBeCloseTo(surface, 6)
+    expect(
+        vertices.filter((vertex) => Math.abs(vertex.pos.y - surface) < 1e-6),
+        'the four sides rise to the fluid height, the top surface sits just below it',
+    ).toHaveLength(8)
     for (const vertex of vertices) {
         for (const coordinate of [vertex.pos.x, vertex.pos.y, vertex.pos.z]) {
             expect(coordinate).toBeGreaterThan(0)
@@ -280,7 +285,7 @@ it('waterlogged fluid follows the neighbor cull', () => {
                 cull,
             )?.quads ?? []
         ).map((quad) => quad.vertices().map((vertex) => vertex.pos.y))
-    const surface = 0.8875
+    const surface = 8 / 9
     const bottom = 1 / 64
     const culled = Cull.none()
     culled.up = true
@@ -288,13 +293,17 @@ it('waterlogged fluid follows the neighbor cull', () => {
     const flat = (value: number, quad: number[]) =>
         quad.every((height) => Math.abs(height - value) < 1e-6)
 
-    // Deepslate drops the top surface and raises the fluid to a full cell when the cell above is
-    // culled, so the remaining faces are the floor plus the four sides reaching the top boundary.
-    expect(heights(Cull.none()).filter((quad) => flat(surface, quad))).toHaveLength(1)
-    expect(remaining).toHaveLength(5)
-    expect(remaining.filter((quad) => flat(surface, quad))).toHaveLength(0)
+    // The fluid keeps its surface below the block top, so the cull only removes the top face: the
+    // floor and the four sides, whose upper edge still reaches the surface, stay.
+    expect(heights(Cull.none())).toHaveLength(6)
+    expect(heights(Cull.none()).filter((quad) => flat(bottom, quad))).toHaveLength(1)
     expect(
-        remaining.filter((quad) => flat(1 - bottom, quad)),
+        heights(Cull.none()).filter((quad) => quad.every((height) => height > bottom)),
+        'exactly one face is the whole surface',
+    ).toHaveLength(1)
+    expect(remaining).toHaveLength(5)
+    expect(
+        remaining.filter((quad) => quad.every((height) => height > bottom)),
         'the up face must be culled',
     ).toHaveLength(0)
     expect(
@@ -302,7 +311,7 @@ it('waterlogged fluid follows the neighbor cull', () => {
         'the down face must remain',
     ).toHaveLength(1)
     expect(
-        remaining.filter((quad) => quad.some((height) => Math.abs(height - (1 - bottom)) < 1e-6)),
+        remaining.filter((quad) => quad.some((height) => Math.abs(height - surface) < 1e-6)),
         'the four side faces must remain',
     ).toHaveLength(4)
 })

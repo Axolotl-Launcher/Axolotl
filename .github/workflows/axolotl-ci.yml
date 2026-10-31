@@ -111,7 +111,19 @@ jobs:
           failed=()
           # Usage: gate <highest accepted exit code> <command...>
           gate() {
-            local accepted=$1 status=0
+            local accepted=          node scripts/axolotl/sched-resource-inventory.mjs
+          node scripts/axolotl/sched-resource-golden-check.mjs
+          node --test scripts/axolotl/sched-resource-fixtures.test.mjs scripts/axolotl/sched-gates.test.mjs
+          node scripts/axolotl/sched-resource-consistency-check.mjs
+          node scripts/axolotl/sched-leaf-primitive-check.mjs
+          node scripts/axolotl/sched-l0-resource-check.mjs
+          node scripts/axolotl/sched-level-predicate-check.mjs
+          node scripts/axolotl/sched-bare-spawn-check.mjs
+          node scripts/axolotl/sched-whitelist-check.mjs
+          node scripts/axolotl/sched-enter-ban-check.mjs
+          node scripts/axolotl/sched-tag-check.mjs
+          node scripts/axolotl/sched-unbounded-sender-check.mjs
+ status=0
             shift
             "$@" || status=$?
             if [ "$status" -gt "$accepted" ]; then
@@ -127,6 +139,10 @@ jobs:
           gate 0 node scripts/axolotl/sched-l0-resource-check.mjs
           gate 0 node scripts/axolotl/sched-level-predicate-check.mjs
           gate 0 node scripts/axolotl/sched-bare-spawn-check.mjs
+          gate 0 node scripts/axolotl/sched-whitelist-check.mjs
+          gate 0 node scripts/axolotl/sched-enter-ban-check.mjs
+          gate 0 node scripts/axolotl/sched-tag-check.mjs
+          gate 0 node scripts/axolotl/sched-unbounded-sender-check.mjs
           # Exit 1 from these two means the design falls back to per-family
           # orders (an accepted outcome); only other codes fail.
           gate 1 node scripts/axolotl/sched-recall-gap-gate.mjs

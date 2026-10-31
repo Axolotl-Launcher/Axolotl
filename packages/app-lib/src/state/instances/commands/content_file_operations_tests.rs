@@ -199,10 +199,13 @@ async fn restarted_recovery_restores_uncommitted_files_and_finishes_committed_de
             &root,
             vec![("mods/a.jar".into(), "mods/a.removing".into())],
             true,
+            test_access(),
         )
         .await
         .unwrap();
-        publish(&state, "instance", &root).await.unwrap();
+        publish(&state, "instance", &root, test_access())
+            .await
+            .unwrap();
         if committed {
             let mut tx = state.pool.begin().await.unwrap();
             sqlx::query("DELETE FROM instance_content_entries WHERE file_id IN (SELECT id FROM instance_files WHERE relative_path = 'mods/a.jar')").execute(&mut *tx).await.unwrap();
@@ -275,16 +278,20 @@ async fn rollback_conflicts_keep_the_journal_and_do_not_overwrite_external_files
         &root,
         vec![("mods/a.jar".into(), "mods/a.jar.disabled".into())],
         false,
+        test_access(),
     )
     .await
     .unwrap();
-    publish(&state, "instance", &root).await.unwrap();
+    publish(&state, "instance", &root, test_access())
+        .await
+        .unwrap();
     std::fs::write(root.join("mods/a.jar"), b"external replacement").unwrap();
     let error = rollback_error(
         &state,
         "instance",
         &root,
         recovery_error("database failure"),
+        test_access(),
     )
     .await;
     assert!(error.to_string().contains("database failure"));
@@ -310,10 +317,13 @@ async fn failed_committed_cleanup_stays_successful_and_can_be_retried() {
         &root,
         vec![("mods/a.jar".into(), "mods/a.removing".into())],
         true,
+        test_access(),
     )
     .await
     .unwrap();
-    publish(&state, "instance", &root).await.unwrap();
+    publish(&state, "instance", &root, test_access())
+        .await
+        .unwrap();
     let mut tx = state.pool.begin().await.unwrap();
     mark_committed("instance", &mut tx).await.unwrap();
     tx.commit().await.unwrap();
@@ -340,10 +350,13 @@ async fn a_scan_recovers_a_dropped_toggle_before_indexing_files() {
         &root,
         vec![("mods/a.jar".into(), "mods/a.jar.disabled".into())],
         false,
+        test_access(),
     )
     .await
     .unwrap();
-    publish(&state, "instance", &root).await.unwrap();
+    publish(&state, "instance", &root, test_access())
+        .await
+        .unwrap();
     let files = sync_content_files("instance", &state).await.unwrap();
     assert!(files.iter().all(|file| file.enabled));
     assert!(root.join("mods/a.jar").exists());
@@ -370,13 +383,17 @@ async fn a_partial_publish_failure_is_recoverable_without_losing_the_first_file(
             ("mods/b.jar".into(), "mods/b.jar.disabled".into()),
         ],
         false,
+        test_access(),
     )
     .await
     .unwrap();
     std::fs::remove_file(root.join("mods/b.jar")).unwrap();
-    let failure = publish(&state, "instance", &root).await.unwrap_err();
+    let failure = publish(&state, "instance", &root, test_access())
+        .await
+        .unwrap_err();
     assert!(root.join("mods/a.jar.disabled").exists());
-    let failure = rollback_error(&state, "instance", &root, failure).await;
+    let failure =
+        rollback_error(&state, "instance", &root, failure, test_access()).await;
     assert!(failure.to_string().contains("recovery requires retry"));
     assert_eq!(journal_count(&state).await, 1);
     std::fs::write(root.join("mods/b.jar"), b"b bytes").unwrap();
@@ -416,4 +433,11 @@ async fn committed_toggle_is_not_rolled_back_when_journal_cleanup_fails() {
     assert!(!root.join("mods/a.jar").exists());
     assert_eq!(journal_count(&state).await, 0);
     state.pool.close().await;
+}
+
+fn test_access() -> crate::install::critical_section::WriteAccess<'static> {
+    crate::install::critical_section::whitelisted(
+        crate::install::critical_section::WhitelistSite::Tests,
+    )
+    .into()
 }

@@ -712,6 +712,7 @@ impl State {
                 "Error reconciling persisted CurseForge waiting install jobs: {e}"
             );
         }
+        crate::scheduler::reconcile::at_startup(state).await;
 
         state.spawn_background({
             let state = Arc::clone(state);

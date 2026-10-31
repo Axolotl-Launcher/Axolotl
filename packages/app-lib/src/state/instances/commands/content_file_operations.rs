@@ -39,6 +39,7 @@ pub(super) async fn prepare(
     root: &Path,
     paths: Vec<(String, String)>,
     delete: bool,
+    _access: crate::install::critical_section::WriteAccess<'_>,
 ) -> crate::Result<()> {
     recover(state, instance_id, root).await?;
     let mut files = Vec::new();
@@ -97,6 +98,7 @@ pub(super) async fn publish(
     state: &State,
     instance_id: &str,
     root: &Path,
+    _access: crate::install::critical_section::WriteAccess<'_>,
 ) -> crate::Result<()> {
     let (payload, _) = journals::get(&state.data, instance_id)
         .await?
@@ -207,6 +209,7 @@ pub(super) async fn rollback_error(
     instance_id: &str,
     root: &Path,
     error: crate::Error,
+    _access: crate::install::critical_section::WriteAccess<'_>,
 ) -> crate::Error {
     match recover(state, instance_id, root).await {
         Ok(()) => error,

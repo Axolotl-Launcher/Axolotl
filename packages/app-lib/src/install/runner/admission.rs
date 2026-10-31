@@ -120,11 +120,22 @@ pub(super) async fn queued_slot<'a>(
 }
 
 /// The key of a job's execution lock: its instance, or the job itself when it
-/// has none. The queue and worker recovery must lock the same key.
+/// has none. The queue and worker recovery must lock the same key, so the key
+/// is taken from the request first: a row whose instance was deleted mid-job
+/// clears `instance_id`, and a creation job must not move from the job key to
+/// the new instance's key once its row records one.
 pub(super) fn execution_lock_key(job: &store::InstallJobRecord) -> String {
-    job.instance_id
-        .clone()
-        .or_else(|| request_instance(&job.state.request))
+    let instance = request_instance(&job.state.request).or_else(|| {
+        if matches!(
+            job.state.request.target(),
+            InstallTarget::NewInstance { .. }
+        ) {
+            None
+        } else {
+            job.instance_id.clone()
+        }
+    });
+    instance
         .map(|instance| format!("instance:{instance}"))
         .unwrap_or_else(|| format!("job:{}", job.id))
 }

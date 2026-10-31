@@ -7,7 +7,7 @@ import { platform } from '@tauri-apps/plugin-os'
 import type { CanvasTexture } from 'three'
 import { computed, onBeforeUnmount, onMounted, reactive, ref, useTemplateRef, watch } from 'vue'
 
-import type { SchematicPreviewScene } from '@/lab/schematic-preview/scene'
+import type { SchematicChunkMeshes, SchematicPreviewScene } from '@/lab/schematic-preview/scene'
 import {
     cancelUndergroundVolume,
     loadUndergroundVolume,
@@ -260,13 +260,12 @@ async function generateChunk(chunk: [number, number, number]) {
                 0,
             ) * 3
         for (const layer of Object.keys(layers) as UndergroundLayer[]) {
-            // Water blends in its own pass, so it keeps the opacity the schematic preview uses.
-            const water = layer === 'water'
-            scene.setChunk(
-                layer,
-                chunk,
-                water ? { water: mesh.layers[layer] } : { opaque: mesh.layers[layer] },
-            )
+            // Both fluids blend in their own pass, so they keep the opacities the schematic preview
+            // uses; every other layer is drawn opaque.
+            const pass = layer === 'water' || layer === 'lava' ? layer : 'opaque'
+            const meshes: SchematicChunkMeshes = {}
+            meshes[pass] = mesh.layers[layer]
+            scene.setChunk(layer, chunk, meshes)
             scene.setChunkOffset(layer, chunk, offset)
         }
         loaded.set(undergroundChunkKey(chunk), {

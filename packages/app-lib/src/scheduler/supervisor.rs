@@ -43,9 +43,10 @@ impl Supervisor {
         }
     }
 
-    /// The only public way to obtain a [`Tag`]. Release it with
-    /// [`Supervisor::release`] when its work ends, or it stays live.
-    pub fn mint(&self, level: Level, origin: &str) -> Tag {
+    /// The only public way to obtain a [`Tag`]. Returns `None` when the
+    /// registry is full (spec N3); release tags with [`Supervisor::release`]
+    /// when their work ends, or they stay live.
+    pub fn mint(&self, level: Level, origin: &str) -> Option<Tag> {
         self.tags.mint(level, origin)
     }
 
@@ -118,8 +119,8 @@ mod tests {
     #[test]
     fn a_released_tag_leaves_the_registry() {
         let supervisor = Supervisor::new();
-        let done = supervisor.mint(Level::L4, "operation");
-        let running = supervisor.mint(Level::L4, "operation");
+        let done = supervisor.mint(Level::L4, "operation").unwrap();
+        let running = supervisor.mint(Level::L4, "operation").unwrap();
         assert_eq!(supervisor.live_tags(), 2);
         supervisor.release(done);
         assert_eq!(supervisor.live_tags(), 1);
@@ -130,9 +131,9 @@ mod tests {
     fn a_tag_from_another_supervisor_is_not_released() {
         let ours = Supervisor::new();
         let theirs = Supervisor::new();
-        let kept = ours.mint(Level::L4, "operation");
-        theirs.release(theirs.mint(Level::L4, "operation"));
-        let foreign = theirs.mint(Level::L4, "operation");
+        let kept = ours.mint(Level::L4, "operation").unwrap();
+        theirs.release(theirs.mint(Level::L4, "operation").unwrap());
+        let foreign = theirs.mint(Level::L4, "operation").unwrap();
         ours.release(foreign);
         assert!(ours.is_live(&kept));
         assert_eq!(

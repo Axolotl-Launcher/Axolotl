@@ -543,10 +543,8 @@ impl ProcessManager {
 
         self.processes.insert(process.metadata.uuid, process);
 
-        let (events, reactions) = L0Queue::channel(
-            PROCESS_TICK_CAPACITY,
-            PROCESS_EVENT_CAPACITY,
-        );
+        let (events, reactions) =
+            L0Queue::channel(PROCESS_TICK_CAPACITY, PROCESS_EVENT_CAPACITY);
         tokio::spawn(Process::react_to_process(
             instance_id.to_string(),
             instance_path.to_string(),

@@ -366,23 +366,26 @@ async fn run_job(job_id: Uuid) -> crate::Result<()> {
 
     // The wait runs in bounded steps that re-read the job, so it keeps its
     // place in line and leaves only once the job finished or is canceling.
-    let (_execution, _install_permit) =
-        match admission::queued_slot(&state, &job).await {
-            Ok(Some(slot)) => slot,
-            Ok(None) => return Ok(()),
-            Err(error) => {
-                drop(_metadata_usage);
-                if let Err(recovery_error) = retry_recovery(job_id, || {
-                    recover_stopped_job(job_id, &state, None, &error)
-                })
-                .await
-                {
-                    tracing::error!(%job_id, %recovery_error, "Install worker recovery could not finish; persisted recovery information is retained");
-                    return Err(recovery_error);
-                }
-                return Err(error);
+    let (_execution, _install_permit) = match admission::queued_slot(
+        &state, &job,
+    )
+    .await
+    {
+        Ok(Some(slot)) => slot,
+        Ok(None) => return Ok(()),
+        Err(error) => {
+            drop(_metadata_usage);
+            if let Err(recovery_error) = retry_recovery(job_id, || {
+                recover_stopped_job(job_id, &state, None, &error)
+            })
+            .await
+            {
+                tracing::error!(%job_id, %recovery_error, "Install worker recovery could not finish; persisted recovery information is retained");
+                return Err(recovery_error);
             }
-        };
+            return Err(error);
+        }
+    };
     let reporter = InstallProgressReporter::new(job_id, job.state.clone());
     // Kept here so recovery still sees a cancellation the worker was given
     // after the worker has unregistered it.

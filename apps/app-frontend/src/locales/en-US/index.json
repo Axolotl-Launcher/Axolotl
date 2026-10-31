@@ -1,4 +1,10 @@
 {
+  "app.agent-window.open": {
+    "message": "Open agent window"
+  },
+  "app.agent-window.title": {
+    "message": "Axolotl Agent Window"
+  },
   "app.account.modrinth-account": {
     "message": "Modrinth account"
   },

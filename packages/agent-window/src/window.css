@@ -1,0 +1,105 @@
+:root {
+    --agent-background: #ffffff;
+    --agent-surface: #f4f4f5;
+    --agent-text: #1f2937;
+    --agent-accent: #1bd96a;
+    font-family: Inter, 'Segoe UI', system-ui, sans-serif;
+    color: var(--agent-text);
+    background: var(--agent-background);
+}
+
+* {
+    box-sizing: border-box;
+}
+body {
+    margin: 0;
+}
+.titlebar {
+    height: 36px;
+    display: flex;
+    align-items: center;
+    background: var(--agent-surface);
+    user-select: none;
+}
+.drag-region {
+    height: 100%;
+    flex: 1;
+    display: flex;
+    align-items: center;
+    padding-left: 14px;
+    font-size: 12px;
+    min-width: 0;
+}
+#window-title {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    pointer-events: none;
+}
+.window-controls {
+    display: flex;
+    gap: 12px;
+    padding: 0 12px;
+}
+button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 0;
+    padding: 0;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+    transition:
+        background-color 120ms ease,
+        color 120ms ease;
+}
+button:hover {
+    background: color-mix(in srgb, var(--agent-text) 10%, transparent);
+}
+button:focus-visible {
+    outline: 2px solid var(--agent-accent);
+    outline-offset: 2px;
+}
+button:disabled {
+    opacity: 0.5;
+    cursor: wait;
+}
+#close:hover {
+    background: #dc2626;
+    color: #ffffff;
+}
+svg {
+    width: 16px;
+    height: 16px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.5;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+[hidden] {
+    display: none !important;
+}
+#window-error {
+    position: fixed;
+    right: 12px;
+    top: 44px;
+    max-width: min(420px, calc(100vw - 24px));
+    background: var(--agent-surface);
+    padding: 10px 14px;
+    border-radius: 8px;
+    font-size: 13px;
+    box-shadow: 0 2px 8px #0002;
+}
+main {
+    min-height: calc(100vh - 36px);
+}
+@media (prefers-reduced-motion: reduce) {
+    button {
+        transition: none;
+    }
+}

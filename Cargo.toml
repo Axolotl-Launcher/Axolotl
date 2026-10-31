@@ -3,6 +3,7 @@ resolver = "2"
 members = [
   "apps/app",
   "apps/installer-ui",
+  "packages/agent-window",
   "packages/app-lib",
   "packages/ariadne",
   "packages/content-management",
@@ -18,6 +19,7 @@ rust-version = "1.90.0"
 repository = "https://github.com/Axolotl-Launcher/Axolotl"
 
 [workspace.dependencies]
+agent-window = { path = "packages/agent-window" }
 ariadne = { path = "packages/ariadne" }
 async-minecraft-ping = { path = "packages/async-minecraft-ping" }
 async-recursion = "1.1.1"

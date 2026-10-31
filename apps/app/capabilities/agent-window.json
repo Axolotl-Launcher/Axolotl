@@ -1,0 +1,11 @@
+{
+  "identifier": "agent-window",
+  "description": "Controls for the isolated Agent Window itself",
+  "local": true,
+  "windows": ["agent-window"],
+  "permissions": [
+    "agent-window:allow-agent-window-action",
+    "agent-window:allow-agent-window-is-maximized",
+    "agent-window:allow-agent-window-get-appearance"
+  ]
+}

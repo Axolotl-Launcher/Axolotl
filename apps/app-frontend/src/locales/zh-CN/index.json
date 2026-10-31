@@ -1,4 +1,10 @@
 {
+  "app.agent-window.open": {
+    "message": "打开智能体窗口"
+  },
+  "app.agent-window.title": {
+    "message": "Axolotl 智能体窗口"
+  },
   "app.drop.minecraft-root-added": {
     "message": "已添加 Minecraft 文件夹"
   },

@@ -1,6 +1,71 @@
 use std::collections::BTreeSet;
 
 #[test]
+fn agent_window_open_is_registered_and_only_available_to_main() {
+    let runtime = runtime_commands(include_str!("../src/api/agent_window.rs"));
+    let manifest =
+        manifest_commands(include_str!("../build.rs"), "agent-window");
+    assert_eq!(
+        runtime,
+        BTreeSet::from([
+            "open_agent_window",
+            "agent_window_action",
+            "agent_window_is_maximized",
+            "agent_window_get_appearance",
+        ])
+    );
+    assert_eq!(runtime, manifest);
+    let config: serde_json::Value =
+        serde_json::from_str(include_str!("../tauri.conf.json")).unwrap();
+    assert!(
+        config["app"]["security"]["capabilities"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|capability| capability == "agent-window")
+    );
+    assert!(
+        include_str!(
+            "../../app-frontend/src/features/agent-window/AgentWindowButton.vue"
+        )
+        .contains("plugin:agent-window|open_agent_window")
+    );
+    let capability: serde_json::Value =
+        serde_json::from_str(include_str!("../capabilities/plugins.json"))
+            .unwrap();
+    assert_eq!(capability["windows"], serde_json::json!(["main"]));
+    assert!(
+        capability["permissions"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|permission| permission
+                == "agent-window:allow-open-agent-window")
+    );
+    for source in [
+        include_str!("../capabilities/core.json"),
+        include_str!("../capabilities/plugins.json"),
+        include_str!("../capabilities/updater.json"),
+    ] {
+        let capability: serde_json::Value =
+            serde_json::from_str(source).unwrap();
+        assert_eq!(capability["windows"], serde_json::json!(["main"]));
+    }
+    let capability: serde_json::Value =
+        serde_json::from_str(include_str!("../capabilities/agent-window.json"))
+            .unwrap();
+    assert_eq!(capability["windows"], serde_json::json!(["agent-window"]));
+    assert_eq!(
+        capability["permissions"],
+        serde_json::json!([
+            "agent-window:allow-agent-window-action",
+            "agent-window:allow-agent-window-is-maximized",
+            "agent-window:allow-agent-window-get-appearance",
+        ])
+    );
+}
+
+#[test]
 fn mcp_commands_are_registered_and_limited_to_the_main_window() {
     let runtime = runtime_commands(include_str!("../src/api/mcp/mod.rs"))
         .into_iter()

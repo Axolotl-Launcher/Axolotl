@@ -11,9 +11,9 @@
                 :aria-label="formatMessage(messages.downloads)"
                 :title="activeJobs[0]?.display?.title ?? formatMessage(messages.downloads)"
                 :class="[
-                    'inline-flex h-9 min-w-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl border border-solid border-transparent px-2.5 text-base font-semibold leading-5 text-[var(--color-text-primary)] transition-colors',
+                    'inline-flex h-9 min-w-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl border border-solid border-transparent px-2.5 text-base font-semibold leading-5 text-[var(--color-text-default)] transition-colors',
                     activeJobs.length || hasLegacyDownload
-                        ? 'bg-surface-4 hover:bg-surface-5'
+                        ? 'min-w-[5rem] bg-surface-4 hover:bg-surface-5'
                         : 'w-9 shrink-0 !rounded-full bg-transparent hover:bg-surface-4',
                 ]"
                 :style="triggerStyle"
@@ -21,7 +21,9 @@
                 <LoaderCircleIcon v-if="hasActivity" class="size-5 shrink-0 animate-spin" />
                 <DownloadIcon v-else class="size-5 shrink-0" />
                 <template v-if="activeJobs.length || hasLegacyDownload">
-                    <span class="max-w-[12rem] truncate text-sm font-semibold">
+                    <span
+                        class="max-w-[12rem] truncate text-sm font-semibold text-[var(--color-text-primary)]"
+                    >
                         {{ activeJobs[0]?.display?.title ?? formatMessage(messages.downloads) }}
                     </span>
                     <span

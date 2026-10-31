@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <meta name="color-scheme" content="light dark" />
+        <title>Axolotl Agent Window</title>
+        <link rel="stylesheet" href="/window.css" />
+        <script defer src="/window.js"></script>
+    </head>
+    <body>
+        <header class="titlebar">
+            <div id="drag-region" class="drag-region">
+                <span id="window-title">Axolotl Agent Window</span>
+            </div>
+            <div class="window-controls">
+                <button id="minimize" type="button" aria-label="Minimize" title="Minimize">
+                    <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 8h8" /></svg>
+                </button>
+                <button id="maximize" type="button" aria-label="Maximize" title="Maximize">
+                    <svg id="maximize-icon" viewBox="0 0 16 16" aria-hidden="true">
+                        <rect x="4" y="4" width="8" height="8" rx="1" />
+                    </svg>
+                    <svg id="restore-icon" viewBox="0 0 16 16" aria-hidden="true" hidden>
+                        <path d="M6 5V3h7v7h-2" />
+                        <rect x="3" y="6" width="7" height="7" rx="1" />
+                    </svg>
+                </button>
+                <button id="close" type="button" aria-label="Close" title="Close">
+                    <svg viewBox="0 0 16 16" aria-hidden="true"><path d="m4 4 8 8m0-8-8 8" /></svg>
+                </button>
+            </div>
+        </header>
+        <div id="window-error" role="alert" hidden></div>
+        <main></main>
+    </body>
+</html>

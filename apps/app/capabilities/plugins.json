@@ -158,6 +158,7 @@
     "schematic-preview:default",
     "shortcuts:default",
     "tags:default",
+    "agent-window:allow-open-agent-window",
     "ai:default",
     "mcp:default",
     "translation:default",

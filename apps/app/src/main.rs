@@ -871,6 +871,7 @@ fn main() {
         });
 
     builder = builder
+        .plugin(api::agent_window::init())
         .plugin(api::ai::init())
         .plugin(api::auth::init())
         .plugin(api::mr_auth::init())
@@ -912,41 +913,43 @@ fn main() {
         .manage(api::files::StudioWatchers::default())
         .plugin(api::servers::init())
         .manage(PendingUpdateData::default())
-        .invoke_handler(tauri::generate_handler![
-            initialize_state,
-            get_update_channel,
-            get_current_app_database_path,
-            set_update_channel,
-            get_update_preferences,
-            set_update_preferences,
-            copy_release_database_to_beta,
-            copy_database_between_channels,
-            beta_database_exists,
-            backup_app_db_for_update,
-            set_discord_activity,
-            is_dev,
-            portable::is_portable_mode,
-            are_updates_enabled,
-            get_update_size,
-            check_app_update,
-            enqueue_update_for_installation,
-            remove_enqueued_update,
-            set_restart_after_pending_update,
-            is_apt_linux,
-            toggle_decorations,
-            set_transparent_window_frame,
-            show_window,
-            restart_app,
-            exit_app,
-            check_symlink_capability,
-            is_elevated,
-            allow_symlink_target,
-            lightweight_mode::lightweight_mode_frontend_ready,
-            lightweight_mode::lightweight_mode_set_route,
-            lightweight_mode::lightweight_mode_enter,
-            #[cfg(target_os = "macos")]
-            macos::traffic_lights::update_traffic_lights_anchor,
-        ]);
+        .invoke_handler(api::agent_window::restrict_launcher_commands(
+            tauri::generate_handler![
+                initialize_state,
+                get_update_channel,
+                get_current_app_database_path,
+                set_update_channel,
+                get_update_preferences,
+                set_update_preferences,
+                copy_release_database_to_beta,
+                copy_database_between_channels,
+                beta_database_exists,
+                backup_app_db_for_update,
+                set_discord_activity,
+                is_dev,
+                portable::is_portable_mode,
+                are_updates_enabled,
+                get_update_size,
+                check_app_update,
+                enqueue_update_for_installation,
+                remove_enqueued_update,
+                set_restart_after_pending_update,
+                is_apt_linux,
+                toggle_decorations,
+                set_transparent_window_frame,
+                show_window,
+                restart_app,
+                exit_app,
+                check_symlink_capability,
+                is_elevated,
+                allow_symlink_target,
+                lightweight_mode::lightweight_mode_frontend_ready,
+                lightweight_mode::lightweight_mode_set_route,
+                lightweight_mode::lightweight_mode_enter,
+                #[cfg(target_os = "macos")]
+                macos::traffic_lights::update_traffic_lights_anchor,
+            ],
+        ));
 
     tracing::info!("Initializing app...");
     let app = builder.build(tauri_context);

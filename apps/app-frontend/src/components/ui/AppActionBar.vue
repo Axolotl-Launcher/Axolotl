@@ -1,5 +1,5 @@
 <template>
-    <div class="flex min-w-0 gap-2 items-center">
+    <div class="flex min-w-0 gap-1 items-center">
         <PopoutMenu
             v-if="notificationHistory.length"
             v-model:open="notificationCenterShown"

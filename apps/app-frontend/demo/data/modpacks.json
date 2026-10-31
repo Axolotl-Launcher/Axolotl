@@ -1,0 +1,37 @@
+{
+  "fetchedAt": "2026-10-23T11:35:41+00:00",
+  "packs": {
+    "1KVo5zza": {
+      "project_id": "1KVo5zza",
+      "pack_name": "Fabulously Optimized",
+      "version_id": "uQxD0ENB",
+      "game_version": "26.2",
+      "loader": "fabric",
+      "loader_version": "0.19.5"
+    },
+    "5FFgwNNP": {
+      "project_id": "5FFgwNNP",
+      "pack_name": "Cobblemon Official Modpack [Fabric]",
+      "version_id": "BpTjgzL8",
+      "game_version": "1.21.1",
+      "loader": "fabric",
+      "loader_version": "0.19.5"
+    },
+    "shFhR8Vx": {
+      "project_id": "shFhR8Vx",
+      "pack_name": "Better MC [FABRIC] BMC2",
+      "version_id": "M5BnAIQy",
+      "game_version": "1.20.1",
+      "loader": "fabric",
+      "loader_version": "0.19.3"
+    },
+    "l9m9tuPN": {
+      "project_id": "l9m9tuPN",
+      "pack_name": "Zombie Invade 100 Days",
+      "version_id": "M8j2mfGj",
+      "game_version": "1.20.1",
+      "loader": "forge",
+      "loader_version": "47.4.10"
+    }
+  }
+}

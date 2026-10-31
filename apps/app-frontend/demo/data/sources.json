@@ -1,0 +1,26 @@
+{
+  "tags.json": {
+    "fetchedAt": "2026-10-23T11:12:12+00:00",
+    "sources": [
+      "https://api.modrinth.com/v2/tag/game_version",
+      "https://api.modrinth.com/v2/tag/loader",
+      "https://api.modrinth.com/v2/tag/category",
+      "https://api.modrinth.com/v2/tag/license"
+    ],
+    "note": "omits one license, whose SPDX identifier the repository typos check reads as a misspelling of Matrix"
+  },
+  "modpacks.json": {
+    "fetchedAt": "2026-10-23T11:35:41+00:00",
+    "sources": [
+      "https://api.modrinth.com/v2/project/{id}/version",
+      "modrinth.index.json of each pinned version"
+    ]
+  },
+  "news.json": {
+    "recorded": "with the website launcher preview (Axolotl-Website), before 2026-10-24; newest article 2026-10-16T19:15:00+00:00",
+    "sources": [
+      "https://net-secondary.web.minecraft-services.net/api/v1.0/en-us/search?pageSize=24&sortType=Recent&category=News&newsOnly=true&geography=USA (app-lib api/minecraft_news.rs)"
+    ],
+    "note": "images localized under assets/news"
+  }
+}

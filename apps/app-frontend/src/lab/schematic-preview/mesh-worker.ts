@@ -67,6 +67,7 @@ export type SchematicMeshWorkerResponse =
           water: SchematicMeshData
           lava: SchematicMeshData
           missing: string[]
+          warnings: string[]
       }
     | { type: 'error'; epoch: number; jobId?: string; message: string }
 
@@ -321,6 +322,16 @@ function buildChunk(message: WorkerMeshMessage) {
         lava: emptyBuffers(),
     }
     const missing = new Set<string>()
+    // A fluid that throws leaves a hole in the surface, so it is reported rather than swallowed.
+    // One broken fluid fails in every cell it appears in, so it is recorded once per block name.
+    const warnings = new Map<string, string>()
+    const reportFluidFailure = (name: string, error: unknown) => {
+        if (warnings.has(name)) return
+        warnings.set(
+            name,
+            `Fluid geometry for ${name} failed and was skipped: ${error instanceof Error ? error.message : String(error)}`,
+        )
+    }
     const chunkOrigin = message.chunkPosition.map((value) => value * 16) as [number, number, number]
     const shouldCull = (
         currentPaletteIndex: number,
@@ -409,8 +420,9 @@ function buildChunk(message: WorkerMeshMessage) {
                         })
                         // Each fluid keeps its own pass, so its opacity never follows another's.
                         if (fluid && kind) appendBlockMesh(buffers[kind], fluid, position)
-                    } catch {
+                    } catch (error) {
                         // A fluid carries no other geometry, so a failed fluid only loses the fluid.
+                        reportFluidFailure(state.name, error)
                     }
                     continue
                 }
@@ -451,8 +463,9 @@ function buildChunk(message: WorkerMeshMessage) {
                         fluidNeighborhood(x, y, z),
                     )
                     if (fluid) appendBlockMesh(buffers.water, fluid, position)
-                } catch {
+                } catch (error) {
                     // The host mesh is already appended; dropping the fluid keeps it intact.
+                    reportFluidFailure(state.name, error)
                 }
             }
         }
@@ -470,6 +483,7 @@ function buildChunk(message: WorkerMeshMessage) {
         water: toMeshData(buffers.water),
         lava: toMeshData(buffers.lava),
         missing: [...missing],
+        warnings: [...warnings.values()],
     }
     if (response.type !== 'mesh') return
     workerScope.postMessage(response, [

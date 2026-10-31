@@ -1,4 +1,4 @@
-import { expect, it } from 'vitest'
+import { expect, it, vi } from 'vitest'
 
 import { createSchematicResources } from '@/lab/schematic-preview/resources'
 import { SchematicPreviewScene } from '@/lab/schematic-preview/scene'
@@ -82,7 +82,7 @@ function addedPixels(before: Uint8ClampedArray, after: Uint8ClampedArray) {
     return added
 }
 
-it('a bubble samples the sprite and is drawn from the back as well as the front', async () => {
+function mountScene() {
     const host = document.createElement('div')
     host.style.cssText = 'position:relative;width:400px;height:400px'
     document.body.append(host)
@@ -100,10 +100,15 @@ it('a bubble samples the sprite and is drawn from the back as well as the front'
         onWalkLockChange: () => undefined,
         onWalkSpeedChange: () => undefined,
     })
+    return { host, canvas, scene }
+}
+
+const palette = [{ name: 'minecraft:bubble_column', properties: { drag: 'false' } }]
+
+it('a bubble samples the sprite and is drawn from the back as well as the front', async () => {
+    const { host, canvas, scene } = mountScene()
     try {
-        const resources = await createSchematicResources('latest', [
-            { name: 'minecraft:bubble_column', properties: { drag: 'false' } },
-        ])
+        const resources = await createSchematicResources('latest', palette)
         const uv = resources.workerResources.bubbleUv
         // Below the block textures the atlas is empty apart from the sprite, so an 8 texel square
         // well away from it samples nothing at all.
@@ -137,5 +142,38 @@ it('a bubble samples the sprite and is drawn from the back as well as the front'
     } finally {
         scene.dispose()
         host.remove()
+    }
+})
+
+it('a sprite that will not load costs the bubbles rather than the whole preview', async () => {
+    const realFetch = globalThis.fetch
+    vi.stubGlobal('fetch', async (input: RequestInfo | URL, init?: RequestInit) =>
+        String(input).includes('particle-bubble')
+            ? new Response(null, { status: 404 })
+            : realFetch(input, init),
+    )
+    const { host, canvas, scene } = mountScene()
+    try {
+        // The atlas is what every other pass needs, so the sprite failing must still produce
+        // resources; it may only cost the bubbles themselves.
+        const resources = await createSchematicResources('latest', palette)
+        expect(resources.warnings).toEqual([expect.stringContaining('sprite failed to load')])
+        const uv = resources.workerResources.bubbleUv
+        // The pass keeps sampling the atlas at an empty spot, so a bubble column draws nothing
+        // instead of the white quads a pass without a texture would draw.
+        expect(uv[0]).toBe(uv[2])
+        expect(uv[1]).toBe(uv[3])
+        scene.setTextures({ atlas: resources.texture })
+        scene.setRegions([{ id: 'region', min: [0, 0, 0], max: [1, 1, 1] }])
+        scene.fitView()
+        await frame()
+        const empty = readPixels(canvas)
+        scene.setChunk('region', [0, 0, 0], { bubble: quadMesh('camera', uv) })
+        await frame()
+        expect(addedPixels(empty, readPixels(canvas)).length).toBe(0)
+    } finally {
+        scene.dispose()
+        host.remove()
+        vi.unstubAllGlobals()
     }
 })

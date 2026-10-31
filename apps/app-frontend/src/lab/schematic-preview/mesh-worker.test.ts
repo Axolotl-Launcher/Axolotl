@@ -9,12 +9,16 @@ type WorkerScope = {
 
 const posted: WorkerResponse[] = []
 
+let dispatch: ((data: unknown) => void) | undefined
+
 /** `mesh-worker` reads `self` at import time, so the stub has to exist before the module loads. */
 async function startWorker() {
+    if (dispatch) return dispatch
     const scope: WorkerScope = { postMessage: (message) => posted.push(message) }
     ;(globalThis as unknown as { self: WorkerScope }).self = scope
     await import('./mesh-worker')
-    return (data: unknown) => scope.onmessage?.({ data })
+    dispatch = (data: unknown) => scope.onmessage?.({ data })
+    return dispatch
 }
 
 const resources = {
@@ -68,4 +72,42 @@ it('a bubble column is water with a bubble pass on top', async () => {
     expect(mesh.bubble.uvs[0]).toBeCloseTo(0, 6)
     expect(mesh.bubble.uvs[1]).toBeCloseTo(0.52, 6)
     expect(Math.max(...mesh.bubble.uvs)).toBeCloseTo(0.522, 6)
+    expect(mesh.warnings).toEqual([])
+})
+
+it('a fluid that fails to mesh is reported instead of vanishing', async () => {
+    const send = await startWorker()
+    // A texture table that cannot be read is the cheapest way to make the fluid mesher throw, and a
+    // fluid that throws is what this test is about: it draws nothing, so the response has to say so.
+    send({
+        type: 'init',
+        epoch: 2,
+        palette: [
+            { name: 'minecraft:air', properties: {} },
+            { name: 'minecraft:water', properties: { level: '0' } },
+        ],
+        resources: { ...resources, textureUvs: null },
+        seamlessGlass: false,
+    })
+    posted.length = 0
+
+    const blocks = new Uint32Array(16 * 16 * 16)
+    blocks[1 * 256 + 1 * 16 + 1] = 1
+    blocks[1 * 256 + 1 * 16 + 2] = 1
+    send({
+        type: 'mesh',
+        epoch: 2,
+        jobId: 'job',
+        regionId: 'region',
+        chunkPosition: [0, 0, 0],
+        blocks: blocks.buffer,
+        neighborFaces: {},
+    })
+
+    const response = posted.find((message) => message.type === 'mesh')
+    expect(response, posted.map((message) => message.type).join(',')).toBeDefined()
+    // Both cells fail the same way, so the chunk reports the fluid once rather than once per cell.
+    expect(response?.warnings).toEqual([
+        expect.stringContaining('Fluid geometry for minecraft:water failed and was skipped'),
+    ])
 })

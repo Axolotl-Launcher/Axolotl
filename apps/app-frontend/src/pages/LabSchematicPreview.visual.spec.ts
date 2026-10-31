@@ -2,6 +2,7 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { nextTick } from 'vue'
 
+import SchematicInfoModal from '@/components/lab/schematic-preview/SchematicInfoModal.vue'
 import type { SchematicEditResult, SchematicPreviewManifest } from '@/lab/schematic-preview/backend'
 
 import LabSchematicPreview from './LabSchematicPreview.vue'
@@ -27,7 +28,7 @@ vi.mock('@/components/lab/schematic-preview/SchematicBlockPickerModal.vue', () =
     default: { render: () => null },
 }))
 vi.mock('@/components/lab/schematic-preview/SchematicInfoModal.vue', () => ({
-    default: { render: () => null },
+    default: { props: ['warnings'], render: () => null },
 }))
 vi.mock('@/components/lab/schematic-preview/SchematicInstancePickerModal.vue', () => ({
     default: { render: () => null },
@@ -167,8 +168,11 @@ function resources() {
         blockNames: { en_us: {}, zh_cn: {} },
         availableBlockStates: [],
         atlas: document.createElement('canvas'),
+        warnings: [],
     }
 }
+
+let meshWarnings: string[] = []
 
 class MeshWorker {
     onmessage?: (event: { data: unknown }) => void
@@ -201,6 +205,7 @@ class MeshWorker {
                               water: empty,
                               lava: empty,
                               missing: [],
+                              warnings: meshWarnings,
                           },
             }),
         )
@@ -211,6 +216,7 @@ let wrapper: ReturnType<typeof mount>
 beforeEach(() => {
     vi.clearAllMocks()
     localStorage.clear()
+    meshWarnings = []
     fixture.scene = Object.fromEntries(
         [
             'setRegions',
@@ -415,4 +421,13 @@ it('every pass the worker meshes reaches the scene, bubbles included', async () 
     // A bubble column has no block model, so dropping its pass leaves nothing but water on screen.
     expect(meshes.bubble).toBeDefined()
     expect(meshes.water).toBeDefined()
+})
+
+it('a warning the worker reports reaches the warnings panel', async () => {
+    const warning = 'Fluid geometry for minecraft:water failed and was skipped: boom'
+    meshWarnings = [warning]
+    await openFile('A')
+    // A fluid that fails to mesh draws nothing at all, so the chunk response is the only place the
+    // failure can surface; dropping it there leaves a silent hole in the water.
+    expect(wrapper.findComponent(SchematicInfoModal).props('warnings')).toContain(warning)
 })

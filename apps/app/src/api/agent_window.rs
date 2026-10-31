@@ -55,6 +55,7 @@ fn require_agent_window(window: &WebviewWindow) -> Result<(), String> {
 #[tauri::command]
 async fn agent_window_action(
     window: WebviewWindow,
+    agent: State<'_, AgentWindow>,
     action: WindowAction,
 ) -> Result<(), String> {
     require_agent_window(&window)?;
@@ -68,7 +69,7 @@ async fn agent_window_action(
                 window.maximize()
             }
         }
-        WindowAction::Close => window.close(),
+        WindowAction::Close => agent.close(&window).await,
         WindowAction::StartDragging => window.start_dragging(),
     };
     result.map_err(|error| error.to_string())

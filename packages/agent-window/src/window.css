@@ -370,6 +370,10 @@ svg {
     border-radius: 8px;
     font-size: 12px;
 }
+#storage-banner {
+    flex-wrap: wrap;
+    margin-top: var(--agent-space-2);
+}
 .message-scroll {
     flex: 1;
     min-height: 0;
@@ -868,6 +872,9 @@ dialog::backdrop {
     padding: 4px 28px 28px;
 }
 .guide-body > section + section {
+    margin-top: var(--agent-space-6);
+}
+.guide-body > p + section {
     margin-top: var(--agent-space-6);
 }
 .guide-body h3 {

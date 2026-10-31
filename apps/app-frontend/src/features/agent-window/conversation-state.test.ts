@@ -41,7 +41,7 @@ it('restores provider-qualified selection and drafts but never resumes waiting r
     expect(restored.messages[0].status).toBe('interrupted')
 })
 
-it('retains current input and messages when a transactional update cannot be saved', () => {
+it('rejects a failed commit without changing the caller’s current store', () => {
     const store = initialStore()
     activeThread(store)!.draft = '存储失败时不能丢掉'
     const storage = {
@@ -84,4 +84,57 @@ it('rejects an unsupported format and sanitizes saved history before displaying 
         role: 'user',
         status: 'interrupted',
     })
+})
+
+it('deduplicates message identities across every restored thread', () => {
+    const storage = memoryStorage()
+    const store = initialStore()
+    const first = activeThread(store)!
+    first.messages.push({ id: 'same', text: 'first', status: 'stopped' })
+    const second = { ...structuredClone(first), id: 'second' }
+    second.messages.push({ id: 'unique', text: 'second', status: 'stopped' })
+    store.threads.push(second)
+    saveStore(store, storage)
+    const restored = loadStore(storage)
+    expect(
+        restored.threads.flatMap((thread) => thread.messages.map((message) => message.id)),
+    ).toEqual(['same', 'unique'])
+})
+
+it('bounds retained history without discarding drafts or waiting work', () => {
+    const storage = memoryStorage()
+    const store = initialStore()
+    const thread = activeThread(store)!
+    thread.draft = 'keep this draft'
+    thread.messages = Array.from({ length: 80 }, (_, index) => ({
+        id: `old-${index}`,
+        text: 'x'.repeat(50_000),
+        status: 'stopped',
+        createdAt: index,
+    }))
+    thread.messages.push({ id: 'pending', text: 'keep waiting', status: 'waiting', createdAt: 100 })
+    const saved = commitStore(store, storage)
+    expect(storage.getItem(STORAGE_KEY)!.length).toBeLessThanOrEqual(1_000_000)
+    expect(activeThread(saved)!.draft).toBe('keep this draft')
+    expect(activeThread(saved)!.messages.at(-1)?.id).toBe('pending')
+    expect(activeThread(saved)!.messages.some((message) => message.id === 'old-0')).toBe(false)
+})
+
+it('keeps protected work intact and leaves storage unchanged when it exceeds the budget', () => {
+    const storage = memoryStorage()
+    const store = initialStore()
+    saveStore(store, storage)
+    const original = storage.getItem(STORAGE_KEY)
+    const thread = activeThread(store)!
+    thread.draft = 'important draft'
+    thread.messages = Array.from({ length: 21 }, (_, index) => ({
+        id: `pending-${index}`,
+        text: 'x'.repeat(50_000),
+        status: 'waiting',
+        createdAt: index,
+    }))
+    expect(() => commitStore(store, storage)).toThrow('Conversation storage limit reached')
+    expect(storage.getItem(STORAGE_KEY)).toBe(original)
+    expect(thread.draft).toBe('important draft')
+    expect(thread.messages).toHaveLength(21)
 })

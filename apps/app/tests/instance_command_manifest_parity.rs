@@ -1,6 +1,18 @@
 use std::collections::BTreeSet;
 
 #[test]
+fn launcher_invoke_handler_wraps_commands_with_agent_window_restriction() {
+    let main: String = include_str!("../src/main.rs")
+        .chars()
+        .filter(|character| !character.is_whitespace())
+        .collect();
+    assert_eq!(main.matches(".invoke_handler(").count(), 1);
+    assert!(main.contains(
+        ".invoke_handler(api::agent_window::restrict_launcher_commands(tauri::generate_handler!["
+    ), "the launcher handler must be wrapped in the Agent Window restriction");
+}
+
+#[test]
 fn agent_window_open_is_registered_and_only_available_to_main() {
     let runtime = runtime_commands(include_str!("../src/api/agent_window.rs"));
     let manifest =

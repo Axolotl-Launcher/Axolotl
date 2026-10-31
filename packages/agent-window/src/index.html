@@ -190,6 +190,7 @@
                     </div>
                 </div>
                 <div id="context-banner" class="context-banner" hidden></div>
+                <div id="storage-banner" class="context-banner" role="status" hidden></div>
                 <div id="message-scroll" class="message-scroll">
                     <section id="empty-state" class="empty-state">
                         <img src="/axolotl.png" alt="" />
@@ -307,6 +308,7 @@
                 </button>
             </div>
             <div class="settings-body guide-body">
+                <p data-text="historyRetention"></p>
                 <section>
                     <h3 data-text="guideTaskTitle"></h3>
                     <p data-text="guideTaskBody"></p>
@@ -324,6 +326,29 @@
                     <p data-text="guidePermissionsBody"></p>
                 </section>
                 <p class="dialog-error" data-dialog-error role="alert" hidden></p>
+            </div>
+        </dialog>
+        <dialog id="storage-reset-dialog" class="edit-dialog" aria-labelledby="storage-reset-title">
+            <div class="dialog-heading">
+                <h2 id="storage-reset-title" data-text="resetHistory"></h2>
+            </div>
+            <div class="edit-body">
+                <p data-text="resetHistoryWarning"></p>
+                <p class="dialog-error" data-dialog-error role="alert" hidden></p>
+            </div>
+            <div class="dialog-footer">
+                <button
+                    class="secondary-button"
+                    type="button"
+                    data-action="close-dialog"
+                    data-text="cancel"
+                ></button>
+                <button
+                    class="primary-button"
+                    type="button"
+                    data-action="confirm-reset-history"
+                    data-text="resetHistory"
+                ></button>
             </div>
         </dialog>
         <dialog id="settings-dialog" class="settings-dialog">

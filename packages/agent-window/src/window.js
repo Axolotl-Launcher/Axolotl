@@ -32,10 +32,12 @@
     let maximized = false
     let actionPending = false
     let stateRequest = 0
+    let appearanceRequest = 0
+    let appearanceFlight
 
     function showError(error) {
-        const prefix = appearance?.locale === 'zh-CN' ? '窗口操作失败' : 'Window action failed'
-        errorBox.textContent = `${prefix}: ${String(error)}`
+        const prefix = appearance?.messages?.windowActionError
+        errorBox.textContent = prefix ? `${prefix}: ${String(error)}` : String(error)
         errorBox.hidden = false
         console.error(error)
     }
@@ -62,59 +64,70 @@
         }
     }
 
-    async function refreshAppearance() {
-        try {
-            appearance = native
-                ? await agentInvoke('agent_window_get_appearance')
-                : host.appearance || {
-                      locale: navigator.language || 'en-US',
-                      background: '#101215',
-                      surface: '#1a1e24',
-                      text: '#ffffff',
-                      accent: '#f472b6',
-                      labels: {
-                          title: 'Axolotl Agent',
-                          minimize: 'Minimize',
-                          maximize: 'Maximize',
-                          restore: 'Restore',
-                          close: 'Close',
-                      },
-                  }
-            document.documentElement.lang = appearance.locale
-            for (const key of ['background', 'surface', 'text', 'accent']) {
-                if (CSS.supports('color', appearance[key])) {
-                    document.documentElement.style.setProperty(`--agent-${key}`, appearance[key])
+    function refreshAppearance() {
+        const request = ++appearanceRequest
+        const flight = (async () => {
+            try {
+                const nextAppearance = native
+                    ? await agentInvoke('agent_window_get_appearance')
+                    : host.appearance || {
+                          locale: navigator.language || 'en-US',
+                          background: '#101215',
+                          surface: '#1a1e24',
+                          text: '#ffffff',
+                          accent: '#f472b6',
+                          labels: {
+                              title: 'Axolotl Agent',
+                              minimize: 'Minimize',
+                              maximize: 'Maximize',
+                              restore: 'Restore',
+                              close: 'Close',
+                          },
+                      }
+                if (request !== appearanceRequest) return appearanceFlight
+                appearance = nextAppearance
+                document.documentElement.lang = appearance.locale
+                for (const key of ['background', 'surface', 'text', 'accent']) {
+                    if (CSS.supports('color', appearance[key])) {
+                        document.documentElement.style.setProperty(
+                            `--agent-${key}`,
+                            appearance[key],
+                        )
+                    }
                 }
-            }
-            for (const key of ['scrollbar', 'scrollbar_track']) {
-                if (CSS.supports('color', appearance[key])) {
+                for (const key of ['scrollbar', 'scrollbar_track']) {
+                    if (CSS.supports('color', appearance[key])) {
+                        document.documentElement.style.setProperty(
+                            `--agent-${key.replace('_', '-')}`,
+                            appearance[key],
+                        )
+                    }
+                }
+                if (CSS.supports('border-radius', appearance.scrollbar_radius)) {
                     document.documentElement.style.setProperty(
-                        `--agent-${key.replace('_', '-')}`,
-                        appearance[key],
+                        '--agent-scrollbar-radius',
+                        appearance.scrollbar_radius,
                     )
                 }
+                document.title = appearance.labels.title
+                document.getElementById('window-title').textContent = appearance.labels.title
+                for (const [button, name] of [
+                    [minimize, 'minimize'],
+                    [close, 'close'],
+                ]) {
+                    button.setAttribute('aria-label', appearance.labels[name])
+                    button.title = appearance.labels[name]
+                }
+                updateMaximizeLabel()
+                host.appearance = appearance
+                window.dispatchEvent(new Event('agent-appearance-updated'))
+            } catch (error) {
+                if (request !== appearanceRequest) return appearanceFlight
+                showError(error)
             }
-            if (CSS.supports('border-radius', appearance.scrollbar_radius)) {
-                document.documentElement.style.setProperty(
-                    '--agent-scrollbar-radius',
-                    appearance.scrollbar_radius,
-                )
-            }
-            document.title = appearance.labels.title
-            document.getElementById('window-title').textContent = appearance.labels.title
-            for (const [button, name] of [
-                [minimize, 'minimize'],
-                [close, 'close'],
-            ]) {
-                button.setAttribute('aria-label', appearance.labels[name])
-                button.title = appearance.labels[name]
-            }
-            updateMaximizeLabel()
-            host.appearance = appearance
-            window.dispatchEvent(new Event('agent-appearance-updated'))
-        } catch (error) {
-            showError(error)
-        }
+        })()
+        appearanceFlight = flight
+        return flight
     }
 
     async function action(name) {

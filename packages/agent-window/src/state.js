@@ -1,5 +1,8 @@
 export const STORAGE_KEY = 'axolotl.agent-window.conversations.v1'
 const MAX_TEXT = 50000
+const MAX_STORE_LENGTH = 1_000_000
+const MAX_THREADS = 100
+const MAX_MESSAGES = 1000
 
 export function newThread() {
     return {
@@ -24,6 +27,7 @@ export function loadStore(storage = localStorage) {
     if (value.version !== 1 || !Array.isArray(value.threads))
         throw new Error('Invalid conversation store')
     const ids = new Set()
+    const messageIds = new Set()
     const threads = value.threads
         .filter(
             (thread) =>
@@ -54,7 +58,9 @@ export function loadStore(storage = localStorage) {
                           (message) =>
                               message &&
                               typeof message.id === 'string' &&
-                              typeof message.text === 'string',
+                              typeof message.text === 'string' &&
+                              !messageIds.has(message.id) &&
+                              messageIds.add(message.id),
                       )
                       .map((message) => ({
                           id: message.id,
@@ -92,12 +98,46 @@ export function loadStore(storage = localStorage) {
     }
 }
 export function saveStore(store, storage = localStorage) {
-    storage.setItem(STORAGE_KEY, JSON.stringify(store))
+    const next = structuredClone(store)
+    const removableThreads = next.threads
+        .filter(
+            (thread) =>
+                thread.id !== next.activeId &&
+                !thread.draft &&
+                !thread.messages.some((message) => message.status === 'waiting'),
+        )
+        .sort((a, b) => a.updatedAt - b.updatedAt)
+    while (next.threads.length > MAX_THREADS && removableThreads.length) {
+        const oldest = removableThreads.shift()
+        next.threads = next.threads.filter((thread) => thread.id !== oldest.id)
+    }
+    const history = next.threads
+        .flatMap((thread) =>
+            thread.messages
+                .filter((message) => message.status !== 'waiting')
+                .map((message) => ({ thread, message })),
+        )
+        .sort((a, b) => a.message.createdAt - b.message.createdAt)
+    let count = next.threads.reduce((total, thread) => total + thread.messages.length, 0)
+    let serialized = JSON.stringify(next)
+    while ((serialized.length > MAX_STORE_LENGTH || count > MAX_MESSAGES) && history.length) {
+        const { thread, message } = history.shift()
+        thread.messages = thread.messages.filter((item) => item.id !== message.id)
+        count--
+        serialized = JSON.stringify(next)
+    }
+    if (
+        serialized.length > MAX_STORE_LENGTH ||
+        count > MAX_MESSAGES ||
+        next.threads.length > MAX_THREADS
+    )
+        throw new Error('Conversation storage limit reached')
+    storage.setItem(STORAGE_KEY, serialized)
+    return next
 }
 export function activeThread(store) {
     return store.threads.find((thread) => thread.id === store.activeId)
 }
 export function commitStore(next, storage = localStorage) {
-    saveStore(next, storage)
-    return next
+    return saveStore(next, storage)
 }

@@ -3,6 +3,8 @@ import { defineMessages, injectNotificationManager, useVIntl } from '@modrinth/u
 import { invoke } from '@tauri-apps/api/core'
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
+import { agentWindowMessages } from './messages'
+
 const { formatMessage, locale } = useVIntl()
 const { handleError } = injectNotificationManager()
 const opening = ref(false)
@@ -10,6 +12,9 @@ const trigger = ref<HTMLButtonElement>()
 let windowOpened = false
 let appearanceObserver: MutationObserver | undefined
 let updateScheduled: number | undefined
+let updateNeeded = false
+let appearanceFlight: Promise<void> | undefined
+let disposed = false
 const messages = defineMessages({
     open: { id: 'app.agent-window.open', defaultMessage: 'Open agent window' },
     title: { id: 'app.agent-window.title', defaultMessage: 'Axolotl Agent Window' },
@@ -39,6 +44,12 @@ function windowAppearance() {
             scrollbar: resolve('--color-scrollbar'),
             scrollbar_track: resolve('--color-bg'),
             scrollbar_radius: getComputedStyle(probe).borderTopLeftRadius,
+            messages: Object.fromEntries(
+                Object.entries(agentWindowMessages).map(([key, message]) => [
+                    key,
+                    formatMessage(message),
+                ]),
+            ),
             labels: {
                 title: formatMessage(messages.title),
                 minimize: formatMessage(messages.minimize),
@@ -53,13 +64,35 @@ function windowAppearance() {
 }
 
 function scheduleAppearanceUpdate() {
-    if (!windowOpened || updateScheduled !== undefined) return
+    if (!windowOpened || disposed) return
+    updateNeeded = true
+    if (opening.value || appearanceFlight || updateScheduled !== undefined) return
     updateScheduled = requestAnimationFrame(() => {
         updateScheduled = undefined
-        void invoke('plugin:agent-window|update_agent_window_appearance', {
-            appearance: windowAppearance(),
-        }).catch(handleError)
+        void flushAppearanceUpdates()
     })
+}
+
+async function flushAppearanceUpdates() {
+    if (opening.value || appearanceFlight || disposed) return
+    appearanceFlight = (async () => {
+        while (updateNeeded && !opening.value && !disposed) {
+            updateNeeded = false
+            try {
+                await invoke('plugin:agent-window|update_agent_window_appearance', {
+                    appearance: windowAppearance(),
+                })
+            } catch (error) {
+                handleError(error)
+            }
+        }
+    })()
+    try {
+        await appearanceFlight
+    } finally {
+        appearanceFlight = undefined
+        if (updateNeeded) scheduleAppearanceUpdate()
+    }
 }
 
 onMounted(() => {
@@ -71,6 +104,7 @@ onMounted(() => {
 })
 watch(locale, scheduleAppearanceUpdate)
 onBeforeUnmount(() => {
+    disposed = true
     appearanceObserver?.disconnect()
     if (updateScheduled !== undefined) cancelAnimationFrame(updateScheduled)
 })
@@ -78,13 +112,19 @@ onBeforeUnmount(() => {
 async function openWindow() {
     if (opening.value) return
     opening.value = true
+    if (updateScheduled !== undefined) {
+        cancelAnimationFrame(updateScheduled)
+        updateScheduled = undefined
+    }
     try {
+        await appearanceFlight
         await invoke('plugin:agent-window|open_agent_window', { appearance: windowAppearance() })
         windowOpened = true
     } catch (error) {
         handleError(error)
     } finally {
         opening.value = false
+        if (windowOpened) scheduleAppearanceUpdate()
     }
 }
 </script>

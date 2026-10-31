@@ -5,19 +5,38 @@ import {
     loadStore,
     newThread,
     saveStore,
+    STORAGE_KEY,
 } from './state.js'
 import { dateLabel, setLocale, text } from './messages.js'
 
 const element = (id) => document.getElementById(id)
-const icon = (name) => `<svg aria-hidden="true"><use href="#i-${name}"/></svg>`
-const escape = (value) =>
-    String(value ?? '').replace(
-        /[&<>"']/g,
-        (character) =>
-            ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[character],
-    )
+function node(tag, className = '', children = []) {
+    const result = document.createElement(tag)
+    result.className = className
+    result.append(...(Array.isArray(children) ? children : [children]))
+    return result
+}
+function icon(name) {
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
+    svg.setAttribute('aria-hidden', 'true')
+    const use = document.createElementNS('http://www.w3.org/2000/svg', 'use')
+    use.setAttribute('href', `#i-${name}`)
+    svg.append(use)
+    return svg
+}
+function button(className, label, data, children = label) {
+    const result = node('button', className, children)
+    result.type = 'button'
+    if (label) {
+        result.setAttribute('aria-label', label)
+        result.title = label
+    }
+    Object.assign(result.dataset, data)
+    return result
+}
 let store
 let loadError = false
+let storageError = false
 try {
     store = loadStore()
 } catch {
@@ -214,8 +233,12 @@ function update(change, { renderView = true, motion = true } = {}) {
     const next = structuredClone(store)
     change(next, activeThread(next))
     try {
+        if (loadError) throw new Error('Saved history requires recovery')
         store = commitStore(next)
+        storageError = false
     } catch {
+        storageError = true
+        renderStorageBanner()
         notify(text('storageError'))
         return false
     }
@@ -245,7 +268,10 @@ function waitingMessages(thread = activeThread(store)) {
     return thread.messages.filter((message) => message.status === 'waiting')
 }
 function localize() {
-    setLocale(window.AgentHost?.appearance?.locale || document.documentElement.lang)
+    setLocale(
+        window.AgentHost?.appearance?.locale || document.documentElement.lang,
+        window.AgentHost?.appearance?.messages,
+    )
     document.querySelectorAll('[data-text]').forEach((node) => {
         node.textContent = text(node.dataset.text)
     })
@@ -268,18 +294,25 @@ function renderList() {
         .sort((a, b) => b.updatedAt - a.updatedAt)
     const today = new Date().toDateString()
     let previousGroup
-    element('conversation-list').innerHTML = visible.length
-        ? visible
-              .map((thread) => {
-                  const group =
-                      new Date(thread.updatedAt).toDateString() === today ? 'today' : 'earlier'
-                  const heading =
-                      group !== previousGroup ? `<div class="list-group">${text(group)}</div>` : ''
-                  previousGroup = group
-                  return `${heading}<button class="conversation-item${thread.id === store.activeId ? ' selected' : ''}" type="button" data-thread="${escape(thread.id)}" aria-current="${thread.id === store.activeId ? 'page' : 'false'}"><span class="thread-name">${escape(thread.title || text('untitled'))}</span>${waitingMessages(thread).length ? '<span class="pending-dot"></span>' : ''}</button>`
-              })
-              .join('')
-        : `<p class="list-empty">${text(search ? 'noResults' : 'noChats')}</p>`
+    const rows = []
+    for (const thread of visible) {
+        const group = new Date(thread.updatedAt).toDateString() === today ? 'today' : 'earlier'
+        if (group !== previousGroup) rows.push(node('div', 'list-group', text(group)))
+        previousGroup = group
+        const selected = thread.id === store.activeId
+        const row = button(
+            `conversation-item${selected ? ' selected' : ''}`,
+            '',
+            { thread: thread.id },
+            [node('span', 'thread-name', thread.title || text('untitled'))],
+        )
+        row.setAttribute('aria-current', selected ? 'page' : 'false')
+        if (waitingMessages(thread).length) row.append(node('span', 'pending-dot'))
+        rows.push(row)
+    }
+    element('conversation-list').replaceChildren(
+        ...(rows.length ? rows : [node('p', 'list-empty', text(search ? 'noResults' : 'noChats'))]),
+    )
 }
 function renderMessages() {
     const thread = activeThread(store)
@@ -296,12 +329,49 @@ function renderMessages() {
     element('messages').hidden = !thread.messages.length
     element('conversation-title').textContent = thread.title || text('untitled')
     element('conversation-more').hidden = !thread.messages.length && !thread.draft
-    element('messages').innerHTML = thread.messages
-        .map(
-            (message) =>
-                `<article class="message${displayedMessages.has(message.id) ? '' : ' message-arriving'}" data-message="${escape(message.id)}"><div class="user-message">${escape(message.text)}</div><div class="message-meta"><time>${dateLabel(message.createdAt)}</time><button class="icon-button copy-message" type="button" data-copy="${escape(message.id)}" title="${text('copy')}" aria-label="${text('copy')}">${icon('copy')}</button></div><div class="message-state${message.status === 'waiting' ? ' is-waiting' : ''}">${icon(message.status === 'waiting' ? 'clock' : 'stop')}<span>${text(message.status === 'waiting' ? 'waiting' : message.status === 'interrupted' ? 'interrupted' : 'stopped')}</span>${message.status === 'waiting' ? `<button type="button" class="text-button" data-action="toggle-tasks">${text('details')}</button><button type="button" class="text-button" data-cancel-request="${escape(message.id)}">${text('stop')}</button>` : ''}</div></article>`,
-        )
-        .join('')
+    element('messages').replaceChildren(
+        ...thread.messages.map((message) => {
+            const waiting = message.status === 'waiting'
+            const state = node('div', `message-state${waiting ? ' is-waiting' : ''}`, [
+                icon(waiting ? 'clock' : 'stop'),
+                node(
+                    'span',
+                    '',
+                    text(
+                        waiting
+                            ? 'waiting'
+                            : message.status === 'interrupted'
+                              ? 'interrupted'
+                              : 'stopped',
+                    ),
+                ),
+            ])
+            if (waiting)
+                state.append(
+                    button('text-button', text('details'), { action: 'toggle-tasks' }),
+                    button('text-button', text('stop'), { cancelRequest: message.id }),
+                )
+            const article = node(
+                'article',
+                `message${displayedMessages.has(message.id) ? '' : ' message-arriving'}`,
+                [
+                    node('div', 'user-message', message.text),
+                    node('div', 'message-meta', [
+                        node('time', '', dateLabel(message.createdAt)),
+                        button(
+                            'icon-button copy-message',
+                            text('copy'),
+                            { copy: message.id },
+                            icon('copy'),
+                        ),
+                    ]),
+                    state,
+                ],
+            )
+            article.dataset.message = message.id
+            return article
+        }),
+    )
 }
 function renderComposer() {
     const thread = activeThread(store)
@@ -319,7 +389,7 @@ function renderComposer() {
     if (input.value !== thread.draft) input.value = thread.draft
     resizeInput()
     const button = element('send-button')
-    button.innerHTML = icon('up')
+    button.replaceChildren(icon('up'))
     button.setAttribute('aria-label', text('send'))
     button.title = text('send')
     button.disabled = !thread.draft.trim()
@@ -330,8 +400,47 @@ function renderTasks() {
     const taskContext = pending.at(-1) || thread
     const model = selectedModel(taskContext)
     const instance = selectedInstance(taskContext)
-    element('task-content').innerHTML =
-        `<section class="task-section"><h3>${text('queued')}${pending.length ? `<span class="count">${pending.length}</span>` : ''}</h3>${pending.length ? pending.map((message) => `<div class="pending-request">${icon('clock')}<div><p>${escape(message.text)}</p><span>${text('executionDisconnected')}</span></div></div>`).join('') : `<p class="panel-empty">${text('queuedEmpty')}</p>`}</section><section class="task-section context-section"><h3>${text('context')}</h3><div class="instance-summary">${icon('cube')}<div><strong>${escape(instance?.name || (taskContext.instanceId ? text('contextRemoved') : text('allLauncher')))}</strong>${instance ? `<span>${escape([instance.loader, instance.game_version].filter(Boolean).join(' · '))}</span>` : ''}</div></div><dl><dt>${text('provider')}</dt><dd>${escape(model?.provider.name || text('unselected'))}</dd><dt>${text('modelLabel')}</dt><dd>${escape(model?.model.name || text('unselected'))}</dd></dl></section>`
+    const heading = node('h3', '', text('queued'))
+    if (pending.length) heading.append(node('span', 'count', String(pending.length)))
+    const queue = node('section', 'task-section', [heading])
+    queue.append(
+        ...(pending.length
+            ? pending.map((message) =>
+                  node('div', 'pending-request', [
+                      icon('clock'),
+                      node('div', '', [
+                          node('p', '', message.text),
+                          node('span', '', text('executionDisconnected')),
+                      ]),
+                  ]),
+              )
+            : [node('p', 'panel-empty', text('queuedEmpty'))]),
+    )
+    const instanceCopy = node('div', '', [
+        node(
+            'strong',
+            '',
+            instance?.name ||
+                (taskContext.instanceId ? text('contextRemoved') : text('allLauncher')),
+        ),
+    ])
+    if (instance)
+        instanceCopy.append(
+            node('span', '', [instance.loader, instance.game_version].filter(Boolean).join(' · ')),
+        )
+    element('task-content').replaceChildren(
+        queue,
+        node('section', 'task-section context-section', [
+            node('h3', '', text('context')),
+            node('div', 'instance-summary', [icon('cube'), instanceCopy]),
+            node('dl', '', [
+                node('dt', '', text('provider')),
+                node('dd', '', model?.provider.name || text('unselected')),
+                node('dt', '', text('modelLabel')),
+                node('dd', '', model?.model.name || text('unselected')),
+            ]),
+        ]),
+    )
 }
 function permissionsAvailable() {
     return (
@@ -413,11 +522,84 @@ async function savePermissions(next) {
 function renderBanner() {
     const banner = element('context-banner')
     banner.hidden = !contextError && (context.ai_enabled || loading)
-    banner.innerHTML = contextError
-        ? `<span>${text('contextError')}</span><button class="text-button" type="button" data-action="refresh-context">${text('retry')}</button>`
-        : `<span>${text('aiDisabled')}</span>`
+    banner.replaceChildren(node('span', '', text(contextError ? 'contextError' : 'aiDisabled')))
+    if (contextError)
+        banner.append(button('text-button', text('retry'), { action: 'refresh-context' }))
+}
+function renderStorageBanner() {
+    const banner = element('storage-banner')
+    banner.hidden = !loadError && !storageError
+    banner.replaceChildren(node('span', '', text(loadError ? 'storageRecovery' : 'storageError')))
+    if (loadError)
+        banner.append(
+            button('text-button', text('exportHistory'), { action: 'export-history' }),
+            button('text-button', text('resetHistory'), { action: 'reset-history' }),
+        )
+    else banner.append(button('text-button', text('retry'), { action: 'retry-storage' }))
+    banner.append(button('text-button', text('exportDraft'), { action: 'export-draft' }))
+}
+function hasMessageCatalog() {
+    const messages = window.AgentHost?.appearance?.messages
+    return (
+        messages &&
+        typeof messages === 'object' &&
+        !Array.isArray(messages) &&
+        Object.keys(messages).length > 0
+    )
+}
+function showCatalogError() {
+    const error = element('window-error')
+    error.dataset.catalogError = 'true'
+    error.textContent =
+        'Agent window message catalog is unavailable. Reopen the window from the launcher.'
+    error.hidden = false
+}
+function exportFile(name, content) {
+    const url = URL.createObjectURL(new Blob([content], { type: 'text/plain;charset=utf-8' }))
+    const link = document.createElement('a')
+    link.href = url
+    link.download = name
+    link.click()
+    setTimeout(() => URL.revokeObjectURL(url), 1000)
+}
+function exportHistory() {
+    try {
+        const raw = localStorage.getItem(STORAGE_KEY)
+        if (raw === null) throw new Error('History unavailable')
+        exportFile('axolotl-agent-history.json', raw)
+    } catch {
+        notify(text('storageExportError'))
+    }
+}
+function retryStorage(reset = false) {
+    if (loadError && !reset) return
+    try {
+        store = saveStore(store)
+        loadError = false
+        storageError = false
+        if (reset) element('storage-reset-dialog').close()
+        render()
+    } catch {
+        storageError = true
+        renderStorageBanner()
+        notify(text('storageError'))
+    }
 }
 function render() {
+    const catalogReady = hasMessageCatalog()
+    element('workspace').hidden = !catalogReady
+    element('guide-button').hidden = !catalogReady
+    element('settings-button').hidden = !catalogReady
+    if (!catalogReady) {
+        showCatalogError()
+        return false
+    }
+    const error = element('window-error')
+    if (error.dataset.catalogError) {
+        delete error.dataset.catalogError
+        error.textContent = ''
+        error.hidden = true
+    }
     localize()
     element('workspace').classList.toggle('sidebar-collapsed', !store.sidebarOpen)
     element('workspace').classList.toggle('tasks-open', taskOpen)
@@ -440,8 +622,10 @@ function render() {
     renderTasks()
     renderSettings()
     renderBanner()
+    renderStorageBanner()
     for (const message of activeThread(store).messages) displayedMessages.add(message.id)
     firstRender = false
+    return true
 }
 function resizeInput() {
     const input = element('message-input')
@@ -449,14 +633,24 @@ function resizeInput() {
     input.style.height = `${Math.min(180, Math.max(76, input.scrollHeight))}px`
 }
 function refreshContext() {
-    if (disposed || !window.AgentHost?.getContext) return Promise.resolve()
+    if (disposed || !hasMessageCatalog() || !window.AgentHost?.getContext) return Promise.resolve()
     if (contextFlight) return contextFlight
     const request = ++contextRequest
     loading = true
     renderBanner()
-    contextFlight = (async () => {
+    let timeout
+    const flight = (async () => {
         try {
-            const next = structuredClone(await window.AgentHost.getContext())
+            const result = await Promise.race([
+                Promise.resolve().then(() => window.AgentHost.getContext()),
+                new Promise((_, reject) => {
+                    timeout = setTimeout(
+                        () => reject(new Error('Context request timed out')),
+                        15_000,
+                    )
+                }),
+            ])
+            const next = structuredClone(result)
             if (request !== contextRequest || disposed) return
             const normalized = {
                 ai_enabled: next.ai_enabled === true,
@@ -501,15 +695,17 @@ function refreshContext() {
         } catch {
             if (request === contextRequest && !disposed) contextError = true
         } finally {
+            clearTimeout(timeout)
             if (request === contextRequest && !disposed) {
                 loading = false
                 renderBanner()
             }
         }
     })().finally(() => {
-        contextFlight = null
+        if (contextFlight === flight) contextFlight = null
     })
-    return contextFlight
+    contextFlight = flight
+    return flight
 }
 function openPicker(kind) {
     refreshContext()
@@ -537,10 +733,14 @@ function openPicker(kind) {
 function renderPicker() {
     const query = element('picker-search').value.toLocaleLowerCase()
     const thread = activeThread(store)
-    let html = ''
+    const options = []
+    const empty = (title, description) =>
+        node('div', 'picker-empty', [
+            node('strong', '', text(title)),
+            ...(description ? [node('p', '', text(description))] : []),
+        ])
     if (pickerKind === 'model') {
-        if (!context.ai_enabled)
-            html = `<div class="picker-empty"><strong>${text('aiDisabled')}</strong><p>${text('aiDisabledHint')}</p></div>`
+        if (!context.ai_enabled) options.push(empty('aiDisabled', 'aiDisabledHint'))
         else
             for (const provider of context.providers) {
                 const models = provider.models.filter((model) =>
@@ -549,28 +749,69 @@ function renderPicker() {
                         .includes(query),
                 )
                 if (!models.length) continue
-                html += `<div class="picker-group">${escape(provider.name)}</div>${models.map((model) => `<button class="picker-option" type="button" data-provider="${escape(provider.provider_id)}" data-model="${escape(model.id)}"><span><strong>${escape(model.name)}</strong><small>${escape(model.id)}</small></span>${thread.selection?.provider_id === provider.provider_id && thread.selection?.model_id === model.id ? icon('check') : ''}</button>`).join('')}`
+                options.push(node('div', 'picker-group', provider.name))
+                for (const model of models) {
+                    const option = button(
+                        'picker-option',
+                        '',
+                        { provider: provider.provider_id, model: model.id },
+                        [
+                            node('span', '', [
+                                node('strong', '', model.name),
+                                node('small', '', model.id),
+                            ]),
+                        ],
+                    )
+                    if (
+                        thread.selection?.provider_id === provider.provider_id &&
+                        thread.selection?.model_id === model.id
+                    )
+                        option.append(icon('check'))
+                    options.push(option)
+                }
             }
-        if (!html)
-            html = `<div class="picker-empty"><strong>${text(query ? 'noModelMatches' : 'noModels')}</strong>${query ? '' : `<p>${text('configureModel')}</p>`}</div>`
+        if (!options.length)
+            options.push(
+                empty(query ? 'noModelMatches' : 'noModels', query ? null : 'configureModel'),
+            )
     } else {
-        if (!query || text('allLauncher').toLocaleLowerCase().includes(query))
-            html = `<button class="picker-option" type="button" data-instance="">${icon('cube')}<span><strong>${text('allLauncher')}</strong><small>${text('allLauncherHint')}</small></span>${!thread.instanceId ? icon('check') : ''}</button>`
+        if (!query || text('allLauncher').toLocaleLowerCase().includes(query)) {
+            const option = button('picker-option', '', { instance: '' }, [
+                icon('cube'),
+                node('span', '', [
+                    node('strong', '', text('allLauncher')),
+                    node('small', '', text('allLauncherHint')),
+                ]),
+            ])
+            if (!thread.instanceId) option.append(icon('check'))
+            options.push(option)
+        }
         const instances = context.instances.filter((instance) =>
             `${instance.name} ${instance.game_version} ${instance.loader}`
                 .toLocaleLowerCase()
                 .includes(query),
         )
-        html += instances
-            .map(
-                (instance) =>
-                    `<button class="picker-option" type="button" data-instance="${escape(instance.id)}">${icon('cube')}<span><strong>${escape(instance.name)}</strong><small>${escape([instance.loader, instance.game_version].filter(Boolean).join(' · '))}</small></span>${thread.instanceId === instance.id ? icon('check') : ''}</button>`,
-            )
-            .join('')
+        for (const instance of instances) {
+            const option = button('picker-option', '', { instance: instance.id }, [
+                icon('cube'),
+                node('span', '', [
+                    node('strong', '', instance.name),
+                    node(
+                        'small',
+                        '',
+                        [instance.loader, instance.game_version].filter(Boolean).join(' · '),
+                    ),
+                ]),
+            ])
+            if (thread.instanceId === instance.id) option.append(icon('check'))
+            options.push(option)
+        }
         if (!instances.length)
-            html += `<div class="picker-empty">${text(query ? 'noInstanceMatches' : 'noInstances')}</div>`
+            options.push(
+                node('div', 'picker-empty', text(query ? 'noInstanceMatches' : 'noInstances')),
+            )
     }
-    element('picker-options').innerHTML = html
+    element('picker-options').replaceChildren(...options)
 }
 function stopWaiting(messageId) {
     update((next, thread) => {
@@ -653,6 +894,11 @@ function openEdit(kind) {
     }
 }
 const actions = {
+    'export-history': exportHistory,
+    'export-draft': () => exportFile('axolotl-agent-draft.txt', activeThread(store).draft),
+    'reset-history': () => openDialog('storage-reset-dialog'),
+    'confirm-reset-history': () => retryStorage(true),
+    'retry-storage': () => retryStorage(),
     'toggle-sidebar': (event) =>
         transitionWorkspace(
             () =>
@@ -773,15 +1019,26 @@ element('composer').addEventListener('submit', (event) => {
 })
 element('message-input').addEventListener('input', (event) => {
     const value = event.target.value
+    const previousMessageCount = activeThread(store).messages.length
     // Keep unsaved text in memory when storage is unavailable; sending is transactional.
     activeThread(store).draft = value
     try {
-        saveStore(store)
+        if (loadError) throw new Error('Saved history requires recovery')
+        store = saveStore(store)
+        storageError = false
     } catch {
+        storageError = true
         notify(text('storageError'))
+    }
+    if (activeThread(store).messages.length !== previousMessageCount) {
+        renderMessages()
+        renderTasks()
     }
     renderComposer()
     renderList()
+    renderStorageBanner()
+    element('conversation-more').hidden =
+        !activeThread(store).messages.length && !activeThread(store).draft
 })
 element('message-input').addEventListener('keydown', (event) => {
     if (event.key === 'Enter' && !event.shiftKey && !event.isComposing) {
@@ -861,18 +1118,31 @@ document.addEventListener('keydown', (event) => {
     }
 })
 let booted = false
+async function revealWindow() {
+    for (let attempt = 0; attempt < 3 && !disposed; attempt++) {
+        try {
+            await window.AgentHost?.reveal?.()
+            return
+        } catch {
+            if (attempt === 2) {
+                if (hasMessageCatalog()) notify(text('windowRevealError'))
+                else showCatalogError()
+            } else await new Promise((resolve) => setTimeout(resolve, 500))
+        }
+    }
+}
 async function boot() {
     if (booted) return
     booted = true
     await window.AgentHost?.ready
     render()
     document.documentElement.dataset.ready = 'true'
-    await window.AgentHost?.reveal?.()
     refreshContext()
+    void revealWindow()
 }
 window.addEventListener('agent-host-ready', boot)
 window.addEventListener('agent-appearance-updated', () => {
-    if (booted) render()
+    if (booted && render()) refreshContext()
 })
 window.addEventListener('focus', () => {
     refreshContext()
@@ -885,6 +1155,7 @@ window.addEventListener('pagehide', () => {
     cancelContentMotion()
     disposed = true
     ++contextRequest
+    contextFlight = null
     ++permissionRequest
     clearTimeout(noticeTimer)
 })
@@ -901,4 +1172,4 @@ window.addEventListener('resize', () => {
     if (element('picker').matches(':popover-open')) element('picker').hidePopover()
 })
 await boot()
-if (loadError) notify(text('storageLoadError'))
+if (loadError && hasMessageCatalog()) notify(text('storageLoadError'))

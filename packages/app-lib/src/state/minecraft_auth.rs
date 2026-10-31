@@ -1380,7 +1380,7 @@ struct MinecraftToken {
     // pub expires_in: u64,
 }
 
-#[tracing::instrument]
+#[tracing::instrument(skip(token))]
 async fn minecraft_token(
     token: DeviceToken,
 ) -> Result<MinecraftToken, MinecraftAuthenticationError> {
@@ -1851,6 +1851,58 @@ pub struct DeviceTokenKey {
     pub key: SigningKey,
     pub x: String,
     pub y: String,
+}
+
+#[cfg(test)]
+mod token_tracing_tests {
+    use super::*;
+    use tracing_subscriber::layer::{Context, SubscriberExt};
+    use tracing_subscriber::{Layer, Registry};
+
+    #[derive(Clone, Default)]
+    struct TokenSpanFields(Arc<std::sync::Mutex<Option<Vec<String>>>>);
+
+    impl Layer<Registry> for TokenSpanFields {
+        fn on_new_span(
+            &self,
+            attributes: &tracing::span::Attributes<'_>,
+            _id: &tracing::span::Id,
+            _context: Context<'_, Registry>,
+        ) {
+            if attributes.metadata().name() == "minecraft_token" {
+                *self.0.lock().unwrap() = Some(
+                    attributes
+                        .metadata()
+                        .fields()
+                        .iter()
+                        .map(|field| field.name().to_string())
+                        .collect(),
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn minecraft_token_span_does_not_record_credentials() {
+        let captured = TokenSpanFields::default();
+        let subscriber = Registry::default().with(captured.clone());
+        let result = tracing::subscriber::with_default(subscriber, || {
+            futures::executor::block_on(minecraft_token(DeviceToken {
+                issue_instant: Utc::now(),
+                not_after: Utc::now() + Duration::hours(1),
+                token: "xbox-token-must-not-be-logged".to_string(),
+                display_claims: HashMap::new(),
+            }))
+        });
+
+        assert!(matches!(
+            result,
+            Err(MinecraftAuthenticationError::NoUserHash)
+        ));
+        let fields = captured.0.lock().unwrap();
+        let fields = fields.as_ref().expect("minecraft_token span was created");
+        assert!(fields.is_empty(), "credential span fields: {fields:?}");
+    }
 }
 
 #[tracing::instrument]

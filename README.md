@@ -181,6 +181,16 @@ nix profile add 'git+https://github.com/Axolotl-Launcher/Axolotl'
 
 </details>
 
+## 贡献者
+
+感谢所有为 Axolotl Launcher 做出贡献的开发者与社区伙伴！
+
+<a href="https://github.com/Axolotl-Launcher/Axolotl/graphs/contributors">
+  <img src="https://contributors.hikarilink.org/image?repo=Axolotl-Launcher/Axolotl" alt="Contributors" />
+</a>
+
+---
+
 ## 参与项目开发
 
 Axolotl Launcher 的进步离不开社区的反馈与贡献。

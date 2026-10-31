@@ -71,6 +71,22 @@ _(注：本项目是调用 Modrinth 公开 API 的独立客户端，与 Rinth, I
 - **高度定制化**：无论是主题色调、背景图片，还是离线皮肤，核心功能与视觉展现均由你自由支配。
 - **All in one 全新体验**：启动器内置 “实验室” 功能，囊括种子地图、投影工坊等海量使用工具，带来全新原生轮椅体验。
 
+## 核心架构与技术栈
+
+Axolotl Launcher 采用现代化的混合架构（Hybrid Architecture），兼具原生应用的卓越性能与 Web 前端的灵活性：
+
+- **桌面运行时核心 (Rust / Tauri)**：
+  - **高效后端 (`packages/app-lib`)**：基于 Rust 构建，提供强类型实例管理、SQLite 状态持久化、迁移控制与多线程并发下载引擎。
+  - **安全容器 (`apps/app`)**：基于 Tauri 2 构建的轻量原生壳，实现高效的 IPC 调用与原生系统级集成。
+- **现代化前端界面 (Vue 3 / Nuxt 3 / Tailwind CSS)**：
+  - **桌面客户端 (`apps/app-frontend`)** 与 **官方网站 (`apps/website`)** 共享统一的设计系统 (`packages/ui`)，带来丝滑顺畅的交互体验。
+- **开放内容与生态集成 (`packages/content-management` & `packages/api-client`)**：
+  - 深度集成 Modrinth 与 CurseForge 公开 API，支持一键浏览、搜索、安装及自动更新模组、整合包、光影和资源包。
+- **账户与个性化 (`Minecraft Auth` & `Skins`)**：
+  - 支持正版微软登录（Microsoft Authentication）、Yggdrasil 第三方验证及离线皮肤管理。
+- **全能实验室工具箱 (`Launcher Tools`)**：
+  - 内置投影工坊、种子地图等实用辅助工具，打造一站式 Minecraft 游戏与创作体验。
+
 ## 下载与安装
 
 请前往 [GitHub Releases](https://github.com/Axolotl-Launcher/Axolotl/releases/latest) 下载适合你操作系统的最新安装包。

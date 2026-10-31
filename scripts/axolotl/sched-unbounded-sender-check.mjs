@@ -1,7 +1,9 @@
-// L0 posts without waiting (spec T3.3): inside the L0 module there is no
-// unbounded channel and no `.send(..).await`; delivery goes through the
-// bounded `L0Queue` with `try_send`. The ban is scoped to the L0 module only;
-// the rest of the workspace keeps its existing unbounded channels.
+// L0 posts without waiting (spec T3.3): inside the L0 module the event
+// delivery path has no unbounded channel and no `.send(..).await`; delivery
+// goes through the bounded `L0Queue` with `try_send`. (The executor's one-shot
+// startup handshake uses `std::sync::mpsc`; it carries a handle once and is
+// not an event path.) The ban is scoped to the L0 module only; the rest of the
+// workspace keeps its existing unbounded channels.
 //
 // Usage: node scripts/axolotl/sched-unbounded-sender-check.mjs
 
@@ -31,5 +33,5 @@ if (isMain(import.meta.url)) {
         for (const failure of failures) console.error(failure)
         process.exit(1)
     }
-    console.log('no unbounded channel and no awaited send inside L0')
+    console.log('no unbounded event channel and no awaited send inside L0')
 }

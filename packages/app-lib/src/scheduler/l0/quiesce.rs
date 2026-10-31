@@ -6,9 +6,11 @@
 //! (a) the task holds no resource, (b) no state transition is half done,
 //! (c) returning now is safe, and (d) the current unit is not blocked on a
 //! shared resource. (a) and (d) are checked statically: the L0 module may not
-//! acquire a total-order resource (`sched-l0-resource-check.mjs`). (b) and (c)
-//! are the task's contract. At run time every safety point is recorded as
-//! `L0_SAFETY_POINT_AT` in the control table.
+//! acquire a total-order resource, and the L0 functions that stay in their
+//! original files may only await their allowlisted callees and may not touch
+//! database, event, spawn or file work (`sched-l0-resource-check.mjs`). (b)
+//! and (c) are the task's contract. At run time every safety point is
+//! recorded as `L0_SAFETY_POINT_AT` in the control table.
 
 use std::ops::ControlFlow;
 use std::sync::Arc;
@@ -65,6 +67,7 @@ mod tests {
     use super::*;
     use std::sync::atomic::{AtomicUsize, Ordering};
     use std::time::Duration;
+    use tokio::sync::Notify;
 
     #[tokio::test]
     async fn quiesce_finishes_the_current_unit_then_returns() {

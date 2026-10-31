@@ -201,8 +201,10 @@ mod tests {
             .await
         });
         assert_eq!(
-            result.expect("L0 does not queue behind the occupied shared pool"),
-            Ok(7)
+            result
+                .expect("L0 does not queue behind the occupied shared pool")
+                .expect("the L0 blocking task ran"),
+            7
         );
         release.wait();
         shared.block_on(occupier).unwrap();

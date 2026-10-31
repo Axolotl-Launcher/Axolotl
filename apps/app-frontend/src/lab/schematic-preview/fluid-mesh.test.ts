@@ -183,6 +183,48 @@ it('a neighbour without data keeps the surface where a solid neighbour keeps it'
     ).toBeGreaterThan(corner(AIR))
 })
 
+it('the surface and the side faces share one rim', () => {
+    // Vanilla lowers the four corners while it draws the top face and raises the sides to the same
+    // edge. A rim at two different heights leaves a notch that sees into the fluid volume.
+    const mesh = getSchematicFluidMesh({
+        state: water(),
+        atlas: atlas(),
+        cull: { down: true },
+    })
+    const [surface, ...sides] = mesh?.quads ?? []
+    const rim = 8 / 9 - 0.001
+    expect(surface.vertices()).toHaveLength(4)
+    for (const vertex of surface.vertices()) expect(vertex.pos.y).toBeCloseTo(rim, 9)
+    expect(sides).toHaveLength(4)
+    for (const side of sides) {
+        expect(Math.max(...side.vertices().map((vertex) => vertex.pos.y))).toBeCloseTo(rim, 9)
+    }
+})
+
+it('only the side faces are pulled inside the block bounds', () => {
+    // The surface keeps the whole block so two cells of the same fluid meet edge to edge even
+    // though the face between them is culled.
+    const mesh = getSchematicFluidMesh({
+        state: water(),
+        atlas: atlas(),
+        cull: { down: true, east: true, south: true },
+    })
+    const quads = mesh?.quads ?? []
+    const surface = quads[0]
+    for (const axis of ['x', 'z'] as const) {
+        const values = surface.vertices().map((vertex) => vertex.pos[axis])
+        expect(Math.min(...values)).toBeCloseTo(0, 9)
+        expect(Math.max(...values)).toBeCloseTo(1, 9)
+    }
+    const onSide = (value: number) =>
+        Math.abs(value - 0.001) < 1e-9 || Math.abs(value - 0.999) < 1e-9
+    for (const side of quads.slice(1)) {
+        for (const vertex of side.vertices()) {
+            expect(onSide(vertex.pos.x) || onSide(vertex.pos.z)).toBe(true)
+        }
+    }
+})
+
 it('side faces rise to the corner heights and crop the flowing sprite to them', () => {
     const mesh = getSchematicFluidMesh({
         state: water(),

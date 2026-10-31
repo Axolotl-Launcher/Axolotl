@@ -379,38 +379,26 @@ export function getSchematicSpecialBlockMesh(
 const WATERLOGGED_FLUID_INSET = 1 / 64
 
 /**
- * Vanilla keeps the fluid of a waterlogged block flush with the block bounds, where it shares
- * planes with the host block's own faces. Translucent geometry is drawn after opaque geometry with
- * `depthFunc: LessEqual`, so a flush fluid would paint over cutout blocks such as leaves. Pulling
- * the fluid a fraction of a pixel inside keeps it visible only through the host block's gaps.
+ * Fluid held by a waterlogged block, meshed apart from the block so it can stay translucent.
+ *
+ * Vanilla keeps the fluid flush with the block bounds, where it shares planes with the host block's
+ * own faces. Translucent geometry is drawn after opaque geometry with `depthFunc: LessEqual`, so a
+ * flush fluid would paint over cutout blocks such as leaves. Pulling the side faces a fraction of a
+ * pixel inside keeps the fluid visible only through the host block's gaps, while the surface and the
+ * floor keep the full block extent so two neighbouring fluids meet instead of leaving a gap.
  */
-function insetWaterloggedFluid(mesh: Mesh) {
-    const inset = (value: number) =>
-        value <= 0 ? WATERLOGGED_FLUID_INSET : value >= 1 ? 1 - WATERLOGGED_FLUID_INSET : value
-    for (const quad of mesh.quads) {
-        for (const vertex of quad.vertices()) {
-            vertex.pos = new Vector(inset(vertex.pos.x), inset(vertex.pos.y), inset(vertex.pos.z))
-        }
-    }
-    return mesh
-}
-
-/** Fluid held by a waterlogged block, meshed apart from the block so it can stay translucent. */
 export function getSchematicWaterloggedFluidMesh(
     state: SchematicBlockState,
     atlas: TextureAtlasProvider,
     cull: Cull,
 ) {
     if (!isSchematicWaterlogged(state)) return undefined
-    // The fluid stays flat: it is inset away from every block boundary, so sloping it towards the
-    // surrounding blocks would open a seam along the host block instead of joining them.
-    const fluid = getSchematicFluidMesh({
+    return getSchematicFluidMesh({
         state: { name: 'minecraft:water', properties: { level: '0' } },
         atlas,
         cull,
-        inset: 0,
+        inset: WATERLOGGED_FLUID_INSET,
     })
-    return fluid ? insetWaterloggedFluid(fluid) : undefined
 }
 
 function seamlessGlassId(name: string) {

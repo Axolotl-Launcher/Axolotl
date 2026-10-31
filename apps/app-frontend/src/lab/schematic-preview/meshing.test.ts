@@ -258,22 +258,67 @@ it('waterlogged blocks mesh their fluid inside the block bounds', () => {
     expect(requested).toEqual(
         new Set(['minecraft:block/water_still', 'minecraft:block/water_flow']),
     )
-    const vertices = fluid?.quads.flatMap((quad) => quad.vertices()) ?? []
+    const quads = fluid?.quads ?? []
+    const vertices = quads.flatMap((quad) => quad.vertices())
     expect(vertices).toHaveLength(24)
-    const surface = 8 / 9
-    expect(Math.max(...vertices.map((vertex) => vertex.pos.y))).toBeCloseTo(surface, 6)
+    const rim = 8 / 9 - 0.001
+    expect(Math.max(...vertices.map((vertex) => vertex.pos.y))).toBeCloseTo(rim, 6)
     expect(
-        vertices.filter((vertex) => Math.abs(vertex.pos.y - surface) < 1e-6),
-        'the four sides rise to the fluid height, the top surface sits just below it',
-    ).toHaveLength(8)
+        vertices.filter((vertex) => Math.abs(vertex.pos.y - rim) < 1e-6),
+        'the surface and the four side faces share one rim, so the edge stays closed',
+    ).toHaveLength(12)
+    // The surface and the floor keep the whole block, so two neighbouring fluids meet instead of
+    // leaving a gap; only the side faces are pulled inside the host block.
+    const axis = (name: 'x' | 'z') => vertices.map((vertex) => vertex.pos[name])
+    expect(Math.min(...axis('x'))).toBeCloseTo(0, 6)
+    expect(Math.max(...axis('x'))).toBeCloseTo(1, 6)
+    expect(Math.min(...axis('z'))).toBeCloseTo(0, 6)
+    expect(Math.max(...axis('z'))).toBeCloseTo(1, 6)
+    expect(
+        vertices.filter(
+            (vertex) =>
+                Math.abs(vertex.pos.x - 1 / 64) < 1e-6 ||
+                Math.abs(vertex.pos.x - 63 / 64) < 1e-6 ||
+                Math.abs(vertex.pos.z - 1 / 64) < 1e-6 ||
+                Math.abs(vertex.pos.z - 63 / 64) < 1e-6,
+        ),
+        'only the four side faces sit inside the block bounds',
+    ).toHaveLength(16)
     for (const vertex of vertices) {
         for (const coordinate of [vertex.pos.x, vertex.pos.y, vertex.pos.z]) {
-            expect(coordinate).toBeGreaterThan(0)
-            expect(coordinate).toBeLessThan(1)
+            expect(coordinate).toBeGreaterThanOrEqual(0)
+            expect(coordinate).toBeLessThanOrEqual(1)
         }
     }
     expect(vertices[0].color[2]).toBeGreaterThan(0.8)
     expect(vertices[0].color[0]).toBeLessThan(0.3)
+})
+
+it('adjacent waterlogged cells meet at the face they share', () => {
+    // The fluid face between two water-holding cells is culled, so nothing covers a gap if the two
+    // volumes pull apart. The surface has to reach the block bounds for the join to close.
+    const meshFor = (cull: Cull) =>
+        getSchematicWaterloggedFluidMesh(
+            { name: 'minecraft:oak_leaves', properties: { waterlogged: 'true' } },
+            trackingAtlas(new Set()),
+            cull,
+        )
+    const east = Cull.none()
+    east.east = true
+    const west = Cull.none()
+    west.west = true
+    // Only the surface matters: the side faces span the whole block along the axis they do not face,
+    // so a surface that stops short would still show the block bounds through them.
+    const span = (mesh: Mesh | undefined) =>
+        (mesh?.quads[0].vertices() ?? []).map((vertex) => vertex.pos.x)
+    expect(
+        Math.max(...span(meshFor(east))),
+        'the eastern cell reaches the face it shares with its neighbour',
+    ).toBeCloseTo(1, 9)
+    expect(
+        Math.min(...span(meshFor(west))),
+        'the western cell reaches the face it shares with its neighbour',
+    ).toBeCloseTo(0, 9)
 })
 
 it('waterlogged fluid follows the neighbor cull', () => {

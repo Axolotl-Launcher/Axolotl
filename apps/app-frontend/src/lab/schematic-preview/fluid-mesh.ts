@@ -167,6 +167,10 @@ function addQuad(
  * Vanilla fluid geometry: the top surface is a quad whose four corners come from the neighbouring
  * cells, and the side faces rise to those corners, so water flowing between two levels connects with
  * a slope instead of one flat box per cell.
+ *
+ * Only the side faces are pulled inside the block bounds. The surface and the floor keep the full
+ * block extent, so two cells of the same fluid meet edge to edge even though the face between them
+ * is culled.
  */
 export function getSchematicFluidMesh(options: SchematicFluidMeshOptions): Mesh | undefined {
     const { state, atlas, cull, neighborhood } = options
@@ -179,6 +183,14 @@ export function getSchematicFluidMesh(options: SchematicFluidMeshOptions): Mesh 
     const southWest = corner(0, 1)
     const southEast = corner(1, 1)
     const northEast = corner(1, 0)
+    // Vanilla lowers the four corners by the face inset while it draws the top face, and the side
+    // faces rise to the same lowered edge. Lifting the sides to the raw corners instead leaves a
+    // notch along the whole rim that sees straight into the fluid volume.
+    const drop = cull.up ? 0 : FLUID_FACE_INSET
+    const rimNorthWest = northWest - drop
+    const rimSouthWest = southWest - drop
+    const rimSouthEast = southEast - drop
+    const rimNorthEast = northEast - drop
     const floor = cull.down ? 0 : inset
 
     const still = atlas.getTextureUV(Identifier.parse(FLUID_STILL_TEXTURE))
@@ -187,17 +199,14 @@ export function getSchematicFluidMesh(options: SchematicFluidMeshOptions): Mesh 
     const mesh = new Mesh()
 
     if (!cull.up) {
-        const surface = [northWest, southWest, southEast, northEast].map(
-            (value) => value - FLUID_FACE_INSET,
-        )
         const direction = surfaceFlow(northWest, southWest, southEast, northEast)
         addQuad(
             mesh,
             [
-                [0, surface[0], 0],
-                [0, surface[1], 1],
-                [1, surface[2], 1],
-                [1, surface[3], 0],
+                [0, rimNorthWest, 0],
+                [0, rimSouthWest, 1],
+                [1, rimSouthEast, 1],
+                [1, rimNorthEast, 0],
             ],
             direction ? flow : still,
             direction
@@ -240,29 +249,29 @@ export function getSchematicFluidMesh(options: SchematicFluidMeshOptions): Mesh 
             face: 'north',
             first: [0, inset],
             second: [1, inset],
-            firstHeight: northWest,
-            secondHeight: northEast,
+            firstHeight: rimNorthWest,
+            secondHeight: rimNorthEast,
         },
         {
             face: 'south',
             first: [1, 1 - inset],
             second: [0, 1 - inset],
-            firstHeight: southEast,
-            secondHeight: southWest,
+            firstHeight: rimSouthEast,
+            secondHeight: rimSouthWest,
         },
         {
             face: 'west',
             first: [inset, 1],
             second: [inset, 0],
-            firstHeight: southWest,
-            secondHeight: northWest,
+            firstHeight: rimSouthWest,
+            secondHeight: rimNorthWest,
         },
         {
             face: 'east',
             first: [1 - inset, 0],
             second: [1 - inset, 1],
-            firstHeight: northEast,
-            secondHeight: southEast,
+            firstHeight: rimNorthEast,
+            secondHeight: rimSouthEast,
         },
     ] as const
 

@@ -8,7 +8,7 @@ import {
 } from 'deepslate'
 
 import type { SchematicBlockState } from './backend'
-import { SCHEMATIC_FLUID_OPACITY } from './materials'
+import { SCHEMATIC_WATER_OPACITY } from './materials'
 import { getSchematicWaterloggedFluidMesh } from './meshing'
 import type { LoadedSchematicResources, SchematicWorkerResources } from './resources'
 
@@ -274,7 +274,7 @@ export function renderSchematicBlockPreview(
         traceTriangle(context, points)
         context.clip()
         // The swatch blends its fluid exactly like the scene does, so the two never disagree.
-        if (triangle.translucent) context.globalAlpha = SCHEMATIC_FLUID_OPACITY
+        if (triangle.translucent) context.globalAlpha = SCHEMATIC_WATER_OPACITY
         if (!drewTexture) {
             context.fillStyle = '#8c9692'
             context.fillRect(0, 0, target.width, target.height)

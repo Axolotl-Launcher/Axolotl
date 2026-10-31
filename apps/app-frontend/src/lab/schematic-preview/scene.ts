@@ -86,7 +86,8 @@ export class SchematicPreviewScene {
     private materials: Record<SchematicMaterialKind, THREE.MeshLambertMaterial> = {
         opaque: this.createMaterial('opaque'),
         translucent: this.createMaterial('translucent'),
-        fluid: this.createMaterial('fluid'),
+        water: this.createMaterial('water'),
+        lava: this.createMaterial('lava'),
     }
     private grid?: THREE.Group
     private selection = new THREE.Group()

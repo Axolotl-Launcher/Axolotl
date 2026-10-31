@@ -5,7 +5,7 @@ import { createBlockGeometry } from './block-geometry'
 import { isSchematicAir } from './editing'
 import type { SchematicFluidNeighborhood } from './fluid-mesh'
 import { getSchematicFluidMesh, isSchematicFluidBlock, schematicFluidKind } from './fluid-mesh'
-import { schematicFluidMeshLayer, type SchematicMaterialKind } from './materials'
+import type { SchematicMaterialKind } from './materials'
 import {
     applySeamlessSchematicGlassUvs,
     getSchematicFluidCull,
@@ -61,7 +61,8 @@ export type SchematicMeshWorkerResponse =
           chunkPosition: [number, number, number]
           opaque: SchematicMeshData
           translucent: SchematicMeshData
-          fluid: SchematicMeshData
+          water: SchematicMeshData
+          lava: SchematicMeshData
           missing: string[]
       }
     | { type: 'error'; epoch: number; jobId?: string; message: string }
@@ -292,7 +293,8 @@ function buildChunk(message: WorkerMeshMessage) {
     const buffers: Record<SchematicMaterialKind, MeshBuffers> = {
         opaque: emptyBuffers(),
         translucent: emptyBuffers(),
-        fluid: emptyBuffers(),
+        water: emptyBuffers(),
+        lava: emptyBuffers(),
     }
     const missing = new Set<string>()
     const chunkOrigin = message.chunkPosition.map((value) => value * 16) as [number, number, number]
@@ -378,10 +380,8 @@ function buildChunk(message: WorkerMeshMessage) {
                             ),
                             neighborhood: fluidNeighborhood(x, y, z),
                         })
-                        // Lava draws with the solid blocks, water in its own blended pass.
-                        if (fluid && kind) {
-                            appendBlockMesh(buffers[schematicFluidMeshLayer(kind)], fluid, position)
-                        }
+                        // Each fluid keeps its own pass, so its opacity never follows another's.
+                        if (fluid && kind) appendBlockMesh(buffers[kind], fluid, position)
                     } catch {
                         // A fluid carries no other geometry, so a failed fluid only loses the fluid.
                     }
@@ -423,7 +423,7 @@ function buildChunk(message: WorkerMeshMessage) {
                         getSchematicFluidCull([x, y, z], blocks, neighborFaces, palette, cull),
                         fluidNeighborhood(x, y, z),
                     )
-                    if (fluid) appendBlockMesh(buffers.fluid, fluid, position)
+                    if (fluid) appendBlockMesh(buffers.water, fluid, position)
                 } catch {
                     // The host mesh is already appended; dropping the fluid keeps it intact.
                 }
@@ -439,14 +439,16 @@ function buildChunk(message: WorkerMeshMessage) {
         chunkPosition: message.chunkPosition,
         opaque: toMeshData(buffers.opaque),
         translucent: toMeshData(buffers.translucent),
-        fluid: toMeshData(buffers.fluid),
+        water: toMeshData(buffers.water),
+        lava: toMeshData(buffers.lava),
         missing: [...missing],
     }
     if (response.type !== 'mesh') return
     workerScope.postMessage(response, [
         ...transferables(response.opaque),
         ...transferables(response.translucent),
-        ...transferables(response.fluid),
+        ...transferables(response.water),
+        ...transferables(response.lava),
     ])
 }
 

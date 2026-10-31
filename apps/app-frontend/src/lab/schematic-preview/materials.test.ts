@@ -1,51 +1,52 @@
 import { describe, expect, it } from 'vitest'
 
 import {
-    SCHEMATIC_FLUID_OPACITY,
+    SCHEMATIC_LAVA_OPACITY,
     SCHEMATIC_MATERIAL_KINDS,
     SCHEMATIC_TRANSLUCENT_OPACITY,
-    schematicFluidMeshLayer,
+    SCHEMATIC_WATER_OPACITY,
     schematicMaterialSettings,
 } from './materials'
 
 describe('schematic materials', () => {
     it('draws water more opaque than glass, but still see-through', () => {
-        const fluid = schematicMaterialSettings('fluid')
+        const water = schematicMaterialSettings('water')
         const translucent = schematicMaterialSettings('translucent')
 
-        expect(fluid.transparent).toBe(true)
-        expect(fluid.opacity).toBe(SCHEMATIC_FLUID_OPACITY)
+        expect(water.transparent).toBe(true)
+        expect(water.opacity).toBe(SCHEMATIC_WATER_OPACITY)
         expect(translucent.opacity).toBe(SCHEMATIC_TRANSLUCENT_OPACITY)
-        expect(fluid.opacity).toBeGreaterThan(translucent.opacity)
-        expect(fluid.opacity).toBeLessThan(1)
+        expect(water.opacity).toBeGreaterThan(translucent.opacity)
+        expect(water.opacity).toBeLessThan(1)
     })
 
-    it('only the solid pass is opaque and writes depth', () => {
-        const opaque = schematicMaterialSettings('opaque')
-        expect(opaque).toEqual({
+    it('keeps lava a translucent block, nearly solid and still hiding what it covers', () => {
+        const lava = schematicMaterialSettings('lava')
+
+        expect(lava.transparent).toBe(true)
+        expect(lava.opacity).toBe(SCHEMATIC_LAVA_OPACITY)
+        expect(lava.opacity).toBeGreaterThan(SCHEMATIC_WATER_OPACITY)
+        expect(lava.opacity).toBeLessThan(1)
+        expect(lava.alphaTest).toBe(0)
+        expect(lava.depthWrite).toBe(true)
+    })
+
+    it('only the solid pass is opaque and clips on alpha', () => {
+        expect(schematicMaterialSettings('opaque')).toEqual({
             transparent: false,
             alphaTest: 0.08,
             opacity: 1,
             depthWrite: true,
         })
-        for (const kind of ['translucent', 'fluid'] as const) {
-            expect(schematicMaterialSettings(kind)).toMatchObject({
-                transparent: true,
-                alphaTest: 0,
-                depthWrite: false,
-            })
+        for (const kind of ['translucent', 'water', 'lava'] as const) {
+            expect(schematicMaterialSettings(kind).transparent).toBe(true)
         }
-    })
-
-    it('draws lava with the solid blocks, since it is opaque in the game', () => {
-        expect(schematicFluidMeshLayer('lava')).toBe('opaque')
-        expect(schematicFluidMeshLayer('water')).toBe('fluid')
     })
 
     it('builds every pass, so no geometry lands in a pass nothing renders', () => {
         expect(new Set(SCHEMATIC_MATERIAL_KINDS).size).toBe(SCHEMATIC_MATERIAL_KINDS.length)
         expect([...SCHEMATIC_MATERIAL_KINDS]).toEqual(
-            expect.arrayContaining(['opaque', 'translucent', 'fluid']),
+            expect.arrayContaining(['opaque', 'translucent', 'water', 'lava']),
         )
     })
 })

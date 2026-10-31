@@ -261,11 +261,11 @@ async function generateChunk(chunk: [number, number, number]) {
             ) * 3
         for (const layer of Object.keys(layers) as UndergroundLayer[]) {
             // Water blends in its own pass, so it keeps the opacity the schematic preview uses.
-            const fluid = layer === 'water'
+            const water = layer === 'water'
             scene.setChunk(
                 layer,
                 chunk,
-                fluid ? { fluid: mesh.layers[layer] } : { opaque: mesh.layers[layer] },
+                water ? { water: mesh.layers[layer] } : { opaque: mesh.layers[layer] },
             )
             scene.setChunkOffset(layer, chunk, offset)
         }

@@ -110,6 +110,7 @@ import {
     selectSchematicMaterial,
 } from '@/lab/schematic-preview/editing'
 import type {
+    SchematicMeshData,
     SchematicMeshWorkerRequest,
     SchematicMeshWorkerResponse,
 } from '@/lab/schematic-preview/mesh-worker'
@@ -758,19 +759,13 @@ function handleWorkerMessage(slot: WorkerSlot, message: SchematicMeshWorkerRespo
     if (message.type === 'mesh') {
         const chunk = chunkCache.get(schematicChunkKey(message.regionId, message.chunkPosition))
         const palette = manifest.value?.palette
+        const visible = (mesh: SchematicMeshData) =>
+            chunk && palette ? filterSchematicAirGeometry(mesh, chunk, palette) : mesh
         scene?.setChunk(message.regionId, message.chunkPosition, {
-            opaque:
-                chunk && palette
-                    ? filterSchematicAirGeometry(message.opaque, chunk, palette)
-                    : message.opaque,
-            translucent:
-                chunk && palette
-                    ? filterSchematicAirGeometry(message.translucent, chunk, palette)
-                    : message.translucent,
-            fluid:
-                chunk && palette
-                    ? filterSchematicAirGeometry(message.fluid, chunk, palette)
-                    : message.fluid,
+            opaque: visible(message.opaque),
+            translucent: visible(message.translucent),
+            water: visible(message.water),
+            lava: visible(message.lava),
         })
         for (const name of message.missing) missingBlocks.add(name)
     } else {

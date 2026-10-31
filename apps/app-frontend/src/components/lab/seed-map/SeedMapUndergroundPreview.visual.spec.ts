@@ -340,7 +340,7 @@ it('targets visible block coordinates after chunk translation and ignores hidden
         scene.setRegions([{ id: 'terrain', min: [0, 0, 0], max: [5, 5, 5] }])
         scene.setChunk('terrain', [0, 0, 0], {
             opaque: mesh.layers.terrain,
-            fluid: mesh.layers.water,
+            water: mesh.layers.water,
         })
         scene.setChunkOffset('terrain', [0, 0, 0], [10, 20, 30])
         scene.setCameraPosition([15, 25, 35])

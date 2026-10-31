@@ -70,6 +70,10 @@ export const GOLDEN = {
         'theseus_gui::api::mod_translation::ACTIVE_LOCKS',
         'theseus_gui::api::mod_translation::ANALYSES',
         'theseus_gui::api::mod_translation::TASKS',
+        'theseus_gui::api::instance::UPGRADE_PLANNING',
+        'theseus_gui::api::instance::EARLY_UPGRADE_PLANNING_CANCELS',
+        'theseus_gui::api::mod_translation::ANALYSIS_REQUESTS',
+        'theseus_gui::api::seed_map::ORE_SCANS',
         'theseus_gui::api::mod_translation::TaskHandle.event_gate',
         'theseus_gui::api::mod_translation::TaskHandle.snapshot',
         'theseus_gui::api::resources::EARLY_CANCELLATIONS',
@@ -102,6 +106,10 @@ if (isMain(import.meta.url)) {
     const apps = inventory.items.filter((item) => item.crate === 'apps/app' && item.kind === 'static' && item.status === 'registered')
     for (const [set, idents] of Object.entries(GOLDEN)) console.log(`${set}: ${idents.length - missing.filter((entry) => entry.set === set).length}/${idents.length} present`)
     console.log(`apps/app/src registered lock statics in G: ${apps.length} (design lower bound >= 15)`)
+    if (apps.length < 15) {
+        console.error(`apps/app/src registered lock statics fell to ${apps.length}; the design lower bound is 15`)
+        process.exit(1)
+    }
     if (missing.length > 0) {
         for (const { set, ident } of missing) console.error(`missing ${set}: ${ident}`)
         process.exit(1)

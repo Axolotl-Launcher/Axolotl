@@ -281,6 +281,15 @@ jobs:
       - name: Test the store collections
         if: runner.os == 'Linux'
         run: cargo test --package theseus state::store::tests
+      # The scheduler: tags and their cap, supervision, and the
+      # critical-section API. Hermetic (timers, temp dirs, in-memory sqlite);
+      # Linux only for matrix cost. These suites were in no filter, so the
+      # Node gates were the only thing watching the scheduler.
+      - name: Test the scheduler
+        if: runner.os == 'Linux'
+        run: |
+          cargo test --package theseus scheduler::
+          cargo test --package theseus install::critical_section
       # The account secrets: a row keeps a secret the credential store will not
       # take, and moving the rows into the store keeps the rows it already moved.
       # Hermetic (in-memory sqlite, and a store substituted for the platform's).

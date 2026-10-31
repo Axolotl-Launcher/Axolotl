@@ -182,6 +182,8 @@ pub struct State {
     download_sample_throttles: AtomicU64,
     pub(crate) install_job_semaphore: Semaphore,
     pub(crate) install_db_semaphore: Semaphore,
+    #[cfg(test)]
+    install_db_permit_timeout: AtomicU64,
     pub(crate) install_admission_locks: DashMap<String, Arc<AsyncMutex<()>>>,
     pub(crate) install_execution_locks: DashMap<String, Arc<AsyncMutex<()>>>,
     pub(crate) install_job_cancellations: DashMap<Uuid, CancellationToken>,
@@ -196,8 +198,11 @@ pub struct State {
 
     /// Gate pausing maintenance loops that only serve the launcher UI.
     pub(crate) maintenance_gate: MaintenanceGate,
-    /// Handles for the long-running maintenance loops, aborted on shutdown.
-    pub(crate) background_tasks: Mutex<Vec<tokio::task::JoinHandle<()>>>,
+    /// Abort handles of the long-running maintenance loops, used on shutdown.
+    pub(crate) background_tasks: Mutex<Vec<tokio::task::AbortHandle>>,
+    /// Tracks the same loops so shutdown can wait for them; the tracker never
+    /// aborts anything itself, so it sits beside the abort handles.
+    pub(crate) background_tracker: tokio_util::task::TaskTracker,
 
     // NOTE: we explicitly must NOT store the app identifier in the state object,
     // because creating the state object is fallible (e.g. database missing),
@@ -710,30 +715,27 @@ impl State {
             );
         }
 
-        let config_sync_task = tokio::task::spawn({
+        state.spawn_background({
             let state = Arc::clone(state);
             async move {
                 instances::config_sync::run(state).await;
             }
         });
-        state.background_tasks.lock().push(config_sync_task);
 
-        let concurrency_task = tokio::spawn({
+        state.spawn_background({
             let state = Arc::clone(state);
             async move {
                 state.run_auto_concurrency_controller().await;
             }
         });
-        state.background_tasks.lock().push(concurrency_task);
 
         crate::telemetry::start(Arc::clone(state));
 
-        let preload_task = tokio::spawn(async move {
+        state.spawn_background(async move {
             crate::google_ip::preload().await;
         });
-        state.background_tasks.lock().push(preload_task);
 
-        let maintenance_task = tokio::spawn({
+        state.spawn_background({
             let state = Arc::clone(state);
             async move {
                 crate::util::fetch::cleanup_stale_partial_downloads(vec![
@@ -762,7 +764,6 @@ impl State {
                 // Axolotl does not connect to Modrinth's private friends socket.
             }
         });
-        state.background_tasks.lock().push(maintenance_task);
 
         Ok(())
     }
@@ -1003,6 +1004,9 @@ impl State {
         self: &Arc<Self>,
         settings: &Settings,
     ) {
+        crate::util::download::telemetry::set_enabled(
+            settings.advanced_download_info_enabled(),
+        );
         self.minecraft_metadata_source
             .store(settings.minecraft_metadata_source as u8, Ordering::Relaxed);
         self.minecraft_file_source
@@ -1220,10 +1224,28 @@ impl State {
         self.maintenance_gate.set_paused(false);
     }
 
+    /// Runs a long-lived maintenance loop that shutdown aborts. A loop
+    /// registered after shutdown began is aborted at once, so none outlives it.
+    pub(crate) fn spawn_background(
+        &self,
+        task: impl std::future::Future<Output = ()> + Send + 'static,
+    ) {
+        let handle = self.background_tracker.spawn(task);
+        let mut tasks = self.background_tasks.lock();
+        // Shutdown closes the tracker before it drains this list, so a
+        // registration either lands before the drain or sees the close.
+        if self.background_tracker.is_closed() {
+            handle.abort();
+        } else {
+            tasks.push(handle.abort_handle());
+        }
+    }
+
     /// Aborts the maintenance loops and closes the Discord IPC connection;
     /// intended for the app-exit path.
     pub async fn shutdown(&self) {
         self.content_refresh.shutdown().await;
+        self.background_tracker.close();
         for task in self.background_tasks.lock().drain(..) {
             task.abort();
         }
@@ -1261,6 +1283,11 @@ impl State {
             "Could not find valid settings dir".to_string(),
         ))?;
         store::secrets::identify(&settings_dir);
+        // The settings are composed from the documents in this directory from
+        // here on, and the read below sizes the semaphores and the client the
+        // launcher starts with: a root named after it would leave the launch
+        // running on the rows.
+        documents::settings::identify(&settings_dir);
 
         tracing::info!("Connecting to app database");
         let pool = db::connect(&app_identifier).await?;
@@ -1284,6 +1311,9 @@ impl State {
             &app_identifier,
         )
         .await?;
+        crate::util::download::telemetry::set_enabled(
+            settings.advanced_download_info_enabled(),
+        );
         let download_concurrency =
             settings.effective_max_concurrent_downloads();
         let fetch_semaphore =
@@ -1319,11 +1349,25 @@ impl State {
 
         documents::hand_over(&pool, &directories.settings_dir).await;
 
-        if !legacy.java_versions.is_empty() {
-            let documents = documents::Documents::at(
-                directories.settings_dir.join(documents::DIR_NAME),
-                &pool,
+        let documents = documents::Documents::at(
+            directories.settings_dir.join(documents::DIR_NAME),
+            &pool,
+        )
+        .with_config_root(documents::config_root());
+        // A deployment changes a value by changing its own document, so a local
+        // copy that repeats the old one has to go: it would shadow the change
+        // forever. This is the one place that drops them, because a read must
+        // never write to disk.
+        if let Err(error) =
+            documents::settings::prune_redundant(&documents).await
+        {
+            tracing::warn!(
+                %error,
+                "Failed to drop the settings entries a provided value covers"
             );
+        }
+
+        if !legacy.java_versions.is_empty() {
             if let Err(error) =
                 JavaVersion::save_all(&documents, &legacy.java_versions).await
             {
@@ -1396,12 +1440,15 @@ impl State {
             install_admission_locks: DashMap::new(),
             install_execution_locks: DashMap::new(),
             install_db_semaphore: Semaphore::new(1),
+            #[cfg(test)]
+            install_db_permit_timeout: AtomicU64::new(20_000),
             install_job_cancellations: DashMap::new(),
             install_job_operation_locks: DashMap::new(),
             discord_rpc,
             process_manager,
             maintenance_gate: MaintenanceGate::new(),
             background_tasks: Mutex::new(Vec::new()),
+            background_tracker: tokio_util::task::TaskTracker::new(),
             friends_socket,
             restart_after_pending_update: AtomicBool::new(false),
             instance_locks: Arc::new(InstanceLockManager::default()),
@@ -1454,22 +1501,36 @@ impl State {
     pub(crate) async fn acquire_install_db_permit(
         &self,
     ) -> crate::Result<tokio::sync::SemaphorePermit<'_>> {
-        let permit = tokio::time::timeout(
-            Duration::from_secs(20),
-            self.install_db_semaphore.acquire(),
-        )
-        .await
-        .map_err(|_| {
-            crate::ErrorKind::InputError(
-                "Timed out waiting for the install database writer".to_string(),
-            )
-        })?
-        .map_err(|_| {
-            crate::ErrorKind::OtherError(
-                "install database semaphore closed".to_string(),
-            )
-        })?;
+        #[cfg(test)]
+        let timeout = Duration::from_millis(
+            self.install_db_permit_timeout.load(Ordering::Relaxed),
+        );
+        #[cfg(not(test))]
+        let timeout = Duration::from_secs(20);
+        let permit =
+            tokio::time::timeout(timeout, self.install_db_semaphore.acquire())
+                .await
+                .map_err(|_| {
+                    crate::ErrorKind::InputError(
+                        "Timed out waiting for the install database writer"
+                            .to_string(),
+                    )
+                })?
+                .map_err(|_| {
+                    crate::ErrorKind::OtherError(
+                        "install database semaphore closed".to_string(),
+                    )
+                })?;
         Ok(permit)
+    }
+
+    #[cfg(test)]
+    pub(crate) fn set_install_db_permit_timeout_for_test(
+        &self,
+        timeout: Duration,
+    ) {
+        self.install_db_permit_timeout
+            .store(timeout.as_millis().max(1) as u64, Ordering::Relaxed);
     }
 
     pub(crate) async fn lock_instance_content_exclusive(
@@ -1591,12 +1652,15 @@ pub(crate) async fn test_state(
         install_admission_locks: DashMap::new(),
         install_execution_locks: DashMap::new(),
         install_db_semaphore: Semaphore::new(1),
+        #[cfg(test)]
+        install_db_permit_timeout: AtomicU64::new(20_000),
         install_job_cancellations: DashMap::new(),
         install_job_operation_locks: DashMap::new(),
         discord_rpc: DiscordGuard::init()?,
         process_manager: ProcessManager::new(),
         maintenance_gate: MaintenanceGate::new(),
         background_tasks: Mutex::new(Vec::new()),
+        background_tracker: tokio_util::task::TaskTracker::new(),
         friends_socket: FriendsSocket::new(),
         restart_after_pending_update: AtomicBool::new(false),
         instance_locks: Arc::new(InstanceLockManager::default()),
@@ -1996,5 +2060,114 @@ mod uninitialized_state_tests {
                 );
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod shutdown_tests {
+    use super::*;
+    use std::future::Future;
+
+    async fn fixture() -> (tempfile::TempDir, Arc<State>) {
+        let temp = tempfile::tempdir().unwrap();
+        let directories = DirectoryInfo {
+            settings_dir: temp.path().into(),
+            config_dir: temp.path().into(),
+            app_identifier: "shutdown-test".into(),
+        };
+        let pool = sqlx::sqlite::SqlitePoolOptions::new()
+            .max_connections(2)
+            .connect_with(
+                sqlx::sqlite::SqliteConnectOptions::new()
+                    .filename(temp.path().join("state.db"))
+                    .create_if_missing(true)
+                    .foreign_keys(true),
+            )
+            .await
+            .unwrap();
+        sqlx::migrate!().run(&pool).await.unwrap();
+        let state = test_state(directories, pool).await.unwrap();
+        (temp, state)
+    }
+
+    fn register(
+        state: &State,
+        task: impl Future<Output = ()> + Send + 'static,
+    ) {
+        state.spawn_background(task);
+    }
+
+    /// Sets its flag when the task owning it is dropped, i.e. aborted.
+    struct DropFlag(Arc<AtomicBool>);
+
+    impl Drop for DropFlag {
+        fn drop(&mut self) {
+            self.0.store(true, Ordering::SeqCst);
+        }
+    }
+
+    fn pending_task(
+        flag: &Arc<AtomicBool>,
+    ) -> impl Future<Output = ()> + use<> {
+        let guard = DropFlag(flag.clone());
+        async move {
+            let _guard = guard;
+            std::future::pending::<()>().await;
+        }
+    }
+
+    async fn all_dropped(flags: &[Arc<AtomicBool>]) -> bool {
+        tokio::time::timeout(Duration::from_secs(2), async {
+            while !flags.iter().all(|flag| flag.load(Ordering::SeqCst)) {
+                tokio::task::yield_now().await;
+            }
+        })
+        .await
+        .is_ok()
+    }
+
+    #[tokio::test]
+    async fn shutdown_aborts_every_background_task() {
+        let (_temp, state) = fixture().await;
+        let flags: Vec<_> =
+            (0..3).map(|_| Arc::new(AtomicBool::new(false))).collect();
+        for flag in &flags {
+            register(&state, pending_task(flag));
+        }
+        state.shutdown().await;
+        assert!(all_dropped(&flags).await, "every task must be aborted");
+        assert!(state.background_tasks.lock().is_empty());
+    }
+
+    #[tokio::test]
+    async fn shutdown_does_not_wait_for_background_tasks() {
+        let (_temp, state) = fixture().await;
+        let flag = Arc::new(AtomicBool::new(false));
+        register(&state, pending_task(&flag));
+        tokio::time::timeout(Duration::from_secs(2), state.shutdown())
+            .await
+            .expect("shutdown returns while a task never finishes");
+        assert!(all_dropped(&[flag]).await);
+    }
+
+    #[tokio::test]
+    async fn loops_registered_after_shutdown_do_not_survive_it() {
+        let (_temp, state) = fixture().await;
+        state.shutdown().await;
+        let flag = Arc::new(AtomicBool::new(false));
+        register(&state, pending_task(&flag));
+        assert!(all_dropped(&[flag]).await, "a late loop is aborted at once");
+        assert!(state.background_tasks.lock().is_empty());
+    }
+
+    #[tokio::test]
+    async fn repeated_shutdown_is_harmless() {
+        let (_temp, state) = fixture().await;
+        let flag = Arc::new(AtomicBool::new(false));
+        register(&state, pending_task(&flag));
+        state.shutdown().await;
+        state.shutdown().await;
+        assert!(all_dropped(&[flag]).await);
+        assert!(state.background_tasks.lock().is_empty());
     }
 }

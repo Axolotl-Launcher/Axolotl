@@ -3,6 +3,7 @@
 mod backup;
 mod content;
 mod core_components;
+
 mod get;
 mod groups;
 mod home;
@@ -23,6 +24,19 @@ pub(crate) mod synced_packs {
 mod synced_packs_axolotl;
 pub(crate) mod synced_servers;
 mod upgrade;
+
+/// Coordinate direct file edits with installation admission and content writers.
+/// Keep the opaque guard alive until the filesystem operation has finished.
+pub async fn lock_content_file_edit(
+    instance_id: &str,
+) -> crate::Result<impl Send + use<>> {
+    let state = crate::State::get().await?;
+    let admission =
+        crate::install::runner::interactive_content_guard(&state, instance_id)
+            .await?;
+    let content = state.lock_instance_content_exclusive(instance_id).await;
+    Ok((admission, content))
+}
 
 pub use self::backup::{
     BackupDeleteSummary, BackupExclusion, BackupExclusionKind, BackupOperation,

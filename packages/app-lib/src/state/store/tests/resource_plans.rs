@@ -12,6 +12,17 @@ async fn handle() -> Handle {
     support::handle_with_instances(&["instance"]).await
 }
 
+/// The same database, with the job a plan is queued as.
+///
+/// A plan's `job_id` is a foreign key into `install_jobs`, so the row the queue
+/// step names has to be written before the step runs.
+async fn handle_with_install_job() -> Handle {
+    let pool = support::pool().await;
+    support::add_instance(&pool, "instance").await;
+    support::seed_install_job(&pool, "job", None).await;
+    Handle::new(pool)
+}
+
 #[tokio::test]
 async fn a_plan_answers_the_completion_of_the_revision_it_stored() {
     let handle = handle().await;
@@ -197,7 +208,7 @@ async fn the_instance_and_job_a_plan_carries_read_back() {
 
 #[tokio::test]
 async fn a_plan_is_queued_once() {
-    let handle = handle().await;
+    let handle = handle_with_install_job().await;
     ResourceOperationPlans::insert_prepared(
         &handle,
         "plan",

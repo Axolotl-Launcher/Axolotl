@@ -6,6 +6,7 @@ import {
     LogInIcon,
     PlusIcon,
     RotateCounterClockwiseIcon,
+    SearchIcon,
     SpinnerIcon,
 } from '@modrinth/assets'
 import {
@@ -34,6 +35,7 @@ import { onBeforeRouteLeave, useRouter } from 'vue-router'
 import type AccountsCard from '@/components/ui/AccountsCard.vue'
 import ArmorTrimTab from '@/components/ui/skin/ArmorTrimTab.vue'
 import EditSkinModal from '@/components/ui/skin/EditSkinModal.vue'
+import PlayerSkinModal from '@/components/ui/skin/PlayerSkinModal.vue'
 import SkinListSkeleton from '@/components/ui/skin/SkinListSkeleton.vue'
 import VirtualSkinSectionList from '@/components/ui/skin/VirtualSkinSectionList.vue'
 import { useMojangAuthStatus } from '@/composables/useMojangAuth'
@@ -78,6 +80,10 @@ type VirtualSkinSectionListExpose = {
 const PENDING_SKIN_REFRESH_DELAY_MS = 11_000
 const DEFAULT_SKIN_SECTION_SORT_ORDER = ['Default skins']
 const messages = defineMessages({
+    findPlayerSkin: {
+        id: 'app.skins.player.title',
+        defaultMessage: 'Find player skin',
+    },
     skinSelectorTitle: {
         id: 'app.skins.title',
         defaultMessage: 'Skin selector',
@@ -227,6 +233,7 @@ const messages = defineMessages({
  */
 const ARMOR_TRIM_PANEL_ID = 'skins-armor-trim-panel'
 const editSkinModal = useTemplateRef('editSkinModal')
+const playerSkinModal = useTemplateRef('playerSkinModal')
 const addSkinFileInput = useTemplateRef<HTMLInputElement>('addSkinFileInput')
 const skinSectionList = useTemplateRef<VirtualSkinSectionListExpose>('skinSectionList')
 const skinPreviewArea = useTemplateRef<HTMLElement>('skinPreviewArea')
@@ -310,6 +317,7 @@ const mojangAuth = useMojangAuthStatus()
 const accountsCard = inject('accountsCard') as Ref<typeof AccountsCard>
 const currentUser = ref(undefined)
 const currentUserId = ref<string | undefined>(undefined)
+watch(currentUserId, () => playerSkinModal.value?.hide())
 const currentAccountType = ref<'microsoft' | 'offline' | 'yggdrasil' | undefined>(undefined)
 const isAccountLoading = ref(true)
 const isSkinLibraryLoading = ref(true)
@@ -1146,6 +1154,12 @@ watch(offline, () => {
 </script>
 
 <template>
+    <PlayerSkinModal
+        ref="playerSkinModal"
+        :read-only="isSkinManagementReadOnly"
+        :saved-skins="skins"
+        @saved="onSkinSaved"
+    />
     <EditSkinModal
         ref="editSkinModal"
         :capes="capes"
@@ -1292,10 +1306,15 @@ watch(offline, () => {
                     mode="local"
                     @tab-click="selectSkinListTab"
                 />
-                <Button type="colored" color="brand" @click="router.push('/lab/skin-editor')"
-                    ><PlusIcon />
-                    {{ formatMessage(messages.createSkinButton) }}
-                </Button>
+                <div class="flex flex-wrap gap-2">
+                    <Button @click="playerSkinModal?.show($event)">
+                        <SearchIcon />{{ formatMessage(messages.findPlayerSkin) }}
+                    </Button>
+                    <Button type="colored" color="brand" @click="router.push('/lab/skin-editor')"
+                        ><PlusIcon />
+                        {{ formatMessage(messages.createSkinButton) }}
+                    </Button>
+                </div>
             </div>
             <Transition name="armor-tab" mode="out-in">
                 <div

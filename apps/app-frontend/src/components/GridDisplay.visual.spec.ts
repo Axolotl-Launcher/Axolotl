@@ -63,6 +63,9 @@ vi.mock('@/components/ui/library/InstanceGroup.vue', async () => {
                 'isCollapsed',
                 'selectedInstanceIds',
                 'runningInstanceIds',
+                'groupName',
+                'grouping',
+                'showGameDirectory',
             ],
             setup:
                 (props, { emit }) =>
@@ -70,6 +73,11 @@ vi.mock('@/components/ui/library/InstanceGroup.vue', async () => {
                     h(
                         'section',
                         {
+                            'data-instance-section': '',
+                            'data-group-name': props.groupName,
+                            'data-grouping': props.grouping,
+                            'data-show-game-directory': String(props.showGameDirectory),
+                            'data-count': String(props.instances.length),
                             'data-running-supplied': String(
                                 props.runningInstanceIds instanceof Set,
                             ),
@@ -112,7 +120,22 @@ vi.mock('@modrinth/ui', async () => {
                 () =>
                     h('button', slots.default?.()),
         }),
-        Combobox: control,
+        Combobox: defineComponent({
+            props: ['options'],
+            setup:
+                (props, { slots }) =>
+                () =>
+                    h(
+                        'div',
+                        {
+                            'data-options': JSON.stringify(
+                                props.options?.map((option: { value: string }) => option.value) ??
+                                    [],
+                            ),
+                        },
+                        slots.default?.(),
+                    ),
+        }),
         PopoutMenu: control,
         Admonition: control,
         FloatingActionBar: defineComponent({
@@ -336,4 +359,78 @@ it('supplies the shared running-process set to every instance group', async () =
     const groups = wrapper.findAll('[data-running-supplied]')
     expect(groups.length).toBeGreaterThan(0)
     for (const group of groups) expect(group.attributes('data-running-supplied')).toBe('true')
+})
+
+it('groups by game directory, keeps the full-set badge threshold, and persists collapse', async () => {
+    localStorage.setItem(
+        'directory-test-grid-display-state',
+        JSON.stringify({
+            group: 'Game directory',
+            sortBy: 'Name',
+            sortDirections: {},
+            collapsedGroups: [],
+        }),
+    )
+    const wrapper = mount(GridDisplay, {
+        props: {
+            label: 'directory-test',
+            instances: [
+                {
+                    id: 'managed',
+                    name: 'Managed',
+                    groups: [],
+                },
+                {
+                    id: 'external-a',
+                    name: 'External A',
+                    groups: [],
+                    game_dir_override: String.raw`D:\Minecraft\.minecraft`,
+                },
+                {
+                    id: 'external-b',
+                    name: 'External B',
+                    groups: [],
+                    game_dir_override: String.raw`D:\Minecraft\.minecraft\versions\1.21`,
+                },
+            ] as GameInstance[],
+        },
+        global: { directives: { tooltip: {} } },
+    })
+    mounted.push(wrapper)
+    await flushPromises()
+
+    const optionControls = wrapper.findAll('[data-options]')
+    expect(
+        optionControls.some((control) =>
+            control.attributes('data-options')?.includes('"Game directory"'),
+        ),
+    ).toBe(true)
+
+    let sections = wrapper.findAll('[data-instance-section]')
+    expect(sections.map((section) => section.attributes('data-group-name'))).toEqual([
+        'Axolotl data directory',
+        String.raw`D:\Minecraft\.minecraft`,
+    ])
+    expect(sections.map((section) => section.attributes('data-count'))).toEqual(['1', '2'])
+    expect(
+        sections.every(
+            (section) =>
+                section.attributes('data-grouping') === 'Game directory' &&
+                section.attributes('data-show-game-directory') === 'true',
+        ),
+    ).toBe(true)
+
+    await wrapper.get('input[type="text"]').setValue('Managed')
+    sections = wrapper.findAll('[data-instance-section]')
+    expect(sections).toHaveLength(1)
+    expect(sections[0].attributes('data-group-name')).toBe('Axolotl data directory')
+    expect(sections[0].attributes('data-count')).toBe('1')
+    expect(sections[0].attributes('data-show-game-directory')).toBe('true')
+
+    await button(wrapper, 'Collapse').trigger('click')
+    await flushPromises()
+    expect(
+        JSON.parse(localStorage.getItem('directory-test-grid-display-state') ?? '{}')
+            .collapsedGroups,
+    ).toContain('Game directory:managed')
 })

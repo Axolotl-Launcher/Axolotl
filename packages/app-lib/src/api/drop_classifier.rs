@@ -1457,28 +1457,13 @@ fn extract_zip_to_dir_with_cancellation(
     Ok(())
 }
 
-/// Normalize a ZIP entry name into a safe relative path that stays inside the
-/// extraction directory. Returns `None` for absolute paths or entries
-/// containing `..` (zip-slip protection).
+/// Normalize a ZIP entry name into a portable safe relative path. Returns
+/// `None` for traversal, absolute paths, Windows aliases, or device names.
 fn sanitize_zip_entry_name(name: &str) -> Option<PathBuf> {
     // The ZIP spec mandates `/` separators, but tolerate backslashes from
     // Windows-authored archives.
     let normalized = name.replace('\\', "/");
-    let path = Path::new(&normalized);
-    if path.is_absolute() {
-        return None;
-    }
-    let mut safe = PathBuf::new();
-    for component in path.components() {
-        match component {
-            std::path::Component::Normal(part) => safe.push(part),
-            std::path::Component::CurDir => {}
-            std::path::Component::ParentDir
-            | std::path::Component::RootDir
-            | std::path::Component::Prefix(_) => return None,
-        }
-    }
-    Some(safe)
+    crate::util::io::safe_relative_join(Path::new(""), &normalized).ok()
 }
 
 // ─── Step 3: Launcher EXE ──────────────────────────────────────────────────
@@ -3999,6 +3984,24 @@ mod tests {
             .expect_err("an archive with no safe entries must fail");
         assert!(error.contains("No ZIP entries could be extracted"));
         assert!(!out_dir.path().join("evil.txt").exists());
+    }
+
+    #[test]
+    fn sanitize_zip_entry_name_rejects_windows_path_aliases() {
+        for name in [
+            "config/.. /outside.txt",
+            "config/file.",
+            "config/file ",
+            "config/NUL",
+            "config/file:stream",
+            r"config\..\outside.txt",
+        ] {
+            assert!(sanitize_zip_entry_name(name).is_none(), "{name:?}");
+        }
+        assert_eq!(
+            sanitize_zip_entry_name(r"config\example.toml").unwrap(),
+            PathBuf::from("config/example.toml")
+        );
     }
 
     #[test]

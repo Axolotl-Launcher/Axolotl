@@ -31,6 +31,7 @@ pub(crate) mod retired_sources;
 pub(crate) mod route_health;
 pub(crate) mod route_policy;
 pub(crate) mod stream_output;
+pub mod telemetry;
 pub(crate) mod verified_file;
 pub(crate) fn task_concurrency_limit(state: &crate::State) -> Option<usize> {
     Some(state.download_concurrency())

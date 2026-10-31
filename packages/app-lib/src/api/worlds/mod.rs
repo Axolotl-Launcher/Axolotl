@@ -43,6 +43,32 @@ use tokio::task::JoinSet;
 use tokio_util::compat::FuturesAsyncWriteCompatExt;
 use url::Url;
 
+static SERVER_LIST_WRITE: tokio::sync::Mutex<()> =
+    tokio::sync::Mutex::const_new(());
+
+/// The visible fields at a server-list index when the caller read it. Checked
+/// mutations reject stale indexes while holding the launcher's list-write lock.
+pub struct ServerEntryExpectation {
+    pub name: String,
+    pub address: String,
+    pub pack_status: ServerPackStatus,
+}
+
+fn check_server_entry(
+    server: &servers_data::ServerData,
+    expected: Option<&ServerEntryExpectation>,
+) -> Result<()> {
+    if expected.is_some_and(|expected| {
+        server.name != expected.name
+            || server.ip != expected.address
+            || server.accept_textures
+                != Option::<bool>::from(expected.pack_status)
+    }) {
+        return Err(ErrorKind::InputError("Server list changed; refresh the entry before editing or removing it".into()).into());
+    }
+    Ok(())
+}
+
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct WorldWithInstance {
     pub instance_id: String,
@@ -884,6 +910,7 @@ pub async fn add_server_to_instance(
     project_id: Option<String>,
     content_kind: Option<String>,
 ) -> Result<usize> {
+    let _guard = SERVER_LIST_WRITE.lock().await;
     let state = State::get().await?;
     let (instance_id, instance_path, game_dir_override) =
         resolve_instance_identity(instance_id, &state).await?;
@@ -944,6 +971,26 @@ pub async fn edit_server_in_instance(
     address: String,
     pack_status: ServerPackStatus,
 ) -> Result<()> {
+    edit_server_in_instance_checked(
+        instance_id,
+        index,
+        None,
+        name,
+        address,
+        pack_status,
+    )
+    .await
+}
+
+pub async fn edit_server_in_instance_checked(
+    instance_id: &str,
+    index: usize,
+    expected: Option<ServerEntryExpectation>,
+    name: String,
+    address: String,
+    pack_status: ServerPackStatus,
+) -> Result<()> {
+    let _guard = SERVER_LIST_WRITE.lock().await;
     let state = State::get().await?;
     let (instance_id, instance_path, game_dir_override) =
         resolve_instance_identity(instance_id, &state).await?;
@@ -965,6 +1012,7 @@ pub async fn edit_server_in_instance(
                 ))
                 .as_error()
             })?;
+    check_server_entry(server, expected.as_ref())?;
     server.name = name;
     server.ip = address;
     server.accept_textures = pack_status.into();
@@ -976,6 +1024,15 @@ pub async fn remove_server_from_instance(
     instance_id: &str,
     index: usize,
 ) -> Result<()> {
+    remove_server_from_instance_checked(instance_id, index, None).await
+}
+
+pub async fn remove_server_from_instance_checked(
+    instance_id: &str,
+    index: usize,
+    expected: Option<ServerEntryExpectation>,
+) -> Result<()> {
+    let _guard = SERVER_LIST_WRITE.lock().await;
     let state = State::get().await?;
     let (_, instance_path, game_dir_override) =
         resolve_instance_identity(instance_id, &state).await?;
@@ -993,9 +1050,39 @@ pub async fn remove_server_from_instance(
         ))
         .into());
     }
+    check_server_entry(&servers[index], expected.as_ref())?;
     servers.remove(index);
     servers_data::write(&instance_dir, &servers).await?;
     Ok(())
+}
+
+#[cfg(test)]
+mod server_entry_tests {
+    use super::*;
+    #[test]
+    fn checked_mutations_reject_shifted_or_edited_entries() {
+        let server = servers_data::ServerData {
+            hidden: false,
+            icon: None,
+            name: "Original".into(),
+            ip: "localhost:25565".into(),
+            accept_textures: None,
+        };
+        let mut expected = ServerEntryExpectation {
+            name: server.name.clone(),
+            address: server.ip.clone(),
+            pack_status: ServerPackStatus::Prompt,
+        };
+        assert!(check_server_entry(&server, Some(&expected)).is_ok());
+        expected.name = "Changed".into();
+        assert!(check_server_entry(&server, Some(&expected)).is_err());
+        expected.name = server.name.clone();
+        expected.address = "other.example".into();
+        assert!(check_server_entry(&server, Some(&expected)).is_err());
+        expected.address = server.ip.clone();
+        expected.pack_status = ServerPackStatus::Enabled;
+        assert!(check_server_entry(&server, Some(&expected)).is_err());
+    }
 }
 
 mod servers_data {

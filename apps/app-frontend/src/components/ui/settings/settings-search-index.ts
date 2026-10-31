@@ -180,6 +180,22 @@ export const settingsSearchEntries: SettingsSearchEntry[] = [
         ),
     },
     {
+        id: 'defaults-game-language',
+        categoryId: 'launch-defaults',
+        targetId: 'settings-target-defaults-game-language',
+        label: message('app.settings.defaults.game-language.title', 'Default game language'),
+        description: message(
+            'app.settings.defaults.game-language.description',
+            'Used the first time an instance launches. Instances that have already been played keep their in-game language.',
+        ),
+        keywords: [
+            message(
+                'app.settings.defaults.game-language.search',
+                'Minecraft game language locale language region',
+            ),
+        ],
+    },
+    {
         id: 'defaults-window-title',
         categoryId: 'launch-defaults',
         targetId: 'settings-target-defaults-window-title',
@@ -846,6 +862,19 @@ export const settingsSearchEntries: SettingsSearchEntry[] = [
         id: 'feature-flags',
         categoryId: 'feature-flags',
         label: message('settings.feature-flags.title', 'Feature flags'),
+    },
+    {
+        id: 'advanced-download-info',
+        categoryId: 'feature-flags',
+        targetId: 'settings-target-advanced-download-info',
+        label: message(
+            'app.settings.feature-flags.advanced-download-info',
+            'Advanced download information',
+        ),
+        description: message(
+            'app.settings.feature-flags.advanced-download-info-description',
+            'Show file timings, request speeds and remote addresses in download details. Observations are collected while enabled and included when exporting network connections.',
+        ),
     },
 ]
 

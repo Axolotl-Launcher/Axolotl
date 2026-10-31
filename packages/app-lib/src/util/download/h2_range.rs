@@ -5,9 +5,9 @@ use super::h2_pool::SharedH2Connection;
 use super::range_journal::{Checkpoint, RangeJournal};
 use crate::util::download::constants::{
     DIAGNOSTICS_RANGE, DOWNLOAD_SCHEDULER_INTERVAL, H2_DOWNLOAD_INVALID_JAR,
-    H2_RANGE_INCORRECT_SIZE, H2_RANGE_INVALID_RANGE_RESUME_URL,
-    H2_RANGE_MAX_WORKERS, H2_RANGE_RETRY_ATTEMPTS, H2_RANGE_RETRY_DELAY_MS,
-    IDENTITY_ENCODING, RANGE_CHECKPOINT_BYTES, RESOURCE_WAIT_TIMEOUT,
+    H2_RANGE_INCORRECT_SIZE, H2_RANGE_MAX_WORKERS, H2_RANGE_RETRY_ATTEMPTS,
+    H2_RANGE_RETRY_DELAY_MS, IDENTITY_ENCODING, RANGE_CHECKPOINT_BYTES,
+    RESOURCE_WAIT_TIMEOUT,
 };
 use crate::util::fetch::{
     self, DownloadRequest, DownloadResult, DownloadRoute,
@@ -77,6 +77,7 @@ trait RangeTransport: Sync {
 
 struct RangeIdentity {
     h2: bool,
+    proxied: bool,
     peer: Option<std::net::SocketAddr>,
     connection: Option<Arc<SharedH2Connection>>,
     aggregate_window: Option<Mutex<super::h2_receive::ConnectionRateWindow>>,
@@ -97,6 +98,7 @@ impl<'a> RangeResponse<'a> {
             body,
             identity: RangeIdentity {
                 h2,
+                proxied: false,
                 peer: None,
                 connection: None,
                 aggregate_window: None,
@@ -233,6 +235,7 @@ impl RangeTransport for NativeRangeTransport<'_> {
                 body: Box::pin(stream),
                 identity: RangeIdentity {
                     h2: true,
+                    proxied: super::telemetry::route_is_proxied(self.route),
                     peer: connection.remote_addr,
                     aggregate_window: Some(Mutex::new(
                         super::h2_receive::ConnectionRateWindow::new(
@@ -323,6 +326,7 @@ impl RangeTransport for NativeRangeTransport<'_> {
             body: Box::pin(stream),
             identity: RangeIdentity {
                 h2: false,
+                proxied: super::telemetry::route_is_proxied(self.route),
                 peer,
                 connection: None,
                 aggregate_window: None,
@@ -449,72 +453,6 @@ pub(crate) async fn download(
         );
     }
     outcome
-}
-
-pub(crate) async fn resume_http1(
-    request: &DownloadRequest,
-    route: &DownloadRoute,
-    destination: &Path,
-    part: &Path,
-    semaphore: &fetch::FetchSemaphore,
-) -> crate::Result<Option<H2DownloadOutcome>> {
-    if request
-        .cancellation
-        .as_ref()
-        .is_some_and(tokio_util::sync::CancellationToken::is_cancelled)
-    {
-        return Ok(Some(H2DownloadOutcome::Canceled));
-    }
-    if !tokio::fs::try_exists(super::range_journal::path(part)).await? {
-        return Ok(None);
-    }
-    let Some(size) = request.integrity.size else {
-        discard(part).await?;
-        return Ok(None);
-    };
-    let load = RangeJournal::load(part, &request.integrity, size);
-    let loaded = if let Some(cancellation) = request.cancellation.as_ref() {
-        tokio::select! { biased; _ = cancellation.cancelled() => return Ok(Some(H2DownloadOutcome::Canceled)), result = load => result? }
-    } else {
-        load.await?
-    };
-    let Some(journal) = loaded else {
-        discard(part).await?;
-        return Ok(None);
-    };
-    let count = journal
-        .ranges()
-        .await
-        .len()
-        .min((fetch::configured_semaphore_limit(semaphore) / 2).max(1))
-        .min(super::local_resources::range_limit(part).await.max(1));
-    let transport = NativeRangeTransport {
-        uri: route.url.parse().map_err(|_| {
-            crate::ErrorKind::InputError(
-                H2_RANGE_INVALID_RANGE_RESUME_URL.into(),
-            )
-        })?,
-        request,
-        route,
-        total_size: size,
-        semaphore: Some(semaphore),
-        fallback_budget: fetch::FetchSemaphore(tokio::sync::Semaphore::new(8)),
-        used_http1: Default::default(),
-        protocol_failed: Default::default(),
-    };
-    Ok(Some(
-        run_download(
-            &transport,
-            request,
-            route,
-            destination,
-            part,
-            size,
-            count,
-            Some(journal),
-        )
-        .await,
-    ))
 }
 
 pub(crate) async fn discard(part: &Path) -> crate::Result<()> {
@@ -754,6 +692,16 @@ async fn recover_range(
                     continue;
                 }
             };
+        let telemetry = super::telemetry::begin_range(
+            request,
+            identity
+                .connection
+                .as_ref()
+                .map(|connection| connection.connection_id),
+            identity.peer,
+            identity.h2,
+            identity.proxied,
+        );
         let mut failure = None;
         let mut slow =
             super::native_slow::NativeSlowPolicy::for_http2(offset, None);
@@ -795,6 +743,9 @@ async fn recover_range(
                 }
             };
             request.transfer_counters.received(chunk.len() as u64);
+            if let Some(telemetry) = &telemetry {
+                telemetry.received(chunk.len());
+            }
             if chunk.len() as u64 > range.end - offset {
                 failure = Some(H2DownloadFailure::Protocol);
                 break;
@@ -832,6 +783,11 @@ async fn recover_range(
             }
         }
         drop(body);
+        if offset == range.end
+            && let Some(telemetry) = &telemetry
+        {
+            telemetry.finish();
+        }
         writer.flush().await.map_err(|_| H2DownloadFailure::Io)?;
         request
             .transfer_counters

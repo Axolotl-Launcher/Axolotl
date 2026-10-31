@@ -163,6 +163,8 @@ pub struct DownloadRequest {
     pub(crate) h2_range_concurrency: Option<usize>,
     pub(crate) cancellation: Option<tokio_util::sync::CancellationToken>,
     pub(crate) install_tracking: Option<DownloadInstallTracking>,
+    pub(crate) diagnostics:
+        Option<Arc<crate::util::download::telemetry::FileCapture>>,
     pub(crate) endpoint_migrations: Arc<std::sync::atomic::AtomicU8>,
     pub(crate) endpoint_migration_generations: Arc<Mutex<HashSet<(u64, u64)>>>,
     pub(crate) transfer_counters: Arc<
@@ -194,6 +196,7 @@ impl DownloadRequest {
             h2_range_concurrency: None,
             cancellation: None,
             install_tracking: None,
+            diagnostics: None,
             endpoint_migrations: Arc::new(std::sync::atomic::AtomicU8::new(0)),
             endpoint_migration_generations: Arc::default(),
             transfer_counters: Arc::default(),

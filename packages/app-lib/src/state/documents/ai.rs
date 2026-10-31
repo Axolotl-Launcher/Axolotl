@@ -12,7 +12,10 @@ use std::collections::BTreeMap;
 use serde::{Deserialize, Serialize};
 use sqlx::SqlitePool;
 
-use super::{Documents, Stored, WRITES, default_true, is_false, is_true};
+use super::{
+    Documents, Stored, WRITES, composed, default_true, is_false, is_true,
+    without_shipped,
+};
 use crate::state::store;
 
 pub(crate) const DOCUMENT: &str = "ai";
@@ -105,29 +108,15 @@ fn is_default_source(value: &String) -> bool {
     value == "custom"
 }
 
-/// The document, or the rows while it does not exist. A document that exists
-/// answers on its own: every key it leaves out is a default, so an older build
-/// falling back to the rows cannot resurrect what a newer one wrote.
+/// The document, composed of the keys the deployment ships and the ones the
+/// local document names, or the rows while neither of them answers.
 pub(crate) async fn read(
     documents: &Documents<'_>,
 ) -> crate::Result<AiDocument> {
-    match documents.stored::<AiDocument>(DOCUMENT).await {
-        Stored::Ready {
-            schema_version,
-            document,
-        } => {
-            if schema_version > SCHEMA_VERSION {
-                tracing::debug!(
-                    schema_version,
-                    "Reading an AI settings document a newer build wrote"
-                );
-            }
-            Ok(document)
-        }
-        Stored::Missing | Stored::Unreadable => {
-            from_database(documents.pool()).await
-        }
-    }
+    composed(documents, DOCUMENT, SCHEMA_VERSION, async {
+        from_database(documents.pool()).await
+    })
+    .await
 }
 
 async fn from_database(pool: &SqlitePool) -> crate::Result<AiDocument> {
@@ -172,10 +161,11 @@ async fn from_database(pool: &SqlitePool) -> crate::Result<AiDocument> {
 /// Writes the document the rows hand over to, unless one is already in place.
 pub(crate) async fn hand_over_if_missing(documents: &Documents<'_>) -> bool {
     let path = documents.path(DOCUMENT);
-    if matches!(
-        documents.stored::<AiDocument>(DOCUMENT).await,
-        Stored::Ready { .. }
-    ) {
+    if documents
+        .stored::<AiDocument>(DOCUMENT, SCHEMA_VERSION)
+        .await
+        .is_present()
+    {
         return true;
     }
     let document = match from_database(documents.pool()).await {
@@ -184,6 +174,11 @@ pub(crate) async fn hand_over_if_missing(documents: &Documents<'_>) -> bool {
             tracing::warn!(%error, "Could not read the AI settings rows");
             return false;
         }
+    };
+    let Some(document) =
+        without_shipped(documents, DOCUMENT, SCHEMA_VERSION, document).await
+    else {
+        return false;
     };
     match documents.write(DOCUMENT, SCHEMA_VERSION, &document).await {
         Ok(()) => true,
@@ -302,19 +297,23 @@ async fn update(
     apply: impl FnOnce(&mut AiDocument),
 ) -> crate::Result<()> {
     let _writing = WRITES.lock().await;
-    let mut document = match documents.stored::<AiDocument>(DOCUMENT).await {
-        Stored::Ready { schema_version, .. }
-            if schema_version > SCHEMA_VERSION =>
-        {
-            tracing::debug!(
-                schema_version,
-                "Leaving an AI settings document a newer build wrote alone"
-            );
-            return Ok(());
-        }
+    let mut document = match documents
+        .stored::<AiDocument>(DOCUMENT, SCHEMA_VERSION)
+        .await
+    {
+        // A newer build owns the shape of this document: writing it would
+        // lower it to the keys this build knows.
+        Stored::Newer { .. } => return Ok(()),
         Stored::Ready { document, .. } => document,
         Stored::Missing | Stored::Unreadable => {
-            from_database(documents.pool()).await?
+            let draft = from_database(documents.pool()).await?;
+            let Some(draft) =
+                without_shipped(documents, DOCUMENT, SCHEMA_VERSION, draft)
+                    .await
+            else {
+                return Ok(());
+            };
+            draft
         }
     };
     apply(&mut document);
@@ -328,7 +327,9 @@ mod tests {
     use serde_json::Value;
 
     use super::*;
-    use crate::state::documents::test_support::{create_ai_tables, pool};
+    use crate::state::documents::test_support::{
+        create_ai_tables, layered, pool, ship,
+    };
 
     fn documents<'a>(
         root: &tempfile::TempDir,
@@ -422,6 +423,60 @@ mod tests {
         assert!(document.providers.is_empty());
     }
 
+    /// The layers are laid key by key, so a key the local document leaves out
+    /// is answered by the deployment's document below it.
+    #[tokio::test]
+    async fn a_key_the_local_document_omits_comes_from_the_deployment() {
+        let pool = installed_pool().await;
+        let local = tempfile::tempdir().unwrap();
+        let deployment = tempfile::tempdir().unwrap();
+        ship(&deployment, DOCUMENT, r#"{"enabled":false}"#);
+        std::fs::write(
+            local.path().join("ai.json"),
+            r#"{"schema_version":1,"data":{"providers":{"openai":{"custom_name":"Mine","endpoint":"https://example.test/v1"}}}}"#,
+        )
+        .unwrap();
+
+        let document =
+            read(&layered(&local, &deployment, &pool)).await.unwrap();
+
+        assert!(
+            !document.enabled,
+            "a key the local document leaves out is answered by the layer below it"
+        );
+        assert_eq!(
+            document
+                .providers
+                .get("openai")
+                .and_then(|provider| provider.custom_name.as_deref()),
+            Some("Mine"),
+            "the keys the local document names stay its own"
+        );
+    }
+
+    /// The local document is the last word for the keys it carries, whatever
+    /// the deployment ships for them.
+    #[tokio::test]
+    async fn a_local_document_wins_over_the_deployment_one() {
+        let pool = installed_pool().await;
+        let local = tempfile::tempdir().unwrap();
+        let deployment = tempfile::tempdir().unwrap();
+        ship(&deployment, DOCUMENT, r#"{"enabled":false}"#);
+        std::fs::write(
+            local.path().join("ai.json"),
+            r#"{"schema_version":1,"data":{"enabled":true}}"#,
+        )
+        .unwrap();
+
+        let document =
+            read(&layered(&local, &deployment, &pool)).await.unwrap();
+
+        assert!(
+            document.enabled,
+            "the user's own document outranks the one the deployment ships"
+        );
+    }
+
     #[tokio::test]
     async fn a_write_reads_back_as_json_without_credentials() {
         let pool = installed_pool().await;
@@ -495,5 +550,51 @@ mod tests {
         let mut keys = map.keys().map(String::as_str).collect::<Vec<_>>();
         keys.sort_unstable();
         keys
+    }
+
+    /// A key the deployment answers is not copied out of the rows into the local
+    /// document: the local copy is the last word for the keys it carries, so the
+    /// deployment's answer would never arrive at this key again.
+    #[tokio::test]
+    async fn a_deployment_value_is_not_copied_into_the_local_document() {
+        let pool = installed_pool().await;
+        // A key the document carries without holding the default, so the copy
+        // this test looks for is one it can see.
+        sqlx::query(
+            "UPDATE ai_settings SET legacy_openai_credential_cleanup = TRUE",
+        )
+        .execute(&pool)
+        .await
+        .unwrap();
+        let local = tempfile::tempdir().unwrap();
+        let deployment = tempfile::tempdir().unwrap();
+        ship(
+            &deployment,
+            DOCUMENT,
+            r#"{"legacy_openai_credential_cleanup":false}"#,
+        );
+        let documents = layered(&local, &deployment, &pool);
+
+        assert!(hand_over_if_missing(&documents).await);
+
+        let stored: Value = serde_json::from_slice(
+            &std::fs::read(documents.path(DOCUMENT)).unwrap(),
+        )
+        .unwrap();
+        assert!(
+            !stored["data"]
+                .as_object()
+                .unwrap()
+                .contains_key("legacy_openai_credential_cleanup"),
+            "the key the deployment answers is left out of the local document: {}",
+            stored["data"]
+        );
+        assert!(
+            !read(&documents)
+                .await
+                .unwrap()
+                .legacy_openai_credential_cleanup,
+            "and the answer the deployment gives is the one the domain reads"
+        );
     }
 }

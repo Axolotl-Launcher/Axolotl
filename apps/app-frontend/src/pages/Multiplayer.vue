@@ -23,8 +23,8 @@ const isFixedRender = computed(
     () => route.name === 'MultiplayerServerDetail' || route.name === 'MultiplayerServerFileStudio',
 )
 const tabLinks = computed(() => [
-    { label: formatMessage(messages.serversTab), href: '/multiplayer/servers', icon: ServerIcon },
     { label: formatMessage(messages.roomsTab), href: '/multiplayer/rooms', icon: UsersIcon },
+    { label: formatMessage(messages.serversTab), href: '/multiplayer/servers', icon: ServerIcon },
 ])
 
 function handleTabClick(index: number) {
@@ -55,7 +55,7 @@ function handleTabClick(index: number) {
             -->
             <NavTabs
                 mode="local"
-                :active-index="activeTab === 'rooms' ? 1 : 0"
+                :active-index="activeTab === 'rooms' ? 0 : 1"
                 :links="tabLinks"
                 @tab-click="handleTabClick"
             />

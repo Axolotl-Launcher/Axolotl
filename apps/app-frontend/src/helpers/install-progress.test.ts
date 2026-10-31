@@ -6,6 +6,7 @@ import {
     hasDeterminateInstallProgress,
     installProgressFraction,
     installProgressTextSource,
+    isInstallMainTrackComplete,
     preserveMonotonicProgress,
     type ProgressTextSnapshot,
 } from './install-progress.ts'
@@ -81,6 +82,25 @@ it('CurseForge modpacks use settled file progress for completion', () => {
 
     expect(installProgressFraction(job)).toBe(1)
     expect(installProgressTextSource(job)).toEqual({ type: 'items', current: 3, total: 3 })
+})
+
+it('content completion waits for settled files even when byte progress reaches its total', () => {
+    for (const provider of ['modrinth', 'curse_forge']) {
+        const downloading = {
+            ...progressJob(),
+            provider,
+            phase: 'downloading_content',
+            progress: { current: 9, total: 10, secondary: { current: 1000, total: 1000 } },
+        }
+        expect(isInstallMainTrackComplete(downloading)).toBe(false)
+        expect(
+            isInstallMainTrackComplete({
+                ...downloading,
+                progress: { ...downloading.progress, current: 10 },
+            }),
+        ).toBe(true)
+        expect(isInstallMainTrackComplete({ ...downloading, status: 'succeeded' })).toBe(true)
+    }
 })
 
 it('CurseForge file progress remains monotonic while byte samples change', () => {

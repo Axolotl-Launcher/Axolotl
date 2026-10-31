@@ -93,13 +93,22 @@ pub(super) async fn spawn_range_server(
                         return;
                     };
                     let end = if end.is_empty() {
-                        data.len() as u64 - 1
+                        (data.len() as u64).saturating_sub(1)
                     } else {
                         let Ok(end) = end.parse::<u64>() else {
                             return;
                         };
                         end
                     };
+                    if start >= data.len() as u64 || start > end {
+                        let headers = format!(
+                            "HTTP/1.1 416 Range Not Satisfiable\r\nContent-Length: 0\r\nContent-Range: bytes */{}\r\nConnection: close\r\n\r\n",
+                            data.len(),
+                        );
+                        let _ = stream.write_all(headers.as_bytes()).await;
+                        return;
+                    }
+                    let end = end.min(data.len() as u64 - 1);
                     let body = &data[start as usize..=end as usize];
                     let reported_start = if behavior.wrong_content_range {
                         start.saturating_add(1)

@@ -313,6 +313,13 @@ export function createDownloadManager(handleError: (error: unknown) => void): Do
     }
 
     function syncLiveByteProgress(job: InstallJobSnapshot) {
+        // Modpack content shares this item list with the archive and parallel
+        // Minecraft downloads. Only native content snapshots know batch membership.
+        if (
+            job.phase !== 'downloading_pack_file' &&
+            !(job.phase === 'downloading_content' && job.kind === 'change_content')
+        )
+            return
         const itemTotal = job.items.reduce((sum, item) => sum + (item.bytes_total ?? 0), 0)
         const total = Math.max(job.summary.bytes_total ?? 0, itemTotal) || null
         const downloaded = job.items.reduce((sum, item) => sum + item.bytes_downloaded, 0)

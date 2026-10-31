@@ -855,7 +855,10 @@ defineExpose({ openWidgetPicker, setLayout })
     font-weight: 600;
     line-height: 1;
     text-align: center;
-    opacity: 0;
+    /* Readable without hovering: this label is the only place the chosen size is
+       visible, and hiding it behind a hover kept it out of sight. Hovering still
+       brings it to full opacity (see the `:hover` rule below). */
+    opacity: 0.7;
     white-space: nowrap;
     transition: opacity 120ms ease;
 }

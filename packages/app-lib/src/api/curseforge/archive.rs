@@ -9,7 +9,7 @@ use crate::util::download::constants::OVERRIDE_EXTRACTION_CONCURRENCY;
 use crate::{ErrorKind, State};
 use std::collections::{HashMap, VecDeque};
 use std::io::{Read, Seek};
-use std::path::{Component, Path, PathBuf};
+use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use tokio_util::sync::CancellationToken;
 
@@ -268,18 +268,14 @@ pub(crate) fn curseforge_override_content(
 
 pub(crate) fn safe_archive_relative_path(value: &str) -> crate::Result<String> {
     let normalized = value.replace('\\', "/");
-    let path = Path::new(&normalized);
-    if normalized.is_empty()
-        || path.is_absolute()
-        || path
-            .components()
-            .any(|component| !matches!(component, Component::Normal(_)))
-    {
-        return Err(ErrorKind::InputError(
-            "CurseForge modpack contains an invalid override path".to_string(),
-        )
-        .into());
-    }
+    crate::util::io::safe_relative_join(Path::new(""), &normalized).map_err(
+        |_| {
+            ErrorKind::InputError(
+                "CurseForge modpack contains an invalid override path"
+                    .to_string(),
+            )
+        },
+    )?;
     Ok(normalized)
 }
 

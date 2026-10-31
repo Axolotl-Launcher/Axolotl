@@ -117,7 +117,11 @@ async fn a_job_that_names_an_instance_round_trips() {
 
 #[tokio::test]
 async fn a_plan_link_round_trips_and_clears() {
-    let handle = support::handle().await;
+    let pool = support::pool().await;
+    // The link names the job it was queued as through a foreign key, so the
+    // job has to be there before the link is written.
+    support::seed_install_job(&pool, "job", None).await;
+    let handle = handle_of(&pool);
     ContentUpdateJobs::set(
         &handle,
         &"plan".to_string(),
@@ -286,10 +290,43 @@ async fn the_guards_see_the_jobs_that_still_occupy_an_instance() {
             .await
             .unwrap()
     );
+    // Neither job is queued and neither holds a rollback, so nothing occupies
+    // the runtime under those terms. The job that does is added just below.
+    assert!(
+        !InstallJobs::unfinished_or_rollback(&mut *connection, &["queued"])
+            .await
+            .unwrap()
+    );
+
+    // A job that is only waiting its turn is one of the jobs that occupy the
+    // instance: the guard above says nothing is waiting, so this is what makes
+    // it answer true.
+    let mut queued = job("queued");
+    queued.instance_id = Some("one".to_string());
+    InstallJobs::insert_in(&mut *connection, &"queued".to_string(), &queued)
+        .await
+        .unwrap();
     assert!(
         InstallJobs::unfinished_or_rollback(&mut *connection, &["queued"])
             .await
-            .unwrap()
+            .unwrap(),
+        "a queued job still holds the runtime it was queued for"
+    );
+    assert!(
+        InstallJobs::unfinished_in(&mut *connection, "one", &["queued"])
+            .await
+            .unwrap(),
+        "and the instance it names is the one that waits on it"
+    );
+
+    InstallJobs::write(&mut *connection, &"queued".to_string(), None)
+        .await
+        .unwrap();
+    assert!(
+        !InstallJobs::unfinished_or_rollback(&mut *connection, &["queued"])
+            .await
+            .unwrap(),
+        "removing it leaves the guard where it stood"
     );
 }
 

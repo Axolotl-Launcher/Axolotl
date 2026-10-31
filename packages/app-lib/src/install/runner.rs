@@ -78,15 +78,20 @@ tokio::task_local! {
     static EXECUTING_JOB: Uuid;
 }
 
+/// The job's execution slot for a recovery action, or `None` when the job
+/// finished or started canceling while it waited; callers then read the job
+/// again and answer from its current state.
 pub(crate) async fn recovery_execution_slot<'a>(
     state: &'a State,
     job_id: Uuid,
-) -> crate::Result<(
-    Option<tokio::sync::OwnedMutexGuard<()>>,
-    tokio::sync::SemaphorePermit<'a>,
-)> {
+) -> crate::Result<
+    Option<(
+        Option<tokio::sync::OwnedMutexGuard<()>>,
+        tokio::sync::SemaphorePermit<'a>,
+    )>,
+> {
     let record = store::get_required(job_id, state).await?;
-    admission::execution_slot(state, &record).await
+    admission::queued_slot(state, &record).await
 }
 
 /// Serializes interactive content mutations with task admission.
@@ -1070,6 +1075,14 @@ impl CancelCleanupRegistration {
             dashmap::mapref::entry::Entry::Vacant(_) => unreachable!(),
         }
     }
+
+    /// Whether a request arrived since the last one was consumed; it stays
+    /// pending until `retry_requested` takes it.
+    fn retry_pending(&self) -> bool {
+        CANCEL_CLEANUPS
+            .get(&self.job_id)
+            .is_some_and(|entry| *entry)
+    }
 }
 
 impl Drop for CancelCleanupRegistration {
@@ -1099,15 +1112,67 @@ async fn run_cancel_cleanup<F, Fut>(
     F: FnMut() -> Fut,
     Fut: Future<Output = crate::Result<()>>,
 {
+    let mut failures = 0;
     loop {
-        if let Err(error) = cleanup().await {
-            let job_id = registration.job_id;
-            tracing::error!(%job_id, %error, "Canceled install cleanup could not finish; durable canceling state remains recoverable");
+        match cleanup().await {
+            Ok(()) => failures = 0,
+            Err(error) => {
+                failures += 1;
+                let job_id = registration.job_id;
+                // A request that arrived meanwhile reruns the cleanup at once
+                // below. Otherwise back off and retry while still owning the
+                // registration, so no second cleanup can start alongside.
+                if failures < RECOVERY_ATTEMPTS && !registration.retry_pending()
+                {
+                    tracing::warn!(%job_id, %error, attempt = failures, "Canceled install cleanup failed; retrying");
+                    tokio::time::sleep(RECOVERY_RETRY_DELAY * failures).await;
+                    continue;
+                }
+                if failures >= RECOVERY_ATTEMPTS {
+                    tracing::error!(%job_id, %error, "Canceled install cleanup could not finish; durable canceling state remains recoverable");
+                }
+            }
         }
         // Consume a pending request or release ownership under the same entry
         // lock, so a request arriving during cleanup cannot be stranded.
         if !registration.retry_requested() {
             break;
+        }
+    }
+}
+
+/// Recovery and cancel cleanup re-read the job and are safe to run again, as
+/// startup recovery runs them. Their writes wait a bounded time for the
+/// install database writer, so a failed attempt is retried a few times here
+/// instead of leaving the job Queued, Running or Canceling until the next
+/// launch.
+const RECOVERY_ATTEMPTS: u32 = 3;
+#[cfg(not(test))]
+const RECOVERY_RETRY_DELAY: std::time::Duration =
+    std::time::Duration::from_secs(2);
+#[cfg(test)]
+const RECOVERY_RETRY_DELAY: std::time::Duration =
+    std::time::Duration::from_millis(10);
+
+/// Runs `recover` up to `RECOVERY_ATTEMPTS` times, backing off between
+/// failures, and returns the last result.
+async fn retry_recovery<F, Fut>(
+    job_id: Uuid,
+    mut recover: F,
+) -> crate::Result<()>
+where
+    F: FnMut() -> Fut,
+    Fut: Future<Output = crate::Result<()>>,
+{
+    let mut attempt = 1;
+    loop {
+        match recover().await {
+            Err(error) if attempt < RECOVERY_ATTEMPTS => {
+                tracing::warn!(%job_id, %error, attempt, "Install recovery failed; retrying");
+                tokio::time::sleep(RECOVERY_RETRY_DELAY * attempt).await;
+                attempt += 1;
+            }
+            result => return result,
         }
     }
 }

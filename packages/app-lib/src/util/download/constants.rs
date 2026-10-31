@@ -691,10 +691,6 @@ pub(crate) const NATIVE_BUDGET_GLOBAL_BATCH_CONTAINS_ENOUGH_PERMITS: &str =
     "global batch contains enough permits";
 pub(crate) const NATIVE_BUDGET_REGULAR_BATCH_CONTAINS_ENOUGH_PERMITS: &str =
     "regular batch contains enough permits";
-pub(crate) const NATIVE_CERTIFICATE_POLICY_REQUIRES_THE_REQWEST_TRANSPORT:
-    &str = "certificate policy requires the reqwest transport";
-pub(crate) const NATIVE_CONFIGURED_PROXY_REQUIRES_THE_REQWEST_TRANSPORT: &str =
-    "configured proxy requires the reqwest transport";
 pub(crate) const NATIVE_DOWNLOAD_SOURCE_HAS_BEEN_RETIRED: &str =
     "download source has been retired";
 pub(crate) const NATIVE_PROXYENABLE: &str = "ProxyEnable";
@@ -703,8 +699,6 @@ pub(crate) const NATIVE_REPUTATION_FILE_NAME: &str =
 pub(crate) const NATIVE_REPUTATION_TMP: &str = ".tmp";
 pub(crate) const NATIVE_REQUEST_TIMED_OUT_WAITING_FOR_CDN_RESPONSE_CONNECTION_BUDGET: &str = "timed out waiting for CDN response connection budget";
 pub(crate) const NATIVE_SOFTWARE_MICROSOFT_WINDOWS_CURRENTVERSION_INTERNET_SETTINGS: &str = "Software\\Microsoft\\Windows\\CurrentVersion\\Internet Settings";
-pub(crate) const NATIVE_SYSTEM_PROXY_REQUIRES_THE_REQWEST_TRANSPORT: &str =
-    "system proxy requires the reqwest transport";
 pub(crate) const PARTIAL_FILE_SUFFIX: &str = ".part";
 pub(crate) const PROBE_CERTNOTVALIDFORNAME: &str = "certnotvalidforname";
 pub(crate) const PROBE_X_CACHE: &str = "x-cache";

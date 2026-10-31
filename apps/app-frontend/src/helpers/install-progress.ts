@@ -122,6 +122,18 @@ export function installProgressFraction(snapshot: ProgressSnapshot): number | nu
     return Math.max(0, Math.min(1, progress.current / progress.total))
 }
 
+export function isInstallMainTrackComplete(snapshot: ProgressTextSnapshot): boolean {
+    if (snapshot.status === 'succeeded') return true
+    // Byte totals can be reached before verification and finalization finish.
+    // The primary content counter advances only when files are settled.
+    const progress =
+        snapshot.phase === 'downloading_content'
+            ? snapshot.progress
+            : effectiveInstallProgress(snapshot)
+    if (snapshot.phase === 'downloading_content' && progress?.total === 0) return true
+    return hasDeterminateInstallProgress(progress) && progress.current >= progress.total
+}
+
 export function installProgressTextSource(
     snapshot: ProgressTextSnapshot,
 ): InstallProgressTextSource {

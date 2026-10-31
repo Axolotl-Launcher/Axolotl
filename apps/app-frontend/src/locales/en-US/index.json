@@ -3830,6 +3830,12 @@
   "app.instances.edit-groups": {
     "message": "Edit groups"
   },
+  "app.instances.game-directory.managed": {
+    "message": "Axolotl data directory"
+  },
+  "app.instances.game-directory.managed-short": {
+    "message": "Axolotl"
+  },
   "app.instances.group-by": {
     "message": "Group by"
   },
@@ -3853,6 +3859,9 @@
   },
   "app.instances.group.expand": {
     "message": "Expand group"
+  },
+  "app.instances.group.game-directory": {
+    "message": "Game directory"
   },
   "app.instances.group.game-version": {
     "message": "Game version"
@@ -4123,6 +4132,579 @@
   },
   "app.java.test-installation": {
     "message": "Test Java installation"
+  },
+  "app.lab.banner-designer.base-color.close": {
+    "message": "Close"
+  },
+  "app.lab.banner-designer.base-color.description": {
+    "message": "The base color fills the banner behind every pattern."
+  },
+  "app.lab.banner-designer.base-color.title": {
+    "message": "Base color"
+  },
+  "app.lab.banner-designer.clear-recent": {
+    "message": "Clear recent"
+  },
+  "app.lab.banner-designer.color.black": {
+    "message": "Black"
+  },
+  "app.lab.banner-designer.color.blue": {
+    "message": "Blue"
+  },
+  "app.lab.banner-designer.color.brown": {
+    "message": "Brown"
+  },
+  "app.lab.banner-designer.color.cyan": {
+    "message": "Cyan"
+  },
+  "app.lab.banner-designer.color.gray": {
+    "message": "Gray"
+  },
+  "app.lab.banner-designer.color.green": {
+    "message": "Green"
+  },
+  "app.lab.banner-designer.color.light-blue": {
+    "message": "Light blue"
+  },
+  "app.lab.banner-designer.color.light-gray": {
+    "message": "Light gray"
+  },
+  "app.lab.banner-designer.color.lime": {
+    "message": "Lime"
+  },
+  "app.lab.banner-designer.color.magenta": {
+    "message": "Magenta"
+  },
+  "app.lab.banner-designer.color.orange": {
+    "message": "Orange"
+  },
+  "app.lab.banner-designer.color.pink": {
+    "message": "Pink"
+  },
+  "app.lab.banner-designer.color.purple": {
+    "message": "Purple"
+  },
+  "app.lab.banner-designer.color.red": {
+    "message": "Red"
+  },
+  "app.lab.banner-designer.color.white": {
+    "message": "White"
+  },
+  "app.lab.banner-designer.color.yellow": {
+    "message": "Yellow"
+  },
+  "app.lab.banner-designer.create": {
+    "message": "Create banner"
+  },
+  "app.lab.banner-designer.create.base-color": {
+    "message": "Base color"
+  },
+  "app.lab.banner-designer.create.cancel": {
+    "message": "Cancel"
+  },
+  "app.lab.banner-designer.create.confirm": {
+    "message": "Create banner"
+  },
+  "app.lab.banner-designer.create.description": {
+    "message": "Choose a base color, or start from a design documented on the Minecraft Wiki."
+  },
+  "app.lab.banner-designer.create.preset-empty": {
+    "message": "No preset matches your search."
+  },
+  "app.lab.banner-designer.create.preset-search": {
+    "message": "Search presets"
+  },
+  "app.lab.banner-designer.create.presets": {
+    "message": "Presets"
+  },
+  "app.lab.banner-designer.create.title": {
+    "message": "Create a banner"
+  },
+  "app.lab.banner-designer.description": {
+    "message": "Design Minecraft banners with every Java Edition pattern and dye."
+  },
+  "app.lab.banner-designer.empty.description": {
+    "message": "Start from a base color or a preset, or import a banner from a give command or item data."
+  },
+  "app.lab.banner-designer.empty.heading": {
+    "message": "Design a banner"
+  },
+  "app.lab.banner-designer.exit": {
+    "message": "Exit"
+  },
+  "app.lab.banner-designer.export.close": {
+    "message": "Close"
+  },
+  "app.lab.banner-designer.export.copied": {
+    "message": "Copied"
+  },
+  "app.lab.banner-designer.export.copy": {
+    "message": "Copy"
+  },
+  "app.lab.banner-designer.export.copy-failed": {
+    "message": "The text could not be copied. Select it and copy it by hand."
+  },
+  "app.lab.banner-designer.export.data": {
+    "message": "Item data"
+  },
+  "app.lab.banner-designer.export.dropped": {
+    "message": "This version has no {patterns}. The game skips unknown patterns, so the banner arrives plain."
+  },
+  "app.lab.banner-designer.export.give": {
+    "message": "Give command"
+  },
+  "app.lab.banner-designer.export.hint.classic": {
+    "message": "The single banner item, with a damage value of 0. 1.13 and newer need one item per dye."
+  },
+  "app.lab.banner-designer.export.hint.legacy": {
+    "message": "Short pattern codes. 1.20.5 and newer reject this item NBT."
+  },
+  "app.lab.banner-designer.export.hint.modern": {
+    "message": "Older versions reject the component syntax."
+  },
+  "app.lab.banner-designer.export.json": {
+    "message": "Design JSON"
+  },
+  "app.lab.banner-designer.export.materials": {
+    "message": "Materials"
+  },
+  "app.lab.banner-designer.export.no-dyes": {
+    "message": "A banner without patterns needs no dyes."
+  },
+  "app.lab.banner-designer.export.no-item-data": {
+    "message": "A banner without patterns has no item data."
+  },
+  "app.lab.banner-designer.export.pattern-item-note": {
+    "message": "The loom does not consume banner pattern items."
+  },
+  "app.lab.banner-designer.export.pattern-items": {
+    "message": "Banner pattern items"
+  },
+  "app.lab.banner-designer.export.save-failed": {
+    "message": "The file could not be written."
+  },
+  "app.lab.banner-designer.export.save-file": {
+    "message": "Save to file"
+  },
+  "app.lab.banner-designer.export.saved": {
+    "message": "Saved"
+  },
+  "app.lab.banner-designer.export.title": {
+    "message": "Export banner"
+  },
+  "app.lab.banner-designer.export.version": {
+    "message": "Game version"
+  },
+  "app.lab.banner-designer.export.version.classic": {
+    "message": "1.12.2 and older"
+  },
+  "app.lab.banner-designer.export.version.legacy": {
+    "message": "1.13 – 1.20.4"
+  },
+  "app.lab.banner-designer.export.version.modern": {
+    "message": "1.20.5 and newer"
+  },
+  "app.lab.banner-designer.import": {
+    "message": "Import banner"
+  },
+  "app.lab.banner-designer.import.cancel": {
+    "message": "Cancel"
+  },
+  "app.lab.banner-designer.import.choose-file": {
+    "message": "Open file"
+  },
+  "app.lab.banner-designer.import.confirm": {
+    "message": "Import"
+  },
+  "app.lab.banner-designer.import.description": {
+    "message": "Paste a give command, item data or a design file, or open a design file."
+  },
+  "app.lab.banner-designer.import.error.color": {
+    "message": "Unknown dye color: {value}"
+  },
+  "app.lab.banner-designer.import.error.data": {
+    "message": "The item data could not be read. Check that it is complete."
+  },
+  "app.lab.banner-designer.import.error.empty": {
+    "message": "Paste a give command, item data or design JSON first."
+  },
+  "app.lab.banner-designer.import.error.file": {
+    "message": "The file could not be read."
+  },
+  "app.lab.banner-designer.import.error.pattern": {
+    "message": "Unknown banner pattern: {value}"
+  },
+  "app.lab.banner-designer.import.error.too-large": {
+    "message": "This file is far larger than a banner design. Check that you picked the right one."
+  },
+  "app.lab.banner-designer.import.error.unsupported": {
+    "message": "This text is not a banner give command, item data or design file."
+  },
+  "app.lab.banner-designer.import.placeholder": {
+    "message": "/give @p minecraft:white_banner[minecraft:banner_patterns=[…]] 1"
+  },
+  "app.lab.banner-designer.import.title": {
+    "message": "Import banner"
+  },
+  "app.lab.banner-designer.layer-editor.add": {
+    "message": "Add layer"
+  },
+  "app.lab.banner-designer.layer-editor.add-title": {
+    "message": "Add layer"
+  },
+  "app.lab.banner-designer.layer-editor.cancel": {
+    "message": "Cancel"
+  },
+  "app.lab.banner-designer.layer-editor.description": {
+    "message": "Choose a dye, then pick the pattern it paints."
+  },
+  "app.lab.banner-designer.layer-editor.dye-color": {
+    "message": "Dye color"
+  },
+  "app.lab.banner-designer.layer-editor.edit-title": {
+    "message": "Edit layer"
+  },
+  "app.lab.banner-designer.layer-editor.empty": {
+    "message": "No patterns match your search."
+  },
+  "app.lab.banner-designer.layer-editor.needs-item": {
+    "message": "Needs a banner pattern item"
+  },
+  "app.lab.banner-designer.layer-editor.pattern": {
+    "message": "Pattern"
+  },
+  "app.lab.banner-designer.layer-editor.preview": {
+    "message": "Banner preview"
+  },
+  "app.lab.banner-designer.layer-editor.save": {
+    "message": "Save layer"
+  },
+  "app.lab.banner-designer.layer-editor.search": {
+    "message": "Search patterns"
+  },
+  "app.lab.banner-designer.layer.drag": {
+    "message": "Drag to reorder, or press the arrow keys"
+  },
+  "app.lab.banner-designer.layer.edit": {
+    "message": "Edit layer"
+  },
+  "app.lab.banner-designer.layer.move-down": {
+    "message": "Move down"
+  },
+  "app.lab.banner-designer.layer.move-up": {
+    "message": "Move up"
+  },
+  "app.lab.banner-designer.layer.remove": {
+    "message": "Delete layer"
+  },
+  "app.lab.banner-designer.layers": {
+    "message": "Layers"
+  },
+  "app.lab.banner-designer.layers.add": {
+    "message": "Add layer"
+  },
+  "app.lab.banner-designer.layers.count": {
+    "message": "{count} / {max}"
+  },
+  "app.lab.banner-designer.layers.empty": {
+    "message": "No patterns yet. Add a layer to paint a pattern onto the banner."
+  },
+  "app.lab.banner-designer.layers.hint": {
+    "message": "The top of the list is the top layer: later patterns paint over earlier ones."
+  },
+  "app.lab.banner-designer.layers.limit": {
+    "message": "A banner holds at most {max} patterns."
+  },
+  "app.lab.banner-designer.layers.moved": {
+    "message": "Layer moved to position {position}"
+  },
+  "app.lab.banner-designer.open-recent": {
+    "message": "Open banner"
+  },
+  "app.lab.banner-designer.pattern-category.background": {
+    "message": "Background"
+  },
+  "app.lab.banner-designer.pattern-category.base": {
+    "message": "Base"
+  },
+  "app.lab.banner-designer.pattern-category.borders": {
+    "message": "Borders"
+  },
+  "app.lab.banner-designer.pattern-category.gradients": {
+    "message": "Gradients"
+  },
+  "app.lab.banner-designer.pattern-category.halves": {
+    "message": "Halves"
+  },
+  "app.lab.banner-designer.pattern-category.icons": {
+    "message": "Icons"
+  },
+  "app.lab.banner-designer.pattern-category.shapes": {
+    "message": "Shapes"
+  },
+  "app.lab.banner-designer.pattern-category.stripes": {
+    "message": "Stripes"
+  },
+  "app.lab.banner-designer.pattern-count": {
+    "message": "{count, plural, one {# pattern} other {# patterns}}"
+  },
+  "app.lab.banner-designer.pattern.base": {
+    "message": "Solid field"
+  },
+  "app.lab.banner-designer.pattern.border": {
+    "message": "Bordure"
+  },
+  "app.lab.banner-designer.pattern.bricks": {
+    "message": "Field masoned"
+  },
+  "app.lab.banner-designer.pattern.circle": {
+    "message": "Roundel"
+  },
+  "app.lab.banner-designer.pattern.creeper": {
+    "message": "Creeper charge"
+  },
+  "app.lab.banner-designer.pattern.cross": {
+    "message": "Saltire"
+  },
+  "app.lab.banner-designer.pattern.curly-border": {
+    "message": "Bordure indented"
+  },
+  "app.lab.banner-designer.pattern.diagonal-left": {
+    "message": "Per bend sinister"
+  },
+  "app.lab.banner-designer.pattern.diagonal-right": {
+    "message": "Per bend"
+  },
+  "app.lab.banner-designer.pattern.diagonal-up-left": {
+    "message": "Per bend inverted"
+  },
+  "app.lab.banner-designer.pattern.diagonal-up-right": {
+    "message": "Per bend sinister inverted"
+  },
+  "app.lab.banner-designer.pattern.flow": {
+    "message": "Flow"
+  },
+  "app.lab.banner-designer.pattern.flower": {
+    "message": "Flower charge"
+  },
+  "app.lab.banner-designer.pattern.globe": {
+    "message": "Globe"
+  },
+  "app.lab.banner-designer.pattern.gradient": {
+    "message": "Gradient"
+  },
+  "app.lab.banner-designer.pattern.gradient-up": {
+    "message": "Base gradient"
+  },
+  "app.lab.banner-designer.pattern.guster": {
+    "message": "Guster"
+  },
+  "app.lab.banner-designer.pattern.half-horizontal": {
+    "message": "Per fess"
+  },
+  "app.lab.banner-designer.pattern.half-horizontal-bottom": {
+    "message": "Per fess inverted"
+  },
+  "app.lab.banner-designer.pattern.half-vertical": {
+    "message": "Per pale"
+  },
+  "app.lab.banner-designer.pattern.half-vertical-right": {
+    "message": "Per pale inverted"
+  },
+  "app.lab.banner-designer.pattern.mojang": {
+    "message": "Thing"
+  },
+  "app.lab.banner-designer.pattern.piglin": {
+    "message": "Snout"
+  },
+  "app.lab.banner-designer.pattern.rhombus": {
+    "message": "Lozenge"
+  },
+  "app.lab.banner-designer.pattern.skull": {
+    "message": "Skull charge"
+  },
+  "app.lab.banner-designer.pattern.small-stripes": {
+    "message": "Paly"
+  },
+  "app.lab.banner-designer.pattern.square-bottom-left": {
+    "message": "Base dexter canton"
+  },
+  "app.lab.banner-designer.pattern.square-bottom-right": {
+    "message": "Base sinister canton"
+  },
+  "app.lab.banner-designer.pattern.square-top-left": {
+    "message": "Chief dexter canton"
+  },
+  "app.lab.banner-designer.pattern.square-top-right": {
+    "message": "Chief sinister canton"
+  },
+  "app.lab.banner-designer.pattern.straight-cross": {
+    "message": "Cross"
+  },
+  "app.lab.banner-designer.pattern.stripe-bottom": {
+    "message": "Base"
+  },
+  "app.lab.banner-designer.pattern.stripe-center": {
+    "message": "Pale"
+  },
+  "app.lab.banner-designer.pattern.stripe-downleft": {
+    "message": "Bend sinister"
+  },
+  "app.lab.banner-designer.pattern.stripe-downright": {
+    "message": "Bend"
+  },
+  "app.lab.banner-designer.pattern.stripe-left": {
+    "message": "Pale dexter"
+  },
+  "app.lab.banner-designer.pattern.stripe-middle": {
+    "message": "Fess"
+  },
+  "app.lab.banner-designer.pattern.stripe-right": {
+    "message": "Pale sinister"
+  },
+  "app.lab.banner-designer.pattern.stripe-top": {
+    "message": "Chief"
+  },
+  "app.lab.banner-designer.pattern.triangle-bottom": {
+    "message": "Chevron"
+  },
+  "app.lab.banner-designer.pattern.triangle-top": {
+    "message": "Inverted chevron"
+  },
+  "app.lab.banner-designer.pattern.triangles-bottom": {
+    "message": "Base indented"
+  },
+  "app.lab.banner-designer.pattern.triangles-top": {
+    "message": "Chief indented"
+  },
+  "app.lab.banner-designer.preset-section.digits": {
+    "message": "Numbers"
+  },
+  "app.lab.banner-designer.preset-section.lowercase": {
+    "message": "Lowercase letters"
+  },
+  "app.lab.banner-designer.preset-section.patterns": {
+    "message": "Banner patterns"
+  },
+  "app.lab.banner-designer.preset-section.suits": {
+    "message": "Card suits"
+  },
+  "app.lab.banner-designer.preset-section.uppercase": {
+    "message": "Uppercase letters"
+  },
+  "app.lab.banner-designer.preset.creeper": {
+    "message": "Creeper charge"
+  },
+  "app.lab.banner-designer.preset.end-city": {
+    "message": "End City banner"
+  },
+  "app.lab.banner-designer.preset.globe": {
+    "message": "Globe"
+  },
+  "app.lab.banner-designer.preset.gradient": {
+    "message": "Gradient fade"
+  },
+  "app.lab.banner-designer.preset.mansion-bedroom": {
+    "message": "Mansion bedroom banner"
+  },
+  "app.lab.banner-designer.preset.mojang": {
+    "message": "Mojang logo"
+  },
+  "app.lab.banner-designer.preset.skull": {
+    "message": "Skull charge"
+  },
+  "app.lab.banner-designer.preset.snout": {
+    "message": "Snout"
+  },
+  "app.lab.banner-designer.preset.suit-club": {
+    "message": "Club"
+  },
+  "app.lab.banner-designer.preset.suit-diamond": {
+    "message": "Diamond"
+  },
+  "app.lab.banner-designer.preset.suit-heart": {
+    "message": "Heart"
+  },
+  "app.lab.banner-designer.preset.suit-spade": {
+    "message": "Spade"
+  },
+  "app.lab.banner-designer.preview": {
+    "message": "Banner preview"
+  },
+  "app.lab.banner-designer.recent": {
+    "message": "Recently edited"
+  },
+  "app.lab.banner-designer.recent.collapse": {
+    "message": "Collapse"
+  },
+  "app.lab.banner-designer.recent.expand": {
+    "message": "Expand"
+  },
+  "app.lab.banner-designer.redo": {
+    "message": "Redo"
+  },
+  "app.lab.banner-designer.remove-recent": {
+    "message": "Remove from recent"
+  },
+  "app.lab.banner-designer.replace-color.base-tag": {
+    "message": "base"
+  },
+  "app.lab.banner-designer.replace-color.cancel": {
+    "message": "Cancel"
+  },
+  "app.lab.banner-designer.replace-color.clear": {
+    "message": "Clear"
+  },
+  "app.lab.banner-designer.replace-color.colors-in-use": {
+    "message": "Colors in use"
+  },
+  "app.lab.banner-designer.replace-color.confirm": {
+    "message": "Replace"
+  },
+  "app.lab.banner-designer.replace-color.description": {
+    "message": "Pick the colors to change, then choose the color they become."
+  },
+  "app.lab.banner-designer.replace-color.empty": {
+    "message": "This banner has no patterns yet. Use Base color to recolor a plain banner."
+  },
+  "app.lab.banner-designer.replace-color.include-base": {
+    "message": "Also recolor the base"
+  },
+  "app.lab.banner-designer.replace-color.layer-count": {
+    "message": "{count, plural, one {# layer} other {# layers}}"
+  },
+  "app.lab.banner-designer.replace-color.preview": {
+    "message": "Preview"
+  },
+  "app.lab.banner-designer.replace-color.replace-with": {
+    "message": "Replace with"
+  },
+  "app.lab.banner-designer.replace-color.select-all": {
+    "message": "Select all"
+  },
+  "app.lab.banner-designer.replace-color.title": {
+    "message": "Replace colors"
+  },
+  "app.lab.banner-designer.title": {
+    "message": "Banner designer"
+  },
+  "app.lab.banner-designer.tools": {
+    "message": "Tools"
+  },
+  "app.lab.banner-designer.tools.base-color": {
+    "message": "Base color"
+  },
+  "app.lab.banner-designer.tools.export": {
+    "message": "Export"
+  },
+  "app.lab.banner-designer.tools.import": {
+    "message": "Import"
+  },
+  "app.lab.banner-designer.tools.replace-colors": {
+    "message": "Replace colors"
+  },
+  "app.lab.banner-designer.undo": {
+    "message": "Undo"
   },
   "app.lab.category.all": {
     "message": "All tools"
@@ -7196,8 +7778,29 @@
   "app.lab.seed-map.zoom-to-show": {
     "message": "Zoom in to show {layer}"
   },
+  "app.lab.skin-editor.auto-save.error": {
+    "message": "Auto-save failed"
+  },
+  "app.lab.skin-editor.auto-save.off": {
+    "message": "Auto-save off"
+  },
+  "app.lab.skin-editor.auto-save.saved": {
+    "message": "Draft saved {time}"
+  },
+  "app.lab.skin-editor.auto-save.saving": {
+    "message": "Saving draft…"
+  },
+  "app.lab.skin-editor.auto-save.unsaved": {
+    "message": "Unsaved changes"
+  },
+  "app.lab.skin-editor.auto-save.up-to-date": {
+    "message": "Up to date"
+  },
   "app.lab.skin-editor.description": {
     "message": "Create and edit Minecraft player skins locally."
+  },
+  "app.lab.skin-editor.discard-draft-failed": {
+    "message": "The recovery draft could not be discarded. Stay on this page and try again."
   },
   "app.lab.skin-editor.export-skin": {
     "message": "Minecraft skin PNG"
@@ -7211,11 +7814,71 @@
   "app.lab.skin-editor.loading": {
     "message": "Loading skin editor"
   },
+  "app.lab.skin-editor.recovery.body": {
+    "message": "A recovery draft was saved on {date}."
+  },
+  "app.lab.skin-editor.recovery.continue": {
+    "message": "Continue"
+  },
+  "app.lab.skin-editor.recovery.start-new": {
+    "message": "Start new"
+  },
+  "app.lab.skin-editor.recovery.title": {
+    "message": "Continue last skin?"
+  },
   "app.lab.skin-editor.retry": {
     "message": "Try again"
   },
+  "app.lab.skin-editor.save": {
+    "message": "Save PNG"
+  },
+  "app.lab.skin-editor.settings.auto-save": {
+    "message": "Automatically save a recovery draft"
+  },
+  "app.lab.skin-editor.settings.auto-save-description": {
+    "message": "Recovery drafts stay on this device and are separate from exported PNG files."
+  },
+  "app.lab.skin-editor.settings.cancel": {
+    "message": "Cancel"
+  },
+  "app.lab.skin-editor.settings.interval": {
+    "message": "Save interval (seconds)"
+  },
+  "app.lab.skin-editor.settings.interval-description": {
+    "message": "Use a value between 5 and 600 seconds."
+  },
+  "app.lab.skin-editor.settings.save": {
+    "message": "Save settings"
+  },
+  "app.lab.skin-editor.settings.title": {
+    "message": "Editor settings"
+  },
+  "app.lab.skin-editor.settings.tooltip": {
+    "message": "Skin editor settings"
+  },
+  "app.lab.skin-editor.settings.warn-before-leave": {
+    "message": "Warn before leaving with unsaved changes"
+  },
+  "app.lab.skin-editor.settings.warn-before-leave-description": {
+    "message": "When auto-save is off, this warning is always enabled to protect your work."
+  },
   "app.lab.skin-editor.title": {
     "message": "Skin editor"
+  },
+  "app.lab.skin-editor.unsaved.body": {
+    "message": "Save your skin before leaving, or discard the current changes."
+  },
+  "app.lab.skin-editor.unsaved.discard": {
+    "message": "Discard"
+  },
+  "app.lab.skin-editor.unsaved.save": {
+    "message": "Save PNG"
+  },
+  "app.lab.skin-editor.unsaved.stay": {
+    "message": "Stay"
+  },
+  "app.lab.skin-editor.unsaved.title": {
+    "message": "Unsaved skin"
   },
   "app.lab.title": {
     "message": "Lab"
@@ -7851,7 +8514,7 @@
     "message": "Possible issue: OpenJ9 is not compatible with this instance"
   },
   "app.minecraft-crash.diagnosis.out-of-memory.action": {
-    "message": "You can try increasing the instance memory allocation, or removing memory-heavy Mods and resource packs."
+    "message": "You can try increasing the instance memory allocation, or removing memory-heavy Mods and resource packs. If the log reports that the system is out of physical RAM or swap space, lower the allocation or close other programs instead."
   },
   "app.minecraft-crash.diagnosis.out-of-memory.title": {
     "message": "Possible issue: Minecraft ran out of memory"
@@ -10685,6 +11348,18 @@
   "app.settings.defaults.fullscreen-description": {
     "message": "Overwrites the options.txt file to start in full screen when launched."
   },
+  "app.settings.defaults.game-language.description": {
+    "message": "Used the first time an instance launches. Instances that have already been played keep their in-game language."
+  },
+  "app.settings.defaults.game-language.follow-launcher": {
+    "message": "Follow launcher language"
+  },
+  "app.settings.defaults.game-language.search": {
+    "message": "Minecraft game language locale language region"
+  },
+  "app.settings.defaults.game-language.title": {
+    "message": "Default game language"
+  },
   "app.settings.defaults.height": {
     "message": "Height"
   },
@@ -10744,6 +11419,9 @@
   },
   "app.settings.defaults.sections.environment": {
     "message": "Environment variables"
+  },
+  "app.settings.defaults.sections.game-language": {
+    "message": "Game language"
   },
   "app.settings.defaults.sections.launch-hooks": {
     "message": "Launch hooks"
@@ -12033,7 +12711,7 @@
     "message": "Network connections"
   },
   "app.settings.logs.export.modal.network-connections-hint": {
-    "message": "Run fresh tests for all services using launcher network settings when exporting, including a short download sample."
+    "message": "Run fresh service tests using launcher network settings, including a short download sample. Also include captured file timings, request speeds and remote addresses when advanced download information is enabled."
   },
   "app.settings.logs.export.modal.range": {
     "message": "Time range"
@@ -16519,5 +17197,200 @@
   },
   "unknown-pack-warning-modal.warning.title": {
     "message": "Unknown file warning"
+  },
+  "app.skins.player.title": {
+    "message": "Find player skin"
+  },
+  "app.skins.player.input": {
+    "message": "Player name or UUID"
+  },
+  "app.skins.player.search": {
+    "message": "Search"
+  },
+  "app.skins.player.download": {
+    "message": "Download PNG"
+  },
+  "app.skins.player.import": {
+    "message": "Add to saved skins"
+  },
+  "app.skins.player.imported": {
+    "message": "Added to saved skins"
+  },
+  "app.skins.player.invalid-input": {
+    "message": "Enter a valid Java player name or UUID."
+  },
+  "app.skins.player.not-found": {
+    "message": "Player not found. Check the name or UUID."
+  },
+  "app.skins.player.no-custom-skin": {
+    "message": "This player has no custom skin."
+  },
+  "app.skins.player.rate-limited": {
+    "message": "Too many requests. Please wait before trying again."
+  },
+  "app.skins.player.unavailable": {
+    "message": "Could not load this skin. Check your connection and try again."
+  },
+  "app.skins.player.save-failed": {
+    "message": "Could not save the skin. Please try again."
+  },
+  "app.downloads.diagnostics.title": {
+    "message": "Advanced download information"
+  },
+  "app.downloads.diagnostics.file": {
+    "message": "File"
+  },
+  "app.downloads.diagnostics.waiting": {
+    "message": "Waiting for download observations. Start a download after enabling this option."
+  },
+  "app.downloads.diagnostics.loading": {
+    "message": "Loading download information…"
+  },
+  "app.downloads.diagnostics.unavailable": {
+    "message": "Download information could not be refreshed. Retrying…"
+  },
+  "app.downloads.diagnostics.disabled": {
+    "message": "Download observation is disabled."
+  },
+  "app.downloads.diagnostics.elapsed": {
+    "message": "File elapsed time"
+  },
+  "app.downloads.diagnostics.network-elapsed": {
+    "message": "Network time"
+  },
+  "app.downloads.diagnostics.received": {
+    "message": "Received bytes"
+  },
+  "app.downloads.diagnostics.active-requests": {
+    "message": "Active requests"
+  },
+  "app.downloads.diagnostics.effective-requests": {
+    "message": "Requests receiving data"
+  },
+  "app.downloads.diagnostics.physical-connections": {
+    "message": "Physical connections"
+  },
+  "app.downloads.diagnostics.effective-physical": {
+    "message": "Connections receiving data"
+  },
+  "app.downloads.diagnostics.configured-limit": {
+    "message": "Configured limit"
+  },
+  "app.downloads.diagnostics.effective-cap": {
+    "message": "Current request limit"
+  },
+  "app.downloads.diagnostics.target": {
+    "message": "Target requests"
+  },
+  "app.downloads.diagnostics.held": {
+    "message": "Held permits"
+  },
+  "app.downloads.diagnostics.pool": {
+    "message": "Available pool permits"
+  },
+  "app.downloads.diagnostics.address": {
+    "message": "Remote address"
+  },
+  "app.downloads.diagnostics.protocol": {
+    "message": "Protocol / socket"
+  },
+  "app.downloads.diagnostics.speed": {
+    "message": "Request speed"
+  },
+  "app.downloads.diagnostics.duration": {
+    "message": "Request time"
+  },
+  "app.downloads.diagnostics.state": {
+    "message": "State"
+  },
+  "app.downloads.diagnostics.slow": {
+    "message": "Slow"
+  },
+  "app.downloads.diagnostics.proxy": {
+    "message": "Proxy"
+  },
+  "app.downloads.diagnostics.socket": {
+    "message": "Socket #{id}"
+  },
+  "app.downloads.diagnostics.seconds": {
+    "message": "{seconds} s"
+  },
+  "app.downloads.diagnostics.rate": {
+    "message": "{speed}/s"
+  },
+  "app.downloads.diagnostics.priority": {
+    "message": "Active / slow first"
+  },
+  "app.downloads.diagnostics.note": {
+    "message": "Each row is a request or HTTP/2 stream; streams may share a socket. Unknown physical connection counts are shown as —. Active speeds use recent samples; finished speeds are averages. Slow means below 256 KiB/s after warm-up. Receiving data means bytes arrived within the last 2 seconds."
+  },
+  "app.downloads.diagnostics.fileSelectionGuide": {
+    "message": "Choose a file, and its download summary will appear below."
+  },
+  "app.downloads.diagnostics.truncated": {
+    "message": "Observation limits reached: {files} earlier files and {transfers} earlier requests are omitted."
+  },
+  "app.downloads.diagnostics.no-requests": {
+    "message": "No requests observed for this file yet."
+  },
+  "app.downloads.diagnostics.active": {
+    "message": "Active"
+  },
+  "app.downloads.diagnostics.connecting": {
+    "message": "Connecting"
+  },
+  "app.downloads.diagnostics.completed": {
+    "message": "Completed"
+  },
+  "app.downloads.diagnostics.closed": {
+    "message": "Closed"
+  },
+  "app.downloads.diagnostics.failed": {
+    "message": "Failed"
+  },
+  "app.downloads.diagnostics.canceled": {
+    "message": "Canceled"
+  },
+  "app.settings.feature-flags.advanced-download-info": {
+    "message": "Advanced download information"
+  },
+  "app.settings.feature-flags.advanced-download-info-description": {
+    "message": "Show file timings, request speeds and remote addresses in download details. Observations are collected while enabled and included when exporting network connections."
+  },
+  "app.downloads.diagnostics.elapsed-help": {
+    "message": "Time spent processing this file, including resource waits, existing-file checks, transfer, writing and integrity verification. This is not the entire installation time."
+  },
+  "app.downloads.diagnostics.network-elapsed-help": {
+    "message": "Time from the first recorded request starting to the last request finishing, including connection setup, response waits and retry gaps. Parallel request times are not added together."
+  },
+  "app.downloads.diagnostics.received-help": {
+    "message": "Total response body bytes received, excluding headers and TLS overhead. Retries may count duplicate bytes, so this can differ from the file size; cached files may show zero."
+  },
+  "app.downloads.diagnostics.active-requests-help": {
+    "message": "Requests or HTTP/2 streams currently in the active state, excluding those still connecting. Active requests may be waiting without receiving data."
+  },
+  "app.downloads.diagnostics.effective-requests-help": {
+    "message": "Active requests that received bytes within the last 2 seconds."
+  },
+  "app.downloads.diagnostics.physical-connections-help": {
+    "message": "Distinct identifiable physical connections used by this file’s active requests. HTTP/2 streams may share a connection. Idle connections are excluded; — means the count is unknown."
+  },
+  "app.downloads.diagnostics.effective-physical-help": {
+    "message": "Distinct identifiable connections with an active request that received bytes within the last 2 seconds. Shared connections count once; — means the count is unknown."
+  },
+  "app.downloads.diagnostics.configured-limit-help": {
+    "message": "Configured resource permit limit for the global download pool. Shared across files and tasks; this is not a physical connection count or a per-file allocation."
+  },
+  "app.downloads.diagnostics.effective-cap-help": {
+    "message": "Adaptive concurrency limit for this file, adjusted for remaining data, available resources and failures. Completed files retain the last reported value."
+  },
+  "app.downloads.diagnostics.target-help": {
+    "message": "Concurrency the scheduler aims to maintain for this file, subject to available permits and splittable work. This is not the active request count; completed files retain the last value."
+  },
+  "app.downloads.diagnostics.held-help": {
+    "message": "Download resource permits currently held by this file’s scheduler. These are not physical connections and are released when the file finishes."
+  },
+  "app.downloads.diagnostics.pool-help": {
+    "message": "Currently available resource permits in the global download pool, shared with other files and tasks. This is not the number of sockets the operating system can open."
   }
 }

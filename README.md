@@ -16,6 +16,12 @@
     <a href="COPYING.md">
       <img src="https://img.shields.io/badge/License-GPL_3.0-blue.svg?style=for-the-badge" alt="License" />
     </a>
+    <a href="https://www.gitlink.org.cn/xinvxueyuan/Axolotl">
+      <img src="https://img.shields.io/badge/GitLink-Mirror-2f81f7?style=for-the-badge&logo=git&logoColor=white" alt="GitLink Mirror" />
+    </a>
+    <a href="https://cnb.cool/axlmc/Axolotl">
+      <img src="https://img.shields.io/badge/CNB-Mirror-00c2ff?style=for-the-badge&logo=cloud&logoColor=white" alt="CNB Mirror" />
+    </a>
   </p>
 
   <p>

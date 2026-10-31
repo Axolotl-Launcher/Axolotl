@@ -4,17 +4,21 @@
 //!
 //! The row's `verified` and `version` columns are the document's keys as well:
 //! a proof only counts when it is verified and in the format this build knows.
+//!
+//! `cleared` is the one key no column answers: it is how a clear says that this
+//! installation holds no proof, rather than leaving the question to the layers
+//! below it.
 
 use serde::{Deserialize, Serialize};
 
-use super::{Documents, Stored, WRITES, is_false};
+use super::{Documents, Stored, WRITES, composed, is_false, without_shipped};
 use crate::state::store;
 
 pub(crate) const DOCUMENT: &str = "login_proof";
 
 /// Bumped whenever the key set of this document changes, including when a key
 /// is dropped. The document records it; a newer document is still read.
-const SCHEMA_VERSION: u32 = 1;
+const SCHEMA_VERSION: u32 = 2;
 
 /// The proof format this build verifies.
 const PROOF_VERSION: u32 = 1;
@@ -27,6 +31,14 @@ pub(crate) struct LoginProofDocument {
     pub(crate) version: u32,
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub(crate) mac: String,
+    /// The installation holds no proof, said out loud.
+    ///
+    /// A document of the defaults alone says nothing, so a proof the layers
+    /// below carry would answer for this installation — and that one is the
+    /// user never cleared. The flag outranks those layers, because the keys a
+    /// proof is made of are exactly the ones they answer.
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub(crate) cleared: bool,
 }
 
 impl Default for LoginProofDocument {
@@ -35,6 +47,7 @@ impl Default for LoginProofDocument {
             verified: false,
             version: PROOF_VERSION,
             mac: String::new(),
+            cleared: false,
         }
     }
 }
@@ -55,51 +68,51 @@ impl LoginProofDocument {
 
 /// The MAC of the proof this installation holds, or nothing when it holds none.
 ///
-/// A document that exists answers on its own: every key it leaves out is a
-/// default, so a proof an older build left in the row cannot come back.
+/// The proof is composed like the other domains, and the MAC has to verify
+/// against this machine's keyring key wherever it came from (`api/anti_piracy`),
+/// so a layer can answer with a proof but cannot mint one: the binding is the
+/// key, not the file.
 pub(crate) async fn read(
     documents: &Documents<'_>,
 ) -> crate::Result<Option<String>> {
-    let document = match documents.stored::<LoginProofDocument>(DOCUMENT).await
-    {
-        Stored::Ready {
-            schema_version,
-            document,
-        } => {
-            if schema_version > SCHEMA_VERSION {
-                tracing::debug!(
-                    schema_version,
-                    "Reading a login proof document a newer build wrote"
-                );
-            }
-            document
-        }
-        Stored::Missing | Stored::Unreadable => {
-            let Some(mac) =
+    let document: LoginProofDocument =
+        composed(documents, DOCUMENT, SCHEMA_VERSION, async {
+            Ok(from_row(
                 store::official_login_proof::read_legacy_official_login_proof(
                     documents.pool(),
                 )
-                .await?
-            else {
-                return Ok(None);
-            };
-            LoginProofDocument {
-                verified: true,
-                version: PROOF_VERSION,
-                mac,
-            }
-        }
-    };
+                .await?,
+            ))
+        })
+        .await?;
 
+    if document.cleared {
+        return Ok(None);
+    }
     Ok(document.counts().then_some(document.mac))
+}
+
+/// The proof a row holds as a document, and the empty proof of an installation
+/// whose row holds none.
+fn from_row(mac: Option<String>) -> LoginProofDocument {
+    match mac {
+        Some(mac) => LoginProofDocument {
+            verified: true,
+            version: PROOF_VERSION,
+            mac,
+            cleared: false,
+        },
+        None => LoginProofDocument::default(),
+    }
 }
 
 /// Writes the document the row hands over to, unless one is already in place.
 pub(crate) async fn hand_over_if_missing(documents: &Documents<'_>) -> bool {
-    if matches!(
-        documents.stored::<LoginProofDocument>(DOCUMENT).await,
-        Stored::Ready { .. }
-    ) {
+    if documents
+        .stored::<LoginProofDocument>(DOCUMENT, SCHEMA_VERSION)
+        .await
+        .is_present()
+    {
         return true;
     }
     let mac =
@@ -114,13 +127,11 @@ pub(crate) async fn hand_over_if_missing(documents: &Documents<'_>) -> bool {
                 return false;
             }
         };
-    let document = match mac {
-        Some(mac) => LoginProofDocument {
-            verified: true,
-            version: PROOF_VERSION,
-            mac,
-        },
-        None => LoginProofDocument::default(),
+    let document = from_row(mac);
+    let Some(document) =
+        without_shipped(documents, DOCUMENT, SCHEMA_VERSION, document).await
+    else {
+        return false;
     };
     match documents.write(DOCUMENT, SCHEMA_VERSION, &document).await {
         Ok(()) => true,
@@ -143,13 +154,17 @@ pub(crate) async fn mark(
         document.verified = true;
         document.version = PROOF_VERSION;
         document.mac = mac;
+        document.cleared = false;
     })
     .await
 }
 
 pub(crate) async fn clear(documents: &Documents<'_>) -> crate::Result<()> {
     update(documents, |document| {
-        *document = LoginProofDocument::default()
+        *document = LoginProofDocument {
+            cleared: true,
+            ..LoginProofDocument::default()
+        }
     })
     .await
 }
@@ -160,18 +175,12 @@ async fn update(
 ) -> crate::Result<()> {
     let _writing = WRITES.lock().await;
     let mut document = match documents
-        .stored::<LoginProofDocument>(DOCUMENT)
+        .stored::<LoginProofDocument>(DOCUMENT, SCHEMA_VERSION)
         .await
     {
-        Stored::Ready { schema_version, .. }
-            if schema_version > SCHEMA_VERSION =>
-        {
-            tracing::debug!(
-                schema_version,
-                "Leaving a login proof document a newer build wrote alone"
-            );
-            return Ok(());
-        }
+        // A newer build owns the shape of this document: writing it would
+        // lower it to the keys this build knows.
+        Stored::Newer { .. } => return Ok(()),
         Stored::Ready { document, .. } => document,
         Stored::Missing | Stored::Unreadable => LoginProofDocument::default(),
     };
@@ -185,7 +194,12 @@ mod tests {
 
     use super::*;
     use crate::state::documents::test_support::{
-        create_official_login_proof_table, pool,
+        create_official_login_proof_table, layered, pool, ship,
+    };
+    use crate::state::store::Collection;
+    use crate::state::store::Handle;
+    use crate::state::store::official_login_proof::{
+        Installation, OfficialLoginProof, OfficialLoginProofRecord,
     };
 
     fn documents<'a>(
@@ -199,11 +213,13 @@ mod tests {
         let pool = pool().await;
         create_official_login_proof_table(&pool).await;
         if let Some(mac) = mac {
-            sqlx::query(
-                "INSERT INTO official_login_proof (id, verified, version, mac) VALUES (0, 1, 1, ?)",
+            OfficialLoginProof::set(
+                &Handle::new(pool.clone()),
+                &Installation,
+                Some(&OfficialLoginProofRecord {
+                    mac: mac.to_string(),
+                }),
             )
-            .bind(mac)
-            .execute(&pool)
             .await
             .unwrap();
         }
@@ -235,6 +251,36 @@ mod tests {
             read(&documents(&root, &pool)).await.unwrap(),
             None,
             "a key the document leaves out is its default, never the row's value"
+        );
+    }
+
+    /// The proof is machine state, so the one this installation holds is the
+    /// last word: a MAC a deployment ships cannot take its place. It could not
+    /// count even if it did, because a proof is checked against this machine's
+    /// keyring key (`api/anti_piracy`) rather than against the file.
+    #[tokio::test]
+    async fn a_local_proof_wins_over_the_deployment_one() {
+        let pool = installed_pool(None).await;
+        let local = tempfile::tempdir().unwrap();
+        let deployment = tempfile::tempdir().unwrap();
+        ship(
+            &deployment,
+            DOCUMENT,
+            r#"{"verified":true,"mac":"deployment-mac"}"#,
+        );
+        std::fs::write(
+            local.path().join("login_proof.json"),
+            r#"{"schema_version":1,"data":{"verified":true,"mac":"local-mac"}}"#,
+        )
+        .unwrap();
+
+        assert_eq!(
+            read(&layered(&local, &deployment, &pool))
+                .await
+                .unwrap()
+                .as_deref(),
+            Some("local-mac"),
+            "the proof this installation holds outranks the one the deployment names"
         );
     }
 
@@ -270,5 +316,76 @@ mod tests {
             .collect::<Vec<_>>();
         keys.sort_unstable();
         assert_eq!(keys, ["mac", "verified"]);
+    }
+
+    /// A clear says that this installation holds no proof rather than leaving
+    /// the question to the layers below it: a document of the defaults alone
+    /// says nothing about the keys, so the proof the deployment ships would go
+    /// on answering for an installation the user has cleared.
+    #[tokio::test]
+    async fn a_cleared_proof_masks_the_deployment_one() {
+        let pool = installed_pool(None).await;
+        let local = tempfile::tempdir().unwrap();
+        let deployment = tempfile::tempdir().unwrap();
+        ship(
+            &deployment,
+            DOCUMENT,
+            r#"{"verified":true,"mac":"deployment-mac"}"#,
+        );
+        let documents = layered(&local, &deployment, &pool);
+        assert_eq!(
+            read(&documents).await.unwrap().as_deref(),
+            Some("deployment-mac"),
+            "the proof the deployment ships answers while this installation has none"
+        );
+
+        clear(&documents).await.unwrap();
+
+        assert_eq!(
+            read(&documents).await.unwrap(),
+            None,
+            "a cleared proof is the installation's answer, and it outranks the deployment's"
+        );
+        let stored: serde_json::Value = serde_json::from_slice(
+            &std::fs::read(documents.path(DOCUMENT)).unwrap(),
+        )
+        .unwrap();
+        assert_eq!(
+            stored["data"]["cleared"],
+            serde_json::Value::from(true),
+            "the clear is what the local document records: {stored}"
+        );
+    }
+
+    /// A key the deployment answers is not copied out of the row into the local
+    /// document by the handover: the local copy is the last word for the keys it
+    /// carries, so the deployment's answer would never arrive there again.
+    #[tokio::test]
+    async fn a_deployment_value_is_not_copied_into_the_local_document() {
+        let pool = installed_pool(Some("stored-mac")).await;
+        let local = tempfile::tempdir().unwrap();
+        let deployment = tempfile::tempdir().unwrap();
+        ship(
+            &deployment,
+            DOCUMENT,
+            r#"{"verified":true,"mac":"deployment-mac"}"#,
+        );
+        let documents = layered(&local, &deployment, &pool);
+
+        assert!(hand_over_if_missing(&documents).await);
+
+        let stored: serde_json::Value = serde_json::from_slice(
+            &std::fs::read(documents.path(DOCUMENT)).unwrap(),
+        )
+        .unwrap();
+        assert!(
+            !stored["data"].as_object().unwrap().contains_key("mac"),
+            "the key the deployment answers is left out of the local document"
+        );
+        assert_eq!(
+            read(&documents).await.unwrap().as_deref(),
+            Some("deployment-mac"),
+            "and the answer the deployment gives is the one the domain reads"
+        );
     }
 }

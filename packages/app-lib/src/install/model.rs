@@ -266,7 +266,8 @@ pub struct InstallJobState {
     #[serde(skip)]
     download_items_cache: std::sync::Mutex<Option<Vec<DownloadItemSnapshot>>>,
     #[serde(skip)]
-    summary_cache: std::sync::Mutex<Option<DownloadJobSummary>>,
+    summary_cache:
+        std::sync::Mutex<Option<std::sync::Arc<CachedDownloadSummary>>>,
 }
 
 impl Clone for InstallJobState {
@@ -1037,6 +1038,166 @@ mod tests {
             phase: InstallPhaseId::DownloadingMinecraft,
         });
         assert!(job.active_downloads.is_empty());
+    }
+
+    fn eta_test_download(
+        path: &str,
+        bytes: u64,
+        total: u64,
+        speed: u64,
+    ) -> ActiveDownloadState {
+        ActiveDownloadState {
+            name: path.to_string(),
+            url: format!("https://example.com/{path}"),
+            source: "official".to_string(),
+            bytes_downloaded: bytes,
+            bytes_total: Some(total),
+            attempt: 1,
+            max_attempts: 3,
+            status: DownloadItemStatus::Downloading,
+            last_reported_bytes: bytes,
+            last_progress_at: Utc::now(),
+            speed_bytes_per_second: Some(speed),
+            speed_sample_started_at: Utc::now(),
+            speed_sample_started_bytes: bytes,
+        }
+    }
+
+    fn start_eta_test_batch(
+        job: &mut InstallJobState,
+        paths: &[&str],
+        total: u64,
+        settled: u64,
+    ) {
+        job.record_event(InstallJobEventKind::ContentDownloadStarted {
+            files: paths.len() as u64,
+            bytes: Some(total),
+        });
+        for path in paths {
+            job.record_event(InstallJobEventKind::ContentFileQueued {
+                path: (*path).to_string(),
+                bytes_total: None,
+                max_attempts: 3,
+            });
+        }
+        job.set_progress(
+            InstallPhaseId::DownloadingContent,
+            Some(InstallProgress {
+                current: 0,
+                total: paths.len() as u64,
+                secondary: Some(InstallProgressSecondary {
+                    current: settled,
+                    total,
+                }),
+            }),
+            InstallPhaseDetails::Empty,
+        );
+    }
+
+    #[test]
+    fn content_eta_counts_resumed_bytes_once_and_excludes_parallel_requests() {
+        let mut job = job_state();
+        start_eta_test_batch(
+            &mut job,
+            &["mods/done.jar", "mods/resumed.jar"],
+            2_000,
+            1_000,
+        );
+        job.record_event(InstallJobEventKind::ContentFileCompleted {
+            path: "mods/done.jar".to_string(),
+            bytes: 1_000,
+        });
+        for (path, bytes, total, speed) in [
+            ("mods/done.jar", 1_500, 1_500, 900),
+            ("mods/resumed.jar", 600, 1_000, 100),
+            ("libraries/client.jar", 9_000, 10_000, 1_000),
+        ] {
+            job.active_downloads.insert(
+                path.to_string(),
+                eta_test_download(path, bytes, total, speed),
+            );
+        }
+        let summary = job.download_summary();
+        assert_eq!(summary.bytes_downloaded, 1_000);
+        assert_eq!(summary.speed_bytes_per_second, Some(2_000));
+        assert_eq!(summary.eta_seconds, Some(4));
+
+        // Some callbacks already include the in-flight bytes. Taking the
+        // maximum, rather than adding to that callback, avoids double counts.
+        job.progress
+            .progress
+            .as_mut()
+            .unwrap()
+            .secondary
+            .as_mut()
+            .unwrap()
+            .current = 1_600;
+        assert_eq!(job.download_summary().eta_seconds, Some(4));
+    }
+
+    #[test]
+    fn content_eta_hides_estimate_when_only_parallel_requests_are_fresh() {
+        let mut job = job_state();
+        start_eta_test_batch(&mut job, &["mods/a.jar"], 1_000, 0);
+        let mut content = eta_test_download("mods/a.jar", 600, 1_000, 100);
+        content.last_progress_at = Utc::now() - TimeDelta::seconds(4);
+        job.active_downloads
+            .insert("mods/a.jar".to_string(), content);
+        job.active_downloads.insert(
+            "libraries/client.jar".to_string(),
+            eta_test_download("libraries/client.jar", 9_000, 10_000, 200),
+        );
+        let summary = job.download_summary();
+        assert_eq!(summary.speed_bytes_per_second, Some(200));
+        assert_eq!(summary.eta_seconds, None);
+
+        job.active_downloads
+            .get_mut("mods/a.jar")
+            .unwrap()
+            .last_progress_at = Utc::now();
+        assert_eq!(job.download_summary().eta_seconds, Some(4));
+    }
+
+    #[test]
+    fn content_eta_cache_tracks_new_batches_without_changing_clones() {
+        let mut job = job_state();
+        start_eta_test_batch(&mut job, &["mods/first.jar"], 1_000, 0);
+        job.active_downloads.insert(
+            "mods/first.jar".to_string(),
+            eta_test_download("mods/first.jar", 600, 1_000, 100),
+        );
+        assert_eq!(job.download_summary().eta_seconds, Some(4));
+        let cloned = job.clone();
+
+        start_eta_test_batch(&mut job, &["mods/second.jar"], 2_000, 0);
+        job.active_downloads.insert(
+            "mods/second.jar".to_string(),
+            eta_test_download("mods/second.jar", 500, 2_000, 100),
+        );
+        assert_eq!(job.download_summary().eta_seconds, Some(15));
+        assert_eq!(cloned.download_summary().eta_seconds, Some(4));
+
+        job.record_event(InstallJobEventKind::ContentFileCompleted {
+            path: "mods/second.jar".to_string(),
+            bytes: 2_000,
+        });
+        assert_eq!(job.download_summary().eta_seconds, None);
+
+        job.active_downloads.clear();
+        job.active_downloads.insert(
+            "client.jar".to_string(),
+            eta_test_download("client.jar", 400, 1_000, 200),
+        );
+        job.set_progress(
+            InstallPhaseId::DownloadingMinecraft,
+            Some(InstallProgress {
+                current: 400,
+                total: 1_000,
+                secondary: None,
+            }),
+            InstallPhaseDetails::Empty,
+        );
+        assert_eq!(job.download_summary().eta_seconds, Some(3));
     }
 
     #[test]
@@ -2312,6 +2473,13 @@ pub struct DownloadJobSummary {
     pub fallback_count: u64,
 }
 
+#[derive(Debug)]
+struct CachedDownloadSummary {
+    summary: DownloadJobSummary,
+    content_files: Option<HashMap<String, Option<u64>>>,
+    content_bytes_downloaded: u64,
+}
+
 impl InstallJobKind {
     pub fn as_str(self) -> &'static str {
         match self {
@@ -3129,10 +3297,20 @@ impl InstallJobState {
                     bytes_total,
                     max_attempts,
                 } => {
+                    let item_path = std::path::Path::new(path);
+                    let name = if item_path.is_absolute() {
+                        item_path
+                            .file_name()
+                            .map(|name| name.to_string_lossy().into_owned())
+                            .unwrap_or_else(|| path.clone())
+                    } else {
+                        path.clone()
+                    };
                     if let Some(item) = indices
                         .get(path)
                         .and_then(|&index| items.get_mut(index))
                     {
+                        item.name = name;
                         item.status = DownloadItemStatus::Queued;
                         item.bytes_downloaded = 0;
                         item.bytes_total = *bytes_total;
@@ -3145,7 +3323,7 @@ impl InstallJobState {
                         let index = items.len();
                         items.push(DownloadItemSnapshot {
                             id: path.clone(),
-                            name: path.clone(),
+                            name,
                             project_id: None,
                             version_id: None,
                             status: DownloadItemStatus::Queued,
@@ -3509,8 +3687,9 @@ impl InstallJobState {
     /// byte totals, source, fallback count). This is the expensive part of
     /// `download_summary` and its result is cached; live progress and speed
     /// are applied by the caller.
-    fn summary_from_events(&self) -> DownloadJobSummary {
+    fn summary_from_events(&self) -> CachedDownloadSummary {
         let mut summary = DownloadJobSummary::default();
+        let mut content_files = None::<HashMap<String, Option<u64>>>;
         let mut settled_content = HashMap::<String, u64>::new();
         for event in &self.events {
             match &event.kind {
@@ -3520,6 +3699,17 @@ impl InstallJobState {
                 } => {
                     summary.files_total = Some(*files);
                     summary.bytes_total = *bytes;
+                    content_files = Some(HashMap::new());
+                }
+
+                InstallJobEventKind::ContentFileQueued { path, .. }
+                | InstallJobEventKind::ContentFileDownloadAttempt {
+                    path,
+                    ..
+                } => {
+                    if let Some(files) = &mut content_files {
+                        files.insert(path.clone(), None);
+                    }
                 }
 
                 InstallJobEventKind::ContentFileCompleted { path, bytes }
@@ -3527,6 +3717,12 @@ impl InstallJobState {
                     // 同一个文件在暂停/恢复后可能再次产生 settled 事件。
                     // 按 path 保存最终状态，避免重复累计。
                     settled_content.insert(path.clone(), *bytes);
+                    if let Some(settled) = content_files
+                        .as_mut()
+                        .and_then(|files| files.get_mut(path))
+                    {
+                        *settled = Some(*bytes);
+                    }
                 }
 
                 InstallJobEventKind::ContentFileSkipped { path, .. }
@@ -3534,6 +3730,12 @@ impl InstallJobState {
                     // Failed / Skipped 算作已处理，但不贡献完成字节。
                     // 如果之后恢复成功，同一个 path 会被 Recovered 覆盖成真实大小。
                     settled_content.insert(path.clone(), 0);
+                    if let Some(settled) = content_files
+                        .as_mut()
+                        .and_then(|files| files.get_mut(path))
+                    {
+                        *settled = Some(0);
+                    }
                 }
 
                 InstallJobEventKind::DownloadMetrics {
@@ -3553,7 +3755,17 @@ impl InstallJobState {
             .values()
             .copied()
             .fold(0_u64, u64::saturating_add);
-        summary
+        let content_bytes_downloaded = content_files
+            .as_ref()
+            .into_iter()
+            .flat_map(|files| files.values())
+            .filter_map(|bytes| *bytes)
+            .fold(0_u64, u64::saturating_add);
+        CachedDownloadSummary {
+            summary,
+            content_files,
+            content_bytes_downloaded,
+        }
     }
 
     pub fn download_summary(&self) -> DownloadJobSummary {
@@ -3562,18 +3774,19 @@ impl InstallJobState {
             .lock()
             .expect("download summary cache lock poisoned")
             .clone();
-        let mut summary = match cached {
-            Some(summary) => summary,
+        let cached = match cached {
+            Some(cached) => cached,
             None => {
-                let summary = self.summary_from_events();
+                let cached = std::sync::Arc::new(self.summary_from_events());
                 *self
                     .summary_cache
                     .lock()
                     .expect("download summary cache lock poisoned") =
-                    Some(summary.clone());
-                summary
+                    Some(std::sync::Arc::clone(&cached));
+                cached
             }
         };
+        let mut summary = cached.summary.clone();
         if let Some(progress) = &self.progress.progress {
             if self.progress.phase == InstallPhaseId::DownloadingContent {
                 summary.files_completed = progress.current;
@@ -3610,27 +3823,60 @@ impl InstallJobState {
                 ..
             }
         );
+        let content_files = (self.progress.phase
+            == InstallPhaseId::DownloadingContent)
+            .then_some(cached.content_files.as_ref())
+            .flatten();
         let now = Utc::now();
-        let active_speed = self
-            .active_downloads
-            .values()
-            .filter(|download| {
-                download.status == DownloadItemStatus::Downloading
-                    && now
-                        .signed_duration_since(download.last_progress_at)
-                        .num_milliseconds()
-                        < 3_000
-            })
-            .filter_map(|download| download.speed_bytes_per_second)
-            .fold(0_u64, u64::saturating_add);
+        let mut active_speed = 0_u64;
+        let mut content_speed = 0_u64;
+        let mut content_in_flight = 0_u64;
+        for (path, download) in &self.active_downloads {
+            let pending_content = content_files
+                .is_some_and(|files| matches!(files.get(path), Some(None)));
+            if pending_content {
+                content_in_flight =
+                    content_in_flight.saturating_add(download.bytes_downloaded);
+            }
+            if download.status == DownloadItemStatus::Downloading
+                && now
+                    .signed_duration_since(download.last_progress_at)
+                    .num_milliseconds()
+                    < 3_000
+            {
+                let speed = download.speed_bytes_per_second.unwrap_or(0);
+                active_speed = active_speed.saturating_add(speed);
+                if pending_content {
+                    content_speed = content_speed.saturating_add(speed);
+                }
+            }
+        }
         if actively_downloading && active_speed > 0 {
             summary.speed_bytes_per_second = Some(active_speed);
-            summary.eta_seconds = summary.bytes_total.and_then(|total| {
-                total
-                    .saturating_sub(summary.bytes_downloaded)
-                    .checked_add(active_speed - 1)
-                    .and_then(|remaining| remaining.checked_div(active_speed))
-            });
+            // Content progress may contain only settled files, while request
+            // offsets include resumed and in-flight bytes. Restrict this ETA
+            // overlay to the current batch so parallel Minecraft downloads
+            // and already settled paths cannot inflate it.
+            let (eta_downloaded, eta_speed) = if content_files.is_some() {
+                (
+                    summary.bytes_downloaded.max(
+                        cached
+                            .content_bytes_downloaded
+                            .saturating_add(content_in_flight),
+                    ),
+                    content_speed,
+                )
+            } else {
+                (summary.bytes_downloaded, active_speed)
+            };
+            if eta_speed > 0 {
+                summary.eta_seconds = summary.bytes_total.and_then(|total| {
+                    total
+                        .saturating_sub(eta_downloaded)
+                        .checked_add(eta_speed - 1)
+                        .and_then(|remaining| remaining.checked_div(eta_speed))
+                });
+            }
         }
         summary
     }

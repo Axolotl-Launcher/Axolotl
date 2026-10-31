@@ -33,6 +33,9 @@ vi.mock('@/composables/use-app-event', () => ({ useAppEvent: () => {} }))
 vi.mock('@/providers/download-manager', () => ({
     injectDownloadManager: () => fixture.manager,
 }))
+vi.mock('@/store/state', () => ({
+    useTheming: () => ({ devMode: false, getFeatureFlag: () => false }),
+}))
 vi.mock('@/providers/content-install', () => ({
     injectContentInstall: () => ({ showCurseForgeManualDownloads: vi.fn() }),
 }))

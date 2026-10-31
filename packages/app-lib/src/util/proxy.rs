@@ -91,6 +91,42 @@ pub struct ProxyConfig {
 }
 
 impl ProxyConfig {
+    /// Snapshot the same proxy selection used by reqwest for native transports.
+    pub(crate) fn native_matcher(
+        &self,
+    ) -> Result<std::sync::Arc<hyper_util::client::proxy::matcher::Matcher>>
+    {
+        use hyper_util::client::proxy::matcher::Matcher;
+        let matcher = match self.mode {
+            ProxyMode::None => Matcher::builder().build(),
+            ProxyMode::System => {
+                #[cfg(windows)]
+                if let Some(matcher) = windows::native_matcher() {
+                    return Ok(std::sync::Arc::new(matcher));
+                }
+                Matcher::from_system()
+            }
+            ProxyMode::Custom => {
+                self.validate()?;
+                let mut url = reqwest::Url::parse(
+                    self.custom_url_trimmed().unwrap_or_default(),
+                )
+                .map_err(|_| {
+                    crate::ErrorKind::InputError("Invalid proxy URL".into())
+                })?;
+                if self.has_credentials() {
+                    set_url_credentials(
+                        &mut url,
+                        &self.username,
+                        &self.password,
+                    );
+                }
+                Matcher::builder().all(url.as_str()).build()
+            }
+        };
+        Ok(std::sync::Arc::new(matcher))
+    }
+
     pub fn storage_key() -> &'static str {
         "proxy_config_v1"
     }
@@ -203,8 +239,11 @@ impl ProxyConfig {
                 let proxy = if self.has_credentials() {
                     if parsed_url.scheme().starts_with("socks") {
                         let mut authed_url = parsed_url;
-                        let _ = authed_url.set_username(&self.username);
-                        let _ = authed_url.set_password(Some(&self.password));
+                        set_url_credentials(
+                            &mut authed_url,
+                            &self.username,
+                            &self.password,
+                        );
                         Proxy::all(authed_url.as_str()).map_err(|error| {
                             crate::ErrorKind::InputError(format!(
                                 "Proxy URL is invalid: {error}"
@@ -232,6 +271,13 @@ impl ProxyConfig {
     }
 }
 
+fn set_url_credentials(url: &mut reqwest::Url, username: &str, password: &str) {
+    // URL setters preserve existing percent escapes; raw configured credentials
+    // need literal percent signs escaped before a proxy matcher decodes them.
+    let _ = url.set_username(&username.replace('%', "%25"));
+    let _ = url.set_password(Some(&password.replace('%', "%25")));
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -241,6 +287,79 @@ mod tests {
             mode: ProxyMode::Custom,
             url: url.to_string(),
             ..Default::default()
+        }
+    }
+
+    #[test]
+    fn native_matcher_preserves_transport_and_overrides_url_credentials() {
+        use base64::Engine;
+        let target = "https://assets.invalid/file".parse().unwrap();
+        let mut config = custom("http://old:credentials@127.0.0.1:7890");
+        config.username = "user@example.test".into();
+        config.password = "p@ss:/ word".into();
+        let selected =
+            config.native_matcher().unwrap().intercept(&target).unwrap();
+        assert_eq!(selected.uri(), "http://127.0.0.1:7890/");
+        assert_eq!(
+            selected.basic_auth().unwrap(),
+            &format!(
+                "Basic {}",
+                base64::engine::general_purpose::STANDARD
+                    .encode("user@example.test:p@ss:/ word")
+            )
+        );
+        assert!(selected.basic_auth().unwrap().is_sensitive());
+        assert!(!format!("{selected:?}").contains("credentials"));
+        config.url = "socks5h://old:credentials@127.0.0.1:1080".into();
+        let selected =
+            config.native_matcher().unwrap().intercept(&target).unwrap();
+        assert_eq!(selected.uri().scheme_str(), Some("socks5h"));
+        assert_eq!(
+            selected.raw_auth(),
+            Some(("user@example.test", "p@ss:/ word"))
+        );
+        assert!(selected.basic_auth().is_none());
+    }
+
+    #[test]
+    fn native_matcher_none_bypasses_all_destinations() {
+        let config = ProxyConfig {
+            mode: ProxyMode::None,
+            ..Default::default()
+        };
+        let matcher = config.native_matcher().unwrap();
+        assert!(
+            matcher
+                .intercept(&"https://assets.invalid/file".parse().unwrap())
+                .is_none()
+        );
+    }
+
+    #[test]
+    fn native_matcher_preserves_literal_percent_sequences_in_credentials() {
+        let target = "https://assets.invalid/file".parse().unwrap();
+        for scheme in ["http", "socks5h"] {
+            let mut config = custom(&format!("{scheme}://127.0.0.1:7890"));
+            config.username = "user%41".into();
+            config.password = "pass%3A%word".into();
+            let selected =
+                config.native_matcher().unwrap().intercept(&target).unwrap();
+            if scheme == "http" {
+                use base64::Engine;
+                assert_eq!(
+                    selected.basic_auth().unwrap(),
+                    &format!(
+                        "Basic {}",
+                        base64::engine::general_purpose::STANDARD
+                            .encode("user%41:pass%3A%word")
+                    )
+                );
+            } else {
+                assert_eq!(
+                    selected.raw_auth(),
+                    Some(("user%41", "pass%3A%word"))
+                );
+            }
         }
     }
 

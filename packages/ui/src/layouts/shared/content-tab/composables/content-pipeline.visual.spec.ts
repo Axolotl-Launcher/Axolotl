@@ -186,3 +186,42 @@ it('keeps enriched rows in place and sorts again only on an explicit sort change
         wrapper.unmount()
     }
 })
+
+it('clears a single type filter when its selected chip is clicked again', async () => {
+    const items = ref<ContentItem[]>([
+        { id: 'mod', file_name: 'a.jar', enabled: true, project_type: 'mod' },
+        {
+            id: 'pack',
+            file_name: 'b.zip',
+            enabled: true,
+            project_type: 'resourcepack',
+        },
+    ])
+    let pipeline!: ReturnType<typeof useContentPipeline>
+    const wrapper = mount(
+        defineComponent({
+            setup() {
+                pipeline = useContentPipeline({
+                    items,
+                    sortItems: (items) => items,
+                    getItemId: (item) => item.id,
+                    initialFilters: { typeFilters: ['mod'], statusFilters: [] },
+                })
+                return () => h('div')
+            },
+        }),
+    )
+
+    try {
+        pipeline.toggleTypeFilter('mod')
+        expect(pipeline.selectedTypeFilter.value).toEqual([])
+        pipeline.toggleTypeFilter('mod')
+        expect(pipeline.selectedTypeFilter.value).toEqual(['mod'])
+        pipeline.toggleTypeFilter('pack')
+        expect(pipeline.selectedTypeFilter.value).toEqual(['pack'])
+        pipeline.toggleTypeFilter('pack')
+        expect(pipeline.selectedTypeFilter.value).toEqual([])
+    } finally {
+        wrapper.unmount()
+    }
+})

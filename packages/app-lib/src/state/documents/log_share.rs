@@ -6,7 +6,10 @@
 use serde::{Deserialize, Serialize};
 use sqlx::SqlitePool;
 
-use super::{Documents, Stored, WRITES, default_true, is_false, is_true};
+use super::{
+    Documents, Stored, WRITES, composed, default_true, is_false, is_true,
+    without_shipped,
+};
 use crate::state::store;
 
 pub(crate) const DOCUMENT: &str = "log_share";
@@ -75,29 +78,16 @@ fn is_logshare(value: &String) -> bool {
     value == "logshare"
 }
 
-/// The document, or the rows while it does not exist. A document that exists
-/// answers on its own: every key it leaves out is a default, so an older build
-/// falling back to the rows cannot resurrect what a newer one wrote.
+/// The document, composed of the keys the deployment ships and the ones the
+/// local document names, or the rows while neither of them answers. The two
+/// rows are one document, so a layer answers both halves together.
 pub(crate) async fn read(
     documents: &Documents<'_>,
 ) -> crate::Result<LogShareDocument> {
-    match documents.stored::<LogShareDocument>(DOCUMENT).await {
-        Stored::Ready {
-            schema_version,
-            document,
-        } => {
-            if schema_version > SCHEMA_VERSION {
-                tracing::debug!(
-                    schema_version,
-                    "Reading a log sharing document a newer build wrote"
-                );
-            }
-            Ok(document)
-        }
-        Stored::Missing | Stored::Unreadable => {
-            from_database(documents.pool()).await
-        }
-    }
+    composed(documents, DOCUMENT, SCHEMA_VERSION, async {
+        from_database(documents.pool()).await
+    })
+    .await
 }
 
 async fn from_database(pool: &SqlitePool) -> crate::Result<LogShareDocument> {
@@ -124,10 +114,11 @@ async fn from_database(pool: &SqlitePool) -> crate::Result<LogShareDocument> {
 
 /// Writes the document the rows hand over to, unless one is already in place.
 pub(crate) async fn hand_over_if_missing(documents: &Documents<'_>) -> bool {
-    if matches!(
-        documents.stored::<LogShareDocument>(DOCUMENT).await,
-        Stored::Ready { .. }
-    ) {
+    if documents
+        .stored::<LogShareDocument>(DOCUMENT, SCHEMA_VERSION)
+        .await
+        .is_present()
+    {
         return true;
     }
     let document = match from_database(documents.pool()).await {
@@ -136,6 +127,11 @@ pub(crate) async fn hand_over_if_missing(documents: &Documents<'_>) -> bool {
             tracing::warn!(%error, "Could not read the log sharing rows");
             return false;
         }
+    };
+    let Some(document) =
+        without_shipped(documents, DOCUMENT, SCHEMA_VERSION, document).await
+    else {
+        return false;
     };
     match documents.write(DOCUMENT, SCHEMA_VERSION, &document).await {
         Ok(()) => true,
@@ -199,22 +195,25 @@ async fn update(
     apply: impl FnOnce(&mut LogShareDocument),
 ) -> crate::Result<()> {
     let _writing = WRITES.lock().await;
-    let mut document =
-        match documents.stored::<LogShareDocument>(DOCUMENT).await {
-            Stored::Ready { schema_version, .. }
-                if schema_version > SCHEMA_VERSION =>
-            {
-                tracing::debug!(
-                    schema_version,
-                    "Leaving a log sharing document a newer build wrote alone"
-                );
+    let mut document = match documents
+        .stored::<LogShareDocument>(DOCUMENT, SCHEMA_VERSION)
+        .await
+    {
+        // A newer build owns the shape of this document: writing it would
+        // lower it to the keys this build knows.
+        Stored::Newer { .. } => return Ok(()),
+        Stored::Ready { document, .. } => document,
+        Stored::Missing | Stored::Unreadable => {
+            let draft = from_database(documents.pool()).await?;
+            let Some(draft) =
+                without_shipped(documents, DOCUMENT, SCHEMA_VERSION, draft)
+                    .await
+            else {
                 return Ok(());
-            }
-            Stored::Ready { document, .. } => document,
-            Stored::Missing | Stored::Unreadable => {
-                from_database(documents.pool()).await?
-            }
-        };
+            };
+            draft
+        }
+    };
     apply(&mut document);
     documents.write(DOCUMENT, SCHEMA_VERSION, &document).await
 }
@@ -225,7 +224,7 @@ mod tests {
 
     use super::*;
     use crate::state::documents::test_support::{
-        create_log_share_tables, pool,
+        create_log_share_tables, layered, pool, ship,
     };
 
     fn documents<'a>(
@@ -306,6 +305,56 @@ mod tests {
         assert!(!document.crash_analysis.enabled);
     }
 
+    /// The two tables are one document, so a layer answers both of their keys
+    /// together: the deployment's document reaches the crash-analysis half as
+    /// well as the sharing one.
+    #[tokio::test]
+    async fn a_deployment_document_answers_both_halves() {
+        let pool = installed_pool().await;
+        sqlx::query(
+            "UPDATE log_share_settings SET share_provider = 'mclogs', auto_upload = FALSE",
+        )
+        .execute(&pool)
+        .await
+        .unwrap();
+        sqlx::query(
+            "UPDATE crash_analysis_ai_settings SET enabled = TRUE, provider_id = 'openai', model_id = 'gpt-x', ai_source = 'custom'",
+        )
+        .execute(&pool)
+        .await
+        .unwrap();
+
+        let local = tempfile::tempdir().unwrap();
+        let deployment = tempfile::tempdir().unwrap();
+        ship(
+            &deployment,
+            DOCUMENT,
+            r#"{"share_provider":"logshare","ai_source":"logshare","crash_analysis":{"enabled":false,"provider_id":"deploy"}}"#,
+        );
+
+        let document =
+            read(&layered(&local, &deployment, &pool)).await.unwrap();
+
+        assert_eq!(
+            document.share_provider, "logshare",
+            "the deployment's answer for a key outranks the row's"
+        );
+        assert_eq!(document.ai_source, "logshare");
+        assert_eq!(
+            document.crash_analysis,
+            CrashAnalysis {
+                enabled: false,
+                provider_id: "deploy".into(),
+                model_id: String::new(),
+            },
+            "a layer answers the crash-analysis half too, and it answers the whole key rather than merging into it"
+        );
+        assert!(
+            !document.auto_upload,
+            "a key the deployment leaves out is still the row's"
+        );
+    }
+
     #[tokio::test]
     async fn the_two_settings_share_one_document() {
         let pool = installed_pool().await;
@@ -343,5 +392,45 @@ mod tests {
         assert_eq!(document.crash_analysis.model_id, "gpt-x");
         assert!(!document.auto_upload);
         assert!(document.no_storage);
+    }
+
+    /// A key the deployment answers is not copied out of the rows into the local
+    /// document: the local copy is the last word for the keys it carries, so the
+    /// deployment's answer would never arrive at this key again.
+    #[tokio::test]
+    async fn a_deployment_value_is_not_copied_into_the_local_document() {
+        let pool = installed_pool().await;
+        // A value the document carries without holding the default, so the copy
+        // this test looks for is one it can see.
+        sqlx::query(
+            "UPDATE log_share_settings SET share_provider = 'paste-gg'",
+        )
+        .execute(&pool)
+        .await
+        .unwrap();
+        let local = tempfile::tempdir().unwrap();
+        let deployment = tempfile::tempdir().unwrap();
+        ship(&deployment, DOCUMENT, r#"{"share_provider":"mclogs"}"#);
+        let documents = layered(&local, &deployment, &pool);
+
+        assert!(hand_over_if_missing(&documents).await);
+
+        let stored: serde_json::Value = serde_json::from_slice(
+            &std::fs::read(documents.path(DOCUMENT)).unwrap(),
+        )
+        .unwrap();
+        assert!(
+            !stored["data"]
+                .as_object()
+                .unwrap()
+                .contains_key("share_provider"),
+            "the key the deployment answers is left out of the local document: {}",
+            stored["data"]
+        );
+        assert_eq!(
+            read(&documents).await.unwrap().share_provider,
+            "mclogs",
+            "and the answer the deployment gives is the one the domain reads"
+        );
     }
 }

@@ -1,5 +1,6 @@
 mod commands;
 mod config;
+use super::tools::interface;
 mod service;
 
 use service::McpService;
@@ -12,10 +13,13 @@ pub fn init() -> tauri::plugin::TauriPlugin<tauri::Wry> {
             commands::mcp_get_state,
             commands::mcp_configure,
             commands::mcp_respond,
-            commands::mcp_disconnect
+            commands::mcp_disconnect,
+            interface::mcp_ui_claim,
+            interface::mcp_ui_respond
         ])
         .setup(|app, _| {
             app.manage(McpService::default());
+            super::tools::initialize(app);
             Ok(())
         })
         .build()

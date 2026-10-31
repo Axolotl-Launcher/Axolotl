@@ -149,9 +149,9 @@ function createTooltip(trigger: HTMLElement, modifier: Placement | null): Toolti
         else layer.leave(trigger, true)
     }
 
-    function hide() {
+    function hide(immediate = false) {
         cancelPendingShow()
-        layer.leave(trigger)
+        layer.leave(trigger, immediate)
     }
 
     function onEnter() {
@@ -187,10 +187,19 @@ function createTooltip(trigger: HTMLElement, modifier: Placement | null): Toolti
         if (triggerEnabled('focus') && !hasActiveTrigger()) hide()
     }
 
+    function onClick() {
+        // A click usually opens a menu or dialog. Dismiss the tooltip now; do not
+        // let the still-focused trigger bring it back over the new surface.
+        hovered = false
+        focused = false
+        hide(true)
+    }
+
     trigger.addEventListener('mouseenter', onEnter)
     trigger.addEventListener('mouseleave', onLeave)
     trigger.addEventListener('focusin', onFocusIn)
     trigger.addEventListener('focusout', onFocusOut)
+    trigger.addEventListener('click', onClick)
 
     return {
         setValue(next) {
@@ -215,6 +224,7 @@ function createTooltip(trigger: HTMLElement, modifier: Placement | null): Toolti
             trigger.removeEventListener('mouseleave', onLeave)
             trigger.removeEventListener('focusin', onFocusIn)
             trigger.removeEventListener('focusout', onFocusOut)
+            trigger.removeEventListener('click', onClick)
         },
     }
 }

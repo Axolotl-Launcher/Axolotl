@@ -4,11 +4,19 @@ import { expect, it, vi } from 'vitest'
 import type { GameInstance } from '@/helpers/types'
 
 import InstanceGroup from './InstanceGroup.vue'
+const dnd = vi.hoisted(() => ({
+    options: undefined as { disabled?: { value: boolean } } | undefined,
+}))
 vi.mock('@/composables/useInstanceGroups', () => ({ FAVORITES_GROUP_ID: 'favorites' }))
 vi.mock('@/composables/useGridGrouping', () => ({ UNGROUPED_GROUP_KEY: 'ungrouped' }))
 vi.mock('@dnd-kit/vue', async () => {
     const { ref } = await import('vue')
-    return { useDroppable: () => ({ isDropTarget: ref(false) }) }
+    return {
+        useDroppable: (options: { disabled?: { value: boolean } }) => {
+            dnd.options = options
+            return { isDropTarget: ref(false) }
+        },
+    }
 })
 vi.mock('@/components/ui/library/DraggableInstanceCard.vue', async () => {
     const { defineComponent, h } = await import('vue')
@@ -17,7 +25,7 @@ vi.mock('@/components/ui/library/DraggableInstanceCard.vue', async () => {
             setup:
                 (_, { slots }) =>
                 () =>
-                    h('div', slots.default?.({ isDragging: false })),
+                    h('div', { 'data-draggable-card': '' }, slots.default?.({ isDragging: false })),
         }),
     }
 })
@@ -25,9 +33,13 @@ vi.mock('@/components/ui/Instance.vue', async () => {
     const { defineComponent, h } = await import('vue')
     return {
         default: defineComponent({
-            props: ['playing', 'instance'],
+            props: ['playing', 'instance', 'showGameDirectory'],
             setup: (props) => () =>
-                h('div', { 'data-playing': String(props.playing), 'data-id': props.instance.id }),
+                h('div', {
+                    'data-playing': String(props.playing),
+                    'data-id': props.instance.id,
+                    'data-show-game-directory': String(props.showGameDirectory),
+                }),
         }),
     }
 })
@@ -44,7 +56,9 @@ vi.mock('@modrinth/ui', async () => {
         Button: control,
         Checkbox: control,
         IconButton: control,
-        InlineEditableText: control,
+        InlineEditableText: defineComponent({
+            setup: () => () => h('input', { 'data-inline-editable': '' }),
+        }),
         NewModal: control,
         TagItem: control,
         commonMessages: {},
@@ -82,3 +96,33 @@ it.each(['Group', 'None'])(
         }
     },
 )
+
+it('keeps game-directory sections automatic and non-draggable', () => {
+    const wrapper = mount(InstanceGroup, {
+        props: {
+            sectionKey: 'external:d:/minecraft/.minecraft',
+            groupName: String.raw`D:\Minecraft\.minecraft`,
+            grouping: 'Game directory',
+            instances: [{ id: 'one', name: 'One' }] as GameInstance[],
+            runningInstanceIds: new Set(),
+            isCollapsed: false,
+            displayMode: 'cards',
+            selectMode: false,
+            selectedInstanceIds: new Set(),
+            showGameDirectory: true,
+        },
+        global: { directives: { tooltip: () => {} } },
+    })
+    try {
+        expect(wrapper.find('[data-inline-editable]').exists()).toBe(false)
+        expect(wrapper.find('[data-testid="instance-group-actions"]').exists()).toBe(false)
+        expect(wrapper.get('[data-testid="instance-group-name"]').text()).toBe(
+            String.raw`D:\Minecraft\.minecraft`,
+        )
+        expect(wrapper.find('[data-draggable-card]').exists()).toBe(false)
+        expect(wrapper.get('[data-id="one"]').attributes('data-show-game-directory')).toBe('true')
+        expect(dnd.options?.disabled?.value).toBe(true)
+    } finally {
+        wrapper.unmount()
+    }
+})

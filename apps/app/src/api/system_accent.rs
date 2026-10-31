@@ -59,9 +59,15 @@ fn read_accent_color() -> Result<AccentColor, String> {
     Ok(AccentColor::new(color.R, color.G, color.B))
 }
 
+/// The Windows watcher thread parks until it is unparked. Its handle is kept so
+/// a shutdown path can unpark and join it; nothing does that yet.
+#[cfg(target_os = "windows")]
+static ACCENT_COLOR_WATCHER: std::sync::OnceLock<std::thread::JoinHandle<()>> =
+    std::sync::OnceLock::new();
+
 #[cfg(target_os = "windows")]
 fn start_accent_color_watcher<R: Runtime>(app: AppHandle<R>) {
-    std::thread::spawn(move || {
+    let watcher = std::thread::spawn(move || {
         use windows::{
             Foundation::TypedEventHandler, UI::ViewManagement::UISettings,
             core::IInspectable,
@@ -98,6 +104,7 @@ fn start_accent_color_watcher<R: Runtime>(app: AppHandle<R>) {
         std::thread::park();
         let _ = settings.RemoveColorValuesChanged(token);
     });
+    let _ = ACCENT_COLOR_WATCHER.set(watcher);
 }
 
 #[cfg(target_os = "macos")]

@@ -1,12 +1,27 @@
-import { BlockDefinition, BlockModel, Cull, Identifier, type TextureAtlasProvider } from 'deepslate'
+import {
+    BlockDefinition,
+    BlockModel,
+    Cull,
+    Identifier,
+    type Mesh,
+    type TextureAtlasProvider,
+} from 'deepslate'
 
 import type { SchematicBlockState } from './backend'
+import { getSchematicWaterloggedFluidMesh } from './meshing'
 import type { LoadedSchematicResources, SchematicWorkerResources } from './resources'
 
 type PreviewVertex = {
     position: [number, number, number]
     texture?: [number, number]
     color: [number, number, number]
+}
+
+type PreviewTriangle = {
+    vertices: [PreviewVertex, PreviewVertex, PreviewVertex]
+    depth: number
+    shade: number
+    translucent: boolean
 }
 
 type PreparedResources = {
@@ -20,6 +35,8 @@ type PreparedResources = {
 const preparedResourceCache = new WeakMap<SchematicWorkerResources, PreparedResources>()
 const previewCameraYaw = Math.PI / 4
 const previewCameraPitch = Math.PI / 6
+/** Matches the translucent material the schematic scene uses for fluid. */
+const TRANSLUCENT_PREVIEW_ALPHA = 0.68
 
 function prepareResources(resources: SchematicWorkerResources) {
     const cached = preparedResourceCache.get(resources)
@@ -99,7 +116,38 @@ function triangleShade(vertices: [PreviewVertex, PreviewVertex, PreviewVertex]) 
     )
 }
 
-function previewTriangles(state: SchematicBlockState, resources: SchematicWorkerResources) {
+function meshTriangles(mesh: Mesh, translucent: boolean): PreviewTriangle[] {
+    return mesh.quads.flatMap((quad) => {
+        const vertices = quad.vertices().map((vertex): PreviewVertex => ({
+            position: [vertex.pos.x, vertex.pos.y, vertex.pos.z],
+            texture: vertex.texture ? [...vertex.texture] : undefined,
+            color: [vertex.color[0], vertex.color[1], vertex.color[2]],
+        }))
+        return [
+            [vertices[0], vertices[1], vertices[2]],
+            [vertices[0], vertices[2], vertices[3]],
+        ].map((triangle) => {
+            const corners = triangle as [PreviewVertex, PreviewVertex, PreviewVertex]
+            return {
+                vertices: corners,
+                depth:
+                    corners.reduce(
+                        (sum, vertex) =>
+                            sum +
+                            vertex.position[0] +
+                            vertex.position[1] * 0.7 +
+                            vertex.position[2],
+                        0,
+                    ) / 3,
+                shade: triangleShade(corners),
+                translucent,
+            }
+        })
+    })
+}
+
+/** Exported for tests: the triangle list a swatch draws, host geometry first. */
+export function previewTriangles(state: SchematicBlockState, resources: SchematicWorkerResources) {
     const definition = blockDefinition(state.name, resources)
     if (!definition) return []
     const prepared = prepareResources(resources)
@@ -119,29 +167,10 @@ function previewTriangles(state: SchematicBlockState, resources: SchematicWorker
             prepared.modelProvider,
             Cull.none(),
         )
-        return mesh.quads.flatMap((quad) => {
-            const vertices = quad.vertices().map((vertex): PreviewVertex => ({
-                position: [vertex.pos.x, vertex.pos.y, vertex.pos.z],
-                texture: vertex.texture ? [...vertex.texture] : undefined,
-                color: [vertex.color[0], vertex.color[1], vertex.color[2]],
-            }))
-            return [
-                [vertices[0], vertices[1], vertices[2]],
-                [vertices[0], vertices[2], vertices[3]],
-            ].map((triangle) => ({
-                vertices: triangle as [PreviewVertex, PreviewVertex, PreviewVertex],
-                depth:
-                    triangle.reduce(
-                        (sum, vertex) =>
-                            sum +
-                            vertex.position[0] +
-                            vertex.position[1] * 0.7 +
-                            vertex.position[2],
-                        0,
-                    ) / 3,
-                shade: triangleShade(triangle as [PreviewVertex, PreviewVertex, PreviewVertex]),
-            }))
-        })
+        // Waterlogged fluid is meshed apart from the host, so it joins the same depth-sorted list
+        // and is blended instead of being baked into the block's own faces.
+        const fluid = getSchematicWaterloggedFluidMesh({ ...state, properties }, atlas, Cull.none())
+        return [...meshTriangles(mesh, false), ...(fluid ? meshTriangles(fluid, true) : [])]
     } catch {
         return []
     }
@@ -245,6 +274,7 @@ export function renderSchematicBlockPreview(
         context.save()
         traceTriangle(context, points)
         context.clip()
+        if (triangle.translucent) context.globalAlpha = TRANSLUCENT_PREVIEW_ALPHA
         if (!drewTexture) {
             context.fillStyle = '#8c9692'
             context.fillRect(0, 0, target.width, target.height)

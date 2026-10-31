@@ -1,5 +1,7 @@
 use super::*;
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::time::Duration;
 
 async fn fixture() -> (tempfile::TempDir, Arc<State>) {
     let temp = tempfile::tempdir().unwrap();
@@ -269,6 +271,301 @@ async fn stopped_worker_recovery_waits_for_execution_and_preserves_terminal_resu
         store::get_required(terminal, &state).await.unwrap().status,
         InstallJobStatus::Succeeded
     );
+    state.pool.close().await;
+}
+
+async fn wait_for_worker_signal(signal: &tokio::sync::Notify) {
+    tokio::time::timeout(Duration::from_secs(2), signal.notified())
+        .await
+        .expect("worker signal timed out");
+}
+
+fn worker_write_timed_out(
+    result: &crate::Result<store::InstallJobRecord>,
+) -> bool {
+    result.as_ref().is_err_and(|error| {
+        error
+            .to_string()
+            .contains("Timed out waiting for the install database writer")
+    })
+}
+
+#[tokio::test]
+async fn worker_recovery_uses_the_retained_cancel_token_after_a_real_write_timeout()
+ {
+    let (_temp, state) = fixture().await;
+    state.set_install_db_permit_timeout_for_test(Duration::from_millis(50));
+    let id = Uuid::new_v4();
+    let job = InstallJobState::new(request("first", "mod"));
+    store::insert(id, &job, InstallJobStatus::Running, &state)
+        .await
+        .unwrap();
+    let reporter = InstallProgressReporter::new(id, job.clone());
+    let cancellation = tokio_util::sync::CancellationToken::new();
+    let started = Arc::new(tokio::sync::Notify::new());
+    let write_timed_out = Arc::new(tokio::sync::Notify::new());
+    let release_worker = Arc::new(tokio::sync::Notify::new());
+    let timeout_was_real = Arc::new(AtomicBool::new(false));
+    let worker = tokio::spawn({
+        let state = state.clone();
+        let reporter = reporter.clone();
+        let cancellation = cancellation.clone();
+        let started = started.clone();
+        let write_timed_out = write_timed_out.clone();
+        let release_worker = release_worker.clone();
+        let timeout_was_real = timeout_was_real.clone();
+        let job = job.clone();
+        async move {
+            lifecycle::supervise_install_worker(
+                id,
+                &state,
+                &reporter,
+                &cancellation,
+                async {
+                    // The registration is dropped before recovery runs, as it
+                    // is when the production worker unwinds.
+                    let _registration = lifecycle::register_cancellation(
+                        &state,
+                        id,
+                        &cancellation,
+                    );
+                    started.notify_one();
+                    cancellation.cancelled().await;
+                    let write = store::update_status(
+                        id,
+                        InstallJobStatus::Canceled,
+                        &job,
+                        &state,
+                    )
+                    .await;
+                    timeout_was_real.store(
+                        worker_write_timed_out(&write),
+                        Ordering::SeqCst,
+                    );
+                    write_timed_out.notify_one();
+                    release_worker.notified().await;
+                    write.map(|_| ())
+                },
+            )
+            .await
+        }
+    });
+    wait_for_worker_signal(&started).await;
+    let writer = state.install_db_semaphore.acquire().await.unwrap();
+    let cancel = tokio::spawn(cancel_job_with_state(id, state.clone()));
+    tokio::time::timeout(Duration::from_secs(2), cancellation.cancelled())
+        .await
+        .expect("the worker token was not signaled");
+    assert_eq!(
+        store::get_required(id, &state).await.unwrap().status,
+        InstallJobStatus::Running,
+        "the blocked cancellation checkpoint must leave the row Running"
+    );
+    cancel.abort();
+    assert!(cancel.await.unwrap_err().is_cancelled());
+    wait_for_worker_signal(&write_timed_out).await;
+    assert!(
+        timeout_was_real.load(Ordering::SeqCst),
+        "the worker must receive the store's real permit timeout"
+    );
+    assert!(state.install_job_cancellations.contains_key(&id));
+    drop(writer);
+    release_worker.notify_one();
+    assert!(
+        worker.await.unwrap().is_err(),
+        "run_job still returns the worker error after persisting recovery"
+    );
+    let canceled = store::get_required(id, &state).await.unwrap();
+    assert_eq!(canceled.status, InstallJobStatus::Canceled);
+    assert_eq!(canceled.state.error.unwrap().code, "canceled");
+    assert!(!state.install_job_cancellations.contains_key(&id));
+    InstallProgressReporter::reset_job(id);
+    state.pool.close().await;
+}
+
+#[tokio::test]
+async fn worker_recovery_keeps_failing_a_running_job_without_cancellation() {
+    let (_temp, state) = fixture().await;
+    state.set_install_db_permit_timeout_for_test(Duration::from_millis(50));
+    let id = Uuid::new_v4();
+    let job = InstallJobState::new(request("first", "mod"));
+    store::insert(id, &job, InstallJobStatus::Running, &state)
+        .await
+        .unwrap();
+    let reporter = InstallProgressReporter::new(id, job.clone());
+    let cancellation = tokio_util::sync::CancellationToken::new();
+    let started = Arc::new(tokio::sync::Notify::new());
+    let proceed = Arc::new(tokio::sync::Notify::new());
+    let write_timed_out = Arc::new(tokio::sync::Notify::new());
+    let release_worker = Arc::new(tokio::sync::Notify::new());
+    let timeout_was_real = Arc::new(AtomicBool::new(false));
+    let writer = state.install_db_semaphore.acquire().await.unwrap();
+    let worker = tokio::spawn({
+        let state = state.clone();
+        let reporter = reporter.clone();
+        let cancellation = cancellation.clone();
+        let started = started.clone();
+        let proceed = proceed.clone();
+        let write_timed_out = write_timed_out.clone();
+        let release_worker = release_worker.clone();
+        let timeout_was_real = timeout_was_real.clone();
+        let job = job.clone();
+        async move {
+            lifecycle::supervise_install_worker(
+                id,
+                &state,
+                &reporter,
+                &cancellation,
+                async {
+                    let _registration = lifecycle::register_cancellation(
+                        &state,
+                        id,
+                        &cancellation,
+                    );
+                    started.notify_one();
+                    proceed.notified().await;
+                    let write = store::update_status(
+                        id,
+                        InstallJobStatus::Canceled,
+                        &job,
+                        &state,
+                    )
+                    .await;
+                    timeout_was_real.store(
+                        worker_write_timed_out(&write),
+                        Ordering::SeqCst,
+                    );
+                    write_timed_out.notify_one();
+                    release_worker.notified().await;
+                    write.map(|_| ())
+                },
+            )
+            .await
+        }
+    });
+    wait_for_worker_signal(&started).await;
+    proceed.notify_one();
+    wait_for_worker_signal(&write_timed_out).await;
+    assert!(timeout_was_real.load(Ordering::SeqCst));
+    drop(writer);
+    release_worker.notify_one();
+    assert!(worker.await.unwrap().is_err());
+    let failed = store::get_required(id, &state).await.unwrap();
+    assert_eq!(failed.status, InstallJobStatus::Failed);
+    assert_ne!(
+        failed.state.error.as_ref().map(|error| error.code.as_str()),
+        Some("canceled")
+    );
+    InstallProgressReporter::reset_job(id);
+    state.pool.close().await;
+}
+
+#[tokio::test]
+async fn worker_recovery_preserves_a_committed_resource_job_even_when_canceled()
+{
+    let (_temp, state) = fixture().await;
+    state.set_install_db_permit_timeout_for_test(Duration::from_millis(50));
+    let plan = content_management::resources::ResourceOperationPlan {
+        schema_version: content_management::resources::ResourceContractVersion,
+        id: content_management::resources::PlanId::new(
+            Uuid::new_v4().to_string(),
+        )
+        .unwrap(),
+        revision: 1,
+        instance_id: "first".into(),
+        instance_revision: 1,
+        intent: content_management::resources::ResourceOperationIntent::Install,
+        selections: vec![],
+        active_roots: vec![],
+        nodes: vec![],
+        edges: vec![],
+        actions: vec![],
+        issues: vec![],
+        exceptions: vec![],
+        selection_reasons: vec![],
+    };
+    let plan_id = plan.id.as_str().to_owned();
+    sqlx::query(
+        "INSERT INTO resource_operation_plans (id, instance_id, revision, payload, completed) VALUES (?, 'first', 1, '{}', 1)",
+    )
+    .bind(&plan_id)
+    .execute(&state.pool)
+    .await
+    .unwrap();
+    let request = InstallRequest::InstallContentBatch {
+        instance_id: "first".into(),
+        items: vec![InstallContentBatchItem::FrozenResource { plan }],
+        display_title: "Install resources".into(),
+        display_icon: None,
+    };
+    let id = Uuid::new_v4();
+    let job = InstallJobState::new(request);
+    store::insert(id, &job, InstallJobStatus::Running, &state)
+        .await
+        .unwrap();
+    let reporter = InstallProgressReporter::new(id, job.clone());
+    let cancellation = tokio_util::sync::CancellationToken::new();
+    let started = Arc::new(tokio::sync::Notify::new());
+    let proceed = Arc::new(tokio::sync::Notify::new());
+    let write_timed_out = Arc::new(tokio::sync::Notify::new());
+    let release_worker = Arc::new(tokio::sync::Notify::new());
+    let timeout_was_real = Arc::new(AtomicBool::new(false));
+    let writer = state.install_db_semaphore.acquire().await.unwrap();
+    let worker = tokio::spawn({
+        let state = state.clone();
+        let reporter = reporter.clone();
+        let cancellation = cancellation.clone();
+        let started = started.clone();
+        let proceed = proceed.clone();
+        let write_timed_out = write_timed_out.clone();
+        let release_worker = release_worker.clone();
+        let timeout_was_real = timeout_was_real.clone();
+        let job = job.clone();
+        async move {
+            lifecycle::supervise_install_worker(
+                id,
+                &state,
+                &reporter,
+                &cancellation,
+                async {
+                    let _registration = lifecycle::register_cancellation(
+                        &state,
+                        id,
+                        &cancellation,
+                    );
+                    started.notify_one();
+                    proceed.notified().await;
+                    let write = store::update_status(
+                        id,
+                        InstallJobStatus::Canceled,
+                        &job,
+                        &state,
+                    )
+                    .await;
+                    timeout_was_real.store(
+                        worker_write_timed_out(&write),
+                        Ordering::SeqCst,
+                    );
+                    write_timed_out.notify_one();
+                    release_worker.notified().await;
+                    write.map(|_| ())
+                },
+            )
+            .await
+        }
+    });
+    wait_for_worker_signal(&started).await;
+    cancellation.cancel();
+    proceed.notify_one();
+    wait_for_worker_signal(&write_timed_out).await;
+    assert!(timeout_was_real.load(Ordering::SeqCst));
+    drop(writer);
+    release_worker.notify_one();
+    assert!(worker.await.unwrap().is_err());
+    let succeeded = store::get_required(id, &state).await.unwrap();
+    assert_eq!(succeeded.status, InstallJobStatus::Succeeded);
+    assert!(succeeded.state.error.is_none());
+    InstallProgressReporter::reset_job(id);
     state.pool.close().await;
 }
 

@@ -100,6 +100,7 @@ const props = defineProps<{
     displayMode: string
     selectMode: boolean
     selectedInstanceIds: Set<string>
+    showGameDirectory?: boolean
     isSortAscending?: boolean
     hideHeader?: boolean
     canMoveUp?: boolean
@@ -269,7 +270,7 @@ function onStartLongPress(instanceId: string) {
                     />
                 </button>
                 <InlineEditableText
-                    v-if="!isUngrouped && !isFavorites"
+                    v-if="isCustomGroup"
                     ref="groupNameInput"
                     v-model="groupName"
                     activation-mode="manual"
@@ -281,12 +282,16 @@ function onStartLongPress(instanceId: string) {
                 />
                 <span
                     v-else
-                    class="text-base font-semibold text-[var(--color-text-default)] select-none"
+                    data-testid="instance-group-name"
+                    class="min-w-0 truncate text-base font-semibold text-[var(--color-text-default)] select-none"
+                    :title="groupName"
                 >
                     {{
                         isFavorites
                             ? formatMessage(messages.pinned)
-                            : formatMessage(messages.ungrouped)
+                            : isUngrouped
+                              ? formatMessage(messages.ungrouped)
+                              : groupName
                     }}
                 </span>
                 <TagItem v-if="instances.length" class="shrink-0 border-surface-3 bg-surface-2">
@@ -296,6 +301,7 @@ function onStartLongPress(instanceId: string) {
             <div class="min-w-0 flex-1" />
             <div
                 v-if="isCustomGroup"
+                data-testid="instance-group-actions"
                 class="flex shrink-0 items-center opacity-0 transition-opacity duration-250 group-hover/header:opacity-100 focus-within:opacity-100"
             >
                 <IconButton
@@ -390,6 +396,7 @@ function onStartLongPress(instanceId: string) {
                                     :playing="runningInstanceIds.has(instance.id)"
                                     :disabled="selectMode || isDragging"
                                     :variant="displayMode === 'cards' ? 'library' : 'standard'"
+                                    :show-game-directory="showGameDirectory"
                                     :class="{
                                         'opacity-50':
                                             selectMode && !selectedInstanceIds.has(instance.id),
@@ -453,6 +460,7 @@ function onStartLongPress(instanceId: string) {
                                     :playing="runningInstanceIds.has(instance.id)"
                                     :disabled="selectMode"
                                     :variant="displayMode === 'cards' ? 'library' : 'standard'"
+                                    :show-game-directory="showGameDirectory"
                                     :class="{
                                         'opacity-50':
                                             selectMode && !selectedInstanceIds.has(instance.id),

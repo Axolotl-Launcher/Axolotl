@@ -44,6 +44,7 @@ pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
             download_job_delete,
             download_history_clear,
             download_job_support_details,
+            download_diagnostics,
         ])
         .build()
 }
@@ -367,6 +368,17 @@ pub async fn download_job_list(
     let next_cursor =
         (jobs.len() == limit).then(|| (offset + limit).to_string());
     Ok(DownloadJobPage { jobs, next_cursor })
+}
+
+#[tauri::command]
+pub async fn download_diagnostics(
+    job_id: String,
+    file_id: Option<String>,
+) -> Result<theseus::DownloadDiagnosticsSnapshot> {
+    Ok(theseus::download_diagnostics_snapshot(
+        Some(&job_id),
+        file_id.as_deref(),
+    ))
 }
 
 #[tauri::command]

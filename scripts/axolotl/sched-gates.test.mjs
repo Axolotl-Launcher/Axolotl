@@ -214,8 +214,7 @@ test('tag check rejects a forgeable tag (K2.1, K2.3)', () => {
     assert.ok(violations.some((violation) => violation.includes('implements From for Tag')))
     assert.ok(violations.some((violation) => violation.includes('builds a Tag outside tag.rs')))
     // `Default` would hand out an L0 tag with no mint.
-    const defaulted = source(tag.rel, tag.raw.replace('pub struct Tag {', '#[derive(Debug, Default)]
-pub struct Tag {'))
+    const defaulted = source(tag.rel, tag.raw.replace('pub struct Tag {', '#[derive(Debug, Default)]\npub struct Tag {'))
     const defaultViolations = tagViolations([...sources.filter((candidate) => candidate.rel !== tag.rel), defaulted])
     assert.ok(defaultViolations.some((violation) => violation.includes('Default')))
 })

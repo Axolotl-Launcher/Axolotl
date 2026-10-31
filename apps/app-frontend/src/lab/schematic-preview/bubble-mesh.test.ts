@@ -49,6 +49,28 @@ it('maps the rectangle the sprite occupies in the atlas', () => {
     expect([...uvs].sort()).toEqual(['0,0.52', '0,0.522', '0.004,0.52', '0.004,0.522'])
 })
 
+it('spreads the bubbles over the whole cell instead of bunching them in the middle', () => {
+    const offsets: number[] = []
+    for (let cell = 0; cell < 64; cell += 1) {
+        for (const quad of getSchematicBubbleQuads([cell, 0, 0])) {
+            offsets.push(quad[0].position[0] - cell, quad[2].position[0] - cell)
+        }
+    }
+    expect(Math.min(...offsets)).toBeLessThan(0.08)
+    expect(Math.max(...offsets)).toBeGreaterThan(0.92)
+})
+
+it('draws bubbles big enough to read at preview zoom', () => {
+    for (const quad of getSchematicBubbleQuads(CELL)) {
+        const width = Math.hypot(
+            quad[1].position[0] - quad[0].position[0],
+            quad[1].position[2] - quad[0].position[2],
+        )
+        expect(width).toBeGreaterThanOrEqual(0.2)
+        expect(width).toBeLessThanOrEqual(0.32)
+    }
+})
+
 it('crosses the two quads of a bubble at a right angle', () => {
     const quads = getSchematicBubbleQuads(CELL)
     for (let index = 0; index < quads.length; index += 2) {

@@ -13,12 +13,10 @@ export type SchematicBubbleUv = [number, number, number, number]
 
 const WHOLE_TEXTURE: SchematicBubbleUv = [0, 0, 1, 1]
 
-/** Centre range inside the cell, so no bubble pokes through a wall. */
-const BUBBLE_MARGIN = 0.25
-/** The water surface sits at 8/9, so the bubbles stay well below it. */
-const BUBBLE_CEILING = 0.7
-const BUBBLE_RADIUS_MINIMUM = 0.075
-const BUBBLE_RADIUS_MAXIMUM = 0.125
+/** The water surface sits at 8/9, so the bubbles stay below it. */
+const BUBBLE_CEILING = 0.85
+const BUBBLE_RADIUS_MINIMUM = 0.1
+const BUBBLE_RADIUS_MAXIMUM = 0.16
 
 export type SchematicBubbleVertex = {
     position: [number, number, number]
@@ -68,11 +66,13 @@ export function getSchematicBubbleQuads(
     const random = createRandom(cellSeed(cellX, cellY, cellZ))
     const quads: SchematicBubbleQuad[] = []
     for (let bubble = 0; bubble < BUBBLES_PER_CELL; bubble += 1) {
-        const centerX = cellX + BUBBLE_MARGIN + random() * (1 - BUBBLE_MARGIN * 2)
-        const centerZ = cellZ + BUBBLE_MARGIN + random() * (1 - BUBBLE_MARGIN * 2)
-        const centerY = cellY + BUBBLE_MARGIN + random() * (BUBBLE_CEILING - BUBBLE_MARGIN)
         const radius =
             BUBBLE_RADIUS_MINIMUM + random() * (BUBBLE_RADIUS_MAXIMUM - BUBBLE_RADIUS_MINIMUM)
+        // The game drops its bubbles at a random spot in the cell rather than in the middle, so the
+        // radius alone keeps the sprite inside: the centre ranges over the cell minus the sprite.
+        const centerX = cellX + radius + random() * (1 - radius * 2)
+        const centerZ = cellZ + radius + random() * (1 - radius * 2)
+        const centerY = cellY + radius + random() * (BUBBLE_CEILING - radius * 2)
         const yaw = random() * Math.PI
         // Two quads at right angles, so the sprite reads as a bubble from any direction.
         for (const angle of [yaw, yaw + Math.PI / 2]) {

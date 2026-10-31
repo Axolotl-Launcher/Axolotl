@@ -1,4 +1,343 @@
 {
+  "app.agent-window.chat.permissions-title": {
+    "message": "Permissions"
+  },
+  "app.agent-window.chat.full-access": {
+    "message": "Full access"
+  },
+  "app.agent-window.chat.full-access-hint": {
+    "message": "Allow high-impact actions such as deleting content."
+  },
+  "app.agent-window.chat.computer-use": {
+    "message": "Interface control"
+  },
+  "app.agent-window.chat.computer-use-hint": {
+    "message": "Observe and operate the launcher only when you explicitly request it."
+  },
+  "app.agent-window.chat.permission-pending": {
+    "message": "Loading permissions…"
+  },
+  "app.agent-window.chat.permission-future": {
+    "message": "Permissions reset when you restart the launcher."
+  },
+  "app.agent-window.chat.permission-unavailable": {
+    "message": "The execution service is not connected. Permissions cannot be changed yet."
+  },
+  "app.agent-window.chat.permission-error": {
+    "message": "Could not load permissions. Reopen settings to retry."
+  },
+  "app.agent-window.chat.permission-save-error": {
+    "message": "Could not save permissions. Your previous settings are kept."
+  },
+  "app.agent-window.chat.full-access-warning-title": {
+    "message": "Enable full access?"
+  },
+  "app.agent-window.chat.full-access-warning": {
+    "message": "The agent will be able to delete content and modify launcher data when execution is available. Files may be lost. Enable this only for tasks you trust."
+  },
+  "app.agent-window.chat.enable-full-access": {
+    "message": "Enable full access"
+  },
+  "app.agent-window.chat.agent": {
+    "message": "Agent"
+  },
+  "app.agent-window.chat.new-chat": {
+    "message": "New task"
+  },
+  "app.agent-window.chat.search": {
+    "message": "Search tasks"
+  },
+  "app.agent-window.chat.conversations": {
+    "message": "Task history"
+  },
+  "app.agent-window.chat.no-chats": {
+    "message": "No tasks yet"
+  },
+  "app.agent-window.chat.no-results": {
+    "message": "No matching tasks"
+  },
+  "app.agent-window.chat.today": {
+    "message": "Today"
+  },
+  "app.agent-window.chat.earlier": {
+    "message": "Earlier"
+  },
+  "app.agent-window.chat.toggle-sidebar": {
+    "message": "Toggle conversations"
+  },
+  "app.agent-window.chat.settings": {
+    "message": "Settings"
+  },
+  "app.agent-window.chat.guide": {
+    "message": "Agent guide"
+  },
+  "app.agent-window.chat.guide-task-title": {
+    "message": "Start with a task"
+  },
+  "app.agent-window.chat.guide-task-body": {
+    "message": "Create a task or choose a suggestion, then describe the result you want. Choose a text model configured in launcher AI settings before sending."
+  },
+  "app.agent-window.chat.guide-instance-title": {
+    "message": "Choose the scope"
+  },
+  "app.agent-window.chat.guide-instance-body": {
+    "message": "Select an instance when your request concerns its mods, logs or worlds. Your instance and model choices are saved with each request."
+  },
+  "app.agent-window.chat.guide-queue-title": {
+    "message": "Understand the queue"
+  },
+  "app.agent-window.chat.guide-queue-body": {
+    "message": "The task panel shows requests waiting for the execution service. Queued requests have not run; you can remove them. Interrupted requests are kept in history and do not restart automatically."
+  },
+  "app.agent-window.chat.guide-permissions-title": {
+    "message": "Review permissions"
+  },
+  "app.agent-window.chat.guide-permissions-body": {
+    "message": "Open Settings to review Full access and Interface control. Full access permits high-impact actions such as deletion. Enable Interface control only when you want the agent to interact with the launcher interface."
+  },
+  "app.agent-window.chat.task-panel": {
+    "message": "Task panel"
+  },
+  "app.agent-window.chat.close-panel": {
+    "message": "Close task panel"
+  },
+  "app.agent-window.chat.untitled": {
+    "message": "New task"
+  },
+  "app.agent-window.chat.welcome": {
+    "message": "What would you like to do?"
+  },
+  "app.agent-window.chat.suggest-check": {
+    "message": "Check updates"
+  },
+  "app.agent-window.chat.suggest-crash": {
+    "message": "Diagnose a crash"
+  },
+  "app.agent-window.chat.suggest-backup": {
+    "message": "Back up worlds"
+  },
+  "app.agent-window.chat.prompt-check": {
+    "message": "Check the current instance for mod updates and show me a change plan first."
+  },
+  "app.agent-window.chat.prompt-crash": {
+    "message": "Analyze the current instance’s latest crash, identify the cause and suggest a fix."
+  },
+  "app.agent-window.chat.prompt-backup": {
+    "message": "Help me back up the current instance’s game worlds."
+  },
+  "app.agent-window.chat.prompt": {
+    "message": "Describe the task you want to complete…"
+  },
+  "app.agent-window.chat.message-label": {
+    "message": "Message"
+  },
+  "app.agent-window.chat.send": {
+    "message": "Send message"
+  },
+  "app.agent-window.chat.stop": {
+    "message": "Cancel queued request"
+  },
+  "app.agent-window.chat.model": {
+    "message": "Select model"
+  },
+  "app.agent-window.chat.no-model": {
+    "message": "Select model"
+  },
+  "app.agent-window.chat.model-search": {
+    "message": "Search models or providers"
+  },
+  "app.agent-window.chat.no-models": {
+    "message": "No models available"
+  },
+  "app.agent-window.chat.configure-model": {
+    "message": "Enable a provider and models in the launcher’s AI settings."
+  },
+  "app.agent-window.chat.no-model-matches": {
+    "message": "No matching models"
+  },
+  "app.agent-window.chat.instance": {
+    "message": "Select instance"
+  },
+  "app.agent-window.chat.all-launcher": {
+    "message": "Entire launcher"
+  },
+  "app.agent-window.chat.all-launcher-hint": {
+    "message": "Not limited to one instance"
+  },
+  "app.agent-window.chat.no-instances": {
+    "message": "No instances available"
+  },
+  "app.agent-window.chat.instance-search": {
+    "message": "Search instances"
+  },
+  "app.agent-window.chat.no-instance-matches": {
+    "message": "No matching instances"
+  },
+  "app.agent-window.chat.waiting": {
+    "message": "Added to the local queue"
+  },
+  "app.agent-window.chat.execution-disconnected": {
+    "message": "Execution service is not connected"
+  },
+  "app.agent-window.chat.waiting-hint": {
+    "message": "Your request is saved. Execution has not started."
+  },
+  "app.agent-window.chat.stopped": {
+    "message": "Queued request cancelled"
+  },
+  "app.agent-window.chat.interrupted": {
+    "message": "Previous queue interrupted"
+  },
+  "app.agent-window.chat.queued": {
+    "message": "Pending requests"
+  },
+  "app.agent-window.chat.queued-empty": {
+    "message": "No pending requests"
+  },
+  "app.agent-window.chat.plan": {
+    "message": "Execution plan"
+  },
+  "app.agent-window.chat.no-plan": {
+    "message": "The plan will appear when the task starts"
+  },
+  "app.agent-window.chat.tools": {
+    "message": "Tool calls"
+  },
+  "app.agent-window.chat.no-tools": {
+    "message": "No tool calls yet"
+  },
+  "app.agent-window.chat.context": {
+    "message": "Task context"
+  },
+  "app.agent-window.chat.provider": {
+    "message": "Provider"
+  },
+  "app.agent-window.chat.model-label": {
+    "message": "Model"
+  },
+  "app.agent-window.chat.unselected": {
+    "message": "Not selected"
+  },
+  "app.agent-window.chat.context-error": {
+    "message": "Could not load launcher configuration"
+  },
+  "app.agent-window.chat.retry": {
+    "message": "Retry"
+  },
+  "app.agent-window.chat.close": {
+    "message": "Close"
+  },
+  "app.agent-window.chat.storage-error": {
+    "message": "Could not save the conversation. Check available storage. Your input is kept."
+  },
+  "app.agent-window.chat.storage-load-error": {
+    "message": "Could not read saved conversations. New messages may not be saved."
+  },
+  "app.agent-window.chat.select-model-first": {
+    "message": "Select an available model first"
+  },
+  "app.agent-window.chat.ai-disabled": {
+    "message": "AI is disabled in the launcher"
+  },
+  "app.agent-window.chat.ai-disabled-hint": {
+    "message": "Enable AI in launcher settings to select a model."
+  },
+  "app.agent-window.chat.shortcut": {
+    "message": "Enter to send · Shift + Enter for a new line"
+  },
+  "app.agent-window.chat.local-history": {
+    "message": "Conversations stay on this device"
+  },
+  "app.agent-window.chat.rename": {
+    "message": "Rename conversation"
+  },
+  "app.agent-window.chat.delete-chat": {
+    "message": "Delete conversation"
+  },
+  "app.agent-window.chat.delete-title": {
+    "message": "Delete this conversation?"
+  },
+  "app.agent-window.chat.delete-body": {
+    "message": "This conversation’s records will be removed from this device."
+  },
+  "app.agent-window.chat.cancel": {
+    "message": "Cancel"
+  },
+  "app.agent-window.chat.delete": {
+    "message": "Delete"
+  },
+  "app.agent-window.chat.name": {
+    "message": "Name"
+  },
+  "app.agent-window.chat.save": {
+    "message": "Save"
+  },
+  "app.agent-window.chat.more": {
+    "message": "More actions"
+  },
+  "app.agent-window.chat.no-context": {
+    "message": "No instance selected"
+  },
+  "app.agent-window.chat.byok": {
+    "message": "Use your own model credentials"
+  },
+  "app.agent-window.chat.state": {
+    "message": "Status"
+  },
+  "app.agent-window.chat.details": {
+    "message": "View task"
+  },
+  "app.agent-window.chat.source": {
+    "message": "Launcher configuration"
+  },
+  "app.agent-window.chat.copied": {
+    "message": "Message copied"
+  },
+  "app.agent-window.chat.copy": {
+    "message": "Copy message"
+  },
+  "app.agent-window.chat.copy-error": {
+    "message": "Could not copy message"
+  },
+  "app.agent-window.chat.context-removed": {
+    "message": "This instance is currently unavailable"
+  },
+  "app.agent-window.chat.model-removed": {
+    "message": "This model is currently unavailable"
+  },
+  "app.agent-window.chat.storage-recovery": {
+    "message": "Saved history could not be read. Export it before starting a new history."
+  },
+  "app.agent-window.chat.export-history": {
+    "message": "Export saved history"
+  },
+  "app.agent-window.chat.reset-history": {
+    "message": "Start new history"
+  },
+  "app.agent-window.chat.export-draft": {
+    "message": "Export draft"
+  },
+  "app.agent-window.chat.storage-export-error": {
+    "message": "Could not export saved history. Your original data has been kept."
+  },
+  "app.agent-window.chat.reset-history-warning": {
+    "message": "The saved history will be replaced. Export a backup first. Your current draft will be kept."
+  },
+  "app.agent-window.chat.history-retention": {
+    "message": "Older completed requests may be removed to make room. Drafts and waiting requests are kept."
+  },
+  "app.agent-window.chat.window-reveal-error": {
+    "message": "Could not show the window. Reopen it from the launcher."
+  },
+  "app.agent-window.chat.window-action-error": {
+    "message": "Window action failed"
+  },
+  "app.agent-window.open": {
+    "message": "Open agent window"
+  },
+  "app.agent-window.title": {
+    "message": "Axolotl Agent Window"
+  },
   "app.account.modrinth-account": {
     "message": "Modrinth account"
   },
@@ -9091,6 +9430,12 @@
   },
   "app.onboarding.action.start": {
     "message": "Take the tour"
+  },
+  "app.onboarding.agent-window.description": {
+    "message": "Open the Agent Window from the title bar. Its Agent guide explains how to choose a model and instance, track queued requests, and review permissions. You can reopen the guide whenever you need it."
+  },
+  "app.onboarding.agent-window.title": {
+    "message": "Start an agent task"
   },
   "app.onboarding.ai.description": {
     "message": "Connect text-model providers once, choose the models you want available, or switch every AI feature off in one place."

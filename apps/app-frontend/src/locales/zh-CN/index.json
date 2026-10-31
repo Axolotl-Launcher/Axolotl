@@ -1,4 +1,343 @@
 {
+  "app.agent-window.chat.permissions-title": {
+    "message": "权限设置"
+  },
+  "app.agent-window.chat.full-access": {
+    "message": "完全访问"
+  },
+  "app.agent-window.chat.full-access-hint": {
+    "message": "允许删除内容等高影响操作。"
+  },
+  "app.agent-window.chat.computer-use": {
+    "message": "界面操作"
+  },
+  "app.agent-window.chat.computer-use-hint": {
+    "message": "仅在你明确要求时，允许观察和操作启动器界面。"
+  },
+  "app.agent-window.chat.permission-pending": {
+    "message": "正在读取权限…"
+  },
+  "app.agent-window.chat.permission-future": {
+    "message": "重启启动器后，权限将恢复默认设置。"
+  },
+  "app.agent-window.chat.permission-unavailable": {
+    "message": "执行服务尚未连接，暂时无法修改权限。"
+  },
+  "app.agent-window.chat.permission-error": {
+    "message": "无法读取权限设置，请重新打开后重试。"
+  },
+  "app.agent-window.chat.permission-save-error": {
+    "message": "无法保存权限设置，已保留原设置。"
+  },
+  "app.agent-window.chat.full-access-warning-title": {
+    "message": "启用完全访问？"
+  },
+  "app.agent-window.chat.full-access-warning": {
+    "message": "智能体后续将能够删除内容和修改启动器数据，可能造成文件丢失。仅在你信任当前任务时启用。"
+  },
+  "app.agent-window.chat.enable-full-access": {
+    "message": "启用完全访问"
+  },
+  "app.agent-window.chat.agent": {
+    "message": "智能体"
+  },
+  "app.agent-window.chat.new-chat": {
+    "message": "新建任务"
+  },
+  "app.agent-window.chat.search": {
+    "message": "搜索任务"
+  },
+  "app.agent-window.chat.conversations": {
+    "message": "任务历史"
+  },
+  "app.agent-window.chat.no-chats": {
+    "message": "还没有任务"
+  },
+  "app.agent-window.chat.no-results": {
+    "message": "没有匹配的任务"
+  },
+  "app.agent-window.chat.today": {
+    "message": "今天"
+  },
+  "app.agent-window.chat.earlier": {
+    "message": "更早"
+  },
+  "app.agent-window.chat.toggle-sidebar": {
+    "message": "展开或收起会话列表"
+  },
+  "app.agent-window.chat.settings": {
+    "message": "设置"
+  },
+  "app.agent-window.chat.guide": {
+    "message": "智能体使用指南"
+  },
+  "app.agent-window.chat.guide-task-title": {
+    "message": "从任务开始"
+  },
+  "app.agent-window.chat.guide-task-body": {
+    "message": "新建任务或选择一个建议，然后描述你想得到的结果。发送前，选择在启动器 AI 设置中配置的文本模型。"
+  },
+  "app.agent-window.chat.guide-instance-title": {
+    "message": "选择作用范围"
+  },
+  "app.agent-window.chat.guide-instance-body": {
+    "message": "处理模组、日志或世界时，先选择对应实例。每条请求都会保存发送时选择的实例和模型。"
+  },
+  "app.agent-window.chat.guide-queue-title": {
+    "message": "了解等待队列"
+  },
+  "app.agent-window.chat.guide-queue-body": {
+    "message": "任务面板显示正在等待执行服务的请求。排队中的请求尚未执行，可以移除；中断的请求会保留在历史中，不会自动重新执行。"
+  },
+  "app.agent-window.chat.guide-permissions-title": {
+    "message": "检查权限"
+  },
+  "app.agent-window.chat.guide-permissions-body": {
+    "message": "在设置中检查完全访问和界面操作权限。完全访问允许删除等高影响操作；需要智能体操作启动器界面时，再启用界面操作。"
+  },
+  "app.agent-window.chat.task-panel": {
+    "message": "任务面板"
+  },
+  "app.agent-window.chat.close-panel": {
+    "message": "关闭任务面板"
+  },
+  "app.agent-window.chat.untitled": {
+    "message": "新任务"
+  },
+  "app.agent-window.chat.welcome": {
+    "message": "想在启动器里做些什么？"
+  },
+  "app.agent-window.chat.suggest-check": {
+    "message": "检查更新"
+  },
+  "app.agent-window.chat.suggest-crash": {
+    "message": "诊断崩溃"
+  },
+  "app.agent-window.chat.suggest-backup": {
+    "message": "备份世界"
+  },
+  "app.agent-window.chat.prompt-check": {
+    "message": "检查当前实例的模组更新，先给我一份变更方案。"
+  },
+  "app.agent-window.chat.prompt-crash": {
+    "message": "分析当前实例最近一次崩溃，定位原因并给出修复建议。"
+  },
+  "app.agent-window.chat.prompt-backup": {
+    "message": "帮我备份当前实例的游戏世界。"
+  },
+  "app.agent-window.chat.prompt": {
+    "message": "描述你要完成的任务…"
+  },
+  "app.agent-window.chat.message-label": {
+    "message": "消息"
+  },
+  "app.agent-window.chat.send": {
+    "message": "发送消息"
+  },
+  "app.agent-window.chat.stop": {
+    "message": "取消排队"
+  },
+  "app.agent-window.chat.model": {
+    "message": "选择模型"
+  },
+  "app.agent-window.chat.no-model": {
+    "message": "选择模型"
+  },
+  "app.agent-window.chat.model-search": {
+    "message": "搜索模型或提供商"
+  },
+  "app.agent-window.chat.no-models": {
+    "message": "暂无可用模型"
+  },
+  "app.agent-window.chat.configure-model": {
+    "message": "请在启动器的 AI 设置中启用提供商与模型。"
+  },
+  "app.agent-window.chat.no-model-matches": {
+    "message": "没有匹配的模型"
+  },
+  "app.agent-window.chat.instance": {
+    "message": "选择实例"
+  },
+  "app.agent-window.chat.all-launcher": {
+    "message": "整个启动器"
+  },
+  "app.agent-window.chat.all-launcher-hint": {
+    "message": "不限于单个实例"
+  },
+  "app.agent-window.chat.no-instances": {
+    "message": "暂无实例"
+  },
+  "app.agent-window.chat.instance-search": {
+    "message": "搜索实例"
+  },
+  "app.agent-window.chat.no-instance-matches": {
+    "message": "没有匹配的实例"
+  },
+  "app.agent-window.chat.waiting": {
+    "message": "已加入本地队列"
+  },
+  "app.agent-window.chat.execution-disconnected": {
+    "message": "执行服务尚未连接"
+  },
+  "app.agent-window.chat.waiting-hint": {
+    "message": "请求已保存，尚未开始执行。"
+  },
+  "app.agent-window.chat.stopped": {
+    "message": "已取消排队"
+  },
+  "app.agent-window.chat.interrupted": {
+    "message": "上次排队已中断"
+  },
+  "app.agent-window.chat.queued": {
+    "message": "待执行请求"
+  },
+  "app.agent-window.chat.queued-empty": {
+    "message": "没有待执行请求"
+  },
+  "app.agent-window.chat.plan": {
+    "message": "执行计划"
+  },
+  "app.agent-window.chat.no-plan": {
+    "message": "任务开始后显示执行计划"
+  },
+  "app.agent-window.chat.tools": {
+    "message": "工具调用"
+  },
+  "app.agent-window.chat.no-tools": {
+    "message": "尚无工具调用"
+  },
+  "app.agent-window.chat.context": {
+    "message": "任务上下文"
+  },
+  "app.agent-window.chat.provider": {
+    "message": "提供商"
+  },
+  "app.agent-window.chat.model-label": {
+    "message": "模型"
+  },
+  "app.agent-window.chat.unselected": {
+    "message": "未选择"
+  },
+  "app.agent-window.chat.context-error": {
+    "message": "无法读取启动器配置"
+  },
+  "app.agent-window.chat.retry": {
+    "message": "重试"
+  },
+  "app.agent-window.chat.close": {
+    "message": "关闭"
+  },
+  "app.agent-window.chat.storage-error": {
+    "message": "无法保存对话，请检查可用空间。输入已保留。"
+  },
+  "app.agent-window.chat.storage-load-error": {
+    "message": "无法读取已保存的对话，新消息可能无法保存。"
+  },
+  "app.agent-window.chat.select-model-first": {
+    "message": "请先选择可用模型"
+  },
+  "app.agent-window.chat.ai-disabled": {
+    "message": "启动器中的 AI 功能尚未启用"
+  },
+  "app.agent-window.chat.ai-disabled-hint": {
+    "message": "在启动器 AI 设置中启用后，可以选择模型。"
+  },
+  "app.agent-window.chat.shortcut": {
+    "message": "Enter 发送 · Shift + Enter 换行"
+  },
+  "app.agent-window.chat.local-history": {
+    "message": "会话保存在此设备"
+  },
+  "app.agent-window.chat.rename": {
+    "message": "重命名对话"
+  },
+  "app.agent-window.chat.delete-chat": {
+    "message": "删除对话"
+  },
+  "app.agent-window.chat.delete-title": {
+    "message": "删除此对话？"
+  },
+  "app.agent-window.chat.delete-body": {
+    "message": "此设备上的会话记录将被删除。"
+  },
+  "app.agent-window.chat.cancel": {
+    "message": "取消"
+  },
+  "app.agent-window.chat.delete": {
+    "message": "删除"
+  },
+  "app.agent-window.chat.name": {
+    "message": "名称"
+  },
+  "app.agent-window.chat.save": {
+    "message": "保存"
+  },
+  "app.agent-window.chat.more": {
+    "message": "更多操作"
+  },
+  "app.agent-window.chat.no-context": {
+    "message": "未选择实例"
+  },
+  "app.agent-window.chat.byok": {
+    "message": "使用你自己的模型凭证"
+  },
+  "app.agent-window.chat.state": {
+    "message": "状态"
+  },
+  "app.agent-window.chat.details": {
+    "message": "查看任务"
+  },
+  "app.agent-window.chat.source": {
+    "message": "启动器配置"
+  },
+  "app.agent-window.chat.copied": {
+    "message": "已复制"
+  },
+  "app.agent-window.chat.copy": {
+    "message": "复制消息"
+  },
+  "app.agent-window.chat.copy-error": {
+    "message": "无法复制消息"
+  },
+  "app.agent-window.chat.context-removed": {
+    "message": "该实例当前不可用"
+  },
+  "app.agent-window.chat.model-removed": {
+    "message": "该模型当前不可用"
+  },
+  "app.agent-window.chat.storage-recovery": {
+    "message": "无法读取已保存的历史，请先导出备份，再开始新历史。"
+  },
+  "app.agent-window.chat.export-history": {
+    "message": "导出已保存历史"
+  },
+  "app.agent-window.chat.reset-history": {
+    "message": "开始新历史"
+  },
+  "app.agent-window.chat.export-draft": {
+    "message": "导出草稿"
+  },
+  "app.agent-window.chat.storage-export-error": {
+    "message": "无法导出已保存历史，原始数据仍保留。"
+  },
+  "app.agent-window.chat.reset-history-warning": {
+    "message": "已保存的历史将被替换。请先导出备份，当前草稿会保留。"
+  },
+  "app.agent-window.chat.history-retention": {
+    "message": "空间不足时会清理较早已结束的请求，草稿和等待中的请求会保留。"
+  },
+  "app.agent-window.chat.window-reveal-error": {
+    "message": "无法显示窗口，请从启动器重新打开。"
+  },
+  "app.agent-window.chat.window-action-error": {
+    "message": "窗口操作失败"
+  },
+  "app.agent-window.open": {
+    "message": "打开智能体窗口"
+  },
+  "app.agent-window.title": {
+    "message": "Axolotl 智能体窗口"
+  },
   "app.drop.minecraft-root-added": {
     "message": "已添加 Minecraft 文件夹"
   },
@@ -8506,6 +8845,12 @@
   },
   "app.onboarding.action.start": {
     "message": "带我逛逛"
+  },
+  "app.onboarding.agent-window.description": {
+    "message": "从标题栏打开智能体窗口。窗口中的智能体使用指南会介绍如何选择模型和实例、查看等待队列，以及检查权限。需要时可以随时重新打开指南。"
+  },
+  "app.onboarding.agent-window.title": {
+    "message": "开始一个智能体任务"
   },
   "app.onboarding.ai.description": {
     "message": "统一连接文本模型供应商、选择要使用的模型，也可在这里一键关闭所有 AI 功能。"

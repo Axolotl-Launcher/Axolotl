@@ -917,6 +917,23 @@ fn main() {
                     ),
             )
             .plugin(
+                "agent-window",
+                InlinedPlugin::new()
+                    .commands(&[
+                        "open_agent_window",
+                        "update_agent_window_appearance",
+                        "agent_window_action",
+                        "agent_window_is_maximized",
+                        "agent_window_get_appearance",
+                        "agent_window_get_context",
+                        "agent_window_get_permissions",
+                        "agent_window_set_permissions",
+                    ])
+                    .default_permission(
+                        DefaultPermissionRule::AllowAllCommands,
+                    ),
+            )
+            .plugin(
                 "mcp",
                 InlinedPlugin::new()
                     .commands(&[

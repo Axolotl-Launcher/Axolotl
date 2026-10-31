@@ -475,10 +475,17 @@ impl Settings {
     /// The ranges and shapes a value of these settings has to hold, in the one
     /// place they are written down.
     ///
-    /// A settings document is text the user may edit by hand, so a number out
-    /// of range is pulled back into it here rather than trusted; the row is
-    /// read and written through the same function, so the two cannot drift
-    /// apart about what a stored value is allowed to be.
+    /// This is the stored side of the rules: what a settings document, or a row
+    /// an older build wrote, already holds is converged to the nearest legal
+    /// value and never refused, because a file the user may edit by hand cannot
+    /// be answered with an error. Refusing is what an entry point does instead —
+    /// `patch_with` and the other writers reject the input they cannot
+    /// represent, so the caller that handed it over learns about it. The two are
+    /// therefore not one check written twice: each answers a source the other
+    /// never sees.
+    ///
+    /// The row is read and written through this function too, so the two cannot
+    /// drift apart about what a stored value is allowed to be.
     pub(crate) fn normalize(mut self) -> Self {
         self.max_concurrent_downloads = self
             .max_concurrent_downloads
@@ -669,14 +676,7 @@ impl Settings {
         // the log: this is the whole-row writer a start reaches through the
         // directory move and the settings migrations, so it must not keep a
         // start from coming up.
-        if let Err(error) =
-            super::documents::settings::store_cut_over(handle, None).await
-        {
-            tracing::warn!(
-                %error,
-                "Failed to write the settings documents of the domains that have moved"
-            );
-        }
+        super::documents::settings::store_cut_over(handle, None).await;
         Ok(())
     }
 

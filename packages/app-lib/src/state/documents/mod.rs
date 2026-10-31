@@ -249,7 +249,8 @@ impl<'a> Documents<'a> {
 
     /// Replaces a document with a temporary file and a rename, so a reader
     /// never sees half of one. A write that would change no value, or that
-    /// would lower a document a newer build wrote, leaves the file as it is.
+    /// would take a document written by an older build back to the shape this
+    /// one knows, leaves the file as it is.
     pub(crate) async fn write<T>(
         &self,
         name: &str,
@@ -260,29 +261,44 @@ impl<'a> Documents<'a> {
         T: Serialize,
     {
         let path = self.path(name);
-        // `WRITES` only serializes this process, so the file is read again
-        // here: a second instance, or a build that took longer than the
-        // caller's own read, can have replaced it meanwhile.
-        if let Some(existing) = written_document(&path).await {
-            // The version records the last write of this document, so a write
-            // that leaves the data as it stands must not touch it: raising it
-            // for a value the user did not change would lock a build that
-            // knows the same shape out of the document from then on.
-            if serde_json::to_value(document)? == existing.data {
-                return Ok(());
-            }
-            // The same rule `stored` applies to a read applies to the write
-            // that follows it, whatever the caller checked before: writing a
-            // document a newer build wrote would lower it to the keys this
-            // build knows.
-            if existing.schema_version > schema_version {
+        // `WRITES` serializes the writers of this process, and the file is read
+        // again anyway: another writer here may have replaced it since the one
+        // this write began with, and the file is the answer that counts.
+        match written_document(&path).await {
+            // A file this build cannot read is a shape it does not know, and
+            // replacing it would lose the keys it cannot see — the same reason a
+            // document a newer build wrote is left alone.
+            OnDisk::Unreadable => {
                 tracing::warn!(
                     path = %path.display(),
-                    schema_version = existing.schema_version,
-                    "Leaving a settings document a newer build wrote alone"
+                    "Leaving a settings document that cannot be read alone"
                 );
                 return Ok(());
             }
+            OnDisk::Ready(existing) => {
+                // The version records the last write of this document, so a
+                // write that leaves the data as it stands must not touch it:
+                // raising it for a value the user did not change would lock a
+                // build that knows the same shape out of the document from then
+                // on.
+                if serde_json::to_value(document)? == existing.data {
+                    return Ok(());
+                }
+                // The same rule `stored` applies to a read applies to the write
+                // that follows it, whatever the caller checked before: the file
+                // was written by a build newer than this one, which is what a
+                // downgrade leaves behind, and stating the keys this build knows
+                // would drop the ones it does not.
+                if existing.schema_version > schema_version {
+                    tracing::warn!(
+                        path = %path.display(),
+                        schema_version = existing.schema_version,
+                        "Leaving a settings document a newer build wrote alone"
+                    );
+                    return Ok(());
+                }
+            }
+            OnDisk::Missing => {}
         }
         let contents = serde_json::to_vec_pretty(&NewDocument {
             schema_version,
@@ -437,19 +453,23 @@ fn overlay<T>(
 }
 
 /// What the document at `path` holds, whichever layer it belongs to.
-async fn read_document<T>(
-    path: &Path,
-    name: &str,
-    schema_version: u32,
-) -> Stored<T>
-where
-    T: DeserializeOwned + Default,
-{
-    // The shape is checked before anything is read: reading first and judging
-    // afterwards would already have paid the cost the check exists to avoid.
-    // `std::fs::metadata` follows a symbolic link, so a document a package
-    // manager links into a store is judged by the file it points at, which is
-    // the only thing the read would reach either.
+/// What a path can be read as.
+enum OnPath {
+    Missing,
+    Unreadable,
+    Readable,
+}
+
+/// Whether a document's path holds something a read may go ahead with.
+///
+/// The shape is judged before anything is read: reading first and refusing
+/// afterwards would have paid the cost the check exists to avoid, and a path that
+/// is not a regular file of a bounded size is not a document — a pipe there would
+/// block forever and an oversized file would fill memory before its size was
+/// ever looked at. `std::fs::metadata` follows a symbolic link, so a document a
+/// package manager links into a store is judged by the file it points at, which is
+/// the only thing the read would reach either.
+fn on_path(path: &Path) -> OnPath {
     match std::fs::metadata(path) {
         Ok(metadata)
             if !metadata.is_file() || metadata.len() > MAX_DOCUMENT_BYTES =>
@@ -459,11 +479,11 @@ where
                 len = metadata.len(),
                 "Ignoring a settings document that is not a regular file of a bounded size"
             );
-            return Stored::Unreadable;
+            OnPath::Unreadable
         }
-        Ok(_) => {}
+        Ok(_) => OnPath::Readable,
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
-            return Stored::Missing;
+            OnPath::Missing
         }
         Err(error) => {
             tracing::warn!(
@@ -471,8 +491,23 @@ where
                 %error,
                 "Could not inspect a settings document"
             );
-            return Stored::Unreadable;
+            OnPath::Unreadable
         }
+    }
+}
+
+async fn read_document<T>(
+    path: &Path,
+    name: &str,
+    schema_version: u32,
+) -> Stored<T>
+where
+    T: DeserializeOwned + Default,
+{
+    match on_path(path) {
+        OnPath::Unreadable => return Stored::Unreadable,
+        OnPath::Missing => return Stored::Missing,
+        OnPath::Readable => {}
     }
     let contents = match tokio::fs::read(path).await {
         Ok(contents) => contents,
@@ -511,12 +546,34 @@ where
     }
 }
 
-/// What a document on disk already holds, when there is a file there that can
-/// be parsed. Nothing means the write has nothing to compare against and goes
-/// ahead: a file this build cannot interpret is not one it can lower.
-async fn written_document(path: &Path) -> Option<WrittenDocument> {
-    let contents = tokio::fs::read(path).await.ok()?;
-    serde_json::from_slice(&contents).ok()
+/// What a write finds where its document belongs.
+///
+/// `Missing` and `Unreadable` answer differently on purpose: no file is a
+/// document the write creates, while a file this build cannot parse holds keys it
+/// cannot see and is left as it stands.
+enum OnDisk {
+    Missing,
+    Unreadable,
+    Ready(WrittenDocument),
+}
+
+async fn written_document(path: &Path) -> OnDisk {
+    match on_path(path) {
+        OnPath::Unreadable => return OnDisk::Unreadable,
+        OnPath::Missing => return OnDisk::Missing,
+        OnPath::Readable => {}
+    }
+    let contents = match tokio::fs::read(path).await {
+        Ok(contents) => contents,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+            return OnDisk::Missing;
+        }
+        Err(_) => return OnDisk::Unreadable,
+    };
+    match serde_json::from_slice(&contents) {
+        Ok(stored) => OnDisk::Ready(stored),
+        Err(_) => OnDisk::Unreadable,
+    }
 }
 
 /// What a deployment's directory holds for one domain.

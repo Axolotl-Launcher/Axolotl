@@ -356,9 +356,8 @@ async fn write_row(
     }
 
     // The store is written first, so a row only says the session was moved once
-    // the session is there. What the store held before comes back if the row
-    // below cannot be written, which would otherwise leave the two disagreeing
-    // about which session is the account's.
+    // the session is there. A row left as it was beside a newer session still
+    // reads: it says a session is somewhere, not which one.
     let mut undo = Undo::default();
     let stored = if record.session_id.is_empty() {
         // A session the account no longer has leaves no entry behind.
@@ -366,7 +365,6 @@ async fn write_row(
         false
     } else {
         let position = session_key(key);
-        undo.watch(&position).await;
         let stored = secrets::keep(position.clone(), &record.session_id).await;
         if !stored {
             // The row keeps the session, so nothing names the entry any more.

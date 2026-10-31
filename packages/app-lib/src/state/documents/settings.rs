@@ -98,6 +98,10 @@ pub(crate) fn identify(settings_dir: &Path) {
 }
 
 /// The documents of this launch, when a start has named their directory.
+///
+/// A test answers with the root of its own thread instead of the process-wide
+/// one, so that one test naming a directory does not decide the documents of
+/// every test running beside it.
 pub(crate) fn root() -> Option<PathBuf> {
     #[cfg(test)]
     if let Some(root) = TEST_ROOT.with(|test| test.borrow().clone()) {
@@ -430,12 +434,18 @@ pub(crate) async fn read(
     }
 
     let mut settings: Settings = serde_json::from_value(Value::Object(values))?;
-    // `personalized_ads` is skipped when deserializing, so the map above cannot
-    // carry it back; it is taken from the row the read already made.
+    // The two keys the row answers alone get the one mechanism they rest on here:
+    // this assignment from the row, made after every layer has been laid down and
+    // answering whatever they say. What lets it be the only mechanism is the
+    // shape of the settings rather than a second guard beside it —
+    // `personalized_ads` is `#[serde(skip)]`, so the map above cannot carry it
+    // back, and `version` belongs to no domain of `DOMAINS`, so no document can
+    // answer it. Those two are the premises: together they make any other answer
+    // impossible. `version` is what `migrate` reads to choose its migrations, so
+    // a document able to raise it would let a file skip them; the ads preference
+    // is a column of the row and nothing else, so no document can lower it to the
+    // default either.
     settings.personalized_ads = row_settings.personalized_ads;
-    // No document carries `version`, and the layers above cannot lower it: it is
-    // what `migrate` reads to decide which migrations to run, so it comes from
-    // the row the read already made rather than from what the map was left with.
     settings.version = row_settings.version;
     // A document is text the user can edit by hand, so a value out of range is
     // pulled back into it rather than handed on as it stands.
@@ -579,8 +589,7 @@ pub(crate) async fn hand_over_if_missing(documents: &Documents<'_>) -> bool {
             }
             Shipped::Missing => Document::new(),
         };
-        let mut target = domain_values(keys, &values, &shipped, &defaults);
-        target.retain(|key, _| !shipped.contains_key(key));
+        let target = domain_values(keys, &values, &shipped, &defaults, None);
         // A domain with nothing of its own to say keeps being answered by the
         // row: an empty document would take that answer away before any writer
         // fills it.
@@ -683,7 +692,11 @@ pub(crate) async fn prune_redundant(
 /// A document is the authority for its domain, so a write states the whole
 /// domain rather than the keys that changed: a key equal to the provided value
 /// is dropped instead of written, because leaving it out reads the same value
-/// and lets a later change of a provided value still arrive.
+/// and lets a later change of a provided value still arrive. A key the
+/// deployment answers is dropped whatever value it holds: a local copy would be
+/// the last word for it, so the deployment's own change would never reach the
+/// user. Only a write that names that key may take it over, which `store_domain`
+/// does.
 ///
 /// A domain's target is compared against what its document already holds
 /// before that document is serialized, so a store that changes nothing in it
@@ -707,7 +720,7 @@ pub(crate) async fn store(
             .shipped::<Document>(name, schema_version)
             .await
             .unwrap_or_default();
-        let target = domain_values(keys, &values, &config, &defaults);
+        let target = domain_values(keys, &values, &config, &defaults, None);
         let existing =
             match documents.stored::<Document>(name, schema_version).await {
                 Stored::Ready { document } => Some(document),
@@ -761,26 +774,29 @@ pub(crate) async fn store(
 /// document: the domains still answered by the row have the row as their only
 /// place, so stating them here as well would write files nothing reads yet.
 ///
-/// The row is read here, inside `WRITES`, rather than handed in: two writers
-/// reach this in either order, and settings read before the lock are a snapshot
-/// the other one may already have replaced — the older of the two would then be
-/// the one the file states. What is written is the row as it stands at the
-/// write, so the file states the latest committed settings whatever order the
-/// writers arrived in, and another process writing the same domain states the
-/// latest row it can see for the same reason.
+/// The row is read here, inside `WRITES`, rather than handed in: two writers of
+/// this process reach it in either order, and settings read before the lock are
+/// a snapshot the other one may already have replaced — the older of the two
+/// would then be the one the file states. What is written is the row as it
+/// stands at the write, so the file states the latest committed settings
+/// whatever order the writers arrived in.
+///
+/// One launcher runs at a time: the shell refuses a second instance, so nothing
+/// here takes a lock against another process.
 ///
 /// The rules are `store`'s, applied to one domain rather than to all of them: a
-/// key holding what the domain is provided with is left out, a document that
-/// already holds what would be written is not touched, and a domain with
+/// key holding what the domain is provided with is left out, and a domain with
 /// nothing to say and no document of its own keeps being answered by the row.
+/// Whether the document on disk already holds what would be written is `write`'s
+/// question: it reads the file again and leaves alone one that changes nothing.
 ///
 /// `changed` names the keys the row write carried, and a key the deployment
 /// answers is stated only when it is one of them: the user changing a key is the
 /// one way the local document may take it over.
 ///
-/// A document this build cannot replace — one a newer build wrote, one it
-/// cannot read — is left as it stands and reported in the log, the way a store
-/// leaves it: what it holds is not this write's to lower.
+/// A document this build cannot read is left as it stands and reported in the
+/// log: what it holds is data a write would overwrite. One a newer build wrote is
+/// not exempted here — `write` is where that file is refused.
 ///
 /// A write that fails takes the domain's document with it, and the failure is
 /// reported in the log rather than to the caller: the row is already committed,
@@ -822,30 +838,17 @@ pub(crate) async fn store_domain(
     };
     let target =
         row_values_of_domain(handle, keys, &config, &defaults, changed).await?;
+    // Only whether a document is there matters here: a shape a newer build wrote
+    // and a file this build cannot read are both `write`'s to leave alone, and it
+    // reads the file again, which is the answer that still holds when another
+    // writer of this process has replaced it since this read.
     let existing =
         match documents.stored::<Document>(domain, schema_version).await {
-            Stored::Ready { document } => Some(document),
-            // Nothing to compare against is a document this write creates, which
-            // `write` then skips when it would change no value.
-            Stored::Missing => None,
-            Stored::Newer { .. } => {
-                tracing::warn!(
-                    document = domain,
-                    "Leaving a settings document a newer build wrote alone"
-                );
-                return Ok(());
+            Stored::Ready { document } | Stored::Newer { document } => {
+                Some(document)
             }
-            Stored::Unreadable => {
-                tracing::warn!(
-                    document = domain,
-                    "Leaving a settings document that cannot be read alone"
-                );
-                return Ok(());
-            }
+            Stored::Missing | Stored::Unreadable => None,
         };
-    if existing.as_ref() == Some(&target) {
-        return Ok(());
-    }
     // A domain with nothing to record and no document of its own keeps being
     // answered by the row: creating an empty one would take that answer away
     // before the domain's values have all been written to it.
@@ -876,22 +879,21 @@ pub(crate) async fn store_domain(
 /// which keys it changed states — and even then the keys a deployment answers
 /// are left out of the local documents.
 ///
-/// A domain that cannot be stated costs itself and no other: the loop reaches
-/// every domain and reports the failures together at the end, so one damaged
-/// deployment document does not leave the domains after it behind. What a failed
-/// write leaves is not a stale document either — `store_domain` removes it, so
-/// the domain is answered by the row that just landed.
+/// A domain that cannot be stated costs itself and no other: the failure is
+/// reported in the log and the loop goes on, so one damaged deployment document
+/// does not leave the domains after it behind. What a failed write leaves is not
+/// a stale document either — `store_domain` removes it, so the domain is
+/// answered by the row that just landed.
 pub(crate) async fn store_cut_over(
     handle: &Handle,
     changed: Option<&BTreeSet<String>>,
-) -> crate::Result<()> {
+) {
     // With no document directory named, a start reads the row alone, which is
     // what a unit test that builds its own handle does: there is no document to
     // state and nothing is missing.
     let Some(documents) = handle.settings_documents() else {
-        return Ok(());
+        return;
     };
-    let mut failed = false;
     for &name in CUT_OVER {
         if changed.is_some_and(|changed| !carries(name, changed)) {
             continue;
@@ -904,17 +906,8 @@ pub(crate) async fn store_cut_over(
                 %error,
                 "Failed to state the settings document of a domain whose writes have moved"
             );
-            failed = true;
         }
     }
-    if failed {
-        return Err(crate::ErrorKind::OtherError(
-            "Not every settings domain whose writes have moved could be stated"
-                .to_string(),
-        )
-        .into());
-    }
-    Ok(())
 }
 
 /// Whether a domain of `CUT_OVER` carries one of the keys a row write changed.
@@ -971,23 +964,42 @@ async fn discard(documents: &Documents<'_>, name: &str, error: &crate::Error) {
 
 /// The keys of one domain as its document should carry them, taken from a
 /// whole `Settings` keyed the way a document keys them.
+///
+/// A key the deployment answers is not written at all: a local copy would be the
+/// last word for it, so the deployment's own later change would never reach the
+/// user. `changed` names the keys a write carries, and naming such a key is the
+/// one way it is stated — the user changing it is the override no other path
+/// makes.
+///
+/// A key the deployment says nothing about is left out while it holds the value
+/// the build defaults to: leaving it out reads the same value and lets a later
+/// change of that value arrive.
 fn domain_values(
     keys: &[&str],
     values: &Document,
     config: &Document,
     defaults: &Document,
+    changed: Option<&BTreeSet<String>>,
 ) -> Document {
     let mut target = Document::new();
     for &key in keys {
         let Some(value) = values.get(key) else {
             continue;
         };
-        if provided(key, config, defaults).is_some_and(|provided| {
-            same_setting(key, provided, value, defaults)
-        }) {
-            continue;
+        let written = if let Some(shipped) = config.get(key) {
+            // Naming the key is what lets a local copy outrank a deployment's,
+            // and a copy that says what the deployment already says buys nothing
+            // while it keeps the deployment's later change from arriving.
+            changed.is_some_and(|changed| changed.contains(key))
+                && !same_setting(key, shipped, value, defaults)
+        } else {
+            !defaults.get(key).is_some_and(|default| {
+                same_setting(key, default, value, defaults)
+            })
+        };
+        if written {
+            target.insert(key.to_string(), value.clone());
         }
-        target.insert(key.to_string(), value.clone());
     }
     target
 }
@@ -1071,12 +1083,7 @@ async fn row_values_of_domain(
     let row: Document = serde_json::from_value(serde_json::to_value(
         Settings::read_row(handle).await?,
     )?)?;
-    let mut values = domain_values(keys, &row, config, defaults);
-    values.retain(|key, _| {
-        !config.contains_key(key)
-            || changed.is_some_and(|changed| changed.contains(key))
-    });
-    Ok(values)
+    Ok(domain_values(keys, &row, config, defaults, changed))
 }
 
 /// Clears `key` while the document still holds exactly `expected`, which is

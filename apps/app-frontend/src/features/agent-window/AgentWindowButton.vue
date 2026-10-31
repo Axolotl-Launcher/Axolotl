@@ -1,12 +1,15 @@
 <script setup lang="ts">
 import { defineMessages, injectNotificationManager, useVIntl } from '@modrinth/ui'
 import { invoke } from '@tauri-apps/api/core'
-import { ref } from 'vue'
+import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
 const { formatMessage, locale } = useVIntl()
 const { handleError } = injectNotificationManager()
 const opening = ref(false)
 const trigger = ref<HTMLButtonElement>()
+let windowOpened = false
+let appearanceObserver: MutationObserver | undefined
+let updateScheduled: number | undefined
 const messages = defineMessages({
     open: { id: 'app.agent-window.open', defaultMessage: 'Open agent window' },
     title: { id: 'app.agent-window.title', defaultMessage: 'Axolotl Agent Window' },
@@ -16,29 +19,68 @@ const messages = defineMessages({
     close: { id: 'app.window-controls.close', defaultMessage: 'Close' },
 })
 
+function windowAppearance() {
+    const host = trigger.value ?? document.documentElement
+    const probe = document.createElement('span')
+    probe.hidden = true
+    host.appendChild(probe)
+    const resolve = (variable: string) => {
+        probe.style.color = `var(${variable})`
+        return getComputedStyle(probe).color
+    }
+    try {
+        probe.style.borderRadius = 'var(--radius-lg)'
+        return {
+            locale: locale.value,
+            background: resolve('--surface-1'),
+            surface: resolve('--surface-bar, var(--surface-3)'),
+            text: resolve('--color-text-primary'),
+            accent: resolve('--color-brand'),
+            scrollbar: resolve('--color-scrollbar'),
+            scrollbar_track: resolve('--color-bg'),
+            scrollbar_radius: getComputedStyle(probe).borderTopLeftRadius,
+            labels: {
+                title: formatMessage(messages.title),
+                minimize: formatMessage(messages.minimize),
+                maximize: formatMessage(messages.maximize),
+                restore: formatMessage(messages.restore),
+                close: formatMessage(messages.close),
+            },
+        }
+    } finally {
+        probe.remove()
+    }
+}
+
+function scheduleAppearanceUpdate() {
+    if (!windowOpened || updateScheduled !== undefined) return
+    updateScheduled = requestAnimationFrame(() => {
+        updateScheduled = undefined
+        void invoke('plugin:agent-window|update_agent_window_appearance', {
+            appearance: windowAppearance(),
+        }).catch(handleError)
+    })
+}
+
+onMounted(() => {
+    appearanceObserver = new MutationObserver(scheduleAppearanceUpdate)
+    appearanceObserver.observe(document.documentElement, {
+        attributes: true,
+        attributeFilter: ['class', 'style'],
+    })
+})
+watch(locale, scheduleAppearanceUpdate)
+onBeforeUnmount(() => {
+    appearanceObserver?.disconnect()
+    if (updateScheduled !== undefined) cancelAnimationFrame(updateScheduled)
+})
+
 async function openWindow() {
     if (opening.value) return
     opening.value = true
     try {
-        const style = getComputedStyle(trigger.value ?? document.documentElement)
-        await invoke('plugin:agent-window|open_agent_window', {
-            appearance: {
-                locale: locale.value,
-                background: style.getPropertyValue('--surface-1').trim(),
-                surface:
-                    style.getPropertyValue('--surface-bar').trim() ||
-                    style.getPropertyValue('--surface-3').trim(),
-                text: style.getPropertyValue('--color-text-primary').trim(),
-                accent: style.getPropertyValue('--color-brand').trim(),
-                labels: {
-                    title: formatMessage(messages.title),
-                    minimize: formatMessage(messages.minimize),
-                    maximize: formatMessage(messages.maximize),
-                    restore: formatMessage(messages.restore),
-                    close: formatMessage(messages.close),
-                },
-            },
-        })
+        await invoke('plugin:agent-window|open_agent_window', { appearance: windowAppearance() })
+        windowOpened = true
     } catch (error) {
         handleError(error)
     } finally {

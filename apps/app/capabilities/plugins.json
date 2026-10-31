@@ -159,6 +159,7 @@
     "shortcuts:default",
     "tags:default",
     "agent-window:allow-open-agent-window",
+    "agent-window:allow-update-agent-window-appearance",
     "ai:default",
     "mcp:default",
     "translation:default",

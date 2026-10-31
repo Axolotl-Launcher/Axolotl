@@ -9,6 +9,10 @@ const WINDOW_URL: &str = "axolotl-agent://localhost/";
 const HTML: &str = include_str!("index.html");
 const CSS: &str = include_str!("window.css");
 const JS: &str = include_str!("window.js");
+const APP_JS: &str = include_str!("app.js");
+const STATE_JS: &str = include_str!("state.js");
+const MESSAGES_JS: &str = include_str!("messages.js");
+const ICON: &[u8] = include_bytes!("../../assets/branding/axolotl.png");
 
 #[derive(Clone, Deserialize, Serialize)]
 #[serde(default)]
@@ -40,6 +44,9 @@ pub struct Appearance {
     pub surface: String,
     pub text: String,
     pub accent: String,
+    pub scrollbar: String,
+    pub scrollbar_track: String,
+    pub scrollbar_radius: String,
     pub labels: WindowLabels,
 }
 
@@ -51,9 +58,20 @@ impl Default for Appearance {
             surface: "#f4f4f5".into(),
             text: "#1f2937".into(),
             accent: "#1bd96a".into(),
+            scrollbar: "#96a2b0".into(),
+            scrollbar_track: "#ffffff".into(),
+            scrollbar_radius: "16px".into(),
             labels: WindowLabels::default(),
         }
     }
+}
+
+/// Preferences for future internal execution; they do not grant MCP control.
+#[derive(Clone, Copy, Default, Deserialize, Serialize)]
+#[serde(default)]
+pub struct Permissions {
+    pub full_access: bool,
+    pub computer_use: bool,
 }
 
 /// Owns window creation independently of the launcher's frontend and runtime.
@@ -61,6 +79,7 @@ impl Default for Appearance {
 pub struct AgentWindow {
     opening: Mutex<()>,
     appearance: RwLock<Appearance>,
+    permissions: RwLock<Permissions>,
 }
 
 impl AgentWindow {
@@ -70,6 +89,33 @@ impl AgentWindow {
 
     pub async fn appearance(&self) -> Appearance {
         self.appearance.read().await.clone()
+    }
+
+    pub async fn permissions(&self) -> Permissions {
+        *self.permissions.read().await
+    }
+
+    pub async fn set_permissions(
+        &self,
+        mut permissions: Permissions,
+    ) -> Permissions {
+        permissions.computer_use &= permissions.full_access;
+        *self.permissions.write().await = permissions;
+        permissions
+    }
+
+    pub async fn update_appearance(
+        &self,
+        app: &AppHandle<Wry>,
+        appearance: Appearance,
+    ) -> tauri::Result<()> {
+        *self.appearance.write().await = appearance;
+        if let Some(window) = app.get_webview_window(WINDOW_LABEL) {
+            window.eval(
+                "window.dispatchEvent(new Event('agent-appearance-changed'))",
+            )?;
+        }
+        Ok(())
     }
 
     pub async fn open_with_appearance(
@@ -92,7 +138,7 @@ impl AgentWindow {
             return window.set_focus();
         }
 
-        let window = WebviewWindowBuilder::new(
+        WebviewWindowBuilder::new(
             app,
             WINDOW_LABEL,
             WebviewUrl::CustomProtocol(
@@ -103,13 +149,14 @@ impl AgentWindow {
         .inner_size(1100.0, 760.0)
         .min_inner_size(640.0, 480.0)
         .decorations(false)
+        .visible(false)
         .resizable(true)
         .center()
         .disable_drag_drop_handler()
         .on_navigation(is_window_url)
         .on_new_window(|_, _| tauri::webview::NewWindowResponse::Deny)
         .build()?;
-        window.set_focus()
+        Ok(())
     }
 }
 
@@ -149,6 +196,22 @@ pub fn asset_response(
             "/window.js" => {
                 (StatusCode::OK, "text/javascript", JS.as_bytes().to_vec())
             }
+            "/app.js" => (
+                StatusCode::OK,
+                "text/javascript",
+                APP_JS.as_bytes().to_vec(),
+            ),
+            "/state.js" => (
+                StatusCode::OK,
+                "text/javascript",
+                STATE_JS.as_bytes().to_vec(),
+            ),
+            "/messages.js" => (
+                StatusCode::OK,
+                "text/javascript",
+                MESSAGES_JS.as_bytes().to_vec(),
+            ),
+            "/axolotl.png" => (StatusCode::OK, "image/png", ICON.to_vec()),
             _ => (StatusCode::NOT_FOUND, "text/plain", Vec::new()),
         }
     };
@@ -159,7 +222,7 @@ pub fn asset_response(
         .header(header::CACHE_CONTROL, "no-store")
         .header(
             header::CONTENT_SECURITY_POLICY,
-            "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src ipc: http://ipc.localhost; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+            "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self'; connect-src ipc: http://ipc.localhost; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
         )
         .header("X-Content-Type-Options", "nosniff")
         .body(body)
@@ -170,6 +233,31 @@ pub fn asset_response(
 mod tests {
     use super::*;
     use tauri::http::{Request, StatusCode};
+
+    #[test]
+    fn interface_permission_requires_full_access_and_is_not_persisted() {
+        tauri::async_runtime::block_on(async {
+            let agent = AgentWindow::default();
+            assert!(!agent.permissions().await.full_access);
+            let permissions = agent
+                .set_permissions(Permissions {
+                    full_access: false,
+                    computer_use: true,
+                })
+                .await;
+            assert!(!permissions.computer_use);
+            let permissions = agent
+                .set_permissions(Permissions {
+                    full_access: true,
+                    computer_use: true,
+                })
+                .await;
+            assert!(permissions.computer_use);
+            let permissions =
+                agent.set_permissions(Permissions::default()).await;
+            assert!(!permissions.full_access && !permissions.computer_use);
+        });
+    }
 
     #[test]
     fn embedded_entry_is_only_served_to_the_agent_window() {
@@ -185,6 +273,10 @@ mod tests {
         for (path, mime) in [
             ("/window.css", "text/css; charset=utf-8"),
             ("/window.js", "text/javascript; charset=utf-8"),
+            ("/app.js", "text/javascript; charset=utf-8"),
+            ("/state.js", "text/javascript; charset=utf-8"),
+            ("/messages.js", "text/javascript; charset=utf-8"),
+            ("/axolotl.png", "image/png; charset=utf-8"),
         ] {
             let request =
                 Request::builder().uri(path).body(Vec::new()).unwrap();

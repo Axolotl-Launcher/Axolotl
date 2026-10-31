@@ -19,6 +19,7 @@ import Breadcrumbs from './Breadcrumbs.vue'
 const fixture = vi.hoisted(() => ({
     instanceName: '我的整合包实例名称非常长'.repeat(20),
     openAgentWindow: vi.fn(async () => {}),
+    updateAgentAppearance: vi.fn(async () => {}),
     handleError: vi.fn(),
 }))
 vi.mock('@tauri-apps/api/core', async (importOriginal) => ({
@@ -26,7 +27,9 @@ vi.mock('@tauri-apps/api/core', async (importOriginal) => ({
     invoke: (command: string, args: unknown) =>
         command === 'plugin:agent-window|open_agent_window'
             ? fixture.openAgentWindow(args)
-            : Promise.resolve(),
+            : command === 'plugin:agent-window|update_agent_window_appearance'
+              ? fixture.updateAgentAppearance(args)
+              : Promise.resolve(),
 }))
 vi.mock('@/helpers/process', () => ({
     get_all: async () => [
@@ -310,10 +313,21 @@ it('reveals the agent action without moving other titlebar controls and handles 
             surface: expect.any(String),
             text: expect.any(String),
             accent: expect.any(String),
+            scrollbar: expect.any(String),
+            scrollbar_track: expect.any(String),
+            scrollbar_radius: expect.any(String),
         }),
     })
     finish()
     await waitFor(() => !button.element.disabled)
+    fixture.updateAgentAppearance.mockClear()
+    const initialAccent = document.documentElement.style.getPropertyValue('--color-brand')
+    cleanup.push(() => document.documentElement.style.setProperty('--color-brand', initialAccent))
+    document.documentElement.style.setProperty('--color-brand', '#123456')
+    await waitFor(() => fixture.updateAgentAppearance.mock.calls.length > 0)
+    expect(fixture.updateAgentAppearance).toHaveBeenLastCalledWith({
+        appearance: expect.objectContaining({ accent: 'rgb(18, 52, 86)' }),
+    })
 
     fixture.openAgentWindow.mockRejectedValueOnce('Could not open agent window')
     await button.trigger('click')

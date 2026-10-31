@@ -9,9 +9,13 @@ fn agent_window_open_is_registered_and_only_available_to_main() {
         runtime,
         BTreeSet::from([
             "open_agent_window",
+            "update_agent_window_appearance",
             "agent_window_action",
             "agent_window_is_maximized",
             "agent_window_get_appearance",
+            "agent_window_get_context",
+            "agent_window_get_permissions",
+            "agent_window_set_permissions",
         ])
     );
     assert_eq!(runtime, manifest);
@@ -61,6 +65,9 @@ fn agent_window_open_is_registered_and_only_available_to_main() {
             "agent-window:allow-agent-window-action",
             "agent-window:allow-agent-window-is-maximized",
             "agent-window:allow-agent-window-get-appearance",
+            "agent-window:allow-agent-window-get-context",
+            "agent-window:allow-agent-window-get-permissions",
+            "agent-window:allow-agent-window-set-permissions",
         ])
     );
 }

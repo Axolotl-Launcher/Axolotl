@@ -5,23 +5,113 @@
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <meta name="color-scheme" content="light dark" />
         <title>Axolotl Agent Window</title>
+        <link rel="icon" href="/axolotl.png" />
         <link rel="stylesheet" href="/window.css" />
         <script defer src="/window.js"></script>
+        <script type="module" src="/app.js"></script>
     </head>
     <body>
+        <svg class="icon-definitions" aria-hidden="true">
+            <defs>
+                <symbol id="i-sidebar" viewBox="0 0 24 24">
+                    <rect x="3" y="4" width="18" height="16" rx="3" />
+                    <path d="M9 4v16" />
+                </symbol>
+                <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" /></symbol>
+                <symbol id="i-search" viewBox="0 0 24 24">
+                    <circle cx="10.8" cy="10.8" r="6.8" />
+                    <path d="m16 16 4 4" />
+                </symbol>
+                <symbol id="i-settings" viewBox="0 0 24 24">
+                    <path
+                        d="m9.2 4 .7-2h4.2l.7 2 2.1 1.2 2.1-.4 2.1 3.6-1.4 1.6v2.4l1.4 1.6-2.1 3.6-2.1-.4-2.1 1.2-.7 2H9.9l-.7-2-2.1-1.2-2.1.4-2.1-3.6 1.4-1.6V10L2.9 8.4 5 4.8l2.1.4z"
+                    />
+                    <circle cx="12" cy="11.2" r="3" />
+                </symbol>
+                <symbol id="i-tasks" viewBox="0 0 24 24">
+                    <rect x="3" y="4" width="18" height="16" rx="3" />
+                    <path d="M15 4v16M6.5 9h5M6.5 13h5" />
+                </symbol>
+                <symbol id="i-cube" viewBox="0 0 24 24">
+                    <path d="m12 3 8 4.5v9L12 21l-8-4.5v-9zM4 7.5l8 4.5 8-4.5M12 12v9" />
+                </symbol>
+                <symbol id="i-down" viewBox="0 0 24 24"><path d="m7 10 5 5 5-5" /></symbol>
+                <symbol id="i-up" viewBox="0 0 24 24"><path d="M12 19V5m-6 6 6-6 6 6" /></symbol>
+                <symbol id="i-stop" viewBox="0 0 24 24">
+                    <rect
+                        x="7"
+                        y="7"
+                        width="10"
+                        height="10"
+                        rx="2"
+                        fill="currentColor"
+                        stroke="none"
+                    />
+                </symbol>
+                <symbol id="i-close" viewBox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18" /></symbol>
+                <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12 4.5 4.5L19 7" /></symbol>
+                <symbol id="i-refresh" viewBox="0 0 24 24">
+                    <path d="M20 11a8 8 0 1 0-2.3 6.7M20 4v7h-7" />
+                </symbol>
+                <symbol id="i-clock" viewBox="0 0 24 24">
+                    <circle cx="12" cy="12" r="8" />
+                    <path d="M12 7v5l3 2" />
+                </symbol>
+                <symbol id="i-more" viewBox="0 0 24 24">
+                    <circle cx="5" cy="12" r="1" />
+                    <circle cx="12" cy="12" r="1" />
+                    <circle cx="19" cy="12" r="1" />
+                </symbol>
+                <symbol id="i-edit" viewBox="0 0 24 24">
+                    <path d="m14 5 5 5M4 20l4.5-1 12-12a2 2 0 0 0-5-5l-12 12z" />
+                </symbol>
+                <symbol id="i-trash" viewBox="0 0 24 24">
+                    <path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v5M14 11v5" />
+                </symbol>
+                <symbol id="i-copy" viewBox="0 0 24 24">
+                    <rect x="8" y="8" width="12" height="13" rx="2" />
+                    <path d="M16 8V3H4v13h4" />
+                </symbol>
+                <symbol id="i-archive" viewBox="0 0 24 24">
+                    <rect x="3" y="4" width="18" height="4" rx="1" />
+                    <path d="M5 8v12h14V8M10 12h4" />
+                </symbol>
+                <symbol id="i-log" viewBox="0 0 24 24">
+                    <rect x="5" y="3" width="14" height="18" rx="2" />
+                    <path d="M9 8h6M9 12h6M9 16h3" />
+                </symbol>
+            </defs>
+        </svg>
         <header class="titlebar">
+            <button
+                id="sidebar-toggle"
+                class="icon-button"
+                type="button"
+                data-action="toggle-sidebar"
+                data-label="toggleSidebar"
+            >
+                <svg><use href="#i-sidebar" /></svg>
+            </button>
             <div id="drag-region" class="drag-region">
                 <span id="window-title">Axolotl Agent Window</span>
             </div>
+            <button
+                id="settings-button"
+                class="icon-button"
+                type="button"
+                data-action="settings"
+                data-label="settings"
+            >
+                <svg><use href="#i-settings" /></svg>
+            </button>
             <div class="window-controls">
                 <button id="minimize" type="button" aria-label="Minimize" title="Minimize">
                     <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 8h8" /></svg>
                 </button>
                 <button id="maximize" type="button" aria-label="Maximize" title="Maximize">
                     <svg id="maximize-icon" viewBox="0 0 16 16" aria-hidden="true">
-                        <rect x="4" y="4" width="8" height="8" rx="1" />
-                    </svg>
-                    <svg id="restore-icon" viewBox="0 0 16 16" aria-hidden="true" hidden>
+                        <rect x="4" y="4" width="8" height="8" rx="1" /></svg
+                    ><svg id="restore-icon" viewBox="0 0 16 16" aria-hidden="true" hidden>
                         <path d="M6 5V3h7v7h-2" />
                         <rect x="3" y="6" width="7" height="7" rx="1" />
                     </svg>
@@ -32,6 +122,248 @@
             </div>
         </header>
         <div id="window-error" role="alert" hidden></div>
-        <main></main>
+        <div id="workspace" class="workspace">
+            <aside id="sidebar" class="sidebar">
+                <div class="sidebar-actions">
+                    <button
+                        class="new-chat"
+                        type="button"
+                        data-action="new-chat"
+                        data-testid="new-chat"
+                    >
+                        <svg><use href="#i-plus" /></svg><span data-text="newChat"></span
+                        ><kbd>Ctrl N</kbd>
+                    </button>
+                </div>
+                <label class="search-field sidebar-search"
+                    ><svg><use href="#i-search" /></svg
+                    ><input
+                        id="conversation-search"
+                        type="search"
+                        data-placeholder="search"
+                        data-label="search"
+                        autocomplete="off"
+                /></label>
+                <div class="sidebar-heading" data-text="conversations"></div>
+                <nav
+                    id="conversation-list"
+                    class="conversation-list"
+                    data-testid="conversation-list"
+                ></nav>
+            </aside>
+            <button
+                class="sidebar-backdrop"
+                type="button"
+                data-action="toggle-sidebar"
+                data-label="toggleSidebar"
+                tabindex="-1"
+            ></button>
+            <main class="conversation">
+                <div class="conversation-heading">
+                    <h1 id="conversation-title"></h1>
+                    <div class="conversation-actions">
+                        <button
+                            id="conversation-more"
+                            class="icon-button"
+                            type="button"
+                            data-action="conversation-menu"
+                            data-label="more"
+                        >
+                            <svg><use href="#i-more" /></svg></button
+                        ><button
+                            id="task-toggle"
+                            class="icon-button"
+                            type="button"
+                            data-action="toggle-tasks"
+                            data-label="taskPanel"
+                            aria-expanded="false"
+                        >
+                            <svg><use href="#i-tasks" /></svg>
+                        </button>
+                    </div>
+                </div>
+                <div id="context-banner" class="context-banner" hidden></div>
+                <div id="message-scroll" class="message-scroll">
+                    <section id="empty-state" class="empty-state">
+                        <img src="/axolotl.png" alt="" />
+                        <h2 data-text="welcome"></h2>
+                        <div class="suggestions">
+                            <button type="button" data-prompt="promptCheck">
+                                <svg><use href="#i-refresh" /></svg
+                                ><span data-text="suggestCheck"></span></button
+                            ><button type="button" data-prompt="promptCrash">
+                                <svg><use href="#i-log" /></svg
+                                ><span data-text="suggestCrash"></span></button
+                            ><button type="button" data-prompt="promptBackup">
+                                <svg><use href="#i-archive" /></svg
+                                ><span data-text="suggestBackup"></span>
+                            </button>
+                        </div>
+                    </section>
+                    <div
+                        id="messages"
+                        class="messages"
+                        data-testid="messages"
+                        aria-live="polite"
+                    ></div>
+                </div>
+                <div class="composer-dock">
+                    <div class="composer-wrap">
+                        <form id="composer" class="composer" data-testid="composer">
+                            <textarea
+                                id="message-input"
+                                rows="2"
+                                maxlength="50000"
+                                data-placeholder="prompt"
+                                data-label="messageLabel"
+                            ></textarea>
+                            <div class="composer-toolbar">
+                                <button
+                                    id="instance-button"
+                                    class="selector-button instance-button"
+                                    type="button"
+                                    data-action="instance-picker"
+                                    data-label="instance"
+                                >
+                                    <svg><use href="#i-cube" /></svg
+                                    ><span id="instance-label"></span
+                                    ><svg class="chevron"><use href="#i-down" /></svg>
+                                </button>
+                                <div class="composer-actions">
+                                    <button
+                                        id="model-button"
+                                        class="selector-button model-button"
+                                        type="button"
+                                        data-action="model-picker"
+                                        data-label="model"
+                                    >
+                                        <span class="model-choice"
+                                            ><span id="selection-caption"></span
+                                            ><span id="model-label"></span></span
+                                        ><svg class="chevron"><use href="#i-down" /></svg>
+                                    </button>
+                                    <button
+                                        id="send-button"
+                                        class="send-button"
+                                        type="submit"
+                                        data-testid="send-message"
+                                        data-label="send"
+                                    >
+                                        <svg><use href="#i-up" /></svg>
+                                    </button>
+                                </div>
+                            </div>
+                        </form>
+                        <div class="composer-caption"><span data-text="shortcut"></span></div>
+                    </div>
+                </div>
+            </main>
+            <aside id="task-panel" class="task-panel" hidden data-testid="task-panel">
+                <div class="panel-heading">
+                    <h2 data-text="taskPanel"></h2>
+                    <button
+                        class="icon-button"
+                        type="button"
+                        data-action="toggle-tasks"
+                        data-label="closePanel"
+                    >
+                        <svg><use href="#i-close" /></svg>
+                    </button>
+                </div>
+                <div id="task-content" class="task-content"></div>
+            </aside>
+        </div>
+        <div id="picker" class="picker" popover="auto">
+            <label class="search-field picker-search"
+                ><svg><use href="#i-search" /></svg
+                ><input id="picker-search" type="search" autocomplete="off"
+            /></label>
+            <div id="picker-options" class="picker-options"></div>
+        </div>
+        <div id="conversation-menu" class="action-menu" popover="auto">
+            <button type="button" data-action="rename">
+                <svg><use href="#i-edit" /></svg><span data-text="rename"></span></button
+            ><button type="button" data-action="delete">
+                <svg><use href="#i-trash" /></svg><span data-text="deleteChat"></span>
+            </button>
+        </div>
+        <dialog id="settings-dialog" class="settings-dialog">
+            <div class="dialog-heading">
+                <h2 data-text="permissionsTitle"></h2>
+                <button
+                    class="icon-button"
+                    type="button"
+                    data-action="close-dialog"
+                    data-label="close"
+                >
+                    <svg><use href="#i-close" /></svg>
+                </button>
+            </div>
+            <div class="settings-body">
+                <label class="permission-row" for="permission-full-access">
+                    <span class="permission-copy"
+                        ><strong data-text="fullAccess"></strong
+                        ><span data-text="fullAccessHint"></span
+                    ></span>
+                    <input id="permission-full-access" type="checkbox" role="switch" disabled />
+                </label>
+                <label class="permission-row" for="permission-computer-use">
+                    <span class="permission-copy"
+                        ><strong data-text="computerUse"></strong
+                        ><span data-text="computerUseHint"></span
+                    ></span>
+                    <input id="permission-computer-use" type="checkbox" role="switch" disabled />
+                </label>
+                <p id="permission-status" role="status"></p>
+            </div>
+        </dialog>
+        <dialog
+            id="permissions-risk-dialog"
+            class="edit-dialog"
+            aria-labelledby="permissions-risk-title"
+        >
+            <div class="dialog-heading">
+                <h2 id="permissions-risk-title" data-text="fullAccessWarningTitle"></h2>
+            </div>
+            <div class="edit-body"><p data-text="fullAccessWarning"></p></div>
+            <div class="dialog-footer">
+                <button
+                    id="permissions-cancel"
+                    class="secondary-button"
+                    type="button"
+                    data-action="cancel-full-access"
+                    data-text="cancel"
+                ></button>
+                <button
+                    id="permissions-confirm"
+                    class="primary-button"
+                    type="button"
+                    data-action="confirm-full-access"
+                    data-text="enableFullAccess"
+                ></button>
+            </div>
+        </dialog>
+        <dialog id="edit-dialog" class="edit-dialog">
+            <form id="edit-form">
+                <div class="dialog-heading"><h2 id="edit-title"></h2></div>
+                <div class="edit-body">
+                    <p id="delete-description" data-text="deleteBody" hidden></p>
+                    <label id="rename-field"
+                        ><span data-text="name"></span
+                        ><input id="rename-input" type="text" maxlength="120" required
+                    /></label>
+                </div>
+                <div class="dialog-footer">
+                    <button
+                        class="secondary-button"
+                        type="button"
+                        data-action="close-dialog"
+                        data-text="cancel"
+                    ></button
+                    ><button id="edit-confirm" class="primary-button" type="submit"></button>
+                </div>
+            </form>
+        </dialog>
+        <div id="notification" class="notification" role="status" hidden></div>
     </body>
 </html>

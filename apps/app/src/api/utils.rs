@@ -12,6 +12,7 @@ use async_zip::{Compression, ZipEntryBuilder};
 use dashmap::DashMap;
 use std::path::{Path, PathBuf};
 use theseus::prelude::canonicalize;
+use tokio::io::AsyncWriteExt;
 use tokio_util::compat::FuturesAsyncWriteCompatExt;
 use url::Url;
 
@@ -230,6 +231,46 @@ impl LogExportLevel {
 /// Instance log tail included in an export, in bytes.
 const LOG_EXPORT_INSTANCE_LOG_TAIL_BYTES: u64 = 512 * 1024;
 
+struct LauncherLogArchive {
+    writer: ZipFileWriter<tokio::fs::File>,
+    temporary_path: tempfile::TempPath,
+    output_path: PathBuf,
+}
+
+impl LauncherLogArchive {
+    fn new(output_path: &Path) -> Result<Self> {
+        let directory = output_path
+            .parent()
+            .filter(|parent| !parent.as_os_str().is_empty())
+            .unwrap_or_else(|| Path::new("."));
+        let archive = tempfile::Builder::new()
+            .prefix(".axolotl-log-export-")
+            .tempfile_in(directory)?;
+        let (file, temporary_path) = archive.into_parts();
+
+        Ok(Self {
+            writer: ZipFileWriter::with_tokio(tokio::fs::File::from_std(file)),
+            temporary_path,
+            output_path: output_path.to_path_buf(),
+        })
+    }
+
+    async fn finish(self) -> Result<()> {
+        let Self {
+            writer,
+            temporary_path,
+            output_path,
+        } = self;
+        let mut archive = writer.close().await.map_err(zip_error)?.into_inner();
+        archive.flush().await?;
+        drop(archive);
+        temporary_path
+            .persist(output_path)
+            .map_err(|error| error.error)?;
+        Ok(())
+    }
+}
+
 /// Export launcher logs (filtered by time range and level) plus optional
 /// system information, the most recent instance log, and a crash analysis
 /// summary and fresh network connection tests into a ZIP archive.
@@ -246,11 +287,11 @@ pub async fn export_launcher_logs(
     // Censoring needs the app state (credentials, IPs). Without it an export
     // would silently ship secrets, so fail rather than degrade.
     let state = theseus::State::get().await?;
-    let archive = tokio::fs::File::create(&output_path).await?;
-    let mut writer = ZipFileWriter::with_tokio(archive);
+    let mut archive = LauncherLogArchive::new(&output_path)?;
+    let writer = &mut archive.writer;
 
     let (exported_logs, skipped_logs) =
-        write_exported_logs(&mut writer, range, level, &state).await?;
+        write_exported_logs(writer, range, level, &state).await?;
 
     let mut manifest = format!(
         "Axolotl Launcher log export\n\
@@ -296,13 +337,13 @@ pub async fn export_launcher_logs(
             manifest.push_str(&format!("- {name}\n"));
         }
     }
-    write_zip_entry(&mut writer, "manifest.txt", manifest.as_bytes()).await?;
+    write_zip_entry(writer, "manifest.txt", manifest.as_bytes()).await?;
 
     if include_system_info {
         let environment = build_environment_report();
         let environment = censor_export_text(environment, &state).await?;
         write_zip_entry(
-            &mut writer,
+            writer,
             "system-information.txt",
             environment.as_bytes(),
         )
@@ -321,7 +362,7 @@ pub async fn export_launcher_logs(
         let tail = read_file_tail(path, LOG_EXPORT_INSTANCE_LOG_TAIL_BYTES)?;
         let tail = censor_export_text(tail, &state).await?;
         write_zip_entry(
-            &mut writer,
+            writer,
             &format!("minecraft/{instance_id}/latest.log"),
             tail.as_bytes(),
         )
@@ -342,7 +383,7 @@ pub async fn export_launcher_logs(
         )
         .await?;
         write_zip_entry(
-            &mut writer,
+            writer,
             &format!("minecraft/{instance_id}/crash-analysis.json"),
             report.as_bytes(),
         )
@@ -361,16 +402,11 @@ pub async fn export_launcher_logs(
             .map_err(theseus::Error::from)?;
         let report =
             theseus::install::censor_shared_credentials(report, &state).await?;
-        write_zip_entry(
-            &mut writer,
-            "network-connections.json",
-            report.as_bytes(),
-        )
-        .await?;
+        write_zip_entry(writer, "network-connections.json", report.as_bytes())
+            .await?;
     }
 
-    writer.close().await.map_err(zip_error)?;
-    Ok(())
+    archive.finish().await
 }
 
 async fn build_network_report<F, Fut>(mut probe: F) -> serde_json::Value
@@ -412,6 +448,139 @@ where
         "generated_at": generated_at,
         "tests": tests,
     })
+}
+
+#[cfg(test)]
+mod launcher_log_archive_tests {
+    use super::*;
+    use std::io::Read;
+
+    const PREVIOUS_EXPORT: &[u8] = b"previous export";
+
+    fn assert_destination(path: &Path, existed: bool) {
+        if existed {
+            assert_eq!(std::fs::read(path).unwrap(), PREVIOUS_EXPORT);
+        } else {
+            assert!(!path.exists());
+        }
+    }
+
+    fn assert_directory_entries(directory: &Path, expected: usize) {
+        assert_eq!(std::fs::read_dir(directory).unwrap().count(), expected);
+    }
+
+    #[tokio::test]
+    async fn publishes_readable_zip_after_finishing() {
+        for existed in [false, true] {
+            let directory = tempfile::tempdir().unwrap();
+            let output_path = directory.path().join("logs.zip");
+            if existed {
+                std::fs::write(&output_path, PREVIOUS_EXPORT).unwrap();
+            }
+            let mut archive = LauncherLogArchive::new(&output_path).unwrap();
+            write_zip_entry(&mut archive.writer, "manifest.txt", b"complete")
+                .await
+                .unwrap();
+            assert_destination(&output_path, existed);
+
+            archive.finish().await.unwrap();
+
+            let file = std::fs::File::open(&output_path).unwrap();
+            let mut zip = zip::ZipArchive::new(file).unwrap();
+            assert_eq!(zip.len(), 1);
+            let mut contents = String::new();
+            zip.by_name("manifest.txt")
+                .unwrap()
+                .read_to_string(&mut contents)
+                .unwrap();
+            assert_eq!(contents, "complete");
+            assert_directory_entries(directory.path(), 1);
+        }
+    }
+
+    #[tokio::test]
+    async fn failures_leave_destination_untouched_and_remove_temporary_file() {
+        for existed in [false, true] {
+            for after_entry in [false, true] {
+                let directory = tempfile::tempdir().unwrap();
+                let output_path = directory.path().join("logs.zip");
+                if existed {
+                    std::fs::write(&output_path, PREVIOUS_EXPORT).unwrap();
+                }
+                let result: Result<()> = async {
+                    let mut archive = LauncherLogArchive::new(&output_path)?;
+                    if after_entry {
+                        write_zip_entry(
+                            &mut archive.writer,
+                            "manifest.txt",
+                            b"partial export",
+                        )
+                        .await?;
+                    }
+                    Err(std::io::Error::other("redaction failed").into())
+                }
+                .await;
+
+                assert!(result.is_err());
+                assert_destination(&output_path, existed);
+                assert_directory_entries(
+                    directory.path(),
+                    usize::from(existed),
+                );
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn cancellation_after_a_write_removes_temporary_file() {
+        for existed in [false, true] {
+            let directory = tempfile::tempdir().unwrap();
+            let output_path = directory.path().join("logs.zip");
+            if existed {
+                std::fs::write(&output_path, PREVIOUS_EXPORT).unwrap();
+            }
+            let (ready, started) = tokio::sync::oneshot::channel();
+            let mut export = Box::pin(async {
+                let mut archive = LauncherLogArchive::new(&output_path)?;
+                write_zip_entry(
+                    &mut archive.writer,
+                    "manifest.txt",
+                    b"partial export",
+                )
+                .await?;
+                ready.send(()).unwrap();
+                std::future::pending::<()>().await;
+                archive.finish().await
+            });
+            tokio::select! {
+                result = &mut export => panic!("export ended early: {result:?}"),
+                result = started => result.unwrap(),
+            }
+
+            drop(export);
+
+            assert_destination(&output_path, existed);
+            assert_directory_entries(directory.path(), usize::from(existed));
+        }
+    }
+
+    #[tokio::test]
+    async fn publish_failure_removes_temporary_file() {
+        let directory = tempfile::tempdir().unwrap();
+        let output_path = directory.path().join("logs.zip");
+        std::fs::create_dir(&output_path).unwrap();
+        let previous = output_path.join("previous.txt");
+        std::fs::write(&previous, PREVIOUS_EXPORT).unwrap();
+        let mut archive = LauncherLogArchive::new(&output_path).unwrap();
+        write_zip_entry(&mut archive.writer, "manifest.txt", b"complete")
+            .await
+            .unwrap();
+
+        assert!(archive.finish().await.is_err());
+
+        assert_eq!(std::fs::read(previous).unwrap(), PREVIOUS_EXPORT);
+        assert_directory_entries(directory.path(), 1);
+    }
 }
 
 #[cfg(test)]

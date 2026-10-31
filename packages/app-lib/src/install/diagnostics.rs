@@ -815,6 +815,7 @@ mod tests {
 
     #[tokio::test]
     async fn mixed_accounts_censor_online_tokens_and_preserve_numbers() {
+        let _host = crate::state::store::secrets::testing::without_store();
         let pool = test_pool().await;
         let handle = handle_of(&pool);
         Credentials::offline("OfflineUser")
@@ -860,6 +861,40 @@ mod tests {
         assert_eq!(censored, log);
     }
 
+    #[tokio::test]
+    async fn externalized_online_tokens_are_censored() {
+        let host = crate::state::store::secrets::testing::with_store();
+        let pool = test_pool().await;
+        let handle = handle_of(&pool);
+        add_online_account(
+            &handle,
+            StoredAccountType::Microsoft,
+            "ms-access",
+            "ms-refresh",
+        )
+        .await;
+        add_online_account(
+            &handle,
+            StoredAccountType::Yggdrasil,
+            "ygg-access",
+            "ygg-refresh",
+        )
+        .await;
+        assert_eq!(host.store().unwrap().keys().len(), 4);
+
+        let censored = censor_support_text(
+            "ms-access ms-refresh ygg-access ygg-refresh".to_string(),
+            &handle,
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(
+            censored,
+            "{MINECRAFT_TOKEN} {MINECRAFT_TOKEN} {MINECRAFT_TOKEN} {MINECRAFT_TOKEN}"
+        );
+    }
+
     /// A credential store that stops answering fails the report instead of
     /// letting its secrets through: an emptied secret is one this code no longer
     /// knows how to hide.
@@ -879,11 +914,16 @@ mod tests {
         }
         let _locked = crate::state::store::secrets::testing::without_store();
 
-        let censored =
+        let error =
             censor_support_text("ms-access ms-refresh".to_string(), &handle)
-                .await;
+                .await
+                .unwrap_err();
 
-        assert!(censored.is_err(), "the report is not exported unredacted");
+        assert!(matches!(
+            error.raw.as_ref(),
+            crate::ErrorKind::OtherError(message)
+                if message == "The credential store is not answering; the account cannot be read right now"
+        ));
     }
 
     #[tokio::test]

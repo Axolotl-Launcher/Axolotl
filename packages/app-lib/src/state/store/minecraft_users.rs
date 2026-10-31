@@ -611,7 +611,8 @@ pub(crate) async fn token_pairs(
 ) -> crate::Result<Vec<(String, String)>> {
     let mut connection = handle.connection().await?;
     let rows = sqlx::query(
-        "SELECT account_id, access_token, refresh_token, secrets_externalized
+        "SELECT account_id, access_token, refresh_token, yggdrasil_client_token,
+                secrets_externalized
          FROM minecraft_users
          WHERE account_type <> 'offline'",
     )

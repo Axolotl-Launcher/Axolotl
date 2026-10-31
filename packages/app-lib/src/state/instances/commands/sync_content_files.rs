@@ -1093,6 +1093,88 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn sync_reconciliation_removes_rows_outside_the_scan_scope() {
+        let state = global_state().await;
+        let minecraft = tempfile::TempDir::new().unwrap();
+        write_self_contained_version(minecraft.path(), "1.12.2-scope");
+        fs::create_dir_all(minecraft.path().join("mods")).unwrap();
+        fs::write(minecraft.path().join("mods/live-mod.jar"), b"live").unwrap();
+
+        let instance = crate::state::create_direct_link_instance(
+            crate::state::CreateDirectLinkInstance {
+                name: None,
+                launcher_type:
+                    crate::api::pack::import::ImportLauncherType::Generic,
+                base_path: minecraft.path().to_path_buf(),
+                instance_folder: "versions/1.12.2-scope".to_string(),
+                instance_path: None,
+                game_dir_mode: Some(
+                    crate::launcher::ExternalGameDirMode::Shared,
+                ),
+            },
+            &state,
+        )
+        .await
+        .unwrap();
+
+        let now = Utc::now();
+        for (id, relative_path) in [
+            ("stale", "shaderpacks/BSL_v10.1.3.zip.txt"),
+            ("world", "saves/My World/level.dat"),
+            ("plugin", "plugins/example.jar"),
+            ("disabled-plugin", "plugins/example.jar.disabled"),
+        ] {
+            let file = InstanceFile {
+                id: format!("{}-{id}", instance.id),
+                instance_id: instance.id.clone(),
+                relative_path: relative_path.into(),
+                file_name: relative_path.rsplit('/').next().unwrap().into(),
+                enabled: !relative_path.ends_with(".disabled"),
+                sha1: format!("seeded-{id}"),
+                size: 4,
+                missing: false,
+                added_at: now,
+                modified_at: now,
+                local_mod_data: None,
+                icon_path: None,
+            };
+            let mut tx = state.pool.begin().await.unwrap();
+            sqlite::files::upsert_instance_file(&file, &mut tx)
+                .await
+                .unwrap();
+            tx.commit().await.unwrap();
+        }
+        sync_instance_content_files(&instance, &state)
+            .await
+            .unwrap();
+        let remaining: Vec<_> =
+            instance_content_files::get_files(&state.data, &instance.id)
+                .await
+                .unwrap()
+                .into_iter()
+                .map(|file| file.relative_path)
+                .collect();
+
+        assert!(
+            !remaining
+                .iter()
+                .any(|id| id == "shaderpacks/BSL_v10.1.3.zip.txt"),
+            "rows the scan can never report must be reconciled away, got: {remaining:?}",
+        );
+        assert!(
+            remaining.iter().any(|id| id == "saves/My World/level.dat"),
+            "tracked world rows must survive reconciliation, got: {remaining:?}",
+        );
+        for retained in ["plugins/example.jar", "plugins/example.jar.disabled"]
+        {
+            assert!(
+                remaining.iter().any(|path| path == retained),
+                "installed plugins must survive reconciliation: {retained}"
+            );
+        }
+    }
+
+    #[tokio::test]
     async fn direct_link_refresh_scans_linked_dot_minecraft_content() {
         let state = global_state().await;
         let minecraft = tempfile::TempDir::new().unwrap();

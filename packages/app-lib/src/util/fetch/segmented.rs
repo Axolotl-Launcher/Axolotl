@@ -68,6 +68,7 @@ use crate::util::download::integrity::{
     compute_file_integrity, validate_file_content, verify_computed_integrity,
 };
 use crate::util::download::native_request::send_path_request_with_clients;
+use crate::util::download::range_journal::{Checkpoint, RangeJournal};
 use crate::util::download::route_health::ROUTE_HEALTH;
 use crate::util::download_manager::DownloadSpeedTracker;
 #[cfg(test)]
@@ -76,6 +77,7 @@ use crate::util::io::IOError;
 use futures::StreamExt;
 use parking_lot::Mutex;
 use reqwest::StatusCode;
+use std::collections::VecDeque;
 #[cfg(test)]
 use std::error::Error;
 use std::path::Path;
@@ -98,6 +100,7 @@ pub(crate) struct SegmentedDownloadSuccess {
 
 pub(crate) enum SegmentedDownloadOutcome {
     Success(SegmentedDownloadSuccess),
+    MetadataSizeChanged(u64),
     FallbackSingle {
         disable_range: bool,
         reason: &'static str,
@@ -110,6 +113,7 @@ pub(crate) enum SegmentedDownloadOutcome {
 
 pub(crate) enum SegmentDownloadError {
     Protocol(&'static str),
+    MetadataSizeChanged(u64),
     Transport,
     Fatal(crate::Error),
 }
@@ -156,6 +160,8 @@ pub(crate) async fn download_segment(
         };
         let downloaded_before_attempt = requested_start - range.start;
         let requested_end = range.end();
+        let telemetry =
+            crate::util::download::telemetry::begin_request(request, route);
         let mut writer = output
             .open_range(
                 requested_start,
@@ -195,6 +201,9 @@ pub(crate) async fn download_segment(
             Ok(Err(_)) | Err(_) => return Err(SegmentDownloadError::Transport),
         };
         final_url = response_url;
+        if let Some(telemetry) = &telemetry {
+            telemetry.connected(response.version(), response.remote_addr());
+        }
         let parsed_content_range = parse_content_range(&response);
         tracing::debug!(
             path = %part_path.display(),
@@ -216,6 +225,21 @@ pub(crate) async fn download_segment(
             ));
         }
         if response.status() == StatusCode::RANGE_NOT_SATISFIABLE {
+            if let Some(total) = response
+                .headers()
+                .get(reqwest::header::CONTENT_RANGE)
+                .and_then(|value| value.to_str().ok())
+                .and_then(|value| value.strip_prefix("bytes */"))
+                .and_then(|value| value.parse::<u64>().ok())
+                .filter(|total| {
+                    request.integrity.has_hash()
+                        && *total > 0
+                        && *total != total_size
+                        && requested_start >= *total
+                })
+            {
+                return Err(SegmentDownloadError::MetadataSizeChanged(total));
+            }
             return Err(SegmentDownloadError::Protocol(
                 FETCH_SERVER_RETURNED_HTTP_416_FOR_RANGE_REQUEST,
             ));
@@ -233,6 +257,18 @@ pub(crate) async fn download_segment(
                 && range.total.is_none_or(|total| total == total_size)
         });
         if !content_range_matches {
+            if let Some(range) = parsed_content_range
+                && range.start == requested_start
+                && let Some(total) =
+                    range.total.filter(|total| *total > requested_start)
+                && total != total_size
+                && range.end < total
+                && (range.end == requested_end
+                    || (request.integrity.has_hash()
+                        && range.end == requested_end.min(total - 1)))
+            {
+                return Err(SegmentDownloadError::MetadataSizeChanged(total));
+            }
             return Err(SegmentDownloadError::Protocol(
                 FETCH_INVALID_CONTENT_RANGE,
             ));
@@ -309,6 +345,7 @@ pub(crate) async fn download_segment(
                                 &request.integrity,
                                 validator,
                                 redirect_target,
+                                request.diagnostics.as_ref(),
                             )
                             .await;
                             hedge_active.store(false, Ordering::Release);
@@ -389,6 +426,13 @@ pub(crate) async fn download_segment(
                                         SegmentDownloadError::Protocol(reason),
                                     );
                                 }
+                                Err(
+                                    SegmentDownloadError::MetadataSizeChanged(
+                                        size,
+                                    ),
+                                ) => {
+                                    return Err(SegmentDownloadError::MetadataSizeChanged(size));
+                                }
                                 Err(SegmentDownloadError::Transport) => {}
                             }
                         } else {
@@ -433,6 +477,9 @@ pub(crate) async fn download_segment(
                 }
             };
             counters.received(chunk.len() as u64);
+            if let Some(telemetry) = &telemetry {
+                telemetry.received(chunk.len());
+            }
             if let Some(feedback) = &endpoint_feedback {
                 feedback.record(
                     chunk.len(),
@@ -503,6 +550,11 @@ pub(crate) async fn download_segment(
             }
         }
         drop(stream);
+        if range.remaining() == 0
+            && let Some(telemetry) = &telemetry
+        {
+            telemetry.finish();
+        }
         if range.remaining() == 0 {
             writer
                 .flush()
@@ -577,6 +629,79 @@ pub(crate) struct SegmentedDownloadContext<'a> {
     allow_low_throughput_abort: bool,
 }
 
+pub(crate) fn restored_download_ranges(
+    checkpoints: &[Checkpoint],
+    desired: usize,
+) -> Vec<DownloadRange> {
+    let mut ranges = checkpoints
+        .iter()
+        .filter(|range| range.start + range.written < range.end)
+        .enumerate()
+        .map(|(index, range)| {
+            DownloadRange::new(
+                index,
+                range.start + range.written,
+                range.end - 1,
+            )
+        })
+        .collect::<Vec<_>>();
+    while ranges.len() < desired {
+        let Some(range) = ranges.iter().max_by_key(|range| range.remaining())
+        else {
+            break;
+        };
+        let Some(tail) = range.split_tail(ranges.len()) else {
+            break;
+        };
+        ranges.push(tail);
+    }
+    ranges
+}
+
+pub(crate) async fn checkpoint_completed_ranges(
+    journal: &RangeJournal,
+    part_path: &Path,
+    ranges: &[DownloadRange],
+) -> crate::Result<()> {
+    let mut completed = ranges
+        .iter()
+        .filter_map(|range| {
+            let state = range.state.lock();
+            state.completed.then_some((range.start, state.end + 1))
+        })
+        .collect::<Vec<_>>();
+    completed.sort_unstable();
+    for (index, mut checkpoint) in
+        journal.ranges().await.into_iter().enumerate()
+    {
+        let mut end = checkpoint.start + checkpoint.written;
+        for &(start, range_end) in &completed {
+            if start > end {
+                break;
+            }
+            if range_end > end {
+                end = range_end.min(checkpoint.end);
+            }
+        }
+        let written = end - checkpoint.start;
+        if written > checkpoint.written
+            && (written - checkpoint.written >= 4 * 1024 * 1024
+                || end == checkpoint.end)
+        {
+            // Only completed workers have flushed their buffers. Active ranges
+            // may report bytes that have not yet reached the output file.
+            checkpoint.written = written;
+            let hasher = crate::util::download::range_journal::hash_prefix(
+                part_path,
+                &checkpoint,
+            )
+            .await?;
+            journal.checkpoint(index, written, &hasher).await?;
+        }
+    }
+    Ok(())
+}
+
 async fn finalize_segmented_output(
     request: &DownloadRequest,
     route: &DownloadRoute,
@@ -622,8 +747,7 @@ async fn finalize_segmented_output(
             reason: FETCH_SEGMENTED_CONTENT_VALIDATION_FAILED,
         };
     }
-    if downloaded < size
-        && let Some(progress) = progress.as_mut()
+    if let Some(progress) = progress.as_mut()
         && let Err(error) = progress(size, size).await
     {
         tracing::warn!(%error, "Download progress callback failed");
@@ -691,25 +815,51 @@ pub(crate) async fn try_segmented_download(
         max_attempts,
         allow_low_throughput_abort,
     } = context;
-    let resume_prefix = match tokio::fs::metadata(part_path).await {
-        Ok(metadata) if metadata.len() > 0 => {
-            if !metadata.is_file()
-                || metadata.len() >= size
-                || !request.integrity.supports_resume()
-            {
-                return SegmentedDownloadOutcome::FallbackSingle {
-                    disable_range: false,
-                    reason: FETCH_RESUMABLE_PARTIAL_USES_A_SINGLE_STREAM,
-                };
+    let journal =
+        match RangeJournal::load(part_path, &request.integrity, size).await {
+            Ok(journal) => journal,
+            Err(error) => return SegmentedDownloadOutcome::Fatal(error),
+        };
+    if journal.is_none()
+        && tokio::fs::try_exists(crate::util::download::range_journal::path(
+            part_path,
+        ))
+        .await
+        .unwrap_or(false)
+    {
+        return SegmentedDownloadOutcome::FallbackSingle {
+            disable_range: false,
+            reason: "unusable sparse range checkpoint",
+        };
+    }
+    let checkpoints = if let Some(journal) = &journal {
+        journal.ranges().await
+    } else {
+        Vec::new()
+    };
+    let resume_prefix = if journal.is_some() {
+        checkpoints.iter().map(|range| range.written).sum()
+    } else {
+        match tokio::fs::metadata(part_path).await {
+            Ok(metadata) if metadata.len() > 0 => {
+                if !metadata.is_file()
+                    || metadata.len() >= size
+                    || !request.integrity.supports_resume()
+                {
+                    return SegmentedDownloadOutcome::FallbackSingle {
+                        disable_range: false,
+                        reason: FETCH_RESUMABLE_PARTIAL_USES_A_SINGLE_STREAM,
+                    };
+                }
+                metadata.len()
             }
-            metadata.len()
-        }
-        Ok(_) => 0,
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => 0,
-        Err(error) => {
-            return SegmentedDownloadOutcome::Fatal(
-                IOError::with_path(error, part_path).into(),
-            );
+            Ok(_) => 0,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => 0,
+            Err(error) => {
+                return SegmentedDownloadOutcome::Fatal(
+                    IOError::with_path(error, part_path).into(),
+                );
+            }
         }
     };
     let remaining_size = size - resume_prefix;
@@ -748,7 +898,7 @@ pub(crate) async fn try_segmented_download(
                 concurrency_cap,
             ),
         );
-    if requested_initial_count < MIN_PARALLEL_RANGES {
+    if requested_initial_count < MIN_PARALLEL_RANGES && journal.is_none() {
         tracing::debug!(
             original_url = %sanitize_url_for_log(&route.url),
             file_size = size,
@@ -761,19 +911,29 @@ pub(crate) async fn try_segmented_download(
             reason: FETCH_CONFIGURED_CONNECTION_LIMIT_IS_ONE,
         };
     }
-    let permits = match acquire_initial_segment_permits(
-        route,
-        semaphore,
-        requested_initial_count,
-    )
-    .await
-    {
-        Ok(permits) => permits,
-        Err(error) => return SegmentedDownloadOutcome::Fatal(error),
+    let permits = if remaining_size == 0 {
+        Vec::new()
+    } else {
+        match acquire_initial_segment_permits(
+            route,
+            semaphore,
+            requested_initial_count,
+        )
+        .await
+        {
+            Ok(permits) => permits,
+            Err(error) => return SegmentedDownloadOutcome::Fatal(error),
+        }
     };
     let mut cleanup_guard =
         SegmentCleanupGuard::new(part_path).preserve_prefix(resume_prefix);
-    let output = if resume_prefix > 0 {
+    let output = if journal.is_some() {
+        cleanup_guard = cleanup_guard.preserve_sparse();
+        crate::util::download::range_output::RangeOutput::reopen(
+            part_path, size,
+        )
+        .await
+    } else if resume_prefix > 0 {
         crate::util::download::range_output::RangeOutput::resume_prefix(
             part_path,
             size,
@@ -790,9 +950,26 @@ pub(crate) async fn try_segmented_download(
         Ok(output) => output,
         Err(error) => return SegmentedDownloadOutcome::Fatal(error.into()),
     };
-    request.transfer_counters.commit(0, resume_prefix);
+    if journal.is_some() {
+        for checkpoint in &checkpoints {
+            request.transfer_counters.commit(
+                checkpoint.start,
+                checkpoint.start + checkpoint.written,
+            );
+        }
+    } else {
+        request.transfer_counters.commit(0, resume_prefix);
+    }
     record_install_download_started(request, route, attempt, max_attempts)
         .await;
+    if resume_prefix > 0 {
+        record_install_download_progress(request, resume_prefix, size).await;
+        if let Some(progress) = progress.as_mut()
+            && let Err(error) = progress(resume_prefix, size).await
+        {
+            tracing::warn!(%error, "Download progress callback failed");
+        }
+    }
     let transfer_started = Instant::now();
     let (progress_tx, mut progress_rx) = tokio::sync::mpsc::unbounded_channel();
     if request.batch_download && request.prefer_http1 {
@@ -805,8 +982,16 @@ pub(crate) async fn try_segmented_download(
     let hedge_count = AtomicUsize::new(0);
     let hedge_active = AtomicBool::new(false);
     let mut downloads = futures::stream::FuturesUnordered::new();
-    let mut ranges =
-        create_remaining_ranges(size, resume_prefix, permits.len());
+    let mut ranges = if journal.is_some() {
+        restored_download_ranges(&checkpoints, permits.len())
+    } else {
+        create_remaining_ranges(size, resume_prefix, permits.len())
+    };
+    let mut pending_ranges = (permits.len().min(ranges.len())..ranges.len())
+        .collect::<VecDeque<_>>();
+    for &index in &pending_ranges {
+        ranges[index].state.lock().active = false;
+    }
     for (range, permit) in ranges.iter().cloned().zip(permits) {
         downloads.push(download_segment(
             route,
@@ -847,6 +1032,13 @@ pub(crate) async fn try_segmented_download(
         "Started segmented download"
     );
     let mut next_range_index = ranges.len();
+    crate::util::download::telemetry::record_budget(
+        request,
+        configured_limit,
+        concurrency_cap,
+        downloads.len(),
+        downloads.len(),
+    );
     let mut retained_ranges = ranges.len();
     let mut completed_ranges = 0;
     let mut scheduler = tokio::time::interval(DOWNLOAD_SCHEDULER_INTERVAL);
@@ -868,11 +1060,14 @@ pub(crate) async fn try_segmented_download(
     let mut alternate_probe_finished = false;
     let mut confirmed_switch = None;
     let mut segment_error = None;
+    let mut checkpoint_write: Option<
+        futures::future::BoxFuture<'static, crate::Result<()>>,
+    > = None;
     let mut final_url = None;
     let mut initial_ttfb = None;
     let mut remote_addr = None;
     let mut http_version = None;
-    while !downloads.is_empty() {
+    while !downloads.is_empty() || !pending_ranges.is_empty() {
         tokio::select! {
             Some(delta) = progress_rx.recv() => {
                 downloaded = downloaded.saturating_add(delta);
@@ -883,7 +1078,7 @@ pub(crate) async fn try_segmented_download(
                     tracing::warn!(%error, "Download progress callback failed");
                 }
             }
-            result = downloads.next() => {
+            result = downloads.next(), if !downloads.is_empty() => {
                 if let Some(result) = result {
                     completed_ranges += 1;
                     match result {
@@ -899,6 +1094,27 @@ pub(crate) async fn try_segmented_download(
                             break;
                         }
                     }
+                    if let Some(journal) = &journal
+                        && checkpoint_write.is_none()
+                    {
+                        let journal = Arc::clone(journal);
+                        let part_path = part_path.to_path_buf();
+                        let ranges = ranges.clone();
+                        // Keep polling sibling writers while the journal waits
+                        // for their shared I/O permits.
+                        checkpoint_write = Some(Box::pin(async move {
+                            checkpoint_completed_ranges(&journal, &part_path, &ranges).await
+                        }));
+                    }
+                }
+            }
+            result = async {
+                checkpoint_write.as_mut().expect("checkpoint write is guarded").await
+            }, if checkpoint_write.is_some() => {
+                checkpoint_write = None;
+                if let Err(error) = result {
+                    segment_error = Some(SegmentDownloadError::Fatal(error));
+                    break;
                 }
             }
             probe = async {
@@ -983,6 +1199,20 @@ pub(crate) async fn try_segmented_download(
                     health.consecutive_failures,
                     range_recovery,
                 );
+                while downloads.len() < concurrency_cap {
+                    let Some(&index) = pending_ranges.front() else { break; };
+                    let Some(permit) = try_acquire_native_connection(route, semaphore) else { break; };
+                    pending_ranges.pop_front();
+                    let range = ranges[index].clone();
+                    range.state.lock().active = true;
+                    downloads.push(download_segment(
+                        route, range, size, request.header.as_ref(), credentials, None,
+                        part_path, &output, permit, system_client, direct_client,
+                        progress_tx.clone(), &speed, &validator,
+                        (route.source == DownloadRouteSource::Mcim).then_some(&redirect_target),
+                        semaphore, &hedge_count, &hedge_active, request,
+                    ));
+                }
                 let snapshot = speed.speed_snapshot();
                 use crate::util::download::endpoint_selection::tuning::{TRIALS, TrialKind};
                 if expansion_trial.as_ref().is_some_and(|lease| !lease.valid(Instant::now())) {
@@ -993,9 +1223,10 @@ pub(crate) async fn try_segmented_download(
                     expansion_trial = None;
                 }
                 let active_ranges = downloads.len();
+                crate::util::download::telemetry::record_budget(request, configured_limit, concurrency_cap, retained_ranges, active_ranges);
                 let remaining_bytes = ranges
                     .iter()
-                    .filter(|range| range.is_active())
+                    .filter(|range| !range.state.lock().completed)
                     .map(DownloadRange::remaining)
                     .sum();
                 if last_expansion.elapsed() >= SEGMENT_EXPANSION_INTERVAL
@@ -1165,6 +1396,24 @@ pub(crate) async fn try_segmented_download(
     }
     drop(progress_tx);
     drop(downloads);
+    crate::util::download::telemetry::record_budget(
+        request,
+        configured_limit,
+        concurrency_cap,
+        retained_ranges,
+        0,
+    );
+    if let Some(write) = checkpoint_write
+        && let Err(error) = write.await
+    {
+        return SegmentedDownloadOutcome::Fatal(error);
+    }
+    if let Some(journal) = &journal
+        && let Err(error) =
+            checkpoint_completed_ranges(journal, part_path, &ranges).await
+    {
+        return SegmentedDownloadOutcome::Fatal(error);
+    }
     while let Ok(delta) = progress_rx.try_recv() {
         downloaded = downloaded.saturating_add(delta);
     }
@@ -1184,6 +1433,16 @@ pub(crate) async fn try_segmented_download(
             }
             SegmentDownloadError::Transport => {
                 SegmentedDownloadOutcome::SourceFailed
+            }
+            SegmentDownloadError::MetadataSizeChanged(size) => {
+                drop(output);
+                if let Err(error) =
+                    crate::util::download::h2_range::discard(part_path).await
+                {
+                    return SegmentedDownloadOutcome::Fatal(error);
+                }
+                cleanup_guard.disarm();
+                SegmentedDownloadOutcome::MetadataSizeChanged(size)
             }
             SegmentDownloadError::Fatal(error) => {
                 SegmentedDownloadOutcome::Fatal(error)

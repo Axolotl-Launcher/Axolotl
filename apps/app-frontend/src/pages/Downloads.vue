@@ -462,6 +462,13 @@
                         :heading="formatMessage(messages.noFileDetailsTitle)"
                         :description="formatMessage(messages.noFileDetails)"
                     />
+                    <DownloadDiagnosticsPanel
+                        v-if="
+                            themeStore.devMode &&
+                            themeStore.getFeatureFlag('advanced_download_info')
+                        "
+                        :job-id="job.job_id"
+                    />
                 </div>
             </Card>
         </div>
@@ -589,11 +596,13 @@ import {
     hasDeterminateInstallProgress,
     installProgressFraction,
     installProgressTextSource,
+    isInstallMainTrackComplete as isMainTrackComplete,
 } from '@/helpers/install-progress'
 import type { LoadingBar } from '@/helpers/state'
 import { instanceKeys, instanceListQueryOptions } from '@/pages/instance/query-options'
 import { injectContentInstall } from '@/providers/content-install'
 import { injectDownloadManager } from '@/providers/download-manager'
+import { useTheming } from '@/store/state'
 
 import {
     createDownloadFocusState,
@@ -601,11 +610,13 @@ import {
     reconcileDownloadFocus,
     stopDownloadFocusAutoFollow,
 } from './download-focus'
+import DownloadDiagnosticsPanel from './downloads/DownloadDiagnosticsPanel.vue'
 import { isSuccessfulUpgradeJob, upgradeResultLocation } from './instance/upgrade/result'
 
 type DownloadItem = InstallJobSnapshot['items'][number]
 
 const manager = injectDownloadManager()
+const themeStore = useTheming()
 const queryClient = useQueryClient()
 const instancesQuery = useQuery(instanceListQueryOptions())
 const instanceNames = computed(
@@ -1203,13 +1214,6 @@ function parallelPercent(job: InstallJobSnapshot) {
 
 function isFinished(job: InstallJobSnapshot) {
     return job.status === 'succeeded'
-}
-
-function isMainTrackComplete(job: InstallJobSnapshot) {
-    if (isFinished(job)) return true
-    const progress = effectiveInstallProgress(job)
-    if (job.phase === 'downloading_content' && progress?.total === 0) return true
-    return hasDeterminateInstallProgress(progress) && progress.current >= progress.total
 }
 
 function isParallelTrackComplete(job: InstallJobSnapshot) {

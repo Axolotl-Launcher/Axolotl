@@ -550,6 +550,11 @@ export function useContentPipeline(config: ContentPipelineConfig) {
             return
         }
 
+        if (selectedTypeFilter.value.length === 1 && selectedTypeFilter.value[0] === filterId) {
+            selectedTypeFilter.value = []
+            return
+        }
+
         selectedTypeFilter.value = [filterId]
     }
 

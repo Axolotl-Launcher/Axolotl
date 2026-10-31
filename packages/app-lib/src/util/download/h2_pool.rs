@@ -43,6 +43,8 @@ use tokio::sync::Mutex as AsyncMutex;
 use tokio::sync::Notify;
 use tokio_rustls::TlsConnector;
 
+mod proxy;
+
 use super::endpoint_selection::{EndpointLease, Protocol};
 use crate::util::fetch::DownloadRoute;
 
@@ -420,6 +422,9 @@ fn connection_identity(
             )
         })?;
     let lease = super::proxy_context::clients().and_then(|clients| {
+        if proxy::intercept(route).is_some() {
+            return None;
+        }
         if !super::endpoint_selection::EndpointSelector::eligible_network(
             &clients,
             route.proxy,
@@ -486,20 +491,29 @@ async fn parallel_connection_pool(
 }
 
 fn tls_config() -> Arc<ClientConfig> {
+    let ignore_ssl_errors = super::proxy_context::clients()
+        .is_some_and(|clients| clients.ignore_ssl_errors);
     #[cfg(test)]
     if let Ok(config) = TEST_TLS_CONFIG.try_with(Arc::clone) {
-        return config;
+        return if ignore_ssl_errors {
+            let mut config = (*config).clone();
+            accept_invalid_certificates(&mut config);
+            Arc::new(config)
+        } else {
+            config
+        };
     }
     static INSTALL_PROVIDER: Once = Once::new();
     INSTALL_PROVIDER.call_once(|| {
         let _ = rustls::crypto::ring::default_provider().install_default();
     });
-    static CONFIG: std::sync::LazyLock<Mutex<Option<Arc<ClientConfig>>>> =
-        std::sync::LazyLock::new(|| Mutex::new(None));
+    static CONFIG: std::sync::LazyLock<Mutex<[Option<Arc<ClientConfig>>; 2]>> =
+        std::sync::LazyLock::new(|| Mutex::new([None, None]));
     let mut guard = CONFIG
         .lock()
         .unwrap_or_else(|poisoned| poisoned.into_inner());
-    if let Some(config) = guard.as_ref() {
+    let cached = &mut guard[usize::from(ignore_ssl_errors)];
+    if let Some(config) = cached.as_ref() {
         return Arc::clone(config);
     }
     let mut config = ClientConfig::builder()
@@ -507,9 +521,78 @@ fn tls_config() -> Arc<ClientConfig> {
         .with_no_client_auth();
     config.enable_early_data = true;
     config.alpn_protocols = vec![b"h2".to_vec()];
+    if ignore_ssl_errors {
+        accept_invalid_certificates(&mut config);
+    }
     let config = Arc::new(config);
-    *guard = Some(Arc::clone(&config));
+    *cached = Some(Arc::clone(&config));
     config
+}
+
+fn accept_invalid_certificates(config: &mut ClientConfig) {
+    let algorithms = config.crypto_provider().signature_verification_algorithms;
+    config.dangerous().set_certificate_verifier(Arc::new(
+        IgnoreCertificateErrors { algorithms },
+    ));
+}
+
+struct IgnoreCertificateErrors {
+    algorithms: rustls::crypto::WebPkiSupportedAlgorithms,
+}
+
+impl std::fmt::Debug for IgnoreCertificateErrors {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter
+            .debug_struct("IgnoreCertificateErrors")
+            .finish_non_exhaustive()
+    }
+}
+
+impl rustls::client::danger::ServerCertVerifier for IgnoreCertificateErrors {
+    fn verify_server_cert(
+        &self,
+        _end_entity: &rustls_pki_types::CertificateDer<'_>,
+        _intermediates: &[rustls_pki_types::CertificateDer<'_>],
+        _server_name: &ServerName<'_>,
+        _ocsp_response: &[u8],
+        _now: rustls_pki_types::UnixTime,
+    ) -> Result<rustls::client::danger::ServerCertVerified, rustls::Error> {
+        Ok(rustls::client::danger::ServerCertVerified::assertion())
+    }
+
+    fn verify_tls12_signature(
+        &self,
+        message: &[u8],
+        cert: &rustls_pki_types::CertificateDer<'_>,
+        signature: &rustls::DigitallySignedStruct,
+    ) -> Result<rustls::client::danger::HandshakeSignatureValid, rustls::Error>
+    {
+        rustls::crypto::verify_tls12_signature(
+            message,
+            cert,
+            signature,
+            &self.algorithms,
+        )
+    }
+
+    fn verify_tls13_signature(
+        &self,
+        message: &[u8],
+        cert: &rustls_pki_types::CertificateDer<'_>,
+        signature: &rustls::DigitallySignedStruct,
+    ) -> Result<rustls::client::danger::HandshakeSignatureValid, rustls::Error>
+    {
+        rustls::crypto::verify_tls13_signature(
+            message,
+            cert,
+            signature,
+            &self.algorithms,
+        )
+    }
+
+    fn supported_verify_schemes(&self) -> Vec<rustls::SignatureScheme> {
+        self.algorithms.supported_schemes()
+    }
 }
 
 #[cfg(test)]
@@ -711,6 +794,11 @@ async fn connect_tcp(
     route: &DownloadRoute,
     reserve_native_budget: bool,
 ) -> std::io::Result<TcpStream> {
+    // Proxy endpoints are commonly loopback IP literals. They must remain
+    // usable when DNS-over-HTTPS is enabled, without resolving an IP as a name.
+    if let Ok(address) = host.parse::<IpAddr>() {
+        return connect_addresses(host, port, &[address], false).await;
+    }
     // Prefer the ordered address list from the shared download resolver
     // (IPv4/IPv6 preference and per-IP reliability), falling back to the
     // system resolver when no list is cached yet.
@@ -816,12 +904,30 @@ async fn establish(
     } else {
         None
     };
-    let (host, port) = authority
-        .rsplit_once(':')
-        .map(|(host, port)| (host, port.parse::<u16>().unwrap_or(HTTPS_PORT)))
-        .unwrap_or((&authority, HTTPS_PORT));
-
-    let tcp_result = if let Some(lease) = &lease {
+    let destination = url::Url::parse(&route.url).map_err(|_| {
+        H2ConnectError::new(
+            H2ConnectFailureKind::Protocol,
+            "invalid HTTP/2 URL".into(),
+        )
+    })?;
+    let host = destination
+        .host_str()
+        .unwrap_or_default()
+        .trim_matches(['[', ']']);
+    let port = destination.port_or_known_default().unwrap_or(HTTPS_PORT);
+    let proxy = proxy::intercept(route);
+    // A selected origin endpoint cannot be used through a proxy: CONNECT and
+    // SOCKS must preserve proxy-side routing and hostname resolution.
+    let lease = if proxy.is_some() { None } else { lease };
+    let proxied = proxy.is_some();
+    let tcp_result: std::io::Result<(
+        proxy::BoxIo,
+        Option<std::net::SocketAddr>,
+    )> = if let Some(proxy) = proxy {
+        proxy::connect(route, proxy, reserve_native_budget)
+            .await
+            .map(|stream| (stream, None))
+    } else if let Some(lease) = &lease {
         tokio::time::timeout(
             CONNECT_TIMEOUT,
             TcpStream::connect(lease.pool.endpoint),
@@ -833,10 +939,19 @@ async fn establish(
                 H2_POOL_PINNED_TCP_CONNECTION_TIMED_OUT,
             ))
         })
+        .map(|tcp| {
+            let remote_addr = tcp.peer_addr().ok();
+            (Box::new(tcp) as proxy::BoxIo, remote_addr)
+        })
     } else {
-        connect_tcp(host, port, route, reserve_native_budget).await
+        connect_tcp(host, port, route, reserve_native_budget)
+            .await
+            .map(|tcp| {
+                let remote_addr = tcp.peer_addr().ok();
+                (Box::new(tcp) as proxy::BoxIo, remote_addr)
+            })
     };
-    let tcp = tcp_result.map_err(|error| {
+    let (tcp, remote_addr) = tcp_result.map_err(|error| {
         H2ConnectError::new(
             H2ConnectFailureKind::Tcp,
             format!(
@@ -845,7 +960,6 @@ async fn establish(
         )
     })?;
 
-    let remote_addr = tcp.peer_addr().ok();
     let server_name =
         ServerName::try_from(host.to_string()).map_err(|error| {
             H2ConnectError::new(
@@ -890,7 +1004,7 @@ async fn establish(
             )
         })?;
 
-    if let Some(address) = remote_addr {
+    if !proxied && let Some(address) = remote_addr {
         super::proxy_context::resolver(route.proxy)
             .record_host_success(host, address.ip());
     }

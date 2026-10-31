@@ -86,9 +86,10 @@ impl Drop for ParallelMinecraftInstall {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::install::model::InstallJobState;
     use crate::install::{
-        InstallErrorContext, InstallJobState, InstallPhaseDetails,
-        InstallPhaseId, InstallRequest,
+        InstallErrorContext, InstallPhaseDetails, InstallPhaseId,
+        InstallRequest,
     };
 
     fn reporter() -> InstallProgressReporter {

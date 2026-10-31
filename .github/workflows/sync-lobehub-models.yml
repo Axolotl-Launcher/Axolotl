@@ -62,7 +62,7 @@ jobs:
           branch="automation/sync-lobehub-models"
           pr_number="$(gh pr list --state open --base "$base" --head "$branch" --json number --jq '.[0].number // empty')"
           if [ -n "$pr_number" ]; then
-            gh pr close "$pr_number" --delete-branch --comment "Closing because the current LobeHub model catalog no longer differs from $base."
+            gh pr close "$pr_number" --delete-branch --comment "Closing because the synchronized model catalog no longer differs from $base."
           fi
 
       - name: Push model update and create pull request
@@ -76,7 +76,7 @@ jobs:
           upstream_sha="${{ steps.upstream.outputs.sha }}"
           short_sha="${upstream_sha:0:12}"
           title="chore(ai): sync LobeHub models"
-          body="Automated synchronization of supported chat models from [LobeHub](https://github.com/lobehub/lobehub/tree/${upstream_sha}/packages/model-bank/src/aiModels) at \`${upstream_sha}\`."
+          body="Automated synchronization of supported chat models from [LobeHub](https://github.com/lobehub/lobehub/tree/${upstream_sha}/packages/model-bank/src/aiModels) at \`${upstream_sha}\`, and of CodeFlow's models from its [public pricing API](https://codeflow.sh/api/pricing)."
 
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"

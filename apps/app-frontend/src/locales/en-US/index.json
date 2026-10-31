@@ -3830,6 +3830,12 @@
   "app.instances.edit-groups": {
     "message": "Edit groups"
   },
+  "app.instances.game-directory.managed": {
+    "message": "Axolotl data directory"
+  },
+  "app.instances.game-directory.managed-short": {
+    "message": "Axolotl"
+  },
   "app.instances.group-by": {
     "message": "Group by"
   },
@@ -3853,6 +3859,9 @@
   },
   "app.instances.group.expand": {
     "message": "Expand group"
+  },
+  "app.instances.group.game-directory": {
+    "message": "Game directory"
   },
   "app.instances.group.game-version": {
     "message": "Game version"
@@ -7769,8 +7778,29 @@
   "app.lab.seed-map.zoom-to-show": {
     "message": "Zoom in to show {layer}"
   },
+  "app.lab.skin-editor.auto-save.error": {
+    "message": "Auto-save failed"
+  },
+  "app.lab.skin-editor.auto-save.off": {
+    "message": "Auto-save off"
+  },
+  "app.lab.skin-editor.auto-save.saved": {
+    "message": "Draft saved {time}"
+  },
+  "app.lab.skin-editor.auto-save.saving": {
+    "message": "Saving draft…"
+  },
+  "app.lab.skin-editor.auto-save.unsaved": {
+    "message": "Unsaved changes"
+  },
+  "app.lab.skin-editor.auto-save.up-to-date": {
+    "message": "Up to date"
+  },
   "app.lab.skin-editor.description": {
     "message": "Create and edit Minecraft player skins locally."
+  },
+  "app.lab.skin-editor.discard-draft-failed": {
+    "message": "The recovery draft could not be discarded. Stay on this page and try again."
   },
   "app.lab.skin-editor.export-skin": {
     "message": "Minecraft skin PNG"
@@ -7784,11 +7814,71 @@
   "app.lab.skin-editor.loading": {
     "message": "Loading skin editor"
   },
+  "app.lab.skin-editor.recovery.body": {
+    "message": "A recovery draft was saved on {date}."
+  },
+  "app.lab.skin-editor.recovery.continue": {
+    "message": "Continue"
+  },
+  "app.lab.skin-editor.recovery.start-new": {
+    "message": "Start new"
+  },
+  "app.lab.skin-editor.recovery.title": {
+    "message": "Continue last skin?"
+  },
   "app.lab.skin-editor.retry": {
     "message": "Try again"
   },
+  "app.lab.skin-editor.save": {
+    "message": "Save PNG"
+  },
+  "app.lab.skin-editor.settings.auto-save": {
+    "message": "Automatically save a recovery draft"
+  },
+  "app.lab.skin-editor.settings.auto-save-description": {
+    "message": "Recovery drafts stay on this device and are separate from exported PNG files."
+  },
+  "app.lab.skin-editor.settings.cancel": {
+    "message": "Cancel"
+  },
+  "app.lab.skin-editor.settings.interval": {
+    "message": "Save interval (seconds)"
+  },
+  "app.lab.skin-editor.settings.interval-description": {
+    "message": "Use a value between 5 and 600 seconds."
+  },
+  "app.lab.skin-editor.settings.save": {
+    "message": "Save settings"
+  },
+  "app.lab.skin-editor.settings.title": {
+    "message": "Editor settings"
+  },
+  "app.lab.skin-editor.settings.tooltip": {
+    "message": "Skin editor settings"
+  },
+  "app.lab.skin-editor.settings.warn-before-leave": {
+    "message": "Warn before leaving with unsaved changes"
+  },
+  "app.lab.skin-editor.settings.warn-before-leave-description": {
+    "message": "When auto-save is off, this warning is always enabled to protect your work."
+  },
   "app.lab.skin-editor.title": {
     "message": "Skin editor"
+  },
+  "app.lab.skin-editor.unsaved.body": {
+    "message": "Save your skin before leaving, or discard the current changes."
+  },
+  "app.lab.skin-editor.unsaved.discard": {
+    "message": "Discard"
+  },
+  "app.lab.skin-editor.unsaved.save": {
+    "message": "Save PNG"
+  },
+  "app.lab.skin-editor.unsaved.stay": {
+    "message": "Stay"
+  },
+  "app.lab.skin-editor.unsaved.title": {
+    "message": "Unsaved skin"
   },
   "app.lab.title": {
     "message": "Lab"
@@ -8424,7 +8514,7 @@
     "message": "Possible issue: OpenJ9 is not compatible with this instance"
   },
   "app.minecraft-crash.diagnosis.out-of-memory.action": {
-    "message": "You can try increasing the instance memory allocation, or removing memory-heavy Mods and resource packs."
+    "message": "You can try increasing the instance memory allocation, or removing memory-heavy Mods and resource packs. If the log reports that the system is out of physical RAM or swap space, lower the allocation or close other programs instead."
   },
   "app.minecraft-crash.diagnosis.out-of-memory.title": {
     "message": "Possible issue: Minecraft ran out of memory"
@@ -12621,7 +12711,7 @@
     "message": "Network connections"
   },
   "app.settings.logs.export.modal.network-connections-hint": {
-    "message": "Run fresh tests for all services using launcher network settings when exporting, including a short download sample."
+    "message": "Run fresh service tests using launcher network settings, including a short download sample. Also include captured file timings, request speeds and remote addresses when advanced download information is enabled."
   },
   "app.settings.logs.export.modal.range": {
     "message": "Time range"
@@ -17107,5 +17197,200 @@
   },
   "unknown-pack-warning-modal.warning.title": {
     "message": "Unknown file warning"
+  },
+  "app.skins.player.title": {
+    "message": "Find player skin"
+  },
+  "app.skins.player.input": {
+    "message": "Player name or UUID"
+  },
+  "app.skins.player.search": {
+    "message": "Search"
+  },
+  "app.skins.player.download": {
+    "message": "Download PNG"
+  },
+  "app.skins.player.import": {
+    "message": "Add to saved skins"
+  },
+  "app.skins.player.imported": {
+    "message": "Added to saved skins"
+  },
+  "app.skins.player.invalid-input": {
+    "message": "Enter a valid Java player name or UUID."
+  },
+  "app.skins.player.not-found": {
+    "message": "Player not found. Check the name or UUID."
+  },
+  "app.skins.player.no-custom-skin": {
+    "message": "This player has no custom skin."
+  },
+  "app.skins.player.rate-limited": {
+    "message": "Too many requests. Please wait before trying again."
+  },
+  "app.skins.player.unavailable": {
+    "message": "Could not load this skin. Check your connection and try again."
+  },
+  "app.skins.player.save-failed": {
+    "message": "Could not save the skin. Please try again."
+  },
+  "app.downloads.diagnostics.title": {
+    "message": "Advanced download information"
+  },
+  "app.downloads.diagnostics.file": {
+    "message": "File"
+  },
+  "app.downloads.diagnostics.waiting": {
+    "message": "Waiting for download observations. Start a download after enabling this option."
+  },
+  "app.downloads.diagnostics.loading": {
+    "message": "Loading download information…"
+  },
+  "app.downloads.diagnostics.unavailable": {
+    "message": "Download information could not be refreshed. Retrying…"
+  },
+  "app.downloads.diagnostics.disabled": {
+    "message": "Download observation is disabled."
+  },
+  "app.downloads.diagnostics.elapsed": {
+    "message": "File elapsed time"
+  },
+  "app.downloads.diagnostics.network-elapsed": {
+    "message": "Network time"
+  },
+  "app.downloads.diagnostics.received": {
+    "message": "Received bytes"
+  },
+  "app.downloads.diagnostics.active-requests": {
+    "message": "Active requests"
+  },
+  "app.downloads.diagnostics.effective-requests": {
+    "message": "Requests receiving data"
+  },
+  "app.downloads.diagnostics.physical-connections": {
+    "message": "Physical connections"
+  },
+  "app.downloads.diagnostics.effective-physical": {
+    "message": "Connections receiving data"
+  },
+  "app.downloads.diagnostics.configured-limit": {
+    "message": "Configured limit"
+  },
+  "app.downloads.diagnostics.effective-cap": {
+    "message": "Current request limit"
+  },
+  "app.downloads.diagnostics.target": {
+    "message": "Target requests"
+  },
+  "app.downloads.diagnostics.held": {
+    "message": "Held permits"
+  },
+  "app.downloads.diagnostics.pool": {
+    "message": "Available pool permits"
+  },
+  "app.downloads.diagnostics.address": {
+    "message": "Remote address"
+  },
+  "app.downloads.diagnostics.protocol": {
+    "message": "Protocol / socket"
+  },
+  "app.downloads.diagnostics.speed": {
+    "message": "Request speed"
+  },
+  "app.downloads.diagnostics.duration": {
+    "message": "Request time"
+  },
+  "app.downloads.diagnostics.state": {
+    "message": "State"
+  },
+  "app.downloads.diagnostics.slow": {
+    "message": "Slow"
+  },
+  "app.downloads.diagnostics.proxy": {
+    "message": "Proxy"
+  },
+  "app.downloads.diagnostics.socket": {
+    "message": "Socket #{id}"
+  },
+  "app.downloads.diagnostics.seconds": {
+    "message": "{seconds} s"
+  },
+  "app.downloads.diagnostics.rate": {
+    "message": "{speed}/s"
+  },
+  "app.downloads.diagnostics.priority": {
+    "message": "Active / slow first"
+  },
+  "app.downloads.diagnostics.note": {
+    "message": "Each row is a request or HTTP/2 stream; streams may share a socket. Unknown physical connection counts are shown as —. Active speeds use recent samples; finished speeds are averages. Slow means below 256 KiB/s after warm-up. Receiving data means bytes arrived within the last 2 seconds."
+  },
+  "app.downloads.diagnostics.fileSelectionGuide": {
+    "message": "Choose a file, and its download summary will appear below."
+  },
+  "app.downloads.diagnostics.truncated": {
+    "message": "Observation limits reached: {files} earlier files and {transfers} earlier requests are omitted."
+  },
+  "app.downloads.diagnostics.no-requests": {
+    "message": "No requests observed for this file yet."
+  },
+  "app.downloads.diagnostics.active": {
+    "message": "Active"
+  },
+  "app.downloads.diagnostics.connecting": {
+    "message": "Connecting"
+  },
+  "app.downloads.diagnostics.completed": {
+    "message": "Completed"
+  },
+  "app.downloads.diagnostics.closed": {
+    "message": "Closed"
+  },
+  "app.downloads.diagnostics.failed": {
+    "message": "Failed"
+  },
+  "app.downloads.diagnostics.canceled": {
+    "message": "Canceled"
+  },
+  "app.settings.feature-flags.advanced-download-info": {
+    "message": "Advanced download information"
+  },
+  "app.settings.feature-flags.advanced-download-info-description": {
+    "message": "Show file timings, request speeds and remote addresses in download details. Observations are collected while enabled and included when exporting network connections."
+  },
+  "app.downloads.diagnostics.elapsed-help": {
+    "message": "Time spent processing this file, including resource waits, existing-file checks, transfer, writing and integrity verification. This is not the entire installation time."
+  },
+  "app.downloads.diagnostics.network-elapsed-help": {
+    "message": "Time from the first recorded request starting to the last request finishing, including connection setup, response waits and retry gaps. Parallel request times are not added together."
+  },
+  "app.downloads.diagnostics.received-help": {
+    "message": "Total response body bytes received, excluding headers and TLS overhead. Retries may count duplicate bytes, so this can differ from the file size; cached files may show zero."
+  },
+  "app.downloads.diagnostics.active-requests-help": {
+    "message": "Requests or HTTP/2 streams currently in the active state, excluding those still connecting. Active requests may be waiting without receiving data."
+  },
+  "app.downloads.diagnostics.effective-requests-help": {
+    "message": "Active requests that received bytes within the last 2 seconds."
+  },
+  "app.downloads.diagnostics.physical-connections-help": {
+    "message": "Distinct identifiable physical connections used by this file’s active requests. HTTP/2 streams may share a connection. Idle connections are excluded; — means the count is unknown."
+  },
+  "app.downloads.diagnostics.effective-physical-help": {
+    "message": "Distinct identifiable connections with an active request that received bytes within the last 2 seconds. Shared connections count once; — means the count is unknown."
+  },
+  "app.downloads.diagnostics.configured-limit-help": {
+    "message": "Configured resource permit limit for the global download pool. Shared across files and tasks; this is not a physical connection count or a per-file allocation."
+  },
+  "app.downloads.diagnostics.effective-cap-help": {
+    "message": "Adaptive concurrency limit for this file, adjusted for remaining data, available resources and failures. Completed files retain the last reported value."
+  },
+  "app.downloads.diagnostics.target-help": {
+    "message": "Concurrency the scheduler aims to maintain for this file, subject to available permits and splittable work. This is not the active request count; completed files retain the last value."
+  },
+  "app.downloads.diagnostics.held-help": {
+    "message": "Download resource permits currently held by this file’s scheduler. These are not physical connections and are released when the file finishes."
+  },
+  "app.downloads.diagnostics.pool-help": {
+    "message": "Currently available resource permits in the global download pool, shared with other files and tasks. This is not the number of sockets the operating system can open."
   }
 }

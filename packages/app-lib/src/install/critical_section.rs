@@ -119,6 +119,9 @@ pub(crate) async fn with_critical_section<R>(
     let guard = CriticalSectionGuard { sections };
     if guard.sections.closing.load(Ordering::SeqCst) {
         drop(guard);
+        // The guard is gone before this branch runs, so the canceller may
+        // drop it at its first await. A closing branch must not write; it
+        // exists to return the cancellation error.
         return closing(ClosingToken { _priv: () }).await;
     }
     protected(&guard).await

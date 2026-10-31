@@ -130,6 +130,22 @@ it('water flowing next to a lower level slopes towards it', () => {
     expect(spriteOf(topFace(mesh)), 'a flowing surface uses the flowing sprite').toBe('flow')
 })
 
+it('rotates the flowing surface so its streaks follow the flow', () => {
+    // Flowing east rotates the sprite a quarter turn: the sprite's vertical axis runs along x, and
+    // the vanilla shrink keeps the rotated corners a quarter of the sprite inside its centre.
+    const pixels = spritePixels(topFace(surfaceOnly(cells(slopeEast()))), FLOW)
+    const expected = [
+        [11, 5],
+        [5, 5],
+        [5, 11],
+        [11, 11],
+    ]
+    expected.forEach(([u, v], index) => {
+        expect(pixels[index][0]).toBeCloseTo(u, 6)
+        expect(pixels[index][1]).toBeCloseTo(v, 6)
+    })
+})
+
 it('air beside the water lowers the corner, a wall does not', () => {
     // Vanilla counts air as an empty cell but skips solid cells, so a lone source keeps a flat
     // surface that sits lower than the same block against a wall.

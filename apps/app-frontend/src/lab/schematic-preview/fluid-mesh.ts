@@ -28,6 +28,8 @@ const FLUID_STILL_TEXTURE = 'minecraft:block/water_still'
 const FLUID_FLOW_TEXTURE = 'minecraft:block/water_flow'
 /** Fluid sprites are 16x16, so the flow texture is mapped in sprite pixels before the atlas lookup. */
 const FLUID_SPRITE_SIZE = 16
+/** Vanilla pulls rotated flow UVs a quarter of the sprite towards their average to stay in bounds. */
+const FLUID_FLOW_UV_SHRINK = 4 / FLUID_SPRITE_SIZE
 
 type SpritePoint = readonly [number, number]
 type Position = readonly [number, number, number]
@@ -117,6 +119,27 @@ function surfaceFlow(northWest: number, southWest: number, southEast: number, no
     return length > 1e-6 ? ([flowX / length, flowZ / length] as const) : undefined
 }
 
+/** The vanilla rotation of the flowing sprite around its centre, in sprite pixels. */
+function flowSurfacePoints(flowX: number, flowZ: number): SpritePoint[] {
+    const angle = Math.atan2(flowZ, flowX) - Math.PI / 2
+    const center = FLUID_SPRITE_SIZE / 2
+    const horizontal = Math.cos(angle) * 0.25 * FLUID_SPRITE_SIZE
+    const vertical = Math.sin(angle) * 0.25 * FLUID_SPRITE_SIZE
+    const points: SpritePoint[] = [
+        [center - (horizontal + vertical), center - (horizontal - vertical)],
+        [center - (horizontal - vertical), center + (horizontal + vertical)],
+        [center + (horizontal + vertical), center + (horizontal - vertical)],
+        [center + (horizontal - vertical), center - (horizontal + vertical)],
+    ]
+    return points.map(
+        ([u, v]) =>
+            [
+                u + (center - u) * FLUID_FLOW_UV_SHRINK,
+                v + (center - v) * FLUID_FLOW_UV_SHRINK,
+            ] as SpritePoint,
+    )
+}
+
 function spriteUv(uv: UV, [u, v]: SpritePoint): [number, number] {
     const [u0, v0, u1, v1] = uv
     return [u0 + (u / FLUID_SPRITE_SIZE) * (u1 - u0), v0 + (v / FLUID_SPRITE_SIZE) * (v1 - v0)]
@@ -177,12 +200,14 @@ export function getSchematicFluidMesh(options: SchematicFluidMeshOptions): Mesh 
                 [1, surface[3], 0],
             ],
             direction ? flow : still,
-            [
-                [0, 0],
-                [0, FLUID_SPRITE_SIZE],
-                [FLUID_SPRITE_SIZE, FLUID_SPRITE_SIZE],
-                [FLUID_SPRITE_SIZE, 0],
-            ],
+            direction
+                ? flowSurfacePoints(...direction)
+                : [
+                      [0, 0],
+                      [0, FLUID_SPRITE_SIZE],
+                      [FLUID_SPRITE_SIZE, FLUID_SPRITE_SIZE],
+                      [FLUID_SPRITE_SIZE, 0],
+                  ],
             tint,
         )
     }

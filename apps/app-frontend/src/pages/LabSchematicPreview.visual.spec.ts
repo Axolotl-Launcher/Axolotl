@@ -23,9 +23,31 @@ const fixture = vi.hoisted(() => ({
     scene: {} as Record<string, ReturnType<typeof vi.fn>>,
 }))
 
-vi.mock('@/components/lab/schematic-preview/SchematicBlockPickerModal.vue', () => ({
-    default: { render: () => null },
-}))
+vi.mock('@/components/lab/schematic-preview/SchematicBlockPickerModal.vue', async () => {
+    const { defineComponent, h } = await import('vue')
+    return {
+        default: defineComponent({
+            props: ['blocks'],
+            emits: ['replace'],
+            setup:
+                (props, { emit }) =>
+                () =>
+                    h(
+                        'div',
+                        (props.blocks as { name: string }[]).map((state) =>
+                            h(
+                                'button',
+                                {
+                                    'data-replace': state.name,
+                                    onClick: () => emit('replace', state),
+                                },
+                                state.name,
+                            ),
+                        ),
+                    ),
+        }),
+    }
+})
 vi.mock('@/components/lab/schematic-preview/SchematicInfoModal.vue', () => ({
     default: { render: () => null },
 }))
@@ -79,6 +101,19 @@ vi.mock('@modrinth/ui', async () => {
                 (_, { slots }) =>
                 () =>
                     h('button', slots.default?.()),
+        }),
+        Toggle: defineComponent({
+            props: ['modelValue', 'disabled'],
+            emits: ['update:modelValue'],
+            setup:
+                (props, { emit }) =>
+                () =>
+                    h('button', {
+                        role: 'switch',
+                        'aria-checked': String(Boolean(props.modelValue)),
+                        disabled: Boolean(props.disabled),
+                        onClick: () => emit('update:modelValue', !props.modelValue),
+                    }),
         }),
         EmptyState: control,
         Slider: control,
@@ -158,10 +193,102 @@ function deferred<T>() {
 function resources() {
     return {
         texture: { dispose: vi.fn() },
-        workerResources: { blockDefinitions: {}, blockModels: {}, textureUvs: {} },
+        workerResources: {
+            blockDefinitions: {
+                'minecraft:oak_stairs': {
+                    variants: {
+                        'facing=north,half=bottom,shape=straight': {
+                            model: 'minecraft:block/oak_stairs',
+                        },
+                        'facing=east,half=bottom,shape=straight': {
+                            model: 'minecraft:block/oak_stairs',
+                        },
+                        'facing=south,half=bottom,shape=straight': {
+                            model: 'minecraft:block/oak_stairs',
+                        },
+                        'facing=west,half=bottom,shape=straight': {
+                            model: 'minecraft:block/oak_stairs',
+                        },
+                    },
+                },
+            },
+            blockModels: {},
+            textureUvs: {},
+        },
         blockNames: { en_us: {}, zh_cn: {} },
         availableBlockStates: [],
         atlas: document.createElement('canvas'),
+    }
+}
+
+function stairsManifest(id: string, facing = 'north'): SchematicPreviewManifest {
+    const base = manifest(id)
+    return {
+        ...base,
+        palette: [
+            { name: 'minecraft:air', properties: {} },
+            {
+                name: 'minecraft:oak_stairs',
+                properties: {
+                    facing: 'north',
+                    half: 'bottom',
+                    shape: 'straight',
+                    waterlogged: 'false',
+                },
+            },
+            {
+                name: 'minecraft:oak_stairs',
+                properties: { facing, half: 'bottom', shape: 'straight', waterlogged: 'false' },
+            },
+        ],
+    }
+}
+
+function stairState(facing: string, half: string) {
+    return {
+        name: 'minecraft:oak_stairs',
+        properties: { facing, half, shape: 'straight', waterlogged: 'false' },
+    }
+}
+
+function pairStairsManifest(
+    id: string,
+    palette: SchematicPreviewManifest['palette'] = [
+        { name: 'minecraft:air', properties: {} },
+        stairState('north', 'bottom'),
+        stairState('south', 'top'),
+    ],
+): SchematicPreviewManifest {
+    const base = manifest(id)
+    return {
+        ...base,
+        palette,
+        blockCount: 2,
+        materials: [{ name: 'minecraft:oak_stairs', count: 2 }],
+        regions: [
+            {
+                id: 'region',
+                name: 'region',
+                origin: [0, 0, 0],
+                min: [0, 0, 0],
+                max: [1, 0, 0],
+                size: [2, 1, 1],
+                blockCount: 2,
+                chunks: [{ position: [0, 0, 0], nonAirBlocks: 2 }],
+            },
+        ],
+    }
+}
+
+function resourcesWithUnloadedBlock() {
+    return {
+        ...resources(),
+        availableBlockStates: [
+            {
+                name: 'minecraft:oak_fence_gate',
+                properties: { facing: 'north', in_wall: 'false', open: 'false', powered: 'false' },
+            },
+        ],
     }
 }
 
@@ -253,6 +380,14 @@ function button(label: string) {
     return wrapper
         .findAll('button')
         .find((button) => button.text() === label || button.attributes('aria-label') === label)!
+}
+
+function chip(label: string) {
+    return wrapper
+        .findAll('button')
+        .find(
+            (button) => button.text() === label && button.attributes('aria-pressed') !== undefined,
+        )!
 }
 
 it('old edit completion cannot overwrite B or clear B busy state', async () => {
@@ -394,4 +529,138 @@ it('changing glass rendering while B loads resources preserves B resource owners
     expect(fixture.scene.setTexture).toHaveBeenLastCalledWith(loaded.texture)
     expect(wrapper.find('[role="progressbar"]').exists()).toBe(false)
     expect(button('Rotate clockwise').attributes('disabled')).toBeUndefined()
+})
+
+it('a state change edits only the selected block and overrides its own properties', async () => {
+    fixture.open.mockImplementation(async (source: { path: string }) => stairsManifest(source.path))
+    await openFile('A')
+    fixture.select?.({ regionId: 'region', position: [0, 0, 0] })
+    await nextTick()
+    fixture.edit.mockImplementationOnce(async (id: string) => ({
+        manifest: stairsManifest(id, 'west'),
+        changedChunks: [],
+        appliedPaletteIndices: [2],
+    }))
+
+    const west = wrapper.findAll('button').find((chip) => chip.text() === 'West')
+    expect(west).toBeDefined()
+    await west!.trigger('click')
+    await flushPromises()
+
+    expect(fixture.edit).toHaveBeenCalledTimes(1)
+    const [sessionId, edits, targetState, override] = fixture.edit.mock.calls[0]
+    expect(sessionId).toBe('A')
+    expect(edits).toEqual([{ regionId: 'region', position: [0, 0, 0], paletteIndex: 0, before: 1 }])
+    expect(targetState).toEqual({
+        name: 'minecraft:oak_stairs',
+        properties: { facing: 'west', half: 'bottom', shape: 'straight', waterlogged: 'false' },
+    })
+    expect(override).toBe(true)
+    expect(
+        wrapper
+            .findAll('button')
+            .find((chip) => chip.text() === 'West')
+            ?.attributes('aria-pressed'),
+    ).toBe('true')
+})
+
+it('a finished state edit cannot retarget the inspector to another block', async () => {
+    fixture.open.mockImplementation(async (source: { path: string }) =>
+        pairStairsManifest(source.path),
+    )
+    fixture.read.mockImplementation(async () => {
+        const blocks = new Uint32Array(4096)
+        blocks[0] = 1
+        blocks[1] = 2
+        return blocks
+    })
+    await openFile('A')
+    fixture.select?.({ regionId: 'region', position: [0, 0, 0] })
+    await nextTick()
+    expect(chip('North').attributes('aria-pressed')).toBe('true')
+
+    const pending = deferred<SchematicEditResult>()
+    fixture.edit.mockReturnValueOnce(pending.promise)
+    await chip('West').trigger('click')
+    await nextTick()
+
+    fixture.select?.({ regionId: 'region', position: [1, 0, 0] })
+    await nextTick()
+    expect(chip('South').attributes('aria-pressed')).toBe('true')
+
+    pending.resolve({
+        manifest: pairStairsManifest('A', [
+            { name: 'minecraft:air', properties: {} },
+            stairState('north', 'bottom'),
+            stairState('south', 'top'),
+            stairState('west', 'bottom'),
+        ]),
+        changedChunks: [],
+        appliedPaletteIndices: [3],
+    })
+    await flushPromises()
+
+    expect(chip('South').attributes('aria-pressed')).toBe('true')
+    expect(chip('Top').attributes('aria-pressed')).toBe('true')
+
+    fixture.edit.mockResolvedValueOnce({
+        manifest: pairStairsManifest('A'),
+        changedChunks: [],
+        appliedPaletteIndices: [2],
+    })
+    await chip('East').trigger('click')
+    await flushPromises()
+
+    expect(fixture.edit).toHaveBeenCalledTimes(2)
+    const [, edits, targetState] = fixture.edit.mock.calls[1]
+    expect(edits).toEqual([{ regionId: 'region', position: [1, 0, 0], paletteIndex: 0, before: 2 }])
+    expect(targetState).toEqual(stairState('east', 'top'))
+})
+
+it('a failed resource reload after a committed edit leaves the workshop editable', async () => {
+    fixture.open.mockImplementation(async (source: { path: string }) => stairsManifest(source.path))
+    fixture.resources.mockResolvedValueOnce(resourcesWithUnloadedBlock())
+    await openFile('A')
+    fixture.select?.({ regionId: 'region', position: [0, 0, 0] })
+    await nextTick()
+
+    fixture.edit.mockResolvedValueOnce({
+        manifest: stairsManifest('A'),
+        changedChunks: [],
+        appliedPaletteIndices: [1],
+    })
+    fixture.resources.mockRejectedValueOnce(new Error('resource download failed'))
+    await wrapper.get('[data-replace="minecraft:oak_fence_gate"]').trigger('click')
+    await flushPromises()
+
+    expect(fixture.error).toHaveBeenCalled()
+    expect(wrapper.find('[role="progressbar"]').exists()).toBe(false)
+    expect(button('Rotate clockwise').attributes('disabled')).toBeUndefined()
+})
+
+it('names a boolean state switch after the property it controls', async () => {
+    fixture.open.mockImplementation(async (source: { path: string }) => stairsManifest(source.path))
+    await openFile('A')
+    fixture.select?.({ regionId: 'region', position: [0, 0, 0] })
+    await nextTick()
+
+    const switches = wrapper.findAll('[role="switch"]')
+    expect(switches).toHaveLength(1)
+    expect(switches[0].attributes('aria-label')).toBe('Waterlogged')
+})
+
+it('the state card is hidden while nothing is selected', async () => {
+    fixture.open.mockImplementation(async (source: { path: string }) => stairsManifest(source.path))
+    await openFile('A')
+
+    expect(wrapper.findAll('button').some((chip) => chip.text() === 'West')).toBe(false)
+    expect(wrapper.text()).not.toContain('Block state')
+
+    fixture.select?.({ regionId: 'region', position: [0, 0, 0] })
+    await nextTick()
+    expect(wrapper.findAll('button').some((chip) => chip.text() === 'West')).toBe(true)
+
+    await button('Clear selection').trigger('click')
+    await nextTick()
+    expect(wrapper.findAll('button').some((chip) => chip.text() === 'West')).toBe(false)
 })

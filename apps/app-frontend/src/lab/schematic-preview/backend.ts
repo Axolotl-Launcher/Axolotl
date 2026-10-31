@@ -150,10 +150,16 @@ export async function applySchematicEdits(
     sessionId: string,
     edits: SchematicBlockEdit[],
     targetState?: SchematicBlockState,
+    overrideSourceProperties?: boolean,
 ): Promise<SchematicEditResult> {
     return await invoke<SchematicEditResult>(
         'plugin:schematic-preview|schematic_preview_apply_edits',
-        { sessionId, edits, targetState: targetState ?? null },
+        {
+            sessionId,
+            edits,
+            targetState: targetState ?? null,
+            overrideSourceProperties: overrideSourceProperties ?? false,
+        },
     )
 }
 

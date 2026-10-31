@@ -85,7 +85,16 @@ impl PreviewBlockState {
 fn replacement_state(
     source: &PreviewBlockState,
     target: &PreviewBlockState,
+    override_source: bool,
 ) -> PreviewBlockState {
+    if override_source {
+        let mut state = source.clone();
+        state.name = target.name.clone();
+        for (key, value) in &target.properties {
+            state.properties.insert(key.clone(), value.clone());
+        }
+        return state;
+    }
     let mut state = target.clone();
     for (key, value) in &source.properties {
         if state.properties.contains_key(key) {
@@ -469,11 +478,17 @@ pub fn schematic_preview_apply_edits(
     session_id: String,
     edits: Vec<PreviewBlockEdit>,
     target_state: Option<PreviewBlockState>,
+    override_source_properties: Option<bool>,
 ) -> Result<PreviewEditResult, String> {
     if edits.len() > MAX_EDIT_BLOCKS {
         return Err(format!(
             "A single edit cannot change more than {MAX_EDIT_BLOCKS} blocks"
         ));
+    }
+    if override_source_properties.unwrap_or(false) && target_state.is_none() {
+        return Err(
+            "Property overrides require a target block state".to_string()
+        );
     }
     let mut active = sessions()
         .lock()
@@ -499,6 +514,7 @@ fn apply_session_edits(
         state.name = normalize_block_name(&state.name);
         state
     });
+    let override_source = override_source_properties.unwrap_or(false);
     let mut changed = BTreeSet::<(String, [i32; 3])>::new();
     let mut applied_palette_indices = Vec::with_capacity(edits.len());
     for edit in edits {
@@ -530,7 +546,7 @@ fn apply_session_edits(
                         "Unknown schematic palette entry {source_palette_index}"
                     )
                 })?;
-            let state = replacement_state(source, target);
+            let state = replacement_state(source, target, override_source);
             let key = state.key();
             if let Some(index) = session
                 .manifest
@@ -2264,9 +2280,95 @@ mod tests {
         );
 
         assert_eq!(
-            replacement_state(&source, &target).key(),
+            replacement_state(&source, &target, false).key(),
             "minecraft:stone_slab[type=top,waterlogged=true]"
         );
+    }
+
+    #[test]
+    fn state_edits_override_only_the_properties_the_target_carries() {
+        let source = parse_state_string(
+            "minecraft:oak_stairs[facing=north,half=top,shape=straight,waterlogged=false]",
+        );
+        let target = parse_state_string("minecraft:oak_stairs[facing=west]");
+
+        assert_eq!(
+            replacement_state(&source, &target, true).key(),
+            "minecraft:oak_stairs[facing=west,half=top,shape=straight,waterlogged=false]"
+        );
+    }
+
+    #[test]
+    fn apply_edits_forwards_the_override_request_to_the_replacement() {
+        let mut session = parse_sponge(
+            sponge_fixture(3),
+            "state.schem".to_string(),
+            "state.schem".to_string(),
+            None,
+            None,
+        )
+        .unwrap();
+        let region_id = session.manifest.regions[0].id.clone();
+        let stairs_index = session.manifest.palette.len() as u32;
+        session.manifest.palette.push(parse_state_string(
+            "minecraft:oak_stairs[facing=north,half=top,shape=straight]",
+        ));
+        for position in [[-4, 8, 2], [-3, 8, 2]] {
+            assert!(session.regions[0].set_block(position, stairs_index));
+        }
+        session.refresh_manifest();
+
+        let session_id = session.manifest.session_id.clone();
+        sessions().lock().unwrap().push_back(Arc::new(session));
+
+        let edit = |position: [i32; 3], override_source: Option<bool>| {
+            schematic_preview_apply_edits(
+                session_id.clone(),
+                vec![PreviewBlockEdit {
+                    region_id: region_id.clone(),
+                    position,
+                    palette_index: 0,
+                }],
+                Some(parse_state_string(
+                    "minecraft:oak_stairs[facing=west,half=bottom,shape=straight]",
+                )),
+                override_source,
+            )
+        };
+
+        let overridden = edit([-3, 8, 2], Some(true)).unwrap();
+        assert_eq!(
+            overridden.manifest.palette
+                [overridden.applied_palette_indices[0] as usize]
+                .key(),
+            "minecraft:oak_stairs[facing=west,half=bottom,shape=straight]"
+        );
+
+        let preserved = edit([-4, 8, 2], None).unwrap();
+        assert_eq!(
+            preserved.manifest.palette
+                [preserved.applied_palette_indices[0] as usize]
+                .key(),
+            "minecraft:oak_stairs[facing=north,half=top,shape=straight]"
+        );
+
+        sessions()
+            .lock()
+            .unwrap()
+            .retain(|session| session.manifest.session_id != session_id);
+    }
+
+    #[test]
+    fn state_property_overrides_require_a_target_state() {
+        let error = schematic_preview_apply_edits(
+            "expired".to_string(),
+            Vec::new(),
+            None,
+            Some(true),
+        )
+        .expect_err("a flag without a target state is a misuse");
+
+        assert!(error.contains("target block state"), "{error}");
     }
 
     #[test]

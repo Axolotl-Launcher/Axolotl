@@ -34,7 +34,6 @@ let loading = true
 let contextError = false
 let contextRequest = 0
 let contextFlight = null
-let refreshTimer
 let disposed = false
 let permissionPolicy = { full_access: false, computer_use: false }
 let permissionsLoading = false
@@ -182,12 +181,31 @@ reducedMotion.addEventListener('change', () => {
 })
 
 function notify(message) {
+    const dialog = [...document.querySelectorAll('dialog[open]')].at(-1)
+    const error = dialog?.querySelector('[data-dialog-error]')
+    if (error) {
+        error.textContent = message
+        error.hidden = false
+        return
+    }
     clearTimeout(noticeTimer)
     element('notification').textContent = message
     element('notification').hidden = false
     noticeTimer = setTimeout(() => {
         element('notification').hidden = true
     }, 5000)
+}
+function openDialog(id) {
+    const dialog = element(id)
+    const error = dialog.querySelector('[data-dialog-error]')
+    if (error) {
+        error.textContent = ''
+        error.hidden = true
+    }
+    dialog.showModal()
+}
+function closeDialog(dialog) {
+    if (!permissionsSaving) dialog.close()
 }
 function update(change, { renderView = true, motion = true } = {}) {
     const previousId = store.activeId
@@ -339,6 +357,9 @@ function renderSettings() {
                 : 'permissionFuture',
     )
     element('permissions-confirm').disabled = busy
+    element('permissions-cancel').disabled = permissionsSaving
+    element('settings-dialog').querySelector('[data-action="close-dialog"]').disabled =
+        permissionsSaving
 }
 async function refreshPermissions() {
     if (!permissionsAvailable() || permissionsSaving) {
@@ -369,6 +390,9 @@ async function savePermissions(next) {
     if (!permissionsAvailable() || permissionsSaving || permissionsLoading) return
     ++permissionRequest
     permissionsSaving = true
+    document.querySelectorAll('[data-dialog-error]').forEach((error) => {
+        error.hidden = true
+    })
     renderSettings()
     try {
         const policy = await window.AgentHost.setPermissions(next)
@@ -486,14 +510,6 @@ function refreshContext() {
         contextFlight = null
     })
     return contextFlight
-}
-function scheduleRefresh() {
-    clearTimeout(refreshTimer)
-    if (document.hidden || disposed) return
-    refreshTimer = setTimeout(async () => {
-        await refreshContext()
-        scheduleRefresh()
-    }, 5000)
 }
 function openPicker(kind) {
     refreshContext()
@@ -630,7 +646,7 @@ function openEdit(kind) {
     element('edit-confirm').textContent = text(kind === 'rename' ? 'save' : 'delete')
     element('edit-confirm').classList.toggle('destructive', kind === 'delete')
     element('rename-input').value = activeThread(store).title || text('untitled')
-    element('edit-dialog').showModal()
+    openDialog('edit-dialog')
     if (kind === 'rename') {
         element('rename-input').focus()
         element('rename-input').select()
@@ -648,9 +664,10 @@ const actions = {
     'new-chat': (event) => createThread(event?.detail !== 0),
     settings: () => {
         renderSettings()
-        element('settings-dialog').showModal()
+        openDialog('settings-dialog')
         refreshPermissions()
     },
+    guide: () => openDialog('guide-dialog'),
     'toggle-tasks': (event) =>
         transitionWorkspace(() => {
             taskOpen = !taskOpen
@@ -658,10 +675,9 @@ const actions = {
         }, event?.detail !== 0),
     'model-picker': () => openPicker('model'),
     'instance-picker': () => openPicker('instance'),
-    'close-dialog': () =>
-        document.querySelectorAll('dialog[open]').forEach((dialog) => dialog.close()),
+    'close-dialog': () => document.querySelectorAll('dialog[open]').forEach(closeDialog),
     'refresh-context': refreshContext,
-    'cancel-full-access': () => element('permissions-risk-dialog').close(),
+    'cancel-full-access': () => closeDialog(element('permissions-risk-dialog')),
     'confirm-full-access': () => savePermissions({ full_access: true, computer_use: false }),
     rename: () => openEdit('rename'),
     delete: () => openEdit('delete'),
@@ -743,7 +759,7 @@ document.addEventListener('click', async (event) => {
 element('permission-full-access').addEventListener('change', (event) => {
     const enabling = event.target.checked
     renderSettings()
-    if (enabling) element('permissions-risk-dialog').showModal()
+    if (enabling) openDialog('permissions-risk-dialog')
     else savePermissions({ full_access: false, computer_use: false })
 })
 element('permission-computer-use').addEventListener('change', (event) => {
@@ -798,7 +814,10 @@ element('edit-form').addEventListener('submit', (event) => {
     )
         element('edit-dialog').close()
 })
-document.querySelectorAll('dialog').forEach((dialog) =>
+document.querySelectorAll('dialog').forEach((dialog) => {
+    dialog.addEventListener('cancel', (event) => {
+        if (permissionsSaving) event.preventDefault()
+    })
     dialog.addEventListener('click', (event) => {
         if (event.target === dialog) {
             const rect = dialog.getBoundingClientRect()
@@ -808,14 +827,14 @@ document.querySelectorAll('dialog').forEach((dialog) =>
                 event.clientY < rect.top ||
                 event.clientY > rect.bottom
             )
-                dialog.close()
+                closeDialog(dialog)
         }
-    }),
-)
+    })
+})
 document.addEventListener('keydown', (event) => {
     if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'n') {
         event.preventDefault()
-        createThread(false)
+        if (!document.querySelector('dialog[open]')) createThread(false)
     }
     if (
         event.key === 'Escape' &&
@@ -850,7 +869,6 @@ async function boot() {
     document.documentElement.dataset.ready = 'true'
     await window.AgentHost?.reveal?.()
     refreshContext()
-    scheduleRefresh()
 }
 window.addEventListener('agent-host-ready', boot)
 window.addEventListener('agent-appearance-updated', () => {
@@ -858,11 +876,9 @@ window.addEventListener('agent-appearance-updated', () => {
 })
 window.addEventListener('focus', () => {
     refreshContext()
-    scheduleRefresh()
 })
 document.addEventListener('visibilitychange', () => {
     if (!document.hidden) refreshContext()
-    scheduleRefresh()
 })
 window.addEventListener('pagehide', () => {
     settlePanels()
@@ -870,14 +886,12 @@ window.addEventListener('pagehide', () => {
     disposed = true
     ++contextRequest
     ++permissionRequest
-    clearTimeout(refreshTimer)
     clearTimeout(noticeTimer)
 })
 window.addEventListener('pageshow', (event) => {
     if (event.persisted) {
         disposed = false
         refreshContext()
-        scheduleRefresh()
     }
 })
 window.addEventListener('resize', () => {

@@ -8513,6 +8513,12 @@
   "app.onboarding.action.start": {
     "message": "带我逛逛"
   },
+  "app.onboarding.agent-window.description": {
+    "message": "从标题栏打开智能体窗口。窗口中的智能体使用指南会介绍如何选择模型和实例、查看等待队列，以及检查权限。需要时可以随时重新打开指南。"
+  },
+  "app.onboarding.agent-window.title": {
+    "message": "开始一个智能体任务"
+  },
   "app.onboarding.ai.description": {
     "message": "统一连接文本模型供应商、选择要使用的模型，也可在这里一键关闭所有 AI 功能。"
   },

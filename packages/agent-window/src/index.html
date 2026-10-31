@@ -96,6 +96,13 @@
                 <span id="window-title">Axolotl Agent Window</span>
             </div>
             <button
+                id="guide-button"
+                class="secondary-button"
+                type="button"
+                data-action="guide"
+                data-text="guide"
+            ></button>
+            <button
                 id="settings-button"
                 class="icon-button"
                 type="button"
@@ -287,6 +294,38 @@
                 <svg><use href="#i-trash" /></svg><span data-text="deleteChat"></span>
             </button>
         </div>
+        <dialog id="guide-dialog" class="settings-dialog" aria-labelledby="guide-title">
+            <div class="dialog-heading">
+                <h2 id="guide-title" data-text="guide"></h2>
+                <button
+                    class="icon-button"
+                    type="button"
+                    data-action="close-dialog"
+                    data-label="close"
+                >
+                    <svg><use href="#i-close" /></svg>
+                </button>
+            </div>
+            <div class="settings-body guide-body">
+                <section>
+                    <h3 data-text="guideTaskTitle"></h3>
+                    <p data-text="guideTaskBody"></p>
+                </section>
+                <section>
+                    <h3 data-text="guideInstanceTitle"></h3>
+                    <p data-text="guideInstanceBody"></p>
+                </section>
+                <section>
+                    <h3 data-text="guideQueueTitle"></h3>
+                    <p data-text="guideQueueBody"></p>
+                </section>
+                <section>
+                    <h3 data-text="guidePermissionsTitle"></h3>
+                    <p data-text="guidePermissionsBody"></p>
+                </section>
+                <p class="dialog-error" data-dialog-error role="alert" hidden></p>
+            </div>
+        </dialog>
         <dialog id="settings-dialog" class="settings-dialog">
             <div class="dialog-heading">
                 <h2 data-text="permissionsTitle"></h2>
@@ -315,6 +354,7 @@
                     <input id="permission-computer-use" type="checkbox" role="switch" disabled />
                 </label>
                 <p id="permission-status" role="status"></p>
+                <p class="dialog-error" data-dialog-error role="alert" hidden></p>
             </div>
         </dialog>
         <dialog
@@ -325,7 +365,10 @@
             <div class="dialog-heading">
                 <h2 id="permissions-risk-title" data-text="fullAccessWarningTitle"></h2>
             </div>
-            <div class="edit-body"><p data-text="fullAccessWarning"></p></div>
+            <div class="edit-body">
+                <p data-text="fullAccessWarning"></p>
+                <p class="dialog-error" data-dialog-error role="alert" hidden></p>
+            </div>
             <div class="dialog-footer">
                 <button
                     id="permissions-cancel"
@@ -352,6 +395,7 @@
                         ><span data-text="name"></span
                         ><input id="rename-input" type="text" maxlength="120" required
                     /></label>
+                    <p class="dialog-error" data-dialog-error role="alert" hidden></p>
                 </div>
                 <div class="dialog-footer">
                     <button

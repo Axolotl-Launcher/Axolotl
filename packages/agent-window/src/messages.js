@@ -24,6 +24,19 @@ const dictionaries = {
         earlier: '更早',
         toggleSidebar: '展开或收起会话列表',
         settings: '设置',
+        guide: '智能体使用指南',
+        guideTaskTitle: '从任务开始',
+        guideTaskBody:
+            '新建任务或选择一个建议，然后描述你想得到的结果。发送前，选择在启动器 AI 设置中配置的文本模型。',
+        guideInstanceTitle: '选择作用范围',
+        guideInstanceBody:
+            '处理模组、日志或世界时，先选择对应实例。每条请求都会保存发送时选择的实例和模型。',
+        guideQueueTitle: '了解等待队列',
+        guideQueueBody:
+            '任务面板显示正在等待执行服务的请求。排队中的请求尚未执行，可以移除；中断的请求会保留在历史中，不会自动重新执行。',
+        guidePermissionsTitle: '检查权限',
+        guidePermissionsBody:
+            '在设置中检查完全访问和界面操作权限。完全访问允许删除等高影响操作；需要智能体操作启动器界面时，再启用界面操作。',
         taskPanel: '任务面板',
         closePanel: '关闭任务面板',
         untitled: '新任务',
@@ -122,6 +135,19 @@ const dictionaries = {
         earlier: 'Earlier',
         toggleSidebar: 'Toggle conversations',
         settings: 'Settings',
+        guide: 'Agent guide',
+        guideTaskTitle: 'Start with a task',
+        guideTaskBody:
+            'Create a task or choose a suggestion, then describe the result you want. Choose a text model configured in launcher AI settings before sending.',
+        guideInstanceTitle: 'Choose the scope',
+        guideInstanceBody:
+            'Select an instance when your request concerns its mods, logs or worlds. Your instance and model choices are saved with each request.',
+        guideQueueTitle: 'Understand the queue',
+        guideQueueBody:
+            'The task panel shows requests waiting for the execution service. Queued requests have not run; you can remove them. Interrupted requests are kept in history and do not restart automatically.',
+        guidePermissionsTitle: 'Review permissions',
+        guidePermissionsBody:
+            'Open Settings to review Full access and Interface control. Full access permits high-impact actions such as deletion. Enable Interface control only when you want the agent to interact with the launcher interface.',
         taskPanel: 'Task panel',
         closePanel: 'Close task panel',
         untitled: 'New task',
@@ -200,7 +226,7 @@ const dictionaries = {
 
 let language = 'en'
 export function setLocale(locale) {
-    language = String(locale || '').startsWith('zh') ? 'zh' : 'en'
+    language = locale === 'zh-CN' ? 'zh' : 'en'
 }
 export function text(key, values = {}) {
     let value = dictionaries[language][key] || dictionaries.en[key] || key

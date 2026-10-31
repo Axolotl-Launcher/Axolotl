@@ -95,6 +95,7 @@ async function openWindow() {
         type="button"
         data-tauri-drag-region-exclude
         data-testid="agent-window-button"
+        data-onboarding-id="agent-window-open"
         :aria-label="formatMessage(messages.open)"
         :aria-busy="opening"
         :disabled="opening"

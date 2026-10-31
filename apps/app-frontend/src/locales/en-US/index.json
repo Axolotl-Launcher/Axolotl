@@ -9098,6 +9098,12 @@
   "app.onboarding.action.start": {
     "message": "Take the tour"
   },
+  "app.onboarding.agent-window.description": {
+    "message": "Open the Agent Window from the title bar. Its Agent guide explains how to choose a model and instance, track queued requests, and review permissions. You can reopen the guide whenever you need it."
+  },
+  "app.onboarding.agent-window.title": {
+    "message": "Start an agent task"
+  },
   "app.onboarding.ai.description": {
     "message": "Connect text-model providers once, choose the models you want available, or switch every AI feature off in one place."
   },

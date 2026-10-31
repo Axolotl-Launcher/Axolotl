@@ -867,6 +867,27 @@ dialog::backdrop {
 .settings-body {
     padding: 4px 28px 28px;
 }
+.guide-body > section + section {
+    margin-top: var(--agent-space-6);
+}
+.guide-body h3 {
+    margin: 0 0 var(--agent-space-2);
+    font-size: 14px;
+    font-weight: 500;
+}
+.guide-body p,
+dialog .dialog-error {
+    margin: 0;
+    font-size: 13px;
+    line-height: 1.7;
+}
+.guide-body p {
+    color: var(--agent-muted);
+}
+dialog .dialog-error {
+    margin-top: var(--agent-space-4);
+    color: var(--agent-text);
+}
 .permission-row {
     display: flex;
     align-items: center;

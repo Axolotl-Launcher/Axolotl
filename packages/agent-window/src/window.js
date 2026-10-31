@@ -34,9 +34,7 @@
     let stateRequest = 0
 
     function showError(error) {
-        const prefix = appearance?.locale?.startsWith('zh')
-            ? '窗口操作失败'
-            : 'Window action failed'
+        const prefix = appearance?.locale === 'zh-CN' ? '窗口操作失败' : 'Window action failed'
         errorBox.textContent = `${prefix}: ${String(error)}`
         errorBox.hidden = false
         console.error(error)

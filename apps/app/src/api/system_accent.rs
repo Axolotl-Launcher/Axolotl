@@ -122,8 +122,10 @@ fn start_accent_color_watcher<R: Runtime>(app: AppHandle<R>) {
     match watcher {
         Ok(watcher) => {
             let thread = watcher.thread().clone();
-            let _ = ACCENT_COLOR_WATCHER
-                .set(AccentColorWatcher { thread, _handle: watcher });
+            let _ = ACCENT_COLOR_WATCHER.set(AccentColorWatcher {
+                thread,
+                _handle: watcher,
+            });
         }
         Err(error) => {
             tracing::warn!("Could not start the accent color watcher: {error}");
@@ -197,10 +199,8 @@ fn stop_accent_color_watcher() {
 
 #[cfg(target_os = "windows")]
 fn stop_accent_color_watcher() {
-    ACCENT_COLOR_WATCHER_STOPPED.store(
-        true,
-        std::sync::atomic::Ordering::Release,
-    );
+    ACCENT_COLOR_WATCHER_STOPPED
+        .store(true, std::sync::atomic::Ordering::Release);
     if let Some(watcher) = ACCENT_COLOR_WATCHER.get() {
         watcher.thread.unpark();
     }

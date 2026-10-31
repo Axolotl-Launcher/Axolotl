@@ -327,7 +327,9 @@ mod tests {
     fn mint_count_per_user_operation_is_tracked() {
         let registry = TagRegistry::new(1);
         for _ in 0..=MAX_MINTS_PER_OPERATION {
-            registry.mint(Level::L2, "search:1").expect("minted below the cap");
+            registry
+                .mint(Level::L2, "search:1")
+                .expect("minted below the cap");
         }
         assert_eq!(
             registry.mint_count("search:1"),
@@ -343,11 +345,7 @@ mod tests {
             .mint(Level::L3, "op:0")
             .expect("the first mint is below the cap");
         for index in 1..MAX_ENTRIES {
-            assert!(
-                registry
-                    .mint(Level::L3, &format!("op:{index}"))
-                    .is_some()
-            );
+            assert!(registry.mint(Level::L3, &format!("op:{index}")).is_some());
         }
         assert!(
             registry.mint(Level::L3, "op:over").is_none(),

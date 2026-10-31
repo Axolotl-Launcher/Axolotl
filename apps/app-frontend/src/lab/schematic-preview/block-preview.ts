@@ -8,6 +8,7 @@ import {
 } from 'deepslate'
 
 import type { SchematicBlockState } from './backend'
+import { SCHEMATIC_FLUID_OPACITY } from './materials'
 import { getSchematicWaterloggedFluidMesh } from './meshing'
 import type { LoadedSchematicResources, SchematicWorkerResources } from './resources'
 
@@ -35,8 +36,6 @@ type PreparedResources = {
 const preparedResourceCache = new WeakMap<SchematicWorkerResources, PreparedResources>()
 const previewCameraYaw = Math.PI / 4
 const previewCameraPitch = Math.PI / 6
-/** Matches the translucent material the schematic scene uses for fluid. */
-const TRANSLUCENT_PREVIEW_ALPHA = 0.68
 
 function prepareResources(resources: SchematicWorkerResources) {
     const cached = preparedResourceCache.get(resources)
@@ -274,7 +273,8 @@ export function renderSchematicBlockPreview(
         context.save()
         traceTriangle(context, points)
         context.clip()
-        if (triangle.translucent) context.globalAlpha = TRANSLUCENT_PREVIEW_ALPHA
+        // The swatch blends its fluid exactly like the scene does, so the two never disagree.
+        if (triangle.translucent) context.globalAlpha = SCHEMATIC_FLUID_OPACITY
         if (!drewTexture) {
             context.fillStyle = '#8c9692'
             context.fillRect(0, 0, target.width, target.height)

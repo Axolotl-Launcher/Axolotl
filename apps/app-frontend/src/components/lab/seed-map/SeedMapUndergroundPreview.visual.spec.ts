@@ -338,7 +338,10 @@ it('targets visible block coordinates after chunk translation and ignores hidden
             textureUvs: { 'minecraft:block/stone': [0, 0, 1, 1] },
         })
         scene.setRegions([{ id: 'terrain', min: [0, 0, 0], max: [5, 5, 5] }])
-        scene.setChunk('terrain', [0, 0, 0], mesh.layers.terrain, mesh.layers.water)
+        scene.setChunk('terrain', [0, 0, 0], {
+            opaque: mesh.layers.terrain,
+            fluid: mesh.layers.water,
+        })
         scene.setChunkOffset('terrain', [0, 0, 0], [10, 20, 30])
         scene.setCameraPosition([15, 25, 35])
         expect(scene.crosshairBlock()).toEqual([12, 22, 32])

@@ -4,7 +4,8 @@ import type { SchematicBlockState } from './backend'
 import { createBlockGeometry } from './block-geometry'
 import { isSchematicAir } from './editing'
 import type { SchematicFluidNeighborhood } from './fluid-mesh'
-import { getSchematicFluidMesh, isSchematicFluidBlock } from './fluid-mesh'
+import { getSchematicFluidMesh, isSchematicFluidBlock, schematicFluidKind } from './fluid-mesh'
+import { schematicFluidMeshLayer, type SchematicMaterialKind } from './materials'
 import {
     applySeamlessSchematicGlassUvs,
     getSchematicFluidCull,
@@ -60,6 +61,7 @@ export type SchematicMeshWorkerResponse =
           chunkPosition: [number, number, number]
           opaque: SchematicMeshData
           translucent: SchematicMeshData
+          fluid: SchematicMeshData
           missing: string[]
       }
     | { type: 'error'; epoch: number; jobId?: string; message: string }
@@ -287,8 +289,11 @@ function buildChunk(message: WorkerMeshMessage) {
         const face = message.neighborFaces?.[direction]
         if (face) neighborFaces[direction] = new Uint32Array(face)
     }
-    const opaque = emptyBuffers()
-    const translucent = emptyBuffers()
+    const buffers: Record<SchematicMaterialKind, MeshBuffers> = {
+        opaque: emptyBuffers(),
+        translucent: emptyBuffers(),
+        fluid: emptyBuffers(),
+    }
     const missing = new Set<string>()
     const chunkOrigin = message.chunkPosition.map((value) => value * 16) as [number, number, number]
     const shouldCull = (
@@ -356,10 +361,10 @@ function buildChunk(message: WorkerMeshMessage) {
                         'south',
                     ),
                 }
-                const target = isSchematicTranslucent(state.name) ? translucent : opaque
                 // A fluid block has no host geometry of its own, and its surface depends on the
                 // neighbouring cells, so it is meshed from the volume instead of the definition.
                 if (isSchematicFluidBlock(state)) {
+                    const kind = schematicFluidKind(state)
                     try {
                         const fluid = getSchematicFluidMesh({
                             state,
@@ -373,12 +378,18 @@ function buildChunk(message: WorkerMeshMessage) {
                             ),
                             neighborhood: fluidNeighborhood(x, y, z),
                         })
-                        if (fluid) appendBlockMesh(translucent, fluid, position)
+                        // Lava draws with the solid blocks, water in its own blended pass.
+                        if (fluid && kind) {
+                            appendBlockMesh(buffers[schematicFluidMeshLayer(kind)], fluid, position)
+                        }
                     } catch {
                         // A fluid carries no other geometry, so a failed fluid only loses the fluid.
                     }
                     continue
                 }
+                const target = isSchematicTranslucent(state.name)
+                    ? buffers.translucent
+                    : buffers.opaque
                 let meshed = false
                 try {
                     const mesh = createSchematicBlockMesh(state, cull)
@@ -412,7 +423,7 @@ function buildChunk(message: WorkerMeshMessage) {
                         getSchematicFluidCull([x, y, z], blocks, neighborFaces, palette, cull),
                         fluidNeighborhood(x, y, z),
                     )
-                    if (fluid) appendBlockMesh(translucent, fluid, position)
+                    if (fluid) appendBlockMesh(buffers.fluid, fluid, position)
                 } catch {
                     // The host mesh is already appended; dropping the fluid keeps it intact.
                 }
@@ -426,14 +437,16 @@ function buildChunk(message: WorkerMeshMessage) {
         jobId: message.jobId,
         regionId: message.regionId,
         chunkPosition: message.chunkPosition,
-        opaque: toMeshData(opaque),
-        translucent: toMeshData(translucent),
+        opaque: toMeshData(buffers.opaque),
+        translucent: toMeshData(buffers.translucent),
+        fluid: toMeshData(buffers.fluid),
         missing: [...missing],
     }
     if (response.type !== 'mesh') return
     workerScope.postMessage(response, [
         ...transferables(response.opaque),
         ...transferables(response.translucent),
+        ...transferables(response.fluid),
     ])
 }
 

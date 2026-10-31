@@ -758,16 +758,20 @@ function handleWorkerMessage(slot: WorkerSlot, message: SchematicMeshWorkerRespo
     if (message.type === 'mesh') {
         const chunk = chunkCache.get(schematicChunkKey(message.regionId, message.chunkPosition))
         const palette = manifest.value?.palette
-        scene?.setChunk(
-            message.regionId,
-            message.chunkPosition,
-            chunk && palette
-                ? filterSchematicAirGeometry(message.opaque, chunk, palette)
-                : message.opaque,
-            chunk && palette
-                ? filterSchematicAirGeometry(message.translucent, chunk, palette)
-                : message.translucent,
-        )
+        scene?.setChunk(message.regionId, message.chunkPosition, {
+            opaque:
+                chunk && palette
+                    ? filterSchematicAirGeometry(message.opaque, chunk, palette)
+                    : message.opaque,
+            translucent:
+                chunk && palette
+                    ? filterSchematicAirGeometry(message.translucent, chunk, palette)
+                    : message.translucent,
+            fluid:
+                chunk && palette
+                    ? filterSchematicAirGeometry(message.fluid, chunk, palette)
+                    : message.fluid,
+        })
         for (const name of message.missing) missingBlocks.add(name)
     } else {
         transientWarnings.value = [...transientWarnings.value, message.message]

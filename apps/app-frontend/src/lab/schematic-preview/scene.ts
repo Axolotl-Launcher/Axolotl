@@ -2,7 +2,15 @@ import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import { PointerLockControls } from 'three/examples/jsm/controls/PointerLockControls.js'
 
+import {
+    SCHEMATIC_MATERIAL_KINDS,
+    type SchematicMaterialKind,
+    schematicMaterialSettings,
+} from './materials'
 import type { SchematicMeshData } from './mesh-worker'
+
+/** The geometry of one chunk, keyed by the pass it is drawn in. */
+export type SchematicChunkMeshes = Partial<Record<SchematicMaterialKind, SchematicMeshData>>
 
 export type SchematicSceneRegion = {
     id: string
@@ -75,8 +83,11 @@ export class SchematicPreviewScene {
     private readonly onFocus: SceneOptions['onFocus']
     private activeCamera: THREE.Camera = this.perspectiveCamera
     private projection: Projection = 'perspective'
-    private opaqueMaterial = this.createMaterial(false)
-    private translucentMaterial = this.createMaterial(true)
+    private materials: Record<SchematicMaterialKind, THREE.MeshLambertMaterial> = {
+        opaque: this.createMaterial('opaque'),
+        translucent: this.createMaterial('translucent'),
+        fluid: this.createMaterial('fluid'),
+    }
     private grid?: THREE.Group
     private selection = new THREE.Group()
     private selectionBounds?: SchematicSelectionBounds
@@ -129,8 +140,8 @@ export class SchematicPreviewScene {
         this.onContextLost = options.onContextLost
         this.onContextRestored = options.onContextRestored
         if (options.doubleSided) {
-            this.opaqueMaterial.side = THREE.DoubleSide
-            this.translucentMaterial.side = THREE.DoubleSide
+            for (const kind of SCHEMATIC_MATERIAL_KINDS)
+                this.materials[kind].side = THREE.DoubleSide
         }
         this.renderer = new THREE.WebGLRenderer({
             canvas: options.canvas,
@@ -227,22 +238,22 @@ export class SchematicPreviewScene {
     }
 
     setTexture(texture?: THREE.CanvasTexture) {
-        const oldOpaque = this.opaqueMaterial
-        const oldTranslucent = this.translucentMaterial
-        this.opaqueMaterial = this.createMaterial(false, texture)
-        this.translucentMaterial = this.createMaterial(true, texture)
-        this.opaqueMaterial.side = oldOpaque.side
-        this.translucentMaterial.side = oldTranslucent.side
+        const previous = this.materials
+        const materials = {} as Record<SchematicMaterialKind, THREE.MeshLambertMaterial>
+        for (const kind of SCHEMATIC_MATERIAL_KINDS) {
+            const material = this.createMaterial(kind, texture)
+            material.side = previous[kind].side
+            materials[kind] = material
+        }
+        this.materials = materials
         for (const chunk of this.chunks.values()) {
             for (const child of chunk.children) {
                 if (!(child instanceof THREE.Mesh)) continue
-                child.material = child.userData.translucent
-                    ? this.translucentMaterial
-                    : this.opaqueMaterial
+                child.material =
+                    this.materials[child.userData.materialKind as SchematicMaterialKind]
             }
         }
-        oldOpaque.dispose()
-        oldTranslucent.dispose()
+        for (const kind of SCHEMATIC_MATERIAL_KINDS) previous[kind].dispose()
         this.applyClippingPlanes()
         this.requestRender()
     }
@@ -260,8 +271,7 @@ export class SchematicPreviewScene {
     setChunk(
         regionId: string,
         chunkPosition: [number, number, number],
-        opaque: SchematicMeshData,
-        translucent: SchematicMeshData,
+        meshes: SchematicChunkMeshes,
     ) {
         const key = `${regionId}:${chunkPosition.join(':')}`
         const previous = this.chunks.get(key)
@@ -271,12 +281,11 @@ export class SchematicPreviewScene {
         }
         const group = new THREE.Group()
         group.userData.chunkPosition = chunkPosition
-        const opaqueMesh = this.createMesh(opaque, false, regionId)
-        if (opaqueMesh) group.add(opaqueMesh)
-        const translucentMesh = this.createMesh(translucent, true, regionId)
-        if (translucentMesh) {
-            translucentMesh.visible = this.translucentVisible
-            group.add(translucentMesh)
+        for (const kind of SCHEMATIC_MATERIAL_KINDS) {
+            const mesh = this.createMesh(meshes[kind], kind, regionId)
+            if (!mesh) continue
+            if (kind !== 'opaque') mesh.visible = this.translucentVisible
+            group.add(mesh)
         }
         this.regions.get(regionId)?.add(group)
         this.chunks.set(key, group)
@@ -365,7 +374,7 @@ export class SchematicPreviewScene {
         this.translucentVisible = visible
         for (const chunk of this.chunks.values()) {
             for (const child of chunk.children) {
-                if (child.userData.translucent) child.visible = visible
+                if (child.userData.materialKind !== 'opaque') child.visible = visible
             }
         }
         this.requestRender()
@@ -720,14 +729,13 @@ export class SchematicPreviewScene {
         this.regionBounds.clear()
         for (const helper of this.measurement.children) this.disposeHelper(helper)
         this.measurement.clear()
-        this.opaqueMaterial.dispose()
-        this.translucentMaterial.dispose()
+        for (const kind of SCHEMATIC_MATERIAL_KINDS) this.materials[kind].dispose()
         this.scene.clear()
         this.renderer.dispose()
         if (this.releaseContextOnDispose) this.renderer.forceContextLoss()
     }
 
-    private createMaterial(translucent: boolean, texture?: THREE.CanvasTexture) {
+    private createMaterial(kind: SchematicMaterialKind, texture?: THREE.CanvasTexture) {
         if (texture) {
             texture.flipY = false
             texture.magFilter = THREE.NearestFilter
@@ -738,10 +746,7 @@ export class SchematicPreviewScene {
         return new THREE.MeshLambertMaterial({
             map: texture,
             vertexColors: true,
-            alphaTest: translucent ? 0 : 0.08,
-            transparent: translucent,
-            opacity: translucent ? 0.68 : 1,
-            depthWrite: !translucent,
+            ...schematicMaterialSettings(kind),
         })
     }
 
@@ -752,8 +757,12 @@ export class SchematicPreviewScene {
         return new THREE.Color(value || '#86d562')
     }
 
-    private createMesh(data: SchematicMeshData, translucent: boolean, regionId: string) {
-        if (data.positions.length === 0) return undefined
+    private createMesh(
+        data: SchematicMeshData | undefined,
+        kind: SchematicMaterialKind,
+        regionId: string,
+    ) {
+        if (!data || data.positions.length === 0) return undefined
         const geometry = new THREE.BufferGeometry()
         geometry.setAttribute('position', new THREE.BufferAttribute(data.positions, 3))
         geometry.setAttribute('normal', new THREE.BufferAttribute(data.normals, 3))
@@ -762,12 +771,9 @@ export class SchematicPreviewScene {
         geometry.setAttribute('blockPosition', new THREE.BufferAttribute(data.blockPositions, 3))
         geometry.computeBoundingBox()
         geometry.computeBoundingSphere()
-        const mesh = new THREE.Mesh(
-            geometry,
-            translucent ? this.translucentMaterial : this.opaqueMaterial,
-        )
+        const mesh = new THREE.Mesh(geometry, this.materials[kind])
         mesh.userData.regionId = regionId
-        mesh.userData.translucent = translucent
+        mesh.userData.materialKind = kind
         mesh.userData.basePositions = data.positions.slice()
         this.applyExplosion(mesh)
         return mesh
@@ -820,10 +826,11 @@ export class SchematicPreviewScene {
                   new THREE.Plane(new THREE.Vector3(0, -1, 0), this.layerRange[1] + 1),
               ]
             : []
-        this.opaqueMaterial.clippingPlanes = clippingPlanes
-        this.translucentMaterial.clippingPlanes = clippingPlanes
-        this.opaqueMaterial.needsUpdate = true
-        this.translucentMaterial.needsUpdate = true
+        for (const kind of SCHEMATIC_MATERIAL_KINDS) {
+            const material = this.materials[kind]
+            material.clippingPlanes = clippingPlanes
+            material.needsUpdate = true
+        }
     }
 
     private rebuildGrid() {

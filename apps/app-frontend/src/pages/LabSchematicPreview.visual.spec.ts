@@ -192,6 +192,7 @@ class MeshWorker {
                               type: 'mesh',
                               opaque: empty,
                               translucent: empty,
+                              fluid: empty,
                               missing: [],
                           },
             }),

@@ -1,5 +1,7 @@
 //! Theseus settings management interface
 
+use std::collections::BTreeSet;
+
 use crate::state::store::{Handle, atom};
 pub use crate::{
     State,
@@ -58,6 +60,13 @@ pub(crate) async fn patch_with(
     patch: serde_json::Value,
 ) -> crate::Result<Settings> {
     let mut unit = atom(handle).await?;
+    // The keys the patch names are the change it carries, and the only ones its
+    // commit states a settings document from: a domain beside them keeps what
+    // the user left there, which restating the row would undo.
+    let changed: BTreeSet<String> = patch
+        .as_object()
+        .map(|changes| changes.keys().cloned().collect())
+        .unwrap_or_default();
     let current = Settings::load_in(&mut unit).await?;
     let mut value = serde_json::to_value(&current)?;
     merge_settings(&mut value, patch)?;
@@ -77,8 +86,12 @@ pub(crate) async fn patch_with(
     crate::util::download_dns::DownloadDnsResolver::with_doh(
         settings.doh_enabled,
     )?;
+    unit.settings_changed(changed);
     settings.save_in(&mut unit).await?;
     let saved = Settings::load_in(&mut unit).await?;
+    // The domains whose writes have moved to their documents are stated by this
+    // commit, once the row has landed, and only the ones carrying a key the
+    // patch named.
     unit.commit().await?;
     Ok(saved)
 }
@@ -88,6 +101,10 @@ pub async fn patch(patch: serde_json::Value) -> crate::Result<Settings> {
     let _guard = SETTINGS_WRITE.lock().await;
     let state = State::get().await?;
     let settings = patch_with(&state.data, patch).await?;
+    // A persisted opt-out must take effect even if rebuilding HTTP fails.
+    crate::util::download::telemetry::set_enabled(
+        settings.advanced_download_info_enabled(),
+    );
     state.update_http_client_for_settings(&settings).await?;
     state.update_download_settings(&settings);
     Ok(settings)

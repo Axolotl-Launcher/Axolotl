@@ -863,6 +863,19 @@ export const settingsSearchEntries: SettingsSearchEntry[] = [
         categoryId: 'feature-flags',
         label: message('settings.feature-flags.title', 'Feature flags'),
     },
+    {
+        id: 'advanced-download-info',
+        categoryId: 'feature-flags',
+        targetId: 'settings-target-advanced-download-info',
+        label: message(
+            'app.settings.feature-flags.advanced-download-info',
+            'Advanced download information',
+        ),
+        description: message(
+            'app.settings.feature-flags.advanced-download-info-description',
+            'Show file timings, request speeds and remote addresses in download details. Observations are collected while enabled and included when exporting network connections.',
+        ),
+    },
 ]
 
 export function validateSettingsSearchEntries(entries = settingsSearchEntries): string[] {

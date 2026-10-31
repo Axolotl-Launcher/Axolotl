@@ -96,3 +96,53 @@ it('keeps the minimal home synchronous and makes a failed background process ref
         queryClient.clear()
     }
 })
+
+it('shows the selected game directory only when the full collection spans multiple directories', async () => {
+    backend.processes.mockResolvedValue([])
+    backend.listen.mockResolvedValue(vi.fn())
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    const selected = {
+        id: 'managed',
+        name: 'Managed',
+        install_stage: 'installed',
+        loader: 'vanilla',
+        game_version: '1.21',
+    } as GameInstance
+    const external = {
+        id: 'external',
+        name: 'External',
+        install_stage: 'installed',
+        loader: 'fabric',
+        game_version: '1.20.1',
+        game_dir_override: String.raw`D:\Minecraft\.minecraft`,
+    } as GameInstance
+
+    const mountHome = (instances: GameInstance[]) =>
+        mount(HomeMinimal, {
+            props: { instances, selectedInstanceId: selected.id },
+            global: {
+                plugins: [[VueQueryPlugin, { queryClient }]],
+                directives: { tooltip: () => {} },
+                stubs: {
+                    RouterLink: defineComponent({
+                        setup:
+                            (_, { slots }) =>
+                            () =>
+                                h('a', slots.default?.()),
+                    }),
+                },
+            },
+        })
+
+    const multiDirectory = mountHome([selected, external])
+    const singleDirectory = mountHome([selected])
+    try {
+        await flushPromises()
+        expect(multiDirectory.findAll('[data-game-directory-badge]')).toHaveLength(1)
+        expect(singleDirectory.find('[data-game-directory-badge]').exists()).toBe(false)
+    } finally {
+        multiDirectory.unmount()
+        singleDirectory.unmount()
+        queryClient.clear()
+    }
+})

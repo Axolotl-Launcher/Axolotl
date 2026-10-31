@@ -195,7 +195,14 @@ impl Settings {
             .await?
             .ok_or_else(missing_row)?;
         change(&mut record);
-        <Self as Collection>::atom_set(unit, &Singleton, Some(&record)).await
+        <Self as Collection>::atom_set(unit, &Singleton, Some(&record)).await?;
+        // The row a settings read composes with the documents has changed, and
+        // `update`/`save_in` are not the only writer of it. Registered rather
+        // than said here, so the invalidation lands when the caller's unit
+        // commits: a read before that still composes the row this write has not
+        // replaced, and must not be the answer a later read keeps.
+        unit.invalidate_settings_after_commit();
+        Ok(())
     }
 
     /// Reads the columns the proxy and the CurseForge key live in.

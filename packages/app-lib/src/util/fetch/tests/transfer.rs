@@ -19,7 +19,76 @@ use std::time::Instant;
 use tokio::sync::Semaphore;
 
 #[tokio::test]
-async fn failed_checkpoint_ranges_restart_full_download_but_io_and_cancel_keep_checkpoints()
+async fn launcher_update_policy_downloads_sha256_ranges_and_handles_ignored_ranges()
+ {
+    use sha2::{Digest, Sha256};
+
+    let _guard = fixtures::RANGE_SPLITTING_TEST_LOCK.lock().await;
+    let size = 6 * 1024 * 1024;
+    let data = Arc::new(
+        (0..size)
+            .map(|index| (index % 251) as u8)
+            .collect::<Vec<_>>(),
+    );
+    let hash = format!("{:x}", Sha256::digest(&data[..]));
+    for ignore_range in [false, true] {
+        let (url, requests, normal_requests, server) = spawn_range_server(
+            data.clone(),
+            RangeServerBehavior {
+                ignore_range,
+                slow_body: !ignore_range,
+                ..Default::default()
+            },
+        )
+        .await;
+        let request = DownloadRequest::new(url, ResourceClass::Other)
+            .with_integrity(Integrity {
+                size: Some(size as u64),
+                sha256: Some(hash.clone()),
+                ..Integrity::default()
+            })
+            .with_large_file_download_policy();
+        let directory = tempfile::tempdir().unwrap();
+        let destination = directory.path().join("update");
+        let samples = Arc::new(parking_lot::Mutex::new(Vec::new()));
+        let recorded = samples.clone();
+        let mut progress: Box<FetchProgressFn<'_>> =
+            Box::new(move |bytes, total| {
+                recorded.lock().push((bytes, total));
+                Box::pin(async { Ok(()) })
+            });
+        let result = tokio::time::timeout(
+            Duration::from_secs(30),
+            super::super::transfer::download_to_path_inner(
+                request,
+                &destination,
+                &FetchSemaphore(Semaphore::new(8)),
+                Some(&mut progress),
+            ),
+        )
+        .await
+        .expect("update download should complete with or without Range support")
+        .unwrap();
+        assert_eq!(result.size, size as u64);
+        assert_eq!(tokio::fs::read(destination).await.unwrap(), *data);
+        if ignore_range {
+            assert!(normal_requests.load(Ordering::Relaxed) >= 1);
+        } else {
+            assert!(requests.load(Ordering::Relaxed) >= 2);
+            assert_eq!(normal_requests.load(Ordering::Relaxed), 0);
+        }
+        let samples = samples.lock();
+        assert!(samples.iter().any(|(bytes, _)| *bytes > 0));
+        assert!(samples.iter().all(|(bytes, total)| {
+            *bytes <= size as u64 && *total == size as u64
+        }));
+        drop(samples);
+        server.abort();
+    }
+}
+
+#[tokio::test]
+async fn failed_checkpoint_ranges_preserve_valid_data_unless_ranges_are_unsupported()
  {
     use super::super::super::download::h2_download::{
         H2DownloadFailure, H2DownloadOutcome,
@@ -54,7 +123,7 @@ async fn failed_checkpoint_ranges_restart_full_download_but_io_and_cancel_keep_c
             },
         )
         .await;
-        if failure == H2DownloadFailure::Io {
+        if failure != H2DownloadFailure::RangeUnsupported {
             assert!(result.is_err());
             assert!(part.exists() && journal.exists());
         } else {
@@ -81,6 +150,102 @@ async fn failed_checkpoint_ranges_restart_full_download_but_io_and_cancel_keep_c
         .is_err()
     );
     assert!(part.exists() && journal.exists());
+}
+
+#[tokio::test]
+async fn checkpoint_entrypoint_restores_sparse_bytes_with_independent_ranges_and_progress()
+ {
+    use crate::util::download::range_journal::RangeJournal;
+    use sha2::{Digest, Sha256};
+    use tokio::io::{AsyncSeekExt, AsyncWriteExt};
+
+    let _guard = fixtures::RANGE_SPLITTING_TEST_LOCK.lock().await;
+    let size = 20 * 1024 * 1024;
+    let data = Arc::new(
+        (0..size)
+            .map(|index| (index % 251) as u8)
+            .collect::<Vec<_>>(),
+    );
+    let hash = sha1_smol::Sha1::from(&data[..]).hexdigest();
+    let (url, requests, normal_requests, server) = spawn_range_server(
+        data.clone(),
+        RangeServerBehavior {
+            slow_body: true,
+            ..Default::default()
+        },
+    )
+    .await;
+    let request = DownloadRequest::new(&url, ResourceClass::Modrinth)
+        .with_integrity(Integrity::sha1(hash).with_size(size as u64))
+        .with_range_connection_floor(32);
+    let directory = tempfile::tempdir().unwrap();
+    let destination = directory.path().join("checkpoint.mrpack");
+    let part = suffixed_path(&destination, ".part");
+    for concurrency in [64, 1] {
+        if destination.exists() {
+            tokio::fs::remove_file(&destination).await.unwrap();
+        }
+        let before = requests.load(Ordering::Relaxed);
+        let journal =
+            RangeJournal::new(&part, &request.integrity, size as u64, 8);
+        let mut output = tokio::fs::File::create(&part).await.unwrap();
+        output.set_len(size as u64).await.unwrap();
+        let prefix = 64 * 1024;
+        for (index, range) in journal.ranges().await.into_iter().enumerate() {
+            let start = range.start as usize;
+            output
+                .seek(std::io::SeekFrom::Start(range.start))
+                .await
+                .unwrap();
+            output
+                .write_all(&data[start..start + prefix])
+                .await
+                .unwrap();
+            journal
+                .checkpoint(
+                    index,
+                    prefix as u64,
+                    &Sha256::new_with_prefix(&data[start..start + prefix]),
+                )
+                .await
+                .unwrap();
+        }
+        output.flush().await.unwrap();
+        drop(output);
+        let samples = Arc::new(parking_lot::Mutex::new(Vec::new()));
+        let recorded = samples.clone();
+        let mut progress: Box<FetchProgressFn<'_>> =
+            Box::new(move |bytes, total| {
+                recorded.lock().push((bytes, total));
+                Box::pin(async { Ok(()) })
+            });
+        let result = tokio::time::timeout(Duration::from_secs(60), super::super::transfer::download_to_path_inner(
+            request.clone(),
+            &destination,
+            &FetchSemaphore(Semaphore::new(concurrency)),
+            Some(&mut progress),
+        ))
+        .await
+        .expect("checkpoint recovery must keep polling sibling writers and queued ranges")
+        .unwrap();
+        assert_eq!(result.size, size as u64);
+        assert_eq!(tokio::fs::read(&destination).await.unwrap(), *data);
+        assert_eq!(normal_requests.load(Ordering::Relaxed), 0);
+        assert!(
+            requests.load(Ordering::Relaxed) - before
+                >= if concurrency == 64 { 32 } else { 8 },
+            "eight legacy ranges must be split into independent requests at entry"
+        );
+        let samples = samples.lock();
+        assert_eq!(
+            samples.first().copied(),
+            Some(((8 * prefix) as u64, size as u64))
+        );
+        assert_eq!(samples.last().copied(), Some((size as u64, size as u64)));
+        assert!(samples.windows(2).all(|pair| pair[0].0 <= pair[1].0));
+        assert!(!crate::util::download::range_journal::path(&part).exists());
+    }
+    server.abort();
 }
 use std::sync::atomic::Ordering;
 use std::time::Duration;

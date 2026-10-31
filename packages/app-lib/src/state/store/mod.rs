@@ -191,18 +191,11 @@ impl Atom {
             // here costs the domains and is reported in the log: the row is
             // already committed, so the change has landed and the caller must
             // not be told otherwise.
-            if let Err(error) =
-                crate::state::documents::settings::store_cut_over(
-                    &handle,
-                    changed_settings.as_ref(),
-                )
-                .await
-            {
-                tracing::warn!(
-                    %error,
-                    "Failed to state the settings documents of the domains that have moved"
-                );
-            }
+            crate::state::documents::settings::store_cut_over(
+                &handle,
+                changed_settings.as_ref(),
+            )
+            .await;
         }
         Ok(())
     }

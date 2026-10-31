@@ -271,11 +271,10 @@ async fn write_row(
     record: &MinecraftDeviceTokenRecord,
 ) -> crate::Result<()> {
     // The store is written first, so the row only says the token was moved once
-    // the token is there. What the store held before comes back if the row below
-    // cannot be written.
+    // the token is there. A row left as it was beside a newer token still reads:
+    // it says the token is somewhere, not which one.
     let mut undo = Undo::default();
     let position = token_key();
-    undo.watch(&position).await;
     let stored =
         secrets::keep(position.clone(), &serde_json::to_string(record)?).await;
     if !stored {

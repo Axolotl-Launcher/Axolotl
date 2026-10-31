@@ -300,9 +300,8 @@ async fn write_row(
     }
 
     // The store is written first, so a row only says a token was moved once the
-    // token is there. What the store held before comes back if the row below
-    // cannot be written, which would otherwise leave the two disagreeing about
-    // which secret is the account's.
+    // token is there. A row left as it was beside newer tokens still reads: it
+    // says the tokens are somewhere, not which ones.
     let mut undo = Undo::default();
     let marks = keep_tokens(
         account_id,
@@ -448,7 +447,6 @@ async fn keep_tokens(
             continue;
         }
 
-        undo.watch(&key).await;
         if !secrets::keep(key, token).await {
             for (_, column) in TOKENS {
                 undo.drop(&token_key(account_id, column), false).await?;

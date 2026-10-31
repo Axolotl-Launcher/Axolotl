@@ -352,10 +352,12 @@ async fn a_store_that_does_not_answer_fails_the_read() {
     );
 }
 
-/// A write the row refuses leaves the store as it was: the row and the store
-/// otherwise disagree about which secret is the account's.
+/// A write the row refuses leaves the newer token in the store: the row states
+/// that the tokens are in the store rather than which ones, so a row that did not
+/// change still reads, while a restored older token may be one the sign-in that
+/// replaced it already spent.
 #[tokio::test]
-async fn a_row_that_cannot_be_written_puts_the_tokens_back() {
+async fn a_row_that_cannot_be_written_keeps_the_newer_token() {
     let host = secrets::testing::with_store();
     let store = host.store().unwrap();
     let pool = support::pool().await;
@@ -376,7 +378,7 @@ async fn a_row_that_cannot_be_written_puts_the_tokens_back() {
         Some("access")
     );
 
-    // The row cannot be written any more, so nothing can hold the new tokens.
+    // The row cannot be written any more, so nothing can record the new tokens.
     sqlx::query("ALTER TABLE minecraft_users RENAME TO minecraft_users_stuck")
         .execute(&pool)
         .await
@@ -394,17 +396,16 @@ async fn a_row_that_cannot_be_written_puts_the_tokens_back() {
         store
             .value(&account_tokens_key(&account_id, "access_token"))
             .as_deref(),
-        Some("access"),
-        "the token the row still names is the one the store holds"
+        Some("renewed"),
+        "the token the store took is the newer one"
     );
     assert_eq!(
         store
             .value(&account_tokens_key(&account_id, "refresh_token"))
             .as_deref(),
-        Some("refresh")
+        Some("renewed-refresh")
     );
 }
-
 /// Deleting an account the store will not let go of leaves the row in place: the
 /// secret would otherwise stay behind with nothing left to name it.
 #[tokio::test]

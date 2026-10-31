@@ -1183,7 +1183,13 @@ async fn finish_canceling_job(
 ) -> crate::Result<()> {
     let _metadata_usage = crate::storage::usage::lease().await?;
     let initial = store::get_required(job_id, state).await?;
-    let _execution = admission::execution_lock(state, &initial).await;
+    let Some(_execution) = admission::execution_lock(state, &initial).await
+    else {
+        return Err(crate::ErrorKind::OtherError(
+            "Timed out waiting for the install execution lock".into(),
+        )
+        .into());
+    };
     let mut job = store::get_required(job_id, state).await?;
     if job.status != InstallJobStatus::Canceling {
         return Ok(());

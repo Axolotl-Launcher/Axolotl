@@ -30,7 +30,9 @@ pub(super) fn spawn_job(job_id: Uuid) {
         let result =
             worker_result(EXECUTING_JOB.scope(job_id, run_job(job_id))).await;
         if let Err(error) = result {
-            tracing::error!(%job_id, %error, "Install worker recovery could not finish; persisted recovery information is retained");
+            // A recovery failure was already reported with its own message;
+            // this is the work (or panic) error that followed it.
+            tracing::warn!(%job_id, %error, "Install worker ended with an error");
         }
     });
 }
@@ -60,7 +62,7 @@ pub(super) async fn supervise_install_worker(
     let result = worker_result(work).await;
     if let Err(error) = &result {
         let cancel_requested = cancellation.is_cancelled();
-        retry_recovery(job_id, || {
+        if let Err(recovery_error) = retry_recovery(job_id, || {
             recover_owned_job(
                 job_id,
                 state,
@@ -69,7 +71,13 @@ pub(super) async fn supervise_install_worker(
                 cancel_requested,
             )
         })
-        .await?;
+        .await
+        {
+            // Only a recovery failure deserves the "recovery could not
+            // finish" report; the work error below is not one.
+            tracing::error!(%job_id, %recovery_error, "Install worker recovery could not finish; persisted recovery information is retained");
+            return Err(recovery_error);
+        }
     }
     result
 }
@@ -84,7 +92,13 @@ pub(super) async fn recover_stopped_job(
     let initial = store::get_required(job_id, state).await?;
     // Absence of a token can be a registration race. Ownership, followed by a
     // fresh status read, proves that no worker can still publish these files.
-    let _execution = admission::execution_lock(state, &initial).await;
+    let Some(_execution) = admission::execution_lock(state, &initial).await
+    else {
+        return Err(crate::ErrorKind::OtherError(
+            "Timed out waiting for the install execution lock".into(),
+        )
+        .into());
+    };
     recover_owned_job(job_id, state, reporter, error, false).await
 }
 
@@ -358,10 +372,14 @@ async fn run_job(job_id: Uuid) -> crate::Result<()> {
             Ok(None) => return Ok(()),
             Err(error) => {
                 drop(_metadata_usage);
-                retry_recovery(job_id, || {
+                if let Err(recovery_error) = retry_recovery(job_id, || {
                     recover_stopped_job(job_id, &state, None, &error)
                 })
-                .await?;
+                .await
+                {
+                    tracing::error!(%job_id, %recovery_error, "Install worker recovery could not finish; persisted recovery information is retained");
+                    return Err(recovery_error);
+                }
                 return Err(error);
             }
         };
@@ -465,13 +483,31 @@ async fn run_owned_job(
                 &error,
                 None,
             ));
-            let record = store::update_status(
-                job_id,
-                InstallJobStatus::Interrupted,
-                &job_state,
-                state,
-            )
-            .await?;
+            // A concurrent cancel owns the terminal state: writing Interrupted
+            // over a row the cancel path already moved to Canceling would make
+            // `finish_canceling_job` return without its rollback.
+            let record = if cancellation.is_cancelled() {
+                match store::update_status_if(
+                    job_id,
+                    InstallJobStatus::Running,
+                    InstallJobStatus::Interrupted,
+                    &job_state,
+                    state,
+                )
+                .await?
+                {
+                    Some(record) => record,
+                    None => return Ok(()),
+                }
+            } else {
+                store::update_status(
+                    job_id,
+                    InstallJobStatus::Interrupted,
+                    &job_state,
+                    state,
+                )
+                .await?
+            };
             emit_install_job(&record.snapshot()).await?;
             return Ok(());
         }

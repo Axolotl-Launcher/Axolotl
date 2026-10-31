@@ -2,6 +2,7 @@ import fs from 'node:fs/promises'
 
 const SUMMARY_REF = 'd96c75fec200c4580dd75e033a76341521165461'
 const ATLAS_REF = '41de69bb755237ac62cfc4a076fe17aafd41fb07'
+const ASSET_REF = '79962f2b091fb6213b425b277a8725d737f3def8'
 const EXPECTED_VERSION = '26.3'
 const OUTPUT_ROOT = new URL(
     '../../apps/app-frontend/src/lab/schematic-preview/assets/vanilla/',
@@ -14,6 +15,12 @@ function summaryUrl(path) {
 
 function atlasUrl(path) {
     return `https://raw.githubusercontent.com/misode/mcmeta/${ATLAS_REF}/${path}`
+}
+
+// Particles are not packed into the atlas, so the few sprites the preview draws come from the full
+// asset tree of the same version.
+function assetUrl(path) {
+    return `https://raw.githubusercontent.com/misode/mcmeta/${ASSET_REF}/${path}`
 }
 
 async function download(url) {
@@ -63,6 +70,8 @@ const sources = {
     atlasLayout: atlasUrl('all/data.min.json'),
     atlasImage: atlasUrl('all/atlas.png'),
     atlasVersion: atlasUrl('version.json'),
+    bubbleParticle: assetUrl('assets/minecraft/textures/particle/bubble.png'),
+    assetVersion: assetUrl('version.json'),
 }
 
 const entries = await Promise.all(
@@ -77,9 +86,17 @@ const atlasVersion = requireObject(
     parseJson(downloaded.atlasVersion, sources.atlasVersion),
     'atlas version',
 )
-if (summaryVersion.id !== EXPECTED_VERSION || atlasVersion.id !== EXPECTED_VERSION) {
+const assetVersion = requireObject(
+    parseJson(downloaded.assetVersion, sources.assetVersion),
+    'asset version',
+)
+if (
+    summaryVersion.id !== EXPECTED_VERSION ||
+    atlasVersion.id !== EXPECTED_VERSION ||
+    assetVersion.id !== EXPECTED_VERSION
+) {
     throw new Error(
-        `Expected ${EXPECTED_VERSION}, received summary ${summaryVersion.id} and atlas ${atlasVersion.id}`,
+        `Expected ${EXPECTED_VERSION}, received summary ${summaryVersion.id}, atlas ${atlasVersion.id} and assets ${assetVersion.id}`,
     )
 }
 
@@ -108,6 +125,9 @@ const defaultProperties = Object.fromEntries(
 )
 
 const [atlasWidth, atlasHeight] = pngDimensions(downloaded.atlasImage)
+// The bubble column draws this sprite as plain geometry, so a moved or renamed file would only
+// show up as a blank texture at runtime.
+const [bubbleWidth, bubbleHeight] = pngDimensions(downloaded.bubbleParticle)
 for (const [textureId, region] of Object.entries(atlasLayout)) {
     if (
         !Array.isArray(region) ||
@@ -116,12 +136,17 @@ for (const [textureId, region] of Object.entries(atlasLayout)) {
         region[0] + region[2] > atlasWidth ||
         region[1] + region[3] > atlasHeight
     ) {
-        throw new Error(`Atlas region ${textureId} is outside the ${atlasWidth}x${atlasHeight} image`)
+        throw new Error(
+            `Atlas region ${textureId} is outside the ${atlasWidth}x${atlasHeight} image`,
+        )
     }
 }
 
 await Promise.all([
-    fs.writeFile(new URL('block-state-index.json', OUTPUT_ROOT), JSON.stringify(definitions, null, 4)),
+    fs.writeFile(
+        new URL('block-state-index.json', OUTPUT_ROOT),
+        JSON.stringify(definitions, null, 4),
+    ),
     fs.writeFile(new URL('block-model-index.json', OUTPUT_ROOT), JSON.stringify(models, null, 4)),
     fs.writeFile(
         new URL('block-property-defaults.json', OUTPUT_ROOT),
@@ -129,8 +154,9 @@ await Promise.all([
     ),
     fs.writeFile(new URL('texture-layout.json', OUTPUT_ROOT), JSON.stringify(atlasLayout, null, 4)),
     fs.writeFile(new URL('texture-atlas.png', OUTPUT_ROOT), downloaded.atlasImage),
+    fs.writeFile(new URL('particle-bubble.png', OUTPUT_ROOT), downloaded.bubbleParticle),
 ])
 
 console.log(
-    `Updated schematic resources to ${EXPECTED_VERSION}: ${Object.keys(definitions).length} block definitions, ${Object.keys(models).length} models, and ${Object.keys(atlasLayout).length} atlas regions (${atlasWidth}x${atlasHeight}).`,
+    `Updated schematic resources to ${EXPECTED_VERSION}: ${Object.keys(definitions).length} block definitions, ${Object.keys(models).length} models, ${Object.keys(atlasLayout).length} atlas regions (${atlasWidth}x${atlasHeight}) and a ${bubbleWidth}x${bubbleHeight} bubble sprite.`,
 )

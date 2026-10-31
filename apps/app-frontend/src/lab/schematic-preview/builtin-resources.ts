@@ -151,4 +151,5 @@ export {
     builtinTextureRegion,
     builtinTextureUvs,
     loadBuiltinAtlas,
+    loadBuiltinBubbleParticle,
 } from './builtin-textures'

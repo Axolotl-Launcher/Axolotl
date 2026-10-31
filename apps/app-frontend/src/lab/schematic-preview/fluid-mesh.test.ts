@@ -212,6 +212,33 @@ it('lava flows with the same slope and its own sprites', () => {
     for (const vertex of vertices) expect(vertex.color).toEqual([1, 1, 1])
 })
 
+it('a bubble column is water, at the source height and with the water sprite', () => {
+    // The game gives the block no model of its own: its fluid state is still water, which is why a
+    // column looks like water and joins the water around it.
+    const column: SchematicBlockState = {
+        name: 'minecraft:bubble_column',
+        properties: { drag: 'false' },
+    }
+    expect(schematicFluidHeight(column), 'a column is always a source').toBe(8 / 9)
+
+    const requested: string[] = []
+    const mesh = getSchematicFluidMesh({
+        state: column,
+        atlas: {
+            getTextureAtlas: () => ({}) as ImageData,
+            getTextureUV: (id) => {
+                requested.push(id.toString())
+                return id.toString().endsWith('still') ? STILL : FLOW
+            },
+        },
+        cull: { north: true, south: true, east: true, west: true, down: true },
+    })
+    expect(topFace(mesh)?.vertices()[0].pos.y).toBeCloseTo(8 / 9 - 0.001, 6)
+    expect(spriteOf(topFace(mesh)), 'a column uses the still water sprite').toBe('still')
+    expect(requested).toContain('minecraft:block/water_still')
+    expect(requested).not.toContain('minecraft:block/lava_still')
+})
+
 it('water and lava stay separate surfaces', () => {
     // Vanilla compares the two fluid states, so a cell of the other fluid is no more part of this
     // surface than a stone is: water above lava neither fills the lava cell nor slopes it.

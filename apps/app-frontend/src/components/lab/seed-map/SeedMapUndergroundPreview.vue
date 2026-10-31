@@ -432,7 +432,7 @@ async function initializeScene() {
                   }
                 : {}),
         })
-        scene.setTexture(texture)
+        scene.setTextures({ atlas: texture })
         scene.setGridVisible(false)
         scene.setBoundsVisible(false)
         scene.setRegions(

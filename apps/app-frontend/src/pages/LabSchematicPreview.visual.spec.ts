@@ -158,6 +158,7 @@ function deferred<T>() {
 function resources() {
     return {
         texture: { dispose: vi.fn() },
+        bubbleTexture: { dispose: vi.fn() },
         workerResources: { blockDefinitions: {}, blockModels: {}, textureUvs: {} },
         blockNames: { en_us: {}, zh_cn: {} },
         availableBlockStates: [],
@@ -192,6 +193,7 @@ class MeshWorker {
                               type: 'mesh',
                               opaque: empty,
                               translucent: empty,
+                              bubble: empty,
                               water: empty,
                               lava: empty,
                               missing: [],
@@ -209,7 +211,7 @@ beforeEach(() => {
         [
             'setRegions',
             'fitView',
-            'setTexture',
+            'setTextures',
             'clearChunks',
             'setChunk',
             'setSelectionBlocks',
@@ -387,13 +389,16 @@ it('changing glass rendering while B loads resources preserves B resource owners
     const pending = deferred<ReturnType<typeof resources>>()
     fixture.resources.mockReturnValueOnce(pending.promise)
     await openFile('B')
-    fixture.scene.setTexture.mockClear()
+    fixture.scene.setTextures.mockClear()
     await wrapper.get('[data-menu-id="seamless-glass"]').trigger('click')
     const loaded = resources()
     pending.resolve(loaded)
     await flushPromises()
     expect(loaded.texture.dispose).not.toHaveBeenCalled()
-    expect(fixture.scene.setTexture).toHaveBeenLastCalledWith(loaded.texture)
+    expect(fixture.scene.setTextures).toHaveBeenLastCalledWith({
+        atlas: loaded.texture,
+        bubble: loaded.bubbleTexture,
+    })
     expect(wrapper.find('[role="progressbar"]').exists()).toBe(false)
     expect(button('Rotate clockwise').attributes('disabled')).toBeUndefined()
 })

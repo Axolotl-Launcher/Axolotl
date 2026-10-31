@@ -4,11 +4,12 @@ import type { SchematicFluidKind } from './fluid-mesh'
  * The passes a chunk is drawn in. Every fluid gets one of its own, so its opacity never has to be
  * shared, and the list doubles as the order the scene builds its materials and walks its meshes.
  */
-export type SchematicMaterialKind = 'opaque' | 'translucent' | SchematicFluidKind
+export type SchematicMaterialKind = 'opaque' | 'translucent' | 'bubble' | SchematicFluidKind
 
 export const SCHEMATIC_MATERIAL_KINDS: readonly SchematicMaterialKind[] = [
     'opaque',
     'translucent',
+    'bubble',
     'water',
     'lava',
 ]
@@ -32,9 +33,20 @@ export type SchematicMaterialSettings = {
     depthWrite: boolean
 }
 
+/**
+ * Which texture a pass samples. The bubble sprite is a particle in the game and never lands in the
+ * block atlas, so it ships as its own image.
+ */
+export function schematicMaterialTexture(kind: SchematicMaterialKind): 'atlas' | 'bubble' {
+    return kind === 'bubble' ? 'bubble' : 'atlas'
+}
+
 export function schematicMaterialSettings(kind: SchematicMaterialKind): SchematicMaterialSettings {
     if (kind === 'opaque') {
         return { transparent: false, alphaTest: 0.08, opacity: 1, depthWrite: true }
+    }
+    if (kind === 'bubble') {
+        return { transparent: true, alphaTest: 0, opacity: 1, depthWrite: false }
     }
     if (kind === 'lava') {
         return {

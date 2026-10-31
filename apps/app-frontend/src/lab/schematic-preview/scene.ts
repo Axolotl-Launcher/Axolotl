@@ -6,6 +6,7 @@ import {
     SCHEMATIC_MATERIAL_KINDS,
     type SchematicMaterialKind,
     schematicMaterialSettings,
+    schematicMaterialTexture,
 } from './materials'
 import type { SchematicMeshData } from './mesh-worker'
 
@@ -83,9 +84,12 @@ export class SchematicPreviewScene {
     private readonly onFocus: SceneOptions['onFocus']
     private activeCamera: THREE.Camera = this.perspectiveCamera
     private projection: Projection = 'perspective'
-    private materials: Record<SchematicMaterialKind, THREE.MeshLambertMaterial> = {
+    private atlasTexture?: THREE.CanvasTexture
+    private bubbleTexture?: THREE.CanvasTexture
+    private materials: Record<SchematicMaterialKind, THREE.Material> = {
         opaque: this.createMaterial('opaque'),
         translucent: this.createMaterial('translucent'),
+        bubble: this.createMaterial('bubble'),
         water: this.createMaterial('water'),
         lava: this.createMaterial('lava'),
     }
@@ -238,11 +242,21 @@ export class SchematicPreviewScene {
         this.requestRender()
     }
 
-    setTexture(texture?: THREE.CanvasTexture) {
+    setTextures(textures: { atlas?: THREE.CanvasTexture; bubble?: THREE.CanvasTexture }) {
+        for (const texture of [textures.atlas, textures.bubble]) {
+            if (!texture) continue
+            texture.flipY = false
+            texture.magFilter = THREE.NearestFilter
+            texture.minFilter = THREE.NearestFilter
+            texture.generateMipmaps = false
+            texture.needsUpdate = true
+        }
+        this.atlasTexture = textures.atlas
+        this.bubbleTexture = textures.bubble
         const previous = this.materials
-        const materials = {} as Record<SchematicMaterialKind, THREE.MeshLambertMaterial>
+        const materials = {} as Record<SchematicMaterialKind, THREE.Material>
         for (const kind of SCHEMATIC_MATERIAL_KINDS) {
-            const material = this.createMaterial(kind, texture)
+            const material = this.createMaterial(kind)
             material.side = previous[kind].side
             materials[kind] = material
         }
@@ -736,19 +750,16 @@ export class SchematicPreviewScene {
         if (this.releaseContextOnDispose) this.renderer.forceContextLoss()
     }
 
-    private createMaterial(kind: SchematicMaterialKind, texture?: THREE.CanvasTexture) {
-        if (texture) {
-            texture.flipY = false
-            texture.magFilter = THREE.NearestFilter
-            texture.minFilter = THREE.NearestFilter
-            texture.generateMipmaps = false
-            texture.needsUpdate = true
+    private createMaterial(kind: SchematicMaterialKind) {
+        const map =
+            schematicMaterialTexture(kind) === 'bubble' ? this.bubbleTexture : this.atlasTexture
+        const settings = schematicMaterialSettings(kind)
+        // Bubbles stand in for a particle, and particles are drawn unlit; shading them by their
+        // crossed normals would make one face of every bubble darker than the other.
+        if (kind === 'bubble') {
+            return new THREE.MeshBasicMaterial({ map, vertexColors: true, ...settings })
         }
-        return new THREE.MeshLambertMaterial({
-            map: texture,
-            vertexColors: true,
-            ...schematicMaterialSettings(kind),
-        })
+        return new THREE.MeshLambertMaterial({ map, vertexColors: true, ...settings })
     }
 
     private accentColor() {
@@ -776,6 +787,9 @@ export class SchematicPreviewScene {
         mesh.userData.regionId = regionId
         mesh.userData.materialKind = kind
         mesh.userData.basePositions = data.positions.slice()
+        // Bubbles belong inside the water, so they have to be blended after it; the game draws its
+        // particles after the water for the same reason.
+        if (kind === 'bubble') mesh.renderOrder = 1
         this.applyExplosion(mesh)
         return mesh
     }

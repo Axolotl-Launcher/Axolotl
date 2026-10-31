@@ -34,6 +34,9 @@ export type SchematicFluidKind = 'water' | 'lava'
 const FLUID_BLOCKS: Record<string, SchematicFluidKind> = {
     'minecraft:water': 'water',
     'minecraft:lava': 'lava',
+    // A bubble column carries no block model of its own: in the game its fluid state is still
+    // water, so the surface around it is water and it merges with the water next to it.
+    'minecraft:bubble_column': 'water',
 }
 
 type FluidSprites = {

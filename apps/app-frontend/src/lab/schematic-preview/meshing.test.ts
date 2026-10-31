@@ -500,6 +500,25 @@ it('water and lava do not cull each other', () => {
     expect(fluidCull.down, 'the water in waterlogged leaves is not lava').toBeFalsy()
 })
 
+it('a bubble column is water, so it merges with the water around it', () => {
+    // The game gives the block no model: its fluid state is still water, so a column joins the
+    // water next to it instead of leaving a face between them.
+    const fluidPalette: SchematicBlockState[] = [
+        { name: 'minecraft:air', properties: {} },
+        { name: 'minecraft:water', properties: { level: '0' } },
+        { name: 'minecraft:bubble_column', properties: { drag: 'false' } },
+    ]
+    const index = (x: number, y: number, z: number) => y * 256 + z * 16 + x
+    const blocks = new Uint32Array(16 * 16 * 16)
+    blocks[index(1, 1, 1)] = 2
+    blocks[index(2, 1, 1)] = 1
+    blocks[index(1, 2, 1)] = 2
+
+    const fluidCull = getSchematicFluidCull([1, 1, 1], blocks, {}, fluidPalette, Cull.none())
+    expect(fluidCull.east, 'water beside the column shares the surface').toBe(true)
+    expect(fluidCull.up, 'a column above is the same fluid').toBe(true)
+})
+
 it('blocks without waterlogged fluid mesh no fluid at all', () => {
     const requested = new Set<string>()
     const atlas = trackingAtlas(requested)

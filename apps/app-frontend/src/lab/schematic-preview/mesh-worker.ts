@@ -2,6 +2,7 @@ import * as deepslate from 'deepslate'
 
 import type { SchematicBlockState } from './backend'
 import { createBlockGeometry } from './block-geometry'
+import { getSchematicBubbleQuads, isSchematicBubbleColumn } from './bubble-mesh'
 import { isSchematicAir } from './editing'
 import type { SchematicFluidNeighborhood } from './fluid-mesh'
 import { getSchematicFluidMesh, isSchematicFluidBlock, schematicFluidKind } from './fluid-mesh'
@@ -61,6 +62,7 @@ export type SchematicMeshWorkerResponse =
           chunkPosition: [number, number, number]
           opaque: SchematicMeshData
           translucent: SchematicMeshData
+          bubble: SchematicMeshData
           water: SchematicMeshData
           lava: SchematicMeshData
           missing: string[]
@@ -153,6 +155,20 @@ function appendQuad(
         buffers.uvs.push(vertex.texture?.[0] ?? 0, vertex.texture?.[1] ?? 0)
         buffers.colors.push(vertex.color[0], vertex.color[1], vertex.color[2])
         buffers.blockPositions.push(...blockPosition)
+    }
+}
+
+function appendBubbles(buffers: MeshBuffers, position: [number, number, number]) {
+    for (const quad of getSchematicBubbleQuads(position)) {
+        appendQuad(
+            buffers,
+            quad.map((vertex) => ({
+                pos: { x: vertex.position[0], y: vertex.position[1], z: vertex.position[2] },
+                texture: [vertex.uv[0], vertex.uv[1]] as [number, number],
+                color: [1, 1, 1] as [number, number, number],
+            })),
+            position,
+        )
     }
 }
 
@@ -293,6 +309,7 @@ function buildChunk(message: WorkerMeshMessage) {
     const buffers: Record<SchematicMaterialKind, MeshBuffers> = {
         opaque: emptyBuffers(),
         translucent: emptyBuffers(),
+        bubble: emptyBuffers(),
         water: emptyBuffers(),
         lava: emptyBuffers(),
     }
@@ -363,6 +380,8 @@ function buildChunk(message: WorkerMeshMessage) {
                         'south',
                     ),
                 }
+                // A bubble column is water with the game's bubble particle baked in as geometry.
+                if (isSchematicBubbleColumn(state)) appendBubbles(buffers.bubble, position)
                 // A fluid block has no host geometry of its own, and its surface depends on the
                 // neighbouring cells, so it is meshed from the volume instead of the definition.
                 if (isSchematicFluidBlock(state)) {
@@ -439,6 +458,7 @@ function buildChunk(message: WorkerMeshMessage) {
         chunkPosition: message.chunkPosition,
         opaque: toMeshData(buffers.opaque),
         translucent: toMeshData(buffers.translucent),
+        bubble: toMeshData(buffers.bubble),
         water: toMeshData(buffers.water),
         lava: toMeshData(buffers.lava),
         missing: [...missing],
@@ -447,6 +467,7 @@ function buildChunk(message: WorkerMeshMessage) {
     workerScope.postMessage(response, [
         ...transferables(response.opaque),
         ...transferables(response.translucent),
+        ...transferables(response.bubble),
         ...transferables(response.water),
         ...transferables(response.lava),
     ])

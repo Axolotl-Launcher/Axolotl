@@ -21,6 +21,7 @@ export type LoadedSchematicResources = {
     blockNames: SchematicBlockNames
     availableBlockStates: SchematicBlockState[]
     texture: CanvasTexture
+    bubbleTexture: CanvasTexture
     atlas: HTMLCanvasElement
 }
 
@@ -219,6 +220,16 @@ export async function createSchematicResources(
     const builtInAtlas = await builtin.loadBuiltinAtlas(signal)
     context.drawImage(builtInAtlas, 0, 0)
     builtInAtlas.close()
+    // The bubble sprite is a particle in the game, so it never lands in the atlas and needs its
+    // own image for the geometry to sample.
+    const bubbleSprite = await builtin.loadBuiltinBubbleParticle(signal)
+    const bubbleCanvas = document.createElement('canvas')
+    bubbleCanvas.width = bubbleSprite.width
+    bubbleCanvas.height = bubbleSprite.height
+    const bubbleContext = bubbleCanvas.getContext('2d')
+    if (!bubbleContext) throw new Error('Unable to create the bubble sprite canvas.')
+    bubbleContext.drawImage(bubbleSprite, 0, 0)
+    bubbleSprite.close()
     const availableBuiltinStates = builtin.listBuiltinBlockStates()
     const builtInBlocks = builtin.loadBuiltinBlockResources(version, palette)
     const previewBlocks = builtin.loadBuiltinBlockResources(version, [
@@ -231,6 +242,8 @@ export async function createSchematicResources(
     ] ?? [0, 0, 1 / 64, 1 / 64]
     const texture = configureSchematicTexture(new CanvasTexture(canvas))
     texture.colorSpace = SRGBColorSpace
+    const bubbleTexture = configureSchematicTexture(new CanvasTexture(bubbleCanvas))
+    bubbleTexture.colorSpace = SRGBColorSpace
     return {
         atlas: canvas,
         blockNames: builtin.loadBuiltinBlockNames(),
@@ -246,5 +259,6 @@ export async function createSchematicResources(
             missingTextureUv,
         },
         texture,
+        bubbleTexture,
     }
 }

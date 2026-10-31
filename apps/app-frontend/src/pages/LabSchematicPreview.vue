@@ -678,12 +678,14 @@ async function applyResources(epoch = requestEpoch) {
     const loaded = await createSchematicResources(builtInVersion, opened.palette, controller.signal)
     if (!isCurrentSession(session) || resourceRequest !== resourceEpoch) {
         loaded.texture.dispose()
+        loaded.bubbleTexture.dispose()
         return
     }
     resources.value?.texture.dispose()
+    resources.value?.bubbleTexture.dispose()
     resources.value = loaded
     materialTextureCache.clear()
-    scene?.setTexture(loaded.texture)
+    scene?.setTextures({ atlas: loaded.texture, bubble: loaded.bubbleTexture })
     startMeshWorkers(opened, loaded, resourceRequest)
 }
 

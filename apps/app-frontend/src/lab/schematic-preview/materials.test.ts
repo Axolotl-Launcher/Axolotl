@@ -6,6 +6,7 @@ import {
     SCHEMATIC_TRANSLUCENT_OPACITY,
     SCHEMATIC_WATER_OPACITY,
     schematicMaterialSettings,
+    schematicMaterialTexture,
 } from './materials'
 
 describe('schematic materials', () => {
@@ -31,6 +32,18 @@ describe('schematic materials', () => {
         expect(lava.depthWrite).toBe(true)
     })
 
+    it('draws the bubbles blended, full colour and without writing depth', () => {
+        // They sit inside the water, so they must not occlude it; the sprite carries its own alpha.
+        expect(schematicMaterialSettings('bubble')).toEqual({
+            transparent: true,
+            alphaTest: 0,
+            opacity: 1,
+            depthWrite: false,
+        })
+        expect(schematicMaterialTexture('bubble')).toBe('bubble')
+        expect(schematicMaterialTexture('water')).toBe('atlas')
+    })
+
     it('only the solid pass is opaque and clips on alpha', () => {
         expect(schematicMaterialSettings('opaque')).toEqual({
             transparent: false,
@@ -38,7 +51,7 @@ describe('schematic materials', () => {
             opacity: 1,
             depthWrite: true,
         })
-        for (const kind of ['translucent', 'water', 'lava'] as const) {
+        for (const kind of ['translucent', 'bubble', 'water', 'lava'] as const) {
             expect(schematicMaterialSettings(kind).transparent).toBe(true)
         }
     })
@@ -46,7 +59,7 @@ describe('schematic materials', () => {
     it('builds every pass, so no geometry lands in a pass nothing renders', () => {
         expect(new Set(SCHEMATIC_MATERIAL_KINDS).size).toBe(SCHEMATIC_MATERIAL_KINDS.length)
         expect([...SCHEMATIC_MATERIAL_KINDS]).toEqual(
-            expect.arrayContaining(['opaque', 'translucent', 'water', 'lava']),
+            expect.arrayContaining(['opaque', 'translucent', 'bubble', 'water', 'lava']),
         )
     })
 })

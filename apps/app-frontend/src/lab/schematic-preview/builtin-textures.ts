@@ -1,3 +1,4 @@
+import bubbleParticleUrl from './assets/vanilla/particle-bubble.png?url'
 import blocksAtlasUrl from './assets/vanilla/texture-atlas.png?url'
 import atlasUvData from './assets/vanilla/texture-layout.json'
 
@@ -39,6 +40,21 @@ export function builtinTextureUvs(
 export async function loadBuiltinAtlas(signal?: AbortSignal) {
     const response = await fetch(blocksAtlasUrl, { signal })
     if (!response.ok) throw new Error('Unable to load the built-in Minecraft texture atlas.')
+    const bitmap = await createImageBitmap(await response.blob())
+    if (signal?.aborted) {
+        bitmap.close()
+        signal.throwIfAborted()
+    }
+    return bitmap
+}
+
+/**
+ * The bubble column sprite. It is a particle in the game and never lands in the atlas, so it ships
+ * on its own and the geometry samples it directly.
+ */
+export async function loadBuiltinBubbleParticle(signal?: AbortSignal) {
+    const response = await fetch(bubbleParticleUrl, { signal })
+    if (!response.ok) throw new Error('Unable to load the built-in bubble particle sprite.')
     const bitmap = await createImageBitmap(await response.blob())
     if (signal?.aborted) {
         bitmap.close()

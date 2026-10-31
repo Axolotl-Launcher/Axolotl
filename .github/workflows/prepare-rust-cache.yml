@@ -10,6 +10,7 @@ on:
       - rust-toolchain.toml
       - '**/.cargo/config.toml'
       - .github/actions/setup-desktop-rust/**
+      - .github/actions/setup-mold/**
       - .github/workflows/axolotl-release.yml
       - .github/workflows/prepare-rust-cache.yml
 

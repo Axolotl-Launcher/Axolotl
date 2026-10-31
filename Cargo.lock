@@ -7417,6 +7417,7 @@ dependencies = [
  "launcher-tools",
  "libc",
  "libloading",
+ "minisign-verify",
  "native-dialog",
  "notify",
  "objc2",

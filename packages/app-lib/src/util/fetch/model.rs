@@ -209,6 +209,14 @@ impl DownloadRequest {
         self
     }
 
+    /// Use the same range connection policy as a standalone modpack archive.
+    pub fn with_large_file_download_policy(self) -> Self {
+        self.with_range_connection_floor(LARGE_FILE_RANGE_CONNECTION_FLOOR)
+            .with_h2_range_concurrency(
+                crate::util::download::constants::MODPACK_REQUESTED_H2_RANGES,
+            )
+    }
+
     pub(crate) fn with_http1_segmented_download(mut self, allow: bool) -> Self {
         self.allow_http1_segmented_download = allow;
         self

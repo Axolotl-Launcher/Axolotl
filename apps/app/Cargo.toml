@@ -28,6 +28,7 @@ keyring = { workspace = true }
 launcher-mcp = { workspace = true }
 launcher-tools = { workspace = true }
 libc = { workspace = true }
+minisign-verify = { workspace = true }
 native-dialog = { workspace = true }
 notify = { workspace = true }
 paste = { workspace = true }

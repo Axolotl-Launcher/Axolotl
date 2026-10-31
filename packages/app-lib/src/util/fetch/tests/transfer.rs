@@ -19,6 +19,75 @@ use std::time::Instant;
 use tokio::sync::Semaphore;
 
 #[tokio::test]
+async fn launcher_update_policy_downloads_sha256_ranges_and_handles_ignored_ranges()
+ {
+    use sha2::{Digest, Sha256};
+
+    let _guard = fixtures::RANGE_SPLITTING_TEST_LOCK.lock().await;
+    let size = 6 * 1024 * 1024;
+    let data = Arc::new(
+        (0..size)
+            .map(|index| (index % 251) as u8)
+            .collect::<Vec<_>>(),
+    );
+    let hash = format!("{:x}", Sha256::digest(&data[..]));
+    for ignore_range in [false, true] {
+        let (url, requests, normal_requests, server) = spawn_range_server(
+            data.clone(),
+            RangeServerBehavior {
+                ignore_range,
+                slow_body: !ignore_range,
+                ..Default::default()
+            },
+        )
+        .await;
+        let request = DownloadRequest::new(url, ResourceClass::Other)
+            .with_integrity(Integrity {
+                size: Some(size as u64),
+                sha256: Some(hash.clone()),
+                ..Integrity::default()
+            })
+            .with_large_file_download_policy();
+        let directory = tempfile::tempdir().unwrap();
+        let destination = directory.path().join("update");
+        let samples = Arc::new(parking_lot::Mutex::new(Vec::new()));
+        let recorded = samples.clone();
+        let mut progress: Box<FetchProgressFn<'_>> =
+            Box::new(move |bytes, total| {
+                recorded.lock().push((bytes, total));
+                Box::pin(async { Ok(()) })
+            });
+        let result = tokio::time::timeout(
+            Duration::from_secs(30),
+            super::super::transfer::download_to_path_inner(
+                request,
+                &destination,
+                &FetchSemaphore(Semaphore::new(8)),
+                Some(&mut progress),
+            ),
+        )
+        .await
+        .expect("update download should complete with or without Range support")
+        .unwrap();
+        assert_eq!(result.size, size as u64);
+        assert_eq!(tokio::fs::read(destination).await.unwrap(), *data);
+        if ignore_range {
+            assert!(normal_requests.load(Ordering::Relaxed) >= 1);
+        } else {
+            assert!(requests.load(Ordering::Relaxed) >= 2);
+            assert_eq!(normal_requests.load(Ordering::Relaxed), 0);
+        }
+        let samples = samples.lock();
+        assert!(samples.iter().any(|(bytes, _)| *bytes > 0));
+        assert!(samples.iter().all(|(bytes, total)| {
+            *bytes <= size as u64 && *total == size as u64
+        }));
+        drop(samples);
+        server.abort();
+    }
+}
+
+#[tokio::test]
 async fn failed_checkpoint_ranges_preserve_valid_data_unless_ranges_are_unsupported()
  {
     use super::super::super::download::h2_download::{

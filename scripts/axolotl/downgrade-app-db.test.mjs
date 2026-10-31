@@ -244,6 +244,24 @@ console.log('refusals')
 }
 
 {
+    // A failed record blocks sqlx with `Dirty` even when every applied record
+    // is gone; the warning promises removal, so the record must actually go.
+    const failedDb = path.join(settingsDir, 'beta', 'failed-record.db')
+    sampleDatabase(failedDb)
+    const database = new DatabaseSync(failedDb)
+    database
+        .prepare(
+            `INSERT INTO _sqlx_migrations (version, description, success, checksum, execution_time)
+             VALUES (?, ?, FALSE, X'00', 0)`,
+        )
+        .run(CLOSE_BEHAVIOR + 100, 'failed-migration')
+    database.close()
+
+    const result = run(['--db', failedDb, '--to', String(CLOSE_BEHAVIOR), '--apply'])
+    check('removes a failed migration record', result.status === 0 && migrations(failedDb).length === 0, result.output)
+}
+
+{
     const stranger = path.join(settingsDir, 'beta', 'stranger.db')
     fs.mkdirSync(path.dirname(stranger), { recursive: true })
     new DatabaseSync(stranger).exec('CREATE TABLE unrelated (a)')

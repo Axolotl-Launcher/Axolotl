@@ -827,9 +827,15 @@ function main() {
                     if (present) writable.exec(`ALTER TABLE ${table} DROP COLUMN ${column}`)
                 }
             }
-            writable
-                .prepare(`DELETE FROM _sqlx_migrations WHERE version IN (${state.applied.join(', ')})`)
-                .run()
+            // Failed records block sqlx with `MigrateError::Dirty` before it
+            // even compares versions, so the warning that promises to remove
+            // them must actually remove them.
+            const versions = [...state.applied, ...state.failed]
+            if (versions.length > 0) {
+                writable
+                    .prepare(`DELETE FROM _sqlx_migrations WHERE version IN (${versions.join(', ')})`)
+                    .run()
+            }
             writable.exec('COMMIT')
         } catch (error) {
             writable.exec('ROLLBACK')

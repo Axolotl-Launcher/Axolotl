@@ -10181,6 +10181,30 @@
   "app.settings.downloading": {
     "message": "正在下载 v{version}"
   },
+  "app.settings.export.all-button": {
+    "message": "导出全部设置文件…"
+  },
+  "app.settings.export.all-label": {
+    "message": "全部设置文件"
+  },
+  "app.settings.export.exported-text": {
+    "message": "设置归档已保存到 {path}"
+  },
+  "app.settings.export.exported-title": {
+    "message": "设置已导出"
+  },
+  "app.settings.export.patch-button": {
+    "message": "导出补丁…"
+  },
+  "app.settings.export.patch-description": {
+    "message": "只包含与默认值不同的键。归档里是每个域的文档文件，解压后可直接作为部署配置使用。"
+  },
+  "app.settings.export.patch-label": {
+    "message": "部署补丁"
+  },
+  "app.settings.export.title": {
+    "message": "管理设置文件"
+  },
   "app.settings.feature-flags.reset-to-default": {
     "message": "恢复默认值"
   },
@@ -11401,6 +11425,12 @@
   },
   "app.settings.logs.retention.title": {
     "message": "日志自动保留策略"
+  },
+  "app.settings.override.hint": {
+    "message": "已覆盖部署提供的值。"
+  },
+  "app.settings.override.restore": {
+    "message": "恢复部署值"
   },
   "app.settings.privacy.data-handling": {
     "message": "遥测使用随机安装标识，仅发送每日活跃信号。关闭遥测会立即清空待发送数据。"
@@ -20650,5 +20680,83 @@
   },
   "app.downloads.diagnostics.pool-help": {
     "message": "全局共享下载池当前剩余的资源额度，会受其他文件和任务影响。"
+  },
+  "app.settings.export.cleanup-label": {
+    "message": "本地设置文件"
+  },
+  "app.settings.export.cleanup-button": {
+    "message": "整理…"
+  },
+  "app.settings.export.cleanup-running": {
+    "message": "正在整理…"
+  },
+  "app.settings.export.cleanup-confirm-title": {
+    "message": "整理本地设置文件？"
+  },
+  "app.settings.export.cleanup-confirm-description": {
+    "message": "会重写全部本地设置文档，并丢弃未知和冗余的键。此操作不可撤销。"
+  },
+  "app.settings.export.cleanup-confirm-proceed": {
+    "message": "整理"
+  },
+  "app.settings.export.cleanup-done-title": {
+    "message": "本地设置文件已整理"
+  },
+  "app.settings.export.cleanup-done-text": {
+    "message": "{count, plural, =0 {没有文档需要重写。} other {已重写 # 个本地设置文档。}}"
+  },
+  "app.settings.export.import-label": {
+    "message": "设置归档"
+  },
+  "app.settings.export.import-button": {
+    "message": "导入…"
+  },
+  "app.settings.export.import-running": {
+    "message": "正在导入…"
+  },
+  "app.settings.export.import-confirm-title": {
+    "message": "导入设置？"
+  },
+  "app.settings.export.import-confirm-description": {
+    "message": "归档会与现有本地设置合并，冲突的键以导入的归档为准。此操作不可撤销。"
+  },
+  "app.settings.export.import-confirm-proceed": {
+    "message": "导入"
+  },
+  "app.settings.export.imported-title": {
+    "message": "设置已导入"
+  },
+  "app.settings.export.imported-text": {
+    "message": "{count, plural, =0 {没有文档发生变化。} other {已更新 # 个本地设置文档。}}"
+  },
+  "app.settings.export.import-danger-title": {
+    "message": "即将导入的设置可能存在危险"
+  },
+  "app.settings.export.import-danger-description": {
+    "message": "您即将导入的设置将会修改 {keys}。"
+  },
+  "app.settings.export.import-danger-key-column": {
+    "message": "危险设置"
+  },
+  "app.settings.export.import-danger-before-column": {
+    "message": "导入前"
+  },
+  "app.settings.export.import-danger-after-column": {
+    "message": "导入后"
+  },
+  "app.settings.export.import-danger-note": {
+    "message": "它们会修改启动游戏时的参数或者运行前自动执行的命令，还可能改变游戏进程的环境（例如注入环境变量）。如果您不信任文件的来源或不理解它们的含义和作用，那么应该取消导入或跳过这些危险设置。请确保仅在您完全理解并信任它们时继续。"
+  },
+  "app.settings.export.import-danger-cancel": {
+    "message": "取消导入"
+  },
+  "app.settings.export.import-danger-skip": {
+    "message": "跳过危险设置"
+  },
+  "app.settings.export.import-danger-allow": {
+    "message": "继续导入"
+  },
+  "app.settings.export.imported-dropped-text": {
+    "message": "{count, plural, =0 {没有文档发生变化。} other {已更新 # 个本地设置文档。}} {dropped, plural, other {另有 # 个值因类型不合法被忽略。}}"
   }
 }

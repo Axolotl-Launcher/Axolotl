@@ -45,6 +45,8 @@ const props = defineProps({
 })
 
 const { handleError } = injectNotificationManager()
+defineExpose({ reloadSettings })
+
 const settings = ref(await get())
 const saveDraft = createSettingsPatchSaver(settings.value, update)
 
@@ -56,7 +58,7 @@ async function reloadSettings() {
         handleError(error)
     }
 }
-defineExpose({ reloadSettings })
+
 const missingContentScannerSettings = ref(getMissingContentScannerSettings())
 const minecraftDirectories = ref(loadMinecraftDirectories())
 const minecraftDirectoryError = ref(null)

@@ -1,6 +1,7 @@
 // The new-task page and the guide: plain-language starting points for people who
 // have never used an agent.
 import { button, element, h, icon } from './dom.js'
+import { axolotl } from './mascot.js'
 import { text } from './messages.js'
 import { session } from './session.js'
 
@@ -34,11 +35,14 @@ function steps(className) {
 }
 
 export function renderHome() {
+    const mark = element('hero-mark')
+    if (!mark.firstChild) mark.append(axolotl({ mood: 'idle', className: 'hero-axo' }))
     element('suggestions').replaceChildren(
         ...SUGGESTIONS.map(([name, label, prompt], index) =>
             button({ class: 'suggestion', data: { prompt }, style: `--index: ${index}` }, [
-                icon(name),
-                h('span', { text: text(label) }),
+                h('span', { class: 'suggestion-icon' }, [icon(name)]),
+                h('span', { class: 'suggestion-label', text: text(label) }),
+                icon('arrow-right', 'suggestion-go'),
             ]),
         ),
     )
@@ -65,7 +69,7 @@ export function renderHelp() {
         ['Shift Enter', 'shortcutNewline'],
         ['Esc', 'shortcutStop'],
         ['Ctrl N', 'shortcutNew'],
-        ['Ctrl K', 'shortcutSearch'],
+        ['Ctrl K', 'shortcutPalette'],
         ['Ctrl B', 'shortcutSidebar'],
     ]
     element('help-body').replaceChildren(

@@ -33,6 +33,7 @@ const PLAN_STATES = [
     'unknown',
 ]
 const STEP_STATES = ['running', 'done', 'failed', 'stopped']
+export const CHANGE_KINDS = ['update', 'rollback', 'new', 'install', 'setting', 'backup', 'remove']
 
 /**
  * @typedef {{ provider_id: string, model_id: string }} Selection
@@ -165,6 +166,8 @@ function change(value) {
         to: optionalString(value.to, 100),
         glyph: optionalString(value.glyph, 3),
         icon: optionalString(value.icon, 40),
+        kind: oneOf(value.kind, CHANGE_KINDS, null),
+        meta: string(value.meta, 200),
         manual: value.manual === true,
     }
 }
@@ -219,6 +222,12 @@ function item(value) {
                       plan: details,
                       state: oneOf(value.state, PLAN_STATES, 'unknown'),
                       done: Number.isInteger(value.done) ? Math.max(0, value.done) : 0,
+                      // Changes the user took out of the plan before approving it.
+                      excluded: list(value.excluded, (index) =>
+                          Number.isInteger(index) && index >= 0 && index < details.changes.length
+                              ? index
+                              : null,
+                      ),
                   }
                 : null
         }
@@ -382,6 +391,16 @@ export function isProtected(thread, activeId) {
 // queued follow-ups and runs that are active or waiting for approval are kept.
 /** @param {Store} store @param {StorageArea} [storage] @returns {Store} */
 export function saveStore(store, storage = localStorage) {
+    // Usually everything fits: serialize once and keep the caller's object, so
+    // saving during a run costs one stringify instead of a deep copy as well.
+    const turns = store.threads.reduce((total, entry) => total + entry.turns.length, 0)
+    if (store.threads.length <= MAX_THREADS && turns <= MAX_TURNS) {
+        const serialized = JSON.stringify(store)
+        if (serialized.length <= MAX_STORE_LENGTH) {
+            storage.setItem(STORAGE_KEY, serialized)
+            return store
+        }
+    }
     const next = structuredClone(store)
     const removable = next.threads
         .filter((entry) => !isProtected(entry, next.activeId))

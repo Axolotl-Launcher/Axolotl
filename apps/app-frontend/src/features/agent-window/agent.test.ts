@@ -6,11 +6,14 @@ import {
     applyEvent,
     beginApply,
     declinePlan,
+    includedChanges,
     pendingPlan,
     stopRun,
     supersedePlan,
+    toggleChange,
 } from '../../../../../packages/agent-window/src/agent.js'
 import { FLOWS, GENERIC } from '../../../../../packages/agent-window/src/demo-flows.js'
+import { markdownBlocks } from '../../../../../packages/agent-window/src/dom.js'
 import { DemoRuntime } from '../../../../../packages/agent-window/src/demo-runtime.js'
 import { setLocale } from '../../../../../packages/agent-window/src/messages.js'
 import { newRun } from '../../../../../packages/agent-window/src/state.js'
@@ -110,7 +113,7 @@ it('separates a harmless stop from one that interrupts writing', () => {
     expect(stopRun(reading)).toBe(false)
 
     const writing = newRun()
-    applyEvent(writing, { type: 'plan', plan: { title: 'Plan', changes: [] } })
+    applyEvent(writing, { type: 'plan', plan: { title: 'Plan', changes: [{ name: 'Sodium' }] } })
     beginApply(writing)
     applyEvent(writing, { type: 'step', step: { id: 'w', title: 'Write' }, status: 'running' })
     expect(stopRun(writing)).toBe(true)
@@ -256,4 +259,86 @@ it('re-proposes the same plan when the user replies to it', async () => {
     expect(reply.run.items.find((item: { type: string }) => item.type === 'text')!.text).toContain(
         'rechecked',
     )
+})
+
+it('lets changes be taken out of a waiting plan, never all of them and never manual ones', () => {
+    const run = newRun()
+    applyEvent(run, {
+        type: 'plan',
+        plan: {
+            title: 'Plan',
+            changes: [
+                { name: 'Sodium' },
+                { name: 'Lithium' },
+                { name: 'Render distance', manual: true },
+            ],
+        },
+    })
+    const plan = pendingPlan(run)
+    expect(toggleChange(run, 2)).toBe(false)
+    expect(toggleChange(run, 1)).toBe(true)
+    expect(includedChanges(plan).map((change: { name: string }) => change.name)).toEqual(['Sodium'])
+    expect(toggleChange(run, 0)).toBe(true)
+    expect(beginApply(run)).toBe(false)
+    expect(toggleChange(run, 1)).toBe(true)
+    expect(plan.excluded).toEqual([0])
+    expect(beginApply(run)).toBe(true)
+    expect(toggleChange(run, 0)).toBe(false)
+})
+
+it('tells the demo which changes to skip and reports them', async () => {
+    const runtime = new DemoRuntime()
+    const first = await play((emit) => runtime.start(request('fps is low'), emit))
+    const plan = pendingPlan(first.run)
+    toggleChange(first.run, 1)
+    beginApply(first.run)
+    const names = plan.excluded.map((index: number) => plan.plan.changes[index].name)
+    await play((emit) =>
+        runtime.approve(
+            request('', { resume: first.run.resume, excluded: names }),
+            (event: Event) => {
+                emit(event)
+                applyEvent(first.run, event)
+            },
+        ),
+    )
+    expect(plan).toMatchObject({ state: 'applied', done: 1 })
+    expect(first.run.items.slice(-1)[0].text).toContain('Lithium')
+})
+
+it('splits streamed Markdown into blocks, including an unfinished code fence', () => {
+    const source = [
+        '# Title',
+        '',
+        'Some **bold** text',
+        'wrapped',
+        '',
+        '1. one',
+        '2. two',
+        '',
+        '- a',
+        '- b',
+        '',
+        '> quote',
+        '',
+        '---',
+        '',
+        '```log',
+        'line one',
+        '',
+        'line two',
+    ].join('\n')
+    const blocks = markdownBlocks(source)
+    expect(blocks.map((block: { type: string }) => block.type)).toEqual([
+        'heading',
+        'p',
+        'ol',
+        'ul',
+        'quote',
+        'rule',
+        'code',
+    ])
+    expect(blocks[1].text).toBe('Some **bold** text\nwrapped')
+    expect(blocks[2].items).toEqual(['one', 'two'])
+    expect(blocks[6]).toMatchObject({ lang: 'log', text: 'line one\n\nline two' })
 })

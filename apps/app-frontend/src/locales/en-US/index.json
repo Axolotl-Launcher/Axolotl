@@ -192,7 +192,10 @@
     "message": "Message"
   },
   "app.agent-window.chat.prompt": {
-    "message": "Describe what you want, like “my game crashes on launch”"
+    "message": "Describe what you want, or type / for shortcuts"
+  },
+  "app.agent-window.chat.slash-title": {
+    "message": "Shortcuts"
   },
   "app.agent-window.chat.prompt-followup": {
     "message": "Ask a follow-up…"
@@ -211,6 +214,9 @@
   },
   "app.agent-window.chat.remove-attachment": {
     "message": "Remove {name}"
+  },
+  "app.agent-window.chat.drop-files": {
+    "message": "Drop files to attach them"
   },
   "app.agent-window.chat.instance": {
     "message": "Choose an instance"
@@ -299,6 +305,12 @@
   "app.agent-window.chat.copied": {
     "message": "Copied"
   },
+  "app.agent-window.chat.copy-code": {
+    "message": "Copy code"
+  },
+  "app.agent-window.chat.link-copied": {
+    "message": "Link copied"
+  },
   "app.agent-window.chat.copy-error": {
     "message": "Couldn’t copy"
   },
@@ -321,7 +333,46 @@
     "message": "Proposed changes"
   },
   "app.agent-window.chat.manual-change": {
-    "message": "Manual"
+    "message": "Do it yourself"
+  },
+  "app.agent-window.chat.change-kind-update": {
+    "message": "Update"
+  },
+  "app.agent-window.chat.change-kind-rollback": {
+    "message": "Roll back"
+  },
+  "app.agent-window.chat.change-kind-new": {
+    "message": "New"
+  },
+  "app.agent-window.chat.change-kind-install": {
+    "message": "Install"
+  },
+  "app.agent-window.chat.change-kind-setting": {
+    "message": "Setting"
+  },
+  "app.agent-window.chat.change-kind-backup": {
+    "message": "Backup"
+  },
+  "app.agent-window.chat.change-kind-remove": {
+    "message": "Remove"
+  },
+  "app.agent-window.chat.include-change": {
+    "message": "Include {name}"
+  },
+  "app.agent-window.chat.excluded-count": {
+    "message": "Skipping {count}: {names}"
+  },
+  "app.agent-window.chat.nothing-selected": {
+    "message": "Keep at least one change"
+  },
+  "app.agent-window.chat.plan-applied-partial": {
+    "message": "Applied {done} · skipped {skipped}"
+  },
+  "app.agent-window.chat.rail-label": {
+    "message": "Your messages"
+  },
+  "app.agent-window.chat.jump-to": {
+    "message": "Jump to “{text}”"
   },
   "app.agent-window.chat.approval-promise": {
     "message": "Nothing changes until you approve"
@@ -488,8 +539,23 @@
   "app.agent-window.chat.shortcut-new": {
     "message": "New task"
   },
-  "app.agent-window.chat.shortcut-search": {
-    "message": "Search tasks"
+  "app.agent-window.chat.shortcut-palette": {
+    "message": "Open the command menu"
+  },
+  "app.agent-window.chat.palette": {
+    "message": "Command menu"
+  },
+  "app.agent-window.chat.palette-search": {
+    "message": "Type a command or search tasks…"
+  },
+  "app.agent-window.chat.palette-actions": {
+    "message": "Actions"
+  },
+  "app.agent-window.chat.palette-tasks": {
+    "message": "Tasks"
+  },
+  "app.agent-window.chat.toggle-panel": {
+    "message": "Show or hide progress"
   },
   "app.agent-window.chat.shortcut-sidebar": {
     "message": "Show or hide the task list"

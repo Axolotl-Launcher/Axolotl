@@ -192,7 +192,10 @@
     "message": "消息"
   },
   "app.agent-window.chat.prompt": {
-    "message": "描述你想做的事，比如“游戏一启动就崩溃”"
+    "message": "描述你想做的事，或输入 / 使用快捷指令"
+  },
+  "app.agent-window.chat.slash-title": {
+    "message": "快捷指令"
   },
   "app.agent-window.chat.prompt-followup": {
     "message": "继续提问…"
@@ -211,6 +214,9 @@
   },
   "app.agent-window.chat.remove-attachment": {
     "message": "移除 {name}"
+  },
+  "app.agent-window.chat.drop-files": {
+    "message": "松开即可添加为附件"
   },
   "app.agent-window.chat.instance": {
     "message": "选择实例"
@@ -299,6 +305,12 @@
   "app.agent-window.chat.copied": {
     "message": "已复制"
   },
+  "app.agent-window.chat.copy-code": {
+    "message": "复制代码"
+  },
+  "app.agent-window.chat.link-copied": {
+    "message": "链接已复制"
+  },
   "app.agent-window.chat.copy-error": {
     "message": "复制失败"
   },
@@ -322,6 +334,45 @@
   },
   "app.agent-window.chat.manual-change": {
     "message": "需手动"
+  },
+  "app.agent-window.chat.change-kind-update": {
+    "message": "更新"
+  },
+  "app.agent-window.chat.change-kind-rollback": {
+    "message": "回滚"
+  },
+  "app.agent-window.chat.change-kind-new": {
+    "message": "新建"
+  },
+  "app.agent-window.chat.change-kind-install": {
+    "message": "安装"
+  },
+  "app.agent-window.chat.change-kind-setting": {
+    "message": "设置"
+  },
+  "app.agent-window.chat.change-kind-backup": {
+    "message": "备份"
+  },
+  "app.agent-window.chat.change-kind-remove": {
+    "message": "移除"
+  },
+  "app.agent-window.chat.include-change": {
+    "message": "包含 {name}"
+  },
+  "app.agent-window.chat.excluded-count": {
+    "message": "将跳过 {count} 项：{names}"
+  },
+  "app.agent-window.chat.nothing-selected": {
+    "message": "至少保留一项变更"
+  },
+  "app.agent-window.chat.plan-applied-partial": {
+    "message": "已应用 {done} 项 · 跳过 {skipped} 项"
+  },
+  "app.agent-window.chat.rail-label": {
+    "message": "你的消息"
+  },
+  "app.agent-window.chat.jump-to": {
+    "message": "跳到“{text}”"
   },
   "app.agent-window.chat.approval-promise": {
     "message": "确认之前不会改动任何内容"
@@ -488,8 +539,23 @@
   "app.agent-window.chat.shortcut-new": {
     "message": "新建任务"
   },
-  "app.agent-window.chat.shortcut-search": {
-    "message": "搜索任务"
+  "app.agent-window.chat.shortcut-palette": {
+    "message": "打开命令菜单"
+  },
+  "app.agent-window.chat.palette": {
+    "message": "命令菜单"
+  },
+  "app.agent-window.chat.palette-search": {
+    "message": "输入命令，或搜索任务…"
+  },
+  "app.agent-window.chat.palette-actions": {
+    "message": "操作"
+  },
+  "app.agent-window.chat.palette-tasks": {
+    "message": "任务"
+  },
+  "app.agent-window.chat.toggle-panel": {
+    "message": "显示或隐藏进度"
   },
   "app.agent-window.chat.shortcut-sidebar": {
     "message": "显示或隐藏任务列表"

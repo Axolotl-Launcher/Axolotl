@@ -9,6 +9,7 @@ import {
     GENERIC,
     PICK_INSTANCE_STEP,
     SAMPLE_INSTANCE,
+    SKIPPED,
 } from './demo-flows.js'
 import { locale } from './messages.js'
 
@@ -219,6 +220,10 @@ export class DemoRuntime {
             const copy = fill(flow[lang], request.resume.vars || {})
             this.#progress(playback, copy.progress, ['done', 'done', 'current'])
             playback.send({ type: 'status', label: copy.progress[2][0] })
+            // Changes the user took out are skipped; the count never passes what is left.
+            const skipped = request.excluded || []
+            const included =
+                copy.plan.changes.filter((change) => !change.manual).length - skipped.length
             let done = 0
             for (const [index, [tool, title, detail, rows]] of copy.writes.entries()) {
                 const id = `${request.turn.id}:write:${index}`
@@ -230,13 +235,16 @@ export class DemoRuntime {
                 await playback.wait(820 + ((index * 211) % 420))
                 playback.send({ type: 'step', step: { id, title, detail, tool }, status: 'done' })
                 if (rows) {
-                    done += rows
+                    done = Math.min(done + rows, included)
                     playback.send({ type: 'applied', done })
                 }
             }
             await playback.wait(250)
             this.#progress(playback, copy.progress, ['done', 'done', 'done'])
-            playback.send({ type: 'result', ...copy.result })
+            const note = skipped.length
+                ? ` ${fill(SKIPPED[lang], { names: skipped.join(lang === 'zh' ? '、' : ', ') })}`
+                : ''
+            playback.send({ type: 'result', ...copy.result, text: copy.result.text + note })
             playback.send({ type: 'done' })
         })
     }

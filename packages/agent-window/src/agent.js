@@ -102,6 +102,7 @@ export function applyEvent(run, event, now = Date.now()) {
                 plan: { id: id(), notes: [], scope: [], ...event.plan },
                 state: 'pending',
                 done: 0,
+                excluded: [],
             })
             run.status = 'awaiting'
             run.label = ''
@@ -165,7 +166,7 @@ export function applyEvent(run, event, now = Date.now()) {
 // Marks the plan as being written; the runtime then reports steps and results.
 export function beginApply(run) {
     const plan = run.items.findLast((item) => item.type === 'plan')
-    if (!plan || plan.state !== 'pending') return false
+    if (!plan || plan.state !== 'pending' || !includedChanges(plan).length) return false
     plan.state = 'applying'
     run.status = 'applying'
     run.endedAt = null
@@ -218,6 +219,25 @@ export function pendingPlan(run) {
     if (run?.status !== 'awaiting') return null
     const plan = run.items.findLast((item) => item.type === 'plan')
     return plan?.state === 'pending' ? plan : null
+}
+
+// Takes one change out of a waiting plan, or puts it back. Manual changes are
+// advice the agent cannot carry out, so they are never part of the choice.
+export function toggleChange(run, index) {
+    const plan = pendingPlan(run)
+    const change = plan?.plan.changes[index]
+    if (!change || change.manual) return false
+    plan.excluded = plan.excluded.includes(index)
+        ? plan.excluded.filter((entry) => entry !== index)
+        : [...plan.excluded, index].sort((a, b) => a - b)
+    return true
+}
+
+// The changes approving would write: not manual and not excluded.
+export function includedChanges(plan) {
+    return plan.plan.changes.filter(
+        (change, index) => !change.manual && !(plan.excluded || []).includes(index),
+    )
 }
 
 export function activitySteps(run) {

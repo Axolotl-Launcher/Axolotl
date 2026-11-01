@@ -1,7 +1,8 @@
 // The Progress panel: the task's checklist, what it would change, what it runs
 // with and every tool call so far. It only describes the latest request.
 import { activitySteps, pendingPlan } from './agent.js'
-import { element, h, icon, spinner } from './dom.js'
+import { element, h, icon } from './dom.js'
+import { pixelLoader } from './mascot.js'
 import { dateLabel, text } from './messages.js'
 import { currentThread, instanceChoice, modelChoice, session } from './session.js'
 import { lastTurn } from './state.js'
@@ -29,15 +30,10 @@ function section(title, children) {
 }
 
 function checklistIcon(status) {
-    if (status === 'current') return spinner()
+    if (status === 'current') return pixelLoader()
     if (status === 'done') return icon('check')
     if (status === 'failed') return icon('close')
     return h('span', { class: 'check-empty' })
-}
-
-export function progressFraction(run) {
-    if (!run?.progress.length) return null
-    return run.progress.filter((step) => step.status === 'done').length / run.progress.length
 }
 
 export function renderPanel() {
@@ -159,12 +155,16 @@ export function renderPanel() {
     content.replaceChildren(...parts)
 }
 
-// The ring on the panel button shows checklist progress at a glance.
+// The panel button shows the checklist as a row of blocks, one per step.
 export function renderProgressRing() {
     const run = lastTurn(currentThread())?.run
-    const fraction = progressFraction(run)
+    const steps = run?.progress || []
     const toggle = element('task-toggle')
-    toggle.classList.toggle('has-progress', fraction !== null)
+    toggle.classList.toggle('has-progress', steps.length > 0)
     toggle.dataset.status = run?.status || ''
-    element('progress-ring-value').style.setProperty('--progress', String(fraction ?? 0))
+    const pips = element('progress-pips')
+    const signature = steps.map((step) => step.status).join()
+    if (pips.dataset.signature === signature) return
+    pips.dataset.signature = signature
+    pips.replaceChildren(...steps.map((step) => h('i', { data: { state: step.status } })))
 }

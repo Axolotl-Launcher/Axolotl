@@ -1,4 +1,5 @@
 import {
+    activitySteps,
     applyEvent,
     beginApply,
     createRuntime,
@@ -6,6 +7,7 @@ import {
     pendingPlan,
     stopRun,
     supersedePlan,
+    toggleChange,
 } from './agent.js'
 import { element, h, icon } from './dom.js'
 import { setLocale, text } from './messages.js'
@@ -33,6 +35,7 @@ import {
     newTurn,
     saveStore,
     STORAGE_KEY,
+    threadStatus,
 } from './state.js'
 import { placeComposer, renderApprovalBar, renderComposer, resizeInput } from './view-composer.js'
 import { renderHelp, renderHome } from './view-home.js'
@@ -53,6 +56,9 @@ import {
     renderSettings,
     toast,
 } from './view-overlays.js'
+import { bindPalette, openPalette } from './view-palette.js'
+import { bindRail, renderRail } from './view-rail.js'
+import { bindSlash, closeSlash, slashKeydown, syncSlash } from './view-slash.js'
 import { renderPanel, renderProgressRing, stateLabel } from './view-panel.js'
 import { renderSidebar } from './view-sidebar.js'
 import {
@@ -280,6 +286,7 @@ function syncTranscript(fresh = true) {
     element('messages').hidden = !thread.turns.length
     observePlan()
     renderJump()
+    renderRail(thread)
 }
 
 function render() {
@@ -336,17 +343,50 @@ function flushTurns() {
         }
     }
     dirtyTurns.clear()
-    renderSidebar()
+    // Streaming text arrives every few dozen milliseconds. Only the turn itself
+    // changes then, so everything around it re-renders only when what it shows
+    // (a status, a step, a plan state, a title) actually changed.
+    const list = [...session.store.threads]
+        .sort((a, b) => b.updatedAt - a.updatedAt)
+        .map((thread) => `${thread.id}:${thread.title}:${threadStatus(thread)}`)
+        .join('|')
+    if (list !== listKey) {
+        listKey = list
+        renderSidebar()
+    }
     if (touchedActive) {
-        renderHeader()
-        renderComposer()
-        if (panelShown()) renderPanel()
-        renderProgressRing()
-        observePlan()
         follower.follow()
+        const last = lastTurn(active)
+        const shape = [
+            active.title,
+            active.turns.length,
+            active.queue.length,
+            last?.run.status,
+            last?.run.items.length,
+            last &&
+                activitySteps(last.run)
+                    .map((step) => step.status)
+                    .join(),
+            last?.run.progress.map((step) => step.status).join(),
+            last?.run.items
+                .filter((item) => item.type === 'plan')
+                .map((item) => `${item.state}${item.done}`)
+                .join(),
+        ].join('|')
+        if (shape !== shapeKey) {
+            shapeKey = shape
+            renderHeader()
+            renderComposer()
+            if (panelShown()) renderPanel()
+            renderProgressRing()
+            observePlan()
+            renderRail(active)
+        }
     }
     updateTicker()
 }
+let listKey = ''
+let shapeKey = ''
 
 function updateTicker() {
     const running = ACTIVE_STATUSES.includes(lastTurn(currentThread())?.run.status)
@@ -367,11 +407,15 @@ function updateTicker() {
 // out of view, so the decision is always one click away.
 let planObserver = null
 let planVisible = true
+let observed = null
 function observePlan() {
-    planObserver?.disconnect()
     const last = lastTurn(currentThread())
     const actions =
-        pendingPlan(last?.run) && turnNode(last.id)?.querySelector('.plan-card .plan-actions')
+        (pendingPlan(last?.run) && turnNode(last.id)?.querySelector('.plan-card .plan-actions')) ||
+        null
+    if (actions && actions === observed) return
+    planObserver?.disconnect()
+    observed = actions
     if (!actions) {
         planVisible = true
         renderApprovalBar(false)
@@ -572,7 +616,15 @@ async function launch(threadId, turnId, mode) {
     const emit = (event) => onRuntimeEvent(threadId, turnId, event)
     const extra =
         mode === 'approve'
-            ? { planId: found.turn.run.items.findLast((item) => item.type === 'plan')?.plan.id }
+            ? (() => {
+                  const plan = found.turn.run.items.findLast((item) => item.type === 'plan')
+                  return {
+                      planId: plan?.plan.id,
+                      excluded: (plan?.excluded || []).map(
+                          (index) => plan.plan.changes[index].name,
+                      ),
+                  }
+              })()
             : {}
     try {
         session.handles.set(
@@ -980,6 +1032,15 @@ function addFiles(files) {
     element('message-input').focus()
 }
 
+async function copyText(value, done = text('copied')) {
+    try {
+        await navigator.clipboard.writeText(value)
+        notify(done, 'success')
+    } catch {
+        notify(text('copyError'), 'error')
+    }
+}
+
 async function copy(turnId, kind) {
     const turn = currentThread().turns.find((entry) => entry.id === turnId)
     if (!turn) return
@@ -1120,7 +1181,7 @@ const actions = {
 
 document.addEventListener('click', (event) => {
     const target = event.target.closest(
-        '[data-action], [data-thread], [data-thread-menu], [data-prompt], [data-model], [data-instance], [data-copy-turn], [data-remove-attachment], [data-remove-queued], [data-send-queued], [data-menu-rename], [data-menu-delete]',
+        '[data-action], [data-thread], [data-thread-menu], [data-prompt], [data-model], [data-instance], [data-copy-turn], [data-remove-attachment], [data-remove-queued], [data-send-queued], [data-menu-rename], [data-menu-delete], [data-toggle-change], [data-copy-code], [data-copy-link]',
     )
     if (!target || target.disabled) return
     const data = target.dataset
@@ -1183,6 +1244,9 @@ document.addEventListener('click', (event) => {
             element('message-input').focus()
         }
     } else if (data.copyTurn) copy(data.copyTurn, data.copyKind)
+    else if (data.copyCode !== undefined)
+        copyText(target.closest('.code-block').querySelector('code').textContent)
+    else if (data.copyLink) copyText(data.copyLink, text('linkCopied'))
     else if (data.removeAttachment) {
         const thread = currentThread()
         thread.attachments = thread.attachments.filter((file) => file.id !== data.removeAttachment)
@@ -1196,6 +1260,18 @@ document.addEventListener('click', (event) => {
         )
             renderComposer()
     } else if (data.sendQueued) sendQueued(session.store.activeId, data.sendQueued)
+    else if (data.toggleChange) {
+        const [turnId, index] = data.toggleChange.split(':')
+        let ok = false
+        if (
+            commit((next, thread) => {
+                const turn = thread.turns.find((entry) => entry.id === turnId)
+                ok = !!turn && toggleChange(turn.run, Number(index))
+            }) &&
+            ok
+        )
+            refreshTurn(session.store.activeId, turnId, true)
+    }
 })
 
 element('composer').addEventListener('submit', (event) => {
@@ -1208,15 +1284,25 @@ element('message-input').addEventListener('input', (event) => {
     currentThread().draft = event.target.value
     persistSoon(250)
     renderComposer()
+    syncSlash(event.target.value)
     element('conversation-more').hidden = !currentThread().turns.length && !currentThread().draft
     if (!currentThread().turns.length && currentThread().title === '' && currentThread().draft)
         renderSidebar()
 })
 
 element('message-input').addEventListener('keydown', (event) => {
+    if (slashKeydown(event)) return
     if (event.key === 'Enter' && !event.shiftKey && !event.isComposing) {
         event.preventDefault()
         submit()
+    } else if (event.key === 'ArrowUp' && !event.target.value && !event.isComposing) {
+        // As in a terminal: an empty box recalls the last request to edit and resend.
+        const last = lastTurn(currentThread())
+        if (!last) return
+        event.preventDefault()
+        event.target.value = last.text
+        event.target.dispatchEvent(new Event('input', { bubbles: true }))
+        event.target.setSelectionRange(last.text.length, last.text.length)
     }
 })
 
@@ -1225,18 +1311,28 @@ element('file-input').addEventListener('change', (event) => {
     event.target.value = ''
 })
 
-const composerNode = element('composer')
-composerNode.addEventListener('dragover', (event) => {
-    if (![...(event.dataTransfer?.types || [])].includes('Files')) return
-    event.preventDefault()
-    composerNode.classList.add('is-dragging')
+// Files can be dropped anywhere on the conversation, which shows where they go.
+const conversationNode = element('conversation')
+const dragging = (event) => [...(event.dataTransfer?.types || [])].includes('Files')
+let dragDepth = 0
+conversationNode.addEventListener('dragenter', (event) => {
+    if (!dragging(event)) return
+    dragDepth++
+    element('drop-overlay').hidden = false
 })
-composerNode.addEventListener('dragleave', (event) => {
-    if (!composerNode.contains(event.relatedTarget)) composerNode.classList.remove('is-dragging')
+conversationNode.addEventListener('dragover', (event) => {
+    if (dragging(event)) event.preventDefault()
 })
-composerNode.addEventListener('drop', (event) => {
+conversationNode.addEventListener('dragleave', (event) => {
+    if (!dragging(event)) return
+    dragDepth = Math.max(0, dragDepth - 1)
+    if (!dragDepth) element('drop-overlay').hidden = true
+})
+conversationNode.addEventListener('drop', (event) => {
+    if (!dragging(event)) return
     event.preventDefault()
-    composerNode.classList.remove('is-dragging')
+    dragDepth = 0
+    element('drop-overlay').hidden = true
     addFiles(event.dataTransfer?.files || [])
 })
 
@@ -1256,6 +1352,24 @@ element('picker-search').addEventListener('keydown', (event) => {
     }
 })
 element('picker-options').addEventListener('keydown', pickerKeydown)
+bindPalette()
+bindRail()
+// A picked shortcut either fills in a starter request or runs a window action.
+bindSlash((entry) => {
+    const input = element('message-input')
+    if (entry.prompt) {
+        input.value = text(entry.prompt)
+        input.dispatchEvent(new Event('input', { bubbles: true }))
+        input.focus()
+        input.setSelectionRange(input.value.length, input.value.length)
+        return
+    }
+    input.value = ''
+    input.dispatchEvent(new Event('input', { bubbles: true }))
+    const anchors = { 'model-picker': 'model-button', 'instance-picker': 'instance-button' }
+    actions[entry.action]?.(null, element(anchors[entry.action] || 'message-input'))
+})
+element('message-input').addEventListener('blur', closeSlash)
 
 element('permission-full-access').addEventListener('change', (event) => {
     const enabling = event.target.checked
@@ -1300,6 +1414,39 @@ for (const dialog of document.querySelectorAll('dialog')) {
     })
 }
 
+// The command menu lists what the window can do, then recent tasks.
+function showPalette() {
+    const action = (icon, label, run, keys) => ({ icon, label: text(label), run, keys })
+    openPalette({
+        actions: [
+            action('plus', 'newChat', () => createThread(), 'Ctrl N'),
+            action('sidebar', 'toggleSidebar', () => setSidebar(!sidebarShown()), 'Ctrl B'),
+            action('panel', 'togglePanel', () => setPanel(!panelShown())),
+            action('sparkle', 'model', () => {
+                refreshContext()
+                openPicker('model', element('model-button'))
+            }),
+            action('cube', 'instance', () => {
+                refreshContext()
+                openPicker('instance', element('instance-button'))
+            }),
+            action('attach', 'attach', () => element('file-input').click()),
+            action('settings', 'settings', () => actions.settings()),
+            action('help', 'help', () => actions.help()),
+        ],
+        threads: [...session.store.threads]
+            .filter((thread) => thread.turns.length || thread.draft)
+            .sort((a, b) => b.updatedAt - a.updatedAt)
+            .map((thread) => ({
+                icon: 'message',
+                label: thread.title || text('untitled'),
+                detail: lastTurn(thread) ? stateLabel(lastTurn(thread).run.status) : '',
+                status: threadStatus(thread),
+                run: () => selectThread(thread.id),
+            })),
+    })
+}
+
 document.addEventListener('keydown', (event) => {
     const modifier = event.ctrlKey || event.metaKey
     const overlay =
@@ -1313,10 +1460,8 @@ document.addEventListener('keydown', (event) => {
             if (!document.querySelector('dialog[open]')) createThread()
         } else if (key === 'k') {
             event.preventDefault()
-            if (overlay) return
-            setSidebar(true)
-            element('conversation-search').focus()
-            element('conversation-search').select()
+            if (element('palette').open) element('palette').close()
+            else if (!overlay) showPalette()
         } else if (key === 'b') {
             event.preventDefault()
             if (!overlay) setSidebar(!sidebarShown())

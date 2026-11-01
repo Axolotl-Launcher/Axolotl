@@ -25,12 +25,14 @@ macro_rules! script {
 /// including the filesystem, is reachable through the protocol.
 const ASSETS: &[(&str, &str, &[u8])] = &[
     ("/window.css", "text/css", include_bytes!("window.css")),
+    ("/mascot.css", "text/css", include_bytes!("mascot.css")),
     script!("window.js"),
     script!("app.js"),
     script!("agent.js"),
     script!("demo-flows.js"),
     script!("demo-runtime.js"),
     script!("dom.js"),
+    script!("mascot.js"),
     script!("messages.js"),
     script!("motion.js"),
     script!("session.js"),
@@ -38,9 +40,70 @@ const ASSETS: &[(&str, &str, &[u8])] = &[
     script!("view-composer.js"),
     script!("view-home.js"),
     script!("view-overlays.js"),
+    script!("view-palette.js"),
     script!("view-panel.js"),
+    script!("view-rail.js"),
     script!("view-sidebar.js"),
+    script!("view-slash.js"),
     script!("view-transcript.js"),
+    // The agent mascot, rendered from the official axolotl model by
+    // dev/render-mascot.py.
+    (
+        "/mascot/idle.png",
+        "image/png",
+        include_bytes!("mascot/idle.png"),
+    ),
+    (
+        "/mascot/idle-sm.png",
+        "image/png",
+        include_bytes!("mascot/idle-sm.png"),
+    ),
+    (
+        "/mascot/think.png",
+        "image/png",
+        include_bytes!("mascot/think.png"),
+    ),
+    (
+        "/mascot/think-sm.png",
+        "image/png",
+        include_bytes!("mascot/think-sm.png"),
+    ),
+    (
+        "/mascot/happy.png",
+        "image/png",
+        include_bytes!("mascot/happy.png"),
+    ),
+    (
+        "/mascot/happy-sm.png",
+        "image/png",
+        include_bytes!("mascot/happy-sm.png"),
+    ),
+    (
+        "/mascot/sad.png",
+        "image/png",
+        include_bytes!("mascot/sad.png"),
+    ),
+    (
+        "/mascot/sad-sm.png",
+        "image/png",
+        include_bytes!("mascot/sad-sm.png"),
+    ),
+    // Inter, the launcher's typeface, subset to Latin; Chinese uses system fonts.
+    (
+        "/fonts/inter-400.woff2",
+        "font/woff2",
+        include_bytes!("fonts/inter-400.woff2"),
+    ),
+    (
+        "/fonts/inter-500.woff2",
+        "font/woff2",
+        include_bytes!("fonts/inter-500.woff2"),
+    ),
+    (
+        "/fonts/inter-600.woff2",
+        "font/woff2",
+        include_bytes!("fonts/inter-600.woff2"),
+    ),
     (
         "/axolotl.png",
         "image/png",
@@ -478,7 +541,7 @@ pub fn asset_response(
         .header(header::CACHE_CONTROL, "no-store")
         .header(
             header::CONTENT_SECURITY_POLICY,
-            "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self'; connect-src ipc: http://ipc.localhost; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+            "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self'; font-src 'self'; connect-src ipc: http://ipc.localhost; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
         )
         .header("X-Content-Type-Options", "nosniff")
         .body(body)
@@ -797,10 +860,22 @@ mod tests {
     #[test]
     fn every_window_source_file_is_served() {
         let source = concat!(env!("CARGO_MANIFEST_DIR"), "/src");
-        for entry in std::fs::read_dir(source).unwrap() {
+        let fonts = concat!(env!("CARGO_MANIFEST_DIR"), "/src/fonts");
+        let files = std::fs::read_dir(source)
+            .unwrap()
+            .map(|entry| ("", entry))
+            .chain(
+                std::fs::read_dir(fonts)
+                    .unwrap()
+                    .map(|entry| ("fonts/", entry)),
+            );
+        for (folder, entry) in files {
             let name = entry.unwrap().file_name().into_string().unwrap();
-            if name.ends_with(".js") || name.ends_with(".css") {
-                let path = format!("/{name}");
+            if name.ends_with(".js")
+                || name.ends_with(".css")
+                || name.ends_with(".woff2")
+            {
+                let path = format!("/{folder}{name}");
                 assert!(
                     ASSETS.iter().any(|(served, ..)| *served == path),
                     "{name} is not in ASSETS"

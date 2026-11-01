@@ -1,9 +1,11 @@
 // The conversation: user requests on the right, the agent's work under each one.
 // Turns are keyed, and a running turn is patched in place so streaming text,
 // step spinners and expanded groups keep their state between events.
-import { button, element, h, hue, icon, markdown, spinner } from './dom.js'
+import { includedChanges } from './agent.js'
+import { button, element, h, hue, icon, renderMarkdown } from './dom.js'
+import { axolotl, pixelLoader, setMood } from './mascot.js'
 import { dateLabel, durationLabel, text } from './messages.js'
-import { animate } from './motion.js'
+import { animate, reducedMotion } from './motion.js'
 import { instanceChoice } from './session.js'
 import { ACTIVE_STATUSES } from './state.js'
 
@@ -128,8 +130,8 @@ function updateItem(node, item, view) {
 }
 
 function stepIcon(status) {
-    if (status === 'running') return spinner()
-    return icon(status === 'done' ? 'check' : status === 'failed' ? 'close' : 'stop')
+    if (status === 'running') return pixelLoader()
+    return icon(status === 'done' ? 'check' : status === 'failed' ? 'close' : 'stop', 'draw')
 }
 
 function updateActivity(node, item, { active }) {
@@ -143,7 +145,7 @@ function updateActivity(node, item, { active }) {
         const holder = node.querySelector('.activity-icon')
         holder.replaceChildren(
             running
-                ? spinner()
+                ? pixelLoader()
                 : icon(state === 'done' ? 'check-circle' : state === 'failed' ? 'alert' : 'stop'),
         )
         if (!running) holder.firstChild.classList.add('pop')
@@ -194,13 +196,35 @@ function updateActivity(node, item, { active }) {
 
 function updateText(node, item, { active, last }) {
     if (node.dataset.length !== String(item.text.length)) {
-        node.replaceChildren(markdown(item.text))
+        renderMarkdown(node, item.text)
         node.dataset.length = String(item.text.length)
     }
     node.classList.toggle('is-streaming', active && last)
 }
 
-function changeRow(change) {
+const KINDS = {
+    update: ['up', 'changeKindUpdate'],
+    rollback: ['refresh', 'changeKindRollback'],
+    new: ['plus', 'changeKindNew'],
+    install: ['download', 'changeKindInstall'],
+    setting: ['settings', 'changeKindSetting'],
+    backup: ['archive', 'changeKindBackup'],
+    remove: ['trash', 'changeKindRemove'],
+}
+
+// Lights the part of a version that changes, so 0.6.5 → 0.6.13 reads at a glance.
+function versionTo(from, to) {
+    const after = to.split(/([.\-+])/)
+    const before = (from || '').split(/([.\-+])/)
+    let same = 0
+    while (from && same < after.length && after[same] === before[same]) same++
+    return h('span', { class: 'version is-to' }, [
+        same ? after.slice(0, same).join('') : null,
+        h('mark', { text: after.slice(same).join('') }),
+    ])
+}
+
+function changeRow(change, index, turnId) {
     const mark = change.glyph
         ? h('span', {
               class: 'change-mark glyph',
@@ -208,26 +232,54 @@ function changeRow(change) {
               style: `--mark-hue: ${hue(change.name)}`,
           })
         : h('span', { class: 'change-mark' }, [icon(change.icon || 'cube')])
-    let after
-    if (change.manual) after = h('span', { class: 'manual-tag', text: text('manualChange') })
-    else
-        after = h('span', { class: 'change-diff' }, [
-            change.from ? h('span', { class: 'version is-from', text: change.from }) : null,
-            change.from ? icon('arrow-right', 'diff-arrow') : null,
-            change.to ? h('span', { class: 'version is-to', text: change.to }) : null,
-        ])
-    return h('li', { class: `change${change.manual ? ' is-manual' : ''}` }, [
+    const kind = !change.manual && KINDS[change.kind]
+    const badge = change.manual
+        ? h('span', { class: 'change-kind is-manual', text: text('manualChange') })
+        : kind
+          ? h('span', { class: 'change-kind', data: { kind: change.kind } }, [
+                icon(kind[0]),
+                h('span', { text: text(kind[1]) }),
+            ])
+          : null
+    const diff =
+        change.manual || !change.to
+            ? null
+            : h('span', { class: 'change-diff' }, [
+                  change.from ? h('span', { class: 'version is-from', text: change.from }) : null,
+                  change.from ? icon('arrow-right', 'diff-arrow') : null,
+                  versionTo(change.from, change.to),
+              ])
+    return h('li', { class: `change${change.manual ? ' is-manual' : ''}`, data: { index } }, [
         mark,
         h('span', { class: 'change-copy' }, [
-            h('strong', { text: change.name }),
-            change.note ? h('span', { text: change.note }) : null,
+            h('span', { class: 'change-title' }, [h('strong', { text: change.name }), badge]),
+            change.note || change.meta
+                ? h('span', { class: 'change-note' }, [
+                      change.note ? h('span', { text: change.note }) : null,
+                      change.meta ? h('span', { class: 'change-meta', text: change.meta }) : null,
+                  ])
+                : null,
         ]),
-        after,
+        diff || h('span'),
+        change.manual
+            ? h('span')
+            : button(
+                  {
+                      class: 'change-toggle',
+                      role: 'checkbox',
+                      'aria-checked': 'true',
+                      label: text('includeChange', { name: change.name }),
+                      data: { toggleChange: `${turnId}:${index}` },
+                  },
+                  icon('check'),
+              ),
     ])
 }
 
 function planFooter(item, turn) {
-    const total = item.plan.changes.filter((change) => !change.manual).length
+    const included = includedChanges(item)
+    const total = included.length
+    const skipped = (item.excluded || []).map((index) => item.plan.changes[index].name)
     const turnId = turn.id
     switch (item.state) {
         case 'pending':
@@ -237,7 +289,15 @@ function planFooter(item, turn) {
                     icon('shield'),
                     h('span', {}, [
                         item.plan.approval ? h('strong', { text: item.plan.approval }) : null,
-                        h('span', { text: text('approvalPromise') }),
+                        skipped.length
+                            ? h('span', {
+                                  class: 'plan-skipping',
+                                  text: text('excludedCount', {
+                                      count: skipped.length,
+                                      names: skipped.join(' · '),
+                                  }),
+                              })
+                            : h('span', { text: text('approvalPromise') }),
                     ]),
                 ]),
                 h('div', { class: 'plan-buttons' }, [
@@ -251,30 +311,36 @@ function planFooter(item, turn) {
                             class: 'primary-button',
                             data: { action: 'approve', turn: turnId },
                             'data-testid': 'approve-plan',
+                            disabled: !total,
+                            title: total ? null : text('nothingSelected'),
                         },
                         [icon('check'), h('span', { text: text('approve') })],
                     ),
                 ]),
             ])
         case 'applying': {
+            // One block per change, placed as each change is written.
             const done = Math.min(item.done, total)
             return h('div', { class: 'plan-actions is-progress' }, [
-                h('div', { class: 'plan-progress' }, [
-                    h('span', {
-                        class: 'plan-progress-bar',
-                        style: `--progress: ${total ? done / total : 0}`,
-                    }),
-                ]),
                 h('p', { class: 'plan-state' }, [
-                    spinner(),
+                    pixelLoader(),
                     text('applyingProgress', { done, total }),
                 ]),
+                h(
+                    'span',
+                    { class: 'plan-blocks', 'aria-hidden': 'true' },
+                    Array.from({ length: Math.max(total, 1) }, (_, index) =>
+                        h('i', { class: index < done ? 'is-placed' : '' }),
+                    ),
+                ),
             ])
         }
         case 'applied':
             return h('p', { class: 'plan-state is-applied' }, [
                 icon('check-circle'),
-                text('planApplied'),
+                skipped.length
+                    ? text('planAppliedPartial', { done: total, skipped: skipped.length })
+                    : text('planApplied'),
             ])
         case 'declined':
             return h('p', { class: 'plan-state' }, [icon('close'), text('planDeclined')])
@@ -289,7 +355,8 @@ function planFooter(item, turn) {
 }
 
 function updatePlan(node, item, { turn }) {
-    const signature = `${item.state}:${item.done}`
+    const excluded = item.excluded || []
+    const signature = `${item.state}:${item.done}:${excluded.join()}`
     if (node.dataset.signature === signature) return
     const first = !node.dataset.signature
     node.dataset.signature = signature
@@ -304,7 +371,11 @@ function updatePlan(node, item, { turn }) {
                 ]),
                 plan.summary ? h('span', { class: 'plan-count', text: plan.summary }) : null,
             ]),
-            h('ul', { class: 'change-list' }, plan.changes.map(changeRow)),
+            h(
+                'ul',
+                { class: 'change-list' },
+                plan.changes.map((change, index) => changeRow(change, index, turn.id)),
+            ),
             plan.notes.length
                 ? h(
                       'ul',
@@ -317,15 +388,33 @@ function updatePlan(node, item, { turn }) {
             h('div', { class: 'plan-footer' }),
         )
     }
+    for (const row of node.querySelectorAll('.change')) {
+        const out = excluded.includes(Number(row.dataset.index))
+        row.classList.toggle('is-excluded', out)
+        row.querySelector('.change-toggle')?.setAttribute('aria-checked', String(!out))
+    }
     const footer = node.querySelector('.plan-footer')
     footer.replaceChildren(planFooter(item, turn))
     if (!first)
         animate(footer.firstChild, [{ opacity: 0, transform: 'translateY(4px)' }, { opacity: 1 }])
 }
 
+// A short burst of accent pixels when a result arrives live, never on reload.
+function burst() {
+    return h(
+        'span',
+        { class: 'burst', 'aria-hidden': 'true' },
+        Array.from({ length: 10 }, (_, index) => h('i', { style: `--i: ${index}` })),
+    )
+}
+
 function fillResult(node, item, view) {
+    const live = node.classList.contains('is-arriving') && !reducedMotion.matches
     node.append(
-        icon(item.type === 'error' ? 'alert' : 'check-circle', 'result-icon'),
+        h('span', { class: 'result-mark' }, [
+            icon(item.type === 'error' ? 'alert' : 'check-circle', 'result-icon'),
+            live && item.type === 'result' ? burst() : null,
+        ]),
         h('div', { class: 'result-copy' }, [
             h('strong', { text: item.title }),
             item.text ? h('p', { text: item.text }) : null,
@@ -349,19 +438,48 @@ function syncRetry(node, item, { thread, turn, active }) {
     } else if (!show) retry?.remove()
 }
 
+// While the agent works its mascot sits beside what it is doing. When the run
+// ends the mascot reacts for a moment before the line goes away.
+const EXIT_MOODS = { done: 'happy', awaiting: 'happy', failed: 'sad' }
+const EXIT_LABELS = { done: 'stateDone', awaiting: 'stateAwaiting', failed: 'stateFailed' }
+const leaving = new WeakMap()
+
 function syncStatus(node, turn, active) {
-    node.hidden = !active
-    if (!active) return
-    const label = turn.run.label || text(turn.run.status === 'applying' ? 'applying' : 'thinking')
-    if (!node.childElementCount)
-        node.append(
-            h('span', { class: 'thinking-mark' }, [icon('sparkle')]),
-            h('span', { class: 'shimmer' }),
-            h('span', { class: 'elapsed' }),
-            h('span', { class: 'status-hint' }, [h('kbd', { text: 'Esc' }), text('escToStop')]),
-        )
-    node.querySelector('.shimmer').textContent = label
-    updateElapsed(node, turn)
+    if (active) {
+        clearTimeout(leaving.get(node))
+        delete node.dataset.leaving
+        node.hidden = false
+        if (!node.childElementCount)
+            node.append(
+                h('span', { class: 'status-mark' }, [
+                    axolotl({ mood: 'think', className: 'axo-sm' }),
+                ]),
+                h('span', { class: 'shimmer' }),
+                h('span', { class: 'elapsed' }),
+                h('span', { class: 'status-hint' }, [h('kbd', { text: 'Esc' }), text('escToStop')]),
+            )
+        setMood(node.querySelector('.axo'), 'think')
+        node.querySelector('.shimmer').textContent =
+            turn.run.label || text(turn.run.status === 'applying' ? 'applying' : 'thinking')
+        updateElapsed(node, turn)
+        return
+    }
+    if (node.hidden || node.dataset.leaving) return
+    const mood = EXIT_MOODS[turn.run.status]
+    if (!mood || reducedMotion.matches || !node.isConnected) {
+        node.hidden = true
+        return
+    }
+    node.dataset.leaving = mood
+    setMood(node.querySelector('.axo'), mood)
+    node.querySelector('.shimmer').textContent = text(EXIT_LABELS[turn.run.status])
+    leaving.set(
+        node,
+        setTimeout(() => {
+            node.hidden = true
+            delete node.dataset.leaving
+        }, 1400),
+    )
 }
 
 export function updateElapsed(node, turn) {

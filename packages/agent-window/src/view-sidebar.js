@@ -1,7 +1,9 @@
 // Task history, newest first, with a quiet marker for tasks that are working or
 // waiting for the user.
-import { button, element, h, icon, spinner } from './dom.js'
+import { button, element, h, icon } from './dom.js'
+import { pixelLoader } from './mascot.js'
 import { text } from './messages.js'
+import { reducedMotion } from './motion.js'
 import { session } from './session.js'
 import { threadStatus } from './state.js'
 
@@ -21,7 +23,7 @@ function group(timestamp) {
 }
 
 function indicator(status) {
-    if (status === 'active') return h('span', { class: 'thread-indicator' }, [spinner()])
+    if (status === 'active') return h('span', { class: 'thread-indicator' }, [pixelLoader()])
     if (status === 'awaiting' || status === 'attention')
         return h('span', { class: 'thread-indicator' }, [h('span', { class: 'thread-dot' })])
     return null
@@ -80,9 +82,33 @@ export function renderSidebar() {
             ),
         )
     }
-    element('conversation-list').replaceChildren(
+    // The highlight stays in the list so its glide is not reset by the re-render.
+    const list = element('conversation-list')
+    if (highlight.parentNode !== list) list.prepend(highlight)
+    for (const child of [...list.children]) if (child !== highlight) child.remove()
+    list.append(
         ...(rows.length
             ? rows
             : [h('p', { class: 'list-empty', text: text(query ? 'noResults' : 'noChats') })]),
     )
+    placeHighlight(list)
+}
+
+// One highlight lives behind the rows and glides to the selected task, so
+// switching tasks reads as a single movement rather than two repaints.
+const highlight = h('span', { class: 'thread-highlight', 'aria-hidden': 'true' })
+let highlightPlaced = false
+
+function placeHighlight(list) {
+    const row = list.querySelector('.thread-row.is-selected')
+    highlight.hidden = !row
+    if (!row) {
+        highlightPlaced = false
+        return
+    }
+    const glide = highlightPlaced && !reducedMotion.matches
+    highlight.classList.toggle('is-gliding', glide)
+    highlight.style.transform = `translateY(${row.offsetTop}px)`
+    highlight.style.height = `${row.offsetHeight}px`
+    highlightPlaced = row.offsetHeight > 0
 }

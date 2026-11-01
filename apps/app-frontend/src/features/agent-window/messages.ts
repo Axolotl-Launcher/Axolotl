@@ -147,8 +147,9 @@ export const agentWindowMessages = defineMessages({
     messageLabel: { id: 'app.agent-window.chat.message-label', defaultMessage: 'Message' },
     prompt: {
         id: 'app.agent-window.chat.prompt',
-        defaultMessage: 'Describe what you want, like “my game crashes on launch”',
+        defaultMessage: 'Describe what you want, or type / for shortcuts',
     },
+    slashTitle: { id: 'app.agent-window.chat.slash-title', defaultMessage: 'Shortcuts' },
     promptFollowup: {
         id: 'app.agent-window.chat.prompt-followup',
         defaultMessage: 'Ask a follow-up…',
@@ -169,6 +170,10 @@ export const agentWindowMessages = defineMessages({
     removeAttachment: {
         id: 'app.agent-window.chat.remove-attachment',
         defaultMessage: 'Remove {name}',
+    },
+    dropFiles: {
+        id: 'app.agent-window.chat.drop-files',
+        defaultMessage: 'Drop files to attach them',
     },
     instance: { id: 'app.agent-window.chat.instance', defaultMessage: 'Choose an instance' },
     allLauncher: { id: 'app.agent-window.chat.all-launcher', defaultMessage: 'Entire launcher' },
@@ -233,6 +238,8 @@ export const agentWindowMessages = defineMessages({
     copy: { id: 'app.agent-window.chat.copy', defaultMessage: 'Copy message' },
     copyAnswer: { id: 'app.agent-window.chat.copy-answer', defaultMessage: 'Copy answer' },
     copied: { id: 'app.agent-window.chat.copied', defaultMessage: 'Copied' },
+    copyCode: { id: 'app.agent-window.chat.copy-code', defaultMessage: 'Copy code' },
+    linkCopied: { id: 'app.agent-window.chat.link-copied', defaultMessage: 'Link copied' },
     copyError: { id: 'app.agent-window.chat.copy-error', defaultMessage: 'Couldn’t copy' },
     thinking: { id: 'app.agent-window.chat.thinking', defaultMessage: 'Thinking…' },
     working: { id: 'app.agent-window.chat.working', defaultMessage: 'Working…' },
@@ -240,7 +247,38 @@ export const agentWindowMessages = defineMessages({
     escToStop: { id: 'app.agent-window.chat.esc-to-stop', defaultMessage: 'to stop' },
     stepsDone: { id: 'app.agent-window.chat.steps-done', defaultMessage: '{count} steps' },
     planKicker: { id: 'app.agent-window.chat.plan-kicker', defaultMessage: 'Proposed changes' },
-    manualChange: { id: 'app.agent-window.chat.manual-change', defaultMessage: 'Manual' },
+    manualChange: { id: 'app.agent-window.chat.manual-change', defaultMessage: 'Do it yourself' },
+    changeKindUpdate: { id: 'app.agent-window.chat.change-kind-update', defaultMessage: 'Update' },
+    changeKindRollback: {
+        id: 'app.agent-window.chat.change-kind-rollback',
+        defaultMessage: 'Roll back',
+    },
+    changeKindNew: { id: 'app.agent-window.chat.change-kind-new', defaultMessage: 'New' },
+    changeKindInstall: {
+        id: 'app.agent-window.chat.change-kind-install',
+        defaultMessage: 'Install',
+    },
+    changeKindSetting: {
+        id: 'app.agent-window.chat.change-kind-setting',
+        defaultMessage: 'Setting',
+    },
+    changeKindBackup: { id: 'app.agent-window.chat.change-kind-backup', defaultMessage: 'Backup' },
+    changeKindRemove: { id: 'app.agent-window.chat.change-kind-remove', defaultMessage: 'Remove' },
+    includeChange: { id: 'app.agent-window.chat.include-change', defaultMessage: 'Include {name}' },
+    excludedCount: {
+        id: 'app.agent-window.chat.excluded-count',
+        defaultMessage: 'Skipping {count}: {names}',
+    },
+    nothingSelected: {
+        id: 'app.agent-window.chat.nothing-selected',
+        defaultMessage: 'Keep at least one change',
+    },
+    planAppliedPartial: {
+        id: 'app.agent-window.chat.plan-applied-partial',
+        defaultMessage: 'Applied {done} · skipped {skipped}',
+    },
+    railLabel: { id: 'app.agent-window.chat.rail-label', defaultMessage: 'Your messages' },
+    jumpTo: { id: 'app.agent-window.chat.jump-to', defaultMessage: 'Jump to “{text}”' },
     approvalPromise: {
         id: 'app.agent-window.chat.approval-promise',
         defaultMessage: 'Nothing changes until you approve',
@@ -412,7 +450,21 @@ export const agentWindowMessages = defineMessages({
         defaultMessage: 'Stop the running task',
     },
     shortcutNew: { id: 'app.agent-window.chat.shortcut-new', defaultMessage: 'New task' },
-    shortcutSearch: { id: 'app.agent-window.chat.shortcut-search', defaultMessage: 'Search tasks' },
+    shortcutPalette: {
+        id: 'app.agent-window.chat.shortcut-palette',
+        defaultMessage: 'Open the command menu',
+    },
+    palette: { id: 'app.agent-window.chat.palette', defaultMessage: 'Command menu' },
+    paletteSearch: {
+        id: 'app.agent-window.chat.palette-search',
+        defaultMessage: 'Type a command or search tasks…',
+    },
+    paletteActions: { id: 'app.agent-window.chat.palette-actions', defaultMessage: 'Actions' },
+    paletteTasks: { id: 'app.agent-window.chat.palette-tasks', defaultMessage: 'Tasks' },
+    togglePanel: {
+        id: 'app.agent-window.chat.toggle-panel',
+        defaultMessage: 'Show or hide progress',
+    },
     shortcutSidebar: {
         id: 'app.agent-window.chat.shortcut-sidebar',
         defaultMessage: 'Show or hide the task list',

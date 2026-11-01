@@ -59,6 +59,7 @@ import {
 } from '@/store/theme.ts'
 
 import AccentColorOption from './AccentColorOption.vue'
+import PinnedOverrideHint from './PinnedOverrideHint.vue'
 import SettingsRow from './SettingsRow.vue'
 import SettingsSection from './SettingsSection.vue'
 
@@ -522,6 +523,14 @@ const messages = defineMessages({
 const os = ref(await getOS())
 const settings = ref(await get())
 const saveDraft = createSettingsPatchSaver(settings.value, update)
+
+async function reloadSettings() {
+    try {
+        settings.value = await get()
+    } catch (error) {
+        handleError(error)
+    }
+}
 
 /** Nav ids that must stay visible so the shell remains navigable. */
 const LOCKED_NAV_ITEM_IDS = new Set(['home', 'library'])
@@ -1235,6 +1244,12 @@ watch(
                         {{ formatMessage(messages.transparentBackgroundConflict) }}
                     </span>
                 </template>
+                <template #copy>
+                    <PinnedOverrideHint
+                        key-name="transparent_background"
+                        @cleared="reloadSettings"
+                    />
+                </template>
                 <template #control>
                     <Toggle
                         id="transparent-background"
@@ -1249,6 +1264,12 @@ watch(
                 }}</template>
                 <template #description>
                     {{ formatMessage(messages.transparentBackgroundOpacityDescription) }}
+                </template>
+                <template #copy>
+                    <PinnedOverrideHint
+                        key-name="transparent_background_opacity"
+                        @cleared="reloadSettings"
+                    />
                 </template>
                 <template #control>
                     <div class="w-full">
@@ -1269,6 +1290,12 @@ watch(
                 }}</template>
                 <template #description>
                     {{ formatMessage(messages.transparentBackgroundBlurDescription) }}
+                </template>
+                <template #copy>
+                    <PinnedOverrideHint
+                        key-name="transparent_background_blur"
+                        @cleared="reloadSettings"
+                    />
                 </template>
                 <template #control>
                     <Toggle
@@ -1410,6 +1437,9 @@ watch(
                 <template #description>{{
                     formatMessage(messages.homeLayoutDescription)
                 }}</template>
+                <template #copy>
+                    <PinnedOverrideHint key-name="home_layout" @cleared="reloadSettings" />
+                </template>
                 <template #control>
                     <div
                         class="inline-flex shrink-0 items-center gap-1 rounded-lg border border-solid border-surface-4 bg-surface-3 p-1"
@@ -1450,6 +1480,12 @@ watch(
                 <template #description>{{
                     formatMessage(messages.homeWidgetBackgroundOpacityDescription)
                 }}</template>
+                <template #copy>
+                    <PinnedOverrideHint
+                        key-name="home_widget_background_opacity"
+                        @cleared="reloadSettings"
+                    />
+                </template>
                 <template #control>
                     <div class="w-full">
                         <Slider
@@ -1471,6 +1507,9 @@ watch(
                 <template #description>{{
                     formatMessage(messages.defaultLandingPageDescription)
                 }}</template>
+                <template #copy>
+                    <PinnedOverrideHint key-name="default_page" @cleared="reloadSettings" />
+                </template>
                 <template #control>
                     <div class="w-full">
                         <HeadlessSelect
@@ -1507,6 +1546,12 @@ watch(
                 <template #description>{{
                     formatMessage(messages.sidebarInstanceCountDescription)
                 }}</template>
+                <template #copy>
+                    <PinnedOverrideHint
+                        key-name="sidebar_instance_count"
+                        @cleared="reloadSettings"
+                    />
+                </template>
                 <template #control>
                     <div class="w-full">
                         <Slider
@@ -1653,6 +1698,9 @@ watch(
                 <template #description>{{
                     formatMessage(messages.advancedRenderingDescription)
                 }}</template>
+                <template #copy>
+                    <PinnedOverrideHint key-name="advanced_rendering" @cleared="reloadSettings" />
+                </template>
                 <template #control>
                     <Toggle
                         id="advanced-rendering"
@@ -1698,6 +1746,9 @@ watch(
                 <template #description>{{
                     formatMessage(messages.nativeDecorationsDescription)
                 }}</template>
+                <template #copy>
+                    <PinnedOverrideHint key-name="native_decorations" @cleared="reloadSettings" />
+                </template>
                 <template #control>
                     <Toggle id="native-decorations" v-model="settings.native_decorations" />
                 </template>
@@ -1711,6 +1762,9 @@ watch(
                 <template #description>{{
                     formatMessage(messages.closeBehaviorDescription)
                 }}</template>
+                <template #copy>
+                    <PinnedOverrideHint key-name="close_behavior" @cleared="reloadSettings" />
+                </template>
                 <template #control>
                     <Combobox
                         id="close-behavior"
@@ -1739,6 +1793,12 @@ watch(
                 <template #description>{{
                     formatMessage(messages.hideNametagDescription)
                 }}</template>
+                <template #copy>
+                    <PinnedOverrideHint
+                        key-name="hide_nametag_skins_page"
+                        @cleared="reloadSettings"
+                    />
+                </template>
                 <template #control>
                     <Toggle
                         id="hide-nametag-skins-page"
@@ -1761,6 +1821,12 @@ watch(
                 <template #description>{{
                     formatMessage(messages.nametagUsesAppFontDescription)
                 }}</template>
+                <template #copy>
+                    <PinnedOverrideHint
+                        key-name="nametag_uses_app_font"
+                        @cleared="reloadSettings"
+                    />
+                </template>
                 <template #control>
                     <Toggle
                         id="nametag-uses-app-font"

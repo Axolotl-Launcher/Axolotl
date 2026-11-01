@@ -844,6 +844,9 @@ fn main() {
                     .commands(&[
                         "settings_get",
                         "settings_patch",
+                        "settings_layers",
+                        "settings_override_clear",
+                        "settings_export",
                         "privacy_get",
                         "privacy_set",
                         "telemetry_set",

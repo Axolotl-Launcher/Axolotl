@@ -10157,6 +10157,30 @@
   "app.settings.downloading": {
     "message": "正在下载 v{version}"
   },
+  "app.settings.export.all-button": {
+    "message": "导出全部设置…"
+  },
+  "app.settings.export.all-label": {
+    "message": "全部设置"
+  },
+  "app.settings.export.exported-text": {
+    "message": "设置文件已保存到 {path}"
+  },
+  "app.settings.export.exported-title": {
+    "message": "设置已导出"
+  },
+  "app.settings.export.patch-button": {
+    "message": "导出补丁…"
+  },
+  "app.settings.export.patch-description": {
+    "message": "只包含与默认值不同的键，可以直接作为部署配置使用。"
+  },
+  "app.settings.export.patch-label": {
+    "message": "部署补丁"
+  },
+  "app.settings.export.title": {
+    "message": "导出设置"
+  },
   "app.settings.feature-flags.reset-to-default": {
     "message": "恢复默认值"
   },
@@ -11377,6 +11401,12 @@
   },
   "app.settings.logs.retention.title": {
     "message": "日志自动保留策略"
+  },
+  "app.settings.override.hint": {
+    "message": "已覆盖部署提供的值。"
+  },
+  "app.settings.override.restore": {
+    "message": "恢复部署值"
   },
   "app.settings.privacy.data-handling": {
     "message": "遥测使用随机安装标识，仅发送每日活跃信号。关闭遥测会立即清空待发送数据。"

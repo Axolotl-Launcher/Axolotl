@@ -347,6 +347,40 @@ export async function update(patch: AppSettingsPatch): Promise<AppSettings> {
     return normalizeDownloadSettings(await invoke('plugin:settings|settings_patch', { patch }))
 }
 
+export type SettingsLayerDomain =
+    | 'appearance'
+    | 'download'
+    | 'game'
+    | 'backup'
+    | 'bootstrap'
+    | 'network'
+    | 'privacy'
+    | 'state'
+
+/** One setting as provided by the deployment, stored locally and currently in effect. */
+export type SettingLayer = {
+    key: string
+    domain: SettingsLayerDomain
+    provided: unknown | null
+    local: unknown | null
+    effective: unknown
+}
+
+export type SettingsExportKind = 'effective' | 'patch'
+
+export async function getSettingsLayers(): Promise<SettingLayer[]> {
+    return await invoke('plugin:settings|settings_layers')
+}
+
+/** Removes the local value only while it still equals the effect the user saw. */
+export async function clearSettingsOverride(key: string, expected: unknown): Promise<boolean> {
+    return await invoke('plugin:settings|settings_override_clear', { key, expected })
+}
+
+export async function exportSettings(outputPath: string, kind: SettingsExportKind): Promise<void> {
+    await invoke('plugin:settings|settings_export', { outputPath, kind })
+}
+
 export async function cancel_directory_change(): Promise<void> {
     return await invoke('plugin:settings|cancel_directory_change')
 }

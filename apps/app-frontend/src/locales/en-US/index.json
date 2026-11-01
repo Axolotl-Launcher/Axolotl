@@ -11501,6 +11501,30 @@
   "app.settings.environment-variables.invalid-format": {
     "message": "Use NAME=value, separated by spaces. A name and an equals sign are required; the value may be empty or contain more equals signs."
   },
+  "app.settings.export.all-button": {
+    "message": "Export all settings…"
+  },
+  "app.settings.export.all-label": {
+    "message": "All settings"
+  },
+  "app.settings.export.exported-text": {
+    "message": "The settings file was saved to {path}"
+  },
+  "app.settings.export.exported-title": {
+    "message": "Settings exported"
+  },
+  "app.settings.export.patch-button": {
+    "message": "Export patch…"
+  },
+  "app.settings.export.patch-description": {
+    "message": "Only keys that differ from the defaults, ready to use directly as a deployment config."
+  },
+  "app.settings.export.patch-label": {
+    "message": "Deployment patch"
+  },
+  "app.settings.export.title": {
+    "message": "Export settings"
+  },
   "app.settings.feature-flags.advanced-filters-collapsed": {
     "message": "Collapse advanced filters by default"
   },
@@ -12925,6 +12949,12 @@
   },
   "app.settings.network.url": {
     "message": "Request URL"
+  },
+  "app.settings.override.hint": {
+    "message": "Overrides the deployed value."
+  },
+  "app.settings.override.restore": {
+    "message": "Restore deployed value"
   },
   "app.settings.privacy.data-handling": {
     "message": "Telemetry uses a random installation identifier and sends only a daily activity signal. Turning telemetry off clears pending data immediately."

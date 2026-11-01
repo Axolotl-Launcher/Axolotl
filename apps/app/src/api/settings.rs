@@ -1,6 +1,9 @@
+use std::path::PathBuf;
+
 use crate::api::Result;
 use tauri::{Emitter, Runtime};
 use theseus::prelude::*;
+use theseus::settings::SettingLayer;
 use theseus::{ProxyConfig, ProxyTestResult};
 
 pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
@@ -8,6 +11,9 @@ pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
         .invoke_handler(tauri::generate_handler![
             settings_get,
             settings_patch,
+            settings_layers,
+            settings_override_clear,
+            settings_export,
             privacy_get,
             privacy_set,
             telemetry_set,
@@ -96,6 +102,59 @@ pub async fn settings_patch(
     }
     let _ = app.emit("settings", ());
     Ok(settings)
+}
+
+/// Every settings key with what each layer says about it: what the deployment
+/// provides, what the local document overrides, and what the key reads as.
+#[tauri::command]
+pub async fn settings_layers() -> Result<Vec<SettingLayer>> {
+    Ok(settings::layers().await?)
+}
+
+/// Drops one key from the local settings document so the deployment's answer
+/// takes over again; `expected` is the value the caller saw, and the key is only
+/// cleared while it still holds it.
+#[tauri::command]
+pub async fn settings_override_clear(
+    key: String,
+    expected: serde_json::Value,
+) -> Result<bool> {
+    Ok(settings::clear_override(&key, &expected).await?)
+}
+
+/// Which settings an export writes.
+#[derive(Debug, Clone, Copy, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SettingsExportKind {
+    /// Every setting as it currently reads.
+    Effective,
+    /// Only the keys that differ from the build's defaults, which is what a
+    /// deployment's own document is written from.
+    Patch,
+}
+
+/// Writes the settings to `output_path` as JSON, indented for a human to read
+/// and edit: a deployment's document is a file its owner keeps by hand.
+#[tauri::command]
+pub async fn settings_export(
+    output_path: PathBuf,
+    kind: SettingsExportKind,
+) -> Result<()> {
+    let settings = settings::get().await?;
+    let exported = match kind {
+        SettingsExportKind::Effective => settings::effective_json(&settings),
+        SettingsExportKind::Patch => settings::patch_json(&settings),
+    };
+    let mut contents =
+        serde_json::to_vec_pretty(&exported).map_err(theseus::Error::from)?;
+    // A file that ends without a newline is one a text editor reports as
+    // changed on the first save, and these are files meant to be edited.
+    contents.push(b'\n');
+    if let Some(parent) = output_path.parent() {
+        tokio::fs::create_dir_all(parent).await?;
+    }
+    tokio::fs::write(&output_path, contents).await?;
+    Ok(())
 }
 
 #[cfg(test)]

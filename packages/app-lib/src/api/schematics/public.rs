@@ -1,5 +1,7 @@
 //! Public source adapters. Reference: Axolotl PR #1016's acquisition protocols.
 
+mod covers;
+
 use std::collections::HashMap;
 use std::sync::LazyLock;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
@@ -378,6 +380,16 @@ pub(super) async fn list(
             .take(size as usize)
             .map(reden_project)
             .collect::<crate::Result<Vec<_>>>()?;
+        let items = stream::iter(items)
+            .map(|mut project| async move {
+                if let Some(url) = project.cover.take() {
+                    project.cover = covers::load(&url).await;
+                }
+                project
+            })
+            .buffered(6)
+            .collect()
+            .await;
         return Ok(Page {
             page_count: total.div_ceil(size as usize).max(1) as u32,
             total: total as u64,
@@ -620,6 +632,11 @@ pub(super) async fn detail(
                 }
             }
         }
+    }
+    if source == Source::Reden
+        && let Some(url) = project.cover.take()
+    {
+        project.cover = covers::load(&url).await;
     }
     project.files = downloads
         .iter()

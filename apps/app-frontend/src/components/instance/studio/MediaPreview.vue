@@ -76,11 +76,10 @@ let stopPointerDrag: (() => void) | null = null
 const unavailable = computed(() => props.failed || renderFailed.value)
 const interactive = computed(() => props.kind === 'image' && !unavailable.value && !props.loading)
 const mimeType = computed(() => studioMediaMimeType(props.name))
-// The editor exports PNG and the result is written back over the original file,
-// so only the formats the webview can encode again may be opened in it.
-const canEdit = computed(
-    () => interactive.value && props.content !== null && canEditImage(mimeType.value),
-)
+// The editor exports a single frame and the result is written back over the
+// original file, so only the still images the webview can encode again may be
+// opened in it.
+const canEdit = computed(() => interactive.value && canEditImage(mimeType.value, props.content))
 
 const fitScale = computed(() => fitPreviewScale(natural.value, viewport.value))
 const displayScale = computed(() => (fitting.value ? fitScale.value : zoom.value))

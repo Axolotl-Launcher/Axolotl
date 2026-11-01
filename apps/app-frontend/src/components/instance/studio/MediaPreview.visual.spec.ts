@@ -234,6 +234,26 @@ it('keeps editing unavailable for a format it cannot write back', async () => {
     expect(findButton(wrapper, 'Edit')).toBeUndefined()
 })
 
+it('keeps editing unavailable for an animated image', async () => {
+    // A PNG whose frame count is declared in an `acTL` chunk. Its media type is
+    // editable, so only the bytes can tell that saving would flatten it.
+    const animated = Uint8Array.from(PNG_BYTES)
+    const frameControl = Uint8Array.from([
+        0, 0, 0, 8, 0x61, 0x63, 0x54, 0x4c, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0,
+    ])
+    const headerLength =
+        ((animated[8] << 24) | (animated[9] << 16) | (animated[10] << 8) | animated[11]) >>> 0
+    const insertAt = 8 + 12 + headerLength
+    const withFrames = new Uint8Array(animated.byteLength + frameControl.byteLength)
+    withFrames.set(animated.subarray(0, insertAt), 0)
+    withFrames.set(frameControl, insertAt)
+    withFrames.set(animated.subarray(insertAt), insertAt + frameControl.byteLength)
+
+    const wrapper = mountPreview({ content: withFrames })
+
+    expect(findButton(wrapper, 'Edit')).toBeUndefined()
+})
+
 it('keeps editing unavailable while the bytes are missing', () => {
     const wrapper = mountPreview({ content: null })
 

@@ -65,6 +65,18 @@
   "app.agent-window.chat.delete-chat": {
     "message": "Delete"
   },
+  "app.agent-window.chat.pin-chat": {
+    "message": "Pin to top"
+  },
+  "app.agent-window.chat.unpin-chat": {
+    "message": "Unpin"
+  },
+  "app.agent-window.chat.copy-chat": {
+    "message": "Copy conversation"
+  },
+  "app.agent-window.chat.pinned": {
+    "message": "Pinned"
+  },
   "app.agent-window.chat.untitled": {
     "message": "New task"
   },

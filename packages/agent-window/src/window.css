@@ -998,6 +998,59 @@ code {
 .is-swelling .rail-item[data-marked]::before {
     transition-duration: 110ms;
 }
+/* One tooltip for every icon button, in the top layer so it clears dialogs. */
+.tip {
+    position: fixed;
+    inset: auto;
+    top: 0;
+    left: 0;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    max-width: 280px;
+    padding: 5px 8px;
+    border: 1px solid var(--line-strong);
+    border-radius: 8px;
+    background: var(--overlay);
+    color: var(--fg);
+    box-shadow: var(--shadow-pop);
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 1.35;
+    pointer-events: none;
+    opacity: 0;
+    transform: translate3d(var(--x, 0), calc(var(--y, 0) + 3px), 0);
+    transition:
+        opacity 120ms ease,
+        transform 180ms var(--ease-settle);
+}
+.tip[data-side='above'] {
+    transform: translate3d(var(--x, 0), calc(var(--y, 0) - 3px), 0);
+}
+.tip.is-shown {
+    opacity: 1;
+    transform: translate3d(var(--x, 0), var(--y, 0), 0);
+}
+.tip kbd {
+    min-width: 18px;
+    padding: 1px 5px;
+    border-radius: 5px;
+    background: var(--hover-strong);
+    box-shadow: inset 0 -1px 0 var(--line-strong);
+    color: var(--fg-2);
+    font: 600 11px/1.4 var(--font-ui);
+    text-align: center;
+}
+.tip span + kbd {
+    margin-left: 4px;
+}
+.menu-divider {
+    height: 1px;
+    margin: 4px 8px;
+    border: 0;
+    background: var(--line);
+}
 .rail-peek {
     position: absolute;
     z-index: 7;
@@ -3669,6 +3722,14 @@ p.plan-state {
 .palette-detail {
     font-size: 12px;
     color: var(--fg-3);
+}
+/* The chosen row says Enter runs it, unless it shows its own shortcut. */
+.palette-row[aria-selected='true']:not(:has(.palette-keys))::after {
+    content: '↵';
+    margin-left: auto;
+    padding-left: 12px;
+    color: var(--fg-3);
+    font-size: 13px;
 }
 .palette-keys {
     display: flex;

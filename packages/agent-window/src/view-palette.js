@@ -1,5 +1,5 @@
-// The command menu (Ctrl K): type to run an action or jump to a task. Arrow
-// keys move, Enter runs, Escape closes.
+// The command menu (Ctrl K): type to run an action or jump to a task. What the
+// open task offers comes first. Arrow keys move, Enter runs, Escape closes.
 import { button, element, h, icon } from './dom.js'
 import { pixelLoader } from './mascot.js'
 import { text } from './messages.js'
@@ -11,11 +11,11 @@ function matches(query, ...values) {
     return values.join(' ').toLocaleLowerCase().includes(query)
 }
 
-export function openPalette({ actions, threads }) {
+export function openPalette({ current = null, actions, threads }) {
     const dialog = element('palette')
     const input = element('palette-input')
     input.value = ''
-    dialog.paletteSource = { actions, threads }
+    dialog.paletteSource = { current, actions, threads }
     renderPalette()
     if (!dialog.open) dialog.showModal()
     input.focus()
@@ -23,13 +23,25 @@ export function openPalette({ actions, threads }) {
 
 export function renderPalette() {
     const dialog = element('palette')
-    const { actions, threads } = dialog.paletteSource || { actions: [], threads: [] }
+    const { current, actions, threads } = dialog.paletteSource || { actions: [], threads: [] }
     const query = element('palette-input').value.trim().toLocaleLowerCase()
-    const shownActions = actions.filter((action) => matches(query, action.label))
-    const shownThreads = threads
-        .filter((thread) => matches(query, thread.label, thread.detail))
-        .slice(0, query ? 12 : 6)
-    entries = [...shownActions, ...shownThreads]
+    const sections = [
+        current?.entries.length && {
+            title: current.title,
+            entries: current.entries.filter((entry) => matches(query, entry.label, current.title)),
+        },
+        {
+            title: text('paletteActions'),
+            entries: actions.filter((action) => matches(query, action.label)),
+        },
+        {
+            title: text('paletteTasks'),
+            entries: threads
+                .filter((thread) => matches(query, thread.label, thread.detail))
+                .slice(0, query ? 12 : 6),
+        },
+    ].filter((section) => section && section.entries.length)
+    entries = sections.flatMap((section) => section.entries)
     active = Math.min(active, Math.max(0, entries.length - 1))
     if (!query) active = 0
     const row = (entry, index) => {
@@ -58,15 +70,11 @@ export function renderPalette() {
         return node
     }
     const groups = []
-    if (shownActions.length)
+    let index = 0
+    for (const section of sections)
         groups.push(
-            h('div', { class: 'palette-group', text: text('paletteActions') }),
-            ...shownActions.map((entry, index) => row(entry, index)),
-        )
-    if (shownThreads.length)
-        groups.push(
-            h('div', { class: 'palette-group', text: text('paletteTasks') }),
-            ...shownThreads.map((entry, index) => row(entry, shownActions.length + index)),
+            h('div', { class: 'palette-group', text: section.title }),
+            ...section.entries.map((entry) => row(entry, index++)),
         )
     if (!entries.length) groups.push(h('p', { class: 'palette-empty', text: text('noResults') }))
     element('palette-list').replaceChildren(...groups)

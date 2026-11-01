@@ -42,6 +42,7 @@ import { placeComposer, renderApprovalBar, renderComposer, resizeInput } from '.
 import { renderHelp, renderHome } from './view-home.js'
 import {
     acceptConfirm,
+    bindTips,
     closeMenu,
     closePicker,
     confirm,
@@ -178,7 +179,7 @@ function localize() {
     })
     document.querySelectorAll('[data-label]').forEach((node) => {
         node.setAttribute('aria-label', text(node.dataset.label))
-        node.title = text(node.dataset.label)
+        if (node.matches('button')) node.dataset.tip = text(node.dataset.label)
     })
 }
 
@@ -948,10 +949,66 @@ function renameThread(id, value) {
 }
 
 function threadMenu(id, anchor) {
+    const thread = findThread(id)
     openMenu(anchor, [
+        menuItem('pin', text(thread?.pinned ? 'unpinChat' : 'pinChat'), { menuPin: id }),
         menuItem('edit', text('rename'), { menuRename: id }),
+        menuItem('copy', text('copyChat'), { menuCopy: id }),
+        h('hr', { class: 'menu-divider' }),
         menuItem('trash', text('deleteChat'), { menuDelete: id }, true),
     ])
+}
+
+function togglePin(id) {
+    if (
+        commit((next) => {
+            const thread = next.threads.find((entry) => entry.id === id)
+            if (thread?.pinned) delete thread.pinned
+            else if (thread) thread.pinned = true
+        })
+    )
+        renderSidebar()
+}
+
+function askRename(id) {
+    confirm({
+        title: text('rename'),
+        accept: text('save'),
+        rename: findThread(id)?.title || text('untitled'),
+        onAccept: (value) => renameThread(id, value),
+    })
+}
+
+function askDelete(id) {
+    confirm({
+        title: text('deleteTitle'),
+        body: text('deleteBody'),
+        accept: text('delete'),
+        icon: 'trash',
+        danger: true,
+        onAccept: () => deleteThread(id),
+    })
+}
+
+function copyThread(id) {
+    const thread = findThread(id)
+    if (thread) copyText(threadText(thread))
+}
+
+// The whole task as Markdown: each request quoted, each answer as written.
+function threadText(thread) {
+    const parts = [`# ${thread.title || text('untitled')}`]
+    for (const turn of thread.turns) {
+        const files = turn.attachments.map((file) => file.name).join(', ')
+        const request = [turn.text, files && `(${files})`].filter(Boolean).join(' ')
+        parts.push(request.replace(/^/gm, '> '))
+        const answer = turn.run.items
+            .filter((item) => item.type === 'text')
+            .map((item) => item.text)
+            .join('\n\n')
+        if (answer) parts.push(answer)
+    }
+    return parts.join('\n\n')
 }
 
 // ---------- layout actions ----------
@@ -1226,7 +1283,7 @@ const actions = {
 
 document.addEventListener('click', (event) => {
     const target = event.target.closest(
-        '[data-action], [data-thread], [data-thread-menu], [data-prompt], [data-model], [data-instance], [data-copy-turn], [data-remove-attachment], [data-remove-queued], [data-send-queued], [data-menu-rename], [data-menu-delete], [data-toggle-change], [data-copy-code], [data-copy-link], [data-edit-turn], [data-mark-turn]',
+        '[data-action], [data-thread], [data-thread-menu], [data-prompt], [data-model], [data-instance], [data-copy-turn], [data-remove-attachment], [data-remove-queued], [data-send-queued], [data-menu-rename], [data-menu-delete], [data-toggle-change], [data-copy-code], [data-copy-link], [data-edit-turn], [data-mark-turn], [data-menu-pin], [data-menu-copy]',
     )
     if (!target || target.disabled) return
     const data = target.dataset
@@ -1235,25 +1292,18 @@ document.addEventListener('click', (event) => {
         actions[data.action]?.(event, target)
     } else if (data.threadMenu) threadMenu(data.threadMenu, target)
     else if (data.thread) selectThread(data.thread)
-    else if (data.menuRename) {
+    else if (data.menuPin) {
         closeMenu()
-        const thread = findThread(data.menuRename)
-        confirm({
-            title: text('rename'),
-            accept: text('save'),
-            rename: thread?.title || text('untitled'),
-            onAccept: (value) => renameThread(data.menuRename, value),
-        })
+        togglePin(data.menuPin)
+    } else if (data.menuCopy) {
+        closeMenu()
+        copyThread(data.menuCopy)
+    } else if (data.menuRename) {
+        closeMenu()
+        askRename(data.menuRename)
     } else if (data.menuDelete) {
         closeMenu()
-        confirm({
-            title: text('deleteTitle'),
-            body: text('deleteBody'),
-            accept: text('delete'),
-            icon: 'trash',
-            danger: true,
-            onAccept: () => deleteThread(data.menuDelete),
-        })
+        askDelete(data.menuDelete)
     } else if (data.prompt) {
         const thread = currentThread()
         thread.draft = text(data.prompt)
@@ -1434,6 +1484,14 @@ conversationNode.addEventListener('drop', (event) => {
     addFiles(event.dataTransfer?.files || [])
 })
 
+// A right click on a task opens the same menu as its ⋯ button.
+element('conversation-list').addEventListener('contextmenu', (event) => {
+    const row = event.target.closest('.thread-row')
+    if (!row) return
+    event.preventDefault()
+    threadMenu(row.dataset.row, row.querySelector('.thread-more'))
+})
+
 element('conversation-search').addEventListener('input', (event) => {
     session.search = event.target.value
     renderSidebar()
@@ -1452,6 +1510,7 @@ element('picker-search').addEventListener('keydown', (event) => {
 element('picker-options').addEventListener('keydown', pickerKeydown)
 bindPalette()
 bindRail()
+bindTips()
 // A picked shortcut either fills in a starter request or runs a window action.
 bindSlash((entry) => {
     const input = element('message-input')
@@ -1515,11 +1574,24 @@ for (const dialog of document.querySelectorAll('dialog')) {
 // The command menu lists what the window can do, then recent tasks.
 function showPalette() {
     const action = (icon, label, run, keys) => ({ icon, label: text(label), run, keys })
+    const thread = currentThread()
+    const current = thread.turns.length
+        ? [
+              action('pin', thread.pinned ? 'unpinChat' : 'pinChat', () => togglePin(thread.id)),
+              action('panel', 'togglePanel', () => setPanel(!panelShown())),
+              action('copy', 'copyChat', () => copyThread(thread.id)),
+              action('edit', 'rename', () => askRename(thread.id)),
+              action('trash', 'deleteChat', () => askDelete(thread.id)),
+          ]
+        : []
     openPalette({
+        current: { title: thread.title || text('untitled'), entries: current },
         actions: [
             action('plus', 'newChat', () => createThread(), 'Ctrl N'),
             action('sidebar', 'toggleSidebar', () => setSidebar(!sidebarShown()), 'Ctrl B'),
-            action('panel', 'togglePanel', () => setPanel(!panelShown())),
+            ...(current.length
+                ? []
+                : [action('panel', 'togglePanel', () => setPanel(!panelShown()))]),
             action('sparkle', 'model', () => {
                 refreshContext()
                 openPicker('model', element('model-button'))
@@ -1533,6 +1605,7 @@ function showPalette() {
             action('help', 'help', () => actions.help()),
         ],
         threads: [...session.store.threads]
+            .filter((entry) => entry !== thread || !current.length)
             .filter((thread) => thread.turns.length || thread.draft)
             .sort((a, b) => b.updatedAt - a.updatedAt)
             .map((thread) => ({

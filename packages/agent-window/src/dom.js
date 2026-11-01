@@ -12,7 +12,7 @@ export function h(tag, props = {}, children = []) {
         else if (key === 'data') Object.assign(result.dataset, value)
         else if (key === 'label') {
             result.setAttribute('aria-label', value)
-            result.title = value
+            result.dataset.tip = value
         } else if (key === 'hidden') result.hidden = true
         else result.setAttribute(key, value === true ? '' : value)
     }

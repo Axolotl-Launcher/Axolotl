@@ -270,6 +270,8 @@
                 type="button"
                 data-action="toggle-sidebar"
                 data-label="toggleSidebar"
+                data-keys="Ctrl B"
+                aria-keyshortcuts="Control+B"
             >
                 <svg><use href="#i-sidebar" /></svg>
             </button>
@@ -300,6 +302,8 @@
                 type="button"
                 data-action="settings"
                 data-label="settings"
+                data-keys="Ctrl ,"
+                aria-keyshortcuts="Control+Comma"
             >
                 <svg><use href="#i-settings" /></svg>
             </button>
@@ -653,5 +657,6 @@
         </dialog>
         <input id="file-input" type="file" multiple hidden />
         <div id="toasts" class="toasts" role="status" aria-live="polite"></div>
+        <div id="tip" class="tip" popover="manual" aria-hidden="true"></div>
     </body>
 </html>

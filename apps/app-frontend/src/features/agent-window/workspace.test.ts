@@ -893,3 +893,36 @@ it('attaches a long pasted crash report, can put it back as text and sends it al
     )
     expect(await page.locator('#conversation-title').textContent()).not.toBe('')
 })
+
+it('pins a task from its context menu and names icon buttons with their shortcut', async () => {
+    await send('Hello there')
+    await untilSettled()
+    await page.getByTestId('new-chat').click()
+    await send('What can you do?')
+    await untilSettled()
+    const names = () => page.locator('.thread-name').allTextContents()
+    const [newest, older] = await names()
+
+    await page.locator('.thread-row').nth(1).click({ button: 'right' })
+    await page.locator('[data-menu-pin]').click()
+    expect(await page.locator('.list-group').first().textContent()).toBe(messages.pinned)
+    expect(await names()).toEqual([older, newest])
+
+    await page.locator('#sidebar-toggle').hover()
+    await page.clock.runFor(600)
+    expect(await page.locator('#tip').textContent()).toBe(`${messages.toggleSidebar}CtrlB`)
+    await page.mouse.move(600, 600)
+    expect(await page.locator('#tip').getAttribute('class')).not.toContain('is-shown')
+})
+
+it('puts what the open task offers first in the command menu', async () => {
+    await send('Hello there')
+    await untilSettled()
+    const title = await page.locator('#conversation-title').textContent()
+    await page.keyboard.press('Control+k')
+    await page.locator('#palette').waitFor()
+    expect(await page.locator('.palette-group').first().textContent()).toBe(title)
+    expect(await page.locator('.palette-row').first().textContent()).toContain(messages.pinChat)
+    await page.keyboard.press('Enter')
+    expect(await page.locator('.list-group').first().textContent()).toBe(messages.pinned)
+})

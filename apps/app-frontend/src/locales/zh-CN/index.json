@@ -65,6 +65,18 @@
   "app.agent-window.chat.delete-chat": {
     "message": "删除"
   },
+  "app.agent-window.chat.pin-chat": {
+    "message": "置顶"
+  },
+  "app.agent-window.chat.unpin-chat": {
+    "message": "取消置顶"
+  },
+  "app.agent-window.chat.copy-chat": {
+    "message": "复制整个对话"
+  },
+  "app.agent-window.chat.pinned": {
+    "message": "已置顶"
+  },
   "app.agent-window.chat.untitled": {
     "message": "新任务"
   },

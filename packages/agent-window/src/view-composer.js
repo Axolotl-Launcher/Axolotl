@@ -69,7 +69,8 @@ export function renderComposer() {
     send.type = stopMode ? 'button' : 'submit'
     const sendLabel = text(stopMode ? 'stop' : active ? 'queueMessage' : 'send')
     send.setAttribute('aria-label', sendLabel)
-    send.title = sendLabel
+    send.dataset.tip = sendLabel
+    send.dataset.keys = stopMode ? 'Esc' : 'Enter'
     send.disabled = !stopMode && !thread.draft.trim() && !thread.attachments.length
 
     renderAttachments(thread)

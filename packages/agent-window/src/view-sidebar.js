@@ -1,5 +1,5 @@
-// Task history, newest first, with a quiet marker for tasks that are working or
-// waiting for the user.
+// Task history: pinned tasks first, then newest first, with a quiet marker for
+// tasks that are working or waiting for the user.
 import { button, element, h, icon } from './dom.js'
 import { pixelLoader } from './mascot.js'
 import { text } from './messages.js'
@@ -40,11 +40,11 @@ export function renderSidebar() {
                     .toLocaleLowerCase()
                     .includes(query),
         )
-        .sort((a, b) => b.updatedAt - a.updatedAt)
+        .sort((a, b) => Number(!!b.pinned) - Number(!!a.pinned) || b.updatedAt - a.updatedAt)
     const rows = []
     let previous
     for (const thread of visible) {
-        const heading = group(thread.updatedAt)
+        const heading = thread.pinned ? 'pinned' : group(thread.updatedAt)
         if (heading !== previous) rows.push(h('div', { class: 'list-group', text: text(heading) }))
         previous = heading
         const selected = thread.id === session.store.activeId

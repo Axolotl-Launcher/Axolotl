@@ -352,3 +352,78 @@ export function toast(message, action = null, tone = 'info') {
     setTimeout(dismiss, action ? 7000 : 4500)
     return node
 }
+
+// ---------- tooltips ----------
+
+// Buttons that only show an icon name themselves after a short rest, with their
+// shortcut as keycaps. Once one tooltip has shown, the next shows at once, so
+// running the pointer along a toolbar reads every button.
+const MAC = /Mac|iPhone|iPad/.test(navigator.platform)
+const keyLabel = (key) => (key === 'Ctrl' && MAC ? '⌘' : key)
+let tipTimer = 0
+let tipPending = null
+let tipShown = null
+let warmUntil = 0
+
+function showTip(target) {
+    const tip = element('tip')
+    tipShown = target
+    tip.replaceChildren(
+        h('span', { text: target.dataset.tip }),
+        ...(target.dataset.keys || '')
+            .split(' ')
+            .filter(Boolean)
+            .map((key) => h('kbd', { text: keyLabel(key) })),
+    )
+    if (!tip.matches(':popover-open')) tip.showPopover()
+    const rect = target.getBoundingClientRect()
+    const below = rect.bottom + 8 + tip.offsetHeight < window.innerHeight
+    const x = rect.left + rect.width / 2 - tip.offsetWidth / 2
+    tip.style.setProperty(
+        '--x',
+        `${Math.round(Math.min(Math.max(x, 8), window.innerWidth - tip.offsetWidth - 8))}px`,
+    )
+    tip.style.setProperty(
+        '--y',
+        `${Math.round(below ? rect.bottom + 8 : rect.top - 8 - tip.offsetHeight)}px`,
+    )
+    tip.dataset.side = below ? 'below' : 'above'
+    tip.classList.add('is-shown')
+}
+
+export function hideTip() {
+    clearTimeout(tipTimer)
+    tipPending = null
+    if (!tipShown) return
+    tipShown = null
+    warmUntil = Date.now() + 500
+    element('tip').classList.remove('is-shown')
+}
+
+function queueTip(target, delay) {
+    if (target && (target === tipPending || target === tipShown)) return
+    hideTip()
+    if (!target || target.disabled) return
+    tipPending = target
+    tipTimer = setTimeout(
+        () => {
+            tipPending = null
+            if (target.isConnected) showTip(target)
+        },
+        Date.now() < warmUntil ? 0 : delay,
+    )
+}
+
+export function bindTips() {
+    document.addEventListener('pointerover', (event) => {
+        if (event.pointerType === 'touch') return
+        queueTip(event.target.closest?.('[data-tip]') || null, 520)
+    })
+    document.addEventListener('focusin', (event) => {
+        const target = event.target.closest?.('[data-tip]')
+        if (target?.matches(':focus-visible')) queueTip(target, 280)
+    })
+    for (const name of ['pointerdown', 'keydown', 'scroll', 'focusout'])
+        document.addEventListener(name, hideTip, true)
+    window.addEventListener('blur', hideTip)
+}

@@ -656,6 +656,12 @@
   "app.agent-window.chat.shortcut-palette": {
     "message": "打开命令菜单"
   },
+  "app.agent-window.chat.shortcut-slash": {
+    "message": "在请求开头调出快捷指令"
+  },
+  "app.agent-window.chat.shortcut-mention": {
+    "message": "选择要处理的实例"
+  },
   "app.agent-window.chat.palette": {
     "message": "命令菜单"
   },

@@ -164,6 +164,8 @@ export function renderHelp() {
         ['Esc', 'shortcutStop'],
         ['Ctrl N', 'shortcutNew'],
         ['Ctrl K', 'shortcutPalette'],
+        ['/', 'shortcutSlash'],
+        ['@', 'shortcutMention'],
         ['Ctrl B', 'shortcutSidebar'],
         ['Ctrl ,', 'shortcutSettings'],
     ]

@@ -656,6 +656,12 @@
   "app.agent-window.chat.shortcut-palette": {
     "message": "Open the command menu"
   },
+  "app.agent-window.chat.shortcut-slash": {
+    "message": "Shortcuts at the start of a request"
+  },
+  "app.agent-window.chat.shortcut-mention": {
+    "message": "Pick the instance to work on"
+  },
   "app.agent-window.chat.palette": {
     "message": "Command menu"
   },

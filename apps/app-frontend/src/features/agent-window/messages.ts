@@ -547,6 +547,14 @@ export const agentWindowMessages = defineMessages({
         id: 'app.agent-window.chat.shortcut-palette',
         defaultMessage: 'Open the command menu',
     },
+    shortcutSlash: {
+        id: 'app.agent-window.chat.shortcut-slash',
+        defaultMessage: 'Shortcuts at the start of a request',
+    },
+    shortcutMention: {
+        id: 'app.agent-window.chat.shortcut-mention',
+        defaultMessage: 'Pick the instance to work on',
+    },
     palette: { id: 'app.agent-window.chat.palette', defaultMessage: 'Command menu' },
     paletteSearch: {
         id: 'app.agent-window.chat.palette-search',

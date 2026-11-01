@@ -56,6 +56,13 @@ const HANDOVER_MARKER: &str = ".handed-over";
 /// in.
 const CONFIG_DIR_ENV: &str = "AXOLOTL_SETTINGS_CONFIG_DIR";
 
+/// The name a deployment's documents are looked for under when the environment
+/// does not name a directory: the platform's configuration directory with this
+/// name below it, which is where a package or a home-manager module puts its
+/// files without the launcher having to be told.
+#[cfg(target_os = "linux")]
+const DEFAULT_CONFIG_DIR_NAME: &str = "axolotl-launcher";
+
 /// The largest a settings document may be. A document is a few dozen keys, so
 /// a megabyte is far past a real one; the cap is here because that directory
 /// belongs to the deployment, and a path in it that is not a document — a
@@ -67,15 +74,43 @@ const MAX_DOCUMENT_BYTES: u64 = 1 << 20;
 /// two settings changing at once would otherwise lose one of them.
 static WRITES: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
 
-/// The directory a deployment ships its own documents in, when the environment
-/// names one. An empty value is how a shell clears a variable rather than a
-/// directory, so it reads as no deployment at all.
+/// The directory a deployment ships its own documents in.
+///
+/// The environment names one, and an empty value is how a shell clears a
+/// variable rather than a directory, so that reads as no deployment at all.
+/// Where nothing is named, Linux uses its own configuration directory: files a
+/// package manager or a home-manager module installs there are the deployment,
+/// and they are read from the same place whether or not anything exported a
+/// variable.
 pub(crate) fn config_root() -> Option<PathBuf> {
     #[cfg(test)]
     if let Some(root) = TEST_CONFIG_ROOT.with(|root| root.borrow().clone()) {
         return Some(root);
     }
     config_root_from(std::env::var_os(CONFIG_DIR_ENV))
+        .or_else(default_config_root)
+}
+
+/// Where a deployment's documents are looked for when nothing names a
+/// directory.
+#[cfg(test)]
+fn default_config_root() -> Option<PathBuf> {
+    // A test answers only with what it named: the machine's own configuration
+    // would otherwise decide what a test reads.
+    None
+}
+
+#[cfg(all(not(test), target_os = "linux"))]
+fn default_config_root() -> Option<PathBuf> {
+    dirs::config_dir().map(|config| config.join(DEFAULT_CONFIG_DIR_NAME))
+}
+
+/// Elsewhere the environment is the only way to name them: every platform has
+/// its own place for a deployment to write into, and guessing one would have the
+/// launcher read a directory that is not meant for it.
+#[cfg(all(not(test), not(target_os = "linux")))]
+fn default_config_root() -> Option<PathBuf> {
+    None
 }
 
 #[cfg(test)]

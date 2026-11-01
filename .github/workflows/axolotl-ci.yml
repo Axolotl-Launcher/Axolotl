@@ -102,9 +102,9 @@ jobs:
       - name: Check Discord release notifications
         run: node --test scripts/axolotl/publish-discord-release.test.mjs
       - name: Check scheduler resource gates
-        # Advisory until the team adopts the scheduler policy: these gates fail
-        # on any new lock, spawn or std::fs site until its policy entry lands.
-        continue-on-error: true
+        # Blocking since the scheduler policy is part of the tree: a new lock,
+        # spawn or std::fs site fails until its policy entry lands, and a stale
+        # rank fingerprint fails until it is re-reviewed.
         # Every gate runs even after one fails; the step fails at the end and
         # names each failed gate.
         run: |
@@ -127,6 +127,10 @@ jobs:
           gate 0 node scripts/axolotl/sched-l0-resource-check.mjs
           gate 0 node scripts/axolotl/sched-level-predicate-check.mjs
           gate 0 node scripts/axolotl/sched-bare-spawn-check.mjs
+          gate 0 node scripts/axolotl/sched-whitelist-check.mjs
+          gate 0 node scripts/axolotl/sched-enter-ban-check.mjs
+          gate 0 node scripts/axolotl/sched-tag-check.mjs
+          gate 0 node scripts/axolotl/sched-unbounded-sender-check.mjs
           # Exit 1 from these two means the design falls back to per-family
           # orders (an accepted outcome); only other codes fail.
           gate 1 node scripts/axolotl/sched-recall-gap-gate.mjs
@@ -219,7 +223,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [windows-2025, macos-15, ubuntu-24.04]
+        os: [windows-2025, macos-26, ubuntu-24.04]
     runs-on: ${{ matrix.os }}
     env:
       SQLX_OFFLINE: true
@@ -271,6 +275,27 @@ jobs:
       - name: Test settings documents
         if: runner.os == 'Linux'
         run: cargo test --package theseus state::documents
+      # The store collections: every record the launcher keeps between runs, a
+      # suite per collection. These suites were in no filter at all, so they
+      # went three months with foreign-key and assertion failures nobody saw.
+      # Hermetic (in-memory sqlite + temp dirs); Linux only for matrix cost.
+      - name: Test the store collections
+        if: runner.os == 'Linux'
+        run: cargo test --package theseus state::store::tests
+      # The scheduler: tags and their cap, the L0 executor, queue, quiesce,
+      # supervision, the critical-section API and telemetry reconciliation.
+      # Hermetic (timers, temp dirs, in-memory sqlite); Linux only for matrix
+      # cost. These suites were in no filter, so the Node gates were the only
+      # thing watching the scheduler.
+      - name: Test the scheduler
+        if: runner.os == 'Linux'
+        run: |
+          cargo test --package theseus scheduler::
+          cargo test --package theseus install::critical_section
+          cargo test --package theseus telemetry::reconcile
+          cargo test --package theseus state::process::playtime_clock
+          cargo test --package theseus state::process::l0_separation_tests
+          cargo test --package theseus state::process::stopped_detector_tests
       # The account secrets: a row keeps a secret the credential store will not
       # take, and moving the rows into the store keeps the rows it already moved.
       # Hermetic (in-memory sqlite, and a store substituted for the platform's).
@@ -296,6 +321,26 @@ jobs:
         if: runner.os == 'Linux'
         run: cargo test --package theseus --test java_build_cache
       - run: cargo check --package theseus_gui --features updater
+      # .cargo/config.toml links Linux builds with mold, and mold stamps its
+      # version into .comment. This fails if another linker made the binaries.
+      - name: Verify mold linked the Linux test binaries
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          mapfile -t binaries < <(find target/debug/deps -maxdepth 1 -type f -executable -name 'theseus-*')
+          if [ "${#binaries[@]}" -eq 0 ]; then
+            echo 'No theseus test binaries to inspect' >&2
+            exit 1
+          fi
+          for binary in "${binaries[@]}"; do
+            comment="$(readelf --string-dump=.comment "$binary")"
+            if [[ "$comment" != *'mold '* ]]; then
+              echo "$binary was not linked by mold:" >&2
+              echo "$comment" >&2
+              exit 1
+            fi
+          done
+          echo "mold linked ${#binaries[@]} theseus test binaries"
       - name: Test Windows installer UI and core
         if: runner.os == 'Windows'
         run: |

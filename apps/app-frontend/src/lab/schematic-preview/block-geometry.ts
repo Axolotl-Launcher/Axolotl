@@ -7,6 +7,7 @@ import {
 } from 'deepslate'
 
 import type { SchematicBlockState } from './backend'
+import type { SchematicFluidNeighborhood } from './fluid-mesh'
 import { getSchematicSpecialBlockMesh, getSchematicWaterloggedFluidMesh } from './meshing'
 
 export type BlockGeometryResources = {
@@ -78,11 +79,12 @@ export function createBlockGeometry(
                 cull,
             )
         },
-        water(state: SchematicBlockState, cull: Cull) {
+        water(state: SchematicBlockState, cull: Cull, neighborhood?: SchematicFluidNeighborhood) {
             return getSchematicWaterloggedFluidMesh(
                 { ...state, properties: blockProperties(state) },
                 atlas,
                 cull,
+                neighborhood,
             )
         },
     }

@@ -38,6 +38,7 @@ const leavesResources: SchematicWorkerResources = {
         'minecraft:block/water_flow': [0.2, 0, 0.3, 0.1],
     },
     missingTextureUv: [0.9, 0.9, 1, 1],
+    bubbleUv: [0, 0.52, 0.004, 0.522] as [number, number, number, number],
 }
 
 it('full block previews are not vertically compressed', () => {

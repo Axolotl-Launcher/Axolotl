@@ -64,8 +64,11 @@ use crate::util::download::constants::{
     FETCH_COOLDOWN_AND_SWITCH, FETCH_COOLDOWN_THEN_RETRY,
     FETCH_DISABLE_RANGE_AND_RETRY_SINGLE, FETCH_DISABLE_RANGE_AND_SWITCH,
     FETCH_DROP_ROUTE, FETCH_DROP_ROUTE_AFTER_CLEAN_RETRY,
-    FETCH_FALLBACK_OFFICIAL, FETCH_FALLBACK_SINGLE, FETCH_RESUME_OR_SWITCH,
-    FETCH_RETRY_NEXT_ROUND, FETCH_SWITCH_ROUTE_OR_RETRY_ROUND,
+    FETCH_FALLBACK_OFFICIAL, FETCH_FALLBACK_SINGLE,
+    FETCH_INVALID_CONTENT_RANGE, FETCH_INVALID_HEDGED_CONTENT_RANGE,
+    FETCH_RESUME_OR_SWITCH, FETCH_RETRY_NEXT_ROUND,
+    FETCH_SERVER_IGNORED_RANGE_AND_RETURNED_200,
+    FETCH_SWITCH_ROUTE_OR_RETRY_ROUND,
     FETCH_TIMED_OUT_WAITING_FOR_NATIVE_DOWNLOAD_RESOURCES,
     FILE_RETRY_SINGLE_STREAM_ROUNDS, MIN_PARALLEL_RANGES, MIN_SEGMENT_SIZE,
     RESOURCE_WAIT_TIMEOUT, SEGMENTED_DOWNLOAD_THRESHOLD,
@@ -114,69 +117,72 @@ async fn try_segmented_native_attempt(
     retry_with_single_thread: bool,
     allow_low_throughput_abort: bool,
 ) -> crate::Result<Option<NativeSegmentedAttempt>> {
-    let log_url = sanitize_url_for_log(&route.url);
-    let resumable_part_bytes = match (
-        request.integrity.supports_resume(),
-        request.integrity.size,
-        tokio::fs::metadata(part_path).await,
-    ) {
-        (true, Some(expected), Ok(metadata))
-            if metadata.is_file() && metadata.len() < expected =>
+    let mut metadata_request: Option<DownloadRequest> = None;
+    loop {
+        let request = metadata_request.as_ref().unwrap_or(request);
+        let log_url = sanitize_url_for_log(&route.url);
+        let resumable_part_bytes = match (
+            request.integrity.supports_resume(),
+            request.integrity.size,
+            tokio::fs::metadata(part_path).await,
+        ) {
+            (true, Some(expected), Ok(metadata))
+                if metadata.is_file() && metadata.len() < expected =>
+            {
+                metadata.len()
+            }
+            _ => 0,
+        };
+        let explicitly_parallel = request.range_connection_floor.is_some()
+            && request.integrity.supports_resume()
+            && request.integrity.size.is_some_and(|size| {
+                size.saturating_sub(resumable_part_bytes)
+                    >= MIN_SEGMENT_SIZE * MIN_PARALLEL_RANGES as u64
+            });
+        let tail_recovery = request.prefer_http1
+            && request.integrity.size.is_some_and(|size| {
+                can_recover_file_ranges(
+                    request,
+                    size.saturating_sub(resumable_part_bytes),
+                )
+            });
+        if (request.allow_http1_segmented_download || tail_recovery)
+            && !retry_with_single_thread
+            && !session.single_thread_routes.contains(&route.url)
+            && route.supports_range
+            && range_splitting_allowed(route)
+            && request.integrity.size.is_some_and(|size| {
+                tail_recovery
+                    || explicitly_parallel
+                    || should_use_segmented_download(size, resumable_part_bytes)
+            })
         {
-            metadata.len()
-        }
-        _ => 0,
-    };
-    let explicitly_parallel = request.range_connection_floor.is_some()
-        && request.integrity.supports_resume()
-        && request.integrity.size.is_some_and(|size| {
-            size.saturating_sub(resumable_part_bytes)
-                >= MIN_SEGMENT_SIZE * MIN_PARALLEL_RANGES as u64
-        });
-    let tail_recovery = request.prefer_http1
-        && request.integrity.size.is_some_and(|size| {
-            can_recover_file_ranges(
-                request,
-                size.saturating_sub(resumable_part_bytes),
+            let size = request.integrity.size.unwrap();
+            match try_segmented_download(
+                SegmentedDownloadContext::new(
+                    request,
+                    route,
+                    &routes[route_index + 1..],
+                    size,
+                    part_path,
+                    semaphore,
+                    credentials,
+                    &HTTP1_NO_REDIRECT_REQWEST_CLIENT,
+                    &HTTP1_DIRECT_REQWEST_CLIENT,
+                    session.attempts,
+                    session.file_attempt_budget,
+                    allow_low_throughput_abort,
+                ),
+                progress.as_deref_mut(),
             )
-        });
-    if (request.allow_http1_segmented_download || tail_recovery)
-        && !retry_with_single_thread
-        && !session.single_thread_routes.contains(&route.url)
-        && route.supports_range
-        && range_splitting_allowed(route)
-        && request.integrity.size.is_some_and(|size| {
-            tail_recovery
-                || explicitly_parallel
-                || should_use_segmented_download(size, resumable_part_bytes)
-        })
-    {
-        let size = request.integrity.size.unwrap();
-        match try_segmented_download(
-            SegmentedDownloadContext::new(
-                request,
-                route,
-                &routes[route_index + 1..],
-                size,
-                part_path,
-                semaphore,
-                credentials,
-                &HTTP1_NO_REDIRECT_REQWEST_CLIENT,
-                &HTTP1_DIRECT_REQWEST_CLIENT,
-                session.attempts,
-                session.file_attempt_budget,
-                allow_low_throughput_abort,
-            ),
-            progress.as_deref_mut(),
-        )
-        .await
-        {
-            SegmentedDownloadOutcome::Success(result) => {
-                finalize_download(part_path, destination).await?;
-                let transferred_bytes =
-                    result.size.saturating_sub(resumable_part_bytes);
-                if let Some(authority) = original_route_authority(route) {
-                    crate::util::download::native_reputation::record_transport_success(
+            .await
+            {
+                SegmentedDownloadOutcome::Success(result) => {
+                    finalize_download(part_path, destination).await?;
+                    let transferred_bytes =
+                        result.size.saturating_sub(resumable_part_bytes);
+                    if let Some(authority) = original_route_authority(route) {
+                        crate::util::download::native_reputation::record_transport_success(
                         &authority,
                         route.proxy,
                         crate::util::download::native_reputation::NativeTransport::Http1MultiRange,
@@ -186,179 +192,199 @@ async fn try_segmented_native_attempt(
                                 .as_secs_f64()
                                 .max(0.001),
                     );
-                }
-                record_route_success(
-                    route,
-                    request.resource,
-                    result.ttfb,
-                    transferred_bytes,
-                    result.transfer_elapsed,
-                    result.remote_addr,
-                );
-                tracing::debug!(
-                    path = %destination.display(),
-                    url = %sanitize_url_for_log(&result.final_url),
-                    source = route.source.as_str(),
-                    bytes = result.size,
-                    elapsed_ms = result.transfer_elapsed.as_millis(),
-                    remote_addr = ?result.remote_addr,
-                    http_version = ?result.http_version,
-                    dns_candidates = ?route_host(route).map(|host| {
-                        crate::util::download::proxy_context::resolver(route.proxy).resolved_addresses(&host)
-                    }),
-                    attempt = session.attempts,
-                    max_attempts = session.file_attempt_budget,
-                    "Completed file download"
-                );
-                if let Some(tracking) = &request.install_tracking
-                    && let Err(error) = tracking
-                        .reporter
-                        .record_download_request_finished(
-                            &tracking.item_id,
-                            result.size,
-                        )
-                        .await
-                {
-                    tracing::warn!(
-                        error = %error,
-                        "Failed to record completed download request"
+                    }
+                    record_route_success(
+                        route,
+                        request.resource,
+                        result.ttfb,
+                        transferred_bytes,
+                        result.transfer_elapsed,
+                        result.remote_addr,
                     );
+                    tracing::debug!(
+                        path = %destination.display(),
+                        url = %sanitize_url_for_log(&result.final_url),
+                        source = route.source.as_str(),
+                        bytes = result.size,
+                        elapsed_ms = result.transfer_elapsed.as_millis(),
+                        remote_addr = ?result.remote_addr,
+                        http_version = ?result.http_version,
+                        dns_candidates = ?route_host(route).map(|host| {
+                            crate::util::download::proxy_context::resolver(route.proxy).resolved_addresses(&host)
+                        }),
+                        attempt = session.attempts,
+                        max_attempts = session.file_attempt_budget,
+                        "Completed file download"
+                    );
+                    if let Some(tracking) = &request.install_tracking
+                        && let Err(error) = tracking
+                            .reporter
+                            .record_download_request_finished(
+                                &tracking.item_id,
+                                result.size,
+                            )
+                            .await
+                    {
+                        tracing::warn!(
+                            error = %error,
+                            "Failed to record completed download request"
+                        );
+                    }
+                    return Ok(Some(NativeSegmentedAttempt::Completed(
+                        DownloadResult {
+                            path: destination.to_path_buf(),
+                            url: result.final_url,
+                            source: route.source,
+                            size: result.size,
+                            attempts: session.attempts,
+                            fallback_count: session.fallback_count,
+                            verified_sha1: request.integrity.sha1.clone(),
+                            verified_sha512: request.integrity.sha512.clone(),
+                            verified_file: None,
+                        },
+                    )));
                 }
-                return Ok(Some(NativeSegmentedAttempt::Completed(
-                    DownloadResult {
-                        path: destination.to_path_buf(),
-                        url: result.final_url,
-                        source: route.source,
-                        size: result.size,
-                        attempts: session.attempts,
-                        fallback_count: session.fallback_count,
-                        verified_sha1: request.integrity.sha1.clone(),
-                        verified_sha512: request.integrity.sha512.clone(),
-                        verified_file: None,
-                    },
-                )));
-            }
-            SegmentedDownloadOutcome::FallbackSingle {
-                disable_range,
-                reason,
-            } => {
-                push_download_attempt_diagnostic(
-                    &mut session.attempt_history,
-                    route,
-                    session.attempts,
-                    DIAGNOSTICS_RANGE,
-                    FETCH_FALLBACK_SINGLE,
+                SegmentedDownloadOutcome::FallbackSingle {
+                    disable_range,
                     reason,
-                    None,
-                    None,
-                    None,
-                );
-                tracing::debug!(
-                    original_url = %log_url,
-                    file_size = size,
-                    supports_range = route.supports_range,
-                    reason,
-                    "Falling back to a single connection"
-                );
-                if resource_validator_changed(reason) {
-                    session.single_thread_routes.insert(route.url.clone());
-                } else if disable_range {
-                    disable_range_splitting(route);
+                } => {
+                    push_download_attempt_diagnostic(
+                        &mut session.attempt_history,
+                        route,
+                        session.attempts,
+                        DIAGNOSTICS_RANGE,
+                        FETCH_FALLBACK_SINGLE,
+                        reason,
+                        None,
+                        None,
+                        None,
+                    );
+                    tracing::debug!(
+                        original_url = %log_url,
+                        file_size = size,
+                        supports_range = route.supports_range,
+                        reason,
+                        "Falling back to a single connection"
+                    );
+                    if resource_validator_changed(reason) || disable_range {
+                        session.single_thread_routes.insert(route.url.clone());
+                    }
+                    if disable_range
+                        && matches!(
+                            reason,
+                            FETCH_SERVER_IGNORED_RANGE_AND_RETURNED_200
+                                | FETCH_INVALID_CONTENT_RANGE
+                                | FETCH_INVALID_HEDGED_CONTENT_RANGE
+                        )
+                    {
+                        disable_range_splitting(route);
+                    }
                 }
-            }
-            SegmentedDownloadOutcome::SourceFailed => {
-                record_route_failure(route, request.resource, None);
-                record_native_transfer_failure(route, None);
-                let error: crate::Error = ErrorKind::OtherError(format!(
-                    "File transfer failed from {log_url}"
-                ))
-                .into();
-                push_download_attempt_diagnostic(
-                    &mut session.attempt_history,
-                    route,
-                    session.attempts,
-                    DIAGNOSTICS_NETWORK,
-                    FETCH_SWITCH_ROUTE_OR_RETRY_ROUND,
-                    error.to_string(),
-                    None,
-                    None,
-                    None,
-                );
-                session.last_error = Some(error);
-                tracing::warn!(
-                    path = %destination.display(),
-                    url = %log_url,
-                    source = route.source.as_str(),
-                    attempt = session.attempts,
-                    max_attempts = session.file_attempt_budget,
-                    "Segmented file download failed; retrying or switching source"
-                );
-                return Ok(Some(NativeSegmentedAttempt::RetryRoute));
-            }
-            SegmentedDownloadOutcome::IntegrityFailed(error) => {
-                record_route_failure(route, request.resource, None);
-                record_download_attempt_failure(
-                    &mut session.attempt_history,
-                    route,
-                    session.attempts,
-                    &error,
-                    if is_official_route(route) {
-                        FETCH_ABORT
-                    } else {
-                        FETCH_FALLBACK_OFFICIAL
-                    },
-                    None,
-                    None,
-                    None,
-                );
-                session.last_error = Some(error);
-                session.terminal_routes.insert(route.url.clone());
-                if !is_official_route(route)
-                    && let Some(official) = official_fallback_route(routes)
-                {
-                    remove_if_exists(part_path).await?;
-                    session.official_integrity_retry = true;
-                    session.preferred_route = Some(official);
+                SegmentedDownloadOutcome::MetadataSizeChanged(size) => {
+                    if !request.integrity.has_hash()
+                        || metadata_request.is_some()
+                    {
+                        session.single_thread_routes.insert(route.url.clone());
+                        return Ok(None);
+                    }
+                    let mut corrected = request.clone();
+                    corrected.integrity.size = Some(size);
+                    metadata_request = Some(corrected);
+                    continue;
+                }
+                SegmentedDownloadOutcome::SourceFailed => {
+                    record_route_failure(route, request.resource, None);
+                    record_native_transfer_failure(route, None);
+                    let error: crate::Error = ErrorKind::OtherError(format!(
+                        "File transfer failed from {log_url}"
+                    ))
+                    .into();
+                    push_download_attempt_diagnostic(
+                        &mut session.attempt_history,
+                        route,
+                        session.attempts,
+                        DIAGNOSTICS_NETWORK,
+                        FETCH_SWITCH_ROUTE_OR_RETRY_ROUND,
+                        error.to_string(),
+                        None,
+                        None,
+                        None,
+                    );
+                    session.last_error = Some(error);
+                    tracing::warn!(
+                        path = %destination.display(),
+                        url = %log_url,
+                        source = route.source.as_str(),
+                        attempt = session.attempts,
+                        max_attempts = session.file_attempt_budget,
+                        "Segmented file download failed; retrying or switching source"
+                    );
                     return Ok(Some(NativeSegmentedAttempt::RetryRoute));
                 }
-                if session.official_integrity_retry {
+                SegmentedDownloadOutcome::IntegrityFailed(error) => {
+                    record_route_failure(route, request.resource, None);
+                    record_download_attempt_failure(
+                        &mut session.attempt_history,
+                        route,
+                        session.attempts,
+                        &error,
+                        if is_official_route(route) {
+                            FETCH_ABORT
+                        } else {
+                            FETCH_FALLBACK_OFFICIAL
+                        },
+                        None,
+                        None,
+                        None,
+                    );
+                    session.last_error = Some(error);
+                    session.terminal_routes.insert(route.url.clone());
+                    if !is_official_route(route)
+                        && let Some(official) = official_fallback_route(routes)
+                    {
+                        remove_if_exists(part_path).await?;
+                        session.official_integrity_retry = true;
+                        session.preferred_route = Some(official);
+                        return Ok(Some(NativeSegmentedAttempt::RetryRoute));
+                    }
+                    if session.official_integrity_retry {
+                        return Err(attach_download_attempt_history(
+                            session.last_error.take().unwrap(),
+                            &session.attempt_history,
+                            session.attempts,
+                            session.file_attempt_budget,
+                        ));
+                    }
+                    session.single_thread_routes.insert(route.url.clone());
+                    session.terminal_routes.remove(&route.url);
+                }
+                SegmentedDownloadOutcome::SwitchRoute(probe) => {
+                    session.preferred_route = Some(probe.route);
+                    return Ok(Some(NativeSegmentedAttempt::RetryRoute));
+                }
+                SegmentedDownloadOutcome::Fatal(error) => {
+                    record_download_attempt_failure(
+                        &mut session.attempt_history,
+                        route,
+                        session.attempts,
+                        &error,
+                        FETCH_ABORT,
+                        None,
+                        None,
+                        None,
+                    );
                     return Err(attach_download_attempt_history(
-                        session.last_error.take().unwrap(),
+                        error,
                         &session.attempt_history,
                         session.attempts,
                         session.file_attempt_budget,
                     ));
                 }
-                disable_range_splitting(route);
-                session.single_thread_routes.insert(route.url.clone());
-                session.terminal_routes.remove(&route.url);
-            }
-            SegmentedDownloadOutcome::SwitchRoute(probe) => {
-                session.preferred_route = Some(probe.route);
-                return Ok(Some(NativeSegmentedAttempt::RetryRoute));
-            }
-            SegmentedDownloadOutcome::Fatal(error) => {
-                record_download_attempt_failure(
-                    &mut session.attempt_history,
-                    route,
-                    session.attempts,
-                    &error,
-                    FETCH_ABORT,
-                    None,
-                    None,
-                    None,
-                );
-                return Err(attach_download_attempt_history(
-                    error,
-                    &session.attempt_history,
-                    session.attempts,
-                    session.file_attempt_budget,
-                ));
             }
         }
-    }
 
-    Ok(None)
+        return Ok(None);
+    }
 }
 
 struct NativeDownloadSession {
@@ -605,7 +631,7 @@ async fn run_native_route_attempts(
             }
         }
 
-        let expected_size = request.integrity.size;
+        let mut expected_size = request.integrity.size;
         let mut resume_offset = if route.supports_range
             && range_splitting_allowed(route)
             && request.integrity.supports_resume()
@@ -665,6 +691,9 @@ async fn run_native_route_attempts(
         record_install_download_stage(request, DownloadItemStatus::Downloading)
             .await;
         let request_started = Instant::now();
+        crate::util::download::telemetry::record_single_budget(request);
+        let telemetry =
+            crate::util::download::telemetry::begin_request(request, route);
         let first_byte_timeout =
             native_first_byte_timeout(route, can_switch_route);
         // A truncated or invalid body may be a corrupt edge-cache
@@ -781,6 +810,9 @@ async fn run_native_route_attempts(
         let status = response.status();
         let remote_addr = response.remote_addr();
         let http_version = response.version();
+        if let Some(telemetry) = &telemetry {
+            telemetry.connected(http_version, remote_addr);
+        }
         let downgrade_slow_http2 =
             should_downgrade_slow_http2(http_version, retry_with_single_thread);
         let response_retry_after = retry_after(&response);
@@ -827,7 +859,6 @@ async fn run_native_route_attempts(
             drop(activity.take());
             if status == StatusCode::RANGE_NOT_SATISFIABLE {
                 remove_if_exists(part_path).await?;
-                disable_range_splitting(route);
                 session.single_thread_routes.insert(route.url.clone());
                 session.preferred_route = Some(route.clone());
             }
@@ -875,6 +906,24 @@ async fn run_native_route_attempts(
             );
             session.last_error = Some(error);
             break 'attempt;
+        }
+
+        let server_size = if status == StatusCode::PARTIAL_CONTENT {
+            parse_content_range(&response).and_then(|range| range.total)
+        } else {
+            response.content_length()
+        };
+        if request.integrity.has_hash()
+            && let Some(size) = server_size.filter(|size| *size > 0)
+            && expected_size != Some(size)
+        {
+            tracing::debug!(
+                url = %log_url,
+                expected_size,
+                server_size = size,
+                "Using response size for a hash-verified download"
+            );
+            expected_size = Some(size);
         }
 
         let mut hashers =
@@ -963,7 +1012,7 @@ async fn run_native_route_attempts(
             } else {
                 // The server ignored the Range header and replied with
                 // the full file; restart the transfer from scratch.
-                disable_range_splitting(route);
+                session.single_thread_routes.insert(route.url.clone());
                 resume_offset = 0;
             }
         }
@@ -999,9 +1048,7 @@ async fn run_native_route_attempts(
         );
         let response_length = response.content_length().unwrap_or(0);
         let endpoint_feedback = response.extensions().get::<crate::util::download::endpoint_selection::metrics::EndpointTransferGuard>().cloned();
-        let total_size = request
-            .integrity
-            .size
+        let total_size = expected_size
             .unwrap_or(starting_size.saturating_add(response_length));
         let transfer_started = Instant::now();
         let mut downloaded = starting_size;
@@ -1067,6 +1114,7 @@ async fn run_native_route_attempts(
                         }
                     };
                     request.transfer_counters.received(chunk.len() as u64);
+                    if let Some(telemetry) = &telemetry { telemetry.received(chunk.len()); }
                     if let Some(feedback) = &endpoint_feedback { feedback.record(chunk.len(), crate::util::download::local_resources::pressure(part_path)); }
                     {
                     #[cfg(test)]
@@ -1249,6 +1297,13 @@ async fn run_native_route_attempts(
         }
         drop(alternate_probe);
         drop(stream);
+        if transfer_error.is_none()
+            && !recover_file_ranges
+            && !switched_endpoint
+            && let Some(telemetry) = &telemetry
+        {
+            telemetry.finish();
+        }
         file.flush()
             .await
             .map_err(|error| IOError::with_path(error, part_path))?;
@@ -1273,7 +1328,7 @@ async fn run_native_route_attempts(
             batch_ranges_attempted = true;
             let mut recovery_request = request.clone();
             recovery_request.prefer_http1 = true;
-            recovery_request.integrity.size.get_or_insert(total_size);
+            recovery_request.integrity.size = Some(total_size);
             tracing::debug!(
                 url = %log_url,
                 downloaded_bytes = downloaded,

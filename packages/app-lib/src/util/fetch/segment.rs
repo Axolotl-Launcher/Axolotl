@@ -47,6 +47,7 @@ pub(crate) struct DownloadRangeState {
     pub(crate) end: u64,
     pub(crate) downloaded: u64,
     pub(crate) active: bool,
+    pub(crate) completed: bool,
 }
 
 impl DownloadRange {
@@ -58,6 +59,7 @@ impl DownloadRange {
                 end,
                 downloaded: 0,
                 active: true,
+                completed: false,
             })),
         }
     }
@@ -116,7 +118,8 @@ impl DownloadRange {
     pub(crate) fn finish(&self) -> bool {
         let mut state = self.state.lock();
         state.active = false;
-        state.downloaded == state.end - self.start + 1
+        state.completed = state.downloaded == state.end - self.start + 1;
+        state.completed
     }
 }
 
@@ -140,6 +143,7 @@ pub(crate) struct SegmentCleanupGuard {
     part_path: PathBuf,
     armed: bool,
     preserved_prefix: u64,
+    preserved_sparse: bool,
 }
 
 impl SegmentCleanupGuard {
@@ -148,11 +152,17 @@ impl SegmentCleanupGuard {
             part_path: part_path.to_path_buf(),
             armed: true,
             preserved_prefix: 0,
+            preserved_sparse: false,
         }
     }
 
     pub(crate) fn preserve_prefix(mut self, bytes: u64) -> Self {
         self.preserved_prefix = bytes;
+        self
+    }
+
+    pub(crate) fn preserve_sparse(mut self) -> Self {
+        self.preserved_sparse = true;
         self
     }
 
@@ -166,7 +176,9 @@ impl Drop for SegmentCleanupGuard {
         if !self.armed {
             return;
         }
-        if self.preserved_prefix > 0 {
+        if self.preserved_sparse {
+            // The journal, rather than file length, identifies reusable bytes.
+        } else if self.preserved_prefix > 0 {
             // Concurrent ranges may leave holes. Only the original contiguous
             // prefix remains resumable after cancellation or a failed trial.
             if let Ok(file) = std::fs::OpenOptions::new()

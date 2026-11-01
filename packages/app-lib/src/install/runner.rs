@@ -78,15 +78,20 @@ tokio::task_local! {
     static EXECUTING_JOB: Uuid;
 }
 
+/// The job's execution slot for a recovery action, or `None` when the job
+/// finished or started canceling while it waited; callers then read the job
+/// again and answer from its current state.
 pub(crate) async fn recovery_execution_slot<'a>(
     state: &'a State,
     job_id: Uuid,
-) -> crate::Result<(
-    Option<tokio::sync::OwnedMutexGuard<()>>,
-    tokio::sync::SemaphorePermit<'a>,
-)> {
+) -> crate::Result<
+    Option<(
+        Option<tokio::sync::OwnedMutexGuard<()>>,
+        tokio::sync::SemaphorePermit<'a>,
+    )>,
+> {
     let record = store::get_required(job_id, state).await?;
-    admission::execution_slot(state, &record).await
+    admission::queued_slot(state, &record).await
 }
 
 /// Serializes interactive content mutations with task admission.
@@ -313,9 +318,38 @@ pub async fn install_content_batch(
     .await
 }
 
+fn resource_plan_names(
+    plan: &crate::resources::ResourceOperationPlan,
+    names: &HashMap<String, String>,
+) -> Vec<String> {
+    use crate::resources::ResourceActionKind;
+
+    let nodes: HashMap<_, _> =
+        plan.nodes.iter().map(|node| (&node.id, node)).collect();
+    let mut seen = HashSet::new();
+    plan.actions
+        .iter()
+        .filter(|action| action.kind != ResourceActionKind::Keep)
+        .filter_map(|action| {
+            let node = nodes.get(&action.node_id)?;
+            let name = names
+                .get(node.id.as_str())
+                .map(String::as_str)
+                .filter(|name| !name.trim().is_empty())
+                .or(action.target.file_name.as_deref())?
+                .trim();
+            if name.is_empty() || !seen.insert(&node.resource) {
+                return None;
+            }
+            Some(name.to_string())
+        })
+        .collect()
+}
+
 pub async fn queue_resource_plan(
     plan_id: crate::resources::PlanId,
     revision: u32,
+    resource_names: HashMap<String, String>,
 ) -> crate::Result<InstallJobSnapshot> {
     let state = State::get().await?;
     let instance = ResourceOperationPlans::instance_at(
@@ -415,6 +449,7 @@ pub async fn queue_resource_plan(
         .into(),
         icon: None,
     });
+    job.resource_names = resource_plan_names(&plan, &resource_names);
     let now = chrono::Utc::now().timestamp();
     InstallJobs::insert_in(
         &mut tx,
@@ -1070,6 +1105,14 @@ impl CancelCleanupRegistration {
             dashmap::mapref::entry::Entry::Vacant(_) => unreachable!(),
         }
     }
+
+    /// Whether a request arrived since the last one was consumed; it stays
+    /// pending until `retry_requested` takes it.
+    fn retry_pending(&self) -> bool {
+        CANCEL_CLEANUPS
+            .get(&self.job_id)
+            .is_some_and(|entry| *entry)
+    }
 }
 
 impl Drop for CancelCleanupRegistration {
@@ -1099,15 +1142,67 @@ async fn run_cancel_cleanup<F, Fut>(
     F: FnMut() -> Fut,
     Fut: Future<Output = crate::Result<()>>,
 {
+    let mut failures = 0;
     loop {
-        if let Err(error) = cleanup().await {
-            let job_id = registration.job_id;
-            tracing::error!(%job_id, %error, "Canceled install cleanup could not finish; durable canceling state remains recoverable");
+        match cleanup().await {
+            Ok(()) => failures = 0,
+            Err(error) => {
+                failures += 1;
+                let job_id = registration.job_id;
+                // A request that arrived meanwhile reruns the cleanup at once
+                // below. Otherwise back off and retry while still owning the
+                // registration, so no second cleanup can start alongside.
+                if failures < RECOVERY_ATTEMPTS && !registration.retry_pending()
+                {
+                    tracing::warn!(%job_id, %error, attempt = failures, "Canceled install cleanup failed; retrying");
+                    tokio::time::sleep(RECOVERY_RETRY_DELAY * failures).await;
+                    continue;
+                }
+                if failures >= RECOVERY_ATTEMPTS {
+                    tracing::error!(%job_id, %error, "Canceled install cleanup could not finish; durable canceling state remains recoverable");
+                }
+            }
         }
         // Consume a pending request or release ownership under the same entry
         // lock, so a request arriving during cleanup cannot be stranded.
         if !registration.retry_requested() {
             break;
+        }
+    }
+}
+
+/// Recovery and cancel cleanup re-read the job and are safe to run again, as
+/// startup recovery runs them. Their writes wait a bounded time for the
+/// install database writer, so a failed attempt is retried a few times here
+/// instead of leaving the job Queued, Running or Canceling until the next
+/// launch.
+const RECOVERY_ATTEMPTS: u32 = 3;
+#[cfg(not(test))]
+const RECOVERY_RETRY_DELAY: std::time::Duration =
+    std::time::Duration::from_secs(2);
+#[cfg(test)]
+const RECOVERY_RETRY_DELAY: std::time::Duration =
+    std::time::Duration::from_millis(10);
+
+/// Runs `recover` up to `RECOVERY_ATTEMPTS` times, backing off between
+/// failures, and returns the last result.
+async fn retry_recovery<F, Fut>(
+    job_id: Uuid,
+    mut recover: F,
+) -> crate::Result<()>
+where
+    F: FnMut() -> Fut,
+    Fut: Future<Output = crate::Result<()>>,
+{
+    let mut attempt = 1;
+    loop {
+        match recover().await {
+            Err(error) if attempt < RECOVERY_ATTEMPTS => {
+                tracing::warn!(%job_id, %error, attempt, "Install recovery failed; retrying");
+                tokio::time::sleep(RECOVERY_RETRY_DELAY * attempt).await;
+                attempt += 1;
+            }
+            result => return result,
         }
     }
 }
@@ -1118,7 +1213,13 @@ async fn finish_canceling_job(
 ) -> crate::Result<()> {
     let _metadata_usage = crate::storage::usage::lease().await?;
     let initial = store::get_required(job_id, state).await?;
-    let _execution = admission::execution_lock(state, &initial).await;
+    let Some(_execution) = admission::execution_lock(state, &initial).await
+    else {
+        return Err(crate::ErrorKind::OtherError(
+            "Timed out waiting for the install execution lock".into(),
+        )
+        .into());
+    };
     let mut job = store::get_required(job_id, state).await?;
     if job.status != InstallJobStatus::Canceling {
         return Ok(());

@@ -12,6 +12,15 @@
 # permanently dirty.
 RUST_MIN_STACK = "67108864"
 
+# Linux builds link with mold (https://github.com/rui314/mold), which has to be
+# on PATH as ld.mold. It only writes ELF, so Windows keeps rust-lld below and
+# macOS keeps the system linker. GCC 12.1+ and Clang both accept -fuse-ld=mold,
+# so the default `cc` driver stays. A cfg table covers x86_64 and aarch64 in one
+# entry and leaves [target."<triple>"] free for Nix's cargo hook, which appends
+# that table to this file; a second definition would be a TOML error.
+[target.'cfg(target_os = "linux")']
+rustflags = ["-C", "link-arg=-fuse-ld=mold"]
+
 # Windows has stack overflows when calling from Tauri, so we increase the default stack size used by the compiler
 [target."cfg(windows)"]
 rustflags = ["-C", "link-args=/STACK:16777220"]

@@ -318,6 +318,7 @@ pub enum FeatureFlag {
     PageTransitions,
     ShowVersionEnvironmentColumn,
     AutoInstallDependencies,
+    AdvancedDownloadInfo,
 }
 
 /// The settings a database that has never been used holds.
@@ -436,6 +437,12 @@ impl Default for Settings {
 impl Settings {
     const CURRENT_VERSION: usize = 3;
 
+    pub(crate) fn advanced_download_info_enabled(&self) -> bool {
+        self.developer_mode
+            && self.feature_flags.get(&FeatureFlag::AdvancedDownloadInfo)
+                == Some(&true)
+    }
+
     /// The settings this launch runs with.
     ///
     /// A start that has named the directory of the settings documents gets them
@@ -468,10 +475,17 @@ impl Settings {
     /// The ranges and shapes a value of these settings has to hold, in the one
     /// place they are written down.
     ///
-    /// A settings document is text the user may edit by hand, so a number out
-    /// of range is pulled back into it here rather than trusted; the row is
-    /// read and written through the same function, so the two cannot drift
-    /// apart about what a stored value is allowed to be.
+    /// This is the stored side of the rules: what a settings document, or a row
+    /// an older build wrote, already holds is converged to the nearest legal
+    /// value and never refused, because a file the user may edit by hand cannot
+    /// be answered with an error. Refusing is what an entry point does instead —
+    /// `patch_with` and the other writers reject the input they cannot
+    /// represent, so the caller that handed it over learns about it. The two are
+    /// therefore not one check written twice: each answers a source the other
+    /// never sees.
+    ///
+    /// The row is read and written through this function too, so the two cannot
+    /// drift apart about what a stored value is allowed to be.
     pub(crate) fn normalize(mut self) -> Self {
         self.max_concurrent_downloads = self
             .max_concurrent_downloads
@@ -602,8 +616,8 @@ impl Settings {
             force_fullscreen: record.mc_force_fullscreen,
             maximize_window: record.mc_maximize_window,
             game_resolution: WindowSize(
-                record.mc_game_resolution_x as u16,
-                record.mc_game_resolution_y as u16,
+                record.mc_game_resolution_x.clamp(0, u16::MAX as i64) as u16,
+                record.mc_game_resolution_y.clamp(0, u16::MAX as i64) as u16,
             ),
             hide_on_process_start: record.hide_on_process_start,
             enter_lightweight_mode_on_game_launch: record
@@ -648,6 +662,21 @@ impl Settings {
         // after that commit: unlike a caller's own unit, there is no window
         // between the write and the commit to defer it for.
         super::documents::settings::invalidate();
+        // The row has landed, so the domains that read from their documents are
+        // written after it: a start stopped between the two finds a document
+        // behind the row, and a commit that failed never reached this. The row
+        // is read again there rather than taken from `self`, so a writer that
+        // landed in between is not undone by this one.
+        //
+        // This writer cannot say which keys it changed — it states a whole
+        // `Settings` — so every domain is stated, and the keys a deployment
+        // answers are left out of the local documents as they always are.
+        //
+        // A document that cannot be written costs that domain and is left in
+        // the log: this is the whole-row writer a start reaches through the
+        // directory move and the settings migrations, so it must not keep a
+        // start from coming up.
+        super::documents::settings::store_cut_over(handle, None).await;
         Ok(())
     }
 
@@ -1176,6 +1205,28 @@ mod tests {
     use super::*;
     use crate::state::store::Collection as _;
     use crate::state::store::tests::support::migrated_pool;
+
+    #[test]
+    fn download_diagnostics_requires_developer_mode_and_explicit_flag() {
+        let mut settings = Settings::default();
+        assert!(!settings.advanced_download_info_enabled());
+        settings
+            .feature_flags
+            .insert(FeatureFlag::AdvancedDownloadInfo, true);
+        assert!(!settings.advanced_download_info_enabled());
+        settings.developer_mode = true;
+        assert!(settings.advanced_download_info_enabled());
+        let saved = serde_json::to_value(&settings).unwrap();
+        assert_eq!(saved["feature_flags"]["advanced_download_info"], true);
+        let restored: Settings = serde_json::from_value(saved).unwrap();
+        assert!(restored.advanced_download_info_enabled());
+        settings
+            .feature_flags
+            .insert(FeatureFlag::AdvancedDownloadInfo, false);
+        assert!(!settings.advanced_download_info_enabled());
+        settings.developer_mode = false;
+        assert!(!settings.advanced_download_info_enabled());
+    }
 
     /// The keys where two settings carry different values, written out so a
     /// failure names them instead of printing two whole `Settings`.

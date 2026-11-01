@@ -1,13 +1,13 @@
-import { invoke } from '@tauri-apps/api/core'
 import { expect, it, vi } from 'vitest'
 
 import { plan_instance_upgrade } from './instance-upgrade'
 
-vi.mock('@tauri-apps/api/core', () => ({ Channel: vi.fn(), invoke: vi.fn() }))
+const backend = vi.hoisted(() => ({ invoke: vi.fn() }))
+vi.mock('@tauri-apps/api/core', () => ({ Channel: vi.fn(), invoke: backend.invoke }))
 
 it('stops waiting at once on abort, cancels the planner and discards a plan that arrives late', async () => {
     let finish!: (plan: unknown) => void
-    vi.mocked(invoke).mockImplementation((command) =>
+    backend.invoke.mockImplementation((command) =>
         command === 'plugin:instance|instance_plan_upgrade'
             ? new Promise((resolve) => {
                   finish = resolve
@@ -28,15 +28,21 @@ it('stops waiting at once on abort, cancels the planner and discards a plan that
     )
     controller.abort()
     await expect(planned).rejects.toMatchObject({ name: 'AbortError' })
-    const { requestId } = vi.mocked(invoke).mock.calls[0][1] as { requestId: string }
-    expect(invoke).toHaveBeenCalledWith('plugin:instance|instance_cancel_upgrade_planning', {
-        requestId,
-    })
+    const { requestId } = backend.invoke.mock.calls[0][1] as { requestId: string }
+    expect(backend.invoke).toHaveBeenCalledWith(
+        'plugin:instance|instance_cancel_upgrade_planning',
+        {
+            requestId,
+        },
+    )
     expect(onStop).toHaveBeenCalledExactlyOnceWith(expect.any(Promise))
     finish({ id: 'late-plan' })
     await vi.waitFor(() =>
-        expect(invoke).toHaveBeenCalledWith('plugin:instance|instance_discard_upgrade_plan', {
-            planId: 'late-plan',
-        }),
+        expect(backend.invoke).toHaveBeenCalledWith(
+            'plugin:instance|instance_discard_upgrade_plan',
+            {
+                planId: 'late-plan',
+            },
+        ),
     )
 })

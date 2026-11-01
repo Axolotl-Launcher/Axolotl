@@ -1,6 +1,31 @@
 use std::collections::BTreeSet;
 
 #[test]
+fn third_party_account_commands_are_registered_and_limited_to_main_window() {
+    let runtime =
+        runtime_commands(include_str!("../src/api/third_party_accounts.rs"));
+    assert_eq!(
+        runtime,
+        manifest_commands(include_str!("../build.rs"), "third-party-accounts")
+    );
+    let capability: serde_json::Value =
+        serde_json::from_str(include_str!("../capabilities/plugins.json"))
+            .unwrap();
+    assert_eq!(capability["windows"], serde_json::json!(["main"]));
+    assert!(
+        capability["permissions"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|permission| permission == "third-party-accounts:default")
+    );
+    assert!(
+        include_str!("../src/main.rs")
+            .contains(".plugin(api::third_party_accounts::init())")
+    );
+}
+
+#[test]
 fn launcher_invoke_handler_wraps_commands_with_agent_window_restriction() {
     let main: String = include_str!("../src/main.rs")
         .chars()
@@ -405,5 +430,59 @@ fn mod_translation_runtime_handlers_match_the_build_manifest() {
             .unwrap()
             .iter()
             .any(|permission| permission == "mod-translation:default")
+    );
+}
+
+#[test]
+fn download_diagnostics_is_registered_and_limited_to_the_main_window() {
+    let runtime = runtime_commands(include_str!("../src/api/install.rs"));
+    let manifest = manifest_commands(include_str!("../build.rs"), "install");
+    assert_eq!(runtime, manifest);
+    assert!(runtime.contains("download_diagnostics"));
+    let frontend =
+        include_str!("../../app-frontend/src/helpers/download-diagnostics.ts");
+    assert!(frontend.contains("plugin:install|download_diagnostics"));
+    let capability: serde_json::Value =
+        serde_json::from_str(include_str!("../capabilities/plugins.json"))
+            .unwrap();
+    assert_eq!(capability["windows"], serde_json::json!(["main"]));
+    assert!(
+        capability["permissions"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|permission| permission == "install:default")
+    );
+}
+
+#[test]
+fn settings_commands_are_registered_and_limited_to_the_main_window() {
+    let runtime = runtime_commands(include_str!("../src/api/settings.rs"));
+    let manifest = manifest_commands(include_str!("../build.rs"), "settings");
+    assert_eq!(
+        runtime, manifest,
+        "settings commands must be identical in the runtime handler and the \
+         build-time manifest"
+    );
+    for command in [
+        "settings_layers",
+        "settings_override_clear",
+        "settings_sanitise",
+        "settings_import_scan",
+        "settings_import",
+        "settings_export",
+    ] {
+        assert!(runtime.contains(command));
+    }
+    let capability: serde_json::Value =
+        serde_json::from_str(include_str!("../capabilities/plugins.json"))
+            .unwrap();
+    assert_eq!(capability["windows"], serde_json::json!(["main"]));
+    assert!(
+        capability["permissions"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|permission| permission == "settings:default")
     );
 }

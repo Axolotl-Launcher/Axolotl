@@ -28,6 +28,15 @@ const MAX_EDIT_BLOCKS: usize = 250_000;
     rename_all_fields = "camelCase"
 )]
 pub enum SchematicSource {
+    Remote {
+        source: theseus::schematics::Source,
+        project_id: String,
+        file_name: String,
+    },
+    Shimu {
+        post_id: u64,
+        file_name: String,
+    },
     External {
         path: String,
     },
@@ -374,10 +383,12 @@ pub async fn schematic_preview_open(
         .map_err(|_| "Request cancellation storage is unavailable")?
         .insert(request_id.clone(), cancellation.clone());
     let result: Result<PreviewSession, String> = async {
-        let (path, source_instance_id) = resolve_source(&source).await?;
+        let (path, source_instance_id, temporary) =
+            resolve_source(&source).await?;
         ensure_not_cancelled(Some(&cancellation))?;
         let task_cancellation = cancellation.clone();
         tauri::async_runtime::spawn_blocking(move || {
+            let _temporary = temporary;
             parse_schematic(&path, source_instance_id, Some(&task_cancellation))
         })
         .await
@@ -659,14 +670,36 @@ pub fn schematic_preview_close(session_id: String) -> Result<(), String> {
 
 async fn resolve_source(
     source: &SchematicSource,
-) -> Result<(PathBuf, Option<String>), String> {
+) -> Result<(PathBuf, Option<String>, Option<tempfile::TempDir>), String> {
     match source {
+        SchematicSource::Remote {
+            source,
+            project_id,
+            file_name,
+        } => {
+            let (directory, path) = theseus::schematics::preview_file(
+                *source, project_id, file_name,
+            )
+            .await
+            .map_err(|error| error.to_string())?;
+            Ok((path, None, Some(directory)))
+        }
+        SchematicSource::Shimu { post_id, file_name } => {
+            let (directory, path) = theseus::schematics::preview_file(
+                theseus::schematics::Source::Shimu,
+                &post_id.to_string(),
+                file_name,
+            )
+            .await
+            .map_err(|error| error.to_string())?;
+            Ok((path, None, Some(directory)))
+        }
         SchematicSource::External { path } => {
             let path = PathBuf::from(path);
             if !path.is_file() {
                 return Err("The schematic file does not exist".to_string());
             }
-            Ok((path, None))
+            Ok((path, None, None))
         }
         SchematicSource::Instance {
             instance_id,
@@ -694,7 +727,7 @@ async fn resolve_source(
             if !canonical.starts_with(canonical_root) || !canonical.is_file() {
                 return Err("Invalid instance schematic path".to_string());
             }
-            Ok((canonical, Some(instance_id.clone())))
+            Ok((canonical, Some(instance_id.clone()), None))
         }
         SchematicSource::InstanceFile {
             instance_id,
@@ -717,7 +750,7 @@ async fn resolve_source(
             if !canonical.starts_with(canonical_root) || !canonical.is_file() {
                 return Err("Invalid instance file path".to_string());
             }
-            Ok((canonical, Some(instance_id.clone())))
+            Ok((canonical, Some(instance_id.clone()), None))
         }
     }
 }
@@ -737,16 +770,6 @@ fn parse_schematic(
     }
     let bytes = std::fs::read(path).map_err(|error| error.to_string())?;
     ensure_not_cancelled(cancellation)?;
-    let extension = path
-        .extension()
-        .and_then(|value| value.to_str())
-        .unwrap_or_default()
-        .to_ascii_lowercase();
-    if extension == "schematic" {
-        return Err(
-            "Legacy MCEdit .schematic files are not supported".to_string()
-        );
-    }
     let root = read_root(&bytes)?;
     ensure_not_cancelled(cancellation)?;
     let file_name = path
@@ -2079,7 +2102,10 @@ fn list_instance_schematics(
                 .and_then(|value| value.to_str())
                 .unwrap_or_default()
                 .to_ascii_lowercase();
-            if !matches!(extension.as_str(), "litematic" | "schem") {
+            if !matches!(
+                extension.as_str(),
+                "litematic" | "schem" | "schematic" | "nbt"
+            ) {
                 continue;
             }
             let metadata =
@@ -2116,6 +2142,36 @@ fn instance_relative_path(root: &Path, path: &Path) -> Result<String, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn supported_nbt_payloads_preview_with_all_schematic_extensions() {
+        let document = DetachedSchematic(
+            parse_sponge(
+                sponge_fixture(3),
+                "fixture.schem".into(),
+                "fixture.schem".into(),
+                None,
+                None,
+            )
+            .unwrap(),
+        );
+        let bytes = document.export("sponge").unwrap();
+        let directory = tempfile::tempdir().unwrap();
+        let schematics = directory.path().join("schematics");
+        std::fs::create_dir(&schematics).unwrap();
+        for extension in ["litematic", "schem", "schematic", "nbt"] {
+            let path = schematics.join(format!("fixture.{extension}"));
+            std::fs::write(&path, &bytes).unwrap();
+            assert_eq!(
+                DetachedSchematic::open(&path).unwrap().manifest().size,
+                document.manifest().size,
+            );
+        }
+        assert_eq!(
+            list_instance_schematics(directory.path()).unwrap().len(),
+            4
+        );
+    }
 
     #[test]
     fn detached_mcp_documents_are_isolated_transactional_and_exportable() {

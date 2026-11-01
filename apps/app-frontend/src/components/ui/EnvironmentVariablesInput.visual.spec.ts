@@ -19,6 +19,8 @@ const backend = vi.hoisted(() => ({
 vi.mock('@/store/theme.ts', () => ({ DEFAULT_FEATURE_FLAGS: {} }))
 vi.mock('@/helpers/settings', async (importOriginal) => ({
     ...(await importOriginal<typeof import('@/helpers/settings')>()),
+    getSettingsLayers: vi.fn(async () => []),
+    clearSettingsOverride: vi.fn(async () => true),
     get: async () => structuredClone(backend.global),
     update: async (patch: Record<string, unknown>) => {
         Object.assign(backend.global, patch)
@@ -73,6 +75,12 @@ vi.mock('@modrinth/ui', async () => {
                 }),
     })
     return {
+        Button: defineComponent({
+            setup:
+                (_, { slots }) =>
+                () =>
+                    h('button', slots.default?.()),
+        }),
         Card: card,
         Checkbox: toggle,
         Combobox: { name: 'Combobox', render: () => null },

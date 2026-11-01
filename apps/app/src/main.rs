@@ -764,7 +764,10 @@ fn main() {
     builder = builder
         .plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
             if let Some(payload) = args.get(1) {
-                tracing::info!("Handling deep link from arg {payload}");
+                tracing::info!(
+                    "Handling deep link from arg {}",
+                    api::utils::command_log_label(payload)
+                );
                 let payload = payload.clone();
                 tauri::async_runtime::spawn(api::utils::handle_command(
                     payload,
@@ -831,22 +834,21 @@ fn main() {
                     let mtx_copy_copy = mtx_copy.clone();
                     let request = url.payload().to_owned();
 
-                    let actual_request =
-                        serde_json::from_str::<Vec<String>>(&request)
-                            .ok()
-                            .map(|mut x| x.remove(0))
-                            .unwrap_or(request);
-
                     tauri::async_runtime::spawn(async move {
-                        tracing::info!("Handling deep link {actual_request}");
+                        tracing::info!(
+                            "Handling deep link {}",
+                            api::utils::command_log_label(&request)
+                        );
 
                         let mut payload = mtx_copy_copy.lock().await;
                         if payload.is_none() {
-                            *payload = Some(actual_request.clone());
+                            *payload =
+                                api::utils::command_strings(request.clone())
+                                    .into_iter()
+                                    .next();
                         }
 
-                        let _ =
-                            api::utils::handle_command(actual_request).await;
+                        let _ = api::utils::handle_command(request).await;
                     });
                 });
             };
@@ -854,7 +856,10 @@ fn main() {
             #[cfg(not(target_os = "macos"))]
             app.listen("deep-link://new-url", |url| {
                 let payload = url.payload().to_owned();
-                tracing::info!("Handling deep link {payload}");
+                tracing::info!(
+                    "Handling deep link {}",
+                    api::utils::command_log_label(&payload)
+                );
                 tauri::async_runtime::spawn(api::utils::handle_command(
                     payload,
                 ));
@@ -873,6 +878,8 @@ fn main() {
     builder = builder
         .plugin(api::agent_window::init())
         .plugin(api::ai::init())
+        .plugin(api::third_party_accounts::init())
+        .plugin(api::schematics::init())
         .plugin(api::auth::init())
         .plugin(api::mr_auth::init())
         .plugin(api::import::init())
@@ -1083,7 +1090,7 @@ fn main() {
                 }
                 #[cfg(target_os = "macos")]
                 if let tauri::RunEvent::Opened { urls } = event {
-                    tracing::info!("Handling webview open {urls:?}");
+                    tracing::info!("Handling webview open");
 
                     let file = urls
                         .into_iter()

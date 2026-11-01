@@ -7287,7 +7287,7 @@ dependencies = [
 
 [[package]]
 name = "theseus"
-version = "1.10.4"
+version = "1.11.0-beta.1"
 dependencies = [
  "ariadne",
  "async-minecraft-ping",
@@ -7314,6 +7314,7 @@ dependencies = [
  "derive_more",
  "dirs",
  "discord-rich-presence",
+ "dom_query",
  "dotenvy",
  "dunce",
  "either",
@@ -7400,7 +7401,7 @@ dependencies = [
 
 [[package]]
 name = "theseus_gui"
-version = "1.10.4"
+version = "1.11.0-beta.1"
 dependencies = [
  "agent-window",
  "ashpd",
@@ -7427,6 +7428,7 @@ dependencies = [
  "launcher-tools",
  "libc",
  "libloading",
+ "minisign-verify",
  "native-dialog",
  "notify",
  "objc2",

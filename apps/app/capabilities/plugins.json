@@ -161,6 +161,8 @@
     "agent-window:allow-open-agent-window",
     "agent-window:allow-update-agent-window-appearance",
     "ai:default",
+    "third-party-accounts:default",
+    "schematics:default",
     "mcp:default",
     "translation:default",
     "storage:default",

@@ -107,6 +107,9 @@ jobs:
         uses: cargo-bins/cargo-binstall@81df5c23b0dc775b009efdfc9895c5965b7a4e40 # v1.26.1
       - name: Setup Clippy
         run: rustup component add clippy
+      # Build scripts and proc macros are still linked under clippy.
+      - name: Install Linux linker
+        uses: ./.github/actions/setup-mold
       - name: Install required cargo
         run: cargo install clippy-sarif sarif-fmt
       - name: Run rust-clippy

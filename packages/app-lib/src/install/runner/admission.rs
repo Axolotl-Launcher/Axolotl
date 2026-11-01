@@ -4,6 +4,8 @@ use super::*;
 #[path = "admission_tests.rs"]
 mod tests;
 
+mod queue;
+
 pub(super) fn request_instance(request: &InstallRequest) -> Option<String> {
     match request.target() {
         InstallTarget::ExistingInstance { instance_id } => Some(instance_id),
@@ -97,24 +99,75 @@ fn request_identity(
     Ok(value)
 }
 
+/// Longest uninterrupted wait for an execution slot, matching the admission
+/// lock above. A job that waits longer stays queued and checks whether it is
+/// still wanted before waiting again, so waiting never turns into failure.
+pub(super) const EXECUTION_WAIT: std::time::Duration =
+    std::time::Duration::from_secs(20);
+
+/// Waits for the instance execution lock and a global install slot. Returns
+/// `None` when the job finished or started canceling while it waited.
+pub(super) async fn queued_slot<'a>(
+    state: &'a State,
+    job: &store::InstallJobRecord,
+) -> crate::Result<
+    Option<(
+        Option<tokio::sync::OwnedMutexGuard<()>>,
+        tokio::sync::SemaphorePermit<'a>,
+    )>,
+> {
+    queue::wait_for_slot(state, job, EXECUTION_WAIT).await
+}
+
+/// The key of a job's execution lock: its instance, or the job itself when it
+/// has none. The queue and worker recovery must lock the same key, so the key
+/// is taken from the request first: a row whose instance was deleted mid-job
+/// clears `instance_id`, and a creation job must not move from the job key to
+/// the new instance's key once its row records one.
+pub(super) fn execution_lock_key(job: &store::InstallJobRecord) -> String {
+    let instance = request_instance(&job.state.request).or_else(|| {
+        if matches!(
+            job.state.request.target(),
+            InstallTarget::NewInstance { .. }
+        ) {
+            None
+        } else {
+            job.instance_id.clone()
+        }
+    });
+    instance
+        .map(|instance| format!("instance:{instance}"))
+        .unwrap_or_else(|| format!("job:{}", job.id))
+}
+
+/// The execution lock alone, bounded like the queue wait: recovery uses it to
+/// prove that no worker can still publish the job's files, and must not wait
+/// forever behind one. `None` means the bounded wait expired.
 pub(super) async fn execution_lock(
     state: &State,
     job: &store::InstallJobRecord,
 ) -> Option<tokio::sync::OwnedMutexGuard<()>> {
-    let key = job
-        .instance_id
-        .clone()
-        .or_else(|| request_instance(&job.state.request))
-        .map(|instance| format!("instance:{instance}"))
-        .unwrap_or_else(|| format!("job:{}", job.id));
     let lock = state
         .install_execution_locks
-        .entry(key)
+        .entry(execution_lock_key(job))
         .or_default()
         .clone();
-    Some(lock.lock_owned().await)
+    match tokio::time::timeout(EXECUTION_WAIT, lock.lock_owned()).await {
+        Ok(guard) => Some(guard),
+        Err(_) => {
+            tracing::warn!(
+                job_id = %job.id,
+                wait = ?EXECUTION_WAIT,
+                "Timed out waiting for the install execution lock"
+            );
+            None
+        }
+    }
 }
 
+/// The slot, or an error once the job leaves the queue; the admission tests
+/// use this shape.
+#[cfg(test)]
 pub(super) async fn execution_slot<'a>(
     state: &'a State,
     job: &store::InstallJobRecord,
@@ -122,7 +175,7 @@ pub(super) async fn execution_slot<'a>(
     Option<tokio::sync::OwnedMutexGuard<()>>,
     tokio::sync::SemaphorePermit<'a>,
 )> {
-    let execution = execution_lock(state, job).await;
-    let global = state.install_job_semaphore.acquire().await?;
-    Ok((execution, global))
+    queued_slot(state, job).await?.ok_or_else(|| {
+        ErrorKind::InputError("The install task left the queue".into()).into()
+    })
 }

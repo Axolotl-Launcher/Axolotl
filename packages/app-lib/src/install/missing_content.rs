@@ -207,10 +207,11 @@ async fn scan_missing_modpack_files_in_at(
     let mut checked_candidates = 0;
     let mut errors = Vec::new();
     let groups = group_candidates_by_item(candidates.stable);
-    let (_execution, _permit) =
-        runner::recovery_execution_slot(&state, job_id).await?;
+    // No slot means the job finished or started canceling meanwhile: then
+    // nothing is imported and the scan reports the job as it now stands.
+    let slot = runner::recovery_execution_slot(&state, job_id).await?;
     let current = store::get_required(job_id, &state).await?;
-    if current.status == InstallJobStatus::WaitingForUser {
+    if slot.is_some() && current.status == InstallJobStatus::WaitingForUser {
         let concurrency = crate::util::download::task_concurrency_limit(&state)
             .unwrap_or_else(|| groups.len().max(1));
         let results =
@@ -696,8 +697,12 @@ pub async fn retry_missing_modpack_file(
     item_id: String,
 ) -> crate::Result<InstallJobSnapshot> {
     let state = State::get().await?;
-    let (_execution, _permit) =
-        runner::recovery_execution_slot(&state, job_id).await?;
+    let Some(_slot) = runner::recovery_execution_slot(&state, job_id).await?
+    else {
+        // The job finished or started canceling while this waited; answer
+        // with its current state instead of recovering anything.
+        return Ok(store::get_required(job_id, &state).await?.snapshot());
+    };
     let current = store::get_required(job_id, &state).await?;
     if missing_item_is_resolved(&current, &item_id)? {
         return Ok(current.snapshot());
@@ -786,8 +791,12 @@ pub async fn import_missing_modpack_file(
     selected_file_path: PathBuf,
 ) -> crate::Result<InstallJobSnapshot> {
     let state = State::get().await?;
-    let (_execution, _permit) =
-        runner::recovery_execution_slot(&state, job_id).await?;
+    let Some(_slot) = runner::recovery_execution_slot(&state, job_id).await?
+    else {
+        // The job finished or started canceling while this waited; answer
+        // with its current state instead of recovering anything.
+        return Ok(store::get_required(job_id, &state).await?.snapshot());
+    };
     let current = store::get_required(job_id, &state).await?;
     if missing_item_is_resolved(&current, &item_id)? {
         return Ok(current.snapshot());

@@ -110,6 +110,29 @@ pub(super) async fn add_instance(pool: &SqlitePool, instance_id: &str) {
     .unwrap();
 }
 
+/// An install job a record may name, with the instance it was started for.
+///
+/// `content_update_jobs.job_id` and `resource_operation_plans.job_id` are
+/// foreign keys into `install_jobs`, and `install_jobs.instance_id` into
+/// `instances`: a test that writes a record naming a job has to write the rows
+/// it names first, because the connection opens with `foreign_keys` on.
+pub(super) async fn seed_install_job(
+    pool: &SqlitePool,
+    job_id: &str,
+    instance_id: Option<&str>,
+) {
+    sqlx::query(
+        "INSERT INTO install_jobs
+            (id, instance_id, kind, status, state, created, modified, dismissed)
+         VALUES (?, ?, 'pack', 'running', '{\"progress\":{}}', 1, 1, 0)",
+    )
+    .bind(job_id)
+    .bind(instance_id)
+    .execute(pool)
+    .await
+    .unwrap();
+}
+
 /// Turns `feature` on for an instance, which a checkpoint needs to exist.
 pub(super) async fn enable_feature(
     pool: &SqlitePool,

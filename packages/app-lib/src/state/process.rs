@@ -1223,22 +1223,23 @@ impl Process {
     ) -> crate::Result<()> {
         let mut clock = PlaytimeClock::new();
         let (status, missing) = loop {
-            // Safety point: no resource is held and the previous poll is
-            // complete. A quiesced detector returns without reporting an exit;
-            // its reaction task sees the closed queue and logs the loss.
-            if quiesce.safety_point().is_break() {
-                tracing::info!(
-                    %uuid,
-                    "L0 process detector stopped at a quiesce"
-                );
-                return Ok(());
-            }
             if let Some(process) = state.process_manager.try_wait(uuid)? {
                 if let Some(status) = process {
                     break (status, false);
                 }
             } else {
                 break (ExitStatus::default(), true);
+            }
+            // Safety point after the poll: the poll holds no resource on
+            // return, and an exit observed just before the quiesce is still
+            // reported. A quiesced detector that saw no exit returns without
+            // one; its reaction task sees the closed queue and logs the loss.
+            if quiesce.safety_point().is_break() {
+                tracing::info!(
+                    %uuid,
+                    "L0 process detector stopped at a quiesce"
+                );
+                return Ok(());
             }
             tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
             if let Some(tick) = clock.take(false) {
@@ -1311,7 +1312,17 @@ impl Process {
                     missing,
                     manually_killed,
                     final_playtime,
-                }) => break (status, missing, manually_killed, final_playtime),
+                }) => {
+                    // The reserved exit is served before lossy ticks queued
+                    // ahead of it. Record those first so the receiver does
+                    // not drop the playtime they carry.
+                    for event in events.drain_lossy() {
+                        if let ProcessEvent::Playtime(tick) = event {
+                            record_playtime(&instance_id, tick).await;
+                        }
+                    }
+                    break (status, missing, manually_killed, final_playtime);
+                }
                 // The detector stopped (quiesce, error or panic) without
                 // reporting an exit. The record cannot be cleaned up while the
                 // game may still be running; leave it and say so.

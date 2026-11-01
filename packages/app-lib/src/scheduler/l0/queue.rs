@@ -124,6 +124,18 @@ impl<T> L0QueueReceiver<T> {
             else => None,
         }
     }
+
+    /// Everything already queued in the lossy segment, without waiting. A
+    /// reserved event is served first, so the reaction task calls this when
+    /// it receives one: the lossy events were posted earlier and must not be
+    /// dropped with the receiver.
+    pub fn drain_lossy(&mut self) -> Vec<T> {
+        let mut events = Vec::new();
+        while let Ok(event) = self.lossy.try_recv() {
+            events.push(event);
+        }
+        events
+    }
 }
 
 #[cfg(test)]
@@ -146,6 +158,21 @@ mod tests {
         }
         assert_eq!(queue.post(99, Delivery::Reserved), Posted::Queued);
         assert_eq!(rx.recv().await, Some(99), "reserved events come first");
+    }
+
+    #[tokio::test]
+    async fn draining_lossy_after_a_reserved_event_keeps_queued_ticks() {
+        let (queue, mut rx) = L0Queue::channel(8, 1);
+        for event in 0..3 {
+            queue.post(event, Delivery::Lossy);
+        }
+        queue.post(99, Delivery::Reserved);
+        assert_eq!(rx.recv().await, Some(99), "the reserved event is first");
+        assert_eq!(
+            rx.drain_lossy(),
+            vec![0, 1, 2],
+            "the lossy events posted before it are not lost"
+        );
     }
 
     #[tokio::test]

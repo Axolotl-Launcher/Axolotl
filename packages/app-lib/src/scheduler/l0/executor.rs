@@ -70,15 +70,22 @@ impl L0Executor {
                     }
                     // A quiesced task returns at its next safety point; keep
                     // driving the runtime so it can, instead of dropping it
-                    // on the spot. Whatever misses the window is dropped by
-                    // the bounded runtime shutdown below.
-                    let deadline = tokio::time::Instant::now() + DRAIN_WINDOW;
-                    while driver_pending.load(Ordering::Acquire) > 0
-                        && tokio::time::Instant::now() < deadline
-                    {
-                        tokio::time::sleep(Duration::from_millis(10)).await;
+                    // on the spot. Abort is the cancel path and stays
+                    // immediate. Whatever misses the window is dropped by the
+                    // bounded runtime shutdown below.
+                    if !driver_control.abort_requested() {
+                        let deadline =
+                            tokio::time::Instant::now() + DRAIN_WINDOW;
+                        while driver_pending.load(Ordering::Acquire) > 0
+                            && tokio::time::Instant::now() < deadline
+                        {
+                            tokio::time::sleep(Duration::from_millis(10)).await;
+                        }
                     }
                 });
+                // The drain above is the grace for async tasks; this drops
+                // any task that missed it and waits up to one second for L0
+                // blocking work.
                 runtime.shutdown_timeout(Duration::from_secs(1));
             })?;
         let handle = handle_rx.recv().map_err(|_| {
@@ -109,12 +116,21 @@ impl L0Executor {
         F: Future + Send + 'static,
         F::Output: Send + 'static,
     {
-        self.pending.fetch_add(1, Ordering::AcqRel);
         let pending = self.pending.clone();
-        self.handle.spawn(async move {
+        let handle = self.handle.spawn(async move {
+            // Count only a task the runtime actually polled: a spawn that
+            // loses the race with shutdown is dropped unpolled and must not
+            // pin the counter (which would make every later drain wait).
+            pending.fetch_add(1, Ordering::AcqRel);
             let _guard = PendingGuard(pending);
             task.await
-        })
+        });
+        if !self.is_running() {
+            tracing::warn!(
+                "The L0 executor exited while a task was being spawned; the task may have been cancelled"
+            );
+        }
+        handle
     }
 
     /// Runs blocking work on L0's own pool, never the shared one.
@@ -187,7 +203,9 @@ mod tests {
                 release.wait();
             })
         };
+        let deadline = Instant::now() + Duration::from_secs(2);
         while !started.load(std::sync::atomic::Ordering::SeqCst) {
+            assert!(Instant::now() < deadline, "the occupier did not start");
             std::thread::yield_now();
         }
 
@@ -200,14 +218,16 @@ mod tests {
             )
             .await
         });
+        // Release and join before asserting, so a timeout fails the test
+        // instead of leaving the occupier blocked and the runtime drop hung.
+        release.wait();
+        shared.block_on(occupier).unwrap();
         assert_eq!(
             result
                 .expect("L0 does not queue behind the occupied shared pool")
                 .expect("the L0 blocking task ran"),
             7
         );
-        release.wait();
-        shared.block_on(occupier).unwrap();
         assert!(executor.shutdown());
     }
 
@@ -225,9 +245,15 @@ mod tests {
             while !task_control.quiesce_requested() {
                 tokio::time::sleep(Duration::from_millis(10)).await;
             }
+            // Stay past the driver's 250 ms heartbeat park: without the
+            // bounded drain the runtime would drop this task before it
+            // finishes, so the test actually proves the drain.
+            tokio::time::sleep(Duration::from_millis(700)).await;
             task_finished.store(true, std::sync::atomic::Ordering::SeqCst);
         });
+        let deadline = Instant::now() + Duration::from_secs(2);
         while !started.load(std::sync::atomic::Ordering::SeqCst) {
+            assert!(Instant::now() < deadline, "the task did not start");
             std::thread::yield_now();
         }
         assert!(executor.shutdown());

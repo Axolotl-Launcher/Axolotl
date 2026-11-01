@@ -70,7 +70,7 @@ export function renderComposer() {
     const sendLabel = text(stopMode ? 'stop' : active ? 'queueMessage' : 'send')
     send.setAttribute('aria-label', sendLabel)
     send.title = sendLabel
-    send.disabled = !stopMode && !thread.draft.trim()
+    send.disabled = !stopMode && !thread.draft.trim() && !thread.attachments.length
 
     renderAttachments(thread)
     renderQueue(thread, active)
@@ -85,26 +85,44 @@ export function resizeInput() {
     input.classList.toggle('is-scrolling', input.scrollHeight > 220)
 }
 
+const PASTE_ICONS = { crash: 'alert', log: 'list', paste: 'file' }
+
+// One attached file or long paste. A paste shows its line count and, on
+// hover, how it starts.
+export function fileChip(file, removable = false) {
+    const pasted = !!file.kind
+    return h(
+        'span',
+        {
+            class: `file-chip${removable ? ' is-removable' : ''}`,
+            data: pasted ? { kind: file.kind } : {},
+            title: pasted ? file.text.slice(0, 400) : null,
+        },
+        [
+            icon(PASTE_ICONS[file.kind] || 'file'),
+            h('span', { class: 'file-name', text: file.name }),
+            h('span', {
+                class: 'file-size',
+                text: pasted ? text('lineCount', { count: file.lines }) : sizeLabel(file.size),
+            }),
+            removable
+                ? button(
+                      {
+                          class: 'file-remove',
+                          label: text('removeAttachment', { name: file.name }),
+                          data: { removeAttachment: file.id },
+                      },
+                      icon('close'),
+                  )
+                : null,
+        ],
+    )
+}
+
 function renderAttachments(thread) {
     const list = element('attachment-list')
     list.hidden = !thread.attachments.length
-    list.replaceChildren(
-        ...thread.attachments.map((file) =>
-            h('span', { class: 'file-chip is-removable' }, [
-                icon('file'),
-                h('span', { class: 'file-name', text: file.name }),
-                h('span', { class: 'file-size', text: sizeLabel(file.size) }),
-                button(
-                    {
-                        class: 'file-remove',
-                        label: text('removeAttachment', { name: file.name }),
-                        data: { removeAttachment: file.id },
-                    },
-                    icon('close'),
-                ),
-            ]),
-        ),
-    )
+    list.replaceChildren(...thread.attachments.map((file) => fileChip(file, true)))
 }
 
 function renderQueue(thread, active) {

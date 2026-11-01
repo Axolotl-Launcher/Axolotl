@@ -19,7 +19,9 @@ let frame = 0
 let swollen = []
 let peeked = null
 
-const preview = (turn) => turn.text.replace(/\s+/g, ' ').trim()
+// A request that is only an attachment is named by it.
+const preview = (turn) =>
+    turn.text.replace(/\s+/g, ' ').trim() || turn.attachments.map((file) => file.name).join(' · ')
 
 export function renderRail(thread) {
     const nav = rail()

@@ -8,6 +8,7 @@ import { dateLabel, durationLabel, text, whenLabel } from './messages.js'
 import { animate, reducedMotion } from './motion.js'
 import { instanceChoice } from './session.js'
 import { ACTIVE_STATUSES } from './state.js'
+import { fileChip } from './view-composer.js'
 
 const root = () => element('messages')
 
@@ -35,18 +36,15 @@ function createTurn(thread, turn, fresh) {
 }
 
 function userRow(turn) {
-    const bubble = h('div', { class: 'user-bubble' }, [h('p', { text: turn.text })])
+    const bubble = h('div', { class: 'user-bubble' }, [
+        turn.text ? h('p', { text: turn.text }) : null,
+    ])
     if (turn.attachments.length)
         bubble.append(
             h(
                 'div',
                 { class: 'bubble-files' },
-                turn.attachments.map((file) =>
-                    h('span', { class: 'file-chip' }, [
-                        icon('file'),
-                        h('span', { text: file.name }),
-                    ]),
-                ),
+                turn.attachments.map((file) => fileChip(file)),
             ),
         )
     return h('div', { class: 'user-row' }, [

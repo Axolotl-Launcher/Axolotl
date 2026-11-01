@@ -1561,6 +1561,12 @@ code {
     text-overflow: ellipsis;
     white-space: nowrap;
 }
+.file-chip[data-kind='crash'] svg {
+    color: var(--danger);
+}
+.file-chip[data-kind='log'] svg {
+    color: var(--fg-2);
+}
 .file-chip.is-removable {
     padding-right: 3px;
 }

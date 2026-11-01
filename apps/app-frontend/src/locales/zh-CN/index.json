@@ -359,6 +359,24 @@
   "app.agent-window.chat.took-time": {
     "message": "用时 {duration}"
   },
+  "app.agent-window.chat.paste-name": {
+    "message": "粘贴的文本"
+  },
+  "app.agent-window.chat.paste-crash-name": {
+    "message": "崩溃报告"
+  },
+  "app.agent-window.chat.paste-log-name": {
+    "message": "游戏日志"
+  },
+  "app.agent-window.chat.line-count": {
+    "message": "{count} 行"
+  },
+  "app.agent-window.chat.pasted-as-file": {
+    "message": "长文本已作为附件添加"
+  },
+  "app.agent-window.chat.paste-as-text": {
+    "message": "改为直接粘贴"
+  },
   "app.agent-window.chat.plan-kicker": {
     "message": "拟执行的变更"
   },

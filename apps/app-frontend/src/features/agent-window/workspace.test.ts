@@ -303,7 +303,7 @@ it('attaches files by name, lets them be removed and passes them to the agent', 
         'latest.log',
     ])
     await send('It crashes, see the log')
-    expect(await page.locator('.user-bubble .file-chip').textContent()).toBe('latest.log')
+    expect(await page.locator('.user-bubble .file-name').textContent()).toBe('latest.log')
     expect(await page.locator('#attachment-list').isHidden()).toBe(true)
     await page.clock.runFor(2_000)
     expect(await page.locator('.step-detail').first().textContent()).toBe('latest.log')
@@ -849,4 +849,47 @@ it('marks answers and walks requests from the message navigator', async () => {
     expect(
         await page.locator('.turn').first().locator('.mark-turn').getAttribute('aria-pressed'),
     ).toBe('true')
+})
+
+it('attaches a long pasted crash report, can put it back as text and sends it alone', async () => {
+    const report = [
+        '---- Minecraft Crash Report ----',
+        ...Array.from(
+            { length: 30 },
+            (_, index) => `\tat net.minecraft.Example.call(Example.java:${index})`,
+        ),
+    ].join('\n')
+    const paste = () =>
+        page.evaluate((value) => {
+            const data = new DataTransfer()
+            data.setData('text/plain', value)
+            document.getElementById('message-input')!.dispatchEvent(
+                new ClipboardEvent('paste', {
+                    clipboardData: data,
+                    bubbles: true,
+                    cancelable: true,
+                }),
+            )
+        }, report)
+    await page.locator('#message-input').focus()
+    await paste()
+    const chip = page.locator('#attachment-list .file-chip')
+    expect(await chip.getAttribute('data-kind')).toBe('crash')
+    expect(await chip.textContent()).toContain(messages.pasteCrashName)
+    expect(await chip.textContent()).toContain('31')
+    expect(await page.locator('#message-input').inputValue()).toBe('')
+
+    await page.locator('.toast .text-button').click()
+    expect(await chip.count()).toBe(0)
+    expect(await page.locator('#message-input').inputValue()).toBe(report)
+
+    await page.locator('#message-input').fill('')
+    await paste()
+    expect(await page.locator('#send-button').isEnabled()).toBe(true)
+    await page.locator('#send-button').click()
+    await untilPlan()
+    expect(await page.locator('.user-bubble .file-chip').textContent()).toContain(
+        messages.pasteCrashName,
+    )
+    expect(await page.locator('#conversation-title').textContent()).not.toBe('')
 })

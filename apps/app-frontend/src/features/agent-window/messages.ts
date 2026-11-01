@@ -274,6 +274,18 @@ export const agentWindowMessages = defineMessages({
     unmarkTurn: { id: 'app.agent-window.chat.unmark-turn', defaultMessage: 'Remove the mark' },
     marked: { id: 'app.agent-window.chat.marked', defaultMessage: 'Marked' },
     tookTime: { id: 'app.agent-window.chat.took-time', defaultMessage: 'Took {duration}' },
+    pasteName: { id: 'app.agent-window.chat.paste-name', defaultMessage: 'Pasted text' },
+    pasteCrashName: {
+        id: 'app.agent-window.chat.paste-crash-name',
+        defaultMessage: 'Crash report',
+    },
+    pasteLogName: { id: 'app.agent-window.chat.paste-log-name', defaultMessage: 'Game log' },
+    lineCount: { id: 'app.agent-window.chat.line-count', defaultMessage: '{count} lines' },
+    pastedAsFile: {
+        id: 'app.agent-window.chat.pasted-as-file',
+        defaultMessage: 'Long text was attached as a file',
+    },
+    pasteAsText: { id: 'app.agent-window.chat.paste-as-text', defaultMessage: 'Paste as text' },
     planKicker: { id: 'app.agent-window.chat.plan-kicker', defaultMessage: 'Proposed changes' },
     manualChange: { id: 'app.agent-window.chat.manual-change', defaultMessage: 'Do it yourself' },
     changeKindUpdate: { id: 'app.agent-window.chat.change-kind-update', defaultMessage: 'Update' },

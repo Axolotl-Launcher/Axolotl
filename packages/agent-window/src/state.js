@@ -8,6 +8,9 @@ const MAX_STORE_LENGTH = 1_500_000
 const MAX_THREADS = 100
 const MAX_TURNS = 600
 const MAX_ATTACHMENTS = 10
+// A long paste (a crash report, a log) is kept as an attachment with its text.
+export const MAX_PASTE = 200_000
+export const PASTE_KINDS = ['paste', 'crash', 'log']
 
 export const ACTIVE_STATUSES = ['thinking', 'running', 'applying']
 const RUN_STATUSES = [
@@ -37,7 +40,9 @@ export const CHANGE_KINDS = ['update', 'rollback', 'new', 'install', 'setting', 
 
 /**
  * @typedef {{ provider_id: string, model_id: string }} Selection
- * @typedef {{ id: string, name: string, size: number }} Attachment
+ * @typedef {{
+ *   id: string, name: string, size: number, kind?: string, text?: string, lines?: number,
+ * }} Attachment
  * @typedef {{ id: string, type: string, [field: string]: any }} Item
  * @typedef {{ title: string, detail: string, status: string }} ProgressStep
  * @typedef {{
@@ -137,10 +142,16 @@ function selection(value) {
 
 function attachment(value) {
     if (!value || typeof value.name !== 'string') return null
+    const pasted = PASTE_KINDS.includes(value.kind) && typeof value.text === 'string'
     return {
         id: typeof value.id === 'string' ? value.id.slice(0, 100) : id(),
         name: value.name.slice(0, 260),
         size: Number.isFinite(value.size) && value.size >= 0 ? value.size : 0,
+        ...(pasted && {
+            kind: value.kind,
+            text: value.text.slice(0, MAX_PASTE),
+            lines: Number.isInteger(value.lines) && value.lines > 0 ? value.lines : 1,
+        }),
     }
 }
 

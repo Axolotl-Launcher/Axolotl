@@ -359,6 +359,24 @@
   "app.agent-window.chat.took-time": {
     "message": "Took {duration}"
   },
+  "app.agent-window.chat.paste-name": {
+    "message": "Pasted text"
+  },
+  "app.agent-window.chat.paste-crash-name": {
+    "message": "Crash report"
+  },
+  "app.agent-window.chat.paste-log-name": {
+    "message": "Game log"
+  },
+  "app.agent-window.chat.line-count": {
+    "message": "{count} lines"
+  },
+  "app.agent-window.chat.pasted-as-file": {
+    "message": "Long text was attached as a file"
+  },
+  "app.agent-window.chat.paste-as-text": {
+    "message": "Paste as text"
+  },
   "app.agent-window.chat.plan-kicker": {
     "message": "Proposed changes"
   },

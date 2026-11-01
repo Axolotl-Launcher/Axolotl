@@ -30,6 +30,7 @@ import {
     lastTurn,
     LEGACY_STORAGE_KEY,
     loadStore,
+    MAX_PASTE,
     newRun,
     newThread,
     newTurn,
@@ -73,6 +74,9 @@ const NARROW = 760
 // Below this width the progress panel floats over the conversation.
 const WIDE = 1100
 const MAX_ATTACHMENTS = 10
+// Pastes this long are attached instead of typed into the request.
+const PASTE_LINES = 16
+const PASTE_CHARS = 2500
 
 try {
     session.store = loadStore()
@@ -710,7 +714,12 @@ function startTurn(threadId, message) {
             const turn = newTurn(thread, message)
             turn.run.preview = isPreview()
             thread.turns.push(turn)
-            if (!thread.title) thread.title = message.text.replace(/\s+/g, ' ').slice(0, 48)
+            if (!thread.title)
+                thread.title = (
+                    message.text.replace(/\s+/g, ' ') ||
+                    message.attachments?.map((file) => file.name).join(' · ') ||
+                    ''
+                ).slice(0, 48)
             thread.updatedAt = Date.now()
             if (thread.selection) next.lastSelection = structuredClone(thread.selection)
             created = turn.id
@@ -739,7 +748,8 @@ function startTurn(threadId, message) {
 async function submit() {
     const thread = currentThread()
     const value = element('message-input').value.trim()
-    if (!value) return
+    // A pasted crash report or a file can be the whole request.
+    if (!value && !thread.attachments.length) return
     await ensureRuntime()
     if (!isPreview() && !modelChoice(thread.selection)) {
         openPicker('model', element('model-button'))
@@ -1030,6 +1040,41 @@ function addFiles(files) {
     persistSoon()
     renderComposer()
     element('message-input').focus()
+}
+
+// Names a paste by what it looks like, so a crash report reads as one.
+function pasteKind(value) {
+    if (
+        /---- Minecraft Crash Report ----|#@!@# Game crashed!|A fatal error has been detected by the Java Runtime/.test(
+            value,
+        )
+    )
+        return 'crash'
+    if (/^\[[\d:.]+\] \[[^\]\n]+\/(INFO|WARN|ERROR|DEBUG|FATAL)\]/m.test(value)) return 'log'
+    return 'paste'
+}
+
+function addPaste(value, lines) {
+    const thread = currentThread()
+    if (thread.attachments.length >= MAX_ATTACHMENTS) {
+        notify(text('attachmentLimit', { count: MAX_ATTACHMENTS }), 'error')
+        return null
+    }
+    const kind = pasteKind(value)
+    const base = text({ crash: 'pasteCrashName', log: 'pasteLogName' }[kind] || 'pasteName')
+    const taken = thread.attachments.filter((file) => file.name.startsWith(base)).length
+    const id = crypto.randomUUID()
+    thread.attachments.push({
+        id,
+        name: taken ? `${base} ${taken + 1}` : base,
+        size: new Blob([value]).size,
+        kind,
+        text: value.slice(0, MAX_PASTE),
+        lines,
+    })
+    persistSoon()
+    renderComposer()
+    return id
 }
 
 async function copyText(value, done = text('copied')) {
@@ -1331,6 +1376,37 @@ element('message-input').addEventListener('keydown', (event) => {
 element('file-input').addEventListener('change', (event) => {
     addFiles(event.target.files)
     event.target.value = ''
+})
+
+// A long paste, such as a crash report or a log, becomes an attachment so the
+// request stays readable; the toast puts it back as text if that was wanted.
+// Pasted files are attached like picked ones.
+element('message-input').addEventListener('paste', (event) => {
+    const files = event.clipboardData?.files
+    if (files?.length) {
+        event.preventDefault()
+        addFiles(files)
+        return
+    }
+    const value = event.clipboardData?.getData('text/plain') || ''
+    const lines = value.split(/\r\n|\r|\n/).length
+    if (lines < PASTE_LINES && value.length < PASTE_CHARS) return
+    event.preventDefault()
+    const input = event.target
+    const [start, end] = [input.selectionStart, input.selectionEnd]
+    const added = addPaste(value, lines)
+    if (!added) return
+    notify(text('pastedAsFile'), 'info', {
+        label: text('pasteAsText'),
+        run: () => {
+            const thread = currentThread()
+            thread.attachments = thread.attachments.filter((file) => file.id !== added)
+            input.setRangeText(value, start, end, 'end')
+            input.dispatchEvent(new Event('input', { bubbles: true }))
+            renderComposer()
+            input.focus()
+        },
+    })
 })
 
 // Files can be dropped anywhere on the conversation, which shows where they go.

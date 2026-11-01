@@ -144,7 +144,13 @@ export class DemoRuntime {
         return this.#play(emit, async (playback) => {
             const lang = language()
             const previous = request.history?.at(-1)?.run
-            let flow = FLOWS.find((entry) => entry.match.test(request.turn.text))
+            // A pasted crash report says what the task is even without words.
+            const crashReport = (request.turn.attachments || []).some(
+                (file) => file.kind === 'crash',
+            )
+            let flow =
+                FLOWS.find((entry) => entry.match.test(request.turn.text)) ||
+                (crashReport ? FLOWS.find((entry) => entry.id === 'crash') : undefined)
             const followup =
                 !flow &&
                 ['awaiting', 'superseded', 'declined'].includes(previous?.status) &&

@@ -168,7 +168,12 @@ pub(crate) fn invalidate() {
 /// changes, including when a key is dropped: it versions the shape of a
 /// document, unlike the `version` the row carries, which says which settings
 /// migrations have run and is therefore in no document.
-const DOMAINS: &[(&str, &[&str], u32)] = &[
+///
+/// A caller that reports the keys of every layer, or that compares a whole
+/// `Settings` against the build defaults, walks this rather than the serialized
+/// settings: the two keys no document carries are then out of its answer by
+/// construction instead of by a rule beside it.
+pub(crate) const DOMAINS: &[(&str, &[&str], u32)] = &[
     (
         "appearance",
         &[
@@ -452,8 +457,100 @@ pub(crate) async fn read(
     Ok(settings.normalize())
 }
 
+/// One key of the settings as the layers of a launch hold it.
+///
+/// A caller that shows a setting has to tell a value the deployment pins from
+/// one the user overrode, and neither document alone answers that: the
+/// deployment's file says what it provides, the local one says what it was
+/// written to, and the key may still read as neither because the row answers a
+/// domain with no document at all. The three answers travel together here rather
+/// than as three reads a caller has to line up.
+#[derive(serde::Serialize)]
+pub struct SettingLayer {
+    /// The key as its document names it.
+    pub key: String,
+    /// The domain whose document carries the key.
+    pub domain: &'static str,
+    /// The value the deployment's own document gives the key, and nothing when
+    /// the deployment ships no document for the domain or no value for the key:
+    /// a key it leaves out is one it does not pin.
+    pub provided: Option<Value>,
+    /// The value the local document holds, and nothing when the user has not
+    /// written the key. A key with a value here is what an override is.
+    pub local: Option<Value>,
+    /// What the key reads as, which is `Settings::get`'s answer and already
+    /// composed of every layer and normalized.
+    pub effective: Value,
+}
+
+/// Every key of `DOMAINS` as the layers hold it.
+///
+/// Only the keys a document carries are listed: `version` would let a report
+/// offer to pin the value the migrations are chosen by, and `personalized_ads`
+/// is a column of the row that no document could hold — both are out by not
+/// being in `DOMAINS` rather than by a filter here.
+///
+/// A domain whose deployment document cannot be read is skipped whole and
+/// reported in the log, not answered with keys that provide nothing: its keys
+/// are unknown while the file is unreadable, and a caller told they are
+/// unprovided would show the user a value to override that it cannot see.
+///
+/// A read that has no document directory — which is what a unit test that builds
+/// its own handle sees — answers with the effective values alone: nothing is
+/// deployed and nothing is written locally, so both layers are empty rather than
+/// unknown.
+pub(crate) async fn layers(
+    handle: &Handle,
+) -> crate::Result<Vec<SettingLayer>> {
+    let settings = Settings::get(handle).await?;
+    let effective: Document =
+        serde_json::from_value(serde_json::to_value(settings)?)?;
+    let documents = handle.settings_documents();
+    let mut layers = Vec::new();
+    for &(name, keys, schema_version) in DOMAINS {
+        let provided = match documents.as_ref() {
+            Some(documents) => {
+                match documents.shipped_keys(name, schema_version).await {
+                    Shipped::Keys(provided) => Some(provided),
+                    Shipped::Unreadable => {
+                        tracing::warn!(
+                            document = name,
+                            "Skipping a settings domain in the reported layers: the deployment's own document cannot be read, so the keys it answers are unknown"
+                        );
+                        continue;
+                    }
+                    Shipped::Missing => None,
+                }
+            }
+            None => None,
+        };
+        let local = match documents.as_ref() {
+            Some(documents) => {
+                documents.stored_keys(name, schema_version).await
+            }
+            None => None,
+        };
+        for &key in keys {
+            let Some(effective) = effective.get(key).cloned() else {
+                continue;
+            };
+            layers.push(SettingLayer {
+                key: key.to_string(),
+                domain: name,
+                provided: provided
+                    .as_ref()
+                    .and_then(|provided| provided.get(key))
+                    .cloned(),
+                local: local.as_ref().and_then(|local| local.get(key)).cloned(),
+                effective,
+            });
+        }
+    }
+    Ok(layers)
+}
+
 /// The settings a build starts from, keyed the way a document keys them.
-fn default_values() -> crate::Result<Map<String, Value>> {
+pub(crate) fn default_values() -> crate::Result<Map<String, Value>> {
     let default = serde_json::to_value(Settings::default())?;
     Ok(serde_json::from_value(default)?)
 }
@@ -1118,6 +1215,62 @@ pub(crate) async fn clear_key_if(
     write(documents, name, schema_version, &document).await
 }
 
+/// Removes a key from the local document, so the value the deployment provides
+/// for it — or the build's default, when it provides none — answers again.
+///
+/// This is the comparison `clear_key_if` makes, for the same reason: the caller
+/// saw `expected` when it decided to clear the key, and a value that no longer
+/// matches is one the user set since, which clearing would undo. Unlike the
+/// reference it clears, `expected` is a setting of any type, so the comparison
+/// is `same_setting`'s rather than a string's.
+///
+/// Everything that leaves nothing to remove answers `false` rather than an
+/// error: a key no domain lists, no document directory, no document for the
+/// domain, a document this build may not rewrite, a key the document does not
+/// carry, and a key whose value moved. Only a write that fails is an error, and
+/// it takes the whole call with it — the key is still there, so the caller is
+/// told the override stands.
+pub(crate) async fn clear_local_key(
+    handle: &Handle,
+    key: &str,
+    expected: &Value,
+) -> crate::Result<bool> {
+    let Some((name, _, schema_version)) = domain_of(key) else {
+        tracing::debug!(
+            key,
+            "Ignoring a settings override for a key no domain lists"
+        );
+        return Ok(false);
+    };
+    let Some(documents) = handle.settings_documents() else {
+        return Ok(false);
+    };
+    let _writing = WRITES.lock().await;
+    // A document that is not there has no override to clear, and one a newer
+    // build wrote or this one cannot read is not this build's to rewrite.
+    let Some((mut document, existed)) =
+        writable_document(&documents, name, schema_version).await
+    else {
+        return Ok(false);
+    };
+    if !existed {
+        return Ok(false);
+    }
+    let defaults = default_values()?;
+    let unchanged = document
+        .get(key)
+        .is_some_and(|current| same_setting(key, current, expected, &defaults));
+    if !unchanged {
+        return Ok(false);
+    }
+    document.remove(key);
+    // `write` says that what a read composes from has changed, so the next read
+    // composes what the deployment answers instead of the entry that was just
+    // dropped.
+    write(&documents, name, schema_version, &document).await?;
+    Ok(true)
+}
+
 /// The domain whose document lists `key`, with that document's shape version.
 /// A key no domain lists is not stored in a document at all.
 fn domain_of(
@@ -1181,8 +1334,9 @@ async fn writable_document(
 /// reads as the lower bound its type holds, so a document saying `0` and one
 /// saying that bound are the same answer. This is the comparison
 /// `prune_redundant` makes, which keeps a writer from storing a key a start
-/// would then drop as redundant.
-fn same_setting(
+/// would then drop as redundant, and the one a whole settings is compared
+/// against the build defaults with when a caller exports a patch.
+pub(crate) fn same_setting(
     key: &str,
     left: &Value,
     right: &Value,

@@ -2,6 +2,9 @@
 
 use std::collections::BTreeSet;
 
+use serde_json::{Map, Value};
+
+pub use crate::state::documents::settings::SettingLayer;
 use crate::state::store::{Handle, atom};
 pub use crate::{
     State,
@@ -166,6 +169,126 @@ pub async fn get() -> crate::Result<Settings> {
     let state = State::get().await?;
     let settings = Settings::get(&state.data).await?;
     Ok(settings)
+}
+
+/// The settings as one JSON object, keyed the way a settings document keys
+/// them, with the values normalised the way a read answers them.
+///
+/// `version` is left out: it is the row's alone, because a file able to answer
+/// it could skip the settings migrations. `personalized_ads` never serializes —
+/// it is a column of the row — and it is removed here as well so the promise
+/// holds even if that changes.
+pub fn effective_json(settings: &Settings) -> Value {
+    let Ok(Value::Object(mut values)) =
+        serde_json::to_value(settings.clone().normalize())
+    else {
+        // The settings are serialized for every read already, so this is not a
+        // state a caller can bring about; an empty object beats a wrong one.
+        tracing::warn!(
+            "Could not read the settings as JSON, so the export is empty"
+        );
+        return Value::Object(Map::new());
+    };
+    values.remove("version");
+    values.remove("personalized_ads");
+    Value::Object(values)
+}
+
+/// The keys that differ from the build's defaults, per domain, in the shape a
+/// deployment's own document takes: what can be written back so a launch reads
+/// these settings.
+///
+/// Only the domains `DOMAINS` lists are walked, so the two keys no document
+/// carries are out by construction rather than by a rule here: `version` would
+/// let a file choose the migrations, and `personalized_ads` is the row's.
+/// A key is kept when it differs from the default *as a setting*, which is what
+/// `same_setting` decides: a document saying `0` where the range starts at `1`
+/// reads as `1` and is therefore the default, and writing it back would pin a
+/// value the user never chose against a later change of that default.
+pub fn patch_json(settings: &Settings) -> Value {
+    let defaults = match crate::state::documents::settings::default_values() {
+        Ok(defaults) => defaults,
+        Err(error) => {
+            tracing::warn!(
+                %error,
+                "Could not read the settings defaults, so the export is empty"
+            );
+            return Value::Object(Map::new());
+        }
+    };
+    let Ok(Value::Object(values)) =
+        serde_json::to_value(settings.clone().normalize())
+    else {
+        tracing::warn!(
+            "Could not read the settings as JSON, so the export is empty"
+        );
+        return Value::Object(Map::new());
+    };
+    let mut domains = Map::new();
+    for &(name, keys, _) in crate::state::documents::settings::DOMAINS {
+        let mut domain = Map::new();
+        for &key in keys {
+            let Some(value) = values.get(key) else {
+                continue;
+            };
+            let differs = match defaults.get(key) {
+                Some(default) => {
+                    !crate::state::documents::settings::same_setting(
+                        key, default, value, &defaults,
+                    )
+                }
+                // A key the build has no default for is one the defaults cannot
+                // vouch for, so its value is written rather than dropped.
+                None => true,
+            };
+            if differs {
+                domain.insert(key.to_string(), value.clone());
+            }
+        }
+        // An empty domain would ask the deployment to state a document that
+        // says nothing, so it is left out instead.
+        if !domain.is_empty() {
+            domains.insert(name.to_string(), Value::Object(domain));
+        }
+    }
+    Value::Object(domains)
+}
+
+/// Every key of the settings with what each layer says about it.
+pub async fn layers() -> crate::Result<Vec<SettingLayer>> {
+    let state = State::get().await?;
+    crate::state::documents::settings::layers(&state.data).await
+}
+
+/// Drops a key from the local settings document, so the deployment's answer
+/// takes over again.
+///
+/// `expected` is the local value the caller saw: a value that no longer matches
+/// is one the user changed since, which is theirs to keep. Everything else the
+/// runtime derives from the settings is refreshed here, the same way `patch`
+/// does after a write, because the effective value changed without a row write.
+pub async fn clear_override(
+    key: &str,
+    expected: &Value,
+) -> crate::Result<bool> {
+    let _guard = SETTINGS_WRITE.lock().await;
+    let state = State::get().await?;
+    let cleared = crate::state::documents::settings::clear_local_key(
+        &state.data,
+        key,
+        expected,
+    )
+    .await?;
+    if !cleared {
+        return Ok(false);
+    }
+    let settings = Settings::get(&state.data).await?;
+    crate::util::download::telemetry::set_enabled(
+        settings.advanced_download_info_enabled(),
+    );
+    state.update_http_client_for_settings(&settings).await?;
+    state.update_download_settings(&settings);
+    Ok(true)
 }
 
 #[tracing::instrument]

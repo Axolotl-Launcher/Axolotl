@@ -92,7 +92,12 @@ export function syncTurn(thread, turn, node = turnNode(turn.id), fresh = true) {
     })
     syncStatus(node.querySelector('.run-status'), turn, active)
     syncNotice(node.querySelector('.run-notice'), thread, turn)
-    syncActions(node.querySelector('.turn-actions'), turn, active)
+    syncActions(
+        node.querySelector('.turn-actions'),
+        turn,
+        active,
+        thread.turns.at(-1)?.id === turn.id,
+    )
     node.dataset.status = run.status
     return node
 }
@@ -604,10 +609,19 @@ function syncNotice(node, thread, turn) {
 
 // Under a finished answer: copy it, mark it in the navigator, and how long it
 // took. A marked answer keeps its mark visible.
-function syncActions(node, turn, active) {
+// The latest answer can be asked for again, unless it wrote changes: running
+// it again would drop the record of what was written.
+const AGAIN = ['done', 'declined', 'superseded']
+const WROTE = ['applied', 'applying', 'unknown']
+
+function syncActions(node, turn, active, latest) {
     const show = !active && turn.run.items.length > 0
     const hasText = turn.run.items.some((item) => item.type === 'text')
-    const signature = show ? `${hasText}:${!!turn.marked}` : ''
+    const again =
+        latest &&
+        AGAIN.includes(turn.run.status) &&
+        !turn.run.items.some((item) => item.type === 'plan' && WROTE.includes(item.state))
+    const signature = show ? `${hasText}:${!!turn.marked}:${again}` : ''
     if (node.dataset.signature === signature) return
     node.dataset.signature = signature
     if (!show) {
@@ -626,6 +640,16 @@ function syncActions(node, turn, active) {
                           data: { copyTurn: turn.id, copyKind: 'agent' },
                       },
                       icon('copy'),
+                  )
+                : null,
+            again
+                ? button(
+                      {
+                          class: 'icon-button tiny',
+                          label: text('answerAgain'),
+                          data: { action: 'retry', turn: turn.id },
+                      },
+                      icon('refresh'),
                   )
                 : null,
             button(

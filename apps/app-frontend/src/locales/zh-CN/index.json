@@ -368,6 +368,9 @@
   "app.agent-window.chat.steps-done-named": {
     "message": "{title} 等 {count} 个步骤"
   },
+  "app.agent-window.chat.answer-again": {
+    "message": "重新回答"
+  },
   "app.agent-window.chat.mark-turn": {
     "message": "在导航条中标记"
   },

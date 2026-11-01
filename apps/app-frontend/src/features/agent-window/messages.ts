@@ -283,6 +283,7 @@ export const agentWindowMessages = defineMessages({
         id: 'app.agent-window.chat.steps-done-named',
         defaultMessage: '{title} · {count} steps',
     },
+    answerAgain: { id: 'app.agent-window.chat.answer-again', defaultMessage: 'Answer again' },
     markTurn: { id: 'app.agent-window.chat.mark-turn', defaultMessage: 'Mark in the navigator' },
     unmarkTurn: { id: 'app.agent-window.chat.unmark-turn', defaultMessage: 'Remove the mark' },
     marked: { id: 'app.agent-window.chat.marked', defaultMessage: 'Marked' },

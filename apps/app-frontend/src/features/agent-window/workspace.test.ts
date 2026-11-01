@@ -1161,3 +1161,19 @@ it('renames a task in place by double-clicking its title', async () => {
     expect(await title.textContent()).toBe('My first task')
     expect(await page.locator('.thread-name').first().textContent()).toBe('My first task')
 })
+
+it('asks the latest answer again, but never one that wrote changes', async () => {
+    await send('Hello there')
+    await untilSettled()
+    const again = page.locator(`.turn-actions [aria-label="${messages.answerAgain}"]`)
+    expect(await again.count()).toBe(1)
+    await again.click()
+    await untilSettled()
+    expect(await page.locator('.turn').count()).toBe(1)
+    expect(await page.locator('.agent-text').count()).toBeGreaterThan(0)
+
+    await send('My game crashes on launch')
+    await (await untilPlan()).click()
+    await untilSettled()
+    expect(await again.count()).toBe(0)
+})

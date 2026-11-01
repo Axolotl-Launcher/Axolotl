@@ -368,6 +368,9 @@
   "app.agent-window.chat.steps-done-named": {
     "message": "{title} · {count} steps"
   },
+  "app.agent-window.chat.answer-again": {
+    "message": "Answer again"
+  },
   "app.agent-window.chat.mark-turn": {
     "message": "Mark in the navigator"
   },

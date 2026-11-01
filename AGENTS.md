@@ -15,6 +15,7 @@ Read the applicable instruction files before editing, even when your session sta
 | API client                                                      | [packages/api-client/AGENTS.md](packages/api-client/AGENTS.md) |
 | Desktop runtime, persistence, migrations or downgrade tooling   | [packages/app-lib/AGENTS.md](packages/app-lib/AGENTS.md)       |
 | Any frontend implementation                                     | [Frontend development](standards/frontend/DEVELOPMENT.md)      |
+| Desktop lab plugins                                             | [Lab plugins](standards/frontend/LAB_PLUGINS.md)               |
 | Agent instructions, Skills or their validation                  | [.agents/AGENTS.md](.agents/AGENTS.md)                         |
 | Agent delivery: commits, pushes, PRs, reviews, archiving        | [REVIEW.md](REVIEW.md)                                         |
 

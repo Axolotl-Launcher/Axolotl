@@ -70,7 +70,7 @@ import { bindPalette, openPalette } from './view-palette.js'
 import { bindRail, renderRail } from './view-rail.js'
 import { bindSlash, closeSlash, slashKeydown, syncSlash } from './view-slash.js'
 import { renderPanel, renderProgressRing, stateLabel } from './view-panel.js'
-import { renderSidebar } from './view-sidebar.js'
+import { progressOf, renderSidebar } from './view-sidebar.js'
 import {
     renderTranscript,
     showAllSteps,
@@ -368,7 +368,10 @@ function flushTurns() {
     // (a status, a step, a plan state, a title) actually changed.
     const list = [...session.store.threads]
         .sort((a, b) => b.updatedAt - a.updatedAt)
-        .map((thread) => `${thread.id}:${thread.title}:${threadStatus(thread)}:${!!thread.unread}`)
+        .map(
+            (thread) =>
+                `${thread.id}:${thread.title}:${threadStatus(thread)}:${!!thread.unread}:${progressOf(thread)}`,
+        )
         .join('|')
     if (list !== listKey) {
         listKey = list

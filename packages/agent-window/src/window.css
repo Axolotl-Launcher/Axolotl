@@ -696,9 +696,52 @@ code {
     color: var(--fg);
     font-weight: 500;
 }
-.thread-name {
+.thread-text {
+    display: flex;
+    flex: 1;
+    min-width: 0;
+    flex-direction: column;
+    text-align: left;
+}
+.thread-name,
+.thread-snippet {
     overflow: hidden;
     text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.thread-snippet {
+    color: var(--fg-3);
+    font-size: 12px;
+}
+.thread-link:has(.thread-snippet) {
+    height: auto;
+    padding-block: 6px;
+}
+.thread-row mark {
+    padding: 0 1px;
+    border-radius: 3px;
+    background: var(--accent-soft);
+    color: var(--fg);
+}
+/* A working task's checklist, as a hairline under its row. */
+.thread-progress {
+    position: absolute;
+    left: 32px;
+    right: 14px;
+    bottom: 3px;
+    height: 2px;
+    border-radius: 1px;
+    background: var(--line);
+    overflow: hidden;
+    pointer-events: none;
+}
+.thread-progress::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: var(--accent);
+    transform-origin: left center;
+    transform: scaleX(var(--progress, 0));
 }
 .thread-indicator {
     display: grid;

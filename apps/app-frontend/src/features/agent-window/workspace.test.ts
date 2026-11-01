@@ -1114,3 +1114,16 @@ it('picks the task instance with an @ mention', async () => {
     await page.locator('#message-input').fill('mail me@home')
     expect(await menu.isHidden()).toBe(true)
 })
+
+it('marks search matches and shows the message that matched', async () => {
+    await send('My game crashes on launch')
+    await untilPlan()
+    await page.locator('#conversation-search').fill('game')
+    const row = page.locator('.thread-row')
+    expect(await row.count()).toBe(1)
+    expect(await row.locator('.thread-snippet').textContent()).toBe('My game crashes on launch')
+    expect(await row.locator('.thread-snippet mark').textContent()).toBe('game')
+    await page.locator('#conversation-search').fill('crash')
+    expect(await row.locator('.thread-name mark').textContent()).toBe('crash')
+    expect(await row.locator('.thread-snippet').count()).toBe(0)
+})

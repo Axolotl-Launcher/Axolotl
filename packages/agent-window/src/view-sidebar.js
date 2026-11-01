@@ -5,7 +5,7 @@ import { axolotl, pixelLoader } from './mascot.js'
 import { text } from './messages.js'
 import { reducedMotion } from './motion.js'
 import { session } from './session.js'
-import { threadStatus } from './state.js'
+import { ACTIVE_STATUSES, threadStatus } from './state.js'
 
 export const STATUS_LABELS = {
     active: 'statusActive',
@@ -29,6 +29,40 @@ function indicator(status, unread) {
     return null
 }
 
+// How far a working task's checklist has got, or null when it is not working.
+export function progressOf(thread) {
+    const run = thread.turns.at(-1)?.run
+    const steps = run?.progress || []
+    if (!steps.length || !ACTIVE_STATUSES.includes(run.status)) return null
+    const done = steps.filter((step) => step.status === 'done').length
+    const current = steps.some((step) => step.status === 'current') ? 0.5 : 0
+    return Math.min(1, (done + current) / steps.length)
+}
+
+// The first match of the search, marked.
+function marked(value, query) {
+    const at = query ? value.toLocaleLowerCase().indexOf(query) : -1
+    if (at < 0) return [value]
+    return [
+        value.slice(0, at),
+        h('mark', { text: value.slice(at, at + query.length) }),
+        value.slice(at + query.length),
+    ]
+}
+
+// When only a message matches, a few words around the match show why.
+function snippet(thread, query) {
+    for (const turn of thread.turns) {
+        const value = turn.text.replace(/\s+/g, ' ')
+        const at = value.toLocaleLowerCase().indexOf(query)
+        if (at < 0) continue
+        const start = Math.max(0, at - 12)
+        const end = Math.min(value.length, at + query.length + 28)
+        return `${start ? '…' : ''}${value.slice(start, end)}${end < value.length ? '…' : ''}`
+    }
+    return ''
+}
+
 export function renderSidebar() {
     const query = session.search.trim().toLocaleLowerCase()
     const visible = session.store.threads
@@ -49,6 +83,9 @@ export function renderSidebar() {
         previous = heading
         const selected = thread.id === session.store.activeId
         const status = threadStatus(thread)
+        const name = thread.title || text('untitled')
+        const hit = query && !name.toLocaleLowerCase().includes(query) ? snippet(thread, query) : ''
+        const progress = progressOf(thread)
         const link = button(
             {
                 class: 'thread-link',
@@ -57,7 +94,10 @@ export function renderSidebar() {
             },
             [
                 indicator(status, thread.unread),
-                h('span', { class: 'thread-name', text: thread.title || text('untitled') }),
+                h('span', { class: 'thread-text' }, [
+                    h('span', { class: 'thread-name' }, marked(name, query)),
+                    hit ? h('span', { class: 'thread-snippet' }, marked(hit, query)) : null,
+                ]),
             ],
         )
         if (status !== 'idle') link.title = text(STATUS_LABELS[status])
@@ -79,6 +119,13 @@ export function renderSidebar() {
                         },
                         icon('more'),
                     ),
+                    progress === null
+                        ? null
+                        : h('span', {
+                              class: 'thread-progress',
+                              style: `--progress: ${progress.toFixed(3)}`,
+                              'aria-hidden': 'true',
+                          }),
                 ],
             ),
         )

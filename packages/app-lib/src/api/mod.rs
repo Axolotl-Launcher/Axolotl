@@ -32,6 +32,7 @@ pub mod settings;
 pub mod symlink;
 pub mod tags;
 pub mod terracotta;
+pub mod third_party_accounts;
 pub mod translation;
 pub mod worlds;
 

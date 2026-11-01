@@ -1,4 +1,91 @@
 {
+  "app.third-party.connected-notification": {
+    "message": "Connected to Shimu Space"
+  },
+  "app.third-party.description": {
+    "message": "Connect external accounts for use in the launcher."
+  },
+  "app.third-party.shimu": {
+    "message": "Shimu Space"
+  },
+  "app.third-party.shimu-purpose": {
+    "message": "Connect your Shimu Space account."
+  },
+  "app.third-party.connected": {
+    "message": "Connected"
+  },
+  "app.third-party.disconnected": {
+    "message": "Not connected"
+  },
+  "app.third-party.expired": {
+    "message": "Sign in again"
+  },
+  "app.third-party.waiting": {
+    "message": "Waiting for authorization"
+  },
+  "app.third-party.exchanging": {
+    "message": "Completing connection"
+  },
+  "app.third-party.connect": {
+    "message": "Connect"
+  },
+  "app.third-party.reconnect": {
+    "message": "Reconnect"
+  },
+  "app.third-party.cancel": {
+    "message": "Cancel"
+  },
+  "app.third-party.more": {
+    "message": "Shimu Space account options"
+  },
+  "app.third-party.check": {
+    "message": "Check connection"
+  },
+  "app.third-party.disconnect": {
+    "message": "Disconnect"
+  },
+  "app.third-party.disconnect-title": {
+    "message": "Disconnect Shimu Space?"
+  },
+  "app.third-party.disconnect-description": {
+    "message": "This removes the account credential from this launcher. To revoke the authorization at Shimu Space, manage it on their website."
+  },
+  "app.third-party.denied": {
+    "message": "Authorization was declined. You can connect again."
+  },
+  "app.third-party.timed-out": {
+    "message": "Authorization timed out. Connect again to continue."
+  },
+  "app.third-party.failed": {
+    "message": "Could not complete the connection. Please try again."
+  },
+  "app.third-party.load-failed": {
+    "message": "Could not read the account status."
+  },
+  "app.third-party.check-failed": {
+    "message": "Could not check the connection. Please try again."
+  },
+  "app.third-party.action-failed": {
+    "message": "The account operation failed. Please try again."
+  },
+  "app.third-party.retry": {
+    "message": "Retry"
+  },
+  "app.third-party.unavailable": {
+    "message": "Account connection is unavailable in this build."
+  },
+  "app.third-party.permissions": {
+    "message": "Authorization: read your account profile. Authorization expires after 3 days; you will need to sign in again."
+  },
+  "app.third-party.browser": {
+    "message": "Complete the authorization in your browser."
+  },
+  "app.third-party.search": {
+    "message": "Shimu mcimg OAuth account authorization sign in connect"
+  },
+  "app.settings.tabs.third-party-accounts": {
+    "message": "Third-party accounts"
+  },
   "app.account.modrinth-account": {
     "message": "Modrinth account"
   },

@@ -288,7 +288,7 @@ pub async fn export_launcher_logs(
     // would silently ship secrets, so fail rather than degrade.
     let state = theseus::State::get().await?;
     let mut archive = LauncherLogArchive::new(&output_path)?;
-    let writer = &mut archive.writer;
+    let mut writer = &mut archive.writer;
 
     let (exported_logs, skipped_logs) =
         write_exported_logs(writer, range, level, &state).await?;
@@ -875,11 +875,11 @@ pub async fn get_opening_command(
         .map(|path| path.to_string_lossy().to_string());
 
     return if let Some(payload) = payload.as_ref() {
-        tracing::info!("opening command {payload}");
+        tracing::info!("opening command {}", command_log_label(payload));
 
         Ok(Some(handler::parse_command(payload).await?))
     } else if let Some(cmd_arg) = cmd_arg {
-        tracing::info!("opening command {cmd_arg:?}");
+        tracing::info!("opening command received");
 
         Ok(Some(handler::parse_command(&cmd_arg).await?))
     } else {
@@ -893,11 +893,11 @@ pub async fn get_opening_command() -> Result<Option<CommandPayload>> {
     // Tauri is not CLI, we use arguments as path to file to call
     let cmd_arg = std::env::args_os().nth(1);
 
-    tracing::info!("opening command {cmd_arg:?}");
+    tracing::info!("opening command received");
 
     let cmd_arg = cmd_arg.map(|path| path.to_string_lossy().to_string());
     if let Some(cmd) = cmd_arg {
-        tracing::debug!("Opening command: {:?}", cmd);
+        tracing::debug!("Opening command: {}", command_log_label(&cmd));
         return Ok(Some(handler::parse_command(&cmd).await?));
     }
     Ok(None)
@@ -913,10 +913,27 @@ pub async fn get_minecraft_news(
     )
 }
 
-// helper function called when redirected by a weblink (ie: modrith://do-something) or when redirected by a .mrpack file (in which case its a filepath)
-// We hijack the deep link library (which also contains functionality for instance-checking)
+pub(crate) fn command_log_label(command: &str) -> &str {
+    if theseus::third_party_accounts::is_callback(command)
+        || serde_json::from_str::<Vec<String>>(command).is_ok_and(|commands| {
+            commands.iter().any(|command| {
+                theseus::third_party_accounts::is_callback(command)
+            })
+        })
+    {
+        "[OAuth callback]"
+    } else {
+        command
+    }
+}
+
+// Both protocol callbacks and file-opening commands arrive through this path.
 pub async fn handle_command(command: String) -> Result<()> {
-    tracing::info!("handle command: {command}");
+    let command = serde_json::from_str::<Vec<String>>(&command)
+        .ok()
+        .and_then(|commands| commands.into_iter().next())
+        .unwrap_or(command);
+    tracing::info!("handle command: {}", command_log_label(&command));
     Ok(theseus::handler::parse_and_emit_command(&command).await?)
 }
 

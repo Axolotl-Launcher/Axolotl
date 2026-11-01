@@ -18,6 +18,18 @@ const message = (id: string, defaultMessage: string): MessageDescriptor => ({ id
 
 export const settingsSearchEntries: SettingsSearchEntry[] = [
     {
+        id: 'third-party-shimu',
+        categoryId: 'third-party-accounts',
+        targetId: 'settings-target-third-party-shimu',
+        label: message('app.third-party.shimu', 'Shimu Space'),
+        keywords: [
+            message(
+                'app.third-party.search',
+                'Shimu mcimg OAuth account authorization sign in connect',
+            ),
+        ],
+    },
+    {
         id: 'mcp-authentication',
         categoryId: 'mcp',
         targetId: 'settings-target-mcp-access',

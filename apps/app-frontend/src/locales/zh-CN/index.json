@@ -1,4 +1,91 @@
 {
+  "app.third-party.connected-notification": {
+    "message": "已成功连接拾木空间"
+  },
+  "app.third-party.description": {
+    "message": "连接第三方账户，供启动器中的相关功能使用。"
+  },
+  "app.third-party.shimu": {
+    "message": "拾木空间"
+  },
+  "app.third-party.shimu-purpose": {
+    "message": "连接你的拾木空间账户。"
+  },
+  "app.third-party.connected": {
+    "message": "已连接"
+  },
+  "app.third-party.disconnected": {
+    "message": "未连接"
+  },
+  "app.third-party.expired": {
+    "message": "需要重新登录"
+  },
+  "app.third-party.waiting": {
+    "message": "等待授权"
+  },
+  "app.third-party.exchanging": {
+    "message": "正在完成连接"
+  },
+  "app.third-party.connect": {
+    "message": "连接"
+  },
+  "app.third-party.reconnect": {
+    "message": "重新连接"
+  },
+  "app.third-party.cancel": {
+    "message": "取消"
+  },
+  "app.third-party.more": {
+    "message": "拾木空间账户选项"
+  },
+  "app.third-party.check": {
+    "message": "检查连接"
+  },
+  "app.third-party.disconnect": {
+    "message": "断开连接"
+  },
+  "app.third-party.disconnect-title": {
+    "message": "断开拾木空间连接？"
+  },
+  "app.third-party.disconnect-description": {
+    "message": "这会从本启动器移除账户凭据。如需在拾木空间撤销授权，请前往其网站管理。"
+  },
+  "app.third-party.denied": {
+    "message": "已拒绝授权，你可以重新连接。"
+  },
+  "app.third-party.timed-out": {
+    "message": "授权已超时，请重新连接。"
+  },
+  "app.third-party.failed": {
+    "message": "未能完成连接，请重试。"
+  },
+  "app.third-party.load-failed": {
+    "message": "无法读取账户状态。"
+  },
+  "app.third-party.check-failed": {
+    "message": "连接检查失败，请重试。"
+  },
+  "app.third-party.action-failed": {
+    "message": "账户操作失败，请重试。"
+  },
+  "app.third-party.retry": {
+    "message": "重试"
+  },
+  "app.third-party.unavailable": {
+    "message": "此版本暂不可连接账户。"
+  },
+  "app.third-party.permissions": {
+    "message": "授权内容：读取账户资料。授权有效期为 3 天，过期后需要重新登录。"
+  },
+  "app.third-party.browser": {
+    "message": "请在浏览器中完成授权。"
+  },
+  "app.third-party.search": {
+    "message": "拾木空间 mcimg OAuth 账户 授权 登录 连接"
+  },
+  "app.settings.tabs.third-party-accounts": {
+    "message": "第三方账户"
+  },
   "app.drop.minecraft-root-added": {
     "message": "已添加 Minecraft 文件夹"
   },

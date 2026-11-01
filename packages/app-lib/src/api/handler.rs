@@ -607,6 +607,13 @@ async fn external_scheme_allowed() -> bool {
 pub async fn parse_command(
     command_string: &str,
 ) -> crate::Result<CommandPayload> {
+    if crate::third_party_accounts::is_callback(command_string) {
+        crate::third_party_accounts::handle_callback(command_string).await?;
+        return Ok(CommandPayload::OpenSettings {
+            tab: Some("third-party-accounts".to_string()),
+            entry: None,
+        });
+    }
     tracing::debug!("Parsing command: {}", &command_string);
     if let Some(sublink) = command_string.strip_prefix("axolotl://") {
         if !external_scheme_allowed().await {

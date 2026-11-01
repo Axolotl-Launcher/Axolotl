@@ -932,6 +932,20 @@ fn main() {
                     ),
             )
             .plugin(
+                "third-party-accounts",
+                InlinedPlugin::new()
+                    .commands(&[
+                        "get_account",
+                        "begin_authorization",
+                        "cancel_authorization",
+                        "disconnect",
+                        "check_connection",
+                    ])
+                    .default_permission(
+                        DefaultPermissionRule::AllowAllCommands,
+                    ),
+            )
+            .plugin(
                 "ai",
                 InlinedPlugin::new()
                     .commands(&[

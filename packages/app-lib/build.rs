@@ -31,6 +31,7 @@ fn main() {
         println!("cargo::rerun-if-changed=.env");
     }
     println!("cargo::rerun-if-env-changed=CURSEFORGE_API_KEY");
+    println!("cargo::rerun-if-env-changed=SHIMU_OAUTH_CLIENT_SECRET");
     for (name, _) in MODRINTH_ENV_DEFAULTS {
         println!("cargo::rerun-if-env-changed={name}");
     }
@@ -50,6 +51,9 @@ fn main() {
 }
 
 fn set_env() {
+    let shimu_oauth_client_secret = env::var("SHIMU_OAUTH_CLIENT_SECRET")
+        .ok()
+        .or_else(|| read_dotenv_literal("SHIMU_OAUTH_CLIENT_SECRET"));
     let curseforge_api_key = env::var("CURSEFORGE_API_KEY")
         .ok()
         .or_else(|| read_dotenv_literal("CURSEFORGE_API_KEY"));
@@ -63,6 +67,7 @@ fn set_env() {
     for (var_name, var_value) in &dotenv_values {
         if var_name == "DATABASE_URL"
             || var_name == "CURSEFORGE_API_KEY"
+            || var_name == "SHIMU_OAUTH_CLIENT_SECRET"
             || var_name == DATA_DIR_SUFFIX_VAR
             || MODRINTH_ENV_DEFAULTS
                 .iter()
@@ -90,6 +95,9 @@ fn set_env() {
         println!("cargo::rustc-env={name}={value}");
     }
 
+    if let Some(secret) = shimu_oauth_client_secret {
+        println!("cargo::rustc-env=SHIMU_OAUTH_CLIENT_SECRET={secret}");
+    }
     if let Some(curseforge_api_key) = curseforge_api_key {
         println!("cargo::rustc-env=CURSEFORGE_API_KEY={curseforge_api_key}");
     }

@@ -90,6 +90,10 @@ const categoryContent: Record<SettingsCategoryId, Pick<SettingsCategory, 'icon' 
         icon: ArchiveIcon,
         content: defineAsyncComponent(() => import('./StorageBackupSettings.vue')),
     },
+    'third-party-accounts': {
+        icon: UsersIcon,
+        content: defineAsyncComponent(() => import('./ThirdPartyAccountsSettings.vue')),
+    },
     'privacy-data': {
         icon: ShieldIcon,
         content: defineAsyncComponent(() => import('./PrivacySettings.vue')),

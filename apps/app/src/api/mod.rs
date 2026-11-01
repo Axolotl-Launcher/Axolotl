@@ -28,6 +28,7 @@ pub mod system_accent;
 pub mod tags;
 pub mod telemetry;
 pub mod terracotta;
+pub mod third_party_accounts;
 pub(crate) mod tools;
 pub mod translation;
 pub mod utils;

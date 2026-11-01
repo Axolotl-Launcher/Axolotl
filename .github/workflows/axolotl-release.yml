@@ -171,6 +171,7 @@ jobs:
       - name: Compile application once with full LTO
         env:
           CURSEFORGE_API_KEY: ${{ secrets.CURSEFORGE_API_KEY }}
+          SHIMU_OAUTH_CLIENT_SECRET: ${{ secrets.SHIMU_OAUTH_CLIENT_SECRET }}
         run: node scripts/axolotl/build-desktop.mjs --profile release
       - name: Compile Windows installer UI
         if: runner.os == 'Windows'
@@ -223,6 +224,7 @@ jobs:
       - name: Compile native macOS binary with full LTO
         env:
           CURSEFORGE_API_KEY: ${{ secrets.CURSEFORGE_API_KEY }}
+          SHIMU_OAUTH_CLIENT_SECRET: ${{ secrets.SHIMU_OAUTH_CLIENT_SECRET }}
         run: node scripts/axolotl/build-desktop.mjs --profile release --target "${{ matrix.target }}"
       - name: Upload macOS build artifacts
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

@@ -707,6 +707,14 @@ code {
     box-shadow: 0 0 0 3px var(--accent-soft);
     animation: breathe 2.2s ease-in-out infinite;
 }
+/* Finished while another task was open: a still dot and a stronger name. */
+.thread-row.is-unread[data-state='idle'] .thread-dot {
+    animation: none;
+}
+.thread-row.is-unread .thread-name {
+    color: var(--fg);
+    font-weight: 650;
+}
 .thread-row[data-state='attention'] .thread-dot {
     background: var(--warning);
     box-shadow: 0 0 0 3px color-mix(in srgb, var(--warning) 20%, transparent);

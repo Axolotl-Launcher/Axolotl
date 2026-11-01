@@ -56,6 +56,9 @@
   "app.agent-window.chat.status-attention": {
     "message": "需要处理"
   },
+  "app.agent-window.chat.status-unread": {
+    "message": "有新结果"
+  },
   "app.agent-window.chat.more": {
     "message": "更多操作"
   },

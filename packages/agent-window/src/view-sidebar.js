@@ -22,9 +22,9 @@ function group(timestamp) {
     return days <= 0 ? 'today' : days === 1 ? 'yesterday' : 'earlier'
 }
 
-function indicator(status) {
+function indicator(status, unread) {
     if (status === 'active') return h('span', { class: 'thread-indicator' }, [pixelLoader()])
-    if (status === 'awaiting' || status === 'attention')
+    if (status === 'awaiting' || status === 'attention' || unread)
         return h('span', { class: 'thread-indicator' }, [h('span', { class: 'thread-dot' })])
     return null
 }
@@ -56,16 +56,17 @@ export function renderSidebar() {
                 'aria-current': selected ? 'page' : 'false',
             },
             [
-                indicator(status),
+                indicator(status, thread.unread),
                 h('span', { class: 'thread-name', text: thread.title || text('untitled') }),
             ],
         )
         if (status !== 'idle') link.title = text(STATUS_LABELS[status])
+        else if (thread.unread) link.title = text('statusUnread')
         rows.push(
             h(
                 'div',
                 {
-                    class: `thread-row${selected ? ' is-selected' : ''}`,
+                    class: `thread-row${selected ? ' is-selected' : ''}${thread.unread ? ' is-unread' : ''}`,
                     data: { state: status, row: thread.id },
                 },
                 [

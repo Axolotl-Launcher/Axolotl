@@ -1022,3 +1022,19 @@ it('offers follow-ups under the latest result and sends the one picked', async (
     // Only the latest result offers them.
     expect(await page.locator('.next-chip').count()).toBe(0)
 })
+
+it('marks a task that finishes in the background as unread until it is opened', async () => {
+    await send('Hello there')
+    await page.getByTestId('new-chat').click()
+    for (
+        let index = 0;
+        index < 20 && !(await page.locator('.thread-row.is-unread').count());
+        index++
+    )
+        await page.clock.runFor(500)
+    const row = page.locator('.thread-row.is-unread')
+    expect(await row.count()).toBe(1)
+    expect(await row.locator('.thread-dot').count()).toBe(1)
+    await row.locator('.thread-link').click()
+    expect(await page.locator('.thread-row.is-unread').count()).toBe(0)
+})

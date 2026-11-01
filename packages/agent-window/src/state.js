@@ -59,7 +59,7 @@ export const CHANGE_KINDS = ['update', 'rollback', 'new', 'install', 'setting', 
  * @typedef {{ id: string, text: string, attachments: Attachment[], createdAt: number }} Queued
  * @typedef {{
  *   id: string, title: string, titleEdited: boolean, createdAt: number, updatedAt: number,
- *   pinned?: boolean, draft: string, attachments: Attachment[], instanceId: string | null,
+ *   pinned?: boolean, unread?: boolean, draft: string, attachments: Attachment[], instanceId: string | null,
  *   selection: Selection | null, turns: Turn[], queue: Queued[],
  * }} Thread
  * @typedef {{
@@ -340,6 +340,7 @@ function thread(value, threadIds, turnIds) {
         createdAt: time(value.createdAt) || Date.now(),
         updatedAt: time(value.updatedAt) || Date.now(),
         ...(value.pinned === true && { pinned: true }),
+        ...(value.unread === true && { unread: true }),
         draft: string(value.draft, MAX_TEXT),
         attachments: list(value.attachments, attachment, MAX_ATTACHMENTS),
         instanceId: optionalString(value.instanceId),

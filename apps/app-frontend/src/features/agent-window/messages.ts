@@ -45,6 +45,7 @@ export const agentWindowMessages = defineMessages({
         id: 'app.agent-window.chat.status-attention',
         defaultMessage: 'Needs attention',
     },
+    statusUnread: { id: 'app.agent-window.chat.status-unread', defaultMessage: 'New result' },
     more: { id: 'app.agent-window.chat.more', defaultMessage: 'More actions' },
     rename: { id: 'app.agent-window.chat.rename', defaultMessage: 'Rename' },
     deleteChat: { id: 'app.agent-window.chat.delete-chat', defaultMessage: 'Delete' },

@@ -360,7 +360,7 @@ function flushTurns() {
     // (a status, a step, a plan state, a title) actually changed.
     const list = [...session.store.threads]
         .sort((a, b) => b.updatedAt - a.updatedAt)
-        .map((thread) => `${thread.id}:${thread.title}:${threadStatus(thread)}`)
+        .map((thread) => `${thread.id}:${thread.title}:${threadStatus(thread)}:${!!thread.unread}`)
         .join('|')
     if (list !== listKey) {
         listKey = list
@@ -694,6 +694,9 @@ function settle(threadId, before) {
         thread.id !== session.store.activeId &&
         ['awaiting', 'done', 'failed'].includes(status)
     ) {
+        thread.unread = true
+        persistSoon()
+        renderSidebar()
         const key =
             status === 'awaiting'
                 ? 'toastAwaiting'
@@ -890,6 +893,7 @@ function selectThread(id) {
         if (
             commit((next) => {
                 next.activeId = id
+                delete next.threads.find((entry) => entry.id === id)?.unread
             })
         ) {
             drawer = null

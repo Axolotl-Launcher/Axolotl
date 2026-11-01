@@ -56,6 +56,9 @@
   "app.agent-window.chat.status-attention": {
     "message": "Needs attention"
   },
+  "app.agent-window.chat.status-unread": {
+    "message": "New result"
+  },
   "app.agent-window.chat.more": {
     "message": "More actions"
   },

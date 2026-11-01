@@ -5,7 +5,9 @@
 import { button, element, h, icon } from './dom.js'
 import { text, whenLabel } from './messages.js'
 import { animate, reducedMotion } from './motion.js'
+import { currentThread } from './session.js'
 import { stateLabel } from './view-panel.js'
+import { revealTurn } from './view-transcript.js'
 
 const scroller = () => element('message-scroll')
 const rail = () => element('turn-rail')
@@ -173,7 +175,8 @@ function unpeek() {
 }
 
 function jump(item) {
-    const turn = element('messages').querySelector(`[data-turn="${CSS.escape(item.dataset.jump)}"]`)
+    // Older turns are built as they are scrolled to; a jump builds down to its own.
+    const turn = revealTurn(currentThread(), item.dataset.jump)
     if (!turn) return
     scroller().scrollTo({
         top: turn.offsetTop - 20,

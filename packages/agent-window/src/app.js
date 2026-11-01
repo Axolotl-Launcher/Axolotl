@@ -72,6 +72,8 @@ import { bindSlash, closeSlash, slashKeydown, syncSlash } from './view-slash.js'
 import { renderPanel, renderProgressRing, stateLabel } from './view-panel.js'
 import { progressOf, renderSidebar } from './view-sidebar.js'
 import {
+    bindTranscript,
+    patchTranscript,
     renderTranscript,
     showAllSteps,
     syncTurn,
@@ -295,12 +297,7 @@ function syncTranscript(fresh = true) {
             if (currentThread().turns.length) follower.toBottom(false)
             else element('message-scroll').scrollTop = 0
         })
-    } else {
-        const ids = new Set(thread.turns.map((turn) => turn.id))
-        for (const node of element('messages').querySelectorAll(':scope > [data-turn]'))
-            if (!ids.has(node.dataset.turn)) node.remove()
-        for (const turn of thread.turns) syncTurn(thread, turn, turnNode(turn.id), fresh)
-    }
+    } else patchTranscript(thread, fresh)
     element('empty-state').hidden = thread.turns.length > 0
     element('messages').hidden = !thread.turns.length
     observePlan()
@@ -1614,6 +1611,7 @@ element('picker-search').addEventListener('keydown', (event) => {
 element('picker-options').addEventListener('keydown', pickerKeydown)
 bindPalette()
 bindRail()
+bindTranscript()
 bindTips()
 // A picked shortcut either fills in a starter request or runs a window action.
 bindSlash((entry) => {

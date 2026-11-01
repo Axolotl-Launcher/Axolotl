@@ -6,14 +6,128 @@ import { button, element, h, hue, icon, renderMarkdown } from './dom.js'
 import { axolotl, pixelLoader, setMood } from './mascot.js'
 import { dateLabel, durationLabel, text, whenLabel } from './messages.js'
 import { animate, reducedMotion } from './motion.js'
-import { instanceChoice, session } from './session.js'
+import { currentThread, instanceChoice, session } from './session.js'
 import { ACTIVE_STATUSES } from './state.js'
 import { fileChip } from './view-composer.js'
 
 const root = () => element('messages')
+const scroller = () => element('message-scroll')
+// A thread opens with its latest turns; older ones are built a batch at a time
+// as the reader scrolls up to them, so opening costs the same at any length.
+const BATCH = 40
+// The next batch is built two screens before the top, so it is ready before
+// it would come into view.
+const reach = () => scroller().clientHeight * 2
+
+// A turn built above the view is laid out in full until the browser has
+// remembered its size; then it may skip layout like any older turn without
+// changing height under the reader.
+const placing = new ResizeObserver((entries) => {
+    const nodes = entries.map((entry) => entry.target)
+    for (const node of nodes) placing.unobserve(node)
+    requestAnimationFrame(() => {
+        for (const node of nodes) node.classList.remove('is-placing')
+    })
+})
+
+function place(node) {
+    node.classList.add('is-placing')
+    placing.observe(node)
+}
 
 export function renderTranscript(thread) {
-    root().replaceChildren(...thread.turns.map((turn) => createTurn(thread, turn, false)))
+    placing.disconnect()
+    root().replaceChildren(
+        ...thread.turns.slice(-BATCH).map((turn) => createTurn(thread, turn, false)),
+    )
+}
+
+// Patches the thread on screen: gone turns leave, new ones arrive at the
+// bottom, and older turns that are not built yet stay that way.
+export function patchTranscript(thread, fresh) {
+    const ids = new Set(thread.turns.map((turn) => turn.id))
+    for (const node of root().querySelectorAll(':scope > [data-turn]'))
+        if (!ids.has(node.dataset.turn)) node.remove()
+    const from = oldestShown(thread)
+    for (const turn of thread.turns.slice(from < 0 ? -BATCH : from))
+        syncTurn(thread, turn, turnNode(turn.id), fresh)
+}
+
+// Where the built turns start in the thread, or -1 when none are built.
+function oldestShown(thread) {
+    for (const node of root().children) {
+        const index = thread.turns.findIndex((turn) => turn.id === node.dataset.turn)
+        if (index >= 0) return index
+    }
+    return -1
+}
+
+// Builds older turns above the built ones: the next batch, or for a jump the
+// batches down to `index`. The view keeps showing the same thing: the scroll
+// moves down by the height that was added.
+function showOlder(thread, index) {
+    const from = oldestShown(thread)
+    if (from <= 0) return false
+    const batches = index === undefined ? 1 : Math.ceil((from - index) / BATCH)
+    const nodes = thread.turns
+        .slice(Math.max(0, from - batches * BATCH), from)
+        .map((turn) => createTurn(thread, turn, false))
+    // The reader scrolls into this batch next, so it is laid out now; a jump
+    // lays out only what lies above its turn.
+    if (index === undefined) nodes.forEach(place)
+    keepView(() => root().prepend(...nodes))
+    return true
+}
+
+// Changes turns above the view without moving what it shows: the scroll
+// follows the first turn in view by however far it moved.
+function keepView(change) {
+    const view = scroller()
+    const anchor = [...root().children].find(
+        (node) => node.offsetTop + node.offsetHeight > view.scrollTop,
+    )
+    const top = anchor?.getBoundingClientRect().top
+    change()
+    if (anchor) view.scrollTop += anchor.getBoundingClientRect().top - top
+}
+
+// Builds older turns down to this one, for the navigator, and returns it.
+export function revealTurn(thread, turnId) {
+    const index = thread.turns.findIndex((turn) => turn.id === turnId)
+    if (index < 0) return null
+    if (oldestShown(thread) > index) showOlder(thread, index)
+    const node = turnNode(turnId)
+    if (!node) return null
+    // A jump that ends near the top would build the next batch on its way
+    // there and cut its scroll short, so that batch is built first.
+    if (node.offsetTop < reach()) showOlder(thread)
+    // A turn that skipped layout takes its real height once the scroll nears
+    // it (Chromium looks 1.5 windows ahead). Above this turn, and on the way
+    // down to it when the jump glides, that would move it while the jump is
+    // under way, so those turns take it now.
+    const passed = reducedMotion.matches ? node.offsetTop : scroller().scrollTop
+    const stop = Math.min(passed, node.offsetTop) - window.innerHeight * 2
+    const above = []
+    for (
+        let turn = node.previousElementSibling;
+        turn && turn.offsetTop + turn.offsetHeight > stop;
+        turn = turn.previousElementSibling
+    )
+        above.push(turn)
+    keepView(() => above.forEach(place))
+    return node
+}
+
+// Builds the next batch of older turns while the reader nears the top.
+export function bindTranscript() {
+    const view = scroller()
+    view.addEventListener(
+        'scroll',
+        () => {
+            if (view.scrollTop < reach()) showOlder(currentThread())
+        },
+        { passive: true },
+    )
 }
 
 export function turnNode(turnId) {
@@ -73,6 +187,10 @@ function userRow(turn) {
 
 export function syncTurn(thread, turn, node = turnNode(turn.id), fresh = true) {
     if (!node) {
+        // Only a new turn is built here; an older one waits above until it is
+        // scrolled to.
+        const from = oldestShown(thread)
+        if (from >= 0 && thread.turns.indexOf(turn) < from) return null
         node = createTurn(thread, turn, fresh)
         root().append(node)
         return node

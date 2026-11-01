@@ -2064,6 +2064,11 @@ code {
     content-visibility: auto;
     contain-intrinsic-size: auto 520px;
 }
+/* Turns built above the view stay laid out until their size is remembered, so
+   the scroll makes room for their real height and skipping keeps it. */
+.turn.is-placing {
+    content-visibility: visible;
+}
 .is-arriving {
     animation: rise-in 460ms var(--ease-reveal) both;
 }

@@ -853,6 +853,100 @@ it('marks answers and walks requests from the message navigator', async () => {
     ).toBe('true')
 })
 
+// Opens a stored task of `count` finished turns, each a short answer.
+async function openLongTask(count: number) {
+    await page.addInitScript(
+        ({ key, total }) => {
+            const turns = Array.from({ length: total }, (_, index) => ({
+                id: `turn-${index}`,
+                text: `Question ${index + 1}`,
+                run: {
+                    status: 'done',
+                    items: [{ id: `answer-${index}`, type: 'text', text: `Answer ${index + 1}` }],
+                },
+            }))
+            localStorage.setItem(
+                key,
+                JSON.stringify({
+                    version: 2,
+                    activeId: 'long',
+                    threads: [{ id: 'long', title: 'Long task', turns }],
+                }),
+            )
+        },
+        { key: STORE, total: count },
+    )
+    await page.reload()
+    await ready()
+    // The view moves to the latest turn in the next frame.
+    await page.clock.runFor(100)
+}
+
+const turnIds = () =>
+    page
+        .locator('#messages > .turn')
+        .evaluateAll((nodes) => nodes.map((node) => (node as HTMLElement).dataset.turn))
+
+it('opens a long task at its latest turns and builds older ones as the reader scrolls up', async () => {
+    await openLongTask(120)
+    const ids = await turnIds()
+    expect(ids).toHaveLength(40)
+    expect(ids[0]).toBe('turn-80')
+    expect(ids.at(-1)).toBe('turn-119')
+    const scroll = page.locator('#message-scroll')
+    expect(
+        await scroll.evaluate((node) => node.scrollHeight - node.scrollTop - node.clientHeight),
+    ).toBeLessThan(2)
+    // The navigator still lists every turn.
+    expect(await page.locator('.rail-item').count()).toBe(120)
+
+    const top = () =>
+        page.evaluate(
+            () => document.querySelector('[data-turn="turn-80"]')!.getBoundingClientRect().top,
+        )
+    const before = await scroll.evaluate((node) => {
+        node.scrollTop = 0
+        return document.querySelector('[data-turn="turn-80"]')!.getBoundingClientRect().top
+    })
+    await expect.poll(() => page.locator('#messages > .turn').count()).toBe(80)
+    expect((await turnIds())[0]).toBe('turn-40')
+    expect(Math.abs((await top()) - before)).toBeLessThan(3)
+    // Once their size is known the new turns may skip layout again, without moving.
+    await expect
+        .poll(async () => {
+            await page.clock.runFor(50)
+            return page.locator('.turn.is-placing').count()
+        })
+        .toBe(0)
+    expect(Math.abs((await top()) - before)).toBeLessThan(3)
+})
+
+it('builds down to an older turn picked in the navigator and shows it', async () => {
+    await openLongTask(120)
+    await page.locator('.rail-item').first().click()
+    expect(await page.locator('#messages > .turn').count()).toBe(120)
+    await page.clock.runFor(100)
+    const first = page.locator('[data-turn="turn-0"]')
+    const view = await page.locator('#message-scroll').boundingBox()
+    const turn = await first.boundingBox()
+    expect(turn!.y).toBeGreaterThanOrEqual(view!.y)
+    expect(turn!.y).toBeLessThan(view!.y + view!.height / 2)
+    expect(await page.locator('.rail-item[data-current]').getAttribute('data-jump')).toBe('turn-0')
+})
+
+it('adds only the new turn at the bottom of a long task', async () => {
+    await openLongTask(120)
+    await send('Hello there')
+    await page.clock.runFor(100)
+    const ids = await turnIds()
+    expect(ids).toHaveLength(41)
+    expect(ids.slice(0, 40)).toEqual(Array.from({ length: 40 }, (_, index) => `turn-${80 + index}`))
+    expect(
+        await page.locator('#messages > .turn').last().locator('.user-bubble').textContent(),
+    ).toBe('Hello there')
+    expect(await page.locator('.rail-item').count()).toBe(121)
+})
+
 it('attaches a long pasted crash report, can put it back as text and sends it alone', async () => {
     const report = [
         '---- Minecraft Crash Report ----',

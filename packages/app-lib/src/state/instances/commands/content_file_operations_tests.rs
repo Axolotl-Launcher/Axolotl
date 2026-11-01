@@ -436,7 +436,7 @@ async fn committed_toggle_is_not_rolled_back_when_journal_cleanup_fails() {
 }
 
 fn test_access() -> crate::install::critical_section::WriteAccess<'static> {
-    crate::install::critical_section::whitelisted(
+    crate::install::critical_section::whitelisted_for_test(
         crate::install::critical_section::WhitelistSite::Tests,
     )
     .into()

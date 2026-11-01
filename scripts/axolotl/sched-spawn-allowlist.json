@@ -2072,11 +2072,12 @@
     {
       "file": "packages/app-lib/src/scheduler/order/instrument.rs",
       "form": "std::fs",
-      "count": 3,
-      "reason": "order instrumentation reads the generated registry and appends to the violation list; debug test runs with SCHED_ORDER_GUARD=1 only, never in L0 or a critical section",
+      "count": 4,
+      "reason": "debug-only order guard: clears the previous run report at startup (SCHED_ORDER_GUARD=1)",
       "sites": [
         "append: if let Ok(mut file) = std::fs::OpenOptions::new()",
         "append: let _ = std::fs::create_dir_all(parent);",
+        "load: let _ = std::fs::write(",
         "load: serde_json::from_str(&std::fs::read_to_string(&file).ok()?).ok()"
       ]
     },

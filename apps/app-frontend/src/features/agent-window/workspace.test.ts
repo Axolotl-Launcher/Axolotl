@@ -9,6 +9,7 @@ let browser: Browser
 let page: Page
 let baseUrl: string
 const STORE = 'axolotl.agent-window.store.v2'
+const START = Date.parse('2026-11-02T12:00:00Z')
 const englishSource = JSON.parse(
     await readFile(new URL('../../locales/en-US/index.json', import.meta.url), 'utf8'),
 ) as Record<string, { message: string }>
@@ -66,7 +67,13 @@ afterAll(async () => {
 beforeEach(async () => {
     page = await browser.newPage({ reducedMotion: 'reduce', acceptDownloads: true })
     page.setDefaultTimeout(5_000)
-    await page.clock.install()
+    // A clock that is only installed still follows the wall clock, so a slow
+    // machine would move the preview's timers between two steps of a test.
+    // Paused, the page's time, timers and frames move only when a test runs
+    // the clock. The pause lands a second after the install, which a running
+    // clock cannot have passed yet.
+    await page.clock.install({ time: START })
+    await page.clock.pauseAt(START + 1_000)
     await page.addInitScript((catalog) => {
         const fixture = {
             contextReads: 0,
@@ -565,7 +572,8 @@ it('times out stuck context requests, permits retry, and ignores their late resu
             'resolveStaleContext',
         )({ ai_enabled: false, providers: [], instances: [] }),
     )
-    await page.waitForTimeout(50)
+    // Gives anything the late result scheduled its timers and frames.
+    await page.clock.runFor(100)
     expect(await page.locator('#model-label').textContent()).toBe('Model')
     expect(await page.locator('.banner').count()).toBe(0)
 })
@@ -1640,4 +1648,172 @@ it('reads a dropped crash report so it previews and starts the crash task', asyn
     await page.locator('#send-button').click()
     await untilPlan()
     expect(await page.locator('.plan-card').textContent()).toContain('Entity Culling')
+})
+
+it('leaves a new task empty when its first request cannot be saved', async () => {
+    await page.locator('#message-input').fill('Back up my world')
+    await page.evaluate(() => (Reflect.get(window, 'agentFixture').storageFails = true))
+    await page.locator('#message-input').press('Enter')
+    await page.locator('.banner [data-action="retry-storage"]').waitFor()
+    // Nothing was launched that could still arrive.
+    await page.clock.runFor(2_000)
+    expect(await page.locator('.turn').count()).toBe(0)
+    expect(await page.locator('#empty-state').isVisible()).toBe(true)
+    expect(await page.locator('#composer-home #composer').count()).toBe(1)
+    expect(await page.locator('#message-input').inputValue()).toBe('Back up my world')
+    expect(await page.locator('.run-status').count()).toBe(0)
+    expect(await page.locator('#thread-state').isHidden()).toBe(true)
+    expect(await page.locator('#announcer').textContent()).not.toContain(messages.thinking)
+})
+
+it('redraws the task list only when the first request’s draft starts or empties', async () => {
+    await page.evaluate(() => {
+        const seen: string[] = []
+        Reflect.set(window, 'listChanges', seen)
+        const input = document.getElementById('message-input') as HTMLTextAreaElement
+        new MutationObserver(() => seen.push(input.value)).observe(
+            document.getElementById('conversation-list')!,
+            { childList: true, subtree: true, characterData: true, attributes: true },
+        )
+    })
+    const changes = () => page.evaluate(() => Reflect.get(window, 'listChanges') as string[])
+    const rows = page.locator('#conversation-list [data-thread]')
+    expect(await rows.count()).toBe(0)
+    await page.locator('#message-input').focus()
+    await page.keyboard.type('Hello')
+    expect(await changes()).toEqual(['H'])
+    expect(await rows.count()).toBe(1)
+    for (let index = 0; index < 5; index++) await page.keyboard.press('Backspace')
+    expect(await changes()).toEqual(['H', ''])
+    expect(await rows.count()).toBe(0)
+})
+
+const archive = (name: string) => ({
+    name,
+    mimeType: 'application/zip',
+    buffer: Buffer.from('zip'),
+})
+
+it('keeps attachment chips and queued requests in place while typing', async () => {
+    await send('The game stutters')
+    await send('Why those two mods?')
+    await page.locator('#file-input').setInputFiles(archive('world.zip'))
+    const chip = await page.locator('#attachment-list .file-chip').first().elementHandle()
+    const queued = await page.locator('#queue-list .queued').first().elementHandle()
+    await page.locator('#message-input').focus()
+    await page.keyboard.type('abc')
+    expect(await page.locator('#message-input').inputValue()).toBe('abc')
+    expect(
+        await page.evaluate(
+            ([first, row]) => [
+                first === document.querySelector('#attachment-list .file-chip'),
+                row === document.querySelector('#queue-list .queued'),
+            ],
+            [chip, queued],
+        ),
+    ).toEqual([true, true])
+})
+
+it('hands the focus to the next attachment, the one before, then the composer as they go', async () => {
+    await page
+        .locator('#file-input')
+        .setInputFiles(['first.zip', 'second.zip', 'third.zip'].map(archive))
+    const remove = (name: string) =>
+        page.getByRole('button', {
+            name: messages.removeAttachment.replace('{name}', name),
+            exact: true,
+        })
+    await remove('second.zip').focus()
+    await page.keyboard.press('Enter')
+    expect(await isFocused(remove('third.zip'))).toBe(true)
+    await page.keyboard.press('Enter')
+    expect(await isFocused(remove('first.zip'))).toBe(true)
+    await page.keyboard.press('Enter')
+    expect(await page.locator('#attachment-list .file-chip').count()).toBe(0)
+    expect(await isFocused(page.locator('#message-input'))).toBe(true)
+})
+
+it('hands the focus along the queue as requests are removed, and keeps it in the composer on Send now', async () => {
+    await send('The game stutters')
+    for (const value of ['One', 'Two', 'Three']) await send(value)
+    const rows = page.locator('#queue-list .queued')
+    const texts = () => rows.locator('.queued-text').allTextContents()
+    const remove = (index: number) => rows.nth(index).locator('[data-remove-queued]')
+    expect(await texts()).toEqual(['One', 'Two', 'Three'])
+    await remove(1).focus()
+    await page.keyboard.press('Enter')
+    expect(await texts()).toEqual(['One', 'Three'])
+    expect(await isFocused(remove(1))).toBe(true)
+    await page.keyboard.press('Enter')
+    expect(await texts()).toEqual(['One'])
+    expect(await isFocused(remove(0))).toBe(true)
+    await page.keyboard.press('Enter')
+    expect(await rows.count()).toBe(0)
+    expect(await isFocused(page.locator('#message-input'))).toBe(true)
+
+    // A stopped run leaves the queue waiting with a Send now button.
+    await send('Later')
+    await page.locator('#message-input').press('Escape')
+    const sendNow = rows.first().getByRole('button', { name: messages.sendNow, exact: true })
+    await sendNow.focus()
+    await page.keyboard.press('Enter')
+    expect(await rows.count()).toBe(0)
+    expect(await page.locator('.turn').count()).toBe(2)
+    expect(await isFocused(page.locator('#message-input'))).toBe(true)
+})
+
+it('tells a native runtime whether a task works in the launcher, an instance or one that is gone', async () => {
+    // A runtime that records what it is asked and never finishes; it has no
+    // `preview` field, so the window must treat it as native.
+    await page.evaluate(() => {
+        const requests: { mode: string; scope: string; instance: string | null }[] = []
+        Reflect.set(window, 'runtimeRequests', requests)
+        const record =
+            (mode: string) => (request: { scope: string; instance: { id: string } | null }) => {
+                requests.push({
+                    mode,
+                    scope: request.scope,
+                    instance: request.instance?.id ?? null,
+                })
+                return { stop() {} }
+            }
+        Reflect.get(window, 'AgentHost').runtime = {
+            start: record('start'),
+            approve: record('approve'),
+            check: record('check'),
+        }
+    })
+    const context = {
+        ai_enabled: true,
+        execution_available: true,
+        providers: [{ provider_id: 'p', name: 'Provider', models: [{ id: 'm', name: 'Model' }] }],
+        instances: [{ id: 'mist', name: 'Morning Mist', game_version: '1.21.1', loader: 'fabric' }],
+    }
+    await useContext(context)
+    await page.locator('#preview-badge').waitFor({ state: 'hidden' })
+    const ask = async (value: string, count: number) => {
+        await send(value)
+        await page.waitForFunction(
+            (expected) => Reflect.get(window, 'runtimeRequests').length === expected,
+            count,
+        )
+        // Stopping the unfinished run frees the composer for the next request.
+        await page.locator('#message-input').press('Escape')
+    }
+    await ask('Check my launcher', 1)
+    await page.locator('#instance-button').click()
+    await page.locator('[data-instance="mist"]').click()
+    await ask('Check this instance', 2)
+    await useContext({ ...context, instances: [] })
+    await page.locator('#instance-label').filter({ hasText: messages.contextRemoved }).waitFor()
+    await ask('Check it again', 3)
+    expect(await page.evaluate(() => Reflect.get(window, 'runtimeRequests'))).toEqual([
+        { mode: 'start', scope: 'launcher', instance: null },
+        { mode: 'start', scope: 'instance', instance: 'mist' },
+        { mode: 'start', scope: 'missing', instance: null },
+    ])
+
+    // Without execution the window goes back to the preview and says so.
+    await useContext({ ...context, execution_available: false })
+    await page.locator('#preview-badge').waitFor({ state: 'visible' })
 })

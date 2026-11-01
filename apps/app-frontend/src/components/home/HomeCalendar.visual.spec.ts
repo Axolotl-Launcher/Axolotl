@@ -2,7 +2,7 @@ import '@modrinth/ui/directives/tooltip-styles.ts'
 
 import { tooltipDirective } from '@modrinth/ui/directives/tooltip.ts'
 import IntlMessageFormat from 'intl-messageformat'
-import { afterEach, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { defineComponent, h, ref } from 'vue'
 
 import { mountThemed, waitFor } from '@/test/visual-harness'
@@ -41,12 +41,17 @@ vi.mock('@modrinth/ui', () => ({
 }))
 
 const cleanup: (() => void)[] = []
-afterEach(() =>
+beforeEach(() => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date(2026, 0, 15, 12))
+})
+afterEach(() => {
     cleanup
         .splice(0)
         .reverse()
-        .forEach((fn) => fn()),
-)
+        .forEach((fn) => fn())
+    vi.useRealTimers()
+})
 const tip = () => document.querySelector<HTMLElement>('[role="tooltip"]')
 
 async function calendar() {

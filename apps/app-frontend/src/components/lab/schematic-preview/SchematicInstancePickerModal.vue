@@ -78,7 +78,7 @@ const messages = defineMessages({
     },
     noSchematics: {
         id: 'app.lab.schematic-preview.instance-picker.empty',
-        defaultMessage: 'No .litematic or .schem files were found in this instance.',
+        defaultMessage: 'No schematic files were found in this instance.',
     },
     noMatchingSchematics: {
         id: 'app.lab.schematic-preview.instance-picker.no-matching-schematics',

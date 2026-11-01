@@ -7305,6 +7305,7 @@ dependencies = [
  "derive_more",
  "dirs",
  "discord-rich-presence",
+ "dom_query",
  "dotenvy",
  "dunce",
  "either",

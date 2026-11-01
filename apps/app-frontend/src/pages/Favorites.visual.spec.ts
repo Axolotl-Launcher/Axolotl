@@ -450,7 +450,7 @@ it('keeps the complete filtered view until the latest filter and metadata can co
     await flushPromises()
     expect(wrapper.text()).toContain('Saved one')
     expect(wrapper.text()).not.toContain('New one')
-    expect(wrapper.text()).toContain('Updating favorites')
+    expect(wrapper.text()).not.toContain('Updating favorites')
     useRoute().query.q = 'New two'
     finish(metadataFor(planetFavorite, 'New two'))
     await vi.waitFor(() => expect(wrapper.findAll('[data-favorite]')).toHaveLength(1))

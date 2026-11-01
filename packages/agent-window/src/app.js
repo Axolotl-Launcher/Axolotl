@@ -1548,6 +1548,46 @@ element('instructions-input').addEventListener('input', (event) => {
     persistSoon()
 })
 
+// Double-clicking the task title renames it in place: Enter or leaving the
+// field saves, Escape keeps the old name.
+element('conversation-title').addEventListener('dblclick', () => {
+    const thread = currentThread()
+    const title = element('conversation-title')
+    if (!thread.turns.length || title.hidden) return
+    const input = h('input', {
+        class: 'title-input',
+        value: thread.title || text('untitled'),
+        maxlength: '120',
+        'aria-label': text('rename'),
+    })
+    title.hidden = true
+    title.after(input)
+    input.focus()
+    input.select()
+    // Removing the focused field fires blur on the way out, so the first
+    // ending wins.
+    let done = false
+    const finish = (save) => {
+        if (done) return
+        done = true
+        const value = input.value.trim()
+        input.remove()
+        title.hidden = false
+        if (save && value && value !== thread.title) renameThread(thread.id, value)
+    }
+    input.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter' && !event.isComposing) {
+            event.preventDefault()
+            finish(true)
+        } else if (event.key === 'Escape') {
+            event.preventDefault()
+            event.stopPropagation()
+            finish(false)
+        }
+    })
+    input.addEventListener('blur', () => finish(true))
+})
+
 // A right click on a task opens the same menu as its ⋯ button.
 element('conversation-list').addEventListener('contextmenu', (event) => {
     const row = event.target.closest('.thread-row')

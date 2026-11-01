@@ -16,13 +16,13 @@ import { computed, ref } from 'vue'
 
 import {
     appSettingsKeys,
+    type DangerousImport,
     exportSettings,
     get as getSettings,
+    type ImportDanger,
     importSettings,
     sanitiseSettings,
     scanSettingsImport,
-    type DangerousImport,
-    type ImportDanger,
     type SettingsExportKind,
 } from '@/helpers/settings'
 import { highlightInFolder } from '@/helpers/utils'

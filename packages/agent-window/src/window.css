@@ -2745,18 +2745,20 @@ code {
     }
 }
 
+/* Reduced motion turns movement off entirely. Durations are not shortened
+   instead: every element defaults to transition-property: all, so a short
+   duration would start transitioning properties such as visibility. */
 @media (prefers-reduced-motion: reduce) {
     *,
     *::before,
     *::after {
-        animation-duration: 1ms !important;
-        animation-delay: 0ms !important;
-        animation-iteration-count: 1 !important;
-        transition-duration: 1ms !important;
-        transition-delay: 0ms !important;
+        animation: none !important;
+        transition: none !important;
         scroll-behavior: auto !important;
     }
-    .spinner {
-        animation: spin 1.6s linear infinite !important;
+    ::view-transition-group(*),
+    ::view-transition-old(*),
+    ::view-transition-new(*) {
+        animation: none !important;
     }
 }

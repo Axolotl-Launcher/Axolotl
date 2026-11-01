@@ -97,7 +97,10 @@ function commit(change) {
         session.store = saveStore(next)
         clearTimeout(persistTimer)
         persistTimer = 0
-        session.storageError = false
+        if (session.storageError) {
+            session.storageError = false
+            renderBanners()
+        }
         return true
     } catch {
         session.storageError = true
@@ -280,12 +283,12 @@ function syncTranscript(fresh = true) {
 }
 
 function render() {
-    if (!catalogReady()) {
-        element('workspace').hidden = true
+    const ready = catalogReady()
+    for (const id of ['workspace', 'help-button', 'settings-button']) element(id).hidden = !ready
+    if (!ready) {
         showCatalogError()
         return false
     }
-    element('workspace').hidden = false
     const error = element('window-error')
     if (error.dataset.catalogError) {
         delete error.dataset.catalogError
@@ -312,12 +315,15 @@ function render() {
 // Agent events arrive quickly; patch the affected turn once per frame.
 const dirtyTurns = new Map()
 let frame = 0
-function refreshTurn(threadId, turnId) {
+// User actions pass `now` so the button they pressed reacts in the same frame.
+function refreshTurn(threadId, turnId, now = false) {
     dirtyTurns.set(turnId, threadId)
-    if (!frame) frame = requestAnimationFrame(flushTurns)
+    if (now) flushTurns()
+    else if (!frame) frame = requestAnimationFrame(flushTurns)
 }
 
 function flushTurns() {
+    cancelAnimationFrame(frame)
     frame = 0
     const active = currentThread()
     let touchedActive = false
@@ -736,7 +742,7 @@ function stop() {
     session.handles.delete(turn.id)
     stopRun(turn.run)
     persistNow()
-    refreshTurn(thread.id, turn.id)
+    refreshTurn(thread.id, turn.id, true)
 }
 
 function approve(turnId) {
@@ -750,7 +756,7 @@ function approve(turnId) {
         }) &&
         ok
     ) {
-        refreshTurn(thread.id, turnId)
+        refreshTurn(thread.id, turnId, true)
         launch(thread.id, turnId, 'approve')
     }
 }
@@ -763,7 +769,7 @@ function decline(turnId) {
         ok = !!turn && declinePlan(turn.run)
     })
     if (!ok) return
-    refreshTurn(thread.id, turnId)
+    refreshTurn(thread.id, turnId, true)
     if (thread.queue.length) sendQueued(thread.id, currentThread().queue[0].id)
 }
 
@@ -780,7 +786,7 @@ function retry(turnId) {
     ) {
         const node = turnNode(turnId)
         node?.querySelector('.agent-items')?.replaceChildren()
-        refreshTurn(thread.id, turnId)
+        refreshTurn(thread.id, turnId, true)
         launch(thread.id, turnId, 'start')
     }
 }
@@ -796,7 +802,7 @@ function checkStatus(turnId) {
             turn.run.phaseAt = Date.now()
         })
     ) {
-        refreshTurn(thread.id, turnId)
+        refreshTurn(thread.id, turnId, true)
         launch(thread.id, turnId, 'check')
     }
 }
@@ -1147,6 +1153,8 @@ document.addEventListener('click', (event) => {
         thread.draft = text(data.prompt)
         persistSoon()
         renderComposer()
+        renderHeader()
+        renderSidebar()
         const input = element('message-input')
         input.focus()
         input.setSelectionRange(input.value.length, input.value.length)
@@ -1365,10 +1373,10 @@ window.addEventListener('agent-appearance-updated', () => {
 window.addEventListener('focus', () => refreshContext())
 document.addEventListener('visibilitychange', () => {
     if (!document.hidden) refreshContext()
-    else persistNow()
+    else if (persistTimer) persistNow()
 })
 window.addEventListener('pagehide', () => {
-    persistNow()
+    if (persistTimer) persistNow()
     disposed = true
     ++contextRequest
     contextFlight = null
@@ -1382,20 +1390,12 @@ window.addEventListener('pageshow', (event) => {
         refreshContext()
     }
 })
-let resizeFrame = 0
 window.addEventListener('resize', () => {
-    if (resizeFrame) return
-    resizeFrame = requestAnimationFrame(() => {
-        resizeFrame = 0
-        closePicker()
-        if (
-            (drawer === 'sidebar' && !narrow()) ||
-            (drawer === 'panel' && window.innerWidth >= WIDE)
-        )
-            drawer = null
-        layout()
-        resizeInput()
-    })
+    closePicker()
+    if ((drawer === 'sidebar' && !narrow()) || (drawer === 'panel' && window.innerWidth >= WIDE))
+        drawer = null
+    layout()
+    resizeInput()
 })
 
 await boot()

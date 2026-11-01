@@ -2051,21 +2051,22 @@
     {
       "file": "packages/app-lib/src/scheduler/l0/executor.rs",
       "form": "thread::Builder spawn",
-      "count": 2,
+      "count": 4,
       "reason": "L0 executor: its driver thread, and spawns onto the L0 runtime and its own blocking pool (T3.6)",
       "sites": [
-        "spawn: let handle = self.handle.spawn(async move {",
-        "start: .spawn(move || {"
+        "spawn: self.handle.spawn(task);",
+        "start: .spawn(move || {",
+        "start: supervisor.spawn(\"l0-task\", task);",
+        "start: supervisor.spawn(\"l0-task\", task);"
       ]
     },
     {
       "file": "packages/app-lib/src/scheduler/l0/mod.rs",
       "form": "tokio::spawn",
-      "count": 2,
+      "count": 1,
       "reason": "fallback onto the current runtime when the L0 executor cannot start",
       "sites": [
-        "spawn: None => tokio::spawn(task),",
-        "spawn: tokio::spawn(task)"
+        "spawn_on_current: tokio::spawn(async move {"
       ]
     },
     {

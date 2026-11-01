@@ -184,16 +184,44 @@ nix profile add 'git+https://github.com/Axolotl-Launcher/Axolotl'
 {
   programs.axolotl-launcher = {
     enable = true;
+    launchEnv = {
+      KEY = "VAL";
+    };
+    settings = {
+      appearance = {
+        locale = "zh-CN";
+        theme = "dark";
+      };
+      download.max_concurrent_downloads = 16;
+      java = {
+        runtimes = [
+          {
+            path = "${pkgs.jdk21}/bin/java";
+            major_version = 21;
+            full_version = pkgs.jdk21.version;
+            distribution = "Temurin";
+          }
+        ];
+        defaults = [
+          {
+            major_version = 21;
+            path = "${pkgs.jdk21}/bin/java";
+          }
+        ];
+      };
+      # ...
+    };
   };
 }
 ```
 
 可选属性
 
-| 键        | 类型    | 默认值  | 说明                                                                                                                                       |
-| --------- | ------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| enable    | `bool`  | `false` | 设置为`true`以启用 Axolotl Launcher。                                                                                                      |
-| launchEnv | `attrs` | `{ }`   | Axolotl Launcher 启动时额外的环境变量。例如`{ HELLO = 1; world = "two"; }`能为 Axolotl Launcher 设置额外的环境变量`HELLO=1`和`world=two`。 |
+| 键          | 类型    | 默认值  | 说明                             |
+|:----------- |:-------:|:-------:|:-------------------------------- |
+| `enable`    | `bool`  | `false` | 设置为`true`以启用美西螈启动器   |
+| `launchEnv` | `attrs` | `{ }`   | 运行美西螈启动器时额外的环境变量 |
+| `settings`  | `attrs` | `{ }`   | 提供美西螈启动器设置的默认值     |
 
 </details>
 

@@ -851,6 +851,14 @@ const messages = defineMessages({
         id: 'app.browse.preparing-selected',
         defaultMessage: 'Preparing {completed}/{total}',
     },
+    reviewingSelected: {
+        id: 'app.browse.reviewing-selected',
+        defaultMessage: 'Reviewing content changes…',
+    },
+    queueingSelected: {
+        id: 'app.browse.queueing-selected',
+        defaultMessage: 'Adding to download queue…',
+    },
     selected: {
         id: 'app.browse.selected',
         defaultMessage: 'Selected',
@@ -1313,10 +1321,17 @@ const installContext = computed(() => {
             installButtonLabel: formatMessage(messages.installSelected, {
                 count: contentSelection.selectedCount.value,
             }),
-            processingLabel: formatMessage(messages.preparingSelected, {
-                completed: contentSelection.progress.value.completed,
-                total: contentSelection.progress.value.total,
-            }),
+            processingLabel: formatMessage(
+                contentSelection.state.value === 'reviewing'
+                    ? messages.reviewingSelected
+                    : contentSelection.state.value === 'queueing'
+                      ? messages.queueingSelected
+                      : messages.preparingSelected,
+                {
+                    completed: contentSelection.progress.value.completed,
+                    total: contentSelection.progress.value.total,
+                },
+            ),
             clearSelected: contentSelection.clear,
             installSelected: contentSelection.installSelected,
         }

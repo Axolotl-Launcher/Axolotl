@@ -392,27 +392,8 @@ export function useContentPipeline(config: ContentPipelineConfig) {
         }
     }
 
-    // Bound recomputation without postponing it indefinitely during a stream of patches.
-    watch(
-        [
-            sortedItems,
-            modpackItemsNoUpdate,
-            () => duplicateItems?.value,
-            searchQuery,
-            selectedTypeFilter,
-            selectedStatusFilters,
-        ],
-        () => {
-            if (pipelineTimer) return
-            pipelineTimer = setTimeout(() => {
-                pipelineTimer = null
-                result.value = runPipeline()
-            }, 100)
-        },
-        { immediate: true },
-    )
-
-    // Update Fuse index asynchronously when items change (separate from pipeline)
+    let hasContentSnapshot = false
+    // Register before the pipeline so its first search sees the same snapshot as its counts.
     watch(
         () => [sortedItems.value, modpackItemsNoUpdate.value] as const,
         ([sorted, modpack]) => {
@@ -435,10 +416,38 @@ export function useContentPipeline(config: ContentPipelineConfig) {
                 }
             }
 
-            // Use setTimeout to avoid blocking the main thread
-            setTimeout(() => {
-                fuse.setCollection(collection)
-            }, 0)
+            if (!hasContentSnapshot) fuse.setCollection(collection)
+            else {
+                // Later enrichment remains asynchronous and bounded by the pipeline batch.
+                setTimeout(() => {
+                    fuse.setCollection(collection)
+                }, 0)
+            }
+        },
+        { immediate: true },
+    )
+
+    // Publish the first snapshot before rendering; batch only subsequent enrichment.
+    watch(
+        [
+            sortedItems,
+            modpackItemsNoUpdate,
+            () => duplicateItems?.value,
+            searchQuery,
+            selectedTypeFilter,
+            selectedStatusFilters,
+        ],
+        () => {
+            if (!hasContentSnapshot) {
+                result.value = runPipeline()
+                hasContentSnapshot = searchableItemCount.value > 0
+                return
+            }
+            if (pipelineTimer) return
+            pipelineTimer = setTimeout(() => {
+                pipelineTimer = null
+                result.value = runPipeline()
+            }, 100)
         },
         { immediate: true },
     )

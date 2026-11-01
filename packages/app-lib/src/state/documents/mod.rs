@@ -56,6 +56,13 @@ const HANDOVER_MARKER: &str = ".handed-over";
 /// in.
 const CONFIG_DIR_ENV: &str = "AXOLOTL_SETTINGS_CONFIG_DIR";
 
+/// The name a deployment's documents are looked for under when the environment
+/// does not name a directory: the platform's configuration directory with this
+/// name below it, which is where a package or a home-manager module puts its
+/// files without the launcher having to be told.
+#[cfg(target_os = "linux")]
+const DEFAULT_CONFIG_DIR_NAME: &str = "axolotl-launcher";
+
 /// The largest a settings document may be. A document is a few dozen keys, so
 /// a megabyte is far past a real one; the cap is here because that directory
 /// belongs to the deployment, and a path in it that is not a document — a
@@ -67,15 +74,46 @@ const MAX_DOCUMENT_BYTES: u64 = 1 << 20;
 /// two settings changing at once would otherwise lose one of them.
 static WRITES: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
 
-/// The directory a deployment ships its own documents in, when the environment
-/// names one. An empty value is how a shell clears a variable rather than a
-/// directory, so it reads as no deployment at all.
+/// The directory a deployment ships its own documents in.
+///
+/// The environment names one, and an empty value is how a shell clears a
+/// variable rather than a directory, so that reads as no deployment at all.
+/// Where nothing is named, Linux uses its own configuration directory: files a
+/// package manager or a home-manager module installs there are the deployment,
+/// and they are read from the same place whether or not anything exported a
+/// variable.
 pub(crate) fn config_root() -> Option<PathBuf> {
     #[cfg(test)]
     if let Some(root) = TEST_CONFIG_ROOT.with(|root| root.borrow().clone()) {
         return Some(root);
     }
-    config_root_from(std::env::var_os(CONFIG_DIR_ENV))
+    match named_config_dir(std::env::var_os(CONFIG_DIR_ENV)) {
+        Named::Unset => default_config_root(),
+        Named::Cleared => None,
+        Named::Directory(directory) => Some(directory),
+    }
+}
+
+/// Where a deployment's documents are looked for when nothing names a
+/// directory.
+#[cfg(test)]
+fn default_config_root() -> Option<PathBuf> {
+    // A test answers only with what it named: the machine's own configuration
+    // would otherwise decide what a test reads.
+    None
+}
+
+#[cfg(all(not(test), target_os = "linux"))]
+fn default_config_root() -> Option<PathBuf> {
+    dirs::config_dir().map(|config| config.join(DEFAULT_CONFIG_DIR_NAME))
+}
+
+/// Elsewhere the environment is the only way to name them: every platform has
+/// its own place for a deployment to write into, and guessing one would have the
+/// launcher read a directory that is not meant for it.
+#[cfg(all(not(test), not(target_os = "linux")))]
+fn default_config_root() -> Option<PathBuf> {
+    None
 }
 
 #[cfg(test)]
@@ -87,8 +125,24 @@ thread_local! {
         const { std::cell::RefCell::new(None) };
 }
 
-fn config_root_from(value: Option<std::ffi::OsString>) -> Option<PathBuf> {
-    value.filter(|dir| !dir.is_empty()).map(PathBuf::from)
+/// What the environment says about where a deployment ships its documents.
+enum Named {
+    /// Nothing was set, so the platform's own directory answers.
+    Unset,
+    /// Set to nothing, which is how a shell clears a variable: a deployment that
+    /// leaves it empty asks for no documents at all rather than for the default
+    /// ones.
+    Cleared,
+    /// The directory that was named.
+    Directory(PathBuf),
+}
+
+fn named_config_dir(value: Option<std::ffi::OsString>) -> Named {
+    match value {
+        None => Named::Unset,
+        Some(directory) if directory.is_empty() => Named::Cleared,
+        Some(directory) => Named::Directory(PathBuf::from(directory)),
+    }
 }
 
 /// Where the documents of one launch live, and what the fallback reads.
@@ -300,6 +354,39 @@ impl<'a> Documents<'a> {
             }
             OnDisk::Missing => {}
         }
+        let contents = serde_json::to_vec_pretty(&NewDocument {
+            schema_version,
+            data: document,
+        })?;
+        if let Some(parent) = path.parent() {
+            crate::util::io::create_dir_all(parent).await?;
+        }
+        crate::util::io::write(&path, contents).await?;
+        Ok(())
+    }
+
+    /// Overwrites a domain's document with this build's shape and version,
+    /// whatever the disk holds.
+    ///
+    /// A normal write refuses to lower a document a newer build wrote, because
+    /// stating the keys this build knows drops the ones it cannot see. This
+    /// entry is only for the operations a user asks for explicitly — "rewrite
+    /// the local documents in this build's shape" — where that loss is the
+    /// request itself: the version has to be reset even when the contents
+    /// already read the same, which is why neither refusal of `write` applies,
+    /// and a file this build cannot read is repaired rather than left behind.
+    /// What may be lost is therefore decided by the caller, which is why the
+    /// callers are the ones that check first and refuse before this runs.
+    pub(crate) async fn replace<T>(
+        &self,
+        name: &str,
+        schema_version: u32,
+        document: &T,
+    ) -> crate::Result<()>
+    where
+        T: Serialize,
+    {
+        let path = self.path(name);
         let contents = serde_json::to_vec_pretty(&NewDocument {
             schema_version,
             data: document,
@@ -861,8 +948,8 @@ mod tests {
         create_official_login_proof_table, create_translation_tables, pool,
     };
     use super::{
-        Documents, MAX_DOCUMENT_BYTES, ai, config_root_from, hand_over, java,
-        log_share, login_proof, translation,
+        Documents, MAX_DOCUMENT_BYTES, Named, ai, hand_over, java, log_share,
+        login_proof, named_config_dir, translation,
     };
     use crate::state::store::Collection;
     use crate::state::store::Handle;
@@ -973,19 +1060,23 @@ mod tests {
         );
     }
 
-    /// An empty variable is how a shell clears one, so a deployment that sets
-    /// it to nothing must read the same as one that never set it at all: a
-    /// directory named by nothing would make every domain look deployed.
+    /// An empty variable is how a shell clears one, and clearing it has to mean
+    /// no deployment rather than the default one: a machine whose administrator
+    /// emptied the variable asked for the documents that ship with the launcher
+    /// to stay out of the way.
     #[test]
-    fn an_empty_config_dir_variable_is_the_same_as_unset() {
+    fn an_empty_config_dir_variable_asks_for_no_deployment() {
         let directory = std::path::PathBuf::from("/deploy/settings");
 
-        assert_eq!(config_root_from(None), None);
-        assert_eq!(config_root_from(Some(std::ffi::OsString::new())), None);
-        assert_eq!(
-            config_root_from(Some(directory.clone().into_os_string())),
-            Some(directory)
-        );
+        assert!(matches!(named_config_dir(None), Named::Unset));
+        assert!(matches!(
+            named_config_dir(Some(std::ffi::OsString::new())),
+            Named::Cleared
+        ));
+        match named_config_dir(Some(directory.clone().into_os_string())) {
+            Named::Directory(named) => assert_eq!(named, directory),
+            _ => panic!("a named directory must be used"),
+        }
     }
 
     async fn installed_pool() -> sqlx::SqlitePool {

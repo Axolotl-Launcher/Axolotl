@@ -132,6 +132,10 @@ export default defineConfig(({ command }) => ({
     ],
     optimizeDeps: {
         include: [
+            // The linked UI package lazy-loads the editor. Ace is CommonJS and
+            // vue3-ace-editor imports its default export, so both need dev interop.
+            '@modrinth/ui > ace-builds',
+            '@modrinth/ui > vue3-ace-editor',
             'deepagents/browser',
             'langchain',
             '@langchain/core/language_models/chat_models',
@@ -140,7 +144,6 @@ export default defineConfig(({ command }) => ({
             '@langchain/core/utils/function_calling',
             'zod',
         ],
-        exclude: ['ace-builds', 'vue3-ace-editor'],
     },
 
     // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`

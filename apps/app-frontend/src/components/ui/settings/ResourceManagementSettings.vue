@@ -31,6 +31,7 @@ import { get, getProxyConfig, setProxyConfig, testProxyConfig, update } from '@/
 import { createSettingsPatchSaver } from '@/helpers/settings-patch'
 import { showAppDbBackupsFolder } from '@/helpers/utils.js'
 
+import PinnedOverrideHint from './PinnedOverrideHint.vue'
 import SettingsRow from './SettingsRow.vue'
 import SettingsSection from './SettingsSection.vue'
 
@@ -44,8 +45,20 @@ const props = defineProps({
 })
 
 const { handleError } = injectNotificationManager()
+defineExpose({ reloadSettings })
+
 const settings = ref(await get())
 const saveDraft = createSettingsPatchSaver(settings.value, update)
+
+async function reloadSettings() {
+    try {
+        settings.value = await get()
+        saveDraft.reset(settings.value)
+    } catch (error) {
+        handleError(error)
+    }
+}
+
 const missingContentScannerSettings = ref(getMissingContentScannerSettings())
 const minecraftDirectories = ref(loadMinecraftDirectories())
 const minecraftDirectoryError = ref(null)
@@ -1037,6 +1050,12 @@ function validateMinecraftDirectory(_value) {
                 <template #description>{{
                     formatMessage(messages.chineseNamesDescription)
                 }}</template>
+                <template #copy>
+                    <PinnedOverrideHint
+                        key-name="resource_chinese_filenames"
+                        @cleared="reloadSettings"
+                    />
+                </template>
                 <template #control
                     ><Toggle
                         id="resource-chinese-filenames"
@@ -1052,6 +1071,12 @@ function validateMinecraftDirectory(_value) {
                 <template #description>{{
                     formatMessage(messages.preserveNamesDescription)
                 }}</template>
+                <template #copy>
+                    <PinnedOverrideHint
+                        key-name="resource_preserve_filenames"
+                        @cleared="reloadSettings"
+                    />
+                </template>
                 <template #control
                     ><Toggle
                         id="resource-preserve-filenames"
@@ -1075,6 +1100,12 @@ function validateMinecraftDirectory(_value) {
                 <template #description>{{
                     formatMessage(messages.minecraftMetadataSourceDescription)
                 }}</template>
+                <template #copy>
+                    <PinnedOverrideHint
+                        key-name="minecraft_metadata_source"
+                        @cleared="reloadSettings"
+                    />
+                </template>
                 <template #control>
                     <div class="w-full">
                         <Combobox
@@ -1089,6 +1120,12 @@ function validateMinecraftDirectory(_value) {
                 <template #description>{{
                     formatMessage(messages.minecraftFileSourceDescription)
                 }}</template>
+                <template #copy>
+                    <PinnedOverrideHint
+                        key-name="minecraft_file_source"
+                        @cleared="reloadSettings"
+                    />
+                </template>
                 <template #control>
                     <div class="w-full">
                         <Combobox v-model="minecraftFileSource" :options="minecraftSourceOptions" />
@@ -1100,6 +1137,9 @@ function validateMinecraftDirectory(_value) {
                 <template #description>{{
                     formatMessage(messages.modrinthMirrorDescription)
                 }}</template>
+                <template #copy>
+                    <PinnedOverrideHint key-name="modrinth_source" @cleared="reloadSettings" />
+                </template>
                 <template #control>
                     <div class="w-full">
                         <Combobox
@@ -1114,6 +1154,9 @@ function validateMinecraftDirectory(_value) {
                 <template #description>{{
                     formatMessage(messages.curseforgeMirrorDescription)
                 }}</template>
+                <template #copy>
+                    <PinnedOverrideHint key-name="curseforge_source" @cleared="reloadSettings" />
+                </template>
                 <template #control>
                     <div class="w-full">
                         <Combobox
@@ -1129,6 +1172,12 @@ function validateMinecraftDirectory(_value) {
                 }}</template>
                 <template #description>
                     {{ formatMessage(messages.curseforgeRestrictionBypassDescription) }}
+                </template>
+                <template #copy>
+                    <PinnedOverrideHint
+                        key-name="bypass_curseforge_download_restrictions"
+                        @cleared="reloadSettings"
+                    />
                 </template>
                 <template #control>
                     <Toggle
@@ -1230,6 +1279,9 @@ function validateMinecraftDirectory(_value) {
                 <template #description>{{
                     formatMessage(messages.ignoreSslErrorsDescription)
                 }}</template>
+                <template #copy>
+                    <PinnedOverrideHint key-name="ignore_ssl_errors" @cleared="reloadSettings" />
+                </template>
                 <template #control>
                     <Toggle id="ignore-ssl-errors" v-model="settings.ignore_ssl_errors" />
                 </template>
@@ -1267,6 +1319,12 @@ function validateMinecraftDirectory(_value) {
                 <template #description>{{
                     formatMessage(messages.maximumWritesDescription)
                 }}</template>
+                <template #copy>
+                    <PinnedOverrideHint
+                        key-name="max_concurrent_writes"
+                        @cleared="reloadSettings"
+                    />
+                </template>
                 <template #control>
                     <div class="w-full">
                         <Slider
@@ -1295,6 +1353,9 @@ function validateMinecraftDirectory(_value) {
                 <template #description>{{
                     formatMessage(messages.mojangAuthServiceDescription)
                 }}</template>
+                <template #copy>
+                    <PinnedOverrideHint key-name="mojang_auth_source" @cleared="reloadSettings" />
+                </template>
                 <template #control>
                     <div class="w-full">
                         <Combobox v-model="mojangAuthSource" :options="mojangAuthSourceOptions" />
@@ -1314,6 +1375,9 @@ function validateMinecraftDirectory(_value) {
             </template>
             <SettingsRow>
                 <template #label>{{ formatMessage(messages.dohEnabled) }}</template>
+                <template #copy>
+                    <PinnedOverrideHint key-name="doh_enabled" @cleared="reloadSettings" />
+                </template>
                 <template #control>
                     <Toggle id="doh-enabled" v-model="settings.doh_enabled" />
                 </template>

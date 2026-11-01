@@ -98,6 +98,7 @@ vi.mock('@modrinth/ui', async () => {
             },
         }),
         defineMessages: (messages: unknown) => messages,
+        injectNotificationManager: () => ({ handleError: vi.fn() }),
         useVIntl: () => ({
             formatMessage: (message: { defaultMessage: string }) => message.defaultMessage,
         }),

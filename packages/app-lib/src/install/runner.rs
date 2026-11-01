@@ -318,9 +318,38 @@ pub async fn install_content_batch(
     .await
 }
 
+fn resource_plan_names(
+    plan: &crate::resources::ResourceOperationPlan,
+    names: &HashMap<String, String>,
+) -> Vec<String> {
+    use crate::resources::ResourceActionKind;
+
+    let nodes: HashMap<_, _> =
+        plan.nodes.iter().map(|node| (&node.id, node)).collect();
+    let mut seen = HashSet::new();
+    plan.actions
+        .iter()
+        .filter(|action| action.kind != ResourceActionKind::Keep)
+        .filter_map(|action| {
+            let node = nodes.get(&action.node_id)?;
+            let name = names
+                .get(node.id.as_str())
+                .map(String::as_str)
+                .filter(|name| !name.trim().is_empty())
+                .or(action.target.file_name.as_deref())?
+                .trim();
+            if name.is_empty() || !seen.insert(&node.resource) {
+                return None;
+            }
+            Some(name.to_string())
+        })
+        .collect()
+}
+
 pub async fn queue_resource_plan(
     plan_id: crate::resources::PlanId,
     revision: u32,
+    resource_names: HashMap<String, String>,
 ) -> crate::Result<InstallJobSnapshot> {
     let state = State::get().await?;
     let instance = ResourceOperationPlans::instance_at(
@@ -420,6 +449,7 @@ pub async fn queue_resource_plan(
         .into(),
         icon: None,
     });
+    job.resource_names = resource_plan_names(&plan, &resource_names);
     let now = chrono::Utc::now().timestamp();
     InstallJobs::insert_in(
         &mut tx,

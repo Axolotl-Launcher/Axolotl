@@ -30,6 +30,75 @@ export const ANNOUNCEMENT_CHANGE_TYPES: readonly AnnouncementChangeType[] = [
 
 export const launcherAnnouncements: readonly LauncherAnnouncement[] = [
     {
+        id: 'launcher-1.11.0-beta.1',
+        version: '1.11.0-beta.1',
+        publishedAt: '2026-11-01',
+        title: {
+            'en-US': 'Axolotl Launcher 1.11.0-beta.1',
+            'zh-CN': 'Axolotl Launcher 1.11.0-beta.1',
+        },
+        changes: {
+            changed: [
+                {
+                    'en-US':
+                        'Localized content task titles and added resource names to downloads, the download menu, and notifications.',
+                    'zh-CN': '下载列表、下载菜单和通知中的内容任务标题支持中文，并显示资源名称。',
+                },
+                {
+                    'en-US':
+                        'Improved responsiveness when previewing large content batches and checking ongoing content changes.',
+                    'zh-CN': '优化批量内容预览和内容变更状态检查的响应速度。',
+                },
+                {
+                    'en-US':
+                        'Clarified that instance upgrades do not support downgrading Minecraft or Fabric versions.',
+                    'zh-CN': '实例升级页面明确提示不支持降低 Minecraft 或 Fabric 版本。',
+                },
+                {
+                    'en-US':
+                        'Clarified that forced installation in the content preview installs only selected resources without their dependencies.',
+                    'zh-CN': '内容安装预览明确提示：强制安装仅安装所选资源，不会安装其依赖。',
+                },
+            ],
+            fixed: [
+                {
+                    'en-US':
+                        'Fixed missing file details in download history after batch content installation.',
+                    'zh-CN': '修复批量安装内容后，下载历史缺少文件详情的问题。',
+                },
+                {
+                    'en-US':
+                        'Fixed completed content tasks still displaying an installation-in-progress message in download history.',
+                    'zh-CN': '修复下载历史中的已完成内容任务仍显示“正在完成安装”的问题。',
+                },
+                {
+                    'en-US':
+                        'Fixed long-tail issues with modpack downloads, where some files would fail to download after many retries.',
+                    'zh-CN': '修复整合包下载长尾问题。',
+                },
+                {
+                    'en-US':
+                        'Fixed content disappearing temporarily while the same instance was being modified or when reopening the Content tab.',
+                    'zh-CN': '修复实例内容变更期间或重新进入内容页时，模组列表短暂消失的问题。',
+                },
+                {
+                    'en-US': 'Fixed batch content installation previews sometimes failing to open.',
+                    'zh-CN': '修复批量安装内容时，预览窗口有时无法打开的问题。',
+                },
+                {
+                    'en-US':
+                        'Fixed instance upgrades retaining outdated official filenames while preserving custom names and disabled states.',
+                    'zh-CN':
+                        '修复实例升级后仍沿用旧版官方文件名的问题，并保留自定义名称和禁用状态。',
+                },
+                {
+                    'en-US': 'Fixed the file editor failing to load in development builds.',
+                    'zh-CN': '修复开发版文件编辑器无法加载的问题。',
+                },
+            ],
+        },
+    },
+    {
         id: 'launcher-1.10.5',
         version: '1.10.5',
         publishedAt: '2026-10-31',

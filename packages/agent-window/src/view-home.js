@@ -167,6 +167,7 @@ export function renderHelp() {
         ['/', 'shortcutSlash'],
         ['@', 'shortcutMention'],
         ['Ctrl B', 'shortcutSidebar'],
+        ['Ctrl [ ]', 'shortcutSwitch'],
         ['Ctrl ,', 'shortcutSettings'],
     ]
     element('help-body').replaceChildren(

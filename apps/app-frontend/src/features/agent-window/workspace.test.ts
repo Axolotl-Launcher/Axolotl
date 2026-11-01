@@ -1127,3 +1127,17 @@ it('marks search matches and shows the message that matched', async () => {
     expect(await row.locator('.thread-name mark').textContent()).toBe('crash')
     expect(await row.locator('.thread-snippet').count()).toBe(0)
 })
+
+it('steps through tasks with Ctrl [ and Ctrl ]', async () => {
+    await send('Hello there')
+    await untilSettled()
+    await page.getByTestId('new-chat').click()
+    await send('What can you do?')
+    await untilSettled()
+    const [newest, older] = await page.locator('.thread-name').allTextContents()
+    expect(await page.locator('#conversation-title').textContent()).toBe(newest)
+    await page.keyboard.press('Control+]')
+    expect(await page.locator('#conversation-title').textContent()).toBe(older)
+    await page.keyboard.press('Control+[')
+    expect(await page.locator('#conversation-title').textContent()).toBe(newest)
+})

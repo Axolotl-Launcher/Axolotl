@@ -1728,6 +1728,13 @@ document.addEventListener('keydown', (event) => {
         } else if (key === 'b') {
             event.preventDefault()
             if (!overlay) setSidebar(!sidebarShown())
+        } else if (key === '[' || key === ']') {
+            // Steps through the tasks in the order the list shows them.
+            event.preventDefault()
+            const rows = [...element('conversation-list').querySelectorAll('.thread-row')]
+            const at = rows.findIndex((row) => row.dataset.row === session.store.activeId)
+            const next = rows[at + (key === ']' ? 1 : -1)]
+            if (!overlay && next) selectThread(next.dataset.row)
         }
         return
     }

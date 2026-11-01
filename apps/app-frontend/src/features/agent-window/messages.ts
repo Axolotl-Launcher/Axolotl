@@ -555,6 +555,10 @@ export const agentWindowMessages = defineMessages({
         id: 'app.agent-window.chat.shortcut-mention',
         defaultMessage: 'Pick the instance to work on',
     },
+    shortcutSwitch: {
+        id: 'app.agent-window.chat.shortcut-switch',
+        defaultMessage: 'Previous or next task',
+    },
     palette: { id: 'app.agent-window.chat.palette', defaultMessage: 'Command menu' },
     paletteSearch: {
         id: 'app.agent-window.chat.palette-search',

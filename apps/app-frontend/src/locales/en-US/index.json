@@ -662,6 +662,9 @@
   "app.agent-window.chat.shortcut-mention": {
     "message": "Pick the instance to work on"
   },
+  "app.agent-window.chat.shortcut-switch": {
+    "message": "Previous or next task"
+  },
   "app.agent-window.chat.palette": {
     "message": "Command menu"
   },

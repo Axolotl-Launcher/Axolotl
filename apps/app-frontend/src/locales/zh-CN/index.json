@@ -662,6 +662,9 @@
   "app.agent-window.chat.shortcut-mention": {
     "message": "选择要处理的实例"
   },
+  "app.agent-window.chat.shortcut-switch": {
+    "message": "上一个或下一个任务"
+  },
   "app.agent-window.chat.palette": {
     "message": "命令菜单"
   },

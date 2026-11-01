@@ -9,7 +9,10 @@ const backend = vi.hoisted(() => ({
     patches: [] as Record<string, unknown>[],
 }))
 
-vi.mock('@/helpers/settings.ts', () => ({
+// Keep the real exports: the component also links `clearSettingsOverride`
+// and friends, and a factory-only mock makes the module fail to link.
+vi.mock('@/helpers/settings.ts', async (importOriginal) => ({
+    ...(await importOriginal<typeof import('@/helpers/settings')>()),
     get: async () => structuredClone(backend.settings),
     update: async (patch: Record<string, unknown>) => {
         backend.patches.push(patch)
@@ -22,7 +25,9 @@ vi.mock('@/components/ui/EnvironmentVariablesInput.vue', () => ({
 }))
 vi.mock('./LogShareSettings.vue', () => ({ default: { render: () => null } }))
 vi.mock('./SharedLogsSettings.vue', () => ({ default: { render: () => null } }))
-vi.mock('@modrinth/ui', async () => {
+// Keep the real exports and override only the widgets this spec drives.
+vi.mock('@modrinth/ui', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('@modrinth/ui')>()
     const { defineComponent, h } = await import('vue')
     const toggle = defineComponent({
         props: ['modelValue'],
@@ -97,6 +102,7 @@ vi.mock('@modrinth/ui', async () => {
                     })
             },
         }),
+        ...actual,
         defineMessages: (messages: unknown) => messages,
         injectNotificationManager: () => ({ handleError: vi.fn() }),
         useVIntl: () => ({

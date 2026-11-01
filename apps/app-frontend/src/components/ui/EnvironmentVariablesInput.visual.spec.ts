@@ -51,7 +51,10 @@ vi.mock('@/components/ui/settings/LogShareSettings.vue', () => ({
 vi.mock('@/components/ui/settings/SharedLogsSettings.vue', () => ({
     default: { render: () => null },
 }))
-vi.mock('@modrinth/ui', async () => {
+// Keep the real exports and override only the few widgets this spec drives:
+// a factory-only mock drops exports the component under test links.
+vi.mock('@modrinth/ui', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('@modrinth/ui')>()
     const { defineComponent, h } = await import('vue')
     const card = defineComponent({
         setup:
@@ -73,6 +76,7 @@ vi.mock('@modrinth/ui', async () => {
                 }),
     })
     return {
+        ...actual,
         Card: card,
         Checkbox: toggle,
         Combobox: { name: 'Combobox', render: () => null },

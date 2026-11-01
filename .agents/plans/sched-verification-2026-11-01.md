@@ -83,3 +83,20 @@ updated; `sched-gates.test.mjs` covers the negative case.
 - The scheduler gate step is blocking from this chain onward. The text
   checks for `enter(`/tag forgeability remain auxiliary as the spec marks
   them (K2.9); the type system carries the primary guarantee.
+
+## K0.22 — L1 swap-out memory measurement
+
+`cargo test -p theseus scheduler::budget::measured_values_are_within_bounds
+-- --nocapture`:
+
+```
+swap-out RSS: before=8339456 loaded=75538432 after=8454144
+retained=67084288 min=1048576 (meets L1_MIN_RETAINED)
+```
+
+## Tracked phase-0 evidence
+
+- `sched-shutdown-baseline.txt`, `sched-shutdown-comparison.md` — K0.26.
+- `sched-order-coarse-screen-report.md` — K0.24/K0.25.
+- `sched-l0-members.md` — K0.12.
+- `sched-governance-table.md` — K3.7 (two production threads).

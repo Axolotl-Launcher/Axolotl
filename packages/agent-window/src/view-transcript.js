@@ -503,7 +503,15 @@ function syncStatus(node, turn, active) {
                 h('span', { class: 'elapsed' }),
                 h('span', { class: 'status-hint' }, [h('kbd', { text: 'Esc' }), text('escToStop')]),
             )
-        setMood(node.querySelector('.axo'), 'think')
+        // It thinks while reading; once a plan is approved it nods, then paddles
+        // away while the changes are written.
+        const phase = turn.run.status === 'applying' ? 'applying' : 'thinking'
+        if (node.dataset.phase !== phase) {
+            node.dataset.phase = phase
+            const mark = node.querySelector('.axo')
+            if (phase === 'applying') setMood(mark, 'nod', { then: 'work' })
+            else setMood(mark, 'think')
+        }
         node.querySelector('.shimmer').textContent =
             turn.run.label || text(turn.run.status === 'applying' ? 'applying' : 'thinking')
         updateElapsed(node, turn)
@@ -516,6 +524,7 @@ function syncStatus(node, turn, active) {
         return
     }
     node.dataset.leaving = mood
+    delete node.dataset.phase
     setMood(node.querySelector('.axo'), mood)
     node.querySelector('.shimmer').textContent = text(EXIT_LABELS[turn.run.status])
     leaving.set(

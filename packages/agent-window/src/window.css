@@ -1300,6 +1300,7 @@ code {
     animation: ripple 3.2s ease-in-out infinite;
 }
 .hero-mark {
+    cursor: pointer;
     position: relative;
     width: 156px;
     height: 156px;

@@ -39,7 +39,7 @@ import {
     threadStatus,
 } from './state.js'
 import { placeComposer, renderApprovalBar, renderComposer, resizeInput } from './view-composer.js'
-import { renderHelp, renderHome } from './view-home.js'
+import { heroListens, renderHelp, renderHome } from './view-home.js'
 import {
     acceptConfirm,
     bindTips,
@@ -1410,6 +1410,7 @@ element('message-input').addEventListener('input', (event) => {
     // Unsaved text stays in memory when storage fails; sending is transactional.
     currentThread().draft = event.target.value
     persistSoon(250)
+    heroListens(!!event.target.value.trim())
     renderComposer()
     syncSlash(event.target.value)
     element('conversation-more').hidden = !currentThread().turns.length && !currentThread().draft

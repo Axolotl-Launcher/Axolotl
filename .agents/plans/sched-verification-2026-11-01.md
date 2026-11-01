@@ -28,7 +28,7 @@ artifact from a shared target.
 - `cargo check --package theseus_gui --features updater` → 0 (cubiomes
   submodule present for the check; `AXOLOTL_SKIP_BLOCKBENCH_BUILD=1`).
 - `cargo test -p theseus --lib -- scheduler::` → 43 passed.
-- `state::process` → 30 passed (12 process tests + 18 L0 separation tests).
+- `state::process` → 34 passed (12 process tests + 4 stopped-detector outcome tests + 18 L0 separation tests).
 - `install::critical_section` → 5 passed.
 - `telemetry::reconcile` → 2 passed.
 - `install::runner` → 92 passed.

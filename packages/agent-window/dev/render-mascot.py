@@ -227,30 +227,43 @@ def sad(u):
     return o
 
 
-HELLO_S = 1.3
+HELLO_S = 1.5
 
 
 def hello(u):
-    """1.3 s: lifts its chin with a friendly head tilt and perked gills,
-    raises the near front leg beside its cheek and waves it three times, then
-    lowers it and settles exactly back to rest with a blink."""
+    """1.5 s: a small springy hop (under half of happy's) with the gills
+    flared and the eyes squeezed shut, a squashy landing, then a chin lift
+    with a friendly head tilt while the near front leg rises beside the cheek
+    and waves twice. It lowers and settles exactly back to rest."""
     t = u * HELLO_S
     o = Pose()
-    face = back(t / 0.32) * (1 - window(t, 0.92, 1.24))
-    up = window(t, 0.04, 0.26) * (1 - window(t, 0.90, 1.12))
-    env = window(t, 0.16, 0.28) * (1 - window(t, 0.80, 0.94))
-    w = math.sin(TAU * (t - 0.22) / 0.22) * env
-    lag = math.sin(TAU * (t - 0.27) / 0.22) * env
-    o.lift = 0.25 * face - 0.1 * pulse(t, 0.0, 0.14)
-    o.r('head', x=3.0 * face - 1.5 * pulse(t, 1.08, HELLO_S), y=2.0 * face, z=-4.0 * face + 1.0 * lag)
+    t0, t1 = 0.12, 0.38  # take-off, touch-down
+    crouch = pulse(t, 0.0, 0.18)
+    land = pulse(t, t1, t1 + 0.18)
+    air = clamp((t - t0) / (t1 - t0))
+    hop = math.sin(math.pi * air) if t0 < t < t1 else 0.0
+    o.hop = 0.45 * HOP_MAX * 4 * air * (1 - air) if t0 < t < t1 else 0.0
+    o.pitch = 4.0 * hop * (1 - 1.5 * air)
+    face = window(t, 0.30, 0.52) * (1 - window(t, 1.12, 1.42))
+    up = window(t, 0.36, 0.58) * (1 - window(t, 1.10, 1.32))
+    env = window(t, 0.48, 0.60) * (1 - window(t, 1.00, 1.12))
+    w = math.sin(TAU * (t - 0.56) / 0.26) * env
+    lag = math.sin(TAU * (t - 0.61) / 0.26) * env
+    o.lift = -0.7 * crouch - 0.55 * land + 0.3 * pulse(t, t0, t0 + 0.18) + 0.22 * face
+    o.r('head', x=-4.0 * crouch + 5.0 * hop - 3.0 * land + 3.0 * face - 1.5 * pulse(t, 1.28, HELLO_S),
+        y=2.0 * face, z=-4.0 * face + 1.0 * lag)
     # The near front leg sits under the cheek, so the paw waves between low
     # and out (against the background) and high against the side of the
     # head, where the perked gills have made room for it.
-    o.r('leg4', x=(50.0 + 20.0 * w) * up, y=(-35.0 + 5.0 * w) * up, z=(-5.0 - 5.0 * w) * up)
-    o.gills(flare=22.0 * face + 4.0 * lag, sweep=-3.0 * face, top=10.0 * face + 3.0 * lag)
-    wag = 8.0 * math.sin(TAU * (t - 0.1) / 0.48) * pulse(t, 0.05, 1.25)
-    o.r('tail', x=-2.5 * face, y=swing(wag))
-    o.lid = blink(t, 1.02, 0.16)
+    o.r('leg4', x=(50.0 + 24.0 * w) * up, y=(-35.0 + 6.0 * w) * up, z=(-5.0 - 6.0 * w) * up)
+    for leg, side in (('leg1', 1), ('leg2', -1), ('leg3', 1), ('leg4', -1)):
+        o.r(leg, z=side * 5.0 * pulse(t, t0, t1))
+    pop = pulse(t, t0 - 0.03, t1 + 0.1)
+    o.gills(flare=max(24.0 * pop, 20.0 * face) + 4.0 * lag, sweep=6.0 * crouch - 4.0 * hop - 3.0 * face,
+            top=max(12.0 * pop, 10.0 * face) + 3.0 * lag)
+    wag = 9.0 * math.sin(TAU * (t - 0.05) / 0.32) * pulse(t, 0.05, 1.45)
+    o.r('tail', x=-3.0 * hop - 2.0 * face, y=swing(wag))
+    o.lid = 0.85 * pulse(t, t0 - 0.02, t1 + 0.12) ** 0.5
     return o
 
 
@@ -355,7 +368,7 @@ MOODS = {
     'think': (think, 36, 30, True, ('small',)),
     'happy': (happy, 27, 30, False, ('hero', 'small')),
     'sad': (sad, 24, 30, False, ('small',)),
-    'hello': (hello, 39, 30, False, ('hero',)),
+    'hello': (hello, 45, 30, False, ('hero',)),
     'look': (look, 54, 30, False, ('hero',)),
     'attend': (attend, 15, 30, False, ('hero',)),
     'work': (work, 27, 30, True, ('small',)),

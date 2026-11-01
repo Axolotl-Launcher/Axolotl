@@ -59,9 +59,9 @@
 }
 
 .axo:not(.axo-sm)[data-mood='hello'] {
-    --axo-frames: 39;
+    --axo-frames: 45;
     background-image: url('/mascot/hello.png');
-    animation: axo-hello 1.3s steps(var(--axo-frames), jump-none) both;
+    animation: axo-hello 1.5s steps(var(--axo-frames), jump-none) both;
 }
 
 .axo:not(.axo-sm)[data-mood='look'] {

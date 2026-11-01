@@ -6,7 +6,7 @@
 //   work   - 0.9 s seamless loop: paddling legs, rocking body, sweeping tail
 //   happy  - 0.9 s once: a hop with flared gills, ending on the rest pose
 //   sad    - 0.8 s once: head and gills droop, holding the last frame
-//   hello  - 1.3 s once: waves the near front paw by its cheek, ending on rest
+//   hello  - 1.5 s once: a small hop, then two paw waves by its cheek, ending on rest
 //   look   - 1.8 s once: glances one way, then the other, ending on rest
 //   attend - 0.5 s once: perks up and leans in to listen, holding the last frame
 //   nod    - 0.7 s once: two small yes-nods, ending on the rest pose

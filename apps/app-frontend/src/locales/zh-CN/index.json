@@ -13622,6 +13622,15 @@
   "instance.files.studio.preview-actual-size": {
     "message": "实际大小"
   },
+  "instance.files.studio.preview-apply-crop": {
+    "message": "裁剪图片"
+  },
+  "instance.files.studio.preview-cancel-crop": {
+    "message": "取消"
+  },
+  "instance.files.studio.preview-crop": {
+    "message": "裁剪"
+  },
   "instance.files.studio.preview-failed": {
     "message": "无法预览此文件。"
   },

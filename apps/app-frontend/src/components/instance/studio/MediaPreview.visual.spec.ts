@@ -1,5 +1,8 @@
+import '@/test/visual-styles.scss'
+
 import { mount } from '@vue/test-utils'
-import { expect, it, vi } from 'vitest'
+import { afterEach, expect, it, vi } from 'vitest'
+import { nextTick } from 'vue'
 
 import MediaPreview from './MediaPreview.vue'
 
@@ -31,10 +34,27 @@ vi.mock('@modrinth/ui', async () => {
     }
 })
 
+const hosts: HTMLElement[] = []
+
+// A detached node has no layout, and the crop gesture is measured against the
+// rendered image, so every mount gets a real box in the document.
+afterEach(() => {
+    hosts.splice(0).forEach((host) => host.remove())
+})
+
 function mountPreview({
     kind,
     ...overrides
 }: Record<string, unknown> & { kind: 'image' | 'video' }) {
+    const host = document.createElement('div')
+    host.style.width = '320px'
+    host.style.height = '240px'
+    // The component fills its parent, and the test wrapper has to stretch for
+    // the stage to get a height the fit scale can measure.
+    host.style.display = 'flex'
+    document.body.appendChild(host)
+    hosts.push(host)
+
     return mount(MediaPreview, {
         props: {
             url: PNG_URL,
@@ -45,6 +65,7 @@ function mountPreview({
             ...overrides,
             kind,
         },
+        attachTo: host,
         global: { directives: { tooltip: {} } },
     })
 }
@@ -107,4 +128,61 @@ it('hands the file back to the system when the fallback is used', async () => {
         .find((candidate) => candidate.text() === 'Open in system')
     await button!.trigger('click')
     expect(wrapper.emitted('openInSystem')).toHaveLength(1)
+})
+
+function solidImage(width: number, height: number): string {
+    const canvas = document.createElement('canvas')
+    canvas.width = width
+    canvas.height = height
+    const context = canvas.getContext('2d')
+    if (!context) throw new Error('the test needs a 2D context')
+    context.fillStyle = '#ff0000'
+    context.fillRect(0, 0, width, height)
+    return canvas.toDataURL('image/png')
+}
+
+function dispatchPointer(target: EventTarget, type: string, x: number, y: number) {
+    target.dispatchEvent(
+        new PointerEvent(type, {
+            clientX: x,
+            clientY: y,
+            button: 0,
+            bubbles: true,
+            cancelable: true,
+        }),
+    )
+}
+
+it('crops the dragged region and emits the encoded bytes', async () => {
+    const wrapper = mountPreview({ kind: 'image', url: solidImage(4, 4) })
+    await vi.waitFor(() => expect(wrapper.text()).toContain('4 × 4'))
+
+    const crop = wrapper.findAll('button').find((button) => button.text() === 'Crop')
+    await crop!.trigger('click')
+
+    const overlay = wrapper.find('.cursor-crosshair')
+    const bounds = (overlay.element as HTMLElement).getBoundingClientRect()
+    // Half of the displayed image, whatever the fitted scale happens to be.
+    const half = { x: bounds.width / 2, y: bounds.height / 2 }
+    dispatchPointer(overlay.element, 'pointerdown', bounds.left, bounds.top)
+    dispatchPointer(window, 'pointermove', bounds.left + half.x, bounds.top + half.y)
+    dispatchPointer(window, 'pointerup', bounds.left + half.x, bounds.top + half.y)
+    // Raw events bypass Vue Test Utils' flush, so let the selection render.
+    await nextTick()
+
+    const apply = wrapper.findAll('button').find((button) => button.text() === 'Crop image')
+    expect(apply!.attributes('disabled')).toBeUndefined()
+    await apply!.trigger('click')
+    await vi.waitFor(() => expect(wrapper.emitted('crop')).toHaveLength(1))
+
+    const bytes = wrapper.emitted('crop')![0][0] as Uint8Array
+    const bitmap = await createImageBitmap(new Blob([bytes as BlobPart], { type: 'image/png' }))
+    expect({ width: bitmap.width, height: bitmap.height }).toEqual({ width: 2, height: 2 })
+})
+
+it('keeps cropping unavailable for a format it cannot write back', async () => {
+    const wrapper = mountPreview({ kind: 'image', name: 'icon.svg', url: solidImage(4, 4) })
+    await vi.waitFor(() => expect(wrapper.text()).toContain('4 × 4'))
+
+    expect(wrapper.findAll('button').some((button) => button.text() === 'Crop')).toBe(false)
 })

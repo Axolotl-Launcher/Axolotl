@@ -285,13 +285,35 @@ const mediaKind = computed(() => {
 // Only media documents are read as bytes; text and NBT documents have their own
 // loading path and would otherwise be read twice.
 const mediaDocument = computed(() => (mediaKind.value ? activeDocument.value : null))
+// Bumped when the bytes on disk change under the preview, so the object URL is
+// rebuilt from the new content instead of showing what was read first.
+const mediaRevision = ref(0)
 
 const {
     url: mediaPreviewUrl,
     bytes: mediaPreviewBytes,
     loading: mediaPreviewLoading,
     failed: mediaPreviewFailed,
-} = useStudioMediaPreview(mediaDocument, readBinary)
+} = useStudioMediaPreview(mediaDocument, readBinary, mediaRevision)
+
+function notifyOperationFailure(error: unknown) {
+    addNotification({
+        title: formatMessage(messages.operationFailed),
+        text: error instanceof Error ? error.message : String(error),
+        type: 'error',
+    })
+}
+
+async function writeCroppedImage(bytes: Uint8Array) {
+    const path = selectedFilePath.value
+    if (!path) return
+    try {
+        await writeBinary(path, bytes)
+        mediaRevision.value += 1
+    } catch (error) {
+        notifyOperationFailure(error)
+    }
+}
 
 function exitStudio() {
     if (props.server) {
@@ -544,6 +566,13 @@ async function processFileChanges(changedPaths: string[]) {
             .filter((document) => paths.has(document.path))
             .map((document) => reloadCleanDocument(document)),
     )
+
+    // A preview holds the bytes it read, so a media file replaced on disk (by a
+    // screenshot, another editor, or the crop this page just wrote) has to be
+    // read again rather than left showing the previous content.
+    if (mediaKind.value && activeDocument.value && paths.has(activeDocument.value.path)) {
+        mediaRevision.value += 1
+    }
 }
 
 const studioWatcher = useStudioWatcher(
@@ -936,6 +965,8 @@ onBeforeRouteLeave(() => {
                         :loading="mediaPreviewLoading"
                         :failed="mediaPreviewFailed"
                         @open-in-system="openInSystem(selectedFilePath)"
+                        @crop="writeCroppedImage"
+                        @crop-failed="notifyOperationFailure"
                     />
                     <div
                         v-else-if="activeDocument?.kind === 'unsupported'"

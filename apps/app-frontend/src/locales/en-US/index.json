@@ -15491,6 +15491,15 @@
   "instance.files.studio.preview-actual-size": {
     "message": "Actual size"
   },
+  "instance.files.studio.preview-apply-crop": {
+    "message": "Crop image"
+  },
+  "instance.files.studio.preview-cancel-crop": {
+    "message": "Cancel"
+  },
+  "instance.files.studio.preview-crop": {
+    "message": "Crop"
+  },
   "instance.files.studio.preview-failed": {
     "message": "This file could not be previewed."
   },

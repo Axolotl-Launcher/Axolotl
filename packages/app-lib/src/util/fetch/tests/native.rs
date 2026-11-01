@@ -1,6 +1,8 @@
 //! Fetch native tests.
 
-use crate::util::download::constants::FILE_VALIDATION_CONCURRENCY;
+use crate::util::download::constants::{
+    FILE_VALIDATION_CONCURRENCY, PARTIAL_FILE_SUFFIX,
+};
 use std::sync::Arc;
 use std::sync::atomic::Ordering;
 use std::time::Duration;

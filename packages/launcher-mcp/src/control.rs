@@ -26,6 +26,38 @@ impl Drop for PendingControl {
 }
 
 impl Shared {
+    pub(crate) fn authorize(
+        &self,
+        transport: &str,
+        control: &str,
+        full_access: bool,
+    ) -> Result<tokio_util::sync::CancellationToken, crate::ToolError> {
+        let inner = self.inner.lock().unwrap_or_else(|e| e.into_inner());
+        let slot = inner.slots.get(transport).filter(|slot| {
+            inner.active.as_deref() == Some(transport)
+                && slot.initialized
+                && slot.connection.connected
+                && !slot.connection.awaiting_approval
+                && !slot.cancel.is_cancelled()
+                && slot.control_id.as_deref() == Some(control)
+        }).ok_or_else(|| crate::ToolError::new("session_required", "Call start_session and use this connection's approved session_id"))?;
+        if full_access && !inner.snapshot.full_access {
+            return Err(crate::ToolError::new(
+                "full_access_required",
+                "This tool requires full access mode",
+            ));
+        }
+        slot.control_cancel
+            .clone()
+            .filter(|cancel| !cancel.is_cancelled())
+            .ok_or_else(|| {
+                crate::ToolError::new(
+                    "session_revoked",
+                    "Control session ended",
+                )
+            })
+    }
+
     pub(crate) fn release_control(
         &self,
         transport: &str,

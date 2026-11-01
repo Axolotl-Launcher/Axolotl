@@ -18,6 +18,18 @@ const message = (id: string, defaultMessage: string): MessageDescriptor => ({ id
 
 export const settingsSearchEntries: SettingsSearchEntry[] = [
     {
+        id: 'third-party-shimu',
+        categoryId: 'third-party-accounts',
+        targetId: 'settings-target-third-party-shimu',
+        label: message('app.third-party.shimu', 'Shimu Space'),
+        keywords: [
+            message(
+                'app.third-party.search',
+                'Shimu mcimg OAuth account authorization sign in connect',
+            ),
+        ],
+    },
+    {
         id: 'mcp-authentication',
         categoryId: 'mcp',
         targetId: 'settings-target-mcp-access',
@@ -862,6 +874,19 @@ export const settingsSearchEntries: SettingsSearchEntry[] = [
         id: 'feature-flags',
         categoryId: 'feature-flags',
         label: message('settings.feature-flags.title', 'Feature flags'),
+    },
+    {
+        id: 'advanced-download-info',
+        categoryId: 'feature-flags',
+        targetId: 'settings-target-advanced-download-info',
+        label: message(
+            'app.settings.feature-flags.advanced-download-info',
+            'Advanced download information',
+        ),
+        description: message(
+            'app.settings.feature-flags.advanced-download-info-description',
+            'Show file timings, request speeds and remote addresses in download details. Observations are collected while enabled and included when exporting network connections.',
+        ),
     },
 ]
 

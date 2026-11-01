@@ -151,10 +151,11 @@
     {
       "file": "apps/app/src/api/schematic_preview.rs",
       "form": "std::fs",
-      "count": 7,
+      "count": 8,
       "reason": "phase-0 baseline: synchronous file I/O; must not appear in L0 or inside a critical section (D17)",
       "sites": [
         "list_instance_schematics: std::fs::read_dir(&directory).map_err(|error| error.to_string())?",
+        "open: let bytes = std::fs::read(path).map_err(|e| e.to_string())?;",
         "parse_schematic: let bytes = std::fs::read(path).map_err(|error| error.to_string())?;",
         "parse_schematic: std::fs::metadata(path).map_err(|error| error.to_string())?;",
         "resolve_source: let canonical = std::fs::canonicalize(&candidate)",
@@ -224,6 +225,153 @@
       "reason": "phase-0 baseline: existing Tauri runtime spawn; moves to scheduler dispatch with the governed items (spec §5.6) or stays operation-scoped",
       "sites": [
         "start_accent_color_watcher: tauri::async_runtime::spawn(async move {"
+      ]
+    },
+    {
+      "file": "apps/app/src/api/tools/backend/core.rs",
+      "form": "spawn_blocking",
+      "count": 1,
+      "reason": "MCP tool backend (upstream #1024): blocking tool work runs on the blocking pool, not an async worker",
+      "sites": [
+        "execute: tokio::task::spawn_blocking(move || {"
+      ]
+    },
+    {
+      "file": "apps/app/src/api/tools/backend/files/mod.rs",
+      "form": "spawn_blocking",
+      "count": 1,
+      "reason": "MCP tool backend (upstream #1024): blocking file work runs on the blocking pool",
+      "sites": [
+        "execute: tokio::task::spawn_blocking(move || {"
+      ]
+    },
+    {
+      "file": "apps/app/src/api/tools/backend/files/paths.rs",
+      "form": "spawn_blocking",
+      "count": 1,
+      "reason": "MCP tool backend (upstream #1024): blocking file work and its synchronous write run on the blocking pool",
+      "sites": [
+        "payload: tokio::task::spawn_blocking(move || {"
+      ]
+    },
+    {
+      "file": "apps/app/src/api/tools/backend/files/paths.rs",
+      "form": "std::fs",
+      "count": 1,
+      "reason": "MCP tool backend (upstream #1024): blocking file work and its synchronous write run on the blocking pool",
+      "sites": [
+        "payload: std::fs::write(&destination, bytes).map_err(error)?;"
+      ]
+    },
+    {
+      "file": "apps/app/src/api/tools/backend/gallery.rs",
+      "form": "spawn_blocking",
+      "count": 4,
+      "reason": "MCP tool backend (upstream #1024): PNG decode/resize and file writes run on the blocking pool",
+      "sites": [
+        "bytes: tokio::task::spawn_blocking(move || {",
+        "execute: let raw = tokio::task::spawn_blocking(move || png(&raw, 16384))",
+        "execute: tokio::task::spawn_blocking(move || png(&source, dimension))",
+        "execute: tokio::task::spawn_blocking(move||{paths::write(&paths::open_root(&root)?,&path,&data,None,true)?;Ok(json!({\"path\":path,\"bytes\":data.len(),\"sha256\":paths::hash(&data)}))}).await.map_err(paths::error)?"
+      ]
+    },
+    {
+      "file": "apps/app/src/api/tools/backend/instance_maintenance.rs",
+      "form": "std::fs",
+      "count": 1,
+      "reason": "MCP tool backend (upstream #1024): symlink metadata helper, no I/O of its own",
+      "sites": [
+        "linked: fn linked(metadata: &std::fs::Metadata) -> bool {"
+      ]
+    },
+    {
+      "file": "apps/app/src/api/tools/backend/java.rs",
+      "form": "spawn_blocking",
+      "count": 2,
+      "reason": "MCP tool backend (upstream #1024): Java validation and version probes run on the blocking pool",
+      "sites": [
+        "execute: let valid = tokio::task::spawn_blocking(move || {",
+        "execute: let version = tokio::task::spawn_blocking(move || {"
+      ]
+    },
+    {
+      "file": "apps/app/src/api/tools/backend/launcher_system.rs",
+      "form": "spawn_blocking",
+      "count": 1,
+      "reason": "MCP tool backend (upstream #1024): system probe on the blocking pool and a background task for the tool",
+      "sites": [
+        "execute: tokio::task::spawn_blocking(move || {"
+      ]
+    },
+    {
+      "file": "apps/app/src/api/tools/backend/launcher_system.rs",
+      "form": "tauri::async_runtime::spawn",
+      "count": 1,
+      "reason": "MCP tool backend (upstream #1024): system probe on the blocking pool and a background task for the tool",
+      "sites": [
+        "execute: tauri::async_runtime::spawn(async move {"
+      ]
+    },
+    {
+      "file": "apps/app/src/api/tools/backend/reviewed.rs",
+      "form": "std::fs",
+      "count": 1,
+      "reason": "MCP tool backend (upstream #1024): symlink metadata helper, no I/O of its own",
+      "sites": [
+        "linked: pub(super) fn linked(metadata: &std::fs::Metadata) -> bool {"
+      ]
+    },
+    {
+      "file": "apps/app/src/api/tools/backend/schematics.rs",
+      "form": "spawn_blocking",
+      "count": 6,
+      "reason": "MCP tool backend (upstream #1024): schematic parse/render and its temporary-file writes run on the blocking pool",
+      "sites": [
+        "execute: document = tokio::task::spawn_blocking(move || {",
+        "execute: document = tokio::task::spawn_blocking(move || {",
+        "execute: let document = tokio::task::spawn_blocking(move || {",
+        "execute: let files=tokio::task::spawn_blocking(move||{",
+        "execute: tokio::task::spawn_blocking(move||{let bytes=document.data.export(&format).map_err(error)?;if bytes.len()>16*1024*1024{return Err(error(\"export size\"));}paths::write(&paths::open_root(&root)?,&path,&bytes,None,true)?;Ok(json!({\"path\":path,\"bytes\":bytes.len(),\"sha256\":paths::hash(&bytes)}))}).await.map_err(error)?",
+        "execute: tokio::task::spawn_blocking(move||{let mut items=Vec::new();for dy in 0..height{for dz in 0..depth{for dx in 0..width{let p=[x+dx as i32,y+dy as i32,z+dz as i32];items.push(json!({\"position\":p,\"state\":document.data.block(&region_id,p).map_err(error)?}));}}}Ok(json!({\"blocks\":items}))}).await.map_err(error)?"
+      ]
+    },
+    {
+      "file": "apps/app/src/api/tools/backend/schematics.rs",
+      "form": "std::fs",
+      "count": 1,
+      "reason": "MCP tool backend (upstream #1024): schematic parse/render and its temporary-file writes run on the blocking pool",
+      "sites": [
+        "execute: std::fs::write(temp.path(), bytes).map_err(error)?;"
+      ]
+    },
+    {
+      "file": "apps/app/src/api/tools/backend/seed_tools.rs",
+      "form": "spawn_blocking",
+      "count": 2,
+      "reason": "MCP tool backend (upstream #1024): seed tool work and its temporary-file writes run on the blocking pool",
+      "sites": [
+        "execute: return tokio::task::spawn_blocking(move || {",
+        "execute: tokio::task::spawn_blocking(move||match command{"
+      ]
+    },
+    {
+      "file": "apps/app/src/api/tools/backend/seed_tools.rs",
+      "form": "std::fs",
+      "count": 3,
+      "reason": "MCP tool backend (upstream #1024): seed tool work and its temporary-file writes run on the blocking pool",
+      "sites": [
+        "execute: std::fs::create_dir_all(temp.path().join(\"data/minecraft\"))",
+        "execute: std::fs::write(",
+        "execute: std::fs::write(temp.path().join(\"level.dat\"), bytes)"
+      ]
+    },
+    {
+      "file": "apps/app/src/api/tools/backend/worlds/paths.rs",
+      "form": "std::fs",
+      "count": 1,
+      "reason": "MCP tool backend (upstream #1024): symlink metadata helper, no I/O of its own",
+      "sites": [
+        "is_link: fn is_link(metadata: &std::fs::Metadata) -> bool {"
       ]
     },
     {
@@ -921,6 +1069,24 @@
       "sites": [
         "inspect_mod_jars: let Ok(entries) = std::fs::read_dir(mods_path) else {",
         "inspect_mod_jars: let Ok(file) = std::fs::File::open(&path) else {"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/api/logs/document.rs",
+      "form": "spawn_blocking",
+      "count": 1,
+      "reason": "log document read (upstream): the file read runs on the blocking pool; the synchronous open is inside that closure",
+      "sites": [
+        "read_log_document: let (text, source_truncated) = tokio::task::spawn_blocking(move || {"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/api/logs/document.rs",
+      "form": "std::fs",
+      "count": 1,
+      "reason": "log document read (upstream): the file read runs on the blocking pool; the synchronous open is inside that closure",
+      "sites": [
+        "read_file: let file = std::fs::File::open(resolved)?;"
       ]
     },
     {
@@ -1885,11 +2051,13 @@
     {
       "file": "packages/app-lib/src/scheduler/l0/executor.rs",
       "form": "thread::Builder spawn",
-      "count": 2,
+      "count": 4,
       "reason": "L0 executor: its driver thread, and spawns onto the L0 runtime and its own blocking pool (T3.6)",
       "sites": [
-        "spawn: self.handle.spawn(task)",
-        "start: .spawn(move || {"
+        "spawn: let _ = self.handle.spawn(async move {",
+        "start: .spawn(move || {",
+        "start: supervisor.spawn(\"l0-task\", task);",
+        "start: supervisor.spawn(\"l0-task\", task);"
       ]
     },
     {
@@ -1898,7 +2066,7 @@
       "count": 1,
       "reason": "fallback onto the current runtime when the L0 executor cannot start",
       "sites": [
-        "spawn: None => tokio::spawn(task),"
+        "spawn_on_current: tokio::spawn(async move {"
       ]
     },
     {
@@ -1949,6 +2117,15 @@
       "reason": "phase-0 baseline: synchronous file I/O; must not appear in L0 or inside a critical section (D17)",
       "sites": [
         "java_file_signature: let metadata = std::fs::metadata(path).ok()?;"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/state/documents/mod.rs",
+      "form": "std::fs",
+      "count": 1,
+      "reason": "settings documents (upstream #1034): symlink-following metadata probe on the document path",
+      "sites": [
+        "on_path: match std::fs::metadata(path) {"
       ]
     },
     {
@@ -2539,7 +2716,26 @@
       "count": 1,
       "reason": "phase-0 baseline: existing task spawn; moves to scheduler dispatch with the governed items (spec §5.6) or stays operation-scoped",
       "sites": [
-        "start: let task = tokio::spawn(async move {"
+        "start_with_runtime: let task = tokio::spawn(async move {"
+      ]
+    },
+    {
+      "file": "packages/launcher-tools/src/operations.rs",
+      "form": "tokio::spawn",
+      "count": 2,
+      "reason": "launcher-tools operation dispatch (upstream): runs a queued tool command on the runtime",
+      "sites": [
+        "enqueue: tokio::spawn(async move {",
+        "enqueue: tokio::spawn(async move { backend.execute(command, context).await }).await"
+      ]
+    },
+    {
+      "file": "packages/launcher-tools/src/runtime.rs",
+      "form": "tokio::spawn",
+      "count": 1,
+      "reason": "launcher-tools runtime (upstream): background runtime task",
+      "sites": [
+        "execute: tokio::spawn(async move {"
       ]
     }
   ]

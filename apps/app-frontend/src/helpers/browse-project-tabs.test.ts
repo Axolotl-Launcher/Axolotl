@@ -13,6 +13,7 @@ const labels = {
     datapacks: 'Data Packs',
     maps: 'Maps',
     shaders: 'Shaders',
+    schematics: 'Schematics',
     servers: 'Servers',
     favorites: 'Favorites',
 }
@@ -27,6 +28,7 @@ it('browse project tabs keep favorites after servers and preserve the route cont
         'Data Packs',
         'Maps',
         'Shaders',
+        'Schematics',
         'Servers',
         'Favorites',
     ])
@@ -58,12 +60,12 @@ it('browse project tab visibility follows the selected instance capabilities', (
             instance: { game_version: '1.12.2', loader: 'vanilla' },
             hasInstanceContext: true,
         }),
-    ).toEqual({ modpacks: false, mods: false, datapacks: false, servers: false })
+    ).toEqual({ modpacks: false, mods: false, datapacks: false, servers: false, schematics: true })
     expect(
         getBrowseProjectTabOptions({
             instance: { game_version: '1.20.1', loader: 'fabric' },
             hasInstanceContext: true,
             isServerInstance: true,
         }),
-    ).toEqual({ modpacks: false, mods: true, datapacks: false, servers: false })
+    ).toEqual({ modpacks: false, mods: true, datapacks: false, servers: false, schematics: false })
 })

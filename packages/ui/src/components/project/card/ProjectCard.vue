@@ -94,7 +94,7 @@
             />
             <div
                 v-if="!!$slots.actions"
-                class="flex justify-end gap-1 empty:hidden smart-clickable:allow-pointer-events"
+                class="col-start-[-2] flex justify-end gap-1 empty:hidden smart-clickable:allow-pointer-events"
             >
                 <slot name="actions" />
             </div>
@@ -406,11 +406,13 @@ const props = defineProps<{
     environment?: ProjectCardEnvironmentProps
     status?: ProjectStatus
     maxTags?: number
+    sourceLabel?: string
     providers?: ('modrinth' | 'curseforge' | 'mcarchive' | 'planet_minecraft')[]
     provider?: 'modrinth' | 'curseforge' | 'mcarchive' | 'planet_minecraft'
 }>()
 
 const providerLabels = computed(() => {
+    if (props.sourceLabel) return [props.sourceLabel]
     const names = {
         modrinth: 'Modrinth',
         curseforge: 'CurseForge',

@@ -3,7 +3,11 @@
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use super::{OAUTH_CREDENTIAL, input_error};
+const OAUTH_CREDENTIAL: &str = "oauth";
+
+fn input_error(message: String) -> crate::Error {
+    crate::ErrorKind::InputError(message).into()
+}
 
 // keyring's Windows backend checks CRED_MAX_CREDENTIAL_BLOB_SIZE (2560 bytes),
 // even though its TooLong message labels the limit as "chars". Passwords use
@@ -12,7 +16,7 @@ const MAX_PASSWORD_UNITS: usize = 1280;
 const MAX_CHUNKS: usize = 1024;
 const MANIFEST_PREFIX: &str = "axolotl-oauth-chunks-v1:";
 
-pub(super) trait Store {
+pub(crate) trait Store {
     fn read(&self, name: &str) -> crate::Result<Option<String>>;
     fn write(&self, name: &str, value: Option<&str>) -> crate::Result<()>;
 }
@@ -44,7 +48,7 @@ fn parse_manifest(value: &str) -> crate::Result<Option<Manifest>> {
     Ok(Some(manifest))
 }
 
-pub(super) fn read(store: &impl Store) -> crate::Result<Option<String>> {
+pub(crate) fn read(store: &impl Store) -> crate::Result<Option<String>> {
     let Some(value) = store.read(OAUTH_CREDENTIAL)? else {
         return Ok(None);
     };
@@ -87,7 +91,7 @@ fn cleanup(store: &impl Store, manifest: &Manifest) {
     }
 }
 
-pub(super) fn write(
+pub(crate) fn write(
     store: &impl Store,
     value: Option<&str>,
 ) -> crate::Result<()> {
@@ -175,13 +179,20 @@ mod tests {
         }
     }
 
+    #[derive(Default, serde::Serialize, serde::Deserialize)]
+    struct TestCredentials {
+        access_token: String,
+        refresh_token: Option<String>,
+        account_id: Option<String>,
+        expires_at: Option<u64>,
+    }
+
     fn long_oauth_json() -> String {
-        serde_json::to_string(&super::super::OAuthCredentials {
+        serde_json::to_string(&TestCredentials {
             access_token: "a".repeat(7000),
             refresh_token: Some("r".repeat(3000)),
             account_id: Some("test-account".to_string()),
             expires_at: Some(1234567890),
-            ..Default::default()
         })
         .unwrap()
     }
@@ -192,7 +203,7 @@ mod tests {
         let value = long_oauth_json();
         write(&store, Some(&value)).unwrap();
         assert_eq!(read(&store).unwrap().as_deref(), Some(value.as_str()));
-        let credentials: super::super::OAuthCredentials =
+        let credentials: TestCredentials =
             serde_json::from_str(&read(&store).unwrap().unwrap()).unwrap();
         assert_eq!(credentials.access_token.len(), 7000);
         assert_eq!(credentials.refresh_token.unwrap().len(), 3000);

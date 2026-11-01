@@ -1,0 +1,184 @@
+name: Sync website release data
+
+# Publishes the launcher's release data to the website repository, whose push-triggered
+# workflow then deploys the site. The data is owned here:
+#   releases/catalog.json <- apps/app-frontend/src/announcements/catalog.ts on main
+#   releases/latest.json  <- published GitHub release metadata (stable releases only)
+on:
+  workflow_call:
+    inputs:
+      tag:
+        description: Published release tag
+        required: true
+        type: string
+      release-metadata-artifact:
+        description: Artifact holding release.json from finalize-github-release.mjs; read from GitHub when empty
+        required: false
+        default: ''
+        type: string
+      deploy-unchanged:
+        description: Deploy the website even when the release data is already current
+        required: false
+        default: false
+        type: boolean
+    secrets:
+      WEBSITE_SYNC_APP_PRIVATE_KEY:
+        required: false
+      WEBSITE_SYNC_TOKEN:
+        required: false
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Published release tag to synchronize (for example v1.10.1)
+        required: true
+        type: string
+      deploy-unchanged:
+        description: Deploy the website even when the release data is already current
+        required: false
+        default: true
+        type: boolean
+
+permissions:
+  contents: read
+
+jobs:
+  sync:
+    name: Publish release data to the website repository
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    concurrency:
+      group: website-release-data
+      cancel-in-progress: false
+    env:
+      RELEASE_TAG: ${{ inputs.tag }}
+      WEBSITE_REPOSITORY: ${{ vars.WEBSITE_REPOSITORY || 'Axolotl-Launcher/Axolotl-Website' }}
+    steps:
+      - name: Check website synchronization configuration
+        id: config
+        env:
+          APP_CLIENT_ID: ${{ vars.WEBSITE_SYNC_APP_CLIENT_ID }}
+          APP_PRIVATE_KEY: ${{ secrets.WEBSITE_SYNC_APP_PRIVATE_KEY }}
+          SYNC_TOKEN: ${{ secrets.WEBSITE_SYNC_TOKEN }}
+        run: |
+          if [[ -n "$APP_CLIENT_ID" && -n "$APP_PRIVATE_KEY" ]]; then
+            echo 'Using the website sync GitHub App'
+          elif [[ -n "$SYNC_TOKEN" ]]; then
+            echo 'Using the WEBSITE_SYNC_TOKEN secret'
+          else
+            echo '::error::Configure the WEBSITE_SYNC_APP_CLIENT_ID variable and WEBSITE_SYNC_APP_PRIVATE_KEY secret, or the WEBSITE_SYNC_TOKEN secret, with Contents and Actions write access to the website repository.'
+            exit 1
+          fi
+          echo "owner=${WEBSITE_REPOSITORY%%/*}" >> "$GITHUB_OUTPUT"
+          echo "name=${WEBSITE_REPOSITORY#*/}" >> "$GITHUB_OUTPUT"
+      - name: Create website repository token
+        id: app-token
+        if: vars.WEBSITE_SYNC_APP_CLIENT_ID != ''
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        with:
+          client-id: ${{ vars.WEBSITE_SYNC_APP_CLIENT_ID }}
+          private-key: ${{ secrets.WEBSITE_SYNC_APP_PRIVATE_KEY }}
+          owner: ${{ steps.config.outputs.owner }}
+          repositories: ${{ steps.config.outputs.name }}
+          permission-contents: write
+          permission-actions: write
+      - name: Checkout code
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Checkout announcement catalog from main
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: main
+          path: source-main
+          persist-credentials: false
+          sparse-checkout: apps/app-frontend/src/announcements
+      - name: Setup Node.js
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version-file: .nvmrc
+      - name: Download published release metadata
+        if: inputs.release-metadata-artifact != ''
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: ${{ inputs.release-metadata-artifact }}
+          path: release-check
+      - name: Read published release metadata from GitHub
+        if: inputs.release-metadata-artifact == ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/axolotl/finalize-github-release.mjs "$RELEASE_TAG" release-check --published-only
+      - name: Checkout website repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          repository: ${{ env.WEBSITE_REPOSITORY }}
+          ref: main
+          path: website-publish
+          token: ${{ steps.app-token.outputs.token || secrets.WEBSITE_SYNC_TOKEN }}
+      - name: Generate website release data
+        run: |
+          if [[ "${RELEASE_TAG}" != *-* ]]; then
+            node scripts/axolotl/create-website-release-metadata.mjs \
+              release-check/release.json \
+              website-publish/releases/latest.json
+          fi
+
+          node scripts/axolotl/create-website-release-catalog.mjs \
+            website-publish/releases/catalog.json \
+            source-main/apps/app-frontend/src/announcements/catalog.ts
+      - name: Verify generated release data
+        working-directory: website-publish
+        run: |
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict'
+          import { execFileSync } from 'node:child_process'
+          import fs from 'node:fs'
+          const version = process.env.RELEASE_TAG.replace(/^v/, '')
+          const catalog = JSON.parse(fs.readFileSync('releases/catalog.json', 'utf8'))
+          assert(catalog.announcements.some((entry) => entry.version === version), `Missing catalog entry: ${version}`)
+          JSON.parse(fs.readFileSync('releases/latest.json', 'utf8'))
+          // The generation timestamp alone is not a change worth publishing.
+          let previous
+          try {
+            previous = JSON.parse(execFileSync('git', ['show', 'HEAD:releases/catalog.json'], { encoding: 'utf8' }))
+          } catch {}
+          if (previous && JSON.stringify({ ...previous, updated_at: null }) === JSON.stringify({ ...catalog, updated_at: null })) {
+            execFileSync('git', ['checkout', '--', 'releases/catalog.json'])
+          }
+          NODE
+      - name: Push release data to the website repository
+        id: push
+        working-directory: website-publish
+        env:
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          RELEASE_URL: ${{ github.server_url }}/${{ github.repository }}/releases/tag/${{ inputs.tag }}
+        run: |
+          git add releases/latest.json releases/catalog.json
+          if git diff --cached --quiet; then
+            echo "Website release data is unchanged"
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          git config user.name "Axolotl Release Bot"
+          git config user.email "release@axolotl.local"
+          # No [skip ci]: this push is what triggers the website deployment.
+          git commit -m "chore(release): sync release data for ${RELEASE_TAG}" \
+            -m "Release: ${RELEASE_URL}" -m "Generated by ${RUN_URL}"
+          for attempt in 1 2 3; do
+            if git push origin HEAD:main; then
+              echo "changed=true" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            if ! git pull --rebase origin main; then
+              git rebase --abort || true
+              echo '::error::The website repository changed release data concurrently; rerun this workflow'
+              exit 1
+            fi
+          done
+          echo '::error::Could not push release data to the website repository'
+          exit 1
+      - name: Deploy unchanged release data
+        if: steps.push.outputs.changed == 'false' && inputs.deploy-unchanged
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token || secrets.WEBSITE_SYNC_TOKEN }}
+        run: gh workflow run deploy-website.yml --repo "$WEBSITE_REPOSITORY" --ref main

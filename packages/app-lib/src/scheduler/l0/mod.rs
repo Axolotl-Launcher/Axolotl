@@ -13,6 +13,7 @@ use std::sync::{Arc, OnceLock};
 
 use control::ControlTable;
 use executor::L0Executor;
+use quiesce::QuiesceToken;
 
 static EXECUTOR: OnceLock<Option<L0Executor>> = OnceLock::new();
 
@@ -32,15 +33,51 @@ fn executor() -> Option<&'static L0Executor> {
 }
 
 /// Runs an L0 task on the L0 executor, or on the current runtime when the
-/// executor is unavailable.
-pub fn spawn<F>(task: F) -> tokio::task::JoinHandle<F::Output>
+/// executor is unavailable or has already exited.
+pub fn spawn<F>(task: F) -> tokio::sync::oneshot::Receiver<F::Output>
 where
     F: Future + Send + 'static,
     F::Output: Send + 'static,
 {
     match executor() {
-        Some(executor) => executor.spawn(task),
-        None => tokio::spawn(task),
+        Some(executor) if executor.is_running() => executor.spawn(task),
+        Some(_) => {
+            // A finished driver binds later tasks into a closed runtime and
+            // cancels them. Running the work on the current runtime is worse
+            // for isolation than the L0 executor, but it is not silently
+            // dropped; phase 7's exit barrier re-creates the executor.
+            tracing::warn!(
+                "The L0 executor has exited; running L0 work on the current runtime"
+            );
+            spawn_on_current(task)
+        }
+        None => spawn_on_current(task),
+    }
+}
+
+fn spawn_on_current<F>(task: F) -> tokio::sync::oneshot::Receiver<F::Output>
+where
+    F: Future + Send + 'static,
+    F::Output: Send + 'static,
+{
+    let (output, received) = tokio::sync::oneshot::channel();
+    tokio::spawn(async move {
+        let _ = output.send(task.await);
+    });
+    received
+}
+
+/// A quiesce token over the live executor's control table, so a detector sees
+/// the same quiesce request as the executor's shutdown path.
+pub fn quiesce_token() -> QuiesceToken {
+    match executor() {
+        Some(executor) if executor.is_running() => {
+            QuiesceToken::new(Arc::clone(executor.control()))
+        }
+        // No live executor: the task runs on the current runtime, where the
+        // app's own shutdown cancels it. A token over the dead executor's
+        // table would already be quiesced and the task would return at once.
+        _ => QuiesceToken::new(Arc::new(ControlTable::new())),
     }
 }
 

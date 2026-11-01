@@ -10,6 +10,7 @@ import { preserveMonotonicProgress } from '@/helpers/install-progress'
 import Downloads from './Downloads.vue'
 
 const fixture = vi.hoisted(() => ({
+    locale: 'en-US',
     manager: {} as unknown,
     instances: [] as { id: string; name: string }[],
     clipboard: vi.fn(),
@@ -33,6 +34,9 @@ vi.mock('@/composables/use-app-event', () => ({ useAppEvent: () => {} }))
 vi.mock('@/providers/download-manager', () => ({
     injectDownloadManager: () => fixture.manager,
 }))
+vi.mock('@/store/state', () => ({
+    useTheming: () => ({ devMode: false, getFeatureFlag: () => false }),
+}))
 vi.mock('@/providers/content-install', () => ({
     injectContentInstall: () => ({ showCurseForgeManualDownloads: vi.fn() }),
 }))
@@ -47,6 +51,11 @@ vi.mock('vue-router', () => ({
 }))
 vi.mock('@modrinth/ui', async () => {
     const { defineComponent, h } = await import('vue')
+    const { default: IntlMessageFormat } = await import('intl-messageformat')
+    const catalogs = {
+        'en-US': (await import('@/locales/en-US/index.json')).default,
+        'zh-CN': (await import('@/locales/zh-CN/index.json')).default,
+    }
     const { default: ProgressBar } =
         await import('../../../../packages/ui/src/components/base/ProgressBar.vue')
     const control = defineComponent({
@@ -65,13 +74,25 @@ vi.mock('@modrinth/ui', async () => {
                 'ConfirmModal',
                 'EmptyState',
                 'NavTabs',
-                'StyledInput',
                 'TagItem',
             ].map((name) => [name, control]),
         ),
         Badge: defineComponent({
             props: ['type'],
             setup: (props) => () => h('span', { 'data-status-label': '' }, props.type),
+        }),
+        StyledInput: defineComponent({
+            props: ['modelValue', 'placeholder'],
+            emits: ['update:modelValue'],
+            setup:
+                (props, { emit }) =>
+                () =>
+                    h('input', {
+                        value: props.modelValue,
+                        placeholder: props.placeholder,
+                        onInput: (event: Event) =>
+                            emit('update:modelValue', (event.target as HTMLInputElement).value),
+                    }),
         }),
         ProgressBar,
         Button: (await import('../../../../packages/ui/src/components/base/buttons/Button.vue'))
@@ -99,12 +120,18 @@ vi.mock('@modrinth/ui', async () => {
         useFormatBytes: () => (value: number) => String(value),
         useVIntl: () => ({
             formatMessage: (
-                message: { defaultMessage: string },
+                message: { id?: string; defaultMessage: string },
                 values: Record<string, unknown> = {},
-            ) =>
-                message.defaultMessage.replace(/\{(\w+)\}/g, (_, key) =>
-                    String(values[key] ?? `{${key}}`),
-                ),
+            ) => {
+                const catalog = catalogs[fixture.locale as keyof typeof catalogs]
+                const translated = message.id
+                    ? catalog[message.id as keyof typeof catalog]?.message
+                    : undefined
+                return new IntlMessageFormat(
+                    translated ?? message.defaultMessage,
+                    fixture.locale,
+                ).format(values as Record<string, string | number>)
+            },
         }),
     }
 })
@@ -133,6 +160,71 @@ function downloadingJob(provider: InstallJobSnapshot['provider']): InstallJobSna
         items: [],
     }
 }
+
+it('localizes batch titles, finds every resource, and shows terminal status instead of a stale phase', async () => {
+    fixture.locale = 'zh-CN'
+    fixture.route = reactive({ query: { tab: 'history' } as Record<string, unknown> })
+    const job = {
+        ...downloadingJob('application'),
+        kind: 'install_content',
+        status: 'succeeded',
+        phase: 'finalizing',
+        display: { title: 'Install resources' },
+        resource_names: ['Sodium', 'Iris', 'AppleSkin'],
+        items: [
+            {
+                id: 'sodium.jar',
+                name: 'sodium-0.5.8.jar',
+                status: 'completed',
+                bytes_downloaded: 10,
+            },
+            { id: 'iris.jar', name: 'iris-1.7.2.jar', status: 'completed', bytes_downloaded: 10 },
+            {
+                id: 'apple.jar',
+                name: 'appleskin-2.5.1.jar',
+                status: 'completed',
+                bytes_downloaded: 10,
+            },
+        ],
+    } as InstallJobSnapshot
+    const jobs = ref([job])
+    fixture.manager = {
+        initializationState: ref('ready'),
+        jobs,
+        activeJobs: ref([]),
+        historyJobs: jobs,
+        legacyDownloads: ref([]),
+    }
+    const wrapper = mount(Downloads, { global: { directives: { tooltip: () => {} } } })
+    try {
+        expect(wrapper.get('h2').text()).toBe('安装内容：Sodium 等 3 项')
+        expect(wrapper.text()).not.toContain('正在完成安装')
+        const expand = wrapper.findAll('button').find((button) => button.text() === '详细信息')
+        expect(expand).toBeDefined()
+        await expand!.trigger('click')
+        expect(wrapper.text()).toContain('sodium-0.5.8.jar')
+        expect(wrapper.text()).toContain('iris-1.7.2.jar')
+        expect(wrapper.text()).toContain('appleskin-2.5.1.jar')
+        expect(wrapper.text()).not.toContain('暂无文件详情')
+        const search = wrapper.get('input')
+        await search.setValue('AppleSkin')
+        expect(wrapper.find('h2').exists()).toBe(true)
+        await search.setValue('iris-1.7.2.jar')
+        expect(wrapper.find('h2').exists()).toBe(true)
+        await search.setValue('not-installed.jar')
+        expect(wrapper.find('h2').exists()).toBe(false)
+        await search.setValue('')
+        for (const status of ['failed', 'canceled', 'interrupted'] as const) {
+            jobs.value = [{ ...job, status }]
+            await nextTick()
+            expect(wrapper.text()).not.toContain('正在完成安装')
+        }
+    } finally {
+        wrapper.unmount()
+        fixture.locale = 'en-US'
+        fixture.route = { query: {} }
+    }
+})
 
 it('keeps cancellation available for a canceling job and disables it while the request is pending', async () => {
     const jobs = ref<InstallJobSnapshot[]>([{ ...downloadingJob('modrinth'), status: 'canceling' }])

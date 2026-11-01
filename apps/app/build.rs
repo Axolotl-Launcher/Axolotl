@@ -603,6 +603,7 @@ fn main() {
                     .commands(&[
                         "get_available_capes",
                         "get_available_skins",
+                        "lookup_player_skin",
                         "add_and_equip_custom_skin",
                         "equip_skin",
                         "remove_custom_skin",
@@ -665,6 +666,7 @@ fn main() {
                         "download_job_delete",
                         "download_history_clear",
                         "download_job_support_details",
+                        "download_diagnostics",
                     ])
                     .default_permission(
                         DefaultPermissionRule::AllowAllCommands,
@@ -842,6 +844,12 @@ fn main() {
                     .commands(&[
                         "settings_get",
                         "settings_patch",
+                        "settings_layers",
+                        "settings_override_clear",
+                        "settings_sanitise",
+                        "settings_import_scan",
+                        "settings_import",
+                        "settings_export",
                         "privacy_get",
                         "privacy_set",
                         "telemetry_set",
@@ -922,6 +930,34 @@ fn main() {
                         "mcp_configure",
                         "mcp_respond",
                         "mcp_disconnect",
+                        "mcp_ui_claim",
+                        "mcp_ui_respond",
+                    ])
+                    .default_permission(
+                        DefaultPermissionRule::AllowAllCommands,
+                    ),
+            )
+            .plugin(
+                "third-party-accounts",
+                InlinedPlugin::new()
+                    .commands(&[
+                        "get_account",
+                        "begin_authorization",
+                        "cancel_authorization",
+                        "disconnect",
+                        "check_connection",
+                    ])
+                    .default_permission(
+                        DefaultPermissionRule::AllowAllCommands,
+                    ),
+            )
+            .plugin(
+                "schematics",
+                InlinedPlugin::new()
+                    .commands(&[
+                        "schematics_list",
+                        "schematics_get",
+                        "schematics_install",
                     ])
                     .default_permission(
                         DefaultPermissionRule::AllowAllCommands,

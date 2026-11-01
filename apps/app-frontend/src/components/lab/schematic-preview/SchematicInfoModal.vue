@@ -88,12 +88,12 @@ defineExpose({ show: () => modal.value?.show() })
                             {{ region.size.join(' x ') }} - {{ formatNumber(region.blockCount) }}
                         </span>
                         <Button
+                            v-tooltip="formatMessage(messages.focusRegion)"
                             type="quiet"
                             size="2xs"
                             circular
                             icon-only
                             :aria-label="formatMessage(messages.focusRegion)"
-                            :title="formatMessage(messages.focusRegion)"
                             @click="emit('focusRegion', region)"
                             ><ScanEyeIcon />
                         </Button>

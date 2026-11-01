@@ -100,9 +100,23 @@ it('keeps the calendar tooltip attached on scroll and layout changes, with visib
 })
 
 it('switches tooltip ownership between dates and cleans up on period change and unmount', async () => {
-    const { wrapper, trigger } = await calendar()
+    const { wrapper } = await calendar()
+    const dateKeys = () => wrapper.findAll('[data-date-key]')
+    let trigger = dateKeys()[0].element as HTMLButtonElement
+    if (dateKeys().length < 2) {
+        // On the first day of a period only one date is selectable. Move to
+        // the previous period so the test always has two dates to switch
+        // between; otherwise it fails on the first of every month.
+        wrapper
+            .findAll('header button')[0]
+            .element.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+        await waitFor(() => dateKeys().length > 1)
+        trigger = dateKeys()[0].element as HTMLButtonElement
+        trigger.focus()
+        await waitFor(() => tip()?.parentElement?.dataset.state === 'open')
+    }
     const oldId = tip()!.id
-    const next = wrapper.findAll('[data-date-key]')[1].element as HTMLButtonElement
+    const next = dateKeys()[1].element as HTMLButtonElement
     next.focus()
     await waitFor(() => !!tip() && tip()!.id !== oldId)
     expect(trigger.hasAttribute('aria-describedby')).toBe(false)

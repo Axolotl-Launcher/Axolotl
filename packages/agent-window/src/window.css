@@ -914,6 +914,14 @@ code {
     padding: 6px 28px 28px;
     scroll-padding-bottom: 24px;
     scrollbar-width: none;
+    /* Text slides out under a short fade instead of a hard edge. */
+    mask-image: linear-gradient(
+        to bottom,
+        transparent,
+        #000 16px,
+        #000 calc(100% - 12px),
+        transparent
+    );
 }
 .message-scroll::-webkit-scrollbar {
     display: none;

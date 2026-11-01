@@ -30,22 +30,22 @@ export const ANNOUNCEMENT_CHANGE_TYPES: readonly AnnouncementChangeType[] = [
 
 export const launcherAnnouncements: readonly LauncherAnnouncement[] = [
     {
-      id: 'launcher-1.11.0-beta.1',
-      version: '1.11.0-beta.1',
-      publishedAt: '2026-10-31',
-      title: {
-          'en-US': 'Axolotl Launcher 1.11.0-beta.1',
-          'zh-CN': 'Axolotl Launcher 1.11.0-beta.1',
-      },
-      changes: {
-          fixed: [
-              {
-                  'en-US':
-                      'Fixed long-tail issues with modpack downloads, where some files would fail to download after many retries.',
-                  'zh-CN': '修复整合包下载长尾问题。',
-              },
-          ],
-      },
+        id: 'launcher-1.11.0-beta.1',
+        version: '1.11.0-beta.1',
+        publishedAt: '2026-10-31',
+        title: {
+            'en-US': 'Axolotl Launcher 1.11.0-beta.1',
+            'zh-CN': 'Axolotl Launcher 1.11.0-beta.1',
+        },
+        changes: {
+            fixed: [
+                {
+                    'en-US':
+                        'Fixed long-tail issues with modpack downloads, where some files would fail to download after many retries.',
+                    'zh-CN': '修复整合包下载长尾问题。',
+                },
+            ],
+        },
     },
     {
         id: 'launcher-1.10.5',

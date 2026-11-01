@@ -97,15 +97,9 @@ export function fileChip(file, removable = false) {
         {
             class: `file-chip${removable ? ' is-removable' : ''}`,
             data: pasted ? { kind: file.kind } : {},
-            title: pasted ? file.text.slice(0, 400) : null,
         },
         [
-            icon(PASTE_ICONS[file.kind] || 'file'),
-            h('span', { class: 'file-name', text: file.name }),
-            h('span', {
-                class: 'file-size',
-                text: pasted ? text('lineCount', { count: file.lines }) : sizeLabel(file.size),
-            }),
+            ...chipLabel(file, pasted),
             removable
                 ? button(
                       {
@@ -118,6 +112,29 @@ export function fileChip(file, removable = false) {
                 : null,
         ],
     )
+}
+
+// A paste opens a preview of its text; a file only shows its name and size.
+function chipLabel(file, pasted) {
+    const parts = [
+        icon(PASTE_ICONS[file.kind] || 'file'),
+        h('span', { class: 'file-name', text: file.name }),
+        h('span', {
+            class: 'file-size',
+            text: pasted ? text('lineCount', { count: file.lines }) : sizeLabel(file.size),
+        }),
+    ]
+    if (!pasted) return parts
+    return [
+        button(
+            {
+                class: 'file-open',
+                label: text('previewFile', { name: file.name }),
+                data: { filePreview: file.id },
+            },
+            parts,
+        ),
+    ]
 }
 
 function renderAttachments(thread) {

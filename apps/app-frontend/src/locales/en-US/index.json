@@ -389,6 +389,12 @@
   "app.agent-window.chat.line-count": {
     "message": "{count} lines"
   },
+  "app.agent-window.chat.preview-file": {
+    "message": "Preview {name}"
+  },
+  "app.agent-window.chat.more-lines": {
+    "message": "{count} more lines"
+  },
   "app.agent-window.chat.pasted-as-file": {
     "message": "Long text was attached as a file"
   },

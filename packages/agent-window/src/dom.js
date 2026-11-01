@@ -127,6 +127,28 @@ export function markdownBlocks(source) {
     return blocks
 }
 
+// Logs read faster with their levels told apart: errors and exceptions red,
+// warnings amber, stack frames dimmed. Every line stays a plain text node.
+const LOG_LANGS = new Set(['log', 'logs', 'crash', 'stacktrace'])
+const looksLikeLog = (source) => /^\s+at [\w$.]+\(/m.test(source) && /Exception|Error/.test(source)
+
+export function logLines(source) {
+    const lines = source.split('\n')
+    return lines.map((line, index) => {
+        const tone = /^\s+at |^\s*\.\.\. \d+ more/.test(line)
+            ? 'trace'
+            : /\b(ERROR|FATAL|SEVERE)\b|\w*(Exception|Error)\b|^Caused by:/.test(line)
+              ? 'error'
+              : /\bWARN(ING)?\b/.test(line)
+                ? 'warn'
+                : ''
+        return h('span', {
+            class: tone ? `log-line is-${tone}` : 'log-line',
+            text: index < lines.length - 1 ? `${line}\n` : line,
+        })
+    })
+}
+
 export function renderBlock(block) {
     let node
     switch (block.type) {
@@ -139,7 +161,11 @@ export function renderBlock(block) {
                         [icon('copy')],
                     ),
                 ]),
-                h('pre', {}, [h('code', { text: block.text })]),
+                h('pre', {}, [
+                    LOG_LANGS.has(block.lang) || (!block.lang && looksLikeLog(block.text))
+                        ? h('code', { class: 'is-log' }, logLines(block.text))
+                        : h('code', { text: block.text }),
+                ]),
             ])
             break
         case 'heading':

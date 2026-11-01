@@ -2106,6 +2106,87 @@ code {
     color: var(--fg);
     tab-size: 4;
 }
+.log-line.is-error {
+    color: var(--danger);
+}
+.log-line.is-warn {
+    color: var(--warning);
+}
+.log-line.is-trace {
+    color: var(--fg-3);
+}
+.file-open {
+    gap: 6px;
+    height: 100%;
+    max-width: 100%;
+    padding: 0;
+    border-radius: 6px;
+    color: inherit;
+    font: inherit;
+}
+.file-open > span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.file-open:hover .file-name {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+}
+.file-peek {
+    position: fixed;
+    inset: auto;
+    margin: 0;
+    width: min(640px, calc(100vw - 24px));
+    max-height: min(420px, 60vh);
+    flex-direction: column;
+    padding: 0;
+    overflow: hidden;
+    border: 1px solid var(--line-strong);
+    border-radius: 14px;
+    background: var(--overlay);
+    box-shadow: var(--shadow-pop);
+}
+.file-peek:popover-open {
+    display: flex;
+}
+.file-peek-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 10px 10px 14px;
+    border-bottom: 1px solid var(--line);
+    font-size: 13px;
+}
+.file-peek-head svg {
+    width: 16px;
+    height: 16px;
+    color: var(--accent-ink);
+}
+.file-peek-head span {
+    color: var(--fg-3);
+    font-size: 12px;
+}
+.file-peek-head .icon-button {
+    margin-left: auto;
+}
+.file-peek pre {
+    flex: 1;
+    min-height: 0;
+    margin: 0;
+    padding: 10px 14px 14px;
+    overflow: auto;
+    font: 12px/1.6 var(--font-mono);
+    color: var(--fg);
+    tab-size: 4;
+}
+.file-peek-more {
+    margin: 0;
+    padding: 8px 14px;
+    border-top: 1px solid var(--line);
+    color: var(--fg-3);
+    font-size: 12px;
+}
 .code-block code {
     padding: 0;
     background: none;

@@ -389,6 +389,12 @@
   "app.agent-window.chat.line-count": {
     "message": "{count} 行"
   },
+  "app.agent-window.chat.preview-file": {
+    "message": "预览{name}"
+  },
+  "app.agent-window.chat.more-lines": {
+    "message": "还有 {count} 行"
+  },
   "app.agent-window.chat.pasted-as-file": {
     "message": "长文本已作为附件添加"
   },

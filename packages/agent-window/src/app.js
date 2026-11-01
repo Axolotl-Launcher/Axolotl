@@ -43,6 +43,7 @@ import { heroListens, renderHelp, renderHome } from './view-home.js'
 import {
     acceptConfirm,
     bindTips,
+    openFilePeek,
     closeMenu,
     closePicker,
     confirm,
@@ -972,6 +973,14 @@ function threadMenu(id, anchor) {
     ])
 }
 
+// A pasted attachment, in the draft or in any request of the open task.
+function findAttachment(id) {
+    const thread = currentThread()
+    return [...thread.attachments, ...thread.turns.flatMap((turn) => turn.attachments)].find(
+        (file) => file.id === id && file.kind,
+    )
+}
+
 function togglePin(id) {
     if (
         commit((next) => {
@@ -1297,7 +1306,7 @@ const actions = {
 
 document.addEventListener('click', (event) => {
     const target = event.target.closest(
-        '[data-action], [data-thread], [data-thread-menu], [data-prompt], [data-model], [data-instance], [data-copy-turn], [data-remove-attachment], [data-remove-queued], [data-send-queued], [data-menu-rename], [data-menu-delete], [data-toggle-change], [data-copy-code], [data-copy-link], [data-edit-turn], [data-mark-turn], [data-menu-pin], [data-menu-copy], [data-followup]',
+        '[data-action], [data-thread], [data-thread-menu], [data-prompt], [data-model], [data-instance], [data-copy-turn], [data-remove-attachment], [data-remove-queued], [data-send-queued], [data-menu-rename], [data-menu-delete], [data-toggle-change], [data-copy-code], [data-copy-link], [data-edit-turn], [data-mark-turn], [data-menu-pin], [data-menu-copy], [data-followup], [data-file-preview], [data-copy-paste]',
     )
     if (!target || target.disabled) return
     const data = target.dataset
@@ -1353,7 +1362,13 @@ document.addEventListener('click', (event) => {
             element('message-input').focus()
         }
     } else if (data.copyTurn) copy(data.copyTurn, data.copyKind)
-    else if (data.followup) {
+    else if (data.filePreview) {
+        const file = findAttachment(data.filePreview)
+        if (file) openFilePeek(file, target)
+    } else if (data.copyPaste) {
+        const file = findAttachment(data.copyPaste)
+        if (file) copyText(file.text)
+    } else if (data.followup) {
         const input = element('message-input')
         input.value = data.followup
         input.dispatchEvent(new Event('input', { bubbles: true }))

@@ -1038,3 +1038,38 @@ it('marks a task that finishes in the background as unread until it is opened', 
     await row.locator('.thread-link').click()
     expect(await page.locator('.thread-row.is-unread').count()).toBe(0)
 })
+
+it('previews a pasted log with its errors, warnings and stack frames told apart', async () => {
+    const log = [
+        '[12:00:01] [main/INFO]: Loading Minecraft 1.21.1',
+        '[12:00:02] [main/WARN]: Mod tweaks uses an old format',
+        '[12:00:03] [Render thread/ERROR]: Mixin apply failed',
+        'java.lang.RuntimeException: boom',
+        ...Array.from(
+            { length: 20 },
+            (_, index) => `\tat net.minecraft.Example.call(Example.java:${index})`,
+        ),
+    ].join('\n')
+    await page.locator('#message-input').focus()
+    await page.evaluate((value) => {
+        const data = new DataTransfer()
+        data.setData('text/plain', value)
+        document
+            .getElementById('message-input')!
+            .dispatchEvent(
+                new ClipboardEvent('paste', {
+                    clipboardData: data,
+                    bubbles: true,
+                    cancelable: true,
+                }),
+            )
+    }, log)
+    expect(await page.locator('#attachment-list .file-chip').getAttribute('data-kind')).toBe('log')
+    await page.locator('#attachment-list .file-open').click()
+    const peek = page.locator('#file-peek')
+    await peek.waitFor()
+    expect(await peek.locator('.log-line.is-error').count()).toBe(2)
+    expect(await peek.locator('.log-line.is-warn').count()).toBe(1)
+    expect(await peek.locator('.log-line.is-trace').count()).toBe(20)
+    expect(await peek.locator('code').textContent()).toBe(log)
+})

@@ -290,6 +290,8 @@ export const agentWindowMessages = defineMessages({
     },
     pasteLogName: { id: 'app.agent-window.chat.paste-log-name', defaultMessage: 'Game log' },
     lineCount: { id: 'app.agent-window.chat.line-count', defaultMessage: '{count} lines' },
+    previewFile: { id: 'app.agent-window.chat.preview-file', defaultMessage: 'Preview {name}' },
+    moreLines: { id: 'app.agent-window.chat.more-lines', defaultMessage: '{count} more lines' },
     pastedAsFile: {
         id: 'app.agent-window.chat.pasted-as-file',
         defaultMessage: 'Long text was attached as a file',

@@ -1,5 +1,5 @@
 // Popovers, dialogs and toasts.
-import { button, element, h, icon } from './dom.js'
+import { button, element, h, icon, logLines } from './dom.js'
 import { text } from './messages.js'
 import { currentThread, modelsAvailable, session } from './session.js'
 
@@ -435,4 +435,45 @@ export function bindTips() {
     for (const name of ['pointerdown', 'keydown', 'scroll', 'focusout'])
         document.addEventListener(name, hideTip, true)
     window.addEventListener('blur', hideTip)
+}
+
+// ---------- pasted text ----------
+
+// A pasted crash report or log, shown above its chip with the same colours as
+// a log in an answer. Long pastes show their start; the copy has all of it.
+const PEEK_LINES = 300
+export function openFilePeek(file, anchor) {
+    const peek = element('file-peek')
+    if (peek.matches(':popover-open')) peek.hidePopover()
+    const lines = file.text.split('\n')
+    peek.replaceChildren(
+        h('div', { class: 'file-peek-head' }, [
+            icon(file.kind === 'crash' ? 'alert' : file.kind === 'log' ? 'list' : 'file'),
+            h('strong', { text: file.name }),
+            h('span', { text: text('lineCount', { count: file.lines }) }),
+            button(
+                {
+                    class: 'icon-button tiny',
+                    label: text('copy'),
+                    data: { copyPaste: file.id },
+                },
+                icon('copy'),
+            ),
+        ]),
+        h('pre', {}, [
+            h('code', { class: 'is-log' }, logLines(lines.slice(0, PEEK_LINES).join('\n'))),
+        ]),
+        lines.length > PEEK_LINES
+            ? h('p', {
+                  class: 'file-peek-more',
+                  text: text('moreLines', { count: lines.length - PEEK_LINES }),
+              })
+            : null,
+    )
+    peek.showPopover()
+    const rect = anchor.getBoundingClientRect()
+    const above = rect.top - 12 > peek.offsetHeight
+    peek.style.left = `${Math.round(Math.max(12, Math.min(rect.left, window.innerWidth - peek.offsetWidth - 12)))}px`
+    peek.style.top = `${Math.round(above ? rect.top - 8 - peek.offsetHeight : rect.bottom + 8)}px`
+    peek.dataset.side = above ? 'above' : 'below'
 }

@@ -358,6 +358,8 @@ fn settings_commands_are_registered_and_limited_to_the_main_window() {
     for command in [
         "settings_layers",
         "settings_override_clear",
+        "settings_sanitise",
+        "settings_import",
         "settings_export",
     ] {
         assert!(runtime.contains(command));

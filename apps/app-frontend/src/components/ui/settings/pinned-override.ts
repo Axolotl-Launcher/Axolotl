@@ -29,6 +29,12 @@ async function loadLayers(reportError: (error: unknown) => void) {
     }
 }
 
+/** Re-reads the shared layer state after an operation rewrote the local documents. */
+export async function reloadSettingsLayers(reportError: (error: unknown) => void) {
+    loading = null
+    await loadLayers(reportError)
+}
+
 export function usePinnedOverride(key: MaybeRefOrGetter<string>) {
     const { handleError } = injectNotificationManager()
     const restoring = ref(false)

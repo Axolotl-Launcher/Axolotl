@@ -17422,5 +17422,53 @@
   },
   "app.downloads.diagnostics.pool-help": {
     "message": "Currently available resource permits in the global download pool, shared with other files and tasks. This is not the number of sockets the operating system can open."
+  },
+  "app.settings.export.cleanup-label": {
+    "message": "Local settings"
+  },
+  "app.settings.export.cleanup-button": {
+    "message": "Clean up…"
+  },
+  "app.settings.export.cleanup-running": {
+    "message": "Cleaning up…"
+  },
+  "app.settings.export.cleanup-confirm-title": {
+    "message": "Clean up local settings?"
+  },
+  "app.settings.export.cleanup-confirm-description": {
+    "message": "Rewrites every local settings document, discarding unknown and redundant keys. This cannot be undone."
+  },
+  "app.settings.export.cleanup-confirm-proceed": {
+    "message": "Clean up"
+  },
+  "app.settings.export.cleanup-done-title": {
+    "message": "Local settings cleaned up"
+  },
+  "app.settings.export.cleanup-done-text": {
+    "message": "{count, plural, =0 {No local settings document needed rewriting.} one {Rewrote # local settings document.} other {Rewrote # local settings documents.}}"
+  },
+  "app.settings.export.import-label": {
+    "message": "Settings file"
+  },
+  "app.settings.export.import-button": {
+    "message": "Import…"
+  },
+  "app.settings.export.import-running": {
+    "message": "Importing…"
+  },
+  "app.settings.export.import-confirm-title": {
+    "message": "Import settings?"
+  },
+  "app.settings.export.import-confirm-description": {
+    "message": "Merges the file into your local settings. Where both set the same key, the imported value wins. This cannot be undone."
+  },
+  "app.settings.export.import-confirm-proceed": {
+    "message": "Import"
+  },
+  "app.settings.export.imported-title": {
+    "message": "Settings imported"
+  },
+  "app.settings.export.imported-text": {
+    "message": "{count, plural, =0 {No local settings document changed.} one {Updated # local settings document.} other {Updated # local settings documents.}}"
   }
 }

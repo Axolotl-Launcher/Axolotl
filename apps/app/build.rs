@@ -846,6 +846,8 @@ fn main() {
                         "settings_patch",
                         "settings_layers",
                         "settings_override_clear",
+                        "settings_sanitise",
+                        "settings_import",
                         "settings_export",
                         "privacy_get",
                         "privacy_set",

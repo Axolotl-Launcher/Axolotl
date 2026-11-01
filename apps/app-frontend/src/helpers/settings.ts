@@ -381,6 +381,16 @@ export async function exportSettings(outputPath: string, kind: SettingsExportKin
     await invoke('plugin:settings|settings_export', { outputPath, kind })
 }
 
+/** Rewrites every local document in this build's shape; returns how many it rewrote. */
+export async function sanitiseSettings(): Promise<number> {
+    return await invoke('plugin:settings|settings_sanitise')
+}
+
+/** Merges a settings file into the local documents; returns how many it rewrote. */
+export async function importSettings(inputPath: string): Promise<number> {
+    return await invoke('plugin:settings|settings_import', { inputPath })
+}
+
 export async function cancel_directory_change(): Promise<void> {
     return await invoke('plugin:settings|cancel_directory_change')
 }

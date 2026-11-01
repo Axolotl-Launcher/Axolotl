@@ -20641,5 +20641,53 @@
   },
   "app.downloads.diagnostics.pool-help": {
     "message": "全局共享下载池当前剩余的资源额度，会受其他文件和任务影响。"
+  },
+  "app.settings.export.cleanup-label": {
+    "message": "本地设置"
+  },
+  "app.settings.export.cleanup-button": {
+    "message": "整理…"
+  },
+  "app.settings.export.cleanup-running": {
+    "message": "正在整理…"
+  },
+  "app.settings.export.cleanup-confirm-title": {
+    "message": "整理本地设置？"
+  },
+  "app.settings.export.cleanup-confirm-description": {
+    "message": "会重写全部本地设置文档，并丢弃未知和冗余的键。此操作不可撤销。"
+  },
+  "app.settings.export.cleanup-confirm-proceed": {
+    "message": "整理"
+  },
+  "app.settings.export.cleanup-done-title": {
+    "message": "本地设置已整理"
+  },
+  "app.settings.export.cleanup-done-text": {
+    "message": "{count, plural, =0 {没有文档需要重写。} other {已重写 # 个本地设置文档。}}"
+  },
+  "app.settings.export.import-label": {
+    "message": "设置文件"
+  },
+  "app.settings.export.import-button": {
+    "message": "导入…"
+  },
+  "app.settings.export.import-running": {
+    "message": "正在导入…"
+  },
+  "app.settings.export.import-confirm-title": {
+    "message": "导入设置？"
+  },
+  "app.settings.export.import-confirm-description": {
+    "message": "文件会与现有本地设置合并，冲突的键以导入文件为准。此操作不可撤销。"
+  },
+  "app.settings.export.import-confirm-proceed": {
+    "message": "导入"
+  },
+  "app.settings.export.imported-title": {
+    "message": "设置已导入"
+  },
+  "app.settings.export.imported-text": {
+    "message": "{count, plural, =0 {没有文档发生变化。} other {已更新 # 个本地设置文档。}}"
   }
 }

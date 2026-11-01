@@ -13,6 +13,8 @@ pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
             settings_patch,
             settings_layers,
             settings_override_clear,
+            settings_sanitise,
+            settings_import,
             settings_export,
             privacy_get,
             privacy_set,
@@ -120,6 +122,29 @@ pub async fn settings_override_clear(
     expected: serde_json::Value,
 ) -> Result<bool> {
     Ok(settings::clear_override(&key, &expected).await?)
+}
+
+/// Rewrites every local settings document in the shape this build knows, which
+/// is what releases a document a newer build wrote from being read-only.
+#[tauri::command]
+pub async fn settings_sanitise() -> Result<usize> {
+    Ok(settings::sanitise().await?)
+}
+
+/// Merges an exported settings document, read from `input_path`, into the local
+/// documents. The file is parsed here so a malformed one is refused before any
+/// document is rewritten.
+#[tauri::command]
+pub async fn settings_import(input_path: PathBuf) -> Result<usize> {
+    let contents = tokio::fs::read(&input_path).await?;
+    let input: serde_json::Value =
+        serde_json::from_slice(&contents).map_err(|error| {
+            theseus::Error::from(theseus::ErrorKind::InputError(format!(
+                "{} is not a settings document: {error}",
+                input_path.display()
+            )))
+        })?;
+    Ok(settings::import(input).await?)
 }
 
 /// Which settings an export writes.

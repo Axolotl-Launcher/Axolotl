@@ -649,10 +649,23 @@ code {
 }
 .list-empty {
     position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
     margin: 28px 10px;
     color: var(--fg-3);
     font-size: 13px;
     text-align: center;
+}
+.list-empty p {
+    margin: 0;
+}
+/* A small, quiet axolotl keeps the empty list company. */
+.list-empty .axo {
+    width: 40px;
+    height: 40px;
+    opacity: 0.7;
 }
 .thread-row {
     position: relative;
@@ -4088,6 +4101,11 @@ p.plan-state {
     }
 }
 @media (max-width: 759px) {
+    /* Narrow windows keep the navigator's hit area clear of the text. */
+    .rail-item {
+        width: 26px;
+        padding-right: 4px;
+    }
     .workspace,
     .workspace.sidebar-collapsed {
         --sidebar-width: 0px;

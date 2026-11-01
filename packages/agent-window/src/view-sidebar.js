@@ -1,7 +1,7 @@
 // Task history: pinned tasks first, then newest first, with a quiet marker for
 // tasks that are working or waiting for the user.
 import { button, element, h, icon } from './dom.js'
-import { pixelLoader } from './mascot.js'
+import { axolotl, pixelLoader } from './mascot.js'
 import { text } from './messages.js'
 import { reducedMotion } from './motion.js'
 import { session } from './session.js'
@@ -90,7 +90,12 @@ export function renderSidebar() {
     list.append(
         ...(rows.length
             ? rows
-            : [h('p', { class: 'list-empty', text: text(query ? 'noResults' : 'noChats') })]),
+            : [
+                  h('div', { class: 'list-empty' }, [
+                      query ? null : axolotl({ mood: 'idle', className: 'axo-sm' }),
+                      h('p', { text: text(query ? 'noResults' : 'noChats') }),
+                  ]),
+              ]),
     )
     placeHighlight(list)
 }

@@ -230,6 +230,27 @@ it('answers in the window language and borrows an instance only when one is need
     expect(generic.events.some((event) => event.type === 'title')).toBe(false)
 })
 
+it('says a chosen instance has gone instead of picking one as if none was chosen', async () => {
+    const runtime = new DemoRuntime()
+    const instances = [
+        { id: 'v', name: 'Vanilla Survival', game_version: '1.21.4', loader: 'vanilla' },
+    ]
+    const firstStep = async (scope: string) => {
+        const { events } = await play((emit) =>
+            runtime.start(request('Back up my world', { instance: null, scope, instances }), emit),
+        )
+        return events.find((event) => event.type === 'step' && event.status === 'done')!.step as {
+            title: string
+            detail: string
+        }
+    }
+    const missing = await firstStep('missing')
+    expect(missing.title).toBe('Look for the chosen instance')
+    expect(missing.detail).toContain('Vanilla Survival')
+    expect(missing.detail).toContain('not in your list')
+    expect((await firstStep('launcher')).title).toBe('Pick an instance')
+})
+
 it('stops without emitting anything further and can fail on request', async () => {
     const runtime = new DemoRuntime({ fail: 1 })
     const events: Event[] = []

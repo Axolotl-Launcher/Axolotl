@@ -270,6 +270,12 @@ const IDENTITY = [
     'data-edit-turn',
     'data-toggle-change',
     'data-file-preview',
+    'data-remove-attachment',
+    'data-remove-queued',
+    'data-send-queued',
+    // Named by its request, which can repeat across turns ("Why change
+    // Sodium?"); the twin is looked for in the nearest scope first.
+    'data-followup',
     'data-turn',
     'data-prompt',
     'data-detail',
@@ -313,8 +319,18 @@ export function focusPlace(node = document.activeElement) {
     return { node, key: keyOf(node), scopes }
 }
 
+// The redrawn twin, looked for in the nearest scope that is still there before
+// the whole page, so a control repeated in several turns finds its own.
+function twinOf(place) {
+    for (const scope of [...place.scopes.filter((scope) => scope.isConnected), document]) {
+        const twin = [...scope.querySelectorAll(place.key)].find(focusable)
+        if (twin) return twin
+    }
+    return null
+}
+
 export function restoreFocus(place, fallback) {
-    const twin = place?.key && [...document.querySelectorAll(place.key)].find(focusable)
+    const twin = place?.key && twinOf(place)
     const target =
         (focusable(place?.node) && place.node) ||
         twin ||

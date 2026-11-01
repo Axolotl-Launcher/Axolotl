@@ -1,7 +1,8 @@
 // The window talks to an agent runtime through a small event contract, so the
 // interface is the same for the scripted preview and the future execution service.
 //
-// runtime.preview                 true only for the scripted preview
+// runtime.preview                 true only for the scripted preview; anything else
+//                                 (false or left out) counts as native
 // runtime.start(request, emit)   -> { stop() }   works on a new request
 // runtime.approve(request, emit) -> { stop() }   writes the approved plan
 // runtime.check(request, emit)   -> { stop() }   re-reads the outcome of interrupted writes
@@ -9,7 +10,9 @@
 // Every request carries:
 //   thread        { id, title }
 //   turn          { id, text, attachments: [{ id, name, size, kind?, text?, lines? }] }
-//   instance      the instance the task works in, or null for the whole launcher
+//   scope         'launcher' (the whole launcher), 'instance' (instance is set) or
+//                 'missing' (the chosen instance is not in the context)
+//   instance      the instance the task works in, or null unless scope is 'instance'
 //   instances     every instance the launcher offers
 //   model         { provider, model } for the turn, or null
 //   history       the thread's earlier turns, as stored

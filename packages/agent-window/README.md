@@ -177,7 +177,7 @@ runtime.start(request, emit) // a new turn, or the same turn again
 runtime.approve(request, emit) // write the plan the user approved
 runtime.check(request, emit) // read back the outcome of writes that were cut off
 // Each returns a handle { stop() } synchronously.
-runtime.preview // true only for the scripted runtime
+runtime.preview // true only for the scripted runtime; anything else counts as native
 ```
 
 A method that throws becomes an error event, "The agent couldn't start", which can be retried. The
@@ -189,19 +189,24 @@ running waits in that task's queue.
 
 Every call receives these fields:
 
-| Field          | Value                                                                                                                                                       |
-| -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `thread`       | `{ id, title }` of the task.                                                                                                                                |
-| `turn`         | `{ id, text, attachments }`. `text` can be empty when an attachment carries the request.                                                                    |
-| `instance`     | The context entry `{ id, name, game_version, loader }`, or `null` for the entire launcher. It is also `null` when the chosen instance has left the context. |
-| `instances`    | The context's full instance list.                                                                                                                           |
-| `model`        | `{ provider, model }`, both context entries, or `null`. Only Preview can send without a model.                                                              |
-| `history`      | Deep copies of the task's earlier turns, runs included (status, items, plans, `resume`). Pasted text makes these large.                                     |
-| `resume`       | This turn's saved `run.resume`, or `null`.                                                                                                                  |
-| `instructions` | The standing instructions from Settings, up to 2,000 characters. Can be empty.                                                                              |
+| Field          | Value                                                                                                                                    |
+| -------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `thread`       | `{ id, title }` of the task.                                                                                                             |
+| `turn`         | `{ id, text, attachments }`. `text` can be empty when an attachment carries the request.                                                 |
+| `scope`        | `'launcher'` for the entire launcher, `'instance'` when `instance` is set, or `'missing'` when the chosen instance has left the context. |
+| `instance`     | The context entry `{ id, name, game_version, loader }`, or `null` unless `scope` is `'instance'`.                                        |
+| `instances`    | The context's full instance list.                                                                                                        |
+| `model`        | `{ provider, model }`, both context entries, or `null`. Only Preview can send without a model.                                           |
+| `history`      | Deep copies of the task's earlier turns, runs included (status, items, plans, `resume`). Pasted text makes these large.                  |
+| `resume`       | This turn's saved `run.resume`, or `null`.                                                                                               |
+| `instructions` | The standing instructions from Settings, up to 2,000 characters. Can be empty.                                                           |
 
 `approve` also receives `planId` (the id of the plan being approved) and `excluded` (the **names**
 of the changes the user took out).
+
+A `'missing'` instance shows as "Instance unavailable" in the composer. The runtime should say that
+the chosen instance is gone rather than treat the request as one for the entire launcher; the
+Preview says so before it borrows the first instance for a task that needs one.
 
 Declining or replacing a plan does not call the runtime. The next request sees it in `history`, as
 a run with status `declined` or `superseded`.
@@ -280,9 +285,9 @@ The window uses the native runtime only when all of these hold:
    for now.
 3. No Preview run is in flight. The window switches at its next context refresh.
 
-Set `preview: false` on the native runtime explicitly. `ensureRuntime()` compares `runtime.preview`
-with the mode it wants. If `preview` is left undefined, the window never falls back to Preview when
-`execution_available` later turns false.
+Only `preview: true` marks a runtime as the Preview. `ensureRuntime()` treats any other value,
+`false` or none at all, as native, so a native runtime still hands back to Preview when
+`execution_available` later turns false. Setting `preview: false` says so plainly.
 
 Once Preview is off, the badge and the composer note go, new runs are not marked `preview`,
 results lose "Simulated in preview", and sending needs a model.
@@ -667,9 +672,10 @@ Performance:
 Accessibility:
 
 - Focus guard (`guardFocus` in `dom.js`): when a redraw removes, hides, disables or makes inert
-  the focused control, the focus moves to its redrawn twin (same identifying attributes), else to
-  the first control left in its step group, turn, list or popover, else to the composer. A pane
-  that closes hands the focus to its toggle first.
+  the focused control, the focus moves to its redrawn twin (same identifying attributes, looked for
+  in its own step group, turn, list or popover first), else to the first control left there, else
+  to the composer. A pane that closes hands the focus to its toggle first. Removing an attachment
+  or a queued message moves the focus to the next one, or to the composer once none are left.
 - Announcer (`#announcer`): the open task's latest run is announced once per phase (working, plan
   waiting, applying, and how it ended), never token by token. The agent side of each turn is
   `aria-live="off"`, and other tasks report through toasts.

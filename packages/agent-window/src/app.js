@@ -654,7 +654,9 @@ function refreshContext() {
 let runtimeFlight = null
 function ensureRuntime() {
     const wantsNative = !!window.AgentHost?.runtime && session.context.execution_available
-    if (session.runtime && session.runtime.preview !== wantsNative) return Promise.resolve()
+    // Only `preview: true` marks the scripted runtime. Anything else is native,
+    // so a native runtime that leaves `preview` out still hands back to Preview.
+    if (session.runtime && isPreview() !== wantsNative) return Promise.resolve()
     if (session.runtime && session.handles.size) return Promise.resolve()
     runtimeFlight ||= createRuntime(window.AgentHost, session.context)
         .then((runtime) => {
@@ -727,10 +729,14 @@ async function savePermissions(next) {
 
 function request(thread, turn, extra = {}) {
     const index = thread.turns.findIndex((entry) => entry.id === turn.id)
+    const instance = instanceChoice(turn.instanceId)
     return {
         thread: { id: thread.id, title: thread.title },
         turn: { id: turn.id, text: turn.text, attachments: structuredClone(turn.attachments) },
-        instance: instanceChoice(turn.instanceId),
+        instance,
+        // `instance` is null both for the whole launcher and for a chosen
+        // instance the context no longer has; this tells the two apart.
+        scope: !turn.instanceId ? 'launcher' : instance ? 'instance' : 'missing',
         instances: session.context.instances,
         model: modelChoice(turn.selection),
         history: structuredClone(thread.turns.slice(0, index)),
@@ -848,8 +854,11 @@ function settle(threadId, before) {
 function startTurn(threadId, message) {
     let created = null
     const first = !findThread(threadId)?.turns.length
-    const change = () =>
-        commit((next) => {
+    // The turn exists only once it is saved. A failed save leaves the draft,
+    // the queue and the transcript as they were, and nothing is launched.
+    const change = () => {
+        let turnId = null
+        const saved = commit((next) => {
             const thread = byId(next.threads, threadId)
             const last = lastTurn(thread)
             if (last) supersedePlan(last.run)
@@ -864,9 +873,12 @@ function startTurn(threadId, message) {
                 ).slice(0, 48)
             thread.updatedAt = Date.now()
             if (thread.selection) next.lastSelection = structuredClone(thread.selection)
-            created = turn.id
+            turnId = turn.id
             message.apply?.(thread)
         })
+        if (saved) created = turnId
+        return saved
+    }
     // Runs the new turn once it is on screen.
     const begin = () => {
         if (!created) return false
@@ -879,8 +891,7 @@ function startTurn(threadId, message) {
         return morph(() => {
             if (change()) render()
         }, 'send').then(begin)
-    change()
-    if (created) render()
+    if (change()) render()
     return Promise.resolve(begin())
 }
 
@@ -1492,6 +1503,14 @@ const actions = {
 
 const RUN_ACTIONS = new Set(['approve', 'decline', 'retry', 'check-status'])
 
+// A remove button that held the focus hands it to the entry that took its
+// place, or to the one before when the last went, so the next press removes
+// the next one. Once none are left the focus waits in the composer.
+function focusAfterRemove(list, attribute, index) {
+    const buttons = element(list).querySelectorAll(`[${attribute}]`)
+    ;(buttons[Math.min(index, buttons.length - 1)] || element('message-input')).focus()
+}
+
 document.addEventListener('click', (event) => {
     const target = event.target.closest(
         '[data-action], [data-thread], [data-thread-menu], [data-prompt], [data-model], [data-instance], [data-copy-turn], [data-remove-attachment], [data-remove-queued], [data-send-queued], [data-menu-rename], [data-menu-delete], [data-toggle-change], [data-copy-code], [data-copy-link], [data-edit-turn], [data-mark-turn], [data-menu-pin], [data-menu-copy], [data-followup], [data-file-preview], [data-copy-paste]',
@@ -1594,18 +1613,29 @@ document.addEventListener('click', (event) => {
         input.setSelectionRange(input.value.length, input.value.length)
     } else if (data.removeAttachment) {
         const thread = currentThread()
+        const index = thread.attachments.findIndex((file) => file.id === data.removeAttachment)
+        const focused = target === document.activeElement
         thread.attachments = thread.attachments.filter((file) => file.id !== data.removeAttachment)
         persistSoon()
         renderComposer()
+        if (focused) focusAfterRemove('attachment-list', 'data-remove-attachment', index)
     } else if (data.removeQueued) {
+        const index = currentThread().queue.findIndex((entry) => entry.id === data.removeQueued)
+        const focused = target === document.activeElement
         if (
             commit((next, thread) => {
                 thread.queue = thread.queue.filter((entry) => entry.id !== data.removeQueued)
             })
-        )
+        ) {
             renderComposer()
-    } else if (data.sendQueued) sendQueued(session.store.activeId, data.sendQueued)
-    else if (data.toggleChange) {
+            if (focused) focusAfterRemove('queue-list', 'data-remove-queued', index)
+        }
+    } else if (data.sendQueued) {
+        sendQueued(session.store.activeId, data.sendQueued)
+        // The row goes with the request; as with a run action, the focus waits
+        // in the composer, where Escape stops the run.
+        if (!focusable(target)) element('message-input').focus()
+    } else if (data.toggleChange) {
         const [turnId, index] = data.toggleChange.split(':')
         let ok = false
         if (
@@ -1627,13 +1657,16 @@ element('composer').addEventListener('submit', (event) => {
 element('message-input').addEventListener('input', (event) => {
     // Unsaved text stays in memory when storage fails; sending is transactional.
     const thread = currentThread()
+    const listed = !!thread.draft
     thread.draft = event.target.value
     persistSoon(250)
     heroListens(!!event.target.value.trim())
     renderComposer()
     syncSlash(event.target.value)
     element('conversation-more').hidden = !thread.turns.length && !thread.draft
-    if (!thread.turns.length && thread.title === '' && thread.draft) renderSidebar()
+    // A new task without a title is listed only while it has a draft, so its row
+    // comes and goes when the draft does; other keystrokes leave the list alone.
+    if (!thread.turns.length && !thread.title && listed !== !!thread.draft) renderSidebar()
 })
 
 element('message-input').addEventListener('keydown', (event) => {

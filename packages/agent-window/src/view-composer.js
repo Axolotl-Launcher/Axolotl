@@ -2,7 +2,7 @@
 // agent works it turns into a stop button and queues follow-ups.
 import { includedChanges, pendingPlan } from './agent.js'
 import { button, element, h, icon } from './dom.js'
-import { sizeLabel, text } from './messages.js'
+import { locale, sizeLabel, text } from './messages.js'
 import {
     currentThread,
     instanceChoice,
@@ -96,6 +96,21 @@ export function appliedChanges(thread) {
 // opens the list; it steps aside while the agent works or waits for approval.
 function renderChangesPill(thread, busy) {
     const pill = element('changes-pill')
+    // Only the latest turn's plans can still change. Older turns change only
+    // when turns are added or dropped, which moves the count or the last id.
+    const last = thread.turns.at(-1)
+    const signature = [
+        thread.id,
+        thread.turns.length,
+        last?.id,
+        last?.run.items
+            .filter((item) => item.type === 'plan')
+            .map((item) => item.state)
+            .join(),
+        busy,
+    ].join('|')
+    if (pill.dataset.signature === signature) return
+    pill.dataset.signature = signature
     const count = appliedChanges(thread).length
     pill.hidden = !count || busy
     if (!pill.hidden) pill.querySelector('.changes-count').textContent = String(count)
@@ -163,14 +178,25 @@ function chipLabel(file, pasted) {
     ]
 }
 
+// The composer renders on every keystroke, so the chips and the queue are
+// rebuilt only when what they show changes. Names, sizes and queued entries
+// never change; a text file gains its kind and line count once it is read.
 function renderAttachments(thread) {
     const list = element('attachment-list')
+    const signature = `${locale()}|${thread.attachments
+        .map((file) => `${file.id}:${file.kind || ''}:${file.lines ?? ''}`)
+        .join()}`
+    if (list.dataset.signature === signature) return
+    list.dataset.signature = signature
     list.hidden = !thread.attachments.length
     list.replaceChildren(...thread.attachments.map((file) => fileChip(file, true)))
 }
 
 function renderQueue(thread, active) {
     const list = element('queue-list')
+    const signature = `${locale()}|${active}|${thread.queue.map((entry) => entry.id).join()}`
+    if (list.dataset.signature === signature) return
+    list.dataset.signature = signature
     list.hidden = !thread.queue.length
     list.replaceChildren(
         ...thread.queue.map((entry) =>

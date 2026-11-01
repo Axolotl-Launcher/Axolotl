@@ -616,6 +616,16 @@ export const PICK_INSTANCE_STEP = {
     zh: ['instance_list', '选择实例', '使用列表中的第一个实例 {instance}'],
 }
 
+// The task names an instance the launcher no longer lists (`scope: 'missing'`).
+export const MISSING_INSTANCE_STEP = {
+    en: [
+        'instance_list',
+        'Look for the chosen instance',
+        'It is not in your list any more, so using {instance}, the first one',
+    ],
+    zh: ['instance_list', '查找所选实例', '列表中已没有所选实例，改用第一个实例 {instance}'],
+}
+
 export const CHECK_STEP = {
     en: [
         'operations_get',

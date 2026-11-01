@@ -7,6 +7,7 @@ import {
     FAILURE,
     FLOWS,
     GENERIC,
+    MISSING_INSTANCE_STEP,
     PICK_INSTANCE_STEP,
     SAMPLE_INSTANCE,
     SKIPPED,
@@ -175,8 +176,13 @@ export class DemoRuntime {
                     null,
                     ...fill(ATTACHMENT_STEP[lang], file),
                 ])
-            if (picked)
-                await this.#read(playback, request, index++, fill(PICK_INSTANCE_STEP[lang], vars))
+            // An instance the user chose that has since gone is said to be gone,
+            // not passed off as no choice at all.
+            if (picked) {
+                const step =
+                    request.scope === 'missing' ? MISSING_INSTANCE_STEP : PICK_INSTANCE_STEP
+                await this.#read(playback, request, index++, fill(step[lang], vars))
+            }
             const reads = followup
                 ? copy.reads.slice(-1)
                 : flow

@@ -367,11 +367,14 @@ onBeforeUnmount(() => {
 /* Transparency needs a backdrop, or a texture's cut-out edges are invisible
    against the pane. Utilities cannot express a two-tone tile pattern. */
 .preview-transparency {
+    /* The grid has to stay visible on either theme, so its tone follows the text
+       palette instead of a fixed grey. */
+    --checker-tone: color-mix(in srgb, var(--color-text-tertiary) 24%, transparent);
     background-image:
-        linear-gradient(45deg, rgb(128 128 128 / 18%) 25%, transparent 25%),
-        linear-gradient(-45deg, rgb(128 128 128 / 18%) 25%, transparent 25%),
-        linear-gradient(45deg, transparent 75%, rgb(128 128 128 / 18%) 75%),
-        linear-gradient(-45deg, transparent 75%, rgb(128 128 128 / 18%) 75%);
+        linear-gradient(45deg, var(--checker-tone) 25%, transparent 25%),
+        linear-gradient(-45deg, var(--checker-tone) 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, var(--checker-tone) 75%),
+        linear-gradient(-45deg, transparent 75%, var(--checker-tone) 75%);
     background-position:
         0 0,
         0 8px,

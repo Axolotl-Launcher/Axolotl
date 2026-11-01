@@ -194,6 +194,19 @@ it('leaves a plain wheel scroll to the stage', async () => {
     expect(wrapper.text()).toContain('100%')
 })
 
+it('draws the transparency grid from the theme palette', () => {
+    const wrapper = mountPreview()
+    const image = wrapper.find('img').element as HTMLElement
+    const before = getComputedStyle(image).getPropertyValue('--checker-tone').trim()
+
+    image.style.setProperty('--color-text-tertiary', 'rgb(1, 2, 3)')
+    const after = getComputedStyle(image).getPropertyValue('--checker-tone').trim()
+
+    // A fixed grey would read the same whatever colour the theme sets.
+    expect(after).not.toBe(before)
+    expect(after).toContain('rgb(1, 2, 3)')
+})
+
 it('replaces an image the webview cannot decode with the fallback', async () => {
     const wrapper = mountPreview({ url: 'blob:not-an-image' })
     await wrapper.find('img').trigger('error')

@@ -646,7 +646,15 @@ export function openFilePeek(file, anchor) {
     )
     peek.setAttribute('aria-label', text('previewFile', { name: file.name }))
     const rect = showPeek(peek, anchor)
-    const above = rect.top - 12 > peek.offsetHeight
+    // It goes on the side with room for it, or the roomier side, and is never
+    // taller than that room, so it never runs off the window.
+    const roomAbove = rect.top - 20
+    const roomBelow = window.innerHeight - rect.bottom - 20
+    peek.style.maxHeight = ''
+    const natural = peek.offsetHeight
+    const above = natural <= roomAbove || (natural > roomBelow && roomAbove > roomBelow)
+    const room = Math.max(120, above ? roomAbove : roomBelow)
+    if (natural > room) peek.style.maxHeight = `${Math.round(room)}px`
     peek.style.top = `${Math.round(above ? rect.top - 8 - peek.offsetHeight : rect.bottom + 8)}px`
     peek.dataset.side = above ? 'above' : 'below'
     // The preview takes the focus, so it is read out and Escape closes it.

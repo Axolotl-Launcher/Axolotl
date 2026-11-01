@@ -35,11 +35,21 @@ function place(node) {
     placing.observe(node)
 }
 
+// History that is only being shown, not new, is not read out: the live
+// region stays busy while it changes.
+function quietly(change) {
+    root().setAttribute('aria-busy', 'true')
+    change()
+    requestAnimationFrame(() => root().removeAttribute('aria-busy'))
+}
+
 export function renderTranscript(thread) {
     placing.disconnect()
-    root().replaceChildren(
-        ...thread.turns.slice(-BATCH).map((turn) => createTurn(thread, turn, false)),
-    )
+    const nodes = thread.turns.slice(-BATCH).map((turn) => createTurn(thread, turn, false))
+    // Laid out once in full, so scrolling up through them never meets a turn
+    // that still has the estimated height.
+    nodes.forEach(place)
+    quietly(() => root().replaceChildren(...nodes))
 }
 
 // Patches the thread on screen: gone turns leave, new ones arrive at the
@@ -75,7 +85,7 @@ function showOlder(thread, index) {
     // The reader scrolls into this batch next, so it is laid out now; a jump
     // lays out only what lies above its turn.
     if (index === undefined) nodes.forEach(place)
-    keepView(() => root().prepend(...nodes))
+    quietly(() => keepView(() => root().prepend(...nodes)))
     return true
 }
 

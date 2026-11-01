@@ -1,19 +1,35 @@
 // The agent's mark: the launcher's own 3D axolotl, rendered from the official
 // model into sprite strips (dev/render-mascot.py) and played by mascot.css.
 // Moods only change data-mood; each mood's strip and timing live in the CSS.
-//   idle  - 2.4 s seamless loop: breathing, drifting gills and tail, a blink
-//   think - 1.2 s seamless loop: curious head tilt, fluttering gills
-//   happy - 0.9 s once: a hop with flared gills, ending on the rest pose
-//   sad   - 0.8 s once: head and gills droop, holding the last frame
+//   idle   - 2.4 s seamless loop: breathing, drifting gills and tail, a blink
+//   think  - 1.2 s seamless loop: curious head tilt, fluttering gills
+//   work   - 0.9 s seamless loop: paddling legs, rocking body, sweeping tail
+//   happy  - 0.9 s once: a hop with flared gills, ending on the rest pose
+//   sad    - 0.8 s once: head and gills droop, holding the last frame
+//   hello  - 1.3 s once: waves the near front paw by its cheek, ending on rest
+//   look   - 1.8 s once: glances one way, then the other, ending on rest
+//   attend - 0.5 s once: perks up and leans in to listen, holding the last frame
+//   nod    - 0.7 s once: two small yes-nods, ending on the rest pose
+// Each size only has strips for the moods in PLAYED; others show idle there.
+import { reducedMotion } from './motion.js'
+
 const NS = 'http://www.w3.org/2000/svg'
-const MOODS = ['idle', 'think', 'happy', 'sad']
-const ONE_SHOTS = new Set(['happy', 'sad'])
+const MOODS = ['idle', 'think', 'work', 'happy', 'sad', 'hello', 'look', 'attend', 'nod']
+// One-shots that restart when set again. attend never does: it is set while
+// the user types and should simply stay perked.
+const REPLAY = new Set(['happy', 'sad', 'hello', 'look', 'nod'])
+// The old frame's fade; matches axo-ghost in mascot.css.
+const GHOST_MS = 180
 
 // Fetch and decode the strips a size actually plays once, so the first switch
-// to a mood does not show an empty box. The large mark only idles on the
-// new-task page; the small one works, celebrates and droops in the status
-// line. A large strip decodes to about 10 MB, so the unused ones stay cold.
-const PLAYED = { '': ['idle'], '-sm': ['think', 'happy', 'sad'] }
+// to a mood does not show an empty box. The large mark greets, looks around
+// and listens on the new-task page; the small one thinks, works and reacts in
+// the status line. A large strip decodes to up to 10 MB, so strips a size
+// never plays are not rendered at that size at all.
+const PLAYED = {
+    '': ['idle', 'hello', 'look', 'attend', 'happy'],
+    '-sm': ['idle', 'think', 'work', 'happy', 'sad', 'nod'],
+}
 const warmed = new Map()
 function warm(node) {
     const suffix = node.classList.contains('axo-sm') ? '-sm' : ''
@@ -30,7 +46,7 @@ function warm(node) {
 }
 
 // Returns a decorative <span class="axo">, sized by the caller's CSS (square;
-// add the axo-sm class below ~48 px).
+// add the axo-sm class below ~48 px). Change its mood with setMood.
 export function axolotl({ mood = 'idle', className = '' } = {}) {
     const node = document.createElement('span')
     node.className = `axo ${className}`.trim()
@@ -41,14 +57,80 @@ export function axolotl({ mood = 'idle', className = '' } = {}) {
 }
 
 // A new mood starts from its first frame because each mood has its own
-// keyframes; setting happy or sad again replays it from the start.
-export function setMood(node, mood) {
+// keyframes, and cross-dissolves in from the frame it replaces. Setting a
+// one-shot in REPLAY again replays it from the start; any other mood that is
+// already showing carries on. With `then`, a one-shot hands over to that mood
+// when it ends, unless something else has set a mood in the meantime:
+//   setMood(mark, 'hello', { then: 'idle' })
+export function setMood(node, mood, { then } = {}) {
     if (!node) return
     const next = MOODS.includes(mood) ? mood : 'idle'
+    const after = MOODS.includes(then) && then !== next ? then : null
     warm(node)
-    if (node.dataset.mood !== next) node.dataset.mood = next
-    else if (!ONE_SHOTS.has(next)) return
-    if (ONE_SHOTS.has(next)) replay(node)
+    // Without motion a one-shot is over as soon as it starts.
+    if (after && reducedMotion.matches) return setMood(node, after)
+    follow(node, next, after)
+    const same = node.dataset.mood === next
+    if (same && !REPLAY.has(next)) return
+    ghost(node)
+    node.dataset.mood = next
+    if (same) replay(node)
+}
+
+// Freezes the frame the mark shows on its ::after ghost, which mascot.css
+// fades out over the next mood. The frame comes from the running animation's
+// time, duration and frame count. A change during the fade restarts it with
+// the newer frame, so ghosts never stack.
+const ghosts = new WeakMap()
+function ghost(node) {
+    if (reducedMotion.matches || typeof node.getAnimations !== 'function') return
+    const animation = node.getAnimations().find((item) => item.animationName?.startsWith('axo-'))
+    const time = animation?.currentTime
+    const style = getComputedStyle(node)
+    const image = style.backgroundImage
+    const frames = parseInt(style.getPropertyValue('--axo-frames'), 10)
+    if (typeof time !== 'number' || !(frames > 1)) return
+    const { duration, iterations } = animation.effect.getComputedTiming()
+    if (!(duration > 0)) return
+    const elapsed = iterations === Infinity ? time % duration : Math.min(time, duration)
+    const frame = Math.min(frames - 1, Math.floor((elapsed / duration) * frames))
+    if ('ghost' in node.dataset) {
+        delete node.dataset.ghost
+        void node.offsetWidth
+    }
+    node.style.setProperty('--axo-ghost-image', image)
+    node.style.setProperty('--axo-ghost-frames', String(frames))
+    node.style.setProperty('--axo-ghost-x', `${(frame / (frames - 1)) * 100}%`)
+    node.dataset.ghost = ''
+    clearTimeout(ghosts.get(node))
+    ghosts.set(
+        node,
+        setTimeout(() => {
+            delete node.dataset.ghost
+            for (const name of ['--axo-ghost-image', '--axo-ghost-frames', '--axo-ghost-x'])
+                node.style.removeProperty(name)
+        }, GHOST_MS + 50),
+    )
+}
+
+// Remembers which mood a one-shot hands over to; every setMood call replaces
+// it, and the hand-over only happens if the one-shot is still showing.
+const handovers = new WeakMap()
+const listening = new WeakSet()
+function follow(node, mood, then) {
+    if (!then) {
+        handovers.delete(node)
+        return
+    }
+    handovers.set(node, { mood, then })
+    if (listening.has(node)) return
+    listening.add(node)
+    node.addEventListener('animationend', (event) => {
+        const handover = handovers.get(node)
+        if (!handover || event.animationName !== `axo-${handover.mood}`) return
+        handovers.delete(node)
+        if (node.dataset.mood === handover.mood) setMood(node, handover.then)
+    })
 }
 
 function replay(node) {

@@ -10,9 +10,12 @@ Pillow are needed. Strips go to src/mascot/ next to this script unless --out
 says otherwise; --preview also writes contact sheets and GIFs for review.
 
 Every frame of every mood shares one camera, scale and centre, measured from
-the union of all poses, so nothing jumps between frames or moods and the hop
-and gill flares never clip. If you change a motion or a frame count here,
-mirror the frame count and duration in src/mascot.css.
+the union of all poses, so nothing jumps between frames or moods and the hop,
+the wave and gill flares never clip. Each mood is rendered only at the sizes
+listed for it in MOODS; a strip left over from an earlier table is reported
+so it can be deleted along with its ASSETS entry in src/lib.rs. If you change
+a motion, a frame count or a size here, mirror it in src/mascot.css and in
+PLAYED in src/mascot.js.
 """
 
 import argparse
@@ -58,6 +61,12 @@ def window(t, a, b):
     return smoother((t - a) / (b - a))
 
 
+def back(x, k=1.6):
+    """0 -> 1 with a small overshoot that settles exactly on 1."""
+    x = clamp(x) - 1
+    return 1 + (k + 1) * x ** 3 + k * x ** 2
+
+
 def wave(phase, k=1, offset=0.0):
     return math.sin(TAU * (k * phase + offset))
 
@@ -74,13 +83,15 @@ def pulse(t, a, b):
 class Pose:
     """Offsets on top of the toolkit's rest pose. Angles in degrees, moves in
     model pixels. `lift` raises everything but the legs (breathing, crouch);
-    `hop` raises the whole animal; `lid` closes the eyes (0 open, 1 shut)."""
+    `hop` raises the whole animal; `pitch` and `roll` tip it about the ground
+    under its middle; `lid` closes the eyes (0 open, 1 shut)."""
 
     def __init__(self):
         self.rot = {}
         self.lift = 0.0
         self.hop = 0.0
         self.pitch = 0.0
+        self.roll = 0.0
         self.lid = 0.0
 
     def r(self, bone, x=0.0, y=0.0, z=0.0):
@@ -109,8 +120,8 @@ class Pose:
             entry = pose.setdefault(bone, {})
             x, y, z = entry.get('move', [0, 0, 0])
             entry['move'] = [x, y + self.lift, z]
-        if self.hop or self.pitch:
-            pose['root'] = {'rot': [self.pitch, 0, 0], 'move': [0, self.hop, 0]}
+        if self.hop or self.pitch or self.roll:
+            pose['root'] = {'rot': [self.pitch, 0, self.roll], 'move': [0, self.hop, 0]}
         return pose
 
 
@@ -216,13 +227,139 @@ def sad(u):
     return o
 
 
+HELLO_S = 1.3
+
+
+def hello(u):
+    """1.3 s: lifts its chin with a friendly head tilt and perked gills,
+    raises the near front leg beside its cheek and waves it three times, then
+    lowers it and settles exactly back to rest with a blink."""
+    t = u * HELLO_S
+    o = Pose()
+    face = back(t / 0.32) * (1 - window(t, 0.92, 1.24))
+    up = window(t, 0.04, 0.26) * (1 - window(t, 0.90, 1.12))
+    env = window(t, 0.16, 0.28) * (1 - window(t, 0.80, 0.94))
+    w = math.sin(TAU * (t - 0.22) / 0.22) * env
+    lag = math.sin(TAU * (t - 0.27) / 0.22) * env
+    o.lift = 0.25 * face - 0.1 * pulse(t, 0.0, 0.14)
+    o.r('head', x=3.0 * face - 1.5 * pulse(t, 1.08, HELLO_S), y=2.0 * face, z=-4.0 * face + 1.0 * lag)
+    # The near front leg sits under the cheek, so the paw waves between low
+    # and out (against the background) and high against the side of the
+    # head, where the perked gills have made room for it.
+    o.r('leg4', x=(50.0 + 20.0 * w) * up, y=(-35.0 + 5.0 * w) * up, z=(-5.0 - 5.0 * w) * up)
+    o.gills(flare=22.0 * face + 4.0 * lag, sweep=-3.0 * face, top=10.0 * face + 3.0 * lag)
+    wag = 8.0 * math.sin(TAU * (t - 0.1) / 0.48) * pulse(t, 0.05, 1.25)
+    o.r('tail', x=-2.5 * face, y=swing(wag))
+    o.lid = blink(t, 1.02, 0.16)
+    return o
+
+
+LOOK_S = 1.8
+
+
+def gaze(t):
+    """Head yaw for look: one side, a beat, the other side, back to rest. The
+    rest pose already faces the viewer three-quarters, so the first glance
+    turns past the viewer to the right and the second to the left."""
+    return 26.0 * back((t - 0.04) / 0.32) - 42.0 * back((t - 0.60) / 0.42) + 16.0 * back((t - 1.22) / 0.38)
+
+
+def look(u):
+    """1.8 s: glances to one side, holds a beat, glances to the other with a
+    blink on the way, holds, then turns back to rest. The gills trail each
+    turn and the tail answers it."""
+    t = u * LOOK_S
+    o = Pose()
+    g = gaze(t)
+    trail = gaze(t - 0.07) - g
+    away = min(1.0, abs(g) / 16.0)
+    o.lift = 0.15 * away
+    o.r('head', x=2.0 * away, y=g, z=-0.15 * g)
+    o.r('left_gills', y=0.9 * trail, z=0.3 * trail)
+    o.r('right_gills', y=0.9 * trail, z=-0.3 * trail)
+    o.r('top_gills', x=0.3 * abs(trail), y=0.6 * trail)
+    o.r('tail', y=swing(-0.3 * gaze(t - 0.12)))
+    o.lid = blink(t, 0.64, 0.16)
+    return o
+
+
+ATTEND_S = 0.5
+
+
+def attend(u):
+    """0.5 s, then held: perks up to listen. It leans in, the head lifts and
+    turns a little towards the viewer, the gills tip forward a beat later and
+    the eyes stay wide open. The last frame is the held pose."""
+    t = u * ATTEND_S
+    o = Pose()
+    e = back(t / 0.36, 1.4)
+    g = back((t - 0.04) / 0.38, 2.0)
+    o.pitch = -3.0 * e
+    o.lift = 0.3 * e - 0.08 * pulse(t, 0.0, 0.1)
+    o.r('head', x=5.0 * e, y=7.0 * e, z=-2.5 * e)
+    o.gills(flare=9.0 * g, sweep=-8.0 * g, top=12.0 * g)
+    o.r('tail', x=-2.0 * e, y=swing(3.0 * g))
+    return o
+
+
+def work(p):
+    """0.9 s: busy, focused paddling. The legs stroke in diagonal pairs, the
+    body rocks with each stroke, the tail sweeps and the gills stream back
+    while the head stays low and steady."""
+    o = Pose()
+    o.roll = 2.5 * wave(p, 2, -0.08)
+    o.lift = 0.12 * (0.5 - 0.5 * math.cos(TAU * 4 * p))
+    o.r('head', x=-2.5 + 1.0 * wave(p, 4, -0.1), y=-1.5 * wave(p, 2, -0.05))
+    # Front and back legs on the same side mirror their y axis, as in the
+    # toolkit's swimming poses; leg3 and leg2 stroke together, then leg4 and leg1.
+    for leg, side, phase in (('leg3', 1, 0.0), ('leg4', -1, 0.5), ('leg1', -1, 0.5), ('leg2', 1, 0.0)):
+        o.r(leg, y=side * 30.0 * wave(p, 2, phase))
+        if leg in ('leg3', 'leg4'):  # front paws lift on the way forward
+            o.r(leg, x=10.0 * max(0.0, wave(p, 2, phase + 0.25)))
+    o.gills(flare=4.0 * wave(p, 4, -0.1), sweep=6.0 + 3.0 * wave(p, 4, -0.15), top=-6.0 + 3.0 * wave(p, 4, -0.2))
+    o.r('tail', x=-1.0, y=swing(10.0 * wave(p, 2, -0.12)))
+    return o
+
+
+NOD_S = 0.7
+
+
+def bob(t):
+    """Head pitch for nod: two dips, the second smaller, and a small rebound."""
+    return -14.0 * pulse(t, 0.0, 0.25) - 10.0 * pulse(t, 0.22, 0.46) + 2.5 * pulse(t, 0.44, 0.62)
+
+
+def nod(u):
+    """0.7 s: two small yes-nods with the gills bobbing a beat behind and a
+    content squint, settling exactly on rest."""
+    t = u * NOD_S
+    o = Pose()
+    n = bob(t)
+    trail = bob(t - 0.06) - n
+    o.lift = 0.02 * n
+    o.r('head', x=n)
+    o.gills(flare=0.8 * trail, top=1.2 * trail)
+    o.r('tail', x=-0.3 * trail)
+    o.lid = 0.4 * pulse(t, 0.02, 0.56)
+    return o
+
+
+SIZES = {'hero': (HERO, ''), 'small': (SMALL, '-sm')}
 MOODS = {
-    # name: (pose fn, frames, fps, loops)
+    # name: (pose fn, frames, fps, loops, sizes)
     # 30 fps everywhere: it divides 60 Hz evenly, so frames pace evenly.
-    'idle': (idle, 72, 30, True),
-    'think': (think, 36, 30, True),
-    'happy': (happy, 27, 30, False),
-    'sad': (sad, 24, 30, False),
+    # Each mood is rendered only at the sizes that play it: the 96 px hero
+    # greets, looks around and listens on the new-task page; the 28 px mark
+    # thinks, works and reacts in the status line.
+    'idle': (idle, 72, 30, True, ('hero', 'small')),
+    'think': (think, 36, 30, True, ('small',)),
+    'happy': (happy, 27, 30, False, ('hero', 'small')),
+    'sad': (sad, 24, 30, False, ('small',)),
+    'hello': (hello, 39, 30, False, ('hero',)),
+    'look': (look, 54, 30, False, ('hero',)),
+    'attend': (attend, 15, 30, False, ('hero',)),
+    'work': (work, 27, 30, True, ('small',)),
+    'nod': (nod, 21, 30, False, ('small',)),
 }
 
 
@@ -446,14 +583,15 @@ def main():
     args = ap.parse_args()
 
     r = Renderer(os.path.abspath(args.toolkit))
-    sampled = {name: [fn(p) for p in phases(n, loops)] for name, (fn, n, fps, loops) in MOODS.items()}
+    sampled = {name: [fn(p) for p in phases(n, loops)] for name, (fn, n, fps, loops, _) in MOODS.items()}
     lo, hi = r.fit([o for poses in sampled.values() for o in poses])
     print(f'framing: centre {r.center.round(4).tolist()}, scale {r.scale:.4f}, union {(hi - lo).round(3).tolist()}')
 
     os.makedirs(args.out, exist_ok=True)
     total = 0
-    for name, (fn, n, fps, loops) in MOODS.items():
-        for size, suffix in ((HERO, ''), (SMALL, '-sm')):
+    written = set()
+    for name, (fn, n, fps, loops, sizes) in MOODS.items():
+        for size, suffix in (SIZES[s] for s in sizes):
             frames = [r.frame(o, size) for o in sampled[name]]
             edge = max(edge_alpha(f) for f in frames)
             if edge > 2:
@@ -461,10 +599,14 @@ def main():
             path = os.path.join(args.out, f'{name}{suffix}.png')
             nbytes = save_png(strip(frames), path)
             total += nbytes
+            written.add(f'{name}{suffix}.png')
             print(f'{name}{suffix}.png: {n} frames of {size}px, {n / fps:.2f} s at {fps} fps, {nbytes / 1024:.1f} KB')
             if args.preview:
                 preview(name + suffix, frames, fps, loops, args.preview)
     print(f'total {total / 1024:.1f} KB')
+    for name in sorted(set(os.listdir(args.out)) - written):
+        if name.endswith('.png'):
+            print(f'warning: {name} is no longer rendered; delete it and its ASSETS entry in src/lib.rs')
 
 
 if __name__ == '__main__':

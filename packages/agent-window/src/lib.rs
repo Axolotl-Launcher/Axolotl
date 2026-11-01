@@ -47,7 +47,7 @@ const ASSETS: &[(&str, &str, &[u8])] = &[
     script!("view-slash.js"),
     script!("view-transcript.js"),
     // The agent mascot, rendered from the official axolotl model by
-    // dev/render-mascot.py.
+    // dev/render-mascot.py, only at the sizes that play each mood.
     (
         "/mascot/idle.png",
         "image/png",
@@ -57,11 +57,6 @@ const ASSETS: &[(&str, &str, &[u8])] = &[
         "/mascot/idle-sm.png",
         "image/png",
         include_bytes!("mascot/idle-sm.png"),
-    ),
-    (
-        "/mascot/think.png",
-        "image/png",
-        include_bytes!("mascot/think.png"),
     ),
     (
         "/mascot/think-sm.png",
@@ -79,14 +74,34 @@ const ASSETS: &[(&str, &str, &[u8])] = &[
         include_bytes!("mascot/happy-sm.png"),
     ),
     (
-        "/mascot/sad.png",
-        "image/png",
-        include_bytes!("mascot/sad.png"),
-    ),
-    (
         "/mascot/sad-sm.png",
         "image/png",
         include_bytes!("mascot/sad-sm.png"),
+    ),
+    (
+        "/mascot/hello.png",
+        "image/png",
+        include_bytes!("mascot/hello.png"),
+    ),
+    (
+        "/mascot/look.png",
+        "image/png",
+        include_bytes!("mascot/look.png"),
+    ),
+    (
+        "/mascot/attend.png",
+        "image/png",
+        include_bytes!("mascot/attend.png"),
+    ),
+    (
+        "/mascot/work-sm.png",
+        "image/png",
+        include_bytes!("mascot/work-sm.png"),
+    ),
+    (
+        "/mascot/nod-sm.png",
+        "image/png",
+        include_bytes!("mascot/nod-sm.png"),
     ),
     // Inter, the launcher's typeface, subset to Latin; Chinese uses system fonts.
     (

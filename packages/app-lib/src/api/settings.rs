@@ -291,6 +291,49 @@ pub async fn clear_override(
     Ok(true)
 }
 
+/// Rewrites every local settings document in the shape this build knows, and
+/// reports how many domains were written.
+///
+/// This is the explicit way out of the read protection a downgrade leaves: a
+/// document a newer build wrote is read as it stands and never written back, so
+/// without this the user cannot bring one back to a shape this build may lower.
+/// What a rewrite cannot keep is in the documents' own log.
+///
+/// The effective values change without a row write, so everything the runtime
+/// derives from them is refreshed here the way `patch` refreshes it.
+pub async fn sanitise() -> crate::Result<usize> {
+    let _guard = SETTINGS_WRITE.lock().await;
+    let state = State::get().await?;
+    let written =
+        crate::state::documents::settings::sanitise(&state.data).await?;
+    let settings = Settings::get(&state.data).await?;
+    crate::util::download::telemetry::set_enabled(
+        settings.advanced_download_info_enabled(),
+    );
+    state.update_http_client_for_settings(&settings).await?;
+    state.update_download_settings(&settings);
+    Ok(written)
+}
+
+/// Merges an exported settings document into the local documents, and reports
+/// how many domains were written.
+///
+/// The description of what a merge does is the document writer's; what is here
+/// is the same refresh `sanitise` makes, for the same reason.
+pub async fn import(input: Value) -> crate::Result<usize> {
+    let _guard = SETTINGS_WRITE.lock().await;
+    let state = State::get().await?;
+    let written =
+        crate::state::documents::settings::import(&state.data, input).await?;
+    let settings = Settings::get(&state.data).await?;
+    crate::util::download::telemetry::set_enabled(
+        settings.advanced_download_info_enabled(),
+    );
+    state.update_http_client_for_settings(&settings).await?;
+    state.update_download_settings(&settings);
+    Ok(written)
+}
+
 #[tracing::instrument]
 pub async fn get_privacy() -> crate::Result<PrivacySettings> {
     let state = State::get().await?;

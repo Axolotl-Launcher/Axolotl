@@ -783,6 +783,207 @@ pub(crate) async fn prune_redundant(
     Ok(())
 }
 
+/// Rewrites every local document in the shape this build knows, and reports how
+/// many were written.
+///
+/// A document a newer build wrote is read as it stands and never written back,
+/// which is what keeps a downgrade from losing the keys this build cannot see —
+/// and it is also what leaves the user no way of bringing a document a newer
+/// build rewrote back to a shape this build may lower. This is that way, and it
+/// is why the write is `replace`: the version has to be reset even where the
+/// values already read the same.
+///
+/// What is written is the effective settings projected the way `store` projects
+/// them: the domain's known keys, minus one holding what the deployment
+/// provides, minus one holding the build's default. Everything else is dropped,
+/// including the keys this build cannot name, which is what "clean up" means
+/// here and why the operation is offered explicitly rather than run at a start.
+///
+/// Every domain is written, an empty one included: the version is the thing that
+/// has to be reset, and a domain left out would keep the version that made it
+/// read-only. One domain that cannot be written costs itself and no other, and
+/// the caller is told at the end that not everything was rewritten.
+pub(crate) async fn sanitise(handle: &Handle) -> crate::Result<usize> {
+    let Some(documents) = handle.settings_documents() else {
+        return Ok(0);
+    };
+    let defaults = default_values()?;
+    let _writing = WRITES.lock().await;
+    // Read under the lock: these values are what every document is rewritten
+    // from, and a write landing between the two would be stated at this shape
+    // without its value.
+    let settings = Settings::get(handle).await?;
+    let values: Document =
+        serde_json::from_value(serde_json::to_value(settings.normalize())?)?;
+    let mut written = 0_usize;
+    let mut failed = 0_usize;
+    for &(name, keys, schema_version) in DOMAINS {
+        let shipped = match documents.shipped_keys(name, schema_version).await {
+            Shipped::Keys(shipped) => shipped,
+            // Which keys the deployment answers is unknown while its own
+            // document cannot be read, so the domain is left as it stands: a
+            // rewrite without them would drop a key the deployment provides.
+            Shipped::Unreadable => {
+                tracing::warn!(
+                    document = name,
+                    "Leaving a settings document alone: the deployment's own cannot be read, so the keys it answers are unknown"
+                );
+                failed += 1;
+                continue;
+            }
+            Shipped::Missing => Document::new(),
+        };
+        let target = domain_values(keys, &values, &shipped, &defaults, None);
+        match replace(&documents, name, schema_version, &target).await {
+            Ok(()) => written += 1,
+            Err(error) => {
+                tracing::warn!(
+                    document = name,
+                    %error,
+                    "Failed to rewrite a settings document in this build's shape"
+                );
+                failed += 1;
+            }
+        }
+    }
+    if failed > 0 {
+        return Err(crate::ErrorKind::OtherError(format!(
+            "Rewrote {written} settings documents; {failed} domains could not be rewritten"
+        ))
+        .into());
+    }
+    Ok(written)
+}
+
+/// Merges a settings document into the local documents, and reports how many
+/// domains were written.
+///
+/// The input is a patch in the shape `patch_json` exports: one object per
+/// domain, one entry per key. A key the file names wins over the one the domain
+/// already holds — the file is the newer statement of the two — and a key the
+/// domain holds and the file leaves out is kept, which is what makes this a
+/// merge rather than a store: a file exported by another build names the keys
+/// that build knows, and replacing the document with it would drop the rest.
+///
+/// A key whose value is the one the deployment provides is dropped rather than
+/// written: a local copy would be the last word for it, so the deployment's own
+/// later change would never arrive. A key this build does not know is kept as
+/// the file wrote it, and so is one holding the build's default: neither
+/// shadows a value something else decides, and dropping them would lose what the
+/// user exported on purpose.
+///
+/// Nothing is written before every domain is read and projected: a name
+/// `DOMAINS` does not list, a deployment document this build cannot read and a
+/// local document it cannot read all answer an error with the disk untouched,
+/// which is the promise an irreversible write makes. A domain the input does not
+/// name is left as it stands, byte for byte.
+pub(crate) async fn import(
+    handle: &Handle,
+    input: Value,
+) -> crate::Result<usize> {
+    let Value::Object(input) = input else {
+        return Err(crate::ErrorKind::InputError(
+            "A settings document is an object of domains".to_string(),
+        )
+        .into());
+    };
+    // The names and the shapes are judged before anything is opened: this is the
+    // half that can be answered without the disk, and answering it first is what
+    // keeps a malformed file from reaching the writes below.
+    let mut named = Vec::with_capacity(input.len());
+    for (name, imported) in input {
+        let Some(&(domain, keys, schema_version)) = DOMAINS
+            .iter()
+            .find(|(domain, _, _)| *domain == name.as_str())
+        else {
+            return Err(crate::ErrorKind::InputError(format!(
+                "No settings document is named {name}"
+            ))
+            .into());
+        };
+        let Value::Object(imported) = imported else {
+            return Err(crate::ErrorKind::InputError(format!(
+                "The settings document for {name} is not an object of keys"
+            ))
+            .into());
+        };
+        named.push((domain, keys, schema_version, imported));
+    }
+    let Some(documents) = handle.settings_documents() else {
+        return Ok(0);
+    };
+    let defaults = default_values()?;
+    let _writing = WRITES.lock().await;
+    let mut targets = Vec::with_capacity(named.len());
+    for (name, keys, schema_version, imported) in named {
+        let shipped = match documents.shipped_keys(name, schema_version).await {
+            Shipped::Keys(shipped) => shipped,
+            Shipped::Unreadable => {
+                return Err(crate::ErrorKind::OtherError(format!(
+                    "The deployment's document for {name} cannot be read, so the keys it answers are unknown"
+                ))
+                .into());
+            }
+            Shipped::Missing => Document::new(),
+        };
+        let mut target = match documents
+            .stored::<Document>(name, schema_version)
+            .await
+        {
+            Stored::Ready { document } | Stored::Newer { document } => document,
+            // A domain with no document is answered by the row, so the file
+            // is merged into nothing rather than into the row's values: the
+            // keys it does not name keep the answer they had.
+            Stored::Missing => Document::new(),
+            // Replacing a file this build cannot read would lose the keys it
+            // cannot see, and the merge cannot tell which of them the user
+            // means to keep.
+            Stored::Unreadable => {
+                let unreadable = crate::ErrorKind::OtherError(format!(
+                    "The settings document for {name} cannot be read, so it is left as it stands"
+                ));
+                return Err(unreadable.into());
+            }
+        };
+        target.extend(imported);
+        // Only the keys the domain lists are judged, so a key from another shape
+        // survives the merge as the file wrote it.
+        for &key in keys {
+            let covered = target.get(key).is_some_and(|value| {
+                shipped.get(key).is_some_and(|provided| {
+                    same_setting(key, provided, value, &defaults)
+                })
+            });
+            if covered {
+                target.remove(key);
+            }
+        }
+        targets.push((name, schema_version, target));
+    }
+    let mut written = 0_usize;
+    let mut failed = 0_usize;
+    for (name, schema_version, target) in targets {
+        match replace(&documents, name, schema_version, &target).await {
+            Ok(()) => written += 1,
+            Err(error) => {
+                tracing::warn!(
+                    document = name,
+                    %error,
+                    "Failed to merge an imported settings document"
+                );
+                failed += 1;
+            }
+        }
+    }
+    if failed > 0 {
+        return Err(crate::ErrorKind::OtherError(format!(
+            "Merged into {written} settings documents; {failed} domains could not be written"
+        ))
+        .into());
+    }
+    Ok(written)
+}
+
 /// Writes a document for every domain from `settings`, leaving out the keys
 /// that hold the value the domain is provided with.
 ///
@@ -1293,6 +1494,23 @@ async fn write(
     document: &Document,
 ) -> crate::Result<()> {
     documents.write(name, schema_version, document).await?;
+    invalidate();
+    Ok(())
+}
+
+/// Rewrites one document in this build's shape: `write` without the two
+/// refusals that keep a document from being lowered, so the version on disk
+/// becomes this build's even when the contents read the same.
+///
+/// It says that what a read composes from has changed for the same reason
+/// `write` does: the file the next read would compose was replaced.
+async fn replace(
+    documents: &Documents<'_>,
+    name: &str,
+    schema_version: u32,
+    document: &Document,
+) -> crate::Result<()> {
+    documents.replace(name, schema_version, document).await?;
     invalidate();
     Ok(())
 }

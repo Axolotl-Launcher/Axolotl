@@ -3,7 +3,10 @@
 use std::sync::{LazyLock, Mutex};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
+use base64::{Engine, engine::general_purpose::URL_SAFE_NO_PAD};
+use rand::RngCore;
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 use url::Url;
 use uuid::Uuid;
 
@@ -76,6 +79,8 @@ pub struct AuthorizationStart {
 #[derive(Clone, Deserialize, Eq, PartialEq, Serialize)]
 struct PendingFlow {
     state: String,
+    #[serde(default)]
+    code_verifier: String,
     deadline: u64,
     exchanging: bool,
 }
@@ -104,9 +109,11 @@ impl Session {
             ..Self::default()
         };
         session.expire(now);
-        if session.pending.as_ref().is_some_and(|flow| flow.exchanging) {
-            // A restarted process cannot know whether the provider consumed the
-            // code. Never exchange a previously claimed flow a second time.
+        if session.pending.as_ref().is_some_and(|flow| {
+            flow.exchanging || !valid_code_verifier(&flow.code_verifier)
+        }) {
+            // Never replay a previously claimed exchange or resume a legacy
+            // flow that was started without a PKCE challenge.
             session.completed_flow_id =
                 session.pending.take().map(|flow| flow.state);
             session.outcome = Some(AuthorizationStatus::Failed);
@@ -201,7 +208,7 @@ impl Session {
     fn claim(&mut self, callback: &Url, now: u64) -> Option<String> {
         self.expire(now);
         let flow = self.pending.as_mut()?;
-        if flow.exchanging {
+        if flow.exchanging || !valid_code_verifier(&flow.code_verifier) {
             return None;
         }
         let mut state = None;
@@ -284,10 +291,23 @@ fn now() -> u64 {
         .as_secs()
 }
 
-fn client_secret() -> Option<&'static str> {
-    // Build-time only, just like the bundled CurseForge key, with no runtime override.
-    option_env!("SHIMU_OAUTH_CLIENT_SECRET")
-        .filter(|value| !value.trim().is_empty())
+fn new_code_verifier() -> crate::Result<String> {
+    let mut bytes = [0u8; 32];
+    rand::rngs::OsRng.try_fill_bytes(&mut bytes).map_err(|_| {
+        failure("Could not generate the Shimu authorization proof")
+    })?;
+    Ok(URL_SAFE_NO_PAD.encode(bytes))
+}
+
+fn valid_code_verifier(verifier: &str) -> bool {
+    (43..=128).contains(&verifier.len())
+        && verifier
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || b"-._~".contains(&byte))
+}
+
+fn code_challenge(verifier: &str) -> String {
+    URL_SAFE_NO_PAD.encode(Sha256::digest(verifier.as_bytes()))
 }
 
 fn read_connection(store: &impl Store) -> crate::Result<Option<Connection>> {
@@ -303,7 +323,7 @@ fn summary(
 ) -> AccountSummary {
     AccountSummary {
         provider_id: "shimu",
-        available: client_secret().is_some(),
+        available: true,
         status: match &connection {
             None => AccountStatus::Disconnected,
             Some(connection) if connection.expires_at <= now => {
@@ -339,21 +359,18 @@ pub fn get_account() -> crate::Result<AccountSummary> {
 }
 
 pub fn begin_authorization() -> crate::Result<AuthorizationStart> {
-    if client_secret().is_none() {
-        return Err(failure(
-            "This build has no Shimu OAuth application credential",
-        ));
-    }
     let mut session = session()?;
     session.update(&CredentialStore, |session| session.expire(now()))?;
     if session.pending.is_some() {
         return Err(failure("An authorization is already in progress"));
     }
     let state = Uuid::new_v4().to_string();
-    let url = authorization_url(&state);
+    let code_verifier = new_code_verifier()?;
+    let url = authorization_url(&state, &code_verifier);
     session.update(&CredentialStore, |session| {
         session.pending = Some(PendingFlow {
             state: state.clone(),
+            code_verifier,
             deadline: now() + FLOW_TTL,
             exchanging: false,
         });
@@ -366,14 +383,17 @@ pub fn begin_authorization() -> crate::Result<AuthorizationStart> {
     })
 }
 
-fn authorization_url(state: &str) -> String {
+fn authorization_url(state: &str, code_verifier: &str) -> String {
     let mut url = Url::parse(&format!("{HOST}/oauth/authorize"))
         .expect("fixed OAuth URL");
     url.query_pairs_mut()
         .append_pair("client_id", CLIENT_ID)
         .append_pair("redirect_uri", REDIRECT_URI)
         .append_pair("scope", "user:info,post:read,file:download")
-        .append_pair("state", state);
+        .append_pair("state", state)
+        .append_pair("response_type", "code")
+        .append_pair("code_challenge", &code_challenge(code_verifier))
+        .append_pair("code_challenge_method", "S256");
     url.into()
 }
 
@@ -425,21 +445,15 @@ pub async fn handle_callback(command: &str) -> crate::Result<()> {
         session
             .update(&CredentialStore, |session| session.claim(&url, now()))?
             .map(|code| {
-                (
-                    code,
-                    session
-                        .pending
-                        .as_ref()
-                        .expect("claimed authorization")
-                        .state
-                        .clone(),
-                )
+                let flow =
+                    session.pending.as_ref().expect("claimed authorization");
+                (code, flow.state.clone(), flow.code_verifier.clone())
             })
     };
-    let Some((code, flow_state)) = claimed else {
+    let Some((code, flow_state, code_verifier)) = claimed else {
         return Ok(());
     };
-    let exchanged = exchange_code(&code).await;
+    let exchanged = exchange_code(&code, &code_verifier).await;
     let mut session = session()?;
     session.update(&CredentialStore, |session| {
         session.complete(&flow_state, exchanged, &CredentialStore, now());
@@ -494,18 +508,30 @@ fn connection_from_reply(
     })
 }
 
-async fn exchange_code(code: &str) -> crate::Result<Connection> {
-    let secret =
-        client_secret().ok_or_else(|| failure("Shimu OAuth is unavailable"))?;
+fn token_form<'a>(
+    code: &'a str,
+    code_verifier: &'a str,
+) -> crate::Result<[(&'static str, &'a str); 4]> {
+    if !valid_code_verifier(code_verifier) {
+        return Err(failure("Invalid Shimu authorization proof"));
+    }
+    Ok([
+        ("code", code),
+        ("client_id", CLIENT_ID),
+        ("redirect_uri", REDIRECT_URI),
+        ("code_verifier", code_verifier),
+    ])
+}
+
+async fn exchange_code(
+    code: &str,
+    code_verifier: &str,
+) -> crate::Result<Connection> {
+    let form = token_form(code, code_verifier)?;
     let response = http_client()
         .await?
         .post(format!("{HOST}/shimu/api/oauth/token"))
-        .form(&[
-            ("code", code),
-            ("client_id", CLIENT_ID),
-            ("client_secret", secret),
-            ("redirect_uri", REDIRECT_URI),
-        ])
+        .form(&form)
         .send()
         .await
         .map_err(|_| failure("Could not connect to Shimu"))?;

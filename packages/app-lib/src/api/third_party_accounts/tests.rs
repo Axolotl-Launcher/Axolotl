@@ -34,6 +34,7 @@ fn pending() -> Session {
     Session {
         pending: Some(PendingFlow {
             state: "expected-state".into(),
+            code_verifier: "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk".into(),
             deadline: 400,
             exchanging: false,
         }),
@@ -54,7 +55,9 @@ fn callback(query: &str) -> Url {
 
 #[test]
 fn authorization_uses_fixed_registration_and_minimal_scope() {
-    let url = Url::parse(&authorization_url("random-state")).unwrap();
+    let verifier = new_code_verifier().unwrap();
+    let url =
+        Url::parse(&authorization_url("random-state", &verifier)).unwrap();
     assert_eq!(url.origin().ascii_serialization(), HOST);
     assert_eq!(url.path(), "/oauth/authorize");
     let query: HashMap<_, _> = url.query_pairs().collect();
@@ -62,7 +65,17 @@ fn authorization_uses_fixed_registration_and_minimal_scope() {
     assert_eq!(query["redirect_uri"], REDIRECT_URI);
     assert_eq!(query["scope"], "user:info,post:read,file:download");
     assert_eq!(query["state"], "random-state");
+    assert_eq!(query["response_type"], "code");
+    assert_eq!(query["code_challenge_method"], "S256");
+    assert_eq!(query["code_challenge"], code_challenge(&verifier));
     assert!(!query.contains_key("client_secret"));
+    assert!(!query.contains_key("code_verifier"));
+    let start = AuthorizationStart {
+        flow_id: "random-state".into(),
+        authorization_url: url.into(),
+    };
+    let ipc = serde_json::to_string(&start).unwrap();
+    assert!(!ipc.contains(&verifier));
 }
 
 #[test]
@@ -276,6 +289,10 @@ fn pending_authorization_survives_restart_but_a_claim_is_never_replayed() {
     let original = pending();
     original.persist_pending(&store).unwrap();
     let mut restarted = Session::restore(&store, 100).unwrap();
+    assert_eq!(
+        restarted.pending.as_ref().unwrap().code_verifier,
+        original.pending.as_ref().unwrap().code_verifier,
+    );
     let url = callback("state=expected-state&code=secret");
     assert_eq!(
         restarted
@@ -367,4 +384,101 @@ fn invalid_callback_candidates_are_redacted_but_not_intercepted() {
     }
     assert!(is_callback(REDIRECT_URI));
     assert!(!is_callback_candidate("axolotl://settings"));
+}
+
+#[test]
+fn s256_challenge_matches_rfc_7636_appendix_b() {
+    let verifier = "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk";
+    assert_eq!(
+        code_challenge(verifier),
+        "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM"
+    );
+}
+
+#[test]
+fn each_authorization_uses_a_fresh_os_random_pkce_verifier() {
+    let mut seen = std::collections::HashSet::new();
+    for _ in 0..32 {
+        let verifier = new_code_verifier().unwrap();
+        assert_eq!(verifier.len(), 43);
+        assert!(valid_code_verifier(&verifier));
+        assert_eq!(URL_SAFE_NO_PAD.decode(&verifier).unwrap().len(), 32);
+        assert!(seen.insert(verifier));
+    }
+}
+
+#[test]
+fn exchange_uses_the_flow_verifier_without_a_shared_secret() {
+    let verifier = new_code_verifier().unwrap();
+    let form: HashMap<_, _> = token_form("authorization-code", &verifier)
+        .unwrap()
+        .into_iter()
+        .collect();
+    assert_eq!(form["code"], "authorization-code");
+    assert_eq!(form["client_id"], CLIENT_ID);
+    assert_eq!(form["redirect_uri"], REDIRECT_URI);
+    assert_eq!(form["code_verifier"], verifier);
+    assert!(!form.contains_key("client_secret"));
+    assert!(!form.contains_key("code_challenge"));
+    for invalid in ["", "short", &"a".repeat(129), &"!".repeat(43)] {
+        assert!(token_form("code", invalid).is_err());
+    }
+}
+
+#[test]
+fn pre_pkce_pending_flows_are_discarded_without_losing_the_connection() {
+    let store = MemoryStore::default();
+    let saved = connection("existing-user-token");
+    oauth_credentials::write(
+        &store,
+        Some(&serde_json::to_string(&saved).unwrap()),
+    )
+    .unwrap();
+    store
+        .write(
+            FLOW_CREDENTIAL,
+            Some(r#"{"state":"old-state","deadline":400,"exchanging":false}"#),
+        )
+        .unwrap();
+    let mut restarted = Session::restore(&store, 100).unwrap();
+    assert!(restarted.pending.is_none());
+    assert_eq!(restarted.outcome, Some(AuthorizationStatus::Failed));
+    assert!(store.read(FLOW_CREDENTIAL).unwrap().is_none());
+    assert!(
+        restarted
+            .claim(&callback("state=old-state&code=secret"), 100)
+            .is_none()
+    );
+    assert!(read_connection(&store).unwrap().as_ref() == Some(&saved));
+    assert!(
+        summary(read_connection(&store).unwrap(), &restarted, 100).available
+    );
+    // Discarding an incompatible flow leaves the session ready for a fresh login.
+    assert!(
+        restarted
+            .update(&store, |session| session.pending = pending().pending)
+            .is_ok()
+    );
+}
+
+#[test]
+fn pkce_proof_uses_the_shared_credential_manager_and_is_absent_from_summary() {
+    let host = secrets::testing::with_store();
+    let session = pending();
+    session.persist_pending(&CredentialStore).unwrap();
+    let serialized = CredentialStore.read(FLOW_CREDENTIAL).unwrap().unwrap();
+    assert!(serialized.encode_utf16().count() <= 1280);
+    assert_eq!(
+        host.store().unwrap().keys(),
+        vec![secrets::key(&["third-party", "shimu", FLOW_CREDENTIAL])]
+    );
+    let restored = Session::restore(&CredentialStore, 100).unwrap();
+    assert_eq!(
+        restored.pending.as_ref().unwrap().code_verifier,
+        session.pending.as_ref().unwrap().code_verifier,
+    );
+    let ipc = serde_json::to_string(&summary(None, &restored, 100)).unwrap();
+    assert!(!ipc.contains("code_verifier"));
+    assert!(!ipc.contains(&restored.pending.as_ref().unwrap().code_verifier));
+    assert!(restored.pending.is_some());
 }

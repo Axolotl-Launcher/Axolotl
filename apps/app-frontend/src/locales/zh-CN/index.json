@@ -10158,10 +10158,10 @@
     "message": "正在下载 v{version}"
   },
   "app.settings.export.all-button": {
-    "message": "导出全部设置…"
+    "message": "导出全部设置文件…"
   },
   "app.settings.export.all-label": {
-    "message": "全部设置"
+    "message": "全部设置文件"
   },
   "app.settings.export.exported-text": {
     "message": "设置归档已保存到 {path}"
@@ -10179,7 +10179,7 @@
     "message": "部署补丁"
   },
   "app.settings.export.title": {
-    "message": "导出设置"
+    "message": "管理设置文件"
   },
   "app.settings.feature-flags.reset-to-default": {
     "message": "恢复默认值"
@@ -20643,7 +20643,7 @@
     "message": "全局共享下载池当前剩余的资源额度，会受其他文件和任务影响。"
   },
   "app.settings.export.cleanup-label": {
-    "message": "本地设置"
+    "message": "本地设置文件"
   },
   "app.settings.export.cleanup-button": {
     "message": "整理…"
@@ -20652,7 +20652,7 @@
     "message": "正在整理…"
   },
   "app.settings.export.cleanup-confirm-title": {
-    "message": "整理本地设置？"
+    "message": "整理本地设置文件？"
   },
   "app.settings.export.cleanup-confirm-description": {
     "message": "会重写全部本地设置文档，并丢弃未知和冗余的键。此操作不可撤销。"
@@ -20661,7 +20661,7 @@
     "message": "整理"
   },
   "app.settings.export.cleanup-done-title": {
-    "message": "本地设置已整理"
+    "message": "本地设置文件已整理"
   },
   "app.settings.export.cleanup-done-text": {
     "message": "{count, plural, =0 {没有文档需要重写。} other {已重写 # 个本地设置文档。}}"
@@ -20691,19 +20691,31 @@
     "message": "{count, plural, =0 {没有文档发生变化。} other {已更新 # 个本地设置文档。}}"
   },
   "app.settings.export.import-danger-title": {
-    "message": "归档中包含危险设置"
+    "message": "即将导入的设置可能存在危险"
   },
   "app.settings.export.import-danger-description": {
-    "message": "归档里包含可能让启动器执行命令或修改游戏进程环境的设置。"
+    "message": "您即将导入的设置将会修改 {keys}。"
   },
-  "app.settings.export.import-danger-keys-label": {
-    "message": "涉及的设置："
+  "app.settings.export.import-danger-key-column": {
+    "message": "危险设置"
+  },
+  "app.settings.export.import-danger-before-column": {
+    "message": "导入前"
+  },
+  "app.settings.export.import-danger-after-column": {
+    "message": "导入后"
+  },
+  "app.settings.export.import-danger-note": {
+    "message": "它们会修改启动游戏时的参数或者运行前自动执行的命令，如果您不信任文件的来源或不理解它们的含义和作用，那么应该取消导入或跳过这些危险设置。请确保仅在您完全理解并信任它们时继续。"
+  },
+  "app.settings.export.import-danger-cancel": {
+    "message": "取消导入"
   },
   "app.settings.export.import-danger-skip": {
-    "message": "跳过危险项导入"
+    "message": "跳过危险设置"
   },
   "app.settings.export.import-danger-allow": {
-    "message": "确认全部导入"
+    "message": "继续导入"
   },
   "app.settings.export.imported-dropped-text": {
     "message": "{count, plural, =0 {没有文档发生变化。} other {已更新 # 个本地设置文档。}} {dropped, plural, other {另有 # 个值因类型不合法被忽略。}}"

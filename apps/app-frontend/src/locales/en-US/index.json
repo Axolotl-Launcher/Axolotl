@@ -11502,10 +11502,10 @@
     "message": "Use NAME=value, separated by spaces. A name and an equals sign are required; the value may be empty or contain more equals signs."
   },
   "app.settings.export.all-button": {
-    "message": "Export all settings…"
+    "message": "Export all settings files…"
   },
   "app.settings.export.all-label": {
-    "message": "All settings"
+    "message": "All settings files"
   },
   "app.settings.export.exported-text": {
     "message": "The settings archive was saved to {path}"
@@ -11523,7 +11523,7 @@
     "message": "Deployment patch"
   },
   "app.settings.export.title": {
-    "message": "Export settings"
+    "message": "Manage settings files"
   },
   "app.settings.feature-flags.advanced-filters-collapsed": {
     "message": "Collapse advanced filters by default"
@@ -17424,7 +17424,7 @@
     "message": "Currently available resource permits in the global download pool, shared with other files and tasks. This is not the number of sockets the operating system can open."
   },
   "app.settings.export.cleanup-label": {
-    "message": "Local settings"
+    "message": "Local settings files"
   },
   "app.settings.export.cleanup-button": {
     "message": "Clean up…"
@@ -17433,7 +17433,7 @@
     "message": "Cleaning up…"
   },
   "app.settings.export.cleanup-confirm-title": {
-    "message": "Clean up local settings?"
+    "message": "Clean up local settings files?"
   },
   "app.settings.export.cleanup-confirm-description": {
     "message": "Rewrites every local settings document, discarding unknown and redundant keys. This cannot be undone."
@@ -17442,7 +17442,7 @@
     "message": "Clean up"
   },
   "app.settings.export.cleanup-done-title": {
-    "message": "Local settings cleaned up"
+    "message": "Local settings files cleaned up"
   },
   "app.settings.export.cleanup-done-text": {
     "message": "{count, plural, =0 {No local settings document needed rewriting.} one {Rewrote # local settings document.} other {Rewrote # local settings documents.}}"
@@ -17472,19 +17472,31 @@
     "message": "{count, plural, =0 {No local settings document changed.} one {Updated # local settings document.} other {Updated # local settings documents.}}"
   },
   "app.settings.export.import-danger-title": {
-    "message": "Dangerous settings in this archive"
+    "message": "The settings you are about to import may be dangerous"
   },
   "app.settings.export.import-danger-description": {
-    "message": "The archive sets settings that can make the launcher run commands or change the game process environment."
+    "message": "The settings you are about to import will change {keys}."
   },
-  "app.settings.export.import-danger-keys-label": {
-    "message": "It sets:"
+  "app.settings.export.import-danger-key-column": {
+    "message": "Dangerous setting"
+  },
+  "app.settings.export.import-danger-before-column": {
+    "message": "Before import"
+  },
+  "app.settings.export.import-danger-after-column": {
+    "message": "After import"
+  },
+  "app.settings.export.import-danger-note": {
+    "message": "They change the arguments the game is started with or the commands that run before it. If you do not trust where the file came from, or do not understand what they mean and do, you should cancel the import or skip these dangerous settings. Please continue only if you fully understand and trust them."
+  },
+  "app.settings.export.import-danger-cancel": {
+    "message": "Cancel import"
   },
   "app.settings.export.import-danger-skip": {
-    "message": "Import everything else"
+    "message": "Skip dangerous settings"
   },
   "app.settings.export.import-danger-allow": {
-    "message": "Import everything"
+    "message": "Continue import"
   },
   "app.settings.export.imported-dropped-text": {
     "message": "{count, plural, =0 {No local settings document changed.} one {Updated # local settings document.} other {Updated # local settings documents.}} {dropped, plural, one {# value was ignored because its type is invalid.} other {# values were ignored because their types are invalid.}}"

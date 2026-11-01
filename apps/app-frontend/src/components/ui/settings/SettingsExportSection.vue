@@ -21,6 +21,7 @@ import {
     importSettings,
     sanitiseSettings,
     scanSettingsImport,
+    type DangerousImport,
     type ImportDanger,
     type SettingsExportKind,
 } from '@/helpers/settings'
@@ -30,7 +31,7 @@ import { reloadSettingsLayers } from './pinned-override'
 import SettingsRow from './SettingsRow.vue'
 import SettingsSection from './SettingsSection.vue'
 
-const { formatMessage } = useVIntl()
+const { formatMessage, locale } = useVIntl()
 const { handleError } = injectNotificationManager()
 const popupNotificationManager = injectPopupNotificationManager()
 const queryClient = useQueryClient()
@@ -46,14 +47,19 @@ const busy = ref<SettingsOperation | null>(null)
 const cleanupConfirm = ref<InstanceType<typeof ConfirmModal>>()
 const importConfirm = ref<InstanceType<typeof ConfirmModal>>()
 const dangerConfirm = ref<InstanceType<typeof NewModal>>()
-const pendingImport = ref<{ path: string; dangerous: string[] } | null>(null)
+const pendingImport = ref<{ path: string } | null>(null)
+/** What the open confirmation shows, kept while it fades out. */
+const dangerRows = ref<DangerousImport[]>([])
 
 const messages = defineMessages({
-    title: { id: 'app.settings.export.title', defaultMessage: 'Export settings' },
-    allLabel: { id: 'app.settings.export.all-label', defaultMessage: 'All settings' },
+    title: { id: 'app.settings.export.title', defaultMessage: 'Manage settings files' },
+    allLabel: {
+        id: 'app.settings.export.all-label',
+        defaultMessage: 'All settings files',
+    },
     allButton: {
         id: 'app.settings.export.all-button',
-        defaultMessage: 'Export all settings…',
+        defaultMessage: 'Export all settings files…',
     },
     patchLabel: {
         id: 'app.settings.export.patch-label',
@@ -78,7 +84,7 @@ const messages = defineMessages({
     },
     cleanupLabel: {
         id: 'app.settings.export.cleanup-label',
-        defaultMessage: 'Local settings',
+        defaultMessage: 'Local settings files',
     },
     cleanupButton: {
         id: 'app.settings.export.cleanup-button',
@@ -90,7 +96,7 @@ const messages = defineMessages({
     },
     cleanupConfirmTitle: {
         id: 'app.settings.export.cleanup-confirm-title',
-        defaultMessage: 'Clean up local settings?',
+        defaultMessage: 'Clean up local settings files?',
     },
     cleanupConfirmDescription: {
         id: 'app.settings.export.cleanup-confirm-description',
@@ -137,24 +143,40 @@ const messages = defineMessages({
     },
     importDangerTitle: {
         id: 'app.settings.export.import-danger-title',
-        defaultMessage: 'Dangerous settings in this archive',
+        defaultMessage: 'The settings you are about to import may be dangerous',
     },
     importDangerDescription: {
         id: 'app.settings.export.import-danger-description',
-        defaultMessage:
-            'The archive sets settings that can make the launcher run commands or change the game process environment.',
+        defaultMessage: 'The settings you are about to import will change {keys}.',
     },
-    importDangerKeysLabel: {
-        id: 'app.settings.export.import-danger-keys-label',
-        defaultMessage: 'It sets:',
+    importDangerKeyColumn: {
+        id: 'app.settings.export.import-danger-key-column',
+        defaultMessage: 'Dangerous setting',
+    },
+    importDangerBeforeColumn: {
+        id: 'app.settings.export.import-danger-before-column',
+        defaultMessage: 'Before import',
+    },
+    importDangerAfterColumn: {
+        id: 'app.settings.export.import-danger-after-column',
+        defaultMessage: 'After import',
+    },
+    importDangerNote: {
+        id: 'app.settings.export.import-danger-note',
+        defaultMessage:
+            'They change the arguments the game is started with or the commands that run before it. If you do not trust where the file came from, or do not understand what they mean and do, you should cancel the import or skip these dangerous settings. Please continue only if you fully understand and trust them.',
+    },
+    importDangerCancel: {
+        id: 'app.settings.export.import-danger-cancel',
+        defaultMessage: 'Cancel import',
     },
     importDangerSkip: {
         id: 'app.settings.export.import-danger-skip',
-        defaultMessage: 'Import everything else',
+        defaultMessage: 'Skip dangerous settings',
     },
     importDangerAllow: {
         id: 'app.settings.export.import-danger-allow',
-        defaultMessage: 'Import everything',
+        defaultMessage: 'Continue import',
     },
     importedTitle: {
         id: 'app.settings.export.imported-title',
@@ -178,6 +200,16 @@ const cleanupButtonMessage = computed(() =>
 const importButtonMessage = computed(() =>
     busy.value === 'import' ? messages.importRunning : messages.importButton,
 )
+const dangerousKeyList = computed(() =>
+    new Intl.ListFormat(locale.value, { style: 'short', type: 'unit' }).format(
+        dangerRows.value.map((entry) => entry.key),
+    ),
+)
+
+/** One value as the compact JSON the import would write. */
+function settingValue(value: unknown): string {
+    return value === null || value === undefined ? '—' : JSON.stringify(value)
+}
 
 /** Both operations rewrite the documents behind the running app. */
 async function refreshSettings() {
@@ -249,7 +281,8 @@ async function chooseImportArchive() {
         if (!inputPath) return
 
         const scan = await scanSettingsImport(inputPath)
-        pendingImport.value = { path: inputPath, dangerous: scan.dangerous }
+        pendingImport.value = { path: inputPath }
+        dangerRows.value = scan.dangerous
         if (scan.dangerous.length > 0) {
             dangerConfirm.value?.show()
         } else {
@@ -329,21 +362,6 @@ async function importPendingArchive(danger: ImportDanger) {
             </template>
         </SettingsRow>
         <SettingsRow>
-            <template #label>{{ formatMessage(messages.cleanupLabel) }}</template>
-            <template #control>
-                <Button
-                    type="outlined"
-                    color="red"
-                    :loading="busy === 'cleanup'"
-                    :disabled="busy !== null"
-                    @click="cleanupConfirm?.show()"
-                >
-                    <EraserIcon aria-hidden="true" />
-                    {{ formatMessage(cleanupButtonMessage) }}
-                </Button>
-            </template>
-        </SettingsRow>
-        <SettingsRow>
             <template #label>{{ formatMessage(messages.importLabel) }}</template>
             <template #control>
                 <Button
@@ -355,6 +373,21 @@ async function importPendingArchive(danger: ImportDanger) {
                 >
                     <UploadIcon aria-hidden="true" />
                     {{ formatMessage(importButtonMessage) }}
+                </Button>
+            </template>
+        </SettingsRow>
+        <SettingsRow>
+            <template #label>{{ formatMessage(messages.cleanupLabel) }}</template>
+            <template #control>
+                <Button
+                    type="outlined"
+                    color="red"
+                    :loading="busy === 'cleanup'"
+                    :disabled="busy !== null"
+                    @click="cleanupConfirm?.show()"
+                >
+                    <EraserIcon aria-hidden="true" />
+                    {{ formatMessage(cleanupButtonMessage) }}
                 </Button>
             </template>
         </SettingsRow>
@@ -384,27 +417,78 @@ async function importPendingArchive(danger: ImportDanger) {
         ref="dangerConfirm"
         :header="formatMessage(messages.importDangerTitle)"
         fade="danger"
-        max-width="520px"
+        max-width="640px"
         :closable="false"
     >
-        <p class="m-0">{{ formatMessage(messages.importDangerDescription) }}</p>
-        <p class="mb-1 mt-4 text-[var(--color-text-tertiary)]">
-            {{ formatMessage(messages.importDangerKeysLabel) }}
+        <p class="m-0">
+            {{ formatMessage(messages.importDangerDescription, { keys: dangerousKeyList }) }}
         </p>
-        <ul class="m-0 flex list-disc flex-col gap-1 pl-5 font-mono text-sm">
-            <li v-for="dangerousKey in pendingImport?.dangerous ?? []" :key="dangerousKey">
-                {{ dangerousKey }}
-            </li>
-        </ul>
+        <table class="mt-4 w-full table-fixed border-collapse text-sm">
+            <thead>
+                <tr>
+                    <th
+                        scope="col"
+                        class="w-[22%] border-0 border-b border-solid border-surface-4 pb-2 pr-3 text-left font-semibold text-[var(--color-text-tertiary)]"
+                    >
+                        {{ formatMessage(messages.importDangerKeyColumn) }}
+                    </th>
+                    <th
+                        scope="col"
+                        class="w-[39%] border-0 border-b border-solid border-surface-4 pb-2 pr-3 text-left font-semibold text-[var(--color-text-tertiary)]"
+                    >
+                        {{ formatMessage(messages.importDangerBeforeColumn) }}
+                    </th>
+                    <th
+                        scope="col"
+                        class="w-[39%] border-0 border-b border-solid border-surface-4 pb-2 text-left font-semibold text-[var(--color-text-tertiary)]"
+                    >
+                        {{ formatMessage(messages.importDangerAfterColumn) }}
+                    </th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr v-for="entry in dangerRows" :key="entry.key">
+                    <th
+                        scope="row"
+                        class="border-0 border-t border-solid border-surface-4 py-2 pr-3 text-left align-top font-normal text-[var(--color-text-primary)]"
+                    >
+                        <code class="break-all font-mono text-xs">{{ entry.key }}</code>
+                    </th>
+                    <td
+                        class="border-0 border-t border-solid border-surface-4 py-2 pr-3 align-top"
+                    >
+                        <span
+                            class="line-clamp-4 break-all font-mono text-xs text-[var(--color-text-default)]"
+                            :title="settingValue(entry.before)"
+                        >
+                            {{ settingValue(entry.before) }}
+                        </span>
+                    </td>
+                    <td
+                        class="border-0 border-t border-solid border-surface-4 py-2 align-top"
+                    >
+                        <span
+                            class="line-clamp-4 break-all font-mono text-xs text-[var(--color-text-default)]"
+                            :title="settingValue(entry.after)"
+                        >
+                            {{ settingValue(entry.after) }}
+                        </span>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+        <p class="m-0 mt-4 text-sm leading-relaxed text-[var(--color-text-tertiary)]">
+            {{ formatMessage(messages.importDangerNote) }}
+        </p>
         <template #actions>
             <div class="flex flex-wrap justify-end gap-2">
-                <Button type="colored" color="brand" @click="importPendingArchive('skip')">
+                <Button @click="cancelPendingImport">
+                    {{ formatMessage(messages.importDangerCancel) }}
+                </Button>
+                <Button @click="importPendingArchive('skip')">
                     {{ formatMessage(messages.importDangerSkip) }}
                 </Button>
-                <Button @click="cancelPendingImport">
-                    {{ formatMessage(commonMessages.cancelButton) }}
-                </Button>
-                <Button type="outlined" color="red" @click="importPendingArchive('allow')">
+                <Button type="colored" color="red" @click="importPendingArchive('allow')">
                     {{ formatMessage(messages.importDangerAllow) }}
                 </Button>
             </div>

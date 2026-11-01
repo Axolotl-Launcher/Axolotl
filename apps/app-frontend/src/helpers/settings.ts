@@ -368,10 +368,19 @@ export type SettingLayer = {
     effective: unknown
 }
 
+/** One import entry that would be executed or injected into the game process. */
+export type DangerousImport = {
+    key: string
+    /** The value in effect now; `null` while the key has none. */
+    before: unknown | null
+    /** The value the archive states. */
+    after: unknown
+}
+
 /** What importing a settings archive would find in it. */
 export type ImportScan = {
     domains: string[]
-    dangerous: string[]
+    dangerous: DangerousImport[]
 }
 
 /** What importing a settings archive wrote. */

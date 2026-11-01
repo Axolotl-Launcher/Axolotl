@@ -266,7 +266,7 @@ async fn read_archive(input_path: &Path) -> Result<Map<String, Value>> {
 #[tauri::command]
 pub async fn settings_import_scan(input_path: PathBuf) -> Result<ImportScan> {
     let documents = read_archive(&input_path).await?;
-    Ok(settings::import_scan(&Value::Object(documents)))
+    Ok(settings::import_scan(&Value::Object(documents)).await?)
 }
 
 /// What to do with the settings of the danger zone an imported archive carries:

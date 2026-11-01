@@ -1957,14 +1957,21 @@ code {
 .file-chip.is-removable {
     padding-right: 3px;
 }
+/* A long name gives way first; the size and the remove button keep theirs. */
 .file-size {
+    flex-shrink: 0;
     color: var(--fg-3);
 }
 .file-remove {
+    flex-shrink: 0;
     width: 24px;
     height: 24px;
     border-radius: 7px;
     color: var(--fg-3);
+}
+/* The kind colours above are for the file's own icon, not the close cross. */
+.file-chip .file-remove svg {
+    color: inherit;
 }
 .file-remove:hover {
     background: var(--hover-strong);
@@ -2477,6 +2484,7 @@ code {
 .file-open {
     gap: 6px;
     height: 100%;
+    min-width: 0;
     max-width: 100%;
     padding: 0;
     border-radius: 6px;
@@ -2508,6 +2516,12 @@ code {
 }
 .file-peek:popover-open {
     display: flex;
+}
+/* Both previews take the focus as a whole on opening, like the tour card; the
+   controls inside them show the ring. */
+.file-peek:focus-visible,
+.changes-peek:focus-visible {
+    outline: none;
 }
 .file-peek-head {
     display: flex;
@@ -3982,6 +3996,8 @@ p.plan-state {
 .dialog-body {
     overflow-y: auto;
     padding: 4px 24px 24px;
+    /* A control tabbed to at the edge scrolls in with its focus ring. */
+    scroll-padding-block: 8px;
 }
 .dialog-error {
     margin: 12px 0 0;

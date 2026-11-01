@@ -295,6 +295,7 @@ jobs:
           cargo test --package theseus telemetry::reconcile
           cargo test --package theseus state::process::playtime_clock
           cargo test --package theseus state::process::l0_separation_tests
+          cargo test --package theseus state::process::stopped_detector_tests
       # The account secrets: a row keeps a secret the credential store will not
       # take, and moving the rows into the store keeps the rows it already moved.
       # Hermetic (in-memory sqlite, and a store substituted for the platform's).

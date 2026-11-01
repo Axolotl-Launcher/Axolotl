@@ -1440,7 +1440,7 @@ function showPalette() {
                 openPicker('instance', element('instance-button'))
             }),
             action('attach', 'attach', () => element('file-input').click()),
-            action('settings', 'settings', () => actions.settings()),
+            action('settings', 'settings', () => actions.settings(), 'Ctrl ,'),
             action('help', 'help', () => actions.help()),
         ],
         threads: [...session.store.threads]

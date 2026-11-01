@@ -164,8 +164,12 @@ function updateActivity(node, item, { active }) {
     node.toggleAttribute('data-open', open)
     node.querySelector('.activity-summary').setAttribute('aria-expanded', String(open))
     const current = item.steps.findLast((step) => step.status === 'running')
+    // While the list is open it already names the current step, so the header
+    // counts instead; folded away, the header names the step itself.
     node.querySelector('.activity-label').textContent = running
-        ? current?.title || text('working')
+        ? open
+            ? text('stepsRunning', { count: item.steps.length })
+            : current?.title || text('working')
         : item.steps.length === 1
           ? item.steps[0].title
           : text('stepsDone', { count: item.steps.length })

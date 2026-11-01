@@ -262,6 +262,10 @@ export const agentWindowMessages = defineMessages({
     applying: { id: 'app.agent-window.chat.applying', defaultMessage: 'Applying changes…' },
     escToStop: { id: 'app.agent-window.chat.esc-to-stop', defaultMessage: 'to stop' },
     stepsDone: { id: 'app.agent-window.chat.steps-done', defaultMessage: '{count} steps' },
+    stepsRunning: {
+        id: 'app.agent-window.chat.steps-running',
+        defaultMessage: 'Working · step {count}',
+    },
     planKicker: { id: 'app.agent-window.chat.plan-kicker', defaultMessage: 'Proposed changes' },
     manualChange: { id: 'app.agent-window.chat.manual-change', defaultMessage: 'Do it yourself' },
     changeKindUpdate: { id: 'app.agent-window.chat.change-kind-update', defaultMessage: 'Update' },

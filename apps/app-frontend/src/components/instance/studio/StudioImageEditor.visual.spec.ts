@@ -129,6 +129,18 @@ it('saves the edit as a PNG the file can hold', async () => {
     expect([...bytes.slice(0, 4)]).toEqual([0x89, 0x50, 0x4e, 0x47])
 })
 
+it('releases the canvas when it is closed before it finishes opening', async () => {
+    const revoke = vi.spyOn(URL, 'revokeObjectURL')
+    const wrapper = mountEditor()
+    // The fabric import and the image decode are still running; closing now used
+    // to leave an initialiser that created a canvas and an object URL nothing
+    // owned any more.
+    await nextTick()
+    wrapper.unmount()
+
+    await vi.waitFor(() => expect(revoke).toHaveBeenCalled())
+})
+
 it('cancels without saving', async () => {
     const wrapper = mountEditor()
 

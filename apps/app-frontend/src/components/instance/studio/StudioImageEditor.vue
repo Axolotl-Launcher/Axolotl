@@ -160,6 +160,7 @@ const hasPropertyControls = computed(
 )
 
 let resizeObserver: ResizeObserver | undefined
+let unmounted = false
 
 function tooltip(option: (typeof toolGroups)[number][number]) {
     return `${formatMessage(option.message)} (${option.shortcut})`
@@ -296,14 +297,22 @@ onMounted(async () => {
             // would blur the pixel art the editor exists to touch up.
             { backgroundColor: '', imageSmoothing: false },
         )
+        // Closing the editor while the fabric import and the image decode are
+        // still running leaves this initialiser behind: the canvas and the
+        // object URL it just created would outlive the component for good.
+        if (unmounted) {
+            void dispose()
+            return
+        }
         setInteractionEnabled(true)
         observeViewport()
     } catch (error) {
-        emit('error', error)
+        if (!unmounted) emit('error', error)
     }
 })
 
 onBeforeUnmount(() => {
+    unmounted = true
     document.removeEventListener('keydown', onKeydown)
     resizeObserver?.disconnect()
     void dispose()

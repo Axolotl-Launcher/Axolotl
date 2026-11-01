@@ -1,4 +1,11 @@
 {
+  "app.schematics.source.reden": { "message": "Reden" },
+  "app.schematics.source.buildschematics": { "message": "BuildSchematics" },
+  "app.schematics.failed-sources": { "message": "暂时无法加载：{sources}" },
+  "app.schematics.sort.default": { "message": "来源默认顺序" },
+  "app.schematics.sort.name": { "message": "名称" },
+  "app.schematics.login-required-sources": { "message": "{count} 个来源需要<login-link>登录</login-link>" },
+  "app.schematics.open-source": { "message": "在来源网站查看" },
   "app.schematics.instances-error": {
     "message": "无法读取实例列表。"
   },
@@ -12,7 +19,7 @@
     "message": "连接拾木空间"
   },
   "app.schematics.login-description": {
-    "message": "登录后即可浏览免费投影，并安装到你的 Minecraft 实例。"
+    "message": "登录后即可浏览拾木空间的免费投影，并安装到你的 Minecraft 实例。"
   },
   "app.schematics.login": {
     "message": "登录拾木空间"
@@ -24,19 +31,19 @@
     "message": "重新连接拾木空间"
   },
   "app.schematics.load-error": {
-    "message": "无法加载免费投影。"
+    "message": "无法加载投影。"
   },
   "app.schematics.account-error": {
     "message": "无法读取拾木空间账户。"
   },
   "app.schematics.empty-title": {
-    "message": "未找到免费投影"
+    "message": "未找到投影"
   },
   "app.schematics.empty-description": {
     "message": "可以切换其他页码，或尝试其他关键词。"
   },
   "app.schematics.loading": {
-    "message": "正在加载免费投影…"
+    "message": "正在加载投影…"
   },
   "app.schematics.retry": {
     "message": "重试"

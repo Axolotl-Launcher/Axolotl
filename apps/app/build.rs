@@ -940,9 +940,18 @@ fn main() {
                         "cancel_authorization",
                         "disconnect",
                         "check_connection",
-                        "shimu_list_schematics",
-                        "shimu_get_schematic",
-                        "shimu_install_schematic",
+                    ])
+                    .default_permission(
+                        DefaultPermissionRule::AllowAllCommands,
+                    ),
+            )
+            .plugin(
+                "schematics",
+                InlinedPlugin::new()
+                    .commands(&[
+                        "schematics_list",
+                        "schematics_get",
+                        "schematics_install",
                     ])
                     .default_permission(
                         DefaultPermissionRule::AllowAllCommands,

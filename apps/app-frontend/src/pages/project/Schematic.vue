@@ -16,15 +16,18 @@ import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import BrowseInstanceSelector from '@/components/browse/BrowseInstanceSelector.vue'
-import { schematicMessages as messages } from '@/components/browse/schematics/messages'
+import {
+    schematicMessages as messages,
+    schematicSourceMessages,
+} from '@/components/browse/schematics/messages'
 import SchematicInstallButton from '@/components/browse/schematics/SchematicInstallButton.vue'
 import InstanceIcon from '@/components/ui/InstanceIcon.vue'
 import TranslatedProjectDescription from '@/components/ui/TranslatedProjectDescription.vue'
 import { list as listInstances } from '@/helpers/instance'
 import { isServerProjectLink } from '@/helpers/instance-project'
 import { readProjectPreviewTitle } from '@/helpers/project-preview'
+import { getSchematic, isSchematicSource } from '@/helpers/schematics'
 import { getBrowseDefaultInstanceId, setBrowseDefaultInstanceId } from '@/helpers/settings'
-import { getShimuSchematic } from '@/helpers/shimu-schematics'
 import { getThirdPartyAccount, thirdPartyAccountKey } from '@/helpers/third-party-accounts'
 import type { GameInstance } from '@/helpers/types'
 import { useBreadcrumbs } from '@/store/breadcrumbs'
@@ -35,7 +38,10 @@ const router = useRouter()
 const queryClient = useQueryClient()
 const breadcrumbs = useBreadcrumbs()
 const previewTitle = computed(() => readProjectPreviewTitle(route.path))
-const postId = computed(() => Number(route.params.id))
+const projectId = computed(() => String(route.params.id ?? ''))
+const source = computed(() =>
+    isSchematicSource(route.params.source) ? route.params.source : 'reden',
+)
 const accountQuery = useQuery({
     queryKey: thirdPartyAccountKey,
     queryFn: getThirdPartyAccount,
@@ -44,16 +50,15 @@ const accountQuery = useQuery({
 const connected = computed(() => accountQuery.data.value?.status === 'connected')
 const projectQuery = useQuery({
     queryKey: computed(() => [
-        'shimu',
-        'schematic',
-        postId.value,
-        accountQuery.data.value?.user?.userId,
-        accountQuery.data.value?.flowId,
+        'schematics',
+        'detail',
+        source.value,
+        projectId.value,
+        source.value === 'shimu' ? accountQuery.data.value?.user?.userId : null,
+        source.value === 'shimu' ? accountQuery.data.value?.flowId : null,
     ]),
-    queryFn: () => getShimuSchematic(postId.value),
-    enabled: computed(
-        () => connected.value && Number.isSafeInteger(postId.value) && postId.value > 0,
-    ),
+    queryFn: () => getSchematic(source.value, projectId.value),
+    enabled: computed(() => !!projectId.value && (source.value !== 'shimu' || connected.value)),
     retry: false,
 })
 const project = projectQuery.data
@@ -71,7 +76,6 @@ const displayProject = computed(() => ({
 const instanceQuery = useQuery({
     queryKey: ['schematic-install-targets'],
     queryFn: listInstances,
-    enabled: connected,
 })
 const instances = computed(() =>
     (instanceQuery.data.value ?? []).filter((instance) => !isServerProjectLink(instance.link)),
@@ -85,7 +89,7 @@ const selectedInstance = computed(
 const picker = ref<InstanceType<typeof BrowseInstanceSelector> | null>(null)
 const activeTab = computed(() => (route.params.tab === 'files' ? 'files' : 'description'))
 const projectTabs = computed(() => {
-    const path = `/project/shimu/${postId.value}`
+    const path = `/project/${source.value}/${encodeURIComponent(projectId.value)}`
     return [
         {
             label: formatMessage(messages.description),
@@ -113,6 +117,7 @@ const browseLink = computed(() => {
     return { path: '/browse/schematic', query: { i: selectedInstance.value?.id } }
 })
 const description = computed(() => {
+    if (project.value?.descriptionFormat !== 'html') return project.value?.description ?? ''
     const document = new DOMParser().parseFromString(project.value?.description ?? '', 'text/html')
     for (const attachment of document.querySelectorAll('.re-file')) attachment.remove()
     for (const element of document.querySelectorAll('[src], [href], [poster]')) {
@@ -134,7 +139,8 @@ watch(
     { immediate: true },
 )
 watch(projectQuery.isError, (failed) => {
-    if (failed) void queryClient.invalidateQueries({ queryKey: thirdPartyAccountKey })
+    if (failed && source.value === 'shimu')
+        void queryClient.invalidateQueries({ queryKey: thirdPartyAccountKey })
 })
 function chooseInstance(instance: GameInstance) {
     selectedInstanceId.value = instance.id
@@ -144,20 +150,22 @@ function chooseInstance(instance: GameInstance) {
 function preview(fileName: string) {
     void router.push({
         name: 'SchematicWorkshop',
-        query: { shimu: postId.value, file: fileName },
+        query: { source: source.value, project: projectId.value, file: fileName },
     })
 }
 </script>
 
 <template>
-    <template v-if="accountQuery.isPending.value || projectQuery.isLoading.value">
+    <template
+        v-if="(source === 'shimu' && accountQuery.isPending.value) || projectQuery.isLoading.value"
+    >
         <Teleport to="#sidebar-teleport-target">
             <ProjectPageSkeleton variant="sidebar" />
         </Teleport>
         <ProjectPageSkeleton :title="previewTitle" />
     </template>
     <EmptyState
-        v-else-if="!connected"
+        v-else-if="source === 'shimu' && !connected"
         class="p-6"
         :heading="formatMessage(messages.loginTitle)"
         :description="formatMessage(messages.loginDescription)"
@@ -196,7 +204,7 @@ function preview(fileName: string) {
             >
                 <span class="flex items-center gap-2">
                     <GlobeIcon class="size-5 text-[var(--color-text-tertiary)]" />
-                    {{ formatMessage(messages.source) }}
+                    {{ formatMessage(schematicSourceMessages[source]) }}
                 </span>
             </SidebarSection>
         </Teleport>
@@ -249,21 +257,23 @@ function preview(fileName: string) {
             <NavTabs :links="projectTabs" />
             <Card v-if="activeTab === 'description'" class="m-0">
                 <TranslatedProjectDescription
-                    v-if="description.trim()"
+                    v-if="description.trim() && project.descriptionFormat !== 'plain'"
                     :description="description"
-                    format="html"
+                    :format="project.descriptionFormat === 'html' ? 'html' : 'markdown'"
                     :active="false"
                     :translations="{}"
                     mode="bilingual"
                     style="weakened"
                 />
-                <p v-else class="m-0 whitespace-pre-wrap">{{ project.summary }}</p>
+                <p v-else class="m-0 whitespace-pre-wrap">
+                    {{ project.description || project.summary }}
+                </p>
             </Card>
             <Card v-else class="m-0">
                 <div class="divide-y divide-surface-4">
                     <div
                         v-for="file in project.files"
-                        :key="`${project.postId}:${file.name}`"
+                        :key="`${project.source}:${project.id}:${file.name}`"
                         class="flex flex-wrap items-center gap-3 py-3 first:pt-0 last:pb-0"
                     >
                         <span class="min-w-0 flex-1 break-all font-medium">{{ file.name }}</span>

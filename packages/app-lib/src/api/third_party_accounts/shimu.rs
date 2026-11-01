@@ -2,7 +2,7 @@
 //! never followed: downloads always use Shimu's resource endpoint.
 
 use std::collections::{HashMap, HashSet, VecDeque};
-use std::io::Read;
+
 use std::sync::Arc;
 use std::time::Instant;
 
@@ -13,7 +13,7 @@ use serde_json::Value;
 
 use super::*;
 
-const MAX_FILE_SIZE: usize = 128 * 1024 * 1024;
+use crate::api::schematics::MAX_FILE_SIZE;
 const CATALOG_PAGE_SIZE: u32 = 100;
 const CATALOG_TTL: Duration = Duration::from_secs(120);
 static CATALOGS: LazyLock<tokio::sync::Mutex<VecDeque<CachedCatalog>>> =
@@ -60,6 +60,7 @@ pub struct SchematicDetail {
 pub struct SchematicPage {
     pub items: Vec<SchematicPost>,
     pub page_count: u32,
+    pub total: u64,
 }
 
 #[derive(Deserialize)]
@@ -249,6 +250,7 @@ pub async fn list(
     // posts and posts without schematic attachments, so it cannot size our pages.
     let offset = (page as usize - 1) * page_size as usize;
     Ok(SchematicPage {
+        total: items.len() as u64,
         page_count: items.len().div_ceil(page_size as usize).max(1) as u32,
         items: items
             .iter()
@@ -385,7 +387,10 @@ pub async fn detail(post_id: u64) -> crate::Result<SchematicDetail> {
     })
 }
 
-async fn download(post_id: u64, file_name: &str) -> crate::Result<Vec<u8>> {
+pub(crate) async fn download(
+    post_id: u64,
+    file_name: &str,
+) -> crate::Result<Vec<u8>> {
     if !valid_filename(file_name) {
         return Err(failure("Invalid schematic file"));
     }
@@ -419,98 +424,6 @@ async fn download(post_id: u64, file_name: &str) -> crate::Result<Vec<u8>> {
         }
         bytes.extend_from_slice(&chunk);
     }
-    validate_schematic(&bytes)?;
+
     Ok(bytes)
-}
-
-pub async fn preview_file(
-    post_id: u64,
-    file_name: &str,
-) -> crate::Result<(tempfile::TempDir, std::path::PathBuf)> {
-    let bytes = download(post_id, file_name).await?;
-    let directory = tempfile::Builder::new()
-        .prefix("axolotl-shimu-")
-        .tempdir()?;
-    let path = directory.path().join(file_name);
-    tokio::fs::write(&path, bytes).await?;
-    Ok((directory, path))
-}
-
-pub async fn install(
-    instance_id: String,
-    post_id: u64,
-    file_name: String,
-) -> crate::Result<String> {
-    let bytes = download(post_id, &file_name).await?;
-    let hash = crate::util::fetch::sha1_async(bytes.clone().into()).await?;
-    use crate::resources::*;
-    let artifact = ResourceArtifact {
-        reference: SourceArtifactRef {
-            release: SourceReleaseRef {
-                project: SourceProjectRef {
-                    source: SourceId::new("shimu")
-                        .map_err(|_| failure("Invalid schematic identity"))?,
-                    project_id: SourceProjectId::new(post_id.to_string())
-                        .map_err(|_| failure("Invalid schematic identity"))?,
-                },
-                release_id: SourceReleaseId::new(hash.clone())
-                    .map_err(|_| failure("Invalid schematic identity"))?,
-            },
-            artifact_id: SourceArtifactId::new(file_name.clone())
-                .map_err(|_| failure("Invalid schematic identity"))?,
-        },
-        file_name: Some(file_name.clone()),
-        role: ArtifactRole::Primary,
-        available: Some(true),
-        integrity: ArtifactIntegrity {
-            size: Some(bytes.len() as u64),
-            hashes: vec![ContentHash {
-                algorithm: HashAlgorithm::Sha1,
-                value: hash,
-            }],
-        },
-        acquisition: ArtifactAcquisition::Unavailable,
-        dependencies: vec![],
-    };
-    let state = crate::State::get().await?;
-    let path = crate::state::instances::commands::install_schematic::install(
-        &state,
-        &instance_id,
-        &file_name,
-        &bytes,
-        &artifact,
-    )
-    .await?;
-    crate::instance::emit_content_changed(&instance_id).await?;
-    Ok(path)
-}
-
-fn validate_schematic(bytes: &[u8]) -> crate::Result<()> {
-    let mut decoded = Vec::new();
-    if bytes.starts_with(&[0x1f, 0x8b]) {
-        flate2::read::GzDecoder::new(bytes)
-            .take(MAX_FILE_SIZE as u64 + 1)
-            .read_to_end(&mut decoded)
-            .map_err(|_| failure("Invalid compressed schematic"))?;
-    } else {
-        decoded.extend_from_slice(bytes);
-    }
-    if decoded.len() > MAX_FILE_SIZE {
-        return Err(failure("The schematic is too large"));
-    }
-    let (root, _) = quartz_nbt::io::read_nbt(
-        &mut std::io::Cursor::new(decoded),
-        quartz_nbt::io::Flavor::Uncompressed,
-    )
-    .map_err(|_| failure("The downloaded file is not a schematic"))?;
-    let valid = (root.contains_key("Regions") && root.contains_key("Metadata"))
-        || (root.contains_key("Width")
-            && root.contains_key("Height")
-            && root.contains_key("Length")
-            && (root.contains_key("Blocks") || root.contains_key("BlockData")))
-        || root.contains_key("Schematic");
-    if !valid {
-        return Err(failure("The downloaded file is not a schematic"));
-    }
-    Ok(())
 }

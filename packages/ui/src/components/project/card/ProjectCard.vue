@@ -406,11 +406,13 @@ const props = defineProps<{
     environment?: ProjectCardEnvironmentProps
     status?: ProjectStatus
     maxTags?: number
+    sourceLabel?: string
     providers?: ('modrinth' | 'curseforge' | 'mcarchive' | 'planet_minecraft')[]
     provider?: 'modrinth' | 'curseforge' | 'mcarchive' | 'planet_minecraft'
 }>()
 
 const providerLabels = computed(() => {
+    if (props.sourceLabel) return [props.sourceLabel]
     const names = {
         modrinth: 'Modrinth',
         curseforge: 'CurseForge',

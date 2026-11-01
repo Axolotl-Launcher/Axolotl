@@ -121,6 +121,7 @@ const selectedDisplayMode = computed(() =>
             </div>
         </template>
     </PopoutMenu>
+    <slot name="display-mode-after" />
     <Pagination
         :page="page"
         :count="pageCount"

@@ -18,7 +18,7 @@ export const schematicMessages = defineMessages({
     loginDescription: {
         id: 'app.schematics.login-description',
         defaultMessage:
-            'Sign in to browse free schematics and install them into your Minecraft instances.',
+            'Sign in to browse free schematics from Shimu Space and install them into your Minecraft instances.',
     },
     login: { id: 'app.schematics.login', defaultMessage: 'Sign in to Shimu Space' },
     waiting: {
@@ -28,24 +28,37 @@ export const schematicMessages = defineMessages({
     expired: { id: 'app.schematics.expired', defaultMessage: 'Reconnect Shimu Space' },
     loadError: {
         id: 'app.schematics.load-error',
-        defaultMessage: 'Could not load free schematics.',
+        defaultMessage: 'Could not load schematics.',
     },
     accountError: {
         id: 'app.schematics.account-error',
         defaultMessage: 'Could not read your Shimu Space account.',
     },
-    emptyTitle: { id: 'app.schematics.empty-title', defaultMessage: 'No free schematics found' },
+    emptyTitle: { id: 'app.schematics.empty-title', defaultMessage: 'No schematics found' },
     emptyDescription: {
         id: 'app.schematics.empty-description',
         defaultMessage: 'Try another page or a different search.',
     },
-    loading: { id: 'app.schematics.loading', defaultMessage: 'Loading free schematics…' },
+    loading: { id: 'app.schematics.loading', defaultMessage: 'Loading schematics…' },
+    allSources: { id: 'app.browse.source.all', defaultMessage: 'All sources' },
+    failedSources: {
+        id: 'app.schematics.failed-sources',
+        defaultMessage: '{sources} could not be loaded.',
+    },
     retry: { id: 'app.schematics.retry', defaultMessage: 'Retry' },
     search: { id: 'app.schematics.search', defaultMessage: 'Search schematics' },
     view: { id: 'app.browse.display-mode.switch', defaultMessage: 'Switch view' },
     sortHot: { id: 'app.schematics.sort.hot', defaultMessage: 'Popular' },
     sortNewest: { id: 'browse.sort.project-published', defaultMessage: 'Project first published' },
     sortFeatured: { id: 'app.schematics.sort.featured', defaultMessage: 'Featured' },
+    sortDefault: { id: 'app.schematics.sort.default', defaultMessage: 'Source order' },
+    sortName: { id: 'app.schematics.sort.name', defaultMessage: 'Name' },
+    loginRequiredSources: {
+        id: 'app.schematics.login-required-sources',
+        defaultMessage:
+            '{count, plural, one {# source requires <login-link>sign-in</login-link>} other {# sources require <login-link>sign-in</login-link>}}',
+    },
+    openSource: { id: 'app.schematics.open-source', defaultMessage: 'View on source website' },
     backToInstance: { id: 'app.browse.back-to-instance', defaultMessage: 'Back to instance' },
     listView: { id: 'app.browse.display-mode.list', defaultMessage: 'List' },
     compactView: { id: 'app.browse.display-mode.compact-list', defaultMessage: 'Compact list' },
@@ -94,4 +107,13 @@ export const schematicMessages = defineMessages({
     shaders: { id: 'app.browse.project-type.shaders', defaultMessage: 'Shaders' },
     servers: { id: 'app.browse.project-type.servers', defaultMessage: 'Servers' },
     favorites: { id: 'app.browse.project-type.favorites', defaultMessage: 'Favorites' },
+})
+
+export const schematicSourceMessages = defineMessages({
+    shimu: { id: 'app.third-party.shimu', defaultMessage: 'Shimu Space' },
+    reden: { id: 'app.schematics.source.reden', defaultMessage: 'Reden' },
+    buildschematics: {
+        id: 'app.schematics.source.buildschematics',
+        defaultMessage: 'BuildSchematics',
+    },
 })

@@ -123,9 +123,9 @@ export const discoverRoutes: RouteRecordRaw[] = [
         },
     },
     {
-        path: '/project/shimu/:id/:tab(files)?',
-        name: 'ShimuProject',
-        component: () => import('@/pages/project/Shimu.vue'),
+        path: '/project/:source(shimu|reden|buildschematics)/:id/:tab(files)?',
+        name: 'SchematicProject',
+        component: () => import('@/pages/project/Schematic.vue'),
         meta: {
             useContext: true,
             breadcrumb: [{ name: '?Project' }],

@@ -7,9 +7,9 @@ import {
     GridIcon,
     ListIcon,
     PlusIcon,
-    SpinnerIcon,
 } from '@modrinth/assets'
 import {
+    Admonition,
     type BrowseDisplayMode,
     type BrowseInstallContext,
     BrowseInstallHeader,
@@ -20,10 +20,12 @@ import {
     commonMessages,
     EmptyState,
     injectNotificationManager,
+    IntlFormatted,
     MAX_RESULTS_OPTIONS,
     Pagination,
     persistMaxResults,
     ProjectCardList,
+    ProjectCardSkeleton,
     readPersistedMaxResults,
     useVIntl,
 } from '@modrinth/ui'
@@ -31,10 +33,13 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
 import { openUrl } from '@tauri-apps/plugin-opener'
 import { watchDebounced } from '@vueuse/core'
 import { computed, ref, watch } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { RouterLink, useRoute, useRouter } from 'vue-router'
 
 import BrowseInstanceSelector from '@/components/browse/BrowseInstanceSelector.vue'
-import { schematicMessages as messages } from '@/components/browse/schematics/messages'
+import {
+    schematicMessages as messages,
+    schematicSourceMessages,
+} from '@/components/browse/schematics/messages'
 import SchematicCard from '@/components/browse/schematics/SchematicCard.vue'
 import InstanceIcon from '@/components/ui/InstanceIcon.vue'
 import { createBrowseProjectTabs, getBrowseProjectTabOptions } from '@/helpers/browse-project-tabs'
@@ -42,13 +47,19 @@ import { list as listInstances } from '@/helpers/instance'
 import { getDisplayInstanceIcon } from '@/helpers/instance-icons'
 import { isServerProjectLink } from '@/helpers/instance-project'
 import {
+    isSchematicSource,
+    listSchematics,
+    SCHEMATIC_SOURCES,
+    type SchematicBrowseSource,
+    type SchematicSort,
+} from '@/helpers/schematics'
+import {
     getBrowseDefaultInstanceId,
     getLastBrowseContentDisplayMode,
     setBrowseDefaultInstanceId,
     setLastBrowseContentDisplayMode,
     setLastBrowseContentProjectType,
 } from '@/helpers/settings'
-import { listShimuSchematics, type ShimuSchematicSort } from '@/helpers/shimu-schematics'
 import {
     beginThirdPartyAuthorization,
     cancelThirdPartyAuthorization,
@@ -81,14 +92,6 @@ const pageSize = computed(() => {
     const size = Number(route.query.m)
     return MAX_RESULTS_OPTIONS.includes(size) ? size : initialPageSize
 })
-const currentSort = computed<ShimuSchematicSort>(() =>
-    route.query.s === 'hot' || route.query.s === 'featured' ? route.query.s : 'new',
-)
-const sortOptions = computed(() => [
-    { value: 'hot', label: formatMessage(messages.sortHot) },
-    { value: 'new', label: formatMessage(messages.sortNewest) },
-    { value: 'featured', label: formatMessage(messages.sortFeatured) },
-])
 const selectedInstanceId = ref(
     typeof route.query.i === 'string' ? route.query.i : getBrowseDefaultInstanceId(),
 )
@@ -116,10 +119,53 @@ const authorizing = computed(() =>
     ['waiting', 'exchanging'].includes(account.value?.authorization ?? ''),
 )
 const connected = computed(() => account.value?.status === 'connected')
+const source = computed<SchematicBrowseSource>(() => {
+    const requested = isSchematicSource(route.query.source) ? route.query.source : 'all'
+    return requested === 'shimu' && !connected.value ? 'all' : requested
+})
+const availableSources = computed(() =>
+    SCHEMATIC_SOURCES.filter((entry) => !entry.requiresLogin || connected.value),
+)
+const requestSources = computed(() => {
+    const selected = source.value
+    return selected === 'all' ? availableSources.value.map((entry) => entry.id) : [selected]
+})
+const sourceKey = computed(() => requestSources.value.join(','))
+const includesShimu = computed(() => requestSources.value.includes('shimu'))
+const sourceConfig = computed(() =>
+    source.value === 'all'
+        ? { sorts: ['default'] as const }
+        : SCHEMATIC_SOURCES.find((entry) => entry.id === source.value)!,
+)
+const sourceOptions = computed(() => [
+    { id: 'all', label: formatMessage(messages.allSources), icon: GlobeIcon },
+    ...availableSources.value.map((entry) => ({
+        id: entry.id,
+        label: formatMessage(schematicSourceMessages[entry.id]),
+        icon: GlobeIcon,
+    })),
+])
+const lockedSourceCount = computed(
+    () => SCHEMATIC_SOURCES.filter((entry) => entry.requiresLogin && !connected.value).length,
+)
+const currentSort = computed<SchematicSort>(
+    () =>
+        sourceConfig.value.sorts.find((sort) => sort === route.query.s) ??
+        sourceConfig.value.sorts[0],
+)
+const sortOptions = computed(() => {
+    const labels = {
+        hot: messages.sortHot,
+        new: messages.sortNewest,
+        featured: messages.sortFeatured,
+        default: messages.sortDefault,
+        name: messages.sortName,
+    }
+    return sourceConfig.value.sorts.map((value) => ({ value, label: formatMessage(labels[value]) }))
+})
 const instanceQuery = useQuery({
     queryKey: ['schematic-install-targets'],
     queryFn: listInstances,
-    enabled: connected,
 })
 const instances = computed(() =>
     (instanceQuery.data.value ?? []).filter((instance) => !isServerProjectLink(instance.link)),
@@ -144,27 +190,32 @@ const installContext = computed<BrowseInstallContext | null>(() => {
 })
 const pageQuery = useQuery({
     queryKey: computed(() => [
-        'shimu',
         'schematics',
-        account.value?.user?.userId,
-        account.value?.flowId,
+        source.value,
+        sourceKey.value,
+        includesShimu.value ? account.value?.user?.userId : null,
+        includesShimu.value ? account.value?.flowId : null,
         submittedSearch.value,
         currentPage.value,
         pageSize.value,
         currentSort.value,
     ]),
-    enabled: computed(() => connected.value && !authorizing.value),
+    enabled: computed(() => source.value !== 'shimu' || (connected.value && !authorizing.value)),
     queryFn: async () => {
         const request = {
             page: currentPage.value,
             query: submittedSearch.value,
+            source: source.value,
+            sources: requestSources.value,
+            sourceKey: sourceKey.value,
             pageSize: pageSize.value,
             sort: currentSort.value,
-            userId: account.value?.user?.userId,
-            flowId: account.value?.flowId,
+            userId: includesShimu.value ? account.value?.user?.userId : null,
+            flowId: includesShimu.value ? account.value?.flowId : null,
         }
         return {
-            ...(await listShimuSchematics(
+            ...(await listSchematics(
+                request.sources,
                 request.page,
                 request.query,
                 request.pageSize,
@@ -174,9 +225,11 @@ const pageQuery = useQuery({
         }
     },
     placeholderData: (previous) =>
-        previous?.query === submittedSearch.value &&
-        previous.userId === account.value?.user?.userId &&
-        previous.flowId === account.value?.flowId &&
+        previous?.source === source.value &&
+        previous.sourceKey === sourceKey.value &&
+        previous.query === submittedSearch.value &&
+        previous.userId === (includesShimu.value ? account.value?.user?.userId : null) &&
+        previous.flowId === (includesShimu.value ? account.value?.flowId : null) &&
         previous.pageSize === pageSize.value &&
         previous.sort === currentSort.value
             ? previous
@@ -186,7 +239,17 @@ const pageQuery = useQuery({
 const projects = computed(() => pageQuery.data.value?.items ?? [])
 const pageCount = computed(() => pageQuery.data.value?.pageCount ?? 1)
 const displayedPage = computed(() => pageQuery.data.value?.page ?? currentPage.value)
+const failedSourceNames = computed(() =>
+    (pageQuery.data.value?.failedSources ?? []).map((id) =>
+        formatMessage(schematicSourceMessages[id]),
+    ),
+)
+const skeletonCount = computed(() =>
+    displayMode.value === 'grid' ? 6 : Math.min(pageSize.value, 8),
+)
 watch(pageQuery.data, (page) => {
+    if (page?.failedSources.includes('shimu'))
+        void queryClient.invalidateQueries({ queryKey: thirdPartyAccountKey })
     if (page && page.page === currentPage.value && page.page > page.pageCount)
         void router.replace({
             query: { ...route.query, page: page.pageCount > 1 ? page.pageCount : undefined },
@@ -204,16 +267,9 @@ const login = useMutation({
     },
     onSettled: () => queryClient.invalidateQueries({ queryKey: thirdPartyAccountKey }),
 })
-const cancel = useMutation({
-    mutationFn: async () => {
-        if (account.value?.flowId) await cancelThirdPartyAuthorization(account.value.flowId)
-    },
-    onSettled: () => queryClient.invalidateQueries({ queryKey: thirdPartyAccountKey }),
-})
 const loginError = computed(
     () =>
         login.isError.value ||
-        cancel.isError.value ||
         ['failed', 'denied', 'timedOut'].includes(account.value?.authorization ?? ''),
 )
 watch(
@@ -229,7 +285,8 @@ watch(
     { immediate: true },
 )
 watch(pageQuery.isError, (failed) => {
-    if (failed) void queryClient.invalidateQueries({ queryKey: thirdPartyAccountKey })
+    if (failed && includesShimu.value)
+        void queryClient.invalidateQueries({ queryKey: thirdPartyAccountKey })
 })
 
 function chooseInstance(instance: GameInstance) {
@@ -248,8 +305,13 @@ async function setPage(page: number) {
     window.scrollTo({ top: 0, behavior: 'smooth' })
 }
 function setSort(sort: string) {
-    if (!['hot', 'new', 'featured'].includes(sort) || sort === currentSort.value) return
+    if (!sourceConfig.value.sorts.some((value) => value === sort) || sort === currentSort.value)
+        return
     void router.replace({ query: { ...route.query, s: sort, page: undefined } })
+}
+function selectSource(value: string) {
+    if (!sourceOptions.value.some((option) => option.id === value) || value === source.value) return
+    void router.replace({ query: { ...route.query, source: value, s: undefined, page: undefined } })
 }
 function setPageSize(size: number) {
     if (!MAX_RESULTS_OPTIONS.includes(size) || size === pageSize.value) return
@@ -292,7 +354,7 @@ const projectTabs = computed(() =>
             v-model:query="search"
             :tabs="projectTabs"
             :placeholder="formatMessage(messages.search)"
-            :disabled="!connected || authorizing"
+            :disabled="source === 'shimu' && authorizing"
         >
             <template v-if="installContext" #install-header>
                 <BrowseInstallHeader :install-context="installContext" />
@@ -302,12 +364,7 @@ const projectTabs = computed(() =>
                     size="md"
                     class="flex min-w-0 items-center gap-2"
                     :title="selectedInstance?.name"
-                    :disabled="
-                        !connected ||
-                        authorizing ||
-                        instanceQuery.isPending.value ||
-                        instanceQuery.isError.value
-                    "
+                    :disabled="instanceQuery.isPending.value || instanceQuery.isError.value"
                     @click="picker?.show()"
                 >
                     <InstanceIcon
@@ -325,15 +382,18 @@ const projectTabs = computed(() =>
                     <ChevronDownIcon class="size-4 shrink-0 text-[var(--color-text-tertiary)]" />
                 </Button>
                 <BrowseSourceSelector
-                    selected="shimu"
-                    :label="formatMessage(messages.source)"
+                    :selected="source"
+                    :label="
+                        source === 'all'
+                            ? formatMessage(messages.allSources)
+                            : formatMessage(schematicSourceMessages[source])
+                    "
                     :icon="GlobeIcon"
-                    :options="[
-                        { id: 'shimu', label: formatMessage(messages.source), icon: GlobeIcon },
-                    ]"
+                    :options="sourceOptions"
+                    @select="selectSource"
                 />
             </template>
-            <template v-if="connected && !authorizing" #controls>
+            <template #controls>
                 <BrowseResultControls
                     :sort="currentSort"
                     :sort-options="sortOptions"
@@ -348,121 +408,93 @@ const projectTabs = computed(() =>
                     @update:page-size="setPageSize"
                     @display-mode="setDisplayMode"
                     @switch-page="setPage"
-                />
+                >
+                    <template v-if="lockedSourceCount" #display-mode-after>
+                        <span class="whitespace-nowrap text-xs text-[var(--color-text-tertiary)]">
+                            <IntlFormatted
+                                :message-id="messages.loginRequiredSources"
+                                :values="{ count: lockedSourceCount }"
+                            >
+                                <template #login-link="{ children }">
+                                    <RouterLink
+                                        to="/settings#third-party-accounts"
+                                        class="text-brand hover:underline focus-visible:underline"
+                                    >
+                                        <component :is="() => children" />
+                                    </RouterLink>
+                                </template>
+                            </IntlFormatted>
+                        </span>
+                    </template>
+                </BrowseResultControls>
             </template>
         </BrowseToolbar>
-        <div
-            v-if="connected && instanceQuery.isError.value"
-            role="alert"
-            class="flex items-center gap-3"
-        >
+        <div v-if="instanceQuery.isError.value" role="alert" class="flex items-center gap-3">
             <span class="text-red">{{ formatMessage(messages.instancesError) }}</span>
             <Button @click="instanceQuery.refetch()">{{ formatMessage(messages.retry) }}</Button>
         </div>
-        <div
-            v-if="accountQuery.isPending.value"
-            class="flex items-center justify-center gap-2 py-12"
-            role="status"
-        >
-            <SpinnerIcon class="animate-spin motion-reduce:animate-none" />{{
-                formatMessage(messages.loading)
-            }}
-        </div>
-        <EmptyState
-            v-else-if="accountQuery.isError.value"
-            :heading="formatMessage(messages.accountError)"
-        >
-            <template #actions
-                ><Button @click="accountQuery.refetch()">{{
-                    formatMessage(messages.retry)
-                }}</Button></template
-            >
-        </EmptyState>
-        <EmptyState
-            v-else-if="!connected || authorizing"
-            :icon="BoxIcon"
-            :heading="
-                formatMessage(
-                    authorizing
-                        ? messages.waiting
-                        : account?.status === 'expired'
-                          ? messages.expired
-                          : messages.loginTitle,
-                )
-            "
-            :description="
-                authorizing
-                    ? undefined
-                    : formatMessage(
-                          !account?.available ? messages.unavailable : messages.loginDescription,
-                      )
-            "
-        >
-            <template #actions>
-                <Button
-                    v-if="authorizing"
-                    :disabled="cancel.isPending.value"
-                    @click="cancel.mutate()"
-                    >{{ formatMessage(messages.cancel) }}</Button
-                >
-                <Button
-                    v-else
-                    type="colored"
-                    :disabled="login.isPending.value || !account?.available"
-                    @click="login.mutate()"
-                    >{{ formatMessage(messages.login) }}</Button
-                >
-            </template>
-        </EmptyState>
-        <template v-else>
-            <div
-                v-if="pageQuery.isPending.value"
-                class="flex items-center justify-center gap-2 py-12"
-                role="status"
-            >
-                <SpinnerIcon class="animate-spin motion-reduce:animate-none" />{{
-                    formatMessage(messages.loading)
-                }}
+
+        <Admonition v-if="failedSourceNames.length" type="warning">
+            <div class="flex flex-wrap items-center gap-3">
+                <span>{{
+                    formatMessage(messages.failedSources, { sources: failedSourceNames.join(', ') })
+                }}</span>
+                <Button @click="pageQuery.refetch()">{{ formatMessage(messages.retry) }}</Button>
             </div>
-            <EmptyState
-                v-else-if="!projects.length && !pageQuery.isError.value"
-                :icon="BoxIcon"
-                :heading="formatMessage(messages.emptyTitle)"
-                :description="formatMessage(messages.emptyDescription)"
-            />
-            <ProjectCardList v-else :layout="displayMode">
-                <SchematicCard
-                    v-for="project in projects"
-                    :key="`shimu:${project.postId}`"
+        </Admonition>
+        <section
+            v-if="pageQuery.isPending.value"
+            class="py-1"
+            aria-busy="true"
+            aria-live="polite"
+            :aria-label="formatMessage(messages.loading)"
+        >
+            <ProjectCardList :layout="displayMode">
+                <ProjectCardSkeleton
+                    v-for="index in skeletonCount"
+                    :key="`skeleton-${index}`"
                     :layout="displayMode"
-                    :project="project"
-                    :instance-id="selectedInstance?.id ?? null"
-                    @choose-instance="picker?.show()"
-                    @authorization-error="
-                        queryClient.invalidateQueries({ queryKey: thirdPartyAccountKey })
-                    "
                 />
             </ProjectCardList>
-            <div
-                v-if="pageQuery.isError.value"
-                role="alert"
-                class="flex flex-wrap items-center gap-3"
+        </section>
+        <EmptyState
+            v-else-if="!projects.length && !pageQuery.isError.value"
+            :icon="BoxIcon"
+            :heading="formatMessage(messages.emptyTitle)"
+            :description="formatMessage(messages.emptyDescription)"
+        />
+        <ProjectCardList v-else :layout="displayMode">
+            <SchematicCard
+                v-for="project in projects"
+                :key="`${project.source}:${project.id}`"
+                :layout="displayMode"
+                :project="project"
+                :instance-id="selectedInstance?.id ?? null"
+                @choose-instance="picker?.show()"
+                @authorization-error="
+                    queryClient.invalidateQueries({ queryKey: thirdPartyAccountKey })
+                "
+            />
+        </ProjectCardList>
+        <div v-if="pageQuery.isError.value" role="alert" class="flex flex-wrap items-center gap-3">
+            <p class="m-0 text-red">{{ formatMessage(messages.loadError) }}</p>
+            <Button @click="pageQuery.refetch()">{{ formatMessage(messages.retry) }}</Button>
+            <Button
+                v-if="source === 'shimu'"
+                type="quiet"
+                :disabled="login.isPending.value"
+                @click="login.mutate()"
+                >{{ formatMessage(messages.expired) }}</Button
             >
-                <p class="m-0 text-red">{{ formatMessage(messages.loadError) }}</p>
-                <Button @click="pageQuery.refetch()">{{ formatMessage(messages.retry) }}</Button>
-                <Button type="quiet" :disabled="login.isPending.value" @click="login.mutate()">{{
-                    formatMessage(messages.expired)
-                }}</Button>
-            </div>
-            <div class="flex justify-end">
-                <Pagination
-                    :page="displayedPage"
-                    :count="pageCount"
-                    :loading="pageQuery.isFetching.value"
-                    @switch-page="setPage"
-                />
-            </div>
-        </template>
+        </div>
+        <div class="flex justify-end">
+            <Pagination
+                :page="displayedPage"
+                :count="pageCount"
+                :loading="pageQuery.isFetching.value"
+                @switch-page="setPage"
+            />
+        </div>
         <p v-if="loginError" role="alert" class="m-0 text-center text-red">
             {{ formatMessage(messages.loginFailed) }}
         </p>

@@ -1,3 +1,5 @@
+import { isSchematicSource } from '@/helpers/schematics'
+
 import type { SchematicPreviewSource } from './backend'
 
 const RECENT_KEY = 'axolotl:lab:schematic-preview:recent:v1'
@@ -19,6 +21,7 @@ function safeParse<T>(key: string, fallback: T): T {
 }
 
 function sourceId(source: SchematicPreviewSource) {
+    if (source.kind === 'remote') return `${source.source}:${source.projectId}:${source.fileName}`
     if (source.kind === 'shimu') return `shimu:${source.postId}:${source.fileName}`
     return source.kind === 'external'
         ? `external:${source.path}`
@@ -36,6 +39,10 @@ export function loadRecentSchematics(): RecentSchematic[] {
                 typeof record.fileName === 'string' &&
                 typeof record.openedAt === 'number' &&
                 (record.source?.kind === 'external' ||
+                    (record.source?.kind === 'remote' &&
+                        isSchematicSource(record.source.source) &&
+                        typeof record.source.projectId === 'string' &&
+                        typeof record.source.fileName === 'string') ||
                     record.source?.kind === 'instance' ||
                     record.source?.kind === 'instance_file' ||
                     (record.source?.kind === 'shimu' &&

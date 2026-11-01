@@ -1,15 +1,16 @@
 <script setup lang="ts">
-import { CheckIcon, ChevronDownIcon, PlusIcon, SpinnerIcon } from '@modrinth/assets'
+import { CheckIcon, ChevronDownIcon, ExternalIcon, PlusIcon, SpinnerIcon } from '@modrinth/assets'
 import { Button, injectNotificationManager, PopoutMenu, useVIntl } from '@modrinth/ui'
 import { useMutation } from '@tanstack/vue-query'
+import { openUrl } from '@tauri-apps/plugin-opener'
 import { computed, ref } from 'vue'
 
-import { installShimuSchematic, type ShimuSchematic } from '@/helpers/shimu-schematics'
+import { installSchematic, type SchematicProject } from '@/helpers/schematics'
 
 import { schematicMessages as messages } from './messages'
 
 const props = defineProps<{
-    project: ShimuSchematic
+    project: SchematicProject
     instanceId: string | null
     compact?: boolean
     prominent?: boolean
@@ -17,7 +18,7 @@ const props = defineProps<{
 }>()
 const emit = defineEmits<{ chooseInstance: []; authorizationError: [] }>()
 const { formatMessage } = useVIntl()
-const { addNotification } = injectNotificationManager()
+const { addNotification, handleError } = injectNotificationManager()
 const files = computed(() =>
     props.fileName
         ? props.project.files.filter((file) => file.name === props.fileName)
@@ -25,20 +26,20 @@ const files = computed(() =>
 )
 const installed = ref(new Set<string>())
 const identity = (fileName: string) =>
-    `${props.instanceId}\u0000shimu\u0000${props.project.postId}\u0000${fileName}`
+    `${props.instanceId}\u0000${props.project.source}\u0000${props.project.id}\u0000${fileName}`
 const installation = useMutation({
-    mutationFn: installShimuSchematic,
-    onSuccess: (_, request) => {
+    mutationFn: installSchematic,
+    onSuccess: (path, request) => {
         installed.value.add(
-            `${request.instanceId}\u0000shimu\u0000${request.postId}\u0000${request.fileName}`,
+            `${request.instanceId}\u0000${request.source}\u0000${request.id}\u0000${request.fileName}`,
         )
         addNotification({
             title: formatMessage(messages.installSuccess),
-            text: request.fileName,
+            text: path.split(/[\\/]/).pop() ?? request.fileName,
             type: 'success',
         })
     },
-    onError: (error) => {
+    onError: (error, request) => {
         const message =
             typeof error === 'object' && error && 'message' in error
                 ? String(error.message)
@@ -50,13 +51,15 @@ const installation = useMutation({
                 : '',
             type: 'error',
         })
-        emit('authorizationError')
+        if (request.source === 'shimu') emit('authorizationError')
     },
 })
 const busy = installation.isPending
 const fileKey = computed(() => installation.variables.value?.fileName)
 const allInstalled = computed(() =>
-    files.value.every((file) => installed.value.has(identity(file.name))),
+    files.value.length
+        ? files.value.every((file) => installed.value.has(identity(file.name)))
+        : installed.value.has(identity('')),
 )
 const installLabel = computed(() =>
     formatMessage(
@@ -72,13 +75,25 @@ function install(fileName: string) {
         emit('chooseInstance')
         return
     }
-    installation.mutate({ instanceId: props.instanceId, postId: props.project.postId, fileName })
+    installation.mutate({
+        instanceId: props.instanceId,
+        source: props.project.source,
+        id: props.project.id,
+        fileName,
+    })
 }
 </script>
 
 <template>
     <Button
-        v-if="files.length === 1 || !instanceId"
+        v-if="project.filesResolved && !project.files.length"
+        type="outlined"
+        @click="openUrl(project.sourceUrl).catch(handleError)"
+    >
+        <ExternalIcon />{{ formatMessage(messages.openSource) }}
+    </Button>
+    <Button
+        v-else-if="files.length <= 1 || !instanceId"
         color="brand"
         :type="prominent ? 'colored' : 'outlined'"
         :size="compact ? '2xs' : prominent ? 'xl' : 'md'"
@@ -87,7 +102,7 @@ function install(fileName: string) {
         :label="installLabel"
         :title="installLabel"
         :disabled="busy || allInstalled"
-        @click.stop="install(files[0].name)"
+        @click.stop="install(files[0]?.name ?? '')"
     >
         <SpinnerIcon v-if="busy" class="animate-spin motion-reduce:animate-none" />
         <CheckIcon v-else-if="allInstalled" />

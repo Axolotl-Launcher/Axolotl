@@ -70,12 +70,13 @@ import {
 } from 'vue'
 import { useRoute } from 'vue-router'
 
-import { schematicMessages } from '@/components/browse/schematics/messages'
+import { schematicMessages, schematicSourceMessages } from '@/components/browse/schematics/messages'
 import SchematicBlockPickerModal from '@/components/lab/schematic-preview/SchematicBlockPickerModal.vue'
 import SchematicInfoModal from '@/components/lab/schematic-preview/SchematicInfoModal.vue'
 import SchematicInstancePickerModal from '@/components/lab/schematic-preview/SchematicInstancePickerModal.vue'
 import SchematicMaterialSwatch from '@/components/lab/schematic-preview/SchematicMaterialSwatch.vue'
 import { list } from '@/helpers/instance'
+import { isSchematicSource } from '@/helpers/schematics'
 import type { GameInstance } from '@/helpers/types.d.ts'
 import {
     applySchematicEdits,
@@ -1407,6 +1408,8 @@ function openRecent(record: RecentSchematic) {
 }
 
 function formatSource(record: RecentSchematic) {
+    if (record.source.kind === 'remote')
+        return `${formatMessage(schematicSourceMessages[record.source.source])} · ${record.source.fileName}`
     if (record.source.kind === 'shimu')
         return formatMessage(schematicMessages.previewSource, { fileName: record.source.fileName })
     if (record.source.kind === 'external') return record.source.path
@@ -1523,6 +1526,20 @@ onMounted(async () => {
     await setupNativeDrop().catch(() => undefined)
     if (disposed) return
 
+    if (
+        isSchematicSource(route.query.source) &&
+        typeof route.query.project === 'string' &&
+        typeof route.query.file === 'string' &&
+        /\.(litematic|schem)$/i.test(route.query.file)
+    ) {
+        await openSource({
+            kind: 'remote',
+            source: route.query.source,
+            projectId: route.query.project,
+            fileName: route.query.file,
+        })
+        return
+    }
     const postId = Number(route.query.shimu)
     const fileName = typeof route.query.file === 'string' ? route.query.file : ''
     if (Number.isSafeInteger(postId) && postId > 0 && /\.(litematic|schem)$/i.test(fileName)) {

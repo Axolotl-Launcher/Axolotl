@@ -1,4 +1,11 @@
 {
+  "app.schematics.source.reden": { "message": "Reden" },
+  "app.schematics.source.buildschematics": { "message": "BuildSchematics" },
+  "app.schematics.failed-sources": { "message": "{sources} could not be loaded." },
+  "app.schematics.sort.default": { "message": "Source order" },
+  "app.schematics.sort.name": { "message": "Name" },
+  "app.schematics.login-required-sources": { "message": "{count, plural, one {# source requires <login-link>sign-in</login-link>} other {# sources require <login-link>sign-in</login-link>}}" },
+  "app.schematics.open-source": { "message": "View on source website" },
   "app.schematics.instances-error": {
     "message": "Could not load your instances."
   },
@@ -12,7 +19,7 @@
     "message": "Connect Shimu Space"
   },
   "app.schematics.login-description": {
-    "message": "Sign in to browse free schematics and install them into your Minecraft instances."
+    "message": "Sign in to browse free schematics from Shimu Space and install them into your Minecraft instances."
   },
   "app.schematics.login": {
     "message": "Sign in to Shimu Space"
@@ -24,19 +31,19 @@
     "message": "Reconnect Shimu Space"
   },
   "app.schematics.load-error": {
-    "message": "Could not load free schematics."
+    "message": "Could not load schematics."
   },
   "app.schematics.account-error": {
     "message": "Could not read your Shimu Space account."
   },
   "app.schematics.empty-title": {
-    "message": "No free schematics found"
+    "message": "No schematics found"
   },
   "app.schematics.empty-description": {
     "message": "Try another page or a different search."
   },
   "app.schematics.loading": {
-    "message": "Loading free schematics…"
+    "message": "Loading schematics…"
   },
   "app.schematics.retry": {
     "message": "Retry"

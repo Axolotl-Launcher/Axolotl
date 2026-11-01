@@ -5,13 +5,13 @@ import { useRoute } from 'vue-router'
 
 import { createProjectDetailsQuery } from '@/helpers/project-links'
 import { createProjectPreviewState } from '@/helpers/project-preview'
-import type { ShimuSchematic } from '@/helpers/shimu-schematics'
+import type { SchematicProject } from '@/helpers/schematics'
 
-import { schematicMessages as messages } from './messages'
+import { schematicMessages as messages, schematicSourceMessages } from './messages'
 import SchematicInstallButton from './SchematicInstallButton.vue'
 
 const props = defineProps<{
-    project: ShimuSchematic
+    project: SchematicProject
     instanceId: string | null
     layout: 'list' | 'compact' | 'grid'
 }>()
@@ -19,7 +19,7 @@ const emit = defineEmits<{ chooseInstance: []; authorizationError: [] }>()
 const { formatMessage } = useVIntl()
 const route = useRoute()
 const projectLink = computed(() => {
-    const path = `/project/shimu/${props.project.postId}`
+    const path = `/project/${props.project.source}/${encodeURIComponent(props.project.id)}`
     return {
         path,
         query: createProjectDetailsQuery(route.query, route.fullPath),
@@ -45,6 +45,7 @@ const summary = computed(() =>
         :icon-url="project.cover ?? undefined"
         :banner="project.cover ?? undefined"
         :tags="project.gameVersions"
+        :source-label="formatMessage(schematicSourceMessages[project.source])"
     >
         <template #actions>
             <SchematicInstallButton

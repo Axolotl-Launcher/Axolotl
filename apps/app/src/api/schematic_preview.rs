@@ -28,6 +28,11 @@ const MAX_EDIT_BLOCKS: usize = 250_000;
     rename_all_fields = "camelCase"
 )]
 pub enum SchematicSource {
+    Remote {
+        source: theseus::schematics::Source,
+        project_id: String,
+        file_name: String,
+    },
     Shimu {
         post_id: u64,
         file_name: String,
@@ -667,13 +672,26 @@ async fn resolve_source(
     source: &SchematicSource,
 ) -> Result<(PathBuf, Option<String>, Option<tempfile::TempDir>), String> {
     match source {
+        SchematicSource::Remote {
+            source,
+            project_id,
+            file_name,
+        } => {
+            let (directory, path) = theseus::schematics::preview_file(
+                *source, project_id, file_name,
+            )
+            .await
+            .map_err(|error| error.to_string())?;
+            Ok((path, None, Some(directory)))
+        }
         SchematicSource::Shimu { post_id, file_name } => {
-            let (directory, path) =
-                theseus::third_party_accounts::shimu::preview_file(
-                    *post_id, file_name,
-                )
-                .await
-                .map_err(|error| error.to_string())?;
+            let (directory, path) = theseus::schematics::preview_file(
+                theseus::schematics::Source::Shimu,
+                &post_id.to_string(),
+                file_name,
+            )
+            .await
+            .map_err(|error| error.to_string())?;
             Ok((path, None, Some(directory)))
         }
         SchematicSource::External { path } => {

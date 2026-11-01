@@ -42,6 +42,8 @@ Window (`src/`):
 - `demo-runtime.js`: `DemoRuntime`, the scripted Preview runtime.
 - `demo-flows.js`: the four scripted tasks in English and Chinese, plus the generic answer.
 - `messages.js`: `text()` lookup with `{name}` filling, the locale and cached `Intl` formatters.
+- `tools.js`: `toolHelp()`, the plain-language sentence for a tool name: the tool's own, else its
+  family's (`instance_`, `resource_` and so on), else "A launcher tool".
 - `dom.js`: the `h()` element builder (text nodes only), icons, the Markdown and log renderers and
   the focus helpers.
 - `motion.js`: `morph()` (View Transitions), `animate()`, `ScrollFollower` and `reducedMotion`.
@@ -236,6 +238,9 @@ a run with status `declined` or `superseded`.
   Approve button.
 - Unknown event types are ignored. If the task was deleted, the window stops the handle.
 - Every step, plan, result and error field is plain text. The window never parses HTML.
+- A step's `tool` is shown by its real name, with a sentence from `tools.js` that says what it does
+  in plain words: in its tooltip, in the step's accessible description and in the Progress panel.
+  A tool without a sentence of its own is described by its family, else as "A launcher tool".
 
 ### Attachments
 

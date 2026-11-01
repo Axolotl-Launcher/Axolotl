@@ -335,6 +335,120 @@
   "app.agent-window.chat.copy-text": {
     "message": "复制文本"
   },
+  "app.agent-window.chat.tool-help-instance-list": {
+    "message": "查看你有哪些实例"
+  },
+  "app.agent-window.chat.tool-help-instance-get": {
+    "message": "读取实例的详细信息，比如 Minecraft 版本和加载器"
+  },
+  "app.agent-window.chat.tool-help-instance-create": {
+    "message": "新建一个实例并开始安装"
+  },
+  "app.agent-window.chat.tool-help-world-list": {
+    "message": "列出实例里的单人世界"
+  },
+  "app.agent-window.chat.tool-help-world-get": {
+    "message": "读取世界的详细信息，比如游戏模式和难度"
+  },
+  "app.agent-window.chat.tool-help-world-backup": {
+    "message": "把世界打包成 ZIP 备份，存进实例的备份文件夹"
+  },
+  "app.agent-window.chat.tool-help-resource-search": {
+    "message": "在 Modrinth 等网站上搜索模组、资源包或光影包"
+  },
+  "app.agent-window.chat.tool-help-resource-list-releases": {
+    "message": "看看某个模组或资源包有哪些版本适合这个实例"
+  },
+  "app.agent-window.chat.tool-help-resource-prepare-install": {
+    "message": "规划安装，检查还需要哪些前置，暂时不会安装"
+  },
+  "app.agent-window.chat.tool-help-resource-execute-plan": {
+    "message": "按检查过的方案开始安装"
+  },
+  "app.agent-window.chat.tool-help-resource-check-updates": {
+    "message": "检查已安装的模组和资源包有没有合适的更新，但不会更新"
+  },
+  "app.agent-window.chat.tool-help-resource-prepare-update": {
+    "message": "规划更新并检查彼此是否兼容，暂时不会更新"
+  },
+  "app.agent-window.chat.tool-help-resource-execute-changes": {
+    "message": "执行检查过的更新方案，替换旧文件"
+  },
+  "app.agent-window.chat.tool-help-resource-history-list": {
+    "message": "查看实例里模组最近的变动，以及哪些旧版本还能恢复"
+  },
+  "app.agent-window.chat.tool-help-resource-history-rollback": {
+    "message": "把模组换回你之前用过的版本"
+  },
+  "app.agent-window.chat.tool-help-content-list": {
+    "message": "列出实例里已安装的内容，以及各自是否启用"
+  },
+  "app.agent-window.chat.tool-help-logs-list": {
+    "message": "列出实例的日志和崩溃报告，但不打开它们"
+  },
+  "app.agent-window.chat.tool-help-logs-read": {
+    "message": "读取游戏日志，找出出错的地方"
+  },
+  "app.agent-window.chat.tool-help-backup-get-config": {
+    "message": "查看实例是否开启了快照，以及已有几个快照"
+  },
+  "app.agent-window.chat.tool-help-backup-create": {
+    "message": "给实例创建快照，以后可以用它恢复"
+  },
+  "app.agent-window.chat.tool-help-launch-set-memory": {
+    "message": "设置这个实例的游戏能使用多少内存"
+  },
+  "app.agent-window.chat.tool-help-install-job-get": {
+    "message": "查看安装进度，以及是否安装成功"
+  },
+  "app.agent-window.chat.tool-help-operations-get": {
+    "message": "查看启动器在后台进行的操作是否已经完成"
+  },
+  "app.agent-window.chat.tool-help-process-list": {
+    "message": "检查启动器现在有没有正在运行的游戏"
+  },
+  "app.agent-window.chat.tool-help-system-get-memory": {
+    "message": "查看电脑共有多少内存，还剩多少可用"
+  },
+  "app.agent-window.chat.tool-help-metadata-list-loader-versions": {
+    "message": "查询某个 Minecraft 版本能用哪些版本的 Fabric 等加载器"
+  },
+  "app.agent-window.chat.tool-family-instance": {
+    "message": "查看或管理你的游戏实例"
+  },
+  "app.agent-window.chat.tool-family-world": {
+    "message": "查看或管理实例里的单人世界"
+  },
+  "app.agent-window.chat.tool-family-resource": {
+    "message": "查找和管理模组、资源包与光影包"
+  },
+  "app.agent-window.chat.tool-family-content": {
+    "message": "查看或调整实例里已安装的内容"
+  },
+  "app.agent-window.chat.tool-family-backup": {
+    "message": "查看或管理实例的快照，也就是可以用来恢复实例的备份"
+  },
+  "app.agent-window.chat.tool-family-logs": {
+    "message": "查看实例的日志和崩溃报告"
+  },
+  "app.agent-window.chat.tool-family-launch": {
+    "message": "查看或调整实例的启动设置，比如内存和 Java"
+  },
+  "app.agent-window.chat.tool-family-job": {
+    "message": "查看或管理启动器的后台操作，比如安装"
+  },
+  "app.agent-window.chat.tool-family-process": {
+    "message": "查看或结束从启动器打开的游戏"
+  },
+  "app.agent-window.chat.tool-family-system": {
+    "message": "调用电脑上的功能，比如查看内存或打开链接"
+  },
+  "app.agent-window.chat.tool-family-metadata": {
+    "message": "查询有哪些 Minecraft 版本和加载器版本"
+  },
+  "app.agent-window.chat.tool-generic": {
+    "message": "启动器工具"
+  },
   "app.agent-window.chat.why": {
     "message": "为什么？"
   },

@@ -263,6 +263,163 @@ export const agentWindowMessages = defineMessages({
     copy: { id: 'app.agent-window.chat.copy', defaultMessage: 'Copy message' },
     copyAnswer: { id: 'app.agent-window.chat.copy-answer', defaultMessage: 'Copy answer' },
     copyText: { id: 'app.agent-window.chat.copy-text', defaultMessage: 'Copy text' },
+    toolHelpInstanceList: {
+        id: 'app.agent-window.chat.tool-help-instance-list',
+        defaultMessage: 'Looks at the list of your instances',
+    },
+    toolHelpInstanceGet: {
+        id: 'app.agent-window.chat.tool-help-instance-get',
+        defaultMessage: 'Reads an instance’s details, like its Minecraft version and mod loader',
+    },
+    toolHelpInstanceCreate: {
+        id: 'app.agent-window.chat.tool-help-instance-create',
+        defaultMessage: 'Sets up a new instance and starts installing it',
+    },
+    toolHelpWorldList: {
+        id: 'app.agent-window.chat.tool-help-world-list',
+        defaultMessage: 'Lists the singleplayer worlds in an instance',
+    },
+    toolHelpWorldGet: {
+        id: 'app.agent-window.chat.tool-help-world-get',
+        defaultMessage: 'Reads a world’s details, like its game mode and difficulty',
+    },
+    toolHelpWorldBackup: {
+        id: 'app.agent-window.chat.tool-help-world-backup',
+        defaultMessage: 'Saves a copy of a world as a ZIP file in the instance’s backups folder',
+    },
+    toolHelpResourceSearch: {
+        id: 'app.agent-window.chat.tool-help-resource-search',
+        defaultMessage: 'Searches a site such as Modrinth for mods, resource packs, or shaders',
+    },
+    toolHelpResourceListReleases: {
+        id: 'app.agent-window.chat.tool-help-resource-list-releases',
+        defaultMessage: 'Lists the versions of a mod or pack that fit an instance',
+    },
+    toolHelpResourcePrepareInstall: {
+        id: 'app.agent-window.chat.tool-help-resource-prepare-install',
+        defaultMessage:
+            'Plans an install and checks what else it needs, without installing anything yet',
+    },
+    toolHelpResourceExecutePlan: {
+        id: 'app.agent-window.chat.tool-help-resource-execute-plan',
+        defaultMessage: 'Starts the install that a checked plan describes',
+    },
+    toolHelpResourceCheckUpdates: {
+        id: 'app.agent-window.chat.tool-help-resource-check-updates',
+        defaultMessage:
+            'Checks installed mods and packs for updates that fit, without updating them',
+    },
+    toolHelpResourcePrepareUpdate: {
+        id: 'app.agent-window.chat.tool-help-resource-prepare-update',
+        defaultMessage:
+            'Plans updates and checks that they work together, without applying them yet',
+    },
+    toolHelpResourceExecuteChanges: {
+        id: 'app.agent-window.chat.tool-help-resource-execute-changes',
+        defaultMessage: 'Carries out a checked update plan, replacing the old files',
+    },
+    toolHelpResourceHistoryList: {
+        id: 'app.agent-window.chat.tool-help-resource-history-list',
+        defaultMessage:
+            'Shows recent changes to an instance’s mods, and which old versions can be restored',
+    },
+    toolHelpResourceHistoryRollback: {
+        id: 'app.agent-window.chat.tool-help-resource-history-rollback',
+        defaultMessage: 'Puts a mod back to a version you had before',
+    },
+    toolHelpContentList: {
+        id: 'app.agent-window.chat.tool-help-content-list',
+        defaultMessage: 'Lists what’s installed in an instance and whether each item is turned on',
+    },
+    toolHelpLogsList: {
+        id: 'app.agent-window.chat.tool-help-logs-list',
+        defaultMessage: 'Lists an instance’s logs and crash reports without opening them',
+    },
+    toolHelpLogsRead: {
+        id: 'app.agent-window.chat.tool-help-logs-read',
+        defaultMessage: 'Reads a game log to find what went wrong',
+    },
+    toolHelpBackupGetConfig: {
+        id: 'app.agent-window.chat.tool-help-backup-get-config',
+        defaultMessage: 'Checks whether an instance has snapshots turned on, and how many it has',
+    },
+    toolHelpBackupCreate: {
+        id: 'app.agent-window.chat.tool-help-backup-create',
+        defaultMessage: 'Takes a snapshot of an instance that you can restore later',
+    },
+    toolHelpLaunchSetMemory: {
+        id: 'app.agent-window.chat.tool-help-launch-set-memory',
+        defaultMessage: 'Sets how much memory an instance’s game can use',
+    },
+    toolHelpInstallJobGet: {
+        id: 'app.agent-window.chat.tool-help-install-job-get',
+        defaultMessage: 'Checks how an install is going and whether it worked',
+    },
+    toolHelpOperationsGet: {
+        id: 'app.agent-window.chat.tool-help-operations-get',
+        defaultMessage:
+            'Checks whether something the launcher started in the background has finished',
+    },
+    toolHelpProcessList: {
+        id: 'app.agent-window.chat.tool-help-process-list',
+        defaultMessage: 'Checks whether the launcher has a game running right now',
+    },
+    toolHelpSystemGetMemory: {
+        id: 'app.agent-window.chat.tool-help-system-get-memory',
+        defaultMessage: 'Checks how much memory your computer has, and how much is free',
+    },
+    toolHelpMetadataListLoaderVersions: {
+        id: 'app.agent-window.chat.tool-help-metadata-list-loader-versions',
+        defaultMessage:
+            'Looks up the versions of a mod loader, such as Fabric, for a Minecraft version',
+    },
+    toolFamilyInstance: {
+        id: 'app.agent-window.chat.tool-family-instance',
+        defaultMessage: 'Looks at or manages your game instances',
+    },
+    toolFamilyWorld: {
+        id: 'app.agent-window.chat.tool-family-world',
+        defaultMessage: 'Looks at or manages an instance’s singleplayer worlds',
+    },
+    toolFamilyResource: {
+        id: 'app.agent-window.chat.tool-family-resource',
+        defaultMessage: 'Finds and manages mods, resource packs, and shaders',
+    },
+    toolFamilyContent: {
+        id: 'app.agent-window.chat.tool-family-content',
+        defaultMessage: 'Looks at or changes what’s installed in an instance',
+    },
+    toolFamilyBackup: {
+        id: 'app.agent-window.chat.tool-family-backup',
+        defaultMessage:
+            'Looks at or manages an instance’s snapshots, the backups it can be restored from',
+    },
+    toolFamilyLogs: {
+        id: 'app.agent-window.chat.tool-family-logs',
+        defaultMessage: 'Looks through an instance’s logs and crash reports',
+    },
+    toolFamilyLaunch: {
+        id: 'app.agent-window.chat.tool-family-launch',
+        defaultMessage: 'Reads or changes how an instance starts, like its memory and Java',
+    },
+    toolFamilyJob: {
+        id: 'app.agent-window.chat.tool-family-job',
+        defaultMessage:
+            'Checks on or manages work the launcher does in the background, like installs',
+    },
+    toolFamilyProcess: {
+        id: 'app.agent-window.chat.tool-family-process',
+        defaultMessage: 'Checks on or stops a game the launcher started',
+    },
+    toolFamilySystem: {
+        id: 'app.agent-window.chat.tool-family-system',
+        defaultMessage: 'Uses your computer, like checking its memory or opening a link',
+    },
+    toolFamilyMetadata: {
+        id: 'app.agent-window.chat.tool-family-metadata',
+        defaultMessage: 'Looks up which Minecraft and mod loader versions exist',
+    },
+    toolGeneric: { id: 'app.agent-window.chat.tool-generic', defaultMessage: 'A launcher tool' },
     why: { id: 'app.agent-window.chat.why', defaultMessage: 'Why?' },
     askWhy: { id: 'app.agent-window.chat.ask-why', defaultMessage: 'Why change {name}?' },
     tourName: { id: 'app.agent-window.chat.tour-name', defaultMessage: 'Quick tour' },

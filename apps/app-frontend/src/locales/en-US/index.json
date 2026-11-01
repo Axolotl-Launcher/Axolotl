@@ -335,6 +335,120 @@
   "app.agent-window.chat.copy-text": {
     "message": "Copy text"
   },
+  "app.agent-window.chat.tool-help-instance-list": {
+    "message": "Looks at the list of your instances"
+  },
+  "app.agent-window.chat.tool-help-instance-get": {
+    "message": "Reads an instance’s details, like its Minecraft version and mod loader"
+  },
+  "app.agent-window.chat.tool-help-instance-create": {
+    "message": "Sets up a new instance and starts installing it"
+  },
+  "app.agent-window.chat.tool-help-world-list": {
+    "message": "Lists the singleplayer worlds in an instance"
+  },
+  "app.agent-window.chat.tool-help-world-get": {
+    "message": "Reads a world’s details, like its game mode and difficulty"
+  },
+  "app.agent-window.chat.tool-help-world-backup": {
+    "message": "Saves a copy of a world as a ZIP file in the instance’s backups folder"
+  },
+  "app.agent-window.chat.tool-help-resource-search": {
+    "message": "Searches a site such as Modrinth for mods, resource packs, or shaders"
+  },
+  "app.agent-window.chat.tool-help-resource-list-releases": {
+    "message": "Lists the versions of a mod or pack that fit an instance"
+  },
+  "app.agent-window.chat.tool-help-resource-prepare-install": {
+    "message": "Plans an install and checks what else it needs, without installing anything yet"
+  },
+  "app.agent-window.chat.tool-help-resource-execute-plan": {
+    "message": "Starts the install that a checked plan describes"
+  },
+  "app.agent-window.chat.tool-help-resource-check-updates": {
+    "message": "Checks installed mods and packs for updates that fit, without updating them"
+  },
+  "app.agent-window.chat.tool-help-resource-prepare-update": {
+    "message": "Plans updates and checks that they work together, without applying them yet"
+  },
+  "app.agent-window.chat.tool-help-resource-execute-changes": {
+    "message": "Carries out a checked update plan, replacing the old files"
+  },
+  "app.agent-window.chat.tool-help-resource-history-list": {
+    "message": "Shows recent changes to an instance’s mods, and which old versions can be restored"
+  },
+  "app.agent-window.chat.tool-help-resource-history-rollback": {
+    "message": "Puts a mod back to a version you had before"
+  },
+  "app.agent-window.chat.tool-help-content-list": {
+    "message": "Lists what’s installed in an instance and whether each item is turned on"
+  },
+  "app.agent-window.chat.tool-help-logs-list": {
+    "message": "Lists an instance’s logs and crash reports without opening them"
+  },
+  "app.agent-window.chat.tool-help-logs-read": {
+    "message": "Reads a game log to find what went wrong"
+  },
+  "app.agent-window.chat.tool-help-backup-get-config": {
+    "message": "Checks whether an instance has snapshots turned on, and how many it has"
+  },
+  "app.agent-window.chat.tool-help-backup-create": {
+    "message": "Takes a snapshot of an instance that you can restore later"
+  },
+  "app.agent-window.chat.tool-help-launch-set-memory": {
+    "message": "Sets how much memory an instance’s game can use"
+  },
+  "app.agent-window.chat.tool-help-install-job-get": {
+    "message": "Checks how an install is going and whether it worked"
+  },
+  "app.agent-window.chat.tool-help-operations-get": {
+    "message": "Checks whether something the launcher started in the background has finished"
+  },
+  "app.agent-window.chat.tool-help-process-list": {
+    "message": "Checks whether the launcher has a game running right now"
+  },
+  "app.agent-window.chat.tool-help-system-get-memory": {
+    "message": "Checks how much memory your computer has, and how much is free"
+  },
+  "app.agent-window.chat.tool-help-metadata-list-loader-versions": {
+    "message": "Looks up the versions of a mod loader, such as Fabric, for a Minecraft version"
+  },
+  "app.agent-window.chat.tool-family-instance": {
+    "message": "Looks at or manages your game instances"
+  },
+  "app.agent-window.chat.tool-family-world": {
+    "message": "Looks at or manages an instance’s singleplayer worlds"
+  },
+  "app.agent-window.chat.tool-family-resource": {
+    "message": "Finds and manages mods, resource packs, and shaders"
+  },
+  "app.agent-window.chat.tool-family-content": {
+    "message": "Looks at or changes what’s installed in an instance"
+  },
+  "app.agent-window.chat.tool-family-backup": {
+    "message": "Looks at or manages an instance’s snapshots, the backups it can be restored from"
+  },
+  "app.agent-window.chat.tool-family-logs": {
+    "message": "Looks through an instance’s logs and crash reports"
+  },
+  "app.agent-window.chat.tool-family-launch": {
+    "message": "Reads or changes how an instance starts, like its memory and Java"
+  },
+  "app.agent-window.chat.tool-family-job": {
+    "message": "Checks on or manages work the launcher does in the background, like installs"
+  },
+  "app.agent-window.chat.tool-family-process": {
+    "message": "Checks on or stops a game the launcher started"
+  },
+  "app.agent-window.chat.tool-family-system": {
+    "message": "Uses your computer, like checking its memory or opening a link"
+  },
+  "app.agent-window.chat.tool-family-metadata": {
+    "message": "Looks up which Minecraft and mod loader versions exist"
+  },
+  "app.agent-window.chat.tool-generic": {
+    "message": "A launcher tool"
+  },
   "app.agent-window.chat.why": {
     "message": "Why?"
   },

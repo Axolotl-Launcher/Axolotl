@@ -6,6 +6,7 @@ import { pixelLoader } from './mascot.js'
 import { dateLabel, text } from './messages.js'
 import { currentThread, instanceChoice, modelChoice, session } from './session.js'
 import { lastTurn } from './state.js'
+import { toolHelp } from './tools.js'
 
 const STATE_KEYS = {
     thinking: 'stateWorking',
@@ -155,13 +156,24 @@ export function renderPanel() {
                 h(
                     'ol',
                     { class: 'log-list' },
-                    steps.map((step) =>
-                        h('li', { data: { state: step.status } }, [
-                            h('time', { text: step.startedAt ? dateLabel(step.startedAt) : '' }),
-                            h('span', { text: step.title }),
-                            step.tool ? h('code', { text: step.tool }) : null,
-                        ]),
-                    ),
+                    steps.map((step, index) => {
+                        // As on the step itself: a tooltip for the pointer, the
+                        // entry's description for screen readers.
+                        const help = step.tool ? toolHelp(step.tool) : ''
+                        const id = `log-help-${index}`
+                        return h(
+                            'li',
+                            { data: { state: step.status }, 'aria-describedby': help ? id : null },
+                            [
+                                h('time', {
+                                    text: step.startedAt ? dateLabel(step.startedAt) : '',
+                                }),
+                                h('span', { text: step.title }),
+                                help ? h('code', { text: step.tool, data: { tip: help } }) : null,
+                                help ? h('span', { id, text: help, hidden: true }) : null,
+                            ],
+                        )
+                    }),
                 ),
             ]),
         )

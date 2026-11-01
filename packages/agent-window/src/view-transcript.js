@@ -8,6 +8,7 @@ import { dateLabel, durationLabel, text, whenLabel } from './messages.js'
 import { animate, reducedMotion } from './motion.js'
 import { currentThread, session } from './session.js'
 import { ACTIVE_STATUSES } from './state.js'
+import { toolHelp } from './tools.js'
 import { fileChip } from './view-composer.js'
 import { stateLabel } from './view-panel.js'
 
@@ -360,6 +361,7 @@ function buildSteps(node, item) {
                     h('span', { class: 'step-detail' }),
                 ]),
                 h('code', { class: 'step-tool' }),
+                h('span', { class: 'step-help', id: `step-help-${++helpIds}`, hidden: true }),
             ])
             list.append(row)
         }
@@ -377,6 +379,18 @@ function buildSteps(node, item) {
         const tool = row.querySelector('.step-tool')
         tool.textContent = step.tool || ''
         tool.hidden = !step.tool
+        // The chip shows the tool's real name and its tooltip says what it does.
+        // The chip takes no tab stop, which a long run would fill with dozens,
+        // so the row's description carries the same words to screen readers.
+        const help = row.querySelector('.step-help')
+        help.textContent = step.tool ? toolHelp(step.tool) : ''
+        if (step.tool) {
+            tool.dataset.tip = help.textContent
+            row.setAttribute('aria-describedby', help.id)
+        } else {
+            delete tool.dataset.tip
+            row.removeAttribute('aria-describedby')
+        }
     }
     // A long run shows its latest steps; the earlier ones fold behind one row.
     const rows = list.querySelectorAll(':scope > .step')
@@ -399,6 +413,9 @@ function buildSteps(node, item) {
 }
 
 const LATEST_STEPS = 6
+// Turns are rebuilt when a task opens again, so a counter keeps every row's
+// description id unique across them.
+let helpIds = 0
 
 export function showAllSteps(target) {
     const node = target.closest('.activity')

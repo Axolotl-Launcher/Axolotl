@@ -1124,6 +1124,72 @@ it('folds the earlier steps of a long run behind one row', async () => {
     expect(await page.locator('.step-more').count()).toBe(0)
 })
 
+it('explains every tool in plain words on its step and in the activity log', async () => {
+    await send('My game crashes on launch')
+    await (await untilPlan()).click()
+    await untilSettled()
+    // Finished groups fold away and build their rows once opened.
+    for (const summary of await page.locator('.activity-summary').all()) await summary.click()
+    // Until the catalog is regenerated the explanations are their keys, so this
+    // checks shape: each tool has one, it is not the bare name, and no two
+    // tools share one.
+    const steps = await page.locator('.activity .step').evaluateAll((rows) =>
+        rows.map((row) => {
+            const chip = row.querySelector<HTMLElement>('.step-tool')!
+            const described = row.getAttribute('aria-describedby')
+            return {
+                tool: chip.textContent,
+                tip: chip.dataset.tip,
+                description: described && document.getElementById(described)?.textContent,
+                tabStop: chip.tabIndex >= 0,
+            }
+        }),
+    )
+    expect(steps.map((step) => step.tool)).toContain('resource_history_rollback')
+    for (const step of steps) {
+        expect(step.tip, step.tool).toMatch(/\S/)
+        expect(step.tip).not.toBe(step.tool)
+        // Screen readers get the same words, without a tab stop per step.
+        expect(step.description).toBe(step.tip)
+        expect(step.tabStop).toBe(false)
+    }
+    const tips = new Map(steps.map((step) => [step.tool, step.tip]))
+    expect(new Set(tips.values()).size).toBe(tips.size)
+
+    // A scroll hides the tooltip, so the chip is scrolled into view, and that
+    // scroll has landed, before the pointer rests on it.
+    const chip = page.locator('.step-tool', { hasText: 'logs_read' })
+    await chip.evaluate(async (node) => {
+        const scroller = document.getElementById('message-scroll')!
+        const landed = new Promise((resolve) =>
+            scroller.addEventListener('scroll', resolve, { once: true }),
+        )
+        const before = scroller.scrollTop
+        node.scrollIntoView({ block: 'center' })
+        if (scroller.scrollTop !== before) await landed
+    })
+    await chip.hover()
+    await page.clock.runFor(600)
+    expect(await page.locator('#tip.is-shown').textContent()).toBe(tips.get('logs_read'))
+
+    await page.locator('#task-toggle').click()
+    const log = await page.locator('.log-list li').evaluateAll((entries) =>
+        entries.map((entry) => {
+            const described = entry.getAttribute('aria-describedby')
+            return {
+                tool: entry.querySelector('code')?.textContent,
+                tip: entry.querySelector('code')?.dataset.tip,
+                description: described && document.getElementById(described)?.textContent,
+            }
+        }),
+    )
+    expect(log.length).toBe(steps.length)
+    for (const entry of log) {
+        expect(entry.tip, entry.tool).toBe(tips.get(entry.tool!))
+        expect(entry.description).toBe(entry.tip)
+    }
+})
+
 it('offers follow-ups under the latest result and sends the one picked', async () => {
     await send('My game crashes on launch')
     await (await untilPlan()).click()

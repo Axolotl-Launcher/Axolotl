@@ -287,18 +287,31 @@ pub(crate) const DOMAINS: &[(&str, &[&str], u32)] = &[
     ),
 ];
 
-/// 导入一份别人给的文件时会被执行或注入进程环境的键；它们是设置，但据此可以让
-/// 启动器运行任意命令，所以导入前要先让用户看见。
-pub(crate) const DANGER_ZONE: &[&str] =
-    &["hooks", "custom_env_vars", "extra_launch_args"];
+/// The keys an imported file may not set without the user having seen them: each
+/// one either lets the launcher be made to run a command, injects the game
+/// process's environment, or lowers the trust this launcher places in the
+/// network and in the protocols it opens. They are settings like any other, so
+/// nothing else keeps a file from carrying them.
+pub(crate) const DANGER_ZONE: &[&str] = &[
+    "hooks",
+    "custom_env_vars",
+    "extra_launch_args",
+    "ignore_ssl_errors",
+    "allow_external_scheme",
+    "allow_privileged_scheme",
+];
 
-/// 一条会被执行或注入进程环境的导入项：它现在是什么，导入后会变成什么。
+/// One imported key that can be executed or reach the game's environment, with
+/// the value it reads as now and the one the import would leave in its place:
+/// naming the key alone would let a value the user cannot see replace the one
+/// they chose.
 #[derive(Debug, serde::Serialize)]
 pub struct DangerousImport {
+    /// The setting the file would change.
     pub key: String,
-    /// 当前生效值；键目前没有值时是 None。
+    /// The value in force, and nothing when the key reads as nothing yet.
     pub before: Option<Value>,
-    /// 归档里的值。
+    /// The value the archive would leave in its place.
     pub after: Value,
 }
 
@@ -822,14 +835,12 @@ pub(crate) async fn prune_redundant(
 /// is why the write is `replace`: the version has to be reset even where the
 /// values already read the same.
 ///
-/// What is written is the effective settings projected the way `store` projects
-/// them: the domain's known keys, minus one holding what the deployment
-/// provides, minus one holding the build's default. A key the local document
-/// carries is stated as an override of a provided value, the way a write names
-/// it, so the user's own entries survive the rewrite while a copy of a provided
-/// value still goes. Everything else is dropped, including the keys this build
-/// cannot name, which is what "clean up" means here and why the operation is
-/// offered explicitly rather than run at a start.
+/// A key the local document carries is stated as an override of a provided
+/// value, the way a write names it, so the user's own entries survive the
+/// rewrite while a copy of a provided value still goes. Everything else is
+/// dropped, including the keys this build cannot name, which is what "clean up"
+/// means here and why the operation is offered explicitly rather than run at a
+/// start.
 ///
 /// Every domain is written, an empty one included: the version is the thing that
 /// has to be reset, and a domain left out would keep the version that made it
@@ -910,6 +921,13 @@ pub(crate) async fn sanitise(handle: &Handle) -> crate::Result<usize> {
 /// another build names the keys that build knows, and replacing the document
 /// with it would drop the rest.
 ///
+/// A domain with no document of its own is drafted from the values in force
+/// rather than from nothing: a document states its whole domain, so one carrying
+/// only the file's keys would stop reading the row it is answered by today, and
+/// every key the file leaves out would fall back to the build's default. A
+/// domain that already has a document is drafted from that document instead,
+/// since its entries may be the user's own.
+///
 /// A key whose value is the one the deployment provides is dropped rather than
 /// written: a local copy would be the last word for it, so the deployment's own
 /// later change would never arrive. A key this build does not know is kept as
@@ -919,10 +937,11 @@ pub(crate) async fn sanitise(handle: &Handle) -> crate::Result<usize> {
 ///
 /// `allow_danger` is what the user answered about `DANGER_ZONE`: without it the
 /// keys it lists are dropped from the file before anything is merged, so the
-/// rest of the import still lands. `dropped` in the answer counts the values of
-/// known keys this build cannot read as the setting they name — a file is
-/// someone else's statement, so one bad value costs that value and not the
-/// import, and the local document keeps what it held for it.
+/// rest of the import still lands. `dropped` in the answer counts the known keys
+/// the import did not take: a value this build cannot read as the setting it
+/// names, and one `patch_with` would refuse — a file is someone else's
+/// statement, so one bad value costs that value and not the import, and the
+/// local document keeps what it held for it.
 ///
 /// Nothing is written before every domain is read, projected and judged: a
 /// deployment document this build cannot read and a local document it cannot
@@ -940,9 +959,8 @@ pub(crate) async fn import(
         )
         .into());
     };
-    // The names and the shapes are judged before anything is opened: this is the
-    // half that can be answered without the disk, and answering it first is what
-    // keeps a malformed file from reaching the writes below.
+    // Judged before anything is opened: a malformed file must not reach the
+    // writes below.
     let mut named = Vec::with_capacity(input.len());
     for (name, imported) in input {
         let Some(&(domain, keys, schema_version)) = DOMAINS
@@ -982,6 +1000,9 @@ pub(crate) async fn import(
     let mut projection: Document = serde_json::from_value(
         serde_json::to_value(Settings::get(handle).await?)?,
     )?;
+    // What a domain without a document is drafted from, taken before anything is
+    // laid over the projection above.
+    let in_force = projection.clone();
     let mut dropped = 0_usize;
     let mut targets = Vec::with_capacity(named.len());
     for (name, keys, schema_version, imported) in named {
@@ -1000,10 +1021,15 @@ pub(crate) async fn import(
             .await
         {
             Stored::Ready { document } | Stored::Newer { document } => document,
-            // A domain with no document is answered by the row, so the file
-            // is merged into nothing rather than into the row's values: the
-            // keys it does not name keep the answer they had.
-            Stored::Missing => Document::new(),
+            // The draft states the values the domain reads as now, so that a
+            // key the file leaves out keeps answering what it answers today: a
+            // document is the whole answer for its domain, and the row it is
+            // answered by stops contributing the moment one exists.
+            Stored::Missing => {
+                let mut draft = Document::new();
+                contribute(&mut draft, keys, &in_force);
+                draft
+            }
             // Replacing a file this build cannot read would lose the keys it
             // cannot see, and the merge cannot tell which of them the user
             // means to keep.
@@ -1015,29 +1041,38 @@ pub(crate) async fn import(
             }
         };
         for (key, value) in imported {
-            // Only the keys the domain lists are judged, so a key from another
-            // shape survives the merge as the file wrote it.
             if !keys.contains(&key.as_str()) {
                 target.insert(key, value);
                 continue;
             }
-            match lay(&mut projection, &key, &value) {
+            // What the key reads as now, which a refused value is put back to:
+            // a key judged after this one must be judged against a write that
+            // could land.
+            let held = projection.get(&key).cloned();
+            let refusal = match lay(&mut projection, &key, &value) {
                 Lay::Read | Lay::LowerBound => {
-                    target.insert(key, value);
+                    let refusal = refused(&key, &projection);
+                    if refusal.is_some() {
+                        restore(&mut projection, &key, held);
+                    }
+                    refusal
                 }
-                // What the document held for the key is kept rather than
-                // replaced: a value this build cannot read would cost the
-                // setting the user already has.
-                Lay::Unreadable(error) => {
-                    dropped += 1;
-                    tracing::warn!(
-                        document = name,
-                        key = %key,
-                        %error,
-                        "Dropping an imported settings value that cannot be read"
-                    );
-                }
-            }
+                Lay::Unreadable(error) => Some(error.to_string()),
+            };
+            let Some(error) = refusal else {
+                target.insert(key, value);
+                continue;
+            };
+            // What the document held for the key is kept rather than replaced:
+            // a value the import cannot take would cost the setting the user
+            // already has.
+            dropped += 1;
+            tracing::warn!(
+                document = name,
+                key = %key,
+                %error,
+                "Dropping an imported settings value the settings cannot take"
+            );
         }
         for &key in keys {
             let covered = target.get(key).is_some_and(|value| {
@@ -1076,6 +1111,37 @@ pub(crate) async fn import(
         documents: written,
         dropped,
     })
+}
+
+/// Why the value `values` holds for `key` is one `patch_with` would refuse, when
+/// it is.
+///
+/// The checks are that writer's own, called rather than repeated: a value it
+/// refuses is one every later write of the whole settings refuses as well, so an
+/// import that let one through would leave the settings no write can replace.
+fn refused(key: &str, values: &Map<String, Value>) -> Option<String> {
+    let Ok(settings) =
+        serde_json::from_value::<Settings>(Value::Object(values.clone()))
+    else {
+        // Nothing to say: `lay` reads the same values, and a value the type
+        // cannot take is the caller's to report.
+        return None;
+    };
+    match key {
+        "default_game_language" => {
+            let language = settings.default_game_language.as_str();
+            (!crate::api::settings::valid_game_language(language))
+                .then(|| format!("{language} is not a Minecraft locale code"))
+        }
+        "terracotta_public_nodes" => {
+            crate::api::terracotta::validate_public_nodes(
+                &settings.terracotta_public_nodes,
+            )
+            .err()
+            .map(|error| error.to_string())
+        }
+        _ => None,
+    }
 }
 
 /// Writes a document for every domain from `settings`, leaving out the keys
@@ -1671,17 +1737,17 @@ async fn row_values(
     Ok((settings, values))
 }
 
-/// Lays the row's values for `keys` over `values`.
+/// Lays the values `source` holds for `keys` over `values`.
 ///
 /// Unlike a document, nothing here can be unreadable: these values come from a
 /// `Settings`, so they already carry the types their keys take.
 fn contribute(
     values: &mut Map<String, Value>,
     keys: &[&str],
-    row: &Map<String, Value>,
+    source: &Map<String, Value>,
 ) {
     for &key in keys {
-        if let Some(value) = row.get(key) {
+        if let Some(value) = source.get(key) {
             values.insert(key.to_string(), value.clone());
         }
     }
@@ -1754,15 +1820,21 @@ fn lay(values: &mut Map<String, Value>, key: &str, value: &Value) -> Lay {
     let Some(error) = unreadable else {
         return Lay::Read;
     };
-    match kept {
-        Some(kept) => {
-            values.insert(key.to_string(), kept);
+    restore(values, key, kept);
+    Lay::Unreadable(error)
+}
+
+/// Puts `key` back to `held`, the value it carried before another was laid over
+/// it.
+fn restore(values: &mut Map<String, Value>, key: &str, held: Option<Value>) {
+    match held {
+        Some(held) => {
+            values.insert(key.to_string(), held);
         }
         None => {
             values.remove(key);
         }
     }
-    Lay::Unreadable(error)
 }
 
 /// Why `values` does not read as `Settings`, when they do not.

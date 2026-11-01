@@ -51,7 +51,10 @@ fn merge_settings(
     }
 }
 
-fn valid_game_language(value: &str) -> bool {
+/// Whether `value` is a Minecraft locale code. Called by `patch_with` on a write
+/// and by an import on the value it is about to take, so that a file cannot
+/// leave settings no write may replace.
+pub(crate) fn valid_game_language(value: &str) -> bool {
     let value = value.trim();
     value.is_empty()
         || (value.len() <= 32

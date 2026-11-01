@@ -673,6 +673,7 @@ pub(crate) async fn checkpoint_completed_ranges(
     let mut completed = ranges
         .iter()
         .filter_map(|range| {
+            // sched-order: theseus::util::fetch::segment::DownloadRange.state temporary
             let state = range.state.lock();
             state.completed.then_some((range.start, state.end + 1))
         })
@@ -1215,6 +1216,7 @@ pub(crate) async fn try_segmented_download(
                     let Some(permit) = try_acquire_native_connection(route, semaphore) else { break; };
                     pending_ranges.pop_front();
                     let range = ranges[index].clone();
+                    // sched-order: theseus::util::fetch::segment::DownloadRange.state temporary
                     range.state.lock().active = true;
                     downloads.push(download_segment(
                         route, range, size, request.header.as_ref(), credentials, None,
@@ -1237,6 +1239,7 @@ pub(crate) async fn try_segmented_download(
                 crate::util::download::telemetry::record_budget(request, configured_limit, concurrency_cap, retained_ranges, active_ranges);
                 let remaining_bytes = ranges
                     .iter()
+                    // sched-order: theseus::util::fetch::segment::DownloadRange.state temporary
                     .filter(|range| !range.state.lock().completed)
                     .map(DownloadRange::remaining)
                     .sum();

@@ -164,6 +164,21 @@ pub(super) mod enabled {
         if std::env::var("SCHED_ORDER_GUARD").as_deref() != Ok("1") {
             return None;
         }
+        // Clear the previous run's report. Every process appends its own
+        // `run`-tagged lines, so without this the file would grow for the
+        // life of the checkout; the reader only wants the latest run.
+        let out = |name: &str, default: &str| {
+            std::env::var_os(name)
+                .map(PathBuf::from)
+                .unwrap_or_else(|| repo_path(default))
+        };
+        let _ = std::fs::write(
+            out(
+                "SCHED_ORDER_VIOLATIONS",
+                ".agents/plans/sched-order-violations.json",
+            ),
+            "",
+        );
         let path = |name: &str, default: &str| {
             std::env::var_os(name)
                 .map(PathBuf::from)
@@ -202,6 +217,8 @@ pub(super) mod enabled {
     struct Tracking {
         held: HashMap<Holder, Vec<Rank>>,
         reported: HashSet<(&'static str, &'static str)>,
+        /// Idents already reported as missing from the registry.
+        unregistered: HashSet<&'static str>,
     }
 
     static TRACKING: LazyLock<Mutex<Tracking>> =
@@ -224,11 +241,25 @@ pub(super) mod enabled {
         keep: bool,
     ) -> Option<(Holder, Rank)> {
         let Some(rank) = table.ranks.get(ident).copied() else {
-            table.append(json!({
-                "run": table.run,
-                "kind": "unregistered",
-                "acquired": ident,
-            }));
+            // Report an unregistered ident once per process, not on every
+            // acquisition: an annotated site whose identifier drifted out of
+            // the registry would otherwise append a line per lock take.
+            let first = tracking
+                .lock()
+                .unwrap_or_else(|e| e.into_inner())
+                .unregistered
+                .insert(ident);
+            if first {
+                tracing::warn!(
+                    ident,
+                    "Annotated resource is not in the generated registry; the order is not checked for it"
+                );
+                table.append(json!({
+                    "run": table.run,
+                    "kind": "unregistered",
+                    "acquired": ident,
+                }));
+            }
             return None;
         };
         let mut lines = Vec::new();
@@ -246,14 +277,19 @@ pub(super) mod enabled {
                     acquired = ident,
                     "Managed resource acquired against its family order"
                 );
-                lines.push(json!({
-                    "run": table.run,
-                    "kind": "violation",
-                    "family": rank.family,
-                    "held": violation.held.ident,
-                    "acquired": ident,
-                    "holder": holder.describe(),
-                }));
+                // One line per distinct descending pair, like the recorded
+                // pairs: a violation in a loop must not grow the file per
+                // iteration.
+                if tracking.reported.insert((violation.held.ident, ident)) {
+                    lines.push(json!({
+                        "run": table.run,
+                        "kind": "violation",
+                        "family": rank.family,
+                        "held": violation.held.ident,
+                        "acquired": ident,
+                        "holder": holder.describe(),
+                    }));
+                }
             }
             for outer in held.iter().filter(|outer| outer.family == rank.family)
             {

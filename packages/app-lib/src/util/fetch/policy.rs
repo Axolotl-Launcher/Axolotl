@@ -354,7 +354,9 @@ pub(crate) fn record_range_splitting_success(route: &DownloadRoute) {
             &authority,
             route.proxy,
         );
+        // sched-order: theseus::util::fetch::policy::RANGE_SPLITTING_PROTOCOL_FAILURES temporary
         RANGE_SPLITTING_PROTOCOL_FAILURES.lock().remove(&authority);
+        // sched-order: theseus::util::fetch::policy::RANGE_SPLITTING_SUPPORTED temporary
         RANGE_SPLITTING_SUPPORTED.lock().insert(authority);
     }
 }

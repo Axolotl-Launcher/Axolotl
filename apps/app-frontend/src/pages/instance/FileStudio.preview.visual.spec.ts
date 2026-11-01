@@ -238,6 +238,23 @@ it('refuses to write an edit over a file that changed since it was opened', asyn
     expect(studio.notify).toHaveBeenCalled()
 })
 
+it('keeps the edit open when the write fails', async () => {
+    studio.writeStudioBinary.mockRejectedValue(new Error('disk full'))
+    const wrapper = await mountStudio({ instance: { id: 'instance' } as unknown as GameInstance })
+    await openScreenshot(wrapper)
+
+    const edit = wrapper.findAll('button').find((button) => button.text() === 'Edit')
+    if (!edit) throw new Error('the preview does not offer the editor')
+    await edit.trigger('click')
+    await wrapper.find('[data-testid="editor-save"]').trigger('click')
+    await flushPromises()
+
+    expect(studio.notify).toHaveBeenCalled()
+    // The file was not written, so the canvas still holds the only copy of the
+    // edit; closing it here would lose the user's work without a way back.
+    expect(wrapper.find('[data-testid="editor-save"]').exists()).toBe(true)
+})
+
 it('writes an image edit to the file the editor was opened for', async () => {
     const wrapper = await mountStudio({ instance: { id: 'instance' } as unknown as GameInstance })
     await openScreenshot(wrapper)

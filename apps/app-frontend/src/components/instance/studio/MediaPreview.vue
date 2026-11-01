@@ -209,8 +209,10 @@ function onSave(bytes: Uint8Array) {
     const location = editLocation.value
     const original = editOriginal.value
     if (!location || !original) return
+    // The editor stays open until the preview reloads from the file that was
+    // written: closing here would throw the canvas away, and a write that fails
+    // leaves the file untouched with no way to retry.
     emit('save', { location, original, bytes })
-    stopEditing()
 }
 
 watch(

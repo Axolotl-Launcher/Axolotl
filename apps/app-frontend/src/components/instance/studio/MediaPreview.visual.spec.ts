@@ -15,6 +15,8 @@ const PNG_BYTES = Uint8Array.from(
 // A real object URL: an image the webview cannot decode would replace the
 // preview with the fallback before the controls could be exercised.
 const PNG_URL = URL.createObjectURL(new Blob([PNG_BYTES], { type: 'image/png' }))
+// The URL the preview gets back after a write, which is what ends an edit.
+const RELOADED_URL = URL.createObjectURL(new Blob([PNG_BYTES], { type: 'image/png' }))
 const EDITED_BYTES = Uint8Array.from([9, 9, 9])
 const LOCATION = {
     instanceId: 'instance',
@@ -222,6 +224,11 @@ it('writes the edited bytes back and returns to the preview', async () => {
     expect(wrapper.emitted('save')).toEqual([
         [{ location: LOCATION, original: PNG_BYTES, bytes: EDITED_BYTES }],
     ])
+    // The editor closes when the written file comes back, not when the bytes are
+    // handed over: a failed write has to leave the canvas - and the edit - alone.
+    expect(wrapper.find('[data-testid="studio-image-editor"]').exists()).toBe(true)
+
+    await wrapper.setProps({ url: RELOADED_URL })
     expect(wrapper.find('[data-testid="studio-image-editor"]').exists()).toBe(false)
     expect(wrapper.find('img').exists()).toBe(true)
 })

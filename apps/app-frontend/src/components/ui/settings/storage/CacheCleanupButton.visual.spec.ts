@@ -117,6 +117,25 @@ it('leaves the cache confirmation available for retry after failure', async () =
     expect(wrapper.text()).toContain('Could not clear the cache')
     expect(wrapper.emitted('cleared')).toBeUndefined()
 })
+it('shows the message of a serialized Tauri rejection in the failure details', async () => {
+    // A rejected `invoke` arrives as a plain serialized object, not an `Error`;
+    // the component must surface its message instead of `[object Object]`.
+    const wrapper = mount(CacheCleanupButton)
+    mounted.push(wrapper)
+    await wrapper.get('button').trigger('click')
+    vi.mocked(purgeLauncherCache).mockRejectedValueOnce({
+        field_name: 'Theseus',
+        message: 'cache in use by a running instance',
+    })
+    await wrapper
+        .findAll('button')
+        .filter((button) => button.text() === 'Clear cache')[1]
+        .trigger('click')
+    await flushPromises()
+    expect(wrapper.text()).toContain('Could not clear the cache')
+    expect(wrapper.text()).toContain('cache in use by a running instance')
+    expect(wrapper.text()).not.toContain('[object Object]')
+})
 it('respects the preference to skip optional warnings', async () => {
     preferences.skipWarnings = true
     vi.mocked(purgeLauncherCache).mockResolvedValueOnce({

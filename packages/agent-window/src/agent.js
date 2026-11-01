@@ -1,7 +1,8 @@
 // The window talks to an agent runtime through a small event contract, so the
 // interface is the same for the scripted preview and the future execution service.
 //
-// runtime.start(request, emit)   -> { stop() }   request: { thread, turn, instance, model, history }
+// runtime.start(request, emit)   -> { stop() }   request: { thread, turn, instance, model, history,
+//                                                          instructions }
 // runtime.approve(request, emit) -> { stop() }   request: { thread, turn, planId, resume }
 // runtime.check(request, emit)   -> { stop() }   re-reads the outcome of interrupted writes
 //

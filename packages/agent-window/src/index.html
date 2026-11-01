@@ -603,6 +603,43 @@
                     <p id="permission-status" class="settings-status" role="status"></p>
                 </section>
                 <section class="settings-section">
+                    <h3 data-text="conversationTitle"></h3>
+                    <div class="setting-row">
+                        <span class="setting-copy"
+                            ><strong data-text="detailLabel"></strong
+                            ><span data-text="detailHint"></span
+                        ></span>
+                        <div
+                            id="detail-choice"
+                            class="segmented"
+                            role="radiogroup"
+                            data-label="detailLabel"
+                        >
+                            <button type="button" role="radio" data-detail="concise">
+                                <span data-text="detailConcise"></span>
+                            </button>
+                            <button type="button" role="radio" data-detail="balanced">
+                                <span data-text="detailBalanced"></span>
+                            </button>
+                            <button type="button" role="radio" data-detail="detailed">
+                                <span data-text="detailDetailed"></span>
+                            </button>
+                        </div>
+                    </div>
+                    <label class="setting-field" for="instructions-input">
+                        <span class="setting-copy"
+                            ><strong data-text="instructionsLabel"></strong
+                            ><span data-text="instructionsHint"></span
+                        ></span>
+                        <textarea
+                            id="instructions-input"
+                            rows="3"
+                            maxlength="2000"
+                            data-placeholder="instructionsPlaceholder"
+                        ></textarea>
+                    </label>
+                </section>
+                <section class="settings-section">
                     <h3 data-text="historyTitle"></h3>
                     <p class="settings-lead" data-text="localHistory"></p>
                     <div class="settings-actions">

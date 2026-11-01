@@ -320,6 +320,10 @@ export function renderSettings() {
                 ? 'permissionPending'
                 : 'permissionFuture',
     )
+    for (const choice of element('detail-choice').querySelectorAll('[data-detail]'))
+        choice.setAttribute('aria-checked', String(choice.dataset.detail === session.store.detail))
+    const instructions = element('instructions-input')
+    if (document.activeElement !== instructions) instructions.value = session.store.instructions
     element('settings-dialog')
         .querySelectorAll('[data-action="close-dialog"]')
         .forEach((close) => {

@@ -6,7 +6,7 @@ import { button, element, h, hue, icon, renderMarkdown } from './dom.js'
 import { axolotl, pixelLoader, setMood } from './mascot.js'
 import { dateLabel, durationLabel, text, whenLabel } from './messages.js'
 import { animate, reducedMotion } from './motion.js'
-import { instanceChoice } from './session.js'
+import { instanceChoice, session } from './session.js'
 import { ACTIVE_STATUSES } from './state.js'
 import { fileChip } from './view-composer.js'
 
@@ -157,8 +157,12 @@ function updateActivity(node, item, { active }) {
         if (!running) holder.firstChild.classList.add('pop')
     }
     // The group stays open while it works and folds away when finished, unless
-    // the user opened or closed it themselves.
-    const open = node.dataset.user ? node.dataset.user === 'open' : running
+    // the user opened or closed it themselves. Concise keeps every group folded
+    // to the step at hand; detailed keeps them all open.
+    const detail = session.store.detail
+    const open = node.dataset.user
+        ? node.dataset.user === 'open'
+        : detail === 'detailed' || (running && detail !== 'concise')
     node.toggleAttribute('data-open', open)
     node.querySelector('.activity-summary').setAttribute('aria-expanded', String(open))
     const current = item.steps.findLast((step) => step.status === 'running')

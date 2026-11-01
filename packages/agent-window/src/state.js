@@ -36,6 +36,9 @@ const PLAN_STATES = [
     'unknown',
 ]
 const STEP_STATES = ['running', 'done', 'failed', 'stopped']
+// How much of the agent's work the transcript shows.
+export const DETAIL_LEVELS = ['concise', 'balanced', 'detailed']
+export const MAX_INSTRUCTIONS = 2000
 export const CHANGE_KINDS = ['update', 'rollback', 'new', 'install', 'setting', 'backup', 'remove']
 
 /**
@@ -62,6 +65,7 @@ export const CHANGE_KINDS = ['update', 'rollback', 'new', 'install', 'setting', 
  * @typedef {{
  *   version: 2, activeId: string, sidebarOpen: boolean, panelOpen: boolean,
  *   introDismissed: boolean, lastSelection: Selection | null, threads: Thread[],
+ *   detail: string, instructions: string,
  * }} Store
  * @typedef {Pick<Storage, 'getItem' | 'setItem'>} StorageArea
  */
@@ -131,6 +135,8 @@ export function initialStore() {
         introDismissed: false,
         lastSelection: null,
         threads: [thread],
+        detail: 'balanced',
+        instructions: '',
     }
 }
 
@@ -379,6 +385,8 @@ export function parseStore(raw) {
         introDismissed: value.introDismissed === true,
         lastSelection: selection(value.lastSelection),
         threads,
+        detail: oneOf(value.detail, DETAIL_LEVELS, 'balanced'),
+        instructions: string(value.instructions, MAX_INSTRUCTIONS),
     }
 }
 

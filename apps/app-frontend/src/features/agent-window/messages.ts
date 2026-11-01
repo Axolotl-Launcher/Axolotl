@@ -434,6 +434,31 @@ export const agentWindowMessages = defineMessages({
         id: 'app.agent-window.chat.enable-full-access',
         defaultMessage: 'Enable full access',
     },
+    conversationTitle: {
+        id: 'app.agent-window.chat.conversation-title',
+        defaultMessage: 'Conversation',
+    },
+    detailLabel: { id: 'app.agent-window.chat.detail-label', defaultMessage: 'Steps shown' },
+    detailHint: {
+        id: 'app.agent-window.chat.detail-hint',
+        defaultMessage: 'How much of the agent’s work each answer shows.',
+    },
+    detailConcise: { id: 'app.agent-window.chat.detail-concise', defaultMessage: 'Concise' },
+    detailBalanced: { id: 'app.agent-window.chat.detail-balanced', defaultMessage: 'Balanced' },
+    detailDetailed: { id: 'app.agent-window.chat.detail-detailed', defaultMessage: 'Detailed' },
+    instructionsLabel: {
+        id: 'app.agent-window.chat.instructions-label',
+        defaultMessage: 'Standing instructions',
+    },
+    instructionsHint: {
+        id: 'app.agent-window.chat.instructions-hint',
+        defaultMessage:
+            'Sent with every request, such as the language to answer in or the loader you prefer.',
+    },
+    instructionsPlaceholder: {
+        id: 'app.agent-window.chat.instructions-placeholder',
+        defaultMessage: 'For example: answer in English, prefer Fabric mods, never delete a world.',
+    },
     historyTitle: { id: 'app.agent-window.chat.history-title', defaultMessage: 'History' },
     localHistory: {
         id: 'app.agent-window.chat.local-history',

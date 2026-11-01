@@ -259,3 +259,52 @@ it('summarises a thread by the state of its latest request', () => {
         expect(threadStatus(thread)).toBe(expected)
     }
 })
+
+it('keeps marks, pins, pastes and window preferences only in their expected shapes', () => {
+    const store = loadStore(
+        memoryStorage({
+            [STORAGE_KEY]: JSON.stringify({
+                version: 2,
+                activeId: 't1',
+                detail: 'everything',
+                instructions: 'x'.repeat(5000),
+                threads: [
+                    {
+                        id: 't1',
+                        pinned: 'yes',
+                        turns: [
+                            {
+                                id: 'a',
+                                text: 'crash',
+                                marked: true,
+                                attachments: [
+                                    { name: 'Crash report', kind: 'crash', text: 'log', lines: 0 },
+                                    { name: 'odd', kind: 'script', text: 'x' },
+                                ],
+                            },
+                            { id: 'b', text: 'later', marked: 1 },
+                        ],
+                    },
+                    { id: 't2', pinned: true, turns: [] },
+                ],
+            }),
+        }),
+    )
+    expect(store.detail).toBe('balanced')
+    expect(store.instructions).toHaveLength(2000)
+    const [first, second] = store.threads
+    expect(first.pinned).toBeUndefined()
+    expect(second.pinned).toBe(true)
+    expect(first.turns.map((turn) => turn.marked)).toEqual([true, undefined])
+    expect(first.turns[0].attachments).toEqual([
+        {
+            id: expect.any(String),
+            name: 'Crash report',
+            size: 0,
+            kind: 'crash',
+            text: 'log',
+            lines: 1,
+        },
+        { id: expect.any(String), name: 'odd', size: 0 },
+    ])
+})

@@ -295,6 +295,7 @@ function syncTranscript(fresh = true) {
 }
 
 function render() {
+    document.documentElement.dataset.steps = session.store.detail
     const ready = catalogReady()
     for (const id of ['workspace', 'help-button', 'settings-button']) element(id).hidden = !ready
     if (!ready) {
@@ -610,6 +611,8 @@ function request(thread, turn, extra = {}) {
         model: modelChoice(turn.selection),
         history: structuredClone(thread.turns.slice(0, index)),
         resume: structuredClone(turn.run.resume),
+        // Standing preferences from Settings, sent with every request.
+        instructions: session.store.instructions,
         ...extra,
     }
 }
@@ -1482,6 +1485,22 @@ conversationNode.addEventListener('drop', (event) => {
     dragDepth = 0
     element('drop-overlay').hidden = true
     addFiles(event.dataTransfer?.files || [])
+})
+
+// Settings that only change this window apply as soon as they are picked.
+element('detail-choice').addEventListener('click', (event) => {
+    const choice = event.target.closest('[data-detail]')
+    if (!choice || choice.dataset.detail === session.store.detail) return
+    session.store.detail = choice.dataset.detail
+    persistSoon(0)
+    document.documentElement.dataset.steps = session.store.detail
+    renderSettings()
+    // Patching every turn refolds the step groups without losing the scroll.
+    syncTranscript(false)
+})
+element('instructions-input').addEventListener('input', (event) => {
+    session.store.instructions = event.target.value.slice(0, 2000)
+    persistSoon()
 })
 
 // A right click on a task opens the same menu as its ⋯ button.

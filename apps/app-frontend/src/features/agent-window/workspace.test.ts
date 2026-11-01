@@ -926,3 +926,32 @@ it('puts what the open task offers first in the command menu', async () => {
     await page.keyboard.press('Enter')
     expect(await page.locator('.list-group').first().textContent()).toBe(messages.pinned)
 })
+
+it('keeps step groups open or folded by the chosen detail and remembers standing instructions', async () => {
+    await send('My game crashes on launch')
+    await (await untilPlan()).click()
+    await untilSettled()
+    const groups = page.locator('.activity')
+    expect(
+        await groups.evaluateAll((nodes) => nodes.some((node) => node.hasAttribute('data-open'))),
+    ).toBe(false)
+
+    await page.locator('#settings-button').click()
+    await page.locator('#detail-choice [data-detail="detailed"]').click()
+    expect(
+        await page.locator('#detail-choice [data-detail="detailed"]').getAttribute('aria-checked'),
+    ).toBe('true')
+    expect(
+        await groups.evaluateAll((nodes) => nodes.every((node) => node.hasAttribute('data-open'))),
+    ).toBe(true)
+    await page.locator('#instructions-input').fill('Answer in English and prefer Fabric.')
+    await page.clock.runFor(1_000)
+
+    await page.reload()
+    await ready()
+    expect(await page.locator('html').getAttribute('data-steps')).toBe('detailed')
+    await page.locator('#settings-button').click()
+    expect(await page.locator('#instructions-input').inputValue()).toBe(
+        'Answer in English and prefer Fabric.',
+    )
+})

@@ -536,6 +536,33 @@
   "app.agent-window.chat.enable-full-access": {
     "message": "启用完全访问"
   },
+  "app.agent-window.chat.conversation-title": {
+    "message": "对话"
+  },
+  "app.agent-window.chat.detail-label": {
+    "message": "步骤显示"
+  },
+  "app.agent-window.chat.detail-hint": {
+    "message": "每次回答显示多少 Agent 的执行过程。"
+  },
+  "app.agent-window.chat.detail-concise": {
+    "message": "简洁"
+  },
+  "app.agent-window.chat.detail-balanced": {
+    "message": "适中"
+  },
+  "app.agent-window.chat.detail-detailed": {
+    "message": "详细"
+  },
+  "app.agent-window.chat.instructions-label": {
+    "message": "长期说明"
+  },
+  "app.agent-window.chat.instructions-hint": {
+    "message": "每次请求都会带上，比如回复用的语言、偏好的加载器。"
+  },
+  "app.agent-window.chat.instructions-placeholder": {
+    "message": "例如：用中文回答，优先 Fabric 模组，不要删除任何存档。"
+  },
   "app.agent-window.chat.history-title": {
     "message": "历史记录"
   },

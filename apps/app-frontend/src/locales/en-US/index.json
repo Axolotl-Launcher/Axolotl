@@ -536,6 +536,33 @@
   "app.agent-window.chat.enable-full-access": {
     "message": "Enable full access"
   },
+  "app.agent-window.chat.conversation-title": {
+    "message": "Conversation"
+  },
+  "app.agent-window.chat.detail-label": {
+    "message": "Steps shown"
+  },
+  "app.agent-window.chat.detail-hint": {
+    "message": "How much of the agent’s work each answer shows."
+  },
+  "app.agent-window.chat.detail-concise": {
+    "message": "Concise"
+  },
+  "app.agent-window.chat.detail-balanced": {
+    "message": "Balanced"
+  },
+  "app.agent-window.chat.detail-detailed": {
+    "message": "Detailed"
+  },
+  "app.agent-window.chat.instructions-label": {
+    "message": "Standing instructions"
+  },
+  "app.agent-window.chat.instructions-hint": {
+    "message": "Sent with every request, such as the language to answer in or the loader you prefer."
+  },
+  "app.agent-window.chat.instructions-placeholder": {
+    "message": "For example: answer in English, prefer Fabric mods, never delete a world."
+  },
   "app.agent-window.chat.history-title": {
     "message": "History"
   },

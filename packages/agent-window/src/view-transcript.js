@@ -185,6 +185,14 @@ function updateActivity(node, item, { active }) {
     const took = !running && item.startedAt && end ? end - item.startedAt : 0
     node.querySelector('.activity-meta').textContent = took >= 1000 ? durationLabel(took) : ''
 
+    // A folded group builds its rows only once it is opened, which keeps a
+    // long history light: finished groups are folded by default.
+    node.activityItem = item
+    if (open || node.dataset.built) buildSteps(node, item)
+}
+
+function buildSteps(node, item) {
+    node.dataset.built = 'true'
     const list = node.querySelector('.steps')
     for (const step of item.steps) {
         let row = list.querySelector(`:scope > [data-step="${CSS.escape(step.id)}"]`)
@@ -646,6 +654,7 @@ export function toggleActivity(summary) {
     node.dataset.user = open ? 'open' : 'closed'
     node.toggleAttribute('data-open', open)
     summary.setAttribute('aria-expanded', String(open))
+    if (open && !node.dataset.built && node.activityItem) buildSteps(node, node.activityItem)
 }
 
 // The context a turn ran with, for the copy action and the progress panel.

@@ -639,6 +639,8 @@ it('renders stored, provider and agent strings as text without HTML parsing sink
     expect(await page.locator('.agent-text strong').textContent()).toBe(hostile)
     expect(await page.locator('.agent-text code').textContent()).toBe(hostile)
     expect(await page.locator('.plan-card h3').textContent()).toBe(hostile)
+    // Finished step groups build their rows when opened.
+    await page.locator('.activity-summary').first().click()
     expect(await page.locator('.step-title').textContent()).toBe(hostile)
     expect(await page.locator('.checklist strong').textContent()).toBe(hostile)
     await page.locator('#model-button').click()

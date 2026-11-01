@@ -1,17 +1,32 @@
 let language = 'en-US'
 let catalog = {}
+// Building an Intl formatter costs far more than using one, and a long history
+// formats a time for every turn, so each one is made once per locale.
+let formatters = new Map()
 
 export function setLocale(locale, messages = {}) {
+    let next
     try {
-        language = Intl.getCanonicalLocales(locale || 'en-US')[0] || 'en-US'
+        next = Intl.getCanonicalLocales(locale || 'en-US')[0] || 'en-US'
     } catch {
-        language = 'en-US'
+        next = 'en-US'
     }
+    if (next !== language) formatters = new Map()
+    language = next
     catalog = messages
 }
 
 export function locale() {
     return language
+}
+
+function formatter(key, make) {
+    let value = formatters.get(key)
+    if (!value) {
+        value = make()
+        formatters.set(key, value)
+    }
+    return value
 }
 
 // The launcher formats every catalog entry before sending it here and keeps
@@ -25,14 +40,17 @@ export function text(key, values) {
 }
 
 export function dateLabel(timestamp) {
-    return new Date(timestamp).toLocaleTimeString(language, {
-        hour: '2-digit',
-        minute: '2-digit',
-    })
+    return formatter(
+        'time',
+        () => new Intl.DateTimeFormat(language, { hour: '2-digit', minute: '2-digit' }),
+    ).format(timestamp)
 }
 
 export function dayLabel(timestamp) {
-    return new Date(timestamp).toLocaleDateString(language, { month: 'short', day: 'numeric' })
+    return formatter(
+        'day',
+        () => new Intl.DateTimeFormat(language, { month: 'short', day: 'numeric' }),
+    ).format(timestamp)
 }
 
 // The time alone today, the day and time before that.
@@ -43,14 +61,21 @@ export function whenLabel(timestamp) {
         : `${dayLabel(timestamp)} ${time}`
 }
 
+const unitFormat = (unit, display, digits = 0) =>
+    formatter(
+        `${unit}:${display}:${digits}`,
+        () =>
+            new Intl.NumberFormat(language, {
+                style: 'unit',
+                unit,
+                unitDisplay: display,
+                maximumFractionDigits: digits,
+            }),
+    )
+
 export function durationLabel(milliseconds) {
     const seconds = Math.max(0, Math.round(milliseconds / 1000))
-    const unit = (value, name) =>
-        new Intl.NumberFormat(language, {
-            style: 'unit',
-            unit: name,
-            unitDisplay: 'narrow',
-        }).format(value)
+    const unit = (value, name) => unitFormat(name, 'narrow').format(value)
     if (seconds < 60) return unit(seconds, 'second')
     const minutes = Math.floor(seconds / 60)
     const rest = seconds % 60
@@ -65,10 +90,5 @@ export function sizeLabel(bytes) {
         value /= 1024
         index++
     }
-    return new Intl.NumberFormat(language, {
-        style: 'unit',
-        unit: units[index],
-        unitDisplay: 'short',
-        maximumFractionDigits: index ? 1 : 0,
-    }).format(value)
+    return unitFormat(units[index], 'short', index ? 1 : 0).format(value)
 }

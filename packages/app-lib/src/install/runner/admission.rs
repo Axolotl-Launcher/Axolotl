@@ -120,17 +120,29 @@ pub(super) async fn queued_slot<'a>(
 }
 
 /// The key of a job's execution lock: its instance, or the job itself when it
-/// has none. The queue and worker recovery must lock the same key.
+/// has none. The queue and worker recovery must lock the same key, so the key
+/// is taken from the request first: a row whose instance was deleted mid-job
+/// clears `instance_id`, and a creation job must not move from the job key to
+/// the new instance's key once its row records one.
 pub(super) fn execution_lock_key(job: &store::InstallJobRecord) -> String {
-    job.instance_id
-        .clone()
-        .or_else(|| request_instance(&job.state.request))
+    let instance = request_instance(&job.state.request).or_else(|| {
+        if matches!(
+            job.state.request.target(),
+            InstallTarget::NewInstance { .. }
+        ) {
+            None
+        } else {
+            job.instance_id.clone()
+        }
+    });
+    instance
         .map(|instance| format!("instance:{instance}"))
         .unwrap_or_else(|| format!("job:{}", job.id))
 }
 
-/// The execution lock alone, waited for without a bound: worker recovery
-/// owns it to prove that no worker can still publish the job's files.
+/// The execution lock alone, bounded like the queue wait: recovery uses it to
+/// prove that no worker can still publish the job's files, and must not wait
+/// forever behind one. `None` means the bounded wait expired.
 pub(super) async fn execution_lock(
     state: &State,
     job: &store::InstallJobRecord,
@@ -140,7 +152,17 @@ pub(super) async fn execution_lock(
         .entry(execution_lock_key(job))
         .or_default()
         .clone();
-    Some(lock.lock_owned().await)
+    match tokio::time::timeout(EXECUTION_WAIT, lock.lock_owned()).await {
+        Ok(guard) => Some(guard),
+        Err(_) => {
+            tracing::warn!(
+                job_id = %job.id,
+                wait = ?EXECUTION_WAIT,
+                "Timed out waiting for the install execution lock"
+            );
+            None
+        }
+    }
 }
 
 /// The slot, or an error once the job leaves the queue; the admission tests

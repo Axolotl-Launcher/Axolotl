@@ -143,12 +143,25 @@ pub(crate) async fn install_world_file(
         true,
     )
     .await?;
-    let _critical = crate::install::critical_section::enter();
-    let world_name = crate::state::instances::commands::import_world_save(
-        &state,
-        instance_id,
-        &staging_path,
-        None,
+    // The UI's world import takes this same lock before it writes, so the
+    // install path must take it too: the critical section protects the write
+    // from cancellation, not from a concurrent import of the same world.
+    let _instance_lock = state.lock_instance_content(instance_id).await;
+    let import =
+        async |access: crate::install::critical_section::WriteAccess<'_>| {
+            crate::state::instances::commands::import_world_save(
+                &state,
+                instance_id,
+                &staging_path,
+                None,
+                access,
+            )
+            .await
+        };
+    let world_name = crate::install::critical_section::with_critical_section(
+        async |guard| import(guard.into()).await,
+        async |unscoped| import(unscoped.into()).await,
+        async |_closing| Err(crate::install::critical_section::closing_error()),
     )
     .await?;
 

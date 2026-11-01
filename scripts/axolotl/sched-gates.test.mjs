@@ -3,19 +3,23 @@
 
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
+import { createHash } from 'node:crypto'
 import { existsSync, mkdtempSync, rmSync } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { test } from 'node:test'
 import { fileURLToPath } from 'node:url'
 import { checkSpawns, countForms, unboundedInL0 } from './sched-bare-spawn-check.mjs'
+import { enterBanViolations } from './sched-enter-ban-check.mjs'
 import { l0Violations } from './sched-l0-resource-check.mjs'
 import { checkLeaves } from './sched-leaf-primitive-check.mjs'
 import { checkGovernance } from './sched-level-predicate-check.mjs'
 import { evaluateOrder } from './sched-order-annotation-check.mjs'
 import { evaluateGap } from './sched-recall-gap-gate.mjs'
 import { checkConsistency } from './sched-resource-consistency-check.mjs'
-import { missingGolden } from './sched-resource-golden-check.mjs'
+import { tagViolations } from './sched-tag-check.mjs'
+import { checkWhitelist } from './sched-whitelist-check.mjs'
+import { frozenMismatch, missingGolden } from './sched-resource-golden-check.mjs'
 import { buildInventory } from './sched-resource-inventory.mjs'
 import { loadPolicy, maskRust, rankFingerprint, scanMethodHits, sourcesOf, stripTestItems, workspaceCrates } from './sched-utils.mjs'
 
@@ -46,6 +50,17 @@ test('golden check fails when the generator drops a golden item (K0.5)', () => {
         ['G-3', 'G-4'],
     )
     assert.deepEqual(missingGolden(files.inventory), [])
+})
+
+test('the frozen golden hash rejects an edited set (K0.7)', () => {
+    const text = '{"G-1":[]}\n'
+    const expected = `${createHash('sha256').update(text).digest('hex')}  sched-resource-golden.json\n`
+    assert.equal(frozenMismatch(text, expected), false)
+    assert.equal(
+        frozenMismatch(text.replace('[]', '["x"]'), expected),
+        true,
+        'an edited set must not match the recorded hash',
+    )
 })
 
 test('consistency passes on the generated files', () => {
@@ -177,6 +192,43 @@ test('acquisition scan sees owned lock guards', () => {
             [3, 'read_owned', 'CACHE', 'static'],
         ],
     )
+})
+
+test('enter-ban rules 7 and 8 reject a restored gate (K2.9)', () => {
+    const restored = source('packages/app-lib/src/install/critical_section.rs', 'pub fn enter() -> Gate { todo!() }\n')
+    const wildcard = source('packages/app-lib/src/x.rs', 'fn f() {\n    match critical_section::enter() {\n        Gate::Protected(g) => {}\n        _ => {}\n    }\n}\n')
+    const violations = enterBanViolations([restored, wildcard])
+    assert.ok(violations.some((violation) => violation.includes('rule 7: fn enter')))
+    assert.ok(violations.some((violation) => violation.includes('rule 7: critical_section::enter(')))
+    assert.ok(violations.some((violation) => violation.includes('rule 8')))
+    assert.deepEqual(enterBanViolations(sources), [])
+})
+
+test('whitelist check enforces the cap and the six criteria (K2.11, K2.12)', () => {
+    assert.deepEqual(checkWhitelist(sources, policy, files.registry), [])
+    const unprotected = clone(policy)
+    unprotected.whitelist[0].bearer = 'theseus::nowhere::LOCK'
+    unprotected.whitelist[1].worstCase = ''
+    const failures = checkWhitelist(sources, unprotected, files.registry)
+    assert.ok(failures.some((failure) => failure.includes('criterion 3')))
+    assert.ok(failures.some((failure) => failure.includes('criterion 5')))
+    const unguarded = clone(policy)
+    unguarded.guardedWrites.push({ file: 'packages/app-lib/src/resources/execution.rs', fn: 'staging_prefix' })
+    assert.ok(checkWhitelist(sources, unguarded, files.registry).some((failure) => failure.includes('without asking for WriteAccess')))
+})
+
+test('tag check rejects a forgeable tag (K2.1, K2.3)', () => {
+    assert.deepEqual(tagViolations(sources), [])
+    const tag = sources.find((candidate) => candidate.rel === 'packages/app-lib/src/scheduler/tag.rs')
+    const convertible = source(tag.rel, `${tag.raw}\nimpl From<TagRecord> for Tag { fn from(r: TagRecord) -> Self { todo!() } }\n`)
+    const forged = source('packages/app-lib/src/x.rs', 'fn f() { let _t = crate::scheduler::tag::Tag { id: 1, generation: 1, level: Level::L0, origin: String::new() }; }\n')
+    const violations = tagViolations([...sources.filter((candidate) => candidate.rel !== tag.rel), convertible, forged])
+    assert.ok(violations.some((violation) => violation.includes('implements From for Tag')))
+    assert.ok(violations.some((violation) => violation.includes('builds a Tag outside tag.rs')))
+    // `Default` would hand out an L0 tag with no mint.
+    const defaulted = source(tag.rel, tag.raw.replace('pub struct Tag {', '#[derive(Debug, Default)]\npub struct Tag {'))
+    const defaultViolations = tagViolations([...sources.filter((candidate) => candidate.rel !== tag.rel), defaulted])
+    assert.ok(defaultViolations.some((violation) => violation.includes('Default')))
 })
 
 const here = path.dirname(fileURLToPath(import.meta.url))

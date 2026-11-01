@@ -202,7 +202,13 @@ mod tests {
                 .push(&unit.instance, Level::L2, now, unit.item)
                 .unwrap();
             now += T_MAX_SERVICE;
-            assert!(now - start <= Duration::from_secs(60), "c was starved");
+            // The spec's bound is 8 s (K4.10): fail at the bound itself, not
+            // at a looser smoke-test ceiling.
+            assert!(
+                now - start <= queue_max_wait_upper_bound(),
+                "c was starved past the {:?} bound",
+                queue_max_wait_upper_bound()
+            );
         };
         let waited = served_at - (start + Duration::from_millis(1));
         assert!(
@@ -210,6 +216,7 @@ mod tests {
             "c waited {waited:?}, bound {:?}",
             queue_max_wait_upper_bound()
         );
+        assert_eq!(queue_max_wait_upper_bound(), Duration::from_secs(8));
     }
 
     /// Band numbers grow as privilege falls: a steady stream of L1 requests
@@ -229,7 +236,10 @@ mod tests {
             }
             now += T_MAX_SERVICE;
             queue.push("busy", Level::L1, now, "l1").unwrap();
-            assert!(now - start <= Duration::from_secs(60), "L2 was starved");
+            assert!(
+                now - start <= super::super::aging::max_wait_bound(),
+                "L2 was starved past the aging bound"
+            );
         };
         assert!(served_at - start <= super::super::aging::max_wait_bound());
     }

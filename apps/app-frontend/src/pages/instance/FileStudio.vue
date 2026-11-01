@@ -23,7 +23,6 @@ import {
     StyledInput,
     useVIntl,
 } from '@modrinth/ui'
-import { convertFileSrc } from '@tauri-apps/api/core'
 import { join } from '@tauri-apps/api/path'
 import {
     copyFile,
@@ -41,6 +40,7 @@ import { NbtFile, NbtTag } from 'deepslate/nbt'
 import { computed, nextTick, onBeforeUnmount, onMounted, onScopeDispose, ref, watch } from 'vue'
 import { onBeforeRouteLeave, useRouter } from 'vue-router'
 
+import MediaPreview from '@/components/instance/studio/MediaPreview.vue'
 import NbtEditor from '@/components/instance/studio/NbtEditor.vue'
 import StudioEditor from '@/components/instance/studio/StudioEditor.vue'
 import StudioEditorTabs from '@/components/instance/studio/StudioEditorTabs.vue'
@@ -48,6 +48,7 @@ import {
     type StudioDocument,
     useStudioDocuments,
 } from '@/components/instance/studio/useStudioDocuments'
+import { useStudioMediaPreview } from '@/components/instance/studio/useStudioMediaPreview'
 import { type StudioTreeNode, useStudioTree } from '@/components/instance/studio/useStudioTree'
 import { useStudioWatcher } from '@/components/instance/studio/useStudioWatcher'
 import type { ServerView } from '@/composables/useServers'
@@ -257,8 +258,6 @@ function previewKind(name: string): StudioDocument['kind'] | null {
     return null
 }
 
-const previewUrl = ref('')
-
 async function resolvePath(relativePath: string): Promise<string> {
     return relativePath ? join(instanceRoot.value, ...relativePath.split('/')) : instanceRoot.value
 }
@@ -277,6 +276,21 @@ async function writeBinary(path: string, bytes: Uint8Array): Promise<void> {
     if (props.instance) return writeStudioBinary(props.instance.id, path, bytes)
     return writeFile(await resolvePath(path), bytes)
 }
+
+const mediaKind = computed(() => {
+    const kind = activeDocument.value?.kind
+    return kind === 'image' || kind === 'video' ? kind : null
+})
+
+// Only media documents are read as bytes; text and NBT documents have their own
+// loading path and would otherwise be read twice.
+const mediaDocument = computed(() => (mediaKind.value ? activeDocument.value : null))
+
+const {
+    url: mediaPreviewUrl,
+    loading: mediaPreviewLoading,
+    failed: mediaPreviewFailed,
+} = useStudioMediaPreview(mediaDocument, readBinary)
 
 function exitStudio() {
     if (props.server) {
@@ -558,16 +572,6 @@ watch(activePath, async (path) => {
 })
 
 watch(breadcrumbSegments, () => nextTick(updateVisibleBreadcrumbs), { immediate: true })
-
-watch(
-    [activeDocument, instanceRoot],
-    async () => {
-        previewUrl.value = activeDocument.value
-            ? convertFileSrc(await resolvePath(activeDocument.value.path))
-            : ''
-    },
-    { immediate: true },
-)
 
 onMounted(() => {
     breadcrumbObserver = new ResizeObserver(updateVisibleBreadcrumbs)
@@ -922,22 +926,15 @@ onBeforeRouteLeave(() => {
                     >
                         {{ formatMessage(messages.loadingFile) }}
                     </div>
-                    <div
-                        v-if="activeDocument?.kind === 'image'"
-                        class="flex size-full items-center justify-center overflow-auto bg-surface-1 p-6"
-                    >
-                        <img
-                            :src="previewUrl"
-                            :alt="activeDocument.name"
-                            class="max-h-full max-w-full object-contain"
-                        />
-                    </div>
-                    <div
-                        v-else-if="activeDocument?.kind === 'video'"
-                        class="flex size-full items-center justify-center bg-surface-1 p-6"
-                    >
-                        <video :src="previewUrl" controls class="max-h-full max-w-full" />
-                    </div>
+                    <MediaPreview
+                        v-if="mediaKind"
+                        :kind="mediaKind"
+                        :url="mediaPreviewUrl"
+                        :name="selectedName"
+                        :loading="mediaPreviewLoading"
+                        :failed="mediaPreviewFailed"
+                        @open-in-system="openInSystem(selectedFilePath)"
+                    />
                     <div
                         v-else-if="activeDocument?.kind === 'unsupported'"
                         class="flex size-full items-center justify-center p-8 text-center"

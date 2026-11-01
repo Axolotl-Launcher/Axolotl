@@ -13619,6 +13619,12 @@
   "instance.files.studio.paste": {
     "message": "粘贴"
   },
+  "instance.files.studio.preview-failed": {
+    "message": "无法预览此文件。"
+  },
+  "instance.files.studio.preview-loading": {
+    "message": "正在加载预览……"
+  },
   "instance.files.studio.refresh": {
     "message": "刷新文件"
   },

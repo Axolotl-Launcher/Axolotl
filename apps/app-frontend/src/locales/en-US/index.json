@@ -15488,6 +15488,12 @@
   "instance.files.studio.paste": {
     "message": "Paste"
   },
+  "instance.files.studio.preview-failed": {
+    "message": "This file could not be previewed."
+  },
+  "instance.files.studio.preview-loading": {
+    "message": "Loading preview..."
+  },
   "instance.files.studio.refresh": {
     "message": "Refresh files"
   },

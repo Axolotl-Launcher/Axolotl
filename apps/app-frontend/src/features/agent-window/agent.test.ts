@@ -464,3 +464,10 @@ it('voids a waiting plan when the run fails and only approves a waiting run', ()
     expect(pendingPlan(run)).toBeNull()
     expect(beginApply(run)).toBe(false)
 })
+
+it('parses headings that end in a carriage return or a line separator', () => {
+    for (const end of ['\r', '\u2028', '\u2029']) {
+        const blocks = markdownBlocks(`# Title${end}\nBody`)
+        expect(blocks.map((block) => block.type)).toEqual(['heading', 'p'])
+    }
+})

@@ -119,7 +119,10 @@ function parseFrom(source, offset) {
             )
             continue
         }
-        const heading = line.match(/^(#{1,3})\s+(.*)$/)
+        // [^\n] rather than `.`, which stops at \r and the Unicode line
+        // separators: a heading line holding one of them matched nothing here,
+        // and the paragraph rule skipped it too, so parsing never ended.
+        const heading = line.match(/^(#{1,3})\s+([^\n]*)$/)
         if (heading) {
             index++
             add(

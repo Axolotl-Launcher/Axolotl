@@ -1966,3 +1966,13 @@ it('tells a native runtime whether a task works in the launcher, an instance or 
     await useContext({ ...context, execution_available: false })
     await page.locator('#preview-badge').waitFor({ state: 'visible' })
 })
+
+it('tells you when a task in the background is waiting for approval', async () => {
+    await send('My game crashes on launch')
+    await page.getByTestId('new-chat').click()
+    for (let index = 0; index < 40 && !(await page.locator('.toast').count()); index++)
+        await page.clock.runFor(500)
+    expect(await page.locator('.toast').first().textContent()).toContain(
+        messages.toastAwaiting.split('{title}')[1].trim().slice(0, 4),
+    )
+})

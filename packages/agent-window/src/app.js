@@ -756,7 +756,9 @@ async function launch(threadId, turnId, mode) {
     await ensureRuntime()
     const found = findTurn(threadId, turnId)
     if (!found || !session.runtime?.[mode]) return
-    const ticket = {}
+    // The ticket remembers the status the run started from, so settling can
+    // tell a plan that arrived during the run from one already waiting.
+    const ticket = { from: found.turn.run.status }
     tickets.set(turnId, ticket)
     const emit = (event) => {
         if (tickets.get(turnId) === ticket) onRuntimeEvent(threadId, turnId, event)
@@ -801,10 +803,13 @@ function onRuntimeEvent(threadId, turnId, event) {
     persistSoon()
     refreshTurn(threadId, turnId)
     if (event.type === 'done' || event.type === 'error') {
+        // A plan event already moved the run to awaiting, so comparing with the
+        // status just before done would hide the "waiting for you" toast.
+        const from = tickets.get(turnId)?.from ?? before
         session.handles.delete(turnId)
         tickets.delete(turnId)
         persistNow()
-        settle(thread.id, before)
+        settle(thread.id, from)
     }
 }
 

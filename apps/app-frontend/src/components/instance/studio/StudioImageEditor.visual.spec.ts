@@ -95,6 +95,11 @@ it('reports the image size once the canvas is ready', async () => {
 
 it('switches the active tool from the toolbar', async () => {
     const wrapper = mountEditor()
+    // Initialising the canvas ends by selecting the move tool, so a click that
+    // arrives before that finishes would be replaced by the initialiser and the
+    // assertion would only ever see the selection it set itself.
+    await vi.waitFor(() => expect(wrapper.text()).toContain('1 × 1'))
+
     const pen = wrapper
         .findAll('[role="toolbar"] button')
         .find((b) => b.attributes('aria-label') === 'Pen')
@@ -102,6 +107,12 @@ it('switches the active tool from the toolbar', async () => {
     await pen!.trigger('click')
 
     expect(pen!.attributes('aria-pressed')).toBe('true')
+    expect(
+        wrapper
+            .findAll('[role="toolbar"] button')
+            .find((b) => b.attributes('aria-label') === 'Select')!
+            .attributes('aria-pressed'),
+    ).toBe('false')
 })
 
 it('saves the edit as a PNG the file can hold', async () => {
@@ -130,7 +141,6 @@ it('cancels without saving', async () => {
 
 it('leaves escape to a focused property control instead of closing the editor', async () => {
     const wrapper = mountEditor()
-    await vi.waitFor(() => expect(wrapper.text()).toContain('1 × 1'))
     const pen = wrapper
         .findAll('[role="toolbar"] button')
         .find((button) => button.attributes('aria-label') === 'Pen')

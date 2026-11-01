@@ -280,7 +280,12 @@ function syncTranscript(fresh = true) {
         renderedThread = thread.id
         renderTranscript(thread)
         follower.pinned = true
-        requestAnimationFrame(() => follower.toBottom(false))
+        // A conversation opens at its latest turn; the new task page at its top,
+        // so its mascot and heading are never scrolled away.
+        requestAnimationFrame(() => {
+            if (currentThread().turns.length) follower.toBottom(false)
+            else element('message-scroll').scrollTop = 0
+        })
     } else {
         const ids = new Set(thread.turns.map((turn) => turn.id))
         for (const node of element('messages').querySelectorAll(':scope > [data-turn]'))

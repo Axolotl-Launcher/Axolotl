@@ -7,10 +7,10 @@ const MAX_TEXT = 50000
 const MAX_STORE_LENGTH = 1_500_000
 const MAX_THREADS = 100
 const MAX_TURNS = 600
-const MAX_ATTACHMENTS = 10
+export const MAX_ATTACHMENTS = 10
 // A long paste (a crash report, a log) is kept as an attachment with its text.
 export const MAX_PASTE = 200_000
-export const PASTE_KINDS = ['paste', 'crash', 'log']
+const PASTE_KINDS = ['paste', 'crash', 'log']
 
 export const ACTIVE_STATUSES = ['thinking', 'running', 'applying']
 const RUN_STATUSES = [
@@ -37,9 +37,9 @@ const PLAN_STATES = [
 ]
 const STEP_STATES = ['running', 'done', 'failed', 'stopped']
 // How much of the agent's work the transcript shows.
-export const DETAIL_LEVELS = ['concise', 'balanced', 'detailed']
+const DETAIL_LEVELS = ['concise', 'balanced', 'detailed']
 export const MAX_INSTRUCTIONS = 2000
-export const CHANGE_KINDS = ['update', 'rollback', 'new', 'install', 'setting', 'backup', 'remove']
+const CHANGE_KINDS = ['update', 'rollback', 'new', 'install', 'setting', 'backup', 'remove']
 
 /**
  * @typedef {{ provider_id: string, model_id: string }} Selection
@@ -371,7 +371,7 @@ function migrateLegacy(value) {
 }
 
 /** @param {string} raw @returns {Store} */
-export function parseStore(raw) {
+function parseStore(raw) {
     let value = JSON.parse(raw)
     if (value?.version === 1) value = migrateLegacy(value)
     if (value?.version !== 2 || !Array.isArray(value.threads))
@@ -402,7 +402,7 @@ export function loadStore(storage = localStorage) {
     return raw ? parseStore(raw) : initialStore()
 }
 
-export function isProtected(thread, activeId) {
+function isProtected(thread, activeId) {
     return (
         thread.id === activeId ||
         !!thread.draft ||

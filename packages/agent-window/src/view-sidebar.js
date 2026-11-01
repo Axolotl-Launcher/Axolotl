@@ -7,7 +7,7 @@ import { reducedMotion } from './motion.js'
 import { session } from './session.js'
 import { ACTIVE_STATUSES, threadStatus } from './state.js'
 
-export const STATUS_LABELS = {
+const STATUS_LABELS = {
     active: 'statusActive',
     awaiting: 'statusAwaiting',
     attention: 'statusAttention',

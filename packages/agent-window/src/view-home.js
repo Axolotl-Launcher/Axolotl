@@ -7,7 +7,7 @@ import { animate } from './motion.js'
 import { session } from './session.js'
 import { announce } from './view-overlays.js'
 
-export const SUGGESTIONS = [
+const SUGGESTIONS = [
     ['wrench', 'suggestCrash', 'promptCrash', 'suggestCrashHint'],
     ['zap', 'suggestSmooth', 'promptSmooth', 'suggestSmoothHint'],
     ['archive', 'suggestBackup', 'promptBackup', 'suggestBackupHint'],

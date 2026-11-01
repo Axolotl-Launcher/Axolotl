@@ -149,7 +149,7 @@ export function logLines(source) {
     })
 }
 
-export function renderBlock(block) {
+function renderBlock(block) {
     let node
     switch (block.type) {
         case 'code':
@@ -206,12 +206,6 @@ export function renderMarkdown(container, source) {
         same++
     for (const node of nodes.slice(same)) node.remove()
     container.append(...blocks.slice(same).map(renderBlock))
-}
-
-export function markdown(source) {
-    const fragment = document.createDocumentFragment()
-    fragment.append(...markdownBlocks(source).map(renderBlock))
-    return fragment
 }
 
 // Inline marks: `code`, **bold**, *italic* and [links](url). Links are shown,

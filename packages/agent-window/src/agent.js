@@ -1,19 +1,35 @@
 // The window talks to an agent runtime through a small event contract, so the
 // interface is the same for the scripted preview and the future execution service.
 //
-// runtime.start(request, emit)   -> { stop() }   request: { thread, turn, instance, model, history,
-//                                                          instructions }
-// runtime.approve(request, emit) -> { stop() }   request: { thread, turn, planId, resume }
+// runtime.preview                 true only for the scripted preview
+// runtime.start(request, emit)   -> { stop() }   works on a new request
+// runtime.approve(request, emit) -> { stop() }   writes the approved plan
 // runtime.check(request, emit)   -> { stop() }   re-reads the outcome of interrupted writes
+//
+// Every request carries:
+//   thread        { id, title }
+//   turn          { id, text, attachments: [{ id, name, size, kind?, text?, lines? }] }
+//   instance      the instance the task works in, or null for the whole launcher
+//   instances     every instance the launcher offers
+//   model         { provider, model } for the turn, or null
+//   history       the thread's earlier turns, as stored
+//   resume        the turn's last `resume` data, or null
+//   instructions  standing preferences from Settings
+// approve adds planId and excluded, the names of the changes the user took out.
 //
 // emit() receives these events, in any order a run needs:
 //   { type: 'status', label }                 what the agent is doing right now
 //   { type: 'title', title }                  a better task title (kept unless renamed)
-//   { type: 'step', step, status }            one tool call: running | done | failed
+//   { type: 'step', step, status }            one tool call { id, title, detail, tool }:
+//                                             running | done | failed
 //   { type: 'text', delta }                   streamed answer text
 //   { type: 'progress', steps }               the task checklist: [{ title, detail, status }]
-//   { type: 'plan', plan }                    changes that need the user's approval
-//   { type: 'applied', done, complete }       how many plan changes are written
+//   { type: 'plan', plan }                    changes that need the user's approval:
+//                                             { title, summary, approval, notes, scope,
+//                                             changes: [{ name, note, from, to, kind, glyph,
+//                                             icon, meta, manual }] }
+//   { type: 'applied', done, complete }       how many plan changes are written; complete
+//                                             marks the plan written
 //   { type: 'result', title, text, next }     the outcome shown at the end of the run; next
 //                                             offers up to three follow-up requests
 //   { type: 'error', title, text, retryable } the run failed

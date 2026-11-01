@@ -46,7 +46,7 @@ export function dateLabel(timestamp) {
     ).format(timestamp)
 }
 
-export function dayLabel(timestamp) {
+function dayLabel(timestamp) {
     return formatter(
         'day',
         () => new Intl.DateTimeFormat(language, { month: 'short', day: 'numeric' }),

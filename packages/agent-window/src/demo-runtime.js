@@ -42,7 +42,10 @@ function fill(value, vars) {
 // Splits answer text into small pieces so it streams like model output. CJK text
 // has no spaces, so it is cut every few characters instead.
 function tokens(value) {
-    return value.match(/[　-鿿＀-￯]{1,3}|[^\s　-鿿＀-￯]+\s*|\s+/g) || []
+    return (
+        value.match(/[\u3000-\u9fff\uff00-\uffef]{1,3}|[^\s\u3000-\u9fff\uff00-\uffef]+\s*|\s+/g) ||
+        []
+    )
 }
 
 class Playback {

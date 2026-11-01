@@ -7,7 +7,7 @@ import { button, element, h, icon } from './dom.js'
 import { text } from './messages.js'
 import { session } from './session.js'
 
-export const SLASH = [
+const SLASH = [
     { name: 'crash', icon: 'wrench', label: 'suggestCrash', prompt: 'promptCrash' },
     { name: 'smooth', icon: 'zap', label: 'suggestSmooth', prompt: 'promptSmooth' },
     { name: 'backup', icon: 'archive', label: 'suggestBackup', prompt: 'promptBackup' },
@@ -34,7 +34,7 @@ export function bindSlash(pick) {
     })
 }
 
-export function slashOpen() {
+function slashOpen() {
     return !element('slash-menu').hidden
 }
 

@@ -525,7 +525,8 @@ fn is_window_url(url: &tauri::Url) -> bool {
         && url.fragment().is_none()
 }
 
-/// Serves only the embedded entry document; no filesystem or network access.
+/// Serves the embedded entry document and the `ASSETS` table, and only to the
+/// Agent Window; no filesystem or network access.
 pub fn asset_response(
     webview_label: &str,
     request: &tauri::http::Request<Vec<u8>>,

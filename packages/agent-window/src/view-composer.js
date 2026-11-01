@@ -109,7 +109,7 @@ export function resizeInput() {
     input.classList.toggle('is-scrolling', input.scrollHeight > 220)
 }
 
-const PASTE_ICONS = { crash: 'alert', log: 'list', paste: 'file' }
+export const PASTE_ICONS = { crash: 'alert', log: 'list', paste: 'file' }
 
 // One attached file or long paste. A paste shows its line count and, on
 // hover, how it starts.
@@ -174,7 +174,7 @@ function renderQueue(thread, active) {
     list.hidden = !thread.queue.length
     list.replaceChildren(
         ...thread.queue.map((entry) =>
-            h('div', { class: 'queued', data: { queued: entry.id } }, [
+            h('div', { class: 'queued' }, [
                 icon('clock'),
                 h('span', { class: 'queued-text', text: entry.text }),
                 active

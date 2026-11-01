@@ -10,6 +10,7 @@ import {
     toggleChange,
 } from './agent.js'
 import {
+    button,
     element,
     focusable,
     focusPlace,
@@ -30,6 +31,7 @@ import {
     isPreview,
     modelChoice,
     modelsAvailable,
+    permissionsAvailable,
     session,
 } from './session.js'
 import {
@@ -39,6 +41,8 @@ import {
     lastTurn,
     LEGACY_STORAGE_KEY,
     loadStore,
+    MAX_ATTACHMENTS,
+    MAX_INSTRUCTIONS,
     MAX_PASTE,
     newRun,
     newThread,
@@ -69,16 +73,17 @@ import {
     announce,
     bindOverlays,
     bindTips,
-    openChanges,
-    openFilePeek,
     closeMenu,
     closePicker,
+    closePopover,
     confirm,
     confirmBusy,
     dialogError,
     focusPickerOption,
     menuItem,
+    openChanges,
     openDialog,
+    openFilePeek,
     openMenu,
     openPicker,
     pickerKeydown,
@@ -88,10 +93,10 @@ import {
     toast,
 } from './view-overlays.js'
 import { bindPalette, openPalette } from './view-palette.js'
-import { bindRail, renderRail } from './view-rail.js'
-import { bindSlash, closeSlash, slashKeydown, syncSlash } from './view-slash.js'
 import { renderPanel, renderProgressRing, stateLabel } from './view-panel.js'
+import { bindRail, renderRail } from './view-rail.js'
 import { progressOf, renderSidebar } from './view-sidebar.js'
+import { bindSlash, closeSlash, slashKeydown, syncSlash } from './view-slash.js'
 import {
     bindTranscript,
     patchTranscript,
@@ -106,7 +111,6 @@ import {
 const NARROW = 760
 // Below this width the progress panel floats over the conversation.
 const WIDE = 1100
-const MAX_ATTACHMENTS = 10
 // Pastes this long are attached instead of typed into the request.
 const PASTE_LINES = 16
 const PASTE_CHARS = 2500
@@ -127,6 +131,9 @@ let contextFlight = null
 let permissionRequest = 0
 let ticker = 0
 const follower = new ScrollFollower(element('message-scroll'), () => renderJump())
+
+// The thread or turn with this id, from a store or the copy a commit changes.
+const byId = (list, id) => list.find((entry) => entry.id === id)
 
 // ---------- persistence ----------
 
@@ -273,17 +280,12 @@ function renderHeader() {
 
 function renderBanners() {
     const banners = []
-    const banner = (tone, message, actions) =>
+    const banner = (tone, message, buttons) =>
         h('div', { class: 'banner', data: { tone } }, [
             icon(tone === 'error' ? 'alert' : 'warning'),
             h('span', { text: message }),
-            ...actions.map(([label, action]) =>
-                h('button', {
-                    type: 'button',
-                    class: 'text-button',
-                    text: label,
-                    data: { action },
-                }),
+            ...buttons.map(([label, action]) =>
+                button({ class: 'text-button', text: label, data: { action } }),
             ),
         ])
     if (session.contextError)
@@ -422,6 +424,9 @@ function syncTour() {
 // Agent events arrive quickly; patch the affected turn once per frame.
 const dirtyTurns = new Map()
 let frame = 0
+// What the task list and the parts around the open turn last showed.
+let listKey = ''
+let shapeKey = ''
 // User actions pass `now` so the button they pressed reacts in the same frame.
 function refreshTurn(threadId, turnId, now = false) {
     dirtyTurns.set(turnId, threadId)
@@ -436,7 +441,7 @@ function flushTurns() {
     let touchedActive = false
     for (const [turnId, threadId] of dirtyTurns) {
         if (threadId !== active.id) continue
-        const turn = active.turns.find((entry) => entry.id === turnId)
+        const turn = byId(active.turns, turnId)
         if (turn) {
             syncTurn(active, turn)
             touchedActive = true
@@ -488,8 +493,6 @@ function flushTurns() {
     }
     updateTicker()
 }
-let listKey = ''
-let shapeKey = ''
 
 function updateTicker() {
     const running = ACTIVE_STATUSES.includes(lastTurn(currentThread())?.run.status)
@@ -665,13 +668,6 @@ function ensureRuntime() {
     return runtimeFlight
 }
 
-function permissionsAvailable() {
-    return (
-        typeof window.AgentHost?.getPermissions === 'function' &&
-        typeof window.AgentHost?.setPermissions === 'function'
-    )
-}
-
 function readPolicy(policy) {
     return {
         full_access: policy.full_access === true,
@@ -844,7 +840,7 @@ function startTurn(threadId, message) {
     const first = !findThread(threadId)?.turns.length
     const change = () =>
         commit((next) => {
-            const thread = next.threads.find((entry) => entry.id === threadId)
+            const thread = byId(next.threads, threadId)
             const last = lastTurn(thread)
             if (last) supersedePlan(last.run)
             const turn = newTurn(thread, message)
@@ -861,9 +857,9 @@ function startTurn(threadId, message) {
             created = turn.id
             message.apply?.(thread)
         })
-    const done = () => {
+    // Runs the new turn once it is on screen.
+    const begin = () => {
         if (!created) return false
-        render()
         follower.toBottom(!first)
         launch(threadId, created, 'start')
         announceRun(threadId, created)
@@ -872,15 +868,10 @@ function startTurn(threadId, message) {
     if (first && threadId === session.store.activeId)
         return morph(() => {
             if (change()) render()
-        }, 'send').then(() => {
-            if (!created) return false
-            follower.toBottom(false)
-            launch(threadId, created, 'start')
-            announceRun(threadId, created)
-            return true
-        })
+        }, 'send').then(begin)
     change()
-    return Promise.resolve(done())
+    if (created) render()
+    return Promise.resolve(begin())
 }
 
 async function submit() {
@@ -952,7 +943,7 @@ function approve(turnId) {
     let ok = false
     if (
         commit((next, active) => {
-            const turn = active.turns.find((entry) => entry.id === turnId)
+            const turn = byId(active.turns, turnId)
             ok = !!turn && beginApply(turn.run)
             if (ok) active.updatedAt = Date.now()
         }) &&
@@ -968,7 +959,7 @@ function decline(turnId) {
     const thread = currentThread()
     let ok = false
     commit((next, active) => {
-        const turn = active.turns.find((entry) => entry.id === turnId)
+        const turn = byId(active.turns, turnId)
         ok = !!turn && declinePlan(turn.run)
     })
     if (!ok) return
@@ -981,7 +972,7 @@ function retry(turnId) {
     const thread = currentThread()
     if (
         commit((next, active) => {
-            const turn = active.turns.find((entry) => entry.id === turnId)
+            const turn = byId(active.turns, turnId)
             if (!turn) return
             turn.run = newRun()
             turn.run.preview = isPreview()
@@ -1000,7 +991,7 @@ function checkStatus(turnId) {
     const thread = currentThread()
     if (
         commit((next, active) => {
-            const turn = active.turns.find((entry) => entry.id === turnId)
+            const turn = byId(active.turns, turnId)
             if (!turn || turn.run.status !== 'detached') return
             turn.run.status = 'running'
             turn.run.endedAt = null
@@ -1028,7 +1019,7 @@ function selectThread(id) {
         if (
             commit((next) => {
                 next.activeId = id
-                delete next.threads.find((entry) => entry.id === id)?.unread
+                delete byId(next.threads, id)?.unread
             })
         ) {
             drawer = null
@@ -1086,7 +1077,7 @@ function deleteThread(id) {
 function renameThread(id, value) {
     if (!value) return false
     const ok = commit((next) => {
-        const thread = next.threads.find((entry) => entry.id === id)
+        const thread = byId(next.threads, id)
         if (!thread) return
         thread.title = value.slice(0, 120)
         thread.titleEdited = true
@@ -1124,7 +1115,7 @@ function findAttachment(id) {
 function togglePin(id) {
     if (
         commit((next) => {
-            const thread = next.threads.find((entry) => entry.id === id)
+            const thread = byId(next.threads, id)
             if (thread?.pinned) delete thread.pinned
             else if (thread) thread.pinned = true
         })
@@ -1164,13 +1155,18 @@ function threadText(thread) {
         const files = turn.attachments.map((file) => file.name).join(', ')
         const request = [turn.text, files && `(${files})`].filter(Boolean).join(' ')
         parts.push(request.replace(/^/gm, '> '))
-        const answer = turn.run.items
-            .filter((item) => item.type === 'text')
-            .map((item) => item.text)
-            .join('\n\n')
+        const answer = answerText(turn)
         if (answer) parts.push(answer)
     }
     return parts.join('\n\n')
+}
+
+// What the agent wrote in a turn, without its steps, plan or result.
+function answerText(turn) {
+    return turn.run.items
+        .filter((item) => item.type === 'text')
+        .map((item) => item.text)
+        .join('\n\n')
 }
 
 // ---------- layout actions ----------
@@ -1335,22 +1331,9 @@ async function copyText(value, done = text('copied')) {
     }
 }
 
-async function copy(turnId, kind) {
-    const turn = currentThread().turns.find((entry) => entry.id === turnId)
-    if (!turn) return
-    const value =
-        kind === 'user'
-            ? turn.text
-            : turn.run.items
-                  .filter((item) => item.type === 'text')
-                  .map((item) => item.text)
-                  .join('\n\n')
-    try {
-        await navigator.clipboard.writeText(value)
-        notify(text('copied'), 'success')
-    } catch {
-        notify(text('copyError'), 'error')
-    }
+function copy(turnId, kind) {
+    const turn = byId(currentThread().turns, turnId)
+    if (turn) copyText(kind === 'user' ? turn.text : answerText(turn))
 }
 
 // ---------- events ----------
@@ -1566,8 +1549,7 @@ document.addEventListener('click', (event) => {
         const file = findAttachment(data.copyPaste)
         if (file) copyText(file.text)
     } else if (data.followup) {
-        const peek = element('changes-peek')
-        if (peek.matches(':popover-open')) peek.hidePopover()
+        closePopover(element('changes-peek'))
         const input = element('message-input')
         // The chip goes once the request is sent; the focus waits in the composer.
         input.focus()
@@ -1579,7 +1561,7 @@ document.addEventListener('click', (event) => {
         const turnId = data.markTurn
         if (
             commit((next, thread) => {
-                const turn = thread.turns.find((entry) => entry.id === turnId)
+                const turn = byId(thread.turns, turnId)
                 if (turn?.marked) delete turn.marked
                 else if (turn) turn.marked = true
             })
@@ -1592,7 +1574,7 @@ document.addEventListener('click', (event) => {
     else if (data.copyLink) copyText(data.copyLink, text('linkCopied'))
     else if (data.editTurn) {
         // Puts the request back in the composer to change and send again.
-        const turn = currentThread().turns.find((entry) => entry.id === data.editTurn)
+        const turn = byId(currentThread().turns, data.editTurn)
         const input = element('message-input')
         if (!turn) return
         input.value = turn.text
@@ -1617,7 +1599,7 @@ document.addEventListener('click', (event) => {
         let ok = false
         if (
             commit((next, thread) => {
-                const turn = thread.turns.find((entry) => entry.id === turnId)
+                const turn = byId(thread.turns, turnId)
                 ok = !!turn && toggleChange(turn.run, Number(index))
             }) &&
             ok
@@ -1633,14 +1615,14 @@ element('composer').addEventListener('submit', (event) => {
 
 element('message-input').addEventListener('input', (event) => {
     // Unsaved text stays in memory when storage fails; sending is transactional.
-    currentThread().draft = event.target.value
+    const thread = currentThread()
+    thread.draft = event.target.value
     persistSoon(250)
     heroListens(!!event.target.value.trim())
     renderComposer()
     syncSlash(event.target.value)
-    element('conversation-more').hidden = !currentThread().turns.length && !currentThread().draft
-    if (!currentThread().turns.length && currentThread().title === '' && currentThread().draft)
-        renderSidebar()
+    element('conversation-more').hidden = !thread.turns.length && !thread.draft
+    if (!thread.turns.length && thread.title === '' && thread.draft) renderSidebar()
 })
 
 element('message-input').addEventListener('keydown', (event) => {
@@ -1748,7 +1730,7 @@ element('detail-choice').addEventListener('click', (event) => {
     syncTranscript(false)
 })
 element('instructions-input').addEventListener('input', (event) => {
-    session.store.instructions = event.target.value.slice(0, 2000)
+    session.store.instructions = event.target.value.slice(0, MAX_INSTRUCTIONS)
     persistSoon()
 })
 
@@ -1955,28 +1937,26 @@ function showPalette() {
             ...(current.length
                 ? []
                 : [action('panel', 'togglePanel', () => setPanel(!panelShown()))]),
-            action('sparkle', 'model', () => {
-                refreshContext()
-                openPicker('model', element('model-button'))
-            }),
-            action('cube', 'instance', () => {
-                refreshContext()
-                openPicker('instance', element('instance-button'))
-            }),
-            action('attach', 'attach', () => element('file-input').click()),
+            action('sparkle', 'model', () =>
+                actions['model-picker'](null, element('model-button')),
+            ),
+            action('cube', 'instance', () =>
+                actions['instance-picker'](null, element('instance-button')),
+            ),
+            action('attach', 'attach', () => actions.attach()),
             action('settings', 'settings', () => actions.settings(), 'Ctrl ,'),
             action('help', 'help', () => actions.help()),
         ],
         threads: [...session.store.threads]
             .filter((entry) => entry !== thread || !current.length)
-            .filter((thread) => thread.turns.length || thread.draft)
+            .filter((entry) => entry.turns.length || entry.draft)
             .sort((a, b) => b.updatedAt - a.updatedAt)
-            .map((thread) => ({
+            .map((entry) => ({
                 icon: 'message',
-                label: thread.title || text('untitled'),
-                detail: lastTurn(thread) ? stateLabel(lastTurn(thread).run.status) : '',
-                status: threadStatus(thread),
-                run: () => selectThread(thread.id),
+                label: entry.title || text('untitled'),
+                detail: lastTurn(entry) ? stateLabel(lastTurn(entry).run.status) : '',
+                status: threadStatus(entry),
+                run: () => selectThread(entry.id),
             })),
     })
 }
@@ -1984,11 +1964,12 @@ function showPalette() {
 document.addEventListener('keydown', (event) => {
     const modifier = event.ctrlKey || event.metaKey
     // Escape belongs to an open dialog, picker, menu or preview: it closes
-    // that, and never also stops the run behind it.
-    const overlay = document.querySelector('dialog[open], .popover:popover-open')
+    // that, and never also stops the run behind it. Looked up only for the
+    // keys handled here, as the query walks the whole page.
+    const overlay = () => document.querySelector('dialog[open], .popover:popover-open')
     if (event.key === 'F2' && !modifier && !event.shiftKey && !event.altKey) {
         // F2 renames: the focused task in the list, otherwise the open one in place.
-        if (overlay) return
+        if (overlay()) return
         event.preventDefault()
         const row = event.target.closest?.('.thread-row')?.dataset.row
         if (row && row !== session.store.activeId) askRename(row)
@@ -2003,24 +1984,24 @@ document.addEventListener('keydown', (event) => {
         } else if (key === 'k') {
             event.preventDefault()
             if (element('palette').open) element('palette').close()
-            else if (!overlay) showPalette()
+            else if (!overlay()) showPalette()
         } else if (key === ',') {
             event.preventDefault()
-            if (!overlay) actions.settings()
+            if (!overlay()) actions.settings()
         } else if (key === 'b') {
             event.preventDefault()
-            if (!overlay) setSidebar(!sidebarShown())
+            if (!overlay()) setSidebar(!sidebarShown())
         } else if (key === '[' || key === ']') {
             // Steps through the tasks in the order the list shows them.
             event.preventDefault()
             const rows = [...element('conversation-list').querySelectorAll('.thread-row')]
             const at = rows.findIndex((row) => row.dataset.row === session.store.activeId)
             const next = rows[at + (key === ']' ? 1 : -1)]
-            if (!overlay && next) selectThread(next.dataset.row)
+            if (!overlay() && next) selectThread(next.dataset.row)
         }
         return
     }
-    if (event.key !== 'Escape' || overlay) return
+    if (event.key !== 'Escape' || overlay()) return
     const turn = lastTurn(currentThread())
     if (turn && ACTIVE_STATUSES.includes(turn.run.status)) {
         event.preventDefault()

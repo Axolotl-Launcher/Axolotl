@@ -75,7 +75,7 @@ function fit() {
 }
 
 // Lights the request whose turn holds the reading line, a third of the way down.
-export function markRail() {
+function markRail() {
     const nav = rail()
     if (nav.hidden) return
     const view = scroller()

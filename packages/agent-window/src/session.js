@@ -58,3 +58,11 @@ export function modelsAvailable() {
 export function isPreview() {
     return session.runtime?.preview === true
 }
+
+// Only the launcher can read and change what the agent may do.
+export function permissionsAvailable() {
+    return (
+        typeof window.AgentHost?.getPermissions === 'function' &&
+        typeof window.AgentHost?.setPermissions === 'function'
+    )
+}

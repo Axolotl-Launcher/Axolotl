@@ -24,7 +24,7 @@ export function openPalette({ current = null, actions, threads }) {
     input.focus()
 }
 
-export function renderPalette() {
+function renderPalette() {
     const dialog = element('palette')
     const { current, actions, threads } = dialog.paletteSource || { actions: [], threads: [] }
     const query = element('palette-input').value.trim().toLocaleLowerCase()
@@ -47,8 +47,8 @@ export function renderPalette() {
     entries = sections.flatMap((section) => section.entries)
     active = Math.min(active, Math.max(0, entries.length - 1))
     if (!query) active = 0
-    const row = (entry, index, group) => {
-        const node = button(
+    const row = (entry, index, group) =>
+        button(
             {
                 id: `palette-option-${index}`,
                 class: 'palette-row',
@@ -73,8 +73,6 @@ export function renderPalette() {
                     : null,
             ],
         )
-        return node
-    }
     const groups = []
     let index = 0
     // A listbox holds only options: each heading is hidden and read as the

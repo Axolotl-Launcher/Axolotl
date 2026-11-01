@@ -2,11 +2,11 @@
 // Turns are keyed, and a running turn is patched in place so streaming text,
 // step spinners and expanded groups keep their state between events.
 import { includedChanges } from './agent.js'
-import { button, element, h, hue, icon, renderMarkdown } from './dom.js'
+import { append, button, element, h, hue, icon, renderMarkdown } from './dom.js'
 import { axolotl, pixelLoader, setMood } from './mascot.js'
 import { dateLabel, durationLabel, text, whenLabel } from './messages.js'
 import { animate, reducedMotion } from './motion.js'
-import { currentThread, instanceChoice, session } from './session.js'
+import { currentThread, session } from './session.js'
 import { ACTIVE_STATUSES } from './state.js'
 import { fileChip } from './view-composer.js'
 import { stateLabel } from './view-panel.js'
@@ -481,8 +481,9 @@ function changeRow(change, index, turnId) {
             h('span', { class: 'change-title' }, [
                 h('strong', { text: change.name }),
                 badge,
-                // A newcomer can ask about one change before deciding; the
-                // plan waits and comes back with the answer.
+                // A newcomer can ask about one change before deciding. The
+                // question replaces this plan; the agent answers and proposes
+                // it again.
                 change.manual
                     ? null
                     : button(
@@ -606,7 +607,7 @@ function updatePlan(node, item, { turn }) {
         node.setAttribute('aria-labelledby', `plan-${item.id}`)
         // Reviewing from the approval bar moves the focus here.
         node.tabIndex = -1
-        node.append(
+        append(node, [
             h('span', { class: 'plan-orbit', 'aria-hidden': 'true' }),
             h('header', { class: 'plan-header' }, [
                 h('div', {}, [
@@ -630,7 +631,7 @@ function updatePlan(node, item, { turn }) {
                   )
                 : null,
             h('div', { class: 'plan-footer' }),
-        )
+        ])
     }
     // Once the plan is decided its ticks only record the choice: they stay as
     // they look but leave the tab order and read as unavailable.
@@ -784,16 +785,20 @@ function syncNotice(node, thread, turn) {
     }
     const [name, key, action] = notice
     node.dataset.tone = turn.run.status
+    // Only the latest turn offers the action. replaceChildren would show a
+    // null as the text "null".
     node.replaceChildren(
-        icon(name),
-        h('span', { text: text(key) }),
-        action && latest
-            ? button({
-                  class: 'text-button',
-                  text: text(action === 'retry' ? 'retry' : 'checkStatus'),
-                  data: { action, turn: turn.id },
-              })
-            : null,
+        ...[
+            icon(name),
+            h('span', { text: text(key) }),
+            action && latest
+                ? button({
+                      class: 'text-button',
+                      text: text(action === 'retry' ? 'retry' : 'checkStatus'),
+                      data: { action, turn: turn.id },
+                  })
+                : null,
+        ].filter(Boolean),
     )
 }
 
@@ -882,12 +887,4 @@ function setOpen(node, open) {
     node.querySelector('.activity-summary').setAttribute('aria-expanded', String(open))
     const body = node.querySelector('.activity-body')
     if (body.inert === open) body.inert = !open
-}
-
-// The context a turn ran with, for the copy action and the progress panel.
-export function turnInstanceName(turn) {
-    return (
-        instanceChoice(turn.instanceId)?.name ||
-        (turn.instanceId ? text('contextRemoved') : text('allLauncher'))
-    )
 }

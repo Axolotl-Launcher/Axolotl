@@ -1,7 +1,8 @@
-// Popovers, dialogs and toasts.
+// Popovers (pickers, menus, previews and tooltips), dialogs, settings and toasts.
 import { button, element, focusable, focusPlace, h, icon, logLines, restoreFocus } from './dom.js'
 import { text, whenLabel } from './messages.js'
-import { currentThread, modelsAvailable, session } from './session.js'
+import { currentThread, modelsAvailable, permissionsAvailable, session } from './session.js'
+import { PASTE_ICONS } from './view-composer.js'
 import { KINDS } from './view-transcript.js'
 
 // ---------- openers ----------
@@ -13,6 +14,10 @@ const openers = new WeakMap()
 function opened(overlay, anchor) {
     anchor?.setAttribute('aria-expanded', 'true')
     openers.set(overlay, focusPlace(anchor) || { node: anchor, key: null, scopes: [] })
+}
+
+export function closePopover(popover) {
+    if (popover.matches(':popover-open')) popover.hidePopover()
 }
 
 export function bindOverlays(fallback) {
@@ -59,7 +64,7 @@ export function pickerOpen() {
 
 export function openPicker(kind, anchor) {
     const picker = element('picker')
-    if (pickerOpen()) picker.hidePopover()
+    closePopover(picker)
     pickerKind = kind
     picker.setAttribute('aria-label', text(kind))
     const search = element('picker-search')
@@ -242,7 +247,7 @@ export function renderPicker() {
 }
 
 export function closePicker() {
-    if (pickerOpen()) element('picker').hidePopover()
+    closePopover(element('picker'))
 }
 
 // Arrow keys move between options as in a native list; up from the first one
@@ -275,7 +280,7 @@ export function focusPickerOption(index) {
 // explanation, which is a small dialog rather than a menu.
 export function openMenu(anchor, items, align = 'end', label = '') {
     const menu = element('menu')
-    if (menu.matches(':popover-open')) menu.hidePopover()
+    closePopover(menu)
     menu.replaceChildren(...items)
     const note = menu.querySelector('p')
     menu.setAttribute('role', label ? 'dialog' : 'menu')
@@ -331,8 +336,7 @@ function menuKeydown(event) {
 }
 
 export function closeMenu() {
-    const menu = element('menu')
-    if (menu.matches(':popover-open')) menu.hidePopover()
+    closePopover(element('menu'))
 }
 
 // ---------- dialogs ----------
@@ -430,9 +434,7 @@ export function dialogError(message) {
 // ---------- settings ----------
 
 export function renderSettings() {
-    const available =
-        typeof window.AgentHost?.getPermissions === 'function' &&
-        typeof window.AgentHost?.setPermissions === 'function'
+    const available = permissionsAvailable()
     const busy = session.permissionsLoading || session.permissionsSaving
     const full = element('permission-full-access')
     const computer = element('permission-computer-use')
@@ -473,12 +475,14 @@ export function toast(message, action = null, tone = 'info') {
         icon(tone === 'error' ? 'alert' : tone === 'success' ? 'check-circle' : 'info'),
         h('span', { text: message }),
     ])
-    if (action) node.append(button({ class: 'text-button', text: action.label }, []))
-    if (action)
-        node.lastChild.addEventListener('click', () => {
+    if (action) {
+        const run = button({ class: 'text-button', text: action.label }, [])
+        run.addEventListener('click', () => {
             action.run()
             dismiss()
         })
+        node.append(run)
+    }
     const dismiss = () => {
         if (!node.isConnected || node.dataset.leaving) return
         node.dataset.leaving = 'true'
@@ -550,7 +554,7 @@ function showTip(target) {
     tip.classList.add('is-shown')
 }
 
-export function hideTip() {
+function hideTip() {
     clearTimeout(tipTimer)
     tipPending = null
     if (!tipShown) return
@@ -612,11 +616,11 @@ export function bindTips() {
 const PEEK_LINES = 300
 export function openFilePeek(file, anchor) {
     const peek = element('file-peek')
-    if (peek.matches(':popover-open')) peek.hidePopover()
+    closePopover(peek)
     const lines = file.text.split('\n')
     peek.replaceChildren(
         h('div', { class: 'file-peek-head' }, [
-            icon(file.kind === 'crash' ? 'alert' : file.kind === 'log' ? 'list' : 'file'),
+            icon(PASTE_ICONS[file.kind] || 'file'),
             h('strong', { text: file.name }),
             h('span', { text: text('lineCount', { count: file.lines }) }),
             button(
@@ -641,15 +645,23 @@ export function openFilePeek(file, anchor) {
             : []),
     )
     peek.setAttribute('aria-label', text('previewFile', { name: file.name }))
-    opened(peek, anchor)
-    peek.showPopover({ source: anchor })
-    const rect = anchor.getBoundingClientRect()
+    const rect = showPeek(peek, anchor)
     const above = rect.top - 12 > peek.offsetHeight
-    peek.style.left = `${Math.round(Math.max(12, Math.min(rect.left, window.innerWidth - peek.offsetWidth - 12)))}px`
     peek.style.top = `${Math.round(above ? rect.top - 8 - peek.offsetHeight : rect.bottom + 8)}px`
     peek.dataset.side = above ? 'above' : 'below'
     // The preview takes the focus, so it is read out and Escape closes it.
     peek.focus()
+}
+
+// Shows a preview by the control that opened it, starting at the control's
+// left edge but kept inside the window. Placing needs the preview's size, so
+// it shows first; the caller places it vertically.
+function showPeek(peek, anchor) {
+    opened(peek, anchor)
+    peek.showPopover({ source: anchor })
+    const rect = anchor.getBoundingClientRect()
+    peek.style.left = `${Math.round(Math.max(12, Math.min(rect.left, window.innerWidth - peek.offsetWidth - 12)))}px`
+    return rect
 }
 
 // ---------- changes ----------
@@ -659,7 +671,7 @@ export function openFilePeek(file, anchor) {
 // approved like any other change.
 export function openChanges(entries, anchor) {
     const peek = element('changes-peek')
-    if (peek.matches(':popover-open')) peek.hidePopover()
+    closePopover(peek)
     peek.replaceChildren(
         h('div', { class: 'changes-head' }, [
             h('strong', { text: text('changesTitle') }),
@@ -698,10 +710,7 @@ export function openChanges(entries, anchor) {
             ]),
         ]),
     )
-    opened(peek, anchor)
-    peek.showPopover({ source: anchor })
-    const rect = anchor.getBoundingClientRect()
-    peek.style.left = `${Math.round(Math.max(12, Math.min(rect.left, window.innerWidth - peek.offsetWidth - 12)))}px`
+    const rect = showPeek(peek, anchor)
     peek.style.top = `${Math.round(Math.max(12, rect.top - 8 - peek.offsetHeight))}px`
     // The list takes the focus rather than its undo button, so a second Enter
     // does not ask for an undo by accident.

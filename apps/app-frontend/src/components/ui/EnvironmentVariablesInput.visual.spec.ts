@@ -19,6 +19,8 @@ const backend = vi.hoisted(() => ({
 vi.mock('@/store/theme.ts', () => ({ DEFAULT_FEATURE_FLAGS: {} }))
 vi.mock('@/helpers/settings', async (importOriginal) => ({
     ...(await importOriginal<typeof import('@/helpers/settings')>()),
+    getSettingsLayers: vi.fn(async () => []),
+    clearSettingsOverride: vi.fn(async () => true),
     get: async () => structuredClone(backend.global),
     update: async (patch: Record<string, unknown>) => {
         Object.assign(backend.global, patch)
@@ -51,10 +53,7 @@ vi.mock('@/components/ui/settings/LogShareSettings.vue', () => ({
 vi.mock('@/components/ui/settings/SharedLogsSettings.vue', () => ({
     default: { render: () => null },
 }))
-// Keep the real exports and override only the few widgets this spec drives:
-// a factory-only mock drops exports the component under test links.
-vi.mock('@modrinth/ui', async (importOriginal) => {
-    const actual = await importOriginal<typeof import('@modrinth/ui')>()
+vi.mock('@modrinth/ui', async () => {
     const { defineComponent, h } = await import('vue')
     const card = defineComponent({
         setup:
@@ -76,7 +75,12 @@ vi.mock('@modrinth/ui', async (importOriginal) => {
                 }),
     })
     return {
-        ...actual,
+        Button: defineComponent({
+            setup:
+                (_, { slots }) =>
+                () =>
+                    h('button', slots.default?.()),
+        }),
         Card: card,
         Checkbox: toggle,
         Combobox: { name: 'Combobox', render: () => null },

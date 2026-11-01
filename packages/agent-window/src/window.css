@@ -2766,6 +2766,38 @@ p.plan-state {
     flex-direction: column;
     gap: 2px;
 }
+.result-next {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 12px;
+}
+.next-chip {
+    gap: 6px;
+    height: 30px;
+    padding: 0 10px 0 12px;
+    border-radius: 999px;
+    background: var(--card);
+    box-shadow: inset 0 0 0 1px var(--line-strong);
+    color: var(--fg-2);
+    font-size: 13px;
+    font-weight: 500;
+    transition:
+        color 160ms ease,
+        box-shadow 160ms ease;
+}
+.next-chip svg {
+    width: 14px;
+    height: 14px;
+    transition: transform 220ms var(--ease-settle);
+}
+.next-chip:hover {
+    color: var(--fg);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--agent-accent) 55%, transparent);
+}
+.next-chip:hover svg {
+    transform: translateX(2px);
+}
 .result-copy strong {
     font-size: 14.5px;
     font-weight: 600;

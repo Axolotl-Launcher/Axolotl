@@ -1007,3 +1007,18 @@ it('folds the earlier steps of a long run behind one row', async () => {
     expect(await page.locator('.step:not([hidden])').count()).toBe(12)
     expect(await page.locator('.step-more').count()).toBe(0)
 })
+
+it('offers follow-ups under the latest result and sends the one picked', async () => {
+    await send('My game crashes on launch')
+    await (await untilPlan()).click()
+    await untilSettled()
+    const chips = page.locator('.result-card .next-chip')
+    expect(await chips.allTextContents()).toEqual(['Launch the game to check', 'Undo this change'])
+    await chips.nth(1).click()
+    await page.locator('.turn').nth(1).waitFor()
+    expect(await page.locator('.turn').nth(1).locator('.user-bubble').textContent()).toBe(
+        'Undo this change',
+    )
+    // Only the latest result offers them.
+    expect(await page.locator('.next-chip').count()).toBe(0)
+})

@@ -14,7 +14,8 @@
 //   { type: 'progress', steps }               the task checklist: [{ title, detail, status }]
 //   { type: 'plan', plan }                    changes that need the user's approval
 //   { type: 'applied', done, complete }       how many plan changes are written
-//   { type: 'result', title, text }           the outcome shown at the end of the run
+//   { type: 'result', title, text, next }     the outcome shown at the end of the run; next
+//                                             offers up to three follow-up requests
 //   { type: 'error', title, text, retryable } the run failed
 //   { type: 'resume', data }                  opaque data the runtime needs after a restart
 //   { type: 'done' }                          the runtime has nothing more to do
@@ -124,6 +125,9 @@ export function applyEvent(run, event, now = Date.now()) {
                 title: event.title || '',
                 text: event.text || '',
                 retryable: false,
+                next: Array.isArray(event.next)
+                    ? event.next.filter((entry) => typeof entry === 'string' && entry).slice(0, 3)
+                    : [],
             })
             break
         case 'error':

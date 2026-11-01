@@ -131,8 +131,11 @@ function updateItem(node, item, view) {
     if (item.type === 'activity') updateActivity(node, item, view)
     else if (item.type === 'text') updateText(node, item, view)
     else if (item.type === 'plan') updatePlan(node, item, view)
-    else if (!node.childElementCount) fillResult(node, item, view)
-    else if (item.type === 'error') syncRetry(node, item, view)
+    else {
+        if (!node.childElementCount) fillResult(node, item, view)
+        if (item.type === 'error') syncRetry(node, item, view)
+        else syncNext(node, item, view)
+    }
 }
 
 function stepIcon(status) {
@@ -468,7 +471,25 @@ function fillResult(node, item, view) {
                 : null,
         ]),
     )
-    if (item.type === 'error') syncRetry(node, item, view)
+}
+
+// What to ask next, under the latest result only; a click sends it.
+function syncNext(node, item, { thread, turn, active }) {
+    const show = !!item.next?.length && !active && thread.turns.at(-1)?.id === turn.id
+    let row = node.querySelector('.result-next')
+    if (show && !row) {
+        row = h(
+            'div',
+            { class: 'result-next' },
+            item.next.map((value) =>
+                button({ class: 'next-chip', data: { followup: value } }, [
+                    h('span', { text: value }),
+                    icon('arrow-right'),
+                ]),
+            ),
+        )
+        node.querySelector('.result-copy').append(row)
+    } else if (!show) row?.remove()
 }
 
 function syncRetry(node, item, { thread, turn, active }) {

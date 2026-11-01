@@ -256,6 +256,9 @@ function item(value) {
                 title: string(value.title, 200),
                 text: string(value.text, 2000),
                 retryable: value.retryable === true,
+                ...(value.type === 'result' && {
+                    next: list(value.next, (entry) => string(entry, 120) || null, 3),
+                }),
             }
         default:
             return null

@@ -1293,7 +1293,7 @@ const actions = {
 
 document.addEventListener('click', (event) => {
     const target = event.target.closest(
-        '[data-action], [data-thread], [data-thread-menu], [data-prompt], [data-model], [data-instance], [data-copy-turn], [data-remove-attachment], [data-remove-queued], [data-send-queued], [data-menu-rename], [data-menu-delete], [data-toggle-change], [data-copy-code], [data-copy-link], [data-edit-turn], [data-mark-turn], [data-menu-pin], [data-menu-copy]',
+        '[data-action], [data-thread], [data-thread-menu], [data-prompt], [data-model], [data-instance], [data-copy-turn], [data-remove-attachment], [data-remove-queued], [data-send-queued], [data-menu-rename], [data-menu-delete], [data-toggle-change], [data-copy-code], [data-copy-link], [data-edit-turn], [data-mark-turn], [data-menu-pin], [data-menu-copy], [data-followup]',
     )
     if (!target || target.disabled) return
     const data = target.dataset
@@ -1349,7 +1349,12 @@ document.addEventListener('click', (event) => {
             element('message-input').focus()
         }
     } else if (data.copyTurn) copy(data.copyTurn, data.copyKind)
-    else if (data.markTurn) {
+    else if (data.followup) {
+        const input = element('message-input')
+        input.value = data.followup
+        input.dispatchEvent(new Event('input', { bubbles: true }))
+        submit()
+    } else if (data.markTurn) {
         // Marks an answer so the navigator flags it for coming back to.
         const turnId = data.markTurn
         if (

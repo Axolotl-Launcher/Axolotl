@@ -69,6 +69,7 @@ export const FLOWS = [
             result: {
                 title: 'Rolled back',
                 text: 'Entity Culling is back on 1.7.2. Start the game to confirm the crash is gone.',
+                next: ['Launch the game to check', 'Undo this change'],
             },
             check: 'The rollback job finished: Entity Culling 1.7.2 is installed.',
             followup:
@@ -126,6 +127,7 @@ export const FLOWS = [
             result: {
                 title: '已回滚',
                 text: 'Entity Culling 已换回 1.7.2。启动游戏后即可确认崩溃是否解决。',
+                next: ['启动游戏确认一下', '撤销这次改动'],
             },
             check: '回滚任务已经完成：Entity Culling 1.7.2 已安装。',
             followup:
@@ -177,6 +179,7 @@ export const FLOWS = [
             result: {
                 title: 'Backup created',
                 text: 'Mountain Cabin is saved as a 412 MB ZIP in the backups folder of {instance}.',
+                next: ['Back up my other worlds too', 'Where is the backup?'],
             },
             check: 'The backup finished: the ZIP is in the backups folder.',
             followup: 'Checked again: the game is still closed, so the world can be backed up.',
@@ -222,6 +225,7 @@ export const FLOWS = [
             result: {
                 title: '备份已创建',
                 text: '山间小屋已保存为 412 MB 的 ZIP，位于 {instance} 的 backups 文件夹。',
+                next: ['把其他世界也备份一下', '备份文件在哪里？'],
             },
             check: '备份已经完成：ZIP 在 backups 文件夹中。',
             followup: '重新核对过了：游戏仍未运行，可以备份。',
@@ -322,6 +326,7 @@ export const FLOWS = [
             result: {
                 title: 'Modpack ready',
                 text: 'Lite Survival is created with 3 mods and 4 GB of memory.',
+                next: ['Add a minimap mod', 'Launch the new instance'],
             },
             check: 'The instance exists and all three mods are installed.',
             followup:
@@ -406,6 +411,7 @@ export const FLOWS = [
             result: {
                 title: '整合包已就绪',
                 text: '「轻量生存」已创建，装好 3 个模组，内存设为 4 GB。',
+                next: ['再加一个小地图模组', '启动这个新实例'],
             },
             check: '实例已存在，三个模组均已安装。',
             followup: '重新核对过了：三个模组仍有 Fabric 1.21.1 版本，方案不变。',
@@ -495,6 +501,7 @@ export const FLOWS = [
             result: {
                 title: 'Updates installed',
                 text: 'Sodium and Lithium are updated. A snapshot of {instance} was taken first, so you can roll back from backups.',
+                next: ['See if it runs smoother now', 'Undo these updates'],
             },
             check: 'The snapshot exists and both mods finished installing.',
             followup:
@@ -563,6 +570,7 @@ export const FLOWS = [
             result: {
                 title: '更新已完成',
                 text: 'Sodium 和 Lithium 已更新。更新前为 {instance} 创建了快照，可以随时从备份中恢复。',
+                next: ['看看现在是否流畅', '撤回这次更新'],
             },
             check: '快照已存在，两个模组都已安装完成。',
             followup:

@@ -89,6 +89,7 @@ access-jwt*.txt
 /.agents/plans/*
 !/.agents/plans/sched-governance-table.md
 !/.agents/plans/sched-l0-members.md
+!/.agents/plans/sched-verification-2026-11-01.md
 /.agents/tmp/
 /.agents/cache/
 

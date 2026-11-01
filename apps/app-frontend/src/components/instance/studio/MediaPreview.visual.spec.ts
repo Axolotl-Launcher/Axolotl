@@ -16,6 +16,11 @@ const PNG_BYTES = Uint8Array.from(
 // preview with the fallback before the controls could be exercised.
 const PNG_URL = URL.createObjectURL(new Blob([PNG_BYTES], { type: 'image/png' }))
 const EDITED_BYTES = Uint8Array.from([9, 9, 9])
+const LOCATION = {
+    instanceId: 'instance',
+    root: 'C:/instances/instance',
+    path: 'screenshots/block.png',
+}
 
 vi.mock('@modrinth/ui', async () => {
     const { defineComponent, h } = await import('vue')
@@ -96,6 +101,7 @@ function mountPreview(overrides: Record<string, unknown> = {}) {
             name: 'block.png',
             size: 2048,
             content: PNG_BYTES,
+            location: LOCATION,
             loading: false,
             failed: false,
             ...overrides,
@@ -213,9 +219,23 @@ it('writes the edited bytes back and returns to the preview', async () => {
     await findButton(wrapper, 'Edit')!.trigger('click')
     await wrapper.find('[data-testid="editor-save"]').trigger('click')
 
-    expect(wrapper.emitted('save')).toEqual([[EDITED_BYTES]])
+    expect(wrapper.emitted('save')).toEqual([[{ location: LOCATION, bytes: EDITED_BYTES }]])
     expect(wrapper.find('[data-testid="studio-image-editor"]').exists()).toBe(false)
     expect(wrapper.find('img').exists()).toBe(true)
+})
+
+it('writes an edit to the file the editor was opened for', async () => {
+    const wrapper = mountPreview()
+    await findButton(wrapper, 'Edit')!.trigger('click')
+    // The preview follows the active tab, so the file it points at can change
+    // while the editor is still encoding what it was opened with.
+    await wrapper.setProps({
+        location: { ...LOCATION, path: 'screenshots/other.png' },
+        name: 'other.png',
+    })
+    await wrapper.find('[data-testid="editor-save"]').trigger('click')
+
+    expect(wrapper.emitted('save')).toEqual([[{ location: LOCATION, bytes: EDITED_BYTES }]])
 })
 
 it('discards the edit when it is cancelled', async () => {

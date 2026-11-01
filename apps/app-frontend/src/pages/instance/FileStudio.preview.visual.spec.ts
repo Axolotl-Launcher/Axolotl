@@ -11,6 +11,7 @@ const studio = vi.hoisted(() => ({
     readFile: vi.fn(),
     readStudioBinary: vi.fn(),
     readStudioText: vi.fn(),
+    writeStudioBinary: vi.fn(),
     openPath: vi.fn(),
 }))
 
@@ -56,7 +57,7 @@ vi.mock('@/helpers/studio', () => ({
     registerStudioWatcher: vi.fn(async () => 'registration'),
     trashStudioFile: vi.fn(),
     unregisterStudioWatcher: vi.fn(async () => {}),
-    writeStudioBinary: vi.fn(),
+    writeStudioBinary: studio.writeStudioBinary,
 }))
 vi.mock('@/helpers/utils', () => ({ highlightInFolder: vi.fn(), openPath: studio.openPath }))
 vi.mock('@/components/instance/studio/StudioEditor.vue', () => ({
@@ -65,9 +66,24 @@ vi.mock('@/components/instance/studio/StudioEditor.vue', () => ({
 vi.mock('@/components/instance/studio/NbtEditor.vue', () => ({ default: { render: () => null } }))
 // The editor is a fabric canvas with its own test; this page only has to hand it
 // the bytes and write the result back.
-vi.mock('@/components/instance/studio/StudioImageEditor.vue', () => ({
-    default: { render: () => null },
-}))
+const EDITED_BYTES = Uint8Array.from([7, 7, 7])
+vi.mock('@/components/instance/studio/StudioImageEditor.vue', async () => {
+    const { defineComponent, h } = await import('vue')
+    return {
+        default: defineComponent({
+            name: 'StudioImageEditor',
+            props: { content: Object, mimeType: String, name: String },
+            emits: ['save', 'cancel', 'error', 'dirty'],
+            setup:
+                (_, { emit }) =>
+                () =>
+                    h('button', {
+                        'data-testid': 'editor-save',
+                        onClick: () => emit('save', EDITED_BYTES),
+                    }),
+        }),
+    }
+})
 vi.mock('@/components/instance/studio/StudioEditorTabs.vue', () => ({
     default: { render: () => null },
 }))
@@ -201,4 +217,24 @@ it('releases the previous preview when another file becomes active', async () =>
     await openTreeFile(wrapper, 'screenshots/pack.jar')
 
     expect(revoke).toHaveBeenCalledWith(previewUrl)
+})
+
+it('writes an image edit to the file the editor was opened for', async () => {
+    const wrapper = await mountStudio({ instance: { id: 'instance' } as unknown as GameInstance })
+    await openScreenshot(wrapper)
+
+    const edit = wrapper.findAll('button').find((button) => button.text() === 'Edit')
+    if (!edit) throw new Error('the preview does not offer the editor')
+    await edit.trigger('click')
+    await wrapper.find('[data-testid="editor-save"]').trigger('click')
+    await flushPromises()
+
+    // The instance is addressed by the id captured with the file, so a page that
+    // navigated to another instance while the edit was encoding still writes
+    // where the edit came from.
+    expect(studio.writeStudioBinary).toHaveBeenCalledWith(
+        'instance',
+        'screenshots/block.png',
+        EDITED_BYTES,
+    )
 })

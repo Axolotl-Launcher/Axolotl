@@ -41,6 +41,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, onScopeDispose, ref, wa
 import { onBeforeRouteLeave, useRouter } from 'vue-router'
 
 import MediaPreview from '@/components/instance/studio/MediaPreview.vue'
+import type { MediaEditLocation, MediaEditSave } from '@/components/instance/studio/media-edit'
 import NbtEditor from '@/components/instance/studio/NbtEditor.vue'
 import StudioEditor from '@/components/instance/studio/StudioEditor.vue'
 import StudioEditorTabs from '@/components/instance/studio/StudioEditorTabs.vue'
@@ -305,15 +306,20 @@ const mediaKind = computed(() => {
 // Only media documents are read as bytes; text and NBT documents have their own
 // loading path and would otherwise be read twice.
 const mediaDocument = computed(() => (mediaKind.value ? activeDocument.value : null))
-// The file the current preview was read from. An edit is encoded asynchronously,
-// so the target has to be remembered rather than re-read from the active tab.
-const mediaPreviewPath = ref('')
-watch(mediaDocument, (document) => {
-    mediaPreviewPath.value = document?.path ?? ''
-})
 // Bumped when the bytes on disk change under the preview, so the object URL is
 // rebuilt from the new content instead of showing what was read first.
 const mediaRevision = ref(0)
+// Handed to the preview so an edit knows which file and which instance it
+// belongs to, even if the tab or the instance changes before it is written.
+const mediaEditLocation = computed<MediaEditLocation | null>(() => {
+    const document = mediaDocument.value
+    if (!document) return null
+    return {
+        instanceId: props.instance?.id ?? null,
+        root: instanceRoot.value,
+        path: document.path,
+    }
+})
 
 const {
     url: mediaPreviewUrl,
@@ -331,15 +337,18 @@ function notifyOperationFailure(error: unknown) {
     })
 }
 
-async function writeEditedImage(bytes: Uint8Array) {
-    const path = mediaPreviewPath.value
-    if (!path) return
+async function writeEditedImage({ location, bytes }: MediaEditSave) {
     try {
-        await writeBinary(path, bytes)
+        await writeMediaBytes(location, bytes)
         mediaRevision.value += 1
     } catch (error) {
         notifyOperationFailure(error)
     }
+}
+
+async function writeMediaBytes(location: MediaEditLocation, bytes: Uint8Array) {
+    if (location.instanceId) return writeStudioBinary(location.instanceId, location.path, bytes)
+    return replaceFile(await join(location.root, ...location.path.split('/')), bytes)
 }
 
 function exitStudio() {
@@ -990,6 +999,7 @@ onBeforeRouteLeave(() => {
                         :name="selectedName"
                         :size="mediaPreviewBytes"
                         :content="mediaPreviewContent"
+                        :location="mediaEditLocation"
                         :loading="mediaPreviewLoading"
                         :failed="mediaPreviewFailed"
                         @open-in-system="openInSystem(selectedFilePath)"

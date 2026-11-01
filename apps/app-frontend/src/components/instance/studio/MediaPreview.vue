@@ -5,6 +5,7 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
 import { canEditImage } from './image-encoding'
 import { clampPreviewScale, fitPreviewScale } from './image-preview-geometry'
+import type { MediaEditLocation, MediaEditSave } from './media-edit'
 import StudioImageEditor from './StudioImageEditor.vue'
 import { studioMediaMimeType } from './useStudioMediaPreview'
 
@@ -14,13 +15,14 @@ const props = defineProps<{
     name: string
     size: number
     content: Uint8Array | null
+    location: MediaEditLocation | null
     loading: boolean
     failed: boolean
 }>()
 
 const emit = defineEmits<{
     openInSystem: []
-    save: [bytes: Uint8Array]
+    save: [payload: MediaEditSave]
     editFailed: [error: unknown]
 }>()
 
@@ -69,6 +71,10 @@ const fitting = ref(true)
 const renderFailed = ref(false)
 const panning = ref(false)
 const editing = ref(false)
+// The file the open editor belongs to. Encoding takes long enough for the active
+// tab or the instance to change, so the destination is captured on open instead
+// of being read again when the bytes are ready.
+const editLocation = ref<MediaEditLocation | null>(null)
 
 let stageObserver: ResizeObserver | null = null
 let stopPointerDrag: (() => void) | null = null
@@ -183,9 +189,22 @@ function onPointerDown(event: PointerEvent) {
     )
 }
 
-function onSave(bytes: Uint8Array) {
-    emit('save', bytes)
+function startEditing() {
+    if (!props.location || !props.content) return
+    editLocation.value = props.location
+    editing.value = true
+}
+
+function stopEditing() {
     editing.value = false
+    editLocation.value = null
+}
+
+function onSave(bytes: Uint8Array) {
+    const location = editLocation.value
+    if (!location) return
+    emit('save', { location, bytes })
+    stopEditing()
 }
 
 watch(
@@ -195,7 +214,7 @@ watch(
         natural.value = { width: 0, height: 0 }
         zoom.value = 1
         fitting.value = true
-        editing.value = false
+        stopEditing()
     },
 )
 
@@ -258,7 +277,7 @@ onBeforeUnmount(() => {
                 type="quiet"
                 size="2xs"
                 :aria-label="formatMessage(messages.edit)"
-                @click="editing = true"
+                @click="startEditing"
                 ><EditIcon class="size-4" />{{ formatMessage(messages.edit) }}</Button
             >
             <span class="ml-auto shrink-0 tabular-nums">
@@ -272,7 +291,7 @@ onBeforeUnmount(() => {
             :mime-type="mimeType"
             :name="name"
             @save="onSave"
-            @cancel="editing = false"
+            @cancel="stopEditing"
             @error="emit('editFailed', $event)"
         />
         <div

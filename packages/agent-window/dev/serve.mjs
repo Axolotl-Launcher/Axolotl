@@ -22,6 +22,7 @@ const types = {
     '.css': 'text/css',
     '.js': 'text/javascript',
     '.png': 'image/png',
+    '.woff2': 'font/woff2',
 }
 
 async function catalog(locale) {
@@ -44,7 +45,7 @@ function hostScript(messages) {
     return `;(() => {
     const query = new URLSearchParams(location.search)
     const light = query.get('theme') === 'light'
-    const accent = query.get('accent') || (light ? '#00af5c' : '#1bd96a')
+    const accent = query.get('accent') || (light ? '#db2777' : '#f472b6')
     const models = query.get('models') === '0' ? [] : null
     let policy = { full_access: false, computer_use: false }
     const fail = Number(query.get('fail')) || 0

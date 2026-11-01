@@ -86,7 +86,7 @@ rustPlatform.buildRustPackage (finalAttrs: {
     inherit pname version src;
     pnpm = pnpm_10_33_2;
     fetcherVersion = 4;
-    hash = "sha256-vPeIl7JwckVv5UYsWzyK1cswvvkHk0H6GBAkzXBBK9M=";
+    hash = "sha256-rC1SqxLq5X6of97Qj7F4a0KeuCw732WwmzVaV25kwcA=";
   };
   # Gradle
   gradleFlags = [

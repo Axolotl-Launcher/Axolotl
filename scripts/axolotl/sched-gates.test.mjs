@@ -2,7 +2,12 @@
 // exists to reject.
 
 import assert from 'node:assert/strict'
+import { spawnSync } from 'node:child_process'
+import { existsSync, mkdtempSync, rmSync } from 'node:fs'
+import os from 'node:os'
+import path from 'node:path'
 import { test } from 'node:test'
+import { fileURLToPath } from 'node:url'
 import { checkSpawns, countForms, unboundedInL0 } from './sched-bare-spawn-check.mjs'
 import { l0Violations } from './sched-l0-resource-check.mjs'
 import { checkLeaves } from './sched-leaf-primitive-check.mjs'
@@ -172,4 +177,29 @@ test('acquisition scan sees owned lock guards', () => {
             [3, 'read_owned', 'CACHE', 'static'],
         ],
     )
+})
+
+const here = path.dirname(fileURLToPath(import.meta.url))
+const runScript = (name, args) => spawnSync(process.execPath, [path.join(here, name), ...args], { encoding: 'utf8' })
+
+test('inventory runs when started by its absolute path', () => {
+    const out = mkdtempSync(path.join(os.tmpdir(), 'sched-inventory-'))
+    try {
+        const run = runScript('sched-resource-inventory.mjs', ['--out', out])
+        assert.equal(run.status, 0, run.stderr)
+        assert.ok(existsSync(path.join(out, 'sched-resource-registry.json')), 'the registry was not written')
+    } finally {
+        rmSync(out, { recursive: true, force: true })
+    }
+})
+
+test('order check fails, rather than falls back, without an inventory', () => {
+    const empty = mkdtempSync(path.join(os.tmpdir(), 'sched-missing-'))
+    try {
+        const run = runScript('sched-order-annotation-check.mjs', ['--dir', empty])
+        assert.equal(run.status, 2, run.stderr)
+        assert.match(run.stderr, /sched-order-annotation-check:/)
+    } finally {
+        rmSync(empty, { recursive: true, force: true })
+    }
 })

@@ -113,6 +113,7 @@ import {
     selectSchematicMaterial,
 } from '@/lab/schematic-preview/editing'
 import type {
+    SchematicMeshData,
     SchematicMeshWorkerRequest,
     SchematicMeshWorkerResponse,
 } from '@/lab/schematic-preview/mesh-worker'
@@ -225,6 +226,12 @@ const loadingProgress = ref(0)
 const error = ref('')
 const missingBlocks = reactive(new Set<string>())
 const transientWarnings = ref<string[]>([])
+
+/** Warnings arrive per chunk, so the same one is kept once instead of once per chunk. */
+function addWarnings(messages: string[]) {
+    if (!messages.length) return
+    transientWarnings.value = [...new Set([...transientWarnings.value, ...messages])]
+}
 
 let scene: SchematicPreviewScene | undefined
 let workers: WorkerSlot[] = []
@@ -703,7 +710,8 @@ async function applyResources(epoch = requestEpoch) {
     resources.value?.texture.dispose()
     resources.value = loaded
     materialTextureCache.clear()
-    scene?.setTexture(loaded.texture)
+    scene?.setTextures({ atlas: loaded.texture })
+    addWarnings(loaded.warnings)
     startMeshWorkers(opened, loaded, resourceRequest)
 }
 
@@ -748,7 +756,7 @@ function startMeshWorkers(
             handleWorkerMessage(slot, event.data)
         worker.onerror = (event) => {
             if (meshEpoch !== resourceEpoch) return
-            transientWarnings.value = [...transientWarnings.value, event.message]
+            addWarnings([event.message])
             slot.busy = false
             completeMeshJob()
             pumpMeshQueue()
@@ -768,30 +776,26 @@ function handleWorkerMessage(slot: WorkerSlot, message: SchematicMeshWorkerRespo
     if (message.epoch !== resourceEpoch) return
     if (message.type === 'ready') {
         slot.ready = true
-        if (message.warnings.length) {
-            transientWarnings.value = [
-                ...new Set([...transientWarnings.value, ...message.warnings]),
-            ]
-        }
+        addWarnings(message.warnings)
         pumpMeshQueue()
         return
     }
     if (message.type === 'mesh') {
         const chunk = chunkCache.get(schematicChunkKey(message.regionId, message.chunkPosition))
         const palette = manifest.value?.palette
-        scene?.setChunk(
-            message.regionId,
-            message.chunkPosition,
-            chunk && palette
-                ? filterSchematicAirGeometry(message.opaque, chunk, palette)
-                : message.opaque,
-            chunk && palette
-                ? filterSchematicAirGeometry(message.translucent, chunk, palette)
-                : message.translucent,
-        )
+        const visible = (mesh: SchematicMeshData) =>
+            chunk && palette ? filterSchematicAirGeometry(mesh, chunk, palette) : mesh
+        scene?.setChunk(message.regionId, message.chunkPosition, {
+            opaque: visible(message.opaque),
+            translucent: visible(message.translucent),
+            bubble: visible(message.bubble),
+            water: visible(message.water),
+            lava: visible(message.lava),
+        })
         for (const name of message.missing) missingBlocks.add(name)
+        addWarnings(message.warnings)
     } else {
-        transientWarnings.value = [...transientWarnings.value, message.message]
+        addWarnings([message.message])
     }
     slot.busy = false
     completeMeshJob()
@@ -840,10 +844,7 @@ function pumpMeshQueue() {
             })
             .catch((caught) => {
                 if (job.epoch !== resourceEpoch) return
-                transientWarnings.value = [
-                    ...transientWarnings.value,
-                    caught instanceof Error ? caught.message : String(caught),
-                ]
+                addWarnings([caught instanceof Error ? caught.message : String(caught)])
                 slot.busy = false
                 completeMeshJob()
                 pumpMeshQueue()
@@ -1705,12 +1706,12 @@ onBeforeUnmount(() => {
                             </span>
                         </button>
                         <Button
+                            v-tooltip="formatMessage(messages.removeRecent)"
                             type="quiet"
                             size="2xs"
                             circular
                             icon-only
                             :aria-label="formatMessage(messages.removeRecent)"
-                            :title="formatMessage(messages.removeRecent)"
                             @click="recent = removeRecentSchematic(record.id)"
                             ><XIcon />
                         </Button>
@@ -1738,6 +1739,7 @@ onBeforeUnmount(() => {
                 <div class="schematic-toolbar-actions flex shrink-0 items-center gap-2">
                     <div class="schematic-command-group">
                         <Button
+                            v-tooltip="`${formatMessage(messages.undo)} (Ctrl+Z)`"
                             type="quiet"
                             circular
                             icon-only
@@ -1745,11 +1747,11 @@ onBeforeUnmount(() => {
                                 editHistory.length === 0 || Boolean(loadingStage) || applyingEdit
                             "
                             :aria-label="formatMessage(messages.undo)"
-                            :title="`${formatMessage(messages.undo)} (Ctrl+Z)`"
                             @click="undoEdit"
                             ><UndoIcon />
                         </Button>
                         <Button
+                            v-tooltip="`${formatMessage(messages.redo)} (Ctrl+Y)`"
                             type="quiet"
                             circular
                             icon-only
@@ -1757,7 +1759,6 @@ onBeforeUnmount(() => {
                                 redoHistory.length === 0 || Boolean(loadingStage) || applyingEdit
                             "
                             :aria-label="formatMessage(messages.redo)"
-                            :title="`${formatMessage(messages.redo)} (Ctrl+Y)`"
                             @click="redoEdit"
                             ><RedoIcon />
                         </Button>
@@ -1940,12 +1941,12 @@ onBeforeUnmount(() => {
                             </div>
                         </div>
                         <Button
+                            v-tooltip="formatMessage(messages.clearMeasurement)"
                             type="quiet"
                             size="2xs"
                             circular
                             icon-only
                             :aria-label="formatMessage(messages.clearMeasurement)"
-                            :title="formatMessage(messages.clearMeasurement)"
                             @click="clearMeasurement"
                             ><XIcon />
                         </Button>
@@ -1984,25 +1985,27 @@ onBeforeUnmount(() => {
                             {{ visibleLayerCount }}/{{ totalLayerCount }}
                         </span>
                         <Button
+                            v-tooltip="formatMessage(messages.allLayers)"
                             type="quiet"
                             size="2xs"
                             circular
                             icon-only
                             :disabled="showingAllLayers"
                             :aria-label="formatMessage(messages.allLayers)"
-                            :title="formatMessage(messages.allLayers)"
                             @click="showAllLayers"
                             ><RefreshCwIcon />
                         </Button>
                     </div>
                     <div class="schematic-walk-control">
                         <Button
+                            v-tooltip="
+                                `${formatMessage(viewMode === 'walk' ? messages.orbitView : messages.walkView)} (V)`
+                            "
                             size="2xs"
                             :color="viewMode === 'walk' ? 'brand' : undefined"
                             :type="viewMode === 'walk' ? 'chip-text' : 'quiet'"
                             native-type="button"
                             :aria-pressed="viewMode === 'walk'"
-                            :title="`${formatMessage(viewMode === 'walk' ? messages.orbitView : messages.walkView)} (V)`"
                             @click="toggleViewMode"
                         >
                             <MoveIcon />
@@ -2336,12 +2339,12 @@ onBeforeUnmount(() => {
                                     clearable
                                 />
                                 <Button
+                                    v-tooltip="formatMessage(messages.materialsJson)"
                                     type="outlined"
                                     size="2xs"
                                     circular
                                     icon-only
                                     :aria-label="formatMessage(messages.materialsJson)"
-                                    :title="formatMessage(messages.materialsJson)"
                                     @click="exportMaterialsJson"
                                     ><DownloadIcon />
                                 </Button>

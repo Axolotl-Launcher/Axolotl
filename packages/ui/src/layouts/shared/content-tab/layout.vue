@@ -274,7 +274,6 @@ const {
     selectedStatusFilters,
     row1FilterOptions,
     row2FilterOptions,
-    totalCount,
     filterCounts,
     filteredItems: pipelineFilteredItems,
     filteredModpackItems: pipelineFilteredModpackItems,
@@ -620,9 +619,6 @@ const { folderRows: schematicFolderRows, regularItems: schematicGroupRegularItem
         modpackChildIdSet,
         searchQuery,
         expandedGroups,
-        persistExpandedGroups: (groups) => {
-            if (ctx.instanceId) expandedGroupsMemory.set(ctx.instanceId, groups)
-        },
         getItemId,
         mapToTableItem,
         isGroupedItem: (item) =>
@@ -1156,7 +1152,6 @@ const confirmUnlinkModal = ref<InstanceType<typeof ConfirmUnlinkModal>>()
                 <ContentTypeFilter
                     v-model:selected="selectedTypeFilter"
                     :options="row1FilterOptions"
-                    :total-count="totalCount"
                     :filter-counts="filterCounts"
                     @toggle="toggleTypeFilter"
                 />
@@ -1178,22 +1173,6 @@ const confirmUnlinkModal = ref<InstanceType<typeof ConfirmUnlinkModal>>()
                     <template #header-project>
                         <div class="flex min-w-0 flex-1 items-center gap-4">
                             <div class="flex shrink-0 items-center gap-4">
-                                <button
-                                    class="relative pb-1 text-base font-semibold transition-colors"
-                                    :class="
-                                        selectedStatusFilters.length === 0
-                                            ? 'text-brand'
-                                            : 'text-[var(--color-text-tertiary)] hover:text-[var(--color-text-default)]'
-                                    "
-                                    :aria-pressed="selectedStatusFilters.length === 0"
-                                    @click="selectedStatusFilters = []"
-                                >
-                                    {{ formatMessage(commonMessages.allProjectType) }}
-                                    <span
-                                        v-if="selectedStatusFilters.length === 0"
-                                        class="absolute bottom-0 left-0 right-0 h-0.5 rounded-full bg-brand"
-                                    />
-                                </button>
                                 <button
                                     v-for="option in row2FilterOptions"
                                     :key="option.id"

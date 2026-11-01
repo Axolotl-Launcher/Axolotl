@@ -1305,7 +1305,7 @@
     "message": "网络连接"
   },
   "app.settings.logs.export.modal.network-connections-hint": {
-    "message": "导出时使用启动器网络设置重新测试所有服务，包含短时下载采样。"
+    "message": "使用启动器网络设置重新测试服务，包含短时下载采样。若已开启高级下载信息，还会包含已采集的文件用时、请求速度和远端地址。"
   },
   "app.settings.logs.export.modal.exporting": {
     "message": "正在导出…"
@@ -4934,8 +4934,17 @@
   "app.instances.edit-groups": {
     "message": "编辑分组"
   },
+  "app.instances.game-directory.managed": {
+    "message": "Axolotl 数据目录"
+  },
+  "app.instances.game-directory.managed-short": {
+    "message": "Axolotl 数据"
+  },
   "app.instances.group-by": {
     "message": "分组方式"
+  },
+  "app.instances.group.game-directory": {
+    "message": "游戏目录"
   },
   "app.instances.group.game-version": {
     "message": "游戏版本"
@@ -7760,8 +7769,29 @@
   "app.lab.command-generator.version.use-data-components": {
     "message": "使用 1.20.5+ 数据组件"
   },
+  "app.lab.skin-editor.auto-save.error": {
+    "message": "自动保存失败"
+  },
+  "app.lab.skin-editor.auto-save.off": {
+    "message": "自动保存已关闭"
+  },
+  "app.lab.skin-editor.auto-save.saved": {
+    "message": "草稿已保存 {time}"
+  },
+  "app.lab.skin-editor.auto-save.saving": {
+    "message": "正在保存草稿…"
+  },
+  "app.lab.skin-editor.auto-save.unsaved": {
+    "message": "有未保存的更改"
+  },
+  "app.lab.skin-editor.auto-save.up-to-date": {
+    "message": "已是最新"
+  },
   "app.lab.skin-editor.description": {
     "message": "在本地创建和编辑 Minecraft 玩家皮肤。"
+  },
+  "app.lab.skin-editor.discard-draft-failed": {
+    "message": "无法删除恢复草稿。请留在当前页面后重试。"
   },
   "app.lab.skin-editor.export-skin": {
     "message": "Minecraft 皮肤 PNG"
@@ -7775,11 +7805,71 @@
   "app.lab.skin-editor.loading": {
     "message": "正在加载皮肤编辑器"
   },
+  "app.lab.skin-editor.recovery.body": {
+    "message": "恢复草稿保存于 {date}。"
+  },
+  "app.lab.skin-editor.recovery.continue": {
+    "message": "继续"
+  },
+  "app.lab.skin-editor.recovery.start-new": {
+    "message": "新建"
+  },
+  "app.lab.skin-editor.recovery.title": {
+    "message": "继续上次的皮肤？"
+  },
   "app.lab.skin-editor.retry": {
     "message": "重试"
   },
+  "app.lab.skin-editor.save": {
+    "message": "保存 PNG"
+  },
+  "app.lab.skin-editor.settings.auto-save": {
+    "message": "自动保存恢复草稿"
+  },
+  "app.lab.skin-editor.settings.auto-save-description": {
+    "message": "恢复草稿仅保存在本设备，与导出的 PNG 文件相互独立。"
+  },
+  "app.lab.skin-editor.settings.cancel": {
+    "message": "取消"
+  },
+  "app.lab.skin-editor.settings.interval": {
+    "message": "保存间隔（秒）"
+  },
+  "app.lab.skin-editor.settings.interval-description": {
+    "message": "请输入 5 到 600 秒之间的数值。"
+  },
+  "app.lab.skin-editor.settings.save": {
+    "message": "保存设置"
+  },
+  "app.lab.skin-editor.settings.title": {
+    "message": "编辑器设置"
+  },
+  "app.lab.skin-editor.settings.tooltip": {
+    "message": "皮肤编辑器设置"
+  },
+  "app.lab.skin-editor.settings.warn-before-leave": {
+    "message": "离开前提醒未保存的更改"
+  },
+  "app.lab.skin-editor.settings.warn-before-leave-description": {
+    "message": "关闭自动保存时，为保护你的作品，此提醒会始终启用。"
+  },
   "app.lab.skin-editor.title": {
     "message": "皮肤编辑器"
+  },
+  "app.lab.skin-editor.unsaved.body": {
+    "message": "离开前保存皮肤，或放弃当前更改。"
+  },
+  "app.lab.skin-editor.unsaved.discard": {
+    "message": "放弃"
+  },
+  "app.lab.skin-editor.unsaved.save": {
+    "message": "保存 PNG"
+  },
+  "app.lab.skin-editor.unsaved.stay": {
+    "message": "留下"
+  },
+  "app.lab.skin-editor.unsaved.title": {
+    "message": "皮肤尚未保存"
   },
   "app.lab.title": {
     "message": "实验室"
@@ -20617,5 +20707,164 @@
   },
   "app.skins.player.not-found": {
     "message": "未找到玩家，请检查玩家名或 UUID。"
+  },
+  "app.downloads.diagnostics.title": {
+    "message": "高级下载信息"
+  },
+  "app.downloads.diagnostics.file": {
+    "message": "文件"
+  },
+  "app.downloads.diagnostics.waiting": {
+    "message": "正在等待下载观测数据。请在开启此选项后开始下载。"
+  },
+  "app.downloads.diagnostics.loading": {
+    "message": "正在读取下载信息…"
+  },
+  "app.downloads.diagnostics.unavailable": {
+    "message": "暂时无法刷新下载信息，正在重试…"
+  },
+  "app.downloads.diagnostics.disabled": {
+    "message": "下载观测已关闭。"
+  },
+  "app.downloads.diagnostics.elapsed": {
+    "message": "文件总用时"
+  },
+  "app.downloads.diagnostics.network-elapsed": {
+    "message": "网络传输用时"
+  },
+  "app.downloads.diagnostics.received": {
+    "message": "已接收字节"
+  },
+  "app.downloads.diagnostics.active-requests": {
+    "message": "活动请求"
+  },
+  "app.downloads.diagnostics.effective-requests": {
+    "message": "正在接收数据的请求"
+  },
+  "app.downloads.diagnostics.physical-connections": {
+    "message": "物理连接数"
+  },
+  "app.downloads.diagnostics.effective-physical": {
+    "message": "正在接收数据的连接"
+  },
+  "app.downloads.diagnostics.configured-limit": {
+    "message": "配置上限"
+  },
+  "app.downloads.diagnostics.effective-cap": {
+    "message": "当前请求上限"
+  },
+  "app.downloads.diagnostics.target": {
+    "message": "目标请求数"
+  },
+  "app.downloads.diagnostics.held": {
+    "message": "已占额度"
+  },
+  "app.downloads.diagnostics.pool": {
+    "message": "池剩余额度"
+  },
+  "app.downloads.diagnostics.address": {
+    "message": "远端地址"
+  },
+  "app.downloads.diagnostics.protocol": {
+    "message": "协议 / 连接"
+  },
+  "app.downloads.diagnostics.speed": {
+    "message": "请求速度"
+  },
+  "app.downloads.diagnostics.duration": {
+    "message": "请求用时"
+  },
+  "app.downloads.diagnostics.state": {
+    "message": "状态"
+  },
+  "app.downloads.diagnostics.slow": {
+    "message": "慢速"
+  },
+  "app.downloads.diagnostics.proxy": {
+    "message": "代理"
+  },
+  "app.downloads.diagnostics.socket": {
+    "message": "连接 #{id}"
+  },
+  "app.downloads.diagnostics.seconds": {
+    "message": "{seconds} 秒"
+  },
+  "app.downloads.diagnostics.rate": {
+    "message": "{speed}/秒"
+  },
+  "app.downloads.diagnostics.priority": {
+    "message": "活动 / 慢速优先"
+  },
+  "app.downloads.diagnostics.note": {
+    "message": "每行代表一个请求或 HTTP/2 流，多个流可能共享同一连接。无法获取物理连接数时显示 —。活动请求显示近期采样速度，已结束请求显示平均速度；暖机后低于 256 KiB/秒标为慢速。“正在接收数据”表示最近 2 秒内收到过字节。"
+  },
+  "app.downloads.diagnostics.fileSelectionGuide": {
+    "message": "在下拉框中选择一个文件，该文件的下载信息汇总会出现在下方。"
+  },
+  "app.downloads.diagnostics.truncated": {
+    "message": "已达到观测数量上限，省略了较早的 {files} 个文件和 {transfers} 个请求。"
+  },
+  "app.downloads.diagnostics.no-requests": {
+    "message": "尚未观测到此文件的请求。"
+  },
+  "app.downloads.diagnostics.active": {
+    "message": "活动"
+  },
+  "app.downloads.diagnostics.connecting": {
+    "message": "正在连接"
+  },
+  "app.downloads.diagnostics.completed": {
+    "message": "已完成"
+  },
+  "app.downloads.diagnostics.closed": {
+    "message": "已关闭"
+  },
+  "app.downloads.diagnostics.failed": {
+    "message": "失败"
+  },
+  "app.downloads.diagnostics.canceled": {
+    "message": "已取消"
+  },
+  "app.settings.feature-flags.advanced-download-info": {
+    "message": "高级下载信息"
+  },
+  "app.settings.feature-flags.advanced-download-info-description": {
+    "message": "在下载详情中显示文件用时、请求速度与远端地址。开启时采集观测数据，并在导出网络连接时包含这些数据。"
+  },
+  "app.downloads.diagnostics.elapsed-help": {
+    "message": "处理此文件的总用时，包含资源等待、已有文件检查、传输、写入及校验用时。"
+  },
+  "app.downloads.diagnostics.network-elapsed-help": {
+    "message": "从首个已记录请求开始到最后一个请求结束的时间，包含建立连接、等待响应和重试间隔。不会累加并行请求的用时。"
+  },
+  "app.downloads.diagnostics.received-help": {
+    "message": "累计收到的响应正文大小，不含 HTTP 头和 TLS 开销。重试可能重复计数，因此不一定等于文件大小；命中缓存时可能为零。"
+  },
+  "app.downloads.diagnostics.active-requests-help": {
+    "message": "当前处于活动状态的请求或 HTTP/2 流，不含仍在建立连接的请求。活动请求也可能正在等待，未收到数据。"
+  },
+  "app.downloads.diagnostics.effective-requests-help": {
+    "message": "最近 2 秒内收到过数据的活动请求数量。"
+  },
+  "app.downloads.diagnostics.physical-connections-help": {
+    "message": "此文件的活动请求所使用的连接数量。多个 HTTP/2 流可共用一条连接，不计空闲连接。— 表示无法确定数量。"
+  },
+  "app.downloads.diagnostics.effective-physical-help": {
+    "message": "最近 2 秒内有活动请求收到数据的连接数量。共用连接只计一次；— 表示无法确定数量。"
+  },
+  "app.downloads.diagnostics.configured-limit-help": {
+    "message": "全局下载池配置的资源额度上限，由多个文件和任务共享。"
+  },
+  "app.downloads.diagnostics.effective-cap-help": {
+    "message": "此文件当前的自适应并发上限，会根据剩余数据、可用资源及失败情况调整。文件完成后保留最后一次上报值。"
+  },
+  "app.downloads.diagnostics.target-help": {
+    "message": "调度器计划为此文件维持的并发规模，受可用额度和剩余可分片内容限制，不等于实际活动请求数。文件完成后保留最后一次记录值。"
+  },
+  "app.downloads.diagnostics.held-help": {
+    "message": "此文件的调度器当前占用的下载资源额度，不等于实际连接数；文件完成后释放。"
+  },
+  "app.downloads.diagnostics.pool-help": {
+    "message": "全局共享下载池当前剩余的资源额度，会受其他文件和任务影响。"
   }
 }

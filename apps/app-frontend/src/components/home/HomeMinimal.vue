@@ -23,11 +23,13 @@ import dayjs from 'dayjs'
 import { computed, onUnmounted, ref, watch } from 'vue'
 
 import HomeGreeting from '@/components/home/HomeGreeting.vue'
+import GameDirectoryBadge from '@/components/ui/instance/GameDirectoryBadge.vue'
 import InstanceIcon from '@/components/ui/InstanceIcon.vue'
 import { useMinecraftLaunchError } from '@/composables/useMinecraftLaunchError'
 import { useNetworkStatus } from '@/composables/useNetworkStatus'
 import { trackEvent } from '@/helpers/analytics'
 import { process_listener } from '@/helpers/events'
+import { hasMultipleGameDirectories, resolveGameDirectory } from '@/helpers/game-directory'
 import { install_existing_instance, install_pack_to_existing_instance } from '@/helpers/install'
 import { kill, run } from '@/helpers/instance'
 import { get_by_instance_id } from '@/helpers/process'
@@ -88,6 +90,10 @@ const messages = defineMessages({
 
 const selectedInstance = computed(() =>
     props.instances.find((instance) => instance.id === props.selectedInstanceId),
+)
+const showGameDirectory = computed(() => hasMultipleGameDirectories(props.instances))
+const selectedGameDirectory = computed(() =>
+    selectedInstance.value ? resolveGameDirectory(selectedInstance.value) : null,
 )
 const processQuery = useQuery({
     queryKey: computed(() => ['home', 'instance-processes', selectedInstance.value?.id]),
@@ -254,6 +260,10 @@ onUnmounted(() => {
                                         <TimerIcon class="size-4 shrink-0" aria-hidden="true" />
                                         <span class="truncate">{{ lastPlayed }}</span>
                                     </span>
+                                    <GameDirectoryBadge
+                                        v-if="showGameDirectory && selectedGameDirectory"
+                                        :directory="selectedGameDirectory"
+                                    />
                                 </div>
                             </div>
                         </router-link>

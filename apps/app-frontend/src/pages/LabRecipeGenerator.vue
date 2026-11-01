@@ -1368,16 +1368,16 @@ function slotEditorSlots(type: RecipeType): RecipeSlot[] {
                         </button>
                         <span class="recipe-row-actions">
                             <button
+                                v-tooltip="formatMessage(messages.cloneRecipe)"
                                 type="button"
-                                :title="formatMessage(messages.cloneRecipe)"
                                 :aria-label="formatMessage(messages.cloneRecipe)"
                                 @click.stop="cloneRecipe(recipe.id)"
                             >
                                 <PlusIcon />
                             </button>
                             <button
+                                v-tooltip="formatMessage(messages.deleteRecipe)"
                                 type="button"
-                                :title="formatMessage(messages.deleteRecipe)"
                                 :aria-label="formatMessage(messages.deleteRecipe)"
                                 @click.stop="deleteRecipe(recipe.id)"
                             >
@@ -1638,7 +1638,10 @@ function slotEditorSlots(type: RecipeType): RecipeSlot[] {
                             </div>
                             <div
                                 v-else
-                                v-tooltip="resultWheelHint(entry.targetSlot)"
+                                v-tooltip="
+                                    resultWheelHint(entry.targetSlot) ??
+                                    slotDisplayFor(entry.targetSlot)?.label
+                                "
                                 class="recipe-layout-hotspot"
                                 :data-recipe-slot="entry.targetSlot"
                                 :style="slotBoxStyle(entry.box)"
@@ -1693,12 +1696,12 @@ function slotEditorSlots(type: RecipeType): RecipeSlot[] {
                             <button
                                 v-for="option in trimPatternOptions"
                                 :key="option.pattern"
+                                v-tooltip="option.display.label"
                                 type="button"
                                 class="recipe-trim-pattern-option"
                                 :class="{
                                     active: currentRecipe.smithing.trimPattern === option.id,
                                 }"
-                                :title="option.display.label"
                                 :aria-label="option.display.label"
                                 @click="selectTrimPattern(option.id)"
                             >
@@ -1823,6 +1826,7 @@ function slotEditorSlots(type: RecipeType): RecipeSlot[] {
                         class="recipe-custom-item-row"
                     >
                         <RecipeItemIcon
+                            v-tooltip="item.name"
                             :display="{
                                 label: item.name,
                                 texture: item.texture || null,
@@ -1834,18 +1838,18 @@ function slotEditorSlots(type: RecipeType): RecipeSlot[] {
                         />
                         <span class="min-w-0 flex-1 truncate text-xs">{{ item.name }}</span>
                         <button
+                            v-tooltip="formatMessage(messages.editCustomItemAction)"
                             type="button"
                             class="recipe-delete-custom"
-                            :title="formatMessage(messages.editCustomItemAction)"
                             :aria-label="formatMessage(messages.editCustomItemAction)"
                             @click="openCustomItemModal(item)"
                         >
                             <PencilIcon />
                         </button>
                         <button
+                            v-tooltip="formatMessage(messages.deleteCustomItem)"
                             type="button"
                             class="recipe-delete-custom"
-                            :title="formatMessage(messages.deleteCustomItem)"
                             :aria-label="formatMessage(messages.deleteCustomItem)"
                             @click="deleteCustomItem(item.uid)"
                         >

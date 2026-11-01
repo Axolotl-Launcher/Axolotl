@@ -292,6 +292,43 @@ pub async fn get_available_capes() -> crate::Result<Vec<Cape>> {
     get_available_capes_with_cache(false).await
 }
 
+/// Change only the selected online profile's cape, after applying pending skin
+/// changes so their associated cape cannot overwrite this explicit choice.
+pub async fn set_equipped_cape(cape_id: Option<Uuid>) -> crate::Result<()> {
+    let state = State::get().await?;
+    let credentials = Credentials::get_default_credential(&state.data)
+        .await?
+        .ok_or(ErrorKind::NoCredentialsError)?;
+    ensure_skin_management_supported(&credentials)?;
+    if credentials.is_offline() {
+        return Err(ErrorKind::InputError(
+            "Offline profiles do not own Mojang capes".into(),
+        )
+        .into());
+    }
+    flush_pending_skin_change_for_profile(credentials.offline_profile.id)
+        .await?;
+    if let Some(id) = cape_id {
+        let profile =
+            credentials.online_profile_fresh().await.ok_or_else(|| {
+                ErrorKind::OnlineMinecraftProfileUnavailable {
+                    user_name: credentials.offline_profile.name.clone(),
+                }
+            })?;
+        if !profile.capes.iter().any(|cape| cape.id == id) {
+            return Err(ErrorKind::InputError(
+                "Cape does not belong to the selected profile".into(),
+            )
+            .into());
+        }
+        mojang_api::MinecraftCapeOperation::equip(&credentials, id).await?;
+    } else {
+        mojang_api::MinecraftCapeOperation::unequip_any(&credentials).await?;
+    }
+    refresh_profile_cache(&credentials).await;
+    Ok(())
+}
+
 async fn selected_skin_profile(
     cached_only: bool,
 ) -> crate::Result<(Credentials, Option<Arc<MinecraftProfile>>)> {

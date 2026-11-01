@@ -17,7 +17,7 @@
     "state/instances/commands/remove_instance.rs: instance maintenance lock (S2) -> synced_options_lock (S7) -> instance content lock (S3)",
     "api/instance/run.rs -> launcher/mod.rs run_instance_install_command: instance maintenance lock (S2) -> instance content lock (S3)"
   ],
-  "rankFingerprint": "feb0fe6b0fab233c5595efa8b180372bf828e69a08454288ac2a62e439cf76aa",
+  "rankFingerprint": "12d6d6b2343fb0bd0a685fc60c6aca412ec2b7b5f7b3126a4fcff0b954a1df15",
   "classes": {
     "theseus::api::instance::backup::ACTIVE_INSTANCE_OPERATIONS": "S6",
     "theseus::api::instance::backup::BACKUP_CANCELLATIONS": "S6",
@@ -53,6 +53,16 @@
       "ident": "theseus::logger::RotatingLogWriter.state",
       "rule": "D4",
       "reason": "log write lock: leaf primitive only (spec §5.2 leaf table), held for one bounded write"
+    },
+    {
+      "ident": "theseus::install::runner::CANCEL_CLEANUPS",
+      "rule": "D4",
+      "reason": "cancel-cleanup dedup map (upstream CancelCleanupRegistration, renamed from CLEANUPS): leaf primitive only, one shard lock per request, retry check or drop, takes no other lock"
+    },
+    {
+      "ident": "theseus::install::events::InstallProgressReporter.parallel_context",
+      "rule": "D2",
+      "reason": "per-job reporter, unreachable from statics, State fields and Tauri-managed state; its only construction is inside InstallProgressReporter::new (install/events.rs:243, fn body). The generator also counts four -> Self { signatures as construction outside functions (a known false positive), so it cannot apply D2 itself"
     },
     {
       "ident": "theseus::scheduler::panic::PANIC_LOG_LOCK",

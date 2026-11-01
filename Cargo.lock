@@ -3597,6 +3597,7 @@ version = "0.1.0"
 dependencies = [
  "axum",
  "futures",
+ "launcher-tools",
  "reqwest 0.12.28",
  "rmcp",
  "serde",
@@ -3604,6 +3605,18 @@ dependencies = [
  "tokio",
  "tokio-util",
  "tracing",
+ "uuid 1.24.0",
+]
+
+[[package]]
+name = "launcher-tools"
+version = "0.1.0"
+dependencies = [
+ "futures",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tokio-util",
  "uuid 1.24.0",
 ]
 
@@ -7265,7 +7278,7 @@ dependencies = [
 
 [[package]]
 name = "theseus"
-version = "1.10.4"
+version = "1.10.5"
 dependencies = [
  "ariadne",
  "async-minecraft-ping",
@@ -7378,12 +7391,15 @@ dependencies = [
 
 [[package]]
 name = "theseus_gui"
-version = "1.10.4"
+version = "1.10.5"
 dependencies = [
  "ashpd",
  "async_zip",
+ "base64 0.22.1",
  "block2",
  "bytes",
+ "cap-fs-ext",
+ "cap-std",
  "cc",
  "chrono",
  "daedalus",
@@ -7398,8 +7414,10 @@ dependencies = [
  "image",
  "keyring",
  "launcher-mcp",
+ "launcher-tools",
  "libc",
  "libloading",
+ "minisign-verify",
  "native-dialog",
  "notify",
  "objc2",

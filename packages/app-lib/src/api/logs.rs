@@ -23,7 +23,9 @@ pub use analysis_settings::{
     update_crash_analysis_ai_settings,
 };
 
+mod document;
 pub mod logagent;
+pub use document::{LogDocument, read_log_document};
 
 mod crash_analysis;
 pub use crash_analysis::{

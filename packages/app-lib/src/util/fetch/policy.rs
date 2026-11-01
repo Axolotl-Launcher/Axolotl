@@ -270,7 +270,7 @@ pub(crate) fn record_route_health_failure(
 }
 
 pub(crate) static RANGE_SPLITTING_PROTOCOL_FAILURES: LazyLock<
-    Mutex<HashMap<String, u32>>,
+    Mutex<HashMap<String, (u32, Instant)>>,
 > = LazyLock::new(|| Mutex::new(HashMap::new()));
 
 pub(crate) static RANGE_SPLITTING_SUPPORTED: LazyLock<Mutex<HashSet<String>>> =
@@ -304,16 +304,15 @@ pub(crate) fn range_splitting_allowed(route: &DownloadRoute) -> bool {
         RANGE_SPLITTING_PROTOCOL_FAILURES
             .lock()
             .get(&authority)
-            .copied()
-            .unwrap_or(0)
-            < RANGE_SPLITTING_DISABLE_THRESHOLD
+            .is_none_or(|(count, failed_at)| {
+                *count < RANGE_SPLITTING_DISABLE_THRESHOLD
+                    || failed_at.elapsed() >= time::Duration::from_secs(30)
+            })
     })
 }
 
-/// Records a range protocol failure for the route's server. A single failure
-/// is treated as a transient blip, but once a server repeatedly mishandles
-/// range requests, range splitting is disabled for it for this session so
-/// later downloads skip the doomed segmented probe.
+/// Repeated protocol failures cool down this server's ranges temporarily.
+/// File metadata and content failures must stay scoped to their own URL.
 pub(crate) fn disable_range_splitting(route: &DownloadRoute) {
     let Some(authority) = range_splitting_authority(route) else {
         return;
@@ -322,25 +321,31 @@ pub(crate) fn disable_range_splitting(route: &DownloadRoute) {
         &authority,
         route.proxy,
     );
+    let now = Instant::now();
     let mut failures = RANGE_SPLITTING_PROTOCOL_FAILURES.lock();
-    let count = failures.entry(authority.clone()).or_insert(0);
-    *count += 1;
+    let (count, failed_at) =
+        failures.entry(authority.clone()).or_insert((0, now));
+    if now.duration_since(*failed_at) >= time::Duration::from_secs(30) {
+        *count = 0;
+    }
+    *count = count.saturating_add(1);
+    *failed_at = now;
     if *count == RANGE_SPLITTING_DISABLE_THRESHOLD {
         RANGE_SPLITTING_SUPPORTED.lock().remove(&authority);
         tracing::info!(
             authority,
-            "Disabling range splitting for a server after repeated range protocol failures"
+            "Cooling down range splitting for a server after repeated protocol failures"
         );
     }
 }
 
 pub(crate) fn record_range_splitting_success(route: &DownloadRoute) {
     if let Some(authority) = range_splitting_authority(route) {
-        RANGE_SPLITTING_SUPPORTED.lock().insert(
-            crate::util::download::proxy_context::authority_key(
-                &authority,
-                route.proxy,
-            ),
+        let authority = crate::util::download::proxy_context::authority_key(
+            &authority,
+            route.proxy,
         );
+        RANGE_SPLITTING_PROTOCOL_FAILURES.lock().remove(&authority);
+        RANGE_SPLITTING_SUPPORTED.lock().insert(authority);
     }
 }

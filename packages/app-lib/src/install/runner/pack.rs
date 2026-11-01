@@ -198,11 +198,23 @@ async fn install_local_pack_file_recursive(
                 let mut entry = archive
                     .by_index(i)
                     .map_err(|e| ErrorKind::OtherError(e.to_string()))?;
-                let sub_path = scratch.join(
-                    entry
-                        .mangled_name()
-                        .map_err(|e| ErrorKind::OtherError(e.to_string()))?,
-                );
+                let entry_name =
+                    crate::api::pack::detect::decode_zip_entry_name(
+                        entry.name_raw(),
+                    )
+                    .replace('\\', "/");
+                let Some(relative_name) = crate::util::io::safe_relative_join(
+                    std::path::Path::new(""),
+                    &entry_name,
+                )
+                .ok() else {
+                    tracing::warn!(
+                        entry = %entry_name,
+                        "Skipping nested archive with an unsafe path"
+                    );
+                    continue;
+                };
+                let sub_path = scratch.join(relative_name);
 
                 if let Some(parent) = sub_path.parent() {
                     std::fs::create_dir_all(parent)?;

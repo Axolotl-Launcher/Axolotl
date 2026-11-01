@@ -2,6 +2,7 @@
   inputs,
   callPackage,
   mkShell,
+  mold,
   writeShellScriptBin,
   ...
 }:
@@ -17,6 +18,8 @@
   in
     mkShell {
       packages = [
+        # The Linux linker that .cargo/config.toml selects.
+        mold
         update-gradle-deps
         update-pnpm-deps
       ];

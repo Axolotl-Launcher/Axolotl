@@ -2,7 +2,12 @@ import * as deepslate from 'deepslate'
 
 import type { SchematicBlockState } from './backend'
 import { createBlockGeometry } from './block-geometry'
+import type { SchematicBubbleUv } from './bubble-mesh'
+import { getSchematicBubbleQuads, isSchematicBubbleColumn } from './bubble-mesh'
 import { isSchematicAir } from './editing'
+import type { SchematicFluidNeighborhood } from './fluid-mesh'
+import { getSchematicFluidMesh, isSchematicFluidBlock, schematicFluidKind } from './fluid-mesh'
+import type { SchematicMaterialKind } from './materials'
 import {
     applySeamlessSchematicGlassUvs,
     getSchematicFluidCull,
@@ -12,6 +17,7 @@ import {
     SCHEMATIC_DIRECTIONS,
     SCHEMATIC_OPPOSITE_DIRECTIONS,
     schematicBlockAt,
+    schematicBlockIndexAt,
     type SchematicDirection,
     type SchematicNeighborFaces,
     type SchematicOcclusionFaces,
@@ -57,7 +63,11 @@ export type SchematicMeshWorkerResponse =
           chunkPosition: [number, number, number]
           opaque: SchematicMeshData
           translucent: SchematicMeshData
+          bubble: SchematicMeshData
+          water: SchematicMeshData
+          lava: SchematicMeshData
           missing: string[]
+          warnings: string[]
       }
     | { type: 'error'; epoch: number; jobId?: string; message: string }
 
@@ -80,6 +90,7 @@ let palette: SchematicBlockState[] = []
 let geometry: ReturnType<typeof createBlockGeometry>
 let textureUvs: Record<string, [number, number, number, number]> = {}
 let missingTextureUv: [number, number, number, number] = [0, 0, 1, 1]
+let bubbleUv: SchematicBubbleUv = [0, 0, 1, 1]
 let seamlessGlass = true
 let paletteOcclusionFaces: SchematicOcclusionFaces[] = []
 
@@ -147,6 +158,24 @@ function appendQuad(
         buffers.uvs.push(vertex.texture?.[0] ?? 0, vertex.texture?.[1] ?? 0)
         buffers.colors.push(vertex.color[0], vertex.color[1], vertex.color[2])
         buffers.blockPositions.push(...blockPosition)
+    }
+}
+
+function appendBubbles(
+    buffers: MeshBuffers,
+    position: [number, number, number],
+    uv: SchematicBubbleUv,
+) {
+    for (const quad of getSchematicBubbleQuads(position, uv)) {
+        appendQuad(
+            buffers,
+            quad.map((vertex) => ({
+                pos: { x: vertex.position[0], y: vertex.position[1], z: vertex.position[2] },
+                texture: [vertex.uv[0], vertex.uv[1]] as [number, number],
+                color: [1, 1, 1] as [number, number, number],
+            })),
+            position,
+        )
     }
 }
 
@@ -257,6 +286,7 @@ function initialize(message: WorkerInitMessage) {
     palette = message.palette
     textureUvs = message.resources.textureUvs
     missingTextureUv = message.resources.missingTextureUv
+    bubbleUv = message.resources.bubbleUv
     seamlessGlass = message.seamlessGlass
     geometry = createBlockGeometry(message.resources, atlasProvider)
     paletteOcclusionFaces = palette.map((state, paletteIndex) => {
@@ -284,9 +314,24 @@ function buildChunk(message: WorkerMeshMessage) {
         const face = message.neighborFaces?.[direction]
         if (face) neighborFaces[direction] = new Uint32Array(face)
     }
-    const opaque = emptyBuffers()
-    const translucent = emptyBuffers()
+    const buffers: Record<SchematicMaterialKind, MeshBuffers> = {
+        opaque: emptyBuffers(),
+        translucent: emptyBuffers(),
+        bubble: emptyBuffers(),
+        water: emptyBuffers(),
+        lava: emptyBuffers(),
+    }
     const missing = new Set<string>()
+    // A fluid that throws leaves a hole in the surface, so it is reported rather than swallowed.
+    // One broken fluid fails in every cell it appears in, so it is recorded once per block name.
+    const warnings = new Map<string, string>()
+    const reportFluidFailure = (name: string, error: unknown) => {
+        if (warnings.has(name)) return
+        warnings.set(
+            name,
+            `Fluid geometry for ${name} failed and was skipped: ${error instanceof Error ? error.message : String(error)}`,
+        )
+    }
     const chunkOrigin = message.chunkPosition.map((value) => value * 16) as [number, number, number]
     const shouldCull = (
         currentPaletteIndex: number,
@@ -302,6 +347,13 @@ function buildChunk(message: WorkerMeshMessage) {
                 SCHEMATIC_OPPOSITE_DIRECTIONS[direction]
             ] ?? false,
         )
+    // Both fluid paths sample the cells around a fluid, so the closure is built once per block.
+    const fluidNeighborhood = (x: number, y: number, z: number): SchematicFluidNeighborhood => ({
+        blockAt: (dx, dy, dz) => {
+            const index = schematicBlockIndexAt(blocks, neighborFaces, x + dx, y + dy, z + dz)
+            return index === undefined ? undefined : palette[index]
+        },
+    })
 
     for (let y = 0; y < 16; y += 1) {
         for (let z = 0; z < 16; z += 1) {
@@ -346,7 +398,37 @@ function buildChunk(message: WorkerMeshMessage) {
                         'south',
                     ),
                 }
-                const target = isSchematicTranslucent(state.name) ? translucent : opaque
+                // A bubble column is water with the game's bubble particle baked in as geometry.
+                if (isSchematicBubbleColumn(state))
+                    appendBubbles(buffers.bubble, position, bubbleUv)
+                // A fluid block has no host geometry of its own, and its surface depends on the
+                // neighbouring cells, so it is meshed from the volume instead of the definition.
+                if (isSchematicFluidBlock(state)) {
+                    const kind = schematicFluidKind(state)
+                    try {
+                        const fluid = getSchematicFluidMesh({
+                            state,
+                            atlas: atlasProvider,
+                            cull: getSchematicFluidCull(
+                                [x, y, z],
+                                blocks,
+                                neighborFaces,
+                                palette,
+                                cull,
+                            ),
+                            neighborhood: fluidNeighborhood(x, y, z),
+                        })
+                        // Each fluid keeps its own pass, so its opacity never follows another's.
+                        if (fluid && kind) appendBlockMesh(buffers[kind], fluid, position)
+                    } catch (error) {
+                        // A fluid carries no other geometry, so a failed fluid only loses the fluid.
+                        reportFluidFailure(state.name, error)
+                    }
+                    continue
+                }
+                const target = isSchematicTranslucent(state.name)
+                    ? buffers.translucent
+                    : buffers.opaque
                 let meshed = false
                 try {
                     const mesh = createSchematicBlockMesh(state, cull)
@@ -378,10 +460,12 @@ function buildChunk(message: WorkerMeshMessage) {
                     const fluid = geometry.water(
                         state,
                         getSchematicFluidCull([x, y, z], blocks, neighborFaces, palette, cull),
+                        fluidNeighborhood(x, y, z),
                     )
-                    if (fluid) appendBlockMesh(translucent, fluid, position)
-                } catch {
+                    if (fluid) appendBlockMesh(buffers.water, fluid, position)
+                } catch (error) {
                     // The host mesh is already appended; dropping the fluid keeps it intact.
+                    reportFluidFailure(state.name, error)
                 }
             }
         }
@@ -393,14 +477,21 @@ function buildChunk(message: WorkerMeshMessage) {
         jobId: message.jobId,
         regionId: message.regionId,
         chunkPosition: message.chunkPosition,
-        opaque: toMeshData(opaque),
-        translucent: toMeshData(translucent),
+        opaque: toMeshData(buffers.opaque),
+        translucent: toMeshData(buffers.translucent),
+        bubble: toMeshData(buffers.bubble),
+        water: toMeshData(buffers.water),
+        lava: toMeshData(buffers.lava),
         missing: [...missing],
+        warnings: [...warnings.values()],
     }
     if (response.type !== 'mesh') return
     workerScope.postMessage(response, [
         ...transferables(response.opaque),
         ...transferables(response.translucent),
+        ...transferables(response.bubble),
+        ...transferables(response.water),
+        ...transferables(response.lava),
     ])
 }
 

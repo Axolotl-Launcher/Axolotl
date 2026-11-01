@@ -8,6 +8,7 @@ members = [
   "packages/content-management",
   "packages/daedalus",
   "packages/launcher-mcp",
+  "packages/launcher-tools",
   "packages/path-util",
 ]
 
@@ -83,10 +84,12 @@ jsonwebtoken = { version = "10.3.0", features = ["rust_crypto"] }
 junction = "1"
 keyring = "4.1.5"
 launcher-mcp = { path = "packages/launcher-mcp" }
+launcher-tools = { path = "packages/launcher-tools" }
 libc = "0.2.189"
 libloading = "0.7.4"
 local-ip-address = "0.6.7"
 md5 = "0.8.0"
+minisign-verify = "0.2.5"
 native-dialog = "0.9.2"
 notify = { version = "8.2.0", default-features = false }
 notify-debouncer-mini = { version = "0.7.0", default-features = false }

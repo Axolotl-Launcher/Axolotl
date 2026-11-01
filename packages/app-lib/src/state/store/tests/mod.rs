@@ -36,7 +36,7 @@ mod settings_owned_columns;
 mod shared_logs;
 mod store_blobs;
 mod store_retained_refs;
-mod support;
+pub(crate) mod support;
 mod sync_feature_settings;
 mod synced_game_option_preferences;
 mod synced_game_option_state;

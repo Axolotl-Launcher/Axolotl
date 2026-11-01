@@ -35,10 +35,12 @@ vi.mock('@modrinth/ui', async () => {
 })
 
 const hosts: HTMLElement[] = []
+const mounted: ReturnType<typeof mount>[] = []
 
 // A detached node has no layout, and the crop gesture is measured against the
 // rendered image, so every mount gets a real box in the document.
 afterEach(() => {
+    mounted.splice(0).forEach((wrapper) => wrapper.unmount())
     hosts.splice(0).forEach((host) => host.remove())
 })
 
@@ -55,7 +57,7 @@ function mountPreview({
     document.body.appendChild(host)
     hosts.push(host)
 
-    return mount(MediaPreview, {
+    const wrapper = mount(MediaPreview, {
         props: {
             url: PNG_URL,
             name: 'block.png',
@@ -68,6 +70,9 @@ function mountPreview({
         attachTo: host,
         global: { directives: { tooltip: {} } },
     })
+    mounted.push(wrapper)
+
+    return wrapper
 }
 
 it('renders an image from the object URL it is given', () => {

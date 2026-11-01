@@ -483,6 +483,20 @@ jobs:
             --branch main \
             --commit-message "Launcher ${RELEASE_TAG} (GitHub Actions ${GITHUB_RUN_ID})"
 
+  sync-website-release-data:
+    name: Sync release data to the website repository
+    # Finish the legacy deployment before triggering the independent website deployment.
+    needs: [verify-and-publish, publish-website]
+    if: ${{ !cancelled() && needs.verify-and-publish.result == 'success' && (github.event_name == 'push' || inputs.target == 'all' || inputs.target == 'website') }}
+    uses: ./.github/workflows/sync-website-release-data.yml
+    with:
+      tag: ${{ inputs.tag || github.ref_name }}
+      release-metadata-artifact: published-release-metadata
+      deploy-unchanged: ${{ github.event_name == 'workflow_dispatch' }}
+    secrets:
+      WEBSITE_SYNC_APP_PRIVATE_KEY: ${{ secrets.WEBSITE_SYNC_APP_PRIVATE_KEY }}
+      WEBSITE_SYNC_TOKEN: ${{ secrets.WEBSITE_SYNC_TOKEN }}
+
   mirror-cnb:
     name: Mirror release to CNB
     needs: verify-and-publish

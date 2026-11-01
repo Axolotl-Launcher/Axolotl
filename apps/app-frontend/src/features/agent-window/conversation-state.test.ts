@@ -220,10 +220,10 @@ it('makes room by dropping old settled turns, never drafts, queues or open plans
     expect(activeThread(saved)!.draft).toBe('draft')
     expect(activeThread(saved)!.turns[0].text).toBe('keep waiting')
     expect(
-        saved.threads.find((thread: { id: string }) => thread.id === queued.id).queue,
+        saved.threads.find((thread: { id: string }) => thread.id === queued.id)!.queue,
     ).toHaveLength(1)
-    const kept = saved.threads.find((thread: { id: string }) => thread.id === old.id).turns
-    expect(kept.at(-1).text).toBe('old 649')
+    const kept = saved.threads.find((thread: { id: string }) => thread.id === old.id)!.turns
+    expect(kept[kept.length - 1].text).toBe('old 649')
     expect(kept[0].text).not.toBe('old 0')
 })
 

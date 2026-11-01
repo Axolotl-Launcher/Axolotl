@@ -87,7 +87,7 @@ it('groups tool calls, streams the answer and waits for approval on a plan', () 
     applyEvent(run, { type: 'done' })
     expect(run.status).toBe('done')
     expect(run.items[2]).toMatchObject({ state: 'applied', done: 1 })
-    expect(run.items.at(-1)).toMatchObject({ type: 'result', title: 'Done' })
+    expect(run.items.slice(-1)[0]).toMatchObject({ type: 'result', title: 'Done' })
 })
 
 it('marks unfinished steps and the run as failed on an error', () => {
@@ -96,7 +96,7 @@ it('marks unfinished steps and the run as failed on an error', () => {
     applyEvent(run, { type: 'error', title: 'Timed out', text: 'Nothing changed' })
     expect(run.status).toBe('failed')
     expect(run.items[0].steps[0].status).toBe('failed')
-    expect(run.items.at(-1)).toMatchObject({ type: 'error', retryable: true })
+    expect(run.items.slice(-1)[0]).toMatchObject({ type: 'error', retryable: true })
     applyEvent(run, { type: 'done' })
     expect(run.status).toBe('failed')
 })
@@ -156,7 +156,7 @@ it('only names tools that exist in the launcher tool registry', async () => {
 
 it('keeps every scripted task available in both languages with the same tools', () => {
     for (const flow of FLOWS) {
-        const tools = (script: { reads: string[][]; writes: string[][] }) =>
+        const tools = (script: { reads: unknown[][]; writes: unknown[][] }) =>
             [...script.reads, ...script.writes].map((entry) => entry[0])
         expect(tools(flow.zh), flow.id).toEqual(tools(flow.en))
         expect(flow.zh.plan.changes).toHaveLength(flow.en.plan.changes.length)
@@ -178,7 +178,7 @@ it('plays a scripted task from first read to an applied plan', async () => {
         .map((event) => (event.step as { tool: string }).tool)
     expect(tools).toContain('logs_read')
     expect(run.status).toBe('awaiting')
-    expect(run.items.find((item: { type: string }) => item.type === 'text').text).toContain(
+    expect(run.items.find((item: { type: string }) => item.type === 'text')!.text).toContain(
         'Entity Culling',
     )
     expect(run.resume).toMatchObject({ flow: 'crash', vars: { instance: 'Morning Mist' } })
@@ -195,7 +195,7 @@ it('plays a scripted task from first read to an applied plan', async () => {
         state: 'applied',
         done: 1,
     })
-    expect(run.items.at(-1)).toMatchObject({ type: 'result', title: 'Rolled back' })
+    expect(run.items.slice(-1)[0]).toMatchObject({ type: 'result', title: 'Rolled back' })
     expect(run.progress.every((step: { status: string }) => step.status === 'done')).toBe(true)
 })
 
@@ -215,7 +215,7 @@ it('answers in the window language and borrows an instance only when one is need
     )
     const steps = events.filter((event) => event.type === 'step' && event.status === 'done')
     expect((steps[0].step as { detail: string }).detail).toContain('原版生存')
-    expect(run.items.find((item: { type: string }) => item.type === 'plan').plan.title).toBe(
+    expect(run.items.find((item: { type: string }) => item.type === 'plan')!.plan.title).toBe(
         '山间小屋 · 世界备份',
     )
 
@@ -239,7 +239,7 @@ it('stops without emitting anything further and can fail on request', async () =
 
     const failed = await play((emit) => runtime.start(request('make it smoother'), emit))
     expect(failed.run.status).toBe('failed')
-    expect(failed.run.items.at(-1)).toMatchObject({ type: 'error', retryable: true })
+    expect(failed.run.items.slice(-1)[0]).toMatchObject({ type: 'error', retryable: true })
     const retried = await play((emit) => runtime.start(request('make it smoother'), emit))
     expect(retried.run.status).toBe('awaiting')
 })
@@ -253,7 +253,7 @@ it('re-proposes the same plan when the user replies to it', async () => {
     )
     expect(reply.events.some((event) => event.type === 'title')).toBe(false)
     expect(reply.run.status).toBe('awaiting')
-    expect(reply.run.items.find((item: { type: string }) => item.type === 'text').text).toContain(
+    expect(reply.run.items.find((item: { type: string }) => item.type === 'text')!.text).toContain(
         'rechecked',
     )
 })

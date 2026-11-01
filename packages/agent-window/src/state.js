@@ -34,6 +34,32 @@ const PLAN_STATES = [
 ]
 const STEP_STATES = ['running', 'done', 'failed', 'stopped']
 
+/**
+ * @typedef {{ provider_id: string, model_id: string }} Selection
+ * @typedef {{ id: string, name: string, size: number }} Attachment
+ * @typedef {{ id: string, type: string, [field: string]: any }} Item
+ * @typedef {{ title: string, detail: string, status: string }} ProgressStep
+ * @typedef {{
+ *   status: string, startedAt: number | null, endedAt: number | null, phaseAt?: number,
+ *   label: string, items: Item[], progress: ProgressStep[], resume: any, preview: boolean,
+ * }} Run
+ * @typedef {{
+ *   id: string, createdAt: number, text: string, attachments: Attachment[],
+ *   instanceId: string | null, selection: Selection | null, run: Run,
+ * }} Turn
+ * @typedef {{ id: string, text: string, attachments: Attachment[], createdAt: number }} Queued
+ * @typedef {{
+ *   id: string, title: string, titleEdited: boolean, createdAt: number, updatedAt: number,
+ *   draft: string, attachments: Attachment[], instanceId: string | null,
+ *   selection: Selection | null, turns: Turn[], queue: Queued[],
+ * }} Thread
+ * @typedef {{
+ *   version: 2, activeId: string, sidebarOpen: boolean, panelOpen: boolean,
+ *   introDismissed: boolean, lastSelection: Selection | null, threads: Thread[],
+ * }} Store
+ * @typedef {Pick<Storage, 'getItem' | 'setItem'>} StorageArea
+ */
+
 const id = () => crypto.randomUUID()
 const string = (value, max = 500) => (typeof value === 'string' ? value.slice(0, max) : '')
 const optionalString = (value, max = 500) =>
@@ -43,6 +69,7 @@ const oneOf = (value, options, fallback) => (options.includes(value) ? value : f
 const list = (value, map, max = 200) =>
     Array.isArray(value) ? value.slice(0, max).map(map).filter(Boolean) : []
 
+/** @param {Selection | null} [selection] @returns {Thread} */
 export function newThread(selection = null) {
     const now = Date.now()
     return {
@@ -60,6 +87,7 @@ export function newThread(selection = null) {
     }
 }
 
+/** @param {Thread} thread @param {{ text: string, attachments?: Attachment[] }} message @returns {Turn} */
 export function newTurn(thread, message) {
     return {
         id: id(),
@@ -72,6 +100,7 @@ export function newTurn(thread, message) {
     }
 }
 
+/** @returns {Run} */
 export function newRun() {
     return {
         status: 'thinking',
@@ -85,6 +114,7 @@ export function newRun() {
     }
 }
 
+/** @returns {Store} */
 export function initialStore() {
     const thread = newThread()
     return {
@@ -307,6 +337,7 @@ function migrateLegacy(value) {
     }
 }
 
+/** @param {string} raw @returns {Store} */
 export function parseStore(raw) {
     let value = JSON.parse(raw)
     if (value?.version === 1) value = migrateLegacy(value)
@@ -329,6 +360,7 @@ export function parseStore(raw) {
     }
 }
 
+/** @param {StorageArea} [storage] @returns {Store} */
 export function loadStore(storage = localStorage) {
     const raw = storage.getItem(STORAGE_KEY) ?? storage.getItem(LEGACY_STORAGE_KEY)
     return raw ? parseStore(raw) : initialStore()
@@ -348,6 +380,7 @@ export function isProtected(thread, activeId) {
 
 // Older settled work makes room when the store grows past its budget. Drafts,
 // queued follow-ups and runs that are active or waiting for approval are kept.
+/** @param {Store} store @param {StorageArea} [storage] @returns {Store} */
 export function saveStore(store, storage = localStorage) {
     const next = structuredClone(store)
     const removable = next.threads
@@ -386,6 +419,7 @@ export function saveStore(store, storage = localStorage) {
     return next
 }
 
+/** @param {Store} store */
 export function activeThread(store) {
     return store.threads.find((entry) => entry.id === store.activeId)
 }

@@ -58,8 +58,10 @@ it('fills simple arguments and leaves unknown ones for the reader to notice', ()
 
 it('keeps argument placeholders when the launcher formats the catalog', () => {
     const format = vi.fn(
-        (message: { defaultMessage: string }, values: Record<string, unknown> = {}) =>
-            message.defaultMessage.replace(/\{(\w+)\}/g, (_, name: string) => String(values[name])),
+        (message: { defaultMessage?: string }, values: Record<string, unknown> = {}) =>
+            String(message.defaultMessage).replace(/\{(\w+)\}/g, (_, name: string) =>
+                String(values[name]),
+            ),
     )
     const catalog = formatAgentWindowMessages(format)
     expect(Object.keys(catalog)).toEqual(Object.keys(agentWindowMessages))

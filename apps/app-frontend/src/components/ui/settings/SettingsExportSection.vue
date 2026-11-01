@@ -36,6 +36,9 @@ const { handleError } = injectNotificationManager()
 const popupNotificationManager = injectPopupNotificationManager()
 const queryClient = useQueryClient()
 
+/** Lets the mounted settings sections of this category read the stored values again. */
+const emit = defineEmits<{ changed: [] }>()
+
 const EXPORT_FILE_NAMES: Record<SettingsExportKind, string> = {
     effective: 'Axolotl Launcher settings',
     patch: 'Axolotl Launcher settings patch',
@@ -164,7 +167,7 @@ const messages = defineMessages({
     importDangerNote: {
         id: 'app.settings.export.import-danger-note',
         defaultMessage:
-            'They change the arguments the game is started with or the commands that run before it. If you do not trust where the file came from, or do not understand what they mean and do, you should cancel the import or skip these dangerous settings. Please continue only if you fully understand and trust them.',
+            'They change the arguments the game is started with or the commands that run before it, and may also change the environment of the game process, for example by injecting environment variables. If you do not trust where the file came from, or do not understand what they mean and do, you should cancel the import or skip these dangerous settings. Please continue only if you fully understand and trust them.',
     },
     importDangerCancel: {
         id: 'app.settings.export.import-danger-cancel',
@@ -217,6 +220,32 @@ async function refreshSettings() {
     await reloadSettingsLayers(handleError)
 }
 
+/**
+ * The writes can land even when the call reports an error, so the refresh runs
+ * either way, then the mounted sections read the stored values again and the
+ * failure is reported against what the interface now shows.
+ */
+async function runSettingsFileOperation(
+    operation: SettingsOperation,
+    write: () => Promise<void>,
+) {
+    busy.value = operation
+    let failure: unknown
+    try {
+        await write()
+    } catch (error) {
+        failure = error
+    }
+    try {
+        await refreshSettings()
+    } catch (error) {
+        failure ??= error
+    }
+    busy.value = null
+    emit('changed')
+    if (failure) handleError(failure)
+}
+
 async function exportToFile(kind: SettingsExportKind) {
     if (busy.value) return
 
@@ -252,20 +281,14 @@ async function exportToFile(kind: SettingsExportKind) {
 async function cleanUpLocalSettings() {
     if (busy.value) return
 
-    busy.value = 'cleanup'
-    try {
+    await runSettingsFileOperation('cleanup', async () => {
         const rewritten = await sanitiseSettings()
         popupNotificationManager.addPopupNotification({
             title: formatMessage(messages.cleanupDoneTitle),
             text: formatMessage(messages.cleanupDoneText, { count: rewritten }),
             type: 'success',
         })
-        await refreshSettings()
-    } catch (error) {
-        handleError(error)
-    } finally {
-        busy.value = null
-    }
+    })
 }
 
 /** Scans the archive afresh and shows the modal for what it holds at this moment. */
@@ -313,8 +336,7 @@ async function importPendingArchive(danger: ImportDanger) {
     dangerConfirm.value?.hide()
     importConfirm.value?.hide()
     pendingImport.value = null
-    busy.value = 'import'
-    try {
+    await runSettingsFileOperation('import', async () => {
         const result = await importSettings(pending.path, danger)
         popupNotificationManager.addPopupNotification({
             title: formatMessage(messages.importedTitle),
@@ -324,12 +346,7 @@ async function importPendingArchive(danger: ImportDanger) {
             ),
             type: 'success',
         })
-        await refreshSettings()
-    } catch (error) {
-        handleError(error)
-    } finally {
-        busy.value = null
-    }
+    })
 }
 </script>
 

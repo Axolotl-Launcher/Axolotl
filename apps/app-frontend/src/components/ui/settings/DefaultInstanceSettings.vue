@@ -180,6 +180,7 @@ const settings = ref(fetchSettings)
 async function reloadSettings() {
     try {
         settings.value = await get()
+        saveDraft.reset(settings.value)
     } catch (error) {
         handleError(error)
     }

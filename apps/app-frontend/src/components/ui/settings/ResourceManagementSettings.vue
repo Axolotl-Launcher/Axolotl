@@ -51,10 +51,12 @@ const saveDraft = createSettingsPatchSaver(settings.value, update)
 async function reloadSettings() {
     try {
         settings.value = await get()
+        saveDraft.reset(settings.value)
     } catch (error) {
         handleError(error)
     }
 }
+defineExpose({ reloadSettings })
 const missingContentScannerSettings = ref(getMissingContentScannerSettings())
 const minecraftDirectories = ref(loadMinecraftDirectories())
 const minecraftDirectoryError = ref(null)

@@ -17487,7 +17487,7 @@
     "message": "After import"
   },
   "app.settings.export.import-danger-note": {
-    "message": "They change the arguments the game is started with or the commands that run before it. If you do not trust where the file came from, or do not understand what they mean and do, you should cancel the import or skip these dangerous settings. Please continue only if you fully understand and trust them."
+    "message": "They change the arguments the game is started with or the commands that run before it, and may also change the environment of the game process, for example by injecting environment variables. If you do not trust where the file came from, or do not understand what they mean and do, you should cancel the import or skip these dangerous settings. Please continue only if you fully understand and trust them."
   },
   "app.settings.export.import-danger-cancel": {
     "message": "Cancel import"

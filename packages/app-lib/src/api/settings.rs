@@ -5,8 +5,8 @@ use std::sync::Arc;
 
 use serde_json::{Map, Value};
 
-pub use crate::state::documents::settings::SettingLayer;
 use crate::state::documents::settings::{DANGER_ZONE, DOMAINS};
+pub use crate::state::documents::settings::{DangerousImport, SettingLayer};
 use crate::state::store::{Handle, atom};
 pub use crate::{
     State,
@@ -332,8 +332,9 @@ fn document(schema_version: u32, data: Map<String, Value>) -> Value {
 pub struct ImportScan {
     /// The domains the file carries a document for.
     pub domains: Vec<String>,
-    /// The keys of `DANGER_ZONE` the file would actually set.
-    pub dangerous: Vec<String>,
+    /// The keys of `DANGER_ZONE` the file would actually set, with the value
+    /// each one has now and the one the import would leave in its place.
+    pub dangerous: Vec<DangerousImport>,
 }
 
 /// What an import wrote.
@@ -347,14 +348,23 @@ pub struct ImportResult {
 }
 
 /// Reads what `input` would import: the known domains it carries a document
-/// for, and the dangerous settings it actually sets.
+/// for, and the dangerous settings it actually sets, each with the value it
+/// reads as now and the one the import would leave in its place.
 ///
 /// A file a user was handed may carry names beside the domains; those are not
 /// settings documents, so they are passed over rather than refused. A dangerous
 /// key is reported only for the domain whose key list carries it, because one
 /// written into the wrong document is read as no setting at all. A key belongs
 /// to one domain, so the list needs no ordering of its own.
-pub fn import_scan(input: &Value) -> ImportScan {
+pub async fn import_scan(input: &Value) -> crate::Result<ImportScan> {
+    let state = State::get().await?;
+    let settings = Settings::get(&state.data).await?;
+    Ok(scan(input, &effective_json(&settings)))
+}
+
+/// The scan itself, judged against `current`: the settings as a read answers
+/// them, which is what every dangerous key reads as before the import.
+fn scan(input: &Value, current: &Value) -> ImportScan {
     let mut scan = ImportScan::default();
     let Some(values) = input.as_object() else {
         return scan;
@@ -365,9 +375,17 @@ pub fn import_scan(input: &Value) -> ImportScan {
         };
         scan.domains.push(name.to_string());
         for &key in keys {
-            if DANGER_ZONE.contains(&key) && data.contains_key(key) {
-                scan.dangerous.push(key.to_string());
+            if !DANGER_ZONE.contains(&key) {
+                continue;
             }
+            let Some(after) = data.get(key) else {
+                continue;
+            };
+            scan.dangerous.push(DangerousImport {
+                key: key.to_string(),
+                before: current.get(key).cloned(),
+                after: after.clone(),
+            });
         }
     }
     scan

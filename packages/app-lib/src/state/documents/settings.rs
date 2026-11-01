@@ -292,6 +292,16 @@ pub(crate) const DOMAINS: &[(&str, &[&str], u32)] = &[
 pub(crate) const DANGER_ZONE: &[&str] =
     &["hooks", "custom_env_vars", "extra_launch_args"];
 
+/// 一条会被执行或注入进程环境的导入项：它现在是什么，导入后会变成什么。
+#[derive(Debug, serde::Serialize)]
+pub struct DangerousImport {
+    pub key: String,
+    /// 当前生效值；键目前没有值时是 None。
+    pub before: Option<Value>,
+    /// 归档里的值。
+    pub after: Value,
+}
+
 /// The domains whose writes have moved to their document.
 ///
 /// A write of the row reaches the domains listed here by stating each of the

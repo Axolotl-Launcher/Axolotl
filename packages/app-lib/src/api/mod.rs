@@ -26,12 +26,14 @@ pub mod multiplayer;
 pub mod pack;
 pub mod planet_minecraft;
 pub mod process;
+pub mod schematics;
 pub mod server_address;
 pub mod servers;
 pub mod settings;
 pub mod symlink;
 pub mod tags;
 pub mod terracotta;
+pub mod third_party_accounts;
 pub mod translation;
 pub mod worlds;
 

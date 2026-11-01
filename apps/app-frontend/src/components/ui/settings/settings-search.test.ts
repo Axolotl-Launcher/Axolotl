@@ -40,6 +40,7 @@ const settingsComponentFiles = {
         './StorageSettings.vue',
     ],
     'privacy-data': ['./PrivacySettings.vue'],
+    'third-party-accounts': ['./ThirdPartyAccountsSettings.vue'],
     'instance-sync': ['./instances/index.vue'],
     updates: ['./UpdateSettings.vue'],
     logs: ['./LogsSettings.vue'],
@@ -202,7 +203,11 @@ it('settings navigation groups preserve the intended Axolotl information archite
         'content-downloads',
         'network-multiplayer',
     ])
-    expect(categoriesForGroup('data-privacy')).toEqual(['storage-backups', 'privacy-data'])
+    expect(categoriesForGroup('data-privacy')).toEqual([
+        'storage-backups',
+        'third-party-accounts',
+        'privacy-data',
+    ])
     expect(categoriesForGroup('support')).toEqual([
         'updates',
         'about',

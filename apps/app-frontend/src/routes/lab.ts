@@ -80,6 +80,24 @@ export const labRoutes: RouteRecordRaw[] = [
         },
     },
     {
+        path: '/lab/plugins',
+        name: 'LabPlugins',
+        component: () => import('@/pages/LabPlugins.vue'),
+        meta: {
+            breadcrumb: [{ name: 'Lab', link: '/lab' }, { name: 'Plugins' }],
+            discordActivity: 'Managing lab plugins...',
+        },
+    },
+    {
+        path: '/lab/p/:pluginId',
+        name: 'LabPluginTool',
+        component: () => import('@/pages/LabPluginHost.vue'),
+        meta: {
+            breadcrumb: [{ name: 'Lab', link: '/lab' }, { name: 'Plugin' }],
+            discordActivity: 'Messing with labs...',
+        },
+    },
+    {
         path: '/lab/banner-designer',
         name: 'BannerDesigner',
         component: () => import('@/pages/LabBannerDesigner.vue'),

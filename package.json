@@ -27,6 +27,7 @@
     "axolotl:check-orphan-components": "node scripts/axolotl/check-orphan-components.mjs",
     "blockbench:skin:sync": "node scripts/axolotl/sync-blockbench-skin-editor.mjs",
     "axolotl:i18n-check": "node scripts/axolotl/i18n-check.mjs",
+    "axolotl:new-lab-plugin": "node scripts/axolotl/new-lab-plugin.mjs",
     "axolotl:check-chinese": "node scripts/axolotl/check-chinese-hardcoded.mjs"
   },
   "devDependencies": {

@@ -1,13 +1,25 @@
 {
-  "app.schematics.source.reden": { "message": "Reden" },
-  "app.schematics.source.buildschematics": { "message": "BuildSchematics" },
-  "app.schematics.failed-sources": { "message": "暂时无法加载：{sources}" },
-  "app.schematics.sort.default": { "message": "来源默认顺序" },
-  "app.schematics.sort.name": { "message": "名称" },
+  "app.schematics.source.reden": {
+    "message": "Reden"
+  },
+  "app.schematics.source.buildschematics": {
+    "message": "BuildSchematics"
+  },
+  "app.schematics.failed-sources": {
+    "message": "暂时无法加载：{sources}"
+  },
+  "app.schematics.sort.default": {
+    "message": "来源默认顺序"
+  },
+  "app.schematics.sort.name": {
+    "message": "名称"
+  },
   "app.schematics.login-required-sources": {
     "message": "{count} 个来源需要<login-link>登录</login-link>"
   },
-  "app.schematics.open-source": { "message": "在来源网站查看" },
+  "app.schematics.open-source": {
+    "message": "在来源网站查看"
+  },
   "app.schematics.instances-error": {
     "message": "无法读取实例列表。"
   },
@@ -53,8 +65,12 @@
   "app.schematics.search": {
     "message": "搜索投影"
   },
-  "app.schematics.sort.hot": { "message": "热门" },
-  "app.schematics.sort.featured": { "message": "精选" },
+  "app.schematics.sort.hot": {
+    "message": "热门"
+  },
+  "app.schematics.sort.featured": {
+    "message": "精选"
+  },
   "app.schematics.author-summary": {
     "message": "{author} · {summary}"
   },
@@ -67,11 +83,21 @@
   "app.schematics.installing": {
     "message": "正在安装…"
   },
-  "app.schematics.preview": { "message": "预览" },
-  "app.schematics.files": { "message": "文件" },
-  "app.schematics.creator": { "message": "创作者" },
-  "app.schematics.source-heading": { "message": "来源" },
-  "app.schematics.preview-source": { "message": "拾木空间 · {fileName}" },
+  "app.schematics.preview": {
+    "message": "预览"
+  },
+  "app.schematics.files": {
+    "message": "文件"
+  },
+  "app.schematics.creator": {
+    "message": "创作者"
+  },
+  "app.schematics.source-heading": {
+    "message": "来源"
+  },
+  "app.schematics.preview-source": {
+    "message": "拾木空间 · {fileName}"
+  },
   "app.schematics.installed": {
     "message": "已安装"
   },
@@ -20936,5 +20962,152 @@
   },
   "app.settings.export.imported-dropped-text": {
     "message": "{count, plural, =0 {没有文档发生变化。} other {已更新 # 个本地设置文档。}} {dropped, plural, other {另有 # 个值因类型不合法被忽略。}}"
+  },
+  "app.lab.plugin-badge": {
+    "message": "插件"
+  },
+  "app.lab.plugins.entry": {
+    "message": "插件"
+  },
+  "app.lab.plugins.title": {
+    "message": "插件"
+  },
+  "app.lab.plugins.plugin": {
+    "message": "插件"
+  },
+  "app.lab.plugins.subtitle": {
+    "message": "{count, plural, other {已安装 # 个插件}}"
+  },
+  "app.lab.plugins.enabled-subtitle": {
+    "message": "{count, plural, other {# 个已启用}}"
+  },
+  "app.lab.plugins.folder-label": {
+    "message": "插件目录"
+  },
+  "app.lab.plugins.folder-hint": {
+    "message": "插件会编译进启动器。把插件文件夹放进去，再重新构建。"
+  },
+  "app.lab.plugins.copy-path": {
+    "message": "复制路径"
+  },
+  "app.lab.plugins.copied": {
+    "message": "已复制"
+  },
+  "app.lab.plugins.empty-title": {
+    "message": "这个版本里没有插件"
+  },
+  "app.lab.plugins.empty-description": {
+    "message": "把插件文件夹放进源码目录并重新构建，这里就会出现。"
+  },
+  "app.lab.plugins.tool-page": {
+    "message": "工具页"
+  },
+  "app.lab.plugins.single-contribution": {
+    "message": "只往启动器里加东西，没有独立页面"
+  },
+  "app.lab.plugins.enable": {
+    "message": "启用 {name}"
+  },
+  "app.lab.plugins.disable": {
+    "message": "停用 {name}"
+  },
+  "app.lab.plugins.failed": {
+    "message": "出错后已自动停用"
+  },
+  "app.lab.plugins.retry": {
+    "message": "启用"
+  },
+  "app.lab.plugins.rejected-title": {
+    "message": "被跳过的文件夹"
+  },
+  "app.lab.plugins.rejected-description": {
+    "message": "这些文件夹不是可用的插件，启动器没有加载它们。"
+  },
+  "app.lab.plugins.permission.instances-read": {
+    "message": "读取你的实例"
+  },
+  "app.lab.plugins.permission.files-read": {
+    "message": "读取你选的文件"
+  },
+  "app.lab.plugins.permission.files-write": {
+    "message": "写出你选的文件"
+  },
+  "app.lab.plugins.permission.network": {
+    "message": "使用网络"
+  },
+  "app.lab.plugins.permission.clipboard": {
+    "message": "使用剪贴板"
+  },
+  "app.lab.plugins.slot.lab-footer": {
+    "message": "实验室页脚"
+  },
+  "app.lab.plugins.slot.instance-actions": {
+    "message": "实例操作栏"
+  },
+  "app.lab.plugins.missing-title": {
+    "message": "找不到这个插件"
+  },
+  "app.lab.plugins.missing-description": {
+    "message": "这个插件不在当前启动器版本里。"
+  },
+  "app.lab.plugins.back-to-lab": {
+    "message": "回到实验室"
+  },
+  "app.lab.plugins.off-title": {
+    "message": "这个插件已停用"
+  },
+  "app.lab.plugins.off-description": {
+    "message": "重新启用后才能用它。停用的插件不会自己恢复。"
+  },
+  "app.lab.plugins.turn-on": {
+    "message": "启用"
+  },
+  "app.lab.plugins.failed-hint": {
+    "message": "它因为报错被停用了："
+  },
+  "app.lab.plugins.crashed.inline": {
+    "message": "{name} 已失效"
+  },
+  "app.lab.plugins.crashed.title": {
+    "message": "这个插件停止工作了"
+  },
+  "app.lab.plugins.crashed.description": {
+    "message": "为了不让页面出错，已停用 {name}。"
+  },
+  "app.lab.plugins.crashed.manage": {
+    "message": "打开插件页"
+  },
+  "app.lab.plugins.motd-preview.name": {
+    "message": "MOTD 预览"
+  },
+  "app.lab.plugins.motd-preview.description": {
+    "message": "按 Minecraft 的显示效果预览服务器公告文字。"
+  },
+  "app.lab.plugins.motd-preview.label": {
+    "message": "服务器列表文字"
+  },
+  "app.lab.plugins.motd-preview.placeholder": {
+    "message": "§6Axolotl §7服务器"
+  },
+  "app.lab.plugins.motd-preview.preview": {
+    "message": "预览"
+  },
+  "app.lab.plugins.copy-instance-id.name": {
+    "message": "复制实例 ID"
+  },
+  "app.lab.plugins.copy-instance-id.description": {
+    "message": "在实例操作栏加一个复制实例 ID 的按钮。"
+  },
+  "app.lab.plugins.copy-instance-id.copy": {
+    "message": "复制实例 ID"
+  },
+  "app.lab.plugins.copy-instance-id.copied": {
+    "message": "已复制实例 ID"
+  },
+  "app.lab.plugins.no-tool-title": {
+    "message": "这个插件没有独立页面"
+  },
+  "app.lab.plugins.no-tool-description": {
+    "message": "它把自己加在启动器别的位置，比如实例页的操作按钮那一排。"
   }
 }

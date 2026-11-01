@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ChevronRightIcon, SearchIcon, StarIcon } from '@modrinth/assets'
+import { ChevronRightIcon, PlugIcon, SearchIcon, StarIcon } from '@modrinth/assets'
 import {
     Button,
     Card,
@@ -21,6 +21,7 @@ import recipeGeneratorToolCover from '@/assets/lab/recipe-generator-tool-cover.p
 import schematicPreviewToolCover from '@/assets/lab/schematic-preview-cover.png'
 import seedMapToolCover from '@/assets/lab/seed-map-tool-cover.png'
 import skinEditorToolCover from '@/assets/lab/skin-editor-tool-cover.png'
+import LabPluginSlot from '@/components/lab/plugins/LabPluginSlot.vue'
 import {
     getLabCategoryFilter,
     getLabFavoriteFilter,
@@ -31,9 +32,14 @@ import {
     setLabFavoriteFilter,
     setLabFavoriteToolIds,
 } from '@/helpers/lab-preferences'
+import { collectLabPluginToolEntries } from '@/lab/plugins/plugin-tools'
+import { labPluginRegistrations } from '@/lab/plugins/registry'
+import { isLabPluginEnabled } from '@/lab/plugins/state'
+import { useLabPluginText } from '@/lab/plugins/use-lab-plugin-text'
 import { labTools } from '@/lab/registry'
 
 const { formatMessage } = useVIntl()
+const resolveText = useLabPluginText()
 const router = useRouter()
 const search = ref('')
 const category = ref<LabCategoryFilter>(getLabCategoryFilter())
@@ -137,6 +143,8 @@ const messages = defineMessages({
         id: 'app.lab.banner-designer.description',
         defaultMessage: 'Design Minecraft banners with every Java Edition pattern and dye.',
     },
+    pluginBadge: { id: 'app.lab.plugin-badge', defaultMessage: 'Plugin' },
+    plugins: { id: 'app.lab.plugins.entry', defaultMessage: 'Plugins' },
 })
 
 const categoryOptions: LabCategoryFilter[] = ['all', 'creation', 'maintenance', 'world']
@@ -156,11 +164,38 @@ function toggleFavorite(toolId: string) {
         : [...favoriteToolIds.value, toolId]
 }
 
+const pluginToolCards = computed(() =>
+    collectLabPluginToolEntries(labPluginRegistrations, isLabPluginEnabled).map((entry) => ({
+        id: entry.id,
+        route: entry.route,
+        category: entry.category,
+        icon: entry.icon,
+        title: resolveText(entry.title),
+        description: resolveText(entry.description),
+        plugin: true,
+    })),
+)
+
+// Built-in tools and plugin tools share one card model, so search, category
+// filters and favourites treat them the same way.
+const labToolCards = computed(() => [
+    ...availableTools.map((tool) => ({
+        id: tool.id,
+        route: tool.route,
+        category: tool.category,
+        icon: tool.icon,
+        title: toolTitle(tool.id, tool.title),
+        description: toolDescription(tool.id, tool.description),
+        plugin: false,
+    })),
+    ...pluginToolCards.value,
+])
+
 const visibleTools = computed(() => {
     const normalizedSearch = search.value.trim().toLocaleLowerCase()
     const favoriteSet = new Set(favoriteToolIds.value)
 
-    const filtered = availableTools.filter((tool) => {
+    const filtered = labToolCards.value.filter((tool) => {
         const matchingCategory = category.value === 'all' || tool.category === category.value
         const matchingFavorite =
             favoriteFilter.value === 'all' ||
@@ -168,10 +203,7 @@ const visibleTools = computed(() => {
             (favoriteFilter.value === 'unfavorite' && !favoriteSet.has(tool.id))
         const matchingSearch =
             !normalizedSearch ||
-            [toolTitle(tool.id, tool.title), toolDescription(tool.id, tool.description)]
-                .join(' ')
-                .toLocaleLowerCase()
-                .includes(normalizedSearch)
+            [tool.title, tool.description].join(' ').toLocaleLowerCase().includes(normalizedSearch)
 
         return matchingCategory && matchingFavorite && matchingSearch
     })
@@ -245,16 +277,20 @@ function favoriteFilterLabel(value: LabFavoriteFilter) {
                 <p class="m-0 mt-1 text-sm text-[var(--color-text-tertiary)]">
                     {{
                         formatMessage(
-                            availableTools.length === 1
+                            labToolCards.length === 1
                                 ? messages.toolCount
                                 : messages.toolCountPlural,
                             {
-                                count: availableTools.length,
+                                count: labToolCards.length,
                             },
                         )
                     }}
                 </p>
             </div>
+            <Button type="outlined" size="md" class="shrink-0" @click="router.push('/lab/plugins')">
+                <PlugIcon />
+                {{ formatMessage(messages.plugins) }}
+            </Button>
         </header>
 
         <div class="flex flex-wrap gap-2" aria-label="Lab tool filters">
@@ -335,7 +371,7 @@ function favoriteFilterLabel(value: LabFavoriteFilter) {
                             class="flex h-full items-center justify-center"
                             :class="toolIconClasses(tool.id)"
                         >
-                            <component :is="tool.icon" class="size-8" />
+                            <component :is="tool.icon ?? PlugIcon" class="size-8" />
                         </div>
                     </div>
                 </RouterLink>
@@ -349,16 +385,21 @@ function favoriteFilterLabel(value: LabFavoriteFilter) {
                         <h2
                             class="m-0 line-clamp-1 pr-10 text-lg font-bold leading-tight text-[var(--color-text-primary)]"
                         >
-                            {{ toolTitle(tool.id, tool.title) }}
+                            {{ tool.title }}
                         </h2>
                         <p
                             class="m-0 mt-1 line-clamp-2 text-sm leading-5 text-[var(--color-text-tertiary)]"
                         >
-                            {{ toolDescription(tool.id, tool.description) }}
+                            {{ tool.description }}
                         </p>
                     </RouterLink>
                     <div class="mt-auto flex items-center justify-between gap-3 pt-4">
-                        <TagItem>{{ categoryLabel(tool.category) }}</TagItem>
+                        <div class="flex min-w-0 flex-wrap items-center gap-1.5">
+                            <TagItem>{{ categoryLabel(tool.category) }}</TagItem>
+                            <TagItem v-if="tool.plugin">
+                                {{ formatMessage(messages.pluginBadge) }}
+                            </TagItem>
+                        </div>
                         <Button
                             type="colored"
                             color="brand"
@@ -375,5 +416,7 @@ function favoriteFilterLabel(value: LabFavoriteFilter) {
         </section>
 
         <EmptyState v-else type="no-search-result" :heading="emptyHeading" aria-live="polite" />
+
+        <LabPluginSlot name="lab.hub.footer" />
     </main>
 </template>

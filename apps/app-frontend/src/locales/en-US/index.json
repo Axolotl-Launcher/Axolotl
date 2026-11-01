@@ -1,13 +1,25 @@
 {
-  "app.schematics.source.reden": { "message": "Reden" },
-  "app.schematics.source.buildschematics": { "message": "BuildSchematics" },
-  "app.schematics.failed-sources": { "message": "{sources} could not be loaded." },
-  "app.schematics.sort.default": { "message": "Source order" },
-  "app.schematics.sort.name": { "message": "Name" },
+  "app.schematics.source.reden": {
+    "message": "Reden"
+  },
+  "app.schematics.source.buildschematics": {
+    "message": "BuildSchematics"
+  },
+  "app.schematics.failed-sources": {
+    "message": "{sources} could not be loaded."
+  },
+  "app.schematics.sort.default": {
+    "message": "Source order"
+  },
+  "app.schematics.sort.name": {
+    "message": "Name"
+  },
   "app.schematics.login-required-sources": {
     "message": "{count, plural, one {# source requires <login-link>sign-in</login-link>} other {# sources require <login-link>sign-in</login-link>}}"
   },
-  "app.schematics.open-source": { "message": "View on source website" },
+  "app.schematics.open-source": {
+    "message": "View on source website"
+  },
   "app.schematics.instances-error": {
     "message": "Could not load your instances."
   },
@@ -53,8 +65,12 @@
   "app.schematics.search": {
     "message": "Search schematics"
   },
-  "app.schematics.sort.hot": { "message": "Popular" },
-  "app.schematics.sort.featured": { "message": "Featured" },
+  "app.schematics.sort.hot": {
+    "message": "Popular"
+  },
+  "app.schematics.sort.featured": {
+    "message": "Featured"
+  },
   "app.schematics.author-summary": {
     "message": "{author} · {summary}"
   },
@@ -67,11 +83,21 @@
   "app.schematics.installing": {
     "message": "Installing…"
   },
-  "app.schematics.preview": { "message": "Preview" },
-  "app.schematics.files": { "message": "Files" },
-  "app.schematics.creator": { "message": "Creator" },
-  "app.schematics.source-heading": { "message": "Source" },
-  "app.schematics.preview-source": { "message": "Shimu Space · {fileName}" },
+  "app.schematics.preview": {
+    "message": "Preview"
+  },
+  "app.schematics.files": {
+    "message": "Files"
+  },
+  "app.schematics.creator": {
+    "message": "Creator"
+  },
+  "app.schematics.source-heading": {
+    "message": "Source"
+  },
+  "app.schematics.preview-source": {
+    "message": "Shimu Space · {fileName}"
+  },
   "app.schematics.installed": {
     "message": "Installed"
   },
@@ -17717,5 +17743,152 @@
   },
   "app.settings.export.imported-dropped-text": {
     "message": "{count, plural, =0 {No local settings document changed.} one {Updated # local settings document.} other {Updated # local settings documents.}} {dropped, plural, one {# value was ignored because its type is invalid.} other {# values were ignored because their types are invalid.}}"
+  },
+  "app.lab.plugin-badge": {
+    "message": "Plugin"
+  },
+  "app.lab.plugins.entry": {
+    "message": "Plugins"
+  },
+  "app.lab.plugins.title": {
+    "message": "Plugins"
+  },
+  "app.lab.plugins.plugin": {
+    "message": "Plugin"
+  },
+  "app.lab.plugins.subtitle": {
+    "message": "{count, plural, one {# plugin installed} other {# plugins installed}}"
+  },
+  "app.lab.plugins.enabled-subtitle": {
+    "message": "{count, plural, one {# plugin on} other {# plugins on}}"
+  },
+  "app.lab.plugins.folder-label": {
+    "message": "Plugin folder"
+  },
+  "app.lab.plugins.folder-hint": {
+    "message": "Plugins are compiled into the launcher. Add a folder here and rebuild."
+  },
+  "app.lab.plugins.copy-path": {
+    "message": "Copy path"
+  },
+  "app.lab.plugins.copied": {
+    "message": "Copied"
+  },
+  "app.lab.plugins.empty-title": {
+    "message": "No plugins in this build"
+  },
+  "app.lab.plugins.empty-description": {
+    "message": "Add a plugin folder to the source tree and rebuild to see it here."
+  },
+  "app.lab.plugins.tool-page": {
+    "message": "Tool page"
+  },
+  "app.lab.plugins.single-contribution": {
+    "message": "Adds itself to the launcher, nothing else"
+  },
+  "app.lab.plugins.enable": {
+    "message": "Turn {name} on"
+  },
+  "app.lab.plugins.disable": {
+    "message": "Turn {name} off"
+  },
+  "app.lab.plugins.failed": {
+    "message": "Turned off after an error"
+  },
+  "app.lab.plugins.retry": {
+    "message": "Turn on"
+  },
+  "app.lab.plugins.rejected-title": {
+    "message": "Skipped folders"
+  },
+  "app.lab.plugins.rejected-description": {
+    "message": "These folders do not describe a working plugin, so the launcher ignored them."
+  },
+  "app.lab.plugins.permission.instances-read": {
+    "message": "Reads your instances"
+  },
+  "app.lab.plugins.permission.files-read": {
+    "message": "Reads files you select"
+  },
+  "app.lab.plugins.permission.files-write": {
+    "message": "Writes files you select"
+  },
+  "app.lab.plugins.permission.network": {
+    "message": "Uses the network"
+  },
+  "app.lab.plugins.permission.clipboard": {
+    "message": "Uses the clipboard"
+  },
+  "app.lab.plugins.slot.lab-footer": {
+    "message": "Lab footer"
+  },
+  "app.lab.plugins.slot.instance-actions": {
+    "message": "Instance actions"
+  },
+  "app.lab.plugins.missing-title": {
+    "message": "Plugin not found"
+  },
+  "app.lab.plugins.missing-description": {
+    "message": "This plugin is not part of this launcher build."
+  },
+  "app.lab.plugins.back-to-lab": {
+    "message": "Back to the lab"
+  },
+  "app.lab.plugins.off-title": {
+    "message": "This plugin is turned off"
+  },
+  "app.lab.plugins.off-description": {
+    "message": "Turn it back on to use it. Plugins stay off until you do."
+  },
+  "app.lab.plugins.turn-on": {
+    "message": "Turn on"
+  },
+  "app.lab.plugins.failed-hint": {
+    "message": "It was turned off after an error:"
+  },
+  "app.lab.plugins.crashed.inline": {
+    "message": "{name} stopped working"
+  },
+  "app.lab.plugins.crashed.title": {
+    "message": "This plugin stopped working"
+  },
+  "app.lab.plugins.crashed.description": {
+    "message": "{name} was turned off to keep this page working."
+  },
+  "app.lab.plugins.crashed.manage": {
+    "message": "Open plugins"
+  },
+  "app.lab.plugins.motd-preview.name": {
+    "message": "MOTD preview"
+  },
+  "app.lab.plugins.motd-preview.description": {
+    "message": "Preview a server message of the day the way Minecraft renders it."
+  },
+  "app.lab.plugins.motd-preview.label": {
+    "message": "Server list text"
+  },
+  "app.lab.plugins.motd-preview.placeholder": {
+    "message": "§6Axolotl §7server"
+  },
+  "app.lab.plugins.motd-preview.preview": {
+    "message": "Preview"
+  },
+  "app.lab.plugins.copy-instance-id.name": {
+    "message": "Copy instance ID"
+  },
+  "app.lab.plugins.copy-instance-id.description": {
+    "message": "Adds a button to the instance action row that copies its ID."
+  },
+  "app.lab.plugins.copy-instance-id.copy": {
+    "message": "Copy instance ID"
+  },
+  "app.lab.plugins.copy-instance-id.copied": {
+    "message": "Instance ID copied"
+  },
+  "app.lab.plugins.no-tool-title": {
+    "message": "This plugin has no page"
+  },
+  "app.lab.plugins.no-tool-description": {
+    "message": "It adds itself to the launcher elsewhere, for example the instance action row."
   }
 }

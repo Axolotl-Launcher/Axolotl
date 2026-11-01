@@ -242,6 +242,11 @@
                             @click="settingsModal?.show()"
                             ><SettingsIcon />
                         </Button>
+                        <LabPluginSlot
+                            v-if="instance"
+                            name="instance.actions"
+                            :context="{ instance }"
+                        />
                         <OverflowMenu
                             :options="[
                                 {
@@ -438,6 +443,7 @@ import relativeTime from 'dayjs/plugin/relativeTime'
 import { computed, onUnmounted, ref, shallowRef, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
+import LabPluginSlot from '@/components/lab/plugins/LabPluginSlot.vue'
 import ContextMenu from '@/components/ui/ContextMenu.vue'
 import ExportModal from '@/components/ui/ExportModal.vue'
 import InstanceIcon from '@/components/ui/InstanceIcon.vue'

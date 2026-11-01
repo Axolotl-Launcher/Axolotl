@@ -696,6 +696,67 @@ it('renders stored, provider and agent strings as text without HTML parsing sink
     expect(errors).toEqual([])
 })
 
+it('streams an answer into the same markup a full render builds, without rebuilding its log', async () => {
+    const source = [
+        '# Crash',
+        'The game **stopped** at `render` — see the [wiki](https://example.com/w).',
+        '',
+        '3. Close the game',
+        '4. Open *the* log',
+        '',
+        '> A quote',
+        '> that goes on',
+        '',
+        '```',
+        'java.lang.IllegalStateException: Buffer not bound',
+        '\tat net.minecraft.client.Render.draw(Render.java:200)',
+        '```',
+        '',
+        '```log',
+        ...Array.from({ length: 40 }, (_, index) =>
+            index % 3
+                ? `[12:00:${index}] [Render thread/INFO]: line ${index}`
+                : `[WARN] slow ${index}`,
+        ),
+        '```',
+        '---',
+        '- one',
+        '- two **bold**',
+    ].join('\n')
+    // A string, so the test's own bundler leaves the page's import alone.
+    const dom = await page.evaluateHandle<{
+        renderMarkdown: (container: Element, source: string) => void
+    }>("import('/dom.js')")
+    const report = await page.evaluate(
+        ({ dom: { renderMarkdown }, text }) => {
+            const streamed = document.createElement('div')
+            const labelled = () =>
+                [...streamed.querySelectorAll('.code-block')].find(
+                    (block) => block.querySelector('.code-head span')?.textContent === 'log',
+                )
+            const mismatches: number[] = []
+            let firstLine: Element | null | undefined = null
+            for (let at = 0, step = 0; at < text.length; step++) {
+                at = Math.min(text.length, at + 1 + (step % 9))
+                renderMarkdown(streamed, text.slice(0, at))
+                const fresh = document.createElement('div')
+                renderMarkdown(fresh, text.slice(0, at))
+                if (streamed.innerHTML !== fresh.innerHTML) mismatches.push(at)
+                firstLine ||= labelled()?.querySelector('.log-line')
+            }
+            return {
+                mismatches,
+                blocks: streamed.children.length,
+                lines: labelled()?.querySelectorAll('.log-line').length,
+                // The log's first line kept its node while the others streamed in.
+                keptFirstLine: !!firstLine && labelled()?.querySelector('.log-line') === firstLine,
+            }
+        },
+        { dom, text: source },
+    )
+    expect(report).toEqual({ mismatches: [], blocks: 8, lines: 40, keptFirstLine: true })
+})
+
 it.each(['zh-TW', 'fr-FR'])(
     'uses the supplied English fallback catalog while retaining native locale %s',
     async (locale) => {

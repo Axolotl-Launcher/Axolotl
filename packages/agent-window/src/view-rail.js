@@ -75,25 +75,36 @@ function fit() {
 }
 
 // Lights the request whose turn holds the reading line, a third of the way down.
+// A streamed answer scrolls the view on every frame, so this runs that often:
+// it measures a handful of turns, not every built one, and writes only the
+// ticks that change.
 function markRail() {
     const nav = rail()
     if (nav.hidden) return
     const view = scroller()
     const line = view.getBoundingClientRect().top + view.clientHeight / 3
-    let current = null
-    for (const node of element('messages').querySelectorAll(':scope > [data-turn]')) {
-        if (node.getBoundingClientRect().top <= line) current = node.dataset.turn
-        else break
+    const shown = [...element('messages').children].filter((node) => 'turn' in node.dataset)
+    // Turns stack top to bottom, so the last one that starts above the line is
+    // found by halving.
+    let low = 0
+    let high = shown.length
+    while (low < high) {
+        const middle = (low + high) >> 1
+        if (shown[middle].getBoundingClientRect().top <= line) low = middle + 1
+        else high = middle
     }
+    let current = low ? shown[low - 1].dataset.turn : null
     current ||= element('messages').firstElementChild?.dataset.turn
     const roving = !nav.contains(document.activeElement)
     for (const item of nav.querySelectorAll('.rail-item')) {
         const on = item.dataset.jump === current
         item.toggleAttribute('data-current', on)
         // The lit tick is the request in view, which screen readers hear too.
-        if (on) item.setAttribute('aria-current', 'location')
-        else item.removeAttribute('aria-current')
-        if (roving) item.tabIndex = on ? 0 : -1
+        if (!on) item.removeAttribute('aria-current')
+        else if (item.getAttribute('aria-current') !== 'location')
+            item.setAttribute('aria-current', 'location')
+        if (roving && item.getAttribute('tabindex') !== (on ? '0' : '-1'))
+            item.tabIndex = on ? 0 : -1
     }
 }
 

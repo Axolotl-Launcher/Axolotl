@@ -14,7 +14,7 @@ import {
 } from '../../../../../packages/agent-window/src/agent.js'
 import { FLOWS, GENERIC } from '../../../../../packages/agent-window/src/demo-flows.js'
 import { DemoRuntime } from '../../../../../packages/agent-window/src/demo-runtime.js'
-import { markdownBlocks } from '../../../../../packages/agent-window/src/dom.js'
+import { markdownBlocks, parseMarkdown } from '../../../../../packages/agent-window/src/dom.js'
 import { setLocale } from '../../../../../packages/agent-window/src/messages.js'
 import { newRun } from '../../../../../packages/agent-window/src/state.js'
 import { toolFamily, toolHelp } from '../../../../../packages/agent-window/src/tools.js'
@@ -390,6 +390,65 @@ it('splits streamed Markdown into blocks, including an unfinished code fence', (
     expect(blocks[1].text).toBe('Some **bold** text\nwrapped')
     expect(blocks[2].items).toEqual(['one', 'two'])
     expect(blocks[6]).toMatchObject({ lang: 'log', text: 'line one\n\nline two' })
+})
+
+it('parses streamed Markdown again only from its last unsettled block, to the same blocks', () => {
+    // Streamed a few characters at a time, these lines change blocks before
+    // the last one: "-" and "2" join the list above once their marker is
+    // complete, a heading needs its space, "--" becomes a rule, blank lines
+    // gain text, and fences open, get their language and close.
+    const source = [
+        '#',
+        '# Title',
+        'Some **bold** text',
+        'wrapped',
+        '- a',
+        '-',
+        '- b',
+        '',
+        '1. one',
+        '2) two',
+        '10. ten',
+        '',
+        '> quote',
+        '>',
+        '> more',
+        '',
+        '---',
+        '   ',
+        '***',
+        '```log',
+        'line one',
+        '',
+        '\tat a.b.C.d(C.java:1)',
+        '```',
+        'after the fence',
+        '  ```js',
+        '  let x',
+        '  ```',
+        '```',
+        'still open',
+        '',
+        '  x',
+    ].join('\n')
+    for (const sizes of [[1], [3, 7, 1, 12], [20, 5, 9]]) {
+        let state = null
+        let reused = 0
+        for (let at = 0, step = 0; at < source.length; step++) {
+            at = Math.min(source.length, at + sizes[step % sizes.length])
+            const prefix = source.slice(0, at)
+            state = parseMarkdown(prefix, state)
+            expect(state.blocks).toEqual(markdownBlocks(prefix))
+            reused = Math.max(reused, state.kept)
+        }
+        // Most blocks are taken over rather than parsed again.
+        expect(reused).toBeGreaterThan(8)
+    }
+    // Text that is not a continuation is parsed from the start.
+    const before = parseMarkdown('- a\n- b')
+    const other = parseMarkdown('- a\n+ b', before)
+    expect(other.kept).toBe(0)
+    expect(other.blocks).toEqual(markdownBlocks('- a\n+ b'))
 })
 
 it('voids a waiting plan when the run fails and only approves a waiting run', () => {

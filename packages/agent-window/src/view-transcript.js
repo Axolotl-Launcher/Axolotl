@@ -147,8 +147,16 @@ export function bindTranscript() {
     )
 }
 
+// Turns are the children of the transcript, and events patch the latest one,
+// so the search starts at the end instead of walking every built turn.
 export function turnNode(turnId) {
-    return root().querySelector(`[data-turn="${CSS.escape(turnId)}"]`)
+    return lastChildWith(root(), 'turn', turnId)
+}
+
+function lastChildWith(parent, key, value) {
+    for (let node = parent.lastElementChild; node; node = node.previousElementSibling)
+        if (node.dataset[key] === String(value)) return node
+    return null
 }
 
 function createTurn(thread, turn, fresh) {
@@ -216,11 +224,14 @@ export function syncTurn(thread, turn, node = turnNode(turn.id), fresh = true) {
         return node
     }
     const run = turn.run
-    const items = node.querySelector('.agent-items')
+    // The agent's side, in the order createTurn() builds it. Its parts are
+    // taken from its children: a selector would walk the whole answer to find
+    // the ones after it, on every streamed delta.
+    const [items, status, notice, actions] = node.querySelector('.agent').children
     const active = ACTIVE_STATUSES.includes(run.status)
     const lastIndex = run.items.length - 1
     run.items.forEach((item, index) => {
-        let child = items.querySelector(`:scope > [data-item="${CSS.escape(item.id)}"]`)
+        let child = lastChildWith(items, 'item', item.id)
         if (!child) {
             child = createItem(item)
             if (fresh) child.classList.add('is-arriving')
@@ -228,15 +239,10 @@ export function syncTurn(thread, turn, node = turnNode(turn.id), fresh = true) {
         }
         updateItem(child, item, { thread, turn, active, last: index === lastIndex })
     })
-    syncStatus(node.querySelector('.run-status'), turn, active)
-    syncNotice(node.querySelector('.run-notice'), thread, turn)
-    syncActions(
-        node.querySelector('.turn-actions'),
-        turn,
-        active,
-        thread.turns.at(-1)?.id === turn.id,
-    )
-    node.dataset.status = run.status
+    syncStatus(status, turn, active)
+    syncNotice(notice, thread, turn)
+    syncActions(actions, turn, active, thread.turns.at(-1)?.id === turn.id)
+    if (node.dataset.status !== run.status) node.dataset.status = run.status
     return node
 }
 
@@ -328,19 +334,22 @@ function updateActivity(node, item, { active }) {
     const current = item.steps.findLast((step) => step.status === 'running')
     // While the list is open it already names the current step, so the header
     // counts instead; folded away, the header names the step itself.
-    node.querySelector('.activity-label').textContent = running
-        ? open
-            ? text('stepsRunning', { count: item.steps.length })
-            : current?.title || text('working')
-        : item.steps.length === 1
-          ? item.steps[0].title
-          : item.steps.length
-            ? text('stepsDoneNamed', { title: item.steps[0].title, count: item.steps.length })
-            : text('stepsDone', { count: 0 })
+    setText(
+        node.querySelector('.activity-label'),
+        running
+            ? open
+                ? text('stepsRunning', { count: item.steps.length })
+                : current?.title || text('working')
+            : item.steps.length === 1
+              ? item.steps[0].title
+              : item.steps.length
+                ? text('stepsDoneNamed', { title: item.steps[0].title, count: item.steps.length })
+                : text('stepsDone', { count: 0 }),
+    )
     // Under a second says nothing useful, so short groups show no time.
     const end = item.endedAt || item.steps.at(-1)?.endedAt
     const took = !running && item.startedAt && end ? end - item.startedAt : 0
-    node.querySelector('.activity-meta').textContent = took >= 1000 ? durationLabel(took) : ''
+    setText(node.querySelector('.activity-meta'), took >= 1000 ? durationLabel(took) : '')
 
     // A folded group builds its rows only once it is opened, which keeps a
     // long history light: finished groups are folded by default.
@@ -351,8 +360,14 @@ function updateActivity(node, item, { active }) {
 function buildSteps(node, item) {
     node.dataset.built = 'true'
     const list = node.querySelector('.steps')
+    // Rows by step, the first one for each id, as a `:scope >` selector would
+    // find them, without a selector walk over the list for every step.
+    const shown = new Map()
+    for (const row of list.children)
+        if (row.dataset.step !== undefined && !shown.has(row.dataset.step))
+            shown.set(row.dataset.step, row)
     for (const step of item.steps) {
-        let row = list.querySelector(`:scope > [data-step="${CSS.escape(step.id)}"]`)
+        let row = shown.get(String(step.id))
         if (!row) {
             row = h('li', { class: 'step is-arriving', data: { step: step.id } }, [
                 h('span', { class: 'step-icon', role: 'img' }),
@@ -364,6 +379,7 @@ function buildSteps(node, item) {
                 h('span', { class: 'step-help', id: `step-help-${++helpIds}`, hidden: true }),
             ])
             list.append(row)
+            shown.set(String(step.id), row)
         }
         if (row.dataset.state !== step.status) {
             const mark = row.querySelector('.step-icon')
@@ -372,21 +388,21 @@ function buildSteps(node, item) {
             if (row.dataset.state) mark.firstChild.classList.add('pop')
             row.dataset.state = step.status
         }
-        row.querySelector('.step-title').textContent = step.title
+        setText(row.querySelector('.step-title'), step.title)
         const detail = row.querySelector('.step-detail')
-        detail.textContent = step.detail
-        detail.hidden = !step.detail
+        setText(detail, step.detail)
+        setHidden(detail, !step.detail)
         const tool = row.querySelector('.step-tool')
-        tool.textContent = step.tool || ''
-        tool.hidden = !step.tool
+        setText(tool, step.tool || '')
+        setHidden(tool, !step.tool)
         // The chip shows the tool's real name and its tooltip says what it does.
         // The chip takes no tab stop, which a long run would fill with dozens,
         // so the row's description carries the same words to screen readers.
         const help = row.querySelector('.step-help')
-        help.textContent = step.tool ? toolHelp(step.tool) : ''
+        setText(help, step.tool ? toolHelp(step.tool) : '')
         if (step.tool) {
-            tool.dataset.tip = help.textContent
-            row.setAttribute('aria-describedby', help.id)
+            if (tool.dataset.tip !== help.textContent) tool.dataset.tip = help.textContent
+            setAttribute(row, 'aria-describedby', help.id)
         } else {
             delete tool.dataset.tip
             row.removeAttribute('aria-describedby')
@@ -396,9 +412,7 @@ function buildSteps(node, item) {
     const rows = list.querySelectorAll(':scope > .step')
     const folded =
         rows.length > LATEST_STEPS + 2 && !node.dataset.allSteps ? rows.length - LATEST_STEPS : 0
-    rows.forEach((row, index) => {
-        row.hidden = index < folded
-    })
+    rows.forEach((row, index) => setHidden(row, index < folded))
     let more = list.querySelector(':scope > .step-more')
     if (folded && !more) {
         more = h('li', { class: 'step-more' }, [
@@ -409,7 +423,22 @@ function buildSteps(node, item) {
         ])
         list.prepend(more)
     } else if (!folded) more?.remove()
-    if (more) more.querySelector('span').textContent = text('earlierSteps', { count: folded })
+    if (more) setText(more.querySelector('span'), text('earlierSteps', { count: folded }))
+}
+
+// A turn is synced again on every streamed delta, so writes that would change
+// nothing are skipped: a text node or attribute written again makes the
+// browser restyle and lay out what did not change.
+function setText(node, value) {
+    if (node.textContent !== value) node.textContent = value
+}
+
+function setHidden(node, hidden) {
+    if (node.hidden !== hidden) node.hidden = hidden
+}
+
+function setAttribute(node, name, value) {
+    if (node.getAttribute(name) !== value) node.setAttribute(name, value)
 }
 
 const LATEST_STEPS = 6
@@ -756,8 +785,10 @@ function syncStatus(node, turn, active) {
             if (phase === 'applying') setMood(mark, 'nod', { then: 'work' })
             else setMood(mark, 'think')
         }
-        node.querySelector('.shimmer').textContent =
-            turn.run.label || text(turn.run.status === 'applying' ? 'applying' : 'thinking')
+        setText(
+            node.querySelector('.shimmer'),
+            turn.run.label || text(turn.run.status === 'applying' ? 'applying' : 'thinking'),
+        )
         updateElapsed(node, turn)
         return
     }
@@ -782,7 +813,7 @@ function syncStatus(node, turn, active) {
 
 export function updateElapsed(node, turn) {
     const started = turn.run.phaseAt || turn.run.startedAt
-    node.querySelector('.elapsed').textContent = started ? durationLabel(Date.now() - started) : ''
+    setText(node.querySelector('.elapsed'), started ? durationLabel(Date.now() - started) : '')
 }
 
 const NOTICES = {
@@ -903,7 +934,7 @@ export function toggleActivity(summary) {
 // open. Inert takes them out of reach of the keyboard and screen readers too.
 function setOpen(node, open) {
     node.toggleAttribute('data-open', open)
-    node.querySelector('.activity-summary').setAttribute('aria-expanded', String(open))
+    setAttribute(node.querySelector('.activity-summary'), 'aria-expanded', String(open))
     const body = node.querySelector('.activity-body')
     if (body.inert === open) body.inert = !open
 }

@@ -85,7 +85,12 @@ fn a_pair_already_logged_does_not_hide_a_later_violation() {
     probe.touch(holder(), "t::a");
     probe.release(holder(), b);
 
-    assert_eq!(kinds(&out, "pair").len(), 1, "the ascending pair");
+    // Both orders are recorded as pairs (`b -> a` is not the same key as
+    // `a -> b`), and the descending one is *also* reported as a violation.
+    // The point of the test: the pair record for `a -> b` must not suppress
+    // the violation for `b -> a`.
+    let pairs = kinds(&out, "pair");
+    assert_eq!(pairs.len(), 2, "one record per ordered pair");
     let violations = kinds(&out, "violation");
     assert_eq!(violations.len(), 1, "the descending pair is still reported");
     assert_eq!(violations[0]["held"], "t::b");

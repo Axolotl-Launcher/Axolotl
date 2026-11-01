@@ -178,10 +178,16 @@ impl ReclaimBypass {
         self.settle(request, false, now)
     }
 
-    /// A grant a task asks for on the waiter's behalf, proving who it is
-    /// with its own tag. Asking with the waiter's own tag is refused (B-4);
-    /// tags are compared by id, so a second reference to the same tag is
-    /// still recognised as the waiter.
+    /// A grant a task asks for on the waiter's behalf, proving who it is with
+    /// its own tag. Asking with the waiter's own tag is refused (B-4); tags
+    /// are compared by id, so a second reference to the same tag is still
+    /// recognised as the waiter.
+    ///
+    /// The wait and the holder state are passed as plain values here because
+    /// this is the task-facing entry: it may only *ask*. The decision values
+    /// that matter are the ones the scheduler builds with
+    /// [`ObservedHold::observe`] for [`ReclaimBypass::grant`], and B-4 rests
+    /// on that split, not on who fills these two arguments.
     pub fn request(
         &mut self,
         asker: &Tag,
@@ -190,6 +196,28 @@ impl ReclaimBypass {
     ) -> Result<Lease, Denial> {
         let self_initiated = asker.id() == request.waiter.id();
         self.settle(request, self_initiated, now)
+    }
+
+    /// The same request, built from values a task can name: the scheduler
+    /// records what it observed and hands the request to [`Self::request`].
+    pub fn ask(
+        &mut self,
+        asker: &Tag,
+        waiter: &Tag,
+        resource: &'static str,
+        waited: Duration,
+        holder: HolderState,
+        now: Instant,
+    ) -> Result<Lease, Denial> {
+        self.request(
+            asker,
+            BypassRequest {
+                waiter,
+                resource,
+                observed: ObservedHold::observe(waited, holder),
+            },
+            now,
+        )
     }
 
     fn settle(

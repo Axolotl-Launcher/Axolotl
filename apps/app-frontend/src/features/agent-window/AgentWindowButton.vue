@@ -3,7 +3,7 @@ import { defineMessages, injectNotificationManager, useVIntl } from '@modrinth/u
 import { invoke } from '@tauri-apps/api/core'
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
-import { agentWindowMessages } from './messages'
+import { formatAgentWindowMessages } from './messages'
 
 const { formatMessage, locale } = useVIntl()
 const { handleError } = injectNotificationManager()
@@ -44,12 +44,7 @@ function windowAppearance() {
             scrollbar: resolve('--color-scrollbar'),
             scrollbar_track: resolve('--color-bg'),
             scrollbar_radius: getComputedStyle(probe).borderTopLeftRadius,
-            messages: Object.fromEntries(
-                Object.entries(agentWindowMessages).map(([key, message]) => [
-                    key,
-                    formatMessage(message),
-                ]),
-            ),
+            messages: formatAgentWindowMessages(formatMessage),
             labels: {
                 title: formatMessage(messages.title),
                 minimize: formatMessage(messages.minimize),

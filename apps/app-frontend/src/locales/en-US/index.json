@@ -1,6 +1,393 @@
 {
+  "app.agent-window.chat.toggle-sidebar": {
+    "message": "Show or hide the task list"
+  },
+  "app.agent-window.chat.help": {
+    "message": "How it works"
+  },
+  "app.agent-window.chat.settings": {
+    "message": "Settings"
+  },
+  "app.agent-window.chat.preview-badge": {
+    "message": "Preview"
+  },
+  "app.agent-window.chat.preview-title": {
+    "message": "This is a preview"
+  },
+  "app.agent-window.chat.preview-body": {
+    "message": "The agent isn’t connected to the launcher yet. Its steps and results are simulated to show how tasks work. Apart from your instance and model lists, nothing in the launcher is read or changed."
+  },
+  "app.agent-window.chat.window-reveal-error": {
+    "message": "Could not show the window. Reopen it from the launcher."
+  },
+  "app.agent-window.chat.window-action-error": {
+    "message": "Window action failed"
+  },
+  "app.agent-window.chat.new-chat": {
+    "message": "New task"
+  },
+  "app.agent-window.chat.search": {
+    "message": "Search tasks"
+  },
+  "app.agent-window.chat.conversations": {
+    "message": "Task history"
+  },
+  "app.agent-window.chat.no-chats": {
+    "message": "Your tasks will appear here"
+  },
+  "app.agent-window.chat.no-results": {
+    "message": "No matching tasks"
+  },
+  "app.agent-window.chat.today": {
+    "message": "Today"
+  },
+  "app.agent-window.chat.yesterday": {
+    "message": "Yesterday"
+  },
+  "app.agent-window.chat.earlier": {
+    "message": "Earlier"
+  },
+  "app.agent-window.chat.status-active": {
+    "message": "Working"
+  },
+  "app.agent-window.chat.status-awaiting": {
+    "message": "Waiting for your approval"
+  },
+  "app.agent-window.chat.status-attention": {
+    "message": "Needs attention"
+  },
+  "app.agent-window.chat.more": {
+    "message": "More actions"
+  },
+  "app.agent-window.chat.rename": {
+    "message": "Rename"
+  },
+  "app.agent-window.chat.delete-chat": {
+    "message": "Delete"
+  },
+  "app.agent-window.chat.untitled": {
+    "message": "New task"
+  },
+  "app.agent-window.chat.task-panel": {
+    "message": "Progress"
+  },
+  "app.agent-window.chat.close-panel": {
+    "message": "Close progress"
+  },
+  "app.agent-window.chat.panel-empty": {
+    "message": "Progress for this task appears here once it starts."
+  },
+  "app.agent-window.chat.panel-steps": {
+    "message": "Steps"
+  },
+  "app.agent-window.chat.panel-changes": {
+    "message": "Changes"
+  },
+  "app.agent-window.chat.panel-log": {
+    "message": "Activity"
+  },
+  "app.agent-window.chat.context": {
+    "message": "Runs with"
+  },
+  "app.agent-window.chat.instance-label": {
+    "message": "Instance"
+  },
+  "app.agent-window.chat.model-label": {
+    "message": "Model"
+  },
+  "app.agent-window.chat.permission-label": {
+    "message": "Permissions"
+  },
+  "app.agent-window.chat.ask-first": {
+    "message": "Ask before changes"
+  },
+  "app.agent-window.chat.unselected": {
+    "message": "Not selected"
+  },
+  "app.agent-window.chat.state-working": {
+    "message": "Working"
+  },
+  "app.agent-window.chat.state-applying": {
+    "message": "Applying changes"
+  },
+  "app.agent-window.chat.state-awaiting": {
+    "message": "Needs your approval"
+  },
+  "app.agent-window.chat.state-done": {
+    "message": "Done"
+  },
+  "app.agent-window.chat.state-failed": {
+    "message": "Failed"
+  },
+  "app.agent-window.chat.state-stopped": {
+    "message": "Stopped"
+  },
+  "app.agent-window.chat.state-detached": {
+    "message": "Result unknown"
+  },
+  "app.agent-window.chat.state-declined": {
+    "message": "Declined"
+  },
+  "app.agent-window.chat.state-superseded": {
+    "message": "Replaced"
+  },
+  "app.agent-window.chat.state-interrupted": {
+    "message": "Interrupted"
+  },
+  "app.agent-window.chat.welcome": {
+    "message": "What can I help you with?"
+  },
+  "app.agent-window.chat.suggest-crash": {
+    "message": "Fix a crash"
+  },
+  "app.agent-window.chat.suggest-smooth": {
+    "message": "Make the game smoother"
+  },
+  "app.agent-window.chat.suggest-backup": {
+    "message": "Back up a world"
+  },
+  "app.agent-window.chat.suggest-pack": {
+    "message": "Set up a modpack"
+  },
+  "app.agent-window.chat.prompt-crash": {
+    "message": "My game crashes on launch. Find out why and suggest a fix."
+  },
+  "app.agent-window.chat.prompt-smooth": {
+    "message": "My game stutters. Check my mods and suggest how to make it run smoother."
+  },
+  "app.agent-window.chat.prompt-backup": {
+    "message": "Back up my survival world before I change anything."
+  },
+  "app.agent-window.chat.prompt-pack": {
+    "message": "Set up a lightweight survival modpack that runs well with 6 GB of memory."
+  },
+  "app.agent-window.chat.intro-title": {
+    "message": "How it works"
+  },
+  "app.agent-window.chat.intro-dismiss": {
+    "message": "Got it"
+  },
+  "app.agent-window.chat.intro-describe-title": {
+    "message": "Describe it"
+  },
+  "app.agent-window.chat.intro-describe-body": {
+    "message": "Say what you want in your own words."
+  },
+  "app.agent-window.chat.intro-review-title": {
+    "message": "Review the plan"
+  },
+  "app.agent-window.chat.intro-review-body": {
+    "message": "The agent checks your setup and lists exactly what it would change."
+  },
+  "app.agent-window.chat.intro-approve-title": {
+    "message": "You decide"
+  },
+  "app.agent-window.chat.intro-approve-body": {
+    "message": "Nothing changes until you approve. You can stop it at any time."
+  },
+  "app.agent-window.chat.preview-note": {
+    "message": "Preview: steps and results are simulated. Nothing in your launcher changes."
+  },
+  "app.agent-window.chat.message-label": {
+    "message": "Message"
+  },
+  "app.agent-window.chat.prompt": {
+    "message": "Describe what you want, like “my game crashes on launch”"
+  },
+  "app.agent-window.chat.prompt-followup": {
+    "message": "Ask a follow-up…"
+  },
+  "app.agent-window.chat.prompt-queued": {
+    "message": "Add a follow-up. It’s sent when the agent finishes."
+  },
+  "app.agent-window.chat.prompt-awaiting": {
+    "message": "Ask about the plan or request changes…"
+  },
+  "app.agent-window.chat.attach": {
+    "message": "Attach files"
+  },
+  "app.agent-window.chat.attachment-limit": {
+    "message": "You can attach up to {count} files"
+  },
+  "app.agent-window.chat.remove-attachment": {
+    "message": "Remove {name}"
+  },
+  "app.agent-window.chat.instance": {
+    "message": "Choose an instance"
+  },
+  "app.agent-window.chat.all-launcher": {
+    "message": "Entire launcher"
+  },
+  "app.agent-window.chat.all-launcher-hint": {
+    "message": "Not limited to one instance"
+  },
+  "app.agent-window.chat.instances": {
+    "message": "Instances"
+  },
+  "app.agent-window.chat.instance-search": {
+    "message": "Search instances"
+  },
+  "app.agent-window.chat.no-instances": {
+    "message": "No instances yet"
+  },
+  "app.agent-window.chat.no-instance-matches": {
+    "message": "No matching instances"
+  },
+  "app.agent-window.chat.context-removed": {
+    "message": "Instance unavailable"
+  },
+  "app.agent-window.chat.model": {
+    "message": "Choose a model"
+  },
+  "app.agent-window.chat.no-model": {
+    "message": "Choose a model"
+  },
+  "app.agent-window.chat.setup-model": {
+    "message": "Set up a model"
+  },
+  "app.agent-window.chat.model-removed": {
+    "message": "Model unavailable"
+  },
+  "app.agent-window.chat.model-search": {
+    "message": "Search models or providers"
+  },
+  "app.agent-window.chat.no-models": {
+    "message": "No models enabled"
+  },
+  "app.agent-window.chat.ai-disabled": {
+    "message": "AI is turned off"
+  },
+  "app.agent-window.chat.setup-model-hint": {
+    "message": "The agent uses your own AI provider. In Axolotl, open Settings → AI, turn AI on, add a provider and enable a model, then check again."
+  },
+  "app.agent-window.chat.check-again": {
+    "message": "Check again"
+  },
+  "app.agent-window.chat.no-model-matches": {
+    "message": "No matching models"
+  },
+  "app.agent-window.chat.byok": {
+    "message": "Models and keys come from the launcher’s AI settings"
+  },
+  "app.agent-window.chat.send": {
+    "message": "Send"
+  },
+  "app.agent-window.chat.stop": {
+    "message": "Stop"
+  },
+  "app.agent-window.chat.queue-message": {
+    "message": "Send when the agent finishes"
+  },
+  "app.agent-window.chat.queued-tag": {
+    "message": "Queued"
+  },
+  "app.agent-window.chat.send-now": {
+    "message": "Send now"
+  },
+  "app.agent-window.chat.remove-queued": {
+    "message": "Remove from queue"
+  },
+  "app.agent-window.chat.jump-latest": {
+    "message": "Jump to latest"
+  },
+  "app.agent-window.chat.copy": {
+    "message": "Copy message"
+  },
+  "app.agent-window.chat.copy-answer": {
+    "message": "Copy answer"
+  },
+  "app.agent-window.chat.copied": {
+    "message": "Copied"
+  },
+  "app.agent-window.chat.copy-error": {
+    "message": "Couldn’t copy"
+  },
+  "app.agent-window.chat.thinking": {
+    "message": "Thinking…"
+  },
+  "app.agent-window.chat.working": {
+    "message": "Working…"
+  },
+  "app.agent-window.chat.applying": {
+    "message": "Applying changes…"
+  },
+  "app.agent-window.chat.esc-to-stop": {
+    "message": "to stop"
+  },
+  "app.agent-window.chat.steps-done": {
+    "message": "{count} steps"
+  },
+  "app.agent-window.chat.plan-kicker": {
+    "message": "Proposed changes"
+  },
+  "app.agent-window.chat.manual-change": {
+    "message": "Manual"
+  },
+  "app.agent-window.chat.approval-promise": {
+    "message": "Nothing changes until you approve"
+  },
+  "app.agent-window.chat.approval-waiting": {
+    "message": "Waiting for your approval"
+  },
+  "app.agent-window.chat.approve": {
+    "message": "Approve and apply"
+  },
+  "app.agent-window.chat.decline": {
+    "message": "Decline"
+  },
+  "app.agent-window.chat.applying-progress": {
+    "message": "Applying changes · {done}/{total}"
+  },
+  "app.agent-window.chat.plan-applied": {
+    "message": "Applied"
+  },
+  "app.agent-window.chat.plan-declined": {
+    "message": "Declined. Nothing was changed."
+  },
+  "app.agent-window.chat.plan-superseded": {
+    "message": "Replaced by your newer message"
+  },
+  "app.agent-window.chat.plan-unknown": {
+    "message": "Interrupted while applying. Check the status to see what was written."
+  },
+  "app.agent-window.chat.preview-result": {
+    "message": "Simulated in preview · nothing was changed"
+  },
+  "app.agent-window.chat.notice-stopped": {
+    "message": "Stopped. Nothing was changed."
+  },
+  "app.agent-window.chat.notice-interrupted": {
+    "message": "Interrupted when the window closed."
+  },
+  "app.agent-window.chat.notice-detached": {
+    "message": "Stopped while applying. Some changes may already be written."
+  },
+  "app.agent-window.chat.retry": {
+    "message": "Retry"
+  },
+  "app.agent-window.chat.check-status": {
+    "message": "Check status"
+  },
+  "app.agent-window.chat.runtime-error": {
+    "message": "The agent couldn’t start"
+  },
+  "app.agent-window.chat.toast-awaiting": {
+    "message": "“{title}” needs your approval"
+  },
+  "app.agent-window.chat.toast-done": {
+    "message": "“{title}” is done"
+  },
+  "app.agent-window.chat.toast-failed": {
+    "message": "“{title}” ran into a problem"
+  },
+  "app.agent-window.chat.view": {
+    "message": "View"
+  },
   "app.agent-window.chat.permissions-title": {
     "message": "Permissions"
+  },
+  "app.agent-window.chat.permissions-lead": {
+    "message": "By default the agent asks before every change."
   },
   "app.agent-window.chat.full-access": {
     "message": "Full access"
@@ -38,194 +425,98 @@
   "app.agent-window.chat.enable-full-access": {
     "message": "Enable full access"
   },
-  "app.agent-window.chat.agent": {
-    "message": "Agent"
+  "app.agent-window.chat.history-title": {
+    "message": "History"
   },
-  "app.agent-window.chat.new-chat": {
+  "app.agent-window.chat.local-history": {
+    "message": "Tasks are saved on this device only."
+  },
+  "app.agent-window.chat.export-history": {
+    "message": "Export history"
+  },
+  "app.agent-window.chat.clear-history": {
+    "message": "Clear history"
+  },
+  "app.agent-window.chat.clear-history-title": {
+    "message": "Clear all tasks?"
+  },
+  "app.agent-window.chat.clear-history-body": {
+    "message": "Every task on this device will be removed. Export first if you want a copy. Your current draft is kept."
+  },
+  "app.agent-window.chat.about-title": {
+    "message": "Getting started"
+  },
+  "app.agent-window.chat.about-models": {
+    "message": "The agent uses the AI providers and models you set up in the launcher. Your API keys stay there."
+  },
+  "app.agent-window.chat.show-intro": {
+    "message": "Show the intro again"
+  },
+  "app.agent-window.chat.storage-saved": {
+    "message": "Saved"
+  },
+  "app.agent-window.chat.help-title": {
+    "message": "How the agent works"
+  },
+  "app.agent-window.chat.help-lead": {
+    "message": "The agent can look into your launcher and make changes for you, one approved plan at a time."
+  },
+  "app.agent-window.chat.help-facts-title": {
+    "message": "Good to know"
+  },
+  "app.agent-window.chat.help-fact-model": {
+    "message": "It uses your own AI provider from the launcher settings. There’s no account or subscription."
+  },
+  "app.agent-window.chat.help-fact-scope": {
+    "message": "Pick an instance below the message box to focus on its mods, logs and worlds."
+  },
+  "app.agent-window.chat.help-fact-screen": {
+    "message": "It never controls the launcher’s interface unless you turn on Interface control and ask it to."
+  },
+  "app.agent-window.chat.shortcuts-title": {
+    "message": "Keyboard shortcuts"
+  },
+  "app.agent-window.chat.shortcut-send": {
+    "message": "Send"
+  },
+  "app.agent-window.chat.shortcut-newline": {
+    "message": "New line"
+  },
+  "app.agent-window.chat.shortcut-stop": {
+    "message": "Stop the running task"
+  },
+  "app.agent-window.chat.shortcut-new": {
     "message": "New task"
   },
-  "app.agent-window.chat.search": {
+  "app.agent-window.chat.shortcut-search": {
     "message": "Search tasks"
   },
-  "app.agent-window.chat.conversations": {
-    "message": "Task history"
+  "app.agent-window.chat.shortcut-sidebar": {
+    "message": "Show or hide the task list"
   },
-  "app.agent-window.chat.no-chats": {
-    "message": "No tasks yet"
+  "app.agent-window.chat.delete-title": {
+    "message": "Delete this task?"
   },
-  "app.agent-window.chat.no-results": {
-    "message": "No matching tasks"
+  "app.agent-window.chat.delete-body": {
+    "message": "Its history will be removed from this device."
   },
-  "app.agent-window.chat.today": {
-    "message": "Today"
+  "app.agent-window.chat.delete": {
+    "message": "Delete"
   },
-  "app.agent-window.chat.earlier": {
-    "message": "Earlier"
+  "app.agent-window.chat.cancel": {
+    "message": "Cancel"
   },
-  "app.agent-window.chat.toggle-sidebar": {
-    "message": "Toggle conversations"
+  "app.agent-window.chat.save": {
+    "message": "Save"
   },
-  "app.agent-window.chat.settings": {
-    "message": "Settings"
-  },
-  "app.agent-window.chat.guide": {
-    "message": "Agent guide"
-  },
-  "app.agent-window.chat.guide-task-title": {
-    "message": "Start with a task"
-  },
-  "app.agent-window.chat.guide-task-body": {
-    "message": "Create a task or choose a suggestion, then describe the result you want. Choose a text model configured in launcher AI settings before sending."
-  },
-  "app.agent-window.chat.guide-instance-title": {
-    "message": "Choose the scope"
-  },
-  "app.agent-window.chat.guide-instance-body": {
-    "message": "Select an instance when your request concerns its mods, logs or worlds. Your instance and model choices are saved with each request."
-  },
-  "app.agent-window.chat.guide-queue-title": {
-    "message": "Understand the queue"
-  },
-  "app.agent-window.chat.guide-queue-body": {
-    "message": "The task panel shows requests waiting for the execution service. Queued requests have not run; you can remove them. Interrupted requests are kept in history and do not restart automatically."
-  },
-  "app.agent-window.chat.guide-permissions-title": {
-    "message": "Review permissions"
-  },
-  "app.agent-window.chat.guide-permissions-body": {
-    "message": "Open Settings to review Full access and Interface control. Full access permits high-impact actions such as deletion. Enable Interface control only when you want the agent to interact with the launcher interface."
-  },
-  "app.agent-window.chat.task-panel": {
-    "message": "Task panel"
-  },
-  "app.agent-window.chat.close-panel": {
-    "message": "Close task panel"
-  },
-  "app.agent-window.chat.untitled": {
-    "message": "New task"
-  },
-  "app.agent-window.chat.welcome": {
-    "message": "What would you like to do?"
-  },
-  "app.agent-window.chat.suggest-check": {
-    "message": "Check updates"
-  },
-  "app.agent-window.chat.suggest-crash": {
-    "message": "Diagnose a crash"
-  },
-  "app.agent-window.chat.suggest-backup": {
-    "message": "Back up worlds"
-  },
-  "app.agent-window.chat.prompt-check": {
-    "message": "Check the current instance for mod updates and show me a change plan first."
-  },
-  "app.agent-window.chat.prompt-crash": {
-    "message": "Analyze the current instance’s latest crash, identify the cause and suggest a fix."
-  },
-  "app.agent-window.chat.prompt-backup": {
-    "message": "Help me back up the current instance’s game worlds."
-  },
-  "app.agent-window.chat.prompt": {
-    "message": "Describe the task you want to complete…"
-  },
-  "app.agent-window.chat.message-label": {
-    "message": "Message"
-  },
-  "app.agent-window.chat.send": {
-    "message": "Send message"
-  },
-  "app.agent-window.chat.stop": {
-    "message": "Cancel queued request"
-  },
-  "app.agent-window.chat.model": {
-    "message": "Select model"
-  },
-  "app.agent-window.chat.no-model": {
-    "message": "Select model"
-  },
-  "app.agent-window.chat.model-search": {
-    "message": "Search models or providers"
-  },
-  "app.agent-window.chat.no-models": {
-    "message": "No models available"
-  },
-  "app.agent-window.chat.configure-model": {
-    "message": "Enable a provider and models in the launcher’s AI settings."
-  },
-  "app.agent-window.chat.no-model-matches": {
-    "message": "No matching models"
-  },
-  "app.agent-window.chat.instance": {
-    "message": "Select instance"
-  },
-  "app.agent-window.chat.all-launcher": {
-    "message": "Entire launcher"
-  },
-  "app.agent-window.chat.all-launcher-hint": {
-    "message": "Not limited to one instance"
-  },
-  "app.agent-window.chat.no-instances": {
-    "message": "No instances available"
-  },
-  "app.agent-window.chat.instance-search": {
-    "message": "Search instances"
-  },
-  "app.agent-window.chat.no-instance-matches": {
-    "message": "No matching instances"
-  },
-  "app.agent-window.chat.waiting": {
-    "message": "Added to the local queue"
-  },
-  "app.agent-window.chat.execution-disconnected": {
-    "message": "Execution service is not connected"
-  },
-  "app.agent-window.chat.waiting-hint": {
-    "message": "Your request is saved. Execution has not started."
-  },
-  "app.agent-window.chat.stopped": {
-    "message": "Queued request cancelled"
-  },
-  "app.agent-window.chat.interrupted": {
-    "message": "Previous queue interrupted"
-  },
-  "app.agent-window.chat.queued": {
-    "message": "Pending requests"
-  },
-  "app.agent-window.chat.queued-empty": {
-    "message": "No pending requests"
-  },
-  "app.agent-window.chat.plan": {
-    "message": "Execution plan"
-  },
-  "app.agent-window.chat.no-plan": {
-    "message": "The plan will appear when the task starts"
-  },
-  "app.agent-window.chat.tools": {
-    "message": "Tool calls"
-  },
-  "app.agent-window.chat.no-tools": {
-    "message": "No tool calls yet"
-  },
-  "app.agent-window.chat.context": {
-    "message": "Task context"
-  },
-  "app.agent-window.chat.provider": {
-    "message": "Provider"
-  },
-  "app.agent-window.chat.model-label": {
-    "message": "Model"
-  },
-  "app.agent-window.chat.unselected": {
-    "message": "Not selected"
-  },
-  "app.agent-window.chat.context-error": {
-    "message": "Could not load launcher configuration"
-  },
-  "app.agent-window.chat.retry": {
-    "message": "Retry"
+  "app.agent-window.chat.name": {
+    "message": "Name"
   },
   "app.agent-window.chat.close": {
     "message": "Close"
+  },
+  "app.agent-window.chat.context-error": {
+    "message": "Could not load launcher configuration"
   },
   "app.agent-window.chat.storage-error": {
     "message": "Could not save the conversation. Check available storage. Your input is kept."
@@ -233,104 +524,20 @@
   "app.agent-window.chat.storage-load-error": {
     "message": "Could not read saved conversations. New messages may not be saved."
   },
-  "app.agent-window.chat.select-model-first": {
-    "message": "Select an available model first"
-  },
-  "app.agent-window.chat.ai-disabled": {
-    "message": "AI is disabled in the launcher"
-  },
-  "app.agent-window.chat.ai-disabled-hint": {
-    "message": "Enable AI in launcher settings to select a model."
-  },
-  "app.agent-window.chat.shortcut": {
-    "message": "Enter to send · Shift + Enter for a new line"
-  },
-  "app.agent-window.chat.local-history": {
-    "message": "Conversations stay on this device"
-  },
-  "app.agent-window.chat.rename": {
-    "message": "Rename conversation"
-  },
-  "app.agent-window.chat.delete-chat": {
-    "message": "Delete conversation"
-  },
-  "app.agent-window.chat.delete-title": {
-    "message": "Delete this conversation?"
-  },
-  "app.agent-window.chat.delete-body": {
-    "message": "This conversation’s records will be removed from this device."
-  },
-  "app.agent-window.chat.cancel": {
-    "message": "Cancel"
-  },
-  "app.agent-window.chat.delete": {
-    "message": "Delete"
-  },
-  "app.agent-window.chat.name": {
-    "message": "Name"
-  },
-  "app.agent-window.chat.save": {
-    "message": "Save"
-  },
-  "app.agent-window.chat.more": {
-    "message": "More actions"
-  },
-  "app.agent-window.chat.no-context": {
-    "message": "No instance selected"
-  },
-  "app.agent-window.chat.byok": {
-    "message": "Use your own model credentials"
-  },
-  "app.agent-window.chat.state": {
-    "message": "Status"
-  },
-  "app.agent-window.chat.details": {
-    "message": "View task"
-  },
-  "app.agent-window.chat.source": {
-    "message": "Launcher configuration"
-  },
-  "app.agent-window.chat.copied": {
-    "message": "Message copied"
-  },
-  "app.agent-window.chat.copy": {
-    "message": "Copy message"
-  },
-  "app.agent-window.chat.copy-error": {
-    "message": "Could not copy message"
-  },
-  "app.agent-window.chat.context-removed": {
-    "message": "This instance is currently unavailable"
-  },
-  "app.agent-window.chat.model-removed": {
-    "message": "This model is currently unavailable"
-  },
   "app.agent-window.chat.storage-recovery": {
     "message": "Saved history could not be read. Export it before starting a new history."
-  },
-  "app.agent-window.chat.export-history": {
-    "message": "Export saved history"
-  },
-  "app.agent-window.chat.reset-history": {
-    "message": "Start new history"
-  },
-  "app.agent-window.chat.export-draft": {
-    "message": "Export draft"
   },
   "app.agent-window.chat.storage-export-error": {
     "message": "Could not export saved history. Your original data has been kept."
   },
+  "app.agent-window.chat.reset-history": {
+    "message": "Start new history"
+  },
   "app.agent-window.chat.reset-history-warning": {
     "message": "The saved history will be replaced. Export a backup first. Your current draft will be kept."
   },
-  "app.agent-window.chat.history-retention": {
-    "message": "Older completed requests may be removed to make room. Drafts and waiting requests are kept."
-  },
-  "app.agent-window.chat.window-reveal-error": {
-    "message": "Could not show the window. Reopen it from the launcher."
-  },
-  "app.agent-window.chat.window-action-error": {
-    "message": "Window action failed"
+  "app.agent-window.chat.export-draft": {
+    "message": "Export draft"
   },
   "app.agent-window.open": {
     "message": "Open agent window"

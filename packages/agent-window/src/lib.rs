@@ -10,12 +10,43 @@ pub const URI_SCHEME: &str = "axolotl-agent";
 
 const WINDOW_URL: &str = "axolotl-agent://localhost/";
 const HTML: &str = include_str!("index.html");
-const CSS: &str = include_str!("window.css");
-const JS: &str = include_str!("window.js");
-const APP_JS: &str = include_str!("app.js");
-const STATE_JS: &str = include_str!("state.js");
-const MESSAGES_JS: &str = include_str!("messages.js");
-const ICON: &[u8] = include_bytes!("../../assets/branding/axolotl.png");
+
+macro_rules! script {
+    ($name:literal) => {
+        (
+            concat!("/", $name),
+            "text/javascript",
+            include_bytes!($name),
+        )
+    };
+}
+
+/// Every file the window may load besides the entry document. Nothing else,
+/// including the filesystem, is reachable through the protocol.
+const ASSETS: &[(&str, &str, &[u8])] = &[
+    ("/window.css", "text/css", include_bytes!("window.css")),
+    script!("window.js"),
+    script!("app.js"),
+    script!("agent.js"),
+    script!("demo-flows.js"),
+    script!("demo-runtime.js"),
+    script!("dom.js"),
+    script!("messages.js"),
+    script!("motion.js"),
+    script!("session.js"),
+    script!("state.js"),
+    script!("view-composer.js"),
+    script!("view-home.js"),
+    script!("view-overlays.js"),
+    script!("view-panel.js"),
+    script!("view-sidebar.js"),
+    script!("view-transcript.js"),
+    (
+        "/axolotl.png",
+        "image/png",
+        include_bytes!("../../assets/branding/axolotl.png"),
+    ),
+];
 
 #[derive(Clone, Deserialize, Serialize)]
 #[serde(default)]
@@ -432,29 +463,12 @@ pub fn asset_response(
             "/" | "/index.html" => {
                 (StatusCode::OK, "text/html", HTML.as_bytes().to_vec())
             }
-            "/window.css" => {
-                (StatusCode::OK, "text/css", CSS.as_bytes().to_vec())
-            }
-            "/window.js" => {
-                (StatusCode::OK, "text/javascript", JS.as_bytes().to_vec())
-            }
-            "/app.js" => (
-                StatusCode::OK,
-                "text/javascript",
-                APP_JS.as_bytes().to_vec(),
+            path => ASSETS.iter().find(|(name, ..)| *name == path).map_or(
+                (StatusCode::NOT_FOUND, "text/plain", Vec::new()),
+                |(_, content_type, body)| {
+                    (StatusCode::OK, *content_type, body.to_vec())
+                },
             ),
-            "/state.js" => (
-                StatusCode::OK,
-                "text/javascript",
-                STATE_JS.as_bytes().to_vec(),
-            ),
-            "/messages.js" => (
-                StatusCode::OK,
-                "text/javascript",
-                MESSAGES_JS.as_bytes().to_vec(),
-            ),
-            "/axolotl.png" => (StatusCode::OK, "image/png", ICON.to_vec()),
-            _ => (StatusCode::NOT_FOUND, "text/plain", Vec::new()),
         }
     };
 
@@ -756,19 +770,15 @@ mod tests {
             asset_response("main", &request).status(),
             StatusCode::FORBIDDEN
         );
-        for (path, mime) in [
-            ("/window.css", "text/css; charset=utf-8"),
-            ("/window.js", "text/javascript; charset=utf-8"),
-            ("/app.js", "text/javascript; charset=utf-8"),
-            ("/state.js", "text/javascript; charset=utf-8"),
-            ("/messages.js", "text/javascript; charset=utf-8"),
-            ("/axolotl.png", "image/png; charset=utf-8"),
-        ] {
+        for (path, mime, _) in ASSETS {
             let request =
-                Request::builder().uri(path).body(Vec::new()).unwrap();
+                Request::builder().uri(*path).body(Vec::new()).unwrap();
             let response = asset_response(WINDOW_LABEL, &request);
             assert_eq!(response.status(), StatusCode::OK);
-            assert_eq!(response.headers()["content-type"], mime);
+            assert_eq!(
+                response.headers()["content-type"],
+                format!("{mime}; charset=utf-8").as_str()
+            );
             assert!(!response.body().is_empty());
         }
         for (method, path, status) in [
@@ -781,6 +791,21 @@ mod tests {
                 .body(Vec::new())
                 .unwrap();
             assert_eq!(asset_response(WINDOW_LABEL, &request).status(), status);
+        }
+    }
+
+    #[test]
+    fn every_window_source_file_is_served() {
+        let source = concat!(env!("CARGO_MANIFEST_DIR"), "/src");
+        for entry in std::fs::read_dir(source).unwrap() {
+            let name = entry.unwrap().file_name().into_string().unwrap();
+            if name.ends_with(".js") || name.ends_with(".css") {
+                let path = format!("/{name}");
+                assert!(
+                    ASSETS.iter().any(|(served, ..)| *served == path),
+                    "{name} is not in ASSETS"
+                );
+            }
         }
     }
 

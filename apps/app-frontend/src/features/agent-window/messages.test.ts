@@ -3,7 +3,7 @@ import { afterEach, expect, it, vi } from 'vitest'
 import { dateLabel, setLocale, text } from '../../../../../packages/agent-window/src/messages.js'
 import english from '../../locales/en-US/index.json'
 import chinese from '../../locales/zh-CN/index.json'
-import { agentWindowMessages } from './messages'
+import { agentWindowMessages, formatAgentWindowMessages } from './messages'
 
 vi.mock('@modrinth/ui', () => ({ defineMessages: (messages: unknown) => messages }))
 
@@ -47,4 +47,24 @@ it('uses the formatted host catalog and replaces it when the locale changes', ()
     expect(text('unknown-message')).toBe('unknown-message')
     setLocale('en-US')
     expect(text('newChat')).toBe('newChat')
+})
+
+it('fills simple arguments and leaves unknown ones for the reader to notice', () => {
+    setLocale('en-US', { stepsDone: '{count} steps', toastDone: '“{title}” is done' })
+    expect(text('stepsDone', { count: 3 })).toBe('3 steps')
+    expect(text('toastDone', { title: '{count}' })).toBe('“{count}” is done')
+    expect(text('toastDone', {})).toBe('“{title}” is done')
+})
+
+it('keeps argument placeholders when the launcher formats the catalog', () => {
+    const format = vi.fn(
+        (message: { defaultMessage: string }, values: Record<string, unknown> = {}) =>
+            message.defaultMessage.replace(/\{(\w+)\}/g, (_, name: string) => String(values[name])),
+    )
+    const catalog = formatAgentWindowMessages(format)
+    expect(Object.keys(catalog)).toEqual(Object.keys(agentWindowMessages))
+    expect(catalog.applyingProgress).toBe('Applying changes · {done}/{total}')
+    expect(catalog.newChat).toBe('New task')
+    setLocale('en-US', catalog)
+    expect(text('applyingProgress', { done: 1, total: 2 })).toBe('Applying changes · 1/2')
 })

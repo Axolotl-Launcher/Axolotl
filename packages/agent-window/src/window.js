@@ -35,6 +35,28 @@
     let appearanceRequest = 0
     let appearanceFlight
 
+    // Text on accent-coloured buttons: dark on light accents, white otherwise.
+    // The launcher sends resolved colours as rgb() or hex.
+    function contrastText(color) {
+        const value = String(color || '').trim()
+        let channels
+        const hex = value.match(/^#([\da-f]{3}|[\da-f]{6})$/i)
+        if (hex) {
+            const digits = hex[1].length === 3 ? [...hex[1]].map((c) => c + c) : hex[1].match(/../g)
+            channels = digits.map((part) => parseInt(part, 16))
+        } else {
+            const rgb = value.match(/^rgba?\(\s*([\d.]+)[\s,]+([\d.]+)[\s,]+([\d.]+)/i)
+            if (rgb) channels = rgb.slice(1, 4).map(Number)
+        }
+        if (!channels) return null
+        const [r, g, b] = channels.map((channel) => {
+            const c = channel / 255
+            return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4
+        })
+        // Above ~0.18 relative luminance, dark text has the higher contrast.
+        return 0.2126 * r + 0.7152 * g + 0.0722 * b > 0.18 ? '#0b0d10' : '#ffffff'
+    }
+
     function showError(error) {
         const prefix = appearance?.messages?.windowActionError
         errorBox.textContent = prefix ? `${prefix}: ${String(error)}` : String(error)
@@ -95,6 +117,9 @@
                         )
                     }
                 }
+                const onAccent = contrastText(appearance.accent)
+                if (onAccent)
+                    document.documentElement.style.setProperty('--agent-on-accent', onAccent)
                 for (const key of ['scrollbar', 'scrollbar_track']) {
                     if (CSS.supports('color', appearance[key])) {
                         document.documentElement.style.setProperty(

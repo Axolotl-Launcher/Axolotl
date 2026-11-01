@@ -1,272 +1,157 @@
 import {
+    applyEvent,
+    beginApply,
+    createRuntime,
+    declinePlan,
+    pendingPlan,
+    stopRun,
+    supersedePlan,
+} from './agent.js'
+import { element, h, icon } from './dom.js'
+import { setLocale, text } from './messages.js'
+import { animate, morph, reducedMotion, ScrollFollower } from './motion.js'
+import {
+    currentThread,
+    findThread,
+    findTurn,
+    firstModel,
+    instanceChoice,
+    isPreview,
+    modelChoice,
+    modelsAvailable,
+    session,
+} from './session.js'
+import {
+    ACTIVE_STATUSES,
     activeThread,
-    commitStore,
     initialStore,
+    lastTurn,
+    LEGACY_STORAGE_KEY,
     loadStore,
+    newRun,
     newThread,
+    newTurn,
     saveStore,
     STORAGE_KEY,
 } from './state.js'
-import { dateLabel, setLocale, text } from './messages.js'
+import { placeComposer, renderApprovalBar, renderComposer, resizeInput } from './view-composer.js'
+import { renderHelp, renderHome } from './view-home.js'
+import {
+    acceptConfirm,
+    closeMenu,
+    closePicker,
+    confirm,
+    confirmBusy,
+    dialogError,
+    menuItem,
+    openDialog,
+    openMenu,
+    openPicker,
+    pickerKeydown,
+    pickerOpen,
+    renderPicker,
+    renderSettings,
+    toast,
+} from './view-overlays.js'
+import { renderPanel, renderProgressRing, stateLabel } from './view-panel.js'
+import { renderSidebar } from './view-sidebar.js'
+import {
+    renderTranscript,
+    syncTurn,
+    toggleActivity,
+    turnNode,
+    updateElapsed,
+} from './view-transcript.js'
 
-const element = (id) => document.getElementById(id)
-function node(tag, className = '', children = []) {
-    const result = document.createElement(tag)
-    result.className = className
-    result.append(...(Array.isArray(children) ? children : [children]))
-    return result
-}
-function icon(name) {
-    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
-    svg.setAttribute('aria-hidden', 'true')
-    const use = document.createElementNS('http://www.w3.org/2000/svg', 'use')
-    use.setAttribute('href', `#i-${name}`)
-    svg.append(use)
-    return svg
-}
-function button(className, label, data, children = label) {
-    const result = node('button', className, children)
-    result.type = 'button'
-    if (label) {
-        result.setAttribute('aria-label', label)
-        result.title = label
-    }
-    Object.assign(result.dataset, data)
-    return result
-}
-let store
-let loadError = false
-let storageError = false
+const NARROW = 760
+// Below this width the progress panel floats over the conversation.
+const WIDE = 1100
+const MAX_ATTACHMENTS = 10
+
 try {
-    store = loadStore()
+    session.store = loadStore()
 } catch {
-    store = initialStore()
-    loadError = true
+    session.store = initialStore()
+    session.loadError = true
 }
-if (window.innerWidth < 760) store.sidebarOpen = false
-const displayedMessages = new Set(
-    store.threads.flatMap((thread) => thread.messages.map((message) => message.id)),
-)
-let firstRender = true
-let context = { ai_enabled: false, providers: [], instances: [], execution_available: false }
-let loading = true
-let contextError = false
+
+let renderedThread = null
+let disposed = false
+let booted = false
+let persistTimer = 0
 let contextRequest = 0
 let contextFlight = null
-let disposed = false
-let permissionPolicy = { full_access: false, computer_use: false }
-let permissionsLoading = false
-let permissionsSaving = false
-let permissionReadError = false
 let permissionRequest = 0
-let search = ''
-let taskOpen = false
-let pickerKind = null
-let editKind = null
-let noticeTimer
+let ticker = 0
+const follower = new ScrollFollower(element('message-scroll'), () => renderJump())
 
-const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)')
-const panelAnimations = new Map()
-const contentAnimations = new Map()
-const motionCurve = () =>
-    getComputedStyle(document.documentElement).getPropertyValue('--ease-out').trim()
-function cancelContentMotion() {
-    for (const animation of contentAnimations.values()) animation.cancel()
-    contentAnimations.clear()
-}
-function animateContent(node, frames, duration = 200) {
-    contentAnimations.get(node)?.cancel()
-    if (reducedMotion.matches || disposed || !node.getClientRects().length) return
-    const animation = node.animate(frames, { duration, easing: motionCurve() })
-    contentAnimations.set(node, animation)
-    animation.finished
-        .then(() => {
-            if (contentAnimations.get(node) === animation) contentAnimations.delete(node)
-        })
-        .catch(() => {})
-}
-function composerPosition() {
-    return document.querySelector('.composer-wrap').getBoundingClientRect()
-}
-function moveComposer(previous) {
-    const node = document.querySelector('.composer-wrap')
-    const next = node.getBoundingClientRect()
-    const x = previous.left - next.left
-    const y = previous.top - next.top
-    if (Math.abs(x) + Math.abs(y) > 1)
-        animateContent(
-            node,
-            [{ transform: `translate(${x}px, ${y}px)` }, { transform: 'translate(0, 0)' }],
-            240,
-        )
-}
-function finishPanel(node, animation) {
-    if (panelAnimations.get(node)?.animation !== animation) return
-    panelAnimations.delete(node)
-    for (const property of ['position', 'left', 'top', 'width', 'height', 'display', 'z-index'])
-        node.style.removeProperty(property)
-    node.removeAttribute('data-motion')
-    if (node.id === 'task-panel') node.hidden = !taskOpen
-    node.inert = node.id === 'task-panel' ? !taskOpen : !store.sidebarOpen
-}
-function settlePanels() {
-    for (const [node, state] of panelAnimations) {
-        state.animation.cancel()
-        finishPanel(node, state.animation)
-    }
-}
-function transitionWorkspace(change, animate = true) {
-    const panels = [element('sidebar'), element('task-panel')]
-    const previous = panels.map((node) => ({
-        node,
-        visible: !!node.getClientRects().length,
-        rect: node.getBoundingClientRect(),
-        opacity: getComputedStyle(node).opacity,
-    }))
-    const previousComposer = composerPosition()
-    const scroll = element('message-scroll')
-    const previousScroll = scroll.getBoundingClientRect()
-    settlePanels()
-    cancelContentMotion()
-    change()
-    if (!animate || reducedMotion.matches || disposed) return
-    for (const before of previous) {
-        const { node, rect } = before
-        const visible = !!node.getClientRects().length
-        if (!visible && !before.visible) continue
-        const closing = !visible
-        const nextRect = visible ? node.getBoundingClientRect() : rect
-        const direction = node.id === 'sidebar' ? -1 : 1
-        let from = before.visible
-            ? rect.left - nextRect.left
-            : direction * (window.innerWidth < 760 ? nextRect.width : 28)
-        let to = 0
-        if (!closing && before.visible && Math.abs(from) < 1 && Number(before.opacity) > 0.99)
-            continue
-        if (closing) {
-            node.hidden = false
-            Object.assign(node.style, {
-                position: 'fixed',
-                left: `${rect.left}px`,
-                top: `${rect.top}px`,
-                width: `${rect.width}px`,
-                height: `${rect.height}px`,
-                display: 'flex',
-                zIndex: '15',
-            })
-            from = 0
-            to = direction * (window.innerWidth < 760 ? rect.width : 36)
-        }
-        node.inert = closing
-        node.dataset.motion = closing ? 'closing' : 'opening'
-        const animation = node.animate(
-            [
-                {
-                    transform: `translateX(${from}px)`,
-                    opacity: before.visible ? before.opacity : 0,
-                },
-                { transform: `translateX(${to}px)`, opacity: closing ? 0 : 1 },
-            ],
-            { duration: closing ? 160 : 240, easing: motionCurve(), fill: 'both' },
-        )
-        panelAnimations.set(node, { animation, closing })
-        animation.finished
-            .then(() => {
-                animation.cancel()
-                finishPanel(node, animation)
-            })
-            .catch(() => {})
-    }
-    const nextScroll = scroll.getBoundingClientRect()
-    const shift =
-        previousScroll.left + previousScroll.width / 2 - nextScroll.left - nextScroll.width / 2
-    if (Math.abs(shift) > 1)
-        animateContent(
-            scroll,
-            [{ transform: `translateX(${shift}px)` }, { transform: 'translateX(0)' }],
-            240,
-        )
-    if (
-        document.querySelector('.composer-dock').parentElement ===
-        document.querySelector('.conversation')
-    )
-        moveComposer(previousComposer)
-}
-reducedMotion.addEventListener('change', () => {
-    if (reducedMotion.matches) {
-        settlePanels()
-        cancelContentMotion()
-    }
-})
+// ---------- persistence ----------
 
-function notify(message) {
-    const dialog = [...document.querySelectorAll('dialog[open]')].at(-1)
-    const error = dialog?.querySelector('[data-dialog-error]')
-    if (error) {
-        error.textContent = message
-        error.hidden = false
-        return
-    }
-    clearTimeout(noticeTimer)
-    element('notification').textContent = message
-    element('notification').hidden = false
-    noticeTimer = setTimeout(() => {
-        element('notification').hidden = true
-    }, 5000)
-}
-function openDialog(id) {
-    const dialog = element(id)
-    const error = dialog.querySelector('[data-dialog-error]')
-    if (error) {
-        error.textContent = ''
-        error.hidden = true
-    }
-    dialog.showModal()
-}
-function closeDialog(dialog) {
-    if (!permissionsSaving) dialog.close()
-}
-function update(change, { renderView = true, motion = true } = {}) {
-    const previousId = store.activeId
-    const wasEmpty = !activeThread(store).messages.length
-    const previousComposer = composerPosition()
-    const next = structuredClone(store)
+// User actions are all-or-nothing: if history cannot be saved, nothing changes
+// and the draft stays in the composer.
+function commit(change) {
+    const next = structuredClone(session.store)
     change(next, activeThread(next))
     try {
-        if (loadError) throw new Error('Saved history requires recovery')
-        store = commitStore(next)
-        storageError = false
+        if (session.loadError) throw new Error('Saved history requires recovery')
+        session.store = saveStore(next)
+        clearTimeout(persistTimer)
+        persistTimer = 0
+        session.storageError = false
+        return true
     } catch {
-        storageError = true
-        renderStorageBanner()
-        notify(text('storageError'))
+        session.storageError = true
+        renderBanners()
+        notify(text('storageError'), 'error')
         return false
     }
-    if (renderView) {
-        render()
-        if (
-            motion &&
-            (previousId !== store.activeId || wasEmpty !== !activeThread(store).messages.length)
-        ) {
-            moveComposer(previousComposer)
-            animateContent(element('message-scroll'), [{ opacity: 0.55 }, { opacity: 1 }], 160)
+}
+
+// Agent events must never be lost because storage is full, so they change the
+// live store and are saved shortly after.
+function persistSoon(delay = 400) {
+    if (!persistTimer) persistTimer = setTimeout(persistNow, delay)
+}
+
+function persistNow() {
+    clearTimeout(persistTimer)
+    persistTimer = 0
+    if (session.loadError) return
+    try {
+        session.store = saveStore(session.store)
+        if (session.storageError) {
+            session.storageError = false
+            renderBanners()
+        }
+    } catch {
+        if (!session.storageError) {
+            session.storageError = true
+            renderBanners()
+            notify(text('storageError'), 'error')
         }
     }
-    return true
 }
-function selectedModel(thread = activeThread(store)) {
-    const provider = context.providers.find(
-        (item) => item.provider_id === thread.selection?.provider_id,
+
+// ---------- rendering ----------
+
+function catalogReady() {
+    const messages = window.AgentHost?.appearance?.messages
+    return (
+        messages &&
+        typeof messages === 'object' &&
+        !Array.isArray(messages) &&
+        Object.keys(messages).length > 0
     )
-    const model = provider?.models.find((item) => item.id === thread.selection?.model_id)
-    return model ? { provider, model } : null
 }
-function selectedInstance(thread = activeThread(store)) {
-    return context.instances.find((item) => item.id === thread.instanceId)
+
+function showCatalogError() {
+    const error = element('window-error')
+    error.dataset.catalogError = 'true'
+    error.textContent =
+        'Agent window message catalog is unavailable. Reopen the window from the launcher.'
+    error.hidden = false
 }
-function waitingMessages(thread = activeThread(store)) {
-    return thread.messages.filter((message) => message.status === 'waiting')
-}
+
 function localize() {
     setLocale(
         window.AgentHost?.appearance?.locale || document.documentElement.lang,
@@ -283,317 +168,124 @@ function localize() {
         node.title = text(node.dataset.label)
     })
 }
-function renderList() {
-    const visible = store.threads
-        .filter((thread) => thread.messages.length || thread.draft || thread.title)
-        .filter((thread) =>
-            `${thread.title} ${thread.messages.map((message) => message.text).join(' ')}`
-                .toLocaleLowerCase()
-                .includes(search.toLocaleLowerCase()),
-        )
-        .sort((a, b) => b.updatedAt - a.updatedAt)
-    const today = new Date().toDateString()
-    let previousGroup
-    const rows = []
-    for (const thread of visible) {
-        const group = new Date(thread.updatedAt).toDateString() === today ? 'today' : 'earlier'
-        if (group !== previousGroup) rows.push(node('div', 'list-group', text(group)))
-        previousGroup = group
-        const selected = thread.id === store.activeId
-        const row = button(
-            `conversation-item${selected ? ' selected' : ''}`,
-            '',
-            { thread: thread.id },
-            [node('span', 'thread-name', thread.title || text('untitled'))],
-        )
-        row.setAttribute('aria-current', selected ? 'page' : 'false')
-        if (waitingMessages(thread).length) row.append(node('span', 'pending-dot'))
-        rows.push(row)
+
+function narrow() {
+    return window.innerWidth < NARROW
+}
+
+// The task list and the progress panel keep their saved open state on wide
+// windows. On small windows they become drawers over the conversation, open one
+// at a time and are never saved.
+let drawer = null
+
+function sidebarShown() {
+    return narrow() ? drawer === 'sidebar' : session.store.sidebarOpen
+}
+
+function panelShown() {
+    return window.innerWidth < WIDE ? drawer === 'panel' : session.store.panelOpen
+}
+
+function layout() {
+    const workspace = element('workspace')
+    const sidebar = sidebarShown()
+    const panel = panelShown()
+    workspace.classList.toggle('sidebar-collapsed', !sidebar)
+    workspace.classList.toggle('tasks-open', panel)
+    workspace.classList.toggle('drawer-open', drawer !== null)
+    element('sidebar-toggle').setAttribute('aria-expanded', String(sidebar))
+    element('task-toggle').setAttribute('aria-expanded', String(panel))
+    element('task-toggle').classList.toggle('is-active', panel)
+    element('sidebar').inert = !sidebar
+    element('task-panel').inert = !panel
+}
+
+function renderHeader() {
+    const thread = currentThread()
+    const last = lastTurn(thread)
+    const title = element('conversation-title')
+    title.textContent = thread.title || text('untitled')
+    element('conversation-more').hidden = !thread.turns.length && !thread.draft
+    const state = element('thread-state')
+    const status = last?.run.status
+    const show =
+        !!status &&
+        (ACTIVE_STATUSES.includes(status) || ['awaiting', 'failed', 'detached'].includes(status))
+    state.hidden = !show
+    if (show) {
+        state.dataset.status = status
+        state.textContent = stateLabel(status)
     }
-    element('conversation-list').replaceChildren(
-        ...(rows.length ? rows : [node('p', 'list-empty', text(search ? 'noResults' : 'noChats'))]),
-    )
 }
-function renderMessages() {
-    const thread = activeThread(store)
-    const empty = !thread.messages.length
-    const dock = document.querySelector('.composer-dock')
-    const emptyState = element('empty-state')
-    const conversation = document.querySelector('.conversation')
-    conversation.classList.toggle('is-empty', empty)
-    if (empty && dock.parentElement !== emptyState)
-        emptyState.insertBefore(dock, emptyState.querySelector('.suggestions'))
-    else if (!empty && dock.parentElement !== conversation) conversation.append(dock)
-    element('conversation-title').hidden = empty
-    element('empty-state').hidden = !empty
-    element('messages').hidden = !thread.messages.length
-    element('conversation-title').textContent = thread.title || text('untitled')
-    element('conversation-more').hidden = !thread.messages.length && !thread.draft
-    element('messages').replaceChildren(
-        ...thread.messages.map((message) => {
-            const waiting = message.status === 'waiting'
-            const state = node('div', `message-state${waiting ? ' is-waiting' : ''}`, [
-                icon(waiting ? 'clock' : 'stop'),
-                node(
-                    'span',
-                    '',
-                    text(
-                        waiting
-                            ? 'waiting'
-                            : message.status === 'interrupted'
-                              ? 'interrupted'
-                              : 'stopped',
-                    ),
-                ),
-            ])
-            if (waiting)
-                state.append(
-                    button('text-button', text('details'), { action: 'toggle-tasks' }),
-                    button('text-button', text('stop'), { cancelRequest: message.id }),
-                )
-            const article = node(
-                'article',
-                `message${displayedMessages.has(message.id) ? '' : ' message-arriving'}`,
-                [
-                    node('div', 'user-message', message.text),
-                    node('div', 'message-meta', [
-                        node('time', '', dateLabel(message.createdAt)),
-                        button(
-                            'icon-button copy-message',
-                            text('copy'),
-                            { copy: message.id },
-                            icon('copy'),
-                        ),
-                    ]),
-                    state,
-                ],
-            )
-            article.dataset.message = message.id
-            return article
-        }),
-    )
-}
-function renderComposer() {
-    const thread = activeThread(store)
-    const model = selectedModel()
-    const instance = selectedInstance()
-    element('instance-label').textContent =
-        instance?.name || (thread.instanceId ? text('contextRemoved') : text('allLauncher'))
-    element('model-label').textContent =
-        model?.model.name || (thread.selection ? text('modelRemoved') : text('noModel'))
-    element('model-button').title = model
-        ? `${model.provider.name} · ${model.model.name}`
-        : text('model')
-    element('selection-caption').textContent = model?.provider.name || ''
-    const input = element('message-input')
-    if (input.value !== thread.draft) input.value = thread.draft
-    resizeInput()
-    const button = element('send-button')
-    button.replaceChildren(icon('up'))
-    button.setAttribute('aria-label', text('send'))
-    button.title = text('send')
-    button.disabled = !thread.draft.trim()
-}
-function renderTasks() {
-    const thread = activeThread(store)
-    const pending = waitingMessages()
-    const taskContext = pending.at(-1) || thread
-    const model = selectedModel(taskContext)
-    const instance = selectedInstance(taskContext)
-    const heading = node('h3', '', text('queued'))
-    if (pending.length) heading.append(node('span', 'count', String(pending.length)))
-    const queue = node('section', 'task-section', [heading])
-    queue.append(
-        ...(pending.length
-            ? pending.map((message) =>
-                  node('div', 'pending-request', [
-                      icon('clock'),
-                      node('div', '', [
-                          node('p', '', message.text),
-                          node('span', '', text('executionDisconnected')),
-                      ]),
-                  ]),
-              )
-            : [node('p', 'panel-empty', text('queuedEmpty'))]),
-    )
-    const instanceCopy = node('div', '', [
-        node(
-            'strong',
-            '',
-            instance?.name ||
-                (taskContext.instanceId ? text('contextRemoved') : text('allLauncher')),
-        ),
-    ])
-    if (instance)
-        instanceCopy.append(
-            node('span', '', [instance.loader, instance.game_version].filter(Boolean).join(' · ')),
-        )
-    element('task-content').replaceChildren(
-        queue,
-        node('section', 'task-section context-section', [
-            node('h3', '', text('context')),
-            node('div', 'instance-summary', [icon('cube'), instanceCopy]),
-            node('dl', '', [
-                node('dt', '', text('provider')),
-                node('dd', '', model?.provider.name || text('unselected')),
-                node('dt', '', text('modelLabel')),
-                node('dd', '', model?.model.name || text('unselected')),
+
+function renderBanners() {
+    const banners = []
+    const banner = (tone, message, actions) =>
+        h('div', { class: 'banner', data: { tone } }, [
+            icon(tone === 'error' ? 'alert' : 'warning'),
+            h('span', { text: message }),
+            ...actions.map(([label, action]) =>
+                h('button', {
+                    type: 'button',
+                    class: 'text-button',
+                    text: label,
+                    data: { action },
+                }),
+            ),
+        ])
+    if (session.contextError)
+        banners.push(banner('warning', text('contextError'), [[text('retry'), 'refresh-context']]))
+    if (session.loadError)
+        banners.push(
+            banner('error', text('storageRecovery'), [
+                [text('exportHistory'), 'export-history'],
+                [text('resetHistory'), 'reset-history'],
+                [text('exportDraft'), 'export-draft'],
             ]),
-        ]),
-    )
-}
-function permissionsAvailable() {
-    return (
-        typeof window.AgentHost?.getPermissions === 'function' &&
-        typeof window.AgentHost?.setPermissions === 'function'
-    )
-}
-function renderSettings() {
-    const available = permissionsAvailable()
-    const busy = permissionsLoading || permissionsSaving
-    element('permission-full-access').checked = permissionPolicy.full_access
-    element('permission-full-access').disabled = !available || busy || permissionReadError
-    element('permission-computer-use').checked = permissionPolicy.computer_use
-    element('permission-computer-use').disabled =
-        !available || busy || permissionReadError || !permissionPolicy.full_access
-    element('permission-status').textContent = text(
-        !available
-            ? 'permissionUnavailable'
-            : permissionReadError
-              ? 'permissionError'
-              : permissionsLoading
-                ? 'permissionPending'
-                : 'permissionFuture',
-    )
-    element('permissions-confirm').disabled = busy
-    element('permissions-cancel').disabled = permissionsSaving
-    element('settings-dialog').querySelector('[data-action="close-dialog"]').disabled =
-        permissionsSaving
-}
-async function refreshPermissions() {
-    if (!permissionsAvailable() || permissionsSaving) {
-        renderSettings()
-        return
-    }
-    const request = ++permissionRequest
-    permissionsLoading = true
-    renderSettings()
-    try {
-        const policy = await window.AgentHost.getPermissions()
-        if (request !== permissionRequest || disposed) return
-        permissionPolicy = {
-            full_access: policy.full_access === true,
-            computer_use: policy.full_access === true && policy.computer_use === true,
-        }
-        permissionReadError = false
-    } catch {
-        if (request === permissionRequest) permissionReadError = true
-    } finally {
-        if (request === permissionRequest) {
-            permissionsLoading = false
-            renderSettings()
-        }
-    }
-}
-async function savePermissions(next) {
-    if (!permissionsAvailable() || permissionsSaving || permissionsLoading) return
-    ++permissionRequest
-    permissionsSaving = true
-    document.querySelectorAll('[data-dialog-error]').forEach((error) => {
-        error.hidden = true
-    })
-    renderSettings()
-    try {
-        const policy = await window.AgentHost.setPermissions(next)
-        if (disposed) return
-        permissionPolicy = {
-            full_access: policy.full_access === true,
-            computer_use: policy.full_access === true && policy.computer_use === true,
-        }
-        permissionReadError = false
-        element('permissions-risk-dialog').close()
-    } catch {
-        notify(text('permissionSaveError'))
-    } finally {
-        permissionsSaving = false
-        renderSettings()
-    }
-}
-function renderBanner() {
-    const banner = element('context-banner')
-    banner.hidden = !contextError && (context.ai_enabled || loading)
-    banner.replaceChildren(node('span', '', text(contextError ? 'contextError' : 'aiDisabled')))
-    if (contextError)
-        banner.append(button('text-button', text('retry'), { action: 'refresh-context' }))
-}
-function renderStorageBanner() {
-    const banner = element('storage-banner')
-    banner.hidden = !loadError && !storageError
-    banner.replaceChildren(node('span', '', text(loadError ? 'storageRecovery' : 'storageError')))
-    if (loadError)
-        banner.append(
-            button('text-button', text('exportHistory'), { action: 'export-history' }),
-            button('text-button', text('resetHistory'), { action: 'reset-history' }),
         )
-    else banner.append(button('text-button', text('retry'), { action: 'retry-storage' }))
-    banner.append(button('text-button', text('exportDraft'), { action: 'export-draft' }))
+    else if (session.storageError)
+        banners.push(
+            banner('error', text('storageError'), [
+                [text('retry'), 'retry-storage'],
+                [text('exportDraft'), 'export-draft'],
+            ]),
+        )
+    element('banners').replaceChildren(...banners)
 }
-function hasMessageCatalog() {
-    const messages = window.AgentHost?.appearance?.messages
-    return (
-        messages &&
-        typeof messages === 'object' &&
-        !Array.isArray(messages) &&
-        Object.keys(messages).length > 0
-    )
+
+function renderJump() {
+    const thread = currentThread()
+    element('jump-latest').hidden = follower.pinned || !thread.turns.length
 }
-function showCatalogError() {
-    const error = element('window-error')
-    error.dataset.catalogError = 'true'
-    error.textContent =
-        'Agent window message catalog is unavailable. Reopen the window from the launcher.'
-    error.hidden = false
-}
-function exportFile(name, content) {
-    const url = URL.createObjectURL(new Blob([content], { type: 'text/plain;charset=utf-8' }))
-    const link = document.createElement('a')
-    link.href = url
-    link.download = name
-    link.click()
-    setTimeout(() => URL.revokeObjectURL(url), 1000)
-}
-function exportHistory() {
-    try {
-        const raw = localStorage.getItem(STORAGE_KEY)
-        if (raw === null) throw new Error('History unavailable')
-        exportFile('axolotl-agent-history.json', raw)
-    } catch {
-        notify(text('storageExportError'))
+
+// Reconciles the transcript with the active thread: a different thread is
+// rebuilt, the same thread is patched so new turns can animate in.
+function syncTranscript(fresh = true) {
+    const thread = currentThread()
+    if (renderedThread !== thread.id) {
+        renderedThread = thread.id
+        renderTranscript(thread)
+        follower.pinned = true
+        requestAnimationFrame(() => follower.toBottom(false))
+    } else {
+        const ids = new Set(thread.turns.map((turn) => turn.id))
+        for (const node of element('messages').querySelectorAll(':scope > [data-turn]'))
+            if (!ids.has(node.dataset.turn)) node.remove()
+        for (const turn of thread.turns) syncTurn(thread, turn, turnNode(turn.id), fresh)
     }
+    element('empty-state').hidden = thread.turns.length > 0
+    element('messages').hidden = !thread.turns.length
+    observePlan()
+    renderJump()
 }
-function retryStorage(reset = false) {
-    if (loadError && !reset) return
-    try {
-        store = saveStore(store)
-        loadError = false
-        storageError = false
-        if (reset) element('storage-reset-dialog').close()
-        render()
-    } catch {
-        storageError = true
-        renderStorageBanner()
-        notify(text('storageError'))
-    }
-}
+
 function render() {
-    const catalogReady = hasMessageCatalog()
-    element('workspace').hidden = !catalogReady
-    element('guide-button').hidden = !catalogReady
-    element('settings-button').hidden = !catalogReady
-    if (!catalogReady) {
+    if (!catalogReady()) {
+        element('workspace').hidden = true
         showCatalogError()
         return false
     }
+    element('workspace').hidden = false
     const error = element('window-error')
     if (error.dataset.catalogError) {
         delete error.dataset.catalogError
@@ -601,43 +293,131 @@ function render() {
         error.hidden = true
     }
     localize()
-    element('workspace').classList.toggle('sidebar-collapsed', !store.sidebarOpen)
-    element('workspace').classList.toggle('tasks-open', taskOpen)
-    element('sidebar-toggle').setAttribute('aria-expanded', String(store.sidebarOpen))
-    element('task-toggle').setAttribute('aria-expanded', String(taskOpen))
-    element('task-toggle').classList.toggle('is-active', taskOpen)
-    element('task-panel').hidden = !taskOpen && !panelAnimations.has(element('task-panel'))
-    if (!panelAnimations.has(element('task-panel'))) element('task-panel').inert = !taskOpen
-    if (!panelAnimations.has(element('sidebar'))) element('sidebar').inert = !store.sidebarOpen
-    if (firstRender) {
-        const empty = element('empty-state')
-        empty.classList.add('first-arrival')
-        empty.addEventListener('animationend', () => empty.classList.remove('first-arrival'), {
-            once: true,
-        })
-    }
-    renderList()
-    renderMessages()
+    layout()
+    renderSidebar()
+    renderHeader()
+    placeComposer()
+    renderHome()
+    syncTranscript()
     renderComposer()
-    renderTasks()
+    renderPanel()
+    renderProgressRing()
+    renderBanners()
     renderSettings()
-    renderBanner()
-    renderStorageBanner()
-    for (const message of activeThread(store).messages) displayedMessages.add(message.id)
-    firstRender = false
+    element('preview-badge').hidden = !isPreview()
+    updateTicker()
     return true
 }
-function resizeInput() {
-    const input = element('message-input')
-    input.style.height = 'auto'
-    input.style.height = `${Math.min(180, Math.max(76, input.scrollHeight))}px`
+
+// Agent events arrive quickly; patch the affected turn once per frame.
+const dirtyTurns = new Map()
+let frame = 0
+function refreshTurn(threadId, turnId) {
+    dirtyTurns.set(turnId, threadId)
+    if (!frame) frame = requestAnimationFrame(flushTurns)
 }
+
+function flushTurns() {
+    frame = 0
+    const active = currentThread()
+    let touchedActive = false
+    for (const [turnId, threadId] of dirtyTurns) {
+        if (threadId !== active.id) continue
+        const turn = active.turns.find((entry) => entry.id === turnId)
+        if (turn) {
+            syncTurn(active, turn)
+            touchedActive = true
+        }
+    }
+    dirtyTurns.clear()
+    renderSidebar()
+    if (touchedActive) {
+        renderHeader()
+        renderComposer()
+        if (panelShown()) renderPanel()
+        renderProgressRing()
+        observePlan()
+        follower.follow()
+    }
+    updateTicker()
+}
+
+function updateTicker() {
+    const running = ACTIVE_STATUSES.includes(lastTurn(currentThread())?.run.status)
+    if (running && !ticker)
+        ticker = setInterval(() => {
+            const thread = currentThread()
+            const turn = lastTurn(thread)
+            const node = turn && turnNode(turn.id)?.querySelector('.run-status')
+            if (node && !node.hidden) updateElapsed(node, turn)
+        }, 1000)
+    else if (!running && ticker) {
+        clearInterval(ticker)
+        ticker = 0
+    }
+}
+
+// The approval bar above the composer appears while the plan's own buttons are
+// out of view, so the decision is always one click away.
+let planObserver = null
+let planVisible = true
+function observePlan() {
+    planObserver?.disconnect()
+    const last = lastTurn(currentThread())
+    const actions =
+        pendingPlan(last?.run) && turnNode(last.id)?.querySelector('.plan-card .plan-actions')
+    if (!actions) {
+        planVisible = true
+        renderApprovalBar(false)
+        return
+    }
+    planObserver = new IntersectionObserver(
+        ([entry]) => {
+            planVisible = entry.isIntersecting
+            renderApprovalBar(!planVisible)
+        },
+        { root: element('message-scroll'), threshold: 0.6 },
+    )
+    planObserver.observe(actions)
+    renderApprovalBar(!planVisible)
+}
+
+function notify(message, tone = 'info', action = null) {
+    if (tone === 'error' && dialogError(message)) return
+    toast(message, action, tone)
+}
+
+// ---------- context, runtime and permissions ----------
+
+function normalizeContext(value) {
+    return {
+        ai_enabled: value.ai_enabled === true,
+        providers: Array.isArray(value.providers)
+            ? value.providers.map((provider) => ({
+                  ...provider,
+                  models: Array.isArray(provider.models) ? provider.models : [],
+              }))
+            : [],
+        instances: Array.isArray(value.instances) ? value.instances : [],
+        execution_available: value.execution_available === true,
+    }
+}
+
+// New tasks start with the last model used, or the first one available, so
+// people who never opened the picker can still send.
+function fillSelection() {
+    if (!modelsAvailable()) return
+    const thread = currentThread()
+    if (thread.selection) return
+    const last = session.store.lastSelection
+    thread.selection = (modelChoice(last) && last) || firstModel()
+    persistSoon()
+}
+
 function refreshContext() {
-    if (disposed || !hasMessageCatalog() || !window.AgentHost?.getContext) return Promise.resolve()
+    if (disposed || !catalogReady() || !window.AgentHost?.getContext) return Promise.resolve()
     if (contextFlight) return contextFlight
     const request = ++contextRequest
-    loading = true
-    renderBanner()
     let timeout
     const flight = (async () => {
         try {
@@ -650,55 +430,31 @@ function refreshContext() {
                     )
                 }),
             ])
-            const next = structuredClone(result)
             if (request !== contextRequest || disposed) return
-            const normalized = {
-                ai_enabled: next.ai_enabled === true,
-                providers: Array.isArray(next.providers)
-                    ? next.providers.map((provider) => ({
-                          ...provider,
-                          models: Array.isArray(provider.models) ? provider.models : [],
-                      }))
-                    : [],
-                instances: Array.isArray(next.instances) ? next.instances : [],
-                execution_available: false,
-            }
-            const changed = JSON.stringify(context) !== JSON.stringify(normalized)
-            context = normalized
-            contextError = false
+            const next = normalizeContext(structuredClone(result))
+            const changed = JSON.stringify(next) !== JSON.stringify(session.context)
+            session.context = next
+            session.contextError = false
+            session.contextLoaded = true
+            fillSelection()
+            await ensureRuntime()
             if (changed) {
                 renderComposer()
-                renderTasks()
-                if (element('picker').matches(':popover-open')) {
+                if (panelShown()) renderPanel()
+                if (pickerOpen()) {
                     const list = element('picker-options')
-                    const focused = document.activeElement
-                    const selected = focused?.matches('[data-model]')
-                        ? { provider: focused.dataset.provider, model: focused.dataset.model }
-                        : focused?.matches('[data-instance]')
-                          ? { instance: focused.dataset.instance }
-                          : null
-                    const scrollTop = list.scrollTop
+                    const scroll = list.scrollTop
                     renderPicker()
-                    list.scrollTop = scrollTop
-                    if (selected) {
-                        const options = [...list.querySelectorAll('button')]
-                        const restored = options.find((option) =>
-                            selected.model !== undefined
-                                ? option.dataset.provider === selected.provider &&
-                                  option.dataset.model === selected.model
-                                : option.dataset.instance === selected.instance,
-                        )
-                        ;(restored || element('picker-search')).focus({ preventScroll: true })
-                    }
+                    list.scrollTop = scroll
                 }
             }
         } catch {
-            if (request === contextRequest && !disposed) contextError = true
+            if (request === contextRequest && !disposed) session.contextError = true
         } finally {
             clearTimeout(timeout)
             if (request === contextRequest && !disposed) {
-                loading = false
-                renderBanner()
+                renderBanners()
+                renderComposer()
             }
         }
     })().finally(() => {
@@ -707,417 +463,875 @@ function refreshContext() {
     contextFlight = flight
     return flight
 }
-function openPicker(kind) {
-    refreshContext()
-    const picker = element('picker')
-    if (picker.matches(':popover-open')) picker.hidePopover()
-    pickerKind = kind
-    const searchInput = element('picker-search')
-    searchInput.value = ''
-    searchInput.placeholder = text(kind === 'model' ? 'modelSearch' : 'instanceSearch')
-    searchInput.setAttribute('aria-label', searchInput.placeholder)
-    renderPicker()
-    const trigger = element(kind === 'model' ? 'model-button' : 'instance-button')
-    const rect = trigger.getBoundingClientRect()
-    const width = Math.min(kind === 'model' ? 340 : 320, window.innerWidth - 24)
-    picker.style.transformOrigin = kind === 'model' ? 'bottom right' : 'bottom left'
-    picker.style.width = `${width}px`
-    const targetLeft = kind === 'model' ? rect.right - width : rect.left
-    picker.style.left = `${Math.max(12, Math.min(targetLeft, window.innerWidth - width - 12))}px`
-    picker.style.top = 'auto'
-    picker.style.bottom = `${window.innerHeight - rect.top + 8}px`
-    picker.style.maxHeight = `${Math.max(150, rect.top - 24)}px`
-    picker.showPopover()
-    searchInput.focus()
-}
-function renderPicker() {
-    const query = element('picker-search').value.toLocaleLowerCase()
-    const thread = activeThread(store)
-    const options = []
-    const empty = (title, description) =>
-        node('div', 'picker-empty', [
-            node('strong', '', text(title)),
-            ...(description ? [node('p', '', text(description))] : []),
-        ])
-    if (pickerKind === 'model') {
-        if (!context.ai_enabled) options.push(empty('aiDisabled', 'aiDisabledHint'))
-        else
-            for (const provider of context.providers) {
-                const models = provider.models.filter((model) =>
-                    `${provider.name} ${model.name} ${model.id}`
-                        .toLocaleLowerCase()
-                        .includes(query),
-                )
-                if (!models.length) continue
-                options.push(node('div', 'picker-group', provider.name))
-                for (const model of models) {
-                    const option = button(
-                        'picker-option',
-                        '',
-                        { provider: provider.provider_id, model: model.id },
-                        [
-                            node('span', '', [
-                                node('strong', '', model.name),
-                                node('small', '', model.id),
-                            ]),
-                        ],
-                    )
-                    if (
-                        thread.selection?.provider_id === provider.provider_id &&
-                        thread.selection?.model_id === model.id
-                    )
-                        option.append(icon('check'))
-                    options.push(option)
-                }
-            }
-        if (!options.length)
-            options.push(
-                empty(query ? 'noModelMatches' : 'noModels', query ? null : 'configureModel'),
-            )
-    } else {
-        if (!query || text('allLauncher').toLocaleLowerCase().includes(query)) {
-            const option = button('picker-option', '', { instance: '' }, [
-                icon('cube'),
-                node('span', '', [
-                    node('strong', '', text('allLauncher')),
-                    node('small', '', text('allLauncherHint')),
-                ]),
-            ])
-            if (!thread.instanceId) option.append(icon('check'))
-            options.push(option)
-        }
-        const instances = context.instances.filter((instance) =>
-            `${instance.name} ${instance.game_version} ${instance.loader}`
-                .toLocaleLowerCase()
-                .includes(query),
-        )
-        for (const instance of instances) {
-            const option = button('picker-option', '', { instance: instance.id }, [
-                icon('cube'),
-                node('span', '', [
-                    node('strong', '', instance.name),
-                    node(
-                        'small',
-                        '',
-                        [instance.loader, instance.game_version].filter(Boolean).join(' · '),
-                    ),
-                ]),
-            ])
-            if (thread.instanceId === instance.id) option.append(icon('check'))
-            options.push(option)
-        }
-        if (!instances.length)
-            options.push(
-                node('div', 'picker-empty', text(query ? 'noInstanceMatches' : 'noInstances')),
-            )
-    }
-    element('picker-options').replaceChildren(...options)
-}
-function stopWaiting(messageId) {
-    update((next, thread) => {
-        for (const message of thread.messages)
-            if (message.id === messageId && message.status === 'waiting') message.status = 'stopped'
-    })
-    const message = [...element('messages').querySelectorAll('[data-message]')].find(
-        (node) => node.dataset.message === messageId,
-    )
-    if (message)
-        animateContent(
-            message.querySelector('.message-state'),
-            [
-                { opacity: 0.35, transform: 'translateY(2px)' },
-                { opacity: 1, transform: 'translateY(0)' },
-            ],
-            160,
-        )
-}
-function submit() {
-    const input = element('message-input')
-    const value = input.value.trim()
-    if (!value) return
-    if (!context.ai_enabled || !selectedModel()) {
-        openPicker('model')
-        return
-    }
-    const succeeded = update((next, thread) => {
-        thread.messages.push({
-            id: crypto.randomUUID(),
-            role: 'user',
-            text: value,
-            createdAt: Date.now(),
-            status: 'waiting',
-            instanceId: thread.instanceId,
-            selection: structuredClone(thread.selection),
+
+let runtimeFlight = null
+function ensureRuntime() {
+    const wantsNative = !!window.AgentHost?.runtime && session.context.execution_available
+    if (session.runtime && session.runtime.preview !== wantsNative) return Promise.resolve()
+    if (session.runtime && session.handles.size) return Promise.resolve()
+    runtimeFlight ||= createRuntime(window.AgentHost, session.context)
+        .then((runtime) => {
+            session.runtime = runtime
+            element('preview-badge').hidden = !isPreview()
+            renderComposer()
         })
-        if (!thread.title) thread.title = value.slice(0, 48)
-        thread.updatedAt = Date.now()
-        thread.draft = ''
-    })
-    if (succeeded) element('message-scroll').scrollTop = element('message-scroll').scrollHeight
+        .finally(() => {
+            runtimeFlight = null
+        })
+    return runtimeFlight
 }
-function createThread(motion = true) {
-    if (
-        !activeThread(store).messages.length &&
-        !activeThread(store).draft &&
-        !activeThread(store).title
-    ) {
-        element('message-input').focus()
+
+function permissionsAvailable() {
+    return (
+        typeof window.AgentHost?.getPermissions === 'function' &&
+        typeof window.AgentHost?.setPermissions === 'function'
+    )
+}
+
+function readPolicy(policy) {
+    return {
+        full_access: policy.full_access === true,
+        computer_use: policy.full_access === true && policy.computer_use === true,
+    }
+}
+
+async function refreshPermissions() {
+    if (!permissionsAvailable() || session.permissionsSaving) {
+        renderSettings()
         return
     }
-    if (
-        update(
-            (next) => {
-                const thread = newThread()
-                thread.selection = structuredClone(activeThread(next).selection)
-                next.threads.push(thread)
-                next.activeId = thread.id
-            },
-            { motion },
-        )
-    )
-        element('message-input').focus()
-}
-function openEdit(kind) {
-    element('conversation-menu').hidePopover()
-    editKind = kind
-    element('edit-title').textContent = text(kind === 'rename' ? 'rename' : 'deleteTitle')
-    element('rename-field').hidden = kind !== 'rename'
-    element('rename-input').required = kind === 'rename'
-    element('delete-description').hidden = kind !== 'delete'
-    element('edit-confirm').textContent = text(kind === 'rename' ? 'save' : 'delete')
-    element('edit-confirm').classList.toggle('destructive', kind === 'delete')
-    element('rename-input').value = activeThread(store).title || text('untitled')
-    openDialog('edit-dialog')
-    if (kind === 'rename') {
-        element('rename-input').focus()
-        element('rename-input').select()
+    const request = ++permissionRequest
+    session.permissionsLoading = true
+    renderSettings()
+    try {
+        const policy = await window.AgentHost.getPermissions()
+        if (request !== permissionRequest || disposed) return
+        session.permissions = readPolicy(policy)
+        session.permissionReadError = false
+    } catch {
+        if (request === permissionRequest) session.permissionReadError = true
+    } finally {
+        if (request === permissionRequest) {
+            session.permissionsLoading = false
+            renderSettings()
+        }
     }
 }
+
+async function savePermissions(next) {
+    if (!permissionsAvailable() || session.permissionsSaving || session.permissionsLoading)
+        return false
+    ++permissionRequest
+    session.permissionsSaving = true
+    document.querySelectorAll('[data-dialog-error]').forEach((error) => {
+        error.hidden = true
+    })
+    renderSettings()
+    try {
+        const policy = await window.AgentHost.setPermissions(next)
+        if (disposed) return false
+        session.permissions = readPolicy(policy)
+        session.permissionReadError = false
+        return true
+    } catch {
+        notify(text('permissionSaveError'), 'error')
+        return false
+    } finally {
+        session.permissionsSaving = false
+        renderSettings()
+        if (panelShown()) renderPanel()
+    }
+}
+
+// ---------- runs ----------
+
+function request(thread, turn, extra = {}) {
+    const index = thread.turns.findIndex((entry) => entry.id === turn.id)
+    return {
+        thread: { id: thread.id, title: thread.title },
+        turn: { id: turn.id, text: turn.text, attachments: structuredClone(turn.attachments) },
+        instance: instanceChoice(turn.instanceId),
+        instances: session.context.instances,
+        model: modelChoice(turn.selection),
+        history: structuredClone(thread.turns.slice(0, index)),
+        resume: structuredClone(turn.run.resume),
+        ...extra,
+    }
+}
+
+async function launch(threadId, turnId, mode) {
+    await ensureRuntime()
+    const found = findTurn(threadId, turnId)
+    if (!found || !session.runtime?.[mode]) return
+    const emit = (event) => onRuntimeEvent(threadId, turnId, event)
+    const extra =
+        mode === 'approve'
+            ? { planId: found.turn.run.items.findLast((item) => item.type === 'plan')?.plan.id }
+            : {}
+    try {
+        session.handles.set(
+            turnId,
+            session.runtime[mode](request(found.thread, found.turn, extra), emit),
+        )
+    } catch (error) {
+        emit({ type: 'error', title: text('runtimeError'), text: String(error), retryable: true })
+    }
+}
+
+function onRuntimeEvent(threadId, turnId, event) {
+    const found = findTurn(threadId, turnId)
+    if (!found) {
+        session.handles.get(turnId)?.stop()
+        session.handles.delete(turnId)
+        return
+    }
+    const { thread, turn } = found
+    const before = turn.run.status
+    if (event.type === 'title') {
+        if (!thread.titleEdited && event.title) thread.title = String(event.title).slice(0, 120)
+        renderHeader()
+    } else applyEvent(turn.run, event)
+    thread.updatedAt = Date.now()
+    persistSoon()
+    refreshTurn(threadId, turnId)
+    if (event.type === 'done' || event.type === 'error') {
+        session.handles.delete(turnId)
+        persistNow()
+        settle(thread.id, before)
+    }
+}
+
+// After a run settles, tell the user if they are looking elsewhere, and send
+// the next queued follow-up.
+function settle(threadId, before) {
+    const thread = findThread(threadId)
+    const turn = lastTurn(thread)
+    if (!thread || !turn) return
+    const status = turn.run.status
+    if (
+        status === 'done' &&
+        turn.run.items.some((item) => item.type === 'plan' && item.state === 'applied')
+    ) {
+        if (!session.store.introDismissed) {
+            session.store.introDismissed = true
+            persistSoon()
+        }
+    }
+    if (
+        status !== before &&
+        thread.id !== session.store.activeId &&
+        ['awaiting', 'done', 'failed'].includes(status)
+    ) {
+        const key =
+            status === 'awaiting'
+                ? 'toastAwaiting'
+                : status === 'failed'
+                  ? 'toastFailed'
+                  : 'toastDone'
+        notify(
+            text(key, { title: thread.title || text('untitled') }),
+            status === 'failed' ? 'error' : 'info',
+            {
+                label: text('view'),
+                run: () => selectThread(thread.id),
+            },
+        )
+    }
+    if (thread.queue.length && !ACTIVE_STATUSES.includes(status))
+        sendQueued(thread.id, thread.queue[0].id)
+}
+
+function startTurn(threadId, message) {
+    let created = null
+    const first = !findThread(threadId)?.turns.length
+    const change = () =>
+        commit((next) => {
+            const thread = next.threads.find((entry) => entry.id === threadId)
+            const last = lastTurn(thread)
+            if (last) supersedePlan(last.run)
+            const turn = newTurn(thread, message)
+            turn.run.preview = isPreview()
+            thread.turns.push(turn)
+            if (!thread.title) thread.title = message.text.replace(/\s+/g, ' ').slice(0, 48)
+            thread.updatedAt = Date.now()
+            if (thread.selection) next.lastSelection = structuredClone(thread.selection)
+            created = turn.id
+            message.apply?.(thread)
+        })
+    const done = () => {
+        if (!created) return false
+        render()
+        follower.toBottom(!first)
+        launch(threadId, created, 'start')
+        return true
+    }
+    if (first && threadId === session.store.activeId)
+        return morph(() => {
+            if (change()) render()
+        }, 'send').then(() => {
+            if (!created) return false
+            follower.toBottom(false)
+            launch(threadId, created, 'start')
+            return true
+        })
+    change()
+    return Promise.resolve(done())
+}
+
+async function submit() {
+    const thread = currentThread()
+    const value = element('message-input').value.trim()
+    if (!value) return
+    await ensureRuntime()
+    if (!isPreview() && !modelChoice(thread.selection)) {
+        openPicker('model', element('model-button'))
+        return
+    }
+    const attachments = structuredClone(thread.attachments)
+    const last = lastTurn(thread)
+    if (last && ACTIVE_STATUSES.includes(last.run.status)) {
+        if (
+            commit((next, active) => {
+                active.queue.push({
+                    id: crypto.randomUUID(),
+                    text: value,
+                    attachments,
+                    createdAt: Date.now(),
+                })
+                active.draft = ''
+                active.attachments = []
+            })
+        )
+            render()
+        return
+    }
+    startTurn(thread.id, {
+        text: value,
+        attachments,
+        apply: (active) => {
+            active.draft = ''
+            active.attachments = []
+        },
+    })
+}
+
+function sendQueued(threadId, queuedId) {
+    const thread = findThread(threadId)
+    const entry = thread?.queue.find((item) => item.id === queuedId)
+    if (!entry) return
+    startTurn(threadId, {
+        text: entry.text,
+        attachments: entry.attachments,
+        apply: (active) => {
+            active.queue = active.queue.filter((item) => item.id !== queuedId)
+        },
+    })
+}
+
+function stop() {
+    const thread = currentThread()
+    const turn = lastTurn(thread)
+    if (!turn || !ACTIVE_STATUSES.includes(turn.run.status)) return
+    session.handles.get(turn.id)?.stop()
+    session.handles.delete(turn.id)
+    stopRun(turn.run)
+    persistNow()
+    refreshTurn(thread.id, turn.id)
+}
+
+function approve(turnId) {
+    const thread = currentThread()
+    let ok = false
+    if (
+        commit((next, active) => {
+            const turn = active.turns.find((entry) => entry.id === turnId)
+            ok = !!turn && beginApply(turn.run)
+            if (ok) active.updatedAt = Date.now()
+        }) &&
+        ok
+    ) {
+        refreshTurn(thread.id, turnId)
+        launch(thread.id, turnId, 'approve')
+    }
+}
+
+function decline(turnId) {
+    const thread = currentThread()
+    let ok = false
+    commit((next, active) => {
+        const turn = active.turns.find((entry) => entry.id === turnId)
+        ok = !!turn && declinePlan(turn.run)
+    })
+    if (!ok) return
+    refreshTurn(thread.id, turnId)
+    if (thread.queue.length) sendQueued(thread.id, currentThread().queue[0].id)
+}
+
+function retry(turnId) {
+    const thread = currentThread()
+    if (
+        commit((next, active) => {
+            const turn = active.turns.find((entry) => entry.id === turnId)
+            if (!turn) return
+            turn.run = newRun()
+            turn.run.preview = isPreview()
+            active.updatedAt = Date.now()
+        })
+    ) {
+        const node = turnNode(turnId)
+        node?.querySelector('.agent-items')?.replaceChildren()
+        refreshTurn(thread.id, turnId)
+        launch(thread.id, turnId, 'start')
+    }
+}
+
+function checkStatus(turnId) {
+    const thread = currentThread()
+    if (
+        commit((next, active) => {
+            const turn = active.turns.find((entry) => entry.id === turnId)
+            if (!turn || turn.run.status !== 'detached') return
+            turn.run.status = 'running'
+            turn.run.endedAt = null
+            turn.run.phaseAt = Date.now()
+        })
+    ) {
+        refreshTurn(thread.id, turnId)
+        launch(thread.id, turnId, 'check')
+    }
+}
+
+// ---------- threads ----------
+
+function selectThread(id) {
+    if (id === session.store.activeId) {
+        if (narrow()) setSidebar(false)
+        return
+    }
+    morph(() => {
+        if (
+            commit((next) => {
+                next.activeId = id
+            })
+        ) {
+            drawer = null
+            fillSelection()
+            render()
+        }
+    }, 'thread')
+}
+
+function createThread() {
+    const thread = currentThread()
+    if (!thread.turns.length && !thread.draft && !thread.title) {
+        element('message-input').focus()
+        if (narrow()) setSidebar(false)
+        return
+    }
+    morph(() => {
+        if (
+            commit((next) => {
+                const fresh = newThread(structuredClone(next.lastSelection))
+                fresh.instanceId = activeThread(next).instanceId
+                next.threads.push(fresh)
+                next.activeId = fresh.id
+            })
+        ) {
+            drawer = null
+            fillSelection()
+            render()
+        }
+    }, 'thread').then(() => element('message-input').focus())
+}
+
+function deleteThread(id) {
+    session.handles.forEach((handle, turnId) => {
+        if (findThread(id)?.turns.some((turn) => turn.id === turnId)) {
+            handle.stop()
+            session.handles.delete(turnId)
+        }
+    })
+    const ok = commit((next) => {
+        next.threads = next.threads.filter((thread) => thread.id !== id)
+        if (!next.threads.length) next.threads.push(newThread(structuredClone(next.lastSelection)))
+        if (!next.threads.some((thread) => thread.id === next.activeId))
+            next.activeId = [...next.threads].sort((a, b) => b.updatedAt - a.updatedAt)[0].id
+    })
+    if (ok) {
+        fillSelection()
+        render()
+    }
+    return ok
+}
+
+function renameThread(id, value) {
+    if (!value) return false
+    const ok = commit((next) => {
+        const thread = next.threads.find((entry) => entry.id === id)
+        if (!thread) return
+        thread.title = value.slice(0, 120)
+        thread.titleEdited = true
+    })
+    if (ok) {
+        renderSidebar()
+        renderHeader()
+    }
+    return ok
+}
+
+function threadMenu(id, anchor) {
+    openMenu(anchor, [
+        menuItem('edit', text('rename'), { menuRename: id }),
+        menuItem('trash', text('deleteChat'), { menuDelete: id }, true),
+    ])
+}
+
+// ---------- layout actions ----------
+
+function setSidebar(open) {
+    if (sidebarShown() === open) return
+    if (narrow()) drawer = open ? 'sidebar' : null
+    else {
+        session.store.sidebarOpen = open
+        persistSoon()
+    }
+    layout()
+}
+
+function setPanel(open) {
+    if (panelShown() === open) return
+    if (window.innerWidth < WIDE) drawer = open ? 'panel' : null
+    else {
+        session.store.panelOpen = open
+        persistSoon()
+    }
+    if (open) renderPanel()
+    layout()
+}
+
+// ---------- files ----------
+
+function exportFile(name, content) {
+    const url = URL.createObjectURL(new Blob([content], { type: 'text/plain;charset=utf-8' }))
+    const link = document.createElement('a')
+    link.href = url
+    link.download = name
+    link.click()
+    setTimeout(() => URL.revokeObjectURL(url), 1000)
+}
+
+function exportHistory() {
+    try {
+        const raw = localStorage.getItem(STORAGE_KEY) ?? localStorage.getItem(LEGACY_STORAGE_KEY)
+        if (raw === null) throw new Error('History unavailable')
+        exportFile('axolotl-agent-history.json', raw)
+    } catch {
+        notify(text('storageExportError'), 'error')
+    }
+}
+
+function resetHistory() {
+    const draft = currentThread()
+    try {
+        const fresh = initialStore()
+        Object.assign(activeThread(fresh), {
+            draft: draft.draft,
+            attachments: draft.attachments,
+            instanceId: draft.instanceId,
+            selection: draft.selection,
+        })
+        fresh.introDismissed = session.store.introDismissed
+        fresh.sidebarOpen = session.store.sidebarOpen
+        for (const handle of session.handles.values()) handle.stop()
+        session.handles.clear()
+        session.store = saveStore(fresh)
+        session.loadError = false
+        session.storageError = false
+        renderedThread = null
+        render()
+        return true
+    } catch {
+        dialogError(text('storageError'))
+        return false
+    }
+}
+
+function addFiles(files) {
+    const list = [...files]
+    if (!list.length) return
+    const thread = currentThread()
+    const room = MAX_ATTACHMENTS - thread.attachments.length
+    if (list.length > room) notify(text('attachmentLimit', { count: MAX_ATTACHMENTS }), 'error')
+    thread.attachments.push(
+        ...list.slice(0, Math.max(0, room)).map((file) => ({
+            id: crypto.randomUUID(),
+            name: file.name,
+            size: file.size,
+        })),
+    )
+    persistSoon()
+    renderComposer()
+    element('message-input').focus()
+}
+
+async function copy(turnId, kind) {
+    const turn = currentThread().turns.find((entry) => entry.id === turnId)
+    if (!turn) return
+    const value =
+        kind === 'user'
+            ? turn.text
+            : turn.run.items
+                  .filter((item) => item.type === 'text')
+                  .map((item) => item.text)
+                  .join('\n\n')
+    try {
+        await navigator.clipboard.writeText(value)
+        notify(text('copied'), 'success')
+    } catch {
+        notify(text('copyError'), 'error')
+    }
+}
+
+// ---------- events ----------
+
 const actions = {
-    'export-history': exportHistory,
-    'export-draft': () => exportFile('axolotl-agent-draft.txt', activeThread(store).draft),
-    'reset-history': () => openDialog('storage-reset-dialog'),
-    'confirm-reset-history': () => retryStorage(true),
-    'retry-storage': () => retryStorage(),
-    'toggle-sidebar': (event) =>
-        transitionWorkspace(
-            () =>
-                update((next) => {
-                    next.sidebarOpen = !next.sidebarOpen
-                }),
-            event?.detail !== 0,
-        ),
-    'new-chat': (event) => createThread(event?.detail !== 0),
+    'toggle-sidebar': () => setSidebar(!sidebarShown()),
+    'toggle-tasks': () => setPanel(!panelShown()),
+    'close-drawers': () => {
+        drawer = null
+        layout()
+    },
+    'new-chat': () => createThread(),
+    help: () => {
+        renderHelp()
+        openDialog('help-dialog')
+    },
     settings: () => {
         renderSettings()
         openDialog('settings-dialog')
         refreshPermissions()
     },
-    guide: () => openDialog('guide-dialog'),
-    'toggle-tasks': (event) =>
-        transitionWorkspace(() => {
-            taskOpen = !taskOpen
-            render()
-        }, event?.detail !== 0),
-    'model-picker': () => openPicker('model'),
-    'instance-picker': () => openPicker('instance'),
-    'close-dialog': () => document.querySelectorAll('dialog[open]').forEach(closeDialog),
-    'refresh-context': refreshContext,
-    'cancel-full-access': () => closeDialog(element('permissions-risk-dialog')),
-    'confirm-full-access': () => savePermissions({ full_access: true, computer_use: false }),
-    rename: () => openEdit('rename'),
-    delete: () => openEdit('delete'),
-    'conversation-menu': () => {
-        const rect = element('conversation-more').getBoundingClientRect()
-        const menu = element('conversation-menu')
-        menu.style.transformOrigin = 'top right'
-        menu.style.left = `${Math.max(12, rect.right - 210)}px`
-        menu.style.top = `${rect.bottom + 6}px`
-        menu.togglePopover()
+    'model-picker': (event, target) => {
+        refreshContext()
+        openPicker('model', target)
     },
-}
-document.addEventListener('click', async (event) => {
-    const cancel = event.target.closest('[data-cancel-request]')
-    if (cancel) {
-        stopWaiting(cancel.dataset.cancelRequest)
-        return
-    }
-    const action = event.target.closest('[data-action]')
-    if (action) {
-        actions[action.dataset.action]?.(event)
-        return
-    }
-    const suggestion = event.target.closest('[data-prompt]')
-    if (suggestion) {
-        const value = text(suggestion.dataset.prompt)
-        if (
-            update((next, thread) => {
-                thread.draft = value
-            })
-        )
-            element('message-input').focus()
-        return
-    }
-    const item = event.target.closest('[data-thread]')
-    if (item) {
-        update((next) => {
-            next.activeId = item.dataset.thread
-            if (window.innerWidth < 760) next.sidebarOpen = false
-        })
-        return
-    }
-    const model = event.target.closest('[data-model]')
-    if (model) {
-        if (
-            update((next, thread) => {
-                thread.selection = {
-                    provider_id: model.dataset.provider,
-                    model_id: model.dataset.model,
-                }
-            })
-        )
-            element('picker').hidePopover()
-        return
-    }
-    const instance = event.target.closest('[data-instance]')
-    if (instance) {
-        if (
-            update((next, thread) => {
-                thread.instanceId = instance.dataset.instance || null
-            })
-        )
-            element('picker').hidePopover()
-        return
-    }
-    const copy = event.target.closest('[data-copy]')
-    if (copy) {
-        try {
-            await navigator.clipboard.writeText(
-                activeThread(store).messages.find((message) => message.id === copy.dataset.copy)
-                    .text,
-            )
-            notify(text('copied'))
-        } catch {
-            notify(text('copyError'))
+    'instance-picker': (event, target) => {
+        refreshContext()
+        openPicker('instance', target)
+    },
+    'close-dialog': () => {
+        for (const dialog of document.querySelectorAll('dialog[open]')) {
+            if (dialog.id === 'confirm-dialog' && confirmBusy()) continue
+            if (dialog.id === 'settings-dialog' && session.permissionsSaving) continue
+            dialog.close()
         }
-    }
+    },
+    'refresh-context': () => refreshContext(),
+    'thread-menu': (event, target) => threadMenu(session.store.activeId, target),
+    'preview-info': (event, target) =>
+        openMenu(
+            target,
+            [
+                h('div', { class: 'menu-note' }, [
+                    h('strong', { text: text('previewTitle') }),
+                    h('p', { text: text('previewBody') }),
+                ]),
+            ],
+            'start',
+        ),
+    'export-history': exportHistory,
+    'export-draft': () => exportFile('axolotl-agent-draft.txt', currentThread().draft),
+    'reset-history': () =>
+        confirm({
+            title: text('resetHistory'),
+            body: text('resetHistoryWarning'),
+            accept: text('resetHistory'),
+            danger: true,
+            onAccept: resetHistory,
+        }),
+    'clear-history': () =>
+        confirm({
+            title: text('clearHistoryTitle'),
+            body: text('clearHistoryBody'),
+            accept: text('clearHistory'),
+            icon: 'trash',
+            danger: true,
+            onAccept: () => {
+                const ok = resetHistory()
+                if (ok) element('settings-dialog').close()
+                return ok
+            },
+        }),
+    'retry-storage': () => {
+        persistNow()
+        if (!session.storageError) notify(text('storageSaved'), 'success')
+    },
+    'show-intro': () => {
+        session.store.introDismissed = false
+        persistSoon()
+        element('settings-dialog').close()
+        createThread()
+        renderHome()
+    },
+    'dismiss-intro': () => {
+        const intro = element('intro')
+        session.store.introDismissed = true
+        persistSoon()
+        const leave = animate(
+            intro,
+            [{ opacity: 1 }, { opacity: 0, transform: 'translateY(6px)' }],
+            { duration: 180 },
+        )
+        if (leave) leave.finished.then(renderHome, renderHome)
+        else renderHome()
+    },
+    attach: () => element('file-input').click(),
+    stop,
+    approve: (event, target) => approve(target.dataset.turn),
+    decline: (event, target) => decline(target.dataset.turn),
+    retry: (event, target) => retry(target.dataset.turn),
+    'check-status': (event, target) => checkStatus(target.dataset.turn),
+    'review-plan': (event, target) => {
+        const card = turnNode(target.dataset.turn)?.querySelector('.plan-card')
+        card?.scrollIntoView({
+            behavior: reducedMotion.matches ? 'instant' : 'smooth',
+            block: 'center',
+        })
+        if (card)
+            animate(
+                card,
+                [
+                    { boxShadow: '0 0 0 0 var(--agent-accent-soft)' },
+                    { boxShadow: '0 0 0 6px var(--agent-accent-soft)' },
+                    { boxShadow: '0 0 0 0 transparent' },
+                ],
+                { duration: 700 },
+            )
+    },
+    'toggle-activity': (event, target) => toggleActivity(target),
+    'jump-latest': () => follower.toBottom(),
+}
+
+document.addEventListener('click', (event) => {
+    const target = event.target.closest(
+        '[data-action], [data-thread], [data-thread-menu], [data-prompt], [data-model], [data-instance], [data-copy-turn], [data-remove-attachment], [data-remove-queued], [data-send-queued], [data-menu-rename], [data-menu-delete]',
+    )
+    if (!target || target.disabled) return
+    const data = target.dataset
+    if (data.action) {
+        if (target.type === 'submit') return
+        actions[data.action]?.(event, target)
+    } else if (data.threadMenu) threadMenu(data.threadMenu, target)
+    else if (data.thread) selectThread(data.thread)
+    else if (data.menuRename) {
+        closeMenu()
+        const thread = findThread(data.menuRename)
+        confirm({
+            title: text('rename'),
+            accept: text('save'),
+            rename: thread?.title || text('untitled'),
+            onAccept: (value) => renameThread(data.menuRename, value),
+        })
+    } else if (data.menuDelete) {
+        closeMenu()
+        confirm({
+            title: text('deleteTitle'),
+            body: text('deleteBody'),
+            accept: text('delete'),
+            icon: 'trash',
+            danger: true,
+            onAccept: () => deleteThread(data.menuDelete),
+        })
+    } else if (data.prompt) {
+        const thread = currentThread()
+        thread.draft = text(data.prompt)
+        persistSoon()
+        renderComposer()
+        const input = element('message-input')
+        input.focus()
+        input.setSelectionRange(input.value.length, input.value.length)
+        animate(element('composer'), [{ transform: 'scale(0.99)' }, { transform: 'scale(1)' }], {
+            duration: 260,
+        })
+    } else if (data.model !== undefined) {
+        if (
+            commit((next, thread) => {
+                thread.selection = { provider_id: data.provider, model_id: data.model }
+                next.lastSelection = structuredClone(thread.selection)
+            })
+        ) {
+            closePicker()
+            renderComposer()
+            element('message-input').focus()
+        }
+    } else if (data.instance !== undefined) {
+        if (
+            commit((next, thread) => {
+                thread.instanceId = data.instance || null
+            })
+        ) {
+            closePicker()
+            renderComposer()
+            element('message-input').focus()
+        }
+    } else if (data.copyTurn) copy(data.copyTurn, data.copyKind)
+    else if (data.removeAttachment) {
+        const thread = currentThread()
+        thread.attachments = thread.attachments.filter((file) => file.id !== data.removeAttachment)
+        persistSoon()
+        renderComposer()
+    } else if (data.removeQueued) {
+        if (
+            commit((next, thread) => {
+                thread.queue = thread.queue.filter((entry) => entry.id !== data.removeQueued)
+            })
+        )
+            renderComposer()
+    } else if (data.sendQueued) sendQueued(session.store.activeId, data.sendQueued)
 })
-element('permission-full-access').addEventListener('change', (event) => {
-    const enabling = event.target.checked
-    renderSettings()
-    if (enabling) openDialog('permissions-risk-dialog')
-    else savePermissions({ full_access: false, computer_use: false })
-})
-element('permission-computer-use').addEventListener('change', (event) => {
-    const enabling = event.target.checked
-    renderSettings()
-    if (permissionPolicy.full_access) savePermissions({ full_access: true, computer_use: enabling })
-})
+
 element('composer').addEventListener('submit', (event) => {
     event.preventDefault()
     submit()
 })
+
 element('message-input').addEventListener('input', (event) => {
-    const value = event.target.value
-    const previousMessageCount = activeThread(store).messages.length
-    // Keep unsaved text in memory when storage is unavailable; sending is transactional.
-    activeThread(store).draft = value
-    try {
-        if (loadError) throw new Error('Saved history requires recovery')
-        store = saveStore(store)
-        storageError = false
-    } catch {
-        storageError = true
-        notify(text('storageError'))
-    }
-    if (activeThread(store).messages.length !== previousMessageCount) {
-        renderMessages()
-        renderTasks()
-    }
+    // Unsaved text stays in memory when storage fails; sending is transactional.
+    currentThread().draft = event.target.value
+    persistSoon(250)
     renderComposer()
-    renderList()
-    renderStorageBanner()
-    element('conversation-more').hidden =
-        !activeThread(store).messages.length && !activeThread(store).draft
+    element('conversation-more').hidden = !currentThread().turns.length && !currentThread().draft
+    if (!currentThread().turns.length && currentThread().title === '' && currentThread().draft)
+        renderSidebar()
 })
+
 element('message-input').addEventListener('keydown', (event) => {
     if (event.key === 'Enter' && !event.shiftKey && !event.isComposing) {
         event.preventDefault()
         submit()
     }
 })
-element('conversation-search').addEventListener('input', (event) => {
-    search = event.target.value
-    renderList()
+
+element('file-input').addEventListener('change', (event) => {
+    addFiles(event.target.files)
+    event.target.value = ''
 })
-element('picker-search').addEventListener('input', renderPicker)
-element('edit-form').addEventListener('submit', (event) => {
+
+const composerNode = element('composer')
+composerNode.addEventListener('dragover', (event) => {
+    if (![...(event.dataTransfer?.types || [])].includes('Files')) return
     event.preventDefault()
-    if (editKind === 'rename') {
-        const value = element('rename-input').value.trim()
-        if (
-            value &&
-            update((next, thread) => {
-                thread.title = value
-            })
-        )
-            element('edit-dialog').close()
-    } else if (
-        update((next) => {
-            next.threads = next.threads.filter((thread) => thread.id !== next.activeId)
-            if (!next.threads.length) next.threads.push(newThread())
-            next.activeId = next.threads[0].id
-        })
-    )
-        element('edit-dialog').close()
+    composerNode.classList.add('is-dragging')
 })
-document.querySelectorAll('dialog').forEach((dialog) => {
+composerNode.addEventListener('dragleave', (event) => {
+    if (!composerNode.contains(event.relatedTarget)) composerNode.classList.remove('is-dragging')
+})
+composerNode.addEventListener('drop', (event) => {
+    event.preventDefault()
+    composerNode.classList.remove('is-dragging')
+    addFiles(event.dataTransfer?.files || [])
+})
+
+element('conversation-search').addEventListener('input', (event) => {
+    session.search = event.target.value
+    renderSidebar()
+})
+
+element('picker-search').addEventListener('input', renderPicker)
+element('picker-search').addEventListener('keydown', (event) => {
+    if (event.key === 'ArrowDown') {
+        event.preventDefault()
+        element('picker-options').querySelector('.picker-option')?.focus()
+    } else if (event.key === 'Enter') {
+        event.preventDefault()
+        element('picker-options').querySelector('.picker-option')?.click()
+    }
+})
+element('picker-options').addEventListener('keydown', pickerKeydown)
+
+element('permission-full-access').addEventListener('change', (event) => {
+    const enabling = event.target.checked
+    renderSettings()
+    if (enabling)
+        confirm({
+            title: text('fullAccessWarningTitle'),
+            body: text('fullAccessWarning'),
+            accept: text('enableFullAccess'),
+            icon: 'shield',
+            danger: true,
+            onAccept: () => savePermissions({ full_access: true, computer_use: false }),
+        })
+    else savePermissions({ full_access: false, computer_use: false })
+})
+
+element('permission-computer-use').addEventListener('change', (event) => {
+    const enabling = event.target.checked
+    renderSettings()
+    if (session.permissions.full_access)
+        savePermissions({ full_access: true, computer_use: enabling })
+})
+
+element('confirm-form').addEventListener('submit', (event) => {
+    event.preventDefault()
+    acceptConfirm()
+})
+
+for (const dialog of document.querySelectorAll('dialog')) {
     dialog.addEventListener('cancel', (event) => {
-        if (permissionsSaving) event.preventDefault()
+        if (confirmBusy() || session.permissionsSaving) event.preventDefault()
     })
     dialog.addEventListener('click', (event) => {
-        if (event.target === dialog) {
-            const rect = dialog.getBoundingClientRect()
-            if (
-                event.clientX < rect.left ||
-                event.clientX > rect.right ||
-                event.clientY < rect.top ||
-                event.clientY > rect.bottom
-            )
-                closeDialog(dialog)
-        }
+        if (event.target !== dialog) return
+        const rect = dialog.getBoundingClientRect()
+        const outside =
+            event.clientX < rect.left ||
+            event.clientX > rect.right ||
+            event.clientY < rect.top ||
+            event.clientY > rect.bottom
+        if (outside && !confirmBusy() && !session.permissionsSaving) dialog.close()
     })
-})
+}
+
 document.addEventListener('keydown', (event) => {
-    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'n') {
-        event.preventDefault()
-        if (!document.querySelector('dialog[open]')) createThread(false)
+    const modifier = event.ctrlKey || event.metaKey
+    const overlay =
+        document.querySelector('dialog[open]') ||
+        pickerOpen() ||
+        element('menu').matches(':popover-open')
+    if (modifier && !event.shiftKey && !event.altKey) {
+        const key = event.key.toLowerCase()
+        if (key === 'n') {
+            event.preventDefault()
+            if (!document.querySelector('dialog[open]')) createThread()
+        } else if (key === 'k') {
+            event.preventDefault()
+            if (overlay) return
+            setSidebar(true)
+            element('conversation-search').focus()
+            element('conversation-search').select()
+        } else if (key === 'b') {
+            event.preventDefault()
+            if (!overlay) setSidebar(!sidebarShown())
+        }
+        return
     }
-    if (
-        event.key === 'Escape' &&
-        !document.querySelector('dialog[open]') &&
-        !element('picker').matches(':popover-open') &&
-        !element('conversation-menu').matches(':popover-open')
-    ) {
-        if (taskOpen)
-            transitionWorkspace(() => {
-                taskOpen = false
-                render()
-            }, false)
-        else if (window.innerWidth < 760 && store.sidebarOpen)
-            transitionWorkspace(
-                () =>
-                    update(
-                        (next) => {
-                            next.sidebarOpen = false
-                        },
-                        { motion: false },
-                    ),
-                false,
-            )
+    if (event.key !== 'Escape' || overlay) return
+    const turn = lastTurn(currentThread())
+    if (turn && ACTIVE_STATUSES.includes(turn.run.status)) {
+        event.preventDefault()
+        stop()
+    } else if (drawer) {
+        drawer = null
+        layout()
+    } else if (document.activeElement === element('conversation-search') && session.search) {
+        session.search = ''
+        element('conversation-search').value = ''
+        renderSidebar()
     }
 })
-let booted = false
+
+// ---------- lifecycle ----------
+
 async function revealWindow() {
     for (let attempt = 0; attempt < 3 && !disposed; attempt++) {
         try {
@@ -1125,12 +1339,13 @@ async function revealWindow() {
             return
         } catch {
             if (attempt === 2) {
-                if (hasMessageCatalog()) notify(text('windowRevealError'))
+                if (catalogReady()) notify(text('windowRevealError'), 'error')
                 else showCatalogError()
             } else await new Promise((resolve) => setTimeout(resolve, 500))
         }
     }
 }
+
 async function boot() {
     if (booted) return
     booted = true
@@ -1138,26 +1353,28 @@ async function boot() {
     render()
     document.documentElement.dataset.ready = 'true'
     refreshContext()
+    ensureRuntime()
     void revealWindow()
+    if (session.loadError && catalogReady()) notify(text('storageLoadError'), 'error')
 }
+
 window.addEventListener('agent-host-ready', boot)
 window.addEventListener('agent-appearance-updated', () => {
     if (booted && render()) refreshContext()
 })
-window.addEventListener('focus', () => {
-    refreshContext()
-})
+window.addEventListener('focus', () => refreshContext())
 document.addEventListener('visibilitychange', () => {
     if (!document.hidden) refreshContext()
+    else persistNow()
 })
 window.addEventListener('pagehide', () => {
-    settlePanels()
-    cancelContentMotion()
+    persistNow()
     disposed = true
     ++contextRequest
     contextFlight = null
     ++permissionRequest
-    clearTimeout(noticeTimer)
+    clearInterval(ticker)
+    ticker = 0
 })
 window.addEventListener('pageshow', (event) => {
     if (event.persisted) {
@@ -1165,11 +1382,20 @@ window.addEventListener('pageshow', (event) => {
         refreshContext()
     }
 })
+let resizeFrame = 0
 window.addEventListener('resize', () => {
-    settlePanels()
-    cancelContentMotion()
-    render()
-    if (element('picker').matches(':popover-open')) element('picker').hidePopover()
+    if (resizeFrame) return
+    resizeFrame = requestAnimationFrame(() => {
+        resizeFrame = 0
+        closePicker()
+        if (
+            (drawer === 'sidebar' && !narrow()) ||
+            (drawer === 'panel' && window.innerWidth >= WIDE)
+        )
+            drawer = null
+        layout()
+        resizeInput()
+    })
 })
+
 await boot()
-if (loadError && hasMessageCatalog()) notify(text('storageLoadError'))

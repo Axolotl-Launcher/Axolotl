@@ -15491,14 +15491,8 @@
   "instance.files.studio.preview-actual-size": {
     "message": "Actual size"
   },
-  "instance.files.studio.preview-apply-crop": {
-    "message": "Crop image"
-  },
-  "instance.files.studio.preview-cancel-crop": {
-    "message": "Cancel"
-  },
-  "instance.files.studio.preview-crop": {
-    "message": "Crop"
+  "instance.files.studio.preview-edit": {
+    "message": "Edit"
   },
   "instance.files.studio.preview-failed": {
     "message": "This file could not be previewed."
@@ -15508,6 +15502,12 @@
   },
   "instance.files.studio.preview-loading": {
     "message": "Loading preview..."
+  },
+  "instance.files.studio.preview-save": {
+    "message": "Save"
+  },
+  "instance.files.studio.preview-tools": {
+    "message": "Image editing tools"
   },
   "instance.files.studio.preview-zoom-in": {
     "message": "Zoom in"

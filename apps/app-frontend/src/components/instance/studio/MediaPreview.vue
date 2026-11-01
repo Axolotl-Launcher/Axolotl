@@ -1,25 +1,27 @@
 <script setup lang="ts">
-import { CropIcon, MaximizeIcon, ZoomInIcon, ZoomOutIcon } from '@modrinth/assets'
+import { EditIcon, MaximizeIcon, ZoomInIcon, ZoomOutIcon } from '@modrinth/assets'
 import { Button, defineMessages, useVIntl } from '@modrinth/ui'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
-import { canCropImage, cropImageBytes } from './image-crop'
-import { clampPreviewScale, fitPreviewScale, type PreviewRect } from './image-preview-geometry'
+import { canEditImage } from './image-encoding'
+import { clampPreviewScale, fitPreviewScale } from './image-preview-geometry'
+import StudioImageEditor from './StudioImageEditor.vue'
 import { studioMediaMimeType } from './useStudioMediaPreview'
 
 const props = defineProps<{
     kind: 'image' | 'video'
     url: string
     name: string
-    bytes: number
+    size: number
+    content: Uint8Array | null
     loading: boolean
     failed: boolean
 }>()
 
 const emit = defineEmits<{
     openInSystem: []
-    crop: [bytes: Uint8Array]
-    cropFailed: [error: unknown]
+    save: [bytes: Uint8Array]
+    editFailed: [error: unknown]
 }>()
 
 const messages = defineMessages({
@@ -51,17 +53,9 @@ const messages = defineMessages({
         id: 'instance.files.studio.preview-actual-size',
         defaultMessage: 'Actual size',
     },
-    crop: {
-        id: 'instance.files.studio.preview-crop',
-        defaultMessage: 'Crop',
-    },
-    applyCrop: {
-        id: 'instance.files.studio.preview-apply-crop',
-        defaultMessage: 'Crop image',
-    },
-    cancelCrop: {
-        id: 'instance.files.studio.preview-cancel-crop',
-        defaultMessage: 'Cancel',
+    edit: {
+        id: 'instance.files.studio.preview-edit',
+        defaultMessage: 'Edit',
     },
 })
 
@@ -74,15 +68,19 @@ const zoom = ref(1)
 const fitting = ref(true)
 const renderFailed = ref(false)
 const panning = ref(false)
-const cropping = ref(false)
-const applyingCrop = ref(false)
-const selection = ref<PreviewRect | null>(null)
+const editing = ref(false)
 
 let stageObserver: ResizeObserver | null = null
 let stopPointerDrag: (() => void) | null = null
 
 const unavailable = computed(() => props.failed || renderFailed.value)
 const interactive = computed(() => props.kind === 'image' && !unavailable.value && !props.loading)
+const mimeType = computed(() => studioMediaMimeType(props.name))
+// The editor exports PNG and the result is written back over the original file,
+// so only the formats the webview can encode again may be opened in it.
+const canEdit = computed(
+    () => interactive.value && props.content !== null && canEditImage(mimeType.value),
+)
 
 const fitScale = computed(() => fitPreviewScale(natural.value, viewport.value))
 const displayScale = computed(() => (fitting.value ? fitScale.value : zoom.value))
@@ -90,22 +88,6 @@ const imageStyle = computed(() => ({
     width: `${Math.max(1, Math.round(natural.value.width * displayScale.value))}px`,
     height: `${Math.max(1, Math.round(natural.value.height * displayScale.value))}px`,
 }))
-const selectionStyle = computed(() => {
-    const rect = selection.value
-    if (!rect) return undefined
-    return {
-        left: `${rect.left}px`,
-        top: `${rect.top}px`,
-        width: `${rect.width}px`,
-        height: `${rect.height}px`,
-    }
-})
-const canCrop = computed(
-    () =>
-        interactive.value &&
-        natural.value.width > 0 &&
-        canCropImage(studioMediaMimeType(props.name)),
-)
 
 function formatByteSize(bytes: number): string {
     if (bytes < 1024) return `${bytes} B`
@@ -138,7 +120,7 @@ function showActualSize() {
 function onWheel(event: WheelEvent) {
     // Chromium reports a trackpad pinch as ctrl+wheel, so this covers pinch on
     // every platform and the key users reach for on Windows and macOS.
-    if (!interactive.value || !(event.ctrlKey || event.metaKey)) return
+    if (!interactive.value || editing.value || !(event.ctrlKey || event.metaKey)) return
     event.preventDefault()
     zoomBy(event.deltaY < 0 ? 1.1 : 1 / 1.1)
 }
@@ -164,7 +146,7 @@ function trackPointer(onMove: (event: PointerEvent) => void, onEnd?: () => void)
 
 function onPointerDown(event: PointerEvent) {
     const element = stage.value
-    if (cropping.value || !interactive.value || event.button !== 0 || !element) return
+    if (editing.value || !interactive.value || event.button !== 0 || !element) return
     const scrollable =
         element.scrollWidth > element.clientWidth || element.scrollHeight > element.clientHeight
     if (!scrollable) return
@@ -187,61 +169,9 @@ function onPointerDown(event: PointerEvent) {
     )
 }
 
-function toggleCropping() {
-    cropping.value = !cropping.value
-    selection.value = null
-}
-
-function startSelection(event: PointerEvent) {
-    const overlay = event.currentTarget as HTMLElement
-    const bounds = overlay.getBoundingClientRect()
-    if (bounds.width <= 0 || bounds.height <= 0) return
-    // The stage pans on pointerdown; a selection must not drag the image instead.
-    event.stopPropagation()
-    event.preventDefault()
-
-    const origin = { x: event.clientX - bounds.left, y: event.clientY - bounds.top }
-    selection.value = { left: origin.x, top: origin.y, width: 0, height: 0 }
-
-    trackPointer(
-        (moveEvent) => {
-            const x = Math.min(Math.max(moveEvent.clientX - bounds.left, 0), bounds.width)
-            const y = Math.min(Math.max(moveEvent.clientY - bounds.top, 0), bounds.height)
-            selection.value = {
-                left: Math.min(origin.x, x),
-                top: Math.min(origin.y, y),
-                width: Math.abs(x - origin.x),
-                height: Math.abs(y - origin.y),
-            }
-        },
-        () => {
-            const rect = selection.value
-            // A click without a drag is not a selection.
-            if (rect && (rect.width < 1 || rect.height < 1)) selection.value = null
-        },
-    )
-}
-
-async function applyCrop() {
-    const rect = selection.value
-    if (!rect || applyingCrop.value) return
-    applyingCrop.value = true
-    try {
-        const bytes = await cropImageBytes(
-            props.url,
-            rect,
-            displayScale.value,
-            natural.value,
-            studioMediaMimeType(props.name),
-        )
-        emit('crop', bytes)
-        cropping.value = false
-        selection.value = null
-    } catch (error) {
-        emit('cropFailed', error)
-    } finally {
-        applyingCrop.value = false
-    }
+function onSave(bytes: Uint8Array) {
+    emit('save', bytes)
+    editing.value = false
 }
 
 watch(
@@ -251,8 +181,7 @@ watch(
         natural.value = { width: 0, height: 0 }
         zoom.value = 1
         fitting.value = true
-        cropping.value = false
-        selection.value = null
+        editing.value = false
     },
 )
 
@@ -271,7 +200,7 @@ onBeforeUnmount(() => {
 <template>
     <div class="flex size-full min-h-0 flex-col bg-surface-1">
         <div
-            v-if="interactive"
+            v-if="interactive && !editing"
             class="flex h-9 shrink-0 items-center gap-1 border-0 border-b border-solid border-surface-4 px-2 text-xs text-[var(--color-text-tertiary)]"
         >
             <Button
@@ -310,35 +239,30 @@ onBeforeUnmount(() => {
             <Button type="quiet" size="2xs" @click="showActualSize">
                 {{ formatMessage(messages.actualSize) }}
             </Button>
-            <template v-if="canCrop">
-                <Button
-                    v-if="!cropping"
-                    type="quiet"
-                    size="2xs"
-                    :aria-label="formatMessage(messages.crop)"
-                    @click="toggleCropping"
-                    ><CropIcon class="size-4" />{{ formatMessage(messages.crop) }}</Button
-                >
-                <template v-else>
-                    <Button type="quiet" size="2xs" @click="toggleCropping">
-                        {{ formatMessage(messages.cancelCrop) }}
-                    </Button>
-                    <Button
-                        type="colored"
-                        color="brand"
-                        size="2xs"
-                        :disabled="!selection || applyingCrop"
-                        @click="applyCrop"
-                    >
-                        {{ formatMessage(messages.applyCrop) }}
-                    </Button>
-                </template>
-            </template>
+            <Button
+                v-if="canEdit"
+                type="quiet"
+                size="2xs"
+                :aria-label="formatMessage(messages.edit)"
+                @click="editing = true"
+                ><EditIcon class="size-4" />{{ formatMessage(messages.edit) }}</Button
+            >
             <span class="ml-auto shrink-0 tabular-nums">
-                {{ natural.width }} × {{ natural.height }} · {{ formatByteSize(bytes) }}
+                {{ natural.width }} × {{ natural.height }} · {{ formatByteSize(size) }}
             </span>
         </div>
+        <StudioImageEditor
+            v-if="editing && content"
+            class="min-h-0 flex-1"
+            :content="content"
+            :mime-type="mimeType"
+            :name="name"
+            @save="onSave"
+            @cancel="editing = false"
+            @error="emit('editFailed', $event)"
+        />
         <div
+            v-else
             ref="stage"
             class="relative flex min-h-0 flex-1 overflow-auto p-4"
             :class="panning ? 'cursor-grabbing' : interactive ? 'cursor-grab' : ''"
@@ -373,18 +297,6 @@ onBeforeUnmount(() => {
                     @load="onImageLoad"
                     @error="renderFailed = true"
                 />
-                <div
-                    v-if="cropping"
-                    class="absolute inset-0 cursor-crosshair"
-                    @pointerdown="startSelection"
-                >
-                    <div v-if="!selection" class="absolute inset-0 bg-black/40" />
-                    <div
-                        v-else
-                        class="absolute border-2 border-solid border-brand bg-brand/10"
-                        :style="selectionStyle"
-                    />
-                </div>
             </div>
             <video
                 v-else

@@ -8438,14 +8438,8 @@
   "instance.files.studio.preview-actual-size": {
     "message": "實際大小"
   },
-  "instance.files.studio.preview-apply-crop": {
-    "message": "裁切圖片"
-  },
-  "instance.files.studio.preview-cancel-crop": {
-    "message": "取消"
-  },
-  "instance.files.studio.preview-crop": {
-    "message": "裁切"
+  "instance.files.studio.preview-edit": {
+    "message": "編輯"
   },
   "instance.files.studio.preview-failed": {
     "message": "無法預覽此檔案。"
@@ -8455,6 +8449,12 @@
   },
   "instance.files.studio.preview-loading": {
     "message": "正在載入預覽……"
+  },
+  "instance.files.studio.preview-save": {
+    "message": "儲存"
+  },
+  "instance.files.studio.preview-tools": {
+    "message": "圖片編輯工具"
   },
   "instance.files.studio.preview-zoom-in": {
     "message": "放大"

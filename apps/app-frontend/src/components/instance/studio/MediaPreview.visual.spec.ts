@@ -15,17 +15,25 @@ const PNG_BYTES = Uint8Array.from(
 // A real object URL: an image the webview cannot decode would replace the
 // preview with the fallback before the controls could be exercised.
 const PNG_URL = URL.createObjectURL(new Blob([PNG_BYTES], { type: 'image/png' }))
+const EDITED_BYTES = Uint8Array.from([9, 9, 9])
 
 vi.mock('@modrinth/ui', async () => {
     const { defineComponent, h } = await import('vue')
     return {
+        // The real button drags in a tooltip frame that needs a mounted app; a
+        // plain button keeps the assertions on the emitted events readable.
         Button: defineComponent({
             name: 'Button',
+            props: { disabled: { type: Boolean, default: false } },
             emits: ['click'],
             setup:
-                (_, { slots, emit }) =>
+                (props, { slots, emit }) =>
                 () =>
-                    h('button', { onClick: () => emit('click') }, slots.default?.()),
+                    h(
+                        'button',
+                        { disabled: props.disabled, onClick: () => emit('click') },
+                        slots.default?.(),
+                    ),
         }),
         defineMessages: (messages: unknown) => messages,
         useVIntl: () => ({
@@ -34,20 +42,44 @@ vi.mock('@modrinth/ui', async () => {
     }
 })
 
+// The editor runs a fabric canvas, which needs a layout this page spec does not
+// provide; what matters here is that the page hands it the bytes and writes the
+// result back.
+vi.mock('./StudioImageEditor.vue', async () => {
+    const { defineComponent, h } = await import('vue')
+    return {
+        default: defineComponent({
+            name: 'StudioImageEditor',
+            props: { content: Object, mimeType: String, name: String },
+            emits: ['save', 'cancel', 'error'],
+            setup:
+                (_, { emit }) =>
+                () =>
+                    h('div', { 'data-testid': 'studio-image-editor' }, [
+                        h('button', {
+                            'data-testid': 'editor-save',
+                            onClick: () => emit('save', EDITED_BYTES),
+                        }),
+                        h('button', {
+                            'data-testid': 'editor-cancel',
+                            onClick: () => emit('cancel'),
+                        }),
+                    ]),
+        }),
+    }
+})
+
 const hosts: HTMLElement[] = []
 const mounted: ReturnType<typeof mount>[] = []
 
-// A detached node has no layout, and the crop gesture is measured against the
-// rendered image, so every mount gets a real box in the document.
+// A detached node has no layout, and the fitted scale is measured against the
+// rendered stage, so every mount gets a real box in the document.
 afterEach(() => {
     mounted.splice(0).forEach((wrapper) => wrapper.unmount())
     hosts.splice(0).forEach((host) => host.remove())
 })
 
-function mountPreview({
-    kind,
-    ...overrides
-}: Record<string, unknown> & { kind: 'image' | 'video' }) {
+function mountPreview(overrides: Record<string, unknown> = {}) {
     const host = document.createElement('div')
     host.style.width = '320px'
     host.style.height = '240px'
@@ -59,13 +91,14 @@ function mountPreview({
 
     const wrapper = mount(MediaPreview, {
         props: {
+            kind: 'image',
             url: PNG_URL,
             name: 'block.png',
-            bytes: 2048,
+            size: 2048,
+            content: PNG_BYTES,
             loading: false,
             failed: false,
             ...overrides,
-            kind,
         },
         attachTo: host,
         global: { directives: { tooltip: {} } },
@@ -75,28 +108,32 @@ function mountPreview({
     return wrapper
 }
 
+function findButton(wrapper: ReturnType<typeof mountPreview>, label: string) {
+    return wrapper.findAll('button').find((button) => button.text() === label)
+}
+
 it('renders an image from the object URL it is given', () => {
-    const wrapper = mountPreview({ kind: 'image' })
+    const wrapper = mountPreview()
 
     expect(wrapper.find('img').attributes('src')).toBe(PNG_URL)
     expect(wrapper.find('img').attributes('alt')).toBe('block.png')
 })
 
 it('renders a video from the same object URL', () => {
-    const wrapper = mountPreview({ kind: 'video', name: 'clip.mp4' })
+    const wrapper = mountPreview({ kind: 'video', name: 'clip.mp4', content: null })
 
     expect(wrapper.find('video').attributes('src')).toBe(PNG_URL)
     expect(wrapper.find('button').exists()).toBe(false)
 })
 
 it('reports the image dimensions and file size once the image decodes', async () => {
-    const wrapper = mountPreview({ kind: 'image' })
+    const wrapper = mountPreview()
 
     await vi.waitFor(() => expect(wrapper.text()).toContain('1 × 1 · 2.0 KB'))
 })
 
 it('zooms in and out from the controls', async () => {
-    const wrapper = mountPreview({ kind: 'image' })
+    const wrapper = mountPreview()
     expect(wrapper.text()).toContain('100%')
 
     await wrapper.find('[aria-label="Zoom in"]').trigger('click')
@@ -107,18 +144,17 @@ it('zooms in and out from the controls', async () => {
 })
 
 it('returns to the fitted scale from actual size', async () => {
-    const wrapper = mountPreview({ kind: 'image' })
+    const wrapper = mountPreview()
     await wrapper.find('[aria-label="Zoom in"]').trigger('click')
     await wrapper.find('[aria-label="Zoom in"]').trigger('click')
     expect(wrapper.text()).toContain('156%')
 
-    const actualSize = wrapper.findAll('button').find((button) => button.text() === 'Actual size')
-    await actualSize!.trigger('click')
+    await findButton(wrapper, 'Actual size')!.trigger('click')
     expect(wrapper.text()).toContain('100%')
 })
 
 it('zooms with the wheel while the zoom key is held', async () => {
-    const wrapper = mountPreview({ kind: 'image' })
+    const wrapper = mountPreview()
     const stage = wrapper.find('.cursor-grab')
 
     stage.element.dispatchEvent(
@@ -136,7 +172,7 @@ it('zooms with the wheel while the zoom key is held', async () => {
 })
 
 it('leaves a plain wheel scroll to the stage', async () => {
-    const wrapper = mountPreview({ kind: 'image' })
+    const wrapper = mountPreview()
     const stage = wrapper.find('.cursor-grab')
 
     stage.element.dispatchEvent(
@@ -147,7 +183,7 @@ it('leaves a plain wheel scroll to the stage', async () => {
 })
 
 it('replaces an image the webview cannot decode with the fallback', async () => {
-    const wrapper = mountPreview({ kind: 'image', url: 'blob:not-an-image' })
+    const wrapper = mountPreview({ url: 'blob:not-an-image' })
     await wrapper.find('img').trigger('error')
 
     expect(wrapper.find('img').exists()).toBe(false)
@@ -155,68 +191,51 @@ it('replaces an image the webview cannot decode with the fallback', async () => 
 })
 
 it('hands the file back to the system when the fallback is used', async () => {
-    const wrapper = mountPreview({ kind: 'image', failed: true })
+    const wrapper = mountPreview({ failed: true })
 
-    const button = wrapper
-        .findAll('button')
-        .find((candidate) => candidate.text() === 'Open in system')
-    await button!.trigger('click')
+    await findButton(wrapper, 'Open in system')!.trigger('click')
     expect(wrapper.emitted('openInSystem')).toHaveLength(1)
 })
 
-function solidImage(width: number, height: number): string {
-    const canvas = document.createElement('canvas')
-    canvas.width = width
-    canvas.height = height
-    const context = canvas.getContext('2d')
-    if (!context) throw new Error('the test needs a 2D context')
-    context.fillStyle = '#ff0000'
-    context.fillRect(0, 0, width, height)
-    return canvas.toDataURL('image/png')
-}
+it('opens the editor in place of the preview', async () => {
+    const wrapper = mountPreview()
+    await findButton(wrapper, 'Edit')!.trigger('click')
 
-function dispatchPointer(target: EventTarget, type: string, x: number, y: number) {
-    target.dispatchEvent(
-        new PointerEvent(type, {
-            clientX: x,
-            clientY: y,
-            button: 0,
-            bubbles: true,
-            cancelable: true,
-        }),
-    )
-}
-
-it('crops the dragged region and emits the encoded bytes', async () => {
-    const wrapper = mountPreview({ kind: 'image', url: solidImage(4, 4) })
-    await vi.waitFor(() => expect(wrapper.text()).toContain('4 × 4'))
-
-    const crop = wrapper.findAll('button').find((button) => button.text() === 'Crop')
-    await crop!.trigger('click')
-
-    const overlay = wrapper.find('.cursor-crosshair')
-    const bounds = (overlay.element as HTMLElement).getBoundingClientRect()
-    // Half of the displayed image, whatever the fitted scale happens to be.
-    const half = { x: bounds.width / 2, y: bounds.height / 2 }
-    dispatchPointer(overlay.element, 'pointerdown', bounds.left, bounds.top)
-    dispatchPointer(window, 'pointermove', bounds.left + half.x, bounds.top + half.y)
-    dispatchPointer(window, 'pointerup', bounds.left + half.x, bounds.top + half.y)
-    // Raw events bypass Vue Test Utils' flush, so let the selection render.
-    await nextTick()
-
-    const apply = wrapper.findAll('button').find((button) => button.text() === 'Crop image')
-    expect(apply!.attributes('disabled')).toBeUndefined()
-    await apply!.trigger('click')
-    await vi.waitFor(() => expect(wrapper.emitted('crop')).toHaveLength(1))
-
-    const bytes = wrapper.emitted('crop')![0][0] as Uint8Array
-    const bitmap = await createImageBitmap(new Blob([bytes as BlobPart], { type: 'image/png' }))
-    expect({ width: bitmap.width, height: bitmap.height }).toEqual({ width: 2, height: 2 })
+    expect(wrapper.find('[data-testid="studio-image-editor"]').exists()).toBe(true)
+    expect(wrapper.find('img').exists()).toBe(false)
+    // The editor brings its own zoom and save controls; two toolbars would
+    // disagree about what the percentage refers to.
+    expect(wrapper.find('[aria-label="Zoom in"]').exists()).toBe(false)
 })
 
-it('keeps cropping unavailable for a format it cannot write back', async () => {
-    const wrapper = mountPreview({ kind: 'image', name: 'icon.svg', url: solidImage(4, 4) })
-    await vi.waitFor(() => expect(wrapper.text()).toContain('4 × 4'))
+it('writes the edited bytes back and returns to the preview', async () => {
+    const wrapper = mountPreview()
+    await findButton(wrapper, 'Edit')!.trigger('click')
+    await wrapper.find('[data-testid="editor-save"]').trigger('click')
 
-    expect(wrapper.findAll('button').some((button) => button.text() === 'Crop')).toBe(false)
+    expect(wrapper.emitted('save')).toEqual([[EDITED_BYTES]])
+    expect(wrapper.find('[data-testid="studio-image-editor"]').exists()).toBe(false)
+    expect(wrapper.find('img').exists()).toBe(true)
+})
+
+it('discards the edit when it is cancelled', async () => {
+    const wrapper = mountPreview()
+    await findButton(wrapper, 'Edit')!.trigger('click')
+    await wrapper.find('[data-testid="editor-cancel"]').trigger('click')
+
+    expect(wrapper.emitted('save')).toBeUndefined()
+    expect(wrapper.find('img').exists()).toBe(true)
+})
+
+it('keeps editing unavailable for a format it cannot write back', async () => {
+    const wrapper = mountPreview({ name: 'icon.svg' })
+
+    expect(wrapper.find('img').exists()).toBe(true)
+    expect(findButton(wrapper, 'Edit')).toBeUndefined()
+})
+
+it('keeps editing unavailable while the bytes are missing', () => {
+    const wrapper = mountPreview({ content: null })
+
+    expect(findButton(wrapper, 'Edit')).toBeUndefined()
 })

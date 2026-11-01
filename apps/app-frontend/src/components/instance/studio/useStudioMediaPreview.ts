@@ -1,4 +1,4 @@
-import { type MaybeRefOrGetter, onScopeDispose, ref, toValue, watch } from 'vue'
+import { type MaybeRefOrGetter, onScopeDispose, ref, shallowRef, toValue, watch } from 'vue'
 
 import type { StudioDocument } from './useStudioDocuments'
 
@@ -50,11 +50,15 @@ export function useStudioMediaPreview(
 ) {
     const url = ref('')
     const bytes = ref(0)
+    // The editor needs the bytes themselves, not just the URL they were turned
+    // into: a canvas cannot read back a blob URL it did not draw.
+    const content = shallowRef<Uint8Array | null>(null)
     const loading = ref(false)
     const failed = ref(false)
     let generation = 0
 
     function release() {
+        content.value = null
         if (!url.value) return
         URL.revokeObjectURL(url.value)
         url.value = ''
@@ -71,14 +75,15 @@ export function useStudioMediaPreview(
             if (!current) return
 
             try {
-                const content = await load(current.path)
+                const payload = await load(current.path)
                 if (token !== generation) return
                 // The DOM types reject an array view that may be backed by a
                 // shared buffer; both readers hand back a plain buffer.
-                const blob = new Blob([content as BlobPart], {
+                const blob = new Blob([payload as BlobPart], {
                     type: studioMediaMimeType(current.name),
                 })
-                bytes.value = content.byteLength
+                bytes.value = payload.byteLength
+                content.value = payload
                 url.value = URL.createObjectURL(blob)
             } catch (error) {
                 if (token !== generation) return
@@ -96,5 +101,5 @@ export function useStudioMediaPreview(
         release()
     })
 
-    return { url, bytes, loading, failed }
+    return { url, bytes, content, loading, failed }
 }

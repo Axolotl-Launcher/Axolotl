@@ -13622,14 +13622,8 @@
   "instance.files.studio.preview-actual-size": {
     "message": "实际大小"
   },
-  "instance.files.studio.preview-apply-crop": {
-    "message": "裁剪图片"
-  },
-  "instance.files.studio.preview-cancel-crop": {
-    "message": "取消"
-  },
-  "instance.files.studio.preview-crop": {
-    "message": "裁剪"
+  "instance.files.studio.preview-edit": {
+    "message": "编辑"
   },
   "instance.files.studio.preview-failed": {
     "message": "无法预览此文件。"
@@ -13639,6 +13633,12 @@
   },
   "instance.files.studio.preview-loading": {
     "message": "正在加载预览……"
+  },
+  "instance.files.studio.preview-save": {
+    "message": "保存"
+  },
+  "instance.files.studio.preview-tools": {
+    "message": "图片编辑工具"
   },
   "instance.files.studio.preview-zoom-in": {
     "message": "放大"

@@ -285,7 +285,7 @@ const mediaKind = computed(() => {
 // Only media documents are read as bytes; text and NBT documents have their own
 // loading path and would otherwise be read twice.
 const mediaDocument = computed(() => (mediaKind.value ? activeDocument.value : null))
-// The file the current preview was read from. A crop is encoded asynchronously,
+// The file the current preview was read from. An edit is encoded asynchronously,
 // so the target has to be remembered rather than re-read from the active tab.
 const mediaPreviewPath = ref('')
 watch(mediaDocument, (document) => {
@@ -298,6 +298,7 @@ const mediaRevision = ref(0)
 const {
     url: mediaPreviewUrl,
     bytes: mediaPreviewBytes,
+    content: mediaPreviewContent,
     loading: mediaPreviewLoading,
     failed: mediaPreviewFailed,
 } = useStudioMediaPreview(mediaDocument, readBinary, mediaRevision)
@@ -310,7 +311,7 @@ function notifyOperationFailure(error: unknown) {
     })
 }
 
-async function writeCroppedImage(bytes: Uint8Array) {
+async function writeEditedImage(bytes: Uint8Array) {
     const path = mediaPreviewPath.value
     if (!path) return
     try {
@@ -967,12 +968,13 @@ onBeforeRouteLeave(() => {
                         :kind="mediaKind"
                         :url="mediaPreviewUrl"
                         :name="selectedName"
-                        :bytes="mediaPreviewBytes"
+                        :size="mediaPreviewBytes"
+                        :content="mediaPreviewContent"
                         :loading="mediaPreviewLoading"
                         :failed="mediaPreviewFailed"
                         @open-in-system="openInSystem(selectedFilePath)"
-                        @crop="writeCroppedImage"
-                        @crop-failed="notifyOperationFailure"
+                        @save="writeEditedImage"
+                        @edit-failed="notifyOperationFailure"
                     />
                     <div
                         v-else-if="activeDocument?.kind === 'unsupported'"

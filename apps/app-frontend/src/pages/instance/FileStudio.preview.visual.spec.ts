@@ -63,6 +63,11 @@ vi.mock('@/components/instance/studio/StudioEditor.vue', () => ({
     default: { render: () => null },
 }))
 vi.mock('@/components/instance/studio/NbtEditor.vue', () => ({ default: { render: () => null } }))
+// The editor is a fabric canvas with its own test; this page only has to hand it
+// the bytes and write the result back.
+vi.mock('@/components/instance/studio/StudioImageEditor.vue', () => ({
+    default: { render: () => null },
+}))
 vi.mock('@/components/instance/studio/StudioEditorTabs.vue', () => ({
     default: { render: () => null },
 }))

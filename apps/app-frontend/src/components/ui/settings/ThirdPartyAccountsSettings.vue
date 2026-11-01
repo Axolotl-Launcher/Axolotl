@@ -2,9 +2,9 @@
 import { CircleAlertIcon, GlobeIcon, MoreVerticalIcon, SpinnerIcon } from '@modrinth/assets'
 import {
     Button,
+    ConfirmActionModal,
     defineMessages,
     injectNotificationManager,
-    NewModal,
     TeleportOverflowMenu,
     useVIntl,
 } from '@modrinth/ui'
@@ -101,7 +101,7 @@ const messages = defineMessages({
 const { formatMessage } = useVIntl()
 const { addNotification } = injectNotificationManager()
 const queryClient = useQueryClient()
-const disconnectModal = ref<InstanceType<typeof NewModal> | null>(null)
+const disconnectModal = ref<InstanceType<typeof ConfirmActionModal> | null>(null)
 const accountQuery = useQuery({
     queryKey: thirdPartyAccountKey,
     queryFn: getThirdPartyAccount,
@@ -155,13 +155,6 @@ const action = useMutation({
     },
     onSettled: () => queryClient.invalidateQueries({ queryKey: thirdPartyAccountKey }),
 })
-watch(
-    action.isSuccess,
-    (success) => {
-        if (success && action.variables.value === 'disconnect') disconnectModal.value?.hide()
-    },
-    { flush: 'post' },
-)
 const busy = action.isPending
 const status = computed(() => {
     const authorization = account.value?.authorization
@@ -308,28 +301,15 @@ const menuOptions = computed(() => [
                 </div>
             </div>
         </SettingsSection>
-        <NewModal
+        <ConfirmActionModal
             ref="disconnectModal"
             :header="formatMessage(messages.disconnectTitle)"
-            :disable-close="busy"
-            width="min(30rem, 90vw)"
+            :confirm-label="formatMessage(messages.disconnect)"
+            :confirm-action="() => action.mutateAsync('disconnect')"
+            :confirm-disabled="busy"
+            confirm-color="red"
         >
             <p class="m-0">{{ formatMessage(messages.disconnectDescription) }}</p>
-            <p v-if="action.isError.value" role="alert" class="text-red">
-                {{ formatMessage(messages.actionFailed) }}
-            </p>
-            <template #actions>
-                <Button :disabled="busy" @click="disconnectModal?.hide()">{{
-                    formatMessage(messages.cancel)
-                }}</Button>
-                <Button
-                    color="red"
-                    type="colored"
-                    :disabled="busy"
-                    @click="action.mutate('disconnect')"
-                    >{{ formatMessage(messages.disconnect) }}</Button
-                >
-            </template>
-        </NewModal>
+        </ConfirmActionModal>
     </div>
 </template>

@@ -63,23 +63,42 @@ vi.mock('@modrinth/ui', () => ({
                     ),
             ),
     }),
-    NewModal: defineComponent({
-        props: ['disableClose'],
+    ConfirmActionModal: defineComponent({
+        props: ['confirmAction', 'confirmDisabled', 'confirmLabel'],
         setup(props, { slots, expose }) {
             const visible = ref(false)
             expose({
                 show: () => {
                     visible.value = true
                 },
-                hide: () => {
-                    if (!props.disableClose) visible.value = false
-                },
             })
             return () =>
                 visible.value
                     ? h('section', { 'data-confirmation': '' }, [
                           slots.default?.(),
-                          slots.actions?.(),
+                          h(
+                              'button',
+                              {
+                                  disabled: props.confirmDisabled,
+                                  onClick: () => (visible.value = false),
+                              },
+                              'Cancel',
+                          ),
+                          h(
+                              'button',
+                              {
+                                  disabled: props.confirmDisabled,
+                                  onClick: async () => {
+                                      try {
+                                          await props.confirmAction()
+                                          visible.value = false
+                                      } catch {
+                                          visible.value = true
+                                      }
+                                  },
+                              },
+                              props.confirmLabel,
+                          ),
                       ])
                     : null
         },

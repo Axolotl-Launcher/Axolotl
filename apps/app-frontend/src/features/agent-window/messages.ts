@@ -263,6 +263,8 @@ export const agentWindowMessages = defineMessages({
     copy: { id: 'app.agent-window.chat.copy', defaultMessage: 'Copy message' },
     copyAnswer: { id: 'app.agent-window.chat.copy-answer', defaultMessage: 'Copy answer' },
     copyText: { id: 'app.agent-window.chat.copy-text', defaultMessage: 'Copy text' },
+    why: { id: 'app.agent-window.chat.why', defaultMessage: 'Why?' },
+    askWhy: { id: 'app.agent-window.chat.ask-why', defaultMessage: 'Why change {name}?' },
     tourName: { id: 'app.agent-window.chat.tour-name', defaultMessage: 'Quick tour' },
     tourStep: {
         id: 'app.agent-window.chat.tour-step',

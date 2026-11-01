@@ -335,6 +335,12 @@
   "app.agent-window.chat.copy-text": {
     "message": "复制文本"
   },
+  "app.agent-window.chat.why": {
+    "message": "为什么？"
+  },
+  "app.agent-window.chat.ask-why": {
+    "message": "为什么要改 {name}？"
+  },
   "app.agent-window.chat.tour-name": {
     "message": "快速导览"
   },

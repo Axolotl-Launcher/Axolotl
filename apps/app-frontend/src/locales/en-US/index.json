@@ -335,6 +335,12 @@
   "app.agent-window.chat.copy-text": {
     "message": "Copy text"
   },
+  "app.agent-window.chat.why": {
+    "message": "Why?"
+  },
+  "app.agent-window.chat.ask-why": {
+    "message": "Why change {name}?"
+  },
   "app.agent-window.chat.tour-name": {
     "message": "Quick tour"
   },

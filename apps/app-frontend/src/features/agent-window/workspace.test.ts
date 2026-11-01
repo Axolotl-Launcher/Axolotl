@@ -1604,3 +1604,17 @@ it('never offers the tour over typing or while the open task has turns', async (
     await page.clock.runFor(3_000)
     expect(await page.locator('.tour').count()).toBe(0)
 })
+
+it('asks why a planned change is needed before deciding', async () => {
+    await send('My game crashes on launch')
+    await untilPlan()
+    await page.locator('.plan-card .change-why').first().click()
+    await page.locator('.turn').nth(1).waitFor()
+    expect(await page.locator('.turn').nth(1).locator('.user-bubble').textContent()).toBe(
+        messages.askWhy.replace('{name}', 'Entity Culling'),
+    )
+    await untilPlan()
+    expect(
+        await page.locator('.plan-card[data-state="superseded"] .change-why').first().isVisible(),
+    ).toBe(false)
+})

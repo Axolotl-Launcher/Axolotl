@@ -2877,6 +2877,29 @@ code {
 .change-list .change:nth-child(n + 4) {
     --row: 3;
 }
+.change-why {
+    height: 20px;
+    padding: 0 6px;
+    border-radius: 6px;
+    color: var(--fg-3);
+    font-size: 11.5px;
+    font-weight: 500;
+    opacity: 0;
+    transition:
+        opacity 160ms ease,
+        color 160ms ease;
+}
+.change:hover .change-why,
+.change-why:focus-visible {
+    opacity: 1;
+}
+.change-why:hover {
+    color: var(--accent-ink);
+    background: var(--hover);
+}
+.plan-card:not([data-state='pending']) .change-why {
+    display: none;
+}
 .change.is-excluded {
     opacity: 0.5;
     filter: saturate(0.3);

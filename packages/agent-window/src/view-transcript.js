@@ -478,7 +478,21 @@ function changeRow(change, index, turnId) {
     return h('li', { class: `change${change.manual ? ' is-manual' : ''}`, data: { index } }, [
         mark,
         h('span', { class: 'change-copy' }, [
-            h('span', { class: 'change-title' }, [h('strong', { text: change.name }), badge]),
+            h('span', { class: 'change-title' }, [
+                h('strong', { text: change.name }),
+                badge,
+                // A newcomer can ask about one change before deciding; the
+                // plan waits and comes back with the answer.
+                change.manual
+                    ? null
+                    : button(
+                          {
+                              class: 'change-why',
+                              data: { followup: text('askWhy', { name: change.name }) },
+                          },
+                          text('why'),
+                      ),
+            ]),
             change.note || change.meta
                 ? h('span', { class: 'change-note' }, [
                       change.note ? h('span', { text: change.note }) : null,

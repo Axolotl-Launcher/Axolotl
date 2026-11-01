@@ -242,13 +242,29 @@ function cancel() {
     emit('cancel')
 }
 
+/**
+ * The property controls below the canvas are ordinary inputs. The shortcut
+ * listener sits on the document, so without this a key pressed while one of them
+ * has focus would change the active tool instead of reaching the control.
+ */
+const FOCUSABLE_CONTROL_TAGS = new Set(['INPUT', 'TEXTAREA', 'SELECT'])
+
+function isControlFocused(event: KeyboardEvent) {
+    const target = event.target
+    if (!(target instanceof HTMLElement)) return false
+    return target.isContentEditable || FOCUSABLE_CONTROL_TAGS.has(target.tagName)
+}
+
 function onKeydown(event: KeyboardEvent) {
     if (document.querySelector('.modal-root')) return
+    // Saving stays available from anywhere in the editor, including a focused
+    // control, because the file is what the whole surface is about.
     if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 's') {
         event.preventDefault()
         void save()
         return
     }
+    if (isControlFocused(event)) return
     if (isTextEditing()) return
     // The engine binds `C` to the censor tool, which Studio does not offer; the
     // shortcut would otherwise select a tool with no button and no way back.

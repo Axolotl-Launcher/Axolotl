@@ -3,7 +3,7 @@ import '@/test/visual-styles.scss'
 import { I18N_INJECTION_KEY } from '@modrinth/ui'
 import { mount } from '@vue/test-utils'
 import { afterEach, expect, it, vi } from 'vitest'
-import { ref } from 'vue'
+import { nextTick, ref } from 'vue'
 
 import StudioImageEditor from './StudioImageEditor.vue'
 
@@ -126,4 +126,31 @@ it('cancels without saving', async () => {
 
     expect(wrapper.emitted('cancel')).toHaveLength(1)
     expect(wrapper.emitted('save')).toBeUndefined()
+})
+
+it('leaves escape to a focused property control instead of closing the editor', async () => {
+    const wrapper = mountEditor()
+    await vi.waitFor(() => expect(wrapper.text()).toContain('1 × 1'))
+    const pen = wrapper
+        .findAll('[role="toolbar"] button')
+        .find((button) => button.attributes('aria-label') === 'Pen')
+    await pen!.trigger('click')
+
+    const width = wrapper.find('input[type="number"]')
+    expect(width.exists()).toBe(true)
+    ;(width.element as HTMLInputElement).focus()
+    width.element.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+    await nextTick()
+
+    // Escape inside the control belongs to the control; discarding the whole
+    // edit because the user pressed it while adjusting a value loses their work.
+    expect(wrapper.emitted('cancel')).toBeUndefined()
+
+    // The engine spends the first Escape returning to the select tool, so the
+    // editor only closes on the one after it.
+    for (let press = 0; press < 2; press += 1) {
+        document.body.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+        await nextTick()
+    }
+    expect(wrapper.emitted('cancel')).toHaveLength(1)
 })

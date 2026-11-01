@@ -95,10 +95,25 @@ function formatByteSize(bytes: number): string {
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
+/**
+ * The stage's padding is not part of the room the image may use. Measuring the
+ * client box alone asks the fit scale for a larger image than the content area
+ * holds, so a fitted image overflows its own stage and shows scrollbars.
+ */
 function measureStage() {
     const element = stage.value
     if (!element) return
-    viewport.value = { width: element.clientWidth, height: element.clientHeight }
+    const style = getComputedStyle(element)
+    viewport.value = {
+        width:
+            element.clientWidth -
+            Number.parseFloat(style.paddingLeft) -
+            Number.parseFloat(style.paddingRight),
+        height:
+            element.clientHeight -
+            Number.parseFloat(style.paddingTop) -
+            Number.parseFloat(style.paddingBottom),
+    }
 }
 
 function onImageLoad(event: Event) {

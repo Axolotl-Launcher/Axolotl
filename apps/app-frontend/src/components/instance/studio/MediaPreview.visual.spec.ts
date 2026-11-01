@@ -239,3 +239,38 @@ it('keeps editing unavailable while the bytes are missing', () => {
 
     expect(findButton(wrapper, 'Edit')).toBeUndefined()
 })
+
+function largeImageUrl(width: number, height: number): string {
+    const canvas = document.createElement('canvas')
+    canvas.width = width
+    canvas.height = height
+    const context = canvas.getContext('2d')
+    if (!context) throw new Error('the test needs a 2D context')
+    context.fillRect(0, 0, width, height)
+    return canvas.toDataURL('image/png')
+}
+
+it('fits an image inside the stage padding instead of overflowing it', async () => {
+    const wrapper = mountPreview({ url: largeImageUrl(400, 400), name: 'large.png', content: null })
+    const stage = wrapper.find('.overflow-auto')
+    const element = stage.element as HTMLElement
+    const style = getComputedStyle(element)
+    // The padding is not part of the room the image may use; measuring the whole
+    // client box would ask for a fit larger than the content area and scrollbars
+    // would appear on an image that is supposed to be fitted.
+    const available = {
+        width:
+            element.clientWidth -
+            Number.parseFloat(style.paddingLeft) -
+            Number.parseFloat(style.paddingRight),
+        height:
+            element.clientHeight -
+            Number.parseFloat(style.paddingTop) -
+            Number.parseFloat(style.paddingBottom),
+    }
+    const expected = Math.round(Math.min(available.width / 400, available.height / 400) * 100)
+
+    await vi.waitFor(() => expect(wrapper.text()).toContain(`${expected}%`))
+    expect(element.scrollWidth).toBeLessThanOrEqual(element.clientWidth)
+    expect(element.scrollHeight).toBeLessThanOrEqual(element.clientHeight)
+})

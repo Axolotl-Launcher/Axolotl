@@ -1,143 +1,404 @@
-export const STORAGE_KEY = 'axolotl.agent-window.conversations.v1'
+// Conversation history kept on this device. Everything read back from storage is
+// rebuilt field by field, so a damaged or hand-edited entry cannot inject markup,
+// unexpected types or a run that silently resumes.
+export const STORAGE_KEY = 'axolotl.agent-window.store.v2'
+export const LEGACY_STORAGE_KEY = 'axolotl.agent-window.conversations.v1'
 const MAX_TEXT = 50000
-const MAX_STORE_LENGTH = 1_000_000
+const MAX_STORE_LENGTH = 1_500_000
 const MAX_THREADS = 100
-const MAX_MESSAGES = 1000
+const MAX_TURNS = 600
+const MAX_ATTACHMENTS = 10
 
-export function newThread() {
+export const ACTIVE_STATUSES = ['thinking', 'running', 'applying']
+const RUN_STATUSES = [
+    'thinking',
+    'running',
+    'awaiting',
+    'applying',
+    'done',
+    'failed',
+    'stopped',
+    'detached',
+    'declined',
+    'superseded',
+    'interrupted',
+]
+const PLAN_STATES = [
+    'pending',
+    'applying',
+    'applied',
+    'declined',
+    'superseded',
+    'stopped',
+    'unknown',
+]
+const STEP_STATES = ['running', 'done', 'failed', 'stopped']
+
+const id = () => crypto.randomUUID()
+const string = (value, max = 500) => (typeof value === 'string' ? value.slice(0, max) : '')
+const optionalString = (value, max = 500) =>
+    typeof value === 'string' && value ? value.slice(0, max) : null
+const time = (value) => (Number.isFinite(value) && value > 0 ? value : null)
+const oneOf = (value, options, fallback) => (options.includes(value) ? value : fallback)
+const list = (value, map, max = 200) =>
+    Array.isArray(value) ? value.slice(0, max).map(map).filter(Boolean) : []
+
+export function newThread(selection = null) {
+    const now = Date.now()
     return {
-        id: crypto.randomUUID(),
+        id: id(),
         title: '',
-        createdAt: Date.now(),
-        updatedAt: Date.now(),
+        titleEdited: false,
+        createdAt: now,
+        updatedAt: now,
         draft: '',
+        attachments: [],
         instanceId: null,
-        selection: null,
-        messages: [],
+        selection,
+        turns: [],
+        queue: [],
     }
 }
+
+export function newTurn(thread, message) {
+    return {
+        id: id(),
+        createdAt: Date.now(),
+        text: message.text,
+        attachments: structuredClone(message.attachments || []),
+        instanceId: thread.instanceId,
+        selection: thread.selection ? structuredClone(thread.selection) : null,
+        run: newRun(),
+    }
+}
+
+export function newRun() {
+    return {
+        status: 'thinking',
+        startedAt: Date.now(),
+        endedAt: null,
+        label: '',
+        items: [],
+        progress: [],
+        resume: null,
+        preview: false,
+    }
+}
+
 export function initialStore() {
     const thread = newThread()
-    return { version: 1, activeId: thread.id, sidebarOpen: true, threads: [thread] }
+    return {
+        version: 2,
+        activeId: thread.id,
+        sidebarOpen: true,
+        panelOpen: false,
+        introDismissed: false,
+        lastSelection: null,
+        threads: [thread],
+    }
 }
-export function loadStore(storage = localStorage) {
-    const raw = storage.getItem(STORAGE_KEY)
-    if (!raw) return initialStore()
-    const value = JSON.parse(raw)
-    if (value.version !== 1 || !Array.isArray(value.threads))
-        throw new Error('Invalid conversation store')
-    const ids = new Set()
-    const messageIds = new Set()
-    const threads = value.threads
-        .filter(
-            (thread) =>
-                thread &&
-                typeof thread.id === 'string' &&
-                !ids.has(thread.id) &&
-                ids.add(thread.id),
-        )
-        .map((thread) => ({
-            id: thread.id,
-            title: String(thread.title || '').slice(0, 120),
-            createdAt: Number(thread.createdAt) || Date.now(),
-            updatedAt: Number(thread.updatedAt) || Date.now(),
-            draft: String(thread.draft || '').slice(0, MAX_TEXT),
-            instanceId: typeof thread.instanceId === 'string' ? thread.instanceId : null,
-            selection:
-                thread.selection &&
-                typeof thread.selection.provider_id === 'string' &&
-                typeof thread.selection.model_id === 'string'
+
+function selection(value) {
+    return value && typeof value.provider_id === 'string' && typeof value.model_id === 'string'
+        ? { provider_id: value.provider_id.slice(0, 200), model_id: value.model_id.slice(0, 200) }
+        : null
+}
+
+function attachment(value) {
+    if (!value || typeof value.name !== 'string') return null
+    return {
+        id: typeof value.id === 'string' ? value.id.slice(0, 100) : id(),
+        name: value.name.slice(0, 260),
+        size: Number.isFinite(value.size) && value.size >= 0 ? value.size : 0,
+    }
+}
+
+function step(value) {
+    if (!value || typeof value.title !== 'string') return null
+    return {
+        id: string(value.id, 100) || id(),
+        title: string(value.title),
+        detail: string(value.detail, 2000),
+        tool: optionalString(value.tool, 120),
+        status: oneOf(value.status, STEP_STATES, 'done'),
+        startedAt: time(value.startedAt),
+        endedAt: time(value.endedAt),
+    }
+}
+
+function change(value) {
+    if (!value || typeof value.name !== 'string') return null
+    return {
+        name: string(value.name, 200),
+        note: string(value.note),
+        from: optionalString(value.from, 100),
+        to: optionalString(value.to, 100),
+        glyph: optionalString(value.glyph, 3),
+        icon: optionalString(value.icon, 40),
+        manual: value.manual === true,
+    }
+}
+
+function plan(value) {
+    if (!value || typeof value !== 'object') return null
+    return {
+        id: string(value.id, 100) || id(),
+        title: string(value.title, 200),
+        summary: string(value.summary, 200),
+        approval: string(value.approval, 400),
+        changes: list(value.changes, change, 50),
+        notes: list(
+            value.notes,
+            (note) => (typeof note === 'string' ? note.slice(0, 200) : null),
+            6,
+        ),
+        scope: list(
+            value.scope,
+            (entry) =>
+                entry && typeof entry.label === 'string'
                     ? {
-                          provider_id: thread.selection.provider_id,
-                          model_id: thread.selection.model_id,
+                          label: entry.label.slice(0, 100),
+                          count: Number.isInteger(entry.count) ? Math.max(0, entry.count) : 0,
                       }
                     : null,
-            messages: Array.isArray(thread.messages)
-                ? thread.messages
-                      .filter(
-                          (message) =>
-                              message &&
-                              typeof message.id === 'string' &&
-                              typeof message.text === 'string' &&
-                              !messageIds.has(message.id) &&
-                              messageIds.add(message.id),
-                      )
-                      .map((message) => ({
-                          id: message.id,
-                          role: 'user',
-                          text: message.text.slice(0, MAX_TEXT),
-                          createdAt: Number(message.createdAt) || Date.now(),
-                          status:
-                              message.status === 'waiting'
-                                  ? 'interrupted'
-                                  : ['stopped', 'interrupted'].includes(message.status)
-                                    ? message.status
-                                    : 'stopped',
-                          instanceId:
-                              typeof message.instanceId === 'string' ? message.instanceId : null,
-                          selection:
-                              message.selection &&
-                              typeof message.selection.provider_id === 'string' &&
-                              typeof message.selection.model_id === 'string'
-                                  ? {
-                                        provider_id: message.selection.provider_id,
-                                        model_id: message.selection.model_id,
-                                    }
-                                  : null,
-                      }))
+            8,
+        ),
+    }
+}
+
+function item(value) {
+    if (!value || typeof value !== 'object') return null
+    const base = { id: string(value.id, 100) || id() }
+    switch (value.type) {
+        case 'activity':
+            return {
+                ...base,
+                type: 'activity',
+                steps: list(value.steps, step, 100),
+                startedAt: time(value.startedAt),
+                endedAt: time(value.endedAt),
+            }
+        case 'text':
+            return { ...base, type: 'text', text: string(value.text, MAX_TEXT) }
+        case 'plan': {
+            const details = plan(value.plan)
+            return details
+                ? {
+                      ...base,
+                      type: 'plan',
+                      plan: details,
+                      state: oneOf(value.state, PLAN_STATES, 'unknown'),
+                      done: Number.isInteger(value.done) ? Math.max(0, value.done) : 0,
+                  }
+                : null
+        }
+        case 'result':
+        case 'error':
+            return {
+                ...base,
+                type: value.type,
+                title: string(value.title, 200),
+                text: string(value.text, 2000),
+                retryable: value.retryable === true,
+            }
+        default:
+            return null
+    }
+}
+
+function progress(value) {
+    if (!value || typeof value.title !== 'string') return null
+    return {
+        title: value.title.slice(0, 200),
+        detail: string(value.detail, 300),
+        status: oneOf(value.status, ['pending', 'current', 'done', 'failed'], 'pending'),
+    }
+}
+
+function run(value) {
+    if (!value || typeof value !== 'object') {
+        return { ...newRun(), status: 'interrupted', startedAt: null }
+    }
+    const result = {
+        status: oneOf(value.status, RUN_STATUSES, 'interrupted'),
+        startedAt: time(value.startedAt),
+        endedAt: time(value.endedAt),
+        label: '',
+        items: list(value.items, item, 200),
+        progress: list(value.progress, progress, 12),
+        resume:
+            value.resume && typeof value.resume === 'object' && !Array.isArray(value.resume)
+                ? JSON.parse(JSON.stringify(value.resume))
+                : null,
+        preview: value.preview === true,
+    }
+    // Nothing runs again by itself after a restart. Work that was only being
+    // prepared is interrupted; work that was writing has an unknown outcome.
+    if (result.status === 'thinking' || result.status === 'running') result.status = 'interrupted'
+    if (result.status === 'applying') result.status = 'detached'
+    for (const entry of result.items) {
+        if (entry.type === 'activity')
+            for (const part of entry.steps) if (part.status === 'running') part.status = 'stopped'
+        if (entry.type === 'plan' && entry.state === 'applying') entry.state = 'unknown'
+    }
+    for (const entry of result.progress) if (entry.status === 'current') entry.status = 'pending'
+    return result
+}
+
+function turn(value, seen) {
+    if (!value || typeof value.id !== 'string' || typeof value.text !== 'string') return null
+    if (seen.has(value.id)) return null
+    seen.add(value.id)
+    return {
+        id: value.id,
+        createdAt: time(value.createdAt) || Date.now(),
+        text: value.text.slice(0, MAX_TEXT),
+        attachments: list(value.attachments, attachment, MAX_ATTACHMENTS),
+        instanceId: optionalString(value.instanceId),
+        selection: selection(value.selection),
+        run: run(value.run),
+    }
+}
+
+function queued(value) {
+    if (!value || typeof value.text !== 'string') return null
+    return {
+        id: typeof value.id === 'string' ? value.id.slice(0, 100) : id(),
+        text: value.text.slice(0, MAX_TEXT),
+        attachments: list(value.attachments, attachment, MAX_ATTACHMENTS),
+        createdAt: time(value.createdAt) || Date.now(),
+    }
+}
+
+function thread(value, threadIds, turnIds) {
+    if (!value || typeof value.id !== 'string' || threadIds.has(value.id)) return null
+    threadIds.add(value.id)
+    return {
+        id: value.id,
+        title: string(value.title, 120),
+        titleEdited: value.titleEdited === true,
+        createdAt: time(value.createdAt) || Date.now(),
+        updatedAt: time(value.updatedAt) || Date.now(),
+        draft: string(value.draft, MAX_TEXT),
+        attachments: list(value.attachments, attachment, MAX_ATTACHMENTS),
+        instanceId: optionalString(value.instanceId),
+        selection: selection(value.selection),
+        turns: list(value.turns, (entry) => turn(entry, turnIds), MAX_TURNS),
+        queue: list(value.queue, queued, 20),
+    }
+}
+
+// The first preview stored only user messages that were never executed.
+function migrateLegacy(value) {
+    if (value.version !== 1 || !Array.isArray(value.threads)) return null
+    return {
+        version: 2,
+        activeId: value.activeId,
+        sidebarOpen: value.sidebarOpen,
+        threads: value.threads.map((entry) => ({
+            ...entry,
+            turns: Array.isArray(entry?.messages)
+                ? entry.messages.map((message) => ({
+                      ...message,
+                      run: { status: 'interrupted', startedAt: null, items: [] },
+                  }))
                 : [],
-        }))
+        })),
+    }
+}
+
+export function parseStore(raw) {
+    let value = JSON.parse(raw)
+    if (value?.version === 1) value = migrateLegacy(value)
+    if (value?.version !== 2 || !Array.isArray(value.threads))
+        throw new Error('Invalid conversation store')
+    const threadIds = new Set()
+    const turnIds = new Set()
+    const threads = value.threads.map((entry) => thread(entry, threadIds, turnIds)).filter(Boolean)
     if (!threads.length) return initialStore()
     return {
-        version: 1,
-        activeId: threads.some((thread) => thread.id === value.activeId)
+        version: 2,
+        activeId: threads.some((entry) => entry.id === value.activeId)
             ? value.activeId
             : threads[0].id,
         sidebarOpen: value.sidebarOpen !== false,
+        panelOpen: value.panelOpen === true,
+        introDismissed: value.introDismissed === true,
+        lastSelection: selection(value.lastSelection),
         threads,
     }
 }
+
+export function loadStore(storage = localStorage) {
+    const raw = storage.getItem(STORAGE_KEY) ?? storage.getItem(LEGACY_STORAGE_KEY)
+    return raw ? parseStore(raw) : initialStore()
+}
+
+export function isProtected(thread, activeId) {
+    return (
+        thread.id === activeId ||
+        !!thread.draft ||
+        thread.queue.length > 0 ||
+        thread.turns.some(
+            (entry) =>
+                ACTIVE_STATUSES.includes(entry.run.status) || entry.run.status === 'awaiting',
+        )
+    )
+}
+
+// Older settled work makes room when the store grows past its budget. Drafts,
+// queued follow-ups and runs that are active or waiting for approval are kept.
 export function saveStore(store, storage = localStorage) {
     const next = structuredClone(store)
-    const removableThreads = next.threads
-        .filter(
-            (thread) =>
-                thread.id !== next.activeId &&
-                !thread.draft &&
-                !thread.messages.some((message) => message.status === 'waiting'),
-        )
+    const removable = next.threads
+        .filter((entry) => !isProtected(entry, next.activeId))
         .sort((a, b) => a.updatedAt - b.updatedAt)
-    while (next.threads.length > MAX_THREADS && removableThreads.length) {
-        const oldest = removableThreads.shift()
-        next.threads = next.threads.filter((thread) => thread.id !== oldest.id)
+    while (next.threads.length > MAX_THREADS && removable.length) {
+        const oldest = removable.shift()
+        next.threads = next.threads.filter((entry) => entry.id !== oldest.id)
     }
     const history = next.threads
-        .flatMap((thread) =>
-            thread.messages
-                .filter((message) => message.status !== 'waiting')
-                .map((message) => ({ thread, message })),
+        .flatMap((entry) =>
+            entry.turns
+                .filter(
+                    (part) =>
+                        !ACTIVE_STATUSES.includes(part.run.status) &&
+                        part.run.status !== 'awaiting',
+                )
+                .map((part) => ({ thread: entry, turn: part })),
         )
-        .sort((a, b) => a.message.createdAt - b.message.createdAt)
-    let count = next.threads.reduce((total, thread) => total + thread.messages.length, 0)
+        .sort((a, b) => a.turn.createdAt - b.turn.createdAt)
+    let count = next.threads.reduce((total, entry) => total + entry.turns.length, 0)
     let serialized = JSON.stringify(next)
-    while ((serialized.length > MAX_STORE_LENGTH || count > MAX_MESSAGES) && history.length) {
-        const { thread, message } = history.shift()
-        thread.messages = thread.messages.filter((item) => item.id !== message.id)
+    while ((serialized.length > MAX_STORE_LENGTH || count > MAX_TURNS) && history.length) {
+        const { thread: owner, turn: oldest } = history.shift()
+        owner.turns = owner.turns.filter((part) => part.id !== oldest.id)
         count--
         serialized = JSON.stringify(next)
     }
     if (
         serialized.length > MAX_STORE_LENGTH ||
-        count > MAX_MESSAGES ||
+        count > MAX_TURNS ||
         next.threads.length > MAX_THREADS
     )
         throw new Error('Conversation storage limit reached')
     storage.setItem(STORAGE_KEY, serialized)
     return next
 }
+
 export function activeThread(store) {
-    return store.threads.find((thread) => thread.id === store.activeId)
+    return store.threads.find((entry) => entry.id === store.activeId)
 }
-export function commitStore(next, storage = localStorage) {
-    return saveStore(next, storage)
+
+export function lastTurn(thread) {
+    return thread.turns.at(-1) || null
+}
+
+// The state that a list row or header shows for a whole thread.
+export function threadStatus(thread) {
+    const status = lastTurn(thread)?.run.status
+    if (ACTIVE_STATUSES.includes(status)) return 'active'
+    if (status === 'awaiting') return 'awaiting'
+    if (status === 'failed' || status === 'detached') return 'attention'
+    return 'idle'
 }

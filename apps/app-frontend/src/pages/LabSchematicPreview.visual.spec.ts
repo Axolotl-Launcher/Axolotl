@@ -675,6 +675,8 @@ it('the state card is hidden while nothing is selected', async () => {
     await button('Clear selection').trigger('click')
     await nextTick()
     expect(wrapper.findAll('button').some((chip) => chip.text() === 'West')).toBe(false)
+})
+
 it('every pass the worker meshes reaches the scene, bubbles included', async () => {
     await openFile('A')
     const calls = fixture.scene.setChunk.mock.calls

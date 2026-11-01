@@ -240,6 +240,8 @@ pub struct InstallJobState {
     pub active_downloads: HashMap<String, ActiveDownloadState>,
     #[serde(default)]
     pub display: Option<InstallJobDisplay>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub resource_names: Vec<String>,
     pub rollback: Option<InstallRollbackState>,
     pub error: Option<InstallErrorView>,
     #[serde(default)]
@@ -283,6 +285,7 @@ impl Clone for InstallJobState {
             events: self.events.clone(),
             active_downloads: self.active_downloads.clone(),
             display: self.display.clone(),
+            resource_names: self.resource_names.clone(),
             rollback: self.rollback.clone(),
             error: self.error.clone(),
             rollback_error: self.rollback_error.clone(),
@@ -344,6 +347,7 @@ impl InstallJobState {
             }],
             active_downloads: HashMap::new(),
             display: None,
+            resource_names: Vec::new(),
             rollback: None,
             error: None,
             rollback_error: None,
@@ -366,6 +370,15 @@ impl InstallJobState {
     }
 
     pub fn record_event(&mut self, kind: InstallJobEventKind) {
+        match &kind {
+            InstallJobEventKind::ContentFileCompleted { path, .. }
+            | InstallJobEventKind::ContentFileRecovered { path, .. }
+            | InstallJobEventKind::ContentFileFailed { path, .. }
+            | InstallJobEventKind::ContentFileSkipped { path, .. } => {
+                self.active_downloads.remove(path);
+            }
+            _ => {}
+        }
         if matches!(
             &kind,
             InstallJobEventKind::JobStarted
@@ -1038,6 +1051,41 @@ mod tests {
             phase: InstallPhaseId::DownloadingMinecraft,
         });
         assert!(job.active_downloads.is_empty());
+    }
+
+    #[test]
+    fn settled_resource_files_clear_live_downloads() {
+        for event in [
+            InstallJobEventKind::ContentFileCompleted {
+                path: "mods/test.jar".into(),
+                bytes: 10,
+            },
+            InstallJobEventKind::ContentFileFailed {
+                path: "mods/test.jar".into(),
+                reason: "batch failed".into(),
+                project_id: None,
+                version_id: None,
+            },
+            InstallJobEventKind::ContentFileSkipped {
+                path: "mods/test.jar".into(),
+                reason: "read only".into(),
+                project_id: None,
+                version_id: None,
+                manual_url: None,
+            },
+        ] {
+            let mut job = job_state();
+            job.active_downloads.insert(
+                "mods/test.jar".into(),
+                eta_test_download("mods/test.jar", 5, 10, 1),
+            );
+            job.record_event(event);
+            assert!(job.active_downloads.is_empty());
+            assert_ne!(
+                job.download_items()[0].status,
+                DownloadItemStatus::Downloading
+            );
+        }
     }
 
     fn eta_test_download(
@@ -2835,7 +2883,16 @@ pub struct InstallContentRollbackSnapshot {
     #[serde(default)]
     pub replacement_paths: Vec<String>,
     #[serde(default)]
+    pub replacement_files: Vec<InstallRollbackReplacementFile>,
+    #[serde(default)]
     pub protected_paths: Vec<String>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct InstallRollbackReplacementFile {
+    pub relative_path: String,
+    pub sha1: String,
+    pub size: u64,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -3089,6 +3146,8 @@ pub struct InstallJobSnapshot {
     pub details: InstallPhaseDetails,
     pub parallel: Option<InstallParallelProgress>,
     pub display: Option<InstallJobDisplay>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub resource_names: Vec<String>,
     pub error: Option<InstallErrorView>,
     pub rollback_error: Option<InstallErrorView>,
     pub pause_reason: Option<InstallPauseReason>,

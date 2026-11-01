@@ -3,6 +3,7 @@ import { confirmedContentGroupKey, type ContentItem, type useVIntl } from '@modr
 import { type InstallJobSnapshot, wait_for_install_job } from './install'
 import { resourcePlanIssueFeedback } from './resource-operation-feedback'
 import {
+    type ResourceOperationProgress,
     resourcePrepareEntryOperation,
     resourceQueuePlan,
     type SourceReleaseRef,
@@ -49,7 +50,7 @@ async function runResourceEntryUpdate(
     track: (job: InstallJobSnapshot) => void,
     formatMessage: ReturnType<typeof useVIntl>['formatMessage'],
 ) {
-    const prepare = () =>
+    const prepare = (onProgress: (progress: ResourceOperationProgress) => void) =>
         resourcePrepareEntryOperation(
             instanceId,
             'update',
@@ -57,13 +58,18 @@ async function runResourceEntryUpdate(
             null,
             false,
             undefined,
-            undefined,
+            onProgress,
             false,
         )
     let queuedJob: InstallJobSnapshot
     for (let attempt = 0; ; attempt++) {
+        const resourceNames = new Map<string, string>()
         try {
-            const plan = await prepare()
+            const plan = await prepare((progress) => {
+                if (progress.kind === 'node' && progress.metadata?.title.trim())
+                    resourceNames.set(progress.node.id, progress.metadata.title)
+                else if (progress.kind === 'nodeRemoved') resourceNames.delete(progress.nodeId)
+            })
             const blocking = plan.issues.filter((issue) => issue.blocking)
             if (blocking.length)
                 throw new Error(
@@ -74,7 +80,11 @@ async function runResourceEntryUpdate(
                         .join('\n'),
                 )
             if (!plan.actions.length) return false
-            queuedJob = await resourceQueuePlan(plan.id, plan.revision)
+            queuedJob = await resourceQueuePlan(
+                plan.id,
+                plan.revision,
+                Object.fromEntries(resourceNames),
+            )
             break
         } catch (error) {
             const message = preparationErrorMessage(error)

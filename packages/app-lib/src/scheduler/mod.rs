@@ -6,6 +6,7 @@ pub mod leaf;
 pub mod order;
 pub mod panic;
 pub mod supervisor;
+pub mod tag;
 
 #[cfg(test)]
 mod budget;

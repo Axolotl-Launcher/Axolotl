@@ -880,7 +880,10 @@ pub(crate) async fn try_segmented_download(
     let disk_cap =
         crate::util::download::local_resources::http1_range_limit(part_path)
             .await;
-    let range_recovery = (request.batch_download && request.prefer_http1)
+    // Slow single-file downloads need the same small-range budget as batch
+    // tails; the normal 4 MiB grain would cap their recovery at one request.
+    let range_recovery = (request.supports_range_recovery()
+        && request.prefer_http1)
         || request.minimum_range_connections(size) > 1;
     let mut concurrency_cap = adaptive_range_cap(
         remaining_size,

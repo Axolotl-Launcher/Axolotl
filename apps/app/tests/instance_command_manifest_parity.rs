@@ -370,3 +370,35 @@ fn download_diagnostics_is_registered_and_limited_to_the_main_window() {
             .any(|permission| permission == "install:default")
     );
 }
+
+#[test]
+fn settings_commands_are_registered_and_limited_to_the_main_window() {
+    let runtime = runtime_commands(include_str!("../src/api/settings.rs"));
+    let manifest = manifest_commands(include_str!("../build.rs"), "settings");
+    assert_eq!(
+        runtime, manifest,
+        "settings commands must be identical in the runtime handler and the \
+         build-time manifest"
+    );
+    for command in [
+        "settings_layers",
+        "settings_override_clear",
+        "settings_sanitise",
+        "settings_import_scan",
+        "settings_import",
+        "settings_export",
+    ] {
+        assert!(runtime.contains(command));
+    }
+    let capability: serde_json::Value =
+        serde_json::from_str(include_str!("../capabilities/plugins.json"))
+            .unwrap();
+    assert_eq!(capability["windows"], serde_json::json!(["main"]));
+    assert!(
+        capability["permissions"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|permission| permission == "settings:default")
+    );
+}

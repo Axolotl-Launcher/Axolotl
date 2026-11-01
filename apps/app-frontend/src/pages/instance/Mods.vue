@@ -1,8 +1,18 @@
 <template>
-    <ReadyTransition :pending="loading">
+    <ReadyTransition :pending="contentPending">
         <template #pending>
-            <LoadingIndicator class="pt-4" />
+            <p
+                v-if="isInstanceBusy"
+                class="m-0 pt-4 text-[var(--color-text-tertiary)]"
+                role="status"
+            >
+                {{ formatMessage(messages.instanceContentProcessing) }}
+            </p>
+            <LoadingIndicator v-else class="pt-4" />
         </template>
+        <p v-if="isInstanceBusy" class="mb-4 mt-0 text-[var(--color-text-tertiary)]" role="status">
+            {{ formatMessage(messages.instanceContentProcessing) }}
+        </p>
         <CollapsibleAdmonition
             v-if="postUpgradeNotice?.warnings.length"
             v-model="postUpgradeNoticeExpanded"
@@ -375,9 +385,9 @@ import { trackEvent } from '@/helpers/analytics'
 import { get_version_many } from '@/helpers/cache.js'
 import {
     activeContentChangeJobs as selectActiveContentChangeJobs,
+    contentChangeAffectsItem,
     contentItemStableId,
-    hasActiveContentChange,
-    pendingContentChangeAffectsItem,
+    indexContentChanges,
 } from '@/helpers/content-change-jobs'
 import { createContentEventRefresh } from '@/helpers/content-event-refresh'
 import { isUnresolvedProjectId } from '@/helpers/content-identity'
@@ -433,7 +443,13 @@ import { injectContentInstall } from '@/providers/content-install'
 import { injectDownloadManager } from '@/providers/download-manager'
 import { useTheming } from '@/store/state'
 
+import { modsContentPending, modsContentScopeTransition } from './mods-content-state'
+
 const messages = defineMessages({
+    instanceContentProcessing: {
+        id: 'app.instance.content.processing',
+        defaultMessage: 'Updating instance files… Content will refresh when this finishes.',
+    },
     checkingContent: {
         id: 'app.instance.content.checking',
         defaultMessage: 'Refreshing… {current}/{total}',
@@ -1191,6 +1207,9 @@ const pendingContentChanges = computed(() =>
         (pending) => pending.instanceId === props.instance.id,
     ),
 )
+const contentChangeIndex = computed(() =>
+    indexContentChanges(activeContentChangeJobs.value, pendingContentChanges.value),
+)
 const isBulkOperating = localBulkOperating
 const CONTENT_EVENT_DEBOUNCE_MS = 180
 let suppressSyncedUntil = 0
@@ -1208,6 +1227,14 @@ watch(isBulkOperating, (operating) => {
 })
 
 const isInstanceBusy = computed(() => props.instance?.install_stage !== 'installed')
+const contentPending = computed(() =>
+    modsContentPending({
+        busy: isInstanceBusy.value,
+        hasSnapshot: contentSnapshot.value !== null,
+        hasItems: mergedProjects.value.length + displayedLinkedModpackContentItems.value.length > 0,
+        loading: loading.value,
+    }),
+)
 const isPackUnlinkDisabled = computed(
     () =>
         isInstanceBusy.value ||
@@ -1306,6 +1333,7 @@ function invalidateContentRequests(clearState = false) {
     contentEnrichmentController?.abort()
     contentRequestGeneration += 1
     contentTitleEnrichment.clear()
+    contentRefreshTask.value = null
     if (!clearState) return
     resetUpdateState()
 
@@ -1319,8 +1347,14 @@ function invalidateContentRequests(clearState = false) {
     linkedModpackCategories.value = []
     linkedModpackHasUpdate.value = false
     linkedModpackUpdateVersionId.value = null
-    contentRefreshTask.value = null
-    loading.value = false
+    contentLoadError.value = null
+    loading.value = true
+}
+
+function suspendContentRequests() {
+    invalidateContentRequests()
+    contentLoadError.value = null
+    loading.value = !contentSnapshot.value
 }
 const isPackLocked = computed(
     () =>
@@ -1450,11 +1484,7 @@ function getStableContentId(item: ContentItem) {
 }
 
 function hasGlobalContentChange(item: ContentItem) {
-    return (
-        pendingContentChanges.value.some((pending) =>
-            pendingContentChangeAffectsItem(pending, item),
-        ) || hasActiveContentChange(activeContentChangeJobs.value, item)
-    )
+    return contentChangeAffectsItem(contentChangeIndex.value, item)
 }
 
 function getContentOperationKeys(item: ContentItem) {
@@ -2588,9 +2618,12 @@ async function initProjectsInternal(cacheBehaviour?: CacheBehaviour) {
     contentEventRefresh.clear()
     void loadWorldDatapacks()
     if (!props.instance || props.instance.install_stage !== 'installed') {
-        invalidateContentRequests(true)
+        suspendContentRequests()
         return
     }
+    loading.value =
+        !contentSnapshot.value ||
+        mergedProjects.value.length + displayedLinkedModpackContentItems.value.length === 0
     const instanceId = props.instance.id
     const generation = ++contentRequestGeneration
     contentEnrichmentController?.abort()
@@ -3093,7 +3126,7 @@ function getInstallRevision() {
 
 async function loadInitialContent(): Promise<void> {
     if (props.instance.install_stage !== 'installed') {
-        invalidateContentRequests(true)
+        suspendContentRequests()
         return
     }
     handledInstallRevision.value = getInstallRevision()
@@ -3135,24 +3168,12 @@ onMounted(() => {
 })
 
 watch(
-    () => props.instance?.install_stage,
-    async (newStage, oldStage) => {
-        if (oldStage !== 'installed' && newStage === 'installed') {
-            await refreshContentState()
-        } else if (newStage !== 'installed') {
-            invalidateContentRequests(true)
-        }
-    },
-)
-
-watch(
-    () => props.instance.id,
-    async (newId, oldId) => {
-        if (newId === oldId) return
-        invalidateContentRequests(true)
-        if (props.instance.install_stage === 'installed') {
-            await refreshContentState()
-        }
+    () => ({ id: props.instance.id, install_stage: props.instance.install_stage }),
+    async (current, previous) => {
+        const transition = modsContentScopeTransition(current, previous)
+        if (transition.clear) invalidateContentRequests(true)
+        if (transition.suspend) suspendContentRequests()
+        if (transition.refresh) await refreshContentState()
     },
 )
 

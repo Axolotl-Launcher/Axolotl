@@ -1,0 +1,2083 @@
+# K0.26 关停行为基线（T0.12 改造前采集）
+# 采集时间: 2026-10-29 04:55:39
+# 命令: cargo nextest run -p theseus shutdown
+# 说明: checklist K0.26 原文写的过滤串是 state::shutdown —— 实测 exit=4 / 0 命中（命令设计错误，裁决 R40）；本文件用实测可命中的 shutdown 采集。
+
+warning: unused import: `self::model::*`
+  --> packages\app-lib\src\util\fetch\mod.rs:29:16
+   |
+29 | pub(crate) use self::model::*;
+   |                ^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused import: `fetch_advanced_with_client`
+  --> packages\app-lib\src\util\fetch\mod.rs:41:28
+   |
+41 |     fetch, fetch_advanced, fetch_advanced_with_client, fetch_json,
+   |                            ^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused imports: `clear_download_dns_host_override` and `set_download_dns_host_override`
+  --> packages\app-lib\src\util\fetch\mod.rs:51:34
+   |
+51 |     FetchSemaphore, IoSemaphore, clear_download_dns_host_override,
+   |                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+52 |     set_download_dns_host_override,
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `self::transfer::*`
+  --> packages\app-lib\src\util\fetch\mod.rs:55:16
+   |
+55 | pub(crate) use self::transfer::*;
+   |                ^^^^^^^^^^^^^^^^^
+
+warning: unused import: `super::download::constants::DOWNLOAD_META_HEADER`
+  --> packages\app-lib\src\util\fetch\mod.rs:56:9
+   |
+56 | pub use super::download::constants::DOWNLOAD_META_HEADER;
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `super::download::modrinth_redirect::is_official_redirect as is_official_modrinth_cdn_redirect`
+  --> packages\app-lib\src\util\fetch\mod.rs:57:5
+   |
+57 | use super::download::modrinth_redirect::is_official_redirect as is_official_modrinth_cdn_redirect;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `super::download::retired_sources`
+  --> packages\app-lib\src\util\fetch\mod.rs:60:5
+   |
+60 | use super::download::retired_sources;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused imports: `DownloadSpeedTracker` and `SpeedSnapshot`
+  --> packages\app-lib\src\util\fetch\mod.rs:61:31
+   |
+61 | use super::download_manager::{DownloadSpeedTracker, SpeedSnapshot};
+   |                               ^^^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^
+
+warning: unused import: `super::io`
+  --> packages\app-lib\src\util\fetch\mod.rs:62:5
+   |
+62 | use super::io;
+   |     ^^^^^^^^^
+
+warning: unused import: `crate::ErrorKind`
+  --> packages\app-lib\src\util\fetch\mod.rs:63:5
+   |
+63 | use crate::ErrorKind;
+   |     ^^^^^^^^^^^^^^^^
+
+warning: unused imports: `DOWNLOAD_SCHEDULING_GRACE`, `FILE_TRANSFER_FIRST_BYTE_TIMEOUT`, `H2_FALLBACK_TTL`, `MAX_SEGMENT_CONCURRENCY`, `METADATA_HEDGE_DELAY`, `MIN_SEGMENT_SIZE`, `REASSIGNABLE_FIRST_BYTE_TIMEOUT`, `RETRY_AFTER_CAP`, `ROUTE_PROBE_BYTES`, `SEGMENTED_DOWNLOAD_THRESHOLD`, `SEGMENT_EXPANSION_INTERVAL`, and `SEGMENT_EXPANSION_SAMPLE_COUNT`
+  --> packages\app-lib\src\util\fetch\mod.rs:65:5
+   |
+65 |     DOWNLOAD_SCHEDULING_GRACE, FILE_TRANSFER_FIRST_BYTE_TIMEOUT,
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+66 |     H2_FALLBACK_TTL, MAX_SEGMENT_CONCURRENCY, METADATA_HEDGE_DELAY,
+   |     ^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^^^
+67 |     MIN_SEGMENT_SIZE, REASSIGNABLE_FIRST_BYTE_TIMEOUT, RETRY_AFTER_CAP,
+   |     ^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^
+68 |     ROUTE_PROBE_BYTES, SEGMENT_EXPANSION_INTERVAL,
+   |     ^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^^^^^^^^^
+69 |     SEGMENT_EXPANSION_SAMPLE_COUNT, SEGMENTED_DOWNLOAD_THRESHOLD,
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused imports: `FILE_VALIDATION_CONCURRENCY` and `ROUTE_PROBE_CONCURRENCY`
+  --> packages\app-lib\src\util\fetch\mod.rs:76:5
+   |
+76 |     FILE_VALIDATION_CONCURRENCY, ROUTE_PROBE_CONCURRENCY,
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `bytes::Bytes`
+  --> packages\app-lib\src\util\fetch\mod.rs:78:5
+   |
+78 | use bytes::Bytes;
+   |     ^^^^^^^^^^^^
+
+warning: unused import: `parking_lot::Mutex`
+  --> packages\app-lib\src\util\fetch\mod.rs:79:5
+   |
+79 | use parking_lot::Mutex;
+   |     ^^^^^^^^^^^^^^^^^^
+
+warning: unused imports: `Method`, `StatusCode`, and `header`
+  --> packages\app-lib\src\util\fetch\mod.rs:80:15
+   |
+80 | use reqwest::{Method, StatusCode, header};
+   |               ^^^^^^  ^^^^^^^^^^  ^^^^^^
+
+warning: unused import: `serde::Deserialize`
+  --> packages\app-lib\src\util\fetch\mod.rs:81:5
+   |
+81 | use serde::Deserialize;
+   |     ^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `std::error::Error`
+  --> packages\app-lib\src\util\fetch\mod.rs:82:5
+   |
+82 | use std::error::Error;
+   |     ^^^^^^^^^^^^^^^^^
+
+warning: unused import: `std::path::Path`
+  --> packages\app-lib\src\util\fetch\mod.rs:83:5
+   |
+83 | use std::path::Path;
+   |     ^^^^^^^^^^^^^^^
+
+warning: unused imports: `AtomicBool`, `AtomicUsize`, and `Ordering`
+  --> packages\app-lib\src\util\fetch\mod.rs:84:25
+   |
+84 | use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+   |                         ^^^^^^^^^^  ^^^^^^^^^^^  ^^^^^^^^
+
+warning: unused imports: `Arc` and `LazyLock`
+  --> packages\app-lib\src\util\fetch\mod.rs:85:17
+   |
+85 | use std::sync::{Arc, LazyLock};
+   |                 ^^^  ^^^^^^^^
+
+warning: unused imports: `Instant` and `self`
+  --> packages\app-lib\src\util\fetch\mod.rs:86:17
+   |
+86 | use std::time::{self, Instant};
+   |                 ^^^^  ^^^^^^^
+
+warning: unused import: `tokio::sync::Mutex as AsyncMutex`
+  --> packages\app-lib\src\util\fetch\mod.rs:87:5
+   |
+87 | use tokio::sync::Mutex as AsyncMutex;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused imports: `Notify` and `Semaphore`
+  --> packages\app-lib\src\util\fetch\mod.rs:88:19
+   |
+88 | use tokio::sync::{Notify, Semaphore};
+   |                   ^^^^^^  ^^^^^^^^^
+
+warning: unused import: `url::Url`
+  --> packages\app-lib\src\util\fetch\mod.rs:89:5
+   |
+89 | use url::Url;
+   |     ^^^^^^^^
+
+warning: unused imports: `ROUTE_HEALTH`, `ResourceFamily`, and `RouteHealth`
+   --> packages\app-lib\src\util\fetch\mod.rs:100:5
+    |
+100 |     ROUTE_HEALTH, ResourceFamily, RouteHealth,
+    |     ^^^^^^^^^^^^  ^^^^^^^^^^^^^^  ^^^^^^^^^^^
+
+warning: unused imports: `content_entries` and `files`
+ --> packages\app-lib\src\install\runner\upgrade.rs:3:49
+  |
+3 | use crate::state::instances::adapters::sqlite::{content_entries, files};
+  |                                                 ^^^^^^^^^^^^^^^  ^^^^^
+
+warning: unused import: `crate::state::instances::adapters::sqlite::files`
+ --> packages\app-lib\src\resources\installed.rs:4:5
+  |
+4 | use crate::state::instances::adapters::sqlite::files;
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `crate::state::instances::adapters::sqlite::files`
+   --> packages\app-lib\src\resources\installed.rs:500:9
+    |
+500 |     use crate::state::instances::adapters::sqlite::files;
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `files`
+  --> packages\app-lib\src\state\instances\commands\create_direct_link_instance.rs:21:63
+   |
+21 | use crate::state::instances::adapters::sqlite::{content_sets, files};
+   |                                                               ^^^^^
+
+warning: unused import: `sync_content_files_for_operation`
+  --> packages\app-lib\src\state\instances\commands\mod.rs:51:5
+   |
+51 |     sync_content_files_for_operation,
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused imports: `content_entries`, `content_sets`, `files`, and `pack_members`
+  --> packages\app-lib\src\state\store\content_snapshot.rs:15:5
+   |
+15 |     content_entries, content_sets, files, pack_members,
+   |     ^^^^^^^^^^^^^^^  ^^^^^^^^^^^^  ^^^^^  ^^^^^^^^^^^^
+
+warning: unused variable: `pool`
+    --> packages\app-lib\src\state\cache.rs:2283:13
+     |
+2283 |             pool: &SqlitePool,
+     |             ^^^^ help: if this is intentional, prefix it with an underscore: `_pool`
+     |
+     = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused variable: `st`
+   --> packages\app-lib\src\launcher\download.rs:409:5
+    |
+409 |     st: &State,
+    |     ^^ help: if this is intentional, prefix it with an underscore: `_st`
+
+warning: type `state::store::Handle` is more private than the item `state::dirs::DirectoryInfo::move_launcher_directory`
+   --> packages\app-lib\src\state\dirs.rs:324:5
+    |
+324 | /     pub async fn move_launcher_directory<'a, E>(
+325 | |         settings: &mut Settings,
+326 | |         handle: &Handle,
+327 | |         exec: E,
+...   |
+333 | |             + sqlx::Acquire<'a, Database = sqlx::Sqlite>
+334 | |             + Copy,
+    | |___________________^ associated function `state::dirs::DirectoryInfo::move_launcher_directory` is reachable at visibility `pub`
+    |
+note: but type `state::store::Handle` is only usable at visibility `pub(crate)`
+   --> packages\app-lib\src\state\store\mod.rs:69:1
+    |
+ 69 | pub(crate) struct Handle {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^
+    = note: `#[warn(private_interfaces)]` on by default
+
+warning: type `state::store::Handle` is more private than the item `state::settings::Settings::get`
+   --> packages\app-lib\src\state\settings.rs:318:5
+    |
+318 |     pub async fn get(handle: &Handle) -> crate::Result<Self> {
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ associated function `state::settings::Settings::get` is reachable at visibility `pub`
+    |
+note: but type `state::store::Handle` is only usable at visibility `pub(crate)`
+   --> packages\app-lib\src\state\store\mod.rs:69:1
+    |
+ 69 | pub(crate) struct Handle {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: type `state::store::Handle` is more private than the item `state::settings::Settings::update`
+   --> packages\app-lib\src\state\settings.rs:461:5
+    |
+461 |     pub async fn update(&self, handle: &Handle) -> crate::Result<()> {
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ method `state::settings::Settings::update` is reachable at visibility `pub`
+    |
+note: but type `state::store::Handle` is only usable at visibility `pub(crate)`
+   --> packages\app-lib\src\state\store\mod.rs:69:1
+    |
+ 69 | pub(crate) struct Handle {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: type `state::store::Handle` is more private than the item `state::settings::Settings::migrate`
+   --> packages\app-lib\src\state\settings.rs:678:5
+    |
+678 |     pub async fn migrate(handle: &Handle) -> crate::Result<()> {
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ associated function `state::settings::Settings::migrate` is reachable at visibility `pub`
+    |
+note: but type `state::store::Handle` is only usable at visibility `pub(crate)`
+   --> packages\app-lib\src\state\store\mod.rs:69:1
+    |
+ 69 | pub(crate) struct Handle {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: type `state::store::Handle` is more private than the item `java_globals::JavaVersion::get`
+  --> packages\app-lib\src\state\java_globals.rs:21:5
+   |
+21 | /     pub async fn get(
+22 | |         major_version: u32,
+23 | |         handle: &Handle,
+24 | |     ) -> crate::Result<Option<JavaVersion>> {
+   | |___________________________________________^ associated function `java_globals::JavaVersion::get` is reachable at visibility `pub`
+   |
+note: but type `state::store::Handle` is only usable at visibility `pub(crate)`
+  --> packages\app-lib\src\state\store\mod.rs:69:1
+   |
+69 | pub(crate) struct Handle {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: type `state::store::Handle` is more private than the item `java_globals::JavaVersion::set_default`
+  --> packages\app-lib\src\state\java_globals.rs:82:5
+   |
+82 | /     pub async fn set_default(
+83 | |         major_version: u32,
+84 | |         path: &str,
+85 | |         handle: &Handle,
+86 | |     ) -> crate::Result<()> {
+   | |__________________________^ associated function `java_globals::JavaVersion::set_default` is reachable at visibility `pub`
+   |
+note: but type `state::store::Handle` is only usable at visibility `pub(crate)`
+  --> packages\app-lib\src\state\store\mod.rs:69:1
+   |
+69 | pub(crate) struct Handle {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: type `state::store::Handle` is more private than the item `java_globals::JavaVersion::remove_default`
+   --> packages\app-lib\src\state\java_globals.rs:107:5
+    |
+107 | /     pub async fn remove_default(
+108 | |         major_version: u32,
+109 | |         handle: &Handle,
+110 | |     ) -> crate::Result<()> {
+    | |__________________________^ associated function `java_globals::JavaVersion::remove_default` is reachable at visibility `pub`
+    |
+note: but type `state::store::Handle` is only usable at visibility `pub(crate)`
+   --> packages\app-lib\src\state\store\mod.rs:69:1
+    |
+ 69 | pub(crate) struct Handle {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: type `state::store::Handle` is more private than the item `java_globals::JavaVersion::remove_default_for_path`
+   --> packages\app-lib\src\state\java_globals.rs:114:5
+    |
+114 | /     pub async fn remove_default_for_path(
+115 | |         path: &str,
+116 | |         handle: &Handle,
+117 | |     ) -> crate::Result<()> {
+    | |__________________________^ associated function `java_globals::JavaVersion::remove_default_for_path` is reachable at visibility `pub`
+    |
+note: but type `state::store::Handle` is only usable at visibility `pub(crate)`
+   --> packages\app-lib\src\state\store\mod.rs:69:1
+    |
+ 69 | pub(crate) struct Handle {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: type `state::store::Handle` is more private than the item `java_globals::JavaVersion::update_path`
+   --> packages\app-lib\src\state\java_globals.rs:156:5
+    |
+156 | /     pub async fn update_path(
+157 | |         old_path: &str,
+158 | |         new_path: &str,
+159 | |         handle: &Handle,
+160 | |     ) -> crate::Result<()> {
+    | |__________________________^ associated function `java_globals::JavaVersion::update_path` is reachable at visibility `pub`
+    |
+note: but type `state::store::Handle` is only usable at visibility `pub(crate)`
+   --> packages\app-lib\src\state\store\mod.rs:69:1
+    |
+ 69 | pub(crate) struct Handle {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: type `state::store::Handle` is more private than the item `state::discovered_javas::DiscoveredJava::get_all`
+  --> packages\app-lib\src\state\discovered_javas.rs:77:5
+   |
+77 |     pub async fn get_all(handle: &Handle) -> crate::Result<Vec<Self>> {
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ associated function `state::discovered_javas::DiscoveredJava::get_all` is reachable at visibility `pub`
+   |
+note: but type `state::store::Handle` is only usable at visibility `pub(crate)`
+  --> packages\app-lib\src\state\store\mod.rs:69:1
+   |
+69 | pub(crate) struct Handle {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: type `state::store::Handle` is more private than the item `state::discovered_javas::DiscoveredJava::upsert`
+  --> packages\app-lib\src\state\discovered_javas.rs:93:5
+   |
+93 |     pub async fn upsert(&self, handle: &Handle) -> crate::Result<()> {
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ method `state::discovered_javas::DiscoveredJava::upsert` is reachable at visibility `pub`
+   |
+note: but type `state::store::Handle` is only usable at visibility `pub(crate)`
+  --> packages\app-lib\src\state\store\mod.rs:69:1
+   |
+69 | pub(crate) struct Handle {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: type `state::store::Handle` is more private than the item `state::discovered_javas::DiscoveredJava::remove`
+   --> packages\app-lib\src\state\discovered_javas.rs:107:5
+    |
+107 |     pub async fn remove(path: &str, handle: &Handle) -> crate::Result<()> {
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ associated function `state::discovered_javas::DiscoveredJava::remove` is reachable at visibility `pub`
+    |
+note: but type `state::store::Handle` is only usable at visibility `pub(crate)`
+   --> packages\app-lib\src\state\store\mod.rs:69:1
+    |
+ 69 | pub(crate) struct Handle {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: type `state::store::Handle` is more private than the item `state::discovered_javas::DiscoveredJava::replace_all`
+   --> packages\app-lib\src\state\discovered_javas.rs:112:5
+    |
+112 | /     pub async fn replace_all(
+113 | |         handle: &Handle,
+114 | |         entries: &[Self],
+115 | |     ) -> crate::Result<()> {
+    | |__________________________^ associated function `state::discovered_javas::DiscoveredJava::replace_all` is reachable at visibility `pub`
+    |
+note: but type `state::store::Handle` is only usable at visibility `pub(crate)`
+   --> packages\app-lib\src\state\store\mod.rs:69:1
+    |
+ 69 | pub(crate) struct Handle {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: type `state::store::Handle` is more private than the item `state::minecraft_auth::device_login_poll`
+   --> packages\app-lib\src\state\minecraft_auth.rs:193:1
+    |
+193 | / pub async fn device_login_poll(
+194 | |     device_code: &str,
+195 | |     handle: &Handle,
+196 | | ) -> crate::Result<MinecraftDeviceLoginPoll> {
+    | |____________________________________________^ function `state::minecraft_auth::device_login_poll` is reachable at visibility `pub`
+    |
+note: but type `state::store::Handle` is only usable at visibility `pub(crate)`
+   --> packages\app-lib\src\state\store\mod.rs:69:1
+    |
+ 69 | pub(crate) struct Handle {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: type `state::store::Handle` is more private than the item `state::minecraft_auth::login_finish`
+   --> packages\app-lib\src\state\minecraft_auth.rs:253:1
+    |
+253 | / pub async fn login_finish(
+254 | |     code: &str,
+255 | |     state: &str,
+256 | |     flow: MinecraftLoginFlow,
+257 | |     handle: &Handle,
+258 | | ) -> crate::Result<Credentials> {
+    | |_______________________________^ function `state::minecraft_auth::login_finish` is reachable at visibility `pub`
+    |
+note: but type `state::store::Handle` is only usable at visibility `pub(crate)`
+   --> packages\app-lib\src\state\store\mod.rs:69:1
+    |
+ 69 | pub(crate) struct Handle {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: type `state::store::Handle` is more private than the item `state::minecraft_auth::Credentials::get_default_credential`
+   --> packages\app-lib\src\state\minecraft_auth.rs:863:5
+    |
+863 | /     pub async fn get_default_credential(
+864 | |         handle: &Handle,
+865 | |     ) -> crate::Result<Option<Credentials>> {
+    | |___________________________________________^ associated function `state::minecraft_auth::Credentials::get_default_credential` is reachable at visibility `pub`
+    |
+note: but type `state::store::Handle` is only usable at visibility `pub(crate)`
+   --> packages\app-lib\src\state\store\mod.rs:69:1
+    |
+ 69 | pub(crate) struct Handle {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: type `state::store::Handle` is more private than the item `state::minecraft_auth::Credentials::get_active`
+   --> packages\app-lib\src\state\minecraft_auth.rs:900:5
+    |
+900 |     pub async fn get_active(handle: &Handle) -> crate::Result<Option<Self>> {
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ associated function `state::minecraft_auth::Credentials::get_active` is reachable at visibility `pub`
+    |
+note: but type `state::store::Handle` is only usable at visibility `pub(crate)`
+   --> packages\app-lib\src\state\store\mod.rs:69:1
+    |
+ 69 | pub(crate) struct Handle {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: type `state::store::Handle` is more private than the item `state::minecraft_auth::Credentials::get_active_without_refresh`
+   --> packages\app-lib\src\state\minecraft_auth.rs:904:5
+    |
+904 | /     pub async fn get_active_without_refresh(
+905 | |         handle: &Handle,
+906 | |     ) -> crate::Result<Option<Self>> {
+    | |____________________________________^ associated function `state::minecraft_auth::Credentials::get_active_without_refresh` is reachable at visibility `pub`
+    |
+note: but type `state::store::Handle` is only usable at visibility `pub(crate)`
+   --> packages\app-lib\src\state\store\mod.rs:69:1
+    |
+ 69 | pub(crate) struct Handle {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: type `state::store::Handle` is more private than the item `state::minecraft_auth::Credentials::get_all`
+   --> packages\app-lib\src\state\minecraft_auth.rs:931:5
+    |
+931 |     pub async fn get_all(handle: &Handle) -> crate::Result<Vec<Self>> {
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ associated function `state::minecraft_auth::Credentials::get_all` is reachable at visibility `pub`
+    |
+note: but type `state::store::Handle` is only usable at visibility `pub(crate)`
+   --> packages\app-lib\src\state\store\mod.rs:69:1
+    |
+ 69 | pub(crate) struct Handle {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: type `state::store::Handle` is more private than the item `state::minecraft_auth::Credentials::get_all_without_refresh`
+   --> packages\app-lib\src\state\minecraft_auth.rs:935:5
+    |
+935 | /     pub async fn get_all_without_refresh(
+936 | |         handle: &Handle,
+937 | |     ) -> crate::Result<Vec<Self>> {
+    | |_________________________________^ associated function `state::minecraft_auth::Credentials::get_all_without_refresh` is reachable at visibility `pub`
+    |
+note: but type `state::store::Handle` is only usable at visibility `pub(crate)`
+   --> packages\app-lib\src\state\store\mod.rs:69:1
+    |
+ 69 | pub(crate) struct Handle {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: type `state::store::Handle` is more private than the item `state::minecraft_auth::Credentials::get_offline_credential`
+   --> packages\app-lib\src\state\minecraft_auth.rs:959:5
+    |
+959 | /     pub async fn get_offline_credential(
+960 | |         handle: &Handle,
+961 | |     ) -> crate::Result<Option<Self>> {
+    | |____________________________________^ associated function `state::minecraft_auth::Credentials::get_offline_credential` is reachable at visibility `pub`
+    |
+note: but type `state::store::Handle` is only usable at visibility `pub(crate)`
+   --> packages\app-lib\src\state\store\mod.rs:69:1
+    |
+ 69 | pub(crate) struct Handle {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: type `state::store::Handle` is more private than the item `state::minecraft_auth::Credentials::upsert`
+   --> packages\app-lib\src\state\minecraft_auth.rs:976:5
+    |
+976 |     pub async fn upsert(&self, handle: &Handle) -> crate::Result<()> {
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ method `state::minecraft_auth::Credentials::upsert` is reachable at visibility `pub`
+    |
+note: but type `state::store::Handle` is only usable at visibility `pub(crate)`
+   --> packages\app-lib\src\state\store\mod.rs:69:1
+    |
+ 69 | pub(crate) struct Handle {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: type `state::store::Handle` is more private than the item `state::minecraft_auth::Credentials::remove`
+    --> packages\app-lib\src\state\minecraft_auth.rs:1015:5
+     |
+1015 | /     pub async fn remove(
+1016 | |         account_id: &str,
+1017 | |         handle: &Handle,
+1018 | |     ) -> crate::Result<()> {
+     | |__________________________^ associated function `state::minecraft_auth::Credentials::remove` is reachable at visibility `pub`
+     |
+note: but type `state::store::Handle` is only usable at visibility `pub(crate)`
+    --> packages\app-lib\src\state\store\mod.rs:69:1
+     |
+  69 | pub(crate) struct Handle {
+     | ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: type `state::store::Handle` is more private than the item `state::minecraft_auth::DeviceTokenPair::upsert`
+    --> packages\app-lib\src\state\minecraft_auth.rs:1131:5
+     |
+1131 |     pub async fn upsert(&self, handle: &Handle) -> crate::Result<()> {
+     |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ method `state::minecraft_auth::DeviceTokenPair::upsert` is reachable at visibility `pub`
+     |
+note: but type `state::store::Handle` is only usable at visibility `pub(crate)`
+    --> packages\app-lib\src\state\store\mod.rs:69:1
+     |
+  69 | pub(crate) struct Handle {
+     | ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: type `state::store::Handle` is more private than the item `yggdrasil::begin_yggdrasil_login`
+   --> packages\app-lib\src\state\minecraft_auth\yggdrasil.rs:166:1
+    |
+166 | / pub async fn begin_yggdrasil_login(
+167 | |     api_root: &str,
+168 | |     login: &str,
+169 | |     password: &str,
+170 | |     handle: &Handle,
+171 | | ) -> crate::Result<YggdrasilLoginResult> {
+    | |________________________________________^ function `yggdrasil::begin_yggdrasil_login` is reachable at visibility `pub`
+    |
+note: but type `state::store::Handle` is only usable at visibility `pub(crate)`
+   --> packages\app-lib\src\state\store\mod.rs:69:1
+    |
+ 69 | pub(crate) struct Handle {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: type `state::store::Handle` is more private than the item `yggdrasil::finish_yggdrasil_login`
+   --> packages\app-lib\src\state\minecraft_auth\yggdrasil.rs:268:1
+    |
+268 | / pub async fn finish_yggdrasil_login(
+269 | |     flow_id: Uuid,
+270 | |     profile_id: Uuid,
+271 | |     handle: &Handle,
+272 | | ) -> crate::Result<Credentials> {
+    | |_______________________________^ function `yggdrasil::finish_yggdrasil_login` is reachable at visibility `pub`
+    |
+note: but type `state::store::Handle` is only usable at visibility `pub(crate)`
+   --> packages\app-lib\src\state\store\mod.rs:69:1
+    |
+ 69 | pub(crate) struct Handle {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: type `state::store::Handle` is more private than the item `yggdrasil::refresh_yggdrasil_credentials`
+   --> packages\app-lib\src\state\minecraft_auth\yggdrasil.rs:331:1
+    |
+331 | / pub async fn refresh_yggdrasil_credentials(
+332 | |     credentials: &mut Credentials,
+333 | |     handle: &Handle,
+334 | | ) -> crate::Result<()> {
+    | |______________________^ function `yggdrasil::refresh_yggdrasil_credentials` is reachable at visibility `pub`
+    |
+note: but type `state::store::Handle` is only usable at visibility `pub(crate)`
+   --> packages\app-lib\src\state\store\mod.rs:69:1
+    |
+ 69 | pub(crate) struct Handle {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: type `state::store::Handle` is more private than the item `OfflineMinecraftSkin::get`
+  --> packages\app-lib\src\state\minecraft_skins\mod.rs:55:5
+   |
+55 | /     pub async fn get(
+56 | |         minecraft_user_id: Uuid,
+57 | |         handle: &Handle,
+58 | |     ) -> crate::Result<Option<Self>> {
+   | |____________________________________^ associated function `OfflineMinecraftSkin::get` is reachable at visibility `pub`
+   |
+note: but type `state::store::Handle` is only usable at visibility `pub(crate)`
+  --> packages\app-lib\src\state\store\mod.rs:69:1
+   |
+69 | pub(crate) struct Handle {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: type `state::store::Handle` is more private than the item `OfflineMinecraftSkin::set`
+  --> packages\app-lib\src\state\minecraft_skins\mod.rs:69:5
+   |
+69 | /     pub async fn set(
+70 | |         minecraft_user_id: Uuid,
+71 | |         texture_key: &str,
+72 | |         variant: MinecraftSkinVariant,
+73 | |         handle: &Handle,
+74 | |     ) -> crate::Result<()> {
+   | |__________________________^ associated function `OfflineMinecraftSkin::set` is reachable at visibility `pub`
+   |
+note: but type `state::store::Handle` is only usable at visibility `pub(crate)`
+  --> packages\app-lib\src\state\store\mod.rs:69:1
+   |
+69 | pub(crate) struct Handle {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: type `state::store::Handle` is more private than the item `OfflineMinecraftSkin::clear`
+  --> packages\app-lib\src\state\minecraft_skins\mod.rs:88:5
+   |
+88 | /     pub async fn clear(
+89 | |         minecraft_user_id: Uuid,
+90 | |         handle: &Handle,
+91 | |     ) -> crate::Result<()> {
+   | |__________________________^ associated function `OfflineMinecraftSkin::clear` is reachable at visibility `pub`
+   |
+note: but type `state::store::Handle` is only usable at visibility `pub(crate)`
+  --> packages\app-lib\src\state\store\mod.rs:69:1
+   |
+69 | pub(crate) struct Handle {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: type `state::store::Handle` is more private than the item `OfflineMinecraftSkin::clear_if_texture`
+   --> packages\app-lib\src\state\minecraft_skins\mod.rs:96:5
+    |
+ 96 | /     pub async fn clear_if_texture(
+ 97 | |         minecraft_user_id: Uuid,
+ 98 | |         texture_key: &str,
+ 99 | |         handle: &Handle,
+100 | |     ) -> crate::Result<()> {
+    | |__________________________^ associated function `OfflineMinecraftSkin::clear_if_texture` is reachable at visibility `pub`
+    |
+note: but type `state::store::Handle` is only usable at visibility `pub(crate)`
+   --> packages\app-lib\src\state\store\mod.rs:69:1
+    |
+ 69 | pub(crate) struct Handle {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: type `state::store::Handle` is more private than the item `CustomMinecraftSkin::add`
+   --> packages\app-lib\src\state\minecraft_skins\mod.rs:138:5
+    |
+138 | /     pub async fn add(
+139 | |         minecraft_user_id: Uuid,
+140 | |         texture_key: &str,
+141 | |         texture: &[u8],
+...   |
+145 | |         handle: &Handle,
+146 | |     ) -> crate::Result<()> {
+    | |__________________________^ associated function `CustomMinecraftSkin::add` is reachable at visibility `pub`
+    |
+note: but type `state::store::Handle` is only usable at visibility `pub(crate)`
+   --> packages\app-lib\src\state\store\mod.rs:69:1
+    |
+ 69 | pub(crate) struct Handle {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: type `state::store::Handle` is more private than the item `CustomMinecraftSkin::get_by_texture`
+   --> packages\app-lib\src\state\minecraft_skins\mod.rs:222:5
+    |
+222 | /     pub async fn get_by_texture(
+223 | |         minecraft_user_id: Uuid,
+224 | |         texture_key: &str,
+225 | |         handle: &Handle,
+226 | |     ) -> crate::Result<Option<Self>> {
+    | |____________________________________^ associated function `CustomMinecraftSkin::get_by_texture` is reachable at visibility `pub`
+    |
+note: but type `state::store::Handle` is only usable at visibility `pub(crate)`
+   --> packages\app-lib\src\state\store\mod.rs:69:1
+    |
+ 69 | pub(crate) struct Handle {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: type `state::store::Handle` is more private than the item `CustomMinecraftSkin::get_many`
+   --> packages\app-lib\src\state\minecraft_skins\mod.rs:238:5
+    |
+238 | /     pub async fn get_many(
+239 | |         minecraft_user_id: Uuid,
+240 | |         offset: u32,
+241 | |         count: u32,
+242 | |         handle: &Handle,
+243 | |     ) -> crate::Result<impl Stream<Item = Self>> {
+    | |________________________________________________^ associated function `CustomMinecraftSkin::get_many` is reachable at visibility `pub`
+    |
+note: but type `state::store::Handle` is only usable at visibility `pub(crate)`
+   --> packages\app-lib\src\state\store\mod.rs:69:1
+    |
+ 69 | pub(crate) struct Handle {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: type `state::store::Handle` is more private than the item `CustomMinecraftSkin::get_all`
+   --> packages\app-lib\src\state\minecraft_skins\mod.rs:260:5
+    |
+260 | /     pub async fn get_all(
+261 | |         minecraft_user_id: Uuid,
+262 | |         handle: &Handle,
+263 | |     ) -> crate::Result<impl Stream<Item = Self>> {
+    | |________________________________________________^ associated function `CustomMinecraftSkin::get_all` is reachable at visibility `pub`
+    |
+note: but type `state::store::Handle` is only usable at visibility `pub(crate)`
+   --> packages\app-lib\src\state\store\mod.rs:69:1
+    |
+ 69 | pub(crate) struct Handle {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: type `state::store::Handle` is more private than the item `CustomMinecraftSkin::texture_blob`
+   --> packages\app-lib\src\state\minecraft_skins\mod.rs:269:5
+    |
+269 | /     pub async fn texture_blob(
+270 | |         &self,
+271 | |         handle: &Handle,
+272 | |     ) -> crate::Result<Vec<u8>> {
+    | |_______________________________^ method `CustomMinecraftSkin::texture_blob` is reachable at visibility `pub`
+    |
+note: but type `state::store::Handle` is only usable at visibility `pub(crate)`
+   --> packages\app-lib\src\state\store\mod.rs:69:1
+    |
+ 69 | pub(crate) struct Handle {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: type `state::store::Handle` is more private than the item `CustomMinecraftSkin::remove`
+   --> packages\app-lib\src\state\minecraft_skins\mod.rs:287:5
+    |
+287 | /     pub async fn remove(
+288 | |         &self,
+289 | |         minecraft_user_id: Uuid,
+290 | |         handle: &Handle,
+291 | |     ) -> crate::Result<()> {
+    | |__________________________^ method `CustomMinecraftSkin::remove` is reachable at visibility `pub`
+    |
+note: but type `state::store::Handle` is only usable at visibility `pub(crate)`
+   --> packages\app-lib\src\state\store\mod.rs:69:1
+    |
+ 69 | pub(crate) struct Handle {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: type `state::store::Handle` is more private than the item `CustomMinecraftSkin::set_order`
+   --> packages\app-lib\src\state\minecraft_skins\mod.rs:300:5
+    |
+300 | /     pub async fn set_order(
+301 | |         minecraft_user_id: Uuid,
+302 | |         texture_keys: &[String],
+303 | |         handle: &Handle,
+304 | |     ) -> crate::Result<()> {
+    | |__________________________^ associated function `CustomMinecraftSkin::set_order` is reachable at visibility `pub`
+    |
+note: but type `state::store::Handle` is only usable at visibility `pub(crate)`
+   --> packages\app-lib\src\state\store\mod.rs:69:1
+    |
+ 69 | pub(crate) struct Handle {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: type `state::store::Handle` is more private than the item `state::friends::FriendsSocket::connect`
+  --> packages\app-lib\src\state\friends.rs:72:5
+   |
+72 | /     pub async fn connect(
+73 | |         &self,
+74 | |         handle: &Handle,
+75 | |         semaphore: &FetchSemaphore,
+76 | |         process_manager: &ProcessManager,
+77 | |     ) -> crate::Result<()> {
+   | |__________________________^ method `state::friends::FriendsSocket::connect` is reachable at visibility `pub`
+   |
+note: but type `state::store::Handle` is only usable at visibility `pub(crate)`
+  --> packages\app-lib\src\state\store\mod.rs:69:1
+   |
+69 | pub(crate) struct Handle {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: constant `CURSEFORGE_OVERRIDE_EXTRACTION_CONCURRENCY` is never used
+   --> packages\app-lib\src\util\download\constants.rs:334:18
+    |
+334 | pub(crate) const CURSEFORGE_OVERRIDE_EXTRACTION_CONCURRENCY: usize = 4;
+    |                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: field `status` is never read
+   --> packages\app-lib\src\util\download\endpoint_selection\coordinator.rs:136:5
+    |
+131 | struct ActiveRound {
+    |        ----------- field in this struct
+...
+136 |     status: watch::Sender<RoundStatus>,
+    |     ^^^^^^
+
+warning: method `on_slow` is never used
+   --> packages\app-lib\src\util\download\endpoint_selection\coordinator.rs:736:19
+    |
+283 | impl EndpointSelector {
+    | --------------------- method in this implementation
+...
+736 |     pub(crate) fn on_slow(
+    |                   ^^^^^^^
+
+warning: variant `Verified` is never constructed
+  --> packages\app-lib\src\util\download\endpoint_selection\model.rs:12:5
+   |
+10 | pub(super) enum CandidateSource {
+   |                 --------------- variant in this enum
+11 |     Dns(DnsSource),
+12 |     Verified,
+   |     ^^^^^^^^
+   |
+   = note: `CandidateSource` has derived impls for the traits `Debug` and `Clone`, but these are intentionally ignored during dead code analysis
+
+warning: fields `source` and `expires_at` are never read
+  --> packages\app-lib\src\util\download\endpoint_selection\model.rs:61:16
+   |
+59 | pub(crate) struct EndpointLease {
+   |                   ------------- fields in this struct
+60 |     pub(crate) pool: PoolKey,
+61 |     pub(super) source: CandidateSource,
+   |                ^^^^^^
+62 |     pub(crate) expires_at: Instant,
+   |                ^^^^^^^^^^
+   |
+   = note: `EndpointLease` has derived impls for the traits `Debug` and `Clone`, but these are intentionally ignored during dead code analysis
+
+warning: method `used` is never used
+  --> packages\app-lib\src\util\download\endpoint_selection\policy.rs:56:19
+   |
+31 | impl ProbeBudget {
+   | ---------------- method in this implementation
+...
+56 |     pub(super) fn used(&self) -> u64 {
+   |                   ^^^^
+
+warning: function `should_publish` is never used
+   --> packages\app-lib\src\util\download\endpoint_selection\policy.rs:139:15
+    |
+139 | pub(super) fn should_publish(
+    |               ^^^^^^^^^^^^^^
+
+warning: field `route` is never read
+   --> packages\app-lib\src\util\download\h2_download.rs:890:5
+    |
+888 | struct AssetBatchConnectionGroup {
+    |        ------------------------- field in this struct
+889 |     primary: Arc<SharedH2Connection>,
+890 |     route: DownloadRoute,
+    |     ^^^^^
+
+warning: method `connection` is never used
+   --> packages\app-lib\src\util\download\h2_download.rs:930:14
+    |
+894 | impl AssetBatchConnectionGroup {
+    | ------------------------------ method in this implementation
+...
+930 |     async fn connection(&self, rescue: bool) -> Arc<SharedH2Connection> {
+    |              ^^^^^^^^^^
+
+warning: function `budget` is never used
+  --> packages\app-lib\src\util\download\h2_stream_budget.rs:51:4
+   |
+51 | fn budget(route: &DownloadRoute) -> Option<Arc<Semaphore>> {
+   |    ^^^^^^
+
+warning: function `acquire` is never used
+  --> packages\app-lib\src\util\download\h2_stream_budget.rs:80:21
+   |
+80 | pub(crate) async fn acquire(
+   |                     ^^^^^^^
+
+warning: function `send_cdn_request_with_clients` is never used
+  --> packages\app-lib\src\util\download\native_request.rs:44:21
+   |
+44 | pub(crate) async fn send_cdn_request_with_clients(
+   |                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: variant `Commit` is never constructed
+  --> packages\app-lib\src\util\download\native_slow.rs:27:5
+   |
+23 | pub(crate) enum SlowDecision {
+   |                 ------------ variant in this enum
+...
+27 |     Commit,
+   |     ^^^^^^
+   |
+   = note: `SlowDecision` has derived impls for the traits `Debug` and `Clone`, but these are intentionally ignored during dead code analysis
+
+warning: function `fingerprint` is never used
+  --> packages\app-lib\src\util\download\proxy_context.rs:40:15
+   |
+40 | pub(crate) fn fingerprint(
+   |               ^^^^^^^^^^^
+
+warning: method `score` is never used
+   --> packages\app-lib\src\util\download_dns.rs:887:8
+    |
+185 | impl DownloadDnsResolver {
+    | ------------------------ method in this implementation
+...
+887 |     fn score(&self, address: IpAddr) -> f64 {
+    |        ^^^^^
+
+warning: function `authority_uses_http1_fallback` is never used
+  --> packages\app-lib\src\util\fetch\throttle.rs:67:15
+   |
+67 | pub(crate) fn authority_uses_http1_fallback(authority: &str) -> bool {
+   |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `record_authority_h2_failure` is never used
+  --> packages\app-lib\src\util\fetch\throttle.rs:95:15
+   |
+95 | pub(crate) fn record_authority_h2_failure(authority: &str) {
+   |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: associated function `new` is never used
+   --> packages\app-lib\src\api\curseforge\dto.rs:233:19
+    |
+232 | impl CurseForgeFileDependency {
+    | ----------------------------- associated function in this implementation
+233 |     pub(crate) fn new(mod_id: u32, relation: DependencyRelation) -> Self {
+    |                   ^^^
+
+warning: function `extract_all` is never used
+    --> packages\app-lib\src\api\drop_classifier.rs:1204:4
+     |
+1204 | fn extract_all(
+     |    ^^^^^^^^^^^
+
+warning: function `classify_folder_content` is never used
+    --> packages\app-lib\src\api\drop_classifier.rs:1605:15
+     |
+1605 | pub(crate) fn classify_folder_content(
+     |               ^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `get_instance_display_info` is never used
+   --> packages\app-lib\src\api\instance\projects.rs:743:10
+    |
+743 | async fn get_instance_display_info(
+    |          ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: constant `FULLSCREEN_OPTION_ID` is never used
+  --> packages\app-lib\src\api\instance\synced_options\game_options\fullscreen.rs:23:7
+   |
+23 | const FULLSCREEN_OPTION_ID: &str = "fullscreen";
+   |       ^^^^^^^^^^^^^^^^^^^^
+
+warning: function `shared_fullscreen_value` is never used
+  --> packages\app-lib\src\api\instance\synced_options\game_options\fullscreen.rs:25:21
+   |
+25 | pub(crate) async fn shared_fullscreen_value(
+   |                     ^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `update_shared_fullscreen_from_app` is never used
+  --> packages\app-lib\src\api\instance\synced_options\game_options\fullscreen.rs:47:21
+   |
+47 | pub(crate) async fn update_shared_fullscreen_from_app(
+   |                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: struct `Candidate` is never constructed
+  --> packages\app-lib\src\api\instance\synced_options\game_options\locales\mod.rs:76:8
+   |
+76 | struct Candidate {
+   |        ^^^^^^^^^
+
+warning: function `start_game_locale_indexer` is never used
+  --> packages\app-lib\src\api\instance\synced_options\game_options\locales\mod.rs:96:15
+   |
+96 | pub(crate) fn start_game_locale_indexer(state: Arc<State>) {
+   |               ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `index_installed_sources` is never used
+   --> packages\app-lib\src\api\instance\synced_options\game_options\locales\mod.rs:222:10
+    |
+222 | async fn index_installed_sources(state: &State) -> crate::Result<()> {
+    |          ^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `checked_bytes` is never used
+   --> packages\app-lib\src\api\instance\synced_options\game_options\locales\archive.rs:264:15
+    |
+264 | pub(super) fn checked_bytes(
+    |               ^^^^^^^^^^^^^
+
+warning: type alias `ArchiveKeys` is never used
+ --> packages\app-lib\src\api\instance\synced_options\game_options\locales\origins.rs:8:6
+  |
+8 | type ArchiveKeys = BTreeMap<String, Arc<str>>;
+  |      ^^^^^^^^^^^
+
+warning: struct `SnapshotIndex` is never constructed
+  --> packages\app-lib\src\api\instance\synced_options\game_options\locales\origins.rs:10:8
+   |
+10 | struct SnapshotIndex {
+   |        ^^^^^^^^^^^^^
+
+warning: struct `OriginResolver` is never constructed
+  --> packages\app-lib\src\api\instance\synced_options\game_options\locales\origins.rs:16:19
+   |
+16 | pub(super) struct OriginResolver {
+   |                   ^^^^^^^^^^^^^^
+
+warning: methods `index_snapshot` and `resolve` are never used
+  --> packages\app-lib\src\api\instance\synced_options\game_options\locales\origins.rs:22:25
+   |
+21 | impl OriginResolver {
+   | ------------------- methods in this implementation
+22 |     pub(super) async fn index_snapshot(
+   |                         ^^^^^^^^^^^^^^
+...
+69 |     pub(super) async fn resolve(
+   |                         ^^^^^^^
+
+warning: function `load_archive_keys` is never used
+   --> packages\app-lib\src\api\instance\synced_options\game_options\locales\origins.rs:100:10
+    |
+100 | async fn load_archive_keys(
+    |          ^^^^^^^^^^^^^^^^^
+
+warning: function `load_snapshot` is never used
+   --> packages\app-lib\src\api\instance\synced_options\game_options\locales\sources.rs:149:21
+    |
+149 | pub(super) async fn load_snapshot(
+    |                     ^^^^^^^^^^^^^
+
+warning: fields `source_instance_id`, `source_game_version`, `backfilled`, and `observation` are never read
+  --> packages\app-lib\src\api\instance\synced_options\game_options\locales\storage.rs:11:9
+   |
+ 8 | pub(super) struct OriginRow {
+   |                   --------- fields in this struct
+...
+11 |     pub source_instance_id: Option<String>,
+   |         ^^^^^^^^^^^^^^^^^^
+12 |     pub source_game_version: Option<String>,
+   |         ^^^^^^^^^^^^^^^^^^^
+13 |     pub backfilled: bool,
+   |         ^^^^^^^^^^
+14 |     pub observation: Option<Observation>,
+   |         ^^^^^^^^^^^
+
+warning: function `pin` is never used
+   --> packages\app-lib\src\api\instance\synced_options\game_options\locales\storage.rs:121:21
+    |
+121 | pub(super) async fn pin(
+    |                     ^^^
+
+warning: enum `GameOptionsPackSource` is never used
+  --> packages\app-lib\src\api\instance\synced_options\game_options\pack_updates.rs:28:10
+   |
+28 | pub enum GameOptionsPackSource {
+   |          ^^^^^^^^^^^^^^^^^^^^^
+
+warning: methods `as_str` and `is_yosbr` are never used
+  --> packages\app-lib\src\api\instance\synced_options\game_options\pack_updates.rs:36:8
+   |
+35 | impl GameOptionsPackSource {
+   | -------------------------- methods in this implementation
+36 |     fn as_str(self) -> &'static str {
+   |        ^^^^^^
+...
+45 |     fn is_yosbr(self) -> bool {
+   |        ^^^^^^^^
+
+warning: function `pack_version_id` is never used
+  --> packages\app-lib\src\api\instance\synced_options\game_options\pack_updates.rs:65:4
+   |
+65 | fn pack_version_id(metadata: &InstanceMetadata) -> Option<&str> {
+   |    ^^^^^^^^^^^^^^^
+
+warning: function `prepare_instance_update_with_state` is never used
+   --> packages\app-lib\src\api\instance\synced_options\game_options\pack_updates.rs:157:39
+    |
+157 | pub(in crate::api::instance) async fn prepare_instance_update_with_state(
+    |                                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `capture_pack_base` is never used
+   --> packages\app-lib\src\api\instance\synced_options\game_options\pack_updates.rs:198:14
+    |
+198 | pub async fn capture_pack_base(
+    |              ^^^^^^^^^^^^^^^^^
+
+warning: function `get_synced_options_folder` is never used
+   --> packages\app-lib\src\api\instance\synced_options\orchestration.rs:136:14
+    |
+136 | pub async fn get_synced_options_folder() -> crate::Result<PathBuf> {
+    |              ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `reconcile_all` is never used
+   --> packages\app-lib\src\api\instance\synced_options\orchestration.rs:974:14
+    |
+974 | pub async fn reconcile_all() -> crate::Result<()> {
+    |              ^^^^^^^^^^^^^
+
+warning: function `monitor_persisted_processes` is never used
+   --> packages\app-lib\src\api\instance\synced_options\orchestration.rs:993:21
+    |
+993 | pub(crate) async fn monitor_persisted_processes() -> crate::Result<()> {
+    |                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `prepare_instance_update` is never used
+    --> packages\app-lib\src\api\instance\synced_options\orchestration.rs:1067:21
+     |
+1067 | pub(crate) async fn prepare_instance_update(
+     |                     ^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `prepare_instance_update` is never used
+   --> packages\app-lib\src\api\instance\synced_packs_axolotl.rs:770:21
+    |
+770 | pub(crate) async fn prepare_instance_update(
+    |                     ^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `write_servers` is never used
+  --> packages\app-lib\src\api\instance\synced_servers\codec.rs:60:21
+   |
+60 | pub(crate) async fn write_servers(
+   |                     ^^^^^^^^^^^^^
+
+warning: function `server_data` is never used
+  --> packages\app-lib\src\api\instance\synced_servers\codec.rs:89:15
+   |
+89 | pub(crate) fn server_data(
+   |               ^^^^^^^^^^^
+
+warning: function `server_hidden` is never used
+   --> packages\app-lib\src\api\instance\synced_servers\codec.rs:120:15
+    |
+120 | pub(super) fn server_hidden(server: &NbtCompound) -> bool {
+    |               ^^^^^^^^^^^^^
+
+warning: function `capture_modpack_servers` is never used
+  --> packages\app-lib\src\api\instance\synced_servers\modpack.rs:15:14
+   |
+15 | pub async fn capture_modpack_servers(instance_id: &str) -> crate::Result<()> {
+   |              ^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `clear_modpack_servers` is never used
+  --> packages\app-lib\src\api\instance\synced_servers\modpack.rs:30:14
+   |
+30 | pub async fn clear_modpack_servers(instance_id: &str) -> crate::Result<()> {
+   |              ^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `list_server_records` is never used
+   --> packages\app-lib\src\api\instance\synced_servers\operations.rs:282:21
+    |
+282 | pub(crate) async fn list_server_records(
+    |                     ^^^^^^^^^^^^^^^^^^^
+
+warning: function `list_server_records_locked` is never used
+   --> packages\app-lib\src\api\instance\synced_servers\operations.rs:294:10
+    |
+294 | async fn list_server_records_locked(
+    |          ^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `list_local_server_records` is never used
+   --> packages\app-lib\src\api\instance\synced_servers\operations.rs:304:10
+    |
+304 | async fn list_local_server_records(
+    |          ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `ensure_managed_server` is never used
+   --> packages\app-lib\src\api\instance\synced_servers\operations.rs:322:21
+    |
+322 | pub(crate) async fn ensure_managed_server(
+    |                     ^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `add_user_server` is never used
+   --> packages\app-lib\src\api\instance\synced_servers\operations.rs:414:21
+    |
+414 | pub(crate) async fn add_user_server(
+    |                     ^^^^^^^^^^^^^^^
+
+warning: function `update_server_locked` is never used
+   --> packages\app-lib\src\api\instance\synced_servers\operations.rs:442:10
+    |
+442 | async fn update_server_locked(
+    |          ^^^^^^^^^^^^^^^^^^^^
+
+warning: function `update_server_by_index` is never used
+   --> packages\app-lib\src\api\instance\synced_servers\operations.rs:488:21
+    |
+488 | pub(crate) async fn update_server_by_index(
+    |                     ^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `remove_server_locked` is never used
+   --> packages\app-lib\src\api\instance\synced_servers\operations.rs:525:10
+    |
+525 | async fn remove_server_locked(
+    |          ^^^^^^^^^^^^^^^^^^^^
+
+warning: function `remove_server_by_index` is never used
+   --> packages\app-lib\src\api\instance\synced_servers\operations.rs:555:21
+    |
+555 | pub(crate) async fn remove_server_by_index(
+    |                     ^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `read_server_snapshot` is never used
+  --> packages\app-lib\src\api\instance\synced_servers\storage.rs:63:21
+   |
+63 | pub(super) async fn read_server_snapshot(
+   |                     ^^^^^^^^^^^^^^^^^^^^
+
+warning: function `write_local` is never used
+   --> packages\app-lib\src\api\instance\synced_servers\storage.rs:317:21
+    |
+317 | pub(super) async fn write_local(
+    |                     ^^^^^^^^^^^
+
+warning: methods `name`, `address`, `icon`, `hidden`, and `accept_textures` are never used
+  --> packages\app-lib\src\api\instance\synced_servers\types.rs:57:12
+   |
+56 | impl ServerRecord {
+   | ----------------- methods in this implementation
+57 |     pub fn name(&self) -> String {
+   |            ^^^^
+...
+64 |     pub fn address(&self) -> String {
+   |            ^^^^^^^
+...
+71 |     pub fn icon(&self) -> Option<String> {
+   |            ^^^^
+...
+75 |     pub fn hidden(&self) -> bool {
+   |            ^^^^^^
+...
+79 |     pub fn accept_textures(&self) -> Option<bool> {
+   |            ^^^^^^^^^^^^^^^
+
+warning: struct `InstanceBulkUpdateProgressPayload` is never constructed
+   --> packages\app-lib\src\event\mod.rs:222:12
+    |
+222 | pub struct InstanceBulkUpdateProgressPayload {
+    |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: enum `InstanceBulkUpdateProgressStage` is never used
+   --> packages\app-lib\src\event\mod.rs:231:10
+    |
+231 | pub enum InstanceBulkUpdateProgressStage {
+    |          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: variant `Restoring` is never constructed
+   --> packages\app-lib\src\event\mod.rs:281:5
+    |
+275 | pub enum InstanceBackupProgressStage {
+    |          --------------------------- variant in this enum
+...
+281 |     Restoring,
+    |     ^^^^^^^^^
+    |
+    = note: `InstanceBackupProgressStage` has a derived impl for the trait `Clone`, but this is intentionally ignored during dead code analysis
+
+warning: variant `ContentInstallFailed` is never constructed
+   --> packages\app-lib\src\event\mod.rs:440:5
+    |
+418 | pub enum InstancePayloadType {
+    |          ------------------- variant in this enum
+...
+440 |     ContentInstallFailed {
+    |     ^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: `InstancePayloadType` has a derived impl for the trait `Clone`, but this is intentionally ignored during dead code analysis
+
+warning: struct `InstanceGroupsChangedPayload` is never constructed
+   --> packages\app-lib\src\event\mod.rs:448:12
+    |
+448 | pub struct InstanceGroupsChangedPayload {
+    |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `emit_instance_bulk_update_progress` is never used
+   --> packages\app-lib\src\event\emit.rs:289:14
+    |
+289 | pub async fn emit_instance_bulk_update_progress(
+    |              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `ensure_linked_assets` is never used
+   --> packages\app-lib\src\launcher\direct_ensure.rs:406:21
+    |
+406 | pub(crate) async fn ensure_linked_assets(
+    |                     ^^^^^^^^^^^^^^^^^^^^
+
+warning: function `ensure_linked_assets_from` is never used
+   --> packages\app-lib\src\launcher\direct_ensure.rs:423:21
+    |
+423 | pub(crate) async fn ensure_linked_assets_from(
+    |                     ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: method `local_identity` is never used
+  --> packages\app-lib\src\resources\identity.rs:40:25
+   |
+39 | impl super::cache::ResourceCache {
+   | -------------------------------- method in this implementation
+40 |     pub(crate) async fn local_identity(
+   |                         ^^^^^^^^^^^^^^
+
+warning: function `scan_content_files` is never used
+  --> packages\app-lib\src\state\instances\adapters\filesystem.rs:25:15
+   |
+25 | pub(crate) fn scan_content_files(
+   |               ^^^^^^^^^^^^^^^^^^
+
+warning: function `list_all_content` is never used
+   --> packages\app-lib\src\state\instances\commands\list_content.rs:297:21
+    |
+297 | pub(crate) async fn list_all_content(
+    |                     ^^^^^^^^^^^^^^^^
+
+warning: function `sync_content_files_for_operation` is never used
+  --> packages\app-lib\src\state\instances\commands\sync_content_files.rs:87:21
+   |
+87 | pub(crate) async fn sync_content_files_for_operation(
+   |                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `add_project_bytes_from_provider` is never used
+    --> packages\app-lib\src\state\instances\commands\apply_content_install.rs:2442:21
+     |
+2442 | pub(crate) async fn add_project_bytes_from_provider(
+     |                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `record_project_files_with_verified_curseforge_atomic` is never used
+    --> packages\app-lib\src\state\instances\commands\apply_content_install.rs:2850:21
+     |
+2850 | pub(crate) async fn record_project_files_with_verified_curseforge_atomic(
+     |                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: fields `legacy_use_minecraft_mirror`, `legacy_use_modrinth_mirror`, and `legacy_use_curseforge_mirror` are never read
+   --> packages\app-lib\src\state\settings.rs:135:5
+    |
+109 | pub struct Settings {
+    |            -------- fields in this struct
+...
+135 |     legacy_use_minecraft_mirror: Option<bool>,
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+136 |     #[serde(default, rename = "use_modrinth_mirror", skip_serializing)]
+137 |     legacy_use_modrinth_mirror: Option<bool>,
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^
+138 |     #[serde(default, rename = "use_curseforge_mirror", skip_serializing)]
+139 |     legacy_use_curseforge_mirror: Option<bool>,
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: `Settings` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+
+warning: method `apply_legacy_download_source_settings` is never used
+   --> packages\app-lib\src\state\settings.rs:623:19
+    |
+315 | impl Settings {
+    | ------------- method in this implementation
+...
+623 |     pub(crate) fn apply_legacy_download_source_settings(&mut self) {
+    |                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `legacy_download_source` is never used
+   --> packages\app-lib\src\state\settings.rs:766:4
+    |
+766 | fn legacy_download_source(enabled: bool) -> DownloadSourceMode {
+    |    ^^^^^^^^^^^^^^^^^^^^^^
+
+warning: associated function `delete` is never used
+   --> packages\app-lib\src\state\java_globals.rs:142:25
+    |
+ 18 | impl JavaVersion {
+    | ---------------- associated function in this implementation
+...
+142 |     pub(crate) async fn delete(
+    |                         ^^^^^^
+
+warning: struct `GameOptionPackBases` is never constructed
+ --> packages\app-lib\src\state\store\game_option_pack_bases.rs:8:19
+  |
+8 | pub(crate) struct GameOptionPackBases;
+  |                   ^^^^^^^^^^^^^^^^^^^
+
+warning: struct `PackBaseKey` is never constructed
+  --> packages\app-lib\src\state\store\game_option_pack_bases.rs:12:19
+   |
+12 | pub(crate) struct PackBaseKey {
+   |                   ^^^^^^^^^^^
+
+warning: enum `PackBaseSource` is never used
+  --> packages\app-lib\src\state\store\game_option_pack_bases.rs:18:17
+   |
+18 | pub(crate) enum PackBaseSource {
+   |                 ^^^^^^^^^^^^^^
+
+warning: associated items `as_str` and `parse` are never used
+  --> packages\app-lib\src\state\store\game_option_pack_bases.rs:25:25
+   |
+24 | impl PackBaseSource {
+   | ------------------- associated items in this implementation
+25 |     pub(crate) const fn as_str(self) -> &'static str {
+   |                         ^^^^^^
+...
+33 |     fn parse(value: &str) -> Option<Self> {
+   |        ^^^^^
+
+warning: struct `PackBaseRecord` is never constructed
+  --> packages\app-lib\src\state\store\game_option_pack_bases.rs:45:19
+   |
+45 | pub(crate) struct PackBaseRecord {
+   |                   ^^^^^^^^^^^^^^
+
+warning: function `write_row` is never used
+   --> packages\app-lib\src\state\store\game_option_pack_bases.rs:195:10
+    |
+195 | async fn write_row(
+    |          ^^^^^^^^^
+
+warning: function `to_source` is never used
+   --> packages\app-lib\src\state\store\game_option_pack_bases.rs:227:4
+    |
+227 | fn to_source(source: &str) -> Option<PackBaseSource> {
+    |    ^^^^^^^^^
+
+warning: struct `GameOptionUpdateState` is never constructed
+ --> packages\app-lib\src\state\store\game_option_update_state.rs:8:19
+  |
+8 | pub(crate) struct GameOptionUpdateState;
+  |                   ^^^^^^^^^^^^^^^^^^^^^
+
+warning: struct `UpdateStateKey` is never constructed
+  --> packages\app-lib\src\state\store\game_option_update_state.rs:12:19
+   |
+12 | pub(crate) struct UpdateStateKey {
+   |                   ^^^^^^^^^^^^^^
+
+warning: enum `UpdateStateRecord` is never used
+  --> packages\app-lib\src\state\store\game_option_update_state.rs:21:17
+   |
+21 | pub(crate) enum UpdateStateRecord {
+   |                 ^^^^^^^^^^^^^^^^^
+
+warning: function `columns` is never used
+   --> packages\app-lib\src\state\store\game_option_update_state.rs:150:4
+    |
+150 | fn columns(
+    |    ^^^^^^^
+
+warning: function `to_record` is never used
+   --> packages\app-lib\src\state\store\game_option_update_state.rs:164:4
+    |
+164 | fn to_record(
+    |    ^^^^^^^^^
+
+warning: unused doc comment
+   --> packages\app-lib\src\util\fetch\mod.rs:108:1
+    |
+108 | / /// Set while a benchmark runs, so the client and the segment scheduler skip
+109 | | /// deadline enforcement the measured path would never meet.
+    | |_-----------------------------------------------------------^
+    |   |
+    |   rustdoc does not generate documentation for macro invocations
+    |
+    = help: to document an item produced by a macro, the macro must produce the documentation as part of its expansion
+    = note: `#[warn(unused_doc_comments)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused import: `super::routes`
+ --> packages\app-lib\src\util\fetch\file.rs:4:5
+  |
+4 | use super::routes;
+  |     ^^^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused import: `super::routes::route`
+ --> packages\app-lib\src\util\fetch\file.rs:6:5
+  |
+6 | use super::routes::route;
+  |     ^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `eyre::Context`
+  --> packages\app-lib\src\util\fetch\file.rs:26:5
+   |
+26 | use eyre::Context;
+   |     ^^^^^^^^^^^^^
+
+warning: unused import: `std::error::Error`
+  --> packages\app-lib\src\util\fetch\file.rs:32:5
+   |
+32 | use std::error::Error;
+   |     ^^^^^^^^^^^^^^^^^
+
+warning: unused import: `std::time`
+  --> packages\app-lib\src\util\fetch\file.rs:37:5
+   |
+37 | use std::time;
+   |     ^^^^^^^^^
+
+warning: unused import: `reqwest::header`
+  --> packages\app-lib\src\util\fetch\model.rs:10:5
+   |
+10 | use reqwest::header;
+   |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `super::file`
+ --> packages\app-lib\src\util\fetch\native.rs:8:5
+  |
+8 | use super::file;
+  |     ^^^^^^^^^^^
+
+warning: unused imports: `copy` and `write`
+  --> packages\app-lib\src\util\fetch\native.rs:17:19
+   |
+17 | use super::file::{copy, write};
+   |                   ^^^^  ^^^^^
+
+warning: unused import: `super::probe`
+  --> packages\app-lib\src\util\fetch\native.rs:27:5
+   |
+27 | use super::probe;
+   |     ^^^^^^^^^^^^
+
+warning: unused import: `super::request`
+  --> packages\app-lib\src\util\fetch\native.rs:35:5
+   |
+35 | use super::request;
+   |     ^^^^^^^^^^^^^^
+
+warning: unused import: `super::request::fetch`
+  --> packages\app-lib\src\util\fetch\native.rs:37:5
+   |
+37 | use super::request::fetch;
+   |     ^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `super::routes`
+  --> packages\app-lib\src\util\fetch\native.rs:39:5
+   |
+39 | use super::routes;
+   |     ^^^^^^^^^^^^^
+
+warning: unused import: `super::routes::route`
+  --> packages\app-lib\src\util\fetch\native.rs:41:5
+   |
+41 | use super::routes::route;
+   |     ^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `super::tail`
+  --> packages\app-lib\src\util\fetch\native.rs:53:5
+   |
+53 | use super::tail;
+   |     ^^^^^^^^^^^
+
+warning: unused import: `super::transfer`
+  --> packages\app-lib\src\util\fetch\native.rs:56:5
+   |
+56 | use super::transfer;
+   |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `reqwest::header`
+  --> packages\app-lib\src\util\fetch\native.rs:86:5
+   |
+86 | use reqwest::header;
+   |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `std::time`
+  --> packages\app-lib\src\util\fetch\native.rs:93:5
+   |
+93 | use std::time;
+   |     ^^^^^^^^^
+
+warning: unused import: `tokio::fs::File`
+  --> packages\app-lib\src\util\fetch\native.rs:96:5
+   |
+96 | use tokio::fs::File;
+   |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `super::client`
+ --> packages\app-lib\src\util\fetch\policy.rs:2:5
+  |
+2 | use super::client;
+  |     ^^^^^^^^^^^^^
+
+warning: unused import: `super::routes::route`
+ --> packages\app-lib\src\util\fetch\policy.rs:5:5
+  |
+5 | use super::routes::route;
+  |     ^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `reqwest::StatusCode`
+  --> packages\app-lib\src\util\fetch\policy.rs:22:5
+   |
+22 | use reqwest::StatusCode;
+   |     ^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `std::error::Error`
+  --> packages\app-lib\src\util\fetch\policy.rs:26:5
+   |
+26 | use std::error::Error;
+   |     ^^^^^^^^^^^^^^^^^
+
+warning: unused import: `super::request`
+  --> packages\app-lib\src\util\fetch\probe.rs:14:5
+   |
+14 | use super::request;
+   |     ^^^^^^^^^^^^^^
+
+warning: unused import: `super::routes`
+  --> packages\app-lib\src\util\fetch\probe.rs:16:5
+   |
+16 | use super::routes;
+   |     ^^^^^^^^^^^^^
+
+warning: unused import: `super::routes::route`
+  --> packages\app-lib\src\util\fetch\probe.rs:18:5
+   |
+18 | use super::routes::route;
+   |     ^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `super::file`
+ --> packages\app-lib\src\util\fetch\progress.rs:2:5
+  |
+2 | use super::file;
+  |     ^^^^^^^^^^^
+
+warning: unused import: `super::request`
+ --> packages\app-lib\src\util\fetch\progress.rs:5:5
+  |
+5 | use super::request;
+  |     ^^^^^^^^^^^^^^
+
+warning: unused import: `super::routes::route`
+ --> packages\app-lib\src\util\fetch\progress.rs:7:5
+  |
+7 | use super::routes::route;
+  |     ^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `std::time`
+  --> packages\app-lib\src\util\fetch\progress.rs:16:5
+   |
+16 | use std::time;
+   |     ^^^^^^^^^
+
+warning: unused import: `super::client`
+ --> packages\app-lib\src\util\fetch\request.rs:2:5
+  |
+2 | use super::client;
+  |     ^^^^^^^^^^^^^
+
+warning: unused import: `super::file`
+ --> packages\app-lib\src\util\fetch\request.rs:8:5
+  |
+8 | use super::file;
+  |     ^^^^^^^^^^^
+
+warning: unused import: `super::file::response_validator`
+  --> packages\app-lib\src\util\fetch\request.rs:10:5
+   |
+10 | use super::file::response_validator;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `super::routes`
+  --> packages\app-lib\src\util\fetch\request.rs:22:5
+   |
+22 | use super::routes;
+   |     ^^^^^^^^^^^^^
+
+warning: unused import: `super::routes::route`
+  --> packages\app-lib\src\util\fetch\request.rs:24:5
+   |
+24 | use super::routes::route;
+   |     ^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `reqwest::header`
+  --> packages\app-lib\src\util\fetch\request.rs:53:5
+   |
+53 | use reqwest::header;
+   |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `std::sync::atomic::Ordering`
+  --> packages\app-lib\src\util\fetch\routes.rs:25:5
+   |
+25 | use std::sync::atomic::Ordering;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `super::file`
+ --> packages\app-lib\src\util\fetch\segment.rs:4:5
+  |
+4 | use super::file;
+  |     ^^^^^^^^^^^
+
+warning: unused import: `super::request`
+ --> packages\app-lib\src\util\fetch\segment.rs:8:5
+  |
+8 | use super::request;
+  |     ^^^^^^^^^^^^^^
+
+warning: unused import: `super::routes::route`
+  --> packages\app-lib\src\util\fetch\segment.rs:10:5
+   |
+10 | use super::routes::route;
+   |     ^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `super::probe`
+  --> packages\app-lib\src\util\fetch\segmented.rs:15:5
+   |
+15 | use super::probe;
+   |     ^^^^^^^^^^^^
+
+warning: unused import: `super::request`
+  --> packages\app-lib\src\util\fetch\segmented.rs:24:5
+   |
+24 | use super::request;
+   |     ^^^^^^^^^^^^^^
+
+warning: unused import: `super::routes`
+  --> packages\app-lib\src\util\fetch\segmented.rs:26:5
+   |
+26 | use super::routes;
+   |     ^^^^^^^^^^^^^
+
+warning: unused import: `super::routes::route`
+  --> packages\app-lib\src\util\fetch\segmented.rs:28:5
+   |
+28 | use super::routes::route;
+   |     ^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `super::tail`
+  --> packages\app-lib\src\util\fetch\segmented.rs:40:5
+   |
+40 | use super::tail;
+   |     ^^^^^^^^^^^
+
+warning: unused import: `super::transfer`
+  --> packages\app-lib\src\util\fetch\segmented.rs:47:5
+   |
+47 | use super::transfer;
+   |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `crate::ErrorKind`
+  --> packages\app-lib\src\util\fetch\segmented.rs:49:5
+   |
+49 | use crate::ErrorKind;
+   |     ^^^^^^^^^^^^^^^^
+
+warning: unused import: `crate::util::io`
+  --> packages\app-lib\src\util\fetch\segmented.rs:74:5
+   |
+74 | use crate::util::io;
+   |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `super::file`
+ --> packages\app-lib\src\util\fetch\tail.rs:4:5
+  |
+4 | use super::file;
+  |     ^^^^^^^^^^^
+
+warning: unused import: `super::file::write`
+ --> packages\app-lib\src\util\fetch\tail.rs:6:5
+  |
+6 | use super::file::write;
+  |     ^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `super::routes::route`
+  --> packages\app-lib\src\util\fetch\tail.rs:13:5
+   |
+13 | use super::routes::route;
+   |     ^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `std::time`
+  --> packages\app-lib\src\util\fetch\tail.rs:30:5
+   |
+30 | use std::time;
+   |     ^^^^^^^^^
+
+warning: unused import: `crate::ErrorKind`
+ --> packages\app-lib\src\util\fetch\throttle.rs:3:5
+  |
+3 | use crate::ErrorKind;
+  |     ^^^^^^^^^^^^^^^^
+
+warning: unused import: `reqwest::header`
+  --> packages\app-lib\src\util\fetch\throttle.rs:11:5
+   |
+11 | use reqwest::header;
+   |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `super::file`
+ --> packages\app-lib\src\util\fetch\transfer.rs:2:5
+  |
+2 | use super::file;
+  |     ^^^^^^^^^^^
+
+warning: unused import: `super::policy`
+  --> packages\app-lib\src\util\fetch\transfer.rs:12:5
+   |
+12 | use super::policy;
+   |     ^^^^^^^^^^^^^
+
+warning: unused import: `super::request`
+  --> packages\app-lib\src\util\fetch\transfer.rs:21:5
+   |
+21 | use super::request;
+   |     ^^^^^^^^^^^^^^
+
+warning: unused import: `super::routes`
+  --> packages\app-lib\src\util\fetch\transfer.rs:23:5
+   |
+23 | use super::routes;
+   |     ^^^^^^^^^^^^^
+
+warning: unused import: `super::routes::route`
+  --> packages\app-lib\src\util\fetch\transfer.rs:25:5
+   |
+25 | use super::routes::route;
+   |     ^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `std::future::Future`
+  --> packages\app-lib\src\util\fetch\transfer.rs:47:5
+   |
+47 | use std::future::Future;
+   |     ^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `std::time`
+  --> packages\app-lib\src\util\fetch\transfer.rs:50:5
+   |
+50 | use std::time;
+   |     ^^^^^^^^^
+
+warning: unused import: `std::time::Duration`
+ --> packages\app-lib\src\util\fetch\tests\throttle.rs:4:5
+  |
+4 | use std::time::Duration;
+  |     ^^^^^^^^^^^^^^^^^^^
+
+warning: unused imports: `FETCH_127_0_0_1`, `FETCH_LOCALHOST`, and `HTTP_SCHEME`
+  --> packages\app-lib\src\util\fetch\mod.rs:73:5
+   |
+73 |     FETCH_127_0_0_1, FETCH_LOCALHOST, HTTP_SCHEME,
+   |     ^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^  ^^^^^^^^^^^
+
+warning: unused import: `Notify`
+  --> packages\app-lib\src\util\fetch\mod.rs:88:19
+   |
+88 | use tokio::sync::{Notify, Semaphore};
+   |                   ^^^^^^
+
+warning: unused import: `crate::state::instances::adapters::sqlite::content_sets`
+   --> packages\app-lib\src\api\instance\upgrade.rs:779:9
+    |
+779 |     use crate::state::instances::adapters::sqlite::content_sets;
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `crate::state::instances::adapters::sqlite::files`
+    --> packages\app-lib\src\api\pack\install_mrpack.rs:2355:9
+     |
+2355 |     use crate::state::instances::adapters::sqlite::files;
+     |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `files`
+    --> packages\app-lib\src\install\recovery.rs:1098:26
+     |
+1098 |         content_entries, files, pack_members,
+     |                          ^^^^^
+
+warning: unused imports: `content_entries` and `pack_members`
+    --> packages\app-lib\src\install\runner\content_change.rs:1293:13
+     |
+1293 |             content_entries, pack_members,
+     |             ^^^^^^^^^^^^^^^  ^^^^^^^^^^^^
+
+warning: unused imports: `files` and `pack_members`
+    --> packages\app-lib\src\resources\execution_tests.rs:1875:26
+     |
+1875 |         content_entries, files, pack_members,
+     |                          ^^^^^  ^^^^^^^^^^^^
+
+warning: unused imports: `content_entries` and `pack_members`
+ --> packages\app-lib\src\resources\protocol_tests.rs:5:5
+  |
+5 |     content_entries, pack_members,
+  |     ^^^^^^^^^^^^^^^  ^^^^^^^^^^^^
+
+warning: unused import: `L0TaskOutcome`
+   --> packages\app-lib\src\scheduler\supervisor.rs:308:40
+    |
+308 |     use super::{L0Authority, L0TaskId, L0TaskOutcome, Level, Supervisor};
+    |                                        ^^^^^^^^^^^^^
+
+warning: unused imports: `content_sets` and `files`
+   --> packages\app-lib\src\state\instances\commands\create_direct_link_instance.rs:210:53
+    |
+210 |     use crate::state::instances::adapters::sqlite::{content_sets, files};
+    |                                                     ^^^^^^^^^^^^  ^^^^^
+
+warning: unused imports: `content_entries`, `content_sets`, and `pack_members`
+    --> packages\app-lib\src\state\instances\commands\content_snapshot.rs:1267:9
+     |
+1267 |         content_entries, content_sets, pack_members,
+     |         ^^^^^^^^^^^^^^^  ^^^^^^^^^^^^  ^^^^^^^^^^^^
+
+warning: unused imports: `content_entries`, `content_sets`, `pack_members`, and `write_guards`
+    --> packages\app-lib\src\state\instances\commands\apply_content_install.rs:4530:13
+     |
+4530 |             content_entries, content_sets, pack_members, write_guards,
+     |             ^^^^^^^^^^^^^^^  ^^^^^^^^^^^^  ^^^^^^^^^^^^  ^^^^^^^^^^^^
+
+warning: unused imports: `content_sets` and `files`
+  --> packages\app-lib\src\state\instances\commands\content_file_operations_tests.rs:60:53
+   |
+60 |     use crate::state::instances::adapters::sqlite::{content_sets, files};
+   |                                                     ^^^^^^^^^^^^  ^^^^^
+
+warning: unused import: `std::error::Error`
+  --> packages\app-lib\src\util\fetch\native.rs:90:5
+   |
+90 | use std::error::Error;
+   |     ^^^^^^^^^^^^^^^^^
+
+warning: unused import: `std::error::Error`
+  --> packages\app-lib\src\util\fetch\request.rs:58:5
+   |
+58 | use std::error::Error;
+   |     ^^^^^^^^^^^^^^^^^
+
+warning: unused import: `std::error::Error`
+  --> packages\app-lib\src\util\fetch\segmented.rs:80:5
+   |
+80 | use std::error::Error;
+   |     ^^^^^^^^^^^^^^^^^
+
+warning: unused import: `crate::state::store::Collection`
+   --> packages\app-lib\src\install\diagnostics.rs:753:9
+    |
+753 |     use crate::state::store::Collection as _;
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused variable: `pool`
+   --> packages\app-lib\src\util\download\endpoint_selection\tests\probe.rs:712:9
+    |
+712 |     let pool = sqlx::sqlite::SqlitePoolOptions::new()
+    |         ^^^^ help: if this is intentional, prefix it with an underscore: `_pool`
+    |
+    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused variable: `pool`
+   --> packages\app-lib\src\util\download\native_request.rs:932:13
+    |
+932 |         let pool = sqlx::sqlite::SqlitePoolOptions::new()
+    |             ^^^^ help: if this is intentional, prefix it with an underscore: `_pool`
+
+warning: unused variable: `pool`
+    --> packages\app-lib\src\state\cache.rs:2283:13
+     |
+2283 |             pool: &SqlitePool,
+     |             ^^^^ help: if this is intentional, prefix it with an underscore: `_pool`
+
+warning: type `state::store::Handle` is more private than the item `state::java_globals::JavaVersion::get`
+  --> packages\app-lib\src\state\java_globals.rs:21:5
+   |
+21 | /     pub async fn get(
+22 | |         major_version: u32,
+23 | |         handle: &Handle,
+24 | |     ) -> crate::Result<Option<JavaVersion>> {
+   | |___________________________________________^ associated function `state::java_globals::JavaVersion::get` is reachable at visibility `pub`
+   |
+note: but type `state::store::Handle` is only usable at visibility `pub(crate)`
+  --> packages\app-lib\src\state\store\mod.rs:69:1
+   |
+69 | pub(crate) struct Handle {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: type `state::store::Handle` is more private than the item `state::java_globals::JavaVersion::set_default`
+  --> packages\app-lib\src\state\java_globals.rs:82:5
+   |
+82 | /     pub async fn set_default(
+83 | |         major_version: u32,
+84 | |         path: &str,
+85 | |         handle: &Handle,
+86 | |     ) -> crate::Result<()> {
+   | |__________________________^ associated function `state::java_globals::JavaVersion::set_default` is reachable at visibility `pub`
+   |
+note: but type `state::store::Handle` is only usable at visibility `pub(crate)`
+  --> packages\app-lib\src\state\store\mod.rs:69:1
+   |
+69 | pub(crate) struct Handle {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: type `state::store::Handle` is more private than the item `state::java_globals::JavaVersion::remove_default`
+   --> packages\app-lib\src\state\java_globals.rs:107:5
+    |
+107 | /     pub async fn remove_default(
+108 | |         major_version: u32,
+109 | |         handle: &Handle,
+110 | |     ) -> crate::Result<()> {
+    | |__________________________^ associated function `state::java_globals::JavaVersion::remove_default` is reachable at visibility `pub`
+    |
+note: but type `state::store::Handle` is only usable at visibility `pub(crate)`
+   --> packages\app-lib\src\state\store\mod.rs:69:1
+    |
+ 69 | pub(crate) struct Handle {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: type `state::store::Handle` is more private than the item `state::java_globals::JavaVersion::remove_default_for_path`
+   --> packages\app-lib\src\state\java_globals.rs:114:5
+    |
+114 | /     pub async fn remove_default_for_path(
+115 | |         path: &str,
+116 | |         handle: &Handle,
+117 | |     ) -> crate::Result<()> {
+    | |__________________________^ associated function `state::java_globals::JavaVersion::remove_default_for_path` is reachable at visibility `pub`
+    |
+note: but type `state::store::Handle` is only usable at visibility `pub(crate)`
+   --> packages\app-lib\src\state\store\mod.rs:69:1
+    |
+ 69 | pub(crate) struct Handle {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: type `state::store::Handle` is more private than the item `state::java_globals::JavaVersion::update_path`
+   --> packages\app-lib\src\state\java_globals.rs:156:5
+    |
+156 | /     pub async fn update_path(
+157 | |         old_path: &str,
+158 | |         new_path: &str,
+159 | |         handle: &Handle,
+160 | |     ) -> crate::Result<()> {
+    | |__________________________^ associated function `state::java_globals::JavaVersion::update_path` is reachable at visibility `pub`
+    |
+note: but type `state::store::Handle` is only usable at visibility `pub(crate)`
+   --> packages\app-lib\src\state\store\mod.rs:69:1
+    |
+ 69 | pub(crate) struct Handle {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: field `rustls_root` is never read
+  --> packages\app-lib\src\util\download\endpoint_selection\tests\fixtures.rs:68:16
+   |
+65 | pub(super) struct EndpointFixture {
+   |                   --------------- field in this struct
+...
+68 |     pub(super) rustls_root: CertificateDer<'static>,
+   |                ^^^^^^^^^^^
+
+warning: function `update_one` is never used
+  --> packages\app-lib\src\install\runner\tests.rs:33:4
+   |
+33 | fn update_one(content_id: &str) -> crate::install::ContentChangeIntent {
+   |    ^^^^^^^^^^
+
+warning: function `world_name` is never used
+   --> packages\app-lib\src\resources\export\scan.rs:323:4
+    |
+323 | fn world_name(path: &Path) -> Option<String> {
+    |    ^^^^^^^^^^
+
+warning: function `handle_of` is never used
+  --> packages\app-lib\src\state\store\tests\modrinth_sessions.rs:11:4
+   |
+11 | fn handle_of(pool: &sqlx::SqlitePool) -> Handle {
+   |    ^^^^^^^^^
+
+warning: function `handle_of` is never used
+  --> packages\app-lib\src\state\store\tests\settings_db.rs:10:4
+   |
+10 | fn handle_of(pool: &sqlx::SqlitePool) -> Handle {
+   |    ^^^^^^^^^
+
+warning: `theseus` (lib) generated 165 warnings (run `cargo fix --lib -p theseus` to apply 33 suggestions)
+warning: `theseus` (lib test) generated 197 warnings (105 duplicates) (run `cargo fix --lib -p theseus --tests` to apply 77 suggestions)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.00s
+────────────
+ Nextest run ID cd7ef6da-3d08-4966-8fb5-cadfe7b797bc with nextest profile: default
+    Starting 7 tests across 2 binaries (2338 tests skipped)
+        PASS [   0.035s] (1/7) theseus api::servers::lifecycle::tests::shutdown_all_returns_directly_without_running_servers
+        PASS [   0.062s] (2/7) theseus state::tunnel::tests::shutdown_closes_all_owned_connections_and_preserves_other_listeners
+        PASS [   0.065s] (3/7) theseus api::multiplayer::tests::queued_provider_claim_is_rejected_after_shutdown_begins
+        PASS [   0.080s] (4/7) theseus state::tunnel::tests::shutdown_notifies_the_server_once_for_listener_and_each_connection
+        PASS [   2.404s] (5/7) theseus resources::refresh::tests::shutdown_cancels_the_active_check_and_preserves_already_saved_results
+        PASS [   5.083s] (6/7) theseus api::servers::lifecycle::tests::shutdown_all_cannot_be_blocked_by_a_stuck_pty_write
+        PASS [   5.097s] (7/7) theseus api::servers::lifecycle::tests::shutdown_all_uses_configured_stop_commands
+────────────
+     Summary [   5.101s] 7 tests run: 7 passed, 2338 skipped

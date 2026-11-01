@@ -590,6 +590,8 @@ import {
     type InstallJobStatus,
     type InstallPhaseId,
 } from '@/helpers/install'
+import { installJobResourceMatches, installJobTitle } from '@/helpers/install-job-presentation'
+import { isActiveInstallJobStatus } from '@/helpers/install-job-status'
 import {
     effectiveInstallProgress,
     effectiveParallelProgress,
@@ -998,6 +1000,7 @@ const visibleJobs = computed(() => {
         return (
             !normalized ||
             jobTitle(job).toLowerCase().includes(normalized) ||
+            installJobResourceMatches(job, normalized) ||
             targetInstanceName(job)?.toLowerCase().includes(normalized) ||
             job.job_id.includes(normalized)
         )
@@ -1034,12 +1037,7 @@ const emptyState = computed(() => {
     }
 })
 function jobTitle(job: InstallJobSnapshot) {
-    return (
-        job.display?.title ||
-        (job.details.type === 'instance' ? job.details.name : null) ||
-        (job.details.type === 'modpack' ? job.details.title : null) ||
-        jobTypeLabel(job)
-    )
+    return installJobTitle(job, formatMessage, jobTypeLabel(job))
 }
 
 function displayIcon(icon: string) {
@@ -1131,6 +1129,7 @@ function isLocalRecoveryValidation(job: InstallJobSnapshot) {
 
 function jobPhaseLabel(job: InstallJobSnapshot) {
     if (job.rollback_error) return formatMessage(messages.cleanupIncomplete)
+    if (!isActiveInstallJobStatus(job.status)) return statusLabel(job.status)
     // Older queued content jobs were initialized with the generic instance phase.
     // Keep their label meaningful while they are resumed or waiting for the worker.
     if (job.kind === 'install_content' && job.phase === 'preparing_instance') {

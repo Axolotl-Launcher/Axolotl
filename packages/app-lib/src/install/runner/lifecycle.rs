@@ -30,7 +30,9 @@ pub(super) fn spawn_job(job_id: Uuid) {
         let result =
             worker_result(EXECUTING_JOB.scope(job_id, run_job(job_id))).await;
         if let Err(error) = result {
-            tracing::error!(%job_id, %error, "Install worker recovery could not finish; persisted recovery information is retained");
+            // A recovery failure was already reported with its own message;
+            // this is the work (or panic) error that followed it.
+            tracing::warn!(%job_id, %error, "Install worker ended with an error");
         }
     });
 }
@@ -43,6 +45,7 @@ async fn worker_result(
         .catch_unwind()
         .await
         .unwrap_or_else(|_| {
+            tracing::error!("Install worker panicked; recovery is required");
             Err(ErrorKind::OtherError(
                 "Install worker panicked; recovery is required".into(),
             )
@@ -60,7 +63,7 @@ pub(super) async fn supervise_install_worker(
     let result = worker_result(work).await;
     if let Err(error) = &result {
         let cancel_requested = cancellation.is_cancelled();
-        retry_recovery(job_id, || {
+        if let Err(recovery_error) = retry_recovery(job_id, || {
             recover_owned_job(
                 job_id,
                 state,
@@ -69,7 +72,14 @@ pub(super) async fn supervise_install_worker(
                 cancel_requested,
             )
         })
-        .await?;
+        .await
+        {
+            // Only a recovery failure deserves the "recovery could not
+            // finish" report; the work error below is not one. Keep both
+            // errors: recovery may not have persisted the work error.
+            tracing::error!(%job_id, work_error = %error, %recovery_error, "Install worker recovery could not finish; persisted recovery information is retained");
+            return Err(recovery_error);
+        }
     }
     result
 }
@@ -84,7 +94,13 @@ pub(super) async fn recover_stopped_job(
     let initial = store::get_required(job_id, state).await?;
     // Absence of a token can be a registration race. Ownership, followed by a
     // fresh status read, proves that no worker can still publish these files.
-    let _execution = admission::execution_lock(state, &initial).await;
+    let Some(_execution) = admission::execution_lock(state, &initial).await
+    else {
+        return Err(crate::ErrorKind::OtherError(
+            "Timed out waiting for the install execution lock".into(),
+        )
+        .into());
+    };
     recover_owned_job(job_id, state, reporter, error, false).await
 }
 
@@ -352,19 +368,26 @@ async fn run_job(job_id: Uuid) -> crate::Result<()> {
 
     // The wait runs in bounded steps that re-read the job, so it keeps its
     // place in line and leaves only once the job finished or is canceling.
-    let (_execution, _install_permit) =
-        match admission::queued_slot(&state, &job).await {
-            Ok(Some(slot)) => slot,
-            Ok(None) => return Ok(()),
-            Err(error) => {
-                drop(_metadata_usage);
-                retry_recovery(job_id, || {
-                    recover_stopped_job(job_id, &state, None, &error)
-                })
-                .await?;
-                return Err(error);
+    let (_execution, _install_permit) = match admission::queued_slot(
+        &state, &job,
+    )
+    .await
+    {
+        Ok(Some(slot)) => slot,
+        Ok(None) => return Ok(()),
+        Err(error) => {
+            drop(_metadata_usage);
+            if let Err(recovery_error) = retry_recovery(job_id, || {
+                recover_stopped_job(job_id, &state, None, &error)
+            })
+            .await
+            {
+                tracing::error!(%job_id, work_error = %error, %recovery_error, "Install worker recovery could not finish; persisted recovery information is retained");
+                return Err(recovery_error);
             }
-        };
+            return Err(error);
+        }
+    };
     let reporter = InstallProgressReporter::new(job_id, job.state.clone());
     // Kept here so recovery still sees a cancellation the worker was given
     // after the worker has unregistered it.
@@ -465,13 +488,22 @@ async fn run_owned_job(
                 &error,
                 None,
             ));
-            let record = store::update_status(
+            // A concurrent cancel owns the terminal state: writing Interrupted
+            // over a row the cancel path already moved to Canceling would make
+            // `finish_canceling_job` return without its rollback. The
+            // conditional write makes that decision in one SQL statement, so
+            // a cancel that lands after this point still wins.
+            let Some(record) = store::update_status_if(
                 job_id,
+                InstallJobStatus::Running,
                 InstallJobStatus::Interrupted,
                 &job_state,
                 state,
             )
-            .await?;
+            .await?
+            else {
+                return Ok(());
+            };
             emit_install_job(&record.snapshot()).await?;
             return Ok(());
         }

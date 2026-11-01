@@ -203,6 +203,7 @@ import {
 import { createServerInstall, provideServerInstall } from '@/providers/server-install'
 import { setupProviders } from '@/providers/setup'
 import { setupAuthProvider } from '@/providers/setup/auth'
+import { setupContentInstallPreviews } from '@/providers/setup/content-install-previews'
 import { setupLoadingStateProvider } from '@/providers/setup/loading-state'
 import { useError } from '@/store/error.js'
 import { useTheming } from '@/store/state'
@@ -2167,6 +2168,12 @@ const {
 const modInstallModal = ref()
 const resourceInstallPreview = ref<InstanceType<typeof ResourceOperationPreviewModal> | null>(null)
 const contentInstallPreviewModal = ref<InstanceType<typeof ContentInstallPreviewModal> | null>(null)
+setupContentInstallPreviews({
+    resourcePreview: resourceInstallPreview,
+    contentPreview: contentInstallPreviewModal,
+    contentSelection,
+    contentInstall,
+})
 const modpackAlreadyInstalledModal = ref()
 const contentInstallModpackInstallModal = ref<InstanceType<typeof ModpackInstallModal> | null>(null)
 const handleContentInstallModpackDuplicateGoToInstance = (instanceId: string) =>
@@ -2335,9 +2342,6 @@ onMounted(() => {
     setContentIncompatibilityWarningModal(incompatibilityWarningModal.value)
     dropIncompatibilityWarningModal.value = incompatibilityWarningModal.value
     setContentInstallModal(modInstallModal.value)
-    contentSelection.setPreviewModal(contentInstallPreviewModal.value)
-    contentSelection.setResourceInstallPreview(resourceInstallPreview.value)
-    contentInstall.setResourceInstallPreview(resourceInstallPreview.value)
     setContentInstallModpackInstallModal(contentInstallModpackInstallModal.value!)
     setContentInstallCurseForgeManualDownloadsModal(
         contentInstallCurseForgeManualDownloadsModal.value,

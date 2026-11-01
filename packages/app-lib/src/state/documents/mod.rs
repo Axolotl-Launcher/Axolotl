@@ -364,6 +364,39 @@ impl<'a> Documents<'a> {
         crate::util::io::write(&path, contents).await?;
         Ok(())
     }
+
+    /// Overwrites a domain's document with this build's shape and version,
+    /// whatever the disk holds.
+    ///
+    /// A normal write refuses to lower a document a newer build wrote, because
+    /// stating the keys this build knows drops the ones it cannot see. This
+    /// entry is only for the operations a user asks for explicitly — "rewrite
+    /// the local documents in this build's shape" — where that loss is the
+    /// request itself: the version has to be reset even when the contents
+    /// already read the same, which is why neither refusal of `write` applies,
+    /// and a file this build cannot read is repaired rather than left behind.
+    /// What may be lost is therefore decided by the caller, which is why the
+    /// callers are the ones that check first and refuse before this runs.
+    pub(crate) async fn replace<T>(
+        &self,
+        name: &str,
+        schema_version: u32,
+        document: &T,
+    ) -> crate::Result<()>
+    where
+        T: Serialize,
+    {
+        let path = self.path(name);
+        let contents = serde_json::to_vec_pretty(&NewDocument {
+            schema_version,
+            data: document,
+        })?;
+        if let Some(parent) = path.parent() {
+            crate::util::io::create_dir_all(parent).await?;
+        }
+        crate::util::io::write(&path, contents).await?;
+        Ok(())
+    }
 }
 
 /// The document one domain reads as, composed of the layers a document set

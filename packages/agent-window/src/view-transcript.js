@@ -9,6 +9,7 @@ import { animate, reducedMotion } from './motion.js'
 import { currentThread, instanceChoice, session } from './session.js'
 import { ACTIVE_STATUSES } from './state.js'
 import { fileChip } from './view-composer.js'
+import { stateLabel } from './view-panel.js'
 
 const root = () => element('messages')
 const scroller = () => element('message-scroll')
@@ -36,11 +37,16 @@ function place(node) {
 }
 
 // History that is only being shown, not new, is not read out: the live
-// region stays busy while it changes.
+// region stays busy while it changes. The browser hands the change to screen
+// readers after the next frame's layout, so busy lasts until the frame after.
+let quiet = 0
 function quietly(change) {
     root().setAttribute('aria-busy', 'true')
     change()
-    requestAnimationFrame(() => root().removeAttribute('aria-busy'))
+    cancelAnimationFrame(quiet)
+    quiet = requestAnimationFrame(() => {
+        quiet = requestAnimationFrame(() => root().removeAttribute('aria-busy'))
+    })
 }
 
 export function renderTranscript(thread) {
@@ -147,7 +153,10 @@ export function turnNode(turnId) {
 function createTurn(thread, turn, fresh) {
     const node = h('article', { class: 'turn', data: { turn: turn.id } }, [
         userRow(turn),
-        h('div', { class: 'agent' }, [
+        // The live transcript reads out each new request. The agent's side is
+        // quiet: streamed text, steps and the ticking timer would be read token
+        // by token, so the announcer says once what changed instead.
+        h('div', { class: 'agent', 'aria-live': 'off' }, [
             h('div', { class: 'agent-items' }),
             h('div', { class: 'run-status', hidden: true }),
             h('div', { class: 'run-notice', hidden: true }),
@@ -235,13 +244,20 @@ function createItem(item) {
     switch (item.type) {
         case 'activity':
             return h('div', { ...props, class: 'activity' }, [
-                button({ class: 'activity-summary', data: { action: 'toggle-activity' } }, [
-                    h('span', { class: 'activity-icon' }),
-                    h('span', { class: 'activity-label' }),
-                    h('span', { class: 'activity-meta' }),
-                    icon('right', 'activity-chevron'),
-                ]),
-                h('div', { class: 'activity-body' }, [
+                button(
+                    {
+                        class: 'activity-summary',
+                        'aria-controls': `steps-${item.id}`,
+                        data: { action: 'toggle-activity' },
+                    },
+                    [
+                        h('span', { class: 'activity-icon' }),
+                        h('span', { class: 'activity-label' }),
+                        h('span', { class: 'activity-meta' }),
+                        icon('right', 'activity-chevron'),
+                    ],
+                ),
+                h('div', { id: `steps-${item.id}`, class: 'activity-body' }, [
                     h('div', { class: 'activity-clip' }, [h('ol', { class: 'steps' })]),
                 ]),
             ])
@@ -290,7 +306,15 @@ function updateActivity(node, item, { active }) {
                 ? pixelLoader()
                 : icon(state === 'done' ? 'check-circle' : state === 'failed' ? 'alert' : 'stop'),
         )
-        if (!running) holder.firstChild.classList.add('pop')
+        // Finished, the icon tells how; running, the label already says so.
+        if (running) {
+            holder.removeAttribute('role')
+            holder.removeAttribute('aria-label')
+        } else {
+            holder.setAttribute('role', 'img')
+            holder.setAttribute('aria-label', stateLabel(state))
+            holder.firstChild.classList.add('pop')
+        }
     }
     // The group stays open while it works and folds away when finished, unless
     // the user opened or closed it themselves. Concise keeps every group folded
@@ -299,8 +323,7 @@ function updateActivity(node, item, { active }) {
     const open = node.dataset.user
         ? node.dataset.user === 'open'
         : detail === 'detailed' || (running && detail !== 'concise')
-    node.toggleAttribute('data-open', open)
-    node.querySelector('.activity-summary').setAttribute('aria-expanded', String(open))
+    setOpen(node, open)
     const current = item.steps.findLast((step) => step.status === 'running')
     // While the list is open it already names the current step, so the header
     // counts instead; folded away, the header names the step itself.
@@ -331,7 +354,7 @@ function buildSteps(node, item) {
         let row = list.querySelector(`:scope > [data-step="${CSS.escape(step.id)}"]`)
         if (!row) {
             row = h('li', { class: 'step is-arriving', data: { step: step.id } }, [
-                h('span', { class: 'step-icon' }),
+                h('span', { class: 'step-icon', role: 'img' }),
                 h('span', { class: 'step-copy' }, [
                     h('span', { class: 'step-title' }),
                     h('span', { class: 'step-detail' }),
@@ -341,8 +364,10 @@ function buildSteps(node, item) {
             list.append(row)
         }
         if (row.dataset.state !== step.status) {
-            row.querySelector('.step-icon').replaceChildren(stepIcon(step.status))
-            if (row.dataset.state) row.querySelector('.step-icon').firstChild.classList.add('pop')
+            const mark = row.querySelector('.step-icon')
+            mark.replaceChildren(stepIcon(step.status))
+            mark.setAttribute('aria-label', stateLabel(step.status))
+            if (row.dataset.state) mark.firstChild.classList.add('pop')
             row.dataset.state = step.status
         }
         row.querySelector('.step-title').textContent = step.title
@@ -413,9 +438,11 @@ function versionTo(from, to) {
 }
 
 function changeRow(change, index, turnId) {
+    // The glyph only repeats the name's initials.
     const mark = change.glyph
         ? h('span', {
               class: 'change-mark glyph',
+              'aria-hidden': 'true',
               text: change.glyph,
               style: `--mark-hue: ${hue(change.name)}`,
           })
@@ -429,14 +456,25 @@ function changeRow(change, index, turnId) {
                 h('span', { text: text(kind[1]) }),
             ])
           : null
+    // Its arrow is drawn, so the versions are named as one, with the arrow.
     const diff =
         change.manual || !change.to
             ? null
-            : h('span', { class: 'change-diff' }, [
-                  change.from ? h('span', { class: 'version is-from', text: change.from }) : null,
-                  change.from ? icon('arrow-right', 'diff-arrow') : null,
-                  versionTo(change.from, change.to),
-              ])
+            : h(
+                  'span',
+                  {
+                      class: 'change-diff',
+                      role: 'img',
+                      'aria-label': change.from ? `${change.from} → ${change.to}` : change.to,
+                  },
+                  [
+                      change.from
+                          ? h('span', { class: 'version is-from', text: change.from })
+                          : null,
+                      change.from ? icon('arrow-right', 'diff-arrow') : null,
+                      versionTo(change.from, change.to),
+                  ],
+              )
     return h('li', { class: `change${change.manual ? ' is-manual' : ''}`, data: { index } }, [
         mark,
         h('span', { class: 'change-copy' }, [
@@ -551,12 +589,15 @@ function updatePlan(node, item, { turn }) {
     node.dataset.state = item.state
     if (first) {
         const plan = item.plan
+        node.setAttribute('aria-labelledby', `plan-${item.id}`)
+        // Reviewing from the approval bar moves the focus here.
+        node.tabIndex = -1
         node.append(
             h('span', { class: 'plan-orbit', 'aria-hidden': 'true' }),
             h('header', { class: 'plan-header' }, [
                 h('div', {}, [
                     h('span', { class: 'plan-kicker', text: text('planKicker') }),
-                    h('h3', { text: plan.title }),
+                    h('h3', { id: `plan-${item.id}`, text: plan.title }),
                 ]),
                 plan.summary ? h('span', { class: 'plan-count', text: plan.summary }) : null,
             ]),
@@ -577,10 +618,17 @@ function updatePlan(node, item, { turn }) {
             h('div', { class: 'plan-footer' }),
         )
     }
+    // Once the plan is decided its ticks only record the choice: they stay as
+    // they look but leave the tab order and read as unavailable.
+    const open = item.state === 'pending'
     for (const row of node.querySelectorAll('.change')) {
         const out = excluded.includes(Number(row.dataset.index))
         row.classList.toggle('is-excluded', out)
-        row.querySelector('.change-toggle')?.setAttribute('aria-checked', String(!out))
+        const toggle = row.querySelector('.change-toggle')
+        if (!toggle) continue
+        toggle.setAttribute('aria-checked', String(!out))
+        toggle.setAttribute('aria-disabled', String(!open))
+        toggle.tabIndex = open ? 0 : -1
     }
     const footer = node.querySelector('.plan-footer')
     footer.replaceChildren(planFooter(item, turn))
@@ -780,12 +828,17 @@ function syncActions(node, turn, active, latest) {
                       icon('refresh'),
                   )
                 : null,
+            // A toggle keeps one name and says pressed or not; only the
+            // tooltip says what a click would do.
             button(
                 {
                     class: 'icon-button tiny mark-turn',
-                    label: text(turn.marked ? 'unmarkTurn' : 'markTurn'),
+                    'aria-label': text('markTurn'),
                     'aria-pressed': String(!!turn.marked),
-                    data: { markTurn: turn.id },
+                    data: {
+                        markTurn: turn.id,
+                        tip: text(turn.marked ? 'unmarkTurn' : 'markTurn'),
+                    },
                 },
                 icon('bookmark'),
             ),
@@ -804,9 +857,17 @@ export function toggleActivity(summary) {
     const node = summary.closest('.activity')
     const open = !node.hasAttribute('data-open')
     node.dataset.user = open ? 'open' : 'closed'
-    node.toggleAttribute('data-open', open)
-    summary.setAttribute('aria-expanded', String(open))
+    setOpen(node, open)
     if (open && !node.dataset.built && node.activityItem) buildSteps(node, node.activityItem)
+}
+
+// A folded group only looks closed: its rows stay in the page so it can glide
+// open. Inert takes them out of reach of the keyboard and screen readers too.
+function setOpen(node, open) {
+    node.toggleAttribute('data-open', open)
+    node.querySelector('.activity-summary').setAttribute('aria-expanded', String(open))
+    const body = node.querySelector('.activity-body')
+    if (body.inert === open) body.inert = !open
 }
 
 // The context a turn ran with, for the copy action and the progress panel.

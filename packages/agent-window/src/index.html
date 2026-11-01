@@ -272,8 +272,9 @@
                 data-label="toggleSidebar"
                 data-keys="Ctrl B"
                 aria-keyshortcuts="Control+B"
+                aria-controls="sidebar"
             >
-                <svg><use href="#i-sidebar" /></svg>
+                <svg aria-hidden="true"><use href="#i-sidebar" /></svg>
             </button>
             <div id="drag-region" class="drag-region">
                 <img class="title-mark" src="/axolotl.png" alt="" />
@@ -284,6 +285,9 @@
                     type="button"
                     data-action="preview-info"
                     data-text="previewBadge"
+                    aria-haspopup="dialog"
+                    aria-expanded="false"
+                    aria-controls="menu"
                     hidden
                 ></button>
             </div>
@@ -294,7 +298,7 @@
                 data-action="help"
                 data-label="help"
             >
-                <svg><use href="#i-help" /></svg>
+                <svg aria-hidden="true"><use href="#i-help" /></svg>
             </button>
             <button
                 id="settings-button"
@@ -305,7 +309,7 @@
                 data-keys="Ctrl ,"
                 aria-keyshortcuts="Control+Comma"
             >
-                <svg><use href="#i-settings" /></svg>
+                <svg aria-hidden="true"><use href="#i-settings" /></svg>
             </button>
             <div class="window-controls">
                 <button id="minimize" type="button" aria-label="Minimize" title="Minimize">
@@ -326,7 +330,7 @@
         </header>
         <div id="window-error" role="alert" hidden></div>
         <div id="workspace" class="workspace">
-            <aside id="sidebar" class="sidebar">
+            <aside id="sidebar" class="sidebar" data-label="paletteTasks">
                 <div class="sidebar-inner">
                     <div class="sidebar-top">
                         <button
@@ -335,11 +339,11 @@
                             data-action="new-chat"
                             data-testid="new-chat"
                         >
-                            <svg><use href="#i-plus" /></svg><span data-text="newChat"></span
-                            ><kbd>Ctrl N</kbd>
+                            <svg aria-hidden="true"><use href="#i-plus" /></svg
+                            ><span data-text="newChat"></span><kbd>Ctrl N</kbd>
                         </button>
                         <label class="search-field"
-                            ><svg><use href="#i-search" /></svg
+                            ><svg aria-hidden="true"><use href="#i-search" /></svg
                             ><input
                                 id="conversation-search"
                                 type="search"
@@ -376,8 +380,11 @@
                             type="button"
                             data-action="thread-menu"
                             data-label="more"
+                            aria-haspopup="menu"
+                            aria-expanded="false"
+                            aria-controls="menu"
                         >
-                            <svg><use href="#i-more" /></svg></button
+                            <svg aria-hidden="true"><use href="#i-more" /></svg></button
                         ><button
                             id="task-toggle"
                             class="panel-toggle"
@@ -385,13 +392,16 @@
                             data-action="toggle-tasks"
                             data-label="taskPanel"
                             aria-expanded="false"
+                            aria-controls="task-panel"
                         >
                             <span
                                 id="progress-pips"
                                 class="progress-pips"
                                 aria-hidden="true"
                             ></span>
-                            <svg class="panel-icon"><use href="#i-panel" /></svg>
+                            <svg class="panel-icon" aria-hidden="true">
+                                <use href="#i-panel" />
+                            </svg>
                         </button>
                     </div>
                 </header>
@@ -417,12 +427,13 @@
                             class="transcript"
                             data-testid="messages"
                             aria-live="polite"
+                            aria-relevant="additions"
                         ></div>
                     </div>
                 </div>
                 <div id="drop-overlay" class="drop-overlay" hidden>
                     <div class="drop-card">
-                        <svg><use href="#i-file" /></svg>
+                        <svg aria-hidden="true"><use href="#i-file" /></svg>
                         <span data-text="dropFiles"></span>
                     </div>
                 </div>
@@ -435,7 +446,7 @@
                         data-label="jumpLatest"
                         hidden
                     >
-                        <svg><use href="#i-arrow-down" /></svg>
+                        <svg aria-hidden="true"><use href="#i-arrow-down" /></svg>
                     </button>
                     <div id="composer-wrap" class="composer-wrap">
                         <div id="slash-menu" class="slash-menu" role="listbox" hidden></div>
@@ -445,9 +456,13 @@
                             class="changes-pill"
                             type="button"
                             data-action="show-changes"
+                            aria-haspopup="dialog"
+                            aria-expanded="false"
+                            aria-controls="changes-peek"
                             hidden
                         >
-                            <svg><use href="#i-layers" /></svg><span data-text="changesPill"></span
+                            <svg aria-hidden="true"><use href="#i-layers" /></svg
+                            ><span data-text="changesPill"></span
                             ><span class="changes-count"></span>
                         </button>
                         <div id="queue-list" class="queue-list" hidden></div>
@@ -458,6 +473,7 @@
                                 rows="1"
                                 maxlength="50000"
                                 data-label="messageLabel"
+                                aria-autocomplete="list"
                             ></textarea>
                             <div class="composer-toolbar">
                                 <div class="composer-context">
@@ -468,7 +484,7 @@
                                         data-action="attach"
                                         data-label="attach"
                                     >
-                                        <svg><use href="#i-plus" /></svg>
+                                        <svg aria-hidden="true"><use href="#i-plus" /></svg>
                                     </button>
                                     <button
                                         id="instance-button"
@@ -476,10 +492,16 @@
                                         type="button"
                                         data-action="instance-picker"
                                         data-label="instance"
+                                        aria-labelledby="instance-button instance-label"
+                                        aria-haspopup="dialog"
+                                        aria-expanded="false"
+                                        aria-controls="picker"
                                     >
-                                        <svg><use href="#i-cube" /></svg
+                                        <svg aria-hidden="true"><use href="#i-cube" /></svg
                                         ><span id="instance-label"></span
-                                        ><svg class="chevron"><use href="#i-down" /></svg>
+                                        ><svg class="chevron" aria-hidden="true">
+                                            <use href="#i-down" />
+                                        </svg>
                                     </button>
                                 </div>
                                 <div class="composer-actions">
@@ -489,10 +511,16 @@
                                         type="button"
                                         data-action="model-picker"
                                         data-label="model"
+                                        aria-labelledby="model-button model-label"
+                                        aria-haspopup="dialog"
+                                        aria-expanded="false"
+                                        aria-controls="picker"
                                     >
                                         <span id="model-dot" class="model-dot" hidden></span
                                         ><span id="model-label"></span
-                                        ><svg class="chevron"><use href="#i-down" /></svg>
+                                        ><svg class="chevron" aria-hidden="true">
+                                            <use href="#i-down" />
+                                        </svg>
                                     </button>
                                     <button
                                         id="send-button"
@@ -500,8 +528,11 @@
                                         type="submit"
                                         data-testid="send-message"
                                     >
-                                        <svg class="send-icon"><use href="#i-up" /></svg
-                                        ><svg class="stop-icon"><use href="#i-stop" /></svg>
+                                        <svg class="send-icon" aria-hidden="true">
+                                            <use href="#i-up" /></svg
+                                        ><svg class="stop-icon" aria-hidden="true">
+                                            <use href="#i-stop" />
+                                        </svg>
                                     </button>
                                 </div>
                             </div>
@@ -510,26 +541,31 @@
                     </div>
                 </div>
             </main>
-            <aside id="task-panel" class="task-panel" data-testid="task-panel">
+            <aside
+                id="task-panel"
+                class="task-panel"
+                data-testid="task-panel"
+                aria-labelledby="task-panel-title"
+            >
                 <div class="panel-inner">
                     <div class="panel-heading">
-                        <h2 data-text="taskPanel"></h2>
+                        <h2 id="task-panel-title" data-text="taskPanel"></h2>
                         <button
                             class="icon-button"
                             type="button"
                             data-action="toggle-tasks"
                             data-label="closePanel"
                         >
-                            <svg><use href="#i-close" /></svg>
+                            <svg aria-hidden="true"><use href="#i-close" /></svg>
                         </button>
                     </div>
                     <div id="task-content" class="task-content"></div>
                 </div>
             </aside>
         </div>
-        <div id="picker" class="popover picker" popover="auto">
+        <div id="picker" class="popover picker" popover="auto" role="dialog">
             <label class="search-field picker-search"
-                ><svg><use href="#i-search" /></svg
+                ><svg aria-hidden="true"><use href="#i-search" /></svg
                 ><input id="picker-search" type="search" autocomplete="off"
             /></label>
             <div id="picker-options" class="picker-options" role="listbox"></div>
@@ -538,17 +574,21 @@
         <div id="menu" class="popover menu" popover="auto" role="menu"></div>
         <dialog id="palette" class="dialog palette" data-label="palette">
             <label class="palette-search"
-                ><svg><use href="#i-search" /></svg
+                ><svg aria-hidden="true"><use href="#i-search" /></svg
                 ><input
                     id="palette-input"
                     type="text"
+                    role="combobox"
+                    aria-expanded="true"
+                    aria-controls="palette-list"
+                    aria-autocomplete="list"
                     autocomplete="off"
                     spellcheck="false"
                     data-placeholder="paletteSearch"
                     data-label="paletteSearch"
-                /><kbd>Esc</kbd></label
+                /><kbd aria-hidden="true">Esc</kbd></label
             >
-            <div id="palette-list" class="palette-list" role="listbox"></div>
+            <div id="palette-list" class="palette-list" role="listbox" data-label="palette"></div>
         </dialog>
         <dialog id="help-dialog" class="dialog help-dialog" aria-labelledby="help-title">
             <div class="dialog-heading">
@@ -559,7 +599,7 @@
                     data-action="close-dialog"
                     data-label="close"
                 >
-                    <svg><use href="#i-close" /></svg>
+                    <svg aria-hidden="true"><use href="#i-close" /></svg>
                 </button>
             </div>
             <div id="help-body" class="dialog-body"></div>
@@ -577,36 +617,42 @@
                     data-action="close-dialog"
                     data-label="close"
                 >
-                    <svg><use href="#i-close" /></svg>
+                    <svg aria-hidden="true"><use href="#i-close" /></svg>
                 </button>
             </div>
             <div class="dialog-body settings-body">
                 <section class="settings-section">
                     <h3 data-text="permissionsTitle"></h3>
                     <p class="settings-lead" data-text="permissionsLead"></p>
+                    <!-- Each control is named by its title and described by its hint
+                         and by the status line, so the name stays short. -->
                     <label class="setting-row" for="permission-full-access">
                         <span class="setting-copy"
-                            ><strong data-text="fullAccess"></strong
-                            ><span data-text="fullAccessHint"></span
+                            ><strong id="full-access-name" data-text="fullAccess"></strong
+                            ><span id="full-access-hint" data-text="fullAccessHint"></span
                         ></span>
                         <input
                             id="permission-full-access"
                             class="switch"
                             type="checkbox"
                             role="switch"
+                            aria-labelledby="full-access-name"
+                            aria-describedby="full-access-hint permission-status"
                             disabled
                         />
                     </label>
                     <label class="setting-row" for="permission-computer-use">
                         <span class="setting-copy"
-                            ><strong data-text="computerUse"></strong
-                            ><span data-text="computerUseHint"></span
+                            ><strong id="computer-use-name" data-text="computerUse"></strong
+                            ><span id="computer-use-hint" data-text="computerUseHint"></span
                         ></span>
                         <input
                             id="permission-computer-use"
                             class="switch"
                             type="checkbox"
                             role="switch"
+                            aria-labelledby="computer-use-name"
+                            aria-describedby="computer-use-hint permission-status"
                             disabled
                         />
                     </label>
@@ -616,14 +662,15 @@
                     <h3 data-text="conversationTitle"></h3>
                     <div class="setting-row">
                         <span class="setting-copy"
-                            ><strong data-text="detailLabel"></strong
-                            ><span data-text="detailHint"></span
+                            ><strong id="detail-name" data-text="detailLabel"></strong
+                            ><span id="detail-hint" data-text="detailHint"></span
                         ></span>
                         <div
                             id="detail-choice"
                             class="segmented"
                             role="radiogroup"
-                            data-label="detailLabel"
+                            aria-labelledby="detail-name"
+                            aria-describedby="detail-hint"
                         >
                             <button type="button" role="radio" data-detail="concise">
                                 <span data-text="detailConcise"></span>
@@ -638,13 +685,15 @@
                     </div>
                     <label class="setting-field" for="instructions-input">
                         <span class="setting-copy"
-                            ><strong data-text="instructionsLabel"></strong
-                            ><span data-text="instructionsHint"></span
+                            ><strong id="instructions-name" data-text="instructionsLabel"></strong
+                            ><span id="instructions-hint" data-text="instructionsHint"></span
                         ></span>
                         <textarea
                             id="instructions-input"
                             rows="3"
                             maxlength="2000"
+                            aria-labelledby="instructions-name"
+                            aria-describedby="instructions-hint"
                             data-placeholder="instructionsPlaceholder"
                         ></textarea>
                     </label>
@@ -654,7 +703,7 @@
                     <p class="settings-lead" data-text="localHistory"></p>
                     <div class="settings-actions">
                         <button class="secondary-button" type="button" data-action="export-history">
-                            <svg><use href="#i-download" /></svg
+                            <svg aria-hidden="true"><use href="#i-download" /></svg
                             ><span data-text="exportHistory"></span>
                         </button>
                         <button
@@ -662,7 +711,8 @@
                             type="button"
                             data-action="clear-history"
                         >
-                            <svg><use href="#i-trash" /></svg><span data-text="clearHistory"></span>
+                            <svg aria-hidden="true"><use href="#i-trash" /></svg
+                            ><span data-text="clearHistory"></span>
                         </button>
                     </div>
                 </section>
@@ -671,14 +721,20 @@
                     <p class="settings-lead" data-text="aboutModels"></p>
                     <div class="settings-actions">
                         <button class="secondary-button" type="button" data-action="show-intro">
-                            <svg><use href="#i-help" /></svg><span data-text="showIntro"></span>
+                            <svg aria-hidden="true"><use href="#i-help" /></svg
+                            ><span data-text="showIntro"></span>
                         </button>
                     </div>
                 </section>
                 <p class="dialog-error" data-dialog-error role="alert" hidden></p>
             </div>
         </dialog>
-        <dialog id="confirm-dialog" class="dialog confirm-dialog" aria-labelledby="confirm-title">
+        <dialog
+            id="confirm-dialog"
+            class="dialog confirm-dialog"
+            aria-labelledby="confirm-title"
+            aria-describedby="confirm-text"
+        >
             <form id="confirm-form" method="dialog">
                 <div class="confirm-body">
                     <span id="confirm-icon" class="confirm-icon"></span>
@@ -704,8 +760,36 @@
         </dialog>
         <input id="file-input" type="file" multiple hidden />
         <div id="toasts" class="toasts" role="status" aria-live="polite"></div>
+        <!-- What the agent is doing, one line per change, for screen readers.
+             Hidden by its own style so it never takes a row of the page. -->
+        <div
+            id="announcer"
+            role="status"
+            aria-atomic="true"
+            style="
+                position: fixed;
+                width: 1px;
+                height: 1px;
+                overflow: hidden;
+                clip-path: inset(50%);
+                white-space: nowrap;
+            "
+        ></div>
         <div id="tip" class="tip" popover="manual" aria-hidden="true"></div>
-        <div id="file-peek" class="popover file-peek" popover="auto"></div>
-        <div id="changes-peek" class="popover changes-peek" popover="auto"></div>
+        <div
+            id="file-peek"
+            class="popover file-peek"
+            popover="auto"
+            role="dialog"
+            tabindex="-1"
+        ></div>
+        <div
+            id="changes-peek"
+            class="popover changes-peek"
+            popover="auto"
+            role="dialog"
+            tabindex="-1"
+            data-label="changesTitle"
+        ></div>
     </body>
 </html>

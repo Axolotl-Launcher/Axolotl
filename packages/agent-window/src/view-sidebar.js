@@ -95,7 +95,11 @@ export function renderSidebar() {
             [
                 indicator(status, thread.unread),
                 h('span', { class: 'thread-text' }, [
-                    h('span', { class: 'thread-name' }, marked(name, query)),
+                    h(
+                        'span',
+                        { id: `thread-name-${thread.id}`, class: 'thread-name' },
+                        marked(name, query),
+                    ),
                     hit ? h('span', { class: 'thread-snippet' }, marked(hit, query)) : null,
                 ]),
             ],
@@ -111,10 +115,14 @@ export function renderSidebar() {
                 },
                 [
                     link,
+                    // Described by its task, so "More actions" says which one.
                     button(
                         {
                             class: 'icon-button thread-more',
                             label: text('more'),
+                            'aria-describedby': `thread-name-${thread.id}`,
+                            'aria-haspopup': 'menu',
+                            'aria-expanded': 'false',
                             data: { threadMenu: thread.id },
                         },
                         icon('more'),

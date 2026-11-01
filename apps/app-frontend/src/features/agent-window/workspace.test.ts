@@ -157,6 +157,18 @@ function useContext(context: Record<string, unknown>) {
     }, context)
 }
 
+function isFocused(locator: ReturnType<Page['locator']>) {
+    return locator.evaluate((node) => node === document.activeElement)
+}
+
+// Presses Tab (or Shift+Tab) until the locator has the focus, as a keyboard
+// user would, and fails if it is never reached.
+async function tabTo(locator: ReturnType<Page['locator']>, key = 'Tab', limit = 40) {
+    for (let index = 0; index < limit && !(await isFocused(locator)); index++)
+        await page.keyboard.press(key)
+    expect(await isFocused(locator)).toBe(true)
+}
+
 it('leaves idle context alone and refreshes when the window regains focus or a picker opens', async () => {
     const reads = () => page.evaluate(() => Reflect.get(window, 'agentFixture').contextReads)
     const initial = await reads()
@@ -1270,4 +1282,211 @@ it('asks the latest answer again, but never one that wrote changes', async () =>
     await (await untilPlan()).click()
     await untilSettled()
     expect(await again.count()).toBe(0)
+})
+
+it('runs a whole task from the keyboard: a starting point, a plan with one change left out, approval', async () => {
+    // The starting points follow the composer in the tab order.
+    await page.locator('#message-input').focus()
+    const pack = page.locator('[data-prompt="promptPack"]')
+    await tabTo(pack)
+    await page.keyboard.press('Enter')
+    const input = page.locator('#message-input')
+    expect(await isFocused(input)).toBe(true)
+    expect(await input.inputValue()).toBe(messages.promptPack)
+    await page.keyboard.press('Enter')
+    await untilPlan()
+
+    // Shift+Tab walks back from the composer to the plan's ticks; Space unticks.
+    const lithium = page.locator(
+        `.change-toggle[aria-label="${messages.includeChange.replace('{name}', 'Lithium')}"]`,
+    )
+    await tabTo(lithium, 'Shift+Tab')
+    await page.keyboard.press('Space')
+    expect(await lithium.getAttribute('aria-checked')).toBe('false')
+    expect(await isFocused(lithium)).toBe(true)
+    expect(await page.locator('.plan-skipping').textContent()).toContain('Lithium')
+    const included = await page.locator('.change-toggle[aria-checked="true"]').count()
+
+    // Approving redraws the plan's buttons; the focus waits in the composer.
+    await tabTo(page.getByTestId('approve-plan'))
+    await page.keyboard.press('Enter')
+    expect(await isFocused(input)).toBe(true)
+    await untilSettled()
+    expect(await page.locator('.plan-card').getAttribute('data-state')).toBe('applied')
+    expect(await page.locator('.plan-state.is-applied').textContent()).toBe(
+        messages.planAppliedPartial.replace('{done}', String(included)).replace('{skipped}', '1'),
+    )
+    // A decided plan's ticks leave the tab order and read as unavailable.
+    expect(await lithium.getAttribute('tabindex')).toBe('-1')
+    expect(await lithium.getAttribute('aria-disabled')).toBe('true')
+})
+
+it('walks the steps-shown choice with arrow keys as a single tab stop', async () => {
+    await page.locator('#settings-button').click()
+    const checked = page.locator('#detail-choice [aria-checked="true"]')
+    const focusedChoice = () =>
+        page.evaluate(() => (document.activeElement as HTMLElement).dataset.detail)
+    expect(await page.locator('#detail-choice [tabindex="0"]').count()).toBe(1)
+    await checked.focus()
+    expect(await focusedChoice()).toBe('balanced')
+
+    await page.keyboard.press('ArrowRight')
+    expect(await focusedChoice()).toBe('detailed')
+    expect(await checked.getAttribute('data-detail')).toBe('detailed')
+    expect(await page.locator('html').getAttribute('data-steps')).toBe('detailed')
+    // The keys wrap round and jump to the ends.
+    await page.keyboard.press('ArrowDown')
+    expect(await focusedChoice()).toBe('concise')
+    await page.keyboard.press('ArrowLeft')
+    expect(await focusedChoice()).toBe('detailed')
+    await page.keyboard.press('Home')
+    expect(await focusedChoice()).toBe('concise')
+    await page.keyboard.press('End')
+    expect(await focusedChoice()).toBe('detailed')
+    expect(await page.locator('#detail-choice [tabindex="0"]').getAttribute('data-detail')).toBe(
+        'detailed',
+    )
+
+    // Tab leaves the group in one step, and Shift+Tab comes back to the choice.
+    await page.keyboard.press('Tab')
+    expect(await isFocused(page.locator('#instructions-input'))).toBe(true)
+    await page.keyboard.press('Shift+Tab')
+    expect(await focusedChoice()).toBe('detailed')
+})
+
+it('gives the focus back to what opened a popover or menu, even after a redraw', async () => {
+    await send('My game crashes on launch')
+    await (await untilPlan()).click()
+    await untilSettled()
+
+    // The changes popover takes the focus and returns it to the pill.
+    const pill = page.locator('#changes-pill')
+    const peek = page.locator('#changes-peek')
+    await pill.focus()
+    await page.keyboard.press('Enter')
+    await peek.waitFor()
+    expect(await pill.getAttribute('aria-expanded')).toBe('true')
+    expect(await isFocused(peek)).toBe(true)
+    await page.keyboard.press('Tab')
+    expect(await isFocused(peek.locator('[data-followup]'))).toBe(true)
+    await page.keyboard.press('Escape')
+    await peek.waitFor({ state: 'hidden' })
+    expect(await isFocused(pill)).toBe(true)
+    expect(await pill.getAttribute('aria-expanded')).toBe('false')
+
+    // Arrow keys walk the task menu and Escape closes it onto its button.
+    const more = page.locator('#conversation-more')
+    const focusedItem = () =>
+        page.evaluate(() => Object.keys((document.activeElement as HTMLElement).dataset)[0])
+    await more.focus()
+    await page.keyboard.press('Enter')
+    expect(await more.getAttribute('aria-expanded')).toBe('true')
+    expect(await focusedItem()).toBe('menuPin')
+    await page.keyboard.press('ArrowDown')
+    expect(await focusedItem()).toBe('menuRename')
+    await page.keyboard.press('End')
+    expect(await focusedItem()).toBe('menuDelete')
+    await page.keyboard.press('ArrowDown')
+    expect(await focusedItem()).toBe('menuPin')
+    await page.keyboard.press('Escape')
+    expect(await isFocused(more)).toBe(true)
+    expect(await more.getAttribute('aria-expanded')).toBe('false')
+    // Tab leaves the menu and closes it on the way.
+    await page.keyboard.press('Enter')
+    await page.keyboard.press('Tab')
+    expect(await page.locator('#menu').evaluate((node) => node.matches(':popover-open'))).toBe(
+        false,
+    )
+    expect(await isFocused(page.locator('#task-toggle'))).toBe(true)
+
+    // The task list redraws while a row's menu is open; Escape still lands on
+    // that row's ⋯ button, now a new node.
+    const rowMore = page.locator('.thread-more').first()
+    await rowMore.focus()
+    await page.keyboard.press('Enter')
+    const original = await rowMore.elementHandle()
+    await page.evaluate(() =>
+        document.getElementById('conversation-search')!.dispatchEvent(new Event('input')),
+    )
+    expect(await original!.evaluate((node) => node.isConnected)).toBe(false)
+    await page.keyboard.press('Escape')
+    // The browser fires the popover's toggle event with the next frame.
+    await expect.poll(() => isFocused(rowMore)).toBe(true)
+})
+
+it('renames and steps through tasks from the keyboard and keeps the focus on redrawn controls', async () => {
+    await send('Hello there')
+    await untilSettled()
+    // Marking redraws the answer's actions; the focus stays on the toggle,
+    // which keeps one name and reports its state.
+    const mark = page.locator('.mark-turn').first()
+    await mark.focus()
+    await page.keyboard.press('Enter')
+    expect(await mark.getAttribute('aria-pressed')).toBe('true')
+    expect(await mark.getAttribute('aria-label')).toBe(messages.markTurn)
+    expect(await isFocused(mark)).toBe(true)
+
+    await page.keyboard.press('Control+n')
+    await send('What can you do?')
+    await untilSettled()
+    const links = page.locator('.thread-link')
+    const older = (await page.locator('.thread-name').allTextContents())[1]
+
+    // F2 on the open task renames it in place and Enter puts the focus back.
+    await links.first().focus()
+    await page.keyboard.press('F2')
+    const title = page.locator('.title-input')
+    expect(await isFocused(title)).toBe(true)
+    await page.keyboard.type('Named by keyboard')
+    await page.keyboard.press('Enter')
+    expect(await page.locator('#conversation-title').textContent()).toBe('Named by keyboard')
+    expect(await isFocused(links.first())).toBe(true)
+
+    // Arrow keys walk the list; F2 on another task asks for its name instead.
+    await page.keyboard.press('ArrowDown')
+    expect(await isFocused(links.nth(1))).toBe(true)
+    expect(await links.nth(1).textContent()).toBe(older)
+    await page.keyboard.press('F2')
+    expect(await isFocused(page.locator('#rename-input'))).toBe(true)
+    expect(await page.locator('#rename-input').inputValue()).toBe(older)
+    await page.keyboard.press('Escape')
+    expect(await isFocused(links.nth(1))).toBe(true)
+    expect(await page.locator('#conversation-title').textContent()).toBe('Named by keyboard')
+
+    // Hiding the task list with the focus in it hands the focus to its toggle.
+    await page.keyboard.press('Control+b')
+    expect(await page.locator('#sidebar').evaluate((node) => (node as HTMLElement).inert)).toBe(
+        true,
+    )
+    expect(await isFocused(page.locator('#sidebar-toggle'))).toBe(true)
+})
+
+it('tells screen readers once per change what the agent is doing, never token by token', async () => {
+    await page.evaluate(() => {
+        const said: string[] = []
+        Reflect.set(window, 'said', said)
+        const node = document.getElementById('announcer')!
+        new MutationObserver(() =>
+            said.push([...node.children].map((line) => line.textContent).join(' | ')),
+        ).observe(node, { childList: true })
+    })
+    const said = () => page.evaluate(() => Reflect.get(window, 'said') as string[])
+    await send('My game crashes on launch')
+    await untilPlan()
+    // The agent's side of the transcript is not a live region of its own.
+    expect(await page.locator('.turn .agent').getAttribute('aria-live')).toBe('off')
+    expect(await page.locator('#messages').getAttribute('aria-live')).toBe('polite')
+    const title = await page.locator('.plan-card h3').textContent()
+    expect(await said()).toEqual([messages.thinking, `${messages.stateAwaiting} | ${title}`])
+
+    await page.getByTestId('approve-plan').click()
+    await untilSettled()
+    const result = page.locator('.result-card .result-copy')
+    expect(await said()).toEqual([
+        messages.thinking,
+        `${messages.stateAwaiting} | ${title}`,
+        messages.applying,
+        `${await result.locator('strong').textContent()} | ${await result.locator('p').first().textContent()}`,
+    ])
+    expect(await page.locator('#messages').getAttribute('aria-busy')).toBeNull()
 })

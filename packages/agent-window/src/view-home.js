@@ -168,6 +168,7 @@ export function renderHelp() {
         ['@', 'shortcutMention'],
         ['Ctrl B', 'shortcutSidebar'],
         ['Ctrl [ ]', 'shortcutSwitch'],
+        ['F2', 'rename'],
         ['Ctrl ,', 'shortcutSettings'],
     ]
     element('help-body').replaceChildren(

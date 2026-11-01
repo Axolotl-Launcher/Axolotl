@@ -1,8 +1,53 @@
 // Popovers, dialogs and toasts.
-import { button, element, h, icon, logLines } from './dom.js'
+import { button, element, focusable, focusPlace, h, icon, logLines, restoreFocus } from './dom.js'
 import { text, whenLabel } from './messages.js'
 import { currentThread, modelsAvailable, session } from './session.js'
 import { KINDS } from './view-transcript.js'
+
+// ---------- openers ----------
+
+// The control that opened a popover shows it as expanded until it closes, and
+// gets the focus back if a redraw replaced it in the meantime.
+const openers = new WeakMap()
+
+function opened(overlay, anchor) {
+    anchor?.setAttribute('aria-expanded', 'true')
+    openers.set(overlay, focusPlace(anchor) || { node: anchor, key: null, scopes: [] })
+}
+
+export function bindOverlays(fallback) {
+    for (const popover of document.querySelectorAll('.popover')) {
+        // beforetoggle comes as the popover closes, toggle after it has.
+        popover.addEventListener('beforetoggle', (event) => {
+            if (event.newState === 'closed')
+                openers.get(popover)?.node?.setAttribute('aria-expanded', 'false')
+        })
+        popover.addEventListener('toggle', (event) => {
+            const active = document.activeElement
+            if (
+                event.newState === 'closed' &&
+                (popover.contains(active) || active === document.body)
+            )
+                restoreFocus(openers.get(popover), fallback())
+        })
+        // Tabbing out closes it, so no popover stays open away from the focus.
+        popover.addEventListener('focusout', (event) => {
+            if (
+                event.relatedTarget &&
+                !popover.contains(event.relatedTarget) &&
+                popover.matches(':popover-open')
+            )
+                popover.hidePopover()
+        })
+    }
+    for (const dialog of document.querySelectorAll('dialog'))
+        dialog.addEventListener('close', () => {
+            const active = document.activeElement
+            if (dialog.contains(active) || active === document.body)
+                restoreFocus(openers.get(dialog), fallback())
+        })
+    element('menu').addEventListener('keydown', menuKeydown)
+}
 
 // ---------- pickers ----------
 
@@ -16,6 +61,7 @@ export function openPicker(kind, anchor) {
     const picker = element('picker')
     if (pickerOpen()) picker.hidePopover()
     pickerKind = kind
+    picker.setAttribute('aria-label', text(kind))
     const search = element('picker-search')
     search.value = ''
     search.placeholder = text(kind === 'model' ? 'modelSearch' : 'instanceSearch')
@@ -33,8 +79,12 @@ export function openPicker(kind, anchor) {
         maxHeight: `${Math.max(180, (above ? rect.top : window.innerHeight - rect.bottom) - 24)}px`,
         transformOrigin: `${kind === 'model' ? 'right' : 'left'} ${above ? 'bottom' : 'top'}`,
     })
-    picker.showPopover()
-    search.focus()
+    opened(picker, anchor)
+    // With its opener as source, Tab moves on from the popover to what follows
+    // the opener.
+    picker.showPopover({ source: anchor })
+    if (focusable(search)) search.focus()
+    else picker.querySelector('button')?.focus()
 }
 
 export function renderPicker() {
@@ -61,14 +111,24 @@ export function renderPicker() {
                 ]),
             )
         } else {
-            for (const provider of session.context.providers) {
+            session.context.providers.forEach((provider, index) => {
                 const models = provider.models.filter((model) =>
                     `${provider.name} ${model.name} ${model.id}`
                         .toLocaleLowerCase()
                         .includes(query),
                 )
-                if (!models.length) continue
-                options.push(h('div', { class: 'picker-group', text: provider.name }))
+                if (!models.length) return
+                // A listbox holds only options, so the provider heading is
+                // hidden and read as each option's description instead.
+                const group = `picker-group-${index}`
+                options.push(
+                    h('div', {
+                        id: group,
+                        class: 'picker-group',
+                        'aria-hidden': 'true',
+                        text: provider.name,
+                    }),
+                )
                 for (const model of models) {
                     const selected =
                         thread.selection?.provider_id === provider.provider_id &&
@@ -79,6 +139,7 @@ export function renderPicker() {
                                 class: 'picker-option',
                                 role: 'option',
                                 'aria-selected': String(selected),
+                                'aria-describedby': group,
                                 data: { provider: provider.provider_id, model: model.id },
                             },
                             [
@@ -91,7 +152,7 @@ export function renderPicker() {
                         ),
                     )
                 }
-            }
+            })
             if (!options.length)
                 options.push(h('p', { class: 'picker-empty', text: text('noModelMatches') }))
             footer.hidden = false
@@ -124,7 +185,9 @@ export function renderPicker() {
                 .includes(query),
         )
         if (instances.length)
-            options.push(h('div', { class: 'picker-group', text: text('instances') }))
+            options.push(
+                h('div', { class: 'picker-group', 'aria-hidden': 'true', text: text('instances') }),
+            )
         for (const instance of instances) {
             const selected = thread.instanceId === instance.id
             options.push(
@@ -158,33 +221,73 @@ export function renderPicker() {
                 }),
             )
     }
-    element('picker-options').replaceChildren(...options)
+    const list = element('picker-options')
+    list.replaceChildren(...options)
+    // The list is one tab stop, on the current choice; the setup hint and
+    // "no matches" are not a list at all.
+    const choices = [...list.querySelectorAll('.picker-option')]
+    const current =
+        choices.find((choice) => choice.getAttribute('aria-selected') === 'true') || choices[0]
+    for (const choice of choices) choice.tabIndex = choice === current ? 0 : -1
+    if (choices.length) {
+        list.setAttribute('role', 'listbox')
+        list.setAttribute(
+            'aria-label',
+            text(pickerKind === 'model' ? 'modelLabel' : 'instanceLabel'),
+        )
+    } else {
+        list.removeAttribute('role')
+        list.removeAttribute('aria-label')
+    }
 }
 
 export function closePicker() {
     if (pickerOpen()) element('picker').hidePopover()
 }
 
-// Arrow keys move between options, as in a native list.
+// Arrow keys move between options as in a native list; up from the first one
+// returns to the search field.
 export function pickerKeydown(event) {
-    if (!['ArrowDown', 'ArrowUp'].includes(event.key)) return
     const options = [...element('picker-options').querySelectorAll('.picker-option')]
-    if (!options.length) return
-    event.preventDefault()
     const index = options.indexOf(document.activeElement)
-    const next =
-        event.key === 'ArrowDown'
-            ? options[(index + 1) % options.length]
-            : options[(index - 1 + options.length) % options.length]
-    next.focus()
+    if (index < 0) return
+    const next = { ArrowDown: index + 1, ArrowUp: index - 1, Home: 0, End: options.length - 1 }[
+        event.key
+    ]
+    if (next === undefined) return
+    event.preventDefault()
+    const search = element('picker-search')
+    if (next < 0) {
+        if (focusable(search)) search.focus()
+    } else focusPickerOption(next)
+}
+
+export function focusPickerOption(index) {
+    const options = [...element('picker-options').querySelectorAll('.picker-option')]
+    const target = options[Math.min(index, options.length - 1)]
+    for (const option of options) option.tabIndex = option === target ? 0 : -1
+    target?.focus()
 }
 
 // ---------- menus ----------
 
-export function openMenu(anchor, items, align = 'end') {
+// A menu of actions, or, given a label, a short note such as the preview
+// explanation, which is a small dialog rather than a menu.
+export function openMenu(anchor, items, align = 'end', label = '') {
     const menu = element('menu')
     if (menu.matches(':popover-open')) menu.hidePopover()
     menu.replaceChildren(...items)
+    const note = menu.querySelector('p')
+    menu.setAttribute('role', label ? 'dialog' : 'menu')
+    if (label) {
+        menu.tabIndex = -1
+        menu.setAttribute('aria-label', label)
+        if (note) note.id = 'menu-note-text'
+        menu.setAttribute('aria-describedby', 'menu-note-text')
+    } else {
+        for (const name of ['tabindex', 'aria-label', 'aria-describedby'])
+            menu.removeAttribute(name)
+    }
     const rect = anchor.getBoundingClientRect()
     menu.style.minWidth = '200px'
     menu.style.top = `${rect.bottom + 6}px`
@@ -192,15 +295,39 @@ export function openMenu(anchor, items, align = 'end') {
     menu.style.right =
         align === 'end' ? `${Math.max(12, window.innerWidth - rect.right)}px` : 'auto'
     menu.style.transformOrigin = `${align === 'end' ? 'right' : 'left'} top`
-    menu.showPopover()
-    menu.querySelector('button')?.focus()
+    opened(menu, anchor)
+    menu.showPopover({ source: anchor })
+    ;(menu.querySelector('[role="menuitem"]') || menu).focus()
 }
 
+// Menu items are reached with the arrow keys, not Tab: Tab leaves the menu.
 export function menuItem(name, label, data, danger = false) {
-    return button({ class: `menu-item${danger ? ' is-danger' : ''}`, role: 'menuitem', data }, [
-        icon(name),
-        h('span', { text: label }),
-    ])
+    return button(
+        {
+            class: `menu-item${danger ? ' is-danger' : ''}`,
+            role: 'menuitem',
+            tabindex: '-1',
+            data,
+        },
+        [icon(name), h('span', { text: label })],
+    )
+}
+
+function menuKeydown(event) {
+    if (event.key === 'Tab') {
+        // Closing hands the focus back to the opener first, so Tab carries on
+        // from there.
+        closeMenu()
+        return
+    }
+    const entries = [...element('menu').querySelectorAll('[role="menuitem"]')]
+    const index = entries.indexOf(document.activeElement)
+    const next = { ArrowDown: index + 1, ArrowUp: index - 1, Home: 0, End: entries.length - 1 }[
+        event.key
+    ]
+    if (!entries.length || next === undefined) return
+    event.preventDefault()
+    entries[(next + entries.length) % entries.length].focus()
 }
 
 export function closeMenu() {
@@ -217,7 +344,9 @@ export function openDialog(id) {
         error.textContent = ''
         error.hidden = true
     }
-    if (!dialog.open) dialog.showModal()
+    if (dialog.open) return
+    openers.set(dialog, focusPlace())
+    dialog.showModal()
 }
 
 let confirmState = null
@@ -321,8 +450,12 @@ export function renderSettings() {
                 ? 'permissionPending'
                 : 'permissionFuture',
     )
-    for (const choice of element('detail-choice').querySelectorAll('[data-detail]'))
-        choice.setAttribute('aria-checked', String(choice.dataset.detail === session.store.detail))
+    // A radio group is one tab stop, on the checked choice.
+    for (const choice of element('detail-choice').querySelectorAll('[data-detail]')) {
+        const checked = choice.dataset.detail === session.store.detail
+        choice.setAttribute('aria-checked', String(checked))
+        choice.tabIndex = checked ? 0 : -1
+    }
     const instructions = element('instructions-input')
     if (document.activeElement !== instructions) instructions.value = session.store.instructions
     element('settings-dialog')
@@ -354,8 +487,29 @@ export function toast(message, action = null, tone = 'info') {
     }
     holder.append(node)
     while (holder.childElementCount > 3) holder.firstElementChild.remove()
-    setTimeout(dismiss, action ? 7000 : 4500)
+    let timer = setTimeout(dismiss, action ? 7000 : 4500)
+    // A toast waits while the pointer or the focus is on it, so its action can
+    // still be reached by keyboard or read at leisure.
+    const hold = () => clearTimeout(timer)
+    const release = (held) => {
+        clearTimeout(timer)
+        if (!held) timer = setTimeout(dismiss, 2000)
+    }
+    node.addEventListener('pointerenter', hold)
+    node.addEventListener('focusin', hold)
+    node.addEventListener('pointerleave', () => release(node.contains(document.activeElement)))
+    node.addEventListener('focusout', (event) => {
+        if (!node.contains(event.relatedTarget)) release(node.matches(':hover'))
+    })
     return node
+}
+
+// One polite announcement for screen readers. Each line is a new node, so the
+// same words are read again when they come round again.
+export function announce(...lines) {
+    element('announcer').replaceChildren(
+        ...lines.filter(Boolean).map((line) => h('p', { text: line })),
+    )
 }
 
 // ---------- tooltips ----------
@@ -484,12 +638,16 @@ export function openFilePeek(file, anchor) {
               })
             : null,
     )
-    peek.showPopover()
+    peek.setAttribute('aria-label', text('previewFile', { name: file.name }))
+    opened(peek, anchor)
+    peek.showPopover({ source: anchor })
     const rect = anchor.getBoundingClientRect()
     const above = rect.top - 12 > peek.offsetHeight
     peek.style.left = `${Math.round(Math.max(12, Math.min(rect.left, window.innerWidth - peek.offsetWidth - 12)))}px`
     peek.style.top = `${Math.round(above ? rect.top - 8 - peek.offsetHeight : rect.bottom + 8)}px`
     peek.dataset.side = above ? 'above' : 'below'
+    // The preview takes the focus, so it is read out and Escape closes it.
+    peek.focus()
 }
 
 // ---------- changes ----------
@@ -538,8 +696,12 @@ export function openChanges(entries, anchor) {
             ]),
         ]),
     )
-    peek.showPopover()
+    opened(peek, anchor)
+    peek.showPopover({ source: anchor })
     const rect = anchor.getBoundingClientRect()
     peek.style.left = `${Math.round(Math.max(12, Math.min(rect.left, window.innerWidth - peek.offsetWidth - 12)))}px`
     peek.style.top = `${Math.round(Math.max(12, rect.top - 8 - peek.offsetHeight))}px`
+    // The list takes the focus rather than its undo button, so a second Enter
+    // does not ask for an undo by accident.
+    peek.focus()
 }

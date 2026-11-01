@@ -1,8 +1,11 @@
 // The command menu (Ctrl K): type to run an action or jump to a task. What the
 // open task offers comes first. Arrow keys move, Enter runs, Escape closes.
+// The focus stays in the search field, which points screen readers at the
+// highlighted row with aria-activedescendant.
 import { button, element, h, icon } from './dom.js'
 import { pixelLoader } from './mascot.js'
 import { text } from './messages.js'
+import { openDialog } from './view-overlays.js'
 
 let entries = []
 let active = 0
@@ -17,7 +20,7 @@ export function openPalette({ current = null, actions, threads }) {
     input.value = ''
     dialog.paletteSource = { current, actions, threads }
     renderPalette()
-    if (!dialog.open) dialog.showModal()
+    openDialog('palette')
     input.focus()
 }
 
@@ -44,12 +47,15 @@ export function renderPalette() {
     entries = sections.flatMap((section) => section.entries)
     active = Math.min(active, Math.max(0, entries.length - 1))
     if (!query) active = 0
-    const row = (entry, index) => {
+    const row = (entry, index, group) => {
         const node = button(
             {
+                id: `palette-option-${index}`,
                 class: 'palette-row',
                 role: 'option',
+                tabindex: '-1',
                 'aria-selected': String(index === active),
+                'aria-describedby': group,
                 data: { paletteIndex: String(index) },
             },
             [
@@ -71,13 +77,30 @@ export function renderPalette() {
     }
     const groups = []
     let index = 0
-    for (const section of sections)
+    // A listbox holds only options: each heading is hidden and read as the
+    // description of the rows under it.
+    sections.forEach((section, number) => {
+        const group = `palette-group-${number}`
         groups.push(
-            h('div', { class: 'palette-group', text: section.title }),
-            ...section.entries.map((entry) => row(entry, index++)),
+            h('div', {
+                id: group,
+                class: 'palette-group',
+                'aria-hidden': 'true',
+                text: section.title,
+            }),
+            ...section.entries.map((entry) => row(entry, index++, group)),
         )
+    })
     if (!entries.length) groups.push(h('p', { class: 'palette-empty', text: text('noResults') }))
     element('palette-list').replaceChildren(...groups)
+    pointAt(active)
+}
+
+// Tells screen readers which row Enter runs.
+function pointAt(index) {
+    const input = element('palette-input')
+    if (entries.length) input.setAttribute('aria-activedescendant', `palette-option-${index}`)
+    else input.removeAttribute('aria-activedescendant')
 }
 
 function setActive(index) {
@@ -85,6 +108,7 @@ function setActive(index) {
     active = (index + entries.length) % entries.length
     for (const node of element('palette-list').querySelectorAll('.palette-row'))
         node.setAttribute('aria-selected', String(Number(node.dataset.paletteIndex) === active))
+    pointAt(active)
     element('palette-list')
         .querySelector(`[data-palette-index="${active}"]`)
         ?.scrollIntoView({ block: 'nearest' })

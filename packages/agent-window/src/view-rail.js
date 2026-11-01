@@ -90,6 +90,9 @@ export function markRail() {
     for (const item of nav.querySelectorAll('.rail-item')) {
         const on = item.dataset.jump === current
         item.toggleAttribute('data-current', on)
+        // The lit tick is the request in view, which screen readers hear too.
+        if (on) item.setAttribute('aria-current', 'location')
+        else item.removeAttribute('aria-current')
         if (roving) item.tabIndex = on ? 0 : -1
     }
 }

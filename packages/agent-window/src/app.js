@@ -9,7 +9,16 @@ import {
     supersedePlan,
     toggleChange,
 } from './agent.js'
-import { element, h, icon } from './dom.js'
+import {
+    element,
+    focusable,
+    focusPlace,
+    guardFocus,
+    h,
+    icon,
+    plainText,
+    restoreFocus,
+} from './dom.js'
 import { setLocale, text } from './messages.js'
 import { animate, morph, reducedMotion, ScrollFollower } from './motion.js'
 import {
@@ -48,6 +57,8 @@ import {
 import { heroListens, renderHelp, renderHome } from './view-home.js'
 import {
     acceptConfirm,
+    announce,
+    bindOverlays,
     bindTips,
     openChanges,
     openFilePeek,
@@ -56,6 +67,7 @@ import {
     confirm,
     confirmBusy,
     dialogError,
+    focusPickerOption,
     menuItem,
     openDialog,
     openMenu,
@@ -221,6 +233,13 @@ function layout() {
     element('sidebar-toggle').setAttribute('aria-expanded', String(sidebar))
     element('task-toggle').setAttribute('aria-expanded', String(panel))
     element('task-toggle').classList.toggle('is-active', panel)
+    // A pane that closes around the focus hands it to its toggle first, so
+    // the focus never falls behind an inert pane.
+    for (const [pane, shown, toggle] of [
+        ['sidebar', sidebar, 'sidebar-toggle'],
+        ['task-panel', panel, 'task-toggle'],
+    ])
+        if (!shown && element(pane).contains(document.activeElement)) element(toggle).focus()
     element('sidebar').inert = !sidebar
     element('task-panel').inert = !panel
 }
@@ -457,6 +476,37 @@ function notify(message, tone = 'info', action = null) {
     toast(message, action, tone)
 }
 
+// Screen readers hear the open task's latest run once per change of phase:
+// that it started, that a plan waits, that changes are being written, and how
+// it ended with the result, error or answer. Labels and steps that change
+// within a phase are not read. Other tasks report through toasts.
+const PHASES = { thinking: 'working', running: 'working' }
+const ENDINGS = {
+    stopped: 'noticeStopped',
+    detached: 'noticeDetached',
+    interrupted: 'noticeInterrupted',
+    declined: 'planDeclined',
+}
+
+function announceRun(threadId, turnId, before) {
+    if (threadId !== session.store.activeId || lastTurn(currentThread())?.id !== turnId) return
+    const run = lastTurn(currentThread()).run
+    const phase = (status) => PHASES[status] || status
+    if (before && phase(before) === phase(run.status)) return
+    const last = (type) => run.items.findLast((item) => item.type === type)
+    if (phase(run.status) === 'working') announce(run.label || text('thinking'))
+    else if (run.status === 'applying') announce(text('applying'))
+    else if (run.status === 'awaiting')
+        announce(stateLabel('awaiting'), pendingPlan(run)?.plan.title)
+    else if (run.status === 'failed')
+        announce(stateLabel('failed'), last('error')?.title, last('error')?.text)
+    else if (run.status === 'done' && last('result'))
+        announce(last('result').title, last('result').text)
+    else if (run.status === 'done')
+        announce(stateLabel('done'), last('text') && plainText(last('text').text))
+    else if (ENDINGS[run.status]) announce(text(ENDINGS[run.status]))
+}
+
 // ---------- context, runtime and permissions ----------
 
 function normalizeContext(value) {
@@ -671,6 +721,7 @@ function onRuntimeEvent(threadId, turnId, event) {
         if (!thread.titleEdited && event.title) thread.title = String(event.title).slice(0, 120)
         renderHeader()
     } else applyEvent(turn.run, event)
+    announceRun(threadId, turnId, before)
     thread.updatedAt = Date.now()
     persistSoon()
     refreshTurn(threadId, turnId)
@@ -751,6 +802,7 @@ function startTurn(threadId, message) {
         render()
         follower.toBottom(!first)
         launch(threadId, created, 'start')
+        announceRun(threadId, created)
         return true
     }
     if (first && threadId === session.store.activeId)
@@ -760,6 +812,7 @@ function startTurn(threadId, message) {
             if (!created) return false
             follower.toBottom(false)
             launch(threadId, created, 'start')
+            announceRun(threadId, created)
             return true
         })
     change()
@@ -821,11 +874,13 @@ function stop() {
     const thread = currentThread()
     const turn = lastTurn(thread)
     if (!turn || !ACTIVE_STATUSES.includes(turn.run.status)) return
+    const before = turn.run.status
     session.handles.get(turn.id)?.stop()
     session.handles.delete(turn.id)
     stopRun(turn.run)
     persistNow()
     refreshTurn(thread.id, turn.id, true)
+    announceRun(thread.id, turn.id, before)
 }
 
 function approve(turnId) {
@@ -841,6 +896,7 @@ function approve(turnId) {
     ) {
         refreshTurn(thread.id, turnId, true)
         launch(thread.id, turnId, 'approve')
+        announceRun(thread.id, turnId, 'awaiting')
     }
 }
 
@@ -853,6 +909,7 @@ function decline(turnId) {
     })
     if (!ok) return
     refreshTurn(thread.id, turnId, true)
+    announceRun(thread.id, turnId, 'awaiting')
     if (thread.queue.length) sendQueued(thread.id, currentThread().queue[0].id)
 }
 
@@ -871,6 +928,7 @@ function retry(turnId) {
         node?.querySelector('.agent-items')?.replaceChildren()
         refreshTurn(thread.id, turnId, true)
         launch(thread.id, turnId, 'start')
+        announceRun(thread.id, turnId)
     }
 }
 
@@ -887,14 +945,19 @@ function checkStatus(turnId) {
     ) {
         refreshTurn(thread.id, turnId, true)
         launch(thread.id, turnId, 'check')
+        announceRun(thread.id, turnId)
     }
 }
 
 // ---------- threads ----------
 
 function selectThread(id) {
+    // Picked from the drawer, the task is worked on next: the focus goes to
+    // its composer rather than to the drawer's toggle.
+    const fromDrawer = drawer === 'sidebar' && element('sidebar').contains(document.activeElement)
     if (id === session.store.activeId) {
         if (narrow()) setSidebar(false)
+        if (fromDrawer) element('message-input').focus()
         return
     }
     morph(() => {
@@ -907,6 +970,7 @@ function selectThread(id) {
             drawer = null
             fillSelection()
             render()
+            if (fromDrawer) element('message-input').focus()
         }
     }, 'thread')
 }
@@ -971,12 +1035,16 @@ function renameThread(id, value) {
 
 function threadMenu(id, anchor) {
     const thread = findThread(id)
+    const rename = menuItem('edit', text('rename'), { menuRename: id })
+    const remove = menuItem('trash', text('deleteChat'), { menuDelete: id }, true)
+    rename.setAttribute('aria-keyshortcuts', 'F2')
+    remove.setAttribute('aria-keyshortcuts', 'Delete')
     openMenu(anchor, [
         menuItem('pin', text(thread?.pinned ? 'unpinChat' : 'pinChat'), { menuPin: id }),
-        menuItem('edit', text('rename'), { menuRename: id }),
+        rename,
         menuItem('copy', text('copyChat'), { menuCopy: id }),
         h('hr', { class: 'menu-divider' }),
-        menuItem('trash', text('deleteChat'), { menuDelete: id }, true),
+        remove,
     ])
 }
 
@@ -1042,6 +1110,8 @@ function threadText(thread) {
 
 // ---------- layout actions ----------
 
+// A drawer covers the conversation, so opening one moves the focus into it.
+// A docked pane leaves the focus on its toggle.
 function setSidebar(open) {
     if (sidebarShown() === open) return
     if (narrow()) drawer = open ? 'sidebar' : null
@@ -1050,6 +1120,7 @@ function setSidebar(open) {
         persistSoon()
     }
     layout()
+    if (open && drawer === 'sidebar') element('sidebar').querySelector('.new-task').focus()
 }
 
 function setPanel(open) {
@@ -1061,6 +1132,8 @@ function setPanel(open) {
     }
     if (open) renderPanel()
     layout()
+    if (open && drawer === 'panel')
+        element('task-panel').querySelector('[data-action="toggle-tasks"]').focus()
 }
 
 // ---------- files ----------
@@ -1236,6 +1309,7 @@ const actions = {
                 ]),
             ],
             'start',
+            text('previewTitle'),
         ),
     'export-history': exportHistory,
     'export-draft': () => exportFile('axolotl-agent-draft.txt', currentThread().draft),
@@ -1295,6 +1369,9 @@ const actions = {
             behavior: reducedMotion.matches ? 'instant' : 'smooth',
             block: 'center',
         })
+        // The bar hides once the card is in view, so the focus goes with the
+        // reader to the plan, named by its title.
+        card?.focus({ preventScroll: true })
         if (card)
             animate(
                 card,
@@ -1312,15 +1389,20 @@ const actions = {
     'jump-latest': () => follower.toBottom(),
 }
 
+const RUN_ACTIONS = new Set(['approve', 'decline', 'retry', 'check-status'])
+
 document.addEventListener('click', (event) => {
     const target = event.target.closest(
         '[data-action], [data-thread], [data-thread-menu], [data-prompt], [data-model], [data-instance], [data-copy-turn], [data-remove-attachment], [data-remove-queued], [data-send-queued], [data-menu-rename], [data-menu-delete], [data-toggle-change], [data-copy-code], [data-copy-link], [data-edit-turn], [data-mark-turn], [data-menu-pin], [data-menu-copy], [data-followup], [data-file-preview], [data-copy-paste]',
     )
-    if (!target || target.disabled) return
+    if (!target || target.disabled || target.getAttribute('aria-disabled') === 'true') return
     const data = target.dataset
     if (data.action) {
         if (target.type === 'submit') return
         actions[data.action]?.(event, target)
+        // These start or settle a run and redraw the button that was pressed;
+        // the focus waits in the composer, where Escape stops the run.
+        if (RUN_ACTIONS.has(data.action) && !focusable(target)) element('message-input').focus()
     } else if (data.threadMenu) threadMenu(data.threadMenu, target)
     else if (data.thread) selectThread(data.thread)
     else if (data.menuPin) {
@@ -1380,6 +1462,8 @@ document.addEventListener('click', (event) => {
         const peek = element('changes-peek')
         if (peek.matches(':popover-open')) peek.hidePopover()
         const input = element('message-input')
+        // The chip goes once the request is sent; the focus waits in the composer.
+        input.focus()
         input.value = data.followup
         input.dispatchEvent(new Event('input', { bubbles: true }))
         submit()
@@ -1529,6 +1613,22 @@ conversationNode.addEventListener('drop', (event) => {
     addFiles(event.dataTransfer?.files || [])
 })
 
+// The detail choice is a radio group: arrow keys move both the focus and the
+// choice, and Home and End jump to the ends.
+element('detail-choice').addEventListener('keydown', (event) => {
+    const choices = [...element('detail-choice').querySelectorAll('[data-detail]')]
+    const index = choices.indexOf(document.activeElement)
+    const step = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[event.key]
+    const next =
+        step === undefined
+            ? { Home: 0, End: choices.length - 1 }[event.key]
+            : (index + step + choices.length) % choices.length
+    if (index < 0 || next === undefined) return
+    event.preventDefault()
+    choices[next].focus()
+    choices[next].click()
+})
+
 // Settings that only change this window apply as soon as they are picked.
 element('detail-choice').addEventListener('click', (event) => {
     const choice = event.target.closest('[data-detail]')
@@ -1545,12 +1645,14 @@ element('instructions-input').addEventListener('input', (event) => {
     persistSoon()
 })
 
-// Double-clicking the task title renames it in place: Enter or leaving the
-// field saves, Escape keeps the old name.
-element('conversation-title').addEventListener('dblclick', () => {
+// The task title renames in place, by double-click or F2: Enter or leaving
+// the field saves, Escape keeps the old name. Ending it by keyboard puts the
+// focus back where it was.
+function renameInPlace() {
     const thread = currentThread()
     const title = element('conversation-title')
-    if (!thread.turns.length || title.hidden) return
+    if (!thread.turns.length || title.hidden) return false
+    const back = focusPlace()
     const input = h('input', {
         class: 'title-input',
         value: thread.title || text('untitled'),
@@ -1564,33 +1666,57 @@ element('conversation-title').addEventListener('dblclick', () => {
     // Removing the focused field fires blur on the way out, so the first
     // ending wins.
     let done = false
-    const finish = (save) => {
+    const finish = (save, keyboard) => {
         if (done) return
         done = true
         const value = input.value.trim()
         input.remove()
         title.hidden = false
         if (save && value && value !== thread.title) renameThread(thread.id, value)
+        if (keyboard) restoreFocus(back, element('message-input'))
     }
     input.addEventListener('keydown', (event) => {
         if (event.key === 'Enter' && !event.isComposing) {
             event.preventDefault()
-            finish(true)
+            finish(true, true)
         } else if (event.key === 'Escape') {
             event.preventDefault()
             event.stopPropagation()
-            finish(false)
+            finish(false, true)
         }
     })
-    input.addEventListener('blur', () => finish(true))
-})
+    input.addEventListener('blur', () => finish(true, false))
+    return true
+}
+element('conversation-title').addEventListener('dblclick', renameInPlace)
 
-// A right click on a task opens the same menu as its ⋯ button.
+// A right click on a task, or the menu key on it, opens the same menu as its
+// ⋯ button.
 element('conversation-list').addEventListener('contextmenu', (event) => {
     const row = event.target.closest('.thread-row')
     if (!row) return
     event.preventDefault()
     threadMenu(row.dataset.row, row.querySelector('.thread-more'))
+})
+
+// Up and down walk the task list, Home and End jump to its ends, and Delete
+// asks to delete the focused task.
+element('conversation-list').addEventListener('keydown', (event) => {
+    const row = event.target.closest('.thread-row')
+    if (!row || event.ctrlKey || event.metaKey || event.altKey) return
+    if (event.key === 'Delete') {
+        event.preventDefault()
+        askDelete(row.dataset.row)
+        return
+    }
+    const links = [...element('conversation-list').querySelectorAll('.thread-link')]
+    const index = links.indexOf(row.querySelector('.thread-link'))
+    const next = { ArrowDown: index + 1, ArrowUp: index - 1, Home: 0, End: links.length - 1 }[
+        event.key
+    ]
+    if (next === undefined || !links[next]) return
+    event.preventDefault()
+    links[next].focus()
 })
 
 element('conversation-search').addEventListener('input', (event) => {
@@ -1602,7 +1728,7 @@ element('picker-search').addEventListener('input', renderPicker)
 element('picker-search').addEventListener('keydown', (event) => {
     if (event.key === 'ArrowDown') {
         event.preventDefault()
-        element('picker-options').querySelector('.picker-option')?.focus()
+        focusPickerOption(0)
     } else if (event.key === 'Enter') {
         event.preventDefault()
         element('picker-options').querySelector('.picker-option')?.click()
@@ -1613,6 +1739,9 @@ bindPalette()
 bindRail()
 bindTranscript()
 bindTips()
+// Focus that would drop to the page lands in the composer at the latest.
+guardFocus(() => element('message-input'))
+bindOverlays(() => element('message-input'))
 // A picked shortcut either fills in a starter request or runs a window action.
 bindSlash((entry) => {
     const input = element('message-input')
@@ -1747,10 +1876,18 @@ function showPalette() {
 
 document.addEventListener('keydown', (event) => {
     const modifier = event.ctrlKey || event.metaKey
-    const overlay =
-        document.querySelector('dialog[open]') ||
-        pickerOpen() ||
-        element('menu').matches(':popover-open')
+    // Escape belongs to an open dialog, picker, menu or preview: it closes
+    // that, and never also stops the run behind it.
+    const overlay = document.querySelector('dialog[open], .popover:popover-open')
+    if (event.key === 'F2' && !modifier && !event.shiftKey && !event.altKey) {
+        // F2 renames: the focused task in the list, otherwise the open one in place.
+        if (overlay) return
+        event.preventDefault()
+        const row = event.target.closest?.('.thread-row')?.dataset.row
+        if (row && row !== session.store.activeId) askRename(row)
+        else if (!renameInPlace() && row) askRename(row)
+        return
+    }
     if (modifier && !event.shiftKey && !event.altKey) {
         const key = event.key.toLowerCase()
         if (key === 'n') {

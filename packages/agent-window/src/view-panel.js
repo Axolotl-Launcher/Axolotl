@@ -29,6 +29,9 @@ function section(title, children) {
     return h('section', { class: 'panel-section' }, [h('h3', { text: title }), ...children])
 }
 
+// A checklist step's icon in words; a step still to come has neither.
+const CHECK_STATES = { current: 'running', done: 'done', failed: 'failed' }
+
 function checklistIcon(status) {
     if (status === 'current') return pixelLoader()
     if (status === 'done') return icon('check')
@@ -69,7 +72,17 @@ export function renderPanel() {
                     { class: 'checklist' },
                     run.progress.map((step) =>
                         h('li', { data: { state: step.status } }, [
-                            h('span', { class: 'checklist-icon' }, [checklistIcon(step.status)]),
+                            h(
+                                'span',
+                                CHECK_STATES[step.status]
+                                    ? {
+                                          class: 'checklist-icon',
+                                          role: 'img',
+                                          'aria-label': stateLabel(CHECK_STATES[step.status]),
+                                      }
+                                    : { class: 'checklist-icon' },
+                                [checklistIcon(step.status)],
+                            ),
                             h('span', { class: 'checklist-copy' }, [
                                 h('strong', { text: step.title }),
                                 step.detail ? h('span', { text: step.detail }) : null,

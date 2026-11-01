@@ -44,9 +44,13 @@ export function renderComposer() {
                 ? text('modelRemoved')
                 : text('noModel')
     element('model-label').textContent = label
-    element('model-button').title = model
-        ? `${model.provider.name} · ${model.model.name}`
-        : text('model')
+    const modelButton = element('model-button')
+    modelButton.title = model ? `${model.provider.name} · ${model.model.name}` : text('model')
+    // Named "Choose a model" plus what it shows, unless it shows just that.
+    modelButton.setAttribute(
+        'aria-labelledby',
+        label === text('model') ? 'model-label' : 'model-button model-label',
+    )
     element('model-dot').hidden = !session.contextLoaded || (!!model && ready)
 
     const input = element('message-input')
@@ -149,6 +153,9 @@ function chipLabel(file, pasted) {
             {
                 class: 'file-open',
                 label: text('previewFile', { name: file.name }),
+                'aria-haspopup': 'dialog',
+                'aria-expanded': 'false',
+                'aria-controls': 'file-peek',
                 data: { filePreview: file.id },
             },
             parts,

@@ -19,6 +19,9 @@ export function morph(change, kind = 'page') {
         result = change()
     })
     const current = transition
+    // A transition cut short by the next one, as when Ctrl ] steps through
+    // tasks quickly, rejects `ready`; that is expected, not an error.
+    current.ready.catch(() => {})
     current.finished.finally(() => {
         if (transition === current) {
             transition = null

@@ -41,6 +41,31 @@ export function slashOpen() {
 export function closeSlash() {
     element('slash-menu').hidden = true
     shown = []
+    pointAt(-1)
+}
+
+// The focus stays in the message box; aria-activedescendant tells screen
+// readers which row Enter picks.
+function pointAt(index) {
+    const input = element('message-input')
+    if (index < 0) {
+        input.removeAttribute('aria-activedescendant')
+        input.removeAttribute('aria-controls')
+        return
+    }
+    input.setAttribute('aria-controls', 'slash-menu')
+    input.setAttribute('aria-activedescendant', `slash-option-${index}`)
+}
+
+// Keeps the highlighted row in view inside the list, without scrolling the
+// page behind it.
+function reveal(index) {
+    const menu = element('slash-menu')
+    const row = element(`slash-option-${index}`)
+    if (!row) return
+    if (row.offsetTop < menu.scrollTop) menu.scrollTop = row.offsetTop
+    else if (row.offsetTop + row.offsetHeight > menu.scrollTop + menu.clientHeight)
+        menu.scrollTop = row.offsetTop + row.offsetHeight - menu.clientHeight
 }
 
 // An "@" and a partial name right before the caret, at the start or after a
@@ -105,13 +130,17 @@ function show(title, next) {
     shown = next
     const menu = element('slash-menu')
     menu.hidden = !shown.length
+    menu.setAttribute('aria-label', title)
     menu.replaceChildren(
-        h('div', { class: 'slash-head', text: title }),
+        // The list is named by this heading, so the heading itself is hidden.
+        h('div', { class: 'slash-head', 'aria-hidden': 'true', text: title }),
         ...shown.map((entry, index) =>
             button(
                 {
+                    id: `slash-option-${index}`,
                     class: 'slash-row',
                     role: 'option',
+                    tabindex: '-1',
                     'aria-selected': String(index === active),
                     data: { slash: String(index) },
                 },
@@ -123,6 +152,7 @@ function show(title, next) {
             ),
         ),
     )
+    pointAt(shown.length ? active : -1)
 }
 
 function choose(index) {
@@ -140,6 +170,8 @@ export function slashKeydown(event) {
         active = (active + (event.key === 'ArrowDown' ? 1 : -1) + shown.length) % shown.length
         for (const row of element('slash-menu').querySelectorAll('.slash-row'))
             row.setAttribute('aria-selected', String(Number(row.dataset.slash) === active))
+        pointAt(active)
+        reveal(active)
         return true
     }
     if ((event.key === 'Enter' && !event.shiftKey) || event.key === 'Tab') {

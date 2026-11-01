@@ -241,9 +241,117 @@ function inline(source) {
     return parts
 }
 
+// The words of an answer without its code blocks and Markdown marks, for a
+// screen reader announcement.
+export function plainText(source) {
+    return markdownBlocks(source)
+        .filter((block) => block.type !== 'code' && block.type !== 'rule')
+        .map((block) => (block.items ? block.items.join('\n') : block.text))
+        .join('\n')
+        .replace(/\[([^\]]+)\]\([^)\s]+\)/g, '$1')
+        .replace(/\*\*([^*]+)\*\*|\*([^*\s][^*]*)\*|`([^`]+)`/g, '$1$2$3')
+        .trim()
+}
+
 // A stable hue for a mod glyph, so the same mod keeps its colour everywhere.
 export function hue(name) {
     let value = 0
     for (const character of name) value = (value * 31 + character.codePointAt(0)) % 360
     return value
+}
+
+// ---------- focus ----------
+
+// Views redraw by replacing nodes, and a control that is removed, hidden or
+// disabled while focused drops the focus to the page. These helpers send it on
+// instead: to the redrawn twin of that control (same identifying attributes),
+// else to the first control left in its step group, turn, list or popover,
+// else to a fallback.
+const IDENTITY = [
+    'data-thread',
+    'data-thread-menu',
+    'data-jump',
+    'data-mark-turn',
+    'data-copy-turn',
+    'data-edit-turn',
+    'data-toggle-change',
+    'data-file-preview',
+    'data-turn',
+    'data-prompt',
+    'data-detail',
+    'data-model',
+    'data-instance',
+]
+// These narrow an identity down but do not name a control on their own: the
+// same action appears in every step group.
+const QUALIFIERS = ['data-action', 'data-copy-kind', 'data-provider']
+const SCOPES = '.activity, .turn, .popover, #conversation-list, #attachment-list, #queue-list'
+const TABBABLE = 'button, input, textarea, select, [tabindex]'
+
+function keyOf(node) {
+    if (node.id) return `#${CSS.escape(node.id)}`
+    if (!IDENTITY.some((name) => node.hasAttribute(name))) return null
+    const parts = [...IDENTITY, ...QUALIFIERS]
+        .filter((name) => node.hasAttribute(name))
+        .map((name) => `[${name}="${CSS.escape(node.getAttribute(name))}"]`)
+    return node.localName + parts.join('')
+}
+
+export function focusable(node) {
+    return !!node?.isConnected && !node.disabled && !node.closest('[hidden], [inert]')
+}
+
+function firstTabbable(scope) {
+    return [...scope.querySelectorAll(TABBABLE)].find(
+        (node) => node.tabIndex >= 0 && focusable(node) && node.getClientRects().length,
+    )
+}
+
+// Where the focus is, in a form that survives a redraw.
+export function focusPlace(node = document.activeElement) {
+    if (!(node instanceof HTMLElement) || node === document.body) return null
+    const scopes = []
+    let scope = node.parentElement?.closest(SCOPES)
+    while (scope) {
+        scopes.push(scope)
+        scope = scope.parentElement?.closest(SCOPES)
+    }
+    return { node, key: keyOf(node), scopes }
+}
+
+export function restoreFocus(place, fallback) {
+    const twin = place?.key && [...document.querySelectorAll(place.key)].find(focusable)
+    const target =
+        (focusable(place?.node) && place.node) ||
+        twin ||
+        place?.scopes.map((scope) => scope.isConnected && firstTabbable(scope)).find(Boolean) ||
+        fallback
+    target?.focus()
+}
+
+// Watches for the focused control going away. Mutations are seen in the same
+// task, before the page paints, so the focus never visibly drops.
+export function guardFocus(fallback) {
+    let place = null
+    document.addEventListener('focusin', (event) => {
+        place = focusPlace(event.target)
+    })
+    // Clicking empty space moves the focus to the page on purpose.
+    document.addEventListener('focusout', (event) => {
+        if (event.relatedTarget) return
+        queueMicrotask(() => {
+            if (document.activeElement === document.body && focusable(event.target)) place = null
+        })
+    })
+    new MutationObserver(() => {
+        if (!place) return
+        const active = document.activeElement
+        if ((active !== place.node && active !== document.body) || focusable(place.node)) return
+        restoreFocus(place, fallback())
+    }).observe(document.body, {
+        subtree: true,
+        childList: true,
+        attributes: true,
+        attributeFilter: ['hidden', 'inert', 'disabled'],
+    })
 }

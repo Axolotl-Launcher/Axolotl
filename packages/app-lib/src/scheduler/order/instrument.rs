@@ -164,21 +164,10 @@ pub(super) mod enabled {
         if std::env::var("SCHED_ORDER_GUARD").as_deref() != Ok("1") {
             return None;
         }
-        // Clear the previous run's report. Every process appends its own
-        // `run`-tagged lines, so without this the file would grow for the
-        // life of the checkout; the reader only wants the latest run.
-        let out = |name: &str, default: &str| {
-            std::env::var_os(name)
-                .map(PathBuf::from)
-                .unwrap_or_else(|| repo_path(default))
-        };
-        let _ = std::fs::write(
-            out(
-                "SCHED_ORDER_VIOLATIONS",
-                ".agents/plans/sched-order-violations.json",
-            ),
-            "",
-        );
+        // The report is append-only on purpose: several test binaries run at
+        // once, and truncating from each process would erase its siblings'
+        // lines. Every line is stamped with this process's `run`, so a reader
+        // filters to the run it asked about instead of sharing a truncation.
         let path = |name: &str, default: &str| {
             std::env::var_os(name)
                 .map(PathBuf::from)
@@ -216,7 +205,11 @@ pub(super) mod enabled {
     #[derive(Default)]
     struct Tracking {
         held: HashMap<Holder, Vec<Rank>>,
+        /// Nested pairs already written; a pair and a violation are separate
+        /// findings, so they keep separate sets and one can never suppress
+        /// the other.
         reported: HashSet<(&'static str, &'static str)>,
+        violations: HashSet<(&'static str, &'static str)>,
         /// Idents already reported as missing from the registry.
         unregistered: HashSet<&'static str>,
     }
@@ -279,8 +272,10 @@ pub(super) mod enabled {
                 );
                 // One line per distinct descending pair, like the recorded
                 // pairs: a violation in a loop must not grow the file per
-                // iteration.
-                if tracking.reported.insert((violation.held.ident, ident)) {
+                // iteration. Kept apart from `reported`, which holds the
+                // plain pairs: a pair already logged must not hide the
+                // violation of the same two idents.
+                if tracking.violations.insert((violation.held.ident, ident)) {
                     lines.push(json!({
                         "run": table.run,
                         "kind": "violation",

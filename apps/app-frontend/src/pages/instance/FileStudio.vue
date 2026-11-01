@@ -285,6 +285,12 @@ const mediaKind = computed(() => {
 // Only media documents are read as bytes; text and NBT documents have their own
 // loading path and would otherwise be read twice.
 const mediaDocument = computed(() => (mediaKind.value ? activeDocument.value : null))
+// The file the current preview was read from. A crop is encoded asynchronously,
+// so the target has to be remembered rather than re-read from the active tab.
+const mediaPreviewPath = ref('')
+watch(mediaDocument, (document) => {
+    mediaPreviewPath.value = document?.path ?? ''
+})
 // Bumped when the bytes on disk change under the preview, so the object URL is
 // rebuilt from the new content instead of showing what was read first.
 const mediaRevision = ref(0)
@@ -305,7 +311,7 @@ function notifyOperationFailure(error: unknown) {
 }
 
 async function writeCroppedImage(bytes: Uint8Array) {
-    const path = selectedFilePath.value
+    const path = mediaPreviewPath.value
     if (!path) return
     try {
         await writeBinary(path, bytes)

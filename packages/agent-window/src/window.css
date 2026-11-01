@@ -1045,6 +1045,20 @@ code {
 .tip span + kbd {
     margin-left: 4px;
 }
+.step-more .text-button {
+    gap: 6px;
+    height: 26px;
+    padding: 0 8px 0 4px;
+    color: var(--fg-3);
+    font-size: 12.5px;
+}
+.step-more .text-button:hover {
+    color: var(--fg);
+}
+.step-more svg {
+    width: 14px;
+    height: 14px;
+}
 /* Concise hides tool names; the step titles say enough. */
 [data-steps='concise'] .step-tool {
     display: none;

@@ -955,3 +955,55 @@ it('keeps step groups open or folded by the chosen detail and remembers standing
         'Answer in English and prefer Fabric.',
     )
 })
+
+it('folds the earlier steps of a long run behind one row', async () => {
+    await page.evaluate((key) => {
+        const steps = Array.from({ length: 12 }, (_, index) => ({
+            id: `s${index}`,
+            title: `Step ${index + 1}`,
+            tool: 'instance_get',
+            status: 'done',
+        }))
+        localStorage.setItem(
+            key,
+            JSON.stringify({
+                version: 2,
+                activeId: 't',
+                threads: [
+                    {
+                        id: 't',
+                        title: 'Long check',
+                        turns: [
+                            {
+                                id: 'u',
+                                text: 'Check everything',
+                                run: {
+                                    status: 'done',
+                                    startedAt: 1,
+                                    endedAt: 2,
+                                    items: [
+                                        {
+                                            id: 'a',
+                                            type: 'activity',
+                                            steps,
+                                            startedAt: 1,
+                                            endedAt: 2,
+                                        },
+                                    ],
+                                },
+                            },
+                        ],
+                    },
+                ],
+            }),
+        )
+    }, STORE)
+    await page.reload()
+    await ready()
+    await page.locator('.activity-summary').click()
+    expect(await page.locator('.step:not([hidden])').count()).toBe(6)
+    expect(await page.locator('.step-more').textContent()).toBe('Show 6 earlier steps')
+    await page.locator('.step-more button').click()
+    expect(await page.locator('.step:not([hidden])').count()).toBe(12)
+    expect(await page.locator('.step-more').count()).toBe(0)
+})

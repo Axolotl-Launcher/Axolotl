@@ -270,6 +270,10 @@ export const agentWindowMessages = defineMessages({
         id: 'app.agent-window.chat.steps-running',
         defaultMessage: 'Working · step {count}',
     },
+    earlierSteps: {
+        id: 'app.agent-window.chat.earlier-steps',
+        defaultMessage: 'Show {count} earlier steps',
+    },
     stepsDoneNamed: {
         id: 'app.agent-window.chat.steps-done-named',
         defaultMessage: '{title} · {count} steps',

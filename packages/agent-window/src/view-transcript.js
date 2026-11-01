@@ -209,6 +209,33 @@ function updateActivity(node, item, { active }) {
         tool.textContent = step.tool || ''
         tool.hidden = !step.tool
     }
+    // A long run shows its latest steps; the earlier ones fold behind one row.
+    const rows = list.querySelectorAll(':scope > .step')
+    const folded =
+        rows.length > LATEST_STEPS + 2 && !node.dataset.allSteps ? rows.length - LATEST_STEPS : 0
+    rows.forEach((row, index) => {
+        row.hidden = index < folded
+    })
+    let more = list.querySelector(':scope > .step-more')
+    if (folded && !more) {
+        more = h('li', { class: 'step-more' }, [
+            button({ class: 'text-button', data: { action: 'show-steps' } }, [
+                icon('up'),
+                h('span'),
+            ]),
+        ])
+        list.prepend(more)
+    } else if (!folded) more?.remove()
+    if (more) more.querySelector('span').textContent = text('earlierSteps', { count: folded })
+}
+
+const LATEST_STEPS = 6
+
+export function showAllSteps(target) {
+    const node = target.closest('.activity')
+    node.dataset.allSteps = 'true'
+    for (const row of node.querySelectorAll('.step[hidden]')) row.hidden = false
+    target.closest('.step-more').remove()
 }
 
 function updateText(node, item, { active, last }) {

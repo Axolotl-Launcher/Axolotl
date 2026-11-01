@@ -65,6 +65,7 @@ import { renderPanel, renderProgressRing, stateLabel } from './view-panel.js'
 import { renderSidebar } from './view-sidebar.js'
 import {
     renderTranscript,
+    showAllSteps,
     syncTurn,
     toggleActivity,
     turnNode,
@@ -1286,6 +1287,7 @@ const actions = {
             )
     },
     'toggle-activity': (event, target) => toggleActivity(target),
+    'show-steps': (event, target) => showAllSteps(target),
     'jump-latest': () => follower.toBottom(),
 }
 

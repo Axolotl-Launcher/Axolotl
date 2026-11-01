@@ -356,6 +356,9 @@
   "app.agent-window.chat.steps-running": {
     "message": "处理中 · 第 {count} 步"
   },
+  "app.agent-window.chat.earlier-steps": {
+    "message": "显示前面 {count} 个步骤"
+  },
   "app.agent-window.chat.steps-done-named": {
     "message": "{title} 等 {count} 个步骤"
   },

@@ -356,6 +356,9 @@
   "app.agent-window.chat.steps-running": {
     "message": "Working · step {count}"
   },
+  "app.agent-window.chat.earlier-steps": {
+    "message": "Show {count} earlier steps"
+  },
   "app.agent-window.chat.steps-done-named": {
     "message": "{title} · {count} steps"
   },

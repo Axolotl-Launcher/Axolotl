@@ -1,7 +1,7 @@
 // The new-task page and the guide: plain-language starting points for people who
 // have never used an agent.
 import { button, element, h, icon } from './dom.js'
-import { axolotl, setMood } from './mascot.js'
+import { axolotl, gaze, setMood } from './mascot.js'
 import { text } from './messages.js'
 import { session } from './session.js'
 
@@ -78,7 +78,7 @@ function scheduleLook() {
     lookTimer = setTimeout(
         () => {
             const axo = heroAxo()
-            if (heroVisible && !document.hidden && axo?.dataset.mood === 'idle')
+            if (heroVisible && !document.hidden && axo?.dataset.mood === 'idle' && !following)
                 setMood(axo, 'look', { then: 'idle' })
             if (heroVisible) scheduleLook()
         },
@@ -102,6 +102,50 @@ function watchHero(mark) {
         scheduleLook()
     }).observe(mark)
     mark.addEventListener('click', () => setMood(heroAxo(), 'happy', { then: 'idle' }))
+    const page = element('conversation')
+    page.addEventListener('pointermove', followPointer, { passive: true })
+    page.addEventListener('pointerleave', letGo)
+}
+
+// While idle it turns its head after the pointer, easing towards it so the
+// turn has weight, and lets go once the pointer rests or leaves the page.
+let following = false
+let target = 0
+let current = 0
+let frame = 0
+let resting = 0
+
+function followPointer(event) {
+    const axo = heroAxo()
+    if (!heroVisible || !axo || event.pointerType === 'touch') return
+    if (axo.dataset.mood !== 'idle') {
+        if (following) letGo()
+        return
+    }
+    const box = axo.getBoundingClientRect()
+    target = Math.max(-1, Math.min(1, (event.clientX - box.left - box.width / 2) / 420))
+    following = true
+    clearTimeout(resting)
+    resting = setTimeout(letGo, 2400)
+    if (!frame) frame = requestAnimationFrame(turn)
+}
+
+function turn() {
+    frame = 0
+    const axo = heroAxo()
+    if (!following || !axo || axo.dataset.mood !== 'idle') return
+    current += (target - current) * 0.14
+    gaze(axo, Math.abs(current) < 0.05 ? 0 : current)
+    if (Math.abs(target - current) > 0.01) frame = requestAnimationFrame(turn)
+}
+
+function letGo() {
+    clearTimeout(resting)
+    cancelAnimationFrame(frame)
+    frame = 0
+    following = false
+    current = 0
+    gaze(heroAxo(), null)
 }
 
 // Called as the request is typed on the new task page.

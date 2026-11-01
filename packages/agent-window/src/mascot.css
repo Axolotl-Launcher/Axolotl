@@ -118,6 +118,15 @@
     animation: axo-ghost 180ms ease-out both;
 }
 
+/* Following the pointer: the large mark holds the look frame mascot.js
+   picks. It comes after every mood so it wins over them. */
+.axo:not(.axo-sm)[data-gaze] {
+    --axo-frames: 54;
+    background-image: url('/mascot/look.png');
+    background-position: var(--axo-gaze, 0%) 0%;
+    animation: none;
+}
+
 @keyframes axo-idle {
     from {
         background-position: 0% 0%;

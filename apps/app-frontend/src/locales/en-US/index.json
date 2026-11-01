@@ -11508,7 +11508,7 @@
     "message": "All settings"
   },
   "app.settings.export.exported-text": {
-    "message": "The settings file was saved to {path}"
+    "message": "The settings archive was saved to {path}"
   },
   "app.settings.export.exported-title": {
     "message": "Settings exported"
@@ -11517,7 +11517,7 @@
     "message": "Export patch…"
   },
   "app.settings.export.patch-description": {
-    "message": "Only keys that differ from the defaults, ready to use directly as a deployment config."
+    "message": "Only keys that differ from the defaults. The archive holds one document per domain; unzip it and use it directly as a deployment config."
   },
   "app.settings.export.patch-label": {
     "message": "Deployment patch"
@@ -17448,7 +17448,7 @@
     "message": "{count, plural, =0 {No local settings document needed rewriting.} one {Rewrote # local settings document.} other {Rewrote # local settings documents.}}"
   },
   "app.settings.export.import-label": {
-    "message": "Settings file"
+    "message": "Settings archive"
   },
   "app.settings.export.import-button": {
     "message": "Import…"
@@ -17460,7 +17460,7 @@
     "message": "Import settings?"
   },
   "app.settings.export.import-confirm-description": {
-    "message": "Merges the file into your local settings. Where both set the same key, the imported value wins. This cannot be undone."
+    "message": "Merges the archive into your local settings. Where both set the same key, the imported value wins. This cannot be undone."
   },
   "app.settings.export.import-confirm-proceed": {
     "message": "Import"
@@ -17470,5 +17470,23 @@
   },
   "app.settings.export.imported-text": {
     "message": "{count, plural, =0 {No local settings document changed.} one {Updated # local settings document.} other {Updated # local settings documents.}}"
+  },
+  "app.settings.export.import-danger-title": {
+    "message": "Dangerous settings in this archive"
+  },
+  "app.settings.export.import-danger-description": {
+    "message": "The archive sets settings that can make the launcher run commands or change the game process environment."
+  },
+  "app.settings.export.import-danger-keys-label": {
+    "message": "It sets:"
+  },
+  "app.settings.export.import-danger-skip": {
+    "message": "Import everything else"
+  },
+  "app.settings.export.import-danger-allow": {
+    "message": "Import everything"
+  },
+  "app.settings.export.imported-dropped-text": {
+    "message": "{count, plural, =0 {No local settings document changed.} one {Updated # local settings document.} other {Updated # local settings documents.}} {dropped, plural, one {# value was ignored because its type is invalid.} other {# values were ignored because their types are invalid.}}"
   }
 }

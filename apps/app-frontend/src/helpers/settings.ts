@@ -362,9 +362,26 @@ export type SettingLayer = {
     key: string
     domain: SettingsLayerDomain
     provided: unknown | null
+    provided_present: boolean
     local: unknown | null
+    local_present: boolean
     effective: unknown
 }
+
+/** What importing a settings archive would find in it. */
+export type ImportScan = {
+    domains: string[]
+    dangerous: string[]
+}
+
+/** What importing a settings archive wrote. */
+export type ImportResult = {
+    documents: number
+    dropped: number
+}
+
+/** What to do with the settings of a document that can run commands. */
+export type ImportDanger = 'skip' | 'allow'
 
 export type SettingsExportKind = 'effective' | 'patch'
 
@@ -386,9 +403,17 @@ export async function sanitiseSettings(): Promise<number> {
     return await invoke('plugin:settings|settings_sanitise')
 }
 
-/** Merges a settings file into the local documents; returns how many it rewrote. */
-export async function importSettings(inputPath: string): Promise<number> {
-    return await invoke('plugin:settings|settings_import', { inputPath })
+/** Reads which documents and which dangerous settings an archive carries. */
+export async function scanSettingsImport(inputPath: string): Promise<ImportScan> {
+    return await invoke('plugin:settings|settings_import_scan', { inputPath })
+}
+
+/** Merges a settings archive into the local documents; returns what it wrote. */
+export async function importSettings(
+    inputPath: string,
+    danger: ImportDanger,
+): Promise<ImportResult> {
+    return await invoke('plugin:settings|settings_import', { inputPath, danger })
 }
 
 export async function cancel_directory_change(): Promise<void> {

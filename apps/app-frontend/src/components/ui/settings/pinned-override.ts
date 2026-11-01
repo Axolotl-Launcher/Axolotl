@@ -40,9 +40,12 @@ export function usePinnedOverride(key: MaybeRefOrGetter<string>) {
     const restoring = ref(false)
 
     const layer = computed(() => layers.value[toValue(key)] ?? null)
+    // An override needs both halves: the deployment pins the key, this machine
+    // holds a value for it, and that value is not the one the deployment gives.
+    // Local presence alone is every setting the user ever changed.
     const isOverridden = computed(() => {
         const current = layer.value
-        if (!current || current.provided === null) return false
+        if (!current?.provided_present || !current.local_present) return false
         return JSON.stringify(current.provided) !== JSON.stringify(current.effective)
     })
 

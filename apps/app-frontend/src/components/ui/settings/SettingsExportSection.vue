@@ -7,6 +7,7 @@ import {
     defineMessages,
     injectNotificationManager,
     injectPopupNotificationManager,
+    NewModal,
     useVIntl,
 } from '@modrinth/ui'
 import { useQueryClient } from '@tanstack/vue-query'
@@ -19,6 +20,8 @@ import {
     get as getSettings,
     importSettings,
     sanitiseSettings,
+    scanSettingsImport,
+    type ImportDanger,
     type SettingsExportKind,
 } from '@/helpers/settings'
 import { highlightInFolder } from '@/helpers/utils'
@@ -42,6 +45,8 @@ type SettingsOperation = SettingsExportKind | 'cleanup' | 'import'
 const busy = ref<SettingsOperation | null>(null)
 const cleanupConfirm = ref<InstanceType<typeof ConfirmModal>>()
 const importConfirm = ref<InstanceType<typeof ConfirmModal>>()
+const dangerConfirm = ref<InstanceType<typeof NewModal>>()
+const pendingImport = ref<{ path: string; dangerous: string[] } | null>(null)
 
 const messages = defineMessages({
     title: { id: 'app.settings.export.title', defaultMessage: 'Export settings' },
@@ -57,7 +62,7 @@ const messages = defineMessages({
     patchDescription: {
         id: 'app.settings.export.patch-description',
         defaultMessage:
-            'Only keys that differ from the defaults, ready to use directly as a deployment config.',
+            'Only keys that differ from the defaults. The archive holds one document per domain; unzip it and use it directly as a deployment config.',
     },
     patchButton: {
         id: 'app.settings.export.patch-button',
@@ -69,7 +74,7 @@ const messages = defineMessages({
     },
     exportedText: {
         id: 'app.settings.export.exported-text',
-        defaultMessage: 'The settings file was saved to {path}',
+        defaultMessage: 'The settings archive was saved to {path}',
     },
     cleanupLabel: {
         id: 'app.settings.export.cleanup-label',
@@ -107,7 +112,7 @@ const messages = defineMessages({
     },
     importLabel: {
         id: 'app.settings.export.import-label',
-        defaultMessage: 'Settings file',
+        defaultMessage: 'Settings archive',
     },
     importButton: {
         id: 'app.settings.export.import-button',
@@ -124,11 +129,32 @@ const messages = defineMessages({
     importConfirmDescription: {
         id: 'app.settings.export.import-confirm-description',
         defaultMessage:
-            'Merges the file into your local settings. Where both set the same key, the imported value wins. This cannot be undone.',
+            'Merges the archive into your local settings. Where both set the same key, the imported value wins. This cannot be undone.',
     },
     importConfirmProceed: {
         id: 'app.settings.export.import-confirm-proceed',
         defaultMessage: 'Import',
+    },
+    importDangerTitle: {
+        id: 'app.settings.export.import-danger-title',
+        defaultMessage: 'Dangerous settings in this archive',
+    },
+    importDangerDescription: {
+        id: 'app.settings.export.import-danger-description',
+        defaultMessage:
+            'The archive sets settings that can make the launcher run commands or change the game process environment.',
+    },
+    importDangerKeysLabel: {
+        id: 'app.settings.export.import-danger-keys-label',
+        defaultMessage: 'It sets:',
+    },
+    importDangerSkip: {
+        id: 'app.settings.export.import-danger-skip',
+        defaultMessage: 'Import everything else',
+    },
+    importDangerAllow: {
+        id: 'app.settings.export.import-danger-allow',
+        defaultMessage: 'Import everything',
     },
     importedTitle: {
         id: 'app.settings.export.imported-title',
@@ -138,6 +164,11 @@ const messages = defineMessages({
         id: 'app.settings.export.imported-text',
         defaultMessage:
             '{count, plural, =0 {No local settings document changed.} one {Updated # local settings document.} other {Updated # local settings documents.}}',
+    },
+    importedDroppedText: {
+        id: 'app.settings.export.imported-dropped-text',
+        defaultMessage:
+            '{count, plural, =0 {No local settings document changed.} one {Updated # local settings document.} other {Updated # local settings documents.}} {dropped, plural, one {# value was ignored because its type is invalid.} other {# values were ignored because their types are invalid.}}',
     },
 })
 
@@ -161,8 +192,8 @@ async function exportToFile(kind: SettingsExportKind) {
     try {
         const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
         const outputPath = await save({
-            defaultPath: `${EXPORT_FILE_NAMES[kind]} ${timestamp}.json`,
-            filters: [{ name: 'JSON', extensions: ['json'] }],
+            defaultPath: `${EXPORT_FILE_NAMES[kind]} ${timestamp}.zip`,
+            filters: [{ name: 'ZIP', extensions: ['zip'] }],
         })
         if (!outputPath) return
 
@@ -205,21 +236,53 @@ async function cleanUpLocalSettings() {
     }
 }
 
-async function importFromFile() {
+async function chooseImportArchive() {
     if (busy.value) return
 
+    pendingImport.value = null
     busy.value = 'import'
     try {
         const inputPath = await open({
-            filters: [{ name: 'JSON', extensions: ['json'] }],
+            filters: [{ name: 'ZIP', extensions: ['zip'] }],
             multiple: false,
         })
         if (!inputPath) return
 
-        const rewritten = await importSettings(inputPath)
+        const scan = await scanSettingsImport(inputPath)
+        pendingImport.value = { path: inputPath, dangerous: scan.dangerous }
+        if (scan.dangerous.length > 0) {
+            dangerConfirm.value?.show()
+        } else {
+            importConfirm.value?.show()
+        }
+    } catch (error) {
+        handleError(error)
+    } finally {
+        busy.value = null
+    }
+}
+
+function cancelPendingImport() {
+    pendingImport.value = null
+    dangerConfirm.value?.hide()
+}
+
+async function importPendingArchive(danger: ImportDanger) {
+    const pending = pendingImport.value
+    if (!pending || busy.value) return
+
+    dangerConfirm.value?.hide()
+    importConfirm.value?.hide()
+    pendingImport.value = null
+    busy.value = 'import'
+    try {
+        const result = await importSettings(pending.path, danger)
         popupNotificationManager.addPopupNotification({
             title: formatMessage(messages.importedTitle),
-            text: formatMessage(messages.importedText, { count: rewritten }),
+            text: formatMessage(
+                result.dropped > 0 ? messages.importedDroppedText : messages.importedText,
+                { count: result.documents, dropped: result.dropped },
+            ),
             type: 'success',
         })
         await refreshSettings()
@@ -288,7 +351,7 @@ async function importFromFile() {
                     color="red"
                     :loading="busy === 'import'"
                     :disabled="busy !== null"
-                    @click="importConfirm?.show()"
+                    @click="chooseImportArchive"
                 >
                     <UploadIcon aria-hidden="true" />
                     {{ formatMessage(importButtonMessage) }}
@@ -315,6 +378,36 @@ async function importFromFile() {
         :description="formatMessage(messages.importConfirmDescription)"
         :proceed-icon="UploadIcon"
         :proceed-label="formatMessage(messages.importConfirmProceed)"
-        @proceed="importFromFile"
+        @proceed="importPendingArchive('allow')"
     />
+    <NewModal
+        ref="dangerConfirm"
+        :header="formatMessage(messages.importDangerTitle)"
+        fade="danger"
+        max-width="520px"
+        :closable="false"
+    >
+        <p class="m-0">{{ formatMessage(messages.importDangerDescription) }}</p>
+        <p class="mb-1 mt-4 text-[var(--color-text-tertiary)]">
+            {{ formatMessage(messages.importDangerKeysLabel) }}
+        </p>
+        <ul class="m-0 flex list-disc flex-col gap-1 pl-5 font-mono text-sm">
+            <li v-for="dangerousKey in pendingImport?.dangerous ?? []" :key="dangerousKey">
+                {{ dangerousKey }}
+            </li>
+        </ul>
+        <template #actions>
+            <div class="flex flex-wrap justify-end gap-2">
+                <Button type="colored" color="brand" @click="importPendingArchive('skip')">
+                    {{ formatMessage(messages.importDangerSkip) }}
+                </Button>
+                <Button @click="cancelPendingImport">
+                    {{ formatMessage(commonMessages.cancelButton) }}
+                </Button>
+                <Button type="outlined" color="red" @click="importPendingArchive('allow')">
+                    {{ formatMessage(messages.importDangerAllow) }}
+                </Button>
+            </div>
+        </template>
+    </NewModal>
 </template>

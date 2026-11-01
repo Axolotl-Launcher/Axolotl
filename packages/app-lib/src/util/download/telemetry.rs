@@ -384,6 +384,7 @@ impl FileCapture {
         } else {
             self.ended_ms.load(Ordering::Relaxed)
         };
+        // sched-order: theseus::util::download::telemetry::FileCapture.state
         let mut state = self.state.lock();
         let mut active = 0;
         let mut connecting = 0;
@@ -405,7 +406,9 @@ impl FileCapture {
                 } else {
                     t.ended_ms.load(Ordering::Relaxed)
                 };
+                // sched-order: theseus::util::download::telemetry::Transfer.metadata
                 let metadata = t.metadata.lock();
+                // sched-order: theseus::util::download::telemetry::Transfer.rate temporary
                 let mut rate = t.rate.lock();
                 let interval = age.saturating_sub(rate.at_ms);
                 if transfer_state >= 2 {

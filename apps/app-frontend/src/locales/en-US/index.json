@@ -4,7 +4,9 @@
   "app.schematics.failed-sources": { "message": "{sources} could not be loaded." },
   "app.schematics.sort.default": { "message": "Source order" },
   "app.schematics.sort.name": { "message": "Name" },
-  "app.schematics.login-required-sources": { "message": "{count, plural, one {# source requires <login-link>sign-in</login-link>} other {# sources require <login-link>sign-in</login-link>}}" },
+  "app.schematics.login-required-sources": {
+    "message": "{count, plural, one {# source requires <login-link>sign-in</login-link>} other {# sources require <login-link>sign-in</login-link>}}"
+  },
   "app.schematics.open-source": { "message": "View on source website" },
   "app.schematics.instances-error": {
     "message": "Could not load your instances."
@@ -96,6 +98,9 @@
   },
   "app.third-party.shimu-purpose": {
     "message": "Connect your Shimu Space account."
+  },
+  "app.third-party.identity": {
+    "message": "{nickname} · {username}"
   },
   "app.third-party.connected": {
     "message": "Connected"
@@ -6191,7 +6196,7 @@
     "message": "Collapse folder {name}"
   },
   "app.lab.schematic-preview.instance-picker.empty": {
-    "message": "No .litematic or .schem files were found in this instance."
+    "message": "No schematic files were found in this instance."
   },
   "app.lab.schematic-preview.instance-picker.expand-folder": {
     "message": "Expand folder {name}"
@@ -9404,7 +9409,7 @@
     "message": "Craft data pack recipes"
   },
   "app.onboarding.lab-schematic.description": {
-    "message": "Open a local .litematic or .schem file, or choose one from an installed instance. The 3D workspace keeps viewing, measurement, layer controls, materials, and local edits together."
+    "message": "Open a local schematic file, or choose one from an installed instance. The 3D workspace keeps viewing, measurement, layer controls, materials, and local edits together."
   },
   "app.onboarding.lab-schematic.title": {
     "message": "Inspect a build before placing it"

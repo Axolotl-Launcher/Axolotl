@@ -62,6 +62,7 @@ const allowedUntranslatedMessages = new Set([
     'server.properties',
     '{type} · {version}',
     '{author} · {summary}',
+    '{nickname} · {username}',
     '{value} MB',
     '> {command}',
     'Beta',

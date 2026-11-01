@@ -117,6 +117,7 @@ fn only_the_registered_callback_shape_is_accepted() {
         "axolotl://oauth.evil/callback?code=secret",
     ] {
         assert!(callback_url(url).is_none(), "{url}");
+        assert!(!is_callback(url), "{url}");
     }
     assert!(callback_url(REDIRECT_URI).is_some());
 }
@@ -267,4 +268,103 @@ fn malformed_exchange_responses_never_become_connected_accounts() {
         };
         assert!(connection_from_reply(value, 100).is_err());
     }
+}
+
+#[test]
+fn pending_authorization_survives_restart_but_a_claim_is_never_replayed() {
+    let store = MemoryStore::default();
+    let original = pending();
+    original.persist_pending(&store).unwrap();
+    let mut restarted = Session::restore(&store, 100).unwrap();
+    let url = callback("state=expected-state&code=secret");
+    assert_eq!(
+        restarted
+            .update(&store, |session| session.claim(&url, 100))
+            .unwrap()
+            .as_deref(),
+        Some("secret"),
+    );
+    let mut interrupted_exchange = Session::restore(&store, 101).unwrap();
+    assert!(interrupted_exchange.pending.is_none());
+    assert_eq!(
+        interrupted_exchange.outcome,
+        Some(AuthorizationStatus::Failed)
+    );
+    assert!(interrupted_exchange.claim(&url, 101).is_none());
+    assert!(store.read(FLOW_CREDENTIAL).unwrap().is_none());
+}
+
+#[test]
+fn expired_and_cancelled_pending_flows_are_removed_from_credential_store() {
+    let store = MemoryStore::default();
+    pending().persist_pending(&store).unwrap();
+    let expired = Session::restore(&store, 400).unwrap();
+    assert!(expired.pending.is_none());
+    assert_eq!(expired.outcome, Some(AuthorizationStatus::TimedOut));
+    assert!(store.read(FLOW_CREDENTIAL).unwrap().is_none());
+    let mut original = pending();
+    original.persist_pending(&store).unwrap();
+    original
+        .update(&store, |session| session.cancel("expected-state"))
+        .unwrap();
+    assert!(Session::restore(&store, 100).unwrap().pending.is_none());
+}
+
+#[test]
+fn a_claim_is_not_exchanged_if_it_cannot_be_persisted() {
+    let mut session = pending();
+    let store = MemoryStore {
+        fail_writes: true,
+        ..Default::default()
+    };
+    assert!(
+        session
+            .update(&store, |session| {
+                session
+                    .claim(&callback("state=expected-state&code=secret"), 100)
+            })
+            .is_err()
+    );
+    assert!(!session.pending.unwrap().exchanging);
+}
+
+#[test]
+fn successful_checks_cannot_restore_expired_or_replaced_credentials() {
+    let store = MemoryStore::default();
+    let checked = connection("token");
+    let mut updated = checked.clone();
+    updated.user.nick_name = Some("Updated identity".into());
+    let mut expired = checked.clone();
+    expired.expires_at = 0;
+    for current in [expired, connection("replacement")] {
+        oauth_credentials::write(
+            &store,
+            Some(&serde_json::to_string(&current).unwrap()),
+        )
+        .unwrap();
+        write_checked_connection(&store, &checked, &updated).unwrap();
+        assert!(read_connection(&store).unwrap().as_ref() == Some(&current));
+    }
+    oauth_credentials::write(
+        &store,
+        Some(&serde_json::to_string(&checked).unwrap()),
+    )
+    .unwrap();
+    write_checked_connection(&store, &checked, &updated).unwrap();
+    assert!(read_connection(&store).unwrap().as_ref() == Some(&updated));
+}
+
+#[test]
+fn invalid_callback_candidates_are_redacted_but_not_intercepted() {
+    for url in [
+        "axolotl://oauth/other?code=secret",
+        "axolotl://oauth/callback?code=secret#fragment",
+        "axolotl://user@oauth/callback?code=secret",
+        "axolotl://oauth:1234/callback?code=secret",
+    ] {
+        assert!(is_callback_candidate(url));
+        assert!(!is_callback(url));
+    }
+    assert!(is_callback(REDIRECT_URI));
+    assert!(!is_callback_candidate("axolotl://settings"));
 }

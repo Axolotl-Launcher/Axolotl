@@ -834,25 +834,21 @@ fn main() {
                     let mtx_copy_copy = mtx_copy.clone();
                     let request = url.payload().to_owned();
 
-                    let actual_request =
-                        serde_json::from_str::<Vec<String>>(&request)
-                            .ok()
-                            .map(|mut x| x.remove(0))
-                            .unwrap_or(request);
-
                     tauri::async_runtime::spawn(async move {
                         tracing::info!(
                             "Handling deep link {}",
-                            api::utils::command_log_label(&actual_request)
+                            api::utils::command_log_label(&request)
                         );
 
                         let mut payload = mtx_copy_copy.lock().await;
                         if payload.is_none() {
-                            *payload = Some(actual_request.clone());
+                            *payload =
+                                api::utils::command_strings(request.clone())
+                                    .into_iter()
+                                    .next();
                         }
 
-                        let _ =
-                            api::utils::handle_command(actual_request).await;
+                        let _ = api::utils::handle_command(request).await;
                     });
                 });
             };

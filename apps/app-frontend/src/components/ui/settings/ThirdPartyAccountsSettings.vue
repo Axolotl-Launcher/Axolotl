@@ -34,6 +34,10 @@ const messages = defineMessages({
         id: 'app.third-party.shimu-purpose',
         defaultMessage: 'Connect your Shimu Space account.',
     },
+    identity: {
+        id: 'app.third-party.identity',
+        defaultMessage: '{nickname} · {username}',
+    },
     connected: { id: 'app.third-party.connected', defaultMessage: 'Connected' },
     connectedNotification: {
         id: 'app.third-party.connected-notification',
@@ -116,7 +120,9 @@ const accountLabel = computed(() => {
     if (!user) return formatMessage(messages.purpose)
     const nickName = user.nickName?.trim()
     const userName = user.userName.trim()
-    return nickName && nickName !== userName ? `${nickName} · ${userName}` : userName
+    return nickName && nickName !== userName
+        ? formatMessage(messages.identity, { nickname: nickName, username: userName })
+        : userName
 })
 watch(
     account,

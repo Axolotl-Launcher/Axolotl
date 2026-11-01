@@ -63,7 +63,7 @@ export type SchematicPreviewManifest = {
 export type InstanceSchematicFile = {
     relativePath: string
     fileName: string
-    format: 'litematic' | 'schem'
+    format: 'litematic' | 'schem' | 'schematic' | 'nbt'
     size: number
     modifiedAt?: number
 }

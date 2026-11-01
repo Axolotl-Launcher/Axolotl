@@ -26,7 +26,7 @@ import TranslatedProjectDescription from '@/components/ui/TranslatedProjectDescr
 import { list as listInstances } from '@/helpers/instance'
 import { isServerProjectLink } from '@/helpers/instance-project'
 import { readProjectPreviewTitle } from '@/helpers/project-preview'
-import { getSchematic, isSchematicSource } from '@/helpers/schematics'
+import { getSchematic, isSchematicFileName, isSchematicSource } from '@/helpers/schematics'
 import { getBrowseDefaultInstanceId, setBrowseDefaultInstanceId } from '@/helpers/settings'
 import { getThirdPartyAccount, thirdPartyAccountKey } from '@/helpers/third-party-accounts'
 import type { GameInstance } from '@/helpers/types'
@@ -278,7 +278,7 @@ function preview(fileName: string) {
                     >
                         <span class="min-w-0 flex-1 break-all font-medium">{{ file.name }}</span>
                         <Button
-                            v-if="/\.(litematic|schem)$/i.test(file.name)"
+                            v-if="isSchematicFileName(file.name)"
                             type="quiet"
                             @click="preview(file.name)"
                         >

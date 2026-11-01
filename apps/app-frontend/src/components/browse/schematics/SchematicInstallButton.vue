@@ -1,11 +1,18 @@
 <script setup lang="ts">
 import { CheckIcon, ChevronDownIcon, ExternalIcon, PlusIcon, SpinnerIcon } from '@modrinth/assets'
 import { Button, injectNotificationManager, PopoutMenu, useVIntl } from '@modrinth/ui'
-import { useMutation } from '@tanstack/vue-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
 import { openUrl } from '@tauri-apps/plugin-opener'
-import { computed, ref } from 'vue'
+import { computed } from 'vue'
 
-import { installSchematic, type SchematicProject } from '@/helpers/schematics'
+import { useAppEvent } from '@/composables/use-app-event'
+import { get_content_snapshot } from '@/helpers/instance'
+import {
+    hasInstalledSchematic,
+    installedSchematicsKey,
+    installSchematic,
+    type SchematicProject,
+} from '@/helpers/schematics'
 
 import { schematicMessages as messages } from './messages'
 
@@ -24,15 +31,47 @@ const files = computed(() =>
         ? props.project.files.filter((file) => file.name === props.fileName)
         : props.project.files,
 )
-const installed = ref(new Set<string>())
-const identity = (fileName: string) =>
-    `${props.instanceId}\u0000${props.project.source}\u0000${props.project.id}\u0000${fileName}`
-const installation = useMutation({
-    mutationFn: installSchematic,
-    onSuccess: (path, request) => {
-        installed.value.add(
-            `${request.instanceId}\u0000${request.source}\u0000${request.id}\u0000${request.fileName}`,
+const queryClient = useQueryClient()
+const installedQuery = useQuery({
+    queryKey: computed(() => installedSchematicsKey(props.instanceId)),
+    queryFn: () => get_content_snapshot(props.instanceId!, true, true),
+    enabled: computed(() => !!props.instanceId),
+    retry: false,
+})
+const checkingInstalled = computed(() => !!props.instanceId && installedQuery.isPending.value)
+const isInstalled = (fileName: string) =>
+    hasInstalledSchematic(
+        installedQuery.data.value,
+        props.project.source,
+        props.project.id,
+        fileName,
+    )
+useAppEvent('instance', (event) => {
+    if (
+        event.instance_id === props.instanceId &&
+        ['synced', 'content_changed', 'removed'].includes(event.event)
+    )
+        void queryClient.invalidateQueries(
+            { queryKey: installedSchematicsKey(props.instanceId) },
+            { cancelRefetch: false },
         )
+})
+const installation = useMutation({
+    mutationFn: async (request: Parameters<typeof installSchematic>[0]) => {
+        const snapshot = await queryClient.fetchQuery({
+            queryKey: installedSchematicsKey(request.instanceId),
+            queryFn: () => get_content_snapshot(request.instanceId, true, true),
+            staleTime: 0,
+        })
+        if (hasInstalledSchematic(snapshot, request.source, request.id, request.fileName))
+            return null
+        return installSchematic(request)
+    },
+    onSuccess: (path, request) => {
+        void queryClient.invalidateQueries({
+            queryKey: installedSchematicsKey(request.instanceId),
+        })
+        if (!path) return
         addNotification({
             title: formatMessage(messages.installSuccess),
             text: path.split(/[\\/]/).pop() ?? request.fileName,
@@ -57,9 +96,7 @@ const installation = useMutation({
 const busy = installation.isPending
 const fileKey = computed(() => installation.variables.value?.fileName)
 const allInstalled = computed(() =>
-    files.value.length
-        ? files.value.every((file) => installed.value.has(identity(file.name)))
-        : installed.value.has(identity('')),
+    files.value.length ? files.value.every((file) => isInstalled(file.name)) : isInstalled(''),
 )
 const installLabel = computed(() =>
     formatMessage(
@@ -101,7 +138,7 @@ function install(fileName: string) {
         :circular="compact"
         :label="installLabel"
         :title="installLabel"
-        :disabled="busy || allInstalled"
+        :disabled="busy || checkingInstalled || allInstalled"
         @click.stop="install(files[0]?.name ?? '')"
     >
         <SpinnerIcon v-if="busy" class="animate-spin motion-reduce:animate-none" />
@@ -119,7 +156,7 @@ function install(fileName: string) {
                 :circular="compact"
                 :label="installLabel"
                 :title="installLabel"
-                :disabled="busy || allInstalled"
+                :disabled="busy || checkingInstalled || allInstalled"
             >
                 <SpinnerIcon v-if="busy" class="animate-spin motion-reduce:animate-none" />
                 <CheckIcon v-else-if="allInstalled" />
@@ -134,14 +171,14 @@ function install(fileName: string) {
                     :key="file.name"
                     type="quiet"
                     class="w-full !justify-start text-left"
-                    :disabled="busy || installed.has(identity(file.name))"
+                    :disabled="busy || isInstalled(file.name)"
                     @click.stop="install(file.name)"
                 >
                     <SpinnerIcon
                         v-if="busy && fileKey === file.name"
                         class="shrink-0 animate-spin motion-reduce:animate-none"
                     />
-                    <CheckIcon v-else-if="installed.has(identity(file.name))" class="shrink-0" />
+                    <CheckIcon v-else-if="isInstalled(file.name)" class="shrink-0" />
                     <PlusIcon v-else class="shrink-0" />
                     <span class="min-w-0 break-all">{{ file.name }}</span>
                 </Button>

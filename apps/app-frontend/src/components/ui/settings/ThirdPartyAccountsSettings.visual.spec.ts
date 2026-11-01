@@ -30,7 +30,8 @@ vi.mock('@modrinth/ui', () => ({
     injectNotificationManager: () => notifications,
     defineMessages: (messages: unknown) => messages,
     useVIntl: () => ({
-        formatMessage: (message: { defaultMessage: string }) => message.defaultMessage,
+        formatMessage: (message: { defaultMessage: string }, values: Record<string, string> = {}) =>
+            message.defaultMessage.replace(/\{(\w+)\}/g, (_, key) => values[key] ?? `{${key}}`),
     }),
     Card: defineComponent({
         setup:

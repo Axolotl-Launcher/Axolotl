@@ -615,6 +615,13 @@ pub async fn parse_command(
             entry: None,
         });
     }
+    if crate::third_party_accounts::is_callback_candidate(command_string) {
+        tracing::debug!("Parsing command: [invalid OAuth callback]");
+        return Err(crate::ErrorKind::InputError(
+            "Invalid OAuth callback URL".to_string(),
+        )
+        .into());
+    }
     tracing::debug!("Parsing command: {}", &command_string);
     if let Some(sublink) = command_string.strip_prefix("axolotl://") {
         if !external_scheme_allowed().await {
@@ -655,6 +662,22 @@ pub async fn parse_and_emit_command(command_string: &str) -> crate::Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[tokio::test]
+    async fn invalid_oauth_callback_shapes_never_open_account_settings() {
+        for command in [
+            "axolotl://oauth/other?code=secret",
+            "axolotl://oauth/callback/extra?code=secret",
+            "axolotl://oauth/callback?code=secret#fragment",
+        ] {
+            let error = parse_command(command)
+                .await
+                .err()
+                .expect("invalid callback");
+            assert!(error.to_string().contains("Invalid OAuth callback URL"));
+            assert!(!error.to_string().contains("secret"));
+        }
+    }
 
     #[tokio::test]
     async fn parses_launch_query_command() {

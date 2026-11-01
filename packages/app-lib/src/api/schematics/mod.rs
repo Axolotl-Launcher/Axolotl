@@ -346,7 +346,11 @@ pub async fn install(
         &artifact,
     )
     .await?;
-    crate::instance::emit_content_changed(&instance_id).await?;
+    if let Err(error) =
+        crate::instance::emit_content_changed(&instance_id).await
+    {
+        tracing::warn!(%instance_id, %error, "Installed schematic content notification failed");
+    }
     Ok(path)
 }
 

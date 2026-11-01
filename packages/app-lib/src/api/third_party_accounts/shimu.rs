@@ -134,13 +134,7 @@ fn project(
     if files.is_empty() {
         return None;
     }
-    let cover = post
-        .cover
-        .filter(|cover| !cover.trim().is_empty())
-        .and_then(|cover| {
-            let url = Url::parse(HOST).ok()?.join(&cover).ok()?;
-            (url.scheme() == "https").then(|| url.to_string())
-        });
+    let cover = post.cover.and_then(|cover| trusted_cover(&cover));
     Some(SchematicPost {
         source: "shimu",
         post_id: post.post_id,
@@ -160,6 +154,18 @@ fn project(
         },
         files,
     })
+}
+
+fn trusted_cover(cover: &str) -> Option<String> {
+    if cover.trim().is_empty() {
+        return None;
+    }
+    let host = Url::parse(HOST).ok()?;
+    let url = host.join(cover).ok()?;
+    (url.origin() == host.origin()
+        && url.username().is_empty()
+        && url.password().is_none())
+    .then(|| url.to_string())
 }
 
 fn installable(post: &Post, post_id: u64, file_name: &str) -> bool {
@@ -226,16 +232,31 @@ pub async fn list(
         return Err(failure("Invalid schematic search"));
     }
     let user_id = connection()?.user.user_id;
-    let mut catalogs = CATALOGS.lock().await;
-    catalogs.retain(|catalog| catalog.loaded_at.elapsed() < CATALOG_TTL);
-    let items = if let Some(catalog) = catalogs.iter().find(|catalog| {
-        catalog.user_id == user_id
-            && catalog.query == query
-            && catalog.sort == sort
-    }) {
-        Arc::clone(&catalog.items)
+    let cached = {
+        let mut catalogs = CATALOGS.lock().await;
+        catalogs.retain(|catalog| catalog.loaded_at.elapsed() < CATALOG_TTL);
+        catalogs
+            .iter()
+            .find(|catalog| {
+                catalog.user_id == user_id
+                    && catalog.query == query
+                    && catalog.sort == sort
+            })
+            .map(|catalog| Arc::clone(&catalog.items))
+    };
+    let items = if let Some(items) = cached {
+        items
     } else {
+        // Cache misses may fetch many pages. Other queries must be able to
+        // inspect and update the cache while these requests are in flight.
         let items = Arc::new(load_catalog(&query, &sort).await?);
+        let mut catalogs = CATALOGS.lock().await;
+        catalogs.retain(|catalog| {
+            catalog.loaded_at.elapsed() < CATALOG_TTL
+                && !(catalog.user_id == user_id
+                    && catalog.query == query
+                    && catalog.sort == sort)
+        });
         catalogs.push_front(CachedCatalog {
             user_id,
             query,
@@ -426,4 +447,32 @@ pub(crate) async fn download(
     }
 
     Ok(bytes)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn covers_only_use_the_documented_shimu_origin() {
+        assert_eq!(
+            trusted_cover("/uploads/cover.png").as_deref(),
+            Some("https://www.mcimg.com/uploads/cover.png")
+        );
+        assert!(
+            trusted_cover("https://www.mcimg.com/uploads/cover.png").is_some()
+        );
+        for cover in [
+            "https://attacker.invalid/cover.png",
+            "//attacker.invalid/cover.png",
+            "https://www.mcimg.com.attacker.invalid/cover.png",
+            "https://user@www.mcimg.com/cover.png",
+            "https://www.mcimg.com:444/cover.png",
+            "http://www.mcimg.com/cover.png",
+            "data:image/png;base64,AAAA",
+            "",
+        ] {
+            assert!(trusted_cover(cover).is_none(), "{cover}");
+        }
+    }
 }

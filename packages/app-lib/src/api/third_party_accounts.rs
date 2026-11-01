@@ -14,11 +14,12 @@ const REDIRECT_URI: &str = "axolotl://oauth/callback";
 const HOST: &str = "https://www.mcimg.com";
 const CLIENT_ID: &str = "axolotl";
 const FLOW_TTL: u64 = 300;
+const FLOW_CREDENTIAL: &str = "pending-authorization";
 static SESSION: LazyLock<Mutex<Session>> = LazyLock::new(Mutex::default);
 
 pub mod shimu;
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AccountProfile {
     pub user_id: u64,
@@ -27,7 +28,7 @@ pub struct AccountProfile {
     pub nick_name: Option<String>,
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Clone, Deserialize, Eq, PartialEq, Serialize)]
 struct Connection {
     access_token: String,
     expires_at: u64,
@@ -72,20 +73,77 @@ pub struct AuthorizationStart {
     pub authorization_url: String,
 }
 
+#[derive(Clone, Deserialize, Eq, PartialEq, Serialize)]
 struct PendingFlow {
     state: String,
     deadline: u64,
     exchanging: bool,
 }
 
-#[derive(Default)]
+#[derive(Clone, Default)]
 struct Session {
+    restored: bool,
     pending: Option<PendingFlow>,
     outcome: Option<AuthorizationStatus>,
     completed_flow_id: Option<String>,
 }
 
 impl Session {
+    fn restore(store: &impl Store, now: u64) -> crate::Result<Self> {
+        let pending = store
+            .read(FLOW_CREDENTIAL)?
+            .map(|value| {
+                serde_json::from_str::<PendingFlow>(&value)
+                    .map_err(|_| storage_error())
+            })
+            .transpose()?;
+        let previous = pending.clone();
+        let mut session = Self {
+            pending,
+            restored: true,
+            ..Self::default()
+        };
+        session.expire(now);
+        if session.pending.as_ref().is_some_and(|flow| flow.exchanging) {
+            // A restarted process cannot know whether the provider consumed the
+            // code. Never exchange a previously claimed flow a second time.
+            session.completed_flow_id =
+                session.pending.take().map(|flow| flow.state);
+            session.outcome = Some(AuthorizationStatus::Failed);
+        }
+        if session.pending != previous {
+            session.persist_pending(store)?;
+        }
+        Ok(session)
+    }
+
+    fn persist_pending(&self, store: &impl Store) -> crate::Result<()> {
+        let value = self
+            .pending
+            .as_ref()
+            .map(|flow| {
+                serde_json::to_string(flow).map_err(|_| storage_error())
+            })
+            .transpose()?;
+        store.write(FLOW_CREDENTIAL, value.as_deref())
+    }
+
+    fn update<T>(
+        &mut self,
+        store: &impl Store,
+        update: impl FnOnce(&mut Self) -> T,
+    ) -> crate::Result<T> {
+        let previous = self.clone();
+        let result = update(self);
+        if self.pending != previous.pending
+            && let Err(error) = self.persist_pending(store)
+        {
+            *self = previous;
+            return Err(error);
+        }
+        Ok(result)
+    }
+
     fn cancel(&mut self, flow_id: &str) {
         if self
             .pending
@@ -210,9 +268,13 @@ fn storage_error() -> crate::Error {
 }
 
 fn session() -> crate::Result<std::sync::MutexGuard<'static, Session>> {
-    SESSION
+    let mut session = SESSION
         .lock()
-        .map_err(|_| failure("Third-party account state is unavailable"))
+        .map_err(|_| failure("Third-party account state is unavailable"))?;
+    if !session.restored {
+        *session = Session::restore(&CredentialStore, now())?;
+    }
+    Ok(session)
 }
 
 fn now() -> u64 {
@@ -272,7 +334,7 @@ fn summary(
 
 pub fn get_account() -> crate::Result<AccountSummary> {
     let mut session = session()?;
-    session.expire(now());
+    session.update(&CredentialStore, |session| session.expire(now()))?;
     Ok(summary(read_connection(&CredentialStore)?, &session, now()))
 }
 
@@ -283,19 +345,21 @@ pub fn begin_authorization() -> crate::Result<AuthorizationStart> {
         ));
     }
     let mut session = session()?;
-    session.expire(now());
+    session.update(&CredentialStore, |session| session.expire(now()))?;
     if session.pending.is_some() {
         return Err(failure("An authorization is already in progress"));
     }
     let state = Uuid::new_v4().to_string();
     let url = authorization_url(&state);
-    session.pending = Some(PendingFlow {
-        state: state.clone(),
-        deadline: now() + FLOW_TTL,
-        exchanging: false,
-    });
-    session.outcome = None;
-    session.completed_flow_id = None;
+    session.update(&CredentialStore, |session| {
+        session.pending = Some(PendingFlow {
+            state: state.clone(),
+            deadline: now() + FLOW_TTL,
+            exchanging: false,
+        });
+        session.outcome = None;
+        session.completed_flow_id = None;
+    })?;
     Ok(AuthorizationStart {
         flow_id: state,
         authorization_url: url,
@@ -315,20 +379,26 @@ fn authorization_url(state: &str) -> String {
 
 pub fn cancel_authorization(flow_id: &str) -> crate::Result<()> {
     let mut session = session()?;
-    session.cancel(flow_id);
-    Ok(())
+    session.update(&CredentialStore, |session| session.cancel(flow_id))
 }
 
 pub fn disconnect() -> crate::Result<()> {
     let mut session = session()?;
     // Invalidate an in-flight exchange before it can commit its result.
-    session.pending = None;
-    session.outcome = None;
-    session.completed_flow_id = None;
+    session.update(&CredentialStore, |session| {
+        session.pending = None;
+        session.outcome = None;
+        session.completed_flow_id = None;
+    })?;
     oauth_credentials::write(&CredentialStore, None)
 }
 
 pub fn is_callback(command: &str) -> bool {
+    callback_url(command).is_some()
+}
+
+/// Includes malformed OAuth links so rejected callbacks never expose codes in logs.
+pub fn is_callback_candidate(command: &str) -> bool {
     Url::parse(command).is_ok_and(|url| {
         url.scheme() == "axolotl" && url.host_str() == Some("oauth")
     })
@@ -352,25 +422,28 @@ pub async fn handle_callback(command: &str) -> crate::Result<()> {
     };
     let claimed = {
         let mut session = session()?;
-        session.claim(&url, now()).map(|code| {
-            (
-                code,
-                session
-                    .pending
-                    .as_ref()
-                    .expect("claimed authorization")
-                    .state
-                    .clone(),
-            )
-        })
+        session
+            .update(&CredentialStore, |session| session.claim(&url, now()))?
+            .map(|code| {
+                (
+                    code,
+                    session
+                        .pending
+                        .as_ref()
+                        .expect("claimed authorization")
+                        .state
+                        .clone(),
+                )
+            })
     };
     let Some((code, flow_state)) = claimed else {
         return Ok(());
     };
     let exchanged = exchange_code(&code).await;
     let mut session = session()?;
-    session.complete(&flow_state, exchanged, &CredentialStore, now());
-    Ok(())
+    session.update(&CredentialStore, |session| {
+        session.complete(&flow_state, exchanged, &CredentialStore, now());
+    })
 }
 
 async fn http_client() -> crate::Result<reqwest::Client> {
@@ -472,10 +545,10 @@ pub async fn check_connection() -> crate::Result<AccountSummary> {
     if !unauthorized && !response.status().is_success() {
         return Err(failure("Could not check the Shimu connection"));
     }
-    let mut updated = if unauthorized {
+    let updated = if unauthorized {
         Connection {
             expires_at: 0,
-            ..connection
+            ..connection.clone()
         }
     } else {
         let value = response.json::<UserReply>().await.map_err(|_| {
@@ -486,20 +559,27 @@ pub async fn check_connection() -> crate::Result<AccountSummary> {
         }
         Connection {
             user: value.user,
-            ..connection
+            ..connection.clone()
         }
     };
     let session = session()?;
-    // A response from the old account must not restore a disconnected/replaced grant.
-    if read_connection(&CredentialStore)?
-        .is_some_and(|current| current.access_token == updated.access_token)
-    {
-        let value =
-            serde_json::to_string(&updated).map_err(|_| storage_error())?;
-        oauth_credentials::write(&CredentialStore, Some(&value))?;
-    }
-    updated.access_token.clear();
+    write_checked_connection(&CredentialStore, &connection, &updated)?;
     Ok(summary(read_connection(&CredentialStore)?, &session, now()))
+}
+
+fn write_checked_connection(
+    store: &impl Store,
+    checked: &Connection,
+    updated: &Connection,
+) -> crate::Result<()> {
+    // Compare the whole snapshot, including expiry, so a concurrent 401 cannot
+    // be undone by a successful response started before that invalidation.
+    if read_connection(store)?.as_ref() == Some(checked) {
+        let value =
+            serde_json::to_string(updated).map_err(|_| storage_error())?;
+        oauth_credentials::write(store, Some(&value))?;
+    }
+    Ok(())
 }
 
 #[cfg(test)]

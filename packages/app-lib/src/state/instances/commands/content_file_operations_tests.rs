@@ -417,3 +417,143 @@ async fn committed_toggle_is_not_rolled_back_when_journal_cleanup_fails() {
     assert_eq!(journal_count(&state).await, 0);
     state.pool.close().await;
 }
+
+#[tokio::test]
+async fn schematic_publication_recovers_source_and_revision_after_restart() {
+    use crate::resources::*;
+    use crate::state::instances::commands::install_schematic::{
+        Publication, commit_publication,
+    };
+    for committed in [false, true] {
+        let (_temp, state, root, _ids) = fixture().await;
+        let revision =
+            content_sets::get_applied_content_set("instance", &state.pool)
+                .await
+                .unwrap()
+                .unwrap()
+                .revision;
+        let bytes = b"schematic payload";
+        let artifact = ResourceArtifact {
+            reference: SourceArtifactRef {
+                release: SourceReleaseRef {
+                    project: SourceProjectRef {
+                        source: SourceId::new("reden").unwrap(),
+                        project_id: SourceProjectId::new("example").unwrap(),
+                    },
+                    release_id: SourceReleaseId::new("release").unwrap(),
+                },
+                artifact_id: SourceArtifactId::new("example.nbt").unwrap(),
+            },
+            file_name: Some("example.nbt".into()),
+            role: ArtifactRole::Primary,
+            available: Some(true),
+            integrity: ArtifactIntegrity {
+                size: Some(bytes.len() as u64),
+                hashes: vec![ContentHash {
+                    algorithm: HashAlgorithm::Sha1,
+                    value: sha1_smol::Sha1::from(bytes.as_slice()).hexdigest(),
+                }],
+            },
+            acquisition: ArtifactAcquisition::Unavailable,
+            dependencies: vec![],
+        };
+        let publication = Publication {
+            content_set_id: "set".into(),
+            relative_path: "schematics/example.nbt".into(),
+            staging_path: "schematics/.axolotl-schematic-test".into(),
+            artifact: artifact.clone(),
+        };
+        std::fs::create_dir_all(root.join("schematics")).unwrap();
+        std::fs::write(root.join(&publication.staging_path), bytes).unwrap();
+        prepare_schematic(&state, "instance", &root, &publication)
+            .await
+            .unwrap();
+        std::fs::rename(
+            root.join(&publication.staging_path),
+            root.join(&publication.relative_path),
+        )
+        .unwrap();
+        // Dropping here models the publication/commit crash window. The other
+        // branch models a crash after commit, before journal cleanup.
+        if committed {
+            commit_publication(&state, "instance", &publication)
+                .await
+                .unwrap();
+        }
+        let directories = DirectoryInfo {
+            settings_dir: state.directories.settings_dir.clone(),
+            config_dir: state.directories.config_dir.clone(),
+            app_identifier: state.directories.app_identifier.clone(),
+        };
+        let db = state.pool.connect_options().get_filename().to_owned();
+        state.pool.close().await;
+        drop(state);
+        let pool = sqlx::sqlite::SqlitePoolOptions::new()
+            .max_connections(1)
+            .connect_with(
+                sqlx::sqlite::SqliteConnectOptions::new()
+                    .filename(db)
+                    .foreign_keys(true),
+            )
+            .await
+            .unwrap();
+        let reopened =
+            crate::state::test_state(directories, pool).await.unwrap();
+        recover_content_file_operations(&reopened).await.unwrap();
+        recover_content_file_operations(&reopened).await.unwrap();
+        // Reconciliation must retain both .nbt tracking and the exact source.
+        sync_content_files("instance", &reopened).await.unwrap();
+        let payload: String = sqlx::query_scalar("SELECT artifact FROM resource_installed_artifacts WHERE entry_id IN (SELECT id FROM instance_content_entries WHERE file_id IN (SELECT id FROM instance_files WHERE instance_id = 'instance' AND relative_path = 'schematics/example.nbt'))")
+            .fetch_one(&reopened.pool).await.unwrap();
+        assert_eq!(
+            serde_json::from_str::<ResourceArtifact>(&payload).unwrap(),
+            artifact
+        );
+        assert_eq!(
+            content_sets::get_applied_content_set("instance", &reopened.pool)
+                .await
+                .unwrap()
+                .unwrap()
+                .revision,
+            revision + 1
+        );
+        assert_eq!(journal_count(&reopened).await, 0);
+        assert_eq!(
+            std::fs::read(root.join(&publication.relative_path)).unwrap(),
+            bytes
+        );
+        reopened.pool.close().await;
+    }
+}
+
+#[tokio::test]
+async fn unpublished_schematic_journal_cleans_staging_without_importing() {
+    let (_temp, state, root, _ids) = fixture().await;
+    let payload = serde_json::json!({
+        "root": io::canonicalize(&root).unwrap().to_string_lossy(),
+        "delete": false,
+        "files": [],
+        "schematic": {
+            "content_set_id": "set",
+            "relative_path": "schematics/not-published.nbt",
+            "staging_path": "schematics/.axolotl-schematic-test",
+            "artifact": {
+                "reference": {"release": {"project": {"source": "reden", "projectId": "example"}, "releaseId": "release"}, "artifactId": "example.nbt"},
+                "fileName": "example.nbt", "role": "primary", "available": true,
+                "integrity": {"size": 1, "hashes": [{"algorithm": "sha1", "value": sha1_smol::Sha1::from(b"a").hexdigest()}]},
+                "acquisition": {"kind": "unavailable"}, "dependencies": []
+            }
+        }
+    });
+    std::fs::create_dir_all(root.join("schematics")).unwrap();
+    std::fs::write(root.join("schematics/.axolotl-schematic-test"), b"a")
+        .unwrap();
+    journals::set(&state.data, "instance", &payload.to_string())
+        .await
+        .unwrap();
+    recover_content_file_operations(&state).await.unwrap();
+    assert!(!root.join("schematics/not-published.nbt").exists());
+    assert!(!root.join("schematics/.axolotl-schematic-test").exists());
+    assert_eq!(journal_count(&state).await, 0);
+    state.pool.close().await;
+}

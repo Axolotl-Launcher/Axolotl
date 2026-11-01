@@ -23,6 +23,8 @@ struct FileMove {
 
 #[derive(Serialize, Deserialize)]
 struct Journal {
+    #[serde(default)]
+    schematic: Option<super::install_schematic::Publication>,
     root: String,
     delete: bool,
     files: Vec<FileMove>,
@@ -84,12 +86,46 @@ pub(super) async fn prepare(
         });
     }
     let journal = Journal {
+        schematic: None,
         root: io::canonicalize(root)?.to_string_lossy().into_owned(),
         delete,
         files,
     };
     journals::set(&state.data, instance_id, &serde_json::to_string(&journal)?)
         .await?;
+    Ok(())
+}
+
+/// Publishes no files until the full source identity has been durably recorded.
+pub(super) async fn prepare_schematic(
+    state: &State,
+    instance_id: &str,
+    root: &Path,
+    publication: &super::install_schematic::Publication,
+) -> crate::Result<()> {
+    let journal = Journal {
+        root: io::canonicalize(root)?.to_string_lossy().into_owned(),
+        delete: false,
+        files: Vec::new(),
+        schematic: Some(publication.clone()),
+    };
+    journals::set(&state.data, instance_id, &serde_json::to_string(&journal)?)
+        .await
+}
+
+/// Used only when noclobber publication failed, while the instance lock is held.
+pub(super) async fn discard_schematic(
+    state: &State,
+    instance_id: &str,
+) -> crate::Result<()> {
+    if let Some((payload, false)) =
+        journals::get(&state.data, instance_id).await?
+    {
+        let journal: Journal = serde_json::from_str(&payload)?;
+        if journal.schematic.is_some() {
+            journals::remove(&state.data, instance_id, &payload).await?;
+        }
+    }
     Ok(())
 }
 
@@ -141,7 +177,8 @@ pub(super) async fn publish(
 
 pub(super) use crate::state::store::content_file_operations::mark_committed;
 
-/// Roll back an uncommitted rename or finish cleanup after a committed delete.
+/// Roll back interrupted moves, finish committed cleanup, or restore a published
+/// schematic and its source metadata before any filesystem reconciliation.
 pub(super) async fn recover(
     state: &State,
     instance_id: &str,
@@ -156,6 +193,35 @@ pub(super) async fn recover(
         return Err(recovery_error(
             "Instance directory changed before content recovery",
         ));
+    }
+    if let Some(publication) = &journal.schematic {
+        let destination = checked_path(root, &publication.relative_path)?;
+        if !committed && tokio::fs::try_exists(&destination).await? {
+            if !matches_file(&destination, &publication.artifact.integrity)
+                .await?
+            {
+                return Err(recovery_error(
+                    "Published schematic changed before recovery",
+                ));
+            }
+            super::install_schematic::commit_publication(
+                state,
+                instance_id,
+                publication,
+            )
+            .await?;
+        }
+        let staging = checked_path(root, &publication.staging_path)?;
+        if tokio::fs::try_exists(&staging).await? {
+            if !matches_file(&staging, &publication.artifact.integrity).await? {
+                return Err(recovery_error(
+                    "Schematic staging file changed before recovery",
+                ));
+            }
+            io::remove_file(staging).await?;
+        }
+        journals::remove(&state.data, instance_id, &payload).await?;
+        return Ok(());
     }
     for file in journal.files.iter().rev() {
         let original = checked_path(root, &file.original)?;

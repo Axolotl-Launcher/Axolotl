@@ -157,18 +157,17 @@ fn title(id: &str) -> String {
     id.replace(['-', '_'], " ")
 }
 
+fn project_prefix(source: Source) -> &'static str {
+    match source {
+        Source::Reden => "/zh_cn/litematica/",
+        Source::BuildSchematics => "/presets/",
+        Source::Shimu => "/post/",
+    }
+}
+
 fn base_project(source: Source, id: &str) -> crate::Result<Project> {
-    let source_url = endpoint(
-        source,
-        match source {
-            Source::Reden => "/zh_cn/litematica/",
-            Source::BuildSchematics => "/presets/",
-            Source::Shimu => "/post/",
-        },
-        id,
-        "",
-    )?
-    .to_string();
+    let source_url =
+        endpoint(source, project_prefix(source), id, "")?.to_string();
     Ok(Project {
         source,
         id: id.to_string(),
@@ -304,7 +303,7 @@ async fn index(source: Source) -> crate::Result<Index> {
     {
         urls = xml_urls(&text(source, child.clone()).await?)?;
     }
-    let prefix = "/presets/";
+    let prefix = project_prefix(source);
     let mut ids = Vec::new();
     let mut seen = std::collections::HashSet::new();
     for url in urls {

@@ -269,7 +269,7 @@ export const FLOWS = [
                     {
                         glyph: 'S',
                         name: 'Sodium',
-                        note: 'Faster rendering · Modrinth',
+                        note: 'Faster rendering',
                         kind: 'install',
                         meta: 'Modrinth · 1.1 MB',
                         to: '0.6.13',
@@ -277,7 +277,7 @@ export const FLOWS = [
                     {
                         glyph: 'Li',
                         name: 'Lithium',
-                        note: 'Faster game logic · Modrinth',
+                        note: 'Faster game logic',
                         kind: 'install',
                         meta: 'Modrinth · 0.7 MB',
                         to: '0.14.8',
@@ -285,7 +285,7 @@ export const FLOWS = [
                     {
                         glyph: 'Fc',
                         name: 'FerriteCore',
-                        note: 'Lower memory use · Modrinth',
+                        note: 'Lower memory use',
                         kind: 'install',
                         meta: 'Modrinth · 0.2 MB',
                         to: '7.0.2',
@@ -358,7 +358,7 @@ export const FLOWS = [
                     {
                         glyph: 'S',
                         name: 'Sodium',
-                        note: '渲染优化 · Modrinth',
+                        note: '渲染优化',
                         kind: 'install',
                         meta: 'Modrinth · 1.1 MB',
                         to: '0.6.13',
@@ -366,7 +366,7 @@ export const FLOWS = [
                     {
                         glyph: 'Li',
                         name: 'Lithium',
-                        note: '游戏逻辑优化 · Modrinth',
+                        note: '游戏逻辑优化',
                         kind: 'install',
                         meta: 'Modrinth · 0.7 MB',
                         to: '0.14.8',
@@ -374,7 +374,7 @@ export const FLOWS = [
                     {
                         glyph: 'Fc',
                         name: 'FerriteCore',
-                        note: '降低内存占用 · Modrinth',
+                        note: '降低内存占用',
                         kind: 'install',
                         meta: 'Modrinth · 0.2 MB',
                         to: '7.0.2',

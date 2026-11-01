@@ -87,8 +87,11 @@ pub(crate) fn config_root() -> Option<PathBuf> {
     if let Some(root) = TEST_CONFIG_ROOT.with(|root| root.borrow().clone()) {
         return Some(root);
     }
-    config_root_from(std::env::var_os(CONFIG_DIR_ENV))
-        .or_else(default_config_root)
+    match named_config_dir(std::env::var_os(CONFIG_DIR_ENV)) {
+        Named::Unset => default_config_root(),
+        Named::Cleared => None,
+        Named::Directory(directory) => Some(directory),
+    }
 }
 
 /// Where a deployment's documents are looked for when nothing names a
@@ -122,8 +125,24 @@ thread_local! {
         const { std::cell::RefCell::new(None) };
 }
 
-fn config_root_from(value: Option<std::ffi::OsString>) -> Option<PathBuf> {
-    value.filter(|dir| !dir.is_empty()).map(PathBuf::from)
+/// What the environment says about where a deployment ships its documents.
+enum Named {
+    /// Nothing was set, so the platform's own directory answers.
+    Unset,
+    /// Set to nothing, which is how a shell clears a variable: a deployment that
+    /// leaves it empty asks for no documents at all rather than for the default
+    /// ones.
+    Cleared,
+    /// The directory that was named.
+    Directory(PathBuf),
+}
+
+fn named_config_dir(value: Option<std::ffi::OsString>) -> Named {
+    match value {
+        None => Named::Unset,
+        Some(directory) if directory.is_empty() => Named::Cleared,
+        Some(directory) => Named::Directory(PathBuf::from(directory)),
+    }
 }
 
 /// Where the documents of one launch live, and what the fallback reads.
@@ -896,8 +915,8 @@ mod tests {
         create_official_login_proof_table, create_translation_tables, pool,
     };
     use super::{
-        Documents, MAX_DOCUMENT_BYTES, ai, config_root_from, hand_over, java,
-        log_share, login_proof, translation,
+        Documents, MAX_DOCUMENT_BYTES, Named, ai, hand_over, java, log_share,
+        login_proof, named_config_dir, translation,
     };
     use crate::state::store::Collection;
     use crate::state::store::Handle;
@@ -1008,19 +1027,23 @@ mod tests {
         );
     }
 
-    /// An empty variable is how a shell clears one, so a deployment that sets
-    /// it to nothing must read the same as one that never set it at all: a
-    /// directory named by nothing would make every domain look deployed.
+    /// An empty variable is how a shell clears one, and clearing it has to mean
+    /// no deployment rather than the default one: a machine whose administrator
+    /// emptied the variable asked for the documents that ship with the launcher
+    /// to stay out of the way.
     #[test]
-    fn an_empty_config_dir_variable_is_the_same_as_unset() {
+    fn an_empty_config_dir_variable_asks_for_no_deployment() {
         let directory = std::path::PathBuf::from("/deploy/settings");
 
-        assert_eq!(config_root_from(None), None);
-        assert_eq!(config_root_from(Some(std::ffi::OsString::new())), None);
-        assert_eq!(
-            config_root_from(Some(directory.clone().into_os_string())),
-            Some(directory)
-        );
+        assert!(matches!(named_config_dir(None), Named::Unset));
+        assert!(matches!(
+            named_config_dir(Some(std::ffi::OsString::new())),
+            Named::Cleared
+        ));
+        match named_config_dir(Some(directory.clone().into_os_string())) {
+            Named::Directory(named) => assert_eq!(named, directory),
+            _ => panic!("a named directory must be used"),
+        }
     }
 
     async fn installed_pool() -> sqlx::SqlitePool {

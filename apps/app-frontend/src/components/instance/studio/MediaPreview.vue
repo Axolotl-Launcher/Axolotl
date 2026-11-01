@@ -136,7 +136,9 @@ function showActualSize() {
 }
 
 function onWheel(event: WheelEvent) {
-    if (!interactive.value || !event.ctrlKey) return
+    // Chromium reports a trackpad pinch as ctrl+wheel, so this covers pinch on
+    // every platform and the key users reach for on Windows and macOS.
+    if (!interactive.value || !(event.ctrlKey || event.metaKey)) return
     event.preventDefault()
     zoomBy(event.deltaY < 0 ? 1.1 : 1 / 1.1)
 }

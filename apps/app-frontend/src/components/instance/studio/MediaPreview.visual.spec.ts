@@ -112,6 +112,35 @@ it('returns to the fitted scale from actual size', async () => {
     expect(wrapper.text()).toContain('100%')
 })
 
+it('zooms with the wheel while the zoom key is held', async () => {
+    const wrapper = mountPreview({ kind: 'image' })
+    const stage = wrapper.find('.cursor-grab')
+
+    stage.element.dispatchEvent(
+        new WheelEvent('wheel', { deltaY: -100, ctrlKey: true, bubbles: true, cancelable: true }),
+    )
+    await nextTick()
+    expect(wrapper.text()).toContain('110%')
+
+    // macOS uses the command key, and a trackpad pinch arrives as ctrl+wheel.
+    stage.element.dispatchEvent(
+        new WheelEvent('wheel', { deltaY: 100, metaKey: true, bubbles: true, cancelable: true }),
+    )
+    await nextTick()
+    expect(wrapper.text()).toContain('100%')
+})
+
+it('leaves a plain wheel scroll to the stage', async () => {
+    const wrapper = mountPreview({ kind: 'image' })
+    const stage = wrapper.find('.cursor-grab')
+
+    stage.element.dispatchEvent(
+        new WheelEvent('wheel', { deltaY: -100, bubbles: true, cancelable: true }),
+    )
+    await nextTick()
+    expect(wrapper.text()).toContain('100%')
+})
+
 it('replaces an image the webview cannot decode with the fallback', async () => {
     const wrapper = mountPreview({ kind: 'image', url: 'blob:not-an-image' })
     await wrapper.find('img').trigger('error')

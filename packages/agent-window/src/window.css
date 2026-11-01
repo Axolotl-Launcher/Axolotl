@@ -1120,6 +1120,9 @@ code {
     font-size: 12px;
     font-weight: 500;
     line-height: 1.35;
+    /* Chinese breaks between any two characters, so a tool's longer note
+       could leave one character alone on its second line. */
+    text-wrap: pretty;
     pointer-events: none;
     opacity: 0;
     transform: translate3d(var(--x, 0), calc(var(--y, 0) + 3px), 0);
@@ -4442,6 +4445,8 @@ p.plan-state {
     padding: 8px 8px 8px 12px;
     border-radius: 14px;
     font-size: 13px;
+    /* A long task title wraps without leaving one character behind. */
+    text-wrap: pretty;
     background: var(--overlay);
     box-shadow: var(--shadow-pop);
     pointer-events: auto;

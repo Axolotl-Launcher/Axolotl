@@ -420,14 +420,27 @@ function queueTip(target, delay) {
 }
 
 export function bindTips() {
+    // A button that was just pressed stays quiet until the pointer leaves it:
+    // what it opened can redraw under the pointer and look like a new hover.
+    let pressed = null
     document.addEventListener('pointerover', (event) => {
         if (event.pointerType === 'touch') return
-        queueTip(event.target.closest?.('[data-tip]') || null, 520)
+        const target = event.target.closest?.('[data-tip]') || null
+        if (target && target === pressed) return
+        pressed = null
+        queueTip(target, 520)
     })
     // Focus shows a tooltip only when the keyboard moved it, not when a click
     // opened something that focused its first button.
     let keyboard = false
-    document.addEventListener('pointerdown', () => (keyboard = false), true)
+    document.addEventListener(
+        'pointerdown',
+        (event) => {
+            keyboard = false
+            pressed = event.target.closest?.('[data-tip]') || null
+        },
+        true,
+    )
     document.addEventListener('keydown', () => (keyboard = true), true)
     document.addEventListener('focusin', (event) => {
         const target = event.target.closest?.('[data-tip]')

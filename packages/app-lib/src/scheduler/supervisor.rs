@@ -1,5 +1,7 @@
-//! Skeleton of the L0 supervisor. L0 tasks run in one `JoinSet`; a panic ends
-//! only the task that panicked, is logged, and is not restarted here.
+//! The L0 supervisor. L0 tasks run in one `JoinSet`; a panic ends only the
+//! task that panicked, is logged, and is not restarted here. The supervisor
+//! owns the abort authority: callers may ask it to abort all pending tasks,
+//! but only this JoinSet performs the abort.
 
 use std::collections::HashMap;
 use std::future::Future;
@@ -81,6 +83,12 @@ impl Supervisor {
         self.tasks.is_empty()
     }
 
+    /// Aborts every pending task in this supervisor. Callers ask for a cancel
+    /// through the control table; the abort itself stays here.
+    pub fn abort_all(&mut self) {
+        self.tasks.abort_all();
+    }
+
     /// Waits for the next task to end and reports how; `None` once empty.
     pub async fn join_next(&mut self) -> Option<Exit> {
         let exit = match self.tasks.join_next_with_id().await? {
@@ -141,5 +149,24 @@ mod tests {
             1,
             "a foreign release leaves theirs alone"
         );
+    }
+
+    #[tokio::test]
+    async fn abort_all_cancels_every_pending_task() {
+        let mut supervisor = Supervisor::new();
+        for _ in 0..3 {
+            supervisor.spawn("task", async {
+                std::future::pending::<()>().await;
+            });
+        }
+        assert_eq!(supervisor.len(), 3);
+        supervisor.abort_all();
+        while let Some(exit) = supervisor.join_next().await {
+            assert!(
+                matches!(exit, Exit::Cancelled(_)),
+                "abort_all must cancel the task: {exit:?}"
+            );
+        }
+        assert!(supervisor.is_empty());
     }
 }

@@ -2,6 +2,8 @@ use crate::event::emit::{emit_instance, emit_process};
 use crate::event::{InstancePayloadType, ProcessPayloadType};
 #[cfg(feature = "tauri")]
 use crate::event::{LogEvent, LogPayload};
+use crate::scheduler::l0::queue::{Delivery, L0Queue, L0QueueReceiver, Posted};
+use crate::scheduler::l0::quiesce::QuiesceToken;
 use crate::state::store::Collection as _;
 use crate::state::store::join_log::{JoinLog, JoinLogEntry, JoinLogKey};
 use crate::util::io::IOError;
@@ -541,7 +543,9 @@ impl ProcessManager {
 
         self.processes.insert(process.metadata.uuid, process);
 
-        tokio::spawn(Process::sequential_process_manager(
+        let (events, reactions) =
+            L0Queue::channel(PROCESS_TICK_CAPACITY, PROCESS_EVENT_CAPACITY);
+        tokio::spawn(Process::react_to_process(
             instance_id.to_string(),
             instance_path.to_string(),
             game_dir,
@@ -549,8 +553,15 @@ impl ProcessManager {
             post_exit_command,
             metadata.uuid,
             metadata.pid,
-            metadata.maximize_window,
             crash_reports_before,
+            reactions,
+        ));
+        let state = crate::State::get().await?;
+        crate::scheduler::l0::spawn(Process::detect_process_exit(
+            state,
+            metadata.uuid,
+            events,
+            crate::scheduler::l0::quiesce_token(),
         ));
 
         emit_process(
@@ -1200,10 +1211,87 @@ impl Process {
         Ok(())
     }
 
-    // Spawns a new child process and inserts it into the hashmap
-    // Also, as the process ends, it spawns the follow-up process if it exists
-    // By convention, ExitStatus is last command's exit status, and we exit on the first non-zero exit status
-    async fn sequential_process_manager(
+    /// L0 side of a running game (L0-1): it only detects. It polls the child,
+    /// times playtime and posts what it saw; every reaction that writes the
+    /// database, emits events, spawns or waits on other tasks runs in
+    /// [`Self::react_to_process`] on the main runtime.
+    async fn detect_process_exit(
+        state: Arc<crate::State>,
+        uuid: Uuid,
+        events: L0Queue<ProcessEvent>,
+        quiesce: QuiesceToken,
+    ) -> crate::Result<()> {
+        let mut clock = PlaytimeClock::new();
+        let (status, missing) = loop {
+            if let Some(process) = state.process_manager.try_wait(uuid)? {
+                if let Some(status) = process {
+                    break (status, false);
+                }
+            } else {
+                break (ExitStatus::default(), true);
+            }
+            // Safety point after the poll: the poll holds no resource on
+            // return, and an exit observed just before the quiesce is still
+            // reported. A quiesced detector that saw no exit returns without
+            // one; its reaction task sees the closed queue and logs the loss.
+            if quiesce.safety_point().is_break() {
+                tracing::info!(
+                    %uuid,
+                    "L0 process detector stopped at a quiesce"
+                );
+                return Ok(());
+            }
+            tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
+            if let Some(tick) = clock.take(false) {
+                let elapsed = tick.elapsed;
+                // Ticks are droppable; a refused tick is carried into the
+                // next one. Only the exit below uses the reserved segment.
+                if events.post(ProcessEvent::Playtime(tick), Delivery::Lossy)
+                    != Posted::Queued
+                {
+                    clock.carry(elapsed);
+                }
+            }
+        };
+        let manually_killed = state.process_manager.was_manually_killed(uuid);
+        let posted = events.post(
+            ProcessEvent::Exited {
+                status,
+                missing,
+                manually_killed,
+                final_playtime: clock.take(true),
+            },
+            Delivery::Reserved,
+        );
+        if posted != Posted::Queued {
+            tracing::warn!(
+                %uuid,
+                ?posted,
+                "The process-exit event was not delivered; this instance stays shown as running until a restart"
+            );
+        }
+        Ok(())
+    }
+
+    /// What a stopped detector's last look at the child means. Extracted so
+    /// the four outcomes are tested without a real child.
+    #[allow(dead_code)]
+    fn classify_stopped_detector<T>(
+        result: crate::Result<Option<Option<T>>>,
+    ) -> StoppedDetector<T> {
+        match result {
+            Ok(Some(Some(status))) => StoppedDetector::Exited(status),
+            Ok(Some(None)) => StoppedDetector::StillRunning,
+            Ok(None) => StoppedDetector::Missing,
+            Err(error) => StoppedDetector::Unavailable(error),
+        }
+    }
+
+    /// Main-runtime side of a running game: everything the detector posts is
+    /// handled here in order, so the output pumps still finish before the
+    /// `Finished` event, as before the split.
+    #[allow(clippy::too_many_arguments)]
+    async fn react_to_process(
         instance_id: String,
         instance_path: String,
         game_dir: PathBuf,
@@ -1211,71 +1299,9 @@ impl Process {
         post_exit_command: Option<String>,
         uuid: Uuid,
         pid: u32,
-        _maximize_window: bool,
         crash_reports_before: Option<CrashReportSnapshot>,
+        mut events: L0QueueReceiver<ProcessEvent>,
     ) -> crate::Result<()> {
-        async fn update_playtime(
-            last_updated_playtime: &mut Instant,
-            instance_id: &str,
-            force_update: bool,
-        ) {
-            let elapsed = last_updated_playtime.elapsed().as_secs();
-            if elapsed == 0 || (!force_update && elapsed < 60) {
-                return;
-            }
-
-            let state = match crate::State::get().await {
-                Ok(state) => state,
-                Err(e) => {
-                    tracing::warn!(
-                        "Failed to get state for playtime update on instance {}: {}",
-                        instance_id,
-                        e
-                    );
-                    return;
-                }
-            };
-            let ended_at = Utc::now();
-            let elapsed_duration =
-                Duration::seconds(elapsed.min(i64::MAX as u64) as i64);
-            let started_at = ended_at - elapsed_duration;
-            if let Err(e) =
-                crate::state::instances::commands::add_instance_recent_playtime(
-                    instance_id,
-                    elapsed,
-                    &state.pool,
-                )
-                .await
-            {
-                tracing::warn!(
-                    "Failed to update playtime for instance {}: {}",
-                    instance_id,
-                    e
-                );
-            }
-            if let Err(e) =
-                crate::state::instances::commands::record_instance_daily_playtime(
-                    instance_id,
-                    started_at,
-                    ended_at,
-                    &state.pool,
-                )
-                .await
-            {
-                tracing::warn!(
-                    "Failed to record daily playtime for instance {}: {}",
-                    instance_id,
-                    e
-                );
-            }
-            *last_updated_playtime = Instant::now();
-        }
-
-        // Wait on current Minecraft Child
-        let mc_exit_status;
-        let mut process_missing = false;
-        let mut last_updated_playtime = Instant::now();
-
         let state = crate::State::get().await?;
         if let Err(e) =
             crate::state::instances::commands::record_instance_play_session(
@@ -1290,27 +1316,61 @@ impl Process {
                 e
             );
         }
-        loop {
-            if let Some(process) = state.process_manager.try_wait(uuid)? {
-                if let Some(t) = process {
-                    mc_exit_status = t;
-                    break;
+        let (mc_exit_status, process_missing, manually_killed, final_playtime) = loop {
+            match events.recv().await {
+                Some(ProcessEvent::Playtime(tick)) => {
+                    record_playtime(&instance_id, tick).await;
                 }
-            } else {
-                mc_exit_status = ExitStatus::default();
-                process_missing = true;
-                break;
+                Some(ProcessEvent::Exited {
+                    status,
+                    missing,
+                    manually_killed,
+                    final_playtime,
+                }) => {
+                    // The reserved exit is served before lossy ticks queued
+                    // ahead of it. Record those first so the receiver does
+                    // not drop the playtime they carry.
+                    for event in events.drain_lossy() {
+                        if let ProcessEvent::Playtime(tick) = event {
+                            record_playtime(&instance_id, tick).await;
+                        }
+                    }
+                    break (status, missing, manually_killed, final_playtime);
+                }
+                // The detector stopped (quiesce, error or panic) without
+                // reporting an exit. If the child is gone, synthesize the exit
+                // and finish the normal cleanup; that is the in-session
+                // compensation for a lost exit event. If it still runs, the
+                // record cannot be cleaned up and is left with a warning.
+                None => match Self::classify_stopped_detector(
+                    state.process_manager.try_wait(uuid),
+                ) {
+                    StoppedDetector::Exited(status) => {
+                        let manually_killed =
+                            state.process_manager.was_manually_killed(uuid);
+                        break (status, false, manually_killed, None);
+                    }
+                    StoppedDetector::StillRunning => {
+                        tracing::warn!(
+                            instance = %instance_id,
+                            "The process detector stopped without reporting an exit while the game still runs; the instance stays shown as running"
+                        );
+                        return Ok(());
+                    }
+                    StoppedDetector::Missing => {
+                        break (ExitStatus::default(), true, false, None);
+                    }
+                    StoppedDetector::Unavailable(error) => {
+                        tracing::warn!(
+                            instance = %instance_id,
+                            %error,
+                            "The process detector stopped and the process could not be re-checked"
+                        );
+                        return Ok(());
+                    }
+                },
             }
-
-            // sleep for 10ms
-            tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
-
-            // Auto-update playtime every minute
-            update_playtime(&mut last_updated_playtime, &instance_id, false)
-                .await;
-        }
-
-        let manually_killed = state.process_manager.was_manually_killed(uuid);
+        };
         if let Some(mut process) = state.process_manager.remove(uuid) {
             for output_task in process.output_tasks.drain(..) {
                 if let Err(error) = output_task.await {
@@ -1320,8 +1380,10 @@ impl Process {
         }
         crate::api::multiplayer::minecraft_process_finished(&instance_id).await;
 
-        // Now fully complete- update playtime one last time
-        update_playtime(&mut last_updated_playtime, &instance_id, true).await;
+        // Now fully complete- record the last stretch of playtime
+        if let Some(tick) = final_playtime {
+            record_playtime(&instance_id, tick).await;
+        }
 
         let crash_reports_after = snapshot_crash_reports(
             &state.directories.game_crash_reports_dir(&game_dir),
@@ -1455,6 +1517,128 @@ impl Process {
         }
 
         Ok(())
+    }
+}
+
+/// Spec N9: droppable playtime ticks get the lossy segment (128 minutes of
+/// ticks), while the exit gets the reserved segment. A refused tick is carried
+/// into the next one, so only the exit needs to arrive without loss.
+const PROCESS_TICK_CAPACITY: usize = 128;
+/// One exit per game, with room for a retry after a detector restart.
+const PROCESS_EVENT_CAPACITY: usize = 8;
+
+/// What the L0 process detector tells its reaction task.
+enum ProcessEvent {
+    Playtime(PlaytimeTick),
+    Exited {
+        status: ExitStatus,
+        missing: bool,
+        manually_killed: bool,
+        final_playtime: Option<PlaytimeTick>,
+    },
+}
+
+/// What a stopped detector's last look at the child means (K3.5).
+enum StoppedDetector<T> {
+    Exited(T),
+    Missing,
+    StillRunning,
+    Unavailable(crate::Error),
+}
+
+/// A stretch of playtime ending at `ended_at`.
+struct PlaytimeTick {
+    elapsed: u64,
+    ended_at: DateTime<Utc>,
+}
+
+/// Playtime the detector has measured but not yet handed over.
+struct PlaytimeClock {
+    last: Instant,
+    /// Seconds of ticks the queue refused, added to the next tick.
+    carried: u64,
+}
+
+impl PlaytimeClock {
+    fn new() -> Self {
+        Self {
+            last: Instant::now(),
+            carried: 0,
+        }
+    }
+
+    /// The time since the last tick plus any carried time, once a minute
+    /// has gathered or whenever `force`d; the clock restarts from now.
+    ///
+    /// The cadence uses the time since the last tick, not the carried total:
+    /// a tick the queue refused must not be retried on every 50 ms poll.
+    fn take(&mut self, force: bool) -> Option<PlaytimeTick> {
+        let since_last = self.last.elapsed().as_secs();
+        if !force && since_last < 60 {
+            return None;
+        }
+        let elapsed = self.carried + since_last;
+        if elapsed == 0 {
+            return None;
+        }
+        self.last = Instant::now();
+        self.carried = 0;
+        Some(PlaytimeTick {
+            elapsed,
+            ended_at: Utc::now(),
+        })
+    }
+
+    /// Keeps the time of a tick the queue refused, so the next tick that is
+    /// accepted carries it and no playtime is lost.
+    fn carry(&mut self, elapsed: u64) {
+        self.carried += elapsed;
+    }
+}
+
+/// Writes one playtime tick to the recent and daily playtime records.
+async fn record_playtime(instance_id: &str, tick: PlaytimeTick) {
+    let state = match crate::State::get().await {
+        Ok(state) => state,
+        Err(e) => {
+            tracing::warn!(
+                "Failed to get state for playtime update on instance {}: {}",
+                instance_id,
+                e
+            );
+            return;
+        }
+    };
+    let started_at = tick.ended_at
+        - Duration::seconds(tick.elapsed.min(i64::MAX as u64) as i64);
+    if let Err(e) =
+        crate::state::instances::commands::add_instance_recent_playtime(
+            instance_id,
+            tick.elapsed,
+            &state.pool,
+        )
+        .await
+    {
+        tracing::warn!(
+            "Failed to update playtime for instance {}: {}",
+            instance_id,
+            e
+        );
+    }
+    if let Err(e) =
+        crate::state::instances::commands::record_instance_daily_playtime(
+            instance_id,
+            started_at,
+            tick.ended_at,
+            &state.pool,
+        )
+        .await
+    {
+        tracing::warn!(
+            "Failed to record daily playtime for instance {}: {}",
+            instance_id,
+            e
+        );
     }
 }
 
@@ -1659,5 +1843,269 @@ mod process_wait_tests {
         polling.await.unwrap();
         manager.remove(id);
         manager.wait_for(id).await.unwrap();
+    }
+}
+
+#[cfg(test)]
+mod playtime_clock_tests {
+    use super::*;
+
+    fn started(seconds_ago: u64) -> PlaytimeClock {
+        PlaytimeClock {
+            last: Instant::now() - std::time::Duration::from_secs(seconds_ago),
+            carried: 0,
+        }
+    }
+
+    #[test]
+    fn a_minute_makes_a_tick_and_restarts_the_clock() {
+        let mut clock = started(61);
+        assert!(clock.take(false).is_some_and(|tick| tick.elapsed >= 61));
+        assert!(clock.take(false).is_none());
+    }
+
+    #[test]
+    fn a_refused_tick_is_carried_into_the_next_one() {
+        let mut clock = started(61);
+        let refused = clock.take(false).unwrap().elapsed;
+        clock.carry(refused);
+        assert!(
+            clock.take(false).is_none(),
+            "a refusal is retried at the next minute, not on every poll"
+        );
+        // The next minute's tick carries the refused one.
+        clock.last = Instant::now() - std::time::Duration::from_secs(60);
+        let next = clock.take(false).expect("a minute has gathered");
+        assert!(next.elapsed >= refused + 60, "the refused time is not lost");
+        assert!(
+            clock.take(false).is_none(),
+            "carried time is handed over once"
+        );
+    }
+
+    #[test]
+    fn the_final_tick_includes_carried_time() {
+        let mut clock = PlaytimeClock::new();
+        clock.carry(30);
+        assert!(clock.take(true).is_some_and(|tick| tick.elapsed >= 30));
+    }
+}
+
+#[cfg(test)]
+mod stopped_detector_tests {
+    use super::*;
+
+    #[test]
+    fn an_exited_child_is_reported() {
+        assert!(matches!(
+            Process::classify_stopped_detector::<u8>(Ok(Some(Some(3)))),
+            StoppedDetector::Exited(3)
+        ));
+    }
+
+    #[test]
+    fn a_running_child_is_not_cleaned_up() {
+        assert!(matches!(
+            Process::classify_stopped_detector::<u8>(Ok(Some(None))),
+            StoppedDetector::StillRunning
+        ));
+    }
+
+    #[test]
+    fn a_missing_child_is_reported_as_missing() {
+        assert!(matches!(
+            Process::classify_stopped_detector::<u8>(Ok(None)),
+            StoppedDetector::Missing
+        ));
+    }
+
+    #[test]
+    fn a_failed_recheck_is_unavailable() {
+        let error =
+            crate::ErrorKind::OtherError("recheck failed".into()).into();
+        assert!(matches!(
+            Process::classify_stopped_detector::<u8>(Err(error)),
+            StoppedDetector::Unavailable(_)
+        ));
+    }
+}
+
+/// The 17 shared accesses of L0-1 (spec §5.2, tasks.md T3.2). Each test names
+/// one item and asserts the detector does not perform it while the reaction
+/// side does, so a regression that moves an access back onto L0 fails here.
+/// This is the source-level separation criterion; the full subprocess/Tauri
+/// acceptance runs remain listed in the task plan.
+#[cfg(test)]
+mod l0_separation_tests {
+    const SOURCE: &str = include_str!("process.rs");
+
+    fn function_body(name: &str, indent: &str) -> &'static str {
+        let marker = format!("\n{indent}async fn {name}(");
+        let start = SOURCE
+            .find(&marker)
+            .unwrap_or_else(|| panic!("{name} not found"));
+        let rest = &SOURCE[start..];
+        let close = format!("\n{indent}}}\n");
+        let end = rest
+            .find(&close)
+            .unwrap_or_else(|| panic!("{name} has no end"))
+            + close.len();
+        &rest[..end]
+    }
+
+    fn detector() -> &'static str {
+        function_body("detect_process_exit", "    ")
+    }
+
+    fn reaction() -> &'static str {
+        function_body("react_to_process", "    ")
+    }
+
+    fn playtime() -> &'static str {
+        function_body("record_playtime", "")
+    }
+
+    fn absent(body: &str, needle: &str) {
+        assert!(
+            !body.contains(needle),
+            "the L0 detector must not contain {needle:?}"
+        );
+    }
+
+    fn present(body: &str, needle: &str) {
+        assert!(
+            body.contains(needle),
+            "the reaction side must contain {needle:?}"
+        );
+    }
+
+    #[test]
+    fn l0_process_monitor_does_not_touch_shared_resources() {
+        for needle in [
+            ".pool",
+            "emit_process",
+            "std::fs::",
+            "Command::new",
+            "tokio::spawn",
+            ".lock()",
+        ] {
+            absent(detector(), needle);
+        }
+        present(reaction(), "record_instance_play_session");
+    }
+
+    #[test]
+    fn l0_playtime_events_are_queued_not_written_item_2() {
+        absent(detector(), "add_instance_recent_playtime");
+        present(playtime(), "add_instance_recent_playtime");
+    }
+
+    #[test]
+    fn l0_playtime_events_are_queued_not_written_item_3() {
+        absent(detector(), "record_instance_daily_playtime");
+        present(playtime(), "record_instance_daily_playtime");
+    }
+
+    #[test]
+    fn l0_monitor_loop_body_has_no_await_on_shared_resources() {
+        absent(detector(), ".pool");
+        absent(detector(), "record_instance");
+        present(detector(), "Delivery::Lossy");
+        present(detector(), "tokio::time::sleep");
+    }
+
+    #[test]
+    fn l0_does_not_await_child_output_tasks() {
+        absent(detector(), "output_task.await");
+        present(reaction(), "output_task.await");
+    }
+
+    #[test]
+    fn l0_playtime_events_are_queued_not_written_item_6() {
+        absent(detector(), "record_playtime");
+        present(reaction(), "record_playtime");
+    }
+
+    #[test]
+    fn l0_post_exit_file_io_is_dispatched_item_7() {
+        absent(detector(), "snapshot_crash_reports");
+        present(reaction(), "snapshot_crash_reports");
+    }
+
+    #[test]
+    fn l0_post_upgrade_record_runs_at_l3() {
+        absent(detector(), "record_post_upgrade_launch_best_effort");
+        present(reaction(), "record_post_upgrade_launch_best_effort");
+    }
+
+    #[test]
+    fn l0_post_exit_file_io_is_dispatched_item_9() {
+        absent(detector(), "append_to_log_file");
+        present(reaction(), "append_to_log_file");
+    }
+
+    #[test]
+    fn l0_post_exit_file_io_is_dispatched_item_10() {
+        absent(detector(), "save_successful_mod_snapshot");
+        present(reaction(), "save_successful_mod_snapshot");
+    }
+
+    #[test]
+    fn l0_does_not_await_event_emission() {
+        absent(detector(), "emit_process");
+        present(reaction(), "ProcessPayloadType::Finished");
+    }
+
+    #[test]
+    fn l0_has_no_detached_spawn_item_12() {
+        absent(detector(), "tokio::spawn");
+        present(reaction(), "tokio::spawn");
+    }
+
+    #[test]
+    fn l0_has_no_detached_spawn_item_13() {
+        absent(detector(), "tokio::spawn");
+        // The call, not the `reconcile_instance_id` local.
+        present(reaction(), "synced_options::reconcile_instance(");
+    }
+
+    #[test]
+    fn l0_does_not_call_discord_rpc() {
+        absent(detector(), "discord_rpc");
+        present(reaction(), "discord_rpc.clear_to_default");
+    }
+
+    #[test]
+    fn l0_multiplayer_notify_is_dispatched() {
+        absent(detector(), "minecraft_process_finished");
+        present(reaction(), "minecraft_process_finished");
+    }
+
+    #[test]
+    fn l0_post_exit_file_io_is_dispatched_item_16() {
+        absent(detector(), "get_instance");
+        present(reaction(), "get_instance");
+    }
+
+    #[test]
+    fn l0_post_exit_hook_runs_at_l2() {
+        absent(detector(), "Command::new");
+        present(reaction(), "Command::new");
+    }
+
+    #[test]
+    fn finished_event_implies_log_buffer_has_last_line() {
+        // Source-order guard for V7: the pump await is the only statement
+        // between the process removal and the Finished emit, so pinning their
+        // order catches a reorder that would emit before the pumps drained.
+        let body = reaction();
+        let pumps = body.find("output_task.await").expect("pumps are awaited");
+        let finished = body
+            .find("ProcessPayloadType::Finished")
+            .expect("Finished is emitted");
+        assert!(
+            pumps < finished,
+            "the output pumps must finish before the Finished event"
+        );
     }
 }

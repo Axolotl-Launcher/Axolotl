@@ -2,8 +2,8 @@
 // exists to reject.
 
 import assert from 'node:assert/strict'
-import { spawnSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
+import { spawnSync } from 'node:child_process'
 import { existsSync, mkdtempSync, rmSync } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
@@ -11,13 +11,14 @@ import { test } from 'node:test'
 import { fileURLToPath } from 'node:url'
 import { checkSpawns, countForms, unboundedInL0 } from './sched-bare-spawn-check.mjs'
 import { enterBanViolations } from './sched-enter-ban-check.mjs'
-import { l0Violations } from './sched-l0-resource-check.mjs'
+import { l0FunctionViolations, l0Violations } from './sched-l0-resource-check.mjs'
 import { checkLeaves } from './sched-leaf-primitive-check.mjs'
 import { checkGovernance } from './sched-level-predicate-check.mjs'
 import { evaluateOrder } from './sched-order-annotation-check.mjs'
 import { evaluateGap } from './sched-recall-gap-gate.mjs'
 import { checkConsistency } from './sched-resource-consistency-check.mjs'
 import { tagViolations } from './sched-tag-check.mjs'
+import { awaitedSendsInL0 } from './sched-unbounded-sender-check.mjs'
 import { checkWhitelist } from './sched-whitelist-check.mjs'
 import { frozenMismatch, missingGolden } from './sched-resource-golden-check.mjs'
 import { buildInventory } from './sched-resource-inventory.mjs'
@@ -56,11 +57,7 @@ test('the frozen golden hash rejects an edited set (K0.7)', () => {
     const text = '{"G-1":[]}\n'
     const expected = `${createHash('sha256').update(text).digest('hex')}  sched-resource-golden.json\n`
     assert.equal(frozenMismatch(text, expected), false)
-    assert.equal(
-        frozenMismatch(text.replace('[]', '["x"]'), expected),
-        true,
-        'an edited set must not match the recorded hash',
-    )
+    assert.equal(frozenMismatch(text.replace('[]', '["x"]'), expected), true, 'an edited set must not match the recorded hash')
 })
 
 test('consistency passes on the generated files', () => {
@@ -229,6 +226,47 @@ test('tag check rejects a forgeable tag (K2.1, K2.3)', () => {
     const defaulted = source(tag.rel, tag.raw.replace('pub struct Tag {', '#[derive(Debug, Default)]\npub struct Tag {'))
     const defaultViolations = tagViolations([...sources.filter((candidate) => candidate.rel !== tag.rel), defaulted])
     assert.ok(defaultViolations.some((violation) => violation.includes('Default')))
+})
+
+test('the L0 process detector keeps its reactions dispatched (K3.3)', () => {
+    assert.deepEqual(l0FunctionViolations(sources, policy), [])
+    const detector = sources.find((candidate) => candidate.rel === 'packages/app-lib/src/state/process.rs')
+    const leaky = source(
+        detector.rel,
+        detector.raw.replace(
+            'let manually_killed = state.process_manager.was_manually_killed(uuid);',
+            'let manually_killed = state.process_manager.was_manually_killed(uuid);\n        sqlx::query("SELECT 1").execute(&state.pool).await?;',
+        ),
+    )
+    const violations = l0FunctionViolations([...sources.filter((candidate) => candidate.rel !== detector.rel), leaky], policy)
+    assert.ok(violations.some((violation) => violation.includes('uses .pool')))
+    assert.ok(violations.some((violation) => violation.includes('awaits')))
+
+    // An allowed await must not cover a second await chained after it.
+    const chainPolicy = {
+        ...policy,
+        l0ForbiddenPatterns: [],
+        l0Functions: [{ ...policy.l0Functions[0], allowedAwaits: ['State::get\\(\\)'] }],
+    }
+    const chained = source(
+        detector.rel,
+        detector.raw.replace(
+            'let manually_killed = state.process_manager.was_manually_killed(uuid);',
+            'let manually_killed = state.process_manager.was_manually_killed(uuid);\n        let _ = crate::State::get().await?.data.write().await;',
+        ),
+    )
+    const chainedViolations = l0FunctionViolations([...sources.filter((candidate) => candidate.rel !== detector.rel), chained], chainPolicy)
+    assert.ok(chainedViolations.some((violation) => violation.includes('awaits')), 'a chained write must not inherit the first await allowance')
+})
+
+test('L0 never awaits a send (K3.4)', () => {
+    const awaited = source('packages/app-lib/src/scheduler/l0/x.rs', 'async fn f(tx: Sender<u8>) {\n    tx.send(1).await.unwrap();\n}\n')
+    assert.equal(awaitedSendsInL0([awaited], policy.l0Module).length, 1)
+    const turbofish = source('packages/app-lib/src/scheduler/l0/x.rs', 'async fn f(tx: Sender<u8>) {\n    tx.send::<u8>(1).await.unwrap();\n}\n')
+    assert.equal(awaitedSendsInL0([turbofish], policy.l0Module).length, 1)
+    const ufcs = source('packages/app-lib/src/scheduler/l0/x.rs', 'async fn f(tx: Sender<u8>) {\n    SinkExt::send(&mut tx, 1).await.unwrap();\n}\n')
+    assert.equal(awaitedSendsInL0([ufcs], policy.l0Module).length, 1)
+    assert.deepEqual(awaitedSendsInL0(sources, policy.l0Module), [])
 })
 
 const here = path.dirname(fileURLToPath(import.meta.url))

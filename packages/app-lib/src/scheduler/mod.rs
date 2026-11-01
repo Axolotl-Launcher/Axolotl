@@ -2,9 +2,11 @@
 //! leaf locking, the debug resource-order guard, the L0 supervisor skeleton and
 //! the process-wide panic hook. Nothing here changes how existing tasks run.
 
+pub mod l0;
 pub mod leaf;
 pub mod order;
 pub mod panic;
+pub(crate) mod reconcile;
 pub mod supervisor;
 pub mod tag;
 

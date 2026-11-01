@@ -84,15 +84,7 @@ access-jwt*.txt
 # artifacts, so a plain `git add` never picks them up.
 /.dev-data/
 /.commandcode/
-# The scheduler spec's frozen evidence files are cited by checklist K0.12 and
-# K3.7 and must survive a fresh checkout; everything else stays ignored.
-/.agents/plans/*
-!/.agents/plans/sched-governance-table.md
-!/.agents/plans/sched-l0-members.md
-!/.agents/plans/sched-verification-2026-11-01.md
-!/.agents/plans/sched-shutdown-baseline.txt
-!/.agents/plans/sched-shutdown-comparison.md
-!/.agents/plans/sched-order-coarse-screen-report.md
+/.agents/plans/
 /.agents/tmp/
 /.agents/cache/
 

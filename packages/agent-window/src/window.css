@@ -1355,10 +1355,10 @@ code {
     border-radius: 50%;
     background: radial-gradient(
         closest-side,
-        color-mix(in srgb, var(--agent-accent) 30%, transparent),
+        color-mix(in srgb, var(--agent-accent) 17%, transparent),
         transparent
     );
-    filter: blur(6px);
+    filter: blur(8px);
     animation: glow 5.6s ease-in-out infinite;
 }
 .hero-ripple {

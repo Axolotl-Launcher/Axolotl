@@ -861,7 +861,7 @@ pub(crate) fn preserved_update_relative_path(
     Ok(relative_path)
 }
 
-async fn configured_update_relative_path(
+pub(crate) async fn configured_update_relative_path(
     current_path: &str,
     old_name: Option<&str>,
     new_name: &str,
@@ -950,7 +950,7 @@ pub(crate) async fn finalize_updated_project_path(
     Ok(final_path)
 }
 
-async fn rename_project_file(
+pub(crate) async fn rename_project_file(
     instance_id: &str,
     current_path: &str,
     new_path: &str,

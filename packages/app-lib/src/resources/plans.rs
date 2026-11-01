@@ -3910,7 +3910,15 @@ pub async fn queue(
     id: PlanId,
     revision: u32,
 ) -> ResourceResult<crate::install::InstallJobSnapshot> {
-    crate::install::runner::queue_resource_plan(id, revision)
+    queue_with_resource_names(id, revision, HashMap::new()).await
+}
+
+pub async fn queue_with_resource_names(
+    id: PlanId,
+    revision: u32,
+    resource_names: HashMap<String, String>,
+) -> ResourceResult<crate::install::InstallJobSnapshot> {
+    crate::install::runner::queue_resource_plan(id, revision, resource_names)
         .await
         .map_err(|error| ResourceError::InvalidRequest(error.to_string()))
 }

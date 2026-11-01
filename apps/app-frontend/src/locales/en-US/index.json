@@ -1,4 +1,22 @@
 {
+  "app.downloads.task.install-content": {
+    "message": "Install content"
+  },
+  "app.downloads.task.install-content-named": {
+    "message": "Install content: {name}"
+  },
+  "app.downloads.task.install-content-batch": {
+    "message": "Install content: {name} ({count} items)"
+  },
+  "app.downloads.task.change-content": {
+    "message": "Change content"
+  },
+  "app.downloads.task.change-content-named": {
+    "message": "Change content: {name}"
+  },
+  "app.downloads.task.change-content-batch": {
+    "message": "Change content: {name} ({count} items)"
+  },
   "app.account.modrinth-account": {
     "message": "Modrinth account"
   },
@@ -970,6 +988,12 @@
   },
   "app.browse.preparing-selected": {
     "message": "Preparing {completed}/{total}"
+  },
+  "app.browse.reviewing-selected": {
+    "message": "Reviewing content changes…"
+  },
+  "app.browse.queueing-selected": {
+    "message": "Adding to download queue…"
   },
   "app.browse.project-type.datapacks": {
     "message": "Data Packs"
@@ -3046,6 +3070,9 @@
   },
   "app.instance.content.check-failures": {
     "message": "{count, plural, one {# check failed} other {# checks failed}}"
+  },
+  "app.instance.content.processing": {
+    "message": "Updating instance files… Content will refresh when this finishes."
   },
   "app.instance.content.checking": {
     "message": "Refreshing… {current}/{total}"
@@ -10031,6 +10058,15 @@
   "app.resources.operation.apply": {
     "message": "Queue changes"
   },
+  "app.resources.operation.force-install": {
+    "message": "Force install without dependencies"
+  },
+  "app.resources.operation.force-install-tooltip": {
+    "message": "{reason} Try installing only the selected content without dependencies."
+  },
+  "app.resources.operation.force-install-compatibility-tooltip": {
+    "message": "{reason} Try installing only the selected content without dependencies and accept its Minecraft or loader compatibility mismatches."
+  },
   "app.resources.operation.artifact": {
     "message": "{source} · release {release} · {file}"
   },
@@ -16801,6 +16837,9 @@
   },
   "instance.upgrade.select.loading-fabric-versions": {
     "message": "Loading Fabric versions…"
+  },
+  "instance.upgrade.select.downgrade-unsupported": {
+    "message": "Downgrading is not supported."
   },
   "instance.upgrade.select.loading-versions": {
     "message": "Loading Minecraft versions…"

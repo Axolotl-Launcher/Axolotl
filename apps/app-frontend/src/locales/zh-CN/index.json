@@ -1,4 +1,22 @@
 {
+  "app.downloads.task.install-content": {
+    "message": "安装内容"
+  },
+  "app.downloads.task.install-content-named": {
+    "message": "安装内容：{name}"
+  },
+  "app.downloads.task.install-content-batch": {
+    "message": "安装内容：{name} 等 {count} 项"
+  },
+  "app.downloads.task.change-content": {
+    "message": "变更内容"
+  },
+  "app.downloads.task.change-content-named": {
+    "message": "变更内容：{name}"
+  },
+  "app.downloads.task.change-content-batch": {
+    "message": "变更内容：{name} 等 {count} 项"
+  },
   "app.drop.minecraft-root-added": {
     "message": "已添加 Minecraft 文件夹"
   },
@@ -2158,6 +2176,12 @@
   },
   "app.browse.preparing-selected": {
     "message": "正在准备 {completed}/{total}"
+  },
+  "app.browse.reviewing-selected": {
+    "message": "正在预览内容变更…"
+  },
+  "app.browse.queueing-selected": {
+    "message": "正在加入下载队列…"
   },
   "app.browse.project-type.datapacks": {
     "message": "数据包"
@@ -14927,6 +14951,9 @@
   "instance.upgrade.select.loading-fabric-versions": {
     "message": "正在加载 Fabric 版本……"
   },
+  "instance.upgrade.select.downgrade-unsupported": {
+    "message": "不支持降级版本。"
+  },
   "instance.upgrade.select.loading-versions": {
     "message": "正在加载 Minecraft 版本……"
   },
@@ -15655,6 +15682,15 @@
   },
   "app.resources.operation.apply": {
     "message": "加入任务队列"
+  },
+  "app.resources.operation.force-install": {
+    "message": "忽略依赖并强制安装"
+  },
+  "app.resources.operation.force-install-tooltip": {
+    "message": "{reason} 尝试仅安装所选内容，不安装依赖。"
+  },
+  "app.resources.operation.force-install-compatibility-tooltip": {
+    "message": "{reason} 尝试仅安装所选内容，不安装依赖，并接受其 Minecraft 版本或加载器不兼容的情况。"
   },
   "app.resources.operation.empty": {
     "message": "无需变更文件。"
@@ -20410,6 +20446,9 @@
   },
   "app.lab.command-generator.arg.waypoint.value.desc": {
     "message": "颜色或样式"
+  },
+  "app.instance.content.processing": {
+    "message": "正在更新实例文件……完成后将自动刷新内容。"
   },
   "app.instance.content.checking": {
     "message": "刷新…… {current}/{total}"

@@ -1273,6 +1273,20 @@ impl Process {
         Ok(())
     }
 
+    /// What a stopped detector's last look at the child means. Extracted so
+    /// the four outcomes are tested without a real child.
+    #[allow(dead_code)]
+    fn classify_stopped_detector<T>(
+        result: crate::Result<Option<Option<T>>>,
+    ) -> StoppedDetector<T> {
+        match result {
+            Ok(Some(Some(status))) => StoppedDetector::Exited(status),
+            Ok(Some(None)) => StoppedDetector::StillRunning,
+            Ok(None) => StoppedDetector::Missing,
+            Err(error) => StoppedDetector::Unavailable(error),
+        }
+    }
+
     /// Main-runtime side of a running game: everything the detector posts is
     /// handled here in order, so the output pumps still finish before the
     /// `Finished` event, as before the split.
@@ -1328,23 +1342,25 @@ impl Process {
                 // and finish the normal cleanup; that is the in-session
                 // compensation for a lost exit event. If it still runs, the
                 // record cannot be cleaned up and is left with a warning.
-                None => match state.process_manager.try_wait(uuid) {
-                    Ok(Some(Some(status))) => {
+                None => match Self::classify_stopped_detector(
+                    state.process_manager.try_wait(uuid),
+                ) {
+                    StoppedDetector::Exited(status) => {
                         let manually_killed =
                             state.process_manager.was_manually_killed(uuid);
                         break (status, false, manually_killed, None);
                     }
-                    Ok(Some(None)) => {
+                    StoppedDetector::StillRunning => {
                         tracing::warn!(
                             instance = %instance_id,
                             "The process detector stopped without reporting an exit while the game still runs; the instance stays shown as running"
                         );
                         return Ok(());
                     }
-                    Ok(None) => {
+                    StoppedDetector::Missing => {
                         break (ExitStatus::default(), true, false, None);
                     }
-                    Err(error) => {
+                    StoppedDetector::Unavailable(error) => {
                         tracing::warn!(
                             instance = %instance_id,
                             %error,
@@ -1520,6 +1536,14 @@ enum ProcessEvent {
         manually_killed: bool,
         final_playtime: Option<PlaytimeTick>,
     },
+}
+
+/// What a stopped detector's last look at the child means (K3.5).
+enum StoppedDetector<T> {
+    Exited(T),
+    Missing,
+    StillRunning,
+    Unavailable(crate::Error),
 }
 
 /// A stretch of playtime ending at `ended_at`.
@@ -1867,6 +1891,45 @@ mod playtime_clock_tests {
     }
 }
 
+#[cfg(test)]
+mod stopped_detector_tests {
+    use super::*;
+
+    #[test]
+    fn an_exited_child_is_reported() {
+        assert!(matches!(
+            Process::classify_stopped_detector::<u8>(Ok(Some(Some(3)))),
+            StoppedDetector::Exited(3)
+        ));
+    }
+
+    #[test]
+    fn a_running_child_is_not_cleaned_up() {
+        assert!(matches!(
+            Process::classify_stopped_detector::<u8>(Ok(Some(None))),
+            StoppedDetector::StillRunning
+        ));
+    }
+
+    #[test]
+    fn a_missing_child_is_reported_as_missing() {
+        assert!(matches!(
+            Process::classify_stopped_detector::<u8>(Ok(None)),
+            StoppedDetector::Missing
+        ));
+    }
+
+    #[test]
+    fn a_failed_recheck_is_unavailable() {
+        let error =
+            crate::ErrorKind::OtherError("recheck failed".into()).into();
+        assert!(matches!(
+            Process::classify_stopped_detector::<u8>(Err(error)),
+            StoppedDetector::Unavailable(_)
+        ));
+    }
+}
+
 /// The 17 shared accesses of L0-1 (spec §5.2, tasks.md T3.2). Each test names
 /// one item and asserts the detector does not perform it while the reaction
 /// side does, so a regression that moves an access back onto L0 fails here.
@@ -1928,6 +1991,7 @@ mod l0_separation_tests {
         ] {
             absent(detector(), needle);
         }
+        present(reaction(), "record_instance_play_session");
     }
 
     #[test]
@@ -2001,7 +2065,8 @@ mod l0_separation_tests {
     #[test]
     fn l0_has_no_detached_spawn_item_13() {
         absent(detector(), "tokio::spawn");
-        present(reaction(), "reconcile_instance");
+        // The call, not the `reconcile_instance_id` local.
+        present(reaction(), "synced_options::reconcile_instance(");
     }
 
     #[test]
@@ -2030,6 +2095,9 @@ mod l0_separation_tests {
 
     #[test]
     fn finished_event_implies_log_buffer_has_last_line() {
+        // Source-order guard for V7: the pump await is the only statement
+        // between the process removal and the Finished emit, so pinning their
+        // order catches a reorder that would emit before the pumps drained.
         let body = reaction();
         let pumps = body.find("output_task.await").expect("pumps are awaited");
         let finished = body

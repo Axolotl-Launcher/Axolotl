@@ -5,6 +5,7 @@
 use std::future::Future;
 use std::pin::Pin;
 use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::mpsc as std_mpsc;
 use std::time::Duration;
 
@@ -31,10 +32,21 @@ const BLOCKING_THREADS: usize = 4;
 pub const DRIVER_THREAD_NAME: &str = "theseus-l0";
 pub const BLOCKING_THREAD_NAME: &str = "theseus-l0-blocking";
 
+/// Counts tasks that could not enter the supervisor because the submission
+/// queue was full; the drain must wait for them too.
+struct DetachedGuard(Arc<AtomicUsize>);
+
+impl Drop for DetachedGuard {
+    fn drop(&mut self) {
+        self.0.fetch_sub(1, Ordering::AcqRel);
+    }
+}
+
 pub struct L0Executor {
     handle: tokio::runtime::Handle,
     control: Arc<ControlTable>,
     submit: mpsc::Sender<BoxedTask>,
+    detached: Arc<AtomicUsize>,
     thread: std::thread::JoinHandle<()>,
 }
 
@@ -42,6 +54,8 @@ impl L0Executor {
     pub fn start(control: Arc<ControlTable>) -> std::io::Result<Self> {
         let (handle_tx, handle_rx) = std_mpsc::channel();
         let (submit, mut submissions) = mpsc::channel(SUBMISSION_QUEUE);
+        let detached = Arc::new(AtomicUsize::new(0));
+        let driver_detached = detached.clone();
         let driver_control = control.clone();
         let thread = std::thread::Builder::new()
             .name(DRIVER_THREAD_NAME.into())
@@ -95,9 +109,18 @@ impl L0Executor {
                         let deadline =
                             tokio::time::Instant::now() + DRAIN_WINDOW;
                         while (!supervisor.is_empty()
-                            || !submissions.is_empty())
+                            || !submissions.is_empty()
+                            || driver_detached.load(Ordering::Acquire) > 0)
                             && tokio::time::Instant::now() < deadline
                         {
+                            // An abort that lands during the drain escalates:
+                            // cancel is immediate, not a safety-point wait.
+                            if driver_control.abort_requested() {
+                                break;
+                            }
+                            // Keep liveness visible while draining: the main
+                            // loop's heartbeat stops at the quiesce.
+                            driver_control.heartbeat();
                             let has_tasks = !supervisor.is_empty();
                             tokio::select! {
                                 _ = tokio::time::sleep(Duration::from_millis(10)) => {},
@@ -124,6 +147,7 @@ impl L0Executor {
             handle,
             control,
             submit,
+            detached,
             thread,
         })
     }
@@ -154,11 +178,17 @@ impl L0Executor {
             Err(mpsc::error::TrySendError::Full(task)) => {
                 // The submission queue is bounded; L0 never blocks its
                 // caller. The task still runs on L0, just outside the
-                // supervisor's accounting for this submission.
+                // supervisor's JoinSet for this submission; the detached
+                // counter keeps the quiesce drain waiting for it.
                 tracing::warn!(
                     "L0 submission queue is full; running the task outside the supervisor"
                 );
-                self.handle.spawn(task);
+                self.detached.fetch_add(1, Ordering::AcqRel);
+                let detached = self.detached.clone();
+                let _ = self.handle.spawn(async move {
+                    let _guard = DetachedGuard(detached);
+                    task.await;
+                });
             }
             Err(mpsc::error::TrySendError::Closed(_)) => {
                 tracing::warn!(

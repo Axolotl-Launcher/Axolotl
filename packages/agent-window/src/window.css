@@ -1328,6 +1328,8 @@ code {
     letter-spacing: 0.02em;
 }
 .composer-home {
+    position: relative;
+    z-index: 5;
     width: min(700px, 100%);
     animation: rise-in 700ms 140ms var(--ease-reveal) both;
 }
@@ -3687,6 +3689,13 @@ p.plan-state {
     background: var(--overlay);
     box-shadow: var(--shadow-pop);
     animation: rise-in 220ms var(--ease-settle) both;
+}
+/* On the new task page the composer sits high, so the menu opens downwards
+   over the starting points instead of being cut off at the top. */
+.composer-home .slash-menu {
+    top: calc(100% + 8px);
+    bottom: auto;
+    max-height: 272px;
 }
 .slash-head {
     padding: 6px 10px 4px;

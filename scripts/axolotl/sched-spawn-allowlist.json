@@ -2054,7 +2054,7 @@
       "count": 2,
       "reason": "L0 executor: its driver thread, and spawns onto the L0 runtime and its own blocking pool (T3.6)",
       "sites": [
-        "spawn: self.handle.spawn(async move {",
+        "spawn: let handle = self.handle.spawn(async move {",
         "start: .spawn(move || {"
       ]
     },

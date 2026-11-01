@@ -1510,6 +1510,53 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn watched_read_only_scan_commits_without_retrying() {
+        let (_temp, state, instance, root) = isolated_scan_fixture().await;
+        crate::state::instances::watcher::watch_instance_folder(
+            "instance",
+            "example",
+            &root,
+            &state.file_watcher,
+        )
+        .await;
+        let before = state
+            .file_watcher
+            .content_watch_snapshot("instance")
+            .await
+            .unwrap();
+        let mut attempts = 0;
+        let files = sync_with_retry(&instance, &state, true, || {
+            attempts += 1;
+            // Let read events reach the watcher before the scan checks its
+            // generation; batch mode may take twice the debounce timeout.
+            tokio::time::sleep(std::time::Duration::from_secs(3))
+        })
+        .await
+        .unwrap();
+        assert_eq!(attempts, 1);
+        assert_eq!(files.len(), 1);
+        assert_eq!(
+            files[0].sha1,
+            sha1_smol::Sha1::from(b"old bytes").hexdigest()
+        );
+        assert_eq!(
+            state
+                .file_watcher
+                .content_watch_snapshot("instance")
+                .await
+                .unwrap(),
+            before
+        );
+        crate::state::instances::watcher::unwatch_instance_folder(
+            "example",
+            &root,
+            &state.file_watcher,
+        )
+        .await;
+        state.pool.close().await;
+    }
+
+    #[tokio::test]
     async fn stale_scans_cannot_overwrite_toggle_delete_or_replacement() {
         for operation in ["toggle", "delete", "replace"] {
             let (_temp, state, instance, root) = isolated_scan_fixture().await;

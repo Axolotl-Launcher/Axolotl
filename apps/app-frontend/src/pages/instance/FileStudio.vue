@@ -274,7 +274,27 @@ async function readBinary(path: string): Promise<Uint8Array> {
 
 async function writeBinary(path: string, bytes: Uint8Array): Promise<void> {
     if (props.instance) return writeStudioBinary(props.instance.id, path, bytes)
-    return writeFile(await resolvePath(path), bytes)
+    return replaceFile(await resolvePath(path), bytes)
+}
+
+/**
+ * Writes through a temporary file and renames it over the destination.
+ *
+ * The fs plugin truncates the destination before it writes, so an interrupted
+ * write - a full disk, the app stopping - would leave the original file empty
+ * or partial. The rename either happens or it does not.
+ */
+async function replaceFile(target: string, bytes: Uint8Array): Promise<void> {
+    // A sibling path, so the rename stays on one filesystem and cannot degrade
+    // into a copy that is itself interruptible.
+    const temporary = `${target}.${crypto.randomUUID()}.tmp`
+    try {
+        await writeFile(temporary, bytes)
+        await rename(temporary, target)
+    } catch (error) {
+        await remove(temporary).catch(() => undefined)
+        throw error
+    }
 }
 
 const mediaKind = computed(() => {

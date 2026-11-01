@@ -8363,6 +8363,9 @@
   "instance.files.studio.editor-loading": {
     "message": "正在載入編輯器……"
   },
+  "instance.files.studio.edit-deleted": {
+    "message": "此檔案在編輯儲存前已被刪除。"
+  },
   "instance.files.studio.edit-conflict": {
     "message": "此檔案在開啟後已被外部修改，編輯內容未儲存。"
   },

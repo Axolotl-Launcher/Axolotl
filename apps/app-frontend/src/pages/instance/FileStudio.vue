@@ -120,6 +120,10 @@ const messages = defineMessages({
         id: 'instance.files.studio.edit-conflict',
         defaultMessage: 'This file changed on disk after it was opened. The edit was not saved.',
     },
+    editDeleted: {
+        id: 'instance.files.studio.edit-deleted',
+        defaultMessage: 'This file was removed before the edit could be saved.',
+    },
     loadingFile: {
         id: 'instance.files.studio.loading-file',
         defaultMessage: 'Loading file...',
@@ -182,6 +186,7 @@ const {
     open: openDocument,
     close: closeDocument,
     deletePath: deleteDocumentPath,
+    trackWrite,
     isDeleting,
     pathVersion,
     canOpen,
@@ -343,6 +348,16 @@ function notifyOperationFailure(error: unknown) {
 
 async function writeEditedImage({ location, original, bytes }: MediaEditSave) {
     try {
+        // A delete that is already running would otherwise be followed by this
+        // write, and the file the user just removed would reappear.
+        if (isDeleting(location.path)) {
+            addNotification({
+                title: formatMessage(messages.saveFailed),
+                text: formatMessage(messages.editDeleted),
+                type: 'error',
+            })
+            return
+        }
         // The file may have been replaced since the preview read it - by a
         // screenshot, another editor, or the user's own tooling. The edit was
         // drawn over `original`, so writing it over newer bytes would silently
@@ -355,7 +370,9 @@ async function writeEditedImage({ location, original, bytes }: MediaEditSave) {
             })
             return
         }
-        await writeMediaBytes(location, bytes)
+        const write = writeMediaBytes(location, bytes)
+        trackWrite(location.path, write)
+        await write
         mediaRevision.value += 1
     } catch (error) {
         notifyOperationFailure(error)

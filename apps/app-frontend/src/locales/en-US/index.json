@@ -15416,6 +15416,9 @@
   "instance.files.studio.editor-loading": {
     "message": "Loading editor..."
   },
+  "instance.files.studio.edit-deleted": {
+    "message": "This file was removed before the edit could be saved."
+  },
   "instance.files.studio.edit-conflict": {
     "message": "This file changed on disk after it was opened. The edit was not saved."
   },

@@ -443,7 +443,7 @@ const projectTabs = computed(() =>
             </div>
         </Admonition>
         <section
-            v-if="pageQuery.isPending.value"
+            v-if="pageQuery.isPending.value || pageQuery.isFetching.value"
             class="py-1"
             aria-busy="true"
             aria-live="polite"

@@ -49,10 +49,6 @@ const messages = defineMessages({
         id: 'browse.offline.heading',
         defaultMessage: 'No connection',
     },
-    loadingLabel: {
-        id: 'browse.loading-results',
-        defaultMessage: 'Loading results…',
-    },
     noResults: {
         id: 'browse.no-results',
         defaultMessage: 'No results found for your query!',
@@ -132,7 +128,6 @@ const currentSortTypeName = computed<string>({
 const resultContext = computed(() => ctx.committed?.value)
 const resultProjectType = computed(() => resultContext.value?.projectType ?? ctx.projectType.value)
 const resultIsServer = computed(() => resultProjectType.value === 'server')
-const initialLoading = computed(() => ctx.loading.value && !resultContext.value)
 
 const skeletonCount = computed(() => {
     const layout = ctx.effectiveLayout.value
@@ -226,15 +221,8 @@ const skeletonCount = computed(() => {
         <span>{{ ctx.searchError.value }}</span>
         <Button @click="ctx.refreshSearch()">{{ formatMessage(messages.retryLabel) }}</Button>
     </div>
-    <p
-        v-if="ctx.loading.value && !initialLoading"
-        role="status"
-        class="my-2 text-sm text-[var(--color-text-tertiary)]"
-    >
-        {{ formatMessage(messages.loadingLabel) }}
-    </p>
     <div class="search relative" :aria-busy="ctx.loading.value">
-        <section v-if="initialLoading" class="py-1" aria-busy="true" aria-live="polite">
+        <section v-if="ctx.loading.value" class="py-1" aria-busy="true" aria-live="polite">
             <ProjectCardList :layout="ctx.effectiveLayout.value">
                 <ProjectCardSkeleton
                     v-for="index in skeletonCount"

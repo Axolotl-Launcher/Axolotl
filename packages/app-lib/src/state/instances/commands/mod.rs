@@ -48,7 +48,6 @@ pub(crate) use self::refresh_instances::*;
 mod sync_content_files;
 pub(crate) use self::sync_content_files::{
     instance_content_root, sync_content_files, sync_content_files_for_display,
-    sync_content_files_for_operation,
 };
 pub(crate) use sync_content_files::{
     ScanProgress, sync_content_files_progressively,
@@ -59,6 +58,7 @@ pub(crate) use self::launch_context::*;
 
 mod apply_content_install;
 mod content_file_operations;
+pub(crate) mod install_schematic;
 pub(crate) use self::apply_content_install::*;
 pub(crate) use apply_content_install::ProjectFileRecord;
 pub(crate) use content_file_operations::recover_content_file_operations;

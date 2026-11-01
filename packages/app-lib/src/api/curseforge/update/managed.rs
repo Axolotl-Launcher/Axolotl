@@ -419,22 +419,20 @@ pub(super) async fn rollback_curseforge_update(
         .collect::<HashSet<_>>();
     for member in current_members {
         if !old_keys.contains(member.member_key.as_str()) {
-            sqlx::query("DELETE FROM instance_pack_members WHERE id = ?")
-                .bind(member.id)
-                .execute(&mut *tx)
-                .await?;
+            crate::state::instances::adapters::sqlite::pack_members::delete_pack_member_in_transaction(
+                &member.id,
+                &mut tx,
+            )
+            .await?;
         }
     }
     for old_member in old_members {
-        let current_entry_id = sqlx::query_scalar::<_, Option<String>>(
-            "SELECT content_entry_id FROM instance_pack_members
-             WHERE content_set_id = ? AND member_key = ?",
+        let current_entry_id = crate::state::instances::adapters::sqlite::pack_members::find_member_entry_id(
+            &metadata.applied_content_set.id,
+            &old_member.member_key,
+            &mut *tx,
         )
-        .bind(&metadata.applied_content_set.id)
-        .bind(&old_member.member_key)
-        .fetch_optional(&mut *tx)
-        .await?
-        .flatten();
+        .await?;
         let mut restored_member = old_member.clone();
         if current_entry_id.is_some() {
             restored_member.content_entry_id = current_entry_id;

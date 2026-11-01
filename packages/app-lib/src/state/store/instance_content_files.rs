@@ -181,6 +181,14 @@ where
             invalidated_provider_identity = true;
         }
     }
+    if complete {
+        invalidated_provider_identity |=
+            sqlite::files::remove_untracked_instance_files(
+                instance_id,
+                &mut tx,
+            )
+            .await?;
+    }
     if invalidated_provider_identity
         && let Some(content_set) = content_set.as_ref()
     {
@@ -196,16 +204,19 @@ where
         return Ok(None);
     }
     for file in &synced_files {
-        if let Some(record) = fingerprints.get(&file.relative_path) {
-            if record.sha1().eq_ignore_ascii_case(&file.sha1)
-                && record.size == file.size
-            {
-                super::content_file_fingerprints::ContentFileFingerprints::write(
-                    &mut tx, &super::content_file_fingerprints::FingerprintKey {
-                        instance_id: instance_id.into(), file_id: file.id.clone(),
-                    }, Some(record)
-                ).await?;
-            }
+        if let Some(record) = fingerprints.get(&file.relative_path)
+            && record.sha1().eq_ignore_ascii_case(&file.sha1)
+            && record.size == file.size
+        {
+            super::content_file_fingerprints::ContentFileFingerprints::write(
+                &mut tx,
+                &super::content_file_fingerprints::FingerprintKey {
+                    instance_id: instance_id.into(),
+                    file_id: file.id.clone(),
+                },
+                Some(record),
+            )
+            .await?;
         }
     }
     if complete {

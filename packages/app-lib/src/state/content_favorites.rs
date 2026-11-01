@@ -63,10 +63,8 @@ fn resource_type(value: ContentFavoriteType) -> ResourceType {
     }
 }
 
-/// A source or content type this vocabulary does not name is left out. That is
-/// the same set the retired table holds today, because the resource layer only
-/// mirrors modrinth, curseforge and mcarchive into it; the filter and this
-/// module retire with that table.
+/// A source or content type this vocabulary does not name is left out: the
+/// command surface only speaks modrinth, curseforge and mcarchive.
 fn content_favorite(
     favorite: resource_favorites::SavedFavorite,
 ) -> Option<ContentFavorite> {

@@ -81,6 +81,68 @@ async fn curseforge_bypass_defaults_on_and_round_trips() {
 }
 
 #[tokio::test]
+async fn default_game_language_defaults_empty_and_round_trips() {
+    let pool = sqlx::sqlite::SqlitePoolOptions::new()
+        .max_connections(1)
+        .connect("sqlite::memory:")
+        .await
+        .unwrap();
+    sqlx::migrate!().run(&pool).await.unwrap();
+    let handle = Handle::new(pool.clone());
+
+    let mut settings = Settings::get(&handle).await.unwrap();
+    assert_eq!(settings.default_game_language, "");
+
+    settings.default_game_language = "en_us".to_string();
+    settings.update(&handle).await.unwrap();
+
+    let reloaded = Settings::get(&handle).await.unwrap();
+    assert_eq!(reloaded.default_game_language, "en_us");
+}
+
+#[tokio::test]
+async fn default_game_language_migration_upgrades_existing_settings_database() {
+    let pool = sqlx::sqlite::SqlitePoolOptions::new()
+        .max_connections(1)
+        .connect("sqlite::memory:")
+        .await
+        .unwrap();
+    sqlx::query(
+        "CREATE TABLE settings (id INTEGER PRIMARY KEY CHECK (id = 0))",
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+    sqlx::query("INSERT INTO settings (id) VALUES (0)")
+        .execute(&pool)
+        .await
+        .unwrap();
+
+    sqlx::raw_sql(include_str!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/migrations/20261103120000_default-game-language.sql"
+    )))
+    .execute(&pool)
+    .await
+    .unwrap();
+
+    let language: String = sqlx::query_scalar(
+        "SELECT default_game_language FROM settings WHERE id = 0",
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    assert_eq!(language, "");
+    assert!(
+        sqlx::query("PRAGMA foreign_key_check")
+            .fetch_all(&pool)
+            .await
+            .unwrap()
+            .is_empty()
+    );
+}
+
+#[tokio::test]
 async fn ignore_ssl_errors_defaults_off_and_round_trips() {
     let pool = sqlx::sqlite::SqlitePoolOptions::new()
         .max_connections(1)

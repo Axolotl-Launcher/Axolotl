@@ -111,3 +111,97 @@ async fn update_check_upsert_ignores_deleted_content_entries() {
     .expect("count update checks");
     assert_eq!(count, 0);
 }
+
+async fn pool_with_entry_rows() -> sqlx::SqlitePool {
+    let pool = test_pool().await;
+    sqlx::raw_sql(
+        "
+        CREATE TABLE instance_content_entries (
+            id TEXT PRIMARY KEY,
+            instance_id TEXT NOT NULL,
+            content_set_id TEXT NOT NULL,
+            file_id TEXT NULL,
+            project_type TEXT NOT NULL DEFAULT 'mod',
+            source_kind TEXT NOT NULL,
+            ownership_kind TEXT NOT NULL,
+            auto_dependency INTEGER NOT NULL DEFAULT 0,
+            server_requirement TEXT NOT NULL DEFAULT 'unknown',
+            client_requirement TEXT NOT NULL DEFAULT 'unknown',
+            enabled INTEGER NOT NULL DEFAULT 1,
+            added_at INTEGER NOT NULL DEFAULT 1,
+            modified_at INTEGER NOT NULL DEFAULT 1
+        );
+        ",
+    )
+    .execute(&pool)
+    .await
+    .expect("content entry table");
+    sqlx::query(
+        "INSERT INTO instance_content_entries
+            (id, instance_id, content_set_id, source_kind, ownership_kind)
+         VALUES ('entry', 'instance', 'set', 'local', 'user_added')",
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+    pool
+}
+
+#[tokio::test]
+async fn an_entry_reads_back_the_state_it_was_written_in() {
+    let pool = pool_with_entry_rows().await;
+
+    let mut tx = pool.begin().await.unwrap();
+    set_entry_enabled_in_transaction("entry", false, 2, &mut tx)
+        .await
+        .unwrap();
+    set_entry_provenance_in_transaction(
+        "entry",
+        ContentOwnershipKind::PackManaged,
+        ContentSourceKind::ImportedModpack,
+        true,
+        ContentRequirement::Required,
+        ContentRequirement::Optional,
+        &mut tx,
+    )
+    .await
+    .unwrap();
+    tx.commit().await.unwrap();
+
+    let entry = get_content_entry_by_id("entry", &pool)
+        .await
+        .unwrap()
+        .unwrap();
+
+    assert!(!entry.enabled);
+    assert_eq!(entry.modified_at.timestamp(), 2);
+    assert_eq!(entry.ownership_kind, ContentOwnershipKind::PackManaged);
+    assert_eq!(entry.source_kind, ContentSourceKind::ImportedModpack);
+    assert!(entry.auto_dependency);
+    assert_eq!(entry.server_requirement, ContentRequirement::Required);
+    assert_eq!(entry.client_requirement, ContentRequirement::Optional);
+}
+
+#[tokio::test]
+async fn an_entry_can_take_the_id_the_caller_minted() {
+    let pool = pool_with_entry_rows().await;
+
+    let mut tx = pool.begin().await.unwrap();
+    rewrite_entry_id_in_transaction("entry", "minted", &mut tx)
+        .await
+        .unwrap();
+    tx.commit().await.unwrap();
+
+    assert!(
+        get_content_entry_by_id("entry", &pool)
+            .await
+            .unwrap()
+            .is_none()
+    );
+    assert!(
+        get_content_entry_by_id("minted", &pool)
+            .await
+            .unwrap()
+            .is_some()
+    );
+}

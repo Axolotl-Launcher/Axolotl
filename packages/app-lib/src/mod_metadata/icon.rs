@@ -47,7 +47,7 @@ fn read_entry<R: Read + Seek>(
         return None;
     }
 
-    let entry_name = entry.name().to_string();
+    let entry_name = entry.name().ok()?.to_string();
     let mut data = Vec::with_capacity(entry.size() as usize);
     entry.take(MAX_ICON_BYTES + 1).read_to_end(&mut data).ok()?;
 
@@ -61,8 +61,11 @@ fn open_entry<'a, R: Read + Seek>(
     if archive.by_name(normalized).is_ok() {
         archive.by_name(normalized).ok()
     } else {
-        let names: Vec<String> =
-            archive.file_names().map(ToOwned::to_owned).collect();
+        let names: Vec<String> = archive
+            .file_names()
+            .filter_map(|name| name.ok())
+            .map(|name| name.into_owned())
+            .collect();
         let matched = names
             .iter()
             .find(|name| name.eq_ignore_ascii_case(normalized))?;

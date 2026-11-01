@@ -16,6 +16,7 @@ pub async fn import_world_save(
     instance_id: &str,
     source_path: &Path,
     inner_base: Option<&str>,
+    _access: crate::install::critical_section::WriteAccess<'_>,
 ) -> Result<String> {
     let instance_id_str = instance_id.to_string();
     let resolved_source = if source_path.is_dir() {
@@ -207,7 +208,14 @@ fn extract_world_zip_sync(zip_path: &Path, target_dir: &Path) -> Result<()> {
             ErrorKind::InputError(format!("Failed to read ZIP entry: {e}"))
         })?;
 
-        let raw_name = entry.name().to_string();
+        let raw_name = entry
+            .name()
+            .map_err(|e| {
+                ErrorKind::InputError(format!(
+                    "Failed to read ZIP entry name: {e}"
+                ))
+            })?
+            .to_string();
         if raw_name.starts_with("__MACOSX") {
             continue;
         }

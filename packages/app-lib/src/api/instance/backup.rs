@@ -3,6 +3,12 @@ use crate::event::{
     InstanceBackupProgressPayload, InstanceBackupProgressStage,
 };
 use crate::state::instances::adapters::sqlite::instance_rows;
+use crate::state::store::Collection as _;
+use crate::state::store::atom;
+use crate::state::store::pending_backup_repository_cleanups::{
+    CleanupRecord, PendingBackupRepositoryCleanups,
+};
+use crate::state::store::settings::Settings as SettingsRow;
 use crate::state::{Settings, State};
 use crate::util::io;
 use chrono::Utc;
@@ -2305,11 +2311,8 @@ pub async fn maintain_repository() -> crate::Result<()> {
 
 async fn cleanup_pending_repository_paths(state: &State) -> crate::Result<()> {
     let current = repository_path(state).await?;
-    let paths: Vec<String> = sqlx::query_scalar(
-        "SELECT path FROM pending_backup_repository_cleanups ORDER BY created_at",
-    )
-    .fetch_all(&state.pool)
-    .await?;
+    let paths =
+        PendingBackupRepositoryCleanups::pending_paths(&state.data).await?;
     for stored_path in paths {
         let path = PathBuf::from(&stored_path);
         if !path.is_absolute() || path == current {
@@ -2329,12 +2332,8 @@ async fn cleanup_pending_repository_paths(state: &State) -> crate::Result<()> {
             );
             continue;
         }
-        sqlx::query(
-            "DELETE FROM pending_backup_repository_cleanups WHERE path = ?",
-        )
-        .bind(&stored_path)
-        .execute(&state.pool)
-        .await?;
+        PendingBackupRepositoryCleanups::set(&state.data, &stored_path, None)
+            .await?;
     }
     Ok(())
 }
@@ -3987,25 +3986,23 @@ async fn move_repository_inner(destination: PathBuf) -> crate::Result<()> {
         Some(destination.to_string_lossy().to_string())
     };
     let update_result: crate::Result<()> = async {
-        let mut tx = state.pool.begin().await?;
-        sqlx::query(
-            "UPDATE settings SET backup_repository_path = ? WHERE id = 0",
-        )
-        .bind(stored_path)
-        .execute(&mut *tx)
+        let mut unit = atom(&state.data).await?;
+        SettingsRow::update_in(&mut unit, |settings| {
+            settings.backup_repository_path = stored_path.clone();
+        })
         .await?;
         if source_exists && !same_disk_move {
-            sqlx::query(
-                "INSERT INTO pending_backup_repository_cleanups (path, created_at)
-                 VALUES (?, ?)
-                 ON CONFLICT(path) DO UPDATE SET created_at = excluded.created_at",
+            let path = source.to_string_lossy().to_string();
+            PendingBackupRepositoryCleanups::atom_set(
+                &mut unit,
+                &path,
+                Some(&CleanupRecord {
+                    created_at: Utc::now().timestamp_millis(),
+                }),
             )
-            .bind(source.to_string_lossy().to_string())
-            .bind(Utc::now().timestamp_millis())
-            .execute(&mut *tx)
             .await?;
         }
-        tx.commit().await?;
+        unit.commit().await?;
         Ok(())
     }
     .await;
@@ -4036,11 +4033,11 @@ async fn move_repository_inner(destination: PathBuf) -> crate::Result<()> {
             true
         };
         if cleanup_succeeded {
-            sqlx::query(
-                "DELETE FROM pending_backup_repository_cleanups WHERE path = ?",
+            PendingBackupRepositoryCleanups::set(
+                &state.data,
+                &source.to_string_lossy().to_string(),
+                None,
             )
-            .bind(source.to_string_lossy().to_string())
-            .execute(&state.pool)
             .await?;
         }
     }

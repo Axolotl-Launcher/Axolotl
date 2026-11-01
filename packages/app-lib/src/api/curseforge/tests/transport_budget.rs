@@ -8,7 +8,12 @@ async fn waiting_for_admission_has_a_deadline_and_does_not_leak_permits() {
     let semaphore = tokio::sync::Semaphore::new(1);
     let held = semaphore.acquire().await.unwrap();
     let result = api_permit(&semaphore, Duration::from_millis(20)).await;
-    assert!(result.unwrap_err().to_string().contains("timed out"));
+    let error = result.unwrap_err();
+    assert!(error.to_string().contains("timed out"));
+    assert_eq!(
+        crate::resources::ResourceError::from(error),
+        crate::resources::ResourceError::Unavailable
+    );
     assert_eq!(semaphore.available_permits(), 0);
     drop(held);
     let result: crate::Result<()> = metadata_deadline(
@@ -20,7 +25,10 @@ async fn waiting_for_admission_has_a_deadline_and_does_not_leak_permits() {
         },
     )
     .await;
-    assert!(result.is_err());
+    assert_eq!(
+        crate::resources::ResourceError::from(result.unwrap_err()),
+        crate::resources::ResourceError::Unavailable
+    );
     assert_eq!(semaphore.available_permits(), 1);
 }
 

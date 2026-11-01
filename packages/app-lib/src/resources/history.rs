@@ -9,10 +9,6 @@ use crate::state::store::resource_operation_plans::{
     ResourceOperationPlanRecord, ResourceOperationPlans,
 };
 
-fn db(error: sqlx::Error) -> ResourceError {
-    ResourceError::Database(error.to_string())
-}
-
 pub async fn list(
     instance_id: String,
     entry_id: Option<InstalledEntryId>,
@@ -92,7 +88,8 @@ pub(crate) async fn attach_to_snapshot(
     items: &mut [crate::state::InstanceContentSnapshotItem],
     state: &crate::State,
 ) -> ResourceResult<()> {
-    let rows: Vec<(String, i64)> = sqlx::query_as("SELECT payload, backup_available FROM (SELECT payload, backup_available, ROW_NUMBER() OVER (PARTITION BY entry_id ORDER BY recorded_at DESC, rowid DESC) AS rank FROM resource_history WHERE instance_id = ?) WHERE rank = 1").bind(instance_id).fetch_all(&state.pool).await.map_err(db)?;
+    let rows =
+        ResourceHistory::latest_per_entry(&state.data, instance_id).await?;
     let histories: Vec<ResourceHistoryEntry> = rows
         .into_iter()
         .filter_map(|(payload, available)| {

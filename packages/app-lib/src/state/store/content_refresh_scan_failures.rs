@@ -1,5 +1,6 @@
 //! Failed scans include paths that do not yet have a tracked file or entry.
 use super::Collection;
+use super::derived_db::DerivedDb;
 use serde::{Deserialize, Serialize};
 use sqlx::SqliteConnection;
 
@@ -129,6 +130,69 @@ impl Collection for ContentRefreshScanFailures {
             Self::write(conn, key, Some(record)).await?;
         }
         Ok(())
+    }
+}
+
+/// Failed scans belong to the derived database, so their callers reach them
+/// through that database rather than through a handle.
+impl ContentRefreshScanFailures {
+    pub(crate) async fn failed(
+        derived: &DerivedDb,
+        instance_id: &str,
+    ) -> crate::Result<Vec<(ScanFailureKey, ScanFailureRecord)>> {
+        let scope = instance_id.to_string();
+        derived
+            .read(async |handle| Self::get_scoped(handle, &scope).await)
+            .await
+    }
+
+    pub(crate) async fn upsert(
+        derived: &DerivedDb,
+        key: &ScanFailureKey,
+        record: &ScanFailureRecord,
+    ) -> crate::Result<()> {
+        derived
+            .write(async |handle| Self::set(handle, key, Some(record)).await)
+            .await
+    }
+
+    pub(crate) async fn remove(
+        derived: &DerivedDb,
+        key: &ScanFailureKey,
+    ) -> crate::Result<()> {
+        derived
+            .write(async |handle| Self::set(handle, key, None).await)
+            .await
+    }
+
+    /// Removes every failed scan of an instance. The rows carry no foreign key
+    /// to the table that owns them, so the deletion of an instance is what
+    /// removes them, and running it again costs nothing.
+    pub(crate) async fn forget_instance(
+        derived: &DerivedDb,
+        instance_id: &str,
+    ) -> crate::Result<()> {
+        derived
+            .write(async |handle| {
+                Self::set_scoped(handle, &instance_id.to_string(), &[]).await
+            })
+            .await
+    }
+
+    /// The instances this collection holds a record for.
+    pub(crate) async fn instance_ids(
+        derived: &DerivedDb,
+    ) -> crate::Result<Vec<String>> {
+        derived
+            .read(async |handle| {
+                let mut connection = handle.connection().await?;
+                Ok(sqlx::query_scalar(
+                    "SELECT DISTINCT instance_id FROM content_refresh_scan_failures",
+                )
+                .fetch_all(&mut *connection)
+                .await?)
+            })
+            .await
     }
 }
 

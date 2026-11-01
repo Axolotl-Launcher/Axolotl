@@ -130,7 +130,7 @@ impl TlsFixture {
                                     counted.fetch_add(1, Ordering::SeqCst);
                                     assert_eq!(request.uri().host(), Some("cdn.modrinth.com"));
                                     assert!(request.headers().get(header::AUTHORIZATION).is_none());
-                                    assert!(request.headers().get(crate::util::fetch::DOWNLOAD_META_HEADER).is_none());
+                                    assert!(request.headers().get(crate::util::download::constants::DOWNLOAD_META_HEADER).is_none());
                                     if matches!(kind, ResponseKind::RateLimited) {
                                         let response = http::Response::builder().status(429)
                                             .header(header::RETRY_AFTER, "30").header(header::CONTENT_LENGTH, 0)
@@ -191,7 +191,7 @@ impl TlsFixture {
                                 || line.starts_with(&format!("host: {expected_host}:"))));
                             if !matches!(kind, ResponseKind::Redirect) {
                                 assert!(!request.contains("authorization:"));
-                                assert!(!request.contains(crate::util::fetch::DOWNLOAD_META_HEADER));
+                                assert!(!request.contains(crate::util::download::constants::DOWNLOAD_META_HEADER));
                             }
                             if matches!(kind, ResponseKind::SlowFile | ResponseKind::File) {
                                 let range = request.lines().find_map(|line| line.strip_prefix("range: bytes="));

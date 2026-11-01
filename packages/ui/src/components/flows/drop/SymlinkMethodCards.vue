@@ -338,7 +338,10 @@
                         <CircleAlertIcon />
                         {{ formatMessage(messages.custom) }}
                     </TagItem>
-                    <Button class="flex items-center gap-2" @click="handleConfirm"
+                    <Button
+                        class="flex items-center gap-2"
+                        :disabled="!canConfirm"
+                        @click="handleConfirm"
                         >{{ confirmLabel }}
                     </Button>
                 </div>
@@ -592,7 +595,9 @@ const instanceNavTrackRef = ref<HTMLElement | null>(null)
 const instanceChoices = ref<Record<number, InstanceChoice>>({})
 let unlisten: (() => void) | null = null
 let listeningPromise: Promise<void> | null = null
-let rescanTimer: number | null = null
+let listenerGeneration = 0
+let viewGeneration = 0
+const rescanTimers = new Map<number, number>()
 
 const activeInstance = computed(() => instances.value[activeIndex.value])
 const activeSnapshot = computed(() => snapshots.value[activeIndex.value] ?? null)
@@ -808,6 +813,24 @@ const confirmLabel = computed(() =>
         : formatMessage(messages.confirm),
 )
 
+function planReady(index: number) {
+    const snapshot = snapshots.value[index]
+    return (
+        !!snapshot &&
+        snapshot.requestId === requestIds.value[index] &&
+        snapshot.stage === 'done' &&
+        !scanning.value[index] &&
+        !planErrors.value[index]
+    )
+}
+
+const canConfirm = computed(() => {
+    if (!isOpen.value || pageAnim.value || !instances.value.length) return false
+    return activeIndex.value < instances.value.length - 1
+        ? planReady(activeIndex.value)
+        : instances.value.every((_, index) => planReady(index))
+})
+
 function cancelPlan(index: number) {
     const requestId = requestIds.value[index]
     requestIds.value[index] = null
@@ -822,33 +845,54 @@ function cancelPlan(index: number) {
 
 function scheduleRescan(index = activeIndex.value) {
     if (!isOpen.value || internalUpdating.value) return
-    if (rescanTimer !== null) window.clearTimeout(rescanTimer)
-    rescanTimer = window.setTimeout(() => {
-        rescanTimer = null
-        if (!isOpen.value) return
-        if (index === activeIndex.value) saveCurrentChoices()
-        void startPlan(index)
-    }, 500)
+    if (index === activeIndex.value) saveCurrentChoices()
+    cancelPlan(index)
+    snapshots.value[index] = null
+    scanning.value[index] = true
+    planErrors.value[index] = null
+    const previous = rescanTimers.get(index)
+    if (previous !== undefined) window.clearTimeout(previous)
+    rescanTimers.set(
+        index,
+        window.setTimeout(() => {
+            rescanTimers.delete(index)
+            if (!isOpen.value) return
+            if (index === activeIndex.value) saveCurrentChoices()
+            void startPlan(index)
+        }, 500),
+    )
 }
 
 async function ensureListening() {
     if (unlisten) return
     if (listeningPromise) return listeningPromise
-    listeningPromise = (async () => {
+    const generation = listenerGeneration
+    const pending = (async () => {
         try {
-            unlisten = await instanceImport.listenImportPlan(handleSnapshot)
+            const release = await instanceImport.listenImportPlan((snapshot) => {
+                if (generation === listenerGeneration) handleSnapshot(snapshot)
+            })
+            if (generation !== listenerGeneration) {
+                release()
+                return
+            }
+            unlisten = release
             console.debug('[SymlinkMethodCards] import plan listener ready')
         } catch (error) {
+            if (generation !== listenerGeneration) return
             console.error('[SymlinkMethodCards] listenImportPlan failed', error)
             planErrors.value[activeIndex.value] = String(error)
+            throw error
         } finally {
-            listeningPromise = null
+            if (generation === listenerGeneration) listeningPromise = null
         }
     })()
-    return listeningPromise
+    listeningPromise = pending
+    return pending
 }
 
 function stopListening() {
+    listenerGeneration++
     unlisten?.()
     unlisten = null
     if (listeningPromise) {
@@ -896,6 +940,7 @@ async function startPlan(index = activeIndex.value) {
 
     try {
         await ensureListening()
+        if (!isOpen.value || requestIds.value[index] !== requestId) return
         const saved = instanceChoices.value[index]
         const request = {
             requestId,
@@ -920,10 +965,11 @@ async function startPlan(index = activeIndex.value) {
 }
 
 async function startAllPlans() {
+    const generation = viewGeneration
     // TODO(B2): re-estimate cache/local/network incrementally when overrides
     // change, without rescanning the whole .minecraft folder.
     for (let index = 0; index < instances.value.length; index++) {
-        if (!isOpen.value) return
+        if (!isOpen.value || generation !== viewGeneration) return
         await startPlan(index)
     }
 }
@@ -1014,10 +1060,11 @@ async function goTo(index: number) {
         return
     }
     saveCurrentChoices()
+    const generation = viewGeneration
     const direction = index > activeIndex.value ? 'next' : 'prev'
     pageAnim.value = `out-${direction}`
     await wait(150)
-    if (!isOpen.value) return
+    if (!isOpen.value || generation !== viewGeneration) return
 
     internalUpdating.value = true
     activeIndex.value = index
@@ -1038,9 +1085,10 @@ async function goTo(index: number) {
     internalUpdating.value = false
 
     await nextTick()
-    if (!isOpen.value) return
+    if (!isOpen.value || generation !== viewGeneration) return
     pageAnim.value = `in-${direction}`
     await wait(160)
+    if (generation !== viewGeneration) return
     pageAnim.value = null
     scrollActiveNavIntoView()
 }
@@ -1085,7 +1133,7 @@ function handleLoaderVersionSearch(query: string) {
 }
 
 function handleConfirm() {
-    if (instances.value.length === 0) return
+    if (!canConfirm.value) return
     if (instances.value.length > 1 && activeIndex.value < instances.value.length - 1) {
         void goTo(activeIndex.value + 1)
         return
@@ -1099,12 +1147,17 @@ function handleConfirm() {
             instancePath: instance.path,
             symlink: false,
             gameVersion:
-                saved?.gameVersion || importPlanDefaultGameVersion(snapshot?.gameVersion) || null,
-            loader: saved?.loader || importPlanDefaultLoader(snapshot?.loader) || null,
+                (saved?.touched.gameVersion
+                    ? saved.gameVersion
+                    : importPlanDefaultGameVersion(snapshot?.gameVersion)) || null,
+            loader:
+                (saved?.touched.loader
+                    ? saved.loader
+                    : importPlanDefaultLoader(snapshot?.loader)) || null,
             loaderVersion:
-                saved?.loaderVersion ||
-                importPlanDefaultLoaderVersion(snapshot?.loaderVersion) ||
-                null,
+                (saved?.touched.loaderVersion
+                    ? saved.loaderVersion
+                    : importPlanDefaultLoaderVersion(snapshot?.loaderVersion)) || null,
             gameDirOverride: null,
         }
     })
@@ -1131,10 +1184,9 @@ function onModalHide() {
 
 function show(options: { instances: SymlinkMethodInstance[] }) {
     console.debug('[SymlinkMethodCards] show', options)
-    if (rescanTimer !== null) {
-        window.clearTimeout(rescanTimer)
-        rescanTimer = null
-    }
+    stopAllPlans()
+    for (const timer of rescanTimers.values()) window.clearTimeout(timer)
+    rescanTimers.clear()
     pendingSnapshots.clear()
     snapshotFlushPending = false
     instances.value = options.instances
@@ -1162,10 +1214,9 @@ function hide() {
 }
 
 function stopAllPlans() {
-    if (rescanTimer !== null) {
-        window.clearTimeout(rescanTimer)
-        rescanTimer = null
-    }
+    viewGeneration++
+    for (const timer of rescanTimers.values()) window.clearTimeout(timer)
+    rescanTimers.clear()
     for (let index = 0; index < instances.value.length; index++) {
         cancelPlan(index)
     }
@@ -1211,7 +1262,7 @@ watch([loader, gameVersion], () => {
 })
 
 onMounted(async () => {
-    await ensureListening()
+    await ensureListening().catch(() => {})
 })
 
 onUnmounted(() => {

@@ -7,8 +7,23 @@ use super::types::{
     CanonicalServer, LocalServer, ProjectionEntry, ProjectionOwner,
     ServerRecord, ServerSource,
 };
+use crate::state::instances::adapters::sqlite::instance_servers::LocalServerRow;
+use crate::state::instances::adapters::sqlite::projection_entries::ProjectionEntryRow;
+use crate::state::instances::adapters::sqlite::{
+    instance_servers, projection_entries,
+};
+use crate::state::store::Collection as _;
+use crate::state::store::atom;
+use crate::state::store::instance_sync_checkpoints::{
+    CheckpointKey, CheckpointRecord as StoredCheckpointRecord,
+    CheckpointStatus as StoredStatus, InstanceSyncCheckpoints,
+};
+use crate::state::store::synced_server_state::{
+    Singleton as ServerStateSingleton, SyncedServerState,
+};
+use crate::state::store::synced_servers::{SyncedServerRecord, SyncedServers};
 use crate::{ErrorKind, State};
-use sqlx::{Sqlite, SqliteConnection, Transaction};
+use sqlx::{Sqlite, Transaction};
 use std::collections::HashSet;
 use std::path::PathBuf;
 
@@ -19,55 +34,39 @@ pub(in crate::api::instance) async fn canonical_exists(
 }
 
 async fn canonical_initialized(state: &State) -> crate::Result<bool> {
-    Ok(sqlx::query_scalar!(
-        r#"
-        SELECT EXISTS(
-            SELECT 1 FROM synced_server_state WHERE singleton = 1
-        ) AS "initialized!: bool"
-        "#,
-    )
-    .fetch_one(&state.pool)
-    .await?)
+    Ok(SyncedServerState::get(&state.data, &ServerStateSingleton)
+        .await?
+        .is_some())
 }
 
 pub(super) async fn read_canonical(
     state: &State,
 ) -> crate::Result<Vec<CanonicalServer>> {
-    read_canonical_with(&mut *state.pool.acquire().await?).await
-}
-
-async fn read_canonical_with(
-    executor: &mut SqliteConnection,
-) -> crate::Result<Vec<CanonicalServer>> {
-    validate_stored_list(executor, "synced_servers", None).await?;
-    let rows = sqlx::query!(
-        "
-        SELECT id, nbt
-        FROM synced_servers
-        ORDER BY position
-        ",
-    )
-    .fetch_all(executor)
-    .await?;
-    rows.into_iter()
-        .map(|row| {
+    let (count, bytes) = SyncedServers::stored_size(&state.data).await?;
+    validate_size(count, bytes)?;
+    SyncedServers::get_all(&state.data)
+        .await?
+        .into_iter()
+        .map(|(id, record)| {
             Ok(CanonicalServer {
-                id: row.id,
-                data: nbt_from_bytes(row.nbt)?,
+                id,
+                data: nbt_from_bytes(record.nbt)?,
             })
         })
-        .collect()
+        .collect::<crate::Result<Vec<_>>>()
 }
 
-/// Reads canonical servers and instance overrides from the same committed revision.
+/// Reads canonical servers and instance overrides.
+///
+/// The two halves of the read reach different tables, and a store collection
+/// cannot join the transaction the instance steps run in; the caller's
+/// synced-options lock is what keeps them close, not a shared unit.
 pub(super) async fn read_server_snapshot(
     instance_id: &str,
     state: &State,
 ) -> crate::Result<(Vec<CanonicalServer>, Vec<LocalServer>)> {
-    let mut tx = state.pool.begin().await?;
-    let canonical = read_canonical_with(&mut tx).await?;
-    let local = load_local_with(instance_id, &mut tx).await?;
-    tx.commit().await?;
+    let canonical = read_canonical(state).await?;
+    let local = load_local(instance_id, state).await?;
     Ok((canonical, local))
 }
 
@@ -76,11 +75,7 @@ pub(super) async fn commit_server_state(
     local: Option<(&str, &[LocalServer])>,
     state: &State,
 ) -> crate::Result<bool> {
-    let mut tx = state.pool.begin().await?;
-    let canonical_changed =
-        write_server_state(&mut tx, canonical, local).await?;
-    tx.commit().await?;
-    Ok(canonical_changed)
+    write_server_state(canonical, local, state).await
 }
 
 /// A consumed file and its database changes must survive a failed fan-out together.
@@ -91,119 +86,60 @@ pub(super) async fn commit_captured_servers(
     local: &[LocalServer],
     state: &State,
 ) -> crate::Result<bool> {
-    let mut tx = state.pool.begin().await?;
-    let changed = write_server_state(
-        &mut tx,
-        Some(canonical),
-        Some((instance_id, local)),
-    )
-    .await?;
-    sqlx::query(
-        "INSERT INTO instance_sync_checkpoints
-         (instance_id, feature, variant, expected_sha1, source_revision, status)
-         VALUES (?, 'multiplayer_servers', 'default', '',
-                 (SELECT revision FROM synced_server_state WHERE singleton = 1), 'pending')
-         ON CONFLICT(instance_id, feature, variant) DO UPDATE SET
-             expected_sha1 = '', source_revision = excluded.source_revision,
-             status = 'pending', link_mode = NULL, merge_base = NULL"
-    ).bind(instance_id).execute(&mut *tx).await?;
-    tx.commit().await?;
+    let changed =
+        write_canonical_rows(canonical, Some(instance_id), state).await?;
+    write_local(instance_id, local, state).await?;
     Ok(changed)
 }
 
+/// Writes the canonical list first: the instance rows resolve their excluded
+/// server against it, so it has to be there before they are written.
 async fn write_server_state(
-    tx: &mut Transaction<'_, Sqlite>,
     canonical: Option<&[CanonicalServer]>,
     local: Option<(&str, &[LocalServer])>,
+    state: &State,
 ) -> crate::Result<bool> {
     let mut canonical_changed = false;
     if let Some(canonical) = canonical {
-        canonical_changed = write_canonical_rows(tx, canonical).await?;
-        sqlx::query!(
-            "
-            INSERT INTO synced_server_state (singleton, revision)
-            VALUES (1, 0)
-            ON CONFLICT(singleton) DO NOTHING
-            ",
-        )
-        .execute(&mut **tx)
-        .await?;
-        if canonical_changed {
-            sqlx::query!(
-                "
-                UPDATE synced_server_state
-                SET revision = revision + 1
-                WHERE singleton = 1
-                ",
-            )
-            .execute(&mut **tx)
-            .await?;
-        }
+        canonical_changed =
+            write_canonical_rows(canonical, None, state).await?;
     }
     if let Some((instance_id, local)) = local {
-        write_local_rows(tx, instance_id, local).await?;
+        write_local(instance_id, local, state).await?;
     }
     Ok(canonical_changed)
 }
 
-async fn validate_stored_list(
-    connection: &mut SqliteConnection,
-    table: &str,
-    instance_id: Option<&str>,
-) -> crate::Result<()> {
-    // Table names are private constants supplied by the storage functions below.
-    let filter = if instance_id.is_some() {
-        " WHERE instance_id = ?"
-    } else {
-        ""
-    };
-    let query = format!(
-        "SELECT COUNT(*), COALESCE(SUM(length(nbt)), 0) FROM {table}{filter}"
-    );
-    let mut query = sqlx::query_as::<_, (i64, i64)>(&query);
-    if let Some(id) = instance_id {
-        query = query.bind(id);
-    }
-    let (count, bytes) = query.fetch_one(connection).await?;
-    validate_size(
-        count.try_into().unwrap_or(usize::MAX),
-        bytes.try_into().unwrap_or(usize::MAX),
-    )
-}
-
+/// Writes the canonical list, and — when `checkpoint_for` names an instance —
+/// the pending checkpoint its projection waits on, in the same unit.
 async fn write_canonical_rows(
-    tx: &mut Transaction<'_, Sqlite>,
     servers: &[CanonicalServer],
+    checkpoint_for: Option<&str>,
+    state: &State,
 ) -> crate::Result<bool> {
     validate_size(servers.len(), 0)?;
-    validate_stored_list(tx, "synced_servers", None).await?;
-    let current = sqlx::query!(
-        "
-        SELECT id, position, nbt
-        FROM synced_servers
-        ORDER BY position
-        ",
-    )
-    .fetch_all(&mut **tx)
-    .await?;
+    let mut unit = atom(&state.data).await?;
+    let stored_size = SyncedServers::stored_size_in(&mut unit).await?;
+    validate_size(stored_size.0, stored_size.1)?;
+    let current = SyncedServers::atom_get_all(&mut unit).await?;
     let mut desired = Vec::with_capacity(servers.len());
     let mut bytes = 0;
     for (position, server) in servers.iter().enumerate() {
         let nbt = nbt_to_bytes(&server.data)?;
         bytes += nbt.len();
         validate_size(servers.len(), bytes)?;
-        desired.push((server.id.as_str(), position as i64, nbt));
+        desired.push((server.id.clone(), position as i64, nbt));
     }
     let mut unchanged = current.len() == desired.len();
     if unchanged {
-        for ((current, desired), server) in
+        for (((id, record), (desired_id, position, _)), server) in
             current.iter().zip(&desired).zip(servers)
         {
             // Compound field order is not meaningful; quartz_nbt uses HashMap.
-            // Comparing serialized bytes marks unchanged lists as new revisions.
-            if current.id != desired.0
-                || current.position != desired.1
-                || nbt_from_bytes(current.nbt.clone())? != server.data
+            // Comparing the decoded value marks unchanged lists as new revisions.
+            if id != desired_id
+                || record.position != *position
+                || nbt_from_bytes(record.nbt.clone())? != server.data
             {
                 unchanged = false;
                 break;
@@ -211,90 +147,67 @@ async fn write_canonical_rows(
         }
     }
     if unchanged {
+        SyncedServerState::ensure_in(&mut unit).await?;
+        if let Some(instance_id) = checkpoint_for {
+            write_pending_checkpoint(&mut unit, instance_id, "").await?;
+        }
+        unit.commit().await?;
         return Ok(false);
     }
 
-    let desired_ids =
-        desired.iter().map(|(id, _, _)| *id).collect::<HashSet<_>>();
-    for row in &current {
-        if !desired_ids.contains(row.id.as_str()) {
-            sqlx::query!("DELETE FROM synced_servers WHERE id = ?", row.id)
-                .execute(&mut **tx)
-                .await?;
+    let desired_ids = desired
+        .iter()
+        .map(|(id, _, _)| id.as_str())
+        .collect::<HashSet<_>>();
+    for (id, _) in &current {
+        if !desired_ids.contains(id.as_str()) {
+            SyncedServers::atom_set(&mut unit, id, None).await?;
         }
     }
 
     let position_offset = current
         .iter()
-        .map(|row| row.position)
+        .map(|(_, record)| record.position)
         .max()
         .unwrap_or(0)
         .max(servers.len() as i64)
         .saturating_add(1);
-    sqlx::query!(
-        "UPDATE synced_servers SET position = position + ?",
-        position_offset,
-    )
-    .execute(&mut **tx)
-    .await?;
+    SyncedServers::shift_positions_in(&mut unit, position_offset).await?;
 
     for (id, position, nbt) in desired {
-        sqlx::query!(
-            "
-            INSERT INTO synced_servers (id, position, nbt)
-            VALUES (?, ?, ?)
-            ON CONFLICT(id) DO UPDATE SET
-                position = excluded.position,
-                nbt = excluded.nbt
-            ",
-            id,
-            position,
-            nbt,
+        SyncedServers::atom_set(
+            &mut unit,
+            &id,
+            Some(&SyncedServerRecord { position, nbt }),
         )
-        .execute(&mut **tx)
         .await?;
     }
+    SyncedServerState::bump_in(&mut unit).await?;
+    if let Some(instance_id) = checkpoint_for {
+        write_pending_checkpoint(&mut unit, instance_id, "").await?;
+    }
+    unit.commit().await?;
     Ok(true)
 }
 
 pub(super) async fn server_revision(state: &State) -> crate::Result<i64> {
-    Ok(sqlx::query_scalar!(
-        r#"
-        SELECT revision AS "revision!: i64"
-        FROM synced_server_state
-        WHERE singleton = 1
-        "#,
-    )
-    .fetch_optional(&state.pool)
-    .await?
-    .unwrap_or(0))
+    Ok(SyncedServerState::get(&state.data, &ServerStateSingleton)
+        .await?
+        .map(|record| record.revision)
+        .unwrap_or(0))
 }
 
 pub(super) async fn load_local(
     instance_id: &str,
     state: &State,
 ) -> crate::Result<Vec<LocalServer>> {
-    load_local_with(instance_id, &mut *state.pool.acquire().await?).await
-}
-
-async fn load_local_with(
-    instance_id: &str,
-    executor: &mut SqliteConnection,
-) -> crate::Result<Vec<LocalServer>> {
-    validate_stored_list(executor, "instance_servers", Some(instance_id))
-        .await?;
-    let rows = sqlx::query!(
-        "
-        SELECT id, source, excluded_synced_server_id, nbt, position
-        FROM instance_servers
-        WHERE instance_id = ?
-        ORDER BY position
-        ",
-        instance_id,
-    )
-    .fetch_all(executor)
-    .await?;
-    rows.into_iter()
+    let (count, bytes) =
+        instance_servers::get_local_server_size(instance_id, &state.pool)
+            .await?;
+    validate_size(count, bytes)?;
+    instance_servers::get_local_servers(instance_id, &state.pool)
+        .await?
+        .into_iter()
         .map(|row| {
             Ok(LocalServer {
                 id: row.id,
@@ -319,7 +232,9 @@ pub(super) async fn write_local(
     servers: &[LocalServer],
     state: &State,
 ) -> crate::Result<()> {
-    commit_server_state(None, Some((instance_id, servers)), state).await?;
+    let mut tx = state.pool.begin().await?;
+    write_local_rows(&mut tx, instance_id, servers).await?;
+    tx.commit().await?;
     Ok(())
 }
 
@@ -330,35 +245,20 @@ pub(super) async fn write_local_rows(
 ) -> crate::Result<()> {
     validate_size(servers.len(), 0)?;
     let mut bytes = 0;
-    sqlx::query!(
-        "DELETE FROM instance_servers WHERE instance_id = ?",
-        instance_id,
-    )
-    .execute(&mut **tx)
-    .await?;
+    let mut rows = Vec::with_capacity(servers.len());
     for server in servers {
-        let source = server.source.as_str();
         let nbt = nbt_to_bytes(&server.data)?;
         bytes += nbt.len();
         validate_size(servers.len(), bytes)?;
-        sqlx::query!(
-            "
-            INSERT INTO instance_servers
-                (instance_id, id, source, excluded_synced_server_id,
-                 nbt, position)
-            VALUES (?, ?, ?,
-                (SELECT id FROM synced_servers WHERE id = ?), ?, ?)
-            ",
-            instance_id,
-            server.id,
-            source,
-            server.excluded_synced_server_id,
+        rows.push(LocalServerRow {
+            id: server.id.clone(),
+            source: server.source.as_str().to_string(),
+            excluded_synced_server_id: server.excluded_synced_server_id.clone(),
             nbt,
-            server.position,
-        )
-        .execute(&mut **tx)
-        .await?;
+            position: server.position,
+        });
     }
+    instance_servers::replace_local_servers(tx, instance_id, &rows).await?;
     Ok(())
 }
 
@@ -366,25 +266,13 @@ pub(super) async fn load_projection_entries(
     instance_id: &str,
     state: &State,
 ) -> crate::Result<Vec<ProjectionEntry>> {
-    let mut connection = state.pool.acquire().await?;
-    validate_stored_list(
-        &mut connection,
-        "instance_server_projection_entries",
-        Some(instance_id),
-    )
-    .await?;
-    let rows = sqlx::query!(
-        "
-        SELECT server_id, owner, nbt, position
-        FROM instance_server_projection_entries
-        WHERE instance_id = ?
-        ORDER BY position
-        ",
-        instance_id,
-    )
-    .fetch_all(&mut *connection)
-    .await?;
-    rows.into_iter()
+    let (count, bytes) =
+        projection_entries::get_projection_size(instance_id, &state.pool)
+            .await?;
+    validate_size(count, bytes)?;
+    projection_entries::get_projection_entries(instance_id, &state.pool)
+        .await?
+        .into_iter()
         .map(|row| {
             Ok(ProjectionEntry {
                 id: row.server_id,
@@ -412,13 +300,7 @@ pub(super) async fn begin_server_checkpoint(
 ) -> crate::Result<()> {
     validate_size(servers.len(), 0)?;
     let mut bytes = 0;
-    let mut tx = state.pool.begin().await?;
-    sqlx::query!(
-        "DELETE FROM instance_server_projection_entries WHERE instance_id = ?",
-        instance_id,
-    )
-    .execute(&mut *tx)
-    .await?;
+    let mut entries = Vec::with_capacity(servers.len());
     for (position, server) in servers.iter().enumerate() {
         let owner = if server.source == ServerSource::UserSynced {
             ProjectionOwner::Synced
@@ -429,42 +311,36 @@ pub(super) async fn begin_server_checkpoint(
         let nbt = nbt_to_bytes(&server.data)?;
         bytes += nbt.len();
         validate_size(servers.len(), bytes)?;
-        let position = position as i64;
-        sqlx::query!(
-            "
-            INSERT INTO instance_server_projection_entries
-                (instance_id, owner, server_id, nbt, position)
-            VALUES (?, ?, ?, ?, ?)
-            ",
-            instance_id,
-            owner,
-            server.id,
+        entries.push(ProjectionEntryRow {
+            owner: owner.to_string(),
+            server_id: server.id.clone(),
             nbt,
-            position,
-        )
-        .execute(&mut *tx)
-        .await?;
+            position: position as i64,
+        });
     }
-    sqlx::query!(
-        "
-        INSERT INTO instance_sync_checkpoints
-            (instance_id, feature, variant, expected_sha1, merge_base,
-             source_revision, status, link_mode)
-        VALUES (?, 'multiplayer_servers', 'default', ?, NULL, ?,
-            'pending', NULL)
-        ON CONFLICT(instance_id, feature, variant) DO UPDATE SET
-            expected_sha1 = excluded.expected_sha1,
-            merge_base = NULL,
-            source_revision = excluded.source_revision,
-            status = 'pending',
-            link_mode = NULL
-        ",
-        instance_id,
-        expected_sha1,
-        source_revision,
-    )
-    .execute(&mut *tx)
-    .await?;
+    let mut unit = atom(&state.data).await?;
+    let revision =
+        SyncedServerState::atom_get(&mut unit, &ServerStateSingleton)
+            .await?
+            .map(|record| record.revision)
+            .unwrap_or(source_revision);
+    let key = CheckpointKey {
+        instance_id: instance_id.to_string(),
+        feature: "multiplayer_servers".to_string(),
+        variant: "default".to_string(),
+    };
+    let record = StoredCheckpointRecord {
+        expected_sha1: expected_sha1.to_string(),
+        merge_base: None,
+        source_revision: revision,
+        status: StoredStatus::Pending,
+        link_mode: None,
+    };
+    InstanceSyncCheckpoints::atom_set(&mut unit, &key, Some(&record)).await?;
+    unit.commit().await?;
+    let mut tx = state.pool.begin().await?;
+    projection_entries::replace_projection(&mut tx, instance_id, &entries)
+        .await?;
     tx.commit().await?;
     Ok(())
 }
@@ -474,4 +350,31 @@ pub(super) fn generated_path(state: &State, instance_id: &str) -> PathBuf {
         .join("servers/generated")
         .join(safe_instance_id(instance_id))
         .join(SERVERS_FILE)
+}
+
+/// Marks the projection of `instance_id` as waiting, in the unit that also
+/// wrote the canonical list.
+async fn write_pending_checkpoint(
+    unit: &mut crate::state::store::Atom,
+    instance_id: &str,
+    expected_sha1: &str,
+) -> crate::Result<()> {
+    let revision = SyncedServerState::atom_get(unit, &ServerStateSingleton)
+        .await?
+        .map(|record| record.revision)
+        .unwrap_or(0);
+    let key = CheckpointKey {
+        instance_id: instance_id.to_string(),
+        feature: "multiplayer_servers".to_string(),
+        variant: "default".to_string(),
+    };
+    let record = StoredCheckpointRecord {
+        expected_sha1: expected_sha1.to_string(),
+        merge_base: None,
+        source_revision: revision,
+        status: StoredStatus::Pending,
+        link_mode: None,
+    };
+    InstanceSyncCheckpoints::atom_set(unit, &key, Some(&record)).await?;
+    Ok(())
 }

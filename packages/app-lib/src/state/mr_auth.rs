@@ -116,7 +116,7 @@ impl ModrinthCredentials {
         CachedEntry::get_user_many(
             &user_ids.iter().map(|x| &**x).collect::<Vec<_>>(),
             Some(CacheBehaviour::Bypass),
-            &state.pool,
+            state.cache_pool(),
             &state.fetch_semaphore,
         )
         .await?;

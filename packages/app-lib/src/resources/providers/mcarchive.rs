@@ -60,6 +60,7 @@ impl McArchiveProvider {
                 ))
             }
             ProviderQuery::ProjectProtocol { .. }
+            | ProviderQuery::CurseForgeFilesProtocol { .. }
             | ProviderQuery::ReleaseProtocol { .. }
             | ProviderQuery::ReleasesProtocol { .. }
             | ProviderQuery::SearchProtocol { .. } => {

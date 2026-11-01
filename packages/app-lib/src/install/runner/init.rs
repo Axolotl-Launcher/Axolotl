@@ -103,6 +103,15 @@ pub(super) async fn prepare_initial_instance(
             location,
             post_install_edit,
         } => {
+            job_state.local_pack_retry_identity = match &location {
+                CreatePackLocation::FromFile { path } => Some(
+                    crate::api::pack::install_from::local_pack_retry_identity(
+                        path,
+                    )
+                    .await?,
+                ),
+                _ => None,
+            };
             let preview = get_instance_from_pack(location).await?;
             let name = post_install_edit
                 .as_ref()

@@ -509,7 +509,7 @@ async fn resolve_chinese_titles_by_sha1(
     let projects = match CachedEntry::get_project_many(
         &project_ids,
         None,
-        &state.pool,
+        state.cache_pool(),
         &state.api_semaphore,
     )
     .await
@@ -1091,7 +1091,7 @@ pub(crate) async fn install_zipped_mrpack_files_with_reporter(
             &file_infos_by_hash,
             &file_infos_loading,
             &file_info_hashes,
-            &state.pool,
+            state.cache_pool(),
             &state.api_semaphore,
         )
         .await;
@@ -1107,7 +1107,7 @@ pub(crate) async fn install_zipped_mrpack_files_with_reporter(
         &file_infos_by_hash,
         &file_infos_loading,
         &file_info_hashes,
-        &state.pool,
+        state.cache_pool(),
         &state.api_semaphore,
     )
     .await;

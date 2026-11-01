@@ -50,13 +50,9 @@ pub(crate) async fn scan_pending_manual_downloads_in(
 ) -> crate::Result<()> {
     let _scan_guard = MANUAL_IMPORT_SCAN_LOCK.lock().await;
     let state = State::get().await?;
-    let instance_ids = sqlx::query_scalar::<_, String>(
-        "SELECT DISTINCT instance_id
-         FROM instance_pending_manual_downloads
-         WHERE provider = 'curseforge'
-            AND state IN ('waiting', 'matched', 'error')",
+    let instance_ids = crate::state::instances::adapters::sqlite::pack_members::get_instance_ids_with_pending_curseforge_downloads(
+        &state.pool,
     )
-    .fetch_all(&state.pool)
     .await?;
 
     for instance_id in instance_ids {

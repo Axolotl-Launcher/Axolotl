@@ -5,8 +5,13 @@ use crate::state::{
     DirectoryInfo, InstanceInstallStage, ProjectType, attached_world_data,
 };
 use crate::worlds::WorldType;
-use notify::{RecommendedWatcher, RecursiveMode};
-use notify_debouncer_mini::{DebounceEventResult, Debouncer, new_debouncer};
+use notify::event::{AccessKind, AccessMode};
+use notify::{
+    EventHandler, EventKind, RecommendedWatcher, RecursiveMode, Watcher,
+};
+use notify_debouncer_mini::{
+    Config, DebounceEventResult, Debouncer, new_debouncer_opt,
+};
 use std::{
     collections::{HashMap, HashSet},
     path::{Path, PathBuf},
@@ -21,8 +26,58 @@ use tokio::sync::{RwLock, mpsc::channel};
 use super::adapters::sqlite::instance_rows;
 use super::config_sync::{CONFIG_FILE_NAME, CONFIG_FILE_TEMP_NAME};
 
+struct ContentChangeWatcher(RecommendedWatcher);
+
+fn content_change_handler(mut handler: impl EventHandler) -> impl EventHandler {
+    move |result: notify::Result<notify::Event>| {
+        // The mini debouncer discards event kinds. Filter reads here so a scan
+        // cannot invalidate itself by opening files (notably on Linux).
+        if result.as_ref().is_ok_and(|event| {
+            !event.need_rescan()
+                && matches!(event.kind, EventKind::Access(kind) if kind != AccessKind::Close(AccessMode::Write))
+        }) {
+            return;
+        }
+        handler.handle_event(result);
+    }
+}
+
+impl Watcher for ContentChangeWatcher {
+    fn new<F: EventHandler>(
+        event_handler: F,
+        config: notify::Config,
+    ) -> notify::Result<Self> {
+        RecommendedWatcher::new(content_change_handler(event_handler), config)
+            .map(Self)
+    }
+
+    fn watch(
+        &mut self,
+        path: &Path,
+        recursive_mode: RecursiveMode,
+    ) -> notify::Result<()> {
+        self.0.watch(path, recursive_mode)
+    }
+
+    fn unwatch(&mut self, path: &Path) -> notify::Result<()> {
+        self.0.unwatch(path)
+    }
+
+    fn paths_mut(&mut self) -> Box<dyn notify::PathsMut + '_> {
+        self.0.paths_mut()
+    }
+
+    fn configure(&mut self, config: notify::Config) -> notify::Result<bool> {
+        self.0.configure(config)
+    }
+
+    fn kind() -> notify::WatcherKind {
+        RecommendedWatcher::kind()
+    }
+}
+
 pub struct FileWatcher {
-    watcher: RwLock<Debouncer<RecommendedWatcher>>,
+    watcher: RwLock<Debouncer<ContentChangeWatcher>>,
     instance_ids: Arc<RwLock<HashMap<String, HashSet<String>>>>,
     content_changes: Arc<RwLock<HashMap<String, InstanceContentChangeState>>>,
     manual_import_directory: Arc<RwLock<Option<PathBuf>>>,
@@ -62,8 +117,8 @@ pub async fn init_watcher() -> crate::Result<FileWatcher> {
     let event_manual_import_directory = manual_import_directory.clone();
     let manual_import_generation = Arc::new(AtomicU64::new(0));
 
-    let file_watcher = new_debouncer(
-        Duration::from_secs_f32(1.0),
+    let file_watcher = new_debouncer_opt::<_, ContentChangeWatcher>(
+        Config::default().with_timeout(Duration::from_secs_f32(1.0)),
         move |res: DebounceEventResult| {
             tx.blocking_send(res).ok();
         },
@@ -966,5 +1021,160 @@ mod config_file_name_tests {
                 .unwrap()
                 .epoch
         );
+    }
+}
+
+#[cfg(test)]
+mod content_event_tests {
+    use super::*;
+    use notify::event::{
+        CreateKind, DataChange, Flag, ModifyKind, RemoveKind, RenameMode,
+    };
+
+    #[test]
+    fn ignores_access_events_before_debouncing() {
+        let (tx, rx) = std::sync::mpsc::channel();
+        let mut handler = content_change_handler(move |event| {
+            tx.send(event).unwrap();
+        });
+        for kind in [
+            AccessKind::Any,
+            AccessKind::Read,
+            AccessKind::Open(AccessMode::Any),
+            AccessKind::Open(AccessMode::Read),
+            AccessKind::Open(AccessMode::Write),
+            AccessKind::Close(AccessMode::Read),
+            AccessKind::Close(AccessMode::Any),
+            AccessKind::Other,
+        ] {
+            handler
+                .handle_event(Ok(notify::Event::new(EventKind::Access(kind))));
+        }
+        assert!(matches!(
+            rx.try_recv(),
+            Err(std::sync::mpsc::TryRecvError::Empty)
+        ));
+    }
+
+    #[test]
+    fn preserves_mutations_rescans_and_errors_before_debouncing() {
+        let (tx, rx) = std::sync::mpsc::channel();
+        let mut handler = content_change_handler(move |event| {
+            tx.send(event).unwrap();
+        });
+        for kind in [
+            EventKind::Any,
+            EventKind::Other,
+            EventKind::Access(AccessKind::Close(AccessMode::Write)),
+            EventKind::Create(CreateKind::File),
+            EventKind::Modify(ModifyKind::Data(DataChange::Content)),
+            EventKind::Modify(ModifyKind::Name(RenameMode::Both)),
+            EventKind::Remove(RemoveKind::File),
+        ] {
+            let event = notify::Event::new(kind)
+                .add_path(PathBuf::from("mods/example.jar"));
+            handler.handle_event(Ok(event.clone()));
+            assert_eq!(rx.try_recv().unwrap().unwrap(), event);
+        }
+        let rescan = notify::Event::new(EventKind::Access(AccessKind::Read))
+            .set_flag(Flag::Rescan);
+        handler.handle_event(Ok(rescan.clone()));
+        assert_eq!(rx.try_recv().unwrap().unwrap(), rescan);
+        handler.handle_event(Err(notify::Error::generic("watch failed")));
+        assert_eq!(
+            rx.try_recv().unwrap().unwrap_err().to_string(),
+            "watch failed"
+        );
+    }
+
+    async fn wait_for_content_change(
+        watcher: &FileWatcher,
+        previous_generation: u64,
+        path: &str,
+    ) -> InstanceContentWatchSnapshot {
+        tokio::time::timeout(Duration::from_secs(10), async {
+            loop {
+                let snapshot =
+                    watcher.content_watch_snapshot("instance").await.unwrap();
+                if snapshot.generation > previous_generation
+                    && snapshot.dirty_paths.contains(path)
+                {
+                    return snapshot;
+                }
+                tokio::time::sleep(Duration::from_millis(50)).await;
+            }
+        })
+        .await
+        .unwrap_or_else(|_| panic!("no content change received for {path}"))
+    }
+
+    #[tokio::test]
+    async fn reads_leave_content_generation_unchanged_but_mutations_update_it()
+    {
+        let root = tempfile::tempdir().unwrap();
+        let mods = root.path().join("mods");
+        std::fs::create_dir_all(&mods).unwrap();
+        let existing = mods.join("existing.jar");
+        std::fs::write(&existing, b"initial content").unwrap();
+        let deleted = mods.join("deleted.jar");
+        std::fs::write(&deleted, b"content to delete").unwrap();
+        let metadata = std::fs::metadata(&existing).unwrap();
+        let watcher = init_watcher().await.unwrap();
+        watch_instance_folder("instance", "instance", root.path(), &watcher)
+            .await;
+        let initial = watcher.content_watch_snapshot("instance").await.unwrap();
+
+        for _ in 0..3 {
+            assert_eq!(std::fs::read(&existing).unwrap(), b"initial content");
+            tokio::time::sleep(Duration::from_millis(100)).await;
+        }
+        // Batch mode may take twice the one-second debounce timeout.
+        tokio::time::sleep(Duration::from_secs(3)).await;
+        let after_reads = std::fs::metadata(&existing).unwrap();
+        assert_eq!(metadata.len(), after_reads.len());
+        assert_eq!(
+            metadata.modified().unwrap(),
+            after_reads.modified().unwrap()
+        );
+        assert_eq!(
+            watcher.content_watch_snapshot("instance").await.unwrap(),
+            initial
+        );
+
+        std::fs::write(&existing, b"changed content").unwrap();
+        let changed = wait_for_content_change(
+            &watcher,
+            initial.generation,
+            "mods/existing.jar",
+        )
+        .await;
+        assert!(changed.directory_dirty);
+
+        let created = mods.join("created.jar");
+        std::fs::write(&created, b"new content").unwrap();
+        let changed = wait_for_content_change(
+            &watcher,
+            changed.generation,
+            "mods/created.jar",
+        )
+        .await;
+
+        let renamed = mods.join("renamed.jar");
+        std::fs::rename(&created, &renamed).unwrap();
+        let changed = wait_for_content_change(
+            &watcher,
+            changed.generation,
+            "mods/renamed.jar",
+        )
+        .await;
+
+        std::fs::remove_file(&deleted).unwrap();
+        wait_for_content_change(
+            &watcher,
+            changed.generation,
+            "mods/deleted.jar",
+        )
+        .await;
+        unwatch_instance_folder("instance", root.path(), &watcher).await;
     }
 }

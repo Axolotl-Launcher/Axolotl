@@ -3,13 +3,17 @@ use super::sync_content_files::{instance_content_root, join_content_path};
 use crate::api::content_search::{
     chinese_file_title_for_modrinth_slug, localized_content_file_name,
 };
+use crate::install::critical_section;
 use crate::state::instances::{
     ContentOwnershipKind, ContentRequirement, ContentSourceKind, Instance,
     InstanceFile, PackMember, PackMemberMaterializationState,
     PackMemberOverrideKind,
     adapters::{
         filesystem::project_type_from_relative_path,
-        sqlite::{content_entries, files, instance_rows, pack_members},
+        sqlite::{
+            content_entries, content_store_files, files, instance_rows,
+            pack_members, rollback_journals,
+        },
     },
 };
 use crate::state::{
@@ -117,7 +121,7 @@ impl ContentMetadataProvider for CachedEntryContentProvider<'_> {
             &ModrinthVersionId::new(version_id.to_string())
                 .map_err(resolve_provider_error)?,
             self.cache_behaviour,
-            &self.state.pool,
+            self.state.cache_pool(),
             &self.state.api_semaphore,
         )
         .await
@@ -134,7 +138,7 @@ impl ContentMetadataProvider for CachedEntryContentProvider<'_> {
             &ModrinthProjectId::new(project_id.to_string())
                 .map_err(resolve_provider_error)?,
             self.cache_behaviour,
-            &self.state.pool,
+            self.state.cache_pool(),
             &self.state.api_semaphore,
         )
         .await
@@ -319,7 +323,7 @@ async fn resolve_install_plan_with_cache(
             let projects = CachedEntry::get_project_many(
                 &project_ids,
                 cache_behaviour,
-                &state.pool,
+                state.cache_pool(),
                 &state.api_semaphore,
             )
             .await?;
@@ -389,7 +393,7 @@ pub(crate) async fn resolve_install_plan_for_target_with_policy(
             let projects = CachedEntry::get_project_many(
                 &project_ids,
                 cache_behaviour,
-                &state.pool,
+                state.cache_pool(),
                 &state.api_semaphore,
             )
             .await?;
@@ -501,7 +505,7 @@ async fn resolved_content_file_size(
     let version = CachedEntry::get_version(
         &ModrinthVersionId::new(content.version_id.clone())?,
         None,
-        &state.pool,
+        state.cache_pool(),
         &state.api_semaphore,
     )
     .await?
@@ -530,7 +534,7 @@ pub(crate) async fn switch_project_version_with_dependencies_preserving_name(
     let version = CachedEntry::get_version(
         &ModrinthVersionId::new(version_id.to_string())?,
         Some(CacheBehaviour::MustRevalidate),
-        &state.pool,
+        state.cache_pool(),
         &state.api_semaphore,
     )
     .await?
@@ -560,7 +564,7 @@ pub(crate) async fn switch_project_version_with_dependencies_preserving_name(
         Some(current_version_id) => CachedEntry::get_version(
             &ModrinthVersionId::new(current_version_id.to_string())?,
             Some(CacheBehaviour::MustRevalidate),
-            &state.pool,
+            state.cache_pool(),
             &state.api_semaphore,
         )
         .await?
@@ -675,7 +679,7 @@ pub(crate) async fn prepare_modrinth_content_change_action(
     let version = CachedEntry::get_version(
         &ModrinthVersionId::new(action.target_release_id.clone())?,
         None,
-        &state.pool,
+        state.cache_pool(),
         &state.api_semaphore,
     )
     .await?
@@ -709,7 +713,7 @@ pub(crate) async fn prepare_modrinth_content_change_action(
         Some(version_id) => CachedEntry::get_version(
             &ModrinthVersionId::new(version_id.to_string())?,
             None,
-            &state.pool,
+            state.cache_pool(),
             &state.api_semaphore,
         )
         .await?
@@ -858,7 +862,7 @@ pub(crate) fn preserved_update_relative_path(
     Ok(relative_path)
 }
 
-async fn configured_update_relative_path(
+pub(crate) async fn configured_update_relative_path(
     current_path: &str,
     old_name: Option<&str>,
     new_name: &str,
@@ -947,7 +951,7 @@ pub(crate) async fn finalize_updated_project_path(
     Ok(final_path)
 }
 
-async fn rename_project_file(
+pub(crate) async fn rename_project_file(
     instance_id: &str,
     current_path: &str,
     new_path: &str,
@@ -1511,7 +1515,7 @@ pub(crate) async fn prepare_version_download(
     let version = CachedEntry::get_version(
         &ModrinthVersionId::new(version_id.to_string())?,
         None,
-        &state.pool,
+        state.cache_pool(),
         &state.api_semaphore,
     )
     .await?
@@ -1632,7 +1636,7 @@ async fn modrinth_chinese_file_name_candidate(
     let project = CachedEntry::get_project(
         &ModrinthProjectId::new(project_id.to_string()).ok()?,
         None,
-        &state.pool,
+        state.cache_pool(),
         &state.api_semaphore,
     )
     .await
@@ -1916,54 +1920,63 @@ pub(crate) async fn materialize_project_download_batch(
             known_modrinth_version_id: Some(download.version_id),
         });
     }
-    let _critical = crate::install::critical_section::enter();
-    let mut materialized = Vec::with_capacity(sources.len());
-    let result: crate::Result<()> = async {
-        for (source, destination) in &sources {
-            let backup =
-                materialize_project_download(source, destination).await?;
-            materialized.push((destination.clone(), backup));
-        }
-        record_project_files_atomic_with_plan(
-            instance_id,
-            &records,
-            Some(database_permit),
-            plan,
-            state,
-        )
-        .await
-    }
-    .await;
-    if let Err(error) = result {
-        let mut rollback_errors = Vec::new();
-        for (destination, backup) in materialized.iter().rev() {
-            if let Err(error) =
-                restore_project_materialization(destination, backup.as_deref())
-                    .await
-            {
-                rollback_errors.push(error.to_string());
+    let work = critical_section::SharedWork::new(
+        async |_access: critical_section::WriteAccess<'_>| -> crate::Result<Vec<String>> {
+            let mut materialized = Vec::with_capacity(sources.len());
+            let result: crate::Result<()> = async {
+                for (source, destination) in &sources {
+                    let backup =
+                        materialize_project_download(source, destination).await?;
+                    materialized.push((destination.clone(), backup));
+                }
+                record_project_files_atomic_with_plan(
+                    instance_id,
+                    &records,
+                    Some(database_permit),
+                    plan,
+                    state,
+                )
+                .await
             }
-        }
-        if !rollback_errors.is_empty() {
-            return Err(crate::ErrorKind::OtherError(format!(
-                "{error}; file rollback failed: {}",
-                rollback_errors.join("; ")
-            ))
-            .into());
-        }
-        return Err(error);
-    }
-    for (_, backup) in &materialized {
-        if let Err(error) =
-            finalize_project_materialization(backup.as_deref()).await
-        {
-            tracing::warn!(%error, "Could not remove committed content backup");
-        }
-    }
-    Ok(records
-        .into_iter()
-        .map(|record| record.relative_path)
-        .collect())
+            .await;
+            if let Err(error) = result {
+                let mut rollback_errors = Vec::new();
+                for (destination, backup) in materialized.iter().rev() {
+                    if let Err(error) =
+                        restore_project_materialization(destination, backup.as_deref())
+                            .await
+                    {
+                        rollback_errors.push(error.to_string());
+                    }
+                }
+                if !rollback_errors.is_empty() {
+                    return Err(crate::ErrorKind::OtherError(format!(
+                        "{error}; file rollback failed: {}",
+                        rollback_errors.join("; ")
+                    ))
+                    .into());
+                }
+                return Err(error);
+            }
+            for (_, backup) in &materialized {
+                if let Err(error) =
+                    finalize_project_materialization(backup.as_deref()).await
+                {
+                    tracing::warn!(%error, "Could not remove committed content backup");
+                }
+            }
+            Ok(records
+                .into_iter()
+                .map(|record| record.relative_path)
+                .collect())
+        },
+    );
+    critical_section::with_critical_section(
+        async |guard| work.run(guard.into()).await,
+        async |unscoped| work.run(unscoped.into()).await,
+        async |_closing| Err(critical_section::closing_error()),
+    )
+    .await
 }
 
 fn materialization_path_key(path: &str) -> String {
@@ -2526,7 +2539,7 @@ async fn add_project_bytes_with_provider(
         Some(&sha1),
         Some(project_type),
         None,
-        &state.data,
+        &state.cache_handle(),
     )
     .await?;
     fetch::write(&full_path, &bytes, &state.io_semaphore).await?;
@@ -2997,12 +3010,12 @@ async fn record_project_files_transaction(
                 &entry.id,
                 artifact,
                 &resource_scope,
-                &mut *tx,
+                &mut tx,
             )
             .await?;
         } else {
             crate::resources::installed::delete_installed_artifact(
-                &entry.id, &mut *tx,
+                &entry.id, &mut tx,
             )
             .await?;
         }
@@ -3098,7 +3111,6 @@ async fn record_project_files_transaction(
             .get_entry(),
         );
     }
-    CachedEntry::upsert_many(&hash_cache_entries, &mut *tx).await?;
     if let Some(plan) = plan {
         let paths = records
             .iter()
@@ -3117,7 +3129,11 @@ async fn record_project_files_transaction(
         &mut tx,
     )
     .await?;
+    CachedEntry::forget_best_effort(&hash_cache_entries, state.cache_pool())
+        .await;
     tx.commit().await?;
+    CachedEntry::store_best_effort(&hash_cache_entries, state.cache_pool())
+        .await;
     Ok(())
 }
 
@@ -3230,6 +3246,25 @@ async fn begin_content_write(
     Ok(pool.begin_with("BEGIN IMMEDIATE").await?)
 }
 
+/// Runs the pre-section recovery of a previous file operation under a
+/// critical section, so a cancel that lands mid-rollback cannot drop it.
+async fn recover_content_files(
+    state: &State,
+    instance_id: &str,
+    base: &std::path::Path,
+) -> crate::Result<()> {
+    critical_section::with_critical_section(
+        async |_guard| {
+            content_file_operations::recover(state, instance_id, base).await
+        },
+        async |_unscoped| {
+            content_file_operations::recover(state, instance_id, base).await
+        },
+        async |_closing| Err(critical_section::closing_error()),
+    )
+    .await
+}
+
 pub(crate) async fn toggle_disable_project(
     instance_id: &str,
     project_path: &str,
@@ -3244,7 +3279,7 @@ pub(crate) async fn toggle_disable_project(
         .await?;
     let scope = resolve_content_scope(instance_id, None, state).await?;
     let base = instance_full_path(state, &scope.instance);
-    content_file_operations::recover(state, instance_id, &base).await?;
+    recover_content_files(state, instance_id, &base).await?;
     let (current_path, _, _) =
         resolve_toggle_paths(&base, project_path, desired_enabled)?;
     let file = rename_indexed_file(
@@ -3289,7 +3324,7 @@ pub(crate) async fn toggle_content_entries(
         .await?;
     let scope = resolve_content_scope(instance_id, None, state).await?;
     let base = instance_full_path(state, &scope.instance);
-    content_file_operations::recover(state, instance_id, &base).await?;
+    recover_content_files(state, instance_id, &base).await?;
     let mut seen_ids = std::collections::HashSet::new();
     let mut seen_paths = std::collections::HashSet::new();
     let mut operations = Vec::new();
@@ -3358,128 +3393,134 @@ pub(crate) async fn toggle_content_entries(
         }
     }
 
-    let _critical = crate::install::critical_section::enter();
-    content_file_operations::prepare(
-        state,
-        instance_id,
-        &base,
-        operations
-            .iter()
-            .map(|operation| {
-                (operation.current_path.clone(), operation.new_path.clone())
-            })
-            .collect(),
-        false,
-    )
-    .await?;
-    if let Err(error) =
-        content_file_operations::publish(state, instance_id, &base).await
-    {
-        return Err(content_file_operations::rollback_error(
-            state,
-            instance_id,
-            &base,
-            error,
-        )
-        .await);
-    }
-
-    let database_result = async {
-        let mut tx = begin_content_write(&state.pool).await?;
-        let modified_at = chrono::Utc::now().timestamp();
-        let mut results = Vec::with_capacity(operations.len());
-
-        for operation in &operations {
-            let file_name = Path::new(&operation.new_path)
-                .file_name()
-                .unwrap_or_default()
-                .to_string_lossy()
-                .to_string();
-            let file = files::rename_instance_file_in_transaction(
-                &scope.instance.id,
-                &operation.current_path,
-                &operation.new_path,
-                &file_name,
-                operation.enabled,
-                &mut tx,
-            )
-            .await?
-            .ok_or_else(|| {
-                crate::ErrorKind::InputError(format!(
-                    "The selected content is no longer indexed: {}",
-                    operation.current_path
-                ))
-            })?;
-            let updated_entries =
-                content_entries::set_entries_enabled_for_file_in_transaction(
-                    &scope.content_set_id,
-                    &file.id,
-                    operation.enabled,
-                    modified_at,
-                    &mut tx,
-                )
-                .await?;
-            if updated_entries == 0 {
-                content_entries::upsert_content_entry_from_parts_in_transaction(
-                    content_entries::UpsertContentEntry {
-                        instance_id: &scope.instance.id,
-                        content_set_id: &scope.content_set_id,
-                        file_id: Some(&file.id),
-                        project_type: operation.project_type,
-                        source_kind: ContentSourceKind::Local,
-                        ownership_kind: ContentOwnershipKind::UserAdded,
-                        auto_dependency: false,
-                        server_requirement: ContentRequirement::Required,
-                        client_requirement: ContentRequirement::Required,
-                        enabled: operation.enabled,
-                    },
-                    &mut tx,
-                )
-                .await?;
-            }
-            pack_members::set_override_for_file_in_transaction(
-                &scope.content_set_id,
-                &file.id,
-                if operation.enabled {
-                    PackMemberOverrideKind::None
-                } else {
-                    PackMemberOverrideKind::Disabled
-                },
-                modified_at,
-                &mut tx,
-            )
+    let work = critical_section::SharedWork::new(
+        async |access: critical_section::WriteAccess<'_>| -> crate::Result<Vec<ToggledContentEntry>> {
+            content_file_operations::prepare(
+                state,
+                instance_id,
+                &base,
+                operations
+                    .iter()
+                    .map(|operation| {
+                        (operation.current_path.clone(), operation.new_path.clone())
+                    })
+                    .collect(),
+                false, access)
             .await?;
-            results.push(ToggledContentEntry {
-                content_id: operation.content_id.clone(),
-                path: operation.new_path.clone(),
-                enabled: operation.enabled,
-            });
-        }
+            if let Err(error) =
+                content_file_operations::publish(state, instance_id, &base, access).await
+            {
+                return Err(content_file_operations::rollback_error(
+                    state,
+                    instance_id,
+                    &base,
+                    error, access)
+                .await);
+            }
 
-        content_sets::bump_content_set_revision_in_transaction(
-            &scope.content_set_id,
-            &mut tx,
-        )
-        .await?;
-        content_file_operations::mark_committed(instance_id, &mut tx).await?;
-        tx.commit().await?;
-        Ok(results)
-    }
-    .await;
+            let database_result = async {
+                let mut tx = begin_content_write(&state.pool).await?;
+                let modified_at = chrono::Utc::now().timestamp();
+                let mut results = Vec::with_capacity(operations.len());
 
-    match database_result {
-        Ok(results) => {
-            content_file_operations::finish(state, instance_id, &base).await;
-            Ok(results)
-        }
-        Err(error) => Err(content_file_operations::rollback_error(
-            state,
-            instance_id,
-            &base,
-            error,
-        )
-        .await),
-    }
+                for operation in &operations {
+                    let file_name = Path::new(&operation.new_path)
+                        .file_name()
+                        .unwrap_or_default()
+                        .to_string_lossy()
+                        .to_string();
+                    let file = files::rename_instance_file_in_transaction(
+                        &scope.instance.id,
+                        &operation.current_path,
+                        &operation.new_path,
+                        &file_name,
+                        operation.enabled,
+                        &mut tx,
+                    )
+                    .await?
+                    .ok_or_else(|| {
+                        crate::ErrorKind::InputError(format!(
+                            "The selected content is no longer indexed: {}",
+                            operation.current_path
+                        ))
+                    })?;
+                    let updated_entries =
+                        content_entries::set_entries_enabled_for_file_in_transaction(
+                            &scope.content_set_id,
+                            &file.id,
+                            operation.enabled,
+                            modified_at,
+                            &mut tx,
+                        )
+                        .await?;
+                    if updated_entries == 0 {
+                        content_entries::upsert_content_entry_from_parts_in_transaction(
+                            content_entries::UpsertContentEntry {
+                                instance_id: &scope.instance.id,
+                                content_set_id: &scope.content_set_id,
+                                file_id: Some(&file.id),
+                                project_type: operation.project_type,
+                                source_kind: ContentSourceKind::Local,
+                                ownership_kind: ContentOwnershipKind::UserAdded,
+                                auto_dependency: false,
+                                server_requirement: ContentRequirement::Required,
+                                client_requirement: ContentRequirement::Required,
+                                enabled: operation.enabled,
+                            },
+                            &mut tx,
+                        )
+                        .await?;
+                    }
+                    pack_members::set_override_for_file_in_transaction(
+                        &scope.content_set_id,
+                        &file.id,
+                        if operation.enabled {
+                            PackMemberOverrideKind::None
+                        } else {
+                            PackMemberOverrideKind::Disabled
+                        },
+                        modified_at,
+                        &mut tx,
+                    )
+                    .await?;
+                    results.push(ToggledContentEntry {
+                        content_id: operation.content_id.clone(),
+                        path: operation.new_path.clone(),
+                        enabled: operation.enabled,
+                    });
+                }
+
+                content_sets::bump_content_set_revision_in_transaction(
+                    &scope.content_set_id,
+                    &mut tx,
+                )
+                .await?;
+                content_file_operations::mark_committed(instance_id, &mut tx).await?;
+                tx.commit().await?;
+                Ok(results)
+            }
+            .await;
+
+            match database_result {
+                Ok(results) => {
+                    content_file_operations::finish(state, instance_id, &base).await;
+                    Ok(results)
+                }
+                Err(error) => Err(content_file_operations::rollback_error(
+                    state,
+                    instance_id,
+                    &base,
+                    error, access)
+                .await),
+            }
+        },
+    );
+    critical_section::with_critical_section(
+        async |guard| work.run(guard.into()).await,
+        async |unscoped| work.run(unscoped.into()).await,
+        async |_closing| Err(critical_section::closing_error()),
+    )
+    .await
 }
 
 /// Resolves which of `project_path` / `{trimmed}.disabled` currently exists
@@ -3582,7 +3623,7 @@ pub(crate) async fn remove_project(
 
     let scope = resolve_content_scope(instance_id, None, state).await?;
     let base = instance_full_path(state, &scope.instance);
-    content_file_operations::recover(state, instance_id, &base).await?;
+    recover_content_files(state, instance_id, &base).await?;
     let file = files::get_instance_file_by_relative_path(
         &scope.instance.id,
         project_path,
@@ -3598,66 +3639,90 @@ pub(crate) async fn remove_project(
     } else {
         vec![]
     };
-    let _critical = crate::install::critical_section::enter();
-    content_file_operations::prepare(state, instance_id, &base, paths, true)
-        .await?;
-    if let Err(error) =
-        content_file_operations::publish(state, instance_id, &base).await
-    {
-        return Err(content_file_operations::rollback_error(
-            state,
-            instance_id,
-            &base,
-            error,
-        )
-        .await);
-    }
+    let work = critical_section::SharedWork::new(
+        async |access: critical_section::WriteAccess<'_>| -> crate::Result<()> {
+            content_file_operations::prepare(
+                state,
+                instance_id,
+                &base,
+                paths,
+                true,
+                access,
+            )
+            .await?;
+            if let Err(error) = content_file_operations::publish(
+                state,
+                instance_id,
+                &base,
+                access,
+            )
+            .await
+            {
+                return Err(content_file_operations::rollback_error(
+                    state,
+                    instance_id,
+                    &base,
+                    error,
+                    access,
+                )
+                .await);
+            }
 
-    let db_result = async {
-        let mut tx = begin_content_write(&state.pool).await?;
-        if let Some(file) = file {
-            let modified_at = chrono::Utc::now().timestamp();
-            pack_members::detach_members_for_file_in_transaction(
-                &scope.content_set_id,
-                &file.id,
-                modified_at,
-                &mut tx,
-            )
-            .await?;
-            content_entries::delete_entries_for_file_in_transaction(
-                &scope.content_set_id,
-                &file.id,
-                &mut tx,
-            )
-            .await?;
-            files::delete_file_in_transaction(
-                &scope.instance.id,
-                &file.id,
-                &mut tx,
-            )
-            .await?;
-        }
-        content_sets::bump_content_set_revision_in_transaction(
-            &scope.content_set_id,
-            &mut tx,
-        )
-        .await?;
-        content_file_operations::mark_committed(instance_id, &mut tx).await?;
-        tx.commit().await?;
-        Ok::<(), crate::Error>(())
-    }
-    .await;
-    if let Err(error) = db_result {
-        return Err(content_file_operations::rollback_error(
-            state,
-            instance_id,
-            &base,
-            error,
-        )
-        .await);
-    }
-    content_file_operations::finish(state, instance_id, &base).await;
-    Ok(())
+            let db_result = async {
+                let mut tx = begin_content_write(&state.pool).await?;
+                if let Some(file) = file {
+                    let modified_at = chrono::Utc::now().timestamp();
+                    pack_members::detach_members_for_file_in_transaction(
+                        &scope.content_set_id,
+                        &file.id,
+                        modified_at,
+                        &mut tx,
+                    )
+                    .await?;
+                    content_entries::delete_entries_for_file_in_transaction(
+                        &scope.content_set_id,
+                        &file.id,
+                        &mut tx,
+                    )
+                    .await?;
+                    files::delete_file_in_transaction(
+                        &scope.instance.id,
+                        &file.id,
+                        &mut tx,
+                    )
+                    .await?;
+                }
+                content_sets::bump_content_set_revision_in_transaction(
+                    &scope.content_set_id,
+                    &mut tx,
+                )
+                .await?;
+                content_file_operations::mark_committed(instance_id, &mut tx)
+                    .await?;
+                tx.commit().await?;
+                Ok::<(), crate::Error>(())
+            }
+            .await;
+            if let Err(error) = db_result {
+                return Err(content_file_operations::rollback_error(
+                    state,
+                    instance_id,
+                    &base,
+                    error,
+                    access,
+                )
+                .await);
+            }
+            content_file_operations::finish(state, instance_id, &base).await;
+            Ok(())
+        },
+    );
+    critical_section::with_critical_section(
+        async |guard| work.run(guard.into()).await,
+        async |unscoped| work.run(unscoped.into()).await,
+        async |_closing| Err(critical_section::closing_error()),
+    )
+    .await
 }
 
 pub(crate) fn backup_relative_path_for_update(
@@ -3852,126 +3917,148 @@ async fn rollback_project_inner(
         backup_size: restored_size,
         backup_sha1: restored_sha1.clone(),
     };
-    sqlx::query("INSERT INTO resource_legacy_rollback_journals(instance_id, payload) VALUES (?, ?)").bind(instance_id).bind(serde_json::to_string(&journal)?).execute(&state.pool).await?;
-    let _critical = crate::install::critical_section::enter();
-    let result: crate::Result<String> = async {
-    io::rename_or_move(&full_active, &full_archive).await?;
-    touch_file_modified_time(&full_archive);
-    io::rename_or_move(&full_backup, &full_restored).await?;
+    rollback_journals::set_journal(
+        instance_id,
+        &serde_json::to_string(&journal)?,
+        &state.pool,
+    )
+    .await?;
+    let work = critical_section::SharedWork::new(
+        async |access: critical_section::WriteAccess<'_>| -> crate::Result<String> {
+            let result: crate::Result<String> = async {
+            io::rename_or_move(&full_active, &full_archive).await?;
+            touch_file_modified_time(&full_archive);
+            io::rename_or_move(&full_backup, &full_restored).await?;
 
-    let final_relative_path = if disabled {
-        let disabled_path = format!("{restored_relative_path}.disabled");
-        io::rename_or_move(
-            &full_restored,
-            &join_content_path(&base, &disabled_path),
-        )
-        .await?;
-        disabled_path
-    } else {
-        restored_relative_path
-    };
-    let final_name = Path::new(&final_relative_path)
-        .file_name()
-        .unwrap_or_default()
-        .to_string_lossy()
-        .to_string();
+            let final_relative_path = if disabled {
+                let disabled_path = format!("{restored_relative_path}.disabled");
+                io::rename_or_move(
+                    &full_restored,
+                    &join_content_path(&base, &disabled_path),
+                )
+                .await?;
+                disabled_path
+            } else {
+                restored_relative_path
+            };
+            let final_name = Path::new(&final_relative_path)
+                .file_name()
+                .unwrap_or_default()
+                .to_string_lossy()
+                .to_string();
 
-    let local_mod_data = if project_type_for_file_path(&final_relative_path)
-        == Some(ProjectType::Mod)
-    {
-        tokio::fs::read(join_content_path(&base, &final_relative_path))
-            .await
-            .ok()
-            .and_then(|data| {
-                crate::mod_metadata::extract_mod_metadata(&bytes::Bytes::from(
-                    data,
-                ))
-                .and_then(|meta| serde_json::to_string(&meta).ok())
+            let local_mod_data = if project_type_for_file_path(&final_relative_path)
+                == Some(ProjectType::Mod)
+            {
+                tokio::fs::read(join_content_path(&base, &final_relative_path))
+                    .await
+                    .ok()
+                    .and_then(|data| {
+                        crate::mod_metadata::extract_mod_metadata(&bytes::Bytes::from(
+                            data,
+                        ))
+                        .and_then(|meta| serde_json::to_string(&meta).ok())
+                    })
+            } else {
+                None
+            };
+
+            let mut tx = state.pool.begin().await?;
+            files::rename_file_in_place_in_transaction(
+                &scope.instance.id,
+                project_path,
+                &final_relative_path,
+                &final_name,
+                !disabled,
+                &mut tx,
+            )
+            .await?;
+            files::upsert_instance_file_from_parts_in_transaction(
+                files::UpsertInstanceFile {
+                    instance_id: &scope.instance.id,
+                    relative_path: &final_relative_path,
+                    file_name: &final_name,
+                    enabled: !disabled,
+                    sha1: &restored_sha1,
+                    size: restored_size,
+                    missing: false,
+                    local_mod_data: local_mod_data.as_deref(),
+                    icon_path: None,
+                },
+                &mut tx,
+            )
+            .await?;
+
+            let entry_id = content_entries::get_entry_id_by_file_path(
+                &scope.content_set_id,
+                &scope.instance.id,
+                &final_relative_path,
+                &mut *tx,
+            )
+            .await?;
+            if let Some(entry_id) = entry_id {
+                content_entries::delete_provider_refs_for_entry_in_transaction(
+                    &entry_id,
+                    &mut tx,
+                )
+                .await?;
+                crate::resources::installed::delete_entry_resource_traces(
+                    &entry_id,
+                    &mut tx,
+                )
+                .await?;
+                content_entries::delete_dependency_edges_for_parent_in_transaction(
+                    &entry_id,
+                    &mut tx,
+                )
+                .await?;
+                content_entries::delete_update_check_for_entry_in_transaction(
+                    &entry_id,
+                    &mut tx,
+                )
+                .await?;
+            }
+            content_store_files::remove_instance_files(&mut tx, instance_id, &[project_path, final_relative_path.as_str()]).await?;
+            let hash_cache = CacheValue::FileHash(CachedFileHash {
+                path: format!("{}/{}", scope.instance.path, final_relative_path),
+                size: restored_size,
+                hash: restored_sha1,
+                project_type: project_type_for_file_path(&final_relative_path),
+                project_id: None,
+                version_id: None,
             })
-    } else {
-        None
-    };
+            .get_entry();
+            content_sets::bump_content_set_revision_in_transaction(
+                &scope.content_set_id,
+                &mut tx,
+            )
+            .await?;
+            rollback_journals::delete_journal(instance_id, &mut *tx).await?;
+            // The hash cache lives in the derived database: forget the old
+            // entry before the commit, store the new one after it.
+            CachedEntry::forget_best_effort(std::slice::from_ref(&hash_cache), state.cache_pool())
+                .await;
+            tx.commit().await?;
+            CachedEntry::store_best_effort(&[hash_cache], state.cache_pool()).await;
 
-    let mut tx = state.pool.begin().await?;
-    files::rename_file_in_place_in_transaction(
-        &scope.instance.id,
-        project_path,
-        &final_relative_path,
-        &final_name,
-        !disabled,
-        &mut tx,
-    )
-    .await?;
-    files::upsert_instance_file_from_parts_in_transaction(
-        files::UpsertInstanceFile {
-            instance_id: &scope.instance.id,
-            relative_path: &final_relative_path,
-            file_name: &final_name,
-            enabled: !disabled,
-            sha1: &restored_sha1,
-            size: restored_size,
-            missing: false,
-            local_mod_data: local_mod_data.as_deref(),
-            icon_path: None,
+            Ok(final_relative_path)
+            }.await;
+            if result.is_err() {
+                // Recover inside this section with its access: entering a
+                // second one would take the closing branch once the job is
+                // canceled and leave the files half moved.
+                recover_legacy_rollback_with(instance_id, &base, state, access)
+                    .await?;
+            }
+            result
         },
-        &mut tx,
+    );
+    critical_section::with_critical_section(
+        async |guard| work.run(guard.into()).await,
+        async |unscoped| work.run(unscoped.into()).await,
+        async |_closing| Err(critical_section::closing_error()),
     )
-    .await?;
-
-    let entry_id = content_entries::get_entry_id_by_file_path(
-        &scope.content_set_id,
-        &scope.instance.id,
-        &final_relative_path,
-        &mut *tx,
-    )
-    .await?;
-    if let Some(entry_id) = entry_id {
-        content_entries::delete_provider_refs_for_entry_in_transaction(
-            &entry_id,
-            &mut tx,
-        )
-        .await?;
-        crate::resources::installed::delete_entry_resource_traces(
-            &entry_id,
-            &mut tx,
-        )
-        .await?;
-        content_entries::delete_dependency_edges_for_parent_in_transaction(
-            &entry_id,
-            &mut tx,
-        )
-        .await?;
-        content_entries::delete_update_check_for_entry_in_transaction(
-            &entry_id,
-            &mut tx,
-        )
-        .await?;
-    }
-    sqlx::query("DELETE FROM store_instance_files WHERE instance_id = ? AND relative_path IN (?, ?)").bind(instance_id).bind(project_path).bind(&final_relative_path).execute(&mut *tx).await?;
-    let hash_cache = CacheValue::FileHash(CachedFileHash {
-        path: format!("{}/{}", scope.instance.path, final_relative_path),
-        size: restored_size,
-        hash: restored_sha1,
-        project_type: project_type_for_file_path(&final_relative_path),
-        project_id: None,
-        version_id: None,
-    })
-    .get_entry();
-    CachedEntry::upsert_many(&[hash_cache], &mut *tx).await?;
-    content_sets::bump_content_set_revision_in_transaction(
-        &scope.content_set_id,
-        &mut tx,
-    )
-    .await?;
-    sqlx::query("DELETE FROM resource_legacy_rollback_journals WHERE instance_id = ?").bind(instance_id).execute(&mut *tx).await?;
-    tx.commit().await?;
-
-    Ok(final_relative_path)
-    }.await;
-    if result.is_err() {
-        recover_legacy_rollback_for_instance(instance_id, &base, state).await?;
-    }
-    result
+    .await
 }
 
 #[derive(serde::Serialize, serde::Deserialize)]
@@ -3992,7 +4079,35 @@ async fn recover_legacy_rollback_for_instance(
     root: &Path,
     state: &State,
 ) -> crate::Result<()> {
-    let payload: Option<String> = sqlx::query_scalar("SELECT payload FROM resource_legacy_rollback_journals WHERE instance_id = ?").bind(instance_id).fetch_optional(&state.pool).await?;
+    critical_section::with_critical_section(
+        async |guard| {
+            recover_legacy_rollback_with(instance_id, root, state, guard.into())
+                .await
+        },
+        async |unscoped| {
+            recover_legacy_rollback_with(
+                instance_id,
+                root,
+                state,
+                unscoped.into(),
+            )
+            .await
+        },
+        async |_closing| Err(critical_section::closing_error()),
+    )
+    .await
+}
+
+/// Puts a half-finished legacy rollback back, for a caller that already
+/// holds write access.
+async fn recover_legacy_rollback_with(
+    instance_id: &str,
+    root: &Path,
+    state: &State,
+    _access: critical_section::WriteAccess<'_>,
+) -> crate::Result<()> {
+    let payload =
+        rollback_journals::get_journal(instance_id, &state.pool).await?;
     let Some(payload) = payload else {
         return Ok(());
     };
@@ -4012,7 +4127,6 @@ async fn recover_legacy_rollback_for_instance(
             value: hash.into(),
         }],
     };
-    let _critical = crate::install::critical_section::enter();
     if !backup.exists() {
         let candidate = if final_path.exists() {
             &final_path
@@ -4066,18 +4180,18 @@ async fn recover_legacy_rollback_for_instance(
         )
         .into());
     }
-    sqlx::query("DELETE FROM resource_legacy_rollback_journals WHERE instance_id = ? AND payload = ?").bind(instance_id).bind(payload).execute(&state.pool).await?;
+    let mut tx = state.pool.begin().await?;
+    rollback_journals::delete_journal_matching(&mut tx, instance_id, &payload)
+        .await?;
+    tx.commit().await?;
     Ok(())
 }
 
 pub(crate) async fn recover_legacy_rollbacks(
     state: &State,
 ) -> crate::Result<()> {
-    let instances: Vec<String> = sqlx::query_scalar(
-        "SELECT instance_id FROM resource_legacy_rollback_journals",
-    )
-    .fetch_all(&state.pool)
-    .await?;
+    let instances =
+        rollback_journals::get_journal_instance_ids(&state.pool).await?;
     for instance_id in instances {
         let _writer = state.acquire_install_db_permit().await?;
         let _lock = state.lock_instance_content_exclusive(&instance_id).await;
@@ -4200,7 +4314,7 @@ async fn index_existing_file(
     let (size, sha1) = match CachedEntry::get_file_hash_many(
         &[&cache_key],
         None,
-        &state.pool,
+        state.cache_pool(),
         &state.api_semaphore,
     )
     .await?
@@ -4342,13 +4456,10 @@ fn infer_project_type(bytes: &Bytes) -> crate::Result<ProjectType> {
     if archive.by_name("pack.mcmeta").is_ok() {
         return classify_pack_archive(&mut archive);
     }
-    if archive
-        .file_names()
-        .any(|name| name.starts_with("shaders/"))
-    {
+    if archive_has_name(&mut archive, |name| name.starts_with("shaders/"))? {
         return Ok(ProjectType::ShaderPack);
     }
-    if archive.file_names().any(|name| name == "Metadata") {
+    if archive_has_name(&mut archive, |name| name == "Metadata")? {
         // .litematic files (Litematica schematic format) contain a root-level
         // "Metadata" NBT entry, which is unique among Minecraft content types.
         return Ok(ProjectType::Schematic);
@@ -4372,11 +4483,28 @@ fn has_any_entry(
 fn classify_pack_archive(
     archive: &mut zip::ZipArchive<std::io::Cursor<&[u8]>>,
 ) -> crate::Result<ProjectType> {
-    if archive.file_names().any(|name| name.starts_with("data/")) {
+    if archive_has_name(archive, |name| name.starts_with("data/"))? {
         Ok(ProjectType::DataPack)
     } else {
         Ok(ProjectType::ResourcePack)
     }
+}
+
+fn archive_has_name(
+    archive: &mut zip::ZipArchive<std::io::Cursor<&[u8]>>,
+    predicate: impl Fn(&str) -> bool,
+) -> crate::Result<bool> {
+    for name in archive.file_names() {
+        let name = name.map_err(|error| {
+            crate::ErrorKind::InputError(format!(
+                "Unable to read archive entry name: {error}"
+            ))
+        })?;
+        if predicate(&name) {
+            return Ok(true);
+        }
+    }
+    Ok(false)
 }
 
 #[cfg(test)]

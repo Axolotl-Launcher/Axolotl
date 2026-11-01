@@ -47,6 +47,8 @@ PN = "PN"
 SHS = "SHS"
 # Correct for cancell?ed (means canceled or cancelled)
 cancell = "cancell"
+# Heraldic term for vertical stripes, the `minecraft:small_stripes` banner pattern.
+paly = "paly"
 
 [default.extend-identifiers]
 # Minecraft locale identifiers containing the ISO 3166-1 code for Bosnia and

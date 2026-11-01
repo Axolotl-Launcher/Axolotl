@@ -246,7 +246,11 @@ pub(crate) async fn list_content(
     } else {
         match linked_modrinth_modpack_ids(&link) {
             Some((_, version_id)) => {
-                get_cached_modpack_identifiers(version_id, &state.data).await?
+                get_cached_modpack_identifiers(
+                    version_id,
+                    &state.cache_handle(),
+                )
+                .await?
             }
             None => None,
         }

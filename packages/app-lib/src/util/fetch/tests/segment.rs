@@ -1,6 +1,15 @@
 //! Fetch segment tests.
 
+use crate::util::download::constants::{
+    FILE_TRANSFER_FIRST_BYTE_TIMEOUT, FILE_VALIDATION_CONCURRENCY,
+    MAX_SEGMENT_CONCURRENCY, MIN_SEGMENT_SIZE, REASSIGNABLE_FIRST_BYTE_TIMEOUT,
+    SEGMENT_EXPANSION_INTERVAL, SEGMENT_EXPANSION_SAMPLE_COUNT,
+    SEGMENTED_DOWNLOAD_THRESHOLD,
+};
+use crate::util::download_manager::SpeedSnapshot;
 use std::time::Duration;
+use std::time::Instant;
+use tokio::sync::Semaphore;
 
 use super::super::*;
 use super::fixtures::*;

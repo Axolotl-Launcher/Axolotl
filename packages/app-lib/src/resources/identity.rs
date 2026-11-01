@@ -15,6 +15,16 @@ pub const INITIAL_ARTIFACT_PROBE_LIMIT: usize = 3;
 pub const HISTORY_PAGE_LIMIT: usize = 2;
 pub const HISTORY_ARTIFACT_PROBE_LIMIT: usize = 10;
 
+pub(crate) fn recognition_source_failure(error: &ResourceError) -> bool {
+    matches!(
+        error,
+        ResourceError::Network { .. }
+            | ResourceError::Unavailable
+            | ResourceError::InvalidResponse(_)
+            | ResourceError::Unsupported(_)
+    )
+}
+
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct LocalArtifactIdentity {
     pub integrity: ArtifactIntegrity,
@@ -207,6 +217,93 @@ pub fn verify_artifact_pair(
 }
 
 impl ResourceService {
+    /// Recognition can find the same bytes on differently classified projects.
+    /// Try usable metadata without changing an explicitly recorded identity.
+    pub(crate) async fn select_recognized_artifact(
+        self: &std::sync::Arc<Self>,
+        matches: &[ResourceArtifact],
+        existing: Option<&SourceArtifactRef>,
+        origin: Option<&SourceId>,
+        preferred: &SourceId,
+        kind: ResourceType,
+        ambiguous: bool,
+        policy: CachePolicy,
+        cancel: &CancellationToken,
+    ) -> ResourceResult<Option<(ResourceArtifact, SourceProjectMetadata)>> {
+        let pinned = if let Some(existing) = existing {
+            Some(existing.release.project.clone())
+        } else if let Some(origin) = origin {
+            let projects = matches
+                .iter()
+                .filter(|artifact| {
+                    &artifact.reference.release.project.source == origin
+                })
+                .map(|artifact| artifact.reference.release.project.clone())
+                .collect::<std::collections::HashSet<_>>();
+            if projects.len() != 1 {
+                return Ok(None);
+            }
+            projects.into_iter().next()
+        } else {
+            if ambiguous {
+                return Ok(None);
+            }
+            None
+        };
+        let pinned_id =
+            if let (Some(store), Some(project)) = (self.store(), &pinned) {
+                store.lookup(project).await?
+            } else {
+                None
+            };
+        let mut candidates = matches.iter().collect::<Vec<_>>();
+        candidates.sort_by_key(|artifact| {
+            (
+                existing != Some(&artifact.reference),
+                pinned.as_ref() != Some(&artifact.reference.release.project),
+                &artifact.reference.release.project.source != preferred,
+            )
+        });
+        let mut failure = None;
+        for artifact in candidates {
+            if cancel.is_cancelled() {
+                return Err(ResourceError::Canceled);
+            }
+            let project = &artifact.reference.release.project;
+            if let Some(pinned) = &pinned
+                && project != pinned
+                && !(if let (Some(store), Some(id)) = (self.store(), &pinned_id)
+                {
+                    store.lookup(project).await?.as_ref() == Some(id)
+                } else {
+                    false
+                })
+            {
+                continue;
+            }
+            let metadata = match self
+                .project_document_with_policy(project, None, cancel, policy)
+                .await
+            {
+                Ok(document) => document.metadata,
+                Err(error) if recognition_source_failure(&error) => {
+                    failure = Some(error);
+                    continue;
+                }
+                Err(error) => return Err(error),
+            };
+            if !metadata.types.contains(&kind) {
+                continue;
+            }
+            return Ok(Some((artifact.clone(), metadata)));
+        }
+        if let Some(error) = failure {
+            Err(error)
+        } else {
+            Ok(None)
+        }
+    }
+
     /// Uses metadata hashes and at most two release pages. Sources requiring
     /// a local fingerprint are probed by the opposing hash-capable source,
     /// without downloading files or enumerating an entire project history.

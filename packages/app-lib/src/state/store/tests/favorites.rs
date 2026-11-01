@@ -38,8 +38,7 @@ async fn link(
     .unwrap();
 }
 
-/// A favorite as the resource layer saves it: the row it keeps, and the mirror
-/// the retired table still holds for the providers it covers.
+/// A favorite as the resource layer saves it.
 async fn save(
     pool: &SqlitePool,
     source: &str,
@@ -58,19 +57,6 @@ async fn save(
     .execute(pool)
     .await
     .unwrap();
-    if matches!(source, "modrinth" | "curseforge" | "mcarchive") {
-        sqlx::query(
-            "INSERT INTO content_favorites (provider, project_id, content_type, saved_at)
-             VALUES (?, ?, ?, ?)",
-        )
-        .bind(source)
-        .bind(project_id)
-        .bind(content_type)
-        .bind(saved_at)
-        .execute(pool)
-        .await
-        .unwrap();
-    }
 }
 
 #[tokio::test]
@@ -95,12 +81,6 @@ async fn removing_one_favorite_leaves_the_projects_of_the_same_resource() {
             resource_id: resource("resource"),
         }]
     );
-    let mirrored: Vec<String> =
-        sqlx::query_scalar("SELECT provider FROM content_favorites")
-            .fetch_all(&pool)
-            .await
-            .unwrap();
-    assert_eq!(mirrored, vec!["curseforge".to_string()]);
 }
 
 #[tokio::test]

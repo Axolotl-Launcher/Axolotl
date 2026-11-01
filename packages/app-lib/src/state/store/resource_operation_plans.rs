@@ -2,7 +2,7 @@
 
 use sqlx::SqliteConnection;
 
-use super::Collection;
+use super::{Collection, Handle};
 
 /// The plans, one per prepared operation.
 pub(crate) struct ResourceOperationPlans;
@@ -133,6 +133,138 @@ impl Collection for ResourceOperationPlans {
         for (key, record) in records {
             write_row(conn, key, record).await?;
         }
+        Ok(())
+    }
+}
+
+impl ResourceOperationPlans {
+    /// Whether `key` completed at `revision`, which only a plan that exists
+    /// answers at all.
+    pub(crate) async fn completed_at(
+        handle: &Handle,
+        key: &str,
+        revision: u32,
+    ) -> crate::Result<Option<i64>> {
+        let completed: Option<i64> = sqlx::query_scalar(
+            "
+            SELECT completed
+            FROM resource_operation_plans
+            WHERE id = ? AND revision = ?
+            ",
+        )
+        .bind(key)
+        .bind(revision)
+        .fetch_optional(handle.pool())
+        .await?;
+
+        Ok(completed)
+    }
+
+    /// The payload `key` stored at `revision`.
+    pub(crate) async fn payload_at(
+        handle: &Handle,
+        key: &str,
+        revision: u32,
+    ) -> crate::Result<String> {
+        let payload: String = sqlx::query_scalar(
+            "
+            SELECT payload
+            FROM resource_operation_plans
+            WHERE id = ? AND revision = ?
+            ",
+        )
+        .bind(key)
+        .bind(revision)
+        .fetch_one(handle.pool())
+        .await?;
+
+        Ok(payload)
+    }
+
+    /// The completion flag of `key`, whatever revision it is on.
+    pub(crate) async fn completed(
+        handle: &Handle,
+        key: &str,
+    ) -> crate::Result<i64> {
+        let completed: i64 = sqlx::query_scalar(
+            "
+            SELECT completed
+            FROM resource_operation_plans
+            WHERE id = ?
+            ",
+        )
+        .bind(key)
+        .fetch_one(handle.pool())
+        .await?;
+
+        Ok(completed)
+    }
+
+    /// Marks `key` completed once its files and rows are published.
+    pub(crate) async fn mark_completed(
+        handle: &Handle,
+        key: &str,
+        revision: u32,
+    ) -> crate::Result<()> {
+        sqlx::query(
+            "
+            UPDATE resource_operation_plans
+            SET completed = 1
+            WHERE id = ? AND revision = ?
+            ",
+        )
+        .bind(key)
+        .bind(revision)
+        .execute(handle.pool())
+        .await?;
+
+        Ok(())
+    }
+
+    /// [`Self::mark_completed`] inside the unit that publishes the plan.
+    pub(crate) async fn mark_completed_in(
+        conn: &mut SqliteConnection,
+        key: &str,
+        revision: u32,
+    ) -> crate::Result<()> {
+        sqlx::query(
+            "
+            UPDATE resource_operation_plans
+            SET completed = 1
+            WHERE id = ? AND revision = ?
+            ",
+        )
+        .bind(key)
+        .bind(revision)
+        .execute(&mut *conn)
+        .await?;
+
+        Ok(())
+    }
+
+    /// Saves a reviewed plan before it is queued.
+    pub(crate) async fn insert_prepared(
+        handle: &Handle,
+        key: &str,
+        instance_id: &str,
+        revision: u32,
+        payload: &str,
+    ) -> crate::Result<()> {
+        let mut connection = handle.connection().await?;
+        sqlx::query(
+            "
+            INSERT INTO resource_operation_plans
+                (id, instance_id, revision, payload)
+            VALUES (?, ?, ?, ?)
+            ",
+        )
+        .bind(key)
+        .bind(instance_id)
+        .bind(revision)
+        .bind(payload)
+        .execute(&mut *connection)
+        .await?;
+
         Ok(())
     }
 }
@@ -277,4 +409,96 @@ async fn ensure_keys_belong_to_scope(
     }
 
     Ok(())
+}
+
+impl ResourceOperationPlans {
+    /// The instance `key` was planned for at `revision`.
+    pub(crate) async fn instance_at(
+        handle: &Handle,
+        key: &str,
+        revision: u32,
+    ) -> crate::Result<String> {
+        let instance_id: String = sqlx::query_scalar(
+            "
+            SELECT instance_id
+            FROM resource_operation_plans
+            WHERE id = ? AND revision = ?
+            ",
+        )
+        .bind(key)
+        .bind(revision)
+        .fetch_one(handle.pool())
+        .await?;
+
+        Ok(instance_id)
+    }
+
+    /// The job `key` was queued as at `revision`, read inside the caller's
+    /// unit so the answer cannot go stale before its write lands.
+    pub(crate) async fn job_at_in(
+        conn: &mut SqliteConnection,
+        key: &str,
+        revision: u32,
+    ) -> crate::Result<Option<String>> {
+        let job_id: Option<Option<String>> = sqlx::query_scalar(
+            "
+            SELECT job_id
+            FROM resource_operation_plans
+            WHERE id = ? AND revision = ?
+            ",
+        )
+        .bind(key)
+        .bind(revision)
+        .fetch_optional(&mut *conn)
+        .await?;
+
+        Ok(job_id.flatten())
+    }
+
+    /// The payload `key` stored at `revision`, as long as it is neither queued
+    /// nor completed, read inside the caller's unit.
+    pub(crate) async fn queueable_payload_in(
+        conn: &mut SqliteConnection,
+        key: &str,
+        revision: u32,
+    ) -> crate::Result<Option<String>> {
+        let payload: Option<String> = sqlx::query_scalar(
+            "
+            SELECT payload
+            FROM resource_operation_plans
+            WHERE id = ? AND revision = ? AND queued = 0 AND job_id IS NULL
+            ",
+        )
+        .bind(key)
+        .bind(revision)
+        .fetch_optional(&mut *conn)
+        .await?;
+
+        Ok(payload)
+    }
+
+    /// Records the job `key` was queued as, and only while the plan is still
+    /// unqueued at that revision. Answers how many rows it reached, so a plan
+    /// that moved on is visible to the caller.
+    pub(crate) async fn queue_in(
+        conn: &mut SqliteConnection,
+        key: &str,
+        revision: u32,
+        job_id: &str,
+    ) -> crate::Result<u64> {
+        let updated = sqlx::query(
+            "
+            UPDATE resource_operation_plans
+            SET job_id = ?, queued = 1
+            WHERE id = ? AND revision = ? AND queued = 0 AND job_id IS NULL
+            ",
+        )
+        .bind(job_id)
+        .bind(key)
+        .bind(revision)
+        .execute(&mut *conn)
+        .await?;
+
+        Ok(updated.rows_affected())
+    }
 }

@@ -1,6 +1,16 @@
 //! Fetch request tests.
 
+use crate::ErrorKind;
+use crate::util::download::constants::{
+    FILE_VALIDATION_CONCURRENCY, METADATA_HEDGE_DELAY, ROUTE_PROBE_CONCURRENCY,
+};
+use crate::util::download::modrinth_redirect::is_official_redirect as is_official_modrinth_cdn_redirect;
+use bytes::Bytes;
+use reqwest::Method;
+use serde::Deserialize;
+use std::sync::atomic::Ordering;
 use std::time::Duration;
+use tokio::sync::Semaphore;
 
 use super::super::*;
 use super::fixtures::*;

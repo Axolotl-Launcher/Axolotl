@@ -243,13 +243,13 @@ async fn scan_failures_without_an_entry_survive_and_retry_without_rechecking_suc
         .unwrap(),
         relative_path: "resourcepacks/recovered.zip".into(),
     };
-    ContentRefreshScanFailures::set(
-        &state.data,
+    ContentRefreshScanFailures::upsert(
+        &state.derived,
         &key,
-        Some(&ScanFailureRecord {
+        &ScanFailureRecord {
             attempted_at: chrono::Utc::now().timestamp(),
             error: "file temporarily unavailable".into(),
-        }),
+        },
     )
     .await
     .unwrap();
@@ -260,10 +260,11 @@ async fn scan_failures_without_an_entry_survive_and_retry_without_rechecking_suc
         .unwrap();
     finished(&state).await;
     assert!(
-        ContentRefreshScanFailures::get(&state.data, &key)
+        ContentRefreshScanFailures::failed(&state.derived, "instance")
             .await
             .unwrap()
-            .is_some()
+            .iter()
+            .any(|(stored, _)| stored == &key)
     );
     assert_eq!(
         state
@@ -284,10 +285,11 @@ async fn scan_failures_without_an_entry_survive_and_retry_without_rechecking_suc
         .unwrap();
     finished(&state).await;
     assert!(
-        ContentRefreshScanFailures::get(&state.data, &key)
+        !ContentRefreshScanFailures::failed(&state.derived, "instance")
             .await
             .unwrap()
-            .is_none()
+            .iter()
+            .any(|(stored, _)| stored == &key)
     );
     let after =
         ContentRefreshChecks::get_scoped(&state.data, &"instance".into())
@@ -1212,9 +1214,13 @@ async fn pack_failures_survive_reload_and_retry_preserves_success_until_recovere
  {
     use crate::state::store::content_refresh_pack::*;
     let (_temp, state, _) = fixture().await;
-    let records = content_snapshot::get(&state.data, "instance")
-        .await
-        .unwrap();
+    let records = content_snapshot::get_with_saved_pack(
+        &state.data,
+        &state.derived,
+        "instance",
+    )
+    .await
+    .unwrap();
     let location = location_key(&records.instance);
     let link = serde_json::to_string(&records.link).unwrap();
     let key = PackKey {
@@ -1246,14 +1252,18 @@ async fn pack_failures_survive_reload_and_retry_preserves_success_until_recovere
         110,
         &Err(crate::ErrorKind::InputError("offline".into()).into()),
     );
-    ContentRefreshPacks::set(&state.data, &key, Some(&failed))
+    ContentRefreshPacks::upsert(&state.derived, &key, &failed)
         .await
         .unwrap();
-    let restored = content_snapshot::get(&state.data, "instance")
-        .await
-        .unwrap()
-        .pack_presentation
-        .unwrap();
+    let restored = content_snapshot::get_with_saved_pack(
+        &state.data,
+        &state.derived,
+        "instance",
+    )
+    .await
+    .unwrap()
+    .pack_presentation
+    .unwrap();
     assert_eq!(restored.saved_at, 100);
     assert_eq!(restored.pack.as_ref().unwrap().name, "Saved pack");
     assert!(restored.last_error.is_some());
@@ -1274,10 +1284,10 @@ async fn pack_failures_survive_reload_and_retry_preserves_success_until_recovere
     ));
     let recovered =
         pack_attempt(Some(restored), location, link, 120, &Ok(None));
-    ContentRefreshPacks::set(&state.data, &key, Some(&recovered))
+    ContentRefreshPacks::upsert(&state.derived, &key, &recovered)
         .await
         .unwrap();
-    let restored = ContentRefreshPacks::get(&state.data, &key)
+    let restored = ContentRefreshPacks::saved(&state.derived, &key)
         .await
         .unwrap()
         .unwrap();

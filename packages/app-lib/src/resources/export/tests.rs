@@ -888,7 +888,16 @@ async fn three_formats_freeze_current_artifacts_paths_and_package_info() {
         assert!(archive.by_name("overrides/config/settings.txt").is_ok());
         assert!(archive.by_name("overrides/mods/file.jar.disabled").is_ok());
         assert!(archive.by_name("overrides/mods/file.jar").is_err());
-        assert_eq!(archive.file_names().filter(|n| *n == "manifest.json" || *n == "modrinth.index.json").count(), 1);
+        assert_eq!(
+            archive
+                .file_names()
+                .filter_map(|name| name.ok())
+                .filter(|n| {
+                    *n == "manifest.json" || *n == "modrinth.index.json"
+                })
+                .count(),
+            1
+        );
     }
     assert_eq!(
         count,

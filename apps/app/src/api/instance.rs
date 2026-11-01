@@ -1096,7 +1096,11 @@ pub async fn instance_get_content_items_by_paths(
 pub async fn instance_get_content_snapshot(
     instance_id: &str,
     defer_enrichment: Option<bool>,
+    refresh_files: Option<bool>,
 ) -> Result<theseus::data::InstanceContentSnapshot> {
+    if refresh_files.unwrap_or(false) {
+        theseus::instance::sync_content_files(instance_id).await?;
+    }
     if defer_enrichment.unwrap_or(false) {
         return Ok(theseus::instance::get_content_snapshot_for_display(
             instance_id,

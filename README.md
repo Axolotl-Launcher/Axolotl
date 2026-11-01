@@ -16,6 +16,12 @@
     <a href="COPYING.md">
       <img src="https://img.shields.io/badge/License-GPL_3.0-blue.svg?style=for-the-badge" alt="License" />
     </a>
+    <a href="https://www.gitlink.org.cn/xinvxueyuan/Axolotl">
+      <img src="https://img.shields.io/badge/GitLink-Mirror-2f81f7?style=for-the-badge&logo=git&logoColor=white" alt="GitLink Mirror" />
+    </a>
+    <a href="https://cnb.cool/axlmc/Axolotl">
+      <img src="https://img.shields.io/badge/CNB-Mirror-00c2ff?style=for-the-badge&logo=cloud&logoColor=white" alt="CNB Mirror" />
+    </a>
   </p>
 
   <p>
@@ -64,6 +70,22 @@ _(注：本项目是调用 Modrinth 公开 API 的独立客户端，与 Rinth, I
 - **现代化内容生态**：集成 Modrinth 和 CurseForge，可在启动器中一键浏览。游戏实例、整合包、模组、资源包及光影均可一键安装与升级，彻底告别手动管理依赖的痛苦。
 - **高度定制化**：无论是主题色调、背景图片，还是离线皮肤，核心功能与视觉展现均由你自由支配。
 - **All in one 全新体验**：启动器内置 “实验室” 功能，囊括种子地图、投影工坊等海量使用工具，带来全新原生轮椅体验。
+
+## 核心架构与技术栈
+
+Axolotl Launcher 采用现代化的混合架构（Hybrid Architecture），兼具原生应用的卓越性能与 Web 前端的灵活性：
+
+- **桌面运行时核心 (Rust / Tauri)**：
+  - **高效后端 (`packages/app-lib`)**：基于 Rust 构建，提供强类型实例管理、SQLite 状态持久化、迁移控制与多线程并发下载引擎。
+  - **安全容器 (`apps/app`)**：基于 Tauri 2 构建的轻量原生壳，实现高效的 IPC 调用与原生系统级集成。
+- **现代化前端界面 (Vue 3 / Nuxt 3 / Tailwind CSS)**：
+  - **桌面客户端 (`apps/app-frontend`)** 与 **官方网站 (`apps/website`)** 共享统一的设计系统 (`packages/ui`)，带来丝滑顺畅的交互体验。
+- **开放内容与生态集成 (`packages/content-management` & `packages/api-client`)**：
+  - 深度集成 Modrinth 与 CurseForge 公开 API，支持一键浏览、搜索、安装及自动更新模组、整合包、光影和资源包。
+- **账户与个性化 (`Minecraft Auth` & `Skins`)**：
+  - 支持正版微软登录（Microsoft Authentication）、Yggdrasil 第三方验证及离线皮肤管理。
+- **全能实验室工具箱 (`Launcher Tools`)**：
+  - 内置投影工坊、种子地图等实用辅助工具，打造一站式 Minecraft 游戏与创作体验。
 
 ## 下载与安装
 
@@ -162,18 +184,56 @@ nix profile add 'git+https://github.com/Axolotl-Launcher/Axolotl'
 {
   programs.axolotl-launcher = {
     enable = true;
+    launchEnv = {
+      KEY = "VAL";
+    };
+    settings = {
+      appearance = {
+        locale = "zh-CN";
+        theme = "dark";
+      };
+      download.max_concurrent_downloads = 16;
+      java = {
+        runtimes = [
+          {
+            path = "${pkgs.jdk21}/bin/java";
+            major_version = 21;
+            full_version = pkgs.jdk21.version;
+            distribution = "Temurin";
+          }
+        ];
+        defaults = [
+          {
+            major_version = 21;
+            path = "${pkgs.jdk21}/bin/java";
+          }
+        ];
+      };
+      # ...
+    };
   };
 }
 ```
 
 可选属性
 
-| 键        | 类型    | 默认值  | 说明                                                                                                                                       |
-| --------- | ------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| enable    | `bool`  | `false` | 设置为`true`以启用 Axolotl Launcher。                                                                                                      |
-| launchEnv | `attrs` | `{ }`   | Axolotl Launcher 启动时额外的环境变量。例如`{ HELLO = 1; world = "two"; }`能为 Axolotl Launcher 设置额外的环境变量`HELLO=1`和`world=two`。 |
+| 键          | 类型    | 默认值  | 说明                             |
+|:----------- |:-------:|:-------:|:-------------------------------- |
+| `enable`    | `bool`  | `false` | 设置为`true`以启用美西螈启动器   |
+| `launchEnv` | `attrs` | `{ }`   | 运行美西螈启动器时额外的环境变量 |
+| `settings`  | `attrs` | `{ }`   | 提供美西螈启动器设置的默认值     |
 
 </details>
+
+## 贡献者
+
+感谢所有为 Axolotl Launcher 做出贡献的开发者与社区伙伴！
+
+<a href="https://github.com/Axolotl-Launcher/Axolotl/graphs/contributors">
+  <img src="https://contributors.hikarilink.org/image?repo=Axolotl-Launcher/Axolotl" alt="Contributors" />
+</a>
+
+---
 
 ## 参与项目开发
 

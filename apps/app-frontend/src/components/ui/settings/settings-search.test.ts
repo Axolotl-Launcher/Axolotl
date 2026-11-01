@@ -40,6 +40,7 @@ const settingsComponentFiles = {
         './StorageSettings.vue',
     ],
     'privacy-data': ['./PrivacySettings.vue'],
+    'third-party-accounts': ['./ThirdPartyAccountsSettings.vue'],
     'instance-sync': ['./instances/index.vue'],
     updates: ['./UpdateSettings.vue'],
     logs: ['./LogsSettings.vue'],
@@ -130,6 +131,36 @@ it('legacy category names remain searchable after the taxonomy change', () => {
     expect(keywordText.includes('Default instance options')).toBe(true)
 })
 
+it('finds the default game language setting in English and Chinese', () => {
+    const entry = settingsSearchEntries.find((item) => item.id === 'defaults-game-language')!
+    const text = [
+        entry.label.defaultMessage,
+        entry.description?.defaultMessage,
+        ...(entry.keywords?.map((keyword) => keyword.defaultMessage) ?? []),
+    ]
+        .filter(Boolean)
+        .join(' ')
+    const chineseText = [
+        entry.label.id,
+        entry.description?.id,
+        ...(entry.keywords?.map((keyword) => keyword.id) ?? []),
+    ]
+        .map((id) => (id ? chineseLocale[id]?.message : undefined))
+        .filter(Boolean)
+        .join(' ')
+
+    expect(
+        filterSettingsSearchDocuments('game language', [{ item: entry.id, text }]).map(
+            ({ item }) => item,
+        ),
+    ).toEqual([entry.id])
+    expect(
+        filterSettingsSearchDocuments('游戏语言', [{ item: entry.id, text: chineseText }]).map(
+            ({ item }) => item,
+        ),
+    ).toEqual([entry.id])
+})
+
 it('developer-only settings stay out of the normal search categories', () => {
     const visibleCategoryIds = new Set(
         getVisibleSettingsCategoryDefinitions(false).map((category) => category.id),
@@ -172,7 +203,11 @@ it('settings navigation groups preserve the intended Axolotl information archite
         'content-downloads',
         'network-multiplayer',
     ])
-    expect(categoriesForGroup('data-privacy')).toEqual(['storage-backups', 'privacy-data'])
+    expect(categoriesForGroup('data-privacy')).toEqual([
+        'storage-backups',
+        'third-party-accounts',
+        'privacy-data',
+    ])
     expect(categoriesForGroup('support')).toEqual([
         'updates',
         'about',

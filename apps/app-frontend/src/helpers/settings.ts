@@ -152,6 +152,7 @@ export type AppSettings = DohSettings & {
     theme: ColorTheme
     accent_color: AccentColorSetting
     locale: string
+    default_game_language: string
     default_page: 'Home' | 'DiscoverContent' | 'Library'
     collapsed_navigation: boolean
     hide_nametag_skins_page: boolean
@@ -235,6 +236,7 @@ type LegacyMirrorSettings = {
 function normalizeDownloadSettings(settings: AppSettings & LegacyMirrorSettings): AppSettings {
     settings.close_behavior ??= 'ask'
     settings.log_level ??= 'info'
+    settings.default_game_language ??= ''
     const hasLegacySettings =
         typeof settings.use_minecraft_mirror === 'boolean' &&
         typeof settings.use_modrinth_mirror === 'boolean' &&
@@ -343,6 +345,77 @@ export type AppSettingsPatch = {
 /** Merges edited fields into the authoritative backend settings. */
 export async function update(patch: AppSettingsPatch): Promise<AppSettings> {
     return normalizeDownloadSettings(await invoke('plugin:settings|settings_patch', { patch }))
+}
+
+export type SettingsLayerDomain =
+    'appearance' | 'download' | 'game' | 'backup' | 'bootstrap' | 'network' | 'privacy' | 'state'
+
+/** One setting as provided by the deployment, stored locally and currently in effect. */
+export type SettingLayer = {
+    key: string
+    domain: SettingsLayerDomain
+    provided: unknown | null
+    provided_present: boolean
+    local: unknown | null
+    local_present: boolean
+    effective: unknown
+}
+
+/** One import entry that would be executed or injected into the game process. */
+export type DangerousImport = {
+    key: string
+    /** The value in effect now; `null` while the key has none. */
+    before: unknown | null
+    /** The value the archive states. */
+    after: unknown
+}
+
+/** What importing a settings archive would find in it. */
+export type ImportScan = {
+    domains: string[]
+    dangerous: DangerousImport[]
+}
+
+/** What importing a settings archive wrote. */
+export type ImportResult = {
+    documents: number
+    dropped: number
+}
+
+/** What to do with the settings of a document that can run commands. */
+export type ImportDanger = 'skip' | 'allow'
+
+export type SettingsExportKind = 'effective' | 'patch'
+
+export async function getSettingsLayers(): Promise<SettingLayer[]> {
+    return await invoke('plugin:settings|settings_layers')
+}
+
+/** Removes the local value only while it still equals the effect the user saw. */
+export async function clearSettingsOverride(key: string, expected: unknown): Promise<boolean> {
+    return await invoke('plugin:settings|settings_override_clear', { key, expected })
+}
+
+export async function exportSettings(outputPath: string, kind: SettingsExportKind): Promise<void> {
+    await invoke('plugin:settings|settings_export', { outputPath, kind })
+}
+
+/** Rewrites every local document in this build's shape; returns how many it rewrote. */
+export async function sanitiseSettings(): Promise<number> {
+    return await invoke('plugin:settings|settings_sanitise')
+}
+
+/** Reads which documents and which dangerous settings an archive carries. */
+export async function scanSettingsImport(inputPath: string): Promise<ImportScan> {
+    return await invoke('plugin:settings|settings_import_scan', { inputPath })
+}
+
+/** Merges a settings archive into the local documents; returns what it wrote. */
+export async function importSettings(
+    inputPath: string,
+    danger: ImportDanger,
+): Promise<ImportResult> {
+    return await invoke('plugin:settings|settings_import', { inputPath, danger })
 }
 
 export async function cancel_directory_change(): Promise<void> {

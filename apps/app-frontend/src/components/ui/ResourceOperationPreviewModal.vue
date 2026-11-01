@@ -12,6 +12,7 @@ import { computed, nextTick, onBeforeUnmount, ref, shallowRef, triggerRef } from
 
 import type { InstallJobSnapshot } from '@/helpers/install'
 import { refresh_content } from '@/helpers/instance'
+import { resourceAnalysisRequest } from '@/helpers/resource-analysis-request'
 import {
     resourceFailureFeedback,
     resourcePlanIssueFeedback,
@@ -35,6 +36,8 @@ import {
 } from '@/helpers/resources'
 import { get_instance_worlds } from '@/helpers/worlds'
 import type { ContentAnalysisReview } from '@/providers/content-analysis'
+
+import { indexResourceOperationPreview } from './resource-operation-preview-index'
 
 const { formatMessage } = useVIntl()
 const messages = defineMessages({
@@ -131,6 +134,19 @@ const messages = defineMessages({
     refresh: { id: 'app.resources.operation.refresh', defaultMessage: 'Refresh this preview' },
     cancel: { id: 'app.resources.operation.cancel', defaultMessage: 'Cancel' },
     apply: { id: 'app.resources.operation.apply', defaultMessage: 'Queue changes' },
+    forceInstall: {
+        id: 'app.resources.operation.force-install',
+        defaultMessage: 'Force install without dependencies',
+    },
+    forceInstallTooltip: {
+        id: 'app.resources.operation.force-install-tooltip',
+        defaultMessage: '{reason} Try installing only the selected content without dependencies.',
+    },
+    forceInstallCompatibilityTooltip: {
+        id: 'app.resources.operation.force-install-compatibility-tooltip',
+        defaultMessage:
+            '{reason} Try installing only the selected content without dependencies and accept its Minecraft or loader compatibility mismatches.',
+    },
     empty: { id: 'app.resources.operation.empty', defaultMessage: 'No file changes are needed.' },
     sourceUnavailable: {
         id: 'app.resources.operation.source-unavailable',
@@ -356,6 +372,7 @@ const error = ref<string | null>(null)
 const errorSummary = ref<string | null>(null)
 const names = ref<Record<string, { title: string; iconUrl: string | null; summary?: string }>>({})
 let controller: AbortController | null = null
+let disposed = false
 let generation = 0
 let resolveShow: ((job: InstallJobSnapshot | null) => void) | null = null
 const submittedRoots = ref<string[]>([])
@@ -587,7 +604,7 @@ function installationErrors(value: ResourceOperationPlan): string[] {
         ),
     ]
 }
-const applyTooltip = computed(() => {
+const applyIssueSummary = computed(() => {
     if (!forceInstall.value) return undefined
     if (errorSummary.value && error.value) return errorSummary.value
     if (!plan.value)
@@ -628,6 +645,29 @@ const applyTooltip = computed(() => {
             .summary
     return formatMessage(summary ?? messages.empty)
 })
+const applyTooltip = computed(() => {
+    if (!forceInstall.value) return undefined
+    const acceptsCompatibility = plan.value?.nodes.some(
+        (node) =>
+            node.artifact &&
+            node.state !== 'optionalCandidate' &&
+            (['gameVersion', 'loader'] as const).some(
+                (dimension) =>
+                    node.compatibility[dimension] === 'incompatible' &&
+                    !plan.value?.exceptions.some(
+                        (exception) =>
+                            exception.selectionId === node.id &&
+                            exception.dimensions.includes(dimension),
+                    ),
+            ),
+    )
+    return formatMessage(
+        acceptsCompatibility
+            ? messages.forceInstallCompatibilityTooltip
+            : messages.forceInstallTooltip,
+        { reason: applyIssueSummary.value ?? '' },
+    )
+})
 const canSkipUnwritable = computed(
     () =>
         !busy.value &&
@@ -653,16 +693,9 @@ function explicitRoots(node: ResourceDependencyNode): string[] {
           ? [node.id]
           : []
 }
+const previewIndex = computed(() => indexResourceOperationPreview(plan.value, name))
 function requiredBy(id: string, kind = 'required') {
-    return [
-        ...new Set(
-            (plan.value?.edges ?? [])
-                .filter((edge) => edge.child === id && edge.kind === kind)
-                .map((edge) => plan.value?.nodes.find((node) => node.id === edge.parent))
-                .filter((node): node is ResourceDependencyNode => !!node)
-                .map(name),
-        ),
-    ].join(', ')
+    return previewIndex.value.requiredBy.get(id)?.get(kind) ?? ''
 }
 async function enrich(value: ResourceOperationPlan, signal: AbortSignal, current: number) {
     const unresolved = value.selections.filter(
@@ -761,7 +794,9 @@ async function run(
     const current = generation
     controller?.abort()
     controller = new AbortController()
-    const signal = controller.signal
+    const request = controller
+    const signal = request.signal
+    const isCurrent = () => current === generation && controller === request
     busy.value = true
     clearProgress()
     error.value = null
@@ -769,20 +804,23 @@ async function run(
     retryAction = () => run(action, ignoreDependencies)
     let acceptingProgress = true
     try {
-        const value = await action(signal, (progress) => {
-            if (!acceptingProgress || current !== generation || signal.aborted) return
-            applyProgress(progress)
-        })
-        if (current !== generation || signal.aborted) return
+        const value = await resourceAnalysisRequest(request, (signal) =>
+            action(signal, (progress) => {
+                if (!acceptingProgress || !isCurrent() || signal.aborted) return
+                applyProgress(progress)
+            }),
+        )
+        if (!isCurrent() || signal.aborted) return
         plan.value = value
         dependenciesIgnored.value = ignoreDependencies
         void enrich(value, signal, current)
         return value
     } catch (failure) {
-        if (current === generation && !signal.aborted) showFailure(failure)
+        if (isCurrent() && (!signal.aborted || signal.reason?.name === 'TimeoutError'))
+            showFailure(failure)
     } finally {
         acceptingProgress = false
-        if (current === generation && !signal.aborted) {
+        if (isCurrent()) {
             busy.value = false
             clearProgress()
         }
@@ -854,7 +892,7 @@ function hide() {
     }
 }
 function show(value: OperationInput): Promise<InstallJobSnapshot | null> {
-    if (queueing.value) return Promise.resolve(null)
+    if (disposed || !modal.value || queueing.value) return Promise.resolve(null)
     release()
     input.value = value
     plan.value = null
@@ -1062,7 +1100,13 @@ async function submit(retryStale: boolean) {
         committing.value = true
         let job: InstallJobSnapshot
         try {
-            job = await resourceQueuePlan(reviewed.id, reviewed.revision)
+            const resourceNames = Object.fromEntries(
+                reviewed.nodes.flatMap((node) => {
+                    const title = names.value[node.id]?.title
+                    return title?.trim() ? [[node.id, title]] : []
+                }),
+            )
+            job = await resourceQueuePlan(reviewed.id, reviewed.revision, resourceNames)
         } finally {
             // Only the queue request itself is locked; the refresh after a stale
             // plan below is analysis again and must stay cancellable.
@@ -1165,7 +1209,10 @@ function accept(node: ResourceDependencyNode, dimension: 'gameVersion' | 'loader
         },
     })
 }
-onBeforeUnmount(hide)
+onBeforeUnmount(() => {
+    disposed = true
+    hide()
+})
 function showInstall(value: {
     analysis?: ContentAnalysisReview
     importFiles?: Record<string, string>
@@ -1330,7 +1377,7 @@ defineExpose({ show, showInstall, showInstallSelection, cancel })
                     {{ notice.text }}
                 </p>
                 <p
-                    v-for="action in plan?.actions.filter((action) => action.nodeId === node.id)"
+                    v-for="action in previewIndex.actions.get(node.id)"
                     :key="action.entryId"
                     class="m-0 break-all text-sm"
                 >
@@ -1467,7 +1514,9 @@ defineExpose({ show, showInstall, showInstallSelection, cancel })
                     :color="forceInstall ? 'orange' : 'brand'"
                     :disabled="!canApply"
                     @click="apply"
-                    >{{ formatMessage(messages.apply) }}</Button
+                    >{{
+                        formatMessage(forceInstall ? messages.forceInstall : messages.apply)
+                    }}</Button
                 >
             </div>
         </template>

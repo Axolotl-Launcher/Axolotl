@@ -13,50 +13,33 @@ pub async fn switch_installed_file_version(
     file_id: u32,
     reporter: Option<InstallProgressReporter>,
 ) -> crate::Result<CurseForgeInstallResult> {
-    use sqlx::Row;
-
     let state = State::get().await?;
-    let row = sqlx::query(
-        "SELECT ref.provider_project_id, ref.provider_release_id, entry.project_type,
-                entry.ownership_kind,
-                content_set.game_version, content_set.loader
-         FROM instance_files file
-         INNER JOIN instance_content_entries entry ON entry.file_id = file.id
-         INNER JOIN instance_content_provider_refs ref
-            ON ref.content_entry_id = entry.id AND ref.provider = 'curseforge'
-         INNER JOIN instance_content_sets content_set
-            ON content_set.id = entry.content_set_id
-         WHERE file.instance_id = ? AND file.relative_path = ?
-         ORDER BY entry.modified_at DESC
-         LIMIT 1",
+    let row = crate::state::instances::adapters::sqlite::content_entries::get_curseforge_linked_file(
+        instance_id,
+        relative_path,
+        &state.pool,
     )
-    .bind(instance_id)
-    .bind(relative_path)
-    .fetch_optional(&state.pool)
     .await?
     .ok_or_else(|| {
         ErrorKind::InputError(
             "The selected file is not linked to CurseForge".to_string(),
         )
     })?;
-    let project_id = row
-        .try_get::<String, _>("provider_project_id")?
-        .parse::<u32>()
-        .map_err(|_| {
-            ErrorKind::InputError(
-                "Stored CurseForge project ID is invalid".to_string(),
-            )
-        })?;
+    let project_id = row.provider_project_id.parse::<u32>().map_err(|_| {
+        ErrorKind::InputError(
+            "Stored CurseForge project ID is invalid".to_string(),
+        )
+    })?;
     let current_file_id = row
-        .try_get::<Option<String>, _>("provider_release_id")?
+        .provider_release_id
         .and_then(|value| value.parse::<u32>().ok());
-    let project_type = row.try_get::<String, _>("project_type")?;
+    let project_type = row.project_type;
     let ownership_kind =
         crate::state::instances::ContentOwnershipKind::from_str(
-            &row.try_get::<String, _>("ownership_kind")?,
+            &row.ownership_kind,
         )?;
-    let game_version = row.try_get::<String, _>("game_version")?;
-    let loader = row.try_get::<String, _>("loader")?;
+    let game_version = row.game_version;
+    let loader = row.loader;
     let mod_loader_type = match loader.as_str() {
         "forge" => Some(1),
         "fabric" => Some(4),

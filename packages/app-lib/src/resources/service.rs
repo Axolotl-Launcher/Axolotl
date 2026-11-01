@@ -67,6 +67,7 @@ struct Flight {
     result: watch::Sender<Option<ResourceResult<QueryOutcome>>>,
     changed: Arc<Notify>,
     started_at: i64,
+    deadline: tokio::time::Instant,
     owner: std::sync::Weak<ResourceService>,
 }
 
@@ -107,12 +108,16 @@ impl Subscription {
             if cancel.is_cancelled() {
                 return Err(ResourceError::Canceled);
             }
+            if tokio::time::Instant::now() >= self.0.deadline {
+                return Err(ResourceError::Network { status: Some(408) });
+            }
             if let Some(value) = receiver.borrow_and_update().clone() {
                 return value;
             }
             tokio::select! {
                 biased;
                 _ = cancel.cancelled() => return Err(ResourceError::Canceled),
+                _ = tokio::time::sleep_until(self.0.deadline) => return Err(ResourceError::Network { status: Some(408) }),
                 result = receiver.changed() => if result.is_err() { return Err(ResourceError::Canceled); },
             }
         }
@@ -120,6 +125,8 @@ impl Subscription {
 }
 
 pub struct ResourceService {
+    flight_timeout: std::time::Duration,
+    admission_timeout: std::time::Duration,
     pub(crate) analysis_sessions:
         DashMap<SessionId, Arc<super::plans::analysis::AnalysisSession>>,
     pub(crate) artifact_metadata_reader:
@@ -146,6 +153,25 @@ pub struct ResourceService {
 }
 
 impl ResourceService {
+    pub(crate) fn source_namespace(
+        &self,
+        source: &SourceId,
+    ) -> ResourceResult<String> {
+        self.sources
+            .get(source)
+            .map(|runtime| runtime.provider.namespace())
+            .ok_or(ResourceError::Unavailable)
+    }
+    #[cfg(test)]
+    pub(crate) fn set_wait_budgets(
+        &mut self,
+        admission: std::time::Duration,
+        flight: std::time::Duration,
+    ) {
+        self.admission_timeout = admission;
+        self.flight_timeout = flight;
+    }
+
     pub(crate) fn search_applicable(
         &self,
         source: &SourceId,
@@ -202,6 +228,8 @@ impl ResourceService {
             }
         }
         Ok(Arc::new(Self {
+            flight_timeout: std::time::Duration::from_secs(120),
+            admission_timeout: std::time::Duration::from_secs(20),
             analysis_sessions: DashMap::new(),
             artifact_metadata_reader: Arc::new(
                 super::plans::artifact_metadata::RuntimeArtifactMetadataReader,
@@ -417,7 +445,8 @@ impl ResourceService {
             };
             let flight = match self.flights.entry(key.clone()) {
                 Entry::Occupied(entry)
-                    if try_subscribe(&entry.get().subscribers) =>
+                    if entry.get().deadline > tokio::time::Instant::now()
+                        && try_subscribe(&entry.get().subscribers) =>
                 {
                     entry.get().clone()
                 }
@@ -429,6 +458,8 @@ impl ResourceService {
                         result: watch::channel(None).0,
                         changed: self.changed.clone(),
                         started_at: Utc::now().timestamp_micros(),
+                        deadline: tokio::time::Instant::now()
+                            + self.flight_timeout,
                         owner: Arc::downgrade(self),
                     });
                     match entry {
@@ -511,12 +542,33 @@ impl ResourceService {
             tokio::time::sleep(std::time::Duration::from_millis(20)).await;
             let runtime = &service.sources[&source];
             loop {
+                if runtime.pending.lock().is_empty() {
+                    return;
+                }
                 // Form the batch only when it can run. Requests arriving while
                 // the source is busy must not become queued one-item batches.
-                let Ok(permit) =
-                    runtime.semaphore.clone().acquire_owned().await
-                else {
-                    return;
+                let permit = match tokio::time::timeout(
+                    service.admission_timeout,
+                    runtime.semaphore.clone().acquire_owned(),
+                )
+                .await
+                {
+                    Ok(Ok(permit)) => permit,
+                    _ => {
+                        let pending =
+                            std::mem::take(&mut *runtime.pending.lock());
+                        for flight in pending {
+                            flight.result.send_replace(Some(Err(
+                                ResourceError::Network { status: Some(408) },
+                            )));
+                            service
+                                .flights
+                                .remove_if(&flight.key, |_, current| {
+                                    Arc::ptr_eq(current, &flight)
+                                });
+                        }
+                        return;
+                    }
                 };
                 let batch = {
                     let mut queued = runtime.pending.lock();
@@ -573,6 +625,11 @@ impl ResourceService {
             }
             let queries: Vec<_> =
                 active.iter().map(|flight| flight.query.clone()).collect();
+            if active.iter().any(|flight| {
+                provider.namespace() != flight.key.cache.namespace
+            }) {
+                return Err(ResourceError::Canceled);
+            }
             let responses = provider.fetch_many(&queries).await;
             if responses.len() != active.len() {
                 return Err(ResourceError::InvalidResponse(
@@ -771,6 +828,18 @@ pub(crate) fn validate_value(
     value: &ProviderValue,
 ) -> ResourceResult<()> {
     let valid = match (query, value) {
+        (ProviderQuery::CurseForgeFilesProtocol { project_id, index, page_size, .. }, ProviderValue::Protocol(value)) => {
+            *source == SourceId::curseforge() &&
+                serde_json::from_value::<crate::api::curseforge::CurseForgeFilesResponse>(value.clone()).is_ok_and(|page| {
+                    page.pagination.index == *index
+                        && page.pagination.page_size == *page_size
+                        && page.files.len() <= *page_size as usize
+                        && page.pagination.result_count as usize == page.files.len()
+                        && index.checked_add(page.pagination.result_count).is_some_and(|end| page.pagination.result_count == 0 || end <= page.pagination.total_count)
+                        && page.files.iter().all(|file| file.mod_id == *project_id && file.id > 0)
+                        && page.files.iter().map(|file| file.id).collect::<std::collections::HashSet<_>>().len() == page.files.len()
+                })
+        }
         (ProviderQuery::ReleasesProtocol { project_id }, ProviderValue::Protocol(value)) => {
             *source == SourceId::modrinth() && value.as_array().is_some_and(|values| values.iter().all(|value| value["project_id"].as_str() == Some(project_id.as_str()) && serde_json::from_value::<crate::state::Version>(value.clone()).is_ok()))
         }
@@ -785,7 +854,7 @@ pub(crate) fn validate_value(
         (ProviderQuery::Locate { .. }, ProviderValue::Project(document)) => document.metadata.project.source == *source && document.description.source == *source && crate::state::instances::adapters::sqlite::resource_rows::validate_project(&document.metadata.project).is_ok(),
         (_, ProviderValue::NotFound) => !matches!(
             query,
-            ProviderQuery::Search { .. } | ProviderQuery::Releases { .. }
+            ProviderQuery::Search { .. } | ProviderQuery::Releases { .. } | ProviderQuery::CurseForgeFilesProtocol { .. }
         ),
         (
             ProviderQuery::Project { id, .. },

@@ -1,19 +1,4 @@
 {
-  "drop.instance-import.title": {
-    "defaultMessage": "Import instances"
-  },
-  "drop.confirm.minecraft-root.title": {
-    "defaultMessage": "Add .minecraft folder"
-  },
-  "drop.confirm.minecraft-root.prompt": {
-    "defaultMessage": "This looks like a .minecraft folder. Would you like to add it directly to the launcher?"
-  },
-  "drop.confirm.minecraft-root.add": {
-    "defaultMessage": "Yes, add folder"
-  },
-  "drop.confirm.minecraft-root.import": {
-    "defaultMessage": "No, import instances"
-  },
   "action.no-permission": {
     "defaultMessage": "You do not have permission."
   },
@@ -1436,6 +1421,18 @@
   "drop.confirm.help": {
     "defaultMessage": "What can I drop?"
   },
+  "drop.confirm.minecraft-root.add": {
+    "defaultMessage": "Yes, add folder"
+  },
+  "drop.confirm.minecraft-root.import": {
+    "defaultMessage": "No, import instances"
+  },
+  "drop.confirm.minecraft-root.prompt": {
+    "defaultMessage": "This looks like a .minecraft folder. Would you like to add it directly to the launcher?"
+  },
+  "drop.confirm.minecraft-root.title": {
+    "defaultMessage": "Add .minecraft folder"
+  },
   "drop.confirm.not-this": {
     "defaultMessage": "Import this as something else"
   },
@@ -1459,6 +1456,9 @@
   },
   "drop.generic_install.title": {
     "defaultMessage": "Install {type}"
+  },
+  "drop.instance-import.title": {
+    "defaultMessage": "Import instances"
   },
   "drop.launcher_import.cancel": {
     "defaultMessage": "Cancel"
@@ -1490,12 +1490,6 @@
   "drop.symlink_method.confirm": {
     "defaultMessage": "Confirm"
   },
-  "drop.symlink_method.copy_desc": {
-    "defaultMessage": "Copy to Axolotl directory"
-  },
-  "drop.symlink_method.copy_title": {
-    "defaultMessage": "Copy files"
-  },
   "drop.symlink_method.custom": {
     "defaultMessage": "Custom"
   },
@@ -1504,15 +1498,6 @@
   },
   "drop.symlink_method.detecting": {
     "defaultMessage": "Detecting..."
-  },
-  "drop.symlink_method.game-dir.isolated": {
-    "defaultMessage": "Version isolated"
-  },
-  "drop.symlink_method.game-dir.label": {
-    "defaultMessage": "Game directory"
-  },
-  "drop.symlink_method.game-dir.not-isolated": {
-    "defaultMessage": "Version shared (.minecraft/)"
   },
   "drop.symlink_method.game_version": {
     "defaultMessage": "Game version"
@@ -1544,9 +1529,6 @@
   "drop.symlink_method.loader_version_unknown_tooltip": {
     "defaultMessage": "Loader version not detected. A custom version will be used."
   },
-  "drop.symlink_method.method": {
-    "defaultMessage": "Import method"
-  },
   "drop.symlink_method.missing": {
     "defaultMessage": "Missing"
   },
@@ -1561,9 +1543,6 @@
   },
   "drop.symlink_method.plan_failed": {
     "defaultMessage": "Import estimate failed"
-  },
-  "drop.symlink_method.requires_admin": {
-    "defaultMessage": "Administrator authorization (UAC) will be requested once when creating the link"
   },
   "drop.symlink_method.reset_changes": {
     "defaultMessage": "Reset changes"
@@ -1622,20 +1601,8 @@
   "drop.symlink_method.subtitle": {
     "defaultMessage": "Importing {n} instance(s)"
   },
-  "drop.symlink_method.symlink_desc": {
-    "defaultMessage": "Reference original location"
-  },
-  "drop.symlink_method.symlink_title": {
-    "defaultMessage": "Symbolic link"
-  },
-  "drop.symlink_method.title": {
-    "defaultMessage": "Choose import method"
-  },
   "drop.symlink_method.unrecognized": {
     "defaultMessage": "Unrecognized"
-  },
-  "drop.symlink_method.unsupported_warning": {
-    "defaultMessage": "Symbolic links are not supported on this system"
   },
   "external-project-license-status.no": {
     "defaultMessage": "No"
@@ -2505,7 +2472,7 @@
     "defaultMessage": "Loading changelog..."
   },
   "instances.updater-modal.loading-more-versions": {
-    "message": "Loading more versions…"
+    "defaultMessage": "Loading more versions…"
   },
   "instances.updater-modal.loading-versions": {
     "defaultMessage": "Loading versions..."

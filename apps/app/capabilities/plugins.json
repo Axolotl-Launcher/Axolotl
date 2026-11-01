@@ -160,6 +160,8 @@
     "shortcuts:default",
     "tags:default",
     "ai:default",
+    "third-party-accounts:default",
+    "schematics:default",
     "mcp:default",
     "translation:default",
     "storage:default",

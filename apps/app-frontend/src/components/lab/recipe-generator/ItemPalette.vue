@@ -225,12 +225,12 @@ function startPointerDrag(event: PointerEvent, entry: PaletteEntry, startDrag: S
                             <button
                                 v-for="entry in row"
                                 :key="entry.key"
+                                v-tooltip="`${formatMessage(messages.addItem)}: ${entry.name}`"
                                 type="button"
                                 :draggable="!isTauriRuntime"
                                 class="recipe-palette-item"
                                 :class="{ 'is-dragging': draggingKey === entry.key }"
                                 :style="{ touchAction: isTauriRuntime ? 'none' : undefined }"
-                                :title="`${formatMessage(messages.addItem)}: ${entry.name}`"
                                 :aria-label="`${formatMessage(messages.addItem)}: ${entry.name}`"
                                 @click="pickFromClick($event, entry.value)"
                                 @pointerdown="startPointerDrag($event, entry, startDrag)"

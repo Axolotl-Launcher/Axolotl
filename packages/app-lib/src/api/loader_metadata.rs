@@ -2176,13 +2176,17 @@ fn parse_installer(
             data: artifact_data,
         });
     }
-    let embedded_maven_entries = archive
-        .file_names()
-        .filter_map(|path| {
-            coordinate_from_maven_path(path)
-                .map(|coordinate| (coordinate, path.to_string()))
-        })
-        .collect::<Vec<_>>();
+    let mut embedded_maven_entries = Vec::new();
+    for path in archive.file_names() {
+        let path = path.map_err(|error| {
+            crate::ErrorKind::InputError(format!(
+                "Failed to read installer archive entry name: {error}"
+            ))
+        })?;
+        if let Some(coordinate) = coordinate_from_maven_path(&path) {
+            embedded_maven_entries.push((coordinate, path.into_owned()));
+        }
+    }
     for (coordinate, archive_path) in embedded_maven_entries {
         if artifacts
             .iter()

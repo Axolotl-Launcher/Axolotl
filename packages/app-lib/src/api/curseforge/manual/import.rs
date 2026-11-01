@@ -325,11 +325,19 @@ pub(super) async fn install_manual_download(
         )
         .await?;
         let state = State::get().await?;
+        // Held through the import and the record that completes it (the lock
+        // is reentrant), so no content change or deletion runs in between.
+        let _instance_lock = state.lock_instance_content(instance_id).await;
         let world_name = crate::state::instances::commands::import_world_save(
             &state,
             instance_id,
             &verified_source,
             None,
+            crate::install::critical_section::whitelisted(
+                crate::install::critical_section::WhitelistSite::CurseForgeManualWorldImport,
+                &_instance_lock,
+            )
+            .into(),
         )
         .await?;
         complete_manual_world_download(instance_id, download).await?;
@@ -450,22 +458,14 @@ pub(crate) async fn mark_pack_member_version_override(
         )
     })?;
     let mut tx = state.pool.begin_with("BEGIN IMMEDIATE").await?;
-    let updated = sqlx::query(
-        "UPDATE instance_pack_members
-         SET override_kind = 'version', modified_at = ?
-         WHERE content_entry_id IN (
-            SELECT entry.id
-            FROM instance_content_entries entry
-            INNER JOIN instance_files file ON file.id = entry.file_id
-            WHERE entry.content_set_id = ? AND file.relative_path = ?
-         )",
+    let updated = crate::state::instances::adapters::sqlite::pack_members::mark_path_version_override_in_transaction(
+        &content_set.id,
+        relative_path,
+        chrono::Utc::now().timestamp(),
+        &mut tx,
     )
-    .bind(chrono::Utc::now().timestamp())
-    .bind(&content_set.id)
-    .bind(relative_path)
-    .execute(&mut *tx)
     .await?;
-    if updated.rows_affected() > 0 {
+    if updated > 0 {
         crate::state::instances::adapters::sqlite::content_sets::bump_content_set_revision_in_transaction(
             &content_set.id,
             &mut tx,

@@ -25,6 +25,24 @@ const METADATA_REQUEST_TIMEOUT: Duration = Duration::from_secs(90);
 const API_PERMIT_TIMEOUT: Duration = Duration::from_secs(20);
 static NEXT_REQUEST_ID: AtomicU64 = AtomicU64::new(1);
 
+pub(crate) fn metadata_cache_scope() -> String {
+    use sha2::{Digest, Sha256};
+    let state = State::get_if_initialized();
+    let settings = state
+        .as_ref()
+        .map(|state| (state.curseforge_source(), state.network_scope()));
+    // Only a digest leaves this function: credentials and proxy settings must
+    // never become cache keys or diagnostic strings in plain text.
+    let identity = serde_json::to_vec(&(
+        api_base_url(),
+        api_key_generation(),
+        api_key(),
+        settings,
+    ))
+    .expect("metadata cache identity is serializable");
+    format!("{:x}", Sha256::digest(identity))
+}
+
 struct RequestTrace {
     id: u64,
     started: Instant,
@@ -150,13 +168,13 @@ impl Drop for RequestTrace {
     }
 }
 
-async fn metadata_deadline<T>(
+pub(crate) async fn metadata_deadline<T>(
     deadline: tokio::time::Instant,
     work: impl std::future::Future<Output = crate::Result<T>>,
 ) -> crate::Result<T> {
     let result =
         tokio::time::timeout_at(deadline, work).await.map_err(|_| {
-            ErrorKind::InputError(
+            ErrorKind::DownloadResourceWaitTimeout(
                 "CurseForge metadata request timed out before completion"
                     .into(),
             )
@@ -164,7 +182,7 @@ async fn metadata_deadline<T>(
     // Synchronous decoding cannot be preempted; reject a result that finished
     // after the deadline rather than reporting it as an in-budget success.
     if tokio::time::Instant::now() >= deadline {
-        return Err(ErrorKind::InputError(
+        return Err(ErrorKind::DownloadResourceWaitTimeout(
             "CurseForge metadata request timed out before completion".into(),
         )
         .into());
@@ -176,7 +194,7 @@ async fn api_permit(
     semaphore: &tokio::sync::Semaphore,
     budget: Duration,
 ) -> crate::Result<tokio::sync::SemaphorePermit<'_>> {
-    tokio::time::timeout(budget, semaphore.acquire()).await.map_err(|_| ErrorKind::InputError("CurseForge API request timed out waiting for an available request slot".into()))?.map_err(|_| ErrorKind::OtherError("CurseForge API request slots are closed".into()).into())
+    tokio::time::timeout(budget, semaphore.acquire()).await.map_err(|_| ErrorKind::DownloadResourceWaitTimeout("CurseForge API request timed out waiting for an available request slot".into()))?.map_err(|_| ErrorKind::OtherError("CurseForge API request slots are closed".into()).into())
 }
 
 static CLIENT: LazyLock<reqwest::Client> = LazyLock::new(|| {
@@ -380,10 +398,10 @@ pub(super) async fn request_json_with_origin<T: DeserializeOwned>(
         Ok(_) => "success",
         Err(error)
             if matches!(error.raw.as_ref(), ErrorKind::FetchError(error) if error.is_timeout())
-                || error
-                    .to_string()
-                    .to_ascii_lowercase()
-                    .contains("timed out") =>
+                || matches!(
+                    error.raw.as_ref(),
+                    ErrorKind::DownloadResourceWaitTimeout(_)
+                ) =>
         {
             "timeout"
         }

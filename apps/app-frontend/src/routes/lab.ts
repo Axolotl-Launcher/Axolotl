@@ -80,6 +80,15 @@ export const labRoutes: RouteRecordRaw[] = [
         },
     },
     {
+        path: '/lab/banner-designer',
+        name: 'BannerDesigner',
+        component: () => import('@/pages/LabBannerDesigner.vue'),
+        meta: {
+            breadcrumb: [{ name: 'Lab', link: '/lab' }, { name: 'Banner designer' }],
+            discordActivity: 'Designing a banner...',
+        },
+    },
+    {
         // Reached by long-pressing the swamp-hut entry on the seed map, not from
         // the Lab hub: it is a detail view of one structure search.
         path: '/lab/seed-map/witch-hut',

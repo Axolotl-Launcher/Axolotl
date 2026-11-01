@@ -452,6 +452,7 @@ impl ResourceService {
             {
                 Ok(document.release)
             }
+            ProviderValue::NotFound => Err(ResourceError::Unavailable),
             _ => Err(ResourceError::InvalidResponse(
                 "release does not belong to selected project".into(),
             )),

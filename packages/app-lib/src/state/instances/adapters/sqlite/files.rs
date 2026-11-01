@@ -63,6 +63,61 @@ where
     rows.into_iter().map(TryInto::try_into).collect()
 }
 
+/// Removes files outside scanner ownership after upserts settle their paths.
+/// Entries go first so their metadata is removed rather than detached.
+pub(crate) async fn remove_untracked_instance_files(
+    instance_id: &str,
+    tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>,
+) -> crate::Result<bool> {
+    let rows: Vec<(String, String)> = sqlx::query_as(
+        "SELECT id, relative_path FROM instance_files WHERE instance_id = ?",
+    )
+    .bind(instance_id)
+    .fetch_all(&mut **tx)
+    .await?;
+
+    let stale_ids: Vec<String> = rows
+        .into_iter()
+        .filter(|(_, relative_path)| {
+            !super::super::filesystem::should_retain_instance_file_path(
+                relative_path,
+            )
+        })
+        .map(|(id, _)| id)
+        .collect();
+    if stale_ids.is_empty() {
+        return Ok(false);
+    }
+
+    let mut removed_entries = false;
+    for chunk in stale_ids.chunks(400) {
+        let mut entries = sqlx::QueryBuilder::<sqlx::Sqlite>::new(
+            "DELETE FROM instance_content_entries WHERE instance_id = ",
+        );
+        entries.push_bind(instance_id).push(" AND file_id IN (");
+        let mut separated = entries.separated(", ");
+        for id in chunk {
+            separated.push_bind(id.as_str());
+        }
+        separated.push_unseparated(")");
+        removed_entries |=
+            entries.build().execute(&mut **tx).await?.rows_affected() > 0;
+
+        let mut files = sqlx::QueryBuilder::<sqlx::Sqlite>::new(
+            "DELETE FROM instance_files WHERE instance_id = ",
+        );
+        files.push_bind(instance_id).push(" AND id IN (");
+        let mut separated = files.separated(", ");
+        for id in chunk {
+            separated.push_bind(id.as_str());
+        }
+        separated.push_unseparated(")");
+        files.build().execute(&mut **tx).await?;
+    }
+
+    Ok(removed_entries)
+}
+
 pub(crate) async fn mark_instance_files_missing(
     instance_id: &str,
     tx: &mut Transaction<'_, Sqlite>,
@@ -641,3 +696,117 @@ pub(crate) async fn rename_file_in_place_in_transaction(
 
     Ok(())
 }
+
+/// Drops one indexed file of an instance unless an entry still names it.
+pub(crate) async fn delete_unreferenced_file_in_transaction(
+    instance_id: &str,
+    relative_path: &str,
+    tx: &mut Transaction<'_, Sqlite>,
+) -> crate::Result<()> {
+    sqlx::query(
+        "DELETE FROM instance_files
+         WHERE instance_id = ? AND relative_path = ?
+           AND NOT EXISTS (
+             SELECT 1 FROM instance_content_entries
+             WHERE file_id = instance_files.id
+           )",
+    )
+    .bind(instance_id)
+    .bind(relative_path)
+    .execute(&mut **tx)
+    .await?;
+
+    Ok(())
+}
+
+/// Drops one indexed file of an instance by its id unless an entry still names
+/// it.
+pub(crate) async fn delete_unreferenced_file_by_id_in_transaction(
+    instance_id: &str,
+    file_id: &str,
+    tx: &mut Transaction<'_, Sqlite>,
+) -> crate::Result<()> {
+    sqlx::query(
+        "DELETE FROM instance_files
+         WHERE instance_id = ? AND id = ?
+           AND NOT EXISTS (
+               SELECT 1 FROM instance_content_entries
+               WHERE file_id = ?
+           )",
+    )
+    .bind(instance_id)
+    .bind(file_id)
+    .bind(file_id)
+    .execute(&mut **tx)
+    .await?;
+
+    Ok(())
+}
+
+/// Moves the file an entry claims to its new path and name, leaving a file at
+/// any other path alone.
+pub(crate) async fn rename_entry_file_in_transaction(
+    instance_id: &str,
+    entry_id: &str,
+    current_relative_path: &str,
+    target_relative_path: &str,
+    file_name: &str,
+    tx: &mut Transaction<'_, Sqlite>,
+) -> crate::Result<()> {
+    sqlx::query(
+        "UPDATE instance_files SET relative_path = ?, file_name = ?
+         WHERE id = (SELECT file_id FROM instance_content_entries WHERE id = ?)
+           AND instance_id = ? AND relative_path = ?",
+    )
+    .bind(target_relative_path)
+    .bind(file_name)
+    .bind(entry_id)
+    .bind(instance_id)
+    .bind(current_relative_path)
+    .execute(&mut **tx)
+    .await?;
+
+    Ok(())
+}
+
+/// Records the metadata read from a file's own bytes, dropping the icon that
+/// described the bytes it replaced.
+pub(crate) async fn set_local_mod_data_in_transaction(
+    file_id: &str,
+    local_mod_data: Option<&str>,
+    tx: &mut Transaction<'_, Sqlite>,
+) -> crate::Result<()> {
+    sqlx::query(
+        "UPDATE instance_files SET local_mod_data = ?, icon_path = NULL WHERE id = ?",
+    )
+    .bind(local_mod_data)
+    .bind(file_id)
+    .execute(&mut **tx)
+    .await?;
+
+    Ok(())
+}
+
+/// Reads the metadata stored for files that carry exactly these bytes.
+pub(crate) async fn get_local_mod_data_for_artifact<'e, E>(
+    sha1: &str,
+    size: i64,
+    exec: E,
+) -> crate::Result<Vec<String>>
+where
+    E: Executor<'e, Database = Sqlite>,
+{
+    let rows = sqlx::query_scalar(
+        "SELECT local_mod_data FROM instance_files WHERE missing = 0 AND local_mod_data IS NOT NULL AND sha1 = ? COLLATE NOCASE AND size = ?",
+    )
+    .bind(sha1)
+    .bind(size)
+    .fetch_all(exec)
+    .await?;
+
+    Ok(rows)
+}
+
+#[cfg(test)]
+#[path = "files_tests.rs"]
+mod tests;

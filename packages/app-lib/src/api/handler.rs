@@ -94,6 +94,7 @@ fn valid_project_type(value: &str) -> bool {
             | "shader"
             | "plugin"
             | "server"
+            | "schematic"
     )
 }
 
@@ -513,6 +514,16 @@ fn valid_privileged_setting(key: &str, value: &str) -> bool {
         "locale" | "default_window_title" => {
             !value.trim().is_empty() && value.len() <= 128 && no_control(value)
         }
+        "default_game_language" => {
+            value.len() <= 32
+                && no_control(value)
+                && (value.trim().is_empty()
+                    || value.bytes().all(|byte| {
+                        byte.is_ascii_alphanumeric()
+                            || byte == b'_'
+                            || byte == b'-'
+                    }))
+        }
         // 空串表示清空
         "hooks_pre_launch"
         | "hooks_wrapper"
@@ -597,6 +608,20 @@ async fn external_scheme_allowed() -> bool {
 pub async fn parse_command(
     command_string: &str,
 ) -> crate::Result<CommandPayload> {
+    if crate::third_party_accounts::is_callback(command_string) {
+        crate::third_party_accounts::handle_callback(command_string).await?;
+        return Ok(CommandPayload::OpenSettings {
+            tab: Some("third-party-accounts".to_string()),
+            entry: None,
+        });
+    }
+    if crate::third_party_accounts::is_callback_candidate(command_string) {
+        tracing::debug!("Parsing command: [invalid OAuth callback]");
+        return Err(crate::ErrorKind::InputError(
+            "Invalid OAuth callback URL".to_string(),
+        )
+        .into());
+    }
     tracing::debug!("Parsing command: {}", &command_string);
     if let Some(sublink) = command_string.strip_prefix("axolotl://") {
         if !external_scheme_allowed().await {
@@ -637,6 +662,22 @@ pub async fn parse_and_emit_command(command_string: &str) -> crate::Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[tokio::test]
+    async fn invalid_oauth_callback_shapes_never_open_account_settings() {
+        for command in [
+            "axolotl://oauth/other?code=secret",
+            "axolotl://oauth/callback/extra?code=secret",
+            "axolotl://oauth/callback?code=secret#fragment",
+        ] {
+            let error = parse_command(command)
+                .await
+                .err()
+                .expect("invalid callback");
+            assert!(error.to_string().contains("Invalid OAuth callback URL"));
+            assert!(!error.to_string().contains("secret"));
+        }
+    }
 
     #[tokio::test]
     async fn parses_launch_query_command() {

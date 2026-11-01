@@ -263,7 +263,7 @@ pub async fn clear_cache() -> crate::Result<CacheCleanupResult> {
             Kind::ModpackFiles,
             Kind::ProjectVersions,
         ],
-        &state.pool,
+        state.cache_pool(),
     )
     .await
     {

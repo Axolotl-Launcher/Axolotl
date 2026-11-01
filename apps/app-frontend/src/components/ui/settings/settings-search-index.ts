@@ -18,6 +18,18 @@ const message = (id: string, defaultMessage: string): MessageDescriptor => ({ id
 
 export const settingsSearchEntries: SettingsSearchEntry[] = [
     {
+        id: 'third-party-shimu',
+        categoryId: 'third-party-accounts',
+        targetId: 'settings-target-third-party-shimu',
+        label: message('app.third-party.shimu', 'Shimu Space'),
+        keywords: [
+            message(
+                'app.third-party.search',
+                'Shimu mcimg OAuth account authorization sign in connect',
+            ),
+        ],
+    },
+    {
         id: 'mcp-authentication',
         categoryId: 'mcp',
         targetId: 'settings-target-mcp-access',
@@ -178,6 +190,22 @@ export const settingsSearchEntries: SettingsSearchEntry[] = [
             'app.appearance-settings.sidebar-instance-count.title',
             'Sidebar instance limit',
         ),
+    },
+    {
+        id: 'defaults-game-language',
+        categoryId: 'launch-defaults',
+        targetId: 'settings-target-defaults-game-language',
+        label: message('app.settings.defaults.game-language.title', 'Default game language'),
+        description: message(
+            'app.settings.defaults.game-language.description',
+            'Used the first time an instance launches. Instances that have already been played keep their in-game language.',
+        ),
+        keywords: [
+            message(
+                'app.settings.defaults.game-language.search',
+                'Minecraft game language locale language region',
+            ),
+        ],
     },
     {
         id: 'defaults-window-title',
@@ -846,6 +874,19 @@ export const settingsSearchEntries: SettingsSearchEntry[] = [
         id: 'feature-flags',
         categoryId: 'feature-flags',
         label: message('settings.feature-flags.title', 'Feature flags'),
+    },
+    {
+        id: 'advanced-download-info',
+        categoryId: 'feature-flags',
+        targetId: 'settings-target-advanced-download-info',
+        label: message(
+            'app.settings.feature-flags.advanced-download-info',
+            'Advanced download information',
+        ),
+        description: message(
+            'app.settings.feature-flags.advanced-download-info-description',
+            'Show file timings, request speeds and remote addresses in download details. Observations are collected while enabled and included when exporting network connections.',
+        ),
     },
 ]
 

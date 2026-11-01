@@ -113,6 +113,42 @@ async fn settings_patch_preserves_unrelated_fields_and_nested_flags() {
 }
 
 #[tokio::test]
+async fn settings_patch_persists_normalized_default_game_language() {
+    let pool = support::pool().await;
+    let handle = handle_of(&pool);
+
+    let saved =
+        patch_with(&handle, json!({"default_game_language": "  EN-US  "}))
+            .await
+            .unwrap();
+
+    assert_eq!(saved.default_game_language, "en_us");
+    assert_eq!(
+        Settings::get(&handle).await.unwrap().default_game_language,
+        "en_us"
+    );
+}
+
+#[tokio::test]
+async fn settings_patch_rejects_invalid_default_game_language() {
+    let pool = support::pool().await;
+    let handle = handle_of(&pool);
+    let initial = Settings::get(&handle).await.unwrap();
+
+    assert!(
+        patch_with(&handle, json!({"default_game_language": "en US"}),)
+            .await
+            .is_err()
+    );
+
+    let saved = Settings::get(&handle).await.unwrap();
+    assert_eq!(
+        serde_json::to_value(saved).unwrap(),
+        serde_json::to_value(initial).unwrap()
+    );
+}
+
+#[tokio::test]
 async fn settings_patch_rejects_invalid_fields_without_writing() {
     let pool = support::pool().await;
     let handle = handle_of(&pool);

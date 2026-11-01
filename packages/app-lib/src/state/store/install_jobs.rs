@@ -1,6 +1,6 @@
 //! An install job: what it was asked to do, how far it got, and its state.
 
-use sqlx::SqliteConnection;
+use sqlx::{Executor, Sqlite, SqliteConnection};
 
 use super::Collection;
 
@@ -170,7 +170,6 @@ type JobRow = (
     Option<i64>,
     bool,
 );
-
 type JobRowWithKey = (
     String,
     Option<String>,
@@ -367,4 +366,136 @@ async fn ensure_keys_belong_to_scope(
     }
 
     Ok(())
+}
+
+impl InstallJobs {
+    /// Opens a job under `key`, refusing an id that is already taken: a job is
+    /// opened once, and a second row under the same id would stand for the
+    /// history the first one keeps.
+    pub(crate) async fn insert_in(
+        conn: &mut SqliteConnection,
+        key: &InstallJobKey,
+        record: &InstallJobRecord,
+    ) -> crate::Result<()> {
+        sqlx::query(
+            "
+            INSERT INTO install_jobs (
+                id, instance_id, kind, status, state, created, modified,
+                finished, dismissed
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ",
+        )
+        .bind(key)
+        .bind(&record.instance_id)
+        .bind(&record.kind)
+        .bind(&record.status)
+        .bind(&record.state)
+        .bind(record.created)
+        .bind(record.modified)
+        .bind(record.finished)
+        .bind(record.dismissed)
+        .execute(&mut *conn)
+        .await?;
+
+        Ok(())
+    }
+
+    /// Whether one instance still has a job in one of `statuses`.
+    pub(crate) async fn unfinished_in<'e, E>(
+        exec: E,
+        instance_id: &str,
+        statuses: &[&str],
+    ) -> crate::Result<bool>
+    where
+        E: Executor<'e, Database = Sqlite>,
+    {
+        let filter = status_filter(statuses);
+        let sql = format!(
+            "SELECT EXISTS(SELECT 1 FROM install_jobs WHERE instance_id = ? AND {filter})"
+        );
+        let mut query = sqlx::query_scalar::<_, i64>(&sql).bind(instance_id);
+        for status in statuses {
+            query = query.bind(*status);
+        }
+        let busy: i64 = query.fetch_one(exec).await?;
+
+        Ok(busy != 0)
+    }
+
+    /// Whether any job is in one of `statuses`, or still holds a rollback.
+    pub(crate) async fn unfinished_or_rollback<'e, E>(
+        exec: E,
+        statuses: &[&str],
+    ) -> crate::Result<bool>
+    where
+        E: Executor<'e, Database = Sqlite>,
+    {
+        let filter = status_filter(statuses);
+        let sql = format!(
+            "SELECT COUNT(*) FROM install_jobs WHERE {filter} OR json_extract(state, '$.rollback') IS NOT NULL"
+        );
+        let mut query = sqlx::query_scalar::<_, i64>(&sql);
+        for status in statuses {
+            query = query.bind(*status);
+        }
+        let busy: i64 = query.fetch_one(exec).await?;
+
+        Ok(busy > 0)
+    }
+
+    /// Records that a job finished, and only while it was still running, or
+    /// while a cancel was still being wound down. Answers how many rows it
+    /// reached, so the caller can tell a job that moved on under it.
+    pub(crate) async fn finish_in(
+        conn: &mut SqliteConnection,
+        finish: &JobFinish<'_>,
+    ) -> crate::Result<u64> {
+        let result = sqlx::query(
+            "
+            UPDATE install_jobs
+            SET instance_id = (SELECT id FROM instances WHERE id = ?),
+                status = ?, state = ?, modified = ?, finished = ?
+            WHERE id = ? AND (status = ? OR (status = ? AND ?))
+            ",
+        )
+        .bind(finish.instance_id)
+        .bind(finish.status)
+        .bind(finish.state)
+        .bind(finish.modified)
+        .bind(finish.finished)
+        .bind(finish.key)
+        .bind(finish.running_status)
+        .bind(finish.canceling_status)
+        .bind(finish.accept_canceling)
+        .execute(&mut *conn)
+        .await?;
+
+        Ok(result.rows_affected())
+    }
+}
+
+/// What the last write of a job records, and the states it may leave.
+pub(crate) struct JobFinish<'a> {
+    pub key: &'a str,
+    /// The instance the job lands on, or none when it no longer exists.
+    pub instance_id: Option<&'a str>,
+    pub status: &'a str,
+    pub state: &'a str,
+    pub modified: i64,
+    pub finished: i64,
+    /// The status the job has to still hold for the write to land.
+    pub running_status: &'a str,
+    /// A job left in this status lands as well, when `accept_canceling`.
+    pub canceling_status: &'a str,
+    pub accept_canceling: bool,
+}
+
+/// The statuses a read asks about, as the condition it asks them in.
+fn status_filter(statuses: &[&str]) -> String {
+    if statuses.is_empty() {
+        return "0".to_string();
+    }
+    let placeholders = vec!["?"; statuses.len()].join(", ");
+    format!("status IN ({placeholders})")
 }

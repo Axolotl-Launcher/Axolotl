@@ -169,3 +169,17 @@ async fn delete_omitted(
 
     Ok(())
 }
+
+/// The defaults as the rows hold them, for the document handover and for the
+/// fallback the domain answers with while it has no document.
+pub(crate) async fn read_legacy_java_default_versions(
+    pool: &sqlx::SqlitePool,
+) -> crate::Result<Vec<(u32, JavaDefaultVersionRecord)>> {
+    let rows: Vec<(i64, String)> = sqlx::query_as(
+        "SELECT major_version, path FROM java_default_versions ORDER BY major_version",
+    )
+    .fetch_all(pool)
+    .await?;
+
+    Ok(rows.into_iter().filter_map(to_record).collect())
+}

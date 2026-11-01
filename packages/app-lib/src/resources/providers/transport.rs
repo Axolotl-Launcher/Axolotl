@@ -59,6 +59,9 @@ impl ProtocolRequest {
 
 #[async_trait]
 pub trait ProtocolTransport: Send + Sync {
+    fn cache_namespace(&self, _source: &SourceId) -> String {
+        String::new()
+    }
     async fn request(
         &self,
         source: &SourceId,
@@ -97,6 +100,13 @@ static MODRINTH_REQUESTS: std::sync::LazyLock<RequestPacer> =
 
 #[async_trait]
 impl ProtocolTransport for LauncherTransport {
+    fn cache_namespace(&self, source: &SourceId) -> String {
+        if source == &SourceId::curseforge() {
+            crate::api::curseforge::metadata_cache_scope()
+        } else {
+            String::new()
+        }
+    }
     async fn request(
         &self,
         source: &SourceId,

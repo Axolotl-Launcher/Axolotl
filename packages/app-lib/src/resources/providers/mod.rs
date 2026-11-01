@@ -26,6 +26,16 @@ pub use transport::{ProtocolRequest, ProtocolTransport};
     rename_all_fields = "camelCase"
 )]
 pub enum ProviderQuery {
+    /// Lossless file pages for legacy dependency selection. Keep the provider's
+    /// raw version declarations and every server filter in the cache identity.
+    CurseForgeFilesProtocol {
+        project_id: u32,
+        game_version: Option<String>,
+        mod_loader_type: Option<u32>,
+        game_version_type_id: Option<u32>,
+        index: u32,
+        page_size: u32,
+    },
     UpdateCandidates {
         project_id: SourceProjectId,
         sha1: String,
@@ -91,6 +101,7 @@ pub enum ProviderQuery {
 impl ProviderQuery {
     pub fn capability(&self) -> SourceCapability {
         match self {
+            Self::CurseForgeFilesProtocol { .. } => SourceCapability::Releases,
             Self::ReleaseProtocol { .. } | Self::ReleasesProtocol { .. } => {
                 SourceCapability::Releases
             }
@@ -134,6 +145,7 @@ impl ProviderQuery {
         }
         match self {
             Self::Search { .. } | Self::SearchProtocol { .. } => 60,
+            Self::CurseForgeFilesProtocol { .. } => 5 * 60,
             Self::ProjectProtocol { .. }
             | Self::Locate { .. }
             | Self::Project { .. }

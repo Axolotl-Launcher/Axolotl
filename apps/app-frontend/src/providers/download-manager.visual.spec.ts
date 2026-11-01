@@ -45,7 +45,7 @@ function deferred<T>() {
     })
     return { promise, resolve }
 }
-function job(status: 'running' | 'succeeded', modified: string): InstallJobSnapshot {
+function job(status: InstallJobSnapshot['status'], modified: string): InstallJobSnapshot {
     return {
         job_id: 'one',
         status,
@@ -198,6 +198,76 @@ it('keeps a fast running cancellation acknowledgement pending without repeating 
     }
 })
 
+it('retries accepted cancellation cleanup while suppressing concurrent cancellation requests', async () => {
+    const running = job('running', '2026-10-28T00:00:00Z')
+    const canceling = job('canceling', running.modified)
+    const canceled = job('canceled', running.modified)
+    backend.list.mockResolvedValue({ jobs: [running] })
+    const manager = createDownloadManager(vi.fn())
+    try {
+        await manager.start()
+        const accepted = deferred<InstallJobSnapshot>()
+        const read = deferred<InstallJobSnapshot | null>()
+        vi.mocked(download_job_cancel).mockReturnValueOnce(accepted.promise)
+        vi.mocked(download_job_get).mockReturnValueOnce(read.promise)
+        const cancellation = manager.cancel('one')
+        expect(manager.jobs.value[0].status).toBe('canceling')
+        await manager.cancel('one')
+        expect(download_job_cancel).toHaveBeenCalledOnce()
+        accepted.resolve(canceling)
+        await flushPromises()
+        await manager.cancel('one')
+        expect(download_job_cancel).toHaveBeenCalledOnce()
+        read.resolve(canceling)
+        await cancellation
+
+        // A late running event must not remove the user's cancellation intent.
+        backend.jobs.mock.calls[0][0](running)
+        expect(manager.jobs.value[0].status).toBe('canceling')
+        vi.mocked(download_job_cancel).mockRejectedValueOnce(new Error('cleanup unavailable'))
+        vi.mocked(download_job_get).mockRejectedValueOnce(new Error('read offline'))
+        await expect(manager.cancel('one')).rejects.toThrow('cleanup unavailable')
+        backend.jobs.mock.calls[0][0](running)
+        expect(manager.jobs.value[0].status).toBe('canceling')
+        vi.mocked(download_job_cancel).mockResolvedValueOnce(canceled)
+        vi.mocked(download_job_get).mockResolvedValueOnce(canceled)
+        await manager.cancel('one')
+        expect(download_job_cancel).toHaveBeenCalledTimes(3)
+        expect(manager.jobs.value[0].status).toBe('canceled')
+        expect(manager.activeJobs.value).toHaveLength(0)
+    } finally {
+        manager.dispose()
+    }
+})
+
+it.each(['event', 'refresh'])(
+    'allows cleanup retry after a %s confirms a previously signaled cancellation',
+    async (confirmation) => {
+        const running = job('running', '2026-10-28T00:00:00Z')
+        const canceling = job('canceling', running.modified)
+        backend.list.mockResolvedValue({ jobs: [running] })
+        const manager = createDownloadManager(vi.fn())
+        try {
+            await manager.start()
+            vi.mocked(download_job_cancel).mockResolvedValue(running)
+            vi.mocked(download_job_get).mockResolvedValue(running)
+            await manager.cancel('one')
+            if (confirmation === 'event') backend.jobs.mock.calls[0][0](canceling)
+            else {
+                backend.list.mockResolvedValue({ jobs: [canceling] })
+                await manager.refresh()
+            }
+            vi.mocked(download_job_cancel).mockResolvedValue(canceling)
+            vi.mocked(download_job_get).mockResolvedValue(canceling)
+            await manager.cancel('one')
+            expect(download_job_cancel).toHaveBeenCalledTimes(2)
+            expect(manager.jobs.value[0].status).toBe('canceling')
+        } finally {
+            manager.dispose()
+        }
+    },
+)
+
 it('reconciles a rejected retry and keeps real errors without reviving an old accepted response', async () => {
     backend.list.mockResolvedValue({ jobs: [job('succeeded', '2026-10-28T00:00:00Z')] })
     const manager = createDownloadManager(vi.fn())
@@ -241,6 +311,90 @@ it('polls stale active jobs, preserves events received during reads and stops on
         manager.dispose()
         await vi.advanceTimersByTimeAsync(120_000)
         expect(download_job_get).toHaveBeenCalledTimes(2)
+    } finally {
+        manager.dispose()
+        vi.useRealTimers()
+    }
+})
+
+it('modpack request updates exclude archive and parallel Minecraft bytes from content progress', async () => {
+    vi.useFakeTimers()
+    const content: InstallJobSnapshot = {
+        ...job('running', '2026-10-31T12:00:00Z'),
+        kind: 'create_modpack_instance',
+        provider: 'modrinth',
+        phase: 'downloading_content',
+        progress: { current: 1, total: 2, secondary: { current: 40, total: 100 } },
+        summary: {
+            files_completed: 1,
+            files_total: 2,
+            bytes_downloaded: 40,
+            bytes_total: 100,
+            fallback_count: 0,
+        },
+        items: [
+            {
+                id: 'pack.mrpack',
+                name: 'pack.mrpack',
+                status: 'completed',
+                bytes_downloaded: 200,
+                bytes_total: 200,
+            },
+            {
+                id: 'minecraft.jar',
+                name: 'minecraft.jar',
+                status: 'downloading',
+                bytes_downloaded: 20,
+                bytes_total: 80,
+            },
+            {
+                id: 'mods/a.jar',
+                name: 'mods/a.jar',
+                status: 'completed',
+                bytes_downloaded: 40,
+                bytes_total: 40,
+            },
+            {
+                id: 'mods/b.jar',
+                name: 'mods/b.jar',
+                status: 'queued',
+                bytes_downloaded: 0,
+                bytes_total: 60,
+            },
+        ],
+    }
+    backend.list.mockResolvedValue({ jobs: [content] })
+    const manager = createDownloadManager(vi.fn())
+    try {
+        await manager.start()
+        const request = backend.requests.mock.calls[0][0]
+        request({
+            type: 'started',
+            job_id: 'one',
+            id: 'mods/b.jar',
+            name: 'mods/b.jar',
+            url: 'https://cdn.modrinth.com/data/b.jar',
+            source: 'official',
+            bytes_total: 60,
+            attempt: 1,
+            max_attempts: 3,
+        })
+        request({
+            type: 'progress',
+            job_id: 'one',
+            id: 'mods/b.jar',
+            bytes: 10,
+            status: 'downloading',
+            speed_bytes_per_second: 10,
+            eta_seconds: 5,
+        })
+        await vi.advanceTimersByTimeAsync(16)
+        const updated = manager.jobs.value[0]
+        expect(updated.items[3].status).toBe('downloading')
+        expect(updated.items[3].bytes_downloaded).toBe(10)
+        expect(updated.progress).toEqual(content.progress)
+        expect(updated.summary.bytes_downloaded).toBe(40)
+        expect(updated.summary.bytes_total).toBe(100)
     } finally {
         manager.dispose()
         vi.useRealTimers()

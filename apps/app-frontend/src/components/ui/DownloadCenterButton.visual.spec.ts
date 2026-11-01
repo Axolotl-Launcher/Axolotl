@@ -11,6 +11,7 @@ vi.mock('@/providers/download-manager', () => ({ injectDownloadManager: () => fi
 vi.mock('vue-router', () => ({ useRouter: () => ({ push: vi.fn() }) }))
 vi.mock('@modrinth/ui', async () => {
     const { defineComponent, h } = await import('vue')
+    const { IntlMessageFormat } = await import('intl-messageformat')
     return {
         ProgressBar: (
             await import('../../../../../packages/ui/src/components/base/ProgressBar.vue')
@@ -32,8 +33,41 @@ vi.mock('@modrinth/ui', async () => {
         injectNotificationManager: () => ({ handleError: fixture.handleError }),
         useFormatBytes: () => (value: number) => String(value),
         useVIntl: () => ({
-            formatMessage: (message: { defaultMessage: string }) => message.defaultMessage,
+            formatMessage: (
+                message: { defaultMessage: string },
+                values?: Record<string, string | number>,
+            ) => new IntlMessageFormat(message.defaultMessage, 'en-US').format(values),
         }),
+    }
+})
+
+it('uses named batch titles in the trigger, menu and progress accessibility label', () => {
+    fixture.manager = {
+        initializationState: ref('ready'),
+        activeJobs: ref([
+            {
+                job_id: 'named-batch',
+                kind: 'install_content',
+                display: { title: 'Install resources' },
+                resource_names: ['Sodium', 'Iris'],
+                status: 'running',
+                phase: 'downloading_content',
+                progress: { current: 1, total: 2 },
+                summary: { bytes_downloaded: 0, files_completed: 1, files_total: 2 },
+                items: [],
+            },
+        ]),
+        legacyDownloads: ref([]),
+    }
+    const wrapper = mount(DownloadCenterButton, { global: { directives: { tooltip: () => {} } } })
+    try {
+        const title = 'Install content: Sodium (2 items)'
+        expect(wrapper.get('[title]').attributes('title')).toBe(title)
+        expect(wrapper.get('[role="progressbar"]').attributes('aria-label')).toBe(title)
+        expect(wrapper.text().split(title)).toHaveLength(3)
+        expect(wrapper.text()).not.toContain('Install resources')
+    } finally {
+        wrapper.unmount()
     }
 })
 

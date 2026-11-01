@@ -16,6 +16,7 @@ import Button from '#ui/components/base/buttons/Button.vue'
 import type { Option as OverflowMenuOption } from '#ui/components/base/OverflowMenu.vue'
 import PopoutMenu from '#ui/components/base/PopoutMenu.vue'
 import { defineMessages, useVIntl } from '#ui/composables/i18n'
+import { useScrollToTopVisibility } from '#ui/composables/scroll-to-top-visibility'
 import { commonMessages, normalizeProjectType } from '#ui/utils/common-messages'
 
 import ContentCardTable from './components/ContentCardTable.vue'
@@ -273,7 +274,6 @@ const {
     selectedStatusFilters,
     row1FilterOptions,
     row2FilterOptions,
-    totalCount,
     filterCounts,
     filteredItems: pipelineFilteredItems,
     filteredModpackItems: pipelineFilteredModpackItems,
@@ -443,12 +443,12 @@ watch(
     { deep: true },
 )
 
-const showScrollToTop = ref(false)
-const SCROLL_THRESHOLD = 300
-
 function getScrollContainer(): Element | null {
     return document.querySelector('.app-viewport')
 }
+
+const { visible: showScrollToTop, update: updateScrollToTopVisibility } =
+    useScrollToTopVisibility(getScrollContainer)
 
 function captureContentViewScroll() {
     if (!ctx.instanceId) return
@@ -501,10 +501,7 @@ function restoreContentViewScroll() {
 }
 
 function handleScroll() {
-    const container = getScrollContainer()
-    if (container) {
-        showScrollToTop.value = container.scrollTop > SCROLL_THRESHOLD
-    }
+    updateScrollToTopVisibility()
 }
 
 function scrollToTop() {
@@ -622,9 +619,6 @@ const { folderRows: schematicFolderRows, regularItems: schematicGroupRegularItem
         modpackChildIdSet,
         searchQuery,
         expandedGroups,
-        persistExpandedGroups: (groups) => {
-            if (ctx.instanceId) expandedGroupsMemory.set(ctx.instanceId, groups)
-        },
         getItemId,
         mapToTableItem,
         isGroupedItem: (item) =>
@@ -1158,7 +1152,6 @@ const confirmUnlinkModal = ref<InstanceType<typeof ConfirmUnlinkModal>>()
                 <ContentTypeFilter
                     v-model:selected="selectedTypeFilter"
                     :options="row1FilterOptions"
-                    :total-count="totalCount"
                     :filter-counts="filterCounts"
                     @toggle="toggleTypeFilter"
                 />
@@ -1180,22 +1173,6 @@ const confirmUnlinkModal = ref<InstanceType<typeof ConfirmUnlinkModal>>()
                     <template #header-project>
                         <div class="flex min-w-0 flex-1 items-center gap-4">
                             <div class="flex shrink-0 items-center gap-4">
-                                <button
-                                    class="relative pb-1 text-base font-semibold transition-colors"
-                                    :class="
-                                        selectedStatusFilters.length === 0
-                                            ? 'text-brand'
-                                            : 'text-[var(--color-text-tertiary)] hover:text-[var(--color-text-default)]'
-                                    "
-                                    :aria-pressed="selectedStatusFilters.length === 0"
-                                    @click="selectedStatusFilters = []"
-                                >
-                                    {{ formatMessage(commonMessages.allProjectType) }}
-                                    <span
-                                        v-if="selectedStatusFilters.length === 0"
-                                        class="absolute bottom-0 left-0 right-0 h-0.5 rounded-full bg-brand"
-                                    />
-                                </button>
                                 <button
                                     v-for="option in row2FilterOptions"
                                     :key="option.id"
@@ -1445,7 +1422,11 @@ const confirmUnlinkModal = ref<InstanceType<typeof ConfirmUnlinkModal>>()
 
 <style scoped>
 .scroll-to-top-btn {
-    @apply fixed bottom-10 left-24 z-50 flex items-center justify-center rounded-full bg-brand p-3 text-brand-inverted shadow-lg transition-all duration-200 hover:brightness-110 hover:shadow-xl active:scale-95;
+    @apply flex items-center justify-center rounded-full bg-brand p-3 text-brand-inverted shadow-lg transition-all duration-200 hover:brightness-110 hover:shadow-xl active:scale-95;
+    position: fixed;
+    right: calc(var(--right-bar-width, 0px) + 1.5rem);
+    bottom: calc(max(4rem, 4dvh) + var(--floating-action-bar-clearance, 0px));
+    z-index: 60;
 }
 
 .scroll-to-top-enter-active,

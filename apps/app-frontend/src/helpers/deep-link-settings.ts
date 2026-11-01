@@ -105,6 +105,7 @@ const abilities: Record<string, SettingAbility> = {
     show_skin_selector_in_sidebar: bool('show_skin_selector_in_sidebar'),
     custom_window_title_enabled: bool('custom_window_title_enabled'),
     default_window_title: text('default_window_title'),
+    default_game_language: text('default_game_language'),
     transparent_background: bool('transparent_background'),
     transparent_background_blur: bool('transparent_background_blur'),
     transparent_background_opacity: int('transparent_background_opacity'),

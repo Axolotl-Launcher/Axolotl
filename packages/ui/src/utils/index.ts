@@ -1,4 +1,5 @@
 export * from './auto-icons'
+export * from './browse-max-results'
 export * from './common-messages'
 export * from './events'
 export * from './file-extensions'

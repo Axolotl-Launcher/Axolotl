@@ -263,7 +263,18 @@
                                     : []),
                             ]"
                         >
-                            <MoreVerticalIcon />
+                            <template #trigger>
+                                <Button
+                                    v-tooltip="formatMessage(commonMessages.moreOptionsButton)"
+                                    type="quiet"
+                                    size="xl"
+                                    circular
+                                    icon-only
+                                    :label="formatMessage(commonMessages.moreOptionsButton)"
+                                >
+                                    <MoreVerticalIcon />
+                                </Button>
+                            </template>
                             <template #share-instance>
                                 <UserPlusIcon /> {{ formatMessage(messages.shareInstance) }}
                             </template>

@@ -430,7 +430,9 @@ fn merge_input(
         let mut entry = archive.by_index(index).map_err(|error| {
             invalid(format!("Cannot read MultiMC JAR entry: {error}"))
         })?;
-        let name = entry_name(entry.name())?;
+        let name = entry_name(&entry.name().map_err(|error| {
+            invalid(format!("Cannot read MultiMC JAR entry name: {error}"))
+        })?)?;
         // Match MultiMC: filter META-INF from the base, retaining metadata
         // supplied by a mod (for example service provider registrations).
         if entry.is_dir() || (base && name.contains("META-INF")) {

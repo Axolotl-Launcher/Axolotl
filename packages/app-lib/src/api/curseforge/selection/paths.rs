@@ -323,13 +323,11 @@ pub(crate) async fn persist_manual_download(
     let pack_member_id = if download.ownership_kind
         == crate::state::instances::ContentOwnershipKind::PackManaged
     {
-        let existing_id = sqlx::query_scalar::<_, String>(
-            "SELECT id FROM instance_pack_members
-             WHERE content_set_id = ? AND member_key = ?",
+        let existing_id = crate::state::instances::adapters::sqlite::pack_members::find_member_id_by_key(
+            &content_set.id,
+            &member_key,
+            &mut *tx,
         )
-        .bind(&content_set.id)
-        .bind(&member_key)
-        .fetch_optional(&mut *tx)
         .await?;
         if download.operation_kind
             == crate::state::instances::ManualDownloadOperationKind::PackUpdate

@@ -15,7 +15,7 @@ macro_rules! impl_cache_methods {
                 ) -> crate::Result<Option<$type>>
                 {
                     let state = crate::State::get().await?;
-                    Ok(CachedEntry::[<get_ $variant:snake _many>](&[id], cache_behaviour, &state.pool, &state.api_semaphore).await?.into_iter().next())
+                    Ok(CachedEntry::[<get_ $variant:snake _many>](&[id], cache_behaviour, state.cache_pool(), &state.api_semaphore).await?.into_iter().next())
                 }
 
                 #[tracing::instrument]
@@ -26,7 +26,7 @@ macro_rules! impl_cache_methods {
                 {
                     let state = crate::State::get().await?;
                     let entries =
-                        CachedEntry::[<get_ $variant:snake _many>](ids, cache_behaviour, &state.pool, &state.api_semaphore).await?;
+                        CachedEntry::[<get_ $variant:snake _many>](ids, cache_behaviour, state.cache_pool(), &state.api_semaphore).await?;
 
                     Ok(entries)
                 }
@@ -54,7 +54,7 @@ pub async fn get_project(
     CachedEntry::get_project(
         &id,
         cache_behaviour,
-        &state.pool,
+        state.cache_pool(),
         &state.api_semaphore,
     )
     .await
@@ -73,7 +73,7 @@ pub async fn get_project_many(
     CachedEntry::get_project_many(
         &ids,
         cache_behaviour,
-        &state.pool,
+        state.cache_pool(),
         &state.api_semaphore,
     )
     .await
@@ -89,7 +89,7 @@ pub async fn get_version(
     CachedEntry::get_version(
         &id,
         cache_behaviour,
-        &state.pool,
+        state.cache_pool(),
         &state.api_semaphore,
     )
     .await
@@ -108,7 +108,7 @@ pub async fn get_version_many(
     CachedEntry::get_version_many(
         &ids,
         cache_behaviour,
-        &state.pool,
+        state.cache_pool(),
         &state.api_semaphore,
     )
     .await
@@ -124,7 +124,7 @@ pub async fn get_version_v3(
     CachedEntry::get_version_v3(
         &id,
         cache_behaviour,
-        &state.pool,
+        state.cache_pool(),
         &state.api_semaphore,
     )
     .await
@@ -143,7 +143,7 @@ pub async fn get_version_v3_many(
     CachedEntry::get_version_v3_many(
         &ids,
         cache_behaviour,
-        &state.pool,
+        state.cache_pool(),
         &state.api_semaphore,
     )
     .await
@@ -166,7 +166,7 @@ pub async fn purge_cache_types(
             .await
             .map_err(crate::resources::protocol::error)?;
     }
-    CachedEntry::purge_cache_types(cache_types, &state.pool).await?;
+    CachedEntry::purge_cache_types(cache_types, state.cache_pool()).await?;
 
     Ok(())
 }
@@ -183,7 +183,7 @@ pub async fn get_project_versions(
     CachedEntry::get_project_versions(
         &project_id,
         cache_behaviour,
-        &state.pool,
+        state.cache_pool(),
         &state.api_semaphore,
     )
     .await

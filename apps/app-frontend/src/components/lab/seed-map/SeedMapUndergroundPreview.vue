@@ -7,8 +7,7 @@ import { platform } from '@tauri-apps/plugin-os'
 import type { CanvasTexture } from 'three'
 import { computed, onBeforeUnmount, onMounted, reactive, ref, useTemplateRef, watch } from 'vue'
 
-import type { SchematicMeshData } from '@/lab/schematic-preview/mesh-worker'
-import type { SchematicPreviewScene } from '@/lab/schematic-preview/scene'
+import type { SchematicChunkMeshes, SchematicPreviewScene } from '@/lab/schematic-preview/scene'
 import {
     cancelUndergroundVolume,
     loadUndergroundVolume,
@@ -260,21 +259,13 @@ async function generateChunk(chunk: [number, number, number]) {
                     sum + Object.values(layer).reduce((sum, array) => sum + array.byteLength, 0),
                 0,
             ) * 3
-        const empty: SchematicMeshData = {
-            positions: new Float32Array(),
-            normals: new Float32Array(),
-            uvs: new Float32Array(),
-            colors: new Float32Array(),
-            blockPositions: new Float32Array(),
-        }
         for (const layer of Object.keys(layers) as UndergroundLayer[]) {
-            const fluid = layer === 'water'
-            scene.setChunk(
-                layer,
-                chunk,
-                fluid ? empty : mesh.layers[layer],
-                fluid ? mesh.layers[layer] : empty,
-            )
+            // Both fluids blend in their own pass, so they keep the opacities the schematic preview
+            // uses; every other layer is drawn opaque.
+            const pass = layer === 'water' || layer === 'lava' ? layer : 'opaque'
+            const meshes: SchematicChunkMeshes = {}
+            meshes[pass] = mesh.layers[layer]
+            scene.setChunk(layer, chunk, meshes)
             scene.setChunkOffset(layer, chunk, offset)
         }
         loaded.set(undergroundChunkKey(chunk), {
@@ -440,7 +431,7 @@ async function initializeScene() {
                   }
                 : {}),
         })
-        scene.setTexture(texture)
+        scene.setTextures({ atlas: texture })
         scene.setGridVisible(false)
         scene.setBoundsVisible(false)
         scene.setRegions(

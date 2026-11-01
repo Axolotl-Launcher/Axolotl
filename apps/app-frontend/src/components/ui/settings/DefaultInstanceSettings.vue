@@ -1,21 +1,49 @@
 <script setup lang="ts">
-import { defineMessages, StyledInput, Toggle, useVIntl } from '@modrinth/ui'
+import {
+    Combobox,
+    type ComboboxOption,
+    defineMessages,
+    injectNotificationManager,
+    StyledInput,
+    Toggle,
+    useVIntl,
+} from '@modrinth/ui'
 import { platform } from '@tauri-apps/plugin-os'
-import { nextTick, ref, watch } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
 
 import EnvironmentVariablesInput from '@/components/ui/EnvironmentVariablesInput.vue'
+import { minecraftLanguageOptions } from '@/helpers/minecraft-languages'
 import { get, update } from '@/helpers/settings.ts'
 import { createSettingsPatchSaver } from '@/helpers/settings-patch'
 import { usableU16 } from '@/helpers/usable-u16'
 
 import LogShareSettings from './LogShareSettings.vue'
+import PinnedOverrideHint from './PinnedOverrideHint.vue'
 import SettingsRow from './SettingsRow.vue'
 import SettingsSection from './SettingsSection.vue'
 import SharedLogsSettings from './SharedLogsSettings.vue'
 
 const { formatMessage } = useVIntl()
+const { handleError } = injectNotificationManager()
 
 const messages = defineMessages({
+    gameLanguageSectionTitle: {
+        id: 'app.settings.defaults.sections.game-language',
+        defaultMessage: 'Game language',
+    },
+    defaultGameLanguage: {
+        id: 'app.settings.defaults.game-language.title',
+        defaultMessage: 'Default game language',
+    },
+    defaultGameLanguageDescription: {
+        id: 'app.settings.defaults.game-language.description',
+        defaultMessage:
+            'Used the first time an instance launches. Instances that have already been played keep their in-game language.',
+    },
+    followLauncherLanguage: {
+        id: 'app.settings.defaults.game-language.follow-launcher',
+        defaultMessage: 'Follow launcher language',
+    },
     windowBehaviorSectionTitle: {
         id: 'app.settings.defaults.sections.window-behavior',
         defaultMessage: 'Window behavior',
@@ -148,6 +176,45 @@ const fetchSettings = await get()
 const saveDraft = createSettingsPatchSaver(fetchSettings, update)
 const supportsMaximizeWindow = (await platform()) === 'windows'
 const settings = ref(fetchSettings)
+
+async function reloadSettings() {
+    try {
+        settings.value = await get()
+        saveDraft.reset(settings.value)
+    } catch (error) {
+        handleError(error)
+    }
+}
+const FOLLOW_LAUNCHER_LANGUAGE = 'follow-launcher'
+const gameLanguageOptions = computed<ComboboxOption<string>[]>(() => {
+    const current = settings.value.default_game_language
+    const options = [...minecraftLanguageOptions]
+
+    if (
+        current &&
+        current !== FOLLOW_LAUNCHER_LANGUAGE &&
+        !options.some((option) => option.value === current)
+    ) {
+        options.unshift({ value: current, label: current, searchTerms: [current] })
+    }
+
+    return [
+        {
+            value: FOLLOW_LAUNCHER_LANGUAGE,
+            label: formatMessage(messages.followLauncherLanguage),
+            searchTerms: ['follow', 'launcher', 'language', 'locale'],
+        },
+        ...options,
+    ]
+})
+const selectedGameLanguage = computed(
+    () => settings.value.default_game_language || FOLLOW_LAUNCHER_LANGUAGE,
+)
+
+function updateDefaultGameLanguage(value: string) {
+    settings.value.default_game_language = value === FOLLOW_LAUNCHER_LANGUAGE ? '' : value
+}
+
 // Bumped when an unusable size edit is discarded so both fields re-mount and show the
 // stored pair again instead of the text the user cleared.
 const dimensionResetToken = ref(0)
@@ -201,6 +268,40 @@ watch(
 <template>
     <div class="flex flex-col gap-6">
         <SettingsSection
+            :title="formatMessage(messages.gameLanguageSectionTitle)"
+            title-id="settings-target-defaults-game-language"
+        >
+            <SettingsRow stacked>
+                <template #label>{{ formatMessage(messages.defaultGameLanguage) }}</template>
+                <template #description>{{
+                    formatMessage(messages.defaultGameLanguageDescription)
+                }}</template>
+                <template #copy>
+                    <PinnedOverrideHint
+                        key-name="default_game_language"
+                        @cleared="reloadSettings"
+                    />
+                </template>
+                <template #control>
+                    <Combobox
+                        id="default-game-language"
+                        :model-value="selectedGameLanguage"
+                        :options="gameLanguageOptions"
+                        :aria-label="formatMessage(messages.defaultGameLanguage)"
+                        :search-input-attrs="{
+                            'aria-label': formatMessage(messages.defaultGameLanguage),
+                        }"
+                        searchable
+                        select-search-text-on-focus
+                        show-search-icon
+                        trigger-class="w-full"
+                        @update:model-value="updateDefaultGameLanguage"
+                    />
+                </template>
+            </SettingsRow>
+        </SettingsSection>
+
+        <SettingsSection
             :title="formatMessage(messages.windowBehaviorSectionTitle)"
             title-id="settings-target-defaults-window"
         >
@@ -209,6 +310,9 @@ watch(
                 <template #description>{{
                     formatMessage(messages.fullscreenDescription)
                 }}</template>
+                <template #copy>
+                    <PinnedOverrideHint key-name="force_fullscreen" @cleared="reloadSettings" />
+                </template>
                 <template #control
                     ><Toggle id="fullscreen" v-model="settings.force_fullscreen"
                 /></template>
@@ -225,6 +329,9 @@ watch(
                             )
                         }}
                     </span>
+                </template>
+                <template #copy>
+                    <PinnedOverrideHint key-name="maximize_window" @cleared="reloadSettings" />
                 </template>
                 <template #control>
                     <Toggle
@@ -283,6 +390,12 @@ watch(
                 <template #description>{{
                     formatMessage(messages.windowTitleEnabledDescription)
                 }}</template>
+                <template #copy>
+                    <PinnedOverrideHint
+                        key-name="custom_window_title_enabled"
+                        @cleared="reloadSettings"
+                    />
+                </template>
                 <template #control>
                     <Toggle
                         id="custom-window-title-enabled"
@@ -388,6 +501,12 @@ watch(
                 <template #description>{{
                     formatMessage(messages.lightweightModeDescription)
                 }}</template>
+                <template #copy>
+                    <PinnedOverrideHint
+                        key-name="enter_lightweight_mode_on_game_launch"
+                        @cleared="reloadSettings"
+                    />
+                </template>
                 <template #control>
                     <Toggle
                         id="enter-lightweight-mode-on-game-launch"
@@ -410,6 +529,12 @@ watch(
                 <template #description>{{
                     formatMessage(messages.minimizeLauncherDescription)
                 }}</template>
+                <template #copy>
+                    <PinnedOverrideHint
+                        key-name="hide_on_process_start"
+                        @cleared="reloadSettings"
+                    />
+                </template>
                 <template #control>
                     <Toggle
                         id="minimize-launcher"

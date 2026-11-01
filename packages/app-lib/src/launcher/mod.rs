@@ -896,7 +896,7 @@ pub async fn resolve_minecraft_manifest_with_cache(
         } else {
             Some(CacheBehaviour::MustRevalidate)
         },
-        &state.pool,
+        state.cache_pool(),
         &state.api_semaphore,
     )
     .await?
@@ -1457,10 +1457,11 @@ async fn install_minecraft_with_local_source(
         validate_loader_java_version(&version_info, &java_version)?;
 
         if set_java {
+            let documents = crate::state::documents::Documents::new(&state);
             run_install_database_write(
                 &state.install_db_semaphore,
                 &database_cancellation,
-                java_version.upsert(&state.data),
+                java_version.upsert(&documents),
             )
             .await?;
         }
@@ -2970,7 +2971,8 @@ pub async fn launch_minecraft(
         && (!mc_set_options.is_empty()
             || offline_skin_pack.enabled_pack_id.is_some()
             || options_existed
-            || !settings.locale.is_empty())
+            || !settings.locale.is_empty()
+            || !settings.default_game_language.is_empty())
     {
         let (mut options_string, input_encoding) = if options_existed {
             io::read_any_encoding_to_string(&options_path).await?
@@ -2993,6 +2995,7 @@ pub async fn launch_minecraft(
         }
 
         let language_options = language::game_language_options(
+            &settings.default_game_language,
             &settings.locale,
             launch_release_time,
             &options_string,

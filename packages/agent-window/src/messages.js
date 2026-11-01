@@ -35,6 +35,14 @@ export function dayLabel(timestamp) {
     return new Date(timestamp).toLocaleDateString(language, { month: 'short', day: 'numeric' })
 }
 
+// The time alone today, the day and time before that.
+export function whenLabel(timestamp) {
+    const time = dateLabel(timestamp)
+    return new Date(timestamp).toDateString() === new Date().toDateString()
+        ? time
+        : `${dayLabel(timestamp)} ${time}`
+}
+
 export function durationLabel(milliseconds) {
     const seconds = Math.max(0, Math.round(milliseconds / 1000))
     const unit = (value, name) =>

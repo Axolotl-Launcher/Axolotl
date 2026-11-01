@@ -813,3 +813,40 @@ it('opens a command menu that runs actions and jumps to tasks', async () => {
     await page.locator('#palette').waitFor({ state: 'hidden' })
     expect(await page.locator('#conversation-title').textContent()).toContain('Back up')
 })
+
+it('marks answers and walks requests from the message navigator', async () => {
+    await send('Hello there')
+    await untilSettled()
+    await send('What can you do?')
+    await untilSettled()
+    const ticks = page.locator('.rail-item')
+    expect(await ticks.count()).toBe(2)
+    // The ticks are a single tab stop.
+    expect(await page.locator('.rail-item[tabindex="0"]').count()).toBe(1)
+
+    const mark = page.locator('.turn').first().locator('.mark-turn')
+    await mark.click()
+    expect(await mark.getAttribute('aria-pressed')).toBe('true')
+    expect(await ticks.first().getAttribute('data-marked')).toBe('')
+
+    // Hovering a tick previews its request; clicking it scrolls there.
+    await ticks.first().hover()
+    await page.clock.runFor(50)
+    const peek = page.locator('#rail-peek')
+    expect(await peek.getAttribute('class')).toContain('is-shown')
+    expect(await peek.textContent()).toContain('Hello there')
+    expect(await peek.textContent()).toContain(messages.marked)
+    await ticks.first().click()
+
+    // Arrow keys walk the ticks and the card follows the focus.
+    await ticks.first().focus()
+    await page.keyboard.press('ArrowDown')
+    expect(await ticks.nth(1).evaluate((node) => node === document.activeElement)).toBe(true)
+    expect(await peek.textContent()).toContain('What can you do?')
+
+    await page.reload()
+    await ready()
+    expect(
+        await page.locator('.turn').first().locator('.mark-turn').getAttribute('aria-pressed'),
+    ).toBe('true')
+})

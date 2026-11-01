@@ -46,12 +46,12 @@ export const CHANGE_KINDS = ['update', 'rollback', 'new', 'install', 'setting', 
  * }} Run
  * @typedef {{
  *   id: string, createdAt: number, text: string, attachments: Attachment[],
- *   instanceId: string | null, selection: Selection | null, run: Run,
+ *   instanceId: string | null, selection: Selection | null, run: Run, marked?: boolean,
  * }} Turn
  * @typedef {{ id: string, text: string, attachments: Attachment[], createdAt: number }} Queued
  * @typedef {{
  *   id: string, title: string, titleEdited: boolean, createdAt: number, updatedAt: number,
- *   draft: string, attachments: Attachment[], instanceId: string | null,
+ *   pinned?: boolean, draft: string, attachments: Attachment[], instanceId: string | null,
  *   selection: Selection | null, turns: Turn[], queue: Queued[],
  * }} Thread
  * @typedef {{
@@ -296,6 +296,7 @@ function turn(value, seen) {
         instanceId: optionalString(value.instanceId),
         selection: selection(value.selection),
         run: run(value.run),
+        ...(value.marked === true && { marked: true }),
     }
 }
 
@@ -318,6 +319,7 @@ function thread(value, threadIds, turnIds) {
         titleEdited: value.titleEdited === true,
         createdAt: time(value.createdAt) || Date.now(),
         updatedAt: time(value.updatedAt) || Date.now(),
+        ...(value.pinned === true && { pinned: true }),
         draft: string(value.draft, MAX_TEXT),
         attachments: list(value.attachments, attachment, MAX_ATTACHMENTS),
         instanceId: optionalString(value.instanceId),

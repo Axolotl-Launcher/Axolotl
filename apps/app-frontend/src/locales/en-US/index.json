@@ -344,6 +344,21 @@
   "app.agent-window.chat.steps-running": {
     "message": "Working · step {count}"
   },
+  "app.agent-window.chat.steps-done-named": {
+    "message": "{title} · {count} steps"
+  },
+  "app.agent-window.chat.mark-turn": {
+    "message": "Mark in the navigator"
+  },
+  "app.agent-window.chat.unmark-turn": {
+    "message": "Remove the mark"
+  },
+  "app.agent-window.chat.marked": {
+    "message": "Marked"
+  },
+  "app.agent-window.chat.took-time": {
+    "message": "Took {duration}"
+  },
   "app.agent-window.chat.plan-kicker": {
     "message": "Proposed changes"
   },

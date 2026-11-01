@@ -4,7 +4,7 @@
 import { includedChanges } from './agent.js'
 import { button, element, h, hue, icon, renderMarkdown } from './dom.js'
 import { axolotl, pixelLoader, setMood } from './mascot.js'
-import { dateLabel, durationLabel, text } from './messages.js'
+import { dateLabel, durationLabel, text, whenLabel } from './messages.js'
 import { animate, reducedMotion } from './motion.js'
 import { instanceChoice } from './session.js'
 import { ACTIVE_STATUSES } from './state.js'
@@ -172,10 +172,13 @@ function updateActivity(node, item, { active }) {
             : current?.title || text('working')
         : item.steps.length === 1
           ? item.steps[0].title
-          : text('stepsDone', { count: item.steps.length })
+          : item.steps.length
+            ? text('stepsDoneNamed', { title: item.steps[0].title, count: item.steps.length })
+            : text('stepsDone', { count: 0 })
+    // Under a second says nothing useful, so short groups show no time.
     const end = item.endedAt || item.steps.at(-1)?.endedAt
-    node.querySelector('.activity-meta').textContent =
-        !running && item.startedAt && end ? durationLabel(end - item.startedAt) : ''
+    const took = !running && item.startedAt && end ? end - item.startedAt : 0
+    node.querySelector('.activity-meta').textContent = took >= 1000 ? durationLabel(took) : ''
 
     const list = node.querySelector('.steps')
     for (const step of item.steps) {
@@ -532,24 +535,49 @@ function syncNotice(node, thread, turn) {
     )
 }
 
+// Under a finished answer: copy it, mark it in the navigator, and how long it
+// took. A marked answer keeps its mark visible.
 function syncActions(node, turn, active) {
+    const show = !active && turn.run.items.length > 0
     const hasText = turn.run.items.some((item) => item.type === 'text')
-    const show = !active && hasText
-    if (node.dataset.shown === String(show)) return
-    node.dataset.shown = String(show)
+    const signature = show ? `${hasText}:${!!turn.marked}` : ''
+    if (node.dataset.signature === signature) return
+    node.dataset.signature = signature
+    if (!show) {
+        node.replaceChildren()
+        return
+    }
+    const { startedAt, endedAt } = turn.run
+    const took = startedAt && endedAt ? endedAt - startedAt : 0
     node.replaceChildren(
-        ...(show
-            ? [
-                  button(
+        ...[
+            hasText
+                ? button(
                       {
                           class: 'icon-button tiny',
                           label: text('copyAnswer'),
                           data: { copyTurn: turn.id, copyKind: 'agent' },
                       },
                       icon('copy'),
-                  ),
-              ]
-            : []),
+                  )
+                : null,
+            button(
+                {
+                    class: 'icon-button tiny mark-turn',
+                    label: text(turn.marked ? 'unmarkTurn' : 'markTurn'),
+                    'aria-pressed': String(!!turn.marked),
+                    data: { markTurn: turn.id },
+                },
+                icon('bookmark'),
+            ),
+            took >= 1000
+                ? h('span', {
+                      class: 'turn-took',
+                      title: whenLabel(endedAt),
+                      text: text('tookTime', { duration: durationLabel(took) }),
+                  })
+                : null,
+        ].filter(Boolean),
     )
 }
 

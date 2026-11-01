@@ -238,7 +238,7 @@ svg {
 }
 .d {
     fill: currentColor;
-    fill-opacity: 0.16;
+    fill-opacity: var(--duotone, 0.16);
     stroke: none;
 }
 .dot {
@@ -921,9 +921,9 @@ code {
 .turn-rail {
     position: absolute;
     z-index: 6;
-    top: 10px;
-    bottom: 10px;
-    right: 8px;
+    top: 12px;
+    bottom: 12px;
+    right: 4px;
     display: flex;
     align-items: center;
     pointer-events: none;
@@ -931,80 +931,155 @@ code {
 .rail-list {
     list-style: none;
     margin: 0;
-    padding: 6px;
-    max-height: 100%;
+    padding: 6px 0;
     display: flex;
     flex-direction: column;
-    align-items: flex-end;
-    gap: 1px;
-    overflow: hidden;
-    border-radius: 14px;
     pointer-events: auto;
-    transition:
-        background-color 220ms ease,
-        box-shadow 260ms ease;
-}
-.turn-rail:hover .rail-list,
-.turn-rail:focus-within .rail-list {
-    overflow-y: auto;
-    background: var(--overlay);
-    box-shadow: var(--shadow-pop);
 }
 .rail-list li {
     display: flex;
-    justify-content: flex-end;
 }
+/* Each tick owns a full slot, so the pointer never falls between two. */
 .rail-item {
-    gap: 12px;
-    height: 24px;
-    padding: 0 3px 0 8px;
-    border-radius: 8px;
-    color: var(--fg-3);
+    justify-content: flex-end;
+    gap: 0;
+    width: 44px;
+    height: var(--slot, 12px);
+    padding: 0 6px 0 0;
+    border-radius: 3px;
 }
 .rail-item:active:not(:disabled) {
     transform: none;
 }
-.rail-item:hover {
-    color: var(--fg);
-    background: var(--hover);
-}
-.rail-item[data-current] {
-    color: var(--fg);
-}
-.rail-text {
-    max-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    font-size: 12.5px;
-    opacity: 0;
-    transition:
-        max-width 360ms var(--ease-settle),
-        opacity 220ms ease;
-}
-.turn-rail:hover .rail-text,
-.turn-rail:focus-within .rail-text {
-    max-width: 260px;
-    opacity: 1;
+.rail-item:focus-visible {
+    outline-offset: -2px;
 }
 .rail-tick {
-    width: 10px;
-    height: 3px;
-    flex-shrink: 0;
-    border-radius: 2px;
-    background: color-mix(in srgb, var(--agent-text) 24%, transparent);
+    position: relative;
+    width: 12px;
+    height: 2px;
+    border-radius: 1px;
+    background: color-mix(in srgb, var(--agent-text) 26%, transparent);
+    transform-origin: right center;
+    transform: scaleX(calc(1 + var(--m, 0) * 1.25));
     transition:
-        width 300ms var(--ease-settle),
+        transform 320ms var(--ease-settle),
         background-color 200ms ease;
 }
-.rail-item:hover .rail-tick {
-    width: 16px;
+.is-swelling .rail-tick {
+    transition-duration: 110ms, 200ms;
+}
+.rail-item[data-tone='danger'] .rail-tick {
+    background: color-mix(in srgb, var(--danger) 70%, transparent);
+}
+.rail-item[data-tone='accent'] .rail-tick {
+    background: color-mix(in srgb, var(--agent-accent) 60%, transparent);
+}
+.rail-item:hover .rail-tick,
+.rail-item:focus-visible .rail-tick {
     background: var(--fg-2);
 }
 .rail-item[data-current] .rail-tick {
-    width: 18px;
+    height: 3px;
     background: var(--accent);
-    box-shadow: 0 0 8px color-mix(in srgb, var(--agent-accent) 60%, transparent);
+    box-shadow: 0 0 8px color-mix(in srgb, var(--agent-accent) 55%, transparent);
+}
+/* A marked request carries a pixel in front of its tick. */
+.rail-item[data-marked]::before {
+    content: '';
+    width: 4px;
+    height: 4px;
+    margin-right: 4px;
+    border-radius: 1px;
+    background: var(--accent);
+    transform: translateX(calc(var(--m, 0) * -15px));
+    transition: transform 320ms var(--ease-settle);
+}
+.is-swelling .rail-item[data-marked]::before {
+    transition-duration: 110ms;
+}
+.rail-peek {
+    position: absolute;
+    z-index: 7;
+    top: 0;
+    right: var(--right, 44px);
+    width: max-content;
+    max-width: min(300px, calc(100% - 96px));
+    padding: 9px 12px 8px;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: var(--overlay);
+    box-shadow: var(--shadow-pop);
+    pointer-events: none;
+    opacity: 0;
+    transform: translate3d(6px, var(--y, 0), 0);
+    transition:
+        opacity 140ms ease,
+        transform 220ms var(--ease-settle);
+}
+.rail-peek.is-shown {
+    opacity: 1;
+    transform: translate3d(0, var(--y, 0), 0);
+}
+.rail-peek.is-placing {
+    transition: none;
+}
+.peek-text {
+    display: -webkit-box;
+    margin: 0;
+    overflow: hidden;
+    overflow-wrap: anywhere;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
+    color: var(--fg);
+    font-size: 13px;
+    line-height: 1.45;
+}
+.peek-meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 10px;
+    margin-top: 5px;
+    color: var(--fg-3);
+    font-size: 11.5px;
+    font-variant-numeric: tabular-nums;
+}
+.peek-meta svg {
+    width: 13px;
+    height: 13px;
+}
+.peek-state {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    color: var(--fg-2);
+}
+.peek-state::before {
+    content: '';
+    width: 6px;
+    height: 6px;
+    border-radius: 1.5px;
+    background: var(--fg-3);
+}
+.peek-state[data-tone='success']::before {
+    background: var(--success);
+}
+.peek-state[data-tone='danger']::before {
+    background: var(--danger);
+}
+.peek-state[data-tone='accent']::before,
+.peek-state[data-tone='live']::before {
+    background: var(--accent);
+}
+.peek-files,
+.peek-mark {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+}
+.peek-mark {
+    color: var(--accent-ink);
 }
 .transcript {
     max-width: 768px;
@@ -1692,14 +1767,27 @@ code {
     color: var(--fg-3);
     font-size: 11.5px;
     font-variant-numeric: tabular-nums;
+}
+.user-meta > *,
+.turn-actions > * {
     opacity: 0;
     transition: opacity 180ms ease;
 }
-.user-row:hover .user-meta,
-.user-row:focus-within .user-meta,
-.agent:hover .turn-actions,
-.turn-actions:focus-within {
+.user-row:hover .user-meta > *,
+.user-row:focus-within .user-meta > *,
+.agent:hover .turn-actions > *,
+.turn-actions:focus-within > *,
+.turn-actions > .mark-turn[aria-pressed='true'] {
     opacity: 1;
+}
+.mark-turn[aria-pressed='true'] {
+    color: var(--accent-ink);
+}
+.mark-turn[aria-pressed='true'] {
+    --duotone: 0.5;
+}
+.turn-took {
+    margin-left: 6px;
 }
 .turn-actions {
     margin: -10px 0 0 -6px;

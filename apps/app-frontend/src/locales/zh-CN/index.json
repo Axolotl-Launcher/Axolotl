@@ -344,6 +344,21 @@
   "app.agent-window.chat.steps-running": {
     "message": "处理中 · 第 {count} 步"
   },
+  "app.agent-window.chat.steps-done-named": {
+    "message": "{title} 等 {count} 个步骤"
+  },
+  "app.agent-window.chat.mark-turn": {
+    "message": "在导航条中标记"
+  },
+  "app.agent-window.chat.unmark-turn": {
+    "message": "取消标记"
+  },
+  "app.agent-window.chat.marked": {
+    "message": "已标记"
+  },
+  "app.agent-window.chat.took-time": {
+    "message": "用时 {duration}"
+  },
   "app.agent-window.chat.plan-kicker": {
     "message": "拟执行的变更"
   },

@@ -1181,7 +1181,7 @@ const actions = {
 
 document.addEventListener('click', (event) => {
     const target = event.target.closest(
-        '[data-action], [data-thread], [data-thread-menu], [data-prompt], [data-model], [data-instance], [data-copy-turn], [data-remove-attachment], [data-remove-queued], [data-send-queued], [data-menu-rename], [data-menu-delete], [data-toggle-change], [data-copy-code], [data-copy-link], [data-edit-turn]',
+        '[data-action], [data-thread], [data-thread-menu], [data-prompt], [data-model], [data-instance], [data-copy-turn], [data-remove-attachment], [data-remove-queued], [data-send-queued], [data-menu-rename], [data-menu-delete], [data-toggle-change], [data-copy-code], [data-copy-link], [data-edit-turn], [data-mark-turn]',
     )
     if (!target || target.disabled) return
     const data = target.dataset
@@ -1244,7 +1244,20 @@ document.addEventListener('click', (event) => {
             element('message-input').focus()
         }
     } else if (data.copyTurn) copy(data.copyTurn, data.copyKind)
-    else if (data.copyCode !== undefined)
+    else if (data.markTurn) {
+        // Marks an answer so the navigator flags it for coming back to.
+        const turnId = data.markTurn
+        if (
+            commit((next, thread) => {
+                const turn = thread.turns.find((entry) => entry.id === turnId)
+                if (turn?.marked) delete turn.marked
+                else if (turn) turn.marked = true
+            })
+        ) {
+            refreshTurn(session.store.activeId, turnId, true)
+            renderRail(currentThread())
+        }
+    } else if (data.copyCode !== undefined)
         copyText(target.closest('.code-block').querySelector('code').textContent)
     else if (data.copyLink) copyText(data.copyLink, text('linkCopied'))
     else if (data.editTurn) {

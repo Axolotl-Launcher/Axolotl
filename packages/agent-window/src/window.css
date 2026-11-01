@@ -1228,6 +1228,15 @@ code {
         inset 0 0 0 1px color-mix(in srgb, var(--agent-accent) 60%, transparent),
         0 0 0 3px var(--accent-faint);
 }
+/* Read by screen readers, never seen and never taking a row of the page. */
+.sr-only {
+    position: fixed;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+}
 .menu-divider {
     height: 1px;
     margin: 4px 8px;

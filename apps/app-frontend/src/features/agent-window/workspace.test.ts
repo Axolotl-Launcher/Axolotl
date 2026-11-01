@@ -1178,6 +1178,7 @@ it('previews a pasted log with its errors, warnings and stack frames told apart'
     expect(await peek.locator('.log-line.is-warn').count()).toBe(1)
     expect(await peek.locator('.log-line.is-trace').count()).toBe(20)
     expect(await peek.locator('code').textContent()).toBe(log)
+    expect(await peek.textContent()).not.toContain('null')
 })
 
 it('lists what the task changed and asks the agent to undo it', async () => {

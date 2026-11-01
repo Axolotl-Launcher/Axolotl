@@ -332,6 +332,9 @@
   "app.agent-window.chat.copy-answer": {
     "message": "复制回答"
   },
+  "app.agent-window.chat.copy-text": {
+    "message": "复制文本"
+  },
   "app.agent-window.chat.copied": {
     "message": "已复制"
   },

@@ -262,6 +262,7 @@ export const agentWindowMessages = defineMessages({
     jumpLatest: { id: 'app.agent-window.chat.jump-latest', defaultMessage: 'Jump to latest' },
     copy: { id: 'app.agent-window.chat.copy', defaultMessage: 'Copy message' },
     copyAnswer: { id: 'app.agent-window.chat.copy-answer', defaultMessage: 'Copy answer' },
+    copyText: { id: 'app.agent-window.chat.copy-text', defaultMessage: 'Copy text' },
     copied: { id: 'app.agent-window.chat.copied', defaultMessage: 'Copied' },
     copyCode: { id: 'app.agent-window.chat.copy-code', defaultMessage: 'Copy code' },
     linkCopied: { id: 'app.agent-window.chat.link-copied', defaultMessage: 'Link copied' },

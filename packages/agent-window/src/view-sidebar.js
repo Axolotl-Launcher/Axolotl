@@ -110,7 +110,7 @@ export function renderSidebar() {
             h(
                 'div',
                 {
-                    class: `thread-row${selected ? ' is-selected' : ''}${thread.unread ? ' is-unread' : ''}`,
+                    class: `thread-row${selected ? ' is-selected' : ''}${thread.unread ? ' is-unread' : ''}${shown.has(thread.id) ? ' is-kept' : ''}`,
                     data: { state: status, row: thread.id },
                 },
                 [
@@ -138,6 +138,7 @@ export function renderSidebar() {
             ),
         )
     }
+    shown = new Set(visible.map((thread) => thread.id))
     // The highlight stays in the list so its glide is not reset by the re-render.
     const list = element('conversation-list')
     if (highlight.parentNode !== list) list.prepend(highlight)
@@ -158,6 +159,9 @@ export function renderSidebar() {
 // One highlight lives behind the rows and glides to the selected task, so
 // switching tasks reads as a single movement rather than two repaints.
 const highlight = h('span', { class: 'thread-highlight', 'aria-hidden': 'true' })
+// Tasks the list showed last time; their rows are redrawn without the entrance
+// animation, so a list that re-renders while a task works does not flicker.
+let shown = new Set()
 let highlightPlaced = false
 
 function placeHighlight(list) {

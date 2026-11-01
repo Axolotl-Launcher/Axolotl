@@ -760,21 +760,8 @@
         </dialog>
         <input id="file-input" type="file" multiple hidden />
         <div id="toasts" class="toasts" role="status" aria-live="polite"></div>
-        <!-- What the agent is doing, one line per change, for screen readers.
-             Hidden by its own style so it never takes a row of the page. -->
-        <div
-            id="announcer"
-            role="status"
-            aria-atomic="true"
-            style="
-                position: fixed;
-                width: 1px;
-                height: 1px;
-                overflow: hidden;
-                clip-path: inset(50%);
-                white-space: nowrap;
-            "
-        ></div>
+        <!-- What the agent is doing, one line per change, for screen readers. -->
+        <div id="announcer" class="sr-only" role="status" aria-atomic="true"></div>
         <div id="tip" class="tip" popover="manual" aria-hidden="true"></div>
         <div
             id="file-peek"

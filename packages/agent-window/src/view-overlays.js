@@ -622,7 +622,7 @@ export function openFilePeek(file, anchor) {
             button(
                 {
                     class: 'icon-button tiny',
-                    label: text('copy'),
+                    label: text('copyText'),
                     data: { copyPaste: file.id },
                 },
                 icon('copy'),
@@ -631,12 +631,14 @@ export function openFilePeek(file, anchor) {
         h('pre', {}, [
             h('code', { class: 'is-log' }, logLines(lines.slice(0, PEEK_LINES).join('\n'))),
         ]),
-        lines.length > PEEK_LINES
-            ? h('p', {
-                  class: 'file-peek-more',
-                  text: text('moreLines', { count: lines.length - PEEK_LINES }),
-              })
-            : null,
+        ...(lines.length > PEEK_LINES
+            ? [
+                  h('p', {
+                      class: 'file-peek-more',
+                      text: text('moreLines', { count: lines.length - PEEK_LINES }),
+                  }),
+              ]
+            : []),
     )
     peek.setAttribute('aria-label', text('previewFile', { name: file.name }))
     opened(peek, anchor)

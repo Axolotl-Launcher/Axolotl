@@ -488,28 +488,19 @@ async fn run_owned_job(
             ));
             // A concurrent cancel owns the terminal state: writing Interrupted
             // over a row the cancel path already moved to Canceling would make
-            // `finish_canceling_job` return without its rollback.
-            let record = if cancellation.is_cancelled() {
-                match store::update_status_if(
-                    job_id,
-                    InstallJobStatus::Running,
-                    InstallJobStatus::Interrupted,
-                    &job_state,
-                    state,
-                )
-                .await?
-                {
-                    Some(record) => record,
-                    None => return Ok(()),
-                }
-            } else {
-                store::update_status(
-                    job_id,
-                    InstallJobStatus::Interrupted,
-                    &job_state,
-                    state,
-                )
-                .await?
+            // `finish_canceling_job` return without its rollback. The
+            // conditional write makes that decision in one SQL statement, so
+            // a cancel that lands after this point still wins.
+            let Some(record) = store::update_status_if(
+                job_id,
+                InstallJobStatus::Running,
+                InstallJobStatus::Interrupted,
+                &job_state,
+                state,
+            )
+            .await?
+            else {
+                return Ok(());
             };
             emit_install_job(&record.snapshot()).await?;
             return Ok(());

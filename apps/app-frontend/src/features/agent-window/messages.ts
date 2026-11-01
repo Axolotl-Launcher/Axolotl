@@ -263,6 +263,113 @@ export const agentWindowMessages = defineMessages({
     copy: { id: 'app.agent-window.chat.copy', defaultMessage: 'Copy message' },
     copyAnswer: { id: 'app.agent-window.chat.copy-answer', defaultMessage: 'Copy answer' },
     copyText: { id: 'app.agent-window.chat.copy-text', defaultMessage: 'Copy text' },
+    toolFamilyLauncher: {
+        id: 'app.agent-window.chat.tool-family-launcher',
+        defaultMessage: 'Looks at or manages the launcher itself, like its version and updates',
+    },
+    toolFamilyAccount: {
+        id: 'app.agent-window.chat.tool-family-account',
+        defaultMessage: 'Looks at or manages your Minecraft accounts, like which one you play as',
+    },
+    toolFamilySkin: {
+        id: 'app.agent-window.chat.tool-family-skin',
+        defaultMessage: 'Looks at or changes your skins and capes',
+    },
+    toolFamilyJava: {
+        id: 'app.agent-window.chat.tool-family-java',
+        defaultMessage: 'Looks at, installs, or picks the Java runtimes that start Minecraft',
+    },
+    toolFamilyCore: {
+        id: 'app.agent-window.chat.tool-family-core',
+        defaultMessage:
+            'Looks at or changes an instance’s core components, like JAR mods added to Minecraft.jar',
+    },
+    toolFamilyModpack: {
+        id: 'app.agent-window.chat.tool-family-modpack',
+        defaultMessage:
+            'Checks and installs modpacks, as a new instance or into one you already have',
+    },
+    toolFamilyDownload: {
+        id: 'app.agent-window.chat.tool-family-download',
+        defaultMessage: 'Checks on or manages the launcher’s downloads and download history',
+    },
+    toolFamilyFile: {
+        id: 'app.agent-window.chat.tool-family-file',
+        defaultMessage: 'Reads or changes files in an instance’s or server’s folder',
+    },
+    toolFamilyArchive: {
+        id: 'app.agent-window.chat.tool-family-archive',
+        defaultMessage: 'Makes or unpacks ZIP files in an instance’s or server’s folder',
+    },
+    toolFamilyNbt: {
+        id: 'app.agent-window.chat.tool-family-nbt',
+        defaultMessage: 'Reads or edits Minecraft’s own data files, like a world’s level.dat',
+    },
+    toolFamilyScreenshot: {
+        id: 'app.agent-window.chat.tool-family-screenshot',
+        defaultMessage: 'Looks at or organizes your screenshots and their groups',
+    },
+    toolFamilySchematic: {
+        id: 'app.agent-window.chat.tool-family-schematic',
+        defaultMessage:
+            'Opens schematics and edits or saves copies, leaving the original files as they are',
+    },
+    toolFamilySeed: {
+        id: 'app.agent-window.chat.tool-family-seed',
+        defaultMessage:
+            'Works out what a world’s seed generates, like biomes, structures, and ores',
+    },
+    toolFamilyServerList: {
+        id: 'app.agent-window.chat.tool-family-server-list',
+        defaultMessage:
+            'Reads or edits an instance’s server list, and checks whether a server is online',
+    },
+    toolFamilyServer: {
+        id: 'app.agent-window.chat.tool-family-server',
+        defaultMessage:
+            'Sets up or runs local servers on your computer, like starting or stopping one',
+    },
+    toolFamilyMultiplayer: {
+        id: 'app.agent-window.chat.tool-family-multiplayer',
+        defaultMessage:
+            'Looks at or manages online play with friends, like hosting or joining a room',
+    },
+    toolFamilySettings: {
+        id: 'app.agent-window.chat.tool-family-settings',
+        defaultMessage: 'Reads or changes the launcher’s settings',
+    },
+    toolFamilyPrivacy: {
+        id: 'app.agent-window.chat.tool-family-privacy',
+        defaultMessage:
+            'Reads or changes your privacy choices, like anonymous telemetry and Discord Rich Presence',
+    },
+    toolFamilyNetwork: {
+        id: 'app.agent-window.chat.tool-family-network',
+        defaultMessage:
+            'Checks or changes how the launcher connects to the internet, like its proxy',
+    },
+    toolFamilyStorage: {
+        id: 'app.agent-window.chat.tool-family-storage',
+        defaultMessage:
+            'Checks how much disk space the launcher uses, and clears caches it can rebuild',
+    },
+    toolFamilyDatabase: {
+        id: 'app.agent-window.chat.tool-family-database',
+        defaultMessage: 'Looks after the launcher’s own database, like checking or backing it up',
+    },
+    toolFamilyShortcut: {
+        id: 'app.agent-window.chat.tool-family-shortcut',
+        defaultMessage: 'Puts a shortcut on your desktop that starts an instance',
+    },
+    toolFamilyNews: {
+        id: 'app.agent-window.chat.tool-family-news',
+        defaultMessage: 'Reads the latest Minecraft news headlines',
+    },
+    toolFamilyInterface: {
+        id: 'app.agent-window.chat.tool-family-interface',
+        defaultMessage:
+            'Looks at or uses the launcher’s main window, like clicking a button for you',
+    },
     toolHelpInstanceList: {
         id: 'app.agent-window.chat.tool-help-instance-list',
         defaultMessage: 'Looks at the list of your instances',

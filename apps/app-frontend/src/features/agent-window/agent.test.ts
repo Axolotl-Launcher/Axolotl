@@ -17,6 +17,7 @@ import { DemoRuntime } from '../../../../../packages/agent-window/src/demo-runti
 import { markdownBlocks } from '../../../../../packages/agent-window/src/dom.js'
 import { setLocale } from '../../../../../packages/agent-window/src/messages.js'
 import { newRun } from '../../../../../packages/agent-window/src/state.js'
+import { toolFamily, toolHelp } from '../../../../../packages/agent-window/src/tools.js'
 
 type Event = { type: string; [key: string]: unknown }
 
@@ -133,7 +134,7 @@ it('only declines or replaces a plan that is still waiting', () => {
     expect(copy).toMatchObject({ status: 'superseded', items: [{ state: 'superseded' }] })
 })
 
-it('only names tools that exist in the launcher tool registry', async () => {
+async function registryTools() {
     const directory = new URL(
         '../../../../../packages/launcher-tools/src/registry/',
         import.meta.url,
@@ -148,6 +149,11 @@ it('only names tools that exist in the launcher tool registry', async () => {
         ),
     )
     expect(registry.size).toBeGreaterThan(100)
+    return registry
+}
+
+it('only names tools that exist in the launcher tool registry', async () => {
+    const registry = await registryTools()
     const flows = await readFile(
         new URL('../../../../../packages/agent-window/src/demo-flows.js', import.meta.url),
         'utf8',
@@ -155,6 +161,17 @@ it('only names tools that exist in the launcher tool registry', async () => {
     const used = new Set([...flows.matchAll(/'([a-z]+(?:_[a-z]+)+)'/g)].map((match) => match[1]))
     expect(used.size).toBeGreaterThan(10)
     for (const tool of used) expect(registry, tool).toContain(tool)
+})
+
+it('puts every tool in the launcher tool registry in a family with its own sentence', async () => {
+    // Without a catalog, text() returns the key, so the result names the sentence.
+    for (const tool of await registryTools()) {
+        expect(toolFamily(tool), tool).toMatch(/^toolFamily[A-Z]/)
+        expect(toolHelp(tool), tool).not.toBe('toolGeneric')
+    }
+    expect(toolHelp('server_entry_list')).toBe('toolFamilyServerList')
+    expect(toolHelp('server_start')).toBe('toolFamilyServer')
+    expect(toolHelp('constructor')).toBe('toolGeneric')
 })
 
 it('keeps every scripted task available in both languages with the same tools', () => {
@@ -264,6 +281,17 @@ it('stops without emitting anything further and can fail on request', async () =
     const failed = await play((emit) => runtime.start(request('make it smoother'), emit))
     expect(failed.run.status).toBe('failed')
     expect(failed.run.items.slice(-1)[0]).toMatchObject({ type: 'error', retryable: true })
+    const retried = await play((emit) => runtime.start(request('make it smoother'), emit))
+    expect(retried.run.status).toBe('awaiting')
+})
+
+it('can fail on request right after proposing a plan, once', async () => {
+    const runtime = new DemoRuntime({ fail: 'plan' })
+    const failed = await play((emit) => runtime.start(request('make it smoother'), emit))
+    expect(failed.events.slice(-2).map((event) => event.type)).toEqual(['plan', 'error'])
+    expect(failed.run.status).toBe('failed')
+    expect(failed.run.items.find((item) => item.type === 'plan')?.state).toBe('stopped')
+    expect(pendingPlan(failed.run)).toBeNull()
     const retried = await play((emit) => runtime.start(request('make it smoother'), emit))
     expect(retried.run.status).toBe('awaiting')
 })

@@ -335,6 +335,78 @@
   "app.agent-window.chat.copy-text": {
     "message": "Copy text"
   },
+  "app.agent-window.chat.tool-family-launcher": {
+    "message": "Looks at or manages the launcher itself, like its version and updates"
+  },
+  "app.agent-window.chat.tool-family-account": {
+    "message": "Looks at or manages your Minecraft accounts, like which one you play as"
+  },
+  "app.agent-window.chat.tool-family-skin": {
+    "message": "Looks at or changes your skins and capes"
+  },
+  "app.agent-window.chat.tool-family-java": {
+    "message": "Looks at, installs, or picks the Java runtimes that start Minecraft"
+  },
+  "app.agent-window.chat.tool-family-core": {
+    "message": "Looks at or changes an instance’s core components, like JAR mods added to Minecraft.jar"
+  },
+  "app.agent-window.chat.tool-family-modpack": {
+    "message": "Checks and installs modpacks, as a new instance or into one you already have"
+  },
+  "app.agent-window.chat.tool-family-download": {
+    "message": "Checks on or manages the launcher’s downloads and download history"
+  },
+  "app.agent-window.chat.tool-family-file": {
+    "message": "Reads or changes files in an instance’s or server’s folder"
+  },
+  "app.agent-window.chat.tool-family-archive": {
+    "message": "Makes or unpacks ZIP files in an instance’s or server’s folder"
+  },
+  "app.agent-window.chat.tool-family-nbt": {
+    "message": "Reads or edits Minecraft’s own data files, like a world’s level.dat"
+  },
+  "app.agent-window.chat.tool-family-screenshot": {
+    "message": "Looks at or organizes your screenshots and their groups"
+  },
+  "app.agent-window.chat.tool-family-schematic": {
+    "message": "Opens schematics and edits or saves copies, leaving the original files as they are"
+  },
+  "app.agent-window.chat.tool-family-seed": {
+    "message": "Works out what a world’s seed generates, like biomes, structures, and ores"
+  },
+  "app.agent-window.chat.tool-family-server-list": {
+    "message": "Reads or edits an instance’s server list, and checks whether a server is online"
+  },
+  "app.agent-window.chat.tool-family-server": {
+    "message": "Sets up or runs local servers on your computer, like starting or stopping one"
+  },
+  "app.agent-window.chat.tool-family-multiplayer": {
+    "message": "Looks at or manages online play with friends, like hosting or joining a room"
+  },
+  "app.agent-window.chat.tool-family-settings": {
+    "message": "Reads or changes the launcher’s settings"
+  },
+  "app.agent-window.chat.tool-family-privacy": {
+    "message": "Reads or changes your privacy choices, like anonymous telemetry and Discord Rich Presence"
+  },
+  "app.agent-window.chat.tool-family-network": {
+    "message": "Checks or changes how the launcher connects to the internet, like its proxy"
+  },
+  "app.agent-window.chat.tool-family-storage": {
+    "message": "Checks how much disk space the launcher uses, and clears caches it can rebuild"
+  },
+  "app.agent-window.chat.tool-family-database": {
+    "message": "Looks after the launcher’s own database, like checking or backing it up"
+  },
+  "app.agent-window.chat.tool-family-shortcut": {
+    "message": "Puts a shortcut on your desktop that starts an instance"
+  },
+  "app.agent-window.chat.tool-family-news": {
+    "message": "Reads the latest Minecraft news headlines"
+  },
+  "app.agent-window.chat.tool-family-interface": {
+    "message": "Looks at or uses the launcher’s main window, like clicking a button for you"
+  },
   "app.agent-window.chat.tool-help-instance-list": {
     "message": "Looks at the list of your instances"
   },

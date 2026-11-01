@@ -653,3 +653,16 @@ export const FAILURE = {
         step: '请求超时',
     },
 }
+
+// The run fails just after it proposes a plan (`fail: 'plan'`), which leaves
+// the plan not carried out.
+export const PLAN_FAILURE = {
+    en: {
+        title: 'Lost the connection to the agent',
+        text: 'The plan can no longer be approved, and nothing was changed. Try again for a fresh plan.',
+    },
+    zh: {
+        title: '与 Agent 的连接中断了',
+        text: '这个方案已无法批准，也没有做任何修改。重试即可得到新的方案。',
+    },
+}

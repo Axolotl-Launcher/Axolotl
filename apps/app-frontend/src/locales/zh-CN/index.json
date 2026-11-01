@@ -335,6 +335,78 @@
   "app.agent-window.chat.copy-text": {
     "message": "复制文本"
   },
+  "app.agent-window.chat.tool-family-launcher": {
+    "message": "查看或管理启动器本身，比如它的版本和更新"
+  },
+  "app.agent-window.chat.tool-family-account": {
+    "message": "查看或管理你的 Minecraft 账号，比如用哪个账号游玩"
+  },
+  "app.agent-window.chat.tool-family-skin": {
+    "message": "查看或更换你的皮肤和披风"
+  },
+  "app.agent-window.chat.tool-family-java": {
+    "message": "查看、安装或选择启动 Minecraft 的 Java 运行环境"
+  },
+  "app.agent-window.chat.tool-family-core": {
+    "message": "查看或调整实例的核心组件，比如添加到 Minecraft.jar 的 JAR 模组"
+  },
+  "app.agent-window.chat.tool-family-modpack": {
+    "message": "检查并安装整合包，可以装成新实例，也可以装进已有实例"
+  },
+  "app.agent-window.chat.tool-family-download": {
+    "message": "查看或管理启动器的下载任务和下载历史"
+  },
+  "app.agent-window.chat.tool-family-file": {
+    "message": "读取或修改实例或服务器文件夹里的文件"
+  },
+  "app.agent-window.chat.tool-family-archive": {
+    "message": "在实例或服务器文件夹里创建或解压 ZIP 文件"
+  },
+  "app.agent-window.chat.tool-family-nbt": {
+    "message": "读取或修改 Minecraft 自己的数据文件，比如世界的 level.dat"
+  },
+  "app.agent-window.chat.tool-family-screenshot": {
+    "message": "查看或整理你的截图和截图分组"
+  },
+  "app.agent-window.chat.tool-family-schematic": {
+    "message": "打开投影文件，编辑或另存副本，原文件保持不变"
+  },
+  "app.agent-window.chat.tool-family-seed": {
+    "message": "根据世界种子推算会生成什么，比如群系、结构和矿石"
+  },
+  "app.agent-window.chat.tool-family-server-list": {
+    "message": "查看或修改实例的服务器列表，并检查服务器是否在线"
+  },
+  "app.agent-window.chat.tool-family-server": {
+    "message": "创建或运行你电脑上的本地服务器，比如启动或停止它"
+  },
+  "app.agent-window.chat.tool-family-multiplayer": {
+    "message": "查看或管理和好友的联机，比如创建或加入房间"
+  },
+  "app.agent-window.chat.tool-family-settings": {
+    "message": "查看或修改启动器的设置"
+  },
+  "app.agent-window.chat.tool-family-privacy": {
+    "message": "查看或修改你的隐私选项，比如匿名遥测和 Discord 活动状态"
+  },
+  "app.agent-window.chat.tool-family-network": {
+    "message": "检查或调整启动器的联网方式，比如代理"
+  },
+  "app.agent-window.chat.tool-family-storage": {
+    "message": "查看启动器占用了多少磁盘空间，并清理可以重建的缓存"
+  },
+  "app.agent-window.chat.tool-family-database": {
+    "message": "维护启动器自己的数据库，比如检查或备份它"
+  },
+  "app.agent-window.chat.tool-family-shortcut": {
+    "message": "在桌面创建一个可以直接启动实例的快捷方式"
+  },
+  "app.agent-window.chat.tool-family-news": {
+    "message": "读取最新的 Minecraft 新闻标题"
+  },
+  "app.agent-window.chat.tool-family-interface": {
+    "message": "查看或操作启动器的主窗口，比如替你点击按钮"
+  },
   "app.agent-window.chat.tool-help-instance-list": {
     "message": "查看你有哪些实例"
   },

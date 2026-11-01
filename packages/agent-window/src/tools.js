@@ -34,8 +34,10 @@ const TOOLS = new Map([
     ['metadata_list_loader_versions', 'toolHelpMetadataListLoaderVersions'],
 ])
 
-// A tool without a sentence of its own is described by its family. Install
-// jobs and operations are both background work that the agent follows.
+// A tool without a sentence of its own is described by its family, the first
+// prefix that matches. Families that do the same thing for the user share a
+// sentence: install jobs and operations are both background work that the
+// agent follows, skins go with capes and the proxy with the network.
 const FAMILIES = [
     ['instance_', 'toolFamilyInstance'],
     ['world_', 'toolFamilyWorld'],
@@ -49,9 +51,44 @@ const FAMILIES = [
     ['process_', 'toolFamilyProcess'],
     ['system_', 'toolFamilySystem'],
     ['metadata_', 'toolFamilyMetadata'],
+    ['get_launcher_', 'toolFamilyLauncher'],
+    ['launcher_', 'toolFamilyLauncher'],
+    ['account_', 'toolFamilyAccount'],
+    ['skin_', 'toolFamilySkin'],
+    ['cape_', 'toolFamilySkin'],
+    ['java_', 'toolFamilyJava'],
+    ['core_', 'toolFamilyCore'],
+    ['modpack_', 'toolFamilyModpack'],
+    ['download_', 'toolFamilyDownload'],
+    ['file_', 'toolFamilyFile'],
+    ['archive_', 'toolFamilyArchive'],
+    ['nbt_', 'toolFamilyNbt'],
+    ['screenshot_', 'toolFamilyScreenshot'],
+    ['schematic_', 'toolFamilySchematic'],
+    ['seed_', 'toolFamilySeed'],
+    // An instance's saved server list shares `server_` with the servers the
+    // launcher runs itself, so it has to match first.
+    ['server_entry_', 'toolFamilyServerList'],
+    ['server_ping', 'toolFamilyServerList'],
+    ['server_', 'toolFamilyServer'],
+    ['multiplayer_', 'toolFamilyMultiplayer'],
+    ['settings_', 'toolFamilySettings'],
+    ['privacy_', 'toolFamilyPrivacy'],
+    ['proxy_', 'toolFamilyNetwork'],
+    ['network_', 'toolFamilyNetwork'],
+    ['storage_', 'toolFamilyStorage'],
+    ['database_', 'toolFamilyDatabase'],
+    ['shortcut_', 'toolFamilyShortcut'],
+    ['news_', 'toolFamilyNews'],
+    ['ui_', 'toolFamilyInterface'],
 ]
 
+// The family's message key, or null; exported so a test can hold every tool in
+// the registry to a family.
+export function toolFamily(tool) {
+    return FAMILIES.find(([prefix]) => tool.startsWith(prefix))?.[1] ?? null
+}
+
 export function toolHelp(tool) {
-    const family = FAMILIES.find(([prefix]) => tool.startsWith(prefix))
-    return text(TOOLS.get(tool) || family?.[1] || 'toolGeneric')
+    return text(TOOLS.get(tool) || toolFamily(tool) || 'toolGeneric')
 }

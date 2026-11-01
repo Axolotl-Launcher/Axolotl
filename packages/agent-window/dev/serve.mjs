@@ -6,7 +6,9 @@
 //
 // Query parameters on the page: ?lang=zh-CN, ?theme=light, ?accent=%23f472b6,
 // ?ai=off (AI disabled), ?models=0 (no enabled models), ?instances=0,
-// ?fail=1 (the next scripted task fails once), ?speed=0.2 (plays faster).
+// ?fail=1 (the next scripted task fails once), ?fail=plan (the next task fails
+// right after its plan, which then shows as not carried out), ?speed=0.2
+// (plays faster).
 // The window's history lives in this origin's localStorage, so clear it from
 // the browser's developer tools to see the first-run page again.
 import { readFile } from 'node:fs/promises'
@@ -48,7 +50,7 @@ function hostScript(messages) {
     const accent = query.get('accent') || (light ? '#db2777' : '#f472b6')
     const models = query.get('models') === '0' ? [] : null
     let policy = { full_access: false, computer_use: false }
-    const fail = Number(query.get('fail')) || 0
+    const fail = query.get('fail') === 'plan' ? 'plan' : Number(query.get('fail')) || 0
     window.AgentHost = {
         appearance: {
             locale: query.get('lang') || 'en-US',

@@ -286,6 +286,28 @@ it('shows a retryable failure and recovers on retry', async () => {
     expect(await page.locator('.result-card.is-error').count()).toBe(0)
 })
 
+it('leaves a plan not carried out when the run fails after proposing it', async () => {
+    await page.addInitScript(() => {
+        Reflect.get(window, 'AgentHost').demo = { fail: 'plan' }
+    })
+    await page.reload()
+    await ready()
+    await send('The game stutters')
+    await untilSettled()
+    const plan = page.locator('.plan-card[data-state="stopped"]')
+    expect(await plan.count()).toBe(1)
+    expect(await plan.textContent()).toContain(messages.planStopped)
+    expect(await page.getByTestId('approve-plan').count()).toBe(0)
+    expect(await page.locator('[data-action="approve"]:visible').count()).toBe(0)
+    const error = page.locator('.result-card.is-error')
+    expect(await error.textContent()).toContain('Lost the connection to the agent')
+
+    // The failure happens once, so trying again proposes a plan that can be approved.
+    await error.locator('[data-action="retry"]').click()
+    await untilPlan()
+    expect(await page.locator('.plan-card').getAttribute('data-state')).toBe('pending')
+})
+
 it('queues follow-ups while working, lets them replace a waiting plan, and declines safely', async () => {
     await send('The game stutters')
     await page.clock.runFor(800)

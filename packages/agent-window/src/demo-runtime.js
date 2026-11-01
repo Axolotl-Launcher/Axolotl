@@ -9,6 +9,7 @@ import {
     GENERIC,
     MISSING_INSTANCE_STEP,
     PICK_INSTANCE_STEP,
+    PLAN_FAILURE,
     SAMPLE_INSTANCE,
     SKIPPED,
 } from './demo-flows.js'
@@ -86,8 +87,11 @@ export class DemoRuntime {
 
     constructor(options = {}) {
         this.speed = Number(options?.speed) > 0 ? Number(options.speed) : 1
-        // Lets the preview server and tests show the failure state on demand.
+        // Lets the preview server and tests show the failure states on demand: a
+        // number fails that many tasks while reading, 'plan' fails the next task
+        // once its plan is proposed.
         this.failures = Number.isInteger(options?.fail) ? options.fail : 0
+        this.planFailures = options?.fail === 'plan' ? 1 : 0
     }
 
     #play(emit, script) {
@@ -223,6 +227,11 @@ export class DemoRuntime {
             this.#progress(playback, copy.progress, ['done', 'done', 'pending'])
             playback.send({ type: 'resume', data: { flow: flow.id, vars } })
             playback.send({ type: 'plan', plan: copy.plan })
+            if (this.planFailures > 0) {
+                this.planFailures--
+                playback.send({ type: 'error', ...PLAN_FAILURE[lang], retryable: true })
+                return
+            }
             playback.send({ type: 'done' })
         })
     }

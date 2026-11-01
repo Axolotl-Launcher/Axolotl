@@ -234,8 +234,8 @@ a run with status `declined` or `superseded`.
 - End every call with `done` or `error`. That releases the handle, saves at once, marks a task that
   finished in the background as unread with a toast, and sends the next queued follow-up. Other
   events are saved about 400 ms later.
-- Follow a `plan` with `done`, never with `error`: a plan left pending on a failed run keeps its
-  Approve button.
+- Follow a `plan` with `done`. An `error` after it fails the run and leaves the plan "Not carried
+  out", with no Approve button (`?fail=plan` on the preview server shows this).
 - Unknown event types are ignored. If the task was deleted, the window stops the handle.
 - Every step, plan, result and error field is plain text. The window never parses HTML.
 - A step's `tool` is shown by its real name, with a sentence from `tools.js` that says what it does
@@ -545,16 +545,17 @@ picks up edits; restart it after editing `serve.mjs` itself. It injects a stand-
 providers and instances, and permissions that take 400 ms to save. `execution_available` is false,
 so the window is always in Preview.
 
-| Query               | Effect                                                  |
-| ------------------- | ------------------------------------------------------- |
-| `?lang=zh-CN`       | Locale and catalog.                                     |
-| `?theme=light`      | Light colours.                                          |
-| `?accent=%23f472b6` | Accent colour.                                          |
-| `?ai=off`           | AI turned off in the context.                           |
-| `?models=0`         | No enabled models.                                      |
-| `?instances=0`      | No instances.                                           |
-| `?fail=1`           | The next scripted task fails once (`fail=2`, twice).    |
-| `?speed=0.2`        | Multiplies every delay, so 0.2 plays five times faster. |
+| Query               | Effect                                                                                 |
+| ------------------- | -------------------------------------------------------------------------------------- |
+| `?lang=zh-CN`       | Locale and catalog.                                                                    |
+| `?theme=light`      | Light colours.                                                                         |
+| `?accent=%23f472b6` | Accent colour.                                                                         |
+| `?ai=off`           | AI turned off in the context.                                                          |
+| `?models=0`         | No enabled models.                                                                     |
+| `?instances=0`      | No instances.                                                                          |
+| `?fail=1`           | The next scripted task fails once while reading (`fail=2`, twice).                     |
+| `?fail=plan`        | The next scripted task fails once, just after its plan, which shows "Not carried out". |
+| `?speed=0.2`        | Multiplies every delay, so 0.2 plays five times faster.                                |
 
 History lives in this origin's `localStorage`. Remove `axolotl.agent-window.store.v2` in the
 developer tools to see the first-run page again.

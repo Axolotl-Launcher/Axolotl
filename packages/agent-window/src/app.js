@@ -1575,6 +1575,31 @@ bindTips()
 // A picked shortcut either fills in a starter request or runs a window action.
 bindSlash((entry) => {
     const input = element('message-input')
+    if (entry.mention) {
+        // The "@name" goes; the instance becomes the task's context, and its
+        // button in the toolbar nods to show where the choice went.
+        const end = input.selectionEnd ?? input.value.length
+        input.setRangeText('', entry.mention.start, end, 'end')
+        input.dispatchEvent(new Event('input', { bubbles: true }))
+        if (
+            commit((next, thread) => {
+                thread.instanceId = entry.instance?.id || null
+            })
+        ) {
+            renderComposer()
+            animate(
+                element('instance-button'),
+                [
+                    { transform: 'scale(1)' },
+                    { transform: 'scale(1.08)' },
+                    { transform: 'scale(1)' },
+                ],
+                { duration: 360 },
+            )
+        }
+        input.focus()
+        return
+    }
     if (entry.prompt) {
         input.value = text(entry.prompt)
         input.dispatchEvent(new Event('input', { bubbles: true }))

@@ -1,8 +1,11 @@
-// Slash shortcuts: typing "/" at the start of the composer lists starter
-// requests and window actions. Arrow keys move, Enter or Tab picks, Escape
-// closes. Names stay in English so they are the same in every language.
+// Slash shortcuts and @ mentions in the composer. Typing "/" at the start
+// lists starter requests and window actions; typing "@" lists the instances,
+// and picking one makes it the task's context. Arrow keys move, Enter or Tab
+// picks, Escape closes. Slash names stay in English so they are the same in
+// every language.
 import { button, element, h, icon } from './dom.js'
 import { text } from './messages.js'
+import { session } from './session.js'
 
 export const SLASH = [
     { name: 'crash', icon: 'wrench', label: 'suggestCrash', prompt: 'promptCrash' },
@@ -40,24 +43,70 @@ export function closeSlash() {
     shown = []
 }
 
-// Shows the list while the box holds only "/" and a partial name.
+// An "@" and a partial name right before the caret, at the start or after a
+// space, so e-mail addresses and the like do not open it.
+function mentionAt(value) {
+    const input = element('message-input')
+    const before = value.slice(0, input.selectionEnd ?? value.length)
+    const match = before.match(/(?:^|\s)@([^\s@]*)$/)
+    return match
+        ? { query: match[1].toLowerCase(), start: before.length - match[1].length - 1 }
+        : null
+}
+
+// Shows the list while the box holds only "/" and a partial name, or while an
+// "@" is being typed and there are instances to pick from.
 export function syncSlash(value) {
+    const mention = mentionAt(value)
+    if (mention && session.context.instances.length) {
+        const all = text('allLauncher')
+        show(
+            text('mentionTitle'),
+            [
+                { key: 'all', icon: 'all', name: `@${all}`, label: '', mention, instance: null },
+                ...session.context.instances.map((instance) => ({
+                    key: instance.id,
+                    icon: 'cube',
+                    name: `@${instance.name}`,
+                    label: [instance.loader, instance.game_version].filter(Boolean).join(' · '),
+                    mention,
+                    instance,
+                })),
+            ].filter(
+                (entry) =>
+                    !mention.query ||
+                    `${entry.name} ${entry.label}`.toLowerCase().includes(mention.query),
+            ),
+        )
+        return
+    }
     const match = value.match(/^\/([\w-]*)$/)
     if (!match) {
         closeSlash()
         return
     }
     const query = match[1].toLowerCase()
-    const next = SLASH.filter(
-        (entry) => entry.name.startsWith(query) || text(entry.label).toLowerCase().includes(query),
+    show(
+        text('slashTitle'),
+        SLASH.filter(
+            (entry) =>
+                entry.name.startsWith(query) || text(entry.label).toLowerCase().includes(query),
+        ).map((entry) => ({
+            ...entry,
+            key: entry.name,
+            name: `/${entry.name}`,
+            label: text(entry.label),
+        })),
     )
-    if (next.map((entry) => entry.name).join() !== shown.map((entry) => entry.name).join())
-        active = 0
+}
+
+function show(title, next) {
+    if (next.map((entry) => entry.key).join() !== shown.map((entry) => entry.key).join()) active = 0
     shown = next
     const menu = element('slash-menu')
     menu.hidden = !shown.length
     menu.replaceChildren(
-        h('div', { class: 'slash-head', text: text('slashTitle') }),
+        h('div', { class: 'slash-head', text: title }),
         ...shown.map((entry, index) =>
             button(
                 {
@@ -68,8 +117,8 @@ export function syncSlash(value) {
                 },
                 [
                     h('span', { class: 'slash-icon' }, [icon(entry.icon)]),
-                    h('span', { class: 'slash-name', text: `/${entry.name}` }),
-                    h('span', { class: 'slash-label', text: text(entry.label) }),
+                    h('span', { class: 'slash-name', text: entry.name }),
+                    entry.label ? h('span', { class: 'slash-label', text: entry.label }) : null,
                 ],
             ),
         ),

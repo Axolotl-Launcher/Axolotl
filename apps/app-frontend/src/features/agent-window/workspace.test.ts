@@ -1092,3 +1092,25 @@ it('lists what the task changed and asks the agent to undo it', async () => {
     )
     expect(await pill.isHidden()).toBe(true)
 })
+
+it('picks the task instance with an @ mention', async () => {
+    await useContext({
+        ai_enabled: false,
+        providers: [],
+        instances: [
+            { id: 'mist', name: 'Morning Mist', game_version: '1.21.1', loader: 'fabric' },
+            { id: 'stone', name: 'Stone Age', game_version: '1.20.1', loader: 'forge' },
+        ],
+    })
+    await page.locator('#message-input').fill('fix the lag in @mo')
+    const menu = page.locator('#slash-menu')
+    expect(await menu.isVisible()).toBe(true)
+    expect(await menu.locator('.slash-name').allTextContents()).toEqual(['@Morning Mist'])
+    await page.locator('#message-input').press('Enter')
+    expect(await page.locator('#message-input').inputValue()).toBe('fix the lag in ')
+    expect(await page.locator('#instance-button').textContent()).toContain('Morning Mist')
+    expect(await menu.isHidden()).toBe(true)
+    // An @ inside a word does not open it.
+    await page.locator('#message-input').fill('mail me@home')
+    expect(await menu.isHidden()).toBe(true)
+})

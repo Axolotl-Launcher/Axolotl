@@ -168,9 +168,13 @@ export const agentWindowMessages = defineMessages({
     messageLabel: { id: 'app.agent-window.chat.message-label', defaultMessage: 'Message' },
     prompt: {
         id: 'app.agent-window.chat.prompt',
-        defaultMessage: 'Describe what you want, or type / for shortcuts',
+        defaultMessage: 'Describe what you want. Type / for shortcuts, @ for an instance',
     },
     slashTitle: { id: 'app.agent-window.chat.slash-title', defaultMessage: 'Shortcuts' },
+    mentionTitle: {
+        id: 'app.agent-window.chat.mention-title',
+        defaultMessage: 'Work on an instance',
+    },
     promptFollowup: {
         id: 'app.agent-window.chat.prompt-followup',
         defaultMessage: 'Ask a follow-up…',

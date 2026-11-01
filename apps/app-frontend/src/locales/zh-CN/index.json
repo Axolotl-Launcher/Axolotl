@@ -219,10 +219,13 @@
     "message": "消息"
   },
   "app.agent-window.chat.prompt": {
-    "message": "描述你想做的事，或输入 / 使用快捷指令"
+    "message": "描述你想做的事，输入 / 用快捷指令，@ 选实例"
   },
   "app.agent-window.chat.slash-title": {
     "message": "快捷指令"
+  },
+  "app.agent-window.chat.mention-title": {
+    "message": "让 Agent 处理哪个实例"
   },
   "app.agent-window.chat.prompt-followup": {
     "message": "继续提问…"

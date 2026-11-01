@@ -219,10 +219,13 @@
     "message": "Message"
   },
   "app.agent-window.chat.prompt": {
-    "message": "Describe what you want, or type / for shortcuts"
+    "message": "Describe what you want. Type / for shortcuts, @ for an instance"
   },
   "app.agent-window.chat.slash-title": {
     "message": "Shortcuts"
+  },
+  "app.agent-window.chat.mention-title": {
+    "message": "Work on an instance"
   },
   "app.agent-window.chat.prompt-followup": {
     "message": "Ask a follow-up…"

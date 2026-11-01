@@ -124,6 +124,16 @@
     font-synthesis-weight: none;
 }
 
+/* On light themes the mixes above leave green and orange text near 2.3:1.
+   Their lightness follows the text colour instead: dark themes keep the same
+   values, light themes get shades that read at about 4.5:1. */
+@supports (color: oklch(from red calc(1 - l) c h)) {
+    :root {
+        --success: oklch(from var(--agent-text) calc(0.808 - (1 - l) * 0.38) 0.179 153.45);
+        --warning: oklch(from var(--agent-text) calc(0.825 - (1 - l) * 0.38) 0.127 64.42);
+    }
+}
+
 /* Chinese reads better with a little more air and spacing around Latin runs. */
 :root:lang(zh) {
     --leading-body: 1.8;
@@ -673,6 +683,10 @@ code {
     align-items: center;
     border-radius: 10px;
     margin-bottom: 1px;
+}
+/* Rows the list already showed skip the entrance, so a re-render while a
+   task works does not replay it on every row. */
+.thread-row:not(.is-kept) {
     animation: rise-in 320ms var(--ease-settle) both;
 }
 .thread-row:not(.is-selected):hover {
@@ -839,8 +853,13 @@ code {
     white-space: nowrap;
     text-overflow: ellipsis;
 }
+/* While the title is edited, the heading takes the free width so the field
+   is not sized against the hidden title. */
+.thread-heading:has(.title-input) {
+    flex: 1;
+}
 .title-input {
-    width: min(420px, 50%);
+    width: min(420px, 100%);
     min-width: 0;
     height: 30px;
     margin: 0 0 0 -8px;
@@ -1172,6 +1191,9 @@ code {
 }
 .segmented button:hover {
     color: var(--fg);
+}
+.segmented button:focus-visible {
+    outline-offset: 1px;
 }
 .segmented button[aria-checked='true'] {
     color: var(--fg);
@@ -2004,9 +2026,11 @@ code {
     overflow: hidden;
     text-overflow: ellipsis;
 }
+/* Buttons keep the same 12 px from the edge as in the plan's footer. */
 .approval-buttons {
     display: flex;
     gap: 6px;
+    padding-right: 6px;
 }
 .jump-latest {
     position: absolute;
@@ -2567,14 +2591,24 @@ code {
 /* The plan is the one card that asks for a decision. While it waits, a light
    orbits its border. */
 .plan-card {
+    --plan-edge: var(--line-strong);
     position: relative;
     border-radius: 18px;
     background: var(--frame);
-    box-shadow:
-        inset 0 0 0 1px var(--line-strong),
-        var(--shadow-card);
+    box-shadow: var(--shadow-card);
     overflow: hidden;
     isolation: isolate;
+    transition: box-shadow 360ms ease;
+}
+/* The edge sits above the footer's fill, so it runs all the way round. */
+.plan-card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    border-radius: inherit;
+    box-shadow: inset 0 0 0 1px var(--plan-edge);
+    pointer-events: none;
     transition: box-shadow 360ms ease;
 }
 .plan-card::after {
@@ -2587,9 +2621,8 @@ code {
     pointer-events: none;
 }
 .plan-card[data-state='pending'] {
-    box-shadow:
-        inset 0 0 0 1px color-mix(in srgb, var(--agent-accent) 30%, var(--line-strong)),
-        var(--shadow-accent);
+    --plan-edge: color-mix(in srgb, var(--agent-accent) 30%, var(--line-strong));
+    box-shadow: var(--shadow-accent);
 }
 /* The light is a rotating gradient seen through a ring-shaped mask, so the
    animation is a plain rotation the compositor runs without repainting. */
@@ -2777,22 +2810,28 @@ code {
     --kind: var(--warning);
     padding: 0 7px;
 }
+/* The dot sits in the gap before the meta; when the meta wraps to its own
+   line the dot falls outside the note and is clipped, so no line starts
+   with a separator. */
 .change-note {
     display: flex;
     flex-wrap: wrap;
-    gap: 0 6px;
+    gap: 0 15px;
+    overflow: hidden;
     font-size: 12.5px;
     color: var(--fg-3);
 }
 .change-meta {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
+    position: relative;
 }
 .change-meta::before {
     content: '';
+    position: absolute;
+    left: -9px;
+    top: 50%;
     width: 3px;
     height: 3px;
+    margin-top: -1.5px;
     border-radius: 1px;
     background: currentColor;
     opacity: 0.6;
@@ -3663,7 +3702,10 @@ p.plan-state {
     width: 22px;
     height: 22px;
 }
+/* Block-level rows: inline ones would add up side by side when the menu
+   measures its width, and the menu would stretch to the window edge. */
 .menu-item {
+    display: flex;
     justify-content: flex-start;
     width: 100%;
     height: 36px;
@@ -3842,6 +3884,10 @@ p.plan-state {
         0 1px 3px rgb(0 0 0 / 0.3),
         inset 0 -2px 0 rgb(0 0 0 / 0.08);
     transition: transform 380ms var(--ease-spring);
+}
+.switch:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
 }
 .switch:checked {
     background: var(--accent);
@@ -4078,6 +4124,7 @@ p.plan-state {
     display: flex;
     align-items: center;
     gap: 10px;
+    flex-shrink: 0;
     height: 46px;
     padding: 0 10px 0 12px;
     margin-bottom: 6px;
@@ -4188,16 +4235,18 @@ p.plan-state {
 
 /* ---------- toasts ---------- */
 
+/* Spans the window and centres its toasts, so a toast can use the full
+   width on narrow windows instead of wrapping at half of it. */
 .toasts {
     position: fixed;
-    left: 50%;
+    left: 16px;
+    right: 16px;
     bottom: 26px;
     z-index: 60;
     display: flex;
     flex-direction: column;
     align-items: center;
     gap: 8px;
-    transform: translateX(-50%);
     pointer-events: none;
 }
 .toast {
@@ -4277,10 +4326,15 @@ p.plan-state {
     }
 }
 @media (max-width: 759px) {
-    /* Narrow windows keep the navigator's hit area clear of the text. */
+    /* Narrow windows keep the navigator's hit area clear of the text, and
+       its ticks just outside the column (with the wider right padding of
+       .message-scroll below). */
+    .turn-rail {
+        right: 1px;
+    }
     .rail-item {
         width: 26px;
-        padding-right: 4px;
+        padding-right: 2px;
     }
     .workspace,
     .workspace.sidebar-collapsed {
@@ -4312,7 +4366,7 @@ p.plan-state {
         border-top-right-radius: 0;
     }
     .message-scroll {
-        padding: 6px 14px 18px;
+        padding: 6px 17px 18px 14px;
     }
     .composer-dock {
         padding: 0 10px 10px;
@@ -4383,6 +4437,7 @@ p.plan-state {
     }
     .approval-buttons {
         width: 100%;
+        padding-right: 0;
     }
     .approval-buttons button {
         flex: 1;

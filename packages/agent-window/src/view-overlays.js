@@ -423,9 +423,14 @@ export function bindTips() {
         if (event.pointerType === 'touch') return
         queueTip(event.target.closest?.('[data-tip]') || null, 520)
     })
+    // Focus shows a tooltip only when the keyboard moved it, not when a click
+    // opened something that focused its first button.
+    let keyboard = false
+    document.addEventListener('pointerdown', () => (keyboard = false), true)
+    document.addEventListener('keydown', () => (keyboard = true), true)
     document.addEventListener('focusin', (event) => {
         const target = event.target.closest?.('[data-tip]')
-        if (target?.matches(':focus-visible')) queueTip(target, 280)
+        if (keyboard && target?.matches(':focus-visible')) queueTip(target, 280)
     })
     for (const name of ['pointerdown', 'keydown', 'scroll', 'focusout'])
         document.addEventListener(name, hideTip, true)

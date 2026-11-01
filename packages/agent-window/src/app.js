@@ -1249,22 +1249,46 @@ function resetHistory() {
     }
 }
 
+// Text files a player is likely to drop (latest.log, a crash report, a
+// config) are read, so they preview and are recognised like a paste.
+const TEXT_FILE = /\.(log|txt|json|toml|cfg|properties)$/i
+const MAX_READ = 2 * 1024 * 1024
+
 function addFiles(files) {
     const list = [...files]
     if (!list.length) return
     const thread = currentThread()
     const room = MAX_ATTACHMENTS - thread.attachments.length
     if (list.length > room) notify(text('attachmentLimit', { count: MAX_ATTACHMENTS }), 'error')
-    thread.attachments.push(
-        ...list.slice(0, Math.max(0, room)).map((file) => ({
-            id: crypto.randomUUID(),
-            name: file.name,
-            size: file.size,
-        })),
-    )
+    const picked = list.slice(0, Math.max(0, room)).map((file) => ({
+        file,
+        entry: { id: crypto.randomUUID(), name: file.name, size: file.size },
+    }))
+    thread.attachments.push(...picked.map(({ entry }) => entry))
     persistSoon()
     renderComposer()
     element('message-input').focus()
+    for (const { file, entry } of picked)
+        if (TEXT_FILE.test(file.name) && file.size <= MAX_READ && typeof file.text === 'function')
+            file.text().then(
+                (value) => readInto(entry.id, value),
+                () => {},
+            )
+}
+
+// Gives an attached text file its contents once read, wherever its draft is now.
+function readInto(id, value) {
+    const attachment = session.store.threads
+        .flatMap((thread) => thread.attachments)
+        .find((file) => file.id === id)
+    if (!attachment) return
+    Object.assign(attachment, {
+        kind: pasteKind(value),
+        text: value.slice(0, MAX_PASTE),
+        lines: value.split(/\r\n|\r|\n/).length,
+    })
+    persistSoon()
+    renderComposer()
 }
 
 // Names a paste by what it looks like, so a crash report reads as one.

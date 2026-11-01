@@ -1618,3 +1618,26 @@ it('asks why a planned change is needed before deciding', async () => {
         await page.locator('.plan-card[data-state="superseded"] .change-why').first().isVisible(),
     ).toBe(false)
 })
+
+it('reads a dropped crash report so it previews and starts the crash task', async () => {
+    const report = [
+        '---- Minecraft Crash Report ----',
+        'java.lang.RuntimeException: boom',
+        '\tat a.b(C.java:1)',
+    ].join('\n')
+    await page.locator('#file-input').setInputFiles({
+        name: 'crash-2026-11-01_client.txt',
+        mimeType: 'text/plain',
+        buffer: Buffer.from(report),
+    })
+    const chip = page.locator('#attachment-list .file-chip')
+    await page.locator('#attachment-list .file-chip[data-kind="crash"]').waitFor()
+    expect(await chip.locator('.file-name').textContent()).toBe('crash-2026-11-01_client.txt')
+    expect(await chip.locator('.file-size').textContent()).toContain('3')
+    await chip.locator('.file-open').click()
+    expect(await page.locator('#file-peek .log-line.is-error').count()).toBe(1)
+    await page.keyboard.press('Escape')
+    await page.locator('#send-button').click()
+    await untilPlan()
+    expect(await page.locator('.plan-card').textContent()).toContain('Entity Culling')
+})
